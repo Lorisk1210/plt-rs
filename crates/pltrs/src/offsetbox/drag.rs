@@ -105,7 +105,7 @@ impl DragTarget for PinDrag {
             .store()
             .get_as::<AnchoredBoxArtist>(artist.id())
             .and_then(|anchored| anchored.layout(layout).ok())
-            .map(|laid_out| laid_out.offset);
+            .and_then(|laid_out| laid_out.tree.origins.first().copied().flatten());
     }
 
     /// The box is pinned at its starting offset moved by the pointer.

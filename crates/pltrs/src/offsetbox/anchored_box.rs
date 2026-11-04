@@ -5,9 +5,10 @@ use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
 
-use super::anchored_node::{AnchoredLayout, Anchoring, pad_font_points};
+use super::anchored_node::{AnchoredLayout, Anchoring, Framed, pad_font_points};
+use super::owners::BoxOwner;
 use super::pending::{Parts, adopt_box, frame_patch};
-use super::{AnchorLoc, BboxToAnchor, BoxItem, OffsetBox, OffsetBoxError, TextArea};
+use super::{AnchorLoc, BboxToAnchor, BoxItem, OffsetBox, OffsetBoxError, TextArea, TreeLayout};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext,
     RawHandle, TypedHandle, downcast_ref,
@@ -267,14 +268,35 @@ impl AnchoredBoxArtist {
         ctx: LayoutContext<'_>,
     ) -> Result<AnchoredLayout<ArtistId>, OffsetBoxError> {
         let fontsize = ctx.points_to_pixels(self.font_size(ctx)?);
-        self.anchoring.lay_out(
-            ctx,
-            self.owner,
-            &self.child,
-            &self.frame,
+        let mut tree = TreeLayout::of(&self.child);
+        let framed = Framed {
+            child: &self.child,
+            frame: &self.frame,
             fontsize,
-            self.pinned,
-        )
+            pinned: self.pinned,
+        };
+        let extent = self
+            .anchoring
+            .lay_out_into(ctx, self.owner, framed, &mut tree, 0)?;
+        Ok(AnchoredLayout { extent, tree })
+    }
+}
+
+impl BoxOwner for AnchoredBoxArtist {
+    fn tree(&self) -> &OffsetBox<ArtistId> {
+        &self.child
+    }
+
+    fn tree_mut(&mut self) -> &mut OffsetBox<ArtistId> {
+        &mut self.child
+    }
+
+    fn parts_mut(&mut self) -> &mut Vec<ArtistId> {
+        &mut self.parts
+    }
+
+    fn lay_out_tree(&self, ctx: LayoutContext<'_>) -> Result<TreeLayout<ArtistId>, OffsetBoxError> {
+        self.layout(ctx).map(|layout| layout.tree)
     }
 }
 
@@ -348,6 +370,20 @@ impl AnchoredOffsetbox {
     pub fn set_loc(&self, loc: AnchorLoc) -> &Self {
         self.raw
             .with_mut::<AnchoredBoxArtist, _>(|anchored| anchored.anchoring.loc = loc);
+        self
+    }
+
+    /// Anchors the box as `options` say from now on (matplotlib reads an
+    /// anchored box's settings again whenever it draws it): its location,
+    /// paddings, font and `bbox_to_anchor`; the frame keeps its look, and
+    /// an anchored text keeps following its text's size.
+    pub fn set_options(&self, options: &AnchoredOptions) -> &Self {
+        self.raw.with_mut::<AnchoredBoxArtist, _>(|anchored| {
+            anchored.anchoring = Anchoring::from(options);
+            if let PadFont::Points(_) = anchored.font {
+                anchored.font = PadFont::Points(pad_font_points(options.prop.as_ref()));
+            }
+        });
         self
     }
 

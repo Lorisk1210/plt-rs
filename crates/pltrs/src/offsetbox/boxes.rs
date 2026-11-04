@@ -94,17 +94,25 @@ impl<A> Packer<A> {
         }
     }
 
-    fn map<B>(self, f: &mut impl FnMut(A) -> B) -> Packer<B> {
-        Packer {
+    /// The same packer with every artist reference replaced by `f` of it.
+    pub(super) fn try_map<B, E>(
+        self,
+        f: &mut impl FnMut(A) -> Result<B, E>,
+    ) -> Result<Packer<B>, E> {
+        Ok(Packer {
             pad: self.pad,
             sep: self.sep,
             width: self.width,
             height: self.height,
             align: self.align,
             mode: self.mode,
-            children: self.children.into_iter().map(|c| c.map(f)).collect(),
+            children: self
+                .children
+                .into_iter()
+                .map(|child| child.try_map(f))
+                .collect::<Result<_, _>>()?,
             visible: self.visible,
-        }
+        })
     }
 }
 
@@ -194,194 +202,6 @@ impl<A> OffsetBox<A> {
         self
     }
 
-    /// The artists of the visible boxes in drawing order: frames before
-    /// what they frame.
-    pub fn artists(&self) -> Vec<&A> {
-        let mut artists = Vec::new();
-        self.collect_artists(&mut artists);
-        artists
-    }
-
-    fn collect_artists<'a>(&'a self, artists: &mut Vec<&'a A>) {
-        match self {
-            Self::HPacker(packer) | Self::VPacker(packer) => {
-                for child in packer.children.iter().filter(|c| c.is_visible()) {
-                    child.collect_artists(artists);
-                }
-            }
-            Self::DrawingArea(area) => artists.extend(&area.artists),
-            Self::TextArea(area) => artists.push(&area.text),
-            Self::AuxTransformBox(aux) => artists.extend(&aux.artists),
-            Self::Image(image) => artists.push(&image.image),
-            Self::PaddedBox(padded) => {
-                artists.push(&padded.frame);
-                if padded.child.is_visible() {
-                    padded.child.collect_artists(artists);
-                }
-            }
-            Self::Anchored(anchored) => {
-                artists.push(&anchored.frame);
-                if anchored.child.is_visible() {
-                    anchored.child.collect_artists(artists);
-                }
-            }
-            Self::Program(program) => artists.push(&program.artist),
-        }
-    }
-
-    /// The same tree with every artist reference replaced by `f` of it,
-    /// in drawing order (how a box's artists join a figure).
-    pub fn map<B>(self, f: &mut impl FnMut(A) -> B) -> OffsetBox<B> {
-        match self {
-            Self::HPacker(packer) => OffsetBox::HPacker(packer.map(f)),
-            Self::VPacker(packer) => OffsetBox::VPacker(packer.map(f)),
-            Self::DrawingArea(area) => OffsetBox::DrawingArea(DrawingArea {
-                width: area.width,
-                height: area.height,
-                xdescent: area.xdescent,
-                ydescent: area.ydescent,
-                clip: area.clip,
-                artists: area.artists.into_iter().map(&mut *f).collect(),
-                visible: area.visible,
-            }),
-            Self::TextArea(area) => OffsetBox::TextArea(TextArea {
-                text: f(area.text),
-                multilinebaseline: area.multilinebaseline,
-                visible: area.visible,
-            }),
-            Self::AuxTransformBox(aux) => OffsetBox::AuxTransformBox(AuxTransformBox {
-                aux_transform: aux.aux_transform,
-                artists: aux.artists.into_iter().map(&mut *f).collect(),
-                visible: aux.visible,
-                extent: aux.extent,
-            }),
-            Self::Image(image) => OffsetBox::Image(OffsetImage {
-                image: f(image.image),
-                zoom: image.zoom,
-                dpi_cor: image.dpi_cor,
-                visible: image.visible,
-            }),
-            Self::PaddedBox(padded) => {
-                let frame = f(padded.frame);
-                OffsetBox::PaddedBox(PaddedBox {
-                    pad: padded.pad,
-                    child: Box::new(padded.child.map(f)),
-                    frame,
-                    visible: padded.visible,
-                })
-            }
-            Self::Anchored(anchored) => OffsetBox::Anchored(anchored.map(f)),
-            Self::Program(program) => OffsetBox::Program(program.map(f)),
-        }
-    }
-
-    /// Anchors the anchored boxes of the tree in `owner`, the axes or
-    /// figure the tree joined (matplotlib's `OffsetBox.axes` setter,
-    /// which gives the box's axes to its children).
-    pub(crate) fn join_owner(&mut self, owner: crate::artist::ArtistId) {
-        match self {
-            Self::HPacker(packer) | Self::VPacker(packer) => {
-                for child in &mut packer.children {
-                    child.join_owner(owner);
-                }
-            }
-            Self::PaddedBox(padded) => padded.child.join_owner(owner),
-            Self::Anchored(anchored) => {
-                anchored.owner = Some(owner);
-                anchored.child.join_owner(owner);
-            }
-            Self::DrawingArea(_)
-            | Self::TextArea(_)
-            | Self::AuxTransformBox(_)
-            | Self::Image(_)
-            | Self::Program(_) => {}
-        }
-    }
-
-    /// The drawing area at `index` among those of the tree, visible or not,
-    /// in tree order: a packer's children in order, a padded box's child.
-    pub fn drawing_area_mut(&mut self, index: usize) -> Option<&mut DrawingArea<A>> {
-        let mut areas = Vec::new();
-        self.collect_leaves(
-            &|tree| match tree {
-                Self::DrawingArea(area) => Some(area),
-                _ => None,
-            },
-            &mut areas,
-        );
-        areas.into_iter().nth(index)
-    }
-
-    /// The offset image at `index` among those of the tree, visible or
-    /// not, in tree order (as [`drawing_area_mut`](Self::drawing_area_mut)
-    /// counts drawing areas).
-    pub fn image_mut(&mut self, index: usize) -> Option<&mut OffsetImage<A>> {
-        let mut images = Vec::new();
-        self.collect_leaves(
-            &|tree| match tree {
-                Self::Image(image) => Some(image),
-                _ => None,
-            },
-            &mut images,
-        );
-        images.into_iter().nth(index)
-    }
-
-    /// The leaves of the tree `leaf` picks, in tree order.
-    fn collect_leaves<'a, T>(
-        &'a mut self,
-        leaf: &impl Fn(&'a mut Self) -> Option<&'a mut T>,
-        found: &mut Vec<&'a mut T>,
-    ) {
-        match self {
-            Self::HPacker(packer) | Self::VPacker(packer) => {
-                for child in &mut packer.children {
-                    child.collect_leaves(leaf, found);
-                }
-            }
-            Self::PaddedBox(padded) => padded.child.collect_leaves(leaf, found),
-            Self::Anchored(anchored) => anchored.child.collect_leaves(leaf, found),
-            other => found.extend(leaf(other)),
-        }
-    }
-
-    /// Calls `f` on every aux-transform box of the tree.
-    pub(crate) fn for_each_aux_mut(&mut self, f: &mut impl FnMut(&mut AuxTransformBox<A>)) {
-        self.for_each_box_mut(&mut |tree| {
-            if let Self::AuxTransformBox(aux) = tree {
-                f(aux);
-            }
-        });
-    }
-
-    /// Calls `f` on every box of the program's of the tree.
-    pub(crate) fn for_each_program_mut(&mut self, f: &mut impl FnMut(&mut ProgramBox<A>)) {
-        self.for_each_box_mut(&mut |tree| {
-            if let Self::Program(program) = tree {
-                f(program);
-            }
-        });
-    }
-
-    /// Calls `f` on every box of the tree, the box itself first.
-    fn for_each_box_mut(&mut self, f: &mut impl FnMut(&mut Self)) {
-        f(self);
-        match self {
-            Self::HPacker(packer) | Self::VPacker(packer) => {
-                for child in &mut packer.children {
-                    child.for_each_box_mut(f);
-                }
-            }
-            Self::PaddedBox(padded) => padded.child.for_each_box_mut(f),
-            Self::Anchored(anchored) => anchored.child.for_each_box_mut(f),
-            Self::DrawingArea(_)
-            | Self::TextArea(_)
-            | Self::AuxTransformBox(_)
-            | Self::Image(_)
-            | Self::Program(_) => {}
-        }
-    }
-
     /// Whether the box is a packer in [`PackMode::Expand`], which takes the
     /// width of a vertical packer containing it.
     fn expands(&self) -> bool {
@@ -413,9 +233,19 @@ impl<A: ArtistRef> OffsetBox<A> {
         ctx: LayoutContext<'_>,
         offset: Point,
     ) -> Result<Vec<Placement<A>>, OffsetBoxError> {
-        let mut placements = Vec::new();
-        self.place_into(ctx, offset, None, &mut placements)?;
-        Ok(placements)
+        Ok(self.lay_out(ctx, offset)?.placements)
+    }
+
+    /// Lays the tree out with its origin at `offset`: where its visible
+    /// leaves go and where the origin of each of its boxes went.
+    pub fn lay_out(
+        &self,
+        ctx: LayoutContext<'_>,
+        offset: Point,
+    ) -> Result<TreeLayout<A>, OffsetBoxError> {
+        let mut layout = TreeLayout::of(self);
+        self.place_into(ctx, offset, None, &mut layout, 0)?;
+        Ok(layout)
     }
 
     /// The extent, with the width a parent imposes on an expanding packer.
@@ -440,22 +270,29 @@ impl<A: ArtistRef> OffsetBox<A> {
         }
     }
 
-    fn place_into(
+    /// Places the box, the box `index` of its tree, with its origin at
+    /// `offset` and the width a parent imposes on an expanding packer.
+    pub(super) fn place_into(
         &self,
         ctx: LayoutContext<'_>,
         offset: Point,
         imposed_width: Option<f64>,
-        placements: &mut Vec<Placement<A>>,
+        layout: &mut TreeLayout<A>,
+        index: usize,
     ) -> Result<(), OffsetBoxError> {
+        if let Some(origin) = layout.origins.get_mut(index) {
+            *origin = Some(offset);
+        }
+        let placements = &mut layout.placements;
         match self {
             Self::HPacker(packer) => {
                 let (_, offsets) = packer.horizontal(ctx, imposed_width)?;
-                packer.place_children(ctx, offset, &offsets, None, placements)?;
+                packer.place_children(ctx, offset, &offsets, None, layout, index)?;
             }
             Self::VPacker(packer) => {
                 let (_, offsets) = packer.vertical(ctx, imposed_width)?;
                 let width = imposed_width.or(packer.width);
-                packer.place_children(ctx, offset, &offsets, width, placements)?;
+                packer.place_children(ctx, offset, &offsets, width, layout, index)?;
             }
             Self::DrawingArea(area) => placements.push(area.placement(ctx, offset)),
             Self::TextArea(area) => {
@@ -477,10 +314,12 @@ impl<A: ArtistRef> OffsetBox<A> {
                     mutation_scale: None,
                 });
                 if padded.child.is_visible() {
-                    padded.child.place_into(ctx, offset, None, placements)?;
+                    padded
+                        .child
+                        .place_into(ctx, offset, None, layout, index + 1)?;
                 }
             }
-            Self::Anchored(anchored) => placements.extend(anchored.place(ctx)?),
+            Self::Anchored(anchored) => anchored.place_into(ctx, layout, index + 1)?,
             Self::Program(program) => placements.push(Placement::Program {
                 artist: program.artist.clone(),
                 offset,
@@ -490,24 +329,52 @@ impl<A: ArtistRef> OffsetBox<A> {
     }
 }
 
-impl<A: ArtistRef> Packer<A> {
-    fn visible_children(&self) -> impl Iterator<Item = &OffsetBox<A>> {
-        self.children.iter().filter(|c| c.is_visible())
-    }
+/// A laid-out tree: where its visible leaves go, in drawing order, and
+/// where the origin of each of its boxes went, in tree order (see
+/// [`OffsetBox::node`]): `None` for a box its parent did not place (a
+/// hidden one).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TreeLayout<A> {
+    /// Where the artists of the visible leaves go, in drawing order.
+    pub placements: Vec<Placement<A>>,
+    /// Where the origin of each box went, in display pixels.
+    pub origins: Vec<Option<Point>>,
+}
 
-    /// Places the visible children at `offsets` from the packer's origin
-    /// at `origin`; expanding children take `width` when it is set.
+impl<A> TreeLayout<A> {
+    /// The layout of `tree` before any of it is placed.
+    pub(super) fn of(tree: &OffsetBox<A>) -> Self {
+        Self {
+            placements: Vec::new(),
+            origins: vec![None; tree.box_count()],
+        }
+    }
+}
+
+impl<A: ArtistRef> Packer<A> {
+    /// Places the visible children at `offsets` from the origin `origin`
+    /// of the packer, the box `index` of its tree; expanding children take
+    /// `width` when it is set.
     fn place_children(
         &self,
         ctx: LayoutContext<'_>,
         origin: Point,
         offsets: &[Point],
         width: Option<f64>,
-        placements: &mut Vec<Placement<A>>,
+        layout: &mut TreeLayout<A>,
+        index: usize,
     ) -> Result<(), OffsetBoxError> {
-        for (child, &offset) in self.visible_children().zip(offsets) {
-            let imposed = width.filter(|_| child.expands());
-            child.place_into(ctx, origin + offset, imposed, placements)?;
+        let mut offsets = offsets.iter();
+        let mut child_index = index + 1;
+        for child in &self.children {
+            if child.is_visible() {
+                let Some(&offset) = offsets.next() else {
+                    break;
+                };
+                let imposed = width.filter(|_| child.expands());
+                child.place_into(ctx, origin + offset, imposed, layout, child_index)?;
+            }
+            child_index += child.box_count();
         }
         Ok(())
     }

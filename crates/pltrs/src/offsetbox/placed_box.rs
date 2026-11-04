@@ -8,8 +8,9 @@ use std::rc::Rc;
 use pltrs_core::{Bbox, Point};
 
 use super::anchored_box::part;
+use super::owners::BoxOwner;
 use super::pending::{Parts, adopt_box};
-use super::{BoxItem, OffsetBox, OffsetBoxError, Placement};
+use super::{BoxItem, OffsetBox, OffsetBoxError, TreeLayout};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
@@ -37,13 +38,23 @@ pltrs_core::archive_struct!(PlacedBoxArtist {
     parts
 });
 
-impl PlacedBoxArtist {
-    /// Where the artists of the tree go (matplotlib's `OffsetBox.draw`).
-    pub(crate) fn placements(
-        &self,
-        ctx: LayoutContext<'_>,
-    ) -> Result<Vec<Placement<ArtistId>>, OffsetBoxError> {
-        self.child.place(ctx, self.offset)
+impl BoxOwner for PlacedBoxArtist {
+    fn tree(&self) -> &OffsetBox<ArtistId> {
+        &self.child
+    }
+
+    fn tree_mut(&mut self) -> &mut OffsetBox<ArtistId> {
+        &mut self.child
+    }
+
+    fn parts_mut(&mut self) -> &mut Vec<ArtistId> {
+        &mut self.parts
+    }
+
+    /// The tree with its origin at the box's offset (matplotlib's
+    /// `OffsetBox.draw`).
+    fn lay_out_tree(&self, ctx: LayoutContext<'_>) -> Result<TreeLayout<ArtistId>, OffsetBoxError> {
+        self.child.lay_out(ctx, self.offset)
     }
 }
 
@@ -112,11 +123,14 @@ impl PlacedOffsetBox {
     }
 
     /// Moves the box's origin to `offset`, in display pixels (matplotlib's
-    /// `set_offset`).
+    /// `set_offset`), and lays the box out there in the figure as it is
+    /// now (matplotlib's parent sets a child's offset right before it draws
+    /// the child).
     pub fn set_offset(&self, offset: impl Into<Point>) -> &Self {
         let offset = offset.into();
         self.raw
             .with_mut::<PlacedBoxArtist, _>(|placed| placed.offset = offset);
+        super::lay_out_box(&mut self.raw.figure_state().borrow_mut(), self.raw.id());
         self
     }
 
@@ -186,12 +200,20 @@ impl Figure {
     }
 }
 
-/// Adds the box `child` at `offset` to `owner`, an axes or a (sub)figure.
-fn add_placed(owner: &RawHandle, child: OffsetBox<BoxItem>, offset: Point) -> PlacedOffsetBox {
+/// Adds the box `child` at `offset` to `owner`: an axes or a (sub)figure,
+/// or a box of the program's, which then owns it (see
+/// [`ProgramOffsetBox::add_box`](super::ProgramOffsetBox::add_box)). Its
+/// anchored boxes are anchored in the axes or figure it is in.
+pub(super) fn add_placed(
+    owner: &RawHandle,
+    child: OffsetBox<BoxItem>,
+    offset: Point,
+) -> PlacedOffsetBox {
     let figure = owner.figure_state();
     let mut state = figure.borrow_mut();
+    let container = super::rebuild::container_of(&state, owner.id());
     let mut parts = Parts::new(&mut state.store);
-    let child = parts.insert_tree(child, owner.id());
+    let child = parts.insert_tree(child, container);
     let parts = parts.into_ids();
     let artist = PlacedBoxArtist {
         base: ArtistBase::default(),

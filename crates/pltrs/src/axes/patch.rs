@@ -87,6 +87,27 @@ impl Axes {
         self
     }
 
+    /// Whether what the axes clips is clipped to another region than its
+    /// box (matplotlib's `set_clip_path(ax.patch)` of a patch other than
+    /// the unit square of the axes): to an outline of its own or its
+    /// bounding box (see [`set_patch_outline`](Self::set_patch_outline)),
+    /// the wedge of polar axes, the ellipse of geographic axes.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::path::Path;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// assert!(!ax.clips_to_patch_shape());
+    /// ax.set_patch_outline(Some(Path::unit_rectangle()), true);
+    /// assert!(ax.clips_to_patch_shape());
+    /// ```
+    pub fn clips_to_patch_shape(&self) -> bool {
+        let state = self.raw.figure_state().borrow();
+        state.axes_outline(self.raw.id()).is_some()
+            || state.outline_clip_box(self.raw.id()).is_some()
+    }
+
     /// The outline replacing the projection's background (see
     /// [`set_patch_outline`](Self::set_patch_outline)), in the coordinates
     /// it was given in.

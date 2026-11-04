@@ -394,6 +394,13 @@ class Axis(DrawnWith, Artist):
             return super().get_clip_box()
         return _artist_clipping.patch_clip_box(self, self.axes)
 
+    def get_clip_path(self):
+        """Return the clip path: that of the Axes' patch for its x and y
+        axes unless set, when the patch is no `.Rectangle`."""
+        if "_clippath" in self.__dict__ or self.axis_name not in ("x", "y"):
+            return super().get_clip_path()
+        return _artist_clipping.patch_clip_path(self, self.axes)
+
     def _args(self):
         """The native axes and the axis name."""
         return self.axes._native, self.axis_name

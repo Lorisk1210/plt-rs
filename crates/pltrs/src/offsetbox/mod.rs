@@ -62,12 +62,15 @@ mod boxes;
 mod drag;
 pub(crate) use drag::reconnect_drag;
 mod leaves;
+mod owners;
 mod pack;
 mod pending;
 mod placed_box;
 mod program;
+mod rebuild;
 #[cfg(test)]
 mod tests;
+mod walk;
 
 use std::fmt;
 
@@ -80,14 +83,15 @@ pub(crate) use annotation_bbox::AnnotationBboxArtist;
 pub use annotation_bbox::{AnnotationBbox, AnnotationBboxOptions};
 pub use apply::edit_tree;
 pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes};
-pub use boxes::{OffsetBox, Packer, Placement};
-pub use leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
+pub use boxes::{OffsetBox, Packer, Placement, TreeLayout};
+pub use leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea, text_area_bbox};
 pub use pack::{PackAlign, PackMode, aligned_offsets, packed_offsets};
 pub use pending::BoxItem;
 pub(crate) use placed_box::PlacedBoxArtist;
 pub use placed_box::PlacedOffsetBox;
 pub(crate) use program::measure_program_boxes;
 pub use program::{ProgramBox, ProgramBoxArtist, ProgramOffsetBox};
+pub use rebuild::{node_extent, node_origin, rebuild_tree};
 
 use crate::artist::{ArtistId, ArtistStore};
 use crate::coords::CoordError;

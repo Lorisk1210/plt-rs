@@ -30,12 +30,14 @@ import functools
 
 import numpy as np
 
-from . import _api, _handles, _live_transforms, _python_drawing, cbook, rcParams
+from . import _api, _handles, _live_transforms, _offsetbox_trees, _python_drawing, cbook
+from . import rcParams
 from . import text as mtext
 from . import transforms as mtransforms
-from ._drawn_with import DrawnWith
 from ._native import artist as _artist, offsetbox as _offsetbox
-from ._native import patches as _patches
+from ._drawn_with import DrawnWith
+from ._offsetbox_trees import TreeOwner, TreeSetting, adopt_part, follow
+from ._program_classes import takes_from_program
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
 from .transforms import Bbox, BboxBase, TransformedBbox
@@ -166,7 +168,7 @@ def _get_aligned_offsets(yspans, height, align="baseline"):
                               None if height is None else float(height), align)
 
 
-class OffsetBox(DrawnWith, Artist):
+class OffsetBox(TreeOwner, DrawnWith, Artist):
     """
     A simple container artist.
 
@@ -180,31 +182,22 @@ class OffsetBox(DrawnWith, Artist):
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
 
-    def get_window_extent(self, renderer=None):
-        """Return the box's extent in display space: where pltrs (Rust)
-        lays it out (matplotlib computes it from the box's layout); for a
-        box of the program's, its ``get_bbox`` at its offset, as
-        matplotlib's."""
-        if not self._sizes_itself():
-            return self._laid_out_extent()
-        if renderer is None:
-            renderer = self.get_figure(root=True)._get_renderer()
-        bbox = self.get_bbox(renderer)
-        try:  # Some subclasses redefine get_offset to take no args.
-            px, py = self.get_offset(bbox, renderer)
-        except TypeError:
-            px, py = self.get_offset()
-        return bbox.translated(px, py)
+    #: Whether the boxes of the class hold artists rather than boxes (a
+    #: drawing area, a text area, an offset image, an aux-transform box).
+    _leaf = False
 
-    @classmethod
-    def _sizes_itself(cls):
-        """Whether the boxes of the class size and draw themselves (a
-        subclass of the program's, which pltrs (Rust) does not lay out):
-        those the classes of this module describe to pltrs (Rust) (their
-        ``_native_tree``) do not."""
-        return cls._native_tree is OffsetBox._native_tree
+    #: The box's place in the tree pltrs (Rust) lays out (see
+    #: `._offsetbox_trees`): the native handle of the box added with the
+    #: tree and the box's index in it, None outside any tree.
+    _node = None
+
+    #: The description of the box as its class (of this package) describes
+    #: it to pltrs (Rust) (see ``_native.offsetbox``), a method of the
+    #: classes of this module; None for a class describing none.
+    _package_tree = None
 
     def __init__(self, **kwargs):
+        self._native = _offsetbox.new_box()
         super().__init__()
         self._internal_update(kwargs)
         # Clipping has not been implemented in the OffsetBox family, so
@@ -214,16 +207,64 @@ class OffsetBox(DrawnWith, Artist):
         self._children = []
         self._offset = (0, 0)
 
+    @classmethod
+    def _sizes_itself(cls):
+        """Whether the boxes of the class size and draw themselves, which
+        pltrs (Rust) does not lay out: a subclass of the program's describing
+        no tree (``_package_tree``), or one overriding how matplotlib's boxes
+        size, place or draw each other (`._offsetbox_trees.PROGRAM_PROTOCOL`).
+        """
+        return (cls._package_tree is OffsetBox._package_tree
+                or any(takes_from_program(cls, name)
+                       for name in _offsetbox_trees.PROGRAM_PROTOCOL))
+
+    def _native_tree(self):
+        """
+        The description of the box and its children pltrs (Rust) lays out
+        (see ``_native.offsetbox``), its artists as their natives. A box of
+        the program's (see `_sizes_itself`) is a box pltrs (Rust) lays out
+        with the extent its ``get_bbox`` gives and that its ``draw`` draws,
+        after its ``set_offset`` was given where the box went, as
+        matplotlib's parents do.
+        """
+        if self._sizes_itself():
+            return ("program", self.get_visible(), self._native)
+        return self._package_tree()
+
+    def _changed(self):
+        """Hand pltrs (Rust) the tree holding the box again, as matplotlib
+        reads the box's settings again whenever it draws it."""
+        owner = self.__dict__.get("_tree_owner")
+        if owner is None and "_tree_handle" in self.__dict__:
+            owner = self
+        if owner is not None:
+            owner._sync_tree()
+        self.stale = True
+
+    def set_visible(self, b):
+        # docstring inherited
+        if not b:
+            # A hidden box keeps the offset its parent last gave it.
+            self._laid_out_offset()
+        super().set_visible(b)
+        self._changed()
+
     def _add_to_axes(self, axes, kind, autolim=True):
         if self._sizes_itself():
             _python_drawing.paint(self)
-            return super()._add_to_axes(axes, kind, autolim)
+            super()._add_to_axes(axes, kind, autolim)
+            self._join_children(axes.figure)
+            follow(self)
+            return self
         return self._join_at_offset(axes)
 
     def _add_to_figure(self, figure, clip):
         if self._sizes_itself():
             _python_drawing.paint(self)
-            return super()._add_to_figure(figure, clip)
+            super()._add_to_figure(figure, clip)
+            self._join_children(figure)
+            follow(self)
+            return self
         return self._join_at_offset(figure)
 
     def _join_at_offset(self, parent):
@@ -232,61 +273,186 @@ class OffsetBox(DrawnWith, Artist):
         offset box given to ``add_artist``); return self. A box whose
         offset a callable computes is placed where it says before every
         layout of a draw, as matplotlib calls it when it draws the box."""
-        offset = (0., 0.) if callable(self._offset) else self._offset
-        native, parts = _offsetbox.add_placed(
-            parent._native, self._native, self._native_tree(),
-            tuple(map(float, offset)))
-        figure = parent.figure
-        self._adopt_tree(iter(parts), figure)
-        self._joined(self)
-        self._placed = True
-        _handles.adopt(self, native, figure)
+        self._join_placed(_offsetbox.add_placed, parent._native, parent.figure)
         if callable(self._offset):
-            from .axes._program_locators import follow
-            follow(self, figure.figure)
-            self._locate_by_program(figure.figure._get_renderer())
+            self._locate_by_program(parent.figure.figure._get_renderer())
         return self
 
-    def _locate_by_program(self, renderer):
-        """Move the box where its callable offset puts it now (see
-        `.axes._program_locators`)."""
-        if callable(self._offset):
-            offset = self.get_offset(self.get_bbox(renderer), renderer)
-            _offsetbox.set_placed_offset(self._native, tuple(map(float, offset)))
+    def _join_placed(self, add, parent, figure):
+        """Join *figure* as a box placed at its offset that *add* adds to
+        the native *parent* (``_native.offsetbox.add_placed`` or
+        ``add_owned``)."""
+        offset = (0., 0.) if callable(self._offset) else self._offset
+        native, parts = add(parent, self._native, self._native_tree(),
+                            tuple(map(float, offset)))
+        _handles.adopt(self, native, figure)
+        self._own_tree(parts, figure, native)
 
-    def _native_tree(self):
+    def _join_children(self, figure, holder=None):
         """
-        The description of the box and its children pltrs (Rust) lays out
-        (see ``_native.offsetbox``), its artists as their loose natives.
-        The boxes of this module describe themselves; any other (a
-        subclass of the program's, see `_sizes_itself`) is a box pltrs
-        (Rust) lays out with the extent its ``get_bbox`` gives and that
-        its ``draw`` draws, after its ``set_offset`` was given where the
-        box went, as matplotlib's parents do.
+        Have the boxes of this box of the program's (see `_sizes_itself`)
+        join *figure* as the boxes it draws itself, as matplotlib's parent
+        sets its children's offsets and draws them: each box of the
+        package's among its children becomes a box placed at its offset
+        that the box of the program's, or its *holder* (the native of the
+        nearest one in the figure), owns and draws where its ``draw`` draws
+        it; a box of the program's among them hands its own on. A subclass
+        of the package's leaves (a `DrawingArea` overriding ``draw``) gets
+        the box its class describes so, which the class' methods measure,
+        place and draw.
         """
-        _python_drawing.paint(self)
-        return ("program", self._native)
+        holder = self._native if holder is None else holder
+        if self._leaf:
+            if "_tree_handle" not in self.__dict__:
+                offset = (0., 0.) if callable(self._offset) else self._offset
+                native, parts = _offsetbox.add_owned(
+                    holder, None, self._package_tree(), tuple(map(float, offset)))
+                self._own_tree(parts, figure, native)
+            return
+        for child in self.get_children():
+            if not isinstance(child, OffsetBox):
+                continue
+            if child._sizes_itself():
+                if child.get_figure(root=True) is None:
+                    child.set_figure(figure)
+                child._join_children(figure, holder)
+            elif child.__dict__.get("_tree_owner") is None:
+                child._join_placed(_offsetbox.add_owned, holder, figure)
+
+    def _locate_by_program(self, renderer):
+        """Bring the box up to date before a layout of a draw (see
+        `.axes._program_locators`): its tree as it is now, the boxes among
+        the children of a box of the program's, and its offset where a
+        callable puts it."""
+        self._sync_tree()
+        figure = self.get_figure(root=True)
+        if self._sizes_itself() and figure is not None:
+            self._join_children(figure)
+        if callable(self._offset) and self._places_itself():
+            offset = self.get_offset(self.get_bbox(renderer), renderer)
+            _offsetbox.set_placed_offset(self._tree_handle, tuple(map(float, offset)))
+
+    def _places_itself(self):
+        """Whether the box is a box pltrs (Rust) draws with its origin at its
+        offset (`set_offset`): added on its own, or drawn by a box of the
+        program's."""
+        return "_tree_handle" in self.__dict__ and self._tree_root() is self
+
+    def _adopt_root(self, natives, figure):
+        # The box itself is the root of its tree: its package's parts.
+        self._adopt_package_parts(natives, figure)
 
     def _adopt_tree(self, natives, figure):
         """
         Make the artists of the box, in the order of `_native_tree`, the
         objects of the artists the handles *natives* (an iterator) reach in
         *figure*, once the box joined it (the box itself for a box of the
-        program's).
+        program's, which then has the boxes among its children join it).
         """
-        if self._sizes_itself():
-            _handles.adopt(self, next(natives), figure)
-            self._laid_out_by_parent = True
+        if not self._sizes_itself():
+            self._adopt_package_parts(natives, figure)
             return
+        if adopt_part(self, next(natives), figure):
+            _python_drawing.paint(self)
+        self._laid_out_by_parent = True
+        self._join_children(figure)
+        follow(self)
+
+    def _adopt_package_parts(self, natives, figure):
+        """`_adopt_tree` of the box as the package's class describes it."""
         for child in self.get_children():
-            _handles.adopt(child, next(natives), figure)
+            adopt_part(child, next(natives), figure)
 
     def _place_as_laid_out(self):
         """Give a box of the program's in the tree of a box pltrs (Rust)
         lays out the offset it was placed at, before its ``draw`` runs, as
         matplotlib's parent does."""
         if self.__dict__.get("_laid_out_by_parent"):
-            self.set_offset(_offsetbox.program_box_offset(self._native))
+            offset = _offsetbox.program_box_offset(self._native)
+            if offset is not None:
+                self.set_offset(tuple(map(np.float64, offset)))
+
+    def _boxes(self):
+        """The box and the boxes of its tree pltrs (Rust) lays out, in tree
+        order."""
+        yield self
+        if not self._sizes_itself() and not self._leaf:
+            for child in self.get_children():
+                if isinstance(child, OffsetBox):
+                    yield from child._boxes()
+
+    def _joined(self, owner, handle):
+        """Have the boxes of the tree of this box know their place in the
+        tree pltrs (Rust) laid out under the native *handle*, which *owner*
+        added: their figure, Axes and staleness are then its. A box of the
+        program's owning a tree of its own keeps that."""
+        for index, box in enumerate(self._boxes()):
+            if box.__dict__.get("_tree_handle", handle) is handle:
+                box._tree_owner = owner
+                box._node = (handle, index)
+
+    def _synced_node(self):
+        """The box's place in the tree pltrs (Rust) lays out (see
+        ``_node``), the tree handed again first if it changed."""
+        owner = self.__dict__.get("_tree_owner")
+        if owner is not None:
+            owner._sync_tree()
+        return self._node
+
+    def _laid_out_bbox(self, renderer):
+        """The extent of the box where pltrs (Rust) lays it out, relative to
+        its origin; None for a box outside any tree, or one of the
+        program's not deriving from a box of the package's."""
+        if self._sizes_itself():
+            handle = self.__dict__.get("_tree_handle")
+            node = None if handle is None else (handle, 0)
+        else:
+            node = self._synced_node()
+        if node is None:
+            return None
+        self._measure_program_boxes(renderer)
+        return Bbox.from_bounds(*_offsetbox.node_extent(*node))
+
+    def _measure_program_boxes(self, renderer):
+        """Have the boxes of the program's inside this box measure
+        themselves (their ``get_bbox``), as matplotlib's parents ask them
+        when they are measured."""
+        boxes = [box for box in self._boxes()
+                 if box is not self and box.__dict__.get("_laid_out_by_parent")]
+        if boxes and renderer is None:
+            renderer = self.get_figure(root=True)._get_renderer()
+        for box in boxes:
+            _offsetbox.set_program_extent(
+                box._native, tuple(map(float, box.get_bbox(renderer).bounds)))
+
+    def _laid_out_offset(self):
+        """Where pltrs (Rust) placed the box's origin when it last drew the
+        box holding it, for a box inside a tree another box added, which
+        becomes the box's offset as matplotlib's parent sets it then; None
+        otherwise, before that draw, and for a box its parent does not
+        place (a hidden one), which keeps its offset."""
+        if self._sizes_itself() or self.__dict__.get("_tree_owner") is self:
+            return None
+        node = self._synced_node()
+        if node is None or not _artist.draw_count(node[0]):
+            return None
+        origin = _offsetbox.node_origin(*node)
+        if origin is None:
+            return None
+        # matplotlib's parents compute offsets with numpy.
+        self._offset = tuple(map(np.float64, origin))
+        return self._offset
+
+    def get_window_extent(self, renderer=None):
+        # docstring inherited
+        if renderer is None:
+            renderer = self.get_figure(root=True)._get_renderer()
+        bbox = self.get_bbox(renderer)
+        try:  # Some subclasses redefine get_offset to take no args.
+            px, py = self.get_offset(bbox, renderer)
+        except TypeError:
+            px, py = self.get_offset()
+        return bbox.translated(px, py)
 
     def draw(self, renderer):
         """
@@ -298,6 +464,7 @@ class OffsetBox(DrawnWith, Artist):
         for c, (ox, oy) in zip(self.get_visible_children(), offsets):
             c.set_offset((px + ox, py + oy))
             c.draw(renderer)
+        self.stale = False
 
     def set_offset(self, xy):
         """
@@ -316,12 +483,13 @@ class OffsetBox(DrawnWith, Artist):
         """
         self._offset = xy
         self._move_placed(xy)
+        self.stale = True
 
     def _move_placed(self, xy):
         """Move the box to the offset *xy* where pltrs (Rust) draws it, for
-        a box added to an axes or a figure itself."""
-        if self.__dict__.get("_placed") and not callable(xy):
-            _offsetbox.set_placed_offset(self._native, tuple(map(float, xy)))
+        a box drawn at its offset (see `_places_itself`)."""
+        if not callable(xy) and self._places_itself():
+            _offsetbox.set_placed_offset(self._tree_handle, tuple(map(float, xy)))
 
     @_compat_get_offset
     def get_offset(self, bbox, renderer):
@@ -332,6 +500,9 @@ class OffsetBox(DrawnWith, Artist):
         offset is dynamically determined by a callable (see
         `~.OffsetBox.set_offset`).
         """
+        laid_out = self._laid_out_offset()
+        if laid_out is not None:
+            return laid_out
         return (
             self._offset(bbox.width, bbox.height, -bbox.x0, -bbox.y0, renderer)
             if callable(self._offset)
@@ -340,10 +511,12 @@ class OffsetBox(DrawnWith, Artist):
     def set_width(self, width):
         """Set the width of the box."""
         self.width = width
+        self.stale = True
 
     def set_height(self, height):
         """Set the height of the box."""
         self.height = height
+        self.stale = True
 
     def get_visible_children(self):
         r"""Return a list of the visible child `.Artist`\s."""
@@ -355,47 +528,17 @@ class OffsetBox(DrawnWith, Artist):
 
     def get_bbox(self, renderer):
         """Return the bbox of the offsetbox, ignoring parent offsets."""
+        laid_out = self._laid_out_bbox(renderer)
+        if laid_out is not None:
+            return laid_out
         bbox, offsets = self._get_bbox_and_child_offsets(renderer)
         return bbox
 
-    def _drawing_areas(self):
-        r"""The `DrawingArea`\s of the box's tree, in the order of
-        `_native_tree`."""
-        for child in self.get_children():
-            if isinstance(child, OffsetBox):
-                yield from child._drawing_areas()
-
-    def _offset_images(self):
-        r"""The `OffsetImage`\s of the box's tree, in the order of
-        `_native_tree`."""
-        for child in self.get_children():
-            if isinstance(child, OffsetBox):
-                yield from child._offset_images()
-
-    def _boxes(self):
-        """The box and the boxes of its tree."""
-        yield self
-        for child in self.get_children():
-            if isinstance(child, OffsetBox):
-                yield from child._boxes()
-
-    def _joined(self, owner):
-        """
-        Have the boxes of the tree belong to *owner*, the artist added with
-        it: they are on its figure, in its Axes when it is a box (see
-        `axes`), and drawn by its draws; and the drawing areas and offset
-        images of the tree reach their native state through it.
-        """
-        for box in self._boxes():
-            if box is not owner:
-                box._tree_owner = owner
-        for leaves in (self._drawing_areas(), self._offset_images()):
-            for index, leaf in enumerate(leaves):
-                leaf._owner_box = (owner, index)
-
     def _drawer(self):
-        # The artist added with the tree draws it (see `._drawn_with`).
-        return self.__dict__.get("_tree_owner")
+        # The artist added with the tree draws it (see `._drawn_with`); the
+        # box that added it draws itself.
+        owner = self.__dict__.get("_tree_owner")
+        return None if owner is self else owner
 
     def get_figure(self, root=False):
         """Return the `.Figure` or `.SubFigure` the box is on: that of the
@@ -452,15 +595,22 @@ default: 'baseline'
         self.align = align
         self._children = children
 
-    def _native_tree(self):
+    pad = TreeSetting()
+    sep = TreeSetting()
+    width = TreeSetting()
+    height = TreeSetting()
+    align = TreeSetting()
+    mode = TreeSetting()
+
+    def _package_tree(self):
         kind = "vpacker" if isinstance(self, VPacker) else "hpacker"
-        return (kind, float(self.pad), float(self.sep),
+        return (kind, self.get_visible(), float(self.pad), float(self.sep),
                 None if self.width is None else float(self.width),
                 None if self.height is None else float(self.height),
                 self.align, self.mode,
                 [child._native_tree() for child in self.get_children()])
 
-    def _adopt_tree(self, natives, figure):
+    def _adopt_package_parts(self, natives, figure):
         for child in self.get_children():
             child._adopt_tree(natives, figure)
 
@@ -529,11 +679,19 @@ class PaddedBox(OffsetBox):
     """
     A container to add a padding around an `.Artist`.
 
+    The `.PaddedBox` contains a `.FancyBboxPatch` that is used to visualize
+    it when rendering.
+
     Attributes
     ----------
     pad : float
         The padding in points.
+    patch : `.FancyBboxPatch`
+        When *draw_frame* is True, this `.FancyBboxPatch` is made visible and
+        creates a border around the box.
     """
+
+    pad = TreeSetting()
 
     def __init__(self, child, pad=0., *, draw_frame=False, patch_attrs=None):
         """
@@ -543,26 +701,29 @@ class PaddedBox(OffsetBox):
             The contained `.Artist`.
         pad : float, default: 0.0
             The padding in points. This will be scaled with the renderer dpi.
+            In contrast, *width* and *height* are in *pixels* and thus not
+            scaled.
         draw_frame : bool
-            Whether to draw the frame around the box.
+            Whether to draw the contained `.FancyBboxPatch`.
         patch_attrs : dict or None
-            Additional properties of the frame.
+            Additional parameters passed to the contained `.FancyBboxPatch`.
         """
+        from .patches import FancyBboxPatch
         super().__init__()
         self.pad = pad
         self._children = [child]
-        self._draw_frame = draw_frame
-        self._patch_attrs = dict(patch_attrs or {})
+        # matplotlib's square frame without padding, white with a black
+        # edge in its look, shown with *draw_frame*.
+        self.patch = FancyBboxPatch._from_native(_offsetbox.new_padded_frame(
+            bool(draw_frame),
+            cbook.normalize_kwargs(dict(patch_attrs or {}), FancyBboxPatch)), None)
 
-    def _native_tree(self):
-        from .patches import FancyBboxPatch
-        return ("padded", float(self.pad), self._children[0]._native_tree(),
-                bool(self._draw_frame),
-                cbook.normalize_kwargs(self._patch_attrs, FancyBboxPatch))
+    def _package_tree(self):
+        return ("padded", self.get_visible(), float(self.pad),
+                self._children[0]._native_tree(), self.patch._native)
 
-    def _adopt_tree(self, natives, figure):
-        from .patches import FancyBboxPatch
-        self.patch = _handles.wrap(next(natives), FancyBboxPatch, figure)
+    def _adopt_package_parts(self, natives, figure):
+        adopt_part(self.patch, next(natives), figure)
         self._children[0]._adopt_tree(natives, figure)
 
     def _get_bbox_and_child_offsets(self, renderer):
@@ -570,13 +731,23 @@ class PaddedBox(OffsetBox):
         pad = self.pad * renderer.points_to_pixels(1.)
         return (self._children[0].get_bbox(renderer).padded(pad), [(0, 0)])
 
+    def draw(self, renderer):
+        # docstring inherited
+        bbox, offsets = self._get_bbox_and_child_offsets(renderer)
+        px, py = self.get_offset(bbox, renderer)
+        for c, (ox, oy) in zip(self.get_visible_children(), offsets):
+            c.set_offset((px + ox, py + oy))
+        self.draw_frame(renderer)
+        for c in self.get_visible_children():
+            c.draw(renderer)
+        self.stale = False
+
     def update_frame(self, bbox, fontsize=None):
         """
         Fit the frame to *bbox*, its box style scaled by *fontsize*.
 
-        pltrs: the frame is the patch of the box pltrs (Rust) draws, which
-        exists once the box joined a figure; pltrs fits it again whenever
-        it lays the figure out.
+        pltrs: pltrs (Rust) fits the frame of a box it lays out again
+        whenever it lays the figure out.
         """
         _update_frame(self, bbox, fontsize)
         self.stale = True
@@ -588,27 +759,6 @@ class PaddedBox(OffsetBox):
         self.patch.draw(renderer)
 
 
-class _AreaSize:
-    """A size attribute of a `DrawingArea` (``width``, ``height``,
-    ``xdescent``, ``ydescent``), which the area pltrs (Rust) lays out takes
-    once the area's box joined a figure."""
-
-    def __set_name__(self, owner, name):
-        self._name = "_" + name
-
-    def __get__(self, area, cls=None):
-        return self if area is None else area.__dict__[self._name]
-
-    def __set__(self, area, value):
-        area.__dict__[self._name] = value
-        owner_box = area.__dict__.get("_owner_box")
-        if owner_box is not None:
-            owner, index = owner_box
-            _offsetbox.set_area_size(owner._native, index, tuple(
-                float(v) for v in (area.width, area.height, area.xdescent,
-                                   area.ydescent)))
-
-
 class DrawingArea(OffsetBox):
     """
     The DrawingArea can contain any Artist as a child. The DrawingArea
@@ -617,10 +767,11 @@ class DrawingArea(OffsetBox):
     boundaries of the parent.
     """
 
-    width = _AreaSize()
-    height = _AreaSize()
-    xdescent = _AreaSize()
-    ydescent = _AreaSize()
+    _leaf = True
+    width = TreeSetting()
+    height = TreeSetting()
+    xdescent = TreeSetting()
+    ydescent = TreeSetting()
 
     def __init__(self, width, height, xdescent=0., ydescent=0., clip=False):
         """
@@ -641,9 +792,6 @@ class DrawingArea(OffsetBox):
         self._clip_children = clip
         self.offset_transform = mtransforms.Affine2D()
         self.dpi_transform = mtransforms.Affine2D()
-        #: The added box whose tree holds the area and the area's index
-        #: there (None before the box is added).
-        self._owner_box = None
 
     @property
     def clip_children(self):
@@ -656,13 +804,7 @@ class DrawingArea(OffsetBox):
     @clip_children.setter
     def clip_children(self, val):
         self._clip_children = bool(val)
-        if self._owner_box is not None:
-            owner, index = self._owner_box
-            _offsetbox.set_clip_children(owner._native, index,
-                                         self._clip_children)
-
-    def _drawing_areas(self):
-        yield self
+        self._changed()
 
     def get_transform(self):
         """
@@ -688,10 +830,12 @@ class DrawingArea(OffsetBox):
         self.offset_transform.clear()
         self.offset_transform.translate(xy[0], xy[1])
         self._move_placed(xy)
+        self.stale = True
 
     def get_offset(self):
         """Return offset of the container."""
-        return self._offset
+        laid_out = self._laid_out_offset()
+        return self._offset if laid_out is None else laid_out
 
     def get_bbox(self, renderer):
         """Return the bbox of the area, ignoring parent offsets."""
@@ -703,20 +847,25 @@ class DrawingArea(OffsetBox):
     def add_artist(self, a):
         """Add an `.Artist` to the container box."""
         self._children.append(a)
+        self._changed()
 
-    def _native_tree(self):
-        return ("drawing", float(self.width), float(self.height),
-                float(self.xdescent), float(self.ydescent),
+    def _package_tree(self):
+        return ("drawing", self.get_visible(), float(self.width),
+                float(self.height), float(self.xdescent), float(self.ydescent),
                 bool(self._clip_children),
                 [child._native for child in self._children])
 
     def draw(self, renderer):
-        # docstring inherited
+        """
+        Draw the children, where pltrs (Rust) places them: in points from
+        the area's offset, clipped to the area if it clips them.
+        """
         dpi_cor = renderer.points_to_pixels(1.)
         self.dpi_transform.clear()
         self.dpi_transform.scale(dpi_cor)
         for c in self._children:
             c.draw(renderer)
+        self.stale = False
 
 
 class TextArea(OffsetBox):
@@ -727,6 +876,8 @@ class TextArea(OffsetBox):
     width and height of the TextArea instance is the width and height of its
     child text.
     """
+
+    _leaf = True
 
     def __init__(self, s,
                  *,
@@ -768,6 +919,7 @@ class TextArea(OffsetBox):
     def set_text(self, s):
         """Set the text of this area as a string."""
         self._text.set_text(s)
+        self.stale = True
 
     def get_text(self):
         """Return the string representation of this area's text."""
@@ -783,6 +935,7 @@ class TextArea(OffsetBox):
         baseline-aligned, but multiline labels are "center"-aligned with them.
         """
         self._multilinebaseline = t
+        self._changed()
 
     def get_multilinebaseline(self):
         """
@@ -790,8 +943,9 @@ class TextArea(OffsetBox):
         """
         return self._multilinebaseline
 
-    def _native_tree(self):
-        return ("text", self._text._native, bool(self._multilinebaseline))
+    def _package_tree(self):
+        return ("text", self.get_visible(), self._text._native,
+                bool(self._multilinebaseline))
 
     def set_transform(self, t):
         """
@@ -811,10 +965,33 @@ class TextArea(OffsetBox):
         self.offset_transform.clear()
         self.offset_transform.translate(xy[0], xy[1])
         self._move_placed(xy)
+        self.stale = True
 
     def get_offset(self):
         """Return offset of the container."""
-        return self._offset
+        laid_out = self._laid_out_offset()
+        return self._offset if laid_out is None else laid_out
+
+    def get_bbox(self, renderer):
+        """
+        Return the bbox of the text, ignoring parent offsets: its extent,
+        at least as tall as ``"lp"`` above its baseline, multi-line text
+        centred on the baseline with *multilinebaseline* (pltrs (Rust)
+        measures it, as it lays the area out).
+        """
+        laid_out = self._laid_out_bbox(renderer)
+        if laid_out is not None:
+            return laid_out
+        if self._text.get_figure(root=True) is None:
+            # matplotlib measures the text at the dpi of the area's figure.
+            raise AttributeError("'NoneType' object has no attribute 'dpi'")
+        return Bbox.from_bounds(*_offsetbox.text_area_extent(
+            self._text._native, bool(self._multilinebaseline)))
+
+    def draw(self, renderer):
+        # docstring inherited
+        self._text.draw(renderer)
+        self.stale = False
 
 
 def _laid_out_box(description, figure, classes):
@@ -857,6 +1034,8 @@ class AuxTransformBox(OffsetBox):
     box of the children matches the drawn box.
     """
 
+    _leaf = True
+
     def __init__(self, aux_transform):
         self.aux_transform = aux_transform
         super().__init__()
@@ -868,9 +1047,11 @@ class AuxTransformBox(OffsetBox):
     def add_artist(self, a):
         """Add an `.Artist` to the container box."""
         self._children.append(a)
+        self._changed()
 
-    def _native_tree(self):
-        return ("aux", _live_transforms.to_native(self.aux_transform),
+    def _package_tree(self):
+        return ("aux", self.get_visible(),
+                _live_transforms.to_native(self.aux_transform),
                 [child._native for child in self._children])
 
     def get_transform(self):
@@ -897,10 +1078,19 @@ class AuxTransformBox(OffsetBox):
         self.offset_transform.clear()
         self.offset_transform.translate(xy[0], xy[1])
         self._move_placed(xy)
+        self.stale = True
 
     def get_offset(self):
         """Return offset of the container."""
-        return self._offset
+        laid_out = self._laid_out_offset()
+        return self._offset if laid_out is None else laid_out
+
+    def draw(self, renderer):
+        """Draw the children, where pltrs (Rust) places them: through the
+        aux transform, then from the box's offset."""
+        for c in self._children:
+            c.draw(renderer)
+        self.stale = False
 
 
 class AnchoredOffsetbox(OffsetBox):
@@ -1018,34 +1208,104 @@ class AnchoredOffsetbox(OffsetBox):
                 "frameon": bool(self.frameon), "bbox_to_anchor": bounds,
                 "bbox_transform": transform}
 
-    def _native_tree(self):
+    def _package_tree(self):
         # The box inside another box: drawn at its anchor all the same.
-        return ("anchored", self.get_child()._native_tree(),
+        return ("anchored", self.get_visible(), self.get_child()._native_tree(),
                 self._native_options(), self.patch._native)
 
-    def _adopt_tree(self, natives, figure):
-        _handles.adopt(self.patch, next(natives), figure)
+    def _adopt_package_parts(self, natives, figure):
+        adopt_part(self.patch, next(natives), figure)
         self.get_child()._adopt_tree(natives, figure)
-        self._in_tree = True
+
+    def _tree_root(self):
+        # An anchored box added to an axes or a figure owns its child's tree.
+        return self.get_child()
+
+    def _adopt_root(self, natives, figure):
+        self.get_child()._adopt_tree(natives, figure)
+
+    def _tree_description(self):
+        return self.get_child()._native_tree()
+
+    def _sync_tree(self):
+        # The tree, then the settings matplotlib reads again at every draw.
+        super()._sync_tree()
+        if "_tree_handle" in self.__dict__ and _python_drawing.figure_changeable():
+            options = self._native_options()
+            if options != self._synced_options:
+                _offsetbox.set_anchored_options(self._tree_handle, options)
+                self._synced_options = options
 
     def get_window_extent(self, renderer=None):
         """Return the box's extent in display space (for a box inside
         another box's tree, its frame's: the box drawn at its anchor)."""
-        if self.__dict__.get("_in_tree"):
+        if self._synced_node() is not None:
             return self.patch._laid_out_extent()
+        self._sync_tree()
         return self._laid_out_extent()
 
     def _join(self, parent):
         """Join *parent*, an axes or a figure, with the child tree: pltrs
         (Rust) anchors the box there; return self."""
+        options = self._native_options()
         native, parts, frame = _offsetbox.add_anchored(
             parent._native, self._native, self.get_child()._native_tree(),
-            self._native_options(), self.patch._native)
+            options, self.patch._native)
         figure = parent.figure
-        self.get_child()._adopt_tree(iter(parts), figure)
         _handles.adopt(self.patch, frame, figure)
-        self.get_child()._joined(self)
-        return _handles.adopt(self, native, figure)
+        _handles.adopt(self, native, figure)
+        self._synced_options = options
+        self._own_tree(parts, figure, native)
+        _python_drawing.attach(self)
+        return self
+
+    def get_bbox(self, renderer):
+        """Return the bbox of the child, padded, ignoring parent offsets."""
+        fontsize = renderer.points_to_pixels(self.prop.get_size_in_points())
+        pad = self.pad * fontsize
+        return self.get_child().get_bbox(renderer).padded(pad)
+
+    @_compat_get_offset
+    def get_offset(self, bbox, renderer):
+        """Return the offset of the box at its place in its anchor (see
+        `~.OffsetBox.get_offset`)."""
+        fontsize_in_pixels = renderer.points_to_pixels(self.prop.get_size_in_points())
+        try:
+            borderpad_x, borderpad_y = self.borderpad
+        except TypeError:
+            borderpad_x = self.borderpad
+            borderpad_y = self.borderpad
+        pad_x_pixels = borderpad_x * fontsize_in_pixels
+        pad_y_pixels = borderpad_y * fontsize_in_pixels
+        bbox_to_anchor = self.get_bbox_to_anchor()
+        x0, y0 = _get_anchored_bbox(
+            self.loc,
+            Bbox.from_bounds(0, 0, bbox.width, bbox.height),
+            bbox_to_anchor,
+            pad_x_pixels,
+            pad_y_pixels
+        )
+        return x0 - bbox.x0, y0 - bbox.y0
+
+    def draw(self, renderer):
+        """
+        Draw the frame and the child with *renderer*: where pltrs (Rust)
+        draws the box, for a box added to an axes or a figure; else at its
+        anchor, as matplotlib's does.
+        """
+        if not self.get_visible():
+            return
+        if "_tree_handle" in self.__dict__:
+            Artist.draw(self, renderer)
+            return
+        bbox = self.get_window_extent(renderer)
+        fontsize = renderer.points_to_pixels(self.prop.get_size_in_points())
+        self.update_frame(bbox, fontsize)
+        self.patch.draw(renderer)
+        px, py = self.get_offset(self.get_bbox(renderer), renderer)
+        self.get_child().set_offset((px, py))
+        self.get_child().draw(renderer)
+        self.stale = False
 
     def update_frame(self, bbox, fontsize=None):
         """
@@ -1060,6 +1320,7 @@ class AnchoredOffsetbox(OffsetBox):
     def set_child(self, child):
         """Set the child to be anchored."""
         self._child = child
+        self._changed()
 
     def get_child(self):
         """Return the child."""
@@ -1154,6 +1415,8 @@ class OffsetImage(OffsetBox):
     times *zoom* shows.
     """
 
+    _leaf = True
+
     def __init__(self, arr, *,
                  zoom=1,
                  cmap=None,
@@ -1190,9 +1453,9 @@ class OffsetImage(OffsetBox):
             self._children = [self.image]
         self.stale = True
 
-    def _native_tree(self):
-        return ("image", self.image._native, float(self.get_zoom()),
-                bool(self._dpi_cor))
+    def _package_tree(self):
+        return ("image", self.get_visible(), self.image._native,
+                float(self.get_zoom()), bool(self._dpi_cor))
 
     def get_data(self):
         """Return the image data."""
@@ -1201,14 +1464,7 @@ class OffsetImage(OffsetBox):
     def set_zoom(self, zoom):
         """Set the zoom factor."""
         self._zoom = zoom
-        owner_box = self.__dict__.get("_owner_box")
-        if owner_box is not None:
-            owner, index = owner_box
-            _offsetbox.set_image_zoom(owner._native, index, float(zoom))
-        self.stale = True
-
-    def _offset_images(self):
-        yield self
+        self._changed()
 
     def get_zoom(self):
         """Return the zoom factor."""
@@ -1217,13 +1473,16 @@ class OffsetImage(OffsetBox):
     def get_offset(self):
         """
         Return offset of the container: where the box holding it placed
-        the image when it was last drawn (pltrs (Rust) lays the box out),
-        the offset given before.
+        it when it was last drawn (pltrs (Rust) lays the box out), the
+        offset given otherwise.
         """
-        image = self.image
-        if image._figure is not None and _artist.draw_count(image._native):
-            return tuple(image.get_window_extent().p0)
-        return self._offset
+        laid_out = self._laid_out_offset()
+        return self._offset if laid_out is None else laid_out
+
+    def draw(self, renderer):
+        # docstring inherited
+        self.image.draw(renderer)
+        self.stale = False
 
     def get_window_extent(self, renderer=None):
         """Return the image's box in display space: its size at its zoom,
@@ -1243,7 +1502,7 @@ class OffsetImage(OffsetBox):
         return Bbox.from_bounds(0, 0, w, h)
 
 
-class AnnotationBbox(Artist, mtext._AnnotationBase):
+class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
     """
     Container for an `OffsetBox` referring to a specific position *xy*.
 
@@ -1273,8 +1532,19 @@ class AnnotationBbox(Artist, mtext._AnnotationBase):
         if self._figure is None:
             raise AttributeError(
                 "'NoneType' object has no attribute '_get_renderer'")
+        self._sync_tree()
         self.update_positions(None)
         return self._extent_as_is()
+
+    def _tree_root(self):
+        # The annotation box owns the tree of its offset box.
+        return self.offsetbox
+
+    def _locate_by_program(self, renderer):
+        """Hand pltrs (Rust) the offset box as it is now before a layout of
+        a draw (see `.axes._program_locators`), as matplotlib reads it
+        again whenever it draws it."""
+        self._sync_tree()
 
     def __str__(self):
         return f"AnnotationBbox({self.xy[0]:g},{self.xy[1]:g})"
@@ -1383,10 +1653,10 @@ or callable, default: value of *xycoords*
                              else _native_spec(boxstyle, BoxStyle)),
                 "bboxprops": bboxprops, "arrowprops": arrowprops,
                 "fontsize": float(self.get_fontsize())})
-        self.offsetbox._adopt_tree(iter(parts), figure)
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
-        self.offsetbox._joined(self)
         _handles.adopt(self, native, figure)
+        self._own_tree(parts, figure, native)
+        _python_drawing.attach(self)
         loose = self.__dict__.pop("_loose_arrow", None)
         if loose is not None:
             # What the program changed of the arrow before the box joined.

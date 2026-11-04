@@ -41,3 +41,11 @@ artists/(sub)?figure_(getters|setters)$ | ^type\[(artists|lines|patches|texts)\]
 # the axes of a (sub)figure is the list of its Axes, so a figure with Axes
 # fails there with AttributeError (a matplotlib bug), where pltrs sets it.
 artists/subfigure_setters$ | ^exception\[set_mouseover\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a SubFigure's axes attribute is
+
+# pltrs (Rust) lays out the tree of an added offset box itself and asks a
+# box of the program's in it for its extent once per layout (its
+# get_bbox, through measure_box), then draws it once, where matplotlib's
+# parents ask a child's get_bbox again in each of their own get_bbox,
+# get_offset and draw (an AnchoredOffsetbox three times per draw); the
+# extents, offsets and images are the same.
+generated/offsetboxes/program_boxes$ | ^callback\[[^]]+\]: runs another number of times$ | a box of the program's inside a box pltrs (Rust) lays out is measured once per layout, where matplotlib's parents measure their children again in their get_bbox, get_offset and draw

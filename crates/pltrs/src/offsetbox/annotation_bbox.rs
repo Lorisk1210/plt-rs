@@ -6,8 +6,9 @@ use std::rc::Rc;
 use pltrs_core::{Bbox, Path, Point};
 
 use super::anchored_box::{part, texts_of};
+use super::owners::BoxOwner;
 use super::pending::{Parts, adopt_box, frame_patch};
-use super::{BoxItem, OffsetBox, OffsetBoxError, Placement};
+use super::{BoxItem, OffsetBox, OffsetBoxError, Placement, TreeLayout};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
@@ -200,21 +201,6 @@ impl AnnotationBboxArtist {
         })
     }
 
-    /// Where the frame and the child's parts go.
-    pub(crate) fn placements(
-        &self,
-        layout: LayoutContext<'_>,
-    ) -> Result<Vec<Placement<ArtistId>>, OffsetBoxError> {
-        let geometry = self.geometry(layout)?;
-        let mut placements = vec![Placement::Frame {
-            frame: self.frame,
-            bbox: geometry.extent,
-            mutation_scale: Some(layout.points_to_pixels(self.fontsize)),
-        }];
-        placements.extend(self.child.place(layout, geometry.offset)?);
-        Ok(placements)
-    }
-
     /// The frame as the region the arrow starts from (`patchA`): its
     /// outline, with the edge width as tolerance when the edge shows.
     fn frame_region(&self, layout: LayoutContext<'_>) -> Result<Option<ClipRegion>, String> {
@@ -305,6 +291,38 @@ impl AnnotationBboxArtist {
         let paths = arrow.measured_paths(layout, &self.rc, target).ok()?;
         let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
         Some(Path::compound(&displayed))
+    }
+}
+
+impl BoxOwner for AnnotationBboxArtist {
+    fn tree(&self) -> &OffsetBox<ArtistId> {
+        &self.child
+    }
+
+    fn tree_mut(&mut self) -> &mut OffsetBox<ArtistId> {
+        &mut self.child
+    }
+
+    fn parts_mut(&mut self) -> &mut Vec<ArtistId> {
+        &mut self.parts
+    }
+
+    /// The frame, then the child's parts, the child at the box's place
+    /// (matplotlib's `update_positions`).
+    fn lay_out_tree(
+        &self,
+        layout: LayoutContext<'_>,
+    ) -> Result<TreeLayout<ArtistId>, OffsetBoxError> {
+        let geometry = self.geometry(layout)?;
+        let mut tree = TreeLayout::of(&self.child);
+        tree.placements.push(Placement::Frame {
+            frame: self.frame,
+            bbox: geometry.extent,
+            mutation_scale: Some(layout.points_to_pixels(self.fontsize)),
+        });
+        self.child
+            .place_into(layout, geometry.offset, None, &mut tree, 0)?;
+        Ok(tree)
     }
 }
 

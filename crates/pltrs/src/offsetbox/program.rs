@@ -13,11 +13,17 @@
 //! draws it, through the painter (matplotlib's parent calling the child's
 //! `draw`).
 //!
+//! A box of the program's may itself hold boxes pltrs lays out, which its
+//! `draw` places and draws (matplotlib's `OffsetBox` subclass whose
+//! children are `TextArea`s or packers): each is a box placed at a point
+//! ([`ProgramOffsetBox::add_box`]) that the program's box owns, drawn
+//! only when its `draw` draws it.
+//!
 //! [`ArtistPainter::box_extent`]: crate::artist::ArtistPainter::box_extent
 
 use pltrs_core::{Bbox, Point};
 
-use super::{ArtistRef, BoxItem, OffsetBox, lay_out_box};
+use super::{ArtistRef, BoxItem, OffsetBox, PlacedOffsetBox, lay_out_box};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, AttachError, DrawContext,
     LayoutContext, RawHandle, TypedHandle,
@@ -43,13 +49,27 @@ pub struct ProgramBox<A> {
 pltrs_core::archive_struct!(ProgramBox<A> { artist, extent, visible });
 
 impl<A> ProgramBox<A> {
+    /// The leaf of `artist`, a [`ProgramBoxArtist`] (or its handle),
+    /// taking part in its parent's layout when `visible`, of no extent
+    /// until the program measures it.
+    pub fn new(artist: A, visible: bool) -> Self {
+        Self {
+            artist,
+            extent: Bbox::from_bounds(0.0, 0.0, 0.0, 0.0),
+            visible,
+        }
+    }
+
     /// The same leaf referring to `f` of its artist.
-    pub(super) fn map<B>(self, f: &mut impl FnMut(A) -> B) -> ProgramBox<B> {
-        ProgramBox {
-            artist: f(self.artist),
+    pub(super) fn try_map<B, E>(
+        self,
+        f: &mut impl FnMut(A) -> Result<B, E>,
+    ) -> Result<ProgramBox<B>, E> {
+        Ok(ProgramBox {
+            artist: f(self.artist)?,
             extent: self.extent,
             visible: self.visible,
-        }
+        })
     }
 
     /// The extent relative to the box's origin (matplotlib's `get_bbox`).
@@ -80,16 +100,13 @@ impl ProgramBox<BoxItem> {
         let item = BoxItem::from_loose(artist)?;
         let base = item.artist.base().clone();
         let visible = base.visible;
-        Ok(Self {
-            artist: BoxItem {
-                artist: Box::new(ProgramBoxArtist {
-                    base,
-                    ..ProgramBoxArtist::default()
-                }),
-            },
-            extent: Bbox::from_bounds(0.0, 0.0, 0.0, 0.0),
-            visible,
-        })
+        let artist = BoxItem {
+            artist: Box::new(ProgramBoxArtist {
+                base,
+                ..ProgramBoxArtist::default()
+            }),
+        };
+        Ok(Self::new(artist, visible))
     }
 }
 
@@ -101,23 +118,27 @@ pub struct ProgramBoxArtist {
     /// The extent relative to the box's origin, in display pixels.
     extent: Bbox,
     /// Where the box holding it placed the box's origin, in display
-    /// pixels.
-    offset: Point,
+    /// pixels; `None` for a box no box holds (added on its own).
+    offset: Option<Point>,
+    /// The boxes it owns (see [`ProgramOffsetBox::add_box`]).
+    boxes: Vec<ArtistId>,
 }
 
 pltrs_core::archive_struct!(ProgramBoxArtist {
     base,
     extent,
-    offset
+    offset,
+    boxes
 });
 
 impl Default for ProgramBoxArtist {
-    /// A box of no extent at the display origin.
+    /// A box of no extent that no box holds, owning no box.
     fn default() -> Self {
         Self {
             base: ArtistBase::default(),
             extent: Bbox::from_bounds(0.0, 0.0, 0.0, 0.0),
-            offset: Point::ORIGIN,
+            offset: None,
+            boxes: Vec::new(),
         }
     }
 }
@@ -131,13 +152,23 @@ impl Artist for ProgramBoxArtist {
         &mut self.base
     }
 
-    /// Draws nothing: the artist's painter draws the box.
+    /// Draws nothing: the artist's painter draws the box, and the boxes it
+    /// owns where the painter draws them.
     fn draw(&self, _ctx: &mut DrawContext<'_>) {}
 
+    fn children(&self) -> Vec<ArtistId> {
+        self.boxes.clone()
+    }
+
+    fn remove_child(&mut self, child: ArtistId) {
+        self.boxes.retain(|&id| id != child);
+    }
+
     /// The extent at the box's origin (matplotlib's `get_window_extent`
-    /// of an `OffsetBox`).
+    /// of an `OffsetBox`), for a box a box holds.
     fn window_extent(&self, _ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        Some(self.extent.translated(self.offset.x, self.offset.y))
+        self.offset
+            .map(|offset| self.extent.translated(offset.x, offset.y))
     }
 }
 
@@ -163,9 +194,49 @@ impl ArtistHandle for ProgramOffsetBox {
 
 impl ProgramOffsetBox {
     /// Where the box holding it last placed the box's origin, in display
-    /// pixels (what matplotlib's parent gives the child's `set_offset`).
-    pub fn offset(&self) -> Point {
+    /// pixels (what matplotlib's parent gives the child's `set_offset`);
+    /// `None` when no box holds it.
+    pub fn offset(&self) -> Option<Point> {
         self.raw.with::<ProgramBoxArtist, _>(|artist| artist.offset)
+    }
+
+    /// Adds `child` as a box the program's box draws itself (a box among
+    /// the children of matplotlib's `OffsetBox` subclass, whose `draw` sets
+    /// its offset and draws it), with its origin at `offset`, in display
+    /// pixels: the box owns it and its figure lays it out, but draws it
+    /// only where the painter of the program's box draws it. Anchored
+    /// boxes inside it are anchored in the axes or figure the program's
+    /// box is in.
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, Custom};
+    /// use pltrs::offsetbox::{ProgramBoxArtist, ProgramOffsetBox, TextArea};
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::TextProps;
+    /// use pltrs::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let program = ax.adopt_artist(Custom::loose(ProgramBoxArtist::default()).raw(), pltrs::axes::AddAs::Artist)?;
+    /// let program: ProgramOffsetBox = program.downcast().expect("a program's box");
+    /// let text = program.add_box(TextArea::from_text("owned", TextProps::default()), (10.0, 10.0));
+    /// assert_eq!(text.offset(), Point::new(10.0, 10.0));
+    /// assert_eq!(program.children(), [text.id()]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn add_box(
+        &self,
+        child: impl Into<OffsetBox<BoxItem>>,
+        offset: impl Into<Point>,
+    ) -> PlacedOffsetBox {
+        let placed = super::placed_box::add_placed(self.raw(), child.into(), offset.into());
+        self.raw
+            .with_mut::<ProgramBoxArtist, _>(|artist| artist.boxes.push(placed.id()));
+        placed
+    }
+
+    /// The boxes the program's box owns (see [`add_box`](Self::add_box)).
+    pub fn children(&self) -> Vec<ArtistId> {
+        self.raw
+            .with::<ProgramBoxArtist, _>(|artist| artist.boxes.clone())
     }
 
     /// The extent relative to the box's origin, in display pixels.
@@ -202,7 +273,12 @@ pub(crate) fn measure_program_boxes(root: &RawHandle) {
         state
             .store
             .ids()
-            .filter(|&id| state.store.get_as::<ProgramBoxArtist>(id).is_some())
+            .filter(|&id| {
+                state
+                    .store
+                    .get_as::<ProgramBoxArtist>(id)
+                    .is_some_and(|artist| artist.offset.is_some())
+            })
             .filter_map(|id| Some((id, state.store.get(id)?.base().painter.clone()?)))
             .collect()
     };
@@ -240,8 +316,19 @@ pub(super) fn sync_program_boxes(state: &FigureState, tree: &mut OffsetBox<Artis
 /// origin.
 pub(super) fn place(store: &mut ArtistStore, artist: ArtistId, offset: Point) {
     if let Some(artist) = store.get_as_mut::<ProgramBoxArtist>(artist) {
-        artist.offset = offset;
+        artist.offset = Some(offset);
     }
+}
+
+/// Marks the program's boxes of `tree`, which just joined a figure, as
+/// held by a box: placed at the display origin until their holder is laid
+/// out.
+pub(super) fn hold(store: &mut ArtistStore, tree: &mut OffsetBox<ArtistId>) {
+    tree.for_each_program_mut(&mut |leaf| {
+        if let Some(artist) = store.get_as_mut::<ProgramBoxArtist>(leaf.artist) {
+            artist.offset.get_or_insert(Point::ORIGIN);
+        }
+    });
 }
 
 #[cfg(test)]
@@ -310,7 +397,7 @@ mod tests {
         let program = program_box(&anchored);
         assert_eq!(program.extent(), sized());
         let axes = ax.window_extent().expect("an axes");
-        let offset = program.offset();
+        let offset = program.offset().expect("held by the anchored box");
         assert!(
             (offset.x - (axes.x1() - 35.0)).abs() < 1e-9,
             "{offset:?} {axes:?}"
@@ -343,5 +430,33 @@ mod tests {
         program_box(&anchored).set_extent(Bbox::from_bounds(0.0, 0.0, 100.0, 50.0));
         let extent = anchored.window_extent().expect("laid out");
         assert_eq!((extent.width(), extent.height()), (100.0, 50.0));
+    }
+
+    #[test]
+    fn owned_boxes_are_laid_out_but_drawn_only_by_their_owner() {
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        let loose = Custom::loose(ProgramBoxArtist::default());
+        let added = ax
+            .adopt_artist(loose.raw(), crate::axes::AddAs::Artist)
+            .expect("a loose artist");
+        let program: ProgramOffsetBox = added.downcast().expect("a program's box");
+        assert_eq!(program.window_extent(), None, "no box holds it");
+        let text = TextArea::from_text("owned", TextProps::default());
+        let owned = program.add_box(text, (10.0, 20.0));
+        fig.layout();
+        let extent = owned.window_extent().expect("laid out");
+        assert!((extent.x0() - 10.0).abs() < 1e-9, "{extent:?}");
+        owned.set_offset((50.0, 20.0));
+        let moved = owned.artists()[0].window_extent().expect("placed");
+        assert!(
+            (moved.x0() - 50.0).abs() < 1e-9,
+            "laid out again at once: {moved:?}"
+        );
+        let mut renderer = crate::testing::RecordingRenderer::new(400.0, 300.0, 100.0);
+        fig.draw(&mut renderer).expect("drawable");
+        assert_eq!(owned.raw().draw_count(), 0, "the figure does not draw it");
+        program.remove();
+        assert!(!owned.raw().is_attached(), "removed with its owner");
     }
 }

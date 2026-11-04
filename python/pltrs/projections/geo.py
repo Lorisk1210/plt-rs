@@ -93,6 +93,11 @@ class GeoAxes(Axes):
 
     RESOLUTION = 75
 
+    def _gen_axes_patch(self):
+        # docstring inherited
+        from ..patches import Circle
+        return Circle((0.5, 0.5), 0.5)
+
     def format_coord(self, lon, lat):
         """
         Override this method to change how the values are displayed in

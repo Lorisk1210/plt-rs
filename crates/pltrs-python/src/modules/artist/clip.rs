@@ -8,6 +8,7 @@
 //! bounding box of a path, which matplotlib makes of a `Rectangle`.
 
 use pltrs::artist::{ArtistHandle, ClipPathSpec, RawHandle};
+use pltrs::axes::Axes;
 use pltrs::transforms::Transform;
 
 use super::super::path::PyPath;
@@ -85,15 +86,22 @@ fn get_clip_box(artist: RawHandle) -> PyResult<Option<Transform>> {
     }))
 }
 
-/// Registers the module's functions.
+/// Whether `axes` clips what it clips to another region than its box (a
+/// patch of its own, polar and geographic axes; `_artist_clipping`).
+fn clips_to_patch_shape(axes: Axes) -> PyResult<bool> {
+    Ok(axes.clips_to_patch_shape())
+}
+
 /// Whether the artist is clipped to exactly its axes
 /// (`_fully_clipped_to_axes`).
 fn fully_clipped_to_axes(artist: RawHandle) -> PyResult<bool> {
     Ok(artist.fully_clipped_to_axes())
 }
 
+/// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("fully_clipped_to_axes", fully_clipped_to_axes)?;
+    module.add("clips_to_patch_shape", clips_to_patch_shape)?;
     module.add("set_clip_path", set_clip_path)?;
     module.add("clips_to_artist", clips_to_artist)?;
     module.add("set_clip_box", set_clip_box)?;

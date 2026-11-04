@@ -14,7 +14,7 @@ use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
 use pltrs::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOffsetbox, AnchoredOptions, AnnotationBbox,
-    AnnotationBboxOptions, BboxToAnchor, BoxItem, PlacedOffsetBox,
+    AnnotationBboxOptions, BboxToAnchor, BoxItem, PaddedBox, PlacedOffsetBox, ProgramOffsetBox,
 };
 use pltrs::patches::{FancyBboxPatch, Patch};
 use pltrs::text::ArrowProps;
@@ -81,7 +81,7 @@ fn bbox_to_anchor(value: Option<Vec<f64>>) -> PyResult<Option<BboxToAnchor>> {
 /// The settings of an `AnchoredOffsetbox` as a dict: `loc` (a code),
 /// `pad`, `borderpad` (one or two numbers), `prop` (a `FontProperties`),
 /// `frameon`, `bbox_to_anchor` (bounds or a point) and `bbox_transform`.
-pub(super) struct PyAnchoredOptions(AnchoredOptions);
+pub(super) struct PyAnchoredOptions(pub(super) AnchoredOptions);
 
 impl FromPy<'_> for PyAnchoredOptions {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
@@ -108,21 +108,10 @@ fn new_frame(frameon: bool) -> PyResult<Patch<FancyBboxPatch>> {
     Ok(AnchoredBox::new_frame(frameon))
 }
 
-/// The anchored box `child` with `options`, framed by `frame`, the loose
-/// `FancyBboxPatch` the Python box made (its `patch`), which moves in.
-pub(super) fn anchored_box(
-    child: PyOffsetBox,
-    options: PyAnchoredOptions,
-    frame: &RawHandle,
-) -> PyResult<AnchoredBox> {
-    AnchoredBox::new(child.0, options.0)
-        .with_frame(BoxItem::from_loose(frame)?)
-        .map_err(|err| PyErr::type_error(err.to_string()))
-}
-
-/// Adds the box `child` anchored as `options` say and framed by `frame`
-/// (see [`anchored_box`]) to `owner`, an axes or a (sub)figure, taking the
-/// common properties of `plain`.
+/// Adds the box `child` anchored as `options` say and framed by `frame`,
+/// the loose `FancyBboxPatch` the Python box made (its `patch`, which
+/// moves in), to `owner`, an axes or a (sub)figure, taking the common
+/// properties of `plain`.
 fn add_anchored(
     owner: RawHandle,
     plain: RawHandle,
@@ -130,7 +119,9 @@ fn add_anchored(
     options: PyAnchoredOptions,
     frame: RawHandle,
 ) -> PyResult<Added> {
-    let spec = anchored_box(child, options, &frame)?;
+    let spec = AnchoredBox::new(child.joining()?, options.0)
+        .with_frame(BoxItem::from_loose(&frame)?)
+        .map_err(|err| PyErr::type_error(err.to_string()))?;
     let anchored = match Axes::from_raw_handle(&owner) {
         Some(axes) => axes.add_anchored_box(spec),
         None => owner
@@ -140,6 +131,16 @@ fn add_anchored(
     };
     carry_over(&plain, anchored.raw());
     Ok((anchored.raw().clone(), anchored.artists(), anchored.patch()))
+}
+
+/// Anchors the added anchored box `anchored` as `options` say from now on
+/// (matplotlib reads them again at every draw).
+fn set_anchored_options(anchored: RawHandle, options: PyAnchoredOptions) -> PyResult<()> {
+    anchored
+        .downcast::<AnchoredOffsetbox>()
+        .ok_or_else(|| PyErr::type_error("not an anchored offset box"))?
+        .set_options(&options.0);
+    Ok(())
 }
 
 /// The options of an `AnnotationBbox` as a dict: `xybox`, `xycoords`,
@@ -186,11 +187,11 @@ fn add_annotation_bbox(
     options: PyAnnotationBboxOptions,
 ) -> PyResult<Added> {
     let added = match Axes::from_raw_handle(&owner) {
-        Some(axes) => axes.add_annotation_bbox(child.0, xy, options.0),
+        Some(axes) => axes.add_annotation_bbox(child.joining()?, xy, options.0),
         None => owner
             .downcast::<Figure>()
             .ok_or_else(|| PyErr::type_error("an offset box joins an axes or a figure"))?
-            .add_annotation_bbox(child.0, xy, options.0),
+            .add_annotation_bbox(child.joining()?, xy, options.0),
     }
     .map_err(|err| PyErr::value_error(err.to_string()))?;
     carry_over(&plain, added.raw());
@@ -206,15 +207,43 @@ fn add_placed(
     child: PyOffsetBox,
     offset: (f64, f64),
 ) -> PyResult<(RawHandle, Vec<RawHandle>)> {
+    let child = child.joining()?;
     let placed = match Axes::from_raw_handle(&owner) {
-        Some(axes) => axes.add_offset_box(child.0, offset),
+        Some(axes) => axes.add_offset_box(child, offset),
         None => owner
             .downcast::<Figure>()
             .ok_or_else(|| PyErr::type_error("an offset box joins an axes or a figure"))?
-            .add_offset_box(child.0, offset),
+            .add_offset_box(child, offset),
     };
     carry_over(&plain, placed.raw());
     Ok((placed.raw().clone(), placed.artists()))
+}
+
+/// Adds the box `child` with its origin at the display point `offset` as
+/// a box the program's box `program` draws itself (a child of an
+/// `OffsetBox` subclass of the program's, or the box such a subclass of
+/// a package class is), taking the common properties of `plain` when
+/// given; returns the box and the artists of its tree.
+fn add_owned(
+    program: ProgramOffsetBox,
+    plain: Option<RawHandle>,
+    child: PyOffsetBox,
+    offset: (f64, f64),
+) -> PyResult<(RawHandle, Vec<RawHandle>)> {
+    let placed = program.add_box(child.joining()?, offset);
+    if let Some(plain) = plain {
+        carry_over(&plain, placed.raw());
+    }
+    Ok((placed.raw().clone(), placed.artists()))
+}
+
+/// A loose frame as a `PaddedBox` makes its own (its `patch`), shown when
+/// `draw_frame` and styled with `patch_kwargs`.
+fn new_padded_frame(
+    draw_frame: bool,
+    patch_kwargs: PatchKwargs,
+) -> PyResult<Patch<FancyBboxPatch>> {
+    Ok(PaddedBox::new_frame(draw_frame, patch_kwargs.0))
 }
 
 /// Moves the origin of the added plain box `placed` to the display point
@@ -278,30 +307,6 @@ fn update_annotation_positions(annotation: RawHandle) -> PyResult<()> {
     Ok(())
 }
 
-/// Clips the artists of the drawing area at `area` (in tree order) of the
-/// added box `owner`, an anchored, annotation or plain box, or stops
-/// clipping them (`DrawingArea.clip_children`).
-fn set_clip_children(owner: RawHandle, area: usize, clip: bool) -> PyResult<()> {
-    let found = if let Some(anchored) = owner.downcast::<AnchoredOffsetbox>() {
-        anchored.set_clip_children(area, clip)
-    } else if let Some(annotation) = owner.downcast::<AnnotationBbox>() {
-        annotation.set_clip_children(area, clip)
-    } else if let Some(placed) = owner.downcast::<PlacedOffsetBox>() {
-        placed.set_clip_children(area, clip)
-    } else {
-        return Err(PyErr::type_error(
-            "a drawing area belongs to an added offset box",
-        ));
-    };
-    if found {
-        Ok(())
-    } else {
-        Err(PyErr::value_error(format!(
-            "the box has no drawing area {area}"
-        )))
-    }
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_frame", new_frame)?;
@@ -314,5 +319,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_annotation_clip", get_annotation_clip)?;
     module.add("set_annotation_clip", set_annotation_clip)?;
     module.add("set_annotation_fontsize", set_annotation_fontsize)?;
-    module.add("set_clip_children", set_clip_children)
+    module.add("set_anchored_options", set_anchored_options)?;
+    module.add("add_owned", add_owned)?;
+    module.add("new_padded_frame", new_padded_frame)
 }

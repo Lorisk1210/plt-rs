@@ -13,7 +13,9 @@ use crate::axes::PlotError;
 use crate::figure::FigureState;
 use crate::image::{BboxImageArtist, BboxImageOptions, ImageData, ImageError};
 use crate::lines::{LineArtist, LineProps};
-use crate::patches::{BoxShape, BoxStyle, FancyBboxPatch, PatchArtist, PatchProps, PatchShape};
+use crate::patches::{
+    BoxShape, BoxStyle, FancyBboxPatch, Patch, PatchArtist, PatchProps, PatchShape,
+};
 use crate::text::{TextArtist, TextProps};
 
 /// An artist of an offset box that has not joined a figure yet: a patch or
@@ -150,14 +152,30 @@ impl PaddedBox<BoxItem> {
         Self {
             pad,
             child: Box::new(child.into()),
-            frame: frame_patch(
-                BoxStyle::new(BoxShape::Square).with_pad(0.0),
-                draw_frame,
-                frame_props,
-            ),
+            frame: padded_frame(draw_frame, frame_props),
             visible: true,
         }
     }
+
+    /// A loose frame as a padded box makes its own, shown when
+    /// `draw_frame` and styled from `frame_props` (matplotlib's
+    /// `PaddedBox.patch`, made with the box), for a program to style
+    /// before a box takes it as its frame (a [`PaddedBox`] of handles).
+    pub fn new_frame(draw_frame: bool, frame_props: PatchProps) -> Patch<FancyBboxPatch> {
+        Patch::from_raw(RawHandle::loose(
+            padded_frame(draw_frame, frame_props).artist,
+        ))
+    }
+}
+
+/// The frame of a padded box: a square box without padding (see
+/// [`frame_patch`]).
+fn padded_frame(draw_frame: bool, frame_props: PatchProps) -> BoxItem {
+    frame_patch(
+        BoxStyle::new(BoxShape::Square).with_pad(0.0),
+        draw_frame,
+        frame_props,
+    )
 }
 
 /// The parts of a box joining a figure, gathered so that they can be
@@ -193,6 +211,7 @@ impl<'a> Parts<'a> {
     ) -> OffsetBox<ArtistId> {
         let mut tree = tree.map(&mut |item| self.insert(item));
         tree.join_owner(owner);
+        super::program::hold(self.store, &mut tree);
         tree
     }
 

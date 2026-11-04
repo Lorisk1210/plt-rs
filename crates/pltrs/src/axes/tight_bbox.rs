@@ -33,9 +33,10 @@ impl Axes {
     /// assert!(tight.x0() < frame.x0() && tight.y0() < frame.y0());
     /// ```
     pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
-        let mut state = self.raw().figure_state().borrow_mut();
-        state.prepare();
-        state.axes_tight_bbox(self.id(), for_layout_only)
+        self.raw().figure_state().work_on(|state| {
+            state.prepare();
+            state.axes_tight_bbox(self.id(), for_layout_only)
+        })
     }
 
     /// [`Axes::tight_bbox`] without the axes' children (its spines, inset
@@ -54,12 +55,13 @@ impl Axes {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn decorations_tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
-        let mut state = self.raw().figure_state().borrow_mut();
-        state.prepare();
-        if crate::mplot3d::is_axes3d(&state.store, self.id()) {
-            return None;
-        }
-        state.axes_tight_bbox_at(self.id(), for_layout_only, Placement::Located, Extras::None)
+        self.raw().figure_state().work_on(|state| {
+            state.prepare();
+            if crate::mplot3d::is_axes3d(&state.store, self.id()) {
+                return None;
+            }
+            state.axes_tight_bbox_at(self.id(), for_layout_only, Placement::Located, Extras::None)
+        })
     }
 }
 
@@ -105,9 +107,10 @@ impl Axis {
     /// assert_eq!(layout.y0(), full.y0());
     /// ```
     pub fn tight_bbox_with(&self, for_layout_only: bool) -> Option<Bbox> {
-        let mut state = self.axes.raw().figure_state().borrow_mut();
-        state.prepare();
-        state.tight_bbox_of_axis(self.axes.id(), self.name, for_layout_only)
+        self.axes.raw().figure_state().work_on(|state| {
+            state.prepare();
+            state.tight_bbox_of_axis(self.axes.id(), self.name, for_layout_only)
+        })
     }
 }
 
@@ -121,12 +124,13 @@ impl FigureState {
         for_layout_only: bool,
     ) -> Option<Bbox> {
         self.lay_out_axes(axes);
+        if self.store.get_as::<AxesState>(axes)?.axis(name).visible {
+            self.program_axis_measured(axes, name);
+        }
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
-        self.store
-            .get_as_mut::<AxesState>(axes)?
-            .update_ticks(&extent, dpi, shared);
+        self.tick_axes_now(axes, &extent, dpi, shared);
         let state = self.store.get_as::<AxesState>(axes)?;
         if !state.axis(name).visible {
             return None;
@@ -166,18 +170,19 @@ impl FigureState {
     /// the axes measured were drawn.
     pub(crate) fn unlocated_extents(&mut self, axes: ArtistId) -> Option<(Bbox, Bbox)> {
         let state = self.store.get_as::<AxesState>(axes)?;
-        let placed = (
-            state.aspect,
-            state.axis(AxisName::X).ticks.clone(),
-            state.axis(AxisName::Y).ticks.clone(),
-        );
+        let ticked = |name| {
+            let axis = state.axis(name);
+            (axis.ticks.clone(), axis.program_ticked.clone())
+        };
+        let (aspect, placed) = (state.aspect, [AxisName::X, AxisName::Y].map(ticked));
         let tight = self.axes_tight_bbox_at(axes, false, Placement::Original, Extras::Children);
         let extent = self.axes_bbox(axes);
         let state = self.store.get_as_mut::<AxesState>(axes)?;
-        let (aspect, x_ticks, y_ticks) = placed;
         state.aspect = aspect;
-        state.axis_mut(AxisName::X).ticks = x_ticks;
-        state.axis_mut(AxisName::Y).ticks = y_ticks;
+        for (name, (ticks, program_ticked)) in [AxisName::X, AxisName::Y].into_iter().zip(placed) {
+            let axis = state.axis_mut(name);
+            (axis.ticks, axis.program_ticked) = (ticks, program_ticked);
+        }
         Some((extent?, tight?))
     }
 
@@ -195,12 +200,12 @@ impl FigureState {
         }
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
         self.lay_out_axes_at(axes, placement);
+        self.program_axes_measured(axes, for_layout_only, extras == Extras::Children);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
-        let state = self.store.get_as_mut::<AxesState>(axes)?;
-        state.update_ticks(&extent, dpi, shared);
-        let children = state.children.clone();
+        self.tick_axes_now(axes, &extent, dpi, shared);
+        let children = self.store.get_as::<AxesState>(axes)?.children.clone();
         self.update_title_position(axes);
         let insets: Vec<ArtistId> = children
             .into_iter()

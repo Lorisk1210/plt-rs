@@ -1,10 +1,11 @@
 //! The cell a figure's handles share its state through, and the changes
 //! of the figures watched from outside.
 
-use std::cell::{BorrowError, BorrowMutError, Cell, Ref, RefCell, RefMut};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
 use super::in_use::{self, Access};
+use super::lend::Lending;
 use super::{Figure, FigureState};
 use crate::artist::{ArtistId, RawHandle};
 
@@ -20,8 +21,15 @@ pltrs_core::thread_state! {
 /// changes were taken, which lets code following figures from outside
 /// (matplotlib's transform trees in pltrs (Python)) look again at only the
 /// figures that may have changed.
+///
+/// The state may be worked on outside the cell, and lent back to the
+/// program's code the work runs ([`FigureCell::work_on`]): meanwhile the
+/// cell's borrows treat it as borrowed, for every thread but the one
+/// working on it while it is lent.
 pub(crate) struct FigureCell {
     state: RefCell<FigureState>,
+    /// Where the state is: in the cell, or worked on outside it.
+    lending: Cell<Lending>,
     /// The figure, while it is watched.
     watched: RefCell<Option<WeakFigure>>,
     /// Whether the figure is among the changed figures not yet taken.
@@ -33,6 +41,7 @@ impl FigureCell {
     pub(crate) fn new(state: FigureState) -> Self {
         Self {
             state: RefCell::new(state),
+            lending: Cell::new(Lending::Home),
             watched: RefCell::new(None),
             queued: Cell::new(false),
         }
@@ -42,39 +51,61 @@ impl FigureCell {
     /// code further up the call stack changes is reached as
     /// [`in_use::reached`] says.
     pub(crate) fn borrow(&self) -> Ref<'_, FigureState> {
-        self.state
-            .try_borrow()
-            .unwrap_or_else(|_| in_use::reached(Access::Read))
+        self.try_borrow()
+            .unwrap_or_else(|| in_use::reached(Access::Read))
     }
 
-    /// Read access to the state, unless it is borrowed for change.
-    pub(crate) fn try_borrow(&self) -> Result<Ref<'_, FigureState>, BorrowError> {
-        self.state.try_borrow()
+    /// Read access to the state, unless it is borrowed for change (or
+    /// worked on outside the cell).
+    pub(crate) fn try_borrow(&self) -> Option<Ref<'_, FigureState>> {
+        self.lending
+            .get()
+            .reachable()
+            .then(|| self.state.try_borrow().ok())
+            .flatten()
     }
 
     /// Write access to the state (as [`RefCell::borrow_mut`]), which
     /// counts as a change; a state that code further up the call stack
     /// uses is reached as [`in_use::reached`] says.
     pub(crate) fn borrow_mut(&self) -> RefMut<'_, FigureState> {
-        let state = self
-            .state
-            .try_borrow_mut()
-            .unwrap_or_else(|_| in_use::reached(Access::Change));
-        self.changed();
-        state
+        self.try_borrow_mut()
+            .unwrap_or_else(|| in_use::reached(Access::Change))
     }
 
-    /// Write access to the state, unless it is borrowed; a change when
-    /// given.
-    pub(crate) fn try_borrow_mut(&self) -> Result<RefMut<'_, FigureState>, BorrowMutError> {
-        let state = self.state.try_borrow_mut()?;
+    /// Write access to the state, unless it is borrowed (or worked on
+    /// outside the cell); a change when given.
+    pub(crate) fn try_borrow_mut(&self) -> Option<RefMut<'_, FigureState>> {
+        if !self.lending.get().reachable() {
+            return None;
+        }
+        let state = self.state.try_borrow_mut().ok()?;
         self.changed();
-        Ok(state)
+        Some(state)
     }
 
-    /// Whether the state is borrowed now (for reading or for change).
+    /// Whether code still running uses the state now: it is borrowed (for
+    /// reading or for change), or a layout works on it outside the cell
+    /// (lent to the program's code meanwhile or not).
     pub(crate) fn in_use(&self) -> bool {
-        self.state.try_borrow_mut().is_err()
+        self.lending.get() != Lending::Home || self.state.try_borrow_mut().is_err()
+    }
+
+    /// Where the state is.
+    pub(super) fn lending(&self) -> Lending {
+        self.lending.get()
+    }
+
+    /// Records where the state is.
+    pub(super) fn set_lending(&self, lending: Lending) {
+        self.lending.set(lending);
+    }
+
+    /// Exchanges the state in the cell with `state`, whatever the cell
+    /// lends: how a state worked on outside the cell leaves and comes
+    /// back.
+    pub(super) fn swap_state(&self, state: &mut FigureState) {
+        std::mem::swap(&mut *self.state.borrow_mut(), state);
     }
 
     /// The address of the state (as [`RefCell::as_ptr`]), which tells
@@ -194,7 +225,7 @@ mod tests {
         drop(other.state_cell().borrow_mut());
         assert_eq!(take_changed_figures().len(), 0);
         let held = fig.state_cell().borrow();
-        assert!(fig.state_cell().try_borrow_mut().is_err());
+        assert!(fig.state_cell().try_borrow_mut().is_none());
         drop(held);
         assert_eq!(
             take_changed_figures().len(),

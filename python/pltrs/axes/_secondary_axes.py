@@ -74,6 +74,10 @@ class SecondaryAxis(Axes):
         self._child_of = parent
         self._init_axes_state()
         self._axis = self.xaxis if orientation == 'x' else self.yaxis
+        # The axis' scale maps through the program's functions, which
+        # matplotlib's tick updates call.
+        from .. import _tick_updates
+        _tick_updates.install(parent.figure)
         if self._pos < 0.5:
             # flip the location strings...
             self._locstrings = self._locstrings[::-1]

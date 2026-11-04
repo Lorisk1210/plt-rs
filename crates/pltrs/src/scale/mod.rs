@@ -116,6 +116,13 @@ pub trait Scale: fmt::Debug + Any {
     /// The default locators and formatters for `axis` under `settings`.
     fn default_tickers(&self, axis: AxisName, settings: &TickerSettings) -> AxisTickers;
 
+    /// Whether the scale runs code of the program's that observes its
+    /// calls (see [`AxisMap::calls_program`]): by default, whether its
+    /// map does.
+    fn calls_program(&self) -> bool {
+        self.axis_map().is_some_and(|map| map.calls_program())
+    }
+
     /// Applies the forward map to every value.
     fn forward(&self, values: &[f64]) -> Vec<f64> {
         match self.axis_map() {

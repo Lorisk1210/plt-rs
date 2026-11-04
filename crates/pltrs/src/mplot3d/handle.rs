@@ -18,6 +18,7 @@ use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle, Typ
 use crate::axes::{Axes, AxesState};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::colors::Color;
+use crate::figure::FigureState;
 use crate::gridspec::SubplotSpec;
 use crate::text::Text;
 use crate::transforms::{Transform, TransformContext};
@@ -246,7 +247,7 @@ impl Axes3D {
     /// has placed the axes: matplotlib's `get_position`, which applies the
     /// aspect).
     pub fn position(&self) -> Bbox {
-        self.raw.figure_state().borrow_mut().prepare();
+        self.raw.figure_state().work_on(FigureState::prepare);
         self.squared_position()
     }
 
@@ -294,8 +295,7 @@ impl Axes3D {
     /// assert!(tight.width() > 0.0 && tight.height() > 0.0);
     /// ```
     pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let mut state = self.raw.figure_state().prepared();
         super::state::axes3d_fresh_tight_bbox(&mut state, self.id(), for_layout_only)
     }
 

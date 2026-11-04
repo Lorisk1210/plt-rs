@@ -37,6 +37,13 @@ pub trait AxisMap: fmt::Debug + std::any::Any {
             *value = self.inverse(*value);
         }
     }
+    /// Whether the map runs code of the program's that observes its
+    /// calls (a scale of a host language's functions): the axes it scales
+    /// are then ticked as matplotlib ticks them, as often (see
+    /// [`TickUpdater`](crate::axes::TickUpdater)). `false` by default.
+    fn calls_program(&self) -> bool {
+        false
+    }
 }
 
 /// An invertible map of the plane (e.g. a polar projection).

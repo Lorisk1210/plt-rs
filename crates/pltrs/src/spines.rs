@@ -479,8 +479,7 @@ impl Spine {
     /// assert!((left.extents().x0() - frame.x0()).abs() < 1e-9);
     /// ```
     pub fn display_path(&self) -> Option<Path> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let ctx = LayoutContext::new(&state);
         let spine = state.store.get_as::<SpineArtist>(self.raw.id())?;
         let (path, affine) = spine.display_path(ctx)?;

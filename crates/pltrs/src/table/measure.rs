@@ -22,8 +22,7 @@ impl TableCell {
         f: impl FnOnce(&Cell, usize, &TableArtist, LayoutContext<'_>, &AxesMaps) -> R,
     ) -> Option<R> {
         let raw = self.table().raw();
-        let mut state = raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         let table = state.store.get_as::<TableArtist>(raw.id())?;
         let maps = AxesMaps::of(&layout.axes_extent(table.axes?)?)?;

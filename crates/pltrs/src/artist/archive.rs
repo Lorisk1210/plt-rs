@@ -241,7 +241,7 @@ impl RawHandle {
     pub fn exists(&self) -> bool {
         self.figure_state()
             .try_borrow()
-            .map_or(true, |state| state.artist(self.id()).is_some())
+            .is_none_or(|state| state.artist(self.id()).is_some())
     }
 }
 

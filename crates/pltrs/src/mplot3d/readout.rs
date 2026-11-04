@@ -98,8 +98,7 @@ impl Axes3D {
     pub fn format_data(&self, axis: Axis3, value: f64) -> Option<String> {
         let plane = self.plane().id();
         let trans = {
-            let mut state = self.raw().figure_state().borrow_mut();
-            state.prepare();
+            let state = self.raw().figure_state().prepared();
             state.data_transform(plane)?
         };
         let inverse = trans.inverted()?;

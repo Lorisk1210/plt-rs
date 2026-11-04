@@ -5,6 +5,7 @@
 
 mod tickers;
 
+use std::cell::RefCell;
 use std::fmt;
 
 use pltrs_core::{Bbox, Point};
@@ -211,7 +212,14 @@ pub struct GridFinder {
     grid_locator2: Box<dyn GridLocator>,
     tick_formatter1: Box<dyn GridFormatter>,
     tick_formatter2: Box<dyn GridFormatter>,
+    /// The grid last computed and the box it was computed over, which
+    /// stands while the box does (matplotlib's grid helper computes the
+    /// grid again only when the axes' limits change, `update_lim`).
+    last: RefCell<Option<Box<LastGrid>>>,
 }
+
+/// A grid computed over a box.
+type LastGrid = (Bbox, Result<GridInfo, GridError>);
 
 pltrs_core::archive_struct!(GridFinder {
     transform,
@@ -220,7 +228,7 @@ pltrs_core::archive_struct!(GridFinder {
     grid_locator2,
     tick_formatter1,
     tick_formatter2
-});
+} skip { last });
 
 /// The number of points of each raw grid line.
 const LINE_POINTS: usize = 100;
@@ -239,6 +247,7 @@ impl GridFinder {
             grid_locator2: options.grid_locator2.unwrap_or_else(locator),
             tick_formatter1: options.tick_formatter1.unwrap_or_else(formatter),
             tick_formatter2: options.tick_formatter2.unwrap_or_else(formatter),
+            last: RefCell::new(None),
         }
     }
 
@@ -287,8 +296,21 @@ impl GridFinder {
     }
 
     /// The grid lines and their crossings with the data box `bbox`
-    /// (matplotlib's `get_grid_info`).
+    /// (matplotlib's `get_grid_info`), computed again only for another
+    /// box than the last.
     pub fn grid_info(&self, bbox: Bbox) -> Result<GridInfo, GridError> {
+        if let Some((last, info)) = self.last.borrow().as_deref()
+            && *last == bbox
+        {
+            return info.clone();
+        }
+        let info = self.compute_grid_info(bbox);
+        *self.last.borrow_mut() = Some(Box::new((bbox, info.clone())));
+        info
+    }
+
+    /// [`grid_info`](Self::grid_info) computed.
+    fn compute_grid_info(&self, bbox: Bbox) -> Result<GridInfo, GridError> {
         let extremes = self.extremes(bbox)?;
         let lon = self.levels(Coordinate::Lon, extremes.x0(), extremes.x1())?;
         let lat = self.levels(Coordinate::Lat, extremes.y0(), extremes.y1())?;

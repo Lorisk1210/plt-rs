@@ -14,6 +14,7 @@ use super::handle::Axes3D;
 use super::math::Vec3;
 use crate::artist::{Artist, ArtistHandle, ArtistLookup, RawHandle};
 use crate::colors::Color;
+use crate::figure::FigureState;
 use crate::patches::{Patch, PatchArtist, PatchShape, PatchStyle};
 
 impl Axes3D {
@@ -110,7 +111,7 @@ impl Axes3D {
         self.read_art(patch, |art| {
             matches!(art, Art3D::Patch(_) | Art3D::PathPatch(_)).then_some(())
         })?;
-        self.raw().figure_state().borrow_mut().prepare();
+        self.raw().figure_state().work_on(FigureState::prepare);
         (patch
             .downcast::<Patch<ProjectedOutline>>()
             .map(|p| p.shape().0))

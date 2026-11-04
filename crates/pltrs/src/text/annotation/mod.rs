@@ -537,8 +537,7 @@ impl Annotation {
         f: impl FnOnce(&AnnotationState, &TextArtist, LayoutContext<'_>) -> Option<R>,
     ) -> Option<R> {
         let raw = self.text.raw();
-        let mut state = raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         let text = state.store.get_as::<TextArtist>(raw.id())?;
         f(text.annotation.as_deref()?, text, layout)

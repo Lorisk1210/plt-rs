@@ -89,8 +89,7 @@ impl AnnotationBbox {
     /// arrow).
     pub fn arrow_display_path(&self) -> Option<Path> {
         let raw: &RawHandle = self.raw();
-        let mut state = raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         state
             .store

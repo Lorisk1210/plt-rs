@@ -8,7 +8,7 @@ use super::cell::PlacedCell;
 use super::handle::TableCell;
 use super::layout::AxesMaps;
 use crate::artist::{ArtistHandle, ArtistId, DrawContext};
-use crate::figure::{CanvasError, DrawErrors, Figure};
+use crate::figure::{CanvasError, DrawErrors, Figure, FigureState};
 
 impl TableArtist {
     /// The maps of the table's axes and its cells placed in the layout
@@ -115,7 +115,7 @@ impl TableCell {
     /// The problems met while drawing.
     pub fn draw_onto(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         let raw = self.table().raw();
-        raw.figure_state().borrow_mut().prepare();
+        raw.figure_state().work_on(FigureState::prepare);
         let state = raw.figure_state().borrow();
         let mut ctx = DrawContext::new(&state, renderer);
         draw_alone(&mut ctx, raw.id(), self.key());

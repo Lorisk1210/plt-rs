@@ -97,6 +97,10 @@ impl ScaleFunction for BoundarySpacing {
             forward_boundaries(&self.boundaries, &[value])[0]
         }
     }
+
+    fn calls_program(&self) -> bool {
+        false
+    }
 }
 
 /// A value mapped through a norm, or with `inverse`, the value a norm
@@ -127,6 +131,10 @@ impl ScaleFunction for NormSpacing {
             Ok([Normalized::Index(i)]) => *i as f64,
             _ => f64::NAN,
         }
+    }
+
+    fn calls_program(&self) -> bool {
+        self.norm.borrow().calls_program()
     }
 
     /// The norm (or its inverse) called once with all the values, as

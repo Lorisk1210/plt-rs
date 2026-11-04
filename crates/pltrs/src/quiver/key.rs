@@ -351,8 +351,7 @@ impl QuiverKey {
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
     pub fn vector_paths(&self) -> Vec<Path> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         state
             .store

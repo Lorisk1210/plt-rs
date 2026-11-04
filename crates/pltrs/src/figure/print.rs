@@ -58,6 +58,7 @@ impl Drop for Saving<'_> {
             let mut state = figure.state_mut();
             state.print_window = None;
             state.saving = false;
+            state.draws_per_layout = 1;
         }
         figure.set_dpi(self.dpi);
         figure.set_facecolor(self.colors.0.clone());
@@ -151,12 +152,19 @@ impl Figure {
         let bbox = options
             .bbox_inches
             .or_else(|| (rc.savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight));
+        // matplotlib draws a figure with a layout engine, or to be cut to
+        // its tight box, once before printing it (without rendering), and
+        // prints it without the engine: the program's tick helpers see
+        // both draws.
+        let predrawn = self.layout_engine().is_some();
         match bbox {
-            // matplotlib draws the figure once without rendering to measure
-            // it.
+            // The draw measuring the figure.
             Some(BboxInches::Tight) => self.layout(),
             // The layout the window is cut from, at the print resolution.
-            Some(BboxInches::Inches(_)) => self.prepare_layout(),
+            Some(BboxInches::Inches(_)) => {
+                self.state_mut().draws_per_layout = usize::from(predrawn);
+                self.prepare_layout();
+            }
             None => {}
         }
         let window = match bbox {
@@ -172,6 +180,9 @@ impl Figure {
         let mut state = self.state_mut();
         state.print_window = window;
         state.saving = true;
+        if window.is_none() && predrawn {
+            state.draws_per_layout = 2;
+        }
         drop(state);
         (saving, Page { width, height, dpi })
     }

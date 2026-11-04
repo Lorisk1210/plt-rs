@@ -9,6 +9,7 @@ use pltrs::ticker::AxisInfo;
 
 use super::axis;
 use super::owner::{AnyAxis, AxisOwner};
+use crate::binding::FloatArray;
 use crate::binding::prelude::*;
 
 /// The view limits, in the order they were set.
@@ -69,8 +70,25 @@ fn info_fields(info: AxisInfo) -> PyResult<InfoFields> {
     ))
 }
 
+/// The axis description `info` with the major tick locations `major`,
+/// which minor locators place their ticks between (matplotlib's
+/// `AutoMinorLocator` reads them from the axis).
+fn with_major_ticks(mut info: AxisInfo, major: FloatArray) -> PyResult<AxisInfo> {
+    info.major_ticks = major.0.into_vec()?;
+    Ok(info)
+}
+
+/// `values` through the scale of axis `name` (matplotlib's
+/// `axis.get_transform().transform(values)`).
+fn scaled(axes: Axes, name: String, values: NdArray) -> PyResult<NdArray> {
+    let scaled = axis(&axes, &name)?.scaled(&values.data);
+    NdArray::with_shape(scaled, values.shape)
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("scaled", scaled)?;
+    module.add("with_major_ticks", with_major_ticks)?;
     module.add("get_view_interval", get_view_interval)?;
     module.add("set_view_interval", set_view_interval)?;
     module.add("get_data_interval", get_data_interval)?;

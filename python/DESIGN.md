@@ -805,10 +805,34 @@ must refer back to Python objects that can reach it (an event callback
 holding its figure) must hold them weakly, or the cycle runs through Rust
 where Python's garbage collector cannot see it.
 
-Code pltrs (Rust) runs while it lays a figure out or draws it (a
-formatter, a locator, a transform, a norm, a path effect, the text
-measurer) finds the figure in use: borrowed for change while it is laid
-out, for reading while it is drawn. matplotlib's may still change it, so a
+An axis whose locator, formatter or scale is Python's (a class of the
+program's, a `FuncFormatter`, a function scale, a secondary axis, the
+colorbar of a norm of the program's) is ticked by the program, as
+matplotlib's `Axis` ticks it, wherever matplotlib does: pltrs (Rust)
+models matplotlib's call sites of `Axis._update_ticks` (`Axis.draw` and
+`get_tightbbox`, the label placement's siblings and spine, the title
+placement, `Axes.get_tightbbox`'s spines, the layout engines' passes,
+the draw before a print; `axes/tick_sites.rs`) and calls the figure's
+`TickUpdater` there (`axes/tick_updates.rs`), which `_tick_updates`
+installs once a figure has such an axis: it runs matplotlib's
+`_update_ticks` with the program's objects, so that the program's code
+is called as often, in the same order and with the same arguments.
+pltrs' own helpers are computed natively where pltrs needs them, as
+before; the ticks the program gave stand while asked for at the same
+geometry.
+
+While pltrs (Rust) lays a figure out it works on the figure's state taken
+out of its cell (`FigureCell::work_on`, `figure/lend.rs`), and lends it
+back to the cell for each call of the program's tick updates
+(`FigureState::lend`): the program finds the figure free, as the layout
+left it, reads it (limits, ticks, positions) and changes it at once,
+and the rest of the layout sees the change, as in matplotlib. Only the
+thread laying the figure out finds it free meanwhile.
+
+Other code pltrs (Rust) runs while it lays a figure out or draws it (a
+transform, a norm, a path effect, the text measurer) finds the figure in
+use: taken out while it is laid out, borrowed for reading while it is
+drawn. matplotlib's may still change it, so a
 native call made from such code (any native call made while another
 native call of its thread runs) runs inside `pltrs::figure::reenter`,
 which stops it where it reaches the figure in use, instead of letting the

@@ -5,7 +5,7 @@ use pltrs_render::Sketch;
 
 use super::{AggFilter, ArtistId, ClipPathSpec, LayoutContext, Picker, RawHandle};
 use crate::axes::Axes;
-use crate::figure::Figure;
+use crate::figure::{Figure, FigureState};
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
 
@@ -495,8 +495,8 @@ pub trait ArtistHandle {
         let figure = self.raw().figure_state();
         // A figure being drawn, which code run meanwhile measures, is laid
         // out already (and borrowed).
-        if let Ok(mut state) = figure.try_borrow_mut() {
-            state.prepare();
+        if figure.try_borrow_mut().is_some() {
+            figure.work_on(FigureState::prepare);
         }
         let state = figure.borrow();
         let ctx = LayoutContext::new(&state);

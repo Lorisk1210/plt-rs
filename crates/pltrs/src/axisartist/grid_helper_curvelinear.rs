@@ -250,7 +250,7 @@ pub(crate) fn curve_ticks(
         .filter(|&(v, _)| low <= v && v <= high)
         .collect();
     let along: Vec<f64> = kept.iter().map(|&(v, _)| v).collect();
-    let func = |p: Point| to_display.transform_point(p);
+    let func = |points: &mut [Point]| to_display.transform_points(points);
     let (points, (normals, tangents)) = match line.nth {
         AxisName::X => {
             let (points, dx, dy) =
@@ -296,7 +296,7 @@ pub(crate) fn curve_label_position(
         AxisName::X => (line.value, f64::midpoint(ymin, ymax)),
         AxisName::Y => (f64::midpoint(xmin, xmax), line.value),
     };
-    let func = |p: Point| to_display.transform_point(p);
+    let func = |points: &mut [Point]| to_display.transform_points(points);
     let (points, dx, dy) = value_and_jac_angle(&func, &[x], &[y], (xmin, xmax), (ymin, ymax));
     let xy = points[0];
     let p = to_axes.transform_point(xy);
@@ -323,23 +323,25 @@ fn steps(values: &[f64], lim: (f64, f64)) -> (Vec<f64>, Vec<f64>) {
         .unzip()
 }
 
+/// A function at points moved by steps along each coordinate (see
+/// [`thetas`]).
+type MovedFn<'a> = dyn Fn(&[f64], &[f64]) -> Vec<Point> + 'a;
+
 /// The angles (radians) of the numerical derivative of `eval` along one
-/// coordinate: `eval(i, dp, dq)` is the function at point `i` moved by
-/// `dp` along that coordinate and `dq` along the other. The step doubles
-/// until the derivative is not null; a degenerate derivative is retried
-/// after a step `eps_q` along the other coordinate (matplotlib's
+/// coordinate: `eval(dp, dq)` is the function at every point moved by
+/// `dp` along that coordinate and `dq` along the other (one step per
+/// point), evaluated at once, as matplotlib evaluates arrays. The step
+/// doubles until the derivative is not null; a degenerate derivative is
+/// retried after a step `eps_q` along the other coordinate (matplotlib's
 /// `calc_thetas`, vectorized like numpy: all points share the loop).
-fn thetas(
-    eval: &dyn Fn(usize, f64, f64) -> Point,
-    eps_p0: &[f64],
-    eps_max: &[f64],
-    eps_q: &[f64],
-) -> Vec<f64> {
+fn thetas(eval: &MovedFn<'_>, eps_p0: &[f64], eps_max: &[f64], eps_q: &[f64]) -> Vec<f64> {
     let n = eps_p0.len();
     let mut thetas = vec![f64::NAN; n];
     let mut missing = vec![true; n];
     let mut eps_p = eps_p0.to_vec();
+    let zeros = vec![0.0; n];
     for pass in [None, Some(eps_q)] {
+        let dq = pass.unwrap_or(&zeros);
         while missing.iter().any(|&m| m) && eps_p.iter().zip(eps_max).any(|(e, max)| e.abs() < *max)
         {
             if pass.is_none() && eps_p.iter().any(|&e| e > 1.0) {
@@ -348,11 +350,10 @@ fn thetas(
             for (e, &max) in eps_p.iter_mut().zip(eps_max) {
                 *e = np_minimum(*e, max);
             }
+            let (moved, base) = (eval(&eps_p, dq), eval(&zeros, dq));
             for i in 0..n {
-                let dq = pass.map_or(0.0, |q| q[i]);
-                let (moved, base) = (eval(i, eps_p[i], dq), eval(i, 0.0, dq));
-                let df_x = (moved.x - base.x) / eps_p[i];
-                let df_y = (moved.y - base.y) / eps_p[i];
+                let df_x = (moved[i].x - base[i].x) / eps_p[i];
+                let df_y = (moved[i].y - base[i].y) / eps_p[i];
                 if missing[i] && (df_x != 0.0 || df_y != 0.0) {
                     thetas[i] = df_y.atan2(df_x);
                     missing[i] = false;
@@ -371,7 +372,7 @@ fn thetas(
 /// along x and along y, stepping towards the farther of the bounds
 /// `xlim` and `ylim` (matplotlib's `_value_and_jac_angle`).
 pub(crate) fn value_and_jac_angle(
-    func: &dyn Fn(Point) -> Point,
+    func: &dyn Fn(&mut [Point]),
     xs: &[f64],
     ys: &[f64],
     xlim: (f64, f64),
@@ -385,15 +386,24 @@ pub(crate) fn value_and_jac_angle(
         }
     };
     let (xs, ys) = (broadcast(xs), broadcast(ys));
-    let values = xs
+    // `func` at the points moved by `(dx, dy)`, one step each.
+    let moved = |dx: &[f64], dy: &[f64]| -> Vec<Point> {
+        let mut points: Vec<Point> = (0..n)
+            .map(|i| Point::new(xs[i] + dx[i], ys[i] + dy[i]))
+            .collect();
+        func(&mut points);
+        points
+    };
+    let mut values: Vec<Point> = xs
         .iter()
         .zip(&ys)
-        .map(|(&x, &y)| func(Point::new(x, y)))
+        .map(|(&x, &y)| Point::new(x, y))
         .collect();
+    func(&mut values);
     let (xeps, xeps_max) = steps(&xs, xlim);
     let (yeps, yeps_max) = steps(&ys, ylim);
-    let along_x = |i: usize, dp: f64, dq: f64| func(Point::new(xs[i] + dp, ys[i] + dq));
-    let along_y = |i: usize, dp: f64, dq: f64| func(Point::new(xs[i] + dq, ys[i] + dp));
+    let along_x = |dp: &[f64], dq: &[f64]| moved(dp, dq);
+    let along_y = |dp: &[f64], dq: &[f64]| moved(dq, dp);
     let thetas_dx = thetas(&along_x, &xeps, &xeps_max, &yeps);
     let thetas_dy = thetas(&along_y, &yeps, &yeps_max, &xeps);
     (values, thetas_dx, thetas_dy)
@@ -404,9 +414,14 @@ mod tests {
     use super::*;
     use std::f64::consts::FRAC_PI_2 as VERTICAL;
 
+    /// `f` applied to each point in place.
+    fn pointwise(f: impl Fn(Point) -> Point) -> impl Fn(&mut [Point]) {
+        move |points: &mut [Point]| points.iter_mut().for_each(|p| *p = f(*p))
+    }
+
     #[test]
     fn derivatives_of_a_shear() {
-        let shear = |p: Point| Point::new(p.x, p.y - p.x);
+        let shear = pointwise(|p: Point| Point::new(p.x, p.y - p.x));
         let (values, dx, dy) = value_and_jac_angle(
             &shear,
             &[3.0],
@@ -426,7 +441,7 @@ mod tests {
     fn degenerate_derivatives_step_along_the_other_coordinate() {
         // The polar transform has no angular derivative at r = 0; the
         // values are matplotlib's.
-        let polar = |p: Point| Point::new(p.y * p.x.cos(), p.y * p.x.sin());
+        let polar = pointwise(|p: Point| Point::new(p.y * p.x.cos(), p.y * p.x.sin()));
         let unbounded = (f64::NEG_INFINITY, f64::INFINITY);
         let (_, dx, dy) = value_and_jac_angle(&polar, &[0.5], &[0.0], (0.0, 1.0), (0.0, 10.0));
         assert!(

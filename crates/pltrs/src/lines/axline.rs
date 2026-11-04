@@ -109,8 +109,7 @@ impl Line2D {
     /// it); `None` for other lines, or when the line cannot be placed.
     pub fn axline_display_segment(&self) -> Option<(Point, Point)> {
         self.infinite()?;
-        let mut state = self.raw().figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw().figure_state().prepared();
         let layout = LayoutContext::new(&state);
         let line = layout.store().get_as::<LineArtist>(self.raw().id())?;
         let resolved = layout.resolve(&line.transform())?;

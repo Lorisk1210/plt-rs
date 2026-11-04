@@ -11,6 +11,7 @@ mod draw_hook;
 mod draw_order;
 mod frame;
 mod in_use;
+mod lend;
 mod mosaic;
 mod mosaic_axes;
 mod no_output;
@@ -459,7 +460,7 @@ impl Figure {
     pub(crate) fn prepare_layout(&self) {
         self.run_layout_hook();
         self.root_handle().measure_painters();
-        self.state.borrow_mut().prepare_for_draw();
+        self.state.work_on(FigureState::prepare_for_draw);
         crate::offsetbox::measure_program_boxes(&self.root_handle());
         crate::axes::run_limit_callbacks(&self.state);
     }

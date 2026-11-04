@@ -51,6 +51,8 @@ impl Archive for FigureState {
             canvas: _,
             draw_hook: _,
             layout_hook: _,
+            tick_updater: _,
+            draws_per_layout: _,
             role,
         } = self;
         store.encode(encoder)?;
@@ -100,6 +102,8 @@ impl Archive for FigureState {
             canvas: CanvasState::default(),
             draw_hook: None,
             layout_hook: None,
+            tick_updater: None,
+            draws_per_layout: 1,
             role: StateRole::decode(decoder)?,
         };
         if state.detached.overlaps(&state.store) {

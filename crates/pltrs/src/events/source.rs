@@ -22,8 +22,7 @@ pub struct EventSource {
 /// The data coordinates of display point `(x, y)` in `ax`.
 fn data_at(ax: &Axes, x: f64, y: f64) -> (Option<f64>, Option<f64>) {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.prepared();
     let state: &FigureState = &state;
     let inverse = state
         .data_transform(ax.id())

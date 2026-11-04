@@ -86,6 +86,10 @@ fn split(data: &[Option<f64>]) -> (NdArray, NdArray<bool>) {
 }
 
 impl Norm for PythonNorm {
+    fn calls_program(&self) -> bool {
+        true
+    }
+
     fn vmin(&self) -> Option<f64> {
         self.vmin
     }

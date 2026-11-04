@@ -74,8 +74,11 @@ impl RawHandle {
     /// being laid out, drawn or changed by a caller further up, and a
     /// change through any handle meanwhile panics, as a `RefCell` borrowed
     /// twice does, unless it runs inside
-    /// [`reenter`](crate::figure::reenter). The figure is in use while a
-    /// callback it runs (a program's formatter, say) runs.
+    /// [`reenter`](crate::figure::reenter), or the layout lends the
+    /// figure to the code it calls on its thread (the program's tick
+    /// updates, see [`TickUpdater`](crate::axes::TickUpdater)). The figure
+    /// is in use while a callback it runs (a program's formatter, say)
+    /// runs.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -243,8 +246,7 @@ impl RawHandle {
     /// `None`), and which of its items (matplotlib's `contains`); `None`
     /// when it misses or the artist was removed.
     pub(crate) fn hit_test(&self, at: Point, radius: Option<f64>) -> Option<Vec<usize>> {
-        let mut state = self.figure.borrow_mut();
-        state.prepare();
+        let state = self.figure.prepared();
         let layout = LayoutContext::new(&state);
         layout.store().get(self.id)?.pick_hit(&layout, at, radius)
     }

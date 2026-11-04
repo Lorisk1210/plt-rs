@@ -139,10 +139,12 @@ def _install(axis, kind, minor, helper, replacing):
     nowhere), and register it."""
     install_native = (_axis.install_locator if kind == "locator"
                       else _axis.install_formatter)
+    description = _description(kind, helper)
     installed = install_native(axis.axes._native, axis.axis_name, bool(minor),
-                               *_description(kind, helper), replacing)
+                               *description, replacing)
     if installed is not None:
         _keep(axis, helper, installed)
+    _ticked_by_program(axis, [description])
 
 
 def _description(kind, helper):
@@ -175,14 +177,24 @@ def use_axis_info(axis, info, default_limits):
     for helper, _ in slots:
         if helper is not None:
             helper.set_axis(axis)
+    descriptions = [None if helper is None else _description(kind, helper)
+                    for helper, kind in slots]
     installed = _axis.use_axis_info(
-        axis.axes._native, axis.axis_name,
-        [None if helper is None else _description(kind, helper)
-         for helper, kind in slots],
+        axis.axes._native, axis.axis_name, descriptions,
         None if info.label is None else str(info.label), default_limits)
+    _ticked_by_program(axis, [d for d in descriptions if d is not None])
     for (helper, _), identity in zip(slots, installed):
         if identity is not None:
             _keep(axis, helper, identity)
+
+
+def _ticked_by_program(axis, descriptions):
+    """Have the figure of *axis* tick its axes as matplotlib does (see
+    `._tick_updates`) once one of the helpers described by *descriptions*
+    is installed through an adapter."""
+    if any(not native for _, native in descriptions):
+        from . import _tick_updates
+        _tick_updates.install(axis.axes.figure)
 
 
 def _parts(helper):
@@ -518,3 +530,7 @@ def unpickled(figure, uses):
         helper_id, token = _axis.helper(axis.axes._native, axis.axis_name,
                                         kind, minor)
         registry[helper_id] = (token, helper, axis)
+    # The axes read back with helpers or scales of the program's are
+    # ticked as matplotlib ticks them.
+    from . import _tick_updates
+    _tick_updates.install(figure)

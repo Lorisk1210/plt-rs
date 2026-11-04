@@ -235,7 +235,18 @@ impl ContourSet {
         };
         let all_levels = self.levels();
         let levels: Vec<f64> = indices.iter().map(|&i| all_levels[i]).collect();
-        let texts = label_texts(&levels, &options.fmt, &TickerSettings::from(&*rc))?;
+        let relabel = match &options.fmt {
+            ClabelFormat::Label(format @ LabelFormat::Func(_)) => Some(format.clone()),
+            _ => None,
+        };
+        // A function of the program's writes each level's label as its
+        // labels are placed, as matplotlib measures each in turn.
+        let deferred = relabel.is_some() && options.manual.is_none();
+        let texts = if deferred {
+            vec![String::new(); levels.len()]
+        } else {
+            label_texts(&levels, &options.fmt, &TickerSettings::from(&*rc))?
+        };
         let explicit = options.colors.as_deref().filter(|c| !c.is_empty());
         let colors = self.label_colors(&indices, explicit)?;
         let mut labels = Vec::with_capacity(indices.len());
@@ -243,13 +254,18 @@ impl ContourSet {
             labels.push(LevelLabel {
                 index,
                 level: levels[k],
-                width: self.text_width(&texts[k], &font)?,
+                width: if deferred {
+                    0.0
+                } else {
+                    self.text_width(&texts[k], &font)?
+                },
                 text: texts[k].clone(),
                 color: colors[k],
                 follows: explicit.is_none(),
             });
         }
         let setup = LabelSetup {
+            relabel,
             labels,
             style: TextStyle {
                 font,
@@ -262,15 +278,19 @@ impl ContourSet {
         self.update(|state| state.label_setup = Some(setup.clone()));
         let spacing = options.inline_spacing;
         let mut placer = Placer::new(self, &setup)?;
-        match &options.manual {
-            Some(points) => {
-                let data = self.axes().trans_data();
-                for &(x, y) in points {
-                    let target = self.to_display(Point::new(x, y), &data)?;
-                    placer.label_near(target, options.inline, spacing, splitter.as_deref_mut())?;
-                }
+        if let Some(points) = &options.manual {
+            let data = self.axes().trans_data();
+            for &(x, y) in points {
+                let target = self.to_display(Point::new(x, y), &data)?;
+                placer.label_near(target, options.inline, spacing, splitter.as_deref_mut())?;
             }
-            None => placer.label_all(options.inline, spacing, splitter),
+        } else {
+            let written = placer.label_all(options.inline, spacing, splitter)?;
+            self.update(|state| {
+                if let Some(setup) = &mut state.label_setup {
+                    setup.labels = written;
+                }
+            });
         }
         Ok(placer.into_created())
     }
@@ -346,7 +366,11 @@ impl ContourSet {
 
     /// The width in pixels of `text` laid out like a label (matplotlib's
     /// `_get_nth_label_width`).
-    fn text_width(&self, text: &str, font: &FontProperties) -> Result<f64, ContourError> {
+    pub(super) fn text_width(
+        &self,
+        text: &str,
+        font: &FontProperties,
+    ) -> Result<f64, ContourError> {
         let mut artist = TextArtist::new(Point::ORIGIN, text, crate::rc::params());
         artist.font = font.clone();
         let figure = self.axes().raw().figure_state().borrow();

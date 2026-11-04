@@ -49,3 +49,20 @@ artists/subfigure_setters$ | ^exception\[set_mouseover\]: missing AttributeError
 # get_offset and draw (an AnchoredOffsetbox three times per draw); the
 # extents, offsets and images are the same.
 generated/offsetboxes/program_boxes$ | ^callback\[[^]]+\]: runs another number of times$ | a box of the program's inside a box pltrs (Rust) lays out is measured once per layout, where matplotlib's parents measure their children again in their get_bbox, get_offset and draw
+
+# The program's transforms and norms called where matplotlib keeps what
+# they computed: a TransformedPath keeps a path's transformed vertices until
+# its transform is invalidated, a scale's autoscaled view stays until data
+# change. The tick updates call them as matplotlib's do (`_tick_updates`);
+# the counts below differ between two draws of the same figure under
+# matplotlib, so they depend on its caches' state.
+images_contours_and_fields/colormap_normalizations$ | ^callback\[(vmin|masked_array)\]: runs another number of times$ | the program's norm scales a colorbar, whose tick marks and paths matplotlib transforms through it and keeps: 59 calls in the first draw of the figure, 58 in a second
+misc/custom_projection$ | ^callback\[(T|longitude|cos|sqrt|sqrt2|column_stack)\]: runs another number of times$ | HammerTransform.transform_non_affine maps every path matplotlib transforms, which it keeps until invalidated: 112 calls in the first draw, 110 in a second
+scales/custom_scale$ | ^callback\[(MercatorLatitudeTransform|__init__|thresh|masked_where|arctan)\]: runs another number of times$ | the scale's transform (made anew by get_transform) maps every path matplotlib transforms and keeps, and its inverse the view autoscaled once: 115 transforms, 327 masks and 1 inverse in the first draw, 114, 325 and 0 in a second
+
+# matplotlib makes a Tick object for each tick an axis places beyond those
+# it made before (`get_major_ticks` grows the list through `_get_tick`),
+# and keeps them: the Tick constructor asks the Axes for its transforms.
+# pltrs (Rust) draws the ticks itself and asks the class once.
+misc/custom_projection$ | ^callback\[_[xy]axis_(text[12]_)?transform\]: runs another number of times$ | the getters run for the Tick objects an axis makes: 30 and 10 calls in the first draw of the figure, none in a second
+specialty_plots/skewt$ | ^callback\[SkewXTick\]: runs another number of times$ | SkewXAxis._get_tick runs for each Tick object the axis makes: 17 calls in the first draw of the figure, none in a second

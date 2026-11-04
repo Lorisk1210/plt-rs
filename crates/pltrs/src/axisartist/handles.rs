@@ -130,8 +130,7 @@ impl AxisArtist {
     /// (matplotlib's `AxisArtist.get_tightbbox`); `None` when it draws
     /// nothing or was removed.
     pub fn tight_bbox(&self) -> Option<Bbox> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         state.store.get(self.raw.id())?.tight_extent(&layout)
     }
@@ -181,8 +180,7 @@ impl AxisArtist {
         &self,
         f: impl FnOnce(&AxisArtistState, LayoutContext<'_>) -> Result<R, String>,
     ) -> R {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         state
             .store

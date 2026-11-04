@@ -184,8 +184,7 @@ impl<S: PatchShape> Patch<S> {
     /// When the patch cannot be placed: it is in no figure, or its shape
     /// cannot be built there (a connection between parallel angles).
     pub fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         let patch = layout
             .store()
@@ -204,8 +203,7 @@ impl<S: PatchShape> Patch<S> {
     /// current layout (matplotlib's `contains` with a zero radius).
     pub fn contains_display_point(&self, point: Point) -> bool {
         let figure = self.raw.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let state = figure.prepared();
         let layout = LayoutContext::new(&state);
         layout
             .store()

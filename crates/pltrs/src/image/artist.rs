@@ -374,8 +374,7 @@ impl AxesImage {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn element_at(&self, at: Point) -> Option<(usize, usize)> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let ctx = LayoutContext::new(&state);
         ctx.store()
             .get_as::<AxesImageArtist>(self.raw.id())?

@@ -34,6 +34,16 @@ enum TicksPosition {
 }
 
 impl AxisState {
+    /// Whether the decorations of this x axis are on top, for titles to
+    /// clear: its ticks on the top or in an unknown arrangement, or its
+    /// label on top.
+    pub(super) fn decorations_on_top(&self) -> bool {
+        matches!(
+            self.ticks_position(),
+            TicksPosition::Second | TicksPosition::Unknown
+        ) || self.label.side == SpineSide::Top
+    }
+
     /// The tick position judged from the major and minor tick styles,
     /// skipping levels without ticks.
     fn ticks_position(&self) -> TicksPosition {
@@ -129,7 +139,7 @@ impl FigureState {
     /// The axes whose decorations titles must clear: the twins and the
     /// insets of `axes`, and the axes its titles are aligned with
     /// ([`crate::figure::Figure::align_titles`]).
-    fn title_group(&self, axes: ArtistId) -> Vec<ArtistId> {
+    pub(super) fn title_group(&self, axes: ArtistId) -> Vec<ArtistId> {
         let mut group = self.shared.twins(axes);
         if let Some(frame) = self.store.get(axes).and_then(|a| a.base().parent) {
             group.extend(
@@ -153,11 +163,7 @@ impl FigureState {
     fn top_obstacle(&self, ax: ArtistId) -> Option<f64> {
         let state = self.store.get_as::<AxesState>(ax)?;
         let xaxis = state.axis(AxisName::X);
-        let on_top = matches!(
-            xaxis.ticks_position(),
-            TicksPosition::Second | TicksPosition::Unknown
-        ) || xaxis.label.side == SpineSide::Top;
-        let decorations = (on_top && xaxis.visible)
+        let decorations = (xaxis.decorations_on_top() && xaxis.visible)
             .then(|| {
                 let layout = LayoutContext::new(self);
                 axis_tight_bbox(layout, &AxisPainter::new(ax, state, AxisName::X), false)
@@ -178,7 +184,7 @@ impl FigureState {
     }
 
     /// Whether `title` has text.
-    fn has_text(&self, title: ArtistId) -> bool {
+    pub(super) fn has_text(&self, title: ArtistId) -> bool {
         self.store
             .get_as::<TextArtist>(title)
             .is_some_and(|title| !title.text.is_empty())

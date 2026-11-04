@@ -119,8 +119,7 @@ pub(super) enum PolarPan {
 /// The display box and data transforms of `ax`, brought up to date.
 fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform, ResolvedTransform)> {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.prepared();
     let state: &FigureState = &state;
     let bbox = state.axes_bbox(ax.id())?;
     let trans = state.data_transform(ax.id())?;

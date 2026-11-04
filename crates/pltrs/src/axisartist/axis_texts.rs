@@ -179,8 +179,7 @@ impl AxisTextsArtist {
     /// layout (matplotlib's `TickLabels.get_window_extents` of texts made
     /// on their own); none when the axes is gone.
     pub fn text_extents(&self) -> Vec<Bbox> {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         state
             .store

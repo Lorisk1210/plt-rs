@@ -295,8 +295,7 @@ impl crate::figure::Figure {
         &self,
         transform: &Transform,
     ) -> Result<ResolvedTransform, TransformError> {
-        let mut state = self.state_mut();
-        state.prepare();
+        let state = self.state_cell().prepared();
         transform.resolve(&*state)
     }
 

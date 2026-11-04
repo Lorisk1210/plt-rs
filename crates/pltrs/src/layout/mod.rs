@@ -378,13 +378,14 @@ impl Figure {
     /// # Ok::<(), pltrs::layout::LayoutEngineError>(())
     /// ```
     pub fn execute_layout(&self, engine: LayoutEngine) -> Option<Vec<SolvedGrid>> {
-        let mut state = self.raw().figure_state().borrow_mut();
-        let own = state.layout.engine.replace(engine);
-        state.layout.pending = true;
-        let tree = state.run_pending_layout();
-        state.prepare();
-        state.layout.engine = own;
-        tree.map(|tree| tree.solved_grids())
+        self.raw().figure_state().work_on(|state| {
+            let own = state.layout.engine.replace(engine);
+            state.layout.pending = true;
+            let tree = state.run_pending_layout();
+            state.prepare();
+            state.layout.engine = own;
+            tree.map(|tree| tree.solved_grids())
+        })
     }
 }
 

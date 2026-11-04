@@ -595,14 +595,6 @@ impl AxesState {
         .map(Some)
     }
 
-    /// Recomputes the ticks of both axes for an axes `extent` in display
-    /// pixels at `dpi`.
-    pub(crate) fn update_ticks(&mut self, extent: &Bbox, dpi: f64, shared: [Option<usize>; 2]) {
-        for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
-            self.update_axis_ticks(name, extent, dpi, tick_space);
-        }
-    }
-
     /// Recomputes the ticks of axis `name` alone for an axes `extent` in
     /// display pixels at `dpi`.
     pub(crate) fn update_axis_ticks(
@@ -632,7 +624,7 @@ impl AxesState {
 
     /// What the ticks of axis `name` are computed from for an axes
     /// `extent` in display pixels at `dpi`.
-    fn axis_geometry(
+    pub(crate) fn axis_geometry(
         &self,
         name: AxisName,
         extent: &Bbox,

@@ -149,7 +149,7 @@ impl FromPy<'_> for AnyPatch {
             CirclePolygon, StepPatch, FancyArrow, Arrow, Arc, Annulus, FancyBboxPatch,
             FancyArrowPatch, ConnectionPatch,
             BboxPatch, BboxConnector, BboxConnectorPatch,
-            ProjectedOutline, ProjectedPath, Shadow<PathShape>,
+            ProjectedOutline, ProjectedPath, Shadow<PathShape>, Shadow<Wedge>,
         )
         .map(Self)
         .ok_or_else(|| PyErr::type_error("expected a native patch handle"))

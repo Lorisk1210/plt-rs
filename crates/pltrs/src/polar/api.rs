@@ -28,6 +28,8 @@ pub enum PolarError {
     NonFiniteLimit,
     /// A polygon frame with fewer than three vertices.
     PolygonVertices(usize),
+    /// A frame path without vertices.
+    EmptyFrame,
 }
 
 impl fmt::Display for PolarError {
@@ -38,6 +40,7 @@ impl fmt::Display for PolarError {
             Self::PolygonVertices(n) => {
                 write!(f, "a polygon frame needs at least 3 vertices, not {n}")
             }
+            Self::EmptyFrame => f.write_str("a frame path needs vertices"),
         }
     }
 }
@@ -124,12 +127,14 @@ impl PolarAxes {
     }
 
     fn update(&self, change: impl FnOnce(&mut PolarState)) -> &Self {
-        self.axes
-            .raw()
-            .with_mut::<AxesState, _>(|state| match &mut state.projection {
-                ProjectionState::Polar(settings) => change(settings),
-                _ => unreachable!("a PolarAxes handle refers to polar axes"),
-            });
+        self.axes.raw().with_mut::<AxesState, _>(|state| {
+            change(
+                state
+                    .projection
+                    .polar_mut()
+                    .expect("a PolarAxes handle refers to polar axes"),
+            );
+        });
         self
     }
 
@@ -149,10 +154,12 @@ impl PolarAxes {
         self
     }
 
-    /// Sets the outline of the axes: a circle, or the polygon of matplotlib's
+    /// Sets the outline of the axes: a circle, the polygon of matplotlib's
     /// radar chart example (its `RadarAxes` with `frame='polygon'`), which
     /// the background, the clipping, the outer spine and the gridlines
-    /// follow.
+    /// follow, or a closed path in axes fractions the background and the
+    /// clipping follow (the patch of a subclass of matplotlib's
+    /// `PolarAxes`).
     ///
     /// ```
     /// use pltrs::figure::Figure;
@@ -168,19 +175,19 @@ impl PolarAxes {
     /// # Errors
     ///
     /// [`PolarError::PolygonVertices`] for a polygon of fewer than three
-    /// vertices.
+    /// vertices, [`PolarError::EmptyFrame`] for a path without vertices.
     pub fn set_frame(&self, frame: PolarFrame) -> Result<&Self, PolarError> {
-        if let PolarFrame::Polygon(n) = frame
-            && n < 3
-        {
-            return Err(PolarError::PolygonVertices(n));
+        match &frame {
+            PolarFrame::Polygon(n) if *n < 3 => return Err(PolarError::PolygonVertices(*n)),
+            PolarFrame::Path(path) if path.is_empty() => return Err(PolarError::EmptyFrame),
+            _ => {}
         }
         Ok(self.update(|settings| settings.frame = frame))
     }
 
     /// The outline of the axes.
     pub fn frame(&self) -> PolarFrame {
-        self.settings(|settings| settings.frame)
+        self.settings(|settings| settings.frame.clone())
     }
 
     /// Sets where θ = 0 points, in radians anticlockwise from east.

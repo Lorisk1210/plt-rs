@@ -69,6 +69,14 @@ def _coordinates_dtype(given, shape, shading):
     return dtype
 
 
+
+def _first_variate(values):
+    """The first variate of *values*, a structured array of several (other
+    arrays as they are, which the mesh then refuses as matplotlib does)."""
+    if values.dtype.names:
+        return values[values.dtype.names[0]].astype(float)
+    return values
+
 class MeshMixin:
     """`pcolor` and `pcolormesh`."""
 
@@ -81,8 +89,17 @@ class MeshMixin:
             _api.check_in_list(['flat', 'nearest', 'gouraud', 'auto'],
                                shading=shading.lower())
             shading = shading.lower()
-        C, coords, dtype = _mesh_args(self, fn, args, shading)
         made, native_mapping = mapping
+        variates = None
+        if made.norm.n_components > 1 and args and not polygons:
+            # Values of several variates (a structured array, as matplotlib
+            # 3.11's ``pcolormesh`` takes them): the mesh is made of the
+            # first variate, then maps them all through the bivariate or
+            # multivariate colorizer.
+            variates = np.asarray(args[-1])
+            args = (*args[:-1], _first_variate(variates))
+            native_mapping = (None, None, None, None)
+        C, coords, dtype = _mesh_args(self, fn, args, shading)
         kwargs = cbook.normalize_kwargs(kwargs, cls)
         if (polygons and "antialiased" not in kwargs
                 and not cbook._str_lower_equal(kwargs.get("edgecolor", "none"), "none")):
@@ -104,7 +121,10 @@ class MeshMixin:
             # matplotlib's mesh draws with the antialiasing it is made with,
             # apart from the collection's own (`.QuadMesh.get_antialiased`).
             _collections.set_antialiaseds(collection._native, [bool(antialiased)])
-        collection._attach_native_mapping(colorizer=made)
+        if variates is None:
+            collection._attach_native_mapping(colorizer=made)
+        else:
+            collection._map_variates_through(made, variates)
         collection._internal_update(kwargs)
         return collection
 
@@ -130,7 +150,7 @@ class MeshMixin:
         if alpha is not None:
             kwargs["alpha"] = alpha
         return self._pcolor("pcolor", True, args, shading,
-                            _mapping(cmap, norm, vmin, vmax, colorizer),
+                            _mapping(cmap, norm, vmin, vmax, colorizer, variates=True),
                             mcoll.PolyQuadMesh, kwargs)
 
     @_preprocess_data()
@@ -156,5 +176,5 @@ class MeshMixin:
         if alpha is not None:
             kwargs["alpha"] = alpha
         return self._pcolor("pcolormesh", False, args, shading,
-                            _mapping(cmap, norm, vmin, vmax, colorizer),
+                            _mapping(cmap, norm, vmin, vmax, colorizer, variates=True),
                             mcoll.QuadMesh, kwargs, antialiased)

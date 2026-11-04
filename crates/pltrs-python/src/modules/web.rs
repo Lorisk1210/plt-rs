@@ -38,16 +38,19 @@ impl IntoPy for RelayEvent {
 
 /// Starts the server on `address` and `port` (0: any free port), trying
 /// `port_retries` other ports nearby while they are in use (matplotlib's
-/// `random_ports`), serving `script` as the client script; `None` when
-/// every port tried is in use.
+/// `random_ports`), serving `script` as the client script and every URL
+/// under `url_prefix` (empty for the root); `None` when every port tried
+/// is in use.
 fn bind(
     address: String,
     port: u16,
     port_retries: u32,
     script: String,
+    url_prefix: String,
 ) -> PyResult<Option<WebRelay>> {
     let options = WebOptions {
         port_retries,
+        url_prefix,
         ..WebOptions::new(address, port)
     };
     match WebRelay::bind(&options, script) {
@@ -135,16 +138,16 @@ mod tests {
 
     #[test]
     fn a_port_in_use_without_retries_binds_nothing() {
-        let relay = bind("127.0.0.1".into(), 0, 0, String::new())
+        let relay = bind("127.0.0.1".into(), 0, 0, String::new(), String::new())
             .unwrap()
             .expect("a free port");
         let taken = relay.local_addr().port();
         assert!(
-            bind("127.0.0.1".into(), taken, 0, String::new())
+            bind("127.0.0.1".into(), taken, 0, String::new(), String::new())
                 .unwrap()
                 .is_none()
         );
-        assert!(bind("not an address".into(), 80, 0, String::new()).is_err());
+        assert!(bind("not an address".into(), 80, 0, String::new(), String::new()).is_err());
     }
 
     #[test]

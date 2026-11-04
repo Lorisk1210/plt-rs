@@ -61,6 +61,11 @@ class Mirroring:
         """Whether the display point is in the part, or `OWN`."""
         return OWN
 
+    def path(self, artist):
+        """The path of the part *artist* mirrors (``get_path``), or
+        `OWN`."""
+        return OWN
+
     def display_path(self, artist):
         """The ``(vertices, codes)`` of the outline of the part as drawn,
         in display pixels, or `OWN`."""
@@ -158,6 +163,8 @@ def mirrorable(cls):
     cls.contains = _asking(cls.contains, "contains")
     if hasattr(cls, "contains_point"):
         cls.contains_point = _asking(cls.contains_point, "contains_point")
+    if hasattr(cls, "get_path"):
+        cls.get_path = _asking(cls.get_path, "path")
     return cls
 
 

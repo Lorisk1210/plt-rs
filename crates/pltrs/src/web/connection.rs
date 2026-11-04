@@ -89,7 +89,7 @@ pub(crate) fn serve(stream: TcpStream, shared: &Shared, id: ConnectionId) {
             refuse(reader, writer, &refusal);
             return;
         }
-        let route = routes::route(&request.path);
+        let route = routes::route(&request.path, &shared.url_prefix);
         if let Route::WebSocket(figure) = route
             && websocket::is_upgrade(&request)
         {

@@ -22,6 +22,7 @@ use super::transforms::{points, points_array};
 use crate::binding::prelude::*;
 
 mod copy;
+mod mapped;
 mod new;
 
 artist_handle!(Collection, EllipseCollection, EventCollection);
@@ -614,5 +615,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("event_lines", event_lines)?;
     module.add("set_event_lines", set_event_lines)?;
     copy::register(module)?;
+    mapped::register(module)?;
     new::register(module)
 }

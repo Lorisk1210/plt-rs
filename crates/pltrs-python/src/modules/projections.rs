@@ -157,6 +157,8 @@ pub(super) struct PyProjection {
     name: &'static str,
     /// The order of the spines of `_gen_axes_spines`.
     spine_order: [SpineSide; 4],
+    /// The sides of the spines of `_gen_axes_spines`.
+    spines: Vec<SpineSide>,
     /// The ratio the class' `get_data_ratio` gives, when it overrides it.
     data_ratio: Option<f64>,
     overrides: Overrides,
@@ -178,15 +180,16 @@ fn limits(view: &ProjectionView<'_>) -> (f64, f64, f64, f64) {
 
 impl PyProjection {
     /// The projection asking `adapter`, which gives its `name`, its
-    /// `spine_order` (the four side names), its `data_ratio` (`None` for
-    /// the rectilinear one) and its `overrides`.
+    /// `spine_order` (the four side names) and `spine_sides` (those of the
+    /// spines it made), its `data_ratio` (`None` for the rectilinear one)
+    /// and its `overrides`.
     pub(super) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
         let method = |name: &str| -> PyResult<Callback> { adapter.getattr(name)?.extract() };
-        let order: Vec<String> = adapter.getattr("spine_order")?.extract()?;
-        let spine_order = order
-            .iter()
-            .map(|name| spine_side(name))
-            .collect::<PyResult<Vec<_>>>()?
+        let sides = |name: &str| -> PyResult<Vec<SpineSide>> {
+            let names: Vec<String> = adapter.getattr(name)?.extract()?;
+            names.iter().map(|name| spine_side(name)).collect()
+        };
+        let spine_order = sides("spine_order")?
             .try_into()
             .map_err(|sides: Vec<SpineSide>| {
                 PyErr::value_error(format!("{} spines where axes have 4", sides.len()))
@@ -195,6 +198,7 @@ impl PyProjection {
             adapter: adapter.clone().unbind(),
             name: pltrs_core::interned(&adapter.getattr("name")?.extract::<String>()?),
             spine_order,
+            spines: sides("spine_sides")?,
             data_ratio: adapter.getattr("data_ratio")?.extract()?,
             overrides: adapter.getattr("overrides")?.extract()?,
             set_up: method("set_up")?,
@@ -283,6 +287,10 @@ impl Projection for PyProjection {
         self.spine_order
     }
 
+    fn spines(&self) -> Vec<SpineSide> {
+        self.spines.clone()
+    }
+
     fn data_ratio(&self) -> Option<f64> {
         self.data_ratio
     }
@@ -320,6 +328,7 @@ mod tests {
 class Adapter:
     name = 'leaning'
     spine_order = ['top', 'bottom', 'left', 'right']
+    spine_sides = ['top', 'bottom', 'left', 'right']
     data_ratio = None
     overrides = {'axis_transform': [], 'tick_interval': ['x'],
                  'tick_sides': ['x'], 'spine_interval': ['top'],

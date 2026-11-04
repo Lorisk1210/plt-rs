@@ -1180,6 +1180,12 @@ class Axis(Artist):
         if 'grid_path_effects' in native:
             native['grid_path_effects'] = [
                 effect._native_spec() for effect in native['grid_path_effects']]
+        if 'grid_clip_box' in native:
+            native['grid_clip_box'] = _artist_clipping.clip_box_spec(
+                native['grid_clip_box'])
+        if 'grid_clip_path' in native:
+            native['grid_clip_path'] = _artist_clipping.clip_path_spec(
+                native['grid_clip_path'])
         _axis.set_tick_params(*self._args(), which, bool(reset), native)
         if not reset:
             # labelOn and labelcolor also apply to the offset text.

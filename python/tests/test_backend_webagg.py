@@ -159,6 +159,46 @@ def test_webagg_serves_and_drives_a_figure():
             proc.communicate()
 
 
+def _serve_under_prefix():
+    """The pages and files of a figure served under the URL prefix
+    ``/mpl``, as their status and what they hold."""
+    import urllib.error
+    import urllib.request
+
+    import pltrs as mpl
+    import pltrs.pyplot as plt
+    from pltrs.backends.backend_webagg import WebAggApplication
+
+    def status(path):
+        url = f"http://127.0.0.1:{WebAggApplication.port}{path}"
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as err:
+            return err.code, b""
+
+    mpl.rcParams["webagg.port"] = 0
+    mpl.rcParams["webagg.address"] = "127.0.0.1"
+    plt.figure()
+    WebAggApplication.initialize(url_prefix="/mpl")
+    WebAggApplication._publish()
+    code, page = status("/mpl/1")
+    print(code, b'/mpl/js/mpl.js"' in page, b'/mpl/" + 1 + "/ws"' in page)
+    print(status("/mpl")[0], status("/mpl/js/mpl.js")[0],
+          status("/mpl/_static/css/mpl.css")[0], status("/1")[0])
+
+
+def test_webagg_serves_under_a_url_prefix():
+    source = textwrap.dedent(inspect.getsource(_serve_under_prefix))
+    env = {**os.environ, "MPLBACKEND": "webagg", "PLTRS_LOOK": "matplotlib"}
+    done = subprocess.run([sys.executable, "-c", source + "\n_serve_under_prefix()\n"],
+                          env=env, capture_output=True, text=True, timeout=TIMEOUT)
+    assert done.stdout.splitlines() == ["200 True True", "200 200 200 404"], done.stderr
+    from pltrs.backends.backend_webagg import WebAggApplication
+    with pytest.raises(AssertionError, match="url_prefix must start with"):
+        WebAggApplication.initialize(url_prefix="mpl/")
+
+
 @pytest.mark.parametrize("host, origin, allowed", [
     ("localhost:8988", "http://localhost:8988", True),
     ("localhost:8988", "http://evil.com", False),

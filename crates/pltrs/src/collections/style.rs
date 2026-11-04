@@ -71,7 +71,7 @@ impl MappedSides {
     /// edges when they follow the faces, or when the faces are `'none'`
     /// and the edges keep the default rule; none without a mapping.
     pub(crate) fn of(c: &CollectionArtist) -> Self {
-        if c.mapping.is_none() {
+        if c.mapping.is_none() && c.program_colors.is_none() {
             return Self::default();
         }
         let face_is_none = unfilled(&c.face_spec(c.rc()));
@@ -105,10 +105,10 @@ fn resolve_mapped_on(
     let edge_mapped = sides.edges && on.edges;
     // A draw maps the values whether or not a side shows them (and fails
     // when they cannot be mapped), as matplotlib's `update_scalarmappable`.
-    let mapped = match &c.mapping {
-        Some(mapping) if on == MappedSides::BOTH || face_mapped || edge_mapped => {
-            Some(mapping.colors(&alpha)?)
-        }
+    let mapping = on == MappedSides::BOTH || face_mapped || edge_mapped;
+    let mapped = match (&c.program_colors, &c.mapping) {
+        (Some(colors), _) if mapping => Some(colors.clone()),
+        (None, Some(mapping_of_values)) if mapping => Some(mapping_of_values.colors(&alpha)?),
         _ => None,
     };
 

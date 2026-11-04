@@ -58,11 +58,11 @@ const HTML: &str = r#"<html lang="en">"#;
 /// The link to matplotlib's own style sheet in the page templates, which
 /// the modern chrome's follows.
 const MPL_STYLESHEET: &str =
-    r#"<link rel="stylesheet" href="/_static/css/mpl.css" type="text/css">"#;
+    r#"<link rel="stylesheet" href="{{ prefix }}/_static/css/mpl.css" type="text/css">"#;
 
 /// The client script in the page templates, which the modern chrome's
 /// follows.
-const MPL_SCRIPT: &str = r#"<script src="/js/mpl.js"></script>"#;
+const MPL_SCRIPT: &str = r#"<script src="{{ prefix }}/js/mpl.js"></script>"#;
 
 /// The title of the page of every figure, matplotlib's and the modern
 /// chrome's.
@@ -146,9 +146,10 @@ pub(crate) fn is_dark(figure: &Figure) -> bool {
     ChromeLook::Modern.theme(background) == Theme::dark()
 }
 
-/// `page`, one of matplotlib's pages showing `figures`, in the modern
-/// chrome: its style sheet after matplotlib's, its script after
-/// matplotlib's client, the figures drawn on a dark background listed for
+/// `page`, one of matplotlib's page templates showing `figures` (its
+/// `{{ prefix }}` not filled in yet), in the modern chrome: its style
+/// sheet after matplotlib's, its script after matplotlib's client, both
+/// under the prefix, the figures drawn on a dark background listed for
 /// the script, and the whole page dark when every figure is.
 pub(crate) fn dress(page: &str, figures: &[ServedFigure]) -> String {
     let dark: Vec<String> = figures
@@ -167,9 +168,9 @@ pub(crate) fn dress(page: &str, figures: &[ServedFigure]) -> String {
         dark.join(" ")
     );
     let stylesheet = format!(
-        "{MPL_STYLESHEET}\n    <link rel=\"stylesheet\" href=\"{STYLESHEET}\" type=\"text/css\">"
+        "{MPL_STYLESHEET}\n    <link rel=\"stylesheet\" href=\"{{{{ prefix }}}}{STYLESHEET}\" type=\"text/css\">"
     );
-    let script = format!("{MPL_SCRIPT}\n    <script src=\"{SCRIPT}\"></script>");
+    let script = format!("{MPL_SCRIPT}\n    <script src=\"{{{{ prefix }}}}{SCRIPT}\"></script>");
     page.replacen(HTML, &html, 1)
         .replacen(MPL_STYLESHEET, &stylesheet, 1)
         .replacen(MPL_SCRIPT, &script, 1)

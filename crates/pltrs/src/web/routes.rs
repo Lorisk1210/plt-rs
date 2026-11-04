@@ -43,8 +43,12 @@ fn figure_number(text: &str) -> Option<u32> {
     text.parse().ok()
 }
 
-/// The route of URL path `path`.
-pub(crate) fn route(path: &str) -> Route {
+/// The route of URL path `path` under the URL prefix `prefix` (empty for
+/// none; matplotlib's `url_prefix`).
+pub(crate) fn route(path: &str, prefix: &str) -> Route {
+    let Some(path) = path.strip_prefix(prefix) else {
+        return Route::NotFound;
+    };
     if let Some(asset) = assets::find(path) {
         return Route::Static(asset);
     }
@@ -109,12 +113,14 @@ fn is_plain_host(host: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b".-:[]".contains(&b))
 }
 
-/// The WebSocket root of the pages (`ws://host/`), from the request's
-/// `Host`, or the server's address for clients that send none.
+/// The WebSocket root of the pages (`ws://host/`, the URL prefix
+/// included), from the request's `Host`, or the server's address for
+/// clients that send none.
 fn ws_uri(request: &Request, shared: &Shared) -> Option<String> {
+    let prefix = &shared.url_prefix;
     match request.header("host") {
-        Some(host) => is_plain_host(host).then(|| format!("ws://{host}/")),
-        None => Some(format!("ws://{}/", shared.local_addr)),
+        Some(host) => is_plain_host(host).then(|| format!("ws://{host}{prefix}/")),
+        None => Some(format!("ws://{}{prefix}/", shared.local_addr)),
     }
 }
 
@@ -135,12 +141,16 @@ pub(crate) fn respond(route: Route, request: &Request, shared: &Shared) -> Respo
             let Some(ws_uri) = ws_uri(request, shared) else {
                 return Response::error(Status::BadRequest);
             };
+            let root = assets::PageRoot {
+                ws_uri: &ws_uri,
+                prefix: &shared.url_prefix,
+            };
             let page = match route {
                 Route::Figure(number) => match shared.figure(number) {
-                    Some(figure) => assets::single_figure_page(&ws_uri, figure, shared.chrome),
+                    Some(figure) => assets::single_figure_page(root, figure, shared.chrome),
                     None => return Response::error(Status::NotFound),
                 },
-                _ => assets::all_figures_page(&ws_uri, &shared.figures(), shared.chrome),
+                _ => assets::all_figures_page(root, &shared.figures(), shared.chrome),
             };
             Response::ok("text/html; charset=utf-8", page.into_bytes())
         }
@@ -190,27 +200,27 @@ mod tests {
 
     #[test]
     fn urls_route_like_matplotlib() {
-        assert_eq!(route("/"), Route::AllFigures);
-        assert_eq!(route(""), Route::AllFigures);
-        assert_eq!(route("/js/mpl.js"), Route::Script);
-        assert_eq!(route("/2"), Route::Figure(2));
-        assert_eq!(route("/007"), Route::Figure(7));
-        assert_eq!(route("/2/ws"), Route::WebSocket(2));
+        assert_eq!(route("/", ""), Route::AllFigures);
+        assert_eq!(route("", ""), Route::AllFigures);
+        assert_eq!(route("/js/mpl.js", ""), Route::Script);
+        assert_eq!(route("/2", ""), Route::Figure(2));
+        assert_eq!(route("/007", ""), Route::Figure(7));
+        assert_eq!(route("/2/ws", ""), Route::WebSocket(2));
         assert_eq!(
-            route("/2/download.svg"),
+            route("/2/download.svg", ""),
             Route::Download(2, SaveFormat::Svg)
         );
         assert_eq!(
-            route("/2/download.jpeg"),
+            route("/2/download.jpeg", ""),
             Route::Download(2, SaveFormat::Jpeg)
         );
-        assert!(matches!(route("/favicon.ico"), Route::Static(_)));
+        assert!(matches!(route("/favicon.ico", ""), Route::Static(_)));
         assert_eq!(
-            route("/2/download.webp"),
+            route("/2/download.webp", ""),
             Route::Download(2, SaveFormat::Webp)
         );
         assert_eq!(
-            route("/2/download.avif"),
+            route("/2/download.avif", ""),
             Route::Download(2, SaveFormat::Avif)
         );
         for missing in [
@@ -226,7 +236,21 @@ mod tests {
             "/_static/js/mpl.js",
             "/_images/../../etc/passwd",
         ] {
-            assert_eq!(route(missing), Route::NotFound, "{missing}");
+            assert_eq!(route(missing, ""), Route::NotFound, "{missing}");
+        }
+    }
+
+    #[test]
+    fn urls_route_under_a_prefix() {
+        assert_eq!(route("/mpl", "/mpl"), Route::AllFigures);
+        assert_eq!(route("/mpl/2/ws", "/mpl"), Route::WebSocket(2));
+        assert_eq!(route("/mpl/js/mpl.js", "/mpl"), Route::Script);
+        assert!(matches!(
+            route("/mpl/_static/css/mpl.css", "/mpl"),
+            Route::Static(_)
+        ));
+        for outside in ["/2", "/mplx/2", "/js/mpl.js", ""] {
+            assert_eq!(route(outside, "/mpl"), Route::NotFound, "{outside}");
         }
     }
 

@@ -13,7 +13,7 @@ use pltrs_text::{HAlign, VAlign};
 use super::transform::{PolarView, full_circle_deg};
 use crate::artist::{ArtistId, DrawContext, LayoutContext};
 use crate::axes::axis_artists::TickGroups;
-use crate::axes::axis_draw::{TickMark, grid_gc};
+use crate::axes::axis_draw::{TickMark, grid_clip, grid_gc};
 use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickPart, TickStyle};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
 use crate::patheffects::with_path_effects;
@@ -197,7 +197,7 @@ fn draw_gridline(
         Ok(gc) => gc,
         Err(err) => return ctx.report(axes, err),
     };
-    gc.clip_path = Some(clip);
+    (gc.clip_rect, gc.clip_path) = grid_clip(ctx, axes, &grid.line, Some(clip));
     let line = ptick.gridline();
     let (path, affine) = ptick.along().split_path(&line);
     ctx.renderer().draw_path(&gc, &path, &affine, None);

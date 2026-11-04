@@ -75,6 +75,11 @@ pub(crate) enum ProjectionState {
     Rectilinear,
     /// Angle and radius.
     Polar(PolarState),
+    /// Angle and radius through the transform of a projection defined by
+    /// the program (matplotlib's subclass of `PolarAxes` with a
+    /// `PolarTransform` of its own, such as the radar chart example's):
+    /// see [`Axes::install_projection`].
+    ProgramPolar(PolarState, Box<dyn Projection>),
     /// A projection drawn through the [`Projection`] hooks: geographic
     /// axes, or one defined by the program.
     Custom(Box<dyn Projection>),
@@ -83,6 +88,7 @@ pub(crate) enum ProjectionState {
 pltrs_core::archive_enum!(ProjectionState {
     Rectilinear,
     Polar(v0),
+    ProgramPolar(v0, v1),
     Custom(v0),
 });
 
@@ -91,7 +97,7 @@ impl ProjectionState {
     pub(crate) fn kind(&self) -> ProjectionKind {
         match self {
             Self::Rectilinear => ProjectionKind::Rectilinear,
-            Self::Polar(_) => ProjectionKind::Polar,
+            Self::Polar(_) | Self::ProgramPolar(..) => ProjectionKind::Polar,
             // Built-in names are not registered: such a projection is the
             // built-in one.
             Self::Custom(custom) => ProjectionKind::BUILTIN
@@ -111,7 +117,7 @@ impl ProjectionState {
     pub(crate) fn is_rectangular(&self) -> bool {
         match self {
             Self::Rectilinear => true,
-            Self::Polar(_) => false,
+            Self::Polar(_) | Self::ProgramPolar(..) => false,
             Self::Custom(custom) => custom.outline() == AxesOutline::Rectangle,
         }
     }
@@ -124,12 +130,38 @@ impl ProjectionState {
         }
     }
 
+    /// The polar settings, if the axes is polar.
+    pub(crate) fn polar(&self) -> Option<&PolarState> {
+        match self {
+            Self::Polar(settings) | Self::ProgramPolar(settings, _) => Some(settings),
+            _ => None,
+        }
+    }
+
+    /// The polar settings to change, if the axes is polar.
+    pub(crate) fn polar_mut(&mut self) -> Option<&mut PolarState> {
+        match self {
+            Self::Polar(settings) | Self::ProgramPolar(settings, _) => Some(settings),
+            _ => None,
+        }
+    }
+
+    /// The projection of the program polar axes are drawn through, if
+    /// they are.
+    pub(crate) fn polar_program(&self) -> Option<&dyn Projection> {
+        match self {
+            Self::ProgramPolar(_, program) => Some(&**program),
+            _ => None,
+        }
+    }
+
     /// The data ratio the projection fixes (matplotlib's overridden
     /// `get_data_ratio`): 1 for polar and geographic axes.
     pub(crate) fn fixed_data_ratio(&self) -> Option<f64> {
         match self {
             Self::Rectilinear => None,
             Self::Polar(_) => Some(1.0),
+            Self::ProgramPolar(_, program) => program.data_ratio().or(Some(1.0)),
             Self::Custom(custom) => custom.data_ratio(),
         }
     }

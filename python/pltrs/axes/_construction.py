@@ -75,7 +75,7 @@ class ConstructionMixin:
             rect = kwargs.pop('rect')
             _api.check_isinstance((Bbox, Iterable), rect=rect)
             args = (rect,)
-        _handles.adopt(self, _removed_native(fig, args), fig.figure)
+        _handles.adopt(self, _removed_native(fig, args, type(self)), fig.figure)
         self._init_axes_state()
         self._init_projection()
         # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
@@ -159,16 +159,24 @@ class ConstructionMixin:
         return self.__dict__.get("_axes_locator")
 
 
-def _removed_native(fig, args):
-    """The native axes `Axes(fig, *args)` makes: at a rectangle or on a
-    subplot block, outside the figure."""
+def _removed_native(fig, args, cls):
+    """The native axes `cls(fig, *args)` makes: at a rectangle or on a
+    subplot block, outside the figure, in the projection pltrs (Rust) draws
+    the class with (polar for `.PolarAxes` and its subclasses)."""
+    from ..projections._program import native_name
+    projection = native_name(cls)
     if len(args) == 1 and (isinstance(args[0], Bbox) or np.iterable(args[0])):
         rect, = args
         bounds = (rect.bounds if isinstance(rect, Bbox)
                   else Bbox.from_bounds(*rect).bounds)
         if bounds[2] < 0 or bounds[3] < 0:
             raise ValueError('Width and height specified must be non-negative')
-        return _figure.removed_axes(fig._native, tuple(map(float, bounds)))
+        bounds = tuple(map(float, bounds))
+        if projection == "rectilinear":
+            return _figure.removed_axes(fig._native, bounds)
+        return _figure.removed_axes_projection(fig._native, bounds, projection)
     from ..gridspec import SubplotSpec
-    spec = SubplotSpec._from_subplot_args(fig, args)
-    return _figure.removed_subplot(fig._native, spec._native_spec())
+    spec = SubplotSpec._from_subplot_args(fig, args)._native_spec()
+    if projection == "rectilinear":
+        return _figure.removed_subplot(fig._native, spec)
+    return _figure.removed_subplot_projection(fig._native, spec, projection)

@@ -1,55 +1,87 @@
 """
 The arrow of an annotation as a patch (matplotlib's
-``Annotation.arrow_patch``).
+``Annotation.arrow_patch`` and ``AnnotationBbox.arrow_patch``).
 
-pltrs (Rust) draws an annotation's arrow as part of the annotation, placed
-from the text at every draw. ``arrow_patch`` is a *mirror*, as the ticks of
-an axis are (`._axis_artists`): a loose `.FancyArrowPatch` filled from the
-arrow's look (``_native.annotation.arrow_patch``) whose setters give the
-arrow their changes once they ran (``restyle_arrow``), and whose extent is
+pltrs (Rust) draws the arrow of an annotation (or of an annotation box) as
+part of it, placed from the text (or the box) at every draw.
+``arrow_patch`` is a *mirror*, as the ticks of an axis are
+(`._axis_artists`): a loose `.FancyArrowPatch` filled from the arrow's
+look (``_native.annotation.arrow_patch``,
+``_native.offsetbox.annotation_arrow_patch``) whose setters give the arrow
+their changes once they ran (``restyle_arrow``), and whose extent is
 where the annotation draws the arrow.
 """
 
 import numpy as np
 
 from . import _mirrors
-from ._native import annotation as _annotation
+from ._native import annotation as _annotation, offsetbox as _offsetbox
 from .patches import FancyArrowPatch
 from .transforms import Bbox
 
 
 class _AnnotationArrow(_mirrors.Mirroring):
-    """The arrow of *annotation*, which a `.FancyArrowPatch` stands for."""
+    """The arrow of *owner*, an annotation, which a `.FancyArrowPatch`
+    stands for."""
 
-    def __init__(self, annotation):
-        self.annotation = annotation
+    #: The native function giving the arrow's look as a loose patch.
+    native_patch = staticmethod(_annotation.arrow_patch)
+    #: The native function giving the arrow the look of a patch.
+    native_restyle = staticmethod(_annotation.restyle_arrow)
+    #: The native function giving the arrow's display extents as drawn.
+    native_extent = staticmethod(_annotation.arrow_extent)
+    #: The native function giving the arrow's display outline as drawn.
+    native_display_path = staticmethod(_annotation.arrow_display_path)
+
+    def __init__(self, owner):
+        self.owner = owner
 
     def push(self, artist):
-        _annotation.restyle_arrow(self.annotation._native, artist._native)
+        self.native_restyle(self.owner._native, artist._native)
 
     def window_extent(self, artist, renderer=None, dpi=None):
         """The display box of the arrow as the annotation draws it."""
-        extents = _annotation.arrow_extent(self.annotation._native)
+        extents = self.native_extent(self.owner._native)
         return Bbox.null() if extents is None else Bbox.from_extents(*extents)
 
     def display_path(self, artist):
         """The outline of the arrow as the annotation draws it (no vertex
         while the annotation is hidden)."""
-        arrays = _annotation.arrow_display_path(self.annotation._native)
+        arrays = self.native_display_path(self.owner._native)
         return (np.empty((0, 2)), None) if arrays is None else arrays
 
 
-def mirror(annotation):
-    """The patch of the arrow of *annotation*, the same object while the
+class AnnotationBboxArrow(_AnnotationArrow):
+    """The arrow of *owner*, an annotation box that joined a figure."""
+
+    native_patch = staticmethod(_offsetbox.annotation_arrow_patch)
+    native_restyle = staticmethod(_offsetbox.restyle_annotation_arrow)
+    native_extent = staticmethod(_offsetbox.annotation_arrow_extent)
+    native_display_path = staticmethod(_offsetbox.annotation_arrow_display_path)
+
+
+def mirror(owner, mirroring=_AnnotationArrow):
+    """The patch of the arrow of *owner* (an annotation, or an annotation
+    box with *mirroring* `AnnotationBboxArrow`), the same object while the
     arrow stays; None without an arrow."""
-    native = _annotation.arrow_patch(annotation._native)
+    native = mirroring.native_patch(owner._native)
     if native is None:
-        annotation.__dict__.pop("_arrow_mirror", None)
+        owner.__dict__.pop("_arrow_mirror", None)
         return None
-    patch = annotation.__dict__.get("_arrow_mirror")
+    patch = owner.__dict__.get("_arrow_mirror")
     if patch is None:
-        patch = annotation._arrow_mirror = _mirrors.attach(
-            FancyArrowPatch._from_native(native, None), _AnnotationArrow(annotation))
+        patch = owner._arrow_mirror = _mirrors.attach(
+            FancyArrowPatch._from_native(native, None), mirroring(owner))
     else:
         patch._native = native
     return patch
+
+
+def adopt(owner, patch, mirroring):
+    """Give the arrow of *owner* the look of *patch*, the arrow matplotlib
+    made before pltrs (Rust) did (an annotation box's, until it joins a
+    figure), and make *patch* its mirror, the arrow *mirroring* stands
+    for, so that the object stays."""
+    mirroring.native_restyle(owner._native, patch._native)
+    patch._native = mirroring.native_patch(owner._native)
+    owner._arrow_mirror = _mirrors.attach(patch, mirroring(owner))

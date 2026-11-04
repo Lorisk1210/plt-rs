@@ -21,6 +21,8 @@ mod transform;
 
 use std::f64::consts::PI;
 
+use pltrs_core::Path;
+
 pub use api::{PolarAxes, PolarError};
 pub(crate) use map::PolarMap;
 pub(crate) use paint::{GRIDLINE_INTERPOLATION_STEPS, draw_tick_lines, tick_label_anchor};
@@ -31,6 +33,7 @@ pub(crate) use transform::PolarView;
 use crate::artist::ArtistId;
 use crate::axes::{Axes, AxesState};
 use crate::figure::FigureState;
+use crate::projections::Projection;
 use crate::spines::SpineSide;
 
 /// The way θ increases (matplotlib's `set_theta_direction`).
@@ -98,7 +101,7 @@ impl Compass {
 
 /// The outline of polar axes: their background, the clip path of what
 /// they draw and the outer spine.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum PolarFrame {
     /// A circle (or the wedge of a sector), matplotlib's `PolarAxes`.
     #[default]
@@ -108,11 +111,18 @@ pub enum PolarFrame {
     /// gridlines follow it too, with one straight piece between
     /// consecutive vertex directions.
     Polygon(usize),
+    /// The background a subclass of matplotlib's `PolarAxes` gives that is
+    /// no wedge (its `_gen_axes_patch`): a closed path in axes fractions,
+    /// which stays as it is whatever the view (matplotlib's `draw` only
+    /// fits a `Wedge` patch to it). The outer spine stays the arc of the
+    /// circle, and no inner spine is drawn.
+    Path(Path),
 }
 
 pltrs_core::archive_enum!(PolarFrame {
     Circle,
     Polygon(v0),
+    Path(v0),
 });
 
 /// The polar settings of an axes besides its view limits.
@@ -162,7 +172,8 @@ impl Axes {
 
 /// Shows the start and end spines of a sector and the inner spine around
 /// a hole, and hides them otherwise, whatever their visibility was
-/// (matplotlib's `PolarAxes.draw` sets it before every draw).
+/// (matplotlib's `PolarAxes.draw` sets it before every draw); the spines
+/// the projection of a program's subclass did not make stay hidden.
 pub(crate) fn update_spine_visibility(state: &mut FigureState, axes: ArtistId) {
     let Some(axes_state) = state.store.get_as::<AxesState>(axes) else {
         return;
@@ -170,11 +181,15 @@ pub(crate) fn update_spine_visibility(state: &mut FigureState, axes: ArtistId) {
     let Some(view) = axes_state.polar_view() else {
         return;
     };
+    let made = axes_state
+        .projection
+        .polar_program()
+        .map_or(SpineSide::ALL.to_vec(), Projection::spines);
     let updates: Vec<(ArtistId, bool)> = SpineSide::ALL
         .iter()
         .zip(&axes_state.spines)
         .filter(|(side, _)| **side != SpineSide::Top)
-        .map(|(&side, &id)| (id, view.spine_shown(side)))
+        .map(|(&side, &id)| (id, made.contains(&side) && view.spine_shown(side)))
         .collect();
     for (id, visible) in updates {
         if let Some(spine) = state.store.get_mut(id) {

@@ -520,6 +520,10 @@ class _WedgeBbox(mtransforms.Bbox):
         return self._points
 
 
+#: matplotlib's default angle of the radial labels, in radians.
+_DEFAULT_RLABEL = np.deg2rad(22.5)
+
+
 class PolarAxes(PolarTrees, Axes):
     """
     A polar graph projection, where the input dimensions are *theta*, *r*.
@@ -533,12 +537,49 @@ class PolarAxes(PolarTrees, Axes):
 
     name = 'polar'
 
-    @classmethod
-    def _from_native(cls, native, figure):
-        ax = super()._from_native(native, figure)
-        ax.xaxis = ThetaAxis(ax)
-        ax.yaxis = RadialAxis(ax)
-        return ax
+    def __init__(self, *args,
+                 theta_offset=0, theta_direction=1, rlabel_position=22.5,
+                 **kwargs):
+        # docstring inherited
+        self._default_theta_offset = theta_offset
+        self._default_theta_direction = theta_direction
+        self._default_rlabel_position = np.deg2rad(rlabel_position)
+        super().__init__(*args, **kwargs)
+        self.use_sticky_edges = True
+        self.set_aspect('equal', adjustable='box', anchor='C')
+        self.clear()
+
+    def _init_axes_state(self):
+        super()._init_axes_state()
+        self.xaxis = ThetaAxis(self)
+        self.yaxis = RadialAxis(self)
+
+    def _gen_axes_spines(self):
+        # docstring inherited; pltrs (Rust) draws the outer and inner arcs
+        # and the sector's edges as matplotlib places them.
+        from ..spines import Spine
+        return {name: Spine._of_axes(self, name)
+                for name in ['polar', 'start', 'end', 'inner']}
+
+    def _init_axis(self):
+        # docstring inherited
+        self.xaxis = ThetaAxis(self, clear=False)
+        self.yaxis = RadialAxis(self, clear=False)
+        self.spines['polar'].register_axis(self.yaxis)
+
+    def clear(self):
+        # docstring inherited
+        super().clear()
+        # pltrs (Rust) clears to matplotlib's defaults; those given to the
+        # constructor are the Axes' own.
+        defaults = self.__dict__
+        if defaults.get('_default_theta_offset', 0) != 0:
+            self.set_theta_offset(self._default_theta_offset)
+        if defaults.get('_default_theta_direction', 1) != 1:
+            self.set_theta_direction(self._default_theta_direction)
+        rlabel = defaults.get('_default_rlabel_position', _DEFAULT_RLABEL)
+        if rlabel != _DEFAULT_RLABEL:
+            self.set_rlabel_position(np.rad2deg(rlabel))
 
     def _gen_axes_patch(self):
         # docstring inherited
@@ -705,10 +746,16 @@ class PolarAxes(PolarTrees, Axes):
         -------
         float
         """
+        if self.__dict__.get('_answering_from_trees'):
+            return self._originViewLim.y0
         return np.float64(_polar.get_rorigin(self._native))
 
     def get_rsign(self):
         """The sign of the radial direction: 1 outwards, -1 inwards."""
+        if self.__dict__.get('_answering_from_trees'):
+            # What matplotlib computes, from the limits the projection of a
+            # program's subclass is asked about while pltrs (Rust) draws.
+            return np.sign(self._originViewLim.y1 - self._originViewLim.y0)
         return np.sign(self.get_rmax() - self.get_rorigin())
 
     def set_rlim(self, bottom=None, top=None, *,

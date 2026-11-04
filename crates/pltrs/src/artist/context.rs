@@ -133,10 +133,19 @@ impl<'a> LayoutContext<'a> {
     /// not checked.
     pub fn clip_rect(&self, base: &ArtistBase) -> Option<Bbox> {
         match &base.clip_path {
-            Some(ClipPathSpec::BoundingBox { path, transform }) => {
+            Some(spec @ ClipPathSpec::BoundingBox { .. }) => self.bounding_rect(spec),
+            _ => base.clip_box.and_then(|owner| self.clip_extent(owner)),
+        }
+    }
+
+    /// The display rectangle a [`ClipPathSpec::BoundingBox`] clips to;
+    /// `None` for the other clip paths.
+    pub(crate) fn bounding_rect(&self, spec: &ClipPathSpec) -> Option<Bbox> {
+        match spec {
+            ClipPathSpec::BoundingBox { path, transform } => {
                 Some(self.resolve(transform)?.transform_path(path).extents())
             }
-            _ => base.clip_box.and_then(|owner| self.clip_extent(owner)),
+            ClipPathSpec::Path { .. } | ClipPathSpec::Artist(_) => None,
         }
     }
 
@@ -526,7 +535,9 @@ impl<'a> DrawContext<'a> {
         gc
     }
 
-    fn clip_path(&self, spec: &ClipPathSpec) -> Option<ClipPath> {
+    /// The outline the clip path `spec` clips to; `None` for a bounding
+    /// box, which clips as a rectangle.
+    pub(crate) fn clip_path(&self, spec: &ClipPathSpec) -> Option<ClipPath> {
         match spec {
             ClipPathSpec::Path { path, transform } => {
                 let resolved = self.resolve(transform)?;

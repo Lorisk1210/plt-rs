@@ -233,11 +233,12 @@ fn text_areas_reach_at_least_the_height_of_lp() {
     assert!(reference.y0() < 0.0 && reference.y1() > 0.0);
     let centred = lp(double).bbox(ctx).unwrap();
     assert!(centred.height() > reference.height());
-    let Placement::Text { anchor, .. } = lp(double).place(ctx, Point::ORIGIN).unwrap()[0] else {
+    let Placement::Text { baseline_shift, .. } = lp(double).place(ctx, Point::ORIGIN).unwrap()[0]
+    else {
         panic!("a text area places a text");
     };
     assert!(
-        anchor.y < 0.0,
+        baseline_shift < 0.0,
         "multi-line text is lowered to centre it on the baseline"
     );
     assert_eq!(

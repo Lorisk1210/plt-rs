@@ -235,3 +235,168 @@ def test_lifted_collections_have_3d_classes():
     art3d.pathpatch_2d_to_3d(pp, z=0.5, zdir="x")
     assert pp.get_zorder() == 1, "computed z-orders wait for a draw"
     assert isinstance(mcoll.LineCollection([]), mcoll.Collection)
+
+
+def test_limits_typed_as_set():
+    fig, ax = _axes3d()
+    assert [type(v) for v in ax.set_zlim(0, 2)] == [float, float]
+    fig, ax = _axes3d()
+    ax.scatter([0, 1, 2], [-1, 0, 1], [10, 20, 30])
+    ax.set_zscale("log")
+    with pytest.warns(UserWarning, match="non-positive zlim"):
+        low, high = ax.set_zlim(-1, 100)
+    assert (type(low), type(high)) == (np.float64, int)
+    assert (low, high) == pytest.approx((9.230174434162407, 100))
+    with pytest.warns(UserWarning, match="non-positive zlim"):
+        limits = ax.set_zlim(0, 0)
+    assert [type(v) for v in limits] == [np.float64, np.float64]
+
+
+def test_label_pads_ticks_and_panes_typed_as_given():
+    fig, ax = _axes3d()
+    ax.scatter([0, 1, 2], [-1, 0, 1], [10, 20, 30])
+    assert ax.zaxis.labelpad == 4.0
+    ax.set_zlabel("depth", labelpad=12)
+    assert type(ax.zaxis.labelpad) is int
+    ax.set_zticks([10, 20, 30], ["a", "b", "c"])
+    ax.locator_params(axis="z", nbins=3)
+    fig.canvas.draw()
+    assert ax.get_zticks().dtype == np.int64
+    ax.zaxis.set_pane_color("r")
+    assert ax.zaxis.pane.get_facecolor() == (1.0, 0.0, 0.0, 1)
+    assert type(ax.zaxis.pane.get_facecolor()[3]) is int
+
+
+def test_proj3d_matrices_typed_as_matplotlibs():
+    assert proj3d._ortho_transformation(-1, 1).dtype == np.int64
+    assert proj3d._ortho_transformation(-1.0, 1).dtype == np.float64
+    M = proj3d.world_transformation(0, 1, 0, 2, 0, 3)
+    assert not np.signbit(M[:3, 3]).any(), "an integer 0 has no negative zero"
+    assert np.signbit(proj3d.world_transformation(0.0, 1, 0, 2, 0, 3)[0, 3])
+
+
+def test_lifted_lines_keep_their_data_types():
+    fig, ax = _axes3d()
+    line = ax.plot([0, 1], [1, 0])[0]
+    art3d.line_2d_to_3d(line, zs=[1, 2])
+    assert [c.dtype for c in line.get_data_3d()] == [np.int64, np.int64, np.float64]
+    lines = art3d.Line3DCollection([[(0, 0, 0), (1, 1, 1)]])
+    ax.add_collection3d(lines)
+    fig.canvas.draw()
+    assert type(lines.do_3d_projection()) is np.float64
+
+
+def test_scatter_positions_that_do_not_broadcast():
+    fig, ax = _axes3d()
+    sc = ax.scatter([0, 1, 2], [2, 1, 0], [1, 1, 1], c=[1, 2, 3])
+    sc._offsets3d = ([0, 1], [0, 1], [0, 1])
+    sc.set_3d_properties([5, 6], "z")
+    xs, ys, zs = sc._offsets3d
+    assert np.ma.isMA(xs) and list(xs) == [0, 1, 2] and list(zs) == [5, 6]
+    with pytest.raises(ValueError, match="inhomogeneous shape after 1 dimensions. "
+                                         r"The detected shape was \(3,\)"):
+        fig.canvas.draw()
+    assert sc.get_offsets().shape == (3, 2)
+    sc._offsets3d = ([0, 1, 2], [0, 1, 2], [0, 1, 2])
+    fig.canvas.draw()
+    assert sc.get_offsets().shape == (3, 2)
+
+
+def test_texts_measured_where_they_stand_before_the_projection():
+    fig, ax = _axes3d()
+    t = ax.text(1, 2, 3, "three", zdir="y")
+    assert t.get_window_extent().bounds == pytest.approx(
+        (3015.7837837837833, 4234.933681728603, 37.6875, 14.33658854166697))
+    fig.canvas.draw()
+    assert t.get_window_extent().bounds == pytest.approx(
+        (2330.832432432432, 4234.933681728603, 37.6875, 14.33658854166697))
+
+
+def test_patches_keep_their_attributes_lifted():
+    fig, ax = _axes3d()
+    rect = mpatches.Rectangle((0, 0), 1, 2, angle=30)
+    ax.add_patch(rect)
+    art3d.patch_2d_to_3d(rect, z=1, zdir="y")
+    assert type(rect).__name__ == "Patch3D" and rect.angle == 30.0
+
+
+def test_tick_labels_placed_back_along_the_axis():
+    fig, ax = _axes3d()
+    ax.plot([0, 1, 2], [0, 2, 4], [1, 2, 3])
+    fig.canvas.draw()
+    tick = ax.xaxis.get_major_ticks()[1]
+    drawn = (-0.07997149280204391, -0.06236253932694373)
+    assert tick.label1.get_position() == pytest.approx(drawn)
+    ax.xaxis.get_ticklabels()
+    assert tick.label1.get_position() == pytest.approx((0.0, drawn[1]))
+    fig.canvas.draw()
+    assert tick.label1.get_position() == pytest.approx(drawn)
+
+
+def test_clear_shares_the_axis_again():
+    fig, ax = _axes3d()
+    ax.scatter([0, 1, 2], [-1, 0, 1], [10, 20, 30])
+    other = fig.add_subplot(2, 2, 4, projection="3d", sharez=ax, shareview=ax)
+    ax.set_zlim(0, 2)
+    ax.sharez(other)
+    ax.clear()
+    assert ax.get_zlim() == (0.0, 2.0)
+    assert ax.get_xlim() == pytest.approx((-0.020833333333333332, 1.0208333333333333))
+
+
+def test_shared_groups_and_targets():
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 2, 1, projection="3d")
+    other = fig.add_subplot(1, 2, 2, projection="3d", sharex=ax, sharez=ax, shareview=ax)
+    assert sorted(ax._shared_axes) == ["view", "x", "y", "z"]
+    assert ax._shared_axes["x"].joined(ax, other)
+    assert not ax._shared_axes["y"].joined(ax, other)
+    assert ax._shared_axes["view"].joined(ax, other)
+    assert len(ax._shared_axes["z"].get_siblings(other)) == 2
+    assert other._sharex is ax and other._sharez is ax and other._shareview is ax
+    assert other._sharey is None and ax._sharez is None
+
+
+def test_shared_axes_share_units_not_converters():
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 2, 1, projection="3d")
+    other = fig.add_subplot(1, 2, 2, projection="3d", sharez=ax, sharex=ax)
+    ax.xaxis.update_units(["a", "b"])
+    ax.zaxis.update_units(np.array([np.datetime64("2020-01-01")]))
+    assert other.xaxis.get_converter() is None and other.xaxis.have_units()
+    assert other.zaxis.get_converter() is None and not other.zaxis.have_units()
+    assert list(other.xaxis.convert_units(["a", "b", "c"])) == [0, 1, 2]
+    assert list(ax.xaxis.convert_units(["c"])) == [2]
+    assert other.xaxis.units is ax.xaxis.units
+
+
+def test_axes_turned_off_still_measure_their_axes():
+    fig, ax = _axes3d()
+    ax.set_axis_off()
+    fig.canvas.draw()
+    assert ax.zaxis.get_tightbbox().bounds == pytest.approx(
+        (489.01444521607, 181.96050405560257, 44.27553238531385, 160.10306007377696))
+    assert ax.get_tightbbox().bounds == pytest.approx(
+        (143.2, 52.8, 369.59999999999997, 369.59999999999997))
+
+
+def test_empty_line_collections_fail_to_autoscale():
+    fig, ax = _axes3d()
+    with pytest.raises(ValueError, match="need at least one array to concatenate"):
+        ax.add_collection3d(art3d.Line3DCollection([]))
+    ax.add_collection3d(art3d.Line3DCollection([]), autolim=False)
+    ax.add_collection3d(art3d.Poly3DCollection([]))
+
+
+def test_axes_draw_their_hidden_and_animated_axes():
+    for setup in ("set_animated", "set_visible"):
+        fig, ax = _axes3d()
+        getattr(ax.xaxis, setup)(setup == "set_animated")
+        ax.xaxis.stale = True
+        fig.canvas.draw()
+        assert not ax.xaxis.stale
+    fig, ax = _axes3d()
+    ax.set_axis_off()
+    ax.xaxis.stale = True
+    fig.canvas.draw()
+    assert ax.xaxis.stale

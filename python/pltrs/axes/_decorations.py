@@ -23,6 +23,10 @@ class DecorationsMixin:
     def patch(self, patch):
         _background_patch.share_axes_patch(self, patch)
 
+    def _fit_patch(self, patch):
+        """Give *patch*, the background, what the Axes' draw gives it:
+        nothing here (`.PolarAxes` fits its `.Wedge` to the view)."""
+
     def _gen_axes_patch(self):
         """
         Returns

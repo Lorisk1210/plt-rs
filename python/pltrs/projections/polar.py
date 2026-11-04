@@ -12,9 +12,9 @@ and `InvertedPolarTransform`, which matplotlib code uses on their own
 
 import numpy as np
 
-from .. import _api, _tick_helpers, cbook, ticker as mticker
+from .. import _api, _mirrors, _tick_helpers, cbook, ticker as mticker
 from .. import patches as mpatches, transforms as mtransforms
-from .._native import axis as _axis, polar as _polar
+from .._native import artist as _artist, axis as _axis, polar as _polar
 from ..axes import Axes
 from ..axis import XAxis, XTick, YAxis, YTick
 from ..path import Path
@@ -584,6 +584,32 @@ class PolarAxes(PolarTrees, Axes):
     def _gen_axes_patch(self):
         # docstring inherited
         return mpatches.Wedge((0.5, 0.5), 0.5, 0.0, 360.0)
+
+    def _fit_patch(self, patch):
+        """
+        Give a `.Wedge` background what matplotlib's draw gives it: its
+        centre, angles, radius and width fitting the view the last draw
+        showed (pltrs (Rust) fits the background it draws itself).
+        """
+        drawn = _artist.draw_count(self._native)
+        if (not isinstance(patch, mpatches.Wedge) or not drawn
+                or self.__dict__.get("_patch_fitted") == drawn):
+            return
+        self._patch_fitted = drawn
+        thetamin, thetamax = np.rad2deg(self._realViewLim.intervalx)
+        if thetamin > thetamax:
+            thetamin, thetamax = thetamax, thetamin
+        rmin, rmax = ((self._realViewLim.intervaly - self.get_rorigin()) *
+                      self.get_rsign())
+        center = self.transWedge.transform((0.5, 0.5))
+        edge, _ = self.transWedge.transform((1, 0))
+        radius = edge - center[0]
+        with _mirrors.detached(patch):
+            patch.set_center(center)
+            patch.set_theta1(thetamin)
+            patch.set_theta2(thetamax)
+            patch.set_radius(radius)
+            patch.set_width(min(radius * (rmax - rmin) / rmax, radius))
 
     def format_coord(self, theta, r):
         # docstring inherited

@@ -511,10 +511,34 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, drawing: bool)
     };
     let (dpi, saving) = (figure.dpi(), figure.saving);
     let plane_minpos = plane_minpos(figure, id);
+    let owner_spaces = owner_tick_spaces(figure, id);
     figure.with_others::<Axes3DState, _>(id, |axes, store| {
         axes.limits.plane_minpos = plane_minpos;
+        for (axis, space) in axes.axes.iter_mut().zip(owner_spaces) {
+            axis.owner_tick_space = space;
+        }
         axes.prepare(store, &extent, dpi, (saving, drawing));
     });
+}
+
+/// For each axis of the 3-D axes `id`, how many ticks fit along the axis
+/// of the other axes its major locator was set on, if it was (matplotlib
+/// computes a locator's ticks for its `axis`: shared locators place the
+/// ticks of every axes sharing them as they fit along that one).
+fn owner_tick_spaces(figure: &FigureState, id: ArtistId) -> [Option<usize>; 3] {
+    let Some(axes) = figure.artist_as::<Axes3DState>(id) else {
+        return [None; 3];
+    };
+    Axis3::ALL.map(|dir| {
+        let owner = axes.axis(dir).locator_owner.filter(|&owner| owner != id)?;
+        let width = figure.axes_bbox(owner)?.width().abs() / figure.dpi() * 72.0;
+        Some(
+            figure
+                .artist_as::<Axes3DState>(owner)?
+                .axis(dir)
+                .tick_space(width),
+        )
+    })
 }
 
 /// The smallest positive x of the 2-D data limits of the projection plane

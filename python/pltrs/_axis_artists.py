@@ -290,6 +290,8 @@ class Tick(Artist):
         located = _axis.drawn_tick_label(axis.axes._native, axis.axis_name,
                                          not self._major, self._index)
         if located is None:
+            # A tick of a 3-D axis, whose draw places its parts anew.
+            self._sync()
             return
         loc, text = located
         self._loc = np.float64(loc)

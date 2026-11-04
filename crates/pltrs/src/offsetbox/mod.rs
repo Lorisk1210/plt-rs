@@ -84,7 +84,10 @@ pub use annotation_bbox::{AnnotationBbox, AnnotationBboxOptions};
 pub use apply::edit_tree;
 pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes};
 pub use boxes::{OffsetBox, Packer, Placement, TreeLayout};
-pub use leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea, text_area_bbox};
+pub use leaves::{
+    AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea, text_area_baseline_shift,
+    text_area_bbox,
+};
 pub use pack::{PackAlign, PackMode, aligned_offsets, packed_offsets};
 pub use pending::BoxItem;
 pub(crate) use placed_box::PlacedBoxArtist;

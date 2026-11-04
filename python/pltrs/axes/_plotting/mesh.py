@@ -123,7 +123,7 @@ class MeshMixin:
             _collections.set_antialiaseds(collection._native, [bool(antialiased)])
         if variates is None:
             collection._attach_native_mapping(colorizer=made)
-            if C.ndim == 2 and not polygons:
+            if C.ndim == 2:
                 collection._keep_given_array(args[-1])
         else:
             collection._map_variates_through(made, variates)

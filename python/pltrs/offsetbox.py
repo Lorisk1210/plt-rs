@@ -771,7 +771,37 @@ class PaddedBox(OffsetBox):
         self.patch.draw(renderer)
 
 
-class DrawingArea(OffsetBox):
+class _FollowsLayout:
+    """
+    A leaf box whose transforms matplotlib sets as it draws it: its
+    ``offset_transform`` (the parent's ``set_offset``), and what the
+    box's own draw sets (`_followed_layout`). They read where pltrs (Rust)
+    last laid the box out, once it did.
+    """
+
+    @property
+    def offset_transform(self):
+        """The translation to the box's offset (`set_offset`)."""
+        self._follow_layout()
+        return self._offset_transform
+
+    @offset_transform.setter
+    def offset_transform(self, transform):
+        self._offset_transform = transform
+
+    def _follow_layout(self):
+        """Give the box's transforms what matplotlib's draw gives them where
+        pltrs (Rust) last laid the box out."""
+        offset = self._laid_out_offset()
+        if offset is not None:
+            self._offset_transform.clear().translate(*offset)
+            self._followed_layout()
+
+    def _followed_layout(self):
+        """Set what the box's own draw sets, once laid out."""
+
+
+class DrawingArea(_FollowsLayout, OffsetBox):
     """
     The DrawingArea can contain any Artist as a child. The DrawingArea
     has a fixed width and height. The position of children relative to
@@ -804,6 +834,20 @@ class DrawingArea(OffsetBox):
         self._clip_children = clip
         self.offset_transform = mtransforms.Affine2D()
         self.dpi_transform = mtransforms.Affine2D()
+
+    @property
+    def dpi_transform(self):
+        """The scaling of points to pixels the area's draw sets."""
+        self._follow_layout()
+        return self._dpi_transform
+
+    @dpi_transform.setter
+    def dpi_transform(self, transform):
+        self._dpi_transform = transform
+
+    def _followed_layout(self):
+        # matplotlib's draw scales points to the renderer's pixels.
+        self._dpi_transform.clear().scale(self.get_figure(root=True).dpi / 72)
 
     @property
     def clip_children(self):
@@ -880,7 +924,7 @@ class DrawingArea(OffsetBox):
         self.stale = False
 
 
-class TextArea(OffsetBox):
+class TextArea(_FollowsLayout, OffsetBox):
     """
     The TextArea is a container artist for a single Text instance.
 
@@ -913,12 +957,16 @@ class TextArea(OffsetBox):
         self._init_area(mtext.Text(0, 0, s, **textprops), multilinebaseline)
 
     def _init_area(self, text, multilinebaseline):
-        """Make the area of the `.Text` *text*."""
-        self._text = text
+        """Make the area of the `.Text` *text*, which it places through
+        ``offset_transform + _baseline_transform``, as matplotlib does."""
+        self._area_text = text
         super().__init__()
         self._children = [text]
         self.offset_transform = mtransforms.Affine2D()
-        self._baseline_transform = mtransforms.Affine2D()
+        self._baseline = mtransforms.Affine2D()
+        # Kept on the Python side: pltrs (Rust) gives the text the
+        # translation these make whenever it lays the area out.
+        text._given_transform = self._offset_transform + self._baseline
         self._multilinebaseline = multilinebaseline
 
     @classmethod
@@ -928,14 +976,49 @@ class TextArea(OffsetBox):
         area._init_area(text, multilinebaseline)
         return area
 
+    @property
+    def _text(self):
+        """The `.Text` of the area."""
+        self._follow_layout()
+        return self._area_text
+
+    @_text.setter
+    def _text(self, text):
+        self._area_text = text
+
+    @property
+    def _baseline_transform(self):
+        """The shift of multi-line text centred on the baseline, which
+        `get_bbox` computes."""
+        self._follow_layout()
+        return self._baseline
+
+    @_baseline_transform.setter
+    def _baseline_transform(self, transform):
+        self._baseline = transform
+
+    def _followed_layout(self):
+        # matplotlib's draw measures the area (`get_bbox`), which shifts
+        # its text.
+        self._set_baseline()
+
+    def _set_baseline(self):
+        """Shift the text as matplotlib's `get_bbox` does: multi-line text
+        centred on the baseline with *multilinebaseline*, else not."""
+        shift = _offsetbox.text_area_baseline(
+            self._area_text._native, bool(self._multilinebaseline))
+        self._baseline.clear()
+        if shift:
+            self._baseline.translate(0, shift)
+
     def set_text(self, s):
         """Set the text of this area as a string."""
-        self._text.set_text(s)
+        self._area_text.set_text(s)
         self.stale = True
 
     def get_text(self):
         """Return the string representation of this area's text."""
-        return self._text.get_text()
+        return self._area_text.get_text()
 
     def set_multilinebaseline(self, t):
         """
@@ -956,7 +1039,7 @@ class TextArea(OffsetBox):
         return self._multilinebaseline
 
     def _package_tree(self):
-        return ("text", self.get_visible(), self._text._native,
+        return ("text", self.get_visible(), self._area_text._native,
                 bool(self._multilinebaseline))
 
     def set_transform(self, t):
@@ -994,15 +1077,16 @@ class TextArea(OffsetBox):
         laid_out = self._laid_out_bbox(renderer)
         if laid_out is not None:
             return laid_out
-        if self._text.get_figure(root=True) is None:
+        if self._area_text.get_figure(root=True) is None:
             # matplotlib measures the text at the dpi of the area's figure.
             raise AttributeError("'NoneType' object has no attribute 'dpi'")
+        self._set_baseline()
         return Bbox.from_bounds(*_offsetbox.text_area_extent(
-            self._text._native, bool(self._multilinebaseline)))
+            self._area_text._native, bool(self._multilinebaseline)))
 
     def draw(self, renderer):
         # docstring inherited
-        self._text.draw(renderer)
+        self._area_text.draw(renderer)
         self.stale = False
 
 
@@ -1037,7 +1121,7 @@ def _laid_out_box(description, figure, classes):
     return box
 
 
-class AuxTransformBox(OffsetBox):
+class AuxTransformBox(_FollowsLayout, OffsetBox):
     """
     An OffsetBox with an auxiliary transform.
 
@@ -1059,12 +1143,38 @@ class AuxTransformBox(OffsetBox):
     def add_artist(self, a):
         """Add an `.Artist` to the container box."""
         self._children.append(a)
+        a.set_transform(self.get_transform())
         self._changed()
 
     def _package_tree(self):
         return ("aux", self.get_visible(),
                 _live_transforms.to_native(self.aux_transform),
                 [child._native for child in self._children])
+
+    def _adopt_package_parts(self, natives, figure):
+        # docstring inherited; pltrs (Rust) places the children of a box it
+        # lays out, which then read back the transform it gives them.
+        super()._adopt_package_parts(natives, figure)
+        for child in self._children:
+            child.__dict__.pop("_given_transform", None)
+
+    def get_bbox(self, renderer):
+        """
+        Return the bbox of the children under the aux transform alone, its
+        lower left corner at the origin: where pltrs (Rust) lays the box
+        out, else as matplotlib measures it, which moves the children's
+        lower left corner to the origin (``ref_offset_transform``).
+        """
+        laid_out = self._laid_out_bbox(renderer)
+        if laid_out is not None:
+            return laid_out
+        offset = self.offset_transform.get_matrix()
+        self.ref_offset_transform.clear()
+        self.offset_transform.clear()
+        union = Bbox.union([c.get_window_extent(renderer) for c in self._children])
+        self.ref_offset_transform.translate(-union.x0, -union.y0)
+        self.offset_transform.set_matrix(offset)
+        return Bbox.from_bounds(0, 0, union.width, union.height)
 
     def get_transform(self):
         """Return the `.Transform` applied to the children."""

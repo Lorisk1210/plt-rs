@@ -148,6 +148,28 @@ fn share(axes: Axes3D, name: String, other: Axes3D) -> PyResult<()> {
     Ok(())
 }
 
+/// The axes sharing axis `name` (`"x"`, `"y"`, `"z"`) or, for `"view"`,
+/// the view angles with `axes`, `axes` included (the groups of
+/// `_shared_axes`).
+fn shared(axes: Axes3D, name: String) -> PyResult<Vec<Axes3D>> {
+    if name == "view" {
+        Ok(axes.shared_views())
+    } else {
+        Ok(axes.shared_axes(axis3(&name)?))
+    }
+}
+
+/// The axes axis `name` or, for `"view"`, the view angles of `axes` were
+/// explicitly shared with (`_sharex`, `_sharey`, `_sharez`,
+/// `_shareview`).
+fn share_target(axes: Axes3D, name: String) -> PyResult<Option<Axes3D>> {
+    if name == "view" {
+        Ok(axes.view_share_target())
+    } else {
+        Ok(axes.share_target(axis3(&name)?))
+    }
+}
+
 /// Sets the aspect (`"auto"`, `"equal"`, `"equalxy"`, `"equalxz"`,
 /// `"equalyz"`) and what keeps it (`"box"` or `"datalim"`;
 /// `set_aspect`).
@@ -337,6 +359,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_axis_position", get_axis_position)?;
     module.add("calc_coord", calc_coord)?;
     module.add("share", share)?;
+    module.add("shared", shared)?;
+    module.add("share_target", share_target)?;
     module.add("position", position)?;
     module.add("set_position", set_position)?;
     module.add("plane_data_lim", plane_data_lim)?;

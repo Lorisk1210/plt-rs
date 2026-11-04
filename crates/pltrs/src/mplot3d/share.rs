@@ -206,11 +206,12 @@ impl Axes3D {
     /// belongs to another figure.
     pub fn share_axis(&self, axis: Axis3, other: &Axes3D) -> Result<&Self, Axes3DError> {
         self.join(other, ShareKey::Axis(axis))?;
-        let (scale, tickers, (v0, v1), auto) = other.with(|axes| {
+        let (scale, tickers, owner, (v0, v1), auto) = other.with(|axes| {
             let state = axes.axis(axis);
             (
                 state.scale.clone(),
                 state.tickers.clone(),
+                state.locator_owner.unwrap_or_else(|| other.id()),
                 axes.limits.view(axis),
                 axes.limits.autoscale[axis.index()],
             )
@@ -218,6 +219,7 @@ impl Axes3D {
         self.with_mut(|axes| {
             let state = axes.axis_mut(axis);
             state.tickers = tickers;
+            state.locator_owner = Some(owner);
             state.scale = scale;
             axes.set_lim3d_emitting(axis, (v0, v1), Some(auto), None, false)
         })?;
@@ -310,6 +312,41 @@ impl Axes3D {
             axes.camera.angles = angles;
             axes.camera.vertical = vertical;
         });
+    }
+
+    /// The axes `axis` was explicitly shared with, if it still is in the
+    /// figure (matplotlib's `_sharex`, `_sharey` and `_sharez`: the axes
+    /// given to [`Axes3D::share_axis`] or when this one was made).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let fig = Figure::new();
+    /// let (a, b) = (fig.add_subplot_3d(1, 2, 1, Default::default())?,
+    ///               fig.add_subplot_3d(1, 2, 2, Default::default())?);
+    /// b.share_z(&a)?;
+    /// assert_eq!(b.share_target(Axis3::Z), Some(a.clone()));
+    /// assert_eq!(a.share_target(Axis3::Z), None, "a shares nothing itself");
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    pub fn share_target(&self, axis: Axis3) -> Option<Axes3D> {
+        self.target(ShareKey::Axis(axis))
+    }
+
+    /// The axes the view angles were explicitly shared with, if it still
+    /// is in the figure (matplotlib's `_shareview`).
+    pub fn view_share_target(&self) -> Option<Axes3D> {
+        self.target(ShareKey::View)
+    }
+
+    /// The axes `key` was explicitly shared with, if it still is in the
+    /// figure.
+    fn target(&self, key: ShareKey) -> Option<Axes3D> {
+        let id = self.with(|axes| axes.shares.targets[key.index()])?;
+        let figure = self.raw().figure_state();
+        figure.borrow().artist_as::<Axes3DState>(id)?;
+        let raw = crate::artist::RawHandle::new(Rc::clone(figure), id);
+        Some(Axes3D::from_raw(raw))
     }
 
     /// The axes sharing one data axis with this one, this one included

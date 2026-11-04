@@ -76,6 +76,11 @@ class Patch(Artist):
     # subclass-by-subclass basis.
     _edge_default = False
 
+    # The attributes matplotlib keeps in the instance that the class serves
+    # as properties here: they outlive a change of the instance's class
+    # (``art3d.patch_2d_to_3d``), as matplotlib's do.
+    _instance_attributes = ()
+
     def __init__(self, *,
                  edgecolor=None,
                  facecolor=None,
@@ -555,6 +560,8 @@ class Rectangle(Patch):
     and from ``xy[1]`` to ``xy[1] + height`` in y-direction.
     """
 
+    _instance_attributes = ("angle",)
+
     def __str__(self):
         pars = self.get_x(), self.get_y(), self.get_width(), self.get_height(), self.angle
         fmt = "Rectangle(xy=(%g, %g), width=%g, height=%g, angle=%g)"
@@ -779,6 +786,8 @@ class Rectangle(Patch):
 class RegularPolygon(Patch):
     """A regular polygon patch."""
 
+    _instance_attributes = ("xy", "numvertices", "orientation", "radius")
+
     get_patch_transform = Patch._kept_patch_transform
 
     def __str__(self):
@@ -863,6 +872,8 @@ class StepPatch(PathPatch):
     By default, the path is not closed and starts and stops at
     baseline value.
     """
+
+    _instance_attributes = ("orientation",)
 
     _edge_default = False
 
@@ -1006,6 +1017,8 @@ class Polygon(Patch):
 class Wedge(Patch):
     """Wedge shaped patch."""
 
+    _instance_attributes = ("center", "r", "theta1", "theta2", "width")
+
     def __str__(self):
         pars = (self.center[0], self.center[1], self.r,
                 self.theta1, self.theta2, self.width)
@@ -1028,6 +1041,10 @@ class Wedge(Patch):
 
     #: The geometry matplotlib keeps as given.
     _GIVEN = ("center", "r", "theta1", "theta2", "width")
+
+    # A mirror (the background of polar Axes) reads its geometry as the
+    # last draw fitted it.
+    _refreshed_getters = ("_fields", "get_path")
 
     def _fields(self):
         """``(x, y, r, theta1, theta2, width)``."""
@@ -1145,6 +1162,8 @@ class FancyArrow(Polygon):
     """
     Like Arrow, but lets you set head width and head height independently.
     """
+
+    _instance_attributes = ("verts",)
 
     _edge_default = True
 
@@ -1451,6 +1470,8 @@ class Ellipse(Patch):
 class Annulus(Patch):
     """An elliptical annulus."""
 
+    _instance_attributes = ("a", "b")
+
     def __init__(self, xy, r, width, angle=0.0, **kwargs):
         """
         Parameters
@@ -1471,7 +1492,14 @@ class Annulus(Patch):
             float(angle))
         _values.remember_all(self, {"center": xy, "width": width, "angle": angle},
                              ("center", "width", "angle"))
+        self._remember_radii(r)
         super().__init__(**kwargs)
+
+    def _remember_radii(self, r):
+        """Keep the semi-axes as matplotlib's `set_radii` keeps *r*: a pair
+        as given, one radius as a float for both."""
+        a, b = r if np.shape(r) == (2,) else (float(r),) * 2
+        _values.remember_all(self, {"a": a, "b": b}, ("a", "b"))
 
     def __str__(self):
         a, b = self.radii
@@ -1548,6 +1576,7 @@ class Annulus(Patch):
         a : float
         """
         self._set(radii=(float(a), self.b))
+        _values.remember(self, "a", float(a))
 
     def set_semiminor(self, b):
         """
@@ -1558,6 +1587,7 @@ class Annulus(Patch):
         b : float
         """
         self._set(radii=(self.a, float(b)))
+        _values.remember(self, "b", float(b))
 
     def set_radii(self, r):
         """
@@ -1572,10 +1602,12 @@ class Annulus(Patch):
             - If two floats: semi-major and -minor axes of outer ellipse.
         """
         self._set(radii=_annulus_radii(r))
+        self._remember_radii(r)
 
     def get_radii(self):
         """Return the semi-major and semi-minor radii of the annulus."""
-        return _patches.annulus(self._native)[1]
+        a, b = _patches.annulus(self._native)[1]
+        return _values.given(self, "a", a), _values.given(self, "b", b)
 
     radii = property(get_radii, set_radii)
 
@@ -1654,6 +1686,8 @@ class Arc(Ellipse):
 
     Due to internal optimizations, the arc cannot be filled.
     """
+
+    _instance_attributes = ("theta1", "theta2")
 
     def __str__(self):
         pars = (self.center[0], self.center[1], self.width,
@@ -2211,6 +2245,8 @@ def _connection_end_property(index, part, doc):
 
 class ConnectionPatch(FancyArrowPatch):
     """A patch that connects two points (possibly in different Axes)."""
+
+    _instance_attributes = ("xy1", "xy2", "coords1", "coords2")
 
     def __str__(self):
         return "ConnectionPatch((%g, %g), (%g, %g))" % \

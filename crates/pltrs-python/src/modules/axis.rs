@@ -26,7 +26,7 @@ pub(crate) use python_helpers::{PyFormatter, PyLocator};
 mod settings;
 mod tick_updates;
 
-use owner::{AnyAxis, AxisOwner};
+pub(crate) use owner::{AnyAxis, AxisOwner};
 use pltrs::axes::{Axes, Axis, TickPosition};
 use pltrs::mplot3d::Axes3D;
 use pltrs::spines::SpineSide;

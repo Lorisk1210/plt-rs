@@ -294,7 +294,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     def get_alpha(self):
         """Return the alpha value used for blending - not supported on all
         backends."""
-        return _artist.get_alpha(self._native)
+        # As given, as matplotlib keeps it.
+        return _values.given(self, "alpha", _artist.get_alpha(self._native))
 
     def set_alpha(self, alpha):
         """
@@ -311,6 +312,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if alpha is not None and not (0 <= alpha <= 1):
             raise ValueError(f'alpha ({alpha}) is outside 0-1 range')
         _artist.set_alpha(self._native, alpha)
+        _values.remember(self, "alpha", alpha)
         self.pchanged()
 
     @property

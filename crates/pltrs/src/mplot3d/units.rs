@@ -207,9 +207,35 @@ impl Axis3D {
 
     /// The unit converter: the one set with
     /// [`set_converter`](Self::set_converter), else that of the values
-    /// converted on the axis, if any (matplotlib's `get_converter`).
+    /// converted on the axis or on an axis it shares, if any.
     pub fn converter(&self) -> Option<UnitConverter> {
         self.current_converter()
+    }
+
+    /// The converter set on this axis itself, by values converted on it
+    /// or explicitly (matplotlib's `get_converter`): `None` for the
+    /// [`converter`](Self::converter) the axis takes over from an axis it
+    /// shares, as [`Axis::own_converter`] gives for 2-D axes, since
+    /// matplotlib's shared axes share their units and tick helpers but
+    /// not their converters.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::units::UnitConverter;
+    /// let fig = Figure::new();
+    /// let ax = fig.add_subplot_3d(1, 2, 1, Default::default())?;
+    /// let other = fig.add_subplot_3d(1, 2, 2, Default::default())?;
+    /// other.share_x(&ax)?;
+    /// ax.xaxis().convert_units(vec!["a", "b"]);
+    /// assert_eq!(ax.xaxis().own_converter(), Some(UnitConverter::Categories));
+    /// assert_eq!(other.xaxis().converter(), Some(UnitConverter::Categories));
+    /// assert_eq!(other.xaxis().own_converter(), None);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// [`Axis::own_converter`]: crate::axes::Axis::own_converter
+    pub fn own_converter(&self) -> Option<UnitConverter> {
+        UnitHandle::own_converter(self)
     }
 
     /// Sets the unit converter explicitly (matplotlib's `set_converter`):
@@ -266,10 +292,12 @@ impl Axis3D {
         self.unit()
     }
 
-    /// Whether the axis has a unit converter or a unit (matplotlib's
-    /// `have_units`).
+    /// Whether the axis has a unit converter of its own, a unit or
+    /// category names (matplotlib's `have_units`: a converter or `units`,
+    /// which a categorical axis shares with the axes sharing it; see
+    /// [`own_converter`](Self::own_converter)).
     pub fn have_units(&self) -> bool {
-        self.has_units()
+        self.has_own_units()
     }
 
     /// Takes what the axis info of a unit converter gives (matplotlib's

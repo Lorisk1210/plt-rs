@@ -9,6 +9,9 @@ their artists to.
 * ``changed_boxes``: the boxes of added boxes changed once drawn (packer
   settings, visibility, texts, children lists, padding, frames, zoom),
   measured after the next draw;
+* ``box_internals``: the transforms text areas, drawing areas and
+  aux-transform boxes place their artists through, before and after a
+  draw, and aux-transform boxes measured outside any figure;
 * ``patch_clipping``: the clip path and box of each kind of artist, the
   axis and its gridlines in Axes whose patch is a wedge, a circle, a
   rectangle of the program's or the unit square, and what clearing them
@@ -141,6 +144,43 @@ def _changed_boxes() -> Iterator[str]:
     yield "image.get_window_extent(renderer).bounds, area.get_window_extent(renderer).bounds"
 
 
+def _box_internals() -> Iterator[str]:
+    yield "from matplotlib.offsetbox import AuxTransformBox"
+    yield "fig, ax = plt.subplots(figsize=(4, 3), dpi=100)"
+    yield "renderer = fig.canvas.get_renderer()"
+    yield "area = TextArea('hello', textprops={'color': 'r'})"
+    yield "lines2 = TextArea('a\\nb', multilinebaseline=True)"
+    yield "drawing = DrawingArea(20, 10, 2, 3)"
+    yield "drawing.add_artist(patches.Circle((5, 5), 4))"
+    yield "aux = AuxTransformBox(transforms.Affine2D().scale(2, 3))"
+    yield "aux.add_artist(patches.Rectangle((1, 2), 10, 5))"
+    yield "aux.get_bbox(renderer).bounds"
+    yield "aux.get_transform().get_matrix(), aux.ref_offset_transform.get_matrix()"
+    yield "aux.set_offset((4, 6))"
+    yield "aux.get_window_extent(renderer).bounds, aux.get_offset()"
+    yield "aux.get_children()[0].get_window_extent(renderer).bounds"
+    boxes = ["area", "lines2", "drawing", "aux"]
+    for box in boxes[:2]:
+        yield f"{box}._text.get_position(), type({box}._text.get_transform()).__name__"
+        yield f"{box}.offset_transform.get_matrix(), {box}._baseline_transform.get_matrix()"
+    yield "drawing.offset_transform.get_matrix(), drawing.dpi_transform.get_matrix()"
+    yield "anchored = AnchoredOffsetbox(loc='upper left', child=VPacker(children=[area, lines2, drawing, aux]))"
+    yield "ax.add_artist(anchored)"
+    yield "fig.canvas.draw()"
+    for box in boxes[:2]:
+        yield f"{box}._text.get_position(), {box}._text.get_transform().get_matrix()"
+        yield f"{box}.offset_transform.get_matrix(), {box}._baseline_transform.get_matrix()"
+        yield f"{box}.get_offset(), {box}._text.get_window_extent(renderer).bounds"
+    yield "drawing.offset_transform.get_matrix(), drawing.get_offset()"
+    yield "aux.get_offset(), aux.get_bbox(renderer).bounds"
+    yield "lines2.set_multilinebaseline(False)"
+    yield "fig.canvas.draw()"
+    yield "lines2._baseline_transform.get_matrix(), lines2._text.get_window_extent(renderer).bounds"
+    yield "area._text.set_position((5, 5))"
+    yield "fig.canvas.draw()"
+    yield "area._text.get_window_extent(renderer).bounds"
+
+
 def _patch_clipping() -> Iterator[str]:
     yield "from matplotlib.axes import Axes"
     yield "from matplotlib.projections import register_projection"
@@ -175,6 +215,7 @@ def _patch_clipping() -> Iterator[str]:
 AREAS = {
     "program_boxes": (CLASSES, _program_boxes),
     "changed_boxes": (CLASSES[:1], _changed_boxes),
+    "box_internals": (CLASSES[:1], _box_internals),
     "patch_clipping": ([], _patch_clipping),
 }
 

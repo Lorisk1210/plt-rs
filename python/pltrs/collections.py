@@ -1856,3 +1856,14 @@ class PolyQuadMesh(_MeshData, PolyCollection):
     Class for drawing a quadrilateral mesh as individual Polygons (as
     `~.Axes.pcolor` makes).
     """
+
+    def _keep_given_array(self, given):
+        """
+        Keep the values *given* to `~.Axes.pcolor` as the mesh's array, as
+        matplotlib's mesh is made with them: one per cell, masked where
+        invalid, in their dtype (pltrs (Rust) holds the values of the cells
+        it draws, those not masked).
+        """
+        kept = cbook.safe_masked_invalid(given, copy=True)
+        if kept.shape == self._cells():
+            self._A = kept

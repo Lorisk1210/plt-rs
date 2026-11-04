@@ -59,6 +59,9 @@ class ClearMixin:
         # matplotlib's clear forgets the legend without taking it out of
         # the figure (pandas reads the title of the one it replots).
         legend = self.legend_
+        if legend is not None:
+            # Which keeps the Axes as its own.
+            legend._cleared_from = self
         for native in _axes.clear(self._native):
             artist = figure._artists.pop(_artist.id(native), None)
             if artist is not None and artist is not legend:

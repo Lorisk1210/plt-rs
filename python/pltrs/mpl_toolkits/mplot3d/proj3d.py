@@ -25,7 +25,13 @@ def world_transformation(xmin, xmax,
     """
     aspect = (1.0, 1.0, 1.0) if pb_aspect is None else _vec3(pb_aspect)
     limits = tuple(float(v) for v in (xmin, xmax, ymin, ymax, zmin, zmax))
-    return _mplot3d.world_transformation(limits, aspect)
+    M = _mplot3d.world_transformation(limits, aspect)
+    # matplotlib negates the lower limits as given: an integer 0 has no
+    # negative zero.
+    for row, low in enumerate((xmin, ymin, zmin)):
+        if isinstance(low, (int, np.integer)) and low == 0:
+            M[row, 3] = 0.0
+    return M
 
 
 def _view_axes(E, R, V, roll):
@@ -85,7 +91,10 @@ def _persp_transformation(zfront, zback, focal_length):
 def _ortho_transformation(zfront, zback):
     """The orthographic projection between the planes *zfront* and
     *zback*."""
-    return _mplot3d.ortho_transformation(float(zfront), float(zback))
+    # Of the type of the planes, as matplotlib's matrix holds them with
+    # integers: integer planes give an integer matrix.
+    return _mplot3d.ortho_transformation(float(zfront), float(zback)).astype(
+        np.array([zfront, zback, 0]).dtype)
 
 
 def _transform(xs, ys, zs, M):

@@ -6,8 +6,9 @@ through mouse events and the toolbar, and the public names of
 Every program starts on a fresh 3-D axes. The plotting programs read the
 limits, ticks and artists after each variant, draw, and read them again;
 the others read, after each change, what matplotlib's tests of
-``test_axes3d.py`` and ``test_art3d.py`` read. Every figure is compared as
-an image at the end.
+``test_axes3d.py`` and ``test_art3d.py`` read, what 2-D artists lifted into
+3-D keep, and what axes sharing their axes or views share. Every figure is
+compared as an image at the end.
 """
 
 from __future__ import annotations
@@ -378,6 +379,10 @@ def _art3d() -> Iterator[str]:
     yield "lines = art3d.Line3DCollection([[(0, 0, 0), (1, 1, 1)], [(0, 1, 0), (1, 0, 1)]], colors=['r', 'b'])"
     yield "ax.add_collection3d(lines)"
     yield "lines.get_segments(), lines.get_colors()"
+    yield "ax.add_collection3d(art3d.Line3DCollection([]))"
+    yield "ax.add_collection3d(art3d.Line3DCollection([]), autolim=False)"
+    yield "empty = ax.add_collection3d(art3d.Poly3DCollection([]))"
+    yield "empty.get_window_extent(), empty.get_datalim(ax.transData)"
     yield "lc = collections.LineCollection([[(0, 0), (1, 1)]])"
     yield "art3d.line_collection_2d_to_3d(lc, zs=1, zdir='x')"
     yield "type(lc).__name__"
@@ -446,6 +451,67 @@ def _art3d() -> Iterator[str]:
     yield "t.get_position()"
     yield "art3d._all_points_on_plane([0, 1, 0], [0, 0, 1], [0, 0, 0])"
     yield "art3d._all_points_on_plane([0, 1, 0, 1], [0, 0, 1, 1], [0, 0, 0, 1])"
+
+
+def _lifted() -> Iterator[str]:
+    """2-D artists lifted into 3-D (their attributes kept), texts measured
+    where they stand before the projection, and scatter positions that do
+    not broadcast together."""
+    for patch in ["patches.Rectangle((0, 0), 1, 2, angle=30)", "patches.Wedge((0, 0), 1, 10, 80, width=0.5)",
+                  "patches.RegularPolygon((0, 0), 5, radius=1)", "patches.Ellipse((0, 0), 1, 2, angle=10)",
+                  "patches.Arc((0, 0), 1, 1, theta1=10, theta2=90)", "patches.Annulus((0, 0), (2, 1), 0.5)"]:
+        yield f"patch = {patch}"
+        yield "ax.add_patch(patch)"
+        yield "art3d.patch_2d_to_3d(patch, z=1, zdir='y')"
+        yield ("type(patch).__name__, {name: getattr(patch, name) for name in "
+               "('angle', 'center', 'r', 'theta1', 'theta2', 'width', 'xy', 'numvertices', 'radius', "
+               "'orientation', 'a', 'b') if name in vars(patch)}")
+    yield "t = ax.text(1, 2, 3, 'three', zdir='y')"
+    yield "flat = ax.text2D(0.1, 0.2, 'flat', transform=ax.transAxes)"
+    yield "t.get_window_extent().bounds, t.get_position(), t.get_rotation()"
+    yield "t.set_rotation(30)"
+    yield "t.get_window_extent().bounds"
+    yield "sc = ax.scatter([0, 1, 2], [2, 1, 0], [1, 1, 1], depthshade=False)"
+    yield "sc._offsets3d = ([0, 1], [0, 1], [5, 6, 7])"
+    yield "sc._offsets3d"
+    yield "fig.canvas.draw()"
+    yield "sc.get_offsets()"
+    yield "t.get_window_extent().bounds, t.get_position(), t.get_rotation()"
+    yield "flat.get_window_extent().bounds"
+    yield "sc._offsets3d = ([0, 1, 2], [0, 1, 2], [0, 1, 2])"
+    yield "fig.canvas.draw()"
+    yield "sc.get_offsets(), sc._offsets3d"
+
+
+def _sharing() -> Iterator[str]:
+    """3-D axes sharing their axes and views: the groups, what each shares
+    with, clearing shared axes, and the units and converters shared axes
+    hold."""
+    yield "other = fig.add_subplot(2, 2, 4, projection='3d', sharex=ax, sharez=ax, shareview=ax)"
+    yield "sorted(ax._shared_axes)"
+    yield "[ax._shared_axes[name].joined(ax, other) for name in ('x', 'y', 'z', 'view')]"
+    yield "other._sharex is ax, other._sharey, other._sharez is ax, other._shareview is ax, ax._sharez"
+    yield "len(ax.get_shared_x_axes().get_siblings(ax)), len(ax.get_shared_y_axes().get_siblings(ax))"
+    yield "ax.xaxis.update_units(['a', 'b'])"
+    yield "ax.zaxis.update_units(np.array([np.datetime64('2020-01-01')]))"
+    for axes in ("ax", "other"):
+        for name in ("xaxis", "yaxis", "zaxis"):
+            yield (f"type({axes}.{name}.get_converter()).__name__, {axes}.{name}.have_units(), "
+                   f"type({axes}.{name}.get_units()).__name__, type({axes}.{name}.get_major_locator()).__name__")
+    yield "other.xaxis.convert_units(['a', 'c'])"
+    yield "ax.xaxis.convert_units(['c']), ax.xaxis.units is other.xaxis.units"
+    yield "type(other.xaxis.get_converter()).__name__"
+    yield "ax.scatter([0, 1], [0, 1], [0, 1])"
+    yield "other.set_zlim(-2, 2)"
+    yield "ax.get_zlim(), ax.get_xlim()"
+    yield "other.clear()"
+    yield "other.get_zlim(), other.get_xlim(), ax.get_zlim(), ax.get_xlim()"
+    yield "ax.clear()"
+    yield "other.get_zlim(), ax.get_zlim(), ax.get_ylim()"
+    yield "ax.view_init(10, 20)"
+    yield "other.elev, other.azim"
+    yield "fig.canvas.draw()"
+    yield "other.get_zlim(), ax.get_zlim()"
 
 
 def _proj3d() -> Iterator[str]:
@@ -527,6 +593,9 @@ def _axis3d() -> Iterator[str]:
     yield "ax.get_zgridlines(), ax.get_zticklines()"
     yield "ax.xaxis.set_visible(False)"
     yield "ax.get_tightbbox().bounds"
+    yield "ax.set_axis_off()"
+    yield "fig.canvas.draw()"
+    yield "[a.get_tightbbox() for a in (ax.xaxis, ax.yaxis, ax.zaxis)], ax.get_tightbbox().bounds"
 
 
 AREAS = {
@@ -536,6 +605,8 @@ AREAS = {
     "art3d": _art3d,
     "proj3d": _proj3d,
     "axis3d": _axis3d,
+    "lifted": _lifted,
+    "sharing": _sharing,
 }
 
 

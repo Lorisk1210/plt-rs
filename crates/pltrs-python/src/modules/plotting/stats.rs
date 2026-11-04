@@ -3,7 +3,7 @@
 //! and `pie`.
 
 use pltrs::axes::{
-    Axes, BoxArtist, BoxLabel, BoxProps, BxpOptions, PieDirection, PieOptions, PieShadow,
+    Axes, BoxArtist, BoxLabel, BoxPart, BoxProps, BxpOptions, PieDirection, PieOptions, PieShadow,
     ViolinDrawOptions, ViolinSide,
 };
 use pltrs::collections::Collection;
@@ -75,9 +75,11 @@ pub(super) type BoxFlags = (bool, bool, bool, bool, bool, bool);
 /// `(whiskerprops, flierprops, medianprops, capprops, meanprops)`.
 pub(super) type BoxLineProps = (LineKwargs, LineKwargs, LineKwargs, LineKwargs, LineKwargs);
 
-/// `(manage_ticks, zorder, labels)`: the legend labels one per box, or
-/// one for the first.
-pub(super) type BoxMisc = (bool, Option<f64>, Option<Vec<String>>);
+/// `(manage_ticks, zorder, labels, cycled_colors)`: the legend labels one
+/// per box, or one for the first, and the parts (named by the keys of
+/// `boxplot`'s result) given the colour None, which take the colours of
+/// the property cycle.
+pub(super) type BoxMisc = (bool, Option<f64>, Option<Vec<String>>, Vec<String>);
 
 /// The artists of a box plot: `(whiskers, caps, boxes as lines, boxes as
 /// patches, medians, fliers, means)`.
@@ -102,7 +104,7 @@ pub(super) fn bxp(
     (shownotches, showmeans, showcaps, showbox, showfliers, meanline): BoxFlags,
     (patch_artist, boxprops): (bool, Owned),
     (whiskers, fliers, medians, caps, means): BoxLineProps,
-    (manage_ticks, zorder, labels): BoxMisc,
+    (manage_ticks, zorder, labels, cycled_colors): BoxMisc,
 ) -> PyResult<BoxArtists> {
     let boxes = Python::with_gil(|py| {
         let props = boxprops.bind(py);
@@ -140,6 +142,10 @@ pub(super) fn bxp(
         zorder,
         capwidths,
         label,
+        cycled_colors: cycled_colors
+            .iter()
+            .map(|part| box_part(part))
+            .collect::<PyResult<_>>()?,
     };
     let stats: Vec<BoxStats> = stats.into_iter().map(|stats| stats.0).collect();
     let artists = axes.bxp(&stats, options)?;
@@ -159,6 +165,19 @@ pub(super) fn bxp(
         artists.fliers,
         artists.means,
     ))
+}
+
+/// The part of a box plot a key of matplotlib's `boxplot` result names.
+fn box_part(name: &str) -> PyResult<BoxPart> {
+    Ok(match name {
+        "boxes" => BoxPart::Boxes,
+        "whiskers" => BoxPart::Whiskers,
+        "caps" => BoxPart::Caps,
+        "medians" => BoxPart::Medians,
+        "means" => BoxPart::Means,
+        "fliers" => BoxPart::Fliers,
+        _ => return Err(PyErr::value_error(format!("no box plot part {name:?}"))),
+    })
 }
 
 /// The statistics of one violin, from the dict `cbook.violin_stats`

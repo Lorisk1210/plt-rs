@@ -119,13 +119,18 @@ impl<A> Packer<A> {
 /// Where the artists of a leaf go once the tree is laid out.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Placement<A> {
-    /// A text to be drawn with its anchor (the start of its last baseline)
-    /// at `anchor`, in display pixels.
+    /// A text drawn through the translation to `offset`, then up by
+    /// `baseline_shift`, its own position kept (matplotlib's
+    /// `offset_transform + _baseline_transform` of a `TextArea`): a text
+    /// at the origin has the start of its last baseline there.
     Text {
         /// The text artist.
         text: A,
-        /// The anchor in display pixels.
-        anchor: Point,
+        /// The offset of the area in display pixels.
+        offset: Point,
+        /// How far the text is moved up from the offset, in display
+        /// pixels (multi-line text centred on the baseline).
+        baseline_shift: f64,
     },
     /// Artists of a drawing area or an aux-transform box, whose
     /// coordinates map to display pixels through `transform`.
@@ -296,10 +301,10 @@ impl<A: ArtistRef> OffsetBox<A> {
             }
             Self::DrawingArea(area) => placements.push(area.placement(ctx, offset)),
             Self::TextArea(area) => {
-                let shift = area.extent(ctx)?.baseline_shift;
                 placements.push(Placement::Text {
                     text: area.text.clone(),
-                    anchor: Point::new(offset.x, offset.y + shift),
+                    offset,
+                    baseline_shift: area.extent(ctx)?.baseline_shift,
                 });
             }
             Self::AuxTransformBox(aux) => placements.push(aux.placement(offset)),

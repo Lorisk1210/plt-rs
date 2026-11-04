@@ -6,7 +6,9 @@
 //! (`node_extent`, `node_origin`).
 
 use pltrs::artist::RawHandle;
-use pltrs::offsetbox::{node_extent, node_origin, rebuild_tree, text_area_bbox};
+use pltrs::offsetbox::{
+    node_extent, node_origin, rebuild_tree, text_area_baseline_shift, text_area_bbox,
+};
 use pltrs::transforms::Bbox;
 
 use super::tree::PyOffsetBox;
@@ -56,12 +58,20 @@ fn text_area_extent(text: RawHandle, multilinebaseline: bool) -> PyResult<(f64, 
     Ok(bounds(extent))
 }
 
+/// How far a text area holding `text` moves it up from its origin
+/// (`TextArea._baseline_transform`).
+fn text_area_baseline(text: RawHandle, multilinebaseline: bool) -> PyResult<f64> {
+    text_area_baseline_shift(&text, multilinebaseline)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("rebuild_tree", rebuild)?;
     module.add("node_extent", extent)?;
     module.add("node_origin", origin)?;
-    module.add("text_area_extent", text_area_extent)
+    module.add("text_area_extent", text_area_extent)?;
+    module.add("text_area_baseline", text_area_baseline)
 }
 
 #[cfg(test)]

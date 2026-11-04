@@ -123,7 +123,7 @@ pub use bar_label::{BarLabelError, BarLabelOptions, BarLabelType};
 pub use bars::{BandAlign, BandRange, BarAlign, BarContainer, BarOptions};
 pub use box_labels::BoxLabel;
 pub use boxplot::BoxplotOptions;
-pub use bxp::{BoxArtist, BoxProps, BoxplotArtists, BxpOptions};
+pub use bxp::{BoxArtist, BoxPart, BoxProps, BoxplotArtists, BxpOptions};
 pub(crate) use children::DataUpdate;
 pub use current_image::ColorizingArtist;
 pub use dataset_labels::DatasetLabels;

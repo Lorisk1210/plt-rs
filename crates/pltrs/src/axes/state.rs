@@ -85,10 +85,10 @@ pub(crate) struct AxesState {
     /// go through this transform, then the host's data transform
     /// (matplotlib's parasite `transAux`).
     pub(crate) aux_transform: Option<ResolvedTransform>,
-    /// A background outline replacing the projection's, in the
-    /// coordinates of its transform (matplotlib's `_gen_axes_patch` of
-    /// floating axes).
-    pub(crate) patch_outline: Option<(Path, Transform)>,
+    /// A background outline replacing the projection's (matplotlib's
+    /// `_gen_axes_patch` of floating axes or of an Axes class of the
+    /// program's).
+    pub(crate) patch_outline: Option<PatchOutline>,
     /// Property cycle for lines and patches.
     pub(crate) prop_cycle: Cycler,
     /// Next property-cycle entry for lines.
@@ -230,6 +230,30 @@ pub(crate) struct AxesPatch {
     /// parasite's children.
     pub(crate) host_owned: bool,
 }
+
+/// The outline of a background replacing the projection's: the shape the
+/// background is drawn in and what the axes clips is clipped to.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PatchOutline {
+    /// The closed outline, in the coordinates of `transform`.
+    pub(crate) path: Path,
+    /// Its coordinates.
+    pub(crate) transform: Transform,
+    /// Whether the background drawn along it is clipped to the axes box
+    /// (floating axes' `patch.set_clip_path(orig_patch)`).
+    pub(crate) clipped_to_box: bool,
+    /// Whether what the axes clips is clipped to the outline's bounding
+    /// box rather than to the outline (matplotlib's clip box of a
+    /// `Rectangle` patch).
+    pub(crate) clips_as_box: bool,
+}
+
+pltrs_core::archive_struct!(PatchOutline {
+    path,
+    transform,
+    clipped_to_box,
+    clips_as_box
+});
 
 pltrs_core::archive_struct!(AxesPatch {
     style,

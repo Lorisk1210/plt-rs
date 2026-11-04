@@ -186,6 +186,10 @@ def record_drawing(artist, target):
     with _figure_drawn(target[6]), _recording(renderer, target[5]) as drawing:
         if figure_changeable():
             _evaluate_transforms(artist)
+            place = getattr(artist, "_place_as_laid_out", None)
+            if place is not None:
+                # An offset box of the program's, placed by its parent.
+                place()
         draw(renderer)
     return drawing
 
@@ -199,6 +203,15 @@ def _evaluate_transforms(artist):
     figure = artist.get_figure(root=True)
     if figure is not None:
         _transform_trees.sync(figure)
+    evaluate_given_transform(artist)
+
+
+def evaluate_given_transform(artist):
+    """Hand pltrs (Rust) the transform *artist* was given as it is now, as
+    matplotlib's ``draw`` reads ``get_transform()``: a transform of the
+    program's may have changed in place since (the ``offset_transform`` of
+    an offset box of the program's, which its ``set_offset`` moves before
+    it draws its children)."""
     given = artist.__dict__.get("_given_transform")
     if given is not None:
         _transforms.set_transform(artist._native, _live_transforms.to_native(given))
@@ -232,6 +245,16 @@ def measure_artist(artist):
     if bbox is None or (bbox.width == 0 and bbox.height == 0):
         return None
     return tuple(map(float, bbox.extents))
+
+
+def measure_box(box):
+    """The bounds ``(x0, y0, width, height)`` of *box*, an offset box of
+    the program's in the tree of a box pltrs (Rust) lays out, relative to
+    its origin: its ``get_bbox`` with the renderer of its figure, which
+    pltrs (Rust) asks once the figure is laid out (matplotlib's parent asks
+    it when it draws)."""
+    bbox = box.get_bbox(box.get_figure(root=True)._get_renderer())
+    return tuple(map(float, bbox.bounds))
 
 
 def draw_through(renderer, artist):
@@ -371,5 +394,6 @@ _register("filter_function", filter_function)
 _register("record_drawing", record_drawing)
 _register("effect_draw_path", effect_draw_path)
 _register("measure_artist", measure_artist)
+_register("measure_box", measure_box)
 _register("forward_drawing", forward_drawing)
 _register("artist_reference", weakref.ref)

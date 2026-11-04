@@ -102,14 +102,16 @@ impl AxesImageArtist {
     }
 
     /// The display box the image is clipped to (matplotlib's clip box,
-    /// axes box or figure box, the `canvas`).
+    /// axes box or figure box, the `canvas`): the box of the axes clipping
+    /// it to its outline rather than to its box, too (matplotlib's
+    /// `get_clip_box() or self.axes.bbox`).
     fn clip_bbox(&self, layout: LayoutContext<'_>, canvas: Bbox) -> Bbox {
         let clip = if self.base.clip_on {
             layout.clip_rect(&self.base).or_else(|| {
-                self.base
-                    .parent
-                    .filter(|_| self.base.clip_box.is_none())
-                    .and_then(|owner| layout.clip_extent(owner))
+                let owner = self.base.clip_box.or(self.base.parent)?;
+                layout
+                    .clip_extent(owner)
+                    .or_else(|| layout.axes_extent(owner))
             })
         } else {
             None

@@ -6,7 +6,9 @@ use pltrs_core::Bbox;
 use super::{
     AnchoredBoxArtist, AnnotationBboxArtist, ArtistRef, OffsetBox, PlacedBoxArtist, Placement,
 };
-use crate::artist::{Artist, ArtistId, ArtistStore, ClipPathSpec, DrawError, LayoutContext};
+use crate::artist::{
+    Artist, ArtistId, ArtistStore, ClipPathSpec, DrawError, LayoutContext, RawHandle,
+};
 use crate::figure::{FigureState, draws_before};
 use crate::image::BboxImageArtist;
 use crate::patches::{FancyBboxPatch, PatchArtist};
@@ -65,6 +67,9 @@ pub(crate) fn apply_placements<A: ArtistRef>(
                     }
                 }
             }
+            Placement::Program { artist, offset } => {
+                super::program::place(store, artist.artist_id(), offset);
+            }
         }
     }
 }
@@ -87,6 +92,31 @@ fn measure_aux_boxes(state: &mut FigureState, tree: &mut OffsetBox<ArtistId>) {
             .reduce(|a, b| a.union(&b));
         aux.set_extent(extent.unwrap_or(Bbox::from_bounds(0.0, 0.0, 0.0, 0.0)));
     });
+}
+
+/// Changes the tree of `owner`, an added anchored, annotation or placed
+/// box, with `f` (matplotlib's changes to the boxes of an added box, such
+/// as the zoom of an offset image or the size of a drawing area); the box
+/// becomes stale and is laid out again with the figure. `None` when
+/// `owner` is no such box.
+///
+/// ```
+/// use pltrs::artist::ArtistHandle;
+/// use pltrs::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions, DrawingArea, edit_tree};
+/// use pltrs::prelude::*;
+/// let fig = Figure::new();
+/// let area = DrawingArea::new(10.0, 10.0, 0.0, 0.0);
+/// let anchored = fig.subplot().add_anchored_box(AnchoredBox::new(area, AnchoredOptions::new(AnchorLoc::Center)));
+/// let widened = edit_tree(anchored.raw(), |tree| tree.drawing_area_mut(0).map(|area| area.width = 40.0));
+/// assert_eq!(widened, Some(Some(())));
+/// assert!(anchored.raw().is_stale());
+/// assert_eq!(edit_tree(fig.subplot().raw(), |_| ()), None, "an axes has no tree");
+/// ```
+pub fn edit_tree<R>(owner: &RawHandle, f: impl FnOnce(&mut OffsetBox<ArtistId>) -> R) -> Option<R> {
+    let mut state = owner.figure_state().borrow_mut();
+    let result = tree_mut(&mut state.store, owner.id()).map(f)?;
+    state.mark_stale(owner.id());
+    Some(result)
 }
 
 /// The tree of the anchored, annotation or placed box `id`, if it is one.
@@ -166,6 +196,7 @@ pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
         return;
     };
     measure_aux_boxes(state, &mut tree);
+    super::program::sync_program_boxes(state, &mut tree);
     if let Some(stored) = tree_mut(&mut state.store, id) {
         *stored = tree;
     }

@@ -115,7 +115,7 @@ impl<'a> LayoutContext<'a> {
     /// Whether display point `at` is over the background of `axes`: its
     /// box, or the wedge of polar axes (matplotlib's `Axes.contains`).
     pub fn axes_contains(&self, axes: ArtistId, at: Point) -> bool {
-        match self.figure.axes_outline(axes) {
+        match self.figure.background_outline(axes) {
             Some(outline) => outline
                 .path
                 .contains_point(at, Some(&outline.transform), 0.0),
@@ -125,8 +125,12 @@ impl<'a> LayoutContext<'a> {
 
     /// Display-space extent of an axes or figure frame used as a clip box
     /// (`None` for polar and geographic axes, which clip to their outline
-    /// instead).
+    /// instead; the box of the rectangle an axes' patch is when it is one
+    /// of its own).
     pub fn clip_extent(&self, owner: ArtistId) -> Option<Bbox> {
+        if let Some(rect) = self.figure.outline_clip_box(owner) {
+            return Some(rect);
+        }
         if self.figure.axes_outline(owner).is_some() {
             return None;
         }
@@ -160,6 +164,13 @@ impl<'a> LayoutContext<'a> {
     /// geographic axes).
     pub fn clip_outline(&self, owner: ArtistId) -> Option<ClipPath> {
         self.figure.axes_outline(owner)
+    }
+
+    /// The outline the background of `owner` is drawn along when it is no
+    /// rectangle of the axes box (its own outline, the wedge of polar
+    /// axes, the ellipse of geographic axes).
+    pub(crate) fn background_outline(&self, owner: ArtistId) -> Option<ClipPath> {
+        self.figure.background_outline(owner)
     }
 
     /// The axes whose `axis` labels align with those of `axes` in its

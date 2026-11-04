@@ -420,11 +420,13 @@ impl Figure {
     }
 
     /// The layout pass of [`Figure::layout`], before a draw, then the
-    /// limit callbacks its autoscaling queued.
+    /// offset boxes of the program's measured where the figure is laid
+    /// out, then the limit callbacks its autoscaling queued.
     pub(crate) fn prepare_layout(&self) {
         self.run_layout_hook();
         self.root_handle().measure_painters();
         self.state.borrow_mut().prepare_for_draw();
+        crate::offsetbox::measure_program_boxes(&self.root_handle());
         crate::axes::run_limit_callbacks(&self.state);
     }
 

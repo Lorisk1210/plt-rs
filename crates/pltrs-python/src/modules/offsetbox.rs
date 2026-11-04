@@ -8,6 +8,8 @@ use crate::binding::prelude::*;
 
 mod add;
 mod arrow;
+mod edit;
+mod program;
 mod tree;
 
 /// The packing mode called `name` (`"fixed"`, `"expand"`, `"equal"`).
@@ -69,6 +71,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("packed", packed)?;
     module.add("aligned", aligned)?;
     arrow::register(module)?;
+    program::register(module)?;
+    edit::register(module)?;
     add::register(module)
 }
 

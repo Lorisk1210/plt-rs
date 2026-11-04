@@ -16,7 +16,7 @@ use super::grid_finder::{
 use super::grid_helper_curvelinear::{self as curvelinear, AxisGrid, FloatingLine};
 use super::gridlines::SharedGridHelper;
 use crate::artist::{ArtistHandle, ClipPathSpec};
-use crate::axes::{AspectError, AxesState, PlotError};
+use crate::axes::{AspectError, AxesState, PatchOutline, PlotError};
 use crate::rc::Aspect;
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
@@ -273,7 +273,12 @@ impl FloatingAxes {
     fn fit_outline(&self, outline: Path) -> Result<(), PlotError> {
         let id = self.ax().id();
         self.ax().raw().with_mut::<AxesState, _>(|state| {
-            state.patch_outline = Some((outline, Transform::Data(id)));
+            state.patch_outline = Some(PatchOutline {
+                path: outline,
+                transform: Transform::Data(id),
+                clipped_to_box: true,
+                clips_as_box: false,
+            });
         });
         // The gridlines are clipped to the axes box, not to the outline
         // (matplotlib's `gridlines.set_clip_path(orig_patch)`, which turns
@@ -292,7 +297,7 @@ impl FloatingAxes {
         self.ax()
             .raw()
             .with::<AxesState, _>(|state| state.patch_outline.clone())
-            .map_or_else(Path::unit_rectangle, |(path, _)| path)
+            .map_or_else(Path::unit_rectangle, |outline| outline.path)
     }
 
     /// Fits the limits around the background outline with a 2 % margin

@@ -136,6 +136,11 @@ def clip_path_spec(path, transform=None):
 class ClippingMixin:
     """The clipping methods of `.Artist`."""
 
+    #: The clip path set (`get_clip_path`), matplotlib's attribute, which
+    #: the program's drawing reads (`.offsetbox.DrawingArea.draw`): None
+    #: until one is set.
+    _clippath = None
+
     def set_clip_box(self, clipbox):
         """
         Set the artist's clip `.Bbox`.

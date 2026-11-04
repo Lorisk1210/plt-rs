@@ -1,16 +1,18 @@
 //! Collections built before they are added to an axes: matplotlib's
 //! collection classes (`PatchCollection`, `LineCollection`,
 //! `PolyCollection`, `EllipseCollection`, `CircleCollection`,
-//! `RegularPolyCollection`, `EventCollection`).
+//! `RegularPolyCollection`, `EventCollection`, `QuadMesh`).
 
 use pltrs_core::path::DataLimits;
 use pltrs_core::{Path, Point};
 
 use super::{
-    CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors, EventLines, Mapped,
+    CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors, EventLines,
+    Mapped, MeshShading,
 };
 use crate::artist::{Artist, ArtistId};
 use crate::colors::{Color, ColorError};
+use crate::numeric::Grid;
 use crate::orientation::Orientation;
 use crate::patches::{PatchProps, PatchShape, PatchStyle};
 use crate::transforms::Transform;
@@ -226,6 +228,32 @@ impl CollectionSpec {
         spec.artist.size_factor = std::f64::consts::PI.sqrt().recip();
         spec.artist.size_rotation = rotation;
         spec
+    }
+
+    /// A grid of quadrilaterals over the vertices `coordinates`, in data
+    /// coordinates, coloured as `shading` says (matplotlib's
+    /// `QuadMesh(coordinates, shading=...)`): with the collections'
+    /// defaults, unlike the mesh of
+    /// [`Axes::pcolormesh`](crate::axes::Axes::pcolormesh), and picked
+    /// inside its cells.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::collections::{CollectionSpec, MeshShading};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let grid = Grid::from_fn(3, 4, |row, col| Point::new(col as f64, row as f64));
+    /// let mesh = ax.add_collection(CollectionSpec::quad_mesh(grid, MeshShading::Flat));
+    /// assert_eq!(mesh.mesh_shape(), Some((3, 4)));
+    /// let (x0, x1) = ax.xlim();
+    /// assert!((x0 + 0.15).abs() < 1e-12 && (x1 - 3.15).abs() < 1e-12, "with margins");
+    /// ```
+    pub fn quad_mesh(coordinates: Grid<Point>, shading: MeshShading) -> Self {
+        Self {
+            artist: CollectionArtist::quad_mesh(coordinates, shading, crate::rc::params()),
+            autolim: true,
+        }
     }
 
     /// One line across `lineoffset` of `linelength` at each position, along

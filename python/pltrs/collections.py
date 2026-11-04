@@ -1574,7 +1574,38 @@ class _MeshData:
 class QuadMesh(_MeshData, Collection):
     """
     Class for the efficient drawing of a quadrilateral mesh.
+
+    A quadrilateral mesh is a grid of M by N adjacent quadrilaterals that are
+    defined via a (M+1, N+1) grid of vertices. The quadrilateral (m, n) is
+    defined by the vertices ``(m, n)``, ``(m, n+1)``, ``(m+1, n+1)`` and
+    ``(m+1, n)``. The mesh need not be regular and the polygons need not be
+    convex.
     """
+
+    def __init__(self, coordinates, *, antialiased=True, shading='flat',
+                 **kwargs):
+        """
+        Parameters
+        ----------
+        coordinates : (M+1, N+1, 2) array-like
+            The vertices. ``coordinates[m, n]`` specifies the (x, y)
+            coordinates of vertex (m, n).
+        antialiased : bool, default: True
+            Whether the mesh is drawn antialiased.
+        shading : {'flat', 'gouraud'}, default: 'flat'
+            One colour per cell, or colours interpolated from the vertices.
+        **kwargs
+            Forwarded to `.Collection`.
+        """
+        kwargs.setdefault("pickradius", 0)
+        _api.check_shape((None, None, 2), coordinates=coordinates)
+        self._native = _collections.new_quad_mesh(
+            np.ma.filled(np.ma.asarray(coordinates, dtype=float), np.nan),
+            shading == 'gouraud', bool(antialiased))
+        # The vertices read back as matplotlib keeps them (`get_coordinates`).
+        self._coordinates_dtype = np.asarray(coordinates).dtype
+        Collection.__init__(self, **kwargs)
+        self.set_mouseover(False)
 
     def get_datalim(self, transData):
         """The box of the mesh's coordinates in the coordinates of
@@ -1597,11 +1628,23 @@ class QuadMesh(_MeshData, Collection):
         return _values.given(self, "pickradius",
                              _collections.get_pickradius(self._native), default=0)
 
+    @property
+    def _antialiased(self):
+        """Whether the mesh is drawn antialiased (matplotlib's attribute,
+        what the mesh was made with; see `get_antialiased`)."""
+        antialiased = self._get("antialiased")
+        return bool(antialiased[0]) if antialiased else _rcParams()['patch.antialiased']
+
+    @_antialiased.setter
+    def _antialiased(self, antialiased):
+        _collections.set_antialiaseds(self._native, [bool(antialiased)])
+
     def get_antialiased(self):
         """
         Return the antialiasing of the collection: :rc:`patch.antialiased`
         until set. matplotlib's mesh draws with the antialiasing it was made
-        with (``pcolormesh(antialiased=...)``), which this does not read.
+        with (``pcolormesh(antialiased=...)``, `_antialiased`), which this
+        does not read.
         """
         return np.array(self.__dict__.get(
             "_antialiaseds", [_rcParams()['patch.antialiased']]), dtype=bool)

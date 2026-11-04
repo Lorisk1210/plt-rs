@@ -3,7 +3,8 @@
 //! loose pltrs (Rust) collection ([`Collection::loose`]), which an axes
 //! or a figure then adopts (`_native.artist.adopt_into_axes`).
 
-use pltrs::collections::{Collection, CollectionSpec, EllipseUnits};
+use pltrs::collections::{Collection, CollectionProps, CollectionSpec, EllipseUnits, MeshShading};
+use pltrs::numeric::Grid;
 use pltrs::orientation::Orientation;
 use pltrs_core::Point;
 
@@ -130,6 +131,35 @@ fn ellipse_collection(
     Ok(Collection::loose(spec))
 }
 
+/// A loose quad mesh over the vertices `coordinates`, an `(M, N, 2)` array
+/// (NaN where masked), Gouraud-shaded with `gouraud`, drawn `antialiased`
+/// or not (matplotlib's `QuadMesh(coordinates, antialiased=...,
+/// shading=...)`).
+fn quad_mesh(coordinates: NdArray, gouraud: bool, antialiased: bool) -> PyResult<Collection> {
+    let &[rows, cols, 2] = coordinates.shape.as_slice() else {
+        return Err(PyErr::value_error(format!(
+            "'coordinates' must be 3D with shape (M, N, 2), but your input has shape {:?}",
+            coordinates.shape
+        )));
+    };
+    let (pairs, _) = coordinates.data.as_chunks::<2>();
+    let vertices = pairs.iter().map(|&[x, y]| Point::new(x, y)).collect();
+    let grid =
+        Grid::from_vec(rows, cols, vertices).map_err(|err| PyErr::value_error(err.to_string()))?;
+    let shading = if gouraud {
+        MeshShading::Gouraud
+    } else {
+        MeshShading::Flat
+    };
+    let props = CollectionProps {
+        antialiased: Some(vec![antialiased]),
+        ..CollectionProps::default()
+    };
+    Ok(Collection::loose(
+        CollectionSpec::quad_mesh(grid, shading).with_props(props),
+    ))
+}
+
 /// Registers the constructors, as `new_<kind>`.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_line_collection", line_collection)?;
@@ -141,5 +171,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_fill_between_collection", fill_between_collection)?;
     module.add("new_regular_poly_collection", regular_poly_collection)?;
     module.add("new_ellipse_collection", ellipse_collection)?;
+    module.add("new_quad_mesh", quad_mesh)?;
     Ok(())
 }

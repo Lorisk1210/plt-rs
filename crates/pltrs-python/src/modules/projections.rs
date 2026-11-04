@@ -22,6 +22,7 @@ use pltrs::spines::SpineSide;
 use pltrs::text::{HAlign, VAlign};
 use pltrs::transforms::{Affine2D, Point, ResolvedTransform, Step};
 
+use super::path::PyPath;
 use super::transforms::{PyPointMap, affine};
 use crate::binding::dict_value;
 use crate::binding::prelude::*;
@@ -311,9 +312,19 @@ fn install(axes: Axes, adapter: Owned) -> PyResult<()> {
     Ok(())
 }
 
+/// Makes `outline`, a closed path in axes fractions, the background of
+/// `axes` and what it clips to (its bounding box with `as_box`, for a
+/// `Rectangle`), or its projection's again with `None` (the patch an Axes
+/// class of the program's makes, `_gen_axes_patch`).
+fn set_patch_outline(axes: Axes, outline: Option<PyPath>, as_box: bool) -> PyResult<()> {
+    axes.set_patch_outline(outline.map(|outline| outline.path), as_box);
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("install", install)
+    module.add("install", install)?;
+    module.add("set_patch_outline", set_patch_outline)
 }
 
 #[cfg(test)]

@@ -217,7 +217,8 @@ impl LogFormatter {
     ///
     /// # Errors
     ///
-    /// When `x` is not finite.
+    /// When `x` has no finite logarithm (NaN or infinite), as Python's
+    /// `round` of NaN fails in matplotlib.
     pub fn call(
         &self,
         x: f64,
@@ -247,7 +248,9 @@ impl LogFormatter {
         let b = self.base;
         let fx = x.ln() / b.ln();
         if !fx.is_finite() {
-            return Err(TickerError::NonFinite("tick value"));
+            // matplotlib's `round` of the coefficient, `b ** (fx - exponent)`,
+            // which is NaN for a value of no finite logarithm.
+            return Err(TickerError::NotAnInteger { infinite: false });
         }
         let is_decade = is_close_to_int(fx);
         let exponent = if is_decade {

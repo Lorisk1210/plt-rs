@@ -222,11 +222,9 @@ pub enum NormError {
 impl fmt::Display for NormError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvertedLimits { vmin, vmax } => {
-                write!(
-                    f,
-                    "vmin ({vmin}) must be less than or equal to vmax ({vmax})"
-                )
+            // matplotlib's message, which names neither limit.
+            Self::InvertedLimits { .. } => {
+                f.write_str("minvalue must be less than or equal to maxvalue")
             }
             Self::Unscaled => f.write_str("vmin and vmax must both be set"),
             Self::InvalidLimits => f.write_str("Invalid vmin or vmax"),

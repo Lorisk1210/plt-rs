@@ -13,6 +13,8 @@ from . import (_api, _handles, _live_transforms, _values, colors as mcolors,
 from ._fancy_styles import _style_object
 from ._native import plotting as _plotting
 from ._patch_styles import ArrowStyle, _native_spec
+from ._stream_grid import (  # noqa: F401 - matplotlib's names of the module
+    DomainMap, Grid, InvalidIndexError, OutOfBounds, StreamMask, TerminateTrajectory, interpgrid)
 
 
 __all__ = ['streamplot']

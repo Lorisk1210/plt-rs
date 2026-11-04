@@ -7,8 +7,8 @@ use pltrs_core::{Bbox, Point, Rgba};
 
 use super::{ColorMapping, Mapped};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, LayoutContext,
-    LimitPoints, RawHandle, TypedHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, DrawErrorKind,
+    LayoutContext, LimitPoints, RawHandle, TypedHandle,
 };
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
@@ -78,11 +78,10 @@ impl TriMeshArtist {
         limits
     }
 
-    fn draw_mesh(&self, ctx: &mut DrawContext<'_>) -> Result<(), String> {
+    fn draw_mesh(&self, ctx: &mut DrawContext<'_>, colors: &[Rgba]) -> Result<(), String> {
         let resolved = ctx
             .resolve(&self.transform())
             .ok_or("its coordinate system no longer exists")?;
-        let colors = self.mapping.colors(&self.base.alpha.into())?;
         let corners: Vec<[Point; 3]> = self
             .triangles
             .iter()
@@ -127,8 +126,15 @@ impl Artist for TriMeshArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        if let Err(problem) = self.draw_mesh(ctx) {
-            ctx.report(self.base.id(), problem);
+        match self.mapping.colors(&self.base.alpha.into()) {
+            // matplotlib's norms raise a `ValueError` for values or limits
+            // they cannot normalise.
+            Err(problem) => ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem),
+            Ok(colors) => {
+                if let Err(problem) = self.draw_mesh(ctx, &colors) {
+                    ctx.report(self.base.id(), problem);
+                }
+            }
         }
     }
 

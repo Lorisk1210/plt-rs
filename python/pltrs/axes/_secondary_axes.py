@@ -160,7 +160,8 @@ class SecondaryAxis(Axes):
         self._axes_locator = _TransformedBoundsLocator(
             bounds, self._located_blend(transform))
         if transform is parent.transData:
-            return ("data", float(location))
+            # A location string is its place, 0 or 1, in the data too.
+            return ("data", float(self._pos))
         # Any other transform is followed at every draw, where it is
         # evaluated, as the parent's fraction it puts the axis at.
         self._location_transform = transform

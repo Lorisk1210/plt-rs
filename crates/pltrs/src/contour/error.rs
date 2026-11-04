@@ -191,9 +191,8 @@ impl fmt::Display for ContourError {
             Self::NoContourToLabel => f.write_str("no labelled contour line to place a label on"),
             Self::Unlabelled => f.write_str("label the contour set with clabel first"),
             Self::FilledUnsupported => f.write_str("Method does not support filled contours"),
-            Self::LevelIndex { index, levels } => {
-                write!(f, "level index {index} is out of range for {levels} levels")
-            }
+            // Python's message for matplotlib's indexing of its level list.
+            Self::LevelIndex { .. } => f.write_str("list index out of range"),
             Self::VertexIndex { index, vertices } => write!(
                 f,
                 "index {index} is out of bounds for a line of {vertices} vertices"

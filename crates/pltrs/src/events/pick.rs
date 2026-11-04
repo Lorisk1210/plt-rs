@@ -119,8 +119,7 @@ impl Figure {
         }
         let inaxes = mouse.location.inaxes.as_ref().map(ArtistHandle::id);
         let candidates = {
-            let mut state = self.state_mut();
-            state.prepare();
+            let state = self.state_cell().prepared();
             pickable_artists(&state, self.raw().id(), inaxes, &|_| false)
         };
         let at = Point::new(mouse.location.x, mouse.location.y);
@@ -149,8 +148,7 @@ impl Figure {
     /// How `candidate` answers a pick at display point `at`, if it is
     /// still pickable and not missed by its own hit test.
     fn answer(&self, candidate: Candidate, at: Point) -> Option<Answer> {
-        let mut state = self.state_mut();
-        state.prepare();
+        let state = self.state_cell().prepared();
         let layout = LayoutContext::new(&state);
         match candidate {
             Candidate::Artist(id) => {
@@ -203,8 +201,7 @@ impl Figure {
         let ids: Vec<ArtistId> = also.iter().map(RawHandle::id).collect();
         let inaxes = inaxes.map(ArtistHandle::id);
         let candidates = {
-            let mut state = self.state_mut();
-            state.prepare();
+            let state = self.state_cell().prepared();
             pickable_artists(&state, root.id(), inaxes, &|id| ids.contains(&id))
         };
         candidates

@@ -139,19 +139,20 @@ fn axes_tightbbox(
     // matplotlib's `get_tightbbox` applies the aspect, then places the
     // ticks of each axis it measures; both may raise.
     axes.apply_aspect()?;
-    if axes.axis_on() {
-        for name in [AxisName::X, AxisName::Y] {
-            let axis = axes.axis_of(name);
-            if axis.visible() && (axis.in_layout() || !for_layout_only) {
-                axes.ticks(name)?;
-            }
-        }
-    }
     let bbox = if children {
         axes.tight_bbox(for_layout_only)
     } else {
         axes.decorations_tight_bbox(for_layout_only)
     };
+    if axes.axis_on() {
+        for name in [AxisName::X, AxisName::Y] {
+            let axis = axes.axis_of(name);
+            if axis.visible() && (axis.in_layout() || !for_layout_only) {
+                // Placed by the measure, at the same place.
+                axes.ticks(name)?;
+            }
+        }
+    }
     Ok(bbox.map(extents))
 }
 

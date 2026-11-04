@@ -96,6 +96,23 @@ impl Axis {
             .with::<AxesState, _>(|axes| axes.data_interval(name).1)
     }
 
+    /// `values` through the axis' scale (matplotlib's
+    /// `axis.get_transform().transform(values)`).
+    ///
+    /// ```
+    /// use pltrs::scale::ScaleName;
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.set_xscale(ScaleName::Log)?;
+    /// assert_eq!(ax.xaxis().scaled(&[1.0, 100.0]), [0.0, 2.0]);
+    /// assert_eq!(ax.yaxis().scaled(&[1.0, 100.0]), [1.0, 100.0], "linear");
+    /// # Ok::<(), pltrs::scale::ScaleError>(())
+    /// ```
+    pub fn scaled(&self, values: &[f64]) -> Vec<f64> {
+        let mut scaled = values.to_vec();
+        self.read(|axis| axis.forward_all(&mut scaled));
+        scaled
+    }
+
     /// Rescales the view along this axis and the axes sharing it at the
     /// next layout, as after its major locator changed (matplotlib's
     /// `_request_autoscale_view`); `tight` replaces the tight setting of

@@ -115,7 +115,7 @@ impl Figure {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn tree_leaves(&self, frames: &[ArtistId], axes: &[ArtistId]) -> Option<TreeLeaves> {
-        let state = self.state_cell().try_borrow().ok()?;
+        let state = self.state_cell().try_borrow()?;
         Some(TreeLeaves {
             dpi: state.dpi(),
             size_inches: state.size_inches,

@@ -82,6 +82,14 @@ pub trait Formatter: fmt::Debug + Any {
     fn following(&self, _locator: &Rc<dyn Locator>) -> Option<Rc<dyn Formatter>> {
         None
     }
+
+    /// Whether the formatter runs code of the program's that observes
+    /// its calls (a host language's formatter): the axes it labels are
+    /// then ticked as matplotlib ticks them, as often (see
+    /// [`TickUpdater`](crate::axes::TickUpdater)). `false` by default.
+    fn calls_program(&self) -> bool {
+        false
+    }
 }
 
 /// matplotlib's `cbook.strip_math`: removes the `$...$` wrapper and the

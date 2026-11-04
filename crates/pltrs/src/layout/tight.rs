@@ -175,21 +175,26 @@ impl Figure {
         let axes: Vec<ArtistId> = (self.axes().iter().map(ArtistHandle::id))
             .chain(self.axes3d().iter().map(ArtistHandle::id))
             .collect();
-        let mut state = self.raw().figure_state().borrow_mut();
-        if crate::rc::params().pltrs_tight_layout_keep_constrained
-            && matches!(state.layout.engine, Some(LayoutEngine::Constrained(_)))
-        {
-            return Ok(self);
-        }
-        let has_colorbars = crate::colorbar::has_colorbars(&state.store);
-        let swapped = state
-            .layout
-            .swap_engine(Some(LayoutEngine::Tight(params)), has_colorbars);
-        // The pass runs once, by hand: the engine left behind places nothing.
-        state.layout.remove_engine();
-        swapped?;
-        warn_about_left_out_axes(&state, &axes, None);
-        state.tight_layout_pass(self.raw().id(), &axes, &params)?;
+        let frame = self.raw().id();
+        // Worked on outside the figure's cell: the program's tick helpers
+        // the measures call find the figure lent.
+        self.raw().figure_state().work_on(|state| {
+            if crate::rc::params().pltrs_tight_layout_keep_constrained
+                && matches!(state.layout.engine, Some(LayoutEngine::Constrained(_)))
+            {
+                return Ok(());
+            }
+            let has_colorbars = crate::colorbar::has_colorbars(&state.store);
+            let swapped = state
+                .layout
+                .swap_engine(Some(LayoutEngine::Tight(params)), has_colorbars);
+            // The pass runs once, by hand: the engine left behind places
+            // nothing.
+            state.layout.remove_engine();
+            swapped?;
+            warn_about_left_out_axes(state, &axes, None);
+            state.tight_layout_pass(frame, &axes, &params)
+        })?;
         Ok(self)
     }
 }
@@ -207,6 +212,11 @@ impl FigureState {
             return Ok(());
         };
         let measured = Measured::new(self, axes, &subplot_params, None)?;
+        if params.rect.is_some() && self.ticks_by_program() {
+            // matplotlib measures the axes again to fit them into the
+            // rectangle, which the program's tick helpers see.
+            Measured::new(self, axes, &subplot_params, None)?;
+        }
         if let Some(overrides) = adjusted_params(self, &measured, params)? {
             self.set_subplot_params(subplot_params.updated(overrides)?)?;
         }

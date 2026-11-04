@@ -340,6 +340,14 @@ class Colorbar:
         self._native = _colorbar.new(
             figure._native, self._shown(),
             None if cax is None else cax._native, parents, spec)
+        norm_scale = getattr(getattr(self.norm, "_scale", None), "name", None)
+        if (not type(self.norm).__module__.startswith(__package__)
+                or norm_scale in ("function", "functionlog")):
+            # matplotlib's long axis is scaled by the program's norm, or by
+            # the program's functions of a `FuncNorm`, which its tick
+            # updates call.
+            from . import _tick_updates
+            _tick_updates.install(figure)
         if locator is not None:
             self.locator = locator
         self._keep_tickers()

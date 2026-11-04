@@ -16,6 +16,7 @@ use crate::contour::nearest::{closest_on_lines, components};
 use crate::contour::{ContourError, ContourSet};
 use crate::fonts::FontProperties;
 use crate::text::{Text, TextArtist};
+use crate::ticker::LabelFormat;
 use crate::transforms::{ResolvedTransform, Transform, TransformError};
 
 /// The font and z-order of the label texts.
@@ -46,13 +47,17 @@ pub(crate) struct LabelSetup {
     pub(super) style: TextStyle,
     /// Keep labels upright.
     pub(super) rightside_up: bool,
+    /// The function of the program's writing the labels, which writes
+    /// each label again as it is added, as matplotlib's `add_label` asks
+    /// it (`get_text`) after its width was measured.
+    pub(super) relabel: Option<LabelFormat>,
 }
 
 pltrs_core::archive_struct!(LabelSetup {
     labels,
     style,
     rightside_up
-});
+} skip { relabel });
 
 impl LabelSetup {
     /// The label widths in pixels, per labelled level.
@@ -122,16 +127,34 @@ impl<'s> Placer<'s> {
         }
     }
 
+    /// The label of a level as its labels are placed: written again (and
+    /// measured) by the program's function when it writes them, as
+    /// matplotlib's `labels` measures each (`_get_nth_label_width`).
+    fn written(&self, label: &LevelLabel) -> Result<LevelLabel, ContourError> {
+        let Some(format) = &self.setup.relabel else {
+            return Ok(label.clone());
+        };
+        let text = format.printf(label.level)?;
+        Ok(LevelLabel {
+            width: self.set.text_width(&text, &self.setup.style.font)?,
+            text,
+            ..label.clone()
+        })
+    }
+
     /// Automatic placement (matplotlib's `labels`), the lines cut by
-    /// `splitter` when given.
+    /// `splitter` when given; returns the labels of the levels as they
+    /// were written.
     pub(super) fn label_all(
         &mut self,
         inline: bool,
         spacing: f64,
         mut splitter: Option<&mut LabelSplitter<'_>>,
-    ) {
+    ) -> Result<Vec<LevelLabel>, ContourError> {
         let mut paths = self.set.paths();
+        let mut written = Vec::with_capacity(self.setup.labels.len());
         for label in &self.setup.labels {
+            let label = self.written(label)?;
             let mut additions = Vec::new();
             for subpath in components(&paths[label.index]) {
                 let screen: Vec<Point> = subpath
@@ -152,16 +175,18 @@ impl<'s> Placer<'s> {
                     spacing,
                 };
                 let (rotation, cut) = self.split(&request, splitter.as_deref_mut());
-                self.add(label, at, rotation);
+                self.add(&label, at, rotation);
                 additions.push(if inline { cut } else { subpath });
             }
             if inline {
                 paths[label.index] = Path::compound(&additions);
             }
+            written.push(label);
         }
         if inline {
             self.set.set_paths(paths);
         }
+        Ok(written)
     }
 
     /// Labels the labelled line nearest to display point `target` and
@@ -207,7 +232,10 @@ impl<'s> Placer<'s> {
         let style = &self.setup.style;
         let axes = self.set.axes().clone();
         let data = self.display_to_data.transform_point(at);
-        let mut artist = TextArtist::new(data, label.text.clone(), Rc::clone(&style.rc));
+        let written = (self.setup.relabel.as_ref())
+            .and_then(|format| format.printf(label.level).ok())
+            .unwrap_or_else(|| label.text.clone());
+        let mut artist = TextArtist::new(data, written.clone(), Rc::clone(&style.rc));
         artist.font = style.font.clone();
         if style.rotates_with_data {
             artist.rotation = self.display_to_data.transform_angle(rotation, at);
@@ -228,7 +256,7 @@ impl<'s> Placer<'s> {
         self.set.update(|state| {
             state.labels.push(LabelRecord {
                 level: label.level,
-                text: label.text.clone(),
+                text: written,
                 position: at,
                 rotation: pltrs_core::numeric::remainder(rotation, 360.0),
                 color: label.color,

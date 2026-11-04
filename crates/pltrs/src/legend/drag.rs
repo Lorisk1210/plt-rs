@@ -110,8 +110,7 @@ impl DragTarget for LegendDrag {
     fn update_offset(&mut self, legend: &RawHandle, dx: f64, dy: f64) {
         let corner = Point::new(self.corner.x + dx, self.corner.y + dy);
         let figure = legend.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let mut state = figure.prepared();
         match self.update {
             LegendDragUpdate::Loc => Self::update_loc(&mut state, legend, corner),
             LegendDragUpdate::Bbox => Self::update_bbox(&mut state, legend, corner),

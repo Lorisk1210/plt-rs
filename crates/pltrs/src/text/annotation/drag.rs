@@ -20,8 +20,7 @@ struct AnnotationDrag {
 impl DragTarget for AnnotationDrag {
     fn save_offset(&mut self, annotation: &RawHandle) {
         let figure = annotation.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let state = figure.prepared();
         let layout = LayoutContext::new(&state);
         self.origin = layout
             .store()
@@ -37,8 +36,7 @@ impl DragTarget for AnnotationDrag {
         };
         let at = Point::new(origin.x + dx, origin.y + dy);
         let figure = annotation.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let mut state = figure.prepared();
         let position = {
             let layout = LayoutContext::new(&state);
             layout

@@ -75,8 +75,7 @@ impl InsetIndicator {
     pub fn connectors(&self) -> Option<Vec<Patch<ConnectionPatch>>> {
         self.with(|indicator| indicator.inset)?;
         {
-            let mut state = self.raw.figure_state().borrow_mut();
-            state.prepare();
+            let mut state = self.raw.figure_state().prepared();
             choose_connectors(&mut state);
         }
         Some(self.connector_patches())

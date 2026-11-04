@@ -45,16 +45,21 @@ impl GridSpec {
     ) -> Result<&Self, TightLayoutError> {
         let axes: Vec<ArtistId> = figure.axes().iter().map(ArtistHandle::id).collect();
         let frame = figure.raw().id();
-        let mut state = figure.raw().figure_state().borrow_mut();
-        let Some(subplot_params) = state.subplot_params_of(frame) else {
-            return Ok(self);
-        };
-        warn_about_left_out_axes(&state, &axes, Some(self));
-        let measured = Measured::new(&mut state, &axes, &subplot_params, Some(self))?;
-        if let Some(overrides) = adjusted_params(&state, &measured, &params)? {
-            self.merge_overrides(&overrides);
-            state.set_subplot_params(subplot_params)?;
-        }
+        figure
+            .raw()
+            .figure_state()
+            .work_on(|state| -> Result<(), TightLayoutError> {
+                let Some(subplot_params) = state.subplot_params_of(frame) else {
+                    return Ok(());
+                };
+                warn_about_left_out_axes(state, &axes, Some(self));
+                let measured = Measured::new(state, &axes, &subplot_params, Some(self))?;
+                if let Some(overrides) = adjusted_params(state, &measured, &params)? {
+                    self.merge_overrides(&overrides);
+                    state.set_subplot_params(subplot_params)?;
+                }
+                Ok(())
+            })?;
         Ok(self)
     }
 }

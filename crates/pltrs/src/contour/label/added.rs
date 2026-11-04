@@ -121,7 +121,7 @@ impl ContourSet {
     ) -> Result<Vec<Text>, ContourError> {
         let setup = self.label_setup()?;
         let mut placer = Placer::new(self, &setup)?.after_labels();
-        placer.label_all(inline, inline_spacing, splitter);
+        placer.label_all(inline, inline_spacing, splitter)?;
         Ok(placer.into_created())
     }
 

@@ -22,8 +22,7 @@ struct BoxDrag {
 impl DragTarget for BoxDrag {
     fn save_offset(&mut self, artist: &RawHandle) {
         let figure = artist.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let state = figure.prepared();
         let layout = LayoutContext::new(&state);
         self.origin = layout
             .store()
@@ -40,8 +39,7 @@ impl DragTarget for BoxDrag {
         };
         let at = Point::new(origin.x + dx, origin.y + dy);
         let figure = artist.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let mut state = figure.prepared();
         let xybox = {
             let layout = LayoutContext::new(&state);
             layout
@@ -98,8 +96,7 @@ struct PinDrag {
 impl DragTarget for PinDrag {
     fn save_offset(&mut self, artist: &RawHandle) {
         let figure = artist.figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let state = figure.prepared();
         let layout = LayoutContext::new(&state);
         self.origin = layout
             .store()

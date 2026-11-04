@@ -28,8 +28,7 @@ impl RawHandle {
     /// assert_eq!(label.raw().measured_extent(), extent);
     /// ```
     pub fn measured_extent(&self) -> Option<Bbox> {
-        let mut state = self.figure_state().borrow_mut();
-        state.prepare();
+        let state = self.figure_state().prepared();
         let ctx = LayoutContext::new(&state);
         state.artist(self.id())?.window_extent(&ctx)
     }

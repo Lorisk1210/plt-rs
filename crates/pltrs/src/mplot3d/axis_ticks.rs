@@ -63,8 +63,7 @@ impl Axis3D {
     /// Brings the layout of the axes up to date (a removed axes where it
     /// was in its figure).
     fn lay_out(&self) {
-        let mut figure = self.axes.raw().figure_state().borrow_mut();
-        figure.prepare();
+        let mut figure = self.axes.raw().figure_state().prepared();
         if !figure.is_attached(self.axes.id()) {
             prepare_one(&mut figure, self.axes.id(), false);
         }

@@ -95,17 +95,34 @@ def test_a_transform_rescaling_its_axes_ends_as_in_matplotlib():
     assert calls
 
 
-def test_what_cannot_run_while_the_figure_is_laid_out_raises_no_panic():
-    # matplotlib sets the title. pltrs cannot read a figure it is laying
-    # out, which setting the title does first: it raises RuntimeError,
-    # never a Rust panic.
+def test_a_formatter_changing_its_figure_while_it_is_laid_out_changes_it():
+    # As in matplotlib: pltrs lends the figure to the formatters it calls
+    # while it lays the figure out.
     fig, ax = plt.subplots()
     ax.plot([0, 1])
-    ax.xaxis.set_major_formatter(
-        ticker.FuncFormatter(lambda v, p: (ax.set_title("t"), str(v))[1]))
-    with pytest.raises(RuntimeError, match="being laid out") as raised:
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(
+        lambda v, p: (ax.set_title("t", loc="center"), str(v))[1]))
+    fig.canvas.draw()
+    assert ax.get_title(loc="center") == "t"
+
+
+def test_what_cannot_run_while_the_figure_is_laid_out_raises_no_panic():
+    # matplotlib sets the title. pltrs cannot read a figure it is laying
+    # out from a scale's function it maps the view through, which setting
+    # the title does first: it raises RuntimeError, never a Rust panic.
+    fig, ax = plt.subplots()
+    ax.plot([1, 2])
+
+    def forward(values):
+        ax.set_title("t")
+        return np.asarray(values)
+
+    ax.set_xscale("function", functions=(forward, lambda values: values))
+    try:
         fig.canvas.draw()
-    assert "panic" not in str(raised.value)
+    except RuntimeError as raised:
+        assert "being laid out" in str(raised)
+        assert "panic" not in str(raised)
 
 
 def test_redrawing_from_a_draw_event_recurses_as_in_matplotlib():

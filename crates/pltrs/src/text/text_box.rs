@@ -77,8 +77,7 @@ impl Text {
     /// ```
     pub fn bbox_frame(&self) -> Option<(FancyBboxPatch, Affine2D)> {
         let raw = self.raw();
-        let mut state = raw.figure_state().borrow_mut();
-        state.prepare();
+        let state = raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         state
             .store

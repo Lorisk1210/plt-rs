@@ -11,7 +11,8 @@
 //! the tick helpers and the axis info, the mirrors, the tick parameters,
 //! the label pad, the tight box, minor ticks, clearing, the visibility
 //! and the group ids ([`owner`], [`deep`]); `axis3d.Axis` overrides the
-//! other methods.
+//! other methods. The axes whose helpers or scale are Python's are ticked
+//! by the program's updater ([`tick_updates`]).
 
 mod artist;
 mod deep;
@@ -23,6 +24,7 @@ mod params;
 mod python_helpers;
 pub(crate) use python_helpers::{PyFormatter, PyLocator};
 mod settings;
+mod tick_updates;
 
 use owner::{AnyAxis, AxisOwner};
 use pltrs::axes::{Axes, Axis, TickPosition};
@@ -151,7 +153,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     intervals::register(module)?;
     mirrors::register(module)?;
     params::register(module)?;
-    settings::register(module)
+    settings::register(module)?;
+    tick_updates::register(module)
 }
 
 #[cfg(test)]

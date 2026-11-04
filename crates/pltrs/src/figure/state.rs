@@ -3,6 +3,7 @@
 mod archive;
 
 use std::cell::Cell;
+use std::rc::Rc;
 
 use pltrs_core::{Affine2D, Bbox};
 use pltrs_render::{ClipPath, Renderer};
@@ -12,7 +13,7 @@ use super::{CanvasState, FreshArtists};
 use crate::artist::{
     Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawContext, DrawError,
 };
-use crate::axes::{AxesState, LimitCallbacks, PatchOutline, ShareGroups};
+use crate::axes::{AxesState, LimitCallbacks, PatchOutline, ShareGroups, TickUpdater};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
@@ -94,6 +95,15 @@ pub(crate) struct FigureState {
     /// What the program runs before every layout pass of a draw
     /// (`Figure::set_layout_hook`).
     pub(crate) layout_hook: Option<super::DrawHook>,
+    /// What ticks the axes whose tick helpers or scale call the program
+    /// (`Figure::set_tick_updater`).
+    pub(crate) tick_updater: Option<Rc<dyn TickUpdater>>,
+    /// How many of matplotlib's draws the layout of the next draw stands
+    /// for, at whose call sites the program's tick helpers are called: 2
+    /// for the print of a whole figure with a layout engine (matplotlib
+    /// draws it once to lay it out, then prints it), else 1. The draw
+    /// takes it.
+    pub(crate) draws_per_layout: usize,
     /// A figure, or the holder of an artist made outside any figure.
     pub(crate) role: StateRole,
 }
@@ -211,6 +221,8 @@ impl FigureState {
             canvas: CanvasState::default(),
             draw_hook: None,
             layout_hook: None,
+            tick_updater: None,
+            draws_per_layout: 1,
             role: StateRole::Figure,
         }
     }
@@ -226,6 +238,44 @@ impl FigureState {
                 Color::from("white"),
                 Color::from("white"),
             )
+        }
+    }
+
+    /// What a cell holds while its state is worked on outside it (see
+    /// [`FigureCell::work_on`](super::FigureCell::work_on)): an empty
+    /// state, made without allocating, which no handle reaches.
+    pub(crate) fn placeholder() -> Self {
+        Self {
+            store: ArtistStore::default(),
+            detached: DetachedArtists::default(),
+            root: ArtistId::from_index(0),
+            dpi: Cell::new(0.0),
+            original_dpi: 0.0,
+            size_inches: (0.0, 0.0),
+            stale: false,
+            fresh: FreshArtists::default(),
+            pending_errors: Vec::new(),
+            shared: ShareGroups::default(),
+            layout: LayoutState::default(),
+            current_axes: None,
+            limit_callbacks: LimitCallbacks::default(),
+            callbacks: CallbackRegistry::default(),
+            timers: TimerRegistry::default(),
+            mouse_grabber: None,
+            capture_keys: false,
+            widget_lock: None,
+            cursor: CursorShape::default(),
+            tools: ToolRegistry::default(),
+            print_window: None,
+            saving: false,
+            suppress_composite: None,
+            last_draw_dpi: None,
+            canvas: CanvasState::default(),
+            draw_hook: None,
+            layout_hook: None,
+            tick_updater: None,
+            draws_per_layout: 1,
+            role: StateRole::LooseHolder,
         }
     }
 
@@ -267,31 +317,47 @@ impl FigureState {
         };
         let dpi = self.dpi();
         let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
-        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.update_axis_ticks(name, &extent, dpi, tick_space);
+        self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+    }
+
+    /// [`update_ticks_as_is`](Self::update_ticks_as_is) as matplotlib's
+    /// `Axis._update_ticks` places the ticks, which the program's helpers
+    /// see: an axis the program ticks is ticked by it again.
+    pub(crate) fn place_ticks_as_is(&mut self, axes: ArtistId, name: AxisName) {
+        self.unstale_axes(axes);
+        if !self.update_program_ticks(axes, name) {
+            self.update_ticks_as_is(axes, name);
         }
     }
 
-    /// Places the ticks of the 2-D `axes` over its box as it is now.
-    fn tick_axes(&mut self, axes: ArtistId) {
+    /// Places the ticks of the 2-D `axes` over its box as it is now: those
+    /// of the axes the program ticks (`program`), or of the others.
+    fn tick_axes(&mut self, axes: ArtistId, program: bool) {
+        if program && !self.ticks_by_program() {
+            return;
+        }
         let Some(extent) = self.axes_bbox(axes) else {
             return;
         };
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
-        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.update_ticks(&extent, dpi, shared);
+        for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
+            if self.program_ticker(axes, name).is_some() == program {
+                self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+            }
         }
     }
 
-    /// The part of [`prepare`](Self::prepare) for the 2-D `axes`; an axes
-    /// whose aspect fails is not ticked (matplotlib's draw raises first).
-    /// A secondary axis takes its host's limits first (its host laid out
-    /// before it). Prepared as it is, the axes is ticked where it is now:
-    /// matplotlib applies the aspect (and a secondary axis takes its
-    /// host's limits) when it draws or measures the axes, not when it
-    /// computes ticks between draws.
-    fn prepare_axes(&mut self, id: ArtistId, preparation: Preparation) {
+    /// The part of [`prepare`](Self::prepare) for the 2-D `axes`, which
+    /// returns whether it was laid out; an axes whose aspect fails is not
+    /// ticked (matplotlib's draw raises first). A secondary axis takes its
+    /// host's limits first (its host laid out before it). Prepared as it
+    /// is, the axes is ticked where it is now: matplotlib applies the
+    /// aspect (and a secondary axis takes its host's limits) when it draws
+    /// or measures the axes, not when it computes ticks between draws. A
+    /// draw leaves the axes the program ticks to
+    /// [`program_figure_drawn`](Self::program_figure_drawn).
+    fn prepare_axes(&mut self, id: ArtistId, preparation: Preparation) -> bool {
         let laid_out = if preparation == Preparation::AsIs {
             self.unstale_axes(id);
             true
@@ -301,8 +367,12 @@ impl FigureState {
         };
         crate::polar::update_spine_visibility(self, id);
         if laid_out {
-            self.tick_axes(id);
+            self.tick_axes(id, false);
+            if preparation != Preparation::Drawing {
+                self.tick_axes(id, true);
+            }
         }
+        laid_out
     }
 
     /// [`prepare`](Self::prepare) without the layout engine: the figure
@@ -312,7 +382,7 @@ impl FigureState {
     /// stays due.
     pub(crate) fn prepare_as_is(&mut self) {
         let pending = std::mem::take(&mut self.layout.pending);
-        self.prepare_with(Preparation::AsIs);
+        self.prepare_with(Preparation::AsIs, 0);
         self.layout.pending |= pending;
     }
 
@@ -321,7 +391,7 @@ impl FigureState {
     /// they stand: only [`prepare_for_draw`](Self::prepare_for_draw)
     /// makes their boxes square.
     pub(crate) fn prepare(&mut self) {
-        self.prepare_with(Preparation::Measuring);
+        self.prepare_with(Preparation::Measuring, 0);
     }
 
     /// [`prepare`](Self::prepare) for a draw: the layout engine runs, and
@@ -330,11 +400,14 @@ impl FigureState {
     /// the first draw is where its unsquared axes puts it).
     pub(crate) fn prepare_for_draw(&mut self) {
         self.layout.pending = true;
-        self.prepare_with(Preparation::Drawing);
+        // A draw the program makes meanwhile (from a formatter) is one.
+        let draws = std::mem::replace(&mut self.draws_per_layout, 1);
+        self.prepare_with(Preparation::Drawing, draws);
     }
 
-    /// [`prepare`](Self::prepare) for `preparation`.
-    fn prepare_with(&mut self, preparation: Preparation) {
+    /// [`prepare`](Self::prepare) for `preparation`, `draws` being how
+    /// many draws the program saw since the last layout of a draw.
+    fn prepare_with(&mut self, preparation: Preparation, draws: usize) {
         if preparation != Preparation::AsIs {
             // matplotlib's layout engines measure every axes with its
             // aspect applied, which brings a secondary axis to its host's
@@ -345,8 +418,16 @@ impl FigureState {
         }
         self.run_pending_layout();
         let axes = self.axes_ids();
-        for &id in &axes {
-            self.prepare_axes(id, preparation);
+        let laid_out: Vec<ArtistId> = (axes.iter().copied())
+            .filter(|&id| self.prepare_axes(id, preparation))
+            .collect();
+        if preparation == Preparation::Drawing {
+            self.program_figure_drawn(&axes, draws);
+            // The axes the program ticks that no axis draw ticked (hidden
+            // ones, which other artists may still read).
+            for &id in &laid_out {
+                self.tick_axes(id, true);
+            }
         }
         crate::mplot3d::prepare_axes3d(self, preparation == Preparation::Drawing);
         // Titles clear the decorations of twins and insets, whose ticks

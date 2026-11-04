@@ -227,8 +227,7 @@ impl Axis {
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
     pub fn tick_label_extent(&self, minor: bool, index: usize, first_side: bool) -> Option<Bbox> {
-        let mut state = self.axes.raw().figure_state().borrow_mut();
-        state.prepare();
+        let state = self.axes.raw().figure_state().prepared();
         let state = &*state;
         let axes = state.store.get_as::<AxesState>(self.axes.id())?;
         AxisPainter::new(self.axes.id(), axes, self.name)

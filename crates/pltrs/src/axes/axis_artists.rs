@@ -310,7 +310,9 @@ impl Axis {
     /// [`Axes::ticks`]: crate::axes::Axes::ticks
     pub fn place_ticks(&self) -> Result<&Self, TickerError> {
         self.read(|axis| axis.ticks_placed.set(true));
-        self.axes().ticks(self.name())?;
+        let (raw, name) = (&self.axes().raw, self.name());
+        (raw.figure_state()).work_on(|state| state.place_ticks_as_is(raw.id(), name));
+        self.read(|axis| axis.ticks.as_ref().map(drop).map_err(Clone::clone))?;
         Ok(self)
     }
 

@@ -88,8 +88,10 @@ mod tick_compute;
 mod tick_config;
 mod tick_lines;
 mod tick_set;
+mod tick_sites;
 #[cfg(test)]
 mod tick_tests;
+mod tick_updates;
 mod ticks;
 mod tight_bbox;
 mod title_position;
@@ -170,6 +172,7 @@ pub use steps::StairsOptions;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
 pub use tick_lines::{GridLine, TickLine, TickLineProps};
 pub use tick_set::{Tick, TickSet};
+pub use tick_updates::{SpineAxis, TickLevels, TickUpdater, UpdatedLevel, UpdatedTicks};
 pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickPosition, TickStyle};
 pub(crate) use tight_bbox::fully_clipped;
@@ -538,8 +541,7 @@ impl Axes {
     pub fn ticks(&self, axis: AxisName) -> Result<TickSet, TickerError> {
         self.raw
             .figure_state()
-            .borrow_mut()
-            .update_ticks_as_is(self.id(), axis);
+            .work_on(|state| state.update_ticks_as_is(self.id(), axis));
         self.raw
             .with::<AxesState, _>(|a| a.axis(axis).ticks.clone())
     }

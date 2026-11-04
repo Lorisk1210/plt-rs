@@ -62,8 +62,7 @@ pub(super) fn contains(ax: &Axes, at: Point) -> bool {
 /// z-orders (the second line of matplotlib's `_mouse_event_to_message`).
 pub(super) fn cursor_text(ax: &Axes, at: Point) -> Option<String> {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.prepared();
     let layout = LayoutContext::new(&state);
     let store = layout.store();
     let topmost = store

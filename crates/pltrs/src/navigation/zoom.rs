@@ -80,8 +80,7 @@ impl Axes {
 /// The axes box and data transform of `ax`, brought up to date.
 fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform)> {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.prepared();
     let state: &FigureState = &state;
     Some((state.axes_bbox(ax.id())?, state.data_transform(ax.id())?))
 }

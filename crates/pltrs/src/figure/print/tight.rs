@@ -85,16 +85,17 @@ impl Figure {
     /// whole figure when nothing is drawn.
     pub fn tight_bbox(&self) -> Bbox {
         self.root_handle().measure_painters();
-        let mut state = self.state_mut();
-        let dpi = state.dpi();
-        let root = state.root;
-        state.frame_tight_bbox(root).map_or_else(
-            || {
-                let (w, h) = state.size_inches;
-                Bbox::from_bounds(0.0, 0.0, w, h)
-            },
-            |b| Bbox::from_extents(b.x0() / dpi, b.y0() / dpi, b.x1() / dpi, b.y1() / dpi),
-        )
+        self.state_cell().work_on(|state| {
+            let dpi = state.dpi();
+            let root = state.root;
+            state.frame_tight_bbox(root).map_or_else(
+                || {
+                    let (w, h) = state.size_inches;
+                    Bbox::from_bounds(0.0, 0.0, w, h)
+                },
+                |b| Bbox::from_extents(b.x0() / dpi, b.y0() / dpi, b.x1() / dpi, b.y1() / dpi),
+            )
+        })
     }
 
     /// The tight box of this figure or subfigure in display pixels:
@@ -119,7 +120,8 @@ impl Figure {
     pub fn tight_extent(&self) -> Option<Bbox> {
         self.root_handle().measure_painters();
         let frame = self.raw().id();
-        self.state_mut().frame_tight_bbox(frame)
+        self.state_cell()
+            .work_on(|state| state.frame_tight_bbox(frame))
     }
 
     /// The horizontal and vertical padding, in inches, around a tight saved

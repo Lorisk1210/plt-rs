@@ -288,6 +288,9 @@ class Axis(DrawnWith, Artist):
 
     OFFSETTEXTPAD = 3
     axis_name = None
+    #: Whether the axis is being ticked with the program's helpers (see
+    #: `._tick_updates`).
+    _ticking = False
     _tick_class = None
     #: Whether pltrs (Rust) converts the values in units plotted along the
     #: axis itself, so that they pass as they are (the axes of 3-D axes).
@@ -796,6 +799,11 @@ class Axis(DrawnWith, Artist):
             _axis.mark_default_helpers(*self._args())
         else:
             _native_scale.set_scale(*self._args(), *native)
+        if native is None or scale.name in ("function", "functionlog"):
+            # The scale's transform is the program's: matplotlib's tick
+            # updates call it.
+            from . import _tick_updates
+            _tick_updates.install(self.axes.figure)
         for axis in self._get_shared_axis():
             axis._given_scale = scale
             axis.axes._update_transScale()
@@ -943,6 +951,10 @@ class Axis(DrawnWith, Artist):
         may contain locations that are not visible in the output.
         """
         if self._drawn_info is not None and not minor:
+            if self._ticking:
+                # The program's code ticking the axis reads its locator,
+                # as matplotlib's does.
+                return self.major.locator()
             return self._drawn_fields()[4]
         locs = _axis.get_ticklocs(*self._args(), bool(minor))
         locator = self.get_minor_locator() if minor else self.get_major_locator()
@@ -1757,8 +1769,25 @@ class Axis(DrawnWith, Artist):
         if _is_native_converter(self._converter):
             return
         info = self._converter.axisinfo(self.units, self)
-        if info is not None:
-            _tick_helpers.use_axis_info(self, info, self._default_limits(info))
+        if info is None:
+            return
+        limits = self._default_limits(info)
+        if self._limits_unchanged():
+            # matplotlib's `set_default_intervals` asks the converter
+            # again for the default limits.
+            again = self._converter.axisinfo(self.units, self)
+            limits = None if again is None else self._default_limits(again)
+        _tick_helpers.use_axis_info(self, info, limits)
+
+    def _limits_unchanged(self):
+        """Whether neither the data nor the view limits along the axis
+        changed since its Axes was made (matplotlib's ``mutatedx`` of
+        ``dataLim`` and ``viewLim``)."""
+        if self.axis_name not in ("x", "y"):
+            return False
+        mutated = "mutated" + self.axis_name
+        return not (getattr(self.axes.dataLim, mutated)()
+                    or getattr(self.axes.viewLim, mutated)())
 
     def _default_limits(self, info):
         """The default limits of the converter's axis info *info*, in axis

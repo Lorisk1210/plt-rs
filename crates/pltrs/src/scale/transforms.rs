@@ -271,6 +271,12 @@ pub(crate) trait ScaleFunction: fmt::Debug + Any {
             *value = self.call(*value);
         }
     }
+
+    /// Whether the function is code of the program's (see
+    /// [`AxisMap::calls_program`]).
+    fn calls_program(&self) -> bool {
+        true
+    }
 }
 
 /// The function `x ↦ x`.
@@ -282,6 +288,10 @@ pltrs_core::archive_struct!(Identity);
 impl ScaleFunction for Identity {
     fn call(&self, value: f64) -> f64 {
         value
+    }
+
+    fn calls_program(&self) -> bool {
+        false
     }
 }
 
@@ -438,6 +448,10 @@ impl AxisMap for FuncTransform {
     fn inverse_all(&self, values: &mut [f64]) {
         self.inverse.call_all(values);
     }
+
+    fn calls_program(&self) -> bool {
+        self.forward.calls_program() || self.inverse.calls_program()
+    }
 }
 
 /// A function followed by a logarithm (`FuncTransform + LogTransform`).
@@ -482,6 +496,10 @@ impl AxisMap for FuncLogTransform {
     fn inverse_all(&self, values: &mut [f64]) {
         self.log.inverse_all(values);
         self.func.inverse_all(values);
+    }
+
+    fn calls_program(&self) -> bool {
+        self.func.calls_program()
     }
 }
 

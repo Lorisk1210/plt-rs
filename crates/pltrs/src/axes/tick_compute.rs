@@ -10,6 +10,7 @@ use super::axis::{AxisGeometry, AxisRole, AxisState};
 use super::axis_handle::Axis;
 use super::tick_set::{Tick, TickSet};
 use crate::artist::ArtistHandle;
+use crate::figure::FigureState;
 use crate::ticker::{
     AxisInfo, AxisName, LogitLocator, TickContext, TickerError, TickerSettings, drawable_ticks,
 };
@@ -34,20 +35,23 @@ impl Axis {
     ///
     /// When the locator fails.
     pub fn ticklocs_as_is(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
-        let ticks = {
-            let mut state = self.axes().raw().figure_state().borrow_mut();
-            let id = self.axes().id();
+        let id = self.axes().id();
+        let name = self.name();
+        let ticks = self.axes().raw().figure_state().work_on(|state| {
             state.unstale_axes(id);
-            let extent = state.axes_bbox(id);
-            let tick_space = state.shared_tick_spaces(id)[usize::from(self.name() == AxisName::Y)];
+            let extent = state.axes_bbox(id)?;
+            let tick_space = state.shared_tick_spaces(id)[usize::from(name == AxisName::Y)];
             let dpi = state.dpi();
-            extent.and_then(|extent| {
-                state
-                    .store
-                    .get_as::<AxesState>(id)
-                    .map(|axes| axes.level_locs_for(self.name(), &extent, dpi, tick_space, minor))
-            })
-        };
+            let locate = |state: &FigureState| {
+                (state.store.get_as::<AxesState>(id))
+                    .map(|axes| axes.level_locs_for(name, &extent, dpi, tick_space, minor))
+            };
+            // The locators run with the figure free to read, as the
+            // program's may.
+            state
+                .lend(|cell| locate(&cell.borrow()))
+                .unwrap_or_else(|| locate(state))
+        });
         ticks.unwrap_or_else(|| self.ticklocs(minor))
     }
 }
@@ -101,7 +105,16 @@ impl AxisState {
     ///
     /// [`GridLineProps::refused`]: crate::axes::GridLineProps::refused
     pub(crate) fn update_ticks(&mut self, geometry: &AxisGeometry) {
-        self.ticks = self.compute_ticks(geometry);
+        let ticks = self.compute_ticks(geometry);
+        self.install_ticks(ticks);
+    }
+
+    /// Makes `ticks` the axis' ticks, making the ticks of every location;
+    /// ticks a level cannot make (see [`GridLineProps::refused`]) fail.
+    ///
+    /// [`GridLineProps::refused`]: crate::axes::GridLineProps::refused
+    pub(crate) fn install_ticks(&mut self, ticks: Result<TickSet, TickerError>) {
+        self.ticks = ticks;
         let Ok(ticks) = &self.ticks else {
             return;
         };

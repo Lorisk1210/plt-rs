@@ -156,6 +156,14 @@ pub trait Norm: fmt::Debug + NormClone + std::any::Any {
     fn kind(&self) -> NormKind<'_> {
         NormKind::Other
     }
+
+    /// Whether the norm runs code of the program's that observes its
+    /// calls (a host language's norm): the colorbar axes it scales are
+    /// then ticked as matplotlib ticks them (see
+    /// [`TickUpdater`](crate::axes::TickUpdater)). `false` by default.
+    fn calls_program(&self) -> bool {
+        false
+    }
 }
 
 /// Why normalisation failed.

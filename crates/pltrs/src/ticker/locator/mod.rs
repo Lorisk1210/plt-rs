@@ -97,6 +97,14 @@ pub trait Locator: fmt::Debug + Any {
     fn date_unit(&self, _ctx: &TickContext<'_>) -> Option<f64> {
         None
     }
+
+    /// Whether the locator runs code of the program's that observes its
+    /// calls (a host language's locator): the axes it ticks are then
+    /// ticked as matplotlib ticks them, as often (see
+    /// [`TickUpdater`](crate::axes::TickUpdater)). `false` by default.
+    fn calls_program(&self) -> bool {
+        false
+    }
 }
 
 pltrs_core::archive_kinds!(dyn Locator {

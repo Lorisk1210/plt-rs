@@ -124,7 +124,10 @@ pub(super) fn draw_quad_mesh(
     let (coordinates, master) = if resolved.is_affine() {
         (&mesh.coordinates, resolved.affine_part())
     } else {
-        transformed = mesh.coordinates.map(|&p| resolved.transform_point(p));
+        // All the vertices at once, as matplotlib maps them.
+        let mut vertices = mesh.coordinates.clone();
+        resolved.transform_points(vertices.as_mut_slice());
+        transformed = vertices;
         (&transformed, Affine2D::IDENTITY)
     };
     let (faces, edges) = resolve_colors(c)?;

@@ -10,6 +10,7 @@ use super::axis_artists::AxisGids;
 use super::axis_label::{AxisLabel, label_font};
 use super::axis_pick::AxisPicking;
 use super::tick_set::TickSet;
+use super::tick_updates::ProgramTicked;
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
 use crate::polar::{RadialLocator, theta_tickers};
@@ -257,6 +258,9 @@ pub(crate) struct AxisState {
     /// The ends of the view interval last mapped through the scale (their
     /// bits) and where they went (see [`AxisState::scaled_ends`]).
     scaled_view: Cell<Option<([u64; 2], [f64; 2])>>,
+    /// What the program last ticked the axis for, when its helpers or
+    /// scale call the program (see [`TickUpdater`](super::TickUpdater)).
+    pub(crate) program_ticked: Option<ProgramTicked>,
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -290,7 +294,7 @@ pltrs_core::archive_struct!(AxisState {
     gids,
     ticks_placed,
     scaled_view
-});
+} skip { program_ticked });
 
 impl AxisState {
     /// A linear axis configured from `rc`.
@@ -354,6 +358,7 @@ impl AxisState {
             gids: AxisGids::default(),
             ticks_placed: Cell::new(false),
             scaled_view: Cell::new(None),
+            program_ticked: None,
         }
     }
 
@@ -550,6 +555,14 @@ impl AxisState {
     /// Maps a value through the scale.
     pub(crate) fn forward(&self, value: f64) -> f64 {
         self.map.as_ref().map_or(value, |m| m.forward(value))
+    }
+
+    /// Maps every value of `values` in place through the scale, its map
+    /// called once for all of them.
+    pub(crate) fn forward_all(&self, values: &mut [f64]) {
+        if let Some(map) = &self.map {
+            map.forward_all(values);
+        }
     }
 
     /// The ends of a view interval through the scale, its map called once

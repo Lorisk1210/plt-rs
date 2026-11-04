@@ -142,8 +142,7 @@ impl Axis {
     /// ```
     pub fn contains(&self, at: Point) -> bool {
         let figure = self.axes.raw().figure_state();
-        let mut state = figure.borrow_mut();
-        state.prepare();
+        let state = figure.prepared();
         let layout = LayoutContext::new(&state);
         let id = self.axes.id();
         let picking = layout

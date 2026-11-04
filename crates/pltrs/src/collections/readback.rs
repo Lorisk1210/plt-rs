@@ -161,8 +161,7 @@ impl Collection {
     /// maps no values or the collection is no mesh; masked values are
     /// `None`.
     pub fn cursor_data(&self, at: Point) -> Option<Vec<Option<f64>>> {
-        let mut state = self.raw().figure_state().borrow_mut();
-        state.prepare();
+        let state = self.raw().figure_state().prepared();
         let layout = LayoutContext::new(&state);
         layout
             .store()

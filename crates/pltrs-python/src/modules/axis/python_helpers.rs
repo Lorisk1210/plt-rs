@@ -90,6 +90,10 @@ impl Locator for PyLocator {
     fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
         self.date_unit.call((ctx.axis().cloned(),)).flatten()
     }
+
+    fn calls_program(&self) -> bool {
+        true
+    }
 }
 
 /// The Python formatter behind an adapter with the methods
@@ -144,5 +148,9 @@ impl Formatter for PyFormatter {
 
     fn format_data_short(&self, value: f64, _: &TickContext<'_>) -> Result<String, TickerError> {
         Ok(self.format_data_short.call((value,)).unwrap_or_default())
+    }
+
+    fn calls_program(&self) -> bool {
+        true
     }
 }

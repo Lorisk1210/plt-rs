@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use pltrs_core::{Bbox, Point};
 use pltrs_render::RgbaImage;
 
-use super::make::{RenderedImage, autoscale_unset};
+use super::make::{RenderedImage, autoscale_unset, mapping_copy};
 use super::normalize::normalize_in;
 use super::shared::{axes_image_contains, draw_rendered, grid_cell, grid_extent, grid_limits};
 use super::{ImageData, ImageError};
@@ -75,7 +75,10 @@ impl PcolorImageArtist {
         ) else {
             return Ok(None);
         };
-        let colors = cell_colors(&self.data, &mut self.mappable.borrow_mut())?;
+        let mut mappable = mapping_copy(&self.mappable);
+        let colors = cell_colors(&self.data, &mut mappable);
+        self.mappable.replace(mappable);
+        let colors = colors?;
         let round = |v: f64| (v * magnification + 0.5) as i64;
         let (l, b, r, t) = (
             round(axes.x0()),

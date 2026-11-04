@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use pltrs_core::{Bbox, Point};
 use pltrs_render::RgbaImage;
 
-use super::make::{RenderedImage, autoscale_unset};
+use super::make::{RenderedImage, autoscale_unset, mapping_copy};
 use super::pcolor_image::cell_colors;
 use super::shared::{
     axes_image_contains, draw_rendered, grid_cell, grid_corners, grid_extent, grid_limits,
@@ -110,7 +110,10 @@ impl NonUniformImageArtist {
             return Ok(None);
         }
         let (x_centres, y_centres) = frame.data_centres(&to_data);
-        let colors = cell_colors(&self.data, &mut self.mappable.borrow_mut())?;
+        let mut mappable = mapping_copy(&self.mappable);
+        let colors = cell_colors(&self.data, &mut mappable);
+        self.mappable.replace(mappable);
+        let colors = colors?;
         let data = match self.interpolation {
             NonUniformInterpolation::Nearest => {
                 let columns = nearest(&self.x, &x_centres);

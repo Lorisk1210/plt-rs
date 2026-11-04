@@ -105,6 +105,24 @@ fn place_ticks(owner: AxisOwner, name: String) -> PyResult<()> {
     Ok(())
 }
 
+/// Places the ticks of the `minor` level of the axis (or the major one),
+/// the other level's left as they were (matplotlib's `set_ticklabels`); a
+/// 3-D axis places both. Returns how many ticks the level has, inside the
+/// view or not (the locations matplotlib's `set_ticklabels` labels).
+fn place_level(owner: AxisOwner, name: String, minor: bool) -> PyResult<usize> {
+    let ticks = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.place_level_ticks(minor)?.placed_ticks(),
+        AnyAxis::Deep(axis) => Some(axis.ticks()?),
+    };
+    Ok(ticks.map_or(0, |ticks| {
+        if minor {
+            ticks.minor_unclipped.len()
+        } else {
+            ticks.major_unclipped.len()
+        }
+    }))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_visible", get_visible)?;
@@ -113,7 +131,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_gid", set_gid)?;
     module.add("get_tick_gid", get_tick_gid)?;
     module.add("set_tick_gid", set_tick_gid)?;
-    module.add("place_ticks", place_ticks)
+    module.add("place_ticks", place_ticks)?;
+    module.add("place_level", place_level)
 }
 
 #[cfg(test)]

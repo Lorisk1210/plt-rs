@@ -28,6 +28,7 @@ impl LineArtist {
         if let Some(rotation) = &self.marker_rotation {
             style = style.rotated(rotation.angle(ctx.layout(), self.base.parent));
         }
+        ctx.free_for(resolved);
         let (points, affine) = resolved.split_points(points);
         let points = match self
             .select_markers(ctx.layout(), &points, &affine)

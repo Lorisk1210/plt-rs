@@ -134,6 +134,10 @@ impl PointMap for PyPointMap {
         Self::apply(Some(&self.forward), p)
     }
 
+    fn calls_program(&self) -> bool {
+        true
+    }
+
     fn inverse(&self, p: Point) -> Point {
         Self::apply(self.inverse.as_ref(), p)
     }

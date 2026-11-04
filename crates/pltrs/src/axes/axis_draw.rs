@@ -23,7 +23,7 @@ use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
 use crate::rc::{ColorOrAuto, RcParams};
-use crate::text::{BoxPlacement, TextDrawError, draw_laid_out};
+use crate::text::{BoxPlacement, TextDrawError, draw_laid_out, has_line_measurer};
 use crate::ticker::AxisName;
 
 impl AxisPainter<'_> {
@@ -46,7 +46,7 @@ impl AxisPainter<'_> {
             Ok(ticks) => ticks,
             Err(err) => return ctx.report_kind(self.axes_id, err.draw_kind(), err),
         };
-        let texts = self.texts(ctx.layout(), rc);
+        let texts = self.texts(ctx, rc);
         for problem in &texts.problems {
             ctx.report(self.axes_id, problem);
         }
@@ -239,6 +239,7 @@ impl AxisPainter<'_> {
         let points = line_vertices(&[start.x, end.x], &[start.y, end.y], grid.line.drawstyle)
             .expect("the two ends of a gridline make a line of any draw style");
         let line = Path::polyline(points);
+        ctx.free_for(&resolved);
         let (path, affine) = resolved.split_path(&line);
         if !grid.linestyle.is_visible() {
             return;
@@ -270,6 +271,7 @@ impl AxisPainter<'_> {
         };
         let marker = MarkerStyle::new(symbol, FillStyle::Full).expect("tick markers are valid");
         let points = Path::polyline(vec![self.tick_point(loc, f64::from(u8::from(high)))]);
+        ctx.free_for(&resolved);
         let (points, affine) = resolved.split_points(&points);
         TickMark {
             marker: &marker,
@@ -452,8 +454,13 @@ pub(crate) fn draw_text(
         url: text.url.clone(),
         ..GraphicsContext::default()
     };
+    let dpi = ctx.layout().dpi();
+    // The program measures the text again with the figure free.
+    if has_line_measurer() {
+        ctx.free();
+    }
     let drawn = text
-        .as_drawn(ctx.layout().dpi(), rc, drawn_as)
+        .as_drawn(dpi, rc, drawn_as)
         .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation));
     if let Err(err) = drawn {
         let err = TextDrawError::from(err);

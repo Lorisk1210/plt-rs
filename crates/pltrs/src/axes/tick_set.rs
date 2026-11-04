@@ -60,6 +60,24 @@ pltrs_core::archive_struct!(TickSet {
 });
 
 impl TickSet {
+    /// Takes the ticks of the `minor` level (or the major one) from
+    /// `other`: the level an update left alone.
+    pub(crate) fn keep_level(&mut self, other: &Self, minor: bool) {
+        if minor {
+            self.minor.clone_from(&other.minor);
+            self.minor_all.clone_from(&other.minor_all);
+            self.minor_locs.clone_from(&other.minor_locs);
+            self.minor_unclipped.clone_from(&other.minor_unclipped);
+            self.minor_index.clone_from(&other.minor_index);
+        } else {
+            self.major.clone_from(&other.major);
+            self.major_locs.clone_from(&other.major_locs);
+            self.major_unclipped.clone_from(&other.major_unclipped);
+            self.major_index.clone_from(&other.major_index);
+            self.offset.clone_from(&other.offset);
+        }
+    }
+
     /// The major (or minor) ticks of the view, inside it or not.
     pub(crate) fn unclipped(&self, minor: bool) -> &[Tick] {
         if minor {

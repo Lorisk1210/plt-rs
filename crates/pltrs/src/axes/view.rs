@@ -191,7 +191,21 @@ impl FigureState {
                 AxisName::Y => y_space,
             },
         };
-        match state.autoscale_bound(name, &shared, space) {
+        let bound = if state.axis(name).calls_program() {
+            // The program's locator and scale run with the figure lent, as
+            // matplotlib's `autoscale_view` lets them read and change it;
+            // the axes is held apart from the figure meanwhile.
+            let held = self.store.shared_as::<AxesState>(axes);
+            held.and_then(|state| self.lend(|_| state.autoscale_bound(name, &shared, space)))
+                .unwrap_or_else(|| {
+                    self.axes_state(axes).map_or(Ok(None), |state| {
+                        state.autoscale_bound(name, &shared, space)
+                    })
+                })
+        } else {
+            state.autoscale_bound(name, &shared, space)
+        };
+        match bound {
             Ok(Some(bound)) => {
                 let (v0, v1) = oriented(bound, inverted);
                 self.set_axis_limits(axes, name, (v0, v1), None, true);

@@ -26,18 +26,29 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
 /// Face and edge colours as matplotlib's getters report them: those of
 /// the last 3-D projection, or else [`resolve_base_colors`] with the
 /// mapped colours only where the last draw put them
-/// ([`CollectionArtist::mapped_shown`]), the colours as set elsewhere.
+/// ([`CollectionArtist::mapped_shown`]), the colours as set elsewhere; a
+/// side that cannot be resolved since per-item alphas that do not fit it
+/// were set reports the colours it had (see [`KeptColors`]).
+///
+/// [`KeptColors`]: super::alpha_fit::KeptColors
 pub(super) fn resolve_reported_colors(
     c: &CollectionArtist,
 ) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
-    match c
+    let (faces, edges) = resolve_reported_sides(c);
+    Ok((faces?, edges?))
+}
+
+/// [`resolve_reported_colors`], each side on its own.
+pub(super) fn resolve_reported_sides(c: &CollectionArtist) -> (Sided, Sided) {
+    if let Some((faces, edges)) = c
         .depth_sorted
         .as_ref()
         .and_then(|sorted| sorted.colors.as_ref())
     {
-        Some(colors) => Ok(colors.clone()),
-        None => resolve_mapped_on(c, c.mapped_shown.get()),
+        return (Ok(faces.clone()), Ok(edges.clone()));
     }
+    let (faces, edges) = resolve_sides(c, c.mapped_shown.get());
+    (c.kept_colors.faces(faces), c.kept_colors.edges(edges))
 }
 
 /// Face and edge colours after defaults, colour mapping and alpha
@@ -93,6 +104,13 @@ fn resolve_mapped_on(
     c: &CollectionArtist,
     on: MappedSides,
 ) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+    let (faces, edges) = resolve_sides(c, on);
+    Ok((faces?, edges?))
+}
+
+/// [`resolve_mapped_on`]'s face and edge colours, each side failing on
+/// its own: an edge colour that fails leaves the faces resolved.
+pub(super) fn resolve_sides(c: &CollectionArtist, on: MappedSides) -> (Sided, Sided) {
     let rc = c.rc();
     let alpha = collection_alpha(c);
     let resolve = |colors: &[Color]| with_alpha(c, &alpha, colors);
@@ -108,31 +126,38 @@ fn resolve_mapped_on(
     let mapping = on == MappedSides::BOTH || face_mapped || edge_mapped;
     let mapped = match (&c.program_colors, &c.mapping) {
         (Some(colors), _) if mapping => Some(colors.clone()),
-        (None, Some(mapping_of_values)) if mapping => Some(mapping_of_values.colors(&alpha)?),
+        (None, Some(mapping_of_values)) if mapping => match mapping_of_values.colors(&alpha) {
+            Ok(colors) => Some(colors),
+            Err(problem) => return (Err(problem.clone()), Err(problem)),
+        },
         _ => None,
     };
 
     // The mapped colours move to the faces, or the edges, or both (one
     // copy): meshes map a million of them.
     let (faces, mapped) = match mapped {
-        Some(colors) if face_mapped && edge_mapped => (colors.clone(), Some(colors)),
-        Some(colors) if face_mapped => (colors, None),
-        mapped => (resolve(&face_spec)?, mapped),
+        Some(colors) if face_mapped && edge_mapped => (Ok(colors.clone()), Some(colors)),
+        Some(colors) if face_mapped => (Ok(colors), None),
+        mapped => (resolve(&face_spec), mapped),
     };
     let edges = match (mapped, edge_mapped, &c.edgecolors) {
-        (Some(colors), true, _) => colors,
+        (Some(colors), true, _) => Ok(colors),
         (_, _, EdgeColors::Face) => faces.clone(),
-        (_, _, EdgeColors::Colors(colors)) => resolve(colors)?,
+        (_, _, EdgeColors::Colors(colors)) => resolve(colors),
         (_, _, EdgeColors::Default) => {
             if rc.patch_force_edgecolor || edge_default || face_is_none {
-                resolve(std::slice::from_ref(default_edge(c)))?
+                resolve(std::slice::from_ref(default_edge(c)))
             } else {
-                Vec::new()
+                Ok(Vec::new())
             }
         }
     };
-    Ok((faces, edges))
+    (faces, edges)
 }
+
+/// The colours of one side of a collection's items, or why they cannot
+/// be resolved.
+pub(super) type Sided = Result<Vec<Rgba>, String>;
 
 impl CollectionArtist {
     /// The getters report the face colours as set until the next draw.

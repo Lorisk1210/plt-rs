@@ -8,7 +8,7 @@ use pltrs_render::{CapStyle, JoinStyle};
 
 use super::{
     ArrayError, CollectionArtist, CollectionKind, CollectionStyle, ColorMapping, EdgeColors,
-    HatchColors, Mapped, style,
+    HatchColors, KeptColors, Mapped, style,
 };
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
@@ -110,6 +110,7 @@ impl Collection {
         self.update(|c| {
             c.facecolors = Some(colors);
             c.unmap_faces();
+            c.kept_colors.forget_faces();
         })
     }
 
@@ -119,6 +120,7 @@ impl Collection {
         self.update(|c| {
             c.facecolors = None;
             c.unmap_faces();
+            c.kept_colors.forget_faces();
         })
     }
 
@@ -127,6 +129,7 @@ impl Collection {
         self.update(|c| {
             c.edgecolors = edges;
             c.unmap_edges();
+            c.kept_colors.forget_edges();
         })
     }
 
@@ -171,17 +174,30 @@ impl Collection {
     /// assert_eq!(refused, "could not broadcast input array from shape (3,) into shape (2,)");
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    ///
+    /// The colours the getters report ([`reported_colors`]) stay those
+    /// they reported before, on the sides the alphas do not fit, until
+    /// that side's colours are set again, as matplotlib keeps them.
+    ///
+    /// [`reported_colors`]: Self::reported_colors
     pub fn try_set_alpha_array(
         &self,
         alphas: Vec<f64>,
         shape: Option<Vec<usize>>,
     ) -> Result<&Self, String> {
+        let before = self.raw.with::<CollectionArtist, _>(|c| {
+            let (faces, edges) = c.reported_sides();
+            KeptColors::of(faces, edges)
+        });
         self.set_alpha_array(alphas, shape);
-        match self
+        let problem = self
             .raw
-            .with::<CollectionArtist, _>(CollectionArtist::alpha_colors_problem)
-        {
-            Some(problem) => Err(problem),
+            .with::<CollectionArtist, _>(CollectionArtist::alpha_colors_problem);
+        match problem {
+            Some(problem) => {
+                self.update(|c| c.kept_colors = before);
+                Err(problem)
+            }
             None => Ok(self),
         }
     }
@@ -194,6 +210,7 @@ impl Collection {
             c.alpha_shape = shape.filter(|shape| shape.len() > 1);
             c.unmap_faces();
             c.unmap_edges();
+            c.kept_colors = KeptColors::default();
         })
     }
 
@@ -525,11 +542,11 @@ impl Collection {
     /// `Collection.set_alpha` with a single value).
     pub fn set_uniform_alpha(&self, alpha: Option<f64>) -> &Self {
         self.set_alpha(alpha);
-        self.raw.with::<CollectionArtist, _>(|c| {
+        self.update(|c| {
             c.unmap_faces();
             c.unmap_edges();
-        });
-        self
+            c.kept_colors = KeptColors::default();
+        })
     }
 
     /// The item offsets.

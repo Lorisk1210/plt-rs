@@ -11,7 +11,7 @@ use pltrs_render::ClipPath;
 use pltrs_text::{HAlign, VAlign};
 
 use super::transform::{PolarView, full_circle_deg};
-use crate::artist::{ArtistId, DrawContext, LayoutContext};
+use crate::artist::{ArtistId, DrawContext, FigureReader, LayoutContext};
 use crate::axes::axis_artists::TickGroups;
 use crate::axes::axis_draw::{TickMark, grid_clip, grid_gc};
 use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickPart, TickStyle};
@@ -199,7 +199,9 @@ fn draw_gridline(
     };
     (gc.clip_rect, gc.clip_path) = grid_clip(ctx, axes, &grid.line, Some(clip));
     let line = ptick.gridline();
-    let (path, affine) = ptick.along().split_path(&line);
+    let along = ptick.along();
+    ctx.free_for(&along);
+    let (path, affine) = along.split_path(&line);
     ctx.renderer().draw_path(&gc, &path, &affine, None);
 }
 
@@ -312,9 +314,10 @@ pub(crate) struct PolarLabel {
 
 /// Where the first or second label of a tick of polar axes goes. `None`
 /// when the side has no label (the second radial side of a full circle)
-/// or the axes is no longer laid out.
+/// or the axes is no longer laid out. A draw lets the figure go while a
+/// transform of the program's places the label (`cx`).
 pub(crate) fn tick_label_anchor(
-    layout: LayoutContext<'_>,
+    cx: &mut impl FigureReader,
     axes: ArtistId,
     polar: &PolarView<'_>,
     name: AxisName,
@@ -322,7 +325,7 @@ pub(crate) fn tick_label_anchor(
     style: &TickStyle,
     first: bool,
 ) -> Option<PolarLabel> {
-    let ptick = polar_tick(layout, axes, polar, name, tick)?;
+    let ptick = polar_tick(cx.read(), axes, polar, name, tick)?;
     // matplotlib's `_labelrotation`: turned with the tick plus the user's
     // angle in `auto` mode, else the user's angle alone.
     let rotation = |auto_angle: f64| {
@@ -335,12 +338,16 @@ pub(crate) fn tick_label_anchor(
     match name {
         AxisName::X => {
             let angle = ptick.theta_angle();
-            let pad = layout.points_to_pixels(style.label_offset() + THETA_LABEL_EXTRA_PAD);
+            let pad = cx
+                .read()
+                .points_to_pixels(style.label_offset() + THETA_LABEL_EXTRA_PAD);
             let shift = Point::new(pad * angle.cos(), pad * angle.sin());
             // The labels are flipped along the radius: label 1 sits on the
             // outer edge, pushed outwards; label 2 on the inner edge.
             let across = if first { 1.0 } else { 0.0 };
-            let edge = ptick.along().transform_point(Point::new(tick.loc, across));
+            let along = ptick.along();
+            cx.release_for(&along);
+            let edge = along.transform_point(Point::new(tick.loc, across));
             Some(PolarLabel {
                 anchor: if first { edge + shift } else { edge - shift },
                 align: (HAlign::Center, VAlign::Center),
@@ -349,6 +356,7 @@ pub(crate) fn tick_label_anchor(
         }
         AxisName::Y => {
             let side = ptick.radial_side(first)?;
+            cx.release_for(&side.transform);
             let base = side.transform.transform_point(side.point);
             if side.full {
                 let settings = polar.settings();
@@ -370,7 +378,7 @@ pub(crate) fn tick_label_anchor(
                 real.x0().max(real.x1()) + FRAC_PI_2
             };
             // matplotlib's `_ThetaShift`: away from the edge.
-            let pad = layout.points_to_pixels(style.label_offset());
+            let pad = cx.read().points_to_pixels(style.label_offset());
             let shift = Point::new(pad * edge.cos(), pad * edge.sin());
             Some(PolarLabel {
                 anchor: base + shift,

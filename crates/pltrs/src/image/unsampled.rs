@@ -6,7 +6,7 @@
 use pltrs_core::{Affine2D, Bbox, Point};
 use pltrs_render::RgbaImage;
 
-use super::make::{ImageCore, MadeImage, Placement};
+use super::make::{ImageCore, MadeImage, Placement, mapping_copy};
 use super::pcolor_image::cell_colors;
 use super::resample::PixelMap;
 use super::{Extent, ImageError, Origin};
@@ -176,7 +176,10 @@ impl ImageCore {
         if width == 0 || height == 0 {
             return Ok(None);
         }
-        let colors = cell_colors(&self.data, &mut self.mappable.borrow_mut())?;
+        let mut mappable = mapping_copy(&self.mappable);
+        let colors = cell_colors(&self.data, &mut mappable);
+        self.mappable.replace(mappable);
+        let colors = colors?;
         // matplotlib passes the array as is, first row at the bottom of
         // the unit square; pltrs images list their top row first.
         let data: Vec<u8> = (first_row..end_row)

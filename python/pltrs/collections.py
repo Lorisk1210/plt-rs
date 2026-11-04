@@ -795,6 +795,12 @@ class Collection(mcolorizer.ColorizingArtist):
             if alpha is not None and not isinstance(alpha, (int, float)):
                 raise TypeError(
                     f'alpha must be numeric or None, not {type(alpha)}')
+            array = self.__dict__.get("_array_alpha")
+            if array is not None:
+                # matplotlib's `Artist.set_alpha` compares the alpha with
+                # the array it had (`alpha != self._alpha`), whose truth
+                # numpy refuses unless it holds exactly one value.
+                bool(alpha != array)
             self._array_alpha = None
             super().set_alpha(alpha)
             # The colours read back as set again, until the next draw.

@@ -89,6 +89,12 @@ pub trait PointMap: fmt::Debug + std::any::Any {
         self.forward_all(mapped.vertices_mut());
         mapped
     }
+    /// Whether the map runs code of the program's (a transform of a host
+    /// language's), which a draw lets change the figure (see
+    /// [`ResolvedTransform::calls_program`]). `false` by default.
+    fn calls_program(&self) -> bool {
+        false
+    }
 }
 
 /// One stage of a [`ResolvedTransform`] applied before its trailing affine.
@@ -169,6 +175,16 @@ impl Step {
         }
     }
 
+    /// Whether the step runs code of the program's.
+    fn calls_program(&self) -> bool {
+        match self {
+            Self::Affine(_) => false,
+            Self::Separable(x, y) => [x, y].into_iter().flatten().any(|map| map.calls_program()),
+            Self::Plane(map) => map.calls_program(),
+            Self::Blend(x, y) => x.calls_program() || y.calls_program(),
+        }
+    }
+
     fn inverted(&self) -> Option<Self> {
         Some(match self {
             Self::Affine(affine) => Self::Affine(affine.inverted()?),
@@ -231,6 +247,9 @@ impl AxisMap for InverseAxis {
     fn inverse_all(&self, values: &mut [f64]) {
         self.0.forward_all(values);
     }
+    fn calls_program(&self) -> bool {
+        self.0.calls_program()
+    }
 }
 
 #[derive(Debug)]
@@ -250,6 +269,9 @@ impl PointMap for InversePlane {
     }
     fn inverse_all(&self, points: &mut [Point]) {
         self.0.forward_all(points);
+    }
+    fn calls_program(&self) -> bool {
+        self.0.calls_program()
     }
 }
 
@@ -308,6 +330,15 @@ impl ResolvedTransform {
                 Step::Separable(..) | Step::Blend(..) => true,
                 Step::Plane(_) => false,
             })
+    }
+
+    /// Whether applying the transform runs code of the program's: a map
+    /// of a host language's (see [`AxisMap::calls_program`] and
+    /// [`PointMap::calls_program`]), which matplotlib lets read and change
+    /// the figure while it is drawn, so a draw lets the figure go first
+    /// ([`DrawContext::free_for`](crate::artist::DrawContext::free_for)).
+    pub fn calls_program(&self) -> bool {
+        self.steps.iter().any(Step::calls_program)
     }
 
     /// Whether the transform leaves every point where it is.

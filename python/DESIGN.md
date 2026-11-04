@@ -906,10 +906,39 @@ draw sees them, as in matplotlib. A figure being painted counts as laid
 out: an extent measured meanwhile is that of its layout
 (`FigureCell::is_painted`).
 
+The program's code that maps values for a draw runs with the figure free
+too, at each call site: what the call needs is gathered (a transform
+resolved, a text's wrapping box, style and resolution, a box image's
+canvas), the figure let go, the call made, and the draw goes on with its
+result. A transform knows whether applying it runs the program's code
+(`ResolvedTransform::calls_program`, from `AxisMap::calls_program` and
+`PointMap::calls_program`), and `DrawContext::free_for` lets the figure
+go before such a transform maps a line, its markers, a gridline, a tick
+mark, a spine or a text's position; the texts of an axis (tick labels,
+the axis label, the offset text, and the spines they clear) are laid out
+through a `FigureReader`, a draw's context letting the figure go around
+the transforms placing them, a projection of the program's placing a
+tick label, and the text measurer of the program's
+(`text::has_line_measurer`), a layout's context holding it throughout. An
+image lets the figure go before it maps its data through its norm and
+transform (on a copy of its mapping, put back after: a norm of the
+program's may change the image it maps, which copies it), a box image
+before a function of the program's gives its box. Autoscaling lends the
+figure to the program's locator and scale while a layout works on it
+(`FigureState::lend`), as matplotlib's `autoscale_view` runs them in the
+draw. An axis maps values through its scale apart from the figure
+(`Axis::scaled`, which the tick updates' transforms call). Draws without
+code of the program's pay nothing: a transform calling none of it keeps
+the figure borrowed.
+
 Other code pltrs (Rust) runs while it lays a figure out or draws it with
-the figure held (a transform, a norm, the text measurer) finds the figure
-in use: taken out while it is laid out, borrowed for reading while it is
-drawn. matplotlib's may still change it, so a
+the figure held finds the figure in use: taken out while it is laid out,
+borrowed for reading while it is drawn. That is the code a transform's
+resolution runs (the hooks of a projection of the program's, a function
+scale first mapping a view's ends), patches drawn through a transform of
+the program's or with a box style of the program's, the grid finders of
+axisartist, and a layout's measures of texts through transforms of the
+program's. matplotlib's may still change it, so a
 native call made from such code (any native call made while another
 native call of its thread runs) runs inside `pltrs::figure::reenter`,
 which stops it where it reaches the figure in use, instead of letting the

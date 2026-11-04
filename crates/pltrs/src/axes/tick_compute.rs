@@ -5,10 +5,10 @@
 
 use std::any::Any;
 
-use super::AxesState;
 use super::axis::{AxisGeometry, AxisRole, AxisState};
 use super::axis_handle::Axis;
 use super::tick_set::{Tick, TickSet};
+use super::{AxesState, TickLevels};
 use crate::artist::ArtistHandle;
 use crate::figure::FigureState;
 use crate::ticker::{
@@ -110,6 +110,22 @@ impl AxisState {
         self.install_ticks(ticks);
     }
 
+    /// [`update_ticks`](Self::update_ticks) for the `minor` level alone (or
+    /// the major one), the ticks of the other level kept as they were:
+    /// matplotlib's `set_ticklabels` places the ticks of its level only
+    /// (`get_majorticklocs` or `get_minorticklocs`).
+    pub(crate) fn update_level_ticks(&mut self, geometry: &AxisGeometry, minor: bool) {
+        let levels = TickLevels {
+            major: !minor && self.major_style.is_drawn(),
+            minor: minor && self.minor_style.is_drawn(),
+        };
+        let mut ticks = self.compute_levels(geometry, levels);
+        if let (Ok(ticks), Ok(before)) = (&mut ticks, &self.ticks) {
+            ticks.keep_level(before, !minor);
+        }
+        self.install_ticks(ticks);
+    }
+
     /// Makes `ticks` the axis' ticks, making the ticks of every location;
     /// ticks a level cannot make (see [`GridLineProps::refused`]) fail.
     ///
@@ -207,6 +223,16 @@ impl AxisState {
 
     /// The ticks to draw for the view of `geometry`.
     pub(crate) fn compute_ticks(&self, geometry: &AxisGeometry) -> Result<TickSet, TickerError> {
+        self.compute_levels(geometry, self.levels())
+    }
+
+    /// The ticks of `levels` for the view of `geometry`, those of the
+    /// other levels left empty.
+    fn compute_levels(
+        &self,
+        geometry: &AxisGeometry,
+        levels: TickLevels,
+    ) -> Result<TickSet, TickerError> {
         let settings = self.settings();
         let (info, major_locs) = self.major_locs(geometry, &settings)?;
         let ctx = TickContext::new(&info, &settings);
@@ -234,14 +260,14 @@ impl AxisState {
         // Like matplotlib's `_tick_group_visible`, a tick level whose
         // marks, labels and gridlines are all off is not computed.
         let mut ticks = TickSet::default();
-        if self.major_style.is_drawn() {
+        if levels.major {
             let labels = self.major_formatter.format_ticks(&major_locs, &ctx)?;
             ticks.major_unclipped = unclipped(&major_locs, labels.labels);
             (ticks.major_index, ticks.major) = in_view(&ticks.major_unclipped);
             ticks.offset = labels.offset;
             ticks.major_locs.clone_from(&major_locs);
         }
-        if self.minor_style.is_drawn() {
+        if levels.minor {
             let all_locs = self.all_minor_locs(&ctx)?;
             let minor_locs = self.minor_locs(&all_locs, &major_locs, geometry.view);
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;

@@ -231,6 +231,10 @@ impl PointMap for Inverse {
     fn inverse_all(&self, points: &mut [Point]) {
         self.0.forward_all(points);
     }
+
+    fn calls_program(&self) -> bool {
+        self.0.calls_program()
+    }
 }
 
 /// matplotlib's `PolarTransform()` and its inverse without an axis.
@@ -332,6 +336,10 @@ impl PointMap for Functions {
 
     fn inverse_all(&self, points: &mut [Point]) {
         self.inverse.call_all(points);
+    }
+
+    fn calls_program(&self) -> bool {
+        true
     }
 }
 

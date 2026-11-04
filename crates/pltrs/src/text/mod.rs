@@ -301,6 +301,15 @@ impl TextArtist {
         anchor.is_finite().then_some(anchor)
     }
 
+    /// [`anchor`](Self::anchor) for a draw, which lets the figure go while
+    /// a transform of the program's places the text.
+    fn drawn_anchor(&self, ctx: &mut DrawContext<'_>) -> Option<Point> {
+        let resolved = ctx.layout().resolve(&self.transform())?;
+        ctx.free_for(&resolved);
+        let anchor = resolved.transform_point(self.position);
+        anchor.is_finite().then_some(anchor)
+    }
+
     /// Where the text's block is anchored in display coordinates: an
     /// annotation's text position, a plain text's [`TextArtist::anchor`].
     fn box_anchor(&self, ctx: LayoutContext<'_>) -> Option<Point> {
@@ -325,14 +334,29 @@ impl TextArtist {
     /// when anchored at `anchor`, if wrapping is on (matplotlib's
     /// `_get_wrapped_text`; TeX text is never wrapped).
     fn wrapped_at(&self, ctx: LayoutContext<'_>, anchor: Point) -> Result<String, TextError> {
-        let Some(figure) = self.figure_box(ctx).filter(|_| self.wrap && !self.usetex) else {
+        self.wrapped_from(&self.layout_inputs(ctx), anchor)
+    }
+
+    /// What laying the text out reads from its figure (see
+    /// [`TextInputs`]).
+    fn layout_inputs(&self, ctx: LayoutContext<'_>) -> TextInputs {
+        TextInputs {
+            figure: self.figure_box(ctx).filter(|_| self.wrap && !self.usetex),
+            style: self.block_style(ctx),
+            dpi: ctx.dpi(),
+        }
+    }
+
+    /// [`wrapped_at`](Self::wrapped_at) from what the figure gave.
+    fn wrapped_from(&self, inputs: &TextInputs, anchor: Point) -> Result<String, TextError> {
+        let Some(figure) = &inputs.figure else {
             return Ok(self.text.clone());
         };
-        let style = self.block_style(ctx);
-        let width = wrap::wrap_width(anchor, &figure, style.rotation, style.halign);
+        let style = &inputs.style;
+        let width = wrap::wrap_width(anchor, figure, style.rotation, style.halign);
         wrap::wrap_text(&self.text, width, |line| {
             let math = pltrs_text::mathtext::is_math_text(line);
-            measure_text(line, &self.font, math, ctx.dpi(), &self.rc).map(|m| m.width.ceil())
+            measure_text(line, &self.font, math, inputs.dpi, &self.rc).map(|m| m.width.ceil())
         })
     }
 
@@ -366,14 +390,31 @@ impl TextArtist {
     }
 
     fn layout_at(&self, ctx: LayoutContext<'_>, anchor: Point) -> Result<LaidOutText, TextError> {
+        self.lay_out_from(&self.layout_inputs(ctx), anchor)
+    }
+
+    /// [`layout_at`](Self::layout_at) from what the figure gave, which
+    /// needs the figure no more: a draw lets it go meanwhile, while the
+    /// program measures the text.
+    fn lay_out_from(&self, inputs: &TextInputs, anchor: Point) -> Result<LaidOutText, TextError> {
         lay_out_with(
-            &self.wrapped_at(ctx, anchor)?,
+            &self.wrapped_from(inputs, anchor)?,
             &self.font,
-            &self.block_style(ctx),
-            ctx.dpi(),
+            &inputs.style,
+            inputs.dpi,
             &self.rc,
             self.typesetting(),
         )
+    }
+
+    /// What laying the text out reads from its figure, with the figure let
+    /// go after when the program measures texts.
+    fn inputs_freeing(&self, ctx: &mut DrawContext<'_>) -> TextInputs {
+        let inputs = self.layout_inputs(ctx.layout());
+        if has_line_measurer() {
+            ctx.free();
+        }
+        inputs
     }
 
     /// Lays the (wrapped) text out for the canvas resolution.
@@ -433,18 +474,26 @@ impl TextArtist {
         let Some(bbox) = &self.bbox else {
             return Ok(None);
         };
-        let laid_out = self.layout_at(ctx, anchor)?;
+        let inputs = self.layout_inputs(ctx);
+        let laid_out = self.lay_out_from(&inputs, anchor)?;
+        Ok(Some((bbox, self.placement_of(&inputs, &laid_out, anchor))))
+    }
+
+    /// Where the box goes around `laid_out`, anchored at `anchor`.
+    fn placement_of(
+        &self,
+        inputs: &TextInputs,
+        laid_out: &LaidOutText,
+        anchor: Point,
+    ) -> BoxPlacement {
         let (corner, size) = laid_out.block.frame;
-        Ok(Some((
-            bbox,
-            BoxPlacement {
-                anchor,
-                corner,
-                size,
-                rotation: self.block_style(ctx).rotation,
-                fontsize_px: ctx.points_to_pixels(self.font.size),
-            },
-        )))
+        BoxPlacement {
+            anchor,
+            corner,
+            size,
+            rotation: inputs.style.rotation,
+            fontsize_px: self.font.size * inputs.dpi / 72.0,
+        }
     }
 
     /// Draws the box and the text anchored at `anchor` (the body of
@@ -466,22 +515,26 @@ impl TextArtist {
     /// Draws the text's box and lines at `anchor`; the thread's
     /// [`TextPainter`], if it has one, draws the whole text instead.
     fn draw_block_at(&self, ctx: &mut DrawContext<'_>, anchor: Point) -> Result<(), TextDrawError> {
-        let layout = ctx.layout();
         if let Some(painter) = overrides::painter() {
-            let laid_out = self.layout_at(layout, anchor)?;
+            let inputs = self.inputs_freeing(ctx);
+            let laid_out = self.lay_out_from(&inputs, anchor)?;
             let color = self.color.resolve_alpha(self.base.alpha)?;
             overrides::paint(&*painter, ctx, &laid_out, anchor, color);
             return Ok(());
         }
-        if let Some((bbox, placement)) = self.box_placement(layout, anchor)? {
+        if let Some(bbox) = &self.bbox {
+            let inputs = self.inputs_freeing(ctx);
+            let laid_out = self.lay_out_from(&inputs, anchor)?;
+            let placement = self.placement_of(&inputs, &laid_out, anchor);
             bbox.draw(ctx, &self.base, &self.rc, &placement)
                 .map_err(TextDrawError::Box)?;
         }
-        let layout = ctx.layout();
-        let mut laid_out = self.layout_at(layout, anchor)?.shaped(&self.shaping())?;
+        let inputs = self.inputs_freeing(ctx);
+        let mut laid_out = self
+            .lay_out_from(&inputs, anchor)?
+            .shaped(&self.shaping())?;
         if !self.base.path_effects.is_empty() {
-            laid_out =
-                laid_out.as_text_paths(&self.font, self.parse_math, layout.dpi(), &self.rc)?;
+            laid_out = laid_out.as_text_paths(&self.font, self.parse_math, inputs.dpi, &self.rc)?;
         }
         let color = self.color.resolve_alpha(self.base.alpha)?;
         let mut gc = ctx.base_gc(&self.base);
@@ -489,7 +542,7 @@ impl TextArtist {
         gc.antialiased = self.antialiased;
         // matplotlib never sketches glyphs, even as paths.
         gc.sketch = None;
-        let rotation = self.block_style(layout).rotation;
+        let rotation = inputs.style.rotation;
         let mut drawn = Ok(());
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
             drawn = draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
@@ -531,7 +584,7 @@ impl Artist for TextArtist {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let drawn = match &self.annotation {
             Some(annotation) => annotation.draw(self, ctx),
-            None => match self.anchor(ctx.layout()) {
+            None => match self.drawn_anchor(ctx) {
                 Some(anchor) => self.draw_at(ctx, anchor),
                 None => Ok(()),
             },
@@ -641,6 +694,17 @@ pub(crate) fn draw_laid_out(
         }
     }
     result
+}
+
+/// What laying a text out reads from its figure: the box of the figure it
+/// wraps in (when it wraps), its block style (the rotation its transform
+/// gives) and the canvas resolution. Measuring the text needs nothing
+/// else, so a draw lets the figure go meanwhile, while the program
+/// measures it (a [`LineMeasurer`]).
+struct TextInputs {
+    figure: Option<Bbox>,
+    style: BlockStyle,
+    dpi: f64,
 }
 
 #[cfg(test)]

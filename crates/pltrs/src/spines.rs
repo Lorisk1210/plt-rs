@@ -261,10 +261,12 @@ impl Artist for SpineArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some((path, affine)) = self.display_path(ctx.layout()) else {
+        let Some(outline) = self.outline_through(ctx.layout()) else {
             return;
         };
-        let paths = [(path, affine)];
+        // The program's transform runs with the figure free.
+        ctx.free_for(outline.transform());
+        let paths = [outline.split()];
         if let Err(err) =
             crate::patches::draw_patch_paths(ctx, &self.base, &self.style, &self.rc, false, &paths)
         {
@@ -282,8 +284,7 @@ impl Artist for SpineArtist {
 impl SpineArtist {
     /// The extent of the spine line alone, in display pixels.
     pub(crate) fn line_extent(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
-        let (path, affine) = self.display_path(ctx)?;
-        Some(path.transformed(&affine).extents())
+        Some(self.outline_through(ctx)?.extent())
     }
 }
 
@@ -292,6 +293,13 @@ impl SpineArtist {
     /// spanning the bounds or else the parent axes' view interval (or the
     /// interval a custom projection gives).
     fn display_path(&self, ctx: LayoutContext<'_>) -> Option<(Path, Affine2D)> {
+        Some(self.outline_through(ctx)?.split())
+    }
+
+    /// The spine path in its coordinates and the transform drawing it (see
+    /// [`display_path`](Self::display_path)), which a draw applies once
+    /// it let the figure go.
+    pub(crate) fn outline_through(&self, ctx: LayoutContext<'_>) -> Option<OutlineThrough> {
         let axes_id = self.base.parent?;
         if let SpinePatch::Path(path) = &self.patch {
             // The program's path through the transform it gave the spine.
@@ -300,13 +308,11 @@ impl SpineArtist {
                 .transform
                 .clone()
                 .unwrap_or(Transform::Data(axes_id));
-            let (path, affine) = ctx.resolve(&transform)?.split_path(path);
-            return Some((path.into_owned(), affine));
+            return Some(OutlineThrough::new(path.clone(), ctx.resolve(&transform)?));
         }
         if let Some(outline) = self.patch.outline() {
             let resolved = ctx.resolve(&Transform::Axes(axes_id))?;
-            let (path, affine) = resolved.split_path(&outline);
-            return Some((path.into_owned(), affine));
+            return Some(OutlineThrough::new(outline, resolved));
         }
         let axes = ctx.store().get_as::<AxesState>(axes_id)?;
         if let Some(polar) = axes.polar_view() {
@@ -317,7 +323,11 @@ impl SpineArtist {
             if self.side != OUTLINE_SPINE {
                 return None;
             }
-            return Some((axes.patch_path(), unit_to_bbox(&ctx.axes_extent(axes_id)?)));
+            let frame = unit_to_bbox(&ctx.axes_extent(axes_id)?);
+            return Some(OutlineThrough::new(
+                axes.patch_path(),
+                ResolvedTransform::affine(frame),
+            ));
         }
         let interval = self
             .bounds
@@ -328,10 +338,40 @@ impl SpineArtist {
             .transform
             .clone()
             .unwrap_or_else(|| self.spine_transform(axes_id));
-        let resolved = ctx.resolve(&transform)?;
-        let outline = self.path(interval);
-        let (path, affine) = resolved.split_path(&outline);
-        Some((path.into_owned(), affine))
+        Some(OutlineThrough::new(
+            self.path(interval),
+            ctx.resolve(&transform)?,
+        ))
+    }
+}
+
+/// A spine's path in its own coordinates and the transform drawing it.
+pub(crate) struct OutlineThrough {
+    path: Path,
+    transform: ResolvedTransform,
+}
+
+impl OutlineThrough {
+    fn new(path: Path, transform: ResolvedTransform) -> Self {
+        Self { path, transform }
+    }
+
+    /// The transform drawing the path.
+    pub(crate) fn transform(&self) -> &ResolvedTransform {
+        &self.transform
+    }
+
+    /// The path with the transform's non-affine part applied, and the
+    /// affine part left for the renderer.
+    fn split(&self) -> (Path, Affine2D) {
+        let (path, affine) = self.transform.split_path(&self.path);
+        (path.into_owned(), affine)
+    }
+
+    /// The extent of the path in display pixels.
+    pub(crate) fn extent(&self) -> Bbox {
+        let (path, affine) = self.split();
+        path.transformed(&affine).extents()
     }
 }
 
@@ -345,22 +385,22 @@ impl SpineArtist {
         polar: &PolarView<'_>,
         axes_id: ArtistId,
         ctx: LayoutContext<'_>,
-    ) -> Option<(Path, Affine2D)> {
+    ) -> Option<OutlineThrough> {
         if !polar.spine_shown(self.side) {
             return None;
         }
         let view = polar.view();
         if !self.side.is_vertical() {
             let bounds = self.bounds.unwrap_or(view.interval_x());
-            return Some(polar.arc_spine(self.side, bounds, &ctx.axes_extent(axes_id)?));
+            let (path, affine) = polar.arc_spine(self.side, bounds, &ctx.axes_extent(axes_id)?);
+            return Some(OutlineThrough::new(path, ResolvedTransform::affine(affine)));
         }
         let (low, high) = self.bounds.unwrap_or(view.interval_y());
         let at = self.side.default_fraction();
         let line = Path::polyline(vec![Point::new(at, low), Point::new(at, high)]);
         let resolved = ResolvedTransform::affine(polar.theta_fraction())
             .then(ctx.resolve(&Transform::Data(axes_id))?);
-        let (path, affine) = resolved.split_path(&line);
-        Some((path.into_owned(), affine))
+        Some(OutlineThrough::new(line, resolved))
     }
 }
 

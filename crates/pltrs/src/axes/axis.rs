@@ -563,14 +563,6 @@ impl AxisState {
         self.map.as_ref().map_or(value, |m| m.forward(value))
     }
 
-    /// Maps every value of `values` in place through the scale, its map
-    /// called once for all of them.
-    pub(crate) fn forward_all(&self, values: &mut [f64]) {
-        if let Some(map) = &self.map {
-            map.forward_all(values);
-        }
-    }
-
     /// The ends of a view interval through the scale, its map called once
     /// for both and not again while they and the scale stay the same
     /// (matplotlib's `TransformedBbox` of the view limits keeps its points

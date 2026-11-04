@@ -98,6 +98,15 @@ pltrs_core::archive_struct!(ImageCore {
     resampling
 });
 
+/// A copy of the norm and colormap of `mappable` to map an image's data
+/// with, which a norm autoscales on first use; the caller puts it back
+/// after (`RefCell::replace`). A norm of the program's may change the
+/// image it maps (a draw lets the figure go meanwhile), which copies the
+/// image, so the image's cell is not borrowed meanwhile.
+pub(crate) fn mapping_copy(mappable: &RefCell<ScalarMappable>) -> ScalarMappable {
+    mappable.borrow().clone()
+}
+
 /// Where an image goes: its data extent, the map from data to display
 /// (`None` = the identity), its display box and the clip box.
 #[derive(Clone, Debug)]
@@ -249,7 +258,7 @@ impl ImageCore {
         if out_shape.0 == 0 || out_shape.1 == 0 {
             return Ok(None);
         }
-        let mut mappable = self.mappable.borrow_mut();
+        let mut mappable = mapping_copy(&self.mappable);
         let pixels = match (&self.data, self.resolved_stage(&map)) {
             (ImageData::Scalar(field), InterpolationStage::Data) => data_stage(
                 field,
@@ -258,7 +267,7 @@ impl ImageCore {
                 &self.resampling,
                 out_shape,
                 &map,
-            )?,
+            ),
             (data, _) => rgba_stage(
                 data,
                 alpha,
@@ -266,8 +275,10 @@ impl ImageCore {
                 &self.resampling,
                 out_shape,
                 &map,
-            )?,
+            ),
         };
+        self.mappable.replace(mappable);
+        let pixels = pixels?;
         let rendered = RenderedImage {
             pixels: top_down(&pixels),
             origin: Point::new(output.x0() / magnification, output.y0() / magnification),

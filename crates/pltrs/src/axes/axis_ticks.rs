@@ -333,7 +333,7 @@ impl Axis {
         let state = &*state;
         let axes = state.store.get_as::<AxesState>(self.axes.id())?;
         let texts = AxisPainter::new(self.axes.id(), axes, self.name)
-            .texts(LayoutContext::new(state), &axes.rc);
+            .texts(&mut LayoutContext::new(state), &axes.rc);
         Some(f(&texts, axes.axis(self.name)))
     }
 

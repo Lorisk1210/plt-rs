@@ -94,7 +94,7 @@ impl Axes3D {
         let had_data = self.has_data();
         let placement = options.placement();
         let field = rotated_field(&grid, options.zdir);
-        let set = self.plane().contour(&field, options.contour)?;
+        let set = self.on_plane_keeping_limits(|plane| plane.contour(&field, options.contour))?;
         self.add_contour_set(&set, placement, options.extend3d)?;
         self.auto_scale_xyz(x.as_slice(), y.as_slice(), Some(z.as_slice()), had_data)?;
         Ok(set)
@@ -119,7 +119,7 @@ impl Axes3D {
         let extend = options.contour.extend;
         let placement = options.placement();
         let field = rotated_field(&grid, options.zdir);
-        let set = self.plane().contourf(&field, options.contour)?;
+        let set = self.on_plane_keeping_limits(|plane| plane.contourf(&field, options.contour))?;
         let middles = self.lift_contourf(&set, extend, placement);
         let data = [x.as_slice(), y.as_slice(), z.as_slice()];
         self.auto_scale_contourf(data, options.zdir, &middles, had_data)?;
@@ -156,7 +156,8 @@ impl Axes3D {
         let had_data = self.has_data();
         let placement = options.placement();
         let (rotated, jz) = rotated_triangulation(tri, z, options.zdir)?;
-        let set = self.plane().tricontour(&rotated, &jz, options.contour)?;
+        let set =
+            self.on_plane_keeping_limits(|plane| plane.tricontour(&rotated, &jz, options.contour))?;
         self.add_contour_set(&set, placement, options.extend3d)?;
         self.auto_scale_xyz(tri.x(), tri.y(), Some(z), had_data)?;
         Ok(set)
@@ -180,7 +181,8 @@ impl Axes3D {
         let extend = options.contour.extend;
         let placement = options.placement();
         let (rotated, jz) = rotated_triangulation(tri, z, options.zdir)?;
-        let set = self.plane().tricontourf(&rotated, &jz, options.contour)?;
+        let set = self
+            .on_plane_keeping_limits(|plane| plane.tricontourf(&rotated, &jz, options.contour))?;
         let middles = self.lift_contourf(&set, extend, placement);
         self.auto_scale_contourf([tri.x(), tri.y(), z], options.zdir, &middles, had_data)?;
         Ok(set)

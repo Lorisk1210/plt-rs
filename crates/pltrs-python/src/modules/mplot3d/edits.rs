@@ -30,6 +30,13 @@ fn set_zsort(axes: Axes3D, collection: Collection, name: String) -> PyResult<()>
     Ok(())
 }
 
+/// Replaces the polylines of a line collection of the axes by the `(N, 3)`
+/// arrays `segments` (`Line3DCollection.set_segments`).
+fn set_segments3d(axes: Axes3D, collection: Collection, segments: Vec<NdArray>) -> PyResult<()> {
+    axes.set_segments(&collection, vertices(&segments)?)?;
+    Ok(())
+}
+
 /// Replaces the polygons of a polygon collection of the axes by the
 /// `(N, 3)` arrays `verts`, `closed` or not (`Poly3DCollection.set_verts`).
 fn set_poly_verts(
@@ -137,6 +144,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_sort_zpos", set_sort_zpos)?;
     module.add("set_zsort", set_zsort)?;
     module.add("set_poly_verts", set_poly_verts)?;
+    module.add("set_segments3d", set_segments3d)?;
     module.add("set_poly_verts_and_codes", set_poly_verts_and_codes)?;
     module.add("set_poly_3d_properties", set_poly_3d_properties)?;
     module.add("lift_paths", lift_paths)?;

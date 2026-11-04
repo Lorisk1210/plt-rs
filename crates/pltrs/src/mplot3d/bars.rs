@@ -277,7 +277,8 @@ impl Axes3D {
         let height = along_height.convert_extents(&height, &options.base, &bases);
         options.base = bases.into();
         let zs = spread(along_zs.convert_values(zs), positions.len());
-        let container = self.plane().bar(positions, height, options)?;
+        let container =
+            self.on_plane_keeping_limits(|plane| plane.bar(positions, height, options))?;
         let mut all_points = Vec::new();
         let mut patches = Vec::with_capacity(container.patches.len());
         for (rectangle, &z) in container.patches.iter().zip(&zs) {

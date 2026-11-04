@@ -125,6 +125,12 @@ impl Projection {
         Self { scales, ..self }
     }
 
+    /// The same projection through `matrix` instead (matplotlib's `M` of
+    /// an earlier draw, with the scales of now).
+    pub(crate) fn with_matrix(self, matrix: Matrix4) -> Self {
+        Self { matrix, ..self }
+    }
+
     /// The same projection hiding the points outside the increasing data
     /// intervals `view` of the three axes, as if they were masked
     /// (matplotlib's `axlim_clip`).

@@ -92,18 +92,23 @@ impl Axes3D {
         let [x, y, z] = self.convert_juggled(values, zdir);
         let z = spread(z, x.len());
         let line = self.plane().cycled_line(x.clone(), y.clone(), props);
-        // matplotlib plots the line in 2-D first, which extends the 2-D
-        // data limits by its points (the plane's view stays fixed).
-        let flat: Vec<pltrs_core::Point> = (x.iter().zip(&y))
-            .map(|(&x, &y)| pltrs_core::Point::new(x, y))
-            .collect();
-        self.plane().update_datalim(&flat, true, true);
+        self.extend_plane_limits(&x, &y);
         let points = juggled(&x, &y, &z, zdir);
         let raw = self.add_artist(line, Art3D::Line(points.clone()), false);
         self.keep_unit_sources(raw.id(), sources);
         let [xs, ys, zs] = columns(&points);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
         Ok(Line2D::from_raw(raw))
+    }
+
+    /// Extends the 2-D data limits of the projection plane by the points
+    /// `(x, y)` of a line it adds: matplotlib adds a 3-D line holding its
+    /// 2-D data still, which extends them (the plane's view stays fixed).
+    pub(super) fn extend_plane_limits(&self, x: &[f64], y: &[f64]) {
+        let flat: Vec<pltrs_core::Point> = (x.iter().zip(y))
+            .map(|(&x, &y)| pltrs_core::Point::new(x, y))
+            .collect();
+        self.plane().update_datalim(&flat, true, true);
     }
 
     /// Places a legend of the labelled artists in the axes (matplotlib's

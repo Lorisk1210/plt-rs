@@ -45,6 +45,13 @@ const AXIS_LABEL_OFFSET: f64 = 21.0;
 /// order in `Axes3D.draw`), each in an SVG group named after its axis'
 /// gid (`pane3d`, `grid3d`, `axis3d`).
 pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &Bbox) {
+    // matplotlib ticks each axis as it draws it (`_update_ticks`), which
+    // raises what its locator or formatter raises.
+    for dir in Axis3::ALL {
+        if let Err(err) = &axes.axis(dir).ticks {
+            ctx.report_kind(axes.base_id(), err.draw_kind(), err);
+        }
+    }
     let Some(painter) = Painter::new(axes, *ctx.layout(), extent) else {
         return;
     };

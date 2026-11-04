@@ -2,6 +2,7 @@
 //! their ticks and the edges their ticks and labels go to (their tick
 //! helpers and the objects of their parts are `_native.axis`'s).
 
+use pltrs::colors::Color;
 use pltrs::mplot3d::{Axes3D, AxisPosition};
 
 use super::super::lines::PyLineStyle;
@@ -91,15 +92,25 @@ fn axis_line_data(axes: Axes3D, name: String) -> PyResult<Option<LineEnds>> {
         .map(|([x0, x1], [y0, y1])| ((x0, x1), (y0, y1))))
 }
 
-/// Shows or hides the line of axis `name` (`axis.line.set_visible`).
-fn set_line_visible(axes: Axes3D, name: String, visible: bool) -> PyResult<()> {
-    axes.axis(axis3(&name)?).set_line_visible(visible);
-    Ok(())
+/// Whether the line of axis `name` is drawn, its width in points and its
+/// colour (`axis.line`).
+fn line_state(axes: Axes3D, name: String) -> PyResult<(bool, f64, Color)> {
+    let axis = axes.axis(axis3(&name)?);
+    let (width, color) = axis.line_style();
+    Ok((axis.line_visible(), width, color))
 }
 
-/// Whether the line of axis `name` is drawn (`axis.line.get_visible`).
-fn get_line_visible(axes: Axes3D, name: String) -> PyResult<bool> {
-    Ok(axes.axis(axis3(&name)?).line_visible())
+/// Shows or hides the line of axis `name` and draws it `width` points
+/// wide in `color` (the setters of `axis.line`).
+fn push_line(
+    axes: Axes3D,
+    name: String,
+    (visible, width, color): (bool, f64, Color),
+) -> PyResult<()> {
+    axes.axis(axis3(&name)?)
+        .set_line_visible(visible)
+        .set_line_style(width, color);
+    Ok(())
 }
 
 /// The coordinate the tick marks of axis `name` extend along on the edge
@@ -111,11 +122,14 @@ fn tick_direction(axes: Axes3D, name: String, edge: String) -> PyResult<usize> {
 /// The corners of a pane, projected: x, y and depth each.
 type PaneCorners = Vec<(f64, f64, f64)>;
 
-/// The pane of axis `name` the camera sees: its four corners projected
-/// (x, y and depth) and its position along the axis (`active_pane`).
-fn active_pane(axes: Axes3D, name: String) -> PyResult<(PaneCorners, f64)> {
-    let (corners, at) = axes.axis(axis3(&name)?).active_pane();
-    Ok((corners.iter().map(|&[x, y, z]| (x, y, z)).collect(), at))
+/// The pane of axis `name` seen in the view of the last draw: its four
+/// corners projected (x, y and depth) and its position along the axis;
+/// `None` before the first draw (`active_pane`).
+fn active_pane(axes: Axes3D, name: String) -> PyResult<Option<(PaneCorners, f64)>> {
+    Ok(axes
+        .axis(axis3(&name)?)
+        .drawn_active_pane()
+        .map(|(corners, at)| (corners.iter().map(|&[x, y, z]| (x, y, z)).collect(), at)))
 }
 
 /// The colour of the pane normal to axis `name`, as RGBA.
@@ -202,8 +216,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_label_position", set_label_position)?;
     module.add("get_label_position", get_label_position)?;
     module.add("axis_line_data", axis_line_data)?;
-    module.add("set_line_visible", set_line_visible)?;
-    module.add("get_line_visible", get_line_visible)?;
+    module.add("line_state", line_state)?;
+    module.add("push_line", push_line)?;
     module.add("tick_direction", tick_direction)?;
     module.add("set_ticklabels", set_ticklabels)?;
     module.add("active_pane", active_pane)?;

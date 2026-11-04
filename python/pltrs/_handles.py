@@ -52,6 +52,9 @@ _CLASS_MODULES = {
     "LineCollection": "collections", "QuadMesh": "collections",
     "EventCollection": "collections", "EllipseCollection": "collections",
     "TriMesh": "collections",
+    **dict.fromkeys(
+        ["Poly3DCollection", "Line3DCollection", "Path3DCollection",
+         "Patch3DCollection"], "mpl_toolkits.mplot3d.art3d"),
     "Quiver": "quiver", "QuiverKey": "quiver",
     "QuadContourSet": "contour",
     "Legend": "legend",

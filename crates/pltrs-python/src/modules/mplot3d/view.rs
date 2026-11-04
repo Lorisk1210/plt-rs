@@ -7,7 +7,9 @@ use pltrs::axes::Adjustable;
 use pltrs::colors::Color;
 use pltrs::mplot3d::{Aspect3D, Axes3D};
 use pltrs::navigation::DragKey;
+use pltrs::transforms::Bbox;
 use pltrs_core::Point;
+use pltrs_core::path::DataLimits;
 
 use super::super::axes_base::aspect::anchor;
 use super::axis3;
@@ -59,11 +61,10 @@ fn get_box_aspect(axes: Axes3D) -> PyResult<(f64, f64, f64)> {
     Ok((x, y, z))
 }
 
-/// Whether the x, y and z axes are drawn on their high side in the
-/// current view (`get_axis_position`).
-fn get_axis_position(axes: Axes3D) -> PyResult<(bool, bool, bool)> {
-    let [x, y, z] = axes.axis_highs();
-    Ok((x, y, z))
+/// Whether the x, y and z axes are drawn on their high side in the view
+/// of the last draw, `None` before it (`get_axis_position`).
+fn get_axis_position(axes: Axes3D) -> PyResult<Option<(bool, bool, bool)>> {
+    Ok(axes.drawn_axis_position().map(|[x, y, z]| (x, y, z)))
 }
 
 /// A point of a pane in data coordinates and the index of the axis the
@@ -71,11 +72,12 @@ fn get_axis_position(axes: Axes3D) -> PyResult<(bool, bool, bool)> {
 type PanePoint = ((f64, f64, f64), usize);
 
 /// The point of the pane under projected point `(xv, yv)`, in data
-/// coordinates, and the index of the axis the pane is normal to
-/// (`_calc_coord`); `None` when the view cannot be inverted.
+/// coordinates, and the index of the axis the pane is normal to, through
+/// the projection of the last draw and its inverse (`_calc_coord`);
+/// `None` without them.
 fn calc_coord(axes: Axes3D, xv: f64, yv: f64) -> PyResult<Option<PanePoint>> {
     Ok(axes
-        .pane_point(xv, yv)
+        .drawn_pane_point(xv, yv)
         .map(|([x, y, z], pane)| ((x, y, z), pane.index())))
 }
 
@@ -95,6 +97,36 @@ fn position(axes: Axes3D, original: bool) -> PyResult<(f64, f64, f64, f64)> {
         axes.squared_position()
     };
     Ok(bbox.extents())
+}
+
+/// The 2-D data limits of the projection plane, `((x0, y0, x1, y1),
+/// (minposx, minposy))`, to give back with [`restore_plane_data_lim`].
+fn plane_data_lim(axes: Axes3D) -> PyResult<PlaneLimits> {
+    let limits = axes.projection_plane().data_lim();
+    Ok((limits.bbox.extents(), (limits.minpos.x, limits.minpos.y)))
+}
+
+/// Gives the projection plane back its 2-D data limits taken by
+/// [`plane_data_lim`] (matplotlib's `Axes3D.update_datalim` does nothing).
+fn restore_plane_data_lim(
+    axes: Axes3D,
+    ((x0, y0, x1, y1), (minx, miny)): PlaneLimits,
+) -> PyResult<()> {
+    axes.restore_plane_data_lim(DataLimits {
+        bbox: Bbox::from_extents(x0, y0, x1, y1),
+        minpos: Point::new(minx, miny),
+    });
+    Ok(())
+}
+
+/// The 2-D data limits of a projection plane as Python holds them.
+type PlaneLimits = ((f64, f64, f64, f64), (f64, f64));
+
+/// Moves the axes to `(left, bottom, width, height)` in figure fractions,
+/// its box made square there at the next draw (`set_position`).
+fn set_position(axes: Axes3D, (left, bottom, width, height): (f64, f64, f64, f64)) -> PyResult<()> {
+    axes.set_position(Bbox::from_bounds(left, bottom, width, height));
+    Ok(())
 }
 
 /// The tight bounding box of the axes in display coordinates, `(x0, y0,
@@ -120,17 +152,26 @@ fn share(axes: Axes3D, name: String, other: Axes3D) -> PyResult<()> {
 /// `"equalyz"`) and what keeps it (`"box"` or `"datalim"`;
 /// `set_aspect`).
 fn set_aspect(axes: Axes3D, aspect: String, adjustable: String) -> PyResult<()> {
-    let adjustable = match adjustable.as_str() {
-        "box" => Adjustable::Box,
-        "datalim" => Adjustable::Datalim,
-        _ => {
-            return Err(PyErr::value_error(format!(
-                "{adjustable:?} is not a valid value for adjustable; supported values are \
-                 'box', 'datalim'"
-            )));
-        }
-    };
-    axes.set_aspect(aspect.parse::<Aspect3D>()?, adjustable)?;
+    axes.set_aspect(aspect.parse::<Aspect3D>()?, adjustable_of(&adjustable)?)?;
+    Ok(())
+}
+
+/// What `"box"` or `"datalim"` names (matplotlib's `adjustable`).
+fn adjustable_of(name: &str) -> PyResult<Adjustable> {
+    match name {
+        "box" => Ok(Adjustable::Box),
+        "datalim" => Ok(Adjustable::Datalim),
+        _ => Err(PyErr::value_error(format!(
+            "{name:?} is not a valid value for adjustable; supported values are 'box', \
+             'datalim'"
+        ))),
+    }
+}
+
+/// Sets what keeps the aspect, `"box"` or `"datalim"`, the aspect left as
+/// it is (`set_adjustable`).
+fn set_adjustable(axes: Axes3D, adjustable: String) -> PyResult<()> {
+    axes.set_adjustable(adjustable_of(&adjustable)?);
     Ok(())
 }
 
@@ -210,9 +251,10 @@ fn get_proj(axes: Axes3D) -> PyResult<NdArray> {
     NdArray::with_shape(rows.rows().iter().flatten().copied().collect(), vec![4, 4])
 }
 
-/// The status-bar text for projected point `(xv, yv)` (`format_coord`).
+/// The status-bar text for projected point `(xv, yv)` outside a
+/// rotation, empty before the first draw (`format_coord`).
 fn format_coord(axes: Axes3D, xv: f64, yv: f64) -> PyResult<String> {
-    Ok(axes.format_coord(xv, yv))
+    Ok(axes.drawn_format_coord(xv, yv))
 }
 
 /// The view angles as shown while rotating (`_rotation_coords`).
@@ -271,11 +313,18 @@ fn clear(axes: Axes3D) -> PyResult<()> {
     Ok(())
 }
 
-/// Stops the mouse from rotating, panning and zooming the axes
-/// (`disable_mouse_rotation`).
-fn disable_mouse_rotation(axes: Axes3D) -> PyResult<()> {
-    axes.disable_mouse_rotation();
+/// Scales the limits by `scale_u`, `scale_v` and `scale_w` along the
+/// screen's horizontal, vertical and depth directions
+/// (`_zoom_data_limits`).
+fn zoom_data_limits(axes: Axes3D, scale_u: f64, scale_v: f64, scale_w: f64) -> PyResult<()> {
+    axes.zoom_data_limits(scale_u, scale_v, scale_w)?;
     Ok(())
+}
+
+/// The focal length of the camera, infinite for an orthographic
+/// projection (`_focal_length`).
+fn get_focal_length(axes: Axes3D) -> PyResult<f64> {
+    Ok(axes.focal_length())
 }
 
 /// Registers the functions.
@@ -289,9 +338,13 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("calc_coord", calc_coord)?;
     module.add("share", share)?;
     module.add("position", position)?;
+    module.add("set_position", set_position)?;
+    module.add("plane_data_lim", plane_data_lim)?;
+    module.add("restore_plane_data_lim", restore_plane_data_lim)?;
     module.add("set_anchor", set_anchor)?;
     module.add("tightbbox", tightbbox)?;
     module.add("set_aspect", set_aspect)?;
+    module.add("set_adjustable", set_adjustable)?;
     module.add("get_aspect", get_aspect)?;
     module.add("get_label", get_label)?;
     module.add("set_axis_on", set_axis_on)?;
@@ -305,7 +358,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("format_coord", format_coord)?;
     module.add("rotation_coords", rotation_coords)?;
     module.add("format_data", format_data)?;
-    module.add("disable_mouse_rotation", disable_mouse_rotation)?;
+    module.add("zoom_data_limits", zoom_data_limits)?;
+    module.add("get_focal_length", get_focal_length)?;
     module.add("clear", clear)?;
     module.add("drag_rotate", drag_rotate)?;
     module.add("drag_zoom", drag_zoom)?;

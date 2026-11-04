@@ -10,10 +10,11 @@ the classes here read and replace that geometry.
 
 import numpy as np
 
-from pltrs import _api, cbook, collections as mcoll, colors as mcolors, lines
+from pltrs import _api, _values, cbook, collections as mcoll, colors as mcolors, lines
 from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import patches as mpatches, text as mtext
-from pltrs._native import mplot3d as _mplot3d, patches as _patches
+from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
+from pltrs._native import patches as _patches
 
 
 def _columns(arrays):
@@ -104,6 +105,41 @@ def rotate_axes(xs, ys, zs, zdir):
         return xs, ys, zs
 
 
+def _no_projection_error():
+    """The error matplotlib raises computing through the projection matrix
+    `.Axes3D.M` (or ``invM``) before the first draw sets it: numpy's for a
+    product with None."""
+    return TypeError("unsupported operand type(s) for *: 'NoneType' and 'float'")
+
+
+def _projected_depth(artist):
+    """Project *artist* through the projection matrix of the last draw of
+    its axes (`.Axes3D.M`) and return its depth, as matplotlib's
+    ``do_3d_projection`` does."""
+    depth = _mplot3d.do_3d_projection(artist.axes._native, artist._native)
+    if depth is None:
+        raise _no_projection_error()
+    artist._projections = artist.__dict__.get("_projections", 0) + 1
+    return depth
+
+
+class _ProjectedPaths:
+    """
+    What the 3-D collections whose paths are their projection share:
+    matplotlib makes new paths at each projection (a draw, or
+    ``do_3d_projection``), so `get_paths` gives new objects after one.
+    """
+
+    def get_paths(self):
+        # docstring inherited
+        stamp = (_artist.draw_count(self._native),
+                 self.__dict__.get("_projections", 0))
+        if self.__dict__.get("_paths_stamp") != stamp:
+            self.__dict__.pop("_kept_paths", None)
+            self._paths_stamp = stamp
+        return super().get_paths()
+
+
 def _axes3d(artist):
     """The 3-D axes holding *artist*, or None."""
     axes = artist.axes
@@ -126,6 +162,21 @@ def _lifted(artist):
                                                artist._native) is None:
         return None
     return axes
+
+
+def _faces_3d(verts):
+    """
+    The (N, 3) float arrays of a sequence of polygons, refused as numpy
+    refuses to put points of another dimension into matplotlib's array of
+    faces.
+    """
+    faces = [np.asarray(vert, dtype=float) for vert in verts]
+    for face in faces:
+        if face.ndim == 2 and face.shape[1] != 3:
+            raise ValueError(f"could not broadcast input array from shape "
+                             f"({len(face)},{face.shape[1]}) into shape "
+                             f"({len(face)},3)")
+    return _vertices_3d(faces)
 
 
 def _vertices_3d(verts):
@@ -210,7 +261,9 @@ class Line3D(lines.Line2D):
         zs = cbook._to_unmasked_float_array(zs).ravel()
         zs = np.broadcast_to(zs, len(xs))
         self._axlim_clip = axlim_clip
-        self._set_verts3d(_columns(juggle_axes(xs, ys, zs, zdir)))
+        verts = juggle_axes(xs, ys, zs, zdir)
+        self._set_verts3d(_columns(verts))
+        _values.remember(self, "data_3d", verts)
 
     def _set_verts3d(self, columns):
         """Make *columns* the 3-D data: the native line's in a 3-D axes,
@@ -233,10 +286,10 @@ class Line3D(lines.Line2D):
             The current data as a tuple or array-like.
         """
         axes = _axes3d(self)
-        if axes is None:
-            return self._pending3d
-        return tuple(np.array(c) for c in
-                     _mplot3d.line_data(axes._native, self._native))
+        native = (self._pending3d if axes is None else tuple(
+            np.array(c) for c in _mplot3d.line_data(axes._native, self._native)))
+        # The data as given, as matplotlib keeps them.
+        return _values.given(self, "data_3d", native)
 
     def set_data_3d(self, *args):
         """
@@ -265,7 +318,27 @@ class Line3D(lines.Line2D):
             self._pending3d = _columns(args)
         else:
             _mplot3d.set_line_data(axes._native, self._native, _columns(args))
+        _values.remember(self, "data_3d", args)
         self.stale = True
+
+    def _drawn_data(self, getter):
+        """The projected data *getter* reads off the native line, masked as
+        matplotlib's `draw` gives them to the line, once a draw projected
+        it; else None."""
+        axes = _lifted(self)
+        mask = (None if axes is None
+                else _mplot3d.projected_line_mask(axes._native, self._native))
+        return None if mask is None else np.ma.masked_array(getter(self._native), mask)
+
+    def get_xdata(self, orig=True):
+        # docstring inherited; a drawn line holds its projection.
+        drawn = self._drawn_data(_lines.get_xdata) if orig else None
+        return super().get_xdata(orig) if drawn is None else drawn
+
+    def get_ydata(self, orig=True):
+        # docstring inherited; a drawn line holds its projection.
+        drawn = self._drawn_data(_lines.get_ydata) if orig else None
+        return super().get_ydata(orig) if drawn is None else drawn
 
 
 def line_2d_to_3d(line, zs=0, zdir='z', axlim_clip=False):
@@ -301,9 +374,9 @@ class _Loose3D:
     _codes3d = None
 
     def do_3d_projection(self):
-        """Project the collection in the current view and return the depth
-        of its nearest point (NaN without points)."""
-        return _mplot3d.do_3d_projection(self.axes._native, self._native)
+        """Project the collection in the view of the last draw and return
+        the depth of its nearest point (NaN without points)."""
+        return _projected_depth(self)
 
     def set_sort_zpos(self, val):
         """Set the position to use for z-sorting."""
@@ -348,7 +421,7 @@ class _Loose3D:
         return self
 
 
-class Collection3D(_Loose3D, mcoll.Collection):
+class Collection3D(_ProjectedPaths, _Loose3D, mcoll.Collection):
     """A collection of 3D paths."""
 
     def _native_geometry(self):
@@ -376,7 +449,7 @@ def collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
                             bool(axlim_clip))
 
 
-class Line3DCollection(_Loose3D, mcoll.LineCollection):
+class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
     """A collection of 3D lines."""
 
     def __init__(self, lines, axlim_clip=False, **kwargs):
@@ -394,6 +467,18 @@ class Line3DCollection(_Loose3D, mcoll.LineCollection):
         super().__init__([], **kwargs)
         self._verts3d_pending = _vertices_3d(lines)
         self._axlim_clip = axlim_clip
+
+    def set_segments(self, segments):
+        """
+        Set 3D segments.
+        """
+        axes = _lifted(self)
+        if axes is None:
+            self._verts3d_pending = _vertices_3d(segments)
+        else:
+            _mplot3d.set_segments3d(axes._native, self._native,
+                                    _vertices_3d(segments))
+        super().set_segments([])
 
 
 def line_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
@@ -495,14 +580,16 @@ class _Lifted3DOffsets(_Loose3D):
 
     @property
     def _offsets3d(self):
-        """The 3-D positions of the members."""
-        return tuple(np.array(c) for c in
-                     _mplot3d.scatter_offsets(self.axes._native, self._native))
+        """The 3-D positions of the members, as given."""
+        return _values.given(self, "_offsets3d", tuple(
+            np.array(c) for c in
+            _mplot3d.scatter_offsets(self.axes._native, self._native)))
 
     @_offsets3d.setter
     def _offsets3d(self, offsets):
         _mplot3d.set_scatter_offsets(self.axes._native, self._native,
                                      _columns(offsets))
+        _values.remember(self, "_offsets3d", offsets)
         self.stale = True
 
     def get_depthshade(self):
@@ -582,7 +669,7 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
     _ignores_rasterization = True
 
 
-class Poly3DCollection(_Loose3D, mcoll.PolyCollection):
+class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
     """
     A collection of 3D polygons.
 
@@ -619,7 +706,7 @@ class Poly3DCollection(_Loose3D, mcoll.PolyCollection):
             _api.check_shape((None, None, 3), segments3d=verts)
         elif any(len(np.shape(vert)) != 2 for vert in verts):
             raise ValueError('verts must be a list of (N, 3) array-like')
-        faces = _vertices_3d(verts)
+        faces = _faces_3d(verts)
         if shade:
             light = (None if lightsource is None
                      else (float(lightsource.azdeg), float(lightsource.altdeg)))
@@ -656,6 +743,27 @@ class Poly3DCollection(_Loose3D, mcoll.PolyCollection):
     def _edgecolor3d(self):
         """The edge colours the polygons are drawn with, in polygon order."""
         return _mplot3d.poly_colors(self.axes._native, self._native)[1]
+
+    def _project_once(self):
+        """Project the polygons in the current view unless they were
+        projected, as matplotlib's getters of their colours do (through
+        the axes, which a collection never added lacks)."""
+        axes = _lifted(self)
+        if axes is None:
+            raise AttributeError("'NoneType' object has no attribute 'get_proj'")
+        if not _mplot3d.poly_projected(axes._native, self._native):
+            axes.M = axes.get_proj()
+            self.do_3d_projection()
+
+    def get_facecolor(self):
+        # docstring inherited; the colours of the last projection.
+        self._project_once()
+        return super().get_facecolor()
+
+    def get_edgecolor(self):
+        # docstring inherited; the colours of the last projection.
+        self._project_once()
+        return super().get_edgecolor()
 
     def set_facecolor(self, colors):
         # docstring inherited
@@ -834,9 +942,9 @@ class Patch3D(mpatches.Patch):
                                 bool(axlim_clip))
 
     def do_3d_projection(self):
-        """Project the patch in the current view and return the depth of
-        its nearest point."""
-        return _mplot3d.do_3d_projection(self.axes._native, self._native)
+        """Project the patch in the view of the last draw and return the
+        depth of its nearest point."""
+        return _projected_depth(self)
 
     def _place(self, *geometry):
         """Lift the patch with *geometry*, or keep it for the 3-D axes
@@ -1005,7 +1113,49 @@ class Text3D(mtext.Text):
         axes = _lifted(self)
         if axes is None:
             return self._pending3d[0]
-        return _mplot3d.text_position(axes._native, self._native)
+        # As given, as matplotlib keeps it.
+        return _values.given(self, "position_3d",
+                             _mplot3d.text_position(axes._native, self._native))
+
+    def get_position(self):
+        # docstring inherited; matplotlib projects the position only while
+        # it draws the text.
+        return tuple(self.get_position_3d()[:2])
+
+    def set_position(self, xy):
+        # docstring inherited; the x and y of the 3-D position.
+        self.set_x(xy[0])
+        self.set_y(xy[1])
+
+    def set_x(self, x):
+        # docstring inherited; the x of the 3-D position.
+        if _lifted(self) is None:
+            super().set_x(x)
+        else:
+            _, y, z = self.get_position_3d()
+            self.set_position_3d((x, y, z))
+
+    def set_y(self, y):
+        # docstring inherited; the y of the 3-D position.
+        if _lifted(self) is None:
+            super().set_y(y)
+        else:
+            x, _, z = self.get_position_3d()
+            self.set_position_3d((x, y, z))
+
+    def get_unitless_position(self):
+        # docstring inherited
+        return tuple(map(float, self.get_position_3d()[:2]))
+
+    def set_rotation(self, s):
+        # docstring inherited; the rotation set, which the projection
+        # replaces while the text is drawn.
+        super().set_rotation(s)
+        self._rotation3d = super().get_rotation()
+
+    def get_rotation(self):
+        # docstring inherited
+        return self.__dict__.get("_rotation3d", 0.0)
 
     def set_position_3d(self, xyz, zdir=None):
         """
@@ -1029,6 +1179,7 @@ class Text3D(mtext.Text):
             _mplot3d.set_text_position(
                 axes._native, self._native, tuple(map(float, xyz)),
                 None if direction is None else tuple(map(float, direction)))
+            _values.remember(self, "position_3d", tuple(xyz))
         self.stale = True
 
     def set_z(self, z):
@@ -1060,12 +1211,13 @@ class Text3D(mtext.Text):
         if _lifted(self) is not None:
             x, y = self.get_position_3d()[:2]
         else:
-            x, y = self.get_position()
+            x, y = mtext.Text.get_position(self)
         geometry = ((x, y, z), get_dir_vector(zdir), axlim_clip)
         if axes is None:
             self._pending3d = geometry
         else:
             self._lift(*geometry)
+            _values.remember(self, "position_3d", (x, y, z))
         self.stale = True
 
     def get_tightbbox(self, renderer=None):

@@ -91,10 +91,16 @@ fn set_tick_gid(
 
 /// Places the ticks of the axis, so that its `Tick` objects mirror them
 /// (matplotlib's `Axis._update_ticks`); the ticks of a 3-D axis always
-/// are.
+/// are, from its last layout, which this brings up to date, raising what
+/// its locator or formatter raises.
 fn place_ticks(owner: AxisOwner, name: String) -> PyResult<()> {
-    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
-        axis.place_ticks()?;
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.place_ticks()?;
+        }
+        AnyAxis::Deep(axis) => {
+            axis.ticks()?;
+        }
     }
     Ok(())
 }

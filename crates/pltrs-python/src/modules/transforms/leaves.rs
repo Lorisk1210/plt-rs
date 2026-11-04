@@ -201,10 +201,10 @@ fn watch_frame(frame: Figure) -> PyResult<()> {
 }
 
 /// Follows the leaves of `axes` too (of its projection plane, for 3-D
-/// axes).
-fn watch_axes(axes: Axes) -> PyResult<()> {
+/// axes); returns the id its leaves come with.
+fn watch_axes(axes: Axes) -> PyResult<u32> {
     add_watched(&axes.figure(), axes.id(), |entry| &mut entry.axes);
-    Ok(())
+    Ok(axes.id().index())
 }
 
 /// The leaves of `now` that differ from `before` (all of them without

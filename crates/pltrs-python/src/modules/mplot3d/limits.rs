@@ -2,7 +2,7 @@
 //! scales and inversion (matplotlib's `set_xlim3d`, `set_zbound`,
 //! `autoscale`, `margins`, `set_zscale`, `invert_zaxis`, ...).
 
-use pltrs::mplot3d::{Axes3D, Axis3};
+use pltrs::mplot3d::Axes3D;
 use pltrs::scale::{FuncTransform, ScaleOptions};
 
 use super::super::scale::{nonpositive, python_scale};
@@ -72,22 +72,15 @@ fn set_autoscale_on(axes: Axes3D, name: String, on: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// matplotlib's `autoscale(enable, axis, tight)`: `axis` names one axis
-/// or, for `None`, all three.
+/// matplotlib's `autoscale(enable, axis, tight)` of the axes `selected`
+/// (x, y, z) selects.
 fn autoscale(
     axes: Axes3D,
     enable: Option<bool>,
-    name: Option<String>,
+    (x, y, z): (bool, bool, bool),
     tight: Option<bool>,
 ) -> PyResult<()> {
-    let selected = match name {
-        Some(name) => {
-            let axis = axis3(&name)?;
-            Axis3::ALL.map(|a| a == axis)
-        }
-        None => [true; 3],
-    };
-    axes.autoscale(enable, selected, tight)?;
+    axes.autoscale(enable, [x, y, z], tight)?;
     Ok(())
 }
 
@@ -105,8 +98,33 @@ fn get_margin(axes: Axes3D, name: String) -> PyResult<f64> {
     Ok(axes.margin(axis3(&name)?))
 }
 
+/// Sets the autoscaling margin of axis `name`, the axis autoscaling when
+/// the axes is next drawn (`set_xmargin`, `set_ymargin`, `set_zmargin`).
+fn set_margin(axes: Axes3D, name: String, margin: f64) -> PyResult<()> {
+    axes.set_margin(axis3(&name)?, margin)?;
+    Ok(())
+}
+
+/// Marks the axes `selected` (x, y, z) for autoscaling when the axes is
+/// next drawn, `tight` replacing the tight setting when given
+/// (`_request_autoscale_view`).
+fn request_autoscale(
+    axes: Axes3D,
+    (x, y, z): (bool, bool, bool),
+    tight: Option<bool>,
+) -> PyResult<()> {
+    axes.request_autoscale([x, y, z], tight);
+    Ok(())
+}
+
+/// Applies the autoscaling pending (`_unstale_viewLim`).
+fn unstale_view_lim(axes: Axes3D) -> PyResult<()> {
+    axes.unstale_view_lim()?;
+    Ok(())
+}
+
 /// Sets the margins given, `None` keeping one, and autoscales those axes;
-/// `tight` replaces the tight setting (`margins`, `set_zmargin`).
+/// `tight` replaces the tight setting (`margins`).
 fn set_margins(
     axes: Axes3D,
     (x, y, z): (Option<f64>, Option<f64>, Option<f64>),
@@ -201,6 +219,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("autoscale_view", autoscale_view)?;
     module.add("get_margin", get_margin)?;
     module.add("set_margins", set_margins)?;
+    module.add("set_margin", set_margin)?;
+    module.add("request_autoscale", request_autoscale)?;
+    module.add("unstale_view_lim", unstale_view_lim)?;
     module.add("set_scale", set_scale)?;
     module.add("set_python_scale", set_python_scale)?;
     module.add("get_scale", get_scale)?;

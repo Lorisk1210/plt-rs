@@ -87,6 +87,13 @@ impl Collection {
         self.raw.with::<CollectionArtist, _>(|c| c.kind)
     }
 
+    /// The name of matplotlib's 3-D class of a collection lifted to 3-D
+    /// (`"Poly3DCollection"`, `"Line3DCollection"`, ...), which its SVG
+    /// id carries; `None` for one of its [`kind`](Self::kind)'s class.
+    pub fn class_name(&self) -> Option<&'static str> {
+        self.raw.with::<CollectionArtist, _>(|c| c.class_name)
+    }
+
     /// Changes the collection artist.
     pub(super) fn update(&self, f: impl FnOnce(&mut CollectionArtist)) -> &Self {
         self.raw.with_mut::<CollectionArtist, _>(f);

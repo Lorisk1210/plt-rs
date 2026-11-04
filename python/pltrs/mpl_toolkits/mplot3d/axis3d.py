@@ -12,47 +12,37 @@ panes, the axis line) is ``_native.mplot3d``'s.
 
 import numpy as np
 
-from pltrs import _api, axis as maxis, colors as mcolors
-from pltrs import collections as mcoll, patches as mpatches
+from pltrs import _api, _mirrors, _values, axis as maxis, colors as mcolors
+from pltrs import collections as mcoll, lines as mlines, patches as mpatches
 from pltrs._native import mplot3d as _mplot3d
 
+from . import art3d
+from .art3d import _no_projection_error
 
-class _AxisLine:
+
+class _AxisLinePart(_mirrors.Mirroring):
     """
-    The bolded line of a 3-D axis (matplotlib's ``axis.line``): pltrs
-    (Rust) draws it along the edge the tick position names; this reads its
-    projected end points and shows or hides it.
+    The bolded line of a 3-D axis, which pltrs (Rust) draws along the edge
+    its tick position names: ``axis.line`` (matplotlib's `.Line2D`)
+    mirrors it, its visibility, width and colour read back into the axis.
     """
 
     def __init__(self, axis):
-        self._axis = axis
+        self.axis = axis
 
-    def _args(self):
-        return self._axis.axes._native, self._axis.axis_name
+    def push(self, artist):
+        _mplot3d.push_line(*self.axis._native_args(), (
+            bool(artist.get_visible()), float(artist.get_linewidth()),
+            mcolors.to_rgba(artist.get_color(), artist.get_alpha())))
 
-    def get_data(self, orig=True):
-        """Return the x and y data of the line's end points, in projected
-        coordinates."""
-        data = _mplot3d.axis_line_data(*self._args())
-        if data is None:
-            return np.array([]), np.array([])
-        return np.array(data[0]), np.array(data[1])
+    def figure(self, artist, root=False):
+        return self.axis.get_figure(root=root)
 
-    def get_xdata(self, orig=True):
-        """Return the x data of the line's end points."""
-        return self.get_data()[0]
+    def transform(self, artist):
+        return self.axis.axes.transData
 
-    def get_ydata(self, orig=True):
-        """Return the y data of the line's end points."""
-        return self.get_data()[1]
-
-    def get_visible(self):
-        """Return whether the line is drawn."""
-        return _mplot3d.get_line_visible(*self._args())
-
-    def set_visible(self, b):
-        """Set whether the line is drawn."""
-        _mplot3d.set_line_visible(*self._args(), bool(b))
+    def transform_set(self, artist):
+        return True
 
 
 class Axis(maxis.XAxis):
@@ -72,9 +62,28 @@ class Axis(maxis.XAxis):
 
     def __init__(self, axes, *, rotate_label=None):
         super().__init__(axes)
-        self.line = _AxisLine(self)
         if rotate_label is not None:
             self.set_rotate_label(rotate_label)
+
+    @property
+    def line(self):
+        """
+        The line of the axis (matplotlib's `.Line2D`), between the ends
+        of the edge the last draw put it on (``(0, 0)`` before the first).
+        """
+        line = self.__dict__.get("_line")
+        if line is None:
+            visible, width, color = _mplot3d.line_state(*self._native_args())
+            line = self._line = mlines.Line2D(
+                xdata=(0, 0), ydata=(0, 0), linewidth=width, color=color,
+                antialiased=True, visible=visible)
+            _mirrors.attach(line, _AxisLinePart(self))
+        data = (None if self.axes.M is None
+                else _mplot3d.axis_line_data(*self._native_args()))
+        if data is not None:
+            with _mirrors.detached(line):
+                line.set_data(np.array(data[0]), np.array(data[1]))
+        return line
 
     adir = _api.deprecated("3.6", pending=True)(
         property(lambda self: self.axis_name))
@@ -170,13 +179,16 @@ class Axis(maxis.XAxis):
 
     def active_pane(self):
         """
-        The pane of this axis the view shows, the side of the box farthest
-        from the viewer along the axis: its four corners projected (x and y
-        on the projection plane, then depth), and where it lies along the
-        axis.
+        The pane of this axis the view of the last draw (`.Axes3D.M`)
+        shows, the side of the box farthest from the viewer along the axis:
+        its four corners projected (x and y on the projection plane, then
+        depth), and where it lies along the axis.
         """
-        corners, loc = _mplot3d.active_pane(*self._native_args())
-        return np.array(corners), loc
+        pane = _mplot3d.active_pane(*self._native_args())
+        if pane is None:
+            raise _no_projection_error()
+        corners, loc = pane
+        return np.array(corners), np.float64(loc)
 
     def _pane_artist(self):
         """The polygon the pane is drawn as (matplotlib's ``axis.pane``),
@@ -186,7 +198,10 @@ class Axis(maxis.XAxis):
             pane = self._pane = mpatches.Polygon([[0, 0], [0, 1]], closed=False)
             pane.set_transform(self.axes.transData)
             pane.set_figure(self.axes.get_figure(root=True))
-        color = _mplot3d.get_pane_color(*self._native_args())
+        # The colour as `set_pane_color` gave it, typed as `to_rgba`
+        # types it, while the axis still has it.
+        color = _values.given(self, "pane_color",
+                              _mplot3d.get_pane_color(*self._native_args()))
         pane.set_edgecolor(color)
         pane.set_facecolor(color)
         pane.set_alpha(color[-1])
@@ -212,7 +227,7 @@ class Axis(maxis.XAxis):
         ``axis.gridlines``), in the axes' figure."""
         gridlines = self.__dict__.get("_gridlines")
         if gridlines is None:
-            gridlines = self._gridlines = mcoll.LineCollection([])
+            gridlines = self._gridlines = art3d.Line3DCollection([])
             gridlines.set_transform(self.axes.transData)
             gridlines.set_figure(self.axes.get_figure(root=True))
         return gridlines
@@ -226,7 +241,9 @@ class Axis(maxis.XAxis):
         lines = _mplot3d.gridlines(*self._native_args())
         if lines:
             gridlines = self._gridline_artist()
-            gridlines.set_segments([points for points, *_ in lines])
+            # Projected already: the 2-D segments of the collection.
+            mcoll.LineCollection.set_segments(
+                gridlines, [points for points, *_ in lines])
             gridlines.set_color([color for _, color, _, _ in lines])
             gridlines.set_linewidth([width for _, _, width, _ in lines])
             gridlines.set_linestyle([style for *_, style in lines])
@@ -249,7 +266,9 @@ class Axis(maxis.XAxis):
             align with.
         """
         _api.check_in_list(('upper', 'lower', 'default'), position=position)
-        return _mplot3d.tick_direction(self.axes._native, self.axis_name, position)
+        # matplotlib picks it out of a numpy array.
+        return np.int64(_mplot3d.tick_direction(self.axes._native, self.axis_name,
+                                                position))
 
     def get_view_interval(self):
         """Return the view limits ``(min, max)`` of this axis."""
@@ -325,56 +344,25 @@ class Axis(maxis.XAxis):
                 f"Incorrect use of keyword argument {first_key!r}. Keyword "
                 "arguments other than 'minor' modify the text labels and can "
                 "only be used if 'labels' are passed as well.")
+        values = np.asarray(ticks)
         _mplot3d.set_ticks(self.axes._native, self.axis_name,
                            [float(t) for t in ticks], bool(minor))
+        if values.dtype.kind in "iub" and values.size:
+            # matplotlib's locator keeps the locations as given (ints).
+            from pltrs import _tick_helpers, ticker as mticker
+            _tick_helpers.adopt(self, mticker.FixedLocator(values), "locator", minor)
         result = (self.get_minor_ticks(len(ticks)) if minor
                   else self.get_major_ticks(len(ticks)))
         if labels is not None:
             self.set_ticklabels(labels, minor=minor, **kwargs)
         return result
 
-    def set_ticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
-        r"""
-        Set this Axis' tick labels with list of string labels.
-
-        Parameters
-        ----------
-        labels : sequence of str or of `.Text`\s
-            Texts for labeling each tick location in the sequence set by
-            `.Axis.set_ticks`.
-        minor : bool
-            If True, set minor ticks instead of major ticks.
-        fontdict : dict, optional
-            A dictionary controlling the appearance of the ticklabels.
-        **kwargs
-            Text properties of the labels of the current ticks (those the
-            axis adds later copy the first one's, as matplotlib's do).
-
-        Returns
-        -------
-        list of `.Text`\s
-            For each tick, includes ``tick.label1`` if it is visible, then
-            ``tick.label2`` if it is visible, in that order.
-        """
-        _mplot3d.set_ticklabels(self.axes._native, self.axis_name,
-                                [str(label) for label in labels], bool(minor))
-        ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
-        kwargs = {**(fontdict or {}), **kwargs}
-        ret = []
-        for tick in ticks:
-            if kwargs:
-                tick.label1._internal_update(kwargs)
-                tick.label2._internal_update(kwargs)
-            if tick.label1.get_visible():
-                ret.append(tick.label1)
-            if tick.label2.get_visible():
-                ret.append(tick.label2)
-        return ret
-
     def get_ticklocs(self, *, minor=False):
         """Return this Axis' tick locations in data coordinates."""
-        return np.array(_mplot3d.get_ticklocs(self.axes._native,
+        locs = np.array(_mplot3d.get_ticklocs(self.axes._native,
                                               self.axis_name, bool(minor)))
+        locator = self.get_minor_locator() if minor else self.get_major_locator()
+        return maxis._typed_locs(locator, locs, minor, self.get_view_interval())
 
     def get_majorticklocs(self):
         """Return this Axis' major tick locations in data coordinates."""
@@ -444,8 +432,9 @@ class Axis(maxis.XAxis):
         alpha : float, optional
             Alpha value for axis pane. If None, base it on *color*.
         """
-        _mplot3d.set_pane_color(self.axes._native, self.axis_name,
-                                mcolors.to_rgba(color, alpha))
+        color = mcolors.to_rgba(color, alpha)
+        _mplot3d.set_pane_color(self.axes._native, self.axis_name, color)
+        _values.remember(self, "pane_color", color)
 
 
 class XAxis(Axis):

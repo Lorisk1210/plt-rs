@@ -4,6 +4,7 @@
 
 use super::axis_handle::Axis3D;
 use crate::axes::AxisGroup;
+use crate::colors::Color;
 
 impl Axis3D {
     /// Counts the axis in tight boxes, or leaves it out (matplotlib's
@@ -54,6 +55,35 @@ impl Axis3D {
         let dir = self.dir;
         self.axes
             .with_mut(|axes| axes.axis_mut(dir).gids.set(group, gid));
+        self
+    }
+
+    /// The width in points and the colour the axis line is drawn with
+    /// (matplotlib's `axis.line.get_linewidth` and `get_color`).
+    pub fn line_style(&self) -> (f64, Color) {
+        self.axes.with(|axes| {
+            let style = &axes.axis(self.dir).style;
+            (style.line_width, style.line_color.clone())
+        })
+    }
+
+    /// Draws the axis line `width` points wide in `color` (matplotlib's
+    /// `axis.line.set_linewidth` and `set_color`).
+    ///
+    /// ```
+    /// use pltrs::colors::Color;
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.zaxis().set_line_style(2.0, Color::from("red"));
+    /// assert_eq!(ax.zaxis().line_style(), (2.0, Color::from("red")));
+    /// ```
+    pub fn set_line_style(&self, width: f64, color: Color) -> &Self {
+        let dir = self.dir;
+        self.axes.with_mut(|axes| {
+            let style = &mut axes.axis_mut(dir).style;
+            style.line_width = width;
+            style.line_color = color;
+        });
         self
     }
 }

@@ -155,6 +155,7 @@ impl Axes3D {
         data.base_mut().zorder = zorder + if options.barsabove { -0.1 } else { 0.1 };
         let points: Vec<Vec3> = (0..n).map(|i| [x[i], y[i], z[i]]).collect();
         let data_line = (!hidden).then(|| {
+            self.extend_plane_limits(&x, &y);
             let raw = self.add_artist(data, Art3D::Line(points.clone()), options.axlim_clip);
             self.keep_unit_sources(raw.id(), sources);
             Line2D::from_raw(raw)

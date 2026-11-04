@@ -105,13 +105,18 @@ pub(crate) struct Artist3D {
     /// The user values the geometry came from, converted again when an
     /// axis changes unit.
     pub(crate) sources: Sources3D,
+    /// Whether a draw of the axes projected it since it was added: the
+    /// 2-D data of a matplotlib `Line3D` are the projection of its last
+    /// draw from its first draw on.
+    pub(crate) drawn: bool,
 }
 
 pltrs_core::archive_struct!(Artist3D {
     id,
     art,
     axlim_clip,
-    sources
+    sources,
+    drawn
 });
 
 /// The polylines of a line collection (matplotlib's `Line3DCollection`).

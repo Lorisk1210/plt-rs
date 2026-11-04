@@ -30,18 +30,22 @@ fn drawn(axis: &Axis3D, part: AxisTextPart) -> Option<AxisText3D> {
 }
 
 /// The location and label of the major (or `minor`) tick at `index`
-/// among those the locator places; a tick beyond them sits at 0 without
-/// a label (matplotlib's first tick of an empty axis).
-fn located(axis: &Axis3D, minor: bool, index: usize) -> PyResult<(f64, String)> {
-    let ticks = axis.ticks()?;
+/// among those the locator places; a tick beyond them, or of an axis
+/// whose ticks cannot be computed, sits at 0 without a label
+/// (matplotlib's tick objects are made without asking the locator and
+/// formatter, which place them when the axis is next drawn).
+fn located(axis: &Axis3D, minor: bool, index: usize) -> (f64, String) {
+    let Ok(ticks) = axis.ticks() else {
+        return (0.0, String::new());
+    };
     let unclipped = if minor {
         &ticks.minor_unclipped
     } else {
         &ticks.major_unclipped
     };
-    Ok(unclipped
+    unclipped
         .get(index)
-        .map_or((0.0, String::new()), |tick| (tick.loc, tick.label.clone())))
+        .map_or((0.0, String::new()), |tick| (tick.loc, tick.label.clone()))
 }
 
 /// Fills the mirrors of the major (or `minor`) tick at `index` of `axis`;
@@ -52,7 +56,7 @@ pub(super) fn sync_tick(
     index: usize,
     (label1, label2, tick1, tick2, grid): TickMirrors,
 ) -> PyResult<TickState> {
-    let (loc, label) = located(axis, minor, index)?;
+    let (loc, label) = located(axis, minor, index);
     let position = drawn(axis, AxisTextPart::TickLabel { minor, index })
         .map_or(Point::new(loc, 0.0), |text| text.position);
     let rc = pltrs::rc::params();
@@ -74,9 +78,7 @@ pub(super) fn sync_tick(
         text.set_visible(visible);
     }
     let style = axis.tick_style_at(minor, index, true);
-    let marks = axis
-        .ticklines(minor)
-        .map_err(|err| PyErr::value_error(err.to_string()))?;
+    let marks = axis.ticklines(minor).unwrap_or_default();
     let mark = marks.get(index);
     let (xs, ys) = mark
         .and_then(|mark| mark.marks.first())

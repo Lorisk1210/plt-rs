@@ -94,6 +94,15 @@ pub(crate) struct Limits3D {
     /// explicit ones under `axes3d.automargin`, as a fraction of their
     /// span (matplotlib's `_view_margin`).
     pub(crate) view_margin: f64,
+    /// The smallest positive x of the 2-D data limits of the projection
+    /// plane, which the tick helpers of all three axes read: matplotlib's
+    /// 3-D axes are `XAxis` objects, whose `get_minpos` gives
+    /// `dataLim.minposx`. Refreshed from the plane whenever the axes is
+    /// changed or laid out.
+    pub(crate) plane_minpos: f64,
+    /// The axes whose autoscaling is pending (matplotlib's
+    /// `_stale_viewlims`; see `pending`).
+    pub(crate) pending: [bool; 3],
 }
 
 pltrs_core::archive_struct!(Limits3D {
@@ -103,7 +112,9 @@ pltrs_core::archive_struct!(Limits3D {
     autoscale,
     margins,
     tight,
-    view_margin
+    view_margin,
+    plane_minpos,
+    pending
 });
 
 impl Limits3D {
@@ -144,6 +155,8 @@ impl Limits3D {
             margins: [rc.axes_xmargin, rc.axes_ymargin, zmargin],
             tight: false,
             view_margin: VIEW_MARGIN,
+            plane_minpos: f64::INFINITY,
+            pending: [false; 3],
         }
     }
 
@@ -186,6 +199,7 @@ impl Limits3D {
             view: self.view(axis),
             data,
             minpos: self.minpos(axis),
+            tick_minpos: self.plane_minpos,
         }
     }
 
@@ -395,8 +409,9 @@ impl Axes3DState {
 
     /// matplotlib's `Axis._set_lim`: non-positive limits of a log axis are
     /// ignored, singular limits are expanded, limits are kept in the
-    /// scale's domain, and `v0 > v1` inverts the axis. With `emit` the
-    /// axes sharing the axis follow.
+    /// scale's domain, and `v0 > v1` inverts the axis; the autoscaling
+    /// pending on the axis is called off. With `emit` the axes sharing the
+    /// axis follow.
     pub(crate) fn set_lim(
         &mut self,
         axis: Axis3,
@@ -421,6 +436,7 @@ impl Axes3DState {
         let (lo, hi) = (a.min(b), a.max(b));
         let view = if v0 > v1 { (hi, lo) } else { (lo, hi) };
         self.limits.view[axis.index()] = view;
+        self.limits.pending[axis.index()] = false;
         if let Some(auto) = auto {
             self.limits.autoscale[axis.index()] = auto;
         }

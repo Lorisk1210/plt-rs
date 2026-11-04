@@ -90,6 +90,10 @@ def _ortho_transformation(zfront, zback):
 
 def _transform(xs, ys, zs, M):
     """The points through the homogeneous matrix *M*, divided by ``w``."""
+    if M is None:
+        # The matrix of an axes not drawn yet: numpy's error multiplying
+        # the padded points by it, as matplotlib's `np.dot` raises it.
+        np.dot(M, np.array([xs, ys, zs, np.ones_like(xs)]))
     columns = [np.asarray(c, dtype=float).ravel().tolist()
                for c in np.broadcast_arrays(xs, ys, zs)]
     txs, tys, tzs = _mplot3d.transform(np.asarray(M, dtype=float),
@@ -121,10 +125,13 @@ def proj_transform_clip(xs, ys, zs, M):
     with the mask of which points the projection keeps (an orthographic
     projection keeps them all, but for masked ones).
     """
-    txs, tys, tzs = _transform(xs, ys, zs, M)
-    tis = np.ones(txs.shape, dtype=bool)
+    # Shaped as the points are given, as matplotlib divides the rows of
+    # its padded array.
+    shape = np.broadcast(xs, ys, zs).shape
+    txs, tys, tzs = (np.reshape(ts, shape) for ts in _transform(xs, ys, zs, M))
+    tis = np.ones(shape, dtype=bool)
     for given in (xs, ys, zs):
         if np.ma.isMA(given):
-            tis &= ~np.ma.getmaskarray(given).ravel()
+            tis &= ~np.ma.getmaskarray(given)
     return (np.ma.masked_array(txs, ~tis), np.ma.masked_array(tys, ~tis),
             np.ma.masked_array(tzs, ~tis), tis)

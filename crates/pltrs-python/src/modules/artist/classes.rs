@@ -70,8 +70,9 @@ fn patch_class(raw: &RawHandle) -> Option<&'static str> {
 }
 
 /// The name of matplotlib's class for the artist `raw` reaches: `"Line2D"`,
-/// `"Annotation"`, `"PathCollection"`, `"Rectangle"`, ..., or `"Artist"`
-/// for a kind matplotlib has no more specific class for.
+/// `"Annotation"`, `"PathCollection"`, `"Rectangle"`, `"Poly3DCollection"`
+/// (a collection lifted to 3-D), ..., or `"Artist"` for a kind matplotlib
+/// has no more specific class for.
 fn class_name(raw: &RawHandle) -> &'static str {
     // The collections of a class of their own come before the others,
     // which are told apart by their kind.
@@ -97,7 +98,10 @@ fn class_name(raw: &RawHandle) -> &'static str {
         .into_iter()
         .find_map(|(test, class)| test(raw).then_some(class))
         .or_else(|| patch_class(raw))
-        .or_else(|| Collection::from_raw_handle(raw).map(|c| collection_class(c.kind())))
+        .or_else(|| {
+            Collection::from_raw_handle(raw)
+                .map(|c| c.class_name().unwrap_or_else(|| collection_class(c.kind())))
+        })
         .unwrap_or_else(|| if is::<Axes>(raw) { "Axes" } else { "Artist" })
 }
 

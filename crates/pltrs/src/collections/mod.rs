@@ -22,6 +22,7 @@ mod gaps;
 mod handle;
 mod items;
 mod legend_elements;
+mod mapped;
 mod mesh_cells;
 mod props;
 mod quad_mesh;
@@ -39,6 +40,7 @@ pub use handle::{Collection, CollectionColorError, CollectionColors};
 pub use legend_elements::{
     ElementCount, LegendElements, LegendElementsOptions, LegendProperty, LegendValueFn,
 };
+pub(crate) use mapped::Mapped;
 pub(crate) use mesh_cells::unmasked_cells;
 pub use props::{CollectionProps, CollectionStyle};
 use quad_mesh::MeshGeometry;
@@ -66,7 +68,7 @@ use crate::artist::{
 };
 use crate::axes::FillGeometry;
 use crate::colorizer::ColorMapped;
-use crate::colors::{Alpha, Color, NormError, Normalized, ScalarMappable};
+use crate::colors::{Color, NormError, ScalarMappable};
 use crate::lines::LineStyle;
 use crate::numeric::Grid;
 use crate::rc::RcParams;
@@ -146,43 +148,6 @@ pub(crate) trait DrawTimeShapes: Debug + Any {
 
     /// The generator as [`Any`], for artists that read its state.
     fn as_any(&self) -> &dyn Any;
-}
-
-/// A [`ColorMapping`] with its values already normalised (matplotlib
-/// autoscales the norm and normalises when the array is set).
-#[derive(Clone, Debug)]
-pub(crate) struct Mapped {
-    pub(crate) source: ColorMapping,
-    pub(crate) normalized: Result<Vec<Normalized>, String>,
-}
-
-pltrs_core::archive_struct!(Mapped { source, normalized });
-
-impl Mapped {
-    fn new(source: ColorMapping) -> Self {
-        let mut mapped = Self {
-            source,
-            normalized: Ok(Vec::new()),
-        };
-        mapped.refresh();
-        mapped
-    }
-
-    /// Fills unset limits from the values and normalises them again, after
-    /// the norm or its limits changed (matplotlib's `set_array` followed by
-    /// `update_scalarmappable`).
-    fn refresh(&mut self) {
-        let ColorMapping { values, mappable } = &mut self.source;
-        mappable.norm_mut().autoscale_none(values);
-        self.normalized = mappable.normalize(values).map_err(|e| e.to_string());
-    }
-
-    /// The mapped colours with `alpha` applied.
-    pub(crate) fn colors(&self, alpha: &Alpha) -> Result<Vec<pltrs_core::Rgba>, String> {
-        let cmap = self.source.mappable.cmap();
-        let normalized = self.normalized.as_ref().map_err(Clone::clone)?;
-        cmap.map(normalized, alpha).map_err(|err| err.to_string())
-    }
 }
 
 /// State of a collection.

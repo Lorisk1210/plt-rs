@@ -14,7 +14,7 @@ use pltrs::transforms::{
 };
 
 use crate::binding::prelude::*;
-use crate::binding::registered_error;
+use crate::binding::{FloatArray, registered_error};
 
 mod computed;
 mod geo;
@@ -93,18 +93,22 @@ fn bboxes(array: &NdArray) -> PyResult<Vec<Bbox>> {
     }
 }
 
-/// `affine_transform(points, matrix)`: the points mapped by the matrix.
-fn affine_transform(values: NdArray, mtx: NdArray) -> PyResult<NdArray> {
+/// `affine_transform(points, matrix)`: the points (anything
+/// `numpy.asarray(points, float)` takes) mapped by the matrix.
+fn affine_transform(FloatArray(mut values): FloatArray, mtx: NdArray) -> PyResult<NdArray> {
     let affine = affine(&mtx)?;
-    if let [len] = values.shape[..]
-        && len != 2
-    {
+    match values.shape[..] {
         // matplotlib's C++ check of a single point's length.
-        return Err(PyErr::runtime_error("Invalid vertices array."));
+        [len] if len != 2 => return Err(PyErr::runtime_error("Invalid vertices array.")),
+        [2] | [_, 2] => {}
+        _ => return Err(PyErr::value_error("Invalid vertices array.")),
     }
-    let mut mapped = points(&values)?;
-    affine.transform_in_place(&mut mapped);
-    points_array(&mapped, values.shape)
+    // The numbers are mapped where they are, and returned in their shape.
+    for xy in values.data.as_chunks_mut::<2>().0 {
+        let mapped = affine.transform_point(Point::new(xy[0], xy[1]));
+        *xy = [mapped.x, mapped.y];
+    }
+    Ok(values)
 }
 
 /// The matrix applying `a`, then `b`.
@@ -324,15 +328,19 @@ mod tests {
         let shift = matrix(Affine2D::translation(1.0, 0.0)).unwrap();
         let both = compose(scale, shift).unwrap();
         assert_eq!(both.data, [2.0, 0.0, 1.0, 0.0, 3.0, 0.0, 0.0, 0.0, 1.0]);
-        let mapped = affine_transform(array(&[1.0, 1.0], &[2]), both).unwrap();
+        let mapped = affine_transform(FloatArray(array(&[1.0, 1.0], &[2])), both).unwrap();
         assert_eq!((mapped.data, mapped.shape), (vec![3.0, 3.0], vec![2]));
     }
 
     #[test]
     fn malformed_points_and_matrices_are_refused() {
         let identity = matrix(Affine2D::IDENTITY).unwrap();
-        assert!(affine_transform(array(&[], &[0]), identity.clone()).is_err());
-        assert!(affine_transform(array(&[1.0, 2.0, 3.0], &[3]), identity).is_err());
+        assert!(affine_transform(FloatArray(array(&[], &[0])), identity.clone()).is_err());
+        assert!(
+            affine_transform(FloatArray(array(&[1.0, 2.0, 3.0], &[3])), identity.clone()).is_err()
+        );
+        let grid = FloatArray(array(&[1.0; 6], &[2, 3]));
+        assert!(affine_transform(grid, identity).is_err());
         assert!(affine(&array(&[1.0; 4], &[2, 2])).is_err());
         assert!(bbox(&array(&[0.0; 3], &[3])).is_err());
     }

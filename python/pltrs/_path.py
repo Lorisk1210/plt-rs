@@ -27,8 +27,9 @@ def _rect(rect):
 
 
 def affine_transform(points, trans):
-    """Transform the ``(N, 2)`` (or ``(2,)``) *points* by the matrix *trans*."""
-    return _transforms.affine_transform(np.asarray(points, float), _matrix(trans))
+    """Transform the ``(N, 2)`` (or ``(2,)``) *points* by the matrix *trans*
+    (``_native.transforms`` reads *points* as ``np.asarray(points, float)``)."""
+    return _transforms.affine_transform(points, _matrix(trans))
 
 
 def count_bboxes_overlapping_bbox(bbox, bboxes):

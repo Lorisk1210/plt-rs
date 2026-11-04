@@ -46,6 +46,9 @@ pub(super) struct Mpl2014 {
     boundary: Bits,
     /// The quads that may start filled contours whatever the levels.
     complex: Bits,
+    /// The parents of the polygons of the last filled level, whose memory
+    /// (four bytes per point of a chunk) the next level reuses.
+    parents: Option<Box<ParentCache>>,
 }
 
 impl Mpl2014 {
@@ -71,6 +74,7 @@ impl Mpl2014 {
             boundary: cache.boundary_quads(),
             complex: cache.complex_quads(),
             cache,
+            parents: None,
         }
     }
 
@@ -101,7 +105,11 @@ impl Mpl2014 {
     /// The region `lower < z <= upper` (`lower < upper`).
     pub(super) fn filled(&mut self, lower: f64, upper: f64) -> Path {
         let (chunks, nx) = (self.chunks, self.field.nx);
-        let parents = ParentCache::new(nx, chunks.x_size + 1, chunks.y_size + 1);
+        // Every chunk starts with a cleared cache, a reused one too.
+        let parents = self.parents.take().map_or_else(
+            || ParentCache::new(nx, chunks.x_size + 1, chunks.y_size + 1),
+            |parents| *parents,
+        );
         self.cache.init_levels(&self.field.z, lower, upper);
         let starts = self.cache.fill_start_quads(&self.complex);
         let levels = (lower, upper);
@@ -128,6 +136,7 @@ impl Mpl2014 {
                 path.add_ring(ring);
             }
         }
+        self.parents = tracer.parents.take().map(Box::new);
         path.finish()
     }
 }

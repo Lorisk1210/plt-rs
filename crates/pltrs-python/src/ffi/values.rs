@@ -3,7 +3,7 @@
 
 use std::ffi::{c_char, c_double, c_int, c_long, c_longlong, c_void};
 
-use super::{Py_ssize_t, PyObject};
+use super::{Py_ssize_t, PyObject, PyTypeObject};
 
 /// `Py_TPFLAGS_BYTES_SUBCLASS`.
 pub(crate) const Py_TPFLAGS_BYTES_SUBCLASS: std::ffi::c_ulong = 1 << 27;
@@ -23,6 +23,14 @@ unsafe extern "C" {
     pub(crate) static mut _Py_TrueStruct: PyObject;
     /// `_Py_FalseStruct`: `False`.
     pub(crate) static mut _Py_FalseStruct: PyObject;
+    /// `PyFloat_Type`: `float`.
+    pub(crate) static mut PyFloat_Type: PyTypeObject;
+    /// `PyLong_Type`: `int`.
+    pub(crate) static mut PyLong_Type: PyTypeObject;
+    /// `PyTuple_Type`: `tuple`.
+    pub(crate) static mut PyTuple_Type: PyTypeObject;
+    /// `PyList_Type`: `list`.
+    pub(crate) static mut PyList_Type: PyTypeObject;
 
     /// `PyBool_FromLong`: `True` or `False`.
     pub(crate) fn PyBool_FromLong(v: c_long) -> *mut PyObject;
@@ -34,6 +42,9 @@ unsafe extern "C" {
     pub(crate) fn PyLong_AsLongLong(o: *mut PyObject) -> c_longlong;
     /// `PyNumber_Index`: `operator.index(o)`, an `int`.
     pub(crate) fn PyNumber_Index(o: *mut PyObject) -> *mut PyObject;
+    /// `PyLong_AsDouble`: the nearest `float`, -1.0 with `OverflowError`
+    /// set beyond its range.
+    pub(crate) fn PyLong_AsDouble(o: *mut PyObject) -> c_double;
     /// `PyFloat_FromDouble`.
     pub(crate) fn PyFloat_FromDouble(v: c_double) -> *mut PyObject;
     /// `PyFloat_AsDouble`: `float(o)` for numbers, -1.0 with an error set
@@ -51,25 +62,31 @@ unsafe extern "C" {
     pub(crate) fn PyBytes_AsString(o: *mut PyObject) -> *mut c_char;
     /// `PyBytes_Size`: the length of a `bytes`.
     pub(crate) fn PyBytes_Size(o: *mut PyObject) -> Py_ssize_t;
-    /// `PyByteArray_FromStringAndSize`: `bytearray` from a copy of the data
-    /// (`size` bytes left to be written when `s` is null).
-    pub(crate) fn PyByteArray_FromStringAndSize(
-        s: *const c_char,
-        size: Py_ssize_t,
-    ) -> *mut PyObject;
-    /// `PyByteArray_AsString`: the contents of a `bytearray`, owned by it.
-    pub(crate) fn PyByteArray_AsString(o: *mut PyObject) -> *mut c_char;
 
     /// `PyTuple_New`: a tuple whose items must all be set before use.
     pub(crate) fn PyTuple_New(size: Py_ssize_t) -> *mut PyObject;
     /// `PyTuple_SetItem`: sets an item of a new tuple, stealing `o`.
     pub(crate) fn PyTuple_SetItem(t: *mut PyObject, pos: Py_ssize_t, o: *mut PyObject) -> c_int;
+    /// `PyTuple_Size`: the length of a tuple.
+    pub(crate) fn PyTuple_Size(t: *mut PyObject) -> Py_ssize_t;
+    /// `PyTuple_GetItem`: an item of a tuple, borrowed from it.
+    pub(crate) fn PyTuple_GetItem(t: *mut PyObject, pos: Py_ssize_t) -> *mut PyObject;
+    /// `PyList_Size`: the length of a list.
+    pub(crate) fn PyList_Size(l: *mut PyObject) -> Py_ssize_t;
+    /// `PyList_GetItem`: an item of a list, borrowed from it.
+    pub(crate) fn PyList_GetItem(l: *mut PyObject, pos: Py_ssize_t) -> *mut PyObject;
     /// `PyList_New`: a list whose items must all be set before use.
     pub(crate) fn PyList_New(size: Py_ssize_t) -> *mut PyObject;
     /// `PyList_SetItem`: sets an item of a list, stealing `o`.
     pub(crate) fn PyList_SetItem(l: *mut PyObject, pos: Py_ssize_t, o: *mut PyObject) -> c_int;
     /// `PyDict_New`.
     pub(crate) fn PyDict_New() -> *mut PyObject;
+    /// `PyDict_Size`: `len(d)`, -1 with an error set for a non-dict.
+    pub(crate) fn PyDict_Size(d: *mut PyObject) -> Py_ssize_t;
+    /// `PyDict_Copy`: a new dict of the same items.
+    pub(crate) fn PyDict_Copy(d: *mut PyObject) -> *mut PyObject;
+    /// `PyDict_Clear`: removes every item.
+    pub(crate) fn PyDict_Clear(d: *mut PyObject);
     /// `PyDict_Next`: iterates a dict's items as borrowed references.
     pub(crate) fn PyDict_Next(
         d: *mut PyObject,

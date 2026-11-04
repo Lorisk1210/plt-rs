@@ -2,6 +2,8 @@
 //! interleaved rectangular grids over the binned region, the hexagon each
 //! point falls into, and the counts or reduced values per hexagon.
 
+use std::borrow::Cow;
+
 use pltrs_core::{Path, Point};
 
 use super::hexbin::{HexReduce, HexScale};
@@ -27,8 +29,8 @@ impl Lattice {
         let (nx1, ny1) = (self.nx + 1, self.ny + 1);
         let ix = (tx - self.xmin) / self.sx;
         let iy = (ty - self.ymin) / self.sy;
-        let (ix1, iy1) = (ix.round_ties_even(), iy.round_ties_even());
-        let (ix2, iy2) = (ix.floor(), iy.floor());
+        let (ix1, iy1) = (round_ties_even(ix), round_ties_even(iy));
+        let (ix2, iy2) = (floor(ix), floor(iy));
         let d1 = (ix - ix1).powi(2) + 3.0 * (iy - iy1).powi(2);
         let d2 = (ix - ix2 - 0.5).powi(2) + 3.0 * (iy - iy2 - 0.5).powi(2);
         let cell = |i: f64, j: f64, ni: usize, nj: usize| {
@@ -86,10 +88,32 @@ impl Lattice {
     }
 }
 
+/// The smallest magnitude from which every `f64` is an integer.
+const INTEGRAL: f64 = 4_503_599_627_370_496.0;
+
+/// `v.round_ties_even()`, bit for bit, by adding and taking away 2⁵²
+/// (which rounds to the nearest integer, ties to even): x86-64 has no
+/// rounding instruction before SSE4.1, so the standard library calls a
+/// function of its maths library for it, a large share of binning 10⁶
+/// points.
+fn round_ties_even(v: f64) -> f64 {
+    if v.abs() < INTEGRAL {
+        ((v.abs() + INTEGRAL) - INTEGRAL).copysign(v)
+    } else {
+        v
+    }
+}
+
+/// `v.floor()`, bit for bit (see [`round_ties_even`]).
+fn floor(v: f64) -> f64 {
+    let nearest = round_ties_even(v);
+    if nearest > v { nearest - 1.0 } else { nearest }
+}
+
 /// The data in binning coordinates (decades for log binning).
-pub(super) fn scaled(values: &[f64], scale: HexScale) -> Result<Vec<f64>, ImageError> {
+pub(super) fn scaled(values: &[f64], scale: HexScale) -> Result<Cow<'_, [f64]>, ImageError> {
     match scale {
-        HexScale::Linear => Ok(values.to_vec()),
+        HexScale::Linear => Ok(Cow::Borrowed(values)),
         HexScale::Log if values.iter().any(|&v| v <= 0.0) => Err(ImageError::InvalidCoordinates),
         HexScale::Log => Ok(values.iter().map(|v| v.log10()).collect()),
     }
@@ -221,6 +245,52 @@ mod tests {
         assert_eq!(lattice.index(1.1, 0.9), Some(3));
         assert_eq!(lattice.index(-5.0, 0.0), None);
         assert_eq!(lattice.centre(7), Point::new(1.5, 0.5));
+    }
+
+    #[test]
+    fn rounding_matches_the_standard_library() {
+        let mut values = vec![
+            0.0,
+            -0.0,
+            0.5,
+            1.5,
+            2.5,
+            -0.5,
+            -1.5,
+            -2.5,
+            0.499_999_999_999_999_94,
+            -0.3,
+            1e300,
+            -1e300,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+            f64::MIN_POSITIVE,
+            INTEGRAL - 0.5,
+            INTEGRAL,
+            -INTEGRAL + 0.5,
+            2.0 * INTEGRAL + 2.0,
+        ];
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+        for _ in 0..10_000 {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
+            values.push(f64::from_bits(state) % 1e6);
+            values.push((state >> 11) as f64 / 1024.0 - 4e12);
+        }
+        for v in values {
+            if v.is_nan() {
+                assert!(round_ties_even(v).is_nan() && floor(v).is_nan());
+                continue;
+            }
+            assert_eq!(
+                round_ties_even(v).to_bits(),
+                v.round_ties_even().to_bits(),
+                "{v}"
+            );
+            assert_eq!(floor(v).to_bits(), v.floor().to_bits(), "{v}");
+        }
     }
 
     #[test]

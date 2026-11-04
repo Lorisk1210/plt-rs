@@ -15,6 +15,7 @@ mod number;
 mod regions;
 
 pub use argsort::argsort;
+pub(crate) use grid::cell_buffer;
 pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
 pub use number::Number;

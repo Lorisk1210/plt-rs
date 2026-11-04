@@ -82,7 +82,7 @@ pub(crate) fn find(path: &str) -> Option<&'static Asset> {
 }
 
 /// matplotlib's client script.
-pub(crate) const MPL_JS: &str = include_str!("assets/js/mpl.js");
+pub(crate) static MPL_JS: &str = include_str!("assets/js/mpl.js");
 
 /// The page showing one figure (a Tornado template).
 const SINGLE_FIGURE: &str = include_str!("assets/single_figure.html");

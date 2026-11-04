@@ -1,5 +1,7 @@
 //! Rendering a collection (matplotlib's `Collection.draw`).
 
+use std::borrow::Cow;
+
 use pltrs_core::{Affine2D, Path, PathCode, Point, Rgba};
 use pltrs_render::{Dashes, GraphicsContext, Hatch, PathCollection};
 
@@ -15,32 +17,37 @@ use crate::patheffects::with_path_effects;
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// Where a collection's items are for one draw: the shapes after the
-/// non-affine part of the transform, its affine rest, the per-item shape
-/// transforms and the offsets in display space.
-pub(super) struct Geometry {
-    paths: Vec<Path>,
+/// non-affine part of the transform (the shapes themselves under an
+/// affine transform), its affine rest, the per-item shape transforms and
+/// the offsets in display space.
+pub(super) struct Geometry<'a> {
+    paths: Cow<'a, [Path]>,
     master: Affine2D,
     transforms: Vec<Affine2D>,
     offsets: Vec<Point>,
 }
 
-impl Geometry {
+impl<'a> Geometry<'a> {
     /// The geometry of `shapes` in the coordinates of `transform`, placed
     /// at `offsets` (in data order for picking, in drawing order for a
     /// draw).
     pub(super) fn new(
         c: &CollectionArtist,
         layout: LayoutContext<'_>,
-        (shapes, transform): (&[Path], &Transform),
+        (shapes, transform): (&'a [Path], &Transform),
         offsets: &[Point],
     ) -> Result<Self, String> {
         let resolved = layout
             .resolve(transform)
             .ok_or("its coordinate system no longer exists")?;
-        let paths = shapes
-            .iter()
-            .map(|p| resolved.split_path(p).0.into_owned())
-            .collect();
+        let paths = if resolved.is_affine() {
+            Cow::Borrowed(shapes)
+        } else {
+            shapes
+                .iter()
+                .map(|p| resolved.split_path(p).0.into_owned())
+                .collect()
+        };
         let dpi = layout.dpi();
         let mut master = resolved.affine_part();
         let transforms = match (&c.ellipses, c.drawn_sizes()) {
@@ -105,8 +112,8 @@ impl Geometry {
 }
 
 /// A collection resolved for one draw: its geometry and per-item styles.
-struct Batch {
-    paths: Vec<Path>,
+struct Batch<'a> {
+    paths: Cow<'a, [Path]>,
     master: Affine2D,
     transforms: Vec<Affine2D>,
     offsets: Vec<Point>,
@@ -121,11 +128,11 @@ struct Batch {
     urls: Vec<Option<String>>,
 }
 
-impl Batch {
+impl<'a> Batch<'a> {
     fn new(
         c: &CollectionArtist,
         ctx: &DrawContext<'_>,
-        shapes: &[Path],
+        shapes: &'a [Path],
         transform: &Transform,
     ) -> Result<Self, String> {
         let Geometry {
@@ -253,7 +260,7 @@ fn draw_shapes(
 fn draw_items(
     ctx: &mut DrawContext<'_>,
     mut gc: GraphicsContext,
-    batch: &Batch,
+    batch: &Batch<'_>,
     hatches: &[Rgba],
     hatched: bool,
 ) {

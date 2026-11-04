@@ -1,8 +1,9 @@
 """
-Building pltrs' native extension with cargo: the release build of
-``pltrs-python`` (``cargo rustc --release -p pltrs-python``, which is
-``cargo build`` with the library's debug information left out, as a
-wheel ships without it), for the host or for the Rust target
+Building pltrs' native extension with cargo: the optimised build of
+``pltrs-python`` (``cargo rustc --profile extension -p pltrs-python``,
+the release profile with fat LTO and one codegen unit, which is ``cargo
+build`` with the library's debug information left out, as a wheel ships
+without it), for the host or for the Rust target
 ``-C target=...`` (or ``CARGO_BUILD_TARGET``) names, or for both macOS
 architectures at once (``-C target=universal2``: the two libraries joined
 by ``lipo``).
@@ -55,7 +56,7 @@ def requested_target(config_settings):
 def _build_one(root, target):
     """Builds the extension for *target* (None for the host) and returns
     the library cargo wrote."""
-    command = [_cargo(), "rustc", "--release", "-p", "pltrs-python", "--lib",
+    command = [_cargo(), "rustc", "--profile", "extension", "-p", "pltrs-python", "--lib",
                "--message-format=json-render-diagnostics"]
     if target:
         command += ["--target", target]

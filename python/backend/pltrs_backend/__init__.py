@@ -6,7 +6,7 @@ setuptools, maturin or other build requirement, so that
 It builds one of two distributions of the source tree, chosen by the
 config setting ``distribution`` (see ``_project``):
 
-* ``pltrs`` (the default): ``cargo build --release -p pltrs-python``
+* ``pltrs`` (the default): ``cargo build --profile extension -p pltrs-python``
   (``-C target=<Rust target>`` or ``CARGO_BUILD_TARGET`` to cross-build,
   ``-C target=universal2`` for both macOS architectures), and a wheel of
   ``python/pltrs`` holding the library as ``pltrs/_native.abi3.so``

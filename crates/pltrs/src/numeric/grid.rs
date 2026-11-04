@@ -57,10 +57,10 @@ impl<T> Grid<T> {
 
     /// Builds a grid by evaluating `f(row, col)` for every cell.
     pub fn from_fn(rows: usize, cols: usize, mut f: impl FnMut(usize, usize) -> T) -> Self {
-        let data = (0..rows)
-            .flat_map(|r| (0..cols).map(move |c| (r, c)))
-            .map(|(r, c)| f(r, c))
-            .collect();
+        let mut data = cell_buffer(rows, cols);
+        for r in 0..rows {
+            data.extend((0..cols).map(|c| f(r, c)));
+        }
         Self { rows, cols, data }
     }
 
@@ -193,6 +193,18 @@ impl<T> IndexMut<(usize, usize)> for Grid<T> {
         );
         &mut self.data[row * self.cols + col]
     }
+}
+
+/// An empty buffer with room for `rows × cols` cells when that much can be
+/// had, so that filling it never copies (nor leaves behind the halves a
+/// growing vector frees, which the allocator keeps).
+pub(crate) fn cell_buffer<T>(rows: usize, cols: usize) -> Vec<T> {
+    let mut data = Vec::new();
+    if let Some(cells) = rows.checked_mul(cols) {
+        // Without the room, the cells are pushed as they come.
+        let _ = data.try_reserve_exact(cells);
+    }
+    data
 }
 
 #[cfg(test)]

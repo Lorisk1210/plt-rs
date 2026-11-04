@@ -26,7 +26,7 @@ use super::convert::{FromPy, IntoPy};
 use super::error::{PyErr, PyResult};
 use super::gil::{Python, entry, gil_held};
 use super::object::Bound;
-use super::{home, threads};
+use super::{deferred, home, threads};
 use crate::ffi;
 
 /// The Rust side of a native function: arguments in, a result out.
@@ -153,10 +153,11 @@ unsafe extern "C" fn drop_body(capsule: *mut ffi::PyObject) {
 }
 
 /// The C function behind every native function: runs the body in the
-/// capsule bound as `self`, once the figures of its artist arguments are
-/// no longer in use by another thread ([`threads`]), and on the main
-/// thread when an argument is tied to it, this is another thread and the
-/// main thread serves others ([`home`]).
+/// capsule bound as `self`, once the work Python deferred to the next
+/// native call is done ([`deferred`]) and the figures of its artist
+/// arguments are no longer in use by another thread ([`threads`]), and on
+/// the main thread when an argument is tied to it, this is another thread
+/// and the main thread serves others ([`home`]).
 unsafe extern "C" fn dispatch(
     capsule: *mut ffi::PyObject,
     args: *const *mut ffi::PyObject,
@@ -173,6 +174,9 @@ unsafe extern "C" fn dispatch(
         } else {
             std::slice::from_raw_parts(args, count)
         };
+        if !deferred::run() {
+            return std::ptr::null_mut();
+        }
         if !gil_held() {
             threads::wait_for_figures(args);
         }

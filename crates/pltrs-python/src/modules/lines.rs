@@ -449,6 +449,13 @@ fn set_data(line: Line2D, x: NdArray, y: NdArray) -> PyResult<()> {
     Ok(())
 }
 
+/// `defer_data(queue, flush)`: installs the dict in which `Line2D.set_data`
+/// leaves a line's numbers to the next native call, with the function
+/// handing them over (see `binding::install_deferred`); the dict in force.
+fn defer_data(queue: Owned, flush: Owned) -> PyResult<Owned> {
+    crate::binding::install_deferred(queue, flush)
+}
+
 /// Sets the properties of a dict of keyword arguments (`Line2D.set`).
 fn update(line: Line2D, kwargs: LineKwargs) -> PyResult<()> {
     line.update_props(kwargs.0);
@@ -612,6 +619,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_xdata", get_xdata)?;
     module.add("get_ydata", get_ydata)?;
     module.add("set_data", set_data)?;
+    module.add("defer_data", defer_data)?;
     module.add("update", update)?;
     module.add("get", get)?;
     module.add("get_path", get_path)?;

@@ -136,6 +136,9 @@ impl GaussianKde {
             });
         }
         let n = self.num_points();
+        if dim == 1 {
+            return Ok(self.evaluate_1d(points.row(0)));
+        }
         let kernel = |sample: usize, point: usize| {
             let diff = |r: usize| self.dataset[(r, sample)] - points[(r, point)];
             let energy = (0..dim).fold(0.0, |acc, r| {
@@ -156,6 +159,38 @@ impl GaussianKde {
                 .collect()
         };
         Ok(sums.into_iter().map(|s| s / self.norm_factor).collect())
+    }
+
+    /// [`Self::evaluate_grid`] of a one-dimensional estimate: the same
+    /// arithmetic without the matrix products (a sum of one product
+    /// starting from zero is that product, but for the sign of a zero,
+    /// which the kernel's `exp` makes 1 either way).
+    fn evaluate_1d(&self, points: &[f64]) -> Vec<f64> {
+        let samples = self.dataset.row(0);
+        let inv = self.inv_cov[(0, 0)];
+        let kernel = |sample: f64, point: f64| {
+            let diff = sample - point;
+            (-(diff * (inv * diff) / 2.0)).exp()
+        };
+        // matplotlib loops over whichever of samples and points is fewer,
+        // which fixes the summation order.
+        if points.len() >= samples.len() {
+            points
+                .iter()
+                .map(|&p| samples.iter().fold(0.0, |acc, &s| acc + kernel(s, p)))
+                .map(|sum| sum / self.norm_factor)
+                .collect()
+        } else {
+            let mut kernels = Vec::with_capacity(samples.len());
+            points
+                .iter()
+                .map(|&p| {
+                    kernels.clear();
+                    kernels.extend(samples.iter().map(|&s| kernel(s, p)));
+                    pairwise_sum(&kernels) / self.norm_factor
+                })
+                .collect()
+        }
     }
 }
 
@@ -196,6 +231,36 @@ mod tests {
         assert_eq!(scott.factor(), 3_f64.powf(-0.2));
         let silverman = GaussianKde::new(&[1.0, 2.0, 4.0], BandwidthMethod::Silverman).unwrap();
         assert_eq!(silverman.factor(), 2.25_f64.powf(-0.2));
+    }
+
+    #[test]
+    fn one_dimension_evaluates_as_the_matrix_products_do() {
+        let samples = [0.0, 1.0, 3.0, 3.0, -2.5, 7.25];
+        let kde = GaussianKde::new(&samples, BandwidthMethod::Scott).unwrap();
+        let inv = kde.inv_cov()[(0, 0)];
+        let kernel = |s: f64, p: f64| {
+            let diff = s - p;
+            let t = 0.0 + inv * diff;
+            let energy = 0.0 + diff * t;
+            (-(energy / 2.0)).exp()
+        };
+        // Fewer points than samples (pairwise sums) and more (in order),
+        // some equal to samples (a zero difference).
+        for points in [vec![3.0, 0.5], (0..9).map(|i| f64::from(i) - 3.0).collect()] {
+            let expected: Vec<f64> = points
+                .iter()
+                .map(|&p| {
+                    let kernels: Vec<f64> = samples.iter().map(|&s| kernel(s, p)).collect();
+                    let sum = if points.len() >= samples.len() {
+                        kernels.iter().fold(0.0, |acc, k| acc + k)
+                    } else {
+                        pairwise_sum(&kernels)
+                    };
+                    sum / kde.norm_factor()
+                })
+                .collect();
+            assert_eq!(kde.evaluate(&points).unwrap(), expected);
+        }
     }
 
     #[test]

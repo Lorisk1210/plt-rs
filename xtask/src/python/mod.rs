@@ -58,7 +58,8 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
 pub(crate) enum Profile {
     /// `cargo build` (the workspace's dev profile is optimised).
     Dev,
-    /// `cargo build --release`.
+    /// `cargo build --profile extension`: the release profile with fat
+    /// LTO and one codegen unit, as the wheel ships it.
     Release,
 }
 
@@ -67,7 +68,7 @@ impl Profile {
     fn directory(self) -> &'static str {
         match self {
             Self::Dev => "debug",
-            Self::Release => "release",
+            Self::Release => "extension",
         }
     }
 }
@@ -79,7 +80,7 @@ pub(crate) fn build(profile: Profile) -> Result<(), String> {
     let mut command = Command::new(cargo);
     command.args(["build", "-p", "pltrs-python"]);
     if profile == Profile::Release {
-        command.arg("--release");
+        command.args(["--profile", "extension"]);
     }
     run_checked(&mut command)?;
     let (built, installed) = venv::extension_files(Os::CURRENT);

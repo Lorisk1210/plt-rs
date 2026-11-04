@@ -3,8 +3,8 @@
 //! `memoryview`) or from nested sequences, and returned as numpy arrays.
 //!
 //! No numpy C API is involved. Reading goes through the buffer protocol;
-//! writing copies the data into a `bytearray` that `numpy.ndarray`
-//! views, so the array Python gets owns its data and is writable.
+//! writing fills a new array of `numpy.empty` through its buffer, so the
+//! array Python gets owns its data and is writable.
 
 use std::sync::OnceLock;
 
@@ -42,6 +42,18 @@ pub(crate) trait Element: Copy + 'static {
     /// The value of its own little-endian bytes (`DTYPE`'s layout), as
     /// many as it takes.
     fn read_le(bytes: &[u8]) -> Self;
+    /// Where numpy's dtype object for [`Self::DTYPE`] is kept once made.
+    fn dtype_cell() -> &'static OnceLock<Owned>;
+}
+
+/// Implements [`Element::dtype_cell`] with a cell of its own.
+macro_rules! dtype_cell {
+    () => {
+        fn dtype_cell() -> &'static OnceLock<Owned> {
+            static CELL: OnceLock<Owned> = OnceLock::new();
+            &CELL
+        }
+    };
 }
 
 impl Element for f64 {
@@ -67,6 +79,8 @@ impl Element for f64 {
     fn read_le(bytes: &[u8]) -> Self {
         Self::from_le_bytes(bytes.try_into().expect("an item of eight bytes"))
     }
+
+    dtype_cell!();
 }
 
 impl Element for i64 {
@@ -92,6 +106,8 @@ impl Element for i64 {
     fn read_le(bytes: &[u8]) -> Self {
         Self::from_le_bytes(bytes.try_into().expect("an item of eight bytes"))
     }
+
+    dtype_cell!();
 }
 
 impl Element for u8 {
@@ -117,6 +133,8 @@ impl Element for u8 {
     fn read_le(bytes: &[u8]) -> Self {
         bytes[0]
     }
+
+    dtype_cell!();
 }
 
 impl Element for bool {
@@ -142,6 +160,8 @@ impl Element for bool {
     fn read_le(bytes: &[u8]) -> Self {
         bytes[0] != 0
     }
+
+    dtype_cell!();
 }
 
 /// An n-dimensional array of numbers in row-major order.
@@ -198,42 +218,182 @@ impl<'py, T: Element> FromPy<'py> for NdArray<T> {
 }
 
 impl<T: Element> IntoPy for NdArray<T> {
-    /// A numpy array owning a copy of the numbers: they are written once,
-    /// into a new `bytearray`, which `numpy.ndarray` views in their shape.
+    /// A numpy array of the numbers: `numpy.empty` of their shape, written
+    /// once through its buffer.
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
         let item = std::mem::size_of::<T>();
         let length = self
             .data
             .len()
             .checked_mul(item)
-            .and_then(|bytes| ffi::Py_ssize_t::try_from(bytes).ok())
             .ok_or_else(|| PyErr::value_error("array too large"))?;
-        // SAFETY: the GIL is held; without a source, `bytearray` allocates
-        // `length` bytes and leaves them to be written; a new reference.
-        let storage = unsafe {
-            Bound::from_owned_ptr(
-                py,
-                ffi::PyByteArray_FromStringAndSize(std::ptr::null(), length),
-            )
-        }?;
-        // SAFETY: the bytearray was just made with `length` bytes (its
-        // buffer is never null) and nothing else refers to it yet.
-        let bytes = unsafe {
-            std::slice::from_raw_parts_mut(
-                ffi::PyByteArray_AsString(storage.as_ptr()).cast::<u8>(),
-                self.data.len() * item,
-            )
+        // numpy takes the extent of one dimension as the shape.
+        let shape = if let [extent] = self.shape[..] {
+            extent.into_py(py)?
+        } else {
+            let extents = self
+                .shape
+                .iter()
+                .map(|&extent| extent.into_py(py))
+                .collect::<PyResult<Vec<_>>>()?;
+            tuple(py, extents)?
         };
+        let array = numpy_empty(py)?.call(&[shape, numpy_dtype::<T>(py)?], &[])?;
+        let mut view = WritableView::of(&array)?;
+        let bytes = view.bytes();
+        if bytes.len() != length {
+            return Err(PyErr::value_error(
+                "numpy.empty made an array of another size",
+            ));
+        }
         for (out, value) in bytes.chunks_exact_mut(item).zip(self.data) {
             value.write_le(out);
         }
-        let shape = self
-            .shape
-            .into_iter()
-            .map(|extent| extent.into_py(py))
-            .collect::<PyResult<Vec<_>>>()?;
-        numpy_ndarray(py)?.call(&[tuple(py, shape)?, T::DTYPE.into_py(py)?, storage], &[])
+        drop(view);
+        Ok(array)
     }
+}
+
+/// The writable memory of a C-contiguous buffer, released when dropped.
+struct WritableView {
+    view: View,
+}
+
+impl WritableView {
+    /// The memory of `object`, which must export one writable row-major
+    /// block.
+    fn of(object: &Bound<'_>) -> PyResult<Self> {
+        // SAFETY: an all-zero `Py_buffer` is a valid "empty" value for the
+        // exporter to fill (plain integers and null pointers).
+        let empty = unsafe { std::mem::zeroed() };
+        let mut view = View { view: empty };
+        // SAFETY: a live object and a view for it to fill; on failure the
+        // view stays untouched and an exception is set.
+        let status = unsafe {
+            ffi::PyObject_GetBuffer(
+                object.as_ptr(),
+                &raw mut view.view,
+                ffi::PyBUF_WRITABLE | ffi::PyBUF_C_CONTIGUOUS,
+            )
+        };
+        if status != 0 {
+            std::mem::forget(view);
+            return Err(PyErr::fetch(object.py()));
+        }
+        Ok(Self { view })
+    }
+
+    /// The bytes of the block.
+    fn bytes(&mut self) -> &mut [u8] {
+        let raw = &self.view.view;
+        let len = usize::try_from(raw.len).unwrap_or_default();
+        if len == 0 {
+            return &mut [];
+        }
+        // SAFETY: a filled writable, C-contiguous view holds `len` bytes
+        // from `buf`, valid until it is released (when `self` drops), and
+        // nothing else writes them meanwhile (the GIL is held).
+        unsafe { std::slice::from_raw_parts_mut(raw.buf.cast::<u8>(), len) }
+    }
+}
+
+/// The numbers of an argument as `numpy.asarray(argument, dtype=float)`
+/// makes them: a numpy array of numbers, or a tuple or list of Python
+/// floats and ints, is read as it is; anything else (nested sequences,
+/// objects with `__array__`, strings of digits) is converted by numpy
+/// first.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct FloatArray(pub(crate) NdArray);
+
+impl FromPy<'_> for FloatArray {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        if let Some(flat) = read_flat_floats(object) {
+            return Ok(Self(flat));
+        }
+        let py = object.py();
+        // A numpy array is read as it is (numpy converts other buffers,
+        // `bytes` say, in its own way).
+        let ndarray = numpy_ndarray(py)?;
+        if object.is_type(ndarray.as_ptr().cast())
+            && let Ok(Some(array)) = read_buffer(object)
+        {
+            return Ok(Self(array));
+        }
+        // SAFETY: `PyFloat_Type` is `float`, live for the interpreter's
+        // lifetime; only its address is taken.
+        let float = unsafe { Bound::from_borrowed_ptr(py, (&raw mut ffi::PyFloat_Type).cast()) };
+        let converted = numpy(py)?
+            .getattr("asarray")?
+            .call(&[object.clone(), float], &[])?;
+        read_buffer(&converted)?
+            .map(Self)
+            .ok_or_else(|| PyErr::type_error("numpy.asarray made no array"))
+    }
+}
+
+/// The numbers of a `tuple` or `list` (of exactly those types) holding
+/// only `float`s and `int`s (of exactly those types), which numpy reads as
+/// Python converts them; `None` for anything else, or for an `int` beyond
+/// the range of floats (whose error numpy reports in its words).
+fn read_flat_floats(object: &Bound<'_>) -> Option<NdArray> {
+    let sequence = object.as_ptr();
+    // SAFETY: a live object, the GIL held (`object`); a tuple's or list's
+    // items are borrowed from it, live while it is, and no Python code
+    // runs between reading them (converting an exact `float` or `int`
+    // calls none), so the list cannot change meanwhile.
+    unsafe {
+        let class = (*sequence).ob_type;
+        let tuple = class == (&raw mut ffi::PyTuple_Type);
+        if !tuple && class != (&raw mut ffi::PyList_Type) {
+            return None;
+        }
+        let len = if tuple {
+            ffi::PyTuple_Size(sequence)
+        } else {
+            ffi::PyList_Size(sequence)
+        };
+        let mut data = Vec::with_capacity(usize::try_from(len).ok()?);
+        for index in 0..len {
+            let item = if tuple {
+                ffi::PyTuple_GetItem(sequence, index)
+            } else {
+                ffi::PyList_GetItem(sequence, index)
+            };
+            let class = (*item).ob_type;
+            let value = if class == (&raw mut ffi::PyFloat_Type) {
+                ffi::PyFloat_AsDouble(item)
+            } else if class == (&raw mut ffi::PyLong_Type) {
+                let value = ffi::PyLong_AsDouble(item);
+                if PyErr::take(object.py()).is_some() {
+                    return None;
+                }
+                value
+            } else {
+                return None;
+            };
+            data.push(value);
+        }
+        Some(NdArray::from_vec(data))
+    }
+}
+
+/// `numpy.dtype(T::DTYPE)`, made once: numpy parses a dtype's name each
+/// time it is given one.
+fn numpy_dtype<T: Element>(py: Python<'_>) -> PyResult<Bound<'_>> {
+    let cell = T::dtype_cell();
+    if let Some(dtype) = cell.get() {
+        return Ok(dtype.bind(py));
+    }
+    let dtype = numpy(py)?
+        .getattr("dtype")?
+        .call(&[T::DTYPE.into_py(py)?], &[])?;
+    Ok(cell.get_or_init(|| dtype.unbind()).bind(py))
+}
+
+/// The `numpy` module.
+fn numpy(py: Python<'_>) -> PyResult<Bound<'_>> {
+    // SAFETY: the GIL is held; a NUL-terminated name; a new reference.
+    unsafe { Bound::from_owned_ptr(py, ffi::PyImport_ImportModule(c"numpy".as_ptr())) }
 }
 
 /// `numpy.ndarray`, imported once.
@@ -242,11 +402,18 @@ fn numpy_ndarray(py: Python<'_>) -> PyResult<Bound<'_>> {
     if let Some(class) = NDARRAY.get() {
         return Ok(class.bind(py));
     }
-    // SAFETY: the GIL is held; a NUL-terminated name; a new reference.
-    let numpy =
-        unsafe { Bound::from_owned_ptr(py, ffi::PyImport_ImportModule(c"numpy".as_ptr())) }?;
-    let class = numpy.getattr("ndarray")?;
+    let class = numpy(py)?.getattr("ndarray")?;
     Ok(NDARRAY.get_or_init(|| class.unbind()).bind(py))
+}
+
+/// `numpy.empty`, imported once.
+fn numpy_empty(py: Python<'_>) -> PyResult<Bound<'_>> {
+    static EMPTY: OnceLock<Owned> = OnceLock::new();
+    if let Some(function) = EMPTY.get() {
+        return Ok(function.bind(py));
+    }
+    let function = numpy(py)?.getattr("empty")?;
+    Ok(EMPTY.get_or_init(|| function.unbind()).bind(py))
 }
 
 /// How the items of a buffer are stored.
@@ -583,6 +750,28 @@ mod tests {
                 fractions.extract::<NdArray<i64>>().is_err(),
                 "0.5 is no integer"
             );
+        });
+    }
+
+    #[test]
+    fn flat_tuples_and_lists_of_numbers_are_read_directly() {
+        with_python(|py| {
+            let read = |expression: &str| read_flat_floats(&eval(py, "", expression));
+            let pair = read("(0.5, 2)").expect("floats and ints");
+            assert_eq!((pair.shape, pair.data), (vec![2], vec![0.5, 2.0]));
+            assert_eq!(read("[1.5, -3]").expect("a list").data, [1.5, -3.0]);
+            assert_eq!(read("()").expect("empty").shape, [0]);
+            // numpy converts the rest, in its own way and with its errors.
+            for other in [
+                "[[1, 2]]",
+                "(True, 2)",
+                "('0.5', 1)",
+                "(10 ** 400, 1)",
+                "range(3)",
+            ] {
+                assert!(read(other).is_none(), "{other}");
+            }
+            assert!(PyErr::take(py).is_none(), "no error is left behind");
         });
     }
 

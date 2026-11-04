@@ -246,8 +246,9 @@ cargo xtask mpl-suite           # matplotlib 3.11's own test suite, run against 
 and `pip wheel .` makes a wheel of it. The build backend is the tree's
 own (`python/backend`, Python's standard library only): it needs no
 package, only Python 3.12+ and cargo (the toolchain
-`rust-toolchain.toml` names). It runs `cargo build --release -p
-pltrs-python` (as `cargo rustc`, leaving the debug information out) and
+`rust-toolchain.toml` names). It runs `cargo build --profile extension
+-p pltrs-python` (the release profile with fat LTO and one codegen unit,
+as `cargo rustc`, leaving the debug information out) and
 packs `python/pltrs` with the library as `pltrs/_native.abi3.so`
 (`_native.pyd` on Windows) into a wheel tagged `cp312-abi3-<platform>`:
 one wheel for CPython 3.12 and every later version. The platform comes

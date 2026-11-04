@@ -418,10 +418,10 @@ fn set_sizes(collection: Collection, sizes: NdArray) -> PyResult<()> {
 /// The values mapped to colours (`NaN` where masked), `None` without a
 /// colour mapping.
 fn get_array(collection: Collection) -> PyResult<Option<NdArray>> {
-    Ok(collection.array().map(|values| {
+    Ok(collection.mapped_values(|values| {
         NdArray::from_vec(
             values
-                .into_iter()
+                .iter()
                 .map(|value| value.unwrap_or(f64::NAN))
                 .collect(),
         )

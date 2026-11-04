@@ -6,166 +6,130 @@
 //! appears in none of matplotlib's default font lists, so `findfont` only
 //! picks it when a style names it.
 
-/// `(file name, contents)` of every bundled font, in the order matplotlib
-/// adds them (Python string order of the file names: upper case sorts
-/// before lower case and `-` before `.`), which decides `findfont` ties.
-pub(crate) const BUNDLED_FONTS: [(&str, &[u8]); 45] = [
-    (
-        "DejaVuSans-Bold.ttf",
-        include_bytes!("../../fonts/DejaVuSans-Bold.ttf"),
-    ),
-    (
+use super::query::FontStyle;
+
+/// A font embedded in the crate, with what the catalogue knows of it.
+#[derive(Debug)]
+pub(crate) struct BundledFont {
+    /// The file name, as in matplotlib's `mpl-data/fonts/ttf`.
+    pub(crate) file: &'static str,
+    /// The font file's contents (one face).
+    pub(crate) data: &'static [u8],
+    /// The catalogue entries `entries_for_face` reads from the face, kept
+    /// here so that building the catalogue reads none of the embedded
+    /// bytes (`db::tests` checks them against the fonts).
+    pub(crate) entries: &'static [BundledEntry],
+}
+
+/// A catalogue entry of a bundled font: its family name, slant and
+/// weight (all bundled fonts have the normal variant and stretch).
+#[derive(Debug)]
+pub(crate) struct BundledEntry {
+    /// The family name.
+    pub(crate) name: &'static str,
+    /// The slant.
+    pub(crate) style: FontStyle,
+    /// The weight (100–1000).
+    pub(crate) weight: u16,
+}
+
+/// A bundled font of `file` under `fonts/` and its entries.
+macro_rules! bundled {
+    ($file:literal, [$(($name:literal, $style:ident, $weight:literal)),+ $(,)?]) => {
+        BundledFont {
+            file: $file,
+            data: include_bytes!(concat!("../../fonts/", $file)),
+            entries: &[$(BundledEntry {
+                name: $name,
+                style: FontStyle::$style,
+                weight: $weight,
+            }),+],
+        }
+    };
+}
+
+/// Every bundled font, in the order matplotlib adds them (Python string
+/// order of the file names: upper case sorts before lower case and `-`
+/// before `.`), which decides `findfont` ties.
+pub(crate) static BUNDLED_FONTS: [BundledFont; 45] = [
+    bundled!("DejaVuSans-Bold.ttf", [("DejaVu Sans", Normal, 700)]),
+    bundled!(
         "DejaVuSans-BoldOblique.ttf",
-        include_bytes!("../../fonts/DejaVuSans-BoldOblique.ttf"),
+        [("DejaVu Sans", Oblique, 700)]
     ),
-    (
-        "DejaVuSans-Oblique.ttf",
-        include_bytes!("../../fonts/DejaVuSans-Oblique.ttf"),
-    ),
-    (
-        "DejaVuSans.ttf",
-        include_bytes!("../../fonts/DejaVuSans.ttf"),
-    ),
-    (
+    bundled!("DejaVuSans-Oblique.ttf", [("DejaVu Sans", Oblique, 400)]),
+    bundled!("DejaVuSans.ttf", [("DejaVu Sans", Normal, 400)]),
+    bundled!(
         "DejaVuSansDisplay.ttf",
-        include_bytes!("../../fonts/DejaVuSansDisplay.ttf"),
+        [("DejaVu Sans Display", Normal, 400)]
     ),
-    (
+    bundled!(
         "DejaVuSansMono-Bold.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono-Bold.ttf"),
+        [("DejaVu Sans Mono", Normal, 700)]
     ),
-    (
+    bundled!(
         "DejaVuSansMono-BoldOblique.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono-BoldOblique.ttf"),
+        [("DejaVu Sans Mono", Oblique, 700)]
     ),
-    (
+    bundled!(
         "DejaVuSansMono-Oblique.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono-Oblique.ttf"),
+        [("DejaVu Sans Mono", Oblique, 400)]
     ),
-    (
-        "DejaVuSansMono.ttf",
-        include_bytes!("../../fonts/DejaVuSansMono.ttf"),
-    ),
-    (
-        "DejaVuSerif-Bold.ttf",
-        include_bytes!("../../fonts/DejaVuSerif-Bold.ttf"),
-    ),
-    (
+    bundled!("DejaVuSansMono.ttf", [("DejaVu Sans Mono", Normal, 400)]),
+    bundled!("DejaVuSerif-Bold.ttf", [("DejaVu Serif", Normal, 700)]),
+    bundled!(
         "DejaVuSerif-BoldItalic.ttf",
-        include_bytes!("../../fonts/DejaVuSerif-BoldItalic.ttf"),
+        [("DejaVu Serif", Italic, 700)]
     ),
-    (
-        "DejaVuSerif-Italic.ttf",
-        include_bytes!("../../fonts/DejaVuSerif-Italic.ttf"),
-    ),
-    (
-        "DejaVuSerif.ttf",
-        include_bytes!("../../fonts/DejaVuSerif.ttf"),
-    ),
-    (
+    bundled!("DejaVuSerif-Italic.ttf", [("DejaVu Serif", Italic, 400)]),
+    bundled!("DejaVuSerif.ttf", [("DejaVu Serif", Normal, 400)]),
+    bundled!(
         "DejaVuSerifDisplay.ttf",
-        include_bytes!("../../fonts/DejaVuSerifDisplay.ttf"),
+        [("DejaVu Serif Display", Normal, 400)]
     ),
-    (
-        "Inter-Bold.ttf",
-        include_bytes!("../../fonts/Inter-Bold.ttf"),
-    ),
-    (
-        "Inter-BoldItalic.ttf",
-        include_bytes!("../../fonts/Inter-BoldItalic.ttf"),
-    ),
-    (
-        "Inter-Italic.ttf",
-        include_bytes!("../../fonts/Inter-Italic.ttf"),
-    ),
-    (
-        "Inter-Regular.ttf",
-        include_bytes!("../../fonts/Inter-Regular.ttf"),
-    ),
-    (
+    bundled!("Inter-Bold.ttf", [("Inter", Normal, 700)]),
+    bundled!("Inter-BoldItalic.ttf", [("Inter", Italic, 700)]),
+    bundled!("Inter-Italic.ttf", [("Inter", Italic, 400)]),
+    bundled!("Inter-Regular.ttf", [("Inter", Normal, 400)]),
+    bundled!(
         "Inter-SemiBold.ttf",
-        include_bytes!("../../fonts/Inter-SemiBold.ttf"),
+        [("Inter", Normal, 600), ("Inter SemiBold", Normal, 400)]
     ),
-    (
+    bundled!(
         "LastResortHE-Regular.ttf",
-        include_bytes!("../../fonts/LastResortHE-Regular.ttf"),
+        [("Last Resort High-Efficiency", Normal, 400)]
     ),
-    (
-        "STIXGeneral.ttf",
-        include_bytes!("../../fonts/STIXGeneral.ttf"),
-    ),
-    (
-        "STIXGeneralBol.ttf",
-        include_bytes!("../../fonts/STIXGeneralBol.ttf"),
-    ),
-    (
-        "STIXGeneralBolIta.ttf",
-        include_bytes!("../../fonts/STIXGeneralBolIta.ttf"),
-    ),
-    (
-        "STIXGeneralItalic.ttf",
-        include_bytes!("../../fonts/STIXGeneralItalic.ttf"),
-    ),
-    (
-        "STIXNonUni.ttf",
-        include_bytes!("../../fonts/STIXNonUni.ttf"),
-    ),
-    (
-        "STIXNonUniBol.ttf",
-        include_bytes!("../../fonts/STIXNonUniBol.ttf"),
-    ),
-    (
-        "STIXNonUniBolIta.ttf",
-        include_bytes!("../../fonts/STIXNonUniBolIta.ttf"),
-    ),
-    (
-        "STIXNonUniIta.ttf",
-        include_bytes!("../../fonts/STIXNonUniIta.ttf"),
-    ),
-    (
-        "STIXSizFiveSymReg.ttf",
-        include_bytes!("../../fonts/STIXSizFiveSymReg.ttf"),
-    ),
-    (
-        "STIXSizFourSymBol.ttf",
-        include_bytes!("../../fonts/STIXSizFourSymBol.ttf"),
-    ),
-    (
-        "STIXSizFourSymReg.ttf",
-        include_bytes!("../../fonts/STIXSizFourSymReg.ttf"),
-    ),
-    (
-        "STIXSizOneSymBol.ttf",
-        include_bytes!("../../fonts/STIXSizOneSymBol.ttf"),
-    ),
-    (
-        "STIXSizOneSymReg.ttf",
-        include_bytes!("../../fonts/STIXSizOneSymReg.ttf"),
-    ),
-    (
+    bundled!("STIXGeneral.ttf", [("STIXGeneral", Normal, 400)]),
+    bundled!("STIXGeneralBol.ttf", [("STIXGeneral", Normal, 700)]),
+    bundled!("STIXGeneralBolIta.ttf", [("STIXGeneral", Italic, 700)]),
+    bundled!("STIXGeneralItalic.ttf", [("STIXGeneral", Italic, 400)]),
+    bundled!("STIXNonUni.ttf", [("STIXNonUnicode", Normal, 400)]),
+    bundled!("STIXNonUniBol.ttf", [("STIXNonUnicode", Normal, 700)]),
+    bundled!("STIXNonUniBolIta.ttf", [("STIXNonUnicode", Italic, 700)]),
+    bundled!("STIXNonUniIta.ttf", [("STIXNonUnicode", Italic, 400)]),
+    bundled!("STIXSizFiveSymReg.ttf", [("STIXSizeFiveSym", Normal, 400)]),
+    bundled!("STIXSizFourSymBol.ttf", [("STIXSizeFourSym", Normal, 700)]),
+    bundled!("STIXSizFourSymReg.ttf", [("STIXSizeFourSym", Normal, 400)]),
+    bundled!("STIXSizOneSymBol.ttf", [("STIXSizeOneSym", Normal, 700)]),
+    bundled!("STIXSizOneSymReg.ttf", [("STIXSizeOneSym", Normal, 400)]),
+    bundled!(
         "STIXSizThreeSymBol.ttf",
-        include_bytes!("../../fonts/STIXSizThreeSymBol.ttf"),
+        [("STIXSizeThreeSym", Normal, 700)]
     ),
-    (
+    bundled!(
         "STIXSizThreeSymReg.ttf",
-        include_bytes!("../../fonts/STIXSizThreeSymReg.ttf"),
+        [("STIXSizeThreeSym", Normal, 400)]
     ),
-    (
-        "STIXSizTwoSymBol.ttf",
-        include_bytes!("../../fonts/STIXSizTwoSymBol.ttf"),
-    ),
-    (
-        "STIXSizTwoSymReg.ttf",
-        include_bytes!("../../fonts/STIXSizTwoSymReg.ttf"),
-    ),
-    ("cmb10.ttf", include_bytes!("../../fonts/cmb10.ttf")),
-    ("cmex10.ttf", include_bytes!("../../fonts/cmex10.ttf")),
-    ("cmmi10.ttf", include_bytes!("../../fonts/cmmi10.ttf")),
-    ("cmr10.ttf", include_bytes!("../../fonts/cmr10.ttf")),
-    ("cmss10.ttf", include_bytes!("../../fonts/cmss10.ttf")),
-    ("cmsy10.ttf", include_bytes!("../../fonts/cmsy10.ttf")),
-    ("cmti10.ttf", include_bytes!("../../fonts/cmti10.ttf")),
-    ("cmtt10.ttf", include_bytes!("../../fonts/cmtt10.ttf")),
+    bundled!("STIXSizTwoSymBol.ttf", [("STIXSizeTwoSym", Normal, 700)]),
+    bundled!("STIXSizTwoSymReg.ttf", [("STIXSizeTwoSym", Normal, 400)]),
+    bundled!("cmb10.ttf", [("cmb10", Normal, 400)]),
+    bundled!("cmex10.ttf", [("cmex10", Normal, 400)]),
+    bundled!("cmmi10.ttf", [("cmmi10", Normal, 400)]),
+    bundled!("cmr10.ttf", [("cmr10", Normal, 400)]),
+    bundled!("cmss10.ttf", [("cmss10", Normal, 400)]),
+    bundled!("cmsy10.ttf", [("cmsy10", Normal, 400)]),
+    bundled!("cmti10.ttf", [("cmti10", Normal, 400)]),
+    bundled!("cmtt10.ttf", [("cmtt10", Normal, 400)]),
 ];
 
 /// File name of the Last Resort font used as final fallback.

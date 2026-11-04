@@ -256,10 +256,27 @@ impl Collection {
     /// The values mapped to colours, `None` without a colour mapping
     /// (matplotlib's `get_array`).
     pub fn array(&self) -> Option<Vec<Option<f64>>> {
+        self.mapped_values(<[Option<f64>]>::to_vec)
+    }
+
+    /// What `read` makes of the values mapped to colours (masked ones are
+    /// `None`), without copying them first; `None` without a colour
+    /// mapping.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_array(vec![Some(0.5), None])?;
+    /// let nan_masked = dots.mapped_values(|values| {
+    ///     values.iter().map(|v| v.unwrap_or(f64::NAN)).collect::<Vec<_>>()
+    /// });
+    /// assert!(nan_masked.unwrap()[1].is_nan());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn mapped_values<R>(&self, read: impl FnOnce(&[Option<f64>]) -> R) -> Option<R> {
         self.raw.with::<CollectionArtist, _>(|c| {
-            c.mapping
-                .as_ref()
-                .map(|mapped| mapped.source.values.clone())
+            c.mapping.as_ref().map(|mapped| read(&mapped.source.values))
         })
     }
 

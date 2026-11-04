@@ -148,6 +148,12 @@ impl<'a> Surface<'a> {
     /// [`Surface::blend_solid`] with anti-aliasing for a span the caller
     /// knows lies in a rectangle [`Surface::shows_all_of`] accepted: the
     /// same blends, without clipping each span.
+    #[expect(
+        clippy::inline_always,
+        reason = "the innermost call of stamping markers and filling small shapes: \
+                  left out of line, markers stamp about 10% slower"
+    )]
+    #[inline(always)]
     pub(crate) fn blend_solid_inside(&mut self, y: i32, span: Span<'_>, color: Rgba8) {
         if color.a == 0 {
             return;

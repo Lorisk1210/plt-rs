@@ -137,8 +137,15 @@ a raw pointer.
   in bulk: read through the buffer protocol from any exporter (numpy
   arrays of any numeric dtype, byte order and strides, `array.array`,
   `memoryview`), or from nested sequences; returned as a numpy array that
-  owns a copy (`numpy.frombuffer` over a `bytearray`, reshaped). No numpy
-  C API.
+  owns a copy (`numpy.empty` of the shape, filled through its buffer).
+  `FloatArray` reads an argument as `numpy.asarray(arg, float)` does
+  (numpy arrays and flat tuples or lists of numbers directly, anything
+  else through numpy). No numpy C API.
+* **Deferred work** (`binding::install_deferred`): a dict of work Python
+  leaves to the next native call, handed (taken out of the dict at once)
+  to the function installed with it before any native call runs.
+  `Line2D.set_data` converts the data at once and leaves the numbers
+  there, as matplotlib leaves them to the next draw.
 * **The native object** (`_native.Native`) holds any Rust value for
   Python. Python cannot make or subclass it. See below.
 * **Native functions** are plain Rust functions or closures, registered

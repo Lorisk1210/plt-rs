@@ -28,7 +28,7 @@ from .artist import Artist, allow_rasterization
 from .patches import Rectangle
 from .path import Path
 from .text import Text
-from .transforms import Affine2D, BboxBase, Bbox, BboxTransformTo
+from .transforms import BboxBase, Bbox
 
 
 class _CellHolder:
@@ -219,21 +219,16 @@ substring of 'BRTL'
 
     def get_data_transform(self):
         """Return the transform the cell is placed in: the one set, else
-        its table's."""
+        the one its table gave it when it was put there, the fractions of
+        the table's Axes unless the table was given another transform
+        (`Table.set_transform` leaves its cells theirs)."""
         given = self.__dict__.get("_cell_transform")
         if given is not None:
             return given
         if isinstance(self._table, _CellHolder):
             return super().get_data_transform()
-        return self._table.get_transform()
-
-    def get_patch_transform(self):
-        """Return the transform mapping the unit square to the cell where
-        its table places it (matplotlib's `.Rectangle` transform: the box,
-        then the rotation, none)."""
-        x, y = self.get_xy()
-        return (BboxTransformTo(Bbox.from_bounds(x, y, self.get_width(), self.get_height()))
-                + Affine2D())
+        axes = self._table.axes
+        return self._table.get_transform() if axes is None else axes.transAxes
 
     def get_transform(self):
         """Return the `~.transforms.Transform` applied to the cell."""
@@ -372,6 +367,11 @@ substring of 'BRTL'
                                corner[1] if y is None else y),
                               self._table._placements)
         super()._set_fields(x, y, *args, **kwargs)
+        if (kwargs.get("angle") is not None or kwargs.get("rotation_point") is not None
+                or len(args) > 2):
+            # The ``angle`` and ``rotation_point`` properties rotate the cell
+            # as `set_angle` does.
+            self._mirror.push(self)
 
     def get_bbox(self):
         """Return the `.Bbox` of the cell: at its corner (`get_xy`), as
@@ -578,6 +578,11 @@ class Table(Artist):
         _table.put_cell(self._native, int(row), int(col), cell._ref())
         cell._table = self
         cell._key = (row, col)
+        # The cell takes the table's transform, as matplotlib's
+        # ``cell.set_transform(self.get_transform())``.
+        cell.__dict__.pop("_cell_transform", None)
+        if "_given_transform" in self.__dict__:
+            cell._cell_transform = self._given_transform
         self._cells[row, col] = cell
         if takes_from_program(type(cell), "draw") or "draw" in vars(cell):
             # matplotlib's table draws each cell by its own draw.

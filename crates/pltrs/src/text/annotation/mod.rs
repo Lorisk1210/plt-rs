@@ -15,10 +15,10 @@ use std::ops::Deref;
 
 use pltrs_core::{Bbox, Point};
 
-pub(crate) use arrow::{AnnotationArrow, ArrowTarget};
+pub(crate) use arrow::{AnnotationArrow, ArrowTarget, StartRegion};
 pub use arrow::{ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps};
 
-use super::{Text, TextArtist, TextDrawError};
+use super::{BoxPlacement, Text, TextArtist, TextDrawError};
 use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle, TypedHandle};
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
@@ -201,11 +201,17 @@ impl AnnotationState {
     ) -> Result<ArrowTarget, TextDrawError> {
         let text_bbox = text.extent_at(layout, anchor)?;
         let start_region = match text.box_placement(layout, anchor)? {
-            Some((bbox, placement)) => Some(
-                bbox.clip_region(&text.rc, &placement)
-                    .map_err(TextDrawError::Box)?,
-            ),
-            None if text.text.is_empty() => None,
+            Some((bbox, placement)) => {
+                let region = |placement| {
+                    bbox.clip_region(&text.rc, placement)
+                        .map_err(TextDrawError::Box)
+                };
+                StartRegion::TextBox {
+                    now: region(&placement)?,
+                    initial: region(&BoxPlacement::before_drawn())?,
+                }
+            }
+            None if text.text.is_empty() => StartRegion::Fresh(None),
             None => {
                 let pad = layout.points_to_pixels(4.0);
                 let padded = text_bbox.padded(pad / 2.0, pad / 2.0);
@@ -214,11 +220,11 @@ impl AnnotationState {
                 } else {
                     0.0
                 };
-                Some(ClipRegion {
+                StartRegion::Fresh(Some(ClipRegion {
                     path: pltrs_core::Path::unit_rectangle()
                         .transformed(&crate::transforms::unit_to_bbox(&padded)),
                     radius,
-                })
+                }))
             }
         };
         Ok(ArrowTarget {

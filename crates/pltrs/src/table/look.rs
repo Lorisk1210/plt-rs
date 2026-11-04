@@ -6,7 +6,7 @@ use pltrs_core::Point;
 
 use super::handle::TableCell;
 use crate::artist::{Artist, ArtistBase, ArtistHandle};
-use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle};
+use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle, RotationPoint};
 
 /// Copies onto `into` the artist properties of `from` a cell takes: all
 /// but its place in a figure (its parent, transform and clipping
@@ -50,15 +50,17 @@ impl TableCell {
     /// ```
     pub fn rectangle(&self) -> Patch<Rectangle> {
         let corner = self.placed_corner().unwrap_or(Point::new(0.0, 0.0));
-        let (width, height, style, base) = self.read(|cell| {
+        let (width, height, (angle, point), style, base) = self.read(|cell| {
             (
                 cell.width,
                 cell.height,
+                (cell.angle, cell.rotation_point),
                 cell.style.clone(),
                 cell.base.clone(),
             )
         });
-        let rectangle = Patch::loose(Rectangle::new(corner, width, height), PatchProps::default());
+        let shape = Rectangle::new(corner, width, height).rotated(angle, point);
+        let rectangle = Patch::loose(shape, PatchProps::default());
         rectangle
             .raw()
             .with_mut::<PatchArtist<Rectangle>, _>(|patch| {
@@ -77,16 +79,52 @@ impl TableCell {
     }
 
     /// Takes the look of `rectangle` (one [`TableCell::rectangle`] made):
-    /// its style and its artist properties, but for its transform and
-    /// clipping artists; the cell keeps its size (which its table may
-    /// change) and its table places it.
+    /// its style, its rotation and its artist properties, but for its
+    /// transform and clipping artists; the cell keeps its size (which its
+    /// table may change) and its table places it.
     pub fn restyle_from(&self, rectangle: &Patch<Rectangle>) -> &Self {
-        let (style, base) = rectangle
-            .raw()
-            .with::<PatchArtist<Rectangle>, _>(|patch| (patch.style.clone(), patch.base().clone()));
+        let (style, base, (angle, point)) =
+            rectangle.raw().with::<PatchArtist<Rectangle>, _>(|patch| {
+                (
+                    patch.style.clone(),
+                    patch.base().clone(),
+                    (patch.shape.angle, patch.shape.rotation_point),
+                )
+            });
         self.update(|cell| {
             cell.style = style;
+            cell.angle = angle;
+            cell.rotation_point = point;
             take_look(&base, &mut cell.base);
+        })
+    }
+
+    /// The counter-clockwise rotation of the cell's rectangle in degrees
+    /// (matplotlib's `Cell.get_angle`; the text stays upright).
+    pub fn angle(&self) -> f64 {
+        self.read(|cell| cell.angle)
+    }
+
+    /// Rotates the cell's rectangle by `angle` degrees counter-clockwise
+    /// about `point` (matplotlib's `Cell.set_angle` and
+    /// `rotation_point`): the table measures its grid with the rotated
+    /// cells, and the text, upright, is placed in the rotated cell's
+    /// extent.
+    ///
+    /// ```
+    /// use pltrs::patches::RotationPoint;
+    /// use pltrs::prelude::*;
+    /// use pltrs::table::TableOptions;
+    /// let table = Figure::new().subplot().table(TableOptions::with_text(vec![vec!["a".into()]]))?;
+    /// let cell = table.cell(0, 0).expect("a cell");
+    /// cell.set_angle(30.0, RotationPoint::Center);
+    /// assert_eq!(cell.angle(), 30.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_angle(&self, angle: f64, point: RotationPoint) -> &Self {
+        self.update(|cell| {
+            cell.angle = angle;
+            cell.rotation_point = point;
         })
     }
 }

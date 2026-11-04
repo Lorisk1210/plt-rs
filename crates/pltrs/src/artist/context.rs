@@ -30,6 +30,12 @@ impl<'a> LayoutContext<'a> {
         Self { drawn, ..self }
     }
 
+    /// Whether artist `id` is measured as drawn (see
+    /// [`with_drawn`](Self::with_drawn)).
+    pub(crate) fn counts_as_drawn(&self, id: ArtistId) -> bool {
+        self.drawn.contains(&id)
+    }
+
     /// Every artist of the figure.
     pub fn store(&self) -> &'a ArtistStore {
         &self.figure.store

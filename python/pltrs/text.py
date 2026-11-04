@@ -178,6 +178,9 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 
     zorder = 3
     _charsize_cache = dict()
+    #: What a mirror reads refreshed from its part (see `._mirrors`): the
+    #: text and the place a tick label's draw gives it.
+    _refreshed_getters = ("get_text", "get_position", "get_unitless_position")
 
     def __repr__(self):
         x, y = self.get_position()

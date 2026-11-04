@@ -55,6 +55,49 @@ impl Look {
     }
 }
 
+impl CollectionArtist {
+    /// Takes what the collections drawing the bands of a hatched contour
+    /// set share with the first (matplotlib's set is one collection,
+    /// drawing its bands one by one): its artist properties but its label,
+    /// and its face colours, line widths and styles, alphas,
+    /// antialiasing, hatch colours and width, joins, caps, links and pick
+    /// radius; each band's paths, hatch, edge colours and colour mapping
+    /// stay its own.
+    pub(crate) fn share_band_look(&mut self, first: &Self) {
+        let base = &mut self.base;
+        let from = &first.base;
+        base.visible = from.visible;
+        base.alpha = from.alpha;
+        base.zorder = from.zorder;
+        base.transform.clone_from(&from.transform);
+        base.clip_on = from.clip_on;
+        base.clip_box = from.clip_box;
+        base.clip_path.clone_from(&from.clip_path);
+        base.rasterized = from.rasterized;
+        base.animated = from.animated;
+        base.in_layout = from.in_layout;
+        base.snap = from.snap;
+        base.sketch = from.sketch;
+        base.path_effects.clone_from(&from.path_effects);
+        base.gid.clone_from(&from.gid);
+        base.url.clone_from(&from.url);
+        base.picker.clone_from(&from.picker);
+        base.mouseover = from.mouseover;
+        base.agg_filter.clone_from(&from.agg_filter);
+        self.facecolors.clone_from(&first.facecolors);
+        self.linewidths.clone_from(&first.linewidths);
+        self.linestyles.clone_from(&first.linestyles);
+        self.alphas.clone_from(&first.alphas);
+        self.antialiased.clone_from(&first.antialiased);
+        self.hatchcolors.clone_from(&first.hatchcolors);
+        self.hatch_linewidth = first.hatch_linewidth;
+        self.capstyle = first.capstyle;
+        self.joinstyle = first.joinstyle;
+        self.urls.clone_from(&first.urls);
+        self.pickradius = first.pickradius;
+    }
+}
+
 impl Collection {
     /// Gives the collection the common artist properties of `other`
     /// ([`RawHandle::update_from`](crate::artist::RawHandle::update_from))

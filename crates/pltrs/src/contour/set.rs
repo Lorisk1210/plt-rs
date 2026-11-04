@@ -2,6 +2,7 @@
 //! (matplotlib's `ContourSet.__init__`).
 
 use std::fmt;
+use std::ops::Range;
 use std::rc::Rc;
 
 use pltrs_core::{Path, Point, Rgba};
@@ -11,9 +12,9 @@ use super::levels::{self, LevelRequest};
 use super::style::{self, LevelColoring, LineStyling};
 use super::{ContourError, ContourOptions, QuadContourGenerator};
 use crate::artist::Artist;
-use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
-use crate::colors::{Color, Extend, ScalarMappable};
-use crate::image::ScalarKind;
+use crate::collections::{CollectionArtist, CollectionKind, ColorMapping, EdgeColors, Mapped};
+use crate::colors::{Color, Extend, NormError, Normalized, ScalarMappable};
+use crate::image::{ScalarKind, normalize_scalars};
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::ticker::TickerSettings;
@@ -233,7 +234,7 @@ impl ContourPlan {
             label_setup: None,
             rc,
         };
-        let collections = state.collections(paths, &options, source.data_lim);
+        let collections = state.collections(paths, &options, source.data_lim)?;
         Ok(Self {
             collections,
             data_lim: source.data_lim,
@@ -256,20 +257,75 @@ impl ContourState {
         paths: Vec<Path>,
         options: &ContourOptions,
         data_lim: (Point, Point),
-    ) -> Vec<CollectionArtist> {
+    ) -> Result<Vec<CollectionArtist>, NormError> {
+        let normalized = self.normalized()?;
         let colors: Vec<Color> = self.colors.iter().map(|&c| Color::from(c)).collect();
         if !self.hatched() {
-            return vec![self.collection(paths, colors, None, options.antialiased, data_lim)];
+            let mut collection = self.collection(paths, options.antialiased, data_lim);
+            self.color(&mut collection, &colors, &normalized, 0..self.cvalues.len());
+            return Ok(vec![collection]);
         }
-        paths
+        Ok(paths
             .into_iter()
             .enumerate()
             .map(|(i, path)| {
-                let color = colors.get(i).cloned().into_iter().collect();
-                let hatch = self.hatch(i);
-                self.collection(vec![path], color, hatch, options.antialiased, data_lim)
+                let mut collection = self.collection(vec![path], options.antialiased, data_lim);
+                collection.hatch = self.hatch(i);
+                self.color(&mut collection, &colors, &normalized, i..i + 1);
+                collection
             })
-            .collect()
+            .collect())
+    }
+
+    /// The `cvalues` normalised as the set maps them to its colours.
+    pub(crate) fn normalized(&self) -> Result<Vec<Normalized>, NormError> {
+        match &self.mapping {
+            Some(mapping) => normalize_scalars(
+                &mut mapping.clone(),
+                &self.cvalue_options(),
+                self.cvalue_kind,
+            ),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// The `cvalues` as the values of a colour mapping.
+    fn cvalue_options(&self) -> Vec<Option<f64>> {
+        self.cvalues.iter().copied().map(Some).collect()
+    }
+
+    /// Colours `collection`, which draws the paths of the levels or bands
+    /// `paths`, `normalized` being the set's normalised `cvalues`: maps
+    /// their values onto its faces (fills) or edges (lines), which then
+    /// show them unless their colours are set to `'none'` (matplotlib's
+    /// `set_array(cvalues)` and `update_scalarmappable`), or, for a set
+    /// without a colour mapping, gives it the `colors` of the paths.
+    pub(crate) fn color(
+        &self,
+        collection: &mut CollectionArtist,
+        colors: &[Color],
+        normalized: &[Normalized],
+        paths: Range<usize>,
+    ) {
+        match &self.mapping {
+            Some(mapping) if normalized.len() >= paths.end => {
+                let source = ColorMapping {
+                    values: self.cvalue_options()[paths.clone()].to_vec(),
+                    mappable: mapping.clone(),
+                };
+                collection.mapping =
+                    Some(Mapped::with_normalized(source, normalized[paths].to_vec()));
+            }
+            _ => {
+                let colors = colors.get(paths).unwrap_or_default().to_vec();
+                if self.filled {
+                    collection.facecolors = Some(colors);
+                } else {
+                    collection.edgecolors = EdgeColors::Colors(colors);
+                }
+            }
+        }
+        collection.update_scalarmappable();
     }
 
     /// Whether the bands of a filled contour set are hatched.
@@ -285,27 +341,23 @@ impl ContourState {
         self.hatches[index % self.hatches.len()].clone()
     }
 
-    /// A collection drawing `paths` in `colors`: unstroked fills, or lines
-    /// without faces above other collections.
+    /// A collection drawing `paths`, not coloured yet: unstroked fills
+    /// (edges `'none'`), or lines without faces (faces `'none'`, the edges
+    /// keeping the default rule) above other collections.
     fn collection(
         &self,
         paths: Vec<Path>,
-        colors: Vec<Color>,
-        hatch: Option<String>,
         antialiased: Option<bool>,
         (mins, maxs): (Point, Point),
     ) -> CollectionArtist {
         let mut collection =
             CollectionArtist::new(CollectionKind::Generic, paths, Rc::clone(&self.rc));
-        collection.hatch = hatch;
         if self.filled {
-            collection.facecolors = Some(colors);
             collection.edgecolors = EdgeColors::Colors(vec![Color::none()]);
             // Not stroked, so anti-aliasing would only show seams.
             collection.antialiased = Some(vec![antialiased.unwrap_or(false)]);
         } else {
             collection.facecolors = Some(vec![Color::none()]);
-            collection.edgecolors = EdgeColors::Colors(colors);
             collection.linewidths = Some(self.linewidths.clone());
             collection.linestyles.clone_from(&self.linestyles);
             collection.antialiased = antialiased.map(|a| vec![a]);

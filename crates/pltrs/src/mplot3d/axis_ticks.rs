@@ -226,7 +226,9 @@ mod tests {
         assert_eq!(axis.ticks().unwrap().major.len(), locs.len() - 2);
         let labels = axis.ticklabels(false).unwrap();
         assert_eq!(labels.len(), locs.len());
-        assert_eq!(labels[1], "0.2");
+        // Before the first draw the box is not square yet, and the axis
+        // has room for a tick every 0.1, as matplotlib's has.
+        assert_eq!(labels[1], "0.1");
         assert_eq!(
             axis.ticklocs(true).unwrap(),
             Vec::<f64>::new(),

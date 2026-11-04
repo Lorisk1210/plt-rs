@@ -17,7 +17,7 @@ Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 import numpy as np
 
 from . import _api, _artist_clipping, _live_transforms, _mirrors, _values, cbook
-from ._native import axis as _axis
+from ._native import artist as _artist, axis as _axis
 from .artist import Artist
 from .lines import Line2D
 from .text import Text
@@ -52,11 +52,17 @@ class _AxisPart(_mirrors.Mirroring):
         self.owner._push(artist)
 
     def window_extent(self, artist, renderer=None, dpi=None):
+        if "_given_transform" in artist.__dict__:
+            # A part given a transform of its own is drawn through it.
+            return _mirrors.OWN
         extent = self.owner._extent(artist)
         if extent is None:
             return Bbox.unit()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
+
+    def refresh(self, artist):
+        self.owner._refresh(artist)
 
     def figure(self, artist, root=False):
         return self.owner.axis.get_figure(root=root)
@@ -208,6 +214,7 @@ class Tick(Artist):
         tick.gridline = Line2D([], [])
         tick.label1 = Text(0, 0, '')
         tick.label2 = Text(0, 0, '')
+        tick._drawn = None
         for part in tick.get_children():
             _mirrors.attach(part, _AxisPart(tick))
         tick._sync()
@@ -240,6 +247,31 @@ class Tick(Artist):
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
             _values.remember(label, coordinate, np.float64(self._loc))
+        self._drawn = _artist.draw_count(axis.axes._native)
+
+    def _refresh(self, part):
+        """
+        Give the labels of a tick of an axis drawn since they were filled
+        what matplotlib's draw gives them (``_update_ticks``): the tick's
+        location along the axis and the formatter's text, all else they
+        have staying.
+        """
+        axis = self.axis
+        if part not in (self.label1, self.label2) or axis is None:
+            return
+        drawn = _artist.draw_count(axis.axes._native)
+        if drawn == self._drawn:
+            return
+        self._drawn = drawn
+        located = _axis.drawn_tick_label(axis.axes._native, axis.axis_name,
+                                         not self._major, self._index)
+        if located is None:
+            return
+        self._loc, text = located
+        coordinate = "y" if self.__name__ == "ytick" else "x"
+        for label in (self.label1, self.label2):
+            with _mirrors.detached(label):
+                label.set(text=text, **{coordinate: np.float64(self._loc)})
 
     def _push(self, part):
         """Read *part*, changed, back into the axis."""
@@ -556,6 +588,10 @@ class YTick(Tick):
 
 class _AxisText:
     """The mirror of a text of an axis (its label or its offset text)."""
+
+    def _refresh(self, text):
+        """Drawing the axis leaves its label and offset text as they
+        are."""
 
     #: The native functions filling the mirror, reading it back and giving
     #: its extent.

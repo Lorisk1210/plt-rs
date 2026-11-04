@@ -82,8 +82,9 @@ impl TableCell {
     ///
     /// When the text cannot be laid out.
     pub fn required_width(&self) -> Result<Option<f64>, TextDrawError> {
-        self.measured(|cell, _, table, layout, maps| {
-            cell.required_width(cell.font.size, layout, &table.rc, &maps.to_axes)
+        self.measured(|cell, index, table, layout, maps| {
+            let to_axes = &table.cell_maps(layout, maps)[index].to_axes;
+            cell.required_width(cell.font.size, layout, &table.rc, to_axes)
         })
         .transpose()
     }
@@ -109,8 +110,14 @@ impl TableCell {
     ///
     /// When the text cannot be laid out.
     pub fn auto_set_font_size(&self) -> Result<f64, TextDrawError> {
-        let fitted = self
-            .measured(|cell, _, table, layout, maps| fitted_size(cell, layout, &table.rc, maps));
+        let fitted = self.measured(|cell, index, table, layout, maps| {
+            fitted_size(
+                cell,
+                layout,
+                &table.rc,
+                &table.cell_maps(layout, maps)[index],
+            )
+        });
         let size = match fitted {
             Some(size) => size?,
             None => return Ok(self.fontsize()),

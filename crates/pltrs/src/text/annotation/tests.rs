@@ -285,7 +285,10 @@ fn arrows_are_measured_at_their_last_drawn_resolution() {
 
 /// How far right of its boxed text at `(1, 5)` the arrow of an
 /// annotation of `(9, 5)` starts, when `patch_a` clips it.
-fn arrow_start(ax: &Axes, patch_a: ArrowStart) -> f64 {
+/// How far right of the text's anchor the arrow of a boxed annotation
+/// starts, `patch_a` clipping it, measured as drawing it would when
+/// `drawn` and else between draws.
+fn arrow_start(ax: &Axes, patch_a: ArrowStart, drawn: bool) -> f64 {
     let props = FancyArrowProps {
         shrink_a: 0.0,
         shrink_b: 0.0,
@@ -307,7 +310,8 @@ fn arrow_start(ax: &Axes, patch_a: ArrowStart) -> f64 {
         .set_valign(pltrs_text::VAlign::Center)
         .set_bbox(Some(crate::text::TextBoxProps::default()));
     let state = note.raw().figure_state().borrow();
-    let layout = LayoutContext::new(&state);
+    let ids = [note.raw().id()];
+    let layout = LayoutContext::new(&state).with_drawn(if drawn { &ids } else { &[] });
     let start = note.raw().with::<TextArtist, _>(|t| {
         let annotation = t.annotation.as_deref().expect("an annotation");
         let point = annotation.point(t, layout).expect("a point");
@@ -328,16 +332,20 @@ fn arrow_start(ax: &Axes, patch_a: ArrowStart) -> f64 {
 #[test]
 fn patch_a_chooses_where_the_arrow_leaves_the_text() {
     let (_, ax) = data_axes();
-    let boxed = arrow_start(&ax, ArrowStart::TextBox);
-    let unclipped = arrow_start(&ax, ArrowStart::Unclipped);
+    let boxed = arrow_start(&ax, ArrowStart::TextBox, true);
+    let unclipped = arrow_start(&ax, ArrowStart::Unclipped, true);
     assert!(
         unclipped.abs() < 1e-6,
         "unclipped arrows start at the anchor: {unclipped}"
     );
     assert!(boxed > 10.0, "the box clips the start: {boxed}");
+    // Before the text is drawn its box stands at the origin, 1 × 1, as
+    // matplotlib's does, and leaves the arrow alone.
+    let undrawn = arrow_start(&ax, ArrowStart::TextBox, false);
+    assert!(undrawn.abs() < 1e-6, "{undrawn}");
     // An unstroked circle of radius 2 (99.2 px) around the text.
     let circle = ax.add_patch(crate::patches::Circle::new((1.0, 5.0), 2.0));
-    let clipped = arrow_start(&ax, ArrowStart::Artist(circle.id()));
+    let clipped = arrow_start(&ax, ArrowStart::Artist(circle.id()), false);
     assert!((clipped - 99.2).abs() < 0.5, "{clipped}");
 }
 

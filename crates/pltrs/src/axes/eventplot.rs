@@ -111,10 +111,12 @@ impl Axes {
                 let mut row =
                     CollectionArtist::new(CollectionKind::Line, layout.paths(events), rc.clone());
                 row.events = Some(layout);
-                let color = colors
-                    .get(i)
-                    .map_or_else(|| rc.lines_color.clone(), Clone::clone);
-                row.edgecolors = EdgeColors::Colors(vec![color]);
+                // Without a colour a row keeps the default rule
+                // (`lines.color`), which leaves its edges to a colour
+                // mapping given later, as matplotlib's `color=None` does.
+                if let Some(color) = colors.get(i) {
+                    row.edgecolors = EdgeColors::Colors(vec![color.clone()]);
+                }
                 row.linewidths = widths.get(i).map(|&w| vec![w]);
                 row.linestyles = vec![styles[i].clone()];
                 row.base_mut().alpha = alphas.get(i).copied();

@@ -21,7 +21,7 @@ use crate::patches::{
     PatchShape,
 };
 use crate::rc::RcParams;
-use crate::text::{AnnotationArrow, ArrowProps, ArrowTarget, FancyArrowProps, Text};
+use crate::text::{AnnotationArrow, ArrowProps, ArrowTarget, FancyArrowProps, StartRegion, Text};
 
 /// The z-order of annotation boxes (matplotlib's `AnnotationBbox.zorder`).
 const ANNOTATION_BBOX_ZORDER: f64 = 3.0;
@@ -246,7 +246,7 @@ impl AnnotationBboxArtist {
             point: geometry.point,
             fontsize: self.fontsize,
             mutation_unit: layout.points_to_pixels(1.0),
-            start_region: self.frame_region(layout)?,
+            start_region: StartRegion::Fresh(self.frame_region(layout)?),
         })
     }
 

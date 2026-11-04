@@ -203,13 +203,13 @@ impl Axes3D {
         Transform::Axes(self.with(|axes| axes.plane))
     }
 
-    /// Placement as a fraction of the figure after the box was made
-    /// square, in the figure's current layout (laid out first, so that a
-    /// layout engine has placed the axes: matplotlib's `get_position`
-    /// once the figure was drawn).
+    /// Placement as a fraction of the figure, the box made square, in the
+    /// figure's current layout (laid out first, so that a layout engine
+    /// has placed the axes: matplotlib's `get_position`, which applies the
+    /// aspect).
     pub fn position(&self) -> Bbox {
         self.raw.figure_state().borrow_mut().prepare();
-        self.active_position()
+        self.squared_position()
     }
 
     /// Makes the box square in its placement where the axes is now, the

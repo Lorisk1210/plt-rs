@@ -12,8 +12,10 @@ use crate::colors::{Alpha, ColormapError, Norm, NormKind, Normalized};
 #[derive(Clone, Debug)]
 pub(crate) struct Mapped {
     pub(crate) source: ColorMapping,
-    /// The normalised values (empty for norms normalising when drawing).
+    /// The normalised values (empty while normalising when drawing).
     pub(crate) normalized: Result<Vec<Normalized>, String>,
+    /// Whether the values are normalised when drawing, a block at a time.
+    by_block: bool,
 }
 
 /// The values normalised and coloured at once when drawing.
@@ -30,7 +32,11 @@ fn normalizes_by_block(norm: &dyn Norm) -> bool {
     )
 }
 
-pltrs_core::archive_struct!(Mapped { source, normalized });
+pltrs_core::archive_struct!(Mapped {
+    source,
+    normalized,
+    by_block
+});
 
 impl Mapped {
     /// The mapping with its norm autoscaled from its values.
@@ -38,9 +44,21 @@ impl Mapped {
         let mut mapped = Self {
             source,
             normalized: Ok(Vec::new()),
+            by_block: false,
         };
         mapped.refresh();
         mapped
+    }
+
+    /// A mapping of `source` whose values its owner normalised by rules of
+    /// its own (a contour set's levels and colour indices), kept as they
+    /// are until the norm or the colormap of the collection changes.
+    pub(crate) fn with_normalized(source: ColorMapping, normalized: Vec<Normalized>) -> Self {
+        Self {
+            source,
+            normalized: Ok(normalized),
+            by_block: false,
+        }
     }
 
     /// Fills unset limits from the values and normalises them again, after
@@ -49,7 +67,8 @@ impl Mapped {
     pub(super) fn refresh(&mut self) {
         let ColorMapping { values, mappable } = &mut self.source;
         mappable.norm_mut().autoscale_none(values);
-        self.normalized = if normalizes_by_block(mappable.norm()) {
+        self.by_block = normalizes_by_block(mappable.norm());
+        self.normalized = if self.by_block {
             Ok(Vec::new())
         } else {
             mappable.normalize(values).map_err(|e| e.to_string())
@@ -59,7 +78,7 @@ impl Mapped {
     /// The mapped colours with `alpha` applied.
     pub(crate) fn colors(&self, alpha: &Alpha) -> Result<Vec<pltrs_core::Rgba>, String> {
         let mappable = &self.source.mappable;
-        if normalizes_by_block(mappable.norm()) {
+        if self.by_block {
             return self.colors_by_block(alpha);
         }
         let normalized = self.normalized.as_ref().map_err(Clone::clone)?;
@@ -137,7 +156,7 @@ mod tests {
                 mappable: ScalarMappable::with_norm(cmap(), norm),
             };
             let mapped = Mapped::new(mapping);
-            assert!(normalizes_by_block(mapped.source.mappable.norm()));
+            assert!(mapped.by_block);
             assert_eq!(mapped.normalized, Ok(Vec::new()), "no copy is kept");
             for alpha in [
                 Alpha::Keep,

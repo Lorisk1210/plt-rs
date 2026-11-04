@@ -284,8 +284,25 @@ impl FigureState {
     }
 
     /// The mutable pass before drawing: a due layout-engine pass, then
-    /// autoscaling, aspect and ticks of every axes.
+    /// autoscaling, aspect and ticks of every axes. 3-D axes stay where
+    /// they stand: only [`prepare_for_draw`](Self::prepare_for_draw)
+    /// makes their boxes square.
     pub(crate) fn prepare(&mut self) {
+        self.prepare_with(false);
+    }
+
+    /// [`prepare`](Self::prepare) for a draw: the layout engine runs, and
+    /// the boxes of 3-D axes are made square, as matplotlib applies their
+    /// aspect when it draws them (an axis of a 3-D axes measured before
+    /// the first draw is where its unsquared axes puts it).
+    pub(crate) fn prepare_for_draw(&mut self) {
+        self.layout.pending = true;
+        self.prepare_with(true);
+    }
+
+    /// [`prepare`](Self::prepare), squaring the boxes of 3-D axes when
+    /// `drawing`.
+    fn prepare_with(&mut self, drawing: bool) {
         self.run_pending_layout();
         let axes: Vec<ArtistId> = self
             .store
@@ -295,7 +312,7 @@ impl FigureState {
         for &id in &axes {
             self.prepare_axes(id);
         }
-        crate::mplot3d::prepare_axes3d(self);
+        crate::mplot3d::prepare_axes3d(self, drawing);
         // Titles clear the decorations of twins and insets, whose ticks
         // are only all known now.
         for id in axes {

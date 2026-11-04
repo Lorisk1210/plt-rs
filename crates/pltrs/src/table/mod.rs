@@ -39,8 +39,9 @@ use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::rc::RcParams;
+use crate::transforms::Transform;
+use cell::Cell;
 pub(crate) use cell::CellShape;
-use cell::{Cell, PlacedCell};
 use layout::AxesMaps;
 
 /// Where a table goes relative to its axes (matplotlib's `Table.codes`).
@@ -272,7 +273,7 @@ impl TableArtist {
     ) -> Self {
         let mut base = ArtistBase::with_zorder(0.0);
         base.clip_on = false;
-        base.transform = axes.map(crate::transforms::Transform::Axes);
+        base.transform = axes.map(Transform::Axes);
         Self {
             base,
             axes,
@@ -304,6 +305,18 @@ impl TableArtist {
     /// The axes box in display pixels.
     fn axes_box(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
         layout.axes_extent(self.axes?)
+    }
+
+    /// The transform the program gave the table in place of its axes'
+    /// fractions (`Table.set_transform`), which the cells put in it from
+    /// then on are given (matplotlib's `Table.__setitem__`); `None` while
+    /// the table keeps them.
+    pub(crate) fn own_transform(&self) -> Option<Transform> {
+        let fractions = self.axes.map(Transform::Axes);
+        self.base
+            .transform
+            .clone()
+            .filter(|transform| Some(transform) != fractions.as_ref())
     }
 }
 
@@ -487,10 +500,13 @@ impl Artist for TableArtist {
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         let maps = AxesMaps::of(&self.axes_box(*ctx)?)?;
+        let cell_maps = self.cell_maps(*ctx, &maps);
         self.place(*ctx, &maps)
             .ok()?
             .iter()
-            .map(|cell| PlacedCell::display_box(&cell.bbox, &maps.to_display))
+            .zip(&self.cells)
+            .zip(&cell_maps)
+            .map(|((placed, (_, cell)), maps)| cell.display_box(&placed.bbox, &maps.to_display))
             .reduce(|a, b| a.union(&b))
     }
 }

@@ -445,12 +445,15 @@ pub(crate) fn axes3d_fresh_tight_bbox(
 }
 
 /// The layout pass of every 3-D axes of a figure (called from
-/// [`FigureState::prepare`]), the box of each made square unless it is
-/// animated (matplotlib applies the aspect when it draws the axes, which
-/// the figure's draws leave out when animated).
-pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
+/// [`FigureState::prepare`]), the box of each made square when `drawing`
+/// unless it is animated (matplotlib applies the aspect when it draws the
+/// axes, which the figure's draws leave out when animated); between
+/// draws an axes stays where it stands.
+pub(crate) fn prepare_axes3d(figure: &mut FigureState, drawing: bool) {
     for id in axes3d_ids(&figure.store) {
-        square(figure, id, false);
+        if drawing {
+            square(figure, id, false);
+        }
         prepare_one(figure, id);
     }
 }

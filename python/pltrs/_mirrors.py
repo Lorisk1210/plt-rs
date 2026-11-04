@@ -76,6 +76,10 @@ class Mirroring:
         `._artist_clipping`), or `OWN`."""
         return OWN
 
+    def refresh(self, artist):
+        """Give the mirror *artist* what drawing the part changed since
+        it was filled, before one of its ``_refreshed_getters`` reads it."""
+
 
 #: The mirrorings of objects whose attributes are their value (font
 #: properties hash and compare by them), kept apart, by the object's id.
@@ -150,11 +154,24 @@ def _asking(method, question):
     return asking
 
 
+def _refreshing(method):
+    @functools.wraps(method)
+    def refreshed(self, *args, **kwargs):
+        mirror = self.__dict__.get("_mirror")
+        if mirror is not None:
+            mirror.refresh(self)
+        return method(self, *args, **kwargs)
+    return refreshed
+
+
 def mirrorable(cls):
     """Class decorator letting the instances of *cls* be mirrors: every
-    setter pushes, and the extent, the figure and whether a point is over
-    it are asked of the part."""
+    setter pushes, the getters the class names in ``_refreshed_getters``
+    read the mirror refreshed first, and the extent, the figure and
+    whether a point is over it are asked of the part."""
     pushing(cls)
+    for name in getattr(cls, "_refreshed_getters", ()):
+        setattr(cls, name, _refreshing(getattr(cls, name)))
     cls.get_window_extent = _asking(cls.get_window_extent, "window_extent")
     cls.get_tightbbox = _asking(cls.get_tightbbox, "tight_box")
     cls.get_figure = _asking(cls.get_figure, "figure")

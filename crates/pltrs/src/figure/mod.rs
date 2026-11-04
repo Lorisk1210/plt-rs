@@ -422,11 +422,7 @@ impl Figure {
     pub(crate) fn prepare_layout(&self) {
         self.run_layout_hook();
         self.root_handle().measure_painters();
-        {
-            let mut state = self.state.borrow_mut();
-            state.layout.pending = true;
-            state.prepare();
-        }
+        self.state.borrow_mut().prepare_for_draw();
         crate::axes::run_limit_callbacks(&self.state);
     }
 

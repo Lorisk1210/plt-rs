@@ -13,10 +13,10 @@ use super::layout::AxesMaps;
 use crate::artist::{ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
-use crate::patches::{PatchParts, PatchShape, PatchStyle};
+use crate::patches::{PatchParts, PatchShape, PatchStyle, RotationPoint};
 use crate::rc::RcParams;
 use crate::text::{LaidOutText, TextDrawError, draw_laid_out, lay_out};
-use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
+use crate::transforms::Transform;
 
 /// Padding between a cell's text and its edges, as a fraction of the cell
 /// width.
@@ -174,15 +174,25 @@ impl fmt::Display for CellEdges {
 }
 
 /// The outline of a cell: the unit square with only its visible edges
-/// drawn (`Cell.get_path`), placed on the cell's box.
+/// drawn (`Cell.get_path`), placed on the cell's box and rotated as a
+/// rectangle (matplotlib's `Cell` is a `Rectangle`).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CellShape {
-    /// The cell in axes fractions.
+    /// The cell in the coordinates it is drawn in.
     pub(crate) bbox: Bbox,
     pub(crate) edges: CellEdges,
+    /// The counter-clockwise rotation in degrees.
+    pub(crate) angle: f64,
+    /// Where the cell rotates around.
+    pub(crate) rotation_point: RotationPoint,
 }
 
-pltrs_core::archive_struct!(CellShape { bbox, edges });
+pltrs_core::archive_struct!(CellShape {
+    bbox,
+    edges,
+    angle,
+    rotation_point
+});
 
 impl PatchShape for CellShape {
     fn path(&self) -> Path {
@@ -190,7 +200,7 @@ impl PatchShape for CellShape {
     }
 
     fn patch_transform(&self) -> Affine2D {
-        unit_to_bbox(&self.bbox)
+        self.rotation_point.rotated_box(&self.bbox, self.angle, 1.0)
     }
 }
 
@@ -227,6 +237,11 @@ pub(crate) struct Cell {
     /// in them (matplotlib's `Cell.set_transform`); `None` draws it in the
     /// fractions of the table's axes, as the table sets it.
     pub(crate) transform: Option<Transform>,
+    /// The counter-clockwise rotation of the rectangle in degrees, its
+    /// text staying upright.
+    pub(crate) angle: f64,
+    /// Where the rectangle rotates around.
+    pub(crate) rotation_point: RotationPoint,
 }
 
 pltrs_core::archive_struct!(Cell {
@@ -242,7 +257,9 @@ pltrs_core::archive_struct!(Cell {
     text_valign,
     text_rotation,
     text_alpha,
-    transform
+    transform,
+    angle,
+    rotation_point
 });
 
 impl Cell {
@@ -270,24 +287,53 @@ impl Cell {
             text_rotation: 0.0,
             text_alpha: None,
             transform: None,
+            angle: 0.0,
+            rotation_point: RotationPoint::Xy,
         }
+    }
+
+    /// The outline of the cell placed at `bbox`, in the coordinates it is
+    /// drawn in.
+    pub(crate) fn shape_at(&self, bbox: &Bbox) -> CellShape {
+        CellShape {
+            bbox: *bbox,
+            edges: self.edges,
+            angle: self.angle,
+            rotation_point: self.rotation_point,
+        }
+    }
+
+    /// The display box of the cell placed at `bbox` in the coordinates
+    /// `to_display` maps (matplotlib's `Cell.get_window_extent`: the
+    /// corners of the unit square through the cell's patch transform,
+    /// rotation included, then the cell's transform).
+    pub(crate) fn display_box(&self, bbox: &Bbox, to_display: &Affine2D) -> Bbox {
+        let to_pixels = self.shape_at(bbox).patch_transform().then(*to_display);
+        let corners = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+            .map(|(x, y)| to_pixels.transform_point(Point::new(x, y)));
+        let (mut x0, mut y0, mut x1, mut y1) = (
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        );
+        for corner in corners {
+            x0 = x0.min(corner.x);
+            y0 = y0.min(corner.y);
+            x1 = x1.max(corner.x);
+            y1 = y1.max(corner.y);
+        }
+        Bbox::from_extents(x0, y0, x1, y1)
     }
 
     /// The maps between the cell's coordinates and display pixels: those
     /// of its transform, else the table's `maps`; `None` for a transform
     /// that cannot be resolved, is not affine or not invertible.
     pub(crate) fn maps(&self, layout: LayoutContext<'_>, maps: &AxesMaps) -> Option<AxesMaps> {
-        let Some(transform) = &self.transform else {
-            return Some(maps.clone());
-        };
-        let resolved = layout
-            .resolve(transform)
-            .filter(ResolvedTransform::is_affine)?;
-        let to_display = resolved.affine_part();
-        Some(AxesMaps {
-            to_display,
-            to_axes: to_display.inverted()?,
-        })
+        match &self.transform {
+            Some(transform) => AxesMaps::through(layout, transform),
+            None => Some(maps.clone()),
+        }
     }
 
     /// The cell's text laid out at `fontsize` points.
@@ -348,10 +394,7 @@ impl Cell {
         let mut base = self.base.clone();
         base.parent = table.parent;
         base.transform = Some(Transform::Affine(*to_display));
-        let shape = CellShape {
-            bbox: placed.bbox,
-            edges: self.edges,
-        };
+        let shape = self.shape_at(&placed.bbox);
         PatchParts {
             base: &base,
             style: &self.style,
@@ -365,7 +408,7 @@ impl Cell {
         if self.text.is_empty() {
             return Ok(());
         }
-        let anchor = self.text_anchor(&PlacedCell::display_box(&placed.bbox, to_display));
+        let anchor = self.text_anchor(&self.display_box(&placed.bbox, to_display));
         let laid_out = self.laid_out(placed.fontsize, ctx.layout().dpi(), rc)?;
         let gc = GraphicsContext {
             foreground: self.text_color.resolve()?,
@@ -399,7 +442,7 @@ impl Cell {
         layout: LayoutContext<'_>,
         rc: &RcParams,
     ) -> Result<Bbox, TextDrawError> {
-        let anchor = self.text_anchor(&PlacedCell::display_box(&placed.bbox, &maps.to_display));
+        let anchor = self.text_anchor(&self.display_box(&placed.bbox, &maps.to_display));
         let text = if self.text.is_empty() {
             Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0)
         } else {
@@ -415,35 +458,10 @@ impl Cell {
 /// A cell placed by the table layout.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct PlacedCell {
-    /// The cell in axes fractions.
+    /// The cell in the coordinates it is drawn in.
     pub(crate) bbox: Bbox,
     /// The text size in points.
     pub(crate) fontsize: f64,
-}
-
-impl PlacedCell {
-    /// The display box of a cell at `bbox` in axes fractions mapped by
-    /// `to_display` (matplotlib's `Cell.get_window_extent`: the corners of
-    /// the unit square through the cell's patch transform, then the
-    /// axes').
-    pub(crate) fn display_box(bbox: &Bbox, to_display: &Affine2D) -> Bbox {
-        let to_pixels = unit_to_bbox(bbox).then(*to_display);
-        let corners = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
-            .map(|(x, y)| to_pixels.transform_point(Point::new(x, y)));
-        let (mut x0, mut y0, mut x1, mut y1) = (
-            f64::INFINITY,
-            f64::INFINITY,
-            f64::NEG_INFINITY,
-            f64::NEG_INFINITY,
-        );
-        for corner in corners {
-            x0 = x0.min(corner.x);
-            y0 = y0.min(corner.y);
-            x1 = x1.max(corner.x);
-            y1 = y1.max(corner.y);
-        }
-        Bbox::from_extents(x0, y0, x1, y1)
-    }
 }
 
 #[cfg(test)]
@@ -463,17 +481,15 @@ mod tests {
 
     #[test]
     fn outlines_skip_hidden_edges() {
-        let closed = CellShape {
+        let shape = |edges| CellShape {
             bbox: Bbox::UNIT,
-            edges: CellEdges::CLOSED,
-        }
-        .path();
+            edges,
+            angle: 0.0,
+            rotation_point: RotationPoint::Xy,
+        };
+        let closed = shape(CellEdges::CLOSED).path();
         assert_eq!(closed.code_at(4), PathCode::ClosePoly);
-        let horizontal = CellShape {
-            bbox: Bbox::UNIT,
-            edges: "horizontal".parse().unwrap(),
-        }
-        .path();
+        let horizontal = shape("horizontal".parse().unwrap()).path();
         assert_eq!(
             horizontal.codes().unwrap(),
             [

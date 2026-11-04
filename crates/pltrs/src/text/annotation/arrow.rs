@@ -1,5 +1,6 @@
 //! The arrow of an annotation (matplotlib's `arrowprops`).
 
+use std::cell::RefCell;
 use std::str::FromStr;
 
 use pltrs_core::{Bbox, Path, Point};
@@ -219,8 +220,32 @@ pub(crate) struct ArrowTarget {
     /// matplotlib scales their arrows by the resolution twice.
     pub(crate) mutation_unit: f64,
     /// The region the arrow starts from (`patchA`).
-    pub(crate) start_region: Option<ClipRegion>,
+    pub(crate) start_region: StartRegion,
 }
+
+/// The region clipping an arrow where it leaves its text (`patchA`).
+#[derive(Clone, Debug)]
+pub(crate) enum StartRegion {
+    /// A region made anew whenever the arrow is placed: the text's extent
+    /// padded, an annotation box's frame, or none.
+    Fresh(Option<ClipRegion>),
+    /// The box of the text, `now` where drawing the text puts it,
+    /// `initial` where it stands before the text is first drawn
+    /// (matplotlib's `FancyBboxPatch` at `(0, 0)`, 1 × 1): matplotlib only
+    /// moves and sizes the box when it draws the text, so an arrow
+    /// measured between draws starts from the box of the last draw.
+    TextBox {
+        now: ClipRegion,
+        initial: ClipRegion,
+    },
+}
+
+/// The box an arrow started from at its last draw (see
+/// [`StartRegion::TextBox`]).
+#[derive(Clone, Debug, Default, PartialEq)]
+struct DrawnBox(RefCell<Option<ClipRegion>>);
+
+pltrs_core::archive_struct!(DrawnBox(v0));
 
 /// An annotation's arrow patch.
 #[derive(Clone, Debug, PartialEq)]
@@ -241,6 +266,8 @@ pub(crate) struct AnnotationArrow {
     sketch: Option<Sketch>,
     /// The resolution of the arrow's last draw.
     dpi_cor: DrawnDpiCor,
+    /// The box of the text at the arrow's last draw.
+    drawn_box: DrawnBox,
 }
 
 pltrs_core::archive_struct!(AnnotationArrow {
@@ -252,7 +279,8 @@ pltrs_core::archive_struct!(AnnotationArrow {
     alpha,
     path_effects,
     sketch,
-    dpi_cor
+    dpi_cor,
+    drawn_box
 });
 
 impl AnnotationArrow {
@@ -338,6 +366,7 @@ impl AnnotationArrow {
             path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
             sketch: rc_sketch(rc),
             dpi_cor: DrawnDpiCor::default(),
+            drawn_box: DrawnBox::default(),
         }
     }
 
@@ -350,18 +379,33 @@ impl AnnotationArrow {
         target: ArrowTarget,
     ) -> Result<Vec<DisplayPath>, PatchError> {
         let dpi_cor = self.dpi_cor.measured(layout, target.owner);
-        self.display_paths(layout, rc, target, dpi_cor)
+        let start = match &target.start_region {
+            StartRegion::Fresh(region) => region.clone(),
+            StartRegion::TextBox { now, .. } if layout.counts_as_drawn(target.owner) => {
+                Some(now.clone())
+            }
+            StartRegion::TextBox { initial, .. } => Some(
+                self.drawn_box
+                    .0
+                    .borrow()
+                    .clone()
+                    .unwrap_or_else(|| initial.clone()),
+            ),
+        };
+        self.display_paths(layout, rc, &target, dpi_cor, start)
     }
 
     /// The arrow's pieces in display pixels (`Annotation.update_positions`
     /// followed by `FancyArrowPatch._get_path_in_displaycoord`), its sizes
-    /// scaled by `dpi_cor` pixels per point.
+    /// scaled by `dpi_cor` pixels per point, `start` clipping it at the
+    /// text.
     fn display_paths(
         &self,
         layout: LayoutContext<'_>,
         rc: &RcParams,
-        target: ArrowTarget,
+        target: &ArrowTarget,
         dpi_cor: f64,
+        start: Option<ClipRegion>,
     ) -> Result<Vec<DisplayPath>, PatchError> {
         let bbox = target.text_bbox;
         let end = target.point;
@@ -410,7 +454,7 @@ impl AnnotationArrow {
         );
         let region = |id: ArtistId| layout.store().get(id)?.connection_region(&layout);
         spec.patch_a = match self.patch_a {
-            ArrowStart::TextBox => target.start_region,
+            ArrowStart::TextBox => start,
             ArrowStart::Unclipped => None,
             ArrowStart::Artist(id) => region(id),
         };
@@ -454,7 +498,14 @@ impl AnnotationArrow {
         let layout = *ctx.layout();
         let dpi_cor = layout.points_to_pixels(1.0);
         self.dpi_cor.record(dpi_cor);
-        let paths = self.display_paths(layout, rc, target, dpi_cor)?;
+        let start = match &target.start_region {
+            StartRegion::Fresh(region) => region.clone(),
+            StartRegion::TextBox { now, .. } => {
+                self.drawn_box.0.replace(Some(now.clone()));
+                Some(now.clone())
+            }
+        };
+        let paths = self.display_paths(layout, rc, &target, dpi_cor, start)?;
         let mut base = ArtistBase::default();
         base.alpha = self.alpha;
         base.path_effects.clone_from(&self.path_effects);

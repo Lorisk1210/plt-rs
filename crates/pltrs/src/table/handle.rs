@@ -109,7 +109,10 @@ impl Table {
     /// ```
     pub fn add_cell(&self, row: i32, column: i32, width: f64, height: f64) -> TableCell {
         self.update(|t| {
-            let cell = Cell::new(width, height, &t.rc);
+            let cell = Cell {
+                transform: t.own_transform(),
+                ..Cell::new(width, height, &t.rc)
+            };
             t.add_cell(row, column, cell);
         });
         TableCell {
@@ -138,11 +141,14 @@ impl Table {
     pub fn put_cell(&self, row: i32, column: i32, cell: &TableCell) -> TableCell {
         // A cell put in a table is drawn in the table's coordinates, as
         // matplotlib's `Table.__setitem__` gives it the table's transform.
-        let copy = Cell {
-            transform: None,
-            ..cell.read(Cell::clone)
-        };
-        self.update(|t| t.add_cell(row, column, copy));
+        let copy = cell.read(Cell::clone);
+        self.update(|t| {
+            let copy = Cell {
+                transform: t.own_transform(),
+                ..copy
+            };
+            t.add_cell(row, column, copy);
+        });
         TableCell {
             table: self.clone(),
             key: (row, column),

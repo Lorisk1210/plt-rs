@@ -2,11 +2,11 @@
 
 use std::fmt;
 
-use pltrs_core::{Bbox, Path, Point};
+use pltrs_core::{Bbox, Point};
 
 use super::{Line2D, LineArtist};
-use crate::artist::{ArtistHandle, ArtistId, DrawErrorKind, LayoutContext};
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::artist::{Artist, ArtistHandle, ArtistId, DrawErrorKind, LayoutContext};
+use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// What fixes an infinite line besides its first point.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -112,14 +112,14 @@ impl Line2D {
         let mut state = self.raw().figure_state().borrow_mut();
         state.prepare();
         let layout = LayoutContext::new(&state);
-        let points = layout
-            .store()
-            .get_as::<LineArtist>(self.raw().id())?
-            .display_points(layout)?;
-        match points[..] {
-            [start, stop] => Some((start, stop)),
-            _ => None,
-        }
+        let line = layout.store().get_as::<LineArtist>(self.raw().id())?;
+        let resolved = layout.resolve(&line.transform())?;
+        let [start, stop] = line
+            .infinite
+            .as_ref()?
+            .display_segment(layout, &resolved, line.base().parent)
+            .ok()?;
+        Some((start, stop))
     }
 
     /// Moves the first point of an infinite line (matplotlib's
@@ -224,7 +224,7 @@ impl InfiniteLine {
         layout: LayoutContext<'_>,
         resolved: &ResolvedTransform,
         axes: Option<ArtistId>,
-    ) -> Result<Path, SegmentError> {
+    ) -> Result<[Point; 2], SegmentError> {
         let axes = axes.ok_or(SegmentError::NoAxes)?;
         let view = layout.axes_extent(axes).ok_or(SegmentError::NoAxes)?;
         let (p1, p2) = match self.through {
@@ -254,8 +254,24 @@ impl InfiniteLine {
                 )
             }
         };
-        let [start, stop] = clip_to_view(p1, p2, &view).ok_or(SegmentError::IdenticalPoints)?;
-        Ok(Path::polyline(vec![start, stop]))
+        clip_to_view(p1, p2, &view).ok_or(SegmentError::IdenticalPoints)
+    }
+
+    /// The transform of the line's data (the diagonal of the unit square,
+    /// unless the program set others): the unit square onto the box from
+    /// the start to the stop of the part of the line inside the axes, in
+    /// display coordinates (matplotlib's `AxLine.get_transform`,
+    /// `BboxTransformTo(Bbox([start, stop]))` and on to display).
+    pub(crate) fn display_map(
+        &self,
+        layout: LayoutContext<'_>,
+        resolved: &ResolvedTransform,
+        axes: Option<ArtistId>,
+    ) -> Result<ResolvedTransform, SegmentError> {
+        let [start, stop] = self.display_segment(layout, resolved, axes)?;
+        Ok(ResolvedTransform::affine(unit_to_bbox(&Bbox::new(
+            start, stop,
+        ))))
     }
 }
 

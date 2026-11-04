@@ -14,7 +14,7 @@ from numbers import Integral
 import numpy as np
 from numpy import ma
 
-from . import (_api, _blocking_input, _handles, _values, cbook,
+from . import (_api, _blocking_input, _handles, _mirrors, _values, cbook,
                collections as mcoll, colors as mcolors)
 from ._native import artist as _artist, contour as _contour
 from .backend_bases import MouseButton
@@ -299,6 +299,17 @@ class ContourLabeler:
         _handles.forget(self)
 
 
+class _Bands(_mirrors.Mirroring):
+    """The bands of a hatched filled `ContourSet`, which pltrs (Rust)
+    draws with a collection each: the set's setters change the first
+    (``self._native``), whose look this gives the others, as matplotlib's
+    set is one collection drawing its bands one by one."""
+
+    def push(self, artist):
+        _contour.share_first_band_look(artist._contour)
+
+
+@_mirrors.pushing
 class ContourSet(ContourLabeler, mcoll.Collection):
     """
     Store a set of contour lines or filled regions.
@@ -373,6 +384,8 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         axes, as in matplotlib)."""
         self._contour = contour
         figure._figure._artists[_artist.id(contour)] = self
+        if len(_contour.get_collections(contour)) > 1:
+            _mirrors.attach(self, _Bands())
 
     def _native_clim(self):
         if not hasattr(self, "_contour"):

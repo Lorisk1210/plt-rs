@@ -48,6 +48,22 @@ fn located(axis: &Axis, minor: bool, index: usize) -> PyResult<(f64, String)> {
         .map_or((0.0, String::new()), |tick| (tick.loc, tick.label.clone())))
 }
 
+/// The location and label of the major (or `minor`) tick at `index` of
+/// the flat axis `name`, which matplotlib's draw gives the tick's labels
+/// (`Axis._update_ticks`); `None` for an axis of a 3-D axes, whose draw
+/// places its texts anew.
+fn drawn_tick_label(
+    owner: AxisOwner,
+    name: String,
+    minor: bool,
+    index: usize,
+) -> PyResult<Option<(f64, String)>> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => located(&axis, minor, index).map(Some),
+        AnyAxis::Deep(_) => Ok(None),
+    }
+}
+
 /// matplotlib's alignment of the label on the first or the second side of
 /// an axis (`get_xaxis_text1_transform`, ...): `(halign, valign)`.
 fn default_alignment(name: AxisName, first_side: bool) -> (HAlign, VAlign) {
@@ -600,6 +616,7 @@ fn offset_text_extent(owner: AxisOwner, name: String) -> PyResult<Option<(f64, f
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("sync_tick", sync_tick)?;
+    module.add("drawn_tick_label", drawn_tick_label)?;
     module.add("push_tick_label", push_tick_label)?;
     module.add("push_tick_mark", push_tick_mark)?;
     module.add("push_gridline", push_gridline)?;

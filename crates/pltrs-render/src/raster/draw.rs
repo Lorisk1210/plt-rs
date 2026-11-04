@@ -12,7 +12,7 @@ use pltrs_text::tex::{TexError, TexText};
 
 use super::RasterRenderer;
 use super::condition::{Conditioning, cached_mask, mpl_round, sketch_params, snap_mode};
-use crate::collection::PathCollection;
+use crate::collection::{ItemCycle, PathCollection};
 use crate::filter::FilterFn;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
@@ -225,7 +225,7 @@ impl Renderer for RasterRenderer {
         let clip = collection.facecolors.is_empty() && gc.hatch.is_none();
         let mut conditioned = std::mem::take(&mut self.conditioned);
         let mut flattened = std::mem::take(&mut self.flattened);
-        for item in collection.items(gc) {
+        for item in collection.items_cycled(gc, ItemCycle::Agg) {
             let conditioning = Conditioning {
                 has_codes: true,
                 clip,

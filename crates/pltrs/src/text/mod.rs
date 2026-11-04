@@ -64,7 +64,7 @@ use crate::units::{CustomValues, UnitSources};
 pub use annotation::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps,
 };
-pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget};
+pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget, StartRegion};
 pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
 pub use hinting::TextHinting;

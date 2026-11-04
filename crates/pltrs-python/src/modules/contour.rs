@@ -194,6 +194,13 @@ fn set_edgecolors(set: ContourSet, colors: Vec<Color>) -> PyResult<()> {
     Ok(())
 }
 
+/// Gives the other bands of a hatched set what its first band, which
+/// the Python object sets its properties on, was given.
+fn share_first_band_look(set: ContourSet) -> PyResult<()> {
+    set.share_first_band_look();
+    Ok(())
+}
+
 /// Line (or, `filled`, filled) contours of given segments: for each level
 /// (band between consecutive levels), the paths of its segments
 /// (matplotlib's `ContourSet(ax, levels, allsegs, allkinds)`).
@@ -452,6 +459,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tricontour", tricontour)?;
     module.add("contour_segments", contour_segments)?;
     module.add("set_edgecolors", set_edgecolors)?;
+    module.add("share_first_band_look", share_first_band_look)?;
     module.add("generator_arguments", generator_arguments)?;
     module.add("get_levels", get_levels)?;
     module.add("get_layers", get_layers)?;

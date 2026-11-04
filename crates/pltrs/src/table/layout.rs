@@ -9,11 +9,11 @@ use std::collections::BTreeMap;
 
 use pltrs_core::{Affine2D, Bbox, Point};
 
-use super::cell::{Cell, PlacedCell};
+use super::cell::PlacedCell;
 use super::{TableArtist, TableLoc};
 use crate::artist::LayoutContext;
 use crate::text::TextDrawError;
-use crate::transforms::unit_to_bbox;
+use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// The gap between the axes and a table placed inside them, in axes
 /// fractions.
@@ -44,6 +44,20 @@ impl AxesMaps {
             to_axes: to_display.inverted()?,
         })
     }
+
+    /// The maps of the coordinates of `transform` in the layout `layout`;
+    /// `None` for a transform that cannot be resolved, is not affine or
+    /// not invertible.
+    pub(crate) fn through(layout: LayoutContext<'_>, transform: &Transform) -> Option<Self> {
+        let resolved = layout
+            .resolve(transform)
+            .filter(ResolvedTransform::is_affine)?;
+        let to_display = resolved.affine_part();
+        Some(Self {
+            to_display,
+            to_axes: to_display.inverted()?,
+        })
+    }
 }
 
 /// The size of every cell while the table is laid out.
@@ -67,8 +81,11 @@ impl TableArtist {
             height: cells.iter().map(|(_, c)| c.height).collect(),
             fontsize: cells.iter().map(|(_, c)| c.font.size).collect(),
         };
-        let required = |cell: &Cell, fontsize: f64| {
-            cell.required_width(fontsize, layout, &self.rc, &maps.to_axes)
+        let cell_maps = self.cell_maps(layout, maps);
+        let required = |i: usize, fontsize: f64| {
+            cells[i]
+                .1
+                .required_width(fontsize, layout, &self.rc, &cell_maps[i].to_axes)
         };
         for &column in &self.auto_columns {
             let members: Vec<usize> = (0..cells.len())
@@ -76,7 +93,7 @@ impl TableArtist {
                 .collect();
             let mut widest: f64 = 0.0;
             for &i in &members {
-                widest = widest.max(required(&cells[i].1, sizes.fontsize[i])?);
+                widest = widest.max(required(i, sizes.fontsize[i])?);
             }
             for &i in &members {
                 sizes.width[i] = widest;
@@ -84,7 +101,7 @@ impl TableArtist {
         }
         if self.auto_fontsize && !cells.is_empty() {
             let mut fontsize = sizes.fontsize[0];
-            for (i, (key, cell)) in cells.iter().enumerate() {
+            for (i, (key, _)) in cells.iter().enumerate() {
                 if self.auto_columns.contains(&key.1) {
                     continue;
                 }
@@ -92,10 +109,10 @@ impl TableArtist {
                 if size > MAX_AUTO_FONTSIZE {
                     size = MAX_AUTO_FONTSIZE;
                 }
-                let mut needed = required(cell, size)?;
+                let mut needed = required(i, size)?;
                 while size > 1.0 && needed > sizes.width[i] {
                     size -= 1.0;
-                    needed = required(cell, size.max(1.0))?;
+                    needed = required(i, size.max(1.0))?;
                 }
                 sizes.fontsize[i] = size.max(1.0);
                 fontsize = fontsize.min(size);
@@ -103,7 +120,7 @@ impl TableArtist {
             sizes.fontsize.fill(fontsize.max(1.0));
         }
         let mut origins = self.align(&sizes);
-        let grid = self.grid_box(&sizes, &origins, maps);
+        let grid = self.grid_box(&sizes, &origins, &cell_maps, &self.own_maps(layout, maps));
         let (l, b, w, h) = grid.bounds();
         let (ox, oy) = match self.bbox {
             Some(target) => {
@@ -159,21 +176,49 @@ impl TableArtist {
             .collect()
     }
 
-    /// The box around the cells of non-negative rows and columns, in axes
-    /// fractions: the union of their display boxes mapped back
+    /// The maps of each cell's coordinates in the layout `layout`, the
+    /// table's axes being at `maps`: those of its own transform, else of
+    /// the fractions of the table's axes (a cell whose transform cannot be
+    /// mapped back is measured in those too; drawing it fails).
+    pub(crate) fn cell_maps(&self, layout: LayoutContext<'_>, maps: &AxesMaps) -> Vec<AxesMaps> {
+        self.cells
+            .iter()
+            .map(|(_, cell)| cell.maps(layout, maps).unwrap_or_else(|| maps.clone()))
+            .collect()
+    }
+
+    /// The maps of the table's own coordinates, in which its grid is
+    /// measured and moved: the fractions of its axes (`maps`), unless the
+    /// program gave it another transform (`Table.set_transform`), which
+    /// matplotlib's cells, keeping theirs, are then measured back through.
+    fn own_maps(&self, layout: LayoutContext<'_>, maps: &AxesMaps) -> AxesMaps {
+        self.own_transform()
+            .and_then(|transform| AxesMaps::through(layout, &transform))
+            .unwrap_or_else(|| maps.clone())
+    }
+
+    /// The box around the cells of non-negative rows and columns, in the
+    /// table's own coordinates (`own`): the union of their display boxes,
+    /// each cell through its own maps, mapped back
     /// (`Table._get_grid_bbox`).
-    fn grid_box(&self, sizes: &Sizes, origins: &[Point], maps: &AxesMaps) -> Bbox {
+    fn grid_box(
+        &self,
+        sizes: &Sizes,
+        origins: &[Point],
+        cell_maps: &[AxesMaps],
+        own: &AxesMaps,
+    ) -> Bbox {
         self.cells
             .iter()
             .enumerate()
             .filter(|(_, ((row, col), _))| *row >= 0 && *col >= 0)
-            .map(|(i, _)| {
+            .map(|(i, (_, cell))| {
                 let bbox =
                     Bbox::from_bounds(origins[i].x, origins[i].y, sizes.width[i], sizes.height[i]);
-                PlacedCell::display_box(&bbox, &maps.to_display)
+                cell.display_box(&bbox, &cell_maps[i].to_display)
             })
             .reduce(|a, b| a.union(&b))
-            .map_or(Bbox::NULL, |display| display.transformed(&maps.to_axes))
+            .map_or(Bbox::NULL, |display| display.transformed(&own.to_axes))
     }
 }
 

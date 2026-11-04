@@ -102,6 +102,21 @@ pub(crate) struct BoxPlacement {
     pub(crate) fontsize_px: f64,
 }
 
+impl BoxPlacement {
+    /// Where a text's box stands before the text is first drawn
+    /// (matplotlib's `FancyBboxPatch((0, 0), 1, 1)` in display pixels, at
+    /// a mutation scale of 1).
+    pub(crate) fn before_drawn() -> Self {
+        Self {
+            anchor: Point::new(0.0, 0.0),
+            corner: Point::new(0.0, 0.0),
+            size: (1.0, 1.0),
+            rotation: 0.0,
+            fontsize_px: 1.0,
+        }
+    }
+}
+
 /// A text's box: a [`FancyBboxPatch`] fitted around the text at draw time
 /// (matplotlib's `get_bbox_patch`), made from [`TextBoxProps`] with its
 /// padding fixed for the text's font size at the time.

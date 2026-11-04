@@ -129,9 +129,10 @@ fn plot_units(args: Args<'_>) -> Outcome {
 }
 
 fn zgridlines(args: Args<'_>) -> Outcome {
-    let (_fig, ax) = axes3d();
+    let (fig, ax) = axes3d();
     let [low, high] = limits(args.f64_vec("zlim")?)?;
     ax.set_zlim(low, high).map_err(ProbeError::rejected)?;
+    fig.layout();
     let lines = ax.zaxis().gridlines().map_err(ProbeError::rejected)?;
     let drawn = (lines.iter())
         .filter(|line| line.in_view)
@@ -141,9 +142,10 @@ fn zgridlines(args: Args<'_>) -> Outcome {
 }
 
 fn zticklines(args: Args<'_>) -> Outcome {
-    let (_fig, ax) = axes3d();
+    let (fig, ax) = axes3d();
     let [low, high] = limits(args.f64_vec("zlim")?)?;
     ax.set_zlim(low, high).map_err(ProbeError::rejected)?;
+    fig.layout();
     let marks = ax.zaxis().ticklines(false).map_err(ProbeError::rejected)?;
     let drawn = (marks.iter())
         .filter(|mark| mark.in_view)

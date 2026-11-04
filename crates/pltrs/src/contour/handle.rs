@@ -350,6 +350,40 @@ impl ContourSet {
         self
     }
 
+    /// Gives the other bands of a hatched filled set, drawn by a collection
+    /// each (see [`ContourSet::collections`]), what the first band's
+    /// collection was given since: its artist properties and the style its
+    /// bands share (matplotlib's set is one collection drawing its bands
+    /// one by one), each band keeping its paths, hatch, edge colours and
+    /// colour mapping. Sets drawn by one collection are left alone.
+    ///
+    /// ```
+    /// use pltrs::contour::{ContourOptions, QuadField};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// let field = QuadField::new(Grid::from_fn(4, 5, |i, j| (i + j) as f64));
+    /// let options = ContourOptions {
+    ///     hatches: vec![Some("//".into()), None],
+    ///     ..ContourOptions::default()
+    /// };
+    /// let bands = Figure::new().subplot().contourf(&field, options)?;
+    /// bands.collections()[0].set_clip_on(false);
+    /// bands.share_first_band_look();
+    /// assert!(bands.collections().iter().all(|band| !band.clip_on()));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn share_first_band_look(&self) -> &Self {
+        let [first, rest @ ..] = self.collections.as_slice() else {
+            return self;
+        };
+        let look = first.raw().with::<CollectionArtist, _>(Clone::clone);
+        for band in rest {
+            band.raw()
+                .with_mut::<CollectionArtist, _>(|c| c.share_band_look(&look));
+        }
+        self
+    }
+
     /// Sets the edge colours, cycled over the levels or bands
     /// (matplotlib's `set_edgecolors`): filled contours then get outlines,
     /// and hatches take the colour of their band's edge when

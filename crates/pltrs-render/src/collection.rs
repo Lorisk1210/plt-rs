@@ -8,9 +8,9 @@ use crate::gc::{Dashes, GraphicsContext};
 
 /// The arguments of matplotlib's `draw_path_collection`.
 ///
-/// Every per-item sequence is *cycled* to the item count
-/// `max(max(paths, path_transforms), offsets)`; an empty sequence means
-/// "use the base graphics context" (or, for colours, "do not fill/stroke").
+/// Every per-item sequence is *cycled* to the item count (see
+/// [`ItemCycle`]); an empty sequence means "use the base graphics context"
+/// (or, for colours, "do not fill/stroke").
 #[derive(Clone, Debug, Default)]
 pub struct PathCollection<'a> {
     /// Applied after each item's own transform.
@@ -37,12 +37,30 @@ pub struct PathCollection<'a> {
     pub urls: &'a [Option<String>],
 }
 
+/// How the items of a [`PathCollection`] cycle through its shapes and
+/// their transforms, which matplotlib's backends do two ways.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ItemCycle {
+    /// `RendererBase._iter_collection`, which the vector backends use:
+    /// `max(max(paths, path_transforms), offsets)` items, item `i` drawing
+    /// the raw path (a shape with its transform, see
+    /// [`PathCollection::raw_paths`]) `i mod max(paths, path_transforms)`.
+    #[default]
+    RawPaths,
+    /// Agg's `draw_path_collection`: `max(paths, offsets)` items, item `i`
+    /// drawing shape `i mod paths` with transform `i mod
+    /// path_transforms`, so that transforms beyond the items are never
+    /// drawn.
+    Agg,
+}
+
 /// One resolved item of a [`PathCollection`].
 #[derive(Clone, Debug)]
 pub struct CollectionItem<'a> {
     /// The shape.
     pub path: &'a Path,
-    /// Index of the shape in [`PathCollection::raw_paths`].
+    /// Index of the shape in [`PathCollection::raw_paths`] (in `paths`
+    /// for items in [`ItemCycle::Agg`]).
     pub path_index: usize,
     /// Translation of the item in display coordinates.
     pub offset: Point,
@@ -117,7 +135,21 @@ impl<'a> PathCollection<'a> {
     /// earlier item still holds it, so items dropped before the next is
     /// taken share one context.
     pub fn items(&self, base: &GraphicsContext) -> impl Iterator<Item = CollectionItem<'a>> + '_ {
-        let count = if self.is_empty() { 0 } else { self.len() };
+        self.items_cycled(base, ItemCycle::RawPaths)
+    }
+
+    /// [`PathCollection::items`], cycling through the shapes and their
+    /// transforms as `cycle` says.
+    pub fn items_cycled(
+        &self,
+        base: &GraphicsContext,
+        cycle: ItemCycle,
+    ) -> impl Iterator<Item = CollectionItem<'a>> + '_ {
+        let count = match cycle {
+            _ if self.is_empty() => 0,
+            ItemCycle::RawPaths => self.len(),
+            ItemCycle::Agg => self.paths.len().max(self.offsets.len()),
+        };
         let raw_count = self.raw_path_count();
         let mut shared = Rc::new(base.clone());
         if self.edgecolors.is_empty() {
@@ -156,17 +188,26 @@ impl<'a> PathCollection<'a> {
             let fill = cycled(self.facecolors, i)
                 .copied()
                 .filter(|c| !c.is_transparent());
-            // Items cycle through the raw paths, as matplotlib's
-            // `_iter_collection` cycles through the path ids.
-            let path_index = wrap(i, raw_count);
-            let own = cycled(self.path_transforms, path_index)
-                .copied()
-                .unwrap_or_default();
+            let (path_index, shape, own) = match cycle {
+                // Items cycle through the raw paths, as matplotlib's
+                // `_iter_collection` cycles through the path ids.
+                ItemCycle::RawPaths => {
+                    let raw = wrap(i, raw_count);
+                    let shape = wrap(raw, self.paths.len());
+                    (raw, shape, cycled(self.path_transforms, raw))
+                }
+                ItemCycle::Agg => {
+                    let shape = wrap(i, self.paths.len());
+                    (shape, shape, cycled(self.path_transforms, i))
+                }
+            };
             let transform = own
+                .copied()
+                .unwrap_or_default()
                 .then(self.master_transform)
                 .translate(offset.x, offset.y);
             Some(CollectionItem {
-                path: &self.paths[wrap(path_index, self.paths.len())],
+                path: &self.paths[shape],
                 path_index,
                 offset,
                 transform,
@@ -285,6 +326,53 @@ mod tests {
         assert_eq!(items[0].gc.linewidth, 2.0);
         assert_eq!(items[1].gc.linewidth, 0.0);
         assert_eq!(items[1].fill, None);
+    }
+
+    #[test]
+    fn agg_items_leave_extra_transforms_undrawn() {
+        let paths = [Path::unit_rectangle(), Path::unit_circle()];
+        let transforms = [
+            Affine2D::scaling(2.0, 2.0),
+            Affine2D::scaling(3.0, 3.0),
+            Affine2D::scaling(4.0, 4.0),
+        ];
+        let offsets = [Point::ORIGIN; 4];
+        let faces = [Rgba::BLACK];
+        let collection = PathCollection {
+            paths: &paths[..1],
+            path_transforms: &transforms,
+            facecolors: &faces,
+            ..PathCollection::default()
+        };
+        let gc = GraphicsContext::default();
+        assert_eq!(collection.items(&gc).count(), 3);
+        let agg: Vec<_> = collection.items_cycled(&gc, ItemCycle::Agg).collect();
+        assert_eq!(agg.len(), 1);
+        assert_eq!(agg[0].transform, transforms[0]);
+        // With more offsets than raw paths, Agg cycles the shapes and the
+        // transforms apart; the raw paths cycle together.
+        let collection = PathCollection {
+            paths: &paths,
+            offsets: &offsets,
+            ..collection
+        };
+        let shapes = |cycle| {
+            collection
+                .items_cycled(&gc, cycle)
+                .map(|item| (item.path.vertices().len(), item.transform))
+                .collect::<Vec<_>>()
+        };
+        let (rect, circle) = (paths[0].vertices().len(), paths[1].vertices().len());
+        assert_eq!(
+            shapes(ItemCycle::Agg),
+            [
+                (rect, transforms[0]),
+                (circle, transforms[1]),
+                (rect, transforms[2]),
+                (circle, transforms[0]),
+            ]
+        );
+        assert_eq!(shapes(ItemCycle::RawPaths)[3], (rect, transforms[0]));
     }
 
     #[test]

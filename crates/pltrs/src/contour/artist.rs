@@ -6,9 +6,9 @@ use pltrs_core::Rgba;
 
 use super::set::ContourState;
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext};
-use crate::collections::{CollectionArtist, EdgeColors};
+use crate::collections::CollectionArtist;
 use crate::colorizer::ColorMapped;
-use crate::colors::{Color, NormError, ScalarMappable};
+use crate::colors::{Color, NormError, Normalized, ScalarMappable};
 use crate::image::normalize_scalars;
 use crate::text::TextArtist;
 
@@ -41,25 +41,22 @@ impl ContourSetArtist {
         }
     }
 
-    /// Recolours the faces (fills) or edges (lines) of the collections,
-    /// one colour per path.
-    fn paint_collections(&self, others: &mut ArtistStore) {
+    /// Maps the values of the paths of the collections again, `normalized`
+    /// being the set's normalised `cvalues`: one value per path (see
+    /// [`ContourState::color`]).
+    fn paint_collections(&self, others: &mut ArtistStore, normalized: &[Normalized]) {
         let colors: Vec<Color> = self.state.colors.iter().map(|&c| Color::from(c)).collect();
         let per_band = self.collections.len() > 1;
         for (i, &id) in self.collections.iter().enumerate() {
             let Some(collection) = others.get_as_mut::<CollectionArtist>(id) else {
                 continue;
             };
-            let colors = if per_band {
-                colors.get(i).cloned().into_iter().collect()
+            let paths = if per_band {
+                i..i + 1
             } else {
-                colors.clone()
+                0..self.state.cvalues.len()
             };
-            if self.state.filled {
-                collection.facecolors = Some(colors);
-            } else {
-                collection.edgecolors = EdgeColors::Colors(colors);
-            }
+            self.state.color(collection, &colors, normalized, paths);
         }
     }
 
@@ -116,11 +113,8 @@ impl ColorMapped for ContourSetArtist {
         let cvalues: Vec<Option<f64>> = state.cvalues.iter().copied().map(Some).collect();
         let normalized = normalize_scalars(mapping, &cvalues, state.cvalue_kind)?;
         let cmap = mapping.cmap();
-        state.colors = normalized
-            .into_iter()
-            .map(|n| cmap.lookup(n, None))
-            .collect();
-        self.paint_collections(others);
+        state.colors = normalized.iter().map(|&n| cmap.lookup(n, None)).collect();
+        self.paint_collections(others, &normalized);
         self.paint_labels(others);
         Ok(())
     }

@@ -8,7 +8,7 @@ pub use handle::{Line2D, LineProps};
 use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_render::{CapStyle, GraphicsContext, JoinStyle};
 
-use super::axline::InfiniteLine;
+use super::axline::{InfiniteLine, SegmentError};
 use super::hit_region::hit_region;
 use super::subslice::visible_range;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
@@ -292,17 +292,31 @@ impl LineArtist {
         Ok(())
     }
 
-    /// The drawn vertices in display space: the visible segment of an
-    /// infinite line.
+    /// The drawn vertices in display space.
     pub(super) fn display_points(&self, layout: LayoutContext<'_>) -> Option<Vec<Point>> {
-        let resolved = layout.resolve(&self.transform())?;
-        let drawn = match &self.infinite {
-            Some(infinite) => infinite
-                .display_segment(layout, &resolved, self.base.parent)
-                .ok()?,
-            None => resolved.transform_path(self.path.as_ref().ok()?),
-        };
+        let resolved = self.drawn_transform(layout).ok()??;
+        let drawn = resolved.transform_path(self.path.as_ref().ok()?);
         Some(drawn.vertices().to_vec())
+    }
+
+    /// The transform the line's data are drawn through: its own, or for an
+    /// infinite line the map onto the part of it inside the axes (see
+    /// [`InfiniteLine::display_map`]), which fails when the line cannot
+    /// be placed; `None` when the line's coordinate system no longer
+    /// exists.
+    fn drawn_transform(
+        &self,
+        layout: LayoutContext<'_>,
+    ) -> Result<Option<ResolvedTransform>, SegmentError> {
+        let Some(resolved) = layout.resolve(&self.transform()) else {
+            return Ok(None);
+        };
+        match &self.infinite {
+            Some(infinite) => infinite
+                .display_map(layout, &resolved, self.base.parent)
+                .map(Some),
+            None => Ok(Some(resolved)),
+        }
     }
 
     pub(super) fn line_gc(&self, ctx: &DrawContext<'_>) -> GraphicsContext {
@@ -335,20 +349,20 @@ impl Artist for LineArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some(resolved) = ctx.resolve(&self.transform()) else {
-            ctx.report(self.base.id(), "its coordinate system no longer exists");
-            return;
-        };
-        if let Some(infinite) = &self.infinite {
-            match infinite.display_segment(*ctx.layout(), &resolved, self.base.parent) {
-                Ok(segment) => {
-                    self.draw_paths(ctx, &ResolvedTransform::identity(), &segment, &segment);
-                }
-                Err(problem) => ctx.report_kind(self.base.id(), problem.kind(), problem),
+        let resolved = match self.drawn_transform(*ctx.layout()) {
+            Ok(Some(resolved)) => resolved,
+            Ok(None) => {
+                ctx.report(self.base.id(), "its coordinate system no longer exists");
+                return;
             }
-            return;
-        }
-        let visible = (self.xdata.len() == self.ydata.len())
+            Err(problem) => {
+                ctx.report_kind(self.base.id(), problem.kind(), problem);
+                return;
+            }
+        };
+        // An infinite line's data are not in data coordinates, which the
+        // drawing of only the part of long lines in view needs.
+        let visible = (self.infinite.is_none() && self.xdata.len() == self.ydata.len())
             .then(|| {
                 visible_range(
                     *ctx.layout(),
@@ -382,26 +396,19 @@ impl Artist for LineArtist {
     }
 
     /// matplotlib's `Line2D.get_window_extent`: the display extent of the
-    /// finite data points (of the part inside the axes for an infinite
-    /// line), padded by half the marker size when there is a marker;
-    /// `None` without a finite point.
+    /// finite data points (mapped onto the part inside the axes for an
+    /// infinite line), padded by half the marker size when there is a
+    /// marker; `None` without a finite point.
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let resolved = ctx.resolve(&self.transform())?;
-        let points: Vec<Point> = match &self.infinite {
-            Some(infinite) => infinite
-                .display_segment(*ctx, &resolved, self.base.parent)
-                .ok()?
-                .vertices()
-                .to_vec(),
-            None => self
-                .points()
-                .ok()?
+        let resolved = self.drawn_transform(*ctx).ok()??;
+        let points = self.points().ok()?;
+        let extent = Bbox::from_points(
+            points
                 .vertices()
                 .iter()
                 .map(|&p| resolved.transform_point(p))
-                .collect(),
-        };
-        let extent = Bbox::from_points(points.into_iter().filter(|p| p.is_finite()));
+                .filter(|p| p.is_finite()),
+        );
         if extent.is_null() {
             return None;
         }

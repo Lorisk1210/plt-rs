@@ -17,6 +17,30 @@ pub enum RotationPoint {
     At(Point),
 }
 
+impl RotationPoint {
+    /// The unit square onto `bbox`, then rotated by `angle` degrees about
+    /// this point of the box, `correction` the height-to-width ratio of a
+    /// display unit square in the box's units (matplotlib's
+    /// `Rectangle.get_patch_transform`).
+    pub(crate) fn rotated_box(self, bbox: &Bbox, angle: f64, correction: f64) -> Affine2D {
+        let pivot = match self {
+            Self::Xy => bbox.p0,
+            Self::Center => Point::new(
+                bbox.x0() + (bbox.x1() - bbox.x0()) / 2.0,
+                bbox.y0() + (bbox.y1() - bbox.y0()) / 2.0,
+            ),
+            Self::At(p) => p,
+        };
+        crate::transforms::unit_to_bbox(bbox).then(
+            Affine2D::translation(-pivot.x, -pivot.y)
+                .scale(1.0, correction)
+                .rotate_deg(angle)
+                .scale(1.0, 1.0 / correction)
+                .translate(pivot.x, pivot.y),
+        )
+    }
+}
+
 pltrs_core::archive_enum!(RotationPoint {
     Xy,
     Center,
@@ -110,23 +134,8 @@ impl PatchShape for Rectangle {
     }
 
     fn patch_transform(&self) -> Affine2D {
-        let bbox = self.bbox();
-        let pivot = match self.rotation_point {
-            RotationPoint::Xy => bbox.p0,
-            RotationPoint::Center => Point::new(
-                bbox.x0() + (bbox.x1() - bbox.x0()) / 2.0,
-                bbox.y0() + (bbox.y1() - bbox.y0()) / 2.0,
-            ),
-            RotationPoint::At(p) => p,
-        };
-        let correction = self.aspect_ratio_correction;
-        crate::transforms::unit_to_bbox(&bbox).then(
-            Affine2D::translation(-pivot.x, -pivot.y)
-                .scale(1.0, correction)
-                .rotate_deg(self.angle)
-                .scale(1.0, 1.0 / correction)
-                .translate(pivot.x, pivot.y),
-        )
+        self.rotation_point
+            .rotated_box(&self.bbox(), self.angle, self.aspect_ratio_correction)
     }
 
     fn skips_autoscale(&self) -> bool {

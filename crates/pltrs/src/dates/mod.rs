@@ -74,4 +74,4 @@ pub use range::{DateRange, MAX_RANGE_DATES};
 pub use relativedelta::RelativeDelta;
 pub use rrule::{Frequency, NthWeekday, RRule, RRuleSpec};
 pub use timedelta::TimeDelta;
-pub use tz::{TimeZone, TzFile, UtcOffset, ZonedDateTime};
+pub use tz::{TimeZone, TzFile, UtcOffset, ZoneInfo, ZonedDateTime};

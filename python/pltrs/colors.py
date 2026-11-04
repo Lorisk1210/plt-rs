@@ -77,6 +77,12 @@ def _mpl():
 
 
 class _ColorMapping(dict):
+    """
+    matplotlib's mapping of colour names (``_colors_full_map``), whose
+    changes pltrs (Rust), which resolves the names, follows (seaborn's
+    `set_color_codes` gives ``"b"``, ``"g"`` ... the colours of a palette).
+    """
+
     def __init__(self, mapping):
         super().__init__(mapping)
         self.cache = {}
@@ -84,10 +90,30 @@ class _ColorMapping(dict):
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
         self.cache.clear()
+        _name_natively(key, value)
 
     def __delitem__(self, key):
         super().__delitem__(key)
         self.cache.clear()
+        _colors.set_color_name(key, None)
+
+    def update(self, *args, **kwargs):
+        # dict.update does not call __setitem__ (nor does it clear the
+        # cache, as in matplotlib).
+        changes = dict(*args, **kwargs)
+        super().update(changes)
+        for key, value in changes.items():
+            _name_natively(key, value)
+
+
+def _name_natively(name, value):
+    """Have pltrs (Rust) resolve the colour *name* to *value* (a name that
+    is no colour then, if *value* is none)."""
+    try:
+        rgba = _colors.to_rgba(value, None)
+    except (TypeError, ValueError):
+        rgba = None
+    _colors.set_color_name(name, rgba)
 
 
 _colors_full_map = {}
@@ -380,7 +406,8 @@ def _to_rgba_no_colorcycle(c, alpha=None):
             c = c.reshape(-1)
         c = tuple(c)
     try:
-        rgba = _colors.to_rgba(c, alpha)
+        # An alpha of one element (seaborn's mapped alpha) is its number.
+        rgba = _colors.to_rgba(c, None if alpha is None else np.asarray(alpha).item())
     except ValueError as err:
         raise ValueError(f"Invalid RGBA argument: {c!r}") from err
     except TypeError as err:

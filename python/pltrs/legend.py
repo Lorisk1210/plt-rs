@@ -16,7 +16,7 @@ import time
 
 import numpy as np
 
-from . import _api, _handles, _legend_handlers, _live_transforms, colors, rcParams
+from . import _api, _handles, _legend_handlers, _live_transforms, _values, colors, rcParams
 from . import _val_or_rc
 from ._native import legend as _legend
 from ._native import register as _register
@@ -249,7 +249,7 @@ class Legend(Artist):
         self._figure = None
         self._axes = parent if self.isaxes else None
         handler_map = self.get_legend_handler_map()
-        entries, kept = [], []
+        entries, kept, kept_handles = [], [], []
         made = _legend_handlers.MadeEntries()
         for handle, label in zip(handles, labels):
             handler = self.get_legend_handler(handler_map, handle)
@@ -268,6 +268,7 @@ class Legend(Artist):
             else:
                 entries.append(self._entry(handle, handler_map))
             kept.append(str(label))
+            kept_handles.append(handle)
         loc = self._validated_loc(loc)
         ncols = ncols if ncols != 1 else ncol
         if (labelcolor is not None and not isinstance(labelcolor, str)
@@ -299,6 +300,7 @@ class Legend(Artist):
         _handles.adopt(self, native, parent.figure)
         made.adopt(self)
         self._made_handles = made.returned
+        self._entry_handles = kept_handles
         if draggable:
             self.set_draggable(True)
         if title_fontproperties is not None:
@@ -460,8 +462,18 @@ class Legend(Artist):
         made = self.__dict__.get("_made_handles", {})
         return [made[index] if index in made else
                 None if handle is None else
-                _handles.wrap(handle[0], _DRAWN_CLASSES[handle[1]], self.figure)
+                self._drawn_handle(index, handle)
                 for index, handle in enumerate(_legend.legend_handles(self._native))]
+
+    def _drawn_handle(self, index, handle):
+        """The artist of the native *handle* drawn for the entry *index*,
+        reading back what the entry's handle was given, as matplotlib's
+        handlers copy it (``update_from``)."""
+        drawn = _handles.wrap(handle[0], _DRAWN_CLASSES[handle[1]], self.figure)
+        entry_handles = self.__dict__.get("_entry_handles", [])
+        if index < len(entry_handles):
+            _values.inherit(drawn, entry_handles[index])
+        return drawn
 
     def get_lines(self):
         r"""Return the list of `~.lines.Line2D`\s in the legend."""

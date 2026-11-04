@@ -92,13 +92,16 @@ def line_data(axes, x, y):
                  for values in (axes.convert_xunits(x), axes.convert_yunits(y)))
 
 
-def keep_unit_data(line, x, y):
+def keep_data(line, x, y):
     """Have *line*, made from *x* and *y*, keep copies of them as its
-    original data, as matplotlib's `.Line2D` does (`~.Line2D.get_data`
-    returns them; data in units is converted again when the units of its
-    axes change, as matplotlib's lines convert their data when drawn).
-    Returns *line*."""
-    line._xorig, line._yorig = copy.copy(x), copy.copy(y)
+    original data, as matplotlib's `.Line2D` does: ``get_xdata()`` gives
+    them back as matplotlib's lines do (masked arrays and integers as they
+    are), and data in units converts again when the units of the line's
+    axes change (matplotlib's lines convert their data when drawn).
+    Returns *line*, which may be None (no data line: an error bar's of
+    ``fmt='none'``)."""
+    if line is not None:
+        line._xorig, line._yorig = copy.copy(x), copy.copy(y)
     return line
 
 

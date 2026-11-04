@@ -14,7 +14,7 @@ from ..._artist_kwargs import keep_program_picker
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
-from ._helpers import floats, keep_unit_data, line_data, line_kwargs, wrap
+from ._helpers import floats, keep_data, line_data, line_kwargs, wrap
 
 
 def _span_geometry(patch, x, y, width, height):
@@ -240,7 +240,7 @@ class LinesMixin:
             whole = _format_color(fmt)
             mlines._remember_given(
                 line, props if whole is None else {"color": whole, **props})
-            lines.append(keep_unit_data(line, x, y))
+            lines.append(keep_data(line, x, y))
         return lines
 
     def axhline(self, y=0, xmin=0, xmax=1, **kwargs):

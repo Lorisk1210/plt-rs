@@ -1,5 +1,6 @@
 //! Test outcomes: what the pytest plugin records, and the committed
-//! `spec/mpl-suite/<mode>.json` they are merged into.
+//! outcome files they are merged into (`spec/mpl-suite/<mode>.json`,
+//! `spec/ecosystem/<mode>.json`).
 //!
 //! The plugin (`python/mpl_suite/mpl_suite_report.py`) writes one JSON
 //! object per line: `{"id", "outcome", "reason"}` per test and
@@ -69,7 +70,7 @@ impl FromStr for Outcome {
 
 /// The outcomes of a run, or of all runs merged.
 #[derive(Clone, Debug, Default)]
-pub(super) struct Outcomes {
+pub(crate) struct Outcomes {
     /// The outcome of each test id.
     pub(super) tests: BTreeMap<String, Outcome>,
     /// Why each test that did not pass ended as it did (not committed).
@@ -123,7 +124,7 @@ impl Outcomes {
 
     /// Reads a committed outcome file and, if it exists, the details file
     /// with the reasons; a missing outcome file reads as no outcomes.
-    pub(super) fn load(path: &Path, details: &Path) -> Result<Self, String> {
+    pub(crate) fn load(path: &Path, details: &Path) -> Result<Self, String> {
         let mut outcomes = Self::default();
         let Ok(text) = std::fs::read_to_string(path) else {
             return Ok(outcomes);
@@ -146,7 +147,7 @@ impl Outcomes {
 
     /// Replaces everything recorded for the test files `run` covers, and
     /// for the files `ran_files` names, by what `run` found.
-    pub(super) fn merge(&mut self, run: Self, ran_files: &[String]) {
+    pub(crate) fn merge(&mut self, run: Self, ran_files: &[String]) {
         let replaced = |id: &str| {
             let file = file_of(id);
             ran_files.iter().any(|ran| ran == file) || run.covers_file(file)
@@ -179,10 +180,21 @@ impl Outcomes {
         counts
     }
 
-    /// Writes the committed outcome file and the details file.
-    pub(super) fn save(&self, path: &Path, details: &Path) -> Result<(), String> {
+    /// Writes the committed outcome file, which first names the
+    /// `versions` of the packages under test (`("matplotlib", "3.11.2")`),
+    /// and the details file.
+    pub(crate) fn save(
+        &self,
+        path: &Path,
+        details: &Path,
+        versions: &[(&str, &str)],
+    ) -> Result<(), String> {
         let counts = self.counts();
-        let mut text = String::from("{\n  \"matplotlib\": \"3.11.2\",\n  \"counts\": {");
+        let mut text = String::from("{\n");
+        for (package, version) in versions {
+            let _ = writeln!(text, "  {}: {},", quoted(package), quoted(version));
+        }
+        text.push_str("  \"counts\": {");
         let counts: Vec<String> = Outcome::ALL
             .iter()
             .map(|o| format!("{}: {}", quoted(o.name()), counts.get(o).unwrap_or(&0)))
@@ -312,7 +324,11 @@ mod tests {
             .insert("f.py::a\"q".into(), "why\nnot".into());
         outcomes.collection_errors.insert("g.py".into(), "E".into());
         let (path, details) = (dir.join("o.json"), dir.join("d.json"));
-        outcomes.save(&path, &details).unwrap();
+        outcomes
+            .save(&path, &details, &[("matplotlib", "3.11.2")])
+            .unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.starts_with("{\n  \"matplotlib\": \"3.11.2\",\n  \"counts\": {"));
         let loaded = Outcomes::load(&path, &details).unwrap();
         assert_eq!(loaded.tests, outcomes.tests);
         assert_eq!(loaded.reasons, outcomes.reasons);

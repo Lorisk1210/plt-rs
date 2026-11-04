@@ -34,20 +34,28 @@ pub(crate) struct AxisUnits {
     /// The unit, once one was set or picked for user values (matplotlib's
     /// `units`).
     pub(crate) unit: Option<Unit>,
+    /// Whether the converter was taken over from an axis this one shares
+    /// (after values were converted there, or by a twin) rather than set
+    /// on this axis: matplotlib's shared axes share their units and tick
+    /// helpers, while each one's `get_converter` gives the converter set
+    /// on it alone.
+    pub(crate) inherited: bool,
 }
 
 pltrs_core::archive_struct!(AxisUnits {
     converter,
     explicit,
-    unit
+    unit,
+    inherited
 });
 
 impl AxisUnits {
     /// Takes `converter` unless another one was set explicitly
     /// (matplotlib's `_set_converter` from `update_units`); returns whether
     /// the converter changed (`update_units`' `neednew`), which is when
-    /// its tick helpers are set up.
+    /// its tick helpers are set up. The converter is the axis' own then.
     pub(crate) fn adopt(&mut self, converter: UnitConverter) -> bool {
+        self.inherited = false;
         if self.explicit || self.converter.as_ref() == Some(&converter) {
             return false;
         }
@@ -57,9 +65,28 @@ impl AxisUnits {
 
     /// The converter, which is `converter` when there was none
     /// (matplotlib's `Axis.convert_units`, which sets the converter of
-    /// the values it converts only on an axis without one).
+    /// the values it converts only on an axis without one), the axis'
+    /// own from then on.
     pub(crate) fn converter_or(&mut self, converter: UnitConverter) -> UnitConverter {
+        self.inherited = false;
         self.converter.get_or_insert(converter).clone()
+    }
+
+    /// The converter set on the axis itself (matplotlib's
+    /// `get_converter`): none for one taken over from an axis it shares.
+    pub(crate) fn own_converter(&self) -> Option<&UnitConverter> {
+        self.converter.as_ref().filter(|_| !self.inherited)
+    }
+
+    /// These units as a twin takes them over (matplotlib's `twinx` gives
+    /// the twin the units of the shared axis, not its converter).
+    pub(crate) fn for_twin(&self) -> Self {
+        Self {
+            converter: self.converter.clone(),
+            explicit: false,
+            unit: self.unit.clone(),
+            inherited: self.converter.is_some(),
+        }
     }
 
     /// The time zone of date ticks when the unit is one, as matplotlib's
@@ -80,6 +107,7 @@ impl AxisUnits {
         }
         self.converter = Some(converter);
         self.explicit = true;
+        self.inherited = false;
         true
     }
 }
@@ -193,13 +221,31 @@ pub(crate) trait UnitState {
     /// of its own. Converters of user values are not shared: matplotlib
     /// shares their units through `set_units` alone.
     fn share_units(&mut self, (units, categories): &UnitData) {
+        self.as_sharing_axis(|state| state.take_shared_units(units, categories.as_ref()));
+    }
+
+    /// Runs `f`, which gives the axis the converter of an axis it shares:
+    /// unless the axis had a converter of its own, the one it has after
+    /// is inherited (see [`AxisUnits::inherited`]).
+    fn as_sharing_axis(&mut self, f: impl FnOnce(&mut Self)) {
+        let own = self.units().own_converter().is_some();
+        f(self);
+        if !own {
+            let units = self.units_mut();
+            units.inherited = units.converter.is_some();
+        }
+    }
+
+    /// The part of [`share_units`](Self::share_units) taking `units` and
+    /// `categories` over.
+    fn take_shared_units(&mut self, units: &AxisUnits, categories: Option<&Categories>) {
         match &units.converter {
             Some(converter @ (UnitConverter::Dates | UnitConverter::DatesBy(_))) => {
                 self.adopt_dates(converter.clone());
             }
             Some(UnitConverter::Categories) => {
                 self.units_mut().adopt(UnitConverter::Categories);
-                self.categories_mut().clone_from(categories);
+                *self.categories_mut() = categories.cloned();
                 self.use_category_tickers();
             }
             Some(UnitConverter::Custom(_)) | None => {}
@@ -260,8 +306,24 @@ pub(crate) trait UnitHandle: Sized {
         self.read_state(|state| state.units().converter.clone())
     }
 
-    /// Whether the axis has a unit converter or a unit (matplotlib's
-    /// `have_units`).
+    /// The converter set on the axis itself (see
+    /// [`AxisUnits::own_converter`]).
+    fn own_converter(&self) -> Option<UnitConverter> {
+        self.read_state(|state| state.units().own_converter().cloned())
+    }
+
+    /// Whether the axis has a converter of its own, a unit or category
+    /// names (matplotlib's `have_units`: a converter or `units`, which a
+    /// categorical axis shares with the axes sharing it).
+    fn has_own_units(&self) -> bool {
+        self.read_state(|state| {
+            state.units().own_converter().is_some()
+                || state.units().unit.is_some()
+                || state.categories().is_some()
+        })
+    }
+
+    /// Whether the axis has a unit converter or a unit.
     fn has_units(&self) -> bool {
         self.read_state(|state| state.units().converter.is_some() || state.units().unit.is_some())
     }

@@ -304,6 +304,12 @@ pltrs (Python) is measured three ways:
   aliased to pltrs: it passes all 9,427 tests that pass under real
   matplotlib on the same machine (`cargo xtask mpl-suite`; the outcomes
   per test are in `spec/mpl-suite/`).
+* **pandas' and seaborn's own test suites** (pandas 3.1's plotting tests
+  and seaborn 0.13's whole suite, from their sdists), run unchanged with
+  `matplotlib` aliased to pltrs: every one of the 3,874 tests that pass
+  under real matplotlib passes, and every other test ends as it does
+  there (`cargo xtask ecosystem suite`; the outcomes per test are in
+  `spec/ecosystem/`).
 * **A differential tester** (`cargo xtask diff`): it runs matplotlib's
   gallery and programs generated from its API under both and compares
   every value, type, exception, warning, printed line and figure. Every

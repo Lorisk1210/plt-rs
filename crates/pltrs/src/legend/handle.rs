@@ -6,6 +6,7 @@ use std::any::Any;
 use std::fmt;
 use std::rc::Rc;
 
+use super::artist::LegendArtist;
 use super::handlers::{HandlerKey, HandlerMap, LegendHandler, TypeKey};
 use super::made::MadeArtists;
 use crate::artist::{
@@ -325,8 +326,28 @@ impl LegendHandle {
     /// `HandlerPatch` draws it. `None` for another artist made outside any
     /// figure (a step patch, whose handler draws it otherwise, included),
     /// which no legend can show.
+    ///
+    /// An artist removed from its figure, or one a legend draws (the
+    /// handle of one of its entries), is a proxy drawn as it is now too:
+    /// matplotlib's legends copy the look of their handles
+    /// (`update_from`), so a legend made of another's handles shows them
+    /// after that one is removed (seaborn's `move_legend`).
+    ///
+    /// ```
+    /// use pltrs::legend::{LegendHandle, LegendOptions};
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("a"))?;
+    /// let old = ax.legend(LegendOptions::default())?;
+    /// let handles: Vec<_> = old.handles().iter().flatten().filter_map(LegendHandle::of_artist).collect();
+    /// old.remove();
+    /// let new = ax.legend(LegendOptions::default().handles(handles).labels(["A".to_owned()]))?;
+    /// assert_eq!(new.labels(), ["A"]);
+    /// assert!(new.handles()[0].is_some());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn of_artist(artist: &RawHandle) -> Option<Self> {
-        if !artist.is_loose() {
+        if !artist.is_loose() && artist.is_attached() && !drawn_by_legend(artist) {
             return Some(Self(Source::Artist(artist.id())));
         }
         let state = artist.figure_state().borrow();
@@ -373,6 +394,16 @@ impl LegendHandle {
             _ => None,
         }
     }
+}
+
+/// Whether `artist` is a part of a legend (a handle it draws, a text).
+fn drawn_by_legend(artist: &RawHandle) -> bool {
+    let state = artist.figure_state().borrow();
+    state
+        .artist(artist.id())
+        .and_then(|part| part.base().parent)
+        .and_then(|parent| state.artist(parent))
+        .is_some_and(|parent| downcast_ref::<LegendArtist>(parent).is_some())
 }
 
 impl<T: ArtistHandle> From<&T> for LegendHandle {

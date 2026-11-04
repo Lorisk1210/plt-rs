@@ -1,11 +1,20 @@
-//! Lookup of matplotlib's named colours.
+//! Lookup of matplotlib's named colours, and the names a program gives
+//! colours or takes away (matplotlib's `_colors_full_map` changed).
 
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::OnceLock;
 
 use pltrs_core::Rgba;
 
 use super::named_data::{BASE, CSS4, TABLEAU, XKCD};
+
+pltrs_core::thread_state! {
+    /// The names the program changed, over the tables: their colour, or
+    /// `None` for a name taken away.
+    static PROGRAM_NAMES: RefCell<BTreeMap<String, Option<Rgba>>> =
+        const { RefCell::new(BTreeMap::new()) };
+}
 
 /// A named colour as matplotlib's tables store it.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -55,16 +64,46 @@ fn full_map() -> &'static HashMap<String, NamedColor> {
 }
 
 /// Looks up a named colour exactly as matplotlib does: the name as given,
-/// then (for names longer than one character) its lowercase form.
+/// then (for names longer than one character) its lowercase form, each
+/// as the program named it ([`set_color_name`]), else in the tables.
 pub(super) fn lookup(name: &str) -> Option<Rgba> {
-    let map = full_map();
-    map.get(name)
-        .or_else(|| {
-            (name.chars().count() != 1)
-                .then(|| map.get(&name.to_lowercase()))
-                .flatten()
-        })
-        .map(|color| color.rgba())
+    let find = |key: &str| {
+        PROGRAM_NAMES
+            .with_borrow(|names| names.get(key).copied())
+            .unwrap_or_else(|| full_map().get(key).map(|color| color.rgba()))
+    };
+    find(name).or_else(|| {
+        (name.chars().count() != 1)
+            .then(|| find(&name.to_lowercase()))
+            .flatten()
+    })
+}
+
+/// Names `color` `name` on this thread, over the tables, or takes the
+/// name away with `None` (matplotlib's `_colors_full_map[name] = color`
+/// and `del _colors_full_map[name]`; seaborn's `set_color_codes` gives
+/// `"b"`, `"g"` ... the colours of a palette).
+///
+/// ```
+/// use pltrs::colors::{Color, set_color_name};
+/// use pltrs_core::Rgba;
+/// let muted = Rgba::opaque(0.28, 0.47, 0.81);
+/// set_color_name("b", Some(muted));
+/// assert_eq!("b".parse::<Color>()?.resolve()?, muted);
+/// set_color_name("b", None);
+/// assert!("b".parse::<Color>().is_err());
+/// pltrs::colors::reset_color_names();
+/// assert_eq!("b".parse::<Color>()?.resolve()?, Rgba::opaque(0.0, 0.0, 1.0));
+/// # Ok::<(), pltrs::colors::ColorError>(())
+/// ```
+pub fn set_color_name(name: &str, color: Option<Rgba>) {
+    PROGRAM_NAMES.with_borrow_mut(|names| names.insert(name.to_owned(), color));
+}
+
+/// Forgets the names the program changed ([`set_color_name`]): the
+/// tables name every colour again.
+pub fn reset_color_names() {
+    PROGRAM_NAMES.with_borrow_mut(BTreeMap::clear);
 }
 
 /// Every named colour (name, colour), for listing and table probes.

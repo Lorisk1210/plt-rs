@@ -10,7 +10,7 @@ from ... import _values, cbook, collections as mcoll, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import ErrorbarContainer
-from ._helpers import (keep_unit_data, line_data, line_kwargs, record_container, wrap,
+from ._helpers import (keep_data, line_data, line_kwargs, record_container, wrap,
                        wrap_all)
 
 
@@ -218,10 +218,10 @@ class ErrorbarMixin:
         caplines = wrap_all(self, caplines, mlines.Line2D)
         data_line = wrap(self, data_line, mlines.Line2D)
         if data_line is not None:
-            keep_unit_data(data_line, x, y)
+            keep_data(data_line, x, y)
         for capline, (cap_x, cap_y) in zip(
                 caplines, _cap_data(x, y, (xerr, yerr), flags, everymask, capsize)):
-            keep_unit_data(capline, cap_x, cap_y)
+            keep_data(capline, cap_x, cap_y)
             # The caps' markers take the colour of the lines, as given
             # (without a data line, the one given or matplotlib's 'C0').
             cap_color = (ecolor if ecolor is not None

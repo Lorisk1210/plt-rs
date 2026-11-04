@@ -11,6 +11,10 @@ constants and the weekdays ``MO`` ... ``SU`` are defined here, and accept
 """
 
 import datetime
+import functools
+import importlib.resources
+import os
+import zoneinfo
 
 import numpy as np
 
@@ -95,13 +99,17 @@ def _num2date(x, tz):
 
 def _native_tz(tz):
     """
-    The time zone *tz* as pltrs (Rust) takes it: its IANA name, or its
-    offset from UTC in seconds.
+    The time zone *tz* as pltrs (Rust) takes it: its IANA name (with the
+    data `zoneinfo` reads for it, as a pair), or its offset from UTC in
+    seconds.
     """
     if tz is datetime.timezone.utc:
         return 'UTC'
-    for name in (getattr(tz, 'key', None),        # zoneinfo
-                 getattr(tz, 'zone', None),       # pytz
+    key = getattr(tz, 'key', None)
+    if isinstance(key, str):  # zoneinfo
+        data = _zoneinfo_data(key)
+        return key if data is None else (key, data)
+    for name in (getattr(tz, 'zone', None),       # pytz
                  getattr(tz, '_filename', None)):  # dateutil.tz.tzfile
         if isinstance(name, str):
             return name
@@ -109,6 +117,26 @@ def _native_tz(tz):
     if offset is None:
         raise ValueError(f"pltrs cannot place ticks in the time zone {tz!r}")
     return int(offset.total_seconds())
+
+
+@functools.cache
+def _zoneinfo_data(key):
+    """
+    The ``TZif`` data `zoneinfo` reads for the zone *key*: the first file
+    of `zoneinfo.TZPATH`, else the `tzdata` package's (where a system's
+    database lacks old names such as ``US/Pacific``), None for neither.
+    """
+    for directory in zoneinfo.TZPATH:
+        path = os.path.join(directory, key)
+        if os.path.isfile(path):
+            with open(path, 'rb') as file:
+                return file.read()
+    *packages, resource = key.split('/')
+    try:
+        return importlib.resources.files(
+            '.'.join(['tzdata.zoneinfo', *packages])).joinpath(resource).read_bytes()
+    except (ImportError, OSError):
+        return None
 
 
 def _parts(dt):

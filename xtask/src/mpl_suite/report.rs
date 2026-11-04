@@ -29,7 +29,7 @@ struct FileRow {
 /// Prints the outcome counts of the reference run and, per test file,
 /// how many of its tests pass there and how many of those pass under
 /// pltrs (`pltrs`, when it has run), then the blockers.
-pub(super) fn print(reference: &Outcomes, pltrs: Option<&Outcomes>, failures: bool) {
+pub(crate) fn print(reference: &Outcomes, pltrs: Option<&Outcomes>, failures: bool) {
     print_counts("reference", reference);
     let Some(pltrs) = pltrs else {
         print_files(reference, &rows(reference, None));

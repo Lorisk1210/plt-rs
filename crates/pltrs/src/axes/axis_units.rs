@@ -71,13 +71,18 @@ impl UnitHandle for Axis {
     fn set_up_categories(&self) {
         for axis in self.sharing() {
             axis.default_intervals_read();
-            axis.update(|state| {
+            let set_up = |state: &mut AxisState| {
                 state.units_mut().adopt(UnitConverter::Categories);
                 state
                     .categories_mut()
                     .get_or_insert_with(Categories::default);
                 state.use_category_tickers();
-            });
+            };
+            if axis.axes == self.axes {
+                axis.update(set_up);
+            } else {
+                axis.update(|state| state.as_sharing_axis(set_up));
+            }
             axis.units_changed();
         }
         self.default_intervals_read();
@@ -162,6 +167,29 @@ impl Axis {
         self.current_converter()
     }
 
+    /// The converter set on this axis itself, by values converted on it
+    /// or explicitly (matplotlib's `get_converter`): `None` for the
+    /// [`converter`](Self::converter) an axis takes over from an axis it
+    /// shares, after values were converted there or as a twin, since
+    /// matplotlib's shared axes share their units and tick helpers but
+    /// not their converters.
+    ///
+    /// ```
+    /// use pltrs::figure::{Figure, Share};
+    /// use pltrs::units::UnitConverter;
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots_shared(2, 1, Share::All, Share::None)?;
+    /// axs[(0, 0)].plot(vec!["a", "b"], [1.0, 2.0])?;
+    /// let shared = axs[(1, 0)].xaxis();
+    /// assert_eq!(shared.converter(), Some(UnitConverter::Categories));
+    /// assert_eq!(shared.own_converter(), None);
+    /// assert_eq!(axs[(0, 0)].xaxis().own_converter(), Some(UnitConverter::Categories));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn own_converter(&self) -> Option<UnitConverter> {
+        UnitHandle::own_converter(self)
+    }
+
     /// Sets the unit converter explicitly (matplotlib's `set_converter`):
     /// values plotted later no longer change it, though each is still
     /// converted as its own kind. Like matplotlib, this leaves the tick
@@ -221,10 +249,11 @@ impl Axis {
         self.read(|axis| axis.categories().cloned())
     }
 
-    /// Whether the axis has a unit converter or a unit (matplotlib's
-    /// `have_units`).
+    /// Whether the axis has a unit converter of its own, a unit or
+    /// category names (matplotlib's `have_units`; see
+    /// [`own_converter`](Self::own_converter)).
     pub fn have_units(&self) -> bool {
-        self.has_units()
+        self.has_own_units()
     }
 
     /// Ticks the axis as an axis of dates without plotting any
@@ -529,6 +558,8 @@ mod tests {
         });
         top.set_xlim(0.0, 30.0).expect("finite limits");
         assert_eq!(bottom.xaxis().converter(), Some(UnitConverter::Dates));
+        assert_eq!(bottom.xaxis().own_converter(), None);
+        assert!(!bottom.xaxis().have_units(), "matplotlib's shared axes");
         let ticks = bottom.ticks(AxisName::X).unwrap();
         assert!(ticks.major[0].label.starts_with("1970-"), "date ticks");
         assert!(!bottom.yaxis().have_units(), "only the shared axis");

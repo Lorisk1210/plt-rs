@@ -77,6 +77,29 @@ impl Axes {
         self.in_same_figure(ids)
     }
 
+    /// The axes whose axis `name` this one shares (matplotlib's `_sharex`
+    /// and `_sharey`): the one given to [`Axes::share_x`] or
+    /// [`Axes::share_y`], or as `sharex=` / `sharey=` when it was made;
+    /// `None` for an axis it shares with none, or only lends to others.
+    ///
+    /// ```
+    /// use pltrs::figure::{Figure, Share};
+    /// use pltrs::ticker::AxisName;
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
+    /// assert_eq!(axs[(0, 1)].shared_from(AxisName::Y), Some(axs[(0, 0)].clone()));
+    /// assert_eq!(axs[(0, 0)].shared_from(AxisName::Y), None);
+    /// assert_eq!(axs[(0, 1)].shared_from(AxisName::X), None);
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    pub fn shared_from(&self, name: AxisName) -> Option<Self> {
+        let id = self.raw.with::<AxesState, _>(|axes| match name {
+            AxisName::X => axes.shares.0,
+            AxisName::Y => axes.shares.1,
+        })?;
+        self.in_same_figure(vec![id]).pop()
+    }
+
     /// The axes `ids` of this axes' figure.
     pub(crate) fn in_same_figure(&self, ids: Vec<ArtistId>) -> Vec<Self> {
         let figure = self.raw.figure_state();

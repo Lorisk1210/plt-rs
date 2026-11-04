@@ -264,6 +264,20 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         _api.check_isinstance(_AxesBase, other=other)
         _axes_base.share(self._native, "y", other._native)
 
+    @property
+    def _sharex(self):
+        """The Axes whose x-axis this one shares (``sharex=``), or None."""
+        return self._shared_from("x")
+
+    @property
+    def _sharey(self):
+        """The Axes whose y-axis this one shares (``sharey=``), or None."""
+        return self._shared_from("y")
+
+    def _shared_from(self, name):
+        native = _axes_base.shared_from(self._native, name)
+        return None if native is None else _handles.wrap(native, type(self), self.figure)
+
     def get_shared_x_axes(self):
         """Return an immutable view on the shared x-axes Grouper."""
         return self._shared_axes["x"]

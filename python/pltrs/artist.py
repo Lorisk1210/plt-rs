@@ -307,6 +307,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         _artist.set_alpha(self._native, alpha)
         self.pchanged()
 
+    @property
+    def _alpha(self):
+        """The alpha set on the artist, None for none (matplotlib's
+        ``_alpha``, which `set_alpha` sets)."""
+        return self.get_alpha()
+
     def _set_alpha_for_array(self, alpha):
         """
         Set the alpha value used for blending - not supported on all backends.

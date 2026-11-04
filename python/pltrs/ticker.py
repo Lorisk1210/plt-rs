@@ -113,8 +113,18 @@ class TickHelper:
     #: asks the helper about it (see `Formatter._label_axis`).
     _drawn_axis = None
 
+    #: Whether the helper places its ticks among the axis' major ones, which
+    #: only then are asked of a program's axis (whose ``get_majorticklocs``
+    #: may call the major locator, as seaborn's legends' axes do).
+    _reads_major_ticks = False
+
     def _axis_info(self):
-        """The native description of the helper's axis, or None."""
+        """
+        The native description of the helper's axis, or None. A stand-in
+        axis of the program's lacking some of `Axis`'s methods (one giving
+        only ``get_view_interval``, as seaborn's legends make) answers the
+        others as `_DummyAxis()` does.
+        """
         if self._drawn_axis is not None:
             return self._drawn_axis
         axis = self.axis
@@ -124,14 +134,27 @@ class TickHelper:
         if native_info is not None:
             return native_info()
         scale = axis.get_scale() if hasattr(axis, "get_scale") else "linear"
+        if not isinstance(scale, str):
+            # A stand-in's scale object (seaborn's), as its name.
+            scale = getattr(scale, "name", "linear")
         transform = getattr(getattr(axis, "_scale", None), "_transform", None)
         major = (axis.get_majorticklocs()
-                 if hasattr(axis, "get_majorticklocs") else [])
+                 if self._reads_major_ticks and hasattr(axis, "get_majorticklocs")
+                 else [])
+
+        def asked(name, default):
+            method = getattr(axis, name, None)
+            return default if method is None else method()
+
+        # A data interval the axis does not know yet (seaborn's stand-ins
+        # start at ``(None, None)``) is NaN, which only `IndexLocator` reads.
+        data_interval = tuple(np.nan if value is None else float(value)
+                              for value in asked("get_data_interval", (0, 1)))
         return {
             "view_interval": tuple(map(float, axis.get_view_interval())),
-            "data_interval": tuple(map(float, axis.get_data_interval())),
-            "minpos": float(axis.get_minpos()),
-            "tick_space": int(axis.get_tick_space()),
+            "data_interval": data_interval,
+            "minpos": float(asked("get_minpos", 0)),
+            "tick_space": int(asked("get_tick_space", 9)),
             "major_ticks": [float(v) for v in major],
             "scale": scale,
             "linthresh": getattr(transform, "linthresh", None),
@@ -1806,6 +1829,8 @@ class AutoMinorLocator(_NativeLocator):
 
     The Axis must use a linear scale and have evenly spaced major ticks.
     """
+
+    _reads_major_ticks = True
 
     def __init__(self, n=None):
         """

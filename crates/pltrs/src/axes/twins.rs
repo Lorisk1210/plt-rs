@@ -194,7 +194,8 @@ impl Axes {
         twin.raw.with_mut::<AxesState, _>(|axes| {
             axes.axis_mut(shared).autoscale.enabled = autoscale;
             axes.axis_mut(shared).visible = false;
-            axes.axis_mut(shared).set_unit_data(units);
+            axes.axis_mut(shared)
+                .set_unit_data((units.0.for_twin(), units.1));
             let axis = axes.axis_mut(own);
             axis.tick_to(true);
             axis.label.move_to(SpineSide::of(own, true));
@@ -270,7 +271,14 @@ mod tests {
         ax.plot(["0", "1"], ["a", "b"]).unwrap();
         let (twin_x, twin_y) = (ax.twinx().unwrap(), ax.twiny().unwrap());
         assert_eq!(twin_x.xaxis().converter(), Some(UnitConverter::Categories));
+        assert_eq!(twin_x.xaxis().own_converter(), None, "matplotlib's twins");
+        assert!(twin_x.xaxis().have_units(), "the shared category names");
         assert_eq!(twin_x.xaxis().convert_units(["1", "0"]), [1.0, 0.0]);
+        assert_eq!(
+            twin_x.xaxis().own_converter(),
+            Some(UnitConverter::Categories),
+            "converting on the twin sets its own converter"
+        );
         assert_eq!(twin_y.yaxis().convert_units(["b", "a"]), [1.0, 0.0]);
         assert!(!twin_x.yaxis().have_units());
     }

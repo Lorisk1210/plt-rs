@@ -133,7 +133,7 @@ pub(super) fn test_files(site: &Path) -> Result<Vec<String>, String> {
 
 /// Copies a test package from the sdist to `dest` unless the copy is
 /// already there.
-fn copy_tests(from: &Path, dest: &Path) -> Result<(), String> {
+pub(crate) fn copy_tests(from: &Path, dest: &Path) -> Result<(), String> {
     let stamp = dest.join(STAMP);
     let source = from.display().to_string();
     if fs::read_to_string(&stamp).is_ok_and(|copied| copied == source) {
@@ -147,7 +147,7 @@ fn copy_tests(from: &Path, dest: &Path) -> Result<(), String> {
 /// Replaces the links in the directory `dest` by links to every entry of
 /// `source` but those named in `skip` and byte-code caches (none if
 /// `source` is missing or empty), leaving what is not a link alone.
-fn relink(source: &Path, dest: &Path, skip: &[&str]) -> Result<(), String> {
+pub(crate) fn relink(source: &Path, dest: &Path, skip: &[&str]) -> Result<(), String> {
     fs::create_dir_all(dest).map_err(|err| format!("{}: {err}", dest.display()))?;
     remove_links(dest)?;
     let Ok(entries) = fs::read_dir(source) else {

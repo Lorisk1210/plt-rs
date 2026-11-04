@@ -205,7 +205,7 @@ mod tests {
         callable: &Bound<'py>,
     ) -> PyResult<Bound<'py>> {
         let module = eval(py, "import types", "types.ModuleType('scratch')");
-        let native = function(py, &module, "run", rust.into_body("run")).unwrap();
+        let native = function(py, &module, "run", rust.into_native("run")).unwrap();
         native.call(std::slice::from_ref(callable), &[])
     }
 

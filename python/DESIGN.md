@@ -35,6 +35,8 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     function.rs                 native functions from plain Rust functions
     module.rs                   the extension module and its submodules
     callback.rs                 Callback: Python called from pltrs (Rust)
+    reentrant.rs                changes made while their figure is in use, applied after
+    deferred.rs                 work Python leaves to the next native call (line data)
     registry.rs                 Python objects registered for native code
     threads.rs                  every thread holding the GIL uses every object
     home.rs                     other threads' calls on windows, run by the main thread
@@ -736,10 +738,33 @@ must refer back to Python objects that can reach it (an event callback
 holding its figure) must hold them weakly, or the cycle runs through Rust
 where Python's garbage collector cannot see it.
 
-pltrs (Rust)'s rule that code run while a figure is laid out or drawn cannot
-use the figure's handles (it would re-borrow the figure) applies to
-Python callbacks too: a native call made from such a callback that touches
-the same figure panics, which arrives as the `RuntimeError` above.
+Code pltrs (Rust) runs while it lays a figure out or draws it (a
+formatter, a locator, a transform, a norm, a path effect, the text
+measurer) finds the figure in use: borrowed for change while it is laid
+out, for reading while it is drawn. matplotlib's may still change it, so a
+native call made from such code (any native call made while another
+native call of its thread runs) runs inside `pltrs::figure::reenter`,
+which stops it where it reaches the figure in use, instead of letting the
+`RefCell` panic (`binding/function.rs`, `binding/reentrant.rs`):
+
+* a native function returning nothing (a change: `set_color`, `set_text`,
+  `set_visible`...) is queued with its arguments and called again when the
+  thread's outermost native call ends, the figure free: matplotlib's change,
+  applied once the draw is done. Its exception is raised from that call.
+  The same call queued again (a path effect run for every marker) takes
+  its last place; changes queuing others are made in rounds, which end when
+  a round queues exactly itself again (a `relim` running a transform that
+  calls `relim`) and raise `RecursionError` after 64;
+* any other native function raises `RuntimeError` saying the figure is in
+  use: a read while the figure is laid out (a formatter calling
+  `ax.get_xlim()`), or a change returning what it changed (`set_title`
+  returns the title) while it is drawn or laid out.
+
+Reads while the figure is drawn work, so reading a view limit borrows the
+figure for change only when autoscaling is pending
+(`FigureState::view_is_stale`). Event callbacks (`draw_event`, limit
+changes), `draw` overrides and the program's axes locators run with the
+figure free, as in matplotlib.
 
 Some parts matplotlib keeps as artists of their own are drawn by pltrs
 (Rust) as parts of their artist: a text's box (`Text.get_bbox_patch()`)

@@ -95,9 +95,8 @@ impl FigureState {
         }
         for (title, (x, halign)) in titles.into_iter().zip(TITLE_PLACES) {
             if let Some(text) = self.artist_as_mut::<TextArtist>(title) {
-                let parent = text.base().parent;
-                *text = axes_title(id, x, halign, &rc);
-                text.base_mut().parent = parent;
+                let old = std::mem::replace(text, axes_title(id, x, halign, &rc));
+                text.base_mut().take_place_of(old.base());
             }
         }
         for spine in spines {
@@ -160,7 +159,7 @@ impl Axes {
 mod tests {
     use crate::axes::{AxisName, ProjectionKind, TickParams, TitleLocation};
     use crate::colors::Color;
-    use crate::figure::Figure;
+    use crate::figure::{Figure, SaveError};
 
     #[test]
     fn clearing_starts_over_in_place() {
@@ -181,6 +180,19 @@ mod tests {
         // The colour cycle restarts.
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(line.rgba(), crate::colors::Color::from("C0").resolve());
+    }
+
+    #[test]
+    fn titles_keep_their_place_through_a_clear() {
+        // Found by fuzzing: a title reset by `cla` lost its id, so a draw
+        // reporting malformed mathtext in it panicked.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.clear();
+        ax.set_title("$$");
+        assert!(matches!(fig.to_png(), Err(SaveError::Draw(_))));
+        ax.set_title("fine");
+        fig.to_png().expect("draws");
     }
 
     #[test]

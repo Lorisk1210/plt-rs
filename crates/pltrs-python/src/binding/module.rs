@@ -64,8 +64,8 @@ impl<'py> Module<'py> {
         name: &'static str,
         rust: impl IntoNative<Args>,
     ) -> PyResult<()> {
-        let body = rust.into_body(name);
-        let object = function(self.py(), &self.module, name, body)?;
+        let native = rust.into_native(name);
+        let object = function(self.py(), &self.module, name, native)?;
         self.add_object(name, object)
     }
 

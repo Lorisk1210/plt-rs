@@ -130,18 +130,38 @@ impl FigureState {
     /// following its host takes the host's limits instead.
     pub(crate) fn unstale_axes(&mut self, axes: ArtistId) {
         self.sync_parasite(axes);
-        let need = AXES.map(|name| {
-            self.siblings(name, axes).into_iter().any(|id| {
-                self.axes_state(id)
-                    .is_some_and(|state| state.axis(name).autoscale.stale)
-            })
-        });
+        let need = AXES.map(|name| self.autoscale_is_stale(axes, name));
         for (name, _) in AXES.into_iter().zip(need).filter(|(_, need)| *need) {
             self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
         }
         for (name, _) in AXES.into_iter().zip(need).filter(|(_, need)| *need) {
             self.autoscale_axis(axes, name);
         }
+    }
+
+    /// Whether [`FigureState::unstale_axes`] has anything to do for
+    /// `axes`: a parasite following its host, an axis to rescale, or limit
+    /// changes whose callbacks have yet to run. Reading the view limits of
+    /// a figure being drawn then needs no change to it.
+    pub(crate) fn view_is_stale(&self, axes: ArtistId) -> bool {
+        let follows_host = self
+            .axes_state(axes)
+            .and_then(|state| state.parasite)
+            .is_some_and(|parasite| parasite.follows_host_view());
+        follows_host
+            || AXES
+                .into_iter()
+                .any(|name| self.autoscale_is_stale(axes, name))
+            || self.limit_callbacks.has_pending()
+    }
+
+    /// Whether axis `name` of `axes`, or of an axes sharing it, changed
+    /// since it was last autoscaled.
+    fn autoscale_is_stale(&self, axes: ArtistId, name: AxisName) -> bool {
+        self.siblings(name, axes).into_iter().any(|id| {
+            self.axes_state(id)
+                .is_some_and(|state| state.axis(name).autoscale.stale)
+        })
     }
 
     /// matplotlib's `autoscale_view` for one axis of `axes`.

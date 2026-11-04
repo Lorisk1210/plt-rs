@@ -4,6 +4,7 @@
 use std::cell::{BorrowError, BorrowMutError, Cell, Ref, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
+use super::in_use::{self, Access};
 use super::{Figure, FigureState};
 use crate::artist::{ArtistId, RawHandle};
 
@@ -37,9 +38,13 @@ impl FigureCell {
         }
     }
 
-    /// Read access to the state (as [`RefCell::borrow`]).
+    /// Read access to the state (as [`RefCell::borrow`]); a state that
+    /// code further up the call stack changes is reached as
+    /// [`in_use::reached`] says.
     pub(crate) fn borrow(&self) -> Ref<'_, FigureState> {
-        self.state.borrow()
+        self.state
+            .try_borrow()
+            .unwrap_or_else(|_| in_use::reached(Access::Read))
     }
 
     /// Read access to the state, unless it is borrowed for change.
@@ -48,10 +53,15 @@ impl FigureCell {
     }
 
     /// Write access to the state (as [`RefCell::borrow_mut`]), which
-    /// counts as a change.
+    /// counts as a change; a state that code further up the call stack
+    /// uses is reached as [`in_use::reached`] says.
     pub(crate) fn borrow_mut(&self) -> RefMut<'_, FigureState> {
+        let state = self
+            .state
+            .try_borrow_mut()
+            .unwrap_or_else(|_| in_use::reached(Access::Change));
         self.changed();
-        self.state.borrow_mut()
+        state
     }
 
     /// Write access to the state, unless it is borrowed; a change when

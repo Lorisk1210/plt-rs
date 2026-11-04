@@ -104,6 +104,14 @@ pltrs_core::archive_struct!(Parasite {
     twin
 });
 
+impl Parasite {
+    /// Whether its view limits follow its host's (see
+    /// [`FigureState::sync_parasite`]).
+    pub(crate) fn follows_host_view(&self) -> bool {
+        self.view_map.is_some()
+    }
+}
+
 /// An axes that can carry parasite axes (matplotlib's `HostAxes`, made by
 /// `host_subplot` and `host_axes`). It dereferences to [`Axes`].
 ///

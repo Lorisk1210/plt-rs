@@ -26,6 +26,10 @@ pub(crate) trait FromPy<'py>: Sized {
 
 /// A Rust value that becomes a Python object (a native function's result).
 pub(crate) trait IntoPy {
+    /// Whether every value converts to `None`: what a native function
+    /// returning nothing returns.
+    const IS_NONE: bool = false;
+
     /// Converts `self` into a new Python object.
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>>;
 }
@@ -67,6 +71,8 @@ impl IntoPy for &Owned {
 }
 
 impl IntoPy for () {
+    const IS_NONE: bool = true;
+
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
         Ok(Bound::none(py))
     }

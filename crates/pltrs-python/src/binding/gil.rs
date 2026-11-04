@@ -26,7 +26,7 @@ use std::sync::Mutex;
 
 use super::error::{PyErr, PyResult};
 use super::object::Bound;
-use super::{after_call, callback, threads};
+use super::{after_call, callback, reentrant, threads};
 use crate::ffi;
 
 thread_local! {
@@ -72,7 +72,13 @@ impl Python<'_> {
         let _release = (!gil_held()).then(|| Release(unsafe { ffi::PyGILState_Ensure() }));
         // SAFETY: the GIL is held: it already was, or was just taken.
         let scope = unsafe { GilScope::enter() };
-        f(scope.python())
+        let py = scope.python();
+        let result = f(py);
+        if let Some(err) = scope.apply_reentrant(py) {
+            // No native call to raise it from.
+            callback::report(err);
+        }
+        result
     }
 }
 
@@ -132,6 +138,14 @@ impl GilScope {
         }
     }
 
+    /// Makes the changes deferred while their figure was in use
+    /// ([`reentrant`]) when this is the thread's outermost scope, which no
+    /// pltrs (Rust) code of the thread runs around; returns the first
+    /// exception one raised.
+    fn apply_reentrant(&self, py: Python<'_>) -> Option<PyErr> {
+        self.outside.as_ref().and_then(|_| reentrant::apply(py))
+    }
+
     /// The token of the scope.
     #[expect(
         clippy::unused_self,
@@ -179,8 +193,10 @@ fn release_pending() {
 ///
 /// A panic becomes a `RuntimeError` instead of unwinding into C, an
 /// exception a Python callback raised meanwhile ([`callback`]) replaces
-/// the result, and a successful call ends with the work the modules left
-/// for its end ([`after_call`]).
+/// the result, the thread's outermost call makes the changes deferred
+/// meanwhile ([`reentrant`]), whose exception replaces a result too, and a
+/// successful call ends with the work the modules left for its end
+/// ([`after_call`]).
 ///
 /// # Safety
 ///
@@ -197,6 +213,12 @@ pub(crate) unsafe fn entry(
     let outcome = match errors.pop() {
         Some(raised) => Err(raised),
         None => outcome,
+    };
+    let reentered = catch_unwind(AssertUnwindSafe(|| scope.apply_reentrant(py)))
+        .unwrap_or_else(|panic| Some(PyErr::from_panic(&*panic)));
+    let outcome = match reentered {
+        Some(raised) if outcome.is_ok() => Err(raised),
+        _ => outcome,
     };
     let outcome = outcome.and_then(|object| {
         catch_unwind(AssertUnwindSafe(|| after_call::run(py)))

@@ -47,8 +47,10 @@ pub(crate) fn install(queue: Owned, flush: Owned) -> PyResult<Owned> {
 ///
 /// # Safety
 ///
-/// The GIL is held, and the thread may run Python code (it borrows no
-/// pltrs (Rust) state, as at the start of a native call).
+/// The GIL is held, and the thread may run Python code, as at the start of
+/// a native call: no Rust borrow is held across this call, and a native
+/// call the flush makes while a figure of the thread is in use stops at it
+/// (see [`reentrant`](super::reentrant)).
 pub(super) unsafe fn run() -> bool {
     let Some(deferred) = DEFERRED.get() else {
         return true;

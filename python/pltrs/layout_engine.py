@@ -96,6 +96,15 @@ class LayoutEngine:
         """
         return dict(self._params)
 
+    def __getstate__(self):
+        # The figures using the engine are not part of it: a figure read
+        # back from a pickle attaches itself again (`Figure.__setstate__`).
+        return {**self.__dict__, "_figures": None}
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._figures = weakref.WeakSet()
+
     def _attach(self, fig):
         """Become the engine of *fig*: give pltrs (Rust) its description."""
         from ._native import figure as _figure

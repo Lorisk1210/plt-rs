@@ -95,7 +95,9 @@ impl<'a> Geometry<'a> {
         (0..count)
             .filter(|&i| {
                 let path = &self.paths[i % self.paths.len()];
-                let offset = self.offsets[i % self.offsets.len()];
+                // No offsets (matplotlib's `Noffsets == 0`) leave the
+                // paths where they are.
+                let offset = cycled(&self.offsets, i).copied().unwrap_or_default();
                 let transform = cycled(&self.transforms, i)
                     .copied()
                     .unwrap_or_default()
@@ -431,6 +433,24 @@ mod tests {
             "matplotlib fades the default"
         );
         assert_eq!(resolve_hatch_colors(&square(None), &[]).unwrap()[0].a, 1.0);
+    }
+
+    #[test]
+    fn items_without_offsets_are_hit_where_their_paths_are() {
+        // Found by fuzzing: a collection whose offsets were emptied
+        // divided by zero on a pick.
+        let path = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(10.0, 0.0)]);
+        let geometry = Geometry {
+            paths: vec![path].into(),
+            master: Affine2D::IDENTITY,
+            transforms: Vec::new(),
+            offsets: Vec::new(),
+        };
+        assert_eq!(geometry.hits(Point::new(5.0, 0.0), 1.0, false), [0]);
+        assert_eq!(
+            geometry.hits(Point::new(5.0, 9.0), 1.0, false),
+            Vec::<usize>::new()
+        );
     }
 
     #[test]

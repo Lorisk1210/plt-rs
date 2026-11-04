@@ -458,10 +458,15 @@ impl Axes {
     }
 
     /// Applies pending autoscaling to the view limits, then runs the limit
-    /// callbacks it queued.
+    /// callbacks it queued; a view that is up to date is left untouched
+    /// (and the figure unborrowed for change).
     pub(crate) fn unstale_view(&self) {
-        self.raw.figure_state().borrow_mut().unstale_axes(self.id());
-        run_limit_callbacks(self.raw.figure_state());
+        let figure = self.raw.figure_state();
+        if !figure.borrow().view_is_stale(self.id()) {
+            return;
+        }
+        figure.borrow_mut().unstale_axes(self.id());
+        run_limit_callbacks(figure);
     }
 
     /// Sets the x scale by name ([`ScaleName::Log`], or its string

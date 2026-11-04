@@ -9,7 +9,9 @@
 //! least once every 2¹⁶ requests.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use super::auth::Credentials;
 use super::display::DisplayName;
@@ -34,6 +36,13 @@ const REPLY: u8 = 1;
 const KEYMAP_NOTIFY: u8 = 11;
 /// Extension events longer than 32 bytes (not selected by this crate).
 const GENERIC_EVENT: u8 = 35;
+/// How many times a connection is made before a server dropping it
+/// during its setup counts as a failure (see [`Connection::connect`]).
+const SETUP_ATTEMPTS: u32 = 6;
+/// The pause before connecting again, doubled at each attempt: the
+/// attempts span about a third of a second, which a server's reset takes
+/// a small fraction of.
+const SETUP_RETRY_PAUSE: Duration = Duration::from_millis(10);
 
 /// A raw 32-byte event.
 pub(crate) type RawEvent = [u8; MESSAGE_LEN];
@@ -100,8 +109,33 @@ pub(crate) struct Connection {
 impl Connection {
     /// Connects to the server named by `name`, authenticating with the
     /// user's Xauthority cookie, and enables BIG-REQUESTS if available.
+    ///
+    /// A server resets when its last client leaves (unless started with
+    /// `-noreset`, as Xvfb and Xorg are not by default), and closes the
+    /// connections it accepted meanwhile without a word: a program
+    /// connecting again right after closing its only connection (as
+    /// matplotlib's display checks do) can be dropped that way. A
+    /// connection dropped before its setup is done is therefore made
+    /// again, a few times, after a short pause.
     pub(crate) fn connect(name: &DisplayName) -> Result<Self, Error> {
-        let (stream, credentials) = Stream::connect(name)?;
+        Self::connect_through(|| Stream::connect(name))
+    }
+
+    /// [`Connection::connect`] over the streams `open` opens, each with
+    /// the credentials for it.
+    pub(super) fn connect_through(
+        mut open: impl FnMut() -> Result<(Stream, Option<Credentials>), Error>,
+    ) -> Result<Self, Error> {
+        let mut pause = SETUP_RETRY_PAUSE;
+        for _ in 1..SETUP_ATTEMPTS {
+            let (stream, credentials) = open()?;
+            match Self::handshake(stream, credentials.as_ref()) {
+                Err(error) if dropped_by_server(&error) => std::thread::sleep(pause),
+                connected => return connected,
+            }
+            pause *= 2;
+        }
+        let (stream, credentials) = open()?;
         Self::handshake(stream, credentials.as_ref())
     }
 
@@ -352,6 +386,19 @@ impl Drop for Connection {
     }
 }
 
+/// Whether `error` is the server closing a connection on its own: the end
+/// of the stream, or a reset, where an answer was due.
+fn dropped_by_server(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::ConnectionClosed
+            | Error::Io {
+                kind: io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted,
+                ..
+            }
+    )
+}
+
 /// The length of the message at the start of `bytes`, or `None` if it has
 /// not fully arrived.
 fn message_len(bytes: &[u8]) -> Result<Option<usize>, Error> {
@@ -417,29 +464,82 @@ mod tests {
     /// the request length to `big_requests` words if given.
     fn connect_with(big_requests: Option<u32>) -> (Connection, FakeServer) {
         let (client, server) = UnixStream::pair().unwrap();
-        let handle = thread::spawn(move || {
-            let mut server = FakeServer(server);
-            let mut setup = [0; 12];
-            server.0.read_exact(&mut setup).unwrap();
-            let auth_len = |at: usize| {
-                let len = usize::from(u16::from_le_bytes([setup[at], setup[at + 1]]));
-                len.div_ceil(4) * 4
-            };
-            let mut auth = vec![0; auth_len(6) + auth_len(8)];
-            server.0.read_exact(&mut auth).unwrap();
-            server.write(fixtures::SETUP);
-            assert_eq!(server.read_request(), 98, "QueryExtension");
-            let major = 0x85;
-            let present = big_requests.map_or(0, |_| 1 | major << 8);
-            server.write(&message(REPLY, 0, 1, &[0, present]));
-            if let Some(words) = big_requests {
-                assert_eq!(u32::from(server.read_request()), major, "BigReqEnable");
-                server.write(&message(REPLY, 0, 2, &[0, words]));
-            }
-            server
-        });
+        let handle = thread::spawn(move || serve_setup(FakeServer(server), big_requests));
         let connection = Connection::handshake(Stream::Unix(client), None).unwrap();
         (connection, handle.join().unwrap())
+    }
+
+    /// Answers the connection setup of a client, with BIG-REQUESTS
+    /// raising the request length to `big_requests` words if given.
+    fn serve_setup(mut server: FakeServer, big_requests: Option<u32>) -> FakeServer {
+        let mut setup = [0; 12];
+        server.0.read_exact(&mut setup).unwrap();
+        let auth_len = |at: usize| {
+            let len = usize::from(u16::from_le_bytes([setup[at], setup[at + 1]]));
+            len.div_ceil(4) * 4
+        };
+        let mut auth = vec![0; auth_len(6) + auth_len(8)];
+        server.0.read_exact(&mut auth).unwrap();
+        server.write(fixtures::SETUP);
+        assert_eq!(server.read_request(), 98, "QueryExtension");
+        let major = 0x85;
+        let present = big_requests.map_or(0, |_| 1 | major << 8);
+        server.write(&message(REPLY, 0, 1, &[0, present]));
+        if let Some(words) = big_requests {
+            assert_eq!(u32::from(server.read_request()), major, "BigReqEnable");
+            server.write(&message(REPLY, 0, 2, &[0, words]));
+        }
+        server
+    }
+
+    /// A server listening at a socket path of its own, which drops the
+    /// first `dropped` connections as a resetting server does, before
+    /// or after reading their setup request, then answers the next one;
+    /// returns the path's display name and the server's thread.
+    fn dropping_server(dropped: usize) -> (DisplayName, thread::JoinHandle<()>) {
+        static SERVERS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let number = SERVERS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path =
+            std::env::temp_dir().join(format!("pltrs-x11-reset-{}-{number}", std::process::id()));
+        drop(std::fs::remove_file(&path));
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let name = DisplayName::parse(path.to_str().unwrap()).unwrap();
+        let server = thread::spawn(move || {
+            for (accepted, stream) in listener.incoming().enumerate() {
+                let mut stream = stream.unwrap();
+                if accepted < dropped {
+                    if accepted % 2 == 1 {
+                        let mut setup = [0; 12];
+                        stream.read_exact(&mut setup).unwrap();
+                    }
+                    continue;
+                }
+                serve_setup(FakeServer(stream), None);
+                break;
+            }
+            std::fs::remove_file(&path).unwrap();
+        });
+        (name, server)
+    }
+
+    #[test]
+    fn connections_dropped_during_setup_are_made_again() {
+        let (name, server) = dropping_server(3);
+        let connection = Connection::connect(&name).unwrap();
+        assert_eq!(connection.setup().screens.len(), 1);
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn a_server_dropping_every_connection_is_given_up_on() {
+        let (name, server) = dropping_server(SETUP_ATTEMPTS as usize);
+        assert_eq!(
+            Connection::connect(&name).unwrap_err(),
+            Error::ConnectionClosed
+        );
+        // The server's last turn: a connection it answers.
+        Connection::connect(&name).unwrap();
+        server.join().unwrap();
     }
 
     #[test]

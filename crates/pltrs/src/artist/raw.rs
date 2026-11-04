@@ -73,8 +73,9 @@ impl RawHandle {
     /// Whether code still running uses the artist's figure now: it is
     /// being laid out, drawn or changed by a caller further up, and a
     /// change through any handle meanwhile panics, as a `RefCell` borrowed
-    /// twice does. The figure is in use while a callback it runs (a
-    /// program's formatter, say) runs.
+    /// twice does, unless it runs inside
+    /// [`reenter`](crate::figure::reenter). The figure is in use while a
+    /// callback it runs (a program's formatter, say) runs.
     ///
     /// ```
     /// use pltrs::prelude::*;

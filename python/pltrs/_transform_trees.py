@@ -211,11 +211,14 @@ def build_subfigure(sub):
     _transforms.watch_frame(sub._native)
 
 
-def build_axes(ax):
+def build_axes(ax, made=False):
     """
     Build the trees of the Axes *ax* (matplotlib's ``Axes.set_figure``
     and the ``_set_lim_and_transforms`` of its projection) and follow
-    their leaves.
+    their leaves. For an Axes being *made*, as its class' constructor
+    builds them: the trees of a subplot span its figure while
+    ``_set_lim_and_transforms`` makes them, as matplotlib's ``__init__``
+    places the Axes on its grid cell only after (``set_subplotspec``).
     """
     fig = ax.get_figure(root=False)
     root = ax._figure
@@ -232,8 +235,16 @@ def build_axes(ax):
     leaves = axes[0] if axes else None
     if leaves is not None:
         _set_axes_boxes(ax, leaves)
+    placed = None
+    if made and ax.get_subplotspec() is not None:
+        placed = d["_position"].extents, d["_originalPosition"].extents
+        set_extents(d["_position"], (0, 0, 1, 1))
+        set_extents(d["_originalPosition"], (0, 0, 1, 1))
     made_before = set(d)
     ax._set_lim_and_transforms()
+    if placed is not None:
+        set_extents(d["_position"], placed[0])
+        set_extents(d["_originalPosition"], placed[1])
     # What the projection's trees are made of besides (not pickled).
     d["_transform_trees"] = tuple(sorted(set(d) - made_before))
     ax._update_transScale()
@@ -369,8 +380,8 @@ class AxesTrees:
     _xaxis_transform = TreeAttribute()
     _yaxis_transform = TreeAttribute()
 
-    def _build_transform_trees(self):
-        build_axes(self)
+    def _build_transform_trees(self, made=False):
+        build_axes(self, made)
 
     def __getstate__(self):
         return without_trees(super().__getstate__())

@@ -20,6 +20,7 @@ from . import _background_patch
 from . import _figure_artists
 from .axes import Axes
 from .axes._base import _AxesBase
+from .axes import _sharing
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
 from ._figure_images import FigureImagesMixin
@@ -1017,6 +1018,7 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         _values.remember(self, "dpi", dpi)
         self._figure = self
         self._artists = {_artist.id(self._native): self}
+        _sharing.track(self)
         self.subfigs = []
         FigureCanvasBase(self)
         if facecolor is not None:
@@ -1485,6 +1487,7 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         read back (matplotlib's end of ``Figure.__setstate__``)."""
         from . import _pickling, _tick_helpers
         _tick_helpers.unpickled(self, tick_helper_uses)
+        _sharing.track(self)
         # discard any changes to the dpi due to pixel ratio changes
         if '_original_dpi' in self.__dict__:
             self.dpi = self._original_dpi

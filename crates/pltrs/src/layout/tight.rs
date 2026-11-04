@@ -217,6 +217,11 @@ impl FigureState {
             // rectangle, which the program's tick helpers see.
             Measured::new(self, axes, &subplot_params, None)?;
         }
+        if super::failures::failed() {
+            // The program's code failed measuring the axes, which ends
+            // matplotlib's pass there.
+            return Ok(());
+        }
         if let Some(overrides) = adjusted_params(self, &measured, params)? {
             self.set_subplot_params(subplot_params.updated(overrides)?)?;
         }

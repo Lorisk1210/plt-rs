@@ -6,11 +6,32 @@
 use pltrs::axes::{Axes, AxisName, TickLevel};
 use pltrs::figure::Figure;
 use pltrs::gridspec::GridSpec;
+use pltrs::layout::failures::{ErrorClass, Failures};
 use pltrs::layout::{LayoutEngine, TightLayout, TightLayoutError};
 use pltrs::text::{HAlign, Text};
 use pltrs_core::Bbox;
 
 use crate::binding::prelude::*;
+use crate::binding::{callback_failed, forgive};
+
+/// The failures of Python's code the layout engines ask about: the
+/// exceptions callbacks raised in the native call running (see
+/// `binding::callback`), which pltrs (Rust) passes over where matplotlib's
+/// Python code catches them (see `pltrs::layout::failures`).
+struct CallbackFailures;
+
+impl Failures for CallbackFailures {
+    fn failed(&self) -> bool {
+        callback_failed()
+    }
+
+    fn pass_over(&self, class: ErrorClass) -> bool {
+        forgive(match class {
+            ErrorClass::ValueError => ExceptionKind::ValueError,
+            ErrorClass::TypeError => ExceptionKind::TypeError,
+        })
+    }
+}
 
 /// Tight layout's rectangle as Python gives it, `(left, bottom, right,
 /// top)` with None for the sides tight layout chooses (as 0 does).
@@ -165,6 +186,7 @@ fn figure_tightbbox(figure: Figure) -> PyResult<Option<(f64, f64, f64, f64)>> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    pltrs::layout::failures::set_failures(CallbackFailures);
     module.add("tight_layout", tight_layout)?;
     module.add("grid_tight_layout", grid_tight_layout)?;
     module.add("align", align)?;

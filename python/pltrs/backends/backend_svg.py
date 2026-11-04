@@ -16,6 +16,7 @@ from .. import __version__, _api, rcParams
 from .._native import backends as _backends, text_overrides as _text_overrides
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..font_manager import FontManager
+from ..text import _measuring_with
 from ._native_drawing import DocumentDrawingMixin
 from .backend_mixed import MixedModeRenderer
 
@@ -316,10 +317,15 @@ class FigureCanvasSVG(FigureCanvasBase):
 
     def _print_svg(self, fmt, filename, bbox_inches_restore, metadata,
                    facecolor, edgecolor):
-        """Write the figure as *fmt*, ``svg`` or ``svgz``."""
-        self._print_native(fmt, filename, metadata=_svg_metadata(metadata),
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+        """Write the figure as *fmt*, ``svg`` or ``svgz``, its texts measured
+        through the metrics cache of a renderer of the print's own, as
+        matplotlib's ``print_svg`` draws with a new `RendererSVG`."""
+        width, height = self.figure.get_size_inches()
+        renderer = RendererSVG(width * 72, height * 72, None, image_dpi=self.figure.dpi)
+        with _measuring_with(renderer):
+            self._print_native(fmt, filename, metadata=_svg_metadata(metadata),
+                               bbox_inches_restore=bbox_inches_restore,
+                               facecolor=facecolor, edgecolor=edgecolor)
 
     def get_default_filetype(self):
         return 'svg'

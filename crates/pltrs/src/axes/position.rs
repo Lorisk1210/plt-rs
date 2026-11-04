@@ -9,6 +9,7 @@ use pltrs_core::Bbox;
 use super::{AspectError, Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
+use crate::transforms::unit_to_bbox;
 
 /// Which position of an axes [`Axes::set_position_which`] sets
 /// (matplotlib's `which`).
@@ -112,14 +113,22 @@ impl Axes {
     }
 
     /// The active position, in the figure fractions of `host`'s box for an
-    /// axes placed in another.
+    /// axes placed in another, with the arithmetic of matplotlib's locator
+    /// there (through the host's box in pixels, see
+    /// [`host_to_figure`](crate::figure::host_to_figure)).
     fn active_position_in(&self, host: Option<Bbox>) -> Bbox {
         let active = self
             .raw
             .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
-        host.map_or(active, |host| {
-            active.transformed(&crate::transforms::unit_to_bbox(&host))
-        })
+        let Some(host) = host else {
+            return active;
+        };
+        let figure = self.raw.figure_state().borrow().figure_bbox_of(self.id());
+        let to_figure = figure.and_then(|figure| {
+            let host = host.transformed(&unit_to_bbox(&figure));
+            crate::figure::host_to_figure(&host, &figure)
+        });
+        active.transformed(&to_figure.unwrap_or_else(|| unit_to_bbox(&host)))
     }
 
     /// The axes this one is placed in (insets, secondary axes).

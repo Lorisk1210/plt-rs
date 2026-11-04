@@ -718,7 +718,13 @@ norm itself: pltrs (Rust) calls the callables the package's registered
 `native_norm` gives for it (`modules/colors/python_norm.rs`).
 A mappable pltrs (Rust) makes (an image) is wrapped, attached to its
 colorizer with `_ScalarMappable._attach_colorizer`, and hands the native
-side a new copy from `changed()`.
+side a new copy from `changed()`. matplotlib's draw maps an image's or a
+collection's data through the norm object, whose `__call__` gives it the
+limits it lacks; pltrs (Rust)'s draw scales its copy, so the mappable
+gives the norm object the limits that draw scaled it to when it is next
+read (`_drawn_norms.DrawScaledNorm`: an image those of the data it
+resampled, a collection those of its array), as long as the norm is the
+one handed over and the mappable was drawn since.
 
 A collection whose colorizer maps several variates (a `BivarColormap` or
 `MultivarColormap` with a `MultiNorm`, the values a structured array or a
@@ -741,6 +747,17 @@ matplotlib's `Axis` does (`format_ticks`, then `get_offset`, through the
 adapter `_tick_helpers` makes), handing it pltrs (Rust)'s description of
 the axis being drawn, which its `_axis_info()` and its `Axis` answer from
 meanwhile.
+
+An exception a callback raises waits in the frame of the native call
+running (`binding/callback.rs`). Where matplotlib's Python code catches
+one that pltrs (Rust) runs the program's code for, pltrs (Rust) asks
+the binding through `pltrs::layout::failures` (installed by
+`modules/figure_layout.rs`), which takes an exception of the class asked
+out of the frame (`binding::forgive`): a layout engine's pass stops where
+the program's code failed, as matplotlib's does; `Figure.draw` passes
+over a `ValueError` of that pass and draws without the rest of the
+layout; and measuring an axis for a layout measures it again in full
+after a `TypeError` (matplotlib's `_get_tightbbox_for_layout_only`).
 
 ### Axes' axes: tick helpers, ticks and texts
 
@@ -795,7 +812,11 @@ matplotlib's `Tick` objects sit at 0 without a label until
 axis and reading its tick labels do; the ticks of a hidden axis stay
 there. pltrs (Rust) records whether an axis' ticks were ever placed
 (`Axis::ticks_placed`; `_native.axis.place_ticks` for what Python runs),
-and the mirrors of ticks never placed sit at 0 without labels. The gids
+and the mirrors of ticks never placed sit at 0 without labels. The
+lines of the mirrors hold the data matplotlib's ticks hold
+(`Tick._place_lines`): what their class makes them with, then `(loc,)`
+along the axis once a tick update placed them, while their native lines
+keep what pltrs (Rust) draws. The gids
 of an axis, of its texts, of its ticks and of their parts (mirrors push
 theirs) are the axis' too (`AxisGroup`), and it draws matplotlib's SVG
 groups with them: `matplotlib.axis`, then `xtick`/`ytick` holding a

@@ -108,15 +108,62 @@ impl<'a> FontChain<'a> {
         options: &ShapeOptions,
         hinting: Hinting,
     ) -> Result<TextLayout> {
-        let mut layout = TextLayout::default();
-        if self.faces.is_empty() {
-            return Ok(layout);
-        }
         let sizes: Vec<Size> = self
             .faces
             .iter()
             .map(|face| Size::new(face, points, dpi))
             .collect();
+        self.lay_out(text, &sizes, options, hinting, false)
+    }
+
+    /// Lays out one line of `text` like [`layout`](Self::layout) for a
+    /// font whose size was never set (matplotlib's `FT2Font.set_text`
+    /// before `set_size`): FreeType then loads the glyphs unscaled and
+    /// unhinted ("undefined scale means no scale"), so that positions,
+    /// advances and boxes are in font units, and HarfBuzz scales every
+    /// positioning value by the font's scale, which is zero: no kerning,
+    /// no mark offsets.
+    ///
+    /// ```
+    /// use pltrs_font::{Face, FontChain, Hinting, ShapeOptions, bundled_font_data};
+    /// let data = bundled_font_data("DejaVuSans.ttf").expect("bundled");
+    /// let face = Face::parse(data, 0)?;
+    /// let chain = FontChain::new(vec![face.clone()]);
+    /// let unscaled = chain.layout_unscaled("AV", &ShapeOptions::default())?;
+    /// let a = face.glyph_index('A').expect("mapped");
+    /// assert_eq!(unscaled.glyphs[1].x, i32::from(face.glyph_advance(a)));
+    /// let points = f64::from(face.units_per_em()) / 64.0;
+    /// let kerned = chain.layout("AV", points, 72.0, &ShapeOptions::default(), Hinting::None)?;
+    /// assert!(kerned.glyphs[1].x < unscaled.glyphs[1].x);
+    /// # Ok::<(), pltrs_font::FontError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`layout`](Self::layout).
+    pub fn layout_unscaled(&self, text: &str, options: &ShapeOptions) -> Result<TextLayout> {
+        let sizes: Vec<Size> = self
+            .faces
+            .iter()
+            .map(|face| Size::new(face, f64::from(face.units_per_em()) / 64.0, 72.0))
+            .collect();
+        self.lay_out(text, &sizes, options, Hinting::None, true)
+    }
+
+    /// The layout of [`layout`](Self::layout) at the size `sizes` gives
+    /// each face, positioned with the font's scale unless `unscaled`.
+    fn lay_out(
+        &self,
+        text: &str,
+        sizes: &[Size],
+        options: &ShapeOptions,
+        hinting: Hinting,
+        unscaled: bool,
+    ) -> Result<TextLayout> {
+        let mut layout = TextLayout::default();
+        if self.faces.is_empty() {
+            return Ok(layout);
+        }
         let text: Vec<(usize, char)> = text.char_indices().collect();
         let assignment = self.assign_faces(&text, options);
         // Only the faces some character falls to are hinted, as FreeType
@@ -147,7 +194,7 @@ impl<'a> FontChain<'a> {
         let hinted: Vec<Option<HintedFace<'_, 'a>>> = self
             .faces
             .iter()
-            .zip(&sizes)
+            .zip(sizes)
             .zip(&hinters)
             .enumerate()
             .map(|(index, ((face, size), hinter))| match hinter {
@@ -163,6 +210,7 @@ impl<'a> FontChain<'a> {
             })
             .collect();
         let scaler = |face: usize| match &hinted[face] {
+            _ if unscaled => Scaler::Unscaled(sizes[face]),
             Some(hinted) => Scaler::Hinted(sizes[face], hinted),
             None => Scaler::Pixels(sizes[face]),
         };

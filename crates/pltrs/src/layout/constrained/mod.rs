@@ -128,6 +128,11 @@ fn lay_out(
     for _ in 0..2 {
         tree.make_layout_margins(fig, FIGURE, pads)?;
         tree.make_margin_suptitles(fig, FIGURE, pads)?;
+        if super::failures::failed() {
+            // The program's code failed measuring the figure, which ends
+            // matplotlib's pass there.
+            return Ok(());
+        }
         tree.match_submerged_margins(FIGURE)?;
         tree.grids.solve();
         if tree.no_collapsed_axes() {

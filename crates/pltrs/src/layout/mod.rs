@@ -28,6 +28,7 @@
 
 mod align;
 mod constrained;
+pub mod failures;
 mod grid;
 mod kiwi;
 mod tight;

@@ -88,6 +88,16 @@ fn helper(owner: AxisOwner, name: String, kind: String, minor: bool) -> PyResult
     Ok(identified(helper))
 }
 
+/// The axes whose axis `name` the locators of `owner`'s are bound to
+/// (matplotlib's `locator.axis.axes`, see `Axes::locator_owner`); `None`
+/// for an axis of a 3-D axes, whose locators are bound to it.
+fn locator_owner(owner: AxisOwner, name: String) -> PyResult<Option<Axes>> {
+    Ok(match owner {
+        AxisOwner::Flat(axes) => Some(axes.locator_owner(axis(&axes, &name)?.name())),
+        AxisOwner::Deep(_) => None,
+    })
+}
+
 /// Whether anything but tokens still uses `helper`.
 fn in_use(helper: TickHelper) -> PyResult<bool> {
     let count = match &helper {
@@ -381,6 +391,7 @@ fn format_data_short(axes: Axes, name: String, value: f64) -> PyResult<Option<St
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("helper", helper)?;
     module.add("helper_in_use", in_use)?;
+    module.add("locator_owner", locator_owner)?;
     module.add("describe_helper", describe)?;
     module.add("install_locator", install_locator)?;
     module.add("install_formatter", install_formatter)?;

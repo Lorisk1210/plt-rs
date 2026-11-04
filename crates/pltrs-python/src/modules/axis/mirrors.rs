@@ -50,19 +50,17 @@ fn located(axis: &Axis, minor: bool, index: usize) -> (Option<f64>, String) {
 
 /// The location and label of the major (or `minor`) tick at `index` of
 /// the flat axis `name`, which matplotlib's draw gives the tick's labels
-/// (`Axis._update_ticks`); `None` for an axis of a 3-D axes, whose draw
-/// places its texts anew.
+/// and lines (`Axis._update_ticks`), the location `None` for a tick never
+/// placed; `None` for an axis of a 3-D axes, whose draw places its texts
+/// anew.
 fn drawn_tick_label(
     owner: AxisOwner,
     name: String,
     minor: bool,
     index: usize,
-) -> PyResult<Option<(f64, String)>> {
+) -> PyResult<Option<(Option<f64>, String)>> {
     match owner.axis(&name)? {
-        AnyAxis::Flat(axis) => {
-            let (loc, label) = located(&axis, minor, index);
-            Ok(Some((loc.unwrap_or(0.0), label)))
-        }
+        AnyAxis::Flat(axis) => Ok(Some(located(&axis, minor, index))),
         AnyAxis::Deep(_) => Ok(None),
     }
 }

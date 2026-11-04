@@ -280,26 +280,38 @@ impl<S: OutlineSink> OutlineSink for PixelSink<'_, S> {
 /// Value scaling used while shaping: raw font units, HarfBuzz's 26.6 pixel
 /// arithmetic at a [`Size`], or that arithmetic with the hinted advances
 /// and extents HarfBuzz reads from FreeType under hinting load flags
-/// (`GPOS` values still scale unhinted).
+/// (`GPOS` values still scale unhinted). `Unscaled` is HarfBuzz over a
+/// FreeType face whose size was never set: the advances and extents
+/// FreeType loads unscaled (in font units, which the [`Size`] of one
+/// pixel per font unit gives), and positioning values scaled by the
+/// font's scale of zero.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Scaler<'h> {
     Units,
     Pixels(Size),
     Hinted(Size, &'h HintedFace<'h, 'h>),
+    Unscaled(Size),
 }
 
 impl Scaler<'_> {
+    /// The size positioning values scale at (`None`: by one, in font
+    /// units).
     const fn size(&self) -> Option<&Size> {
         match self {
-            Self::Units => None,
+            Self::Units | Self::Unscaled(_) => None,
             Self::Pixels(size) | Self::Hinted(size, _) => Some(size),
         }
+    }
+
+    /// Whether positioning values scale to zero (see `Unscaled`).
+    const fn zero_scale(&self) -> bool {
+        matches!(self, Self::Unscaled(_))
     }
 
     pub(crate) fn advance(&self, face: &Face<'_>, glyph: GlyphId) -> i32 {
         match self {
             Self::Units => i32::from(face.glyph_advance(glyph)),
-            Self::Pixels(size) => size.advance(face, glyph),
+            Self::Pixels(size) | Self::Unscaled(size) => size.advance(face, glyph),
             Self::Hinted(_, hinted) => hinted.advance(glyph),
         }
     }
@@ -308,31 +320,46 @@ impl Scaler<'_> {
     pub(crate) fn extents(&self, face: &Face<'_>, glyph: GlyphId) -> Result<Option<Rect>> {
         match self {
             Self::Units => face.glyph_bbox(glyph),
-            Self::Pixels(size) => size.glyph_cbox(face, glyph),
+            Self::Pixels(size) | Self::Unscaled(size) => size.glyph_cbox(face, glyph),
             Self::Hinted(_, hinted) => hinted.extents(glyph),
         }
     }
 
     /// The em size per axis: font units, or HarfBuzz's font scales.
     pub(crate) fn em(&self, face: &Face<'_>) -> (i64, i64) {
+        if self.zero_scale() {
+            return (0, 0);
+        }
         let units = i64::from(face.units_per_em());
         self.size().map_or((units, units), Size::hb_scales)
     }
 
     pub(crate) fn x(&self, value: i32) -> i32 {
+        if self.zero_scale() {
+            return 0;
+        }
         self.size().map_or(value, |size| size.em_scale_x(value))
     }
 
     pub(crate) fn y(&self, value: i32) -> i32 {
+        if self.zero_scale() {
+            return 0;
+        }
         self.size().map_or(value, |size| size.em_scale_y(value))
     }
 
     pub(crate) fn fx(&self, value: i32) -> f32 {
+        if self.zero_scale() {
+            return 0.0;
+        }
         self.size()
             .map_or(value as f32, |size| size.em_fscale_x(value))
     }
 
     pub(crate) fn fy(&self, value: i32) -> f32 {
+        if self.zero_scale() {
+            return 0.0;
+        }
         self.size()
             .map_or(value as f32, |size| size.em_fscale_y(value))
     }

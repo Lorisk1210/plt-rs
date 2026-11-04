@@ -100,6 +100,33 @@ impl Axes {
         self.in_same_figure(vec![id]).pop()
     }
 
+    /// The axes whose axis `name` the locators of this one's are bound to
+    /// (matplotlib's `locator.axis.axes`), whose length decides how many
+    /// ticks fit: the axes they were set on, which may be another of the
+    /// axes sharing the axis, or the last of those a clear reset.
+    ///
+    /// ```
+    /// use pltrs::figure::{Figure, Share};
+    /// use pltrs::ticker::AxisName;
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots_shared(1, 2, Share::All, Share::None)?;
+    /// let (left, right) = (&axs[(0, 0)], &axs[(0, 1)]);
+    /// assert_eq!(&right.locator_owner(AxisName::X), left);
+    /// left.clear();
+    /// assert_eq!(&left.locator_owner(AxisName::X), right);
+    /// assert_eq!(&left.locator_owner(AxisName::Y), left);
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    #[must_use]
+    pub fn locator_owner(&self, name: AxisName) -> Self {
+        let owner = (self.raw)
+            .with::<AxesState, _>(|axes| axes.axis(name).ticker_owner)
+            .unwrap_or_else(|| self.id());
+        self.in_same_figure(vec![owner])
+            .pop()
+            .expect("one axes for one id")
+    }
+
     /// The axes `ids` of this axes' figure.
     pub(crate) fn in_same_figure(&self, ids: Vec<ArtistId>) -> Vec<Self> {
         let figure = self.raw.figure_state();

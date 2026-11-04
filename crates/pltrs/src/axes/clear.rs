@@ -3,6 +3,7 @@
 
 use std::rc::Rc;
 
+use super::axis::Tickers;
 use super::{Axes, AxesState, AxisName, ProjectionKind};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
@@ -81,17 +82,21 @@ impl FigureState {
         for child in doomed {
             self.remove_artist(child);
         }
-        for name in [AxisName::X, AxisName::Y] {
-            for sibling in self.shared.siblings(name, id) {
-                if let Some(state) = self.artist_as_mut::<AxesState>(sibling)
-                    && sibling != id
-                {
-                    state.axis_mut(name).set_scale(Rc::new(LinearScale));
-                }
-            }
-        }
+        let reset: Vec<_> = [AxisName::X, AxisName::Y]
+            .into_iter()
+            .filter_map(|name| self.reset_shared_scales(id, name))
+            .collect();
         if let Some(state) = self.artist_as_mut::<AxesState>(id) {
             *state = fresh;
+        }
+        for (name, last, tickers) in reset {
+            for member in self.shared.siblings(name, id) {
+                if let Some(state) = self.artist_as_mut::<AxesState>(member) {
+                    let axis = state.axis_mut(name);
+                    axis.use_tickers(tickers.clone());
+                    axis.ticker_owner = Some(last);
+                }
+            }
         }
         for (title, (x, halign)) in titles.into_iter().zip(TITLE_PLACES) {
             if let Some(text) = self.artist_as_mut::<TextArtist>(title) {
@@ -117,6 +122,30 @@ impl FigureState {
         }
         self.stale = true;
         self.layout.pending = true;
+    }
+
+    /// Gives axis `name` of the other axes sharing it with `id` the linear
+    /// scale and its default tick helpers in turn, as matplotlib's clear
+    /// does on the `Ticker` they all share: the helpers of the last one
+    /// stay, its axis the one the locator is bound to. Returns that last
+    /// axes and its helpers, which the whole group takes, `None` when no
+    /// other axes shares the axis.
+    fn reset_shared_scales(
+        &mut self,
+        id: ArtistId,
+        name: AxisName,
+    ) -> Option<(AxisName, ArtistId, Tickers)> {
+        let mut last = None;
+        for sibling in self.shared.siblings(name, id) {
+            if let Some(state) = self.artist_as_mut::<AxesState>(sibling)
+                && sibling != id
+            {
+                let axis = state.axis_mut(name);
+                axis.set_scale(Rc::new(LinearScale));
+                last = Some((name, sibling, axis.tickers()));
+            }
+        }
+        last
     }
 }
 
@@ -157,7 +186,7 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
-    use crate::axes::{AxisName, ProjectionKind, TickParams, TitleLocation};
+    use crate::axes::{Axes, AxisName, ProjectionKind, TickParams, TitleLocation};
     use crate::colors::Color;
     use crate::figure::{Figure, SaveError};
 
@@ -180,6 +209,38 @@ mod tests {
         // The colour cycle restarts.
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(line.rgba(), crate::colors::Color::from("C0").resolve());
+    }
+
+    #[test]
+    fn clearing_binds_the_shared_locator_to_the_last_other_sibling() {
+        // matplotlib's clear gives every other axes sharing an axis the
+        // linear scale in turn, on the one `Ticker` they share: the
+        // locator ends bound to the last of them, whose length decides
+        // how many ticks fit along every axes of the group.
+        let fig = Figure::with_size(6.0, 4.0, 100.0);
+        let wide = fig
+            .add_axes([0.1, 0.55, 0.8, 0.4])
+            .expect("a valid rectangle");
+        let narrow = fig
+            .add_axes([0.1, 0.1, 0.1, 0.4])
+            .expect("a valid rectangle");
+        narrow.share_x(&wide).unwrap();
+        let locs = |ax: &Axes| -> Vec<f64> {
+            ax.set_xlim(0.0, 24.0).expect("finite limits");
+            fig.layout();
+            let ticks = ax.ticks(AxisName::X).unwrap();
+            ticks.major.iter().map(|t| t.loc).collect()
+        };
+        let wide_ticks = locs(&wide);
+        narrow.clear();
+        assert_eq!(locs(&narrow), wide_ticks, "bound to the wide axis");
+        wide.clear();
+        let narrow_ticks = locs(&wide);
+        assert!(
+            narrow_ticks.len() < wide_ticks.len(),
+            "bound to the narrow axis"
+        );
+        assert_eq!(locs(&narrow), narrow_ticks);
     }
 
     #[test]

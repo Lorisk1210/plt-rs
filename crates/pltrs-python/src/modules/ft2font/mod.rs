@@ -99,6 +99,17 @@ impl Ft2Font {
         self.size.is_none()
     }
 
+    /// The linear advance `FreeType` gives `glyph` of `face` (16.16, the
+    /// glyph slot's `linearHoriAdvance`): scaled by the size's scale, which
+    /// is zero while the face has no size.
+    fn linear_advance(&self, face: &Face<'_>, glyph: GlyphId) -> i64 {
+        if self.unscaled() {
+            0
+        } else {
+            self.size_of(face).linear_advance(face, glyph)
+        }
+    }
+
     /// The hinting the load flags `flags` select: none while glyphs load
     /// unscaled (`FreeType` adds `FT_LOAD_NO_HINTING` to `FT_LOAD_NO_SCALE`).
     fn hinting(&self, flags: u32) -> Hinting {

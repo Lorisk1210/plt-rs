@@ -10,12 +10,36 @@
 //! moments itself, for pltrs (Python) to report
 //! ([`pltrs_text::take_font_lookups`], [`pltrs_text::take_missing_glyphs`]).
 
+use std::cell::Cell;
+
 use pltrs_text::{TextEngine, TextError, TextRun, TextSource};
 
 use super::layout::Typesetting;
 use super::math::Line;
 use super::metrics;
 use crate::fonts::FontProperties;
+
+thread_local! {
+    /// Whether the texts laid out now are measured again for what
+    /// matplotlib keeps from an earlier measure, noting nothing.
+    static UNNOTED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Runs `measure`, which measures texts again for what matplotlib keeps
+/// from its last measure of them (a text area's baseline, the box a
+/// legend's draw located), noting nothing: matplotlib does not look their
+/// fonts up again there.
+pub(crate) fn unnoted<R>(measure: impl FnOnce() -> R) -> R {
+    let before = UNNOTED.replace(true);
+    let result = measure();
+    UNNOTED.set(before);
+    result
+}
+
+/// Whether texts measured now note what matplotlib's measures note.
+fn noting() -> bool {
+    !UNNOTED.get()
+}
 
 /// Notes the lookup matplotlib's `Text._get_layout` makes for the height
 /// of the font of `text`: none for an empty text (which matplotlib never
@@ -30,7 +54,7 @@ pub(super) fn note_layout(
     font: &FontProperties,
     typesetting: Typesetting,
 ) -> Result<(), TextError> {
-    if text.is_empty() || typesetting == Typesetting::Tex || metrics::measures_afm() {
+    if !noting() || text.is_empty() || typesetting == Typesetting::Tex || metrics::measures_afm() {
         return Ok(());
     }
     TextEngine::global().note_font_lookup(&font.drawn_request())
@@ -52,6 +76,9 @@ pub(super) fn note_measured(
     let Line::Plain(text) = line else {
         return Ok(());
     };
+    if !noting() {
+        return Ok(());
+    }
     let engine = TextEngine::global();
     let request = font.drawn_request();
     engine.note_font_lookup(&request)?;

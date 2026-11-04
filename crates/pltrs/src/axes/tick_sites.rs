@@ -24,6 +24,7 @@
 use super::{AxesState, SpineAxis};
 use crate::artist::{Artist, ArtistId};
 use crate::figure::FigureState;
+use crate::layout::failures::{self, ErrorClass};
 use crate::spines::{SpineArtist, SpineSide};
 use crate::ticker::AxisName;
 
@@ -183,7 +184,7 @@ impl FigureState {
     /// `Axes.draw` of `axes` up to its artists, as far as it ticks axes:
     /// the title position, then its axes.
     pub(crate) fn program_axes_drawn(&mut self, axes: ArtistId) {
-        if !self.ticks_by_program() || !self.axes_shown(axes) {
+        if !self.ticks_by_program() || !self.drawn_by_figure(axes) {
             return;
         }
         self.program_title_position(axes);
@@ -199,25 +200,39 @@ impl FigureState {
     /// `Axes.get_tightbbox` of `axes` (`for_layout_only` for a layout
     /// engine), as far as it ticks axes: its axes, the title position,
     /// then its spines `with_spines` (unless the program gave the artists
-    /// to measure besides).
+    /// to measure besides). Returns whether the x and the y axis were
+    /// measured in full after all: matplotlib's
+    /// `_get_tightbbox_for_layout_only` takes a `TypeError` the program's
+    /// code raises measuring an axis for a layout for that of a
+    /// `get_tightbbox` without `for_layout_only`, and measures it again
+    /// without.
     pub(crate) fn program_axes_measured(
         &mut self,
         axes: ArtistId,
         for_layout_only: bool,
         with_spines: bool,
-    ) {
+    ) -> [bool; 2] {
+        let mut in_full = [false; 2];
         if !self.ticks_by_program() || !self.axes_shown(axes) {
-            return;
+            return in_full;
         }
         let axis_on = self.axes_axis_on(axes);
         if axis_on {
-            for name in [AxisName::X, AxisName::Y] {
+            for (name, in_full) in [AxisName::X, AxisName::Y].into_iter().zip(&mut in_full) {
                 let measured = self.store.get_as::<AxesState>(axes).is_some_and(|state| {
                     let axis = state.axis(name);
                     axis.visible && (axis.in_layout || !for_layout_only)
                 });
                 if measured {
+                    let failed_before = failures::failed();
                     self.program_axis_measured(axes, name);
+                    if for_layout_only
+                        && !failed_before
+                        && failures::pass_over(ErrorClass::TypeError)
+                    {
+                        self.program_axis_measured(axes, name);
+                        *in_full = true;
+                    }
                 }
             }
         }
@@ -234,6 +249,32 @@ impl FigureState {
                     self.update_program_ticks(axes, name);
                 }
             }
+        }
+        in_full
+    }
+
+    /// Whether drawing the figure draws `axes`: it and what it is placed
+    /// in are shown and in the figure, and none of them is left out as
+    /// animated (figures never draw animated artists, axes only while the
+    /// figure is saved: matplotlib's `Figure._get_draw_artists` and
+    /// `_AxesBase.draw`).
+    fn drawn_by_figure(&self, axes: ArtistId) -> bool {
+        let mut id = axes;
+        loop {
+            let Some(base) = self.store.get(id).map(Artist::base) else {
+                return false;
+            };
+            if !base.visible {
+                return false;
+            }
+            let Some(parent) = base.parent else {
+                return id == self.root;
+            };
+            let in_axes = self.store.get_as::<AxesState>(parent).is_some();
+            if base.animated && !(in_axes && self.saving) {
+                return false;
+            }
+            id = parent;
         }
     }
 
@@ -270,6 +311,7 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use crate::artist::ArtistHandle;
     use crate::axes::{
         Axes, SpineAxis, TickLevels, TickUpdater, TitleLocation, UpdatedLevel, UpdatedTicks,
     };
@@ -370,6 +412,27 @@ mod tests {
         // rectangle to fit, tight layout measures once), then the draw
         // before the print and the print.
         assert_eq!(updater.updates.borrow().len(), 5 + 2 * 3);
+    }
+
+    #[test]
+    fn a_draw_leaves_out_the_axes_it_does_not_draw() {
+        // matplotlib's figure leaves its animated artists out of its draw,
+        // and an axes leaves out its hidden insets: their axes are not
+        // drawn, so their tick code does not run there.
+        for hide in [
+            |ax: &Axes| {
+                ax.set_animated(true);
+            },
+            |ax: &Axes| {
+                ax.set_visible(false);
+            },
+        ] {
+            let updater = Rc::new(Recording::default());
+            let (fig, ax) = ticked(&updater);
+            hide(&ax);
+            fig.layout();
+            assert_eq!(updater.updates.borrow().len(), 1, "ticked once, as hidden");
+        }
     }
 
     #[test]

@@ -118,7 +118,9 @@ impl LegendArtist {
     pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LegendLayout, LayoutError> {
         let extent = self.extent(ctx)?;
         let (legend_box, fontsize_px) = self.sized_box(ctx)?;
-        let bbox = legend_box.bbox(ctx)?;
+        // matplotlib's `_legend_box.draw` measures the box as it places its
+        // children, which `place` does.
+        let bbox = crate::text::font_notes::unnoted(|| legend_box.bbox(ctx))?;
         let offset = self.offset(ctx, &bbox, fontsize_px)?;
         Ok(LegendLayout {
             extent,

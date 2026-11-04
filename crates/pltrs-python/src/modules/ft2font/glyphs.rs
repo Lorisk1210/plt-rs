@@ -129,26 +129,26 @@ type Metrics = (
     (i64, i64, i64, i64),
 );
 
-/// The control box of a glyph's outline.
+/// The control box of a glyph's outline, `None` for a glyph without one
+/// (a space).
 pub(super) fn control_box(
     face: &Face<'_>,
     size: &Size,
     glyph: GlyphId,
     hinted: Option<&HintedGlyph>,
-) -> PyResult<Rect> {
-    let cbox = match hinted {
-        Some(hinted) => hinted.control_box(),
+) -> PyResult<Option<Rect>> {
+    match hinted {
+        Some(hinted) => Ok(hinted.control_box()),
         None => size
             .glyph_cbox(face, glyph)
-            .map_err(|err| ft_error("load glyph", &err))?,
-    };
-    Ok(cbox.unwrap_or_default())
+            .map_err(|err| ft_error("load glyph", &err)),
+    }
 }
 
 /// The metrics `FreeType` gives `glyph` loaded for `hinting`.
 fn metrics(face: &Face<'_>, size: &Size, glyph: GlyphId, hinting: Hinting) -> PyResult<Metrics> {
     let hinted = load_hinted(face, size, glyph, hinting)?;
-    let cbox = control_box(face, size, glyph, hinted.as_ref())?;
+    let cbox = control_box(face, size, glyph, hinted.as_ref())?.unwrap_or_default();
     let (x0, y0, x1, y1) = (
         i64::from(cbox.x_min),
         i64::from(cbox.y_min),
@@ -228,11 +228,7 @@ fn load(
     let metrics = {
         let face = font.chain_face(face_index)?;
         let mut metrics = metrics(&face, &font.size_of(&face), glyph, hinting)?;
-        if font.unscaled() {
-            // FreeType scales the linear advance by the size's scale, zero
-            // without one.
-            metrics.1.1 = 0;
-        }
+        metrics.1.1 = font.linear_advance(&face, glyph);
         metrics
     };
     let loaded = Loaded {

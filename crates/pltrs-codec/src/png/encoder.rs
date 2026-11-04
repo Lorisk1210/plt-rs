@@ -2,7 +2,7 @@
 
 use super::chunk::{ChunkType, SIGNATURE, write_chunk};
 use super::error::EncodeError;
-use super::filter::{self, FilterStrategy};
+use super::filter::{FilterStrategy, FilteredRows};
 use super::header::Header;
 use super::image::ImageRef;
 use super::metadata::{PhysicalDimensions, TextEntry};
@@ -14,24 +14,23 @@ use pltrs_core::alloc::{self, OutOfMemory};
 const IDAT_CHUNK_LEN: usize = 1 << 20;
 
 /// The filtered, zlib-compressed scanlines of `image` (the contents of
-/// its `IDAT` chunks).
+/// its `IDAT` chunks), filtered as they are compressed.
 ///
 /// # Errors
 ///
-/// When the memory for the filtered or compressed scanlines cannot be
-/// allocated.
+/// When the memory for the compressed scanlines cannot be allocated.
 pub(super) fn compress_image(
     image: &ImageRef<'_>,
     strategy: FilterStrategy,
     level: CompressionLevel,
 ) -> Result<Vec<u8>, OutOfMemory> {
-    let filtered = filter::filter_image(
+    let rows = FilteredRows::new(
         image.data(),
         image.row_bytes(),
         image.format().filter_stride(),
         strategy,
     )?;
-    zlib::compress(&filtered, level)
+    zlib::compress_source(rows, level)
 }
 
 /// How the `pHYs` chunk was requested.

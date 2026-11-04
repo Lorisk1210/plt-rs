@@ -18,7 +18,7 @@ impl Hull {
             let Some(mut next) = self.facet(facet).next else {
                 break;
             };
-            if self.facet(facet).normal.is_some() {
+            if self.facet(facet).normal().is_some() {
                 cursor = Some(next);
                 continue;
             }
@@ -75,7 +75,7 @@ impl Hull {
                 return Err(HullError::Topology);
             }
             self.facet_mut(s).cycledone = true;
-            if self.facet(s).normal.is_some() {
+            if self.facet(s).normal().is_some() {
                 let link = self.facet(s).link;
                 self.facet_mut(previous).link = link;
                 self.facet_mut(s).link = None;
@@ -190,7 +190,7 @@ impl Hull {
     /// `qh_mergecycle_ridges`).
     fn merge_cycle_ridges(&mut self, cycle: &[FacetId], newfacet: FacetId) -> HullResult<()> {
         let same_visit = self.visit_id - 1;
-        let ridges: Vec<_> = self
+        let ridges: InlineVec<_> = self
             .facet(newfacet)
             .ridges
             .iter()

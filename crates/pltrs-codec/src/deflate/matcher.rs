@@ -22,6 +22,7 @@
 
 use std::ops::Range;
 
+use super::input::View;
 use super::level::LevelParams;
 use super::tables::{MAX_MATCH, MIN_MATCH, WINDOW_SIZE};
 
@@ -35,14 +36,15 @@ pub(crate) struct Match {
 /// The number of positions of a segment: as many as 16-bit entries can
 /// count, and more than the window, so that the window of every position
 /// lies within its segment and the one before.
-const SEGMENT: usize = u16::MAX as usize;
+pub(crate) const SEGMENT: usize = u16::MAX as usize;
 
 /// The number of bytes compared at once.
 const WORD: usize = 8;
 
 #[derive(Debug)]
-pub(crate) struct Matcher<'a> {
-    data: &'a [u8],
+pub(crate) struct Matcher {
+    /// The length of the input.
+    len: usize,
     /// The number of positions with at least three bytes left, the only
     /// ones inserted.
     hashable: usize,
@@ -105,13 +107,15 @@ pub(crate) struct Chain {
     entry: usize,
 }
 
-impl<'a> Matcher<'a> {
-    /// Creates a match finder over `data`, sizing its tables to the input.
-    pub(crate) fn new(data: &'a [u8]) -> Self {
-        let buckets = data.len().next_power_of_two().clamp(256, WINDOW_SIZE);
+impl Matcher {
+    /// Creates a match finder over an input `len` bytes long, sizing its
+    /// tables to it. Each call reads the input in a [`View`] holding the
+    /// window before the position and a segment after it.
+    pub(crate) fn new(len: usize) -> Self {
+        let buckets = len.next_power_of_two().clamp(256, WINDOW_SIZE);
         Self {
-            data,
-            hashable: data.len().saturating_sub(MIN_MATCH - 1),
+            len,
+            hashable: len.saturating_sub(MIN_MATCH - 1),
             hash_shift: 32 - buckets.trailing_zeros(),
             buckets: Vec::new(),
             current: Segment::new(buckets),
@@ -123,12 +127,12 @@ impl<'a> Matcher<'a> {
     /// for later positions and returns its chain, for
     /// [`longest_match`](Self::longest_match). Positions with fewer than
     /// three bytes left are not inserted.
-    pub(crate) fn insert(&mut self, position: usize) -> Option<Chain> {
+    pub(crate) fn insert(&mut self, data: View<'_>, position: usize) -> Option<Chain> {
         if position >= self.hashable {
             return None;
         }
         if position >= self.current.end {
-            self.start_segment(position);
+            self.start_segment(data, position);
         }
         let segment = &mut self.current;
         let offset = position - segment.start;
@@ -145,12 +149,12 @@ impl<'a> Matcher<'a> {
 
     /// Inserts `positions`, later than those inserted before, as candidates
     /// for later positions, like [`insert`](Self::insert) one by one.
-    pub(crate) fn insert_all(&mut self, positions: Range<usize>) {
+    pub(crate) fn insert_all(&mut self, data: View<'_>, positions: Range<usize>) {
         let end = positions.end.min(self.hashable);
         let mut position = positions.start;
         while position < end {
             if position >= self.current.end {
-                self.start_segment(position);
+                self.start_segment(data, position);
             }
             let segment = &mut self.current;
             let offsets = position - segment.start..end.min(segment.end) - segment.start;
@@ -174,7 +178,7 @@ impl<'a> Matcher<'a> {
 
     /// Starts a segment at `start`, laying out the buckets of its positions.
     #[cold]
-    fn start_segment(&mut self, start: usize) {
+    fn start_segment(&mut self, data: View<'_>, start: usize) {
         std::mem::swap(&mut self.current, &mut self.previous);
         let segment = &mut self.current;
         segment.start = start;
@@ -183,7 +187,7 @@ impl<'a> Matcher<'a> {
         // Each position's three bytes, from three staggered slices: no step
         // waits for another, so the compiler hashes several at once.
         let shift = self.hash_shift;
-        let bytes = &self.data[start..segment.end + MIN_MATCH - 1];
+        let bytes = data.at(start..segment.end + MIN_MATCH - 1);
         self.buckets.clear();
         self.buckets
             .extend(bytes.iter().zip(&bytes[1..]).zip(&bytes[2..]).map(
@@ -222,12 +226,13 @@ impl<'a> Matcher<'a> {
     /// ones, or the first to reach the level's nice length.
     pub(crate) fn longest_match(
         &self,
+        data: View<'_>,
         position: usize,
         chain: Chain,
         prev_length: usize,
         params: &LevelParams,
     ) -> Option<Match> {
-        let max_length = (self.data.len() - position).min(MAX_MATCH);
+        let max_length = (self.len - position).min(MAX_MATCH);
         let mut best = Best {
             length: prev_length.max(MIN_MATCH - 1),
             distance: 0,
@@ -258,14 +263,14 @@ impl<'a> Matcher<'a> {
         };
         let mut runs = [self.current.run(bucket, entry), earlier];
         if max_length <= WORD {
-            return self.search_long(&search, best, budget, &runs);
+            return search_long(data, &search, best, budget, &runs);
         }
         // Most candidates differ within their first word, which one
         // comparison settles; the first that does not hands the search over
         // to the long comparisons. Every level's nice length is a word or
         // more, so no candidate here ends the search.
         debug_assert!(search.nice_length >= WORD);
-        let head = word_at(self.data, position);
+        let head = data.word(position);
         for index in 0..runs.len() {
             let run = runs[index];
             for (left, &entry) in run.entries.iter().enumerate().rev() {
@@ -273,10 +278,10 @@ impl<'a> Matcher<'a> {
                 if candidate < search.limit {
                     return best.found();
                 }
-                let differing = word_at(self.data, candidate) ^ head;
+                let differing = data.word(candidate) ^ head;
                 if differing == 0 {
                     runs[index].entries = &run.entries[..=left];
-                    return self.search_long(&search, best, budget, &runs[index..]);
+                    return search_long(data, &search, best, budget, &runs[index..]);
                 }
                 best.offer(
                     (differing.trailing_zeros() / 8) as usize,
@@ -290,53 +295,53 @@ impl<'a> Matcher<'a> {
         }
         best.found()
     }
+}
 
-    /// Goes on with the search for `search` from `best` among the first
-    /// `budget` candidates of `runs`, comparing them byte by byte.
-    fn search_long(
-        &self,
-        search: &Search,
-        mut best: Best,
-        budget: usize,
-        runs: &[Run<'_>],
-    ) -> Option<Match> {
-        let &Search {
-            position,
-            max_length,
-            nice_length,
-            limit,
-        } = search;
-        let candidates = runs
-            .iter()
-            .flat_map(Run::newest_first)
-            .take_while(|&candidate| candidate >= limit)
-            .take(budget);
-        let current = &self.data[position..position + max_length];
-        for candidate in candidates {
-            let earlier = &self.data[candidate..candidate + max_length];
-            // A longer match agrees on the bytes up to the best one's end:
-            // compare the words that start and end them first.
-            if best.length >= WORD {
-                let end = best.length + 1 - WORD;
-                if word_at(earlier, end) != word_at(current, end)
-                    || word_at(earlier, 0) != word_at(current, 0)
-                {
-                    continue;
-                }
-            }
-            let length = common_prefix(earlier, current);
-            if length > best.length {
-                best = Best {
-                    length,
-                    distance: position - candidate,
-                };
-                if length >= nice_length {
-                    break;
-                }
+/// Goes on with the search for `search` from `best` among the first
+/// `budget` candidates of `runs`, comparing them byte by byte.
+fn search_long(
+    data: View<'_>,
+    search: &Search,
+    mut best: Best,
+    budget: usize,
+    runs: &[Run<'_>],
+) -> Option<Match> {
+    let &Search {
+        position,
+        max_length,
+        nice_length,
+        limit,
+    } = search;
+    let candidates = runs
+        .iter()
+        .flat_map(Run::newest_first)
+        .take_while(|&candidate| candidate >= limit)
+        .take(budget);
+    let current = data.at(position..position + max_length);
+    for candidate in candidates {
+        let earlier = data.at(candidate..candidate + max_length);
+        // A longer match agrees on the bytes up to the best one's end:
+        // compare the words that start and end them first.
+        if best.length >= WORD {
+            let end = best.length + 1 - WORD;
+            if word_at(earlier, end) != word_at(current, end)
+                || word_at(earlier, 0) != word_at(current, 0)
+            {
+                continue;
             }
         }
-        best.found()
+        let length = common_prefix(earlier, current);
+        if length > best.length {
+            best = Best {
+                length,
+                distance: position - candidate,
+            };
+            if length >= nice_length {
+                break;
+            }
+        }
     }
+    best.found()
 }
 
 /// What a match is searched for.
@@ -459,36 +464,41 @@ mod tests {
     fn finds_repeated_strings() {
         let data = b"abcdefabcdefabcdefXYZ";
         let params = CompressionLevel::BEST.params();
-        let mut matcher = Matcher::new(data);
+        let mut matcher = Matcher::new(data.len());
+        let view = View::whole(data);
         for position in 0..6 {
-            let chain = matcher.insert(position).expect("hashable");
-            assert_eq!(matcher.longest_match(position, chain, 2, &params), None);
+            let chain = matcher.insert(view, position).expect("hashable");
+            assert_eq!(
+                matcher.longest_match(view, position, chain, 2, &params),
+                None
+            );
         }
-        let chain = matcher.insert(6).expect("hashable");
+        let chain = matcher.insert(view, 6).expect("hashable");
         assert_eq!(
-            matcher.longest_match(6, chain, 2, &params),
+            matcher.longest_match(view, 6, chain, 2, &params),
             Some(Match {
                 length: 12,
                 distance: 6
             })
         );
-        assert_eq!(matcher.longest_match(6, chain, 12, &params), None);
+        assert_eq!(matcher.longest_match(view, 6, chain, 12, &params), None);
         for position in 7..data.len() - 2 {
-            assert!(matcher.insert(position).is_some());
+            assert!(matcher.insert(view, position).is_some());
         }
-        assert_eq!(matcher.insert(data.len() - 2), None);
+        assert_eq!(matcher.insert(view, data.len() - 2), None);
     }
 
     #[test]
     fn positions_not_inserted_are_no_candidates() {
         let data = b"abcabcabc";
         let params = CompressionLevel::BEST.params();
-        let mut matcher = Matcher::new(data);
-        matcher.insert(0);
-        let chain = matcher.insert(6).expect("hashable");
+        let mut matcher = Matcher::new(data.len());
+        let view = View::whole(data);
+        matcher.insert(view, 0);
+        let chain = matcher.insert(view, 6).expect("hashable");
         // `abc` at 3 was not inserted: the match reaches back to 0.
         assert_eq!(
-            matcher.longest_match(6, chain, 2, &params),
+            matcher.longest_match(view, 6, chain, 2, &params),
             Some(Match {
                 length: 3,
                 distance: 6
@@ -591,7 +601,8 @@ mod tests {
         for (len, seed, level) in cases {
             let data = sample(len, seed);
             let params = CompressionLevel::new(level).expect("valid").params();
-            let mut matcher = Matcher::new(&data);
+            let mut matcher = Matcher::new(data.len());
+            let view = View::whole(&data);
             let chains = chains(&data, matcher.hash_shift);
             let mut inserted = vec![false; data.len()];
             let mut position = 0;
@@ -604,16 +615,16 @@ mod tests {
                 // Insert others at once, as both parsers do inside matches.
                 if position % 1009 == 7 {
                     let end = (position + 400).min(data.len());
-                    matcher.insert_all(position..end);
+                    matcher.insert_all(view, position..end);
                     inserted[position..end].fill(true);
                     position = end;
                     continue;
                 }
-                if let Some(chain) = matcher.insert(position) {
+                if let Some(chain) = matcher.insert(view, position) {
                     inserted[position] = true;
                     let prev_length = position % 7;
                     assert_eq!(
-                        matcher.longest_match(position, chain, prev_length, &params),
+                        matcher.longest_match(view, position, chain, prev_length, &params),
                         chain_match(&data, &chains, &inserted, position, prev_length, &params),
                         "level {level}, position {position} of {len}"
                     );

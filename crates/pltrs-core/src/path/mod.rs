@@ -187,7 +187,11 @@ impl Path {
 
     /// A closed polygon through `points` (the closing vertex is added).
     pub fn polygon<I: IntoIterator<Item = Point>>(points: I) -> Self {
-        let mut vertices: Vec<Point> = points.into_iter().collect();
+        let points = points.into_iter();
+        // Room for the closing vertex as well, which would otherwise grow
+        // a collected vector to twice its length.
+        let mut vertices = Vec::with_capacity(points.size_hint().0 + 1);
+        vertices.extend(points);
         if let Some(&first) = vertices.first() {
             vertices.push(first);
         }
@@ -204,12 +208,13 @@ impl Path {
     /// matplotlib, compounding no paths at all gives an empty path without
     /// codes.
     pub fn compound<'a, I: IntoIterator<Item = &'a Self>>(paths: I) -> Self {
-        let mut paths = paths.into_iter().peekable();
-        if paths.peek().is_none() {
+        let paths: Vec<&Self> = paths.into_iter().collect();
+        if paths.is_empty() {
             return Self::polyline(Vec::new());
         }
-        let mut vertices = Vec::new();
-        let mut codes = Vec::new();
+        let len = paths.iter().map(|path| path.vertices.len()).sum();
+        let mut vertices = Vec::with_capacity(len);
+        let mut codes = Vec::with_capacity(len);
         for path in paths {
             vertices.extend_from_slice(&path.vertices);
             match &path.codes {
@@ -227,8 +232,9 @@ impl Path {
     /// One closed polygon per entry, each followed by an ignored closing
     /// vertex at the origin (matplotlib's `make_compound_path_from_polys`).
     pub fn compound_from_polygons<P: AsRef<[Point]>>(polygons: &[P]) -> Self {
-        let mut vertices = Vec::new();
-        let mut codes = Vec::new();
+        let len = polygons.iter().map(|p| p.as_ref().len() + 1).sum();
+        let mut vertices = Vec::with_capacity(len);
+        let mut codes = Vec::with_capacity(len);
         for polygon in polygons {
             let polygon = polygon.as_ref();
             vertices.extend_from_slice(polygon);

@@ -32,6 +32,7 @@ mod decode_table;
 mod error;
 pub(crate) mod huffman;
 mod inflate;
+pub(crate) mod input;
 mod level;
 mod lz77;
 mod matcher;
@@ -42,6 +43,7 @@ pub use level::{CompressionLevel, InvalidCompressionLevel};
 
 use bit_writer::BitWriter;
 use block::BlockSink;
+use input::{Input, Whole};
 use level::Parsing;
 use pltrs_core::alloc::OutOfMemory;
 
@@ -67,18 +69,35 @@ pub fn compress_into(
     level: CompressionLevel,
     out: &mut Vec<u8>,
 ) -> Result<(), OutOfMemory> {
+    compress_input(&mut Whole(data), level, out)
+}
+
+/// Appends the raw DEFLATE compression of `input` to `out`: the same
+/// stream [`compress_into`] writes for the same bytes, whether or not the
+/// input holds them all at once.
+///
+/// # Errors
+///
+/// When the memory for the output cannot be allocated (what was written
+/// of it stays in `out`).
+pub(crate) fn compress_input(
+    input: &mut impl Input,
+    level: CompressionLevel,
+    out: &mut Vec<u8>,
+) -> Result<(), OutOfMemory> {
     let params = level.params();
+    let len = input.view().len();
     // Room for the usual output at once; the writer grows it further if
     // the data compresses less (a refusal here is not yet a failure).
     let _ = out.try_reserve(match params.parsing {
-        Parsing::Stored => data.len() + 5 * (data.len() / 65_535 + 1),
-        Parsing::Greedy | Parsing::Lazy => data.len() / 4 + 64,
+        Parsing::Stored => len + 5 * (len / 65_535 + 1),
+        Parsing::Greedy | Parsing::Lazy => len / 4 + 64,
     });
     let mut writer = BitWriter::new(out);
     match params.parsing {
-        Parsing::Stored => block::write_stored(&mut writer, data, true),
-        Parsing::Greedy => lz77::greedy(data, &params, BlockSink::new(data, &mut writer)),
-        Parsing::Lazy => lz77::lazy(data, &params, BlockSink::new(data, &mut writer)),
+        Parsing::Stored => block::write_stored_input(&mut writer, input),
+        Parsing::Greedy => lz77::greedy(input, &params, BlockSink::new(&mut writer)),
+        Parsing::Lazy => lz77::lazy(input, &params, BlockSink::new(&mut writer)),
     }
     writer.align_to_byte();
     writer.finish()

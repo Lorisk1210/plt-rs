@@ -9,14 +9,21 @@ use super::edge::{
     next_quad,
 };
 use super::filled::ParentCache;
+use crate::contour::quad::GridCoordinates;
 
 /// Grid coordinates and values, row-major with `nx` points per row.
 #[derive(Clone, Debug)]
 pub(super) struct Field {
-    pub(super) x: Vec<f64>,
-    pub(super) y: Vec<f64>,
+    pub(super) coords: GridCoordinates,
     pub(super) z: Vec<f64>,
     pub(super) nx: usize,
+}
+
+impl Field {
+    /// The position of grid point `point`.
+    fn point(&self, point: usize) -> Point {
+        self.coords.at(point, self.nx)
+    }
 }
 
 /// The state of one contouring pass: the cache, the levels and, for filled
@@ -55,17 +62,18 @@ impl Tracer<'_> {
     pub(super) fn interp(&self, at: QuadEdge, level: f64, line: &mut Vec<Point>) {
         let nx = self.field.nx;
         let (p1, p2) = (edge_point(at, true, nx), edge_point(at, false, nx));
-        let (x, y, z) = (&self.field.x, &self.field.y, &self.field.z);
+        let z = &self.field.z;
         let fraction = (z[p2] - level) / (z[p2] - z[p1]);
+        let (xy1, xy2) = (self.field.point(p1), self.field.point(p2));
         line.push(Point::new(
-            x[p1] * fraction + x[p2] * (1.0 - fraction),
-            y[p1] * fraction + y[p2] * (1.0 - fraction),
+            xy1.x * fraction + xy2.x * (1.0 - fraction),
+            xy1.y * fraction + xy2.y * (1.0 - fraction),
         ));
     }
 
     /// Appends the coordinates of grid point `point`.
     fn point_xy(&self, point: usize, line: &mut Vec<Point>) {
-        line.push(Point::new(self.field.x[point], self.field.y[point]));
+        line.push(self.field.point(point));
     }
 
     /// Follows a contour across quad interiors from `at` until it reaches a

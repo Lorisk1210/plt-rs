@@ -70,16 +70,15 @@ pub fn std(values: &[f64], ddof: usize) -> f64 {
 /// Median (numpy `median`): the middle value, or the mean of the two middle
 /// values; NaN if the data is empty or contains NaN.
 pub fn median(values: &[f64]) -> f64 {
-    let Some(sorted) = sorted_without_nan(values) else {
-        return f64::NAN;
-    };
-    let n = sorted.len();
+    let n = values.len();
     if n == 0 {
-        f64::NAN
-    } else if n % 2 == 1 {
-        sorted[n / 2]
-    } else {
-        mean_of_two(sorted[n / 2 - 1], sorted[n / 2])
+        return f64::NAN;
+    }
+    // One rank for odd lengths, the two middle ones for even lengths.
+    match ranked_without_nan(values, &[(n - 1) / 2, n / 2]) {
+        Some(ranked) if n % 2 == 1 => ranked[n / 2],
+        Some(ranked) => mean_of_two(ranked[n / 2 - 1], ranked[n / 2]),
+        None => f64::NAN,
     }
 }
 
@@ -143,24 +142,45 @@ pub fn quantile(values: &[f64], q: f64) -> Result<f64, StatsError> {
 }
 
 fn quantiles_unchecked(values: &[f64], qs: &[f64]) -> Vec<f64> {
-    match sorted_without_nan(values) {
-        Some(sorted) if !sorted.is_empty() => qs.iter().map(|&q| interpolate(&sorted, q)).collect(),
-        _ => vec![f64::NAN; qs.len()],
+    let Some(last) = values.len().checked_sub(1) else {
+        return vec![f64::NAN; qs.len()];
+    };
+    let positions: Vec<Position> = qs.iter().map(|&q| Position::of(last, q)).collect();
+    let ranks: Vec<usize> = positions.iter().flat_map(|p| [p.below, p.above]).collect();
+    match ranked_without_nan(values, &ranks) {
+        Some(ranked) => positions
+            .iter()
+            .map(|p| lerp(ranked[p.below], ranked[p.above], p.gamma))
+            .collect(),
+        None => vec![f64::NAN; qs.len()],
     }
 }
 
-/// numpy's `_quantile` for one fraction of sorted, NaN-free data.
-fn interpolate(sorted: &[f64], q: f64) -> f64 {
-    let last = sorted.len() - 1;
-    let virtual_index = last as f64 * q;
-    let (below, above) = if virtual_index >= last as f64 {
-        (last, last)
-    } else {
-        let below = virtual_index.floor() as usize;
-        (below, below + 1)
-    };
-    let gamma = virtual_index - below as f64;
-    lerp(sorted[below], sorted[above], gamma)
+/// Where numpy's `_quantile` finds a fraction among sorted data: between
+/// the values of ranks `below` and `above`, `gamma` of the way.
+struct Position {
+    below: usize,
+    above: usize,
+    gamma: f64,
+}
+
+impl Position {
+    /// The position of the fraction `q` among data whose last rank is
+    /// `last`.
+    fn of(last: usize, q: f64) -> Self {
+        let virtual_index = last as f64 * q;
+        let (below, above) = if virtual_index >= last as f64 {
+            (last, last)
+        } else {
+            let below = virtual_index.floor() as usize;
+            (below, below + 1)
+        };
+        Self {
+            below,
+            above,
+            gamma: virtual_index - below as f64,
+        }
+    }
 }
 
 /// numpy's `_lerp`, which interpolates from the nearer end for accuracy.
@@ -173,14 +193,25 @@ fn lerp(a: f64, b: f64, t: f64) -> f64 {
     }
 }
 
-/// The values sorted ascending, or `None` if any is NaN.
-fn sorted_without_nan(values: &[f64]) -> Option<Vec<f64>> {
+/// A copy of the values in which each of `ranks` holds what it would
+/// hold sorted ascending (numpy's `partition` on them, linear in the
+/// length rather than a sort), or `None` if any value is NaN.
+fn ranked_without_nan(values: &[f64], ranks: &[usize]) -> Option<Vec<f64>> {
     if values.iter().any(|v| v.is_nan()) {
         return None;
     }
-    let mut sorted = values.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    Some(sorted)
+    let mut ranks = ranks.to_vec();
+    ranks.sort_unstable();
+    ranks.dedup();
+    let mut ranked = values.to_vec();
+    // Each selection leaves the larger values after the rank, among which
+    // the next, larger rank is selected.
+    let mut start = 0;
+    for rank in ranks {
+        ranked[start..].select_nth_unstable_by(rank - start, f64::total_cmp);
+        start = rank + 1;
+    }
+    Some(ranked)
 }
 
 #[cfg(test)]
@@ -216,6 +247,28 @@ mod tests {
         assert_eq!(median(&[4.0, 1.0, 2.0, 3.0]), 2.5);
         assert!(median(&[]).is_nan());
         assert!(median(&[1.0, f64::NAN]).is_nan());
+    }
+
+    #[test]
+    fn selected_ranks_are_those_of_a_sort() {
+        let mut rng = pltrs_core::rng::SplitMix64::new(7);
+        for len in [1, 2, 3, 10, 101, 1000] {
+            // Few distinct values, and zeros of both signs.
+            let values: Vec<f64> = (0..len)
+                .map(|_| ((rng.below(9) as f64 - 4.0) * 0.5).copysign(rng.next_f64() - 0.5))
+                .collect();
+            let mut sorted = values.clone();
+            sorted.sort_by(f64::total_cmp);
+            let ranks = [len - 1, 0, len / 2, len / 3, len / 2];
+            let ranked = ranked_without_nan(&values, &ranks).unwrap();
+            for rank in ranks {
+                assert_eq!(
+                    ranked[rank].to_bits(),
+                    sorted[rank].to_bits(),
+                    "rank {rank} of {len}"
+                );
+            }
+        }
     }
 
     #[test]

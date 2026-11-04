@@ -14,7 +14,7 @@ use crate::stats::summary::{mean, percentile_array, std};
 /// number of bins and no integer clamp is applied. A width of zero means
 /// "use a single bin".
 pub fn bin_width<T: BinSample>(data: &[T], estimator: BinEstimator, range: (f64, f64)) -> f64 {
-    let x: Vec<f64> = data.iter().map(|v| v.to_f64()).collect();
+    let x = T::floats(data);
     match estimator {
         BinEstimator::Sqrt => sqrt_width(&x),
         BinEstimator::Sturges => sturges_width(&x),

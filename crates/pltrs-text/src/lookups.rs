@@ -11,6 +11,7 @@
 //! matplotlib's does.
 
 use std::cell::RefCell;
+use std::sync::Arc;
 
 use pltrs_font::{FontQuery, GenericFamilies};
 
@@ -36,7 +37,7 @@ pub struct FontLookup {
     /// What was looked up.
     pub query: FontQuery,
     /// The generic-family lists in force.
-    pub generics: GenericFamilies,
+    pub generics: Arc<GenericFamilies>,
     /// The keyword the weight was given as, if it was (matplotlib's
     /// message names it).
     pub weight_keyword: Option<&'static str>,
@@ -87,7 +88,7 @@ mod tests {
                 weight: Weight(weight),
                 ..FontQuery::families(["xkcd", "DejaVu Sans"])
             },
-            generics: GenericFamilies::default(),
+            generics: Arc::default(),
             weight_keyword: None,
         }
     }

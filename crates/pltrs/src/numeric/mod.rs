@@ -96,6 +96,19 @@ pub fn nanmax<I: IntoIterator<Item = f64>>(values: I) -> Option<f64> {
     values.into_iter().filter(|v| !v.is_nan()).reduce(f64::max)
 }
 
+/// [`nanmin`] and [`nanmax`] together, in one pass over the values.
+///
+/// ```
+/// use pltrs::numeric::nan_extent;
+/// assert_eq!(nan_extent([2.0, f64::NAN, -1.0, 5.0]), Some((-1.0, 5.0)));
+/// assert_eq!(nan_extent([f64::NAN]), None);
+/// ```
+pub fn nan_extent<I: IntoIterator<Item = f64>>(values: I) -> Option<(f64, f64)> {
+    let mut values = values.into_iter().filter(|v| !v.is_nan());
+    let first = values.next()?;
+    Some(values.fold((first, first), |(lo, hi), v| (lo.min(v), hi.max(v))))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

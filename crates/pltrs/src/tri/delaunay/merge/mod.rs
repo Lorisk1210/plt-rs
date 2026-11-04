@@ -136,7 +136,7 @@ impl Hull {
             if !self.facet(facet.neighbors[0]).simplicial
                 || facet.flipped
                 || facet.dupridge
-                || facet.normal.is_none()
+                || facet.normal().is_none()
             {
                 return false;
             }

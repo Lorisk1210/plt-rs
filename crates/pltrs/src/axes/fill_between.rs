@@ -186,10 +186,7 @@ impl FillGeometry {
     fn polygons(self, curves: &Curves) -> Vec<Path> {
         contiguous_regions(&curves.fill)
             .into_iter()
-            .map(|(start, stop)| {
-                let outline = curves.region(start, stop, self.step, self.interpolate);
-                Path::polygon(outline.into_iter().map(|(t, f)| self.place(t, f)))
-            })
+            .map(|(start, stop)| curves.region(start, stop, self))
             .collect()
     }
 }
@@ -339,54 +336,53 @@ impl Curves {
     /// The box of every filled point on both curves, placed by
     /// `geometry`, with their smallest positive coordinates.
     fn filled_limits(&self, geometry: FillGeometry) -> DataLimits {
-        let on = |f: &[f64]| -> Vec<Point> {
-            (0..self.t.len())
-                .filter(|&i| self.fill[i])
-                .map(|i| geometry.place(self.t[i], f[i]))
-                .collect()
-        };
-        let mut points = on(&self.f1);
-        points.extend(on(&self.f2));
+        let points = self
+            .filled_points(&self.f1, geometry)
+            .chain(self.filled_points(&self.f2, geometry));
         let mut limits = DataLimits::NULL;
-        limits.update_from_points(&points, true, true);
+        limits.update_from_iter(&points, true, true);
         limits
     }
 
-    /// The outline of the region `start..stop` as `(t, f)` pairs: along
-    /// `f1`, then back along `f2` (matplotlib's `_make_verts_for_region`).
-    fn region(
-        &self,
-        start: usize,
-        stop: usize,
-        step: Option<StepWhere>,
-        interpolate: bool,
-    ) -> Vec<(f64, f64)> {
+    /// The filled points of the curve `f`, placed by `geometry`.
+    fn filled_points<'a>(
+        &'a self,
+        f: &'a [f64],
+        geometry: FillGeometry,
+    ) -> impl Iterator<Item = Point> + Clone + 'a {
+        (0..self.t.len())
+            .filter(|&i| self.fill[i])
+            .map(move |i| geometry.place(self.t[i], f[i]))
+    }
+
+    /// The polygon of the region `start..stop`, placed by `geometry`: along
+    /// `f1`, then back along `f2` (matplotlib's `_make_verts_for_region`),
+    /// stepped as `geometry` steps.
+    fn region(&self, start: usize, stop: usize, geometry: FillGeometry) -> Path {
         let (t, f1, f2) = (
             &self.t[start..stop],
             &self.f1[start..stop],
             &self.f2[start..stop],
         );
-        let style = step.map_or(DrawStyle::Default, DrawStyle::from);
-        let mut rows = style
-            .apply(t, &[f1, f2])
-            .expect("the curves have equal lengths")
-            .into_iter();
-        let (t, f1, f2) = (
-            rows.next().unwrap_or_default(),
-            rows.next().unwrap_or_default(),
-            rows.next().unwrap_or_default(),
-        );
-        let (first, last) = if interpolate {
+        let stepped = geometry.step.map(|step| {
+            DrawStyle::from(step)
+                .apply(t, &[f1, f2])
+                .expect("the curves have equal lengths")
+        });
+        let (t, f1, f2) = match &stepped {
+            Some(rows) => (&rows[0][..], &rows[1][..], &rows[2][..]),
+            None => (t, f1, f2),
+        };
+        let (first, last) = if geometry.interpolate {
             (self.crossing(start), self.crossing(stop))
         } else {
             ((t[0], f2[0]), (t[t.len() - 1], f2[f2.len() - 1]))
         };
-        let mut outline = Vec::with_capacity(2 * t.len() + 2);
-        outline.push(first);
-        outline.extend(t.iter().copied().zip(f1));
-        outline.push(last);
-        outline.extend(t.iter().copied().zip(f2).rev());
-        outline
+        let outline = std::iter::once(first)
+            .chain(t.iter().copied().zip(f1.iter().copied()))
+            .chain(std::iter::once(last))
+            .chain(t.iter().copied().zip(f2.iter().copied()).rev());
+        Path::polygon(outline.map(|(t, f)| geometry.place(t, f)))
     }
 
     /// Where the curves cross next to index `idx`, or the nearest valid

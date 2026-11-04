@@ -4,7 +4,9 @@ use super::{BinSample, Uniform};
 use crate::stats::summary::pairwise_sum;
 
 /// Equal-width bins: numpy computes each sample's bin index arithmetically
-/// and then corrects it by one against the actual edges.
+/// and then corrects it by one against the actual edges. Unweighted
+/// samples are counted in integers, which the float counts equal exactly
+/// (below 2⁵³ samples).
 pub(super) fn uniform<T: BinSample>(
     data: &[T],
     weights: Option<&[f64]>,
@@ -14,12 +16,7 @@ pub(super) fn uniform<T: BinSample>(
     let Uniform { first, last, count } = bins;
     let span = last - first;
     let scale = count as f64;
-    let mut counts = vec![0.0; count];
-    for (i, sample) in data.iter().enumerate() {
-        let x = sample.to_f64();
-        if !(x >= first && x <= last) {
-            continue;
-        }
+    let bin = |x: f64| {
         let mut index = ((x - first) / span * scale) as usize;
         if index >= count {
             index = count - 1;
@@ -30,9 +27,27 @@ pub(super) fn uniform<T: BinSample>(
         if index != count - 1 && x >= edges[index + 1] {
             index += 1;
         }
-        counts[index] += weights.map_or(1.0, |w| w[i]);
+        index
+    };
+    let inside = |x: f64| x >= first && x <= last;
+    match weights {
+        None => {
+            let mut counts = vec![0_u64; count];
+            for x in data.iter().map(|v| v.to_f64()).filter(|&x| inside(x)) {
+                counts[bin(x)] += 1;
+            }
+            counts.into_iter().map(|n| n as f64).collect()
+        }
+        Some(weights) => {
+            let mut counts = vec![0.0; count];
+            for (x, &weight) in data.iter().map(|v| v.to_f64()).zip(weights) {
+                if inside(x) {
+                    counts[bin(x)] += weight;
+                }
+            }
+            counts
+        }
     }
-    counts
 }
 
 /// Arbitrary edges: numpy sorts the samples and counts with binary
@@ -95,6 +110,9 @@ mod tests {
         };
         let counts = uniform(&[0.0, 1.0, 2.0, 2.5, f64::NAN, -1.0], None, &edges, bins);
         assert_eq!(counts, vec![1.0, 2.0]);
+        let weights = [2.0, 0.25, 0.5, 8.0];
+        let weighted = uniform(&[0.5, 1.5, 2.0, 3.0], Some(&weights), &edges, bins);
+        assert_eq!(weighted, vec![2.0, 0.75]);
     }
 
     #[test]

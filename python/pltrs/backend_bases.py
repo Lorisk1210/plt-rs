@@ -2126,13 +2126,23 @@ class FigureCanvasBase:
         with self._program_drawing(kwargs.get("bbox_inches_restore")):
             data = _backends.print_figure(
                 self.figure._native, fmt, self._print_settings(**kwargs),
-                self._send_draw_event)
+                self._draw_event_sender())
         _write_bytes(data, filename_or_obj)
 
     def _send_draw_event(self):
         """Emit the ``draw_event`` of a draw that printed the figure
         (pltrs (Rust) calls it once the figure is drawn)."""
         DrawEvent("draw_event", self, None)._process()
+
+    def _draw_event_sender(self):
+        """
+        `_send_draw_event` while a callback listens to ``draw_event``, else
+        None: a print with nothing to tell keeps no copy of the printed
+        pixels for callbacks to draw on.
+        """
+        if self.callbacks.callbacks.get("draw_event"):
+            return self._send_draw_event
+        return None
 
     def _program_drawing(self, bbox_inches_restore):
         """

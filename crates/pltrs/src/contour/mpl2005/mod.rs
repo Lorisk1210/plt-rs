@@ -21,7 +21,7 @@ use self::init::mask_zones;
 use self::site::{KIND_SLIT_UP, Site};
 use super::assemble::LevelPath;
 use super::chunks::Chunks;
-use super::quad::{QuadGrid, signed};
+use super::quad::{GridCoordinates, QuadGrid, signed, slot};
 
 /// contourpy's `Mpl2005ContourGenerator` with matplotlib's line and fill
 /// types.
@@ -43,11 +43,17 @@ pub(super) struct Mpl2005 {
 /// The coordinates and values of the mesh points, row-major.
 #[derive(Clone, Debug)]
 struct Mesh {
-    x: Vec<f64>,
-    y: Vec<f64>,
+    coords: GridCoordinates,
     z: Vec<f64>,
     /// Points per row.
     imax: isize,
+}
+
+impl Mesh {
+    /// The position of mesh point `point`.
+    fn point(&self, point: usize) -> Point {
+        self.coords.at(point, slot(self.imax))
+    }
 }
 
 impl Mpl2005 {
@@ -57,8 +63,7 @@ impl Mpl2005 {
         Self {
             zones: grid.mask.map(|mask| mask_zones(imax, jmax, mask)),
             mesh: Mesh {
-                x: grid.x,
-                y: grid.y,
+                coords: grid.coords,
                 z: grid.z,
                 imax: signed(imax),
             },
@@ -158,13 +163,12 @@ mod tests {
     fn generator(rows: &[&[f64]], mask: Option<&[bool]>, chunk: usize) -> Mpl2005 {
         let (ny, nx) = (rows.len(), rows[0].len());
         let z: Vec<f64> = rows.concat();
-        let x: Vec<f64> = (0..ny).flat_map(|_| (0..nx).map(|i| i as f64)).collect();
-        let y: Vec<f64> = (0..ny)
-            .flat_map(|j| (0..nx).map(move |_| j as f64))
-            .collect();
+        let coords = GridCoordinates::Axes {
+            x: (0..nx).map(|i| i as f64).collect(),
+            y: (0..ny).map(|j| j as f64).collect(),
+        };
         let grid = QuadGrid {
-            x,
-            y,
+            coords,
             z,
             mask,
             nx,

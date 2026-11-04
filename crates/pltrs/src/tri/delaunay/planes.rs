@@ -37,7 +37,7 @@ impl Hull {
             orient_outside = gauss_nearzero;
         }
         let facet = self.facet_mut(f);
-        facet.normal = Some(normal);
+        facet.set_normal(Some(normal));
         facet.offset = offset;
         if orient_outside {
             self.orient_outside(f);
@@ -68,12 +68,10 @@ impl Hull {
         if self.dist(&self.interior_point, f) > 0.0 {
             let facet = self.facet_mut(f);
             let normal = facet
-                .normal
-                .as_mut()
-                .expect("oriented facets have a hyperplane");
-            for c in normal.iter_mut() {
-                *c = -*c;
-            }
+                .normal()
+                .expect("oriented facets have a hyperplane")
+                .map(|c| -c);
+            facet.set_normal(Some(normal));
             facet.offset = -facet.offset;
         }
     }

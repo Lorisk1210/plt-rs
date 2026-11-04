@@ -178,6 +178,10 @@ impl Path {
         let codes = out.codes.get_or_insert_with(Vec::new);
         out.vertices.clear();
         codes.clear();
+        // One vertex out per vertex in: room for them at once rather than
+        // growing to up to twice their number.
+        out.vertices.reserve(self.vertices.len());
+        codes.reserve(self.vertices.len());
         for (i, &point) in self.vertices.iter().enumerate() {
             let code = self.code_at(i);
             let point = match code {

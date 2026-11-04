@@ -64,8 +64,7 @@ impl Mpl2014 {
         );
         Self {
             field: Field {
-                x: grid.x,
-                y: grid.y,
+                coords: grid.coords,
                 z: grid.z,
                 nx,
             },

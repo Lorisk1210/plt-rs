@@ -9,6 +9,7 @@ mod counting;
 mod estimators;
 mod sample;
 
+use std::borrow::Cow;
 use std::str::FromStr;
 
 pub use estimators::bin_width;
@@ -308,16 +309,16 @@ fn estimated_bin_count<T: BinSample>(
     range: Option<(f64, f64)>,
     (first, last): (f64, f64),
 ) -> usize {
-    let kept: Vec<T> = match range {
-        Some(_) => data
-            .iter()
-            .copied()
-            .filter(|v| {
-                let v = v.to_f64();
-                v >= first && v <= last
-            })
-            .collect(),
-        None => data.to_vec(),
+    let inside = |v: &T| {
+        let v = v.to_f64();
+        v >= first && v <= last
+    };
+    // The range is mostly the data's own extent, which keeps every sample.
+    let kept: Cow<'_, [T]> = match range {
+        Some(_) if !data.iter().all(inside) => {
+            Cow::Owned(data.iter().copied().filter(inside).collect())
+        }
+        _ => Cow::Borrowed(data),
     };
     if kept.is_empty() {
         return 1;

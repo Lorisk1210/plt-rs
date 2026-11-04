@@ -5,6 +5,9 @@ mod handle;
 
 pub use handle::{Line2D, LineProps};
 
+use std::borrow::Cow;
+use std::ops::Range;
+
 use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_render::{CapStyle, GraphicsContext, JoinStyle};
 
@@ -225,9 +228,14 @@ impl LineArtist {
             .unwrap_or_default()
     }
 
-    /// The data points (ignoring the draw style), for markers.
-    pub(super) fn points(&self) -> Result<Path, StepError> {
-        line_vertices(&self.xdata, &self.ydata, DrawStyle::Default).map(Path::polyline)
+    /// The data points (ignoring the draw style), for markers: the drawn
+    /// path itself for a line without steps.
+    pub(super) fn points(&self) -> Result<Cow<'_, Path>, StepError> {
+        if self.drawstyle == DrawStyle::Default {
+            return self.path.as_ref().map(Cow::Borrowed).map_err(Clone::clone);
+        }
+        line_vertices(&self.xdata, &self.ydata, DrawStyle::Default)
+            .map(|vertices| Cow::Owned(Path::polyline(vertices)))
     }
 
     pub(super) fn transform(&self) -> Transform {
@@ -319,6 +327,60 @@ impl LineArtist {
         }
     }
 
+    /// The points a long line draws when only part of it is in view (see
+    /// [`visible_range`]); `None` when it draws them all. An infinite
+    /// line's data are not in data coordinates, which this needs.
+    fn drawn_range(&self, layout: LayoutContext<'_>) -> Option<Range<usize>> {
+        let n = self.xdata.len();
+        if self.infinite.is_some() || n != self.ydata.len() {
+            return None;
+        }
+        visible_range(layout, &self.base, &self.xdata, self.markevery.is_some())
+            .filter(|range| *range != (0..n))
+    }
+
+    /// The path the line draws through its points `range` (all of them
+    /// for `None`), its draw style applied: the cached path when it draws
+    /// them all, so that a long line is not copied to be drawn.
+    fn drawn_path(&self, range: Option<Range<usize>>) -> Result<Cow<'_, Path>, StepError> {
+        if range.is_none() {
+            return self.path.as_ref().map(Cow::Borrowed).map_err(Clone::clone);
+        }
+        let (x, y) = self.data_in(range);
+        let vertices = line_vertices(x, y, self.drawstyle)?;
+        Ok(Cow::Owned(
+            Path::polyline(vertices).with_interpolation_steps(self.interpolation_steps),
+        ))
+    }
+
+    /// Where the line's markers go among its points `range` (all of them
+    /// for `None`), with `drawn` the path it draws through them: the
+    /// same vertices for a line without steps, borrowed then (the
+    /// renderers place markers at the vertices whatever the path's
+    /// interpolation steps), and nothing for a line without markers.
+    fn marker_points<'a>(
+        &'a self,
+        drawn: &'a Path,
+        range: Option<Range<usize>>,
+    ) -> Result<Cow<'a, Path>, StepError> {
+        if self.marker.is_nothing() || self.markersize <= 0.0 {
+            return Ok(Cow::Owned(Path::default()));
+        }
+        if self.drawstyle == DrawStyle::Default {
+            return Ok(Cow::Borrowed(drawn));
+        }
+        let (x, y) = self.data_in(range);
+        line_vertices(x, y, DrawStyle::Default).map(|vertices| Cow::Owned(Path::polyline(vertices)))
+    }
+
+    /// The data of the points `range`, all of them for `None`.
+    fn data_in(&self, range: Option<Range<usize>>) -> (&[f64], &[f64]) {
+        match range {
+            Some(range) => (&self.xdata[range.clone()], &self.ydata[range]),
+            None => (&self.xdata, &self.ydata),
+        }
+    }
+
     pub(super) fn line_gc(&self, ctx: &DrawContext<'_>) -> GraphicsContext {
         let mut gc = ctx.base_gc(&self.base);
         // Lines bake their alpha into the colours (matplotlib does not set
@@ -360,35 +422,14 @@ impl Artist for LineArtist {
                 return;
             }
         };
-        // An infinite line's data are not in data coordinates, which the
-        // drawing of only the part of long lines in view needs.
-        let visible = (self.infinite.is_none() && self.xdata.len() == self.ydata.len())
-            .then(|| {
-                visible_range(
-                    *ctx.layout(),
-                    &self.base,
-                    &self.xdata,
-                    self.markevery.is_some(),
-                )
-            })
-            .flatten();
-        let paths = match visible {
-            Some(range) => {
-                let (x, y) = (&self.xdata[range.clone()], &self.ydata[range]);
-                line_vertices(x, y, self.drawstyle).and_then(|drawn| {
-                    let points = line_vertices(x, y, DrawStyle::Default)?;
-                    let drawn =
-                        Path::polyline(drawn).with_interpolation_steps(self.interpolation_steps);
-                    Ok((drawn, Path::polyline(points)))
-                })
-            }
-            None => self
-                .path
-                .clone()
-                .and_then(|drawn| Ok((drawn, self.points()?))),
-        };
+        let range = self.drawn_range(*ctx.layout());
+        let drawn = self.drawn_path(range.clone());
+        let paths = drawn
+            .as_ref()
+            .map_err(Clone::clone)
+            .and_then(|drawn| Ok((drawn, self.marker_points(drawn, range)?)));
         match paths {
-            Ok((drawn, points)) => self.draw_paths(ctx, &resolved, &drawn, &points),
+            Ok((drawn, points)) => self.draw_paths(ctx, &resolved, drawn, &points),
             // Data that cannot be drawn: matplotlib's `recache` raises a
             // `ValueError` when it draws the line.
             Err(problem) => ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem),

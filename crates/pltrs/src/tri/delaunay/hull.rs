@@ -8,34 +8,61 @@
 //! doubly linked through the arena, exactly like qhull's, because the order
 //! in which facets are visited decides the order of the output triangles.
 
-use super::inline::InlineVec;
+use std::num::NonZeroU32;
+
+use super::inline::{InlineVec, LazyVec};
 use super::precision::{Precision, QhullMinMax};
 
 /// A facet, identified by its qhull id (its index in [`Hull::facets`]).
-/// The default is the sentinel [`FacetId::TAIL`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(super) struct FacetId(u32);
+/// The default is the sentinel [`FacetId::TAIL`]. It holds its id plus
+/// one, so that an `Option<FacetId>` takes no more room than an id.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(super) struct FacetId(NonZeroU32);
 
 impl FacetId {
     /// The sentinel facet terminating the facet list (`qh.facet_tail`).
-    pub(super) const TAIL: Self = Self(0);
+    pub(super) const TAIL: Self = Self(NonZeroU32::MIN);
     /// An unmatched neighbour slot of a new facet (a null set entry).
-    pub(super) const NONE: Self = Self(u32::MAX);
+    pub(super) const NONE: Self = Self(NonZeroU32::MAX);
     /// qhull's `qh_DUPLICATEridge`: the slot's ridge is shared by more than
     /// two new facets and is still waiting for a match.
-    pub(super) const DUPLICATE_RIDGE: Self = Self(u32::MAX - 1);
+    pub(super) const DUPLICATE_RIDGE: Self = Self::sentinel(1);
     /// qhull's `qh_MERGEridge`: the slot's duplicate ridge will be resolved
     /// by merging the facets.
-    pub(super) const MERGE_RIDGE: Self = Self(u32::MAX - 2);
+    pub(super) const MERGE_RIDGE: Self = Self::sentinel(2);
+
+    /// The sentinel `below` ids under [`FacetId::NONE`].
+    const fn sentinel(below: u32) -> Self {
+        match NonZeroU32::new(u32::MAX - below) {
+            Some(id) => Self(id),
+            None => panic!("sentinels are far from zero"),
+        }
+    }
+
+    /// The facet in arena slot `index`.
+    fn at(index: usize) -> Self {
+        u32::try_from(index)
+            .ok()
+            .and_then(|index| index.checked_add(1))
+            .and_then(NonZeroU32::new)
+            .map(Self)
+            .expect("fewer than 2^32 facets")
+    }
 
     /// The arena index.
     pub(super) fn index(self) -> usize {
-        self.0 as usize
+        self.id() as usize
     }
 
     /// The qhull id (creation number).
     pub(super) fn id(self) -> u32 {
-        self.0
+        self.0.get() - 1
+    }
+}
+
+impl Default for FacetId {
+    fn default() -> Self {
+        Self::TAIL
     }
 }
 
@@ -55,7 +82,7 @@ impl VertexId {
 }
 
 /// A ridge (an edge between two facets of the 3-d hull).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(super) struct RidgeId(u32);
 
 impl RidgeId {
@@ -82,12 +109,17 @@ pub(super) type HullResult<T> = Result<T, HullError>;
 /// A facet of the lifted 3-d hull (qhull's `facetT`), its flags one `bool`
 /// per role as qhull's bit flags.
 #[derive(Clone, Debug, Default)]
-// Four cache lines, laid out by use: the first holds what walks and
-// searches follow (vertices, neighbours, links), the second what distance
-// tests and visits read (hyperplane, marker, flags), the others the point
-// sets and what merging uses.
+// Three cache lines, laid out by use: the first holds what distance tests
+// and walks of the neighbourhood read (hyperplane, vertices, neighbours),
+// the second the links, marker, flags and outside distances, the third
+// the point and ridge sets and the centrum.
 #[repr(C, align(64))]
 pub(super) struct Facet {
+    /// The unit outer normal, valid once `has_normal` is set (see
+    /// [`Facet::normal`]).
+    normal: [f64; 3],
+    /// Offset of the hyperplane (`normal . p + offset = 0` on the facet).
+    pub(super) offset: f64,
     /// Vertices, sorted by decreasing id.
     pub(super) vertices: InlineVec<VertexId>,
     /// Neighbours; for simplicial facets neighbour `i` is opposite vertex `i`.
@@ -96,12 +128,14 @@ pub(super) struct Facet {
     pub(super) next: Option<FacetId>,
     /// Previous facet in the facet list.
     pub(super) previous: Option<FacetId>,
-    /// Unit outer normal, once the hyperplane is set.
-    pub(super) normal: Option<[f64; 3]>,
-    /// Offset of the hyperplane (`normal . p + offset = 0` on the facet).
-    pub(super) offset: f64,
+    /// qhull's `f` union: the replacement of a visible facet, the next facet
+    /// of a cycle of new facets (`samecycle`), the current cycle of a horizon
+    /// facet (`newcycle`) or the owner of a triangulated facet.
+    pub(super) link: Option<FacetId>,
     /// Visit marker compared with [`Hull::visit_id`].
     pub(super) visit_id: u32,
+    /// The hyperplane is set.
+    has_normal: bool,
     /// Created with top orientation (decides the orientation of the normal).
     pub(super) toporient: bool,
     /// Has exactly three vertices and three neighbours, no explicit ridges.
@@ -144,24 +178,33 @@ pub(super) struct Facet {
     /// a visible facet with a ridge set takes the non-simplicial path when
     /// its cone is built.
     pub(super) ridge_set: bool,
-    /// Points above the facet; the last one is the furthest.
-    pub(super) outside: Vec<usize>,
+    /// Number of merges into this facet.
+    pub(super) nummerge: u16,
     /// Distance of the furthest outside point.
     pub(super) furthest_dist: f64,
     /// Maximum distance of a point above the facet.
     pub(super) max_outside: f64,
-    /// qhull's `f` union: the replacement of a visible facet, the next facet
-    /// of a cycle of new facets (`samecycle`), the current cycle of a horizon
-    /// facet (`newcycle`) or the owner of a triangulated facet.
-    pub(super) link: Option<FacetId>,
-    /// Number of merges into this facet.
-    pub(super) nummerge: u16,
+    /// Points above the facet; the last one is the furthest.
+    pub(super) outside: Vec<usize>,
+    /// Coplanar and interior points assigned to the facet.
+    pub(super) coplanar: LazyVec<usize>,
+    /// Explicit ridges (non-simplicial facets and their neighbours).
+    pub(super) ridges: InlineVec<RidgeId>,
     /// The facet's centrum, cached for convexity tests.
     pub(super) center: Option<Box<[f64; 3]>>,
-    /// Coplanar and interior points assigned to the facet.
-    pub(super) coplanar: Vec<usize>,
-    /// Explicit ridges (non-simplicial facets and their neighbours).
-    pub(super) ridges: Vec<RidgeId>,
+}
+
+impl Facet {
+    /// The unit outer normal, once the hyperplane is set.
+    pub(super) fn normal(&self) -> Option<[f64; 3]> {
+        self.has_normal.then_some(self.normal)
+    }
+
+    /// Sets the hyperplane's normal, or clears it.
+    pub(super) fn set_normal(&mut self, normal: Option<[f64; 3]>) {
+        self.has_normal = normal.is_some();
+        self.normal = normal.unwrap_or_default();
+    }
 }
 
 /// A vertex of the hull (qhull's `vertexT`).
@@ -372,7 +415,7 @@ impl Hull {
     /// The normal of facet `f`; every facet that is tested has one.
     pub(super) fn normal(&self, f: FacetId) -> [f64; 3] {
         self.facet(f)
-            .normal
+            .normal()
             .expect("facets are given a hyperplane before distance tests")
     }
 
@@ -390,7 +433,7 @@ impl Hull {
             self.facets[id.index()] = facet;
             return id;
         }
-        let id = FacetId(u32::try_from(self.facets.len()).expect("fewer than 2^32 facets"));
+        let id = FacetId::at(self.facets.len());
         self.facets.push(facet);
         id
     }
@@ -441,8 +484,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_facet_fills_four_cache_lines() {
+    fn a_facet_fills_three_cache_lines() {
         assert_eq!(std::mem::align_of::<Facet>(), 64);
-        assert_eq!(std::mem::size_of::<Facet>(), 256);
+        assert_eq!(std::mem::size_of::<Facet>(), 192);
+        assert_eq!(std::mem::size_of::<Option<FacetId>>(), 4);
+    }
+
+    #[test]
+    fn facet_ids_keep_their_index_and_order() {
+        let ids: Vec<FacetId> = [0, 1, 7, 1 << 20].into_iter().map(FacetId::at).collect();
+        assert_eq!(ids[0], FacetId::TAIL);
+        assert_eq!(
+            ids.iter().map(|id| id.index()).collect::<Vec<_>>(),
+            [0, 1, 7, 1 << 20]
+        );
+        assert!(ids.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(ids[3] < FacetId::MERGE_RIDGE && FacetId::MERGE_RIDGE < FacetId::NONE);
+    }
+
+    #[test]
+    fn normals_are_set_and_cleared() {
+        let mut facet = Facet::default();
+        assert_eq!(facet.normal(), None);
+        facet.set_normal(Some([0.0, 0.6, 0.8]));
+        assert_eq!(facet.normal(), Some([0.0, 0.6, 0.8]));
+        facet.set_normal(None);
+        assert_eq!(facet.normal(), None);
     }
 }

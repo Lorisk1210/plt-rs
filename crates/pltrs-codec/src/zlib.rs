@@ -16,6 +16,7 @@ use std::fmt;
 use pltrs_core::alloc::{self, OutOfMemory};
 
 use crate::checksum::adler32;
+use crate::deflate::input::{ByteSource, Window};
 use crate::deflate::{self, CompressionLevel, InflateError};
 
 /// Compression method 8 (DEFLATE) with a 32 KiB window (`CINFO` = 7).
@@ -117,6 +118,25 @@ pub fn compress_into(
     alloc::try_reserve(out, 4)?;
     out.extend_from_slice(&adler32(data).to_be_bytes());
     Ok(())
+}
+
+/// The zlib stream [`compress`] makes of the bytes `source` produces,
+/// which are read a window at a time rather than held all at once.
+///
+/// # Errors
+///
+/// When the memory for the window or the output cannot be allocated.
+pub(crate) fn compress_source(
+    source: impl ByteSource,
+    level: CompressionLevel,
+) -> Result<Vec<u8>, OutOfMemory> {
+    let mut window = Window::new(source)?;
+    let mut out = alloc::try_with_capacity(2)?;
+    out.extend_from_slice(&header(level));
+    deflate::compress_input(&mut window, level, &mut out)?;
+    alloc::try_reserve(&mut out, 4)?;
+    out.extend_from_slice(&window.checksum().to_be_bytes());
+    Ok(out)
 }
 
 /// The two header bytes zlib writes for `level`: the `FLEVEL` field records
@@ -230,6 +250,40 @@ mod tests {
             for level in 0..=9 {
                 let packed = compress(input, CompressionLevel::new(level).unwrap()).unwrap();
                 assert_eq!(decompress(&packed).unwrap(), *input, "level {level}");
+            }
+        }
+    }
+
+    /// The bytes of a slice, as a source that makes them on demand.
+    struct Slice<'a>(&'a [u8]);
+
+    impl ByteSource for Slice<'_> {
+        fn len(&self) -> usize {
+            self.0.len()
+        }
+
+        fn append(&mut self, start: usize, count: usize, out: &mut Vec<u8>) {
+            out.extend_from_slice(&self.0[start..(start + count).min(self.0.len())]);
+        }
+    }
+
+    #[test]
+    fn sources_compress_to_the_stream_of_their_whole_bytes() {
+        let mut rng = Rng::new(12);
+        let mut inputs = varied_inputs(&mut rng);
+        // Longer than a window's refill, compressible and not.
+        inputs.push(rng.bytes(400_000));
+        inputs.push((0..600_000).map(|i| (i / 7 % 13) as u8).collect());
+        for input in &inputs {
+            for level in [0, 1, 3, 6, 9] {
+                let level = CompressionLevel::new(level).unwrap();
+                assert_eq!(
+                    compress_source(Slice(input), level).unwrap(),
+                    compress(input, level).unwrap(),
+                    "{} bytes at level {}",
+                    input.len(),
+                    level.get()
+                );
             }
         }
     }

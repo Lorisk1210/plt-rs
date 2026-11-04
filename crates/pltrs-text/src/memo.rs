@@ -71,7 +71,9 @@ impl<K, V: Clone> Memo<K, V> {
         entries
             .by_fingerprint
             .entry(fingerprint)
-            .or_default()
+            // Fingerprints rarely collide: room for one result, not the
+            // four an empty vector first makes room for.
+            .or_insert_with(|| Vec::with_capacity(1))
             .push((key(), value.clone()));
         entries.len += 1;
         Ok(value)

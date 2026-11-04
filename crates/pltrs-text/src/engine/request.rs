@@ -1,6 +1,8 @@
 //! What a text asks of the fonts: the query, the generic-family lists
 //! that resolve it and how its glyphs are rendered.
 
+use std::sync::Arc;
+
 use pltrs_font::{FontDatabase, FontId, FontQuery, GenericFamilies, Hinting};
 
 use crate::error::TextError;
@@ -12,8 +14,10 @@ use crate::lookups::{self, FontLookup, LookupKind};
 pub struct FontRequest {
     /// Families, style, weight, stretch and size.
     pub query: FontQuery,
-    /// Preference lists for generic family names.
-    pub generics: GenericFamilies,
+    /// Preference lists for generic family names, shared: the many
+    /// requests made under the same `font.*` lists (every text's, and the
+    /// copies the layouts keep) hold them once.
+    pub generics: Arc<GenericFamilies>,
     /// Whether characters no family covers come from the Last Resort font
     /// rather than the first family's missing-glyph box (matplotlib's
     /// `font.enable_last_resort`).
@@ -37,7 +41,7 @@ impl FontRequest {
     pub fn new(query: FontQuery) -> Self {
         Self {
             query,
-            generics: GenericFamilies::default(),
+            generics: Arc::default(),
             last_resort: true,
             hinting: Hinting::None,
             weight_keyword: None,

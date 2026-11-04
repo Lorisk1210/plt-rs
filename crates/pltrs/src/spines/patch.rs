@@ -10,7 +10,7 @@ use crate::artist::ArtistHandle;
 use crate::transforms::Transform;
 
 /// The shape a spine is drawn with.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum SpinePatch {
     /// A line along its side, spanning its bounds or its axis' view (or,
     /// on polar axes, the arc or radial line of the sector).
@@ -35,20 +35,25 @@ pub enum SpinePatch {
         /// The radius.
         radius: f64,
     },
+    /// A path of the program's, drawn through the spine's transform
+    /// (matplotlib's `Spine(axes, spine_type, path)` of a type naming no
+    /// side, such as the polygon around the radar chart example's axes).
+    Path(Path),
 }
 
 pltrs_core::archive_enum!(SpinePatch {
     Line,
     Arc { center, radius, theta1, theta2 },
     Circle { center, radius },
+    Path(v0),
 });
 
 impl SpinePatch {
     /// The outline of an arc or circle spine in the fractions of its
-    /// axes; `None` for a line spine.
-    pub(super) fn outline(self) -> Option<Path> {
-        let (path, center, radius) = match self {
-            Self::Line => return None,
+    /// axes; `None` for a line spine and a path of the program's.
+    pub(super) fn outline(&self) -> Option<Path> {
+        let (path, center, radius) = match *self {
+            Self::Line | Self::Path(_) => return None,
             Self::Arc {
                 center,
                 radius,
@@ -98,6 +103,28 @@ impl Spine {
         self.set_patch(SpinePatch::Line)
     }
 
+    /// Draws the spine as `path` through its transform, the axes' data
+    /// transform unless it is given another (matplotlib's `Spine(axes,
+    /// spine_type, path)` for a type naming no side).
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// use pltrs::path::Path;
+    /// use pltrs::transforms::Transform;
+    /// let ax = Figure::with_size(4.0, 4.0, 100.0).subplot();
+    /// let top = &ax.spines().top;
+    /// let triangle = Path::unit_regular_polygon(3);
+    /// top.set_patch_path(triangle);
+    /// top.set_transform(Transform::Axes(ax.id()));
+    /// let drawn = top.display_path().expect("drawn").extents();
+    /// let frame = ax.window_extent().expect("an extent");
+    /// assert!((drawn.y1() - frame.y1()).abs() < 1e-6, "{drawn:?} in {frame:?}");
+    /// ```
+    pub fn set_patch_path(&self, path: Path) -> &Self {
+        self.set_patch(SpinePatch::Path(path))
+    }
+
     fn set_patch(&self, patch: SpinePatch) -> &Self {
         self.raw.with_mut::<SpineArtist, _>(|s| s.patch = patch);
         self
@@ -105,7 +132,7 @@ impl Spine {
 
     /// The shape the spine is drawn with.
     pub fn patch(&self) -> SpinePatch {
-        self.raw.with::<SpineArtist, _>(|s| s.patch)
+        self.raw.with::<SpineArtist, _>(|s| s.patch.clone())
     }
 
     /// The coordinate system of the path of a line spine: axes fractions

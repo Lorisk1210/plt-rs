@@ -362,10 +362,7 @@ impl AxesState {
 
     /// The polar settings, if this is a polar axes.
     pub(crate) fn polar(&self) -> Option<&PolarState> {
-        match &self.projection {
-            ProjectionState::Polar(settings) => Some(settings),
-            _ => None,
-        }
+        self.projection.polar()
     }
 
     /// The geographic settings, if this is a geographic axes.
@@ -376,8 +373,11 @@ impl AxesState {
 
     /// The polar geometry at the current view, if this is a polar axes.
     pub(crate) fn polar_view(&self) -> Option<PolarView<'_>> {
-        self.polar()
-            .map(|settings| PolarView::new(settings, self.view_lim, self.yaxis.map()))
+        let view = PolarView::new(self.polar()?, self.view_lim, self.yaxis.map());
+        Some(match self.projection.polar_program() {
+            Some(program) => view.with_program(program, self.projection_view()),
+            None => view,
+        })
     }
 
     /// The full data → display transform for the axes placed at `display`:

@@ -152,12 +152,14 @@ class _ProgramMap:
         """The inverse of the transform."""
         return self._transform.inverted()
 
-    def transform_path(self, vertices, codes):
-        """The `.Path` of *vertices* and *codes* through the transform: the
-        one computed last while the path and the transform stay the same."""
-        key = (vertices.tobytes(), None if codes is None else codes.tobytes())
+    def transform_path(self, vertices, codes, steps=1):
+        """The `.Path` of *vertices* and *codes* (with *steps*
+        interpolation steps) through the transform: the one computed last
+        while the path and the transform stay the same."""
+        key = (vertices.tobytes(), None if codes is None else codes.tobytes(), steps)
         if self._cached is None or self._cached[0] != key:
-            self._cached = (key, TransformedPath(Path(vertices, codes), self._transform))
+            path = Path(vertices, codes, _interpolation_steps=steps)
+            self._cached = (key, TransformedPath(path, self._transform))
         return self._cached[1].get_fully_transformed_path()
 
 

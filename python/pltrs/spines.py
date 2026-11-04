@@ -10,7 +10,7 @@ import functools
 
 import numpy as np
 
-from . import _handles, _values
+from . import _api, _handles, _values, rcParams
 from .colors import to_rgba
 from ._native import artist as _artist, spines as _spines
 from .artist import Artist
@@ -40,6 +40,44 @@ class Spine(Patch):
 
     def __str__(self):
         return "Spine"
+
+    def __new__(cls, axes=None, spine_type=None, path=None, **kwargs):
+        # The spine is one pltrs (Rust) draws for *axes* (see `__init__`);
+        # pickling makes a bare object.
+        if axes is None:
+            return super().__new__(cls)
+        return cls._of_axes(axes, spine_type)
+
+    def __init__(self, axes, spine_type, path, **kwargs):
+        """
+        Parameters
+        ----------
+        axes : `~matplotlib.axes.Axes`
+            The `~.axes.Axes` instance containing the spine.
+        spine_type : str
+            The spine type.
+        path : `~matplotlib.path.Path`
+            The `.Path` instance used to draw the spine.
+
+        **kwargs
+            `.Patch` properties.
+
+        pltrs: the spine is the one of *axes* on the side *spine_type*
+        names, else the one framing its outline (a polar Axes' ``'polar'``
+        spine), drawn as *path* through its transform (``transData``
+        unless it is given another).
+        """
+        _api.check_isinstance(Path, path=path)
+        self._path = path
+        self.set_facecolor('none')
+        self.set_edgecolor(rcParams['axes.edgecolor'])
+        self.set_linewidth(rcParams['axes.linewidth'])
+        self.set_capstyle('projecting')
+        self.set_zorder(2.5)
+        if spine_type not in _LINEAR_PATHS:
+            _spines.set_patch_path(self._native, path)
+            self.set_transform(axes.transData)
+        self._internal_update(kwargs)
 
     @classmethod
     def linear_spine(cls, axes, spine_type, **kwargs):

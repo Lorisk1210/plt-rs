@@ -75,6 +75,19 @@ def _colors_or_empty(color):
 
 
 
+def _wrap_pie_shadows(axes, wedges, ox, oy):
+    """Make the shadows pltrs (Rust) added after each of the pie's *wedges*
+    `.Shadow` objects of them, offset by (*ox*, *oy*) points, as
+    matplotlib's ``pie`` adds them."""
+    from ..._native import artist as _artist
+    natives = _plotting.get_patches(axes._native)
+    order = {_artist.id(native): index for index, native in enumerate(natives)}
+    for wedge in wedges:
+        shadow = wrap(axes, natives[order[_artist.id(wedge._native)] + 1],
+                      mpatches.Shadow)
+        shadow._shadowing(wedge, ox, oy)
+
+
 def _pie_geometry(wedges, fracs, explode, radius, startangle, counterclock, center):
     """Keep the geometry of the pie's *wedges* as matplotlib computes and
     types it (its loop over the fractions, in numpy and Python numbers)."""
@@ -452,6 +465,8 @@ class StatsMixin:
              bool(frame), bool(normalize)))
         from ...text import Text
         wedges = wrap_all(self, wedges, mpatches.Wedge)
+        if shadow_spec is not None:
+            _wrap_pie_shadows(self, wedges, *shadow_spec[:2])
         _pie_geometry(wedges, x / sx if normalize else x, explode, radius,
                       startangle, counterclock, center)
         if colors is None:

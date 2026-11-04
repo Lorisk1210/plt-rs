@@ -38,10 +38,9 @@
 //! HTTP, WebSocket frames or messages, oversized input and slow clients
 //! end their connection without affecting the figures.
 //!
-//! Left out from matplotlib's `WebAgg`: the `url_prefix` of embedding
-//! applications, the `IPython` inline display and `nbagg`, and toolbar
-//! buttons for tools added with `Figure::add_tool` (their keyboard
-//! shortcuts work).
+//! Left out from matplotlib's `WebAgg`: the `IPython` inline display and
+//! `nbagg`, and toolbar buttons for tools added with `Figure::add_tool`
+//! (their keyboard shortcuts work).
 //!
 //! A [`WebRelay`] is the same server for programs that run matplotlib's
 //! side of the protocol themselves (pltrs (Python)'s `webagg` backend):
@@ -165,6 +164,10 @@ pub struct WebOptions {
     /// Whether [`serve`] and pyplot open the figures in a browser
     /// (`webagg.open_in_browser`).
     pub open_in_browser: bool,
+    /// The path every URL of the server starts with, for an application
+    /// serving the figures among its own pages: `/` and a path, without
+    /// a final `/` (matplotlib's `url_prefix`); empty for the root.
+    pub url_prefix: String,
 }
 
 impl WebOptions {
@@ -175,6 +178,7 @@ impl WebOptions {
             port,
             port_retries: 0,
             open_in_browser: false,
+            url_prefix: String::new(),
         }
     }
 
@@ -193,6 +197,7 @@ impl WebOptions {
             port,
             port_retries: u32::try_from(rc.webagg_port_retries.max(0)).unwrap_or(u32::MAX),
             open_in_browser: rc.webagg_open_in_browser,
+            url_prefix: String::new(),
         })
     }
 }

@@ -519,7 +519,26 @@ figure cannot be asked about itself, so each hook passes the view limits
 it works with, which the Axes' `_viewLim` is set to meanwhile; the
 class' transforms are matplotlib's Python classes and compute as
 matplotlib's do. The Axes' `transData` and axis transforms reach pltrs
-(Rust) as the Axes' own (`_live`).
+(Rust) as the Axes' own (`_live`). A transform not ending with
+`transAxes` crosses followed by its inverse.
+
+A subclass of `PolarAxes` the program registers (the radar chart
+example's `RadarAxes`) goes the same way, with a polar pltrs (Rust) Axes:
+`PolarAxes.__init__` makes it (`Figure::removed_axes_with_projection`)
+and runs the class' construction as matplotlib's does (its `__init__`,
+`_gen_axes_spines`, `_init_axis`, two clears), then `set_up` hands it
+over (`ProjectionState::ProgramPolar`). pltrs (Rust) keeps its polar
+settings, ticks and labels, and asks the adapter only for the data
+transform (made with the class' `PolarTransform`, whose
+`transform_path_non_affine` draws every path, gridlines with their
+interpolation steps) and the spines the class made; every clear gives it
+the outline of the patch `_gen_axes_patch` makes (`_program.cleared`,
+`PolarFrame::Path`) unless it is a `Wedge`, which pltrs (Rust) fits to the
+view as matplotlib's `draw` does. A `Spine(axes, spine_type, path)` is
+the spine of its side, or the outer one, drawn as the path through its
+transform (`SpinePatch::Path`). While pltrs (Rust) asks, `get_rorigin`
+and `get_rsign` answer from the trees, as matplotlib's do, and the
+non-affine part computes in the view it was evaluated at.
 
 Transforms a subclass computes are evaluated at draw time, as
 matplotlib reads an artist's `get_transform()` in its `draw`: an artist
@@ -607,6 +626,16 @@ norm itself: pltrs (Rust) calls the callables the package's registered
 A mappable pltrs (Rust) makes (an image) is wrapped, attached to its
 colorizer with `_ScalarMappable._attach_colorizer`, and hands the native
 side a new copy from `changed()`.
+
+A collection whose colorizer maps several variates (a `BivarColormap` or
+`MultivarColormap` with a `MultiNorm`, the values a structured array or a
+tuple of arrays; `pcolormesh` of a structured array, as matplotlib 3.11)
+gets its colours from the Python colorizer, matplotlib's `to_rgba` over
+its norms (matplotlib's, the program's) and colormap, whenever its array,
+mapping or alpha changes (`Collection._map_variates`): pltrs (Rust) puts
+them on the sides its mapping colours (`Collection::set_program_colors`).
+The plotting methods of one variate refuse such a colormap as
+matplotlib's do.
 
 ### Callbacks and subclassing
 
@@ -701,13 +730,18 @@ the same figure panics, which arrives as the `RuntimeError` above.
 
 Some parts matplotlib keeps as artists of their own are drawn by pltrs
 (Rust) as parts of their artist: a text's box (`Text.get_bbox_patch()`)
-and an annotation's arrow (`Annotation.arrow_patch`). Those are mirrors,
+and the arrow of an annotation (`Annotation.arrow_patch`) or of an
+annotation box (`AnnotationBbox.arrow_patch`, matplotlib's own patch
+until the box joins a figure, then the mirror). Those are mirrors,
 as the ticks of an axis are (`_text_box`, `_annotation_arrow`): loose
 `FancyBboxPatch` and `FancyArrowPatch` objects filled from the part's look
-(`_native.text.bbox_patch`, `_native.annotation.arrow_patch`) whose
-setters give the part their changes (`restyle_bbox`, `restyle_arrow`);
-the arrow's `get_window_extent` is where the annotation draws it, and
-`Text.get_window_extent(annotation)` the text alone.
+(`_native.text.bbox_patch`, `_native.annotation.arrow_patch`,
+`_native.offsetbox.annotation_arrow_patch`) whose setters give the part
+their changes (`restyle_bbox`, `restyle_arrow`); the arrow's
+`get_window_extent` is where the annotation draws it, and
+`Text.get_window_extent(annotation)` the text alone. The box's patch
+moves where each draw of the text placed it (its path and transform
+follow the text's count of draws), as matplotlib's draw places it.
 
 Mirrors are objects of matplotlib's very classes (`type(ax.set_xlabel("x"))
 is Text`), not subclasses: `Text`, `Line2D`, `FancyBboxPatch`,
@@ -958,8 +992,9 @@ backend: the framework already running, else pltrs' own windows
   (`_native.web`, a `pltrs::web::WebRelay`) instead of Tornado: it serves
   matplotlib's pages and files and hands the WebSockets' messages and the
   downloads to matplotlib's figure managers (`backend_webagg_core`), from
-  an asyncio loop that also runs their timers. **nbAgg** is matplotlib's,
-  over the kernel's comms.
+  an asyncio loop that also runs their timers, under the URL prefix
+  `WebAggApplication.initialize` is given (`WebOptions::url_prefix`).
+  **nbAgg** is matplotlib's, over the kernel's comms.
 * **Jupyter's inline backend**: IPython's kernel selects
   `module://matplotlib_inline.backend_inline`, whose module imports
   `matplotlib`; unless that gives pltrs (pltrs loaded as `matplotlib`,

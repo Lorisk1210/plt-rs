@@ -12,6 +12,7 @@ use pltrs_core::{Affine2D, Bbox, Path, Point};
 use super::map::PolarMap;
 use super::{PolarFrame, PolarState};
 use crate::patches::{PatchShape, Wedge};
+use crate::projections::{Projection, ProjectionView};
 use crate::spines::SpineSide;
 use crate::transforms::{AxisMap, ResolvedTransform, Step, bbox_to_unit, unit_to_bbox};
 
@@ -34,6 +35,9 @@ pub(crate) struct PolarView<'a> {
     view: Bbox,
     /// The radial scale, if not linear.
     rmap: Option<&'a Rc<dyn AxisMap>>,
+    /// The projection of the program the axes map data through, with what
+    /// its hooks see of the axes.
+    program: Option<(&'a dyn Projection, ProjectionView<'a>)>,
 }
 
 impl<'a> PolarView<'a> {
@@ -48,6 +52,20 @@ impl<'a> PolarView<'a> {
             settings,
             view,
             rmap,
+            program: None,
+        }
+    }
+
+    /// The geometry of polar axes mapping data through `program`, a
+    /// projection of the program whose hooks see `projection_view`.
+    pub(crate) fn with_program(
+        self,
+        program: &'a dyn Projection,
+        projection_view: ProjectionView<'a>,
+    ) -> Self {
+        Self {
+            program: Some((program, projection_view)),
+            ..self
         }
     }
 
@@ -132,17 +150,19 @@ impl<'a> PolarView<'a> {
     /// The vertices of a polygon frame.
     fn polygon(&self) -> Option<usize> {
         match self.settings.frame {
-            PolarFrame::Circle => None,
             PolarFrame::Polygon(vertices) => Some(vertices),
+            PolarFrame::Circle | PolarFrame::Path(_) => None,
         }
     }
 
-    /// The outline of the background in axes coordinates: the wedge, or
-    /// the polygon of a polygon frame inscribed in the axes square.
+    /// The outline of the background in axes coordinates: the wedge, the
+    /// polygon of a polygon frame inscribed in the axes square, or the
+    /// path of a frame of the program's.
     pub(crate) fn patch_path(&self) -> Path {
-        match self.polygon() {
-            Some(vertices) => inscribed_polygon(vertices),
-            None => self.patch().path(),
+        match &self.settings.frame {
+            PolarFrame::Circle => self.patch().path(),
+            PolarFrame::Polygon(vertices) => inscribed_polygon(*vertices),
+            PolarFrame::Path(path) => path.clone(),
         }
     }
 
@@ -196,8 +216,14 @@ impl<'a> PolarView<'a> {
 
     /// The complete data → display transform: radial scale, θ shift,
     /// projection, then the projection affine, the wedge and the axes box
-    /// (matplotlib's `transData`).
+    /// (matplotlib's `transData`); through the axes box, the transform of
+    /// the program's projection the axes may map data through.
     pub(crate) fn data_transform(&self, display: &Bbox) -> ResolvedTransform {
+        if let Some((program, view)) = &self.program {
+            return program
+                .data_to_axes(view)
+                .then(ResolvedTransform::affine(unit_to_bbox(display)));
+        }
         let scale = match self.rmap {
             Some(map) => ResolvedTransform::with_step(
                 Step::Separable(None, Some(Rc::clone(map))),
@@ -245,8 +271,14 @@ impl<'a> PolarView<'a> {
     /// spine always, the start and end spines of sectors and the inner
     /// spine around a hole.
     pub(crate) fn spine_shown(&self, side: SpineSide) -> bool {
-        if self.polygon().is_some() {
-            return side == SpineSide::Top;
+        match (&self.settings.frame, side) {
+            (_, SpineSide::Top) => return true,
+            // matplotlib's `draw` only shows an inner spine around the hole
+            // of a wedge.
+            (PolarFrame::Polygon(_), _) | (PolarFrame::Path(_), SpineSide::Bottom) => {
+                return false;
+            }
+            _ => {}
         }
         match side {
             SpineSide::Left | SpineSide::Right => !self.is_full_circle(),

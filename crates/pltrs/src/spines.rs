@@ -293,6 +293,16 @@ impl SpineArtist {
     /// interval a custom projection gives).
     fn display_path(&self, ctx: LayoutContext<'_>) -> Option<(Path, Affine2D)> {
         let axes_id = self.base.parent?;
+        if let SpinePatch::Path(path) = &self.patch {
+            // The program's path through the transform it gave the spine.
+            let transform = self
+                .base
+                .transform
+                .clone()
+                .unwrap_or(Transform::Data(axes_id));
+            let (path, affine) = ctx.resolve(&transform)?.split_path(path);
+            return Some((path.into_owned(), affine));
+        }
         if let Some(outline) = self.patch.outline() {
             let resolved = ctx.resolve(&Transform::Axes(axes_id))?;
             let (path, affine) = resolved.split_path(&outline);

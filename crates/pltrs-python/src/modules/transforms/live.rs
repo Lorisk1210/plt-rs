@@ -149,9 +149,14 @@ impl PointMap for PyPointMap {
             }
             return mapped;
         };
+        // With its interpolation steps, which gridlines have many of so
+        // that a curving map can bend them (matplotlib's
+        // `_interpolation_steps`).
         path_arrays(path, false)
             .ok()
-            .and_then(|arrays| path_map.call::<PyPath>(arrays))
+            .and_then(|(vertices, codes)| {
+                path_map.call::<PyPath>((vertices, codes, path.interpolation_steps()))
+            })
             .map_or_else(
                 || {
                     let mut failed = path.clone();

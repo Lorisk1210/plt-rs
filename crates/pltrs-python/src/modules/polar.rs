@@ -7,9 +7,10 @@
 //! takes radians (`set_theta_offset`).
 
 use pltrs::axes::Axes;
-use pltrs::polar::{Compass, PolarAxes, PolarError, ThetaDirection};
+use pltrs::polar::{Compass, PolarAxes, PolarError, PolarFrame, ThetaDirection};
 use pltrs::units::AxisValues;
 
+use super::path::PyPath;
 use crate::binding::prelude::*;
 
 impl From<PolarError> for PyErr {
@@ -160,6 +161,15 @@ fn set_rgrids(axes: Axes, radii: Vec<f64>, angle: Option<f64>) -> PyResult<()> {
     Ok(())
 }
 
+/// Gives the axes the background `outline`, a `Path` in axes fractions
+/// (the patch a subclass' `_gen_axes_patch` makes, when it is no wedge),
+/// or the wedge again (`None`).
+fn set_frame_path(axes: Axes, outline: Option<PyPath>) -> PyResult<()> {
+    let frame = outline.map_or(PolarFrame::Circle, |outline| PolarFrame::Path(outline.path));
+    polar(&axes)?.set_frame(frame)?;
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_theta_offset", get_theta_offset)?;
@@ -181,5 +191,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_rlabel_position", set_rlabel_position)?;
     module.add("set_rticks", set_rticks)?;
     module.add("set_thetagrids", set_thetagrids)?;
-    module.add("set_rgrids", set_rgrids)
+    module.add("set_rgrids", set_rgrids)?;
+    module.add("set_frame_path", set_frame_path)
 }

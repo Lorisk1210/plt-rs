@@ -24,6 +24,7 @@ mod items;
 mod legend_elements;
 mod mapped;
 mod mesh_cells;
+mod program_colors;
 mod props;
 mod quad_mesh;
 mod readback;
@@ -222,6 +223,10 @@ pub(crate) struct CollectionArtist {
     /// [`Collection::clear_array`], which the next
     /// [`Collection::set_array`] maps through again.
     pub(crate) parked_mappable: Option<ScalarMappable>,
+    /// The colours of the items a colour mapping of the program's gave
+    /// (see [`Collection::set_program_colors`]), which take the place of
+    /// those of `mapping`.
+    pub(crate) program_colors: Option<Vec<Rgba>>,
     /// How far from an item's outline, in pixels, a pick still hits it; a
     /// pick must fall inside an item when it is not positive.
     pickradius: f64,
@@ -272,6 +277,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     mapping,
     mapped_shown,
     parked_mappable,
+    program_colors,
     pickradius,
     mesh,
     polygon_grid,
@@ -320,6 +326,7 @@ impl CollectionArtist {
             mapping: None,
             mapped_shown: Cell::default(),
             parked_mappable: None,
+            program_colors: None,
             pickradius: 5.0,
             mesh: None,
             polygon_grid: None,

@@ -19,17 +19,23 @@ def _rcParams():
     return rcParams
 
 
-def _mapping(cmap, norm, vmin, vmax, colorizer=None):
+def _mapping(cmap, norm, vmin, vmax, colorizer=None, variates=False):
     """
     The colour mapping of a plotting method: ``(colorizer, native)``, the
     Python `.Colorizer` the artist keeps and the mapping pltrs (Rust) is
     given, ``(cmap, norm, vmin, vmax)``: the colormap (None for
     :rc:`image.cmap`), the norm (an instance, a scale name or None) and
-    the limits.
+    the limits. A bivariate or multivariate colormap is refused unless
+    the method maps several *variates* (``pcolormesh``, or a method that
+    refuses their values itself).
     """
     mcolorizer._ScalarMappable._check_exclusionary_keywords(
         colorizer, vmin=vmin, vmax=vmax)
     made = mcolorizer._ScalarMappable._get_colorizer(cmap, norm, colorizer)
+    if made.norm.n_components > 1 and not variates:
+        # matplotlib's method sets the colormap on the colorizer of one
+        # variate its artist was made with, which refuses it.
+        mcolorizer.Colorizer().cmap = cmap
     if norm is not None and not isinstance(norm, str) and (
             vmin is not None or vmax is not None):
         raise ValueError(

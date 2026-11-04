@@ -6,12 +6,13 @@
 
 use std::borrow::Cow;
 
-use pltrs_core::{Affine2D, Path, Rgba};
-use pltrs_render::{GraphicsContext, SnapMode};
+use pltrs_core::{Affine2D, Bbox, Path, Rgba};
+use pltrs_render::{ClipPath, GraphicsContext, SnapMode};
 
 use super::AxesState;
 use super::axis_artists::{AxisGroup, TickGroups, TickPart, tick_group_name};
 use super::axis_layout::{AxisPainter, PlacedText, TickLabel};
+use super::grid_props::{GridClip, GridLineProps};
 use super::tick_set::Tick;
 use super::ticks::{GridStyle, TickDirection, TickStyle};
 use crate::artist::{AggFilter, ArtistBase, ArtistId, DrawContext, rc_sketch};
@@ -221,13 +222,11 @@ impl AxisPainter<'_> {
             Ok(gc) => gc,
             Err(err) => return ctx.report(self.axes_id, err),
         };
-        if grid.line.clip_on {
-            // matplotlib clips gridlines to the axes patch: a rectangle,
-            // which Artist.set_clip_path turns into a clip box, or the
-            // outline of a geographic map.
-            gc.clip_rect = ctx.layout().clip_extent(self.axes_id);
-            gc.clip_path = ctx.layout().clip_outline(self.axes_id);
-        }
+        // matplotlib clips gridlines to the axes patch: a rectangle,
+        // which Artist.set_clip_path turns into a clip box, or the outline
+        // of a geographic map.
+        let outline = ctx.layout().clip_outline(self.axes_id);
+        (gc.clip_rect, gc.clip_path) = grid_clip(ctx, self.axes_id, &grid.line, outline);
         let (start, end) = (self.tick_point(loc, 0.0), self.tick_point(loc, 1.0));
         let points = line_vertices(&[start.x, end.x], &[start.y, end.y], grid.line.drawstyle)
             .expect("the two ends of a gridline make a line of any draw style");
@@ -365,6 +364,32 @@ fn tick_face(rc: &RcParams, color: Rgba) -> Result<Rgba, ColorError> {
 }
 
 /// The graphics context of gridlines in `grid` style (unclipped).
+/// The clip box and path of the gridlines `line` of axes `axes` (none
+/// when they are not clipped): the box of the axes and their `outline`
+/// unless the tick parameters gave others (matplotlib's `grid_clip_box`
+/// and `grid_clip_path`).
+pub(crate) fn grid_clip(
+    ctx: &DrawContext<'_>,
+    axes: ArtistId,
+    line: &GridLineProps,
+    outline: Option<ClipPath>,
+) -> (Option<Bbox>, Option<ClipPath>) {
+    if !line.clip_on {
+        return (None, None);
+    }
+    let rect = match &line.clip_box {
+        GridClip::Axes => ctx.layout().clip_extent(axes),
+        GridClip::Off => None,
+        GridClip::Given(spec) => ctx.layout().bounding_rect(spec),
+    };
+    let path = match &line.clip_path {
+        GridClip::Axes => outline,
+        GridClip::Off => None,
+        GridClip::Given(spec) => ctx.clip_path(spec),
+    };
+    (rect, path)
+}
+
 pub(crate) fn grid_gc(
     grid: &GridStyle,
     rc: &crate::rc::RcParams,

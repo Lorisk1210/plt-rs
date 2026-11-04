@@ -146,6 +146,8 @@ pub(crate) struct Shared {
     pub(crate) local_addr: SocketAddr,
     /// How the pages look.
     pub(crate) chrome: ChromeLook,
+    /// The path every URL starts with (see [`WebOptions::url_prefix`]).
+    pub(crate) url_prefix: String,
     connections: Mutex<Connections>,
     stopping: AtomicBool,
 }
@@ -315,6 +317,7 @@ impl Listener {
             relay,
             local_addr,
             chrome: crate::look::appearance().chrome,
+            url_prefix: options.url_prefix.clone(),
             connections: Mutex::new(Connections::default()),
             stopping: AtomicBool::new(false),
         });

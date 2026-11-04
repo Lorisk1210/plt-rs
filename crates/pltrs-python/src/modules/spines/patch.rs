@@ -1,10 +1,11 @@
 //! The shape of a spine (matplotlib's `Spine.set_patch_arc`,
-//! `set_patch_circle`, `set_patch_line`) and the coordinates of its path
-//! (`get_spine_transform`).
+//! `set_patch_circle`, `set_patch_line`, the `path` of its constructor)
+//! and the coordinates of its path (`get_spine_transform`).
 
 use pltrs::spines::{Spine, SpinePatch};
 use pltrs::transforms::{Point, Transform};
 
+use super::super::path::PyPath;
 use crate::binding::prelude::*;
 
 /// Draws the spine as an arc of the circle of `radius` around `center`
@@ -31,11 +32,18 @@ fn set_patch_line(spine: Spine) -> PyResult<()> {
     Ok(())
 }
 
+/// Draws the spine as the `Path` `path` through its transform
+/// (`Spine(axes, spine_type, path)`).
+fn set_patch_path(spine: Spine, path: PyPath) -> PyResult<()> {
+    spine.set_patch_path(path.path);
+    Ok(())
+}
+
 /// The kind of the spine's shape: `"line"`, `"arc"` or `"circle"`
-/// (matplotlib's `_patch_type`).
+/// (matplotlib's `_patch_type`, `"line"` for a path of the program's).
 fn patch_type(spine: Spine) -> PyResult<&'static str> {
     Ok(match spine.patch() {
-        SpinePatch::Line => "line",
+        SpinePatch::Line | SpinePatch::Path(_) => "line",
         SpinePatch::Arc { .. } => "arc",
         SpinePatch::Circle { .. } => "circle",
     })
@@ -51,6 +59,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_patch_arc", set_patch_arc)?;
     module.add("set_patch_circle", set_patch_circle)?;
     module.add("set_patch_line", set_patch_line)?;
+    module.add("set_patch_path", set_patch_path)?;
     module.add("patch_type", patch_type)?;
     module.add("spine_transform", spine_transform)
 }

@@ -141,7 +141,8 @@ impl Axes {
         drop(disconnected);
         if polar {
             crate::polar::PolarAxes::convert(self.clone());
-        } else if let Some(projection) = custom {
+        }
+        if let Some(projection) = custom {
             crate::projections::reinstall(self, projection);
         }
         super::run_limit_callbacks(figure);

@@ -2168,9 +2168,7 @@ class Shadow(Patch):
         **kwargs
             Properties of the shadow patch.
         """
-        self.patch = patch
-        self._ox, self._oy = ox, oy
-        self._shadow_transform = Affine2D()
+        self._shadowing(patch, ox, oy)
         self._native = _patches.new_shadow(
             patch._native, (float(ox), float(oy)), float(shade))
         Artist.__init__(self)
@@ -2180,6 +2178,14 @@ class Shadow(Patch):
         # Just below the patch, as matplotlib's numpy float.
         _values.remember(self, "zorder", np.nextafter(patch.get_zorder(), -np.inf))
         self._internal_update(kwargs)
+
+    def _shadowing(self, patch, ox, oy):
+        """Make the object the shadow of *patch* offset by (*ox*, *oy*)
+        points (also for the shadow of a wedge pltrs (Rust) made for
+        ``pie``)."""
+        self.patch = patch
+        self._ox, self._oy = ox, oy
+        self._shadow_transform = Affine2D()
 
     def get_path(self):
         return self.patch.get_path()

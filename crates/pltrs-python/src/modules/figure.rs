@@ -312,6 +312,34 @@ fn removed_subplot(figure: Figure, spec: SubplotSpec) -> PyResult<Axes> {
 }
 
 /// Axes with the projection `projection` at `[left, bottom, width,
+/// height]` in figure fractions, made outside the figure until
+/// `add_axes(ax)` adds them (`PolarAxes(fig, rect)`).
+fn removed_axes_projection(
+    figure: Figure,
+    (left, bottom, width, height): (f64, f64, f64, f64),
+    projection: String,
+) -> PyResult<Axes> {
+    let kind = projection_kind(&projection)?;
+    figure
+        .removed_axes_with_projection([left, bottom, width, height], kind)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// Axes with the projection `projection` on the block `spec`, made outside
+/// the figure until `add_subplot(ax)` adds them (`PolarAxes(fig,
+/// subplotspec)`).
+fn removed_subplot_projection(
+    figure: Figure,
+    spec: SubplotSpec,
+    projection: String,
+) -> PyResult<Axes> {
+    let kind = projection_kind(&projection)?;
+    figure
+        .removed_subplot_with_projection(&spec, kind)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// Axes with the projection `projection` at `[left, bottom, width,
 /// height]` in figure fractions (`add_axes(rect, projection=...)`).
 fn add_axes_projection(
     figure: Figure,
@@ -395,6 +423,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_axes", add_axes)?;
     module.add("removed_axes", removed_axes)?;
     module.add("removed_subplot", removed_subplot)?;
+    module.add("removed_axes_projection", removed_axes_projection)?;
+    module.add("removed_subplot_projection", removed_subplot_projection)?;
     module.add("add_subplot_spec_projection", add_subplot_spec_projection)?;
     module.add("add_axes_projection", add_axes_projection)?;
     module.add("subplots_adjust", subplots_adjust)?;

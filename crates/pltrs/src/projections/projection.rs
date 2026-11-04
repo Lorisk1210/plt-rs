@@ -33,7 +33,7 @@ use crate::transforms::ResolvedTransform;
 /// | `get_xaxis_text1_transform` and friends      | [`tick_label`](Self::tick_label)       |
 /// | `Axis.get_view_interval`                     | [`tick_interval`](Self::tick_interval) |
 /// | `Tick.draw` hiding parts of a tick           | [`tick_sides`](Self::tick_sides)       |
-/// | `_gen_axes_patch`, `_gen_axes_spines`        | [`outline`](Self::outline), [`spine_order`](Self::spine_order) |
+/// | `_gen_axes_patch`, `_gen_axes_spines`        | [`outline`](Self::outline), [`spine_order`](Self::spine_order), [`spines`](Self::spines) |
 /// | `Spine._adjust_location`                     | [`spine_interval`](Self::spine_interval) |
 /// | `set_xlim` raising                           | [`fixed_limits`](Self::fixed_limits)   |
 /// | `set_xscale` raising                         | [`linear_only`](Self::linear_only)     |
@@ -142,6 +142,13 @@ pub trait Projection: Any + fmt::Debug + Send {
     /// returns); sides left out are drawn after the others.
     fn spine_order(&self) -> [SpineSide; 4] {
         SpineSide::ALL
+    }
+
+    /// The sides whose spines the axes has (the spines of matplotlib's
+    /// `_gen_axes_spines`), all four by default: polar axes never show
+    /// the spines of the other sides.
+    fn spines(&self) -> Vec<SpineSide> {
+        SpineSide::ALL.to_vec()
     }
 
     /// The data interval a side spine of a rectangular outline spans

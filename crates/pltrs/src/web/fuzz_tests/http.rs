@@ -193,7 +193,7 @@ fn refuse(err: &HttpError) {
 /// Answers `request` as a connection does, short of a server; returns
 /// whether the connection stays open.
 fn answer(request: &Request) -> bool {
-    let route = routes::route(&request.path);
+    let route = routes::route(&request.path, "");
     check_route(&request.path, route);
     if request.method == Method::Other {
         write(&Response::error(Status::MethodNotAllowed), false);

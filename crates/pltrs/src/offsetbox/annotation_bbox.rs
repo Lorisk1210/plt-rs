@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use pltrs_core::{Bbox, Point};
+use pltrs_core::{Bbox, Path, Point};
 
 use super::anchored_box::{part, texts_of};
 use super::pending::{Parts, adopt_box, frame_patch};
@@ -291,14 +291,20 @@ impl AnnotationBboxArtist {
         if let Some(framed) = framed {
             extent = extent.union(&framed);
         }
-        if let Some(arrow) = &self.arrow {
-            let target = self.arrow_target(layout, &geometry).ok()?;
-            let paths = arrow.measured_paths(layout, &self.rc, target).ok()?;
-            let displayed: Vec<pltrs_core::Path> =
-                paths.iter().map(DisplayPath::to_display).collect();
-            extent = extent.union(&pltrs_core::Path::compound(&displayed).extents());
+        if self.arrow.is_some() {
+            extent = extent.union(&self.arrow_path(layout, &geometry)?.extents());
         }
         Some(extent)
+    }
+
+    /// The outline of the arrow from the box at `geometry`, in display
+    /// pixels; `None` without an arrow or when it cannot be placed.
+    fn arrow_path(&self, layout: LayoutContext<'_>, geometry: &Geometry) -> Option<Path> {
+        let arrow = self.arrow.as_ref()?;
+        let target = self.arrow_target(layout, geometry).ok()?;
+        let paths = arrow.measured_paths(layout, &self.rc, target).ok()?;
+        let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
+        Some(Path::compound(&displayed))
     }
 }
 
@@ -673,5 +679,6 @@ fn add_annotation_bbox(
     })
 }
 
+mod arrow;
 #[cfg(test)]
 mod tests;

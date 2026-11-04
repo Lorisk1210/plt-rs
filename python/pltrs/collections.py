@@ -218,9 +218,39 @@ class Collection(mcolorizer.ColorizingArtist):
         Call this whenever the mappable is changed to notify all the
         callbackSM listeners to the 'changed' signal.
         """
-        _collections.set_mapping(self._native, self.cmap, self.norm,
-                                 self._norm_replaced())
+        if self._maps_variates():
+            self._map_variates()
+        else:
+            _collections.set_mapping(self._native, self.cmap, self.norm,
+                                     self._norm_replaced())
         super().changed()
+
+    def _map_variates_through(self, colorizer, A):
+        """Map the values *A* of several variates through *colorizer*, a
+        bivariate or multivariate one, in place of the mapping pltrs (Rust)
+        made the collection with."""
+        self._colorizer.callbacks.disconnect(self._id_colorizer)
+        self._attach_colorizer(colorizer)
+        self.set_array(A)
+
+    def _maps_variates(self):
+        """Whether the collection maps several variates to colours (a
+        bivariate or multivariate colormap)."""
+        return self.norm.n_components > 1
+
+    def _map_variates(self):
+        """
+        Give pltrs (Rust) the colours the bivariate or multivariate mapping
+        gives the values (matplotlib's ``_mapped_colors``), which its norms
+        and colormap compute, to put on the sides the mapping colours.
+        """
+        colors = None
+        if self._A is not None:
+            alpha = self.get_alpha()
+            if np.iterable(alpha):
+                alpha = np.reshape(alpha, self._A.shape)
+            colors = np.reshape(self.to_rgba(self._A, alpha), (-1, 4))
+        _collections.set_program_colors(self._native, colors)
 
     def update_scalarmappable(self):
         """
@@ -232,6 +262,8 @@ class Collection(mcolorizer.ColorizingArtist):
         if self._A is None:
             _collections.update_scalarmappable(self._native)
             return
+        if self._maps_variates():
+            self._map_variates()
         if self._A.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
             raise ValueError('Collections can only map rank 1 arrays')
         alpha = self._get("alpha_array")
@@ -654,6 +686,8 @@ class Collection(mcolorizer.ColorizingArtist):
             super().set_alpha(alpha)
             # The colours read back as set again, until the next draw.
             _collections.set_alpha(self._native, alpha)
+        if self._A is not None and self._maps_variates():
+            self._map_variates()
 
     def get_alpha(self):
         """Return the transparency: a float, the array of one per element
@@ -671,8 +705,10 @@ class Collection(mcolorizer.ColorizingArtist):
             The values that are mapped to colors.
         """
         super().set_array(A)
-        if A is None:
+        if A is None or self._maps_variates():
             _collections.set_array(self._native, None)
+            if self._maps_variates():
+                self._map_variates()
             return
         _collections.set_array(
             self._native, np.ma.filled(self._A.astype(float), np.nan).ravel())

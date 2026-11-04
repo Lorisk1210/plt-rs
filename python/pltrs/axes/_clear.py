@@ -66,6 +66,8 @@ class ClearMixin:
         # A new background patch in the Axes' face colour, as matplotlib's
         # clear makes one.
         self.__dict__.pop("_patch", None)
+        from ..projections import _program
+        _program.cleared(self)
         if "_facecolor" in self.__dict__:
             self.patch.set_facecolor(self._facecolor)
 

@@ -6,9 +6,27 @@
 
 use pltrs_render::Sketch;
 
-use crate::artist::AggFilter;
+use crate::artist::{AggFilter, ClipPathSpec};
 use crate::colors::Color;
 use crate::lines::DrawStyle;
+
+/// What clips the gridlines in one way (by a box or by a path; matplotlib's
+/// `grid_clip_box` and `grid_clip_path` tick parameters).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum GridClip {
+    /// What their axes clip with: the box of rectangular axes, the outline
+    /// of the others (matplotlib's ticks clip their gridline to the axes'
+    /// patch).
+    #[default]
+    Axes,
+    /// Nothing (`None` given).
+    Off,
+    /// A region the program gave: the bounding box of a
+    /// [`ClipPathSpec::BoundingBox`] as the box, any other as the path.
+    Given(ClipPathSpec),
+}
+
+pltrs_core::archive_enum!(GridClip { Axes, Off, Given(v0) });
 
 /// The line properties of the gridlines of a tick level beyond their
 /// stroke.
@@ -25,8 +43,12 @@ pub struct GridLineProps {
     /// The hand-drawn wobble: `None` takes `path.sketch` when drawn, as
     /// gridlines made under it do; `Some(None)` draws them straight.
     pub sketch: Option<Option<Sketch>>,
-    /// Whether the gridlines are clipped to the axes.
+    /// Whether the gridlines are clipped at all.
     pub clip_on: bool,
+    /// The box clipping the gridlines.
+    pub clip_box: GridClip,
+    /// The path clipping the gridlines.
+    pub clip_path: GridClip,
     /// The link of the gridlines in vector output.
     pub url: Option<String>,
     /// The id of the group of each gridline in vector output, unless the
@@ -52,6 +74,8 @@ pltrs_core::archive_struct!(GridLineProps {
     snap,
     sketch,
     clip_on,
+    clip_box,
+    clip_path,
     url,
     gid,
     rasterized,
@@ -70,6 +94,8 @@ impl Default for GridLineProps {
             snap: None,
             sketch: None,
             clip_on: true,
+            clip_box: GridClip::Axes,
+            clip_path: GridClip::Axes,
             url: None,
             gid: None,
             rasterized: false,
@@ -91,8 +117,13 @@ pub struct GridLinePropsOptions {
     pub snap: Option<Option<bool>>,
     /// The sketch (`grid_sketch_params`; `Some(None)` draws straight).
     pub sketch: Option<Option<Sketch>>,
-    /// Clipping to the axes (`grid_clip_on`, `grid_clip_box=None`).
+    /// Clipping at all (`grid_clip_on`).
     pub clip_on: Option<bool>,
+    /// The clip box (`grid_clip_box`, and `grid_clip_path` of a
+    /// rectangle, which matplotlib turns into a box).
+    pub clip_box: Option<GridClip>,
+    /// The clip path (`grid_clip_path`).
+    pub clip_path: Option<GridClip>,
     /// The link (`grid_url`).
     pub url: Option<Option<String>>,
     /// The group id (`grid_gid`).
@@ -133,6 +164,8 @@ impl GridLinePropsOptions {
             line.sketch = Some(sketch);
         }
         set(&mut line.clip_on, self.clip_on.as_ref());
+        set(&mut line.clip_box, self.clip_box.as_ref());
+        set(&mut line.clip_path, self.clip_path.as_ref());
         set(&mut line.url, self.url.as_ref());
         set(&mut line.gid, self.gid.as_ref());
         set(&mut line.rasterized, self.rasterized.as_ref());
@@ -169,5 +202,14 @@ mod tests {
         .apply(&mut line);
         assert_eq!(line.gapcolor, None);
         assert!(!line.clip_on, "untouched fields stay");
+        GridLinePropsOptions {
+            clip_box: Some(GridClip::Off),
+            ..GridLinePropsOptions::default()
+        }
+        .apply(&mut line);
+        assert_eq!(
+            (&line.clip_box, &line.clip_path),
+            (&GridClip::Off, &GridClip::Axes)
+        );
     }
 }

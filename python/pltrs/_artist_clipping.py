@@ -82,6 +82,25 @@ def take_parent_defaults(artist, parent, clip=True):
             artist._clipbox = box
 
 
+def clip_box_spec(clipbox):
+    """
+    The native description of the clip box *clipbox* as the clip path
+    clipping to its bounding box (None for None): the unit box through the
+    transform spanning the box of an Axes or a (sub)figure, followed as it
+    is laid out again, the box of a `.TransformedBbox` through its
+    transform, else the box in display coordinates.
+    """
+    if clipbox is None:
+        return None
+    spanning = getattr(clipbox, "_spanning", None)
+    if spanning is not None:
+        return ("bbox", _rectangle(Bbox.unit()), _live_transforms.to_native(spanning))
+    if isinstance(clipbox, TransformedBbox):
+        return ("bbox", _rectangle(clipbox._bbox),
+                _live_transforms.to_native(clipbox._transform))
+    return ("bbox", _rectangle(clipbox), _live_transforms.to_native(None))
+
+
 def clip_path_spec(path, transform=None):
     """
     The native description of the clip path `.Artist.set_clip_path` takes
@@ -134,13 +153,8 @@ class ClippingMixin:
             _artist.set_clip_box(
                 self._native,
                 None if spanning is None else _live_transforms.to_native(spanning))
-        elif isinstance(clipbox, TransformedBbox):
-            _artist.set_clip_path(self._native, (
-                "bbox", _rectangle(clipbox._bbox),
-                _live_transforms.to_native(clipbox._transform)))
         else:
-            _artist.set_clip_path(self._native, (
-                "bbox", _rectangle(clipbox), _live_transforms.to_native(None)))
+            _artist.set_clip_path(self._native, clip_box_spec(clipbox))
         self._clipbox = clipbox
         self.pchanged()
 

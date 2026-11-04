@@ -228,7 +228,7 @@ fn set_placed_offset(placed: RawHandle, offset: (f64, f64)) -> PyResult<()> {
 }
 
 /// The added annotation box `annotation`.
-fn annotation_bbox(annotation: &RawHandle) -> PyResult<AnnotationBbox> {
+pub(super) fn annotation_bbox(annotation: &RawHandle) -> PyResult<AnnotationBbox> {
     annotation
         .downcast::<AnnotationBbox>()
         .ok_or_else(|| PyErr::type_error("not an annotation box"))

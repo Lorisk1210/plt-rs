@@ -81,8 +81,9 @@ impl Projector {
     }
 }
 
-/// Lets `projection` set up the fresh rectilinear `axes`, then hands the
-/// axes over to it (matplotlib's projection `__init__` calling `clear`).
+/// Lets `projection` set up the fresh rectilinear or polar `axes`, then
+/// hands the axes over to it (matplotlib's projection `__init__` calling
+/// `clear`): polar axes map their data through it and stay polar.
 pub(crate) fn install(
     axes: &Axes,
     mut projection: Box<dyn Projection>,
@@ -94,9 +95,18 @@ pub(crate) fn install(
             message: err.to_string(),
         })?;
     let outlined = projection.outline() != AxesOutline::Rectangle;
-    axes.raw().with_mut::<AxesState, _>(|state| {
-        state.projection = ProjectionState::Custom(projection);
+    let polar = axes.raw().with_mut::<AxesState, _>(|state| {
+        if let ProjectionState::Polar(settings) = std::mem::take(&mut state.projection) {
+            state.projection = ProjectionState::ProgramPolar(settings, projection);
+            true
+        } else {
+            state.projection = ProjectionState::Custom(projection);
+            false
+        }
     });
+    if polar {
+        return Ok(());
+    }
     if outlined {
         // The spine drawing an outline ignores `axes.spines.*`, like
         // matplotlib's circular spine.
@@ -203,6 +213,48 @@ impl Figure {
         let projector = Projector::new(&projection.into())?;
         projector.apply(self.add_axes(rect)?)
     }
+
+    /// Axes with `projection` occupying `[left, bottom, width, height]` in
+    /// figure fractions, made outside the figure until it adds them
+    /// (matplotlib's `PolarAxes(fig, rect)`; see [`Figure::removed_axes`]).
+    ///
+    /// ```
+    /// use pltrs::axes::ProjectionKind;
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.removed_axes_with_projection([0.1, 0.1, 0.8, 0.8], ProjectionKind::Polar)?;
+    /// assert_eq!(ax.projection(), ProjectionKind::Polar);
+    /// assert!(fig.axes().is_empty());
+    /// # Ok::<(), pltrs::projections::ProjectionError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes_with_projection`].
+    pub fn removed_axes_with_projection(
+        &self,
+        rect: [f64; 4],
+        projection: impl Into<ProjectionSpec>,
+    ) -> Result<Axes, ProjectionError> {
+        let projector = Projector::new(&projection.into())?;
+        projector.apply(self.removed_axes(rect)?)
+    }
+
+    /// Axes with `projection` covering a grid cell or block, made outside
+    /// the figure until it adds them (matplotlib's `PolarAxes(fig,
+    /// subplotspec)`; see [`Figure::removed_subplot`]).
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_subplot_spec_with_projection`].
+    pub fn removed_subplot_with_projection(
+        &self,
+        spec: &SubplotSpec,
+        projection: impl Into<ProjectionSpec>,
+    ) -> Result<Axes, ProjectionError> {
+        let projector = Projector::new(&projection.into())?;
+        projector.apply(self.removed_subplot(spec)?)
+    }
 }
 
 impl Axes {
@@ -238,6 +290,16 @@ impl Axes {
     /// `__init__` of a projection's class; a binding gives axes of a
     /// program's projection class a projection asking the program).
     ///
+    /// Polar axes take a projection too (matplotlib's subclasses of
+    /// `PolarAxes`, such as the radar chart example's): they stay polar,
+    /// with their settings, ticks, labels and spines, but map their data
+    /// through [`Projection::data_to_axes`] (matplotlib's `transData`
+    /// without its final `transAxes`, made with the subclass'
+    /// `PolarTransform`), and take their aspect ratio from
+    /// [`Projection::data_ratio`] when it gives one; its other hooks are
+    /// those of rectilinear axes, which polar axes do not ask. A clear
+    /// sets the axes up again through it.
+    ///
     /// ```
     /// use pltrs::figure::Figure;
     /// use pltrs::projections::{Projection, ProjectionView};
@@ -265,14 +327,21 @@ impl Axes {
     /// # Errors
     ///
     /// [`ProjectionError::NotRectilinear`] when the axes already is drawn
-    /// through a projection, [`ProjectionError::SetUp`] when `projection`
-    /// fails to set it up; the axes stays as it was either way.
+    /// through a projection other than the polar one, or through one of
+    /// the program's, [`ProjectionError::SetUp`] when `projection` fails
+    /// to set it up; the axes stays as it was either way.
     pub fn install_projection(
         &self,
         projection: impl Projection,
     ) -> Result<&Self, ProjectionError> {
+        let taken = self.raw().with::<AxesState, _>(|state| {
+            matches!(
+                state.projection,
+                ProjectionState::Custom(_) | ProjectionState::ProgramPolar(..)
+            )
+        });
         let current = self.projection();
-        if current != ProjectionKind::Rectilinear {
+        if taken || !matches!(current, ProjectionKind::Rectilinear | ProjectionKind::Polar) {
             return Err(ProjectionError::NotRectilinear(current.name()));
         }
         install(self, Box::new(projection))?;
@@ -346,11 +415,15 @@ impl Axes {
     }
 
     /// Takes the projection defined by the program out of this axes,
-    /// leaving it rectilinear, if it has one.
+    /// leaving it rectilinear (or polar), if it has one.
     pub(crate) fn take_custom_projection(&self) -> Option<Box<dyn Projection>> {
         self.raw()
             .with_mut::<AxesState, _>(|state| match std::mem::take(&mut state.projection) {
                 ProjectionState::Custom(projection) => Some(projection),
+                ProjectionState::ProgramPolar(settings, projection) => {
+                    state.projection = ProjectionState::Polar(settings);
+                    Some(projection)
+                }
                 other => {
                     state.projection = other;
                     None

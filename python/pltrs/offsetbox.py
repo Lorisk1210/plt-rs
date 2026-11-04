@@ -1219,6 +1219,8 @@ or callable, default: value of *xycoords*
         self.xybox = xybox if xybox is not None else xy
         self.boxcoords = boxcoords if boxcoords is not None else xycoords
         self._box_alignment = box_alignment
+        self._arrow_relpos = (None if arrowprops is None
+                              else self.arrowprops.pop("relpos", (0.5, 0.5)))
         self._frameon = frameon
         self._pad = pad
         self._bboxprops = dict(bboxprops or {})
@@ -1242,7 +1244,8 @@ or callable, default: value of *xycoords*
         arrowprops = None
         if self.arrowprops is not None:
             arrowprops = _native_arrowprops(
-                {"arrowstyle": "simple", **self.arrowprops})
+                {"arrowstyle": "simple", **self.arrowprops,
+                 "relpos": self._arrow_relpos})
         native, parts, frame = _offsetbox.add_annotation_bbox(
             parent._native, self._native, self.offsetbox._native_tree(),
             tuple(map(float, self.xy)), {
@@ -1260,7 +1263,34 @@ or callable, default: value of *xycoords*
         self.offsetbox._adopt_tree(iter(parts), figure)
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
         self.offsetbox._joined(self)
-        return _handles.adopt(self, native, figure)
+        _handles.adopt(self, native, figure)
+        loose = self.__dict__.pop("_loose_arrow", None)
+        if loose is not None:
+            # What the program changed of the arrow before the box joined.
+            from ._annotation_arrow import AnnotationBboxArrow, adopt
+            adopt(self, loose, AnnotationBboxArrow)
+        return self
+
+    @property
+    def arrow_patch(self):
+        """The arrow from the box to the annotated point, a
+        `.FancyArrowPatch` (None without *arrowprops*): once the box joined
+        a figure, a mirror of the arrow pltrs (Rust) draws (see
+        `._annotation_arrow`)."""
+        if self.arrowprops is None:
+            return None
+        if "patch" not in self.__dict__:
+            # Not joined yet (the frame comes with joining): the arrow is
+            # matplotlib's patch until then, whose look pltrs (Rust) takes
+            # when the box joins.
+            loose = self.__dict__.get("_loose_arrow")
+            if loose is None:
+                from .patches import FancyArrowPatch
+                loose = self._loose_arrow = FancyArrowPatch(
+                    (0, 0), (1, 1), **self.arrowprops)
+            return loose
+        from ._annotation_arrow import AnnotationBboxArrow, mirror
+        return mirror(self, AnnotationBboxArrow)
 
     def set_annotation_clip(self, b):
         """
@@ -1351,12 +1381,13 @@ or callable, default: value of *xycoords*
 
     def get_children(self):
         """
-        Return the list of children: the offset box and, once the box has
-        joined an axes or a figure, its frame (pltrs (Rust) draws the arrow
-        without an artist of its own).
+        Return the list of children: the offset box, once the box has
+        joined an axes or a figure its frame, and its arrow.
         """
         patch = self.__dict__.get("patch")
-        return [self.offsetbox, *([] if patch is None else [patch])]
+        arrow = self.arrow_patch
+        return [self.offsetbox, *([] if patch is None else [patch]),
+                *([] if arrow is None else [arrow])]
 
     def set_fontsize(self, s=None):
         """

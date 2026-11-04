@@ -12,7 +12,8 @@ WebSockets send: `WebAggApplication` gives each WebSocket a
 (`.backend_webagg_core`) talk to as they talk to Tornado's. The server
 runs in an asyncio event loop (`WebAggApplication.start`), as Tornado
 does, which also runs the canvases' `.TimerAsyncio` timers. Its pages
-have no URL prefix: `WebAggApplication.initialize` refuses one.
+and files are served under the URL prefix `WebAggApplication.initialize`
+is given, as Tornado's handlers are.
 
 From matplotlib 3.11.2, under the Matplotlib License, for what is kept
 from it (the backend's classes, the WebSocket's protocol, the start and
@@ -176,8 +177,8 @@ class WebAggApplication:
         if cls.initialized:
             return
         if url_prefix:
-            raise NotImplementedError(
-                "pltrs: WebAggApplication.initialize(url_prefix=...)")
+            assert url_prefix[0] == '/' and url_prefix[-1] != '/', \
+                'url_prefix must start with a "/" and not end with one.'
 
         cls.url_prefix = url_prefix
         if address is None:
@@ -186,7 +187,7 @@ class WebAggApplication:
             cls.address = address
         relay = _web.bind(cls.address, rcParams['webagg.port'],
                           rcParams['webagg.port_retries'],
-                          core.FigureManagerWebAgg.get_javascript())
+                          core.FigureManagerWebAgg.get_javascript(), url_prefix)
         if relay is None:
             raise SystemExit(
                 "The webagg server could not be started because an available "

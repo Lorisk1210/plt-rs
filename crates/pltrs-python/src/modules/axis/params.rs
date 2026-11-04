@@ -2,7 +2,8 @@
 //! `Axis._translate_tick_params` gives (`size`, `tickdir`, `tick1On`,
 //! `labelrotation`, `grid_color`, ...) as pltrs (Rust)'s [`TickParams`].
 
-use pltrs::axes::{AxisName, GridOptions, TickLevel, TickParams};
+use pltrs::artist::ClipPathSpec;
+use pltrs::axes::{AxisName, GridClip, GridOptions, TickLevel, TickParams};
 use pltrs::fonts::FontSize;
 use pltrs::lines::LineStyle;
 use pltrs::mplot3d::{Axis3, Axis3D};
@@ -12,9 +13,18 @@ use pltrs_render::Sketch;
 use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
+use crate::modules::artist::ClipSpec;
 use crate::modules::artist::filter::python_filter;
 use crate::modules::lines::{PyLineStyle, cap_style, drawstyle, join_style, parse};
 use crate::modules::patheffects::path_effects;
+
+/// A clip region of the gridlines: `None` for none, else a clip path
+/// description (see `artist::ClipSpec`).
+fn grid_clip(value: &Bound<'_>) -> PyResult<GridClip> {
+    Ok(value
+        .extract::<Option<ClipSpec>>()?
+        .map_or(GridClip::Off, |spec| GridClip::Given(spec.0)))
+}
 
 /// A font size given as points or as a keyword (`"large"`).
 fn font_size(value: &Bound<'_>) -> PyResult<FontSize> {
@@ -151,10 +161,17 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
                 let filter: Option<Callback> = value.extract()?;
                 params.grid_line.agg_filter = Some(filter.map(python_filter));
             }
-            // No clip box: the gridlines are not clipped (their clip path is
-            // none already, the axes' rectangle being their clip box).
-            "grid_clip_box" if value.is_none() => params.grid_line.clip_on = Some(false),
-            "grid_clip_path" if value.is_none() => {}
+            // Clip regions as `Axis.set_tick_params` describes them (see
+            // `_artist_clipping.clip_path_spec`); a rectangle given as the
+            // clip path clips as a box, as matplotlib makes it one.
+            "grid_clip_box" => params.grid_line.clip_box = Some(grid_clip(&value)?),
+            "grid_clip_path" => match grid_clip(&value)? {
+                GridClip::Given(spec @ ClipPathSpec::BoundingBox { .. }) => {
+                    params.grid_line.clip_box = Some(GridClip::Given(spec));
+                    params.grid_line.clip_path = Some(GridClip::Off);
+                }
+                clip => params.grid_line.clip_path = Some(clip),
+            },
             // Line properties the gridlines do not draw with: matplotlib's
             // ticks make their gridline without a marker and place it
             // themselves, and neither layouts nor the mouse look at it.
@@ -186,10 +203,9 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
             "grid_marker" => params.grid_line.refused = Some("marker"),
             "grid_visible" => params.grid_line.refused = Some("visible"),
             _ => {
-                return Err(PyErr::new(
-                    ExceptionKind::NotImplementedError,
-                    format!("pltrs: tick_params({key}=...)"),
-                ));
+                return Err(PyErr::value_error(format!(
+                    "keyword {key} is not recognized"
+                )));
             }
         }
     }

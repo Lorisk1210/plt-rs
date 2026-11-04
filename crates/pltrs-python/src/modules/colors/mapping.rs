@@ -154,10 +154,13 @@ impl FromPy<'_> for Box<dyn Norm> {
         let Some(mut norm) = copy else {
             let components: usize = attr(object, "n_components")?;
             if components != 1 {
-                return Err(PyErr::new(
-                    ExceptionKind::NotImplementedError,
-                    format!("pltrs: drawing through a norm of class {module}.{kind}"),
-                ));
+                // A norm of several variates mapping the values of one
+                // (their colours are mapped in Python, `Collection._map_variates`):
+                // matplotlib's colorizer refuses it as it does a colormap of
+                // another number of variates.
+                return Err(PyErr::value_error(format!(
+                    "The {module}.{kind} of {components} variates cannot map data of 1 variate"
+                )));
             }
             return Ok(Box::new(PythonNorm::of(object)?));
         };

@@ -7,11 +7,13 @@ are (`._axis_artists`): a loose `.FancyBboxPatch` filled from the box's
 look (``_native.text.bbox_patch``) whose setters give the box their
 changes once they ran (``restyle_bbox``). The mirror sits on the unit
 square until `place` moves it where the text draws the box
-(``Text.update_bbox_position_size``), and stays there.
+(``Text.update_bbox_position_size``, and every draw of the text, which
+calls it in matplotlib: the mirror follows the text's count of draws),
+and stays there.
 """
 
 from . import _mirrors
-from ._native import patches as _patches, text as _text
+from ._native import artist as _artist, patches as _patches, text as _text
 from .patches import FancyBboxPatch
 from .transforms import Affine2D
 
@@ -24,9 +26,34 @@ class _TextBox(_mirrors.Mirroring):
         #: Where `place` put the patch: the size of the frame, the matrix
         #: placing it in display pixels and the mutation scale.
         self.frame = None
+        #: The draws of the text the patch was placed after.
+        self.draws = 0
 
     def push(self, artist):
         _text.restyle_bbox(self.text._native, artist._native)
+
+    def follow(self, patch):
+        """Move *patch* where the text's draws since it was placed put the
+        box, as each of matplotlib's draws of the text places it."""
+        if _artist.draw_count(self.text._native) != self.draws:
+            _place(self.text, patch)
+
+    def window_extent(self, artist, renderer=None, dpi=None):
+        self.follow(artist)
+        return _mirrors.OWN
+
+    def transform(self, artist):
+        self.follow(artist)
+        return _mirrors.OWN
+
+    def transform_set(self, artist):
+        # matplotlib makes the patch with a transform (the identity, until
+        # a draw places it).
+        return True
+
+    def path(self, artist):
+        self.follow(artist)
+        return _mirrors.OWN
 
     def move_to_frame(self, patch):
         """Put *patch* where `frame` says, the box unchanged."""
@@ -56,15 +83,24 @@ def mirror(text):
         patch._native = native
         if patch._mirror.frame is not None:
             patch._mirror.move_to_frame(patch)
+    patch._mirror.follow(patch)
     return patch
+
+
+def _place(text, patch):
+    """Move *patch*, the patch of the box of *text*, where the text draws
+    the box in its figure's current layout, if it has a box there."""
+    patch._mirror.draws = _artist.draw_count(text._native)
+    frame = _text.bbox_frame(text._native)
+    if frame is None:
+        return
+    patch._mirror.frame = frame
+    patch._mirror.move_to_frame(patch)
 
 
 def place(text):
     """Move the patch of the box of *text* where the text draws the box in
     its figure's current layout, if it has a box there."""
     patch = mirror(text)
-    frame = _text.bbox_frame(text._native)
-    if patch is None or frame is None:
-        return
-    patch._mirror.frame = frame
-    patch._mirror.move_to_frame(patch)
+    if patch is not None:
+        _place(text, patch)

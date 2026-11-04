@@ -12,6 +12,7 @@ use super::geometry::AxisPosition;
 use super::handle::Axes3D;
 use super::share::ShareKey;
 use super::state::Axes3DState;
+use crate::artist::ArtistHandle;
 use crate::axes::{TickParams, TickStyle, TicklabelFormat, tick_label_formatter};
 use crate::ticker::{
     AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator, ScalarFormatter,
@@ -151,6 +152,15 @@ impl Axis3D {
         self
     }
 
+    /// Makes this axes the one the major locator of this axis is set on,
+    /// for every axes sharing it, which their ticks are computed for
+    /// (matplotlib's `locator.set_axis(self)`).
+    pub(super) fn own_major_locator(&self) -> &Self {
+        let (dir, id) = (self.dir, self.axes.id());
+        self.update_shared(|axes| axes.axis_mut(dir).locator_owner = Some(id));
+        self
+    }
+
     /// Places the major ticks with `locator` (matplotlib's
     /// `set_major_locator`).
     pub fn set_major_locator(&self, locator: impl Locator) -> &Self {
@@ -159,6 +169,7 @@ impl Axis3D {
             t.major_locator = Rc::clone(&locator);
             t.defaults.major.locator = false;
         })
+        .own_major_locator()
     }
 
     /// Places the minor ticks with `locator`; 3-D axes draw minor ticks,

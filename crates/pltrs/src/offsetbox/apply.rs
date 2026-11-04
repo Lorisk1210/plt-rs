@@ -1,7 +1,7 @@
 //! Moving the artists of laid-out offset-box trees into place, and the
 //! figure's layout pass over the anchored, annotation and placed boxes.
 
-use pltrs_core::Bbox;
+use pltrs_core::{Affine2D, Bbox};
 
 use super::owners::{owner, owner_mut};
 use super::{AnnotationBboxArtist, ArtistRef, OffsetBox, OffsetBoxError, Placement, TreeLayout};
@@ -14,19 +14,24 @@ use crate::patches::{FancyBboxPatch, PatchArtist};
 use crate::text::TextArtist;
 use crate::transforms::Transform;
 
-/// Moves every artist `placements` name to where they put it: texts to
-/// their anchors, area artists onto their transforms (and clips), images
-/// and frames onto their boxes.
+/// Moves every artist `placements` name to where they put it: texts and
+/// area artists onto their transforms (and clips), images and frames onto
+/// their boxes.
 pub(crate) fn apply_placements<A: ArtistRef>(
     store: &mut ArtistStore,
     placements: Vec<Placement<A>>,
 ) {
     for placement in placements {
         match placement {
-            Placement::Text { text, anchor } => {
+            Placement::Text {
+                text,
+                offset,
+                baseline_shift,
+            } => {
                 if let Some(text) = store.get_as_mut::<TextArtist>(text.artist_id()) {
-                    text.position = anchor;
-                    text.base_mut().transform = Some(Transform::Display);
+                    let placed =
+                        Affine2D::translation(offset.x, offset.y).translate(0.0, baseline_shift);
+                    text.base_mut().transform = Some(Transform::Affine(placed));
                 }
             }
             Placement::Artists {

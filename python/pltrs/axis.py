@@ -12,7 +12,7 @@ import functools
 
 import numpy as np
 
-from . import _api, _artist_clipping, _tick_helpers, cbook, units as munits
+from . import _api, _artist_clipping, _tick_helpers, _values, cbook, units as munits
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -48,7 +48,8 @@ def _typed_locs(locator, locs, minor, view):
     """The tick locations *locs* pltrs (Rust) computed with *locator* over
     the view limits *view*, as matplotlib's locator gives them: a
     `.FixedLocator` placing all its locations gives its array (the minor
-    ones on major ticks left out, in its dtype), a categorical one the list
+    ones on major ticks left out, or every *nbins*-th, in its dtype), a
+    categorical one the list
     of the category numbers, a radial one of a full circle the list of its
     ticks, a symlog major one of a view in its linear range the sorted list
     of ``{vmin, 0, vmax}`` (a minor one the array of them left once those on
@@ -67,10 +68,11 @@ def _typed_locs(locator, locs, minor, view):
     if isinstance(locator, StrCategoryLocator) and not minor:
         values = list(locator._units.values())
         return values if np.array_equal(np.asarray(values, float), locs) else locs
-    if (isinstance(locator, mticker.FixedLocator) and locator.nbins is None
+    if (isinstance(locator, mticker.FixedLocator)
             and np.issubdtype(locator.locs.dtype, np.number)):
         given = locator.locs
-        if not minor and np.array_equal(given.astype(float), locs):
+        if (not minor and locator.nbins is None
+                and np.array_equal(given.astype(float), locs)):
             return given
         if np.isin(locs, given.astype(float)).all():
             return np.asarray(locs).astype(given.dtype)
@@ -732,11 +734,15 @@ class Axis(DrawnWith, Artist):
         v0, v1 = self._checked_limits(v0, v1)
         limits = _axes.set_lim(self.axes._native, self.axis_name, (v0, v1),
                                None if auto is None else bool(auto), bool(emit))
+        return self._typed_limits(given, limits)
+
+    def _typed_limits(self, given, limits):
+        """The *limits* set from the values *given*, as matplotlib's
+        ``_set_lim`` returns them: floats, but through the locators keeping
+        their types, the numbers given (after their units), numpy floats
+        where the axis changed them."""
         if not _keeps_limit_types(self.get_major_locator()):
             return limits
-        # The limits as matplotlib returns them through these locators: the
-        # numbers given (after their units), numpy floats where the axis
-        # changed them.
         return tuple(value if np.ndim(value) == 0 and value == limit
                      else np.float64(limit)
                      for value, limit in zip(given, limits))
@@ -1501,12 +1507,13 @@ class Axis(DrawnWith, Artist):
     @property
     def labelpad(self):
         """The distance between the axis label and the tick labels, in
-        points."""
-        return _axis.get_labelpad(*self._args())
+        points (as given, as matplotlib keeps it)."""
+        return _values.given(self, "labelpad", _axis.get_labelpad(*self._args()))
 
     @labelpad.setter
     def labelpad(self, pad):
         _axis.set_labelpad(*self._args(), float(pad))
+        _values.remember(self, "labelpad", pad)
 
     def set_label_coords(self, x, y, transform=None):
         """

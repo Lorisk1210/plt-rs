@@ -31,14 +31,26 @@ def _native_lineprops(props):
     Line properties of a box plot part in native form. A property given as
     None is `.Line2D`'s default for it, ``lines.<name>``, as matplotlib's
     parts are lines made with what is given over the ``boxplot.*`` ones;
-    any other given as None (a colour) leaves the part its ``boxplot.*``
-    one.
+    a colour given as None leaves the part its ``boxplot.*`` one, which
+    `_cycled_colors` replaces by the property cycle's.
     """
     rc = _rcParams()
     props = {key: rc[f"lines.{key}"] if value is None else value
              for key, value in cbook.normalize_kwargs(props or {}, mlines.Line2D).items()
              if value is not None or (key != "color" and f"lines.{key}" in rc)}
     return mlines._native_kwargs(props)
+
+
+def _cycled_colors(parts):
+    """The names of the parts among *parts* (``{name: props}``) whose
+    colour is given as None: matplotlib plots their lines with
+    ``Axes.plot``, which gives them the colours of the property cycle."""
+    cycled = []
+    for name, props in parts.items():
+        normalized = cbook.normalize_kwargs(props or {}, mlines.Line2D)
+        if "color" in normalized and normalized["color"] is None:
+            cycled.append(name)
+    return cycled
 
 
 def _converted_stats(axes, axis_name, stats, keys):
@@ -296,7 +308,11 @@ class StatsMixin:
             (bool(patch_artist), boxkw),
             (_native_lineprops(whiskerprops), _native_lineprops(flierprops),
              _native_lineprops(medianprops), _native_lineprops(capprops), mean_kw),
-            (bool(manage_ticks), None if zorder is None else float(zorder), label))
+            (bool(manage_ticks), None if zorder is None else float(zorder), label,
+             _cycled_colors({"boxes": None if patch_artist else boxprops,
+                             "whiskers": whiskerprops, "fliers": flierprops,
+                             "medians": medianprops, "caps": capprops,
+                             "means": meanprops_given})))
         if manage_ticks:
             # matplotlib adds the positions to the locations of its fixed
             # locator, as an array of them.
@@ -308,6 +324,14 @@ class StatsMixin:
                  else wrap_all(self, box_lines, mlines.Line2D))
         for box in boxes if box_rest else ():
             box.set(**box_rest)
+        if patch_artist:
+            # The face as matplotlib's boxes are made with it, which reads
+            # back as given (the colour of the cycle :rc:`patch.facecolor`
+            # names, say).
+            face = cbook.normalize_kwargs(boxprops, mpatches.PathPatch).get(
+                "facecolor", _rcParams()["patch.facecolor"])
+            for box in boxes:
+                _values.remember(box, "facecolor", face)
         return dict(whiskers=wrap_all(self, whiskers, mlines.Line2D),
                     caps=wrap_all(self, caps, mlines.Line2D), boxes=boxes,
                     medians=wrap_all(self, medians, mlines.Line2D),

@@ -4,10 +4,13 @@
 
 use super::axis_handle::Axis3D;
 use super::axis3d::Axis3DState;
+use super::coords::Axis3;
 use super::create::show_view_window;
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::limits::Limits3D;
+use super::scaling::AxisScale;
+use super::share::ShareKey;
 use super::state::Axes3DState;
 use crate::axes::TickStyle;
 use crate::rc::RcParams;
@@ -81,18 +84,28 @@ impl Axes3D {
     /// limits (autoscaled from the default box), scales, tickers,
     /// gridlines and the property cycle start over, and panes and axes
     /// are shown again; the position, view, projection, box aspect,
-    /// sharing and tick parameters are kept.
+    /// sharing and tick parameters are kept. The axes sharing an axis
+    /// take its fresh tick helpers too (matplotlib's shared axes hold one
+    /// `Ticker`), and an axis shared explicitly with another axes
+    /// ([`Axes3D::share_axis`]) takes its limits, scale and tick helpers
+    /// again, as matplotlib's clear shares it again.
     ///
     /// ```
     /// use pltrs::figure::Figure;
-    /// let ax = Figure::new().subplot_3d();
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
     /// ax.plot(&[0.0, 5.0], &[0.0, 5.0], &[0.0, 5.0])?;
     /// ax.set_axis_off().set_zlabel("z");
     /// ax.clear()?;
     /// assert!(ax.axis_on());
     /// assert_eq!(ax.label(pltrs::mplot3d::Axis3::Z), "");
     /// assert_eq!(ax.zlim(), (-1.0 / 48.0, 49.0 / 48.0));
-    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// let other = fig.add_subplot_3d(1, 2, 2, Default::default())?;
+    /// other.set_zlim(0.0, 2.0)?;
+    /// ax.share_z(&other)?;
+    /// ax.clear()?;
+    /// assert_eq!(ax.zlim(), (0.0, 2.0));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Errors
@@ -102,11 +115,37 @@ impl Axes3D {
         let plane = self.plane();
         plane.clear();
         show_view_window(&plane);
-        self.with_mut(|axes| {
-            axes.clear();
-            axes.autoscale_view()
-        })?;
+        self.with_mut(Axes3DState::clear);
+        for axis in Axis3::ALL {
+            self.reset_shared(axis);
+            if let Some(target) = self.share_target(axis) {
+                self.share_axis(axis, &target)?;
+            }
+        }
+        self.with_mut(Axes3DState::autoscale_view)?;
         Ok(self)
+    }
+
+    /// Resets axis `axis` of the other axes sharing it as matplotlib's
+    /// clear does: each takes the linear scale and its default tick
+    /// helpers in turn, on the `Ticker` they all share with this one, so
+    /// that every axes of the group ends with the last one's, which owns
+    /// the locator.
+    fn reset_shared(&self, axis: Axis3) {
+        let others: Vec<Axes3D> = (self.shared_axes(axis).into_iter())
+            .filter(|other| other != self)
+            .collect();
+        for other in &others {
+            other.with_mut(|axes| axes.axis_mut(axis).set_scale(AxisScale::default()));
+        }
+        let Some(last) = others.last() else {
+            return;
+        };
+        let tickers = last.with(|axes| axes.axis(axis).tickers.clone());
+        self.update_group(ShareKey::Axis(axis), |axes| {
+            axes.axis_mut(axis).tickers = tickers.clone();
+        });
+        last.axis(axis).own_major_locator();
     }
 
     /// Clears the axes (matplotlib's `cla`, an alias of

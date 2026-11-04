@@ -59,7 +59,12 @@ impl Axis3D {
                 t.major_locator = Rc::clone(locator);
                 t.defaults.major.locator = false;
             }
-        })
+        });
+        if minor {
+            self
+        } else {
+            self.own_major_locator()
+        }
     }
 
     /// Labels the major (or `minor`) ticks with a formatter that may be
@@ -279,7 +284,17 @@ impl Axis3D {
     /// The box enclosing the line and texts of the axis, without its label
     /// when `for_layout_only`, in display pixels, after a layout pass
     /// (matplotlib's `Axis3D.get_tightbbox`); `None` for an axes with no
-    /// place in its figure or turned off, or an axis hidden.
+    /// place in its figure, or an axis hidden. The axis of an axes turned
+    /// off is measured as it would be drawn, as matplotlib measures it.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let shown = ax.zaxis().tight_bbox(false)?;
+    /// ax.set_axis_off();
+    /// assert_eq!(ax.zaxis().tight_bbox(false)?, shown);
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
     ///
     /// # Errors
     ///
@@ -287,7 +302,7 @@ impl Axis3D {
     pub fn tight_bbox(&self, for_layout_only: bool) -> Result<Option<Bbox>, TickerError> {
         self.ticks()?;
         let boxes = self.laid_out(|axes, layout, extent| {
-            if axes.axis_on && axes.axis(self.dir).visible {
+            if axes.axis(self.dir).visible {
                 axis_extents(axes, layout, extent, for_layout_only, &[self.dir])
             } else {
                 Vec::new()

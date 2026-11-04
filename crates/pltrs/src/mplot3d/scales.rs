@@ -67,6 +67,11 @@ impl Axes3D {
         self.update_group(ShareKey::Axis(axis), |axes| {
             axes.axis_mut(axis).set_scale(scale.clone());
         });
+        // Each sets its default locator on the shared one in turn
+        // (matplotlib's `_set_axes_scale`): the last one owns it.
+        if let Some(last) = self.shared_axes(axis).last() {
+            last.axis(axis).own_major_locator();
+        }
         self.with_mut(|axes| {
             // matplotlib compares the default limits exactly.
             if axes.default_limits(axis) == old {

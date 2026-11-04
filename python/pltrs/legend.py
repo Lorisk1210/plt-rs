@@ -601,6 +601,20 @@ class Legend(Artist):
         """
         self._ncols = ncols
 
+    @property
+    def axes(self):
+        """The `~.axes.Axes` the legend resides in, or *None*: the Axes
+        whose clear forgot the legend too, as matplotlib's clear only drops
+        its ``legend_``, and none once removed."""
+        if "_native" in self.__dict__ and self._figure is None:
+            return None
+        axes = Artist.axes.fget(self)
+        return self.__dict__.get("_cleared_from") if axes is None else axes
+
+    @axes.setter
+    def axes(self, new_axes):
+        Artist.axes.fset(self, new_axes)
+
     def get_figure(self, root=False):
         # docstring inherited
         if "_native" not in self.__dict__:

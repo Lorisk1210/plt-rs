@@ -388,7 +388,16 @@ where its parent placed it at the last draw (`node_origin`), which a
 hidden box keeps, `get_window_extent` the two together, and `draw` draws
 its artists where pltrs (Rust) placed them (a container through
 matplotlib's own `OffsetBox.draw`), so that matplotlib's algorithms
-written in Python work over them.
+written in Python work over them. A text area places its text as
+matplotlib's does, through `offset_transform + _baseline_transform`
+(`Placement::Text` gives the text that translation at each layout, its
+position kept). The transforms matplotlib's draw sets on the leaves (the
+`offset_transform` of text areas, drawing areas and aux-transform boxes,
+a text area's `_baseline_transform`, a drawing area's `dpi_transform`)
+read where the last layout put the box (`offsetbox._FollowsLayout`). An
+aux-transform box outside any tree gives its children its transform and
+measures them as matplotlib's `get_bbox` does; they read back the
+transform pltrs (Rust) places them with once it lays the box out.
 
 matplotlib reads a box's settings and children again whenever it draws
 it, so the owner hands pltrs (Rust) its tree again whenever the
@@ -616,7 +625,9 @@ transform (made with the class' `PolarTransform`, whose
 interpolation steps) and the spines the class made; every clear gives it
 the outline of the patch `_gen_axes_patch` makes (`_program.cleared`,
 `PolarFrame::Path`) unless it is a `Wedge`, which pltrs (Rust) fits to the
-view as matplotlib's `draw` does. A `Spine(axes, spine_type, path)` is
+view as matplotlib's `draw` does (the `Wedge` the patch mirror is reads
+its centre, angles, radius and width as the last draw fitted them,
+`PolarAxes._fit_patch`). A `Spine(axes, spine_type, path)` is
 the spine of its side, or the outer one, drawn as the path through its
 transform (`SpinePatch::Path`). While pltrs (Rust) asks, `get_rorigin`
 and `get_rsign` answer from the trees, as matplotlib's do, and the
@@ -771,9 +782,13 @@ object otherwise converts to. A 3-D axis draws every tick with the style
 of its level but for the label pad of each major tick, and moves its
 texts at every draw, so its mirrors are filled with where the last
 layout placed them, positions set on them are not read back (matplotlib's
-draw overwrites them too), and what a single tick would keep of its own
+draw overwrites them too; reading the tick labels after a draw moves
+their labels back to their locations along the axis, as matplotlib's
+`_update_ticks` does), and what a single tick would keep of its own
 is refused. Values in units plotted on 3-D axes pass as they are
-(`Axis._native_units`): pltrs (Rust) converts them.
+(`Axis._native_units`): pltrs (Rust) converts them, and axes sharing an
+axis share its units but not its converter, as 2-D ones do
+(`Axis3D::own_converter`).
 
 matplotlib's `Tick` objects sit at 0 without a label until
 `Axis._update_ticks` places them, which drawing or measuring a shown

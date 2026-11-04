@@ -1,12 +1,13 @@
 //! The `Text` handle.
 
-use pltrs_core::Point;
+use pltrs_core::{Bbox, Point};
 use pltrs_text::{HAlign, RotationMode, VAlign};
 
 use super::{
-    Feature, LaidOutText, Language, LineSpacing, TextArtist, TextBoxPatch, TextBoxProps, TextError,
+    AngleReduction, Feature, LaidOutText, Language, LineSpacing, TextArtist, TextBoxPatch,
+    TextBoxProps, TextError,
 };
-use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
+use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::patches::{FancyBboxPatch, Patch};
@@ -99,6 +100,42 @@ impl Text {
         let state = self.raw.figure_state().borrow();
         self.raw
             .with::<TextArtist, _>(|t| t.drawn_rotation(LayoutContext::new(&state)))
+    }
+
+    /// The text's extent in display coordinates, measured in its figure as
+    /// it is now (as [`RawHandle::extent_as_is`] measures it), were it
+    /// anchored at `position` and turned by `rotation` degrees: where
+    /// matplotlib's `Text3D.get_window_extent` measures a 3-D text, at the
+    /// x and y of its 3-D anchor and at its own rotation, which the
+    /// projection replaces only while it draws the text. `None` when the
+    /// text takes no space there.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::transforms::Point;
+    /// let fig = Figure::new();
+    /// let note = fig.text(0.5, 0.5, "note");
+    /// let here = note.raw().extent_as_is();
+    /// assert_eq!(note.extent_placed(Point::new(0.5, 0.5), 0.0), here);
+    /// let turned = note.extent_placed(Point::new(0.5, 0.5), 90.0).expect("measured");
+    /// assert!(turned.height() > turned.width());
+    /// assert_eq!(note.raw().extent_as_is(), here, "the text itself stays");
+    /// ```
+    pub fn extent_placed(&self, position: Point, rotation: f64) -> Option<Bbox> {
+        let id = self.raw.id();
+        let figure = self.raw.figure_state();
+        let mut state = figure.borrow_mut();
+        let text = state.store.get_as_mut::<TextArtist>(id)?;
+        let own = (text.position, text.rotation, text.rotation_reduction);
+        (text.position, text.rotation, text.rotation_reduction) =
+            (position, rotation, AngleReduction::Modulo360);
+        let extent =
+            (state.artist(id)).and_then(|text| text.window_extent(&LayoutContext::new(&state)));
+        if let Some(text) = state.store.get_as_mut::<TextArtist>(id) {
+            (text.position, text.rotation, text.rotation_reduction) = own;
+        }
+        extent
     }
 
     /// Whether the text is where its axes can show it: anywhere unless it

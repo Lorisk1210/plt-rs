@@ -1,6 +1,8 @@
 """matplotlib's modules beyond the artists: formatters, locators, scales,
 norms, colormaps, colours, transforms, paths, text, legends, colorbars,
-layout, 3-D axes and the toolkits.
+layout, 3-D axes and the toolkits; then the state drawing updates (polar
+backgrounds, cleared legends) and values read back as given, and the parts
+of box plots and the arrays of ``pcolor``.
 
 Each area is one program. Where matplotlib has a family of classes
 (formatters, locators, norms, colormaps, scales), the program is made from
@@ -417,6 +419,80 @@ def _legends() -> Iterator[str]:
     yield "fig.legends"
 
 
+def _drawn_state() -> Iterator[str]:
+    """State matplotlib updates as it draws: the background of polar Axes
+    (fitted to the view), a cleared Axes' legend, and values read back as
+    they were given (alphas, label pads)."""
+    yield "fig = plt.figure()"
+    for index, limits in enumerate(["", "ax.set_thetamin(10); ax.set_thetamax(200)",
+                                    "ax.set_rorigin(-1); ax.set_rlim(1, 3)",
+                                    "ax.set_theta_direction(-1); ax.set_theta_offset(1)"]):
+        yield f"ax = fig.add_subplot(2, 2, {index + 1}, projection='polar')"
+        yield "ax.plot(x, values)"
+        if limits:
+            yield limits
+        yield "patch = ax.patch"
+        yield "patch.center, patch.r, patch.theta1, patch.theta2, patch.width"
+        yield "len(patch.get_path().vertices)"
+        yield "fig.canvas.draw()"
+        yield "patch.center, patch.r, patch.theta1, patch.theta2, patch.width"
+        yield "patch.get_path().vertices[:4], len(patch.get_path().vertices)"
+        yield "ax.patch is patch, patch.get_window_extent().bounds"
+        yield "ax.set_rmax(20)"
+        yield "patch.width"
+        yield "fig.canvas.draw()"
+        yield "patch.r, patch.width"
+    yield "fig, ax = plt.subplots()"
+    yield "ax.plot([1, 2], label='line')"
+    yield "leg = ax.legend()"
+    yield "ax.clear()"
+    yield "leg.axes is ax, ax.get_legend(), leg.figure is fig, leg.get_texts()[0].get_text()"
+    yield "ax.plot([2, 1], label='again')"
+    yield "other = ax.legend()"
+    yield "other.remove()"
+    yield "other.axes, other.figure, leg.axes is ax"
+    yield "patch = ax.add_patch(patches.Rectangle((0, 0), 1, 1))"
+    yield "patch.set_alpha(1)"
+    yield "patch.get_alpha(), patch.get_facecolor(), patch.get_edgecolor()"
+    yield "patch.set_alpha(0.25)"
+    yield "patch.get_alpha(), patch.get_facecolor()"
+    yield "line, = ax.plot([0, 1])"
+    yield "line.set_alpha(1)"
+    yield "line.get_alpha()"
+    yield "ax.set_xlabel('x', labelpad=12)"
+    yield "ax.xaxis.labelpad"
+    yield "ax.yaxis.labelpad = 3"
+    yield "ax.yaxis.labelpad"
+    yield "fig.canvas.draw()"
+    yield "ax.xaxis.labelpad, ax.yaxis.labelpad"
+
+
+def _box_parts() -> Iterator[str]:
+    """Box-plot parts given the colour None (the next colours of the
+    property cycle), filled boxes' faces, and the arrays of ``pcolor``."""
+    for props in ["medianprops={'color': None}", "whiskerprops={'color': None, 'linestyle': ':'}",
+                  "boxprops={'color': None}, capprops={'color': None}",
+                  "flierprops={'color': None}, meanprops={'color': None}, showmeans=True",
+                  "boxprops={'color': None}, patch_artist=True",
+                  "patch_artist=True, boxprops={'facecolor': 'r'}"]:
+        yield "fig, ax = plt.subplots()"
+        yield "ax.plot([0, 1])"
+        yield f"parts = ax.boxplot([values, values * 2], {props})"
+        yield ("{key: [a.get_facecolor() if isinstance(a, patches.Patch) else a.get_color() for a in arts] "
+               "for key, arts in parts.items()}")
+        yield "ax.plot([1, 0])[0].get_color()"
+    for data in ["np.ma.masked_less(z, 0)", "np.arange(30).reshape(5, 6)", "np.where(z > 1, np.nan, z)",
+                 "np.arange(7), np.arange(6), np.ma.masked_greater(z, 1)"]:
+        yield "fig, ax = plt.subplots()"
+        yield f"mesh = ax.pcolor({data})"
+        yield "mesh.get_array()"
+        yield "len(mesh.get_paths()), mesh.get_facecolor().shape"
+        yield "fig.canvas.draw()"
+        yield "mesh.get_array(), mesh.get_facecolor().shape"
+        yield "mesh.set_array(np.ones((5, 6)))"
+        yield "len(mesh.get_paths()), mesh.get_array().shape"
+
+
 def _colorbars() -> Iterator[str]:
     for args in ["im", "im, orientation='horizontal'", "im, extend='both'", "im, ticks=[0, 0.5, 1]",
                  "im, shrink=0.5, aspect=10, pad=0.1", "im, location='left'", "cs", "csf",
@@ -602,6 +678,8 @@ AREAS = {
     "layout": _layout,
     "three_d": _three_d,
     "toolkits": _toolkits,
+    "drawn_state": _drawn_state,
+    "box_parts": _box_parts,
 }
 
 

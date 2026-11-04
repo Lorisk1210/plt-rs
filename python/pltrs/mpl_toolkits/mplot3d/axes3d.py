@@ -22,6 +22,7 @@ from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
 from pltrs._native import mplot3d as _mplot3d
 from pltrs.axes import Axes
+from pltrs.axes._base import _SharedAxes
 from pltrs.axes._ticks import _axis_method_wrapper
 from pltrs._artist_kwargs import keep_program_picker
 from pltrs._preprocess import _preprocess_data
@@ -43,6 +44,31 @@ def _check_margin(m):
     if m <= -0.5:
         raise ValueError("margin must be greater than -0.5")
     return float(m)
+
+
+class _SharedAxes3D(_SharedAxes):
+    """
+    The groups of 3-D axes sharing one axis or their view angles
+    (matplotlib's ``Axes3D._shared_axes``, with ``"z"`` and ``"view"``), as
+    pltrs (Rust) keeps them.
+    """
+
+    def _siblings(self, a):
+        return _handles.wrap_all(_mplot3d.shared(a._native, self._name),
+                                 type(a), a.figure)
+
+
+def _margined(lower, upper, view_margin):
+    """
+    The limits *lower* and *upper* as matplotlib's ``_set_lim3d`` hands them
+    to the axis, typed as it types them: widened by *view_margin* in the
+    coordinates of the scale when it is positive, which makes them numpy
+    floats, else as given (adding the margin of 0 keeps their types).
+    """
+    if view_margin > 0:
+        return np.float64(lower), np.float64(upper)
+    delta = (upper - lower) * view_margin
+    return lower - delta, upper + delta
 
 
 def _floats(*arrays):
@@ -126,6 +152,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     name = '3d'
 
     _axis_names = ("x", "y", "z")
+    _shared_axes = {name: _SharedAxes3D(name) for name in (*_axis_names, "view")}
 
     def __init__(self, fig, rect=None, *args, elev=30, azim=-60, roll=0,
                  shareview=None, sharez=None, proj_type='persp',
@@ -246,7 +273,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             given = tuple(default if angle == default else angle
                           for angle, default in zip(native, (30, -60, 0)))
         self.initial_elev, self.initial_azim, self.initial_roll = given
-        self._shareview = _made.__dict__.pop('shareview', None)
+        _made.__dict__.pop('shareview', None)
         _values.remember_all(self, dict(zip(_VIEW_ANGLES, (
             self.initial_elev, self.initial_azim, self.initial_roll))), _VIEW_ANGLES)
         self.button_pressed = None
@@ -422,6 +449,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             raise ValueError(f"Axis limits {lower}, {upper} cannot be infinite")
         if np.isnan(lower) or np.isnan(upper):
             raise ValueError("Axis limits cannot be NaN or Inf")
+        given = _margined(lower, upper, view_margin if view_margin is not None
+                          else self._view_margin if rcParams['axes3d.automargin']
+                          else 0)
         lower, upper = float(lower), float(upper)
         if _mplot3d.get_scale(self._native, name) == 'log':
             if lower <= 0:
@@ -441,7 +471,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _mplot3d.set_lim(self._native, name, (lower, upper),
                          None if view_margin is None else float(view_margin),
                          None if auto is None else bool(auto))
-        return _mplot3d.get_lim(self._native, name)
+        return getattr(self, f"{name}axis")._typed_limits(
+            given, _mplot3d.get_lim(self._native, name))
 
     def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
                  view_margin=None, xmin=None, xmax=None):
@@ -932,6 +963,21 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         self._computed_zorder = bool(computed)
         _mplot3d.set_computed_zorder(self._native, bool(computed))
 
+    def _shared_from(self, name):
+        native = _mplot3d.share_target(self._native, name)
+        return None if native is None else _handles.wrap(native, type(self), self.figure)
+
+    @property
+    def _sharez(self):
+        """The Axes whose z-axis this one shares (``sharez=``), or None."""
+        return self._shared_from("z")
+
+    @property
+    def _shareview(self):
+        """The Axes whose view angles this one shares (``shareview=``), or
+        None."""
+        return self._shared_from("view")
+
     def sharez(self, other):
         """
         Share the z-axis with *other*.
@@ -952,11 +998,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         with another Axes.  Note that it is not possible to unshare axes.
         """
         _api.check_isinstance(Axes3D, other=other)
-        shared = self.__dict__.get('_shareview')
+        shared = self._shareview
         if shared is not None and other is not shared:
             raise ValueError("view angles are already shared")
         _mplot3d.share(self._native, 'view', other._native)
-        self._shareview = other
         self.view_init(elev=other.elev, azim=other.azim, roll=other.roll,
                        vertical_axis=other._axis_names[other._vertical_axis],
                        share=True)
@@ -1407,6 +1452,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                 # Any other collection is added as it is, as matplotlib
                 # adds it.
                 return self.add_collection(col)
+        segments = col.__dict__.get('_verts3d_pending')
+        if autolim and isinstance(col, art3d.Line3DCollection) and segments is not None:
+            # matplotlib gathers the points of the segments to autoscale,
+            # which fails without any.
+            np.concatenate(segments)
         return col._adopt_into(self, autolim, axlim_clip)
 
     def add_collection(self, collection, autolim=True):
@@ -1468,6 +1518,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                                    mlines._native_kwargs(props),
                                    bool(axlim_clip))
             line = keep_program_picker(wrap(self, native, art3d.Line3D), props)
+            # The 2-D data as matplotlib's `plot` gives them to the line,
+            # until a draw projects it.
+            line._xorig, line._yorig = np.atleast_1d(x), np.atleast_1d(y)
             # The 3-D data as matplotlib's `set_3d_properties` keeps them:
             # the 2-D data as given, and the z values as floats.
             z = np.broadcast_to(cbook._to_unmasked_float_array(z).ravel(), len(x))

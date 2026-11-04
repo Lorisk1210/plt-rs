@@ -51,6 +51,10 @@ class _AxesBackground(_Background):
         # The outline of the Axes, followed as it changes.
         return ("artist", self.owner._native)
 
+    def refresh(self, patch):
+        # What the Axes' draws gave the patch (a polar Axes' `.Wedge`).
+        self.owner._fit_patch(patch)
+
 
 class _FigureBackground(_Background):
     """The background of a (sub)figure."""

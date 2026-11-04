@@ -41,6 +41,42 @@ pub enum BoxArtist {
     Patch(Patch<PathShape>),
 }
 
+/// A part of every box of a box plot (the keys of matplotlib's `boxplot`
+/// result dictionary).
+///
+/// ```
+/// use pltrs::axes::{BoxPart, BxpOptions};
+/// use pltrs::prelude::*;
+/// use pltrs::stats::{BoxplotStatsOptions, boxplot_stats};
+/// let first = Figure::new().subplot().plot([0.0, 1.0], [0.0, 1.0])?.color();
+/// let ax = Figure::new().subplot();
+/// let stats = boxplot_stats(&[[1.0, 2.0, 3.0, 4.0]], BoxplotStatsOptions::default())?;
+/// let options = BxpOptions {
+///     cycled_colors: vec![BoxPart::Medians],
+///     ..BxpOptions::default()
+/// };
+/// let parts = ax.bxp(&stats, options)?;
+/// assert_eq!(parts.medians[0].color(), first, "the cycle's first colour");
+/// let whiskers = pltrs::rc::params().boxplot_whiskerprops_color.clone();
+/// assert_eq!(parts.whiskers[0].color(), whiskers);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BoxPart {
+    /// The boxes.
+    Boxes,
+    /// The whiskers.
+    Whiskers,
+    /// The caps.
+    Caps,
+    /// The medians.
+    Medians,
+    /// The means.
+    Means,
+    /// The outliers.
+    Fliers,
+}
+
 /// The artists of a box plot (matplotlib's `boxplot` result dictionary).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BoxplotArtists {
@@ -105,6 +141,11 @@ pub struct BxpOptions {
     pub capwidths: Vec<f64>,
     /// Legend labels (none by default: the parts stay out of legends).
     pub label: Option<BoxLabel>,
+    /// The parts whose lines take the next colour of the property cycle
+    /// each, in place of their `boxplot.*` colour (matplotlib's
+    /// `color=None` in a part's props, whose lines `bxp` plots as
+    /// `Axes.plot` does). Filled boxes keep their colours.
+    pub cycled_colors: Vec<BoxPart>,
 }
 
 impl Default for BxpOptions {
@@ -130,6 +171,7 @@ impl Default for BxpOptions {
             zorder: None,
             capwidths: Vec::new(),
             label: None,
+            cycled_colors: Vec::new(),
         }
     }
 }
@@ -245,6 +287,27 @@ impl PartStyles {
             median: median.overlay(options.medianprops.clone()),
             mean: mean.overlay(options.meanprops.clone()),
             boxes,
+        }
+        .cycling_colors(&options.cycled_colors)
+    }
+
+    /// The styles with no colour for the lines of the `cycled` parts,
+    /// which then take the colours of the property cycle.
+    fn cycling_colors(self, cycled: &[BoxPart]) -> Self {
+        let colored = |part: BoxPart, props: LineProps| LineProps {
+            color: props.color.filter(|_| !cycled.contains(&part)),
+            ..props
+        };
+        Self {
+            whisker: colored(BoxPart::Whiskers, self.whisker),
+            cap: colored(BoxPart::Caps, self.cap),
+            flier: colored(BoxPart::Fliers, self.flier),
+            median: colored(BoxPart::Medians, self.median),
+            mean: colored(BoxPart::Means, self.mean),
+            boxes: match self.boxes {
+                BoxProps::Line(props) => BoxProps::Line(colored(BoxPart::Boxes, props)),
+                filled @ BoxProps::Patch(_) => filled,
+            },
         }
     }
 

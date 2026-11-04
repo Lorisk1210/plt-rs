@@ -12,9 +12,10 @@ use pltrs::mplot3d::math::{
 };
 use pltrs::mplot3d::{Axes3D, Geometry3D, LightSource, Vec3, ZSort, all_points_on_plane};
 use pltrs::text::Text;
-use pltrs_core::Rgba;
+use pltrs_core::{Point, Rgba};
 
 use super::super::path::{PathArrays, PyPath, path_arrays};
+use super::super::transforms::bbox_array;
 use super::axis3;
 use crate::binding::prelude::*;
 
@@ -240,6 +241,16 @@ fn text_position(axes: Axes3D, text: Text) -> PyResult<(f64, f64, f64)> {
     Ok((x, y, z))
 }
 
+/// The extent of a 3-D text of the axes where matplotlib measures it, at
+/// the x and y of its 3-D position, turned by its own `rotation`
+/// (`Text3D.get_window_extent`): `[[x0, y0], [x1, y1]]`, or `None`.
+fn unprojected_text_extent(axes: Axes3D, text: Text, rotation: f64) -> PyResult<Option<NdArray>> {
+    let [x, y, _] = axes.text_position(&text)?;
+    (text.extent_placed(Point::new(x, y), rotation))
+        .map(bbox_array)
+        .transpose()
+}
+
 /// The points of three coordinate columns.
 fn points((xs, ys, zs): Columns) -> Vec<Vec3> {
     xs.iter()
@@ -422,6 +433,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("scatter_offsets", scatter_offsets)?;
     module.add("set_scatter_offsets", set_scatter_offsets)?;
     module.add("text_position", text_position)?;
+    module.add("unprojected_text_extent", unprojected_text_extent)?;
     module.add("text_2d_to_3d", text_2d_to_3d)?;
     module.add("line_2d_to_3d", line_2d_to_3d)?;
     module.add("shade_faces", shade_faces)?;

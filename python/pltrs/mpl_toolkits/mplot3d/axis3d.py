@@ -14,7 +14,7 @@ import numpy as np
 
 from pltrs import _api, _mirrors, _values, axis as maxis, colors as mcolors
 from pltrs import collections as mcoll, lines as mlines, patches as mpatches
-from pltrs._native import mplot3d as _mplot3d
+from pltrs._native import artist as _artist, mplot3d as _mplot3d
 
 from . import art3d
 from .art3d import _no_projection_error
@@ -96,6 +96,35 @@ class Axis(maxis.XAxis):
     def _native_args(self):
         """The native 3-D axes and the axis name."""
         return self.axes._native, self.axis_name
+
+    def _drawn_by_drawer(self):
+        # A 3-D axes draws its axes whenever it shows them (matplotlib's
+        # `Axes3D.draw`), hidden and animated ones too.
+        return self.axes._axis3don
+
+    def _ticklabels(self, minor):
+        # matplotlib's `_update_ticks` moves the labels of the ticks it
+        # places back to their location along the axis (``update_position``)
+        # after the draw put them where the projection shows them.
+        self._ticks_placed = _artist.draw_count(self.axes._native)
+        return super()._ticklabels(minor)
+
+    def _tick_objects(self, minor, count):
+        # docstring inherited; the labels at their location along the axis
+        # when matplotlib's `_update_ticks` placed them after the last draw.
+        ticks = super()._tick_objects(minor, count)
+        drawn = _artist.draw_count(self.axes._native)
+        if drawn and self.__dict__.get("_ticks_placed") == drawn:
+            # Typed as the locator's array, which is not asked again.
+            locator = self.get_minor_locator() if minor else self.get_major_locator()
+            locs = maxis._typed_locs(locator, np.array([tick._loc for tick in ticks]),
+                                     minor, self.get_view_interval())
+            for tick, loc in zip(ticks, locs):
+                for label in (tick.label1, tick.label2):
+                    with _mirrors.detached(label):
+                        label.set_x(loc)
+                    _values.remember(label, "x", loc)
+        return ticks
 
     @maxis._interval_method("getter")
     def get_data_interval(self):

@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use pltrs_core::Rgba;
 
+use crate::artist::ArtistId;
 use crate::axes::axis::TickOverrides;
 use crate::axes::axis_artists::AxisGids;
 use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on};
@@ -236,6 +237,13 @@ pub(crate) struct Axis3DState {
     pub(crate) dir: Axis3,
     pub(crate) scale: AxisScale,
     pub(crate) tickers: Tickers3D,
+    /// The axes whose axis the major locator was set on, when another
+    /// axes sharing this axis (matplotlib's `locator.axis`, which its
+    /// ticks are computed for).
+    pub(crate) locator_owner: Option<ArtistId>,
+    /// How many ticks fit along the axis of the locator's owner, as the
+    /// last layout pass found it.
+    pub(crate) owner_tick_space: Option<usize>,
     /// The unit converter, how it was chosen, and the unit.
     pub(crate) units: AxisUnits,
     /// Category names, once categorical values were plotted.
@@ -285,6 +293,8 @@ pltrs_core::archive_struct!(Axis3DState {
     dir,
     scale,
     tickers,
+    locator_owner,
+    owner_tick_space,
     units,
     categories,
     label,
@@ -317,6 +327,8 @@ impl Axis3DState {
         Self {
             dir,
             tickers: Tickers3D::defaults(scale.scale().as_ref(), dir, &TickerSettings::from(rc)),
+            locator_owner: None,
+            owner_tick_space: None,
             scale,
             units: AxisUnits::default(),
             categories: None,
@@ -415,7 +427,7 @@ impl Axis3DState {
             view_interval: span.view,
             data_interval: span.data,
             minpos: span.tick_minpos,
-            tick_space: self.tick_space(length_points),
+            tick_space: (self.owner_tick_space).unwrap_or_else(|| self.tick_space(length_points)),
             major_ticks: Vec::new(),
             scale: self.scale.scale().hint(),
             three_d: true,
@@ -424,7 +436,7 @@ impl Axis3DState {
 
     /// How many ticks fit along an axis `length_points` long (matplotlib's
     /// `XAxis.get_tick_space`, which every 3-D axis inherits).
-    fn tick_space(&self, length_points: f64) -> usize {
+    pub(crate) fn tick_space(&self, length_points: f64) -> usize {
         let size = self.major_style.label_size * 3.0;
         if size > 0.0 {
             (length_points / size).floor().max(0.0) as usize

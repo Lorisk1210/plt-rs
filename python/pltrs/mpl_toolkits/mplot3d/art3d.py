@@ -15,6 +15,7 @@ from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
+from pltrs.axes import _program_locators
 
 
 def _columns(arrays):
@@ -120,7 +121,10 @@ def _projected_depth(artist):
     if depth is None:
         raise _no_projection_error()
     artist._projections = artist.__dict__.get("_projections", 0) + 1
-    return depth
+    # A numpy float, the minimum of the projected depths, but for the
+    # Python floats matplotlib gives without points (NaN) or beyond its
+    # cap (1e9).
+    return depth if np.isnan(depth) or depth == 1e9 else np.float64(depth)
 
 
 class _ProjectedPaths:
@@ -581,16 +585,59 @@ class _Lifted3DOffsets(_Loose3D):
     @property
     def _offsets3d(self):
         """The 3-D positions of the members, as given."""
+        unprojectable = self.__dict__.get("_unprojectable")
+        if unprojectable is not None:
+            return unprojectable
         return _values.given(self, "_offsets3d", tuple(
             np.array(c) for c in
             _mplot3d.scatter_offsets(self.axes._native, self._native)))
 
     @_offsets3d.setter
     def _offsets3d(self, offsets):
-        _mplot3d.set_scatter_offsets(self.axes._native, self._native,
-                                     _columns(offsets))
-        _values.remember(self, "_offsets3d", offsets)
+        try:
+            columns = _columns(offsets)
+        except ValueError:
+            # Coordinates that do not broadcast together: matplotlib keeps
+            # them, and fails to project them when it draws.
+            self._keep_unprojectable(offsets)
+        else:
+            self.__dict__.pop("_unprojectable", None)
+            self.__dict__.pop("_offsets_unprojected", None)
+            _mplot3d.set_scatter_offsets(self.axes._native, self._native, columns)
+            _values.remember(self, "_offsets3d", offsets)
         self.stale = True
+
+    def _keep_unprojectable(self, offsets):
+        """
+        Keep *offsets*, 3-D positions whose coordinates do not broadcast
+        together, as matplotlib keeps them: its draws fail to project them
+        (raising as `_locate_by_program` does, before every layout of a
+        draw), and the offsets stay those of the last projection.
+        """
+        if "_unprojectable" not in self.__dict__:
+            self._offsets_unprojected = self.get_offsets()
+        self._unprojectable = offsets
+        _program_locators.follow(self, self.get_figure(root=True))
+
+    def _locate_by_program(self, renderer):
+        """Fail as matplotlib's ``do_3d_projection`` fails on the kept
+        positions that do not broadcast together, when the members are
+        drawn: gathering the masks of the coordinates outside the domains
+        of the axes' scales raises numpy's error."""
+        offsets = self.__dict__.get("_unprojectable")
+        if (offsets is None or self.axes is None or not self.get_visible()
+                or not self.axes.get_visible()):
+            return
+        axes = self.axes
+        np.logical_or.reduce(tuple(
+            np.logical_not(axis._scale.val_in_range(values))
+            for axis, values in zip((axes.xaxis, axes.yaxis, axes.zaxis), offsets)))
+
+    def get_offsets(self):
+        # docstring inherited; those of the last projection while the
+        # positions kept cannot be projected.
+        kept = self.__dict__.get("_offsets_unprojected")
+        return super().get_offsets() if kept is None else kept
 
     def get_depthshade(self):
         """Return whether the members fade with depth."""
@@ -1039,10 +1086,20 @@ class PathPatch3D(Patch3D):
         self._place(path, segment3d, axlim_clip)
 
 
+def _change_class(patch, cls):
+    """Make *patch* a *cls*, keeping the attributes matplotlib's instance of
+    its former class holds (a `.Rectangle`'s ``angle``, ...), which
+    outlive the change there."""
+    kept = {name: getattr(patch, name) for klass in type(patch).__mro__
+            for name in vars(klass).get("_instance_attributes", ())}
+    patch.__class__ = cls
+    patch.__dict__.update(kept)
+
+
 def patch_2d_to_3d(patch, z=0, zdir='z', axlim_clip=False):
     """Convert a `.Patch` to a `.Patch3D` object."""
     verts = _get_patch_verts(patch)
-    patch.__class__ = Patch3D
+    _change_class(patch, Patch3D)
     patch.set_3d_properties(verts, z, zdir, axlim_clip)
 
 
@@ -1052,7 +1109,7 @@ def pathpatch_2d_to_3d(pathpatch, z=0, zdir='z'):
     trans = pathpatch.get_patch_transform()
 
     mpath = trans.transform_path(path)
-    pathpatch.__class__ = PathPatch3D
+    _change_class(pathpatch, PathPatch3D)
     pathpatch.set_3d_properties(mpath, z, zdir)
 
 
@@ -1224,6 +1281,17 @@ class Text3D(mtext.Text):
         # Overwriting the 2d Text behavior which is not valid for 3d.
         # For now, just return None to exclude from layout calculation.
         return None
+
+    def _text_extent(self):
+        # matplotlib measures the 2-D text at the x and y of its 3-D
+        # position, at its own rotation: the projection moves and turns it
+        # only while drawing it.
+        axes = _lifted(self)
+        if axes is None:
+            return super()._text_extent()
+        points = _mplot3d.unprojected_text_extent(
+            axes._native, self._native, float(self.get_rotation()))
+        return None if points is None else tuple(np.ravel(points))
 
 
 def text_2d_to_3d(obj, z=0, zdir='z', axlim_clip=False):

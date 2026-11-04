@@ -38,8 +38,8 @@ use bundled::{BUNDLED_FONTS, LAST_RESORT};
 pub fn bundled_font_data(file_name: &str) -> Option<&'static [u8]> {
     BUNDLED_FONTS
         .iter()
-        .find(|(name, _)| *name == file_name)
-        .map(|&(_, data)| data)
+        .find(|font| font.file == file_name)
+        .map(|font| font.data)
 }
 
 /// `(file name, contents)` of every bundled font file, for writing them
@@ -50,7 +50,7 @@ pub fn bundled_font_data(file_name: &str) -> Option<&'static [u8]> {
 /// assert!(fonts.any(|(name, data)| name == "DejaVuSans.ttf" && !data.is_empty()));
 /// ```
 pub fn bundled_font_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
-    BUNDLED_FONTS.iter().copied()
+    BUNDLED_FONTS.iter().map(|font| (font.file, font.data))
 }
 
 /// The bundled font `path` stands for: a bare bundled file name, or a
@@ -58,13 +58,13 @@ pub fn bundled_font_files() -> impl Iterator<Item = (&'static str, &'static [u8]
 /// written out of the binary).
 fn bundled_name_of(path: &Path) -> Option<&'static str> {
     let name = path.file_name()?.to_str()?;
-    let &(bundled, data) = BUNDLED_FONTS.iter().find(|(file, _)| *file == name)?;
+    let font = BUNDLED_FONTS.iter().find(|font| font.file == name)?;
     let bare = path.parent().is_none_or(|dir| dir.as_os_str().is_empty());
     let same = || {
-        fs::metadata(path).is_ok_and(|meta| meta.len() == data.len() as u64)
-            && fs::read(path).is_ok_and(|bytes| bytes == data)
+        fs::metadata(path).is_ok_and(|meta| meta.len() == font.data.len() as u64)
+            && fs::read(path).is_ok_and(|bytes| bytes == font.data)
     };
-    (bare || same()).then_some(bundled)
+    (bare || same()).then_some(font.file)
 }
 
 /// Where a face's bytes come from.
@@ -153,15 +153,30 @@ impl FontDatabase {
 
     /// A database with every bundled font (matplotlib's `mpl-data` fonts
     /// and Inter).
+    ///
+    /// Their catalogue entries are known in advance (the tests check them
+    /// against the fonts), so that no page of the embedded fonts is read
+    /// until a face is used: parsing all 45 would map about 6 MiB of them.
     pub fn with_bundled_fonts() -> Self {
         let db = Self::new();
-        for (name, data) in BUNDLED_FONTS {
-            // Bundled fonts are known to parse (see the tests); a failure
-            // would only drop that font from the catalogue.
-            let _ = db.add_faces(&FontSource::Bundled(name), data, true, || {
-                FontData::Static(data)
-            });
+        let mut entries = Vec::new();
+        for font in &BUNDLED_FONTS {
+            let id = FontId(db.faces.push(StoredFace {
+                source: FontSource::Bundled(font.file),
+                index: 0,
+                data: FontData::Static(font.data),
+                autohinter: OnceLock::new(),
+            }));
+            entries.extend(font.entries.iter().map(|entry| FontEntry {
+                font: id,
+                name: entry.name.to_owned(),
+                style: entry.style,
+                variant: FontVariant::Normal,
+                weight: entry.weight,
+                stretch: Stretch::NORMAL,
+            }));
         }
+        *db.entries.write().unwrap_or_else(PoisonError::into_inner) = entries;
         db
     }
 

@@ -9,7 +9,7 @@ use pltrs_core::Point;
 
 use crate::collections::MeshShading;
 use crate::image::{ImageError, MultiField, ScalarField};
-use crate::numeric::Grid;
+use crate::numeric::{Grid, cell_buffer};
 use crate::rc::UnknownName;
 
 /// Where the colour values of a mesh sit (matplotlib's `shading`).
@@ -191,11 +191,15 @@ impl PreparedMesh {
     /// Every finite vertex, row by row.
     pub(super) fn finite_points(&self) -> Vec<Point> {
         let (rows, cols) = self.x.shape();
-        (0..rows)
-            .flat_map(|r| (0..cols).map(move |c| (r, c)))
-            .map(|(r, c)| self.point(r, c))
-            .filter(|p| p.is_finite())
-            .collect()
+        let mut points = cell_buffer(rows, cols);
+        for r in 0..rows {
+            points.extend(
+                (0..cols)
+                    .map(|c| self.point(r, c))
+                    .filter(|p| p.is_finite()),
+            );
+        }
+        points
     }
 }
 

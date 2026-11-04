@@ -447,14 +447,14 @@ class Line2D(Artist):
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
         self._xorig, self._yorig = _copied(x), _copied(y)
-        self.recache(always=True)
+        # Converted now (where units fail, set_data does), the numbers
+        # reach pltrs (Rust) when the next native call is made.
+        _deferred_data[self._native] = self._numbers()
 
     def _convert_units_for(self, axes):
         if self.__dict__.pop("_unit_data", False):
-            _lines.set_data(
-                self._native,
-                cbook._to_unmasked_float_array(axes.convert_xunits(self._xorig)).ravel(),
-                cbook._to_unmasked_float_array(axes.convert_yunits(self._yorig)).ravel())
+            _lines.set_data(self._native, _floats(axes.convert_xunits(self._xorig)),
+                            _floats(axes.convert_yunits(self._yorig)))
 
     def recache_always(self):
         """Convert the original data through the units of the line's axes
@@ -467,15 +467,19 @@ class Line2D(Artist):
         again when *always* is true, and hand the numbers to pltrs (Rust).
 
         pltrs (Rust) builds the line's path from its data whenever it is
-        drawn, and every setter of the data hands the numbers over at once,
-        so without *always* nothing is waiting to be converted.
+        drawn, and every setter of the data converts the numbers at once
+        (handing them over by the next native call), so without *always*
+        nothing is waiting to be converted.
         """
         if not always or "_xorig" not in self.__dict__:
             return
-        _lines.set_data(
-            self._native,
-            cbook._to_unmasked_float_array(self.convert_xunits(self._xorig)).ravel(),
-            cbook._to_unmasked_float_array(self.convert_yunits(self._yorig)).ravel())
+        _lines.set_data(self._native, *self._numbers())
+
+    def _numbers(self):
+        """The original data converted through the units of the line's
+        axes: the numbers pltrs (Rust) draws."""
+        return (_floats(self.convert_xunits(self._xorig)),
+                _floats(self.convert_yunits(self._yorig)))
 
     def set_xdata(self, x):
         """
@@ -788,6 +792,27 @@ class Line2D(Artist):
             ms = (self.get_markersize() / 72.0 * self.get_figure(root=True).dpi) * 0.5
             bbox = bbox.padded(ms)
         return bbox
+
+
+def _floats(values):
+    """``cbook._to_unmasked_float_array(values).ravel()``, which is
+    *values* itself for a one-dimensional array of floats."""
+    if type(values) is np.ndarray and values.ndim == 1 and values.dtype.char == "d":
+        return values
+    return cbook._to_unmasked_float_array(values).ravel()
+
+
+def _push_deferred_data(waiting):
+    """Hand pltrs (Rust) the numbers `Line2D.set_data` left for the next
+    native call: the binding calls this with them, taken out of
+    `_deferred_data`, before that call runs."""
+    for native, (x, y) in waiting.items():
+        _lines.set_data(native, x, y)
+
+
+#: The numbers of each line whose data was set since the last native
+#: call, by its native line (`_push_deferred_data` hands them over).
+_deferred_data = _lines.defer_data({}, _push_deferred_data)
 
 
 def _copied(values):

@@ -25,6 +25,21 @@ fn bundled_fonts_are_catalogued() {
 }
 
 #[test]
+fn bundled_entries_are_those_of_the_fonts() {
+    let db = FontDatabase::with_bundled_fonts();
+    let parsed = FontDatabase::new();
+    for font in &BUNDLED_FONTS {
+        assert_eq!(face_count(font.data), Ok(1), "{}", font.file);
+        parsed
+            .add_faces(&FontSource::Bundled(font.file), font.data, true, || {
+                FontData::Static(font.data)
+            })
+            .expect("bundled fonts parse");
+    }
+    assert_eq!(*db.entries(), *parsed.entries());
+}
+
+#[test]
 fn find_font_basics() {
     let db = FontDatabase::with_bundled_fonts();
     let name = |id: FontId| {

@@ -187,13 +187,13 @@ impl Axes {
         &self,
         x: impl IntoIterator<Item: Number>,
         y: impl IntoIterator<Item: Number>,
-        options: HexbinOptions,
+        mut options: HexbinOptions,
     ) -> Result<Collection, ImageError> {
         let Points {
             x,
             y,
             values: weights,
-        } = kept_points(&to_f64s(x), &to_f64s(y), options.values.as_deref())?;
+        } = kept_points(to_f64s(x), to_f64s(y), options.values.take())?;
         let (nx, ny) = match options.gridsize {
             HexGridSize::Count(nx) => (nx, (nx as f64 / 3.0_f64.sqrt()) as usize),
             HexGridSize::Shape(nx, ny) => (nx, ny),
@@ -278,15 +278,19 @@ struct Points {
 }
 
 /// The points (and values) with every coordinate finite (matplotlib's
-/// `delete_masked_points`).
-fn kept_points(x: &[f64], y: &[f64], values: Option<&[f64]>) -> Result<Points, ImageError> {
+/// `delete_masked_points`), kept in place.
+fn kept_points(
+    mut x: Vec<f64>,
+    mut y: Vec<f64>,
+    mut values: Option<Vec<f64>>,
+) -> Result<Points, ImageError> {
     if x.len() != y.len() {
         return Err(ImageError::ValueCount {
             values: y.len(),
             points: x.len(),
         });
     }
-    if let Some(values) = values
+    if let Some(values) = &values
         && values.len() != x.len()
     {
         return Err(ImageError::ValueCount {
@@ -294,17 +298,26 @@ fn kept_points(x: &[f64], y: &[f64], values: Option<&[f64]>) -> Result<Points, I
             points: x.len(),
         });
     }
-    let keep: Vec<usize> = (0..x.len())
-        .filter(|&i| {
-            x[i].is_finite() && y[i].is_finite() && values.is_none_or(|v| v[i].is_finite())
-        })
-        .collect();
-    let pick = |a: &[f64]| keep.iter().map(|&i| a[i]).collect::<Vec<f64>>();
-    Ok(Points {
-        x: pick(x),
-        y: pick(y),
-        values: values.map(pick),
-    })
+    let mut kept = 0;
+    for i in 0..x.len() {
+        let finite = x[i].is_finite()
+            && y[i].is_finite()
+            && values.as_ref().is_none_or(|v| v[i].is_finite());
+        if finite {
+            x[kept] = x[i];
+            y[kept] = y[i];
+            if let Some(values) = &mut values {
+                values[kept] = values[i];
+            }
+            kept += 1;
+        }
+    }
+    x.truncate(kept);
+    y.truncate(kept);
+    if let Some(values) = &mut values {
+        values.truncate(kept);
+    }
+    Ok(Points { x, y, values })
 }
 
 /// The colour options and hexagon values after `bins`: a log norm (taking
@@ -362,6 +375,23 @@ mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
     use crate::figure::Figure;
+
+    #[test]
+    fn non_finite_points_are_dropped_in_place() {
+        let kept = kept_points(
+            vec![1.0, f64::NAN, 3.0, 4.0, 5.0],
+            vec![1.0, 2.0, f64::INFINITY, 4.0, 5.0],
+            Some(vec![0.5, 0.6, 0.7, f64::NAN, 0.9]),
+        )
+        .unwrap();
+        assert_eq!(kept.x, [1.0, 5.0]);
+        assert_eq!(kept.y, [1.0, 5.0]);
+        assert_eq!(kept.values, Some(vec![0.5, 0.9]));
+        let kept = kept_points(vec![1.0, f64::NAN], vec![2.0, 3.0], None).unwrap();
+        assert_eq!((kept.x, kept.y, kept.values), (vec![1.0], vec![2.0], None));
+        assert!(kept_points(vec![1.0], Vec::new(), None).is_err());
+        assert!(kept_points(vec![1.0], vec![1.0], Some(Vec::new())).is_err());
+    }
 
     #[test]
     fn bins_discretise_values() {

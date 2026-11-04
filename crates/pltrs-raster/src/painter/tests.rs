@@ -262,3 +262,45 @@ fn hostile_strokes_fail_fast() {
         Err(RasterError::CellLimitExceeded { limit: 1 << 16 })
     );
 }
+
+#[test]
+fn shapes_wholly_inside_blend_as_clipped_ones_do() {
+    // A mask of full coverage leaves every cover as it is, but takes the
+    // span-by-span path: the unclipped one must agree with it.
+    let (width, height) = (24, 20);
+    let full = Mask::from_vec(width, height, vec![255; (width * height) as usize]).unwrap();
+    let ring = Path::circle(p(11.3, 9.6), 6.2);
+    let flat: Vec<Point> = (0..40)
+        .map(|i| {
+            let a = f64::from(i) * std::f64::consts::TAU / 40.0;
+            p(11.3 + 6.2 * a.cos(), 9.6 + 4.1 * a.sin())
+        })
+        .collect();
+    let shapes = [Path::polygon(flat), ring];
+    let style = StrokeStyle::new(2.08).with_join(LineJoin::Round);
+    let mut drawn = Vec::new();
+    for mask in [None, Some(&full)] {
+        let mut target = Pixmap::new(width, height).unwrap();
+        target.fill(Rgba8::new(40, 90, 200, 120));
+        let mut painter = Painter::new();
+        let clip = Clip { rect: None, mask };
+        for (i, shape) in shapes.iter().enumerate() {
+            let color = Rgba::new(0.9, 0.2, 0.1, if i == 0 { 1.0 } else { 0.6 });
+            painter
+                .fill_path(
+                    &mut target,
+                    shape,
+                    color,
+                    FillRule::NonZero,
+                    Antialias::On,
+                    &clip,
+                )
+                .unwrap();
+            painter
+                .stroke_path(&mut target, shape, color, &style, Antialias::On, &clip)
+                .unwrap();
+        }
+        drawn.push(target);
+    }
+    assert_eq!(drawn[0], drawn[1]);
+}

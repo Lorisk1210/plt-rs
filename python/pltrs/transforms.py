@@ -56,6 +56,10 @@ from .path import Path
 
 DEBUG = False
 
+#: numpy's masked arrays, which `Affine2DBase.transform_affine` transforms
+#: with their mask.
+_MaskedArray = np.ma.MaskedArray
+
 
 def _make_str_method(*args, **kwargs):
     """
@@ -1840,11 +1844,13 @@ class Affine2DBase(AffineBase):
 
     def transform_affine(self, values):
         mtx = self.get_matrix()
-        if isinstance(values, np.ma.MaskedArray):
+        if isinstance(values, _MaskedArray):
             tpoints = affine_transform(values.data, mtx)
             return np.ma.MaskedArray(tpoints, mask=np.ma.getmask(values))
-        # (Any array-like: a `Bbox` gives its points.)
-        return affine_transform(values, mtx)
+        # (Any array-like: a `Bbox` gives its points; pltrs (Rust) reads
+        # the points as `np.asarray(values, float)` and the matrix as an
+        # array of numbers.)
+        return _transforms.affine_transform(values, mtx)
 
     if DEBUG:
         _transform_affine = transform_affine

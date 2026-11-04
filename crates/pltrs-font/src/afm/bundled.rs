@@ -9,7 +9,7 @@ use super::error::AfmError;
 use super::metrics::AfmMetrics;
 
 /// `(file name, contents)` of every bundled AFM file.
-const BUNDLED_AFM: [(&str, &[u8]); 14] = [
+static BUNDLED_AFM: [(&str, &[u8]); 14] = [
     (
         "Courier-Bold.afm",
         include_bytes!("../../fonts/pdfcorefonts/Courier-Bold.afm"),

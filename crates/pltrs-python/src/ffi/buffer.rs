@@ -13,6 +13,10 @@ pub(crate) const PyBUF_ND: c_int = 0x0008;
 pub(crate) const PyBUF_STRIDES: c_int = 0x0010 | PyBUF_ND;
 /// `PyBUF_RECORDS_RO`: shape, strides and format, read-only access.
 pub(crate) const PyBUF_RECORDS_RO: c_int = PyBUF_STRIDES | PyBUF_FORMAT;
+/// `PyBUF_WRITABLE`: the memory may be written.
+pub(crate) const PyBUF_WRITABLE: c_int = 0x0001;
+/// `PyBUF_C_CONTIGUOUS`: the memory is one row-major block.
+pub(crate) const PyBUF_C_CONTIGUOUS: c_int = 0x0020 | PyBUF_STRIDES;
 
 /// `Py_buffer`: a view of an exporter's memory.
 #[repr(C)]

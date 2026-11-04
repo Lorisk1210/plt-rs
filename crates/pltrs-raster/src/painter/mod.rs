@@ -129,9 +129,21 @@ impl Painter {
         mask: Option<&Mask>,
     ) -> Result<(), RasterError> {
         let mut surface = Surface::new(target, None, mask)?;
+        // Coverage wholly visible and unmasked, as small shapes' usually
+        // is, needs no clipping span by span.
+        self.rasterizer.close();
+        let inside = aa == Antialias::On
+            && self
+                .rasterizer
+                .bounds()
+                .is_some_and(|(x0, y0, x1, y1)| surface.shows_all_of(x0, y0, x1, y1));
         self.rasterizer.sweep(&mut self.scanline, |sl| {
             for span in sl.spans() {
-                surface.blend_solid(sl.y(), span, color, aa);
+                if inside {
+                    surface.blend_solid_inside(sl.y(), span, color);
+                } else {
+                    surface.blend_solid(sl.y(), span, color, aa);
+                }
             }
         })
     }

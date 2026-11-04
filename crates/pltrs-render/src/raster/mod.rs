@@ -104,8 +104,9 @@ pub struct RasterRenderer {
     conditioned: Path,
     /// The last conditioned path with its curves flattened, likewise.
     flattened: Path,
-    /// Canvases set aside while filtered artists draw.
-    set_aside: Vec<Pixmap>,
+    /// Canvases set aside while filtered artists draw (`None` where the
+    /// canvas to draw them on could not be made).
+    set_aside: Vec<Option<Pixmap>>,
     errors: Vec<RasterError>,
 }
 
@@ -166,14 +167,16 @@ impl RasterRenderer {
         self.pixmap
     }
 
-    /// The pixels as an [`RgbaImage`].
+    /// The pixels as an [`RgbaImage`] (a copy; see
+    /// [`into_image`](Self::into_image)).
     pub fn to_image(&self) -> RgbaImage {
-        RgbaImage::new(
-            self.pixmap.width() as usize,
-            self.pixmap.height() as usize,
-            self.pixmap.data().to_vec(),
-        )
-        .expect("a pixmap holds width × height × 4 bytes")
+        filter::image_of(self.pixmap.clone())
+    }
+
+    /// Consumes the renderer, returning its pixels as an [`RgbaImage`]
+    /// without copying them.
+    pub fn into_image(self) -> RgbaImage {
+        filter::image_of(self.pixmap)
     }
 
     /// Encodes the pixels as an RGBA PNG carrying the resolution, without

@@ -174,6 +174,7 @@ impl FigureCanvas {
         let mut kept = self.take()?;
         kept.renderer.clear();
         let drawn = self.figure.draw_without_event(&mut kept.renderer);
+        let drawn = DrawErrors::with_refused_memory(drawn, &mut kept.renderer, self.figure.id());
         kept.generation = Generation::next();
         self.keep(kept);
         self.figure.state_mut().canvas.drawn();

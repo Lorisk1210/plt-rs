@@ -216,7 +216,7 @@ pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
 ) -> Result<(), String> {
-    let (shapes, transform) = c.current_shapes(*ctx.layout())?;
+    let (shapes, transform) = c.drawn_shapes(*ctx.layout())?;
     let name = c.class_name.unwrap_or(match c.kind {
         CollectionKind::Generic => "Collection",
         CollectionKind::Patch => "PatchCollection",

@@ -251,7 +251,7 @@ fn print_rgba(
     on_draw: Option<Callback>,
 ) -> PyResult<NdArray<u8>> {
     let canvas = sending_draw_event(&figure, on_draw, || figure.render_raster_with(settings.0))?;
-    let image = canvas.to_image();
+    let image = canvas.into_image();
     let shape = vec![image.height(), image.width(), 4];
     NdArray::with_shape(image.into_data(), shape)
 }

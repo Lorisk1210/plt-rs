@@ -17,14 +17,19 @@ pub(super) use gc::PyGc;
 pub(super) use print::DocumentMetadata;
 
 use pltrs::figure::{CanvasError, Figure};
+use pltrs_core::alloc::caused_by_out_of_memory;
 
 use crate::binding::prelude::*;
 
 impl From<CanvasError> for PyErr {
     /// matplotlib's `ValueError` for boxes and pixel ratios it refuses,
-    /// `RuntimeError` for what the canvas cannot do now, and the problems
-    /// drawing met as `DrawErrors` raise them.
+    /// `MemoryError` for memory the system refused, `RuntimeError` for what
+    /// the canvas cannot do now, and the problems drawing met as
+    /// `DrawErrors` raise them.
     fn from(err: CanvasError) -> Self {
+        if caused_by_out_of_memory(&err) {
+            return PyErr::new(ExceptionKind::MemoryError, err.to_string());
+        }
         let kind = match err {
             CanvasError::Draw(errors) => return errors.into(),
             CanvasError::Text(err) => return err.into(),

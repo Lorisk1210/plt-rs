@@ -246,6 +246,10 @@ substring of 'BRTL'
 
         pltrs: a cell in a table belongs to its table's figure; one made by
         its constructor keeps *fig* until a table takes it.
+
+        Parameters
+        ----------
+        fig : `~matplotlib.figure.Figure` or `~matplotlib.figure.SubFigure`
         """
         if self._parent_figure is fig:
             return

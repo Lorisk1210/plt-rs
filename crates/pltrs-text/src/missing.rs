@@ -1,7 +1,10 @@
-//! Characters no font of a text has: matplotlib warns about each one as it
-//! lays the text out ("Glyph 128579 (\N{UPSIDE-DOWN FACE}) missing from
-//! font(s) `DejaVu Sans`."), and the engine records each one for its caller
-//! to report ([`take_missing_glyphs`]).
+//! Characters no font of a text has: matplotlib warns about each one as a
+//! renderer measures a line of the text that its cache of line metrics
+//! does not hold ("Glyph 128579 (\N{UPSIDE-DOWN FACE}) missing from
+//! font(s) `DejaVu Sans`."); the caller notes the lines measured so
+//! ([`TextEngine::note_missing_glyphs`](crate::TextEngine::note_missing_glyphs)),
+//! and the engine keeps each such character for it to report
+//! ([`take_missing_glyphs`]).
 
 use std::cell::RefCell;
 

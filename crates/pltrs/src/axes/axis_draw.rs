@@ -11,6 +11,7 @@ use pltrs_render::{ClipPath, GraphicsContext, SnapMode};
 
 use super::AxesState;
 use super::axis_artists::{AxisGroup, TickGroups, TickPart, tick_group_name};
+pub(crate) use super::axis_layout::AxisTextDraw;
 use super::axis_layout::{AxisPainter, PlacedText, TickLabel};
 use super::grid_props::{GridClip, GridLineProps};
 use super::tick_set::Tick;
@@ -116,7 +117,13 @@ impl AxisPainter<'_> {
                 };
                 if shown {
                     groups.part(ctx, TickPart::label(!label.first_side), |ctx| {
-                        draw_text(ctx, self.axes_id, &label.text, rc);
+                        draw_text(
+                            ctx,
+                            self.axes_id,
+                            &label.text,
+                            rc,
+                            AxisTextDraw::AfterMeasuring,
+                        );
                     });
                 }
             }
@@ -126,10 +133,11 @@ impl AxisPainter<'_> {
         }
     }
 
-    /// Draws the axis text `text` with the rc path effects.
+    /// Draws the axis label or offset text `text` with the rc path
+    /// effects.
     fn draw_text_with_effects(&self, ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &RcParams) {
         let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
-            draw_text(ctx, self.axes_id, text, rc);
+            draw_text(ctx, self.axes_id, text, rc, AxisTextDraw::AsPlaced);
         });
         if let Err(err) = drawn {
             ctx.report(self.axes_id, err);
@@ -436,6 +444,7 @@ pub(crate) fn draw_text(
     owner: ArtistId,
     text: &PlacedText,
     rc: &crate::rc::RcParams,
+    drawn_as: AxisTextDraw,
 ) {
     let gc = GraphicsContext {
         foreground: text.color,
@@ -444,7 +453,7 @@ pub(crate) fn draw_text(
         ..GraphicsContext::default()
     };
     let drawn = text
-        .as_drawn(ctx.layout().dpi(), rc)
+        .as_drawn(ctx.layout().dpi(), rc, drawn_as)
         .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation));
     if let Err(err) = drawn {
         let err = TextDrawError::from(err);
@@ -503,7 +512,8 @@ mod tests {
     }
 
     /// matplotlib's `Text.draw` lays a tick label out again where it draws
-    /// it, so the renderer's text metrics cache sees its lines once more
+    /// it, and `_update_label_position` measures it again to place the axis
+    /// label, so the renderer's text metrics cache sees its lines twice more
     /// (`test_text.py::test_metrics_cache2` counts on it): pltrs looks them
     /// up again, and draws what it draws without a cache.
     #[test]
@@ -525,9 +535,10 @@ mod tests {
         set_metrics_cache(before);
         assert!(cached.expect("drawn") == uncached, "the same pixels");
         // Each line is measured where the labels are placed, then found
-        // where they are drawn.
+        // where the axis label is placed and where they are drawn
+        // (matplotlib: 3 misses, 6 hits).
         let info = cache.info();
-        assert_eq!((info.misses, info.hits, info.size), (3, 3, 3), "{info:?}");
+        assert_eq!((info.misses, info.hits, info.size), (3, 6, 3), "{info:?}");
     }
 
     #[test]

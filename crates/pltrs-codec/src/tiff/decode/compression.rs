@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     fn deflate_stops_at_the_expected_size() {
-        let packed = zlib::compress(&[7; 100], CompressionLevel::default());
+        let packed = zlib::compress(&[7; 100], CompressionLevel::default()).unwrap();
         assert_eq!(inflate(&packed, 100), Some(vec![7; 100]));
         assert_eq!(inflate(&packed, 40), Some(vec![7; 40]));
         assert_eq!(inflate(&packed, 101), None);

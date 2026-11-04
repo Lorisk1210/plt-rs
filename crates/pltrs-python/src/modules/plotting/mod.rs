@@ -104,6 +104,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("convert_units", values::convert_units)?;
     module.add("quiver", fields::quiver)?;
     module.add("quiver_set_uvc", fields::quiver_set_uvc)?;
+    module.add("quiver_sizes", fields::quiver_sizes)?;
+    module.add("quiver_set_size", fields::quiver_set_size)?;
+    module.add("quiver_paths", fields::quiver_paths)?;
     module.add("quiverkey", fields::quiverkey)?;
     module.add("quiverkey_text", fields::quiverkey_text)?;
     module.add("quiverkey_paths", fields::quiverkey_paths)?;

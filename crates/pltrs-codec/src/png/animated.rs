@@ -103,7 +103,7 @@ impl AnimatedEncoder {
         };
         for (index, frame) in frames.iter().enumerate() {
             write_chunk(&mut png, FCTL, &frame_control(next(), frame));
-            let data = compress_image(&frame.image, self.filter, self.level);
+            let data = compress_image(&frame.image, self.filter, self.level)?;
             if index == 0 {
                 write_chunk(&mut png, ChunkType::IDAT, &data);
             } else {

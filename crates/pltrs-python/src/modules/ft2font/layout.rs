@@ -2,9 +2,9 @@
 //! (`get_width_height`, `get_descent`, `get_bitmap_offset`), and
 //! `_layout`, as matplotlib's `ft2font.cpp` lays text out with libraqm.
 
-use pltrs_font::{FontChain, ShapeOptions, Size};
+use pltrs_font::{FontChain, ShapeOptions};
 
-use super::glyphs::{Loaded, TextBox, control_box, hinting, load_hinted};
+use super::glyphs::{Loaded, TextBox, control_box, load_hinted};
 use super::{Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
@@ -46,10 +46,10 @@ fn set_text(
     shaping: Shaping,
 ) -> PyResult<Vec<(i64, i64)>> {
     let mut font = font.borrow_mut();
-    let hinting = hinting(flags);
+    let hinting = font.hinting(flags);
     let options = shape_options(shaping)?;
-    let (ptsize, dpi) = font.size;
     let faces = font.chain_faces()?;
+    let (ptsize, dpi) = font.points_and_dpi(&faces[0]);
     let layout = FontChain::new(faces.clone())
         .layout(&text, ptsize, dpi, &options, hinting)
         .map_err(|err| ft_error("lay out text", &err))?;
@@ -58,7 +58,7 @@ fn set_text(
     let mut placed = Vec::with_capacity(layout.glyphs.len());
     for glyph in &layout.glyphs {
         let face = &faces[glyph.face];
-        let size = Size::new(face, ptsize, dpi);
+        let size = font.size_of(face);
         let hinted = load_hinted(face, &size, glyph.glyph_id, hinting)?;
         let cbox = control_box(face, &size, glyph.glyph_id, hinted.as_ref())?;
         let pen = (i64::from(glyph.x), i64::from(glyph.y));
@@ -155,10 +155,10 @@ fn layout(
 ) -> PyResult<Vec<LayoutGlyph>> {
     let font = font.borrow();
     let options = shape_options(shaping)?;
-    let (ptsize, dpi) = font.size;
     let faces = font.chain_faces()?;
+    let (ptsize, dpi) = font.points_and_dpi(&faces[0]);
     let layout = FontChain::new(faces.clone())
-        .layout(&text, ptsize, dpi, &options, hinting(flags))
+        .layout(&text, ptsize, dpi, &options, font.hinting(flags))
         .map_err(|err| ft_error("lay out text", &err))?;
     let mut clusters: Vec<usize> = layout.glyphs.iter().map(|glyph| glyph.cluster).collect();
     clusters.sort_unstable();
@@ -176,7 +176,7 @@ fn layout(
                 .unwrap_or(text.len());
             let kern = previous.map_or(0.0, |(x, advance)| f64::from(glyph.x - x) - advance);
             let face = &faces[glyph.face];
-            let linear = Size::new(face, ptsize, dpi).linear_advance(face, glyph.glyph_id);
+            let linear = font.size_of(face).linear_advance(face, glyph.glyph_id);
             previous = Some((glyph.x, linear as f64 / 1024.0));
             (
                 (glyph.face, chars(glyph.cluster), chars(end)),

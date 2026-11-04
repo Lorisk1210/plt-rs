@@ -10,6 +10,7 @@ use pltrs::layout::{
     ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, SolvedGrid, TightLayout,
 };
 use pltrs::text::Text;
+use pltrs_core::alloc::caused_by_out_of_memory;
 use pltrs_render::RasterBackendError;
 
 use super::gridspec::Overrides;
@@ -53,10 +54,13 @@ impl From<DrawErrors> for PyErr {
     /// cannot be drawn (malformed mathtext, ...), a `TypeError` for one of
     /// the wrong type, an `OverflowError` for an infinity rounded, a
     /// `NotImplementedError` for what matplotlib does not support yet, an
-    /// `IndexError` for an index out of range, else a `RuntimeError`
-    /// naming every problem.
+    /// `IndexError` for an index out of range, a `MemoryError` for memory
+    /// the system refused, else a `RuntimeError` naming every problem.
     fn from(errors: DrawErrors) -> Self {
         match errors.0.first() {
+            Some(first) if first.kind == DrawErrorKind::OutOfMemory => {
+                PyErr::new(ExceptionKind::MemoryError, first.message.clone())
+            }
             Some(first) if first.kind == DrawErrorKind::InvalidValue => {
                 PyErr::value_error(first.message.clone())
             }
@@ -79,9 +83,13 @@ impl From<DrawErrors> for PyErr {
 
 impl From<SaveError> for PyErr {
     /// matplotlib's `ValueError` for unknown formats and canvases too large
-    /// to make (Agg's limit), `OSError` for files that cannot be written,
-    /// and the problems drawing met as [`DrawErrors`] raise them.
+    /// to make (Agg's limit), `MemoryError` for memory the system refused,
+    /// `OSError` for files that cannot be written, and the problems drawing
+    /// met as [`DrawErrors`] raise them.
     fn from(err: SaveError) -> Self {
+        if caused_by_out_of_memory(&err) {
+            return PyErr::new(ExceptionKind::MemoryError, err.to_string());
+        }
         let kind = match err {
             SaveError::Draw(errors) => return errors.into(),
             SaveError::Io(_) => ExceptionKind::OSError,

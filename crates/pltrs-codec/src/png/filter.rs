@@ -2,6 +2,8 @@
 //! corresponding bytes of the pixel to its left, the pixel above and the
 //! pixel above-left, and only the prediction error is stored.
 
+use pltrs_core::alloc::{self, OutOfMemory};
+
 /// A scanline filter type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FilterType {
@@ -58,13 +60,17 @@ pub enum FilterStrategy {
 
 /// Filters the rows of `data` (each `row_bytes` long, pixels `stride` bytes
 /// apart), prefixing every row with its filter type byte.
+///
+/// # Errors
+///
+/// When the memory for the filtered rows cannot be allocated.
 pub(crate) fn filter_image(
     data: &[u8],
     row_bytes: usize,
     stride: usize,
     strategy: FilterStrategy,
-) -> Vec<u8> {
-    let mut out = Vec::with_capacity(data.len() + data.len() / row_bytes);
+) -> Result<Vec<u8>, OutOfMemory> {
+    let mut out = alloc::try_with_capacity(data.len() + data.len() / row_bytes)?;
     let zero_row = vec![0; row_bytes];
     let mut candidate = vec![0; row_bytes];
     let mut best = vec![0; row_bytes];
@@ -97,7 +103,7 @@ pub(crate) fn filter_image(
         out.extend_from_slice(&best);
         previous = row;
     }
-    out
+    Ok(out)
 }
 
 /// Sum of the filtered bytes' magnitudes when read as signed values.
@@ -234,7 +240,7 @@ mod tests {
             let image = rng.bytes(row_bytes * 5);
             for filter in FilterType::ALL {
                 let filtered =
-                    filter_image(&image, row_bytes, stride, FilterStrategy::Fixed(filter));
+                    filter_image(&image, row_bytes, stride, FilterStrategy::Fixed(filter)).unwrap();
                 assert_eq!(filtered.len(), image.len() + 5);
                 let mut restored = vec![0; row_bytes];
                 let mut previous = vec![0; row_bytes];
@@ -257,10 +263,10 @@ mod tests {
     fn adaptive_choice_follows_content() {
         // A horizontal gradient favours Sub; identical rows favour Up.
         let gradient: Vec<u8> = (0..64).collect();
-        let filtered = filter_image(&gradient, 64, 1, FilterStrategy::Adaptive);
+        let filtered = filter_image(&gradient, 64, 1, FilterStrategy::Adaptive).unwrap();
         assert_eq!(filtered[0], FilterType::Sub.byte());
         let noise = Rng::new(22).bytes(64);
-        let filtered = filter_image(&noise.repeat(2), 64, 1, FilterStrategy::Adaptive);
+        let filtered = filter_image(&noise.repeat(2), 64, 1, FilterStrategy::Adaptive).unwrap();
         assert_eq!(filtered[65], FilterType::Up.byte());
         assert!(filtered[66..].iter().all(|&b| b == 0));
     }

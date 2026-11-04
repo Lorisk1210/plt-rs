@@ -41,6 +41,14 @@ class SecondaryAxis(Axes):
             return transforms.Bbox.from_bounds(*self._MADE_AT[self._orientation])
         return super().get_position(original)
 
+    def _active_bounds(self):
+        # Where the axis was made until the figure's first draw places it
+        # (see `get_position`).
+        figure = self.get_figure(root=True)
+        if figure is None or not _artist.draw_count(figure._native):
+            return self._MADE_AT[self._orientation]
+        return super()._active_bounds()
+
     def __init__(self, parent, orientation, location, functions,
                  transform=None, **kwargs):
         """

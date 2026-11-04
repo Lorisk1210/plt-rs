@@ -10,7 +10,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::archive::{External, ProgramFn};
-use pltrs_core::numeric::np_sign;
+use pltrs_core::numeric::{np_arcsinh, np_sign};
 
 use super::{NonPositive, ScaleError};
 use crate::ticker::LogBase;
@@ -250,7 +250,7 @@ impl AsinhTransform {
 
 impl AxisMap for AsinhTransform {
     fn forward(&self, value: f64) -> f64 {
-        self.linear_width * (value / self.linear_width).asinh()
+        self.linear_width * np_arcsinh(value / self.linear_width)
     }
 
     fn inverse(&self, value: f64) -> f64 {

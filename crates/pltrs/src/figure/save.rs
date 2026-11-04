@@ -134,9 +134,8 @@ impl Figure {
         match format {
             SaveFormat::Png => self.to_png_with(options),
             SaveFormat::Svg => self.to_svg_with(options).map(String::into_bytes),
-            SaveFormat::Svgz => self
-                .to_svg_with(options)
-                .map(|svg| pltrs_render::gzip(svg.as_bytes())),
+            SaveFormat::Svgz => pltrs_render::gzip(self.to_svg_with(options)?.as_bytes())
+                .map_err(|err| SaveError::Vector(err.into())),
             SaveFormat::Pdf => self.to_pdf_with(options),
             SaveFormat::Ps => self.postscript(&options, false),
             SaveFormat::Eps => self.postscript(&options, true),
@@ -159,15 +158,25 @@ impl Figure {
         let jpeg_quality = options.jpeg_quality.unwrap_or(defaults.jpeg_quality);
         let avif_quality = options.avif_quality.unwrap_or(defaults.avif_quality);
         let canvas = self.render_raster_with(options)?;
+        if format == BitmapFormat::Raw {
+            // The canvas's bytes themselves (Agg's `print_raw` writes its
+            // buffer).
+            return Ok(canvas.into_pixmap().into_vec());
+        }
         let settings = BitmapSettings {
             dpi: canvas.dpi(),
             jpeg_quality,
             avif_quality,
             ..defaults
         };
-        let image = canvas.to_image();
+        let pixels = canvas.pixmap();
         format
-            .encode(image.width(), image.height(), image.data(), settings)
+            .encode(
+                pixels.width() as usize,
+                pixels.height() as usize,
+                pixels.data(),
+                settings,
+            )
             .map_err(SaveError::Bitmap)
     }
 

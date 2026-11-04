@@ -41,6 +41,9 @@ pub(crate) enum ExceptionKind {
     RuntimeError,
     /// `RecursionError`: work that keeps making more of itself.
     RecursionError,
+    /// `MemoryError`: memory the system refused (a canvas, an encoded
+    /// file), as matplotlib's allocations raise it.
+    MemoryError,
     /// `OSError`: a file that cannot be read or written.
     OSError,
     /// `FileNotFoundError`: a file that does not exist.
@@ -68,6 +71,7 @@ impl ExceptionKind {
                 Self::AttributeError => ffi::PyExc_AttributeError,
                 Self::RuntimeError => ffi::PyExc_RuntimeError,
                 Self::RecursionError => ffi::PyExc_RecursionError,
+                Self::MemoryError => ffi::PyExc_MemoryError,
                 Self::OSError => ffi::PyExc_OSError,
                 Self::FileNotFoundError => ffi::PyExc_FileNotFoundError,
                 Self::OverflowError => ffi::PyExc_OverflowError,

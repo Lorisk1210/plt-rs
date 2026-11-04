@@ -89,7 +89,7 @@ fn fix_crcs(png: &mut [u8]) {
 /// A 3×2 grey 8-bit image's IHDR and compressed data, for error tests.
 fn gray_parts() -> (Vec<u8>, Vec<u8>) {
     let ihdr = header_bytes(3, 2, ColorType::Gray, BitDepth::Eight, false);
-    let idat = zlib::compress(&[0, 1, 2, 3, 0, 4, 5, 6], CompressionLevel::DEFAULT);
+    let idat = zlib::compress(&[0, 1, 2, 3, 0, 4, 5, 6], CompressionLevel::DEFAULT).unwrap();
     (ihdr, idat)
 }
 
@@ -228,7 +228,7 @@ fn size_limit_applies_before_decoding() {
     );
     // A tiny file claiming a huge image is refused without allocating it.
     let ihdr = header_bytes(1 << 30, 1 << 30, ColorType::Rgba, BitDepth::Sixteen, false);
-    let idat = zlib::compress(&[0], CompressionLevel::DEFAULT);
+    let idat = zlib::compress(&[0], CompressionLevel::DEFAULT).unwrap();
     let bomb = assemble(&[
         (ChunkType::IHDR, &ihdr),
         (ChunkType::IDAT, &idat),
@@ -247,7 +247,7 @@ fn indexed_images_use_palette_and_transparency() {
     let ihdr = header_bytes(4, 1, ColorType::Indexed, BitDepth::Two, false);
     let plte = [255, 0, 0, 0, 255, 0, 0, 0, 255];
     let trns = [10, 20];
-    let idat = zlib::compress(&[0, 0b0001_1011], CompressionLevel::DEFAULT);
+    let idat = zlib::compress(&[0, 0b0001_1011], CompressionLevel::DEFAULT).unwrap();
     let file = assemble(&[
         (ChunkType::IHDR, &ihdr),
         (ChunkType::PLTE, &plte),
@@ -270,7 +270,7 @@ fn indexed_images_use_palette_and_transparency() {
 #[test]
 fn colour_keys_make_matching_pixels_transparent() {
     let ihdr = header_bytes(2, 1, ColorType::Rgb, BitDepth::Eight, false);
-    let idat = zlib::compress(&[0, 1, 2, 3, 4, 5, 6], CompressionLevel::DEFAULT);
+    let idat = zlib::compress(&[0, 1, 2, 3, 4, 5, 6], CompressionLevel::DEFAULT).unwrap();
     let trns = [0, 4, 0, 5, 0, 6];
     let file = assemble(&[
         (ChunkType::IHDR, &ihdr),
@@ -290,7 +290,8 @@ fn tolerates_ancillary_noise_and_surplus_data() {
     let idat = zlib::compress(
         &[0, 1, 2, 3, 0, 4, 5, 6, 0, 9, 9, 9],
         CompressionLevel::DEFAULT,
-    );
+    )
+    .unwrap();
     let (first, second) = idat.split_at(5);
     let file = assemble(&[
         (ChunkType::IHDR, &ihdr),
@@ -399,7 +400,7 @@ fn rejects_bad_image_data() {
     use ChunkType as C;
     let (ihdr, _) = gray_parts();
     let with_data = |data: &[u8]| assemble(&[(C::IHDR, &ihdr), (C::IDAT, data), (C::IEND, &[])]);
-    let short = zlib::compress(&[0, 1, 2], CompressionLevel::DEFAULT);
+    let short = zlib::compress(&[0, 1, 2], CompressionLevel::DEFAULT).unwrap();
     assert_eq!(
         decode(&with_data(&short)),
         Err(DecodeError::ImageDataTooShort {
@@ -407,7 +408,7 @@ fn rejects_bad_image_data() {
             actual: 3
         })
     );
-    let bad_filter = zlib::compress(&[7, 1, 2, 3, 0, 4, 5, 6], CompressionLevel::DEFAULT);
+    let bad_filter = zlib::compress(&[7, 1, 2, 3, 0, 4, 5, 6], CompressionLevel::DEFAULT).unwrap();
     assert_eq!(
         decode(&with_data(&bad_filter)),
         Err(DecodeError::InvalidFilterType(7))

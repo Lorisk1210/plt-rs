@@ -33,6 +33,7 @@ mod annotation;
 pub(crate) use annotation::reconnect_drag;
 mod copy;
 mod error;
+mod font_notes;
 mod handle;
 mod hinting;
 mod layout;
@@ -634,6 +635,7 @@ pub(crate) fn draw_laid_out(
                 result = result.and(Err(TextError::Tex(err)));
             }
         } else {
+            result = result.and(font_notes::note_drawn(run));
             ctx.renderer().draw_text(gc, run, origin, angle);
         }
     }

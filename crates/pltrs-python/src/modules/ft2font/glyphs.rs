@@ -224,10 +224,16 @@ fn load(
     glyph: GlyphId,
     flags: u32,
 ) -> PyResult<(Metrics, usize, usize)> {
-    let hinting = hinting(flags);
+    let hinting = font.hinting(flags);
     let metrics = {
         let face = font.chain_face(face_index)?;
-        metrics(&face, &font.size_of(&face), glyph, hinting)?
+        let mut metrics = metrics(&face, &font.size_of(&face), glyph, hinting)?;
+        if font.unscaled() {
+            // FreeType scales the linear advance by the size's scale, zero
+            // without one.
+            metrics.1.1 = 0;
+        }
+        metrics
     };
     let loaded = Loaded {
         face: face_index,

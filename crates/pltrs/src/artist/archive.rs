@@ -38,7 +38,6 @@ use crate::patches::{
 };
 use crate::quiver::QuiverKeyArtist;
 use crate::spines::SpineArtist;
-use crate::streamplot::StreamArrowArtist;
 use crate::table::{CellShape, TableArtist};
 use crate::text::TextArtist;
 
@@ -60,7 +59,6 @@ pltrs_core::archive_kinds!(dyn Artist {
     "legend" => LegendArtist,
     "colorbar" => ColorbarArtist,
     "quiver-key" => QuiverKeyArtist,
-    "stream-arrow" => StreamArrowArtist,
     "table" => TableArtist,
     "anchored-box" => AnchoredBoxArtist,
     "placed-box" => PlacedBoxArtist,

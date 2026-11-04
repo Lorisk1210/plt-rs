@@ -18,6 +18,7 @@ mod harness;
 mod images;
 mod interaction;
 mod mathtext;
+mod memory;
 mod plotting;
 mod rc;
 mod rendering;

@@ -82,7 +82,13 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         return to_rgba(_figure.get_facecolor(self._native))
 
     def set_facecolor(self, color):
-        """Set the face color of the Figure rectangle."""
+        """
+        Set the face color of the Figure rectangle.
+
+        Parameters
+        ----------
+        color : :mpltype:`color`
+        """
         self.patch.set_facecolor(color)
 
     @property
@@ -1192,6 +1198,10 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         """
         Set the figure size in inches; with *forward*, the window of the
         figure's manager, if any, takes the new size.
+
+        Parameters
+        ----------
+        w : (float, float) or float
         """
         if h is None:
             w, h = w
@@ -1207,7 +1217,13 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         return _values.given(self, "dpi", _figure.get_dpi(self._native))
 
     def set_dpi(self, val):
-        """Set the resolution of the figure in dots-per-inch."""
+        """
+        Set the resolution of the figure in dots-per-inch.
+
+        Parameters
+        ----------
+        val : float
+        """
         _figure.set_dpi(self._native, float(val))
         _values.remember(self, "dpi", val)
 

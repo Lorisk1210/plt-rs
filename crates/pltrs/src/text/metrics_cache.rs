@@ -17,6 +17,7 @@ use std::rc::Rc;
 use pltrs_text::{LineMetrics, TextError};
 
 use self::lru::Lines;
+use super::font_notes;
 use super::layout::{LaidOutText, Typesetting, measure_uncached, measured_as};
 use super::math::Line;
 use super::overrides::LineKind;
@@ -152,7 +153,7 @@ impl LaidOutText {
         if self.typesetting == Typesetting::Tex {
             tex_height_metrics(&self.font, dpi, rc)?;
         }
-        Ok(())
+        font_notes::note_layout(&self.lines.join("\n"), &self.font, self.typesetting)
     }
 }
 

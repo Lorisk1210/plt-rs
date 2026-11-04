@@ -11,23 +11,30 @@ use crate::image::RgbaImage;
 use crate::renderer::Renderer;
 
 impl RasterRenderer {
-    /// Sets the canvas aside and draws on a fresh transparent one.
+    /// Sets the canvas aside and draws on a fresh transparent one; when
+    /// the memory for it is refused, the problem is recorded and the
+    /// filtered artists draw on the canvas, unfiltered.
     pub(super) fn start_filtering(&mut self) {
         let fresh = Pixmap::filled(
             self.pixmap.width(),
             self.pixmap.height(),
             Rgba8::TRANSPARENT_WHITE,
-        )
-        .expect("a canvas of the current size can be made again");
-        self.set_aside
-            .push(std::mem::replace(&mut self.pixmap, fresh));
+        );
+        let set_aside = match fresh {
+            Ok(fresh) => Some(std::mem::replace(&mut self.pixmap, fresh)),
+            Err(err) => {
+                self.errors.push(err);
+                None
+            }
+        };
+        self.set_aside.push(set_aside);
     }
 
     /// Takes back the canvas set aside last and draws on it what `filter`
     /// makes of the visible part of the drawing since, placed with a plain
     /// graphics context.
     pub(super) fn stop_filtering(&mut self, filter: &FilterFn<'_>) {
-        let Some(below) = self.set_aside.pop() else {
+        let Some(Some(below)) = self.set_aside.pop() else {
             return;
         };
         let drawn = image_of(std::mem::replace(&mut self.pixmap, below));

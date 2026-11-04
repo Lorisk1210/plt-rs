@@ -78,7 +78,8 @@ fn png(
     if !palette.is_empty() {
         push_chunk(&mut png, *b"PLTE", palette.as_flattened());
     }
-    let compressed = zlib::compress(&raw, CompressionLevel::DEFAULT);
+    let compressed = zlib::compress(&raw, CompressionLevel::DEFAULT)
+        .expect("a small image compresses in memory");
     push_chunk(&mut png, *b"IDAT", &compressed);
     push_chunk(&mut png, *b"IEND", &[]);
     png

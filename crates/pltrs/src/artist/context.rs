@@ -211,6 +211,9 @@ pub enum DrawErrorKind {
     /// of 3-D markers indexing fewer colours than markers (numpy's
     /// `IndexError`).
     OutOfRange,
+    /// Memory the system refused, such as for the canvas filtered artists
+    /// are drawn on (matplotlib's `MemoryError`).
+    OutOfMemory,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,

@@ -4,6 +4,8 @@
 
 use std::fmt;
 
+use pltrs_core::alloc::{self, OutOfMemory};
+
 /// Why an image could not be encoded.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TiffError {
@@ -23,6 +25,8 @@ pub enum TiffError {
     },
     /// The file would pass TIFF's 4 GiB limit.
     TooLarge,
+    /// The memory for the file cannot be allocated.
+    OutOfMemory(OutOfMemory),
 }
 
 impl fmt::Display for TiffError {
@@ -36,11 +40,19 @@ impl fmt::Display for TiffError {
                 "the image has {actual} bytes of pixel data, expected {expected}"
             ),
             Self::TooLarge => f.write_str("the image is too large for a TIFF file"),
+            Self::OutOfMemory(err) => write!(f, "cannot write the TIFF file: {err}"),
         }
     }
 }
 
-impl std::error::Error for TiffError {}
+impl std::error::Error for TiffError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::OutOfMemory(err) => Some(err),
+            _ => None,
+        }
+    }
+}
 
 /// The number of directory entries written.
 const ENTRY_COUNT: u16 = 14;
@@ -73,8 +85,8 @@ struct Entry {
 ///
 /// # Errors
 ///
-/// When a side is zero, the data has the wrong length or the file would
-/// be larger than 4 GiB.
+/// When a side is zero, the data has the wrong length, the file would be
+/// larger than 4 GiB or its memory cannot be allocated.
 pub fn encode_rgba8(width: u32, height: u32, data: &[u8], dpi: f64) -> Result<Vec<u8>, TiffError> {
     if width == 0 || height == 0 {
         return Err(TiffError::InvalidDimensions { width, height });
@@ -123,7 +135,7 @@ pub fn encode_rgba8(width: u32, height: u32, data: &[u8], dpi: f64) -> Result<Ve
         // The fourth sample is unassociated alpha.
         entry(338, FieldType::Short, 1, 2),
     ];
-    let mut tiff = Vec::with_capacity(data.len() + 256);
+    let mut tiff = alloc::try_with_capacity(data.len() + 256).map_err(TiffError::OutOfMemory)?;
     tiff.extend_from_slice(b"II*\0");
     tiff.extend_from_slice(&8_u32.to_le_bytes());
     tiff.extend_from_slice(

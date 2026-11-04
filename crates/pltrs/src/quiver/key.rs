@@ -218,9 +218,12 @@ impl QuiverKeyArtist {
         label
     }
 
-    /// The arrow as a one-item collection styled like the quiver
-    /// (matplotlib's `QuiverKey.vector`), in the layout `layout`.
-    fn vector(&self, layout: LayoutContext<'_>) -> Result<CollectionArtist, String> {
+    /// The quiver of the key and the geometry of its arrows, in the layout
+    /// `layout`.
+    fn quiver<'a>(
+        &self,
+        layout: LayoutContext<'a>,
+    ) -> Result<(&'a CollectionArtist, &'a QuiverGeometry), String> {
         let gone = || "its quiver no longer exists".to_owned();
         let quiver = layout
             .store()
@@ -229,6 +232,13 @@ impl QuiverKeyArtist {
         let geometry = quiver
             .draw_time_state::<QuiverGeometry>()
             .ok_or_else(gone)?;
+        Ok((quiver, geometry))
+    }
+
+    /// The arrow as a one-item collection styled like the quiver
+    /// (matplotlib's `QuiverKey.vector`), in the layout `layout`.
+    fn vector(&self, layout: LayoutContext<'_>) -> Result<CollectionArtist, String> {
+        let (quiver, geometry) = self.quiver(layout)?;
         let frame = AxesFrame::new(geometry.axes(), layout)?;
         let radians = self.vector.angle.to_radians();
         let uv = (
@@ -271,9 +281,16 @@ impl Artist for QuiverKeyArtist {
         &mut self.base
     }
 
+    /// matplotlib's `QuiverKey.draw`, whose `_init` runs the quiver's
+    /// (which sizes its arrows) before the key's arrow is made.
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        let layout = *ctx.layout();
         if let Err(problem) = self
-            .vector(*ctx.layout())
+            .quiver(layout)
+            .and_then(|(_, geometry)| {
+                AxesFrame::new(geometry.axes(), layout).map(|frame| geometry.record_sizes(&frame))
+            })
+            .and_then(|_| self.vector(layout))
             .and_then(|vector| vector.render(ctx))
         {
             ctx.report(self.base.id(), problem);

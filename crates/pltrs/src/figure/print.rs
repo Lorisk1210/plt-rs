@@ -204,7 +204,8 @@ impl Figure {
     ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
         let (saving, page) = self.begin_print(&options, None);
         let mut canvas = Self::raster_canvas_sized(page.width, page.height, page.dpi)?;
-        let problems = self.draw_without_event(&mut canvas).err();
+        let drawn = self.draw_without_event(&mut canvas);
+        let problems = DrawErrors::with_refused_memory(drawn, &mut canvas, self.root.id()).err();
         let printed = self.canvas().printing(canvas).map_err(SaveError::Backend);
         drop(saving);
         Ok((printed?, problems))

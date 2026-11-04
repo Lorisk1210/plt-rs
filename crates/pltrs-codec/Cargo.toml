@@ -7,8 +7,6 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-
-[dev-dependencies]
 pltrs-core.workspace = true
 
 [lints]

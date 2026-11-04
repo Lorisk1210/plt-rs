@@ -3,6 +3,8 @@
 use std::error::Error;
 use std::fmt;
 
+use pltrs_core::alloc::OutOfMemory;
+
 use super::chunk::ChunkType;
 use super::types::{BitDepth, ColorType};
 use crate::zlib::ZlibError;
@@ -51,6 +53,8 @@ pub enum EncodeError {
         /// The offending frame.
         index: usize,
     },
+    /// The memory for the encoded image cannot be allocated.
+    OutOfMemory(OutOfMemory),
 }
 
 impl fmt::Display for EncodeError {
@@ -82,11 +86,25 @@ impl fmt::Display for EncodeError {
                 f,
                 "animation frame {index} differs in size or format from the first"
             ),
+            Self::OutOfMemory(err) => write!(f, "cannot encode the image: {err}"),
         }
     }
 }
 
-impl Error for EncodeError {}
+impl Error for EncodeError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::OutOfMemory(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<OutOfMemory> for EncodeError {
+    fn from(err: OutOfMemory) -> Self {
+        Self::OutOfMemory(err)
+    }
+}
 
 /// An error found while decoding a PNG file.
 #[derive(Clone, Debug, PartialEq, Eq)]

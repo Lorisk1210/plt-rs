@@ -509,12 +509,24 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
             else self._offset)
 
     def set_width(self, width):
-        """Set the width of the box."""
+        """
+        Set the width of the box.
+
+        Parameters
+        ----------
+        width : float
+        """
         self.width = width
         self.stale = True
 
     def set_height(self, height):
-        """Set the height of the box."""
+        """
+        Set the height of the box.
+
+        Parameters
+        ----------
+        height : float
+        """
         self.height = height
         self.stale = True
 

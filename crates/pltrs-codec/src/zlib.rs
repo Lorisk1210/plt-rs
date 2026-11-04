@@ -4,14 +4,16 @@
 //! ```
 //! use pltrs_codec::{zlib, CompressionLevel};
 //!
-//! let packed = zlib::compress(b"hello, hello, hello", CompressionLevel::DEFAULT);
+//! let packed = zlib::compress(b"hello, hello, hello", CompressionLevel::DEFAULT)?;
 //! assert_eq!(&packed[..2], [0x78, 0x9C]);
 //! assert_eq!(zlib::decompress(&packed)?, b"hello, hello, hello");
-//! # Ok::<(), zlib::ZlibError>(())
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 use std::error::Error;
 use std::fmt;
+
+use pltrs_core::alloc::{self, OutOfMemory};
 
 use crate::checksum::adler32;
 use crate::deflate::{self, CompressionLevel, InflateError};
@@ -89,17 +91,32 @@ impl From<InflateError> for ZlibError {
 }
 
 /// Compresses `data` into a new zlib stream.
-pub fn compress(data: &[u8], level: CompressionLevel) -> Vec<u8> {
+///
+/// # Errors
+///
+/// When the memory for the output cannot be allocated.
+pub fn compress(data: &[u8], level: CompressionLevel) -> Result<Vec<u8>, OutOfMemory> {
     let mut out = Vec::new();
-    compress_into(data, level, &mut out);
-    out
+    compress_into(data, level, &mut out)?;
+    Ok(out)
 }
 
 /// Appends the zlib compression of `data` to `out`.
-pub fn compress_into(data: &[u8], level: CompressionLevel, out: &mut Vec<u8>) {
+///
+/// # Errors
+///
+/// When the memory for the output cannot be allocated.
+pub fn compress_into(
+    data: &[u8],
+    level: CompressionLevel,
+    out: &mut Vec<u8>,
+) -> Result<(), OutOfMemory> {
+    alloc::try_reserve(out, 2)?;
     out.extend_from_slice(&header(level));
-    deflate::compress_into(data, level, out);
+    deflate::compress_into(data, level, out)?;
+    alloc::try_reserve(out, 4)?;
     out.extend_from_slice(&adler32(data).to_be_bytes());
+    Ok(())
 }
 
 /// The two header bytes zlib writes for `level`: the `FLEVEL` field records
@@ -198,7 +215,7 @@ mod tests {
 
     #[test]
     fn matches_reference_stream() {
-        let packed = compress(b"hello", CompressionLevel::DEFAULT);
+        let packed = compress(b"hello", CompressionLevel::DEFAULT).unwrap();
         let reference = [
             0x78, 0x9C, 0xCB, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0x00, 0x06, 0x2C, 0x02, 0x15,
         ];
@@ -211,7 +228,7 @@ mod tests {
         let mut rng = Rng::new(11);
         for input in varied_inputs(&mut rng).iter().step_by(3) {
             for level in 0..=9 {
-                let packed = compress(input, CompressionLevel::new(level).unwrap());
+                let packed = compress(input, CompressionLevel::new(level).unwrap()).unwrap();
                 assert_eq!(decompress(&packed).unwrap(), *input, "level {level}");
             }
         }
@@ -219,7 +236,7 @@ mod tests {
 
     #[test]
     fn rejects_bad_headers_and_trailers() {
-        let good = compress(b"payload payload", CompressionLevel::DEFAULT);
+        let good = compress(b"payload payload", CompressionLevel::DEFAULT).unwrap();
         assert_eq!(decompress(&[]), Err(ZlibError::UnexpectedEof));
         assert_eq!(decompress(&[0x78]), Err(ZlibError::UnexpectedEof));
         assert_eq!(
@@ -275,7 +292,7 @@ mod tests {
 
     #[test]
     fn limit_applies_to_decompressed_size() {
-        let packed = compress(&[7; 1000], CompressionLevel::BEST);
+        let packed = compress(&[7; 1000], CompressionLevel::BEST).unwrap();
         assert_eq!(decompress_with_limit(&packed, 1000).unwrap().len(), 1000);
         assert_eq!(
             decompress_with_limit(&packed, 999),

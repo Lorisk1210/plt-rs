@@ -223,7 +223,7 @@ impl Renderer for MixedModeRenderer<'_> {
         let Some(canvas) = self.raster.take() else {
             return;
         };
-        let image = canvas.to_image();
+        let image = canvas.into_image();
         let Some(bounds) = image.opaque_bounds() else {
             return;
         };

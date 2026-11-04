@@ -2,12 +2,13 @@
 
 use std::fmt;
 
+use pltrs_core::alloc::OutOfMemory;
+
 /// Why a raster operation could not be performed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RasterError {
     /// A pixmap or mask dimension is zero-sized where that is not allowed,
-    /// too large to address (matplotlib caps each side below 2²³), or the
-    /// buffer is larger than the system can allocate.
+    /// or too large to address (matplotlib caps each side below 2²³).
     InvalidDimensions {
         /// Requested width in pixels.
         width: u32,
@@ -37,6 +38,9 @@ pub enum RasterError {
     /// A dash pattern contains a negative or non-finite length, or no
     /// positive length at all.
     InvalidDashPattern,
+    /// A buffer the system cannot allocate, or larger than
+    /// [`MAX_PIXELS`](crate::MAX_PIXELS) (matplotlib's `MemoryError`).
+    OutOfMemory(OutOfMemory),
 }
 
 impl fmt::Display for RasterError {
@@ -62,8 +66,22 @@ impl fmt::Display for RasterError {
             Self::InvalidDashPattern => f.write_str(
                 "dash lengths must be finite and non-negative with at least one positive",
             ),
+            Self::OutOfMemory(err) => write!(f, "out of memory: {err}"),
         }
     }
 }
 
-impl std::error::Error for RasterError {}
+impl std::error::Error for RasterError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::OutOfMemory(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<OutOfMemory> for RasterError {
+    fn from(err: OutOfMemory) -> Self {
+        Self::OutOfMemory(err)
+    }
+}

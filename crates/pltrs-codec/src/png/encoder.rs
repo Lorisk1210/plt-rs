@@ -8,23 +8,29 @@ use super::image::ImageRef;
 use super::metadata::{PhysicalDimensions, TextEntry};
 use super::text;
 use crate::{CompressionLevel, zlib};
+use pltrs_core::alloc::{self, OutOfMemory};
 
 /// Largest `IDAT` chunk the encoder writes; larger streams are split.
 const IDAT_CHUNK_LEN: usize = 1 << 20;
 
 /// The filtered, zlib-compressed scanlines of `image` (the contents of
 /// its `IDAT` chunks).
+///
+/// # Errors
+///
+/// When the memory for the filtered or compressed scanlines cannot be
+/// allocated.
 pub(super) fn compress_image(
     image: &ImageRef<'_>,
     strategy: FilterStrategy,
     level: CompressionLevel,
-) -> Vec<u8> {
+) -> Result<Vec<u8>, OutOfMemory> {
     let filtered = filter::filter_image(
         image.data(),
         image.row_bytes(),
         image.format().filter_stride(),
         strategy,
-    );
+    )?;
     zlib::compress(&filtered, level)
 }
 
@@ -124,10 +130,12 @@ impl Encoder {
             .collect::<Result<Vec<_>, _>>()?;
 
         let format = image.format();
-        let compressed = compress_image(&image, self.filter, self.level);
+        let compressed = compress_image(&image, self.filter, self.level)?;
 
         let text_len: usize = text_chunks.iter().map(|(_, data)| data.len() + 12).sum();
-        let mut png = Vec::with_capacity(compressed.len() + text_len + 128);
+        let idat_chunks = compressed.len().div_ceil(IDAT_CHUNK_LEN);
+        let mut png =
+            alloc::try_with_capacity(compressed.len() + 12 * idat_chunks + text_len + 128)?;
         png.extend_from_slice(&SIGNATURE);
         let header = Header {
             width: image.width(),

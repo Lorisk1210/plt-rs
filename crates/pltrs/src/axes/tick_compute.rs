@@ -37,7 +37,6 @@ impl Axis {
         let ticks = {
             let mut state = self.axes().raw().figure_state().borrow_mut();
             let id = self.axes().id();
-            state.sync_secondary(id);
             state.unstale_axes(id);
             let extent = state.axes_bbox(id);
             let tick_space = state.shared_tick_spaces(id)[usize::from(self.name() == AxisName::Y)];

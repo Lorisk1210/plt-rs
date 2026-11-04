@@ -2,9 +2,14 @@
 //! (matplotlib's `Quiver._init`, `_set_transform`, `_dots_per_unit`,
 //! `_angles_lengths` and `_make_verts`).
 
+mod drawn;
+
 use std::any::Any;
 
 use pltrs_core::{Affine2D, Bbox, Path, Point};
+
+use drawn::DrawnArrows;
+pub use drawn::{ArrowSize, ArrowSizes};
 
 use super::arrows::{Pivot, QuiverArrowShape};
 use crate::artist::{ArtistId, LayoutContext};
@@ -64,7 +69,7 @@ pltrs_core::archive_enum!(Angles {
 });
 
 /// The arrows of one quiver plot, rebuilt at every draw.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct QuiverGeometry {
     axes: ArtistId,
     xy: Vec<Point>,
@@ -75,6 +80,8 @@ pub(crate) struct QuiverGeometry {
     sizing: ArrowSizing,
     /// Whether `u` and `v` were scalars broadcast to every position.
     scalar_components: bool,
+    /// What the draws left.
+    drawn: DrawnArrows,
 }
 
 pltrs_core::archive_struct!(QuiverGeometry {
@@ -84,7 +91,8 @@ pltrs_core::archive_struct!(QuiverGeometry {
     v,
     mask,
     sizing,
-    scalar_components
+    scalar_components,
+    drawn
 });
 
 /// Everything that sizes and orients the arrows of a quiver plot.
@@ -109,14 +117,15 @@ pltrs_core::archive_struct!(ArrowSizing {
     pivot
 });
 
-/// The arrow sizes for one draw: pixels per width unit, the shaft width
-/// and the scale (matplotlib's `_trans_scale`, `width` and `scale` after
-/// `_init`).
+/// The arrow sizes for one draw: pixels per width unit, the span of the
+/// axes, the shaft width and the scale (matplotlib's `_trans_scale`,
+/// `span`, `width` and `scale` after `_init`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Resolved {
     pub(crate) trans_scale: f64,
-    width: f64,
-    scale: f64,
+    pub(super) span: f64,
+    pub(super) width: f64,
+    pub(super) scale: f64,
     widthu_per_lenu: f64,
 }
 
@@ -153,6 +162,7 @@ impl QuiverGeometry {
             mask,
             sizing,
             scalar_components: false,
+            drawn: DrawnArrows::default(),
         }
     }
 
@@ -169,21 +179,25 @@ impl QuiverGeometry {
     /// The same arrows for the components `u` and `v`, one pair per
     /// position, the non-finite ones masked (matplotlib's `set_UVC`, whose
     /// mask comes from the new components alone); `scalar` tells whether
-    /// both were given as one value for every position.
+    /// both were given as one value for every position. The sizes the
+    /// draws worked out stay.
     pub(crate) fn with_components(&self, (u, v): (Vec<f64>, Vec<f64>), scalar: bool) -> Self {
         let mask = u
             .iter()
             .zip(&v)
             .map(|(u, v)| !(u.is_finite() && v.is_finite()))
             .collect();
-        Self::new(
-            self.axes,
-            self.xy.clone(),
-            (u, v),
-            mask,
-            self.sizing.clone(),
-        )
-        .with_scalar_components(scalar)
+        Self {
+            drawn: self.drawn.clone(),
+            ..Self::new(
+                self.axes,
+                self.xy.clone(),
+                (u, v),
+                mask,
+                self.sizing.clone(),
+            )
+            .with_scalar_components(scalar)
+        }
     }
 
     /// The axes the arrows belong to.
@@ -224,14 +238,16 @@ impl QuiverGeometry {
 
     /// The pixel scale, width and arrow scale for the current geometry
     /// (matplotlib's `_init`, autoscaling `scale` from the mean magnitude
-    /// of the unmasked vectors when it is unset).
+    /// of the unmasked vectors when neither the program nor an earlier
+    /// draw set it).
     pub(crate) fn resolve(&self, frame: &AxesFrame) -> Resolved {
         let sizing = &self.sizing;
         let trans_scale = frame.dots_per_unit(sizing.units);
         let inverse = 1.0 / trans_scale;
         let span = frame.bbox.p1.x * inverse - frame.bbox.p0.x * inverse;
         let n = self.xy.len() as f64;
-        let width = sizing
+        let given = self.sizes();
+        let width = given
             .width
             .unwrap_or_else(|| 0.06 * span / n.sqrt().clamp(8.0, 25.0));
         let widthu_per_lenu = match sizing.scale_units {
@@ -239,7 +255,7 @@ impl QuiverGeometry {
             Some(QuiverUnits::Xy) => 1.0 / trans_scale,
             Some(units) => frame.dots_per_unit(units) / trans_scale,
         };
-        let scale = sizing.scale.unwrap_or_else(|| {
+        let scale = given.scale.unwrap_or_else(|| {
             let (_, magnitudes) = self.directions_and_magnitudes(frame, &self.vectors());
             let unmasked: Vec<f64> = magnitudes
                 .iter()
@@ -252,6 +268,7 @@ impl QuiverGeometry {
         });
         Resolved {
             trans_scale,
+            span,
             width,
             scale,
             widthu_per_lenu,
@@ -360,23 +377,49 @@ fn complex_angle(u: f64, v: f64) -> f64 {
     im.atan2(re)
 }
 
+impl QuiverGeometry {
+    /// The outlines of the arrows drawn at every position, with the sizes
+    /// `resolved` (`None` for masked vectors).
+    fn arrow_outlines(&self, frame: &AxesFrame, resolved: &Resolved) -> Vec<Option<[Point; 8]>> {
+        self.outlines(
+            frame,
+            resolved,
+            &self.arrow_vectors(),
+            self.sizing.pivot,
+            Some(&self.mask),
+        )
+    }
+}
+
+/// The paths of arrow `outlines` (empty for masked vectors) and their
+/// transform, from arrow-width units to pixels.
+fn arrow_shapes(outlines: &[Option<[Point; 8]>], resolved: &Resolved) -> (Vec<Path>, Transform) {
+    let paths = outlines
+        .iter()
+        .map(|outline| outline.map_or_else(Path::default, |p| Path::polyline(p.to_vec())))
+        .collect();
+    let scale = resolved.trans_scale;
+    (paths, Transform::Affine(Affine2D::scaling(scale, scale)))
+}
+
 impl DrawTimeShapes for QuiverGeometry {
     fn shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String> {
         let frame = AxesFrame::new(self.axes, ctx)?;
         let resolved = self.resolve(&frame);
-        let paths = self
-            .outlines(
-                &frame,
-                &resolved,
-                &self.arrow_vectors(),
-                self.sizing.pivot,
-                Some(&self.mask),
-            )
-            .into_iter()
-            .map(|outline| outline.map_or_else(Path::default, |p| Path::polyline(p.to_vec())))
-            .collect();
-        let scale = resolved.trans_scale;
-        Ok((paths, Transform::Affine(Affine2D::scaling(scale, scale))))
+        Ok(arrow_shapes(
+            &self.arrow_outlines(&frame, &resolved),
+            &resolved,
+        ))
+    }
+
+    /// matplotlib's `Quiver.draw`: `_init`, then the arrows made anew and
+    /// kept (`set_verts`).
+    fn drawn_shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String> {
+        let frame = AxesFrame::new(self.axes, ctx)?;
+        let resolved = self.record_sizes(&frame);
+        let outlines = self.arrow_outlines(&frame, &resolved);
+        self.record_outlines(&outlines);
+        Ok(arrow_shapes(&outlines, &resolved))
     }
 
     fn limits_at_offsets(&self) -> bool {

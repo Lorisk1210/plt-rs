@@ -15,6 +15,7 @@ use pltrs_codec::CompressionLevel;
 use pltrs_codec::checksum::crc32;
 use pltrs_codec::png::EncodeError;
 use pltrs_core::Path;
+use pltrs_core::alloc::{self, OutOfMemory};
 use pltrs_core::path::convert::VertexSource;
 use pltrs_core::{Affine2D, Bbox, Point};
 use pltrs_text::TextError;
@@ -86,6 +87,8 @@ pub enum VectorError {
     /// A PDF stream was begun while another is open (matplotlib's
     /// assertion in `beginStream`).
     StreamOpen,
+    /// The memory for the document cannot be allocated.
+    OutOfMemory(OutOfMemory),
 }
 
 impl fmt::Display for VectorError {
@@ -104,6 +107,7 @@ impl fmt::Display for VectorError {
                 write!(f, "PDF object {id} was reserved but never written")
             }
             Self::StreamOpen => f.write_str("a PDF stream is open already"),
+            Self::OutOfMemory(err) => write!(f, "cannot write the document: {err}"),
         }
     }
 }
@@ -114,6 +118,7 @@ impl std::error::Error for VectorError {
             Self::Font(err) => Some(err),
             Self::Image(err) => Some(err),
             Self::Tex(err) => Some(err),
+            Self::OutOfMemory(err) => Some(err),
             Self::InvalidCanvas { .. }
             | Self::NonFinite(_)
             | Self::Unsupported(_)
@@ -132,6 +137,12 @@ impl From<TextError> for VectorError {
 impl From<TexError> for VectorError {
     fn from(err: TexError) -> Self {
         Self::Tex(err)
+    }
+}
+
+impl From<OutOfMemory> for VectorError {
+    fn from(err: OutOfMemory) -> Self {
+        Self::OutOfMemory(err)
     }
 }
 
@@ -210,14 +221,19 @@ fn segment_points(path: &Path, transform: Affine2D, clip: Option<Bbox>, first: b
 
 /// A gzip member (RFC 1952) holding `data`, as Python's `gzip.GzipFile`
 /// writes it at its default level 9 (used for `.svgz`).
-pub fn gzip(data: &[u8]) -> Vec<u8> {
+///
+/// # Errors
+///
+/// When the memory for the member cannot be allocated.
+pub fn gzip(data: &[u8]) -> Result<Vec<u8>, OutOfMemory> {
     // Magic, deflate, no flags, no modification time, maximum compression,
     // unknown operating system.
     let mut out = vec![0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 2, 255];
-    out.extend(pltrs_codec::deflate::compress(data, CompressionLevel::BEST));
+    pltrs_codec::deflate::compress_into(data, CompressionLevel::BEST, &mut out)?;
+    alloc::try_reserve(&mut out, 8)?;
     out.extend_from_slice(&crc32(data).to_le_bytes());
     out.extend_from_slice(&(data.len() as u32).to_le_bytes());
-    out
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -227,7 +243,7 @@ mod tests {
     #[test]
     fn gzip_members_round_trip() {
         let data = b"<svg/>\n".repeat(20);
-        let member = gzip(&data);
+        let member = gzip(&data).unwrap();
         assert_eq!(&member[..3], &[0x1f, 0x8b, 8]);
         let body = &member[10..member.len() - 8];
         assert_eq!(pltrs_codec::deflate::decompress(body).unwrap(), data);

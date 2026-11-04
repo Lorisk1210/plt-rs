@@ -136,7 +136,13 @@ class Patch(Artist):
         return self._get("edgegapcolor")
 
     def set_edgegapcolor(self, edgegapcolor):
-        """Set a color to fill the gaps in the dashed edge style."""
+        """
+        Set a color to fill the gaps in the dashed edge style.
+
+        Parameters
+        ----------
+        edgegapcolor : :mpltype:`color` or None
+        """
         self._set_native(edgegapcolor=edgegapcolor)
 
     def get_verts(self):
@@ -262,7 +268,13 @@ class Patch(Artist):
                 else antialiased)
 
     def set_antialiased(self, aa):
-        """Set whether to use antialiased rendering (None: the rc default)."""
+        """
+        Set whether to use antialiased rendering (None: the rc default).
+
+        Parameters
+        ----------
+        aa : bool or None
+        """
         self._set_native(antialiased=None if aa is None else bool(aa))
 
     def get_edgecolor(self):
@@ -270,7 +282,13 @@ class Patch(Artist):
         return self._rgba_as_given("edgecolor", self.get_alpha())
 
     def set_edgecolor(self, color):
-        """Set the patch edge color (None: the default rule)."""
+        """
+        Set the patch edge color (None: the default rule).
+
+        Parameters
+        ----------
+        color : :mpltype:`color` or None
+        """
         if color is not None:
             mcolors.to_rgba(color)
         self._set_native(edgecolor=color)
@@ -287,7 +305,13 @@ class Patch(Artist):
         return rgba
 
     def set_facecolor(self, color):
-        """Set the patch face color (None: :rc:`patch.facecolor`)."""
+        """
+        Set the patch face color (None: :rc:`patch.facecolor`).
+
+        Parameters
+        ----------
+        color : :mpltype:`color` or None
+        """
         if color is not None:
             mcolors.to_rgba(color)
         self._set_native(facecolor=color)
@@ -335,7 +359,13 @@ class Patch(Artist):
         return edge if tuple(edge) == tuple(native) else native
 
     def set_hatchcolor(self, color):
-        """Set the patch hatch color: a color, 'edge' or None (the rc)."""
+        """
+        Set the patch hatch color: a color, 'edge' or None (the rc).
+
+        Parameters
+        ----------
+        color : :mpltype:`color` or 'edge' or None
+        """
         if color is None:
             color = _rcParams()['hatch.color']
         if not (isinstance(color, str) and color == 'edge'):
@@ -343,7 +373,13 @@ class Patch(Artist):
         self._set_native(hatchcolor=color)
 
     def set_color(self, c):
-        """Set both the edgecolor and the facecolor."""
+        """
+        Set both the edgecolor and the facecolor.
+
+        Parameters
+        ----------
+        c : :mpltype:`color`
+        """
         self.set_edgecolor(c)
         self.set_hatchcolor(c)
         self.set_facecolor(c)
@@ -353,7 +389,13 @@ class Patch(Artist):
         return self._get("linewidth")
 
     def set_linewidth(self, w):
-        """Set the patch linewidth in points (None: the rc default)."""
+        """
+        Set the patch linewidth in points (None: the rc default).
+
+        Parameters
+        ----------
+        w : float or None
+        """
         self._set_native(linewidth=None if w is None else float(w))
 
     def get_linestyle(self):
@@ -375,6 +417,10 @@ class Patch(Artist):
         Set the patch linestyle: one of ``'-'``, ``'--'``, ``'-.'``,
         ``':'``, ``''`` (and their long names), or an ``(offset,
         onoffseq)`` tuple.
+
+        Parameters
+        ----------
+        ls : {'-', '--', '-.', ':', '', ...} or (offset, on-off-seq)
         """
         ls = self._linestyle = _kept_linestyle(ls)
         if isinstance(ls, tuple):
@@ -396,7 +442,13 @@ class Patch(Artist):
         return self._get("fill")
 
     def set_fill(self, b):
-        """Set whether to fill the patch."""
+        """
+        Set whether to fill the patch.
+
+        Parameters
+        ----------
+        b : bool
+        """
         self._set_native(fill=bool(b))
 
     fill = property(get_fill, set_fill)
@@ -406,7 +458,13 @@ class Patch(Artist):
         return self._get("capstyle")
 
     def set_capstyle(self, s):
-        """Set the `.CapStyle`."""
+        """
+        Set the `.CapStyle`.
+
+        Parameters
+        ----------
+        s : `.CapStyle` or {'butt', 'projecting', 'round'}
+        """
         self._set_native(capstyle=CapStyle(s).name)
 
     def get_joinstyle(self):
@@ -414,7 +472,13 @@ class Patch(Artist):
         return self._get("joinstyle")
 
     def set_joinstyle(self, s):
-        """Set the `.JoinStyle`."""
+        """
+        Set the `.JoinStyle`.
+
+        Parameters
+        ----------
+        s : `.JoinStyle` or {'miter', 'round', 'bevel'}
+        """
         self._set_native(joinstyle=JoinStyle(s).name)
 
     def get_hatch(self):
@@ -422,7 +486,13 @@ class Patch(Artist):
         return _values.given(self, "hatch", self._get("hatch"))
 
     def set_hatch(self, hatch):
-        """Set the hatching pattern (see `.hatch`)."""
+        """
+        Set the hatching pattern (see `.hatch`).
+
+        Parameters
+        ----------
+        hatch : {'/', '\\\\', '|', '-', '+', 'x', 'o', 'O', '.', '*'}
+        """
         from . import hatch as mhatch
         mhatch._validate_hatch_pattern(hatch)
         self._set_native(hatch=hatch)
@@ -640,7 +710,13 @@ class Rectangle(Patch):
         self.angle = angle
 
     def set_xy(self, xy):
-        """Set the left and bottom coordinates of the rectangle."""
+        """
+        Set the left and bottom coordinates of the rectangle.
+
+        Parameters
+        ----------
+        xy : (float, float)
+        """
         self._set_fields(x=xy[0], y=xy[1])
 
     def set_width(self, w):
@@ -652,7 +728,11 @@ class Rectangle(Patch):
         self._set_fields(height=h)
 
     def set_bounds(self, *args):
-        """Set the bounds of the rectangle as *left*, *bottom*, *width*, *height*."""
+        """
+        Set the bounds of the rectangle as *left*, *bottom*, *width*, *height*.
+
+        ACCEPTS: (left, bottom, width, height)
+        """
         if len(args) == 1:
             l, b, w, h = args[0]
         else:
@@ -1270,7 +1350,13 @@ class Ellipse(Patch):
         return self.get_center()
 
     def set_center(self, xy):
-        """Set the center of the ellipse."""
+        """
+        Set the center of the ellipse.
+
+        Parameters
+        ----------
+        xy : (float, float)
+        """
         self._set_fields(center=xy)
 
     def get_center(self):
@@ -1280,7 +1366,13 @@ class Ellipse(Patch):
     center = property(get_center, set_center)
 
     def set_width(self, width):
-        """Set the width of the ellipse."""
+        """
+        Set the width of the ellipse.
+
+        Parameters
+        ----------
+        width : float
+        """
         self._set_fields(width=width)
 
     def get_width(self):
@@ -1290,7 +1382,13 @@ class Ellipse(Patch):
     width = property(get_width, set_width)
 
     def set_height(self, height):
-        """Set the height of the ellipse."""
+        """
+        Set the height of the ellipse.
+
+        Parameters
+        ----------
+        height : float
+        """
         self._set_fields(height=height)
 
     def get_height(self):
@@ -1300,7 +1398,13 @@ class Ellipse(Patch):
     height = property(get_height, set_height)
 
     def set_angle(self, angle):
-        """Set the angle of the ellipse."""
+        """
+        Set the angle of the ellipse.
+
+        Parameters
+        ----------
+        angle : float
+        """
         self._set_fields(angle=angle)
 
     def get_angle(self):
@@ -1528,7 +1632,13 @@ class Circle(Ellipse):
                              self._GIVEN)
 
     def set_radius(self, radius):
-        """Set the radius of the circle."""
+        """
+        Set the radius of the circle.
+
+        Parameters
+        ----------
+        radius : float
+        """
         self._set_fields(width=2 * radius, height=2 * radius)
 
     def get_radius(self):
@@ -1700,6 +1810,8 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
 
             set_boxstyle("Round,pad=0.2")
             set_boxstyle("round", pad=0.2)
+
+        ACCEPTS: [ 'square' | 'circle' | 'ellipse' | 'rarrow' | 'larrow' | 'darrow' | 'round' | 'round4' | 'sawtooth' | 'roundtooth' ]
         """
         if boxstyle is None:
             return BoxStyle.pprint_styles()
@@ -1759,19 +1871,43 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         return _values.given(self, "height", self._height)
 
     def set_x(self, x):
-        """Set the left coord of the rectangle."""
+        """
+        Set the left coord of the rectangle.
+
+        Parameters
+        ----------
+        x : float
+        """
         self._set_box(x=x)
 
     def set_y(self, y):
-        """Set the bottom coord of the rectangle."""
+        """
+        Set the bottom coord of the rectangle.
+
+        Parameters
+        ----------
+        y : float
+        """
         self._set_box(y=y)
 
     def set_width(self, w):
-        """Set the rectangle width."""
+        """
+        Set the rectangle width.
+
+        Parameters
+        ----------
+        w : float
+        """
         self._set_box(width=w)
 
     def set_height(self, h):
-        """Set the rectangle height."""
+        """
+        Set the rectangle height.
+
+        Parameters
+        ----------
+        h : float
+        """
         self._set_box(height=h)
 
     def set_bounds(self, *args):
@@ -1907,6 +2043,8 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
 
             set_connectionstyle("Arc,armA=30,rad=10")
             set_connectionstyle("arc", armA=30, rad=10)
+
+        ACCEPTS: [ 'arc3' | 'angle3' | 'angle' | 'arc' | 'bar' ]
         """
         if connectionstyle is None:
             return ConnectionStyle.pprint_styles()
@@ -1946,6 +2084,8 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
 
             set_arrowstyle("Fancy,head_length=0.2")
             set_arrowstyle("fancy", head_length=0.2)
+
+        ACCEPTS: [ '-' | '<-' | '->' | '<->' | '<|-' | '-|>' | '<|-|>' | ']-' | '-[' | ']-[' | '|-|' | ']->' | '<-[' | 'simple' | 'fancy' | 'wedge' ]
         """
         if arrowstyle is None:
             return ArrowStyle.pprint_styles()

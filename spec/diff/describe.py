@@ -35,12 +35,16 @@ class Names:
 
     ``prefixes`` maps the implementation's module prefixes to matplotlib's
     (empty for matplotlib itself); ``package_dirs`` are the directories of
-    the packages, which messages naming files replace with ``<package>``.
+    the packages, which messages naming files replace with ``<package>``,
+    and ``config_dir`` the run's configuration directory (each
+    implementation has its own), replaced with ``<config>``.
     """
 
-    def __init__(self, prefixes: list[tuple[str, str]], package_dirs: list[str]) -> None:
+    def __init__(self, prefixes: list[tuple[str, str]], package_dirs: list[str],
+                 config_dir: str | None = None) -> None:
         self.prefixes = prefixes
         self.package_dirs = sorted(package_dirs, key=len, reverse=True)
+        self.config_dir = config_dir
         self._word = [
             (re.compile(r"(?<![\w.])" + re.escape(alias) + r"(?![\w])"), real)
             for alias, real in prefixes
@@ -58,6 +62,8 @@ class Names:
         matplotlib's, and memory addresses blanked."""
         for directory in self.package_dirs:
             text = text.replace(directory, "<package>")
+        if self.config_dir:
+            text = text.replace(self.config_dir, "<config>")
         for pattern, real in self._word:
             text = pattern.sub(real, text)
         return _ADDRESS.sub("0x?", text)

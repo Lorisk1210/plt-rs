@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 
-from ... import (_api, _live_transforms, _tick_helpers, _values, collections as mcoll,
+from ... import (_api, _handles, _live_transforms, _tick_helpers, _values, collections as mcoll,
                  colors as mcolors)
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
@@ -89,11 +89,16 @@ def _levels(levels):
     return None if levels is None else np.asarray(levels, dtype=float)
 
 
-def _finish(cls, native, axes, look, kwargs):
-    """The *cls* contour set of *native*, mapping its levels through the
-    colorizer of *look* (`_contour_look`), its attributes and remaining
-    *kwargs* set."""
-    contours = _style(cls._from_contour(native, axes), look, kwargs)
+def _finish(cls, native, axes, look, kwargs, made=None):
+    """The *cls* contour set of *native* (or *made*, a contour set being
+    made, around it), mapping its levels through the colorizer of *look*
+    (`_contour_look`), its attributes and remaining *kwargs* set."""
+    if made is None:
+        made = cls._from_contour(native, axes)
+    else:
+        _handles.adopt(made, _contour.get_collections(native)[0], axes.figure)
+        made._take_contour(native, axes)
+    contours = _style(made, look, kwargs)
     # matplotlib's contour sets autoscale the view when made
     # (``autoscale_view(tight=True)``), where pltrs (Rust) waits.
     axes._unstale_viewLim()
@@ -128,8 +133,9 @@ def _style(contours, look, kwargs):
 class ContoursMixin:
     """`contour`, `contourf`, `tricontour`, `tricontourf` and `clabel`."""
 
-    def _contour(self, filled, args, kwargs):
-        """The `.QuadContourSet` of ``contour`` (or, *filled*, ``contourf``)."""
+    def _contour(self, filled, args, kwargs, made=None):
+        """The `.QuadContourSet` of ``contour`` (or, *filled*, ``contourf``):
+        a new one, or *made*, the set whose constructor contours."""
         fn = 'contourf' if filled else 'contour'
         origin = kwargs.pop("origin", None)
         extent = kwargs.pop("extent", None)
@@ -156,7 +162,7 @@ class ContoursMixin:
         look = _contour_look(kwargs)
         native = _contour.contour(self._native, bool(filled), *generator.field,
                                   _levels(levels), *look[:2])
-        contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs)
+        contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs, made)
         contours._generator = generator
         if origin == 'image':
             from ... import rcParams

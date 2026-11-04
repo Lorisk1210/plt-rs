@@ -374,9 +374,14 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """The object around the native contour set *contour* of *axes*."""
         collections = _contour.get_collections(contour)
         cs = _handles.wrap(collections[0], cls, axes.figure)
-        cs._set_contour(contour, axes.figure)
-        cs._attach_native_mapping()
+        cs._take_contour(contour, axes)
         return cs
+
+    def _take_contour(self, contour, axes):
+        """Make the set, wrapping its first collection already, the object
+        of the native contour set *contour* of *axes*."""
+        self._set_contour(contour, axes.figure)
+        self._attach_native_mapping()
 
     def _set_contour(self, contour, figure):
         """Make the set wrap the native contour set *contour* of
@@ -711,6 +716,13 @@ class QuadContourSet(ContourSet):
     This class is typically not instantiated directly by the user but by
     `~.Axes.contour` and `~.Axes.contourf`.
     """
+
+    def __init__(self, ax, *args, levels=None, filled=False, **kwargs):
+        # matplotlib's contour sets contour their arguments as
+        # ``contour``/``contourf`` do, and add themselves to *ax*.
+        if levels is not None:
+            kwargs["levels"] = levels
+        ax._contour(filled, args, kwargs, made=self)
 
 
 def _contour_args(fn, args, kwargs):

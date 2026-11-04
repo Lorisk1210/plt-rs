@@ -260,9 +260,8 @@ class RcParams(MutableMapping, dict):
     def _get_uncached(self, key):
         """*key*'s value, read from pltrs (Rust) and validated."""
         if not self._has(key):
-            raise KeyError(
-                f"{key} is not a valid rc parameter (see rcParams.keys() for "
-                f"a list of valid parameters)")
+            # matplotlib's dict lookup: the error names the key alone.
+            raise KeyError(key)
         if key in _PYTHON_PARAMS:
             return self._python[key]
         validator = self.validate.get(key)

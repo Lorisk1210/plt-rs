@@ -2,7 +2,7 @@
 //! values are set, the colours made when drawing.
 
 use super::ColorMapping;
-use crate::colors::{Alpha, ColormapError, Norm, NormKind, Normalized};
+use crate::colors::{Alpha, ColormapError, Norm, NormError, NormKind, Normalized};
 
 /// A [`ColorMapping`] with its norm autoscaled (matplotlib autoscales the
 /// norm and normalises when the array is set) and its values normalised,
@@ -69,7 +69,12 @@ impl Mapped {
         mappable.norm_mut().autoscale_none(values);
         self.by_block = normalizes_by_block(mappable.norm());
         self.normalized = if self.by_block {
-            Ok(Vec::new())
+            // Inverted limits fail every block alike: met now, they are the
+            // `ValueError` of matplotlib's norm, as in the other mode.
+            match mappable.norm().clone_box().normalize_masked(&[], None) {
+                Err(err @ NormError::InvertedLimits { .. }) => Err(err.to_string()),
+                _ => Ok(Vec::new()),
+            }
         } else {
             mappable.normalize(values).map_err(|e| e.to_string())
         };
@@ -188,5 +193,21 @@ mod tests {
             mapped.colors(&Alpha::Keep).map(|c| c.len()),
             expected.map(|v| v.len())
         );
+    }
+
+    #[test]
+    fn inverted_limits_are_met_when_the_values_are_set() {
+        let mut norm = Normalize::default();
+        norm.set_vmin(Some(5.0));
+        norm.set_vmax(Some(2.0));
+        let mapping = ColorMapping {
+            values: vec![Some(1.0), Some(3.0)],
+            mappable: ScalarMappable::with_norm(colormaps::get("viridis").unwrap(), Box::new(norm)),
+        };
+        let mapped = Mapped::new(mapping);
+        assert!(mapped.by_block);
+        let message = "minvalue must be less than or equal to maxvalue";
+        assert_eq!(mapped.normalized, Err(message.to_owned()));
+        assert_eq!(mapped.colors(&Alpha::Keep), Err(message.to_owned()));
     }
 }

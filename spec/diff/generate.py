@@ -20,14 +20,19 @@ compared on their own. The generators are the modules of ``generators/``:
 * ``three_d``: the 3-D toolkit's plotting methods, view, interaction,
   ``art3d``, ``proj3d`` and ``axis3d``;
 * ``offsetboxes``: offset boxes of the program's over the package's, boxes
-  changed once drawn, and what Axes of each patch shape clip to.
+  changed once drawn, and what Axes of each patch shape clip to;
+* ``api``: every public callable of matplotlib (``api_index``) with each
+  of its keyword parameters, at representative and edge values, on the
+  subject it belongs to.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
-is emptied first.
+is emptied first. What the generators' own runs of statements write goes
+to ``OUT_DIR/.scratch``.
 """
 
 from __future__ import annotations
 
+import os
 import pathlib
 import shutil
 import sys
@@ -39,7 +44,7 @@ import matplotlib  # noqa: E402
 
 matplotlib.use("agg")
 
-from generators import artists, modules, offsetboxes, plotting, pyplot, randomized, three_d  # noqa: E402
+from generators import api, artists, modules, offsetboxes, plotting, pyplot, randomized, three_d  # noqa: E402
 
 GENERATORS = {
     "artists": artists.programs,
@@ -49,14 +54,20 @@ GENERATORS = {
     "randomized": randomized.programs,
     "three_d": three_d.programs,
     "offsetboxes": offsetboxes.programs,
+    "api": api.programs,
 }
 
 
 def main() -> int:
     """Write every generator's programs."""
-    out = pathlib.Path(sys.argv[1])
+    out = pathlib.Path(sys.argv[1]).resolve()
     if out.exists():
         shutil.rmtree(out)
+    # The generators run some statements to see what they make; what those
+    # write goes here.
+    scratch = out / ".scratch"
+    scratch.mkdir(parents=True)
+    os.chdir(scratch)
     for group, generate in GENERATORS.items():
         directory = out / group
         directory.mkdir(parents=True)

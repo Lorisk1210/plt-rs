@@ -1,6 +1,6 @@
 //! `cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce]
-//! [--baseline REPORT] [--jobs N] [--no-build]`: the differential tester of
-//! pltrs (Python) against matplotlib.
+//! [--baseline REPORT] [--jobs N] [--no-build] [--coverage]`: the differential
+//! tester of pltrs (Python) against matplotlib.
 //!
 //! Programs run under real matplotlib (the reference venv) and under pltrs
 //! (Python) (the pltrs venv, the import changed, in matplotlib's look), and
@@ -25,6 +25,11 @@
 //! an earlier `report.json`. A PATTERN keeps the programs whose names
 //! contain it (`gallery/examples/color`, `generated/artists/line`).
 //! Differences proven intended are listed in `spec/diff/allowlist.txt`.
+//!
+//! `--coverage` measures the programs instead (`spec/diff/coverage.py`,
+//! no extension needed): which of matplotlib's public callables and of
+//! their keyword parameters the programs call under matplotlib, per module
+//! and class, written to `target/diff/coverage.md` and `coverage.json`.
 
 use std::env;
 use std::path::PathBuf;
@@ -54,11 +59,13 @@ fn run_diff(args: &[String]) -> Result<(), String> {
         || root.join("target/refs/matplotlib-dl/matplotlib-3.11.2"),
         PathBuf::from,
     );
-    let mut build = true;
+    let coverage = args.iter().any(|arg| arg == "--coverage");
+    let script = if coverage { "coverage.py" } else { "driver.py" };
+    let mut build = !coverage;
     let mut suites = Vec::new();
     let mut driver = Command::new(root.join(".venv/bin/python"));
     driver
-        .arg(root.join("spec/diff/driver.py"))
+        .arg(root.join("spec/diff").join(script))
         .arg("--root")
         .arg(&root)
         .arg("--out")
@@ -69,6 +76,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     while let Some(arg) = rest.next() {
         match arg.as_str() {
             "--no-build" => build = false,
+            "--coverage" => {}
             flag if SUITES.iter().any(|&(name, _)| name == flag) => {
                 suites.push(flag);
             }
@@ -89,9 +97,11 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     if build {
         crate::python::build(crate::python::Profile::Release)?;
     }
-    driver
-        .arg("--pltrs-python")
-        .arg(crate::python::pltrs_python()?);
+    if !coverage {
+        driver
+            .arg("--pltrs-python")
+            .arg(crate::python::pltrs_python()?);
+    }
     crate::python::run_checked(&mut driver)
 }
 

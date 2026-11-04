@@ -1569,7 +1569,12 @@ class PatchCollection(Collection):
         self._native = _collections.new_patch_collection([p._native for p in patches],
                                               bool(match_original))
         if match_original:
+            # The patches' own colours, kept; the colorizer is made as
+            # matplotlib's collections make it, for an array set later.
             Artist.__init__(self)
+            self._attach_colorizer(self._get_colorizer(
+                kwargs.pop("cmap", None), kwargs.pop("norm", None),
+                kwargs.pop("colorizer", None)))
             self._internal_update(kwargs)
         else:
             super().__init__(**kwargs)

@@ -285,8 +285,4 @@ impl<'a> Face<'a> {
     pub(crate) const fn gpos(&self) -> Option<&LayoutTable<'a>> {
         self.gpos.as_ref()
     }
-
-    pub(crate) const fn kern_table(&self) -> &Kern<'a> {
-        &self.kern
-    }
 }

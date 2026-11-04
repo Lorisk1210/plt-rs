@@ -98,6 +98,7 @@ pub(crate) fn char_props(c: char) -> CharProps {
             0
         },
         ignorable,
+        continuation: category.is_mark(),
     }
 }
 

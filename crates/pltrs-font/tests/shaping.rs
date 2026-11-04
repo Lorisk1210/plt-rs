@@ -124,24 +124,33 @@ fn check_fixture(name: &str) {
     );
 }
 
-/// Small fonts from `tests/fixtures/gen_arabic_fonts.py`: Arabic fallback
-/// shaping (presentation forms, ligatures, mark stacking) and cursive and
-/// mark attachment in both directions.
-#[test]
-fn synthetic_arabic_fonts_match_matplotlib() {
-    let fixtures = fixture("arabic.json");
+/// The layouts of the small fonts of a fixture (`<name>.json`, a list of
+/// cases per font `<prefix>-<font>.ttf`) that differ from matplotlib's.
+fn synthetic_font_failures(name: &str, prefix: &str) -> Vec<String> {
+    let fixtures = fixture(&format!("{name}.json"));
     let mut failures = Vec::new();
     for (kind, cases) in fixtures.object() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures")
-            .join(format!("arabic-{kind}.ttf"));
-        let data = std::fs::read(&path).unwrap();
-        let chain = FontChain::new(vec![Face::parse(&data, 0).unwrap()]);
+            .join(format!("{prefix}-{kind}.ttf"));
+        let data = std::fs::read(&path).expect("fixture font");
+        let chain = FontChain::new(vec![Face::parse(&data, 0).expect("fixture face")]);
         for case in cases.array() {
             let text = case.field("text").str();
             let (size, dpi) = (case.field("size").f64(), case.field("dpi").f64());
+            let features: Vec<Feature> = case
+                .opt("features")
+                .map(Json::array)
+                .unwrap_or_default()
+                .iter()
+                .map(|f| f.str().parse().expect("feature string"))
+                .collect();
+            let options = ShapeOptions {
+                features,
+                ..ShapeOptions::default()
+            };
             let layout = chain
-                .layout(text, size, dpi, &ShapeOptions::default(), Hinting::None)
+                .layout(text, size, dpi, &options, Hinting::None)
                 .expect("layout");
             let glyphs: Vec<Vec<i64>> = layout
                 .glyphs
@@ -161,12 +170,33 @@ fn synthetic_arabic_fonts_match_matplotlib() {
             ];
             if glyphs != expected || extents != case.field("extents").i64s() {
                 failures.push(format!(
-                    "{kind} {size}/{dpi} {text:?}:\n  actual   {extents:?} {glyphs:?}\n  expected {:?} {expected:?}",
+                    "{kind} {size}/{dpi} {text:?} {:?}:\n  actual   {extents:?} {glyphs:?}\n  expected {:?} {expected:?}",
+                    options.features,
                     case.field("extents").i64s()
                 ));
             }
         }
     }
+    failures
+}
+
+/// Small fonts from `tests/fixtures/gen_arabic_fonts.py`: Arabic fallback
+/// shaping (presentation forms, ligatures, mark stacking) and cursive and
+/// mark attachment in both directions.
+#[test]
+fn synthetic_arabic_fonts_match_matplotlib() {
+    let failures = synthetic_font_failures("arabic", "arabic");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Small fonts from `tests/fixtures/gen_aat_fonts.py`, shaped with Apple
+/// Advanced Typography as HarfBuzz does: `morx` subtables of every type
+/// under features and ranges, the Apple `kern` table (formats 0 to 3,
+/// variation subtables skipped, cross-stream kerning), `kerx` (formats 0,
+/// 2 and 6) and `trak` tracking per grapheme.
+#[test]
+fn synthetic_aat_fonts_match_matplotlib() {
+    let failures = synthetic_font_failures("aat", "aat");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 

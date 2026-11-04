@@ -3,9 +3,11 @@
 //! directories on Linux, those and macOS' own on macOS, and on Windows
 //! the system's and the user's font directories and the fonts the
 //! registry lists. (matplotlib also asks fontconfig's `fc-list` and
-//! macOS' `system_profiler`; pltrs keeps to the directories, which hold
-//! those fonts too, so that starting up runs no program but, on Windows,
-//! the registry query.)
+//! macOS' `system_profiler`; pltrs keeps to directories, which hold those
+//! fonts too, so that starting up runs no program but, on Windows, the
+//! registry query. On macOS these include the two places of fonts its
+//! font list holds beyond its font directories: the reserved interface
+//! fonts and the fonts it downloads on demand.)
 
 mod registry;
 
@@ -34,6 +36,18 @@ const MACOS_DIRECTORIES: [&str; 4] = [
     "/opt/local/share/fonts",
 ];
 
+/// The directory of the fonts macOS reserves for its interface, which its
+/// font list (and so matplotlib, through `system_profiler`) holds.
+const MACOS_RESERVED_FONTS: &str =
+    "/System/Library/PrivateFrameworks/FontServices.framework/Versions/A/Resources/Reserved";
+
+/// Where macOS keeps what it downloads on demand.
+const MACOS_ASSETS: &str = "/System/Library/AssetsV2";
+
+/// The prefix of the asset directories holding downloaded fonts
+/// (`com_apple_MobileAsset_Font8`, ...), which macOS' font list holds too.
+const MACOS_FONT_ASSETS: &str = "com_apple_MobileAsset_Font";
+
 /// matplotlib's `MSUserFontDirectories`, in the home directory.
 const WINDOWS_USER_DIRECTORIES: [&str; 2] = [
     "AppData/Local/Microsoft/Windows/Fonts",
@@ -59,12 +73,18 @@ impl SystemFonts {
         } else {
             Registry::default()
         };
-        Self::locate(
+        let mut fonts = Self::locate(
             Os::CURRENT,
             std::env::home_dir().as_deref(),
             |name| std::env::var_os(name),
             &registry,
-        )
+        );
+        if Os::CURRENT == Os::MacOs {
+            fonts
+                .directories
+                .extend(font_asset_directories(Path::new(MACOS_ASSETS)));
+        }
+        fonts
     }
 
     /// The fonts of `os` for the home directory `home`, the environment
@@ -90,6 +110,7 @@ impl SystemFonts {
                 if os == Os::MacOs {
                     directories.extend(MACOS_DIRECTORIES.iter().map(PathBuf::from));
                     directories.extend(in_home("Library/Fonts"));
+                    directories.push(PathBuf::from(MACOS_RESERVED_FONTS));
                 }
                 Self {
                     directories,
@@ -130,6 +151,26 @@ impl SystemFonts {
             }
         }
     }
+}
+
+/// The directories of downloaded fonts among the assets in `assets` (see
+/// [`MACOS_FONT_ASSETS`]), sorted.
+fn font_asset_directories(assets: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(assets) else {
+        return Vec::new();
+    };
+    let mut found: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with(MACOS_FONT_ASSETS))
+        })
+        .map(|entry| entry.path())
+        .collect();
+    found.sort();
+    found
 }
 
 /// `path` as `os` compares paths: Windows ignores case.
@@ -272,8 +313,31 @@ mod tests {
                 "/System/Library/Fonts/",
                 "/opt/local/share/fonts",
                 "/home/u/Library/Fonts",
+                MACOS_RESERVED_FONTS,
             ])
         );
+    }
+
+    #[test]
+    fn macos_font_assets_are_found_by_name() {
+        let root = env::temp_dir().join(format!("pltrs-font-assets-{}", std::process::id()));
+        for dir in [
+            "com_apple_MobileAsset_Font8",
+            "com_apple_MobileAsset_Font7",
+            "com_apple_MobileAsset_Dictionary",
+        ] {
+            fs::create_dir_all(root.join(dir)).unwrap();
+        }
+        let found = font_asset_directories(&root);
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(
+            found,
+            [
+                root.join("com_apple_MobileAsset_Font7"),
+                root.join("com_apple_MobileAsset_Font8")
+            ]
+        );
+        assert_eq!(font_asset_directories(&root), Vec::<PathBuf>::new());
     }
 
     #[test]

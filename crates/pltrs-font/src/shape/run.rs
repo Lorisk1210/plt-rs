@@ -1,10 +1,12 @@
 //! Shaping one run (HarfBuzz's `hb_ot_shape_internal`): Unicode
 //! properties, dotted circles, clusters, the script's native direction,
 //! mirroring, normalization, shaper masks, glyph mapping, substitution,
-//! positioning and the final visual order.
+//! positioning, the final visual order and the removal of glyphs `morx`
+//! deleted.
 
 use std::ops::Range;
 
+use crate::aat;
 use crate::face::Face;
 use crate::layout::buffer::{Buffer, GlyphInfo, gdef_props, props};
 use crate::scale::Scaler;
@@ -92,6 +94,9 @@ fn prepare(
     }
     let chars: Vec<char> = items.iter().map(|item| item.c).collect();
     let continues = continuations(&chars);
+    for (item, &continues) in items.iter_mut().zip(&continues) {
+        item.props.continuation = continues;
+    }
     for index in 1..items.len() {
         if continues[index] {
             items[index].cluster = items[index - 1].cluster;
@@ -139,14 +144,8 @@ fn prepare(
 /// byte offsets of its characters, so the bounds become byte offsets
 /// (past the end for indices past the text).
 fn set_ranged_masks(text: &[(usize, char)], plan: &ShapePlan, items: &mut [ClusterChar]) {
-    let offset = |index: u32| {
-        usize::try_from(index)
-            .ok()
-            .and_then(|index| text.get(index))
-            .map_or(usize::MAX, |&(offset, _)| offset)
-    };
     for ranged in &plan.ranged_masks {
-        let clusters = offset(ranged.start)..offset(ranged.end);
+        let clusters = cluster_at(text, ranged.start)..cluster_at(text, ranged.end);
         for item in items
             .iter_mut()
             .filter(|item| clusters.contains(&item.cluster))
@@ -154,6 +153,15 @@ fn set_ranged_masks(text: &[(usize, char)], plan: &ShapePlan, items: &mut [Clust
             item.mask = (item.mask & !ranged.mask) | ranged.value;
         }
     }
+}
+
+/// The cluster of the character at `index` of `text`: its byte offset,
+/// or past every cluster for an index past the text.
+pub(crate) fn cluster_at(text: &[(usize, char)], index: u32) -> usize {
+    usize::try_from(index)
+        .ok()
+        .and_then(|index| text.get(index))
+        .map_or(usize::MAX, |&(offset, _)| offset)
 }
 
 /// Maps characters to glyphs and assigns glyph classes (from `GDEF`, or
@@ -218,11 +226,12 @@ pub(crate) fn shape_run(
         .filter_map(|item| Some((item.cluster, item.space?)))
         .collect();
     let mut buffer = glyph_buffer(face, &items);
-    plan.substitute(face, &scaler, direction, &mut buffer);
+    plan.substitute(face, &scaler, direction, text, &mut buffer);
     position(face, plan, direction, &scaler, &spaces, &mut buffer);
     if !direction.is_forward() {
         buffer.reverse();
     }
+    aat::remove_deleted_glyphs(&mut buffer);
     hide_default_ignorables(face, &mut buffer);
     plan.postprocess(face, &scaler, direction, &mut buffer);
     buffer

@@ -40,6 +40,10 @@ pub(crate) struct CharProps {
     pub(crate) combining_class: u8,
     /// Set for default-ignorable characters (hidden by shaping).
     pub(crate) ignorable: Option<Ignorable>,
+    /// Whether the character continues the grapheme of the one before
+    /// (HarfBuzz's continuation property: marks, and the sequences
+    /// [`continuations`](crate::shape::unicode::continuations) adds).
+    pub(crate) continuation: bool,
 }
 
 impl CharProps {
@@ -61,6 +65,10 @@ impl CharProps {
 
 /// One glyph being shaped.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent glyph properties, as HarfBuzz's property bits are"
+)]
 pub(crate) struct GlyphInfo {
     pub(crate) glyph: GlyphId,
     /// Byte offset of the cluster start in the source text.
@@ -85,6 +93,9 @@ pub(crate) struct GlyphInfo {
     /// Per-glyph value owned by the script shaper and carried through
     /// substitutions (HarfBuzz's auxiliary shaper variable).
     pub(crate) aux: u8,
+    /// Whether an AAT `morx` subtable deleted this glyph, which is removed
+    /// after substitution (HarfBuzz's `aat_deleted` property).
+    pub(crate) aat_deleted: bool,
 }
 
 impl GlyphInfo {
@@ -101,6 +112,7 @@ impl GlyphInfo {
             substituted: false,
             multiplied: false,
             aux: 0,
+            aat_deleted: false,
         }
     }
 
@@ -419,6 +431,7 @@ mod tests {
             category: GeneralCategory::Format,
             combining_class: 0,
             ignorable: Some(Ignorable::Zwj),
+            continuation: true,
         };
         assert!(!zwj.is_hidden() && !zwj.is_mark());
         let mut glyph = GlyphInfo::new(GlyphId(3), 0, zwj, 1);
@@ -429,6 +442,7 @@ mod tests {
             category: GeneralCategory::NonspacingMark,
             combining_class: 230,
             ignorable: None,
+            continuation: true,
         };
         assert!(acute.is_mark() && acute.is_nonspacing_mark());
         let cgj = CharProps {

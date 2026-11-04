@@ -494,13 +494,16 @@ def test_lazy_linux_headless():
 
 
 def _auto_backend():
-    """With a display, pyplot picks pltrs' windows by itself."""
+    """With a display, pyplot picks pltrs' windows by itself (named as
+    matplotlib's ``macosx`` backend on macOS)."""
+    import sys
+
     import pltrs
     import pltrs.pyplot as plt
 
     assert not isinstance(pltrs.rcParams._get("backend"), str)
     plt.figure()
-    assert plt.get_backend() == "pltrs"
+    assert plt.get_backend() == ("macosx" if sys.platform == "darwin" else "pltrs")
 
 
 @pytest.mark.skipif(not _has_display, reason="no display server")

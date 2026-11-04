@@ -1,4 +1,6 @@
-//! Legacy `kern` table (Microsoft version 0, subtable format 0).
+//! Legacy `kern` table (Microsoft version 0, subtable format 0) as
+//! FreeType reads it, for `FT_Get_Kerning`. Shaping reads `kern` as
+//! HarfBuzz does, in both its forms: see `crate::aat::KernTable`.
 
 use crate::error::Result;
 use crate::reader::{Array, FromBytes, Reader};
@@ -29,14 +31,14 @@ impl FromBytes for KernPair {
 
 /// One format 0 subtable.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct KernSubtable<'a> {
+struct KernSubtable<'a> {
     coverage: u16,
     pairs: Array<'a, KernPair>,
 }
 
 impl KernSubtable<'_> {
     /// Kerning value for the ordered pair, if listed.
-    pub(crate) fn get(&self, left: GlyphId, right: GlyphId) -> Option<i16> {
+    fn get(&self, left: GlyphId, right: GlyphId) -> Option<i16> {
         let key = u32::from(left.0) << 16 | u32::from(right.0);
         // Pairs should be sorted; fall back to a scan for broken fonts.
         self.pairs
@@ -51,20 +53,10 @@ impl KernSubtable<'_> {
     }
 
     /// Whether the subtable kerns horizontally along the text direction
-    /// (the only kind HarfBuzz and FreeType apply by default).
-    pub(crate) const fn is_plain_horizontal(&self) -> bool {
+    /// (the only kind FreeType applies).
+    const fn is_plain_horizontal(&self) -> bool {
         self.coverage & (COVERAGE_HORIZONTAL | COVERAGE_MINIMUM | COVERAGE_CROSS_STREAM)
             == COVERAGE_HORIZONTAL
-    }
-
-    /// Whether the subtable applies to horizontal text.
-    pub(crate) const fn is_horizontal(&self) -> bool {
-        self.coverage & COVERAGE_HORIZONTAL != 0
-    }
-
-    /// Whether values shift glyphs perpendicular to the text direction.
-    pub(crate) const fn is_cross_stream(&self) -> bool {
-        self.coverage & COVERAGE_CROSS_STREAM != 0
     }
 
     const fn overrides(&self) -> bool {
@@ -105,11 +97,6 @@ impl<'a> Kern<'a> {
             r = Reader::at(data, body_end.max(r.pos()), KERN)?;
         }
         Ok(Self { subtables })
-    }
-
-    /// Subtables in file order.
-    pub(crate) fn subtables(&self) -> &[KernSubtable<'a>] {
-        &self.subtables
     }
 
     /// FreeType's `tt_face_get_kerning`: sums (or overrides with) the values
@@ -164,11 +151,9 @@ mod tests {
             (1 | COVERAGE_CROSS_STREAM, &[(36, 57, 1000)]),
         ]);
         let kern = Kern::parse(&data).unwrap();
-        assert_eq!(kern.subtables().len(), 4);
         assert_eq!(kern.kerning(GlyphId(36), GlyphId(57)), -141);
         assert_eq!(kern.kerning(GlyphId(36), GlyphId(58)), 7);
         assert_eq!(kern.kerning(GlyphId(57), GlyphId(36)), 0);
-        assert!(!kern.subtables()[3].is_plain_horizontal());
     }
 
     #[test]

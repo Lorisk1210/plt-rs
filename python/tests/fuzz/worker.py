@@ -32,8 +32,14 @@ PANIC = "Rust panic"
 #: The stderr line that starts a task.
 MARKER = "@@pltrs-fuzz-task"
 
-#: The address space a worker may use, in bytes.
+#: The memory a worker may use, in bytes: its address space where the
+#: system caps it (Linux), its resident memory, which the runner watches,
+#: where it cannot (macOS).
 MEMORY_LIMIT = 6 << 30
+
+#: Whether the system caps a process's address space (macOS refuses
+#: `RLIMIT_AS`).
+CAPS_ADDRESS_SPACE = sys.platform != "darwin"
 
 #: The memory past which a worker's `MemoryError` counts as runaway.
 RUNAWAY = 2 << 30
@@ -67,7 +73,10 @@ def _ran_away():
     """Whether the worker's memory grew past `RUNAWAY` before a
     `MemoryError`: one raised at once (numpy refusing an array of 2³²
     axes, as it does in matplotlib) is the program's."""
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # Linux counts the peak in KiB, macOS in bytes.
+    if sys.platform != "darwin":
+        peak *= 1024
     return peak > RUNAWAY
 
 
@@ -119,7 +128,8 @@ def main():
     # out of the way of the events.
     _EVENTS = os.fdopen(os.dup(sys.stdout.fileno()), "w")
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
-    resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT, MEMORY_LIMIT))
+    if CAPS_ADDRESS_SPACE:
+        resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT, MEMORY_LIMIT))
     # A crash prints where Python was, for the bug's report.
     faulthandler.enable()
     warnings.simplefilter("ignore")

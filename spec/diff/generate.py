@@ -18,7 +18,9 @@ compared on their own. The generators are the modules of ``generators/``:
 * ``randomized``: sequences of plotting calls, setters and getters drawn
   with a seeded SplitMix64 (``spec_support.rng``'s);
 * ``three_d``: the 3-D toolkit's plotting methods, view, interaction,
-  ``art3d``, ``proj3d`` and ``axis3d``.
+  ``art3d``, ``proj3d`` and ``axis3d``;
+* ``offsetboxes``: offset boxes of the program's over the package's, boxes
+  changed once drawn, and what Axes of each patch shape clip to.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first.
@@ -37,7 +39,7 @@ import matplotlib  # noqa: E402
 
 matplotlib.use("agg")
 
-from generators import artists, modules, plotting, pyplot, randomized, three_d  # noqa: E402
+from generators import artists, modules, offsetboxes, plotting, pyplot, randomized, three_d  # noqa: E402
 
 GENERATORS = {
     "artists": artists.programs,
@@ -46,6 +48,7 @@ GENERATORS = {
     "modules": modules.programs,
     "randomized": randomized.programs,
     "three_d": three_d.programs,
+    "offsetboxes": offsetboxes.programs,
 }
 
 

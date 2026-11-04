@@ -77,6 +77,22 @@ class _AxisPart(_mirrors.Mirroring):
         # An axis gives every part of it its transform when it makes it.
         return True
 
+    def clip_box(self, artist):
+        # matplotlib's Axes clip the gridlines of their axes to their patch.
+        return self._patch_clip(artist, _artist_clipping.patch_clip_box)
+
+    def clip_path(self, artist):
+        return self._patch_clip(artist, _artist_clipping.patch_clip_path)
+
+    def _patch_clip(self, artist, clip):
+        """*clip* (`._artist_clipping.patch_clip_box` or ``patch_clip_path``)
+        of the Axes' patch for the gridline of a tick of an axis; `OWN` for
+        the other parts."""
+        owner = self.owner
+        if getattr(owner, "gridline", None) is not artist or owner.axis is None:
+            return _mirrors.OWN
+        return clip(artist, owner.axes)
+
 
 class Tick(Artist):
     """
@@ -321,6 +337,13 @@ class Tick(Artist):
         if "_clipbox" in self.__dict__ or self.axis is None:
             return super().get_clip_box()
         return _artist_clipping.patch_clip_box(self, self.axes)
+
+    def get_clip_path(self):
+        """Return the clip path: that of the Axes' patch for a tick of an
+        axis, as matplotlib's Axes clip their axes (`.Axis.get_clip_path`)."""
+        if "_clippath" in self.__dict__ or self.axis is None:
+            return super().get_clip_path()
+        return _artist_clipping.patch_clip_path(self, self.axes)
 
     def _extent(self, part):
         """The display box of the label *part* as drawn, if it is."""

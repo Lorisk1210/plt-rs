@@ -10,7 +10,7 @@ of another figure, or outside any, clips with its outline as it is when
 it is given.
 """
 
-from . import _api, _live_transforms, _mirrors
+from . import _api, _background_patch, _live_transforms, _mirrors
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 from .path import Path
@@ -47,18 +47,52 @@ def _rectangle_clip_box(transform):
     return box
 
 
-#: The projections whose Axes' background is not a rectangle, whose
-#: artists matplotlib clips to its path rather than to a box.
-_ROUND = frozenset(["polar", "aitoff", "hammer", "lambert", "mollweide"])
-
-
 def patch_clip_box(artist, axes):
-    """The clip box of *artist* clipped to the patch of *axes* (its axis,
-    its ticks), kept for it; None for a background that is no rectangle."""
-    if axes.name in _ROUND:
+    """
+    The clip box of *artist* clipped to the patch of *axes*, as
+    matplotlib's ``set_clip_path(axes.patch)`` makes it, kept for it: the
+    unit box through the transform of a `.Rectangle` patch (the Axes box,
+    followed as it is laid out, for the unit square); None for a patch of
+    another shape, which clips with its path (`patch_clip_path`).
+    """
+    from .patches import Rectangle
+    if _is_axes_box(axes):
+        return _live_transforms.kept(artist, "clip box", None,
+                                     lambda: _rectangle_clip_box(axes.transAxes))
+    patch = _background_patch.axes_patch_shape(axes)
+    if not isinstance(patch, Rectangle):
         return None
-    return _live_transforms.kept(artist, "clip box", None,
-                                 lambda: _rectangle_clip_box(axes.transAxes))
+    return _live_transforms.kept(
+        artist, "clip box", patch,
+        lambda: TransformedBbox(Bbox.unit(), patch.get_transform()))
+
+
+def _is_axes_box(axes):
+    """Whether the patch of *axes* is the unit square of its box, which
+    pltrs (Rust) knows without the patch being made."""
+    return not _artist.clips_to_patch_shape(axes._native)
+
+
+def patch_clip_path(artist, axes):
+    """The clip path of *artist* clipped to the patch of *axes*, as
+    matplotlib's ``set_clip_path(axes.patch)`` makes it, kept for it: the
+    patch's `.TransformedPatchPath`, None for a `.Rectangle` (which clips
+    as its box, `patch_clip_box`)."""
+    from .patches import Rectangle
+    if _is_axes_box(axes):
+        return None
+    patch = _background_patch.axes_patch_shape(axes)
+    if isinstance(patch, Rectangle):
+        return None
+    return _live_transforms.kept(artist, "clip path", patch,
+                                 lambda: TransformedPatchPath(patch))
+
+
+def _spanned_axes(figure, spanning):
+    """The Axes whose box the native transform *spanning* spans, None for
+    a (sub)figure's (or an Axes without a Python object)."""
+    kind, *args = _transforms.describe(spanning)
+    return figure._artists.get(args[0]) if kind == "axes" else None
 
 
 def take_parent_defaults(artist, parent, clip=True):
@@ -153,6 +187,7 @@ class ClippingMixin:
             default clipping for an artist added to an Axes.
         """
         _api.check_isinstance((BboxBase, None), clipbox=clipbox)
+        self._keep_patch_path()
         spanning = getattr(clipbox, "_spanning", None)
         if clipbox is None or spanning is not None:
             _artist.set_clip_box(
@@ -176,12 +211,43 @@ class ClippingMixin:
         """Return the clipbox."""
         if "_clipbox" in self.__dict__:
             return self._clipbox
-        if self._figure is None:
-            return None
-        spanning = _artist.get_clip_box(self._native)
+        mirrored = _mirrors.ask(self, "clip_box")
+        if mirrored is not _mirrors.OWN:
+            return mirrored
+        spanning = self._native_clip_box()
         if spanning is None:
             return None
+        axes = _spanned_axes(self._figure, spanning)
+        if axes is not None and not _is_axes_box(axes):
+            return patch_clip_box(self, axes)
         return self._spanned_clip_box(spanning)
+
+    def _native_clip_box(self):
+        """The native transform spanning the box of the Axes or (sub)figure
+        pltrs (Rust) clips the artist to, None for none."""
+        return None if self._figure is None else _artist.get_clip_box(self._native)
+
+    def _patch_clipping_axes(self):
+        """The Axes whose patch, of another shape than a `.Rectangle`,
+        clips the artist through the box pltrs (Rust) clips it to (as
+        matplotlib's ``set_clip_path(axes.patch)``), with no clip path set
+        since; None otherwise."""
+        if "_clippath" in self.__dict__:
+            return None
+        spanning = self._native_clip_box()
+        axes = None if spanning is None else _spanned_axes(self._figure, spanning)
+        if axes is None or patch_clip_path(self, axes) is None:
+            return None
+        return axes
+
+    def _keep_patch_path(self):
+        """Before the clip box changes: keep clipping the artist to the
+        patch of its Axes when that clips it with its path, as an explicit
+        clip path (matplotlib's ``set_clip_box`` leaves the clip path)."""
+        axes = self._patch_clipping_axes()
+        if axes is not None:
+            _artist.set_clip_path(self._native, ("artist", axes._native))
+            self._clippath = patch_clip_path(self, axes)
 
     def _spanned_clip_box(self, spanning):
         """
@@ -222,6 +288,9 @@ class ClippingMixin:
         from .patches import Patch, Rectangle
 
         spec = clip_path_spec(path, transform)
+        if self._patch_clipping_axes() is not None:
+            # The patch path clipping the artist is replaced.
+            _artist.set_clip_box(self._native, None)
         if transform is None and isinstance(path, tuple):
             path, transform = path
         if transform is None and isinstance(path, Rectangle):
@@ -250,7 +319,13 @@ class ClippingMixin:
 
     def get_clip_path(self):
         """Return the clip path."""
-        return self.__dict__.get("_clippath")
+        if "_clippath" in self.__dict__:
+            return self._clippath
+        mirrored = _mirrors.ask(self, "clip_path")
+        if mirrored is not _mirrors.OWN:
+            return mirrored
+        axes = self._patch_clipping_axes()
+        return None if axes is None else patch_clip_path(self, axes)
 
     def get_transformed_clip_path_and_affine(self):
         """

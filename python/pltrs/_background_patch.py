@@ -85,11 +85,18 @@ def _made(owner, patch, mirroring, transform):
 def axes_patch(axes):
     """The patch of the background of *axes* (the same object while the
     Axes keeps it), with the background's style."""
+    patch = axes_patch_shape(axes)
+    patch._mirror.pull(patch)
+    return patch
+
+
+def axes_patch_shape(axes):
+    """The patch of the background of *axes* as `axes_patch` gives it, for
+    its shape and place alone (what clips to it), its style not read."""
     patch = axes.__dict__.get("_patch")
     if patch is None:
         patch = _made(axes, axes._gen_axes_patch(), _AxesBackground(axes),
                       axes.transAxes)
-    patch._mirror.pull(patch)
     return patch
 
 

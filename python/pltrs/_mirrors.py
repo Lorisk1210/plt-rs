@@ -71,6 +71,14 @@ class Mirroring:
         in display pixels, or `OWN`."""
         return OWN
 
+    def clip_box(self, artist):
+        """The clip box of the part (``get_clip_box``), or `OWN`."""
+        return OWN
+
+    def clip_path(self, artist):
+        """The clip path of the part (``get_clip_path``), or `OWN`."""
+        return OWN
+
     def clip_spec(self, artist):
         """The native clip region of artists clipped to the part (see
         `._artist_clipping`), or `OWN`."""

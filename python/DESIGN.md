@@ -367,32 +367,66 @@ its frame and gives it its four `ConnectionPatch`es (`_native.insets`).
 
 Offset boxes are the exception: their constructors take no parent, so
 an `AnchoredOffsetbox` or an `AnnotationBbox` is a plain loose artist
-until it is added, and the artists of its tree (the texts of text
-areas, the patches and lines of drawing areas, the image of an
-`OffsetImage`) are loose artists. Adding the box describes its tree to
-pltrs (Rust) (`OffsetBox._native_tree`, `_native.offsetbox`), whose
+until it is added (every `OffsetBox` is a loose
+`pltrs::offsetbox::ProgramBoxArtist` then, `_native.offsetbox.new_box`),
+and the artists of its tree (the texts of text areas, the patches and
+lines of drawing areas, the image of an `OffsetImage`, the frames of
+padded and anchored boxes, made with the box as matplotlib makes them)
+are loose artists. Adding the box describes its tree to pltrs (Rust)
+(`OffsetBox._native_tree`, `_native.offsetbox`), whose
 `BoxItem::from_loose` moves each artist out of its holder into the box;
-the box takes the common properties of the plain artist, and
-`OffsetBox._adopt_tree` gives every Python artist of the tree its handle
-in the figure. The boxes of a joined tree are in the figure of the box
-added with it (`_tree_owner`): their figure, Axes (an `OffsetBox` gives
-its children its Axes, an `AnnotationBbox` none) and staleness are that
-box's. A change to a leaf pltrs (Rust) lays out (the clipping and size of
-a drawing area, the zoom of an offset image) reaches the tree through
-the added box and the leaf's index among those of its kind
-(`_owner_box`, `pltrs::offsetbox::edit_tree`).
+the box takes the common properties of the plain artist, and the box that
+added the tree, its owner (`_offsetbox_trees.TreeOwner`), gives every
+Python artist of the tree its handle in the figure. Each box of the tree
+knows its place in it (`_node`: the owner's handle and its index in tree
+order, a box before the boxes inside it), its figure, Axes (an
+`OffsetBox` gives its children its Axes, an `AnnotationBbox` none) and
+staleness being the owner's (`_tree_owner`). Through its place, every box
+of the package's has matplotlib's protocol: `get_bbox` is the extent pltrs
+(Rust) lays it out with (`pltrs::offsetbox::node_extent`), `get_offset`
+where its parent placed it at the last draw (`node_origin`), which a
+hidden box keeps, `get_window_extent` the two together, and `draw` draws
+its artists where pltrs (Rust) placed them (a container through
+matplotlib's own `OffsetBox.draw`), so that matplotlib's algorithms
+written in Python work over them.
+
+matplotlib reads a box's settings and children again whenever it draws
+it, so the owner hands pltrs (Rust) its tree again whenever the
+description changed (`TreeOwner._sync_tree`,
+`pltrs::offsetbox::rebuild_tree`, which keeps the artists the tree held,
+takes the loose ones and lets go of those it no longer holds): when a
+setting of a box is set (packers' `pad`, `sep`, `width`, `height`,
+`align` and `mode`, a padded box's `pad`, a drawing area's size and
+clipping, an image's zoom, a text area's `multilinebaseline`, a box's
+visibility: `_offsetbox_trees.TreeSetting`, `OffsetBox._changed`), before
+Python measures a box of the tree, and before every layout of a draw
+(owners follow their figure's layout hook, `axes._program_locators`),
+which sees the changes Python cannot (a list of children changed in
+place). An anchored box hands its anchoring settings again the same way.
 
 A box of a class of the program's that sizes and draws itself (an
-`OffsetBox` subclass describing no tree, `OffsetBox._sizes_itself`) is a
-leaf of the tree, `("program", box)`: its own loose artist becomes a
-`pltrs::offsetbox::ProgramBoxArtist`, whose painter is the box (see
+`OffsetBox` subclass describing no tree, or a subclass of the package's
+boxes overriding `draw`, `get_bbox`, `get_offset` or
+`_get_bbox_and_child_offsets`: `OffsetBox._sizes_itself`) is a leaf of
+the tree, `("program", visible, box)`, whose painter is the box (see
 "Drawing defined in Python"). Once the figure is laid out, pltrs (Rust)
 asks the painter for the box's extent (`ArtistPainter::box_extent`: its
 `get_bbox(renderer)`, through `_python_drawing.measure_box`) and lays the
 boxes holding such leaves out again; the box's `draw` then runs as a
 painted artist's, after its `set_offset` was given where its parent placed
 it (`OffsetBox._place_as_laid_out`), as matplotlib's parents do. Such a box
-added on its own is a painted artist.
+added on its own is a painted artist. It draws its children itself, as
+matplotlib's do: each box of the package's among them becomes a box placed
+at its offset that the program's box owns
+(`ProgramOffsetBox::add_box`, `OffsetBox._join_children`), laid out with
+the figure but drawn only where the program's `draw` draws it, after its
+`set_offset` moved it; a box of the program's among them hands its
+children on; a subclass of one of the package's leaves (a `DrawingArea`
+overriding `draw`) gets the box its class describes so, which the
+package's methods it calls (`super().draw(renderer)`) measure, place and
+draw. Such boxes are measured once per layout, where matplotlib's parents
+ask a child's `get_bbox` again in each of their `get_bbox`, `get_offset`
+and `draw`.
 
 A table's cells are no artists of their own in pltrs (Rust): they are
 part of the table's native state, and a Python `Cell` is the cell at its
@@ -509,8 +543,12 @@ it again once the count moved on.
   `Artist.get_transform` and `Collection.get_offset_transform` return the
   object they were given, or matplotlib's for the one pltrs (Rust) has.
   A clip box pltrs (Rust) gives is the unit box through the patch of its
-  Axes or figure, as matplotlib's `set_clip_path(self.patch)` makes it,
-  and `add_artist` gives what pltrs (Rust) adopts its own way (offset
+  Axes or figure, as matplotlib's `set_clip_path(self.patch)` makes it:
+  for an Axes whose patch is no `Rectangle` (polar, geographic, a
+  program's circle) no box but the patch's `TransformedPatchPath` as the
+  clip path, which a clip path set replaces and a clip box set keeps (the
+  same for the axis and the gridlines of its ticks,
+  `_artist_clipping.patch_clip_path`), and `add_artist` gives what pltrs (Rust) adopts its own way (offset
   boxes, inset indicators, quiver keys, tables) matplotlib's transform
   and clip box (`take_parent_defaults`). The parts of an axis (mirrors)
   answer with matplotlib's transforms of them

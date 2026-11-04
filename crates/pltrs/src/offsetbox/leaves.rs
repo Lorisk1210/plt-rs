@@ -164,6 +164,37 @@ impl<A: ArtistRef> TextArea<A> {
     }
 }
 
+/// The extent of a text area holding `text`, a text of a figure or a
+/// loose one, relative to the area's origin, in display pixels at its
+/// figure's resolution (matplotlib's `TextArea.get_bbox`).
+///
+/// ```
+/// use pltrs::artist::ArtistHandle;
+/// use pltrs::offsetbox::text_area_bbox;
+/// use pltrs::prelude::*;
+/// let text = Figure::new().text(0.0, 0.0, "one\ntwo");
+/// let single = text_area_bbox(text.raw(), false)?;
+/// let centred = text_area_bbox(text.raw(), true)?;
+/// assert_eq!(single.height(), centred.height());
+/// assert!(centred.y0() < single.y0(), "centred on the baseline");
+/// # Ok::<(), pltrs::offsetbox::OffsetBoxError>(())
+/// ```
+///
+/// # Errors
+///
+/// [`OffsetBoxError::MissingText`] when `text` is no text, or when it
+/// cannot be measured (malformed math).
+pub fn text_area_bbox(
+    text: &crate::artist::RawHandle,
+    multilinebaseline: bool,
+) -> Result<Bbox, OffsetBoxError> {
+    let state = text.figure_state().borrow();
+    let ctx = LayoutContext::new(&state);
+    Ok(TextArea::new(text.id(), multilinebaseline)
+        .extent(ctx)?
+        .bbox)
+}
+
 /// Artists in any coordinate system, shifted so that the lower-left corner
 /// of their extent is the box's origin (matplotlib's `AuxTransformBox`):
 /// unlike a [`DrawingArea`], the box is as large as its artists.

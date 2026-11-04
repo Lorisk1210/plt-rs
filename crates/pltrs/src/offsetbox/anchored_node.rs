@@ -8,8 +8,8 @@ use pltrs_core::{Bbox, Point};
 
 use super::anchored_box::{AnchoredBox, AnchoredOptions, AnchoredParts};
 use super::{
-    AnchorLoc, ArtistRef, BoxItem, OffsetBox, OffsetBoxError, Placement, TextArea, anchored_bbox,
-    transformed_bbox,
+    AnchorLoc, ArtistRef, BoxItem, OffsetBox, OffsetBoxError, Placement, TextArea, TreeLayout,
+    anchored_bbox, transformed_bbox,
 };
 use crate::artist::{ArtistId, LayoutContext};
 use crate::fonts::FontProperties;
@@ -44,10 +44,10 @@ pltrs_core::archive_struct!(Anchoring {
 pub(crate) struct AnchoredLayout<A> {
     /// The framed box, in display pixels.
     pub(crate) extent: Bbox,
-    /// Where the child box's origin goes (matplotlib's `get_offset`).
-    pub(crate) offset: Point,
-    /// Where the frame, then the child's artists go.
-    pub(crate) placements: Vec<Placement<A>>,
+    /// Where the frame, then the child's artists go, and where the origin
+    /// of each box of the child went (matplotlib's `get_offset` for the
+    /// child itself).
+    pub(crate) tree: TreeLayout<A>,
 }
 
 impl From<&AnchoredOptions> for Anchoring {
@@ -110,34 +110,48 @@ impl Anchoring {
         Ok(child.bbox(ctx)?.padded(pad, pad))
     }
 
-    /// Lays the box of `child` framed by `frame` out in `owner`, its axes
-    /// or figure, for paddings that are fractions of `fontsize` pixels:
-    /// at `pinned` when the box was dragged there, else at its anchor
-    /// (matplotlib's `AnchoredOffsetbox.draw`).
-    pub(crate) fn lay_out<A: ArtistRef>(
+    /// Lays `framed` out in `owner`, its axes or figure: at its pinned
+    /// place when the box was dragged there, else at its anchor
+    /// (matplotlib's `AnchoredOffsetbox.draw`). The frame and the child's
+    /// parts are placed into `layout`, where the child is the box
+    /// `child_index`; returns the framed box.
+    pub(crate) fn lay_out_into<A: ArtistRef>(
         &self,
         ctx: LayoutContext<'_>,
         owner: ArtistId,
-        child: &OffsetBox<A>,
-        frame: &A,
-        fontsize: f64,
-        pinned: Option<Point>,
-    ) -> Result<AnchoredLayout<A>, OffsetBoxError> {
+        framed: Framed<'_, A>,
+        layout: &mut TreeLayout<A>,
+        child_index: usize,
+    ) -> Result<Bbox, OffsetBoxError> {
+        let Framed {
+            child,
+            frame,
+            fontsize,
+            pinned,
+        } = framed;
         let bbox = self.padded(ctx, child, fontsize)?;
         let offset = pinned.map_or_else(|| self.offset(ctx, owner, &bbox, fontsize), Ok)?;
         let extent = bbox.translated(offset.x, offset.y);
-        let mut placements = vec![Placement::Frame {
+        layout.placements.push(Placement::Frame {
             frame: frame.clone(),
             bbox: extent,
             mutation_scale: Some(fontsize),
-        }];
-        placements.extend(child.place(ctx, offset)?);
-        Ok(AnchoredLayout {
-            extent,
-            offset,
-            placements,
-        })
+        });
+        child.place_into(ctx, offset, None, layout, child_index)?;
+        Ok(extent)
     }
+}
+
+/// An anchored box as [`Anchoring::lay_out_into`] lays it out.
+pub(crate) struct Framed<'a, A> {
+    /// The child box.
+    pub(crate) child: &'a OffsetBox<A>,
+    /// The frame (a `FancyBboxPatch`).
+    pub(crate) frame: &'a A,
+    /// The font size the paddings are fractions of, in pixels.
+    pub(crate) fontsize: f64,
+    /// Where the child's origin was pinned by dragging, in display pixels.
+    pub(crate) pinned: Option<Point>,
 }
 
 /// An anchored box inside another box's tree (matplotlib's
@@ -212,18 +226,36 @@ pub(crate) fn pad_font_points(prop: Option<&FontProperties>) -> f64 {
 }
 
 impl<A> AnchoredNode<A> {
+    /// `child` anchored as `options` say, framed by `frame` (a
+    /// `FancyBboxPatch`): an anchored box as a node of another box's tree
+    /// whose artists are given (handles of loose artists, say), its
+    /// paddings fractions of the size of `options.prop`.
+    pub fn new(child: OffsetBox<A>, options: &AnchoredOptions, frame: A) -> Self {
+        Self {
+            child: Box::new(child),
+            frame,
+            anchoring: Anchoring::from(options),
+            fontsize: Some(pad_font_points(options.prop.as_ref())),
+            owner: None,
+            visible: true,
+        }
+    }
+
     /// The same node with every artist reference replaced by `f` of it,
     /// the frame first.
-    pub(super) fn map<B>(self, f: &mut impl FnMut(A) -> B) -> AnchoredNode<B> {
-        let frame = f(self.frame);
-        AnchoredNode {
-            child: Box::new(self.child.map(f)),
+    pub(super) fn try_map<B, E>(
+        self,
+        f: &mut impl FnMut(A) -> Result<B, E>,
+    ) -> Result<AnchoredNode<B>, E> {
+        let frame = f(self.frame)?;
+        Ok(AnchoredNode {
+            child: Box::new(self.child.try_map(f)?),
             frame,
             anchoring: self.anchoring,
             fontsize: self.fontsize,
             owner: self.owner,
             visible: self.visible,
-        }
+        })
     }
 }
 
@@ -251,21 +283,24 @@ impl<A: ArtistRef> AnchoredNode<A> {
         self.anchoring.padded(ctx, &self.child, self.fontsize(ctx)?)
     }
 
-    /// Where the frame and the child's artists go: at the anchor, whatever
-    /// the parent's offset.
-    pub(super) fn place(
+    /// Places the frame and the child's artists into `layout`, where the
+    /// child is the box `child_index`: at the anchor, whatever the
+    /// parent's offset.
+    pub(super) fn place_into(
         &self,
         ctx: LayoutContext<'_>,
-    ) -> Result<Vec<Placement<A>>, OffsetBoxError> {
+        layout: &mut TreeLayout<A>,
+        child_index: usize,
+    ) -> Result<(), OffsetBoxError> {
         let owner = self.owner.ok_or(OffsetBoxError::Detached)?;
-        let layout = self.anchoring.lay_out(
-            ctx,
-            owner,
-            &self.child,
-            &self.frame,
-            self.fontsize(ctx)?,
-            None,
-        )?;
-        Ok(layout.placements)
+        let framed = Framed {
+            child: &self.child,
+            frame: &self.frame,
+            fontsize: self.fontsize(ctx)?,
+            pinned: None,
+        };
+        self.anchoring
+            .lay_out_into(ctx, owner, framed, layout, child_index)?;
+        Ok(())
     }
 }

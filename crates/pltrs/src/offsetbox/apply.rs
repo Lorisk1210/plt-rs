@@ -3,9 +3,8 @@
 
 use pltrs_core::Bbox;
 
-use super::{
-    AnchoredBoxArtist, AnnotationBboxArtist, ArtistRef, OffsetBox, PlacedBoxArtist, Placement,
-};
+use super::owners::{owner, owner_mut};
+use super::{AnnotationBboxArtist, ArtistRef, OffsetBox, OffsetBoxError, Placement, TreeLayout};
 use crate::artist::{
     Artist, ArtistId, ArtistStore, ClipPathSpec, DrawError, LayoutContext, RawHandle,
 };
@@ -114,26 +113,9 @@ fn measure_aux_boxes(state: &mut FigureState, tree: &mut OffsetBox<ArtistId>) {
 /// ```
 pub fn edit_tree<R>(owner: &RawHandle, f: impl FnOnce(&mut OffsetBox<ArtistId>) -> R) -> Option<R> {
     let mut state = owner.figure_state().borrow_mut();
-    let result = tree_mut(&mut state.store, owner.id()).map(f)?;
+    let result = owner_mut(&mut state.store, owner.id()).map(|found| f(found.tree_mut()))?;
     state.mark_stale(owner.id());
     Some(result)
-}
-
-/// The tree of the anchored, annotation or placed box `id`, if it is one.
-fn tree_mut(store: &mut ArtistStore, id: ArtistId) -> Option<&mut OffsetBox<ArtistId>> {
-    if store.get_as::<AnchoredBoxArtist>(id).is_some() {
-        return store
-            .get_as_mut::<AnchoredBoxArtist>(id)
-            .map(|anchored| &mut anchored.child);
-    }
-    if store.get_as::<PlacedBoxArtist>(id).is_some() {
-        return store
-            .get_as_mut::<PlacedBoxArtist>(id)
-            .map(|placed| &mut placed.child);
-    }
-    store
-        .get_as_mut::<AnnotationBboxArtist>(id)
-        .map(|annotation| &mut annotation.child)
 }
 
 /// The artists the annotation box `id` is placed against that the figure
@@ -152,22 +134,15 @@ fn drawn_before(state: &FigureState, id: ArtistId) -> Vec<ArtistId> {
         .collect()
 }
 
-/// Where the parts of the anchored, annotation or placed box `id` go.
-fn placements(
+/// The layout of the tree of the anchored, annotation or placed box `id`
+/// in the figure's state of now.
+pub(super) fn tree_layout(
     state: &FigureState,
     id: ArtistId,
-) -> Option<Result<Vec<Placement<ArtistId>>, String>> {
+) -> Option<Result<TreeLayout<ArtistId>, OffsetBoxError>> {
     let drawn = drawn_before(state, id);
     let ctx = LayoutContext::new(state).with_drawn(&drawn);
-    let store = &state.store;
-    let laid_out = if let Some(anchored) = store.get_as::<AnchoredBoxArtist>(id) {
-        anchored.layout(ctx).map(|layout| layout.placements)
-    } else if let Some(placed) = store.get_as::<PlacedBoxArtist>(id) {
-        placed.placements(ctx)
-    } else {
-        store.get_as::<AnnotationBboxArtist>(id)?.placements(ctx)
-    };
-    Some(laid_out.map_err(|err| err.to_string()))
+    Some(owner(&state.store, id)?.lay_out_tree(ctx))
 }
 
 /// Lays out every anchored, annotation and placed box of the figure and
@@ -177,14 +152,24 @@ pub(crate) fn lay_out_boxes(state: &mut FigureState) {
     let boxes: Vec<ArtistId> = state
         .store
         .ids()
-        .filter(|&id| {
-            state.store.get_as::<AnchoredBoxArtist>(id).is_some()
-                || state.store.get_as::<AnnotationBboxArtist>(id).is_some()
-                || state.store.get_as::<PlacedBoxArtist>(id).is_some()
-        })
+        .filter(|&id| owner(&state.store, id).is_some())
         .collect();
     for id in boxes {
         lay_out_box(state, id);
+    }
+}
+
+/// Brings what the tree of the anchored, annotation or placed box `id`
+/// measures of its artists up to date: the extents of its aux-transform
+/// boxes and of its boxes of the program's.
+pub(super) fn refresh_tree(state: &mut FigureState, id: ArtistId) {
+    let Some(mut tree) = owner(&state.store, id).map(|found| found.tree().clone()) else {
+        return;
+    };
+    measure_aux_boxes(state, &mut tree);
+    super::program::sync_program_boxes(state, &mut tree);
+    if let Some(found) = owner_mut(&mut state.store, id) {
+        *found.tree_mut() = tree;
     }
 }
 
@@ -192,17 +177,12 @@ pub(crate) fn lay_out_boxes(state: &mut FigureState) {
 /// state of now and moves its parts into place; a box that cannot be laid
 /// out is reported with the next draw.
 pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
-    let Some(mut tree) = tree_mut(&mut state.store, id).map(|tree| tree.clone()) else {
-        return;
-    };
-    measure_aux_boxes(state, &mut tree);
-    super::program::sync_program_boxes(state, &mut tree);
-    if let Some(stored) = tree_mut(&mut state.store, id) {
-        *stored = tree;
-    }
-    match placements(state, id) {
-        Some(Ok(placements)) => apply_placements(&mut state.store, placements),
-        Some(Err(message)) => state.pending_errors.push(DrawError::new(id, message)),
+    refresh_tree(state, id);
+    match tree_layout(state, id) {
+        Some(Ok(layout)) => apply_placements(&mut state.store, layout.placements),
+        Some(Err(err)) => state
+            .pending_errors
+            .push(DrawError::new(id, err.to_string())),
         None => {}
     }
 }

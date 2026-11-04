@@ -8,6 +8,7 @@ use super::camera::{Camera, Projection};
 use super::coords::{Axis3, roll};
 use super::handle::Axes3D;
 use super::math::Vec3;
+use super::state::Axes3DState;
 
 /// The box corners making up the two planes normal to x, y and z (low
 /// then high side), as indices into [`BoxGeometry::corners`].
@@ -231,18 +232,39 @@ impl Axes3D {
     /// assert_eq!(ax.axis_highs(), [true, false, true]);
     /// ```
     pub fn axis_highs(&self) -> [bool; 3] {
-        self.with(|axes| {
-            let [x0, x1, y0, y1, z0, _] = axes.scaled_limits();
-            let corners = axes.projection().project_transformed_all(&[
-                [x0, y0, z0],
-                [x1, y0, z0],
-                [x1, y1, z0],
-                [x0, y1, z0],
-            ]);
-            let deeper = |k: usize| corners[k][2] > corners[2][2];
-            [deeper(1), deeper(3), deeper(0)]
-        })
+        self.with(|axes| axis_highs_through(axes, &axes.projection()))
     }
+}
+
+/// Whether the x, y and z axes of `axes` are drawn on their high side
+/// seen through `projection` (matplotlib's `get_axis_position`).
+pub(super) fn axis_highs_through(axes: &Axes3DState, projection: &Projection) -> [bool; 3] {
+    let [x0, x1, y0, y1, z0, _] = axes.scaled_limits();
+    let corners = projection.project_transformed_all(&[
+        [x0, y0, z0],
+        [x1, y0, z0],
+        [x1, y1, z0],
+        [x0, y1, z0],
+    ]);
+    let deeper = |k: usize| corners[k][2] > corners[2][2];
+    [deeper(1), deeper(3), deeper(0)]
+}
+
+/// The pane along `dir` of `axes` seen through `projection`, as
+/// [`Axis3D::active_pane`] gives it.
+pub(super) fn active_pane_through(
+    axes: &Axes3DState,
+    dir: Axis3,
+    projection: &Projection,
+) -> ([Vec3; 4], f64) {
+    let geometry = BoxGeometry::new(axes.scaled_limits(), projection);
+    let i = dir.index();
+    let at = if geometry.highs[i] {
+        geometry.maxs[i]
+    } else {
+        geometry.mins[i]
+    };
+    (geometry.pane(dir), at)
 }
 
 impl Axis3D {
@@ -284,18 +306,8 @@ impl Axis3D {
     /// assert_eq!(at, ax.zlim().0);
     /// ```
     pub fn active_pane(&self) -> ([Vec3; 4], f64) {
-        self.axes.with(|axes| {
-            let projection = axes.projection();
-            let geometry = BoxGeometry::new(axes.scaled_limits(), &projection);
-            let i = self.dir.index();
-            let corners = geometry.pane(self.dir);
-            let at = if geometry.highs[i] {
-                geometry.maxs[i]
-            } else {
-                geometry.mins[i]
-            };
-            (corners, at)
-        })
+        self.axes
+            .with(|axes| active_pane_through(axes, self.dir, &axes.projection()))
     }
 
     /// The coordinate (0 for x, 1 for y, 2 for z) the tick marks extend

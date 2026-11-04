@@ -250,9 +250,9 @@ def build_axes(ax):
     _watch_leaf(ax, d["_viewLim"], functools.partial(_push_limits, ax, "view"))
     _watch_leaf(ax, d["dataLim"], functools.partial(_push_limits, ax, "data"))
     # Also an Axes outside the figure as its trees are built (one its
-    # class' constructor builds, which joins the figure later under its id).
-    root._tree_owners[_artist.id(ax._native)] = ax
-    _transforms.watch_axes(ax._native)
+    # class' constructor builds, which joins the figure later under its
+    # id), under the id its leaves come with (a 3-D Axes' plane's).
+    root._tree_owners[_transforms.watch_axes(ax._native)] = ax
 
 
 def _set_axes_boxes(ax, leaves):

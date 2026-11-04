@@ -65,9 +65,13 @@ impl Points3D {
             .map(|p| p.map_or(Point::new(f64::NAN, f64::NAN), |p| Point::new(p[0], p[1])))
             .collect();
         if self.depth_sorted {
+            let Some(order) = self.sort_styles(collection, &projected, &depths) else {
+                // matplotlib's projection fails sorting the sizes or the
+                // widths, before it gives the collection its offsets.
+                return f64::NAN;
+            };
             // matplotlib keeps the offsets in data order and draws them
             // sorted (`_offset_zordered`).
-            let order = self.sort_styles(collection, &projected, &depths);
             if let Some(sorted) = &mut collection.depth_sorted {
                 sorted.offsets = Some(order.iter().map(|&i| offsets[i]).collect());
             }
@@ -83,16 +87,17 @@ impl Points3D {
 
     /// Sorts the sizes, widths and colours (faded with depth) of the
     /// markers of `collection` from the deepest to the nearest, worked out
-    /// afresh so that later changes show, and returns that order. Styles
-    /// that cannot be sorted are left to be reported when it is drawn,
-    /// matplotlib failing then (sizes and widths first, as it sorts them
-    /// projecting).
+    /// afresh so that later changes show, and returns that order; `None`
+    /// when the sizes or the widths cannot be sorted, which matplotlib
+    /// fails at projecting. Styles that cannot be sorted are left to be
+    /// reported when the axes or the collection is drawn, matplotlib
+    /// failing then (sizes and widths first, as it sorts them projecting).
     fn sort_styles(
         &self,
         collection: &mut CollectionArtist,
         projected: &[Option<Vec3>],
         depths: &[f64],
-    ) -> Vec<usize> {
+    ) -> Option<Vec<usize>> {
         let order = deepest_first(depths);
         let data_scale = data_scale(projected);
         let alpha = collection.base().alpha;
@@ -108,19 +113,18 @@ impl Points3D {
         let colors = (collection.base_colors().ok())
             .map(|(faces, edges)| Ok((shade(&faces)?, shade(&edges)?)))
             .transpose();
-        let problem = [sizes.as_ref(), linewidths.as_ref()]
+        let projecting = [sizes.as_ref(), linewidths.as_ref()]
             .into_iter()
             .find_map(Result::err)
-            .or(colors.as_ref().err())
             .copied();
         collection.depth_sorted = Some(DepthSorted {
-            colors: colors.ok().flatten(),
+            colors: colors.as_ref().ok().cloned().flatten(),
             sizes: sizes.ok().flatten(),
             linewidths: linewidths.ok().flatten(),
             offsets: None,
-            problem,
+            problem: projecting.or(colors.err()),
         });
-        order
+        projecting.is_none().then_some(order)
     }
 
     /// `colors` faded with depth (one colour per marker then) when depth

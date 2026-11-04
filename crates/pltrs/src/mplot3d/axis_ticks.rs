@@ -7,13 +7,44 @@
 
 use super::axis_draw::{GridLine3D, TickLine3D, grid_lines, tick_lines};
 use super::axis_handle::Axis3D;
+use super::axis3d::{Axis3DState, AxisSpan};
 use super::state::{Axes3DState, prepare_one};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::axes::{AxisName, TickSet};
 use crate::dates::TimeZone;
-use crate::ticker::{AxisInfo, TickerError};
+use crate::ticker::{AxisInfo, TickContext, TickerError, TickerSettings, drawable_ticks};
 use crate::transforms::TransformContext;
 use crate::units::UnitHandle;
+
+impl Axis3DState {
+    /// The locations the major (or `minor`) locator places for an axes
+    /// `length_points` wide, as [`Axis3D::ticklocs`] gives them
+    /// (matplotlib's `get_majorticklocs` and `get_minorticklocs`).
+    fn level_locs(
+        &self,
+        span: &AxisSpan,
+        length_points: f64,
+        minor: bool,
+    ) -> Result<Vec<f64>, TickerError> {
+        let mut info = self.info(span, length_points);
+        let settings = TickerSettings::current();
+        let major = drawable_ticks(
+            (self.tickers.major_locator).locate(&TickContext::new(&info, &settings))?,
+        )?;
+        if !minor {
+            return Ok(major);
+        }
+        info.major_ticks.clone_from(&major);
+        let locs = drawable_ticks(
+            (self.tickers.minor_locator).locate(&TickContext::new(&info, &settings))?,
+        )?;
+        Ok(if self.remove_overlapping {
+            self.without_overlaps(locs, &major, span.view)
+        } else {
+            locs
+        })
+    }
+}
 
 impl Axis3D {
     /// The ticks the axis draws in the current view, after a layout pass
@@ -24,22 +55,26 @@ impl Axis3D {
     ///
     /// When a locator or formatter fails.
     pub fn ticks(&self) -> Result<TickSet, TickerError> {
-        {
-            let mut figure = self.axes.raw().figure_state().borrow_mut();
-            figure.prepare();
-            if !figure.is_attached(self.axes.id()) {
-                prepare_one(&mut figure, self.axes.id());
-            }
-        }
+        self.lay_out();
         let dir = self.dir;
         self.axes.with(|axes| axes.axis(dir).ticks.clone())
     }
 
-    /// Every major (or minor) tick location of the current view, inside
-    /// it or not; minor locations on major ticks are left out
-    /// (matplotlib's `Axis.get_ticklocs`, `Axes3D.get_zticks` for the z
-    /// axis). A level whose marks, labels and gridlines are all hidden
-    /// has no locations.
+    /// Brings the layout of the axes up to date (a removed axes where it
+    /// was in its figure).
+    fn lay_out(&self) {
+        let mut figure = self.axes.raw().figure_state().borrow_mut();
+        figure.prepare();
+        if !figure.is_attached(self.axes.id()) {
+            prepare_one(&mut figure, self.axes.id(), false);
+        }
+    }
+
+    /// Every major (or minor) tick location the locator places for the
+    /// current view, inside it or not, whatever the axis shows; minor
+    /// locations on major ticks are left out unless overlapping locations
+    /// are kept (matplotlib's `Axis.get_ticklocs`, which asks the locator
+    /// of the level only, and `Axes3D.get_zticks` for the z axis).
     ///
     /// ```
     /// use pltrs::figure::Figure;
@@ -53,7 +88,15 @@ impl Axis3D {
     ///
     /// When a locator or formatter fails.
     pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
-        Ok(self.ticks()?.unclipped_locs(minor))
+        self.lay_out();
+        let points = (self.axes.raw().figure_state().borrow())
+            .axis_length_points(self.axes.id(), AxisName::X)
+            .unwrap_or(0.0);
+        let dir = self.dir;
+        self.axes.with(|axes| {
+            axes.axis(dir)
+                .level_locs(&axes.limits.span(dir), points, minor)
+        })
     }
 
     /// What a locator or formatter attached to this axis knows of it: its

@@ -261,6 +261,36 @@ impl Axes3D {
         })
     }
 
+    /// Whether a polygon collection of these axes was projected (by a
+    /// layout or [`Axes3D::do_3d_projection`]): until then its 2-D side
+    /// holds no polygons, and its colours are those it was given, where
+    /// matplotlib's getters project it to answer with its depth-sorted
+    /// ones (`Poly3DCollection.get_facecolor` and `get_edgecolor`).
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionProps;
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let triangle = vec![vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]];
+    /// let polys = ax.add_poly_collection3d(triangle, CollectionProps::default(), true)?;
+    /// assert!(!ax.poly_projected(&polys)?);
+    /// ax.do_3d_projection(&polys)?;
+    /// assert!(ax.poly_projected(&polys)?);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `collection` is not a polygon collection of these axes.
+    pub fn poly_projected(&self, collection: &Collection) -> Result<bool, Axes3DError> {
+        self.read_art(collection, |art| {
+            matches!(art, Art3D::Polys(_)).then_some(())
+        })?;
+        Ok(collection
+            .raw()
+            .with::<CollectionArtist, _>(|c| c.depth_sorted.is_some()))
+    }
+
     /// Takes the face colours (with `faces`) and the edge colours (with
     /// `edges`) of a polygon collection of these axes as they are now as
     /// the colours its polygons are drawn with (matplotlib's

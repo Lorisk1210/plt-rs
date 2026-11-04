@@ -18,6 +18,7 @@
 //! * [`contours`]: contours of grids and triangulations in 3-D;
 //! * [`art3d`]: the 3-D geometry of artists already made, and the
 //!   projection math of matplotlib's `proj3d`;
+//! * [`drawn`]: what the axes keeps of its last draw (`M`, `invM`);
 //! * [`axis3d`]: the formatters, ticks and edges of the three axes.
 
 mod art3d;
@@ -25,6 +26,7 @@ mod axis3d;
 mod charts;
 mod contours;
 mod create;
+mod drawn;
 mod edits;
 mod limits;
 mod plotting;
@@ -77,6 +79,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     contours::register(module)?;
     charts::register(module)?;
     edits::register(module)?;
+    drawn::register(module)?;
     axis3d::register(module)
 }
 

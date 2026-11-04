@@ -3,6 +3,7 @@
 
 use std::rc::Rc;
 
+use pltrs_core::path::DataLimits;
 use pltrs_core::{Anchor, Bbox};
 
 use super::art3d::{Art3D, Artist3D};
@@ -14,7 +15,7 @@ use super::share::replay;
 use super::state::{Axes3DState, BoxFit};
 use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle, TypedHandle};
-use crate::axes::Axes;
+use crate::axes::{Axes, AxesState};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
@@ -61,7 +62,9 @@ impl Axes3D {
     /// Changes the axes, then lets the axes sharing its limits follow the
     /// limits it set (matplotlib's `emit=True`).
     pub(crate) fn with_mut<R>(&self, f: impl FnOnce(&mut Axes3DState) -> R) -> R {
+        let plane_minpos = super::state::plane_minpos(&self.raw.figure_state().borrow(), self.id());
         let (result, changes) = self.raw.with_mut::<Axes3DState, _>(|axes| {
+            axes.limits.plane_minpos = plane_minpos;
             let result = f(axes);
             (result, axes.take_limit_changes())
         });
@@ -91,6 +94,40 @@ impl Axes3D {
     pub(crate) fn plane(&self) -> Axes {
         let id = self.with(|axes| axes.plane);
         Axes::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), id))
+    }
+
+    /// Runs `plot` on the projection plane, its 2-D data limits left as
+    /// they were: matplotlib's 2-D plotting methods extend them through
+    /// `update_datalim`, which `Axes3D` makes a no-op (the collections and
+    /// patches of its plotting methods leave them alone, its lines extend
+    /// them directly).
+    pub(crate) fn on_plane_keeping_limits<R>(&self, plot: impl FnOnce(&Axes) -> R) -> R {
+        let plane = self.plane();
+        let kept = plane.data_lim();
+        let result = plot(&plane);
+        self.restore_plane_data_lim(kept);
+        result
+    }
+
+    /// Gives the projection plane back the 2-D data limits `limits`, taken
+    /// (`projection_plane().data_lim()`) before a 2-D plotting method
+    /// extended them through matplotlib's `update_datalim`, which
+    /// `Axes3D` makes a no-op.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let kept = ax.projection_plane().data_lim();
+    /// ax.projection_plane().bar(vec![1.0, 2.0], vec![3.0, 4.0], Default::default())?;
+    /// ax.restore_plane_data_lim(kept);
+    /// assert_eq!(ax.projection_plane().data_lim(), kept);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn restore_plane_data_lim(&self, limits: DataLimits) -> &Self {
+        self.plane()
+            .raw()
+            .with_mut::<AxesState, _>(|axes| axes.data_lim = limits);
+        self
     }
 
     /// Adds a 2-D artist to the projection plane, clipped to the axes and
@@ -143,6 +180,7 @@ impl Axes3D {
                 art,
                 axlim_clip,
                 sources: Sources3D::default(),
+                drawn: false,
             });
         });
     }
@@ -279,6 +317,24 @@ impl Axes3D {
     /// ```
     pub fn set_anchor(&self, anchor: Anchor) -> &Self {
         self.with_mut(|axes| axes.anchor = anchor);
+        self
+    }
+
+    /// Moves the axes to `position` in the fractions of its frame, where
+    /// its box is made square at the next draw (matplotlib's
+    /// `set_position` of the original position, which the active one
+    /// follows).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::transforms::Bbox;
+    /// let ax = Figure::with_size(6.4, 4.8, 100.0).subplot_3d();
+    /// ax.set_position(Bbox::from_bounds(0.1, 0.1, 0.5, 0.5));
+    /// assert_eq!(ax.original_position(), Bbox::from_bounds(0.1, 0.1, 0.5, 0.5));
+    /// assert!((ax.squared_position().width() - 0.375).abs() < 1e-12);
+    /// ```
+    pub fn set_position(&self, position: Bbox) -> &Self {
+        self.place(position, None);
         self
     }
 
@@ -488,6 +544,22 @@ impl Axes3D {
     pub fn set_vertical_axis(&self, axis: Axis3) -> &Self {
         self.with_mut(|axes| axes.camera.vertical = axis);
         self
+    }
+
+    /// The focal length of the virtual camera: infinite for an
+    /// orthographic projection (matplotlib's `_focal_length`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::ProjType;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert_eq!(ax.focal_length(), 1.0);
+    /// ax.set_proj_type(ProjType::Ortho)?;
+    /// assert_eq!(ax.focal_length(), f64::INFINITY);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    pub fn focal_length(&self) -> f64 {
+        self.with(|axes| axes.camera.focal_length())
     }
 
     /// Switches between perspective and orthographic projection

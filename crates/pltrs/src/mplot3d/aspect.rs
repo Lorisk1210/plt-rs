@@ -205,9 +205,27 @@ impl Axes3D {
         self.with(|axes| axes.aspect.aspect)
     }
 
-    /// What [`Axes3D::set_aspect`] last changed to equalise the scales.
+    /// What changes to equalise the scales: what [`Axes3D::set_aspect`]
+    /// last changed, or what [`Axes3D::set_adjustable`] set since.
     pub fn adjustable(&self) -> Adjustable {
         self.with(|axes| axes.aspect.adjustable)
+    }
+
+    /// Sets what changes to equalise the scales, which the next
+    /// [`Axes3D::set_aspect`] and zooms keeping the aspect read, the
+    /// aspect left as it is (matplotlib's `set_adjustable`).
+    ///
+    /// ```
+    /// use pltrs::axes::Adjustable;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Aspect3D;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_adjustable(Adjustable::Datalim);
+    /// assert_eq!((ax.aspect(), ax.adjustable()), (Aspect3D::Auto, Adjustable::Datalim));
+    /// ```
+    pub fn set_adjustable(&self, adjustable: Adjustable) -> &Self {
+        self.with_mut(|axes| axes.aspect.adjustable = adjustable);
+        self
     }
 
     /// Scales the limits by `scale_u`, `scale_v` and `scale_w` along the

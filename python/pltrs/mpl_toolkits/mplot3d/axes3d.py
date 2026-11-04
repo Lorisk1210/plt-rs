@@ -12,13 +12,15 @@ Matplotlib License, kept as it is).
 """
 
 import textwrap
+import threading
 import warnings
 
 import numpy as np
 
 from pltrs import _api, _handles, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
-from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
+from pltrs._native import artist as _artist, axes as _axes, axis as _axis
+from pltrs._native import mplot3d as _mplot3d
 from pltrs.axes import Axes
 from pltrs.axes._ticks import _axis_method_wrapper
 from pltrs._artist_kwargs import keep_program_picker
@@ -105,6 +107,11 @@ def _face_colors(fcolors, shape):
 #: The names of the view angles, in the order of a view.
 _VIEW_ANGLES = ("elev", "azim", "roll")
 
+#: What the 3-D axes a thread makes next was given that its native axes
+#: does not keep: the view angles as given (``view``) and the axes it
+#: shares its view with (``shareview``).
+_made = threading.local()
+
 
 class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     """
@@ -183,17 +190,21 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         keyword arguments in *kwargs*, and the other keyword arguments.
         """
         kwargs = dict(kwargs)
-        initial = (float(kwargs.pop('elev', 30)), float(kwargs.pop('azim', -60)),
-                   float(kwargs.pop('roll', 0)))
+        given = (kwargs.pop('elev', 30), kwargs.pop('azim', -60),
+                 kwargs.pop('roll', 0))
+        # For `_init_3d_state`, on this thread: the axes made next.
+        _made.view = given
+        initial = tuple(map(float, given))
         proj_type = kwargs.pop('proj_type', 'persp')
         focal_length = cls._checked_focal_length(
             proj_type, kwargs.pop('focal_length', None))
         box_aspect = kwargs.pop('box_aspect', None)
         computed_zorder = bool(kwargs.pop('computed_zorder', True))
-        shares = tuple(
-            None if other is None else other._native
-            for other in (kwargs.pop('sharex', None), kwargs.pop('sharey', None),
-                          kwargs.pop('sharez', None), kwargs.pop('shareview', None)))
+        given_shares = (kwargs.pop('sharex', None), kwargs.pop('sharey', None),
+                        kwargs.pop('sharez', None), kwargs.pop('shareview', None))
+        _made.shareview = given_shares[3]
+        shares = tuple(None if other is None else other._native
+                       for other in given_shares)
         options = ((initial, 'z', proj_type, focal_length),
                    None if box_aspect is None
                    else tuple(map(float, box_aspect)),
@@ -227,11 +238,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         self.xaxis = axis3d.XAxis(self)
         self.yaxis = axis3d.YAxis(self)
         self.zaxis = axis3d.ZAxis(self)
-        # A new axes looks from its initial view; matplotlib's default
-        # angles are int literals (``elev=30``), which it keeps as given.
-        self.initial_elev, self.initial_azim, self.initial_roll = (
-            default if angle == default else angle
-            for angle, default in zip(_mplot3d.get_view(self._native), (30, -60, 0)))
+        # A new axes looks from its initial view, whose angles matplotlib
+        # keeps as given (its defaults are int literals, ``elev=30``).
+        native = _mplot3d.get_view(self._native)
+        given = _made.__dict__.pop('view', None)
+        if given is None or tuple(map(float, given)) != native:
+            given = tuple(default if angle == default else angle
+                          for angle, default in zip(native, (30, -60, 0)))
+        self.initial_elev, self.initial_azim, self.initial_roll = given
+        self._shareview = _made.__dict__.pop('shareview', None)
         _values.remember_all(self, dict(zip(_VIEW_ANGLES, (
             self.initial_elev, self.initial_azim, self.initial_roll))), _VIEW_ANGLES)
         self.button_pressed = None
@@ -285,8 +300,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """Return the `.SubplotSpec` associated with the subplot, or None."""
         from pltrs.gridspec import SubplotSpec
         native = _mplot3d.subplot_spec(self._native)
-        return None if native is None else SubplotSpec._from_native(
-            native, self.get_figure(root=False))
+        if native is None:
+            return None
+        spec = SubplotSpec._from_native(native, self.get_figure(root=False))
+        # The same object while the Axes stays in that block, as matplotlib
+        # keeps its ``_subplotspec``.
+        kept = self.__dict__.get("_subplotspec_kept")
+        if kept != spec:
+            kept = self._subplotspec_kept = spec
+        return kept
 
     def clear(self):
         # docstring inherited.
@@ -396,11 +418,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             if upper is not None:
                 raise TypeError("Cannot pass both 'upper' and 'max'")
             upper = axmax
-        lower, upper = float(lower), float(upper)
         if np.isinf(lower) or np.isinf(upper):
             raise ValueError(f"Axis limits {lower}, {upper} cannot be infinite")
         if np.isnan(lower) or np.isnan(upper):
             raise ValueError("Axis limits cannot be NaN or Inf")
+        lower, upper = float(lower), float(upper)
         if _mplot3d.get_scale(self._native, name) == 'log':
             if lower <= 0:
                 _api.warn_external(
@@ -412,6 +434,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                     f"Attempt to set non-positive {name}lim on a log-scaled "
                     "axis will be ignored.")
                 upper = current[1]
+        if lower == upper:
+            _api.warn_external(
+                f"Attempting to set identical low and high {name}lims "
+                f"makes transformation singular; automatically expanding.")
         _mplot3d.set_lim(self._native, name, (lower, upper),
                          None if view_margin is None else float(view_margin),
                          None if auto is None else bool(auto))
@@ -508,15 +534,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def xaxis_inverted(self):
         """Return whether the xaxis is oriented in the "inverse" direction."""
-        return _mplot3d.get_inverted(self._native, 'x')
+        return self.xaxis.get_inverted()
 
     def yaxis_inverted(self):
         """Return whether the yaxis is oriented in the "inverse" direction."""
-        return _mplot3d.get_inverted(self._native, 'y')
+        return self.yaxis.get_inverted()
 
     def zaxis_inverted(self):
         """Return whether the zaxis is oriented in the "inverse" direction."""
-        return _mplot3d.get_inverted(self._native, 'z')
+        return self.zaxis.get_inverted()
 
     # -- autoscaling -------------------------------------------------------
 
@@ -572,23 +598,31 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         applies to 3D Axes, *axis* can also be set to 'z', and setting *axis*
         to 'both' autoscales all three axes.
         """
-        _api.check_in_list(['both', 'x', 'y', 'z'], axis=axis)
+        # matplotlib takes any other name for no axis, and *enable* None
+        # for all three.
+        selected = ((True,) * 3 if enable is None
+                    else tuple(axis in (name, 'both') for name in self._axis_names))
         _mplot3d.autoscale(self._native,
                            None if enable is None else bool(enable),
-                           None if axis == 'both' else axis,
-                           None if tight is None else bool(tight))
+                           selected, None if tight is None else bool(tight))
 
     def _request_autoscale_view(self, axis="all", tight=None):
         """
-        Autoscale a single axis, or all of them (`.Axes._request_autoscale_view`):
-        pltrs (Rust) autoscales 3-D axes at once, where matplotlib marks
-        them stale until the limits are next read.
+        Mark a single axis, or all of them, for autoscaling when the axes
+        is next drawn or `_unstale_viewLim` runs (matplotlib's 3-D limit
+        getters leave it pending).
         """
         axis_names = _api.getitem_checked(
             {**{k: [k] for k in self._axis_names}, "all": self._axis_names},
             axis=axis)
-        self.autoscale_view(tight=tight, scalex="x" in axis_names,
-                            scaley="y" in axis_names, scalez="z" in axis_names)
+        _mplot3d.request_autoscale(
+            self._native, tuple(name in axis_names for name in self._axis_names),
+            None if tight is None else bool(tight))
+
+    def _unstale_viewLim(self):
+        # docstring inherited; the 3-D limits as well as the plane's.
+        _mplot3d.unstale_view_lim(self._native)
+        super()._unstale_viewLim()
 
     def _get_margin(self, name):
         """The margin of axis *name*, as given (matplotlib keeps it)."""
@@ -616,17 +650,24 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """Retrieve autoscaling margin of the z-axis."""
         return self._get_margin('z')
 
+    def _set_margin(self, name, m):
+        """Set the margin of axis *name*, which autoscales when the axes is
+        next drawn (matplotlib's ``set_xmargin``...)."""
+        _mplot3d.set_margin(self._native, name, _check_margin(m))
+        _values.remember(self, f"{name}margin", m)
+        self.stale = True
+
     def set_xmargin(self, m):
         """Set padding of X data limits prior to autoscaling."""
-        self._set_margins((m, None, None), None)
+        self._set_margin('x', m)
 
     def set_ymargin(self, m):
         """Set padding of Y data limits prior to autoscaling."""
-        self._set_margins((None, m, None), None)
+        self._set_margin('y', m)
 
     def set_zmargin(self, m):
         """Set padding of Z data limits prior to autoscaling."""
-        self._set_margins((None, None, m), None)
+        self._set_margin('z', m)
 
     def margins(self, *margins, x=None, y=None, z=None, tight=True):
         """
@@ -664,7 +705,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         scale of the program's, calling its transform and range limits.
         """
         from pltrs import scale as mscale
-        from pltrs._native import axis as _axis
         from pltrs.axis import _native_scale_of
         axis = getattr(self, f'{name}axis')
         if isinstance(value, mscale.ScaleBase):
@@ -842,6 +882,17 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         'equalyz'."""
         return _mplot3d.get_aspect(self._native)[0]
 
+    def set_adjustable(self, adjustable, share=False):
+        """
+        Set what keeps the aspect: the box ('box') or the data limits
+        ('datalim'), as `.Axes.set_adjustable` records it; `set_aspect`
+        applies it.
+        """
+        _api.check_in_list(["box", "datalim"], adjustable=adjustable)
+        for ax in self._aspect_group(share):
+            _mplot3d.set_adjustable(ax._native, adjustable)
+        self.stale = True
+
     def get_adjustable(self):
         """Return whether the box ('box') or the data limits ('datalim')
         keep the aspect."""
@@ -853,13 +904,23 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     @property
     def M(self):
-        """The projection matrix of the current view."""
-        return self.get_proj()
+        """The projection matrix of the last draw (None before the first)."""
+        return _mplot3d.drawn_proj(self._native)
+
+    @M.setter
+    def M(self, matrix):
+        _mplot3d.set_drawn_proj(
+            self._native, None if matrix is None else np.asarray(matrix, float))
 
     @property
     def invM(self):
-        """The inverse of the projection matrix `M`."""
-        return np.linalg.inv(self.M)
+        """The inverse of the projection matrix `M` of the last draw."""
+        return _mplot3d.drawn_proj_inverse(self._native)
+
+    @invM.setter
+    def invM(self, inverse):
+        _mplot3d.set_drawn_proj_inverse(
+            self._native, None if inverse is None else np.asarray(inverse, float))
 
     @property
     def computed_zorder(self):
@@ -891,9 +952,14 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         with another Axes.  Note that it is not possible to unshare axes.
         """
         _api.check_isinstance(Axes3D, other=other)
+        shared = self.__dict__.get('_shareview')
+        if shared is not None and other is not shared:
+            raise ValueError("view angles are already shared")
         _mplot3d.share(self._native, 'view', other._native)
-        self.__dict__['_vertical_axis_name'] = other._axis_names[
-            other._vertical_axis]
+        self._shareview = other
+        self.view_init(elev=other.elev, azim=other.azim, roll=other.roll,
+                       vertical_axis=other._axis_names[other._vertical_axis],
+                       share=True)
 
     def set_anchor(self, anchor, share=False):
         # docstring inherited; the square box of the 3-D axes is anchored
@@ -912,10 +978,36 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         return Bbox.from_extents(*_mplot3d.position(self._native, bool(original)))
 
+    def set_position(self, pos, which='both'):
+        # docstring inherited
+        self._set_position(pos, which=which)
+        # Because this is being called externally to the library we
+        # don't let it be in the layout.
+        self.set_in_layout(False)
+
+    def _set_position(self, pos, which='both'):
+        """
+        Set the position of the axes; its active box is its original one
+        made square at the next draw (`apply_aspect`), so that setting the
+        active one alone changes nothing that stays.
+        """
+        if not isinstance(pos, Bbox):
+            pos = Bbox.from_bounds(*pos)
+        _api.check_in_list(['both', 'active', 'original'], which=which)
+        if which in ('both', 'original'):
+            _mplot3d.set_position(self._native, tuple(map(float, pos.bounds)))
+        self.stale = True
+
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None, for_layout_only=False):
         # docstring inherited
         extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
+        if self._axis3don:
+            # matplotlib ticks each visible axis to measure it, raising
+            # what its locator or formatter raises.
+            for axis in (self.xaxis, self.yaxis, self.zaxis):
+                if axis.get_visible():
+                    _axis.place_ticks(self._native, axis.axis_name)
         if extent is None:
             return None
         x0, y0, x1, y1 = extent
@@ -928,8 +1020,14 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return Bbox.union(boxes)
 
     def get_axis_position(self):
-        """Return whether the x, y and z axes are drawn on their high side."""
-        return _mplot3d.get_axis_position(self._native)
+        """
+        Return whether the x, y and z axes are drawn on their high side in
+        the view of the last draw (`M`).
+        """
+        position = _mplot3d.get_axis_position(self._native)
+        if position is None:
+            raise art3d._no_projection_error()
+        return tuple(np.bool_(high) for high in position)
 
     def _calc_coord(self, xv, yv, renderer=None):
         """
@@ -939,13 +1037,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         found = _mplot3d.calc_coord(self._native, float(xv), float(yv))
         if found is None:
-            raise np.linalg.LinAlgError("Singular matrix")
+            raise art3d._no_projection_error()
         point, pane_idx = found
-        return np.array(point), pane_idx
+        return np.array(point), np.int64(pane_idx)
 
     def disable_mouse_rotation(self):
         """Disable mouse buttons for 3D rotation, panning, and zooming."""
-        _mplot3d.disable_mouse_rotation(self._native)
+        self.mouse_init(rotate_btn=[], pan_btn=[], zoom_btn=[])
 
     def format_coord(self, xv, yv, renderer=None):
         """
@@ -953,6 +1051,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         coordinates of the point on the nearest axis pane underneath the mouse
         cursor, depending on the mouse button pressed.
         """
+        if self.button_pressed in self._rotate_btn:
+            # ignore xv and yv and display angles instead
+            return self._rotation_coords()
         return _mplot3d.format_coord(self._native, float(xv), float(yv))
 
     def _rotation_coords(self):
@@ -988,16 +1089,25 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def set_axis_off(self):
         """Hide the panes, axis lines, ticks and gridlines."""
-        _mplot3d.set_axis_on(self._native, False)
+        self._axis3don = False
 
     def set_axis_on(self):
         """Show the panes, axis lines, ticks and gridlines again."""
-        _mplot3d.set_axis_on(self._native, True)
+        self._axis3don = True
+
+    #: Whether the 2-D axes are drawn: never for a 3-D axes, whose own
+    #: are (`_axis3don`), as matplotlib's `Axes3D.__init__` turns them off.
+    axison = False
 
     @property
-    def axison(self):
+    def _axis3don(self):
         """Whether the panes, axes and gridlines are drawn."""
         return _mplot3d.get_axis_on(self._native)
+
+    @_axis3don.setter
+    def _axis3don(self, on):
+        _mplot3d.set_axis_on(self._native, bool(on))
+        self.stale = True
 
     def grid(self, visible=True, **kwargs):
         """
@@ -1145,7 +1255,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         By default, button-1 rotates, button-2 pans, and button-3 zooms;
         these buttons can be modified via `mouse_init`.
         """
-        if not self.button_pressed or self.get_navigate_mode() is not None:
+        if (not self.button_pressed or self.get_navigate_mode() is not None
+                or self.M is None):
             return
         x, y = event.xdata, event.ydata
         # In case the mouse is out of bounds.
@@ -1154,9 +1265,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         if self.button_pressed in self._rotate_btn:
             if x == self._sx and y == self._sy:
                 return
+            snapped = getattr(event, "key", None) == "control"
             _mplot3d.drag_rotate(self._native, (float(self._sx), float(self._sy)),
-                                 (float(x), float(y)),
-                                 getattr(event, "key", None) == "control")
+                                 (float(x), float(y)), snapped)
+            self._remember_rotated_view(
+                snapped and rcParams["axes3d.snap_rotation"] > 0)
         elif self.button_pressed in self._pan_btn:
             px, py = self.transData.transform([self._sx, self._sy])
             self.start_pan(px, py, 2)
@@ -1166,6 +1279,48 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             _mplot3d.drag_zoom(self._native, float(self._sy), float(y))
         self._sx, self._sy = x, y
         self.get_figure(root=True).canvas.draw_idle()
+
+    def _remember_rotated_view(self, snapped):
+        """
+        Keep the view angles a rotation by the mouse gave as matplotlib
+        types them: numpy floats as computed (the azimuth-elevation style
+        keeps the roll as it was), Python floats once *snapped* to steps.
+        """
+        view = _mplot3d.get_view(self._native)
+        if snapped:
+            angles = dict(zip(_VIEW_ANGLES, map(float, view)))
+        elif rcParams['axes3d.mouserotationstyle'] == 'azel':
+            angles = dict(zip(_VIEW_ANGLES[:2], map(np.float64, view[:2])))
+        else:
+            angles = dict(zip(_VIEW_ANGLES, map(np.float64, view)))
+        _values.remember_all(self, angles, _VIEW_ANGLES)
+
+    def _zoom_data_limits(self, scale_u, scale_v, scale_w):
+        """
+        Zoom in or out of a 3D plot by the factors *scale_u*, *scale_v*
+        and *scale_w* along the screen's horizontal, vertical and depth
+        directions (more than 1 zooms out), the axes of an equal aspect
+        keeping it.
+        """
+        _mplot3d.zoom_data_limits(self._native, float(scale_u), float(scale_v),
+                                  float(scale_w))
+
+    #: The distance of the camera from the centre of the box.
+    _dist = 10
+
+    @property
+    def _focal_length(self):
+        """The focal length of the camera (infinite: orthographic)."""
+        return _mplot3d.get_focal_length(self._native)
+
+    @property
+    def _draw_grid(self):
+        """Whether the gridlines are drawn on the panes."""
+        return _mplot3d.get_grid(self._native)
+
+    @_draw_grid.setter
+    def _draw_grid(self, visible):
+        _mplot3d.grid(self._native, bool(visible))
 
     def start_pan(self, x, y, button):
         # docstring inherited
@@ -1312,8 +1467,12 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             native = _mplot3d.plot(self._native, _floats(x, y, z), zdir, fmt,
                                    mlines._native_kwargs(props),
                                    bool(axlim_clip))
-            lines.append(keep_program_picker(wrap(self, native, art3d.Line3D),
-                                             props))
+            line = keep_program_picker(wrap(self, native, art3d.Line3D), props)
+            # The 3-D data as matplotlib's `set_3d_properties` keeps them:
+            # the 2-D data as given, and the z values as floats.
+            z = np.broadcast_to(cbook._to_unmasked_float_array(z).ravel(), len(x))
+            _values.remember(line, "data_3d", art3d.juggle_axes(x, y, z, zdir))
+            lines.append(line)
         return lines
 
     plot3D = plot
@@ -1390,6 +1549,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         alphas = None
         if np.iterable(alpha):
             alphas, alpha = [float(a) for a in alpha], None
+        # The sizes and the 3-D offsets as matplotlib's collection keeps
+        # them: the sizes and the z values as given, x and y in the masked
+        # offsets of 2-D `scatter`.
+        given_sizes = np.asarray(s)
+        given_xs, given_ys = np.ma.column_stack(
+            [np.asanyarray(xs, float), np.asanyarray(ys, float)]).T
+        given_offsets = art3d.juggle_axes(given_xs, given_ys, np.atleast_1d(zs), zdir)
         s = np.broadcast_to(np.ma.filled(np.asarray(s, dtype=float), np.nan),
                             xs.shape if s.size != 1 else (1,))
         native = _mplot3d.scatter(
@@ -1401,6 +1567,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
              None if depthshade_minalpha is None
              else float(depthshade_minalpha), bool(axlim_clip)))
         collection = wrap(self, native, art3d.Path3DCollection)
+        _values.remember(collection, "sizes", given_sizes)
+        _values.remember(collection, "_offsets3d", given_offsets)
         # matplotlib's scatter gives its marker path as a tuple.
         collection._paths_container = tuple
         if made is not None:
@@ -1533,6 +1701,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         native = _mplot3d.text(self._native, (float(x), float(y), float(z)),
                                str(s), direction, bool(axlim_clip))
         text = wrap(self, native, art3d.Text3D)
+        _values.remember(text, "position_3d", (x, y, z))
         text._internal_update(kwargs)
         return text
 

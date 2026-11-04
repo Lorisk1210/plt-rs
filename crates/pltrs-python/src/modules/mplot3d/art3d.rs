@@ -100,6 +100,12 @@ fn poly_colors(axes: Axes3D, collection: Collection) -> PyResult<(NdArray, NdArr
     Ok((array(faces)?, array(edges)?))
 }
 
+/// Whether a polygon collection of the axes was projected
+/// (`Poly3DCollection` before its `_facecolors2d` exist).
+fn poly_projected(axes: Axes3D, collection: Collection) -> PyResult<bool> {
+    Ok(axes.poly_projected(&collection)?)
+}
+
 /// Turns the patch `patch` of the axes' projection plane into a flat 3-D
 /// patch following `outline`, an `(N, 3)` array (`patch_2d_to_3d`).
 fn patch_2d_to_3d(
@@ -145,10 +151,11 @@ fn auto_scale_xyz(
     Ok(())
 }
 
-/// Projects a 3-D artist of the axes onto its 2-D artist and returns its
-/// depth (`do_3d_projection`).
-fn do_3d_projection(axes: Axes3D, artist: RawHandle) -> PyResult<f64> {
-    Ok(axes.do_3d_projection(&artist)?)
+/// Projects a 3-D artist of the axes onto its 2-D artist through the
+/// projection matrix of the last draw and returns its depth, `None`
+/// before the first draw (`do_3d_projection`, which reads `M`).
+fn do_3d_projection(axes: Axes3D, artist: RawHandle) -> PyResult<Option<f64>> {
+    Ok(axes.do_3d_projection_as_drawn(&artist)?)
 }
 
 /// Whether data artists were added to the axes (`has_data`).
@@ -243,7 +250,7 @@ fn points((xs, ys, zs): Columns) -> Vec<Vec3> {
 }
 
 /// A 4 × 4 matrix as a numpy array.
-fn matrix_array(matrix: &Matrix4) -> PyResult<NdArray> {
+pub(super) fn matrix_array(matrix: &Matrix4) -> PyResult<NdArray> {
     NdArray::with_shape(
         matrix.rows().iter().flatten().copied().collect(),
         vec![4, 4],
@@ -251,7 +258,7 @@ fn matrix_array(matrix: &Matrix4) -> PyResult<NdArray> {
 }
 
 /// A 4 × 4 numpy array as a matrix.
-fn array_matrix(array: &NdArray) -> PyResult<Matrix4> {
+pub(super) fn array_matrix(array: &NdArray) -> PyResult<Matrix4> {
     if array.shape[..] != [4, 4] {
         return Err(PyErr::value_error("the projection matrix must be 4 x 4"));
     }
@@ -424,6 +431,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_depthshade", set_depthshade)?;
     module.add("refresh_poly_colors", refresh_poly_colors)?;
     module.add("poly_colors", poly_colors)?;
+    module.add("poly_projected", poly_projected)?;
     module.add("patch_2d_to_3d", patch_2d_to_3d)?;
     module.add("pathpatch_2d_to_3d", pathpatch_2d_to_3d)?;
     module.add("patch_path", patch_path)?;

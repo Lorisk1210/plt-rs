@@ -86,7 +86,8 @@ impl Axes3D {
             sizes: Some(options.scatter.sizes.unwrap_or_else(|| vec![DEFAULT_SIZE])),
             ..options.scatter
         };
-        let collection = self.plane().scatter_with(x.clone(), y.clone(), scatter)?;
+        let collection = self
+            .on_plane_keeping_limits(|plane| plane.scatter_with(x.clone(), y.clone(), scatter))?;
         let points =
             collection
                 .raw()

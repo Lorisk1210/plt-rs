@@ -12,6 +12,7 @@ use super::axis_draw::{axis_extents, draw_axes};
 use super::axis3d::Axis3DState;
 use super::camera::{Camera, Projection};
 use super::coords::Axis3;
+use super::drawn::DrawnMatrices;
 use super::limits::Limits3D;
 use super::mouse::MouseButtons;
 use super::share::{LimitChange, Shares};
@@ -19,6 +20,7 @@ use crate::artist::{
     Artist, ArtistBase, ArtistId, ArtistLookup, ArtistStore, DrawContext, LayoutContext,
 };
 use crate::axes::{AxesState, collapse_x};
+use crate::collections::CollectionArtist;
 use crate::colors::Color;
 use crate::figure::FigureState;
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
@@ -83,6 +85,8 @@ pub(crate) struct Axes3DState {
     pub(crate) artists: Vec<Artist3D>,
     /// The mouse buttons that rotate, pan and zoom the axes.
     pub(crate) mouse: MouseButtons,
+    /// The projection of the last draw (matplotlib's `M` and `invM`).
+    pub(crate) drawn: DrawnMatrices,
     /// z-order of the axes artists (`axes.axisbelow`); computed z-orders
     /// start just above it.
     axis_zorder: f64,
@@ -108,6 +112,7 @@ pltrs_core::archive_struct!(Axes3DState {
     facecolor,
     artists,
     mouse,
+    drawn,
     axis_zorder,
     rc
 });
@@ -139,6 +144,7 @@ impl Axes3DState {
             facecolor: rc.axes_facecolor.clone(),
             artists: Vec::new(),
             mouse: MouseButtons::default(),
+            drawn: DrawnMatrices::default(),
             axis_zorder: rc.axes_axisbelow.zorder(),
             rc,
         }
@@ -196,8 +202,9 @@ impl Axes3DState {
     /// The layout pass for an axes of display extent `extent`: ticks for
     /// the axes width, then every 3-D artist projected onto its 2-D
     /// artist (hiding the points outside the view limits for the artists
-    /// clipped to them) and, with computed z-order, collections and
-    /// patches ordered by depth above the axes (matplotlib's
+    /// clipped to them) and, for a draw with computed z-order,
+    /// collections and patches ordered by depth above the axes
+    /// (matplotlib's
     /// `Axes3D.draw` before drawing). Lines are projected as matplotlib
     /// projects them when it draws them: animated ones only while the
     /// figure is `saving`.
@@ -206,7 +213,7 @@ impl Axes3DState {
         store: &mut ArtistStore,
         extent: &Bbox,
         dpi: f64,
-        saving: bool,
+        (saving, drawing): (bool, bool),
     ) {
         self.artists.retain(|artist| store.contains(artist.id));
         let width_points = extent.width().abs() / dpi * 72.0;
@@ -241,7 +248,7 @@ impl Axes3DState {
                 depths.push((*id, kind, depth));
             }
         }
-        if !self.computed_zorder {
+        if !(self.computed_zorder && drawing) {
             return;
         }
         // Deepest first; ties keep their insertion order.
@@ -257,6 +264,27 @@ impl Axes3DState {
                 artist.base_mut().zorder = *counter;
             }
             *counter += 1.0;
+        }
+    }
+
+    /// Reports the projections of the visible animated collections that
+    /// failed (sorting their sizes or widths, which leaves them without
+    /// their drawing order): matplotlib's draw projects the axes' visible
+    /// collections, the animated ones too, and fails with them; the
+    /// others report their problems as they are drawn.
+    fn report_animated_projections(&self, ctx: &mut DrawContext<'_>) {
+        let store = ctx.layout().store();
+        let failed: Vec<_> = (self.artists.iter())
+            .filter_map(|artist| {
+                let collection = store.get_as::<CollectionArtist>(artist.id)?;
+                let base = collection.base();
+                let sorted = collection.depth_sorted.as_ref()?;
+                (base.visible && base.animated && sorted.offsets.is_none())
+                    .then_some((artist.id, sorted.problem?))
+            })
+            .collect();
+        for (id, problem) in failed {
+            ctx.report_kind(id, problem.kind(), problem);
         }
     }
 
@@ -290,6 +318,7 @@ impl Artist for Axes3DState {
             return;
         };
         self.draw_background(ctx, &extent);
+        self.report_animated_projections(ctx);
         if self.axis_on {
             draw_axes(self, ctx, &extent);
         }
@@ -440,7 +469,8 @@ pub(crate) fn axes3d_fresh_tight_bbox(
 ) -> Option<Bbox> {
     // matplotlib's `get_tightbbox` applies the aspect.
     square(figure, id, true);
-    prepare_one(figure, id);
+    prepare_one(figure, id, false);
+    super::drawn::note_measure(figure, id);
     axes3d_tight_bbox(figure, id, for_layout_only)
 }
 
@@ -452,9 +482,13 @@ pub(crate) fn axes3d_fresh_tight_bbox(
 pub(crate) fn prepare_axes3d(figure: &mut FigureState, drawing: bool) {
     for id in axes3d_ids(&figure.store) {
         if drawing {
+            super::pending::unstale_for_draw(figure, id);
             square(figure, id, false);
         }
-        prepare_one(figure, id);
+        prepare_one(figure, id, drawing);
+        if drawing {
+            super::drawn::note_draw(figure, id);
+        }
     }
 }
 
@@ -468,15 +502,29 @@ fn square(figure: &mut FigureState, id: ArtistId, animated_too: bool) {
     }
 }
 
-/// The layout pass of the 3-D axes `id`, in the figure or removed from it.
-pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId) {
+/// The layout pass of the 3-D axes `id`, in the figure or removed from
+/// it, for a draw when `drawing` (matplotlib orders the axes' collections
+/// and patches by depth as it draws them).
+pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, drawing: bool) {
     let Some(extent) = figure.axes_bbox(id) else {
         return;
     };
     let (dpi, saving) = (figure.dpi(), figure.saving);
+    let plane_minpos = plane_minpos(figure, id);
     figure.with_others::<Axes3DState, _>(id, |axes, store| {
-        axes.prepare(store, &extent, dpi, saving);
+        axes.limits.plane_minpos = plane_minpos;
+        axes.prepare(store, &extent, dpi, (saving, drawing));
     });
+}
+
+/// The smallest positive x of the 2-D data limits of the projection plane
+/// of the 3-D axes `id`, in the figure or removed from it (infinite
+/// without data; see `Limits3D::plane_minpos`).
+pub(crate) fn plane_minpos(figure: &FigureState, id: ArtistId) -> f64 {
+    figure
+        .artist_as::<Axes3DState>(id)
+        .and_then(|axes| figure.artist_as::<AxesState>(axes.plane))
+        .map_or(f64::INFINITY, |plane| plane.data_lim.minpos.x)
 }
 
 #[cfg(test)]

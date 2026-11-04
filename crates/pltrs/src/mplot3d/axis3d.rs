@@ -154,8 +154,12 @@ pub(crate) struct AxisSpan {
     pub(crate) view: (f64, f64),
     /// The data interval.
     pub(crate) data: (f64, f64),
-    /// The smallest positive datum.
+    /// The smallest positive datum along the axis, which autoscaling
+    /// limits the view to the scale's domain with.
     pub(crate) minpos: f64,
+    /// The smallest positive datum tick helpers see (see
+    /// `Limits3D::plane_minpos`).
+    pub(crate) tick_minpos: f64,
 }
 
 /// A tick to draw, with the style of its level and what it has of its
@@ -410,7 +414,7 @@ impl Axis3DState {
             name: AxisName::X,
             view_interval: span.view,
             data_interval: span.data,
-            minpos: span.minpos,
+            minpos: span.tick_minpos,
             tick_space: self.tick_space(length_points),
             major_ticks: Vec::new(),
             scale: self.scale.scale().hint(),
@@ -572,7 +576,12 @@ impl Axis3DState {
     /// Drops minor ticks that coincide with major ones (matplotlib's
     /// `get_minorticklocs` with `np.isclose(atol=span * 1e-5)` in
     /// transformed coordinates).
-    fn without_overlaps(&self, minor: Vec<f64>, major: &[f64], view: (f64, f64)) -> Vec<f64> {
+    pub(crate) fn without_overlaps(
+        &self,
+        minor: Vec<f64>,
+        major: &[f64],
+        view: (f64, f64),
+    ) -> Vec<f64> {
         let (lo, hi) = (self.scale.forward(view.0), self.scale.forward(view.1));
         let tolerance = (hi - lo).abs() * 1e-5;
         let major: Vec<f64> = major.iter().map(|&m| self.scale.forward(m)).collect();
@@ -629,6 +638,7 @@ mod tests {
             view,
             data: view,
             minpos: f64::INFINITY,
+            tick_minpos: f64::INFINITY,
         }
     }
 

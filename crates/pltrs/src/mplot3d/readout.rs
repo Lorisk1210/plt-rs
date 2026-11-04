@@ -6,11 +6,12 @@ use std::any::Any;
 
 use pltrs_core::Point;
 
-use super::camera::{DIST, norm_angle};
+use super::camera::{DIST, Projection, norm_angle};
 use super::coords::Axis3;
 use super::geometry::BoxGeometry;
 use super::handle::Axes3D;
-use super::math::Vec3;
+use super::math::{Matrix4, Vec3};
+use super::state::Axes3DState;
 use crate::artist::ArtistHandle;
 use crate::ticker::{AxisInfo, ScalarFormatter, TickContext, TickerSettings};
 use crate::transforms::TransformContext;
@@ -40,7 +41,14 @@ impl Axes3D {
     /// [`Axes3D::format_data`] does; empty when the projection cannot be
     /// inverted or a formatter fails.
     pub fn format_coord(&self, xv: f64, yv: f64) -> String {
-        self.pane_point(xv, yv)
+        self.format_pane_point(self.pane_point(xv, yv))
+    }
+
+    /// The status-bar text of a point `found` on a pane, as
+    /// [`Axes3D::format_coord`] writes it; empty for none or when a
+    /// formatter fails.
+    pub(super) fn format_pane_point(&self, found: Option<(Vec3, Axis3)>) -> String {
+        found
             .and_then(|(point, pane)| {
                 let formatted = Axis3::ALL.map(|axis| self.format_data(axis, point[axis.index()]));
                 let [Some(x), Some(y), Some(z)] = formatted else {
@@ -69,54 +77,7 @@ impl Axes3D {
         self.with(|axes| {
             let projection = axes.projection();
             let inverse = projection.matrix.inverse()?;
-            let focal_length = axes.camera.focal_length();
-            let zv = if focal_length.is_infinite() {
-                1.0
-            } else {
-                -1.0 / focal_length
-            };
-            let [x, y, z, w] = inverse.transform([xv, yv, zv, 1.0]);
-            let p1 = if w == 0.0 {
-                [x, y, z]
-            } else {
-                [x / w, y / w, z / w]
-            };
-            let limits = axes.scaled_limits();
-            let aspect = axes.camera.stored_box_aspect();
-            let view_w = axes.camera.view_frame()[2];
-            let focal = if focal_length.is_infinite() {
-                ORTHO_FOCAL_LENGTH
-            } else {
-                focal_length
-            };
-            let eye = [0, 1, 2].map(|i| {
-                let (lo, hi) = (limits[2 * i], limits[2 * i + 1]);
-                f64::midpoint(hi, lo) + view_w[i] * DIST * (hi - lo) / aspect[i] * focal
-            });
-            let vec = [0, 1, 2].map(|i| eye[i] - p1[i]);
-            let geometry = BoxGeometry::new(limits, &projection);
-            let panes = [0, 1, 2].map(|i| {
-                if geometry.highs[i] {
-                    geometry.maxs[i]
-                } else {
-                    geometry.mins[i]
-                }
-            });
-            let scales = [0, 1, 2].map(|i| {
-                if vec[i] == 0.0 {
-                    f64::INFINITY
-                } else {
-                    (panes[i] - p1[i]) / vec[i]
-                }
-            });
-            let nearest = (0..3).min_by(|&a, &b| scales[a].abs().total_cmp(&scales[b].abs()))?;
-            let scale = scales[nearest];
-            let mut point = [0, 1, 2].map(|i| p1[i] + scale * vec[i]);
-            // The point lies on the pane: rounding must not move it off a
-            // pane at zero (which would print as 1e-16).
-            point[nearest] = panes[nearest];
-            let data = Axis3::ALL.map(|axis| axes.axis(axis).scale.inverse(point[axis.index()]));
-            Some((data, Axis3::ALL[nearest]))
+            pane_point_through(axes, &projection, &inverse, xv, yv)
         })
     }
 
@@ -183,6 +144,68 @@ fn location_coords(pane: Axis3, [x, y, z]: [String; 3]) -> String {
         Axis3::Y => format!("x={x}, y pane={y}, z={z}"),
         Axis3::Z => format!("x={x}, y={y}, z pane={z}"),
     }
+}
+
+/// The point of the pane of `axes` nearest to the camera's line of sight
+/// through projected point `(xv, yv)`, and the axis that pane is normal
+/// to, the panes seen through `projection` and the point brought back
+/// through `inverse` (matplotlib's `_calc_coord` with `M` and `invM`);
+/// `None` when no pane is in sight.
+pub(super) fn pane_point_through(
+    axes: &Axes3DState,
+    projection: &Projection,
+    inverse: &Matrix4,
+    xv: f64,
+    yv: f64,
+) -> Option<(Vec3, Axis3)> {
+    let focal_length = axes.camera.focal_length();
+    let zv = if focal_length.is_infinite() {
+        1.0
+    } else {
+        -1.0 / focal_length
+    };
+    let [x, y, z, w] = inverse.transform([xv, yv, zv, 1.0]);
+    let p1 = if w == 0.0 {
+        [x, y, z]
+    } else {
+        [x / w, y / w, z / w]
+    };
+    let limits = axes.scaled_limits();
+    let aspect = axes.camera.stored_box_aspect();
+    let view_w = axes.camera.view_frame()[2];
+    let focal = if focal_length.is_infinite() {
+        ORTHO_FOCAL_LENGTH
+    } else {
+        focal_length
+    };
+    let eye = [0, 1, 2].map(|i| {
+        let (lo, hi) = (limits[2 * i], limits[2 * i + 1]);
+        f64::midpoint(hi, lo) + view_w[i] * DIST * (hi - lo) / aspect[i] * focal
+    });
+    let vec = [0, 1, 2].map(|i| eye[i] - p1[i]);
+    let geometry = BoxGeometry::new(limits, projection);
+    let panes = [0, 1, 2].map(|i| {
+        if geometry.highs[i] {
+            geometry.maxs[i]
+        } else {
+            geometry.mins[i]
+        }
+    });
+    let scales = [0, 1, 2].map(|i| {
+        if vec[i] == 0.0 {
+            f64::INFINITY
+        } else {
+            (panes[i] - p1[i]) / vec[i]
+        }
+    });
+    let nearest = (0..3).min_by(|&a, &b| scales[a].abs().total_cmp(&scales[b].abs()))?;
+    let scale = scales[nearest];
+    let mut point = [0, 1, 2].map(|i| p1[i] + scale * vec[i]);
+    // The point lies on the pane: rounding must not move it off a pane at
+    // zero (which would print as 1e-16).
+    point[nearest] = panes[nearest];
+    let data = Axis3::ALL.map(|axis| axes.axis(axis).scale.inverse(point[axis.index()]));
+    Some((data, Axis3::ALL[nearest]))
 }
 
 #[cfg(test)]

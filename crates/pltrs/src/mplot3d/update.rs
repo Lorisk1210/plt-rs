@@ -7,6 +7,7 @@
 //! leaves the limits alone.
 
 use super::art3d::{Art3D, Artist3D};
+use super::camera::Projection;
 use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
@@ -188,10 +189,20 @@ impl Axes3D {
     ///
     /// When `artist` is not a 3-D artist of these axes.
     pub fn do_3d_projection(&self, artist: &impl ArtistHandle) -> Result<f64, Axes3DError> {
+        self.project_artist(artist, |projection| projection)
+    }
+
+    /// Projects a 3-D artist of these axes as [`Axes3D::do_3d_projection`]
+    /// does, through the current projection changed by `adjust`.
+    pub(super) fn project_artist(
+        &self,
+        artist: &impl ArtistHandle,
+        adjust: impl FnOnce(Projection) -> Projection,
+    ) -> Result<f64, Axes3DError> {
         let id = self.own_id(artist).ok_or(Axes3DError::Not3DArtist)?;
         let depth = self.raw().with_others::<Axes3DState, _>(|axes, store| {
             let entry = axes.artists.iter().find(|a| a.id == id)?;
-            let projection = axes.projection();
+            let projection = adjust(axes.projection());
             let projection = if entry.axlim_clip {
                 projection.hiding_outside(Axis3::ALL.map(|axis| axes.limits.bound(axis)))
             } else {

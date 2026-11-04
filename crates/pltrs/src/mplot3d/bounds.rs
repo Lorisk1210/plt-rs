@@ -341,20 +341,27 @@ impl Axes3D {
     }
 
     /// Sets the autoscaling margin of one axis as a fraction of the data
-    /// span and autoscales that axis (matplotlib's `set_xmargin`).
+    /// span, the axis autoscaling when the axes is next drawn
+    /// (matplotlib's `set_xmargin`; see [`Axes3D::request_autoscale`]).
     ///
     /// # Errors
     ///
-    /// When the margin is not above -0.5 or a locator fails.
+    /// When the margin is not above -0.5.
     pub fn set_margin(&self, axis: Axis3, margin: f64) -> Result<&Self, Axes3DError> {
-        let mut margins = [None; 3];
-        margins[axis.index()] = Some(margin);
-        self.set_margins(margins, None)
+        check_margin(margin)?;
+        self.with_mut(|axes| {
+            axes.limits.margins[axis.index()] = margin;
+            let mut selected = [false; 3];
+            selected[axis.index()] = true;
+            axes.request_autoscale(selected, None);
+        });
+        Ok(self)
     }
 
     /// matplotlib's `autoscale(enable, axis, tight)`: `enable` turns
     /// autoscaling of the axes `selected` (indexed x, y, z) on or off and
-    /// those that autoscale fit their data; `None` leaves the switches
+    /// those that autoscale fit their data when the axes is next drawn
+    /// (see [`Axes3D::request_autoscale`]); `None` leaves the switches
     /// alone and fits every axis that autoscales. `tight` replaces the
     /// tight setting, which skips rounding the view out to ticks.
     ///
@@ -386,11 +393,8 @@ impl Axes3D {
                     fit[i] = chosen && axes.limits.autoscale[i];
                 }
             }
-            if let Some(tight) = tight {
-                axes.limits.tight = tight;
-            }
-            axes.autoscale_axes(fit)
-        })?;
+            axes.request_autoscale(fit, tight);
+        });
         Ok(self)
     }
 
@@ -457,8 +461,8 @@ impl Axes3D {
         margins: [Option<f64>; 3],
         tight: Option<bool>,
     ) -> Result<&Self, Axes3DError> {
-        if let Some(bad) = margins.iter().flatten().find(|m| m.is_nan() || **m <= -0.5) {
-            return Err(Axes3DError::Margin(*bad));
+        for &margin in margins.iter().flatten() {
+            check_margin(margin)?;
         }
         self.with_mut(|axes| {
             for (slot, margin) in axes.limits.margins.iter_mut().zip(margins) {
@@ -466,12 +470,25 @@ impl Axes3D {
                     *slot = margin;
                 }
             }
+            // matplotlib's `margins` sets each margin given, which asks
+            // for autoscaling, then autoscales those axes at once.
+            let given = margins.map(|m| m.is_some());
+            axes.request_autoscale(given, None);
             if let Some(tight) = tight {
                 axes.limits.tight = tight;
             }
-            axes.autoscale_axes(margins.map(|m| m.is_some()))
+            axes.autoscale_axes(given)
         })?;
         Ok(self)
+    }
+}
+
+/// Checks that an autoscaling margin is above -0.5.
+fn check_margin(margin: f64) -> Result<(), Axes3DError> {
+    if margin.is_nan() || margin <= -0.5 {
+        Err(Axes3DError::Margin(margin))
+    } else {
+        Ok(())
     }
 }
 

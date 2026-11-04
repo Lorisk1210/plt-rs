@@ -16,6 +16,7 @@ from typing import Any, Iterator
 from . import common
 
 AXES = ["fig, ax = plt.subplots()"]
+AXES3D = ["from mpl_toolkits.mplot3d import art3d", "fig = plt.figure()", "ax = fig.add_subplot(projection='3d')"]
 
 #: (name, statements leaving the artist in ``obj``)
 SUBJECTS: list[tuple[str, list[str]]] = [
@@ -123,6 +124,25 @@ SUBJECTS: list[tuple[str, list[str]]] = [
     ("scatter3d", ["fig = plt.figure()", "ax = fig.add_subplot(projection='3d')", "obj = ax.scatter(x, y, values)"]),
     ("line3d", ["fig = plt.figure()", "ax = fig.add_subplot(projection='3d')", "obj = ax.plot(x, y, values)[0]"]),
     ("zaxis", ["fig = plt.figure()", "ax = fig.add_subplot(projection='3d')", "obj = ax.zaxis"]),
+    *[(name, AXES3D + setup) for name, setup in [
+        ("axes3d_ortho", ["obj = fig.add_subplot(2, 1, 2, projection='3d', proj_type='ortho', box_aspect=(1, 2, 1),"
+                          " elev=10, azim=20, roll=30)", "obj.scatter(x, y, values)"]),
+        ("xaxis3d", ["ax.plot(x, y, values)", "obj = ax.xaxis"]),
+        ("poly3d", ["obj = art3d.Poly3DCollection([[(0, 0, 0), (1, 0, 0), (1, 1, 1)], [(0, 1, 0), (1, 1, 0), "
+                    "(0, 0, 1)]], facecolors=['r', 'g'])", "ax.add_collection3d(obj)"]),
+        ("wireframe3d", ["X, Y = np.meshgrid(np.arange(6), np.arange(5))", "obj = ax.plot_wireframe(X, Y, z)"]),
+        ("trisurf3d", ["obj = ax.plot_trisurf([0, 1, 0, 1, 0.5], [0, 0, 1, 1, 0.5], [1, 2, 3, 4, 0], "
+                       "cmap='viridis')"]),
+        ("text3d", ["obj = ax.text(1, 1, 1, 'three', zdir='x')"]),
+        ("patch3d", ["obj = ax.bar([1, 2], [3, 4], zs=1, zdir='y')[0]"]),
+        ("path_patch3d", ["obj = patches.PathPatch(path.Path([(0, 0), (1, 1), (1, 0)], [1, 2, 2]))",
+                          "ax.add_patch(obj)", "art3d.pathpatch_2d_to_3d(obj, z=1, zdir='x')"]),
+        ("quiver3d", ["obj = ax.quiver([0, 1], [0, 1], [0, 1], [1, 0], [0, 1], [1, 1])"]),
+        ("contour3d", ["X, Y = np.meshgrid(np.arange(6), np.arange(5))", "obj = ax.contour(X, Y, z, levels=3)"]),
+        ("voxel3d", ["obj = ax.voxels(np.ones((2, 2, 2), dtype=bool))[(0, 0, 0)]"]),
+        ("stem3d", ["obj = ax.stem(x, y, values)"]),
+        ("errorbar3d", ["obj = ax.errorbar(x, y, values, zerr=0.5)"]),
+    ]],
 ]
 
 #: Sample values per property, set one after the other.

@@ -202,7 +202,11 @@ class ChartsMixin:
         mpl_toolkits.mplot3d.art3d.Patch3DCollection
         """
         had_data = self.has_data()
+        kept = _mplot3d.plane_data_lim(self._native)
         patches = Axes.bar(self, left, height, *args, **kwargs)
+        # 2D `bar` extends the data limits through `update_datalim`, which
+        # does nothing on 3D Axes.
+        _mplot3d.restore_plane_data_lim(self._native, kept)
         zs = np.broadcast_to(zs, len(left), subok=True)
         verts = []
         verts_zs = []

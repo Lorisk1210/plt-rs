@@ -4,8 +4,8 @@ matplotlib, rebuilt from scratch in Rust: the figure model, every plot
 type, text and mathtext, the Agg-exact rasterizer, interactive windows
 with their own UI engine, and a conformance suite that checks the output
 against matplotlib 3.11. No crates.io dependencies: fonts, PNG/DEFLATE,
-rasterization, layout, windowing (Wayland and X11) and the UI are all implemented
-here.
+rasterization, layout, windowing (Wayland, X11, macOS and Windows) and the UI
+are all implemented here.
 
 The Rust crate (`use pltrs::...`) and the Python package
 (`import pltrs.pyplot as plt`) share the name pltrs, as the crate and the
@@ -298,26 +298,34 @@ draws for the same code (`python/ecosystem`; `cargo xtask ecosystem
 setup` makes their venv, and the tests skip where pandas or seaborn is
 missing).
 
-pltrs (Python) is young: it covers a first slice of pyplot (figures,
-subplots on grids and mosaics, subfigures, layout engines, `plot`,
-`scatter`, `bar`, titles and labels, legends, artists made before they are
-added, saving as PNG, SVG and PDF), rcParams with rc files and style
-sheets, and the image-comparison test tools. Its measure is
-matplotlib's own test suite: the share of the tests passing under
-matplotlib that pass under pltrs, tracked in `spec/mpl-suite/`. How it is
-built, and how to extend it, is in [`python/DESIGN.md`](python/DESIGN.md).
+pltrs (Python) is measured three ways:
+
+* **matplotlib 3.11's own test suite**, run unchanged with `matplotlib`
+  aliased to pltrs: it passes all 9,427 tests that pass under real
+  matplotlib on the same machine (`cargo xtask mpl-suite`; the outcomes
+  per test are in `spec/mpl-suite/`).
+* **A differential tester** (`cargo xtask diff`): it runs matplotlib's
+  gallery and programs generated from its API under both and compares
+  every value, type, exception, warning, printed line and figure. Every
+  gallery image matches matplotlib's.
+* **A fuzzer** (`python/tests/fuzz`): random calls of the public API,
+  each in its own process, so that a crash, a hang or runaway memory is
+  caught. A Python exception is fine; a crash is a bug.
+
+How it is built, and how to extend it, is in
+[`python/DESIGN.md`](python/DESIGN.md).
 
 ## Crates
 
 | crate            | responsibility                                                    |
 |------------------|-------------------------------------------------------------------|
 | `pltrs-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `pltrs-codec`    | CRC32/Adler32, SHA-1, SHA-256, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write |
+| `pltrs-codec`    | CRC32/Adler32, SHA-1, SHA-256, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write; AV1/AVIF write |
 | `pltrs-font`     | TrueType/OpenType and Type 1 parsing, shaping (GSUB/GPOS), font manager |
 | `pltrs-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `pltrs-text`     | text layout, the mathtext parser and typesetter, and usetex (DVI, VF, TFM, font maps) |
 | `pltrs-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS/PGF |
-| `pltrs-platform` | windows, input and the event loop (Wayland, X11; headless for tests) |
+| `pltrs-platform` | windows, input and the event loop (Wayland, X11, macOS, Windows; headless for tests) |
 | `pltrs-ui`       | the retained-mode UI engine used by figure windows                |
 | `pltrs`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |
 | `pltrs-spec`     | the conformance harness                                           |

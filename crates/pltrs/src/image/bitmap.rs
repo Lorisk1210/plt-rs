@@ -14,6 +14,7 @@ use pltrs_codec::jpeg::{JpegError, JpegOptions, encode_rgb8};
 use pltrs_codec::png::{self, EncodeError, ImageRef};
 use pltrs_codec::tiff::{TiffError, encode_rgba8};
 use pltrs_codec::webp;
+use pltrs_core::alloc::{self, OutOfMemory};
 use pltrs_render::PngMetadata;
 
 /// A bitmap file format.
@@ -82,6 +83,8 @@ pub enum BitmapError {
     Avif(AvifError),
     /// The pixel data does not have `width × height × 4` bytes.
     DataLengthMismatch,
+    /// The memory for the file cannot be allocated.
+    OutOfMemory(OutOfMemory),
 }
 
 impl fmt::Display for BitmapError {
@@ -94,6 +97,7 @@ impl fmt::Display for BitmapError {
             Self::Webp(err) => write!(f, "cannot encode the WebP: {err}"),
             Self::Avif(err) => write!(f, "cannot encode the AVIF: {err}"),
             Self::DataLengthMismatch => f.write_str("the pixel data does not match the image size"),
+            Self::OutOfMemory(err) => write!(f, "cannot encode the image: {err}"),
         }
     }
 }
@@ -107,6 +111,7 @@ impl std::error::Error for BitmapError {
             Self::Gif(err) => Some(err),
             Self::Webp(err) => Some(err),
             Self::Avif(err) => Some(err),
+            Self::OutOfMemory(err) => Some(err),
             Self::DataLengthMismatch => None,
         }
     }
@@ -130,8 +135,8 @@ impl BitmapFormat {
     ///
     /// # Errors
     ///
-    /// When the data does not match the size, or the size is out of the
-    /// format's range.
+    /// When the data does not match the size, the size is out of the
+    /// format's range, or the memory for the file cannot be allocated.
     pub fn encode(
         self,
         width: usize,
@@ -156,8 +161,8 @@ impl BitmapFormat {
                     quality: settings.jpeg_quality,
                     dpi: jfif_density(settings.dpi),
                 };
-                encode_rgb8(columns, rows, &flatten(rgba, settings.background), &options)
-                    .map_err(BitmapError::Jpeg)
+                let flat = flatten(rgba, settings.background).map_err(BitmapError::OutOfMemory)?;
+                encode_rgb8(columns, rows, &flat, &options).map_err(BitmapError::Jpeg)
             }
             Self::Tiff => {
                 encode_rgba8(columns, rows, rgba, settings.dpi).map_err(BitmapError::Tiff)
@@ -180,7 +185,7 @@ impl BitmapFormat {
                 };
                 avif::encode_rgba8(columns, rows, rgba, &options).map_err(BitmapError::Avif)
             }
-            Self::Raw => Ok(rgba.to_vec()),
+            Self::Raw => alloc::try_copy(rgba).map_err(BitmapError::OutOfMemory),
         }
     }
 }
@@ -193,22 +198,21 @@ fn jfif_density(dpi: f64) -> u16 {
 /// RGBA pixels flattened onto `background` as Pillow's
 /// `background.paste(image, image)` blends them: `(bg × (255 − a) + c × a)
 /// / 255` in Pillow's rounded integer division.
-fn flatten(rgba: &[u8], background: [u8; 3]) -> Vec<u8> {
+fn flatten(rgba: &[u8], background: [u8; 3]) -> Result<Vec<u8>, OutOfMemory> {
     let blend = |under: u8, over: u8, alpha: u8| {
         let sum = u32::from(under) * u32::from(255 - alpha) + u32::from(over) * u32::from(alpha);
         let tmp = sum + 128;
         u8::try_from(((tmp >> 8) + tmp) >> 8).expect("a blend of bytes")
     };
-    rgba.as_chunks::<4>()
-        .0
-        .iter()
-        .flat_map(|&[r, g, b, a]| {
-            [r, g, b]
-                .into_iter()
-                .zip(background)
-                .map(move |(over, under)| blend(under, over, a))
-        })
-        .collect()
+    let pixels = rgba.as_chunks::<4>().0;
+    let mut flat = alloc::try_with_capacity(pixels.len() * 3)?;
+    flat.extend(pixels.iter().flat_map(|&[r, g, b, a]| {
+        [r, g, b]
+            .into_iter()
+            .zip(background)
+            .map(move |(over, under)| blend(under, over, a))
+    }));
+    Ok(flat)
 }
 
 #[cfg(test)]
@@ -218,7 +222,7 @@ mod tests {
     #[test]
     fn transparency_flattens_like_pillow() {
         let pixels = [10, 20, 30, 0, 10, 20, 30, 255, 200, 100, 0, 128];
-        let flat = flatten(&pixels, [255, 255, 255]);
+        let flat = flatten(&pixels, [255, 255, 255]).unwrap();
         assert_eq!(&flat[..6], [255, 255, 255, 10, 20, 30]);
         // (255 × 127 + 200 × 128) / 255 and so on, rounded.
         assert_eq!(&flat[6..], [227, 177, 127]);

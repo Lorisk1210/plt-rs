@@ -9,10 +9,11 @@ use super::children::DataUpdate;
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Color, ScalarMappable};
+use crate::patches::{ArrowStyle, FancyArrowPatch, Patch, PatchArtist};
 use crate::rc::RcParams;
 use crate::streamplot::{
-    ArrowLook, StreamArrow, StreamArrowArtist, StreamColors, StreamField, StreamPlan, StreamWidths,
-    StreamplotError, StreamplotOptions, StreamplotSet,
+    PlannedArrow, StreamColors, StreamField, StreamPlan, StreamWidths, StreamplotError,
+    StreamplotOptions, StreamplotSet,
 };
 use crate::transforms::Transform;
 
@@ -20,6 +21,20 @@ use crate::transforms::Transform;
 struct Shared {
     zorder: f64,
     width: f64,
+}
+
+/// How one arrow of a streamplot looks.
+struct ArrowLook<'a> {
+    /// The plot's arrow style.
+    style: &'a ArrowStyle,
+    /// The scale of the style's sizes, in points.
+    mutation_scale: f64,
+    /// The edge width in points.
+    width: f64,
+    /// The face and edge colour.
+    color: Color,
+    /// The drawing order, the streamlines'.
+    zorder: f64,
 }
 
 /// How the streamlines of one plot are coloured.
@@ -82,31 +97,54 @@ impl Axes {
             .borrow_mut()
             .unstale_axes(self.id());
         let (lines, arrow_colors) =
-            self.add_streamlines(&mut plan, colors, &shared, &transform, rc)?;
+            self.add_streamlines(&mut plan, colors, &shared, &transform, Rc::clone(&rc))?;
         let arrows = plan
             .arrows
             .iter()
             .zip(arrow_colors)
             .map(|(arrow, color)| {
                 let look = ArrowLook {
-                    style: options.arrowstyle,
+                    style: &options.arrowstyle,
                     mutation_scale: 10.0 * options.arrowsize,
-                    linewidth: arrow.width.unwrap_or(shared.width),
+                    width: arrow.width.unwrap_or(shared.width),
                     color,
+                    zorder: shared.zorder,
                 };
-                let artist = StreamArrowArtist::new(
-                    (arrow.tail, arrow.head),
-                    look,
-                    transform.clone(),
-                    shared.zorder,
-                );
-                let outline =
-                    artist.outline_data_points(&*self.raw().figure_state().borrow(), self.id());
-                let update = outline.map_or_else(DataUpdate::default, DataUpdate::data);
-                StreamArrow::from_raw(self.adopt_in_autoscale(artist, &update))
+                self.add_stream_arrow(arrow, look, &transform, Rc::clone(&rc))
             })
             .collect();
         Ok(StreamplotSet { lines, arrows })
+    }
+
+    /// Adds the arrow `arrow` along a streamline, in `transform`, as
+    /// matplotlib's `streamplot` adds each with `add_patch`: a
+    /// `FancyArrowPatch` coloured and as wide as its streamline there,
+    /// whose outline counts in the data limits.
+    fn add_stream_arrow(
+        &self,
+        arrow: &PlannedArrow,
+        look: ArrowLook<'_>,
+        transform: &Transform,
+        rc: Rc<RcParams>,
+    ) -> Patch<FancyArrowPatch> {
+        let shape = FancyArrowPatch::between(arrow.tail, arrow.head)
+            .with_arrowstyle(look.style.clone())
+            .with_mutation_scale(look.mutation_scale);
+        let mut patch = PatchArtist::new(shape, rc);
+        patch.style.facecolor = Some(look.color.clone());
+        patch.style.edgecolor = Some(look.color);
+        patch.style.linewidth = Some(look.width);
+        let base = patch.base_mut();
+        base.zorder = look.zorder;
+        base.transform = Some(transform.clone());
+        let outline = patch.shape.outline_data_points(
+            transform,
+            look.width,
+            &*self.raw().figure_state().borrow(),
+            self.id(),
+        );
+        let update = outline.map_or_else(DataUpdate::default, DataUpdate::data);
+        Patch::from_raw(self.adopt_in_autoscale(patch, &update))
     }
 
     /// Adds the streamlines of `plan` as a line collection in `transform`
@@ -202,6 +240,7 @@ mod tests {
     use crate::artist::ArtistHandle;
     use crate::figure::Figure;
     use crate::numeric::{Grid, linspace};
+    use crate::patches::ArrowRoute;
     use crate::streamplot::{
         StreamColorMap, StreamColors, StreamField, StreamWidths, StreamplotOptions,
     };
@@ -224,8 +263,15 @@ mod tests {
         assert_eq!(set.lines.zorder(), 2.0);
         assert_eq!(ax.xlim(), (-2.0, 2.0));
         assert_eq!(set.arrows.len(), set.lines.paths().len());
-        let (tail, head) = set.arrows[0].positions();
+        let ArrowRoute::Between(tail, head) = set.arrows[0].shape().route else {
+            panic!("arrows run between two points");
+        };
         assert_ne!(tail, head);
+        assert_eq!(
+            ax.patches().len(),
+            set.arrows.len(),
+            "the arrows are patches"
+        );
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
         fig.draw(&mut renderer).unwrap();
     }

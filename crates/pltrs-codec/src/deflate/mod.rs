@@ -18,10 +18,10 @@
 //! use pltrs_codec::{deflate, CompressionLevel};
 //!
 //! let text = b"to be or not to be, that is the question; to be or not to be";
-//! let packed = deflate::compress(text, CompressionLevel::DEFAULT);
+//! let packed = deflate::compress(text, CompressionLevel::DEFAULT)?;
 //! assert!(packed.len() < text.len());
 //! assert_eq!(deflate::decompress(&packed)?, text);
-//! # Ok::<(), deflate::InflateError>(())
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 mod bit_reader;
@@ -43,18 +43,34 @@ pub use level::{CompressionLevel, InvalidCompressionLevel};
 use bit_writer::BitWriter;
 use block::BlockSink;
 use level::Parsing;
+use pltrs_core::alloc::OutOfMemory;
 
 /// Compresses `data` into a new raw DEFLATE stream.
-pub fn compress(data: &[u8], level: CompressionLevel) -> Vec<u8> {
+///
+/// # Errors
+///
+/// When the memory for the output cannot be allocated.
+pub fn compress(data: &[u8], level: CompressionLevel) -> Result<Vec<u8>, OutOfMemory> {
     let mut out = Vec::new();
-    compress_into(data, level, &mut out);
-    out
+    compress_into(data, level, &mut out)?;
+    Ok(out)
 }
 
 /// Appends the raw DEFLATE compression of `data` to `out`.
-pub fn compress_into(data: &[u8], level: CompressionLevel, out: &mut Vec<u8>) {
+///
+/// # Errors
+///
+/// When the memory for the output cannot be allocated (what was written
+/// of it stays in `out`).
+pub fn compress_into(
+    data: &[u8],
+    level: CompressionLevel,
+    out: &mut Vec<u8>,
+) -> Result<(), OutOfMemory> {
     let params = level.params();
-    out.reserve(match params.parsing {
+    // Room for the usual output at once; the writer grows it further if
+    // the data compresses less (a refusal here is not yet a failure).
+    let _ = out.try_reserve(match params.parsing {
         Parsing::Stored => data.len() + 5 * (data.len() / 65_535 + 1),
         Parsing::Greedy | Parsing::Lazy => data.len() / 4 + 64,
     });
@@ -65,6 +81,7 @@ pub fn compress_into(data: &[u8], level: CompressionLevel, out: &mut Vec<u8>) {
         Parsing::Lazy => lz77::lazy(data, &params, BlockSink::new(data, &mut writer)),
     }
     writer.align_to_byte();
+    writer.finish()
 }
 
 /// Decompresses the raw DEFLATE stream at the start of `input`.

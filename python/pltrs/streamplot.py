@@ -8,10 +8,11 @@ and draws them with their arrows.
 
 import numpy as np
 
-from . import (_api, _handles, _live_transforms, colors as mcolors,
-               collections as mcollections)
-from . import artist as martist
+from . import (_api, _handles, _live_transforms, _values, colors as mcolors,
+               collections as mcollections, patches)
+from ._fancy_styles import _style_object
 from ._native import plotting as _plotting
+from ._patch_styles import ArrowStyle, _native_spec
 
 
 __all__ = ['streamplot']
@@ -100,8 +101,12 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
 
         - ``lines``: `.LineCollection` of streamlines
 
-        - ``arrows``: the arrows half-way along streamlines (pltrs: a list
-          of their artists).
+        - ``arrows``: `.PatchCollection` containing `.FancyArrowPatch`
+          objects representing the arrows half-way along streamlines.
+
+        This container will probably change in the future to allow changes
+        to the colormap, alpha, etc. for both lines and arrows, but these
+        changes should be backward compatible.
     """
     gx = _grid_axis(x, 'x')
     gy = _grid_axis(y, 'y')
@@ -141,6 +146,7 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
     density = np.broadcast_to(np.asarray(density, dtype=float), (2,))
     if start_points is not None:
         start_points = np.asanyarray(start_points, dtype=float).reshape(-1, 2)
+    arrowstyle = _native_spec(_style_object(arrowstyle, ArrowStyle), ArrowStyle)
     lines, arrows = _plotting.streamplot(
         axes._native, (gx, gy), (_filled(u), _filled(v)), (single, mapped),
         (uniform, varying),
@@ -154,10 +160,22 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
     figure = axes.figure
     lines = _handles.wrap(lines, mcollections.LineCollection, figure)
     lines._attach_native_mapping(colorizer=made)
-    arrows = _handles.wrap_all(arrows, martist.Artist, figure)
+    arrows = _handles.wrap_all(arrows, patches.FancyArrowPatch, figure)
+    for arrow in arrows:
+        # matplotlib's ``FancyArrowPatch(color=...)``: the colour given, or
+        # the line cycle's as the cycle holds it.
+        for side in ("facecolor", "edgecolor"):
+            if single is not None:
+                _values.remember(arrow, side, color)
+            elif mapped is None:
+                arrow._take_cycle_color(side)
+    # matplotlib's collection of the arrows, which no axes holds ("Adding
+    # the collection itself is broken; see #2341."): the arrows are the
+    # axes' patches.
+    collection = mcollections.PatchCollection(arrows)
     # matplotlib autoscales the view at once (``autoscale_view``).
     axes._unstale_viewLim()
-    return StreamplotSet(lines, arrows)
+    return StreamplotSet(lines, collection)
 
 
 class StreamplotSet:

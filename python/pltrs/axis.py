@@ -50,8 +50,9 @@ def _typed_locs(locator, locs, minor, view):
     `.FixedLocator` placing all its locations gives its array (the minor
     ones on major ticks left out, in its dtype), a categorical one the list
     of the category numbers, a radial one of a full circle the list of its
-    ticks, a symlog one of a view in its linear range the sorted list of
-    ``{vmin, 0, vmax}``, a null major one an empty list."""
+    ticks, a symlog major one of a view in its linear range the sorted list
+    of ``{vmin, 0, vmax}`` (a minor one the array of them left once those on
+    major ticks are out), a null major one an empty list."""
     from . import ticker as mticker
     from .category import StrCategoryLocator
     from .projections.polar import RadialLocator
@@ -59,7 +60,7 @@ def _typed_locs(locator, locs, minor, view):
         return list(np.asarray(locs))
     if isinstance(locator, mticker.NullLocator) and not minor:
         return []
-    if isinstance(locator, mticker.SymmetricalLogLocator):
+    if isinstance(locator, mticker.SymmetricalLogLocator) and not minor:
         vmin, vmax = sorted(map(np.float64, view))
         if -locator._linthresh <= vmin < vmax <= locator._linthresh:
             return sorted({vmin, 0, vmax})
@@ -1522,7 +1523,13 @@ class Axis(DrawnWith, Artist):
         return _axis.get_label_position(*self._args())
 
     def set_label_position(self, position):
-        """Set the label position (a side of the axes)."""
+        """
+        Set the label position (a side of the axes).
+
+        Parameters
+        ----------
+        position : {'top', 'bottom'}
+        """
         _axis.set_label_position(*self._args(), position)
 
     # --- Visibility and layout -----------------------------------------------
@@ -1532,7 +1539,13 @@ class Axis(DrawnWith, Artist):
         return _axis.get_visible(*self._args())
 
     def set_visible(self, b):
-        """Set whether the axis is drawn: its ticks, labels and offset text."""
+        """
+        Set whether the axis is drawn: its ticks, labels and offset text.
+
+        Parameters
+        ----------
+        b : bool
+        """
         _axis.set_visible(*self._args(), bool(b))
 
     def get_in_layout(self):
@@ -1540,7 +1553,13 @@ class Axis(DrawnWith, Artist):
         return _axis.get_in_layout(*self._args())
 
     def set_in_layout(self, in_layout):
-        """Set whether layouts make room for the axis' texts."""
+        """
+        Set whether layouts make room for the axis' texts.
+
+        Parameters
+        ----------
+        in_layout : bool
+        """
         _axis.set_in_layout(*self._args(), bool(in_layout))
 
     def get_children(self):

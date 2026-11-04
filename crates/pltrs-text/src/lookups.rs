@@ -1,11 +1,14 @@
 //! Font lookups matplotlib's font manager logs about: a family of a text
 //! that no font has (`findfont: Font family 'xkcd' not found.`), or a best
 //! face of another weight than asked for (`findfont: Failed to find font
-//! weight light for DejaVu Sans, now using 400.`). matplotlib looks the
-//! fonts of a text up each time it lays the text out or draws it, through
-//! `_find_fonts_by_props`; the engine records each lookup it would log
-//! about for its caller to report ([`take_font_lookups`]), where the
-//! program's font manager can log as matplotlib's does.
+//! weight light for DejaVu Sans, now using 400.`). matplotlib's renderers
+//! look the fonts of a text up (`_find_fonts_by_props`) each time they lay
+//! it out, measure one of its lines that is not cached and draw one of its
+//! lines; the caller notes each such lookup
+//! ([`TextEngine::note_font_lookup`](crate::TextEngine::note_font_lookup)),
+//! and those matplotlib would log about are kept for it to report
+//! ([`take_font_lookups`]), where the program's font manager can log as
+//! matplotlib's does.
 
 use std::cell::RefCell;
 

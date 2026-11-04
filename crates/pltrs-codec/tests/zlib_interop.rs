@@ -40,7 +40,7 @@ fn inflates_every_reference_stream() {
 fn compression_ratio_tracks_zlib() {
     let corpus = read("corpus.bin");
     for level in 1..=9 {
-        let ours = zlib::compress(&corpus, CompressionLevel::new(level).unwrap());
+        let ours = zlib::compress(&corpus, CompressionLevel::new(level).unwrap()).unwrap();
         let theirs = read(&format!("level{level}.zlib"));
         assert!(
             ours.len() * 100 <= theirs.len() * 102,
@@ -50,6 +50,6 @@ fn compression_ratio_tracks_zlib() {
         );
         assert_eq!(zlib::decompress(&ours).unwrap(), corpus);
     }
-    let stored = zlib::compress(&corpus, CompressionLevel::NONE);
+    let stored = zlib::compress(&corpus, CompressionLevel::NONE).unwrap();
     assert_eq!(stored.len(), read("level0.zlib").len());
 }

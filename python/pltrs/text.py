@@ -887,7 +887,7 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         Parameters
         ----------
-        usetex : bool or None
+        usetex : bool, default: :rc:`text.usetex`
             Whether to render using TeX, ``None`` means to use
             :rc:`text.usetex`.
         """

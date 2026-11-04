@@ -32,6 +32,17 @@ pub(crate) struct AxisPainter<'a> {
     pub(super) name: AxisName,
 }
 
+/// How matplotlib draws a text of an axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AxisTextDraw {
+    /// Laid out again where it is drawn, after `Axis.draw` measured it: a
+    /// tick label.
+    AfterMeasuring,
+    /// Laid out by its draw alone: the axis label and the offset text, the
+    /// layout placing them.
+    AsPlaced,
+}
+
 /// A text of an axis, laid out at its anchor in display coordinates.
 #[derive(Debug)]
 pub(crate) struct PlacedText {
@@ -49,8 +60,10 @@ pub(crate) struct PlacedText {
 
 impl PlacedText {
     /// The text as it is drawn. matplotlib's `Text.draw` lays a tick label
-    /// out again where it draws it, measuring its lines a second time
-    /// through the renderer's text metrics cache. That layout is the one
+    /// out again where it draws it (`drawn_as`
+    /// [`AxisTextDraw::AfterMeasuring`]; the layout placing an axis label
+    /// is the one drawing it), measuring its lines a second time through
+    /// the renderer's text metrics cache. That layout is the one
     /// made when placing the text, which is drawn; while such a cache is
     /// installed, its lines are looked up again
     /// ([`LaidOutText::measure_again`]), so that the cache sees the same
@@ -67,9 +80,10 @@ impl PlacedText {
         &self,
         dpi: f64,
         rc: &RcParams,
+        drawn_as: AxisTextDraw,
     ) -> Result<Cow<'_, LaidOutText>, TextError> {
         let laid_out = &self.laid_out;
-        if !metrics_cache_installed() {
+        if drawn_as == AxisTextDraw::AsPlaced || !metrics_cache_installed() {
             return Ok(Cow::Borrowed(laid_out));
         }
         if rc.path_effects.is_empty() && !has_line_measurer() {
@@ -178,6 +192,15 @@ impl<'a> AxisPainter<'a> {
         let mut texts = AxisTexts::default();
         self.lay_out_tick_labels(layout, rc, &mut texts);
         let boxes = label_boxes(&texts);
+        if self.axis.label.coords.is_none() {
+            // matplotlib places the label from the tick labels measured
+            // again (`_update_label_position`'s `_get_tick_boxes_siblings`).
+            for label in &texts.tick_labels {
+                if let Err(err) = label.text.laid_out.measure_again(layout.dpi(), rc) {
+                    texts.problems.push(err.to_string());
+                }
+            }
+        }
         texts.offset_anchor = self
             .offset_placement(layout, &boxes)
             .map(|(anchor, _)| anchor);

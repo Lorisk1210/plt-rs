@@ -269,6 +269,10 @@ def _unmasked(description: dict) -> Any:
 
 
 def _key(description: dict) -> str:
+    """A dict key as text, the same for equal keys under both (a tuple's
+    as its items', such as a table's ``(row, column)`` keys)."""
+    if description.get("k") == "tuple":
+        return "(" + ", ".join(_key(item) for item in description.get("items", [])) + ")"
     return repr(description.get("v", description.get("name", description.get("type"))))
 
 

@@ -23,14 +23,12 @@
 //! # Ok::<(), pltrs::streamplot::StreamplotError>(())
 //! ```
 
-mod arrow;
 mod domain;
 mod error;
 mod integrate;
 mod mask;
 mod plan;
 
-pub use arrow::{StreamArrow, StreamArrowHead, StreamArrowStyle, UnknownArrowStyle};
 pub use domain::GridAxis;
 pub use error::StreamplotError;
 pub use integrate::IntegrationDirection;
@@ -38,14 +36,14 @@ pub use integrate::MAX_STREAMLINE_STEPS;
 pub use mask::MAX_STREAMLINE_CELLS;
 pub use plan::MAX_STREAMLINE_ARROWS;
 
-pub(crate) use arrow::{ArrowLook, StreamArrowArtist};
-pub(crate) use plan::StreamPlan;
+pub(crate) use plan::{PlannedArrow, StreamPlan};
 
 use pltrs_core::Point;
 
 use crate::collections::Collection;
 use crate::colors::{Color, ColorizerOptions, impl_colorize};
 use crate::numeric::Grid;
+use crate::patches::{ArrowStyle, CurveEnd, FancyArrowPatch, Patch};
 use crate::transforms::Transform;
 
 /// A vector field sampled on an evenly spaced grid (streamplot's `x, y,
@@ -151,10 +149,12 @@ pub struct StreamplotOptions {
     pub linewidth: Option<StreamWidths>,
     /// Streamline colours (`None` = the next colour of the line cycle).
     pub color: Option<StreamColors>,
-    /// Scale of the arrow heads.
+    /// Scale of the arrows: their mutation scale is ten times it, in
+    /// points.
     pub arrowsize: f64,
-    /// The arrow heads.
-    pub arrowstyle: StreamArrowStyle,
+    /// The style of the arrows (any style a [`FancyArrowPatch`] takes;
+    /// `-|>` by default).
+    pub arrowstyle: ArrowStyle,
     /// Shortest streamline kept, in axes-fraction lengths.
     pub minlength: f64,
     /// Longest streamline, in axes-fraction lengths.
@@ -187,7 +187,7 @@ impl Default for StreamplotOptions {
             linewidth: None,
             color: None,
             arrowsize: 1.0,
-            arrowstyle: StreamArrowStyle::default(),
+            arrowstyle: ArrowStyle::curve(CurveEnd::Plain, CurveEnd::FilledHead),
             minlength: 0.1,
             maxlength: 4.0,
             start_points: None,
@@ -203,18 +203,28 @@ impl Default for StreamplotOptions {
 }
 
 /// What `Axes::streamplot` returns (matplotlib's `StreamplotSet`).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StreamplotSet {
     /// The streamlines, as one line collection.
     pub lines: Collection,
-    /// The arrows, in streamline order.
-    pub arrows: Vec<StreamArrow>,
+    /// The arrows, in streamline order: the axes' patches, as matplotlib
+    /// adds them (its `StreamplotSet.arrows` is a `PatchCollection` of
+    /// them that is not drawn).
+    pub arrows: Vec<Patch<FancyArrowPatch>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::numeric::meshgrid;
+
+    #[test]
+    fn arrows_default_to_a_filled_head() {
+        assert_eq!(
+            StreamplotOptions::default().arrowstyle,
+            "-|>".parse::<ArrowStyle>().unwrap()
+        );
+    }
 
     #[test]
     fn meshes_reduce_to_their_axes() {

@@ -64,7 +64,12 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
 
     def __str__(self):
         return "{0}({1[0]:g},{1[1]:g};{1[2]:g}x{1[3]:g})".format(
-            type(self).__name__, self.get_position(original=True).bounds)
+            type(self).__name__, self._active_bounds())
+
+    def _active_bounds(self):
+        """The bounds of the active position as it is now, the aspect not
+        applied (matplotlib's ``_position``)."""
+        return self._position.bounds
 
     def __repr__(self):
         fields = []
@@ -429,6 +434,8 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         in favor of the kwarg form, i.e. ``set_prop_cycle(label=values)``.
 
         Passing ``None`` resets the cycle to :rc:`axes.prop_cycle`.
+
+        ACCEPTS: `~cycler.Cycler`
         """
         if args and kwargs:
             raise TypeError("Cannot supply both positional and keyword "
@@ -529,6 +536,10 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         Set the zorder for the artist.  Artists with lower zorder
         values are drawn first; of twinned Axes, the bottom-most draws the
         background.
+
+        Parameters
+        ----------
+        level : float
         """
         super().set_zorder(level)
         _axes_base.update_twinned_patch_visibility(self._native)

@@ -890,6 +890,12 @@ matplotlib defines in Python, such as `ImageComparisonFailure`, are
 registered by the package (`_native.register`) and raised through
 `binding::registered_error`.
 
+What a program's data can make enormous (a canvas, an encoded file, a
+copy of either) is allocated fallibly (`pltrs_core::alloc`): memory the
+system refuses, or a canvas beyond `pltrs_raster::MAX_PIXELS`, is an
+error caused by `OutOfMemory`, which the binding raises as matplotlib's
+allocations do, `MemoryError`, instead of the process ending.
+
 Problems met while drawing are not raised by the artist meeting them:
 pltrs (Rust) draws the rest and returns them all (`DrawErrors`), each with
 the kind of exception matplotlib raises for it (`DrawErrorKind`). The
@@ -921,9 +927,12 @@ through `_native.artist.draw_count` of its `_drawer()`).
 
 Some of matplotlib's warnings come from deep inside a draw or a layout,
 where pltrs (Rust) cannot call Python: "Glyph 128579 (\N{UPSIDE-DOWN
-FACE}) missing from font(s) DejaVu Sans." is issued for every text laid
-out with a character no font has. pltrs (Rust) queues such events on the
-thread (`pltrs_text::take_missing_glyphs`), and every native call ends,
+FACE}) missing from font(s) DejaVu Sans." is issued for every line with a
+character no font has that a renderer measures without finding it in its
+cache of line metrics. pltrs (Rust) queues such events on the thread
+(`pltrs_text::take_missing_glyphs`, noted where pltrs (Rust) measures a
+line its cache does not hold: `pltrs::text` `font_notes`), and every
+native call ends,
 when it succeeds, with the functions `modules::register` installed
 (`binding::after_call`), which drain the queues and issue the warnings
 through the package's own functions (registered with `_native.register`,
@@ -934,11 +943,17 @@ filters is raised in place of the call's result.
 The font manager's log messages about the fonts of a text (a family no
 font has, a face of another weight than asked for) come the same way:
 pltrs (Rust) records each lookup of a text's fonts matplotlib would log
-about (`pltrs_text::take_font_lookups`), and the after-call hook hands
-it to `_text_helpers.report_font_lookup`, which looks the fonts up again
-with the program's `fontManager` (`_find_fonts_by_props` or `findfont`),
-logging as matplotlib's does: once per font properties for a substituted
-weight (`findfont` caches), at every lookup for a family not found.
+about (`pltrs_text::take_font_lookups`) at the moments matplotlib's
+renderers look them up (`_find_fonts_by_props`): when a text is laid out
+(`Text._get_layout` takes the height of its font), when one of its lines
+is measured uncached, and when one is drawn (`draw_text`'s
+`_prepare_font`); tick labels are laid out once more where an axis places
+its label (`_update_label_position`). The after-call hook hands each
+lookup to `_text_helpers.report_font_lookup`, which looks the fonts up
+again with the program's `fontManager` (`_find_fonts_by_props` or
+`findfont`), logging as matplotlib's does: once per font properties for a
+substituted weight (`findfont` caches), at every lookup for a family not
+found.
 
 ### Text measured and drawn by the program
 

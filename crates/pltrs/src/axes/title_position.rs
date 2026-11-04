@@ -92,10 +92,13 @@ impl FigureState {
         for &title in &titles {
             self.set_title_y(title, 1.0);
             if self.has_text(title) {
-                let bbox = self.title_extent(title);
                 for &ax in &group {
+                    // matplotlib measures the title only against an offset
+                    // text there is.
                     if let Some(offset) = self.y_offset_extent(ax)
-                        && bbox.is_some_and(|bbox| offset.intersection(&bbox).is_some())
+                        && self
+                            .title_extent(title)
+                            .is_some_and(|bbox| offset.intersection(&bbox).is_some())
                     {
                         top = offset.ymax();
                     }

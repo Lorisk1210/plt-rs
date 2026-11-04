@@ -15,7 +15,7 @@ fn round_trips_varied_inputs_at_every_level() {
     let inputs = varied_inputs(&mut rng);
     for level in all_levels() {
         for (index, input) in inputs.iter().enumerate() {
-            let packed = compress(input, level);
+            let packed = compress(input, level).unwrap();
             let unpacked = decompress(&packed)
                 .unwrap_or_else(|e| panic!("level {level:?}, input {index}: {e}"));
             assert!(unpacked == *input, "level {level:?}, input {index} differs");
@@ -32,7 +32,7 @@ fn round_trips_many_small_random_inputs() {
         let input: Vec<u8> = (0..len).map(|_| rng.below(alphabet) as u8).collect();
         let level = CompressionLevel::new((case % 10) as u8).unwrap();
         assert_eq!(
-            decompress(&compress(&input, level)).unwrap(),
+            decompress(&compress(&input, level).unwrap()).unwrap(),
             input,
             "case {case}"
         );
@@ -88,7 +88,7 @@ fn compressed_bytes_stay_the_same() {
     ];
     for (input, expected) in pinned_inputs().iter().zip(expected) {
         let fingerprint = (1..=9)
-            .flat_map(|level| compress(input, CompressionLevel::new(level).unwrap()))
+            .flat_map(|level| compress(input, CompressionLevel::new(level).unwrap()).unwrap())
             .fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
                 (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
             });
@@ -98,17 +98,20 @@ fn compressed_bytes_stay_the_same() {
 
 #[test]
 fn matches_reference_encodings_of_tiny_inputs() {
-    assert_eq!(compress(b"", CompressionLevel::DEFAULT), [0x03, 0x00]);
     assert_eq!(
-        compress(b"", CompressionLevel::NONE),
+        compress(b"", CompressionLevel::DEFAULT).unwrap(),
+        [0x03, 0x00]
+    );
+    assert_eq!(
+        compress(b"", CompressionLevel::NONE).unwrap(),
         [0x01, 0x00, 0x00, 0xFF, 0xFF]
     );
     assert_eq!(
-        compress(b"abc", CompressionLevel::NONE),
+        compress(b"abc", CompressionLevel::NONE).unwrap(),
         [0x01, 0x03, 0x00, 0xFC, 0xFF, b'a', b'b', b'c']
     );
     assert_eq!(
-        compress(b"hello", CompressionLevel::DEFAULT),
+        compress(b"hello", CompressionLevel::DEFAULT).unwrap(),
         [0xCB, 0x48, 0xCD, 0xC9, 0xC9, 0x07, 0x00]
     );
 }
@@ -126,7 +129,7 @@ fn decodes_reference_streams() {
 fn compresses_redundant_data_and_bounds_expansion() {
     let zeros = vec![0u8; 1 << 20];
     for level in all_levels().skip(1) {
-        let packed = compress(&zeros, level);
+        let packed = compress(&zeros, level).unwrap();
         assert!(
             packed.len() < 1100,
             "level {level:?}: {} bytes",
@@ -135,7 +138,7 @@ fn compresses_redundant_data_and_bounds_expansion() {
     }
     let noise = Rng::new(3).bytes(200_000);
     for level in all_levels() {
-        let packed = compress(&noise, level);
+        let packed = compress(&noise, level).unwrap();
         // Each block of 16 Ki literals falls back to stored blocks.
         let stored_size = noise.len() + 5 * noise.len().div_ceil(1 << 14);
         assert!(
@@ -151,7 +154,7 @@ fn higher_levels_do_not_compress_worse_on_text() {
     let mut rng = Rng::new(4);
     let text = varied_inputs(&mut rng).swap_remove(19);
     let sizes: Vec<usize> = all_levels()
-        .map(|level| compress(&text, level).len())
+        .map(|level| compress(&text, level).unwrap().len())
         .collect();
     assert!(sizes[1] < sizes[0] / 2);
     assert!(sizes[9] <= sizes[1]);
@@ -161,13 +164,13 @@ fn higher_levels_do_not_compress_worse_on_text() {
 #[test]
 fn output_limit_is_enforced_exactly() {
     let input = Rng::new(5).bytes(5000);
-    let packed = compress(&input, CompressionLevel::DEFAULT);
+    let packed = compress(&input, CompressionLevel::DEFAULT).unwrap();
     assert_eq!(decompress_with_limit(&packed, 5000).unwrap(), input);
     assert_eq!(
         decompress_with_limit(&packed, 4999),
         Err(InflateError::OutputLimitExceeded { limit: 4999 })
     );
-    let zeros = compress(&[0; 10_000], CompressionLevel::DEFAULT);
+    let zeros = compress(&[0; 10_000], CompressionLevel::DEFAULT).unwrap();
     assert_eq!(
         decompress_with_limit(&zeros, 100),
         Err(InflateError::OutputLimitExceeded { limit: 100 })
@@ -178,7 +181,7 @@ fn output_limit_is_enforced_exactly() {
 fn hitting_the_limit_leaves_exactly_limit_bytes() {
     let input: Vec<u8> = (0..3000u32).map(|i| (i % 7 + i / 300) as u8).collect();
     for level in all_levels() {
-        let packed = compress(&input, level);
+        let packed = compress(&input, level).unwrap();
         for limit in [0, 1, 2, 3, 100, 257, 1001, 2999] {
             let mut out = vec![9];
             assert_eq!(
@@ -194,7 +197,7 @@ fn hitting_the_limit_leaves_exactly_limit_bytes() {
 fn reports_consumed_bytes_and_ignores_trailing_data() {
     let input = b"some data some data some data";
     for level in all_levels() {
-        let mut packed = compress(input, level);
+        let mut packed = compress(input, level).unwrap();
         let stream_len = packed.len();
         packed.extend_from_slice(b"trailing garbage");
         let mut out = b"prefix".to_vec();
@@ -383,7 +386,7 @@ fn every_truncation_is_an_error() {
     let mut rng = Rng::new(6);
     let input: Vec<u8> = (0..3000).map(|_| b'a' + rng.below(6) as u8).collect();
     for level in [0, 1, 6, 9] {
-        let packed = compress(&input, CompressionLevel::new(level).unwrap());
+        let packed = compress(&input, CompressionLevel::new(level).unwrap()).unwrap();
         for cut in 0..packed.len() {
             assert!(
                 decompress(&packed[..cut]).is_err(),
@@ -404,7 +407,7 @@ fn random_and_corrupted_inputs_never_panic() {
     }
     let inputs = varied_inputs(&mut rng);
     for (index, input) in inputs.iter().enumerate().filter(|(_, i)| i.len() < 70_000) {
-        let packed = compress(input, CompressionLevel::new((index % 10) as u8).unwrap());
+        let packed = compress(input, CompressionLevel::new((index % 10) as u8).unwrap()).unwrap();
         for _ in 0..40 {
             let mut corrupted = packed.clone();
             if corrupted.is_empty() {

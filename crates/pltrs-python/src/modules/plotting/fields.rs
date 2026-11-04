@@ -4,14 +4,15 @@ use pltrs::axes::{Axes, MappedColors};
 use pltrs::collections::{Collection, CollectionProps};
 use pltrs::colors::Color;
 use pltrs::numeric::Grid;
+use pltrs::patches::{FancyArrowPatch, Patch};
 use pltrs::quiver::{
-    Angles, BarbIncrements, BarbPivot, BarbSizes, BarbsOptions, KeyCoordinates, LabelPosition,
-    Pivot, Quiver, QuiverArrowShape, QuiverKey, QuiverKeyOptions, QuiverOptions, QuiverUnits,
-    VectorField,
+    Angles, ArrowSize, BarbIncrements, BarbPivot, BarbSizes, BarbsOptions, KeyCoordinates,
+    LabelPosition, Pivot, Quiver, QuiverArrowShape, QuiverKey, QuiverKeyOptions, QuiverOptions,
+    QuiverUnits, VectorField,
 };
 use pltrs::streamplot::{
-    IntegrationDirection, StreamArrow, StreamColorMap, StreamColors, StreamField, StreamWidths,
-    StreamplotError, StreamplotOptions, UnknownArrowStyle,
+    IntegrationDirection, StreamColorMap, StreamColors, StreamField, StreamWidths, StreamplotError,
+    StreamplotOptions,
 };
 use pltrs::text::Text;
 use pltrs::transforms::{Point, Transform};
@@ -19,12 +20,13 @@ use pltrs::transforms::{Point, Transform};
 use super::super::collections::{edge_colors, rgba_rows};
 use super::super::font_manager::FontProps;
 use super::super::lines::PyLineStyle;
+use super::super::patch_styles::PyArrowStyle;
 use super::super::path::{PathArrays, path_arrays};
 use super::mapping::{Mapping, colorizer};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
-artist_handle!(Quiver, QuiverKey, StreamArrow);
+artist_handle!(Quiver, QuiverKey);
 
 impl From<StreamplotError> for PyErr {
     /// matplotlib's `ValueError` for fields and options it cannot trace.
@@ -152,6 +154,41 @@ pub(super) fn quiver(
 pub(super) fn quiver_set_uvc(quiver: Quiver, u: NdArray, v: NdArray) -> PyResult<()> {
     quiver.set_uvc(&u.into_vec()?, &v.into_vec()?)?;
     Ok(())
+}
+
+/// The sizes of the arrows: `(scale, width, span)`, each `None` until
+/// given or worked out by a draw (matplotlib's attributes).
+pub(super) fn quiver_sizes(quiver: Quiver) -> PyResult<(Option<f64>, Option<f64>, Option<f64>)> {
+    let sizes = quiver.sizes();
+    Ok((sizes.scale, sizes.width, sizes.span))
+}
+
+/// Sets the `"scale"` or the `"width"` of the arrows (`None`: worked out
+/// at the next draw).
+pub(super) fn quiver_set_size(quiver: Quiver, name: String, value: Option<f64>) -> PyResult<()> {
+    let size = match name.as_str() {
+        "scale" => ArrowSize::Scale,
+        "width" => ArrowSize::Width,
+        _ => return Err(PyErr::value_error(format!("no arrow size {name:?}"))),
+    };
+    quiver.set_size(size, value);
+    Ok(())
+}
+
+/// The arrows of the last draw in arrow-width units, each as an `(8, 2)`
+/// array of vertices; none before the first draw.
+pub(super) fn quiver_paths(quiver: Quiver) -> PyResult<Vec<NdArray>> {
+    quiver
+        .drawn_outlines()
+        .into_iter()
+        .map(|outline| {
+            let count = outline.len();
+            NdArray::with_shape(
+                outline.iter().flat_map(|p| [p.x, p.y]).collect(),
+                vec![count, 2],
+            )
+        })
+        .collect()
 }
 
 /// The key's arrow: `(angle, coordinates, color, zorder)`.
@@ -364,14 +401,15 @@ type Tracing = (
     (f64, f64),
 );
 
-/// The arrows: `(arrowsize, arrowstyle, num_arrows)`.
-type StreamArrows = (f64, String, usize);
+/// The arrows: `(arrowsize, arrowstyle, num_arrows)`, the style as the
+/// patches take it.
+type StreamArrows = (f64, PyArrowStyle, usize);
 
 /// Streamlines of the field `u`, `v` on the grid of `x` (one per column)
 /// and `y` (one per row) (matplotlib's `streamplot`, whose meshes the
 /// Python side reduced): coloured, widened, traced and given arrows as
 /// the specs say, at `zorder`, with the grid in `transform`. Returns the
-/// line collection and the arrows.
+/// line collection and the arrow patches.
 pub(super) fn streamplot(
     axes: Axes,
     (x, y): (NdArray, NdArray),
@@ -381,7 +419,7 @@ pub(super) fn streamplot(
     tracing: Tracing,
     (arrowsize, arrowstyle, num_arrows): StreamArrows,
     (zorder, transform): (Option<f64>, Option<Transform>),
-) -> PyResult<(Collection, Vec<StreamArrow>)> {
+) -> PyResult<(Collection, Vec<Patch<FancyArrowPatch>>)> {
     let (density, minlength, maxlength, start_points, direction, broken, scales) = tracing;
     let field = StreamField::new(x.into_vec()?, y.into_vec()?, grid(u)?, grid(v)?);
     let color = match (single, mapped) {
@@ -411,9 +449,7 @@ pub(super) fn streamplot(
         linewidth,
         color,
         arrowsize,
-        arrowstyle: arrowstyle
-            .parse()
-            .map_err(|err: UnknownArrowStyle| PyErr::value_error(err.to_string()))?,
+        arrowstyle: arrowstyle.0,
         minlength,
         maxlength,
         start_points,

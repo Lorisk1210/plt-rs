@@ -43,7 +43,7 @@ impl Figure {
             std::fs::write(&image.name, image.png).map_err(SaveError::Io)?;
         }
         let bytes = if gzip {
-            pltrs_render::gzip(document.as_bytes())
+            pltrs_render::gzip(document.as_bytes()).map_err(|err| SaveError::Vector(err.into()))?
         } else {
             document.into_bytes()
         };

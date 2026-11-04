@@ -253,7 +253,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         return _artist.get_visible(self._native)
 
     def set_visible(self, b):
-        """Set the artist's visibility."""
+        """
+        Set the artist's visibility.
+
+        Parameters
+        ----------
+        b : bool
+        """
         _artist.set_visible(self._native, bool(b))
         self.pchanged()
 
@@ -345,6 +351,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         When False, artists will be visible outside the Axes which
         can lead to unexpected results.
+
+        Parameters
+        ----------
+        b : bool
         """
         _artist.set_clip_on(self._native, bool(b))
 
@@ -362,6 +372,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Rasterized drawing is not supported by all artists. If you try to
         enable this on an artist that does not support it, the command has no
         effect and a warning will be issued.
+
+        Parameters
+        ----------
+        rasterized : bool
         """
         if rasterized and self._rasterization_ignored():
             _api.warn_external(f"Rasterization of '{self}' will be ignored")
@@ -404,6 +418,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         E.g. :ref:`constrainedlayout_guide`,
         `.Figure.tight_layout()`, and
         ``fig.savefig(fname, bbox_inches='tight')``.
+
+        Parameters
+        ----------
+        in_layout : bool
         """
         _artist.set_in_layout(self._native, bool(in_layout))
 
@@ -418,6 +436,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         Set whether this artist is queried for custom context information when
         the mouse cursor moves over it.
+
+        Parameters
+        ----------
+        mouseover : bool
         """
         _artist.set_mouseover(self._native, bool(mouseover))
 
@@ -451,7 +473,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         return None if label == "" and self.__dict__.get("_label_none") else label
 
     def set_label(self, s):
-        """Set a label that will be displayed in the legend."""
+        """
+        Set a label that will be displayed in the legend.
+
+        Parameters
+        ----------
+        s : object
+        """
         label = str(s) if s is not None else None
         if label != self.get_label():
             _artist.set_label(self._native, "" if label is None else label)
@@ -464,7 +492,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         return _artist.get_gid(self._native)
 
     def set_gid(self, gid):
-        """Set the (group) id for the artist."""
+        """
+        Set the (group) id for the artist.
+
+        Parameters
+        ----------
+        gid : str
+        """
         _artist.set_gid(self._native, None if gid is None else str(gid))
 
     def get_url(self):
@@ -472,7 +506,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         return _artist.get_url(self._native)
 
     def set_url(self, url):
-        """Set the url for the artist."""
+        """
+        Set the url for the artist.
+
+        Parameters
+        ----------
+        url : str
+        """
         _artist.set_url(self._native, None if url is None else str(url))
 
     def get_sketch_params(self):
@@ -499,6 +539,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         randomness : float, optional
             The scale factor by which the length is shrunken or
             expanded (default 16.0)
+
+        ACCEPTS: (scale: float, length: float, randomness: float)
         """
         sketch = (None if scale is None
                   else (scale, length or 128.0, randomness or 16.0))

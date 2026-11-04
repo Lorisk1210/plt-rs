@@ -200,6 +200,7 @@ class QuiverKey(martist.Artist):
             mcollections._native_kwargs(
                 cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)))
         _handles.adopt(self, native, Q.figure)
+        self._vector = mcollections.PolyCollection([], **{**Q.polykw, **kwargs})
         # matplotlib's ``quiverkey`` adds the key with ``add_artist``.
         _artist_clipping.take_parent_defaults(self, Q.axes)
         from .text import Text
@@ -225,14 +226,27 @@ class QuiverKey(martist.Artist):
     @property
     def vector(self):
         """
-        The key's arrow, as the `.PolyCollection` pltrs (Rust) draws it in
-        the figure's current layout (a copy: pltrs sizes the arrow anew at
-        every draw).
+        The key's arrow, a `.PolyCollection` (matplotlib's, which holds no
+        arrow until the key is drawn): the arrow pltrs (Rust) drew last.
         """
-        from .path import Path
-        paths = [Path(vertices, codes)
-                 for vertices, codes in _plotting.quiverkey_paths(self._native)]
-        return mcollections.PolyCollection([path.vertices for path in paths])
+        draws = 0 if self._figure is None else _artist.draw_count(self._native)
+        if draws and self.__dict__.get("_vector_draws") != draws:
+            self._vector_draws = draws
+            # The outline without its closing vertex, which the collection
+            # adds back.
+            self._vector.set(
+                verts=[vertices[:-1] for vertices, _
+                       in _plotting.quiverkey_paths(self._native)],
+                offsets=[(self.X, self.Y)],
+                offset_transform=self.get_transform(),
+                transform=self.Q.get_transform())
+            if self.color is not None:
+                self._vector.set_color(self.color)
+        return self._vector
+
+    @vector.setter
+    def vector(self, collection):
+        self._vector = collection
 
     def get_transform(self):
         """Return the transform of the key's coordinates once the key was
@@ -276,7 +290,6 @@ class Quiver(mcollections.PolyCollection):
         self.Y = Y
         self.XY = np.column_stack((X, Y))
         self.N = len(X)
-        self.scale = scale
         self.headwidth = headwidth
         self.headlength = float(headlength)
         self.headaxislength = headaxislength
@@ -285,7 +298,6 @@ class Quiver(mcollections.PolyCollection):
         self.units = units
         self.scale_units = scale_units
         self.angles = angles
-        self.width = width
 
         if pivot.lower() == 'mid':
             pivot = 'middle'
@@ -315,6 +327,9 @@ class Quiver(mcollections.PolyCollection):
              else (0., 0., 0., 1.)),
             _live_transforms.given_to_native(transform))
         _handles.adopt(self, native, ax.figure)
+        for name, value in (("scale", scale), ("width", width)):
+            if value is not None:
+                _values.remember(self, name, value)
         # matplotlib's attribute: the transform of the arrows' positions.
         self.transform = ax.transData if transform is None else transform
         self._attach_native_mapping(colorizer=made)
@@ -325,6 +340,44 @@ class Quiver(mcollections.PolyCollection):
         self._internal_update(kwargs)
         self.polykw = polykw
         self._store_uvc(U, V, C)
+
+    def _sizes(index, name, doc):
+        """The attribute *name*, the *index* of what pltrs (Rust) gives
+        for the arrows' sizes: as the program gave it, or as the first
+        draw worked it out (matplotlib's ``_init`` and ``_make_verts``
+        set it once), None before."""
+        def get(self):
+            native = _plotting.quiver_sizes(self._native)[index]
+            return _values.given(
+                self, name, None if native is None else np.float64(native))
+
+        def set(self, value):
+            _plotting.quiver_set_size(
+                self._native, name, None if value is None else float(value))
+            _values.remember(self, name, value)
+            self.stale = True
+        return property(get, set, doc=doc)
+
+    scale = _sizes(0, "scale", "Arrow-width units per unit of arrow length.")
+    width = _sizes(1, "width", "The shaft width, in arrow-width units.")
+    del _sizes
+
+    @property
+    def span(self):
+        """The width of the Axes in arrow-width units at the last draw
+        (set by matplotlib's ``_init``)."""
+        span = _plotting.quiver_sizes(self._native)[2]
+        if span is None:
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute 'span'")
+        return np.float64(span)
+
+    def get_paths(self):
+        """The arrows of the last draw, in arrow-width units (each draw
+        makes them anew, matplotlib's ``set_verts(verts, closed=False)``);
+        none before the first."""
+        from .path import Path
+        return [Path(vertices) for vertices in _plotting.quiver_paths(self._native)]
 
     def _checked_uvc(self, U, V, C):
         """*U*, *V* and *C* as masked arrays sharing their mask, checked

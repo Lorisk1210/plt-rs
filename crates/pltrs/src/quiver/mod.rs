@@ -38,7 +38,7 @@ mod key;
 pub use arrows::{Pivot, QuiverArrowShape};
 pub use barbs::{BarbIncrements, BarbPivot, BarbSizes, BarbsOptions};
 pub use field::VectorField;
-pub use geometry::{Angles, QuiverUnits};
+pub use geometry::{Angles, ArrowSize, ArrowSizes, QuiverUnits};
 pub use key::{KeyCoordinates, LabelPosition, QuiverKey, QuiverKeyOptions};
 
 pub(crate) use barbs::{BarbFlip, barb_outlines};
@@ -47,6 +47,8 @@ pub(crate) use geometry::{ArrowSizing, QuiverGeometry};
 pub(crate) use key::{KeyVector, QuiverKeyArtist};
 
 use std::rc::Rc;
+
+use pltrs_core::Point;
 
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::axes::PlotError;
@@ -147,8 +149,10 @@ impl Quiver {
 
     /// Replaces the vector components, one pair per arrow or one value for
     /// all (matplotlib's `set_UVC`); arrows with a non-finite component are
-    /// hidden. An automatic scale is worked out from the components the
-    /// arrows are drawn with.
+    /// hidden. A scale and a width left to pltrs are worked out from the
+    /// components at the first draw, and kept (matplotlib's `scale` and
+    /// `width` attributes), so that components set after it draw arrows
+    /// of other lengths.
     ///
     /// ```
     /// use pltrs::numeric::{Grid, linspace, meshgrid};
@@ -173,16 +177,64 @@ impl Quiver {
             field::broadcast("U", u.to_vec(), n)?,
             field::broadcast("V", v.to_vec(), n)?,
         );
+        self.replace_geometry(|geometry| geometry.with_components(components, scalar));
+        Ok(self)
+    }
+
+    /// The sizes of the arrows (matplotlib's `scale`, `width` and `span`
+    /// attributes): the scale and the shaft width as given, or as the
+    /// first draw worked them out (`None` before it), and the span of the
+    /// axes at the last draw.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::quiver::{QuiverOptions, VectorField};
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let field = VectorField::new([0.0, 1.0], [0.0, 1.0], [1.0, -1.0], [1.0, 2.0]);
+    /// let q = ax.quiver(field, QuiverOptions::default())?;
+    /// assert_eq!(q.sizes().scale, None);
+    /// fig.to_png()?;
+    /// assert!(q.sizes().scale.is_some() && q.sizes().width.is_some());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn sizes(&self) -> ArrowSizes {
+        self.with_geometry(QuiverGeometry::sizes)
+            .unwrap_or_default()
+    }
+
+    /// Sets the scale or the shaft width of the arrows (`None` leaves it to
+    /// the next draw to work out), as setting matplotlib's `scale` or
+    /// `width` attribute does.
+    pub fn set_size(&self, size: ArrowSize, value: Option<f64>) -> &Self {
+        self.replace_geometry(|geometry| geometry.with_size(size, value));
+        self
+    }
+
+    /// The outline of each arrow of the last draw, in arrow-width units
+    /// (NaN points for a masked vector): matplotlib's `get_paths()` after
+    /// a draw, which makes the arrows anew. None before the first draw.
+    pub fn drawn_outlines(&self) -> Vec<Vec<Point>> {
+        self.with_geometry(QuiverGeometry::drawn_outlines)
+            .unwrap_or_default()
+    }
+
+    /// What `read` reads of the arrows' geometry.
+    fn with_geometry<T>(&self, read: impl FnOnce(&QuiverGeometry) -> T) -> Option<T> {
+        self.collection.raw().with::<CollectionArtist, _>(|artist| {
+            artist.draw_time_state::<QuiverGeometry>().map(read)
+        })
+    }
+
+    /// Replaces the arrows' geometry with what `replace` makes of it.
+    fn replace_geometry(&self, replace: impl FnOnce(&QuiverGeometry) -> QuiverGeometry) {
         self.collection
             .raw()
             .with_mut::<CollectionArtist, _>(|artist| {
-                let replaced = artist
-                    .draw_time_state::<QuiverGeometry>()
-                    .map(|geometry| geometry.with_components(components, scalar));
+                let replaced = artist.draw_time_state::<QuiverGeometry>().map(replace);
                 if let Some(geometry) = replaced {
                     artist.draw_time = Some(Rc::new(geometry));
                 }
             });
-        Ok(self)
     }
 }

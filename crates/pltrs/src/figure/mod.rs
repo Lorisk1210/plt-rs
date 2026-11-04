@@ -36,7 +36,8 @@ use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::Rgba;
-use pltrs_render::Renderer;
+use pltrs_raster::RasterError;
+use pltrs_render::{RasterRenderer, Renderer};
 
 pub use canvas::{BufferRegion, CanvasError, FigureCanvas, PixelBox};
 pub(crate) use canvas::{CanvasState, Presentation, Presenting};
@@ -72,7 +73,8 @@ pub use subplots::Share;
 pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes, make_axes};
 
 use crate::artist::{
-    Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, RawHandle, TypedHandle, downcast_ref,
+    Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, DrawErrorKind, RawHandle, TypedHandle,
+    downcast_ref,
 };
 use crate::axes::{Axes, AxesState, PlotError};
 use crate::colors::Color;
@@ -99,6 +101,38 @@ impl fmt::Display for DrawErrors {
 }
 
 impl std::error::Error for DrawErrors {}
+
+impl DrawErrors {
+    /// The outcome `drawn` of drawing `figure` into `renderer` with, first,
+    /// the memory the renderer was refused meanwhile (a canvas for
+    /// filtered artists, say: matplotlib's `MemoryError`); the
+    /// rasterizer's other refusals are dropped, as figure draws do not
+    /// report them.
+    pub(crate) fn with_refused_memory(
+        drawn: Result<(), Self>,
+        renderer: &mut RasterRenderer,
+        figure: ArtistId,
+    ) -> Result<(), Self> {
+        let mut errors: Vec<DrawError> = renderer
+            .take_errors()
+            .into_iter()
+            .filter(|err| matches!(err, RasterError::OutOfMemory(_)))
+            .map(|err| DrawError {
+                artist: figure,
+                message: err.to_string(),
+                kind: DrawErrorKind::OutOfMemory,
+            })
+            .collect();
+        if let Err(Self(others)) = drawn {
+            errors.extend(others);
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(Self(errors))
+        }
+    }
+}
 
 /// A figure: the canvas, its background and every axes and artist on it.
 ///

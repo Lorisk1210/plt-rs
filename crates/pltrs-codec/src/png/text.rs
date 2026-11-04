@@ -138,16 +138,13 @@ mod tests {
     #[test]
     fn compressed_chunks_decode() {
         let mut ztxt = b"Comment\0\0".to_vec();
-        ztxt.extend(zlib::compress(
-            b"caf\xE9 au lait",
-            CompressionLevel::DEFAULT,
-        ));
+        ztxt.extend(zlib::compress(b"caf\xE9 au lait", CompressionLevel::DEFAULT).unwrap());
         assert_eq!(
             decode(ChunkType::ZTXT, &ztxt),
             Some(TextEntry::new("Comment", "café au lait"))
         );
         let mut itxt = b"Title\0\x01\x00en\0Titel\0".to_vec();
-        itxt.extend(zlib::compress("Ünïcödé".as_bytes(), CompressionLevel::BEST));
+        itxt.extend(zlib::compress("Ünïcödé".as_bytes(), CompressionLevel::BEST).unwrap());
         assert_eq!(
             decode(ChunkType::ITXT, &itxt),
             Some(TextEntry::new("Title", "Ünïcödé"))

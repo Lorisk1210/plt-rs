@@ -281,6 +281,7 @@
 //!
 //! let radians = FuncTransform::new(f64::to_radians, f64::to_degrees);
 //! let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(radians))?;
+//! fig.layout(); // a secondary axis takes its host's limits when laid out
 //! assert!((sec.xlim().1 - std::f64::consts::PI).abs() < 1e-12);
 //!
 //! let other = fig.add_subplot(2, 1, 2)?;

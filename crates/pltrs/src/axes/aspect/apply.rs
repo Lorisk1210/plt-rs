@@ -93,12 +93,15 @@ impl FigureState {
 
     /// matplotlib's `apply_aspect` called on its own, between draws: no
     /// layout-engine pass, and pending autoscaling only when a fixed
-    /// aspect reads the view limits (through `get_data_ratio`).
+    /// aspect reads the view limits (through `get_data_ratio`). A
+    /// secondary axis takes its host's limits first, as matplotlib's
+    /// `SecondaryAxis.apply_aspect` does.
     pub(crate) fn apply_aspect_now(
         &mut self,
         axes: ArtistId,
         placement: Placement,
     ) -> Result<(), AspectError> {
+        self.sync_secondary(axes);
         let fixed = self
             .store
             .get_as::<AxesState>(axes)

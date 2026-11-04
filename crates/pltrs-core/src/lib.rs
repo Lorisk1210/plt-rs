@@ -16,6 +16,8 @@
 //!   the conditioning pipeline every backend runs before drawing
 //!   (NaN removal, clipping, snapping, simplification, curve flattening,
 //!   sketching).
+//! * [`alloc`] — allocations that fail as errors ([`alloc::OutOfMemory`],
+//!   matplotlib's `MemoryError`) instead of ending the process.
 //! * [`archive`] — values written to bytes and read back exactly (what
 //!   pickling a figure rests on).
 //! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
@@ -42,6 +44,7 @@
 #![forbid(unsafe_code)]
 
 mod affine;
+pub mod alloc;
 pub mod archive;
 mod bbox;
 pub mod bezier;

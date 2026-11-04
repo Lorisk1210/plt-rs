@@ -1,5 +1,7 @@
 //! RGBA8 pixel buffers with straight alpha.
 
+use pltrs_core::alloc::OutOfMemory;
+
 use crate::color::{Rgba8, multiply};
 use crate::error::RasterError;
 
@@ -24,16 +26,22 @@ pub(crate) fn pixel_count(width: u32, height: u32) -> Result<usize, RasterError>
         .ok_or(RasterError::InvalidDimensions { width, height })
 }
 
-/// A `width × height` buffer repeating `pixel`. Sizes the allocator refuses
-/// (accepted per side, but terabytes in total) are reported as
-/// [`RasterError::InvalidDimensions`] instead of aborting the process.
+/// A `width × height` buffer repeating `pixel`. Sides of [`MAX_DIMENSION`]
+/// or more are [`RasterError::InvalidDimensions`]; more pixels than
+/// [`MAX_PIXELS`], or a buffer the allocator refuses, are
+/// [`RasterError::OutOfMemory`] instead of the end of the process.
 pub(crate) fn filled_buffer(width: u32, height: u32, pixel: &[u8]) -> Result<Vec<u8>, RasterError> {
-    let invalid = RasterError::InvalidDimensions { width, height };
-    let len = pixel_count(width, height)?
-        .checked_mul(pixel.len())
-        .ok_or_else(|| invalid.clone())?;
+    if width >= MAX_DIMENSION || height >= MAX_DIMENSION {
+        return Err(RasterError::InvalidDimensions { width, height });
+    }
+    let pixels = (width as usize).saturating_mul(height as usize);
+    let too_large = OutOfMemory::of::<u8>(pixels.saturating_mul(pixel.len()));
+    if pixels > MAX_PIXELS {
+        return Err(too_large.into());
+    }
+    let len = pixels * pixel.len();
     let mut data = Vec::new();
-    data.try_reserve_exact(len).map_err(|_| invalid)?;
+    data.try_reserve_exact(len).map_err(|_| too_large)?;
     if len > 0 {
         data.extend_from_slice(pixel);
         while data.len() < len {
@@ -279,15 +287,17 @@ mod tests {
 
     #[test]
     fn unallocatable_sizes_are_errors() {
-        // Each side is accepted, but the buffer would take 281 TB.
+        // Each side is accepted, but the buffer would take 281 TB:
+        // matplotlib's `MemoryError`.
         let side = MAX_DIMENSION - 1;
-        assert_eq!(
+        assert!(matches!(
             Pixmap::new(side, side),
-            Err(RasterError::InvalidDimensions {
-                width: side,
-                height: side
-            })
-        );
+            Err(RasterError::OutOfMemory(_))
+        ));
+        assert!(matches!(
+            Pixmap::new(MAX_DIMENSION, 1),
+            Err(RasterError::InvalidDimensions { .. })
+        ));
         // Found by fuzzing: a tight box around a long, large text asked
         // for 60 GB, which the allocator granted and the system killed.
         assert!(Pixmap::filled(187_000, 80_000, Rgba8::default()).is_err());

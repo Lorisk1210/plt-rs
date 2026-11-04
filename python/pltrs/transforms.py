@@ -2806,6 +2806,15 @@ def nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
     return _nonsingular(vmin, vmax, expander, tiny, increasing)
 
 
+def _comparison_typed(result, *operands):
+    """*result*, a comparison of *operands*, typed as Python types it: a
+    `numpy.bool` when an operand is a numpy number (matplotlib compares
+    ``a <= val <= b``), else a `bool`."""
+    if any(isinstance(operand, np.generic) for operand in operands):
+        return np.bool_(result)
+    return result
+
+
 def _interval_contains(interval, val):
     """
     Check, inclusively, whether an interval includes a given value.
@@ -2823,7 +2832,8 @@ def _interval_contains(interval, val):
         Whether *val* is within the *interval*.
     """
     a, b = interval
-    return _transforms.interval_contains((a, b), val, False, None)
+    return _comparison_typed(
+        _transforms.interval_contains((a, b), val, False, None), a, b, val)
 
 
 
@@ -2856,7 +2866,8 @@ def _interval_contains_close(interval, val, rtol=1e-10):
         Whether *val* is within the *interval* (with tolerance).
     """
     a, b = interval
-    return _transforms.interval_contains((a, b), val, False, rtol)
+    return _comparison_typed(
+        _transforms.interval_contains((a, b), val, False, rtol), a, b, val)
 
 
 
@@ -2877,7 +2888,8 @@ def _interval_contains_open(interval, val):
         Whether *val* is within the *interval*.
     """
     a, b = interval
-    return _transforms.interval_contains((a, b), val, True, None)
+    return _comparison_typed(
+        _transforms.interval_contains((a, b), val, True, None), a, b, val)
 
 
 

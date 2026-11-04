@@ -249,15 +249,7 @@ impl<S: PatchShape> PatchArtist<S> {
             return Vec::new();
         }
         let placement = self.shape.patch_transform();
-        self.shape
-            .path()
-            .beziers()
-            .flat_map(|curve| {
-                let mut ts = vec![0.0];
-                ts.extend(curve.axis_aligned_extrema());
-                ts.push(1.0);
-                ts.into_iter().map(move |t| curve.eval(t))
-            })
+        bounding_points(&self.shape.path())
             .map(|p| placement.transform_point(p))
             .collect()
     }
@@ -311,6 +303,17 @@ impl<S: PatchShape> PatchArtist<S> {
         self.region(ctx, radius)
             .is_some_and(|region| region.contains(point))
     }
+}
+
+/// The points bounding `path`: the ends and axis extrema of every curve
+/// (what matplotlib's `_update_patch_limits` takes of a patch's path).
+pub(crate) fn bounding_points(path: &Path) -> impl Iterator<Item = Point> + '_ {
+    path.beziers().flat_map(|curve| {
+        let mut ts = vec![0.0];
+        ts.extend(curve.axis_aligned_extrema());
+        ts.push(1.0);
+        ts.into_iter().map(move |t| curve.eval(t))
+    })
 }
 
 impl<S: PatchShape> Artist for PatchArtist<S> {

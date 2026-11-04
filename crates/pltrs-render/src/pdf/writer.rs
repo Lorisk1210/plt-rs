@@ -124,7 +124,7 @@ impl PdfWriter {
             return Ok(());
         };
         let data = match self.compression {
-            Some(level) if !stream.png => pltrs_codec::zlib::compress(&stream.data, level),
+            Some(level) if !stream.png => pltrs_codec::zlib::compress(&stream.data, level)?,
             _ => stream.data,
         };
         let mut dict = stream.extra;

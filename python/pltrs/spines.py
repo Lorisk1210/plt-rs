@@ -282,6 +282,8 @@ class Spine(Patch):
 
         high : float or None, optional
             The higher spine bound. Passing *None* leaves the limit unchanged.
+
+        ACCEPTS: (low: float, high: float)
         """
         if self.spine_type == 'circle':
             raise ValueError(

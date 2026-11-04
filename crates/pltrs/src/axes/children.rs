@@ -19,7 +19,6 @@ use crate::image::{AxesImageArtist, NonUniformImageArtist, PcolorImageArtist};
 use crate::legend::LegendArtist;
 use crate::lines::LineArtist;
 use crate::spines::SpineArtist;
-use crate::streamplot::StreamArrowArtist;
 use crate::table::{Table, TableArtist};
 use crate::text::{Text, TextArtist};
 
@@ -423,8 +422,8 @@ fn is_labelled_child(artist: &dyn Artist) -> bool {
         || any.is::<PcolorImageArtist>()
 }
 
-/// Whether `artist` is a line, patch, collection (contour sets, triangle
-/// meshes and streamplot arrows included) or image: the kinds matplotlib's
+/// Whether `artist` is a line, patch, collection (contour sets and
+/// triangle meshes included) or image: the kinds matplotlib's
 /// `has_data` looks for.
 fn is_data_artist(artist: &dyn Artist) -> bool {
     let any = artist as &dyn Any;
@@ -433,7 +432,6 @@ fn is_data_artist(artist: &dyn Artist) -> bool {
         || any.is::<CollectionArtist>()
         || any.is::<TriMeshArtist>()
         || any.is::<ContourSetArtist>()
-        || any.is::<StreamArrowArtist>()
         || any.is::<AxesImageArtist>()
         || any.is::<NonUniformImageArtist>()
         || any.is::<PcolorImageArtist>()

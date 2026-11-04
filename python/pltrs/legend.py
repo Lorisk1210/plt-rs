@@ -530,7 +530,7 @@ class Legend(Artist):
 
         Parameters
         ----------
-        loc : str or pair of floats, default: :rc:`legend.loc`
+        loc : str or pair of floats, default: :rc:`legend.loc` for Axes, 'upper right' for Figure
             The location of the legend.
         """
         _legend.set_loc(self._native, self._validated_loc(loc))

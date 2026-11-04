@@ -17,7 +17,7 @@ use super::labels::{
 use super::line::LineState;
 use super::ticks::{TicksState, tick_info};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, DrawContext, LayoutContext};
-use crate::axes::axis_draw::draw_text;
+use crate::axes::axis_draw::{AxisTextDraw, draw_text};
 use crate::axes::{AxesState, PlacedText};
 use crate::fonts::FontProperties;
 use crate::patches::{DisplayPath, paint_paths};
@@ -498,11 +498,11 @@ impl Artist for AxisArtistState {
                 }
             }
             for text in &level.texts {
-                draw_text(ctx, id, text, &self.rc);
+                draw_text(ctx, id, text, &self.rc, AxisTextDraw::AfterMeasuring);
             }
         }
         if let Some(offset) = &drawing.offset {
-            draw_text(ctx, id, offset, &self.rc);
+            draw_text(ctx, id, offset, &self.rc, AxisTextDraw::AfterMeasuring);
         }
         let (style, edge_default) = self.line.patch_style(&self.rc);
         if let Err(err) = paint_paths(
@@ -516,7 +516,7 @@ impl Artist for AxisArtistState {
             ctx.report(id, err);
         }
         if let Some(label) = &drawing.label {
-            draw_text(ctx, id, label, &self.rc);
+            draw_text(ctx, id, label, &self.rc, AxisTextDraw::AfterMeasuring);
         }
         ctx.renderer().close_group(GROUP);
     }

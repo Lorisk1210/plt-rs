@@ -141,6 +141,12 @@ pub(crate) trait DrawTimeShapes: Debug + Any {
     /// coordinates to display space.
     fn shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String>;
 
+    /// The shapes to draw now, as [`shapes`](Self::shapes) gives them,
+    /// recording what the generator keeps of its draws.
+    fn drawn_shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String> {
+        self.shapes(ctx)
+    }
+
     /// Whether the collection's data limits are its offsets alone, its
     /// shapes left out (matplotlib's `Quiver.get_datalim`).
     fn limits_at_offsets(&self) -> bool {
@@ -150,6 +156,10 @@ pub(crate) trait DrawTimeShapes: Debug + Any {
     /// The generator as [`Any`], for artists that read its state.
     fn as_any(&self) -> &dyn Any;
 }
+
+/// A way of asking a draw-time generator for its shapes.
+type GenerateShapes =
+    fn(&dyn DrawTimeShapes, LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String>;
 
 /// State of a collection.
 #[derive(Clone, Debug)]
@@ -463,9 +473,26 @@ impl CollectionArtist {
         &self,
         ctx: LayoutContext<'_>,
     ) -> Result<(Cow<'_, [Path]>, Transform), String> {
+        self.shapes_through(ctx, DrawTimeShapes::shapes)
+    }
+
+    /// The shapes a draw draws and their transform, as
+    /// [`current_shapes`](Self::current_shapes), the draw-time generator
+    /// recording the draw.
+    fn drawn_shapes(&self, ctx: LayoutContext<'_>) -> Result<(Cow<'_, [Path]>, Transform), String> {
+        self.shapes_through(ctx, DrawTimeShapes::drawn_shapes)
+    }
+
+    /// The stored paths and transform, or what `generate` asks the
+    /// draw-time generator for.
+    fn shapes_through(
+        &self,
+        ctx: LayoutContext<'_>,
+        generate: GenerateShapes,
+    ) -> Result<(Cow<'_, [Path]>, Transform), String> {
         match &self.draw_time {
             Some(generator) => {
-                let (paths, transform) = generator.shapes(ctx)?;
+                let (paths, transform) = generate(&**generator, ctx)?;
                 Ok((Cow::Owned(paths), transform))
             }
             None => Ok((self.shapes(), self.transform())),

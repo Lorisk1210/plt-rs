@@ -13,6 +13,7 @@ use pltrs_text::{
     layout_block,
 };
 
+use super::font_notes;
 use super::math::{Line, math_style};
 use super::metrics::without_hinting;
 use super::metrics_cache;
@@ -89,7 +90,7 @@ pub fn measure_text(
     } else {
         Line::Plain(text.into())
     };
-    line_run(&line, font, dpi, rc).map(|run| metrics(&run))
+    line_run(&line, font, dpi, rc, true).map(|run| metrics(&run))
 }
 
 /// The outline of one line of `text` with its baseline starting at `xy`,
@@ -136,7 +137,7 @@ pub fn text_path_shaped(
             shaping: shaping.clone(),
         }
         .layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI),
-        _ => without_hinting(|| line_run(&line, &typeset, TEXT_PATH_DPI, &rc)),
+        _ => without_hinting(|| line_run(&line, &typeset, TEXT_PATH_DPI, &rc, true)),
     }?;
     let scale = size.unwrap_or(font.size) / TEXT_PATH_FONT_SCALE;
     Ok(run
@@ -227,12 +228,14 @@ impl LaidOutText {
                     Some(source @ TextSource::Plain { shaping, .. }) if !shaping.is_default() => {
                         source.layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)
                     }
+                    // Drawing the line notes its lookup (see `font_notes`).
                     _ => without_hinting(|| {
                         line_run(
                             &Line::classify(line, parse_math),
                             &typeset,
                             TEXT_PATH_DPI,
                             rc,
+                            false,
                         )
                     }),
                 }?;
@@ -322,17 +325,21 @@ pub(super) fn measure_uncached(
     rc: &RcParams,
 ) -> Result<LineMetrics, TextError> {
     let run = super::metrics::measured(typeset(line, font, dpi, rc)?, dpi)?;
+    font_notes::note_measured(line, font, &run)?;
     Ok(metrics(&run))
 }
 
 /// Lays out one (non-empty) line, measured by the thread's
 /// [`LineMeasurer`](super::LineMeasurer) if it has one, else through the
-/// thread's [`MetricsCache`](super::MetricsCache) if one is installed.
+/// thread's [`MetricsCache`](super::MetricsCache) if one is installed; a
+/// line `measuring` that the cache does not hold notes what matplotlib's
+/// measuring notes (see [`font_notes`]).
 fn line_run(
     line: &Line<'_>,
     font: &FontProperties,
     dpi: f64,
     rc: &RcParams,
+    measuring: bool,
 ) -> Result<TextRun, TextError> {
     let run = typeset(line, font, dpi, rc)?;
     let (text, kind) = measured_as(line);
@@ -345,6 +352,9 @@ fn line_run(
     let metrics = metrics_cache::cached(text, font, kind, dpi, || {
         let run = slot.take().expect("measured at most once");
         let run = super::metrics::measured(run, dpi)?;
+        if measuring {
+            font_notes::note_measured(line, font, &run)?;
+        }
         let measured = metrics(&run);
         slot = Some(run);
         Ok(measured)
@@ -355,7 +365,7 @@ fn line_run(
 
 /// One line of `text` typeset as `kind` in `font` at `dpi`, as a
 /// renderer's `draw_text` and `draw_tex` receive it (their `s`, `prop` and
-/// `ismath`).
+/// `ismath`), noting the font lookup drawing it makes in matplotlib.
 ///
 /// # Errors
 ///
@@ -367,11 +377,13 @@ pub fn typeset_line(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
-    match kind {
-        LineKind::Plain => line_run(&Line::Plain(text.into()), font, dpi, rc),
-        LineKind::Math => line_run(&Line::Math(text), font, dpi, rc),
+    let run = match kind {
+        LineKind::Plain => line_run(&Line::Plain(text.into()), font, dpi, rc, false),
+        LineKind::Math => line_run(&Line::Math(text), font, dpi, rc, false),
         LineKind::Tex => tex_run(text, font, dpi, rc),
-    }
+    }?;
+    font_notes::note_drawn(&run)?;
+    Ok(run)
 }
 
 /// `run` with the width, height and descent of `metrics`.
@@ -437,10 +449,11 @@ pub(crate) fn lay_out_with(
                 ..TextRun::default()
             }),
             Typesetting::Mathtext { parse_math } => {
-                line_run(&Line::classify(line, parse_math), font, dpi, rc)
+                line_run(&Line::classify(line, parse_math), font, dpi, rc, true)
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
+    font_notes::note_layout(text, font, typesetting)?;
     let line_metrics: Vec<LineMetrics> = runs.iter().map(metrics).collect();
     let (font_metrics, style) = match typesetting {
         Typesetting::Tex => (

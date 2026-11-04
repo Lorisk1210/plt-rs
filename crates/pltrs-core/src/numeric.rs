@@ -13,7 +13,9 @@
 //!   compares smaller (larger), so NaN behaves according to its position;
 //! * numpy's NaN-propagating `minimum` and `maximum` ([`np_minimum`],
 //!   [`np_maximum`]), `clip` ([`np_clip`]) and `sign` ([`np_sign`]);
-//! * numpy's `linspace` ([`linspace`], [`linspace_with`]).
+//! * numpy's `linspace` ([`linspace`], [`linspace_with`]);
+//! * numpy's `arcsinh` ([`np_arcsinh`]), correctly rounded where Rust's
+//!   `f64::asinh` is a bit off.
 
 /// The remainder of `a / b` with the sign of `b`: Python's float `%` and
 /// numpy's `remainder`. A zero result takes the sign of `b`.
@@ -125,6 +127,42 @@ pub fn np_sign(x: f64) -> f64 {
     }
 }
 
+/// The inverse hyperbolic sine as numpy's `arcsinh` computes it, rounded
+/// correctly where the C library's `asinh` and Rust's `f64::asinh` are a
+/// bit off: beyond 2²⁸, `ln(2x)` rounded once rather than `ln(x) + ln 2`
+/// rounded twice; below, the C library's formulas (fdlibm's).
+///
+/// ```
+/// use pltrs_core::numeric::np_arcsinh;
+/// // numpy: np.arcsinh(1e12) == 28.324168296488494 (`f64::asinh` gives
+/// // 28.32416829648849, one bit below the exact 28.3241682964884935...).
+/// assert_eq!(np_arcsinh(1e12), 28.324_168_296_488_494);
+/// assert_eq!(np_arcsinh(-0.0).to_bits(), (-0.0_f64).to_bits());
+/// ```
+pub fn np_arcsinh(x: f64) -> f64 {
+    const LN2: f64 = std::f64::consts::LN_2;
+    let ax = x.abs();
+    if !ax.is_finite() {
+        return x + x;
+    }
+    let w = if ax < 2f64.powi(-28) {
+        return x;
+    } else if ax > 2f64.powi(28) {
+        let double = 2.0 * ax;
+        if double.is_finite() {
+            double.ln()
+        } else {
+            ax.ln() + LN2
+        }
+    } else if ax > 2.0 {
+        (2.0 * ax + 1.0 / ((ax * ax + 1.0).sqrt() + ax)).ln()
+    } else {
+        let t = ax * ax;
+        (ax + t / (1.0 + (1.0 + t).sqrt())).ln_1p()
+    };
+    w.copysign(x)
+}
+
 /// `num` evenly spaced samples over `[start, stop]` (numpy `linspace`).
 ///
 /// ```
@@ -218,6 +256,18 @@ mod tests {
         assert_eq!(np_sign(2.0), 1.0);
         assert!(np_sign(-0.0) == 0.0 && np_sign(-0.0).is_sign_negative());
         assert!(np_sign(f64::NAN).is_nan());
+    }
+
+    #[test]
+    fn arcsinh_matches_numpy() {
+        // numpy 2.5: np.arcsinh of each.
+        assert_eq!(np_arcsinh(1e12 + 3.0), 28.324_168_296_491_493);
+        assert_eq!(np_arcsinh(0.5), 0.481_211_825_059_603_47);
+        assert_eq!(np_arcsinh(-3.0), -1.818_446_459_232_066_8);
+        assert_eq!(np_arcsinh(1e-30), 1e-30);
+        assert_eq!(np_arcsinh(1e300), 691.468_675_078_773_7);
+        assert!(np_arcsinh(f64::NAN).is_nan());
+        assert_eq!(np_arcsinh(f64::NEG_INFINITY), f64::NEG_INFINITY);
     }
 
     #[test]

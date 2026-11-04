@@ -8,7 +8,7 @@ use pltrs_core::Point;
 use pltrs_font::GlyphId;
 use pltrs_render::{GlyphBitmap, GlyphShape, render_glyph};
 
-use super::glyphs::{Loaded, hinting, load_hinted};
+use super::glyphs::{Loaded, load_hinted};
 use super::{Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
@@ -146,7 +146,7 @@ fn render_glyph_at(
     let glyph = Loaded {
         face: 0,
         glyph: GlyphId(index),
-        hinting: hinting(flags),
+        hinting: font.hinting(flags),
         pen: (dx, dy),
         angle,
     };

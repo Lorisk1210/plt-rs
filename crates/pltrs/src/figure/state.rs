@@ -108,6 +108,18 @@ pub(crate) enum StateRole {
     LooseHolder,
 }
 
+/// What a figure is prepared for (see [`FigureState::prepare`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Preparation {
+    /// Read as it is between draws: no layout engine, no aspect applied,
+    /// and secondary axes keep the limits they had.
+    AsIs,
+    /// Measured (a tight box, a layout).
+    Measuring,
+    /// Drawn: the boxes of 3-D axes are made square too.
+    Drawing,
+}
+
 impl FigureState {
     /// The subplot parameters of figure frame `frame`.
     pub(crate) fn subplot_params_of(&self, frame: ArtistId) -> Option<SubplotParams> {
@@ -249,7 +261,6 @@ impl FigureState {
     /// the aspect placing it first (they do when the figure is drawn or
     /// laid out).
     pub(crate) fn update_ticks_as_is(&mut self, axes: ArtistId, name: AxisName) {
-        self.sync_secondary(axes);
         self.unstale_axes(axes);
         let Some(extent) = self.axes_bbox(axes) else {
             return;
@@ -275,9 +286,19 @@ impl FigureState {
 
     /// The part of [`prepare`](Self::prepare) for the 2-D `axes`; an axes
     /// whose aspect fails is not ticked (matplotlib's draw raises first).
-    fn prepare_axes(&mut self, id: ArtistId) {
-        self.sync_secondary(id);
-        let laid_out = self.lay_out_axes(id);
+    /// A secondary axis takes its host's limits first (its host laid out
+    /// before it). Prepared as it is, the axes is ticked where it is now:
+    /// matplotlib applies the aspect (and a secondary axis takes its
+    /// host's limits) when it draws or measures the axes, not when it
+    /// computes ticks between draws.
+    fn prepare_axes(&mut self, id: ArtistId, preparation: Preparation) {
+        let laid_out = if preparation == Preparation::AsIs {
+            self.unstale_axes(id);
+            true
+        } else {
+            self.sync_secondary(id);
+            self.lay_out_axes(id)
+        };
         crate::polar::update_spine_visibility(self, id);
         if laid_out {
             self.tick_axes(id);
@@ -286,11 +307,12 @@ impl FigureState {
 
     /// [`prepare`](Self::prepare) without the layout engine: the figure
     /// as it is now, its axes where they are until the next draw or
-    /// layout pass places them (matplotlib computes ticks between draws
-    /// without its layout engine). A due layout pass stays due.
+    /// layout pass places them and applies their aspect (matplotlib
+    /// computes ticks between draws without either). A due layout pass
+    /// stays due.
     pub(crate) fn prepare_as_is(&mut self) {
         let pending = std::mem::take(&mut self.layout.pending);
-        self.prepare();
+        self.prepare_with(Preparation::AsIs);
         self.layout.pending |= pending;
     }
 
@@ -299,7 +321,7 @@ impl FigureState {
     /// they stand: only [`prepare_for_draw`](Self::prepare_for_draw)
     /// makes their boxes square.
     pub(crate) fn prepare(&mut self) {
-        self.prepare_with(false);
+        self.prepare_with(Preparation::Measuring);
     }
 
     /// [`prepare`](Self::prepare) for a draw: the layout engine runs, and
@@ -308,22 +330,25 @@ impl FigureState {
     /// the first draw is where its unsquared axes puts it).
     pub(crate) fn prepare_for_draw(&mut self) {
         self.layout.pending = true;
-        self.prepare_with(true);
+        self.prepare_with(Preparation::Drawing);
     }
 
-    /// [`prepare`](Self::prepare), squaring the boxes of 3-D axes when
-    /// `drawing`.
-    fn prepare_with(&mut self, drawing: bool) {
-        self.run_pending_layout();
-        let axes: Vec<ArtistId> = self
-            .store
-            .ids()
-            .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
-            .collect();
-        for &id in &axes {
-            self.prepare_axes(id);
+    /// [`prepare`](Self::prepare) for `preparation`.
+    fn prepare_with(&mut self, preparation: Preparation) {
+        if preparation != Preparation::AsIs {
+            // matplotlib's layout engines measure every axes with its
+            // aspect applied, which brings a secondary axis to its host's
+            // limits (`SecondaryAxis.apply_aspect`).
+            for id in self.axes_ids() {
+                self.sync_secondary(id);
+            }
         }
-        crate::mplot3d::prepare_axes3d(self, drawing);
+        self.run_pending_layout();
+        let axes = self.axes_ids();
+        for &id in &axes {
+            self.prepare_axes(id, preparation);
+        }
+        crate::mplot3d::prepare_axes3d(self, preparation == Preparation::Drawing);
         // Titles clear the decorations of twins and insets, whose ticks
         // are only all known now.
         for id in axes {
@@ -332,6 +357,14 @@ impl FigureState {
         crate::legend::lay_out_legends(self);
         crate::offsetbox::lay_out_boxes(self);
         crate::inset::place_indicators(self);
+    }
+
+    /// The ids of the figure's axes (the artists with an [`AxesState`]).
+    fn axes_ids(&self) -> Vec<ArtistId> {
+        self.store
+            .ids()
+            .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
+            .collect()
     }
 
     /// Renders the whole figure, returning the problems encountered.

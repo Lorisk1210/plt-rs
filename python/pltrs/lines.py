@@ -512,7 +512,13 @@ class Line2D(Artist):
         return self._get("antialiased")
 
     def set_antialiased(self, b):
-        """Set whether to use antialiased rendering."""
+        """
+        Set whether to use antialiased rendering.
+
+        Parameters
+        ----------
+        b : bool
+        """
         self._set_native(antialiased=bool(b))
 
     def get_color(self):
@@ -531,7 +537,13 @@ class Line2D(Artist):
         return self.get_color()
 
     def set_color(self, color):
-        """Set the color of the line."""
+        """
+        Set the color of the line.
+
+        Parameters
+        ----------
+        color : :mpltype:`color`
+        """
         from . import colors as mcolors
         mcolors._check_color_like(color=color)
         self._set_native(color=color)
@@ -544,6 +556,10 @@ class Line2D(Artist):
         """
         Set the drawstyle of the plot: 'default', 'steps', 'steps-pre',
         'steps-mid' or 'steps-post'.
+
+        Parameters
+        ----------
+        drawstyle : {'default', 'steps', 'steps-pre', 'steps-mid', 'steps-post'}, default: 'default'
         """
         if drawstyle is None:
             drawstyle = 'default'
@@ -555,7 +571,13 @@ class Line2D(Artist):
         return self._given_color("gapcolor")
 
     def set_gapcolor(self, gapcolor):
-        """Set a color to fill the gaps in the dashed line style."""
+        """
+        Set a color to fill the gaps in the dashed line style.
+
+        Parameters
+        ----------
+        gapcolor : :mpltype:`color` or None
+        """
         self._set_native(gapcolor=gapcolor)
 
     def get_linestyle(self):
@@ -567,6 +589,10 @@ class Line2D(Artist):
         Set the linestyle of the line: one of ``'-'``, ``'--'``, ``'-.'``,
         ``':'``, ``''`` (and their long names), or an ``(offset,
         onoffseq)`` tuple.
+
+        Parameters
+        ----------
+        ls : {'-', '--', '-.', ':', '', ...} or (offset, on-off-seq)
         """
         if isinstance(ls, str):
             if ls in [' ', '', 'none']:
@@ -586,6 +612,10 @@ class Line2D(Artist):
         """
         Set the dash sequence: on/off ink in points; an empty sequence or
         ``(None, None)`` makes the line solid.
+
+        Parameters
+        ----------
+        seq : sequence of floats (on/off ink in points) or (None, None)
         """
         self._set_native(dashes=seq)
 
@@ -598,7 +628,13 @@ class Line2D(Artist):
         return self._get("linewidth")
 
     def set_linewidth(self, w):
-        """Set the line width in points."""
+        """
+        Set the line width in points.
+
+        Parameters
+        ----------
+        w : float
+        """
         self._set_native(linewidth=float(w))
 
     def get_marker(self):
@@ -609,7 +645,13 @@ class Line2D(Artist):
         return marker
 
     def set_marker(self, marker):
-        """Set the line marker."""
+        """
+        Set the line marker.
+
+        Parameters
+        ----------
+        marker : marker style string, `~.path.Path` or `~.markers.MarkerStyle`
+        """
         self._set_native(marker=marker, fillstyle=self.get_fillstyle())
 
     def get_fillstyle(self):
@@ -620,6 +662,10 @@ class Line2D(Artist):
         """
         Set the marker fill style: 'full', 'left', 'right', 'bottom',
         'top' or 'none'.
+
+        Parameters
+        ----------
+        fs : {'full', 'left', 'right', 'bottom', 'top', 'none'}
         """
         _api.check_in_list(MarkerStyle.fillstyles, fs=fs)
         self._set_native(fillstyle=fs)
@@ -629,7 +675,13 @@ class Line2D(Artist):
         return self._get("markersize")
 
     def set_markersize(self, sz):
-        """Set the marker size in points."""
+        """
+        Set the marker size in points.
+
+        Parameters
+        ----------
+        sz : float
+        """
         if sz is None:
             sz = _rcParams()['lines.markersize']
         self._set_native(markersize=float(sz))
@@ -639,7 +691,13 @@ class Line2D(Artist):
         return _values.given(self, "markeredgewidth", self._get("markeredgewidth"))
 
     def set_markeredgewidth(self, ew):
-        """Set the marker edge width in points."""
+        """
+        Set the marker edge width in points.
+
+        Parameters
+        ----------
+        ew : float
+        """
         if ew is None:
             ew = _rcParams()['lines.markeredgewidth']
         self._set_native(markeredgewidth=float(ew))
@@ -650,7 +708,13 @@ class Line2D(Artist):
         return self._marker_color("markeredgecolor", "markeredgecolor_setting")
 
     def set_markeredgecolor(self, ec):
-        """Set the marker edge color."""
+        """
+        Set the marker edge color.
+
+        Parameters
+        ----------
+        ec : :mpltype:`color`
+        """
         self._set_native(markeredgecolor=ec)
 
     def get_markerfacecolor(self):
@@ -660,7 +724,13 @@ class Line2D(Artist):
         return self._marker_color("markerfacecolor", "markerfacecolor_setting")
 
     def set_markerfacecolor(self, fc):
-        """Set the marker face color."""
+        """
+        Set the marker face color.
+
+        Parameters
+        ----------
+        fc : :mpltype:`color`
+        """
         self._set_native(markerfacecolor=fc)
 
     def get_markerfacecoloralt(self):
@@ -671,7 +741,13 @@ class Line2D(Artist):
         return self._marker_color("markerfacecoloralt", "markerfacecoloralt")
 
     def set_markerfacecoloralt(self, fc):
-        """Set the alternate marker face color."""
+        """
+        Set the alternate marker face color.
+
+        Parameters
+        ----------
+        fc : :mpltype:`color`
+        """
         self._set_native(markerfacecoloralt=fc)
 
     def get_markevery(self):
@@ -685,6 +761,10 @@ class Line2D(Artist):
         Set the markevery property to subsample the plot when using
         markers: None, an int, a ``(start, step)`` pair, a slice, a list of
         indices or of bools, a float or a pair of floats.
+
+        Parameters
+        ----------
+        every : None or int or (int, int) or slice or list[int] or float or (float, float) or list[bool]
         """
         self._set_native(markevery=every)
         self._markevery = every
@@ -694,7 +774,13 @@ class Line2D(Artist):
         return _values.given(self, "pickradius", self._get("pickradius"), 5)
 
     def set_pickradius(self, pickradius):
-        """Set the pick radius used for containment tests, in points."""
+        """
+        Set the pick radius used for containment tests, in points.
+
+        Parameters
+        ----------
+        pickradius : float
+        """
         if not isinstance(pickradius, (int, float)) or pickradius < 0:
             raise ValueError("pick radius should be a distance")
         self._set_native(pickradius=float(pickradius))
@@ -724,7 +810,13 @@ class Line2D(Artist):
         return self._get("dash_capstyle")
 
     def set_dash_capstyle(self, s):
-        """How to draw the end caps if the line is `~Line2D.is_dashed`."""
+        """
+        How to draw the end caps if the line is `~Line2D.is_dashed`.
+
+        Parameters
+        ----------
+        s : `.CapStyle` or {'butt', 'projecting', 'round'}
+        """
         self._set_native(dash_capstyle=_capstyle_name(s))
 
     def get_solid_capstyle(self):
@@ -732,7 +824,13 @@ class Line2D(Artist):
         return self._get("solid_capstyle")
 
     def set_solid_capstyle(self, s):
-        """How to draw the end caps if the line is solid (not dashed)."""
+        """
+        How to draw the end caps if the line is solid (not dashed).
+
+        Parameters
+        ----------
+        s : `.CapStyle` or {'butt', 'projecting', 'round'}
+        """
         self._set_native(solid_capstyle=_capstyle_name(s))
 
     def get_dash_joinstyle(self):
@@ -740,7 +838,13 @@ class Line2D(Artist):
         return self._get("dash_joinstyle")
 
     def set_dash_joinstyle(self, s):
-        """How to join segments of the line if it `~Line2D.is_dashed`."""
+        """
+        How to join segments of the line if it `~Line2D.is_dashed`.
+
+        Parameters
+        ----------
+        s : `.JoinStyle` or {'miter', 'round', 'bevel'}
+        """
         self._set_native(dash_joinstyle=_joinstyle_name(s))
 
     def get_solid_joinstyle(self):
@@ -748,7 +852,13 @@ class Line2D(Artist):
         return self._get("solid_joinstyle")
 
     def set_solid_joinstyle(self, s):
-        """How to join segments if the line is solid (not dashed)."""
+        """
+        How to join segments if the line is solid (not dashed).
+
+        Parameters
+        ----------
+        s : `.JoinStyle` or {'miter', 'round', 'bevel'}
+        """
         self._set_native(solid_joinstyle=_joinstyle_name(s))
 
     def update_from(self, other):

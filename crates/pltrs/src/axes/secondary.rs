@@ -54,17 +54,22 @@ impl Axes {
     /// Adds a secondary x axis showing this axes' x range converted by
     /// `functions` (host units to secondary units, and back; `None` is the
     /// identity), returned as an axes for labelling and ticks (matplotlib's
-    /// `secondary_xaxis`).
+    /// `secondary_xaxis`). Its limits are the host's converted once the
+    /// figure is drawn or laid out (or its aspect applied), as matplotlib's
+    /// draw sets them: until then, it has the limits of a new axes.
     ///
     /// ```
     /// use pltrs::prelude::*;
     /// use pltrs::axes::SecondaryLocation;
     /// use pltrs::scale::FuncTransform;
     /// use pltrs::spines::SpineSide;
-    /// let ax = Figure::new().subplot();
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
     /// ax.set_xlim(0.0, 180.0)?;
     /// let radians = FuncTransform::new(f64::to_radians, f64::to_degrees);
     /// let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(radians))?;
+    /// assert_eq!(sec.xlim(), (0.0, 1.0));
+    /// fig.layout();
     /// let (low, high) = sec.xlim();
     /// assert!(low.abs() < 1e-12 && (high - std::f64::consts::PI).abs() < 1e-12);
     /// # Ok::<(), pltrs::axes::PlotError>(())
@@ -105,10 +110,13 @@ impl Axes {
     /// use pltrs::axes::SecondaryLocation;
     /// use pltrs::scale::FuncTransform;
     /// use pltrs::spines::SpineSide;
-    /// let ax = Figure::new().subplot();
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
     /// ax.set_xlim(1.0, 2.0)?;
     /// let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), None)?;
     /// sec.set_secondary_functions(Some(FuncTransform::new(|x| 10.0 * x, |x| x / 10.0)));
+    /// // The limits follow when the figure is drawn or laid out.
+    /// fig.layout();
     /// assert_eq!(sec.xlim(), (10.0, 20.0));
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
@@ -141,7 +149,8 @@ impl Axes {
     }
 
     /// Changes the link of this secondary axis to its host with `change`,
-    /// then brings the axis up to date with its host.
+    /// then brings the axis' scale up to date with its host (its limits
+    /// follow at the next draw).
     fn update_secondary(&self, change: impl FnOnce(&mut Secondary)) -> &Self {
         let linked = self
             .raw
@@ -150,7 +159,7 @@ impl Axes {
             self.raw
                 .figure_state()
                 .borrow_mut()
-                .sync_secondary(self.id());
+                .sync_secondary_scale(self.id());
         }
         self
     }
@@ -188,29 +197,24 @@ impl Axes {
                 host_scale: None,
             });
         });
-        figure.borrow_mut().sync_secondary(secondary.id());
+        figure.borrow_mut().sync_secondary_scale(secondary.id());
         Ok(secondary)
     }
 }
 
 impl FigureState {
     /// Brings a secondary axis up to date with its host: its scale follows
-    /// the host's (a function scale, logarithmic over a log host) and its
-    /// limits are the host's converted (matplotlib's `_set_scale` and
-    /// `_set_lims`). Does nothing for other axes.
+    /// the host's (a function scale, logarithmic over a log host), its
+    /// limits are the host's converted and an axis at a data value of the
+    /// host moves there (matplotlib's `_set_scale` and `_set_lims`, which
+    /// its draw and `apply_aspect` run). Does nothing for other axes.
     pub(crate) fn sync_secondary(&mut self, axes: ArtistId) {
-        let Some(link) = self
-            .store
-            .get_as::<AxesState>(axes)
-            .and_then(|state| state.secondary.clone())
-        else {
+        let Some(link) = self.sync_secondary_scale(axes) else {
             return;
         };
-        self.unstale_axes(link.host);
         let Some(host) = self.store.get_as::<AxesState>(link.host) else {
             return;
         };
-        let host_scale = host.axis(link.orientation).scale().name();
         let (low, high) = host.view_interval(link.orientation);
         let placed = link.data_location.map(|value| {
             // Where the value sits across the host, in its scaled view.
@@ -227,6 +231,28 @@ impl FigureState {
         {
             state.position = bounds;
         }
+        let (mut v0, mut v1) = (link.functions.forward(low), link.functions.forward(high));
+        if (v0 < v1) != (low < high) {
+            (v0, v1) = (v1, v0);
+        }
+        self.set_axis_limits(axes, link.orientation, (v0, v1), Some(false), true);
+    }
+
+    /// Gives a secondary axis the scale of its host's (matplotlib's
+    /// `_set_scale`, which making the axis and `set_functions` run),
+    /// returning its link to the host; `None` for other axes.
+    pub(crate) fn sync_secondary_scale(&mut self, axes: ArtistId) -> Option<Secondary> {
+        let link = self
+            .store
+            .get_as::<AxesState>(axes)
+            .and_then(|state| state.secondary.clone())?;
+        self.unstale_axes(link.host);
+        let host_scale = self
+            .store
+            .get_as::<AxesState>(link.host)?
+            .axis(link.orientation)
+            .scale()
+            .name();
         if link.host_scale.as_ref() != Some(&host_scale) {
             let reversed = link.functions.reversed();
             let scale: Rc<dyn Scale> = if host_scale == ScaleName::Log {
@@ -241,11 +267,7 @@ impl FigureState {
                 secondary.host_scale = Some(host_scale);
             }
         }
-        let (mut v0, mut v1) = (link.functions.forward(low), link.functions.forward(high));
-        if (v0 < v1) != (low < high) {
-            (v0, v1) = (v1, v0);
-        }
-        self.set_axis_limits(axes, link.orientation, (v0, v1), Some(false), true);
+        Some(link)
     }
 }
 
@@ -333,6 +355,8 @@ mod tests {
             .secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), None)
             .unwrap();
         sec.set_secondary_functions(Some(FuncTransform::new(|x| -x, |x| -x)));
+        assert_eq!(sec.xlim(), (0.0, 1.0), "the limits follow at the next draw");
+        fig.layout();
         assert_eq!(sec.xlim(), (-2.0, -1.0), "flipped to keep the order");
         sec.set_secondary_location(SecondaryLocation::Data(5.0))
             .unwrap();

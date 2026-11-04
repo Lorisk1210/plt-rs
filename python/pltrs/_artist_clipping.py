@@ -284,6 +284,8 @@ class ClippingMixin:
         For technical reasons (support of `~.Artist.set`), a tuple
         (*path*, *transform*) is also accepted as a single positional
         parameter.
+
+        ACCEPTS: Patch or (Path, Transform) or None
         """
         from .patches import Patch, Rectangle
 

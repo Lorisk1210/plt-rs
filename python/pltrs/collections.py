@@ -492,7 +492,13 @@ class Collection(mcolorizer.ColorizingArtist):
                              _collections.get_pickradius(self._native))
 
     def set_pickradius(self, pickradius):
-        """Set the pick radius used for containment tests, in points."""
+        """
+        Set the pick radius used for containment tests, in points.
+
+        Parameters
+        ----------
+        pickradius : float
+        """
         if not isinstance(pickradius, (int, float)):
             raise ValueError(
                 f"pickradius must be a real-valued number, not {pickradius!r}")
@@ -514,7 +520,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return urls
 
     def set_urls(self, urls):
-        """Set the URLs, one per element (None: no link)."""
+        """
+        Set the URLs, one per element (None: no link).
+
+        Parameters
+        ----------
+        urls : list of str or None
+        """
         urls = list(urls) if urls is not None else [None]
         _collections.set_urls(self._native, urls)
         _values.remember(self, "urls", urls)
@@ -529,7 +541,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return self._get("hatch")
 
     def set_hatch(self, hatch):
-        """Set the hatching pattern (see `.hatch`)."""
+        """
+        Set the hatching pattern (see `.hatch`).
+
+        Parameters
+        ----------
+        hatch : {'/', '\\\\', '|', '-', '+', 'x', 'o', 'O', '.', '*'}
+        """
         from . import hatch as mhatch
         mhatch._validate_hatch_pattern(hatch)
         _collections.set_hatch(self._native, hatch)
@@ -548,7 +566,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return self._get("hatchcolor")
 
     def set_hatchcolor(self, c):
-        """Set the hatchcolor(s): colors, 'edge' or None (:rc:`hatch.color`)."""
+        """
+        Set the hatchcolor(s): colors, 'edge' or None (:rc:`hatch.color`).
+
+        Parameters
+        ----------
+        c : :mpltype:`color` or list of :mpltype:`color` or 'edge'
+        """
         if c is None:
             c = _rcParams()['hatch.color']
         _collections.set_hatchcolors(
@@ -559,7 +583,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return self._get("capstyle")
 
     def set_capstyle(self, cs):
-        """Set the `.CapStyle` for the collection (for all its elements)."""
+        """
+        Set the `.CapStyle` for the collection (for all its elements).
+
+        Parameters
+        ----------
+        cs : `.CapStyle` or {'butt', 'projecting', 'round'}
+        """
         _collections.set_capstyle(self._native, CapStyle(cs).name)
 
     def get_joinstyle(self):
@@ -567,7 +597,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return self._get("joinstyle")
 
     def set_joinstyle(self, js):
-        """Set the `.JoinStyle` for the collection (for all its elements)."""
+        """
+        Set the `.JoinStyle` for the collection (for all its elements).
+
+        Parameters
+        ----------
+        js : `.JoinStyle` or {'miter', 'round', 'bevel'}
+        """
         _collections.set_joinstyle(self._native, JoinStyle(js).name)
 
     def get_linewidth(self):
@@ -575,7 +611,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return self._lwls()[0]
 
     def set_linewidth(self, lw):
-        """Set the linewidth(s) for the collection (None: the default)."""
+        """
+        Set the linewidth(s) for the collection (None: the default).
+
+        Parameters
+        ----------
+        lw : float or list of floats
+        """
         if lw is None:
             lw = self._get_default_linewidth()
         lw = np.atleast_1d(lw)
@@ -590,6 +632,10 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         Set the linestyle(s) for the collection: a line style or a
         sequence of them.
+
+        Parameters
+        ----------
+        ls : {'-', '--', '-.', ':', '', ...} or (offset, on-off-seq) or list thereof
         """
         try:
             styles = _linestyle_list(ls)
@@ -640,7 +686,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return np.array(antialiased, dtype=bool)
 
     def set_antialiased(self, aa):
-        """Set the antialiasing state for rendering."""
+        """
+        Set the antialiasing state for rendering.
+
+        Parameters
+        ----------
+        aa : bool or list of bools
+        """
         if aa is None:
             aa = _rcParams()['patch.antialiased']
         _collections.set_antialiaseds(
@@ -679,6 +731,10 @@ class Collection(mcolorizer.ColorizingArtist):
         Set the facecolor(s) of the collection. *c* can be a color (all
         patches have same color), or a sequence of colors; None restores
         the default.
+
+        Parameters
+        ----------
+        c : :mpltype:`color` or list of :mpltype:`color`
         """
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
@@ -693,13 +749,23 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         Set the edgecolor(s) of the collection: a color, a sequence of
         colors, ``'face'`` (the face colors) or None (the default rule).
+
+        Parameters
+        ----------
+        c : :mpltype:`color` or list of :mpltype:`color` or 'face'
         """
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
         _collections.set_edgecolors(self._native, _edge_spec(c))
 
     def set_color(self, c):
-        """Set both the edgecolor and the facecolor."""
+        """
+        Set both the edgecolor and the facecolor.
+
+        Parameters
+        ----------
+        c : :mpltype:`color` or list of RGBA tuples
+        """
         self.set_facecolor(c)
         self.set_edgecolor(c)
 
@@ -707,6 +773,10 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         Set the transparency of the collection: a float, an array of one
         per element, or None.
+
+        Parameters
+        ----------
+        alpha : array-like or float or None
         """
         if np.iterable(alpha):
             alpha = np.asarray(alpha, dtype=float)
@@ -771,7 +841,13 @@ class _CollectionWithSizes(Collection):
         return _values.given(self, "sizes", np.zeros(0) if sizes is None else sizes)
 
     def set_sizes(self, sizes, dpi=72.0):
-        """Set the sizes of each member of the collection."""
+        """
+        Set the sizes of each member of the collection.
+
+        Parameters
+        ----------
+        sizes : `numpy.ndarray` or None
+        """
         if sizes is None:
             sizes = np.array([])
         sizes = np.atleast_1d(sizes)
@@ -1200,7 +1276,13 @@ class LineCollection(Collection):
         return np.array(antialiased, dtype=bool)
 
     def set_color(self, c):
-        """Set the edgecolor(s) of the LineCollection."""
+        """
+        Set the edgecolor(s) of the LineCollection.
+
+        Parameters
+        ----------
+        c : :mpltype:`color` or list of :mpltype:`color`
+        """
         self.set_edgecolor(c)
 
     set_colors = set_color

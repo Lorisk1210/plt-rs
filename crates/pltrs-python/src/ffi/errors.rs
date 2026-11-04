@@ -22,6 +22,8 @@ unsafe extern "C" {
     pub(crate) static mut PyExc_RuntimeError: *mut PyObject;
     /// `PyExc_RecursionError`.
     pub(crate) static mut PyExc_RecursionError: *mut PyObject;
+    /// `PyExc_MemoryError`.
+    pub(crate) static mut PyExc_MemoryError: *mut PyObject;
     /// `PyExc_OSError`.
     pub(crate) static mut PyExc_OSError: *mut PyObject;
     /// `PyExc_FileNotFoundError`.

@@ -14,7 +14,7 @@ mod tables;
 
 use std::rc::Rc;
 
-use pltrs_font::{Face, FontError, GlyphId, KerningMode, Size, face_count};
+use pltrs_font::{Face, FontError, GlyphId, Hinting, KerningMode, Size, face_count};
 
 use crate::binding::prelude::*;
 
@@ -43,8 +43,10 @@ pub(super) struct Ft2Font {
     /// The active character map (`set_charmap`); `None` is `FreeType`'s
     /// default choice.
     charmap: Option<usize>,
-    /// `set_size(ptsize, dpi)`; `FreeType`'s default before any call.
-    size: (f64, f64),
+    /// `set_size(ptsize, dpi)`; `None` before any call, while `FreeType`
+    /// loads glyphs unscaled ("undefined scale means no scale"): in font
+    /// units, unhinted.
+    size: Option<(f64, f64)>,
     /// `_set_transform(matrix, delta)`: 16.16 matrix, 26.6 translation.
     transform: ([[i64; 2]; 2], [i64; 2]),
     /// The power of two kerning is divided by (`_kerning_factor`).
@@ -76,9 +78,35 @@ impl Ft2Font {
         Ok(face)
     }
 
-    /// The size glyphs of `face` load at.
+    /// The point size and resolution glyphs of `face` load at: those set,
+    /// else those mapping font units to 26.6 pixels unchanged (`units_per_EM
+    /// / 64` points at 72 dpi), as `FreeType` loads glyphs unscaled while a
+    /// face has no size.
+    fn points_and_dpi(&self, face: &Face<'_>) -> (f64, f64) {
+        self.size
+            .unwrap_or_else(|| (f64::from(face.units_per_em()) / 64.0, 72.0))
+    }
+
+    /// The size glyphs of `face` load at (see
+    /// [`points_and_dpi`](Self::points_and_dpi)).
     fn size_of(&self, face: &Face<'_>) -> Size {
-        Size::new(face, self.size.0, self.size.1)
+        let (points, dpi) = self.points_and_dpi(face);
+        Size::new(face, points, dpi)
+    }
+
+    /// Whether glyphs load unscaled, the face having no size.
+    fn unscaled(&self) -> bool {
+        self.size.is_none()
+    }
+
+    /// The hinting the load flags `flags` select: none while glyphs load
+    /// unscaled (`FreeType` adds `FT_LOAD_NO_HINTING` to `FT_LOAD_NO_SCALE`).
+    fn hinting(&self, flags: u32) -> Hinting {
+        if self.unscaled() {
+            Hinting::None
+        } else {
+            glyphs::hinting(flags)
+        }
     }
 }
 
@@ -113,7 +141,7 @@ fn open(data: Bytes, face_index: i64, fallbacks: Vec<(Bytes, u32)>) -> PyResult<
             })
             .collect(),
         charmap: None,
-        size: (12.0, 72.0),
+        size: None,
         transform: ([[0x10000, 0], [0, 0x10000]], [0, 0]),
         kerning_factor: 0,
         glyphs: glyphs::Glyphs::default(),
@@ -213,7 +241,7 @@ fn attributes(font: Native<Ft2Font>) -> PyResult<(Names, Counts, Flags, Metrics)
 /// `set_size(ptsize, dpi)`.
 fn set_size(font: Native<Ft2Font>, ptsize: f64, dpi: f64) -> PyResult<()> {
     let mut font = font.borrow_mut();
-    font.size = (ptsize, dpi);
+    font.size = Some((ptsize, dpi));
     font.transform = ([[0x10000, 0], [0, 0x10000]], [0, 0]);
     Ok(())
 }
@@ -318,6 +346,10 @@ fn get_kerning(font: Native<Ft2Font>, left: u16, right: u16, mode: u32) -> PyRes
         2 => KerningMode::Unscaled,
         _ => KerningMode::Default,
     };
+    if font.unscaled() && mode != KerningMode::Unscaled {
+        // `FT_Get_Kerning` scales by the size's scale, zero without one.
+        return Ok(0);
+    }
     let kern = font
         .size_of(&face)
         .kerning(&face, GlyphId(left), GlyphId(right), mode);

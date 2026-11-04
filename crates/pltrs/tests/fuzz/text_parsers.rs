@@ -468,7 +468,6 @@ fn every_from_str() {
             parse_as::<pltrs::table::CellEdges>(text);
             parse_as::<pltrs::table::TableLoc>(text);
             parse_as::<pltrs::stats::BinEstimator>(text);
-            parse_as::<pltrs::streamplot::StreamArrowStyle>(text);
             parse_as::<pltrs::colors::NormName>(text);
             parse_as::<pltrs::figure::SaveFormat>(text);
             parse_as::<pltrs::figure::SizeUnit>(text);

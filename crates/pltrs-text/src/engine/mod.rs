@@ -1,5 +1,6 @@
 //! The process-wide text engine: fonts, line layout and glyph outlines.
 
+mod notes;
 mod outline;
 mod request;
 
@@ -17,7 +18,6 @@ use crate::block::FontHeightMetrics;
 use crate::error::TextError;
 use crate::mathtext::MathStyle;
 use crate::memo::{self, Memo};
-use crate::missing::{self, MissingGlyph};
 use crate::run::{GlyphChars, PlacedGlyph, TextRun, TextSource};
 use crate::shaping::Shaping;
 
@@ -31,6 +31,9 @@ pub struct TextEngine {
     lines: Memo<LineKey, TextRun>,
     pub(crate) formulas: Memo<FormulaKey, TextRun>,
     heights: Memo<(FontRequest, u64), FontHeightMetrics>,
+    /// The weight of the face each family of a request finds (`None` for
+    /// a family without one), for the lookups noted.
+    chains: Memo<FontRequest, Option<Vec<Option<u16>>>>,
 }
 
 /// The inputs of a single-line layout.
@@ -59,6 +62,7 @@ impl TextEngine {
             lines: Memo::new(),
             formulas: Memo::new(),
             heights: Memo::new(),
+            chains: Memo::new(),
         }
     }
 
@@ -135,6 +139,7 @@ impl TextEngine {
         self.lines.clear();
         self.formulas.clear();
         self.heights.clear();
+        self.chains.clear();
     }
 
     /// Forgets every layout and glyph outline made so far, keeping the
@@ -194,7 +199,7 @@ impl TextEngine {
             shaping.language.is_some(),
             dpi_bits,
         );
-        let run = self.lines.get_or_compute(
+        self.lines.get_or_compute(
             memo::fingerprint(request, extra),
             |key| {
                 key.dpi_bits == dpi_bits
@@ -209,51 +214,7 @@ impl TextEngine {
                 dpi_bits,
             },
             || self.shape_line(text, request, shaping, dpi),
-        )?;
-        self.record_missing(&run, text, request)?;
-        Ok(run)
-    }
-
-    /// Records the characters of `run`, laid out from `text`, that no font
-    /// of `request` has: those drawn from the Last Resort font, or as the
-    /// missing-glyph box (matplotlib warns about them at every layout).
-    fn record_missing(
-        &self,
-        run: &TextRun,
-        text: &str,
-        request: &FontRequest,
-    ) -> Result<(), TextError> {
-        let resort = self.db.last_resort();
-        if !run
-            .glyphs
-            .iter()
-            .any(|g| g.glyph.0 == 0 || Some(g.font) == resort)
-        {
-            return Ok(());
-        }
-        let fonts = request.fonts(&self.db)?;
-        let mut families: Vec<String> = Vec::new();
-        for &font in &fonts {
-            if let Some(name) = self.db.face(font)?.family_name()
-                && !families.contains(&name)
-            {
-                families.push(name);
-            }
-        }
-        missing::record(
-            run.glyphs
-                .iter()
-                .filter(|g| g.glyph.0 == 0 || !fonts.contains(&g.font))
-                .filter_map(|g| match g.chars {
-                    GlyphChars::Cluster { start, .. } => text.get(start..)?.chars().next(),
-                    GlyphChars::Unknown | GlyphChars::Code(_) => None,
-                })
-                .map(|character| MissingGlyph {
-                    character,
-                    families: families.clone(),
-                }),
-        );
-        Ok(())
+        )
     }
 
     /// [`layout_line_with`](Self::layout_line_with) without the memo.
@@ -403,6 +364,7 @@ mod tests {
     use pltrs_font::{FontQuery, Hinting};
 
     use super::*;
+    use crate::missing::MissingGlyph;
 
     #[test]
     fn added_fonts_are_matched_and_old_layouts_forgotten() {
@@ -468,23 +430,50 @@ mod tests {
     }
 
     #[test]
-    fn missing_characters_are_recorded_at_every_layout() {
+    fn missing_characters_are_recorded_when_noted() {
         let engine = TextEngine::global();
         let request = FontRequest::dejavu_sans(12.0);
         crate::take_missing_glyphs();
-        engine.layout_line("ab", &request, 72.0).unwrap();
+        let plain = engine.layout_line("ab", &request, 72.0).unwrap();
+        engine.note_missing_glyphs(&plain, "ab", &request).unwrap();
         assert_eq!(crate::take_missing_glyphs(), Vec::new());
         let expected = MissingGlyph {
             character: '\u{1f643}',
             families: vec!["DejaVu Sans".to_owned()],
         };
+        let text = "a\u{1f643}b";
+        let run = engine.layout_line(text, &request, 72.0).unwrap();
+        assert_eq!(
+            crate::take_missing_glyphs(),
+            Vec::new(),
+            "laying out records none"
+        );
         for _ in 0..2 {
-            engine.layout_line("a\u{1f643}b", &request, 72.0).unwrap();
+            engine.note_missing_glyphs(&run, text, &request).unwrap();
             assert_eq!(
                 crate::take_missing_glyphs(),
                 std::slice::from_ref(&expected)
             );
         }
+    }
+
+    #[test]
+    fn font_lookups_are_recorded_each_time_they_are_noted() {
+        let engine = TextEngine::global();
+        let missing = FontRequest::new(FontQuery::families(["xkcd-pltrs", "DejaVu Sans"]));
+        crate::take_font_lookups();
+        engine.layout_line("ab", &missing, 72.0).unwrap();
+        assert_eq!(crate::take_font_lookups(), [], "laying out records none");
+        for _ in 0..2 {
+            engine.note_font_lookup(&missing).unwrap();
+            let lookups = crate::take_font_lookups();
+            assert_eq!(lookups.len(), 1);
+            assert_eq!(lookups[0].query, missing.query);
+        }
+        engine
+            .note_font_lookup(&FontRequest::dejavu_sans(12.0))
+            .unwrap();
+        assert_eq!(crate::take_font_lookups(), [], "found at its weight");
     }
 
     #[test]

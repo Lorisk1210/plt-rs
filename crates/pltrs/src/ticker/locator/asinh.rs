@@ -1,6 +1,6 @@
 //! `AsinhLocator`: ticks evenly spaced on an inverse-sinh axis.
 
-use pltrs_core::numeric::{np_sign, py_max};
+use pltrs_core::numeric::{np_arcsinh, np_sign, py_max};
 
 use super::Locator;
 use crate::ticker::pymath::{linspace, pow10, warn_divide};
@@ -136,8 +136,8 @@ impl Locator for AsinhLocator {
         _: &TickContext<'_>,
     ) -> Result<Vec<f64>, TickerError> {
         let width = self.linear_width;
-        let ymin = width * (vmin / width).asinh();
-        let ymax = width * (vmax / width).asinh();
+        let ymin = width * np_arcsinh(vmin / width);
+        let ymax = width * np_arcsinh(vmax / width);
         let mut ys = linspace(ymin, ymax, self.numticks)?;
         // matplotlib divides the ticks by the span first, whatever it is.
         warn_divide(&ys, ymax - ymin);

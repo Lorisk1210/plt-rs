@@ -5,9 +5,11 @@ use pltrs_core::{Path, Point};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::arrow_style::ArrowStyle;
+use super::artist::bounding_points;
 use super::connection_style::{ClipRegion, ConnectionStyle};
 use super::{DisplayPath, PatchError, PatchShape, PatchStyle, ShapeFrame};
 use crate::artist::{ArtistBase, ArtistId, LayoutContext};
+use crate::transforms::{Transform, TransformContext};
 
 /// How an arrow is built between its ends: the shared part of
 /// [`FancyArrowPatch`], [`ConnectionPatch`](super::ConnectionPatch) and
@@ -204,6 +206,48 @@ impl FancyArrowPatch {
         self.spec.mutation_scale = mutation_scale;
         self
     }
+
+    /// The points bounding the arrow (the ends and axis extrema of its
+    /// outline) in the data coordinates of `axes`, its route placed by
+    /// `transform` in the figure `ctx` as it is now and its edge
+    /// `linewidth` points wide, or `None` when the arrow is not placed in
+    /// data coordinates: what matplotlib's `_update_patch_limits` reads
+    /// from the `get_path()` of a `FancyArrowPatch`, which goes through
+    /// display coordinates. Like an arrow never drawn, it takes its sizes
+    /// in points for pixels (`_dpi_cor` is 1 until the first draw); the
+    /// patches clipping its ends are not looked at.
+    pub(crate) fn outline_data_points(
+        &self,
+        transform: &Transform,
+        linewidth: f64,
+        ctx: &dyn TransformContext,
+        axes: ArtistId,
+    ) -> Option<Vec<Point>> {
+        if transform.data_directions(axes) == (false, false) {
+            return None;
+        }
+        let to_display = transform.resolve(ctx).ok()?;
+        let to_data = ctx.data_transform(axes)?.inverted()?;
+        let route = match &self.route {
+            ArrowRoute::Between(a, b) => self
+                .spec
+                .route(
+                    to_display.transform_point(*a),
+                    to_display.transform_point(*b),
+                    1.0,
+                )
+                .ok()?,
+            ArrowRoute::Along(path) => to_display.transform_path(path),
+        };
+        let pieces = self.spec.display_paths(&route, 1.0, linewidth).ok()?;
+        Some(
+            pieces
+                .iter()
+                .flat_map(|piece| bounding_points(&piece.to_display()).collect::<Vec<_>>())
+                .map(|p| to_data.transform_point(p))
+                .collect(),
+        )
+    }
 }
 
 /// Round caps and joins, which `FancyArrowPatch` and its subclasses use
@@ -315,6 +359,37 @@ mod tests {
         assert!((height() - 10.0).abs() < 1e-6, "{}", height());
         fig.layout();
         assert!((height() - 20.0).abs() < 1e-6, "{}", height());
+    }
+
+    #[test]
+    fn outlines_count_in_data_coordinates_only() {
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let ax = fig.subplot();
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
+        let arrow = FancyArrowPatch::between((4.0, 5.0), (6.0, 5.0))
+            .with_arrowstyle("-|>".parse().expect("valid style"))
+            .with_mutation_scale(10.0);
+        let state = fig.raw().figure_state().borrow();
+        let points = arrow
+            .outline_data_points(&ax.trans_data(), 1.0, &*state, ax.id())
+            .expect("an arrow in data coordinates");
+        let (x_min, x_max) = points
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+                (lo.min(p.x), hi.max(p.x))
+            });
+        // Shrunk by 2 points at both ends, the head at the far end.
+        assert!(
+            x_min > 4.0 && x_max < 6.0 && x_max > 5.85,
+            "{x_min} {x_max}"
+        );
+        assert!(points.iter().any(|p| p.y > 5.0) && points.iter().any(|p| p.y < 5.0));
+        assert_eq!(
+            arrow.outline_data_points(&ax.trans_axes(), 1.0, &*state, ax.id()),
+            None
+        );
     }
 
     #[test]

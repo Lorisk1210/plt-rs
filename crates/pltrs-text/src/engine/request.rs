@@ -47,25 +47,28 @@ impl FontRequest {
 
     /// The fonts the text is set in, in fallback order: the requested
     /// file's face, else the best match of each family, or of the default
-    /// family when none has one (`_find_fonts_by_props`). A lookup
-    /// matplotlib logs about is recorded (see [`take_font_lookups`]).
+    /// family when none has one (`_find_fonts_by_props`). The lookup is not
+    /// recorded: see [`TextEngine::note_font_lookup`].
     ///
-    /// [`take_font_lookups`]: crate::take_font_lookups
+    /// [`TextEngine::note_font_lookup`]: crate::TextEngine::note_font_lookup
     pub fn fonts(&self, db: &FontDatabase) -> Result<Vec<FontId>, TextError> {
-        let (fonts, weights) = self.fallback_chain(db)?;
-        if let Some(weights) = weights {
-            self.note(LookupKind::Fonts, &weights);
-        }
-        Ok(fonts)
+        Ok(self.fallback_chain(db)?.0)
     }
 
     /// The first font of [`fonts`](Self::fonts), whose metrics give the
-    /// height of the text's lines, without recording the lookup: the line
-    /// layouts of a text record it, and an empty text, which matplotlib
-    /// never looks fonts up for, has none.
+    /// height of the text's lines.
     pub(crate) fn primary_font(&self, db: &FontDatabase) -> Result<FontId, TextError> {
         let (fonts, _) = self.fallback_chain(db)?;
         Ok(fonts[0])
+    }
+
+    /// For a lookup by families, the weight of the best face of each
+    /// (`None` for a family without one); `None` for a requested file.
+    pub(crate) fn chain_weights(
+        &self,
+        db: &FontDatabase,
+    ) -> Result<Option<Vec<Option<u16>>>, TextError> {
+        Ok(self.fallback_chain(db)?.1)
     }
 
     /// The fonts of [`fonts`](Self::fonts), never empty, and for a lookup
@@ -118,7 +121,7 @@ impl FontRequest {
 
     /// Records this request's lookup if matplotlib logs about it, given
     /// the weights of the faces found (`None` for a family without one).
-    fn note(&self, kind: LookupKind, weights: &[Option<u16>]) {
+    pub(crate) fn note(&self, kind: LookupKind, weights: &[Option<u16>]) {
         lookups::note(
             FontLookup {
                 kind,

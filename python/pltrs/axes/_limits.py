@@ -67,6 +67,8 @@ class LimitsMixin:
         -------
         left, right : (float, float)
             The new x-axis limits in data coordinates.
+
+        ACCEPTS: (left: float, right: float)
         """
         left, right = _limit_args("x", left, right, xmin, xmax)
         return self.xaxis._set_lim(left, right, emit=emit, auto=auto)
@@ -101,6 +103,8 @@ class LimitsMixin:
         -------
         bottom, top : (float, float)
             The new y-axis limits in data coordinates.
+
+        ACCEPTS: (bottom: float, top: float)
         """
         bottom, top = _limit_args("y", bottom, top, ymin, ymax)
         return self.yaxis._set_lim(bottom, top, emit=emit, auto=auto)
@@ -130,6 +134,8 @@ class LimitsMixin:
         lower, upper : float or None
             The lower and upper bounds. If *None*, the respective axis bound
             is not modified.
+
+        ACCEPTS: (lower: float, upper: float)
         """
         self._set_bound("x", lower, upper)
 
@@ -151,6 +157,8 @@ class LimitsMixin:
         lower, upper : float or None
             The lower and upper bounds. If *None*, the respective axis bound
             is not modified.
+
+        ACCEPTS: (lower: float, upper: float)
         """
         self._set_bound("y", lower, upper)
 

@@ -15,6 +15,18 @@ from ._helpers import floats, line_data, wrap, wrap_all
 from .lines import _plot_datasets
 
 
+def _fill_mask(where, size, ind_dir):
+    """The flags of `fill_between`'s *where* for *size* points along
+    *ind_dir* (``"x"`` or ``"y"``), as a list; None for None."""
+    if where is None:
+        return None
+    where = np.asarray(where, dtype=bool)
+    if where.size != size:
+        raise ValueError(f"where size ({where.size}) does not match "
+                         f"{ind_dir} size ({size})")
+    return where.tolist()
+
+
 def _rcParams():
     """The global rcParams (imported when first needed)."""
     from ... import rcParams
@@ -82,14 +94,7 @@ class FillsMixin:
                                [ind, dep1, dep2]):
             if array.ndim > 1:
                 raise ValueError(f"{name!r} is not 1-dimensional")
-        if where is None:
-            mask = None
-        else:
-            where = np.asarray(where, dtype=bool)
-            if where.size != ind.size:
-                raise ValueError(f"where size ({where.size}) does not match "
-                                 f"{ind_dir} size ({ind.size})")
-            mask = where.tolist()
+        mask = _fill_mask(where, ind.size, ind_dir)
         native = _plotting.fill_between(
             self._native, ind_dir == "y",
             (floats(ind), floats(dep1), floats(dep2)), (mask, bool(interpolate), step),
@@ -185,7 +190,8 @@ class FillsMixin:
 
     @_preprocess_data()
     def stackplot(self, x, *args, labels=(), colors=None, hatch=None,
-                  baseline='zero', **kwargs):
+                  baseline='zero', where=None, interpolate=False, step=None,
+                  **kwargs):
         """
         Draw a stacked area plot or a streamgraph.
 
@@ -209,9 +215,13 @@ class FillsMixin:
         if hatch is not None:
             kwargs['hatch'] = hatch
         kwargs, style_gen = _style_helpers.style_generator(kwargs)
+        if step is not None:
+            _api.check_in_list(('pre', 'post', 'mid'), step=step)
         x, = self._process_unit_info([("x", x)])
+        # matplotlib passes these on to the `fill_between` of every layer.
+        fill = (_fill_mask(where, np.size(x), "x"), bool(interpolate), step)
         natives = _plotting.stackplot(self._native, floats(x),
-                                      [floats(row) for row in y], baseline, [])
+                                      [floats(row) for row in y], baseline, [], fill)
         collections = wrap_all(self, natives, mcoll.FillBetweenPolyCollection)
         labels = iter(labels)
         for collection in collections:

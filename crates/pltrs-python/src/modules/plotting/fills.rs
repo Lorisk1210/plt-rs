@@ -115,19 +115,26 @@ pub(super) fn stairs(
 
 /// Stacked areas of `ys` along `x` (matplotlib's `stackplot`), from the
 /// baseline `"zero"`, `"sym"`, `"wiggle"` or `"weighted_wiggle"`, in
-/// `colors` (cycled; empty for the property cycle).
+/// `colors` (cycled; empty for the property cycle), each layer filled
+/// as `fill_between` fills with where to fill (`None` everywhere), whether
+/// to interpolate the crossings and the step placement.
 pub(super) fn stackplot(
     axes: Axes,
     x: NdArray,
     ys: Vec<NdArray>,
     baseline: String,
     colors: Vec<Color>,
+    (mask, interpolate, step): (Option<Vec<bool>>, bool, Option<String>),
 ) -> PyResult<Vec<Collection>> {
     let ys = ys
         .into_iter()
         .map(NdArray::into_vec)
         .collect::<PyResult<Vec<_>>>()?;
+    let fill = fill_between_options(mask, interpolate, step.as_deref());
     let options = StackplotOptions {
+        mask: fill.mask,
+        interpolate: fill.interpolate,
+        step: fill.step,
         baseline: match baseline.as_str() {
             "sym" => Baseline::Sym,
             "wiggle" => Baseline::Wiggle,

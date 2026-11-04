@@ -385,24 +385,27 @@ pixels within RMS 2 of matplotlib's, vector documents with the same
 drawing operations. A workload counts as faster only when the 95%
 confidence interval of its speed-up excludes 1. `cargo xtask bench
 --report` regenerates it. At the last run (2026-11-04, commit
-`16f86e0167`, a 16-core Ryzen 9 9955HX with no other builds or tests running):
+`1134410a`, a 16-core Ryzen 9 9955HX with no other builds or tests running):
 
 * pltrs (Python) was faster than matplotlib on all 90 workloads, warm
-  and cold: 1.31× to 55× faster warm (typically 3.7× faster, the
-  geometric mean) and 1.45× to 11× faster cold (typically 2.2× faster).
-  Its thinnest margins are a million-point line saved as SVG or PDF,
-  where writing the document takes most of the time in both.
-* pltrs (Rust) was faster on all 90 too: 1.43× to 53× faster warm
-  (typically 4.2×) and 2.0× to 46× faster cold (typically 12×, a native
+  and cold, and by at least 1.5× on every one: 1.57× to 56× faster warm
+  (typically 3.9× faster, the geometric mean) and 1.51× to 11× faster
+  cold (typically 2.2× faster). Its thinnest margins are 10⁵ scatter
+  markers of their own sizes, which both libraries stroke one by one,
+  and a million-point line saved as SVG, where writing the document
+  takes most of the time in both.
+* pltrs (Rust) was faster on all 90 too: 1.57× to 55× faster warm
+  (typically 4.5×) and 2.0× to 44× faster cold (typically 12×, a native
   executable against an interpreter importing numpy and pyplot).
-* A cold run of pltrs (Python) typically peaked at 0.89 times the
-  resident memory of matplotlib's, and at 0.39 to 1.10 times over all
-  workloads; one of pltrs (Rust) at 0.31 times.
+* A cold run of pltrs (Python) peaked at 0.39 to 0.99 times the
+  resident memory of matplotlib's run of the same workload (typically
+  0.85), so below matplotlib's on every one; a run of pltrs (Rust) at
+  0.28 times.
 * A fresh interpreter importing `matplotlib.pyplot` took 207 ms, and one
-  importing `pltrs.pyplot` 120 ms (it loads Pillow and the 3-D toolkit,
-  as matplotlib's does). A single line plot saved as PNG took 242 ms end
-  to end in matplotlib, 131 ms in pltrs (Python) and 11 ms in pltrs
-  (Rust) (26 ms, 8.0 ms and 7.0 ms warm).
+  importing `pltrs.pyplot` 121 ms (it loads Pillow and the 3-D toolkit,
+  as matplotlib's does). A single line plot saved as PNG took 248 ms end
+  to end in matplotlib, 133 ms in pltrs (Python) and 12 ms in pltrs
+  (Rust) (26 ms, 7.6 ms and 6.8 ms warm).
 
 See `CLAUDE.md` for the coding conventions.
 

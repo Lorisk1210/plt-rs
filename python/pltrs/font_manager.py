@@ -1440,6 +1440,7 @@ def get_font_names():
     return fontManager.get_font_names()
 
 
+@_api.deprecated("3.11")
 def is_opentype_cff_font(filename):
     """
     Return whether the given font is a Postscript Compact Font Format Font

@@ -2,6 +2,7 @@
 //! script shaper, the feature map with its stages and the positioning
 //! strategy.
 
+use crate::aat::{self, KernTable, Morx, UserFeature};
 use crate::face::Face;
 use crate::layout::apply::{Applier, TableKind};
 use crate::layout::buffer::{Buffer, Mask};
@@ -13,8 +14,8 @@ use crate::shape::arabic::{self, ArabicPlan};
 use crate::shape::hebrew;
 use crate::shape::language::LanguageTag;
 use crate::shape::normalize::Hooks;
+use crate::shape::run::cluster_at;
 use crate::shape::script::Script;
-use crate::tables::kern::KernSubtable;
 use crate::types::{Direction, Tag};
 
 /// A shaper hook run after a `GSUB` stage.
@@ -35,6 +36,10 @@ pub(crate) enum Shaper {
     Arabic(ArabicPlan),
     /// The Hebrew shaper.
     Hebrew,
+    /// HarfBuzz's "dumber" shaper, which replaces a script's own shaper
+    /// when `morx` substitutes: no shaper features, no mark zeroing and no
+    /// fallback positioning.
+    Dumber,
 }
 
 impl Shaper {
@@ -57,6 +62,21 @@ enum ShaperKind {
     Default,
     Arabic,
     Hebrew,
+    Dumber,
+}
+
+impl ShaperKind {
+    /// Whether the shaper gives marks zero advance (HarfBuzz's
+    /// `zero_width_marks`, late for every shaper here but the dumber).
+    const fn zeroes_marks(self) -> bool {
+        !matches!(self, Self::Dumber)
+    }
+
+    /// Whether the shaper positions without `GPOS` by fallbacks (HarfBuzz's
+    /// `fallback_position`): legacy kerning and mark stacking.
+    const fn falls_back(self) -> bool {
+        !matches!(self, Self::Dumber)
+    }
 }
 
 /// Features every run gets, after the shaper's (HarfBuzz's
@@ -94,6 +114,10 @@ pub(crate) struct RangedMask {
 
 /// Everything needed to shape one run of one script and direction.
 #[derive(Clone, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "HarfBuzz's independent plan decisions, one flag each"
+)]
 pub(crate) struct ShapePlan {
     pub(crate) script: Script,
     /// The run's direction (before any switch to the script's native
@@ -108,15 +132,36 @@ pub(crate) struct ShapePlan {
     pub(crate) ranged_masks: Vec<RangedMask>,
     /// The shaper's normalization hooks.
     pub(crate) normalize_hooks: Hooks,
+    /// Substitution uses `morx` (or `mort`) instead of `GSUB`, with these
+    /// user features and language.
+    pub(crate) morx: Option<MorxPlan>,
     /// Positioning uses `GPOS`.
     pub(crate) apply_gpos: bool,
-    /// Positioning uses the legacy `kern` table.
+    /// Positioning uses `kerx`.
+    pub(crate) apply_kerx: bool,
+    /// Positioning uses the `kern` table (either form).
     pub(crate) apply_kern: bool,
-    /// Without `GPOS`, marks keep their pen position when their advance is
-    /// zeroed and are then stacked from Unicode combining classes
-    /// (HarfBuzz's `adjust_mark_positioning_when_zeroing` and
-    /// `fallback_mark_positioning`, equal for the shapers here).
+    /// The mask bits of the `kern` feature.
+    pub(crate) kern_mask: Mask,
+    /// Marks get zero advance after positioning (HarfBuzz's
+    /// `zero_marks`).
+    pub(crate) zero_marks: bool,
+    /// Marks keep their pen position when their advance is zeroed
+    /// (HarfBuzz's `adjust_mark_positioning_when_zeroing`).
+    pub(crate) adjust_mark_positioning: bool,
+    /// Marks are stacked from Unicode combining classes after positioning
+    /// (HarfBuzz's `fallback_mark_positioning`).
     pub(crate) fallback_mark_positioning: bool,
+}
+
+/// What `morx` substitution needs beyond the face: the user's features
+/// and the run's language (for language-tagged features).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MorxPlan {
+    /// The user's features, in order.
+    pub(crate) features: Vec<Feature>,
+    /// The run's language, lower-case BCP 47.
+    pub(crate) language: Option<String>,
 }
 
 /// HarfBuzz's `hb_ot_shape_collect_features`.
@@ -155,6 +200,63 @@ fn collect_features(
     }
 }
 
+/// Who positions the glyphs and how marks are treated (HarfBuzz's
+/// positioning decisions in `hb_ot_shape_planner_t::compile`).
+#[derive(Clone, Copy, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "HarfBuzz's independent positioning decisions, one flag each"
+)]
+struct Positioning {
+    gpos: bool,
+    kerx: bool,
+    kern: bool,
+    zero_marks: bool,
+    adjust_marks: bool,
+}
+
+impl Positioning {
+    /// The decisions for `face` with `map`, for a script whose own shaper
+    /// is `kind` (whichever shapes in its place): `kerx` is
+    /// preferred to `GPOS` unless the font also substitutes by `GSUB`;
+    /// the `kern` table serves when neither kerns.
+    fn new(
+        face: &Face<'_>,
+        map: &Map<Pause>,
+        apply_morx: bool,
+        gpos_allowed: bool,
+        kind: ShaperKind,
+    ) -> Self {
+        let has_gpos_kern = map.has_lookups(TableKind::Gpos, Tag::new(b"kern"));
+        let has_kerx = KernTable::kerx(face).is_some();
+        let kern_table = KernTable::kern(face);
+        let has_gsub = !apply_morx && face.gsub().is_some();
+        let has_gpos = gpos_allowed && face.gpos().is_some();
+        let mut kerx = has_kerx && !(has_gsub && has_gpos);
+        let gpos = !kerx && has_gpos;
+        let mut kern = false;
+        if !kerx && (!has_gpos_kern || !gpos) {
+            if has_kerx {
+                kerx = true;
+            } else if kern_table.is_some() {
+                kern = kind.falls_back();
+            }
+        }
+        let zero_marks = kind.zeroes_marks()
+            && !kerx
+            && (!kern || !kern_table.is_some_and(|table| table.has_state_machine()));
+        let adjust_marks =
+            !gpos && !kerx && (!kern || !kern_table.is_some_and(|table| table.has_cross_stream()));
+        Self {
+            gpos,
+            kerx,
+            kern,
+            zero_marks,
+            adjust_marks,
+        }
+    }
+}
+
 impl ShapePlan {
     /// Plans a run of `script` in `direction` with `language` (`None`:
     /// the default language system) and the user's `features` on top of
@@ -168,7 +270,15 @@ impl ShapePlan {
     ) -> Self {
         let tags = OtTags::new(script, language);
         let mut builder = MapBuilder::new(face, &tags.scripts, &tags.languages);
-        let kind = Shaper::kind(script, builder.chosen_script(TableKind::Gsub));
+        let apply_morx = Morx::of(face).is_some();
+        // The script's own shaper decides kerning and mark positioning;
+        // with `morx`, the dumber one shapes in its place.
+        let script_kind = Shaper::kind(script, builder.chosen_script(TableKind::Gsub));
+        let kind = if apply_morx && script_kind != ShaperKind::Default {
+            ShaperKind::Dumber
+        } else {
+            script_kind
+        };
         let arabic_script = script.iso_code() == "Arab";
         // The Hebrew shaper only trusts `GPOS` designed for Hebrew.
         let gpos_allowed = kind != ShaperKind::Hebrew
@@ -176,18 +286,11 @@ impl ShapePlan {
         collect_features(&mut builder, direction, kind, arabic_script, features);
         let map = builder.compile();
         let kern = Tag::new(b"kern");
-        let apply_gpos = gpos_allowed && face.gpos().is_some();
-        let apply_kern = (!apply_gpos || !map.has_lookups(TableKind::Gpos, kern))
-            && map.one_mask(kern) != 0
-            && face.has_legacy_kerning();
-        let cross_kerning = face
-            .kern_table()
-            .subtables()
-            .iter()
-            .any(KernSubtable::is_cross_stream);
+        let positioning = Positioning::new(face, &map, apply_morx, gpos_allowed, script_kind);
         let has_gpos_mark = map.one_mask(Tag::new(b"mark")) != 0;
         let (shaper, normalize_hooks) = match kind {
             ShaperKind::Default => (Shaper::Default, Hooks::default()),
+            ShaperKind::Dumber => (Shaper::Dumber, Hooks::default()),
             ShaperKind::Arabic => (
                 Shaper::Arabic(ArabicPlan::new(&map, arabic_script)),
                 Hooks {
@@ -223,10 +326,18 @@ impl ShapePlan {
             ranged_masks,
             normalize_hooks,
             shaper,
+            morx: apply_morx.then(|| MorxPlan {
+                features: features.to_vec(),
+                language: language.map(|language| language.canonical().to_owned()),
+            }),
+            kern_mask: map.value_bits(kern, 0).map_or(0, |(mask, _)| mask),
             map,
-            apply_gpos,
-            apply_kern,
-            fallback_mark_positioning: !apply_gpos && (!apply_kern || !cross_kerning),
+            apply_gpos: positioning.gpos,
+            apply_kerx: positioning.kerx,
+            apply_kern: positioning.kern,
+            zero_marks: positioning.zero_marks && kind.zeroes_marks(),
+            adjust_mark_positioning: positioning.adjust_marks && !apply_morx,
+            fallback_mark_positioning: positioning.adjust_marks && script_kind.falls_back(),
         }
     }
 
@@ -236,8 +347,35 @@ impl ShapePlan {
         face: &Face<'_>,
         scaler: &Scaler<'_>,
         direction: Direction,
+        text: &[(usize, char)],
         buffer: &mut Buffer,
     ) {
+        if let Some((plan, morx)) = self.morx.as_ref().zip(Morx::of(face)) {
+            let features: Vec<UserFeature> = plan
+                .features
+                .iter()
+                .map(|feature| UserFeature {
+                    tag: feature.tag,
+                    value: feature.value,
+                    start: cluster_at(text, feature.start),
+                    end: cluster_at(text, feature.end),
+                })
+                .collect();
+            aat::substitute(
+                face,
+                &morx,
+                buffer,
+                direction,
+                &features,
+                plan.language.as_deref(),
+            );
+            // Without `GPOS`, deleted glyphs stay until after positioning,
+            // where they keep their neighbours from kerning.
+            if self.apply_gpos {
+                aat::remove_deleted_glyphs(buffer);
+            }
+            return;
+        }
         for stage in self.map.stages(TableKind::Gsub) {
             if let Some(table) = face.gsub() {
                 let mut applier =

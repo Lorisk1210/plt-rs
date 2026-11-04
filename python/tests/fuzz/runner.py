@@ -6,8 +6,9 @@ program.
 A bug is what no program should meet, whatever it does: a Rust panic
 (turned into an exception, or only printed on stderr), a crash (the
 worker killed by a signal or exiting), a hang (a program running past its
-time) or runaway memory (``MemoryError``, or an allocation failing under
-the worker's memory limit). Each is reduced (delta debugging over the
+time) or runaway memory (``MemoryError``, an allocation failing under
+the worker's memory limit, or, where the system cannot cap a process's
+memory, the worker's resident memory passing that limit). Each is reduced (delta debugging over the
 program's statements, each candidate in a new worker) to the smallest
 program meeting the same bug, written to ``failures/`` in the fuzzer's
 directory (``target/python-fuzz``).
@@ -28,7 +29,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from . import actions, corpus
-from .worker import MARKER
+from .worker import CAPS_ADDRESS_SPACE, MARKER, MEMORY_LIMIT
 
 #: The directory of the fuzzer's package, put on the workers' path.
 TESTS = pathlib.Path(__file__).resolve().parents[1]
@@ -45,6 +46,10 @@ REDUCTION_RUNS = 300
 
 #: How many programs a worker runs before a new one takes over.
 WORKER_TASKS = 20
+
+#: How often, in seconds, the runner looks at a worker's resident memory
+#: where the system cannot cap it.
+WATCH_INTERVAL = 0.5
 
 #: The lines a worker runs at its start.
 BOOT = (f"import sys; sys.path.insert(0, {str(TESTS)!r}); "
@@ -100,11 +105,15 @@ class Worker:
         self.process.stdin.write(json.dumps(task) + "\n")
         self.process.stdin.flush()
         while True:
-            try:
-                event = self.events.get(timeout=time_limit)
-            except queue.Empty:
+            event = self._next_event(time_limit)
+            if event == "hang":
                 self.stop()
                 bugs.append(Bug("hang", "hang", lines, f"over {time_limit} s"))
+                break
+            if event == "memory":
+                self.stop()
+                bugs.append(Bug("memory", "memory:resident", lines,
+                                f"over {MEMORY_LIMIT} bytes resident"))
                 break
             if event is None:
                 self.process.wait()
@@ -121,6 +130,33 @@ class Worker:
                 break
         bugs += self._stderr_panics(start, lines)
         return lines, bugs
+
+    def _next_event(self, time_limit):
+        """The worker's next event (None once it ended), or ``"hang"``
+        when none comes within *time_limit* seconds, or ``"memory"`` when
+        the worker's resident memory passes `MEMORY_LIMIT` meanwhile (only
+        watched where the system cannot cap the worker's memory)."""
+        if CAPS_ADDRESS_SPACE:
+            try:
+                return self.events.get(timeout=time_limit)
+            except queue.Empty:
+                return "hang"
+        waited = 0.0
+        while waited < time_limit:
+            try:
+                return self.events.get(timeout=WATCH_INTERVAL)
+            except queue.Empty:
+                waited += WATCH_INTERVAL
+            if self._resident() > MEMORY_LIMIT:
+                return "memory"
+        return "hang"
+
+    def _resident(self):
+        """The worker's resident memory in bytes, as ``ps`` reports it
+        (zero once the worker is gone)."""
+        report = subprocess.run(["ps", "-o", "rss=", "-p", str(self.process.pid)],
+                                capture_output=True, text=True, check=False).stdout.strip()
+        return int(report) * 1024 if report.isdigit() else 0
 
     def _stderr_panics(self, start, lines):
         """Panics printed on stderr during the task (also those no

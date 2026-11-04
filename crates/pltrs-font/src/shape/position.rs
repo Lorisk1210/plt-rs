@@ -1,10 +1,11 @@
-//! HarfBuzz's `hb_ot_position`: default advances, `GPOS` or legacy
-//! kerning, late zeroing of mark advances, attachment offset propagation
-//! and fallback mark positioning.
+//! HarfBuzz's `hb_ot_position`: default advances, `GPOS`, `kerx` or
+//! `kern` kerning, `trak` tracking, late zeroing of mark advances,
+//! attachment offset propagation and fallback mark positioning.
 
+use crate::aat::{KernContext, KernTable, Trak};
 use crate::face::Face;
 use crate::layout::apply::{Applier, TableKind};
-use crate::layout::buffer::{AttachKind, Buffer, GlyphInfo};
+use crate::layout::buffer::{AttachKind, Buffer};
 use crate::scale::Scaler;
 use crate::shape::fallback;
 use crate::shape::plan::ShapePlan;
@@ -24,7 +25,12 @@ pub(crate) fn position(
     buffer: &mut Buffer,
 ) {
     for (info, pos) in buffer.info.iter().zip(buffer.pos.iter_mut()) {
-        pos.x_advance = scaler.advance(face, info.glyph);
+        // FreeType gives glyphs the font lacks (deleted ones) no advance.
+        pos.x_advance = if info.glyph.0 < face.num_glyphs() {
+            scaler.advance(face, info.glyph)
+        } else {
+            0
+        };
     }
     let space_glyph = face.glyph_index(' ');
     for &(cluster, width) in spaces {
@@ -37,6 +43,12 @@ pub(crate) fn position(
                 spaces::advance(width, face, scaler, buffer.pos[index].x_advance);
         }
     }
+    let kerning = KernContext {
+        scaler,
+        kern_mask: plan.kern_mask,
+        num_glyphs: face.num_glyphs(),
+        forward: direction.is_forward(),
+    };
     if let Some(table) = face.gpos().filter(|_| plan.apply_gpos) {
         let mut applier = Applier::new(face, *table, TableKind::Gpos, scaler, direction, buffer);
         for stage in plan.map.stages(TableKind::Gpos) {
@@ -44,19 +56,26 @@ pub(crate) fn position(
                 applier.apply_lookup(*lookup);
             }
         }
+    } else if let Some(kerx) = KernTable::kerx(face).filter(|_| plan.apply_kerx) {
+        kerx.apply(face, buffer, &kerning);
     }
-    if plan.apply_kern {
-        apply_kern_table(face, scaler, buffer);
+    if let Some(kern) = KernTable::kern(face).filter(|_| plan.apply_kern) {
+        kern.apply(face, buffer, &kerning);
     }
-    let adjust_offsets = plan.fallback_mark_positioning && direction.is_forward();
-    for (info, pos) in buffer.info.iter().zip(buffer.pos.iter_mut()) {
-        if info.is_mark() {
-            if adjust_offsets {
-                pos.x_offset -= pos.x_advance;
-                pos.y_offset -= pos.y_advance;
+    if let Some(trak) = Trak::of(face) {
+        trak.apply(buffer, scaler);
+    }
+    let adjust_offsets = plan.adjust_mark_positioning && direction.is_forward();
+    if plan.zero_marks {
+        for (info, pos) in buffer.info.iter().zip(buffer.pos.iter_mut()) {
+            if info.is_mark() {
+                if adjust_offsets {
+                    pos.x_offset -= pos.x_advance;
+                    pos.y_offset -= pos.y_advance;
+                }
+                pos.x_advance = 0;
+                pos.y_advance = 0;
             }
-            pos.x_advance = 0;
-            pos.y_advance = 0;
         }
     }
     for (info, pos) in buffer.info.iter().zip(buffer.pos.iter_mut()) {
@@ -76,41 +95,6 @@ pub(crate) fn position(
     }
     if plan.fallback_mark_positioning {
         fallback::position_marks(face, scaler, direction, adjust_offsets, buffer);
-    }
-}
-
-/// HarfBuzz's kern-table machine: kerns each glyph with the next non-mark
-/// glyph, splitting the value between the two advances.
-fn apply_kern_table(face: &Face<'_>, scaler: &Scaler<'_>, buffer: &mut Buffer) {
-    let skippable = |info: &GlyphInfo| info.is_mark() || info.is_default_ignorable();
-    for subtable in face
-        .kern_table()
-        .subtables()
-        .iter()
-        .filter(|s| s.is_horizontal())
-    {
-        let mut i = 0;
-        while i < buffer.len() {
-            let Some(j) = (i + 1..buffer.len()).find(|&j| !skippable(&buffer.info[j])) else {
-                break;
-            };
-            if let Some(value) = subtable
-                .get(buffer.info[i].glyph, buffer.info[j].glyph)
-                .filter(|&v| v != 0)
-            {
-                let kern = scaler.x(i32::from(value));
-                if subtable.is_cross_stream() {
-                    buffer.pos[j].y_offset = kern;
-                } else {
-                    let first = kern >> 1;
-                    let second = kern - first;
-                    buffer.pos[i].x_advance += first;
-                    buffer.pos[j].x_advance += second;
-                    buffer.pos[j].x_offset += second;
-                }
-            }
-            i = j;
-        }
     }
 }
 
@@ -165,7 +149,7 @@ fn propagate_attachment(buffer: &mut Buffer, index: usize, direction: Direction,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layout::buffer::{CharProps, GlyphPos};
+    use crate::layout::buffer::{CharProps, GlyphInfo, GlyphPos};
     use crate::types::GlyphId;
 
     fn buffer(advances: &[i32]) -> Buffer {

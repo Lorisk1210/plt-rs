@@ -14,6 +14,9 @@ use crate::error::Error;
 /// First TCP port of X servers; display `n` listens on `6000 + n`.
 const X_TCP_PORT_BASE: u32 = 6000;
 
+/// The error number of an invalid argument (`EINVAL`, 22 on every Unix).
+const EINVAL: i32 = 22;
+
 /// A connected socket to the X server.
 #[derive(Debug)]
 pub(crate) enum Stream {
@@ -138,10 +141,20 @@ impl Stream {
         }
     }
 
+    /// Sets how long a read may block (`None`: as long as it takes).
+    ///
+    /// macOS refuses socket options (`EINVAL`) once the connection is
+    /// closed in both directions, when reads no longer block but return
+    /// what is left and then the end of the stream: there the refusal is
+    /// no error.
     fn set_read_timeout(&self, timeout: Option<std::time::Duration>) -> io::Result<()> {
-        match self {
+        let result = match self {
             Self::Unix(stream) => stream.set_read_timeout(timeout),
             Self::Tcp(stream) => stream.set_read_timeout(timeout),
+        };
+        match result {
+            Err(error) if error.raw_os_error() == Some(EINVAL) => Ok(()),
+            other => other,
         }
     }
 }

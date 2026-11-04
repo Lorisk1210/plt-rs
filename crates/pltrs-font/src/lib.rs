@@ -39,6 +39,7 @@
 //!   not).
 #![forbid(unsafe_code)]
 
+mod aat;
 mod afm;
 mod agl;
 mod autofit;

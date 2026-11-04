@@ -168,10 +168,14 @@ mod tests {
         let request = put_image(target, (0, 0, 128, 128), 65_536, |b| {
             b.resize(b.len() + 65_536, 7);
         });
+        // The peer reads while the requests are written, as a server does:
+        // a socket's buffer may hold less than the image (8 KiB on macOS).
+        let len = 8 + request.encoded().wire_len();
+        let reader = std::thread::spawn(move || received(&mut peer, len));
         let mut out = output.lock();
         out.send(map_window(1).encoded(), false).unwrap();
         out.send(request.encoded(), false).unwrap();
-        let bytes = received(&mut peer, 8 + request.encoded().wire_len());
+        let bytes = reader.join().unwrap();
         assert_eq!(
             &bytes[..4],
             [8, 0, 2, 0],

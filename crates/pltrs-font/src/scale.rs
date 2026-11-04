@@ -162,6 +162,14 @@ impl Size {
                 / f32::from(self.units_per_em))
     }
 
+    /// HarfBuzz's `em_scalef_x`: a fractional font-unit value scaled and
+    /// rounded (used for tracking).
+    pub(crate) fn em_scalef_x(&self, value: f32) -> i32 {
+        let mult =
+            Self::hb_scale(self.x_scale, self.units_per_em) as f32 / f32::from(self.units_per_em);
+        (value * mult).round() as i32
+    }
+
     /// HarfBuzz's floating-point `em_fscale_y`, used for anchors.
     pub(crate) fn em_fscale_y(&self, value: i32) -> f32 {
         value as f32
@@ -354,6 +362,16 @@ impl Scaler<'_> {
         }
         self.size()
             .map_or(value as f32, |size| size.em_fscale_x(value))
+    }
+
+    /// A fractional font-unit value scaled and rounded like HarfBuzz's
+    /// `em_scalef_x`.
+    pub(crate) fn scale_float_x(&self, value: f32) -> i32 {
+        if self.zero_scale() {
+            return 0;
+        }
+        self.size()
+            .map_or(value.round() as i32, |size| size.em_scalef_x(value))
     }
 
     pub(crate) fn fy(&self, value: i32) -> f32 {

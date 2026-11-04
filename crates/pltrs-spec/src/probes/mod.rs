@@ -11,6 +11,7 @@
 mod areas;
 mod args;
 mod encode;
+mod fonts;
 pub mod waivers;
 
 use std::collections::BTreeMap;
@@ -283,9 +284,11 @@ impl AreaReport {
 }
 
 /// Runs every probe of `file` against the operation table `ops`, in the
-/// reference configuration ([`reference_rc`](crate::reference_rc)).
+/// reference configuration ([`reference_rc`](crate::reference_rc)) and
+/// with the fonts the area's reference module sees.
 pub fn run(file: &ProbeFile, ops: &[Op]) -> AreaReport {
     crate::reference_rc();
+    let _fonts = fonts::BundledFontsOnly::for_area(&file.area);
     let mut report = AreaReport {
         area: file.area.clone(),
         ..AreaReport::default()

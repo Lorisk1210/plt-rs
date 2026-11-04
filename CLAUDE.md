@@ -122,7 +122,7 @@ must reproduce them.
   against documents matplotlib writes for it then and there), and
   `cargo xtask render PREFIX...` to write a case's rendering plus a diff
   against its golden PNG to `spec/out/` for inspection.
-* Differential testing: `cargo xtask diff [--gallery | --generated]
+* Differential testing: `cargo xtask diff [--gallery] [--generated]
   [PATTERN...] [--failures] [--reduce] [--baseline REPORT]` runs
   matplotlib's gallery and programs generated from its API
   (`spec/diff/generators`) under matplotlib and under pltrs (Python), and

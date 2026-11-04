@@ -468,7 +468,9 @@ impl Axes {
         if !figure.borrow().view_is_stale(self.id()) {
             return;
         }
-        figure.borrow_mut().unstale_axes(self.id());
+        // Worked on outside its cell: autoscaling asks the program's class
+        // of an axis answering its view interval whether it is inverted.
+        figure.work_on(|state| state.unstale_axes(self.id()));
         run_limit_callbacks(figure);
     }
 

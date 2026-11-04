@@ -58,7 +58,7 @@ impl<S: PatchShape> PatchParts<'_, S> {
 
     /// Draws the patch (matplotlib's `Patch.draw`).
     pub(crate) fn paint(&self, ctx: &mut DrawContext<'_>) -> Result<(), PatchError> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let dpi_cor = layout.points_to_pixels(1.0);
         if let Some(drawn) = self.drawn {
             drawn.record(dpi_cor);

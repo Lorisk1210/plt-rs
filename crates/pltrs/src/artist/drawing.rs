@@ -8,13 +8,11 @@
 //! asked for, and artists drawn as pltrs draws them (matplotlib's
 //! `artist.draw(renderer)`).
 
-use std::ptr;
-
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{GraphicsContext, PathCollectionData, QuadMeshData, Renderer, RgbaImage};
 use pltrs_text::{TextRun, TextSource};
 
-use super::{AggFilter, ArtistId, ArtistLookup, DrawContext, DrawError, DrawErrorKind, RawHandle};
+use super::{AggFilter, ArtistId, DrawContext, DrawError, DrawErrorKind, RawHandle};
 use crate::figure::StateRole;
 use crate::table::TableCell;
 
@@ -303,25 +301,25 @@ impl DrawContext<'_> {
     /// an artist of another figure in that figure's layout, at this
     /// context's resolution, its problems reported as this context's.
     pub fn draw_handle(&mut self, artist: &RawHandle) {
-        if ptr::eq(
-            artist.figure_state().as_ptr().cast_const(),
-            self.layout().figure_state(),
-        ) {
+        if self.draws(artist.figure_state()) {
             self.draw_unpainted(artist.id());
             return;
         }
-        let state = artist.figure_state().borrow();
-        let Some(drawn) = state.artist(artist.id()) else {
+        let (drawn, role) = {
+            let state = artist.figure_state().borrow();
+            (state.shared_artist(artist.id()), state.role)
+        };
+        let Some(drawn) = drawn else {
             return;
         };
-        if state.role == StateRole::LooseHolder {
-            self.draw_own(drawn, None);
+        if role == StateRole::LooseHolder {
+            self.draw_own(&*drawn, None);
             return;
         }
-        let mut inner = DrawContext::new(&state, self.renderer());
-        inner.draw_unpainted(artist.id());
-        inner.finish_rasterizing();
-        for error in inner.into_errors() {
+        let ((), errors) = artist
+            .figure_state()
+            .paint(self.renderer(), |inner| inner.draw_unpainted(artist.id()));
+        for error in errors {
             self.report_kind(error.artist, error.kind, error.message);
         }
     }
@@ -383,9 +381,9 @@ mod tests {
         // Drawn where a figure draws, through a context.
         let fig = Figure::with_size(1.0, 1.0, 10.0);
         let mut canvas = RasterRenderer::new(10.0, 10.0, 10.0).unwrap();
-        let state = fig.state();
-        let mut ctx = DrawContext::new(&state, &mut canvas);
-        drawing.draw(&mut ctx, fig.id());
-        assert_eq!(ctx.into_errors(), Vec::new());
+        let ((), errors) = fig
+            .state_cell()
+            .paint(&mut canvas, |ctx| drawing.draw(ctx, fig.id()));
+        assert_eq!(errors, Vec::new());
     }
 }

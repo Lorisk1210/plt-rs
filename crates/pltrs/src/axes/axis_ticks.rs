@@ -106,6 +106,16 @@ impl Axis {
         self
     }
 
+    /// Has the program's tick updater tick the axis (see
+    /// [`TickUpdater`](super::TickUpdater)) because the program's class of
+    /// the axis answers its view interval itself (matplotlib's
+    /// `get_view_interval` overridden, which its tick updates and the
+    /// tick helpers they run ask), or pltrs again with `false`.
+    pub fn set_program_view(&self, program: bool) -> &Self {
+        self.update(|axis| axis.program_view = program);
+        self
+    }
+
     /// Whether minor ticks falling on major ticks are dropped
     /// (matplotlib's `get_remove_overlapping_locs`).
     pub fn remove_overlapping_locs(&self) -> bool {

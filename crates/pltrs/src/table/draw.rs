@@ -18,7 +18,7 @@ impl TableArtist {
         &self,
         ctx: &mut DrawContext<'_>,
     ) -> Option<(AxesMaps, Vec<PlacedCell>)> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let Some(axes) = self.axes_box(layout) else {
             ctx.report(self.base.id(), "its axes no longer exist");
             return None;
@@ -46,7 +46,7 @@ impl TableArtist {
         maps: &AxesMaps,
     ) {
         let cell = &self.cells[index].1;
-        let Some(cell_maps) = cell.maps(*ctx.layout(), maps) else {
+        let Some(cell_maps) = cell.maps(ctx.layout(), maps) else {
             return ctx.report(
                 self.base.id(),
                 "a cell's transform is not an invertible affine map",
@@ -61,7 +61,7 @@ impl TableArtist {
 /// Draws the cell at `key` of the table `table` alone, where the table
 /// places it.
 fn draw_alone(ctx: &mut DrawContext<'_>, table: ArtistId, key: (i32, i32)) {
-    let Some(artist) = ctx.layout().store().get_as::<TableArtist>(table) else {
+    let Some(artist) = ctx.layout().store().shared_as::<TableArtist>(table) else {
         return;
     };
     let Some(index) = artist.cells.iter().position(|(at, _)| *at == key) else {
@@ -116,11 +116,9 @@ impl TableCell {
     pub fn draw_onto(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         let raw = self.table().raw();
         raw.figure_state().work_on(FigureState::prepare);
-        let state = raw.figure_state().borrow();
-        let mut ctx = DrawContext::new(&state, renderer);
-        draw_alone(&mut ctx, raw.id(), self.key());
-        ctx.finish_rasterizing();
-        let errors = ctx.into_errors();
+        let ((), errors) = raw
+            .figure_state()
+            .paint(renderer, |ctx| draw_alone(ctx, raw.id(), self.key()));
         if errors.is_empty() {
             Ok(())
         } else {

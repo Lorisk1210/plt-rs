@@ -864,7 +864,18 @@ installs once a figure has such an axis: it runs matplotlib's
 is called as often, in the same order and with the same arguments.
 pltrs' own helpers are computed natively where pltrs needs them, as
 before; the ticks the program gave stand while asked for at the same
-geometry.
+geometry. An axis whose class of the program's answers
+`get_view_interval` itself (skewt's) is ticked by the program too
+(`AxisState::program_view`): the package's locators and `ScalarFormatter`
+ask the axis for its view interval where matplotlib's do, and autoscaling
+asks it whether it is inverted (`TickUpdater::inverted`), as
+`set_xbound` does.
+
+Axes sharing an axis hold the same `Ticker` objects, those of the first
+Axes of the chain they share from (`Axis._take_shared_tickers`), as
+matplotlib's `sharex` hands them over; what they read through them is
+the helpers pltrs (Rust) shares among them, bound to the axis they were
+set on last (`_tick_helpers._locator_axis`).
 
 While pltrs (Rust) lays a figure out it works on the figure's state taken
 out of its cell (`FigureCell::work_on`, `figure/lend.rs`), and lends it
@@ -874,9 +885,30 @@ left it, reads it (limits, ticks, positions) and changes it at once,
 and the rest of the layout sees the change, as in matplotlib. Only the
 thread laying the figure out finds it free meanwhile.
 
-Other code pltrs (Rust) runs while it lays a figure out or draws it (a
-transform, a norm, a path effect, the text measurer) finds the figure in
-use: taken out while it is laid out, borrowed for reading while it is
+While pltrs (Rust) paints a figure (draws its artists), the figure's state
+stays in its cell, lent to the painting thread (`FigureCell::paint`,
+`figure/painting.rs`), and the drawing borrows it only for the moments it
+reads it: a `DrawContext` borrows it when first asked about it and lets it
+go whenever it hands its renderer out or is told to (`DrawContext::free`),
+which takes it mutably, so that nothing read from the figure is held
+meanwhile. Nor is the artist being drawn borrowed from the figure: the
+figure keeps its artists shared (`artist/kept.rs`), the draw holds the one
+it draws, and a change made to an artist a draw holds is made to a copy,
+which the figure keeps from then on, while the draw finishes that artist
+as it found it (so every artist is `Clone`: `ArtistClone`, and every
+projection, `ProjectionClone`). So the program's code a draw runs where
+it calls a renderer (a path effect, a renderer of the program's drawing
+an artist, the TeX painter) or after letting the figure go (a replaced
+`Text.draw`, a `draw` override recorded while the figure draws) finds the
+figure free: it changes it at once, reads its changes back, may make
+changes returning what they changed (`set_title`), and the rest of the
+draw sees them, as in matplotlib. A figure being painted counts as laid
+out: an extent measured meanwhile is that of its layout
+(`FigureCell::is_painted`).
+
+Other code pltrs (Rust) runs while it lays a figure out or draws it with
+the figure held (a transform, a norm, the text measurer) finds the figure
+in use: taken out while it is laid out, borrowed for reading while it is
 drawn. matplotlib's may still change it, so a
 native call made from such code (any native call made while another
 native call of its thread runs) runs inside `pltrs::figure::reenter`,
@@ -906,12 +938,7 @@ Reads while the figure is drawn work, so reading a view limit borrows the
 figure for change only when autoscaling is pending
 (`FigureState::view_is_stale`). Event callbacks (`draw_event`, limit
 changes), `draw` overrides and the program's axes locators run with the
-figure free, as in matplotlib. What the code a draw runs while it paints
-(a path effect, a norm, a transform) still cannot do is read back a change
-it made before the paint ends, or make a change returning what it changed:
-the paint holds the figure borrowed for reading throughout, and lending it
-around each call, as layouts do, would need every artist's drawing to hold
-no borrow of the figure where it calls the program.
+figure free, as in matplotlib.
 
 A draw stops where the program's code it runs before painting fails, as
 matplotlib's draw stops at an exception: a layout hook or draw hook of the

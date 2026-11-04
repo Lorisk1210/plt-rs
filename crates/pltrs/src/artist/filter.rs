@@ -76,7 +76,7 @@ impl PartialEq for AggFilter {
 /// one rasterized layer at the group's own z-order (the agg filter
 /// example's `FilteredArtistList`): glows behind texts, shadows behind
 /// groups of patches. The members are still drawn on their own too.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct FilteredGroupArtist {
     base: ArtistBase,
     members: Vec<ArtistId>,

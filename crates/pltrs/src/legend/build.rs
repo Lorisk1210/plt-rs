@@ -16,7 +16,7 @@ use super::{
     LegendDragUpdate, LegendError, LegendLoc, LegendMode, LegendOptions, LegendShadow,
     LegendShadowStyle,
 };
-use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
+use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, KeptArtist};
 use crate::colors::Color;
 use crate::figure::FigureState;
 use crate::fonts::{FontProperties, FontSize};
@@ -53,8 +53,8 @@ struct InsertedEntries {
 }
 
 impl Parts<'_> {
-    fn insert(&mut self, artist: Box<dyn Artist>) -> ArtistId {
-        let id = self.store.insert(artist);
+    fn insert(&mut self, artist: impl Into<KeptArtist>) -> ArtistId {
+        let id = self.store.insert_kept(artist.into());
         self.ids.push(id);
         id
     }
@@ -204,7 +204,7 @@ fn entry_colors(
         .map(|index| {
             let first = index.and_then(|i| made[i].handle.first());
             HandleView {
-                artist: first.map(|handle| handle.artist.as_ref()),
+                artist: first.map(|handle| handle.artist.get()),
                 mapped: first.is_some_and(|handle| handle.mapped),
             }
         })

@@ -374,6 +374,7 @@ impl<P, S: Source<P>> Source<P> for Flipped<'_, S> {
         self.source.height()
     }
 
+    #[inline]
     fn pixel(&self, index: usize) -> P {
         let (width, height) = (self.width(), self.height());
         let (row, column) = (index / width, index % width);

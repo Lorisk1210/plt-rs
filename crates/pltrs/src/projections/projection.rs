@@ -16,6 +16,25 @@ use crate::spines::SpineSide;
 use crate::ticker::AxisName;
 use crate::transforms::ResolvedTransform;
 
+/// Copying a projection, as an axes is copied (see [`Projection`]):
+/// every projection that is `Clone` has it.
+pub trait ProjectionClone {
+    /// A copy of the projection.
+    fn clone_projection(&self) -> Box<dyn Projection>;
+}
+
+impl<T: Projection + Clone> ProjectionClone for T {
+    fn clone_projection(&self) -> Box<dyn Projection> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Projection> {
+    fn clone(&self) -> Self {
+        self.clone_projection()
+    }
+}
+
 /// A coordinate system for axes defined by the program (matplotlib's
 /// `Axes` subclasses made for `register_projection`, such as the gallery's
 /// Hammer and SkewT-logP axes).
@@ -51,8 +70,12 @@ use crate::transforms::ResolvedTransform;
 /// [`Axes::with_projection_mut`], and options given when the axes is made
 /// reach the factory registered with [`register_with`](super::register_with).
 ///
+/// A projection is `Clone` ([`ProjectionClone`]): an axes changed while
+/// a draw holds it is copied, its projection with it (see
+/// [`ArtistClone`](crate::artist::ArtistClone)).
+///
 /// See the [module documentation](super) for a complete projection.
-pub trait Projection: Any + fmt::Debug + Send {
+pub trait Projection: Any + fmt::Debug + Send + ProjectionClone {
     /// The name axes made with this projection report and the registry
     /// knows it by (matplotlib's `name` class attribute).
     fn name(&self) -> &'static str;

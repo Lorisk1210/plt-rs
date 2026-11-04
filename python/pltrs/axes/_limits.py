@@ -8,7 +8,7 @@ The view bounds of an Axes and how it autoscales (matplotlib's
 
 import numpy as np
 
-from .. import _api, _values
+from .. import _api, _program_classes, _values
 from .._native import axes_base as _axes_base
 from ._ticks import _axis_method_wrapper
 
@@ -112,6 +112,16 @@ class LimitsMixin:
     def _set_bound(self, name, lower, upper):
         if upper is None and np.iterable(lower):
             lower, upper = lower
+        axis = getattr(self, f"{name}axis")
+        if _program_classes.takes_from_program(type(axis), "get_view_interval"):
+            # matplotlib's code, which asks the program's class of the axis
+            # whether it is inverted.
+            old_lower, old_upper = getattr(self, f"get_{name}bound")()
+            bounds = (old_lower if lower is None else lower,
+                      old_upper if upper is None else upper)
+            getattr(self, f"set_{name}lim")(
+                sorted(bounds, reverse=bool(axis.get_inverted())), auto=None)
+            return
         _axes_base.set_bound(self._native, name,
                              None if lower is None else float(lower),
                              None if upper is None else float(upper))

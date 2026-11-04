@@ -41,7 +41,7 @@ fn artist_source(artist: &impl ArtistHandle) -> Source {
 }
 
 fn as_line(artist: &HandlerArtist) -> &LineArtist {
-    let any: &dyn Any = artist.artist.as_ref();
+    let any: &dyn Any = artist.artist.get();
     any.downcast_ref().expect("a line")
 }
 
@@ -109,7 +109,7 @@ fn scatter_markers_span_the_plotted_sizes() {
         let options = LegendOptions::default().scatterpoints(count);
         let made = handle(&fig, &artist_source(&points), &options).unwrap();
         assert_eq!(made[0].attach, Attach::Offsets);
-        let any: &dyn Any = made[0].artist.as_ref();
+        let any: &dyn Any = made[0].artist.get();
         let markers: &CollectionArtist = any.downcast_ref().expect("a collection");
         (markers.sizes.clone().unwrap(), markers.offsets.len())
     };
@@ -135,7 +135,7 @@ fn error_bars_come_first_then_caps_then_the_line() {
     let source = LegendHandle::from(&errors).0;
     let made = handle(&fig, &source, &LegendOptions::default()).unwrap();
     assert_eq!(made.len(), 2 + 4 + 2);
-    let any: &dyn Any = made[0].artist.as_ref();
+    let any: &dyn Any = made[0].artist.get();
     let bars: &CollectionArtist = any.downcast_ref().expect("bars first");
     assert_eq!(
         bars.paths[0].vertices(),
@@ -158,7 +158,7 @@ fn error_bars_come_first_then_caps_then_the_line() {
     )
     .unwrap();
     assert_eq!(made.len(), 3);
-    assert!(!made[2].artist.base().visible, "no data line to show");
+    assert!(!made[2].artist.get().base().visible, "no data line to show");
 }
 
 #[test]
@@ -192,7 +192,7 @@ fn patches_become_rectangles_in_their_resolved_style() {
     let boxed = ax.add_patch(FancyBboxPatch::round((0.0, 0.0), 1.0, 1.0));
     boxed.set_facecolor("yellow").set_alpha(Some(0.5));
     let made = handle(&fig, &artist_source(&boxed), &LegendOptions::default()).unwrap();
-    let any: &dyn Any = made[0].artist.as_ref();
+    let any: &dyn Any = made[0].artist.get();
     let rect: &PatchArtist<Rectangle> = any.downcast_ref().expect("a rectangle");
     assert_eq!(rect.shape, Rectangle::new((0.0, 0.0), 20.0, 7.0));
     assert_eq!(rect.style.facecolor, Some(Color::from("yellow")));

@@ -172,11 +172,16 @@ impl FigureState {
         if !state.axis(name).autoscale.enabled {
             return;
         }
+        // matplotlib's `set_xbound` asks the axis whether it is inverted.
+        let asked = self.program_inverted(axes, name);
+        let Some(state) = self.axes_state(axes) else {
+            return;
+        };
         let shared = self.shared_data(axes, name, state.uses_stickies(name));
-        let inverted = {
+        let inverted = asked.unwrap_or_else(|| {
             let (v0, v1) = state.view_interval(name);
             v0 > v1
-        };
+        });
         // Round-number limits depend on how many ticks fit along the axis.
         let [x_space, y_space] = self.shared_tick_spaces(axes);
         let space = AxisSpace {

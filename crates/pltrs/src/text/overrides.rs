@@ -17,6 +17,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::thread::LocalKey;
 
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::GraphicsContext;
@@ -118,6 +119,9 @@ thread_local! {
     /// Whether the thread measures text itself for now, whatever measurer
     /// is set ([`without_measurer`]).
     static MEASURING_ITSELF: Cell<bool> = const { Cell::new(false) };
+    /// Whether the thread draws texts itself for now, whatever painter is
+    /// set (while it draws what the painter gave, see [`paint`]).
+    static PAINTING_ITSELF: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Sets (or, with `None`, removes) what measures the lines of text laid
@@ -158,8 +162,11 @@ pub(crate) fn has_line_measurer() -> bool {
     !MEASURING_ITSELF.get() && MEASURER.with_borrow(Option::is_some)
 }
 
-/// The thread's painter.
+/// The thread's painter, unless the thread draws texts itself for now.
 pub(super) fn painter() -> Option<Rc<dyn TextPainter>> {
+    if PAINTING_ITSELF.get() {
+        return None;
+    }
     PAINTER.with_borrow(Clone::clone)
 }
 
@@ -167,13 +174,18 @@ pub(super) fn painter() -> Option<Rc<dyn TextPainter>> {
 /// is set (for the thread alone: other threads sharing its state still
 /// measure with the measurer).
 pub(super) fn without_measurer<R>(f: impl FnOnce() -> R) -> R {
-    struct Restore(bool);
+    itself(&MEASURING_ITSELF, f)
+}
+
+/// Runs `f` with the thread's `flag` set, restored however `f` ends.
+fn itself<R>(flag: &'static LocalKey<Cell<bool>>, f: impl FnOnce() -> R) -> R {
+    struct Restore(&'static LocalKey<Cell<bool>>, bool);
     impl Drop for Restore {
         fn drop(&mut self) {
-            MEASURING_ITSELF.set(self.0);
+            self.0.set(self.1);
         }
     }
-    let _restore = Restore(MEASURING_ITSELF.replace(true));
+    let _restore = Restore(flag, flag.replace(true));
     f()
 }
 
@@ -216,7 +228,9 @@ pub(super) fn font_height(
 }
 
 /// Draws `laid_out`, anchored at `anchor` in `color`, through `painter`:
-/// the artists it gives are drawn where `ctx` draws.
+/// the artists it gives are drawn where `ctx` draws, as pltrs draws them
+/// (a text among them, which the program's `Text.draw` hands the original
+/// `Text.draw`, without the painter again).
 pub(super) fn paint(
     painter: &dyn TextPainter,
     ctx: &mut DrawContext<'_>,
@@ -225,9 +239,14 @@ pub(super) fn paint(
     color: Rgba,
 ) {
     let dpi = ctx.layout().dpi();
-    for artist in painter.paint(&stand_in(laid_out, anchor, color, dpi), dpi) {
-        ctx.draw_handle(&artist);
-    }
+    // The program's `Text.draw` finds the figure free.
+    ctx.free();
+    let drawn = painter.paint(&stand_in(laid_out, anchor, color, dpi), dpi);
+    itself(&PAINTING_ITSELF, || {
+        for artist in drawn {
+            ctx.draw_handle(&artist);
+        }
+    });
 }
 
 /// A text of its own standing for `laid_out` drawn at `anchor` in
@@ -497,5 +516,26 @@ mod tests {
         )]
         let pixel = painted.pixel(x as usize, y as usize);
         assert_eq!(pixel, Some([0, 0, 0, 255]));
+    }
+
+    /// Hands the stand-in back to be drawn, as a `Text.draw` of the
+    /// program's calling the original does.
+    struct Original;
+
+    impl TextPainter for Original {
+        fn paint(&self, stand_in: &Text, _: f64) -> Vec<RawHandle> {
+            vec![stand_in.raw().clone()]
+        }
+    }
+
+    #[test]
+    fn texts_a_painter_gives_back_are_drawn_without_it() {
+        let fig = Figure::with_size(2.0, 1.0, 100.0);
+        fig.text(0.5, 0.5, "abc").set_fontsize(20.0);
+        let plain = fig.render_raster().expect("drawn").to_image();
+        set_text_painter(Some(Rc::new(Original)));
+        let painted = fig.render_raster();
+        set_text_painter(None);
+        assert_eq!(painted.expect("drawn once").to_image(), plain);
     }
 }

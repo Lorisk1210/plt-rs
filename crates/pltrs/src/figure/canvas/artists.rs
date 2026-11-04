@@ -49,13 +49,7 @@ impl FigureCanvas {
         }
         let mut kept = self.take()?;
         artist.prepare_painters(&kept.renderer, painted);
-        let errors = {
-            let state = self.figure.state();
-            let mut ctx = DrawContext::new(&state, &mut kept.renderer);
-            draw(&mut ctx);
-            ctx.finish_rasterizing();
-            ctx.into_errors()
-        };
+        let ((), errors) = self.figure.state.paint(&mut kept.renderer, draw);
         self.keep(kept);
         if errors.is_empty() {
             Ok(())

@@ -48,7 +48,7 @@ pltrs_core::thread_state! {
 /// use pltrs::projections::{self, Projection, ProjectionView};
 /// use pltrs::transforms::ResolvedTransform;
 ///
-/// #[derive(Debug, Default)]
+/// #[derive(Clone, Debug, Default)]
 /// struct Plain;
 ///
 /// impl Projection for Plain {
@@ -236,7 +236,7 @@ mod tests {
     use crate::projections::ProjectionView;
     use crate::transforms::ResolvedTransform;
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     struct Named(&'static str);
 
     impl Projection for Named {
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn factories_receive_options_of_their_type() {
         /// A projection keeping the weight it is made with.
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         struct Weighted(u8);
 
         impl Projection for Weighted {

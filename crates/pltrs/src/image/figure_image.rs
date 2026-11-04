@@ -36,7 +36,7 @@ pub struct FigimageOptions {
 impl_colorize!(FigimageOptions);
 
 /// State of a figure image.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct FigureImageArtist {
     base: ArtistBase,
     pub(super) core: ImageCore,

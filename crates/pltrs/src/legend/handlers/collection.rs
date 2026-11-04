@@ -5,7 +5,7 @@ use std::rc::Rc;
 use pltrs_core::Point;
 
 use super::{Attach, HandleBox, HandlerArtist, HandlerContext, copy_collection};
-use crate::artist::Artist;
+use crate::artist::{Artist, KeptArtist};
 use crate::collections::{CollectionArtist, CollectionKind};
 use crate::legend::LegendError;
 use crate::numeric::linspace;
@@ -41,7 +41,7 @@ pub(super) fn path_collection(
         .transform
         .clone_from(&source.base().transform);
     Ok(vec![HandlerArtist {
-        artist: Box::new(markers),
+        artist: KeptArtist::new(markers),
         attach: Attach::Offsets,
         mapped: source.mapping.is_some(),
     }])

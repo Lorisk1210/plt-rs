@@ -201,7 +201,7 @@ impl Axes {
         {
             let mut state = self.raw().figure_state().borrow_mut();
             let patch = state.detached.take(frame).ok_or(AttachError::OtherFigure)?;
-            let is_rectangle = downcast_ref::<PatchArtist<Rectangle>>(patch.as_ref()).is_some();
+            let is_rectangle = downcast_ref::<PatchArtist<Rectangle>>(patch.get()).is_some();
             state.store.put_back(frame, patch);
             if !is_rectangle {
                 state.remove_artist(frame);

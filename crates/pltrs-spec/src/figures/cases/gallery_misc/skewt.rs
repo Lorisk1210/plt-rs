@@ -17,7 +17,7 @@ const ROT: f64 = 30.0;
 
 /// The example's `SkewXAxes`: rectilinear axes whose data is skewed in
 /// axes coordinates, so that lines of constant x lean by [`ROT`].
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct SkewXAxes;
 
 impl SkewXAxes {

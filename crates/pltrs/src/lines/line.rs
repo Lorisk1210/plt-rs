@@ -411,7 +411,7 @@ impl Artist for LineArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let resolved = match self.drawn_transform(*ctx.layout()) {
+        let resolved = match self.drawn_transform(ctx.layout()) {
             Ok(Some(resolved)) => resolved,
             Ok(None) => {
                 ctx.report(self.base.id(), "its coordinate system no longer exists");
@@ -422,7 +422,7 @@ impl Artist for LineArtist {
                 return;
             }
         };
-        let range = self.drawn_range(*ctx.layout());
+        let range = self.drawn_range(ctx.layout());
         let drawn = self.drawn_path(range.clone());
         let paths = drawn
             .as_ref()

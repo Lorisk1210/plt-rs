@@ -26,11 +26,11 @@ impl LineArtist {
         }
         let mut style = self.marker_style().map_err(|e| e.to_string())?;
         if let Some(rotation) = &self.marker_rotation {
-            style = style.rotated(rotation.angle(*ctx.layout(), self.base.parent));
+            style = style.rotated(rotation.angle(ctx.layout(), self.base.parent));
         }
         let (points, affine) = resolved.split_points(points);
         let points = match self
-            .select_markers(*ctx.layout(), &points, &affine)
+            .select_markers(ctx.layout(), &points, &affine)
             .map_err(|e| e.to_string())?
         {
             Some(indices) => {

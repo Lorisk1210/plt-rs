@@ -147,7 +147,7 @@ pltrs_core::archive_struct!(KeyVector {
 
 /// State of a quiver key: the reference arrow drawn with the quiver's
 /// current scale and style, and its label (a child text artist).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct QuiverKeyArtist {
     base: ArtistBase,
     quiver: ArtistId,
@@ -284,7 +284,7 @@ impl Artist for QuiverKeyArtist {
     /// matplotlib's `QuiverKey.draw`, whose `_init` runs the quiver's
     /// (which sizes its arrows) before the key's arrow is made.
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         if let Err(problem) = self
             .quiver(layout)
             .and_then(|(_, geometry)| {

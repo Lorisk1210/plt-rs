@@ -25,7 +25,7 @@ use pltrs_core::{Bbox, Point};
 
 use super::{ArtistRef, BoxItem, OffsetBox, PlacedOffsetBox, lay_out_box};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, AttachError, DrawContext,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, AttachError, DrawContext, KeptArtist,
     LayoutContext, RawHandle, TypedHandle,
 };
 use crate::figure::FigureState;
@@ -98,10 +98,10 @@ impl ProgramBox<BoxItem> {
     /// [`AttachError::OtherFigure`] when the artist is not loose.
     pub fn from_loose(artist: &RawHandle) -> Result<Self, AttachError> {
         let item = BoxItem::from_loose(artist)?;
-        let base = item.artist.base().clone();
+        let base = item.artist.get().base().clone();
         let visible = base.visible;
         let artist = BoxItem {
-            artist: Box::new(ProgramBoxArtist {
+            artist: KeptArtist::new(ProgramBoxArtist {
                 base,
                 ..ProgramBoxArtist::default()
             }),

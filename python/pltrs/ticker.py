@@ -27,7 +27,7 @@ import string
 
 import numpy as np
 
-from . import _api, _tick_helpers, cbook
+from . import _api, _program_classes, _tick_helpers, cbook
 from ._native import axis as _axis, ticker as _ticker
 
 _log = logging.getLogger(__name__)
@@ -614,7 +614,8 @@ class ScalarFormatter(_NativeFormatter):
 
     def set_locs(self, locs):
         # docstring inherited
-        info = self._axis_info()
+        locs = self._kept_locs(locs)
+        info = self._program_view_info(self._axis_info(), locs)
         self._set_locs_on(locs, info)
         locs = np.asarray(self._locs, dtype=float)
         offset, self._orderOfMagnitude = _ticker.scalar_offset(
@@ -623,6 +624,21 @@ class ScalarFormatter(_NativeFormatter):
             self.offset = offset
         if len(locs) and self._spec()["kind"] == "scalar":
             self._format = _ticker.scalar_format(self._spec(), locs, info)
+
+    def _program_view_info(self, info, locs):
+        """*info* with the view interval the program's class of the axis
+        answers, asked as often as matplotlib's `set_locs` asks it (in
+        ``_compute_offset`` and ``_set_order_of_magnitude``); *info* itself
+        for the package's axes."""
+        if not _asks_program_view(self.axis) or len(locs) == 0:
+            return info
+        view = None
+        if self._useOffset:
+            view = self.axis.get_view_interval()
+        fixed = self._powerlimits[0] == self._powerlimits[1] != 0
+        if self._scientific and not fixed:
+            view = self.axis.get_view_interval()
+        return info if view is None else _with_view(info, sorted(view))
 
     def format_data_short(self, value):
         # docstring inherited
@@ -1128,8 +1144,29 @@ class Locator(TickHelper):
         return _nonsingular(vmin, vmax)
 
 
+def _asks_program_view(axis):
+    """Whether *axis* is of a class of the program's answering
+    ``get_view_interval`` itself, which matplotlib's helpers ask then."""
+    return (axis is not None
+            and _program_classes.takes_from_program(type(axis), "get_view_interval"))
+
+
+def _with_view(info, view):
+    """The axis description *info* with the view interval *view*, as the
+    program's class of the axis answers it."""
+    low, high = map(float, view)
+    if isinstance(info, dict):
+        return {**info, "view_interval": (low, high)}
+    return _axis.with_view_interval(info, low, high)
+
+
 class _NativeLocator(Locator):
     """A locator whose ticks pltrs (Rust) computes from its parameters."""
+
+    #: Whether matplotlib's ``__call__`` of the class ticks the view
+    #: interval it asks the axis for (``tick_values(*get_view_interval())``),
+    #: which an axis of the program's class answers itself.
+    _ticks_the_view = False
 
     def _spec(self):
         """The native description of the locator (its kind and
@@ -1144,6 +1181,9 @@ class _NativeLocator(Locator):
 
     def __call__(self):
         """Return the locations of the ticks."""
+        if self._ticks_the_view and _asks_program_view(self.axis):
+            vmin, vmax = self.axis.get_view_interval()
+            return self.tick_values(vmin, vmax)
         return self.raise_if_exceeds(
             _ticker.locate(self._spec(), self._axis_info()))
 
@@ -1268,6 +1308,8 @@ class LinearLocator(_NativeLocator):
     navigation.
     """
 
+    _ticks_the_view = True
+
     def __init__(self, numticks=None, presets=None):
         """
         Parameters
@@ -1345,6 +1387,8 @@ class MultipleLocator(_NativeLocator):
     Place ticks at every integer multiple of a base plus an offset.
     """
 
+    _ticks_the_view = True
+
     def __init__(self, base=1.0, offset=0.0):
         """
         Parameters
@@ -1400,6 +1444,9 @@ class MaxNLocator(_NativeLocator):
     within the view limits. Locations beyond the limits are added to support
     autoscaling.
     """
+
+    _ticks_the_view = True
+
     default_params = dict(nbins=10,
                           steps=None,
                           integer=False,
@@ -1529,6 +1576,8 @@ class LogLocator(_NativeLocator):
     Places ticks at the values ``subs[j] * base**i``.
     """
 
+    _ticks_the_view = True
+
     def __init__(self, base=10.0, subs=(1.0,), *, numticks=None):
         """
         Parameters
@@ -1617,6 +1666,8 @@ class SymmetricalLogLocator(_NativeLocator):
     Place ticks spaced linearly near zero and spaced logarithmically beyond a
     threshold.
     """
+
+    _ticks_the_view = True
 
     def __init__(self, transform=None, subs=None, linthresh=None, base=None):
         """

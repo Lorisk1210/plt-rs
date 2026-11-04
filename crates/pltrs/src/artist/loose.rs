@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
 
-use super::{Artist, ArtistHandle, AttachError, Custom, RawHandle};
+use super::{Artist, ArtistHandle, AttachError, Custom, KeptArtist, RawHandle};
 use crate::axes::Axes;
 use crate::collections::{Collection, CollectionSpec};
 use crate::coords::CoordError;
@@ -34,9 +34,10 @@ use crate::units::{AxisValue, DataPoint};
 impl RawHandle {
     /// A handle to `artist`, made outside any figure: it lives in a holder
     /// of its own until an axes or a figure adopts it.
-    pub(crate) fn loose(artist: Box<dyn Artist>) -> Self {
+    pub(crate) fn loose(artist: impl Into<KeptArtist>) -> Self {
+        let artist = artist.into();
         debug_assert!(
-            artist.children().is_empty(),
+            artist.get().children().is_empty(),
             "a loose artist owns no other artist"
         );
         let mut holder = FigureState::holder();

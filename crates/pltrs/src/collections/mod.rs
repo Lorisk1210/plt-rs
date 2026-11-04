@@ -12,6 +12,7 @@
 //! collections downcast to the [`EventCollection`] and
 //! [`EllipseCollection`] handles, which change their events or ellipses.
 
+mod alpha_fit;
 mod array;
 mod copy;
 mod depth;
@@ -201,6 +202,10 @@ pub(crate) struct CollectionArtist {
     /// One opacity per item, replacing the artist's single alpha
     /// (matplotlib's array `alpha`).
     pub(crate) alphas: Option<Vec<f64>>,
+    /// The shape of the array the per-item alphas were given as, when it
+    /// is not one-dimensional (matplotlib's `_alpha.shape`, which its
+    /// errors name).
+    pub(crate) alpha_shape: Option<Vec<usize>>,
     pub(crate) antialiased: Option<Vec<bool>>,
     pub(crate) hatch: Option<String>,
     /// The colours of the hatches (`hatch.color` when the collection was
@@ -274,6 +279,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     linewidths,
     linestyles,
     alphas,
+    alpha_shape,
     antialiased,
     hatch,
     hatchcolors,
@@ -323,6 +329,7 @@ impl CollectionArtist {
             linewidths: None,
             linestyles: vec![LineStyle::Solid],
             alphas: None,
+            alpha_shape: None,
             antialiased: None,
             hatch: None,
             hatchcolors: HatchColors::from_rc(&rc),
@@ -557,6 +564,8 @@ impl Artist for CollectionArtist {
         } else if let Some(Err(problem)) = self.mapping.as_ref().map(|m| &m.normalized) {
             // matplotlib's norms raise a `ValueError` for values or limits
             // they cannot normalise.
+            ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
+        } else if let Some(problem) = self.alpha_problem() {
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         } else if let Err(problem) = self.render(ctx) {
             ctx.report(self.base.id(), problem);

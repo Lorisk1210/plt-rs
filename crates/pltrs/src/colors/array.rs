@@ -101,7 +101,14 @@ pub fn to_rgba_array(
     }
 }
 
+/// A list of colours with `alpha` applied: no colours stay none whatever
+/// the alphas (matplotlib's `(0, 4)` array), a single colour is repeated
+/// for each alpha, and a single alpha is given to every colour (numpy's
+/// broadcasting).
 fn list_to_rgba(colors: &[Color], alpha: &Alpha) -> Result<Vec<Rgba>, ColorError> {
+    if colors.is_empty() {
+        return Ok(Vec::new());
+    }
     let rows = colors
         .iter()
         .map(Color::resolve)
@@ -119,6 +126,10 @@ fn list_to_rgba(colors: &[Color], alpha: &Alpha) -> Result<Vec<Rgba>, ColorError
         .into_iter()
         .zip(colors.iter().map(Color::is_none))
         .collect();
+    let alphas = match alphas.as_slice() {
+        &[one] => vec![one; entries.len()],
+        _ => alphas,
+    };
     let entries = match entries.as_slice() {
         [one] => vec![*one; alphas.len()],
         all if all.len() == alphas.len() => entries,
@@ -203,6 +214,16 @@ mod tests {
             Ok(vec![rgba(1.0, 0.0, 0.0, 0.25), rgba(1.0, 0.0, 0.0, 0.75)])
         );
         assert_eq!(to_rgba_array(Vec::<Color>::new(), Alpha::Keep), Ok(vec![]));
+        assert_eq!(
+            to_rgba_array(Vec::<Color>::new(), vec![0.1, 0.2]),
+            Ok(vec![]),
+            "no colours take any alphas"
+        );
+        assert_eq!(
+            to_rgba_array(vec!["red", "blue"], vec![0.5]),
+            Ok(vec![rgba(1.0, 0.0, 0.0, 0.5), rgba(0.0, 0.0, 1.0, 0.5)]),
+            "one alpha for every colour"
+        );
         assert!(to_rgba_array(vec![[2.0, 0.0, 0.0]], Alpha::Keep).is_err());
     }
 

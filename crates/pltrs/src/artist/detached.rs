@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 
+use super::kept::KeptArtist;
 use super::store::take_tree;
 use super::{Artist, ArtistId};
 
@@ -19,7 +20,7 @@ use super::{Artist, ArtistId};
 /// [`ArtistStore`](super::ArtistStore). Handles look in both.
 #[derive(Debug, Default)]
 pub(crate) struct DetachedArtists {
-    artists: BTreeMap<ArtistId, Box<dyn Artist>>,
+    artists: BTreeMap<ArtistId, KeptArtist>,
 }
 
 /// Archived artist by artist; each artist read back takes the id it is
@@ -30,9 +31,9 @@ impl Archive for DetachedArtists {
     }
 
     fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
-        let mut artists: BTreeMap<ArtistId, Box<dyn Artist>> = Archive::decode(decoder)?;
+        let mut artists: BTreeMap<ArtistId, KeptArtist> = Archive::decode(decoder)?;
         for (&id, artist) in &mut artists {
-            artist.base_mut().assign_id(id);
+            artist.get_mut().base_mut().assign_id(id);
         }
         Ok(Self { artists })
     }
@@ -46,27 +47,33 @@ impl DetachedArtists {
 
     /// The removed artist `id`.
     pub(crate) fn get(&self, id: ArtistId) -> Option<&dyn Artist> {
-        self.artists.get(&id).map(AsRef::as_ref)
+        self.artists.get(&id).map(KeptArtist::get)
+    }
+
+    /// The removed artist `id`, shared (see
+    /// [`ArtistStore::shared`](super::ArtistStore::shared)).
+    pub(crate) fn shared(&self, id: ArtistId) -> Option<std::rc::Rc<dyn Artist>> {
+        self.artists.get(&id).map(KeptArtist::share)
     }
 
     /// The removed artist `id`, mutably.
     pub(crate) fn get_mut(&mut self, id: ArtistId) -> Option<&mut (dyn Artist + 'static)> {
-        self.artists.get_mut(&id).map(AsMut::as_mut)
+        self.artists.get_mut(&id).map(KeptArtist::get_mut)
     }
 
     /// Keeps `artist`, removed from the figure, under `id`.
-    pub(crate) fn insert(&mut self, id: ArtistId, artist: Box<dyn Artist>) {
+    pub(crate) fn insert(&mut self, id: ArtistId, artist: KeptArtist) {
         self.artists.insert(id, artist);
     }
 
     /// Takes the removed artist `id` out.
-    pub(crate) fn take(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
+    pub(crate) fn take(&mut self, id: ArtistId) -> Option<KeptArtist> {
         self.artists.remove(&id)
     }
 
     /// Takes the removed artist `id` and, recursively, every artist it
     /// owns out, the artist first.
-    pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, Box<dyn Artist>)> {
+    pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, KeptArtist)> {
         take_tree(id, |id| self.take(id))
     }
 

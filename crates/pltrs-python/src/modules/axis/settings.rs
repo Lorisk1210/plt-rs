@@ -92,6 +92,16 @@ fn set_remove_overlapping_locs(owner: AxisOwner, name: String, remove: bool) -> 
     Ok(())
 }
 
+/// Has the program's tick updater tick the axis, whose class of the
+/// program's answers `get_view_interval` itself (3-D axes are not ticked
+/// by the updater: nothing to do there).
+fn set_program_view(owner: AxisOwner, name: String, program: bool) -> PyResult<()> {
+    if let AnyAxis::Flat(axis) = owner.axis(&name)? {
+        axis.set_program_view(program);
+    }
+    Ok(())
+}
+
 /// How far the tick marks reach out of the axes, in points.
 fn get_tick_padding(axes: Axes, name: String) -> PyResult<f64> {
     Ok(axis(&axes, &name)?.tick_padding())
@@ -324,6 +334,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("minorticks", minorticks)?;
     module.add("get_remove_overlapping_locs", get_remove_overlapping_locs)?;
     module.add("set_remove_overlapping_locs", set_remove_overlapping_locs)?;
+    module.add("set_program_view", set_program_view)?;
     module.add("get_tick_padding", get_tick_padding)?;
     module.add("get_labelpad", get_labelpad)?;
     module.add("set_labelpad", set_labelpad)?;

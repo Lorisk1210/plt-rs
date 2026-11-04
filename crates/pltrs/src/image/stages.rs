@@ -234,6 +234,7 @@ impl Source<[f64; 4]> for PaletteSource<'_> {
         self.mapped.height
     }
 
+    #[inline]
     fn pixel(&self, index: usize) -> [f64; 4] {
         self.palette[self.mapped.rows[index] as usize]
     }

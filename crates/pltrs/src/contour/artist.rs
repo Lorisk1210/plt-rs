@@ -14,7 +14,7 @@ use crate::text::TextArtist;
 
 /// The state of a contour set, kept in its axes next to the collections
 /// that draw it. It draws nothing itself.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ContourSetArtist {
     base: ArtistBase,
     pub(crate) state: ContourState,

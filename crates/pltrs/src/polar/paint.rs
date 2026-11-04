@@ -152,7 +152,7 @@ pub(crate) fn draw_tick_lines(
     rc: &RcParams,
     groups: TickGroups<'_>,
 ) {
-    let layout = *ctx.layout();
+    let layout = ctx.layout();
     let (Some(ptick), Some(display)) = (
         polar_tick(layout, axes, polar, name, tick),
         layout.axes_extent(axes),

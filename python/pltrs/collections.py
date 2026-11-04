@@ -288,8 +288,8 @@ class Collection(mcolorizer.ColorizingArtist):
         if self._A.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
             raise ValueError('Collections can only map rank 1 arrays')
         alpha = self._get("alpha_array")
-        if alpha is not None and len(alpha) > 1 and len(alpha) != self._A.size:
-            alpha = np.asarray(alpha)
+        if alpha is not None and len(alpha) != self._A.size:
+            alpha = np.asarray(self.__dict__.get("_array_alpha", alpha))
             raise ValueError(f'Data array shape, {self._A.shape} '
                              'is incompatible with alpha array shape, '
                              f'{alpha.shape}. '
@@ -786,9 +786,11 @@ class Collection(mcolorizer.ColorizingArtist):
             alpha = np.asarray(alpha, dtype=float)
             if ((alpha < 0) | (alpha > 1)).any():
                 raise ValueError("alpha must be between 0 and 1, inclusive")
-            _collections.set_alphas(self._native, alpha.ravel().tolist())
-            # The array itself comes back, as matplotlib keeps it.
+            # The array itself comes back, as matplotlib keeps it, even
+            # when it does not fit the colours.
             self._array_alpha = alpha
+            _collections.set_alphas(self._native, alpha.ravel().tolist(),
+                                    list(alpha.shape))
         else:
             if alpha is not None and not isinstance(alpha, (int, float)):
                 raise TypeError(

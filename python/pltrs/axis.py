@@ -12,7 +12,9 @@ import functools
 
 import numpy as np
 
-from . import _api, _artist_clipping, _tick_helpers, _values, cbook, units as munits
+from . import (
+    _api, _artist_clipping, _program_classes, _tick_helpers, _values, cbook,
+    units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -311,6 +313,24 @@ class Axis(DrawnWith, Artist):
         return "{}({},{})".format(
             type(self).__name__, *self.axes.transAxes.transform((0, 0)))
 
+    def _take_shared_tickers(self):
+        """Hold the tickers of the axis this one shares, as matplotlib's
+        ``sharex`` (``sharey``, ``sharez``) hands them over: those of the
+        first Axes of the chain of Axes sharing it, so that every Axes of
+        the chain holds the same `Ticker` objects."""
+        if self.axis_name is None:
+            return
+        root, seen = self.axes, {id(self.axes)}
+        # An Axes may share with itself (``subplot_mosaic`` shares the first
+        # with the first, as matplotlib's does).
+        while ((shared := root._shared_from(self.axis_name)) is not None
+               and id(shared) not in seen):
+            root = shared
+            seen.add(id(root))
+        if root is not self.axes:
+            source = getattr(root, f"{self.axis_name}axis")
+            self.major, self.minor = source.major, source.minor
+
     def __init__(self, axes, *, pickradius=15, clear=True):
         """
         Parameters
@@ -328,6 +348,12 @@ class Axis(DrawnWith, Artist):
         self._axes = axes
         self.major = Ticker._of_axis(self, minor=False)
         self.minor = Ticker._of_axis(self, minor=True)
+        self._take_shared_tickers()
+        if _program_classes.takes_from_program(type(self), "get_view_interval"):
+            # matplotlib's tick updates ask the program's view interval.
+            _axis.set_program_view(axes._native, self.axis_name, True)
+            from . import _tick_updates
+            _tick_updates.install(axes.figure)
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
         self.pickradius = pickradius
         #: The description pltrs (Rust) gave of the axis while its tick
@@ -962,6 +988,10 @@ class Axis(DrawnWith, Artist):
                 # as matplotlib's does.
                 return self.major.locator()
             return self._drawn_fields()[4]
+        if not minor and _program_classes.takes_from_program(
+                type(self), "get_view_interval"):
+            # matplotlib's locator asks the program's class for the view.
+            return self.major.locator()
         locs = _axis.get_ticklocs(*self._args(), bool(minor))
         locator = self.get_minor_locator() if minor else self.get_major_locator()
         return _typed_locs(locator, locs, minor,

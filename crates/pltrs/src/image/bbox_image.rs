@@ -64,7 +64,7 @@ impl BboxImageOptions {
 }
 
 /// State of an image filling a box given in display pixels.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct BboxImageArtist {
     base: ArtistBase,
     pub(super) core: ImageCore,
@@ -82,7 +82,7 @@ pltrs_core::archive_struct!(BboxImageArtist {
 });
 
 /// A box an image added to an axes fills, found when the image is drawn.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum Region {
     /// A box in other coordinates (matplotlib's `TransformedBbox`).
     Transformed(Bbox, Transform),
@@ -169,7 +169,7 @@ impl BboxImageArtist {
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
         let canvas = canvas_bbox(ctx);
-        let Some(placement) = self.placement(*ctx.layout(), canvas, magnification) else {
+        let Some(placement) = self.placement(ctx.layout(), canvas, magnification) else {
             return Ok(None);
         };
         let alpha = self.core.alpha(self.base.alpha);

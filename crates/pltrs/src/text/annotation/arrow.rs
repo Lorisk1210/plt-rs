@@ -495,7 +495,7 @@ impl AnnotationArrow {
         rc: &RcParams,
         target: ArrowTarget,
     ) -> Result<(), PatchError> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let dpi_cor = layout.points_to_pixels(1.0);
         self.dpi_cor.record(dpi_cor);
         let start = match &target.start_region {

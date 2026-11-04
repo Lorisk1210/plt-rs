@@ -41,8 +41,12 @@ impl AxesState {
     /// The interval of axis `name` ticks are placed in and drawn for.
     pub(crate) fn tick_interval(&self, name: AxisName) -> (f64, f64) {
         match self.projection.custom() {
-            Some(custom) => custom.tick_interval(&self.projection_view(), name),
-            None => self.view_interval(name),
+            // The program's tick updates ask the program's class of the
+            // axis for it themselves.
+            Some(custom) if !self.axis(name).program_view => {
+                custom.tick_interval(&self.projection_view(), name)
+            }
+            _ => self.view_interval(name),
         }
     }
 

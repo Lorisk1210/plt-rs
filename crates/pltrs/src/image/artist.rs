@@ -22,7 +22,7 @@ use crate::patches::PatchShape;
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// State of an image on a regular grid in data coordinates.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct AxesImageArtist {
     base: ArtistBase,
     pub(crate) core: ImageCore,
@@ -145,7 +145,7 @@ impl AxesImageArtist {
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
         let canvas = canvas_bbox(ctx);
-        let Some(placement) = self.placement(*ctx.layout(), canvas, magnification) else {
+        let Some(placement) = self.placement(ctx.layout(), canvas, magnification) else {
             return Ok(None);
         };
         let alpha = self.core.alpha(self.base.alpha);
@@ -161,11 +161,11 @@ impl AxesImageArtist {
         ctx: &mut DrawContext<'_>,
     ) -> Option<Result<Option<UnsampledImage>, ImageError>> {
         let canvas = canvas_bbox(ctx);
-        let clip = self.clip_bbox(*ctx.layout(), canvas);
+        let clip = self.clip_bbox(ctx.layout(), canvas);
         let resolved = ctx
             .resolve(&self.transform())
             .filter(ResolvedTransform::is_affine)?;
-        let out_bbox = self.out_bbox(*ctx.layout())?;
+        let out_bbox = self.out_bbox(ctx.layout())?;
         Some(
             self.core
                 .unsampled(self.extent(), resolved.affine_part(), out_bbox, clip),

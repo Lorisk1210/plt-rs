@@ -1,10 +1,12 @@
 //! Changes the program's code asks for while a figure is drawn.
 //!
-//! Drawing a figure runs the program's code of a host language: a path
-//! effect, a norm, a transform. That code may change the figure, as
-//! matplotlib's may (a path effect recolouring its artist), but finds it
-//! in use, borrowed for reading while its artists are drawn (see
-//! [`reenter`](super::reenter)); the host keeps the changes to make them
+//! Drawing a figure runs the program's code of a host language. Where the
+//! drawing lets the figure go (see
+//! [`DrawContext`](crate::artist::DrawContext)), as around a path effect,
+//! that code changes the figure at once. Code the drawing runs while it
+//! reads the figure (a norm, a transform) may change it too, as
+//! matplotlib's may, but finds it in use, borrowed for reading (see
+//! [`reenter`](super::reenter)); the host keeps those changes to make them
 //! once the figure is free. matplotlib makes them at once, so that what
 //! the draw does after sees them: the draw event's callbacks, and whether
 //! each artist is left stale. So once a draw has drawn the figure's

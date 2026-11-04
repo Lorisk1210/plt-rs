@@ -5,7 +5,7 @@
 
 use pltrs_core::Bbox;
 
-use super::{ArtistHandle, ArtistLookup, DrawContext, LayoutContext, RawHandle, Renderer};
+use super::{ArtistHandle, ArtistLookup, LayoutContext, RawHandle, Renderer};
 use crate::figure::DrawErrors;
 
 impl RawHandle {
@@ -93,17 +93,15 @@ impl RawHandle {
             return figure.draw(renderer);
         }
         self.prepare_painters(renderer, painted);
-        let state = self.figure_state().borrow();
-        let Some(artist) = state.artist(self.id()) else {
+        let Some(artist) = self.figure_state().borrow().shared_artist(self.id()) else {
             return Ok(());
         };
-        let mut ctx = DrawContext::new(&state, renderer);
-        match artist.base().painter.as_ref().filter(|_| painted) {
-            Some(painter) => ctx.draw_painted(self.id(), artist, painter),
-            None => ctx.draw_unpainted(self.id()),
-        }
-        ctx.finish_rasterizing();
-        let errors = ctx.into_errors();
+        let ((), errors) = self.figure_state().paint(renderer, |ctx| {
+            match artist.base().painter.as_ref().filter(|_| painted) {
+                Some(painter) => ctx.draw_painted(self.id(), &*artist, painter),
+                None => ctx.draw_unpainted(self.id()),
+            }
+        });
         if errors.is_empty() {
             Ok(())
         } else {

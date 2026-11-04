@@ -217,10 +217,12 @@ impl AxesState {
         match item {
             Item::Child(id) => ctx.draw_child(id),
             Item::Axis(owner, name) => {
+                let parasite;
                 let axes = if owner == self.base().id() {
                     Some(self)
                 } else {
-                    ctx.layout().store().get_as::<Self>(owner)
+                    parasite = ctx.layout().store().shared_as::<Self>(owner);
+                    parasite.as_deref()
                 };
                 if let Some(axes) = axes {
                     ctx.draw_artist(false, |ctx| {

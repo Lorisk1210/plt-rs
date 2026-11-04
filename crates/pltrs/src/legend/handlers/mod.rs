@@ -37,7 +37,7 @@ pub(crate) use map::{
 use super::LegendError;
 use super::handle::{LegendHandle, Source};
 use super::settings::{Settings, handle_points};
-use crate::artist::{Artist, ArtistBase, ArtistStore};
+use crate::artist::{Artist, ArtistBase, ArtistStore, KeptArtist};
 use crate::collections::{CollectionArtist, EdgeColors};
 use crate::colors::Color;
 use crate::lines::{LineArtist, LineProps};
@@ -84,7 +84,7 @@ pltrs_core::archive_enum!(Attach {
 /// artists of `create_artists`, drawn with the handle box's transform).
 #[derive(Debug)]
 pub struct HandlerArtist {
-    pub(crate) artist: Box<dyn Artist>,
+    pub(crate) artist: KeptArtist,
     pub(crate) attach: Attach,
     /// Whether the artist maps data values to colours (matplotlib's
     /// `get_array() is not None`), which label colours follow.
@@ -111,7 +111,7 @@ impl HandlerArtist {
     /// `artist`, placed by the box's transform.
     pub(crate) fn placed(artist: impl Artist) -> Self {
         Self {
-            artist: Box::new(artist),
+            artist: KeptArtist::new(artist),
             attach: Attach::Transform,
             mapped: false,
         }

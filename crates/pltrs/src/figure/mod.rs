@@ -17,6 +17,7 @@ mod mosaic;
 mod mosaic_axes;
 mod no_output;
 mod pages;
+mod painting;
 mod pdf_pages;
 mod pgf;
 mod pgf_latex;
@@ -443,7 +444,7 @@ impl Figure {
             return Ok(());
         }
         self.root_handle().prepare_painters(&*renderer, true);
-        let errors = self.state.borrow().draw(renderer);
+        let errors = self.state.draw(renderer);
         // The changes the program's code asked for meanwhile, made before
         // the figure counts as drawn (see `drawn_changes`).
         drawn_changes::run_draw_end_handler();

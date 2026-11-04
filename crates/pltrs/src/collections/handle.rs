@@ -148,8 +148,50 @@ impl Collection {
     /// Sets one opacity per item (matplotlib's `set_alpha` with an array):
     /// the faces and edges take them, a single colour repeated for each.
     pub fn set_alphas(&self, alphas: Vec<f64>) -> &Self {
+        self.set_alpha_array(alphas, None)
+    }
+
+    /// [`set_alphas`](Self::set_alphas) from an array of `shape` (row by
+    /// row), which matplotlib's errors about it name.
+    ///
+    /// # Errors
+    ///
+    /// matplotlib's `ValueError` message when the alphas cannot be
+    /// broadcast onto the colours given to the faces, the edges or the gaps
+    /// of dashed edges; they are set all the same, as matplotlib sets them
+    /// before it finds out.
+    ///
+    /// ```
+    /// use pltrs::colors::Color;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![0.0, 1.0], vec![0.0, 1.0])?;
+    /// dots.set_facecolors(vec![Color::from("r"), Color::from("g")]);
+    /// let refused = dots.try_set_alpha_array(vec![0.1, 0.2, 0.3], None).unwrap_err();
+    /// assert_eq!(refused, "could not broadcast input array from shape (3,) into shape (2,)");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn try_set_alpha_array(
+        &self,
+        alphas: Vec<f64>,
+        shape: Option<Vec<usize>>,
+    ) -> Result<&Self, String> {
+        self.set_alpha_array(alphas, shape);
+        match self
+            .raw
+            .with::<CollectionArtist, _>(CollectionArtist::alpha_colors_problem)
+        {
+            Some(problem) => Err(problem),
+            None => Ok(self),
+        }
+    }
+
+    /// [`set_alphas`](Self::set_alphas) from an array of `shape` (`None`
+    /// for one dimension).
+    fn set_alpha_array(&self, alphas: Vec<f64>, shape: Option<Vec<usize>>) -> &Self {
         self.update(|c| {
             c.alphas = Some(alphas);
+            c.alpha_shape = shape.filter(|shape| shape.len() > 1);
             c.unmap_faces();
             c.unmap_edges();
         })

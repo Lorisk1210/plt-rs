@@ -46,7 +46,7 @@ impl AxisPainter<'_> {
             Ok(ticks) => ticks,
             Err(err) => return ctx.report_kind(self.axes_id, err.draw_kind(), err),
         };
-        let texts = self.texts(*ctx.layout(), rc);
+        let texts = self.texts(ctx.layout(), rc);
         for problem in &texts.problems {
             ctx.report(self.axes_id, problem);
         }
@@ -265,7 +265,7 @@ impl AxisPainter<'_> {
         symbol: MarkerSymbol,
         style: &TickStyle,
     ) {
-        let Some(resolved) = ctx.resolve(&self.side_transform(*ctx.layout(), high)) else {
+        let Some(resolved) = ctx.resolve(&self.side_transform(ctx.layout(), high)) else {
             return;
         };
         let marker = MarkerStyle::new(symbol, FillStyle::Full).expect("tick markers are valid");

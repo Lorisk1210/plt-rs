@@ -47,9 +47,18 @@ impl Lending {
         match self {
             Self::Home => true,
             Self::Away => false,
-            Self::Lent(owner) => owner == thread::current().id(),
+            Self::Lent(owner) => owner == current_thread(),
         }
     }
+}
+
+/// The id of the current thread, read from the thread's own storage (a
+/// draw asks it at every borrow of the figure it paints).
+pub(super) fn current_thread() -> ThreadId {
+    thread_local! {
+        static ID: ThreadId = thread::current().id();
+    }
+    ID.with(|id| *id)
 }
 
 thread_local! {
@@ -140,7 +149,7 @@ impl FigureState {
     pub(crate) fn lend<R>(&mut self, program: impl FnOnce(&Rc<FigureCell>) -> R) -> Option<R> {
         let cell = worked_on_cell(self)?;
         cell.swap_state(self);
-        cell.set_lending(Lending::Lent(thread::current().id()));
+        cell.set_lending(Lending::Lent(current_thread()));
         let lent = Lent {
             cell: Rc::clone(&cell),
             state: self,

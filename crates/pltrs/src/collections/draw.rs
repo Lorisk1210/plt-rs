@@ -142,7 +142,7 @@ impl<'a> Batch<'a> {
             master,
             transforms,
             offsets,
-        } = Geometry::new(c, *ctx.layout(), (shapes, transform), c.drawn_offsets())?;
+        } = Geometry::new(c, ctx.layout(), (shapes, transform), c.drawn_offsets())?;
         let (faces, edges) = resolve_colors(c)?;
         let gaps = resolve_gap_colors(c)?;
         let rc = c.rc();
@@ -216,7 +216,7 @@ pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
 ) -> Result<(), String> {
-    let (shapes, transform) = c.drawn_shapes(*ctx.layout())?;
+    let (shapes, transform) = c.drawn_shapes(ctx.layout())?;
     let name = c.class_name.unwrap_or(match c.kind {
         CollectionKind::Generic => "Collection",
         CollectionKind::Patch => "PatchCollection",

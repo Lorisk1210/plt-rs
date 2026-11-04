@@ -87,7 +87,7 @@ impl FromPy<'_> for PyTickLabel {
 
 /// The hooks the program's classes override, by axis or side; the others
 /// are those of rectilinear axes and never call Python.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Overrides {
     /// Axes whose gridlines, ticks and spines have a transform of their
     /// own (`get_xaxis_transform`).
@@ -150,7 +150,7 @@ impl FromPy<'_> for Overrides {
 
 /// The projection of an axes of a program's projection class: its hooks
 /// call the methods of the class' adapter, as which it is archived.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(super) struct PyProjection {
     /// The adapter.
     adapter: Owned,

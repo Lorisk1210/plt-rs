@@ -24,6 +24,10 @@ __all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
 #: axes' circles), as matplotlib interpolates them.
 GRIDLINE_INTERPOLATION_STEPS = 180
 
+#: The most tick objects an axis makes of a level: asked for more, it
+#: refuses, where matplotlib makes ticks until memory runs out.
+_MAX_TICK_OBJECTS = 100_000
+
 # The Line2D properties gridlines take as ``grid_<name>`` tick parameters.
 _gridline_param_names = [
     'grid_' + name for name in (
@@ -772,6 +776,9 @@ class Axis(Artist):
 
     def _tick_objects(self, minor, count):
         """The first *count* (at least one) ticks of a level, synced."""
+        if count > _MAX_TICK_OBJECTS:
+            raise ValueError(f"{count} ticks are more than an axis can make "
+                             f"(at most {_MAX_TICK_OBJECTS})")
         ticks = self._ticks[minor]
         tick_class = self._tick_class or Tick
         while len(ticks) < max(count, 1):

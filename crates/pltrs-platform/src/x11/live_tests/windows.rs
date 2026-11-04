@@ -31,7 +31,7 @@ fn window_properties_follow_the_options() {
     assert_eq!(driver.property(id, predefined::WM_NAME), b"Figure 1 ? ?");
     assert_eq!(
         driver.property(id, predefined::WM_CLASS),
-        b"pltrs-live\0plt-live\0"
+        b"pltrs-live\0pltrs-live\0"
     );
     let protocols = driver.atom("WM_PROTOCOLS");
     let expected = [driver.atom("WM_DELETE_WINDOW"), driver.atom("_NET_WM_PING")];

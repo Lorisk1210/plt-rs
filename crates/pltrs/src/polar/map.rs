@@ -110,6 +110,11 @@ impl PolarMap {
 /// loops without end on astronomical spans.
 const MAX_TURNS: f64 = 1000.0;
 
+/// Angles (in degrees) past which a turn added to them is lost to
+/// rounding: an arc starting or ending there starts at its start's place
+/// on the circle instead.
+const MAX_DEGREES: f64 = 1e15;
+
 /// Vertices and codes of a path under construction.
 #[derive(Default)]
 struct CurvedPath {
@@ -126,8 +131,15 @@ impl CurvedPath {
     /// The arc of radius `r` from `from` to `to` degrees, whole turns
     /// first, without its first vertex. Like matplotlib, which retraces
     /// the circle once per whole turn (without end for astronomical
-    /// spans), but at most [`MAX_TURNS`] times.
-    fn push_arc(&mut self, mut from: f64, to: f64, r: f64) {
+    /// spans), but at most [`MAX_TURNS`] times, and from the start's place
+    /// on the circle past [`MAX_DEGREES`].
+    fn push_arc(&mut self, mut from: f64, mut to: f64, r: f64) {
+        if from.abs().max(to.abs()) > MAX_DEGREES {
+            let most = 360.0 * (MAX_TURNS + 1.0);
+            let span = (to - from).clamp(-most, most);
+            from = from.rem_euclid(360.0);
+            to = from + span;
+        }
         let span = (to - from).abs();
         if span > 360.0 * (MAX_TURNS + 1.0) {
             let kept = 360.0 * MAX_TURNS + span.rem_euclid(360.0);
@@ -215,6 +227,10 @@ mod tests {
             (0.0, 1e300),
             (-1e300, 1e300),
             (0.0, f64::INFINITY),
+            // A view limit of 2⁶³ radians: adding 360° to the start
+            // angle changed nothing, and the turns were retraced forever.
+            ((-1.0_f64).to_degrees(), 2.0_f64.powi(63).to_degrees()),
+            (5.3e20, 5.3e20 + 1e6),
         ] {
             assert!(arc(from, to) < 100_000, "{from} to {to}");
         }

@@ -17,6 +17,7 @@
 
 mod backend;
 mod clipboard;
+mod connections;
 mod input;
 mod windows;
 

@@ -14,7 +14,10 @@
 //! * [`registered_error`] — exceptions of the classes the package registers
 //!   for native code ([`registry::lookup`] finds any registered object);
 //! * [`threads`] — why every thread holding the GIL may use every pltrs
-//!   object, and the pltrs (Rust) state all of them share.
+//!   object, and the pltrs (Rust) state all of them share;
+//! * [`reentrant`] — changes Python code makes to a figure pltrs (Rust) is
+//!   laying out or drawing, applied once it is done;
+//! * [`deferred`] — work Python leaves to the next native call.
 //!
 //! This is the only module besides [`crate::ffi`] with `unsafe` code;
 //! every block says why it is sound. The matplotlib modules
@@ -38,6 +41,7 @@ mod init;
 mod module;
 mod native;
 mod object;
+mod reentrant;
 mod registry;
 #[cfg(test)]
 pub(crate) mod testing;

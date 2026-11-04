@@ -18,7 +18,14 @@
 //! it with `Python::with_gil`, which is free inside a native call.
 //!
 //! Every native function is the same C function, [`dispatch`], bound to a
-//! capsule holding the Rust closure ([`Body`]).
+//! capsule holding the Rust closure ([`NativeFunction`]).
+//!
+//! A native call Python code makes while another native call of its
+//! thread runs (a callback pltrs (Rust) calls while it lays a figure out or
+//! draws it) may reach that figure, which is in use. It then stops
+//! there ([`pltrs::figure::reenter`]): a function returning nothing (a
+//! change) is applied once the figure is free ([`reentrant`]), any other
+//! raises `RuntimeError`.
 
 use std::ffi::{CStr, CString, c_void};
 
@@ -26,11 +33,20 @@ use super::convert::{FromPy, IntoPy};
 use super::error::{PyErr, PyResult};
 use super::gil::{Python, entry, gil_held};
 use super::object::Bound;
-use super::{deferred, home, threads};
+use super::{deferred, home, reentrant, threads};
 use crate::ffi;
 
-/// The Rust side of a native function: arguments in, a result out.
-pub(crate) type Body = Box<dyn for<'py> Fn(Python<'py>, &[Bound<'py>]) -> PyResult<Bound<'py>>>;
+/// The body of a native function: arguments in, a result out.
+type Body = Box<dyn for<'py> Fn(Python<'py>, &[Bound<'py>]) -> PyResult<Bound<'py>>>;
+
+/// The Rust side of a native function.
+pub(crate) struct NativeFunction {
+    /// Its body.
+    body: Body,
+    /// Whether it returns nothing (`None`): a change, which a call
+    /// reaching a figure in use makes once the figure is free.
+    returns_nothing: bool,
+}
 
 /// The capsule name marking a native function's body.
 const BODY_CAPSULE: &CStr = c"pltrs._native.function";
@@ -39,9 +55,9 @@ const BODY_CAPSULE: &CStr = c"pltrs._native.function";
 /// tuple of its argument types, which tells the impls for each arity
 /// apart.
 pub(crate) trait IntoNative<Args> {
-    /// The function's body, checking arity and converting arguments;
+    /// The native function, checking arity and converting arguments;
     /// `name` is for messages.
-    fn into_body(self, name: &'static str) -> Body;
+    fn into_native(self, name: &'static str) -> NativeFunction;
 }
 
 /// Raises `TypeError` unless `given` arguments match the arity.
@@ -66,13 +82,16 @@ macro_rules! into_native {
             $($ty: for<'py> FromPy<'py>,)*
         {
             #[allow(unused_variables, unused_mut, reason = "the arity-0 expansion uses neither")]
-            fn into_body(self, name: &'static str) -> Body {
-                Box::new(move |py, args| {
-                    check_arity(name, $count, args.len())?;
-                    let mut args = args.iter();
-                    $(let $arg = $ty::from_py(args.next().expect("the arity was checked"))?;)*
-                    self($($arg),*)?.into_py(py)
-                })
+            fn into_native(self, name: &'static str) -> NativeFunction {
+                NativeFunction {
+                    body: Box::new(move |py, args| {
+                        check_arity(name, $count, args.len())?;
+                        let mut args = args.iter();
+                        $(let $arg = $ty::from_py(args.next().expect("the arity was checked"))?;)*
+                        self($($arg),*)?.into_py(py)
+                    }),
+                    returns_nothing: Output::IS_NONE,
+                }
             }
         }
     )*};
@@ -90,13 +109,13 @@ into_native! {
     8: (a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H);
 }
 
-/// A builtin function object running `body`, named `name`, of the module
+/// A builtin function object running `native`, named `name`, of the module
 /// named `module`.
 pub(crate) fn function<'py>(
     py: Python<'py>,
     module: &Bound<'py>,
     name: &'static str,
-    body: Body,
+    native: NativeFunction,
 ) -> PyResult<Bound<'py>> {
     // A function's `PyMethodDef` must outlive it, and module functions
     // live as long as the interpreter: the definition and its name are
@@ -108,24 +127,25 @@ pub(crate) fn function<'py>(
         ml_flags: ffi::METH_FASTCALL,
         ml_doc: std::ptr::null(),
     }));
-    let body = Box::into_raw(Box::new(body));
-    // SAFETY: the GIL is held; the capsule takes the boxed body and frees
-    // it in `drop_body`.
+    let native = Box::into_raw(Box::new(native));
+    // SAFETY: the GIL is held; the capsule takes the boxed function and
+    // frees it in `drop_native`.
     let capsule = unsafe {
         Bound::from_owned_ptr(
             py,
             ffi::PyCapsule_New(
-                body.cast::<c_void>(),
+                native.cast::<c_void>(),
                 BODY_CAPSULE.as_ptr(),
-                Some(drop_body),
+                Some(drop_native),
             ),
         )
     };
     let capsule = match capsule {
         Ok(capsule) => capsule,
         Err(err) => {
-            // SAFETY: the capsule was not made, so the body is still ours.
-            drop(unsafe { Box::from_raw(body) });
+            // SAFETY: the capsule was not made, so the function is still
+            // ours.
+            drop(unsafe { Box::from_raw(native) });
             return Err(err);
         }
     };
@@ -140,14 +160,15 @@ pub(crate) fn function<'py>(
     }
 }
 
-/// Frees a native function's body when its capsule goes.
-unsafe extern "C" fn drop_body(capsule: *mut ffi::PyObject) {
-    // SAFETY: the capsule was made by `function` around a boxed body,
+/// Frees a native function's Rust side when its capsule goes.
+unsafe extern "C" fn drop_native(capsule: *mut ffi::PyObject) {
+    // SAFETY: the capsule was made by `function` around a boxed function,
     // which is dropped exactly once, here.
     unsafe {
-        let body = ffi::PyCapsule_GetPointer(capsule, BODY_CAPSULE.as_ptr()).cast::<Body>();
-        if !body.is_null() {
-            drop(Box::from_raw(body));
+        let native =
+            ffi::PyCapsule_GetPointer(capsule, BODY_CAPSULE.as_ptr()).cast::<NativeFunction>();
+        if !native.is_null() {
+            drop(Box::from_raw(native));
         }
     }
 }
@@ -189,7 +210,9 @@ unsafe extern "C" fn dispatch(
     }
 }
 
-/// Runs the body in `capsule` with `args` on this thread.
+/// Runs the function in `capsule` with `args` on this thread: as it is
+/// when it is the thread's outermost native call, else as a call that may
+/// reach a figure in use ([`call_nested`]).
 ///
 /// # Safety
 ///
@@ -199,18 +222,62 @@ unsafe fn call_here(
     capsule: *mut ffi::PyObject,
     args: &[*mut ffi::PyObject],
 ) -> *mut ffi::PyObject {
+    let nested = gil_held();
     // SAFETY: (caller) the GIL is held and the objects are live.
     unsafe {
         entry(|py| {
-            let body = ffi::PyCapsule_GetPointer(capsule, BODY_CAPSULE.as_ptr()).cast::<Body>();
-            let body = body.as_ref().ok_or_else(|| PyErr::fetch(py))?;
+            let capsule = Bound::from_borrowed_ptr(py, capsule);
             let args: Vec<Bound<'_>> = args
                 .iter()
                 .map(|&arg| Bound::from_borrowed_ptr(py, arg))
                 .collect();
-            body(py, &args)
+            if nested {
+                call_nested(&capsule, &args)
+            } else {
+                (native_of(&capsule)?.body)(py, &args)
+            }
         })
     }
+}
+
+/// The Rust side of the native function whose capsule is `capsule`.
+fn native_of<'a>(capsule: &'a Bound<'_>) -> PyResult<&'a NativeFunction> {
+    // SAFETY: the GIL is held (`capsule` is bound); the pointer is the
+    // boxed function `function` gave the capsule, which lives as long as
+    // the capsule, or NULL with an exception set for another object.
+    unsafe {
+        ffi::PyCapsule_GetPointer(capsule.as_ptr(), BODY_CAPSULE.as_ptr())
+            .cast::<NativeFunction>()
+            .as_ref()
+            .ok_or_else(|| PyErr::fetch(capsule.py()))
+    }
+}
+
+/// Calls the function in `capsule` with `args` from inside another native
+/// call of the thread, whose figures may be in use: a call reaching one
+/// stops there; a change (a function returning nothing) is then made once
+/// the figure is free, as the outermost native call ends ([`reentrant`]),
+/// and any other call raises `RuntimeError`.
+pub(super) fn call_nested<'py>(capsule: &Bound<'py>, args: &[Bound<'py>]) -> PyResult<Bound<'py>> {
+    let py = capsule.py();
+    match try_nested(capsule, args)? {
+        Ok(result) => result,
+        Err(_) if native_of(capsule)?.returns_nothing => {
+            reentrant::push(capsule, args);
+            Ok(Bound::none(py))
+        }
+        Err(in_use) => Err(reentrant::in_use_error(in_use)),
+    }
+}
+
+/// Calls the function in `capsule` with `args`, which stops where it
+/// reaches a figure in use (`Err` inside).
+pub(super) fn try_nested<'py>(
+    capsule: &Bound<'py>,
+    args: &[Bound<'py>],
+) -> PyResult<Result<PyResult<Bound<'py>>, pltrs::figure::FigureInUse>> {
+    let native = native_of(capsule)?;
+    Ok(pltrs::figure::reenter(|| (native.body)(capsule.py(), args)))
 }
 
 #[cfg(test)]
@@ -225,7 +292,7 @@ mod tests {
         rust: impl IntoNative<Args>,
     ) -> Bound<'py> {
         let module = eval(py, "import types", "types.ModuleType('scratch')");
-        function(py, &module, name, rust.into_body(name)).unwrap()
+        function(py, &module, name, rust.into_native(name)).unwrap()
     }
 
     /// Calls `function` with float arguments.

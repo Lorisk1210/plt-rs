@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use pltrs_core::archive::{self, Archive, ArchiveError, Decoder, Encoder, External, ProgramKinds};
 
-use super::{Artist, ArtistId, FilteredGroupArtist, RawHandle};
+use super::{Artist, ArtistId, ArtistLookup, FilteredGroupArtist, RawHandle};
 use crate::axes::AxesState;
 use crate::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use crate::axisartist::{AxisArtistState, AxisTextsState, TickMarksState};
@@ -222,6 +222,25 @@ impl RawHandle {
     #[must_use]
     pub fn sibling(&self, id: ArtistId) -> Self {
         Self::new(Rc::clone(self.figure_state()), id)
+    }
+
+    /// Whether the figure holds the artist (in it or removed from it):
+    /// not yet for the handle of a figure being restored, made before the
+    /// figure is read back ([`RawHandle::sibling`]), whose methods must
+    /// wait for [`RawHandle::restore_figure`]. A figure that code further
+    /// up the call stack is changing holds its artists.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistId;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.raw().exists());
+    /// assert!(!ax.raw().sibling(ArtistId::from_index(9999)).exists());
+    /// ```
+    pub fn exists(&self) -> bool {
+        self.figure_state()
+            .try_borrow()
+            .map_or(true, |state| state.artist(self.id()).is_some())
     }
 }
 

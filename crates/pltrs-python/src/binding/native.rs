@@ -297,8 +297,10 @@ pub(super) unsafe fn artist_of<'a>(object: *mut ffi::PyObject) -> Option<&'a Raw
     unsafe { ((*object).ob_type == native).then(|| cell(object).artist.as_ref()) }.flatten()
 }
 
-/// The cell of `object`, if it is a native object this thread may use;
-/// `wanted` names what was expected, for messages.
+/// The cell of `object`, if it is a native object this thread may use,
+/// and, for an artist's handle, one whose figure holds the artist (not a
+/// figure being unpickled, whose handles are made before it is read
+/// back); `wanted` names what was expected, for messages.
 fn checked_cell<'a>(object: &'a Bound<'_>, wanted: &str) -> PyResult<&'a NativeCell> {
     if !object.is_type(native_type()) {
         return Err(PyErr::type_error(format!(
@@ -308,7 +310,11 @@ fn checked_cell<'a>(object: &'a Bound<'_>, wanted: &str) -> PyResult<&'a NativeC
     }
     // SAFETY: an instance of the native type, kept alive by `object`.
     let cell = unsafe { cell(object.as_ptr()) };
-    if cell
+    if cell.artist.as_ref().is_some_and(|artist| !artist.exists()) {
+        Err(PyErr::runtime_error(
+            "this artist's figure is being unpickled: the artist is not read back yet",
+        ))
+    } else if cell
         .owner
         .is_none_or(|owner| owner == std::thread::current().id())
     {

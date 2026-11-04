@@ -65,15 +65,21 @@ class _XYPair(namedtuple("_XYPair", "x y")):
     ``_XYPair``, a named tuple), which give the artist their changes."""
 
     def __new__(cls, native):
-        x, y = _artist.get_sticky_edges(native)
+        return cls._holding(native, *_artist.get_sticky_edges(native))
+
+    @classmethod
+    def _holding(cls, native, x, y):
+        """The pair of the artist *native*, whose edges are *x* and *y*."""
         pair = super().__new__(cls, _StickyEdgeList(None, x), _StickyEdgeList(None, y))
         pair._native = native
         for edges in pair:
             edges._owner = pair
         return pair
 
-    def __getnewargs__(self):
-        return (self._native,)
+    def __reduce__(self):
+        # The edges are pickled: the artist's figure is read back after
+        # the pair is, so the pair cannot ask the artist for them.
+        return (_XYPair._holding, (self._native, list(self.x), list(self.y)))
 
     def _push_sticky_edges(self):
         _artist.set_sticky_edges(self._native, [float(v) for v in self.x],

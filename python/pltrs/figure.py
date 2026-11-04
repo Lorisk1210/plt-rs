@@ -1470,6 +1470,8 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
             self.dpi = self._original_dpi
         FigureCanvasBase(self)  # Set self.canvas.
         _pickling.restore_program_hooks(self, program_hooks)
+        if self.get_layout_engine() is not None:
+            self.get_layout_engine()._attach(self)
 
         if restore_to_pylab:
             # lazy import to avoid circularity

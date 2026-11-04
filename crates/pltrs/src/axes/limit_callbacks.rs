@@ -13,7 +13,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use super::{Axes, AxisName};
-use crate::artist::{ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::figure::FigureCell;
 
 /// Identifies a limit callback, for [`Axes::disconnect_limits_changed`].
@@ -68,6 +68,11 @@ impl LimitCallbacks {
             .collect()
     }
 
+    /// Whether limit changes wait for their callbacks to run.
+    pub(crate) fn has_pending(&self) -> bool {
+        !self.pending.is_empty()
+    }
+
     /// The oldest queued change, with the callbacks waiting for it.
     fn next_change(&mut self) -> Option<(ArtistId, Vec<Callback>)> {
         let (axes, name) = self.pending.pop_front()?;
@@ -81,12 +86,17 @@ impl LimitCallbacks {
     }
 }
 
+/// The most limit changes one run of the callbacks handles: callbacks
+/// whose work keeps changing the limits again (matplotlib's recurse until
+/// Python's recursion limit) stop there, and the next draw reports it.
+const MAX_CHANGES: usize = 1000;
+
 /// Runs the callbacks of the limit changes queued in `figure`, oldest
-/// first. A callback that is already running (a change it made itself, or
-/// one a callback it triggered made) is skipped, so callbacks that keep
-/// two axes in step end.
+/// first, up to [`MAX_CHANGES`] of them. A callback that is already
+/// running (a change it made itself, or one a callback it triggered made)
+/// is skipped, so callbacks that keep two axes in step end.
 pub(crate) fn run_limit_callbacks(figure: &Rc<FigureCell>) {
-    loop {
+    for _ in 0..MAX_CHANGES {
         let Some((axes, callbacks)) = figure.borrow_mut().limit_callbacks.next_change() else {
             return;
         };
@@ -96,6 +106,17 @@ pub(crate) fn run_limit_callbacks(figure: &Rc<FigureCell>) {
                 callback(&handle);
             }
         }
+    }
+    let mut state = figure.borrow_mut();
+    if let Some((axes, _)) = state.limit_callbacks.pending.pop_front() {
+        state.limit_callbacks.pending.clear();
+        state.pending_errors.push(DrawError::new(
+            axes,
+            format!(
+                "the limit callbacks kept changing the limits: stopped after \
+                 {MAX_CHANGES} changes"
+            ),
+        ));
     }
 }
 
@@ -226,6 +247,27 @@ mod tests {
         assert_eq!(b.xlim(), (1.0, 2.0));
         b.set_xlim(3.0, 4.0).expect("finite limits");
         assert_eq!(a.xlim(), (3.0, 4.0));
+    }
+
+    #[test]
+    fn callbacks_changing_the_limits_without_end_stop() {
+        // Found by fuzzing: each change a callback made queued another,
+        // and the callbacks ran forever.
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let calls = Rc::new(Cell::new(0_u32));
+        let (seen, again) = (Rc::clone(&calls), ax.clone());
+        ax.on_limits_changed(AxisName::X, move |_| {
+            seen.set(seen.get() + 1);
+            // A change left for later, as a layout run from the callback
+            // leaves the limits it changes (a pick event's hit test).
+            let mut state = again.raw().figure_state().borrow_mut();
+            state.limit_callbacks.notify(again.id(), AxisName::X);
+        });
+        ax.set_xlim(0.0, 1.0).expect("finite limits");
+        assert_eq!(calls.get(), u32::try_from(MAX_CHANGES).expect("small"));
+        assert!(fig.to_png().is_err(), "the next draw reports it");
+        assert!(fig.to_png().is_ok(), "once");
     }
 
     #[test]

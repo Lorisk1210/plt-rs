@@ -160,7 +160,12 @@ must reproduce them.
   `PLTRS_FUZZ_SCALE=50` runs longer, and `PLTRS_FUZZ_REPLAY=<seed>` reruns a
   failure.
   Absurd input must return an error, never panic, hang or exhaust
-  memory.
+  memory. pltrs (Python) has its own fuzzer, `python/tests/fuzz` (random
+  programs of the public API and the differential tester's, mutated; part
+  of `cargo xtask python test`):
+  `PYTHONPATH=python:python/tests .venv-pltrs/bin/python -m fuzz --scale 50`,
+  with the same variables (and `PLTRS_FUZZ_FIRST=<seed>` for new seeds);
+  each bug is reduced to a program in `target/python-fuzz/failures/`.
 * Windowing against real display servers: `pltrs-platform`'s live tests run
   when `$DISPLAY` / `$WAYLAND_DISPLAY` is set and pass trivially
   otherwise. X11: `Xvfb :117 -screen 0 1280x800x24 -nolisten tcp &` then

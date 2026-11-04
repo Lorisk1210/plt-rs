@@ -144,6 +144,14 @@ pub trait Artist: Any + Debug {
     /// Renders the artist (only called when it is visible).
     fn draw(&self, ctx: &mut DrawContext<'_>);
 
+    /// Whether drawing the visible artist makes it fresh (matplotlib's
+    /// `draw` ending with `self.stale = False`): not for an annotation
+    /// whose point is clipped, whose `draw` returns first, nor for an
+    /// inset indicator, whose `draw` never does.
+    fn freshened_by_draw(&self, _ctx: &LayoutContext<'_>) -> bool {
+        true
+    }
+
     /// Artists owned by this one; they are removed together with it.
     fn children(&self) -> Vec<ArtistId> {
         Vec::new()

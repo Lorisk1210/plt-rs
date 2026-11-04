@@ -125,6 +125,9 @@ pub struct PsDocument {
     /// [`PsOptions::usetex`] the backend runs no TeX (what matplotlib's
     /// `draw_tex` warns about, once per document).
     pub tex_drawn_as_plain: bool,
+    /// Whether a partially transparent colour was drawn, opaque (what
+    /// matplotlib's `_is_transparent` logs, once per document).
+    pub partially_transparent: bool,
 }
 
 /// What a [`PsRenderer`] made of a figure.
@@ -169,6 +172,8 @@ pub struct PsRenderer {
     psfrags: Vec<String>,
     /// Whether usetex text was drawn as plain text.
     tex_drawn_as_plain: bool,
+    /// Whether a partially transparent colour was drawn.
+    partially_transparent: bool,
     problems: Problems,
 }
 
@@ -196,6 +201,7 @@ impl PsRenderer {
             options,
             psfrags: Vec::new(),
             tex_drawn_as_plain: false,
+            partially_transparent: false,
             problems: Problems::default(),
         })
     }
@@ -324,6 +330,7 @@ impl PsRenderer {
             text: out,
             bbox,
             tex_drawn_as_plain: self.tex_drawn_as_plain,
+            partially_transparent: self.partially_transparent,
         })
     }
 }

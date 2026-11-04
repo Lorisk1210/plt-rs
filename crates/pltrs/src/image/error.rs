@@ -4,6 +4,7 @@ use std::fmt;
 
 use pltrs_raster::resample::ResampleError;
 
+use crate::artist::DrawErrorKind;
 use crate::axes::AspectError;
 use crate::colors::multivar::MultivarError;
 use crate::colors::{ColorizerError, ColormapError, NORM_WITH_LIMITS, NormError};
@@ -175,6 +176,18 @@ impl fmt::Display for ImageError {
                 write!(f, "{what} does not support data of several variates")
             }
             Self::Multivar(err) => err.fmt(f),
+        }
+    }
+}
+
+impl ImageError {
+    /// The kind of exception matplotlib's draw raises for the error: a
+    /// `ValueError` for a norm that cannot map the image's values
+    /// (`Invalid vmin or vmax`), an error of pltrs's own otherwise.
+    pub(crate) fn draw_kind(&self) -> DrawErrorKind {
+        match self {
+            Self::Norm(_) => DrawErrorKind::InvalidValue,
+            _ => DrawErrorKind::Other,
         }
     }
 }

@@ -3,6 +3,8 @@ Bars: `~.Axes.bar`, `~.Axes.barh`, `~.Axes.broken_barh` and
 `~.Axes.grouped_bar`.
 """
 
+import itertools
+
 import numpy as np
 
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
@@ -265,7 +267,11 @@ class BarsMixin:
             (errors.get("x"), errors.get("y"), error_style,
              mlines._native_kwargs(cbook.normalize_kwargs(error_kw, mlines.Line2D))))
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
+        # matplotlib cycles the hatches as numpy strings.
+        hatch_cycle = itertools.cycle(np.atleast_1d(hatch))
         for patch in patches:
+            if hatch is not None:
+                _values.remember(patch, "hatch", next(hatch_cycle))
             patch._internal_update(kwargs)
         if patches:
             # matplotlib's ``r.get_path()._interpolation_steps = 100``,

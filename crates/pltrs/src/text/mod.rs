@@ -546,6 +546,14 @@ impl Artist for TextArtist {
         }
     }
 
+    /// An annotation whose point is not shown is not drawn
+    /// (`Annotation.draw` returns before it is made fresh).
+    fn freshened_by_draw(&self, ctx: &LayoutContext<'_>) -> bool {
+        self.annotation
+            .as_ref()
+            .is_none_or(|annotation| annotation.is_shown(self, *ctx))
+    }
+
     /// An annotation whose point is not shown takes no space
     /// (`Annotation.get_tightbbox` gives a null box where
     /// `get_window_extent` gives the unit one).

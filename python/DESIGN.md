@@ -828,7 +828,11 @@ a narrower type to be drawn, say). The extension sends them to
 `_api.warn_external`, which `_api` registers, so they are matplotlib's
 `UserWarning`s; one that the warning filters turn into an exception
 raises from the native call that issued it, as a callback's exception
-does.
+does. Where matplotlib's numpy arithmetic warns (`divide by zero
+encountered in log10`, isclose's invalid tolerance), pltrs (Rust) does
+the arithmetic itself and issues the same warning in the same case with
+`warnings::warn_runtime`, which the extension issues as numpy does, a
+`RuntimeWarning`.
 
 ### Errors
 
@@ -861,6 +865,15 @@ through its handle, or adding or removing one of its children, makes it
 stale again together with the artists containing it and the figure,
 unless it is animated (`figure/stale.rs`). `Artist.stale` reads and sets
 it, so matplotlib's propagation through `stale_callback` needs no Python.
+A `draw` matplotlib leaves stale (an annotation whose point is clipped,
+an inset indicator) is one whose artist answers `false` to
+`Artist::freshened_by_draw`: the draw is counted, the artist stays stale.
+
+What matplotlib draws as a part of another artist and pltrs (Rust) draws
+with it (an `Axis` with its Axes, a table's cells with their table, the
+boxes inside an offset box with the box added) reads as fresh once the
+artist drawing it drew since it went stale (`_drawn_with.DrawnWith`,
+through `_native.artist.draw_count` of its `_drawer()`).
 
 ### Warnings issued while pltrs (Rust) works
 

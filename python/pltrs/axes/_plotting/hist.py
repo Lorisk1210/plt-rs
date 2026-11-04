@@ -173,6 +173,16 @@ class HistMixin:
         else:
             patches = [[polygon] for polygon in
                        wrap_all(self, steps, mpatches.Polygon)]
+            for (polygon,) in patches:
+                # matplotlib fills the steps with `fill`, whose polygons
+                # take its label None and the cycle's colour as it holds it.
+                polygon._label_none = True
+                if color is None:
+                    # An unfilled step's face is its edge's colour, clear.
+                    side = "facecolor" if histtype == "stepfilled" else "edgecolor"
+                    cycled = _values.cycle_color(self, polygon._get(side))
+                    if cycled is not _values.NONE_GIVEN:
+                        _values.remember(polygon, "facecolor", cycled)
         labels = [] if label is None else np.atleast_1d(np.asarray(label, str))
         if histtype == "step" and len(colors):
             # The steps of cycled colours have their edge colours already.

@@ -4,12 +4,13 @@
 //! limits.
 
 use std::any::Any;
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use pltrs_core::Point;
 
 use super::{Axes, AxesState, DataLimits};
-use crate::artist::{Artist, ArtistHandle, ArtistLookup, LimitPoints, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, LimitPoints, RawHandle};
 use crate::axisartist::AxisArtistState;
 use crate::collections::{Collection, CollectionArtist, TriMeshArtist};
 use crate::colorbar::ColorbarArtist;
@@ -81,16 +82,24 @@ impl Axes {
 
     /// Handles to the children for which `keep` holds, in the order they
     /// were added; spines are no children in this sense, whatever their
-    /// kind (a colorbar's outline is a patch).
+    /// kind (a colorbar's outline is a patch), nor are the collections
+    /// drawing the bands of a hatched filled contour set but its first,
+    /// which stands for the set (matplotlib's set is one collection,
+    /// drawing its bands one by one).
     fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
         let (children, spines) = self
             .raw()
             .with::<AxesState, _>(|axes| (axes.children.clone(), axes.spines.clone()));
+        let bands: BTreeSet<ArtistId> = children
+            .iter()
+            .filter_map(|&id| state.store.get_as::<ContourSetArtist>(id))
+            .flat_map(|contour| contour.collections.iter().skip(1).copied())
+            .collect();
         children
             .into_iter()
-            .filter(|id| !spines.contains(id))
+            .filter(|id| !spines.contains(id) && !bands.contains(id))
             .filter(|&id| state.artist(id).is_some_and(&keep))
             .map(|id| RawHandle::new(Rc::clone(figure), id))
             .collect()

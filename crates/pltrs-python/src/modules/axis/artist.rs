@@ -94,7 +94,7 @@ fn set_tick_gid(
 /// are.
 fn place_ticks(owner: AxisOwner, name: String) -> PyResult<()> {
     if let AnyAxis::Flat(axis) = owner.axis(&name)? {
-        axis.place_ticks();
+        axis.place_ticks()?;
     }
     Ok(())
 }

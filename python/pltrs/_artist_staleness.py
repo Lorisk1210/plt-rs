@@ -52,8 +52,9 @@ def _default_callback(artist):
     axes = artist.axes
     if isinstance(axes, Artist) and axes is not artist:
         return _stale_axes_callback
+    drawer = getattr(artist, "_drawer", None)
     if (artist.get_figure(root=True) is None or _mirrors.is_attached(artist)
-            or isinstance(artist, Legend) or getattr(artist, "_figure_only", False)):
+            or isinstance(artist, Legend) or (drawer is not None and drawer() is not None)):
         return None
     return _stale_figure_callback
 

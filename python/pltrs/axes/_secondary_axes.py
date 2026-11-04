@@ -63,6 +63,7 @@ class SecondaryAxis(Axes):
         _handles.adopt(self, _insets.secondary_axis(
             parent._native, orientation, native_location,
             self._native_functions()), parent.figure)
+        self._child_of = parent
         self._init_axes_state()
         self._axis = self.xaxis if orientation == 'x' else self.yaxis
         if self._pos < 0.5:

@@ -51,16 +51,33 @@ def _edge_spec(colors):
     return _rgba(colors)
 
 
-def _linestyle_specs(ls):
-    """*ls* (one line style or a sequence) as a list of native styles."""
+def _linestyle_list(ls):
+    """*ls* (one line style or a sequence) as the list of styles it gives,
+    as given."""
     try:
         mlines._get_dash_pattern(ls)
-        styles = [ls]
+        return [ls]
     except ValueError:
         styles = list(ls)
         for style in styles:
             mlines._get_dash_pattern(style)
-    return [_native_style(style) for style in styles]
+        return styles
+
+
+def _linestyle_specs(ls):
+    """*ls* (one line style or a sequence) as a list of native styles."""
+    return [_native_style(style) for style in _linestyle_list(ls)]
+
+
+def _same_linestyles(given, native):
+    """Whether the *native* styles are the styles *given*, cycled over
+    them (one style given for every level of a contour set, say)."""
+    def pattern(style):
+        offset, dashes = mlines._get_dash_pattern(style)
+        return offset, None if dashes is None else list(dashes)
+    return (len(given) > 0 and len(native) % len(given) == 0
+            and all(pattern(given[i % len(given)]) == pattern(style)
+                    for i, style in enumerate(native)))
 
 
 def _native_style(style):
@@ -575,17 +592,26 @@ class Collection(mcolorizer.ColorizingArtist):
         sequence of them.
         """
         try:
-            specs = _linestyle_specs(ls)
+            styles = _linestyle_list(ls)
         except ValueError as err:
             raise ValueError(f'Do not know how to convert {ls!r} to dashes') from err
-        _collections.set_linestyles(self._native, specs)
+        _collections.set_linestyles(self._native, [_native_style(s) for s in styles])
+        # matplotlib scales the dash patterns as given (ints stay ints).
+        _values.remember(self, "linestyle", styles)
+
+    def _given_linestyles(self):
+        """The line styles as given (matplotlib's ``_us_linestyles``),
+        while pltrs (Rust) holds them, else those it holds."""
+        return _values.given(self, "linestyle", self._get("linestyle"),
+                             same=_same_linestyles)
 
     def _lwls(self):
         """The line widths and scaled dash patterns, broadcast as
         matplotlib's ``_bcast_lwls`` does."""
         linewidths = _values.given(
-            self, "linewidth", np.asarray(self._get("linewidth"), dtype=float))
-        dashes = [mlines._get_dash_pattern(style) for style in self._get("linestyle")]
+            self, "linewidth", np.asarray(self._get("linewidth"), dtype=float),
+            same=_values.same_cycled)
+        dashes = [mlines._get_dash_pattern(style) for style in self._given_linestyles()]
         if _rcParams()['_internal.classic_mode']:
             return linewidths, dashes
         if len(dashes) != len(linewidths):
@@ -622,12 +648,16 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_fill(self):
         """Return whether face is colored."""
-        return _collections.get_fill(self._native)
+        # matplotlib answers from the face colour given last: colours as an
+        # array, transparent ones too, count as a face.
+        fill = self.__dict__.get("_face_fill")
+        return _collections.get_fill(self._native) if fill is None else fill
 
     def update_from(self, other):
         """Copy properties from other to self."""
         self._took_from(other, _collections.update_from(self._native, other._native))
         self._array_alpha = other.__dict__.get("_array_alpha")
+        self._face_fill = other.__dict__.get("_face_fill")
         # update_from for scalarmappable
         self._A = other._A
         self.norm = other.norm
@@ -647,6 +677,7 @@ class Collection(mcolorizer.ColorizingArtist):
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
         _collections.set_facecolors(self._native, None if c is None else _rgba(c))
+        self._face_fill = not cbook._str_lower_equal(c, "none")
 
     def get_edgecolor(self):
         """Return the edge colors, as drawn."""

@@ -3,7 +3,7 @@
 use pltrs_core::numeric::{np_sign, py_max};
 
 use super::Locator;
-use crate::ticker::pymath::{linspace, pow10};
+use crate::ticker::pymath::{linspace, pow10, warn_divide};
 use crate::ticker::{TickContext, TickerError};
 
 /// Ticks spaced evenly in `asinh` space and rounded to "nice" multiples of
@@ -139,6 +139,8 @@ impl Locator for AsinhLocator {
         let ymin = width * (vmin / width).asinh();
         let ymax = width * (vmax / width).asinh();
         let mut ys = linspace(ymin, ymax, self.numticks)?;
+        // matplotlib divides the ticks by the span first, whatever it is.
+        warn_divide(&ys, ymax - ymin);
         if ymin * ymax < 0.0 {
             // Make sure zero is a tick when the axis straddles it.
             let threshold = 0.5 / self.numticks as f64;

@@ -28,10 +28,13 @@ pub(crate) struct FreshArtists {
 }
 
 impl FigureState {
-    /// Records that artist `id` was drawn (matplotlib's `self.stale =
-    /// False` at the end of `draw`).
-    pub(crate) fn mark_drawn(&self, id: ArtistId) {
-        self.fresh.fresh.borrow_mut().insert(id);
+    /// Records that artist `id` was drawn: it counts one draw more and,
+    /// when `fresh`, is fresh (matplotlib's `self.stale = False` at the end
+    /// of `draw`, which some `draw` methods skip).
+    pub(crate) fn mark_drawn(&self, id: ArtistId, fresh: bool) {
+        if fresh {
+            self.fresh.fresh.borrow_mut().insert(id);
+        }
         *self.fresh.draws.borrow_mut().entry(id).or_default() += 1;
     }
 

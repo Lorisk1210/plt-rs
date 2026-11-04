@@ -135,6 +135,12 @@ impl Artist for IndicatorArtist {
         }
     }
 
+    /// `InsetIndicator.draw` draws the parts without making the indicator
+    /// fresh.
+    fn freshened_by_draw(&self, _ctx: &LayoutContext<'_>) -> bool {
+        false
+    }
+
     fn children(&self) -> Vec<ArtistId> {
         std::iter::once(self.rectangle)
             .chain(self.connectors.iter().copied())

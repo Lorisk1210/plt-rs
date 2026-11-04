@@ -112,7 +112,10 @@ def _paint(stand_in, dpi):
     native handles of the artists to draw in its place."""
     text_class = _watched["class"]
     renderer = stand_in_renderer(dpi)
-    text_class.draw(text_class._from_native(stand_in, None), renderer)
+    text = text_class._from_native(stand_in, None)
+    # Measured in its own place, where matplotlib's text is in its figure.
+    text._stand_in = True
+    text_class.draw(text, renderer)
     return renderer._drawn
 
 

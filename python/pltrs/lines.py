@@ -896,9 +896,12 @@ class AxLine(Line2D):
                 + ax.transLimits + ax.transAxes)
 
     def _remember_geometry(self, xy1, xy2, slope):
-        """Keep the line's geometry as given (matplotlib keeps it)."""
+        """Keep the line's geometry as given (matplotlib keeps it), and its
+        data, which matplotlib's `AxLine` is made with as
+        ``Line2D([0, 1], [0, 1])``."""
         _values.remember_all(self, {"xy1": xy1, "xy2": xy2, "slope": slope},
                              ("xy1", "xy2", "slope"))
+        self._xorig, self._yorig = [0, 1], [0, 1]
 
     def get_xy1(self):
         """Return the *xy1* value of the line."""

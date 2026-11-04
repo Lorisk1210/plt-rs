@@ -55,17 +55,18 @@ pub(crate) enum Placement {
 
 impl FigureState {
     /// Brings one axes up to date for layout: a due layout-engine pass,
-    /// pending autoscaling, then the aspect.
-    pub(crate) fn lay_out_axes(&mut self, axes: ArtistId) {
-        self.lay_out_axes_at(axes, Placement::Located);
+    /// pending autoscaling, then the aspect; whether the aspect could be
+    /// applied (see [`apply_aspect`](Self::apply_aspect)).
+    pub(crate) fn lay_out_axes(&mut self, axes: ArtistId) -> bool {
+        self.lay_out_axes_at(axes, Placement::Located)
     }
 
     /// [`lay_out_axes`](Self::lay_out_axes) with the axes placed by
     /// `placement`.
-    pub(crate) fn lay_out_axes_at(&mut self, axes: ArtistId, placement: Placement) {
+    pub(crate) fn lay_out_axes_at(&mut self, axes: ArtistId, placement: Placement) -> bool {
         self.run_pending_layout();
         self.unstale_axes(axes);
-        self.apply_aspect_reporting(axes, placement);
+        self.apply_aspect_reporting(axes, placement)
     }
 
     /// matplotlib's `apply_aspect`: sets the active position of `axes`
@@ -76,15 +77,18 @@ impl FigureState {
     }
 
     /// [`apply_aspect_at`](Self::apply_aspect_at), its problem reported
-    /// with the next draw (matplotlib's draw raises it).
-    fn apply_aspect_reporting(&mut self, axes: ArtistId, placement: Placement) {
-        if let Err(err) = self.apply_aspect_at(axes, placement) {
-            self.pending_errors.push(DrawError {
-                artist: axes,
-                message: err.to_string(),
-                kind: DrawErrorKind::InvalidValue,
-            });
-        }
+    /// with the next draw (matplotlib's draw raises it); whether it
+    /// succeeded.
+    fn apply_aspect_reporting(&mut self, axes: ArtistId, placement: Placement) -> bool {
+        let Err(err) = self.apply_aspect_at(axes, placement) else {
+            return true;
+        };
+        self.pending_errors.push(DrawError {
+            artist: axes,
+            message: err.to_string(),
+            kind: DrawErrorKind::InvalidValue,
+        });
+        false
     }
 
     /// matplotlib's `apply_aspect` called on its own, between draws: no

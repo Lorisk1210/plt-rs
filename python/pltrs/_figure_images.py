@@ -58,7 +58,9 @@ class FigureImagesMixin:
             colorizer, vmin=vmin, vmax=vmax)
         colorizer = mcolorizer._ScalarMappable._get_colorizer(
             cmap, norm, colorizer)
-        colorizer._scale_norm(norm, vmin, vmax, A)
+        if norm is None:
+            # As matplotlib's figimage: the norm scales when first drawn.
+            colorizer.set_clim(vmin, vmax)
         native = _native_image.figimage(
             self._native, mimage._native_data(A), colorizer.cmap,
             colorizer.norm, (float(xo), float(yo)), origin, bool(resize))

@@ -1,7 +1,7 @@
 //! `LogLocator`: ticks at powers of a base (and multiples of them).
 
 use super::{AutoLocator, Locator};
-use crate::ticker::pymath::{arange, ceil_int, floor_int, round_int};
+use crate::ticker::pymath::{arange, ceil_int, floor_int, round_int, warn_log};
 use crate::ticker::{AutolimitMode, LogBase, TickContext, TickerError, TickerSettings};
 
 /// Multiples of each power of the base at which [`LogLocator`] places
@@ -144,6 +144,18 @@ impl LogLocator {
 
     /// `log_base(x)`, using the more accurate dedicated functions for
     /// bases 10 and 2 like matplotlib.
+    /// The numpy logarithm `log_b` takes (`_log_b`'s `np.log10`, `np.log2`
+    /// or `np.log`).
+    fn log_name(&self) -> &'static str {
+        if self.base == 10.0 {
+            "log10"
+        } else if self.base == 2.0 {
+            "log2"
+        } else {
+            "log"
+        }
+    }
+
     fn log_b(&self, x: f64) -> f64 {
         if self.base == 10.0 {
             x.log10()
@@ -252,6 +264,7 @@ impl Locator for LogLocator {
         if vmax < vmin {
             std::mem::swap(&mut vmin, &mut vmax);
         }
+        warn_log(self.log_name(), &[vmin, vmax]);
         let (efmin, efmax) = (self.log_b(vmin), self.log_b(vmax));
         let emin = ceil_int(efmin, "log of the lower limit")?;
         let emax = floor_int(efmax, "log of the upper limit")?;

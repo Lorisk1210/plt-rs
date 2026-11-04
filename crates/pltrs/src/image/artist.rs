@@ -202,7 +202,7 @@ impl Artist for AxesImageArtist {
                     );
                 }
                 Ok(None) => {}
-                Err(err) => ctx.report(self.base.id(), err),
+                Err(err) => ctx.report_kind(self.base.id(), err.draw_kind(), err),
             }
             return;
         }

@@ -599,9 +599,21 @@ impl AxesState {
     /// pixels at `dpi`.
     pub(crate) fn update_ticks(&mut self, extent: &Bbox, dpi: f64, shared: [Option<usize>; 2]) {
         for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
-            let geometry = self.axis_geometry(name, extent, dpi, tick_space);
-            self.axis_mut(name).update_ticks(&geometry);
+            self.update_axis_ticks(name, extent, dpi, tick_space);
         }
+    }
+
+    /// Recomputes the ticks of axis `name` alone for an axes `extent` in
+    /// display pixels at `dpi`.
+    pub(crate) fn update_axis_ticks(
+        &mut self,
+        name: AxisName,
+        extent: &Bbox,
+        dpi: f64,
+        tick_space: Option<usize>,
+    ) {
+        let geometry = self.axis_geometry(name, extent, dpi, tick_space);
+        self.axis_mut(name).update_ticks(&geometry);
     }
 
     /// The major (or `minor`) tick locations of axis `name` for an axes

@@ -543,6 +543,9 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         if not self.get_visible():
             return Bbox.unit()
         figure = self.get_figure(root=True)
+        if figure is None and dpi is None and not self.__dict__.get("_stand_in"):
+            # matplotlib reads the resolution of the text's figure first.
+            raise AttributeError("'NoneType' object has no attribute 'dpi'")
         if self.get_text() == '':
             # (A text outside any figure, such as the stand-in a replaced
             # `Text.draw` draws, is measured at its own place.)
@@ -1329,6 +1332,7 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
         if not self.get_visible() or (self._figure is not None
                                       and not self._check_xy(renderer)):
             return Bbox.unit()
+        self.update_positions(renderer)
         self._measured()
         return self._native_extent(lambda: Text._text_extent(self))
 
@@ -1437,8 +1441,10 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
         Update the pixel positions of the annotation text and the arrow patch.
 
         pltrs (Rust) places them whenever the annotation is drawn or
-        measured: there is nothing to update.
+        measured; the annotation goes stale, as matplotlib's sets its
+        transform anew.
         """
+        self.stale = True
 
 
 # pltrs (Rust) measures and draws texts through the replacements of

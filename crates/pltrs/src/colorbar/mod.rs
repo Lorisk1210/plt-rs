@@ -54,7 +54,7 @@ pub use options::{
 };
 pub use placement::{ColorbarCax, make_axes, make_axes_gridspec};
 pub(crate) use remove::release;
-pub(crate) use state::{colorbar_of, follow, follow_view};
+pub(crate) use state::{colorbar_of, follow, follow_view, is_followed};
 
 use std::rc::Rc;
 

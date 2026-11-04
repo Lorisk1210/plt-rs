@@ -111,7 +111,7 @@ pub(super) fn sync_tick(
         "default"
     };
     Ok((
-        loc,
+        Some(loc),
         style.size,
         style.width,
         axis.tick_pad(minor, index),
@@ -270,7 +270,7 @@ mod tests {
         let parts = mirrors();
         let (label1, _, tick1, tick2, _) = parts.clone();
         let state = sync_tick(&axis, false, 1, parts.clone()).unwrap();
-        assert_eq!(state.0, axis.ticklocs(false).unwrap()[1]);
+        assert_eq!(state.0, Some(axis.ticklocs(false).unwrap()[1]));
         assert_eq!(label1.text(), axis.ticklabels(false).unwrap()[1]);
         assert!(tick1.visible() && !tick2.visible());
         assert_eq!(tick1.data().0.len(), 2, "the projected mark");

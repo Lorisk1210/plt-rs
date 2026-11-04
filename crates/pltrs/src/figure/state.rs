@@ -242,15 +242,23 @@ impl FigureState {
             .or_else(|| self.figure_bbox_of(self.store.get(artist)?.base().parent?))
     }
 
-    /// Brings the ticks of `axes` up to date as matplotlib computes them
-    /// between draws (`Axis._update_ticks`): its view autoscaled (reading
-    /// the view limits does), then ticked over the axes where it is now,
-    /// neither the layout engine nor the aspect placing it first (they do
-    /// when the figure is drawn or laid out).
-    pub(crate) fn update_ticks_as_is(&mut self, axes: ArtistId) {
+    /// Brings the ticks of axis `name` of `axes` up to date as matplotlib
+    /// computes them between draws (`Axis._update_ticks`, of that axis
+    /// alone): its view autoscaled (reading the view limits does), then
+    /// ticked over the axes where it is now, neither the layout engine nor
+    /// the aspect placing it first (they do when the figure is drawn or
+    /// laid out).
+    pub(crate) fn update_ticks_as_is(&mut self, axes: ArtistId, name: AxisName) {
         self.sync_secondary(axes);
         self.unstale_axes(axes);
-        self.tick_axes(axes);
+        let Some(extent) = self.axes_bbox(axes) else {
+            return;
+        };
+        let dpi = self.dpi();
+        let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
+        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            state.update_axis_ticks(name, &extent, dpi, tick_space);
+        }
     }
 
     /// Places the ticks of the 2-D `axes` over its box as it is now.
@@ -265,12 +273,15 @@ impl FigureState {
         }
     }
 
-    /// The part of [`prepare`](Self::prepare) for the 2-D `axes`.
+    /// The part of [`prepare`](Self::prepare) for the 2-D `axes`; an axes
+    /// whose aspect fails is not ticked (matplotlib's draw raises first).
     fn prepare_axes(&mut self, id: ArtistId) {
         self.sync_secondary(id);
-        self.lay_out_axes(id);
+        let laid_out = self.lay_out_axes(id);
         crate::polar::update_spine_visibility(self, id);
-        self.tick_axes(id);
+        if laid_out {
+            self.tick_axes(id);
+        }
     }
 
     /// [`prepare`](Self::prepare) without the layout engine: the figure

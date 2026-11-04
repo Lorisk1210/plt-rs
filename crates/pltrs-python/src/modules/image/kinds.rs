@@ -254,6 +254,17 @@ fn set_mapping(
     Ok(())
 }
 
+/// The limits of the image's norm in pltrs (Rust), which its draws scale
+/// when they were unset; `(None, None)` for the kinds of images whose
+/// norm the Python side keeps scaled.
+fn mapped_clim(image: AnyImage) -> PyResult<(Option<f64>, Option<f64>)> {
+    Ok(match image {
+        AnyImage::Array(ArrayImage::Axes(image)) => image.clim(),
+        AnyImage::Array(ArrayImage::Figure(image)) => image.clim(),
+        _ => (None, None),
+    })
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_axes_image", new_axes_image)?;
@@ -265,5 +276,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_bbox", set_bbox)?;
     module.add("set_data", set_data)?;
     module.add("set_grid_data", set_grid_data)?;
-    module.add("set_mapping", set_mapping)
+    module.add("set_mapping", set_mapping)?;
+    module.add("mapped_clim", mapped_clim)
 }

@@ -164,7 +164,7 @@ impl PsRenderer {
         origin: Point,
         angle: f64,
     ) {
-        if gc.stroke_color().a == 0.0 {
+        if self.transparent(Some(gc.stroke_color())) {
             return;
         }
         let Some(source) = &run.source else {

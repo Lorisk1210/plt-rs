@@ -28,6 +28,40 @@ pub(crate) fn np_isclose(a: f64, b: f64, rtol: f64, atol: f64) -> bool {
     (a - b).abs() <= atol + rtol * b.abs()
 }
 
+/// Issues the runtime warnings numpy's logarithm `name` (`"log10"`,
+/// `"log2"`, `"log"`) issues for one call on `inputs`: dividing by zero
+/// for a zero, an invalid value for a negative number (numpy reports the
+/// two in that order).
+pub(crate) fn warn_log(name: &str, inputs: &[f64]) {
+    if inputs.contains(&0.0) {
+        crate::warnings::warn_runtime(&format!("divide by zero encountered in {name}"));
+    }
+    if inputs.iter().any(|&x| x < 0.0) {
+        crate::warnings::warn_runtime(&format!("invalid value encountered in {name}"));
+    }
+}
+
+/// Issues the runtime warnings numpy issues dividing the array
+/// `numerators` by the scalar `denominator`: dividing by zero for a
+/// non-zero number over zero, an invalid value for a zero over zero.
+pub(crate) fn warn_divide(numerators: &[f64], denominator: f64) {
+    if denominator != 0.0 {
+        return;
+    }
+    if numerators.iter().any(|&x| x != 0.0 && !x.is_nan()) {
+        crate::warnings::warn_runtime("divide by zero encountered in divide");
+    }
+    if numerators.contains(&0.0) {
+        crate::warnings::warn_runtime("invalid value encountered in divide");
+    }
+}
+
+/// numpy's `log10` of a scalar, with its runtime warnings ([`warn_log`]).
+pub(crate) fn np_log10(x: f64) -> f64 {
+    warn_log("log10", &[x]);
+    x.log10()
+}
+
 /// matplotlib's `_is_close_to_int`: `math.isclose(x, round(x))`.
 ///
 /// Python raises for non-finite `x`; callers check finiteness first.

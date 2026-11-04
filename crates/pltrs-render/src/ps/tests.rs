@@ -313,3 +313,18 @@ fn usetex_texts_without_usetex_are_drawn_plain_and_said_so() {
     assert!(plain.tex_drawn_as_plain);
     assert!(plain.text.contains("0 0 m /f glyphshow"), "{}", plain.text);
 }
+
+#[test]
+fn documents_note_partially_transparent_colours() {
+    let mut r = renderer(false);
+    let gc = GraphicsContext::default();
+    r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::WHITE));
+    r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::TRANSPARENT));
+    assert!(!document(r).partially_transparent, "opaque or invisible");
+    let mut r = renderer(false);
+    let half = Rgba::new(1.0, 0.0, 0.0, 0.5);
+    r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(half));
+    let drawn = document(r);
+    assert!(drawn.partially_transparent);
+    assert!(drawn.text.contains("1 0 0 setrgbcolor"), "drawn opaque");
+}

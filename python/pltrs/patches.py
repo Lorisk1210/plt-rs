@@ -46,6 +46,16 @@ def _number_text(value):
     return str(int(value)) if value.is_integer() and abs(value) < 1e16 else str(value)
 
 
+def _kept_linestyle(ls):
+    """The linestyle *ls* as matplotlib's `Patch.set_linestyle` keeps it
+    (``_linestyle``), which `Patch.get_linestyle` returns."""
+    if ls is None:
+        return "solid"
+    if ls in [' ', '', 'none']:
+        return 'None'
+    return ls
+
+
 @_api.define_aliases({
     "antialiased": ["aa"],
     "edgecolor": ["ec"],
@@ -268,8 +278,13 @@ class Patch(Artist):
 
     def get_facecolor(self):
         """Return the face color."""
-        return self._rgba_as_given(
-            "facecolor", self.get_alpha() if self.get_fill() else 0)
+        fill = self.get_fill()
+        rgba = self._rgba_as_given("facecolor", self.get_alpha() if fill else 0)
+        given = self.__dict__.get("_given_values", {}).get("facecolor")
+        if not fill and not cbook._str_lower_equal(given, "none"):
+            # matplotlib's ``to_rgba(color, 0)``: the alpha is the int given.
+            return (*rgba[:3], 0)
+        return rgba
 
     def set_facecolor(self, color):
         """Set the patch face color (None: :rc:`patch.facecolor`)."""
@@ -361,11 +376,7 @@ class Patch(Artist):
         ``':'``, ``''`` (and their long names), or an ``(offset,
         onoffseq)`` tuple.
         """
-        if ls is None:
-            ls = "solid"
-        if ls in [' ', '', 'none']:
-            ls = 'None'
-        self._linestyle = ls
+        ls = self._linestyle = _kept_linestyle(ls)
         if isinstance(ls, tuple):
             offset, seq = ls
             ls = (offset, None if seq is None else tuple(seq))
@@ -408,13 +419,14 @@ class Patch(Artist):
 
     def get_hatch(self):
         """Return the hatching pattern."""
-        return self._get("hatch")
+        return _values.given(self, "hatch", self._get("hatch"))
 
     def set_hatch(self, hatch):
         """Set the hatching pattern (see `.hatch`)."""
         from . import hatch as mhatch
         mhatch._validate_hatch_pattern(hatch)
         self._set_native(hatch=hatch)
+        _values.remember(self, "hatch", hatch)
 
     def get_hatch_linewidth(self):
         """Return the hatch linewidth."""
@@ -533,7 +545,14 @@ class Rectangle(Patch):
             shared = _patches.get_shared_rectangle_steps()
             return (_patches.get_interpolation_steps(self._native)
                     if shared is None else shared)
-        return drawn_path(self, *_patches.get_path(self._native), (
+        vertices, codes = _patches.get_path(self._native)
+        unit = Path.unit_rectangle()
+        if (np.array_equal(vertices, unit.vertices)
+                and np.array_equal(codes, unit.codes)):
+            # The very object, as matplotlib's rectangles share it.
+            unit._steps_of = (steps, _patches.set_shared_rectangle_steps)
+            return unit
+        return drawn_path(self, vertices, codes, (
             steps, _patches.set_shared_rectangle_steps))
 
     def _fields(self):
@@ -1686,6 +1705,11 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
             return BoxStyle.pprint_styles()
         self._set_style("_bbox_transmuter", _style_object(boxstyle, BoxStyle, **kwargs),
                         BoxStyle, _patches.set_boxstyle, _patches.get_boxstyle)
+
+    def get_path(self):
+        """Return the mutated path of the rectangle: a new `.Path` at each
+        call, as matplotlib's box style makes it anew."""
+        return Path(*_patches.get_path(self._native))
 
     def get_boxstyle(self):
         """Return the boxstyle object."""

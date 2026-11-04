@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 use super::Axis;
 use super::tick_set::TickSet;
 use crate::artist::DrawContext;
-use crate::ticker::AxisName;
+use crate::ticker::{AxisName, TickerError};
 
 /// A part of a tick with a group of its own, in the order matplotlib's
 /// `Tick.draw` draws them.
@@ -300,10 +300,31 @@ impl Axis {
     }
 
     /// Places the axis' ticks (matplotlib's `Axis._update_ticks`, which
-    /// reading the tick labels runs).
-    pub fn place_ticks(&self) -> &Self {
+    /// reading the tick labels runs): computes them for the current view,
+    /// where the axes is now (see [`Axes::ticks`]).
+    ///
+    /// # Errors
+    ///
+    /// When the locator or the formatter fails.
+    ///
+    /// [`Axes::ticks`]: crate::axes::Axes::ticks
+    pub fn place_ticks(&self) -> Result<&Self, TickerError> {
         self.read(|axis| axis.ticks_placed.set(true));
-        self
+        self.axes().ticks(self.name())?;
+        Ok(self)
+    }
+
+    /// The ticks the axis was placed with last (by a draw, a layout or
+    /// [`Axis::place_ticks`]), not computed again: where matplotlib's
+    /// `Tick` objects stand until `_update_ticks` moves them; `None` when
+    /// they were never placed or their computation failed.
+    pub fn placed_ticks(&self) -> Option<TickSet> {
+        self.read(|axis| {
+            axis.ticks_placed
+                .get()
+                .then(|| axis.ticks.as_ref().ok().cloned())
+                .flatten()
+        })
     }
 }
 

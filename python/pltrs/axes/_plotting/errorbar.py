@@ -6,7 +6,7 @@ from numbers import Integral, Number
 
 import numpy as np
 
-from ... import cbook, collections as mcoll, lines as mlines
+from ... import _values, cbook, collections as mcoll, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import ErrorbarContainer
@@ -98,6 +98,46 @@ def _error_bounds(dep_axis, dep, err, convert=None, depconv=None):
     return lower.copy(), upper.copy()
 
 
+def _cap_data(x, y, errors, flags, everymask, capsize):
+    """
+    The data of each cap line, ``(xdata, ydata)`` as matplotlib's
+    `~.Axes.errorbar` makes its caps of the arrays it is given (object
+    arrays for lists), in its order: the *x* caps, then the *y* caps.
+    """
+    if capsize is None:
+        capsize = mlines._rcParams()["errorbar.capsize"]
+    data = []
+    lolims, uplims, xlolims, xuplims = flags
+    for dep_axis, dep, err, low_lims, up_lims, indep in [
+            ("x", x, errors[0], xlolims, xuplims, y),
+            ("y", y, errors[1], lolims, uplims, x)]:
+        if err is None:
+            continue
+        low_lims = np.asarray(low_lims, bool)
+        up_lims = np.asarray(up_lims, bool)
+        low, high = dep + np.vstack([-(1 - low_lims), 1 - up_lims]) * err
+
+        def placed(indep_values, dep_values):
+            # Both coordinates start as the independent data, then the
+            # dependent one is set (matplotlib's ``line.set(xdata=...)``).
+            return ((dep_values, indep_values) if dep_axis == "x"
+                    else (indep_values, dep_values))
+        nolims = ~(low_lims | up_lims)
+        if nolims.any() and capsize > 0:
+            mask = nolims & everymask
+            data += [placed(indep[mask], ends[mask]) for ends in (low, high)]
+        for lims, ends in [(low_lims, high), (up_lims, low)]:
+            if not lims.any():
+                continue
+            mask = lims & everymask
+            x_masked, y_masked = x[mask], y[mask]
+            data.append((ends[mask], y_masked) if dep_axis == "x"
+                        else (x_masked, ends[mask]))
+            if capsize > 0:
+                data.append((x_masked, y_masked))
+    return data
+
+
 class ErrorbarMixin:
     """`errorbar`."""
 
@@ -175,9 +215,22 @@ class ErrorbarMixin:
         if widths is not None:
             for barcol in barcols:
                 barcol.set_linewidth(widths)
+        caplines = wrap_all(self, caplines, mlines.Line2D)
+        data_line = wrap(self, data_line, mlines.Line2D)
+        if data_line is not None:
+            keep_unit_data(data_line, x, y)
+        for capline, (cap_x, cap_y) in zip(
+                caplines, _cap_data(x, y, (xerr, yerr), flags, everymask, capsize)):
+            keep_unit_data(capline, cap_x, cap_y)
+            # The caps' markers take the colour of the lines, as given
+            # (without a data line, the one given or matplotlib's 'C0').
+            cap_color = (ecolor if ecolor is not None
+                         else data_line.get_color() if data_line is not None
+                         else kwargs.get("color", "C0"))
+            _values.remember(capline, "markeredgecolor", cap_color)
         container = ErrorbarContainer(
-            (keep_unit_data(wrap(self, data_line, mlines.Line2D), x, y),
-             tuple(wrap_all(self, caplines, mlines.Line2D)),
+            (data_line,
+             tuple(caplines),
              tuple(barcols)),
             has_xerr=xerr is not None, has_yerr=yerr is not None,
             label=kwargs.get("label"))

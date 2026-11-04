@@ -26,7 +26,7 @@ from . import _api, _image, _values, cbook, colorizer as mcolorizer, colors as m
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
-from ._native import image as _native_image
+from ._native import artist as _artist, image as _native_image
 from .transforms import Affine2D, Bbox, BboxBase, TransformedBbox
 
 _log = logging.getLogger(__name__)
@@ -212,9 +212,50 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         Call this whenever the mappable is changed so observers can update.
         """
-        _native_image.set_mapping(self._native, self.cmap, self.norm,
-                                  self._norm_replaced())
+        replaced = self._norm_replaced()
+        if not replaced:
+            # The limits a draw scaled the norm to stay with it.
+            self._scale_as_drawn()
+        _native_image.set_mapping(self._native, self.cmap, self._colorizer.norm,
+                                  replaced)
+        self._handed_draws = _artist.draw_count(self._native)
         super().changed()
+
+    @property
+    def norm(self):
+        self._scale_as_drawn()
+        return self._colorizer.norm
+
+    @norm.setter
+    def norm(self, norm):
+        self._colorizer.norm = norm
+
+    def get_clim(self):
+        """
+        Return the values (min, max) that are mapped to the colormap limits.
+        """
+        self._scale_as_drawn()
+        return super().get_clim()
+
+    def _scale_as_drawn(self):
+        """
+        Give the norm the limits it has none of that pltrs (Rust)'s draws
+        scaled it to, as matplotlib's draw autoscales the norm object itself
+        (from the data it resamples) when nothing scaled it before (the
+        norm pltrs (Rust) was last handed, drawn since it was handed).
+        """
+        norm = self._colorizer.norm
+        handed_draws = self.__dict__.get("_handed_draws", 0)
+        if (norm.scaled() or self._figure is None
+                or norm is not self.__dict__.get("_handed_norm")
+                or _artist.draw_count(self._native) <= handed_draws):
+            return
+        vmin, vmax = _native_image.mapped_clim(self._native)
+        with norm.callbacks.blocked():
+            if norm.vmin is None and vmin is not None:
+                norm.vmin = vmin
+            if norm.vmax is None and vmax is not None:
+                norm.vmax = vmax
 
     def get_size(self):
         """Return the size of the image as tuple (numrows, numcols)."""

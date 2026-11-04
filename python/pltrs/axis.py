@@ -14,6 +14,7 @@ import numpy as np
 
 from . import _api, _artist_clipping, _tick_helpers, cbook, units as munits
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
+from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
 from .artist import Artist
@@ -43,17 +44,25 @@ _gridline_param_names = [
         "aa", "c", "ds", "ls", "lw", "mec", "mew", "mfc", "mfcalt", "ms")]
 
 
-def _typed_locs(locator, locs, minor):
-    """The tick locations *locs* pltrs (Rust) computed with *locator*, as
-    matplotlib's locator gives them: a `.FixedLocator` placing all its
-    locations gives its array (the minor ones on major ticks left out, in
-    its dtype), a categorical one the list of the category numbers, a
-    radial one of a full circle the list of its ticks."""
+def _typed_locs(locator, locs, minor, view):
+    """The tick locations *locs* pltrs (Rust) computed with *locator* over
+    the view limits *view*, as matplotlib's locator gives them: a
+    `.FixedLocator` placing all its locations gives its array (the minor
+    ones on major ticks left out, in its dtype), a categorical one the list
+    of the category numbers, a radial one of a full circle the list of its
+    ticks, a symlog one of a view in its linear range the sorted list of
+    ``{vmin, 0, vmax}``, a null major one an empty list."""
     from . import ticker as mticker
     from .category import StrCategoryLocator
     from .projections.polar import RadialLocator
     if isinstance(locator, RadialLocator) and locator._keeps_off_origin():
         return list(np.asarray(locs))
+    if isinstance(locator, mticker.NullLocator) and not minor:
+        return []
+    if isinstance(locator, mticker.SymmetricalLogLocator):
+        vmin, vmax = sorted(map(np.float64, view))
+        if -locator._linthresh <= vmin < vmax <= locator._linthresh:
+            return sorted({vmin, 0, vmax})
     if isinstance(locator, StrCategoryLocator) and not minor:
         values = list(locator._units.values())
         return values if np.array_equal(np.asarray(values, float), locs) else locs
@@ -251,7 +260,7 @@ class Ticker:
         self._replace("formatter", formatter)
 
 
-class Axis(Artist):
+class Axis(DrawnWith, Artist):
     """
     Base class for `.XAxis` and `.YAxis`.
 
@@ -329,6 +338,14 @@ class Axis(Artist):
     def axes(self):
         """The `~.axes.Axes` the axis belongs to."""
         return self._axes
+
+    def _drawer(self):
+        # The Axes draws its axes (see `._drawn_with`).
+        return self._axes
+
+    def _drawn_by_drawer(self):
+        # The Axes leaves animated children out of its draws.
+        return self.get_visible() and not self.get_animated()
 
     #: The zorder of an axis by the ``axisbelow`` of its Axes (matplotlib's
     #: ``set_axisbelow`` sets it on the axes of the Axes).
@@ -478,6 +495,7 @@ class Axis(Artist):
             _api.check_isinstance(mticker.Formatter, formatter=formatter)
         formatter.set_axis(self)
         _tick_helpers.install(self, "formatter", minor, formatter)
+        self.stale = True
 
     def set_major_locator(self, locator):
         """
@@ -875,6 +893,7 @@ class Axis(Artist):
         the axes.  Return the list of ticks that will be drawn.
         """
         _axis.place_ticks(*self._args())
+        self._moved_ticks()
         ticks = []
         for minor in (False, True):
             locs = self.get_ticklocs(minor=minor)
@@ -887,6 +906,14 @@ class Axis(Artist):
         return [tick for tick in ticks if view_low <= tick.get_loc() <= view_high
                 or np.isclose(tick.get_loc(), (view_low, view_high)).any()]
 
+    def _moved_ticks(self):
+        """matplotlib's `_update_ticks` moves each tick it places, which
+        makes the Axes stale (the ticks' stale callback)."""
+        from .ticker import NullLocator
+        if not (isinstance(self.get_major_locator(), NullLocator)
+                and isinstance(self.get_minor_locator(), NullLocator)):
+            self.axes.stale = True
+
     def get_ticklocs(self, *, minor=False):
         """
         Return this Axis' tick locations in data coordinates.
@@ -898,7 +925,8 @@ class Axis(Artist):
             return self._drawn_fields()[4]
         locs = _axis.get_ticklocs(*self._args(), bool(minor))
         locator = self.get_minor_locator() if minor else self.get_major_locator()
-        return _typed_locs(locator, locs, minor)
+        return _typed_locs(locator, locs, minor,
+                           _axis.get_view_interval(*self._args()))
 
     def get_majorticklocs(self):
         """Return this Axis' major tick locations in data coordinates."""
@@ -919,6 +947,7 @@ class Axis(Artist):
     def _ticklabels(self, minor):
         # matplotlib places the ticks (`_update_ticks`) to read their labels.
         _axis.place_ticks(*self._args())
+        self._moved_ticks()
         ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
         labels1 = [tick.label1 for tick in ticks if tick.label1.get_visible()]
         labels2 = [tick.label2 for tick in ticks if tick.label2.get_visible()]
@@ -1408,6 +1437,7 @@ class Axis(Artist):
         if fontdict is not None:
             text.update(fontdict)
         text.update(kwargs)
+        self.stale = True
         return text
 
     def _set_axes_label(self, label, fontdict, labelpad, loc, kwargs):
@@ -1463,6 +1493,7 @@ class Axis(Artist):
         # The label's transform, as matplotlib gives it (`_axis_artists`).
         self._label_transform = (self.axes.transAxes if transform is None
                                  else transform)
+        self.stale = True
 
     def get_label_position(self):
         """
@@ -1525,6 +1556,7 @@ class Axis(Artist):
         extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
         if extent is None:
             return None
+        self._moved_ticks()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 
@@ -1851,6 +1883,7 @@ class YAxis(Axis):
         """
         _api.check_in_list(['left', 'right'], position=position)
         _axis.set_offset_position(*self._args(), position)
+        self.stale = True
 
     def set_ticks_position(self, position):
         """

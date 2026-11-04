@@ -151,8 +151,11 @@ use impl_mapping_changes;
 
 /// Implements [`ColorMapped`](crate::colorizer::ColorMapped) for an image
 /// artist state, given the paths of its data and of its mapping fields:
-/// images map their data when drawn, so a new norm only takes its unset
-/// limits from the whole array, as matplotlib's `_make_image` does.
+/// images map their data when drawn, and the draw scales a norm left
+/// unscaled (from the data it resamples, matplotlib's `_make_image`), so
+/// a change of mapping leaves it so, unless a colorbar follows the image,
+/// which takes the unset limits from the whole array (matplotlib's
+/// `Colorbar.update_normal` autoscales the mappable).
 macro_rules! impl_color_mapped {
     ($artist:ty, $($data:ident).+, $($mappable:ident).+) => {
         impl $crate::colorizer::ColorMapped for $artist {
@@ -162,9 +165,11 @@ macro_rules! impl_color_mapped {
 
             fn remap(
                 &mut self,
-                _others: &mut $crate::artist::ArtistStore,
+                others: &mut $crate::artist::ArtistStore,
             ) -> Result<(), $crate::colors::NormError> {
-                if let Some(field) = self.$($data).+.scalars() {
+                use $crate::artist::Artist as _;
+                let followed = $crate::colorbar::is_followed(others, self.base().id());
+                if let (true, Some(field)) = (followed, self.$($data).+.scalars()) {
                     field.autoscale(self.$($mappable).+.get_mut().norm_mut());
                 }
                 Ok(())

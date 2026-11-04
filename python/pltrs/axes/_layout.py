@@ -78,6 +78,8 @@ class LayoutMixin:
             self._native, bool(for_layout_only), bbox_extra_artists is None)
         if extent is None:
             return None
+        # matplotlib applies the aspect and places the ticks anew.
+        self.stale = True
         x0, y0, x1, y1 = extent
         boxes = [Bbox([[x0, y0], [x1, y1]])]
         for artist in bbox_extra_artists or ():

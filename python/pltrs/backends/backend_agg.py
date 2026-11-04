@@ -111,8 +111,13 @@ class RendererAgg(MathtextDrawingMixin, NativeDrawingMixin, RendererBase,
     def get_text_width_height_descent(self, s, prop, ismath):
         # docstring inherited
         _api.check_in_list(["TeX", True, False], ismath=ismath)
-        return _text_overrides.measure(s, FontManager._props(prop), ismath,
-                                       float(self.dpi))
+        measured = _text_overrides.measure(s, FontManager._props(prop), ismath,
+                                           float(self.dpi))
+        if ismath is True:
+            # The numpy floats of the boxes matplotlib's mathtext parser
+            # sets.
+            return tuple(map(np.float64, measured))
+        return measured
 
     def option_image_nocomposite(self):
         # docstring inherited

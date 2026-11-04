@@ -21,7 +21,8 @@ License).
 import numpy as np
 
 from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors,
-               _python_drawing, cbook, colors as mcolors)
+               _python_drawing, _values, cbook, colors as mcolors)
+from ._drawn_with import DrawnWith
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, table as _table
 from .artist import Artist, allow_rasterization
@@ -82,7 +83,7 @@ class _CellLook(_mirrors.Mirroring):
 
 
 @_mirrors.pushing
-class Cell(Rectangle):
+class Cell(DrawnWith, Rectangle):
     """
     A cell is a `.Rectangle` with some associated `.Text`.
 
@@ -178,6 +179,11 @@ substring of 'BRTL'
         """The cell as ``_native.table`` takes it."""
         return (self._table._native, *self._key)
 
+    def _drawer(self):
+        # Its table draws the cell (see `._drawn_with`).
+        table = self.__dict__.get("_table")
+        return table if isinstance(table, Table) else None
+
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if name == "draw" and isinstance(self.__dict__.get("_table"), Table):
@@ -271,10 +277,22 @@ substring of 'BRTL'
     def set_fontsize(self, size):
         """Set the text fontsize."""
         _table.set_cell_fontsize(self._ref(), _points(size))
+        # A size given stays until the table places the cell again.
+        self._fontsize_given_at = self._table._placements
         self.stale = True
 
     def get_fontsize(self):
-        """Return the cell fontsize."""
+        """Return the cell fontsize: the one given since its table last
+        placed it, else the one it was placed at (matplotlib's table gives
+        its cells the size their texts fit at when it is drawn or
+        measured)."""
+        table = self._table
+        given_at = max(self.__dict__.get("_fontsize_given_at", -1),
+                       table.__dict__.get("_fontsize_given_at", -1))
+        if table._placements > max(given_at, 0):
+            placed = _table.cell_placed_fontsize(self._ref())
+            if placed is not None:
+                return placed
         return _table.get_cell_fontsize(self._ref())
 
     def auto_set_font_size(self, renderer):
@@ -359,6 +377,8 @@ substring of 'BRTL'
         # The numpy floats matplotlib's table computes the corners as.
         return tuple(map(np.float64, corner))
 
+    xy = property(get_xy, Rectangle.set_xy)
+
     def _set_fields(self, x=None, y=None, *args, **kwargs):
         # A corner given stays until the table places the cell again.
         if x is not None or y is not None:
@@ -389,11 +409,13 @@ substring of 'BRTL'
 
     def get_width(self):
         """Return the width of the cell."""
-        return _table.get_size(self._ref())[0]
+        return _values.given(self, "width", _table.get_size(self._ref())[0])
 
     def get_height(self):
-        """Return the height of the cell."""
-        return _table.get_size(self._ref())[1]
+        """Return the height of the cell: as given, else the numpy float of
+        the text height matplotlib's tables size their rows with."""
+        native = _table.get_size(self._ref())[1]
+        return _values.given(self, "height", native, np.float64(native))
 
     def set_width(self, w):
         """Set the width of the cell."""
@@ -680,6 +702,9 @@ class Table(Artist):
         text may exceed the cell boundary.
         """
         _table.set_fontsize(self._native, _points(size))
+        # The size given to every cell stays until the table places them.
+        self._fontsize_given_at = self._placements
+        self.stale = True
 
     def get_celld(self):
         r"""

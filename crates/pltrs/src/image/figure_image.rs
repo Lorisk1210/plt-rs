@@ -313,6 +313,14 @@ impl FigureImage {
             .with_mut::<FigureImageArtist, _>(|image| image.core.replace_data(data));
         self
     }
+
+    /// The data values mapped to the ends of the colormap: unset until
+    /// given or until the image is first drawn, which scales the norm to
+    /// the data.
+    pub fn clim(&self) -> (Option<f64>, Option<f64>) {
+        self.raw
+            .with::<FigureImageArtist, _>(|image| image.core.mappable.borrow().clim())
+    }
 }
 
 impl Figure {

@@ -310,7 +310,7 @@ impl DrawContext<'_> {
                 }
                 None => painter.draw(ctx, id),
             }
-            ctx.layout().figure_state().mark_drawn(id);
+            ctx.layout().figure_state().mark_drawn(id, true);
         });
     }
 }

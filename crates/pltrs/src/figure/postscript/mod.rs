@@ -51,6 +51,11 @@ const PARTIAL_USETEX: &str = "The PS backend determines usetex status solely bas
      rcParams['text.usetex'] and does not support having usetex=True only for some \
      elements; this element will thus be rendered as if usetex=False.";
 
+/// What matplotlib's PostScript backend logs once per document drawing a
+/// partially transparent colour.
+const PARTIAL_TRANSPARENCY: &str = "The PostScript backend does not support transparency; \
+     partially transparent artists will be rendered opaque.";
+
 /// The options of a PostScript document on the paper and in the
 /// orientation of the rcParams, as the `ps.*`, `image.composite_image`
 /// and `text.usetex` rcParams configure figures.
@@ -119,6 +124,9 @@ impl Figure {
         };
         if document.tex_drawn_as_plain {
             crate::warnings::log("backends.backend_ps", PARTIAL_USETEX);
+        }
+        if document.partially_transparent {
+            crate::warnings::log("backends.backend_ps", PARTIAL_TRANSPARENCY);
         }
         if rc.ps_usedistiller == Distiller::Off {
             return Ok(document.text.into_bytes());

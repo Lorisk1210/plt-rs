@@ -331,7 +331,7 @@ impl Compositor {
                             alpha,
                         }),
                         Ok(None) => {}
-                        Err(err) => ctx.report(id, err),
+                        Err(err) => ctx.report_kind(id, err.draw_kind(), err),
                     }
                 }
                 match composite_images(&parts, self.magnification) {
@@ -346,7 +346,7 @@ impl Compositor {
                         ctx.renderer().draw_image(&gc, origin, &pixels, None);
                     }
                     Ok(None) => {}
-                    Err(err) => ctx.report(several[0], err),
+                    Err(err) => ctx.report_kind(several[0], err.draw_kind(), err),
                 }
             }
         }

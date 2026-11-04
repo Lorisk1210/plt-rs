@@ -221,7 +221,7 @@
 //! use pltrs::scale::ScaleName;
 //! use pltrs::transforms::{Affine2D, ResolvedTransform};
 //!
-//! #[derive(Debug, Default)]
+//! #[derive(Clone, Debug, Default)]
 //! struct SkewXAxes;
 //!
 //! fn skew() -> ResolvedTransform {

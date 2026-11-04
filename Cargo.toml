@@ -67,6 +67,14 @@ codegen-units = 1
 [profile.release.package.pltrs-core]
 codegen-units = 1
 
+# The figure model in one codegen unit too: how cargo splits it into
+# sixteen decides whether the image resamplers' per-pixel calls inline,
+# and an unrelated change elsewhere in the crate moved that split enough
+# to slow imshow_2000_bicubic_colorbar by 11%. In one unit both images
+# run at their best whatever else changes.
+[profile.release.package.pltrs]
+codegen-units = 1
+
 # The extension of pltrs (Python) (`cargo xtask python --release`, the
 # wheel): built as one unit with fat LTO, the code that runs together lies
 # together, so that a process maps about 5 MiB less of it, and calls

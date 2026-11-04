@@ -32,7 +32,7 @@ use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 pub(crate) type DataFormatters = (Option<Rc<dyn Formatter>>, Option<Rc<dyn Formatter>>);
 
 /// State of one axes (matplotlib's `_AxesBase`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct AxesState {
     base: ArtistBase,
     /// Placement as a fraction of the owning frame, before any aspect

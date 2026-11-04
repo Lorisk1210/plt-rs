@@ -12,7 +12,7 @@ use super::art3d::{Art3D, Path3D, ProjectedOutline, ProjectedPath};
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::math::Vec3;
-use crate::artist::{Artist, ArtistHandle, ArtistLookup, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistLookup, KeptArtist, RawHandle};
 use crate::colors::Color;
 use crate::figure::FigureState;
 use crate::patches::{Patch, PatchArtist, PatchShape, PatchStyle};
@@ -151,7 +151,7 @@ impl Axes3D {
             lifted
         };
         state.store.take(id);
-        state.store.put_back(id, Box::new(lifted));
+        state.store.put_back(id, KeptArtist::new(lifted));
         state.stale = true;
         drop(state);
         self.with_mut(|axes| axes.artists.retain(|artist| artist.id != id));

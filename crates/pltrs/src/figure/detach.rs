@@ -10,7 +10,8 @@ use std::rc::Rc;
 
 use super::{FigureCell, FigureFrame, FigureState};
 use crate::artist::{
-    Artist, ArtistId, ArtistLookup, ArtistStore, AttachError, RawHandle, downcast_mut, downcast_ref,
+    Artist, ArtistId, ArtistLookup, ArtistStore, AttachError, KeptArtist, RawHandle, downcast_mut,
+    downcast_ref,
 };
 use crate::axes::AxesState;
 use crate::mplot3d::Axes3DState;
@@ -23,6 +24,12 @@ impl ArtistLookup for FigureState {
 }
 
 impl FigureState {
+    /// The artist with `id`, in the figure or removed from it, shared (see
+    /// [`ArtistStore::shared`]).
+    pub(crate) fn shared_artist(&self, id: ArtistId) -> Option<Rc<dyn Artist>> {
+        self.store.shared(id).or_else(|| self.detached.shared(id))
+    }
+
     /// The artist with `id`, in the figure or removed from it, mutably.
     pub(crate) fn artist_mut(&mut self, id: ArtistId) -> Option<&mut (dyn Artist + 'static)> {
         if self.store.contains(id) {
@@ -51,7 +58,7 @@ impl FigureState {
         }
         let mut artist = self.detached.take(id)?;
         let result =
-            downcast_mut::<T>(artist.as_mut()).map(|concrete| f(concrete, &mut self.store));
+            downcast_mut::<T>(artist.get_mut()).map(|concrete| f(concrete, &mut self.store));
         self.detached.insert(id, artist);
         result
     }
@@ -73,9 +80,10 @@ impl FigureState {
     /// Inserts `artist` as a child of the container `parent` (a figure
     /// frame or an axes). An artist made in a removed artist is removed
     /// with it, together with the artists it owns.
-    pub(crate) fn adopt(&mut self, parent: ArtistId, mut artist: Box<dyn Artist>) -> ArtistId {
-        artist.base_mut().parent = Some(parent);
-        let id = self.store.insert(artist);
+    pub(crate) fn adopt(&mut self, parent: ArtistId, artist: impl Into<KeptArtist>) -> ArtistId {
+        let mut artist = artist.into();
+        artist.get_mut().base_mut().parent = Some(parent);
+        let id = self.store.insert_kept(artist);
         if self.detached.contains(parent) {
             for (id, artist) in self.store.take_tree(id) {
                 self.detached.insert(id, artist);
@@ -93,9 +101,10 @@ impl FigureState {
 
     /// Inserts `artist` as a removed artist: outside the figure, owned by
     /// none.
-    pub(crate) fn insert_removed(&mut self, mut artist: Box<dyn Artist>) -> ArtistId {
-        artist.base_mut().parent = None;
-        let id = self.store.insert(artist);
+    pub(crate) fn insert_removed(&mut self, artist: impl Into<KeptArtist>) -> ArtistId {
+        let mut artist = artist.into();
+        artist.get_mut().base_mut().parent = None;
+        let id = self.store.insert_kept(artist);
         let artist = self.store.take(id).expect("the artist was just inserted");
         self.detached.insert(id, artist);
         id

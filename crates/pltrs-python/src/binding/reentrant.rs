@@ -2,8 +2,10 @@
 //!
 //! pltrs (Rust) runs Python code while it lays a figure out or draws it:
 //! a tick formatter or locator, a transform, a norm, a path effect, the
-//! text measurer. That code may change the figure, as matplotlib's may
-//! (a formatter setting its axes' title), and finds it in use
+//! text measurer. Where pltrs lends the figure to that code (a layout's
+//! tick code, a draw's path effects and renderer calls), the code changes
+//! it at once. Elsewhere it may still change it, as matplotlib's may (a
+//! norm setting its axes' title), and finds it in use
 //! ([`pltrs::figure::reenter`]). A native function returning nothing (a
 //! change: `set_color`, `set_text`, ...) called then is queued here, with
 //! its arguments, and made when the thread's outermost native call ends,

@@ -85,11 +85,18 @@ impl CollectionArtist {
     /// How many values a quad mesh maps to colours: one per cell, or one
     /// per vertex when Gouraud-shaded (`None` for other collections).
     pub(super) fn mesh_value_count(&self) -> Option<usize> {
+        self.mesh_value_shape().map(|(rows, cols)| rows * cols)
+    }
+
+    /// The rows and columns of the values a quad mesh maps to colours:
+    /// those of its cells, or of its vertices when Gouraud-shaded (`None`
+    /// for other collections).
+    pub(super) fn mesh_value_shape(&self) -> Option<(usize, usize)> {
         let mesh = self.mesh.as_ref()?;
         let (rows, cols) = mesh.coordinates.shape();
         Some(match mesh.shading {
-            MeshShading::Flat => rows.saturating_sub(1) * cols.saturating_sub(1),
-            MeshShading::Gouraud => rows * cols,
+            MeshShading::Flat => (rows.saturating_sub(1), cols.saturating_sub(1)),
+            MeshShading::Gouraud => (rows, cols),
         })
     }
 }

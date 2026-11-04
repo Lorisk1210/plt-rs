@@ -140,7 +140,7 @@ fn map_projections() -> Built {
 
 /// Axes whose data is sheared 30° to the right: lines of constant x
 /// lean, as the isotherms of a meteorologist's skew-T diagram do.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct SkewXAxes;
 
 impl SkewXAxes {

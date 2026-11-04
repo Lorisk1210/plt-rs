@@ -250,6 +250,7 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         """
         _api.check_isinstance(_AxesBase, other=other)
         _axes_base.share(self._native, "x", other._native)
+        self.xaxis._take_shared_tickers()
 
     def sharey(self, other):
         """
@@ -261,6 +262,7 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         """
         _api.check_isinstance(_AxesBase, other=other)
         _axes_base.share(self._native, "y", other._native)
+        self.yaxis._take_shared_tickers()
 
     @property
     def _sharex(self):

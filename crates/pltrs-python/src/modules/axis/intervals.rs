@@ -78,6 +78,13 @@ fn with_major_ticks(mut info: AxisInfo, major: FloatArray) -> PyResult<AxisInfo>
     Ok(info)
 }
 
+/// `info` with the view interval `(low, high)`, as the program's class of
+/// the axis answers it (its `get_view_interval`).
+fn with_view_interval(mut info: AxisInfo, low: f64, high: f64) -> PyResult<AxisInfo> {
+    info.view_interval = (low, high);
+    Ok(info)
+}
+
 /// `values` through the scale of axis `name` (matplotlib's
 /// `axis.get_transform().transform(values)`).
 fn scaled(axes: Axes, name: String, values: NdArray) -> PyResult<NdArray> {
@@ -89,6 +96,7 @@ fn scaled(axes: Axes, name: String, values: NdArray) -> PyResult<NdArray> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("scaled", scaled)?;
     module.add("with_major_ticks", with_major_ticks)?;
+    module.add("with_view_interval", with_view_interval)?;
     module.add("get_view_interval", get_view_interval)?;
     module.add("set_view_interval", set_view_interval)?;
     module.add("get_data_interval", get_data_interval)?;

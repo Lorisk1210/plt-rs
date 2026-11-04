@@ -85,6 +85,10 @@ impl Colorbar {
             ticks.as_ref(),
             options.format.as_ref(),
         )?;
+        // matplotlib's `_draw_all` processes the values again (as
+        // `_reset_locator_formatter_scale` did), the program's norm seeing
+        // it, before it meshes them.
+        let blocks = settings.blocks(contours.as_ref(), extend, long.inverted(), &mut mapping)?;
         let edges = blocks.edges(mapping.norm_mut())?;
         let mut state = ColorbarState {
             link,

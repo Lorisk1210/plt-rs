@@ -304,7 +304,7 @@ impl Compositor {
             base.visible
                 && base.clip_on
                 && ctx.base_gc(base).clip_path.is_none()
-                && as_image(artist).is_some_and(|image| image.can_composite(*layout))
+                && as_image(artist).is_some_and(|image| image.can_composite(layout))
         })
     }
 
@@ -314,13 +314,12 @@ impl Compositor {
             [] => {}
             [single] => ctx.draw_child(*single),
             several => {
-                let store = ctx.layout().store();
                 let mut parts = Vec::new();
                 for &id in several {
-                    let Some(artist) = store.get(id) else {
+                    let Some(artist) = ctx.layout().store().shared(id) else {
                         continue;
                     };
-                    let Some(image) = as_image(artist) else {
+                    let Some(image) = as_image(&*artist) else {
                         continue;
                     };
                     let alpha = artist.base().alpha.unwrap_or(1.0);

@@ -38,7 +38,7 @@ impl std::fmt::Display for TriMeshError {
 impl std::error::Error for TriMeshError {}
 
 /// State of a triangle mesh.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct TriMeshArtist {
     base: ArtistBase,
     points: Vec<Point>,

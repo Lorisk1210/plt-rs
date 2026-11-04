@@ -154,7 +154,7 @@ impl Projection for Disc {
 }
 
 /// A projection that cannot set its axes up.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Broken;
 
 impl Projection for Broken {

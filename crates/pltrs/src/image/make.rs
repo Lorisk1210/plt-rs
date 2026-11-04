@@ -75,7 +75,7 @@ impl MadeImage {
 }
 
 /// The colouring and resampling state every image kind shares.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ImageCore {
     /// The image array.
     pub(crate) data: ImageData,

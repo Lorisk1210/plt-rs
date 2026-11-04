@@ -2,10 +2,12 @@
 
 use std::any::Any;
 use std::fmt;
+use std::rc::Rc;
 
 use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 
 use super::Artist;
+use super::kept::KeptArtist;
 
 /// Identifies an artist within its figure's [`ArtistStore`].
 ///
@@ -46,9 +48,13 @@ impl fmt::Display for ArtistId {
 ///
 /// Each artist has a slot of its own. An artist can be taken out of its
 /// slot and put back; meanwhile the store behaves as if it were absent.
+/// A draw holds the artist it draws shared with the store
+/// ([`shared`](Self::shared)), so that the figure can change meanwhile:
+/// changing an artist a draw holds changes a copy of it, which the store
+/// keeps from then on.
 #[derive(Debug, Default)]
 pub struct ArtistStore {
-    slots: Vec<Option<Box<dyn Artist>>>,
+    slots: Vec<Option<KeptArtist>>,
 }
 
 /// Archived slot by slot; each artist read back takes the id of its
@@ -59,10 +65,10 @@ impl Archive for ArtistStore {
     }
 
     fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
-        let mut slots: Vec<Option<Box<dyn Artist>>> = Archive::decode(decoder)?;
+        let mut slots: Vec<Option<KeptArtist>> = Archive::decode(decoder)?;
         for (index, slot) in (0..).zip(&mut slots) {
             if let Some(artist) = slot {
-                artist.base_mut().assign_id(ArtistId { index });
+                artist.get_mut().base_mut().assign_id(ArtistId { index });
             }
         }
         Ok(Self { slots })
@@ -71,10 +77,15 @@ impl Archive for ArtistStore {
 
 impl ArtistStore {
     /// Takes ownership of `artist` and returns its id.
-    pub fn insert(&mut self, mut artist: Box<dyn Artist>) -> ArtistId {
+    pub fn insert(&mut self, artist: Box<dyn Artist>) -> ArtistId {
+        self.insert_kept(artist.into())
+    }
+
+    /// Takes `artist` in and returns its id.
+    pub(crate) fn insert_kept(&mut self, mut artist: KeptArtist) -> ArtistId {
         let index = u32::try_from(self.slots.len()).expect("fewer than 2^32 artists");
         let id = ArtistId { index };
-        artist.base_mut().assign_id(id);
+        artist.get_mut().base_mut().assign_id(id);
         self.slots.push(Some(artist));
         id
     }
@@ -86,12 +97,29 @@ impl ArtistStore {
 
     /// The artist with `id`, if it is in the store.
     pub fn get(&self, id: ArtistId) -> Option<&dyn Artist> {
-        self.slots.get(id.index as usize)?.as_deref()
+        self.slots
+            .get(id.index as usize)?
+            .as_ref()
+            .map(KeptArtist::get)
     }
 
-    /// Mutable access to the artist with `id`, if it is in the store.
+    /// Mutable access to the artist with `id`, if it is in the store (to a
+    /// copy of it, kept from now on, when a draw holds it).
     pub fn get_mut(&mut self, id: ArtistId) -> Option<&mut (dyn Artist + 'static)> {
-        self.slots.get_mut(id.index as usize)?.as_deref_mut()
+        self.slots
+            .get_mut(id.index as usize)?
+            .as_mut()
+            .map(KeptArtist::get_mut)
+    }
+
+    /// The artist with `id`, if it is in the store, shared with it: what a
+    /// draw holds while it draws the artist, so that the figure stays free
+    /// to change meanwhile.
+    pub fn shared(&self, id: ArtistId) -> Option<Rc<dyn Artist>> {
+        self.slots
+            .get(id.index as usize)?
+            .as_ref()
+            .map(KeptArtist::share)
     }
 
     /// The artist with `id` as concrete type `T`.
@@ -104,16 +132,23 @@ impl ArtistStore {
         downcast_mut(self.get_mut(id)?)
     }
 
+    /// The artist with `id` as concrete type `T`, shared (see
+    /// [`shared`](Self::shared)).
+    pub(crate) fn shared_as<T: Artist>(&self, id: ArtistId) -> Option<Rc<T>> {
+        let artist: Rc<dyn Any> = self.shared(id)?;
+        artist.downcast().ok()
+    }
+
     /// Takes the artist out of the store: until it is
     /// [put back](Self::put_back), `id` behaves as if the artist were
     /// absent.
-    pub(crate) fn take(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
+    pub(crate) fn take(&mut self, id: ArtistId) -> Option<KeptArtist> {
         self.slots.get_mut(id.index as usize)?.take()
     }
 
     /// Puts back an artist taken out with [`take`](Self::take) or
     /// [`take_tree`](Self::take_tree).
-    pub(crate) fn put_back(&mut self, id: ArtistId, artist: Box<dyn Artist>) {
+    pub(crate) fn put_back(&mut self, id: ArtistId, artist: KeptArtist) {
         let slot = self
             .slots
             .get_mut(id.index as usize)
@@ -124,7 +159,7 @@ impl ArtistStore {
 
     /// Takes the artist and, recursively, every artist it owns out of the
     /// store (see [`take`](Self::take)), the artist first.
-    pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, Box<dyn Artist>)> {
+    pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, KeptArtist)> {
         take_tree(id, |id| self.take(id))
     }
 
@@ -136,7 +171,7 @@ impl ArtistStore {
         f: impl FnOnce(&mut T, &mut Self) -> R,
     ) -> Option<R> {
         let mut artist = self.take(id)?;
-        let result = downcast_mut::<T>(artist.as_mut()).map(|concrete| f(concrete, self));
+        let result = downcast_mut::<T>(artist.get_mut()).map(|concrete| f(concrete, self));
         self.put_back(id, artist);
         result
     }
@@ -183,13 +218,13 @@ impl ArtistLookup for ArtistStore {
 /// collection of artists with `take`, the root first.
 pub(crate) fn take_tree(
     root: ArtistId,
-    mut take: impl FnMut(ArtistId) -> Option<Box<dyn Artist>>,
-) -> Vec<(ArtistId, Box<dyn Artist>)> {
+    mut take: impl FnMut(ArtistId) -> Option<KeptArtist>,
+) -> Vec<(ArtistId, KeptArtist)> {
     let mut taken = Vec::new();
     let mut pending = vec![root];
     while let Some(id) = pending.pop() {
         if let Some(artist) = take(id) {
-            pending.extend(artist.children());
+            pending.extend(artist.get().children());
             taken.push((id, artist));
         }
     }
@@ -213,7 +248,7 @@ mod tests {
     use super::*;
     use crate::artist::{ArtistBase, DrawContext};
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     struct Node {
         base: ArtistBase,
         children: Vec<ArtistId>,

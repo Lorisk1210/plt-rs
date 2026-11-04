@@ -10,7 +10,8 @@ use super::owners::BoxOwner;
 use super::pending::{Parts, adopt_box, frame_patch};
 use super::{BoxItem, OffsetBox, OffsetBoxError, Placement, TreeLayout};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, KeptArtist, LayoutContext, RawHandle,
+    TypedHandle,
 };
 use crate::axes::Axes;
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
@@ -91,7 +92,7 @@ struct Geometry {
 
 /// State of an annotation box: its frame and child tree are artists of the
 /// figure owned by the box; the layout pass places them.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct AnnotationBboxArtist {
     base: ArtistBase,
     /// The child tree (matplotlib's `offsetbox`).
@@ -238,7 +239,7 @@ impl AnnotationBboxArtist {
 
     /// The box and its arrow, if the annotated point is shown.
     fn draw_parts(&self, ctx: &mut DrawContext<'_>) -> Result<(), String> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let geometry = self.geometry(layout).map_err(|err| err.to_string())?;
         if !annotation_shown(
             layout,
@@ -252,7 +253,7 @@ impl AnnotationBboxArtist {
         ctx.renderer()
             .open_group("AnnotationBbox", self.base.gid.as_deref());
         if let Some(arrow) = &self.arrow {
-            let target = self.arrow_target(layout, &geometry)?;
+            let target = self.arrow_target(ctx.layout(), &geometry)?;
             arrow
                 .draw(ctx, &self.rc, target)
                 .map_err(|err| err.to_string())?;
@@ -690,7 +691,7 @@ fn add_annotation_bbox(
         rc,
         dragger: None,
     };
-    let id = adopt_box(&mut state, owner.id(), Box::new(artist), &parts);
+    let id = adopt_box(&mut state, owner.id(), KeptArtist::new(artist), &parts);
     drop(state);
     Ok(AnnotationBbox {
         raw: RawHandle::new(Rc::clone(figure), id),

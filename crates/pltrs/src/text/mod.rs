@@ -107,7 +107,7 @@ pltrs_core::archive_enum!(AngleReduction { Modulo360, AsIs });
 
 /// State of a text artist (matplotlib's `Text`, and `Annotation` when
 /// `annotation` is set).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "mirrors matplotlib's independent boolean text properties"
@@ -466,7 +466,7 @@ impl TextArtist {
     /// Draws the text's box and lines at `anchor`; the thread's
     /// [`TextPainter`], if it has one, draws the whole text instead.
     fn draw_block_at(&self, ctx: &mut DrawContext<'_>, anchor: Point) -> Result<(), TextDrawError> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         if let Some(painter) = overrides::painter() {
             let laid_out = self.layout_at(layout, anchor)?;
             let color = self.color.resolve_alpha(self.base.alpha)?;
@@ -477,6 +477,7 @@ impl TextArtist {
             bbox.draw(ctx, &self.base, &self.rc, &placement)
                 .map_err(TextDrawError::Box)?;
         }
+        let layout = ctx.layout();
         let mut laid_out = self.layout_at(layout, anchor)?.shaped(&self.shaping())?;
         if !self.base.path_effects.is_empty() {
             laid_out =
@@ -530,7 +531,7 @@ impl Artist for TextArtist {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let drawn = match &self.annotation {
             Some(annotation) => annotation.draw(self, ctx),
-            None => match self.anchor(*ctx.layout()) {
+            None => match self.anchor(ctx.layout()) {
                 Some(anchor) => self.draw_at(ctx, anchor),
                 None => Ok(()),
             },

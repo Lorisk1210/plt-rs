@@ -186,7 +186,7 @@ fn copy_first<T: Clone + Default>(list: &mut Vec<T>, made: usize, count: usize) 
 ///
 /// The scale and tick helpers are reference counted because axes sharing
 /// an axis share them (matplotlib shares the `Ticker` and scale objects).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "mirrors matplotlib's independent boolean Axis attributes"
@@ -261,6 +261,11 @@ pub(crate) struct AxisState {
     /// What the program last ticked the axis for, when its helpers or
     /// scale call the program (see [`TickUpdater`](super::TickUpdater)).
     pub(crate) program_ticked: Option<ProgramTicked>,
+    /// Whether the program's class of the axis answers its view interval
+    /// itself (overrides matplotlib's `get_view_interval`), which
+    /// matplotlib's tick updates ask: the program's tick updater ticks the
+    /// axis then. Set by the program's class, again whenever it is made.
+    pub(crate) program_view: bool,
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -294,7 +299,7 @@ pltrs_core::archive_struct!(AxisState {
     gids,
     ticks_placed,
     scaled_view
-} skip { program_ticked });
+} skip { program_ticked, program_view });
 
 impl AxisState {
     /// A linear axis configured from `rc`.
@@ -359,6 +364,7 @@ impl AxisState {
             ticks_placed: Cell::new(false),
             scaled_view: Cell::new(None),
             program_ticked: None,
+            program_view: false,
         }
     }
 

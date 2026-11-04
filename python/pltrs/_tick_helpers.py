@@ -58,7 +58,7 @@ def get(axis, kind, minor):
         return entry[1]
     spec = _axis.describe_helper(token)
     helper = _from_spec(spec, token, axis, kind)
-    helper.set_axis(_locator_axis(axis) if kind == "locator" else axis)
+    helper.set_axis(_locator_axis(axis))
     _watch(helper, axis)
     if kind == "formatter" and spec is not None and spec["kind"] != "python":
         _watch_native_formatter(helper, axis)
@@ -67,9 +67,10 @@ def get(axis, kind, minor):
 
 
 def _locator_axis(axis):
-    """The axis the locators of *axis* are bound to (matplotlib's
-    ``locator.axis``): that of the axes they were set on, among the axes
-    sharing it (the last of those a clear reset)."""
+    """The axis the locators and formatters of *axis* are bound to
+    (matplotlib's ``locator.axis``, ``formatter.axis``): that of the axes
+    they were set on, among the axes sharing it (the last of those a clear
+    reset)."""
     figure = axis.axes.figure
     owner = _axis.locator_owner(axis.axes._native, axis.axis_name)
     if owner is None or figure is None:

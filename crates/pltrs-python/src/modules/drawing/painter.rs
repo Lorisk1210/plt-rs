@@ -121,6 +121,8 @@ impl ArtistPainter for PythonPainter {
     fn draw(&self, ctx: &mut DrawContext<'_>, artist: ArtistId) {
         let prepared = self.prepared.take();
         let depth = ctx.raster_depth();
+        // `ctx.renderer()` lets the figure go: the artist's `draw` finds
+        // it free.
         let drawing = prepared.or_else(|| self.record(target(ctx.renderer(), depth, true)));
         if let Some(drawing) = drawing {
             drawing.draw(ctx, artist);

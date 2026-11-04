@@ -243,7 +243,7 @@ impl AnnotationState {
         text: &TextArtist,
         ctx: &mut DrawContext<'_>,
     ) -> Result<(), TextDrawError> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let point = self.point(text, layout)?;
         if !self.shown(text, layout, point) {
             return Ok(());

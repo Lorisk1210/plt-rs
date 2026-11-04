@@ -39,7 +39,7 @@ pub enum NonUniformInterpolation {
 pltrs_core::archive_enum!(NonUniformInterpolation { Nearest, Bilinear });
 
 /// State of an image with pixel centres on a rectilinear grid.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct NonUniformImageArtist {
     base: ArtistBase,
     data: ImageData,

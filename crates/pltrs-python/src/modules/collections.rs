@@ -118,10 +118,14 @@ fn set_antialiaseds(collection: Collection, antialiased: Vec<bool>) -> PyResult<
     Ok(())
 }
 
-/// Sets one opacity per item.
-fn set_alphas(collection: Collection, alphas: Vec<f64>) -> PyResult<()> {
-    collection.set_alphas(alphas);
-    Ok(())
+/// Sets one opacity per item, given as an array of `shape`; raises
+/// matplotlib's `ValueError` (the alphas set all the same) when they cannot
+/// be broadcast onto the colours given.
+fn set_alphas(collection: Collection, alphas: Vec<f64>, shape: Vec<usize>) -> PyResult<()> {
+    collection
+        .try_set_alpha_array(alphas, Some(shape))
+        .map(drop)
+        .map_err(PyErr::value_error)
 }
 
 /// Sets (or clears) one opacity for every item of a collection (or of a

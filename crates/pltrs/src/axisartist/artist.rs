@@ -47,7 +47,7 @@ pub(crate) enum Level {
 }
 
 /// An axis artist (matplotlib's `AxisArtist`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct AxisArtistState {
     base: ArtistBase,
     /// Its key in the axes' axis dictionary.
@@ -474,15 +474,15 @@ impl Artist for AxisArtistState {
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let id = self.base.id();
-        let layout = *ctx.layout();
-        let drawing = match self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current) {
+        let layout = ctx.layout();
+        let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current);
+        let axes = layout.store().shared_as::<AxesState>(self.axes);
+        let transform = self.resolve(layout, self.helper.tick_transform(self.axes));
+        let drawing = match drawing {
             Ok(drawing) => drawing,
             Err(problem) => return ctx.report(id, problem),
         };
-        let (Some(axes), Ok(transform)) = (
-            layout.store().get_as::<AxesState>(self.axes),
-            self.resolve(layout, self.helper.tick_transform(self.axes)),
-        ) else {
+        let (Some(axes), Ok(transform)) = (axes, transform) else {
             return;
         };
         ctx.renderer().open_group(GROUP, self.base.gid.as_deref());
@@ -492,7 +492,7 @@ impl Artist for AxisArtistState {
             .zip([&self.major_ticks, &self.minor_ticks])
         {
             if let Some(marks) = &level.marks {
-                match self.mark_gc(axes, ticks) {
+                match self.mark_gc(&axes, ticks) {
                     Ok(gc) => ticks.draw(ctx, marks, &transform, &gc),
                     Err(problem) => ctx.report(id, problem),
                 }

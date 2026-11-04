@@ -65,6 +65,16 @@ pub trait TickUpdater: fmt::Debug {
     /// `axes.spines` holds them, in order: measuring a spine updates the
     /// ticks of the axis registered with it.
     fn spines(&self, axes: &Axes) -> Vec<SpineAxis>;
+
+    /// Whether axis `axis` of `axes`, whose class of the program's
+    /// answers its view interval itself, is inverted, as that class
+    /// answers (matplotlib's `Axis.get_inverted`, which `autoscale_view`
+    /// asks through `set_xbound`); `None`, the default, when the updater
+    /// cannot say, pltrs then answering itself.
+    fn inverted(&self, axes: &Axes, axis: AxisName) -> Option<bool> {
+        let _ = (axes, axis);
+        None
+    }
 }
 
 /// A spine of an axes as the tick updates see it (see
@@ -174,9 +184,11 @@ pub(crate) struct ProgramTicked {
 }
 
 impl AxisState {
-    /// Whether the axis' tick helpers or scale run code of the program's.
+    /// Whether the axis' tick helpers or scale run code of the program's,
+    /// or the program's class of the axis answers its view interval.
     pub(crate) fn calls_program(&self) -> bool {
-        self.major_locator.calls_program()
+        self.program_view
+            || self.major_locator.calls_program()
             || self.minor_locator.calls_program()
             || self.major_formatter.calls_program()
             || self.minor_formatter.calls_program()
@@ -213,6 +225,20 @@ fn axes_handle(cell: &Rc<crate::figure::FigureCell>, axes: ArtistId) -> Axes {
 }
 
 impl FigureState {
+    /// Whether axis `name` of `axes` is inverted as the program's class of
+    /// the axis answers it, when that class answers its view interval
+    /// itself (see [`TickUpdater::inverted`]), the figure lent meanwhile.
+    pub(crate) fn program_inverted(&mut self, axes: ArtistId, name: AxisName) -> Option<bool> {
+        let program = self
+            .store
+            .get_as::<AxesState>(axes)
+            .is_some_and(|state| state.axis(name).program_view);
+        let updater = self.tick_updater.as_ref().filter(|_| program)?;
+        let updater = Rc::clone(updater);
+        self.lend(|cell| updater.inverted(&axes_handle(cell, axes), name))
+            .flatten()
+    }
+
     /// The program's updater when it ticks axis `name` of `axes` (the
     /// axis' helpers or scale call the program) and can be lent the
     /// figure.

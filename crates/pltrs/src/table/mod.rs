@@ -214,7 +214,7 @@ impl TableOptions {
 }
 
 /// State of a table (matplotlib's `Table`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct TableArtist {
     base: ArtistBase,
     /// The axes the table is laid out in; `None` for the holder of a cell

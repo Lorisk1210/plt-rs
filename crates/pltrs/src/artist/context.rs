@@ -1,10 +1,12 @@
 //! Contexts handed to artists while measuring and drawing.
 
+use std::cell::{OnceCell, Ref};
+
 use pltrs_core::{Bbox, Point};
 use pltrs_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
-use super::{Artist, ArtistBase, ArtistId, ArtistLookup, ArtistStore, ClipPathSpec};
-use crate::figure::FigureState;
+use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
+use crate::figure::{FigureCell, FigureState};
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform, TransformContext};
@@ -269,8 +271,23 @@ struct Rasterization {
 
 /// Everything an artist needs while drawing: the renderer plus read-only
 /// access to the rest of the figure.
+///
+/// A draw runs the program's code (a path effect, a norm, a transform),
+/// which matplotlib lets read and change the figure while it is drawn,
+/// and the rest of the draw sees the change. So the context does not keep
+/// the figure borrowed throughout: it borrows it for reading when first
+/// asked about it ([`layout`](Self::layout)), and lets it go whenever it
+/// hands its renderer out ([`renderer`](Self::renderer)) or is told to
+/// ([`free`](Self::free)), which borrowing it mutably ensures nothing
+/// read from the figure is held meanwhile. The artist drawn is not
+/// borrowed from the figure either (see
+/// [`ArtistStore::shared`]): code the renderer runs, or code run after
+/// [`free`](Self::free), finds the figure free and may change it at once.
 pub struct DrawContext<'a> {
-    layout: LayoutContext<'a>,
+    /// The cell of the figure drawn.
+    figure: &'a FigureCell,
+    /// The figure's state, while the context holds it borrowed.
+    held: OnceCell<Ref<'a, FigureState>>,
     renderer: &'a mut dyn Renderer,
     errors: Vec<DrawError>,
     rasterization: Rasterization,
@@ -279,19 +296,32 @@ pub struct DrawContext<'a> {
 impl std::fmt::Debug for DrawContext<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DrawContext")
-            .field("layout", &self.layout)
+            .field("rasterization", &self.rasterization)
             .finish_non_exhaustive()
     }
 }
 
 impl<'a> DrawContext<'a> {
-    pub(crate) fn new(figure: &'a FigureState, renderer: &'a mut dyn Renderer) -> Self {
+    pub(crate) fn new(figure: &'a FigureCell, renderer: &'a mut dyn Renderer) -> Self {
         Self {
-            layout: LayoutContext::new(figure),
+            figure,
+            held: OnceCell::new(),
             renderer,
             errors: Vec::new(),
             rasterization: Rasterization::default(),
         }
+    }
+
+    /// Whether this context draws the figure of `cell`.
+    pub(crate) fn draws(&self, cell: &FigureCell) -> bool {
+        std::ptr::eq(self.figure, cell)
+    }
+
+    /// Lets the figure go: drops the borrow of its state the context
+    /// holds, so that the code run next (the program's) finds the figure
+    /// free; the context borrows it again when next asked about it.
+    pub fn free(&mut self) {
+        self.held.take();
     }
 
     /// Records a problem; drawing continues with the remaining artists.
@@ -319,9 +349,10 @@ impl<'a> DrawContext<'a> {
         self.errors
     }
 
-    /// Read-only geometry access.
-    pub fn layout(&self) -> &LayoutContext<'a> {
-        &self.layout
+    /// Read-only geometry access, borrowing the figure until the context
+    /// next lets it go.
+    pub fn layout(&self) -> LayoutContext<'_> {
+        LayoutContext::new(self.held.get_or_init(|| self.figure.borrow()))
     }
 
     /// How many rasterized artists are being drawn, one inside the other
@@ -330,19 +361,21 @@ impl<'a> DrawContext<'a> {
         self.rasterization.depth
     }
 
-    /// The output backend.
+    /// The output backend; the figure is free while it is used (see
+    /// [`free`](Self::free)).
     pub fn renderer(&mut self) -> &mut dyn Renderer {
+        self.free();
         self.renderer
     }
 
     /// Resolves a transform; `None` if it refers to removed artists.
     pub fn resolve(&self, transform: &Transform) -> Option<ResolvedTransform> {
-        self.layout.resolve(transform)
+        self.layout().resolve(transform)
     }
 
     /// Converts points to pixels at the canvas resolution.
     pub fn points_to_pixels(&self, points: f64) -> f64 {
-        self.layout.points_to_pixels(points)
+        self.layout().points_to_pixels(points)
     }
 
     /// Runs `f` with every drawing call going through the renderer that
@@ -353,9 +386,11 @@ impl<'a> DrawContext<'a> {
         wrap: impl for<'r> FnOnce(&'r mut dyn Renderer) -> Box<dyn Renderer + 'r>,
         f: impl FnOnce(&mut DrawContext<'_>) -> R,
     ) -> R {
+        self.free();
         let mut wrapped = wrap(&mut *self.renderer);
         let mut inner = DrawContext {
-            layout: self.layout,
+            figure: self.figure,
+            held: OnceCell::new(),
             renderer: &mut *wrapped,
             errors: Vec::new(),
             rasterization: self.rasterization,
@@ -391,11 +426,11 @@ impl<'a> DrawContext<'a> {
         if rasterized {
             self.rasterization.depth -= 1;
         }
-        if self.rasterization.active && self.layout.suppress_composite() == Some(true) {
+        if self.rasterization.active && self.layout().suppress_composite() == Some(true) {
             // The figure's `suppressComposite` keeps what each artist
             // rasterized in an image of its own.
-            self.renderer.stop_rasterizing();
-            self.renderer.start_rasterizing();
+            self.renderer().stop_rasterizing();
+            self.renderer().start_rasterizing();
         }
         result
     }
@@ -404,12 +439,11 @@ impl<'a> DrawContext<'a> {
     /// and draws the figure at the canvas's resolution meanwhile
     /// (matplotlib's `MixedModeRenderer.start_rasterizing`).
     fn start_rasterizing(&mut self) {
-        self.renderer.start_rasterizing();
+        self.renderer().start_rasterizing();
         self.rasterization.active = true;
         if let Some(dpi) = self.renderer.raster_dpi() {
-            let figure = self.layout.figure;
-            self.rasterization.figure_dpi = Some(figure.dpi());
-            figure.set_dpi(dpi);
+            self.rasterization.figure_dpi = Some(self.layout().dpi());
+            self.layout().figure_state().set_dpi(dpi);
         }
     }
 
@@ -420,10 +454,10 @@ impl<'a> DrawContext<'a> {
         if !self.rasterization.active {
             return;
         }
-        self.renderer.stop_rasterizing();
+        self.renderer().stop_rasterizing();
         self.rasterization.active = false;
         if let Some(dpi) = self.rasterization.figure_dpi.take() {
-            self.layout.figure.set_dpi(dpi);
+            self.layout().figure_state().set_dpi(dpi);
         }
     }
 
@@ -433,22 +467,20 @@ impl<'a> DrawContext<'a> {
     /// figure is drawn at the canvas's resolution meanwhile, but whether
     /// artists count as rasterizing stays as it is.
     pub(crate) fn start_program_rasterizing(&mut self) {
-        self.renderer.start_rasterizing();
+        self.renderer().start_rasterizing();
         if let Some(dpi) = self.renderer.raster_dpi() {
-            let figure = self.layout.figure;
-            self.rasterization
-                .program_figure_dpi
-                .get_or_insert(figure.dpi());
-            figure.set_dpi(dpi);
+            let before = self.layout().dpi();
+            self.rasterization.program_figure_dpi.get_or_insert(before);
+            self.layout().figure_state().set_dpi(dpi);
         }
     }
 
     /// Ends the rasterizing the program asked for (matplotlib's
     /// `renderer.stop_rasterizing()` called by an artist's `draw`).
     pub(crate) fn stop_program_rasterizing(&mut self) {
-        self.renderer.stop_rasterizing();
+        self.renderer().stop_rasterizing();
         if let Some(dpi) = self.rasterization.program_figure_dpi.take() {
-            self.layout.figure.set_dpi(dpi);
+            self.layout().figure_state().set_dpi(dpi);
         }
     }
 
@@ -456,12 +488,12 @@ impl<'a> DrawContext<'a> {
     /// one (see [`ArtistPainter`](super::ArtistPainter)), else as
     /// [`draw_unpainted`](Self::draw_unpainted) draws it.
     pub fn draw_child(&mut self, id: ArtistId) {
-        let Some(artist) = self.layout.store().get(id) else {
+        let Some(artist) = self.layout().store().shared(id) else {
             return;
         };
         match &artist.base().painter {
-            Some(painter) => self.draw_painted(id, artist, painter),
-            None => self.draw_own(artist, Some(id)),
+            Some(painter) => self.draw_painted(id, &*artist, painter),
+            None => self.draw_own(&*artist, Some(id)),
         }
     }
 
@@ -471,9 +503,9 @@ impl<'a> DrawContext<'a> {
     /// image filter if it has one. An invisible artist draws nothing but
     /// still ends rasterizing like any artist that is not rasterized.
     pub fn draw_unpainted(&mut self, id: ArtistId) {
-        let figure = self.layout.figure;
-        if let Some(artist) = figure.artist(id) {
-            self.draw_own(artist, Some(id));
+        let artist = self.layout().figure_state().shared_artist(id);
+        if let Some(artist) = artist {
+            self.draw_own(&*artist, Some(id));
         }
     }
 
@@ -494,8 +526,9 @@ impl<'a> DrawContext<'a> {
                 None => artist.draw(ctx),
             }
             if let Some(id) = id {
-                let fresh = artist.freshened_by_draw(&ctx.layout);
-                ctx.layout.figure.mark_drawn(id, fresh);
+                let layout = ctx.layout();
+                let fresh = artist.freshened_by_draw(&layout);
+                layout.figure_state().mark_drawn(id, fresh);
             }
         });
     }
@@ -503,7 +536,8 @@ impl<'a> DrawContext<'a> {
     /// `children` in z-order (stable for equal z-orders), removed ones
     /// left out.
     pub fn sorted_children(&self, children: &[ArtistId]) -> Vec<ArtistId> {
-        let store = self.layout.store();
+        let layout = self.layout();
+        let store = layout.store();
         let mut ordered: Vec<(f64, ArtistId)> = children
             .iter()
             .filter_map(|&id| Some((store.get(id)?.base().zorder, id)))
@@ -544,13 +578,13 @@ impl<'a> DrawContext<'a> {
             ..GraphicsContext::default()
         };
         if base.clip_on {
-            gc.clip_rect = self.layout.clip_rect(base);
+            gc.clip_rect = self.layout().clip_rect(base);
             gc.clip_path = match &base.clip_path {
                 Some(ClipPathSpec::BoundingBox { .. }) => None,
                 Some(spec) => self.clip_path(spec),
                 None => base
                     .clip_box
-                    .and_then(|owner| self.layout.clip_outline(owner)),
+                    .and_then(|owner| self.layout().clip_outline(owner)),
             };
         }
         gc
@@ -568,7 +602,10 @@ impl<'a> DrawContext<'a> {
                     transform,
                 })
             }
-            ClipPathSpec::Artist(id) => self.layout.store().get(*id)?.outline(&self.layout),
+            ClipPathSpec::Artist(id) => {
+                let layout = self.layout();
+                layout.store().get(*id)?.outline(&layout)
+            }
             ClipPathSpec::BoundingBox { .. } => None,
         }
     }

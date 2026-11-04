@@ -305,7 +305,7 @@ impl Axes {
     /// use pltrs::projections::{Projection, ProjectionView};
     /// use pltrs::transforms::ResolvedTransform;
     ///
-    /// #[derive(Debug)]
+    /// #[derive(Clone, Debug)]
     /// struct Plain;
     ///
     /// impl Projection for Plain {

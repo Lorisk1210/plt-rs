@@ -6,13 +6,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use pltrs_core::{Affine2D, Bbox};
-use pltrs_render::{ClipPath, Renderer};
+use pltrs_render::ClipPath;
 
 use super::frame::FigureFrame;
 use super::{CanvasState, FreshArtists};
-use crate::artist::{
-    Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawContext, DrawError,
-};
+use crate::artist::{Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawError};
 use crate::axes::{AxesState, LimitCallbacks, PatchOutline, ShareGroups, TickUpdater};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
@@ -467,19 +465,16 @@ impl FigureState {
             .collect()
     }
 
-    /// Renders the whole figure, returning the problems encountered.
-    pub(crate) fn draw(&self, renderer: &mut dyn Renderer) -> Vec<DrawError> {
-        let mut ctx = DrawContext::new(self, renderer);
-        ctx.draw_child(self.root);
-        ctx.finish_rasterizing();
+    /// The problems a draw reports besides those met drawing: those of
+    /// the layout, and subplot parameters leaving no room, which matplotlib
+    /// refuses when the figure is made and pltrs reports whenever the
+    /// figure draws.
+    pub(crate) fn draw_problems(&self) -> Vec<DrawError> {
         let mut errors = self.pending_errors.clone();
-        // matplotlib refuses to make a figure whose subplot parameters
-        // leave no room; pltrs reports them whenever the figure draws.
         let params = self.subplot_params_of(self.root);
         if let Some(Err(err)) = params.map(|p| p.updated(SubplotOverrides::default())) {
             errors.push(DrawError::new(self.root, err.to_string()));
         }
-        errors.extend(ctx.into_errors());
         errors
     }
 

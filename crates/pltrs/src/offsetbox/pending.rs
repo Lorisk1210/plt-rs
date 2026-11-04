@@ -8,7 +8,7 @@ use std::rc::Rc;
 use pltrs_core::Point;
 
 use super::{OffsetBox, OffsetImage, PaddedBox, TextArea};
-use crate::artist::{Artist, ArtistId, ArtistStore, AttachError, RawHandle};
+use crate::artist::{Artist, ArtistId, ArtistStore, AttachError, KeptArtist, RawHandle};
 use crate::axes::PlotError;
 use crate::figure::FigureState;
 use crate::image::{BboxImageArtist, BboxImageOptions, ImageData, ImageError};
@@ -23,7 +23,7 @@ use crate::text::{TextArtist, TextProps};
 /// area, the image of an offset image or the frame of a padded box.
 #[derive(Debug)]
 pub struct BoxItem {
-    pub(crate) artist: Box<dyn Artist>,
+    pub(crate) artist: KeptArtist,
 }
 
 impl BoxItem {
@@ -32,7 +32,7 @@ impl BoxItem {
         let mut patch = PatchArtist::new(shape, crate::rc::params());
         props.apply(&mut patch);
         Self {
-            artist: Box::new(patch),
+            artist: KeptArtist::new(patch),
         }
     }
 
@@ -52,7 +52,7 @@ impl BoxItem {
         let mut line = LineArtist::new(x, y, crate::rc::params());
         props.apply(&mut line);
         Ok(Self {
-            artist: Box::new(line),
+            artist: KeptArtist::new(line),
         })
     }
 
@@ -93,10 +93,10 @@ impl BoxItem {
     /// by the box) and returns its id.
     pub(crate) fn insert(self, store: &mut ArtistStore) -> ArtistId {
         let mut artist = self.artist;
-        let base = artist.base_mut();
+        let base = artist.get_mut().base_mut();
         base.clip_box = None;
         base.clip_path = None;
-        store.insert(artist)
+        store.insert_kept(artist)
     }
 }
 
@@ -108,7 +108,7 @@ impl TextArea<BoxItem> {
         props.apply(&mut artist);
         Self::new(
             BoxItem {
-                artist: Box::new(artist),
+                artist: KeptArtist::new(artist),
             },
             false,
         )
@@ -130,7 +130,7 @@ impl OffsetImage<BoxItem> {
         let image = BboxImageArtist::new(data, options, &crate::rc::params())?;
         Ok(Self {
             image: BoxItem {
-                artist: Box::new(image),
+                artist: KeptArtist::new(image),
             },
             zoom,
             dpi_cor: true,
@@ -226,7 +226,7 @@ impl<'a> Parts<'a> {
 pub(crate) fn adopt_box(
     state: &mut FigureState,
     parent: ArtistId,
-    owner: Box<dyn Artist>,
+    owner: impl Into<KeptArtist>,
     parts: &[ArtistId],
 ) -> ArtistId {
     let id = state.adopt(parent, owner);
@@ -258,7 +258,7 @@ pub(crate) fn frame_patch(boxstyle: BoxStyle, visible: bool, props: PatchProps) 
     base.snap = Some(true);
     base.visible = visible;
     BoxItem {
-        artist: Box::new(frame),
+        artist: KeptArtist::new(frame),
     }
 }
 
@@ -280,13 +280,13 @@ mod tests {
     fn frame_colours_replace_both_defaults() {
         let square = BoxStyle::new(BoxShape::Square);
         let frame = frame_patch(square.clone(), false, PatchProps::default().color("r"));
-        let style = frame.artist.as_patch().expect("a patch").style;
+        let style = frame.artist.get().as_patch().expect("a patch").style;
         assert_eq!(style.facecolor, Some(Color::from("r")));
         assert_eq!(style.edgecolor, Some(Color::from("r")));
-        let base = frame.artist.base();
+        let base = frame.artist.get().base();
         assert_eq!((base.snap, base.visible), (Some(true), false));
         let plain = frame_patch(square, true, PatchProps::default());
-        let style = plain.artist.as_patch().expect("a patch").style;
+        let style = plain.artist.get().as_patch().expect("a patch").style;
         assert_eq!(style.facecolor, Some(Color::from("w")));
     }
 }

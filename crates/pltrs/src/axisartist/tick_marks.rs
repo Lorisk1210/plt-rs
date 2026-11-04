@@ -100,7 +100,7 @@ impl TickMarksArtist {
 }
 
 /// Tick marks of an axes (matplotlib's `Ticks`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct TickMarksState {
     base: ArtistBase,
     axes: ArtistId,
@@ -144,7 +144,7 @@ impl Artist for TickMarksState {
     /// `Ticks.draw`, which compares the data locations of linear axes
     /// with the view limits and sets no clip).
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let (Some(axes), Some(transform)) = (
             layout.store().get_as::<AxesState>(self.axes),
             layout.resolve(&Transform::Data(self.axes)),

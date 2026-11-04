@@ -19,7 +19,7 @@ use crate::figure::Figure;
 
 /// State of a box placed at a display point: its child tree is made of
 /// artists of the figure owned by the box; the layout pass places them.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct PlacedBoxArtist {
     base: ArtistBase,
     /// The tree (matplotlib's box itself, with its children).

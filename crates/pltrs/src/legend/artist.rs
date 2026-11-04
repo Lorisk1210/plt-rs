@@ -92,7 +92,7 @@ impl ArtistRef for HandleRef {
 
 /// State of a legend (matplotlib's `Legend`). Its parts are artists of
 /// the figure owned by the legend; the layout pass places them.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct LegendArtist {
     pub(crate) base: ArtistBase,
     pub(crate) parent: LegendParent,

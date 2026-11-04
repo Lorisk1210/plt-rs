@@ -494,8 +494,8 @@ pub trait ArtistHandle {
     fn window_extent(&self) -> Option<Bbox> {
         let figure = self.raw().figure_state();
         // A figure being drawn, which code run meanwhile measures, is laid
-        // out already (and borrowed).
-        if figure.try_borrow_mut().is_some() {
+        // out already.
+        if !figure.is_painted() && figure.try_borrow_mut().is_some() {
             figure.work_on(FigureState::prepare);
         }
         let state = figure.borrow();

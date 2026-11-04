@@ -58,7 +58,7 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
             ctx.report_kind(axes.base_id(), err.draw_kind(), err);
         }
     }
-    let Some(painter) = Painter::new(axes, *ctx.layout(), extent) else {
+    let Some(painter) = Painter::new(axes, ctx.layout(), extent) else {
         return;
     };
     let gid = |dir: Axis3| axes.axis(dir).gids.get(AxisGroup::Axis);

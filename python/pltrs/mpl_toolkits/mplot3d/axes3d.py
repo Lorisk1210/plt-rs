@@ -988,6 +988,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         _api.check_isinstance(Axes3D, other=other)
         _mplot3d.share(self._native, 'z', other._native)
+        self.zaxis._take_shared_tickers()
 
     def shareview(self, other):
         """

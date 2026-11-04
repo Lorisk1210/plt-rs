@@ -19,7 +19,7 @@ use crate::colors::{ColorizerOptions, ScalarMappable};
 use crate::numeric::{Grid, linspace};
 
 /// State of an image whose cells have individual widths and heights.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct PcolorImageArtist {
     base: ArtistBase,
     data: ImageData,

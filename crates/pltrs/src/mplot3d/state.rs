@@ -48,7 +48,7 @@ pub(crate) enum BoxFit {
 
 pltrs_core::archive_enum!(BoxFit { Placed, Squared });
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Axes3DState {
     base: ArtistBase,
     /// Placement as a fraction of the owning frame, before the box is

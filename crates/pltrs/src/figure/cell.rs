@@ -30,6 +30,9 @@ pub(crate) struct FigureCell {
     state: RefCell<FigureState>,
     /// Where the state is: in the cell, or worked on outside it.
     lending: Cell<Lending>,
+    /// How many paintings of the figure are under way (see
+    /// [`is_painted`](Self::is_painted)).
+    paintings: Cell<u32>,
     /// The figure, while it is watched.
     watched: RefCell<Option<WeakFigure>>,
     /// Whether the figure is among the changed figures not yet taken.
@@ -42,6 +45,7 @@ impl FigureCell {
         Self {
             state: RefCell::new(state),
             lending: Cell::new(Lending::Home),
+            paintings: Cell::new(0),
             watched: RefCell::new(None),
             queued: Cell::new(false),
         }
@@ -89,6 +93,20 @@ impl FigureCell {
     /// (lent to the program's code meanwhile or not).
     pub(crate) fn in_use(&self) -> bool {
         self.lending.get() != Lending::Home || self.state.try_borrow_mut().is_err()
+    }
+
+    /// Whether the figure's artists are being drawn (see
+    /// [`paint`](Self::paint)): its layout is done, and code the drawing
+    /// runs that measures it measures that layout.
+    pub(crate) fn is_painted(&self) -> bool {
+        self.paintings.get() > 0
+    }
+
+    /// Counts a painting starting (`true`) or ending.
+    pub(super) fn count_painting(&self, starts: bool) {
+        let count = self.paintings.get();
+        self.paintings
+            .set(if starts { count + 1 } else { count - 1 });
     }
 
     /// Where the state is.

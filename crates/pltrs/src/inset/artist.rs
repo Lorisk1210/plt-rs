@@ -87,27 +87,38 @@ impl IndicatorArtist {
     /// their own, then the rectangle with the others as one path in the
     /// rectangle's style.
     fn draw_parts(&self, ctx: &mut DrawContext<'_>) -> Result<(), String> {
-        let layout = *ctx.layout();
+        let layout = ctx.layout();
         let Some(rectangle) = layout
             .store()
-            .get_as::<PatchArtist<Rectangle>>(self.rectangle)
+            .shared_as::<PatchArtist<Rectangle>>(self.rectangle)
         else {
             return Ok(());
         };
-        let outline = Self::outline(layout, rectangle)
+        let outline = Self::outline(layout, &rectangle)
             .ok_or("the rectangle's coordinate system no longer exists")?;
         let mut outlines = vec![outline];
         let dpi_cor = layout.points_to_pixels(1.0);
+        // The connectors drawn on their own, in order, until one whose
+        // outline cannot be found.
+        let mut apart = Vec::new();
+        let mut found = Ok(());
         for (id, connector) in self.shown_connectors(layout) {
-            if connector.shares_edge_style(rectangle) {
-                let pieces = connector
-                    .display_paths_at(layout, dpi_cor)
-                    .map_err(|err| err.to_string())?;
-                outlines.extend(pieces.iter().map(DisplayPath::to_display));
+            if connector.shares_edge_style(&rectangle) {
+                match connector.display_paths_at(layout, dpi_cor) {
+                    Ok(pieces) => outlines.extend(pieces.iter().map(DisplayPath::to_display)),
+                    Err(err) => {
+                        found = Err(err.to_string());
+                        break;
+                    }
+                }
             } else {
-                ctx.draw_child(id);
+                apart.push(id);
             }
         }
+        for id in apart {
+            ctx.draw_child(id);
+        }
+        found?;
         if !rectangle.base().visible {
             return Ok(());
         }

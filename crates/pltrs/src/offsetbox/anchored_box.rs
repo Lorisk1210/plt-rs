@@ -10,8 +10,8 @@ use super::owners::BoxOwner;
 use super::pending::{Parts, adopt_box, frame_patch};
 use super::{AnchorLoc, BboxToAnchor, BoxItem, OffsetBox, OffsetBoxError, TextArea, TreeLayout};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext,
-    RawHandle, TypedHandle, downcast_ref,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, KeptArtist,
+    LayoutContext, RawHandle, TypedHandle, downcast_ref,
 };
 use crate::axes::Axes;
 use crate::events::Dragger;
@@ -164,7 +164,7 @@ impl AnchoredBox {
     ///
     /// [`OffsetBoxError::NotAFrame`] when `frame` is not a fancy box patch.
     pub fn with_frame(self, frame: BoxItem) -> Result<Self, OffsetBoxError> {
-        if downcast_ref::<PatchArtist<FancyBboxPatch>>(&*frame.artist).is_none() {
+        if downcast_ref::<PatchArtist<FancyBboxPatch>>(frame.artist.get()).is_none() {
             return Err(OffsetBoxError::NotAFrame);
         }
         Ok(Self {
@@ -214,7 +214,7 @@ pltrs_core::archive_enum!(PadFont {
 
 /// State of an anchored box: its frame and child tree are artists of the
 /// figure owned by the box; the layout pass places them.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct AnchoredBoxArtist {
     base: ArtistBase,
     /// The child tree (matplotlib's `get_child()`).
@@ -539,7 +539,7 @@ fn add_anchored(owner: &RawHandle, spec: AnchoredBox) -> AnchoredOffsetbox {
         pinned: None,
         dragger: None,
     };
-    let id = adopt_box(&mut state, owner.id(), Box::new(artist), &parts);
+    let id = adopt_box(&mut state, owner.id(), KeptArtist::new(artist), &parts);
     drop(state);
     AnchoredOffsetbox {
         raw: RawHandle::new(Rc::clone(figure), id),

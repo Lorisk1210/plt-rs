@@ -130,7 +130,7 @@ impl Default for SpinePosition {
 }
 
 /// State of one spine.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct SpineArtist {
     base: ArtistBase,
     pub(crate) side: SpineSide,
@@ -261,7 +261,7 @@ impl Artist for SpineArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some((path, affine)) = self.display_path(*ctx.layout()) else {
+        let Some((path, affine)) = self.display_path(ctx.layout()) else {
             return;
         };
         let paths = [(path, affine)];

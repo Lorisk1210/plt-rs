@@ -68,7 +68,7 @@ impl ProjectionKind {
 }
 
 /// The projection of an axes with its settings.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) enum ProjectionState {
     /// Cartesian x and y.
     #[default]

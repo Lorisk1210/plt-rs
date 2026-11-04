@@ -216,7 +216,7 @@ impl AxisTextsArtist {
 }
 
 /// Texts of an axes placed away from their points.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct AxisTextsState {
     base: ArtistBase,
     axes: ArtistId,
@@ -280,7 +280,7 @@ impl Artist for AxisTextsState {
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let id = self.base.id();
-        let placed = match self.placed(*ctx.layout()) {
+        let placed = match self.placed(ctx.layout()) {
             Ok(placed) => placed,
             Err(problem) => return ctx.report(id, problem),
         };

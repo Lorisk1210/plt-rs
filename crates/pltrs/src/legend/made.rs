@@ -12,7 +12,7 @@ use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 use super::LegendHandle;
 use super::handle::Source;
 use super::handlers::{Attach, HandlerArtist};
-use crate::artist::{Artist, AttachError, RawHandle, downcast_ref};
+use crate::artist::{AttachError, KeptArtist, RawHandle, downcast_ref};
 use crate::collections::CollectionArtist;
 
 /// The artists of a made entry, until the legend showing the entry takes
@@ -90,7 +90,7 @@ impl LegendHandle {
             .into_iter()
             .map(|(raw, attach)| {
                 let artist = take_waiting(&raw)?;
-                let mapped = downcast_ref::<CollectionArtist>(artist.as_ref())
+                let mapped = downcast_ref::<CollectionArtist>(artist.get())
                     .is_some_and(|collection| collection.mapping.is_some());
                 Ok(HandlerArtist {
                     artist,
@@ -108,7 +108,7 @@ impl LegendHandle {
 /// Takes the artist behind `raw` out of where it waits: its loose holder,
 /// or the figure it was taken into or removed from; it must own no other
 /// artist.
-fn take_waiting(raw: &RawHandle) -> Result<Box<dyn Artist>, AttachError> {
+fn take_waiting(raw: &RawHandle) -> Result<KeptArtist, AttachError> {
     let mut state = raw.figure_state().borrow_mut();
     if !state.is_removed(raw.id()) {
         return Err(if state.detached.contains(raw.id()) {

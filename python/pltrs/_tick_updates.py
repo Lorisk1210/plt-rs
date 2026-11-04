@@ -85,6 +85,13 @@ class _Updater:
         with _ticking(axis, info):
             return _update_ticks(axis, info, major, minor)
 
+    def inverted(self, axes, name):
+        """Whether the axis is inverted, as its class answers (an axis of
+        the program's class answering ``get_view_interval`` itself, which
+        matplotlib's ``autoscale_view`` asks through ``set_xbound``)."""
+        axis = self._axis(axes, name)
+        return None if axis is None else bool(axis.get_inverted())
+
     def offset(self, axes, name, info):
         """The offset text of the axis' major formatter."""
         axis = self._axis(axes, name)

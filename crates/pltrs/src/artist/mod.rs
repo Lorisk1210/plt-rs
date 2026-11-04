@@ -31,6 +31,7 @@ mod detached;
 mod drawing;
 mod filter;
 mod handle;
+mod kept;
 mod loose;
 mod painter;
 mod pick;
@@ -66,6 +67,8 @@ pub use drawing::{DrawStep, Drawing};
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
 pub use handle::{ArtistHandle, TypedHandle};
+pub use kept::ArtistClone;
+pub(crate) use kept::KeptArtist;
 pub(crate) use loose::take_in;
 pub(crate) use painter::tight_extent_of;
 pub use painter::{ArtistPainter, DrawTarget, MeasuredExtent, Painter};
@@ -127,14 +130,19 @@ impl LimitPoints {
 /// Behaviour shared by every drawable object.
 ///
 /// An artist's methods run while its figure is laid out, drawn or
-/// hit-tested, with the figure borrowed: they get what they need as
-/// arguments ([`DrawContext`], [`LayoutContext`]). An artist of your own
-/// that keeps handles to its figure may read them from
-/// [`draw`](Self::draw), but changing the figure from any of these
-/// methods, or reading it while the figure is laid out, conflicts with
-/// that borrow and panics. Change other artists from event callbacks,
-/// timers or animation functions instead, which run between draws.
-pub trait Artist: Any + Debug {
+/// hit-tested, and get what they need as arguments ([`DrawContext`],
+/// [`LayoutContext`]); while they hold what those give them, the figure
+/// is borrowed. An artist of your own that keeps handles to its figure
+/// may read them then, but changing the figure meanwhile, or reading it
+/// while the figure is laid out, conflicts with that borrow and panics.
+/// A draw lets the figure go whenever it hands its renderer out or is
+/// told to ([`DrawContext::free`]): [`draw`](Self::draw) may then change
+/// the figure, the artist drawn included, and the rest of the draw sees
+/// the change. The artist drawn finishes as it was: a change to it is made
+/// to a copy, which the figure keeps ([`ArtistClone`], why artists are
+/// `Clone`). Event callbacks, timers and animation functions, which run
+/// between draws, may change the figure as they please.
+pub trait Artist: Any + Debug + ArtistClone {
     /// Properties common to all artists.
     fn base(&self) -> &ArtistBase;
 

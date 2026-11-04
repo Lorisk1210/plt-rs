@@ -5,9 +5,10 @@
 //! `Axis._update_ticks` with the program's objects: `update(axes, name,
 //! info, major, minor)` returns the locations, labels and drawn flags of
 //! each level computed (None for the others), `offset(axes, name, info)`
-//! the major formatter's offset text and `spines(axes)` the spines of an
+//! the major formatter's offset text, `spines(axes)` the spines of an
 //! axes of a projection pltrs (Rust) does not know, `(name, shown, axis
-//! name or None)`.
+//! name or None)`, and `inverted(axes, name)` whether an axis whose class
+//! answers its view interval itself is inverted.
 
 use pltrs::axes::{Axes, SpineAxis, TickLevels, TickUpdater, UpdatedLevel, UpdatedTicks};
 use pltrs::figure::Figure;
@@ -24,6 +25,7 @@ struct PyTickUpdater {
     update: Callback,
     offset: Callback,
     spines: Callback,
+    inverted: Callback,
 }
 
 impl TickUpdater for PyTickUpdater {
@@ -80,9 +82,19 @@ impl TickUpdater for PyTickUpdater {
             })
             .collect()
     }
+
+    /// The Python updater's `inverted(axes, name)`: the axis'
+    /// `get_inverted()`, None once it is gone (or when it raised: its
+    /// exception surfaces from the native call laying out).
+    fn inverted(&self, axes: &Axes, axis: AxisName) -> Option<bool> {
+        self.inverted
+            .call::<Option<bool>>((axes.clone(), axis.name()))
+            .flatten()
+    }
 }
 
-/// Has the methods `update`, `offset` and `spines` of `updater` tick the
+/// Has the methods `update`, `offset`, `spines` and `inverted` of
+/// `updater` tick the
 /// axes of `figure` whose helpers or scale are Python's (None removes it).
 fn set_tick_updater(figure: Figure, updater: Option<Owned>) -> PyResult<()> {
     let updater = updater
@@ -93,6 +105,7 @@ fn set_tick_updater(figure: Figure, updater: Option<Owned>) -> PyResult<()> {
                     update: updater.getattr("update")?.extract()?,
                     offset: updater.getattr("offset")?.extract()?,
                     spines: updater.getattr("spines")?.extract()?,
+                    inverted: updater.getattr("inverted")?.extract()?,
                 })
             })
         })

@@ -178,6 +178,16 @@ impl ColorbarState {
             }
             None
         };
+        if reset {
+            // matplotlib's `_draw_all` processes the values again after
+            // `_reset_locator_formatter_scale`, the program's norm seeing it.
+            self.blocks = self.settings.blocks(
+                self.contours.as_ref(),
+                self.extend,
+                long.inverted(),
+                &mut self.mapping,
+            )?;
+        }
         self.edges = self.blocks.edges(self.mapping.norm_mut())?;
         self.redraw(ax, tickers.as_ref())
     }
@@ -201,7 +211,7 @@ impl ColorbarState {
 
 /// The state of a colorbar in its axes. The colour blocks, outline and
 /// lines are artists of the axes; this one draws nothing.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ColorbarArtist {
     base: ArtistBase,
     pub(crate) state: ColorbarState,

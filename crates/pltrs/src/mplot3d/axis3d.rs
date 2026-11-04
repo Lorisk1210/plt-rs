@@ -232,7 +232,7 @@ impl Tickers3D {
 }
 
 /// State of one axis of a 3-D axes.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Axis3DState {
     pub(crate) dir: Axis3,
     pub(crate) scale: AxisScale,

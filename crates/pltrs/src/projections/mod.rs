@@ -137,7 +137,7 @@ mod view;
 pub(crate) use create::{OUTLINE_SPINE, Projector, install, reinstall};
 pub use error::ProjectionError;
 pub use navigate::{FrozenView, PanStart, ViewLimits, ZoomBox};
-pub use projection::{AxesOutline, Projection, TickLabelPlacement};
+pub use projection::{AxesOutline, Projection, ProjectionClone, TickLabelPlacement};
 pub(crate) use registry::registered_name;
 pub use registry::{projection_names, register, register_with};
 pub(crate) use spec::SharedOptions;

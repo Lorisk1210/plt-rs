@@ -18,7 +18,7 @@ use crate::transforms::unit_to_bbox;
 /// A rectangular region that owns axes and figure-level artists: the
 /// figure itself, or a subfigure nested inside it (matplotlib's
 /// `FigureBase`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct FigureFrame {
     base: ArtistBase,
     /// The background colour, the colour and width of the border, and the

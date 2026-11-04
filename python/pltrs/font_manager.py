@@ -1382,14 +1382,9 @@ class FontManager:
         """
         Find the paths to the font files most closely matching the given
         properties: the best file of each family of *prop* that has one, in
-        family order. pltrs (Rust) finds the TrueType fonts of all
-        directories; the others are found family by family with
-        `findfont`, as matplotlib finds them all.
+        family order, found family by family with `findfont` and logging
+        about the families not found, as matplotlib's does.
         """
-        if fontext == 'ttf' and directory is None:
-            return [FontPath(_data_font_path(fname), 0)
-                    for fname in _font_manager.find_fonts(
-                        self._props(prop), fallback_to_default)]
         prop = FontProperties._from_any(prop)
         fpaths = []
         for family in prop.get_family():

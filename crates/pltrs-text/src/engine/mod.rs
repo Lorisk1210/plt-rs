@@ -312,7 +312,8 @@ impl TextEngine {
 
     /// Minimum line ascent, descent and line gap for text in `query`, from
     /// the primary font's `OS/2` typo metrics (else `hhea`), as
-    /// matplotlib's `Text._get_layout` computes them.
+    /// matplotlib's `Text._get_layout` computes them: the primary font is
+    /// the first of the text's fallback chain (`_find_fonts_by_props`).
     pub fn font_height_metrics(
         &self,
         request: &FontRequest,
@@ -334,7 +335,7 @@ impl TextEngine {
         dpi: f64,
     ) -> Result<FontHeightMetrics, TextError> {
         let query = &request.query;
-        let face = self.db.face(request.font(&self.db)?)?;
+        let face = self.db.face(request.primary_font(&self.db)?)?;
         let scale = 1.0 / f64::from(face.units_per_em()) * query.size * dpi / 72.0;
         let (gap, ascent, descent) = face.os2().map_or_else(
             || {

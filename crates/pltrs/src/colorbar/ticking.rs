@@ -128,6 +128,33 @@ impl ScaleFunction for NormSpacing {
             _ => f64::NAN,
         }
     }
+
+    /// The norm (or its inverse) called once with all the values, as
+    /// matplotlib's colorbar scale calls it with arrays.
+    fn call_all(&self, values: &mut [f64]) {
+        let mapped: Option<Vec<f64>> = if self.inverse {
+            self.norm
+                .borrow()
+                .inverse(values)
+                .ok()
+                .map(|mapped| mapped.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
+        } else {
+            self.norm.borrow_mut().normalize(values).ok().map(|mapped| {
+                mapped
+                    .into_iter()
+                    .map(|v| match v {
+                        Normalized::Fraction(v) => v,
+                        Normalized::Index(i) => i as f64,
+                        Normalized::Masked => f64::NAN,
+                    })
+                    .collect()
+            })
+        };
+        match mapped {
+            Some(mapped) if mapped.len() == values.len() => values.copy_from_slice(&mapped),
+            _ => values.fill(f64::NAN),
+        }
+    }
 }
 
 /// The tick helpers a colorbar installs on its long axis; `None` keeps the

@@ -3,7 +3,7 @@
 //! `align_*` methods, `get_tightbbox` and the placement of the figure's
 //! title and labels), by `pltrs::layout` and `pltrs::figure`.
 
-use pltrs::axes::{Axes, TickLevel};
+use pltrs::axes::{Axes, AxisName, TickLevel};
 use pltrs::figure::Figure;
 use pltrs::gridspec::GridSpec;
 use pltrs::layout::{LayoutEngine, TightLayout, TightLayoutError};
@@ -136,6 +136,17 @@ fn axes_tightbbox(
     for_layout_only: bool,
     children: bool,
 ) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    // matplotlib's `get_tightbbox` applies the aspect, then places the
+    // ticks of each axis it measures; both may raise.
+    axes.apply_aspect()?;
+    if axes.axis_on() {
+        for name in [AxisName::X, AxisName::Y] {
+            let axis = axes.axis_of(name);
+            if axis.visible() && (axis.in_layout() || !for_layout_only) {
+                axes.ticks(name)?;
+            }
+        }
+    }
     let bbox = if children {
         axes.tight_bbox(for_layout_only)
     } else {

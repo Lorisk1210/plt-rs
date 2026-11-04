@@ -55,10 +55,8 @@ impl ExtremeFinderSimple {
 
 impl ExtremeFinder for ExtremeFinderSimple {
     fn find_transformed_bbox(&self, transform: &AuxTransform, bbox: Bbox) -> Bbox {
-        let points: Vec<Point> = sample_grid(bbox, self.nx, self.ny)
-            .into_iter()
-            .map(|p| transform.transform_point(p))
-            .collect();
+        let mut points = sample_grid(bbox, self.nx, self.ny);
+        transform.transform_points(&mut points);
         padded_extent(&points, self.nx, self.ny)
     }
 }

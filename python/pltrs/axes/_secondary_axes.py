@@ -8,25 +8,11 @@ limits and place in step with the parent's (``_native.insets``).
 import functools
 import numbers
 
-import numpy as np
-
 from .. import _api, _handles, scale as mscale, transforms
 from .._native import artist as _artist, insets as _insets
 from . import _program_locators
 from ._axes import Axes
 from ._insets import _TransformedBoundsLocator
-
-
-class _ScalarFunction:
-    """*function*, which takes arrays as matplotlib calls it, called on one
-    value as pltrs (Rust) calls it; it pickles as *function* does."""
-
-    def __init__(self, function):
-        self._function = function
-
-    def __call__(self, value):
-        with np.errstate(all="ignore"):
-            return float(np.asarray(self._function(np.float64(value))))
 
 
 class SecondaryAxis(Axes):
@@ -241,9 +227,9 @@ class SecondaryAxis(Axes):
         return super()._default_axis_scale(axis, name)
 
     def _native_functions(self):
-        """The functions as pltrs (Rust) calls them, value by value."""
-        forward, inverse = self._functions
-        return (_ScalarFunction(forward), _ScalarFunction(inverse))
+        """The functions, which pltrs (Rust) calls with arrays, as
+        matplotlib does."""
+        return self._functions
 
     def set_functions(self, functions):
         """

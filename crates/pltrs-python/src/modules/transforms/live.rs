@@ -22,7 +22,7 @@ use pltrs::transforms::{Point, PointMap, ResolvedTransform, Transform, Transform
 use pltrs_core::Path;
 
 use super::super::path::{PyPath, path_arrays};
-use super::{affine, matrix, points, points_array};
+use super::{affine, map_points, matrix, points, points_array};
 use crate::binding::prelude::*;
 use crate::binding::registered_error;
 
@@ -138,15 +138,28 @@ impl PointMap for PyPointMap {
         Self::apply(self.inverse.as_ref(), p)
     }
 
-    /// The path through the Python map's `transform_path`, else vertex by
-    /// vertex; NaN vertices when it fails (the exception is raised when the
-    /// native call running returns).
+    /// The points through the Python map's `transform`, called once with
+    /// all of them.
+    fn forward_all(&self, points: &mut [Point]) {
+        map_points(&self.forward, points);
+    }
+
+    /// The points through the `transform` of the Python map's inverse,
+    /// called once with all of them; NaN without an inverse.
+    fn inverse_all(&self, points: &mut [Point]) {
+        match &self.inverse {
+            Some(inverse) => map_points(inverse, points),
+            None => points.fill(Point::new(f64::NAN, f64::NAN)),
+        }
+    }
+
+    /// The path through the Python map's `transform_path`, else its
+    /// vertices through its `transform`; NaN vertices when it fails (the
+    /// exception is raised when the native call running returns).
     fn transform_path(&self, path: &Path) -> Path {
         let Some(path_map) = &self.path else {
             let mut mapped = path.clone();
-            for p in mapped.vertices_mut() {
-                *p = self.forward(*p);
-            }
+            self.forward_all(mapped.vertices_mut());
             return mapped;
         };
         // With its interpolation steps, which gridlines have many of so
@@ -369,12 +382,9 @@ class OneWay:
                 panic!("a custom map, not {:?}", one_way.0);
             };
             assert!(map.map().inverse(Point::new(1.0, 1.0)).x.is_nan());
-            let line = Path::polyline(vec![Point::new(1.0, 2.0), Point::new(3.0, 4.0)]);
-            assert_eq!(
-                map.map().transform_path(&line).vertices(),
-                [Point::new(2.0, 2.0), Point::new(6.0, 4.0)],
-                "point by point without transform_path"
-            );
+            let mut none = [Point::new(1.0, 1.0)];
+            map.map().inverse_all(&mut none);
+            assert!(none[0].x.is_nan(), "no inverse to call with the points");
         });
     }
 

@@ -99,6 +99,7 @@ impl Colorbar {
             edges,
             drawn: Drawn::default(),
         };
+        state.drawn.dividers = Some(state.painter(&ax).dividers());
         state.redraw(&ax, Some(&tickers))?;
         let raw = ax.adopt(ColorbarArtist::new(state), &DataUpdate::default());
         let colorbar = Self { ax, raw };
@@ -153,6 +154,8 @@ impl ColorbarState {
         };
         ax.set_view_limits(short.name(), 0.0, 1.0)?;
         ax.set_view_limits(long.name(), lower, upper)?;
+        // matplotlib's limit callbacks place the dividers for the new view.
+        self.update_dividers(ax);
         if let Some(tickers) = tickers {
             tickers.install(&long);
         }
@@ -250,29 +253,20 @@ impl ColorbarState {
     }
 
     /// matplotlib's `_update_dividers`: with `drawedges`, lines between
-    /// the colours inside the view and at the ends of the extensions,
-    /// placed from the view as it is when drawn.
-    fn update_dividers(&mut self, ax: &Axes) {
-        if !self.settings.drawedges {
+    /// the colours inside the current view and at the ends of the
+    /// extensions; without, none.
+    fn update_dividers(&self, ax: &Axes) {
+        let Some(dividers) = self.drawn.dividers else {
             return;
-        }
-        let placement = self.dividers(ax);
-        let painter = self.painter(ax);
-        match self.drawn.dividers {
-            Some(dividers) => painter.move_dividers(dividers, placement),
-            None => self.drawn.dividers = Some(painter.dividers(placement)),
-        }
-    }
-
-    /// Where the dividers of the colorbar drawn in `ax` go.
-    pub(super) fn dividers(&self, ax: &Axes) -> Dividers {
-        Dividers {
-            axes: ax.id(),
+        };
+        let placement = self.settings.drawedges.then(|| Dividers {
             orientation: self.orientation,
             edges: self.edges.clone(),
             lower: self.blocks.lower,
             upper: self.blocks.upper,
-        }
+        });
+        self.painter(ax)
+            .place_dividers(dividers, placement.as_ref());
     }
 
     /// matplotlib's `_do_extends` as the view limits change: once the
@@ -325,10 +319,7 @@ impl ColorbarState {
         if self.extend == Extend::Neither {
             return Ok(());
         }
-        let mut norm = self.mapping.norm().clone_box();
-        let (_, lengths) = self.blocks.proportional_y(norm.as_mut())?;
-        let lower = if self.blocks.lower { lengths[0] } else { 0.0 };
-        let upper = if self.blocks.upper { lengths[1] } else { 0.0 };
+        let (lower, upper) = self.extension_lengths()?;
         let total = lower + upper + 1.0;
         let (shrink, offset) = (1.0 / total, lower / total);
         let aspect = self.settings.aspect;
@@ -347,6 +338,17 @@ impl ColorbarState {
         ax.raw()
             .with_mut::<AxesState, _>(|axes| axes.aspect.locator = Some(locator));
         Ok(())
+    }
+
+    /// The lengths of the lower and upper extensions as fractions of the
+    /// interior, 0 for an end without one (matplotlib's `_proportional_y`
+    /// extension lengths, zeroed by `_extend_lower` and `_extend_upper`).
+    pub(super) fn extension_lengths(&self) -> Result<(f64, f64), ColorbarError> {
+        let mut norm = self.mapping.norm().clone_box();
+        let (_, lengths) = self.blocks.proportional_y(norm.as_mut())?;
+        let lower = if self.blocks.lower { lengths[0] } else { 0.0 };
+        let upper = if self.blocks.upper { lengths[1] } else { 0.0 };
+        Ok((lower, upper))
     }
 }
 

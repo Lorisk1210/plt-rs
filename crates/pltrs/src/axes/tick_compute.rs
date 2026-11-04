@@ -150,20 +150,15 @@ impl AxisState {
         self.role != AxisRole::Cartesian && locator.is::<LogitLocator>()
     }
 
-    /// Every minor tick location for the view `ctx` knows. The ticks of
-    /// a level are made together here, where matplotlib places the minor
-    /// ones only for what needs them: a logit locator of a polar axis
-    /// places them while it can, failing as matplotlib does when it
-    /// cannot.
+    /// Every minor tick location for the view `ctx` knows; a logit
+    /// locator of a polar axis refuses to place any, as matplotlib's
+    /// `LogitLocator.tick_values` does (so drawing or measuring the axis
+    /// fails while its minor ticks are shown).
     fn all_minor_locs(&self, ctx: &TickContext<'_>) -> Result<Vec<f64>, TickerError> {
-        let locs = self.minor_locator.locate(ctx).and_then(drawable_ticks);
-        locs.map_err(|err| {
-            if self.minor_refuses_polar() {
-                TickerError::PolarLogit
-            } else {
-                err
-            }
-        })
+        if self.minor_refuses_polar() {
+            return Err(TickerError::PolarLogit);
+        }
+        self.minor_locator.locate(ctx).and_then(drawable_ticks)
     }
 
     /// The minor tick locations among `all` that are shown: those not on

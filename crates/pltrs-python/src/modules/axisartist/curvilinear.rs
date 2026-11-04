@@ -14,15 +14,16 @@ use pltrs::axisartist::grid_finder::{
 use pltrs::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 use pltrs::axisartist::{AuxTransform, AxisArtist, AxisArtistAxes};
 use pltrs::spines::SpineSide;
-use pltrs::transforms::Bbox;
+use pltrs::transforms::{Bbox, Point};
 
-use super::super::transforms::affine;
+use super::super::transforms::{affine, map_xy};
 use super::artists::axis_named;
 use crate::binding::prelude::*;
 
 /// An aux transform as the Python side describes it: `("affine",
 /// matrix)`, `("polar",)`, `("then", first, second)`, or `("functions",
-/// forward, inverse)`, two callables mapping `(x, y)` to `(x, y)`.
+/// forward, inverse)`, two callables mapping the arrays `(xs, ys)` to a
+/// `(2, N)` array, called once for all the points pltrs (Rust) needs.
 struct PyAux(AuxTransform);
 
 impl FromPy<'_> for PyAux {
@@ -39,10 +40,9 @@ impl FromPy<'_> for PyAux {
             }
             "functions" => {
                 let (_, forward, inverse): (String, Callback, Callback) = object.extract()?;
-                let map = |function: Callback| {
-                    move |x: f64, y: f64| function.call((x, y)).unwrap_or((f64::NAN, f64::NAN))
-                };
-                AuxTransform::from_fns(map(forward), map(inverse))
+                let map =
+                    |function: Callback| move |points: &mut [Point]| map_xy(&function, points);
+                AuxTransform::from_array_fns(map(forward), map(inverse))
             }
             _ => return Err(PyErr::type_error(format!("unknown aux transform {tag:?}"))),
         }))

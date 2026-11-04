@@ -23,6 +23,7 @@ misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names plt
 # `pltrs::look`), which style.available lists with matplotlib's.
 style_sheets/style_sheets_reference$ | ^(value\[constant\]: list length|image: other figures open)$ | the example draws one figure per available style, two more with pltrs' own looks
 style_sheets/style_sheets_reference$ | ^(callback|calls)\[[^]]+\]: runs another number of times$ | the example's functions run once more per figure for each of pltrs' two looks (31 styles, not 29; the dark-background branch for pltrs-modern-dark too)
+style_sheets/style_sheets_reference$ | ^warning extra: WARNING: findfont: Failed to find font weight semibold for DejaVu Sans( Mono)?, now using N\.$ | pltrs' two looks set semibold titles (figure.titleweight, axes.titleweight), and the bundled DejaVu fonts have no semibold face, so the font manager logs the substitution as matplotlib's does for that weight
 (tutorials/lifecycle|users_explain/customizing)$ | ^stdout$ | the example prints style.available (its only other printed line, lifecycle's file types, is the same)
 
 # matplotlib's C++ extensions define their classes with pybind11, whose

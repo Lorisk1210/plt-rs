@@ -342,7 +342,9 @@ impl GridFinder {
         let lons = linspace(bbox.x0(), bbox.x1(), LINE_POINTS);
         let lats = linspace(bbox.y0(), bbox.y1(), LINE_POINTS);
         let line = |points: &mut dyn Iterator<Item = Point>| -> Vec<Point> {
-            points.map(|p| self.transform.transform_point(p)).collect()
+            let mut points: Vec<Point> = points.collect();
+            self.transform.transform_points(&mut points);
+            points
         };
         let lon_lines = lon_values
             .iter()

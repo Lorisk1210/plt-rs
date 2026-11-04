@@ -4,8 +4,8 @@
 
 use pltrs_core::Bbox;
 
-use super::Adjustable;
-use crate::artist::{Artist, ArtistId, DrawError};
+use super::{Adjustable, AspectError};
+use crate::artist::{Artist, ArtistId, DrawError, DrawErrorKind};
 use crate::axes::AxesState;
 use crate::figure::{FigureState, host_to_figure};
 use crate::ticker::AxisName;
@@ -27,10 +27,16 @@ impl AxesState {
         }
         let (x0, x1) = self.scaled_bound(AxisName::X);
         let (y0, y1) = self.scaled_bound(AxisName::Y);
-        let xsize = (x1 - x0).abs().max(1e-30);
-        let ysize = (y1 - y0).abs().max(1e-30);
+        let xsize = py_max((x1 - x0).abs(), 1e-30);
+        let ysize = py_max((y1 - y0).abs(), 1e-30);
         ysize / xsize
     }
+}
+
+/// Python's `max(value, floor)`, as matplotlib computes sizes: a NaN
+/// `value` stays NaN (Rust's `f64::max` would give `floor`).
+fn py_max(value: f64, floor: f64) -> f64 {
+    if floor > value { floor } else { value }
 }
 
 /// Where an axes is placed before its aspect is applied.
@@ -59,19 +65,36 @@ impl FigureState {
     pub(crate) fn lay_out_axes_at(&mut self, axes: ArtistId, placement: Placement) {
         self.run_pending_layout();
         self.unstale_axes(axes);
-        self.apply_aspect_at(axes, placement);
+        self.apply_aspect_reporting(axes, placement);
     }
 
     /// matplotlib's `apply_aspect`: sets the active position of `axes`
-    /// and, for [`Adjustable::Datalim`], widens one view interval.
+    /// and, for [`Adjustable::Datalim`], widens one view interval; a
+    /// problem is reported with the next draw.
     pub(crate) fn apply_aspect(&mut self, axes: ArtistId) {
-        self.apply_aspect_at(axes, Placement::Located);
+        self.apply_aspect_reporting(axes, Placement::Located);
+    }
+
+    /// [`apply_aspect_at`](Self::apply_aspect_at), its problem reported
+    /// with the next draw (matplotlib's draw raises it).
+    fn apply_aspect_reporting(&mut self, axes: ArtistId, placement: Placement) {
+        if let Err(err) = self.apply_aspect_at(axes, placement) {
+            self.pending_errors.push(DrawError {
+                artist: axes,
+                message: err.to_string(),
+                kind: DrawErrorKind::InvalidValue,
+            });
+        }
     }
 
     /// matplotlib's `apply_aspect` called on its own, between draws: no
     /// layout-engine pass, and pending autoscaling only when a fixed
     /// aspect reads the view limits (through `get_data_ratio`).
-    pub(crate) fn apply_aspect_now(&mut self, axes: ArtistId, placement: Placement) {
+    pub(crate) fn apply_aspect_now(
+        &mut self,
+        axes: ArtistId,
+        placement: Placement,
+    ) -> Result<(), AspectError> {
         let fixed = self
             .store
             .get_as::<AxesState>(axes)
@@ -79,14 +102,16 @@ impl FigureState {
         if fixed {
             self.unstale_axes(axes);
         }
-        self.apply_aspect_at(axes, placement);
+        self.apply_aspect_at(axes, placement)
     }
 
     /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
-    /// `placement`.
-    fn apply_aspect_at(&mut self, axes: ArtistId, placement: Placement) {
+    /// `placement`. The active position is set before the data limits are
+    /// adjusted, which fails when they would not be finite (as
+    /// matplotlib's `set_xbound` refuses them there).
+    fn apply_aspect_at(&mut self, axes: ArtistId, placement: Placement) -> Result<(), AspectError> {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
-            return;
+            return Ok(());
         };
         let original = state.position;
         let settings = state.aspect;
@@ -107,7 +132,7 @@ impl FigureState {
             (Placement::Given(position), _) => position,
         };
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
-            return;
+            return Ok(());
         };
         let box_aspect = settings
             .locator
@@ -136,6 +161,7 @@ impl FigureState {
                 parent.and_then(|f| self.frame_bbox(f).or_else(|| self.axes_bbox(f))),
             ),
         };
+        let mut adjusted = Ok(());
         let active = if settings.ratio.is_none() && box_aspect.is_none() {
             Some(located)
         } else if let Some(frame) = frame {
@@ -153,14 +179,14 @@ impl FigureState {
             .inspect(|position| {
                 if let (Adjustable::Datalim, Some(ratio)) = (settings.adjustable, settings.ratio) {
                     let box_aspect = fig_aspect * (position.height() / position.width());
-                    self.adjust_datalim(axes, ratio, box_aspect);
+                    adjusted = self.adjust_datalim(axes, ratio, box_aspect);
                 }
             })
         } else {
             None
         };
         let Some(active) = active else {
-            return;
+            return adjusted;
         };
         let in_host = hosted.map(|(boxes, to_figure)| {
             let in_host = to_figure
@@ -169,6 +195,14 @@ impl FigureState {
             (boxes, in_host)
         });
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            // A colorbar's locator sets the box aspect of the axes it
+            // places (matplotlib's `_ColorbarAxesLocator.__call__`).
+            if let (Placement::Located, Some(placed)) = (
+                placement,
+                settings.locator.and_then(|locator| locator.box_aspect),
+            ) {
+                state.aspect.box_aspect = Some(placed);
+            }
             match in_host {
                 Some((boxes, in_host)) => {
                     state
@@ -178,22 +212,30 @@ impl FigureState {
                 None => state.aspect.set_active(original, active),
             }
         }
+        adjusted
     }
 
     /// The `adjustable='datalim'` half of `apply_aspect`: widens the x or
-    /// the y view interval about its centre to reach `box_aspect / ratio`.
-    fn adjust_datalim(&mut self, axes: ArtistId, ratio: f64, box_aspect: f64) {
+    /// the y view interval about its centre to reach `box_aspect / ratio`,
+    /// as matplotlib computes it (NaN where a scale cannot map the view);
+    /// fails, leaving the limits alone, when they would not be finite.
+    fn adjust_datalim(
+        &mut self,
+        axes: ArtistId,
+        ratio: f64,
+        box_aspect: f64,
+    ) -> Result<(), AspectError> {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
-            return;
+            return Ok(());
         };
         let (xmin, xmax) = state.scaled_bound(AxisName::X);
         let (ymin, ymax) = state.scaled_bound(AxisName::Y);
-        let xsize = (xmax - xmin).abs().max(1e-30);
-        let ysize = (ymax - ymin).abs().max(1e-30);
+        let xsize = py_max((xmax - xmin).abs(), 1e-30);
+        let ysize = py_max((ymax - ymin).abs(), 1e-30);
         let data_ratio = box_aspect / ratio;
         let y_expander = data_ratio * xsize / ysize - 1.0;
         if y_expander.abs() < 0.005 {
-            return;
+            return Ok(());
         }
         let limits = state.data_lim.bbox;
         let (x0, x1) = (
@@ -218,7 +260,7 @@ impl FigureState {
                 "set_aspect(..., adjustable='datalim') is not allowed when both axes are \
                  shared; use adjustable='box'",
             ));
-            return;
+            return Ok(());
         }
         let adjust_y = !shared_y && {
             let adjy = if xmarg > 0.0 && ymarg > 0.0 {
@@ -247,8 +289,12 @@ impl FigureState {
         }
         let inverse = |v: f64| axis.map().map_or(v, |m| m.inverse(v));
         let (low, high) = (inverse(centre - size / 2.0), inverse(centre + size / 2.0));
+        if !(low.is_finite() && high.is_finite()) {
+            return Err(AspectError::NonFiniteLimits);
+        }
         let (v0, v1) = state.view_interval(name);
         let bound = if v0 > v1 { (high, low) } else { (low, high) };
         self.set_axis_limits(axes, name, bound, None, true);
+        Ok(())
     }
 }

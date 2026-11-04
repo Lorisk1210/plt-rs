@@ -80,15 +80,17 @@ impl Axes {
     }
 
     /// Handles to the children for which `keep` holds, in the order they
-    /// were added.
+    /// were added; spines are no children in this sense, whatever their
+    /// kind (a colorbar's outline is a patch).
     fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
-        let children = self
+        let (children, spines) = self
             .raw()
-            .with::<AxesState, _>(|axes| axes.children.clone());
+            .with::<AxesState, _>(|axes| (axes.children.clone(), axes.spines.clone()));
         children
             .into_iter()
+            .filter(|id| !spines.contains(id))
             .filter(|&id| state.artist(id).is_some_and(&keep))
             .map(|id| RawHandle::new(Rc::clone(figure), id))
             .collect()

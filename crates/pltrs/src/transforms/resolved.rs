@@ -23,6 +23,20 @@ pub trait AxisMap: fmt::Debug + std::any::Any {
     fn forward_masked(&self, value: f64) -> f64 {
         self.forward(value)
     }
+    /// Maps every value of `values` in place, as matplotlib's transforms
+    /// map arrays. The default maps them one by one; a map calling the
+    /// program's code overrides it to call it once for all of them.
+    fn forward_all(&self, values: &mut [f64]) {
+        for value in values {
+            *value = self.forward(*value);
+        }
+    }
+    /// [`forward_all`](AxisMap::forward_all) for the inverse map.
+    fn inverse_all(&self, values: &mut [f64]) {
+        for value in values {
+            *value = self.inverse(*value);
+        }
+    }
 }
 
 /// An invertible map of the plane (e.g. a polar projection).
@@ -31,15 +45,27 @@ pub trait PointMap: fmt::Debug + std::any::Any {
     fn forward(&self, point: Point) -> Point;
     /// Inverse map.
     fn inverse(&self, point: Point) -> Point;
+    /// Maps every point of `points` in place, as matplotlib's transforms
+    /// map arrays. The default maps them one by one; a map calling the
+    /// program's code overrides it to call it once for all of them.
+    fn forward_all(&self, points: &mut [Point]) {
+        for point in points {
+            *point = self.forward(*point);
+        }
+    }
+    /// [`forward_all`](PointMap::forward_all) for the inverse map.
+    fn inverse_all(&self, points: &mut [Point]) {
+        for point in points {
+            *point = self.inverse(*point);
+        }
+    }
     /// Maps a path (matplotlib's `transform_path_non_affine`). The default
     /// maps every vertex; projections that bend straight lines override it
     /// to emit curves, typically honouring the path's
     /// [`interpolation_steps`](Path::interpolation_steps).
     fn transform_path(&self, path: &Path) -> Path {
         let mut mapped = path.clone();
-        for p in mapped.vertices_mut() {
-            *p = self.forward(*p);
-        }
+        self.forward_all(mapped.vertices_mut());
         mapped
     }
 }
@@ -77,6 +103,35 @@ impl Step {
                 x.transform_point_non_affine(p).x,
                 y.transform_point_non_affine(p).y,
             ),
+        }
+    }
+
+    /// [`apply`](Self::apply) to every point of `points`, each map of the
+    /// step called once for all of them.
+    fn apply_all(&self, points: &mut [Point]) {
+        match self {
+            Self::Affine(affine) => {
+                for p in points {
+                    *p = affine.transform_point(*p);
+                }
+            }
+            Self::Separable(x, y) => {
+                if let Some(map) = x {
+                    map_coordinates(points, map.as_ref(), |p| &mut p.x);
+                }
+                if let Some(map) = y {
+                    map_coordinates(points, map.as_ref(), |p| &mut p.y);
+                }
+            }
+            Self::Plane(map) => map.forward_all(points),
+            Self::Blend(x, y) => {
+                let mut xs = points.to_vec();
+                x.transform_points_non_affine(&mut xs);
+                y.transform_points_non_affine(points);
+                for (p, from_x) in points.iter_mut().zip(xs) {
+                    p.x = from_x.x;
+                }
+            }
         }
     }
 
@@ -118,10 +173,22 @@ impl Step {
         if let Self::Plane(map) = self {
             return map.transform_path(&path);
         }
-        for p in path.vertices_mut() {
-            *p = self.apply(*p);
-        }
+        self.apply_all(path.vertices_mut());
         path
+    }
+}
+
+/// One coordinate (`coordinate` picks it) of every point of `points`
+/// through `map`, called once for all of them.
+fn map_coordinates(
+    points: &mut [Point],
+    map: &dyn AxisMap,
+    coordinate: impl Fn(&mut Point) -> &mut f64,
+) {
+    let mut values: Vec<f64> = points.iter_mut().map(|p| *coordinate(p)).collect();
+    map.forward_all(&mut values);
+    for (p, value) in points.iter_mut().zip(values) {
+        *coordinate(p) = value;
     }
 }
 
@@ -137,6 +204,12 @@ impl AxisMap for InverseAxis {
     fn inverse(&self, value: f64) -> f64 {
         self.0.forward(value)
     }
+    fn forward_all(&self, values: &mut [f64]) {
+        self.0.inverse_all(values);
+    }
+    fn inverse_all(&self, values: &mut [f64]) {
+        self.0.forward_all(values);
+    }
 }
 
 #[derive(Debug)]
@@ -150,6 +223,12 @@ impl PointMap for InversePlane {
     }
     fn inverse(&self, point: Point) -> Point {
         self.0.forward(point)
+    }
+    fn forward_all(&self, points: &mut [Point]) {
+        self.0.inverse_all(points);
+    }
+    fn inverse_all(&self, points: &mut [Point]) {
+        self.0.forward_all(points);
     }
 }
 
@@ -312,16 +391,26 @@ impl ResolvedTransform {
         (to.y - from.y).atan2(to.x - from.x).to_degrees()
     }
 
-    /// Maps a slice of points in place.
+    /// Maps a slice of points in place, each map of the program's called
+    /// once for all of them (as matplotlib maps arrays).
     pub fn transform_points(&self, points: &mut [Point]) {
+        self.transform_points_non_affine(points);
         for p in points {
-            *p = self.transform_point(*p);
+            *p = self.affine.transform_point(*p);
         }
     }
 
     /// Applies only the non-affine steps to a point.
     pub fn transform_point_non_affine(&self, p: Point) -> Point {
         self.steps.iter().fold(p, |p, step| step.apply(p))
+    }
+
+    /// Applies only the non-affine steps to a slice of points in place,
+    /// each map called once for all of them.
+    pub fn transform_points_non_affine(&self, points: &mut [Point]) {
+        for step in &self.steps {
+            step.apply_all(points);
+        }
     }
 
     /// The box spanned by the images of the two corners of `bbox`
@@ -355,9 +444,7 @@ impl ResolvedTransform {
             return (Cow::Borrowed(points), self.affine);
         }
         let mut mapped = points.clone();
-        for p in mapped.vertices_mut() {
-            *p = self.transform_point_non_affine(*p);
-        }
+        self.transform_points_non_affine(mapped.vertices_mut());
         (Cow::Owned(mapped), self.affine)
     }
 

@@ -396,13 +396,9 @@ impl ExtremeFinderCycle {
 
 impl ExtremeFinder for ExtremeFinderCycle {
     fn find_transformed_bbox(&self, transform: &AuxTransform, bbox: Bbox) -> Bbox {
-        let (lon, lat) = sample_grid(bbox, self.nx, self.ny)
-            .into_iter()
-            .map(|p| {
-                let q = transform.transform_point(p);
-                (q.x, q.y)
-            })
-            .unzip();
+        let mut points = sample_grid(bbox, self.nx, self.ny);
+        transform.transform_points(&mut points);
+        let (lon, lat) = points.into_iter().map(|q| (q.x, q.y)).unzip();
         self.extent(lon, lat)
     }
 }

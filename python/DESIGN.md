@@ -500,6 +500,19 @@ invalidated, so that a draw after an affine change (`transAxes`
 invalidated) does not call the program's transform again, as in
 matplotlib.
 
+Python callables that map values are called with arrays, as matplotlib
+calls them: the transforms of the program's, the functions of function
+scales and secondary axes (`FuncTransform`), the transforms of scales of
+the program's and the `(trans, inv_trans)` functions of curvilinear
+grids. pltrs (Rust) gathers the values a path, a set of ticks or a limit
+needs and calls them once for all of them (`AxisMap::forward_all`,
+`PointMap::forward_all`, `AuxTransform::transform_points`;
+`modules/transforms/arrays.rs`), a masked answer reading as NaN; an axis
+keeps its view limits mapped through its scale while they and the scale
+stay (`AxisState::scaled_ends`), as matplotlib's `TransformedBbox` of
+them does. Formatters keep matplotlib's per-tick `__call__`, through
+`format_ticks`.
+
 An `Axes` subclass the program registers with `register_projection`
 (the SkewT-logP example's `SkewXAxes`) is a projection pltrs (Rust)
 does not know (`projections/_program.py`): its Axes is a rectilinear
@@ -812,6 +825,15 @@ through the package's own functions (registered with `_native.register`,
 here `_text_helpers.warn_on_missing_glyph`, which calls
 `_api.warn_external`). A warning turned into an error by the warning
 filters is raised in place of the call's result.
+
+The font manager's log messages about the fonts of a text (a family no
+font has, a face of another weight than asked for) come the same way:
+pltrs (Rust) records each lookup of a text's fonts matplotlib would log
+about (`pltrs_text::take_font_lookups`), and the after-call hook hands
+it to `_text_helpers.report_font_lookup`, which looks the fonts up again
+with the program's `fontManager` (`_find_fonts_by_props` or `findfont`),
+logging as matplotlib's does: once per font properties for a substituted
+weight (`findfont` caches), at every lookup for a family not found.
 
 ### Text measured and drawn by the program
 

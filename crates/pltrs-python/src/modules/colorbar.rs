@@ -389,17 +389,24 @@ fn extend_patches(colorbar: Colorbar) -> PyResult<Vec<Patch<PathShape>>> {
     Ok(colorbar.extend_patches())
 }
 
-/// With `drawedges`, the lines between the colours in the current view, as
-/// `(2, 2)` arrays of their ends (matplotlib's `dividers.get_segments()`).
-fn divider_segments(colorbar: Colorbar) -> PyResult<Vec<NdArray>> {
-    colorbar
-        .divider_segments()
-        .iter()
-        .map(|path| {
-            let data = path.vertices().iter().flat_map(|p| [p.x, p.y]).collect();
-            NdArray::with_shape(data, vec![path.vertices().len(), 2])
-        })
-        .collect()
+/// The line collection drawing the lines between the colours
+/// (matplotlib's `dividers`).
+fn dividers(colorbar: Colorbar) -> PyResult<Collection> {
+    Ok(colorbar.dividers())
+}
+
+/// The lengths of the lower and upper extensions as fractions of the
+/// interior, 0 for an end without one, and the long-to-short ratio of a
+/// colorbar that made its own axes, else `None`: what matplotlib's
+/// `_ColorbarAxesLocator` places the axes with.
+fn locator_geometry(colorbar: Colorbar) -> PyResult<((f64, f64), Option<f64>)> {
+    Ok((colorbar.extension_lengths()?, colorbar.aspect()))
+}
+
+/// Has the colorbar's axes locator place its axes again.
+fn locate_axes(colorbar: Colorbar) -> PyResult<()> {
+    colorbar.locate_axes()?;
+    Ok(())
 }
 
 /// Registers the module's functions.
@@ -422,6 +429,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("extend_patches", extend_patches)?;
     module.add("solids_patches", solids_patches)?;
     module.add("lines", lines)?;
-    module.add("divider_segments", divider_segments)?;
+    module.add("dividers", dividers)?;
+    module.add("locator_geometry", locator_geometry)?;
+    module.add("locate_axes", locate_axes)?;
     make_axes::register(module)
 }

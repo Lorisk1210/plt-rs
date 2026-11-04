@@ -591,7 +591,6 @@ impl Artist for CollectionArtist {
 }
 
 pltrs_core::archive_kinds!(dyn DrawTimeShapes {
-    "colorbar-dividers" => crate::colorbar::Dividers,
     "quiver" => crate::quiver::QuiverGeometry,
     "axis-artist-gridlines" => crate::axisartist::Gridlines,
 });

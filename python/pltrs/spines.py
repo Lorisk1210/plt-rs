@@ -29,6 +29,18 @@ _LINEAR_PATHS = {
 }
 
 
+def _check_position(position):
+    """Refuse a spine position that is not ``'center'``, ``'zero'`` or a
+    ``(kind, amount)`` pair, as matplotlib's `.Spine.set_position` does."""
+    if position in ('center', 'zero'):  # special positions
+        return
+    if len(position) != 2:
+        raise ValueError("position should be 'center' or 2-tuple")
+    if position[0] not in ['outward', 'axes', 'data']:
+        raise ValueError("position[0] should be one of 'outward', "
+                         "'axes', or 'data' ")
+
+
 class Spine(Patch):
     """
     An axis spine -- the line noting the data area boundaries.
@@ -245,14 +257,7 @@ class Spine(Patch):
         * 'center' -> ``('axes', 0.5)``
         * 'zero' -> ``('data', 0.0)``
         """
-        if position in ('center', 'zero'):  # special positions
-            pass
-        else:
-            if len(position) != 2:
-                raise ValueError("position should be 'center' or 2-tuple")
-            if position[0] not in ['outward', 'axes', 'data']:
-                raise ValueError("position[0] should be one of 'outward', "
-                                 "'axes', or 'data' ")
+        _check_position(position)
         kind, amount = {'center': ('axes', 0.5),
                         'zero': ('data', 0.0)}.get(position, position)
         _spines.set_position(self._native, (kind, float(amount)))

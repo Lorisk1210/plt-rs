@@ -633,7 +633,9 @@ impl AxesState {
     /// The spines in the order of matplotlib's `spines` dictionary: left,
     /// right, bottom, top; for polar axes the outer arc, the start and
     /// end of the sector, then the inner arc; for a custom projection the
-    /// order it gives, sides it leaves out last.
+    /// order it gives, sides it leaves out last. The spines of no side (a
+    /// colorbar's outline, see
+    /// [`replace_outline_spine`](Self::replace_outline_spine)) come after.
     pub(crate) fn spines_in_children_order(&self) -> Vec<ArtistId> {
         // `spines` holds the left, right, bottom and top spine, which polar
         // axes use as start, end, inner and outer spine.
@@ -659,7 +661,21 @@ impl AxesState {
                 let index = SpineSide::ALL.iter().position(|&s| s == side)?;
                 self.spines.get(index).copied()
             })
+            .chain(self.spines.iter().skip(SpineSide::ALL.len()).copied())
             .collect()
+    }
+
+    /// Makes the child `spine` the spine of the axes that frames no side
+    /// (matplotlib's `ax.spines['outline'] = spine`, as a colorbar adds its
+    /// outline): drawn with the spines, only while the axes is framed, and
+    /// not among the artists added to the axes. Returns the spine it
+    /// replaces (that of a colorbar drawn in the axes before), which is no
+    /// spine of the axes any more.
+    pub(crate) fn replace_outline_spine(&mut self, spine: ArtistId) -> Vec<ArtistId> {
+        let sides = SpineSide::ALL.len().min(self.spines.len());
+        let replaced = self.spines.split_off(sides);
+        self.spines.push(spine);
+        replaced
     }
 }
 

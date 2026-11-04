@@ -680,8 +680,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             inverse = transform.inverted()
             _mplot3d.set_python_scale(
                 self._native, name, scale.name,
-                (lambda x: float(transform.transform(x)),
-                 lambda x: float(inverse.transform(x))),
+                (transform.transform, inverse.transform),
                 lambda vmin, vmax, minpos: tuple(
                     map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
             scale.set_default_locators_and_formatters(axis)

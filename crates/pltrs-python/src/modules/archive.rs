@@ -48,7 +48,7 @@ use super::colors::PythonNorm;
 use super::drawing::{PythonEffect, PythonPainter};
 use super::path::{PyPath, path_arrays};
 use super::projections::PyProjection;
-use super::transforms::PyPointMap;
+use super::transforms::{PyPointMap, map_values};
 use crate::binding::lookup;
 use crate::binding::prelude::*;
 
@@ -75,9 +75,9 @@ enum Call {
     /// `f(value)` as a label format (`bar_label`, `clabel`, `pie`'s
     /// `autopct`, `Sankey`).
     Values,
-    /// `f(value)` as a number, the functions converting the values of a
-    /// secondary axis.
-    Numbers,
+    /// `f(values)` with a 1-D array of numbers, the functions of a
+    /// function scale and of a secondary axis.
+    Arrays,
     /// `f(x0, y0, width, height, mutation_size)`, a box style of the
     /// program's, returning the box's path.
     BoxStyle,
@@ -96,7 +96,7 @@ impl Call {
         Self::Ticks,
         Self::Coordinates,
         Self::Values,
-        Self::Numbers,
+        Self::Arrays,
         Self::BoxStyle,
         Self::Connection,
         Self::Arrow,
@@ -108,7 +108,7 @@ impl Call {
             Self::Ticks => "tick-labels",
             Self::Coordinates => "data-labels",
             Self::Values => "value-labels",
-            Self::Numbers => "numbers",
+            Self::Arrays => "value-arrays",
             Self::BoxStyle => "box-style",
             Self::Connection => "connection-style",
             Self::Arrow => "arrow-style",
@@ -120,7 +120,7 @@ impl Call {
     fn function(self, callback: Callback) -> (TypeId, Box<dyn Any>) {
         type Labels = Rc<dyn Fn(f64, Option<usize>) -> String>;
         type Label = Rc<dyn Fn(f64) -> String>;
-        type Number = Rc<dyn Fn(f64) -> f64>;
+        type Values = Rc<dyn Fn(&mut [f64])>;
         match self {
             Self::Ticks => {
                 let function: Labels = Rc::new(tick_labels(callback));
@@ -134,9 +134,9 @@ impl Call {
                 let function: Label = Rc::new(value_label(callback));
                 (TypeId::of::<Label>(), Box::new(function))
             }
-            Self::Numbers => {
-                let function: Number = Rc::new(number(callback));
-                (TypeId::of::<Number>(), Box::new(function))
+            Self::Arrays => {
+                let function: Values = Rc::new(values(callback));
+                (TypeId::of::<Values>(), Box::new(function))
             }
             Self::BoxStyle => {
                 let function: Rc<BoxFn> = Rc::new(box_outline(callback));
@@ -246,10 +246,12 @@ fn value_label(callback: Callback) -> impl Fn(f64) -> String + Send + 'static {
     move |value| callback.call::<String>((value,)).unwrap_or_default()
 }
 
-/// `f(value)` as a number, NaN when it raised (its exception goes to the
-/// native call running).
-fn number(callback: Callback) -> impl Fn(f64) -> f64 + Send + 'static {
-    move |value| callback.call::<f64>((value,)).unwrap_or(f64::NAN)
+/// `f(values)`, the numbers replaced by those of the array it returns,
+/// NaN when it raised (its exception goes to the native call running).
+fn values(callback: Callback) -> impl Fn(&mut [f64]) + Send + 'static {
+    move |values| {
+        map_values(&callback, values);
+    }
 }
 
 /// A Python object an archive refers to, and for a callable the binding
@@ -307,15 +309,17 @@ pub(crate) fn label_format(callable: &Bound<'_>) -> PyResult<LabelFormat> {
 }
 
 /// The conversion of values by the callables `forward` and `inverse`,
-/// each called with one value (the functions of a secondary axis),
-/// archived as the callables.
+/// each called with an array of the values a path, a set of ticks or a
+/// limit needs (the functions of a function scale and of a secondary
+/// axis, as matplotlib's `FuncTransform` calls them), archived as the
+/// callables.
 pub(crate) fn func_transform(forward: &Bound<'_>, inverse: &Bound<'_>) -> PyResult<FuncTransform> {
-    Ok(FuncTransform::with_origins(
-        number(forward.extract()?),
-        number(inverse.extract()?),
+    Ok(FuncTransform::on_arrays(
+        values(forward.extract()?),
+        values(inverse.extract()?),
         (
-            function_external(forward, Call::Numbers),
-            function_external(inverse, Call::Numbers),
+            function_external(forward, Call::Arrays),
+            function_external(inverse, Call::Arrays),
         ),
     ))
 }

@@ -61,7 +61,7 @@ impl<'a> ProjectionView<'a> {
 /// orientation of the data interval: a decreasing scale (a function scale
 /// such as `1 / x`) leaves the axis the way round its limits say.
 fn scaled_interval(axis: &AxisState, (v0, v1): (f64, f64)) -> (f64, f64) {
-    let (a, b) = (axis.forward(v0), axis.forward(v1));
+    let [a, b] = axis.scaled_ends([v0, v1]);
     let (low, high) = (a.min(b), a.max(b));
     if v0 > v1 { (high, low) } else { (low, high) }
 }

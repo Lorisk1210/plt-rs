@@ -31,12 +31,13 @@ fn a_given_position_replaces_the_located_one() {
     let fig = Figure::with_size(4.0, 2.0, 100.0);
     let ax = fig.subplot();
     ax.set_aspect(Aspect::Equal).unwrap();
-    ax.apply_aspect_at(Bbox::from_bounds(0.0, 0.0, 1.0, 1.0));
+    ax.apply_aspect_at(Bbox::from_bounds(0.0, 0.0, 1.0, 1.0))
+        .unwrap();
     let active = ax
         .raw()
         .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
     assert_eq!(active.bounds(), (0.25, 0.0, 0.5, 1.0));
-    ax.apply_aspect();
+    ax.apply_aspect().unwrap();
     let active = ax
         .raw()
         .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
@@ -75,7 +76,8 @@ fn datalim_widens_the_view() {
         .unwrap()
         .set_adjustable(Adjustable::Datalim)
         .unwrap()
-        .apply_aspect();
+        .apply_aspect()
+        .unwrap();
     // Values from matplotlib: without data, y shrinks about its centre.
     assert_eq!(ax.xlim(), (0.0, 1.0));
     assert_eq!(
@@ -90,7 +92,7 @@ fn datalim_widens_the_view() {
         .unwrap()
         .set_adjustable(Adjustable::Datalim)
         .unwrap();
-    let (x0, x1) = ax.apply_aspect().xlim();
+    let (x0, x1) = ax.apply_aspect().unwrap().xlim();
     assert!((x0 + 0.238_095_238_095_238_25).abs() < 1e-12);
     assert!((x1 - 1.238_095_238_095_238_1).abs() < 1e-12);
     assert_eq!(ax.ylim(), (-0.05, 1.05));

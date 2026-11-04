@@ -263,6 +263,14 @@ impl AxisMap for AsinhTransform {
 pub(crate) trait ScaleFunction: fmt::Debug + Any {
     /// The function's value at `value`.
     fn call(&self, value: f64) -> f64;
+
+    /// Replaces every value of `values` by the function's value there: one
+    /// call of a function of the program's taking arrays.
+    fn call_all(&self, values: &mut [f64]) {
+        for value in values {
+            *value = self.call(*value);
+        }
+    }
 }
 
 /// The function `x ↦ x`.
@@ -284,9 +292,27 @@ impl ScaleFunction for ProgramFn<dyn Fn(f64) -> f64> {
     }
 }
 
+/// A function the program gave mapping a slice of values in place.
+type ArraysFn = ProgramFn<dyn Fn(&mut [f64])>;
+
+/// A function the program gave that maps arrays in place, as
+/// matplotlib's `FuncTransform` hands its functions arrays.
+impl ScaleFunction for ArraysFn {
+    fn call(&self, value: f64) -> f64 {
+        let mut one = [value];
+        (self.get())(&mut one);
+        one[0]
+    }
+
+    fn call_all(&self, values: &mut [f64]) {
+        (self.get())(values);
+    }
+}
+
 pltrs_core::archive_kinds!(dyn ScaleFunction {
     "identity" => Identity,
     "program" => ProgramFn<dyn Fn(f64) -> f64>,
+    "program-arrays" => ArraysFn,
     "boundaries" => crate::colorbar::BoundarySpacing,
     "norm" => crate::colorbar::NormSpacing,
 });
@@ -336,6 +362,37 @@ impl FuncTransform {
         )
     }
 
+    /// A pair of functions mapping arrays in place, each called once for
+    /// all the values a path, a set of ticks or a limit needs (matplotlib
+    /// hands its `FuncTransform` arrays), archived as `origins`, what the
+    /// program made them from (see [`ProgramFn`]).
+    ///
+    /// ```
+    /// use pltrs::scale::FuncTransform;
+    /// use pltrs::transforms::AxisMap;
+    /// use pltrs_core::archive::External;
+    /// let double = FuncTransform::on_arrays(
+    ///     |values: &mut [f64]| values.iter_mut().for_each(|v| *v *= 2.0),
+    ///     |values: &mut [f64]| values.iter_mut().for_each(|v| *v /= 2.0),
+    ///     (External::new("forward"), External::new("inverse")),
+    /// );
+    /// let mut values = [1.0, 2.0, 3.0];
+    /// double.forward_all(&mut values);
+    /// assert_eq!(values, [2.0, 4.0, 6.0]);
+    /// assert_eq!(double.inverse(3.0), 1.5);
+    /// ```
+    pub fn on_arrays(
+        forward: impl Fn(&mut [f64]) + Send + 'static,
+        inverse: impl Fn(&mut [f64]) + Send + 'static,
+        origins: (External, External),
+    ) -> Self {
+        let (forward_origin, inverse_origin) = origins;
+        Self::from_functions(
+            Rc::new(ArraysFn::with_origin(Rc::new(forward), forward_origin)),
+            Rc::new(ArraysFn::with_origin(Rc::new(inverse), inverse_origin)),
+        )
+    }
+
     /// The pair `forward`, `inverse`.
     pub(crate) fn from_functions(
         forward: Rc<dyn ScaleFunction>,
@@ -373,6 +430,14 @@ impl AxisMap for FuncTransform {
     fn inverse(&self, value: f64) -> f64 {
         self.inverse.call(value)
     }
+
+    fn forward_all(&self, values: &mut [f64]) {
+        self.forward.call_all(values);
+    }
+
+    fn inverse_all(&self, values: &mut [f64]) {
+        self.inverse.call_all(values);
+    }
 }
 
 /// A function followed by a logarithm (`FuncTransform + LogTransform`).
@@ -407,6 +472,16 @@ impl AxisMap for FuncLogTransform {
 
     fn inverse(&self, value: f64) -> f64 {
         self.func.inverse(self.log.inverse(value))
+    }
+
+    fn forward_all(&self, values: &mut [f64]) {
+        self.func.forward_all(values);
+        self.log.forward_all(values);
+    }
+
+    fn inverse_all(&self, values: &mut [f64]) {
+        self.log.inverse_all(values);
+        self.func.inverse_all(values);
     }
 }
 

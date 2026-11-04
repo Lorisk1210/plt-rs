@@ -16,10 +16,12 @@ use pltrs::transforms::{
 use crate::binding::prelude::*;
 use crate::binding::{FloatArray, registered_error};
 
+mod arrays;
 mod computed;
 mod geo;
 mod leaves;
 mod live;
+pub(crate) use arrays::{map_points, map_values, map_xy};
 pub(crate) use leaves::sync_watched;
 pub(crate) use live::PyPointMap;
 

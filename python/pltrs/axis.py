@@ -89,9 +89,9 @@ def _native_scale_of(scale):
                          "base": scale._base, "subs": _floats(scale._subs)}
     if kind is mscale.FuncScale:
         transform = scale._transform
-        return "function", {"functions": _scalar_functions(transform)}
+        return "function", {"functions": _array_functions(transform)}
     if kind is mscale.FuncScaleLog:
-        return "functionlog", {"functions": _scalar_functions(scale._transform._a),
+        return "functionlog", {"functions": _array_functions(scale._transform._a),
                                "base": scale.base}
     return None
 
@@ -159,25 +159,10 @@ def _floats(values):
     return None if values is None else [float(v) for v in np.ravel(values)]
 
 
-def _scalar_functions(transform):
-    """The forward and inverse functions of a `.scale.FuncTransform`, value
-    by value."""
-    return (lambda x: float(transform._forward(np.array(x))),
-            lambda x: float(transform._inverse(np.array(x))))
-
-
-def _value_map(transform):
-    """
-    *transform* (of a scale of the program's) value by value, as pltrs
-    (Rust) maps through it: the value goes through as an array, as
-    matplotlib hands its transforms arrays, and a value the transform masks
-    (outside the scale's domain) becomes NaN, as it does in matplotlib's
-    paths.
-    """
-    def map_value(x):
-        mapped = np.ma.asarray(transform.transform(np.array([x], dtype=float)), dtype=float)
-        return float(np.ma.filled(mapped, np.nan).reshape(-1)[0])
-    return map_value
+def _array_functions(transform):
+    """The forward and inverse functions of a `.scale.FuncTransform`, which
+    pltrs (Rust) calls with arrays, as matplotlib's transform does."""
+    return (transform._forward, transform._inverse)
 
 
 def _interval_method(kind):
@@ -758,9 +743,10 @@ class Axis(Artist):
         if native is None:
             transform = scale.get_transform()
             inverse = transform.inverted()
+            # pltrs (Rust) hands the transforms arrays, as matplotlib does.
             _native_scale.set_python_scale(
                 *self._args(), scale.name,
-                (_value_map(transform), _value_map(inverse)),
+                (transform.transform, inverse.transform),
                 lambda vmin, vmax, minpos: tuple(
                     map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
             scale.set_default_locators_and_formatters(self)

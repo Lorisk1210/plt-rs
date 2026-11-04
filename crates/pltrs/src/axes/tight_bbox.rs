@@ -300,6 +300,11 @@ fn child_tight_bbox(
             .framed()
             .then(|| spine.window_extent(&layout))?;
     }
+    // A spine of no side (a colorbar's outline) counts while the axes is
+    // framed, as the side spines do.
+    if state.spines.contains(&child) && !state.decorations.framed() {
+        return None;
+    }
     if fully_clipped(base, axes) {
         return None;
     }

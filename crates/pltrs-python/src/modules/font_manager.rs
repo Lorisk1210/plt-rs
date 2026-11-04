@@ -154,13 +154,6 @@ fn font_ext(name: &str) -> PyResult<FontExt> {
     }
 }
 
-/// `_find_fonts_by_props(prop, fallback_to_default)`: the best file of
-/// each family that matches, in family order.
-fn find_fonts(props: PropsTuple, fallback: bool) -> PyResult<Vec<String>> {
-    let props = properties(props)?;
-    Ok(FontManager::global().find_fonts(&props, &pltrs::rc::params(), fallback)?)
-}
-
 /// One font of a font list: `(file, index, name, (style, variant, weight,
 /// stretch))`.
 type EntryTuple = (String, u32, String, (String, String, String, String));
@@ -425,7 +418,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("type1_name", type1_name)?;
     module.add("uni2type1", uni2type1)?;
     module.add("alternative_family_names", alternative_family_names)?;
-    module.add("find_fonts", find_fonts)?;
     module.add("best_font", best_font)?;
     module.add("best_afm_font", best_afm_font)?;
     module.add("font_list", font_list)?;

@@ -20,13 +20,14 @@ from .axis_artist import AxisArtist
 from .grid_finder import GridFinder
 
 
-def _point_function(function):
-    """*function*, mapping points as arrays, mapping one point ``(x, y)``
-    as pltrs (Rust) calls it."""
+def _xy_function(function):
+    """*function*, mapping the arrays ``(x, y)``, as pltrs (Rust) calls it:
+    once with all the points a grid line or a sampling of the plane needs,
+    answering with a ``(2, N)`` array."""
     def call(x, y):
         with np.errstate(all="ignore"):
-            u, v = function(np.float64(x), np.float64(y))
-        return float(u), float(v)
+            u, v = function(x, y)
+        return np.array(np.broadcast_arrays(u, v), dtype=float)
     return call
 
 
@@ -35,7 +36,7 @@ def _native_aux(aux_trans):
     transform, or a ``(forward, inverse)`` pair of functions of ``(x, y)``."""
     if isinstance(aux_trans, tuple):
         forward, inverse = aux_trans
-        return ("functions", _point_function(forward), _point_function(inverse))
+        return ("functions", _xy_function(forward), _xy_function(inverse))
     if aux_trans.is_affine:
         return ("affine", np.asarray(aux_trans.get_matrix(), dtype=float))
     if isinstance(aux_trans, CompositeGenericTransform):
@@ -45,9 +46,9 @@ def _native_aux(aux_trans):
     inverse = aux_trans.inverted()
 
     def mapped(transform):
-        return lambda x, y: tuple(transform.transform(np.array([[x, y]]))[0])
-    return ("functions", _point_function(mapped(aux_trans)),
-            _point_function(mapped(inverse)))
+        return lambda x, y: transform.transform(np.column_stack([x, y])).T
+    return ("functions", _xy_function(mapped(aux_trans)),
+            _xy_function(mapped(inverse)))
 
 
 class _NativeHelper:

@@ -104,6 +104,8 @@ impl FigureImageArtist {
         let canvas = canvas_bbox(ctx);
         let fac = ctx.renderer().dpi() / ctx.layout().dpi();
         let placement = self.placement(canvas, fac, magnification);
+        // A norm of the program's maps the data with the figure free.
+        ctx.free();
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())
     }

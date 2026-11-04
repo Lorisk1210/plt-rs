@@ -1,9 +1,61 @@
 //! Whether a collection's per-item alphas fit what they apply to, with
-//! matplotlib's errors when they do not.
+//! matplotlib's errors when they do not, and the colours its getters
+//! report meanwhile.
 
-use super::style::{MappedSides, unfilled};
+use pltrs_core::Rgba;
+
+use super::style::{MappedSides, Sided, unfilled};
 use super::{CollectionArtist, EdgeColors};
 use crate::colors::Color;
+
+/// The colours a collection's getters reported before per-item alphas
+/// that do not fit them were set. matplotlib resolves a collection's
+/// colours when they or its alpha are set, and keeps those it had when
+/// resolving them fails (`set_alpha` raising from `_set_facecolor`), so
+/// `get_facecolor` and `get_edgecolor` still report them until that side's
+/// colours are set again.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct KeptColors {
+    faces: Option<Vec<Rgba>>,
+    edges: Option<Vec<Rgba>>,
+}
+
+pltrs_core::archive_struct!(KeptColors { faces, edges });
+
+impl KeptColors {
+    /// The face and edge colours reported before the alphas were set,
+    /// those that could be resolved.
+    pub(crate) fn of(faces: Sided, edges: Sided) -> Self {
+        Self {
+            faces: faces.ok(),
+            edges: edges.ok(),
+        }
+    }
+
+    /// The faces reported: `faces` as resolved now, else those kept.
+    pub(super) fn faces(&self, faces: Sided) -> Sided {
+        Self::or_kept(faces, self.faces.as_ref())
+    }
+
+    /// The edges reported: `edges` as resolved now, else those kept.
+    pub(super) fn edges(&self, edges: Sided) -> Sided {
+        Self::or_kept(edges, self.edges.as_ref())
+    }
+
+    fn or_kept(now: Sided, kept: Option<&Vec<Rgba>>) -> Sided {
+        now.or_else(|problem| kept.cloned().ok_or(problem))
+    }
+
+    /// Forgets the faces kept, once they are set again.
+    pub(crate) fn forget_faces(&mut self) {
+        self.faces = None;
+    }
+
+    /// Forgets the edges kept, once they are set again.
+    pub(crate) fn forget_edges(&mut self) {
+        self.edges = None;
+    }
+}
 
 impl CollectionArtist {
     /// matplotlib's `ValueError` message for per-item alphas that do not fit

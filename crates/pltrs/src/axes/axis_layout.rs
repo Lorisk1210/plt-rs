@@ -14,7 +14,7 @@ use super::axis::AxisState;
 use super::state::AxesState;
 use super::tick_set::Tick;
 use super::ticks::TickStyle;
-use crate::artist::{ArtistId, LayoutContext};
+use crate::artist::{ArtistId, FigureReader, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::polar;
@@ -187,28 +187,30 @@ impl<'a> AxisPainter<'a> {
     }
 
     /// Lays out the tick labels, then the axis label beyond those of the
-    /// axes it aligns with and the offset text beyond its own.
-    pub(crate) fn texts(&self, layout: LayoutContext<'_>, rc: &RcParams) -> AxisTexts {
+    /// axes it aligns with and the offset text beyond its own; a draw lets
+    /// the figure go around the program's code this runs (`cx`).
+    pub(crate) fn texts(&self, cx: &mut impl FigureReader, rc: &RcParams) -> AxisTexts {
         let mut texts = AxisTexts::default();
-        self.lay_out_tick_labels(layout, rc, &mut texts);
+        self.lay_out_tick_labels(cx, rc, &mut texts);
         let boxes = label_boxes(&texts);
         if self.axis.label.coords.is_none() {
             // matplotlib places the label from the tick labels measured
             // again (`_update_label_position`'s `_get_tick_boxes_siblings`).
+            let dpi = cx.read().dpi();
+            cx.release_if(has_line_measurer);
             for label in &texts.tick_labels {
-                if let Err(err) = label.text.laid_out.measure_again(layout.dpi(), rc) {
+                if let Err(err) = label.text.laid_out.measure_again(dpi, rc) {
                     texts.problems.push(err.to_string());
                 }
             }
         }
         texts.offset_anchor = self
-            .offset_placement(layout, &boxes)
+            .offset_placement(cx.read(), &boxes)
             .map(|(anchor, _)| anchor);
-        let aligned = self.aligned_label_boxes(layout, &boxes);
-        for (slot, placed) in [
-            (&mut texts.label, self.axis_label(layout, rc, &aligned)),
-            (&mut texts.offset, self.offset_text(layout, rc, &boxes)),
-        ] {
+        let aligned = self.aligned_label_boxes(cx, &boxes);
+        let label = self.axis_label(cx, rc, &aligned);
+        let offset = self.offset_text(cx, rc, &boxes);
+        for (slot, placed) in [(&mut texts.label, label), (&mut texts.offset, offset)] {
             match placed {
                 Some(Ok(text)) => *slot = Some(text),
                 Some(Err(problem)) => texts.problems.push(problem),
@@ -220,11 +222,16 @@ impl<'a> AxisPainter<'a> {
 
     /// Lays out the tick labels into `texts` (matplotlib's
     /// `_get_ticklabel_bboxes`).
-    fn lay_out_tick_labels(&self, layout: LayoutContext<'_>, rc: &RcParams, texts: &mut AxisTexts) {
+    fn lay_out_tick_labels(
+        &self,
+        cx: &mut impl FigureReader,
+        rc: &RcParams,
+        texts: &mut AxisTexts,
+    ) {
         let labelled = self.ticks_with(|_, minor, index| (minor, index));
         for (index, (tick, (minor, at))) in labelled.into_iter().enumerate() {
             for first_side in [true, false] {
-                let Some((style, placement)) = self.labelled(layout, tick, (minor, at), first_side)
+                let Some((style, placement)) = self.labelled(cx, tick, (minor, at), first_side)
                 else {
                     continue;
                 };
@@ -236,7 +243,7 @@ impl<'a> AxisPainter<'a> {
                     }
                     continue;
                 }
-                match lay_out_tick_label(layout, tick, &style, &placement, rc) {
+                match lay_out_tick_label(cx, tick, &style, &placement, rc) {
                     Ok(text) => texts.tick_labels.push(TickLabel {
                         tick: index,
                         first_side,
@@ -255,7 +262,7 @@ impl<'a> AxisPainter<'a> {
     /// is not finite.
     fn labelled(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         tick: &Tick,
         (minor, index): (bool, usize),
         first_side: bool,
@@ -266,7 +273,7 @@ impl<'a> AxisPainter<'a> {
         } else {
             style.labels.second
         };
-        let placement = self.label_placement(layout, tick, &style, first_side)?;
+        let placement = self.label_placement(cx, tick, &style, first_side)?;
         enabled.then_some((style, placement))
     }
 
@@ -277,15 +284,16 @@ impl<'a> AxisPainter<'a> {
     /// a label, a label without text or a tick not placed.
     pub(super) fn tick_label(
         &self,
-        layout: LayoutContext<'_>,
+        mut layout: LayoutContext<'_>,
         rc: &RcParams,
         (minor, index): (bool, usize),
         first_side: bool,
     ) -> Option<Result<PlacedText, String>> {
         let ticks = self.axis.ticks.as_ref().ok()?;
         let tick = ticks.unclipped(minor).get(index)?;
-        let (style, placement) = self.labelled(layout, tick, (minor, index), first_side)?;
-        (!tick.label.is_empty()).then(|| lay_out_tick_label(layout, tick, &style, &placement, rc))
+        let (style, placement) = self.labelled(&mut layout, tick, (minor, index), first_side)?;
+        (!tick.label.is_empty())
+            .then(|| lay_out_tick_label(&mut layout, tick, &style, &placement, rc))
     }
 
     /// The tick label boxes of this axis (`own`) and of the same axis of
@@ -293,17 +301,21 @@ impl<'a> AxisPainter<'a> {
     /// `_get_tick_boxes_siblings`).
     fn aligned_label_boxes(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         own: &[(bool, Bbox)],
     ) -> Vec<(bool, Bbox)> {
         let mut boxes = Vec::new();
-        for sibling in layout.label_siblings(self.axes_id, self.name) {
+        for sibling in cx.read().label_siblings(self.axes_id, self.name) {
             if sibling == self.axes_id {
                 boxes.extend_from_slice(own);
-            } else if let Some(axes) = layout.store().get_as::<AxesState>(sibling) {
+                continue;
+            }
+            // Held apart from the figure, which their labels may let go.
+            let axes = cx.read().store().shared_as::<AxesState>(sibling);
+            if let Some(axes) = axes {
                 let mut texts = AxisTexts::default();
-                AxisPainter::new(sibling, axes, self.name)
-                    .lay_out_tick_labels(layout, &axes.rc, &mut texts);
+                AxisPainter::new(sibling, &axes, self.name)
+                    .lay_out_tick_labels(cx, &axes.rc, &mut texts);
                 boxes.extend(label_boxes(&texts));
             }
         }
@@ -334,14 +346,14 @@ impl<'a> AxisPainter<'a> {
     /// unless its anchor is not finite.
     fn label_placement(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         tick: &Tick,
         style: &TickStyle,
         first_side: bool,
     ) -> Option<LabelPlacement> {
         let (anchor, align, rotation, rotation_mode) = if let Some(polar) = self.axes.polar_view() {
             let label = polar::tick_label_anchor(
-                layout,
+                cx,
                 self.axes_id,
                 &polar,
                 self.name,
@@ -356,7 +368,7 @@ impl<'a> AxisPainter<'a> {
                 RotationMode::Anchor,
             )
         } else {
-            let (anchor, align) = self.label_anchor(layout, tick, style, first_side)?;
+            let (anchor, align) = self.label_anchor(cx, tick, style, first_side)?;
             (
                 anchor,
                 align,
@@ -377,26 +389,28 @@ impl<'a> AxisPainter<'a> {
     /// and custom projections), else beyond the tick on its side.
     fn label_anchor(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         tick: &Tick,
         style: &TickStyle,
         first_side: bool,
     ) -> Option<(Point, (HAlign, VAlign))> {
         if self.axes.projection.custom().is_some() {
             let side = SpineSide::of(self.name, !first_side);
-            let display = layout.axes_extent(self.axes_id)?;
+            let display = cx.read().axes_extent(self.axes_id)?;
+            // The projection asks the program, with the figure free.
+            cx.release_if(|| true);
             if let Some(placed) = self.axes.custom_tick_label(side, tick.loc, &display) {
                 return Some(placed);
             }
         }
-        self.cartesian_label_anchor(layout, tick, style, first_side)
+        self.cartesian_label_anchor(cx, tick, style, first_side)
     }
 
     /// Where a tick label of rectilinear axes goes: beyond the tick on
     /// its side, with the side's default alignment.
     fn cartesian_label_anchor(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         tick: &Tick,
         style: &TickStyle,
         first_side: bool,
@@ -415,12 +429,12 @@ impl<'a> AxisPainter<'a> {
         // `ScaledTranslation` joins it: in inches scaled by the dpi, in one
         // affine with the side's, so the label lands on matplotlib's bits.
         let transform = self
-            .side_transform(layout, !first_side)
+            .side_transform(cx.read(), !first_side)
             .offset_points(dx, dy);
         let across = if first_side { 0.0 } else { 1.0 };
-        let anchor = layout
-            .resolve(&transform)?
-            .transform_point(self.tick_point(tick.loc, across));
+        let resolved = cx.read().resolve(&transform)?;
+        cx.release_for(&resolved);
+        let anchor = resolved.transform_point(self.tick_point(tick.loc, across));
         Some((anchor, align))
     }
 
@@ -449,9 +463,15 @@ impl<'a> AxisPainter<'a> {
     /// The spine's extent widened by the outward/inward part of the ticks
     /// drawn on it (matplotlib's `Spine.get_window_extent`): the major and
     /// the minor ticks each pad the bare spine, so the longer ones count.
-    pub(crate) fn spine_extent(&self, layout: LayoutContext<'_>, side: SpineSide) -> Option<Bbox> {
-        let spine = self.spine(layout, side)?.line_extent(layout)?;
+    pub(crate) fn spine_extent(&self, cx: &mut impl FigureReader, side: SpineSide) -> Option<Bbox> {
+        let outline = {
+            let layout = cx.read();
+            self.spine(layout, side)?.outline_through(layout)?
+        };
+        cx.release_for(outline.transform());
+        let spine = outline.extent();
         let mut bbox = spine;
+        let layout = cx.read();
         let ticks = self.axis.ticks.as_ref().ok()?;
         for (present, style) in [
             (!ticks.major.is_empty(), &self.axis.major_style),
@@ -485,9 +505,10 @@ impl<'a> AxisPainter<'a> {
     }
 }
 
-/// The label of `tick` in `style`, laid out at `placement`.
+/// The label of `tick` in `style`, laid out at `placement`; a draw lets
+/// the figure go while the program measures it (`cx`).
 fn lay_out_tick_label(
-    layout: LayoutContext<'_>,
+    cx: &mut impl FigureReader,
     tick: &Tick,
     style: &TickStyle,
     placement: &LabelPlacement,
@@ -506,8 +527,8 @@ fn lay_out_tick_label(
         rotation_mode: placement.rotation_mode,
         ..BlockStyle::default()
     };
-    let placed = place_text(
-        layout,
+    let placed = place_text_measured(
+        cx,
         &tick.label,
         &font,
         &style.label_color,
@@ -556,7 +577,7 @@ fn lay_out_axis_text(
 
 /// `text` laid out at `anchor` with `font`, `block` and `color`.
 pub(crate) fn place_text(
-    layout: LayoutContext<'_>,
+    mut layout: LayoutContext<'_>,
     text: &str,
     font: &FontProperties,
     color: &Color,
@@ -564,8 +585,23 @@ pub(crate) fn place_text(
     anchor: Point,
     rc: &RcParams,
 ) -> Result<PlacedText, String> {
-    let laid_out =
-        lay_out_axis_text(text, font, block, layout.dpi(), rc).map_err(|e| e.to_string())?;
+    place_text_measured(&mut layout, text, font, color, block, anchor, rc)
+}
+
+/// [`place_text`], letting the figure go while the program measures the
+/// text (`cx`).
+pub(crate) fn place_text_measured(
+    cx: &mut impl FigureReader,
+    text: &str,
+    font: &FontProperties,
+    color: &Color,
+    block: &BlockStyle,
+    anchor: Point,
+    rc: &RcParams,
+) -> Result<PlacedText, String> {
+    let dpi = cx.read().dpi();
+    cx.release_if(has_line_measurer);
+    let laid_out = lay_out_axis_text(text, font, block, dpi, rc).map_err(|e| e.to_string())?;
     let color = color.resolve().map_err(|e| e.to_string())?;
     Ok(PlacedText {
         laid_out,

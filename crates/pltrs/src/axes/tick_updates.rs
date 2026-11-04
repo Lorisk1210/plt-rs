@@ -266,18 +266,49 @@ impl FigureState {
     /// program ticks it: its updater ticks the axis where it is now, lent
     /// the figure. Returns whether it did.
     pub(crate) fn update_program_ticks(&mut self, axes: ArtistId, name: AxisName) -> bool {
+        self.update_program_levels(axes, name, None)
+    }
+
+    /// [`update_program_ticks`](Self::update_program_ticks) for the
+    /// `minor` level alone (or the major one), the other level's ticks
+    /// kept as they were, as matplotlib's `set_ticklabels` places them.
+    pub(crate) fn update_program_level(
+        &mut self,
+        axes: ArtistId,
+        name: AxisName,
+        minor: bool,
+    ) -> bool {
+        self.update_program_levels(axes, name, Some(minor))
+    }
+
+    /// [`update_program_ticks`](Self::update_program_ticks) for both levels
+    /// the axis shows, or for the one level `only` names (`true` for the
+    /// minor one).
+    fn update_program_levels(
+        &mut self,
+        axes: ArtistId,
+        name: AxisName,
+        only: Option<bool>,
+    ) -> bool {
         let Some(updater) = self.program_ticker(axes, name) else {
             return false;
         };
         let Some((geometry, info)) = self.tick_args(axes, name) else {
             return false;
         };
-        let Some(levels) = self
+        let Some(shown) = self
             .store
             .get_as::<AxesState>(axes)
             .map(|state| state.axis(name).levels())
         else {
             return false;
+        };
+        let levels = match only {
+            Some(minor) => TickLevels {
+                major: !minor && shown.major,
+                minor: minor && shown.minor,
+            },
+            None => shown,
         };
         let Some(updated) =
             self.lend(|cell| updater.update_ticks(&axes_handle(cell, axes), name, &info, levels))
@@ -288,11 +319,15 @@ impl FigureState {
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
             let axis = state.axis_mut(name);
             let offset = axis.ticks.as_ref().map(|ticks| ticks.offset.clone());
-            axis.install_ticks(
-                updated.and_then(|ticks| ticks.into_tick_set(offset.unwrap_or_default())),
-            );
+            let mut ticks =
+                updated.and_then(|ticks| ticks.into_tick_set(offset.unwrap_or_default()));
+            if let (Some(minor), Ok(ticks), Ok(before)) = (only, &mut ticks, &axis.ticks) {
+                ticks.keep_level(before, !minor);
+            }
+            axis.install_ticks(ticks);
             axis.ticks_placed.set(true);
-            axis.program_ticked = Some(axis.program_record(geometry));
+            // Ticks of one level stand for no update of the axis.
+            axis.program_ticked = only.is_none().then(|| axis.program_record(geometry));
         }
         true
     }

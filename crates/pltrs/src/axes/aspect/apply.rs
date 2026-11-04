@@ -145,7 +145,11 @@ impl FigureState {
             .locator
             .and_then(|locator| locator.box_aspect)
             .or(settings.box_aspect);
-        let data_ratio = state.data_ratio();
+        // matplotlib reads the data ratio (through the scales, which may
+        // be the program's) only to shrink the box to a fixed aspect.
+        let data_ratio = (settings.adjustable == Adjustable::Box
+            && (settings.ratio.is_some() || box_aspect.is_some()))
+        .then(|| state.data_ratio());
         let parent = state.base().parent;
         // Insets and secondary axes are placed in their host axes, in the
         // fractions of the host's figure, as matplotlib's locator places
@@ -179,7 +183,9 @@ impl FigureState {
                     .map(|b| b.anchored(settings.anchor(), &located))
             };
             match (settings.adjustable, box_aspect) {
-                (Adjustable::Box, _) => shrunk(settings.ratio.unwrap_or(1.0) * data_ratio),
+                (Adjustable::Box, _) => {
+                    shrunk(settings.ratio.unwrap_or(1.0) * data_ratio.unwrap_or(1.0))
+                }
                 (Adjustable::Datalim, Some(box_aspect)) => shrunk(box_aspect),
                 (Adjustable::Datalim, None) => Some(located),
             }

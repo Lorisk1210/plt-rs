@@ -191,6 +191,47 @@ impl<'a> LayoutContext<'a> {
     }
 }
 
+/// What code laying out part of a figure reads the figure through: a
+/// layout's context, which holds it throughout, or a draw's, which lets it
+/// go around the program's code that layout runs (a transform of the
+/// program's, the text measurer), as matplotlib lets that code change the
+/// figure while it is drawn.
+pub(crate) trait FigureReader {
+    /// The figure, read until [`release_if`](Self::release_if).
+    fn read(&self) -> LayoutContext<'_>;
+
+    /// Lets the figure go before code that `runs_program` says runs the
+    /// program's code (asked only by a reader that lets it go).
+    fn release_if(&mut self, runs_program: impl FnOnce() -> bool);
+
+    /// Lets the figure go before `transform` is applied, when that runs
+    /// the program's code.
+    fn release_for(&mut self, transform: &ResolvedTransform) {
+        self.release_if(|| transform.calls_program());
+    }
+}
+
+impl FigureReader for LayoutContext<'_> {
+    fn read(&self) -> LayoutContext<'_> {
+        *self
+    }
+
+    /// A layout holds the figure throughout.
+    fn release_if(&mut self, _runs_program: impl FnOnce() -> bool) {}
+}
+
+impl FigureReader for DrawContext<'_> {
+    fn read(&self) -> LayoutContext<'_> {
+        self.layout()
+    }
+
+    fn release_if(&mut self, runs_program: impl FnOnce() -> bool) {
+        if runs_program() {
+            self.free();
+        }
+    }
+}
+
 /// What kind of problem a [`DrawError`] is, after the exception
 /// matplotlib raises for it, so that a binding can raise it the same way.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -322,6 +363,16 @@ impl<'a> DrawContext<'a> {
     /// free; the context borrows it again when next asked about it.
     pub fn free(&mut self) {
         self.held.take();
+    }
+
+    /// Lets the figure go (see [`free`](Self::free)) before `transform`
+    /// is applied, when that runs code of the program's (see
+    /// [`ResolvedTransform::calls_program`]): the program's transform then
+    /// finds the figure free, as matplotlib's does.
+    pub fn free_for(&mut self, transform: &ResolvedTransform) {
+        if transform.calls_program() {
+            self.free();
+        }
     }
 
     /// Records a problem; drawing continues with the remaining artists.

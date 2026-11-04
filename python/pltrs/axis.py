@@ -1236,9 +1236,11 @@ class Axis(DrawnWith, Artist):
                 "Otherwise, ticks may be mislabeled.")
             formatter = mticker.FixedFormatter(labels)
         self._set_formatter(formatter, minor=minor)
-        # matplotlib labels the ticks of the level as it returns them.
-        _axis.place_ticks(*self._args())
-        ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
+        # matplotlib labels the ticks of the level as it returns them,
+        # placing those of that level only, once.
+        count = _axis.place_level(*self._args(), minor)
+        ticks = (self.get_minor_ticks(count) if minor
+                 else self.get_major_ticks(count))
         kwargs = {**(fontdict or {}), **kwargs}
         ret = []
         for tick in ticks:

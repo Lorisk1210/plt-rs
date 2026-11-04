@@ -33,6 +33,7 @@ mod spec;
 mod style;
 mod trimesh;
 
+use alpha_fit::KeptColors;
 pub use array::ArrayError;
 pub(crate) use depth::{DepthSortError, DepthSorted};
 pub use ellipses::EllipseCollection;
@@ -234,6 +235,9 @@ pub(crate) struct CollectionArtist {
     /// `update_scalarmappable` maps them, and the mapped ones until the
     /// next `set_facecolor`, `set_edgecolor` or `set_alpha`).
     pub(crate) mapped_shown: Cell<MappedSides>,
+    /// The colours the getters keep reporting for a side that per-item
+    /// alphas set since do not fit.
+    pub(crate) kept_colors: KeptColors,
     /// The norm and colormap of a colour mapping removed by
     /// [`Collection::clear_array`], which the next
     /// [`Collection::set_array`] maps through again.
@@ -292,6 +296,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     depth_sorted,
     mapping,
     mapped_shown,
+    kept_colors,
     parked_mappable,
     program_colors,
     pickradius,
@@ -342,6 +347,7 @@ impl CollectionArtist {
             depth_sorted: None,
             mapping: None,
             mapped_shown: Cell::default(),
+            kept_colors: KeptColors::default(),
             parked_mappable: None,
             program_colors: None,
             pickradius: 5.0,
@@ -460,6 +466,12 @@ impl CollectionArtist {
     /// projection.
     pub(crate) fn reported_colors(&self) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
         style::resolve_reported_colors(self)
+    }
+
+    /// [`reported_colors`](Self::reported_colors), the faces and the
+    /// edges each resolved on its own.
+    pub(crate) fn reported_sides(&self) -> (style::Sided, style::Sided) {
+        style::resolve_reported_sides(self)
     }
 
     /// Maps the values onto the sides the mapping colours, for the getters

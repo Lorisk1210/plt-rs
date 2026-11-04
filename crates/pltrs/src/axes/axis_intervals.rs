@@ -109,7 +109,11 @@ impl Axis {
     /// ```
     pub fn scaled(&self, values: &[f64]) -> Vec<f64> {
         let mut scaled = values.to_vec();
-        self.read(|axis| axis.forward_all(&mut scaled));
+        // The map runs apart from the figure, which a map of the
+        // program's may read and change.
+        if let Some(map) = self.read(|axis| axis.map().cloned()) {
+            map.forward_all(&mut scaled);
+        }
         scaled
     }
 

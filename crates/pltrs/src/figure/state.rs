@@ -340,6 +340,25 @@ impl FigureState {
         }
     }
 
+    /// [`place_ticks_as_is`](Self::place_ticks_as_is) for the `minor`
+    /// level alone (or the major one), as matplotlib's `set_ticklabels`
+    /// places them.
+    pub(crate) fn place_level_as_is(&mut self, axes: ArtistId, name: AxisName, minor: bool) {
+        self.unstale_axes(axes);
+        if self.update_program_level(axes, name, minor) {
+            return;
+        }
+        let Some(extent) = self.axes_bbox(axes) else {
+            return;
+        };
+        let dpi = self.dpi();
+        let tick_space = self.shared_tick_spaces(axes)[usize::from(name == AxisName::Y)];
+        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            let geometry = state.axis_geometry(name, &extent, dpi, tick_space);
+            state.axis_mut(name).update_level_ticks(&geometry, minor);
+        }
+    }
+
     /// Places the ticks of the 2-D `axes` over its box as it is now: those
     /// of the axes the program ticks (`program`), or of the others.
     fn tick_axes(&mut self, axes: ArtistId, program: bool) {

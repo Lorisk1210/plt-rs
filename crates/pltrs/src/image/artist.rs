@@ -148,6 +148,9 @@ impl AxesImageArtist {
         let Some(placement) = self.placement(ctx.layout(), canvas, magnification) else {
             return Ok(None);
         };
+        // A norm or a transform of the program's maps the data with the
+        // figure free.
+        ctx.free();
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())
     }
@@ -166,6 +169,8 @@ impl AxesImageArtist {
             .resolve(&self.transform())
             .filter(ResolvedTransform::is_affine)?;
         let out_bbox = self.out_bbox(ctx.layout())?;
+        // A norm of the program's maps the data with the figure free.
+        ctx.free();
         Some(
             self.core
                 .unsampled(self.extent(), resolved.affine_part(), out_bbox, clip),

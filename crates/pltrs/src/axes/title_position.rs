@@ -190,7 +190,7 @@ impl FigureState {
     fn y_offset_extent(&self, ax: ArtistId) -> Option<Bbox> {
         let state = self.store.get_as::<AxesState>(ax)?;
         let layout = LayoutContext::new(self);
-        let texts = AxisPainter::new(ax, state, AxisName::Y).texts(layout, &state.rc);
+        let texts = AxisPainter::new(ax, state, AxisName::Y).texts(&mut { layout }, &state.rc);
         texts.offset.map(|offset| offset.bbox())
     }
 

@@ -148,16 +148,20 @@ impl BboxImageArtist {
                 Some(transformed_bbox(bbox, &ctx.resolve(transform)?))
             }
             Some(Region::ExtentOf(id)) => ctx.store().get(*id)?.window_extent(&ctx),
-            Some(Region::Function(bbox)) => {
-                let (width, height) = ctx.canvas_size();
-                bbox.get()(Canvas {
-                    width,
-                    height,
-                    dpi: ctx.dpi(),
-                })
-            }
+            Some(Region::Function(bbox)) => bbox.get()(canvas_of(ctx)),
             None => self.bbox,
         }
+    }
+
+    /// [`display_bbox`](Self::display_bbox) for a draw, which lets the
+    /// figure go while a function of the program's gives the box.
+    fn drawn_bbox(&self, ctx: &mut DrawContext<'_>) -> Option<Bbox> {
+        let Some(Region::Function(bbox)) = &self.region else {
+            return self.display_bbox(ctx.layout());
+        };
+        let canvas = canvas_of(ctx.layout());
+        ctx.free();
+        bbox.get()(canvas)
     }
 
     /// matplotlib's `BboxImage.make_image`: the box, as fractions of the
@@ -169,24 +173,21 @@ impl BboxImageArtist {
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
         let canvas = canvas_bbox(ctx);
-        let Some(placement) = self.placement(ctx.layout(), canvas, magnification) else {
+        let Some(out_bbox) = self.drawn_bbox(ctx) else {
             return Ok(None);
         };
+        let placement = Self::placement(out_bbox, canvas, magnification);
+        // A norm of the program's maps the data with the figure free.
+        ctx.free();
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())
     }
 
-    /// Where the image goes on `canvas` in `layout`, magnified by
-    /// `magnification`; `None` while the image is not placed.
-    fn placement(
-        &self,
-        layout: LayoutContext<'_>,
-        canvas: Bbox,
-        magnification: f64,
-    ) -> Option<Placement> {
-        let out_bbox = self.display_bbox(layout)?;
+    /// Where the image filling `out_bbox` goes on `canvas`, magnified by
+    /// `magnification`.
+    fn placement(out_bbox: Bbox, canvas: Bbox, magnification: f64) -> Placement {
         let (width, height) = (canvas.width(), canvas.height());
-        Some(Placement {
+        Placement {
             extent: Extent::new(
                 out_bbox.x0() / width,
                 out_bbox.x1() / width,
@@ -198,7 +199,7 @@ impl BboxImageArtist {
             clip: canvas,
             round_to_pixels: true,
             magnification,
-        })
+        }
     }
 }
 
@@ -326,9 +327,10 @@ impl BboxImage {
         let (width, height) = state.size_pixels();
         let canvas = Bbox::from_extents(0.0, 0.0, width, height);
         self.raw.with::<BboxImageArtist, _>(|image| {
-            let Some(placement) = image.placement(layout, canvas, magnification) else {
+            let Some(out_bbox) = image.display_bbox(layout) else {
                 return Ok(None);
             };
+            let placement = BboxImageArtist::placement(out_bbox, canvas, magnification);
             let alpha = image.core.alpha(image.base.alpha);
             image.core.made(&placement, alpha.as_ref(), unsampled)
         })
@@ -425,6 +427,16 @@ impl BboxImage {
 
 super::impl_mapping_changes!(BboxImage, BboxImageArtist);
 super::impl_color_mapped!(BboxImageArtist, core.data, core.mappable);
+
+/// The canvas a function of the program's places a box image on.
+fn canvas_of(layout: LayoutContext<'_>) -> Canvas {
+    let (width, height) = layout.canvas_size();
+    Canvas {
+        width,
+        height,
+        dpi: layout.dpi(),
+    }
+}
 
 #[cfg(test)]
 mod tests {

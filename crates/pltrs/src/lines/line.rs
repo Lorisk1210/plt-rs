@@ -273,6 +273,7 @@ impl LineArtist {
         if !self.linestyle.is_visible() || drawn.is_empty() {
             return Ok(());
         }
+        ctx.free_for(resolved);
         let (path, affine) = resolved.split_path(drawn);
         let dashed = self.linestyle.is_dashed();
         let mut gc = self.line_gc(ctx);

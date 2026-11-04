@@ -316,6 +316,21 @@ impl Axis {
         Ok(self)
     }
 
+    /// [`place_ticks`](Self::place_ticks) for the `minor` level alone (or
+    /// the major one), the other level's ticks kept as they were, as
+    /// matplotlib's `set_ticklabels` places them.
+    ///
+    /// # Errors
+    ///
+    /// When the locator or the formatter fails.
+    pub fn place_level_ticks(&self, minor: bool) -> Result<&Self, TickerError> {
+        self.read(|axis| axis.ticks_placed.set(true));
+        let (raw, name) = (&self.axes().raw, self.name());
+        (raw.figure_state()).work_on(|state| state.place_level_as_is(raw.id(), name, minor));
+        self.read(|axis| axis.ticks.as_ref().map(drop).map_err(Clone::clone))?;
+        Ok(self)
+    }
+
     /// The ticks the axis was placed with last (by a draw, a layout or
     /// [`Axis::place_ticks`]), not computed again: where matplotlib's
     /// `Tick` objects stand until `_update_ticks` moves them; `None` when

@@ -5,8 +5,8 @@
 use pltrs_core::{Bbox, Point};
 use pltrs_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
-use super::axis_layout::{AxisPainter, PlacedText, place_text};
-use crate::artist::LayoutContext;
+use super::axis_layout::{AxisPainter, PlacedText, place_text_measured};
+use crate::artist::{FigureReader, LayoutContext};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
@@ -20,7 +20,7 @@ impl AxisPainter<'_> {
     /// its side.
     pub(super) fn axis_label(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         rc: &RcParams,
         label_boxes: &[(bool, Bbox)],
     ) -> Option<Result<PlacedText, String>> {
@@ -28,10 +28,10 @@ impl AxisPainter<'_> {
         if label.text.is_empty() || !label.visible {
             return None;
         }
-        let extent = layout.axes_extent(self.axes_id)?;
-        let pad = layout.points_to_pixels(label.pad);
+        let extent = cx.read().axes_extent(self.axes_id)?;
+        let pad = cx.read().points_to_pixels(label.pad);
         let high = label.side.is_high();
-        let edge = self.spine_extent(layout, label.side).unwrap_or(extent);
+        let edge = self.spine_extent(cx, label.side).unwrap_or(extent);
         let boxes = label_boxes
             .iter()
             .filter(|(first, _)| *first != high)
@@ -82,8 +82,8 @@ impl AxisPainter<'_> {
                 extent.y0() + at.y * extent.height(),
             )
         });
-        Some(place_text(
-            layout,
+        Some(place_text_measured(
+            cx,
             &label.text,
             &label.font,
             &label.color,
@@ -96,7 +96,7 @@ impl AxisPainter<'_> {
     /// The offset text at the end of the axis, beyond the tick labels.
     pub(super) fn offset_text(
         &self,
-        layout: LayoutContext<'_>,
+        cx: &mut impl FigureReader,
         rc: &RcParams,
         label_boxes: &[(bool, Bbox)],
     ) -> Option<Result<PlacedText, String>> {
@@ -104,14 +104,14 @@ impl AxisPainter<'_> {
         if text.is_empty() || !self.axis.offset_visible {
             return None;
         }
-        let (anchor, block) = self.offset_placement(layout, label_boxes)?;
+        let (anchor, block) = self.offset_placement(cx.read(), label_boxes)?;
         let style = &self.axis.major_style;
         let font = FontProperties {
             size: style.label_size,
             ..FontProperties::from_rc(rc)
         };
-        Some(place_text(
-            layout,
+        Some(place_text_measured(
+            cx,
             text,
             &font,
             &style.label_color,
@@ -198,7 +198,7 @@ mod tests {
         let state = fig.raw().figure_state().borrow();
         let axes = state.store.get_as::<AxesState>(ax.id()).expect("an axes");
         let texts =
-            AxisPainter::new(ax.id(), axes, name).texts(LayoutContext::new(&state), &axes.rc);
+            AxisPainter::new(ax.id(), axes, name).texts(&mut LayoutContext::new(&state), &axes.rc);
         texts.label.expect("a label").bbox()
     }
 

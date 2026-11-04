@@ -5,6 +5,7 @@ use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
+use crate::lines::StepWhere;
 use crate::units::AxisValues;
 
 /// Where the bottom of the stack lies (matplotlib's `baseline`).
@@ -47,6 +48,15 @@ pub struct StackplotOptions {
     pub linewidths: Vec<f64>,
     /// Style shared by every layer.
     pub props: CollectionProps,
+    /// Where every layer is filled, one flag per point (matplotlib's
+    /// `where`, passed on to each layer's
+    /// [`fill_between`](Axes::fill_between); `None` fills everywhere).
+    pub mask: Option<Vec<bool>>,
+    /// Whether each layer's fill extends to where its curves cross.
+    pub interpolate: bool,
+    /// Fill every layer under a step function instead of straight
+    /// segments.
+    pub step: Option<StepWhere>,
 }
 
 impl Axes {
@@ -90,8 +100,10 @@ impl Axes {
         for (i, top) in stack.iter().enumerate() {
             let bottom = if i == 0 { &first_line } else { &stack[i - 1] };
             let fill = FillBetweenOptions {
+                mask: options.mask.clone(),
+                interpolate: options.interpolate,
+                step: options.step,
                 props: layer_props(&options, &colors, i),
-                ..FillBetweenOptions::default()
             };
             let layer = self.fill_between(x, bottom, top, fill)?;
             if i == 0 {

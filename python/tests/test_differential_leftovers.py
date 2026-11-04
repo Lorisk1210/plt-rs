@@ -219,3 +219,25 @@ def test_a_draw_leaves_animated_axes_to_the_program():
     assert calls == []
     fig.savefig(io.BytesIO(), format="png")
     assert len(calls) == 18, "a save draws the animated artists of axes"
+
+
+@pytest.mark.parametrize("fill, expected", [
+    (dict(step="mid"), [
+        [[[0, 1], [0, 0], [0.5, 0], [0.5, 0], [1.5, 0], [1.5, 0], [2.5, 0], [2.5, 0],
+          [3, 0], [3, 3], [3, 3], [2.5, 3], [2.5, 1], [1.5, 1], [1.5, 2], [0.5, 2],
+          [0.5, 1], [0, 1], [0, 1]]],
+        [[[0, 3], [0, 1], [0.5, 1], [0.5, 2], [1.5, 2], [1.5, 1], [2.5, 1], [2.5, 3],
+          [3, 3], [3, 4], [3, 4], [2.5, 4], [2.5, 3], [1.5, 3], [1.5, 3], [0.5, 3],
+          [0.5, 3], [0, 3], [0, 3]]]]),
+    (dict(where=[True, True, False, True], interpolate=True), [
+        [[[0, 0], [0, 0], [1, 0], [2, 0], [1, 2], [0, 1], [0, 0]],
+         [[2, 0], [3, 0], [3, 0], [3, 3], [2, 0]]],
+        [[[0, 1], [0, 1], [1, 2], [1, 2], [1, 3], [0, 3], [0, 1]],
+         [[3, 3], [3, 3], [3, 3], [3, 4], [3, 3]]]]),
+])
+def test_stackplot_passes_fill_between_keywords_on(fill, expected):
+    fig, ax = plt.subplots()
+    layers = ax.stackplot(np.arange(4.0), [1, 2, 1, 3], [2, 1, 2, 1], **fill)
+    got = [[p.vertices.round(3).tolist() for p in layer.get_paths()] for layer in layers]
+    assert got == expected
+    assert ax.get_ylim() == (0.0, 4.2)

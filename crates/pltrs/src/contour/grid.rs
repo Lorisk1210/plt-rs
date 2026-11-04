@@ -4,6 +4,7 @@
 
 use pltrs_core::{Affine2D, Point};
 
+use super::quad::GridCoordinates;
 use super::set::{ContourSource, ContourWarning};
 use super::{ContourAlgorithm, ContourError, QuadContourGenerator};
 use crate::image::Origin;
@@ -145,12 +146,9 @@ impl QuadField {
         if rows < 2 || cols < 2 {
             return Err(ContourError::GridTooSmall { rows, cols });
         }
-        let GeneratorArguments {
-            x,
-            y,
-            algorithm,
-            corner_mask,
-        } = self.generator_arguments(rc)?;
+        let coords = self.grid_coordinates(rc)?;
+        let algorithm = self.effective_algorithm(rc);
+        let corner_mask = self.effective_corner_mask(algorithm, rc);
         let mut mask: Vec<bool> = self.z.as_slice().iter().map(|v| !v.is_finite()).collect();
         if let Some(user) = &self.mask {
             if user.shape() != (rows, cols) {
@@ -174,10 +172,10 @@ impl QuadField {
         }
         let mask = Grid::from_vec(rows, cols, mask).expect("the mask has the shape of z");
         let chunk = (self.nchunk, self.nchunk);
-        let data_lim = data_lim(&x, &y, to_data);
+        let data_lim = data_lim(coords.points(cols, rows), to_data);
         let generator = QuadContourGenerator::with_coordinates(
             algorithm,
-            (x, y),
+            coords,
             &self.z,
             Some(&mask),
             corner_mask,
@@ -213,7 +211,14 @@ impl QuadField {
     ///
     /// When the coordinates do not fit z.
     pub fn generator_arguments(&self, rc: &RcParams) -> Result<GeneratorArguments, ContourError> {
-        let (x, y) = self.coordinates(rc)?;
+        let (rows, cols) = self.z.shape();
+        let (x, y) = match self.grid_coordinates(rc)? {
+            GridCoordinates::Axes { x, y } => meshgrid(&x, &y),
+            GridCoordinates::Points { x, y } => (
+                Grid::from_vec(rows, cols, x).expect("per-point coordinates fit z"),
+                Grid::from_vec(rows, cols, y).expect("per-point coordinates fit z"),
+            ),
+        };
         let algorithm = self.effective_algorithm(rc);
         Ok(GeneratorArguments {
             x,
@@ -223,8 +228,8 @@ impl QuadField {
         })
     }
 
-    /// The x and y grids of the points.
-    fn coordinates(&self, rc: &RcParams) -> Result<(Grid<f64>, Grid<f64>), ContourError> {
+    /// Where the points sit, checked against z.
+    fn grid_coordinates(&self, rc: &RcParams) -> Result<GridCoordinates, ContourError> {
         let (rows, cols) = self.z.shape();
         match &self.coords {
             QuadCoords::Axes { x, y } => {
@@ -234,7 +239,10 @@ impl QuadField {
                 if y.len() != rows {
                     return Err(ContourError::YLength { len: y.len(), rows });
                 }
-                Ok(meshgrid(x, y))
+                Ok(GridCoordinates::Axes {
+                    x: x.clone(),
+                    y: y.clone(),
+                })
             }
             QuadCoords::Mesh { x, y } => {
                 for shape in [x.shape(), y.shape()] {
@@ -245,7 +253,10 @@ impl QuadField {
                         });
                     }
                 }
-                Ok((x.clone(), y.clone()))
+                Ok(GridCoordinates::Points {
+                    x: x.as_slice().to_vec(),
+                    y: y.as_slice().to_vec(),
+                })
             }
             QuadCoords::Implicit { origin, extent } => {
                 let origin = origin.map(|o| match (o, rc.image_origin) {
@@ -273,13 +284,14 @@ pub struct GeneratorArguments {
     pub corner_mask: bool,
 }
 
-/// matplotlib's `_initialize_x_y`.
+/// matplotlib's `_initialize_x_y`: the x of each column and the y of each
+/// row.
 fn implicit_coordinates(
     rows: usize,
     cols: usize,
     origin: Option<ContourOrigin>,
     extent: Option<[f64; 4]>,
-) -> (Grid<f64>, Grid<f64>) {
+) -> GridCoordinates {
     let Some(origin) = origin else {
         let (x, y) = match extent {
             None => (
@@ -288,7 +300,7 @@ fn implicit_coordinates(
             ),
             Some([x0, x1, y0, y1]) => (linspace(x0, x1, cols), linspace(y0, y1, rows)),
         };
-        return meshgrid(&x, &y);
+        return GridCoordinates::Axes { x, y };
     };
     let [x0, x1, y0, y1] = extent.unwrap_or([0.0, cols as f64, 0.0, rows as f64]);
     let dx = (x1 - x0) / cols as f64;
@@ -298,7 +310,7 @@ fn implicit_coordinates(
     if origin == ContourOrigin::Upper {
         y.reverse();
     }
-    meshgrid(&x, &y)
+    GridCoordinates::Axes { x, y }
 }
 
 /// The smallest and largest unmasked values (`f64::min` and `f64::max`
@@ -323,15 +335,10 @@ fn np_max(a: f64, b: f64) -> f64 {
     if a.is_nan() || a > b { a } else { b }
 }
 
-/// The corners of the bounding box of the grid points, mapped by
+/// The corners of the bounding box of the grid `points`, mapped by
 /// `to_data` first (matplotlib's `_mins` and `_maxs`): numpy's `min` and
 /// `max` of each coordinate, reduced in one pass.
-fn data_lim(x: &Grid<f64>, y: &Grid<f64>, to_data: Option<&Affine2D>) -> (Point, Point) {
-    let points = x
-        .as_slice()
-        .iter()
-        .zip(y.as_slice())
-        .map(|(&x, &y)| Point::new(x, y));
+fn data_lim(points: impl Iterator<Item = Point>, to_data: Option<&Affine2D>) -> (Point, Point) {
     match to_data {
         Some(to_data) => extent(points.map(|p| to_data.transform_point(p))),
         None => extent(points),
@@ -362,14 +369,17 @@ mod tests {
 
     #[test]
     fn implicit_coordinates_follow_origin_and_extent() {
-        let (x, y) = implicit_coordinates(2, 3, None, None);
-        assert_eq!(x.row(1), [0.0, 1.0, 2.0]);
-        assert_eq!(y.column(0), [0.0, 1.0]);
-        let (x, _) = implicit_coordinates(2, 3, None, Some([10.0, 20.0, 0.0, 1.0]));
-        assert_eq!(x.row(0), [10.0, 15.0, 20.0]);
-        let (x, y) = implicit_coordinates(2, 4, Some(ContourOrigin::Upper), None);
-        assert_eq!(x.row(0), [0.5, 1.5, 2.5, 3.5]);
-        assert_eq!(y.column(0), [1.5, 0.5]);
+        let axes = |x: &[f64], y: &[f64]| GridCoordinates::Axes {
+            x: x.to_vec(),
+            y: y.to_vec(),
+        };
+        let implicit = implicit_coordinates(2, 3, None, None);
+        assert_eq!(implicit, axes(&[0.0, 1.0, 2.0], &[0.0, 1.0]));
+        assert_eq!(implicit.at(4, 3), Point::new(1.0, 1.0));
+        let spread = implicit_coordinates(2, 3, None, Some([10.0, 20.0, 0.0, 1.0]));
+        assert_eq!(spread, axes(&[10.0, 15.0, 20.0], &[0.0, 1.0]));
+        let upper = implicit_coordinates(2, 4, Some(ContourOrigin::Upper), None);
+        assert_eq!(upper, axes(&[0.5, 1.5, 2.5, 3.5], &[1.5, 0.5]));
     }
 
     #[test]

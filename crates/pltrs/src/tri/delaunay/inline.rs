@@ -14,7 +14,11 @@ pub(super) enum InlineVec<T> {
     /// The first `len` items of `items` (the rest are fillers).
     Inline { len: u8, items: [T; INLINE] },
     /// More than fit inline (once moved, it stays on the heap).
-    Heap(Vec<T>),
+    #[expect(
+        clippy::box_collection,
+        reason = "a pointer rather than a vector halves the many inline sets"
+    )]
+    Heap(Box<Vec<T>>),
 }
 
 impl<T: Copy + Default> InlineVec<T> {
@@ -32,7 +36,7 @@ impl<T: Copy + Default> InlineVec<T> {
         if let Self::Inline { len, items } = self {
             let mut heap = Vec::with_capacity(INLINE + 1);
             heap.extend_from_slice(&items[..usize::from(*len)]);
-            *self = Self::Heap(heap);
+            *self = Self::Heap(Box::new(heap));
         }
         match self {
             Self::Heap(heap) => heap,
@@ -209,6 +213,55 @@ impl<'a, T> IntoIterator for &'a InlineVec<T> {
     }
 }
 
+/// A sequence that takes the room of one pointer and no allocation while
+/// empty: the coplanar points of a facet, which few facets ever have.
+#[derive(Clone, Debug, Default)]
+pub(super) struct LazyVec<T>(
+    #[expect(
+        clippy::box_collection,
+        reason = "a pointer rather than a vector in every facet"
+    )]
+    Option<Box<Vec<T>>>,
+);
+
+impl<T> LazyVec<T> {
+    /// The items, allocating room for them when there are none.
+    fn items(&mut self) -> &mut Vec<T> {
+        self.0.get_or_insert_with(Box::default)
+    }
+
+    /// Appends `item`.
+    pub(super) fn push(&mut self, item: T) {
+        self.items().push(item);
+    }
+
+    /// Inserts `item` at `index`, shifting the later items up.
+    ///
+    /// # Panics
+    ///
+    /// When `index` is past the end, as `Vec::insert` does.
+    pub(super) fn insert(&mut self, index: usize, item: T) {
+        self.items().insert(index, item);
+    }
+}
+
+impl<T> Deref for LazyVec<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &[T] {
+        self.0.as_deref().map_or(&[], Vec::as_slice)
+    }
+}
+
+impl<'a, T> IntoIterator for &'a LazyVec<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,6 +312,17 @@ mod tests {
         assert_eq!(*inline, [1, 2, 9]);
         inline.truncate(0);
         assert!(inline.into_iter().next().is_none());
+    }
+
+    #[test]
+    fn lazy_sets_allocate_once_they_hold_something() {
+        let mut set = LazyVec::default();
+        assert!(set.is_empty() && set.0.is_none());
+        set.push(4);
+        set.insert(0, 2);
+        assert_eq!(*set, [2, 4]);
+        assert_eq!((&set).into_iter().sum::<i32>(), 6);
+        assert_eq!(std::mem::size_of::<LazyVec<usize>>(), 8);
     }
 
     #[test]

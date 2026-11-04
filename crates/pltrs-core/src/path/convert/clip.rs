@@ -129,6 +129,8 @@ pub struct Clipper<I> {
     rect: Option<ClipRect>,
     queue: VertexQueue<3>,
     last: Point,
+    /// The outcode of `last` (see [`ClipRect::flags`]), worked out once.
+    last_flags: u8,
     init: Point,
     moveto: bool,
     has_init: bool,
@@ -142,6 +144,7 @@ impl<I: VertexSource> Clipper<I> {
             rect: rect.map(|r| ClipRect::padded(&r, 1.0)),
             queue: VertexQueue::default(),
             last: Point::new(f64::NAN, f64::NAN),
+            last_flags: 0,
             init: Point::new(f64::NAN, f64::NAN),
             moveto: true,
             has_init: false,
@@ -203,6 +206,7 @@ impl<I: VertexSource> Clipper<I> {
                     }
                     self.init = vertex.point;
                     self.last = vertex.point;
+                    self.last_flags = rect.flags(vertex.point);
                     self.has_init = true;
                     self.moveto = true;
                     self.was_clipped = false;
@@ -210,17 +214,17 @@ impl<I: VertexSource> Clipper<I> {
                         break;
                     }
                 }
-                // A segment wholly inside continues the line as it is: what
-                // queueing it would return, without the queue.
-                PathCode::LineTo
-                    if !self.moveto && rect.flags(self.last) | rect.flags(vertex.point) == 0 =>
-                {
-                    self.last = vertex.point;
-                    return Some(vertex);
-                }
                 PathCode::LineTo => {
+                    let flags = rect.flags(vertex.point);
+                    // A segment wholly inside continues the line as it is:
+                    // what queueing it would return, without the queue.
+                    if !self.moveto && self.last_flags | flags == 0 {
+                        self.last = vertex.point;
+                        return Some(vertex);
+                    }
                     let drawn = self.draw_clipped_line(rect, self.last, vertex.point, false);
                     self.last = vertex.point;
+                    self.last_flags = flags;
                     if drawn {
                         break;
                     }
@@ -232,6 +236,7 @@ impl<I: VertexSource> Clipper<I> {
                     }
                     self.queue.push(vertex);
                     self.last = vertex.point;
+                    self.last_flags = rect.flags(vertex.point);
                     break;
                 }
             }

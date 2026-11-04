@@ -64,15 +64,35 @@ impl DataLimits {
     /// [`DataLimits::update_from_path`] for the polyline through `points`
     /// (matplotlib's `Bbox.update_from_data_xy`).
     pub fn update_from_points(&mut self, points: &[Point], update_x: bool, update_y: bool) {
-        let finite = || points.iter().filter(|p| p.is_finite());
-        if update_x {
-            let (lo, hi, minpos) = axis_limits(finite().map(|p| p.x));
+        self.update_from_iter(&points.iter().copied(), update_x, update_y);
+    }
+
+    /// [`DataLimits::update_from_points`] for the points `points` yields
+    /// (read once per direction updated), which need not be gathered
+    /// first.
+    pub fn update_from_iter<I>(&mut self, points: &I, update_x: bool, update_y: bool)
+    where
+        I: Iterator<Item = Point> + Clone,
+    {
+        let finite = || points.clone().filter(|p| p.is_finite());
+        let (x, y) = match (update_x, update_y) {
+            // Both directions in one pass, each folded as alone.
+            (true, true) => {
+                let (x, y) = finite().fold((AXIS_START, AXIS_START), |(x, y), p| {
+                    (axis_step(x, p.x), axis_step(y, p.y))
+                });
+                (Some(x), Some(y))
+            }
+            (true, false) => (Some(axis_limits(finite().map(|p| p.x))), None),
+            (false, true) => (None, Some(axis_limits(finite().map(|p| p.y)))),
+            (false, false) => (None, None),
+        };
+        if let Some((lo, hi, minpos)) = x {
             self.bbox.p0.x = self.bbox.p0.x.min(lo);
             self.bbox.p1.x = self.bbox.p1.x.max(hi);
             self.minpos.x = self.minpos.x.min(minpos);
         }
-        if update_y {
-            let (lo, hi, minpos) = axis_limits(finite().map(|p| p.y));
+        if let Some((lo, hi, minpos)) = y {
             self.bbox.p0.y = self.bbox.p0.y.min(lo);
             self.bbox.p1.y = self.bbox.p1.y.max(hi);
             self.minpos.y = self.minpos.y.min(minpos);
@@ -96,15 +116,18 @@ impl DataLimits {
 /// The minimum, maximum and smallest positive value (each `±inf` when
 /// there is none).
 fn axis_limits(values: impl Iterator<Item = f64>) -> (f64, f64, f64) {
-    values.fold(
-        (f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY),
-        |(lo, hi, minpos), v| {
-            (
-                lo.min(v),
-                hi.max(v),
-                if v > 0.0 { minpos.min(v) } else { minpos },
-            )
-        },
+    values.fold(AXIS_START, axis_step)
+}
+
+/// The limits of no values along an axis: `(lo, hi, minpos)`.
+const AXIS_START: (f64, f64, f64) = (f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY);
+
+/// The limits along an axis grown by the value `v`.
+fn axis_step((lo, hi, minpos): (f64, f64, f64), v: f64) -> (f64, f64, f64) {
+    (
+        lo.min(v),
+        hi.max(v),
+        if v > 0.0 { minpos.min(v) } else { minpos },
     )
 }
 
@@ -135,6 +158,27 @@ mod tests {
 
     fn p(x: f64, y: f64) -> Point {
         Point::new(x, y)
+    }
+
+    #[test]
+    fn both_directions_at_once_equal_each_alone() {
+        let points = [
+            p(-0.0, 3.0),
+            p(f64::NAN, 1.0),
+            p(2.0, -1.0),
+            p(0.0, f64::INFINITY),
+            p(0.5, 0.25),
+        ];
+        let mut both = DataLimits::NULL;
+        both.update_from_points(&points, true, true);
+        let mut apart = DataLimits::NULL;
+        apart.update_from_points(&points, true, false);
+        apart.update_from_points(&points, false, true);
+        assert_eq!(both, apart);
+        assert_eq!(
+            (both.bbox.x0(), both.bbox.y1(), both.minpos),
+            (-0.0, 3.0, p(0.5, 0.25))
+        );
     }
 
     #[test]

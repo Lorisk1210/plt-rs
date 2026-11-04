@@ -5,7 +5,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use pltrs_core::Path;
+use pltrs_core::{Path, Point};
 
 use super::ContourError;
 use super::chunks::Chunks;
@@ -83,13 +83,56 @@ pub(super) fn signed(size: usize) -> isize {
     isize::try_from(size).expect("grids fit in memory")
 }
 
+/// Where the points of a grid `nx` points wide sit, row by row.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum GridCoordinates {
+    /// One x per column and one y per row, which every point of the
+    /// column and row shares: no copy of them per point.
+    Axes {
+        /// The x of each column.
+        x: Vec<f64>,
+        /// The y of each row.
+        y: Vec<f64>,
+    },
+    /// The x and y of every point.
+    Points {
+        /// The x of each point.
+        x: Vec<f64>,
+        /// The y of each point.
+        y: Vec<f64>,
+    },
+}
+
+impl GridCoordinates {
+    /// Point `index` of a grid `nx` points wide.
+    pub(super) fn at(&self, index: usize, nx: usize) -> Point {
+        match self {
+            Self::Axes { x, y } => Point::new(x[index % nx], y[index / nx]),
+            Self::Points { x, y } => Point::new(x[index], y[index]),
+        }
+    }
+
+    /// Every point of a grid `nx` points wide and `ny` high, row by row.
+    pub(super) fn points(&self, nx: usize, ny: usize) -> impl Iterator<Item = Point> {
+        (0..nx * ny).map(move |index| self.at(index, nx))
+    }
+
+    /// Whether these are the coordinates of a grid `nx` points wide and
+    /// `ny` high.
+    fn fit(&self, nx: usize, ny: usize) -> bool {
+        match self {
+            Self::Axes { x, y } => x.len() == nx && y.len() == ny,
+            Self::Points { x, y } => x.len() == nx * ny && y.len() == nx * ny,
+        }
+    }
+}
+
 /// A validated grid: coordinates and values of `nx × ny` points, row by
 /// row, with the point mask if anything is masked. The generators keep
 /// the coordinates and values, which they take over.
 #[derive(Clone, Debug)]
 pub(super) struct QuadGrid<'a> {
-    pub(super) x: Vec<f64>,
-    pub(super) y: Vec<f64>,
+    pub(super) coords: GridCoordinates,
     pub(super) z: Vec<f64>,
     pub(super) mask: Option<&'a [bool]>,
     pub(super) nx: usize,
@@ -177,15 +220,29 @@ impl QuadContourGenerator {
         corner_mask: bool,
         chunk_size: (usize, usize),
     ) -> Result<Self, ContourError> {
-        let coordinates = (x.clone(), y.clone());
-        Self::with_coordinates(algorithm, coordinates, z, mask, corner_mask, chunk_size)
+        let (ny, nx) = z.shape();
+        // A grid too small is the first fault reported.
+        if ny >= 2
+            && nx >= 2
+            && let Some(shape) = [x.shape(), y.shape()].into_iter().find(|&s| s != (ny, nx))
+        {
+            return Err(ContourError::ShapeMismatch {
+                expected: (ny, nx),
+                actual: shape,
+            });
+        }
+        let coords = GridCoordinates::Points {
+            x: x.as_slice().to_vec(),
+            y: y.as_slice().to_vec(),
+        };
+        Self::with_coordinates(algorithm, coords, z, mask, corner_mask, chunk_size)
     }
 
     /// [`with_algorithm`](Self::with_algorithm) taking over the
-    /// coordinates `(x, y)` rather than copying them.
-    pub(crate) fn with_coordinates(
+    /// coordinates `coords`, which the caller has checked against `z`.
+    pub(super) fn with_coordinates(
         algorithm: ContourAlgorithm,
-        (x, y): (Grid<f64>, Grid<f64>),
+        coords: GridCoordinates,
         z: &Grid<f64>,
         mask: Option<&Grid<bool>>,
         corner_mask: bool,
@@ -195,12 +252,8 @@ impl QuadContourGenerator {
         if ny < 2 || nx < 2 {
             return Err(ContourError::GridTooSmall { rows: ny, cols: nx });
         }
-        let shapes = [x.shape(), y.shape()];
-        if let Some(&shape) = shapes
-            .iter()
-            .chain(mask.map(Grid::shape).as_ref())
-            .find(|&&s| s != (ny, nx))
-        {
+        debug_assert!(coords.fit(nx, ny), "coordinates checked against z");
+        if let Some(shape) = mask.map(Grid::shape).filter(|&s| s != (ny, nx)) {
             return Err(ContourError::ShapeMismatch {
                 expected: (ny, nx),
                 actual: shape,
@@ -210,8 +263,7 @@ impl QuadContourGenerator {
             return Err(ContourError::CornerMaskUnsupported(algorithm));
         }
         let grid = QuadGrid {
-            x: x.into_vec(),
-            y: y.into_vec(),
+            coords,
             z: z.as_slice().to_vec(),
             mask: mask.map(Grid::as_slice).filter(|m| m.contains(&true)),
             nx,

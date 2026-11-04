@@ -295,7 +295,7 @@ impl Hull {
     /// `true` to stop scanning.
     fn rank_dupridge(&mut self, search: &mut DupridgeSearch, facet: Slot, newfacet: Slot) -> bool {
         for f in [facet.0, newfacet.0] {
-            if self.facet(f).normal.is_none() {
+            if self.facet(f).normal().is_none() {
                 self.set_facet_plane(f);
             }
         }

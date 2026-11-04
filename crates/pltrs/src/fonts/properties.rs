@@ -1,12 +1,14 @@
 //! matplotlib's `FontProperties`: a complete font description, its setters'
 //! validation and its fontconfig pattern form.
 
+use std::cell::RefCell;
 use std::fmt::Write as _;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use pltrs_text::fontconfig::{FontconfigPattern, escape_family, escape_value};
 use pltrs_text::mathtext::Fontset;
-use pltrs_text::{FontStyle, FontVariant, TextEngine, TextError};
+use pltrs_text::{FontStyle, FontVariant, GenericFamilies, TextEngine, TextError};
 
 use super::{FontPropertyError, FontSize, FontStretch, FontWeight};
 use crate::rc::RcParams;
@@ -223,15 +225,36 @@ impl FontProperties {
 }
 
 /// The fonts the generic families stand for, in order of preference: the
-/// `font.serif`, `font.sans-serif`, ... lists of `rc`.
-pub(crate) fn generic_families(rc: &RcParams) -> pltrs_text::GenericFamilies {
-    pltrs_text::GenericFamilies {
-        serif: rc.font_serif.clone(),
-        sans_serif: rc.font_sans_serif.clone(),
-        cursive: rc.font_cursive.clone(),
-        fantasy: rc.font_fantasy.clone(),
-        monospace: rc.font_monospace.clone(),
+/// `font.serif`, `font.sans-serif`, ... lists of `rc`. The lists made last
+/// are given again while `rc` holds the same, so that the requests of
+/// every text share one copy of them.
+pub(crate) fn generic_families(rc: &RcParams) -> Arc<GenericFamilies> {
+    thread_local! {
+        static LAST: RefCell<Option<Arc<GenericFamilies>>> = const { RefCell::new(None) };
     }
+    LAST.with_borrow_mut(|last| {
+        if let Some(families) = last.as_ref().filter(|families| lists_of(families, rc)) {
+            return Arc::clone(families);
+        }
+        let families = Arc::new(GenericFamilies {
+            serif: rc.font_serif.clone(),
+            sans_serif: rc.font_sans_serif.clone(),
+            cursive: rc.font_cursive.clone(),
+            fantasy: rc.font_fantasy.clone(),
+            monospace: rc.font_monospace.clone(),
+        });
+        *last = Some(Arc::clone(&families));
+        families
+    })
+}
+
+/// Whether `families` are the generic-family lists of `rc`.
+fn lists_of(families: &GenericFamilies, rc: &RcParams) -> bool {
+    families.serif == rc.font_serif
+        && families.sans_serif == rc.font_sans_serif
+        && families.cursive == rc.font_cursive
+        && families.fantasy == rc.font_fantasy
+        && families.monospace == rc.font_monospace
 }
 
 #[cfg(test)]

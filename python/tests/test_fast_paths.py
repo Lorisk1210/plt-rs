@@ -3,10 +3,14 @@ Smoke tests of the shortcuts pltrs (Python) takes for speed and memory:
 the composed affine and inverse a composite transform keeps until a child
 changes, the rcParams values read once per generation of the parameters,
 the marker test of `Line2D.get_window_extent`, the copies `set_data`,
-`pcolormesh` and `tricontourf` no longer make. The expected values were recorded from matplotlib
-3.11.2 running the same code.
+`pcolormesh` and `tricontourf` no longer make, the draw events a print
+sends only to listeners, and the histograms, contours, triangulations and
+fills made without their temporary copies. The expected values were
+recorded from matplotlib 3.11.2 running the same code.
 """
 
+
+import io
 
 import numpy as np
 import pytest
@@ -121,3 +125,69 @@ def test_pcolormesh_masks_invalid_values(axes):
     assert np.ma.getmaskarray(array).ravel().tolist() == [False] * 6 + [True] + [False] * 5
     assert list(qm.get_clim()) == [0.0, 11.0]
     assert np.isinf(c[1, 2])  # The values given are left alone.
+
+
+def test_prints_tell_the_draw_event_listeners_there_are():
+    fig, ax = plt.subplots(figsize=(2, 1), dpi=50)
+    ax.plot([0, 1], [0, 1])
+    fig.savefig(io.BytesIO(), format="png")
+    calls = []
+    cid = fig.canvas.mpl_connect("draw_event", lambda event: calls.append(event.name))
+    fig.savefig(io.BytesIO(), format="png")
+    fig.savefig(io.BytesIO(), format="raw")
+    fig.canvas.mpl_disconnect(cid)
+    fig.savefig(io.BytesIO(), format="png")
+    assert calls == ["draw_event", "draw_event"]
+
+
+def test_histograms_with_estimated_bins_and_ranges(axes):
+    fig, ax = axes
+    t = np.linspace(0.0, 1.0, 2001)
+    data = np.sin(37.0 * t) * np.exp(t) + 0.3 * t
+    n, edges, _ = ax.hist(data, bins="auto")
+    assert len(n) == 15 and n.sum() == 2001.0
+    assert n[:5].tolist() == [55.0, 95.0, 137.0, 210.0, 172.0]
+    assert (edges[0], edges[-1], edges[7]) == (
+        -2.362806587987968, 2.707412869795305, 0.0032958256442254807)
+    n, _, _ = ax.hist(np.concatenate([data, [np.nan]]), bins=13, range=(-2, 3))
+    assert n.tolist() == [123.0, 171.0, 238.0, 168.0, 147.0, 161.0, 172.0,
+                          238.0, 188.0, 145.0, 102.0, 61.0, 30.0]
+    assert np.percentile(data, [3.0, 50.0, 97.5]).tolist() == [
+        -1.9980800490770885, 0.15798289556857342, 2.4428629064343794]
+
+
+def test_contours_on_implicit_coordinates(axes):
+    fig, ax = axes
+    z = (np.sin(np.linspace(0, 6, 40))[None, :]
+         * np.cos(np.linspace(0, 4, 30))[:, None])
+    cs = ax.contourf(z, levels=7)
+    assert list(ax.dataLim.bounds) == [0.0, 0.0, 39.0, 29.0]
+    paths = cs.get_paths()
+    assert [len(p.vertices) for p in paths] == [74, 155, 175, 212, 179, 176, 157, 74]
+    assert sum(p.vertices.sum() for p in paths) == 40567.93736984483
+    cs = ax.contour(z, levels=4, origin="upper", extent=(1, 5, 2, 3))
+    paths = cs.get_paths()
+    assert [len(p.vertices) for p in paths] == [0, 53, 81, 81, 81, 53, 0]
+    assert sum(p.vertices.sum() for p in paths) == 1929.6275473117917
+
+
+def test_delaunay_triangulation_of_a_spiral():
+    k = np.arange(500)
+    x, y = np.cos(k * 2.399963) * np.sqrt(k), np.sin(k * 2.399963) * np.sqrt(k)
+    triang = tri.Triangulation(x, y)
+    assert triang.triangles.shape == (977, 3)
+    assert triang.triangles[:3].tolist() == [[496, 475, 488], [409, 498, 464], [499, 486, 465]]
+    assert (triang.triangles.sum(), triang.neighbors.sum()) == (717421, 1426885)
+
+
+def test_fills_and_stacks_extend_the_data_limits():
+    fig, ax = plt.subplots()
+    xs = np.linspace(0, 10, 300)
+    fill = ax.fill_between(xs, np.sin(xs), -0.5 * np.cos(xs), where=xs < 7)
+    assert list(ax.dataLim.bounds) == [
+        0.0, -0.9999944552781962, 6.989966555183946, 1.9999938391974896]
+    assert [len(p.vertices) for p in fill.get_paths()] == [423]
+    fig, ax = plt.subplots()
+    polys = ax.stackplot(xs, [1 + np.sin(xs), 1 + np.cos(xs)])
+    assert list(ax.dataLim.bounds) == [0.0, 0.0, 10.0, 3.4141163156765932]
+    assert [len(p.get_paths()[0].vertices) for p in polys] == [603, 603]

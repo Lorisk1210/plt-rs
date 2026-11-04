@@ -199,16 +199,14 @@ impl<'a> Site<'a> {
     fn mark_cut(&mut self, p0: isize, p1: isize, level: f64, kind: u8) -> usize {
         let (mesh, i0, i1) = (self.mesh, slot(p0), slot(p1));
         let zcp = (level - mesh.z[i0]) / (mesh.z[i1] - mesh.z[i0]);
-        let point = Point::new(
-            zcp * (mesh.x[i1] - mesh.x[i0]) + mesh.x[i0],
-            zcp * (mesh.y[i1] - mesh.y[i0]) + mesh.y[i0],
-        );
+        let (xy0, xy1) = (mesh.point(i0), mesh.point(i1));
+        let point = Point::new(zcp * (xy1.x - xy0.x) + xy0.x, zcp * (xy1.y - xy0.y) + xy0.y);
         self.mark(point, kind)
     }
 
     /// Records a mesh point.
     fn mark_point(&mut self, p: isize, kind: u8) -> usize {
-        let point = Point::new(self.mesh.x[slot(p)], self.mesh.y[slot(p)]);
+        let point = self.mesh.point(slot(p));
         self.mark(point, kind)
     }
 

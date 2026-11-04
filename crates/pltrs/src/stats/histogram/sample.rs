@@ -1,5 +1,7 @@
 //! Element types a histogram accepts, with numpy's dtype-dependent rules.
 
+use std::borrow::Cow;
+
 /// A sample value numpy can bin.
 ///
 /// numpy treats integer (and boolean) arrays differently from float ones
@@ -12,6 +14,24 @@ pub trait BinSample: Copy {
 
     /// The sample as a float, as numpy converts it for binning.
     fn to_f64(self) -> f64;
+
+    /// The samples `data` as floats: borrowed when they are floats
+    /// already.
+    fn floats(data: &[Self]) -> Cow<'_, [f64]> {
+        Cow::Owned(data.iter().map(|v| v.to_f64()).collect())
+    }
+}
+
+impl BinSample for f64 {
+    const INTEGER: bool = false;
+
+    fn to_f64(self) -> f64 {
+        self
+    }
+
+    fn floats(data: &[Self]) -> Cow<'_, [f64]> {
+        Cow::Borrowed(data)
+    }
 }
 
 macro_rules! bin_samples {
@@ -34,7 +54,7 @@ macro_rules! bin_samples {
     };
 }
 
-bin_samples!(exact false: f64, f32);
+bin_samples!(exact false: f32);
 bin_samples!(exact true: i8, i16, i32, u8, u16, u32);
 bin_samples!(rounded true: i64, isize, u64, usize);
 
@@ -57,5 +77,7 @@ mod tests {
         assert_eq!(true.to_f64(), 1.0);
         assert_eq!((-3_i64).to_f64(), -3.0);
         assert_eq!(0.5_f32.to_f64(), 0.5);
+        assert!(matches!(f64::floats(&[1.5]), Cow::Borrowed([1.5])));
+        assert_eq!(*i32::floats(&[2, -1]), [2.0, -1.0]);
     }
 }

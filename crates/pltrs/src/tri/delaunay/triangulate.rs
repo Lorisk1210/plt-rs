@@ -81,13 +81,13 @@ impl Hull {
         self.make_new_nonsimplicial(facet, apex)?;
         self.will_delete(facet, None);
         let source = self.facet(facet);
-        let (upper, normal, offset) = (source.upperdelaunay, source.normal, source.offset);
+        let (upper, normal, offset) = (source.upperdelaunay, source.normal(), source.offset);
         for f in self.facets_from(self.newfacet_list) {
             let triangle = self.facet_mut(f);
             triangle.tricoplanar = true;
             triangle.link = Some(facet);
             triangle.upperdelaunay = upper;
-            triangle.normal = normal;
+            triangle.set_normal(normal);
             triangle.offset = offset;
         }
         self.match_new_facets()?;

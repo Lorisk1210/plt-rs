@@ -1,9 +1,12 @@
 //! Block assembly: buffering LZ77 tokens and emitting each block as stored,
 //! fixed-Huffman or dynamic-Huffman, whichever is smallest.
 
+use std::ops::Range;
+
 use super::bit_writer::BitWriter;
 use super::code_lengths::{CodeLengthOp, run_length_ops};
 use super::huffman::HuffmanCode;
+use super::input::Input;
 use super::tables::{
     CODE_LENGTH_ORDER, CODE_LENGTH_SYMBOLS, DIST_BASE, DIST_EXTRA, DIST_SYMBOLS, END_OF_BLOCK,
     FIXED_DIST_LENGTHS, LENGTH_BASE, LENGTH_EXTRA, LITLEN_SYMBOLS, MAX_CODE_BITS,
@@ -24,10 +27,10 @@ pub(crate) enum Token {
     Match { length: u16, distance: u16 },
 }
 
-/// Collects tokens from a parser and writes them out block by block.
+/// Collects tokens from a parser and writes them out block by block; the
+/// parser hands it the input it reads, which holds the byte of a literal.
 #[derive(Debug)]
-pub(crate) struct BlockSink<'d, 'w, 'o> {
-    data: &'d [u8],
+pub(crate) struct BlockSink<'w, 'o> {
     writer: &'w mut BitWriter<'o>,
     tokens: Vec<Token>,
     /// First input byte covered by the buffered tokens.
@@ -36,10 +39,9 @@ pub(crate) struct BlockSink<'d, 'w, 'o> {
     covered: usize,
 }
 
-impl<'d, 'w, 'o> BlockSink<'d, 'w, 'o> {
-    pub(crate) fn new(data: &'d [u8], writer: &'w mut BitWriter<'o>) -> Self {
+impl<'w, 'o> BlockSink<'w, 'o> {
+    pub(crate) fn new(writer: &'w mut BitWriter<'o>) -> Self {
         Self {
-            data,
             writer,
             tokens: Vec::with_capacity(BLOCK_TOKENS),
             block_start: 0,
@@ -48,15 +50,16 @@ impl<'d, 'w, 'o> BlockSink<'d, 'w, 'o> {
     }
 
     /// Emits the literal byte at the current position.
-    pub(crate) fn literal(&mut self) {
-        self.make_room();
-        self.tokens.push(Token::Literal(self.data[self.covered]));
+    pub(crate) fn literal(&mut self, input: &mut impl Input) {
+        self.make_room(input);
+        self.tokens
+            .push(Token::Literal(input.view().byte(self.covered)));
         self.covered += 1;
     }
 
     /// Emits a back-reference covering the next `length` bytes.
-    pub(crate) fn matched(&mut self, length: usize, distance: usize) {
-        self.make_room();
+    pub(crate) fn matched(&mut self, input: &mut impl Input, length: usize, distance: usize) {
+        self.make_room(input);
         self.tokens.push(Token::Match {
             length: length as u16,
             distance: distance as u16,
@@ -65,30 +68,44 @@ impl<'d, 'w, 'o> BlockSink<'d, 'w, 'o> {
     }
 
     /// Writes the remaining tokens as the final block.
-    pub(crate) fn finish(mut self) {
-        debug_assert_eq!(self.covered, self.data.len(), "parser left input uncovered");
-        self.flush(true);
+    pub(crate) fn finish(mut self, input: &mut impl Input) {
+        debug_assert_eq!(
+            self.covered,
+            input.view().len(),
+            "parser left input uncovered"
+        );
+        self.flush(input, true);
     }
 
     /// Flushes a full buffer as a non-final block. Flushing lazily, only
     /// when another token arrives, guarantees the final block is never empty
     /// unless the whole input is.
-    fn make_room(&mut self) {
+    fn make_room(&mut self, input: &mut impl Input) {
         if self.tokens.len() == BLOCK_TOKENS {
-            self.flush(false);
+            self.flush(input, false);
         }
     }
 
-    fn flush(&mut self, is_final: bool) {
-        let raw = &self.data[self.block_start..self.covered];
-        write_block(self.writer, &self.tokens, raw, is_final);
+    fn flush(&mut self, input: &mut impl Input, is_final: bool) {
+        write_block(
+            self.writer,
+            &self.tokens,
+            (input, self.block_start..self.covered),
+            is_final,
+        );
         self.tokens.clear();
         self.block_start = self.covered;
     }
 }
 
-/// Writes `tokens` (which encode `raw`) as one block of the cheapest type.
-fn write_block(writer: &mut BitWriter<'_>, tokens: &[Token], raw: &[u8], is_final: bool) {
+/// Writes `tokens`, which encode the bytes `positions` of `input`, as one
+/// block of the cheapest type.
+fn write_block(
+    writer: &mut BitWriter<'_>,
+    tokens: &[Token],
+    (input, positions): (&mut impl Input, Range<usize>),
+    is_final: bool,
+) {
     let freqs = Frequencies::of(tokens);
     let extra = freqs.extra_bits();
     let fixed = BlockCodes::fixed();
@@ -96,8 +113,8 @@ fn write_block(writer: &mut BitWriter<'_>, tokens: &[Token], raw: &[u8], is_fina
     let dynamic = BlockCodes::optimal(&freqs);
     let header = DynamicHeader::new(&dynamic);
     let dynamic_bits = 3 + header.bits() + dynamic.cost(&freqs) + extra;
-    if stored_bits(raw.len(), writer.bit_offset()) <= fixed_bits.min(dynamic_bits) {
-        write_stored(writer, raw, is_final);
+    if stored_bits(positions.len(), writer.bit_offset()) <= fixed_bits.min(dynamic_bits) {
+        input.with_range(positions, |raw| write_stored(writer, raw, is_final));
     } else if fixed_bits <= dynamic_bits {
         writer.write_bits(u32::from(is_final) | 0b010, 3);
         write_tokens(writer, tokens, &fixed);
@@ -115,17 +132,40 @@ pub(crate) fn write_stored(writer: &mut BitWriter<'_>, raw: &[u8], is_final: boo
     loop {
         let (chunk, tail) = rest.split_at(rest.len().min(MAX_STORED));
         let last = tail.is_empty();
-        writer.write_bits(u32::from(is_final && last), 3);
-        writer.align_to_byte();
-        let length = chunk.len() as u16;
-        writer.write_aligned_bytes(&length.to_le_bytes());
-        writer.write_aligned_bytes(&(!length).to_le_bytes());
-        writer.write_aligned_bytes(chunk);
+        write_stored_block(writer, chunk, is_final && last);
         if last {
             return;
         }
         rest = tail;
     }
+}
+
+/// Writes the whole of `input` as stored blocks, as [`write_stored`] does,
+/// reading it a block at a time.
+pub(crate) fn write_stored_input(writer: &mut BitWriter<'_>, input: &mut impl Input) {
+    let len = input.view().len();
+    let mut start = 0;
+    loop {
+        let end = (start + MAX_STORED).min(len);
+        input.reach(start);
+        input.with_range(start..end, |chunk| {
+            write_stored_block(writer, chunk, end == len);
+        });
+        if end == len {
+            return;
+        }
+        start = end;
+    }
+}
+
+/// Writes `chunk`, at most 65 535 bytes, as one stored block.
+fn write_stored_block(writer: &mut BitWriter<'_>, chunk: &[u8], is_final: bool) {
+    writer.write_bits(u32::from(is_final), 3);
+    writer.align_to_byte();
+    let length = chunk.len() as u16;
+    writer.write_aligned_bytes(&length.to_le_bytes());
+    writer.write_aligned_bytes(&(!length).to_le_bytes());
+    writer.write_aligned_bytes(chunk);
 }
 
 /// Size in bits of `len` bytes written as stored blocks when the output is

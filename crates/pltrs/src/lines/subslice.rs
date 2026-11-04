@@ -6,6 +6,7 @@
 //! visible parts of long lines eligible for pixel snapping and spared from
 //! path simplification, as in matplotlib.
 
+use std::borrow::Cow;
 use std::ops::Range;
 
 use crate::artist::{ArtistBase, LayoutContext};
@@ -65,34 +66,36 @@ fn is_sorted_and_has_non_nan(values: &[f64]) -> bool {
 /// The values with each NaN replaced by linear interpolation over the
 /// indices of its neighbours, held constant beyond the ends (numpy's
 /// `interp`, as `Line2D.recache` fills `_x_filled`).
-fn with_nans_interpolated(values: &[f64]) -> Vec<f64> {
+fn with_nans_interpolated(values: &[f64]) -> Cow<'_, [f64]> {
+    if !values.iter().any(|v| v.is_nan()) {
+        return Cow::Borrowed(values);
+    }
     let known: Vec<(usize, f64)> = values
         .iter()
         .copied()
         .enumerate()
         .filter(|(_, v)| !v.is_nan())
         .collect();
-    if known.len() == values.len() {
-        return values.to_vec();
-    }
-    values
-        .iter()
-        .enumerate()
-        .map(|(i, &v)| {
-            if !v.is_nan() {
-                return v;
-            }
-            let after = known.partition_point(|&(k, _)| k < i);
-            match (after.checked_sub(1).map(|b| known[b]), known.get(after)) {
-                (Some((i0, v0)), Some(&(i1, v1))) => {
-                    v0 + (v1 - v0) * (i - i0) as f64 / (i1 - i0) as f64
+    Cow::Owned(
+        values
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| {
+                if !v.is_nan() {
+                    return v;
                 }
-                (Some((_, v0)), None) => v0,
-                (None, Some(&(_, v1))) => v1,
-                (None, None) => v,
-            }
-        })
-        .collect()
+                let after = known.partition_point(|&(k, _)| k < i);
+                match (after.checked_sub(1).map(|b| known[b]), known.get(after)) {
+                    (Some((i0, v0)), Some(&(i1, v1))) => {
+                        v0 + (v1 - v0) * (i - i0) as f64 / (i1 - i0) as f64
+                    }
+                    (Some((_, v0)), None) => v0,
+                    (None, Some(&(_, v1))) => v1,
+                    (None, None) => v,
+                }
+            })
+            .collect(),
+    )
 }
 
 #[cfg(test)]
@@ -150,6 +153,6 @@ mod tests {
     #[test]
     fn nans_take_the_interpolated_index_value() {
         let filled = with_nans_interpolated(&[f64::NAN, 1.0, f64::NAN, 3.0, f64::NAN]);
-        assert_eq!(filled, vec![1.0, 1.0, 2.0, 3.0, 3.0]);
+        assert_eq!(*filled, [1.0, 1.0, 2.0, 3.0, 3.0]);
     }
 }

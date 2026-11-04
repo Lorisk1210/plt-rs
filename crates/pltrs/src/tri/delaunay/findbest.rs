@@ -352,7 +352,7 @@ impl Hull {
         let mut best: Option<(FacetId, f64)> = None;
         for f in self.facets_from(Some(self.facet_list)) {
             let facet = self.facet(f);
-            if facet.flipped || facet.normal.is_none() || facet.visible || facet.upperdelaunay {
+            if facet.flipped || facet.normal().is_none() || facet.visible || facet.upperdelaunay {
                 continue;
             }
             let dist = self.dist(&p, f);

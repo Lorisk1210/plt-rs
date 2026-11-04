@@ -291,7 +291,7 @@ mod tests {
             ..GenericFamilies::default()
         };
         let font = FontRequest {
-            generics,
+            generics: generics.into(),
             ..FontRequest::new(FontQuery::families(["sans", "Comic Neue"]))
         };
         assert_eq!(

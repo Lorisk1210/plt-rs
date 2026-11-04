@@ -4,6 +4,8 @@
 
 use pltrs_core::alloc::{self, OutOfMemory};
 
+use crate::deflate::input::ByteSource;
+
 /// A scanline filter type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FilterType {
@@ -58,39 +60,94 @@ pub enum FilterStrategy {
     Fixed(FilterType),
 }
 
-/// Filters the rows of `data` (each `row_bytes` long, pixels `stride` bytes
-/// apart), prefixing every row with its filter type byte.
-///
-/// # Errors
-///
-/// When the memory for the filtered rows cannot be allocated.
-pub(crate) fn filter_image(
-    data: &[u8],
+/// The filtered rows of an image, each prefixed with its filter type byte
+/// (what the `IDAT` stream compresses), made a row at a time as they are
+/// read: the compressor reads them through a window rather than from a
+/// filtered copy of the whole image.
+#[derive(Debug)]
+pub(crate) struct FilteredRows<'a> {
+    data: &'a [u8],
     row_bytes: usize,
     stride: usize,
     strategy: FilterStrategy,
-) -> Result<Vec<u8>, OutOfMemory> {
-    let mut out = alloc::try_with_capacity(data.len() + data.len() / row_bytes)?;
-    let zero_row = vec![0; row_bytes];
-    let mut candidate = vec![0; row_bytes];
-    let mut best = vec![0; row_bytes];
-    let mut previous = zero_row.as_slice();
-    for row in data.chunks_exact(row_bytes) {
-        let filter = match strategy {
+    /// The row last filtered, if any.
+    filtered_row: Option<usize>,
+    /// That row: its type byte, then its filtered bytes.
+    filtered: Vec<u8>,
+    /// Room for the other filters an adaptive choice tries.
+    candidate: Vec<u8>,
+    /// The row above the first.
+    zero_row: Vec<u8>,
+}
+
+impl<'a> FilteredRows<'a> {
+    /// The rows of `data` (each `row_bytes` long, pixels `stride` bytes
+    /// apart) filtered as `strategy` chooses.
+    ///
+    /// # Errors
+    ///
+    /// When the memory for a row cannot be allocated.
+    pub(crate) fn new(
+        data: &'a [u8],
+        row_bytes: usize,
+        stride: usize,
+        strategy: FilterStrategy,
+    ) -> Result<Self, OutOfMemory> {
+        let zeros = |len: usize| -> Result<Vec<u8>, OutOfMemory> {
+            let mut row = alloc::try_with_capacity(len)?;
+            row.resize(len, 0);
+            Ok(row)
+        };
+        Ok(Self {
+            data,
+            row_bytes,
+            stride,
+            strategy,
+            filtered_row: None,
+            filtered: zeros(row_bytes + 1)?,
+            candidate: zeros(row_bytes + 1)?,
+            zero_row: zeros(row_bytes)?,
+        })
+    }
+
+    /// Filters row `index` into `filtered`, unless it is there already.
+    fn filter_row(&mut self, index: usize) {
+        if self.filtered_row == Some(index) {
+            return;
+        }
+        let row_bytes = self.row_bytes;
+        let current = &self.data[index * row_bytes..(index + 1) * row_bytes];
+        let previous = match index.checked_sub(1) {
+            Some(above) => &self.data[above * row_bytes..index * row_bytes],
+            None => &self.zero_row,
+        };
+        let filter = match self.strategy {
             FilterStrategy::Fixed(filter) => {
-                apply(filter, stride, previous, row, &mut best);
+                apply(
+                    filter,
+                    self.stride,
+                    previous,
+                    current,
+                    &mut self.filtered[1..],
+                );
                 filter
             }
             FilterStrategy::Adaptive => {
                 let mut best_filter = FilterType::None;
                 let mut best_score = u64::MAX;
                 for filter in FilterType::ALL {
-                    apply(filter, stride, previous, row, &mut candidate);
-                    let score = score(&candidate);
+                    apply(
+                        filter,
+                        self.stride,
+                        previous,
+                        current,
+                        &mut self.candidate[1..],
+                    );
+                    let score = score(&self.candidate[1..]);
                     if score < best_score {
                         best_score = score;
                         best_filter = filter;
-                        std::mem::swap(&mut candidate, &mut best);
+                        std::mem::swap(&mut self.candidate, &mut self.filtered);
                         if score == 0 {
                             break;
                         }
@@ -99,11 +156,28 @@ pub(crate) fn filter_image(
                 best_filter
             }
         };
-        out.push(filter.byte());
-        out.extend_from_slice(&best);
-        previous = row;
+        self.filtered[0] = filter.byte();
+        self.filtered_row = Some(index);
     }
-    Ok(out)
+}
+
+impl ByteSource for FilteredRows<'_> {
+    fn len(&self) -> usize {
+        self.data.len() / self.row_bytes * (self.row_bytes + 1)
+    }
+
+    fn append(&mut self, start: usize, count: usize, out: &mut Vec<u8>) {
+        let end = (start + count).min(self.len());
+        let line = self.row_bytes + 1;
+        let mut position = start;
+        while position < end {
+            let (row, offset) = (position / line, position % line);
+            self.filter_row(row);
+            let taken = (line - offset).min(end - position);
+            out.extend_from_slice(&self.filtered[offset..offset + taken]);
+            position += taken;
+        }
+    }
 }
 
 /// Sum of the filtered bytes' magnitudes when read as signed values.
@@ -220,6 +294,23 @@ mod tests {
     use super::*;
     use crate::test_util::Rng;
 
+    /// All the filtered rows of `data`, read in uneven pieces.
+    fn filter_image(
+        data: &[u8],
+        row_bytes: usize,
+        stride: usize,
+        strategy: FilterStrategy,
+    ) -> Result<Vec<u8>, OutOfMemory> {
+        let mut rows = FilteredRows::new(data, row_bytes, stride, strategy)?;
+        let mut out = Vec::new();
+        let mut piece = 1;
+        while out.len() < rows.len() {
+            rows.append(out.len(), piece, &mut out);
+            piece = piece * 3 + 1;
+        }
+        Ok(out)
+    }
+
     #[test]
     fn paeth_prefers_left_then_up() {
         assert_eq!(paeth(10, 20, 15), 15);
@@ -269,6 +360,19 @@ mod tests {
         let filtered = filter_image(&noise.repeat(2), 64, 1, FilterStrategy::Adaptive).unwrap();
         assert_eq!(filtered[65], FilterType::Up.byte());
         assert!(filtered[66..].iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    fn rows_are_made_again_anywhere() {
+        let image = Rng::new(23).bytes(40 * 6);
+        let all = filter_image(&image, 40, 4, FilterStrategy::Adaptive).unwrap();
+        let mut rows = FilteredRows::new(&image, 40, 4, FilterStrategy::Adaptive).unwrap();
+        for (start, count) in [(200, 30), (5, 100), (0, 1), (230, 1000)] {
+            let mut out = Vec::new();
+            rows.append(start, count, &mut out);
+            let end = (start + count).min(all.len());
+            assert_eq!(out, all[start..end], "{count} bytes from {start}");
+        }
     }
 
     #[test]

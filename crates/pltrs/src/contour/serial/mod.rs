@@ -23,7 +23,7 @@ use self::march::ChunkMarch;
 use self::trace::{Pass, Tracer};
 use super::assemble::LevelPath;
 use super::chunks::Chunks;
-use super::quad::{QuadGrid, signed, slot};
+use super::quad::{GridCoordinates, QuadGrid, signed, slot};
 
 /// contourpy's `SerialContourGenerator` with matplotlib's line and fill
 /// types.
@@ -40,8 +40,7 @@ pub(super) struct Serial {
 /// The coordinates and values of the grid points, row-major.
 #[derive(Clone, Debug)]
 pub(super) struct Field {
-    x: Vec<f64>,
-    y: Vec<f64>,
+    coords: GridCoordinates,
     z: Vec<f64>,
     /// Points per row.
     nx: isize,
@@ -50,8 +49,7 @@ pub(super) struct Field {
 impl Field {
     /// The position of a point.
     fn point(&self, point: isize) -> Point {
-        let i = slot(point);
-        Point::new(self.x[i], self.y[i])
+        self.coords.at(slot(point), slot(self.nx))
     }
 
     /// The value at a point.
@@ -112,8 +110,7 @@ impl Serial {
                 (chunks.x_size, chunks.y_size),
             ),
             field: Field {
-                x: grid.x,
-                y: grid.y,
+                coords: grid.coords,
                 z: grid.z,
                 nx: signed(grid.nx),
             },
@@ -212,13 +209,12 @@ mod tests {
     ) -> Serial {
         let (ny, nx) = (rows.len(), rows[0].len());
         let z: Vec<f64> = rows.concat();
-        let x: Vec<f64> = (0..ny).flat_map(|_| (0..nx).map(|i| i as f64)).collect();
-        let y: Vec<f64> = (0..ny)
-            .flat_map(|j| (0..nx).map(move |_| j as f64))
-            .collect();
+        let coords = GridCoordinates::Axes {
+            x: (0..nx).map(|i| i as f64).collect(),
+            y: (0..ny).map(|j| j as f64).collect(),
+        };
         let grid = QuadGrid {
-            x,
-            y,
+            coords,
             z,
             mask,
             nx,

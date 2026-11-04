@@ -229,13 +229,10 @@ fn dataset_weights<'w, T, D: AsRef<[T]>>(
 /// The NaN-ignoring minimum and maximum over all datasets, if any finite
 /// or infinite sample exists.
 fn nan_extent<T: BinSample, D: AsRef<[T]>>(datasets: &[D]) -> Option<(f64, f64)> {
-    let values = || {
-        datasets
-            .iter()
-            .flat_map(|d| d.as_ref().iter().map(|v| v.to_f64()))
-    };
-    let lo = crate::numeric::nanmin(values())?;
-    let hi = crate::numeric::nanmax(values())?;
+    let values = datasets
+        .iter()
+        .flat_map(|d| d.as_ref().iter().map(|v| v.to_f64()));
+    let (lo, hi) = crate::numeric::nan_extent(values)?;
     (lo <= hi).then_some((lo, hi))
 }
 

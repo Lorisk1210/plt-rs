@@ -7,6 +7,7 @@
 //! number of values, gives NaN (its exception goes to the native call
 //! running).
 
+use pltrs::scale::ArrayLayout;
 use pltrs::transforms::Point;
 
 use super::{points, points_array};
@@ -27,15 +28,19 @@ impl FromPy<'_> for Mapped {
     }
 }
 
-/// Replaces `values` by what `callback` answers for them (as a 1-D array):
-/// one call for all of them. Returns whether it answered.
-pub(crate) fn map_values(callback: &Callback, values: &mut [f64]) -> bool {
+/// Replaces `values` by what `callback` answers for them (as a 1-D array,
+/// or a column `(N, 1)` for [`ArrayLayout::Column`]): one call for all of
+/// them. Returns whether it answered.
+pub(crate) fn map_values(callback: &Callback, values: &mut [f64], layout: ArrayLayout) -> bool {
     if values.is_empty() {
         return true;
     }
-    let mapped = callback
-        .call::<Mapped>((NdArray::from_vec(values.to_vec()),))
-        .map(|mapped| mapped.0);
+    let shape = match layout {
+        ArrayLayout::Row => vec![values.len()],
+        ArrayLayout::Column => vec![values.len(), 1],
+    };
+    let array = NdArray::with_shape(values.to_vec(), shape).expect("the shape holds the values");
+    let mapped = callback.call::<Mapped>((array,)).map(|mapped| mapped.0);
     let answered = mapped.is_some();
     write_back(values, mapped);
     answered
@@ -100,7 +105,7 @@ mod tests {
     fn nothing_is_called_for_no_values() {
         with_python(|py| {
             let raising: Callback = eval(py, "", "lambda *args: 1 / 0").extract().unwrap();
-            assert!(map_values(&raising, &mut []));
+            assert!(map_values(&raising, &mut [], ArrayLayout::Row));
             map_points(&raising, &mut []);
             map_xy(&raising, &mut []);
         });

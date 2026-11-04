@@ -10,8 +10,8 @@ use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
 use crate::colors::{Norm, NormKind, Normalized};
 use crate::scale::{
-    FuncScale, FuncTransform, LinearScale, Scale, ScaleFunction, ScaleName, ScaleOptions,
-    scale_factory,
+    ArrayLayout, FuncScale, FuncTransform, LinearScale, Scale, ScaleFunction, ScaleName,
+    ScaleOptions, scale_factory,
 };
 use crate::ticker::{FixedLocator, Formatter, IndexLocator, Locator, NullLocator};
 
@@ -138,8 +138,9 @@ impl ScaleFunction for NormSpacing {
     }
 
     /// The norm (or its inverse) called once with all the values, as
-    /// matplotlib's colorbar scale calls it with arrays.
-    fn call_all(&self, values: &mut [f64]) {
+    /// matplotlib's colorbar scale calls it with arrays (a norm's own
+    /// arrays: how the values are laid out does not matter to it).
+    fn call_all(&self, values: &mut [f64], _: ArrayLayout) {
         let mapped: Option<Vec<f64>> = if self.inverse {
             self.norm
                 .borrow()

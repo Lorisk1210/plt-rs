@@ -727,6 +727,16 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         unless the polygon is planar.
     """
 
+    def _mapping_draws(self):
+        """How many draws mapped the collection's values to colours: in a
+        3-D axes, each draw of the axes, whose projection of the polygons
+        maps them (animated or not, as matplotlib's ``Axes3D.draw``
+        projects them), and each projection the program asks for."""
+        axes = _axes3d(self)
+        if axes is None:
+            return super()._mapping_draws()
+        return _artist.draw_count(axes._native) + self.__dict__.get("_projections", 0)
+
     def __init__(self, verts, *args, zsort='average', shade=False,
                  lightsource=None, axlim_clip=False, closed=True, **kwargs):
         """

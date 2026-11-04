@@ -22,7 +22,7 @@ use crate::artist::{
 use crate::axes::{AxesState, collapse_x};
 use crate::collections::CollectionArtist;
 use crate::colors::Color;
-use crate::figure::FigureState;
+use crate::figure::{FigureState, Painting};
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
 use crate::rc::RcParams;
 use crate::transforms::{TransformContext, unit_to_bbox};
@@ -207,13 +207,13 @@ impl Axes3DState {
     /// (matplotlib's
     /// `Axes3D.draw` before drawing). Lines are projected as matplotlib
     /// projects them when it draws them: animated ones only while the
-    /// figure is `saving`.
+    /// figure is `saving`, none for a draw stopped before its artists.
     pub(crate) fn prepare(
         &mut self,
         store: &mut ArtistStore,
         extent: &Bbox,
         dpi: f64,
-        (saving, drawing): (bool, bool),
+        (saving, painting): (bool, Option<Painting>),
     ) {
         self.artists.retain(|artist| store.contains(artist.id));
         let width_points = extent.width().abs() / dpi * 72.0;
@@ -236,7 +236,9 @@ impl Axes3DState {
         } in &self.artists
         {
             let animated = store.get(*id).is_some_and(|a| a.base().animated);
-            if art.projected_when_drawn() && animated && !saving {
+            if art.projected_when_drawn()
+                && ((animated && !saving) || painting == Some(Painting::Stopped))
+            {
                 continue;
             }
             let projection = if *axlim_clip { &hiding } else { &projection };
@@ -248,7 +250,7 @@ impl Axes3DState {
                 depths.push((*id, kind, depth));
             }
         }
-        if !(self.computed_zorder && drawing) {
+        if !(self.computed_zorder && painting.is_some()) {
             return;
         }
         // Deepest first; ties keep their insertion order.
@@ -469,25 +471,26 @@ pub(crate) fn axes3d_fresh_tight_bbox(
 ) -> Option<Bbox> {
     // matplotlib's `get_tightbbox` applies the aspect.
     square(figure, id, true);
-    prepare_one(figure, id, false);
+    prepare_one(figure, id, None);
     super::drawn::note_measure(figure, id);
     axes3d_tight_bbox(figure, id, for_layout_only)
 }
 
 /// The layout pass of every 3-D axes of a figure (called from
-/// [`FigureState::prepare`]), the box of each made square when `drawing`
-/// unless it is animated (matplotlib applies the aspect when it draws the
-/// axes, which the figure's draws leave out when animated); between
-/// draws an axes stays where it stands.
-pub(crate) fn prepare_axes3d(figure: &mut FigureState, drawing: bool) {
+/// [`FigureState::prepare`]), for a draw with `painting` (`None` for a
+/// measure), the box of each made square for a draw unless it is
+/// animated (matplotlib applies the aspect when it draws the axes, which
+/// the figure's draws leave out when animated); between draws an axes
+/// stays where it stands.
+pub(crate) fn prepare_axes3d(figure: &mut FigureState, painting: Option<Painting>) {
     for id in axes3d_ids(&figure.store) {
-        if drawing {
+        if painting.is_some() {
             super::pending::unstale_for_draw(figure, id);
             square(figure, id, false);
         }
-        prepare_one(figure, id, drawing);
-        if drawing {
-            super::drawn::note_draw(figure, id);
+        prepare_one(figure, id, painting);
+        if let Some(painting) = painting {
+            super::drawn::note_draw(figure, id, painting);
         }
     }
 }
@@ -503,9 +506,10 @@ fn square(figure: &mut FigureState, id: ArtistId, animated_too: bool) {
 }
 
 /// The layout pass of the 3-D axes `id`, in the figure or removed from
-/// it, for a draw when `drawing` (matplotlib orders the axes' collections
-/// and patches by depth as it draws them).
-pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, drawing: bool) {
+/// it, for a draw with `painting` (matplotlib orders the axes'
+/// collections and patches by depth as it draws them), `None` for a
+/// measure.
+pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, painting: Option<Painting>) {
     let Some(extent) = figure.axes_bbox(id) else {
         return;
     };
@@ -517,7 +521,7 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, drawing: bool)
         for (axis, space) in axes.axes.iter_mut().zip(owner_spaces) {
             axis.owner_tick_space = space;
         }
-        axes.prepare(store, &extent, dpi, (saving, drawing));
+        axes.prepare(store, &extent, dpi, (saving, painting));
     });
 }
 

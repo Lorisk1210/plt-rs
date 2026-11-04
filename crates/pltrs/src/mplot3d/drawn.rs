@@ -20,7 +20,7 @@ use super::math::{Matrix4, Vec3};
 use super::readout::pane_point_through;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistHandle, ArtistId};
-use crate::figure::FigureState;
+use crate::figure::{FigureState, Painting};
 use crate::lines::{Line2D, LineArtist};
 
 /// The projection matrix of a 3-D axes' last draw and its inverse
@@ -67,8 +67,9 @@ fn numpy_inverse(matrix: &Matrix4) -> Option<Matrix4> {
 /// Records a draw of the 3-D axes `id`, just laid out for it (matplotlib's
 /// `Axes3D.draw`, which a figure's draws leave out for an animated or an
 /// invisible axes): its projection becomes `M`, and the artists the
-/// layout projected for the draw hold a draw's projection.
-pub(crate) fn note_draw(figure: &mut FigureState, id: ArtistId) {
+/// layout projected for the draw hold a draw's projection (with
+/// `painting` stopped, not those projected as they are drawn).
+pub(crate) fn note_draw(figure: &mut FigureState, id: ArtistId, painting: Painting) {
     let saving = figure.saving;
     figure.with_others::<Axes3DState, _>(id, |axes, store| {
         if axes.base().animated || !axes.base().visible {
@@ -77,7 +78,8 @@ pub(crate) fn note_draw(figure: &mut FigureState, id: ArtistId) {
         axes.keep_projection();
         for artist in &mut axes.artists {
             let animated = store.get(artist.id).is_some_and(|a| a.base().animated);
-            if saving || !(animated && artist.art.projected_when_drawn()) {
+            let as_drawn = artist.art.projected_when_drawn();
+            if (saving || !(animated && as_drawn)) && !(as_drawn && painting == Painting::Stopped) {
                 artist.drawn = true;
             }
         }

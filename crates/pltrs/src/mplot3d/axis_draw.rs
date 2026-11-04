@@ -46,9 +46,15 @@ const AXIS_LABEL_OFFSET: f64 = 21.0;
 /// gid (`pane3d`, `grid3d`, `axis3d`).
 pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &Bbox) {
     // matplotlib ticks each axis as it draws it (`_update_ticks`), which
-    // raises what its locator or formatter raises.
+    // raises what its locator or formatter raises, after its warnings: the
+    // first axis failing stops matplotlib's draw.
+    let mut warned = false;
     for dir in Axis3::ALL {
-        if let Err(err) = &axes.axis(dir).ticks {
+        let axis = axes.axis(dir);
+        if let Err(err) = &axis.ticks {
+            if !std::mem::replace(&mut warned, true) {
+                axis.warn_failed_ticks();
+            }
             ctx.report_kind(axes.base_id(), err.draw_kind(), err);
         }
     }
@@ -320,9 +326,15 @@ impl<'a> Painter<'a> {
     }
 
     /// The display extent of `text`, a box of no size at its anchor when
-    /// it is empty; `None` when it lands nowhere or cannot be laid out.
+    /// it is empty; `None` when it lands at infinity or cannot be laid
+    /// out. A text projected nowhere (limits outside the domain of a
+    /// scale) has a box of NaN, as matplotlib's text translated by its
+    /// position, which spreads through the unions of tight boxes.
     fn text_extent(&self, text: &PlacedText<'_>, dpi: f64) -> Option<Bbox> {
         let anchor = self.plane.transform_point(text.position);
+        if anchor.x.is_nan() || anchor.y.is_nan() {
+            return Some(Bbox::from_extents(f64::NAN, f64::NAN, f64::NAN, f64::NAN));
+        }
         if !anchor.is_finite() {
             return None;
         }

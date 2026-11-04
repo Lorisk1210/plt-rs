@@ -588,6 +588,24 @@ impl AxisState {
     pub(crate) fn inverse(&self, value: f64) -> f64 {
         self.map.as_ref().map_or(value, |m| m.inverse(value))
     }
+
+    /// Maps every value of `values` in place through the scale as
+    /// matplotlib's `axis.get_transform().transform(...)` does (see
+    /// [`AxisMap::forward_column`]).
+    pub(crate) fn forward_column(&self, values: &mut [f64]) {
+        if let Some(map) = &self.map {
+            map.forward_column(values);
+        }
+    }
+
+    /// Maps every scaled value of `values` back to data in place as
+    /// matplotlib's `get_transform().inverted().transform(...)` does (see
+    /// [`AxisMap::inverse_column`]).
+    pub(crate) fn inverse_column(&self, values: &mut [f64]) {
+        if let Some(map) = &self.map {
+            map.inverse_column(values);
+        }
+    }
 }
 
 impl UnitState for AxisState {

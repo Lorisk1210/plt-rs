@@ -211,14 +211,15 @@ def build_subfigure(sub):
     _transforms.watch_frame(sub._native)
 
 
-def build_axes(ax, made=False):
+def build_axes(ax, as_made=False):
     """
     Build the trees of the Axes *ax* (matplotlib's ``Axes.set_figure``
     and the ``_set_lim_and_transforms`` of its projection) and follow
-    their leaves. For an Axes being *made*, as its class' constructor
-    builds them: the trees of a subplot span its figure while
-    ``_set_lim_and_transforms`` makes them, as matplotlib's ``__init__``
-    places the Axes on its grid cell only after (``set_subplotspec``).
+    their leaves. *as_made* builds them from the boxes matplotlib's
+    ``__init__`` builds them from (a new view, no data, and for an Axes
+    of a grid the unit box, which its cell replaces after), then gives
+    them the Axes' own, for a projection class of the program's, whose
+    ``_set_lim_and_transforms`` may read them.
     """
     fig = ax.get_figure(root=False)
     root = ax._figure
@@ -233,20 +234,19 @@ def build_axes(ax, made=False):
     d["_viewLim"] = Bbox.unit()
     d["transScale"] = TransformWrapper(IdentityTransform())
     leaves = axes[0] if axes else None
-    if leaves is not None:
+    if leaves is not None and not as_made:
         _set_axes_boxes(ax, leaves)
-    placed = None
-    if made and ax.get_subplotspec() is not None:
-        placed = d["_position"].extents, d["_originalPosition"].extents
-        set_extents(d["_position"], (0, 0, 1, 1))
-        set_extents(d["_originalPosition"], (0, 0, 1, 1))
+    elif leaves is not None and ax.get_subplotspec() is None:
+        # An Axes made at a rectangle has it from the start.
+        position, original = leaves[1]
+        set_extents(d["_position"], position)
+        set_extents(d["_originalPosition"], original)
     made_before = set(d)
     ax._set_lim_and_transforms()
-    if placed is not None:
-        set_extents(d["_position"], placed[0])
-        set_extents(d["_originalPosition"], placed[1])
     # What the projection's trees are made of besides (not pickled).
     d["_transform_trees"] = tuple(sorted(set(d) - made_before))
+    if leaves is not None and as_made:
+        _set_axes_boxes(ax, leaves)
     ax._update_transScale()
     if leaves is not None:
         d["_tree_scales"] = leaves[4]
@@ -380,8 +380,8 @@ class AxesTrees:
     _xaxis_transform = TreeAttribute()
     _yaxis_transform = TreeAttribute()
 
-    def _build_transform_trees(self, made=False):
-        build_axes(self, made)
+    def _build_transform_trees(self, as_made=False):
+        build_axes(self, as_made)
 
     def __getstate__(self):
         return without_trees(super().__getstate__())

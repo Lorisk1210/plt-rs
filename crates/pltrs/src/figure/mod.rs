@@ -9,6 +9,7 @@ mod clear;
 mod detach;
 mod draw_hook;
 mod draw_order;
+mod drawn_changes;
 mod frame;
 mod in_use;
 mod lend;
@@ -34,6 +35,7 @@ mod tests;
 mod texts;
 
 use std::fmt;
+use std::ops::ControlFlow;
 use std::rc::Rc;
 
 use pltrs_core::Rgba;
@@ -47,6 +49,9 @@ pub use cell::{WeakFigure, take_changed_figures};
 pub(crate) use detach::attach;
 pub use draw_hook::DrawHook;
 pub(crate) use draw_order::draws_before;
+pub use drawn_changes::{
+    clear_draw_end_handler, draw_tick, replaying_changes_from, set_draw_end_handler,
+};
 pub(crate) use frame::{FigureFrame, SuperText};
 pub use in_use::{Access, FigureInUse, reenter};
 pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
@@ -68,7 +73,7 @@ use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
 pub use size::{FigSize, SizeError, SizeUnit};
 pub(crate) use stale::FreshArtists;
-pub(crate) use state::{FigureState, StateRole, host_to_figure};
+pub(crate) use state::{FigureState, Painting, StateRole, host_to_figure};
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
 pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes, make_axes};
@@ -427,12 +432,21 @@ impl Figure {
 
     /// [`Figure::draw`] without the draw event, for callers that send it
     /// themselves once they are done.
+    /// A hook of the program's stopping the draw (see
+    /// [`DrawHook::stopping`]) leaves the rest of it undone.
     pub(crate) fn draw_without_event(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
-        self.prepare_layout();
+        if self.prepare_layout().is_break() {
+            return Ok(());
+        }
         crate::inset::choose_connectors(&mut self.state.borrow_mut());
-        self.run_draw_hook();
+        if self.run_draw_hook().is_break() {
+            return Ok(());
+        }
         self.root_handle().prepare_painters(&*renderer, true);
         let errors = self.state.borrow().draw(renderer);
+        // The changes the program's code asked for meanwhile, made before
+        // the figure counts as drawn (see `drawn_changes`).
+        drawn_changes::run_draw_end_handler();
         let mut state = self.state.borrow_mut();
         state.stale = false;
         state.last_draw_dpi = Some(state.dpi());
@@ -449,20 +463,31 @@ impl Figure {
     /// queried; from then on the figure counts as drawn (matplotlib's
     /// `draw_without_rendering`, or `canvas.draw()`).
     pub fn layout(&self) {
-        self.prepare_layout();
+        if self.prepare_layout().is_break() {
+            return;
+        }
         let mut state = self.state.borrow_mut();
         state.last_draw_dpi = Some(state.dpi());
     }
 
     /// The layout pass of [`Figure::layout`], before a draw, then the
     /// offset boxes of the program's measured where the figure is laid
-    /// out, then the limit callbacks its autoscaling queued.
-    pub(crate) fn prepare_layout(&self) {
-        self.run_layout_hook();
+    /// out, then the limit callbacks its autoscaling queued; whether the
+    /// draw goes on. A layout hook of the program's stopping the draw
+    /// leaves the figure laid out, as matplotlib's draw fails in the
+    /// program's code it runs once the figure is laid out.
+    pub(crate) fn prepare_layout(&self) -> ControlFlow<()> {
+        let flow = self.run_layout_hook();
+        let painting = if flow.is_continue() {
+            Painting::Painted
+        } else {
+            Painting::Stopped
+        };
         self.root_handle().measure_painters();
-        self.state.work_on(FigureState::prepare_for_draw);
+        self.state.work_on(|state| state.prepare_for_draw(painting));
         crate::offsetbox::measure_program_boxes(&self.root_handle());
         crate::axes::run_limit_callbacks(&self.state);
+        flow
     }
 
     /// The handle of the root figure's frame (a subfigure's handle is

@@ -148,13 +148,24 @@ impl FigureState {
                     .siblings(frame, Aligned::Titles, axes),
             );
         }
-        if let Some(state) = self.store.get_as::<AxesState>(axes) {
-            // matplotlib's child axes, which parasites are not.
-            group.extend(state.children.iter().copied().filter(|&child| {
-                self.store.get_as::<AxesState>(child).is_some() && !is_parasite(&self.store, child)
-            }));
-        }
+        group.extend(self.child_axes(axes));
         group
+    }
+
+    /// The child axes of `axes` (matplotlib's `child_axes`: insets and
+    /// secondary axes, which parasites are not).
+    pub(super) fn child_axes(&self, axes: ArtistId) -> Vec<ArtistId> {
+        self.store
+            .get_as::<AxesState>(axes)
+            .map(|state| {
+                (state.children.iter().copied())
+                    .filter(|&child| {
+                        self.store.get_as::<AxesState>(child).is_some()
+                            && !is_parasite(&self.store, child)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// The top of `ax`'s x axis decorations when they are on top (ticks on

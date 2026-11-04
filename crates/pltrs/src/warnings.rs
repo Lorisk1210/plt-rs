@@ -88,16 +88,52 @@ pub fn clear_runtime_handler() {
 
 /// Issues the runtime warning `message` (numpy's words for the invalid
 /// arithmetic matplotlib's code would meet: `"invalid value encountered
-/// in log10"`) to the thread's runtime handler.
+/// in log10"`) to the thread's runtime handler, or keeps it for the work
+/// pltrs runs that issues its warnings where numpy issues them (with the
+/// error the arithmetic leads to, say).
 #[expect(
     clippy::print_stderr,
     reason = "without a handler, warnings go where Python prints unfiltered ones"
 )]
 pub fn warn_runtime(message: &str) {
+    let kept = CAPTURED.with_borrow_mut(|captured| {
+        captured
+            .as_mut()
+            .map(|captured| captured.push(message.to_owned()))
+            .is_some()
+    });
+    if kept {
+        return;
+    }
     match RUNTIME_HANDLER.with(|slot| slot.borrow().clone()) {
         Some(handler) => handler(message),
         None => eprintln!("RuntimeWarning: {message}"),
     }
+}
+
+thread_local! {
+    /// The runtime warnings of the work [`capturing_runtime`] runs, kept
+    /// instead of issued.
+    static CAPTURED: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+}
+
+/// Runs `work`, keeping the runtime warnings it issues instead of issuing
+/// them: what `work` returns, and the warnings in order, for the caller
+/// to issue where numpy issues them (with the error the arithmetic that
+/// warned leads to, say).
+pub(crate) fn capturing_runtime<R>(work: impl FnOnce() -> R) -> (R, Vec<String>) {
+    /// Puts back the warnings kept around this work, also when it unwinds.
+    struct Restore(Option<Vec<String>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CAPTURED.set(self.0.take());
+        }
+    }
+    let restore = Restore(CAPTURED.replace(Some(Vec::new())));
+    let result = work();
+    let captured = CAPTURED.take().unwrap_or_default();
+    drop(restore);
+    (result, captured)
 }
 
 /// Sends the log messages of this thread to `handler` from now on.
@@ -127,6 +163,18 @@ pub fn log(module: &str, message: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn captured_runtime_warnings_are_kept_and_nest() {
+        let (inner, outer) = capturing_runtime(|| {
+            warn_runtime("outer");
+            let ((), inner) = capturing_runtime(|| warn_runtime("inner"));
+            warn_runtime("outer again");
+            inner
+        });
+        assert_eq!(inner, ["inner"]);
+        assert_eq!(outer, ["outer", "outer again"]);
+    }
 
     #[test]
     fn handlers_receive_warnings_until_cleared() {

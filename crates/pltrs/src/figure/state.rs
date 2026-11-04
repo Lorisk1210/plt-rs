@@ -127,7 +127,19 @@ enum Preparation {
     /// Measured (a tight box, a layout).
     Measuring,
     /// Drawn: the boxes of 3-D axes are made square too.
-    Drawing,
+    Drawing(Painting),
+}
+
+/// Whether a draw goes on to draw the figure's artists once it is laid
+/// out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Painting {
+    /// The artists are drawn.
+    Painted,
+    /// The program's code stopped the draw before (see
+    /// [`DrawHook::stopping`](super::DrawHook::stopping)): what is laid
+    /// out as matplotlib's artists draw themselves is left as it was.
+    Stopped,
 }
 
 impl FigureState {
@@ -362,13 +374,17 @@ impl FigureState {
             self.unstale_axes(id);
             true
         } else {
-            self.sync_secondary(id);
+            if matches!(preparation, Preparation::Drawing(_)) {
+                // `Figure._get_draw_artists` applies the aspect of every
+                // axes, its secondary axes after their host.
+                self.sync_secondary(id);
+            }
             self.lay_out_axes(id)
         };
         crate::polar::update_spine_visibility(self, id);
         if laid_out {
             self.tick_axes(id, false);
-            if preparation != Preparation::Drawing {
+            if !matches!(preparation, Preparation::Drawing(_)) {
                 self.tick_axes(id, true);
             }
         }
@@ -398,27 +414,20 @@ impl FigureState {
     /// the boxes of 3-D axes are made square, as matplotlib applies their
     /// aspect when it draws them (an axis of a 3-D axes measured before
     /// the first draw is where its unsquared axes puts it).
-    pub(crate) fn prepare_for_draw(&mut self) {
+    /// `painting` tells whether the artists are drawn after.
+    pub(crate) fn prepare_for_draw(&mut self, painting: Painting) {
         self.layout.pending = true;
         // A draw the program makes meanwhile (from a formatter) is one.
         let draws = std::mem::replace(&mut self.draws_per_layout, 1);
-        self.prepare_with(Preparation::Drawing, draws);
+        self.prepare_with(Preparation::Drawing(painting), draws);
     }
 
     /// [`prepare`](Self::prepare) for `preparation`, `draws` being how
     /// many draws the program saw since the last layout of a draw.
     fn prepare_with(&mut self, preparation: Preparation, draws: usize) {
-        if preparation != Preparation::AsIs {
-            // matplotlib's layout engines measure every axes with its
-            // aspect applied, which brings a secondary axis to its host's
-            // limits (`SecondaryAxis.apply_aspect`).
-            for id in self.axes_ids() {
-                self.sync_secondary(id);
-            }
-        }
         let failed_before = crate::layout::failures::failed();
         self.run_pending_layout();
-        if preparation == Preparation::Drawing && !failed_before {
+        if matches!(preparation, Preparation::Drawing(_)) && !failed_before {
             // matplotlib's `Figure.draw` passes over a `ValueError` its
             // layout engine raised, and draws as the pass left the figure.
             crate::layout::failures::pass_over(crate::layout::failures::ErrorClass::ValueError);
@@ -427,7 +436,11 @@ impl FigureState {
         let laid_out: Vec<ArtistId> = (axes.iter().copied())
             .filter(|&id| self.prepare_axes(id, preparation))
             .collect();
-        if preparation == Preparation::Drawing {
+        let painting = match preparation {
+            Preparation::Drawing(painting) => Some(painting),
+            Preparation::AsIs | Preparation::Measuring => None,
+        };
+        if painting.is_some() {
             self.program_figure_drawn(&axes, draws);
             // The axes the program ticks that no axis draw ticked (hidden
             // ones, which other artists may still read).
@@ -435,7 +448,7 @@ impl FigureState {
                 self.tick_axes(id, true);
             }
         }
-        crate::mplot3d::prepare_axes3d(self, preparation == Preparation::Drawing);
+        crate::mplot3d::prepare_axes3d(self, painting);
         // Titles clear the decorations of twins and insets, whose ticks
         // are only all known now.
         for id in axes {

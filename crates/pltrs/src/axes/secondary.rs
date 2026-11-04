@@ -208,6 +208,12 @@ impl FigureState {
     /// limits are the host's converted and an axis at a data value of the
     /// host moves there (matplotlib's `_set_scale` and `_set_lims`, which
     /// its draw and `apply_aspect` run). Does nothing for other axes.
+    ///
+    /// matplotlib sets the limits wherever it applies the axis' aspect or
+    /// draws it, and the program's functions are called each time: when
+    /// the figure draws the axes it holds (`_get_draw_artists`), where its
+    /// host places its titles, when it measures the axis for a tight box,
+    /// and twice when it draws the axis (see `tick_sites`).
     pub(crate) fn sync_secondary(&mut self, axes: ArtistId) {
         let Some(link) = self.sync_secondary_scale(axes) else {
             return;
@@ -231,7 +237,11 @@ impl FigureState {
         {
             state.position = bounds;
         }
-        let (mut v0, mut v1) = (link.functions.forward(low), link.functions.forward(high));
+        // matplotlib's `_set_lims` hands the functions the host's limits as
+        // one array.
+        let mut limits = [low, high];
+        link.functions.forward_all(&mut limits);
+        let [mut v0, mut v1] = limits;
         if (v0 < v1) != (low < high) {
             (v0, v1) = (v1, v0);
         }

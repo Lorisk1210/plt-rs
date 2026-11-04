@@ -16,8 +16,8 @@ use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, Scale};
 use crate::ticker::{
-    AxisInfo, AxisName, Formatter, Locator, NullLocator, TickContext, TickerError, TickerSettings,
-    drawable_ticks,
+    AxisInfo, AxisName, Formatter, Locator, NullLocator, OverlapTolerance, TickContext,
+    TickerError, TickerSettings, drawable_ticks,
 };
 use crate::transforms::interval_contains_close;
 use crate::units::{AxisUnits, Categories};
@@ -262,6 +262,8 @@ pub(crate) struct Axis3DState {
     pub(crate) offset_color: Color,
     /// Ticks computed by the last layout pass, or why they could not be.
     pub(crate) ticks: Result<TickSet, TickerError>,
+    /// The runtime warnings the failed computation of the ticks met.
+    pub(crate) tick_warnings: Vec<String>,
     /// Whether the axis line is drawn (matplotlib's `axis.line` visibility).
     pub(crate) line_visible: bool,
     /// The edges carrying the line, tick marks, tick labels and offset
@@ -304,6 +306,7 @@ pltrs_core::archive_struct!(Axis3DState {
     minor_style,
     offset_color,
     ticks,
+    tick_warnings,
     line_visible,
     tick_position,
     label_position,
@@ -346,6 +349,7 @@ impl Axis3DState {
             minor_style: tick_style(false, rc),
             offset_color: rc.xtick_color.clone(),
             ticks: Ok(TickSet::default()),
+            tick_warnings: Vec::new(),
             line_visible: true,
             tick_position: AxisPosition::Default,
             label_position: AxisPosition::Default,
@@ -469,11 +473,39 @@ impl Axis3DState {
     /// Recomputes the major and minor ticks inside the view (matplotlib's
     /// `Axis._update_ticks`) for an axes `length_points` wide; with
     /// `automargin` the view is inset as `axes3d.automargin` asks.
+    ///
+    /// The runtime warnings of a computation that fails are kept with its
+    /// error, and issued wherever the error is (see
+    /// [`warn_failed_ticks`](Self::warn_failed_ticks)): matplotlib's
+    /// locator warns, then raises, only where it is called, and pltrs
+    /// computes the ticks of an axis in more places than matplotlib
+    /// calls it, but raises where it raises.
     pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64, automargin: bool) {
-        self.ticks = self.compute_ticks(span, length_points, automargin);
-        if let Ok(ticks) = &self.ticks {
-            self.major_overrides.make_ticks(ticks.major_unclipped.len());
-            self.minor_overrides.make_ticks(ticks.minor_unclipped.len());
+        let (ticks, warnings) = crate::warnings::capturing_runtime(|| {
+            self.compute_ticks(span, length_points, automargin)
+        });
+        self.ticks = ticks;
+        self.tick_warnings = match &self.ticks {
+            Ok(ticks) => {
+                self.major_overrides.make_ticks(ticks.major_unclipped.len());
+                self.minor_overrides.make_ticks(ticks.minor_unclipped.len());
+                for message in &warnings {
+                    crate::warnings::warn_runtime(message);
+                }
+                Vec::new()
+            }
+            Err(_) => warnings,
+        };
+    }
+
+    /// Issues the runtime warnings the failed computation of the ticks
+    /// met on its way to its error, as matplotlib's locator issues them
+    /// before it raises: wherever the error is raised.
+    pub(crate) fn warn_failed_ticks(&self) {
+        if self.ticks.is_err() {
+            for message in &self.tick_warnings {
+                crate::warnings::warn_runtime(message);
+            }
         }
     }
 
@@ -585,25 +617,19 @@ impl Axis3DState {
         move |loc| interval_contains_close(interval, self.scale.forward(loc), 1e-10)
     }
 
-    /// Drops minor ticks that coincide with major ones (matplotlib's
-    /// `get_minorticklocs` with `np.isclose(atol=span * 1e-5)` in
-    /// transformed coordinates).
+    /// Drops minor ticks that coincide with major ones (see
+    /// [`OverlapTolerance`]).
     pub(crate) fn without_overlaps(
         &self,
         minor: Vec<f64>,
         major: &[f64],
         view: (f64, f64),
     ) -> Vec<f64> {
-        let (lo, hi) = (self.scale.forward(view.0), self.scale.forward(view.1));
-        let tolerance = (hi - lo).abs() * 1e-5;
-        let major: Vec<f64> = major.iter().map(|&m| self.scale.forward(m)).collect();
-        minor
-            .into_iter()
-            .filter(|&m| {
-                let t = self.scale.forward(m);
-                !major.iter().any(|&j| (t - j).abs() <= tolerance)
-            })
-            .collect()
+        OverlapTolerance::of_view(view, |value| self.scale.forward(value)).remove_overlaps(
+            minor,
+            major,
+            |value| self.scale.forward(value),
+        )
     }
 
     /// The ticks drawn, major ones first; none when they could not be

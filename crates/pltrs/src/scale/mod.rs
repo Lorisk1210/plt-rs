@@ -50,7 +50,7 @@ pub use registry::{ScaleConstructor, ScaleOptions, ScaleRegistry, scale_factory,
 pub use symlog::SymmetricalLogScale;
 pub(crate) use transforms::ScaleFunction;
 pub use transforms::{
-    AsinhTransform, FuncLogTransform, FuncTransform, LogTransform, LogitTransform,
+    ArrayLayout, AsinhTransform, FuncLogTransform, FuncTransform, LogTransform, LogitTransform,
     SymmetricalLogTransform,
 };
 

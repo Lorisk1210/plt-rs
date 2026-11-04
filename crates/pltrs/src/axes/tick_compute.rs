@@ -12,7 +12,8 @@ use super::tick_set::{Tick, TickSet};
 use crate::artist::ArtistHandle;
 use crate::figure::FigureState;
 use crate::ticker::{
-    AxisInfo, AxisName, LogitLocator, TickContext, TickerError, TickerSettings, drawable_ticks,
+    AxisInfo, AxisName, LogitLocator, OverlapTolerance, TickContext, TickerError, TickerSettings,
+    drawable_ticks,
 };
 use crate::transforms::{TransformContext, interval_contains_close};
 
@@ -253,26 +254,13 @@ impl AxisState {
         Ok(ticks)
     }
 
-    /// Drops minor ticks that coincide with major ones (matplotlib's
-    /// `get_minorticklocs` with `np.isclose(atol=span * 1e-5)` in scale space).
+    /// Drops minor ticks that coincide with major ones (see
+    /// [`OverlapTolerance`]), warning as numpy does about a tolerance that
+    /// is not finite.
     fn without_overlaps(&self, minor: Vec<f64>, major: &[f64], view: (f64, f64)) -> Vec<f64> {
-        let (lo, hi) = (self.forward(view.0), self.forward(view.1));
-        let tolerance = (hi - lo).abs() * 1e-5;
-        if !tolerance.is_finite() {
-            // numpy's isclose refuses a tolerance that is not finite.
-            let atol = if tolerance.is_nan() { "nan" } else { "inf" };
-            crate::warnings::warn_runtime(&format!(
-                "One of rtol or atol is not valid, atol: {atol}, rtol: 0"
-            ));
-        }
-        let major: Vec<f64> = major.iter().map(|&m| self.forward(m)).collect();
-        minor
-            .into_iter()
-            .filter(|&m| {
-                let t = self.forward(m);
-                !major.iter().any(|&j| (t - j).abs() <= tolerance)
-            })
-            .collect()
+        let tolerance = OverlapTolerance::of_view(view, |value| self.forward(value));
+        tolerance.warn_if_invalid();
+        tolerance.remove_overlaps(minor, major, |value| self.forward(value))
     }
 }
 

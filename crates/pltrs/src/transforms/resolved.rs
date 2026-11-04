@@ -37,6 +37,20 @@ pub trait AxisMap: fmt::Debug + std::any::Any {
             *value = self.inverse(*value);
         }
     }
+    /// Maps every value of `values` in place as matplotlib's
+    /// `Transform.transform` maps the values it is given
+    /// (`axis.get_transform().transform(...)`, which autoscaling calls): a
+    /// map calling the program's code hands them over as a column,
+    /// shaped `(N, 1)`, where drawing hands a row
+    /// ([`forward_all`](AxisMap::forward_all)). The default maps them as
+    /// `forward_all` does.
+    fn forward_column(&self, values: &mut [f64]) {
+        self.forward_all(values);
+    }
+    /// [`forward_column`](AxisMap::forward_column) for the inverse map.
+    fn inverse_column(&self, values: &mut [f64]) {
+        self.inverse_all(values);
+    }
     /// Whether the map runs code of the program's that observes its
     /// calls (a scale of a host language's functions): the axes it scales
     /// are then ticked as matplotlib ticks them, as often (see

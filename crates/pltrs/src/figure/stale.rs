@@ -11,20 +11,29 @@
 //!
 //! The figure also counts the draws of each artist, which tells what
 //! matplotlib's `draw` methods compute as they draw (an annotation's
-//! transform, a spine's path) from what they hold before a first draw.
+//! transform, a spine's path) from what they hold before a first draw,
+//! and keeps the tick its last draw ended at (see `drawn_changes`).
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::FigureState;
+use super::drawn_changes::{drawn_after_change, next_draw_tick};
 use crate::artist::{ArtistId, ArtistLookup};
 
-/// The artists of a figure drawn since they last changed, and how many
-/// times each artist was drawn.
+/// The artists of a figure drawn since they last changed, and the draws
+/// of each artist.
 #[derive(Debug, Default)]
 pub(crate) struct FreshArtists {
     fresh: RefCell<BTreeSet<ArtistId>>,
-    draws: RefCell<BTreeMap<ArtistId, u64>>,
+    draws: RefCell<BTreeMap<ArtistId, Draws>>,
+}
+
+/// The draws of an artist: how many, and the tick the last ended at.
+#[derive(Clone, Copy, Debug, Default)]
+struct Draws {
+    count: u64,
+    last_tick: u64,
 }
 
 impl FigureState {
@@ -35,12 +44,19 @@ impl FigureState {
         if fresh {
             self.fresh.fresh.borrow_mut().insert(id);
         }
-        *self.fresh.draws.borrow_mut().entry(id).or_default() += 1;
+        let mut draws = self.fresh.draws.borrow_mut();
+        let draws = draws.entry(id).or_default();
+        draws.count += 1;
+        draws.last_tick = next_draw_tick();
     }
 
     /// How many times artist `id` was drawn, by the figure or alone.
     pub(crate) fn draw_count(&self, id: ArtistId) -> u64 {
-        self.fresh.draws.borrow().get(&id).copied().unwrap_or(0)
+        self.fresh
+            .draws
+            .borrow()
+            .get(&id)
+            .map_or(0, |draws| draws.count)
     }
 
     /// Whether artist `id` changed since it was last drawn; for the root
@@ -55,10 +71,21 @@ impl FigureState {
 
     /// Marks artist `id` as changed since it was last drawn and, unless
     /// it is animated or removed, the artists containing it and the
-    /// figure (matplotlib's `artist.stale = True`).
+    /// figure (matplotlib's `artist.stale = True`). A change the program's
+    /// code asked for while a figure was drawn leaves the artists whose
+    /// draw ended after it fresh (see `drawn_changes`).
     pub(crate) fn mark_stale(&mut self, id: ArtistId) {
-        let fresh = self.fresh.fresh.get_mut();
-        fresh.remove(&id);
+        let FreshArtists { fresh, draws } = &mut self.fresh;
+        let (fresh, draws) = (fresh.get_mut(), draws.get_mut());
+        let mut changed = |id: ArtistId| {
+            let kept = draws
+                .get(&id)
+                .is_some_and(|draws| drawn_after_change(draws.last_tick));
+            if !kept {
+                fresh.remove(&id);
+            }
+        };
+        changed(id);
         let Some(artist) = self.store.get(id) else {
             return;
         };
@@ -67,7 +94,7 @@ impl FigureState {
         }
         let mut container = artist.base().parent;
         while let Some(id) = container {
-            fresh.remove(&id);
+            changed(id);
             container = self.store.get(id).and_then(|artist| artist.base().parent);
         }
         self.stale = true;

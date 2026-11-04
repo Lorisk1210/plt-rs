@@ -29,6 +29,7 @@ import numpy as np
 from numpy import ma
 
 from . import _api, _docstring, colors, cbook, artist, scale
+from ._native import artist as _artist
 
 
 def _mpl():
@@ -765,6 +766,64 @@ class ColorizingArtist(_ScalarMappable, artist.Artist):
         """
         self._check_exclusionary_keywords(colorizer, **kwargs)
         self.colorizer = colorizer
+
+    @property
+    def norm(self):
+        self._scale_as_drawn()
+        return self._colorizer.norm
+
+    @norm.setter
+    def norm(self, norm):
+        self._colorizer.norm = norm
+
+    def get_clim(self):
+        """
+        Return the values (min, max) that are mapped to the colormap limits.
+        """
+        self._scale_as_drawn()
+        return super().get_clim()
+
+    def _drawn_clim(self):
+        """The limits pltrs (Rust)'s draws scaled the artist's mapping to,
+        ``(None, None)`` where the Python side keeps the norm scaled."""
+        return (None, None)
+
+    def _handing_norm(self):
+        """
+        Whether the norm about to be handed to pltrs (Rust) replaces the one
+        handed last (`_norm_replaced`); the same norm first takes the limits a
+        draw scaled it to, which stay with it. The draws counted from then on
+        are those that scale the norm handed.
+        """
+        replaced = self._norm_replaced()
+        if not replaced:
+            self._scale_as_drawn()
+        self._handed_draws = self._mapping_draws()
+        return replaced
+
+    def _mapping_draws(self):
+        """How many draws mapped the artist's values to colours: its own
+        draws."""
+        return _artist.draw_count(self._native)
+
+    def _scale_as_drawn(self):
+        """
+        Give the norm the limits it has none of that pltrs (Rust)'s draws
+        scaled it to, as matplotlib's draw autoscales the norm object itself
+        (from the data it maps) when nothing scaled it before (the norm
+        pltrs (Rust) was last handed, drawn since it was handed).
+        """
+        norm = self._colorizer.norm
+        if (norm.scaled() or self.__dict__.get("_figure") is None
+                or norm is not self.__dict__.get("_handed_norm")
+                or self._mapping_draws() <= self.__dict__.get("_handed_draws", 0)):
+            return
+        vmin, vmax = self._drawn_clim()
+        with norm.callbacks.blocked():
+            if norm.vmin is None and vmin is not None:
+                norm.vmin = vmin
+            if norm.vmax is None and vmax is not None:
+                norm.vmax = vmax
 
 
 def _auto_norm_from_scale(scale_cls):

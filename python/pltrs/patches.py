@@ -1311,9 +1311,39 @@ class Ellipse(Patch):
         _values.remember_all(self, {"center": xy, "width": width, "height": height,
                                     "angle": angle}, self._GIVEN)
         super().__init__(**kwargs)
+        self._set_center_as_made(xy)
 
     #: The geometry matplotlib keeps as given.
     _GIVEN = ("center", "width", "height", "angle")
+
+    def _computes(self):
+        """Whether the class is one of the program's computing what
+        matplotlib's ``_recompute_transform`` and ``draw`` read
+        (`_computed`)."""
+        return any(takes_from_program(type(self), name) for name in self._computed)
+
+    def _set_center_as_made(self, xy):
+        """Set ``_center`` as matplotlib's ``Ellipse.__init__`` does, through
+        the setter of a class of the program's computing it."""
+        if takes_from_program(type(self), "_center"):
+            self._center = xy
+
+    def _recomputed(self):
+        """The centre and angle matplotlib's ``_recompute_transform`` reads
+        (the centre once for each coordinate), which a class of the
+        program's may compute."""
+        center = (self.convert_xunits(self._center[0]),
+                  self.convert_yunits(self._center[1]))
+        return center, self.angle
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        # docstring inherited; ``add_patch`` measures the patch through its
+        # transform (``_update_patch_limits``), which matplotlib recomputes
+        # from the geometry a class of the program's computes.
+        if kind == "patch" and self._computes():
+            center, angle = self._recomputed()
+            self._set_fields(center=center, angle=angle)
+        return super()._add_to_axes(axes, kind, autolim)
 
     def _native_geometry(self, xy, width, height):
         """The centre and size of the ellipse as numbers; values in units
@@ -1360,9 +1390,10 @@ class Ellipse(Patch):
     def _push_computed(self):
         """Hand pltrs (Rust) the geometry a class of the program's computes
         (``_center`` or ``angle`` as properties), as matplotlib's ``draw``
-        reads it."""
-        if any(takes_from_program(type(self), name) for name in self._computed):
-            self._set_fields(center=self._center, angle=self.angle)
+        reads it (``Patch.draw`` recomputes the transform once)."""
+        if self._computes():
+            center, angle = self._recomputed()
+            self._set_fields(center=center, angle=angle)
 
     @property
     def _center(self):
@@ -1722,6 +1753,13 @@ class Arc(Ellipse):
                                     "angle": angle, "theta1": theta1, "theta2": theta2},
                              self._GIVEN + ("theta1", "theta2"))
         Patch.__init__(self, **kwargs)
+        self._set_center_as_made(xy)
+        if self._computes():
+            # matplotlib's ``__init__`` sets the angles, then stretches them.
+            for name, theta in (("theta1", theta1), ("theta2", theta2)):
+                if takes_from_program(type(self), name):
+                    setattr(self, name, theta)
+            self._given_angles()
         self.get_path()  # The path of the arc as made.
 
     def get_path(self):
@@ -1762,14 +1800,37 @@ class Arc(Ellipse):
         """The end angle of the arc in degrees."""
         return _values.given(self, "theta2", _patches.arc(self._native)[1][2])
 
-    _computed = Ellipse._computed + ("theta1", "theta2")
+    _computed = Ellipse._computed + ("theta1", "theta2", "width", "height")
+
+    def _given_angles(self):
+        """
+        The angles of the arc as given, read as matplotlib's
+        ``_theta_stretch`` reads them (a class of the program's may compute
+        them, and the width and height): the width and height, then, when
+        they differ, whether the angles make a full turn, which matplotlib
+        does not stretch, then the angles. pltrs (Rust) stretches the
+        angles for the arc's own width and height.
+        """
+        width = self.convert_xunits(self.width)
+        height = self.convert_yunits(self.height)
+        if width != height:
+            self._full_turn()
+        return self.theta1, self.theta2
+
+    def _full_turn(self):
+        """Whether the angles make a full turn."""
+        return self.theta1 != self.theta2 and self.theta1 % 360 == self.theta2 % 360
 
     def _push_computed(self):
-        # docstring inherited
-        super()._push_computed()
-        if any(takes_from_program(type(self), name) for name in self._computed):
-            _patches.set_arc_angles(self._native, float(self.theta1),
-                                    float(self.theta2))
+        # docstring inherited; matplotlib's ``Arc.draw`` recomputes the
+        # transform, stretches the angles, then ``Patch.draw`` recomputes
+        # the transform again.
+        if self._computes():
+            self._recomputed()
+            theta1, theta2 = self._given_angles()
+            center, angle = self._recomputed()
+            self._set_fields(center=center, angle=angle)
+            _patches.set_arc_angles(self._native, float(theta1), float(theta2))
 
 
 @_mirrors.mirrorable

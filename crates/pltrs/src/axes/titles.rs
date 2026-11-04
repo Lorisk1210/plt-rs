@@ -163,7 +163,8 @@ impl Axes {
     /// height stay put. This lays the figure out as drawing does, which
     /// places the titles of every axes once their ticks are known.
     pub fn update_title_position(&self) -> &Self {
-        self.figure().prepare_layout();
+        // A hook stopping the layout leaves the titles where they are.
+        let _ = self.figure().prepare_layout();
         self
     }
 }

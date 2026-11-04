@@ -49,6 +49,50 @@ pub(crate) fn drawable_ticks(locs: Vec<f64>) -> Result<Vec<f64>, TickerError> {
     }
 }
 
+/// How close a minor tick may be to a major one, in an axis' scaled
+/// coordinates, before it is dropped as a duplicate (matplotlib's
+/// `get_minorticklocs`, which calls `np.isclose(atol=span * 1e-5,
+/// rtol=0)` with the span of the scaled view).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct OverlapTolerance(f64);
+
+impl OverlapTolerance {
+    /// The tolerance of the view `view` scaled through `forward`.
+    pub(crate) fn of_view(view: (f64, f64), forward: impl Fn(f64) -> f64) -> Self {
+        let (low, high) = (forward(view.0), forward(view.1));
+        Self((high - low).abs() * 1e-5)
+    }
+
+    /// Warns as numpy does when the tolerance is not finite (a view whose
+    /// limits are outside the domain of the scale).
+    pub(crate) fn warn_if_invalid(self) {
+        if !self.0.is_finite() {
+            let atol = if self.0.is_nan() { "nan" } else { "inf" };
+            crate::warnings::warn_runtime(&format!(
+                "One of rtol or atol is not valid, atol: {atol}, rtol: 0"
+            ));
+        }
+    }
+
+    /// The locations `minor` without those on a `major` one, compared
+    /// through `forward`.
+    pub(crate) fn remove_overlaps(
+        self,
+        minor: Vec<f64>,
+        major: &[f64],
+        forward: impl Fn(f64) -> f64,
+    ) -> Vec<f64> {
+        let major: Vec<f64> = major.iter().map(|&m| forward(m)).collect();
+        minor
+            .into_iter()
+            .filter(|&m| {
+                let t = forward(m);
+                !major.iter().any(|&j| (t - j).abs() <= self.0)
+            })
+            .collect()
+    }
+}
+
 /// Decides where ticks go (matplotlib's `Locator`).
 ///
 /// Locators are pure: everything besides their own parameters comes from

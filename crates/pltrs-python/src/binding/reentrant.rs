@@ -20,14 +20,21 @@
 //!
 //! The queue is drained whenever the thread's outermost native call ends,
 //! so the thread-local storage holding it is empty whenever the thread
-//! is outside native calls (see [`threads`](super::threads)).
+//! is outside native calls (see [`threads`](super::threads)), and as soon
+//! as a draw has drawn its figure's artists, the figure free again
+//! ([`pltrs::figure::set_draw_end_handler`]): matplotlib makes a change at
+//! once, so the end of the draw (whether each artist is left stale) and
+//! its draw event see it. Each change is made as at the tick of the draws
+//! it was asked for at ([`pltrs::figure::replaying_changes_from`]): one
+//! the program's code asked for while an artist was drawn leaves that
+//! artist fresh, as the end of matplotlib's draw of it does.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 use pltrs::figure::{Access, FigureInUse};
 
-use super::callback::ErrorFrame;
+use super::callback::{ErrorFrame, report};
 use super::error::{ExceptionKind, PyErr};
 use super::function::try_nested;
 use super::gil::Python;
@@ -39,11 +46,13 @@ thread_local! {
 }
 
 /// A native call waiting for the figure it changes to be free: the
-/// capsule of its function and its arguments.
+/// capsule of its function and its arguments, and the tick of the
+/// thread's draws it was made at.
 #[derive(Clone)]
 struct Deferred {
     capsule: Owned,
     args: Vec<Owned>,
+    tick: u64,
 }
 
 impl Deferred {
@@ -96,8 +105,22 @@ pub(super) fn push(capsule: &Bound<'_>, args: &[Bound<'_>]) {
     let call = Deferred {
         capsule: capsule.clone().unbind(),
         args: args.iter().map(|arg| arg.clone().unbind()).collect(),
+        tick: pltrs::figure::draw_tick(),
     };
     drop(QUEUE.with_borrow_mut(|queue| queue.push(call)));
+}
+
+/// Has every draw make the changes queued meanwhile once it has drawn its
+/// figure's artists, the figure free again; what one raises is raised by
+/// the native call drawing.
+pub(super) fn install_draw_end() {
+    pltrs::figure::set_draw_end_handler(|| {
+        Python::with_gil(|py| {
+            if let Some(err) = apply(py) {
+                report(err);
+            }
+        });
+    });
 }
 
 /// How many times the queued changes are made, as long as making them
@@ -128,7 +151,9 @@ pub(super) fn apply(py: Python<'_>) -> Option<PyErr> {
             let capsule = call.capsule.bind(py);
             let args: Vec<Bound<'_>> = call.args.iter().map(|arg| arg.bind(py)).collect();
             let frame = ErrorFrame::push();
-            let outcome = match try_nested(&capsule, &args) {
+            let replayed =
+                pltrs::figure::replaying_changes_from(call.tick, || try_nested(&capsule, &args));
+            let outcome = match replayed {
                 Ok(Err(_in_use)) => {
                     drop(QUEUE.with_borrow_mut(|queue| queue.push(call.clone())));
                     Ok(())
@@ -274,6 +299,7 @@ mod tests {
             let call = |arg: &Bound<'_>| Deferred {
                 capsule: capsule.clone().unbind(),
                 args: vec![arg.clone().unbind()],
+                tick: 0,
             };
             let mut queue = Queue::default();
             assert!(queue.push(call(&a)).is_none());

@@ -53,11 +53,27 @@ impl Axis3D {
     ///
     /// # Errors
     ///
-    /// When a locator or formatter fails.
+    /// When a locator or formatter fails, after the runtime warnings its
+    /// arithmetic met, as matplotlib's locator issues them before it
+    /// raises.
     pub fn ticks(&self) -> Result<TickSet, TickerError> {
         self.lay_out();
         let dir = self.dir;
-        self.axes.with(|axes| axes.axis(dir).ticks.clone())
+        self.axes.with(|axes| {
+            let axis = axes.axis(dir);
+            axis.warn_failed_ticks();
+            axis.ticks.clone()
+        })
+    }
+
+    /// [`ticks`](Self::ticks) when they can be computed, without the
+    /// warnings of a failed computation: where a program makes tick
+    /// objects without asking the locator (matplotlib's
+    /// `get_major_ticks(numticks)`), nothing raises either.
+    pub fn computed_ticks(&self) -> Option<TickSet> {
+        self.lay_out();
+        let dir = self.dir;
+        self.axes.with(|axes| axes.axis(dir).ticks.clone().ok())
     }
 
     /// Brings the layout of the axes up to date (a removed axes where it
@@ -65,7 +81,7 @@ impl Axis3D {
     fn lay_out(&self) {
         let mut figure = self.axes.raw().figure_state().prepared();
         if !figure.is_attached(self.axes.id()) {
-            prepare_one(&mut figure, self.axes.id(), false);
+            prepare_one(&mut figure, self.axes.id(), None);
         }
     }
 

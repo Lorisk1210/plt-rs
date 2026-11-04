@@ -47,13 +47,13 @@ pub use formatter::{
     OffsetMode, PercentFormatter, SI_PREFIXES, ScalarFormatter, StrMethodFormatter, strip_math,
 };
 pub use label_format::{LabelFormat, ValueFn};
-pub(crate) use locator::drawable_ticks;
 pub use locator::{
     AsinhLocator, AutoLocator, AutoMinorLocator, FixedLocator, IndexLocator, LinearLocator,
     Locator, LogLocator, LogSubs, LogitLocator, MAX_DRAWN_TICKS, MAXTICKS, MaxNLocator,
     MultipleLocator, Nbins, NullLocator, NumTicks, Prune, SymmetricalLogLocator, exceeds_max_ticks,
     scale_range,
 };
+pub(crate) use locator::{OverlapTolerance, drawable_ticks};
 pub use log_base::LogBase;
 pub use pltrs_core::pyfmt;
 pub use settings::{AutolimitMode, MinorDivisions, TickerSettings};

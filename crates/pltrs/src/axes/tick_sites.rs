@@ -18,6 +18,13 @@
 //!   measures its spines, each updating the ticks of the axis registered
 //!   with it.
 //!
+//! A secondary axis takes its host's limits through the program's
+//! functions (`SecondaryAxis._set_lims`) wherever its aspect is applied:
+//! where its host places its titles (child axes first), twice where it is
+//! drawn (its `draw`, then `_AxesBase.draw`), and where every draw of the
+//! figure applies the aspect of its axes (`_get_draw_artists`); where it
+//! is measured for a tight box, see `tight_bbox`.
+//!
 //! Every site does nothing for an axis the program does not tick, and the
 //! sites are only walked in figures with an updater.
 
@@ -154,6 +161,10 @@ impl FigureState {
         {
             return;
         }
+        // Child positions are updated first: their aspect applied.
+        for child in self.child_axes(axes) {
+            self.sync_secondary(child);
+        }
         // matplotlib's set of axes: each once.
         let mut group = vec![axes];
         for ax in self.title_group(axes) {
@@ -187,6 +198,10 @@ impl FigureState {
         if !self.ticks_by_program() || !self.drawn_by_figure(axes) {
             return;
         }
+        // `SecondaryAxis.draw` sets the limits, then `_AxesBase.draw`
+        // applies the aspect, which sets them again.
+        self.sync_secondary(axes);
+        self.sync_secondary(axes);
         self.program_title_position(axes);
         if self.axes_axis_on(axes) {
             for name in [AxisName::X, AxisName::Y] {
@@ -298,7 +313,14 @@ impl FigureState {
         if !self.ticks_by_program() {
             return;
         }
-        for _ in 0..draws {
+        for draw in 0..draws {
+            if draw > 0 {
+                // Every draw of the figure applies the aspect of its axes
+                // first (`_get_draw_artists`); the layout did for the first.
+                for &id in axes {
+                    self.sync_secondary(id);
+                }
+            }
             for &id in axes {
                 self.program_axes_drawn(id);
             }

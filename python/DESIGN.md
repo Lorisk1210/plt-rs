@@ -578,7 +578,13 @@ the program's and the `(trans, inv_trans)` functions of curvilinear
 grids. pltrs (Rust) gathers the values a path, a set of ticks or a limit
 needs and calls them once for all of them (`AxisMap::forward_all`,
 `PointMap::forward_all`, `AuxTransform::transform_points`;
-`modules/transforms/arrays.rs`), a masked answer reading as NaN; an axis
+`modules/transforms/arrays.rs`), a masked answer reading as NaN; where
+matplotlib calls `Transform.transform` (autoscaling's margins), a function
+of a one-dimensional transform gets the values as a column, shaped
+`(N, 1)` (`AxisMap::forward_column`, `scale::ArrayLayout`). A secondary
+axis hands its forward function its host's limits as one array wherever
+matplotlib's `_set_lims` runs (`tick_sites`, `axes_tight_bbox_at`); an
+axis
 keeps its view limits mapped through its scale while they and the scale
 stay (`AxisState::scaled_ends`), as matplotlib's `TransformedBbox` of
 them does. Formatters keep matplotlib's per-tick `__call__`, through
@@ -588,8 +594,10 @@ An `Axes` subclass the program registers with `register_projection`
 (the SkewT-logP example's `SkewXAxes`) is a projection pltrs (Rust)
 does not know (`projections/_program.py`): its Axes is a rectilinear
 pltrs (Rust) axes that `set_up` builds as matplotlib's `__init__` does
-(its trees with the class' `_set_lim_and_transforms`, then
-`_gen_axes_spines` and `_init_axis`, from the mixin
+(its trees with the class' `_set_lim_and_transforms`, from the boxes
+matplotlib builds them from: a new view, no data, and the unit box for an
+Axes of a grid, whose cell replaces it after; then `_gen_axes_spines` and
+`_init_axis`, from the mixin
 `axes/_projection.py`), then hands over to a pltrs (Rust) `Projection`
 asking the Axes through an adapter (`_native.projections`,
 `Axes::install_projection`): the data transform is `transData` up to its
@@ -722,9 +730,10 @@ side a new copy from `changed()`. matplotlib's draw maps an image's or a
 collection's data through the norm object, whose `__call__` gives it the
 limits it lacks; pltrs (Rust)'s draw scales its copy, so the mappable
 gives the norm object the limits that draw scaled it to when it is next
-read (`_drawn_norms.DrawScaledNorm`: an image those of the data it
-resampled, a collection those of its array), as long as the norm is the
-one handed over and the mappable was drawn since.
+read (`ColorizingArtist._scale_as_drawn`, from each class's
+`_drawn_clim`: an image those of the data it resampled, a collection
+those of its array; a 3-D collection counts its axes' draws), as long as
+the norm is the one handed over and the mappable was drawn since.
 
 A collection whose colorizer maps several variates (a `BivarColormap` or
 `MultivarColormap` with a `MultiNorm`, the values a structured array or a
@@ -875,13 +884,19 @@ which stops it where it reaches the figure in use, instead of letting the
 `RefCell` panic (`binding/function.rs`, `binding/reentrant.rs`):
 
 * a native function returning nothing (a change: `set_color`, `set_text`,
-  `set_visible`...) is queued with its arguments and called again when the
-  thread's outermost native call ends, the figure free: matplotlib's change,
-  applied once the draw is done. Its exception is raised from that call.
-  The same call queued again (a path effect run for every marker) takes
-  its last place; changes queuing others are made in rounds, which end when
-  a round queues exactly itself again (a `relim` running a transform that
-  calls `relim`) and raise `RecursionError` after 64;
+  `set_visible`...) is queued with its arguments and called again as soon
+  as the figure is free: when a draw has drawn the figure's artists, before
+  the figure counts as drawn and its draw event is sent
+  (`pltrs::figure::set_draw_end_handler`), else when the thread's outermost
+  native call ends. Its exception is raised from the native call drawing
+  (or ending). Each change is made as at the tick of the thread's draws it
+  was asked for at (`pltrs::figure::replaying_changes_from`): an artist
+  changed while it was drawn ends fresh, as the end of matplotlib's draw
+  of it leaves it, one changed after it was drawn stale. The same call
+  queued again (a path effect run for every marker) takes its last place;
+  changes queuing others are made in rounds, which end when a round queues
+  exactly itself again (a `relim` running a transform that calls `relim`)
+  and raise `RecursionError` after 64;
 * any other native function raises `RuntimeError` saying the figure is in
   use: a read while the figure is laid out (a formatter calling
   `ax.get_xlim()`), or a change returning what it changed (`set_title`
@@ -891,7 +906,18 @@ Reads while the figure is drawn work, so reading a view limit borrows the
 figure for change only when autoscaling is pending
 (`FigureState::view_is_stale`). Event callbacks (`draw_event`, limit
 changes), `draw` overrides and the program's axes locators run with the
-figure free, as in matplotlib.
+figure free, as in matplotlib. What the code a draw runs while it paints
+(a path effect, a norm, a transform) still cannot do is read back a change
+it made before the paint ends, or make a change returning what it changed:
+the paint holds the figure borrowed for reading throughout, and lending it
+around each call, as layouts do, would need every artist's drawing to hold
+no borrow of the figure where it calls the program.
+
+A draw stops where the program's code it runs before painting fails, as
+matplotlib's draw stops at an exception: a layout hook or draw hook of the
+package's that raises (`DrawHook::stopping`; the projection of 3-D
+offsets that do not broadcast, `_locate_by_program`) leaves the figure
+laid out but its artists undrawn (a `Line3D` keeps the data it had).
 
 Some parts matplotlib keeps as artists of their own are drawn by pltrs
 (Rust) as parts of their artist: a text's box (`Text.get_bbox_patch()`)
@@ -1091,7 +1117,9 @@ figures without it:
   package (`_program_classes.takes_from_program`), or computes what
   matplotlib's `draw` reads (an arc's `theta1` as a property, the
   `_computed` attributes of the package's class, pushed by
-  `_push_computed` when it is drawn), gets a painter
+  `_push_computed` when it is drawn, read as often and in the order
+  matplotlib's code reads them where it makes, adds and draws the artist:
+  `Ellipse._recomputed`, `Arc._given_angles`), gets a painter
   (`pltrs::artist::ArtistPainter`, `_native.drawing.set_painter`) holding
   the object weakly. Once the figure is laid out, before its artists are
   drawn and with the figure free to change, pltrs (Rust) calls

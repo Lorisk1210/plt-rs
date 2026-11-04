@@ -40,14 +40,17 @@ pub(crate) fn autoscale_axis(request: &AxisAutoscale<'_>) -> Result<(f64, f64), 
         .copied();
     let x1_bound = request.stickies.iter().find(|&&s| s > x1 - tol).copied();
 
-    // Add the margins in scaled space, then map back.
+    // Add the margins in scaled space, then map back, each way once for
+    // both ends (matplotlib transforms them as one array).
     (x0, x1) = axis.scale().limit_range_for_scale(x0, x1, request.minpos);
-    let inverse = |v: f64| axis.map().map_or(v, |m| m.inverse(v));
-    let (t0, t1) = (axis.forward(x0), axis.forward(x1));
+    let mut ends = [x0, x1];
+    axis.forward_column(&mut ends);
+    let [t0, t1] = ends;
     let delta = (t1 - t0) * request.margin;
     let delta = if delta.is_finite() { delta } else { 0.0 };
-    x0 = inverse(t0 - delta);
-    x1 = inverse(t1 + delta);
+    let mut ends = [t0 - delta, t1 + delta];
+    axis.inverse_column(&mut ends);
+    [x0, x1] = ends;
 
     if let Some(bound) = x0_bound {
         x0 = x0.max(bound);

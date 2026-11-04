@@ -8,6 +8,8 @@
 //! places each axes where its locator says until the next one
 //! (`set_located_position`).
 
+use std::ops::ControlFlow;
+
 use pltrs::axes::{Axes, AxesLocatorFn};
 use pltrs::figure::{DrawHook, Figure};
 use pltrs::transforms::Bbox;
@@ -26,11 +28,13 @@ fn set_located_position(axes: Axes, bounds: Option<(f64, f64, f64, f64)>) -> PyR
 
 /// Calls `hook` (a Python callable taking nothing) whenever `figure` is
 /// laid out to be drawn, before its layout; `None` removes the hook. What
-/// the hook raises is raised by the native call drawing the figure.
+/// the hook raises is raised by the native call drawing the figure, and
+/// stops the draw there, as an exception in matplotlib's draw does.
 fn set_layout_hook(figure: Figure, hook: Option<Callback>) -> PyResult<()> {
     figure.set_layout_hook(hook.map(|hook| {
-        DrawHook::new(move |_| {
-            let _ = hook.call::<Owned>(());
+        DrawHook::stopping(move |_| match hook.call::<Owned>(()) {
+            Some(_) => ControlFlow::Continue(()),
+            None => ControlFlow::Break(()),
         })
     }));
     Ok(())

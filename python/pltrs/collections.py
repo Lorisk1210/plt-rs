@@ -18,7 +18,6 @@ import numpy as np
 from . import (_api, _live_transforms, _values, cbook, colorizer as mcolorizer,
                colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
-from ._drawn_norms import DrawScaledNorm
 from ._enums import CapStyle, JoinStyle
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
@@ -123,7 +122,7 @@ def _native_kwargs(kwargs):
     "linewidth": ["linewidths", "lw"],
     "offset_transform": ["transOffset"],
 })
-class Collection(DrawScaledNorm, mcolorizer.ColorizingArtist):
+class Collection(mcolorizer.ColorizingArtist):
     """
     Base class for Collections. Must be subclassed to be usable.
 
@@ -199,6 +198,10 @@ class Collection(DrawScaledNorm, mcolorizer.ColorizingArtist):
         """The limits of the mapping pltrs (Rust) made."""
         return _collections.get_clim(self._native)
 
+    def _drawn_clim(self):
+        # docstring inherited
+        return self._native_clim()
+
     def _native_cmap(self):
         """The colormap of the mapping pltrs (Rust) made, as
         ``_native.cm`` describes it (see `.cm._from_native`)."""
@@ -239,16 +242,9 @@ class Collection(DrawScaledNorm, mcolorizer.ColorizingArtist):
         if self._maps_variates():
             self._map_variates()
         else:
-            self._hand_mapping(lambda replaced: _collections.set_mapping(
-                self._native, self.cmap, self._colorizer.norm, replaced))
+            _collections.set_mapping(self._native, self.cmap, self._colorizer.norm,
+                                     self._handing_norm())
         super().changed()
-
-    def _scale_by_draw(self, norm):
-        """Give *norm* the limits it lacks from the values the collection
-        maps, as matplotlib's draw maps them through it
-        (``update_scalarmappable``)."""
-        if self._A is not None and norm.n_components == 1:
-            norm.autoscale_None(norm.process_value(self._A)[0])
 
     def _map_variates_through(self, colorizer, A):
         """Map the values *A* of several variates through *colorizer*, a
@@ -827,8 +823,8 @@ class Collection(DrawScaledNorm, mcolorizer.ColorizingArtist):
             return
         _collections.set_array(
             self._native, np.ma.filled(self._A.astype(float), np.nan).ravel())
-        _collections.set_mapping(self._native, self.cmap, self.norm,
-                                 self._norm_replaced())
+        _collections.set_mapping(self._native, self.cmap, self._colorizer.norm,
+                                 self._handing_norm())
 
 
 class _CollectionWithSizes(Collection):

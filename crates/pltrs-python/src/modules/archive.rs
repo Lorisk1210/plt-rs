@@ -35,7 +35,7 @@ use pltrs::path::Path;
 use pltrs::patheffects::CustomPathEffect;
 use pltrs::projections::Projection;
 use pltrs::rc::RcParams;
-use pltrs::scale::FuncTransform;
+use pltrs::scale::{ArrayLayout, FuncTransform};
 use pltrs::ticker::{FuncFormatter, LabelFormat};
 use pltrs::transforms::{Point, PointMap, Transform};
 use pltrs_core::archive::{
@@ -120,7 +120,7 @@ impl Call {
     fn function(self, callback: Callback) -> (TypeId, Box<dyn Any>) {
         type Labels = Rc<dyn Fn(f64, Option<usize>) -> String>;
         type Label = Rc<dyn Fn(f64) -> String>;
-        type Values = Rc<dyn Fn(&mut [f64])>;
+        type Values = Rc<dyn Fn(&mut [f64], ArrayLayout)>;
         match self {
             Self::Ticks => {
                 let function: Labels = Rc::new(tick_labels(callback));
@@ -246,11 +246,12 @@ fn value_label(callback: Callback) -> impl Fn(f64) -> String + Send + 'static {
     move |value| callback.call::<String>((value,)).unwrap_or_default()
 }
 
-/// `f(values)`, the numbers replaced by those of the array it returns,
-/// NaN when it raised (its exception goes to the native call running).
-fn values(callback: Callback) -> impl Fn(&mut [f64]) + Send + 'static {
-    move |values| {
-        map_values(&callback, values);
+/// `f(values)`, the numbers (laid out as the layout given says) replaced
+/// by those of the array it returns, NaN when it raised (its exception
+/// goes to the native call running).
+fn values(callback: Callback) -> impl Fn(&mut [f64], ArrayLayout) + Send + 'static {
+    move |values, layout| {
+        map_values(&callback, values, layout);
     }
 }
 

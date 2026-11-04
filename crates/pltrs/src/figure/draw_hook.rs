@@ -3,6 +3,7 @@
 //! artists are drawn ([`Figure::set_draw_hook`]).
 
 use std::fmt;
+use std::ops::ControlFlow;
 use std::rc::Rc;
 
 use super::Figure;
@@ -11,11 +12,34 @@ use super::Figure;
 /// [`Figure::set_layout_hook`]) or after it, before its artists (see
 /// [`Figure::set_draw_hook`]).
 #[derive(Clone)]
-pub struct DrawHook(Rc<dyn Fn(&Figure)>);
+pub struct DrawHook(Rc<HookFn>);
+
+/// What a [`DrawHook`] runs: whether the draw goes on.
+type HookFn = dyn Fn(&Figure) -> ControlFlow<()>;
 
 impl DrawHook {
     /// The hook running `hook`.
     pub fn new(hook: impl Fn(&Figure) + 'static) -> Self {
+        Self::stopping(move |figure| {
+            hook(figure);
+            ControlFlow::Continue(())
+        })
+    }
+
+    /// The hook running `hook`, which stops the draw when it breaks: the
+    /// rest of the figure is left undrawn, as an exception raised in
+    /// matplotlib's draw leaves it (a host whose program code failed).
+    ///
+    /// ```
+    /// use std::ops::ControlFlow;
+    /// use pltrs::figure::{DrawHook, Figure};
+    /// let fig = Figure::new();
+    /// fig.set_layout_hook(Some(DrawHook::stopping(|_| ControlFlow::Break(()))));
+    /// fig.canvas().draw()?;
+    /// assert!(fig.is_stale(), "the draw stopped before the figure was drawn");
+    /// # Ok::<(), pltrs::figure::CanvasError>(())
+    /// ```
+    pub fn stopping(hook: impl Fn(&Figure) -> ControlFlow<()> + 'static) -> Self {
         Self(Rc::new(hook))
     }
 }
@@ -51,17 +75,16 @@ impl Figure {
         self.state_mut().draw_hook = hook;
     }
 
-    /// Runs the draw hook, if any, with no borrow of the figure held.
-    pub(crate) fn run_draw_hook(&self) {
+    /// Runs the draw hook, if any, with no borrow of the figure held;
+    /// whether the draw goes on.
+    pub(crate) fn run_draw_hook(&self) -> ControlFlow<()> {
         let hook = self.state().draw_hook.clone();
-        self.run_hook(hook);
+        self.run_hook(hook)
     }
 
-    /// Runs `hook`, if any, on the figure.
-    fn run_hook(&self, hook: Option<DrawHook>) {
-        if let Some(DrawHook(hook)) = hook {
-            hook(self);
-        }
+    /// Runs `hook`, if any, on the figure; whether the draw goes on.
+    fn run_hook(&self, hook: Option<DrawHook>) -> ControlFlow<()> {
+        hook.map_or(ControlFlow::Continue(()), |DrawHook(hook)| hook(self))
     }
 
     /// Runs `hook` whenever the figure is laid out to be drawn (drawn,
@@ -89,9 +112,10 @@ impl Figure {
         self.state_mut().layout_hook = hook;
     }
 
-    /// Runs the layout hook, if any, with no borrow of the figure held.
-    pub(crate) fn run_layout_hook(&self) {
+    /// Runs the layout hook, if any, with no borrow of the figure held;
+    /// whether the draw goes on.
+    pub(crate) fn run_layout_hook(&self) -> ControlFlow<()> {
         let hook = self.state().layout_hook.clone();
-        self.run_hook(hook);
+        self.run_hook(hook)
     }
 }

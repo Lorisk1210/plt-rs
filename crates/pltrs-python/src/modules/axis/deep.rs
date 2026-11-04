@@ -35,7 +35,7 @@ fn drawn(axis: &Axis3D, part: AxisTextPart) -> Option<AxisText3D> {
 /// (matplotlib's tick objects are made without asking the locator and
 /// formatter, which place them when the axis is next drawn).
 fn located(axis: &Axis3D, minor: bool, index: usize) -> (f64, String) {
-    let Ok(ticks) = axis.ticks() else {
+    let Some(ticks) = axis.computed_ticks() else {
         return (0.0, String::new());
     };
     let unclipped = if minor {
@@ -78,7 +78,12 @@ pub(super) fn sync_tick(
         text.set_visible(visible);
     }
     let style = axis.tick_style_at(minor, index, true);
-    let marks = axis.ticklines(minor).unwrap_or_default();
+    // Marks only of ticks that can be computed: a tick object is made
+    // without asking the locator, which raises nothing (nor warns).
+    let marks = match axis.computed_ticks() {
+        Some(_) => axis.ticklines(minor).unwrap_or_default(),
+        None => Vec::new(),
+    };
     let mark = marks.get(index);
     let (xs, ys) = mark
         .and_then(|mark| mark.marks.first())

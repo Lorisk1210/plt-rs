@@ -258,6 +258,18 @@ impl AxisMap for AsinhTransform {
     }
 }
 
+/// How the values a function of the program's maps are laid out in the
+/// array it is handed, as matplotlib hands them: drawing gives a
+/// one-dimensional transform a row of values (`transform_non_affine` of a
+/// slice of the points), `Transform.transform` a column (`(N, 1)`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArrayLayout {
+    /// A one-dimensional array, `(N,)`.
+    Row,
+    /// A column, `(N, 1)`.
+    Column,
+}
+
 /// One direction of a function scale: a function the program gave, or
 /// one pltrs makes itself (the spacing of a colorbar's blocks).
 pub(crate) trait ScaleFunction: fmt::Debug + Any {
@@ -265,8 +277,10 @@ pub(crate) trait ScaleFunction: fmt::Debug + Any {
     fn call(&self, value: f64) -> f64;
 
     /// Replaces every value of `values` by the function's value there: one
-    /// call of a function of the program's taking arrays.
-    fn call_all(&self, values: &mut [f64]) {
+    /// call of a function of the program's taking arrays, handed them laid
+    /// out as `layout` says.
+    fn call_all(&self, values: &mut [f64], layout: ArrayLayout) {
+        let _ = layout;
         for value in values {
             *value = self.call(*value);
         }
@@ -302,20 +316,21 @@ impl ScaleFunction for ProgramFn<dyn Fn(f64) -> f64> {
     }
 }
 
-/// A function the program gave mapping a slice of values in place.
-type ArraysFn = ProgramFn<dyn Fn(&mut [f64])>;
+/// A function the program gave mapping a slice of values in place,
+/// handed them laid out as the layout given says.
+type ArraysFn = ProgramFn<dyn Fn(&mut [f64], ArrayLayout)>;
 
 /// A function the program gave that maps arrays in place, as
 /// matplotlib's `FuncTransform` hands its functions arrays.
 impl ScaleFunction for ArraysFn {
     fn call(&self, value: f64) -> f64 {
         let mut one = [value];
-        (self.get())(&mut one);
+        (self.get())(&mut one, ArrayLayout::Row);
         one[0]
     }
 
-    fn call_all(&self, values: &mut [f64]) {
-        (self.get())(values);
+    fn call_all(&self, values: &mut [f64], layout: ArrayLayout) {
+        (self.get())(values, layout);
     }
 }
 
@@ -374,16 +389,17 @@ impl FuncTransform {
 
     /// A pair of functions mapping arrays in place, each called once for
     /// all the values a path, a set of ticks or a limit needs (matplotlib
-    /// hands its `FuncTransform` arrays), archived as `origins`, what the
-    /// program made them from (see [`ProgramFn`]).
+    /// hands its `FuncTransform` arrays, laid out as the [`ArrayLayout`]
+    /// given says), archived as `origins`, what the program made them
+    /// from (see [`ProgramFn`]).
     ///
     /// ```
-    /// use pltrs::scale::FuncTransform;
+    /// use pltrs::scale::{ArrayLayout, FuncTransform};
     /// use pltrs::transforms::AxisMap;
     /// use pltrs_core::archive::External;
     /// let double = FuncTransform::on_arrays(
-    ///     |values: &mut [f64]| values.iter_mut().for_each(|v| *v *= 2.0),
-    ///     |values: &mut [f64]| values.iter_mut().for_each(|v| *v /= 2.0),
+    ///     |values: &mut [f64], _: ArrayLayout| values.iter_mut().for_each(|v| *v *= 2.0),
+    ///     |values: &mut [f64], _: ArrayLayout| values.iter_mut().for_each(|v| *v /= 2.0),
     ///     (External::new("forward"), External::new("inverse")),
     /// );
     /// let mut values = [1.0, 2.0, 3.0];
@@ -392,8 +408,8 @@ impl FuncTransform {
     /// assert_eq!(double.inverse(3.0), 1.5);
     /// ```
     pub fn on_arrays(
-        forward: impl Fn(&mut [f64]) + Send + 'static,
-        inverse: impl Fn(&mut [f64]) + Send + 'static,
+        forward: impl Fn(&mut [f64], ArrayLayout) + Send + 'static,
+        inverse: impl Fn(&mut [f64], ArrayLayout) + Send + 'static,
         origins: (External, External),
     ) -> Self {
         let (forward_origin, inverse_origin) = origins;
@@ -442,11 +458,19 @@ impl AxisMap for FuncTransform {
     }
 
     fn forward_all(&self, values: &mut [f64]) {
-        self.forward.call_all(values);
+        self.forward.call_all(values, ArrayLayout::Row);
     }
 
     fn inverse_all(&self, values: &mut [f64]) {
-        self.inverse.call_all(values);
+        self.inverse.call_all(values, ArrayLayout::Row);
+    }
+
+    fn forward_column(&self, values: &mut [f64]) {
+        self.forward.call_all(values, ArrayLayout::Column);
+    }
+
+    fn inverse_column(&self, values: &mut [f64]) {
+        self.inverse.call_all(values, ArrayLayout::Column);
     }
 
     fn calls_program(&self) -> bool {
@@ -496,6 +520,16 @@ impl AxisMap for FuncLogTransform {
     fn inverse_all(&self, values: &mut [f64]) {
         self.log.inverse_all(values);
         self.func.inverse_all(values);
+    }
+
+    fn forward_column(&self, values: &mut [f64]) {
+        self.func.forward_column(values);
+        self.log.forward_all(values);
+    }
+
+    fn inverse_column(&self, values: &mut [f64]) {
+        self.log.inverse_all(values);
+        self.func.inverse_column(values);
     }
 
     fn calls_program(&self) -> bool {

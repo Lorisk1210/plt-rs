@@ -25,7 +25,6 @@ import PIL.PngImagePlugin
 from . import _api, _image, _values, cbook, colorizer as mcolorizer, colors as mcolors
 # For user convenience, the names from _image are also imported into
 # the image namespace
-from ._drawn_norms import DrawScaledNorm
 from ._image import *  # noqa: F401, F403
 from ._native import image as _native_image
 from .transforms import Affine2D, Bbox, BboxBase, TransformedBbox
@@ -138,7 +137,7 @@ def _checked_alpha(alpha):
     return alpha
 
 
-class _ImageBase(DrawScaledNorm, mcolorizer.ColorizingArtist):
+class _ImageBase(mcolorizer.ColorizingArtist):
     """
     Base class for images.
 
@@ -213,18 +212,14 @@ class _ImageBase(DrawScaledNorm, mcolorizer.ColorizingArtist):
         """
         Call this whenever the mappable is changed so observers can update.
         """
-        self._hand_mapping(lambda replaced: _native_image.set_mapping(
-            self._native, self.cmap, self._colorizer.norm, replaced))
+        replaced = self._handing_norm()
+        _native_image.set_mapping(self._native, self.cmap, self._colorizer.norm,
+                                  replaced)
         super().changed()
 
-    def _scale_by_draw(self, norm):
-        """Give *norm* the limits it lacks that pltrs (Rust)'s draw scaled
-        it to, from the data it resampled, as matplotlib's draw does."""
-        vmin, vmax = _native_image.mapped_clim(self._native)
-        if norm.vmin is None and vmin is not None:
-            norm.vmin = vmin
-        if norm.vmax is None and vmax is not None:
-            norm.vmax = vmax
+    def _drawn_clim(self):
+        # docstring inherited
+        return _native_image.mapped_clim(self._native)
 
     def get_size(self):
         """Return the size of the image as tuple (numrows, numcols)."""

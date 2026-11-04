@@ -163,7 +163,8 @@ impl Figure {
             // The layout the window is cut from, at the print resolution.
             Some(BboxInches::Inches(_)) => {
                 self.state_mut().draws_per_layout = usize::from(predrawn);
-                self.prepare_layout();
+                // A hook stopping the draw leaves the window as it was.
+                let _ = self.prepare_layout();
             }
             None => {}
         }

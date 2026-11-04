@@ -199,6 +199,9 @@ impl FigureState {
             return None;
         }
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
+        // `get_tightbbox` applies the aspect, which brings a secondary
+        // axis to its host's limits.
+        self.sync_secondary(axes);
         self.lay_out_axes_at(axes, placement);
         let in_full = self.program_axes_measured(axes, for_layout_only, extras == Extras::Children);
         let extent = self.axes_bbox(axes)?;

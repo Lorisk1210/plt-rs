@@ -8,7 +8,7 @@
 //! nothing imports the real one by accident: setup checks that.
 
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use pltrs_core::os::Os;
@@ -73,7 +73,19 @@ pub(super) fn run() -> Result<(), String> {
     let python = pltrs_python()?;
     install(&python, "requirements-pltrs.txt")?;
 
-    let leaked = Command::new(&python)
+    refuse_matplotlib(&python, &venv)?;
+    println!(
+        "ready: {} (pltrs) and {} (reference)",
+        venv.display(),
+        root.join(".venv").display()
+    );
+    Ok(())
+}
+
+/// Fails if `python`, the interpreter of the venv `venv`, can import
+/// matplotlib, which a venv running pltrs must not hold.
+pub(crate) fn refuse_matplotlib(python: &Path, venv: &Path) -> Result<(), String> {
+    let leaked = Command::new(python)
         .args(["-c", "import matplotlib"])
         .output()
         .map_err(|err| format!("cannot run {}: {err}", python.display()))?;
@@ -83,21 +95,21 @@ pub(super) fn run() -> Result<(), String> {
             venv.display()
         ));
     }
-    println!(
-        "ready: {} (pltrs) and {} (reference)",
-        venv.display(),
-        root.join(".venv").display()
-    );
     Ok(())
 }
 
 /// Installs the pinned list `python/<requirements>` into `python`'s venv.
-pub(crate) fn install(python: &std::path::Path, requirements: &str) -> Result<(), String> {
-    run_checked(
-        Command::new(uv())
-            .args(["pip", "install", "--python"])
-            .arg(python)
-            .arg("-r")
-            .arg(root().join("python").join(requirements)),
-    )
+fn install(python: &Path, requirements: &str) -> Result<(), String> {
+    run_checked(&mut install_command(python, &[requirements]))
+}
+
+/// The uv command installing the pinned lists `python/<list>` of `lists`
+/// together into `python`'s venv.
+pub(crate) fn install_command(python: &Path, lists: &[&str]) -> Command {
+    let mut command = Command::new(uv());
+    command.args(["pip", "install", "--python"]).arg(python);
+    for list in lists {
+        command.arg("-r").arg(root().join("python").join(list));
+    }
+    command
 }

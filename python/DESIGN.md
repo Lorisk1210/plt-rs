@@ -68,14 +68,18 @@ python/
   backend/pltrs_backend/        the PEP 517 build backend (standard library only)
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
   ecosystem/                    `cargo xtask ecosystem`: pandas and seaborn on pltrs
+                                (and `fetch.py`, which downloads their sdists)
   tools/toolkits.sh             GTK 3 and 4, PyGObject, pycairo, wxPython without root
   requirements-pltrs.txt        the pltrs venv (pinned)
   requirements-reference.txt    what the reference venv gets on top
-  requirements-ecosystem.txt    the ecosystem venv (pandas, scipy; seaborn apart)
+  requirements-ecosystem.txt    the ecosystem venvs (pandas, seaborn, scipy, pytest)
+  requirements-ecosystem-reference.txt  what the ecosystem's reference venv adds (matplotlib)
 pyproject.toml                  `pip install .`: the backend and the distributions
 spec/mpl-suite/
   reference.json                outcomes under real matplotlib (committed)
   pltrs.json                    outcomes under pltrs (committed)
+spec/ecosystem/
+  reference.json, pltrs.json    the same for pandas' and seaborn's suites
 ```
 
 ## The native extension
@@ -1317,15 +1321,36 @@ two distributions:
 `cargo xtask ecosystem` runs pandas and seaborn on the tree through the
 alias (`python/ecosystem`), comparing each figure's structure with what
 real matplotlib recorded (`expected.json`, recorded with
-`ECOSYSTEM_RECORD=1` under matplotlib). What they need of matplotlib
+`ECOSYSTEM_RECORD=1` under matplotlib). `cargo xtask ecosystem suite`
+runs the libraries' own suites, pandas' plotting tests and seaborn's
+`tests/`, from their sdists (`ecosystem setup` downloads them into
+`target/refs/`, with the data files the sdists leave out, checking their
+SHA-256), as `mpl-suite` runs matplotlib's and with its outcome files and
+report: in a venv with real matplotlib (`--reference`,
+`target/ecosystem/reference-venv`) and in one without it, through the
+alias (`target/ecosystem/venv`, installed with matplotlib excluded from
+the resolution). Each library runs in a site of its own laid out as its
+source tree, with the sdist's `pyproject.toml`, so that its pytest
+configuration applies (pandas turns every warning into an error); the
+outcomes are `spec/ecosystem/<mode>.json`. What they need of matplotlib
 beyond its suite lives where the rest of its kind does: an artist's
 `sticky_edges` (lists whose changes reach pltrs (Rust)), an axes'
 `_get_lines` and `_get_patches_for_fill` (`axes/_prop_cycles.py`: giving
 one axes another's cycle makes both draw from it, `Axes::share_prop_cycle`),
 artists made outside any figure as legend handles (`LegendHandle::of_artist`:
-lines, patches of any shape and collections), and the ticks an axis makes
-taking what its first tick has of its own, as matplotlib's
-`_copy_tick_props` gives it them (`Axis::make_ticks`).
+lines, patches of any shape and collections; also the handles of a legend,
+or of one removed, which seaborn's `move_legend` makes a legend of), and the
+ticks an axis makes taking what its first tick has of its own, as
+matplotlib's `_copy_tick_props` gives it them (`Axis::make_ticks`). Axes
+sharing an axis share its units and tick helpers but not its converter
+(`Axis::own_converter` is `get_converter`); the program's changes to
+`colors._colors_full_map` name colours natively too
+(`pltrs::colors::set_color_name`, seaborn's `set_color_codes`); a
+`zoneinfo.ZoneInfo` crosses with the `TZif` data `zoneinfo` reads for it
+(from the system or the `tzdata` package, whose files are slim) and is
+read as `zoneinfo` reads it, `TZ` string included (`TimeZone::Info`); and
+tick helpers ask a program's stand-in axis only what matplotlib's would
+(seaborn's legends and `PseudoAxis`: `TickHelper._axis_info`).
 
 ## Adding a function: a worked example
 

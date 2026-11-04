@@ -1,0 +1,10 @@
+# What `cargo xtask ecosystem setup` adds to requirements-ecosystem.txt in
+# the ecosystem's reference venv (`target/ecosystem/reference-venv`): real
+# matplotlib 3.11.2 and its dependencies, as the reference venv (`.venv`)
+# holds them, for the reference run of the libraries' suites.
+matplotlib==3.11.2
+contourpy==1.4.0
+fonttools==4.67.0
+kiwisolver==1.5.1
+packaging==26.3
+pyparsing==3.3.3

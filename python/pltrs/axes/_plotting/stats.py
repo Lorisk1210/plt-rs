@@ -27,8 +27,18 @@ def _rcParams():
 
 
 def _native_lineprops(props):
-    """Line properties of a box plot part in native form."""
-    return mlines._native_kwargs(cbook.normalize_kwargs(props or {}, mlines.Line2D))
+    """
+    Line properties of a box plot part in native form. A property given as
+    None is `.Line2D`'s default for it, ``lines.<name>``, as matplotlib's
+    parts are lines made with what is given over the ``boxplot.*`` ones;
+    any other given as None (a colour) leaves the part its ``boxplot.*``
+    one.
+    """
+    rc = _rcParams()
+    props = {key: rc[f"lines.{key}"] if value is None else value
+             for key, value in cbook.normalize_kwargs(props or {}, mlines.Line2D).items()
+             if value is not None or (key != "color" and f"lines.{key}" in rc)}
+    return mlines._native_kwargs(props)
 
 
 def _converted_stats(axes, axis_name, stats, keys):

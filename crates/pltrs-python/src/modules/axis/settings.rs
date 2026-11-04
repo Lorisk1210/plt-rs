@@ -248,11 +248,12 @@ fn update_units(owner: AxisOwner, name: String, values: PyAxisValues) -> PyResul
     })
 }
 
-/// The kind of the axis' unit converter: `"dates"`, `"category"`,
-/// `"custom"`, or `None`.
+/// The kind of the unit converter set on the axis itself (matplotlib's
+/// `get_converter`, which a 2-D axis sharing another's converter does not
+/// give): `"dates"`, `"category"`, `"custom"`, or `None`.
 fn converter_kind(owner: AxisOwner, name: String) -> PyResult<Option<&'static str>> {
     let converter = match owner.axis(&name)? {
-        AnyAxis::Flat(axis) => axis.converter(),
+        AnyAxis::Flat(axis) => axis.own_converter(),
         AnyAxis::Deep(axis) => axis.converter(),
     };
     Ok(converter.map(|converter| match converter {

@@ -61,7 +61,9 @@ pub use light::{
     BlendMode, LightSource, Relief, ShadeError, ShadeOptions, blend_overlay, blend_soft_light,
 };
 pub use mappable::ScalarMappable;
-pub use named::{ColorTable, NamedColor, named_color_table, named_colors};
+pub use named::{
+    ColorTable, NamedColor, named_color_table, named_colors, reset_color_names, set_color_name,
+};
 pub(crate) use norm::LinearTransform;
 pub use norm::{
     AsinhNorm, BoundaryNorm, CenteredNorm, FuncNorm, LogNorm, MultiNorm, NoNorm, Norm, NormClone,

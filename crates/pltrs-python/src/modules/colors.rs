@@ -104,6 +104,14 @@ impl From<ColormapError> for PyErr {
     }
 }
 
+/// Names `color` `name` (an RGBA tuple), or takes the name away with
+/// `None` (`_colors_full_map[name] = color`, `del _colors_full_map[name]`).
+fn set_color_name(name: String, color: Option<(f64, f64, f64, f64)>) -> PyResult<()> {
+    let color = color.map(|(r, g, b, a)| Rgba::new(r, g, b, a));
+    pltrs::colors::set_color_name(&name, color);
+    Ok(())
+}
+
 /// The RGBA rows (`(N, 4)`) of the colours `colors`, with `alpha`
 /// replacing theirs when given.
 fn to_rgba_array(colors: Vec<Color>, alpha: Option<f64>) -> PyResult<NdArray> {
@@ -194,6 +202,7 @@ fn sequence_names() -> PyResult<Vec<String>> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("to_rgba", to_rgba)?;
     module.add("to_rgba_array", to_rgba_array)?;
+    module.add("set_color_name", set_color_name)?;
     module.add("rgb_to_hsv", rgb_to_hsv_array)?;
     module.add("hsv_to_rgb", hsv_to_rgb_array)?;
     module.add("lookup_table", lookup_table)?;

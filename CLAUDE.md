@@ -189,6 +189,7 @@ cargo xtask python test       # the extension plus pltrs's smoke tests (python/t
 cargo xtask mpl-suite [PATTERN...] [--failures] [--imports]   # matplotlib's suite on pltrs
 cargo xtask mpl-suite --reference                           # ... on real matplotlib
 cargo xtask ecosystem [setup]   # pandas and seaborn on pltrs as matplotlib
+cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]  # their own suites
 pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs
 ```
 

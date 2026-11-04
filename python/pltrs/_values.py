@@ -40,6 +40,17 @@ def remember_all(artist, values, names):
             remember(artist, name, values[name])
 
 
+def inherit(artist, source):
+    """Let *artist* read back the properties *source* was given
+    (`remember`) that it was not given itself, as the artists matplotlib
+    makes from others keep their very objects (``update_from``)."""
+    given = getattr(source, "__dict__", {}).get("_given_values")
+    if given:
+        own = artist.__dict__.setdefault("_given_values", {})
+        for name, value in given.items():
+            own.setdefault(name, value)
+
+
 def given_fields(artist, names, native):
     """The fields *native* (a tuple) of *artist*, named *names*, each as
     `given` reads it."""

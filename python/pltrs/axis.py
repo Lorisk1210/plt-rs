@@ -292,10 +292,14 @@ class Axis(DrawnWith, Artist):
     #: axis itself, so that they pass as they are (the axes of 3-D axes).
     _native_units = False
 
-    converter = _api.deprecate_privatize_attribute(
-                    "3.10",
-                    alternative="get_converter and set_converter methods"
-                )
+    # matplotlib's ``converter`` reads ``_converter``, the converter of the
+    # axis, which `get_converter` gives here (the converters pltrs (Rust)
+    # applies are not kept in ``_converter``).
+    converter = _api.deprecated(
+        "3.10", alternative="get_converter and set_converter methods")(
+            property(lambda self: self.get_converter(),
+                     lambda self, value: setattr(self, "_converter", value)),
+            name="converter")
 
     def __str__(self):
         return "{}({},{})".format(
@@ -765,12 +769,21 @@ class Axis(DrawnWith, Artist):
         if native is None:
             transform = scale.get_transform()
             inverse = transform.inverted()
+            # The scale installs its tick helpers itself, as matplotlib's
+            # do; one of the program's may keep the axis' (seaborn's
+            # categorical scale keeps the category locator).
+            helpers = (self.get_major_locator(), self.get_minor_locator(),
+                       self.get_major_formatter(), self.get_minor_formatter())
             # pltrs (Rust) hands the transforms arrays, as matplotlib does.
             _native_scale.set_python_scale(
                 *self._args(), scale.name,
                 (transform.transform, inverse.transform),
                 lambda vmin, vmax, minpos: tuple(
                     map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
+            for setter, helper in zip(
+                    (self.set_major_locator, self.set_minor_locator,
+                     self.set_major_formatter, self.set_minor_formatter), helpers):
+                setter(helper)
             scale.set_default_locators_and_formatters(self)
             _axis.mark_default_helpers(*self._args())
         else:
@@ -1734,16 +1747,33 @@ class Axis(DrawnWith, Artist):
         it brings."""
         if munits._is_natively_supported(x):
             return x
+        from . import category
         converter = self._converter
-        if converter is None and _axis.converter_kind(*self._args()) is None:
+        kind = None if converter is not None else _axis.converter_kind(*self._args())
+        if converter is None and kind is None:
             converter = munits.registry.get_converter(x)
             if converter is None:
                 return x
             if not _is_native_converter(converter):
                 self._set_converter(converter)
+            elif (isinstance(converter, category.StrCategoryConverter)
+                  and self.units is None):
+                # Category names convert with the categories `update_units`
+                # gives the axis: matplotlib's converter, set without them,
+                # refuses them.
+                self._set_converter(converter)
+                return self._converted(converter, x)
+        from .axes._plotting._helpers import axis_values, convert_units
+        if kind == "dates" and isinstance(axis_values(x), list):
+            # The axis' date converter converts what it is given, as
+            # matplotlib's does: text parses as dates, not category names.
+            return self._converted(self.get_converter(), x)
         if _is_native_converter(converter):
-            from .axes._plotting._helpers import convert_units
             return convert_units(self.axes, self.axis_name, x)
+        return self._converted(converter, x)
+
+    def _converted(self, converter, x):
+        """*x* converted by *converter* with the axis' units."""
         try:
             return converter.convert(x, self.units, self)
         except Exception as e:

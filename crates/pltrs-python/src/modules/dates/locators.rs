@@ -4,13 +4,16 @@
 //!
 //! A rule crosses as a dict of dateutil's `rrule` keywords (the `by*` ones
 //! as lists, weekdays as `(index, n)` pairs, naive date-times as calendar
-//! parts), a time zone as its name or as its offset from UTC in seconds.
+//! parts), a time zone as its name (with its `TZif` data where Python
+//! reads it from elsewhere than the system) or as its offset from UTC in
+//! seconds.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use pltrs::dates::{
     AutoDateLocator, AutoFrequency, ChosenLocator, DateTime, Frequency, LocatorChoice, NthWeekday,
-    RRule, RRuleLocator, RRuleSpec, TimeZone, UtcOffset, Weekday, YearLocator,
+    RRule, RRuleLocator, RRuleSpec, TimeZone, UtcOffset, Weekday, YearLocator, ZoneInfo,
 };
 use pltrs::ticker::Locator;
 
@@ -36,13 +39,21 @@ pub(super) fn parts(dt: DateTime) -> Parts {
     )
 }
 
-/// A time zone: its name, or its offset from UTC in seconds.
+/// A time zone: its name (read as `dateutil` reads it), the key of a
+/// `zoneinfo.ZoneInfo` with the `TZif` data it reads (from the system or
+/// the `tzdata` package; read as `zoneinfo` reads it), or its offset from
+/// UTC in seconds.
 pub(crate) struct Zone(pub(crate) TimeZone);
 
 impl FromPy<'_> for Zone {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         if let Ok(name) = object.extract::<String>() {
             return Ok(Self(TimeZone::named(&name)?));
+        }
+        if let Ok((key, Bytes(data))) = object.extract::<(String, Bytes)>() {
+            return Ok(Self(TimeZone::Info(Arc::new(ZoneInfo::parse(
+                &data, &key,
+            )?))));
         }
         let seconds: i32 = object.extract()?;
         Ok(Self(TimeZone::Fixed(UtcOffset::from_seconds(seconds)?)))

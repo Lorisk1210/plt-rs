@@ -8,7 +8,7 @@ from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, l
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
-from ._helpers import floats, keep_unit_data, record_container, wrap, wrap_all
+from ._helpers import floats, keep_data, record_container, wrap, wrap_all
 from .lines import _given_format_color
 
 
@@ -207,11 +207,11 @@ class EventsMixin:
         ends = cbook._check_1d([np.min(locs), np.max(locs)])
         base = cbook._check_1d([bottom, bottom])
         if orientation == 'vertical':
-            keep_unit_data(markerline, locs, heads)
-            keep_unit_data(baseline, ends, base)
+            keep_data(markerline, locs, heads)
+            keep_data(baseline, ends, base)
         else:
-            keep_unit_data(markerline, heads, locs)
-            keep_unit_data(baseline, base, ends)
+            keep_data(markerline, heads, locs)
+            keep_data(baseline, base, ends)
         linecolor = _given_format_color(linefmt)
         markercolor = _given_format_color(markerfmt)
         for line, color in [(markerline, linecolor if markercolor is None else markercolor),

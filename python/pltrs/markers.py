@@ -38,6 +38,28 @@ def _rc(key):
     return rcParams[key]
 
 
+#: The kinds of marker spec whose paths are matplotlib's built-in ones.
+_BUILTIN_KINDS = ("code", "polygon")
+
+#: The built-in marker paths, by their vertices and codes.
+_BUILTIN_PATHS = {}
+
+
+def _builtin_path(vertices, codes):
+    """
+    The `.Path` of *vertices* and *codes*, one object for every marker of
+    those, as matplotlib's markers share the paths of the built-in shapes
+    (`.Path.unit_circle`, the class attributes of `MarkerStyle`).
+    """
+    vertices = np.asarray(vertices)
+    key = (vertices.shape, vertices.tobytes(),
+           None if codes is None else np.asarray(codes).tobytes())
+    path = _BUILTIN_PATHS.get(key)
+    if path is None:
+        path = _BUILTIN_PATHS[key] = Path(vertices, codes)
+    return path
+
+
 class MarkerStyle:
     """
     A class representing marker types.
@@ -147,13 +169,17 @@ class MarkerStyle:
             self._spec, self._fillstyle,
             None if self._user_capstyle is None else self._user_capstyle.name,
             None if self._user_joinstyle is None else self._user_joinstyle.name)
-        self._path = Path(*path)
+        kind, given = self._spec
+        if kind == "path":
+            self._path = given
+        else:
+            self._path = (_builtin_path if kind in _BUILTIN_KINDS else Path)(*path)
         self._transform = Affine2D(mtx)
         if alt is None:
             self._alt_path = None
             self._alt_transform = None
         else:
-            self._alt_path = Path(*alt[0])
+            self._alt_path = _builtin_path(*alt[0])
             self._alt_transform = Affine2D(alt[1])
         self._joinstyle = JoinStyle(joinstyle)
         self._capstyle = CapStyle(capstyle)

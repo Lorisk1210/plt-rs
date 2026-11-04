@@ -1,16 +1,21 @@
-//! `cargo xtask ecosystem [setup] [PYTEST ARGS...]`: pltrs (Python) as
-//! matplotlib under the libraries that import matplotlib by name, pandas
-//! and seaborn (the tests in `python/ecosystem`).
+//! `cargo xtask ecosystem [setup | suite ... | PYTEST ARGS...]`: pltrs
+//! (Python) as matplotlib under the libraries that import matplotlib by
+//! name, pandas and seaborn.
 //!
-//! * `ecosystem setup` makes the venv `target/ecosystem/venv` with uv:
-//!   what `python/requirements-ecosystem.txt` pins (pandas, scipy, pytest
-//!   and pltrs' own dependencies), then seaborn without its dependencies,
-//!   so that nothing fetches the real matplotlib;
-//! * `ecosystem` builds the extension (release) and runs the tests with
-//!   `PLTRS_ECOSYSTEM_PYTHON`, else that venv's Python, else the pltrs
-//!   venv's (where they skip, without pandas and seaborn), `python/alias`
-//!   and `python` first on `PYTHONPATH`, so that `import matplotlib` gives
-//!   the source tree's pltrs. The figures go to `target/ecosystem/out`.
+//! * `ecosystem setup` makes the ecosystem's venvs with uv and downloads
+//!   the libraries' sdists (`setup`);
+//! * `ecosystem suite [--reference] [PATTERN...] [--failures]` runs the
+//!   libraries' own test suites against pltrs or matplotlib (`suite`);
+//! * `ecosystem [PYTEST ARGS...]` builds the extension (release) and runs
+//!   pltrs' smoke figures of the libraries (the tests in
+//!   `python/ecosystem`) with `PLTRS_ECOSYSTEM_PYTHON`, else the ecosystem
+//!   venv's Python, else the pltrs venv's (where they skip, without
+//!   pandas and seaborn), `python/alias` and `python` first on
+//!   `PYTHONPATH`, so that `import matplotlib` gives the source tree's
+//!   pltrs. The figures go to `target/ecosystem/out`.
+
+mod setup;
+mod suite;
 
 use std::env;
 use std::ffi::OsString;
@@ -21,26 +26,26 @@ use pltrs_core::os::Os;
 
 use crate::python::{self, Profile};
 
-/// What seaborn is pinned to; installed without its dependencies.
-const SEABORN: &str = "seaborn==0.13.2";
-
-/// The Python version of the venv (the other venvs').
-const PYTHON_VERSION: &str = "3.14";
-
 /// Where the venv, the figures and pytest's files go.
 fn ecosystem_dir() -> PathBuf {
     python::root().join("target").join("ecosystem")
 }
 
-/// The ecosystem venv.
+/// The ecosystem venv, pltrs' side (no matplotlib).
 fn venv() -> PathBuf {
     ecosystem_dir().join("venv")
 }
 
+/// The ecosystem's reference venv (real matplotlib).
+fn reference_venv() -> PathBuf {
+    ecosystem_dir().join("reference-venv")
+}
+
 /// Runs the `ecosystem` subcommand.
 pub(crate) fn run(args: &[String]) -> ExitCode {
-    let outcome = match args.first().map(String::as_str) {
-        Some("setup") => setup(),
+    let outcome = match args.split_first() {
+        Some((command, _)) if command == "setup" => setup::run(),
+        Some((command, rest)) if command == "suite" => suite::run(rest),
         _ => python::build(Profile::Release).and_then(|()| test(args)),
     };
     match outcome {
@@ -50,28 +55,6 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-/// Makes (or completes) the ecosystem venv.
-fn setup() -> Result<(), String> {
-    let venv = venv();
-    let python = python::interpreter(&venv, Os::CURRENT);
-    if !python.exists() {
-        python::run_checked(
-            Command::new(python::uv())
-                .args(["venv", "--python", PYTHON_VERSION])
-                .arg(&venv),
-        )?;
-    }
-    python::install(&python, "requirements-ecosystem.txt")?;
-    python::run_checked(
-        Command::new(python::uv())
-            .args(["pip", "install", "--no-deps", "--python"])
-            .arg(&python)
-            .arg(SEABORN),
-    )?;
-    println!("ready: {}", venv.display());
-    Ok(())
 }
 
 /// The Python the tests run with (see the module's description).

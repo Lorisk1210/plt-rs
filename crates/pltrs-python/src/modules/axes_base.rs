@@ -84,6 +84,11 @@ fn share(axes: Axes, name: String, other: Axes) -> PyResult<()> {
     Ok(())
 }
 
+/// The axes whose axis `name` `axes` shares (`_sharex`, `_sharey`).
+fn shared_from(axes: Axes, name: String) -> PyResult<Option<Axes>> {
+    Ok(axes.shared_from(axis_name(&name)?))
+}
+
 /// The axes sharing axis `name` with `axes`, itself included
 /// (`get_shared_x_axes().get_siblings(ax)`).
 fn shared(axes: Axes, name: String) -> PyResult<Vec<Axes>> {
@@ -155,6 +160,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("located_position", located_position)?;
     module.add("set_position", set_position)?;
     module.add("share", share)?;
+    module.add("shared_from", shared_from)?;
     module.add("shared", shared)?;
     module.add("label_outer", label_outer)?;
     module.add("label_outer_shared", label_outer_shared)?;

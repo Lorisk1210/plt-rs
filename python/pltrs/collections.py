@@ -668,6 +668,12 @@ class Collection(mcolorizer.ColorizingArtist):
         """Return the face colors, as drawn."""
         return self._get("facecolor")
 
+    @property
+    def _facecolors(self):
+        """The RGBA face colours, as drawn (matplotlib's ``_facecolors``,
+        which `get_facecolor` gives)."""
+        return self.get_facecolor()
+
     def set_facecolor(self, c):
         """
         Set the facecolor(s) of the collection. *c* can be a color (all
@@ -1538,6 +1544,69 @@ class _MeshData:
             return coordinates
         return coordinates.astype(dtype, copy=False)
 
+    @staticmethod
+    def _convert_mesh_to_paths(coordinates):
+        """
+        Convert a given mesh into a sequence of `.Path` objects.
+
+        This function is primarily of use to implementers of backends that do
+        not directly support quadmeshes (matplotlib's, as it is).
+        """
+        if isinstance(coordinates, np.ma.MaskedArray):
+            c = coordinates.data
+        else:
+            c = coordinates
+        points = np.concatenate([
+            c[:-1, :-1],
+            c[:-1, 1:],
+            c[1:, 1:],
+            c[1:, :-1],
+            c[:-1, :-1]
+        ], axis=2).reshape((-1, 5, 2))
+        return [Path(x) for x in points]
+
+    def _convert_mesh_to_triangles(self, coordinates):
+        """
+        Convert a given mesh into a sequence of triangles, each point
+        with its own color.  The result can be used to construct a call to
+        `~.RendererBase.draw_gouraud_triangles` (matplotlib's, as it is).
+        """
+        if isinstance(coordinates, np.ma.MaskedArray):
+            p = coordinates.data
+        else:
+            p = coordinates
+
+        p_a = p[:-1, :-1]
+        p_b = p[:-1, 1:]
+        p_c = p[1:, 1:]
+        p_d = p[1:, :-1]
+        p_center = (p_a + p_b + p_c + p_d) / 4.0
+        triangles = np.concatenate([
+            p_a, p_b, p_center,
+            p_b, p_c, p_center,
+            p_c, p_d, p_center,
+            p_d, p_a, p_center,
+        ], axis=2).reshape((-1, 3, 2))
+
+        c = self.get_facecolor().reshape((*coordinates.shape[:2], 4))
+        z = self.get_array()
+        mask = z.mask if np.ma.is_masked(z) else None
+        if mask is not None:
+            c[mask, 3] = np.nan
+        c_a = c[:-1, :-1]
+        c_b = c[:-1, 1:]
+        c_c = c[1:, 1:]
+        c_d = c[1:, :-1]
+        c_center = (c_a + c_b + c_c + c_d) / 4.0
+        colors = np.concatenate([
+            c_a, c_b, c_center,
+            c_b, c_c, c_center,
+            c_c, c_d, c_center,
+            c_d, c_a, c_center,
+        ], axis=2).reshape((-1, 3, 4))
+        tmask = np.isnan(colors[..., 2, 3])
+        return triangles[~tmask], colors[~tmask]
+
     @property
     def _shading(self):
         """How the cells are coloured: ``'flat'`` or ``'gouraud'``."""
@@ -1637,6 +1706,19 @@ class QuadMesh(_MeshData, Collection):
         self._coordinates_dtype = np.asarray(coordinates).dtype
         Collection.__init__(self, **kwargs)
         self.set_mouseover(False)
+
+    def _keep_given_array(self, given):
+        """
+        Keep the values *given* to the plotting function as the mesh's
+        array, as matplotlib's `set_array` keeps them: masked where invalid,
+        with the values a mask hides and their dtype (pltrs (Rust) maps
+        floats, NaN where masked). A plain float array is already that.
+        """
+        if type(given) is np.ndarray and given.dtype == np.float64:
+            return
+        kept = cbook.safe_masked_invalid(given, copy=True)
+        if self._A is not None and kept.shape == self._A.shape:
+            self._A = kept
 
     def get_datalim(self, transData):
         """The box of the mesh's coordinates in the coordinates of

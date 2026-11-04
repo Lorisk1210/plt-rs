@@ -1,7 +1,11 @@
-# The ecosystem venv (`target/ecosystem/venv`, made by
-# `cargo xtask ecosystem setup`): pandas and seaborn (installed apart,
-# without its dependencies, so that nothing fetches the real matplotlib)
-# drawing with pltrs as matplotlib. matplotlib must never be here.
+# The ecosystem venvs (made by `cargo xtask ecosystem setup`): pandas and
+# seaborn, with their test suites' needs. `target/ecosystem/venv` runs
+# them on pltrs as matplotlib: setup installs this list with matplotlib
+# excluded from the resolution (seaborn requires it; `python/alias` is
+# what it gets), and matplotlib must never be there.
+# `target/ecosystem/reference-venv` adds requirements-ecosystem-reference.txt
+# (real matplotlib) to it. setup downloads the sdists of pandas and seaborn
+# at these versions, whose tests `cargo xtask ecosystem suite` runs.
 #
 # What pltrs itself imports (as requirements-pltrs.txt pins it):
 numpy==2.5.4
@@ -10,6 +14,13 @@ cycler==0.12.1
 python-dateutil==2.9.0.post0
 # The libraries under test, and what seaborn needs besides matplotlib:
 pandas==3.1.0
+seaborn==0.13.2
 scipy==1.18.1
-# What running the tests needs:
-pytest==9.1.1
+# What running the tests needs. tzdata: the time zones pandas' conftest
+# names, such as `US/Pacific`, which a system's own database may lack.
+# pytest 8 rather than 9: seaborn 0.13.2's `tests/test_base.py` marks its
+# fixtures, which pytest 9 refuses to collect.
+tzdata==2026.6
+pytest==8.4.2
+pytest-xdist==3.8.0
+pytest-timeout==2.4.0

@@ -1,18 +1,22 @@
-//! Time zones: UTC, fixed offsets and IANA zones read from `TZif` files.
+//! Time zones: UTC, fixed offsets and IANA zones read from `TZif` files,
+//! the way `dateutil` reads them or the way Python's `zoneinfo` does.
 //!
 //! The model is Python's: a [`ZonedDateTime`] is a local wall-clock
 //! [`DateTime`] plus a [`TimeZone`]; arithmetic within one zone happens on
 //! the wall clock and the UTC offset is looked up from the local time (with
 //! a `fold` flag disambiguating repeated wall times).
 
+mod posix;
 mod tzfile;
 mod zoned;
+mod zoneinfo;
 
 use std::fmt::{self, Write as _};
 use std::sync::Arc;
 
 pub use tzfile::TzFile;
 pub use zoned::ZonedDateTime;
+pub use zoneinfo::ZoneInfo;
 
 use super::timedelta::{MICROS_PER_DAY, MICROS_PER_SECOND};
 use super::{DateError, DateTime, TimeDelta};
@@ -85,12 +89,16 @@ pub enum TimeZone {
     Fixed(UtcOffset),
     /// An IANA zone with historical transitions (`dateutil.tz.tzfile`).
     Zone(Arc<TzFile>),
+    /// An IANA zone as Python's `zoneinfo.ZoneInfo` reads its data, the
+    /// rules of its `TZ` string included.
+    Info(Arc<ZoneInfo>),
 }
 
 pltrs_core::archive_enum!(TimeZone {
     Utc,
     Fixed(v0),
     Zone(v0),
+    Info(v0),
 });
 
 impl TimeZone {
@@ -137,6 +145,10 @@ impl TimeZone {
             Self::Utc => UtcOffset::UTC,
             Self::Fixed(offset) => *offset,
             Self::Zone(zone) => zone.offset_at_local(local, fold),
+            Self::Info(zone) => {
+                let seconds = i32::try_from(zone.offset_at_local(local, fold)).unwrap_or(0);
+                UtcOffset::from_seconds(seconds).unwrap_or(UtcOffset::UTC)
+            }
         }
     }
 
@@ -147,6 +159,7 @@ impl TimeZone {
             Self::Fixed(offset) if *offset == UtcOffset::UTC => "UTC".to_owned(),
             Self::Fixed(offset) => format!("UTC{offset}"),
             Self::Zone(zone) => zone.name_at_local(local, fold).to_owned(),
+            Self::Info(zone) => zone.name_at_local(local, fold).to_owned(),
         }
     }
 
@@ -157,6 +170,7 @@ impl TimeZone {
             Self::Utc => Ok((utc, false)),
             Self::Fixed(offset) => Ok((utc.checked_add(offset.as_timedelta())?, false)),
             Self::Zone(zone) => zone.local_from_utc(utc),
+            Self::Info(zone) => zone.local_from_utc(utc),
         }
     }
 }

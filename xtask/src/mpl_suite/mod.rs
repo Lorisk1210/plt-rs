@@ -21,44 +21,33 @@
 //! only the first. The sdist comes from `MPL_SDIST`, by default
 //! `target/refs/matplotlib-dl/matplotlib-3.11.2`.
 
-mod outcomes;
-mod prepare;
-mod report;
+pub(crate) mod outcomes;
+pub(crate) mod prepare;
+pub(crate) mod pytest;
+pub(crate) mod report;
 
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{Command, ExitCode};
 
 use outcomes::Outcomes;
+use pytest::CONFIG_DIR_VARIABLE;
 
-/// The pytest workers of a run.
-const WORKERS: &str = "8";
+/// The versions the outcome files name.
+const VERSIONS: [(&str, &str); 1] = [("matplotlib", "3.11.2")];
 
-/// The seconds a single test may take before pytest-timeout fails it.
-const TEST_TIMEOUT: &str = "600";
-
-/// The variable choosing pltrs' look, set to `matplotlib` for both runs:
-/// pltrs (Python) draws in its modern look by default, and matplotlib's
-/// tests expect matplotlib's defaults (matplotlib itself ignores it).
-const LOOK_VARIABLE: &str = "PLTRS_LOOK";
-
-/// pltrs' own variable naming its configuration directory, which cargo
-/// sets for what it runs (`.cargo/config.toml`) and the suite must not
-/// pass on: pltrs (Python) then reads matplotlib's `MPLCONFIGDIR`.
-const CONFIG_DIR_VARIABLE: &str = "PLTRSCONFIGDIR";
-
-/// What runs the suite.
+/// What runs a suite.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Mode {
-    /// Real matplotlib, in the reference venv.
+pub(crate) enum Mode {
+    /// Real matplotlib, in a reference venv.
     Reference,
-    /// pltrs, in the pltrs venv.
+    /// pltrs, in a venv without matplotlib.
     Pltrs,
 }
 
 impl Mode {
     /// The mode's name, in paths and file names.
-    pub(super) fn name(self) -> &'static str {
+    pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Reference => "reference",
             Self::Pltrs => "pltrs",
@@ -78,17 +67,23 @@ impl Mode {
     }
 }
 
-/// The parsed command line.
+/// The parsed command line: `[--reference] [PATTERN...] [--failures]
+/// [--imports]`.
 #[derive(Debug)]
-struct Options {
-    mode: Mode,
-    failures: bool,
-    imports: bool,
-    patterns: Vec<String>,
+pub(crate) struct Options {
+    /// What runs the suite (`--reference`: matplotlib).
+    pub(crate) mode: Mode,
+    /// Whether to list every failure (`--failures`).
+    pub(crate) failures: bool,
+    /// Whether to list the import gaps instead of running (`--imports`).
+    pub(crate) imports: bool,
+    /// The test files or ids to run.
+    pub(crate) patterns: Vec<String>,
 }
 
 impl Options {
-    fn parse(args: &[String]) -> Self {
+    /// Reads the command line `args`.
+    pub(crate) fn parse(args: &[String]) -> Self {
         let mut options = Self {
             mode: Mode::Pltrs,
             failures: false,
@@ -139,13 +134,20 @@ fn run_suite(options: &Options) -> Result<(), String> {
     let files = prepare::test_files(&site)?;
     let (targets, ran_files) = select(&files, &options.patterns)?;
 
-    let results = suite.join(options.mode.name()).join("results.jsonl");
-    let run = pytest(&python, &site, &results, &targets)?;
+    let run = pytest::Run {
+        suite: "matplotlib's suite",
+        python: &python,
+        site: &site,
+        dir: &suite.join(options.mode.name()),
+        python_path: vec![site.clone()],
+        targets: &targets,
+    }
+    .outcomes()?;
     let path = options.mode.outcome_file();
     let details = options.mode.details_file(&suite);
     let mut merged = Outcomes::load(&path, &details)?;
     merged.merge(run, &ran_files);
-    merged.save(&path, &details)?;
+    merged.save(&path, &details, &VERSIONS)?;
     println!("wrote {}", path.display());
 
     let reference = Outcomes::load(
@@ -171,13 +173,25 @@ fn import_gaps(python: &Path, site: &Path) -> Result<(), String> {
     )
 }
 
-/// The pytest arguments selecting what `patterns` asks for, and the test
-/// files they cover (all of them without patterns).
+/// The pytest arguments selecting what `patterns` asks for of matplotlib's
+/// suite, and the test files they cover (all of them without patterns).
 fn select(files: &[String], patterns: &[String]) -> Result<(Vec<String>, Vec<String>), String> {
+    let mut everything = vec!["matplotlib/tests".to_owned()];
+    everything.extend(prepare::TOOLKITS.map(|kit| format!("mpl_toolkits/{kit}/tests")));
+    select_from(files, patterns, everything)
+}
+
+/// The pytest arguments selecting what `patterns` asks for of a suite of
+/// the test files `files`, and the files they cover: the test files whose
+/// path contains a pattern, the test ids of the patterns naming one
+/// (`...py::test_x`), and without patterns `everything` and all `files`.
+pub(crate) fn select_from(
+    files: &[String],
+    patterns: &[String],
+    everything: Vec<String>,
+) -> Result<(Vec<String>, Vec<String>), String> {
     if patterns.is_empty() {
-        let mut targets = vec!["matplotlib/tests".to_owned()];
-        targets.extend(prepare::TOOLKITS.map(|kit| format!("mpl_toolkits/{kit}/tests")));
-        return Ok((targets, files.to_vec()));
+        return Ok((everything, files.to_vec()));
     }
     let mut targets = Vec::new();
     let mut covered = Vec::new();
@@ -198,74 +212,4 @@ fn select(files: &[String], patterns: &[String]) -> Result<(Vec<String>, Vec<Str
         }
     }
     Ok((targets, covered))
-}
-
-/// Runs pytest with the outcome plugin in `site` and reads what it
-/// recorded. pytest's own output goes to `pytest.log` beside `results`.
-fn pytest(
-    python: &Path,
-    site: &Path,
-    results: &Path,
-    targets: &[String],
-) -> Result<Outcomes, String> {
-    let root = crate::python::root();
-    let dir = results
-        .parent()
-        .expect("results live in the mode's directory");
-    let log_path = dir.join("pytest.log");
-    let _ = std::fs::remove_file(results);
-    let log =
-        std::fs::File::create(&log_path).map_err(|err| format!("{}: {err}", log_path.display()))?;
-    let stderr = log
-        .try_clone()
-        .map_err(|err| format!("{}: {err}", log_path.display()))?;
-    let python_path =
-        crate::python::python_path([site.to_path_buf(), root.join("python/mpl_suite")])?;
-    println!(
-        "running matplotlib's suite with {} (log: {})",
-        python.display(),
-        log_path.display()
-    );
-    let status = Command::new(python)
-        .args([
-            "-m",
-            "pytest",
-            "-p",
-            "mpl_suite_report",
-            "-p",
-            "no:cacheprovider",
-        ])
-        .args(["-n", WORKERS, "--timeout", TEST_TIMEOUT])
-        .args(["--continue-on-collection-errors", "-q", "-rN"])
-        // pytest's temporary directories (`tmp_path`) under the run's own
-        // directory, not in the system's temporary directory.
-        .arg(crate::python::basetemp(&dir.join("pytest-tmp")))
-        .args(targets)
-        .current_dir(site)
-        .env("PYTHONPATH", python_path)
-        .env(LOOK_VARIABLE, "matplotlib")
-        .env("MPL_SUITE_RESULTS", results)
-        // The suite's own configuration directory, which pltrs reads from
-        // `MPLCONFIGDIR` as matplotlib does: some of matplotlib's tests
-        // make theirs unwritable, which must not reach the one cargo's
-        // tests share (`target/pltrs-config`), and expect the warning to
-        // name `MPLCONFIGDIR`.
-        .env("MPLCONFIGDIR", dir.join("mplconfig"))
-        .env_remove(CONFIG_DIR_VARIABLE)
-        .stdin(Stdio::null())
-        .stdout(log)
-        .stderr(stderr)
-        .status()
-        .map_err(|err| format!("cannot run {}: {err}", python.display()))?;
-    // 0: all passed, 1: some failed, 5: nothing collected; anything else
-    // means pytest itself broke (internal error, bad usage, interrupted).
-    if !matches!(status.code(), Some(0 | 1 | 5)) {
-        return Err(format!(
-            "pytest failed ({status}); see {}",
-            log_path.display()
-        ));
-    }
-    let text =
-        std::fs::read_to_string(results).map_err(|err| format!("{}: {err}", results.display()))?;
-    Outcomes::from_results(&text)
 }

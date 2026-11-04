@@ -352,8 +352,19 @@ class LogTransform(Transform):
             type(self).__name__, self.base, "clip" if self._clip else "mask")
 
     def transform_non_affine(self, values):
-        return _native_transform(
-            "log", (float(self.base), "clip" if self._clip else "mask"), values)
+        # matplotlib's, as it is: numpy's logarithms (which a CPU's vector
+        # units may round otherwise than the C library pltrs (Rust) uses).
+        # Ignore invalid values due to nans being passed to the transform.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            log_func = self._log_funcs.get(self.base)
+            if log_func:
+                out = log_func(values)
+            else:
+                out = np.log(values) / np.log(self.base)
+            if self._clip:
+                # Clipped far below np.log10(np.nextafter(0, 1)) ~ -323.
+                out[values <= 0] = -1000
+        return out
 
     def inverted(self):
         return InvertedLogTransform(self.base)
@@ -371,8 +382,12 @@ class InvertedLogTransform(Transform):
         return f"{type(self).__name__}(base={self.base})"
 
     def transform_non_affine(self, values):
-        return _native_transform("log", (float(self.base), "mask"), values,
-                                 inverse=True)
+        # matplotlib's, as it is (see `LogTransform.transform_non_affine`).
+        exp_func = self._exp_funcs.get(self.base)
+        if exp_func:
+            return exp_func(values)
+        else:
+            return np.exp(values * np.log(self.base))
 
     def inverted(self):
         return LogTransform(self.base)

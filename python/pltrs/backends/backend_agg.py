@@ -30,6 +30,7 @@ from ..ft2font import LoadFlags
 from ..image import imsave
 from ..text import _measuring_with
 from ..transforms import BboxBase
+from . import _backend_agg
 from ._backend_agg import BufferRegion
 from ._native_drawing import MathtextDrawingMixin, NativeDrawingMixin, native_gc
 
@@ -252,10 +253,24 @@ class RendererAgg(MathtextDrawingMixin, NativeDrawingMixin, RendererBase,
         return self._raster
 
     def buffer_rgba(self):
-        """The pixels, as a ``memoryview`` of RGBA rows from the top."""
-        if self._figure is None:
+        """
+        The pixels, as a ``memoryview`` of RGBA rows from the top: blank
+        (transparent white) until the figure's canvas is drawn, as
+        matplotlib's renderers start cleared.
+        """
+        drawn = (None if self._figure is None
+                 else _backends.buffer_rgba(self._canvas_figure()))
+        if drawn is None:
             return memoryview(_backends.raster_rgba(self._own_raster()))
-        return memoryview(_backends.buffer_rgba(self._canvas_figure()))
+        return memoryview(drawn)
+
+    @property
+    def _renderer(self):
+        """
+        The pixels the renderer draws into, as matplotlib's C++ renderer
+        gives them (see `._backend_agg.RendererAgg`).
+        """
+        return _backend_agg.RendererAgg(self)
 
     def tostring_argb(self):
         """The pixels as ARGB `bytes`."""

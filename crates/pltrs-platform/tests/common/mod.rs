@@ -47,7 +47,7 @@ pub(crate) fn open(event_loop: &mut EventLoop, size: PhysicalSize) -> WindowId {
 }
 
 /// A frame whose every pixel differs from its neighbours.
-fn pattern(size: PhysicalSize) -> OwnedFrame {
+pub(crate) fn pattern(size: PhysicalSize) -> OwnedFrame {
     let pixels = (0..size.height)
         .flat_map(|y| (0..size.width).map(move |x| (x, y)))
         .flat_map(|(x, y)| [x as u8, y as u8, (x ^ y).wrapping_mul(7) as u8, 255])
@@ -102,10 +102,11 @@ pub(crate) fn presented_frames_read_back_exactly(event_loop: &mut EventLoop) {
         .expect("an empty frame is presented");
 }
 
-/// A new size is reported and kept; returns the window.
+/// A new size is reported and kept; returns the window. The size is
+/// even, whole points on macOS's Retina screens too.
 pub(crate) fn resizing_reports_the_new_size(event_loop: &mut EventLoop) -> WindowId {
     let window = open(event_loop, PhysicalSize::new(200, 100));
-    let new_size = PhysicalSize::new(321, 123);
+    let new_size = PhysicalSize::new(322, 124);
     event_loop
         .context()
         .set_inner_size(window, new_size)

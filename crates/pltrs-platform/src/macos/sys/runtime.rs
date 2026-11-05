@@ -125,6 +125,7 @@ arguments!(a: A, b: B);
 arguments!(a: A, b: B, c: C);
 arguments!(a: A, b: B, c: C, d: D);
 arguments!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I);
+arguments!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J);
 
 /// Sends `selector` with `arguments` to `receiver`, returning `R`.
 ///

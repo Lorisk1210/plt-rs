@@ -8,6 +8,7 @@ mod bundled;
 mod entry;
 mod query;
 mod score;
+mod sparse;
 mod system;
 mod type1;
 
@@ -240,9 +241,10 @@ impl FontDatabase {
         }
     }
 
-    /// Reads the font file at `path` and adds its faces.
+    /// Reads the font file at `path` (but the tables only drawing reads)
+    /// and adds its faces.
     fn load_file(&self, path: &Path, catalogue: bool) -> Result<Vec<FontId>> {
-        let bytes = fs::read(path).map_err(|error| FontError::Io {
+        let bytes = sparse::read(path).map_err(|error| FontError::Io {
             path: path.to_path_buf(),
             kind: error.kind(),
         })?;

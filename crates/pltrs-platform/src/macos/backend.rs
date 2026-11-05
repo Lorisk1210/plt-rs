@@ -51,12 +51,12 @@ impl MacBackend {
     /// Sets up the application: a regular one (with a Dock icon and a
     /// menu bar whose Quit asks every window to close), launched.
     pub(crate) fn connect() -> Result<Self, Error> {
-        if !sys::is_main_thread() {
-            return Err(Error::BackendUnavailable(String::from(
-                "macOS windows can only be opened on the main thread",
-            )));
-        }
         autoreleasepool(|| {
+            if !sys::is_main_thread() {
+                return Err(Error::BackendUnavailable(String::from(
+                    "macOS windows can only be opened on the main thread",
+                )));
+            }
             let app = App::shared()?;
             app.make_regular();
             DELEGATE.with(|installed| {
@@ -171,8 +171,13 @@ impl Backend for MacBackend {
             .windows
             .remove(&window)
             .ok_or(Error::UnknownWindow(window))?;
-        closed.window.close();
         with_views(|views| views.remove(window));
+        // Releasing the window and its view deallocates them, which
+        // autoreleases.
+        autoreleasepool(|| {
+            closed.window.close();
+            drop(closed);
+        });
         Ok(())
     }
 
@@ -202,25 +207,28 @@ impl Backend for MacBackend {
             state.cursor = cursor;
             state.pointer_inside
         })?;
-        shown.window.invalidate_cursor_rects(&shown.view);
-        if inside {
-            sys::set_cursor(cursor);
-        }
+        autoreleasepool(|| {
+            shown.window.invalidate_cursor_rects(&shown.view);
+            if inside {
+                sys::set_cursor(cursor);
+            }
+        });
         Ok(())
     }
 
     fn set_inner_size(&mut self, window: WindowId, size: Size) -> Result<(), Error> {
         let scale = self.with_state(window, |state| state.scale)?;
-        self.window(window)?
-            .window
-            .set_content_size(points(size, scale));
+        let shown = &self.window(window)?.window;
+        autoreleasepool(|| shown.set_content_size(points(size, scale)));
         Ok(())
     }
 
     fn raise_window(&mut self, window: WindowId) -> Result<(), Error> {
         let shown = self.window(window)?;
-        self.app.activate();
-        shown.window.show();
+        autoreleasepool(|| {
+            self.app.activate();
+            shown.window.show();
+        });
         Ok(())
     }
 
@@ -243,9 +251,11 @@ impl Backend for MacBackend {
 
     fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error> {
         let shown = &self.window(window)?.window;
-        if shown.is_fullscreen() != fullscreen {
-            shown.toggle_fullscreen();
-        }
+        autoreleasepool(|| {
+            if shown.is_fullscreen() != fullscreen {
+                shown.toggle_fullscreen();
+            }
+        });
         Ok(())
     }
 

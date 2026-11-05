@@ -10,7 +10,11 @@
 //!   drawn as images in `drawRect:` for the regions presented. The loop
 //!   waits in `nextEventMatchingMask:untilDate:inMode:dequeue:`, until
 //!   the next timer of the generic loop at the latest; proxies wake it by
-//!   posting an application-defined event.
+//!   posting an application-defined event. Every call into `AppKit` runs
+//!   within an autorelease pool: without `-[NSApplication run]`, nothing
+//!   drains the main thread's own, so what `AppKit` autoreleases outside
+//!   one is never released (a window resized outside one was never
+//!   deallocated, nor its view and backing store).
 //! * [`view`]: what `AppKit`'s calls on the views do, on the per-thread
 //!   [`Registry`](crate::registry::Registry) of windows.
 //! * [`keys`], [`pointer`](mod@pointer) and [`convert`]: keyboard and

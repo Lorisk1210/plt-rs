@@ -51,11 +51,17 @@ fn draw(figure: Figure) -> PyResult<()> {
 }
 
 /// The canvas's pixels: straight-alpha RGBA rows from the top, as a
-/// `height × width × 4` array (`buffer_rgba`).
-fn buffer_rgba(figure: Figure) -> PyResult<NdArray<u8>> {
-    let image = figure.canvas().buffer_rgba()?;
-    let (width, height) = (image.width(), image.height());
-    rgba_array(width, height, image.into_data())
+/// `height × width × 4` array (`buffer_rgba`); `None` until the canvas
+/// is first drawn.
+fn buffer_rgba(figure: Figure) -> PyResult<Option<NdArray<u8>>> {
+    match figure.canvas().buffer_rgba() {
+        Ok(image) => {
+            let (width, height) = (image.width(), image.height());
+            rgba_array(width, height, image.into_data()).map(Some)
+        }
+        Err(CanvasError::NotDrawn) => Ok(None),
+        Err(error) => Err(error.into()),
+    }
 }
 
 /// Saves the canvas's pixels inside the display box `extents`
@@ -177,9 +183,12 @@ mod tests {
     #[test]
     fn the_canvas_draws_and_restores_regions() {
         let figure = Figure::with_size(2.0, 1.0, 50.0);
-        assert!(buffer_rgba(figure.clone()).is_err(), "not drawn yet");
+        assert!(
+            buffer_rgba(figure.clone()).unwrap().is_none(),
+            "not drawn yet"
+        );
         draw(figure.clone()).unwrap();
-        let pixels = buffer_rgba(figure.clone()).unwrap();
+        let pixels = buffer_rgba(figure.clone()).unwrap().unwrap();
         assert_eq!(pixels.shape, [50, 100, 4]);
         let region = copy_from_bbox(figure.clone(), (0.0, 0.0, 10.0, 10.0)).unwrap();
         assert_eq!(region_extents(region.clone()).unwrap(), (0, 40, 10, 50));
@@ -199,10 +208,10 @@ mod tests {
         let figure = Figure::with_size(2.0, 1.0, 50.0);
         let ax = figure.subplot();
         draw(figure.clone()).unwrap();
-        let before = buffer_rgba(figure.clone()).unwrap().data;
+        let before = buffer_rgba(figure.clone()).unwrap().unwrap().data;
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         draw_artist(figure.clone(), line.raw().clone()).unwrap();
-        assert_ne!(buffer_rgba(figure.clone()).unwrap().data, before);
+        assert_ne!(buffer_rgba(figure.clone()).unwrap().unwrap().data, before);
         redraw_in_frame(ax).unwrap();
         let other = Figure::new();
         assert!(

@@ -1,7 +1,8 @@
 """
 What matplotlib's Agg extension (``matplotlib.backends._backend_agg``)
-gives Python besides its renderer: `BufferRegion`, the pixels
-`.RendererAgg.copy_from_bbox` saves.
+gives Python: `BufferRegion`, the pixels `.RendererAgg.copy_from_bbox`
+saves, and the pixels of a renderer (`RendererAgg`, which pltrs (Rust)
+draws for `.backend_agg.RendererAgg`).
 """
 
 from .._native import backends as _backends
@@ -26,3 +27,20 @@ class BufferRegion:
         top (matplotlib's region exposes them through the buffer protocol:
         ``memoryview(region)``, ``np.asarray(region)``)."""
         return memoryview(_backends.region_rgba(self._native))
+
+
+class RendererAgg:
+    """
+    The pixels of the Agg renderer *renderer* (a `.backend_agg.RendererAgg`),
+    as matplotlib's C++ renderer, its ``_renderer``, gives them through the
+    buffer protocol: ``(height, width, 4)`` RGBA bytes, rows from the top
+    (``memoryview(renderer._renderer)``, ``np.asarray(renderer._renderer)``).
+    The renderer draws through its own methods.
+    """
+
+    def __init__(self, renderer):
+        self._owner = renderer
+
+    def __buffer__(self, flags):
+        """The renderer's pixels (see `.backend_agg.RendererAgg.buffer_rgba`)."""
+        return self._owner.buffer_rgba()

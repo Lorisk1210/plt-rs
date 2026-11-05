@@ -4,15 +4,19 @@ fonts with Apple Advanced Typography tables (the fonts of macOS) laid out
 as matplotlib's HarfBuzz lays it out, `is_opentype_cff_font`'s
 deprecation (macOS has OpenType CFF fonts to call it on), and the locale
 formatting `ScalarFormatter` offers (matplotlib's suite calls it where a
-German locale exists). Expected values come from matplotlib 3.11.
+German locale exists), and the Agg renderer's ``_renderer`` (the macOS
+backend's suite reads it). Expected values come from matplotlib 3.11.
 """
 
 import pathlib
 
+import numpy as np
 import pytest
 
 import pltrs
+import pltrs.pyplot as plt
 from pltrs import font_manager, ticker
+from pltrs.backends.backend_agg import RendererAgg
 from pltrs.ft2font import FT2Font, LoadFlags
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[2] / "crates/pltrs-font/tests/fixtures"
@@ -62,3 +66,22 @@ def test_scalar_formatter_formats_with_minus_and_locale():
     formatter = ticker.ScalarFormatter(useMathText=True, useLocale=True)
     assert formatter._format_maybe_minus_and_locale(
         ",$\\mathdefault{,%1.1f},$", 0.5) == ",$\\mathdefault{,0.5},$"
+
+
+def test_agg_renderers_expose_their_pixels():
+    fig = plt.figure(figsize=(2, 1), dpi=100)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    assert type(renderer._renderer).__name__ == "RendererAgg"
+    pixels = np.asarray(renderer._renderer)
+    assert (pixels.shape, pixels.dtype) == ((100, 200, 4), np.uint8)
+    assert (pixels == np.asarray(fig.canvas.buffer_rgba())).all()
+    assert not memoryview(renderer._renderer).readonly
+    undrawn = plt.figure(figsize=(1, 1), dpi=50)
+    undrawn.draw_without_rendering()
+    blank = np.asarray(undrawn.canvas.get_renderer()._renderer)
+    assert blank.shape == (50, 50, 4)
+    assert (blank == [255, 255, 255, 0]).all()
+    assert (np.asarray(undrawn.canvas.buffer_rgba()) == blank).all()
+    assert np.asarray(RendererAgg(10, 5, 72)._renderer).shape == (5, 10, 4)
+    plt.close("all")

@@ -164,7 +164,10 @@ pub(crate) fn key_event(press: KeyPress<'_>) -> KeyEvent {
     let key = named_key(press.code)
         .or_else(|| character.map(Key::Character))
         .unwrap_or(Key::Unidentified(u32::from(press.code)));
-    let shortcut = modifiers.control() || modifiers.alt() || modifiers.super_key();
+    // Control and Command make shortcuts, which type nothing. Option
+    // types the layout's other characters (`@` on German layouts, `å` on
+    // American ones), as AltGr does on other systems.
+    let shortcut = modifiers.control() || modifiers.super_key();
     let text = (press.state.is_pressed() && !shortcut && !press.typed.is_empty())
         .then_some(press.typed)
         .filter(|typed| typed.chars().all(is_typed))
@@ -310,6 +313,19 @@ mod tests {
             typed: "a",
         });
         assert_eq!((release.key, release.text), (Key::Character('a'), None));
+    }
+
+    #[test]
+    fn option_types_the_layouts_other_characters() {
+        let at = press(0x25, OPTION, "l", "@");
+        assert_eq!(
+            (at.key, at.text.as_deref(), at.modifiers),
+            (Key::Character('l'), Some("@"), Modifiers::ALT)
+        );
+        let pipe = press(0x1A, OPTION | SHIFT, "/", "\\");
+        assert_eq!(pipe.text.as_deref(), Some("\\"));
+        let command_option = press(0x25, OPTION | COMMAND, "l", "@");
+        assert_eq!(command_option.text, None, "a shortcut");
     }
 
     #[test]

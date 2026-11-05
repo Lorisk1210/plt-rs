@@ -14,5 +14,11 @@ pltrs-codec.workspace = true
 # The fuzz tests share pltrs's fuzz harness, which draws from its generator.
 pltrs-core.workspace = true
 
+# AppKit runs on the main thread only, which libtest keeps for itself: the
+# macOS live tests bring their own runner.
+[[test]]
+name = "macos"
+harness = false
+
 [lints]
 workspace = true

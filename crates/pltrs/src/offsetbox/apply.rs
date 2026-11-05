@@ -8,6 +8,7 @@ use super::{AnnotationBboxArtist, ArtistRef, OffsetBox, OffsetBoxError, Placemen
 use crate::artist::{
     Artist, ArtistId, ArtistStore, ClipPathSpec, DrawError, LayoutContext, RawHandle,
 };
+use crate::axes::AxesState;
 use crate::figure::{FigureState, draws_before};
 use crate::image::BboxImageArtist;
 use crate::patches::{FancyBboxPatch, PatchArtist};
@@ -180,14 +181,28 @@ pub(super) fn refresh_tree(state: &mut FigureState, id: ArtistId) {
 
 /// Lays out the anchored, annotation or placed box `id` in the figure's
 /// state of now and moves its parts into place; a box that cannot be laid
-/// out is reported with the next draw.
+/// out is reported with the next draw if that draw draws it.
 pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
     refresh_tree(state, id);
     match tree_layout(state, id) {
         Some(Ok(layout)) => apply_placements(&mut state.store, layout.placements),
-        Some(Err(err)) => state
-            .pending_errors
-            .push(DrawError::new(id, err.to_string())),
-        None => {}
+        Some(Err(err)) if drawn_by_the_draw(state, id) => state.pending_errors.push(DrawError {
+            kind: err.draw_kind(),
+            ..DrawError::new(id, err.to_string())
+        }),
+        Some(Err(_)) | None => {}
     }
+}
+
+/// Whether the draw draws the box `id`, which matplotlib lays out as it
+/// draws it: a visible box, unless it is animated and the draw is no save
+/// of the axes holding it.
+fn drawn_by_the_draw(state: &FigureState, id: ArtistId) -> bool {
+    let Some(base) = state.store.get(id).map(Artist::base) else {
+        return false;
+    };
+    let in_axes = base
+        .parent
+        .is_some_and(|parent| state.store.get_as::<AxesState>(parent).is_some());
+    base.visible && !LayoutContext::new(state).skips_animated(id, in_axes)
 }

@@ -1,47 +1,12 @@
 //! Images drawn in figure pixels (matplotlib's `Figure.figimage` and
-//! `FigureImage`), and the images of either kind for the functions axes
-//! images and figure images share.
+//! `FigureImage`).
 
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::figure::Figure;
-use pltrs::image::{AxesImage, FigimageOptions, FigureImage, ImageAlpha};
+use pltrs::image::{FigimageOptions, FigureImage};
 
 use super::{ImageArray, parse};
 use crate::binding::prelude::*;
-
-/// An image of an axes or of a figure.
-pub(super) enum AnyImage {
-    /// An image of an axes (`AxesImage`).
-    Axes(AxesImage),
-    /// An image in figure pixels (`FigureImage`).
-    Figure(FigureImage),
-}
-
-impl FromPy<'_> for AnyImage {
-    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        match object.extract::<AxesImage>() {
-            Ok(image) => Ok(Self::Axes(image)),
-            Err(mismatch) => object
-                .extract::<FigureImage>()
-                .map(Self::Figure)
-                .map_err(|_| mismatch),
-        }
-    }
-}
-
-impl AnyImage {
-    /// Sets the image's opacity.
-    pub(super) fn set_image_alpha(&self, alpha: Option<ImageAlpha>) {
-        match self {
-            Self::Axes(image) => {
-                image.set_image_alpha(alpha);
-            }
-            Self::Figure(image) => {
-                image.set_image_alpha(alpha);
-            }
-        }
-    }
-}
 
 /// `figimage`: `data` drawn unresampled in `figure`'s pixels with its
 /// bottom-left corner at `(xo, yo)`, colour-mapped through `cmap` and

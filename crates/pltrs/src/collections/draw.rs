@@ -224,6 +224,7 @@ pub(super) fn draw_collection(
         CollectionKind::Poly => "PolyCollection",
         CollectionKind::Line => "LineCollection",
         CollectionKind::QuadMesh => "QuadMesh",
+        CollectionKind::TriMesh => "TriMesh",
     });
     ctx.renderer().open_group(name, c.base().gid.as_deref());
     let drawn = if shapes.is_empty() {

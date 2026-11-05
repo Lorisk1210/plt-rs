@@ -214,7 +214,9 @@ impl HandlerKey {
             CollectionKind::Path => vec![Self::PathCollection],
             CollectionKind::Poly => vec![Self::PolyCollection],
             CollectionKind::Patch => vec![Self::PatchCollection],
-            CollectionKind::Generic | CollectionKind::QuadMesh => Vec::new(),
+            CollectionKind::Generic | CollectionKind::QuadMesh | CollectionKind::TriMesh => {
+                Vec::new()
+            }
         }
     }
 }

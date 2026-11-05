@@ -66,11 +66,18 @@ class _GeoTransform(Transform):
 
 
 def _transform_pair(projection, forward_doc, inverse_doc):
-    """The classes of the projection *projection* and of its inverse."""
-    forward = type(f"{projection.capitalize()}Transform", (_GeoTransform,),
+    """The classes of the projection *projection* and of its inverse, named
+    as the classes matplotlib nests in the projection's axes."""
+    axes = f"{projection.capitalize()}Axes"
+
+    def make(name, attributes):
+        cls = type(name, (_GeoTransform,), attributes)
+        cls.__qualname__ = f"{axes}.{name}"
+        return cls
+
+    forward = make(f"{projection.capitalize()}Transform",
                    {"__doc__": forward_doc, "projection": projection})
-    inverse = type(f"Inverted{projection.capitalize()}Transform",
-                   (_GeoTransform,),
+    inverse = make(f"Inverted{projection.capitalize()}Transform",
                    {"__doc__": inverse_doc, "projection": projection,
                     "inverse": True, "_inverse_class": forward})
     forward._inverse_class = inverse
@@ -98,14 +105,35 @@ class GeoAxes(Axes):
         from ..patches import Circle
         return Circle((0.5, 0.5), 0.5)
 
-    def format_coord(self, lon, lat):
-        """
-        Override this method to change how the values are displayed in
-        the status bar.
+    def set_yscale(self, *args, **kwargs):
+        if args[0] != 'linear':
+            raise NotImplementedError
 
-        In this case, we want them to be displayed in degrees N/S/E/W.
-        """
-        return super().format_coord(lon, lat)
+    set_xscale = set_yscale
+
+    def set_xlim(self, *args, **kwargs):
+        """Not supported. Please consider using Cartopy."""
+        raise TypeError("Changing axes limits of a geographic projection is "
+                        "not supported.  Please consider using Cartopy.")
+
+    set_ylim = set_xlim
+    set_xbound = set_xlim
+    set_ybound = set_ylim
+
+    def invert_xaxis(self):
+        """Not supported. Please consider using Cartopy."""
+        raise TypeError("Changing axes limits of a geographic projection is "
+                        "not supported.  Please consider using Cartopy.")
+
+    invert_yaxis = invert_xaxis
+
+    def format_coord(self, lon, lat):
+        """Return a format string formatting the coordinate."""
+        lon, lat = np.rad2deg([lon, lat])
+        ns = 'N' if lat >= 0.0 else 'S'
+        ew = 'E' if lon >= 0.0 else 'W'
+        return ('%f\N{DEGREE SIGN}%s, %f\N{DEGREE SIGN}%s'
+                % (abs(lat), ns, abs(lon), ew))
 
     transProjection = TreeAttribute(
         "The projection of longitudes and latitudes onto the plane.")
@@ -214,6 +242,37 @@ class GeoAxes(Axes):
         Set the latitude(s) at which to stop drawing the longitude grids.
         """
         _transforms.set_longitude_grid_ends(self._native, float(degrees))
+
+    def get_data_ratio(self):
+        """Return the aspect ratio of the data itself."""
+        return 1.0
+
+    ### Interactive panning
+
+    def can_zoom(self):
+        """
+        Return whether this Axes supports the zoom box button functionality.
+
+        This Axes object does not support interactive zoom box.
+        """
+        return False
+
+    def can_pan(self):
+        """
+        Return whether this Axes supports the pan/zoom button functionality.
+
+        This Axes object does not support interactive pan/zoom.
+        """
+        return False
+
+    def start_pan(self, x, y, button):
+        pass
+
+    def end_pan(self):
+        pass
+
+    def drag_pan(self, button, key, x, y):
+        pass
 
 
 class AitoffAxes(GeoAxes):

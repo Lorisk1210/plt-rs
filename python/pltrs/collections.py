@@ -1593,24 +1593,31 @@ class PatchCollection(Collection):
 
 class TriMesh(Collection):
     """
-    Class for the efficient drawing of a triangular mesh using Gouraud
-    shading.
+    Class for the efficient drawing of a triangular mesh using Gouraud shading.
 
-    pltrs: pltrs (Rust) maps the mesh's values with the colormap and norm
-    it was made with.
+    A triangular mesh is a `~matplotlib.tri.Triangulation` object.
     """
+    def __init__(self, triangulation, **kwargs):
+        self._native = _collections.new_tri_mesh(triangulation._native)
+        super().__init__(**kwargs)
+        self._hold_triangulation(triangulation)
 
-    def _native_clim(self):
-        return (None, None)
+    def _hold_triangulation(self, triangulation):
+        """Keep *triangulation* and its bounds, as matplotlib's constructor
+        does (also for the mesh `tripcolor` makes)."""
+        self._triangulation = triangulation
+        self._shading = 'gouraud'
 
-    def _native_cmap(self):
-        return None
+        self._bbox = mtransforms.Bbox.unit()
 
-    def _native_array(self):
-        return None
+        # Unfortunately this requires a copy, unless Triangulation
+        # was rewritten.
+        xy = np.hstack((triangulation.x.reshape(-1, 1),
+                        triangulation.y.reshape(-1, 1)))
+        self._bbox.update_from_data_xy(xy)
 
-    def changed(self):
-        super(Collection, self).changed()
+    def set_paths(self):
+        super().set_paths(self.convert_mesh_to_paths(self._triangulation))
 
     @staticmethod
     def convert_mesh_to_paths(tri):

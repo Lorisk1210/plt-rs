@@ -347,7 +347,7 @@ impl Axes {
         let extent = artist.extent();
         artist.base_mut().transform = Some(self.trans_data());
         let image = AxesImage::from_raw(self.adopt_in_autoscale(artist, &DataUpdate::default()));
-        self.fit_image(&image, extent);
+        self.fit_image(image.raw(), extent);
         self.hide_grid_under_image();
         image
     }
@@ -360,20 +360,18 @@ impl Axes {
         }
     }
 
-    /// Makes `image` cover `extent`: its sticky edges are the extent's
-    /// sides, the data limits grow to include it and the view limits of
-    /// the autoscaled axes become it (matplotlib's `AxesImage.set_extent`).
-    pub(crate) fn fit_image(&self, image: &AxesImage, extent: Extent) {
+    /// Fits the axes to `image` covering `extent`: its sticky edges are
+    /// the extent's sides, the data limits grow to include it and the view
+    /// limits of the autoscaled axes become it (matplotlib's
+    /// `AxesImage.set_extent`, which the image kinds of an axes share).
+    pub(crate) fn fit_image(&self, image: &RawHandle, extent: Extent) {
         let Extent {
             left,
             right,
             bottom,
             top,
         } = extent;
-        image.raw().with_mut::<AxesImageArtist, _>(|artist| {
-            artist.extent = Some(extent);
-            artist.base_mut().sticky_edges = (vec![left, right], vec![bottom, top]);
-        });
+        image.with_base_mut(|base| base.sticky_edges = (vec![left, right], vec![bottom, top]));
         self.update_datalim(
             &[Point::new(left, bottom), Point::new(right, top)],
             true,

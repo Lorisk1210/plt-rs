@@ -19,12 +19,13 @@ mod figure;
 mod kinds;
 mod resample;
 
-use pltrs::artist::RawHandle;
+use pltrs::artist::{RawHandle, TypedHandle};
 use pltrs::axes::{Axes, ImshowOptions};
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::image::{
-    AxesImage, BboxImage, Extent, FigureImage, ImageAlpha, ImageData, ImageError, Interpolation,
-    InterpolationStage, Origin, ScalarField, VectorImsaveError,
+    AnyImage, AxesImage, BboxImage, Extent, FigureImage, ImageAlpha, ImageData, ImageError,
+    Interpolation, InterpolationStage, NonUniformImage, Origin, PcolorImage, ScalarField,
+    VectorImsaveError,
 };
 use pltrs::numeric::Grid;
 use pltrs::rc::Aspect;
@@ -34,9 +35,8 @@ use super::backends::DocumentMetadata;
 use super::transforms::matrix;
 use crate::binding::prelude::*;
 use crate::binding::{Element, dict_value};
-use figure::AnyImage;
 
-artist_handle!(AxesImage, BboxImage, FigureImage);
+artist_handle!(AnyImage, AxesImage, BboxImage, FigureImage);
 
 impl From<ImageError> for PyErr {
     /// matplotlib's `ValueError` for images it cannot make or draw; its
@@ -255,80 +255,117 @@ fn get_images(axes: Axes) -> PyResult<Vec<AxesImage>> {
     Ok(axes.images())
 }
 
+/// The images of an axes in data coordinates, which have an extent
+/// (matplotlib's `AxesImage` and its subclasses).
+enum DataImage {
+    Axes(AxesImage),
+    Pcolor(PcolorImage),
+    NonUniform(NonUniformImage),
+}
+
+impl FromPy<'_> for DataImage {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let raw: RawHandle = object.extract()?;
+        AxesImage::from_raw_handle(&raw)
+            .map(Self::Axes)
+            .or_else(|| PcolorImage::from_raw_handle(&raw).map(Self::Pcolor))
+            .or_else(|| NonUniformImage::from_raw_handle(&raw).map(Self::NonUniform))
+            .ok_or_else(|| PyErr::type_error("expected an image of an axes"))
+    }
+}
+
 /// The extent `(left, right, bottom, top)` of the image in data
-/// coordinates.
-fn get_extent(image: AxesImage) -> PyResult<(f64, f64, f64, f64)> {
+/// coordinates (a non-uniform image's is between its first and last
+/// centres).
+fn get_extent(image: DataImage) -> PyResult<(f64, f64, f64, f64)> {
     let Extent {
         left,
         right,
         bottom,
         top,
-    } = image.extent();
+    } = match image {
+        DataImage::Axes(image) => image.extent(),
+        DataImage::Pcolor(image) => image.extent(),
+        DataImage::NonUniform(image) => image
+            .extent()
+            .ok_or_else(|| PyErr::runtime_error("Must set data first"))?,
+    };
     Ok((left, right, bottom, top))
 }
 
 /// Places the image at `(left, right, bottom, top)`.
-fn set_extent(image: AxesImage, value: (f64, f64, f64, f64)) -> PyResult<()> {
-    image.set_extent(extent(value));
+fn set_extent(image: DataImage, value: (f64, f64, f64, f64)) -> PyResult<()> {
+    let value = extent(value);
+    match image {
+        DataImage::Axes(image) => {
+            image.set_extent(value);
+        }
+        DataImage::Pcolor(image) => {
+            image.set_extent(value);
+        }
+        DataImage::NonUniform(image) => {
+            image.set_extent(value);
+        }
+    }
     Ok(())
 }
 
 /// The interpolation's name.
-fn get_interpolation(image: AxesImage) -> PyResult<&'static str> {
+fn get_interpolation(image: AnyImage) -> PyResult<&'static str> {
     Ok(image.interpolation().name())
 }
 
 /// Sets the interpolation by name.
-fn set_interpolation(image: AxesImage, name: String) -> PyResult<()> {
+fn set_interpolation(image: AnyImage, name: String) -> PyResult<()> {
     image.set_interpolation(parse(&name)?);
     Ok(())
 }
 
 /// The interpolation stage's name.
-fn get_interpolation_stage(image: AxesImage) -> PyResult<String> {
+fn get_interpolation_stage(image: AnyImage) -> PyResult<String> {
     Ok(image.interpolation_stage().to_string())
 }
 
 /// Sets the interpolation stage by name.
-fn set_interpolation_stage(image: AxesImage, name: String) -> PyResult<()> {
+fn set_interpolation_stage(image: AnyImage, name: String) -> PyResult<()> {
     image.set_interpolation_stage(parse(&name)?);
     Ok(())
 }
 
 /// `'upper'` or `'lower'`.
-fn get_origin(image: AxesImage) -> PyResult<&'static str> {
+fn get_origin(image: AnyImage) -> PyResult<&'static str> {
     Ok(image.origin().name())
 }
 
 /// Whether the resampling filter is normalised.
-fn get_filternorm(image: AxesImage) -> PyResult<bool> {
+fn get_filternorm(image: AnyImage) -> PyResult<bool> {
     Ok(image.filternorm())
 }
 
 /// Sets whether the resampling filter is normalised.
-fn set_filternorm(image: AxesImage, filternorm: bool) -> PyResult<()> {
+fn set_filternorm(image: AnyImage, filternorm: bool) -> PyResult<()> {
     image.set_filternorm(filternorm);
     Ok(())
 }
 
 /// The radius of the resampling filter.
-fn get_filterrad(image: AxesImage) -> PyResult<f64> {
+fn get_filterrad(image: AnyImage) -> PyResult<f64> {
     Ok(image.filterrad())
 }
 
 /// Sets the radius of the resampling filter.
-fn set_filterrad(image: AxesImage, radius: f64) -> PyResult<()> {
+fn set_filterrad(image: AnyImage, radius: f64) -> PyResult<()> {
     image.set_filterrad(radius)?;
     Ok(())
 }
 
 /// Whether the image is resampled when drawn larger or smaller.
-fn get_resample(image: AxesImage) -> PyResult<bool> {
+fn get_resample(image: AnyImage) -> PyResult<bool> {
     Ok(image.resample())
 }
 
 /// Sets whether the image is resampled.
-fn set_resample(image: AxesImage, resample: bool) -> PyResult<()> {
+fn set_resample(image: AnyImage, resample: bool) -> PyResult<()> {
     image.set_resample(resample);
     Ok(())
 }
@@ -385,6 +422,10 @@ fn make_image(
         } else {
             image.make_image(magnification)?
         }
+    } else if let Some(image) = image.downcast::<PcolorImage>() {
+        image.make_image(magnification)?
+    } else if let Some(image) = image.downcast::<NonUniformImage>() {
+        image.make_image(magnification)?
     } else {
         return Err(PyErr::type_error("the artist is no image"));
     };

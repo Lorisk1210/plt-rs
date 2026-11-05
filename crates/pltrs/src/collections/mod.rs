@@ -52,7 +52,7 @@ pub(crate) use spec::Ellipses;
 pub use spec::{CollectionPatch, CollectionSpec, EllipseUnits};
 pub use style::HatchColors;
 use style::MappedSides;
-pub(crate) use trimesh::TriMeshArtist;
+use trimesh::TriangleMesh;
 pub use trimesh::{TriMesh, TriMeshError, TriMeshSpec};
 
 use std::any::Any;
@@ -94,6 +94,9 @@ pub enum CollectionKind {
     Line,
     /// A grid of quadrilaterals (`QuadMesh`, patch defaults, z-order 1).
     QuadMesh,
+    /// The triangles of a triangulation, Gouraud-shaded (`TriMesh`, patch
+    /// defaults, z-order 1).
+    TriMesh,
 }
 
 pltrs_core::archive_enum!(CollectionKind {
@@ -103,6 +106,7 @@ pltrs_core::archive_enum!(CollectionKind {
     Poly,
     Line,
     QuadMesh,
+    TriMesh,
 });
 
 /// The edge colours of a collection.
@@ -251,6 +255,8 @@ pub(crate) struct CollectionArtist {
     pickradius: f64,
     /// The vertex grid of a quad mesh, drawn as a mesh.
     mesh: Option<MeshGeometry>,
+    /// The triangles of a triangle mesh, drawn Gouraud-shaded.
+    pub(crate) triangle_mesh: Option<TriangleMesh>,
     /// The vertex grid of a quad mesh drawn as polygons (`pcolor`'s
     /// `PolyQuadMesh`), which its coordinates are read from.
     pub(crate) polygon_grid: Option<Grid<Point>>,
@@ -301,6 +307,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     program_colors,
     pickradius,
     mesh,
+    triangle_mesh,
     polygon_grid,
     draw_time,
     class_name,
@@ -352,6 +359,7 @@ impl CollectionArtist {
             program_colors: None,
             pickradius: 5.0,
             mesh: None,
+            triangle_mesh: None,
             polygon_grid: None,
             draw_time: None,
             class_name: None,
@@ -526,9 +534,10 @@ impl CollectionArtist {
     /// Draws the collection, returning what kept it from being drawn
     /// (also used for collections drawn on behalf of another artist).
     pub(crate) fn render(&self, ctx: &mut DrawContext<'_>) -> Result<(), String> {
-        match &self.mesh {
-            Some(mesh) => quad_mesh::draw_quad_mesh(self, mesh, ctx),
-            None => draw::draw_collection(self, ctx),
+        match (&self.mesh, &self.triangle_mesh) {
+            (Some(mesh), _) => quad_mesh::draw_quad_mesh(self, mesh, ctx),
+            (None, Some(mesh)) => trimesh::draw_tri_mesh(self, mesh, ctx),
+            (None, None) => draw::draw_collection(self, ctx),
         }
     }
 }

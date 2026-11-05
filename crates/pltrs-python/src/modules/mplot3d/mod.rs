@@ -67,6 +67,22 @@ pub(in crate::modules) fn axis3(name: &str) -> PyResult<Axis3> {
     }
 }
 
+/// The axis `zdir` names for the plane 2-D data is lifted into: `"x"`
+/// and `"y"`, any other name `"z"`, as matplotlib's `juggle_axes` and
+/// `rotate_axes` treat it (they read the first character of a name not
+/// `"x"` or `"y"`, so an empty one is an `IndexError`).
+pub(in crate::modules) fn zdir_axis(name: &str) -> PyResult<Axis3> {
+    match name {
+        "x" => Ok(Axis3::X),
+        "y" => Ok(Axis3::Y),
+        "" => Err(PyErr::new(
+            ExceptionKind::IndexError,
+            "string index out of range",
+        )),
+        _ => Ok(Axis3::Z),
+    }
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     create::register(module)?;
@@ -91,5 +107,13 @@ mod tests {
     fn axes_are_named_x_y_z() {
         assert_eq!(axis3("y").unwrap(), Axis3::Y);
         assert!(axis3("w").is_err());
+    }
+
+    #[test]
+    fn a_zdir_other_than_x_or_y_is_z() {
+        assert_eq!(zdir_axis("x").unwrap(), Axis3::X);
+        assert_eq!(zdir_axis("q").unwrap(), Axis3::Z);
+        assert_eq!(zdir_axis("-z").unwrap(), Axis3::Z);
+        assert!(zdir_axis("").is_err());
     }
 }

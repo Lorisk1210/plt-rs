@@ -8,7 +8,6 @@ use pltrs::collections::Collection;
 use pltrs::lines::Line2D;
 use pltrs::mplot3d::math::{
     Matrix4, ortho_transformation, persp_transformation, view_axes, view_transformation,
-    world_transformation,
 };
 use pltrs::mplot3d::{Axes3D, Geometry3D, LightSource, Vec3, ZSort, all_points_on_plane};
 use pltrs::text::Text;
@@ -16,7 +15,7 @@ use pltrs_core::{Point, Rgba};
 
 use super::super::path::{PathArrays, PyPath, path_arrays};
 use super::super::transforms::bbox_array;
-use super::axis3;
+use super::zdir_axis;
 use crate::binding::prelude::*;
 
 /// Three coordinate columns.
@@ -282,16 +281,6 @@ fn vec3((x, y, z): (f64, f64, f64)) -> Vec3 {
     [x, y, z]
 }
 
-/// The matrix mapping the box `limits` (`xmin, xmax, ymin, ymax, zmin,
-/// zmax`) onto `[0, aspect]` along each axis (`world_transformation`).
-fn world(limits: (f64, f64, f64, f64, f64, f64), aspect: (f64, f64, f64)) -> PyResult<NdArray> {
-    let (x0, x1, y0, y1, z0, z1) = limits;
-    matrix_array(&world_transformation(
-        [x0, x1, y0, y1, z0, z1],
-        vec3(aspect),
-    ))
-}
-
 /// The unit vectors right, up and out of the screen for an eye at `eye`
 /// looking at `center` with `vertical` up, rolled by `roll` radians
 /// (`_view_axes`).
@@ -399,7 +388,7 @@ impl FromPy<'_> for PyGeometry {
                     payload.extract()?;
                 Geometry3D::Patches {
                     zs,
-                    zdir: axis3(&zdir)?,
+                    zdir: zdir_axis(&zdir)?,
                     depthshade,
                     min_alpha,
                 }
@@ -450,7 +439,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("auto_scale_xyz", auto_scale_xyz)?;
     module.add("has_data", has_data)?;
     module.add("do_3d_projection", do_3d_projection)?;
-    module.add("world_transformation", world)?;
     module.add("view_axes", view_frame)?;
     module.add("view_transformation", view_matrix)?;
     module.add("persp_transformation", persp)?;
@@ -463,6 +451,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pltrs::mplot3d::math::world_transformation;
 
     #[test]
     fn the_world_maps_the_box_onto_the_aspect() {

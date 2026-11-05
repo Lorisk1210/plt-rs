@@ -129,28 +129,31 @@ impl TableCell {
 
 impl Figure {
     /// Draws `cell` alone onto the figure's canvas over what it holds,
-    /// where its table was placed in the figure's last layout (matplotlib's
-    /// `Cell.draw` with the canvas's renderer); show the result with
+    /// where its table was placed in its figure's last layout (matplotlib's
+    /// `Cell.draw` with the canvas's renderer; a cell of another figure's
+    /// table is drawn where that figure places it); show the result with
     /// [`FigureCanvas::blit`](crate::figure::FigureCanvas::blit).
     ///
     /// # Errors
     ///
-    /// When the cell's table belongs to another figure, the canvas cannot
-    /// be made, or the cell cannot be drawn.
+    /// When the canvas cannot be made, or the cell cannot be drawn.
     pub fn draw_cell(&self, cell: &TableCell) -> Result<(), CanvasError> {
         let table = cell.table().raw();
-        self.canvas()
-            .draw_part(table, true, |ctx| draw_alone(ctx, table.id(), cell.key()))
+        let canvas = self.canvas();
+        if !canvas.holds(table) {
+            return canvas.draw_foreign(|renderer| cell.draw_onto(renderer));
+        }
+        canvas.draw_part(table, true, |ctx| draw_alone(ctx, table.id(), cell.key()))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::figure::{CanvasError, Figure};
+    use crate::figure::Figure;
     use crate::table::TableOptions;
 
     #[test]
-    fn a_cell_draws_alone_onto_its_figure_canvas_but_not_another() {
+    fn a_cell_draws_alone_onto_its_figure_canvas_and_another() {
         let fig = Figure::with_size(2.0, 2.0, 50.0);
         let table = fig
             .subplot()
@@ -159,10 +162,11 @@ mod tests {
         let cell = table.cell(0, 1).expect("a cell");
         fig.canvas().draw().expect("drawn");
         assert!(fig.draw_cell(&cell).is_ok());
-        let other = Figure::new();
-        assert!(matches!(
-            other.draw_cell(&cell),
-            Err(CanvasError::ForeignArtist)
-        ));
+        let other = Figure::with_size(2.0, 2.0, 50.0);
+        other.canvas().draw().expect("drawn");
+        let empty = other.canvas().buffer_rgba().expect("pixels").into_data();
+        other.draw_cell(&cell).expect("drawn where its table is");
+        let drawn = other.canvas().buffer_rgba().expect("pixels").into_data();
+        assert_ne!(drawn, empty);
     }
 }

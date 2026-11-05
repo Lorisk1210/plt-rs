@@ -17,10 +17,19 @@ use crate::text::{LineKind, typeset_line};
 use crate::ticker::AxisName;
 
 impl FigureCanvas {
-    /// Draws `artist` of this canvas's figure onto the canvas, as the
-    /// figure's last layout places and clips it (a legend is placed anew),
+    /// Draws `artist` onto the canvas, as its figure's last layout places
+    /// and clips it (a legend of this canvas's figure is placed anew),
     /// through its painter with `painted`.
     fn draw_one(&self, artist: &RawHandle, painted: bool) -> Result<(), CanvasError> {
+        if !self.holds(artist) {
+            return self.draw_foreign(|renderer| {
+                if painted {
+                    artist.draw_onto(renderer)
+                } else {
+                    artist.draw_unpainted_onto(renderer)
+                }
+            });
+        }
         self.draw_part(artist, painted, |ctx| {
             if painted {
                 ctx.draw_child(artist.id());
@@ -28,6 +37,24 @@ impl FigureCanvas {
                 ctx.draw_unpainted(artist.id());
             }
         })
+    }
+
+    /// Whether `artist` is in this canvas's figure.
+    pub(crate) fn holds(&self, artist: &RawHandle) -> bool {
+        Rc::ptr_eq(&self.figure.state, artist.figure_state())
+    }
+
+    /// Draws what `draw` draws of an artist of another figure onto the
+    /// canvas, through its renderer: matplotlib draws an artist with the
+    /// renderer it is given, where the artist's own figure places it.
+    pub(crate) fn draw_foreign(
+        &self,
+        draw: impl FnOnce(&mut dyn Renderer) -> Result<(), DrawErrors>,
+    ) -> Result<(), CanvasError> {
+        let mut kept = self.take()?;
+        let drawn = draw(&mut kept.renderer);
+        self.keep(kept);
+        drawn.map_err(CanvasError::Draw)
     }
 
     /// Draws what `draw` draws of `artist` of this canvas's figure onto
@@ -39,7 +66,7 @@ impl FigureCanvas {
         painted: bool,
         draw: impl FnOnce(&mut DrawContext<'_>),
     ) -> Result<(), CanvasError> {
-        if !Rc::ptr_eq(&self.figure.state, artist.figure_state()) {
+        if !self.holds(artist) {
             return Err(CanvasError::ForeignArtist);
         }
         if artist.is::<LegendArtist>() {
@@ -158,15 +185,17 @@ impl FigureCanvas {
 
 impl Figure {
     /// Draws `artist`, animated or not, onto the figure's canvas over what
-    /// it holds, placed and clipped as the figure was last laid out, but
-    /// for a legend, placed anew as matplotlib's `Legend.draw` places it
-    /// (matplotlib's `Figure.draw_artist`); show the result with
-    /// [`FigureCanvas::blit`]. An invisible artist draws nothing.
+    /// it holds, placed and clipped as its figure was last laid out, but
+    /// for a legend of this figure, placed anew as matplotlib's
+    /// `Legend.draw` places it (matplotlib's `Figure.draw_artist`); an
+    /// artist of another figure is drawn where that figure places it, as
+    /// matplotlib draws an artist with the renderer it is given. Show the
+    /// result with [`FigureCanvas::blit`]. An invisible artist draws
+    /// nothing.
     ///
     /// # Errors
     ///
-    /// When the artist belongs to another figure, the canvas cannot be
-    /// made, or the artist cannot be drawn.
+    /// When the canvas cannot be made, or the artist cannot be drawn.
     pub fn draw_artist(&self, artist: &impl ArtistHandle) -> Result<(), CanvasError> {
         self.canvas().draw_one(artist.raw(), true)
     }

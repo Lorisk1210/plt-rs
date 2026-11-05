@@ -3,13 +3,18 @@
 
 use std::cell::RefCell;
 
-use pltrs_core::{Bbox, Point};
+use pltrs_core::{Affine2D, Bbox, Point};
 use pltrs_render::RgbaImage;
 
+use super::any::{ImageSettings, default_settings};
+use super::artist::fit_axes_to;
 use super::make::{RenderedImage, autoscale_unset, mapping_copy};
 use super::normalize::normalize_in;
-use super::shared::{axes_image_contains, draw_rendered, grid_cell, grid_extent, grid_limits};
-use super::{ImageData, ImageError};
+use super::resample::Resampling;
+use super::shared::{
+    axes_image_contains, draw_rendered_at_alpha, grid_cell, grid_extent, grid_limits, split_alpha,
+};
+use super::{Extent, ImageAlpha, ImageData, ImageError, InterpolationStage, MadeImage};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
     TypedHandle,
@@ -28,6 +33,14 @@ pub(crate) struct PcolorImageArtist {
     x: Vec<f64>,
     /// Increasing cell edges along y.
     y: Vec<f64>,
+    /// The resampling settings every image keeps, which drawing the cells
+    /// does not read (matplotlib's `_ImageBase` attributes).
+    resampling: Resampling,
+    /// Whether data or colours would be resampled.
+    stage: InterpolationStage,
+    /// The extent set (matplotlib's `AxesImage._extent`), which drawing
+    /// the cells does not read.
+    extent: Option<Extent>,
 }
 
 pltrs_core::archive_struct!(PcolorImageArtist {
@@ -35,7 +48,10 @@ pltrs_core::archive_struct!(PcolorImageArtist {
     data,
     mappable,
     x,
-    y
+    y,
+    resampling,
+    stage,
+    extent
 });
 
 impl PcolorImageArtist {
@@ -45,12 +61,16 @@ impl PcolorImageArtist {
         let (data, x, y) = increasing(data, x, y);
         let mut base = ArtistBase::with_zorder(0.0);
         base.mouseover = true;
+        let (resampling, stage) = default_settings(&crate::rc::params());
         Self {
             base,
             data,
             mappable: RefCell::new(mappable),
             x,
             y,
+            resampling,
+            stage,
+            extent: None,
         }
     }
 
@@ -59,10 +79,9 @@ impl PcolorImageArtist {
     /// cell containing its centre (transparent outside the grid).
     pub(super) fn render(
         &self,
-        ctx: &DrawContext<'_>,
+        layout: LayoutContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
-        let layout = ctx.layout();
         let Some(axes_id) = self.base.parent else {
             return Ok(None);
         };
@@ -202,6 +221,30 @@ pub(crate) fn cell_colors(
     })
 }
 
+impl ImageSettings for PcolorImageArtist {
+    fn resampling(&self) -> &Resampling {
+        &self.resampling
+    }
+
+    fn resampling_mut(&mut self) -> &mut Resampling {
+        &mut self.resampling
+    }
+
+    fn stage(&self) -> InterpolationStage {
+        self.stage
+    }
+
+    fn set_stage(&mut self, stage: InterpolationStage) {
+        self.stage = stage;
+    }
+
+    /// A uniform opacity is drawn; one per pixel is not, as matplotlib's
+    /// renderers draw only the scalar alpha of pcolor images.
+    fn set_alpha(&mut self, alpha: Option<ImageAlpha>) {
+        self.base.alpha = split_alpha(alpha).0;
+    }
+}
+
 impl Artist for PcolorImageArtist {
     fn base(&self) -> &ArtistBase {
         &self.base
@@ -213,8 +256,8 @@ impl Artist for PcolorImageArtist {
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let magnification = ctx.renderer().image_magnification();
-        let rendered = self.render(ctx, magnification);
-        draw_rendered(ctx, &self.base, rendered);
+        let rendered = self.render(ctx.layout(), magnification);
+        draw_rendered_at_alpha(ctx, &self.base, rendered);
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
@@ -263,6 +306,28 @@ super::impl_mapping_changes!(PcolorImage, PcolorImageArtist);
 super::impl_color_mapped!(PcolorImageArtist, data, mappable);
 
 impl PcolorImage {
+    /// The image drawn into the axes box at `magnification` pixels per
+    /// display unit, as the figure is now (matplotlib's `make_image`): its
+    /// pixels, top row first, and the display position of their
+    /// bottom-left corner, mapped to the display as they are (the
+    /// identity); `None` outside an axes.
+    ///
+    /// # Errors
+    ///
+    /// When the image's colormap or norm cannot map its data.
+    pub fn make_image(&self, magnification: f64) -> Result<Option<MadeImage>, ImageError> {
+        let state = self.raw.figure_state().borrow();
+        let layout = LayoutContext::new(&state);
+        let rendered = self
+            .raw
+            .with::<PcolorImageArtist, _>(|image| image.render(layout, magnification))?;
+        Ok(rendered.map(|image| MadeImage {
+            pixels: image.pixels,
+            origin: image.origin,
+            transform: Some(Affine2D::IDENTITY),
+        }))
+    }
+
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }
@@ -289,6 +354,41 @@ impl PcolorImage {
         let mappable = colorizer.into_mappable(&crate::rc::params())?;
         let artist = PcolorImageArtist::new(ImageData::empty(), mappable, vec![0.0], vec![0.0]);
         Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
+    }
+
+    /// The extent set, else the array's cells centred on their indices
+    /// (matplotlib's `AxesImage.get_extent`, which `PcolorImage` keeps:
+    /// it is not where the cells are drawn).
+    ///
+    /// ```
+    /// use pltrs::colors::ColorizerOptions;
+    /// use pltrs::image::{Extent, PcolorImage};
+    /// use pltrs::numeric::Grid;
+    /// let image = PcolorImage::loose(ColorizerOptions::default())?;
+    /// image.set_data(vec![0.0, 1.0, 3.0], vec![0.0, 2.0], Grid::filled(1, 2, 1.0))?;
+    /// assert_eq!(image.extent(), Extent::new(-0.5, 1.5, 0.5, -0.5));
+    /// image.set_extent(Extent::new(0.0, 4.0, 0.0, 3.0));
+    /// assert_eq!(image.extent(), Extent::new(0.0, 4.0, 0.0, 3.0));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    pub fn extent(&self) -> Extent {
+        self.raw.with::<PcolorImageArtist, _>(|image| {
+            image.extent.unwrap_or_else(|| {
+                let (rows, cols) = image.data.shape();
+                Extent::default_for(rows, cols, image.resampling.origin)
+            })
+        })
+    }
+
+    /// Sets the extent the image reports, fitting its axes to it as
+    /// [`AxesImage::set_extent`](super::AxesImage::set_extent) does
+    /// (matplotlib's `PcolorImage` inherits `set_extent`); the cells stay
+    /// where their edges are.
+    pub fn set_extent(&self, extent: Extent) -> &Self {
+        self.raw
+            .with_mut::<PcolorImageArtist, _>(|image| image.extent = Some(extent));
+        fit_axes_to(&self.raw, extent);
+        self
     }
 
     /// The increasing cell edges `(x, y)`.

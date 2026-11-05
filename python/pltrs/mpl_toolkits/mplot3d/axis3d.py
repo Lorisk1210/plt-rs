@@ -199,11 +199,16 @@ class Axis(maxis.XAxis):
         """
         _mplot3d.set_rotate_label(*self._native_args(),
                                   None if val is None else bool(val))
+        # matplotlib answers with the value as given.
+        self._rotate_label = val
         self.stale = True
 
     def get_rotate_label(self, text):
         """Return whether a label *text* of this axis is drawn along the
         axis: as `set_rotate_label` says, else when longer than 4 chars."""
+        given = self.__dict__.get("_rotate_label")
+        if given is not None:
+            return given
         return _mplot3d.get_rotate_label(*self._native_args(), str(text))
 
     def active_pane(self):

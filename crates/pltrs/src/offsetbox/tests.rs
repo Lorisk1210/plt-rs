@@ -220,6 +220,36 @@ fn aux_boxes_are_as_large_as_their_measured_artists() {
 }
 
 #[test]
+fn empty_aux_boxes_cannot_be_measured() {
+    let fig = Figure::with_size(4.0, 3.0, 72.0);
+    let tree: Tree = AuxTransformBox::new(Transform::Display).into();
+    with_layout(&fig, |ctx| {
+        assert_eq!(tree.bbox(ctx), Err(OffsetBoxError::EmptyAuxBox));
+    });
+    let ax = fig.subplot();
+    let anchored = ax.add_anchored_box(AnchoredBox::new(
+        AuxTransformBox::new(ax.trans_data()),
+        AnchoredOptions::new(AnchorLoc::Center),
+    ));
+    let errors = fig.draw_without_rendering().expect_err("nothing to unite");
+    assert_eq!(errors.0[0].kind, crate::artist::DrawErrorKind::InvalidValue);
+    assert_eq!(errors.0[0].message, "'bboxes' cannot be empty");
+    anchored.raw().with_base_mut(|base| base.animated = true);
+    assert!(
+        fig.draw_without_rendering().is_ok(),
+        "a draw leaving the box out does not lay it out"
+    );
+    anchored.raw().with_base_mut(|base| {
+        base.animated = false;
+        base.visible = false;
+    });
+    assert!(
+        fig.draw_without_rendering().is_ok(),
+        "nor one of a hidden box"
+    );
+}
+
+#[test]
 fn text_areas_reach_at_least_the_height_of_lp() {
     let fig = Figure::with_size(4.0, 3.0, 100.0);
     let single = fig.text(0.0, 0.0, "a").id();

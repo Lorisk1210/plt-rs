@@ -5,7 +5,7 @@
 use pltrs::axes::{Axes, AxisName, GridOptions, TickDirection, TickLevel};
 use pltrs::axisartist::{
     AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, LabelBase, TickMarks,
-    TickMarksArtist, Toggle,
+    TickMarksArtist,
 };
 use pltrs::collections::Collection;
 use pltrs::colors::Color;
@@ -145,21 +145,6 @@ fn set_axis_direction(artist: AxisArtist, direction: String) -> PyResult<()> {
     Ok(())
 }
 
-/// Shows or hides the ticks, tick labels and label; `all` first
-/// (`toggle`).
-fn toggle(
-    artist: AxisArtist,
-    (all, ticks, ticklabels, label): (Option<bool>, Option<bool>, Option<bool>, Option<bool>),
-) -> PyResult<()> {
-    artist.toggle(Toggle {
-        all,
-        ticks,
-        ticklabels,
-        label,
-    });
-    Ok(())
-}
-
 /// Draws the line as `style` (`"->"`, `"-|>"`, with attributes such as
 /// `",size=1.5"`), or plainly for `None` (`set_axisline_style`).
 fn set_axisline_style(artist: AxisArtist, style: Option<String>) -> PyResult<()> {
@@ -171,7 +156,7 @@ fn set_axisline_style(artist: AxisArtist, style: Option<String>) -> PyResult<()>
 }
 
 /// The ticks of `level` (`"major"` or `"minor"`) of the axis artist.
-pub(super) fn ticks(artist: &AxisArtist, level: &str) -> pltrs::axisartist::Ticks {
+fn ticks(artist: &AxisArtist, level: &str) -> pltrs::axisartist::Ticks {
     if level == "minor" {
         artist.minor_ticks()
     } else {
@@ -179,68 +164,49 @@ pub(super) fn ticks(artist: &AxisArtist, level: &str) -> pltrs::axisartist::Tick
     }
 }
 
-/// Sets the tick property `key` of `level` to `value` (`Ticks.set_*`):
-/// `"ticksize"`, `"tick_direction"`, `"visible"`, `"color"`,
-/// `"markeredgewidth"` or `"alpha"`.
-fn set_ticks(artist: AxisArtist, level: String, key: String, value: Owned) -> PyResult<()> {
-    let ticks = ticks(&artist, &level);
-    Python::with_gil(|py| {
-        let value = value.bind(py);
-        match key.as_str() {
-            "ticksize" => {
-                ticks.set_ticksize(value.extract()?);
-            }
-            "tick_direction" => {
-                let name: String = value.extract()?;
-                let direction = name.parse::<TickDirection>().map_err(|_| {
-                    PyErr::value_error(format!(
-                        "{name:?} is not a valid value for tick_direction; supported values \
-                         are 'in', 'out', 'inout'"
-                    ))
-                })?;
-                ticks.set_tick_direction(direction);
-            }
-            "visible" => {
-                ticks.set_visible(value.extract()?);
-            }
-            "color" => {
-                ticks.set_color(value.extract::<Option<Color>>()?);
-            }
-            "markeredgewidth" => {
-                ticks.set_markeredgewidth(value.extract()?);
-            }
-            "alpha" => {
-                ticks.set_alpha(value.extract()?);
-            }
-            _ => return Err(PyErr::value_error(format!("no tick property {key:?}"))),
-        }
-        Ok(())
-    })
+/// What the tick marks of a level draw with, as their `Ticks` holds it:
+/// `(ticksize, tick_direction, visible, color, markeredgewidth, alpha)`,
+/// the colour and width `None` where they follow the reference axis'
+/// ticks (`"auto"`).
+type TicksStyle = (f64, String, bool, Option<Color>, Option<f64>, Option<f64>);
+
+/// Gives the tick marks of `level` (`"major"` or `"minor"`) the style of
+/// their `Ticks`, after one of its setters ran.
+fn restyle_ticks(
+    artist: AxisArtist,
+    level: String,
+    (size, direction, visible, color, width, alpha): TicksStyle,
+) -> PyResult<()> {
+    let direction = direction
+        .parse::<TickDirection>()
+        .map_err(|_| PyErr::value_error(format!("no tick direction {direction:?}")))?;
+    ticks(&artist, &level)
+        .set_ticksize(size)
+        .set_tick_direction(direction)
+        .set_visible(visible)
+        .set_color(color)
+        .set_markeredgewidth(width)
+        .set_alpha(alpha);
+    Ok(())
 }
 
-/// A tick property of `level`: `(ticksize, tick_direction, visible)`.
-fn get_ticks(artist: AxisArtist, level: String) -> PyResult<(f64, String, bool)> {
-    let ticks = ticks(&artist, &level);
+/// Which parts of the axis artist are shown: its major and minor ticks,
+/// its major and minor tick labels and its label (what an axes made by
+/// pltrs (Rust) hides, `axislines.Axes` hiding the texts of its top and
+/// right axis artists).
+fn parts_visible(artist: AxisArtist) -> PyResult<(bool, bool, bool, bool, bool)> {
     Ok((
-        ticks.ticksize(),
-        ticks.tick_direction().name().to_owned(),
-        ticks.visible(),
+        artist.major_ticks().visible(),
+        artist.minor_ticks().visible(),
+        artist.major_ticklabels().visible(),
+        artist.minor_ticklabels().visible(),
+        artist.label().visible(),
     ))
-}
-
-/// Where the tick marks of `level` are now: their locations and angles
-/// in degrees (`Ticks.locs_angles`).
-fn get_tick_locs_angles(artist: AxisArtist, level: String) -> PyResult<Vec<((f64, f64), f64)>> {
-    Ok(ticks(&artist, &level)
-        .locs_angles()
-        .into_iter()
-        .map(|(loc, angle)| ((loc.x, loc.y), angle))
-        .collect())
 }
 
 /// The text part `part` (`"major_ticklabels"`, `"minor_ticklabels"` or
 /// `"label"`) of the axis artist.
-pub(super) fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase> {
+fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase> {
     Ok(match part {
         "major_ticklabels" => (*artist.major_ticklabels()).clone(),
         "minor_ticklabels" => (*artist.minor_ticklabels()).clone(),
@@ -249,52 +215,47 @@ pub(super) fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase>
     })
 }
 
-/// Sets the property `key` of a text part to `value` (`LabelBase.set_*`):
-/// `"axis_direction"`, `"pad"`, `"visible"`, `"color"`, `"rotation"`,
-/// `"ha"`, `"va"`, `"size"`, `"look"` (a [`PyTextLook`]) or, for the label,
-/// `"text"`.
-fn set_label(artist: AxisArtist, part: String, key: String, value: Owned) -> PyResult<()> {
+/// What a text part draws with, as its `TickLabels` or `AxisLabel`
+/// holds it: whether it is shown, its pad in points, its colour (`None`
+/// following the reference artist, `"auto"`), its font size, the rest of
+/// its typesetting, its rotation, its vertical and horizontal alignment,
+/// its axis direction and, for the label, its text (`None` showing the
+/// label of the axes' axis, `"__from_axes__"`).
+type LabelStyle = (
+    (bool, f64, Option<Color>),
+    (f64, PyTextLook, f64),
+    (String, String, String),
+    Option<String>,
+);
+
+/// Gives the text part `part` (`"major_ticklabels"`, `"minor_ticklabels"`
+/// or `"label"`) the style of its Python text, after one of its setters
+/// ran.
+fn restyle_label(
+    artist: AxisArtist,
+    part: String,
+    ((visible, pad, color), (size, look, rotation), (valign, halign, direction), text): LabelStyle,
+) -> PyResult<()> {
     let label = label_part(&artist, &part)?;
-    Python::with_gil(|py| {
-        let value = value.bind(py);
-        match key.as_str() {
-            "axis_direction" => {
-                label.set_axis_direction(side_named(&value.extract::<String>()?)?);
-            }
-            "pad" => {
-                label.set_pad(value.extract()?);
-            }
-            "visible" => {
-                label.set_visible(value.extract()?);
-            }
-            "color" => {
-                label.set_color(value.extract::<Option<Color>>()?);
-            }
-            "rotation" => {
-                label.set_rotation(value.extract()?);
-            }
-            "ha" => {
-                label.set_ha(alignment::<HAlign>(&value.extract::<String>()?)?);
-            }
-            "va" => {
-                label.set_va(alignment::<VAlign>(&value.extract::<String>()?)?);
-            }
-            "size" => {
-                label.set_size(value.extract()?);
-            }
-            "look" => {
-                label.set_look(value.extract::<PyTextLook>()?.0);
-            }
-            "text" if part == "label" => {
-                artist.label().set_text(value.str()?);
-            }
-            "invert" if part != "label" => {
-                artist.major_ticklabels().invert_axis_direction();
-            }
-            _ => return Err(PyErr::value_error(format!("no text property {key:?}"))),
-        }
-        Ok(())
-    })
+    // The direction first: it resets the alignment and rotation, which
+    // the text then sets.
+    label
+        .set_axis_direction(side_named(&direction)?)
+        .set_visible(visible)
+        .set_pad(pad)
+        .set_color(color)
+        .set_size(size)
+        .set_look(look.0)
+        .set_rotation(rotation)
+        .set_va(alignment::<VAlign>(&valign)?)
+        .set_ha(alignment::<HAlign>(&halign)?);
+    if part == "label" {
+        match text {
+            Some(text) => artist.label().set_text(text),
+            None => artist.label().follow_axis(),
+        };
+    }
+    Ok(())
 }
 
 /// The alignment called `name`.
@@ -303,32 +264,14 @@ fn alignment<T: std::str::FromStr>(name: &str) -> PyResult<T> {
         .map_err(|_| PyErr::value_error(format!("{name:?} is not a valid alignment")))
 }
 
-/// A text part's `(axis_direction, pad, visible, rotation, size, text)`.
-fn get_label(
-    artist: AxisArtist,
-    part: String,
-) -> PyResult<(String, f64, bool, f64, f64, Option<String>)> {
-    let label = label_part(&artist, &part)?;
-    let text = if part == "label" {
-        artist.label().text()
-    } else {
-        None
-    };
-    Ok((
-        label.axis_direction().name().to_owned(),
-        label.pad(),
-        label.visible(),
-        label.rotation(),
-        label.size(),
-        text,
-    ))
-}
-
-/// How a text part is typeset beyond its size, colour, angle and
-/// alignment (its font properties, line alignment and spacing, rotation
-/// mode).
-fn get_label_look(artist: AxisArtist, part: String) -> PyResult<PyTextLook> {
-    Ok(PyTextLook(label_part(&artist, &part)?.look()))
+/// Where the label of the axis artist is drawn, as `(x0, y0, x1, y1)` in
+/// display pixels (`AxisLabel.get_window_extent`); `None` when it draws
+/// nothing.
+fn label_extent(artist: AxisArtist) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(artist
+        .label()
+        .window_extent()
+        .map(|b| (b.x0(), b.y0(), b.x1(), b.y1())))
 }
 
 /// Sets the property `key` of the line to `value` (`line.set_*`):
@@ -364,17 +307,6 @@ fn tight_bbox(artist: AxisArtist) -> PyResult<Option<(f64, f64, f64, f64)>> {
     Ok(artist
         .tight_bbox()
         .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
-}
-
-/// The space between the label and the tick labels, in points.
-fn get_labelpad(artist: AxisArtist) -> PyResult<f64> {
-    Ok(artist.labelpad())
-}
-
-/// Sets the space between the label and the tick labels, in points.
-fn set_labelpad(artist: AxisArtist, pad: f64) -> PyResult<()> {
-    artist.set_labelpad(pad);
-    Ok(())
 }
 
 /// The tick properties of standalone tick marks: `(size, direction,
@@ -435,19 +367,14 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("grid", grid)?;
     module.add("gridlines", gridlines)?;
     module.add("set_axis_direction", set_axis_direction)?;
-    module.add("toggle", toggle)?;
     module.add("set_axisline_style", set_axisline_style)?;
-    module.add("set_ticks", set_ticks)?;
-    module.add("get_ticks", get_ticks)?;
-    module.add("get_tick_locs_angles", get_tick_locs_angles)?;
-    module.add("set_label", set_label)?;
-    module.add("get_label", get_label)?;
-    module.add("get_label_look", get_label_look)?;
+    module.add("restyle_ticks", restyle_ticks)?;
+    module.add("parts_visible", parts_visible)?;
+    module.add("restyle_label", restyle_label)?;
+    module.add("label_extent", label_extent)?;
     module.add("set_line", set_line)?;
     module.add("get_line_visible", get_line_visible)?;
     module.add("tight_bbox", tight_bbox)?;
-    module.add("get_labelpad", get_labelpad)?;
-    module.add("set_labelpad", set_labelpad)?;
     module.add("add_tick_marks", add_tick_marks)?;
     module.add("set_tick_marks", set_tick_marks)
 }

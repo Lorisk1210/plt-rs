@@ -264,7 +264,7 @@ impl<A: ArtistRef> OffsetBox<A> {
             Self::VPacker(packer) => Ok(packer.vertical(ctx, imposed_width)?.0),
             Self::DrawingArea(area) => Ok(area.bbox(ctx)),
             Self::TextArea(area) => Ok(area.extent(ctx)?.bbox),
-            Self::AuxTransformBox(aux) => Ok(aux.bbox()),
+            Self::AuxTransformBox(aux) => aux.bbox(),
             Self::Image(image) => image.bbox(ctx),
             Self::PaddedBox(padded) => {
                 let pad = padded.pad * ctx.points_to_pixels(1.0);

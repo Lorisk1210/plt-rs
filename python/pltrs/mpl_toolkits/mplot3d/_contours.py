@@ -69,6 +69,13 @@ class ContoursMixin:
         """The `.QuadContourSet` of ``contour`` (or, *filled*,
         ``contourf``) of ``X, Y, Z [, levels]`` in *args*."""
         fn = 'contourf' if filled else 'contour'
+        zdir = placement[0]
+        if zdir != 'z':
+            # matplotlib contours the arrays turned for *zdir*, which its
+            # checks see (pltrs (Rust) turns the contours instead).
+            from .art3d import rotate_axes
+            mcontour._contour_args(fn, (*rotate_axes(*args[:3], zdir), *args[3:]),
+                                   dict(kwargs))
         z, _mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
         if x.ndim == 1:
             x, y = np.meshgrid(x, y)

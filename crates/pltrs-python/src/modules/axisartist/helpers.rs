@@ -26,9 +26,22 @@ impl From<GridError> for PyErr {
     }
 }
 
-/// `(levels, n, factor)`, as matplotlib's step selectors return them.
-fn levels_tuple(levels: GridLevels) -> (NdArray, usize, f64) {
-    (NdArray::from_vec(levels.levels), levels.n, levels.factor)
+/// A whole number of degrees, minutes or seconds (or hours) as an
+/// integer, as matplotlib's step tables and levels hold them.
+fn whole(value: f64) -> i64 {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "angular steps and levels are whole multiples of the steps of the tables"
+    )]
+    let whole = value.round() as i64;
+    whole
+}
+
+/// `(levels, n, factor)`, as matplotlib's step selectors return them: the
+/// levels an integer array (whole multiples of a whole step).
+fn levels_tuple(levels: GridLevels) -> (NdArray<i64>, usize, f64) {
+    let whole_levels = levels.levels.iter().copied().map(whole).collect();
+    (NdArray::from_vec(whole_levels), levels.n, levels.factor)
 }
 
 /// `select_step(v1, v2, nv, hour, include_last, threshold_factor)`:
@@ -40,7 +53,7 @@ fn select_step(
     hour: bool,
     include_last: bool,
     threshold_factor: f64,
-) -> PyResult<(NdArray, usize, f64)> {
+) -> PyResult<(NdArray<i64>, usize, f64)> {
     let unit = if hour {
         AngleUnit::Hour
     } else {
@@ -64,7 +77,7 @@ fn select_step24(
     nv: usize,
     include_last: bool,
     threshold_factor: f64,
-) -> PyResult<(NdArray, usize, f64)> {
+) -> PyResult<(NdArray<i64>, usize, f64)> {
     Ok(levels_tuple(angle_helper::select_step24(
         v1,
         v2,
@@ -82,7 +95,7 @@ fn select_step360(
     nv: usize,
     include_last: bool,
     threshold_factor: f64,
-) -> PyResult<(NdArray, usize, f64)> {
+) -> PyResult<(NdArray<i64>, usize, f64)> {
     Ok(levels_tuple(angle_helper::select_step360(
         v1,
         v2,
@@ -93,18 +106,21 @@ fn select_step360(
 }
 
 /// `(step, factor)` of whole degrees, minutes or seconds for `dv`.
-fn step_degree(dv: f64) -> PyResult<(f64, f64)> {
-    Ok(select_step_degree(dv)?)
+fn step_degree(dv: f64) -> PyResult<(i64, f64)> {
+    let (step, factor) = select_step_degree(dv)?;
+    Ok((whole(step), factor))
 }
 
 /// `(step, factor)` of whole hours, minutes or seconds for `dv`.
-fn step_hour(dv: f64) -> PyResult<(f64, f64)> {
-    Ok(select_step_hour(dv)?)
+fn step_hour(dv: f64) -> PyResult<(i64, f64)> {
+    let (step, factor) = select_step_hour(dv)?;
+    Ok((whole(step), factor))
 }
 
 /// `(step, factor)` of 1, 2 or 5 in the decade of `dv`.
-fn step_sub(dv: f64) -> PyResult<(f64, f64)> {
-    Ok(select_step_sub(dv))
+fn step_sub(dv: f64) -> PyResult<(i64, f64)> {
+    let (step, factor) = select_step_sub(dv);
+    Ok((whole(step), factor))
 }
 
 /// The labels of grid levels `values` (scaled by `factor`) in degrees,
@@ -231,7 +247,7 @@ mod tests {
     fn steps_and_labels_follow_matplotlib() {
         let (levels, n, factor) = select_step(-180.0, 180.0, 10, false, true, 3600.0).unwrap();
         assert_eq!((levels.data.len(), n, factor), (13, 13, 1.0));
-        assert_eq!(levels.data[0], -180.0);
+        assert_eq!(levels.data[0], -180, "whole degrees, as integers");
         let (_, _, hours) = select_step24(-12.0, 12.0, 10, true, 3600.0).unwrap();
         assert_eq!(hours, 60.0);
         assert_eq!(
@@ -240,8 +256,8 @@ mod tests {
         );
         assert_eq!(format_hms(1.0, vec![120.0]).unwrap(), [r"$8^\mathrm{h}$"]);
         assert!(step_hour(100.0).is_err());
-        assert_eq!(step_degree(10.0).unwrap(), (10.0, 1.0));
-        assert_eq!(step_sub(0.15).unwrap(), (1.0, 10.0));
+        assert_eq!(step_degree(10.0).unwrap(), (10, 1.0));
+        assert_eq!(step_sub(0.15).unwrap(), (1, 10.0));
     }
 
     #[test]

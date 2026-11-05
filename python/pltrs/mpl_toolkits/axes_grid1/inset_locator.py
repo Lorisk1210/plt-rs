@@ -8,11 +8,14 @@ boxes pltrs (Rust) works out at every draw (``_native.axes_grid1``).
 """
 
 from pltrs import _api, _docstring, _live_transforms
-from pltrs.offsetbox import AnchoredOffsetbox
+from pltrs.artist import Artist
+from pltrs.axes import _program_locators
+from pltrs.offsetbox import AnchoredOffsetbox, OffsetBox
 from pltrs.patches import Patch, Rectangle
 from pltrs.path import Path
 from pltrs.transforms import Bbox
 from pltrs.transforms import BboxBase, IdentityTransform, TransformedBbox
+from pltrs._native import artist as _artist
 from pltrs._native import axes_grid1 as _axes_grid1
 
 from . import axes_size as Size
@@ -53,13 +56,53 @@ class AnchoredLocatorBase(AnchoredOffsetbox):
             bbox_to_anchor=bbox_to_anchor, bbox_transform=bbox_transform
         )
         self._anchor_args = (loc, bbox_to_anchor, bbox_transform, borderpad)
+        # The axes pltrs (Rust) places with the locator, and how often it
+        # had been drawn then.
+        self._located = None
+
+    @property
+    def axes(self):
+        """The axes the locator was called with: matplotlib's draw of the
+        axes it locates calls it, so that it is that axes once drawn."""
+        given = Artist.axes.fget(self)
+        if given is None and self._located is not None:
+            located, draws = self._located
+            if _artist.draw_count(located._native) > draws:
+                return located
+        return given
+
+    @axes.setter
+    def axes(self, ax):
+        Artist.axes.fset(self, ax)
 
     def draw(self, renderer):
         raise RuntimeError("No draw method should be called")
 
     def __call__(self, ax, renderer):
-        # pltrs (Rust) places the inset with this locator at every layout.
-        return Bbox(ax.get_position().get_points())
+        fig = ax.get_figure(root=False)
+        if renderer is None:
+            renderer = fig._get_renderer()
+        self.axes = ax
+        located = None if self._located is None else self._located[0]
+        if located is not None and ax is not located:
+            # Every draw of the axes the locator places calls it with that
+            # axes in matplotlib, which it can no longer take: pltrs places
+            # the axes by calling it from now on.
+            _program_locators.follow(located, located._figure)
+        bbox = self.get_window_extent(renderer)
+        px, py = self.get_offset(bbox.width, bbox.height, 0, 0, renderer)
+        bbox_canvas = Bbox.from_bounds(px, py, bbox.width, bbox.height)
+        tr = fig.transSubfigure.inverted()
+        return TransformedBbox(bbox_canvas, tr)
+
+    def get_window_extent(self, renderer=None):
+        # The locator is no box pltrs (Rust) lays out: matplotlib's extent
+        # of an offset box, its get_bbox at its get_offset.
+        return OffsetBox.get_window_extent(self, renderer)
+
+    def _locate(self, ax):
+        """Remember that pltrs (Rust) places *ax* with the locator."""
+        self._located = (ax, _artist.draw_count(ax._native))
 
     def _native_placement(self):
         """The native placement of the inset: where it is anchored."""
@@ -98,6 +141,7 @@ class AnchoredSizeLocator(AnchoredLocatorBase):
         parent = ax if self._parent_axes is None else self._parent_axes
         _axes_grid1.place_sized_inset(parent._native, ax._native, self._sizes,
                                       self._native_placement())
+        self._locate(ax)
 
 
 class AnchoredZoomLocator(AnchoredLocatorBase):
@@ -130,6 +174,7 @@ class AnchoredZoomLocator(AnchoredLocatorBase):
         _axes_grid1.place_zoomed_inset(self.parent_axes._native, ax._native,
                                        float(self.zoom),
                                        self._native_placement())
+        self._locate(ax)
 
 
 def _native_bbox(bbox):

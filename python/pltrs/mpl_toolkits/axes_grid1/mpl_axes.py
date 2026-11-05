@@ -46,6 +46,16 @@ class Axes(maxes.Axes):
             else:
                 return dict.__getitem__(self, k)
 
+        def __setitem__(self, k, v):
+            # An axes drawing its axis artists with pltrs (Rust) (axisartist's)
+            # draws the one held under a name in place of the one before.
+            # Unpickling fills the items before the axes is back, and the
+            # unpickled axes holds its axis artists already.
+            hold = getattr(self.__dict__.get("axes"), "_hold_axis_artist", None)
+            if hold is not None:
+                hold(k, v)
+            super().__setitem__(k, v)
+
         def __call__(self, *v, **kwargs):
             return maxes.Axes.axis(self.axes, *v, **kwargs)
 

@@ -40,6 +40,7 @@ fn collection_class(kind: CollectionKind) -> &'static str {
         CollectionKind::Poly => "PolyCollection",
         CollectionKind::Line => "LineCollection",
         CollectionKind::QuadMesh => "QuadMesh",
+        CollectionKind::TriMesh => "TriMesh",
     }
 }
 

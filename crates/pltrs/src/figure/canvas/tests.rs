@@ -232,17 +232,20 @@ fn redrawing_in_frame_leaves_the_decorations_alone() {
 }
 
 #[test]
-fn draw_artist_refuses_artists_of_other_figures() {
+fn draw_artist_draws_artists_of_other_figures_where_they_are() {
+    // Both figures draw an empty axes: their lines are animated.
     let (fig, ax, _) = figure_with_line(0.5);
-    let (_, _, foreign) = figure_with_line(0.2);
-    assert!(matches!(
-        ax.draw_artist(&foreign),
-        Err(CanvasError::ForeignArtist)
-    ));
-    assert!(matches!(
-        fig.draw_artist(&foreign),
-        Err(CanvasError::ForeignArtist)
-    ));
+    let (other, _, foreign) = figure_with_line(0.2);
+    fig.canvas().draw().unwrap();
+    other.canvas().draw().unwrap();
+    let before = pixels(&fig);
+    ax.draw_artist(&foreign).unwrap();
+    assert_ne!(pixels(&fig), before, "the other figure's line is drawn");
+    other.draw_artist(&foreign).unwrap();
+    assert_eq!(pixels(&fig), pixels(&other), "where its figure places it");
+    fig.canvas().draw().unwrap();
+    fig.draw_artist(&foreign).unwrap();
+    assert_eq!(pixels(&fig), pixels(&other));
 }
 
 #[test]

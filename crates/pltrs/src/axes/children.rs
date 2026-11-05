@@ -12,7 +12,7 @@ use pltrs_core::Point;
 use super::{Axes, AxesState, DataLimits};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, LimitPoints, RawHandle};
 use crate::axisartist::AxisArtistState;
-use crate::collections::{Collection, CollectionArtist, TriMeshArtist};
+use crate::collections::{Collection, CollectionArtist};
 use crate::colorbar::ColorbarArtist;
 use crate::contour::ContourSetArtist;
 use crate::image::{AxesImageArtist, NonUniformImageArtist, PcolorImageArtist};
@@ -415,7 +415,6 @@ fn is_labelled_child(artist: &dyn Artist) -> bool {
     let any = artist as &dyn Any;
     any.is::<LineArtist>()
         || any.is::<CollectionArtist>()
-        || any.is::<TriMeshArtist>()
         || any.is::<ContourSetArtist>()
         || any.is::<AxesImageArtist>()
         || any.is::<NonUniformImageArtist>()
@@ -430,7 +429,6 @@ fn is_data_artist(artist: &dyn Artist) -> bool {
     artist.as_patch().is_some()
         || any.is::<LineArtist>()
         || any.is::<CollectionArtist>()
-        || any.is::<TriMeshArtist>()
         || any.is::<ContourSetArtist>()
         || any.is::<AxesImageArtist>()
         || any.is::<NonUniformImageArtist>()

@@ -34,6 +34,7 @@
 //! clipped to its clip box, rounded to whole pixels, resampled with Agg's
 //! kernels (in data or colour space) and colour-mapped to 8-bit RGBA.
 
+mod any;
 mod artist;
 mod bbox_image;
 mod bitmap;
@@ -58,6 +59,7 @@ mod unsampled;
 mod variates;
 mod vector_save;
 
+pub use any::AnyImage;
 pub use artist::AxesImage;
 pub(crate) use artist::AxesImageArtist;
 pub use bbox_image::{BboxFn, BboxImage, BboxImageOptions, Canvas};

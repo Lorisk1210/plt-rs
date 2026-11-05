@@ -96,7 +96,7 @@ pub(crate) use program::measure_program_boxes;
 pub use program::{ProgramBox, ProgramBoxArtist, ProgramOffsetBox};
 pub use rebuild::{node_extent, node_origin, rebuild_tree};
 
-use crate::artist::{ArtistId, ArtistStore};
+use crate::artist::{ArtistId, ArtistStore, DrawErrorKind};
 use crate::coords::CoordError;
 use crate::text::TextError;
 use crate::transforms::Transform;
@@ -141,6 +141,25 @@ pub enum OffsetBoxError {
     VerticalAlignment,
     /// The frame given to a box is not a fancy box patch.
     NotAFrame,
+    /// An aux-transform box has no artists to measure (matplotlib's
+    /// `ValueError` uniting their extents).
+    EmptyAuxBox,
+}
+
+impl OffsetBoxError {
+    /// What kind of problem the error is when a draw meets it.
+    pub fn draw_kind(&self) -> DrawErrorKind {
+        match self {
+            Self::EmptyAuxBox => DrawErrorKind::InvalidValue,
+            Self::MissingText(_)
+            | Self::MissingImage(_)
+            | Self::Text(_)
+            | Self::Coords(_)
+            | Self::Detached
+            | Self::VerticalAlignment
+            | Self::NotAFrame => DrawErrorKind::Other,
+        }
+    }
 }
 
 impl fmt::Display for OffsetBoxError {
@@ -155,6 +174,7 @@ impl fmt::Display for OffsetBoxError {
                 f.write_str("mixing a vertical alignment with an anchored text is not supported")
             }
             Self::NotAFrame => f.write_str("the frame of a box must be a FancyBboxPatch"),
+            Self::EmptyAuxBox => f.write_str("'bboxes' cannot be empty"),
         }
     }
 }
@@ -168,7 +188,8 @@ impl std::error::Error for OffsetBoxError {
             | Self::MissingImage(_)
             | Self::Detached
             | Self::VerticalAlignment
-            | Self::NotAFrame => None,
+            | Self::NotAFrame
+            | Self::EmptyAuxBox => None,
         }
     }
 }

@@ -8,7 +8,7 @@ use pltrs_core::{Bbox, Point};
 
 use super::{AxisArtist, opposite};
 use crate::axes::TickDirection;
-use crate::axisartist::artist::Level;
+use crate::axisartist::artist::{AxisArtistState, Level};
 use crate::axisartist::labels::{LabelState, TextLook};
 use crate::axisartist::line::LineState;
 use crate::axisartist::ticks::TicksState;
@@ -357,9 +357,39 @@ impl AxisLabel {
         self
     }
 
+    /// Has the label show the label of the axes' x or y axis again, as it
+    /// does by default (matplotlib's `set_text("__from_axes__")`).
+    pub fn follow_axis(&self) -> &Self {
+        self.0.artist.update(|state| state.label_text = None);
+        self
+    }
+
     /// The label text set on the artist, if any.
     pub fn text(&self) -> Option<String> {
         self.0.artist.get(|state| state.label_text.clone())
+    }
+
+    /// The display box of the label in the figure's current layout,
+    /// `None` when it is hidden; an empty label measures as the point it
+    /// is anchored at (matplotlib's `AxisLabel.get_window_extent` after a
+    /// draw).
+    ///
+    /// ```
+    /// use pltrs::axisartist::AxisArtist;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let bottom = AxisArtist::add_fixed(&ax, SpineSide::Bottom);
+    /// let empty = bottom.label().window_extent().expect("a visible label");
+    /// assert_eq!((empty.width(), empty.height()), (0.0, 0.0));
+    /// bottom.label().set_text("x");
+    /// let extent = bottom.label().window_extent().expect("a label");
+    /// assert!(extent.width() > 0.0);
+    /// bottom.label().set_visible(false);
+    /// assert!(bottom.label().window_extent().is_none());
+    /// ```
+    pub fn window_extent(&self) -> Option<Bbox> {
+        self.0.artist.with_layout(AxisArtistState::label_extent)
     }
 }
 

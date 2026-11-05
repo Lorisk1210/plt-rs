@@ -90,20 +90,6 @@ fn new_nonuniform_image(
     })?)
 }
 
-/// The interpolation of a non-uniform image: `'nearest'` or `'bilinear'`.
-fn get_nonuniform_interpolation(image: NonUniformImage) -> PyResult<&'static str> {
-    Ok(match image.interpolation() {
-        NonUniformInterpolation::Nearest => "nearest",
-        NonUniformInterpolation::Bilinear => "bilinear",
-    })
-}
-
-/// Sets the interpolation of a non-uniform image by name.
-fn set_nonuniform_interpolation(image: NonUniformImage, name: String) -> PyResult<()> {
-    image.set_interpolation(nonuniform_interpolation(&name)?);
-    Ok(())
-}
-
 /// An image without cells on a non-uniform rectangular grid, mapped
 /// through `cmap` and `norm` (matplotlib's `PcolorImage(ax)`).
 fn new_pcolor_image(cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<PcolorImage> {
@@ -209,13 +195,13 @@ fn set_grid_data(image: GridImage, x: Vec<f64>, y: Vec<f64>, data: ImageArray) -
     Ok(())
 }
 
-/// Any image.
-enum AnyImage {
+/// Any image, by the kind of its data.
+enum MappedImage {
     Array(ArrayImage),
     Grid(GridImage),
 }
 
-impl FromPy<'_> for AnyImage {
+impl FromPy<'_> for MappedImage {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         match object.extract() {
             Ok(image) => Ok(Self::Array(image)),
@@ -228,11 +214,11 @@ impl FromPy<'_> for AnyImage {
 macro_rules! on_image {
     ($image:expr, $method:ident($($arg:expr),*)) => {
         match $image {
-            AnyImage::Array(ArrayImage::Axes(image)) => { image.$method($($arg),*); }
-            AnyImage::Array(ArrayImage::Figure(image)) => { image.$method($($arg),*); }
-            AnyImage::Array(ArrayImage::Bbox(image)) => { image.$method($($arg),*); }
-            AnyImage::Grid(GridImage::NonUniform(image)) => { image.$method($($arg),*); }
-            AnyImage::Grid(GridImage::Pcolor(image)) => { image.$method($($arg),*); }
+            MappedImage::Array(ArrayImage::Axes(image)) => { image.$method($($arg),*); }
+            MappedImage::Array(ArrayImage::Figure(image)) => { image.$method($($arg),*); }
+            MappedImage::Array(ArrayImage::Bbox(image)) => { image.$method($($arg),*); }
+            MappedImage::Grid(GridImage::NonUniform(image)) => { image.$method($($arg),*); }
+            MappedImage::Grid(GridImage::Pcolor(image)) => { image.$method($($arg),*); }
         }
     };
 }
@@ -240,7 +226,7 @@ macro_rules! on_image {
 /// Maps the image through `cmap` and `norm` from now on: a new norm when
 /// `replaced`, else the image's norm with new parameters.
 fn set_mapping(
-    image: AnyImage,
+    image: MappedImage,
     cmap: Colormap,
     norm: Box<dyn Norm>,
     replaced: bool,
@@ -257,10 +243,10 @@ fn set_mapping(
 /// The limits of the image's norm in pltrs (Rust), which its draws scale
 /// when they were unset; `(None, None)` for the kinds of images whose
 /// norm the Python side keeps scaled.
-fn mapped_clim(image: AnyImage) -> PyResult<(Option<f64>, Option<f64>)> {
+fn mapped_clim(image: MappedImage) -> PyResult<(Option<f64>, Option<f64>)> {
     Ok(match image {
-        AnyImage::Array(ArrayImage::Axes(image)) => image.clim(),
-        AnyImage::Array(ArrayImage::Figure(image)) => image.clim(),
+        MappedImage::Array(ArrayImage::Axes(image)) => image.clim(),
+        MappedImage::Array(ArrayImage::Figure(image)) => image.clim(),
         _ => (None, None),
     })
 }
@@ -269,8 +255,6 @@ fn mapped_clim(image: AnyImage) -> PyResult<(Option<f64>, Option<f64>)> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_axes_image", new_axes_image)?;
     module.add("new_nonuniform_image", new_nonuniform_image)?;
-    module.add("get_nonuniform_interpolation", get_nonuniform_interpolation)?;
-    module.add("set_nonuniform_interpolation", set_nonuniform_interpolation)?;
     module.add("new_pcolor_image", new_pcolor_image)?;
     module.add("new_figure_image", new_figure_image)?;
     module.add("set_bbox", set_bbox)?;

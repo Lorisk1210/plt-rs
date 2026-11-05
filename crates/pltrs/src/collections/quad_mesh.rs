@@ -62,23 +62,31 @@ impl CollectionArtist {
 
 impl CollectionArtist {
     /// The item shapes: the stored paths, or the cells of a quad mesh,
-    /// made now from its vertex grid.
+    /// made now from its vertex grid, or the triangles of a triangle mesh.
     pub(crate) fn shapes(&self) -> Cow<'_, [Path]> {
-        match &self.mesh {
-            Some(mesh) if self.paths.is_empty() => Cow::Owned(cell_paths(&mesh.coordinates)),
-            _ => Cow::Borrowed(&self.paths),
+        if !self.paths.is_empty() {
+            return Cow::Borrowed(&self.paths);
+        }
+        match (&self.mesh, &self.triangle_mesh) {
+            (Some(mesh), _) => Cow::Owned(cell_paths(&mesh.coordinates)),
+            (None, Some(mesh)) => Cow::Owned(mesh.paths()),
+            (None, None) => Cow::Borrowed(&self.paths),
         }
     }
 
     /// Whether [`shapes`](Self::shapes) holds any shape, without making
-    /// the cells of a quad mesh.
+    /// the cells of a quad mesh or the triangles of a triangle mesh.
     pub(crate) fn has_shapes(&self) -> bool {
-        match &self.mesh {
-            Some(mesh) if self.paths.is_empty() => {
+        if !self.paths.is_empty() {
+            return true;
+        }
+        match (&self.mesh, &self.triangle_mesh) {
+            (Some(mesh), _) => {
                 let (rows, cols) = mesh.coordinates.shape();
                 rows > 1 && cols > 1
             }
-            _ => !self.paths.is_empty(),
+            (None, Some(mesh)) => !mesh.triangles.is_empty(),
+            (None, None) => false,
         }
     }
 

@@ -89,6 +89,7 @@ def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
     if mesh is not None:
         made._scale_norm(norm, vmin, vmax, values)
         collection = _handles.wrap(mesh, mcoll.TriMesh, ax.figure)
+        collection._hold_triangulation(tri)
     else:
         collection = _handles.wrap(polygons, mcoll.PolyCollection, ax.figure)
     collection._attach_native_mapping(colorizer=made)

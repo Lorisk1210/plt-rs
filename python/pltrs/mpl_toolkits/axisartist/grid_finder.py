@@ -34,8 +34,11 @@ def _find_line_box_crossings(xys, bbox):
         The entries are computed by linearly interpolating at each crossing
         between the nearest points on either side of the bbox edges.
     """
-    return list(_axisartist.find_line_box_crossings(
-        np.asarray(xys, dtype=float), tuple(map(float, bbox.extents))))
+    crossings = _axisartist.find_line_box_crossings(
+        np.asarray(xys, dtype=float), tuple(map(float, bbox.extents)))
+    # numpy floats, as matplotlib computes them from arrays.
+    return [[((np.float64(x), np.float64(y)), np.float64(angle))
+             for (x, y), angle in side] for side in crossings]
 
 
 class ExtremeFinderSimple:

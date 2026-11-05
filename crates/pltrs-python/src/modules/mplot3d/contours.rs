@@ -9,8 +9,8 @@ use pltrs::mplot3d::{Axes3D, Contour3DOptions};
 use pltrs::tri::Triangulation;
 
 use super::super::contour::{Extras, Look, contour_options};
-use super::axis3;
 use super::plotting::grid;
+use super::zdir_axis;
 use crate::binding::prelude::*;
 
 /// Where the contours go: `(zdir, offset, stride, axlim_clip)`, the
@@ -33,7 +33,7 @@ fn options(
         })
         .transpose()?;
     Ok(Contour3DOptions {
-        zdir: axis3(&zdir)?,
+        zdir: zdir_axis(&zdir)?,
         offset,
         extend3d,
         axlim_clip,

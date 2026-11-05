@@ -156,7 +156,7 @@ impl<'s> Placer<'s> {
         for label in &self.setup.labels {
             let label = self.written(label)?;
             let mut additions = Vec::new();
-            for subpath in components(&paths[label.index]) {
+            for subpath in components(path_of(&paths, label.index)?) {
                 let screen: Vec<Point> = subpath
                     .vertices()
                     .iter()
@@ -201,11 +201,9 @@ impl<'s> Placer<'s> {
     ) -> Result<Text, ContourError> {
         let mut paths = self.set.paths();
         let setup = self.setup;
-        let labelled = setup
-            .labels
-            .iter()
-            .enumerate()
-            .map(|(k, label)| (k, &paths[label.index]));
+        let labelled = (setup.labels.iter().enumerate())
+            .map(|(k, label)| Ok((k, path_of(&paths, label.index)?)))
+            .collect::<Result<Vec<_>, ContourError>>()?;
         let closest = closest_on_lines(labelled, |p| self.to_display(p), target)
             .ok_or(ContourError::NoContourToLabel)?;
         let label = &setup.labels[closest.key];
@@ -269,4 +267,14 @@ impl<'s> Placer<'s> {
         self.created.push(text.clone());
         text
     }
+}
+
+/// The line of level `index` among `paths`: matplotlib indexes its list of
+/// paths with the level, failing with Python's `IndexError` for a level the
+/// paths (set by the program) do not reach.
+fn path_of(paths: &[Path], index: usize) -> Result<&Path, ContourError> {
+    paths.get(index).ok_or(ContourError::LevelIndex {
+        index,
+        levels: paths.len(),
+    })
 }

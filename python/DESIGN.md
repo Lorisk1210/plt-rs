@@ -1041,7 +1041,11 @@ allocations do, `MemoryError`, instead of the process ending.
 Problems met while drawing are not raised by the artist meeting them:
 pltrs (Rust) draws the rest and returns them all (`DrawErrors`), each with
 the kind of exception matplotlib raises for it (`DrawErrorKind`). The
-binding raises the first one as matplotlib would have, stopping there: a
+binding has draws end at their first problem instead
+(`pltrs::artist::set_draws_stop_at_first_problem`), as matplotlib's draw
+ends at its first exception with the artists after it undrawn (and does
+not spend the time drawing them), and raises that problem as matplotlib
+would have: a
 `ValueError` with its message for a value of the program's that cannot be
 drawn (malformed mathtext, an infinite line through two identical
 points), else a `RuntimeError` naming them all. `draw_without_rendering`

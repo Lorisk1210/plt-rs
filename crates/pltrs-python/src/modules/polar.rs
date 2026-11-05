@@ -49,9 +49,8 @@ fn set_theta_zero_location(axes: Axes, loc: String, offset: f64) -> PyResult<()>
         "SE" => Compass::SE,
         "E" => Compass::E,
         "NE" => Compass::NE,
-        _ => {
-            return Err(PyErr::key_error(format!("{loc:?}")));
-        }
+        // matplotlib looks the name up in a dict.
+        _ => return Err(PyErr::key_error(loc)),
     };
     polar(&axes)?.set_theta_zero_location(location, offset);
     Ok(())

@@ -73,14 +73,33 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """The root `.Figure` (also of a `.SubFigure`)."""
         return self._figure
 
+    @figure.setter
+    def figure(self, fig):
+        self.set_figure(fig)
+
     def get_window_extent(self, renderer=None):
         """Return the (sub)figure's box in display coordinates."""
         return self.bbox
 
+    def set_transform(self, t):
+        """
+        Set the artist transform.
+
+        Parameters
+        ----------
+        t : `~matplotlib.transforms.Transform`
+        """
+        if hasattr(t, "is_affine"):
+            Artist.set_transform(self, t)
+        else:
+            # A (sub)figure draws without its transform, so matplotlib
+            # keeps whatever it is given.
+            self._given_transform = t
+            self.pchanged()
+
     def get_facecolor(self):
         """Get the face color of the Figure rectangle."""
-        from .colors import to_rgba
-        return to_rgba(_figure.get_facecolor(self._native))
+        return self.patch.get_facecolor()
 
     def set_facecolor(self, color):
         """
@@ -968,6 +987,10 @@ class SubFigure(FigureBase):
         """The resolution of the root figure."""
         return self._parent.dpi
 
+    @dpi.setter
+    def dpi(self, value):
+        self._parent.dpi = value
+
     def get_dpi(self):
         """Return the resolution of the parent figure in dots-per-inch as a float."""
         return self._parent.dpi
@@ -981,6 +1004,7 @@ class SubFigure(FigureBase):
         val : float
         """
         self._parent.dpi = val
+        self.stale = True
 
 
 class Figure(FigureLayout, FigureImagesMixin, FigureBase):
@@ -1207,11 +1231,13 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         """
         if h is None:
             w, h = w
+        size = np.array([w, h])
+        if not np.isfinite(size).all() or (size < 0).any():
+            raise ValueError(f'figure size must be positive finite not {size}')
         _figure.set_size_inches(self._native, float(w), float(h))
         manager = getattr(self.canvas, "manager", None)
         if forward and manager is not None:
-            dpi = self.dpi
-            manager.resize(int(float(w) * dpi), int(float(h) * dpi))
+            manager.resize(*(size * self.dpi).astype(int))
 
     def get_dpi(self):
         """Return the resolution in dots per inch as a float."""
@@ -1226,10 +1252,21 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         ----------
         val : float
         """
-        _figure.set_dpi(self._native, float(val))
-        _values.remember(self, "dpi", val)
+        if val != self.dpi:
+            _figure.set_dpi(self._native, float(val))
+            _values.remember(self, "dpi", val)
+            # matplotlib sets the size again, resizing the manager's window.
+            self.set_size_inches(*self.get_size_inches())
+        self.stale = True
 
     dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
+
+    def remove(self):
+        """A root figure is in nothing it could be removed from: matplotlib's
+        `.Artist.remove` refuses it, unless it was given a remove method."""
+        if self.__dict__.get("_remove_method") is None:
+            raise NotImplementedError('cannot remove artist')
+        super().remove()
 
     def set_canvas(self, canvas):
         """
@@ -1488,10 +1525,10 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         from . import _pickling, _tick_helpers
         _tick_helpers.unpickled(self, tick_helper_uses)
         _sharing.track(self)
+        FigureCanvasBase(self)  # Set self.canvas.
         # discard any changes to the dpi due to pixel ratio changes
         if '_original_dpi' in self.__dict__:
             self.dpi = self._original_dpi
-        FigureCanvasBase(self)  # Set self.canvas.
         _pickling.restore_program_hooks(self, program_hooks)
         if self.get_layout_engine() is not None:
             self.get_layout_engine()._attach(self)

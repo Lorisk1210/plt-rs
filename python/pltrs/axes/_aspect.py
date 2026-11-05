@@ -9,6 +9,7 @@ import numpy as np
 
 from .. import _api, cbook
 from .._native import axes_base as _axes_base
+from .. import transforms as mtransforms
 from ..transforms import Bbox
 
 
@@ -209,6 +210,14 @@ class AspectMixin:
             If not ``None``, this defines the position of the
             Axes within the figure as a Bbox.
         """
+        if position is not None:
+            if self.get_aspect() == 'auto' and self.get_box_aspect() is None:
+                # matplotlib only sets the active position then, from a
+                # box or its bounds.
+                if not isinstance(position, mtransforms.BboxBase):
+                    position = mtransforms.Bbox.from_bounds(*position)
+            else:
+                position = position.frozen()
         _axes_base.apply_aspect(
             self._native, None if position is None
             else tuple(map(float, position.bounds)))

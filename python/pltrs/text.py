@@ -158,6 +158,19 @@ class _TextFont(_mirrors.Mirroring):
         _text.set_fontproperties(self.text._native, FontManager._props(fontproperties))
 
 
+def _rotation_degrees(s):
+    """The rotation `Text.set_rotation` takes *s* for, in degrees in
+    [0, 360): a number, 'horizontal' (or None) or 'vertical'."""
+    if isinstance(s, Real):
+        return float(s) % 360
+    if cbook._str_equal(s, 'horizontal') or s is None:
+        return 0.
+    if cbook._str_equal(s, 'vertical'):
+        return 90.
+    raise ValueError("rotation must be 'vertical', 'horizontal' or "
+                     f"a number, not {s}")
+
+
 @_api.define_aliases({
     "color": ["c"],
     "fontproperties": ["font", "font_properties"],
@@ -798,16 +811,7 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             The rotation angle in degrees in mathematically positive direction
             (counterclockwise). 'horizontal' equals 0, 'vertical' equals 90.
         """
-        if isinstance(s, Real):
-            rotation = float(s) % 360
-        elif cbook._str_equal(s, 'horizontal') or s is None:
-            rotation = 0.
-        elif cbook._str_equal(s, 'vertical'):
-            rotation = 90.
-        else:
-            raise ValueError("rotation must be 'vertical', 'horizontal' or "
-                             f"a number, not {s}")
-        _text.set_rotation(self._native, rotation)
+        _text.set_rotation(self._native, _rotation_degrees(s))
 
     def set_transform_rotates_text(self, t):
         """

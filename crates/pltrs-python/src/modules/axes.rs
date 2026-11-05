@@ -36,11 +36,13 @@ impl IntoPy for Axes {
 }
 
 impl From<PlotError> for PyErr {
-    /// matplotlib's `ValueError` for data it cannot plot, and the errors
-    /// statistics raise for their problems.
+    /// matplotlib's `ValueError` for data it cannot plot (with its message
+    /// for limits, which names no axis), and the errors statistics raise
+    /// for their problems.
     fn from(err: PlotError) -> Self {
         match err {
             PlotError::Stats(err) => err.into(),
+            PlotError::NonFiniteLimit(_) => PyErr::value_error("Axis limits cannot be NaN or Inf"),
             other => PyErr::value_error(other.to_string()),
         }
     }

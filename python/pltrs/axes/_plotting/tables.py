@@ -17,5 +17,5 @@ class TablesMixin:
     @property
     def tables(self):
         """The tables of the Axes, in the order they were added."""
-        return ArtistList("tables", lambda: wrap_all(
+        return ArtistList._of("tables", lambda: wrap_all(
             self, _table.axes_tables(self._native), mtable.Table))

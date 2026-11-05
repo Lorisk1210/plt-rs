@@ -43,11 +43,11 @@ use std::path::{Path, PathBuf};
 
 use pltrs_core::os::Os;
 
-pub(crate) use library::bundled_sheet;
 pub use library::{
     StyleSheet, available, bundled_sheets, library, reload_library, set_user_library_paths, sheet,
     user_library_paths,
 };
+pub(crate) use library::{bundled_files, bundled_sheet};
 pub use xkcd::{XkcdError, XkcdSketch, apply_xkcd};
 
 use crate::rc::{RcEntry, RcError, RcFile, RcParams};

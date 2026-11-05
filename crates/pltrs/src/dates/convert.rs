@@ -19,7 +19,7 @@ use crate::numeric::linspace;
 /// Seconds per day.
 const SECONDS_PER_DAY: f64 = 86_400.0;
 /// Microseconds per day as a float (matplotlib's `MUSECONDS_PER_DAY`).
-pub(crate) const MICROSECONDS_PER_DAY: f64 = 86_400e6;
+pub const MICROSECONDS_PER_DAY: f64 = 86_400e6;
 /// Beyond this many days from the epoch, `num2date` rounds to 20 µs.
 const PRECISE_DAYS: f64 = 70.0 * 365.0;
 

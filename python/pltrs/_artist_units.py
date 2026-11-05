@@ -54,9 +54,13 @@ class UnitsMixin:
     def _convert_units(self, name, values):
         """*values* converted by the axis *name* of the artist's axes, if
         that axis converts units."""
-        if _plain_numbers(values):
+        ax = getattr(self, 'axes', None)
+        if ax is None:
+            return values
+        # matplotlib reads ``ax.xaxis`` (failing on the list of Axes that is
+        # a figure's ``axes``).
+        axis = getattr(ax, f"{name}axis")
+        if axis is None or _plain_numbers(values):
             # What every axis returns as it is (`.Axis.convert_units`).
             return values
-        ax = getattr(self, 'axes', None)
-        axis = None if ax is None else ax._axis_map.get(name)
-        return values if axis is None else axis.convert_units(values)
+        return axis.convert_units(values)

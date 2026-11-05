@@ -128,7 +128,7 @@ class ClearMixin:
     def artists(self):
         """The artists of the Axes that are no line, patch, collection,
         text, image or table, in the order they were added."""
-        return ArtistList("artists", lambda: [
+        return ArtistList._of("artists", lambda: [
             _handles.wrap_any(native, self.figure)
             for native in _axes.artists(self._native)])
 

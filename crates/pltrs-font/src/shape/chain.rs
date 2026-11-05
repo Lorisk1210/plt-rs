@@ -20,6 +20,9 @@ pub struct FontChain<'a> {
     /// The database the faces come from, with their ids, whose cached
     /// autohinter analyses layout reuses.
     database: Option<(&'a FontDatabase, Vec<FontId>)>,
+    /// The autohinter analyses of faces outside a database that their
+    /// owner keeps, by face (see [`with_autohinters`](Self::with_autohinters)).
+    kept: Vec<Option<&'a Autohinter>>,
 }
 
 /// One glyph placed by [`FontChain::layout`]; positions in 26.6 pixels.
@@ -60,7 +63,18 @@ impl<'a> FontChain<'a> {
         Self {
             faces,
             database: None,
+            kept: Vec::new(),
         }
+    }
+
+    /// The chain using `analyses`, the autohinter's analysis of each face
+    /// where its owner keeps one (made with [`Autohinter::new`] from that
+    /// face), instead of analysing the face anew for each layout that
+    /// autohints it.
+    #[must_use]
+    pub fn with_autohinters(mut self, analyses: Vec<Option<&'a Autohinter>>) -> Self {
+        self.kept = analyses;
+        self
     }
 
     /// A chain over the faces `ids` of `database`.
@@ -72,13 +86,17 @@ impl<'a> FontChain<'a> {
         Self {
             faces,
             database: Some((database, ids)),
+            kept: Vec::new(),
         }
     }
 
-    /// The database's cached autohinter analysis of face `index`.
+    /// The autohinter analysis of face `index` kept from one layout to the
+    /// next: the database's, or the one its owner keeps.
     fn cached_autohinter(&self, index: usize) -> Option<&'a Autohinter> {
-        let (database, ids) = self.database.as_ref()?;
-        database.autohinter(*ids.get(index)?).ok()
+        match &self.database {
+            Some((database, ids)) => database.autohinter(*ids.get(index)?).ok(),
+            None => self.kept.get(index).copied().flatten(),
+        }
     }
 
     /// The faces in fallback order.
@@ -180,7 +198,7 @@ impl<'a> FontChain<'a> {
             .zip(&used)
             .map(|(face, &used)| used.then(|| hinting.hinter(face, true)))
             .collect();
-        // Faces from outside a database get their analysis for this call.
+        // Faces with no analysis kept get theirs for this call.
         let analyses: Vec<Option<Autohinter>> = self
             .faces
             .iter()

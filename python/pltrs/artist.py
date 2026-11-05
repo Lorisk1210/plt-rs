@@ -81,6 +81,31 @@ def allow_rasterization(draw):
     return draw_wrapper
 
 
+def _check_alpha(alpha):
+    """Raise matplotlib's errors for an *alpha* `Artist.set_alpha` refuses:
+    one that is no number, or outside the 0-1 range (NaN included)."""
+    if alpha is not None and not isinstance(alpha, Real):
+        raise TypeError(
+            f'alpha must be numeric or None, not {type(alpha)}')
+    if alpha is not None and not (0 <= alpha <= 1):
+        raise ValueError(f'alpha ({alpha}) is outside 0-1 range')
+
+
+def _check_array_alpha(alpha):
+    """Raise matplotlib's errors for an *alpha* `.Artist._set_alpha_for_array`
+    refuses: a string, a number `Artist.set_alpha` refuses, or an array
+    with a value outside the 0-1 range."""
+    if isinstance(alpha, str):
+        raise TypeError("alpha must be numeric or None, not a string")
+    if not np.iterable(alpha):
+        _check_alpha(alpha)
+        return
+    alpha = np.asarray(alpha)
+    if not (0 <= alpha.min() and alpha.max() <= 1):
+        raise ValueError('alpha must be between 0 and 1, inclusive, '
+                         f'but min is {alpha.min()}, max is {alpha.max()}')
+
+
 @cache
 def _axes_class():
     """`~.axes.Axes`, imported on first use (the axes import this module)."""
@@ -306,11 +331,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         alpha : float or None
             *alpha* must be within the 0-1 range, inclusive.
         """
-        if alpha is not None and not isinstance(alpha, Real):
-            raise TypeError(
-                f'alpha must be numeric or None, not {type(alpha)}')
-        if alpha is not None and not (0 <= alpha <= 1):
-            raise ValueError(f'alpha ({alpha}) is outside 0-1 range')
+        _check_alpha(alpha)
         _artist.set_alpha(self._native, alpha)
         _values.remember(self, "alpha", alpha)
         self.pchanged()
@@ -332,16 +353,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             Masked values and nans are not supported. Only artists of many
             items (collections, images) take an array.
         """
-        if isinstance(alpha, str):
-            raise TypeError("alpha must be numeric or None, not a string")
+        _check_array_alpha(alpha)
         if not np.iterable(alpha):
             Artist.set_alpha(self, alpha)
             return
-        alpha = np.asarray(alpha)
-        if not (0 <= alpha.min() and alpha.max() <= 1):
-            raise ValueError('alpha must be between 0 and 1, inclusive, '
-                             f'but min is {alpha.min()}, max is {alpha.max()}')
-        self.set_alpha(alpha)
+        self.set_alpha(np.asarray(alpha))
 
     def get_clip_on(self):
         """Return whether the artist uses clipping."""
@@ -683,4 +699,4 @@ from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: 
 Artist._update_set_signature_and_docstring()
 
 
-cbook._set_module(__name__, _XYPair)
+cbook._set_module(__name__, _XYPair, ArtistInspector)

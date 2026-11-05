@@ -54,16 +54,17 @@ impl std::error::Error for DataDirError {
 /// The data directory (matplotlib's `get_data_path`): `mpl-data` in the
 /// [cache directory](cache_dir), holding matplotlib's fonts as its
 /// `mpl-data` does (`fonts/ttf`, and the AFM metrics of the PDF core
-/// fonts in `fonts/pdfcorefonts`), and the template of the rc file
-/// (`pltrsrc`, matplotlib's `mpl-data/matplotlibrc`: every parameter at
-/// matplotlib's default, commented out). The files are written from the
-/// binary the first time the directory is asked for in a process, unless
-/// they are there already.
+/// fonts in `fonts/pdfcorefonts`), the bundled style sheets (`stylelib`),
+/// and the template of the rc file (`pltrsrc`, matplotlib's
+/// `mpl-data/matplotlibrc`: every parameter at matplotlib's default,
+/// commented out). The files are written from the binary the first time
+/// the directory is asked for in a process, unless they are there already.
 ///
 /// ```
 /// let dir = pltrs::config::data_dir()?;
 /// assert!(dir.join("fonts/ttf/DejaVuSans.ttf").is_file());
 /// assert!(dir.join("fonts/pdfcorefonts/Helvetica.afm").is_file());
+/// assert!(dir.join("stylelib/ggplot.mplstyle").is_file());
 /// assert!(dir.join("pltrsrc").is_file());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -82,6 +83,7 @@ pub fn data_dir() -> Result<PathBuf, DataDirError> {
                 .and_then(|()| {
                     write_files(&fonts.join("pdfcorefonts"), pltrs_text::bundled_afm_files())
                 })
+                .and_then(|()| write_files(&dir.join("stylelib"), crate::style::bundled_files()))
                 .and_then(|()| {
                     write_files(&dir, std::iter::once((RC_FILE_NAME, template.as_bytes())))
                 })

@@ -6,8 +6,8 @@ import math
 
 import numpy as np
 
-from ... import (_api, _handles, _live_transforms, _tick_helpers, _values, collections as mcoll,
-                 colors as mcolors)
+from ... import (_api, _handles, _live_transforms, _tick_helpers, _values, artist as martist,
+                 collections as mcoll, colors as mcolors)
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
 from ..._preprocess import _preprocess_data
@@ -137,6 +137,8 @@ class ContoursMixin:
         """The `.QuadContourSet` of ``contour`` (or, *filled*, ``contourf``):
         a new one, or *made*, the set whose constructor contours."""
         fn = 'contourf' if filled else 'contour'
+        # matplotlib's contour set takes the alpha first, checking it.
+        martist._check_array_alpha(kwargs.get("alpha"))
         origin = kwargs.pop("origin", None)
         extent = kwargs.pop("extent", None)
         if origin is not None:

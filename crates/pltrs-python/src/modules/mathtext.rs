@@ -226,11 +226,14 @@ fn math_message(err: &pltrs_text::TextError) -> String {
 }
 
 /// `get_unicode_index(symbol)`: the code point of a character or TeX
-/// symbol, `ValueError` for unknown symbols.
+/// symbol, `ValueError` for unknown symbols (quoted as Python's `repr`
+/// quotes them, as matplotlib's message does).
 fn get_unicode_index(symbol: String) -> PyResult<u32> {
     unicode_index(&symbol).ok_or_else(|| {
+        let quoted = Python::with_gil(|py| symbol.as_str().into_py(py)?.repr())
+            .unwrap_or_else(|_| format!("{symbol:?}"));
         PyErr::value_error(format!(
-            "'{symbol}' is not a valid Unicode character or TeX/Type1 symbol"
+            "{quoted} is not a valid Unicode character or TeX/Type1 symbol"
         ))
     })
 }

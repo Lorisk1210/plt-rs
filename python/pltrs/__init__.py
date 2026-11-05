@@ -866,3 +866,16 @@ def _replace_link(entry, target):
         os.replace(temporary, target)
     except OSError:
         temporary.unlink(missing_ok=True)
+
+
+@_api.deprecated("3.10", alternative="matplotlib.cbook.sanitize_sequence")
+def sanitize_sequence(data):
+    """Convert dictview objects to list (`.cbook.sanitize_sequence`)."""
+    from . import cbook
+    return cbook.sanitize_sequence(data)
+
+
+@_api.deprecated("3.10", alternative="matplotlib.rcsetup.validate_backend")
+def validate_backend(s):
+    """Validate a backend name (`.rcsetup.validate_backend`)."""
+    return rcsetup.validate_backend(s)

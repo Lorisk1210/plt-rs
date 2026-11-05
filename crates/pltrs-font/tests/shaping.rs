@@ -8,7 +8,8 @@ mod common;
 use common::json::{Fixture, Json};
 use common::{fixture, font_bytes};
 use pltrs_font::{
-    Direction, Face, Feature, FontChain, Hinting, ShapeOptions, Size, shape_at_size, shape_with,
+    Autohinter, Direction, Face, Feature, FontChain, Hinting, ShapeOptions, Size, shape_at_size,
+    shape_with,
 };
 
 const LAST_RESORT: &str = "LastResortHE-Regular.ttf";
@@ -301,6 +302,26 @@ fn ascii_bigram_widths_match_matplotlib() {
             mismatches.is_empty(),
             "{name}: {} bigrams differ: {mismatches:?}",
             mismatches.len()
+        );
+    }
+}
+
+#[test]
+fn kept_autohinter_analyses_lay_out_as_fresh_ones() {
+    let data = font_bytes("DejaVuSans.ttf");
+    let face = Face::parse(&data, 0).expect("bundled font");
+    let analysis = Autohinter::new(&face);
+    let fresh = FontChain::new(vec![face.clone()]);
+    let kept = FontChain::new(vec![face]).with_autohinters(vec![Some(&analysis)]);
+    let options = ShapeOptions::default();
+    for (text, points) in [("Hello world", 12.0), ("AVATAR fi", 7.5), ("Wg", 31.0)] {
+        assert_eq!(
+            kept.layout(text, points, 72.0, &options, Hinting::Auto)
+                .expect("laid out"),
+            fresh
+                .layout(text, points, 72.0, &options, Hinting::Auto)
+                .expect("laid out"),
+            "{text:?} at {points} points"
         );
     }
 }

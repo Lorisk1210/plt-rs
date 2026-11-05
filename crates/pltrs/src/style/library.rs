@@ -25,6 +25,8 @@ macro_rules! sheets {
         const BUNDLED: &[(&str, &str)] = &[
             $(($name, include_str!(concat!("sheets/", $name, ".mplstyle"))),)*
         ];
+        /// The file name of each sheet of [`BUNDLED`], in its order.
+        const BUNDLED_FILE_NAMES: &[&str] = &[$(concat!($name, ".mplstyle"),)*];
     };
 }
 
@@ -142,6 +144,12 @@ fn default_sheets() -> &'static [(String, Vec<RcEntry>)] {
         return &[];
     }
     DEFAULT_SHEETS.get_or_init(|| read_library(&crate::config::default_style_library_paths()).0)
+}
+
+/// The bundled sheets as files, `(file name, contents)` (matplotlib's
+/// `mpl-data/stylelib`).
+pub(crate) fn bundled_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
+    (BUNDLED_FILE_NAMES.iter().copied()).zip(BUNDLED.iter().map(|(_, text)| text.as_bytes()))
 }
 
 /// The bundled sheet called `name`, whatever the user library holds.

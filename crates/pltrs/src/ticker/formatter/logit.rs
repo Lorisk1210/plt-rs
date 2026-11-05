@@ -181,8 +181,10 @@ impl LogitFormatter {
         if x <= 0.0 || x >= 1.0 {
             return Ok(String::new());
         }
-        if !x.is_finite() {
-            return Err(TickerError::NonFinite("tick value"));
+        if x.is_nan() {
+            // matplotlib first asks whether the label is one half, rounding
+            // the value as Python's `round` does, which refuses NaN.
+            return Err(TickerError::NotAnInteger { infinite: false });
         }
         let text = if is_one_half(x) {
             self.one_half.clone()
@@ -221,10 +223,9 @@ fn format_value(x: f64, locs: &[f64], sci_notation: bool) -> Result<String, Tick
     } else {
         let mut distances: Vec<f64> = locs.iter().map(|l| (l - x).abs()).collect();
         distances.sort_by(f64::total_cmp);
+        // A NaN or infinite precision (a NaN tick, or a tick twice) fails
+        // to round as Python's does.
         let p = -distances[1].log10() + exponent as f64;
-        if !p.is_finite() {
-            return Err(TickerError::NonFinite("label precision"));
-        }
         let p = if is_close_to_int(p) {
             round_int(p, "label precision")?
         } else {
@@ -316,6 +317,20 @@ mod tests {
         assert_eq!(
             labels(&minor, &[0.2, 0.3]),
             [r"$\mathdefault{0.2}$", r"$\mathdefault{0.3}$"]
+        );
+    }
+
+    #[test]
+    fn ticks_fail_where_python_rounds_them() {
+        let f = LogitFormatter::new();
+        let ctx = TickContext::default();
+        assert_eq!(
+            f.format_ticks(&[f64::NAN], &ctx).err(),
+            Some(TickerError::NotAnInteger { infinite: false })
+        );
+        assert_eq!(
+            f.format_ticks(&[0.2, 0.2], &ctx).err(),
+            Some(TickerError::NotAnInteger { infinite: true })
         );
     }
 

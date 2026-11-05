@@ -122,8 +122,9 @@ fn command_points(path: &Path) -> Vec<(Vec<Point>, PathCode)> {
 ///
 /// The path is walked with matplotlib's `iter_segments` defaults (default
 /// simplification settings). With `reorder_inout`, the part inside the
-/// region comes first. Fails if no segment end changes side or the
-/// crossing segment cannot be split.
+/// region comes first. Fails if no segment end changes side
+/// ([`BezierError::PathMissesRegion`]) or the crossing segment cannot be
+/// split.
 pub fn split_path_inout(
     path: &Path,
     inside: impl Fn(Point) -> bool,
@@ -149,7 +150,7 @@ pub fn split_path_inout(
         }
         previous = points;
     }
-    let (start, bezier) = crossing.ok_or(BezierError::NotIntersecting)?;
+    let (start, bezier) = crossing.ok_or(BezierError::PathMissesRegion)?;
     let (left, right) = split_bezier_intersecting_with_closedpath(&bezier, &inside, tolerance)?;
     let code = match left.len() {
         2 => PathCode::LineTo,
@@ -253,6 +254,11 @@ mod tests {
         assert!(inner.codes().is_none());
         assert!((outer.vertices()[0].x - 1.5).abs() < 0.01);
         assert_eq!(*outer.vertices().last().expect("non-empty"), p(3.0, 0.0));
+        let far = Path::polyline(vec![p(5.0, 5.0), p(6.0, 6.0)]);
+        assert_eq!(
+            split_path_inout(&far, inside_circle(p(0.0, 0.0), 1.0), 0.01, false),
+            Err(BezierError::PathMissesRegion)
+        );
     }
 
     #[test]

@@ -630,8 +630,14 @@ class Table(Artist):
         """Retrieve a custom cell from a given position."""
         cell = self._cells.get(position)
         if cell is None:
-            row, col = position
-            if not _table.has_cell(self._native, int(row), int(col)):
+            # matplotlib looks the position up in a dict of its cells.
+            try:
+                row, col = position
+                found = ((int(row), int(col)) == (row, col)
+                         and _table.has_cell(self._native, int(row), int(col)))
+            except (TypeError, ValueError):
+                found = False
+            if not found:
                 raise KeyError(position)
             cell = self._cells[position] = Cell._of(self, (row, col))
         return cell

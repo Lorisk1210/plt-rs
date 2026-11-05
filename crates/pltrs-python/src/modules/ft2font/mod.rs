@@ -12,24 +12,44 @@ mod glyphs;
 mod layout;
 mod tables;
 
+use std::cell::OnceCell;
 use std::rc::Rc;
 
-use pltrs_font::{Face, FontError, GlyphId, Hinting, KerningMode, Size, face_count};
+use pltrs_font::{Autohinter, Face, FontError, GlyphId, Hinting, KerningMode, Size, face_count};
 
 use crate::binding::prelude::*;
 
 /// The bytes of a font file and the face of it in use.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct FaceData {
     data: Rc<[u8]>,
     index: u32,
+    /// The autohinter's analysis of the face, made the first time one of
+    /// its glyphs is autohinted and kept, as `FreeType` keeps it with the
+    /// face.
+    autohinter: OnceCell<Autohinter>,
 }
 
 impl FaceData {
+    /// Face `index` of the font file `data`.
+    fn new(data: Rc<[u8]>, index: u32) -> Self {
+        Self {
+            data,
+            index,
+            autohinter: OnceCell::new(),
+        }
+    }
+
     /// The face, with no character map selected beyond `FreeType`'s
     /// default.
     fn face(&self) -> PyResult<Face<'_>> {
         Face::parse(&self.data, self.index).map_err(|err| ft_error("load face", &err))
+    }
+
+    /// The autohinter's analysis of `face`, this face (see
+    /// [`autohinter`](Self::autohinter)).
+    fn autohinter(&self, face: &Face<'_>) -> &Autohinter {
+        self.autohinter.get_or_init(|| Autohinter::new(face))
     }
 }
 
@@ -140,16 +160,13 @@ fn open(data: Bytes, face_index: i64, fallbacks: Vec<(Bytes, u32)>) -> PyResult<
             "In FT2Font: Can not load face (invalid argument; error code 0x6)",
         ));
     }
-    let face = FaceData { data, index };
+    let face = FaceData::new(data, index);
     face.face()?;
     Ok(Ft2Font {
         face,
         fallbacks: fallbacks
             .into_iter()
-            .map(|(data, index)| FaceData {
-                data: data.0.into(),
-                index,
-            })
+            .map(|(data, index)| FaceData::new(data.0.into(), index))
             .collect(),
         charmap: None,
         size: None,
@@ -168,10 +185,7 @@ fn subset_font(
     face_index: u32,
     glyphs: Vec<u16>,
 ) -> PyResult<(Bytes, Vec<(u16, u16)>)> {
-    let face = FaceData {
-        data: data.0.into(),
-        index: face_index,
-    };
+    let face = FaceData::new(data.0.into(), face_index);
     let subset = pltrs_font::subset(&face.face()?, glyphs.into_iter().map(GlyphId))
         .map_err(|err| ft_error("subset font", &err))?;
     let kept = (0..)

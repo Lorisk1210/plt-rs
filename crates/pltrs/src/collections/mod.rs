@@ -580,6 +580,10 @@ impl Artist for CollectionArtist {
                 DrawErrorKind::InvalidType,
                 "Object of type 'Path' is not an instance of 'sequence'",
             );
+        } else if let Some(problem) = self.ellipses.as_ref().and_then(Ellipses::broadcast_problem) {
+            // matplotlib's `EllipseCollection.draw` makes their transforms
+            // first, with numpy.
+            ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         } else if let Some(problem) = self.depth_sorted.as_ref().and_then(|s| s.problem) {
             ctx.report_kind(self.base.id(), problem.kind(), problem);
         } else if let Some(Err(problem)) = self.mapping.as_ref().map(|m| &m.normalized) {

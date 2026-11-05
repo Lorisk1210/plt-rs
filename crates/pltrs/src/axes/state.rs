@@ -429,19 +429,22 @@ impl AxesState {
 
     /// The limits `(v0, v1)` become once validated for one axis
     /// (matplotlib's `Axis._set_lim`): non-positive limits of a log axis
-    /// keep the current value, singular intervals are expanded by the
-    /// major locator, and the scale clamps the range; `v0 > v1` keeps the
-    /// axis inverted.
+    /// keep the current value, with matplotlib's warning for each,
+    /// singular intervals are expanded by the major locator, and the scale
+    /// clamps the range; `v0 > v1` keeps the axis inverted.
     pub(crate) fn validated_limits(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
         let axis = self.axis(name);
         let (mut v0, mut v1) = (v0, v1);
         if axis.scale().name() == ScaleName::Log && (v0 <= 0.0 || v1 <= 0.0) {
             let (old0, old1) = self.view_interval(name);
-            if v0 <= 0.0 {
-                v0 = old0;
-            }
-            if v1 <= 0.0 {
-                v1 = old1;
+            for (limit, old) in [(&mut v0, old0), (&mut v1, old1)] {
+                if *limit <= 0.0 {
+                    crate::warnings::warn(&format!(
+                        "Attempt to set non-positive {}lim on a log-scaled axis will be ignored.",
+                        name.name()
+                    ));
+                    *limit = old;
+                }
             }
         }
         let reverse = v0 > v1;

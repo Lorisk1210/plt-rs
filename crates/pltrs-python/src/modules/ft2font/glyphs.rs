@@ -6,12 +6,11 @@
 
 use pltrs_core::PathCode;
 use pltrs_font::{
-    AutohintTarget, Autohinter, Face, GlyphId, HintedGlyph, Hinter, Hinting, HintingInstance, Rect,
-    Size,
+    AutohintTarget, Face, GlyphId, HintedGlyph, Hinter, Hinting, HintingInstance, Rect, Size,
 };
 use pltrs_text::PathSink;
 
-use super::{Ft2Font, ft_error};
+use super::{FaceData, Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
 /// `FT_LOAD_NO_HINTING`.
@@ -92,30 +91,45 @@ impl Ft2Font {
         }
     }
 
+    /// The data of the face `index` of the font's chain.
+    pub(super) fn chain_data(&self, index: usize) -> &FaceData {
+        match index {
+            0 => &self.face,
+            _ => &self.fallbacks[index - 1],
+        }
+    }
+
+    /// `glyph` of `face`, the face `index` of the font's chain, loaded at
+    /// `size` as `FT_Load_Glyph` loads it for `hinting`: grid-fitted, or
+    /// `None` when `FreeType` leaves it unhinted. The autohinter analyses
+    /// each face once, as `FreeType` does.
+    pub(super) fn load_hinted(
+        &self,
+        index: usize,
+        face: &Face<'_>,
+        size: &Size,
+        glyph: GlyphId,
+        hinting: Hinting,
+    ) -> PyResult<Option<HintedGlyph>> {
+        let loaded = match hinting.hinter(face, true) {
+            Hinter::Bytecode => HintingInstance::new(face, size).load_glyph(face, glyph),
+            Hinter::Autohinter => self.chain_data(index).autohinter(face).load_glyph(
+                face,
+                size,
+                glyph,
+                AutohintTarget::Normal,
+            ),
+            Hinter::Unhinted => return Ok(None),
+        };
+        loaded.map(Some).map_err(|err| ft_error("load glyph", &err))
+    }
+
     /// Every face of the chain.
     pub(super) fn chain_faces(&self) -> PyResult<Vec<Face<'_>>> {
         (0..=self.fallbacks.len())
             .map(|index| self.chain_face(index))
             .collect()
     }
-}
-
-/// `glyph` of `face` loaded as `FT_Load_Glyph` loads it for `hinting`:
-/// grid-fitted, or `None` when `FreeType` leaves it unhinted.
-pub(super) fn load_hinted(
-    face: &Face<'_>,
-    size: &Size,
-    glyph: GlyphId,
-    hinting: Hinting,
-) -> PyResult<Option<HintedGlyph>> {
-    let loaded = match hinting.hinter(face, true) {
-        Hinter::Bytecode => HintingInstance::new(face, size).load_glyph(face, glyph),
-        Hinter::Autohinter => {
-            Autohinter::new(face).load_glyph(face, size, glyph, AutohintTarget::Normal)
-        }
-        Hinter::Unhinted => return Ok(None),
-    };
-    loaded.map(Some).map_err(|err| ft_error("load glyph", &err))
 }
 
 /// A glyph's metrics as `Glyph` reports them: `((width, height,
@@ -145,9 +159,16 @@ pub(super) fn control_box(
     }
 }
 
-/// The metrics `FreeType` gives `glyph` loaded for `hinting`.
-fn metrics(face: &Face<'_>, size: &Size, glyph: GlyphId, hinting: Hinting) -> PyResult<Metrics> {
-    let hinted = load_hinted(face, size, glyph, hinting)?;
+/// The metrics `FreeType` gives `glyph` of `face`, the face `index` of
+/// `font`'s chain, loaded for `hinting`.
+fn metrics(
+    font: &Ft2Font,
+    (index, face): (usize, &Face<'_>),
+    size: &Size,
+    glyph: GlyphId,
+    hinting: Hinting,
+) -> PyResult<Metrics> {
+    let hinted = font.load_hinted(index, face, size, glyph, hinting)?;
     let cbox = control_box(face, size, glyph, hinted.as_ref())?.unwrap_or_default();
     let (x0, y0, x1, y1) = (
         i64::from(cbox.x_min),
@@ -227,7 +248,13 @@ fn load(
     let hinting = font.hinting(flags);
     let metrics = {
         let face = font.chain_face(face_index)?;
-        let mut metrics = metrics(&face, &font.size_of(&face), glyph, hinting)?;
+        let mut metrics = metrics(
+            font,
+            (face_index, &face),
+            &font.size_of(&face),
+            glyph,
+            hinting,
+        )?;
         metrics.1.1 = font.linear_advance(&face, glyph);
         metrics
     };
@@ -300,7 +327,7 @@ fn get_path(font: Native<Ft2Font>) -> PyResult<(NdArray, NdArray<u8>)> {
     let face = font.chain_face(glyph.face)?;
     let size = font.size_of(&face);
     let mut sink = PathSink::default();
-    match load_hinted(&face, &size, glyph.glyph, glyph.hinting)? {
+    match font.load_hinted(glyph.face, &face, &size, glyph.glyph, glyph.hinting)? {
         Some(hinted) => hinted.outline(&mut sink),
         None => size
             .outline(&face, glyph.glyph, &mut sink)

@@ -177,6 +177,11 @@ def _native_kwargs(kwargs):
     to the caller, the properties of every artist as
     `._artist_kwargs.native_artist_kwargs` makes them.
     """
+    from . import colors as mcolors
+    for name in ("color", "gapcolor"):
+        if kwargs.get(name) is not None:
+            # As matplotlib's `set_color` and `set_gapcolor` check them.
+            mcolors._check_color_like(color=kwargs[name])
     kwargs = native_artist_kwargs(kwargs)
     if "transform" in kwargs:
         kwargs["transform"] = _live_transforms.to_native(kwargs["transform"])

@@ -18,13 +18,18 @@ from ._helpers import wrap
 from .scatter import _mapping
 
 
-def _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq):
+def _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq,
+           mode=None):
     """The options of a Welch estimate of *x*, defaulted and checked as
-    ``mlab._spectral_helper`` does them, in native form."""
+    ``mlab._spectral_helper`` does them (with `~.Axes.specgram`'s *mode*,
+    None for the other spectra), in native form."""
     NFFT = 256 if NFFT is None else NFFT
     noverlap = 0 if noverlap is None else noverlap
     if not (0 <= noverlap < NFFT):
         raise ValueError('noverlap must be less than NFFT')
+    if mode is not None:
+        _api.check_in_list(['default', 'psd', 'complex', 'magnitude', 'angle', 'phase'],
+                           mode=mode)
     sides = 'default' if sides is None else sides
     _api.check_in_list(['default', 'onesided', 'twosided'], sides=sides)
     return {
@@ -97,7 +102,8 @@ class SpectralMixin:
         freqs = freqs + Fc
         if return_line is None or not return_line:
             return pxx, freqs
-        return pxx, freqs, _last_line(self)
+        # The list `plot` returns, as matplotlib returns it.
+        return pxx, freqs, [_last_line(self)]
 
     @_preprocess_data(replace_names=["x", "y"], label_namer="y")
     def csd(self, x, y, NFFT=None, Fs=None, Fc=None, detrend=None,
@@ -132,7 +138,8 @@ class SpectralMixin:
         pxy = re + 1j * im
         if return_line is None or not return_line:
             return pxy, freqs
-        return pxy, freqs, _last_line(self)
+        # The list `plot` returns, as matplotlib returns it.
+        return pxy, freqs, [_last_line(self)]
 
     @_preprocess_data(replace_names=["x", "y"])
     def cohere(self, x, y, NFFT=256, Fs=2, Fc=0, detrend=mlab.detrend_none,
@@ -165,6 +172,10 @@ class SpectralMixin:
         x = _floats(x)
         sides = 'default' if sides is None else sides
         _api.check_in_list(['default', 'onesided', 'twosided'], sides=sides)
+        # matplotlib checks the scale once the spectrum is computed.
+        scale = _api.getitem_checked(
+            {None: 'linear', 'default': 'linear', 'linear': 'linear', 'dB': 'dB'},
+            scale=scale)
         Fc = 0 if Fc is None else Fc
         spectrum, freqs, line = _plotting.single_spectrum(
             self._native, kind, x,
@@ -194,9 +205,6 @@ class SpectralMixin:
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
-        if scale is None or scale == 'default':
-            scale = 'linear'
-        _api.check_in_list(['linear', 'dB'], scale=scale)
         return self._single_spectrum("magnitude", x, Fs, Fc, window, pad_to, sides,
                                      scale, kwargs)
 
@@ -282,25 +290,26 @@ class SpectralMixin:
             Fs = 2  # same default as in mlab._spectral_helper()
         if mode == 'complex':
             raise ValueError('Cannot plot a complex specgram')
-        mode = 'psd' if mode in (None, 'default') else mode
-        _api.check_in_list(['psd', 'magnitude', 'angle', 'phase'], mode=mode)
         if scale is None or scale == 'default':
-            scale = None
-        else:
-            _api.check_in_list(['linear', 'dB'], scale=scale)
+            scale = 'linear' if mode in ['angle', 'phase'] else 'dB'
+        elif mode in ['angle', 'phase'] and scale == 'dB':
+            raise ValueError('Cannot use dB scale with angle or phase mode')
+        welch = _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                       scale_by_freq, mode='default' if mode is None else mode)
+        mode = 'psd' if mode in (None, 'default') else mode
+        if scale not in ('linear', 'dB'):
+            raise ValueError(f'Unknown scale {scale!r}')
         if 'origin' in kwargs:
             raise _api.kwarg_error("specgram", "origin")
         made, mapping = _mapping(cmap, kwargs.pop('norm', None), vmin, vmax,
                                  kwargs.pop('colorizer', None))
         spec, freqs, t, native = _plotting.specgram(
-            self._native, _floats(x),
-            (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
-                    scale_by_freq), float(Fc)),
+            self._native, _floats(x), (welch, float(Fc)),
             (mode, scale), None if xextent is None else tuple(map(float, xextent)),
             mapping)
         im = wrap(self, native, mimage.AxesImage)
         shown = spec
-        if (scale or ('linear' if mode in ('angle', 'phase') else 'dB')) == 'dB':
+        if scale == 'dB':
             shown = (10 if mode == 'psd' else 20) * np.log10(spec)
         shown = np.flipud(shown)
         made._scale_norm(None, None, None, shown)
@@ -358,6 +367,9 @@ class SpectralMixin:
         Nx = len(x)
         if Nx != len(y):
             raise ValueError('x and y must be equal length')
+        if not callable(detrend):
+            # matplotlib calls *detrend* on both series first.
+            raise TypeError(f"'{type(detrend).__name__}' object is not callable")
         if maxlags is None:
             maxlags = Nx - 1
         if maxlags >= Nx or maxlags < 1:

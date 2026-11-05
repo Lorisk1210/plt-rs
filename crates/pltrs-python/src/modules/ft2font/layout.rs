@@ -4,7 +4,7 @@
 
 use pltrs_font::{Face, FontChain, Hinting, ShapeOptions, TextLayout};
 
-use super::glyphs::{Loaded, TextBox, control_box, load_hinted};
+use super::glyphs::{Loaded, TextBox, control_box};
 use super::{Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
@@ -45,7 +45,11 @@ fn chain_layout(
     options: &ShapeOptions,
     hinting: Hinting,
 ) -> PyResult<TextLayout> {
-    let chain = FontChain::new(faces.to_vec());
+    // The analyses of the faces the font autohinted glyphs of so far.
+    let analyses = (0..faces.len())
+        .map(|index| font.chain_data(index).autohinter.get())
+        .collect();
+    let chain = FontChain::new(faces.to_vec()).with_autohinters(analyses);
     let layout = if font.unscaled() {
         chain.layout_unscaled(text, options)
     } else {
@@ -77,7 +81,7 @@ fn set_text(
     for glyph in &layout.glyphs {
         let face = &faces[glyph.face];
         let size = font.size_of(face);
-        let hinted = load_hinted(face, &size, glyph.glyph_id, hinting)?;
+        let hinted = font.load_hinted(glyph.face, face, &size, glyph.glyph_id, hinting)?;
         let cbox = control_box(face, &size, glyph.glyph_id, hinted.as_ref())?;
         let pen = (i64::from(glyph.x), i64::from(glyph.y));
         // A glyph without an outline stays at the origin, which moving

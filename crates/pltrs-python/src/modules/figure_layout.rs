@@ -187,6 +187,9 @@ fn figure_tightbbox(figure: Figure) -> PyResult<Option<(f64, f64, f64, f64)>> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::layout::failures::set_failures(CallbackFailures);
+    // matplotlib's draw ends at its first exception, which is the one
+    // raised (see `From<DrawErrors> for PyErr`).
+    pltrs::artist::set_draws_stop_at_first_problem(true);
     module.add("tight_layout", tight_layout)?;
     module.add("grid_tight_layout", grid_tight_layout)?;
     module.add("align", align)?;

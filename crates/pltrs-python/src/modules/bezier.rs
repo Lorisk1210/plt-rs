@@ -8,9 +8,8 @@
 use pltrs_core::Point;
 use pltrs_core::bezier::{
     BezierError, BezierSegment, Direction, Parallel, check_if_parallel,
-    find_bezier_t_intersecting_with_closedpath, find_control_points, get_cos_sin, get_intersection,
-    get_normal_points, get_parallels, make_wedged_bezier2, real_roots_in_01,
-    split_bezier_intersecting_with_closedpath, split_path_inout,
+    find_bezier_t_intersecting_with_closedpath, get_cos_sin, get_intersection, get_parallels,
+    real_roots_in_01, split_bezier_intersecting_with_closedpath, split_path_inout,
 };
 
 use super::path::{PathArrays, PyPath, path_arrays};
@@ -210,35 +209,9 @@ fn intersection(
     Ok((p.x, p.y))
 }
 
-/// `get_normal_points(cx, cy, cos_t, sin_t, length)`.
-fn normal_points(
-    c: (f64, f64),
-    (cos, sin): (f64, f64),
-    length: f64,
-) -> PyResult<((f64, f64), (f64, f64))> {
-    let (a, b) = get_normal_points(Point::new(c.0, c.1), Direction { cos, sin }, length);
-    Ok(((a.x, a.y), (b.x, b.y)))
-}
-
-/// `find_control_points(c1x, c1y, mmx, mmy, c2x, c2y)`.
-fn control_points(c1: (f64, f64), mid: (f64, f64), c2: (f64, f64)) -> PyResult<Quadratic> {
-    let [c1, mid, c2] = quadratic((c1, mid, c2));
-    Ok(pairs(find_control_points(c1, mid, c2)))
-}
-
 /// `get_parallels(bezier2, width)`.
 fn parallels(bezier2: Quadratic, width: f64) -> PyResult<(Quadratic, Quadratic)> {
     let (left, right) = get_parallels(quadratic(bezier2), width);
-    Ok((pairs(left), pairs(right)))
-}
-
-/// `make_wedged_bezier2(bezier2, width, w1, wm, w2)`.
-fn wedged(
-    bezier2: Quadratic,
-    width: f64,
-    (w1, wm, w2): (f64, f64, f64),
-) -> PyResult<(Quadratic, Quadratic)> {
-    let (left, right) = make_wedged_bezier2(quadratic(bezier2), width, w1, wm, w2);
     Ok((pairs(left), pairs(right)))
 }
 
@@ -257,8 +230,5 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("cos_sin", cos_sin)?;
     module.add("parallel", parallel)?;
     module.add("intersection", intersection)?;
-    module.add("normal_points", normal_points)?;
-    module.add("control_points", control_points)?;
-    module.add("parallels", parallels)?;
-    module.add("wedged", wedged)
+    module.add("parallels", parallels)
 }

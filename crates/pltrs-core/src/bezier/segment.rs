@@ -15,6 +15,9 @@ pub enum BezierError {
     /// Both ends of the curve lie on the same side of the closed path
     /// (matplotlib's `NonIntersectingPathException`).
     NotIntersecting,
+    /// No segment of a path crosses the region's boundary (matplotlib's
+    /// `split_path_inout` raises a plain `ValueError` for it).
+    PathMissesRegion,
     /// The two lines are parallel, so they have no single intersection.
     ParallelLines,
 }
@@ -25,6 +28,7 @@ impl fmt::Display for BezierError {
             Self::Empty => "a Bézier segment needs at least one control point",
             Self::RaggedControlPoints => "all control points must have the same dimension",
             Self::NotIntersecting => "both points are on the same side of the closed path",
+            Self::PathMissesRegion => "The path does not intersect with the patch",
             Self::ParallelLines => "the lines do not intersect",
         })
     }

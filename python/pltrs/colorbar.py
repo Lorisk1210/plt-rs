@@ -688,7 +688,10 @@ class Colorbar:
         minor : boolean, default: False
             if True return the minor ticks.
         """
-        return _colorbar.get_ticks(self._native, bool(minor))
+        if minor:
+            return self.long_axis.get_minorticklocs()
+        else:
+            return self.long_axis.get_majorticklocs()
 
     def minorticks_on(self):
         """Turn on colorbar minor ticks."""

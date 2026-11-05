@@ -125,31 +125,62 @@ impl AxisHelper {
     /// The line and its coordinates (matplotlib's `get_line` and
     /// `get_line_transform`).
     pub(crate) fn line(&self, ctx: HelperContext<'_>) -> Result<(Path, Transform), String> {
+        self.line_with_grid(ctx)
+            .map(|(path, transform, _)| (path, transform))
+    }
+
+    /// [`line`](Self::line), with the grid of a curvilinear line of
+    /// constant coordinate it was computed from (matplotlib's `get_line`
+    /// computes it, `update_lim`, and the label is placed from it).
+    pub(crate) fn line_with_grid(
+        &self,
+        ctx: HelperContext<'_>,
+    ) -> Result<(Path, Transform, Option<AxisGrid>), String> {
         let along = |nth: AxisName, constant: f64| {
             Path::polyline(vec![to_xy(nth, 0.0, constant), to_xy(nth, 1.0, constant)])
         };
         Ok(match self {
-            Self::Fixed(side) | Self::CurveFixed { side, .. } => {
-                (along(side.axis(), edge(*side)), Transform::Axes(ctx.id))
-            }
+            Self::Fixed(side) | Self::CurveFixed { side, .. } => (
+                along(side.axis(), edge(*side)),
+                Transform::Axes(ctx.id),
+                None,
+            ),
             Self::Floating { nth, value } => {
                 let constant = data_to_axes(ctx.axes, other(*nth), *value);
-                (along(*nth, constant), Transform::Axes(ctx.id))
+                (along(*nth, constant), Transform::Axes(ctx.id), None)
             }
             Self::CurveFloating { grid, line } => {
-                let (_, points) = line
+                let (axis_grid, points) = line
                     .grid(grid.grid_finder(), ctx.axes.view_lim)
                     .map_err(|e| e.to_string())?;
-                (Path::polyline(points), Transform::Data(ctx.id))
+                (
+                    Path::polyline(points),
+                    Transform::Data(ctx.id),
+                    Some(axis_grid),
+                )
             }
             Self::FloatingFixed { grid, side } => {
                 let info = floating_info(grid, ctx)?;
                 (
                     Path::polyline(info.edge_line(*side)),
                     Transform::Data(ctx.id),
+                    None,
                 )
             }
         })
+    }
+
+    /// What matplotlib's `AxisArtist` computes when it is made
+    /// (`_init_line`, `get_line`): for a curvilinear line of constant
+    /// coordinate, the grid over the view (computed again only for other
+    /// limits) and the line.
+    pub(crate) fn init_line(&self, ctx: HelperContext<'_>) -> Result<(), String> {
+        if let Self::CurveFloating { grid, .. } = self {
+            // A grid that cannot be computed fails the draw instead.
+            let _ = grid.grid_finder().grid_info(ctx.axes.view_lim);
+            self.line_with_grid(ctx)?;
+        }
+        Ok(())
     }
 
     /// The coordinates of tick locations (matplotlib's
@@ -234,10 +265,13 @@ impl AxisHelper {
     /// Where the axis label goes in display pixels and the direction of
     /// the line there (matplotlib's `get_axislabel_pos_angle` through
     /// `get_axislabel_transform`); `None` for a floating line outside the
-    /// axes.
+    /// axes. A curvilinear line of constant coordinate is placed from
+    /// `line_grid`, the grid its line was computed from, when given
+    /// (matplotlib's `_grid_info`), else from its grid computed again.
     pub(crate) fn label_position(
         &self,
         ctx: HelperContext<'_>,
+        line_grid: Option<&AxisGrid>,
     ) -> Result<Option<(Point, f64)>, String> {
         let in_axes = |xy: Point, angle: f64| -> Result<Option<(Point, f64)>, String> {
             let axes = ctx.resolve(&Transform::Axes(ctx.id))?;
@@ -261,10 +295,15 @@ impl AxisHelper {
                 }
             }
             Self::CurveFloating { grid, line } => {
-                let (axis_grid, _) = line
-                    .grid(grid.grid_finder(), ctx.axes.view_lim)
-                    .map_err(|e| e.to_string())?;
-                curve_label(ctx, grid, axis_grid.extremes, *line)
+                let extremes = if let Some(axis_grid) = line_grid {
+                    axis_grid.extremes
+                } else {
+                    let (axis_grid, _) = line
+                        .grid(grid.grid_finder(), ctx.axes.view_lim)
+                        .map_err(|e| e.to_string())?;
+                    axis_grid.extremes
+                };
+                curve_label(ctx, grid, extremes, *line)
             }
             Self::FloatingFixed { grid, side } => {
                 let info = floating_info(grid, ctx)?;

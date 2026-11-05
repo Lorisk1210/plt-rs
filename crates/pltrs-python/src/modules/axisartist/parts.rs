@@ -109,8 +109,15 @@ fn helper_label_position(artist: AxisArtist) -> PyResult<Option<((f64, f64), f64
         .map(|(at, angle)| ((at.x, at.y), angle)))
 }
 
+/// What matplotlib's `AxisArtist` computes when it is made (`_init_line`).
+fn init_line(artist: AxisArtist) -> PyResult<()> {
+    artist.init_line();
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("init_line", init_line)?;
     module.add("ticklabel_extents", ticklabel_extents)?;
     module.add("ticklabel_metrics", ticklabel_metrics)?;
     module.add("set_ticklabel_direction", set_ticklabel_direction)?;

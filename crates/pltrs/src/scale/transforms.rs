@@ -512,14 +512,20 @@ impl AxisMap for FuncLogTransform {
         self.func.inverse(self.log.inverse(value))
     }
 
+    /// The function handed the values as a column, then the logarithm:
+    /// matplotlib's composite of the two maps its values through the
+    /// function's `transform` (`_a.transform(values)`), which shapes them
+    /// so.
     fn forward_all(&self, values: &mut [f64]) {
-        self.func.forward_all(values);
+        self.func.forward_column(values);
         self.log.forward_all(values);
     }
 
+    /// The inverse of the logarithm, then of the function, handed the
+    /// values as a column (see [`forward_all`](Self::forward_all)).
     fn inverse_all(&self, values: &mut [f64]) {
         self.log.inverse_all(values);
-        self.func.inverse_all(values);
+        self.func.inverse_column(values);
     }
 
     fn forward_column(&self, values: &mut [f64]) {

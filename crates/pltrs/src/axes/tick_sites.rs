@@ -13,7 +13,8 @@
 //!   every axes of its group (itself, its twins, its insets, the axes its
 //!   titles align with) whose decorations are on top, and for each title
 //!   with a text the y axis of each, to place the offset text.
-//! * `Axes.draw` places its titles, then draws its x axis and its y axis.
+//! * `Axes.draw` places its titles, then draws its children in z-order:
+//!   its x axis and its y axis, its lines, its spines, its child axes.
 //! * `Axes.get_tightbbox` measures its axes, places its titles, then
 //!   measures its spines, each updating the ticks of the axis registered
 //!   with it.
@@ -25,13 +26,23 @@
 //! figure applies the aspect of its axes (`_get_draw_artists`); where it
 //! is measured for a tight box, see `tight_bbox`.
 //!
-//! Every site does nothing for an axis the program does not tick, and the
-//! sites are only walked in figures with an updater.
+//! At each site the parts measured and drawn map their positions through
+//! the axes' transforms, which calls the program's scales (see
+//! `transform_sites`): `Axis.get_tightbbox` measures the tick labels of
+//! each sibling after updating its ticks, the spine's path, then the axis'
+//! own tick labels; `Axis.draw` measures its tick labels, draws its ticks,
+//! then places its label; a line maps its path unless it kept it, a spine
+//! its path.
+//!
+//! Every site does nothing for an axis the program does not tick or map,
+//! and the sites are only walked in figures with an updater.
 
+use super::paint::Item;
 use super::{AxesState, SpineAxis};
 use crate::artist::{Artist, ArtistId};
 use crate::figure::FigureState;
 use crate::layout::failures::{self, ErrorClass};
+use crate::lines::LineArtist;
 use crate::spines::{SpineArtist, SpineSide};
 use crate::ticker::AxisName;
 
@@ -42,6 +53,15 @@ fn rectilinear_spine_axis(side: SpineSide) -> AxisName {
         SpineSide::Left | SpineSide::Right => AxisName::Y,
         SpineSide::Bottom | SpineSide::Top => AxisName::X,
     }
+}
+
+/// Which of matplotlib's methods visits an axis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AxisVisit {
+    /// `Axis.get_tightbbox`.
+    Measured,
+    /// `Axis.draw`.
+    Drawn,
 }
 
 impl FigureState {
@@ -103,10 +123,21 @@ impl FigureState {
             .collect()
     }
 
-    /// `Axis.draw` or `Axis.get_tightbbox` of the shown axis `name` of
-    /// `axes`, as far as it ticks axes.
-    pub(crate) fn program_axis_measured(&mut self, axes: ArtistId, name: AxisName) {
+    /// `Axis.draw` or `Axis.get_tightbbox` (`visit`) of the shown axis
+    /// `name` of `axes`, as far as it ticks axes and maps through the
+    /// program's scales.
+    pub(crate) fn program_axis_visited(
+        &mut self,
+        axes: ArtistId,
+        name: AxisName,
+        visit: AxisVisit,
+    ) {
         self.update_program_ticks(axes, name);
+        self.native_ticks_as_updated(axes, name);
+        if visit == AxisVisit::Drawn {
+            self.program_label_extents(axes, name);
+            self.program_tick_draws(axes, name);
+        }
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
         };
@@ -116,17 +147,41 @@ impl FigureState {
             let siblings = self.label_siblings(axes, name);
             for sibling in siblings {
                 self.update_program_ticks(sibling, name);
+                self.native_ticks_as_updated(sibling, name);
+                self.program_label_extents(sibling, name);
             }
             // The spine named after the label's side, when the axes has
             // one.
             let spine = (self.spine_axes(axes).into_iter()).find(|spine| spine.name == side.name());
+            if let Some(id) = spine
+                .as_ref()
+                .and_then(|_| self.rectilinear_spine(axes, side))
+            {
+                self.program_spine_path(id, false);
+            }
             if let Some(registered) = spine.and_then(|spine| spine.axis)
                 && self.axis_shown(axes, registered)
             {
                 self.update_program_ticks(axes, registered);
             }
         }
+        if visit == AxisVisit::Measured {
+            self.program_label_extents(axes, name);
+        }
         self.update_program_offset(axes, name);
+    }
+
+    /// The spine on `side` of `axes` when it is rectilinear.
+    fn rectilinear_spine(&self, axes: ArtistId, side: SpineSide) -> Option<ArtistId> {
+        let state = self.store.get_as::<AxesState>(axes)?;
+        if !state.projection.is_rectilinear() {
+            return None;
+        }
+        (state.spines.iter().copied()).find(|&id| {
+            self.store
+                .get_as::<SpineArtist>(id)
+                .is_some_and(|s| s.side == side)
+        })
     }
 
     /// The axes whose `name` labels align with those of `axes`, itself
@@ -178,22 +233,23 @@ impl FigureState {
                 .get_as::<AxesState>(ax)
                 .is_some_and(|state| state.axis(AxisName::X).decorations_on_top());
             if on_top && self.axis_shown(ax, AxisName::X) {
-                self.program_axis_measured(ax, AxisName::X);
+                self.program_axis_visited(ax, AxisName::X, AxisVisit::Measured);
             }
         }
         for title in titles {
             if self.has_text(title) {
                 for &ax in &group {
                     if self.axis_shown(ax, AxisName::Y) {
-                        self.program_axis_measured(ax, AxisName::Y);
+                        self.program_axis_visited(ax, AxisName::Y, AxisVisit::Measured);
                     }
                 }
             }
         }
     }
 
-    /// `Axes.draw` of `axes` up to its artists, as far as it ticks axes:
-    /// the title position, then its axes.
+    /// `Axes.draw` of `axes`, as far as it ticks axes and maps through
+    /// the program's scales: the title position, then its children in
+    /// z-order (its axes, its lines, its spines, its child axes).
     pub(crate) fn program_axes_drawn(&mut self, axes: ArtistId) {
         if !self.ticks_by_program() || !self.drawn_by_figure(axes) {
             return;
@@ -203,13 +259,39 @@ impl FigureState {
         self.sync_secondary(axes);
         self.sync_secondary(axes);
         self.program_title_position(axes);
-        if self.axes_axis_on(axes) {
-            for name in [AxisName::X, AxisName::Y] {
-                if self.axis_shown(axes, name) {
-                    self.program_axis_measured(axes, name);
+        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+            return;
+        };
+        let items: Vec<Item> = (state.items(&self.store).into_iter())
+            .map(|(_, item)| item)
+            .filter(|item| !matches!(item, Item::Child(id) if self.skips_animated_in_axes(*id)))
+            .collect();
+        for item in items {
+            match item {
+                Item::Axis(owner, name) if owner == axes => {
+                    if self.axis_shown(axes, name) {
+                        self.program_axis_visited(axes, name, AxisVisit::Drawn);
+                    }
                 }
+                Item::Child(id) if self.store.get_as::<SpineArtist>(id).is_some() => {
+                    self.program_spine_path(id, true);
+                }
+                Item::Child(id) if self.store.get_as::<AxesState>(id).is_some() => {
+                    self.program_axes_drawn(id);
+                }
+                Item::Child(id) if self.store.get_as::<LineArtist>(id).is_some() => {
+                    self.program_line_drawn(axes, id);
+                }
+                Item::Axis(..) | Item::Child(_) | Item::Patch => {}
             }
         }
+    }
+
+    /// Whether `Axes.draw` leaves out its child `id` as animated (axes
+    /// draw their animated children only while the figure is saved).
+    fn skips_animated_in_axes(&self, id: ArtistId) -> bool {
+        let animated = self.store.get(id).is_some_and(|a| a.base().animated);
+        animated && !self.saving
     }
 
     /// `Axes.get_tightbbox` of `axes` (`for_layout_only` for a layout
@@ -240,12 +322,12 @@ impl FigureState {
                 });
                 if measured {
                     let failed_before = failures::failed();
-                    self.program_axis_measured(axes, name);
+                    self.program_axis_visited(axes, name, AxisVisit::Measured);
                     if for_layout_only
                         && !failed_before
                         && failures::pass_over(ErrorClass::TypeError)
                     {
-                        self.program_axis_measured(axes, name);
+                        self.program_axis_visited(axes, name, AxisVisit::Measured);
                         *in_full = true;
                     }
                 }
@@ -258,7 +340,14 @@ impl FigureState {
             .is_some_and(|state| state.decorations.framed());
         if framed && with_spines {
             for spine in self.spine_axes(axes) {
-                if let Some(name) = spine.axis.filter(|_| spine.shown)
+                if !spine.shown {
+                    continue;
+                }
+                let side = SpineSide::from_name(&spine.name);
+                if let Some(id) = side.and_then(|side| self.rectilinear_spine(axes, side)) {
+                    self.program_spine_path(id, false);
+                }
+                if let Some(name) = spine.axis
                     && self.axis_shown(axes, name)
                 {
                     self.update_program_ticks(axes, name);
@@ -308,7 +397,8 @@ impl FigureState {
     }
 
     /// `Figure.draw`'s draws of the axes `axes` (in drawing order),
-    /// `draws` times, as far as they tick axes.
+    /// `draws` times, as far as they tick axes; child axes are drawn by
+    /// the axes they are in.
     pub(crate) fn program_figure_drawn(&mut self, axes: &[ArtistId], draws: usize) {
         if !self.ticks_by_program() {
             return;
@@ -322,9 +412,22 @@ impl FigureState {
                 }
             }
             for &id in axes {
-                self.program_axes_drawn(id);
+                if !self.is_child_axes(id) {
+                    self.program_axes_drawn(id);
+                }
             }
         }
+    }
+
+    /// Whether `axes` is a child of another axes that draws it among its
+    /// children (an inset or secondary axis; not a parasite, which its
+    /// host draws otherwise).
+    fn is_child_axes(&self, axes: ArtistId) -> bool {
+        let parent = self.store.get(axes).and_then(|a| a.base().parent);
+        parent.is_some_and(|parent| {
+            self.store.get_as::<AxesState>(parent).is_some()
+                && !crate::axes_grid1::is_parasite(&self.store, axes)
+        })
     }
 }
 

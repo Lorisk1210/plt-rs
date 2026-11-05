@@ -379,9 +379,8 @@ impl FigureState {
 
     /// The part of [`prepare`](Self::prepare) for the 2-D `axes`, which
     /// returns whether it was laid out; an axes whose aspect fails is not
-    /// ticked (matplotlib's draw raises first). A secondary axis takes its
-    /// host's limits first (its host laid out before it). Prepared as it
-    /// is, the axes is ticked where it is now: matplotlib applies the
+    /// ticked (matplotlib's draw raises first). Prepared as it is, the
+    /// axes is ticked where it is now: matplotlib applies the
     /// aspect (and a secondary axis takes its host's limits) when it draws
     /// or measures the axes, not when it computes ticks between draws. A
     /// draw leaves the axes the program ticks to
@@ -391,11 +390,6 @@ impl FigureState {
             self.unstale_axes(id);
             true
         } else {
-            if matches!(preparation, Preparation::Drawing(_)) {
-                // `Figure._get_draw_artists` applies the aspect of every
-                // axes, its secondary axes after their host.
-                self.sync_secondary(id);
-            }
             self.lay_out_axes(id)
         };
         crate::polar::update_spine_visibility(self, id);
@@ -442,14 +436,25 @@ impl FigureState {
     /// [`prepare`](Self::prepare) for `preparation`, `draws` being how
     /// many draws the program saw since the last layout of a draw.
     fn prepare_with(&mut self, preparation: Preparation, draws: usize) {
+        // What the program's scales answered before stands for no part of
+        // this layout (see `transforms::program_calls`).
+        crate::transforms::program_calls::forget();
         let failed_before = crate::layout::failures::failed();
+        let axes = self.axes_ids();
+        if matches!(preparation, Preparation::Drawing(_)) {
+            // `Figure.draw` applies the aspect of every axes, its secondary
+            // axes after their host (`_get_draw_artists`), before its
+            // layout engine runs.
+            for &id in &axes {
+                self.sync_secondary(id);
+            }
+        }
         self.run_pending_layout();
         if matches!(preparation, Preparation::Drawing(_)) && !failed_before {
             // matplotlib's `Figure.draw` passes over a `ValueError` its
             // layout engine raised, and draws as the pass left the figure.
             crate::layout::failures::pass_over(crate::layout::failures::ErrorClass::ValueError);
         }
-        let axes = self.axes_ids();
         let laid_out: Vec<ArtistId> = (axes.iter().copied())
             .filter(|&id| self.prepare_axes(id, preparation))
             .collect();

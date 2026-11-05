@@ -19,7 +19,7 @@ use crate::transforms::unit_to_bbox;
 
 /// Something an axes draws in z-order.
 #[derive(Clone, Copy, Debug)]
-enum Item {
+pub(super) enum Item {
     /// A child artist.
     Child(ArtistId),
     /// The x or y axis of this axes or of one of its parasites.
@@ -70,7 +70,7 @@ impl AxesState {
     /// of every parasite (which matplotlib's `HostAxesBase.draw` appends to
     /// the plotted artists), spines, both axes, the centre, left and right
     /// titles, child axes, the legend.
-    fn items(&self, store: &ArtistStore) -> Vec<(f64, Item)> {
+    pub(super) fn items(&self, store: &ArtistStore) -> Vec<(f64, Item)> {
         let mut items: Vec<(f64, Item)> = self
             .plotted(store)
             .filter_map(|id| zordered(store, id))

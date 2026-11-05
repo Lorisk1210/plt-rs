@@ -13,8 +13,8 @@ import functools
 import numpy as np
 
 from . import (
-    _api, _artist_clipping, _program_classes, _tick_helpers, _values, cbook,
-    units as munits)
+    _api, _artist_clipping, _program_classes, _scale_calls, _tick_helpers,
+    _values, cbook, units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -810,8 +810,7 @@ class Axis(DrawnWith, Artist):
             scale = mscale.scale_factory(value, self, **kwargs)
         native = _native_scale_of(scale)
         if native is None:
-            transform = scale.get_transform()
-            inverse = transform.inverted()
+            calls = _scale_calls.ScaleCalls(scale, scale.get_transform())
             # The scale installs its tick helpers itself, as matplotlib's
             # do; one of the program's may keep the axis' (seaborn's
             # categorical scale keeps the category locator).
@@ -819,8 +818,7 @@ class Axis(DrawnWith, Artist):
                        self.get_major_formatter(), self.get_minor_formatter())
             # pltrs (Rust) hands the transforms arrays, as matplotlib does.
             _native_scale.set_python_scale(
-                *self._args(), scale.name,
-                (transform.transform, inverse.transform),
+                *self._args(), scale.name, (calls.forward, calls.inverse),
                 lambda vmin, vmax, minpos: tuple(
                     map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
             for setter, helper in zip(

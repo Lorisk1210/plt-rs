@@ -96,6 +96,7 @@ mod ticks;
 mod tight_bbox;
 mod title_position;
 mod titles;
+mod transform_sites;
 mod tripcolor;
 mod triplot;
 mod twins;

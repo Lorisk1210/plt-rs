@@ -120,6 +120,22 @@ impl AxisArtist {
         self.raw.with::<AxisArtistState, _>(f)
     }
 
+    /// What matplotlib's `AxisArtist` computes when it is made
+    /// (`_init_line`, `get_line`): for a curvilinear line of constant
+    /// coordinate, the grid over the axes' view limits (computed again
+    /// only for other limits) and the line, which call the program's
+    /// transforms of the grid.
+    pub fn init_line(&self) {
+        let axes = self.get(AxisArtistState::axes);
+        let cell = self.raw.figure_state();
+        crate::axes::Axes::from_raw(RawHandle::new(std::rc::Rc::clone(cell), axes)).unstale_view();
+        let state = cell.borrow();
+        if let Some(artist) = state.store.get_as::<AxisArtistState>(self.raw.id()) {
+            // A line that cannot be computed fails the draw instead.
+            let _ = artist.init_line(LayoutContext::new(&state));
+        }
+    }
+
     /// Its key in the axis dictionary.
     pub fn name(&self) -> String {
         self.get(|state| state.name.clone())

@@ -7,6 +7,7 @@ use std::rc::Rc;
 use pltrs_core::{Affine2D, Bbox, Path, Point};
 
 use super::blend::blend_rows;
+use super::program_calls;
 
 /// An invertible map of one coordinate (e.g. a log scale).
 pub trait AxisMap: fmt::Debug + std::any::Any {
@@ -122,8 +123,8 @@ impl Step {
         match self {
             Self::Affine(affine) => affine.transform_point(p),
             Self::Separable(x, y) => Point::new(
-                x.as_ref().map_or(p.x, |m| m.forward(p.x)),
-                y.as_ref().map_or(p.y, |m| m.forward(p.y)),
+                x.as_ref().map_or(p.x, |m| program_calls::forward(m, p.x)),
+                y.as_ref().map_or(p.y, |m| program_calls::forward(m, p.y)),
             ),
             Self::Plane(map) => map.forward(p),
             Self::Blend(x, y) => Point::new(
@@ -144,10 +145,10 @@ impl Step {
             }
             Self::Separable(x, y) => {
                 if let Some(map) = x {
-                    map_coordinates(points, map.as_ref(), |p| &mut p.x);
+                    map_coordinates(points, map, |p| &mut p.x);
                 }
                 if let Some(map) = y {
-                    map_coordinates(points, map.as_ref(), |p| &mut p.y);
+                    map_coordinates(points, map, |p| &mut p.y);
                 }
             }
             Self::Plane(map) => map.forward_all(points),
@@ -172,6 +173,38 @@ impl Step {
             ),
             Self::Blend(x, y) => Point::new(x.non_affine_masked(p).x, y.non_affine_masked(p).y),
             Self::Affine(_) | Self::Plane(_) => self.apply(p),
+        }
+    }
+
+    /// Whether the step is `other`: the same maps, the same affine map.
+    fn same_as(&self, other: &Self) -> bool {
+        let same_map = |a: &Option<Rc<dyn AxisMap>>, b: &Option<Rc<dyn AxisMap>>| match (a, b) {
+            (Some(a), Some(b)) => std::ptr::addr_eq(Rc::as_ptr(a), Rc::as_ptr(b)),
+            (None, None) => true,
+            _ => false,
+        };
+        match (self, other) {
+            (Self::Affine(a), Self::Affine(b)) => a == b,
+            (Self::Separable(ax, ay), Self::Separable(bx, by)) => {
+                same_map(ax, bx) && same_map(ay, by)
+            }
+            (Self::Plane(a), Self::Plane(b)) => std::ptr::addr_eq(Rc::as_ptr(a), Rc::as_ptr(b)),
+            (Self::Blend(ax, ay), Self::Blend(bx, by)) => ax.same_steps(bx) && ay.same_steps(by),
+            _ => false,
+        }
+    }
+
+    /// Whether the step maps through a scale of the program's (a map of
+    /// one coordinate calling its code), and through no map of the plane
+    /// calling it.
+    fn scales_call_program(&self) -> Option<bool> {
+        match self {
+            Self::Affine(_) => Some(false),
+            Self::Separable(x, y) => {
+                Some([x, y].into_iter().flatten().any(|map| map.calls_program()))
+            }
+            Self::Plane(map) => (!map.calls_program()).then_some(false),
+            Self::Blend(x, y) => Some(x.program_scales()? | y.program_scales()?),
         }
     }
 
@@ -216,14 +249,15 @@ impl Step {
 }
 
 /// One coordinate (`coordinate` picks it) of every point of `points`
-/// through `map`, called once for all of them.
+/// through `map`, called once for all of them (see
+/// [`program_calls::forward_all`]).
 fn map_coordinates(
     points: &mut [Point],
-    map: &dyn AxisMap,
+    map: &Rc<dyn AxisMap>,
     coordinate: impl Fn(&mut Point) -> &mut f64,
 ) {
     let mut values: Vec<f64> = points.iter_mut().map(|p| *coordinate(p)).collect();
-    map.forward_all(&mut values);
+    program_calls::forward_all(map, &mut values);
     for (p, value) in points.iter_mut().zip(values) {
         *coordinate(p) = value;
     }
@@ -339,6 +373,33 @@ impl ResolvedTransform {
     /// ([`DrawContext::free_for`](crate::artist::DrawContext::free_for)).
     pub fn calls_program(&self) -> bool {
         self.steps.iter().any(Step::calls_program)
+    }
+
+    /// Whether the non-affine steps of the transform are those of `other`
+    /// (the same maps, the same affine maps between them), so that they
+    /// map every point alike, whatever affine map follows them: what
+    /// matplotlib's `TransformedPath` keeps stands until they change.
+    pub(crate) fn same_steps(&self, other: &Self) -> bool {
+        self.steps.len() == other.steps.len()
+            && (self.steps.iter().zip(&other.steps)).all(|(a, b)| a.same_as(b))
+    }
+
+    /// Whether applying the transform runs code of the program's only in
+    /// scales of the program's (maps of one coordinate), not in maps of
+    /// the plane: a transform of the program's maps whole paths as
+    /// matplotlib's `TransformedPath` maps them itself, where scales are
+    /// called by the paths drawn through them.
+    pub(crate) fn only_scales_call_program(&self) -> bool {
+        self.program_scales().unwrap_or(false)
+    }
+
+    /// Whether applying the transform runs code of the program's in
+    /// scales of the program's (`Some(true)`), in none (`Some(false)`), or
+    /// in a map of the plane (`None`).
+    fn program_scales(&self) -> Option<bool> {
+        (self.steps.iter())
+            .map(Step::scales_call_program)
+            .try_fold(false, |any, step| Some(any | step?))
     }
 
     /// Whether the transform leaves every point where it is.

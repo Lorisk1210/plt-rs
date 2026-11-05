@@ -8,15 +8,21 @@
 
 use std::cell::RefCell;
 
-use pltrs_core::{Bbox, Point};
+use pltrs_core::{Affine2D, Bbox, Point};
 use pltrs_render::RgbaImage;
 
+use super::any::{ImageSettings, default_settings};
+use super::artist::fit_axes_to;
 use super::make::{RenderedImage, autoscale_unset, mapping_copy};
 use super::pcolor_image::cell_colors;
+use super::resample::Resampling;
 use super::shared::{
-    axes_image_contains, draw_rendered, grid_cell, grid_corners, grid_extent, grid_limits,
+    axes_image_contains, draw_rendered_at_alpha, grid_cell, grid_corners, grid_extent, grid_limits,
+    split_alpha,
 };
-use super::{Extent, ImageData, ImageError};
+use super::{
+    Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, MadeImage,
+};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
     TypedHandle,
@@ -38,26 +44,52 @@ pub enum NonUniformInterpolation {
 
 pltrs_core::archive_enum!(NonUniformInterpolation { Nearest, Bilinear });
 
+impl NonUniformInterpolation {
+    /// How an image interpolated as `interpolation` colours its pixels:
+    /// matplotlib's `NonUniformImage.make_image` takes the nearest centre
+    /// for `'nearest'` and blends bilinearly for any other.
+    fn of(interpolation: Interpolation) -> Self {
+        if interpolation == Interpolation::Nearest {
+            Self::Nearest
+        } else {
+            Self::Bilinear
+        }
+    }
+
+    /// The interpolation of this name.
+    fn interpolation(self) -> Interpolation {
+        match self {
+            Self::Nearest => Interpolation::Nearest,
+            Self::Bilinear => Interpolation::Bilinear,
+        }
+    }
+}
+
 /// State of an image with pixel centres on a rectilinear grid.
 #[derive(Clone, Debug)]
 pub(crate) struct NonUniformImageArtist {
     base: ArtistBase,
     data: ImageData,
     mappable: RefCell<ScalarMappable>,
-    interpolation: NonUniformInterpolation,
     /// Pixel centres along x, rounded to single precision.
     x: Vec<f64>,
     /// Pixel centres along y, rounded to single precision.
     y: Vec<f64>,
+    /// The resampling settings every image keeps; drawing reads only the
+    /// interpolation (matplotlib's `_ImageBase` attributes).
+    resampling: Resampling,
+    /// Whether data or colours would be resampled.
+    stage: InterpolationStage,
 }
 
 pltrs_core::archive_struct!(NonUniformImageArtist {
     base,
     data,
     mappable,
-    interpolation,
     x,
-    y
+    y,
+    resampling,
+    stage
 });
 
 impl NonUniformImageArtist {
@@ -77,13 +109,16 @@ impl NonUniformImageArtist {
         let (x, y) = centres(&data, x, y)?;
         let mut base = ArtistBase::with_zorder(0.0);
         base.mouseover = true;
+        let (mut resampling, stage) = default_settings(&crate::rc::params());
+        resampling.interpolation = interpolation.interpolation();
         Ok(Self {
             base,
             data,
             mappable: RefCell::new(mappable),
-            interpolation,
             x,
             y,
+            resampling,
+            stage,
         })
     }
 
@@ -92,10 +127,9 @@ impl NonUniformImageArtist {
     /// the grid at its centre in data coordinates.
     fn render(
         &self,
-        ctx: &DrawContext<'_>,
+        layout: LayoutContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
-        let layout = ctx.layout();
         let (Some(axes), Some(transform)) = (self.base.parent, self.base.transform.as_ref()) else {
             return Ok(None);
         };
@@ -114,7 +148,7 @@ impl NonUniformImageArtist {
         let colors = cell_colors(&self.data, &mut mappable);
         self.mappable.replace(mappable);
         let colors = colors?;
-        let data = match self.interpolation {
+        let data = match NonUniformInterpolation::of(self.resampling.interpolation) {
             NonUniformInterpolation::Nearest => {
                 let columns = nearest(&self.x, &x_centres);
                 let rows = nearest(&self.y, &y_centres);
@@ -253,6 +287,30 @@ fn blend(colors: &Grid<[u8; 4]>, row: &Tap, col: &Tap) -> [u8; 4] {
     })
 }
 
+impl ImageSettings for NonUniformImageArtist {
+    fn resampling(&self) -> &Resampling {
+        &self.resampling
+    }
+
+    fn resampling_mut(&mut self) -> &mut Resampling {
+        &mut self.resampling
+    }
+
+    fn stage(&self) -> InterpolationStage {
+        self.stage
+    }
+
+    fn set_stage(&mut self, stage: InterpolationStage) {
+        self.stage = stage;
+    }
+
+    /// A uniform opacity is drawn; one per pixel is not, as matplotlib's
+    /// renderers draw only the scalar alpha of non-uniform images.
+    fn set_alpha(&mut self, alpha: Option<ImageAlpha>) {
+        self.base.alpha = split_alpha(alpha).0;
+    }
+}
+
 impl Artist for NonUniformImageArtist {
     fn base(&self) -> &ArtistBase {
         &self.base
@@ -264,8 +322,8 @@ impl Artist for NonUniformImageArtist {
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let magnification = ctx.renderer().image_magnification();
-        let rendered = self.render(ctx, magnification);
-        draw_rendered(ctx, &self.base, rendered);
+        let rendered = self.render(ctx.layout(), magnification);
+        draw_rendered_at_alpha(ctx, &self.base, rendered);
     }
 
     /// The box between the first and last centres (the image's extent).
@@ -316,6 +374,28 @@ super::impl_mapping_changes!(NonUniformImage, NonUniformImageArtist);
 super::impl_color_mapped!(NonUniformImageArtist, data, mappable);
 
 impl NonUniformImage {
+    /// The image drawn into the axes box at `magnification` pixels per
+    /// display unit, as the figure is now (matplotlib's `make_image`): its
+    /// pixels, top row first, and the display position of their
+    /// bottom-left corner, mapped to the display as they are (the
+    /// identity); `None` outside an axes.
+    ///
+    /// # Errors
+    ///
+    /// When the image's colormap or norm cannot map its data.
+    pub fn make_image(&self, magnification: f64) -> Result<Option<MadeImage>, ImageError> {
+        let state = self.raw.figure_state().borrow();
+        let layout = LayoutContext::new(&state);
+        let rendered = self
+            .raw
+            .with::<NonUniformImageArtist, _>(|image| image.render(layout, magnification))?;
+        Ok(rendered.map(|image| MadeImage {
+            pixels: image.pixels,
+            origin: image.origin,
+            transform: Some(Affine2D::IDENTITY),
+        }))
+    }
+
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
     }
@@ -366,16 +446,27 @@ impl NonUniformImage {
         })
     }
 
+    /// Fits the image's axes to `extent` as
+    /// [`AxesImage::set_extent`](super::AxesImage::set_extent) does
+    /// (matplotlib's `NonUniformImage` inherits `set_extent`); the image
+    /// stays where its centres are, and its extent between them.
+    pub fn set_extent(&self, extent: Extent) -> &Self {
+        fit_axes_to(&self.raw, extent);
+        self
+    }
+
     /// How pixels between the centres are coloured.
     pub fn interpolation(&self) -> NonUniformInterpolation {
-        self.raw
-            .with::<NonUniformImageArtist, _>(|image| image.interpolation)
+        self.raw.with::<NonUniformImageArtist, _>(|image| {
+            NonUniformInterpolation::of(image.resampling.interpolation)
+        })
     }
 
     /// Changes how pixels between the centres are coloured.
     pub fn set_interpolation(&self, interpolation: NonUniformInterpolation) -> &Self {
-        self.raw
-            .with_mut::<NonUniformImageArtist, _>(|image| image.interpolation = interpolation);
+        self.raw.with_mut::<NonUniformImageArtist, _>(|image| {
+            image.resampling.interpolation = interpolation.interpolation();
+        });
         self
     }
 

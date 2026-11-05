@@ -8,6 +8,7 @@ step with its own (``_native.axes_grid1``).
 
 from pltrs import _api, _handles, cbook
 import pltrs.artist as martist
+import pltrs.axes as maxes
 import pltrs.transforms as mtransforms
 from pltrs._native import axes_grid1 as _axes_grid1
 from .mpl_axes import Axes
@@ -33,6 +34,13 @@ class ParasiteAxesBase:
         self.transAux = aux_transform
         self.set_viewlim_mode(viewlim_mode)
         kwargs.pop("frameon", None)
+        if not isinstance(self, maxes.Axes):
+            # Mixed into no Axes class: the next class's constructor makes
+            # the object, as in matplotlib (object's refuses the arguments).
+            kwargs["frameon"] = False
+            super().__init__(parent_axes.get_figure(root=False),
+                             parent_axes._position, **kwargs)
+            return
         native = self._parasite_native(parent_axes, aux_transform,
                                        viewlim_mode)
         _handles.adopt(self, native, parent_axes.figure)

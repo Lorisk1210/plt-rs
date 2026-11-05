@@ -17,7 +17,7 @@ use super::{Artist, ArtistId, ArtistLookup, FilteredGroupArtist, RawHandle};
 use crate::axes::AxesState;
 use crate::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use crate::axisartist::{AxisArtistState, AxisTextsState, TickMarksState};
-use crate::collections::{CollectionArtist, TriMeshArtist};
+use crate::collections::CollectionArtist;
 use crate::colorbar::ColorbarArtist;
 use crate::contour::ContourSetArtist;
 use crate::figure::{FigureCell, FigureFrame, FigureState};
@@ -49,7 +49,6 @@ pltrs_core::archive_kinds!(dyn Artist {
     "line" => LineArtist,
     "text" => TextArtist,
     "collection" => CollectionArtist,
-    "trimesh" => TriMeshArtist,
     "image" => AxesImageArtist,
     "pcolor-image" => PcolorImageArtist,
     "nonuniform-image" => NonUniformImageArtist,

@@ -22,7 +22,7 @@ from pltrs.path import Path
 from pltrs.transforms import Bbox, _interval_contains_close
 from pltrs._native import axisartist as _axisartist
 from ..axes_grid1 import mpl_axes
-from .axis_artist import AxisArtist
+from .axis_artist import AxisArtist, GridlinesCollection
 
 #: Names for axis artists made before an axes holds them under a key.
 _draft_names = (f"_pltrs_draft{n}" for n in itertools.count())
@@ -131,6 +131,9 @@ class _FloatingAxisArtistHelperBase(_AxisArtistHelperBase):
     def __init__(self, nth_coord, value):
         self._value = value
         super().__init__(nth_coord)
+
+    def get_line(self, axes):
+        raise RuntimeError("get_line method should be defined by the derived class")
 
     def _new_axis(self, axes, offset, axis_direction):
         """The native axis artist of *axes* along this line."""
@@ -249,6 +252,14 @@ class GridHelperBase:
         (with the hidden zero axes of `AxesZero` when *zero*)."""
         _axisartist.install(axes._native, zero)
 
+    def _update_for_served_axes(self):
+        """Update the grid for the limits of the axes the helper serves
+        (``update_lim``), as matplotlib's helpers do whenever they lay an
+        axis artist out: pltrs (Rust) lays them out without asking."""
+        axes = self.__dict__.get("_served_axes")
+        if axes is not None:
+            self.update_lim(axes)
+
     def _helper_of(self, axes, name):
         """The axis helper of the axis artist *name* pltrs (Rust) made."""
         if name in ("xzero", "yzero"):
@@ -285,14 +296,38 @@ class GridHelperRectlinear(GridHelperBase):
             axes, nth_coord, value, axis_direction)
         return AxisArtist(axes, helper, axis_direction=axis_direction)
 
+    def get_gridlines(self, which="major", axis="both"):
+        """
+        Return list of gridline coordinates in data coordinates.
 
-class _AxisDict(mpl_axes.Axes.AxisDict):
-    """The axis artists of an axes by name: holding one under a name makes
-    pltrs (Rust) draw it there, in place of the one held before."""
+        Parameters
+        ----------
+        which : {"both", "major", "minor"}
+        axis : {"both", "x", "y"}
+        """
+        _api.check_in_list(["both", "major", "minor"], which=which)
+        _api.check_in_list(["both", "x", "y"], axis=axis)
+        gridlines = []
 
-    def __setitem__(self, k, v):
-        _axisartist.assign(self.axes._native, k, v._native)
-        super().__setitem__(k, v)
+        if axis in ("both", "x"):
+            locs = []
+            y1, y2 = self.axes.get_ylim()
+            if which in ("both", "major"):
+                locs.extend(self.axes.xaxis.major.locator())
+            if which in ("both", "minor"):
+                locs.extend(self.axes.xaxis.minor.locator())
+            gridlines.extend([[x, x], [y1, y2]] for x in locs)
+
+        if axis in ("both", "y"):
+            x1, x2 = self.axes.get_xlim()
+            locs = []
+            if self.axes.yaxis._major_tick_kw["gridOn"]:
+                locs.extend(self.axes.yaxis.major.locator())
+            if self.axes.yaxis._minor_tick_kw["gridOn"]:
+                locs.extend(self.axes.yaxis.minor.locator())
+            gridlines.extend([[x1, x2], [y, y]] for y in locs)
+
+        return gridlines
 
 
 class Axes(maxes.Axes):
@@ -314,12 +349,16 @@ class Axes(maxes.Axes):
             self._axisline_on = True
             self._grid_helper = GridHelperRectlinear(self)
         self._grid_helper._install(self, self._zero_axes)
+        self._grid_helper._served_axes = self
         self._grid_on = False
         self._load_axislines()
 
     def _load_axislines(self):
-        """Hold the axis artists pltrs (Rust) made for the axes."""
-        self._axislines = _AxisDict(self)
+        """Hold the axis artists and the gridlines pltrs (Rust) made for
+        the axes."""
+        # Known to the figure, as one of the axes' children.
+        _gridlines_of(self)
+        self._axislines = mpl_axes.Axes.AxisDict(self)
         for name, native in _axisartist.axis_artists(self._native):
             helper = self._grid_helper._helper_of(self, name)
             direction = getattr(helper, "_axis_direction", name)
@@ -350,6 +389,21 @@ class Axes(maxes.Axes):
     @property
     def axis(self):
         return self._axislines
+
+    def _hold_axis_artist(self, name, artist):
+        """Have pltrs (Rust) draw *artist* as the axis artist *name*, in
+        place of the one held there (``ax.axis[name] = artist``)."""
+        _axisartist.assign(self._native, name, artist._native)
+
+    def get_children(self):
+        if self._axisline_on:
+            children = [*self._axislines.values(), self.gridlines]
+        else:
+            children = []
+        # pltrs (Rust) keeps the gridlines among the axes' own artists.
+        children.extend(child for child in super().get_children()
+                        if not isinstance(child, GridlinesCollection))
+        return children
 
     def clear(self):
         # docstring inherited
@@ -386,10 +440,7 @@ class Axes(maxes.Axes):
     def gridlines(self):
         """The `.GridlinesCollection` drawing the gridlines, None once
         removed."""
-        from .axis_artist import GridlinesCollection
-        native = _axisartist.gridlines(self._native)
-        return (None if native is None
-                else _handles.wrap(native, GridlinesCollection, self.figure))
+        return _gridlines_of(self)
 
     def new_fixed_axis(self, loc, offset=None):
         return self.get_grid_helper().new_fixed_axis(loc, offset=offset, axes=self)
@@ -397,6 +448,14 @@ class Axes(maxes.Axes):
     def new_floating_axis(self, nth_coord, value, axis_direction="bottom"):
         return self.get_grid_helper().new_floating_axis(
             nth_coord, value, axis_direction=axis_direction, axes=self)
+
+
+def _gridlines_of(axes):
+    """The `.GridlinesCollection` drawing the gridlines of *axes*, None once
+    removed."""
+    native = _axisartist.gridlines(axes._native)
+    return (None if native is None
+            else _handles.wrap(native, GridlinesCollection, axes.figure))
 
 
 class AxesZero(Axes):

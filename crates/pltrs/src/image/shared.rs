@@ -97,10 +97,34 @@ pub(crate) fn draw_rendered(
     base: &ArtistBase,
     rendered: Result<Option<RenderedImage>, ImageError>,
 ) {
+    send_rendered(ctx, base, rendered, None);
+}
+
+/// Sends a rendered image whose pixels carry none of the artist's opacity
+/// to the renderer under the artist's clipping, which applies the
+/// artist's uniform alpha (matplotlib's `_ImageBase.draw` sets
+/// `_get_scalar_alpha()` on the graphics context of images whose
+/// `make_image` does not apply it).
+pub(crate) fn draw_rendered_at_alpha(
+    ctx: &mut DrawContext<'_>,
+    base: &ArtistBase,
+    rendered: Result<Option<RenderedImage>, ImageError>,
+) {
+    send_rendered(ctx, base, rendered, base.alpha);
+}
+
+/// Sends a rendered image to the renderer under the artist's clipping, at
+/// opacity `alpha`.
+fn send_rendered(
+    ctx: &mut DrawContext<'_>,
+    base: &ArtistBase,
+    rendered: Result<Option<RenderedImage>, ImageError>,
+    alpha: Option<f64>,
+) {
     match rendered {
         Ok(Some(image)) => {
             let mut gc = ctx.base_gc(base);
-            gc.alpha = None;
+            gc.alpha = alpha;
             ctx.renderer()
                 .draw_image(&gc, image.origin, &image.pixels, None);
         }

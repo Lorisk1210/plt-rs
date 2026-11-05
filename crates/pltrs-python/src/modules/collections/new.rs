@@ -6,6 +6,7 @@
 use pltrs::collections::{Collection, CollectionProps, CollectionSpec, EllipseUnits, MeshShading};
 use pltrs::numeric::Grid;
 use pltrs::orientation::Orientation;
+use pltrs::tri::Triangulation;
 use pltrs_core::Point;
 
 use super::super::patches::collection_patches;
@@ -160,6 +161,14 @@ fn quad_mesh(coordinates: NdArray, gouraud: bool, antialiased: bool) -> PyResult
     ))
 }
 
+/// A loose triangle mesh over the unmasked triangles of `triangulation`
+/// (matplotlib's `TriMesh(triangulation)`).
+fn tri_mesh(triangulation: Native<Triangulation>) -> PyResult<Collection> {
+    Ok(Collection::loose(CollectionSpec::tri_mesh(
+        &triangulation.borrow(),
+    )))
+}
+
 /// Registers the constructors, as `new_<kind>`.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_line_collection", line_collection)?;
@@ -172,5 +181,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_regular_poly_collection", regular_poly_collection)?;
     module.add("new_ellipse_collection", ellipse_collection)?;
     module.add("new_quad_mesh", quad_mesh)?;
+    module.add("new_tri_mesh", tri_mesh)?;
     Ok(())
 }

@@ -82,6 +82,9 @@ pub(crate) struct AxisArtistState {
     /// measuring the artist places the label by it before laying the tick
     /// labels out again, so a first measurement leaves no gap.
     tick_labels_gap: Cell<f64>,
+    /// The gap the label was last placed with, in pixels (matplotlib's
+    /// `AxisLabel._external_pad`).
+    pub(crate) label_gap: Cell<f64>,
     rc: Rc<RcParams>,
 }
 
@@ -103,17 +106,28 @@ pltrs_core::archive_struct!(AxisArtistState {
     label,
     label_text,
     tick_labels_gap,
+    label_gap,
     rc
 });
 
-/// Which gap left by the tick labels places the label.
+/// Which gap left by the tick labels places the label, and which gaps a
+/// layout remembers, as matplotlib's callers of the parts' layout keep
+/// them (`TickLabels._axislabel_pad`, `AxisLabel._external_pad`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LabelGap {
-    /// The one the tick labels leave now, as drawing uses.
+    /// The one the tick labels leave now, as drawing uses; both are
+    /// remembered.
     Current,
     /// The one they left when last laid out, as matplotlib's
-    /// `AxisArtist.get_tightbbox` uses (it updates the label first).
+    /// `AxisArtist.get_tightbbox` uses (it updates the label first); both
+    /// are remembered.
     Previous,
+    /// The gap the tick labels leave now is remembered, the label's left
+    /// as it was (matplotlib's `TickLabels.get_window_extents`).
+    TickLabelsOnly,
+    /// The one the label was last placed with, remembering nothing
+    /// (matplotlib's `AxisLabel.get_window_extent`).
+    Kept,
 }
 
 /// The marks (locations and angles, unless hidden) and labels of one
@@ -187,6 +201,7 @@ impl AxisArtistState {
             label: LabelState::new(LabelKind::AxisLabel, direction, LABEL_PAD, label_font),
             label_text: None,
             tick_labels_gap: Cell::new(0.0),
+            label_gap: Cell::new(0.0),
             rc,
         };
         artist.set_axis_direction(direction);
@@ -311,15 +326,22 @@ impl AxisArtistState {
         } else {
             None
         };
-        let previous_gap = self.tick_labels_gap.replace(axislabel_pad);
-        if label_gap == LabelGap::Previous {
-            axislabel_pad = previous_gap;
-        }
-        if self.ticklabel_direction != self.axislabel_direction {
-            // The label faces away from the tick labels and clears only
-            // the inward ticks, measured in points as if pixels (like
-            // matplotlib).
-            axislabel_pad = self.major_ticks.inward().max(self.minor_ticks.inward());
+        if label_gap == LabelGap::Kept {
+            axislabel_pad = self.label_gap.get();
+        } else {
+            let previous_gap = self.tick_labels_gap.replace(axislabel_pad);
+            if label_gap == LabelGap::Previous {
+                axislabel_pad = previous_gap;
+            }
+            if self.ticklabel_direction != self.axislabel_direction {
+                // The label faces away from the tick labels and clears
+                // only the inward ticks, measured in points as if pixels
+                // (like matplotlib).
+                axislabel_pad = self.major_ticks.inward().max(self.minor_ticks.inward());
+            }
+            if label_gap != LabelGap::TickLabelsOnly {
+                self.label_gap.set(axislabel_pad);
+            }
         }
         Ok(Drawing {
             levels,
@@ -411,6 +433,29 @@ impl AxisArtistState {
         if !self.label.visible || text.is_empty() {
             return Ok(None);
         }
+        let (reference, radius) = self.label_placement(layout, ctx, axislabel_pad)?;
+        let style = self.label.text_style(&self.rc, &style_axis.label.color);
+        axis_label(
+            layout,
+            text,
+            reference,
+            radius,
+            &self.label,
+            &style,
+            &self.rc,
+        )
+        .map(Some)
+    }
+
+    /// Where the label goes, `axislabel_pad` pixels plus its pad away from
+    /// the line: its reference point in display pixels, the direction to
+    /// it in degrees, and its distance from the point in pixels.
+    pub(crate) fn label_placement(
+        &self,
+        layout: LayoutContext<'_>,
+        ctx: HelperContext<'_>,
+        axislabel_pad: f64,
+    ) -> Result<((Point, f64), f64), String> {
         // Without a position the label keeps matplotlib's initial one:
         // the origin of its coordinates, facing right.
         let (reference, ref_angle) = match self.helper.label_position(ctx)? {
@@ -419,17 +464,7 @@ impl AxisArtistState {
         };
         let offset = self.resolve(layout, Transform::Display)?;
         let radius = axislabel_pad + layout.points_to_pixels(self.label.pad);
-        let style = self.label.text_style(&self.rc, &style_axis.label.color);
-        axis_label(
-            layout,
-            text,
-            (offset.transform_point(reference), ref_angle),
-            radius,
-            &self.label,
-            &style,
-            &self.rc,
-        )
-        .map(Some)
+        Ok(((offset.transform_point(reference), ref_angle), radius))
     }
 
     /// The pen of the tick marks of `ticks`: their colour and width, or

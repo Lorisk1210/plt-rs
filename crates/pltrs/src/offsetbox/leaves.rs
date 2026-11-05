@@ -270,9 +270,17 @@ impl<A> AuxTransformBox<A> {
 
     /// matplotlib's `AuxTransformBox.get_bbox`: the size of the artists'
     /// extent, from the origin (nothing before the first measurement).
-    pub(super) fn bbox(&self) -> Bbox {
+    ///
+    /// # Errors
+    ///
+    /// [`OffsetBoxError::EmptyAuxBox`] for a box without artists, whose
+    /// extent matplotlib cannot unite.
+    pub(super) fn bbox(&self) -> Result<Bbox, OffsetBoxError> {
+        if self.artists.is_empty() {
+            return Err(OffsetBoxError::EmptyAuxBox);
+        }
         let extent = self.extent.unwrap_or(Bbox::from_bounds(0.0, 0.0, 0.0, 0.0));
-        Bbox::from_bounds(0.0, 0.0, extent.width(), extent.height())
+        Ok(Bbox::from_bounds(0.0, 0.0, extent.width(), extent.height()))
     }
 
     /// The artists placed with the box's origin at `offset`: the aux

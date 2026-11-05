@@ -226,6 +226,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         focal_length = cls._checked_focal_length(
             proj_type, kwargs.pop('focal_length', None))
         box_aspect = kwargs.pop('box_aspect', None)
+        if box_aspect is not None:
+            # Checked as matplotlib's `set_box_aspect` checks it.
+            box_aspect = np.asarray(box_aspect, dtype=float)
+            _api.check_shape((3,), aspect=box_aspect)
         computed_zorder = bool(kwargs.pop('computed_zorder', True))
         given_shares = (kwargs.pop('sharex', None), kwargs.pop('sharey', None),
                         kwargs.pop('sharez', None), kwargs.pop('shareview', None))
@@ -361,8 +365,16 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         support dates for ticks, and so this may not work as expected.
         """)
 
+    twinx = _api.unsupported_method()
+    twiny = _api.unsupported_method()
+    secondary_xaxis = _api.unsupported_method()
+    secondary_yaxis = _api.unsupported_method()
+
     _msg = "Use ax.set_xscale/set_yscale/set_zscale and ax.plot(...) instead."
+    semilogx = _api.unsupported_method(append_message=_msg)
+    semilogy = _api.unsupported_method(append_message=_msg)
     semilogz = _api.unsupported_method(append_message=_msg)
+    loglog = _api.unsupported_method(append_message=_msg)
 
     def convert_zunits(self, z):
         """
@@ -1441,7 +1453,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             Whether to hide the scatter points outside the axes view limits.
         """
         if not isinstance(col, art3d._Loose3D):
-            _api.check_in_list(self._axis_names, zdir=zdir)
             zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan)
             if isinstance(col, mcoll.PolyCollection):
                 art3d.poly_collection_2d_to_3d(col, zs=zs, zdir=zdir)
@@ -1496,7 +1507,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                 raise TypeError("plot() for multiple values for argument 'zs'")
         else:
             zs = kwargs.pop('zs', 0)
-        _api.check_in_list(self._axis_names, zdir=zdir)
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
         if len(args) > 1 or args and not isinstance(args[0], str):
@@ -1576,6 +1586,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         s = np.ma.ravel(s)
         xs, ys, zs, s, c, color = cbook.delete_masked_points(
             xs, ys, zs, s, c, kwargs.get('color', None))
+        # As the 2D `scatter` matplotlib's hands the sizes to checks them.
+        if not (np.issubdtype(s.dtype, np.floating)
+                or np.issubdtype(s.dtype, np.integer)):
+            raise ValueError(f"s must be float, but has type {s.dtype}")
         if kwargs.get("color") is not None:
             kwargs['color'] = color
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
@@ -1799,6 +1813,12 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
+        # matplotlib broadcasts the bars and takes their extent first, which
+        # no bars have.
+        anchors = np.broadcast_arrays(np.atleast_1d(x), y, z, dx, dy, dz)[0]
+        if anchors.size == 0:
+            raise ValueError("zero-size array to reduction operation minimum "
+                             "which has no identity")
         # The positional arguments go to the `.Poly3DCollection` after its
         # vertices: its *sizes*.
         if len(args) > 1:
@@ -1908,6 +1928,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         `.Poly3DCollection`
         """
         from pltrs.tri._triangulation import Triangulation
+        if color is not None:
+            # Read first, as matplotlib reads it (and refuses what is no
+            # colour with its message).
+            color = mcolors.to_rgba(color)
         tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
         try:
             z = kwargs.pop('Z')

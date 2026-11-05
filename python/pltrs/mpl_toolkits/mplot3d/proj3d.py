@@ -23,15 +23,19 @@ def world_transformation(xmin, xmax,
     Produce a matrix that scales homogeneous coords in the specified ranges
     to [0, 1], or [0, pb_aspect[i]] if the plotbox aspect ratio is specified.
     """
-    aspect = (1.0, 1.0, 1.0) if pb_aspect is None else _vec3(pb_aspect)
-    limits = tuple(float(v) for v in (xmin, xmax, ymin, ymax, zmin, zmax))
-    M = _mplot3d.world_transformation(limits, aspect)
-    # matplotlib negates the lower limits as given: an integer 0 has no
-    # negative zero.
-    for row, low in enumerate((xmin, ymin, zmin)):
-        if isinstance(low, (int, np.integer)) and low == 0:
-            M[row, 3] = 0.0
-    return M
+    dx = xmax - xmin
+    dy = ymax - ymin
+    dz = zmax - zmin
+    if pb_aspect is not None:
+        ax, ay, az = pb_aspect
+        dx /= ax
+        dy /= ay
+        dz /= az
+
+    return np.array([[1/dx,    0,    0, -xmin/dx],
+                     [   0, 1/dy,    0, -ymin/dy],
+                     [   0,    0, 1/dz, -zmin/dz],
+                     [   0,    0,    0,        1]])
 
 
 def _view_axes(E, R, V, roll):

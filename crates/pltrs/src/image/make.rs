@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use pltrs_core::{Affine2D, Bbox, Point};
 use pltrs_render::RgbaImage;
 
+use super::any::checked_filterrad;
 use super::resample::{PixelMap, Resampling};
 use super::shared::split_alpha;
 use super::stages::{data_stage, rgba_stage};
@@ -157,10 +158,7 @@ impl ImageCore {
     ) -> Result<(Self, Option<f64>), ImageError> {
         let data = data.into().normalized();
         let (interpolation, stage, origin) = rc_defaults(rc);
-        let filterrad = settings.filterrad.unwrap_or(4.0);
-        if filterrad.is_nan() || filterrad <= 0.0 {
-            return Err(ImageError::FilterRadius(filterrad));
-        }
+        let filterrad = checked_filterrad(settings.filterrad.unwrap_or(4.0))?;
         let resampling = Resampling {
             interpolation: settings.interpolation.unwrap_or(interpolation),
             resample: settings.resample,

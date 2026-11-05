@@ -215,6 +215,30 @@ impl AxisArtist {
         self.update(|state| state.axislabel_direction = direction)
     }
 
+    /// The side of the line the tick labels go (matplotlib's
+    /// `_ticklabel_add_angle`, 0 for [`LabelDirection::Plus`]).
+    ///
+    /// ```
+    /// use pltrs::axisartist::{AxisArtist, LabelDirection};
+    /// use pltrs::figure::Figure;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let left = AxisArtist::add_fixed(&ax, SpineSide::Left);
+    /// assert_eq!(left.ticklabel_direction(), LabelDirection::Minus);
+    /// left.set_ticklabel_direction(LabelDirection::Plus);
+    /// assert_eq!(left.ticklabel_direction(), LabelDirection::Plus);
+    /// assert_eq!(left.axislabel_direction(), LabelDirection::Minus);
+    /// ```
+    pub fn ticklabel_direction(&self) -> LabelDirection {
+        self.get(|state| state.ticklabel_direction)
+    }
+
+    /// The side of the line the label goes (matplotlib's
+    /// `_axislabel_add_angle`).
+    pub fn axislabel_direction(&self) -> LabelDirection {
+        self.get(|state| state.axislabel_direction)
+    }
+
     /// Moves the tick labels to the other side of the line, with the
     /// alignment of the opposite direction (matplotlib's
     /// `invert_ticklabel_direction`).

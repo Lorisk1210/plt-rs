@@ -777,7 +777,8 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
                     "You must provide facecolors, edgecolors, or both for "
                     "shade to work.")
         super().__init__([], *args, **kwargs)
-        _api.check_in_list(['average', 'min', 'max'], zsort=zsort)
+        if zsort not in self._zsort_functions:
+            raise KeyError(zsort)  # As matplotlib's `set_zsort` raises.
         self._verts3d_pending = faces
         self._zsort = zsort
         self._closed = closed

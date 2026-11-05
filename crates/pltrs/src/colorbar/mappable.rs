@@ -9,7 +9,7 @@ use pltrs_core::Rgba;
 use super::ColorbarError;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxesState, Tripcolor};
-use crate::collections::{Collection, CollectionArtist, TriMesh, TriMeshArtist};
+use crate::collections::{Collection, CollectionArtist, TriMesh};
 use crate::colorizer::{MappingChange, change_mapping};
 use crate::colors::{Extend, ScalarMappable, colormaps};
 use crate::contour::{ContourSet, ContourSetArtist};
@@ -176,8 +176,9 @@ impl MappableLink {
         let change = MappingChange::Clim(Some(vmin), Some(vmax));
         match self {
             Self::Image(_) => change_mapping::<AxesImageArtist>(&raw, change),
-            Self::Collection(_) => change_mapping::<CollectionArtist>(&raw, change),
-            Self::TriMesh(_) => change_mapping::<TriMeshArtist>(&raw, change),
+            Self::Collection(_) | Self::TriMesh(_) => {
+                change_mapping::<CollectionArtist>(&raw, change);
+            }
             Self::Contour(_) => change_mapping::<ContourSetArtist>(&raw, change),
         }
     }
@@ -201,7 +202,7 @@ impl MappableLink {
                 let image = artists.artist_as::<AxesImageArtist>(id)?;
                 plain(image.core.mappable.borrow().clone(), image.base().alpha)
             }
-            Self::Collection(id) => {
+            Self::Collection(id) | Self::TriMesh(id) => {
                 let collection = artists.artist_as::<CollectionArtist>(id)?;
                 let alpha = collection.base().alpha;
                 match &collection.mapping {
@@ -210,10 +211,6 @@ impl MappableLink {
                         .map_err(ColorbarError::from)
                         .and_then(|cmap| plain(ScalarMappable::new(cmap), alpha)),
                 }
-            }
-            Self::TriMesh(id) => {
-                let mesh = artists.artist_as::<TriMeshArtist>(id)?;
-                plain(mesh.mappable().clone(), mesh.base().alpha)
             }
             Self::Contour(id) => {
                 let state = &artists.artist_as::<ContourSetArtist>(id)?.state;

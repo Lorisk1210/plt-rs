@@ -201,9 +201,13 @@ impl Axes {
                         points: err.points,
                         triangles: tri.ntri(),
                     })?;
-                let base = mesh.artist.base_mut();
-                props.base.apply(base);
-                base.transform.get_or_insert_with(|| self.trans_data());
+                // A collection, styled as matplotlib's `tripcolor` styles its
+                // `TriMesh` (the line width of its graphics context too).
+                props.apply(&mut mesh.artist);
+                mesh.artist
+                    .base_mut()
+                    .transform
+                    .get_or_insert_with(|| self.trans_data());
                 Tripcolor::Gouraud(TriMesh::from_raw(self.add_unscaled(mesh.artist, tri)))
             }
             (TriShading::Flat, placement) => {

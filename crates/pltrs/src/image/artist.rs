@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path, Point};
 
+use super::any::checked_filterrad;
 use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::shared::{axes_image_contains, canvas_bbox, draw_rendered, split_alpha};
@@ -281,6 +282,15 @@ impl TypedHandle for AxesImage {
 
 super::impl_mapping_changes!(AxesImage, AxesImageArtist);
 
+/// Fits the axes holding the image `raw` to its new `extent` (see
+/// [`Axes::fit_image`]); an image in no axes moves no limits.
+pub(crate) fn fit_axes_to(raw: &RawHandle, extent: Extent) {
+    if let Some(axes) = raw.with_base(|base| base.parent) {
+        let figure = Rc::clone(raw.figure_state());
+        Axes::from_raw(RawHandle::new(figure, axes)).fit_image(raw, extent);
+    }
+}
+
 impl AxesImage {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
@@ -342,15 +352,8 @@ impl AxesImage {
     /// axes' data limits grow to include it and the view limits of the
     /// axes that autoscale become it.
     pub fn set_extent(&self, extent: Extent) -> &Self {
-        match self.raw.with_base(|base| base.parent) {
-            Some(axes) => {
-                let figure = Rc::clone(self.raw.figure_state());
-                Axes::from_raw(RawHandle::new(figure, axes)).fit_image(self, extent);
-            }
-            None => {
-                self.update(|image| image.extent = Some(extent));
-            }
-        }
+        self.update(|image| image.extent = Some(extent));
+        fit_axes_to(&self.raw, extent);
         self
     }
 
@@ -431,9 +434,7 @@ impl AxesImage {
     ///
     /// When the radius is not positive.
     pub fn set_filterrad(&self, radius: f64) -> Result<&Self, ImageError> {
-        if radius.is_nan() || radius <= 0.0 {
-            return Err(ImageError::FilterRadius(radius));
-        }
+        let radius = checked_filterrad(radius)?;
         Ok(self.update(|image| image.core.resampling.filterrad = radius))
     }
 

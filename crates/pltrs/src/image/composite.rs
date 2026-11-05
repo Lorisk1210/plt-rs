@@ -99,7 +99,7 @@ impl Compositable for PcolorImageArtist {
         ctx: &mut DrawContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
-        self.render(ctx, magnification)
+        self.render(ctx.layout(), magnification)
     }
 }
 

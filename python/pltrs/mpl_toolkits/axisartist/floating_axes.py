@@ -8,6 +8,8 @@ pltrs (Rust) lays out and fits the axes' limits around
 (``_native.axisartist``).
 """
 
+import numpy as np
+
 from pltrs import _api, cbook, patches as mpatches
 from pltrs.transforms import Bbox
 from pltrs._native import axisartist as _axisartist
@@ -115,6 +117,58 @@ class GridHelperCurveLinear(grid_helper_curvelinear.GridHelperCurveLinear):
         helper = FixedAxisArtistHelper(
             self, loc, nth_coord_ticks=nth_coord)
         return AxisArtist(axes, helper, axis_direction=axis_direction)
+
+    def _update_grid(self, bbox):
+        if self._grid_info is None:
+            self._grid_info = dict()
+
+        grid_info = self._grid_info
+
+        grid_finder = self.grid_finder
+        tbbox = grid_finder.extreme_finder._find_transformed_bbox(
+            grid_finder.get_transform().inverted(), bbox)
+
+        lon_min, lat_min, lon_max, lat_max = tbbox.extents
+        grid_info["extremes"] = tbbox
+
+        lon_levs, lon_n, lon_factor = grid_finder.grid_locator1(lon_min, lon_max)
+        lon_levs = np.asarray(lon_levs)
+        lat_levs, lat_n, lat_factor = grid_finder.grid_locator2(lat_min, lat_max)
+        lat_levs = np.asarray(lat_levs)
+
+        grid_info["lon_info"] = lon_levs, lon_n, lon_factor
+        grid_info["lat_info"] = lat_levs, lat_n, lat_factor
+
+        grid_info["lon_labels"] = grid_finder._format_ticks(
+            1, "bottom", lon_factor, lon_levs)
+        grid_info["lat_labels"] = grid_finder._format_ticks(
+            2, "bottom", lat_factor, lat_levs)
+
+        lon_values = lon_levs[:lon_n] / lon_factor
+        lat_values = lat_levs[:lat_n] / lat_factor
+
+        lon_lines, lat_lines = grid_finder._get_raw_grid_lines(
+            lon_values[(lon_min < lon_values) & (lon_values < lon_max)],
+            lat_values[(lat_min < lat_values) & (lat_values < lat_max)],
+            tbbox)
+
+        grid_info["lon_lines"] = lon_lines
+        grid_info["lat_lines"] = lat_lines
+
+        lon_lines, lat_lines = grid_finder._get_raw_grid_lines(
+            tbbox.intervalx, tbbox.intervaly, tbbox)
+
+        grid_info["lon_lines0"] = lon_lines
+        grid_info["lat_lines0"] = lat_lines
+
+    def get_gridlines(self, which="major", axis="both"):
+        self._update_for_served_axes()
+        grid_lines = []
+        if axis in ["both", "x"]:
+            grid_lines.extend(map(np.transpose, self._grid_info["lon_lines"]))
+        if axis in ["both", "y"]:
+            grid_lines.extend(map(np.transpose, self._grid_info["lat_lines"]))
+        return grid_lines
 
 
 class FloatingAxesBase:

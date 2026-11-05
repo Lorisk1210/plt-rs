@@ -65,7 +65,7 @@ class FigureImagesMixin:
             self._native, mimage._native_data(A), colorizer.cmap,
             colorizer.norm, (float(xo), float(yo)), origin, bool(resize))
         im = _handles.wrap(native, mimage.FigureImage, self.figure)
-        im._keep_figimage_settings(xo, yo, origin)
+        im._keep_figimage_settings(xo, yo)
         im._set_mapped_data(colorizer, A)
         im.set_alpha(alpha)
         im._internal_update(kwargs)

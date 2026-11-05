@@ -13,7 +13,7 @@ use pltrs::mplot3d::{Axes3D, ContourPlacement};
 use pltrs_core::PathCode;
 
 use super::art3d::{vertices, zsort};
-use super::axis3;
+use super::zdir_axis;
 use crate::binding::prelude::*;
 
 /// The position a collection of the axes is ordered by, `None` to order
@@ -108,7 +108,7 @@ type Placement = (String, Option<f64>, bool);
 /// The placement `(zdir, offset, axlim_clip)` describes.
 fn placement((zdir, offset, axlim_clip): Placement) -> PyResult<ContourPlacement> {
     Ok(ContourPlacement {
-        zdir: axis3(&zdir)?,
+        zdir: zdir_axis(&zdir)?,
         offset,
         axlim_clip,
     })

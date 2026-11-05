@@ -99,7 +99,10 @@ impl Axes3D {
         match kind {
             CollectionKind::Patch => return self.lift_patches(artist, zs, zdir, sort_zpos),
             CollectionKind::Poly | CollectionKind::Line => {}
-            CollectionKind::Generic | CollectionKind::Path | CollectionKind::QuadMesh => {
+            CollectionKind::Generic
+            | CollectionKind::Path
+            | CollectionKind::QuadMesh
+            | CollectionKind::TriMesh => {
                 return Err(Axes3DError::UnsupportedCollection);
             }
         }

@@ -11,6 +11,7 @@ use super::{AxisArtistState, LabelGap, Level};
 use crate::artist::LayoutContext;
 use crate::axes::{AxesState, PlacedText};
 use crate::axisartist::helper::{GONE, HelperContext, TickLevels};
+use crate::axisartist::labels::TickLabel;
 use crate::axisartist::ticks::tick_info;
 use crate::text::measure_text;
 use crate::transforms::Transform;
@@ -56,7 +57,11 @@ impl AxisArtistState {
         layout: LayoutContext<'_>,
         level: Level,
     ) -> Result<Vec<Bbox>, String> {
-        let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current)?;
+        let drawing = self.drawing(
+            layout,
+            layout.points_to_pixels(1.0),
+            LabelGap::TickLabelsOnly,
+        )?;
         let index = match level {
             Level::Major => 0,
             Level::Minor => 1,
@@ -68,6 +73,41 @@ impl AxisArtistState {
             .collect())
     }
 
+    /// The display box of the label at the gap it was last placed with,
+    /// `None` when it is hidden; an empty label measures as the point it
+    /// is anchored at, as matplotlib's empty texts do.
+    pub(crate) fn label_extent(&self, layout: LayoutContext<'_>) -> Result<Option<Bbox>, String> {
+        let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Kept)?;
+        if let Some(label) = &drawing.label {
+            return Ok(Some(label.bbox()));
+        }
+        if !self.label.visible {
+            return Ok(None);
+        }
+        let ((reference, ref_angle), radius) =
+            self.label_placement(layout, self.helper_context(layout)?, self.label_gap.get())?;
+        let (sin, cos) = ref_angle.to_radians().sin_cos();
+        let anchor = Point::new(reference.x + radius * cos, reference.y + radius * sin);
+        Ok(Some(Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0)))
+    }
+
+    /// The tick labels of `level` the helper places in `layout`: their
+    /// locations in the coordinates of the helper's tick transform, the
+    /// directions to them in degrees and their texts (matplotlib's
+    /// `TickLabels._locs_angles_labels` after `_update_ticks`).
+    pub(crate) fn ticklabel_texts(
+        &self,
+        layout: LayoutContext<'_>,
+        level: Level,
+    ) -> Result<Vec<TickLabel>, String> {
+        let (major, minor) = self.helper_ticks(layout)?;
+        let ticks = match level {
+            Level::Major => major,
+            Level::Minor => minor,
+        };
+        Ok(tick_info(&ticks, self.ticklabel_direction.add_angle()).1)
+    }
+
     /// The width, height and descent in pixels of each non-empty tick
     /// label of `level`, in the font of the tick labels.
     pub(crate) fn ticklabel_metrics(
@@ -75,12 +115,11 @@ impl AxisArtistState {
         layout: LayoutContext<'_>,
         level: Level,
     ) -> Result<Vec<(f64, f64, f64)>, String> {
-        let (major, minor) = self.helper_ticks(layout)?;
-        let (ticks, state) = match level {
-            Level::Major => (major, &self.major_ticklabels),
-            Level::Minor => (minor, &self.minor_ticklabels),
+        let labels = self.ticklabel_texts(layout, level)?;
+        let state = match level {
+            Level::Major => &self.major_ticklabels,
+            Level::Minor => &self.minor_ticklabels,
         };
-        let (_, labels) = tick_info(&ticks, self.ticklabel_direction.add_angle());
         let style = state.text_style(&self.rc, &self.rc.text_color);
         labels
             .iter()

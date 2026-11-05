@@ -75,7 +75,8 @@ class _NativeHelper:
             for xy, normal, tangent, label in level:
                 yield list(xy), normal, tangent, label
 
-        return ticks(major), ticks(minor)
+        # matplotlib's curvilinear helpers have no minor ticks to yield.
+        return ticks(major), iter(list(ticks(minor)))
 
 
 class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
@@ -244,6 +245,18 @@ class GridHelperCurveLinear(GridHelperBase):
     def _helper_of(self, axes, name):
         return FixedAxisArtistHelper(self, name)
 
+    def _update_grid(self, bbox):
+        self._grid_info = self.grid_finder.get_grid_info(bbox)
+
+    def get_gridlines(self, which="major", axis="both"):
+        self._update_for_served_axes()
+        grid_lines = []
+        if axis in ["both", "x"]:
+            grid_lines.extend([gl.T for gl in self._grid_info["lon"]["lines"]])
+        if axis in ["both", "y"]:
+            grid_lines.extend([gl.T for gl in self._grid_info["lat"]["lines"]])
+        return grid_lines
+
     def new_fixed_axis(
         self, loc, *, axis_direction=None, offset=None, axes=None, nth_coord=None
     ):
@@ -262,5 +275,7 @@ class GridHelperCurveLinear(GridHelperBase):
             axes = self.axes
         helper = FloatingAxisArtistHelper(
             self, nth_coord, value, axis_direction)
-        axisline = AxisArtist(axes, helper, axis_direction=axis_direction)
+        # As matplotlib's: the axis artist faces the default direction
+        # (pltrs (Rust) clips its line to the axes box).
+        axisline = AxisArtist(axes, helper)
         return axisline

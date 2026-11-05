@@ -27,7 +27,7 @@ from . import _api, _image, _values, cbook, colorizer as mcolorizer, colors as m
 # the image namespace
 from ._image import *  # noqa: F401, F403
 from ._native import image as _native_image
-from .transforms import Affine2D, Bbox, BboxBase, TransformedBbox
+from .transforms import Affine2D, Bbox, BboxBase, IdentityTransform, TransformedBbox
 
 _log = logging.getLogger(__name__)
 
@@ -220,6 +220,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
     def _drawn_clim(self):
         # docstring inherited
         return _native_image.mapped_clim(self._native)
+
+    @property
+    def origin(self):
+        """Where the [0, 0] index of the array is: 'upper' or 'lower'."""
+        return _native_image.get_origin(self._native)
 
     def get_size(self):
         """Return the size of the image as tuple (numrows, numcols)."""
@@ -437,6 +442,26 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """Return the filterrad setting."""
         return self._resampling("filterrad")
 
+    def make_image(self, renderer, magnification=1.0, unsampled=False):
+        """
+        Normalize, rescale, and colormap this image's data for rendering using
+        *renderer*, with the given *magnification*.
+
+        If *unsampled* is True, the image will not be scaled, but an
+        appropriate affine transformation will be returned instead.
+
+        Returns
+        -------
+        image : (M, N, 4) `numpy.uint8` array
+            The RGBA image, resampled unless *unsampled* is True.
+        x, y : float
+            The upper left corner where the image should be drawn, in pixel
+            space.
+        trans : `~matplotlib.transforms.Affine2D`
+            The affine transformation from image to pixel space.
+        """
+        raise NotImplementedError('The make_image method must be overridden')
+
     def can_composite(self):
         """Return whether the image can be composited with its neighbors."""
         trans = self.get_transform()
@@ -471,7 +496,23 @@ def _made_image(image, magnification, unsampled):
     if made is None:
         return None, 0, 0, None
     pixels, x, y, matrix = made
-    return pixels, x, y, None if matrix is None else Affine2D(matrix)
+    return (pixels, np.float64(x), np.float64(y),
+            None if matrix is None else Affine2D(matrix))
+
+
+def _made_grid_image(image, magnification, unsampled, kind):
+    """
+    *image* (a `NonUniformImage` or a `PcolorImage`, which matplotlib's
+    messages call *kind*) drawn into its Axes' box by pltrs (Rust), as
+    their ``make_image`` returns it: the RGBA pixels, the display corner
+    they are drawn from and the identity.
+    """
+    if image._A is None:
+        raise RuntimeError('You must first set the image array')
+    if unsampled:
+        raise ValueError(f'unsampled not supported on {kind}')
+    pixels, x, y, _ = _made_image(image, magnification, False)
+    return pixels, x, y, IdentityTransform()
 
 
 class AxesImage(_ImageBase):
@@ -537,17 +578,15 @@ class AxesImage(_ImageBase):
             **kwargs
         )
         del self._extent_given
+        if extent is not None:
+            # matplotlib keeps the extent as given (``_extent``).
+            _values.remember(self, "extent", extent)
 
     def _new_native(self, colorizer, spec):
         extent = self._extent_given
         return _native_image.new_axes_image(colorizer.cmap, colorizer.norm, {
             **spec,
             'extent': None if extent is None else tuple(map(float, extent))})
-
-    @property
-    def origin(self):
-        """Where the [0, 0] index of the array is: 'upper' or 'lower'."""
-        return _native_image.get_origin(self._native)
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
@@ -968,10 +1007,6 @@ class NonUniformImage(AxesImage):
     def set_array(self, *args):
         raise NotImplementedError('Method not supported')
 
-    def get_interpolation(self):
-        """Return the interpolation: 'nearest' or 'bilinear'."""
-        return _native_image.get_nonuniform_interpolation(self._native)
-
     def set_interpolation(self, s):
         """
         Parameters
@@ -982,21 +1017,37 @@ class NonUniformImage(AxesImage):
         if s is not None and s not in ('nearest', 'bilinear'):
             raise NotImplementedError('Only nearest neighbor and '
                                       'bilinear interpolations are supported')
-        # matplotlib draws any interpolation but 'nearest' bilinearly.
-        s = _val_or_rc(s, 'image.interpolation')
-        _native_image.set_nonuniform_interpolation(
-            self._native, 'nearest' if s == 'nearest' else 'bilinear')
+        super().set_interpolation(s)
 
     def get_extent(self):
         if self._A is None:
             raise RuntimeError('Must set data first')
         return self._Ax[0], self._Ax[-1], self._Ay[0], self._Ay[-1]
 
+    def get_window_extent(self, renderer=None):
+        """Return the image's box in display space: the extent it was set
+        to (`set_extent`) through its transform, as matplotlib's (which
+        reads ``_extent``, not the extent between the centres)."""
+        x0, x1, y0, y1 = _values.given(self, "extent", None,
+                                       same=lambda given, native: True)
+        bbox = Bbox.from_extents([x0, y0, x1, y1])
+        return bbox.transformed(self.get_transform())
+
     def set_filternorm(self, filternorm):
         pass
 
+    def get_filternorm(self):
+        # docstring inherited
+        # As matplotlib's, whose `set_filternorm` keeps nothing.
+        return self._filternorm
+
     def set_filterrad(self, filterrad):
         pass
+
+    def get_filterrad(self):
+        # docstring inherited
+        # As matplotlib's, whose `set_filterrad` keeps nothing.
+        return self._filterrad
 
     def set_norm(self, norm):
         if self._A is not None:
@@ -1007,6 +1058,10 @@ class NonUniformImage(AxesImage):
         if self._A is not None:
             raise RuntimeError('Cannot change colors after loading data')
         super().set_cmap(cmap)
+
+    def make_image(self, renderer, magnification=1.0, unsampled=False):
+        # docstring inherited
+        return _made_grid_image(self, magnification, unsampled, 'NonUniformImage')
 
     def get_cursor_data(self, event):
         # docstring inherited
@@ -1095,6 +1150,10 @@ class PcolorImage(AxesImage):
     def set_array(self, *args):
         raise NotImplementedError('Method not supported')
 
+    def make_image(self, renderer, magnification=1.0, unsampled=False):
+        # docstring inherited
+        return _made_grid_image(self, magnification, unsampled, 'PColorImage')
+
     def get_cursor_data(self, event):
         # docstring inherited
         return _grid_cursor_data(self, event)
@@ -1133,7 +1192,7 @@ class FigureImage(_ImageBase):
             origin=origin
         )
         self._internal_update(kwargs)
-        self._keep_figimage_settings(offsetx, offsety, origin)
+        self._keep_figimage_settings(offsetx, offsety)
 
     def _resampling(self, name):
         # A figure image is drawn unresampled, in matplotlib as in pltrs
@@ -1152,11 +1211,11 @@ class FigureImage(_ImageBase):
             'interpolation_stage': _val_or_rc(None, 'image.interpolation_stage'),
             'filternorm': True, 'filterrad': 4.0, 'resample': False})
 
-    def _keep_figimage_settings(self, xo, yo, origin):
+    def _keep_figimage_settings(self, xo, yo):
         """Keep what matplotlib's `FigureImage` keeps of a new image: its
-        offset, origin, magnification and resampling settings."""
+        offset, magnification and resampling settings (pltrs (Rust) keeps
+        its origin)."""
         self.ox, self.oy = xo, yo
-        self.origin = _val_or_rc(origin, 'image.origin')
         self.magnification = 1.0
         self._resampling_settings()
 
@@ -1418,6 +1477,7 @@ def composite_images(images, renderer, magnification=1.0):
     return composite
 
 
+@_api.deprecated('3.11', alternative="Pillow's `PIL.Image.Image.thumbnail`")
 def thumbnail(infile, thumbfile, scale=0.1, interpolation='bilinear',
               preview=False):
     """

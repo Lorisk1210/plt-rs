@@ -15,7 +15,7 @@ use pltrs::text::Text;
 use super::super::collections::{edge_colors, rgba_rows};
 use super::super::lines::{LineKwargs, PyMarker};
 use super::super::plotting::mapping::{Mapping, colorizer};
-use super::axis3;
+use super::zdir_axis;
 use crate::binding::prelude::*;
 
 /// A 2-D float array as a grid; `name` names it in the error.
@@ -48,7 +48,7 @@ fn plot(
         x.into_vec()?,
         y.into_vec()?,
         z.into_vec()?,
-        axis3(&zdir)?,
+        zdir_axis(&zdir)?,
         base.overlay(kwargs.0),
     )?;
     if axlim_clip {
@@ -103,7 +103,7 @@ fn scatter(
         }
     })?;
     let options = Scatter3DOptions {
-        zdir: axis3(&zdir)?,
+        zdir: zdir_axis(&zdir)?,
         depthshade,
         depthshade_minalpha,
         axlim_clip,

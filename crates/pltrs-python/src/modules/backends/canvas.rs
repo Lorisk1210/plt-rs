@@ -206,8 +206,8 @@ mod tests {
         redraw_in_frame(ax).unwrap();
         let other = Figure::new();
         assert!(
-            draw_artist(other, line.raw().clone()).is_err(),
-            "another figure's"
+            draw_artist(other, line.raw().clone()).is_ok(),
+            "another figure's line, where its figure places it"
         );
     }
 }

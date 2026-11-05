@@ -22,7 +22,7 @@ use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
 use crate::text::{LaidOutText, has_line_measurer, lay_out, metrics_cache_installed};
 use crate::ticker::AxisName;
-use crate::transforms::Transform;
+use crate::transforms::{Transform, program_calls};
 
 /// Everything needed to lay out and draw one axis of one axes.
 pub(crate) struct AxisPainter<'a> {
@@ -168,6 +168,16 @@ impl<'a> AxisPainter<'a> {
         self.ticks_with(|axis, minor, index| axis.tick_style_at(minor, index))
     }
 
+    /// The axis' ticks drawn, the major then the minor ones, each with its
+    /// level (minor or not) and its index among those the locator places.
+    pub(super) fn located_ticks(&self) -> Vec<(&'a Tick, bool, usize)> {
+        (self
+            .ticks_with(|_, minor, index| (minor, index))
+            .into_iter())
+        .map(|(tick, (minor, index))| (tick, minor, index))
+        .collect()
+    }
+
     /// The axis' ticks, the major then the minor ones, each with `style`
     /// of the axis, the level (minor or not) and the tick's index among
     /// those the locator places.
@@ -188,8 +198,15 @@ impl<'a> AxisPainter<'a> {
 
     /// Lays out the tick labels, then the axis label beyond those of the
     /// axes it aligns with and the offset text beyond its own; a draw lets
-    /// the figure go around the program's code this runs (`cx`).
+    /// the figure go around the program's code this runs (`cx`). The
+    /// program's scales answer from the calls matplotlib makes to place
+    /// these texts (see [`program_calls`]).
     pub(crate) fn texts(&self, cx: &mut impl FigureReader, rc: &RcParams) -> AxisTexts {
+        program_calls::quietly(|| self.texts_quietly(cx, rc))
+    }
+
+    /// [`texts`](Self::texts), the program's scales answering quietly.
+    fn texts_quietly(&self, cx: &mut impl FigureReader, rc: &RcParams) -> AxisTexts {
         let mut texts = AxisTexts::default();
         self.lay_out_tick_labels(cx, rc, &mut texts);
         let boxes = label_boxes(&texts);
@@ -291,9 +308,12 @@ impl<'a> AxisPainter<'a> {
     ) -> Option<Result<PlacedText, String>> {
         let ticks = self.axis.ticks.as_ref().ok()?;
         let tick = ticks.unclipped(minor).get(index)?;
-        let (style, placement) = self.labelled(&mut layout, tick, (minor, index), first_side)?;
-        (!tick.label.is_empty())
-            .then(|| lay_out_tick_label(&mut layout, tick, &style, &placement, rc))
+        program_calls::quietly(|| {
+            let (style, placement) =
+                self.labelled(&mut layout, tick, (minor, index), first_side)?;
+            (!tick.label.is_empty())
+                .then(|| lay_out_tick_label(&mut layout, tick, &style, &placement, rc))
+        })
     }
 
     /// The tick label boxes of this axis (`own`) and of the same axis of
@@ -464,6 +484,12 @@ impl<'a> AxisPainter<'a> {
     /// drawn on it (matplotlib's `Spine.get_window_extent`): the major and
     /// the minor ticks each pad the bare spine, so the longer ones count.
     pub(crate) fn spine_extent(&self, cx: &mut impl FigureReader, side: SpineSide) -> Option<Bbox> {
+        program_calls::quietly(|| self.spine_extent_quietly(cx, side))
+    }
+
+    /// [`spine_extent`](Self::spine_extent), the program's scales
+    /// answering quietly.
+    fn spine_extent_quietly(&self, cx: &mut impl FigureReader, side: SpineSide) -> Option<Bbox> {
         let outline = {
             let layout = cx.read();
             self.spine(layout, side)?.outline_through(layout)?

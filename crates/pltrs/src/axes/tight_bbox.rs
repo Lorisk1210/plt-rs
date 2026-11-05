@@ -125,7 +125,7 @@ impl FigureState {
     ) -> Option<Bbox> {
         self.lay_out_axes(axes);
         if self.store.get_as::<AxesState>(axes)?.axis(name).visible {
-            self.program_axis_measured(axes, name);
+            self.program_axis_visited(axes, name, super::tick_sites::AxisVisit::Measured);
         }
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();

@@ -1163,6 +1163,8 @@ class AxisArtist(martist.Artist):
         # Unpacked as matplotlib's `ScaledTranslation(*offset, ...)` does.
         self._offset = (*offset,)
         native = helper._new_axis(axes, offset, axis_direction)
+        # What matplotlib's `_init_line` computes (a curvilinear line).
+        _axisartist.init_line(native)
         # The axis artist is drawn once the axes adds it.
         _artist.remove(native)
         _handles.adopt(self, native, axes.figure)

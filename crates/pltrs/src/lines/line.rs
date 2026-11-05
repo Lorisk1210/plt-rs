@@ -13,6 +13,7 @@ use pltrs_render::{CapStyle, GraphicsContext, JoinStyle};
 
 use super::axline::{InfiniteLine, SegmentError};
 use super::hit_region::hit_region;
+use super::program_path::KeptPaths;
 use super::subslice::visible_range;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
 use crate::artist::{
@@ -105,6 +106,9 @@ pub(crate) struct LineArtist {
     pub(crate) unit_sources: UnitSources,
     /// rc snapshot used to resolve named dash patterns.
     rc: std::rc::Rc<RcParams>,
+    /// What the line last mapped through a transform calling the
+    /// program (matplotlib's `TransformedPath`).
+    pub(super) kept_paths: KeptPaths,
 }
 
 pltrs_core::archive_struct!(LineArtist {
@@ -139,7 +143,7 @@ pltrs_core::archive_struct!(LineArtist {
     marker_rotation,
     unit_sources,
     rc
-});
+} skip { kept_paths });
 
 impl LineArtist {
     /// A line through `(x, y)` with defaults from `rc`.
@@ -176,6 +180,7 @@ impl LineArtist {
             marker_rotation: None,
             unit_sources: UnitSources::default(),
             rc,
+            kept_paths: KeptPaths::default(),
         };
         line.recache();
         line
@@ -243,19 +248,34 @@ impl LineArtist {
     }
 
     /// Draws the line through `drawn` and markers at `points`, both mapped
-    /// to display space by `resolved`.
+    /// to display space by `resolved`; a line drawing a slice of its points
+    /// is `subsliced`.
     pub(crate) fn draw_paths(
         &self,
         ctx: &mut DrawContext<'_>,
         resolved: &ResolvedTransform,
-        drawn: &Path,
-        points: &Path,
+        (drawn, points): (&Path, &Path),
+        subsliced: bool,
     ) {
+        // Through a scale of the program's, mapped as matplotlib's
+        // `TransformedPath` maps them (see `program_path`).
+        let kept = resolved
+            .only_scales_call_program()
+            .then(|| self.kept_paths.mapped(ctx, resolved, drawn, !subsliced));
+        let mapped = |path: &Path, points: bool| match &kept {
+            Some(kept) if std::ptr::eq(path, drawn) => Some(if points {
+                kept.points.clone()
+            } else {
+                kept.path.clone()
+            }),
+            _ => None,
+        };
+        let (mapped_path, mapped_points) = (mapped(drawn, false), mapped(points, true));
         ctx.renderer()
             .open_group("line2d", self.base.gid.as_deref());
         let drawn = crate::patheffects::with_path_effects(ctx, &self.base.path_effects, |ctx| {
-            self.draw_line(ctx, resolved, drawn)
-                .and_then(|()| self.draw_markers(ctx, resolved, points))
+            self.draw_line(ctx, resolved, drawn, mapped_path.as_ref())
+                .and_then(|()| self.draw_markers(ctx, resolved, points, mapped_points.as_ref()))
         })
         .unwrap_or_else(|err| Err(err.to_string()));
         ctx.renderer().close_group("line2d");
@@ -264,17 +284,24 @@ impl LineArtist {
         }
     }
 
+    /// Draws the line through `drawn` mapped by `resolved` (its non-affine
+    /// part already applied when `mapped` is given).
     fn draw_line(
         &self,
         ctx: &mut DrawContext<'_>,
         resolved: &ResolvedTransform,
         drawn: &Path,
+        mapped: Option<&Path>,
     ) -> Result<(), String> {
         if !self.linestyle.is_visible() || drawn.is_empty() {
             return Ok(());
         }
-        ctx.free_for(resolved);
-        let (path, affine) = resolved.split_path(drawn);
+        let (path, affine) = if let Some(mapped) = mapped {
+            (Cow::Borrowed(mapped), resolved.affine_part())
+        } else {
+            ctx.free_for(resolved);
+            resolved.split_path(drawn)
+        };
         let dashed = self.linestyle.is_dashed();
         let mut gc = self.line_gc(ctx);
         gc.linewidth = self.linewidth;
@@ -313,7 +340,7 @@ impl LineArtist {
     /// [`InfiniteLine::display_map`]), which fails when the line cannot
     /// be placed; `None` when the line's coordinate system no longer
     /// exists.
-    fn drawn_transform(
+    pub(super) fn drawn_transform(
         &self,
         layout: LayoutContext<'_>,
     ) -> Result<Option<ResolvedTransform>, SegmentError> {
@@ -328,22 +355,24 @@ impl LineArtist {
         }
     }
 
-    /// The points a long line draws when only part of it is in view (see
-    /// [`visible_range`]); `None` when it draws them all. An infinite
+    /// The points of the view a long line draws when it draws a slice of
+    /// its points (matplotlib's `_subslice`, see [`visible_range`]), all of
+    /// them or not; `None` when it draws them all as they are. An infinite
     /// line's data are not in data coordinates, which this needs.
-    fn drawn_range(&self, layout: LayoutContext<'_>) -> Option<Range<usize>> {
-        let n = self.xdata.len();
-        if self.infinite.is_some() || n != self.ydata.len() {
+    pub(super) fn subslice(&self, layout: LayoutContext<'_>) -> Option<Range<usize>> {
+        if self.infinite.is_some() || self.xdata.len() != self.ydata.len() {
             return None;
         }
         visible_range(layout, &self.base, &self.xdata, self.markevery.is_some())
-            .filter(|range| *range != (0..n))
     }
 
     /// The path the line draws through its points `range` (all of them
     /// for `None`), its draw style applied: the cached path when it draws
     /// them all, so that a long line is not copied to be drawn.
-    fn drawn_path(&self, range: Option<Range<usize>>) -> Result<Cow<'_, Path>, StepError> {
+    pub(super) fn drawn_path(
+        &self,
+        range: Option<Range<usize>>,
+    ) -> Result<Cow<'_, Path>, StepError> {
         if range.is_none() {
             return self.path.as_ref().map(Cow::Borrowed).map_err(Clone::clone);
         }
@@ -423,14 +452,16 @@ impl Artist for LineArtist {
                 return;
             }
         };
-        let range = self.drawn_range(ctx.layout());
+        let subslice = self.subslice(ctx.layout());
+        let subsliced = subslice.is_some();
+        let range = subslice.filter(|range| *range != (0..self.xdata.len()));
         let drawn = self.drawn_path(range.clone());
         let paths = drawn
             .as_ref()
             .map_err(Clone::clone)
             .and_then(|drawn| Ok((drawn, self.marker_points(drawn, range)?)));
         match paths {
-            Ok((drawn, points)) => self.draw_paths(ctx, &resolved, drawn, &points),
+            Ok((drawn, points)) => self.draw_paths(ctx, &resolved, (drawn, &points), subsliced),
             // Data that cannot be drawn: matplotlib's `recache` raises a
             // `ValueError` when it draws the line.
             Err(problem) => ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem),

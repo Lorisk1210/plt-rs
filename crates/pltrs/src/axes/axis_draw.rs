@@ -25,6 +25,7 @@ use crate::polar;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::text::{BoxPlacement, TextDrawError, draw_laid_out, has_line_measurer};
 use crate::ticker::AxisName;
+use crate::transforms::program_calls;
 
 impl AxisPainter<'_> {
     /// Draws the axis tick by tick (gridline, marks, labels), then the
@@ -35,8 +36,12 @@ impl AxisPainter<'_> {
             return;
         }
         self.axis.ticks_placed.set(true);
-        (self.axis.gids).grouped(ctx, "matplotlib.axis", AxisGroup::Axis, |ctx| {
-            self.draw_contents(ctx, rc);
+        // The program's scales answer from the calls matplotlib's draw
+        // makes (see `transform_sites`).
+        program_calls::quietly(|| {
+            (self.axis.gids).grouped(ctx, "matplotlib.axis", AxisGroup::Axis, |ctx| {
+                self.draw_contents(ctx, rc);
+            });
         });
     }
 

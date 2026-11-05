@@ -8,6 +8,7 @@ use std::rc::Rc;
 use pltrs_core::{Bbox, Path, Point};
 use pltrs_render::GraphicsContext;
 
+use super::grid_helper_curvelinear::AxisGrid;
 use super::handles::LabelDirection;
 use super::helper::{AxisHelper, GONE, HelperContext};
 use super::labels::{
@@ -147,6 +148,11 @@ struct Drawing {
 }
 
 impl AxisArtistState {
+    /// The axes the artist is drawn in.
+    pub(crate) fn axes(&self) -> ArtistId {
+        self.axes
+    }
+
     /// An axis artist of `axes` along `helper`, created facing
     /// `direction`, styled from `rc` (matplotlib's `AxisArtist.__init__`).
     pub(crate) fn new(
@@ -343,11 +349,12 @@ impl AxisArtistState {
                 self.label_gap.set(axislabel_pad);
             }
         }
+        let (line, line_grid) = self.line_paths(layout, ctx, dpi_cor)?;
         Ok(Drawing {
             levels,
             offset,
-            line: self.line_paths(layout, ctx, dpi_cor)?,
-            label: self.axis_label(layout, ctx, axislabel_pad)?,
+            line,
+            label: self.axis_label(layout, ctx, axislabel_pad, line_grid.as_ref())?,
         })
     }
 
@@ -400,40 +407,52 @@ impl AxisArtistState {
     /// The line in display pixels, plain or arrowed with arrow sizes at
     /// `dpi_cor` pixels per point (matplotlib's `_draw_line`; the arrow is
     /// a `FancyArrowPatch`).
+    /// The grid a curvilinear line of constant coordinate was computed
+    /// from comes along, which matplotlib's `_draw_line` computes for a
+    /// hidden line too (`get_line`).
     fn line_paths(
         &self,
         layout: LayoutContext<'_>,
         ctx: HelperContext<'_>,
         dpi_cor: f64,
-    ) -> Result<Vec<DisplayPath>, String> {
+    ) -> Result<(Vec<DisplayPath>, Option<AxisGrid>), String> {
+        let (path, transform, line_grid) = self.helper.line_with_grid(ctx)?;
         if !self.line.visible {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), line_grid));
         }
-        let (path, transform) = self.helper.line(ctx)?;
         let transform = self.resolve(layout, transform)?;
-        self.line.display_paths(
+        let paths = self.line.display_paths(
             &path,
             &transform,
             self.major_ticklabels.size,
             &self.rc,
             dpi_cor,
-        )
+        )?;
+        Ok((paths, line_grid))
     }
 
     /// The axis label, `axislabel_pad` pixels plus its pad away from the
-    /// line (matplotlib's `_update_label` and `AxisLabel.draw`).
+    /// line (matplotlib's `_update_label` and `AxisLabel.draw`), placed
+    /// from `line_grid`, the grid of a curvilinear line, as computed for
+    /// the line. A shown label is placed with or without text, as
+    /// matplotlib's `_update_label` places it.
     fn axis_label(
         &self,
         layout: LayoutContext<'_>,
         ctx: HelperContext<'_>,
         axislabel_pad: f64,
+        line_grid: Option<&AxisGrid>,
     ) -> Result<Option<PlacedText>, String> {
         let style_axis = ctx.axes.axis(self.style_axis);
         let text = self.label_text.as_deref().unwrap_or(&style_axis.label.text);
-        if !self.label.visible || text.is_empty() {
+        if !self.label.visible {
             return Ok(None);
         }
-        let (reference, radius) = self.label_placement(layout, ctx, axislabel_pad)?;
+        let position = self.helper.label_position(ctx, line_grid)?;
+        if text.is_empty() {
+            return Ok(None);
+        }
+        let (reference, radius) = self.label_placement(layout, ctx, axislabel_pad, position)?;
         let style = self.label.text_style(&self.rc, &style_axis.label.color);
         axis_label(
             layout,
@@ -455,10 +474,11 @@ impl AxisArtistState {
         layout: LayoutContext<'_>,
         ctx: HelperContext<'_>,
         axislabel_pad: f64,
+        position: Option<(Point, f64)>,
     ) -> Result<((Point, f64), f64), String> {
         // Without a position the label keeps matplotlib's initial one:
         // the origin of its coordinates, facing right.
-        let (reference, ref_angle) = match self.helper.label_position(ctx)? {
+        let (reference, ref_angle) = match position {
             Some((xy, tangent)) => (xy, tangent - 90.0 + self.axislabel_direction.add_angle()),
             None => (self.helper.label_origin(ctx)?, 0.0),
         };

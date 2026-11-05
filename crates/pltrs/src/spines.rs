@@ -19,7 +19,7 @@ use crate::polar::PolarView;
 use crate::projections::OUTLINE_SPINE;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
-use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
+use crate::transforms::{ResolvedTransform, Transform, program_calls, unit_to_bbox};
 
 pub use patch::SpinePatch;
 
@@ -261,12 +261,14 @@ impl Artist for SpineArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let Some(outline) = self.outline_through(ctx.layout()) else {
+        // The program's scales answer from the calls matplotlib's draw
+        // makes (see `axes::transform_sites`).
+        let Some(outline) = program_calls::quietly(|| self.outline_through(ctx.layout())) else {
             return;
         };
         // The program's transform runs with the figure free.
         ctx.free_for(outline.transform());
-        let paths = [outline.split()];
+        let paths = [program_calls::quietly(|| outline.split())];
         if let Err(err) =
             crate::patches::draw_patch_paths(ctx, &self.base, &self.style, &self.rc, false, &paths)
         {
@@ -284,7 +286,7 @@ impl Artist for SpineArtist {
 impl SpineArtist {
     /// The extent of the spine line alone, in display pixels.
     pub(crate) fn line_extent(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
-        Some(self.outline_through(ctx)?.extent())
+        program_calls::quietly(|| Some(self.outline_through(ctx)?.extent()))
     }
 }
 

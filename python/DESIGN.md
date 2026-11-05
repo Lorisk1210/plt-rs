@@ -871,6 +871,30 @@ ask the axis for its view interval where matplotlib's do, and autoscaling
 asks it whether it is inverted (`TickUpdater::inverted`), as
 `set_xbound` does.
 
+A scale of the program's (a function scale, a scale class of the
+program's, a secondary axis' functions) is called where matplotlib's
+artists map through it, at the same sites (`axes/transform_sites.rs`,
+walked with the tick updates): every tick label measured
+(`_get_ticklabel_bboxes`) and drawn, every tick line and gridline drawn
+(its path, then its points), every spine measured and drawn, the view
+limits mapped once while they stay (`TransformedBbox(viewLim,
+transScale)`, `AxesState::scale_box`), and a line's path kept while its
+data and transform stay, mapped anew at every draw for a line drawing a
+slice of its points (`lines/program_path.rs`, matplotlib's
+`TransformedPath`). Each call hands the arrays matplotlib hands: the
+coordinates of the points a blend of `transData` and `transAxes` maps,
+a row where drawing maps them through the scale's `transform_non_affine`
+and a column where matplotlib calls `transform` (autoscaling, the
+function of a `functionlog` scale; `_scale_calls.ScaleCalls`). pltrs
+lays out and draws the same parts its own way meanwhile, needing the
+same values in other batches: that work runs quietly
+(`transforms/program_calls.rs`), the program's maps answering it from
+what they answered since the layout began, so that the program sees only
+matplotlib's calls. A curvilinear grid is computed where matplotlib's
+grid helper computes it, when a floating axis is made
+(`AxisArtist._init_line`, `_native.axisartist.init_line`), and again only
+for other limits.
+
 Axes sharing an axis hold the same `Ticker` objects, those of the first
 Axes of the chain they share from (`Axis._take_shared_tickers`), as
 matplotlib's `sharex` hands them over; what they read through them is

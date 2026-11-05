@@ -32,6 +32,12 @@ impl AxisArtistState {
         self.helper.ticks(self.helper_context(layout)?)
     }
 
+    /// What matplotlib's `AxisArtist` computes when it is made (see
+    /// `AxisHelper::init_line`).
+    pub(crate) fn init_line(&self, layout: LayoutContext<'_>) -> Result<(), String> {
+        self.helper.init_line(self.helper_context(layout)?)
+    }
+
     /// The line the helper runs along in `layout`, and its coordinates.
     pub(crate) fn helper_line(
         &self,
@@ -46,7 +52,8 @@ impl AxisArtistState {
         &self,
         layout: LayoutContext<'_>,
     ) -> Result<Option<(Point, f64)>, String> {
-        self.helper.label_position(self.helper_context(layout)?)
+        self.helper
+            .label_position(self.helper_context(layout)?, None)
     }
 
     /// The display boxes of the tick labels of `level` as drawing places
@@ -84,8 +91,10 @@ impl AxisArtistState {
         if !self.label.visible {
             return Ok(None);
         }
+        let ctx = self.helper_context(layout)?;
+        let position = self.helper.label_position(ctx, None)?;
         let ((reference, ref_angle), radius) =
-            self.label_placement(layout, self.helper_context(layout)?, self.label_gap.get())?;
+            self.label_placement(layout, ctx, self.label_gap.get(), position)?;
         let (sin, cos) = ref_angle.to_radians().sin_cos();
         let anchor = Point::new(reference.x + radius * cos, reference.y + radius * sin);
         Ok(Some(Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0)))

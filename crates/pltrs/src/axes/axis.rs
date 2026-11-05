@@ -18,7 +18,7 @@ use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
 use crate::ticker::{AutolimitMode, AxisName, Formatter, Locator, TickerError, TickerSettings};
-use crate::transforms::AxisMap;
+use crate::transforms::{AxisMap, program_calls};
 use crate::units::{AxisUnits, Categories, UnitAxisInfo, UnitData, UnitState};
 
 /// Autoscaling configuration and state of one axis.
@@ -576,7 +576,9 @@ impl AxisState {
         }
         let mut scaled = ends;
         if let Some(map) = &self.map {
-            map.forward_all(&mut scaled);
+            // matplotlib maps the view where its transforms first need it
+            // (see `transform_sites`).
+            program_calls::quietly(|| program_calls::forward_all(map, &mut scaled));
         }
         self.scaled_view.set(Some((bits, scaled)));
         scaled

@@ -1,6 +1,7 @@
 //! The axes artist: a data coordinate system placed inside a figure frame.
 
 use std::any::Any;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path, Point};
@@ -13,6 +14,7 @@ use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::ProjectionState;
 use super::secondary::Secondary;
+use super::transform_sites::ScaleBox;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::axes_grid1::Parasite;
 use crate::colors::Color;
@@ -133,6 +135,9 @@ pub(crate) struct AxesState {
     pub(crate) current_image: Option<CurrentImage>,
     /// The rc parameters the axes was created with.
     pub(crate) rc: Rc<RcParams>,
+    /// The view limits as matplotlib last mapped them through the
+    /// program's scales of the axes (see `transform_sites`).
+    pub(crate) scale_box: RefCell<Option<ScaleBox>>,
 }
 
 pltrs_core::archive_struct!(AxesState {
@@ -176,7 +181,7 @@ pltrs_core::archive_struct!(AxesState {
     rasterization_zorder,
     current_image,
     rc
-});
+} skip { scale_box });
 
 /// How the height of an axes' titles is chosen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -349,6 +354,7 @@ impl AxesState {
             rasterization_zorder: None,
             current_image: None,
             rc,
+            scale_box: RefCell::new(None),
         }
     }
 
@@ -490,6 +496,9 @@ impl AxesState {
     /// Replaces the view interval of one axis; it counts as mutated unless
     /// it is the initial unit interval again (matplotlib compares exactly).
     pub(crate) fn set_view_interval(&mut self, name: AxisName, (lower, upper): (f64, f64)) {
+        // matplotlib's view limits invalidate what was computed from them
+        // whenever they are set, to the same values or not.
+        self.scale_box.replace(None);
         let v = self.view_lim;
         let mutated = (lower, upper) != (0.0, 1.0);
         match name {

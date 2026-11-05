@@ -1,6 +1,7 @@
 //! The markers of a line: which points get one (`markevery`), their faces
 //! and their drawing (matplotlib's `Line2D.draw` marker half).
 
+use std::borrow::Cow;
 use std::fmt;
 
 use pltrs_core::{Affine2D, Path, Point};
@@ -15,11 +16,14 @@ use crate::rc::ColorOrAuto;
 use crate::transforms::ResolvedTransform;
 
 impl LineArtist {
+    /// Draws the markers at `points` mapped by `resolved` (its non-affine
+    /// part already applied when `mapped` is given).
     pub(super) fn draw_markers(
         &self,
         ctx: &mut DrawContext<'_>,
         resolved: &ResolvedTransform,
         points: &Path,
+        mapped: Option<&Path>,
     ) -> Result<(), String> {
         if self.marker.is_nothing() || self.markersize <= 0.0 || points.is_empty() {
             return Ok(());
@@ -28,8 +32,12 @@ impl LineArtist {
         if let Some(rotation) = &self.marker_rotation {
             style = style.rotated(rotation.angle(ctx.layout(), self.base.parent));
         }
-        ctx.free_for(resolved);
-        let (points, affine) = resolved.split_points(points);
+        let (points, affine) = if let Some(mapped) = mapped {
+            (Cow::Borrowed(mapped), resolved.affine_part())
+        } else {
+            ctx.free_for(resolved);
+            resolved.split_points(points)
+        };
         let points = match self
             .select_markers(ctx.layout(), &points, &affine)
             .map_err(|e| e.to_string())?

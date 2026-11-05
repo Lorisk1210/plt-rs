@@ -1060,6 +1060,21 @@ class PolyCollection(_CollectionWithSizes):
         self.stale = True
 
 
+def _check_step(step, curves, where):
+    """Raise matplotlib's error for a *step* its fills cannot draw with:
+    they look ``"steps-" + step`` up in `.cbook.STEP_LOOKUP_MAP` (a
+    `TypeError` for no string, a `KeyError` for an unknown one) for each
+    region they fill, the points of the *curves* (NaN where masked) that
+    *where* (None for all) keeps."""
+    if step is None:
+        return
+    filled = ~np.logical_or.reduce([np.isnan(curve) for curve in curves])
+    if where is not None:
+        filled &= np.asarray(where, dtype=bool)
+    if filled.any():
+        cbook.STEP_LOOKUP_MAP["steps-" + step]
+
+
 class FillBetweenPolyCollection(PolyCollection):
     """
     `.PolyCollection` that fills the area between two x- or y-curves.
@@ -1114,9 +1129,12 @@ class FillBetweenPolyCollection(PolyCollection):
         """
         self._f_dir_from_t(t_direction)
         self.t_direction = t_direction
-        if step is not None:
-            _api.check_in_list(('pre', 'post', 'mid'), step=step)
+        # matplotlib reads the dimensions of the arrays as given, which
+        # fails for anything else.
+        for array in (t, f1, f2):
+            getattr(array, "ndim")
         curves, mask = self._checked_data(t, f1, f2, where)
+        _check_step(step, np.broadcast_arrays(*curves), mask)
         self._native = _collections.new_fill_between_collection(
             t_direction == "y", curves, mask, bool(interpolate), step)
         Collection.__init__(self, **kwargs)

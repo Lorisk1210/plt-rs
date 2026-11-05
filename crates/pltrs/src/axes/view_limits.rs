@@ -489,8 +489,16 @@ mod tests {
         let ax = Figure::new().subplot();
         ax.set_xscale("log").expect("a known scale");
         let before = ax.xlim();
+        let seen = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let sink = std::rc::Rc::clone(&seen);
+        crate::warnings::set_handler(move |message| sink.borrow_mut().push(message.to_owned()));
         ax.set_xlim(-1.0, 10.0).expect("finite limits");
+        crate::warnings::clear_handler();
         assert_eq!(ax.xlim(), (before.0, 10.0));
+        assert_eq!(
+            *seen.borrow(),
+            ["Attempt to set non-positive xlim on a log-scaled axis will be ignored."]
+        );
     }
 
     #[test]

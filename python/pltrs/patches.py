@@ -955,8 +955,9 @@ class Polygon(Patch):
             Whether the polygon is closed (i.e., has identical start and end
             points).
         """
-        self._native = _patches.new_polygon(
-            np.asarray(xy, dtype=float).reshape(-1, 2), bool(closed))
+        xy = np.asarray(xy)
+        _, _ = xy.shape  # (N, 2): matplotlib's set_xy unpacks it, failing otherwise.
+        self._native = _patches.new_polygon(xy.astype(float), bool(closed))
         super().__init__(**kwargs)
 
     def _outline(self):

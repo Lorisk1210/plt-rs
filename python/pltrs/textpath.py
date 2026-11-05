@@ -11,6 +11,8 @@ glyph lists of mathtext and of a font (`TextToPath.get_glyphs_mathtext`,
 
 from collections import OrderedDict
 
+import numpy as np
+
 from . import _text_helpers
 from .font_manager import FontManager, FontProperties, fontManager, get_font
 from .ft2font import LoadFlags
@@ -117,9 +119,17 @@ class TextToPath:
             language = (language, [])
         else:
             language = (None, list(language))
-        return _textpath.get_text_path(
+        verts, codes = _textpath.get_text_path(
             s, FontManager._props(prop), ismath == "TeX",
             None if features is None else list(features), language)
+        # matplotlib extends lists with the rows of its glyphs' vertices
+        # and their codes (numpy values), and makes an empty path's
+        # vertices an empty array.
+        verts = list(np.asarray(verts, dtype=float).reshape(-1, 2))
+        codes = list(np.asarray(codes, dtype=np.uint8))
+        if not verts:
+            verts = np.empty((0, 2))
+        return verts, codes
 
     def get_glyphs_with_font(self, font, s, glyph_map=None,
                              return_new_glyphs_only=False, *, features=None,

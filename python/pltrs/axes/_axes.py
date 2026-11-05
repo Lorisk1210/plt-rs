@@ -85,7 +85,7 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
     @property
     def lines(self):
         """The lines of the Axes."""
-        return ArtistList("lines", lambda: _handles.wrap_all(
+        return ArtistList._of("lines", lambda: _handles.wrap_all(
             _axes.get_lines(self._native), Line2D, self.figure))
 
     def get_lines(self):

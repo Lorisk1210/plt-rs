@@ -175,8 +175,9 @@ class FigureBaseLayout:
         """
         _api.check_in_list(['major', 'minor', 'both'], which=which)
         _api.check_in_list(['left', 'center', 'right'], ha=ha)
+        from .text import _rotation_degrees
         _figure_layout.autofmt_xdate(self._native, float(bottom),
-                                     float(rotation), ha, which)
+                                     _rotation_degrees(rotation), ha, which)
         self.stale = True
 
     def get_default_bbox_extra_artists(self):

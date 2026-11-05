@@ -8,7 +8,7 @@ use pltrs_core::Point;
 use pltrs_font::GlyphId;
 use pltrs_render::{GlyphBitmap, GlyphShape, render_glyph};
 
-use super::glyphs::{Loaded, load_hinted};
+use super::glyphs::Loaded;
 use super::{Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
@@ -20,7 +20,7 @@ fn glyph_bitmap(
 ) -> PyResult<Option<GlyphBitmap>> {
     let face = font.chain_face(glyph.face)?;
     let size = font.size_of(&face);
-    let outline = match load_hinted(&face, &size, glyph.glyph, glyph.hinting)? {
+    let outline = match font.load_hinted(glyph.face, &face, &size, glyph.glyph, glyph.hinting)? {
         Some(hinted) => hinted.scan_outline(),
         None => size
             .scan_outline(&face, glyph.glyph)

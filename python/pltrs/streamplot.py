@@ -8,7 +8,7 @@ and draws them with their arrows.
 
 import numpy as np
 
-from . import (_api, _handles, _live_transforms, _values, colors as mcolors,
+from . import (_api, _handles, _live_transforms, _values, cbook, colors as mcolors,
                collections as mcollections, patches)
 from ._fancy_styles import _style_object
 from ._native import plotting as _plotting
@@ -18,6 +18,9 @@ from ._stream_grid import (  # noqa: F401 - matplotlib's names of the module
 
 
 __all__ = ['streamplot']
+
+cbook._set_module(__name__, DomainMap, Grid, InvalidIndexError, OutOfBounds,
+                  StreamMask, TerminateTrajectory)
 
 
 def _grid_axis(values, name):

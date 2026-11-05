@@ -178,18 +178,40 @@ def _read_style_directory(style_dir):
     return styles
 
 
-def _update_nested_dict(main_dict, new_dict):
+def _update_nested_dict(main_dict, new_dict, empty=RcParams):
     """
     Update nested dict (only level of nesting) with new values.
 
     Unlike `dict.update`, this assumes that the values of the parent dict are
     dicts (or dict-like), so you shouldn't replace the nested dict if it
     already exists. Instead you should update the sub-dict.
+
+    pltrs: a name *main_dict* lacks gets an *empty* dict first (an
+    `.RcParams` in the library; matplotlib's public function makes a
+    `dict`).
     """
     # update named styles specified by user
     for name, rc_dict in new_dict.items():
-        main_dict.setdefault(name, RcParams()).update(rc_dict)
+        main_dict.setdefault(name, empty()).update(rc_dict)
     return main_dict
+
+
+@_api.deprecated("3.11")
+def update_user_library(library):
+    """Update style library with user-defined rc files."""
+    return _update_user_library(library)
+
+
+@_api.deprecated("3.11")
+def read_style_directory(style_dir):
+    """Return dictionary of styles defined in *style_dir*."""
+    return _read_style_directory(style_dir)
+
+
+@_api.deprecated("3.11")
+def update_nested_dict(main_dict, new_dict):
+    """Update nested dict (only level of nesting) with new values."""
+    return _update_nested_dict(main_dict, new_dict, dict)
 
 
 def _bundled_library():

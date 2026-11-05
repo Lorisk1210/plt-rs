@@ -82,6 +82,10 @@ def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
             kwargs['antialiaseds'] = False if ec.lower() == "none" else None
 
     made, mapping = _mapping(cmap, norm, vmin, vmax, kwargs.pop('colorizer', None))
+    if not np.can_cast(values.dtype, float, "same_kind"):
+        # matplotlib's collection is made with the values as its array.
+        raise TypeError(f"Image data of dtype {values.dtype} cannot be "
+                        f"converted to float")
     polygons, mesh = _plotting.tripcolor(
         ax._native, tri._native,
         (np.ma.filled(np.ma.asarray(values, dtype=float), np.nan).ravel(), faces),

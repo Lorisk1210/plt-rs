@@ -17,13 +17,13 @@ class ChildrenMixin:
     @property
     def collections(self):
         """The collections of the Axes, in the order they were added."""
-        return ArtistList("collections", lambda: wrap_all(
+        return ArtistList._of("collections", lambda: wrap_all(
             self, _plotting.get_collections(self._native), mcoll.Collection))
 
     @property
     def patches(self):
         """The patches of the Axes, in the order they were added."""
-        return ArtistList("patches", lambda: wrap_all(
+        return ArtistList._of("patches", lambda: wrap_all(
             self, _plotting.get_patches(self._native), mpatches.Patch))
 
     @property

@@ -590,6 +590,10 @@ class AxesImage(_ImageBase):
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
+        if ("_A" in self.__dict__ and self._A is None
+                and "extent" not in self.__dict__.get("_given_values", {})):
+            # matplotlib sizes an extent it was not given from the data.
+            self.get_size()
         # matplotlib keeps the extent it was given (or `imshow` computed)
         # as the list ``[left, right, bottom, top]``.
         return _values.given(self, "extent", _native_image.get_extent(self._native))

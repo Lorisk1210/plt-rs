@@ -4,7 +4,8 @@ Events and stems: `~.Axes.eventplot` and `~.Axes.stem`.
 
 import numpy as np
 
-from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
+from ... import _api, _values, artist as martist, cbook, collections as mcoll, colors as mcolors
+from ... import lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
@@ -124,6 +125,8 @@ class EventsMixin:
         linewidths = _per_row("linewidths", list(linewidths), n)
         colors = _per_row("colors", list(colors), n)
         alpha = _per_row("alpha", list(alpha), n)
+        for row_alpha in alpha:
+            martist._check_array_alpha(row_alpha)
         linestyles = _per_row("linestyles", list(linestyles), n)
         native_colors = ([] if all(c is None for c in colors) else
                          [tuple(mcolors.to_rgba(_rcParams()['lines.color']

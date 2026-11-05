@@ -329,11 +329,6 @@ fn add_level_lines(
     Ok(())
 }
 
-/// The major (or, `minor`, minor) tick locations along the colorbar.
-fn get_ticks(colorbar: Colorbar, minor: bool) -> PyResult<NdArray> {
-    Ok(NdArray::from_vec(colorbar.long_axis().ticklocs(minor)?))
-}
-
 /// Turns the minor ticks on (`on`) or off.
 fn set_minorticks(colorbar: Colorbar, on: bool) -> PyResult<()> {
     if on {
@@ -420,7 +415,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("limits", limits)?;
     module.add("add_contour_lines", add_contour_lines)?;
     module.add("add_level_lines", add_level_lines)?;
-    module.add("get_ticks", get_ticks)?;
     module.add("set_minorticks", set_minorticks)?;
     module.add("update_normal", update_normal)?;
     module.add("remove", remove)?;

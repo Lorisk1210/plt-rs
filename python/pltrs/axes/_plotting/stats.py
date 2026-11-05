@@ -53,6 +53,18 @@ def _cycled_colors(parts):
     return cycled
 
 
+def _check_stats_keys(stats, shownotches, showmeans, showfliers):
+    """Raise matplotlib's `KeyError` for the first statistic of *stats*
+    that `~.Axes.bxp` reads (in its order) and that is missing."""
+    needed = ["q1", "whislo", "q3", "whishi", "med"]
+    needed += ["cilo", "cihi"] if shownotches else []
+    needed += ["mean"] if showmeans else []
+    needed += ["fliers"] if showfliers else []
+    for key in needed:
+        if key not in stats:
+            raise KeyError(key)
+
+
 def _converted_stats(axes, axis_name, stats, keys):
     """The statistics *stats* (a dict) with the values of *keys* in the
     numbers of the axis *axis_name* of *axes*, which takes their units (as
@@ -279,12 +291,18 @@ class StatsMixin:
             capwidths = [capwidths] * N
         elif len(capwidths) != N:
             raise ValueError(datashape_message.format("capwidths"))
-        if label is not None and not isinstance(label, str):
+        # matplotlib labels the first box with a single label, which it
+        # makes a string, and each box with a sequence of them.
+        if not label:
+            label = None
+        elif cbook.is_scalar_or_string(label):
+            label = [str(label)]
+        else:
             label = [str(lbl) for lbl in label]
             if len(label) != N:
                 raise ValueError(datashape_message.format("label"))
-        elif label is not None:
-            label = [label]
+        for stats in bxpstats:
+            _check_stats_keys(stats, shownotches, showmeans, showfliers)
         value_axis = "y" if orientation == "vertical" else "x"
         bxpstats = [_converted_stats(self, value_axis, stats, (
             "med", "q1", "q3", "whislo", "whishi", "mean", "cilo", "cihi",

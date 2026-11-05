@@ -14,8 +14,8 @@ from numbers import Integral
 import numpy as np
 from numpy import ma
 
-from . import (_api, _blocking_input, _handles, _mirrors, _values, cbook,
-               collections as mcoll, colors as mcolors)
+from . import (_api, _blocking_input, _handles, _mirrors, _values,
+               artist as martist, cbook, collections as mcoll, colors as mcolors)
 from ._native import artist as _artist, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
@@ -344,6 +344,19 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             `~.Axes.contour`.
         """
         from .axes._plotting.contours import _contour_look, _style
+        # matplotlib's collection takes the alpha first, checking it.
+        martist._check_array_alpha(kwargs.get("alpha"))
+        # Kept and checked as matplotlib's set does, which only a set
+        # contouring a grid places with.
+        origin = kwargs.pop("origin", None)
+        extent = kwargs.pop("extent", None)
+        _api.check_in_list([None, 'lower', 'upper', 'image'], origin=origin)
+        if extent is not None and len(extent) != 4:
+            raise ValueError(
+                "If given, 'extent' must be None or (x0, x1, y0, y1)")
+        if origin == 'image':
+            from . import rcParams
+            origin = rcParams['image.origin']
         levels, allsegs, *rest = args
         allkinds = rest[0] if rest else None
         if allkinds is None:
@@ -368,6 +381,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         _handles.adopt(self, _contour.get_collections(native)[0], ax.figure)
         self._set_contour(native, ax.figure)
         _style(self, look, kwargs)
+        self.origin, self.extent = origin, extent
 
     @classmethod
     def _from_contour(cls, contour, axes):

@@ -69,8 +69,11 @@ class ImagesMixin:
         coords = _fast_coords(args, nr, nc)
         if coords is not None and coords[0].ndim == 2 and np.ndim(C) not in {2, 3}:
             raise ValueError("C must be 2D or 3D")
-        A = mimage._ImageBase._normalize_image_array(C)
         made, mapping = _mapping(cmap, norm, vmin, vmax, colorizer, variates=True)
+        # matplotlib makes the artist with the alpha given, which checks it,
+        # then gives it the data.
+        mimage._checked_alpha(alpha)
+        A = mimage._ImageBase._normalize_image_array(C)
         if A.ndim == 2:
             made._scale_norm(norm, vmin, vmax, A)
         image, pcolor_image, mesh = _plotting.pcolorfast(

@@ -82,8 +82,6 @@ class FillsMixin:
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
         color = kwargs.pop("color", None)
         facecolor = kwargs.pop("facecolor", None)
-        if step is not None:
-            _api.check_in_list(('pre', 'post', 'mid'), step=step)
         dep_dir = "y" if ind_dir == "x" else "x"
         ind, dep1, dep2 = np.broadcast_arrays(
             *map(np.ma.masked_invalid, self._process_unit_info(
@@ -95,6 +93,8 @@ class FillsMixin:
             if array.ndim > 1:
                 raise ValueError(f"{name!r} is not 1-dimensional")
         mask = _fill_mask(where, ind.size, ind_dir)
+        curves = [np.ma.filled(np.ma.asarray(v, dtype=float), np.nan) for v in (ind, dep1, dep2)]
+        mcoll._check_step(step, curves, mask)
         native = _plotting.fill_between(
             self._native, ind_dir == "y",
             (floats(ind), floats(dep1), floats(dep2)), (mask, bool(interpolate), step),
@@ -206,7 +206,7 @@ class FillsMixin:
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
-        y = np.vstack(args) if args else np.empty((0, len(np.atleast_1d(x))))
+        y = np.vstack(args)
         _api.check_in_list(['zero', 'sym', 'wiggle', 'weighted_wiggle'],
                            baseline=baseline)
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.PolyCollection)
@@ -215,11 +215,10 @@ class FillsMixin:
         if hatch is not None:
             kwargs['hatch'] = hatch
         kwargs, style_gen = _style_helpers.style_generator(kwargs)
-        if step is not None:
-            _api.check_in_list(('pre', 'post', 'mid'), step=step)
         x, = self._process_unit_info([("x", x)])
         # matplotlib passes these on to the `fill_between` of every layer.
         fill = (_fill_mask(where, np.size(x), "x"), bool(interpolate), step)
+        mcoll._check_step(step, [floats(x), *(floats(row) for row in y)], fill[0])
         natives = _plotting.stackplot(self._native, floats(x),
                                       [floats(row) for row in y], baseline, [], fill)
         collections = wrap_all(self, natives, mcoll.FillBetweenPolyCollection)

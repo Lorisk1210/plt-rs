@@ -171,18 +171,22 @@ class BoxStyle(_Style):
                 float(mutation_size)))
 
 
+# Each style with its parameters, or the style it derives from (and takes
+# the parameters of), as matplotlib's classes do.
 for _name, _params in [
         ("Square", dict(pad=0.3)),
         ("Circle", dict(pad=0.3)),
         ("Ellipse", dict(pad=0.3)),
         ("RArrow", dict(pad=0.3, head_width=1.5, head_angle=90)),
-        ("LArrow", dict(pad=0.3, head_width=1.5, head_angle=90)),
-        ("DArrow", dict(pad=0.3, head_width=1.5, head_angle=90)),
+        ("LArrow", "RArrow"),
+        ("DArrow", "RArrow"),
         ("Round", dict(pad=0.3, rounding_size=None)),
         ("Round4", dict(pad=0.3, rounding_size=None)),
         ("Sawtooth", dict(pad=0.3, tooth_size=None)),
-        ("Roundtooth", dict(pad=0.3, tooth_size=None))]:
-    _style = type(_name, (BoxStyle._Base, _described(_name, **_params)),
+        ("Roundtooth", "Sawtooth")]:
+    _bases = ((getattr(BoxStyle, _params),) if isinstance(_params, str)
+              else (BoxStyle._Base, _described(_name, **_params)))
+    _style = type(_name, _bases,
                   {"_spec_name": _name.lower(), "__qualname__": f"BoxStyle.{_name}"})
     setattr(BoxStyle, _name, _register_style(BoxStyle._style_list, _style))
 

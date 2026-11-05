@@ -18,14 +18,15 @@ pub(super) use print::DocumentMetadata;
 
 use pltrs::figure::{CanvasError, Figure};
 use pltrs_core::alloc::caused_by_out_of_memory;
+use pltrs_render::RasterBackendError;
 
 use crate::binding::prelude::*;
 
 impl From<CanvasError> for PyErr {
-    /// matplotlib's `ValueError` for boxes and pixel ratios it refuses,
-    /// `MemoryError` for memory the system refused, `RuntimeError` for what
-    /// the canvas cannot do now, and the problems drawing met as
-    /// `DrawErrors` raise them.
+    /// matplotlib's `ValueError` for boxes and pixel ratios it refuses, and
+    /// Agg's for a resolution it cannot draw at, `MemoryError` for memory
+    /// the system refused, `RuntimeError` for what the canvas cannot do
+    /// now, and the problems drawing met as `DrawErrors` raise them.
     fn from(err: CanvasError) -> Self {
         if caused_by_out_of_memory(&err) {
             return PyErr::new(ExceptionKind::MemoryError, err.to_string());
@@ -33,6 +34,9 @@ impl From<CanvasError> for PyErr {
         let kind = match err {
             CanvasError::Draw(errors) => return errors.into(),
             CanvasError::Text(err) => return err.into(),
+            CanvasError::Backend(RasterBackendError::Dpi(_)) => {
+                return PyErr::value_error("dpi must be positive");
+            }
             CanvasError::InvalidBox(_) | CanvasError::InvalidPixelRatio(_) => {
                 ExceptionKind::ValueError
             }

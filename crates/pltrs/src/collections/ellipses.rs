@@ -106,11 +106,83 @@ impl EllipseCollection {
     }
 }
 
+impl Ellipses {
+    /// The error numpy raises where matplotlib's `_set_transforms` makes
+    /// one transform per width: it multiplies the widths, then the
+    /// heights, by the sines and cosines of the angles, broadcasting them,
+    /// and stores each product into as many rows as there are widths.
+    /// `None` when they broadcast.
+    pub(crate) fn broadcast_problem(&self) -> Option<String> {
+        let (rows, angles) = (self.half_widths.len(), self.angles.len());
+        [rows, self.half_heights.len()]
+            .into_iter()
+            .find_map(|axes| stored_product(axes, angles, rows).err())
+    }
+}
+
+/// Whether numpy multiplies `a` values by `b` values, broadcasting them,
+/// and stores the product into `rows` values; its error otherwise.
+fn stored_product(a: usize, b: usize, rows: usize) -> Result<(), String> {
+    let product = match (a, b) {
+        _ if a == b => a,
+        (1, _) => b,
+        (_, 1) => a,
+        _ => {
+            return Err(format!(
+                "operands could not be broadcast together with shapes ({a},) ({b},) "
+            ));
+        }
+    };
+    if product == rows || product == 1 {
+        Ok(())
+    } else {
+        Err(format!(
+            "could not broadcast input array from shape ({product},) into shape ({rows},)"
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::collections::{CollectionSpec, EllipseUnits};
     use crate::figure::Figure;
+
+    #[test]
+    fn sizes_broadcast_as_numpy_does() {
+        let ellipses = |widths: usize, heights: usize, angles: usize| Ellipses {
+            half_widths: vec![1.0; widths],
+            half_heights: vec![1.0; heights],
+            angles: vec![0.0; angles],
+            units: EllipseUnits::Xy,
+        };
+        for fine in [
+            (2, 2, 2),
+            (2, 1, 1),
+            (2, 2, 1),
+            (1, 1, 1),
+            (0, 1, 1),
+            (0, 0, 0),
+        ] {
+            assert_eq!(ellipses(fine.0, fine.1, fine.2).broadcast_problem(), None);
+        }
+        assert_eq!(
+            ellipses(1, 2, 2).broadcast_problem().as_deref(),
+            Some("could not broadcast input array from shape (2,) into shape (1,)")
+        );
+        assert_eq!(
+            ellipses(2, 3, 1).broadcast_problem().as_deref(),
+            Some("could not broadcast input array from shape (3,) into shape (2,)")
+        );
+        assert_eq!(
+            ellipses(2, 2, 3).broadcast_problem().as_deref(),
+            Some("operands could not be broadcast together with shapes (2,) (3,) ")
+        );
+        assert_eq!(
+            ellipses(2, 0, 1).broadcast_problem().as_deref(),
+            Some("could not broadcast input array from shape (0,) into shape (2,)")
+        );
+    }
 
     #[test]
     fn axes_and_angles_read_back_as_set() {

@@ -27,11 +27,12 @@ artist_handle!(ContourSet);
 
 impl From<ContourError> for PyErr {
     /// matplotlib's errors for contour input and labels: `TypeError` for
-    /// malformed grids, `IndexError` for a level out of range, else
-    /// `ValueError`.
+    /// malformed grids, `IndexError` for a level out of range, the norm's
+    /// own error for a mapping it refuses, else `ValueError`.
     fn from(err: ContourError) -> Self {
         let message = err.to_string();
         match err {
+            ContourError::Norm(err) => err.into(),
             ContourError::GridTooSmall { .. }
             | ContourError::ShapeMismatch { .. }
             | ContourError::XLength { .. }

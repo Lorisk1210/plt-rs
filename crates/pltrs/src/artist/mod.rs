@@ -38,6 +38,7 @@ mod pick;
 #[macro_use]
 mod properties;
 mod raw;
+mod stopping;
 mod store;
 mod tree;
 
@@ -77,6 +78,7 @@ pub use pick::{PickFn, Picker};
 pub use pltrs_render::{FilterImage, Filtered, GraphicsContext, Renderer, Sketch};
 pub use properties::BaseProps;
 pub use raw::RawHandle;
+pub use stopping::set_draws_stop_at_first_problem;
 pub use store::{ArtistId, ArtistStore};
 pub(crate) use store::{ArtistLookup, downcast_mut, downcast_ref};
 

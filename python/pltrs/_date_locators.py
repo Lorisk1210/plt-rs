@@ -13,6 +13,7 @@ constants and the weekdays ``MO`` ... ``SU`` are defined here, and accept
 import datetime
 import functools
 import importlib.resources
+import math
 import os
 import zoneinfo
 
@@ -179,12 +180,24 @@ _RULE_KEYWORDS = {'freq', 'dtstart', 'interval', 'wkst', 'count', 'until',
                   'byeaster', 'cache'}
 
 
+#: The rule keyword dateutil reduces with the interval, and its base, per
+#: frequency.
+_GCD_BY = {HOURLY: ('byhour', 24), MINUTELY: ('byminute', 60),
+           SECONDLY: ('bysecond', 60)}
+
+
 def _rule(construct):
     """The native description of the rule of dateutil's keywords."""
     unknown = set(construct) - _RULE_KEYWORDS
     if unknown:
         raise TypeError(f"rrule got an unexpected keyword argument "
                         f"{unknown.pop()!r}")
+    by = _GCD_BY.get(construct['freq'])
+    if by is not None and construct.get(by[0]) is not None:
+        # dateutil reduces the hours (minutes, seconds) of a rule repeating
+        # every so many of them with the gcd of the interval and the base,
+        # which takes integers only.
+        math.gcd(construct.get('interval', 1), by[1])
     dtstart = construct.get('dtstart')
     if dtstart is None:
         # dateutil starts rules without a start now, to the second.

@@ -332,6 +332,9 @@ pub struct DrawContext<'a> {
     renderer: &'a mut dyn Renderer,
     errors: Vec<DrawError>,
     rasterization: Rasterization,
+    /// Whether the draw ends at its first problem (see
+    /// [`set_draws_stop_at_first_problem`](super::set_draws_stop_at_first_problem)).
+    stops_at_problem: bool,
 }
 
 impl std::fmt::Debug for DrawContext<'_> {
@@ -350,7 +353,17 @@ impl<'a> DrawContext<'a> {
             renderer,
             errors: Vec::new(),
             rasterization: Rasterization::default(),
+            stops_at_problem: super::stopping::draws_stop_at_first_problem(),
         }
+    }
+
+    /// Whether the draw has ended: it ends at its first problem, met
+    /// drawing or a failure of the program's code, when draws do (see
+    /// [`set_draws_stop_at_first_problem`](super::set_draws_stop_at_first_problem)),
+    /// as matplotlib's ends at its first exception. The artists still to
+    /// draw are then left undrawn.
+    pub fn ended(&self) -> bool {
+        self.stops_at_problem && (!self.errors.is_empty() || crate::layout::failures::failed())
     }
 
     /// Whether this context draws the figure of `cell`.
@@ -445,6 +458,7 @@ impl<'a> DrawContext<'a> {
             renderer: &mut *wrapped,
             errors: Vec::new(),
             rasterization: self.rasterization,
+            stops_at_problem: self.stops_at_problem,
         };
         let result = f(&mut inner);
         let DrawContext {
@@ -538,7 +552,11 @@ impl<'a> DrawContext<'a> {
     /// Draws a child artist if it exists: through its painter if it has
     /// one (see [`ArtistPainter`](super::ArtistPainter)), else as
     /// [`draw_unpainted`](Self::draw_unpainted) draws it.
+    /// Nothing is drawn once the draw has [`ended`](Self::ended).
     pub fn draw_child(&mut self, id: ArtistId) {
+        if self.ended() {
+            return;
+        }
         let Some(artist) = self.layout().store().shared(id) else {
             return;
         };
@@ -552,7 +570,8 @@ impl<'a> DrawContext<'a> {
     /// draws it, its painter left out (what a painter draws its own
     /// artist with, matplotlib's `super().draw(renderer)`): through its
     /// image filter if it has one. An invisible artist draws nothing but
-    /// still ends rasterizing like any artist that is not rasterized.
+    /// still ends rasterizing like any artist that is not rasterized;
+    /// nothing is drawn once the draw has [`ended`](Self::ended).
     pub fn draw_unpainted(&mut self, id: ArtistId) {
         let artist = self.layout().figure_state().shared_artist(id);
         if let Some(artist) = artist {
@@ -563,6 +582,9 @@ impl<'a> DrawContext<'a> {
     /// Draws `artist` itself (see [`DrawContext::draw_unpainted`]), which
     /// then counts as drawn when it is artist `id` of the figure drawn.
     pub(super) fn draw_own(&mut self, artist: &dyn Artist, id: Option<ArtistId>) {
+        if self.ended() {
+            return;
+        }
         let base = artist.base();
         self.draw_artist(base.rasterized, |ctx| {
             if !base.visible {

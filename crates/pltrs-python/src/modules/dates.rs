@@ -10,8 +10,8 @@ mod locators;
 
 pub(super) use locators::{Zone, date_locator};
 use pltrs::dates::{
-    DateError, Datetime64, TimeZone, datetime64_to_num, get_epoch, num2date, num2timedelta,
-    reset_epoch, set_epoch, wrap_in_tex,
+    DateError, Datetime64, MICROSECONDS_PER_DAY, TimeZone, datetime64_to_num, get_epoch, num2date,
+    num2timedelta, reset_epoch, set_epoch, wrap_in_tex,
 };
 
 use crate::binding::prelude::*;
@@ -55,20 +55,39 @@ fn micros_to_num(micros: NdArray<i64>, nat: NdArray<bool>) -> PyResult<NdArray> 
 /// UTC calendar parts of a date.
 type UtcParts = ((i32, u32, u32), (u32, u32, u32, u32));
 
-/// The UTC dates of date numbers, as calendar parts; `ValueError` for
-/// numbers outside the years 1–9999, with matplotlib's message.
+/// The error matplotlib's `num2date` raises for date number `x`, which no
+/// date of the years 1–9999 has: as it rounds the number of microseconds
+/// to a Python integer (`ValueError` for NaN, `OverflowError` for an
+/// infinity), makes it a numpy `timedelta64` (`OverflowError` beyond 64
+/// bits), and checks the year (`ValueError`).
+fn ordinal_error(x: f64) -> PyErr {
+    let micros = (x * MICROSECONDS_PER_DAY).round_ties_even();
+    if x.is_nan() {
+        PyErr::value_error("cannot convert float NaN to integer")
+    } else if x.is_infinite() {
+        PyErr::new(
+            ExceptionKind::OverflowError,
+            "cannot convert float infinity to integer",
+        )
+    } else if micros.abs() >= 2f64.powi(63) {
+        PyErr::new(ExceptionKind::OverflowError, "int too big to convert")
+    } else {
+        PyErr::value_error(format!(
+            "Date ordinal {x} converts to a date (using epoch {}), but Matplotlib \
+             dates must be between year 0001 and 9999.",
+            get_epoch()
+        ))
+    }
+}
+
+/// The UTC dates of date numbers, as calendar parts; for numbers outside
+/// the years 1–9999 matplotlib's error ([`ordinal_error`]).
 fn num_to_utc(numbers: NdArray) -> PyResult<Vec<UtcParts>> {
     numbers
         .data
         .iter()
         .map(|&x| {
-            let utc = num2date(x, &TimeZone::Utc).map_err(|_| {
-                PyErr::value_error(format!(
-                    "Date ordinal {x} converts to a date (using epoch {}), but Matplotlib \
-                     dates must be between year 0001 and 9999.",
-                    get_epoch()
-                ))
-            })?;
+            let utc = num2date(x, &TimeZone::Utc).map_err(|_| ordinal_error(x))?;
             let local = utc.local();
             let (date, time) = (local.date(), local.time());
             Ok((

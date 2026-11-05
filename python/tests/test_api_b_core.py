@@ -174,7 +174,9 @@ def test_composite_images_and_thumbnail():
     plt.imsave(source, np.arange(64).reshape(8, 8), format="png")
     source.seek(0)
     target = io.BytesIO()
-    thumb = image.thumbnail(source, target, scale=0.5)
+    # Deprecated in matplotlib 3.11, as there.
+    with pytest.warns(pltrs.MatplotlibDeprecationWarning, match="thumbnail"):
+        thumb = image.thumbnail(source, target, scale=0.5)
     assert type(thumb).__name__ == "Figure"
     assert thumb.get_size_inches().tolist() == [0.04, 0.04]
     assert target.getvalue()[:4] == b"\x89PNG"

@@ -380,6 +380,9 @@ class BarsMixin:
         elif hasattr(heights, 'shape'):  # numpy array
             heights = heights.T
         _api.check_in_list(["vertical", "horizontal"], orientation=orientation)
+        if labels is not None:
+            # matplotlib asserts one label per dataset.
+            assert len(labels) == len(heights)
         # Where the bars start, `bar`'s *bottom* (`barh`'s *left*), which
         # matplotlib's grouped_bar hands its bars.
         base = kwargs.pop("bottom" if orientation == "vertical" else "left", None)

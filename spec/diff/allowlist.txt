@@ -28,7 +28,7 @@ style_sheets/style_sheets_reference$ | ^warning extra: WARNING: findfont: Failed
 
 # matplotlib's C++ extensions define their classes with pybind11, whose
 # classes derive from pybind11_object; pltrs's are Python classes.
-. | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|Glyph)|backends\._backend_agg\.BufferRegion): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
+. | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|FT2Image|Glyph)|backends\._backend_agg\.BufferRegion): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
 
 # matplotlib draws what a program puts in a figure's artists, lines, patches
 # and texts lists (Figure.get_children reads them at each draw); pltrs
@@ -41,6 +41,7 @@ artists/(sub)?figure_(getters|setters)$ | ^type\[(artists|lines|patches|texts)\]
 # the axes of a (sub)figure is the list of its Axes, so a figure with Axes
 # fails there with AttributeError (a matplotlib bug), where pltrs sets it.
 artists/subfigure_setters$ | ^exception\[set_mouseover\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a SubFigure's axes attribute is
+api/(figure_[0-9]+|subfigure_0)$ | ^exception\[(set_mouseover|set|constant)\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a (Sub)Figure's axes attribute is: set_mouseover(True), mouseover = True and set(mouseover=True)
 
 # pltrs (Rust) lays out the tree of an added offset box itself and asks a
 # box of the program's in it for its extent once per layout (its
@@ -66,3 +67,13 @@ scales/custom_scale$ | ^callback\[(MercatorLatitudeTransform|__init__|thresh|mas
 # pltrs (Rust) draws the ticks itself and asks the class once.
 misc/custom_projection$ | ^callback\[_[xy]axis_(text[12]_)?transform\]: runs another number of times$ | the getters run for the Tick objects an axis makes: 30 and 10 calls in the first draw of the figure, none in a second
 specialty_plots/skewt$ | ^callback\[SkewXTick\]: runs another number of times$ | SkewXAxis._get_tick runs for each Tick object the axis makes: 17 calls in the first draw of the figure, none in a second
+
+# pltrs has a GUI backend of its own (`backend_pltrs`, its windows), which
+# the backend registry lists among matplotlib's.
+api/module_matplotlib_0$ | ^exception message\[(use|validate_backend)\]: ValueError$ | the list of valid backends in the message of use('nonexistent_backend') and validate_backend('text') ends with pltrs' own backend, 'pltrs'
+
+# pltrs (Rust) writes the data files it bundles (its fonts, the template of
+# the defaults) into a data directory of its own, which programs reach as
+# matplotlib's mpl-data, and names its rc file pltrsrc.
+api/module_matplotlib_0$ | ^value\[(get_data_path|matplotlib_fname)\]: str$ | get_data_path() is pltrs' data directory ('<config>/mpl-data', where pltrs (Rust) writes its bundled files), and matplotlib_fname() its template of the defaults there, named pltrsrc
+api/module_matplotlib_style_0$ | ^value\[read_style_directory\]: dict keys$ | the stylelib directory of pltrs' data directory holds pltrs' two looks (pltrs-modern, pltrs-modern-dark) besides matplotlib's sheets, as style.available lists them

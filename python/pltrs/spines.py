@@ -378,6 +378,9 @@ class Spine(Patch):
         unlike the `.Patch.set_color` method defined in the parent class.  Use
         `.Patch.set_facecolor` to set the facecolor.
         """
+        if c is not None:
+            # matplotlib's patch converts the colour at once.
+            to_rgba(c)
         _spines.set_color(self._native, c)
         _values.remember(self, "edgecolor", c)
 

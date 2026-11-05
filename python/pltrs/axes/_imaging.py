@@ -100,7 +100,7 @@ class ImagingMixin:
     @property
     def images(self):
         """The `.AxesImage`\\s of the Axes, in the order they were added."""
-        return ArtistList("images", lambda: _handles.wrap_all(
+        return ArtistList._of("images", lambda: _handles.wrap_all(
             _native_image.get_images(self._native), mimage.AxesImage,
             self.figure))
 

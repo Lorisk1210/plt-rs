@@ -6,6 +6,7 @@ use pltrs::axes::{Axes, ProjectionKind};
 use pltrs::colors::Color;
 use pltrs::figure::{AxesRectError, DrawErrors, Figure, SaveError, SizeError, SubfigureOptions};
 use pltrs::gridspec::{GridSpecError, SubplotOverrides, SubplotSpec};
+use pltrs::image::BitmapFormat;
 use pltrs::layout::{
     ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, SolvedGrid, TightLayout,
 };
@@ -92,10 +93,20 @@ impl From<SaveError> for PyErr {
         }
         let kind = match err {
             SaveError::Draw(errors) => return errors.into(),
+            SaveError::MetadataUnsupported(format) => {
+                // matplotlib's message, which names the format as Pillow does.
+                return PyErr::value_error(match format.bitmap() {
+                    Some(BitmapFormat::Raw) => "metadata not supported for raw/rgba".to_owned(),
+                    Some(bitmap) => {
+                        format!("metadata not supported for format '{}'", bitmap.name())
+                    }
+                    None => err.to_string(),
+                });
+            }
             SaveError::Io(_) => ExceptionKind::OSError,
-            SaveError::UnsupportedFormat(_)
-            | SaveError::MetadataUnsupported(_)
-            | SaveError::Backend(RasterBackendError::Canvas(_)) => ExceptionKind::ValueError,
+            SaveError::UnsupportedFormat(_) | SaveError::Backend(RasterBackendError::Canvas(_)) => {
+                ExceptionKind::ValueError
+            }
             _ => ExceptionKind::RuntimeError,
         };
         PyErr::new(kind, err.to_string())

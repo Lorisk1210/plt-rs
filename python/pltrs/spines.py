@@ -10,10 +10,10 @@ import functools
 
 import numpy as np
 
-from . import _api, _handles, _values, rcParams
+from . import _api, _handles, _python_drawing, _unusable, _values, rcParams
 from .colors import to_rgba
 from ._native import artist as _artist, spines as _spines
-from .artist import Artist
+from .artist import Artist, allow_rasterization
 from .patches import Patch, _kept_linestyle
 from .path import Path
 from .transforms import Bbox, IdentityTransform
@@ -27,6 +27,14 @@ _LINEAR_PATHS = {
     "bottom": [(0.999, 0.0), (0.999, 0.0)],
     "top": [(0.999, 1.0), (0.999, 1.0)],
 }
+
+
+def _position_pair(position):
+    """The ``(kind, amount)`` pair of the spine position *position*
+    (``'center'`` and ``'zero'`` spelled out), as pltrs (Rust) keeps it."""
+    kind, amount = {'center': ('axes', 0.5),
+                    'zero': ('data', 0.0)}.get(position, position)
+    return kind, float(amount)
 
 
 def _check_position(position):
@@ -145,18 +153,54 @@ class Spine(Patch):
         """Set the spine to be arc-like."""
         _spines.set_patch_arc(self._native, tuple(map(float, center)),
                               float(radius), (float(theta1), float(theta2)))
+        # The arc's path, which the spine keeps as matplotlib's does.
+        self._path = Path.arc(theta1, theta2)
+        self._watch_shape()
         self.stale = True
 
     def set_patch_circle(self, center, radius):
         """Set the spine to be circular."""
         _spines.set_patch_circle(self._native, tuple(map(float, center)),
                                  float(radius))
+        self._watch_shape()
         self.stale = True
 
     def set_patch_line(self):
         """Set the spine to be linear."""
         _spines.set_patch_line(self._native)
+        self._watch_shape()
         self.stale = True
+
+    def _misshapen(self):
+        """
+        Whether the spine cannot be laid out, as matplotlib's cannot: a
+        spine of a side drawn as a line or a circle whose path is no line
+        (the arc's path `set_patch_arc` left, which `set_patch_line` and
+        `set_patch_circle` keep).
+        """
+        return (self._patch_type != 'arc' and self.spine_type in _LINEAR_PATHS
+                and "_path" in self.__dict__
+                and self._path.vertices.shape != (2, 2))
+
+    def _check_shape(self):
+        """Fail as matplotlib's spine fails to lay out (`_misshapen`), when
+        it is drawn or measured."""
+        assert not self._misshapen(), 'unexpected vertices shape'
+
+    def _watch_shape(self):
+        """Have pltrs (Rust) draw and measure the spine through `draw` and
+        `get_tightbbox` while it is misshapen, so that drawing or measuring
+        its figure fails as matplotlib's does; as before otherwise."""
+        if self._misshapen():
+            _python_drawing.draw_through_python(self, True)
+        else:
+            _python_drawing.attach(self, again=True)
+
+    @allow_rasterization
+    def draw(self, renderer):
+        # docstring inherited
+        self._check_shape()
+        return super().draw(renderer)
 
     @property
     def _patch_type(self):
@@ -166,6 +210,7 @@ class Spine(Patch):
     def clear(self):
         """Clear the current spine."""
         _spines.set_position(self._native, ("outward", 0.0))
+        self.__dict__.pop("_given_position", None)
         if self.axis is not None:
             self.axis.clear()
 
@@ -235,7 +280,7 @@ class Spine(Patch):
             self._path = Path(np.array(_LINEAR_PATHS[self.spine_type]))
         draws = (_artist.draw_count(self._native),
                  0 if self.axes is None else _artist.draw_count(self.axes._native))
-        if draws != self.__dict__.get("_path_draws", (0, 0)):
+        if draws != self.__dict__.get("_path_draws", (0, 0)) and not self._misshapen():
             self._path_draws = draws
             self._span_path()
         return self._path
@@ -258,15 +303,17 @@ class Spine(Patch):
         * 'zero' -> ``('data', 0.0)``
         """
         _check_position(position)
-        kind, amount = {'center': ('axes', 0.5),
-                        'zero': ('data', 0.0)}.get(position, position)
-        _spines.set_position(self._native, (kind, float(amount)))
+        _spines.set_position(self._native, _position_pair(position))
+        # Read back as given, as matplotlib keeps it.
+        self._given_position = position
         # The spine takes the transform of its position again.
         self.__dict__.pop("_given_transform", None)
 
     def get_position(self):
         """Return the spine position."""
-        return _spines.get_position(self._native)
+        position = _spines.get_position(self._native)
+        given = self.__dict__.get("_given_position")
+        return given if given is not None and _position_pair(given) == position else position
 
     def set_bounds(self, low=None, high=None):
         """
@@ -290,13 +337,24 @@ class Spine(Patch):
                 'set_bounds() method incompatible with circular spines')
         if high is None and np.iterable(low):
             low, high = low
+        previous = self.get_bounds()
         _spines.set_bound_ends(self._native,
                                None if low is None else float(low),
                                None if high is None else float(high))
+        # Read back as given, an end left unchanged as it was (the view's
+        # as a numpy float), as matplotlib keeps them.
+        if previous is None:
+            previous = tuple(map(np.float64, _spines.get_bounds(self._native)))
+        self._given_bounds = tuple(kept if value is None else value
+                                   for value, kept in zip((low, high), previous))
 
     def get_bounds(self):
         """Get the bounds of the spine."""
-        return _spines.get_bounds(self._native)
+        bounds = _spines.get_bounds(self._native)
+        given = self.__dict__.get("_given_bounds")
+        if given is not None and bounds is not None and tuple(map(float, given)) == bounds:
+            return given
+        return bounds
 
     @property
     def axis(self):
@@ -322,6 +380,7 @@ class Spine(Patch):
         Return the window extent of the spines in display space, including
         padding for ticks (but not their labels)
         """
+        self._check_shape()
         if self._is_linear:
             # Measuring spans the path over the view, as drawing does.
             self._linear_path()
@@ -403,6 +462,36 @@ class Spine(Patch):
         """Set the spine line style."""
         _spines.set_linestyle(self._native, ls)
         self._linestyle = _kept_linestyle(ls)
+
+
+#: The spines matplotlib's ticks read by name as they are made
+#: (``get_xaxis_transform('tick1')``, ...), in the order they read them.
+_TICK_SPINES = ("bottom", "top", "left", "right")
+
+
+def _read_tick_spines(axes):
+    """Read the spines of *axes* as matplotlib's new ticks read them: by
+    name, which fails for one deleted from ``axes.spines``."""
+    for name in _TICK_SPINES:
+        getattr(axes.spines, name)
+
+
+def _watch_tick_spines(spines, spine):
+    """
+    Have the Axes of *spine*, if *spines* is that Axes' container, fail to
+    draw as matplotlib's does while a spine its ticks read is missing from
+    it (see `._unusable`): its ticks, made as it first draws, read them by
+    name. An Axes drawn before already has its ticks.
+    """
+    axes = getattr(spine, "axes", None)
+    if axes is None or axes.__dict__.get("_spines_kept") is not spines:
+        return
+    if (not set(_TICK_SPINES) <= set(spines)
+            and set(_TICK_SPINES) <= set(dict(_spines.axes_spines(axes._native)))
+            and not _artist.draw_count(axes._native)):
+        _unusable.keep(axes, "spines", axes, _read_tick_spines)
+    else:
+        _unusable.drop(axes, "spines")
 
 
 class SpinesProxy:
@@ -504,9 +593,11 @@ class Spines(MutableMapping):
 
     def __setitem__(self, key, value):
         self._dict[key] = value
+        _watch_tick_spines(self, value)
 
     def __delitem__(self, key):
-        del self._dict[key]
+        spine = self._dict.pop(key)
+        _watch_tick_spines(self, spine)
 
     def __iter__(self):
         return iter(self._dict)

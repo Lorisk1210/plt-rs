@@ -4,10 +4,28 @@
 //! `set_data_interval`, `get_minpos` and `get_tick_space`), and the
 //! description of the axis tick helpers consult ([`Axis::info`]).
 
+use pltrs_core::numeric::{py_max, py_min};
+
 use super::axis_handle::Axis;
 use super::state::AxesState;
 use crate::artist::ArtistHandle;
 use crate::ticker::{AxisInfo, AxisName, TickerError};
+
+/// The interval `(old_min, old_max)` widened to include `vmin` and `vmax`,
+/// keeping its orientation, as matplotlib's interval setters widen one
+/// (`set_view_interval` and `set_data_interval` without `ignore`): with
+/// Python's `min` and `max` over `vmin`, `vmax` and the old end, in that
+/// order, which keep a NaN met first, and the reversed form for an
+/// interval not increasing (NaN ends included).
+pub(crate) fn widened((old_min, old_max): (f64, f64), vmin: f64, vmax: f64) -> (f64, f64) {
+    let lowest = |end| py_min(py_min(vmin, vmax), end);
+    let highest = |end| py_max(py_max(vmin, vmax), end);
+    if old_min < old_max {
+        (lowest(old_min), highest(old_max))
+    } else {
+        (highest(old_min), lowest(old_max))
+    }
+}
 
 impl Axis {
     /// The view limits along this axis, autoscaled first, in the order
@@ -76,11 +94,10 @@ impl Axis {
     pub fn set_data_interval(&self, vmin: f64, vmax: f64, ignore: bool) -> &Self {
         let name = self.name;
         self.axes.raw().with_mut::<AxesState, _>(|axes| {
-            let (low, high) = (vmin.min(vmax), vmin.max(vmax));
             if ignore {
-                axes.set_data_interval(name, low, high);
+                axes.set_data_interval(name, vmin, vmax);
             } else {
-                axes.extend_data_interval(name, low, high);
+                axes.include_in_data(name, vmin, vmax);
             }
             axes.request_autoscale(name == AxisName::X, name == AxisName::Y);
         });
@@ -182,6 +199,7 @@ impl Axis {
 
 #[cfg(test)]
 mod tests {
+    use super::widened;
     use crate::figure::Figure;
     use pltrs_core::Point;
 
@@ -197,8 +215,26 @@ mod tests {
         assert_eq!(ax.yaxis().data_interval(), (-1.0, 2.0));
         assert_eq!(ax.xaxis().minpos(), 0.5);
         ax.yaxis().set_data_interval(5.0, -5.0, true);
-        assert_eq!(ax.yaxis().data_interval(), (-5.0, 5.0));
+        assert_eq!(ax.yaxis().data_interval(), (5.0, -5.0));
         assert_eq!(ax.yaxis().minpos(), 2.0);
+        // Widening keeps the orientation; a NaN first wins, as in Python.
+        ax.yaxis().set_data_interval(7.0, 0.0, false);
+        assert_eq!(ax.yaxis().data_interval(), (7.0, -5.0));
+        ax.yaxis().set_data_interval(f64::NAN, 1.0, false);
+        let (low, high) = ax.yaxis().data_interval();
+        assert!(low.is_nan() && high.is_nan());
+        ax.yaxis().set_data_interval(5.0, 4.0, false);
+        assert_eq!(ax.yaxis().data_interval(), (5.0, 4.0));
+    }
+
+    #[test]
+    fn widening_follows_pythons_min_and_max() {
+        assert_eq!(widened((0.0, 1.0), 2.0, -1.0), (-1.0, 2.0));
+        assert_eq!(widened((1.0, 0.0), 2.0, -1.0), (2.0, -1.0));
+        let (low, high) = widened((0.0, 1.0), f64::NAN, 4.0);
+        assert!(low.is_nan() && high.is_nan());
+        assert_eq!(widened((0.0, 1.0), 0.5, f64::NAN), (0.0, 1.0));
+        assert_eq!(widened((f64::NAN, f64::NAN), 5.0, 4.0), (5.0, 4.0));
     }
 
     #[test]

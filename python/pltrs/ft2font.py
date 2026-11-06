@@ -308,12 +308,12 @@ class FT2Font:
             raise _incompatible("__init__")
         if not isinstance(face_index, int):
             raise _incompatible("__init__")
-        self._data, self._fname = self._read(filename)
+        source, self._fname = self._source(filename)
         self._fallbacks = list(_fallback_list or [])
         self._warn_if_used = _warn_if_used
-        self._native = _ft2font.open(
-            self._data, face_index,
-            [(font._data, font.face_index) for font in self._fallbacks])
+        opener = _ft2font.open_file if isinstance(source, str) else _ft2font.open
+        self._native = opener(source, face_index,
+                              [font._native for font in self._fallbacks])
         self._face_index = face_index
         if _kerning_factor:
             _ft2font.set_kerning_factor(self._native, _kerning_factor)
@@ -366,12 +366,17 @@ class FT2Font:
         "bbox", "Face global bounding box (xmin, ymin, xmax, ymax).")
 
     @staticmethod
-    def _read(filename):
-        """The bytes of the font file *filename* (a path or a binary file
-        object) and the name `fname` reports for it."""
+    def _source(filename):
+        """
+        The font file *filename* (a path, or a binary file object) as pltrs
+        (Rust) opens it: a path, whose bytes it reads once for the faces of
+        the file open, or the bytes a file object gives; and the name
+        `fname` reports for it.
+        """
         if isinstance(filename, (str, bytes, os.PathLike)):
+            # Opened as FreeType opens it, for its errors and name.
             with io.open(filename, "rb") as file:
-                return file.read(), file.name
+                return os.fsdecode(filename), file.name
         try:
             probe = filename.read(0)
         except Exception:

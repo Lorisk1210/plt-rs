@@ -44,7 +44,8 @@ class TriAnalyzer:
             ``[triangulation.x * kx, triangulation.y * ky]``
             fits exactly inside a unit square.
         """
-        return _tri.scale_factors(self._triangulation._native)
+        # numpy floats, as matplotlib's ``1 / np.ptp(...)`` gives them.
+        return tuple(map(np.float64, _tri.scale_factors(self._triangulation._native)))
 
     def circle_ratios(self, rescale=True):
         """
@@ -71,8 +72,9 @@ class TriAnalyzer:
         ratios = _tri.circle_ratios(self._triangulation._native, bool(rescale))
         mask = self._triangulation.mask
         if mask is None:
-            mask = np.isnan(ratios)
-        return np.ma.array(ratios, mask=mask)
+            return ratios
+        else:
+            return np.ma.array(ratios, mask=mask)
 
     def get_flat_tri_mask(self, min_circle_ratio=0.01, rescale=True):
         """

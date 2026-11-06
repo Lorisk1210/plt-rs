@@ -16,7 +16,7 @@ import weakref
 import numpy as np
 
 from . import (_api, _live_transforms, _mirrors, _text_coords, _text_overrides,
-               _values, cbook, units)
+               _unusable, _values, cbook, units)
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
@@ -292,8 +292,9 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         if rectprops is None:
             _text.set_bbox(self._native, None)
             return
+        # matplotlib copies the properties first (``rectprops.copy()``).
         props = {_BOX_ALIASES.get(key, key): value
-                 for key, value in rectprops.items()}
+                 for key, value in rectprops.copy().items()}
         boxstyle = props.get("boxstyle")
         if boxstyle is not None:
             from .patches import BoxStyle
@@ -555,6 +556,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         if not self.get_visible():
             return Bbox.unit()
+        if dpi is None:
+            _unusable.check(self, measuring=True)
         figure = self.get_figure(root=True)
         if figure is None and dpi is None and not self.__dict__.get("_stand_in"):
             # matplotlib reads the resolution of the text's figure first.

@@ -196,6 +196,12 @@ def _interval_method(kind):
     return name
 
 
+#: What matplotlib's ticks draw when no parameter says (``Tick.__init__``):
+#: the first side's mark and label, the second side's mark.
+_TICK_DEFAULTS = {'tick1On': True, 'tick2On': True, 'label1On': True,
+                  'label2On': False}
+
+
 class Ticker:
     """
     A container for the objects defining tick position and format.
@@ -616,15 +622,10 @@ class Axis(DrawnWith, Artist):
             return self._drawn_info
         return _axis.axis_info(*self._args())
 
-    @_interval_method("getter")
     def get_view_interval(self):
         """Return the ``(min, max)`` view limits of this axis."""
-        fields = self._drawn_fields()
-        if fields is not None:
-            return np.array(fields[0])
-        return np.array(_axis.get_view_interval(*self._args()))
+        raise NotImplementedError('Derived must override')
 
-    @_interval_method("setter")
     def set_view_interval(self, vmin, vmax, ignore=False):
         """
         Set the axis view limits.  This method is for internal use; Matplotlib
@@ -638,18 +639,12 @@ class Axis(DrawnWith, Artist):
         If *ignore* is True, the view limits will be set exactly to ``(vmin,
         vmax)`` in that order.
         """
-        _axis.set_view_interval(*self._args(), float(vmin), float(vmax),
-                                bool(ignore))
+        raise NotImplementedError('Derived must override')
 
-    @_interval_method("getter")
     def get_data_interval(self):
         """Return the ``(min, max)`` data limits of this axis."""
-        fields = self._drawn_fields()
-        if fields is not None:
-            return np.array(fields[1])
-        return np.array(_axis.get_data_interval(*self._args()))
+        raise NotImplementedError('Derived must override')
 
-    @_interval_method("setter")
     def set_data_interval(self, vmin, vmax, ignore=False):
         """
         Set the axis data limits.  This method is for internal use.
@@ -662,23 +657,15 @@ class Axis(DrawnWith, Artist):
         If *ignore* is True, the data limits will be set exactly to ``(vmin,
         vmax)`` in that order.
         """
-        _axis.set_data_interval(*self._args(), float(vmin), float(vmax),
-                                bool(ignore))
-
-    def get_minpos(self):
-        """Return the smallest positive datum along the axis."""
-        fields = self._drawn_fields()
-        if fields is not None:
-            return fields[2]
-        # matplotlib reads it from the data limits, a numpy box.
-        return np.float64(_axis.get_minpos(*self._args()))
+        raise NotImplementedError('Derived must override')
 
     def get_tick_space(self):
         """Return the estimated number of ticks that can fit on the axis."""
-        fields = self._drawn_fields()
-        if fields is not None:
-            return fields[3]
-        return _axis.get_tick_space(*self._args())
+        # Must be overridden in the subclass
+        raise NotImplementedError()
+
+    def get_minpos(self):
+        raise NotImplementedError()
 
     def get_inverted(self):
         """
@@ -1260,11 +1247,14 @@ class Axis(DrawnWith, Artist):
         """
         _api.check_in_list(['major', 'minor', 'both'], which=which)
         kwtrans = self._translate_tick_params(kwargs)
-        for minor in (False, True):
-            if which in ('minor' if minor else 'major', 'both'):
-                if reset:
-                    self._tick_kw[minor] = {}
-                self._tick_kw[minor].update(kwtrans)
+        levels = [minor for minor in (False, True)
+                  if which in ('minor' if minor else 'major', 'both')]
+        for minor in levels:
+            if reset:
+                self._tick_kw[minor] = {}
+                # The sides drawn, which the parameters no longer give.
+                self.__dict__.setdefault("_switches_reset", set()).add(minor)
+            self._tick_kw[minor].update(kwtrans)
         # The ticks are drawn with their axis, as a unit, so that their
         # zorder only orders them among themselves: it is kept, not drawn.
         native = {k: v for k, v in kwtrans.items() if k != 'zorder'}
@@ -1277,7 +1267,17 @@ class Axis(DrawnWith, Artist):
         if 'grid_clip_path' in native:
             native['grid_clip_path'] = _artist_clipping.clip_path_spec(
                 native['grid_clip_path'])
-        _axis.set_tick_params(*self._args(), which, bool(reset), native)
+        if reset:
+            # matplotlib makes the ticks anew from the parameters left: a
+            # tick's own defaults, and the grid of the rcParams.
+            for minor in levels:
+                grid = (self._rc('axes.grid') and self._rc('axes.grid.which')
+                        in ('both', 'minor' if minor else 'major'))
+                _axis.set_tick_params(
+                    *self._args(), 'minor' if minor else 'major', True,
+                    {**_TICK_DEFAULTS, 'gridOn': grid, **native})
+        else:
+            _axis.set_tick_params(*self._args(), which, False, native)
         if not reset:
             # labelOn and labelcolor also apply to the offset text.
             if 'label1On' in kwtrans or 'label2On' in kwtrans:
@@ -1317,7 +1317,12 @@ class Axis(DrawnWith, Artist):
     def _tick_kw_of(self, minor):
         keys = ("tick1On", "tick2On", "label1On", "label2On", "gridOn")
         switches = dict(zip(keys, _axis.tick_switches(*self._args(), minor)))
-        return {**self._tick_kw[minor], **switches}
+        if minor in self.__dict__.get("_switches_reset", ()):
+            # Since a reset, only the grid and the sides set again.
+            switches = {key: value for key, value in switches.items()
+                        if key == "gridOn" or key in self._tick_kw[minor]}
+        # In matplotlib's order, the sides first; pltrs (Rust)'s sides win.
+        return {**switches, **self._tick_kw[minor], **switches}
 
     @classmethod
     def _translate_tick_params(cls, kw, reverse=False):
@@ -1573,13 +1578,13 @@ class Axis(DrawnWith, Artist):
 
     def set_label_position(self, position):
         """
-        Set the label position (a side of the axes).
+        Set the label position (top or bottom)
 
         Parameters
         ----------
         position : {'top', 'bottom'}
         """
-        _axis.set_label_position(*self._args(), position)
+        raise NotImplementedError()
 
     # --- Visibility and layout -----------------------------------------------
 
@@ -1925,7 +1930,84 @@ class Axis(DrawnWith, Artist):
         _axis.axis_date(*self._args(), _native_tz(_get_tzinfo(tz)))
 
 
-class XAxis(Axis):
+class _AxisOfAxes:
+    """
+    What matplotlib's `XAxis` and `YAxis` define over the abstract `Axis`:
+    the intervals and the label side of an axis of an Axes, which pltrs
+    (Rust) keeps (read from the description it draws the axis with, while
+    it draws it).
+    """
+
+    @_interval_method("getter")
+    def get_view_interval(self):
+        """Return the ``(min, max)`` view limits of this axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return np.array(fields[0])
+        return np.array(_axis.get_view_interval(*self._args()))
+
+    @_interval_method("setter")
+    def set_view_interval(self, vmin, vmax, ignore=False):
+        """
+        Set the axis view limits.  This method is for internal use; Matplotlib
+        users should typically use e.g. `~.Axes.set_xlim` or `~.Axes.set_ylim`.
+
+        If *ignore* is False (the default), this method will never reduce the
+        preexisting view limits, only expand them if *vmin* or *vmax* are not
+        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
+        the orientation of the axis will not change.
+
+        If *ignore* is True, the view limits will be set exactly to ``(vmin,
+        vmax)`` in that order.
+        """
+        _axis.set_view_interval(*self._args(), float(vmin), float(vmax),
+                                bool(ignore))
+
+    @_interval_method("getter")
+    def get_data_interval(self):
+        """Return the ``(min, max)`` data limits of this axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return np.array(fields[1])
+        return np.array(_axis.get_data_interval(*self._args()))
+
+    @_interval_method("setter")
+    def set_data_interval(self, vmin, vmax, ignore=False):
+        """
+        Set the axis data limits.  This method is for internal use.
+
+        If *ignore* is False (the default), this method will never reduce the
+        preexisting data limits, only expand them if *vmin* or *vmax* are not
+        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
+        the orientation of the axis will not change.
+
+        If *ignore* is True, the data limits will be set exactly to ``(vmin,
+        vmax)`` in that order.
+        """
+        _axis.set_data_interval(*self._args(), float(vmin), float(vmax),
+                                bool(ignore))
+
+    def get_minpos(self):
+        """Return the smallest positive datum along the axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return fields[2]
+        # matplotlib reads it from the data limits, a numpy box.
+        return np.float64(_axis.get_minpos(*self._args()))
+
+    def get_tick_space(self):
+        """Return the estimated number of ticks that can fit on the axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return fields[3]
+        return _axis.get_tick_space(*self._args())
+
+    def _set_label_side(self, position):
+        """Put the axis label on the side *position* names."""
+        _axis.set_label_position(*self._args(), position)
+
+
+class XAxis(_AxisOfAxes, Axis):
     """The x-axis of an Axes."""
 
     __name__ = 'xaxis'
@@ -1944,7 +2026,7 @@ class XAxis(Axis):
         position : {'top', 'bottom'}
         """
         _api.check_in_list(['top', 'bottom'], position=position)
-        super().set_label_position(position)
+        self._set_label_side(position)
 
     def set_ticks_position(self, position):
         """
@@ -1976,7 +2058,7 @@ class XAxis(Axis):
         _axis.tick_to(*self._args(), "bottom")
 
 
-class YAxis(Axis):
+class YAxis(_AxisOfAxes, Axis):
     """The y-axis of an Axes."""
 
     __name__ = 'yaxis'
@@ -1995,7 +2077,7 @@ class YAxis(Axis):
         position : {'left', 'right'}
         """
         _api.check_in_list(['left', 'right'], position=position)
-        super().set_label_position(position)
+        self._set_label_side(position)
 
     def set_offset_position(self, position):
         """

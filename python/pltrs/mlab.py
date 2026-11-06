@@ -510,11 +510,12 @@ class GaussianKDE:
 
     def scotts_factor(self):
         """Scott's rule: ``num_dp ** (-1 / (dim + 4))``."""
-        return _mlab.bandwidth_factor("scott", self.dim, self.num_dp)
+        # A numpy float, as matplotlib's ``np.power`` gives it.
+        return np.float64(_mlab.bandwidth_factor("scott", self.dim, self.num_dp))
 
     def silverman_factor(self):
         """Silverman's rule: ``(num_dp * (dim + 2) / 4) ** (-1 / (dim + 4))``."""
-        return _mlab.bandwidth_factor("silverman", self.dim, self.num_dp)
+        return np.float64(_mlab.bandwidth_factor("silverman", self.dim, self.num_dp))
 
     #  Default method to calculate bandwidth, can be overwritten by subclass
     covariance_factor = scotts_factor

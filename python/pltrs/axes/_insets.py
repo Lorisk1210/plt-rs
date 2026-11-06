@@ -68,8 +68,10 @@ class InsetsMixin:
 
         This is the lowlevel version.  See `.axes.Axes.inset_axes`.
         """
-        _insets.add_child_axes(self._native, ax._native)
-        ax._child_of = self
+        if ax.__dict__.get("_child_of") is not self:
+            # matplotlib adds a child twice over; pltrs (Rust) keeps one.
+            _insets.add_child_axes(self._native, ax._native)
+            ax._child_of = self
         self.stale = True
         return ax
 

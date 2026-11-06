@@ -9,13 +9,14 @@ and each subclass reads and writes its geometry through the native
 functions of its shape.
 """
 
-from numbers import Number
+import math
+from numbers import Number, Real
 
 import numpy as np
 
-from . import _api, _mirrors, _values, cbook, colors as mcolors, units
+from . import _api, _mirrors, _unusable, _values, cbook, colors as mcolors, units
 from ._enums import CapStyle, JoinStyle
-from ._fancy_styles import FancyStylesMixin, _style_object
+from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
 from ._native import artist as _artist, patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
@@ -788,7 +789,17 @@ class RegularPolygon(Patch):
 
     _instance_attributes = ("xy", "numvertices", "orientation", "radius")
 
-    get_patch_transform = Patch._kept_patch_transform
+    def get_patch_transform(self):
+        # docstring inherited
+        _unusable.check(self, measuring=True)
+        return self._kept_patch_transform()
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        if kind == "patch":
+            # matplotlib's add_patch reads the patch transform first, for
+            # the data limits.
+            _unusable.check(self, measuring=True)
+        return super()._add_to_axes(axes, kind, autolim)
 
     def __str__(self):
         s = "RegularPolygon((%g, %g), %d, radius=%g, orientation=%g)"
@@ -808,13 +819,18 @@ class RegularPolygon(Patch):
         orientation : float
             The polygon is rotated by *orientation* radians.
         """
+        usable = isinstance(orientation, Real)
         self._native = _patches.new_regular_polygon(
             (float(xy[0]), float(xy[1])), int(numVertices), float(radius),
-            float(orientation))
+            float(orientation) if usable else 0.)
         _values.remember_all(self, {"xy": xy, "radius": radius,
                                     "orientation": orientation},
                              ("xy", "radius", "orientation"))
         super().__init__(**kwargs)
+        if not usable:
+            # matplotlib keeps it, and fails to rotate the polygon by it
+            # (``Affine2D.rotate``, through ``math.cos``).
+            _unusable.keep(self, "orientation", orientation, math.cos)
 
     def _fields(self):
         """``(x, y, numvertices, radius, orientation)``."""
@@ -838,7 +854,8 @@ class RegularPolygon(Patch):
     @property
     def orientation(self):
         """The polygon's rotation, in radians."""
-        return _values.given(self, "orientation", self._fields()[4])
+        return _unusable.kept(
+            self, "orientation", _values.given(self, "orientation", self._fields()[4]))
 
 
 class PathPatch(Patch):
@@ -1873,7 +1890,7 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             _native_spec(boxstyle, BoxStyle),
             (float(mutation_scale),
-             1. if mutation_aspect is None else float(mutation_aspect)))
+             native_aspect(mutation_aspect)))
         _values.remember_all(self, {"x": xy[0], "y": xy[1], "width": width,
                                     "height": height}, ("x", "y", "width", "height"))
         super().__init__(**kwargs)
@@ -1917,7 +1934,14 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
     def get_path(self):
         """Return the mutated path of the rectangle: a new `.Path` at each
         call, as matplotlib's box style makes it anew."""
+        _unusable.check(self, measuring=True)
         return Path(*_patches.get_path(self._native))
+
+    @staticmethod
+    def _use_mutation_aspect(aspect):
+        """What matplotlib's box style computes first with the mutation
+        *aspect*: it squeezes the height, ``height / aspect``."""
+        return 1. / aspect
 
     def get_boxstyle(self):
         """Return the boxstyle object."""
@@ -2100,7 +2124,7 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
             (_native_spec(arrowstyle, ArrowStyle),
              _native_spec(connectionstyle, ConnectionStyle),
              float(shrinkA), float(shrinkB), float(mutation_scale),
-             1. if mutation_aspect is None else float(mutation_aspect)))
+             native_aspect(mutation_aspect)))
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
@@ -2236,8 +2260,15 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
         self._link_patches()
         self.stale = True
 
+    @staticmethod
+    def _use_mutation_aspect(aspect):
+        """What matplotlib's arrow style computes first with the mutation
+        *aspect*: it squeezes the path, ``vertices / [1, aspect]``."""
+        return np.zeros((1, 2)) / [1, aspect]
+
     def get_path(self):
         """Return the path of the arrow in the data coordinates."""
+        _unusable.check(self, measuring=True)
         # The arrow of an annotation is drawn by the annotation, which
         # places it (`._annotation_arrow`).
         arrays = _mirrors.ask(self, "display_path")
@@ -2347,7 +2378,7 @@ class ConnectionPatch(FancyArrowPatch):
             (_native_spec(arrowstyle, ArrowStyle),
              _native_spec(connectionstyle, ConnectionStyle),
              float(shrinkA), float(shrinkB), float(mutation_scale),
-             1.0 if mutation_aspect is None else float(mutation_aspect)))
+             native_aspect(mutation_aspect)))
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         Patch.__init__(self, clip_on=clip_on, **kwargs)

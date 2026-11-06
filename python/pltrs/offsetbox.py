@@ -30,7 +30,8 @@ import functools
 
 import numpy as np
 
-from . import _api, _handles, _live_transforms, _offsetbox_trees, _python_drawing, cbook
+from . import (_api, _handles, _live_transforms, _offsetbox_trees, _python_drawing, _unusable,
+               cbook)
 from . import rcParams
 from . import text as mtext
 from . import transforms as mtransforms
@@ -1121,6 +1122,12 @@ def _laid_out_box(description, figure, classes):
     return box
 
 
+def _resolution(figure):
+    """What matplotlib's text reads first of its *figure* to measure
+    itself: its resolution."""
+    return figure.dpi
+
+
 class AuxTransformBox(_FollowsLayout, OffsetBox):
     """
     An OffsetBox with an auxiliary transform.
@@ -1142,6 +1149,12 @@ class AuxTransformBox(_FollowsLayout, OffsetBox):
 
     def add_artist(self, a):
         """Add an `.Artist` to the container box."""
+        if (isinstance(a, mtext.Text) and a.get_figure(root=True) is None
+                and self.get_figure(root=True) is not None):
+            # matplotlib gives its children no figure (a box gives them its
+            # figure when it is added to one): a text added once the box is
+            # in a figure fails to measure, at its figure's resolution.
+            _unusable.keep(a, "figure", None, _resolution)
         self._children.append(a)
         a.set_transform(self.get_transform())
         self._changed()

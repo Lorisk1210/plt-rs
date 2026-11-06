@@ -172,6 +172,17 @@ def _numeric_locale():
             "grouping": list(conv["grouping"])}
 
 
+def _first_steps(x, *steps):
+    """
+    Compute with *x*, as given, the first steps of matplotlib's formatting
+    of it (*steps*, each a function of it), before pltrs (Rust) formats it
+    as a number: an array, or what is no number, fails there with numpy's
+    or Python's own error, as it fails in matplotlib's formatter.
+    """
+    for step in steps:
+        step(x)
+
+
 class Formatter(TickHelper):
     """
     Create a string based on a tick value and location.
@@ -611,7 +622,18 @@ class ScalarFormatter(_NativeFormatter):
         """
         if len(self._locs) == 0:
             return ''
-        return super().__call__(x, pos)
+        else:
+            xp = (x - self.offset) / (10. ** self._orderOfMagnitude)
+            if abs(xp) < 1e-8:
+                xp = 0
+            return self._format_maybe_minus_and_locale(self._format, xp)
+
+    def format_data(self, value):
+        # docstring inherited
+        # matplotlib's first step, which refuses zero, NaN and infinities
+        # in the words of the running Python.
+        math.floor(math.log10(abs(value)))
+        return super().format_data(value)
 
     def set_locs(self, locs):
         # docstring inherited
@@ -619,11 +641,14 @@ class ScalarFormatter(_NativeFormatter):
         info = self._program_view_info(self._axis_info(), locs)
         self._set_locs_on(locs, info)
         locs = np.asarray(self._locs, dtype=float)
+        if len(locs) == 0:
+            return
         offset, self._orderOfMagnitude = _ticker.scalar_offset(
             self._spec(), locs, info)
         if self._useOffset:
-            self.offset = offset
-        if len(locs) and self._spec()["kind"] == "scalar":
+            # matplotlib's offset: 0, else a numpy float.
+            self.offset = np.float64(offset) if offset else 0
+        if self._spec()["kind"] == "scalar":
             self._format = _ticker.scalar_format(self._spec(), locs, info)
 
     def _program_view_info(self, info, locs):
@@ -723,8 +748,13 @@ class LogFormatter(Formatter):
         """
         self._sublabels = _ticker.log_sublabels(self._spec(), self._axis_info())
 
+    #: matplotlib's first steps with the value (see `_first_steps`): it
+    #: tests for zero (``x == 0.0``), then takes its absolute value.
+    _value_steps = (lambda x: bool(x == 0.0), abs)
+
     def __call__(self, x, pos=None):
         # docstring inherited
+        _first_steps(x, *self._value_steps)
         return _ticker.log_label(self._spec(), float(x), self._sublabels,
                                  self._axis_info())
 
@@ -756,6 +786,8 @@ class LogFormatterMathtext(LogFormatter):
     """
 
     _kind = "log_mathtext"
+    # It tests for zero, then for the sign (``x < 0``).
+    _value_steps = (lambda x: bool(x == 0), lambda x: bool(x < 0))
 
 
 class LogFormatterSciNotation(LogFormatterMathtext):
@@ -820,6 +852,13 @@ class LogitFormatter(_NativeFormatter):
     def _kept_locs(locs):
         # matplotlib's logit formatter keeps its locations as an array.
         return np.array(locs)
+
+    def format_data(self, value):
+        # docstring inherited
+        # matplotlib's formats it through `__call__`, which first tests it
+        # against the interval (``x <= 0 or x >= 1``).
+        _first_steps(value, lambda x: bool(x <= 0 or x >= 1))
+        return super().format_data(value)
 
     def use_overline(self, use_overline):
         r"""
@@ -1050,6 +1089,13 @@ class PercentFormatter(_NativeFormatter):
         return {"kind": "percent", "xmax": self.xmax, "decimals": self.decimals,
                 "symbol": self._symbol, "is_latex": bool(self._is_latex)}
 
+    def format_data_short(self, value):
+        # docstring inherited
+        # matplotlib's formats it through `__call__`, its first steps the
+        # percentage (``x / self.xmax``) written with decimals.
+        _first_steps(value, lambda x: f'{self.convert_to_pct(x):0.1f}')
+        return super().format_data_short(value)
+
     def __call__(self, x, pos=None):
         """Format the tick as a percentage with the appropriate scaling."""
         if len(self._locs) == 0:
@@ -1193,10 +1239,15 @@ class Locator(TickHelper):
 
 
 def _asks_program_view(axis):
-    """Whether *axis* is of a class of the program's answering
-    ``get_view_interval`` itself, which matplotlib's helpers ask then."""
-    return (axis is not None
-            and _program_classes.takes_from_program(type(axis), "get_view_interval"))
+    """Whether matplotlib's helpers ask *axis* for its view interval where
+    pltrs (Rust) describes the axis drawn: when it is of a class of the
+    program's answering ``get_view_interval`` itself, or no axis at all
+    (an object the program set, which fails to answer as in matplotlib)."""
+    if axis is None or isinstance(axis, _DummyAxis):
+        return False
+    if not hasattr(axis, "_native_info"):
+        return True
+    return _program_classes.takes_from_program(type(axis), "get_view_interval")
 
 
 def _with_view(info, view):
@@ -1700,18 +1751,36 @@ class LogLocator(_NativeLocator):
         return {"kind": "log", "base": self._base, "subs": subs,
                 "numticks": self.numticks}
 
+    def view_limits(self, vmin, vmax):
+        """Try to choose the view limits intelligently."""
+        vmin, vmax = self.nonsingular(vmin, vmax)
+        if _rc('axes.autolimit_mode') == 'round_numbers':
+            # The decades around them, numpy floats as matplotlib's.
+            return tuple(map(np.float64, super().view_limits(vmin, vmax)))
+        return vmin, vmax
+
     def nonsingular(self, vmin, vmax):
         # docstring inherited
-        lower, upper = super().nonsingular(vmin, vmax)
-        # The limits typed as matplotlib's computes them: its initial
+        # matplotlib's, the limits typed as it computes them: its initial
         # range as ints, decades as numpy floats, the limits kept as given.
         if vmin > vmax:
             vmin, vmax = vmax, vmin
-        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= 0:
+        if not np.isfinite(vmin) or not np.isfinite(vmax):
+            return 1, 10  # Initial range, no data plotted yet.
+        if vmax <= 0:
+            _api.warn_external(
+                "Data has no positive values, and therefore cannot be "
+                "log-scaled.")
             return 1, 10
+        if vmin <= 0:
+            # Consider shared axises
+            minpos = min(axis.get_minpos() for axis in self.axis._get_shared_axis())
+            # This should never take effect.
+            vmin = minpos if np.isfinite(minpos) else 1e-300
         if vmin == vmax:
+            lower, upper = super().nonsingular(vmin, vmax)
             return np.float64(lower), np.float64(upper)
-        return (vmin if vmin > 0 else np.float64(lower)), vmax
+        return vmin, vmax
 
 
 class SymmetricalLogLocator(_NativeLocator):

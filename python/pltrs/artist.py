@@ -21,7 +21,7 @@ from numbers import Real
 import numpy as np
 
 from . import _api, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
-from . import _live_transforms, _program_classes, _python_drawing, _values
+from . import _live_transforms, _program_classes, _python_drawing, _unusable, _values
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
@@ -677,6 +677,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         if not self.get_visible():
             return
+        _unusable.check(self)
         # What matplotlib's draw reads, computed by a class of the program's.
         push_computed = getattr(self, "_push_computed", None)
         if push_computed is not None and _python_drawing.figure_changeable():

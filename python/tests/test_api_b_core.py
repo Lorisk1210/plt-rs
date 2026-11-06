@@ -146,10 +146,15 @@ def test_dviread_metrics_and_fonts():
         dviread.DviFont.from_luatex(10, b"foo")
     font = dviread.DviFont(scale=10 * 2**16, metrics=tfm, texname=b"cmr10", vf=None)
     assert font.size == pytest.approx(9.962640099626402)
-    # matplotlib 3.11's deprecated widths raises AttributeError; pltrs
-    # gives the widths it stood for.
-    with pytest.warns(pltrs.MatplotlibDeprecationWarning):
-        assert font.widths[60:63] == [277, 777, 472]
+    # matplotlib 3.11's deprecated widths reads the TFM file fonts no
+    # longer keep, and the deprecated TFM tables iterate over the codes as
+    # if over items: they raise, as pltrs's do.
+    with pytest.warns(pltrs.MatplotlibDeprecationWarning), \
+            pytest.raises(AttributeError, match="no attribute '_tfm'"):
+        font.widths
+    with pytest.warns(pltrs.MatplotlibDeprecationWarning), \
+            pytest.raises(TypeError, match="cannot unpack non-iterable int object"):
+        tfm.width
 
 
 def test_composite_images_and_thumbnail():

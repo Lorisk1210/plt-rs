@@ -11,8 +11,18 @@ the description pltrs (Rust) gives otherwise (the patches pltrs (Rust)
 makes itself, those their owner restyled).
 """
 
+from numbers import Real
+
+from . import _unusable
 from ._native import patches as _patches
 from ._patch_styles import _native_spec
+
+
+def native_aspect(aspect):
+    """The mutation *aspect* as pltrs (Rust) holds it: 1 for None, the
+    float of a number, 1 for anything else, which the patch keeps instead
+    (see `FancyStylesMixin._keep_mutation`)."""
+    return float(aspect) if isinstance(aspect, Real) else 1.
 
 
 def _style_object(style, registry, **kwargs):
@@ -43,16 +53,25 @@ class FancyStylesMixin:
         return style
 
     def _keep_mutation(self, scale, aspect):
-        """Keep the mutation *scale* and *aspect* as given (an integer
-        stays one), 1 for an aspect of None."""
+        """
+        Keep the mutation *scale* and *aspect* as given (an integer stays
+        one), 1 for an aspect of None. An aspect that is no number, which
+        matplotlib keeps as it is, the patch keeps instead of pltrs (Rust)
+        and fails on where matplotlib's computes with it
+        (``_use_mutation_aspect``, see `._unusable`).
+        """
         self._given_mutation = (scale, 1 if aspect is None else aspect)
+        if aspect is None or isinstance(aspect, Real):
+            _unusable.drop(self, "mutation_aspect")
+        else:
+            _unusable.keep(self, "mutation_aspect", aspect, self._use_mutation_aspect)
 
     def _mutation(self, index):
         """The mutation scale (*index* 0) or aspect (1): as given while
         pltrs (Rust) has it, else pltrs (Rust)'s."""
         native = _patches.get_mutation(self._native)[index]
         given = self.__dict__.get("_given_mutation", (None, None))[index]
-        return given if given is not None and float(given) == native else native
+        return given if isinstance(given, Real) and float(given) == native else native
 
     def set_mutation_scale(self, scale):
         """
@@ -63,7 +82,7 @@ class FancyStylesMixin:
         scale : float
         """
         _patches.set_mutation(self._native, float(scale), None)
-        self._keep_mutation(scale, self._mutation(1))
+        self._keep_mutation(scale, self.get_mutation_aspect())
         self.stale = True
 
     def get_mutation_scale(self):
@@ -78,11 +97,11 @@ class FancyStylesMixin:
         ----------
         aspect : float
         """
-        _patches.set_mutation(self._native, None,
-                              1. if aspect is None else float(aspect))
+        _patches.set_mutation(self._native, None, native_aspect(aspect))
         self._keep_mutation(self._mutation(0), aspect)
         self.stale = True
 
     def get_mutation_aspect(self):
         """Return the aspect ratio of the mutation."""
-        return self._mutation(1)
+        aspect = _unusable.kept(self, "mutation_aspect", None)
+        return self._mutation(1) if aspect is None else aspect

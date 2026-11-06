@@ -252,8 +252,11 @@ class DviFont:
 
     size = property(lambda self: self._size)
 
-    widths = _api.deprecated("3.11")(property(
-        lambda self: _dviread.font_widths(self._native)))
+    # matplotlib 3.11's deprecated property, as it is: it reads the TFM
+    # file fonts no longer keep (``_tfm``), so it raises AttributeError.
+    widths = _api.deprecated("3.11")(property(lambda self: [
+        (1000 * self._tfm.width.get(char, 0)) >> 20
+        for char in range(max(self._tfm.width, default=-1) + 1)]))
 
     @property
     def fname(self):
@@ -405,17 +408,21 @@ class Tfm:
         """Return a glyph's TexMetrics, or None if unavailable."""
         return _tex_metrics(_dviread.tfm_metrics(self._native, idx))
 
-    def _metrics_by_code(self, field):
-        """*field* of the metrics of every character, by code."""
-        return {code: getattr(self.get_metrics(code), field)
+    @property
+    def _glyph_metrics(self):
+        """The metrics of every character, by code."""
+        return {code: self.get_metrics(code)
                 for code in _dviread.tfm_codes(self._native)}
 
+    # matplotlib 3.11's deprecated properties, as they are: they iterate
+    # over the codes of ``_glyph_metrics`` as if over its items, so they
+    # raise TypeError.
     width = _api.deprecated("3.11", alternative="get_metrics")(
-        property(lambda self: self._metrics_by_code("tex_width")))
+        property(lambda self: {c: m.tex_width for c, m in self._glyph_metrics}))
     height = _api.deprecated("3.11", alternative="get_metrics")(
-        property(lambda self: self._metrics_by_code("tex_height")))
+        property(lambda self: {c: m.tex_height for c, m in self._glyph_metrics}))
     depth = _api.deprecated("3.11", alternative="get_metrics")(
-        property(lambda self: self._metrics_by_code("tex_depth")))
+        property(lambda self: {c: m.tex_depth for c, m in self._glyph_metrics}))
 
 
 class TtfMetrics:

@@ -58,7 +58,7 @@ from .._native import polar as _polar
 from .._native import projections as _projections, spines as _spines
 from .._native import transforms as _transforms
 from ..axes import Axes
-from ..axis import Axis
+from ..axis import _AxisOfAxes
 from .._axis_artists import Tick
 from ..path import Path
 from ..spines import _LINEAR_PATHS, Spine
@@ -302,7 +302,7 @@ class _Projection:
             "tick_interval": [
                 name for name in "xy"
                 if type(getattr(ax, f"{name}axis")).get_view_interval
-                is not Axis.get_view_interval],
+                is not _AxisOfAxes.get_view_interval],
             "tick_sides": list(self.probes),
             "spine_interval": list(self.spines),
             "tick_label": [

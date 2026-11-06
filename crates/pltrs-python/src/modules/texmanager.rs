@@ -3,7 +3,7 @@
 //! rcParams (`font.*`, `text.latex.preamble`, `text.latex.engine`) as
 //! matplotlib's reads them at each call.
 
-use pltrs_text::tex::TexManager;
+use pltrs_text::tex::{TexManager, TexNumber, TexResolution};
 
 use super::font_manager::FontProps;
 use crate::binding::prelude::*;
@@ -13,8 +13,37 @@ fn manager() -> PyResult<TexManager> {
     Ok(pltrs::text::tex_manager(&pltrs::rc::params())?)
 }
 
+/// A font size as matplotlib writes it into the document (its `str()`):
+/// an integer (anything with `__index__` but a bool) as a whole number,
+/// anything else as `float()` reads it.
+struct Size(TexNumber);
+
+impl<'py> FromPy<'py> for Size {
+    fn from_py(object: &Bound<'py>) -> PyResult<Self> {
+        if object.type_name() != "bool"
+            && let Ok(whole) = i64::from_py(object)
+        {
+            return Ok(Self(TexNumber::Integer(whole)));
+        }
+        Ok(Self(TexNumber::Float(f64::from_py(object)?)))
+    }
+}
+
+/// A resolution as matplotlib writes it into cache keys and `dvipng`'s
+/// command line: text as it is, else a number as [`Size`] reads it.
+struct Resolution(TexResolution);
+
+impl<'py> FromPy<'py> for Resolution {
+    fn from_py(object: &Bound<'py>) -> PyResult<Self> {
+        if let Ok(text) = String::from_py(object) {
+            return Ok(Self(TexResolution::Text(text)));
+        }
+        Ok(Self(TexResolution::Number(Size::from_py(object)?.0)))
+    }
+}
+
 /// `_get_tex_source(tex, fontsize)`: the LaTeX document typesetting `tex`.
-fn tex_source(tex: String, fontsize: f64) -> PyResult<String> {
+fn tex_source(tex: String, Size(fontsize): Size) -> PyResult<String> {
     Ok(manager()?.source(&tex, fontsize))
 }
 
@@ -25,27 +54,27 @@ fn font_preamble() -> PyResult<String> {
 
 /// `_get_base_path(tex, fontsize, dpi)`: the cache path of a document,
 /// without extension.
-fn base_path(tex: String, fontsize: f64, dpi: Option<f64>) -> PyResult<String> {
+fn base_path(tex: String, Size(fontsize): Size, dpi: Option<Resolution>) -> PyResult<String> {
     Ok(manager()?
-        .base_path(&tex, fontsize, dpi)?
+        .base_path(&tex, fontsize, dpi.map(|Resolution(dpi)| dpi))?
         .display()
         .to_string())
 }
 
 /// `make_tex(tex, fontsize)`: writes the document; returns its path.
-fn make_tex(tex: String, fontsize: f64) -> PyResult<String> {
+fn make_tex(tex: String, Size(fontsize): Size) -> PyResult<String> {
     Ok(manager()?.make_tex(&tex, fontsize)?.display().to_string())
 }
 
 /// `make_dvi(tex, fontsize)`: typesets the document; returns the DVI
 /// file's path.
-fn make_dvi(tex: String, fontsize: f64) -> PyResult<String> {
+fn make_dvi(tex: String, Size(fontsize): Size) -> PyResult<String> {
     Ok(manager()?.make_dvi(&tex, fontsize)?.display().to_string())
 }
 
 /// `make_png(tex, fontsize, dpi)`: renders the document with `dvipng`;
 /// returns the image's path.
-fn make_png(tex: String, fontsize: f64, dpi: f64) -> PyResult<String> {
+fn make_png(tex: String, Size(fontsize): Size, Resolution(dpi): Resolution) -> PyResult<String> {
     Ok(manager()?
         .make_png(&tex, fontsize, dpi)?
         .display()
@@ -54,7 +83,7 @@ fn make_png(tex: String, fontsize: f64, dpi: f64) -> PyResult<String> {
 
 /// `get_grey(tex, fontsize, dpi)`: the coverage of the rendered document,
 /// rows from the top, as bytes (`0..=255`).
-fn grey(tex: String, fontsize: f64, dpi: f64) -> PyResult<NdArray<u8>> {
+fn grey(tex: String, Size(fontsize): Size, Resolution(dpi): Resolution) -> PyResult<NdArray<u8>> {
     let image = manager()?.grey(&tex, fontsize, dpi)?;
     NdArray::with_shape(
         image.data.clone(),

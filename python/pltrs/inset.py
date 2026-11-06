@@ -10,8 +10,8 @@ when it is first drawn (or its connectors first asked for), and draws them
 as matplotlib's `InsetIndicator.draw` does.
 """
 
-from . import _api, _handles, artist
-from ._native import insets as _insets
+from . import _api, _handles, _unusable, artist
+from ._native import artist as _artist, insets as _insets
 from .patches import ConnectionPatch, Rectangle
 
 
@@ -118,7 +118,29 @@ class InsetIndicator(artist.Artist):
 
     def set_alpha(self, alpha):
         # docstring inherited
+        # matplotlib keeps the alpha before its rectangle refuses it: it
+        # reads back, and the connectors matplotlib makes with it when
+        # they are first asked for (or drawn) fail (see `._unusable`).
+        self._given_alpha = alpha
+        try:
+            artist._check_alpha(alpha)
+        except (TypeError, ValueError):
+            if not self._connectors_made():
+                _unusable.keep(self, "alpha", alpha, artist._check_alpha,
+                               measured=False)
+            raise
+        _unusable.drop(self, "alpha")
         self._shared_setter('alpha', alpha)
+
+    def get_alpha(self):
+        # docstring inherited
+        return self.__dict__.get("_given_alpha", super().get_alpha())
+
+    def _connectors_made(self):
+        """Whether matplotlib's indicator would have made its connectors:
+        once they were asked for, or the indicator was drawn."""
+        return (self.__dict__.get("_connectors_asked", False)
+                or (self._figure is not None and _artist.draw_count(self._native) > 0))
 
     def set_edgecolor(self, color):
         """
@@ -187,6 +209,8 @@ class InsetIndicator(artist.Artist):
         natives = _insets.indicator_connectors(self._native)
         if natives is None:
             return None
+        _unusable.check(self)
+        self._connectors_asked = True
         return self._connector_objects(natives)
 
     @_api.deprecated(

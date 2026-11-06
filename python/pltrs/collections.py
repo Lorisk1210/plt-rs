@@ -11,11 +11,13 @@ after the defaults and alpha, until a draw maps the values onto them
 """
 
 import math
+from numbers import Real
+import operator
 import warnings
 
 import numpy as np
 
-from . import (_api, _live_transforms, _values, cbook, colorizer as mcolorizer,
+from . import (_api, _live_transforms, _unusable, _values, cbook, colorizer as mcolorizer,
                colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
@@ -112,6 +114,12 @@ def _native_kwargs(kwargs):
         else:
             native[key] = value
     return native
+
+
+def _refuse_rank(array):
+    """Raise what matplotlib's collections raise for a value *array* of
+    more than one dimension (but meshes) when they map it to colours."""
+    raise ValueError('Collections can only map rank 1 arrays')
 
 
 @_api.define_aliases({
@@ -286,7 +294,7 @@ class Collection(mcolorizer.ColorizingArtist):
         if self._maps_variates():
             self._map_variates()
         if self._A.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
-            raise ValueError('Collections can only map rank 1 arrays')
+            _refuse_rank(self._A)
         alpha = self._get("alpha_array")
         if alpha is not None and len(alpha) != self._A.size:
             alpha = np.asarray(self.__dict__.get("_array_alpha", alpha))
@@ -824,6 +832,13 @@ class Collection(mcolorizer.ColorizingArtist):
             The values that are mapped to colors.
         """
         super().set_array(A)
+        if self._A is not None and self._A.ndim > 1 and not isinstance(
+                self, (QuadMesh, PolyQuadMesh)):
+            # matplotlib keeps it, and refuses it when it draws
+            # (`update_scalarmappable`).
+            _unusable.keep(self, "array", self._A, _refuse_rank, measured=False)
+        else:
+            _unusable.drop(self, "array")
         if A is None or self._maps_variates():
             _collections.set_array(self._native, None)
             if self._maps_variates():
@@ -1222,9 +1237,16 @@ class RegularPolyCollection(_CollectionWithSizes):
         sizes : tuple of float
             The area of the circle circumscribing the polygon in points^2.
         """
+        usable = isinstance(rotation, Real)
         self._native = _collections.new_regular_poly_collection(
-            int(numsides), float(rotation), np.atleast_1d(np.asarray(sizes, float)))
+            int(numsides), float(rotation) if usable else 0.,
+            np.atleast_1d(np.asarray(sizes, float)))
         super().__init__(**kwargs)
+        _values.remember(self, "rotation", rotation)
+        if not usable:
+            # matplotlib keeps it, and fails to turn the polygons by it
+            # when it draws them (``rotate(-self._rotation)``).
+            _unusable.keep(self, "rotation", rotation, operator.neg, measured=False)
 
     def get_numsides(self):
         """Return the number of sides of the polygons."""
@@ -1232,7 +1254,8 @@ class RegularPolyCollection(_CollectionWithSizes):
 
     def get_rotation(self):
         """Return the rotation of the polygons in radians."""
-        return _collections.get_rotation(self._native)
+        return _unusable.kept(self, "rotation", _values.given(
+            self, "rotation", _collections.get_rotation(self._native)))
 
 
 class StarPolygonCollection(RegularPolyCollection):
@@ -1500,6 +1523,16 @@ class CircleCollection(_CollectionWithSizes):
         super().__init__(**kwargs)
 
 
+#: The units `EllipseCollection` sizes its ellipses in.
+_ELLIPSE_UNITS = ('points', 'inches', 'dots', 'width', 'height', 'x', 'y', 'xy')
+
+
+def _refuse_ellipse_units(units):
+    """Raise what matplotlib's `EllipseCollection` raises for *units*,
+    none of `_ELLIPSE_UNITS`, when it draws."""
+    raise ValueError(f'Unrecognized units: {units!r}')
+
+
 class EllipseCollection(Collection):
     """A collection of ellipses, drawn using splines."""
 
@@ -1516,13 +1549,16 @@ class EllipseCollection(Collection):
         units : {'points', 'inches', 'dots', 'width', 'height', 'x', 'y', 'xy'}
             The units in which majors and minors are given.
         """
-        _api.check_in_list(['points', 'inches', 'dots', 'width', 'height',
-                            'x', 'y', 'xy'], units=units)
+        usable = units in _ELLIPSE_UNITS
         widths, heights, angles = np.broadcast_arrays(
             np.ravel(widths).astype(float), np.ravel(heights).astype(float),
             np.ravel(angles).astype(float))
-        self._native = _collections.new_ellipse_collection((widths, heights, angles), units)
+        self._native = _collections.new_ellipse_collection(
+            (widths, heights, angles), units if usable else 'points')
         super().__init__(**kwargs)
+        if not usable:
+            # matplotlib keeps them, and refuses them when it draws.
+            _unusable.keep(self, "units", units, _refuse_ellipse_units, measured=False)
 
     @property
     def _widths(self):
@@ -1843,6 +1879,12 @@ class QuadMesh(_MeshData, Collection):
         kept = cbook.safe_masked_invalid(given, copy=True)
         if self._A is not None and kept.shape == self._A.shape:
             self._A = kept
+
+    def set_paths(self):
+        """Make the paths of the mesh's quadrilaterals from its coordinates
+        anew (pltrs (Rust) makes them from the coordinates whenever they
+        are read)."""
+        self.stale = True
 
     def get_datalim(self, transData):
         """The box of the mesh's coordinates in the coordinates of

@@ -17,10 +17,11 @@ import math
 import os
 import zoneinfo
 
+from dateutil.relativedelta import relativedelta
 import numpy as np
 
 from . import _api, ticker
-from ._native import dates as _dates, ticker as _ticker
+from ._native import artist as _artist, dates as _dates, ticker as _ticker
 
 # The frequencies of recurrence rules, numbered as dateutil numbers them.
 YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY = range(7)
@@ -217,6 +218,13 @@ def _rule(construct):
                        'byweekno', 'byhour', 'byminute', 'bysecond',
                        'byeaster')},
     }
+
+
+def _refuse_non_dates(dmin, dmax):
+    """Fail as matplotlib's rule locators fail on what is no date-time: on
+    the first step they compute, the calendar difference of *dmin* and
+    *dmax* (``relativedelta(dmax, dmin)``)."""
+    relativedelta(dmax, dmin)
 
 
 class rrulewrapper:
@@ -431,6 +439,7 @@ class RRuleLocator(DateLocator):
 
     def tick_values(self, vmin, vmax):
         """The ticks between the date-times *vmin* and *vmax*."""
+        _refuse_non_dates(vmin, vmax)
         nmin, nmax = _date2num([vmin, vmax])
         return self.raise_if_exceeds(
             _ticker.tick_values(self._spec(), float(nmin), float(nmax), None))
@@ -583,10 +592,14 @@ class AutoDateLocator(DateLocator):
         return vmin, vmax
 
     def _get_unit(self):
-        if self.axis is not None:
-            # pltrs (Rust) locates the ticks of an axis itself: the
-            # frequency is the one it picks for the view now, which
-            # matplotlib's last call of the locator left in ``_freq``.
+        axes = getattr(self.axis, "axes", None)
+        drawn = 0 if axes is None else _artist.draw_count(axes._native)
+        if drawn and drawn != self.__dict__.get("_freq_drawn"):
+            # pltrs (Rust) locates the ticks of an axis itself as it draws
+            # it, where matplotlib's draw calls the locator: the frequency
+            # is the one it picks for the view, which that call left in
+            # ``_freq``; an axis not drawn yet keeps the one it had.
+            self._freq_drawn = drawn
             nmin, nmax = _date2num(self.viewlim_to_dt())
             choice = _dates.auto_date_choice(self._spec(), float(nmin), float(nmax))
             if choice['frequency'] is not None:
@@ -610,6 +623,7 @@ class AutoDateLocator(DateLocator):
 
     def get_locator(self, dmin, dmax):
         """Pick the best locator based on a distance."""
+        _refuse_non_dates(dmin, dmax)
         nmin, nmax = _date2num([dmin, dmax])
         choice = _dates.auto_date_choice(self._spec(), float(nmin),
                                          float(nmax))

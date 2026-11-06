@@ -21,6 +21,7 @@ NumPy arrays.
 """
 
 import functools
+import operator
 
 import numpy as np
 
@@ -36,6 +37,17 @@ def _rc(name):
 def _val_or_rc(val, name):
     """*val*, or the rcParam *name* when it is None."""
     return _rc(name) if val is None else val
+
+
+def _fontsize(fontsize):
+    """
+    *fontsize* as pltrs (Rust) writes it into the document, as matplotlib
+    writes it (an int as an int), after the check matplotlib's first use of
+    it makes: its baselineskip, ``1.25 * fontsize``, refuses what is no
+    number with Python's own error.
+    """
+    operator.mul(1.25, fontsize)
+    return fontsize
 
 
 class TexManager:
@@ -62,8 +74,7 @@ class TexManager:
         Return a file path based on a hash of the string, fontsize, and dpi.
         """
         from pathlib import Path
-        return Path(_texmanager.base_path(
-            tex, float(fontsize), None if dpi is None else float(dpi)))
+        return Path(_texmanager.base_path(tex, _fontsize(fontsize), dpi))
 
     @classmethod
     def get_basefile(cls, tex, fontsize, dpi=None):  # Kept for backcompat.
@@ -87,7 +98,7 @@ class TexManager:
     @classmethod
     def _get_tex_source(cls, tex, fontsize):
         """Return the complete TeX source for processing a TeX string."""
-        return _texmanager.tex_source(tex, float(fontsize))
+        return _texmanager.tex_source(tex, _fontsize(fontsize))
 
     @classmethod
     def make_tex(cls, tex, fontsize):
@@ -96,7 +107,7 @@ class TexManager:
 
         Return the file name.
         """
-        return _texmanager.make_tex(tex, float(fontsize))
+        return _texmanager.make_tex(tex, _fontsize(fontsize))
 
     @classmethod
     def make_dvi(cls, tex, fontsize):
@@ -105,7 +116,7 @@ class TexManager:
 
         Return the file name.
         """
-        return _texmanager.make_dvi(tex, float(fontsize))
+        return _texmanager.make_dvi(tex, _fontsize(fontsize))
 
     @classmethod
     def make_png(cls, tex, fontsize, dpi):
@@ -114,7 +125,7 @@ class TexManager:
 
         Return the file name.
         """
-        return _texmanager.make_png(tex, float(fontsize), float(dpi))
+        return _texmanager.make_png(tex, _fontsize(fontsize), dpi)
 
     @classmethod
     def get_grey(cls, tex, fontsize=None, dpi=None):
@@ -124,7 +135,7 @@ class TexManager:
         key = cls._get_tex_source(tex, fontsize), dpi
         alpha = cls._grey_arrayd.get(key)
         if alpha is None:
-            grey = _texmanager.grey(tex, float(fontsize), float(dpi))
+            grey = _texmanager.grey(tex, fontsize, dpi)
             cls._grey_arrayd[key] = alpha = grey.astype(np.float32) / 255
         return alpha
 

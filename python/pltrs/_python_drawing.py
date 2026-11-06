@@ -131,6 +131,15 @@ def attach(artist, again=False):
         _drawing.set_painter(artist._native, None, False, False)
 
 
+def draw_through_python(artist, measures):
+    """Have pltrs (Rust) draw *artist* through its ``draw`` whatever its
+    class, and measure it through its ``get_tightbbox`` when *measures*:
+    for an artist whose ``draw`` must run where matplotlib's does (see
+    `._unusable`); `attach` with *again* undoes it."""
+    _drawing.set_painter(artist._native, weakref.ref(artist), _draw_of(artist)[1],
+                         measures)
+
+
 @contextlib.contextmanager
 def drawing_with(make):
     """Hand the program's drawing the renderer *make()* makes (when first

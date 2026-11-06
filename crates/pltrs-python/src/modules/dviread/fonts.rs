@@ -184,11 +184,6 @@ fn font_from_xetex(
     )?))
 }
 
-/// `DviFont.widths`.
-fn font_widths(font: Arc<DviFont>) -> PyResult<Vec<i64>> {
-    Ok(font.widths())
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tfm", tfm)?;
@@ -201,6 +196,5 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("vf_packet", vf_packet)?;
     module.add("font_new", font_new)?;
     module.add("font_from_luatex", font_from_luatex)?;
-    module.add("font_from_xetex", font_from_xetex)?;
-    module.add("font_widths", font_widths)
+    module.add("font_from_xetex", font_from_xetex)
 }

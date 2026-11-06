@@ -11,6 +11,9 @@
 //!   mapped: no memory is shared with the compositor, so no Rust reference
 //!   can observe another process's writes and a compositor shrinking the
 //!   file cannot fault this process.
+//! * [`set_blocking`] clears `O_NONBLOCK` (`fcntl`) on a clipboard pipe
+//!   a peer handed over, so that a transfer thread waits for its reader
+//!   rather than giving up when the pipe is full.
 //!
 //! The ancillary data is assembled and parsed as plain bytes; only the
 //! system calls themselves and the adoption of received descriptors are
@@ -37,6 +40,22 @@ const MSG_CMSG_CLOEXEC: c_int = 0x4000_0000;
 const MSG_CTRUNC: c_int = 0x8;
 /// `MFD_CLOEXEC`: the memfd is closed on exec.
 const MFD_CLOEXEC: c_uint = 1;
+/// `F_GETFL`: `fcntl`'s command reading a descriptor's status flags.
+const F_GETFL: c_int = 3;
+/// `F_SETFL`: `fcntl`'s command setting them.
+const F_SETFL: c_int = 4;
+/// `O_NONBLOCK`, the status flag making reads and writes that cannot
+/// proceed fail with `EAGAIN`; its value depends on the architecture.
+const O_NONBLOCK: c_int = cfg_select! {
+    any(
+        target_arch = "mips",
+        target_arch = "mips32r6",
+        target_arch = "mips64",
+        target_arch = "mips64r6",
+    ) => { 0x80 }
+    any(target_arch = "sparc", target_arch = "sparc64") => { 0x4000 }
+    _ => { 0o4000 }
+};
 
 /// `SCM_MAX_FD`: the most descriptors Linux passes in one message.
 const MAX_FDS: usize = 253;
@@ -82,6 +101,7 @@ struct Control([u8; CONTROL_LEN]);
 unsafe extern "C" {
     fn sendmsg(socket: c_int, message: *const MsgHdr, flags: c_int) -> isize;
     fn recvmsg(socket: c_int, message: *mut MsgHdr, flags: c_int) -> isize;
+    fn fcntl(fd: c_int, command: c_int, ...) -> c_int;
 }
 
 // `memfd_create` is a system call made through `syscall` where its number
@@ -280,6 +300,25 @@ pub(crate) fn memfd(name: &CStr) -> io::Result<File> {
     Ok(File::from(unsafe { OwnedFd::from_raw_fd(fd) }))
 }
 
+/// Makes reads and writes of `fd` wait until they can proceed (clears
+/// `O_NONBLOCK`, which the open file `fd` refers to may share with the
+/// peer that handed it over).
+pub(crate) fn set_blocking(fd: BorrowedFd<'_>) -> io::Result<()> {
+    // SAFETY: `fd` is open while borrowed; `F_GETFL` takes no argument.
+    let flags = unsafe { fcntl(fd.as_raw_fd(), F_GETFL) };
+    if flags < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if flags & O_NONBLOCK == 0 {
+        return Ok(());
+    }
+    // SAFETY: as above; `F_SETFL` takes the new flags as an int.
+    if unsafe { fcntl(fd.as_raw_fd(), F_SETFL, flags & !O_NONBLOCK) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::{Read, Write};
@@ -338,6 +377,26 @@ mod tests {
         drop(theirs);
         let error = send(&ours, b"lost", &[]).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn descriptors_made_blocking_wait_for_data() {
+        let (mut ours, mut theirs) = UnixStream::pair().unwrap();
+        ours.set_nonblocking(true).unwrap();
+        let mut buf = [0; 1];
+        assert_eq!(
+            ours.read(&mut buf).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        set_blocking(ours.as_fd()).unwrap();
+        set_blocking(ours.as_fd()).unwrap();
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            theirs.write_all(b"z").unwrap();
+        });
+        assert_eq!(ours.read(&mut buf).unwrap(), 1, "the read waited");
+        assert_eq!(&buf, b"z");
+        writer.join().unwrap();
     }
 
     #[test]

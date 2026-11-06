@@ -20,7 +20,6 @@ mod connection;
 mod cursor;
 mod decoration;
 mod dispatch;
-mod draw;
 #[cfg(test)]
 mod fake;
 #[cfg(test)]

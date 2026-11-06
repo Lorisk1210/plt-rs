@@ -325,12 +325,14 @@ def test_grids_and_layout_engines_of_the_program():
 def test_toolkits_pltrs_imports_are_attributes_of_the_alias():
     """As matplotlib's projections import ``mpl_toolkits.mplot3d``, which
     then is an attribute of ``mpl_toolkits`` (xarray reaches it so), with
-    pltrs installed as matplotlib (``python/alias``)."""
-    python = pathlib.Path(__file__).resolve().parents[1]
+    pltrs installed as matplotlib (``python/alias``). The pltrs imported
+    is the one under test, the tree's or an installed wheel's."""
+    alias = pathlib.Path(__file__).resolve().parents[1] / "alias"
+    package_dir = pathlib.Path(pltrs.__file__).resolve().parents[1]
     code = ("import matplotlib, mpl_toolkits; before = hasattr(mpl_toolkits, 'mplot3d'); "
             "import matplotlib.pyplot; "
             "print(before, mpl_toolkits.mplot3d.axes3d.Axes3D.__name__)")
-    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(python / "alias"), str(python)])}
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(alias), str(package_dir)])}
     out = subprocess.run([sys.executable, "-c", code], env=env, check=True,
                          capture_output=True, text=True).stdout
     assert out.split() == ["False", "Axes3D"]

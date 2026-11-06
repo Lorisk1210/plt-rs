@@ -2,8 +2,10 @@
 //!
 //! Each function returns a [`Request`] (no reply) or a [`Query`] (answered
 //! by a reply), so the connection always knows whether to expect one.
-//! Window management requests live in [`window`].
+//! Window management requests live in [`window`], those of the RENDER
+//! extension in [`render`].
 
+pub(crate) mod render;
 mod selection;
 #[cfg(test)]
 pub(crate) mod testing;
@@ -23,6 +25,8 @@ const GET_PROPERTY: u8 = 20;
 const SEND_EVENT: u8 = 25;
 const GET_INPUT_FOCUS: u8 = 43;
 const OPEN_FONT: u8 = 45;
+const CREATE_PIXMAP: u8 = 53;
+const FREE_PIXMAP: u8 = 54;
 const CREATE_GC: u8 = 55;
 const FREE_GC: u8 = 60;
 const PUT_IMAGE: u8 = 72;
@@ -214,6 +218,26 @@ pub(crate) fn open_font(font: u32, name: &str) -> Request {
     })
 }
 
+/// `CreatePixmap` of `depth`, on the screen of `drawable`.
+pub(crate) fn create_pixmap(
+    pixmap: u32,
+    drawable: u32,
+    depth: u8,
+    (width, height): (u16, u16),
+) -> Request {
+    request(CREATE_PIXMAP, depth, |b| {
+        b.put_u32(pixmap);
+        b.put_u32(drawable);
+        b.put_u16(width);
+        b.put_u16(height);
+    })
+}
+
+/// `FreePixmap`.
+pub(crate) fn free_pixmap(pixmap: u32) -> Request {
+    request(FREE_PIXMAP, 0, |b| b.put_u32(pixmap))
+}
+
 /// `CreateGC` with default values.
 pub(crate) fn create_gc(gc: u32, drawable: u32) -> Request {
     request(CREATE_GC, 0, |b| {
@@ -357,6 +381,16 @@ mod tests {
         assert_eq!(&bytes[16..20], [8, 0, 0, 0]);
         assert_eq!(&bytes[20..24], [5, 0, 0, 0]);
         assert_eq!(&bytes[24..32], b"abcde\0\0\0");
+    }
+
+    #[test]
+    fn pixmaps_carry_their_depth() {
+        let bytes = wire_bytes(create_pixmap(5, 6, 32, (48, 40)).encoded());
+        assert_eq!(bytes, [53, 32, 4, 0, 5, 0, 0, 0, 6, 0, 0, 0, 48, 0, 40, 0]);
+        assert_eq!(
+            wire_bytes(free_pixmap(5).encoded()),
+            [54, 0, 2, 0, 5, 0, 0, 0]
+        );
     }
 
     #[test]

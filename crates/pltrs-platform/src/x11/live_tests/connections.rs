@@ -6,6 +6,7 @@
 use std::sync::PoisonError;
 use std::time::Duration;
 
+use super::super::auth::Credentials;
 use super::super::connection::Connection;
 use super::super::transport::Stream;
 use super::{ANCHOR, Live, connect_patiently, live};
@@ -25,12 +26,16 @@ fn without_anchor<R>(live: &Live, f: impl FnOnce() -> R) -> R {
 
 /// A connection accepted while the server's only client leaves: the
 /// stream `open` gives once the server had time to accept it, after
-/// closing `only_client`.
-fn opened_while_resetting(live: &Live, only_client: Connection) -> Result<Stream, Error> {
-    let (stream, _) = Stream::connect(&live.name)?;
+/// closing `only_client`, with the credentials it is opened with (a
+/// desktop's server, such as Xwayland, wants them).
+fn opened_while_resetting(
+    live: &Live,
+    only_client: Connection,
+) -> Result<(Stream, Option<Credentials>), Error> {
+    let opened = Stream::connect(&live.name)?;
     std::thread::sleep(Duration::from_millis(50));
     drop(only_client);
-    Ok(stream)
+    Ok(opened)
 }
 
 #[test]
@@ -38,8 +43,8 @@ fn the_server_drops_connections_it_accepted_while_resetting() {
     let Some(live) = live() else { return };
     let handshake = without_anchor(&live, || {
         let only_client = Connection::connect(&live.name).unwrap();
-        let stream = opened_while_resetting(&live, only_client).unwrap();
-        Connection::handshake(stream, None)
+        let (stream, credentials) = opened_while_resetting(&live, only_client).unwrap();
+        Connection::handshake(stream, credentials.as_ref())
     });
     // Unless another program kept the server from resetting.
     if let Err(error) = handshake {
@@ -56,7 +61,7 @@ fn connections_dropped_by_a_reset_are_made_again() {
     let connected = without_anchor(&live, || {
         let mut only_client = Some(Connection::connect(&live.name).unwrap());
         Connection::connect_through(|| match only_client.take() {
-            Some(only_client) => Ok((opened_while_resetting(&live, only_client)?, None)),
+            Some(only_client) => opened_while_resetting(&live, only_client),
             None => Stream::connect(&live.name),
         })
     });

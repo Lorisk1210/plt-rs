@@ -56,7 +56,9 @@ fn presented_frames_read_back_exactly() {
 fn resizing_reports_the_new_size() {
     if let Some((_serial, mut event_loop)) = x11() {
         let window = common::resizing_reports_the_new_size(&mut event_loop);
-        assert_eq!(event_loop.context().scale_factor(window), Ok(1.0));
+        // `Xft.dpi` / 96: 1 on a bare Xvfb, 2 on GNOME's Xwayland at 200%.
+        let scale = event_loop.context().scale_factor(window).expect("a scale");
+        assert!(scale.is_finite() && scale > 0.0, "{scale}");
     }
 }
 

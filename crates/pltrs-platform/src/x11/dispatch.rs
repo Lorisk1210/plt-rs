@@ -152,10 +152,14 @@ impl X11Backend {
         }
     }
 
-    /// Re-reads `Xft.dpi` and reports a changed scale factor to every
-    /// window.
+    /// Re-reads `Xft.dpi` and `Xcursor.size` and reports a changed scale
+    /// factor to every window.
     fn update_scale_factor(&mut self, out: &mut Vec<Event>) -> Result<(), Error> {
-        let scale_factor = resources::query_scale_factor(&mut self.conn, self.root)?;
+        let resources::Resources {
+            scale_factor,
+            cursor_size,
+        } = resources::query(&mut self.conn, self.root)?;
+        self.cursor_size = cursor_size;
         if (scale_factor - self.scale_factor).abs() <= f64::EPSILON {
             return Ok(());
         }

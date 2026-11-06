@@ -14,9 +14,11 @@ use crate::binding::prelude::*;
 /// `__linux__`).
 const ASKS: bool = cfg!(target_os = "linux");
 
-/// Whether an X server accepts a connection (`$DISPLAY`).
+/// Whether the X server `$DISPLAY` names accepts a connection, as
+/// `XOpenDisplay(NULL)` would: also on a Wayland desktop, whose Xwayland
+/// serves X11 clients beside the compositor that pltrs' own windows use.
 fn x_server_is_reachable() -> bool {
-    BackendKind::detect() == Some(BackendKind::X11)
+    std::env::var_os("DISPLAY").is_some_and(|display| !display.is_empty())
         && EventLoop::with_backend(BackendKind::X11).is_ok()
 }
 

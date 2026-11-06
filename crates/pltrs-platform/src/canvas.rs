@@ -1,5 +1,6 @@
-//! Just enough drawing for the built-in title bar and the fallback
-//! cursors: anti-aliased polygons over premultiplied RGBA8 pixels.
+//! Just enough drawing for the platform's own pixels, the Wayland title
+//! bar and the cursors drawn at the screen's scale ([`cursor_art`](crate::cursor_art)):
+//! anti-aliased polygons over premultiplied RGBA8 pixels.
 //!
 //! Coverage is exact horizontally and sampled on [`SUBSAMPLES`]
 //! sub-scanlines vertically, with the non-zero winding rule.
@@ -32,11 +33,13 @@ impl<'a> Canvas<'a> {
     }
 
     /// Fills the rectangle from `(x0, y0)` to `(x1, y1)`.
+    #[cfg(any(target_os = "linux", test))]
     pub(crate) fn fill_rect(&mut self, (x0, y0): Point, (x1, y1): Point, color: [u8; 4]) {
         self.fill(&[(x0, y0), (x1, y0), (x1, y1), (x0, y1)], color);
     }
 
     /// Strokes the segment from `a` to `b` with square ends.
+    #[cfg(any(target_os = "linux", test))]
     pub(crate) fn line(&mut self, a: Point, b: Point, width: f64, color: [u8; 4]) {
         let (dx, dy) = (b.0 - a.0, b.1 - a.1);
         let len = dx.hypot(dy);

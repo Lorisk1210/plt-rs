@@ -85,7 +85,11 @@
 #![deny(unsafe_code)]
 
 mod backend;
+#[cfg(unix)]
+mod canvas;
 mod click;
+#[cfg(unix)]
+mod cursor_art;
 mod decoration;
 mod error;
 mod event;

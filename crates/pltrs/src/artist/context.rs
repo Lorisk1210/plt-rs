@@ -5,7 +5,7 @@ use std::cell::{OnceCell, Ref};
 use pltrs_core::{Bbox, Point};
 use pltrs_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
-use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
+use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, GraphicsState};
 use crate::figure::{FigureCell, FigureState};
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
@@ -335,6 +335,9 @@ pub struct DrawContext<'a> {
     /// Whether the draw ends at its first problem (see
     /// [`set_draws_stop_at_first_problem`](super::set_draws_stop_at_first_problem)).
     stops_at_problem: bool,
+    /// The state the artists' graphics contexts start from (see
+    /// [`drawing_with_state`](super::drawing_with_state)).
+    graphics: GraphicsState,
 }
 
 impl std::fmt::Debug for DrawContext<'_> {
@@ -354,6 +357,7 @@ impl<'a> DrawContext<'a> {
             errors: Vec::new(),
             rasterization: Rasterization::default(),
             stops_at_problem: super::stopping::draws_stop_at_first_problem(),
+            graphics: super::graphics_state::current(),
         }
     }
 
@@ -459,6 +463,7 @@ impl<'a> DrawContext<'a> {
             errors: Vec::new(),
             rasterization: self.rasterization,
             stops_at_problem: self.stops_at_problem,
+            graphics: self.graphics,
         };
         let result = f(&mut inner);
         let DrawContext {
@@ -629,9 +634,10 @@ impl<'a> DrawContext<'a> {
     /// A graphics context initialised from an artist's common properties:
     /// clipping, snapping (never when `path.snap` is off, as matplotlib's
     /// `get_snap`), sketch, alpha override, url and gid. The rest keeps
-    /// [`GraphicsContext`]'s defaults (black, 1 point wide, solid), for
-    /// the artist to set from properties of its own: its public fields
-    /// `foreground`, `linewidth`, `dashes`, ...
+    /// [`GraphicsContext`]'s defaults (black, 1 point wide, solid, round
+    /// joins; mitred ones in [`GraphicsState::Cairo`]), for the artist to
+    /// set from properties of its own: its public fields `foreground`,
+    /// `linewidth`, `dashes`, ...
     pub fn base_gc(&self, base: &ArtistBase) -> GraphicsContext {
         let snap = if crate::rc::params().path_snap {
             base.snap
@@ -648,7 +654,7 @@ impl<'a> DrawContext<'a> {
             sketch: base.sketch,
             url: base.url.clone(),
             gid: base.gid.clone(),
-            ..GraphicsContext::default()
+            ..self.graphics.context()
         };
         if base.clip_on {
             gc.clip_rect = self.layout().clip_rect(base);

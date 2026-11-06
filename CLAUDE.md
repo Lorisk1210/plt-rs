@@ -199,7 +199,9 @@ pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs
   reference run) and `.venv-pltrs` holds numpy, pytest, pytest-xdist,
   pytest-timeout, Pillow and the packages matplotlib's test files import,
   but never matplotlib, so nothing imports the real one by accident.
-  Pinned lists: `python/requirements-*.txt`.
+  Both get `python/requirements-suite.txt` (pandas, tornado, the Qt
+  bindings), so that both runs reach the same tests. Pinned lists:
+  `python/requirements-*.txt`; rerunning setup brings venvs up to them.
 * The suite runs in `target/mpl-suite/<mode>/site/`, which lays out the
   package under test with the sdist's test packages inside (`MPL_SDIST`,
   default `target/refs/matplotlib-dl/matplotlib-3.11.2`); in pltrs mode
@@ -208,6 +210,13 @@ pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs
   `spec/mpl-suite/pltrs.json` (per test id). Run both modes with TinyTeX on
   `PATH`, as they were recorded. After merging, rerun the suite rather
   than resolving conflicts in `pltrs.json` by hand.
+* The GUI backends' tests run with the toolkits and a display, as the
+  outcomes were recorded: `python/tools/toolkits.sh install` (once; GTK
+  3 and 4, PyGObject, pycairo, cairocffi, wxPython and Qt's X libraries,
+  Debian's packages unpacked into `~/.local/gtk` without root), after
+  which `cargo xtask mpl-suite` uses them, and starts an Xvfb of its own
+  when `$DISPLAY` is unset (stopped by its PID afterwards). It says what
+  it lacks; those tests then skip.
 * Inside `python/pltrs`, modules import each other relatively; the
   toolkits and `pylab.py` import `pltrs` by name (the suite loads them as
   top-level packages).

@@ -1860,7 +1860,8 @@ class FigureCanvasBase:
         """
         if self._device_pixel_ratio == ratio:
             return False
-        self.figure.dpi = ratio * self.figure._original_dpi
+        # The window keeps its logical size (`forward=False`).
+        self.figure._set_dpi(ratio * self.figure._original_dpi, forward=False)
         self._device_pixel_ratio = ratio
         return True
 

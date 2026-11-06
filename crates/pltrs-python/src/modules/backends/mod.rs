@@ -3,6 +3,8 @@
 //! (`FigureCanvasAgg`, with blitting), printing it in a file format
 //! (`print_png`, `print_pdf`, ...) and collecting pages (`PdfPages`).
 //! `ft2font` subsets the fonts the documents embed (`_backend_pdf_ps`).
+//! The canvases matplotlib draws with Cairo draw and print in Cairo's
+//! graphics state (`drawing_like_cairo`).
 
 mod agg_text;
 mod canvas;
@@ -16,6 +18,7 @@ mod print;
 pub(super) use gc::PyGc;
 pub(super) use print::DocumentMetadata;
 
+use pltrs::artist::{GraphicsState, drawing_with_state};
 use pltrs::figure::{CanvasError, Figure};
 use pltrs_core::alloc::caused_by_out_of_memory;
 use pltrs_render::RasterBackendError;
@@ -65,9 +68,18 @@ fn set_suppress_composite(figure: Figure, suppress: Option<bool>) -> PyResult<()
     Ok(())
 }
 
+/// Calls `call` (a canvas's draw or print) with pltrs (Rust) drawing the
+/// figures it draws as matplotlib's Cairo renderer draws them (see
+/// [`GraphicsState::Cairo`]); an exception it raises is raised from here.
+fn drawing_like_cairo(call: Callback) -> PyResult<()> {
+    drawing_with_state(GraphicsState::Cairo, || call.call::<Owned>(()));
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("client_script", client_script)?;
+    module.add("drawing_like_cairo", drawing_like_cairo)?;
     module.add("get_suppress_composite", get_suppress_composite)?;
     module.add("set_suppress_composite", set_suppress_composite)?;
     canvas::register(module)?;

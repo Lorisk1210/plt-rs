@@ -1252,12 +1252,17 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         ----------
         val : float
         """
-        if val != self.dpi:
-            _figure.set_dpi(self._native, float(val))
-            _values.remember(self, "dpi", val)
-            # matplotlib sets the size again, resizing the manager's window.
-            self.set_size_inches(*self.get_size_inches())
+        self._set_dpi(val)
         self.stale = True
+
+    def _set_dpi(self, dpi, forward=True):
+        """Set the resolution, passing *forward* on to `set_size_inches`:
+        matplotlib sets the size again, resizing the manager's window
+        unless *forward* is false (a canvas's new device pixel ratio)."""
+        if dpi != self.dpi:
+            _figure.set_dpi(self._native, float(dpi))
+            _values.remember(self, "dpi", dpi)
+            self.set_size_inches(*self.get_size_inches(), forward=forward)
 
     dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
 

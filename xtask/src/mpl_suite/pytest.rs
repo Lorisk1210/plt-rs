@@ -2,10 +2,15 @@
 //! (`python/mpl_suite/mpl_suite_report.py`): matplotlib's, or the
 //! libraries' of `cargo xtask ecosystem suite`.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use super::outcomes::Outcomes;
+
+/// A variable a run sets (to `Some` value) or removes (`None`) besides
+/// its own.
+pub(crate) type Variable = (String, Option<OsString>);
 
 /// The pytest workers of a run.
 const WORKERS: &str = "8";
@@ -48,6 +53,13 @@ pub(crate) struct Run<'a> {
 impl Run<'_> {
     /// Runs pytest and reads what the plugin recorded.
     pub(crate) fn outcomes(&self) -> Result<Outcomes, String> {
+        self.outcomes_with(&[])
+    }
+
+    /// Runs pytest with `variables` set or removed besides the run's own
+    /// (a display, the GUI toolkits' libraries), and reads what the
+    /// plugin recorded.
+    pub(crate) fn outcomes_with(&self, variables: &[Variable]) -> Result<Outcomes, String> {
         let root = crate::python::root();
         let results = self.dir.join("results.jsonl");
         let log_path = self.dir.join("pytest.log");
@@ -68,7 +80,14 @@ impl Run<'_> {
             self.python.display(),
             log_path.display()
         );
-        let status = Command::new(self.python)
+        let mut command = Command::new(self.python);
+        for (name, value) in variables {
+            match value {
+                Some(value) => command.env(name, value),
+                None => command.env_remove(name),
+            };
+        }
+        let status = command
             .args([
                 "-m",
                 "pytest",

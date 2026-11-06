@@ -9,15 +9,14 @@ This backend depends on cairocffi or pycairo (matplotlib's ``backend_cairo``).
 matplotlib's do: a figure drawn with one (``figure.draw(renderer)`` after
 ``renderer.set_context(ctx)``) is drawn through their methods. The canvas
 of the ``cairo`` backend, `FigureCanvasCairo`, draws with pltrs (Rust)
-instead, as the ``*cairo`` GUI canvases do: onto its raster canvas for PNG
-and raw RGBA, as `.FigureCanvasAgg` does, and with its PDF, PostScript and
-SVG writers for those formats.
+instead, as the ``*cairo`` GUI canvases do, in Cairo's graphics state
+(`._cairo_canvas`): onto its raster canvas for PNG and raw RGBA, as
+`.FigureCanvasAgg` does, and with its PDF, PostScript and SVG writers for
+those formats.
 
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is but for
 its imports of the package and the canvas.
 """
-
-import functools
 
 import numpy as np
 
@@ -40,6 +39,7 @@ from ..backend_bases import (
 from ..font_manager import ttfFontProperty
 from ..path import Path
 from ..transforms import Affine2D
+from ._cairo_canvas import _CairoCanvas
 from .backend_agg import FigureCanvasAgg
 
 
@@ -406,28 +406,15 @@ class GraphicsContextCairo(GraphicsContextBase):
         self.ctx.set_line_width(self.renderer.points_to_pixels(w))
 
 
-class FigureCanvasCairo(FigureCanvasAgg):
+class FigureCanvasCairo(_CairoCanvas, FigureCanvasAgg):
     """
-    The canvas of the ``cairo`` backend. pltrs (Rust) draws the figure: onto
-    its raster canvas, as `.FigureCanvasAgg` does, for PNG and raw RGBA
-    (``copy_from_bbox`` and ``restore_region`` work on that canvas), and as
-    a PDF, PostScript or SVG document, at 72 dpi as matplotlib's Cairo
-    surfaces are, for those formats.
+    The canvas of the ``cairo`` backend. pltrs (Rust) draws the figure in
+    Cairo's graphics state (see `._cairo_canvas`): onto its raster canvas,
+    as `.FigureCanvasAgg` does, for PNG and raw RGBA (``copy_from_bbox`` and
+    ``restore_region`` work on that canvas), and as a PDF, PostScript or SVG
+    document, at 72 dpi as matplotlib's Cairo surfaces are, for those
+    formats.
     """
-
-    def _save(self, fmt, fobj, *, orientation='portrait',
-              bbox_inches_restore=None, facecolor=None, edgecolor=None):
-        """Write the figure as a *fmt* document: ``pdf``, ``ps``, ``svg`` or
-        ``svgz``; a PostScript page in *orientation*."""
-        self.figure.dpi = 72
-        self._print_native(fmt, fobj, orientation=orientation,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
-
-    print_pdf = functools.partialmethod(_save, "pdf")
-    print_ps = functools.partialmethod(_save, "ps")
-    print_svg = functools.partialmethod(_save, "svg")
-    print_svgz = functools.partialmethod(_save, "svgz")
 
 
 @_Backend.export

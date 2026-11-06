@@ -2315,8 +2315,18 @@ def _connection_end(xy, coords, axes):
     else:
         native_coords = _native_coords(
             coords, None if axes is None else axes.figure)
-    return ((float(xy[0]), float(xy[1])), native_coords,
+    return (_connection_point(xy, coords, axes), native_coords,
             None if axes is None else axes._native)
+
+
+def _connection_point(xy, coords, axes):
+    """The point *xy* of a `ConnectionPatch` end in *coords*, in
+    ``'data'`` coordinates converted with the units of *axes* (dates,
+    categories), as matplotlib's ``_get_xy`` converts it."""
+    x, y = xy[0], xy[1]
+    if axes is not None and isinstance(coords, str) and coords == "data":
+        x, y = axes.convert_xunits(x), axes.convert_yunits(y)
+    return float(x), float(y)
 
 
 def _connection_end_property(index, part, doc):
@@ -2326,11 +2336,12 @@ def _connection_end_property(index, part, doc):
         return self._ends()[index][part]
 
     def set(self, value):
-        end = list(self._ends()[index])
-        end[part] = value
+        ends = [list(end) for end in self._ends()]
+        ends[index][part] = value
         _patches.set_connection_end(self._native, bool(index),
-                                    _connection_end(*end))
-        self._given_ends[index] = end[1:]
+                                    _connection_end(*ends[index]))
+        self._given_points = [end[0] for end in ends]
+        self._given_ends[index] = ends[index][1:]
         self.stale = True
 
     return property(get, set, doc=doc)
@@ -2371,6 +2382,7 @@ class ConnectionPatch(FancyArrowPatch):
         """
         if coordsB is None:
             coordsB = coordsA
+        self._given_points = [xyA, xyB]
         self._given_ends = [[coordsA, axesA], [coordsB, axesB]]
         self._native = _patches.new_connection_patch(
             _connection_end(xyA, coordsA, axesA),
@@ -2390,9 +2402,13 @@ class ConnectionPatch(FancyArrowPatch):
         self._link_patches()
 
     def _ends(self):
-        """The two ends, each as ``(xy, coords, axes)``."""
-        return [(xy, *given) for xy, given in
-                zip(_patches.connection_points(self._native), self._given_ends)]
+        """The two ends, each as ``(xy, coords, axes)``, with the points as
+        given (dates, categories), as matplotlib keeps them, or as pltrs
+        (Rust) placed them (an inset indicator's connectors)."""
+        points = self.__dict__.get("_given_points")
+        if points is None:
+            points = _patches.connection_points(self._native)
+        return [(xy, *given) for xy, given in zip(points, self._given_ends)]
 
     xy1 = _connection_end_property(0, 0, "The point A, in `coords1`.")
     xy2 = _connection_end_property(1, 0, "The point B, in `coords2`.")

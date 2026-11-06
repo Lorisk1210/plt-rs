@@ -5,7 +5,10 @@
 //! `python/requirements-reference.txt` to it. The pltrs venv
 //! (`.venv-pltrs`) is made with uv, on the reference venv's Python, from
 //! `python/requirements-pltrs.txt`, and must not hold matplotlib, so that
-//! nothing imports the real one by accident: setup checks that.
+//! nothing imports the real one by accident: setup checks that. Both get
+//! `python/requirements-suite.txt` too, the packages matplotlib's tests
+//! skip without (pandas, tornado, the Qt bindings), resolved with the
+//! venv's own list. Rerunning setup brings existing venvs to the lists.
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -18,6 +21,9 @@ use super::{root, run_checked};
 
 /// The Python version of both venvs (the reference venv's).
 const PYTHON_VERSION: &str = "3.14";
+
+/// The pinned list both venvs of matplotlib's suite get besides their own.
+const SUITE_REQUIREMENTS: &str = "requirements-suite.txt";
 
 /// The pltrs venv's directory.
 fn pltrs_venv() -> PathBuf {
@@ -98,9 +104,13 @@ pub(crate) fn refuse_matplotlib(python: &Path, venv: &Path) -> Result<(), String
     Ok(())
 }
 
-/// Installs the pinned list `python/<requirements>` into `python`'s venv.
+/// Installs the pinned list `python/<requirements>` into `python`'s venv,
+/// with the suite's ([`SUITE_REQUIREMENTS`]).
 fn install(python: &Path, requirements: &str) -> Result<(), String> {
-    run_checked(&mut install_command(python, &[requirements]))
+    run_checked(&mut install_command(
+        python,
+        &[requirements, SUITE_REQUIREMENTS],
+    ))
 }
 
 /// The uv command installing the pinned lists `python/<list>` of `lists`

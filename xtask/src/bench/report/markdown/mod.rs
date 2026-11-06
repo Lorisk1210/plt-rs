@@ -69,7 +69,7 @@ fn header(out: &mut String, results: &Results) {
          pltrs (Python) runs the same Python scripts as matplotlib with only their imports \
          changed. pltrs (Rust) draws the same figures from Rust. A speed-up such as \"4.2× \
          faster\" means that matplotlib took 4.2 times as long.\n\n\
-         The numbers were measured on {date} at commit `{revision}`, on the machine \
+         The numbers were measured on {date} at commit `{revision}`, on {machine} \
          described under [Machine and versions](#machine-and-versions). Every time of every \
          run is in [`results.json`](results.json). pltrs (Rust) drew the charts from that \
          file (`cargo xtask bench --rewrite-report` draws them again).\n",
@@ -77,6 +77,11 @@ fn header(out: &mut String, results: &Results) {
         n = results.workloads.len(),
         date = results.versions.reference("date"),
         revision = results.machine.revision,
+        machine = results
+            .machine
+            .model
+            .as_ref()
+            .map_or_else(|| "the machine".to_owned(), |model| format!("a {model},")),
     );
 }
 

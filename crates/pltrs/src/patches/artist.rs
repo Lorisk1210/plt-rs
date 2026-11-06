@@ -287,9 +287,11 @@ impl<S: PatchShape> PatchArtist<S> {
             return Vec::new();
         }
         let placement = self.shape.patch_transform();
-        bounding_points(&self.shape.path())
-            .map(|p| placement.transform_point(p))
-            .collect()
+        let path = self.shape.path();
+        // Two points per segment of a polygon, the usual outline.
+        let mut points = Vec::with_capacity(2 * path.vertices().len());
+        points.extend(bounding_points(&path).map(|p| placement.transform_point(p)));
+        points
     }
 
     /// Whether display point `point` hits a patch without a picker: within
@@ -345,12 +347,13 @@ impl<S: PatchShape> PatchArtist<S> {
 
 /// The points bounding `path`: the ends and axis extrema of every curve
 /// (what matplotlib's `_update_patch_limits` takes of a patch's path).
+/// Straight segments, which have no extrema, allocate nothing.
 pub(crate) fn bounding_points(path: &Path) -> impl Iterator<Item = Point> + '_ {
     path.beziers().flat_map(|curve| {
-        let mut ts = vec![0.0];
-        ts.extend(curve.axis_aligned_extrema());
-        ts.push(1.0);
-        ts.into_iter().map(move |t| curve.eval(t))
+        std::iter::once(0.0)
+            .chain(curve.axis_aligned_extrema())
+            .chain(std::iter::once(1.0))
+            .map(move |t| curve.eval(t))
     })
 }
 
@@ -447,5 +450,29 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
             edge_default: S::EDGE_DEFAULT,
             shape: &self.shape,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bounding_points_are_segment_ends_and_curve_extrema() {
+        let p = Point::new;
+        let polyline = Path::polyline(vec![p(0.0, 0.0), p(1.0, 2.0), p(3.0, 1.0)]);
+        assert_eq!(
+            bounding_points(&polyline).collect::<Vec<_>>(),
+            [p(0.0, 0.0), p(1.0, 2.0), p(1.0, 2.0), p(3.0, 1.0)]
+        );
+        // A symmetric arch peaks at t = 1/2, between its ends.
+        let arch = Path::builder()
+            .move_to(p(0.0, 0.0))
+            .cubic_to(p(0.0, 4.0), p(2.0, 4.0), p(2.0, 0.0))
+            .build();
+        assert_eq!(
+            bounding_points(&arch).collect::<Vec<_>>(),
+            [p(0.0, 0.0), p(1.0, 3.0), p(2.0, 0.0)]
+        );
     }
 }

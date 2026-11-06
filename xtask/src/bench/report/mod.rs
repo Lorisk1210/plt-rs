@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use super::child;
 use super::cold::{ColdCommand, time_cold};
 use super::machine::{self, Machine};
+use super::pack;
 use super::python::PythonRunner;
 use super::results::{self, Plan, Results, Startup, Versions};
 use super::workloads::Workload;
@@ -22,22 +23,27 @@ use measure::Bench;
 
 /// Where the report, its raw data and its charts go by default.
 pub(super) fn default_dir() -> PathBuf {
-    crate::python::root().join("benchmarks")
+    pack::root().join("benchmarks")
 }
 
 /// Measures `workloads`, `runs` rounds of each at least, and writes the
-/// raw data, the report and the charts into `dir`.
+/// raw data, the report and the charts into `dir`. In the workspace, the
+/// extension of pltrs (Python) is built first, as the wheel builds it; a
+/// pack has it built.
 pub(super) fn run(
     workloads: &[&'static Workload],
     runs: usize,
     dir: &Path,
 ) -> Result<(), Box<dyn Error>> {
-    let root = crate::python::root();
-    crate::python::build(crate::python::Profile::Release)?;
+    let tree = pack::current();
+    if tree.build.is_none() {
+        crate::python::build(crate::python::Profile::Release)?;
+    }
+    let root = &tree.root;
     let out = root.join("target/bench");
     let bench = Bench {
-        matplotlib: PythonRunner::matplotlib(&root, &out.join("config/matplotlib"))?,
-        pltrs: PythonRunner::pltrs(&root, &out.join("pltrs"), &out.join("config/pltrs"))?,
+        matplotlib: PythonRunner::matplotlib(root, &out.join("config/matplotlib"))?,
+        pltrs: PythonRunner::pltrs(root, &out.join("pltrs"), &out.join("config/pltrs"))?,
         config: out.join("config/pltrs"),
         out,
     };
@@ -109,7 +115,7 @@ fn prime(bench: &Bench) -> Result<(), Box<dyn Error>> {
     let commands = [
         bench.matplotlib.code_command("import matplotlib.pyplot"),
         bench.pltrs.code_command("import pltrs.pyplot"),
-        child::start_command()?,
+        child::start_command(pack::current())?,
     ];
     let once = super::stats::Sampling {
         min_runs: 1,
@@ -140,7 +146,7 @@ fn startup(bench: &Bench, machine: &Machine, plan: Plan) -> Result<Vec<Startup>,
         threaded,
         bench.matplotlib.code_command("import matplotlib.pyplot"),
         bench.pltrs.code_command("import pltrs.pyplot"),
-        child::start_command()?,
+        child::start_command(pack::current())?,
     ];
     let results = time_cold(
         &bench.matplotlib.python,

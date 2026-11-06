@@ -169,7 +169,9 @@ fn pairs(value: &Value<'_>) -> Result<Vec<(String, String)>, String> {
 
 /// The machine.
 fn machine(value: &Value<'_>) -> Result<Machine, String> {
+    let optional = |key: &str| value.optional(key).map(|v| v.text()).transpose();
     Ok(Machine {
+        model: optional("model")?,
         cpu: value.text_of("cpu")?,
         cores: value.count_of("cores")?,
         threads: value.count_of("threads")?,
@@ -177,7 +179,8 @@ fn machine(value: &Value<'_>) -> Result<Machine, String> {
         os: value.text_of("os")?,
         kernel: value.text_of("kernel")?,
         affinity: value.text_of("affinity")?,
-        governor: value.optional("governor").map(|g| g.text()).transpose()?,
+        governor: optional("governor")?,
+        power: optional("power")?,
         rustc: value.text_of("rustc")?,
         revision: value.text_of("revision")?,
     })

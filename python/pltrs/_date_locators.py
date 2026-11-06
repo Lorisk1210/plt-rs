@@ -15,7 +15,6 @@ import functools
 import importlib.resources
 import math
 import os
-import zoneinfo
 
 from dateutil.relativedelta import relativedelta
 from dateutil.rrule import MO, TU, WE, TH, FR, SA, SU  # noqa: F401  (`.dates` has them)
@@ -96,6 +95,9 @@ def _zoneinfo_data(key):
     of `zoneinfo.TZPATH`, else the `tzdata` package's (where a system's
     database lacks old names such as ``US/Pacific``), None for neither.
     """
+    # Imported here, as matplotlib's pyplot leaves zoneinfo unimported
+    # (finding its search path reads the interpreter's build settings).
+    import zoneinfo
     for directory in zoneinfo.TZPATH:
         path = os.path.join(directory, key)
         if os.path.isfile(path):

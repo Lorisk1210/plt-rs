@@ -8,10 +8,11 @@ use super::super::child;
 use super::super::cold::{ColdCommand, time_cold};
 use super::super::guard::{Guarded, compare_documents, compare_frames, compare_pngs};
 use super::super::implementation::{Implementation, PerImplementation};
+use super::super::pack;
 use super::super::python::PythonRunner;
 use super::super::results::{Column, Guard, Plan, WarmResult, WorkloadResult};
 use super::super::rounds::{Warm, interleave};
-use super::super::session::{Outcome, PythonSession, RustSession, Session};
+use super::super::session::{Outcome, RustSession, ServedSession, Session};
 use super::super::workloads::{Output, Script, Workload};
 
 /// The two Python columns, and where the files of a run go.
@@ -51,7 +52,7 @@ impl Bench {
     fn rust_cold(&self, workload: &Workload) -> Result<ColdCommand, Box<dyn Error>> {
         let extension = workload.extension().unwrap_or("txt");
         let document = self.artifact("cold", Implementation::Rust, workload, extension)?;
-        let mut command = child::cold_command(workload, &document)?;
+        let mut command = child::cold_command(pack::current(), workload, &document)?;
         command.env.push((
             "PLTRSCONFIGDIR".to_owned(),
             super::super::python::path_text(&self.config)?.to_owned(),
@@ -74,7 +75,7 @@ pub(super) fn measure(
     let logs = bench.logs();
     std::fs::create_dir_all(&logs)?;
     let log = |i: Implementation| logs.join(format!("{}.serve.stderr", i.key()));
-    let mut matplotlib = match PythonSession::start(
+    let mut matplotlib = match ServedSession::start(
         &bench.matplotlib,
         workload,
         script,
@@ -86,7 +87,7 @@ pub(super) fn measure(
         }
     };
     let mut python =
-        PythonSession::start(&bench.pltrs, workload, script, &log(Implementation::Python))?;
+        ServedSession::start(&bench.pltrs, workload, script, &log(Implementation::Python))?;
     let reference = save_all(workload, bench, &mut matplotlib)?;
     let reference = required(reference, script)?;
     let python_guard = match &mut python {

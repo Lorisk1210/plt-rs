@@ -344,14 +344,17 @@ pub trait ArtistHandle {
     /// blitting), though an animated artist of an axes is drawn when the
     /// figure is saved, as in matplotlib. Changes to an animated artist
     /// leave the figure as drawn ([`Figure::is_stale`]): the program draws
-    /// it ([`Axes::draw_artist`](crate::axes::Axes::draw_artist)).
+    /// it ([`Axes::draw_artist`](crate::axes::Axes::draw_artist)). Making
+    /// an artist animated, or ordinary again, stales nothing either, as in
+    /// matplotlib: an animation that ends (making its artists ordinary
+    /// again) leaves its last frame as it was blitted.
     ///
     /// [`Figure::is_stale`]: crate::figure::Figure::is_stale
     fn set_animated(&self, animated: bool) -> &Self
     where
         Self: Sized,
     {
-        self.raw().with_base_mut(|b| b.animated = animated);
+        self.raw().with_base_mut_unmarked(|b| b.animated = animated);
         self
     }
 

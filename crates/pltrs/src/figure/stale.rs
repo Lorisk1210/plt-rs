@@ -159,6 +159,23 @@ mod tests {
     }
 
     #[test]
+    fn marking_artists_animated_stales_nothing() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [1.0, 0.0]).expect("plotted");
+        draw(&fig);
+        line.set_animated(true);
+        assert!(!line.stale() && !ax.stale() && !fig.stale());
+        line.set_animated(false);
+        assert!(
+            !line.stale() && !ax.stale() && !fig.stale(),
+            "matplotlib's set_animated only calls pchanged"
+        );
+        line.set_linewidth(2.0);
+        assert!(line.stale() && fig.stale(), "other changes still do");
+    }
+
+    #[test]
     fn draws_are_counted_for_the_artists_drawn() {
         let fig = Figure::new();
         let ax = fig.subplot();

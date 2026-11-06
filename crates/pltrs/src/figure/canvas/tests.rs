@@ -86,7 +86,10 @@ fn animated_artists_change_without_making_the_figure_stale() {
     line.set_data([0.0, 1.0], [0.2, 0.2]).set_animated(true);
     assert!(!fig.is_stale());
     line.set_animated(false);
-    assert!(fig.is_stale(), "an ordinary artist again");
+    assert!(
+        !fig.is_stale(),
+        "making it ordinary again stales nothing either, as matplotlib's set_animated"
+    );
 }
 
 #[test]

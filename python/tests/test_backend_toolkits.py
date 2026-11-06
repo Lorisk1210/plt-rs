@@ -35,11 +35,12 @@ def test_qt_backends_need_a_qt_binding(module, bindings):
         importlib.import_module(f"pltrs.backends.{module}")
 
 
-@pytest.mark.skipif(importlib.util.find_spec("gi") is not None,
-                    reason="PyGObject is installed")
 @pytest.mark.parametrize("module", ["backend_gtk3agg", "backend_gtk4cairo",
                                     "backend_wxagg"])
 def test_gtk_and_wx_backends_need_their_toolkit(module):
+    toolkit = "wx" if module.startswith("backend_wx") else "gi"
+    if importlib.util.find_spec(toolkit) is not None:
+        pytest.skip(f"{toolkit} is installed")
     with pytest.raises(ImportError):
         importlib.import_module(f"pltrs.backends.{module}")
 
@@ -164,7 +165,9 @@ def test_tkagg_blit_helper_checks_its_box_as_matplotlibs():
     with pytest.raises(ValueError, match="Failed to extract Tk_PhotoHandle"):
         tkagg.blit(0, "photo", data, tkagg.TK_PHOTO_COMPOSITE_OVERLAY,
                    (0, 1, 2, 3), (0, 2, 0, 2))
-    assert tkagg.enable_dpi_awareness(0, 0) is None
+    # matplotlib's answers: on Windows, whether the (null) window is per-monitor
+    # DPI aware; elsewhere none.
+    assert tkagg.enable_dpi_awareness(0, 0) is (False if sys.platform == "win32" else None)
 
 
 def test_macosx_backend_is_macos_only():

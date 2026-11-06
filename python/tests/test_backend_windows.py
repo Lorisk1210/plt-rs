@@ -1,0 +1,77 @@
+"""
+What the GUI toolkit backends do only on Windows: the Tk backend makes its
+process per-monitor DPI aware and hooks its windows so that a change of
+DPI (``WM_DPICHANGED``, as a move to another screen sends it) rescales Tk
+and the canvas, as matplotlib's ``_tkagg`` helper does. The expected values
+are real matplotlib 3.11's, on Windows 11 with Tk 9.0.
+"""
+
+import importlib.util
+import inspect
+import os
+import subprocess
+import sys
+import textwrap
+
+import pytest
+
+pytestmark = [
+    pytest.mark.skipif(sys.platform != "win32", reason="Windows only"),
+    pytest.mark.skipif(importlib.util.find_spec("tkinter") is None,
+                       reason="no tkinter"),
+]
+
+
+def _run(body):
+    """Run the function *body* in a fresh interpreter, in matplotlib's
+    look; its standard output."""
+    source = textwrap.dedent(inspect.getsource(body)) + f"\n{body.__name__}()\n"
+    proc = subprocess.run([sys.executable, "-c", source],
+                          env={**os.environ, "PLTRS_LOOK": "matplotlib"},
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout
+
+
+def _tk_window_follows_its_dpi():
+    import ctypes
+    import threading
+    import time
+    from ctypes import wintypes
+
+    import pltrs
+    pltrs.use("tkagg")
+    import pltrs.pyplot as plt
+
+    user32 = ctypes.WinDLL("user32")
+    user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT,
+                                    wintypes.WPARAM, ctypes.c_void_p]
+    user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    fig = plt.figure(figsize=(4, 3), dpi=100)
+    manager = fig.canvas.manager
+    window = manager.window
+    print("hooked", bool(manager._window_dpi_cbname))
+    manager.show()
+    window.update()
+    frame = int(window.wm_frame(), 16)
+    for dpi in [144, 120]:
+        # Windows sends WM_DPICHANGED (which cannot be posted) as the window
+        # moves to another screen; another thread's send arrives as Tk's
+        # loop reads its messages, as that does.
+        rect = wintypes.RECT()
+        user32.GetWindowRect(frame, ctypes.byref(rect))
+        sender = threading.Thread(target=user32.SendMessageW, args=(
+            frame, 0x02E0, dpi | dpi << 16, ctypes.addressof(rect)))
+        sender.start()
+        while sender.is_alive():
+            window.update()
+            time.sleep(0.01)
+        window.update()
+        print(f"{window.tk.call('tk', 'scaling'):.4f}",
+              fig.canvas.device_pixel_ratio, fig.dpi)
+    plt.close(fig)
+
+
+def test_tk_window_follows_its_dpi():
+    assert _run(_tk_window_follows_its_dpi).split("\n")[:3] == [
+        "hooked True", "1.9980 1.5 150.0", "1.6663 1.25 125.0"]

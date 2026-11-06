@@ -8,7 +8,7 @@ use super::{ResolvedTransform, Transform, TransformContext};
 use crate::artist::ArtistId;
 
 /// A context without a figure, for transforms that need no geometry.
-struct NoFigure;
+pub(crate) struct NoFigure;
 
 impl TransformContext for NoFigure {
     fn dpi(&self) -> f64 {

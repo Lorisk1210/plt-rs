@@ -4,13 +4,16 @@
 //!
 //! The package registers `native_norm(norm)` (in `colors.py`), which gives
 //! the callables pltrs (Rust) calls, working on plain arrays: `normalize`,
-//! `autoscale_none`, `inverse` and `set_limits`, and `state`, read once. Their exceptions
-//! raise from the native call that drew, as those of every callback do.
+//! `normalize_scalar`, `autoscale_none`, `inverse` and `set_limits`, and
+//! `state` and `scale`, read once. Their exceptions raise from the native
+//! call that drew, as those of every callback do.
 
-use pltrs::colors::{Norm, NormError, Normalized};
+use pltrs::colors::{ArrayForm, Norm, NormError, NormKind, Normalized};
+use pltrs::scale::{ScaleOptions, scale_factory};
 
-use crate::binding::lookup;
+use super::super::scale::scale_options;
 use crate::binding::prelude::*;
+use crate::binding::{dict_value, lookup};
 
 /// A Python norm, with the limits and clipping it had when it was read.
 #[derive(Clone, Debug)]
@@ -20,14 +23,21 @@ pub(crate) struct PythonNorm {
     vmin: Option<f64>,
     vmax: Option<f64>,
     clip: bool,
+    /// The scale the norm is made from (matplotlib's `norm._scale`), by
+    /// name and options, when pltrs (Rust) has one of its kind.
+    scale: Option<(String, ScaleOptions)>,
     hooks: Hooks,
 }
 
 /// The callables `native_norm` gives for a norm.
 #[derive(Clone, Debug)]
 struct Hooks {
-    /// `normalize(values, mask, clip) -> (values, mask)`.
+    /// `normalize(values, mask, clip, shape) -> (values, mask)`, the
+    /// values handed to the norm as an array of `shape` (`None`: as they
+    /// are).
     normalize: Callback,
+    /// `normalize_scalar(value) -> (values, mask)`.
+    normalize_scalar: Callback,
     /// `autoscale_none(values, mask) -> (vmin, vmax)`.
     autoscale_none: Callback,
     /// `inverse(values) -> (values, mask)`.
@@ -41,27 +51,26 @@ impl PythonNorm {
     /// `native_norm` gives for it.
     pub(crate) fn of(norm: &Bound<'_>) -> PyResult<Self> {
         let py = norm.py();
-        let (normalize, autoscale_none, inverse, set_limits, state): (
-            Bound<'_>,
-            Bound<'_>,
-            Bound<'_>,
-            Bound<'_>,
-            Bound<'_>,
-        ) = lookup(py, "native_norm")?
-            .call(std::slice::from_ref(norm), &[])?
-            .extract()?;
+        let hooks = lookup(py, "native_norm")?.call(std::slice::from_ref(norm), &[])?;
+        let hook = |name: &str| dict_value::<Bound<'_>>(&hooks, name);
         let (vmin, vmax, clip): (Option<f64>, Option<f64>, bool) =
-            state.call(&[], &[])?.extract()?;
+            hook("state")?.call(&[], &[])?.extract()?;
+        let scale = match hook("scale")?.extract::<Option<(String, Bound<'_>)>>()? {
+            Some((name, kwargs)) => Some((name, scale_options(&kwargs)?)),
+            None => None,
+        };
         Ok(Self {
             object: norm.clone().unbind(),
             vmin,
             vmax,
             clip,
+            scale,
             hooks: Hooks {
-                normalize: normalize.extract()?,
-                autoscale_none: autoscale_none.extract()?,
-                inverse: inverse.extract()?,
-                set_limits: set_limits.extract()?,
+                normalize: hook("normalize")?.extract()?,
+                normalize_scalar: hook("normalize_scalar")?.extract()?,
+                autoscale_none: hook("autoscale_none")?.extract()?,
+                inverse: hook("inverse")?.extract()?,
+                set_limits: hook("set_limits")?.extract()?,
             },
         })
     }
@@ -83,6 +92,33 @@ fn split(data: &[Option<f64>]) -> (NdArray, NdArray<bool>) {
     let values = data.iter().map(|v| v.unwrap_or(f64::NAN)).collect();
     let mask = data.iter().map(Option::is_none).collect();
     (NdArray::from_vec(values), NdArray::from_vec(mask))
+}
+
+/// [`split`], the mask left out (`None`: a plain array) unless `masked`.
+fn split_as(data: &[Option<f64>], masked: bool) -> (NdArray, Option<NdArray<bool>>) {
+    let (values, mask) = split(data);
+    (values, masked.then_some(mask))
+}
+
+/// What a `normalize` hook gave: the normalised values, masked or none
+/// at all when it raised (the exception raises from the native call
+/// drawing), `len` of them.
+fn normalized(given: Option<(NdArray, NdArray<bool>)>, len: usize) -> Vec<Normalized> {
+    let Some((values, mask)) = given else {
+        return vec![Normalized::Masked; len];
+    };
+    values
+        .data
+        .iter()
+        .zip(mask.data.iter().chain(std::iter::repeat(&false)))
+        .map(|(&value, &masked)| {
+            if masked {
+                Normalized::Masked
+            } else {
+                Normalized::Fraction(value)
+            }
+        })
+        .collect()
 }
 
 impl Norm for PythonNorm {
@@ -124,6 +160,15 @@ impl Norm for PythonNorm {
         }
     }
 
+    /// The norm made from a scale of pltrs (Rust)'s kind is shown on that
+    /// scale (matplotlib's colorbar takes `norm._scale`).
+    fn kind(&self) -> NormKind<'_> {
+        let scale = self.scale.as_ref();
+        scale
+            .and_then(|(name, options)| scale_factory(name.as_str(), options.clone()).ok())
+            .map_or(NormKind::Other, NormKind::Scaled)
+    }
+
     /// The Python norm's values; masked or none at all when it raised (the
     /// exception raises from the native call drawing).
     fn normalize_masked(
@@ -132,25 +177,33 @@ impl Norm for PythonNorm {
         clip: Option<bool>,
     ) -> Result<Vec<Normalized>, NormError> {
         let (values, mask) = split(data);
-        let Some((values, mask)) = self
+        let given = self
             .hooks
             .normalize
-            .call::<(NdArray, NdArray<bool>)>((values, mask, clip))
-        else {
-            return Ok(vec![Normalized::Masked; data.len()]);
-        };
-        Ok(values
-            .data
-            .iter()
-            .zip(mask.data.iter().chain(std::iter::repeat(&false)))
-            .map(|(&value, &masked)| {
-                if masked {
-                    Normalized::Masked
-                } else {
-                    Normalized::Fraction(value)
-                }
-            })
-            .collect())
+            .call((values, Some(mask), clip, None::<Vec<usize>>));
+        Ok(normalized(given, data.len()))
+    }
+
+    /// The Python norm's values for the array `form` describes.
+    fn normalize_shaped(
+        &mut self,
+        data: &[Option<f64>],
+        clip: Option<bool>,
+        form: ArrayForm<'_>,
+    ) -> Result<Vec<Normalized>, NormError> {
+        let (values, mask) = split_as(data, form.masked);
+        let given = self
+            .hooks
+            .normalize
+            .call((values, mask, clip, form.shape.to_vec()));
+        Ok(normalized(given, data.len()))
+    }
+
+    /// The Python norm's value for `value` handed over alone.
+    fn normalize_scalar(&mut self, value: f64) -> Result<Normalized, NormError> {
+        let given = self.hooks.normalize_scalar.call((value,));
+        let normalized = normalized(given, 1);
+        Ok(normalized.into_iter().next().unwrap_or(Normalized::Masked))
     }
 
     fn inverse(&self, values: &[f64]) -> Result<Vec<Option<f64>>, NormError> {
@@ -186,7 +239,8 @@ def hooks(norm):
         norm.vmin, norm.vmax = vmin, vmax
     def state():
         return norm.vmin, norm.vmax, norm.clip
-    return print, print, print, set_limits, state
+    return {'normalize': print, 'normalize_scalar': print, 'autoscale_none': print,
+            'inverse': print, 'set_limits': set_limits, 'state': state, 'scale': None}
 ";
 
     #[test]

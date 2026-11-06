@@ -303,6 +303,22 @@ impl TextArtist {
         anchor.is_finite().then_some(anchor)
     }
 
+    /// The text's position mapped through its transform, when that runs
+    /// code of the program's: the mapping, to run with the figure free, as
+    /// matplotlib's `Text` maps its position whenever it is measured; the
+    /// text's measure then answers from it (see
+    /// [`program_calls`](crate::transforms::program_calls)).
+    pub(crate) fn program_anchor(&self, ctx: LayoutContext<'_>) -> Option<impl FnOnce() + use<>> {
+        if !self.base.visible || self.annotation.is_some() {
+            return None;
+        }
+        let resolved = ctx.resolve(&self.transform())?;
+        let position = self.position;
+        resolved.calls_program().then_some(move || {
+            resolved.transform_point(position);
+        })
+    }
+
     /// [`anchor`](Self::anchor) for a draw, which lets the figure go while
     /// a transform of the program's places the text.
     fn drawn_anchor(&self, ctx: &mut DrawContext<'_>) -> Option<Point> {

@@ -159,6 +159,8 @@ impl Shadow<PathShape> {
 }
 
 impl<S: PatchShape> PatchShape for Shadow<S> {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     fn path(&self) -> Path {
         self.source.path()
     }

@@ -11,6 +11,7 @@ use pltrs::scale::ArrayLayout;
 use pltrs::transforms::Point;
 
 use super::{points, points_array};
+use crate::binding::lookup;
 use crate::binding::prelude::*;
 
 /// The numbers a Python transform answered with, masked ones as NaN (as
@@ -29,18 +30,29 @@ impl FromPy<'_> for Mapped {
 }
 
 /// Replaces `values` by what `callback` answers for them (as a 1-D array,
-/// or a column `(N, 1)` for [`ArrayLayout::Column`]): one call for all of
-/// them. Returns whether it answered.
+/// a column `(N, 1)` for [`ArrayLayout::Column`], or a masked 1-D array
+/// for [`ArrayLayout::MaskedRow`], its NaN values masked, made by the
+/// package's `masked_invalid`): one call for all of them. Returns whether
+/// it answered.
 pub(crate) fn map_values(callback: &Callback, values: &mut [f64], layout: ArrayLayout) -> bool {
     if values.is_empty() {
         return true;
     }
     let shape = match layout {
-        ArrayLayout::Row => vec![values.len()],
+        ArrayLayout::Row | ArrayLayout::MaskedRow => vec![values.len()],
         ArrayLayout::Column => vec![values.len(), 1],
     };
     let array = NdArray::with_shape(values.to_vec(), shape).expect("the shape holds the values");
-    let mapped = callback.call::<Mapped>((array,)).map(|mapped| mapped.0);
+    let mapped = match layout {
+        ArrayLayout::MaskedRow => Python::with_gil(|py| {
+            let masked = lookup(py, "masked_invalid")
+                .and_then(|masked| masked.call(&[array.into_py(py)?], &[]))
+                .ok()?;
+            callback.call::<Mapped>((masked,))
+        }),
+        ArrayLayout::Row | ArrayLayout::Column => callback.call::<Mapped>((array,)),
+    }
+    .map(|mapped| mapped.0);
     let answered = mapped.is_some();
     write_back(values, mapped);
     answered

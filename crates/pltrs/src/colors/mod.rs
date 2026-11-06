@@ -66,9 +66,9 @@ pub use named::{
 };
 pub(crate) use norm::LinearTransform;
 pub use norm::{
-    AsinhNorm, BoundaryNorm, CenteredNorm, FuncNorm, LogNorm, MultiNorm, NoNorm, Norm, NormClone,
-    NormError, NormKind, NormName, NormSpec, NormTransform, Normalize, PowerNorm, ScaleNorm,
-    SymLogNorm, TwoSlopeNorm,
+    ArrayForm, AsinhNorm, BoundaryNorm, CenteredNorm, FuncNorm, LogNorm, MultiNorm, NoNorm, Norm,
+    NormClone, NormError, NormKind, NormName, NormSpec, NormTransform, Normalize, PowerNorm,
+    ScaleNorm, SymLogNorm, TwoSlopeNorm,
 };
 pub use pltrs_core::Rgba;
 pub use sequences::{

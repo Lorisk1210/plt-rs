@@ -402,9 +402,11 @@ class Colorbar:
         ``_process_values`` does to the norm the colorbar shares with its
         mappable: unset limits from the mappable's data, else (0, 1),
         widened when they coincide. pltrs (Rust) settles on the same limits
-        for the copy of the norm it draws.
+        for the copy of the norm it draws; a norm it maps through in
+        Python, it autoscales and limits itself, as often as matplotlib's
+        colorbar does.
         """
-        if self.values is not None:
+        if self.values is not None or _colorbar.maps_through_python(self.norm):
             return
         if self.mappable.get_array() is not None:
             self.mappable.autoscale_None()

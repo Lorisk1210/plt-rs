@@ -14,7 +14,8 @@
 //!   titles align with) whose decorations are on top, and for each title
 //!   with a text the y axis of each, to place the offset text.
 //! * `Axes.draw` places its titles, then draws its children in z-order:
-//!   its x axis and its y axis, its lines, its spines, its child axes.
+//!   its x axis and its y axis, its lines, its collections, its spines,
+//!   its child axes.
 //! * `Axes.get_tightbbox` measures its axes, places its titles, then
 //!   measures its spines, each updating the ticks of the axis registered
 //!   with it.
@@ -40,6 +41,7 @@
 use super::paint::Item;
 use super::{AxesState, SpineAxis};
 use crate::artist::{Artist, ArtistId};
+use crate::collections::CollectionArtist;
 use crate::figure::FigureState;
 use crate::layout::failures::{self, ErrorClass};
 use crate::lines::LineArtist;
@@ -205,6 +207,15 @@ impl FigureState {
             .is_some_and(|state| state.axis(name).visible)
     }
 
+    /// matplotlib applying the aspect of `axes` with its locator
+    /// (`apply_aspect(locator(ax, renderer))`), as far as it calls the
+    /// program: a colorbar's locator measures its extensions, then a
+    /// secondary axis takes its host's limits.
+    pub(crate) fn aspect_applied(&mut self, axes: ArtistId) {
+        self.colorbar_located(axes);
+        self.sync_secondary(axes);
+    }
+
     /// `Axes._update_title_position` of `axes`, as far as it ticks axes.
     pub(crate) fn program_title_position(&mut self, axes: ArtistId) {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
@@ -218,7 +229,7 @@ impl FigureState {
         }
         // Child positions are updated first: their aspect applied.
         for child in self.child_axes(axes) {
-            self.sync_secondary(child);
+            self.aspect_applied(child);
         }
         // matplotlib's set of axes: each once.
         let mut group = vec![axes];
@@ -257,7 +268,7 @@ impl FigureState {
         // `SecondaryAxis.draw` sets the limits, then `_AxesBase.draw`
         // applies the aspect, which sets them again.
         self.sync_secondary(axes);
-        self.sync_secondary(axes);
+        self.aspect_applied(axes);
         self.program_title_position(axes);
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
@@ -281,6 +292,9 @@ impl FigureState {
                 }
                 Item::Child(id) if self.store.get_as::<LineArtist>(id).is_some() => {
                     self.program_line_drawn(axes, id);
+                }
+                Item::Child(id) if self.store.get_as::<CollectionArtist>(id).is_some() => {
+                    self.program_collection_drawn(axes, id);
                 }
                 Item::Axis(..) | Item::Child(_) | Item::Patch => {}
             }
@@ -408,7 +422,7 @@ impl FigureState {
                 // Every draw of the figure applies the aspect of its axes
                 // first (`_get_draw_artists`); the layout did for the first.
                 for &id in axes {
-                    self.sync_secondary(id);
+                    self.aspect_applied(id);
                 }
             }
             for &id in axes {

@@ -29,11 +29,12 @@
 
 use std::rc::Rc;
 
-use pltrs_core::Point;
+use pltrs_core::{Path, Point};
 
 use super::AxesState;
-use super::axis_layout::AxisPainter;
+use super::axis_layout::{AxisPainter, point_on_axis};
 use crate::artist::{Artist, ArtistId, LayoutContext};
+use crate::collections::CollectionArtist;
 use crate::figure::FigureState;
 use crate::lines::LineArtist;
 use crate::spines::{SpineArtist, SpinePosition};
@@ -53,6 +54,18 @@ impl ProgramMaps {
     /// called with their x coordinates, then the y scale with their y
     /// coordinates.
     fn map(&self, points: &[Point]) {
+        self.map_as(points, program_calls::forward_all);
+    }
+
+    /// [`map`](Self::map) for the masked coordinates of a mesh, which the
+    /// program's scales are handed as masked arrays.
+    fn map_masked(&self, points: &[Point]) {
+        self.map_as(points, program_calls::forward_masked_row);
+    }
+
+    /// The x coordinates of `points` through the x scale, then their y
+    /// coordinates through the y scale, each mapped by `forward`.
+    fn map_as(&self, points: &[Point], forward: fn(&Rc<dyn AxisMap>, &mut [f64])) {
         if points.is_empty() {
             return;
         }
@@ -65,11 +78,31 @@ impl ProgramMaps {
                             AxisName::Y => p.y,
                         })
                         .collect();
-                    program_calls::forward_all(map, &mut values);
+                    forward(map, &mut values);
                 }
             }
         });
     }
+}
+
+/// What the parts of an axes map through where they reach the program's
+/// code.
+enum ProgramSites {
+    /// The program's scales of a rectilinear axes.
+    Scales(ProgramMaps),
+    /// The transforms of a projection of the program's (see
+    /// `projection_sites`).
+    Projection,
+}
+
+/// A part of a tick `Tick.draw` draws, at the tick's location.
+pub(super) enum TickDraw {
+    /// Its gridline, with the path it is drawn as.
+    Gridline(f64, Path),
+    /// Its mark on its first or second (`true`) side.
+    Mark(f64, bool),
+    /// Its label on its first or second (`true`) side.
+    Label(f64, bool),
 }
 
 /// The view limits and maps an axes mapped its view through last
@@ -113,6 +146,17 @@ impl FigureState {
             y: program(AxisName::Y),
         };
         (maps.x.is_some() || maps.y.is_some()).then_some(maps)
+    }
+
+    /// What the parts of `axes` map through where they reach the
+    /// program's code: its scales of the program's, or its projection of
+    /// the program's.
+    fn program_sites(&self, axes: ArtistId) -> Option<ProgramSites> {
+        if let Some(maps) = self.program_maps(axes) {
+            return Some(ProgramSites::Scales(maps));
+        }
+        let state = self.store.get_as::<AxesState>(axes)?;
+        state.projection.custom().map(|_| ProgramSites::Projection)
     }
 
     /// `points` mapped through the transforms of `axes` with the
@@ -176,10 +220,10 @@ impl FigureState {
     }
 
     /// `_get_ticklabel_bboxes` of the ticks axis `name` of `axes` draws,
-    /// as far as it calls the program's scales: the first label of each
-    /// tick shown measured, then the second.
+    /// as far as it calls the program's scales or projection: the first
+    /// label of each tick shown measured, then the second.
     pub(crate) fn program_label_extents(&mut self, axes: ArtistId, name: AxisName) {
-        let Some(maps) = self.program_maps(axes) else {
+        let Some(sites) = self.program_sites(axes) else {
             return;
         };
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
@@ -187,56 +231,85 @@ impl FigureState {
         };
         let painter = AxisPainter::new(axes, state, name);
         let located = painter.located_ticks();
-        let mut positions = Vec::new();
+        let mut labels = Vec::new();
         for first_side in [true, false] {
             for &(tick, minor, index) in &located {
                 if label_shown(state, name, (minor, index), first_side) {
-                    positions.push(painter.tick_point(tick.loc, across(!first_side)));
+                    labels.push((tick.loc, first_side));
                 }
             }
         }
-        for position in positions {
-            self.map_through(axes, &maps, &[position]);
+        for (loc, first_side) in labels {
+            match &sites {
+                ProgramSites::Scales(maps) => {
+                    let position = point_on_axis(name, loc, across(!first_side));
+                    self.map_through(axes, maps, &[position]);
+                }
+                ProgramSites::Projection => self.projection_label(axes, name, loc, first_side),
+            }
         }
     }
 
     /// `Tick.draw` of every tick axis `name` of `axes` draws, as far as it
-    /// calls the program's scales.
+    /// calls the program's scales or projection: its gridline, its marks,
+    /// then its labels.
     pub(crate) fn program_tick_draws(&mut self, axes: ArtistId, name: AxisName) {
-        let Some(maps) = self.program_maps(axes) else {
+        let Some(sites) = self.program_sites(axes) else {
             return;
         };
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
         };
         let painter = AxisPainter::new(axes, state, name);
-        // What each tick maps, in order: a line maps its path, then its
-        // points.
-        let mut drawn: Vec<(Vec<Point>, usize)> = Vec::new();
+        let mut drawn = Vec::new();
         for (tick, minor, index) in painter.located_ticks() {
             let style = state.axis(name).tick_style_at(minor, index);
-            let point = |high: bool| painter.tick_point(tick.loc, across(high));
             if style.grid_on {
-                drawn.push((vec![point(false), point(true)], 2));
+                drawn.push(TickDraw::Gridline(
+                    tick.loc,
+                    painter.gridline_path(tick.loc, &style.grid),
+                ));
             }
             for (on, high) in [(style.ticks.first, false), (style.ticks.second, true)] {
                 // A mark of no size skips its markers, and so its path.
                 if on && style.size > 0.0 {
-                    drawn.push((vec![point(high)], 2));
+                    drawn.push(TickDraw::Mark(tick.loc, high));
                 }
             }
             // `Text.draw` draws nothing for a label without text.
             for high in [false, true] {
                 if !tick.label.is_empty() && label_shown(state, name, (minor, index), !high) {
-                    drawn.push((vec![point(high)], 1));
+                    drawn.push(TickDraw::Label(tick.loc, high));
                 }
             }
         }
-        for (points, times) in drawn {
+        match sites {
+            ProgramSites::Scales(maps) => self.scaled_tick_draws(axes, name, &maps, &drawn),
+            ProgramSites::Projection => self.projection_tick_draws(axes, name, &drawn),
+        }
+    }
+
+    /// The parts of ticks `drawn` of axis `name` mapped through the
+    /// program's scales `maps` of `axes`: a line maps its path, then its
+    /// points, a label its position.
+    fn scaled_tick_draws(
+        &mut self,
+        axes: ArtistId,
+        name: AxisName,
+        maps: &ProgramMaps,
+        drawn: &[TickDraw],
+    ) {
+        for part in drawn {
+            let point = |loc: f64, high: bool| point_on_axis(name, loc, across(high));
+            let (points, times) = match *part {
+                TickDraw::Gridline(loc, _) => (vec![point(loc, false), point(loc, true)], 2),
+                TickDraw::Mark(loc, high) => (vec![point(loc, high)], 2),
+                TickDraw::Label(loc, high) => (vec![point(loc, high)], 1),
+            };
             for _ in 0..times {
                 self.lend(|_| maps.map(&points));
             }
-            self.program_scale_box(axes, &maps);
+            self.program_scale_box(axes, maps);
         }
     }
 
@@ -276,6 +349,36 @@ impl FigureState {
             self.lend(|_| program_calls::observed(mapping));
         }
         if let Some(maps) = self.program_maps(axes) {
+            self.program_scale_box(axes, &maps);
+        }
+    }
+}
+
+impl FigureState {
+    /// `Collection.draw` of the collection `id` of `axes`, as far as it
+    /// calls the program: its values normalised through a norm of the
+    /// program's (`update_scalarmappable`), then the coordinates of a mesh
+    /// mapped through the program's scales (`QuadMesh.draw` maps them all
+    /// at once), then the affine part; the figure lent meanwhile.
+    pub(crate) fn program_collection_drawn(&mut self, axes: ArtistId, id: ArtistId) {
+        let Some(collection) = self.store.shared_as::<CollectionArtist>(id) else {
+            return;
+        };
+        if !collection.base().visible {
+            return;
+        }
+        if let Some(mapped) = collection
+            .mapping
+            .as_ref()
+            .filter(|mapped| mapped.at_draw())
+        {
+            self.lend(|_| mapped.normalize_for_paint());
+        }
+        let Some(maps) = self.program_maps(axes) else {
+            return;
+        };
+        if let Some(coordinates) = collection.mesh_coordinates_in(axes) {
+            self.lend(|_| maps.map_masked(coordinates));
             self.program_scale_box(axes, &maps);
         }
     }

@@ -38,6 +38,7 @@ mod blocks;
 mod build;
 mod dividers;
 mod error;
+mod located;
 mod mappable;
 mod navigation;
 mod options;

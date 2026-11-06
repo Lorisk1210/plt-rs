@@ -94,6 +94,13 @@ pub(crate) struct PyPointMap {
     forward: Callback,
     inverse: Option<Callback>,
     path: Option<Callback>,
+    /// The Python map's `transform_outline`, if any: a patch's outline
+    /// mapped anew (matplotlib's `transform_path_non_affine`).
+    outline: Option<Callback>,
+    /// The address of the Python map when it answers alike for as long
+    /// as it lives (its `_answers_alike`), which names its code (see
+    /// [`PointMap::program_key`]).
+    key: Option<usize>,
 }
 
 impl PyPointMap {
@@ -104,6 +111,10 @@ impl PyPointMap {
             .call_method("inverted", &[])
             .and_then(|inverted| inverted.getattr("transform")?.extract())
             .ok();
+        let alike = map
+            .getattr("_answers_alike")
+            .and_then(|alike| alike.extract::<bool>())
+            .unwrap_or(false);
         Ok(Self {
             object: map.clone().unbind(),
             forward,
@@ -112,6 +123,11 @@ impl PyPointMap {
                 .getattr("transform_path")
                 .and_then(|method| method.extract())
                 .ok(),
+            outline: map
+                .getattr("transform_outline")
+                .and_then(|method| method.extract())
+                .ok(),
+            key: alike.then(|| map.as_ptr().addr()),
         })
     }
 
@@ -138,6 +154,10 @@ impl PointMap for PyPointMap {
         true
     }
 
+    fn program_key(&self) -> Option<usize> {
+        self.key
+    }
+
     fn inverse(&self, p: Point) -> Point {
         Self::apply(self.inverse.as_ref(), p)
     }
@@ -161,7 +181,21 @@ impl PointMap for PyPointMap {
     /// vertices through its `transform`; NaN vertices when it fails (the
     /// exception is raised when the native call running returns).
     fn transform_path(&self, path: &Path) -> Path {
-        let Some(path_map) = &self.path else {
+        self.path_through(self.path.as_ref(), path)
+    }
+
+    /// The outline through the Python map's `transform_outline`, else as
+    /// [`transform_path`](Self::transform_path) maps it.
+    fn transform_outline(&self, path: &Path) -> Path {
+        self.path_through(self.outline.as_ref().or(self.path.as_ref()), path)
+    }
+}
+
+impl PyPointMap {
+    /// `path` through `path_map`, a method of the Python map taking a
+    /// path's arrays, else its vertices through its `transform`.
+    fn path_through(&self, path_map: Option<&Callback>, path: &Path) -> Path {
+        let Some(path_map) = path_map else {
             let mut mapped = path.clone();
             self.forward_all(mapped.vertices_mut());
             return mapped;

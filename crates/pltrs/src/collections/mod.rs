@@ -580,6 +580,11 @@ impl Artist for CollectionArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        if let Some(mapped) = self.mapping.as_ref().filter(|mapped| mapped.at_draw()) {
+            // The program's norm normalises with the figure free.
+            ctx.free();
+            mapped.normalize_drawn();
+        }
         self.update_scalarmappable();
         if self.single_path {
             // matplotlib's renderers index the paths as a sequence.
@@ -594,7 +599,7 @@ impl Artist for CollectionArtist {
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         } else if let Some(problem) = self.depth_sorted.as_ref().and_then(|s| s.problem) {
             ctx.report_kind(self.base.id(), problem.kind(), problem);
-        } else if let Some(Err(problem)) = self.mapping.as_ref().map(|m| &m.normalized) {
+        } else if let Some(problem) = self.mapping.as_ref().and_then(Mapped::problem) {
             // matplotlib's norms raise a `ValueError` for values or limits
             // they cannot normalise.
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);

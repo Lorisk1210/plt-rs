@@ -142,6 +142,30 @@ pub trait Norm: fmt::Debug + NormClone + std::any::Any {
         self.normalize_masked(&data, None)
     }
 
+    /// [`normalize_masked`](Self::normalize_masked) of data handed over
+    /// as the array `form` says, as matplotlib hands it: a mappable's
+    /// array or a mesh's coordinates as masked arrays, a colorbar's
+    /// boundaries or an axis' values as plain ones. Only a norm running
+    /// the program's code sees the array: the default normalises the
+    /// values as `normalize_masked` does.
+    fn normalize_shaped(
+        &mut self,
+        data: &[Option<f64>],
+        clip: Option<bool>,
+        form: ArrayForm<'_>,
+    ) -> Result<Vec<Normalized>, NormError> {
+        let _ = form;
+        self.normalize_masked(data, clip)
+    }
+
+    /// Normalises one value handed over alone, as matplotlib's colorbar
+    /// normalises the value of an extension (a scalar, not an array).
+    /// Only a norm running the program's code sees the difference.
+    fn normalize_scalar(&mut self, value: f64) -> Result<Normalized, NormError> {
+        let normalized = self.normalize(&[value])?;
+        Ok(normalized.into_iter().next().unwrap_or(Normalized::Masked))
+    }
+
     /// Maps normalised values back to data values. Entries matplotlib
     /// would mask come back as `None`.
     fn inverse(&self, values: &[f64]) -> Result<Vec<Option<f64>>, NormError>;
@@ -164,6 +188,17 @@ pub trait Norm: fmt::Debug + NormClone + std::any::Any {
     fn calls_program(&self) -> bool {
         false
     }
+}
+
+/// How values are handed to a norm of the program's (see
+/// [`Norm::normalize_shaped`]): as an array of `shape`, their order
+/// row-major, masked or plain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ArrayForm<'a> {
+    /// The shape of the array.
+    pub shape: &'a [usize],
+    /// Whether it is a masked array (its masked values those of the data).
+    pub masked: bool,
 }
 
 /// Why normalisation failed.

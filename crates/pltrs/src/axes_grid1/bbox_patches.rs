@@ -166,6 +166,8 @@ impl BboxPatch {
 }
 
 impl PatchShape for BboxPatch {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     fn path(&self) -> Path {
         Path::polyline(Vec::new())
     }
@@ -230,6 +232,8 @@ impl BboxConnector {
 }
 
 impl PatchShape for BboxConnector {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     fn path(&self) -> Path {
         Path::polyline(Vec::new())
     }
@@ -305,6 +309,8 @@ pltrs_core::archive_struct!(BboxConnectorPatch {
 });
 
 impl PatchShape for BboxConnectorPatch {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     fn path(&self) -> Path {
         Path::polyline(Vec::new())
     }

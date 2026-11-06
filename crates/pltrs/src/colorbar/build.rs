@@ -43,6 +43,7 @@ impl Colorbar {
             mut mapping,
             alpha,
             contours,
+            data,
         } = source;
         let alpha = if link.is_some() { alpha } else { options.alpha };
         let extend = match (&contours, options.extend) {
@@ -62,7 +63,8 @@ impl Colorbar {
         let long = ax.axis_of(long_axis(orientation));
         let limits = |mapping: &ScalarMappable| (mapping.norm().vmin(), mapping.norm().vmax());
         let given = limits(&mapping);
-        let blocks = settings.blocks(contours.as_ref(), extend, long.inverted(), &mut mapping)?;
+        let ends = (extend, long.inverted());
+        let blocks = settings.blocks(contours.as_ref(), ends, &mut mapping, data.as_deref())?;
         if let (Some(link), (Some(vmin), Some(vmax))) = (link, limits(&mapping))
             && limits(&mapping) != given
         {
@@ -88,7 +90,7 @@ impl Colorbar {
         // matplotlib's `_draw_all` processes the values again (as
         // `_reset_locator_formatter_scale` did), the program's norm seeing
         // it, before it meshes them.
-        let blocks = settings.blocks(contours.as_ref(), extend, long.inverted(), &mut mapping)?;
+        let blocks = settings.blocks(contours.as_ref(), ends, &mut mapping, data.as_deref())?;
         let edges = blocks.edges(mapping.norm_mut())?;
         let mut state = ColorbarState {
             link,
@@ -251,9 +253,21 @@ impl ColorbarState {
             return Ok(None);
         }
         Ok(Some(Block {
-            color: self.block_color(index)?,
+            color: self.extension_color(index)?,
             hatch: self.band_hatch(band),
         }))
+    }
+
+    /// The colour of the value of block `index` normalised alone, as
+    /// matplotlib colours an extension (`cmap(norm(value))` of a scalar).
+    fn extension_color(&mut self, index: usize) -> Result<Rgba, ColorbarError> {
+        let floats = matches!(self.blocks.kind, ScalarKind::Float | ScalarKind::Float32);
+        if !floats && self.mapping.norm().is_identity() {
+            return self.block_color(index);
+        }
+        let value = self.blocks.values[index];
+        let normalized = self.mapping.norm_mut().normalize_scalar(value)?;
+        Ok(self.mapping.cmap().lookup(normalized, None))
     }
 
     /// matplotlib's `_update_dividers`: with `drawedges`, lines between
@@ -349,7 +363,7 @@ impl ColorbarState {
     /// extension lengths, zeroed by `_extend_lower` and `_extend_upper`).
     pub(super) fn extension_lengths(&self) -> Result<(f64, f64), ColorbarError> {
         let mut norm = self.mapping.norm().clone_box();
-        let (_, lengths) = self.blocks.proportional_y(norm.as_mut())?;
+        let lengths = self.blocks.extension_lengths(norm.as_mut())?;
         let lower = if self.blocks.lower { lengths[0] } else { 0.0 };
         let upper = if self.blocks.upper { lengths[1] } else { 0.0 };
         Ok((lower, upper))

@@ -16,6 +16,7 @@ use crate::contour::ContourSetArtist;
 use crate::figure::attach;
 use crate::legend::LegendArtist;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
+use crate::transforms::NoFigure;
 
 /// Which of matplotlib's `Axes.add_*` methods [`Axes::adopt_artist`]
 /// follows:
@@ -189,7 +190,7 @@ impl Axes {
             AddAs::Line | AddAs::Image | AddAs::Collection { .. }
         );
         let counted = !matches!(add_as, AddAs::Artist | AddAs::Collection { autolim: false });
-        if let Some(adopted) = figure.borrow_mut().artist_mut(artist.id()) {
+        let adopted = figure.borrow_mut().artist_mut(artist.id()).map(|adopted| {
             let base = adopted.base_mut();
             if fresh {
                 base.transform.get_or_insert(data);
@@ -201,13 +202,19 @@ impl Axes {
                 base.label = format!("_child{child_count}");
             }
             base.in_autoscale |= counted;
-        }
-        let limits = {
-            let state = figure.borrow();
-            state
-                .artist(artist.id())
-                .and_then(|adopted| adopted.limit_points(self.id(), &*state))
-        };
+        });
+        // A patch whose path a style of the program's makes is measured
+        // apart from the figure, which the style may read and change
+        // (matplotlib's `_update_patch_limits`); everything else with the
+        // figure as it is, for what is measured through display space.
+        let shared = adopted.and_then(|()| figure.borrow().store.shared(artist.id()));
+        let limits = shared.and_then(|adopted| {
+            if adopted.limits_run_program() {
+                adopted.limit_points(self.id(), &NoFigure)
+            } else {
+                adopted.limit_points(self.id(), &*figure.borrow())
+            }
+        });
         match add_as {
             AddAs::Artist | AddAs::Image | AddAs::Collection { autolim: false } => {}
             AddAs::Line | AddAs::Patch => self.update_data(&DataUpdate::extending(limits)),

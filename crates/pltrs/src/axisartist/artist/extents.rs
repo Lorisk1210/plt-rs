@@ -32,12 +32,6 @@ impl AxisArtistState {
         self.helper.ticks(self.helper_context(layout)?)
     }
 
-    /// What matplotlib's `AxisArtist` computes when it is made (see
-    /// `AxisHelper::init_line`).
-    pub(crate) fn init_line(&self, layout: LayoutContext<'_>) -> Result<(), String> {
-        self.helper.init_line(self.helper_context(layout)?)
-    }
-
     /// The line the helper runs along in `layout`, and its coordinates.
     pub(crate) fn helper_line(
         &self,

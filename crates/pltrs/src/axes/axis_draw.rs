@@ -221,6 +221,21 @@ impl AxisPainter<'_> {
         }
     }
 
+    /// The path the gridline of the tick at `loc` is drawn as, in its
+    /// coordinates (data along the axis, axes fractions across it).
+    pub(crate) fn gridline_path(&self, loc: f64, grid: &GridStyle) -> Path {
+        let (start, end) = (self.tick_point(loc, 0.0), self.tick_point(loc, 1.0));
+        let points = line_vertices(&[start.x, end.x], &[start.y, end.y], grid.line.drawstyle)
+            .expect("the two ends of a gridline make a line of any draw style");
+        Path::polyline(points)
+    }
+
+    /// The path of the mark of the tick at `loc` on the first or second
+    /// (`high`) side: the one point it is drawn at.
+    pub(crate) fn tick_mark_path(&self, loc: f64, high: bool) -> Path {
+        Path::polyline(vec![self.tick_point(loc, f64::from(u8::from(high)))])
+    }
+
     fn draw_gridline(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -240,10 +255,7 @@ impl AxisPainter<'_> {
         // of a geographic map.
         let outline = ctx.layout().clip_outline(self.axes_id);
         (gc.clip_rect, gc.clip_path) = grid_clip(ctx, self.axes_id, &grid.line, outline);
-        let (start, end) = (self.tick_point(loc, 0.0), self.tick_point(loc, 1.0));
-        let points = line_vertices(&[start.x, end.x], &[start.y, end.y], grid.line.drawstyle)
-            .expect("the two ends of a gridline make a line of any draw style");
-        let line = Path::polyline(points);
+        let line = self.gridline_path(loc, grid);
         ctx.free_for(&resolved);
         let (path, affine) = resolved.split_path(&line);
         if !grid.linestyle.is_visible() {
@@ -275,7 +287,7 @@ impl AxisPainter<'_> {
             return;
         };
         let marker = MarkerStyle::new(symbol, FillStyle::Full).expect("tick markers are valid");
-        let points = Path::polyline(vec![self.tick_point(loc, f64::from(u8::from(high)))]);
+        let points = self.tick_mark_path(loc, high);
         ctx.free_for(&resolved);
         let (points, affine) = resolved.split_points(&points);
         TickMark {

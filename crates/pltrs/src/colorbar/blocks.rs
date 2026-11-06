@@ -7,7 +7,7 @@
 use std::ops::Range;
 
 use super::{ColorbarError, ExtendFrac, Spacing};
-use crate::colors::{Extend, Norm, NormError, NormKind, Normalized};
+use crate::colors::{ArrayForm, Extend, Norm, NormError, NormKind, Normalized};
 use crate::image::ScalarKind;
 use crate::numeric::{interp, linspace};
 use crate::transforms::nonsingular;
@@ -51,6 +51,10 @@ impl NormClass {
 /// What the blocks are derived from.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct BlockSpec<'a> {
+    /// The values of the mappable, which the norm is autoscaled to before
+    /// its limits are used (given for a norm of the program's, which sees
+    /// matplotlib's `autoscale_None`).
+    pub(crate) data: Option<&'a [Option<f64>]>,
     /// The number of colours of the colormap.
     pub(crate) ncolors: usize,
     /// Explicit block edges (user boundaries or contour levels).
@@ -178,6 +182,9 @@ impl Blocks {
         if self.upper {
             b.push(b[b.len() - 1] + 1.0);
         }
+        if let Some(data) = spec.data {
+            norm.autoscale_none(data);
+        }
         if !norm.scaled() {
             norm.set_vmin(Some(0.0));
             norm.set_vmax(Some(1.0));
@@ -265,6 +272,18 @@ impl Blocks {
             [0.0, 0.0]
         };
         Ok((y, lengths))
+    }
+
+    /// The lengths of the lower and upper extensions `proportional_y`
+    /// gives. A norm of the program's is not called for lengths that do
+    /// not depend on it (all but `extendfrac='auto'`): matplotlib calls it
+    /// where its axes locator measures them, which `colorbar_located`
+    /// models.
+    pub(crate) fn extension_lengths(&self, norm: &mut dyn Norm) -> Result<[f64; 2], ColorbarError> {
+        if norm.calls_program() && self.extendfrac != ExtendFrac::Auto {
+            return extension_lengths(self.extendfrac, f64::NAN, f64::NAN);
+        }
+        Ok(self.proportional_y(norm)?.1)
     }
 
     /// matplotlib's `_mesh`: the block edges along the long axis in data
@@ -367,7 +386,8 @@ fn rescaled(y: &[f64]) -> Result<Vec<f64>, ColorbarError> {
     Ok(y.iter().map(|v| (v - low) / (high - low)).collect())
 }
 
-/// `norm(values, clip)` with masked results replaced by `fill`.
+/// `norm(values, clip)` with masked results replaced by `fill`, the
+/// values handed over as matplotlib's colorbar hands them, a plain array.
 fn normalized(
     norm: &mut dyn Norm,
     values: &[f64],
@@ -375,8 +395,12 @@ fn normalized(
     fill: f64,
 ) -> Result<Vec<f64>, ColorbarError> {
     let data: Vec<Option<f64>> = values.iter().copied().map(Some).collect();
+    let form = ArrayForm {
+        shape: &[values.len()],
+        masked: false,
+    };
     Ok(norm
-        .normalize_masked(&data, clip)?
+        .normalize_shaped(&data, clip, form)?
         .into_iter()
         .map(|v| match v {
             Normalized::Fraction(x) => x,
@@ -417,6 +441,7 @@ mod tests {
 
     fn spec(ncolors: usize) -> BlockSpec<'static> {
         BlockSpec {
+            data: None,
             ncolors,
             boundaries: None,
             values: None,

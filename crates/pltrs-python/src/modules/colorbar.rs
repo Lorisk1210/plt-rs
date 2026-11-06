@@ -404,9 +404,17 @@ fn locate_axes(colorbar: Colorbar) -> PyResult<()> {
     Ok(())
 }
 
+/// Whether pltrs (Rust) maps data through the Python norm `norm` itself
+/// (a norm of a class it has no copy of): a colorbar then autoscales and
+/// limits it where matplotlib's `_process_values` does.
+fn maps_through_python(norm: Box<dyn Norm>) -> PyResult<bool> {
+    Ok(norm.calls_program())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
+    module.add("maps_through_python", maps_through_python)?;
     module.add("ax", ax)?;
     module.add("get_orientation", get_orientation)?;
     module.add("get_extend", get_extend)?;

@@ -9,6 +9,7 @@ use super::axes::adopt_axis_artist;
 use super::helper::{AxisHelper, TickInfo};
 use super::line::{AxislineStyle, LineState};
 use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext, RawHandle, TypedHandle};
+use crate::axes::AxesState;
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
 use crate::transforms::{Bbox, Point, Transform};
@@ -126,8 +127,24 @@ impl AxisArtist {
     /// only for other limits) and the line, which call the program's
     /// transforms of the grid.
     pub fn init_line(&self) {
-        // A line that cannot be computed fails the draw instead.
-        self.as_is(AxisArtistState::init_line);
+        let axes = self.get(AxisArtistState::axes);
+        let cell = self.raw.figure_state();
+        crate::axes::Axes::from_raw(RawHandle::new(std::rc::Rc::clone(cell), axes)).unstale_view();
+        let found = {
+            let state = cell.borrow();
+            let view = state
+                .store
+                .get_as::<AxesState>(axes)
+                .map(|axes| axes.view_lim);
+            let helper = state.artist_as::<AxisArtistState>(self.raw.id());
+            helper.map(|artist| artist.helper.clone()).zip(view)
+        };
+        // The program's transforms of the grid run with the figure free, as
+        // matplotlib's helper calls them; a line that cannot be computed
+        // fails the draw instead.
+        if let Some((helper, view)) = found {
+            helper.init_line(view);
+        }
     }
 
     /// Its key in the axis dictionary.

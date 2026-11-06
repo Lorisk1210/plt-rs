@@ -261,13 +261,16 @@ impl AxisMap for AsinhTransform {
 /// How the values a function of the program's maps are laid out in the
 /// array it is handed, as matplotlib hands them: drawing gives a
 /// one-dimensional transform a row of values (`transform_non_affine` of a
-/// slice of the points), `Transform.transform` a column (`(N, 1)`).
+/// slice of the points), `Transform.transform` a column (`(N, 1)`), and
+/// a mesh's drawing a masked row (its coordinates are masked arrays).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ArrayLayout {
     /// A one-dimensional array, `(N,)`.
     Row,
     /// A column, `(N, 1)`.
     Column,
+    /// A one-dimensional masked array, `(N,)`, its NaN values masked.
+    MaskedRow,
 }
 
 /// One direction of a function scale: a function the program gave, or
@@ -467,6 +470,10 @@ impl AxisMap for FuncTransform {
 
     fn forward_column(&self, values: &mut [f64]) {
         self.forward.call_all(values, ArrayLayout::Column);
+    }
+
+    fn forward_masked_row(&self, values: &mut [f64]) {
+        self.forward.call_all(values, ArrayLayout::MaskedRow);
     }
 
     fn inverse_column(&self, values: &mut [f64]) {

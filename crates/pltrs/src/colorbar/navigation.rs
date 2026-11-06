@@ -58,6 +58,7 @@ impl Colorbar {
                 mapping,
                 alpha: state.alpha,
                 contours: state.contours.clone(),
+                data: None,
             };
             state.follow(&self.ax, source, false)
         });

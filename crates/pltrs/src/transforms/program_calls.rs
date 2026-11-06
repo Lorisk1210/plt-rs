@@ -16,12 +16,18 @@
 //!
 //! The answers are kept per map (by its address, the map kept alive with
 //! them) and per value (its bits), for the thread laying out and drawing.
+//! A map of the plane of the program's (a projection's transform) is
+//! made anew whenever its transform is resolved: its answers are kept by
+//! the key naming the code it runs ([`PointMap::program_key`]), per point
+//! and per path.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::AxisMap;
+use pltrs_core::{Path, Point};
+
+use super::{AxisMap, PointMap};
 
 /// How many values of one map are kept at most: a map answering more
 /// (a program animating a large dataset) starts afresh.
@@ -35,11 +41,23 @@ struct MapAnswers {
     values: HashMap<u64, f64>,
 }
 
+/// What one map of the plane of the program's answered: points by the
+/// bits of their coordinates, and paths.
+struct PlaneAnswers {
+    /// A map of the key, held so that the key keeps naming its code.
+    _alive: Rc<dyn PointMap>,
+    points: HashMap<[u64; 2], Point>,
+    /// The paths given and what the map made of them.
+    paths: Vec<(Path, Path)>,
+}
+
 thread_local! {
     /// How many [`quietly`] scopes the thread is in.
     static QUIET: Cell<usize> = const { Cell::new(0) };
     /// The answers of the program's maps, by map address.
     static ANSWERS: RefCell<HashMap<usize, MapAnswers>> = RefCell::new(HashMap::new());
+    /// The answers of the program's maps of the plane, by key.
+    static PLANE_ANSWERS: RefCell<HashMap<usize, PlaneAnswers>> = RefCell::new(HashMap::new());
 }
 
 /// The address naming `map` among the answers.
@@ -80,6 +98,8 @@ pub(crate) fn forget() {
     // Dropped after the borrow ends: a map's drop may run the program's
     // code.
     let answers = ANSWERS.with_borrow_mut(std::mem::take);
+    drop(answers);
+    let answers = PLANE_ANSWERS.with_borrow_mut(std::mem::take);
     drop(answers);
 }
 
@@ -134,6 +154,23 @@ pub(crate) fn forward_all(map: &Rc<dyn AxisMap>, values: &mut [f64]) {
     keep(map, &given, values);
 }
 
+/// Maps every value of `values` through `map` in place, as matplotlib
+/// maps the masked coordinates of a mesh (see
+/// [`AxisMap::forward_masked_row`]), the program's answers kept as
+/// [`forward_all`] keeps them.
+// Kept out of the hot paths mapping every path drawn (maps of the
+// program's are rare).
+#[inline(never)]
+pub(crate) fn forward_masked_row(map: &Rc<dyn AxisMap>, values: &mut [f64]) {
+    if !map.calls_program() {
+        map.forward_all(values);
+        return;
+    }
+    let given = values.to_vec();
+    map.forward_masked_row(values);
+    keep(map, &given, values);
+}
+
 /// One value through `map`, as [`AxisMap::forward`] maps it (see
 /// [`forward_all`]).
 pub(crate) fn forward(map: &Rc<dyn AxisMap>, value: f64) -> f64 {
@@ -148,6 +185,134 @@ pub(crate) fn forward(map: &Rc<dyn AxisMap>, value: f64) -> f64 {
     let answer = map.forward(value);
     keep(map, &[value], &[answer]);
     answer
+}
+
+/// The key of a map of the plane of the program's whose answers are kept.
+fn plane_key(map: &Rc<dyn PointMap>) -> Option<usize> {
+    map.program_key().filter(|_| map.calls_program())
+}
+
+/// The bits of a point, which name it among the answers.
+fn point_bits(point: Point) -> [u64; 2] {
+    [point.x.to_bits(), point.y.to_bits()]
+}
+
+/// Runs `with` on the answers kept for `key` (made for `map` if none).
+fn plane_answers<R>(
+    key: usize,
+    map: &Rc<dyn PointMap>,
+    with: impl FnOnce(&mut PlaneAnswers) -> R,
+) -> R {
+    PLANE_ANSWERS.with_borrow_mut(|answers| {
+        let kept = answers.entry(key).or_insert_with(|| PlaneAnswers {
+            _alive: Rc::clone(map),
+            points: HashMap::new(),
+            paths: Vec::new(),
+        });
+        with(kept)
+    })
+}
+
+/// The answers kept for `key`, if any, read by `read`.
+fn known_plane<R>(key: usize, read: impl FnOnce(&PlaneAnswers) -> Option<R>) -> Option<R> {
+    if QUIET.get() == 0 {
+        return None;
+    }
+    PLANE_ANSWERS.with_borrow(|answers| answers.get(&key).and_then(read))
+}
+
+/// Maps every point of `points` through `map` in place, as
+/// [`PointMap::forward_all`] does: a map of the program's called once for
+/// all of them, or answering from what it answered before while pltrs'
+/// own work runs [`quietly`].
+// Kept out of the hot paths mapping every path drawn (maps of the
+// program's are rare).
+#[inline(never)]
+pub(crate) fn forward_points(map: &Rc<dyn PointMap>, points: &mut [Point]) {
+    let Some(key) = plane_key(map) else {
+        map.forward_all(points);
+        return;
+    };
+    let known = known_plane(key, |kept| {
+        (points.iter())
+            .map(|&point| kept.points.get(&point_bits(point)).copied())
+            .collect::<Option<Vec<Point>>>()
+    });
+    if let Some(answers) = known {
+        points.copy_from_slice(&answers);
+        return;
+    }
+    let given = points.to_vec();
+    map.forward_all(points);
+    keep_points(key, map, &given, points);
+}
+
+/// One point through `map`, as [`PointMap::forward`] maps it (see
+/// [`forward_points`]).
+// Kept out of the hot paths mapping every path drawn (maps of the
+// program's are rare).
+#[inline(never)]
+pub(crate) fn forward_point(map: &Rc<dyn PointMap>, point: Point) -> Point {
+    let Some(key) = plane_key(map) else {
+        return map.forward(point);
+    };
+    if let Some(answer) = known_plane(key, |kept| kept.points.get(&point_bits(point)).copied()) {
+        return answer;
+    }
+    let answer = map.forward(point);
+    keep_points(key, map, &[point], &[answer]);
+    answer
+}
+
+/// Keeps what the map of `key` answered: `mapped[i]` for `given[i]`.
+fn keep_points(key: usize, map: &Rc<dyn PointMap>, given: &[Point], mapped: &[Point]) {
+    plane_answers(key, map, |kept| {
+        if kept.points.len() + given.len() > KEPT_PER_MAP {
+            kept.points.clear();
+        }
+        for (&point, &answer) in given.iter().zip(mapped) {
+            kept.points.insert(point_bits(point), answer);
+        }
+    });
+}
+
+/// `path` through `map`, as [`PointMap::transform_path`] maps it (see
+/// [`forward_points`]).
+// Kept out of the hot paths mapping every path drawn (maps of the
+// program's are rare).
+#[inline(never)]
+pub(crate) fn transform_path(map: &Rc<dyn PointMap>, path: &Path) -> Path {
+    let Some(key) = plane_key(map) else {
+        return map.transform_path(path);
+    };
+    let known = known_plane(key, |kept| {
+        (kept.paths.iter())
+            .find(|(given, _)| same_path(given, path))
+            .map(|(_, mapped)| mapped.clone())
+    });
+    if let Some(mapped) = known {
+        return mapped;
+    }
+    let mapped = map.transform_path(path);
+    plane_answers(key, map, |kept| {
+        if kept.paths.len() >= KEPT_PATHS_PER_MAP {
+            kept.paths.clear();
+        }
+        kept.paths.push((path.clone(), mapped.clone()));
+    });
+    mapped
+}
+
+/// How many paths of one map of the plane are kept at most.
+const KEPT_PATHS_PER_MAP: usize = 1 << 10;
+
+/// Whether two paths have the same vertices (bit for bit), codes and
+/// interpolation steps.
+pub(crate) fn same_path(a: &Path, b: &Path) -> bool {
+    a.codes() == b.codes()
+        && a.interpolation_steps() == b.interpolation_steps()
+        && a.vertices().len() == b.vertices().len()
+        && (a.vertices().iter().zip(b.vertices())).all(|(&p, &q)| point_bits(p) == point_bits(q))
 }
 
 #[cfg(test)]
@@ -208,6 +373,81 @@ mod tests {
             [vec![1.0, 2.0]],
             "answered, not called"
         );
+        forget();
+    }
+
+    /// Shifts points, counting its calls, as a map of the plane of the
+    /// program's named by `key`.
+    #[derive(Debug)]
+    struct Plane {
+        key: Option<usize>,
+        calls: std::cell::Cell<usize>,
+    }
+
+    impl PointMap for Plane {
+        fn forward(&self, point: Point) -> Point {
+            self.calls.set(self.calls.get() + 1);
+            Point::new(point.x + 1.0, point.y)
+        }
+
+        fn inverse(&self, point: Point) -> Point {
+            Point::new(point.x - 1.0, point.y)
+        }
+
+        fn forward_all(&self, points: &mut [Point]) {
+            self.calls.set(self.calls.get() + 1);
+            for p in points {
+                p.x += 1.0;
+            }
+        }
+
+        fn calls_program(&self) -> bool {
+            true
+        }
+
+        fn program_key(&self) -> Option<usize> {
+            self.key
+        }
+    }
+
+    fn plane(key: Option<usize>) -> (Rc<Plane>, Rc<dyn PointMap>) {
+        let map = Rc::new(Plane {
+            key,
+            calls: std::cell::Cell::new(0),
+        });
+        let shared: Rc<dyn PointMap> = Rc::clone(&map) as Rc<dyn PointMap>;
+        (map, shared)
+    }
+
+    #[test]
+    fn maps_of_the_plane_answer_by_key_across_their_copies() {
+        forget();
+        let (first, shared) = plane(Some(7));
+        let mut points = [Point::new(0.0, 1.0), Point::new(2.0, 3.0)];
+        forward_points(&shared, &mut points);
+        assert_eq!(points[1], Point::new(3.0, 3.0));
+        let path = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(2.0, 3.0)]);
+        let mapped = transform_path(&shared, &path);
+        assert_eq!(first.calls.get(), 2);
+        // A copy made by another resolution names the same code.
+        let (copy, again) = plane(Some(7));
+        quietly(|| {
+            assert_eq!(
+                forward_point(&again, Point::new(2.0, 3.0)),
+                Point::new(3.0, 3.0)
+            );
+            assert!(same_path(&transform_path(&again, &path), &mapped));
+        });
+        assert_eq!(copy.calls.get(), 0, "answered, not called");
+        observed(|| forward_point(&again, Point::new(2.0, 3.0)));
+        assert_eq!(copy.calls.get(), 1, "matplotlib's call is made");
+        // A map without a key is called every time.
+        let (unkept, unnamed) = plane(None);
+        quietly(|| {
+            forward_point(&unnamed, Point::new(2.0, 3.0));
+            forward_point(&unnamed, Point::new(2.0, 3.0));
+        });
+        assert_eq!(unkept.calls.get(), 2);
         forget();
     }
 

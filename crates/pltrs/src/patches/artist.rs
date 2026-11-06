@@ -7,7 +7,7 @@ use std::rc::Rc;
 use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_render::ClipPath;
 
-use super::shape::{DisplayPath, PatchShape, ShapeFrame};
+use super::shape::{DisplayPath, PatchShape, ShapeFrame, outline_through};
 use super::style::{PatchStyle, paint_paths};
 use super::{ClipRegion, DataRectangle, PatchError, Rectangle};
 use crate::artist::{
@@ -16,7 +16,7 @@ use crate::artist::{
 use crate::colors::ColorError;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
-use crate::transforms::{Transform, TransformContext};
+use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 use crate::units::CustomValues;
 
 /// The pieces a patch is drawn from, borrowed from whichever artist owns
@@ -43,10 +43,27 @@ impl<S: PatchShape> PatchParts<'_, S> {
         layout: LayoutContext<'_>,
         dpi_cor: f64,
     ) -> Result<Vec<DisplayPath>, PatchError> {
+        let resolved = self.resolved(layout)?;
+        self.display_paths_through(layout, resolved, dpi_cor)
+    }
+
+    /// The artist's transform resolved in `layout`.
+    fn resolved(&self, layout: LayoutContext<'_>) -> Result<ResolvedTransform, PatchError> {
         let transform = self.base.transform.clone().unwrap_or(Transform::Display);
+        layout.resolve(&transform).ok_or(PatchError::Detached)
+    }
+
+    /// [`display_paths`](Self::display_paths) through the artist's
+    /// transform, `resolved`.
+    fn display_paths_through(
+        &self,
+        layout: LayoutContext<'_>,
+        resolved: ResolvedTransform,
+        dpi_cor: f64,
+    ) -> Result<Vec<DisplayPath>, PatchError> {
         let frame = ShapeFrame {
             layout,
-            transform: layout.resolve(&transform).ok_or(PatchError::Detached)?,
+            transform: resolved,
             dpi_cor,
             drawn_dpi_cor: self.drawn.and_then(DrawnDpiCor::last),
             linewidth: self.style.linewidth.unwrap_or(self.rc.patch_linewidth),
@@ -56,16 +73,37 @@ impl<S: PatchShape> PatchParts<'_, S> {
         self.shape.display_paths(&frame)
     }
 
-    /// Draws the patch (matplotlib's `Patch.draw`).
+    /// Draws the patch (matplotlib's `Patch.draw`). A transform or a box
+    /// style of the program's makes or maps the outline with the figure
+    /// free, as matplotlib's may read and change the figure meanwhile
+    /// (unless the shape needs more of the figure than its transform).
     pub(crate) fn paint(&self, ctx: &mut DrawContext<'_>) -> Result<(), PatchError> {
         let layout = ctx.layout();
         let dpi_cor = layout.points_to_pixels(1.0);
         if let Some(drawn) = self.drawn {
             drawn.record(dpi_cor);
         }
-        let paths = self.display_paths(layout, dpi_cor)?;
+        let resolved = self.resolved(layout)?;
+        let paths =
+            if S::MAPS_OUTLINE_ALONE && (resolved.calls_program() || self.shape.runs_program()) {
+                self.program_outline(ctx, &resolved)
+            } else {
+                self.display_paths_through(ctx.layout(), resolved, dpi_cor)?
+            };
         paint_paths(ctx, self.base, self.style, self.rc, S::EDGE_DEFAULT, &paths)?;
         Ok(())
+    }
+
+    /// The outline made or mapped by code of the program's, the figure let
+    /// go first (kept out of the draws of every other patch).
+    #[inline(never)]
+    fn program_outline(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        resolved: &ResolvedTransform,
+    ) -> Vec<DisplayPath> {
+        ctx.free();
+        outline_through(self.shape, resolved, self.interpolation_steps)
     }
 
     /// The pixels per point the patch is measured at (see
@@ -353,11 +391,21 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
         self.parts().outline(*ctx)
     }
 
+    fn limits_run_program(&self) -> bool {
+        self.shape.runs_program()
+    }
+
     /// The outline's ends and axis extrema, in the directions where the
     /// patch's coordinates are data values (matplotlib's
     /// `_update_patch_limits`).
     fn limit_points(&self, axes: ArtistId, ctx: &dyn TransformContext) -> Option<LimitPoints> {
         let transform = self.base.transform.as_ref()?;
+        if self.shape.runs_program() {
+            // matplotlib's `_update_patch_limits` makes the path (calling a
+            // style of the program's) before it looks at the transform.
+            let points = self.data_points();
+            return LimitPoints::through(transform, axes, || points);
+        }
         let linewidth = self.style.linewidth.unwrap_or(self.rc.patch_linewidth);
         match self.shape.limit_outline(transform, linewidth, ctx, axes) {
             Some(points) => Some(LimitPoints {

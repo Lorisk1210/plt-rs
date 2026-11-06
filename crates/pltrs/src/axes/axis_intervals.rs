@@ -129,7 +129,7 @@ impl Axis {
         // The map runs apart from the figure, which a map of the
         // program's may read and change.
         if let Some(map) = self.read(|axis| axis.map().cloned()) {
-            map.forward_all(&mut scaled);
+            map.forward_column(&mut scaled);
         }
         scaled
     }

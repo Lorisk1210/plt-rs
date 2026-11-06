@@ -10,7 +10,7 @@ use super::labels::TickLabel;
 use crate::artist::DrawContext;
 use crate::axes::TickDirection;
 use crate::colors::Color;
-use crate::transforms::ResolvedTransform;
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// Tick marks of one level (matplotlib's `Ticks`).
 #[derive(Clone, Debug, PartialEq)]
@@ -26,6 +26,10 @@ pub(crate) struct TicksState {
     pub(crate) width: Option<f64>,
     /// The opacity of the marks.
     pub(crate) alpha: Option<f64>,
+    /// The transform the program places the marks with, in place of the
+    /// helper's tick transform followed by the artist's offset
+    /// (matplotlib's `Ticks.set_transform`).
+    pub(crate) transform: Option<Transform>,
 }
 
 pltrs_core::archive_struct!(TicksState {
@@ -34,7 +38,8 @@ pltrs_core::archive_struct!(TicksState {
     visible,
     color,
     width,
-    alpha
+    alpha,
+    transform
 });
 
 impl TicksState {
@@ -47,6 +52,7 @@ impl TicksState {
             color: None,
             width: None,
             alpha: None,
+            transform: None,
         }
     }
 

@@ -27,6 +27,14 @@ fn get_ticklocs(axes: Axes3D, name: String, minor: bool) -> PyResult<Vec<f64>> {
         .map_err(|err| PyErr::value_error(err.to_string()))
 }
 
+/// Raises what computing the ticks of axis `name` meets, after the
+/// runtime warnings its failure met, as matplotlib's measures of the axis
+/// for a tight box raise it (`_update_ticks`).
+fn check_ticks(axes: Axes3D, name: String) -> PyResult<()> {
+    axes.axis(axis3(&name)?).ticks()?;
+    Ok(())
+}
+
 /// The edge called `name`: `"lower"`, `"upper"`, `"both"`, `"default"` or
 /// `"none"`.
 fn position(name: &str) -> PyResult<AxisPosition> {
@@ -218,6 +226,7 @@ fn set_ticklabels(axes: Axes3D, name: String, labels: Vec<String>, minor: bool) 
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_ticks", set_ticks)?;
     module.add("get_ticklocs", get_ticklocs)?;
+    module.add("check_ticks", check_ticks)?;
     module.add("set_ticks_position", set_ticks_position)?;
     module.add("get_ticks_position", get_ticks_position)?;
     module.add("set_label_position", set_label_position)?;

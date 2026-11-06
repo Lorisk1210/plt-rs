@@ -206,7 +206,9 @@ pub struct GridFinderOptions {
 /// `GridFinder`, the engine of `GridHelperCurveLinear`).
 #[derive(Debug)]
 pub struct GridFinder {
-    transform: AuxTransform,
+    /// From curvilinear to data coordinates; a program may replace it
+    /// (matplotlib's `set_transform`).
+    transform: RefCell<AuxTransform>,
     extreme_finder: Box<dyn ExtremeFinder>,
     grid_locator1: Box<dyn GridLocator>,
     grid_locator2: Box<dyn GridLocator>,
@@ -239,7 +241,7 @@ impl GridFinder {
         let locator = || -> Box<dyn GridLocator> { Box::new(GridMaxNLocator::default()) };
         let formatter = || -> Box<dyn GridFormatter> { Box::new(FormatterPrettyPrint::default()) };
         Self {
-            transform,
+            transform: RefCell::new(transform),
             extreme_finder: options
                 .extreme_finder
                 .unwrap_or_else(|| Box::new(ExtremeFinderSimple::new(20, 20))),
@@ -252,8 +254,21 @@ impl GridFinder {
     }
 
     /// The transform from curvilinear to data coordinates.
-    pub fn transform(&self) -> &AuxTransform {
-        &self.transform
+    pub fn transform(&self) -> AuxTransform {
+        self.transform.borrow().clone()
+    }
+
+    /// Maps the curvilinear coordinates by `transform` from now on
+    /// (matplotlib's `set_transform`).
+    pub fn set_transform(&self, transform: AuxTransform) {
+        *self.transform.borrow_mut() = transform;
+    }
+
+    /// Has the grid computed anew at its next use, whatever box it is
+    /// computed over (what matplotlib's grid helper does after
+    /// `update_grid_finder`, which forces the grid's revalidation).
+    pub fn forget_grid(&self) {
+        *self.last.borrow_mut() = None;
     }
 
     /// The extreme finder.
@@ -263,7 +278,7 @@ impl GridFinder {
 
     /// The range of curvilinear coordinates covering the data box `bbox`.
     pub fn extremes(&self, bbox: Bbox) -> Result<Bbox, GridError> {
-        let inverse = self.transform.inverted().ok_or(GridError::Singular)?;
+        let inverse = self.transform().inverted().ok_or(GridError::Singular)?;
         Ok(self.extreme_finder.find_transformed_bbox(&inverse, bbox))
     }
 
@@ -364,9 +379,10 @@ impl GridFinder {
     ) -> (Vec<Vec<Point>>, Vec<Vec<Point>>) {
         let lons = linspace(bbox.x0(), bbox.x1(), LINE_POINTS);
         let lats = linspace(bbox.y0(), bbox.y1(), LINE_POINTS);
+        let transform = self.transform();
         let line = |points: &mut dyn Iterator<Item = Point>| -> Vec<Point> {
             let mut points: Vec<Point> = points.collect();
-            self.transform.transform_points(&mut points);
+            transform.transform_points(&mut points);
             points
         };
         let lon_lines = lon_values

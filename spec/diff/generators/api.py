@@ -20,9 +20,10 @@ Values naming what a subject lacks (``fig``, say) are left out. A setter
 is followed by its getter, a property is read (and set, when settable,
 then read again), a dunder method is used as Python uses it (``len``,
 ``[]``, ``in``, ...). Members that undo the subject (``remove``,
-``clear``) come last, each on a subject made anew. A core subject may
-have variants (``subjects.VARIANTS``): another object of its class, made
-with other arguments, on which its callables run again.
+``clear``) come last, each on a subject made anew. A subject may have
+variants (``subjects.VARIANTS``, ``variants_toolkits.VARIANTS``): another
+object of its class, made with other arguments, on which its callables
+run again.
 
 A subject's callables are split into programs of ``CHUNK``; each program
 ends drawing every pyplot figure and saving it in each vector format, so
@@ -40,7 +41,7 @@ from typing import Any, Iterator
 
 import api_index
 
-from . import artists, common, values
+from . import artists, common, values, variants_toolkits
 from .subjects import MODULE_SETUP, PRELUDE, SUBJECTS, VARIANTS
 
 #: Callables per program.
@@ -344,7 +345,7 @@ def _variants(objects: list[Subject]) -> list[Subject]:
         if subject.callables:
             bases.setdefault(subject.name, subject)
     variants = []
-    for name, base, setup in VARIANTS:
+    for name, base, setup in VARIANTS + variants_toolkits.VARIANTS:
         namespace = _namespace(name, setup)
         if namespace is not None and base in bases:
             variant = Subject(name, setup, "obj", namespace)

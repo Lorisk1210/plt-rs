@@ -22,9 +22,10 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _unusable, _values, cbook, colorizer as mcolorizer,
-               colors as mcolors)
+from . import (_api, _image, _live_transforms, _unusable, _values, cbook,
+               colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
+from ._program_classes import takes_from_program
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
@@ -163,6 +164,12 @@ class _ImageBase(mcolorizer.ColorizingArtist):
     """
 
     zorder = 0
+
+    #: The methods whose override by a class of the program's computes the
+    #: pixels matplotlib's ``draw`` draws: an image of such a class is
+    #: drawn through ``draw`` (``_python_drawing.attach``), from what its
+    #: ``make_image`` gives.
+    _computed = ("make_image", "_check_unsampled_image", "get_extent", "get_transform")
 
     def __init__(self, ax,
                  cmap=None,
@@ -484,6 +491,48 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         raise NotImplementedError('The make_image method must be overridden')
 
+    def _check_unsampled_image(self):
+        """
+        Return whether the image is better to be drawn unsampled.
+
+        The derived class needs to override it.
+        """
+        return False
+
+    def draw(self, renderer):
+        """
+        Draw the image with *renderer*: as pltrs (Rust) draws it, unless a
+        class of the program's computes its pixels (``_computed``), whose
+        ``make_image`` then gives them, as matplotlib's ``draw`` takes them.
+        """
+        if not any(takes_from_program(type(self), name) for name in self._computed):
+            return super().draw(renderer)
+        if not self.get_visible() or self.get_array().size == 0:
+            self.stale = False
+            return
+        gc = renderer.new_gc()
+        if self.get_clip_on():
+            if self.get_clip_box() is not None:
+                gc.set_clip_rectangle(self.get_clip_box())
+            gc.set_clip_path(self.get_clip_path())
+        gc.set_alpha(self._get_scalar_alpha())
+        gc.set_url(self.get_url())
+        gc.set_gid(self.get_gid())
+        if (renderer.option_scale_image()  # Renderer supports transform kwarg.
+                and self._check_unsampled_image()
+                and self.get_transform().is_affine):
+            im, l, b, trans = self.make_image(renderer, unsampled=True)
+            if im is not None:
+                trans = Affine2D().scale(im.shape[1], im.shape[0]) + trans
+                renderer.draw_image(gc, l, b, im, trans)
+        else:
+            im, l, b, trans = self.make_image(
+                renderer, renderer.get_image_magnification())
+            if im is not None:
+                renderer.draw_image(gc, l, b, im)
+        gc.restore()
+        self.stale = False
+
     def can_composite(self):
         """Return whether the image can be composited with its neighbors."""
         trans = self.get_transform()
@@ -499,7 +548,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         PIL.Image.fromarray(im).save(fname, format="png")
 
 
-def _made_image(image, magnification, unsampled, in_bbox, trans):
+def _made_image(image, magnification, unsampled, in_bbox, trans, over=None):
     """
     *image* (an `AxesImage`, a `FigureImage` or a `BboxImage`) made for
     display by pltrs (Rust) as ``make_image`` returns it: the RGBA pixels,
@@ -507,9 +556,10 @@ def _made_image(image, magnification, unsampled, in_bbox, trans):
     image to them; no pixels when nothing of it shows. The transform is
     built as matplotlib's ``_make_image`` builds it, from the box *in_bbox*
     the image fills through the image's transform *trans* (see
-    `_image_transform`).
+    `_image_transform`). pltrs (Rust) stretches the image over *over*,
+    ``(extent, transform)``, when given (see `_native_made`).
     """
-    made = _native_made(image, magnification, unsampled)
+    made = _native_made(image, magnification, unsampled, over)
     if made is None:
         return None, 0, 0, None
     pixels, x, y, matrix = made
@@ -518,7 +568,7 @@ def _made_image(image, magnification, unsampled, in_bbox, trans):
                              matrix if unsampled else None))
 
 
-def _native_made(image, magnification, unsampled):
+def _native_made(image, magnification, unsampled, over=None):
     """*image* made by pltrs (Rust): its pixels, the display corner they are
     drawn from (numpy floats) and the matrix mapping the image onto them;
     None when nothing of it shows."""
@@ -529,7 +579,7 @@ def _native_made(image, magnification, unsampled):
                            "Your Artist's draw method must filter before "
                            "this method is called.")
     made = _native_image.make_image(image._native, float(magnification),
-                                    bool(unsampled))
+                                    bool(unsampled), over)
     if made is None:
         return None
     pixels, x, y, matrix = made
@@ -728,9 +778,20 @@ class AxesImage(_ImageBase):
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
         x1, x2, y1, y2 = self.get_extent()
+        trans = self.get_transform()
+        over = None
+        if any(takes_from_program(type(self), name)
+               for name in ("get_extent", "get_transform")):
+            # pltrs (Rust) stretches the image over the extent and through
+            # the transform the program's class gives.
+            over = (tuple(map(float, (x1, x2, y1, y2))),
+                    _live_transforms.to_native(trans))
         return _made_image(self, magnification, unsampled,
-                           Bbox(np.array([[x1, y1], [x2, y2]])),
-                           self.get_transform())
+                           Bbox(np.array([[x1, y1], [x2, y2]])), trans, over)
+
+    def _check_unsampled_image(self):
+        """Return whether the image would be better drawn unsampled."""
+        return self.get_interpolation() == "none"
 
 
 def imread(fname, format=None):
@@ -1063,6 +1124,10 @@ class NonUniformImage(AxesImage):
         return _native_image.new_nonuniform_image(
             colorizer.cmap, colorizer.norm, 'nearest')
 
+    def _check_unsampled_image(self):
+        """Return False. Do not use unsampled image."""
+        return False
+
     def set_data(self, x, y, A):
         """
         Set the grid for the pixel centers, and the pixel values.
@@ -1200,6 +1265,10 @@ class PcolorImage(AxesImage):
 
     def _new_native(self, colorizer, spec):
         return _native_image.new_pcolor_image(colorizer.cmap, colorizer.norm)
+
+    def _check_unsampled_image(self):
+        """Return False. Do not use unsampled image."""
+        return False
 
     def set_data(self, x, y, A):
         """

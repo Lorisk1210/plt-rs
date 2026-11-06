@@ -9,7 +9,10 @@ line, ticks, tick labels and label. Its parts are matplotlib's: `Ticks` are
 `.Text`\\s, holding every property as matplotlib's do. They are mirrors
 (``pltrs._mirrors``) of what pltrs (Rust) draws: each of their setters
 hands the part of the axis artist what it draws with
-(``_native.axisartist.restyle_ticks``, ``restyle_label``). Ticks and texts
+(``_native.axisartist.restyle_ticks``, ``restyle_label``; a transform the
+program gives the ticks or tick labels, or that ``update_from`` copies,
+places them instead of the helper's, ``set_ticks_transform``,
+``set_text_transform``). Ticks and texts
 made by their constructors and added to an axes (``ax.add_artist(ticks)``)
 are drawn by pltrs (Rust) the same way, as tick marks
 (``add_tick_marks``) and axis texts (``add_axis_texts``) that their
@@ -20,7 +23,8 @@ from operator import methodcaller
 
 import numpy as np
 
-from pltrs import _api, _artist_picking, _handles, _mirrors, cbook, rcParams
+from pltrs import (
+    _api, _artist_picking, _handles, _live_transforms, _mirrors, cbook, rcParams)
 import pltrs.artist as martist
 import pltrs.colors as mcolors
 import pltrs.text as mtext
@@ -28,7 +32,7 @@ from pltrs.collections import LineCollection
 from pltrs.font_manager import FontManager
 from pltrs.lines import Line2D
 from pltrs.path import Path
-from pltrs.transforms import Affine2D, Bbox, ScaledTranslation
+from pltrs.transforms import Affine2D, Bbox, IdentityTransform, ScaledTranslation
 from pltrs._native import (
     artist as _artist, axisartist as _axisartist, text as _text)
 
@@ -136,6 +140,15 @@ class _DrawnOnItsOwn:
         _artist.set_visible(native, self.get_visible())
         _artist.set_alpha(native, self.get_alpha())
         _artist.set_zorder(native, float(self.get_zorder()))
+
+    def update_from(self, other):
+        # docstring inherited
+        super().update_from(other)
+        if "_given_transform" not in self.__dict__:
+            # matplotlib copies the transform of *other*, which places the
+            # part from then on: one never set is the identity.
+            self._given_transform = other.get_transform()
+        self._push()
 
     def remove(self):
         # docstring inherited
@@ -388,6 +401,8 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         _axisartist.restyle_ticks(drawn.native, drawn.name, (
             float(self._ticksize), self._tick_dir, bool(self.get_visible()),
             color, width, self.get_alpha()))
+        _axisartist.set_ticks_transform(drawn.native, drawn.name,
+                                        _given_part_transform(self))
 
     def _add_native(self, axes):
         return _axisartist.add_tick_marks(axes._native, *self._marks())
@@ -397,6 +412,16 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
 
     def _refresh(self, drawn):
         pass
+
+
+def _given_part_transform(artist):
+    """The native transform the program gave *artist*, a part of an axis
+    artist (`~.Artist.set_transform`, `~.Artist.update_from`), which then
+    places it; None while the axis artist places it."""
+    if "_given_transform" not in artist.__dict__:
+        return None
+    given = artist.__dict__["_given_transform"]
+    return _live_transforms.to_native(IdentityTransform() if given is None else given)
 
 
 def _look_of(text):
@@ -563,6 +588,9 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
             (float(self.get_fontsize()), _look_of(self), float(self.get_rotation())),
             (self.get_va(), self.get_ha(), self._axis_direction),
             self._part_text()))
+        _axisartist.set_part_bbox(drawn.native, drawn.name, self._native)
+        _axisartist.set_text_transform(drawn.native, drawn.name,
+                                       _given_part_transform(self))
 
     def _part_text(self):
         """The text an axis artist's part draws (only its label has one)."""

@@ -7,14 +7,15 @@ use pltrs_core::{Bbox, Point};
 use pltrs_text::mathtext::is_math_text;
 use pltrs_text::{BlockStyle, HAlign, LineSpacing, RotationMode, VAlign};
 
-use crate::artist::LayoutContext;
+use crate::artist::{ArtistBase, DrawContext, LayoutContext};
 use crate::axes::{PlacedText, place_text};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
+use crate::patches::PatchError;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
-use crate::text::measure_text;
-use crate::transforms::ResolvedTransform;
+use crate::text::{BoxPlacement, TextBoxPatch, measure_text};
+use crate::transforms::{ResolvedTransform, Transform};
 
 /// Which of the two label classes a [`LabelState`] follows; they differ
 /// in their defaults for each axis direction.
@@ -144,6 +145,12 @@ pub(crate) struct LabelState {
     /// The axis direction, which also tells tick labels which side their
     /// extent is measured on.
     pub(crate) direction: SpineSide,
+    /// The transform the program places the texts with, in place of the
+    /// helper's tick (or label) transform followed by the artist's offset
+    /// (matplotlib's `set_transform` of the `TickLabels` or `AxisLabel`).
+    pub(crate) transform: Option<Transform>,
+    /// The box drawn behind each text (matplotlib's `Text.set_bbox`).
+    pub(crate) bbox: Option<TextBoxPatch>,
 }
 
 pltrs_core::archive_struct!(LabelState {
@@ -156,7 +163,9 @@ pltrs_core::archive_struct!(LabelState {
     rotation,
     valign,
     halign,
-    direction
+    direction,
+    transform,
+    bbox
 });
 
 impl LabelState {
@@ -180,7 +189,33 @@ impl LabelState {
             valign,
             halign,
             direction,
+            transform: None,
+            bbox: None,
         }
+    }
+
+    /// Draws the box behind `text`, one of the texts of these labels laid
+    /// out (matplotlib's `Text.draw` draws a text's bbox patch first),
+    /// with the artist properties `base`.
+    pub(crate) fn draw_box(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        base: &ArtistBase,
+        rc: &RcParams,
+        text: &PlacedText,
+    ) -> Result<(), PatchError> {
+        let Some(bbox) = &self.bbox else {
+            return Ok(());
+        };
+        let (corner, size) = text.laid_out.block.frame;
+        let placement = BoxPlacement {
+            anchor: text.anchor,
+            corner,
+            size,
+            rotation: text.rotation,
+            fontsize_px: ctx.points_to_pixels(self.size),
+        };
+        bbox.draw(ctx, base, rc, &placement)
     }
 
     /// Adopts the alignment and angle of `direction` (matplotlib's

@@ -103,6 +103,12 @@ fn subplot_spec(axes: Axes3D) -> PyResult<Option<SubplotSpec>> {
     Ok(axes.subplot_spec())
 }
 
+/// Moves the 3-D axes into the grid block `spec` (`set_subplotspec`).
+fn set_subplot_spec(axes: Axes3D, spec: SubplotSpec) -> PyResult<()> {
+    axes.set_subplot_spec(spec)?;
+    Ok(())
+}
+
 /// Every axes of the figure, 2-D and 3-D, in the order they were made,
 /// each with whether it is a 3-D axes (`fig.axes`).
 fn figure_axes(figure: Figure) -> PyResult<Vec<(RawHandle, bool)>> {
@@ -124,6 +130,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("removed_subplot", removed_subplot)?;
     module.add("plane", plane)?;
     module.add("subplot_spec", subplot_spec)?;
+    module.add("set_subplot_spec", set_subplot_spec)?;
     module.add("figure_axes", figure_axes)
 }
 

@@ -9,8 +9,8 @@ use pltrs::axisartist::{
 };
 use pltrs::collections::Collection;
 use pltrs::colors::Color;
-use pltrs::text::{HAlign, VAlign};
-use pltrs::transforms::Point;
+use pltrs::text::{HAlign, Text, VAlign};
+use pltrs::transforms::{Point, Transform};
 
 use super::super::axes_grid1::side_named;
 use super::super::lines::PyLineStyle;
@@ -232,6 +232,29 @@ fn restyle_ticks(
     Ok(())
 }
 
+/// Places the tick marks of `level` (`"major"` or `"minor"`) with
+/// `transform`, the transform their object was given (`set_transform`),
+/// or as the artist places them (`None`).
+fn set_ticks_transform(
+    artist: AxisArtist,
+    level: String,
+    transform: Option<Transform>,
+) -> PyResult<()> {
+    ticks(&artist, &level).set_transform(transform);
+    Ok(())
+}
+
+/// Places the text part `part` with `transform`, the transform its object
+/// was given (`set_transform`), or as the artist places it (`None`).
+fn set_text_transform(
+    artist: AxisArtist,
+    part: String,
+    transform: Option<Transform>,
+) -> PyResult<()> {
+    label_part(&artist, &part)?.set_transform(transform);
+    Ok(())
+}
+
 /// Which parts of the axis artist are shown: its major and minor ticks,
 /// its major and minor tick labels and its label (what an axes made by
 /// pltrs (Rust) hides, `axislines.Axes` hiding the texts of its top and
@@ -304,6 +327,13 @@ fn restyle_label(
 fn alignment<T: std::str::FromStr>(name: &str) -> PyResult<T> {
     name.parse()
         .map_err(|_| PyErr::value_error(format!("{name:?} is not a valid alignment")))
+}
+
+/// Draws the box `text`, the object of the text part `part`, has behind
+/// each text of the part (`set_bbox`).
+fn set_part_bbox(artist: AxisArtist, part: String, text: Text) -> PyResult<()> {
+    label_part(&artist, &part)?.set_bbox_patch(text.bbox_patch());
+    Ok(())
 }
 
 /// Where the label of the axis artist is drawn, as `(x0, y0, x1, y1)` in
@@ -412,6 +442,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_axis_direction", set_axis_direction)?;
     module.add("set_axisline_style", set_axisline_style)?;
     module.add("restyle_ticks", restyle_ticks)?;
+    module.add("set_ticks_transform", set_ticks_transform)?;
+    module.add("set_text_transform", set_text_transform)?;
+    module.add("set_part_bbox", set_part_bbox)?;
     module.add("parts_visible", parts_visible)?;
     module.add("restyle_label", restyle_label)?;
     module.add("label_extent", label_extent)?;

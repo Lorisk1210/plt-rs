@@ -466,20 +466,28 @@ impl<'a> Painter<'a> {
 
     /// The projected gridlines of `axis` at `locs`: from the near edge of
     /// one pane through the far edge to the near edge of the other
-    /// (matplotlib's `draw_grid`, which projects them all at once).
+    /// (matplotlib's `draw_grid`, which projects them all at once). They
+    /// run between the axes' data bounds, which each axis' scale maps:
+    /// a bound outside its scale's domain leaves the points on it out.
     fn gridlines(&self, axis: &Axis3DState, locs: &[f64]) -> Vec<[Point; 3]> {
         let i = axis.dir.index();
         let (a, b) = ((i + 1) % 3, (i + 2) % 3);
-        let (far, near) = (self.geometry.far_corner(), self.geometry.near_corner());
+        let bounds = Axis3::ALL.map(|dir| self.axes.limits.bound(dir));
+        let highs = self.geometry.highs;
+        let far: Vec3 = [0, 1, 2].map(|k| if highs[k] { bounds[k].1 } else { bounds[k].0 });
+        let near: Vec3 = [0, 1, 2].map(|k| if highs[k] { bounds[k].0 } else { bounds[k].1 });
+        let scaled = |point: Vec3| -> Vec3 {
+            Axis3::ALL.map(|dir| self.axes.axis(dir).scale.masked_forward(point[dir.index()]))
+        };
         let points: Vec<Vec3> = locs
             .iter()
             .flat_map(|&loc| {
                 let mut corner = far;
-                corner[i] = axis.scale.masked_forward(loc);
+                corner[i] = loc;
                 let (mut start, mut end) = (corner, corner);
                 start[a] = near[a];
                 end[b] = near[b];
-                [start, corner, end]
+                [start, corner, end].map(scaled)
             })
             .collect();
         let projected = self.projection.project_transformed_all(&points);

@@ -89,13 +89,22 @@ impl AxesImageArtist {
     /// The display box of the extent (matplotlib's `TransformedBbox` of
     /// the extent corners).
     fn out_bbox(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
-        let resolved = ctx.resolve(&self.transform())?;
+        Self::out_bbox_over(ctx, self.extent(), &self.transform())
+    }
+
+    /// The display box of `extent` through `transform`.
+    fn out_bbox_over(
+        ctx: LayoutContext<'_>,
+        extent: Extent,
+        transform: &Transform,
+    ) -> Option<Bbox> {
+        let resolved = ctx.resolve(transform)?;
         let Extent {
             left,
             right,
             bottom,
             top,
-        } = self.extent();
+        } = extent;
         Some(Bbox::from_points(
             [(left, bottom), (right, bottom), (left, top), (right, top)]
                 .map(|(x, y)| resolved.transform_point(Point::new(x, y))),
@@ -129,10 +138,29 @@ impl AxesImageArtist {
         canvas: Bbox,
         magnification: f64,
     ) -> Option<Placement> {
+        self.placement_over(
+            layout,
+            canvas,
+            magnification,
+            self.extent(),
+            &self.transform(),
+        )
+    }
+
+    /// [`placement`](Self::placement) of the image stretched over `extent`
+    /// through `transform`.
+    fn placement_over(
+        &self,
+        layout: LayoutContext<'_>,
+        canvas: Bbox,
+        magnification: f64,
+        extent: Extent,
+        transform: &Transform,
+    ) -> Option<Placement> {
         Some(Placement {
-            extent: self.extent(),
-            transform: Some(PixelMap::from_resolved(layout.resolve(&self.transform())?)),
-            out_bbox: self.out_bbox(layout)?,
+            extent,
+            transform: Some(PixelMap::from_resolved(layout.resolve(transform)?)),
+            out_bbox: Self::out_bbox_over(layout, extent, transform)?,
             clip: self.clip_bbox(layout, canvas),
             round_to_pixels: true,
             magnification,
@@ -491,17 +519,53 @@ impl AxesImage {
     ///
     /// When the image's colormap or norm cannot map its data.
     pub fn make_image(&self, magnification: f64) -> Result<Option<MadeImage>, ImageError> {
+        let (extent, transform) = self.read(|image| (image.extent(), image.transform()));
+        self.make_image_over(magnification, false, extent, &transform)
+    }
+
+    /// [`make_image`](Self::make_image), or with `unsampled`
+    /// [`make_image_unsampled`](Self::make_image_unsampled), of the image
+    /// stretched over `extent` through `transform` in place of its own
+    /// (matplotlib's `make_image` reads `get_extent` and `get_transform`,
+    /// which a subclass of the program's may override).
+    ///
+    /// ```
+    /// use pltrs::axes::ImshowOptions;
+    /// use pltrs::image::Extent;
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::Transform;
+    /// let fig = Figure::with_size(2.0, 2.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// let image = ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?;
+    /// let corner = Extent::new(0.0, 50.0, 0.0, 50.0);
+    /// let made = image.make_image_over(1.0, false, corner, &Transform::Display)?.expect("shown");
+    /// assert_eq!((made.pixels.width(), made.pixels.height()), (50, 50));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When its colormap or norm cannot map its data.
+    pub fn make_image_over(
+        &self,
+        magnification: f64,
+        unsampled: bool,
+        extent: Extent,
+        transform: &Transform,
+    ) -> Result<Option<MadeImage>, ImageError> {
         let state = self.raw.figure_state().borrow();
         let layout = LayoutContext::new(&state);
         let (width, height) = state.size_pixels();
         let canvas = Bbox::from_extents(0.0, 0.0, width, height);
         self.read(|image| {
-            let Some(placement) = image.placement(layout, canvas, magnification) else {
+            let Some(placement) =
+                image.placement_over(layout, canvas, magnification, extent, transform)
+            else {
                 return Ok(None);
             };
             let alpha = image.core.alpha(image.base.alpha);
-            let made = image.core.make_mapped(&placement, alpha.as_ref())?;
-            Ok(made.map(MadeImage::mapped))
+            image.core.made(&placement, alpha.as_ref(), unsampled)
         })
     }
 
@@ -535,16 +599,8 @@ impl AxesImage {
         &self,
         magnification: f64,
     ) -> Result<Option<MadeImage>, ImageError> {
-        let state = self.raw.figure_state().borrow();
-        let layout = LayoutContext::new(&state);
-        let (width, height) = state.size_pixels();
-        let canvas = Bbox::from_extents(0.0, 0.0, width, height);
-        self.read(
-            |image| match image.placement(layout, canvas, magnification) {
-                Some(placement) => image.core.make_unsampled(&placement),
-                None => Ok(None),
-            },
-        )
+        let (extent, transform) = self.read(|image| (image.extent(), image.transform()));
+        self.make_image_over(magnification, true, extent, &transform)
     }
 
     /// The image array (matplotlib's `get_array`).

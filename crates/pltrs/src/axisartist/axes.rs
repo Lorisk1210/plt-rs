@@ -8,6 +8,7 @@ use std::rc::Rc;
 use super::artist::AxisArtistState;
 use super::aux_transform::AuxTransform;
 use super::floating_axes;
+use super::grid_finder::GridFinder;
 use super::grid_helper_curvelinear::{FloatingLine, GridHelperCurveLinear};
 use super::gridlines::{Gridlines, SharedGridHelper};
 use super::handles::{AxisArtist, Toggle};
@@ -229,6 +230,26 @@ impl AxisArtistAxes {
                 .with_mut::<CollectionArtist, _>(|collection| {
                     Gridlines::apply(collection, visible, &options);
                 });
+        }
+        self
+    }
+
+    /// Has the curvilinear grid of the axes computed anew, its
+    /// coordinates mapped to data coordinates by `aux_trans` from now on
+    /// when given, for its gridlines and axis artists alike (matplotlib's
+    /// `update_grid_finder` of the grid helper, whose finder's parts the
+    /// program may have changed too); the rectilinear grid has none.
+    pub fn update_grid_finder(&self, aux_trans: Option<AuxTransform>) -> &Self {
+        let update = |finder: &GridFinder| {
+            if let Some(aux_trans) = aux_trans {
+                finder.set_transform(aux_trans);
+            }
+            finder.forget_grid();
+        };
+        match self.grid_helper() {
+            SharedGridHelper::Rectilinear => {}
+            SharedGridHelper::CurveLinear(grid) => update(grid.grid_finder()),
+            SharedGridHelper::Floating(grid) => update(grid.grid_finder()),
         }
         self
     }

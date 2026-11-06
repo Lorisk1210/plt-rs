@@ -3,7 +3,9 @@ Host axes and their parasites (matplotlib's
 ``mpl_toolkits.axes_grid1.parasite_axes``, from matplotlib 3.11.2, under
 the Matplotlib License): pltrs (Rust) makes the parasites on their host,
 which draws them among its own artists and keeps their view limits in
-step with its own (``_native.axes_grid1``).
+step with its own (``_native.axes_grid1``). A parasite drawn over its host
+keeps the position it is given for its getters, as matplotlib's keeps one
+of its own that only its host's draw replaces.
 """
 
 from pltrs import _api, _handles, cbook
@@ -100,6 +102,82 @@ class ParasiteAxesBase:
 
     def get_axes_locator(self):
         return self._parent_axes.get_axes_locator()
+
+    # matplotlib's parasite has a position of its own, its host's when it
+    # was made, which its host's draw replaces by the host's box for that
+    # draw (``ax.apply_aspect(rect)``). pltrs (Rust) draws a parasite over
+    # its host whatever position it is given: the position given is kept
+    # here, for the getters to read back.
+
+    def _own_positions(self):
+        """The parasite's own original and active positions, those pltrs
+        (Rust) holds until one is given."""
+        own = self.__dict__.get("_own_position")
+        if own is None:
+            own = self._own_position = {
+                which: super().get_position(original=which == "original")
+                for which in ("original", "active")}
+        return own
+
+    def _set_position(self, pos, which='both'):
+        if not isinstance(pos, mtransforms.BboxBase):
+            pos = mtransforms.Bbox.from_bounds(*pos)
+        own = self._own_positions()
+        for kept in ("active", "original"):
+            if which in ("both", kept):
+                own[kept] = pos.frozen()
+        self.stale = True
+
+    def set_position(self, pos, which='both'):
+        # docstring inherited
+        self._set_position(pos, which=which)
+        # Because this is being called externally to the library we
+        # don't let it be in the layout.
+        self.set_in_layout(False)
+
+    def get_position(self, original=False):
+        # docstring inherited
+        own = self.__dict__.get("_own_position")
+        if own is None:
+            return super().get_position(original)
+        if not original and not self.get_axes_locator():
+            # matplotlib's apply_aspect sets the active position anew.
+            self.apply_aspect()
+        return own["original" if original else "active"].frozen()
+
+    def apply_aspect(self, position=None):
+        # docstring inherited
+        own = self.__dict__.get("_own_position")
+        if position is None and own is None:
+            return super().apply_aspect()
+        if position is None:
+            position = own["original"]
+        position = mtransforms.Bbox.from_bounds(*position.bounds)
+        aspect, box_aspect = self.get_aspect(), self.get_box_aspect()
+        if self.get_adjustable() == "box" and aspect != "auto":
+            box_aspect = aspect * self.get_data_ratio()
+        elif box_aspect is None:
+            # The view limits take the aspect ("datalim"), as pltrs (Rust)
+            # has them take it in its host's box.
+            super().apply_aspect()
+            self._set_position(position, which="active")
+            return
+        # matplotlib's box made to the aspect in the given one.
+        figure_box = mtransforms.Bbox.unit().transformed(
+            self.get_figure(root=False).transSubfigure)
+        shrunk = position.shrunk_to_aspect(
+            box_aspect, position, figure_box.height / figure_box.width)
+        self._set_position(shrunk.anchored(self.get_anchor(), position),
+                           which="active")
+
+    def get_subplotspec(self):
+        # docstring inherited
+        return self.__dict__.get("_own_subplotspec") or super().get_subplotspec()
+
+    def set_subplotspec(self, subplotspec):
+        # docstring inherited
+        self._set_position(subplotspec.get_position(self.get_figure(root=False)))
+        self._own_subplotspec = subplotspec
 
     def pick(self, mouseevent):
         # This most likely goes to Artist.pick (depending on axes_class given

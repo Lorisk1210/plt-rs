@@ -5,7 +5,9 @@
 //! `GeoAxes.ThetaFormatter`).
 
 use pltrs::axes::Axes;
+use pltrs::figure::Figure;
 use pltrs::geo::{GeoAxes, GeoError, GeoProjection, GeoThetaFormatter};
+use pltrs::gridspec::SubplotSpec;
 
 use super::{matrix, points, points_array};
 use crate::binding::prelude::*;
@@ -71,6 +73,37 @@ fn lambert_center(axes: Axes) -> PyResult<Option<(f64, f64)>> {
     }))
 }
 
+/// The Lambert projection centred at `(longitude, latitude)` in radians.
+fn lambert((center_longitude, center_latitude): (f64, f64)) -> GeoProjection {
+    GeoProjection::Lambert {
+        center_longitude,
+        center_latitude,
+    }
+}
+
+/// Lambert axes centred at `center` on the block `spec` of `figure`
+/// (`add_subplot(projection='lambert', center_longitude=...,
+/// center_latitude=...)`).
+fn add_lambert_subplot(figure: Figure, spec: SubplotSpec, center: (f64, f64)) -> PyResult<Axes> {
+    figure
+        .add_geo_subplot_spec(lambert(center), &spec)
+        .map(|geo| geo.axes().clone())
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// Lambert axes centred at `center` at `[left, bottom, width, height]` of
+/// `figure` (`add_axes(rect, projection='lambert', center_longitude=...)`).
+fn add_lambert_axes(
+    figure: Figure,
+    (left, bottom, width, height): (f64, f64, f64, f64),
+    center: (f64, f64),
+) -> PyResult<Axes> {
+    figure
+        .add_geo_axes(lambert(center), [left, bottom, width, height])
+        .map(|geo| geo.axes().clone())
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
 /// The geographic axes `axes` is.
 fn geo_axes(axes: &Axes) -> PyResult<GeoAxes> {
     axes.as_geo()
@@ -112,6 +145,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("geo_forward", geo_forward)?;
     module.add("geo_inverse", geo_inverse)?;
     module.add("lambert_center", lambert_center)?;
+    module.add("add_lambert_subplot", add_lambert_subplot)?;
+    module.add("add_lambert_axes", add_lambert_axes)?;
     module.add("geo_affine", geo_affine)?;
     module.add("set_longitude_grid", set_longitude_grid)?;
     module.add("set_latitude_grid", set_latitude_grid)?;

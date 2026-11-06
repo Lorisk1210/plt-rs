@@ -10,7 +10,7 @@ use pltrs_core::{Path, Point};
 use super::floating_axes;
 use super::grid_helper_curvelinear::{GridHelperCurveLinear, info_gridlines};
 use crate::artist::ArtistHandle;
-use crate::artist::{Artist, ArtistId, DrawErrorKind, LayoutContext};
+use crate::artist::{Artist, ArtistId, ArtistStore, DrawErrorKind, LayoutContext};
 use crate::axes::{AxesState, GridOptions, TickLevel};
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, DrawTimeShapes, EdgeColors,
@@ -101,6 +101,21 @@ pltrs_core::archive_struct!(Gridlines {
     which,
     axis
 });
+
+/// Whether `axes` is drawn along a curvilinear grid: its gridlines and the
+/// axis artists of its grid helper place their lines and ticks from the
+/// grid finder, never reading the ticks of the axes' own, hidden axes
+/// (which matplotlib's rectilinear grid helper asks for).
+pub(crate) fn on_curvilinear_grid(store: &ArtistStore, axes: ArtistId) -> bool {
+    store.get_as::<AxesState>(axes).is_some_and(|state| {
+        state.children.iter().any(|&id| {
+            store
+                .get_as::<CollectionArtist>(id)
+                .and_then(CollectionArtist::draw_time_state::<Gridlines>)
+                .is_some_and(|gridlines| !matches!(gridlines.helper, SharedGridHelper::Rectilinear))
+        })
+    })
+}
 
 impl Gridlines {
     /// The gridlines collection of `axes` through `helper`, hidden, styled

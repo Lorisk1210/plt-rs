@@ -138,6 +138,8 @@ impl AxisTexts {
             valign: self.valign,
             halign: self.halign,
             direction: self.direction,
+            transform: None,
+            bbox: None,
         }
     }
 }

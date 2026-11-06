@@ -115,13 +115,6 @@ pub struct PsDocument {
     /// The figure's bounding box on the page in points, turned with the
     /// page in landscape (the `bbox` of `_print_figure`).
     pub bbox: Bbox,
-    /// Whether some usetex text was drawn as plain text, since without
-    /// [`PsOptions::usetex`] the backend runs no TeX (what matplotlib's
-    /// `draw_tex` warns about, once per document).
-    pub tex_drawn_as_plain: bool,
-    /// Whether a partially transparent colour was drawn, opaque (what
-    /// matplotlib's `_is_transparent` logs, once per document).
-    pub partially_transparent: bool,
 }
 
 /// What a [`PsRenderer`] made of a figure.
@@ -200,9 +193,17 @@ impl PsRenderer {
         })
     }
 
+    /// Whether some usetex text was drawn as plain text so far, since
+    /// without [`PsOptions::usetex`] the backend runs no TeX (what
+    /// matplotlib's `draw_tex` logs as it draws, once per document).
+    pub fn drew_tex_as_plain(&self) -> bool {
+        self.tex_drawn_as_plain
+    }
+
     /// Whether a partially transparent colour was drawn so far, opaque
-    /// (what matplotlib's `_is_transparent` logs, once per document).
-    pub fn partially_transparent(&self) -> bool {
+    /// (what matplotlib's `_is_transparent` logs as it draws, once per
+    /// document).
+    pub fn drew_partial_transparency(&self) -> bool {
         self.partially_transparent
     }
 
@@ -326,12 +327,7 @@ impl PsRenderer {
         if !self.options.eps {
             out.push_str("%%EOF\n");
         }
-        self.problems.into_result(PsDocument {
-            text: out,
-            bbox,
-            tex_drawn_as_plain: self.tex_drawn_as_plain,
-            partially_transparent: self.partially_transparent,
-        })
+        self.problems.into_result(PsDocument { text: out, bbox })
     }
 }
 

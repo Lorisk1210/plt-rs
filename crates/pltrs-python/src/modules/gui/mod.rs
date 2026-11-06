@@ -8,8 +8,9 @@
 //! Windows and timers are numbered (`HostedWindowId`, `HostTimerId`);
 //! positions are physical pixels from the canvas' top-left corner, as the
 //! window system gives them. `headless` makes hosts without a display,
-//! whose windows tests drive.
+//! whose windows tests drive; `desktop` writes pltrs's desktop entry.
 
+mod desktop;
 mod events;
 mod headless;
 mod subplots;
@@ -334,6 +335,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("stop_timer", stop_timer)?;
     module.add("pump", pump)?;
     subplots::register(module)?;
+    desktop::register(module)?;
     headless::register(module)
 }
 

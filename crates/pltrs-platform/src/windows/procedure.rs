@@ -7,9 +7,9 @@
 
 use std::cell::RefCell;
 
-use super::convert::{scale_factor, typed_text};
+use super::convert::scale_factor;
 use super::icon::WindowIcon;
-use super::keys::{self, AltGrTracker, KeyMessage, KeyRole};
+use super::keys::{self, AltGrTracker, KeyMessage, KeyRole, Typed};
 use super::message::{Message, ScreenRect};
 use super::sys::{self, Hwnd, Painter, Restore};
 use crate::click::ClickCounter;
@@ -357,13 +357,13 @@ fn key_input(window: Hwnd, key: KeyMessage, system: bool) -> Reply {
     };
     if role != KeyRole::FakeControl {
         let typed = if key.state.is_pressed() {
-            sys::take_typed_units(window)
+            sys::take_typed(window)
         } else {
-            Vec::new()
+            Typed::default()
         };
         let character = sys::layout_character(key, alt_gr_held);
         let held = sys::held_modifiers();
-        let event = keys::key_event(key, role, alt_gr_held, held, character, typed_text(&typed));
+        let event = keys::key_event(key, role, alt_gr_held, held, character, typed);
         with_windows(|windows| windows.push(id, WindowEvent::Key(event)));
     }
     if system && !keys::hides_system_key(key.vk) {

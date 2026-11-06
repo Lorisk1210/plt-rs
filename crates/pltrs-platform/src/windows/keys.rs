@@ -1,7 +1,9 @@
 //! Windows keyboard input as pltrs keys: virtual-key codes, left and right
-//! modifier keys, and `AltGr`, which Windows reports as a fake left
-//! Control press followed by a right Alt press.
+//! modifier keys, `AltGr`, which Windows reports as a fake left Control
+//! press followed by a right Alt press, and dead keys, whose accent
+//! `TranslateMessage` puts on the next character (´ then e types é).
 
+use super::convert::typed_text;
 use crate::event::{ButtonState, KeyEvent};
 use crate::keyboard::{Key, Modifiers};
 
@@ -241,6 +243,30 @@ impl AltGrTracker {
     }
 }
 
+/// What a key press typed: the character messages `TranslateMessage`
+/// queued for it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct Typed {
+    /// The text of its `WM_CHAR` messages, if printable: what it typed,
+    /// with the accent of a dead key before it (`é`, or `´x` where the
+    /// accent goes on no `x`).
+    pub(crate) text: Option<String>,
+    /// The accent of its `WM_DEADCHAR` message: the key is a dead key,
+    /// which types nothing until the next key.
+    pub(crate) dead: Option<char>,
+}
+
+impl Typed {
+    /// What the UTF-16 units of `WM_CHAR` messages and the character of
+    /// a `WM_DEADCHAR` message (if one came) typed.
+    pub(crate) fn from_messages(units: &[u16], dead: Option<u16>) -> Self {
+        Self {
+            text: typed_text(units),
+            dead: dead.and_then(|unit| char::from_u32(u32::from(unit))),
+        }
+    }
+}
+
 /// The key a virtual key names, if it produces no character.
 pub(crate) fn named_key(vk: u16) -> Option<Key> {
     let key = match vk {
@@ -283,14 +309,15 @@ pub(crate) fn named_key(vk: u16) -> Option<Key> {
 /// * `held`: the modifier keys held now;
 /// * `character`: the character the layout gives the key with Shift and
 ///   Caps Lock (and `AltGr`) applied, but not Control or Alt;
-/// * `text`: the text Windows typed for it (its `WM_CHAR` messages).
+/// * `typed`: what Windows typed for it (its character messages): a dead
+///   key is [`Key::Dead`], with its accent.
 pub(crate) fn key_event(
     key: KeyMessage,
     role: KeyRole,
     alt_gr_held: bool,
     held: HeldModifiers,
     character: Option<char>,
-    text: Option<String>,
+    typed: Typed,
 ) -> KeyEvent {
     let alt_gr = role == KeyRole::AltGr;
     let modifiers = held.before(key).modifiers(alt_gr || alt_gr_held);
@@ -298,6 +325,7 @@ pub(crate) fn key_event(
         Key::AltGr
     } else {
         named_key(key.vk)
+            .or_else(|| typed.dead.map(Key::Dead))
             .or_else(|| character.map(Key::Character))
             .unwrap_or(Key::Unidentified(u32::from(key.vk)))
     };
@@ -306,7 +334,7 @@ pub(crate) fn key_event(
         key: logical,
         state: key.state,
         repeat: key.repeat,
-        text: text.filter(|_| key.state.is_pressed() && !shortcut),
+        text: typed.text.filter(|_| key.state.is_pressed() && !shortcut),
         modifiers,
         scancode: key.scancode(),
     }
@@ -352,6 +380,10 @@ mod tests {
         }
     }
 
+    fn typed(text: &str) -> Typed {
+        Typed::from_messages(&text.encode_utf16().collect::<Vec<_>>(), None)
+    }
+
     fn press(vk: u16) -> KeyMessage {
         message(vk, ButtonState::Pressed, 0)
     }
@@ -395,13 +427,20 @@ mod tests {
             false,
             shift,
             Some('A'),
-            Some("A".into()),
+            typed("A"),
         );
         assert_eq!(event.key, Key::Character('A'));
         assert_eq!(event.text.as_deref(), Some("A"));
         assert_eq!(event.modifiers, Modifiers::SHIFT);
         assert_eq!(event.scancode, 0x1E);
-        let unknown = key_event(press(0xFF), KeyRole::Plain, false, shift, None, None);
+        let unknown = key_event(
+            press(0xFF),
+            KeyRole::Plain,
+            false,
+            shift,
+            None,
+            Typed::default(),
+        );
         assert_eq!(unknown.key, Key::Unidentified(0xFF));
     }
 
@@ -417,7 +456,7 @@ mod tests {
             false,
             control,
             Some('s'),
-            Some("\u{13}".into()),
+            typed("\u{13}"),
         );
         assert_eq!((ctrl_s.key, ctrl_s.text), (Key::Character('s'), None));
         let release = key_event(
@@ -426,7 +465,7 @@ mod tests {
             false,
             HeldModifiers::default(),
             Some('s'),
-            Some("s".into()),
+            typed("s"),
         );
         assert_eq!(release.text, None);
     }
@@ -443,7 +482,7 @@ mod tests {
             false,
             shift_down,
             None,
-            None,
+            Typed::default(),
         );
         assert_eq!(
             (pressed.key, pressed.modifiers),
@@ -455,7 +494,7 @@ mod tests {
             false,
             HeldModifiers::default(),
             None,
-            None,
+            Typed::default(),
         );
         assert_eq!(released.modifiers, Modifiers::SHIFT);
         // The right Shift, while the left one is held, adds nothing new.
@@ -467,7 +506,7 @@ mod tests {
             left: Modifiers::SHIFT,
             right: Modifiers::SHIFT,
         };
-        let event = key_event(right, KeyRole::Plain, false, both, None, None);
+        let event = key_event(right, KeyRole::Plain, false, both, None, Typed::default());
         assert_eq!(event.modifiers, Modifiers::SHIFT);
         // Auto-repeat of a held modifier: it was down already.
         let repeat = KeyMessage {
@@ -478,7 +517,14 @@ mod tests {
             left: Modifiers::SUPER,
             right: Modifiers::NONE,
         };
-        let event = key_event(repeat, KeyRole::Plain, false, windows, None, None);
+        let event = key_event(
+            repeat,
+            KeyRole::Plain,
+            false,
+            windows,
+            None,
+            Typed::default(),
+        );
         assert_eq!((event.key, event.modifiers), (Key::Super, Modifiers::SUPER));
     }
 
@@ -556,7 +602,7 @@ mod tests {
                 alt_gr_held,
                 held,
                 Some('€'),
-                Some("€".into()),
+                typed("€"),
             )
         };
         let euro = typed(true);
@@ -574,11 +620,48 @@ mod tests {
             false,
             held,
             None,
-            None,
+            Typed::default(),
         );
         assert_eq!(alt_gr.key, Key::AltGr);
         assert_eq!(alt_gr.modifiers, Modifiers::NONE);
         assert_eq!(alt_gr.scancode, 0xE038);
+    }
+
+    #[test]
+    fn dead_keys_report_their_accent_and_type_on_the_next_key() {
+        // The German layout's ´ key (VK_OEM_6), then E.
+        let dead = Typed::from_messages(&[], Some(0xB4));
+        assert_eq!(dead.dead, Some('´'));
+        let none = HeldModifiers::default();
+        let accent = key_event(press(0xDD), KeyRole::Plain, false, none, None, dead);
+        assert_eq!((accent.key, accent.text), (Key::Dead('´'), None));
+        assert_eq!(accent.key.name(), "dead_acute");
+        let e = key_event(
+            press(u16::from(b'E')),
+            KeyRole::Plain,
+            false,
+            none,
+            Some('e'),
+            typed("é"),
+        );
+        assert_eq!((e.key, e.text.as_deref()), (Key::Character('e'), Some("é")));
+        // An accent that goes on no x types both.
+        let x = key_event(
+            press(u16::from(b'X')),
+            KeyRole::Plain,
+            false,
+            none,
+            Some('x'),
+            typed("´x"),
+        );
+        assert_eq!(x.text.as_deref(), Some("´x"));
+        // A second dead key types the first accent and waits.
+        let both = Typed::from_messages(&[0xB4], Some(u16::from(b'^')));
+        let circumflex = key_event(press(0xDC), KeyRole::Plain, false, none, None, both);
+        assert_eq!(
+            (circumflex.key, circumflex.text.as_deref()),
+            (Key::Dead('^'), Some("´"))
+        );
     }
 
     #[test]

@@ -79,10 +79,36 @@ const SUPER_PREFIX: &str = if cfg!(target_os = "macos") {
     "super+"
 };
 
-/// matplotlib's name of a key press, or `None` for keys it ignores.
+/// The character a key press typed in place of its key's own, if it
+/// typed one: the end of a compose sequence (´ then e types é), with no
+/// shortcut modifier held.
+fn composed_character(event: &KeyEvent) -> Option<char> {
+    let Key::Character(own) = event.key else {
+        return None;
+    };
+    let modifiers = event.modifiers;
+    if modifiers.control() || modifiers.alt() || modifiers.super_key() {
+        return None;
+    }
+    let mut typed = event.text.as_deref()?.chars();
+    match (typed.next(), typed.next()) {
+        (Some(c), None) if c != own => Some(c),
+        _ => None,
+    }
+}
+
+/// matplotlib's name of a key press, or `None` for keys it ignores. A
+/// key ending a compose sequence is named by the character it typed, so
+/// that text boxes take accented letters, as matplotlib's Tk backend
+/// names them; dead keys and the Compose key are named as matplotlib's
+/// GTK and Tk backends name them (`dead_acute`, `multi_key`).
 pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
+    if let Some(typed) = composed_character(event) {
+        return Some(typed.to_string());
+    }
     let base = match &event.key {
         Key::Character(c) => c.to_string(),
+        key @ (Key::Dead(_) | Key::Compose) => key.name().into_owned(),
         Key::Enter => "enter".into(),
         Key::Escape => "escape".into(),
         Key::Backspace => "backspace".into(),
@@ -245,6 +271,32 @@ mod tests {
             key_name(&press(Key::Left, Modifiers::NONE)).as_deref(),
             Some("left")
         );
+    }
+
+    #[test]
+    fn composed_characters_and_dead_keys_are_named() {
+        let typed = |key, text: &str, modifiers| KeyEvent {
+            text: Some(text.to_owned()),
+            ..press(key, modifiers)
+        };
+        assert_eq!(
+            key_name(&press(Key::Dead('´'), Modifiers::NONE)).as_deref(),
+            Some("dead_acute")
+        );
+        assert_eq!(
+            key_name(&press(Key::Compose, Modifiers::NONE)).as_deref(),
+            Some("multi_key")
+        );
+        let e_acute = typed(Key::Character('e'), "é", Modifiers::NONE);
+        assert_eq!(key_name(&e_acute).as_deref(), Some("é"));
+        let capital = typed(Key::Character('E'), "É", Modifiers::SHIFT);
+        assert_eq!(key_name(&capital).as_deref(), Some("É"));
+        let both = typed(Key::Character('x'), "´x", Modifiers::NONE);
+        assert_eq!(key_name(&both).as_deref(), Some("x"), "two characters");
+        let option = typed(Key::Character('l'), "@", Modifiers::ALT);
+        assert_eq!(key_name(&option).as_deref(), Some("alt+l"));
+        let plain = typed(Key::Character('a'), "a", Modifiers::NONE);
+        assert_eq!(key_name(&plain).as_deref(), Some("a"));
     }
 
     #[test]

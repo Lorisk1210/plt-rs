@@ -27,8 +27,8 @@ pub(crate) use gdi::{OwnedIcon, Painter, icon_sides, show_cursor};
 pub use registry::string_values;
 pub(crate) use window::{
     Restore, WindowClass, capture, dispatch_messages, double_click_time, held_modifiers,
-    layout_character, next_key_message, post_wake, release_capture, screen_to_client,
-    take_typed_units, track_leave, use_per_monitor_dpi, wait_for_messages,
+    layout_character, next_key_message, post_wake, release_capture, screen_to_client, take_typed,
+    track_leave, use_per_monitor_dpi, wait_for_messages,
 };
 
 use crate::error::Error;

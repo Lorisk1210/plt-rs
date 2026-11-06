@@ -136,6 +136,21 @@ class Project:
         return sorted(found)
 
 
+    def data_files(self):
+        """
+        The files the distribution installs under the installation's
+        prefix, as ``(path under the prefix, file)`` pairs, sorted: pltrs'
+        desktop entry and icons (``python/share``, which
+        ``crates/pltrs/examples/install_desktop_entry.rs`` writes), for
+        Linux desktops. The alias has none.
+        """
+        if self.name != "pltrs":
+            return []
+        base = self.root / "python"
+        return sorted((path.relative_to(base).as_posix(), path)
+                      for path in (base / "share").rglob("*") if path.is_file())
+
+
 def _is_source(path):
     """Whether *path* belongs in a distribution: not byte code, nor an
     extension built in place (``cargo xtask python``)."""

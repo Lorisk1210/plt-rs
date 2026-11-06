@@ -8,6 +8,7 @@
 //! * [`app`]: the application, its menu bar and event queue, wake-ups.
 //! * [`window`]: windows, pltrs's views and cursors.
 //! * [`event`]: the input events views receive.
+//! * [`keyboard`]: the keyboard layout, which composes dead keys.
 //! * [`graphics`]: images, drawn into views.
 //! * [`pasteboard`]: the clipboard.
 //! * [`classes`]: pltrs's view and application delegate classes, whose
@@ -24,6 +25,7 @@ mod classes;
 mod event;
 mod foundation;
 mod graphics;
+mod keyboard;
 mod pasteboard;
 mod runtime;
 mod window;
@@ -36,6 +38,7 @@ pub(crate) use classes::{app_delegate, view_class};
 pub(crate) use event::EventRef;
 pub(crate) use foundation::{NsPoint, is_main_thread, process_name};
 pub(crate) use graphics::{Image, ns_image};
+pub(crate) use keyboard::KeyboardLayout;
 pub(crate) use pasteboard::{Content, pasteboard_text, set_pasteboard};
 pub(crate) use runtime::{Id, autoreleasepool};
 pub(crate) use window::{View, ViewRef, Window, main_screen_scale_factor, set_cursor};

@@ -1,6 +1,8 @@
 //! macOS keyboard input as pltrs keys: hardware key codes (`kVK_*`),
-//! the characters `NSEvent` gives, and modifier flags, including the
-//! `flagsChanged:` events that report modifier keys.
+//! the characters `NSEvent` gives, modifier flags, including the
+//! `flagsChanged:` events that report modifier keys, and dead keys
+//! (Option+e, or ´ on German layouts, then e types é), which the
+//! keyboard layout's `UCKeyTranslate` composes.
 
 use crate::event::{ButtonState, KeyEvent};
 use crate::keyboard::{Key, Modifiers};
@@ -52,6 +54,109 @@ pub(crate) const fn key_kind(kind: u64) -> Option<KeyKind> {
         11 => Some(KeyKind::Press(ButtonState::Released)),
         12 => Some(KeyKind::FlagsChanged),
         _ => None,
+    }
+}
+
+/// Carbon's modifier key state of `NSEvent` modifier flags, as
+/// `UCKeyTranslate` takes it: Carbon's modifiers (`cmdKey` = 1 << 8,
+/// `shiftKey`, `alphaLock`, `optionKey`, `controlKey` = 1 << 12)
+/// shifted right by 8.
+pub(crate) fn carbon_modifiers(flags: u64) -> u32 {
+    [
+        (COMMAND, 1),
+        (SHIFT, 2),
+        (CAPS_LOCK, 4),
+        (OPTION, 8),
+        (CONTROL, 16),
+    ]
+    .into_iter()
+    .filter(|&(flag, _)| flags & flag != 0)
+    .fold(0, |state, (_, bit)| state | bit)
+}
+
+/// Whether modifier flags make a key press a shortcut (Control or
+/// Command held), which types nothing.
+const fn is_shortcut(flags: u64) -> bool {
+    flags & (CONTROL | COMMAND) != 0
+}
+
+/// A keyboard layout, typing keys as `UCKeyTranslate` does.
+pub(crate) trait Translate {
+    /// What key `code` types with Carbon's `modifiers` (see
+    /// [`carbon_modifiers`]) after the dead keys of `dead_state`, which
+    /// it updates; with `dead_keys` false, a dead key types its accent
+    /// instead. `None` when the layout cannot tell.
+    fn translate(
+        &self,
+        code: u16,
+        modifiers: u32,
+        dead_state: &mut u32,
+        dead_keys: bool,
+    ) -> Option<String>;
+}
+
+/// What dead keys made of a key press.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Composition {
+    /// No dead key is involved: the key types what `AppKit` says.
+    Plain,
+    /// A dead key: it puts this accent on the next key's character.
+    Dead(char),
+    /// The key after a dead key, which typed this: `é`, or `´x` where
+    /// the accent goes on no `x`.
+    Composed(String),
+}
+
+/// A keyboard's dead keys between presses: the layout's dead-key state.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct DeadKeys(u32);
+
+impl DeadKeys {
+    /// What `press` makes of the dead keys, asking `layout` for the
+    /// keyboard layout when a dead key may be involved: when one is
+    /// pending, or the key typed nothing.
+    pub(crate) fn press<L: Translate>(
+        &mut self,
+        press: &KeyPress<'_>,
+        layout: impl FnOnce() -> Option<L>,
+    ) -> Composition {
+        if !press.state.is_pressed() {
+            return Composition::Plain;
+        }
+        if is_shortcut(press.flags) {
+            self.reset();
+            return Composition::Plain;
+        }
+        let pending = self.0 != 0;
+        if !pending && !press.typed.is_empty() {
+            return Composition::Plain;
+        }
+        let Some(layout) = layout() else {
+            self.reset();
+            return Composition::Plain;
+        };
+        let modifiers = carbon_modifiers(press.flags);
+        let Some(text) = layout.translate(press.code, modifiers, &mut self.0, true) else {
+            self.reset();
+            return Composition::Plain;
+        };
+        if text.is_empty() && self.0 != 0 {
+            let mut none = 0;
+            return layout
+                .translate(press.code, modifiers, &mut none, false)
+                .and_then(|accent| accent.chars().next())
+                .map_or(Composition::Plain, Composition::Dead);
+        }
+        if pending {
+            Composition::Composed(text)
+        } else {
+            Composition::Plain
+        }
+    }
+
+    /// Forgets a pending dead key (the window lost the keyboard focus).
+    pub(crate) fn reset(&mut self) {
+        self.0 = 0;
     }
 }
 
@@ -153,23 +258,33 @@ pub(crate) struct KeyPress<'a> {
     pub(crate) typed: &'a str,
 }
 
-/// The event of a key press or release.
-pub(crate) fn key_event(press: KeyPress<'_>) -> KeyEvent {
+/// The event of a key press or release, and what dead keys made of it.
+pub(crate) fn key_event(press: KeyPress<'_>, composition: &Composition) -> KeyEvent {
     let modifiers = modifiers(press.flags);
     let mut unmodified = press.unmodified.chars();
     let character = match (unmodified.next(), unmodified.next()) {
         (Some(c), None) if is_typed(c) => Some(c),
         _ => None,
     };
+    let dead = match *composition {
+        Composition::Dead(accent) => Some(accent),
+        _ => None,
+    };
     let key = named_key(press.code)
+        .or_else(|| dead.map(Key::Dead))
         .or_else(|| character.map(Key::Character))
         .unwrap_or(Key::Unidentified(u32::from(press.code)));
+    let typed = match composition {
+        Composition::Composed(text) => text.as_str(),
+        Composition::Dead(_) => "",
+        Composition::Plain => press.typed,
+    };
     // Control and Command make shortcuts, which type nothing. Option
     // types the layout's other characters (`@` on German layouts, `å` on
     // American ones), as AltGr does on other systems.
     let shortcut = modifiers.control() || modifiers.super_key();
-    let text = (press.state.is_pressed() && !shortcut && !press.typed.is_empty())
-        .then_some(press.typed)
+    let text = (press.state.is_pressed() && !shortcut && !typed.is_empty())
+        .then_some(typed)
         .filter(|typed| typed.chars().all(is_typed))
         .map(str::to_owned);
     KeyEvent {
@@ -230,15 +345,87 @@ pub(crate) fn flags_changed(code: u16, flags: u64) -> Option<KeyEvent> {
 mod tests {
     use super::*;
 
-    fn press<'a>(code: u16, flags: u64, unmodified: &'a str, typed: &'a str) -> KeyEvent {
-        key_event(KeyPress {
+    fn key_press<'a>(code: u16, flags: u64, unmodified: &'a str, typed: &'a str) -> KeyPress<'a> {
+        KeyPress {
             code,
             state: ButtonState::Pressed,
             repeat: false,
             flags,
             unmodified,
             typed,
-        })
+        }
+    }
+
+    fn press<'a>(code: u16, flags: u64, unmodified: &'a str, typed: &'a str) -> KeyEvent {
+        key_event(
+            key_press(code, flags, unmodified, typed),
+            &Composition::Plain,
+        )
+    }
+
+    /// The US layout's dead keys, as `UCKeyTranslate` types them:
+    /// Option+e is a dead acute (state 1), Option+u a dead diaeresis
+    /// (state 2).
+    struct UsLayout;
+
+    const KEY_E: u16 = 0x0E;
+    const KEY_U: u16 = 0x20;
+    const KEY_X: u16 = 0x07;
+
+    impl Translate for UsLayout {
+        fn translate(
+            &self,
+            code: u16,
+            modifiers: u32,
+            dead_state: &mut u32,
+            dead_keys: bool,
+        ) -> Option<String> {
+            let option = modifiers & 8 != 0;
+            let shift = modifiers & 2 != 0;
+            let base = match code {
+                KEY_E => 'e',
+                KEY_U => 'u',
+                KEY_X => 'x',
+                _ => return None,
+            };
+            let base = if shift {
+                base.to_ascii_uppercase()
+            } else {
+                base
+            };
+            let accent = match (option, code) {
+                (true, KEY_E) => Some(('´', 1)),
+                (true, KEY_U) => Some(('¨', 2)),
+                _ => None,
+            };
+            if let Some((accent, state)) = accent {
+                if !dead_keys {
+                    return Some(accent.to_string());
+                }
+                if *dead_state == 0 {
+                    *dead_state = state;
+                    return Some(String::new());
+                }
+            }
+            let pending = std::mem::take(dead_state);
+            let composed = match (pending, base) {
+                (0, c) => c.to_string(),
+                (1, 'e') => "é".to_owned(),
+                (1, 'E') => "É".to_owned(),
+                (2, 'u') => "ü".to_owned(),
+                (1, c) => format!("´{c}"),
+                (_, c) => format!("¨{c}"),
+            };
+            Some(composed)
+        }
+    }
+
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "the layout is looked up as the view looks it up"
+    )]
+    fn layout() -> Option<UsLayout> {
+        Some(UsLayout)
     }
 
     #[test]
@@ -304,14 +491,17 @@ mod tests {
         assert_eq!((arrow.key, arrow.text), (Key::Left, None));
         let enter = press(0x24, 0, "\r", "\r");
         assert_eq!(enter.text, None);
-        let release = key_event(KeyPress {
-            code: 0x00,
-            state: ButtonState::Released,
-            repeat: false,
-            flags: 0,
-            unmodified: "a",
-            typed: "a",
-        });
+        let release = key_event(
+            KeyPress {
+                code: 0x00,
+                state: ButtonState::Released,
+                repeat: false,
+                flags: 0,
+                unmodified: "a",
+                typed: "a",
+            },
+            &Composition::Plain,
+        );
         assert_eq!((release.key, release.text), (Key::Character('a'), None));
     }
 
@@ -326,6 +516,89 @@ mod tests {
         assert_eq!(pipe.text.as_deref(), Some("\\"));
         let command_option = press(0x25, OPTION | COMMAND, "l", "@");
         assert_eq!(command_option.text, None, "a shortcut");
+    }
+
+    #[test]
+    fn modifier_flags_become_carbons() {
+        assert_eq!(carbon_modifiers(0), 0);
+        assert_eq!(carbon_modifiers(SHIFT | OPTION), 2 | 8);
+        assert_eq!(carbon_modifiers(COMMAND | CONTROL | CAPS_LOCK), 1 | 16 | 4);
+    }
+
+    /// Presses each key in turn, through the dead keys.
+    fn type_keys(dead: &mut DeadKeys, keys: &[(u16, u64, &str, &str)]) -> Vec<KeyEvent> {
+        keys.iter()
+            .map(|&(code, flags, unmodified, typed)| {
+                let press = key_press(code, flags, unmodified, typed);
+                key_event(press, &dead.press(&press, layout))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn dead_keys_put_their_accent_on_the_next_key() {
+        let mut dead = DeadKeys::default();
+        // AppKit gives the dead key no characters, and the next key its
+        // own.
+        let events = type_keys(
+            &mut dead,
+            &[
+                (KEY_E, OPTION, "e", ""),
+                (KEY_E, 0, "e", "e"),
+                (KEY_E, 0, "e", "e"),
+            ],
+        );
+        assert_eq!(events[0].key, Key::Dead('´'));
+        assert_eq!(events[0].text, None);
+        assert_eq!(events[0].key.name(), "dead_acute");
+        assert_eq!(
+            (events[1].key, events[1].text.as_deref()),
+            (Key::Character('e'), Some("é"))
+        );
+        assert_eq!(events[2].text.as_deref(), Some("e"), "only once");
+        let events = type_keys(
+            &mut dead,
+            &[(KEY_E, OPTION, "e", ""), (KEY_E, SHIFT, "E", "E")],
+        );
+        assert_eq!(events[1].text.as_deref(), Some("É"));
+        let events = type_keys(&mut dead, &[(KEY_U, OPTION, "u", ""), (KEY_X, 0, "x", "x")]);
+        assert_eq!(events[0].key, Key::Dead('¨'));
+        assert_eq!(
+            events[1].text.as_deref(),
+            Some("¨x"),
+            "the accent and the x"
+        );
+    }
+
+    #[test]
+    fn shortcuts_releases_and_focus_end_dead_keys() {
+        let mut dead = DeadKeys::default();
+        type_keys(&mut dead, &[(KEY_E, OPTION, "e", "")]);
+        let release = KeyPress {
+            state: ButtonState::Released,
+            ..key_press(KEY_E, OPTION, "e", "")
+        };
+        assert_eq!(dead.press(&release, layout), Composition::Plain);
+        assert_ne!(dead, DeadKeys::default(), "a release keeps it pending");
+        let command = key_press(KEY_X, COMMAND, "x", "x");
+        assert_eq!(dead.press(&command, layout), Composition::Plain);
+        assert_eq!(dead, DeadKeys::default(), "a shortcut ends it");
+        type_keys(&mut dead, &[(KEY_E, OPTION, "e", "")]);
+        dead.reset();
+        let events = type_keys(&mut dead, &[(KEY_E, 0, "e", "e")]);
+        assert_eq!(events[0].text.as_deref(), Some("e"));
+        let plain = key_press(KEY_X, 0, "x", "x");
+        let asked = std::cell::Cell::new(false);
+        let composition = dead.press(&plain, || {
+            asked.set(true);
+            layout()
+        });
+        assert_eq!(composition, Composition::Plain);
+        assert!(!asked.get(), "keys typing text need no layout");
+        type_keys(&mut dead, &[(KEY_E, OPTION, "e", "")]);
+        let composition = dead.press(&key_press(KEY_E, 0, "e", "e"), || None::<UsLayout>);
+        assert_eq!(composition, Composition::Plain, "no layout");
+        assert_eq!(dead, DeadKeys::default());
     }
 
     #[test]

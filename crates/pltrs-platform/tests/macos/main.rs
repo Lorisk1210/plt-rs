@@ -116,6 +116,10 @@ const TESTS: &[Test] = &[
         input::keys_type_text_and_name_keys,
     ),
     (
+        "input::dead_keys_compose_with_the_layout",
+        input::dead_keys_compose_with_the_layout,
+    ),
+    (
         "input::modifier_keys_go_down_and_up",
         input::modifier_keys_go_down_and_up,
     ),

@@ -27,6 +27,19 @@ pub(crate) fn fake_input(major: u8, kind: u8, detail: u8, root: u32, x: i16, y: 
     })
 }
 
+/// `ChangeKeyboardMapping`: the keysyms of one keycode.
+pub(crate) fn change_keyboard_mapping(keycode: u8, keysyms: &[u32]) -> Request {
+    let per_keycode = u8::try_from(keysyms.len()).expect("at most 255 keysyms");
+    request(100, 1, |b| {
+        b.put_u8(keycode);
+        b.put_u8(per_keycode);
+        b.put_u16(0);
+        for &keysym in keysyms {
+            b.put_u32(keysym);
+        }
+    })
+}
+
 /// `DeleteProperty`.
 pub(crate) fn delete_property(window: u32, property: u32) -> Request {
     request(19, 0, |b| {

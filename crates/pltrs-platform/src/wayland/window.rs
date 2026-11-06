@@ -11,12 +11,12 @@ use super::protocol::Interface;
 use super::protocol::core;
 use super::protocol::scale as scaling;
 use super::protocol::shell::{
-    self, CAPABILITY_MAXIMIZE, MODE_CLIENT_SIDE, MODE_SERVER_SIDE, STATE_ACTIVATED,
-    STATE_FULLSCREEN, STATE_MAXIMIZED, STATES_TILED,
+    self, CAPABILITY_MAXIMIZE, CAPABILITY_MINIMIZE, MODE_CLIENT_SIDE, MODE_SERVER_SIDE,
+    STATE_ACTIVATED, STATE_FULLSCREEN, STATE_MAXIMIZED, STATES_TILED,
 };
 use super::scale::{Scale, ScaleSources};
 use super::shm::{PixelFormat, Pixels, Swapchain, union};
-use crate::decoration::DecorationPainter;
+use crate::decoration::{ButtonLayout, DecorationPainter, TitleBarButton};
 use crate::error::Error;
 use crate::frame::{Frame, OwnedFrame};
 use crate::geometry::{PhysicalRect, PhysicalSize, Size};
@@ -100,6 +100,8 @@ pub(crate) struct Window {
     pub(crate) configured: bool,
     /// Whether the compositor offers maximizing.
     pub(crate) can_maximize: bool,
+    /// Whether the compositor offers minimizing.
+    pub(crate) can_minimize: bool,
     min_size: Option<Size>,
     pub(crate) title: String,
     pub(crate) cursor: CursorIcon,
@@ -203,6 +205,7 @@ impl Window {
             pending_mode: None,
             configured: false,
             can_maximize: true,
+            can_minimize: true,
             min_size: options.min_inner_size,
             title: options.title.clone(),
             cursor: CursorIcon::Default,
@@ -288,6 +291,17 @@ impl Window {
     /// Records the compositor's capabilities.
     pub(crate) fn wm_capabilities(&mut self, capabilities: &[u32]) {
         self.can_maximize = capabilities.contains(&CAPABILITY_MAXIMIZE);
+        self.can_minimize = capabilities.contains(&CAPABILITY_MINIMIZE);
+    }
+
+    /// The title bar buttons of `layout` this window shows: those the
+    /// compositor can carry out.
+    pub(crate) fn buttons(&self, layout: &ButtonLayout) -> ButtonLayout {
+        layout.only(|button| match button {
+            TitleBarButton::Maximize => self.can_maximize,
+            TitleBarButton::Minimize => self.can_minimize,
+            _ => true,
+        })
     }
 
     /// Applies the configuration and acknowledges `serial`.
@@ -413,15 +427,16 @@ impl Window {
         }
     }
 
-    /// Commits what changed: the decorations, the content, a frame
-    /// callback. Waits while the previous frame is not yet shown (the
-    /// frame callback is pending), unless `now` or the size changed;
-    /// without a free buffer, tries again when one is released.
+    /// Commits what changed: the decorations (with the buttons of
+    /// `layout` it can show), the content, a frame callback. Waits while
+    /// the previous frame is not yet shown (the frame callback is
+    /// pending), unless `now` or the size changed; without a free
+    /// buffer, tries again when one is released.
     pub(crate) fn commit(
         &mut self,
         conn: &mut Connection,
         shm: u32,
-        painter: &dyn DecorationPainter,
+        (painter, layout): (&dyn DecorationPainter, &ButtonLayout),
         now: bool,
     ) -> Result<(), Error> {
         if !self.commit_wanted || !self.configured || !self.presented {
@@ -430,11 +445,13 @@ impl Window {
         if self.frame_callback.is_some() && !now && !self.resized {
             return Ok(());
         }
+        let buttons = self.buttons(layout);
         let look = Look {
             title: &self.title,
             content: self.logical,
             scale: self.scale,
             states: self.states,
+            layout: &buttons,
         };
         if let Some(decorations) = &mut self.decorations
             && !decorations.update(conn, shm, &look, painter)?

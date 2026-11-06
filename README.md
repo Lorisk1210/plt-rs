@@ -74,6 +74,28 @@ prints their address. `MPLBACKEND=webagg` (or
 remote machine, WSL), and `pltrs::web::serve(&[fig], WebOptions::from_rc()?)`
 does it without pyplot.
 
+On Linux desktops, pltrs' windows type with the keyboard's dead keys and
+the Compose key (´ then e types é, Compose o c types ©) from the same
+Compose files as other applications (`~/.XCompose`, the locale's), and
+where pltrs draws the title bar itself (GNOME's Wayland session), it has
+the buttons, on the sides, and the double, middle and right clicks the
+desktop's settings give (GNOME's `button-layout`, read from the XDG
+desktop portal). GNOME's dash and overview take a window's icon from the
+desktop entry of its application rather than from the window, and pltrs
+writes none unasked; to see pltrs' icon there, install its entry and
+icons into `~/.local/share` once:
+
+```sh
+cargo run -p pltrs --example install_desktop_entry          # from Rust: pltrs::gui::install_desktop_entry()
+python -c "import pltrs.backends.backend_pltrs as b; b.install_desktop_entry()"
+```
+
+(`--remove`, or `remove_desktop_entry()`, takes them away.) Linux wheels
+of pltrs (Python) carry the same files as data under `share`, so that
+`pip install --user` and system-wide installations put them where GNOME
+looks; installed into a virtual environment they stay inside it, and the
+call above is the way.
+
 ## New to matplotlib
 
 The `pltrs::tutorial` module of the API documentation (`cargo doc -p pltrs

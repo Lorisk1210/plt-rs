@@ -13,7 +13,10 @@ config setting ``distribution`` (see ``_project``):
   ``python/pltrs`` holding the library as ``pltrs/_native.abi3.so``
   (``_native.pyd`` on Windows), tagged ``cp312-abi3-<platform>``: the
   stable ABI of CPython 3.12 and later, on the platform the library
-  needs, read from the library itself (see ``_tags``);
+  needs, read from the library itself (see ``_tags``). Linux wheels also
+  install pltrs' desktop entry and icons under the prefix's ``share``
+  (``python/share``), where GNOME finds them after ``pip install
+  --user`` or a system-wide installation;
 * ``matplotlib``: a pure-Python wheel (``py3-none-any``) of the aliases
   in ``python/alias``, ``pip install . -C distribution=matplotlib``.
 
@@ -109,6 +112,9 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         library = _cargo.build_extension(project.root, requested, scratch, glibc).read_bytes()
     target = requested or _cargo.host_target(project.root)
     wheel.add(f"pltrs/{_cargo.extension_name(target)}", library, executable=True)
+    if "linux" in target:
+        for relative, path in project.data_files():
+            wheel.add_data(relative, path.read_bytes())
     platforms = _tags.platform_tags(target, library)
     filename = wheel.write(wheel_directory, [f"{ABI3}-{platform}" for platform in platforms],
                            pure=False)

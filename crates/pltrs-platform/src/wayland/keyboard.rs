@@ -1,5 +1,6 @@
-//! The keyboard: its keymap, modifier state and focus, key events, and
-//! key repeat, which Wayland leaves to clients.
+//! The keyboard: its keymap, modifier state and focus, key events with
+//! their compose sequences, and key repeat, which Wayland leaves to
+//! clients.
 
 use std::fs::File;
 use std::os::fd::OwnedFd;
@@ -10,6 +11,7 @@ use super::protocol::Event;
 use super::protocol::input::KEYMAP_XKB_V1;
 use super::xkb::Keymap;
 use super::{WaylandBackend, emit};
+use crate::compose::Composer;
 use crate::error::Error;
 use crate::event::{ButtonState, Event as LoopEvent, WindowEvent};
 use crate::keyboard::Modifiers;
@@ -61,11 +63,13 @@ pub(crate) struct Keyboard {
     focus: Option<u32>,
     repeat: RepeatInfo,
     held: Option<Held>,
+    /// The compose sequence being typed.
+    composer: Composer,
 }
 
 impl Keyboard {
-    /// A keyboard without a keymap yet.
-    pub(crate) fn new(id: u32) -> Self {
+    /// A keyboard without a keymap yet, composing with `composer`.
+    pub(crate) fn new(id: u32, composer: Composer) -> Self {
         Self {
             id,
             keymap: None,
@@ -74,6 +78,7 @@ impl Keyboard {
             focus: None,
             repeat: RepeatInfo::default(),
             held: None,
+            composer,
         }
     }
 
@@ -85,17 +90,15 @@ impl Keyboard {
     }
 
     /// The key event of `keycode` in the current state.
-    fn event(&self, keycode: u32, state: ButtonState, repeat: bool) -> WindowEvent {
+    fn event(&mut self, keycode: u32, state: ButtonState, repeat: bool) -> WindowEvent {
         let keysym = self.keymap.as_ref().map_or(keysym::NO_SYMBOL, |keymap| {
             keymap.keysym(keycode, self.mods, self.group)
         });
-        WindowEvent::Key(keysym::key_event(
-            keysym,
-            state,
-            self.modifiers(),
-            repeat,
-            keycode,
-        ))
+        let modifiers = self.modifiers();
+        WindowEvent::Key(
+            self.composer
+                .key_event(keysym, state, modifiers, repeat, keycode),
+        )
     }
 
     /// When the held key repeats next.
@@ -158,6 +161,7 @@ impl WaylandBackend {
             Event::KeyboardLeave { surface } => {
                 keyboard.focus = None;
                 keyboard.held = None;
+                keyboard.composer.reset();
                 self.focus(out, surface, false);
             }
             Event::Key {
@@ -252,7 +256,7 @@ mod tests {
     use crate::wayland::fixtures;
 
     fn keyboard() -> Keyboard {
-        let mut keyboard = Keyboard::new(5);
+        let mut keyboard = Keyboard::new(5, Composer::without_sequences());
         keyboard.keymap = Some(fixtures::keymap());
         keyboard
     }
@@ -279,6 +283,37 @@ mod tests {
             panic!("a key event");
         };
         assert_eq!(unknown.key, Key::Unidentified(0));
+    }
+
+    #[test]
+    fn dead_keys_compose_with_the_next_key() {
+        // The German layout's ´ (<AE12>, dead_acute), then e (<AD03>).
+        const ACUTE: u32 = 21;
+        const E: u32 = 26;
+        let mut keyboard = keyboard();
+        keyboard.composer = Composer::with_sequences(&[(&[0xfe51, 0x65], "é")]);
+        let press = |keyboard: &mut Keyboard, keycode| {
+            let WindowEvent::Key(key) = keyboard.event(keycode, ButtonState::Pressed, false) else {
+                panic!("a key event");
+            };
+            (key.key, key.text)
+        };
+        assert_eq!(press(&mut keyboard, ACUTE), (Key::Dead('´'), None));
+        assert_eq!(
+            press(&mut keyboard, E),
+            (Key::Character('e'), Some("é".into()))
+        );
+        assert_eq!(
+            press(&mut keyboard, E),
+            (Key::Character('e'), Some("e".into()))
+        );
+        press(&mut keyboard, ACUTE);
+        keyboard.composer.reset();
+        assert_eq!(
+            press(&mut keyboard, E),
+            (Key::Character('e'), Some("e".into())),
+            "focus left in between"
+        );
     }
 
     #[test]

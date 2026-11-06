@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use super::super::fake::{Fake, Options};
 use super::{expect, of, open, poll_until, surface, wait_requests};
 use crate::backend::Backend;
+use crate::decoration::{ButtonLayout, TitleBarAction, TitleBarSettings};
 use crate::event::{ButtonState, MouseButton, ScrollDelta, WindowEvent};
 use crate::geometry::PhysicalPosition;
 use crate::keyboard::{Key, Modifiers};
@@ -20,6 +21,8 @@ const KEY_A: u32 = 30;
 const BTN_LEFT: u32 = 0x110;
 /// `BTN_RIGHT`.
 const BTN_RIGHT: u32 = 0x111;
+/// `BTN_MIDDLE`.
+const BTN_MIDDLE: u32 = 0x112;
 /// `BTN_SIDE`.
 const BTN_SIDE: u32 = 0x113;
 
@@ -361,4 +364,61 @@ fn the_title_bar_moves_maximizes_and_closes() {
     assert_eq!((resize.word(1), resize.word(2)), (13, Edges::LEFT));
     let shown_cursors = fake.state().requests("wl_pointer", 0).len();
     assert!(shown_cursors >= 2, "a drawn resize cursor over the border");
+}
+
+#[test]
+fn the_title_bar_follows_the_desktops_settings() {
+    // A layout with the close button on the left, and other actions.
+    let options = Options {
+        title_bar: TitleBarSettings {
+            layout: ButtonLayout::parse("close:minimize"),
+            double_click: TitleBarAction::Minimize,
+            middle_click: TitleBarAction::Menu,
+            right_click: TitleBarAction::Nothing,
+        },
+        ..Options::default()
+    };
+    let (mut backend, fake) = Fake::start(options);
+    let window = open(&mut backend);
+    let (title_bar, _) = decoration_surfaces(&backend, window);
+    let pointer = device(&fake, "wl_pointer");
+    let mid = f64::from(TITLE_BAR_HEIGHT) / 2.0;
+    let press = |serial: u32, time: u32, button: u32, state: u32| {
+        Request::new(pointer, 3)
+            .uint(serial)
+            .uint(time)
+            .uint(button)
+            .uint(state)
+    };
+    fake.send(
+        Request::new(pointer, 0)
+            .uint(1)
+            .uint(title_bar)
+            .fixed(150.0)
+            .fixed(mid),
+    );
+    // A double click minimizes (xdg_toplevel.set_minimized), the middle
+    // button opens the window menu, the right one does nothing.
+    fake.send(press(2, 1000, BTN_LEFT, 1));
+    fake.send(press(3, 1050, BTN_LEFT, 0));
+    fake.send(press(4, 1100, BTN_LEFT, 1));
+    wait_requests(&mut backend, &fake, "xdg_toplevel", 13, 1);
+    fake.send(press(5, 3000, BTN_RIGHT, 1));
+    fake.send(press(6, 3100, BTN_MIDDLE, 1));
+    wait_requests(&mut backend, &fake, "xdg_toplevel", 4, 1);
+    assert_eq!(
+        fake.state().requests("xdg_toplevel", 4)[0].word(1),
+        6,
+        "the middle click's serial: the right click asked nothing"
+    );
+    // The minimize button is at the right end, the close button at the
+    // left end.
+    fake.send(Request::new(pointer, 2).uint(0).fixed(315.0).fixed(mid));
+    fake.send(press(7, 5000, BTN_LEFT, 1));
+    fake.send(press(8, 5050, BTN_LEFT, 0));
+    wait_requests(&mut backend, &fake, "xdg_toplevel", 13, 2);
+    fake.send(Request::new(pointer, 2).uint(0).fixed(5.0).fixed(mid));
+    fake.send(press(9, 7000, BTN_LEFT, 1));
+    fake.send(press(10, 7050, BTN_LEFT, 0));
+    expect(&mut backend, window, &WindowEvent::CloseRequested);
 }

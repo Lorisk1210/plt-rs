@@ -18,7 +18,7 @@ use super::protocol::scale as scaling;
 use super::scale::Scale;
 use super::shm::{PixelFormat, Pixels, Swapchain};
 use super::window::States;
-use crate::decoration::{DecorationPainter, TitleBar, TitleBarButton};
+use crate::decoration::{ButtonLayout, DecorationPainter, TitleBar, TitleBarButton};
 use crate::error::Error;
 use crate::frame::Frame;
 use crate::geometry::{PhysicalRect, PhysicalSize};
@@ -45,6 +45,8 @@ pub(crate) struct Look<'a> {
     /// The window's states: no decorations full screen, no resize border
     /// maximized or tiled.
     pub(crate) states: States,
+    /// The title bar's buttons.
+    pub(crate) layout: &'a ButtonLayout,
 }
 
 /// What a title bar was drawn for.
@@ -55,6 +57,7 @@ struct Drawn {
     scale: Scale,
     focused: bool,
     maximized: bool,
+    layout: ButtonLayout,
 }
 
 impl Drawn {
@@ -65,6 +68,7 @@ impl Drawn {
             scale: look.scale,
             focused: look.states.activated,
             maximized: look.states.maximized,
+            layout: look.layout.clone(),
         }
     }
 
@@ -206,10 +210,15 @@ impl ClientDecorations {
     }
 
     /// What is at `(x, y)` (surface coordinates) of `part`, for content
-    /// of `content` size.
-    pub(crate) fn hit(part: Part, (x, y): (f64, f64), (width, height): (u32, u32)) -> Option<Hit> {
+    /// of `content` size and title bar buttons of `layout`.
+    pub(crate) fn hit(
+        part: Part,
+        (x, y): (f64, f64),
+        (width, height): (u32, u32),
+        layout: &ButtonLayout,
+    ) -> Option<Hit> {
         match part {
-            Part::TitleBar => Some(title_bar_hit(x, y, width)),
+            Part::TitleBar => Some(title_bar_hit(x, y, width, layout)),
             Part::Border => {
                 let frame_width = width + 2 * RESIZE_MARGIN;
                 let frame_height = height + TITLE_BAR_HEIGHT + 2 * RESIZE_MARGIN;
@@ -305,6 +314,7 @@ impl ClientDecorations {
             maximized: look.states.maximized,
             hovered: self.hovered,
             pressed: self.pressed,
+            layout: look.layout,
         };
         let mut rgba = vec![0; crate::frame::rgba_len(size)?];
         painter.paint(&bar, &mut rgba);
@@ -357,26 +367,31 @@ mod tests {
     fn hits_on_each_part() {
         let content = (300, 200);
         let h = f64::from(TITLE_BAR_HEIGHT);
+        let layout = ButtonLayout::default();
+        let hit = |part, at| ClientDecorations::hit(part, at, content, &layout);
+        assert_eq!(hit(Part::TitleBar, (10.0, 10.0)), Some(Hit::Title));
         assert_eq!(
-            ClientDecorations::hit(Part::TitleBar, (10.0, 10.0), content),
-            Some(Hit::Title)
-        );
-        assert_eq!(
-            ClientDecorations::hit(Part::TitleBar, (295.0, h / 2.0), content),
+            hit(Part::TitleBar, (295.0, h / 2.0)),
             Some(Hit::Button(TitleBarButton::Close))
         );
         assert_eq!(
-            ClientDecorations::hit(Part::Border, (2.0, 100.0), content),
+            hit(Part::Border, (2.0, 100.0)),
             Some(Hit::Resize(Edges(Edges::LEFT)))
         );
         let bottom = f64::from(200 + TITLE_BAR_HEIGHT + 2 * RESIZE_MARGIN) - 1.0;
         assert_eq!(
-            ClientDecorations::hit(Part::Border, (150.0, bottom), content),
+            hit(Part::Border, (150.0, bottom)),
             Some(Hit::Resize(Edges(Edges::BOTTOM)))
         );
+        assert_eq!(hit(Part::Border, (150.0, 100.0)), None);
+        let left = ButtonLayout::parse("close:");
         assert_eq!(
-            ClientDecorations::hit(Part::Border, (150.0, 100.0), content),
-            None
+            ClientDecorations::hit(Part::TitleBar, (5.0, 5.0), content, &left),
+            Some(Hit::Button(TitleBarButton::Close))
+        );
+        assert_eq!(
+            ClientDecorations::hit(Part::TitleBar, (295.0, 5.0), content, &left),
+            Some(Hit::Title)
         );
     }
 }

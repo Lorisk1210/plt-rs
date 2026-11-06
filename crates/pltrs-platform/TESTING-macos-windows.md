@@ -114,7 +114,13 @@ Press each key with the window focused (no modifier held):
 | Keypad digits (Num Lock on, on Windows) | `Character('1')`… with text |
 | Caps Lock, then `a` | `CapsLock` pressed (macOS: pressed when it turns on, released when it turns off); `Character('A')` |
 | Windows, German or French layout: AltGr+`e` (or AltGr+`q` for `@` on German) | `AltGr` pressed with `modifiers: {}` (no fake Control press before it), then `Character('€')` with `text: Some("€")` and `modifiers: {}` |
-| Windows, dead keys (French `^` then `e`, or US-International `'` then `e`) | The dead key reports no text; the next key reports `text: Some("ê")` / `"é"` |
+| Windows, dead keys (German `´` then `e`, French `^` then `e`, or US-International `'` then `e`) | The dead key is `Dead('´')` / `Dead('^')` / `Dead('\'')` with `text: None`; the next key reports `Character('e')` with `text: Some("é")` / `"ê"` |
+| Windows: a dead key, then a letter it does not combine with (`´` then `x`) | The letter reports `text: Some("´x")` |
+| macOS, US layout: Option+`e`, then `e` | `Dead('´')` with `text: None` (and `modifiers: {ALT}`), then `Character('e')` with `text: Some("é")` |
+| macOS, German layout: `´` (the key left of Backspace), then `e`; Option+`u`, then `u` on a US layout | `Dead('´')`, then `text: Some("é")`; `Dead('¨')`, then `text: Some("ü")` |
+| macOS: a dead key, then `x`; a dead key, then Command+`c`, then `e` | `text: Some("´x")`; Command+`c` ends the pending accent, so `e` types `e` |
+| macOS live test: `cargo test -p pltrs-platform --test macos -- input::dead_keys_compose_with_the_layout` | Passes, or says the layout has no dead acute on Option+`e` or `´` |
+| Both: in a figure window's save dialog (Ctrl+S / ⌘S), type a dead key then a letter | The file name field shows the accented letter |
 | Windows: Alt alone, then `a` | `Alt` pressed/released; the next `a` is a normal key (no menu mode swallowing it) |
 | Windows: Alt+Space | The system menu opens |
 | macOS: ⌘Q (or Quit in the menu, or the Dock icon's Quit) | The window closes ("window closed": the example answers `CloseRequested` by closing it), the program ends |

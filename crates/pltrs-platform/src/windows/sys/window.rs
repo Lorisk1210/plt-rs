@@ -10,7 +10,7 @@ use super::{Hwnd, check, last_error};
 use crate::error::Error;
 use crate::geometry::PhysicalSize;
 use crate::windows::convert::{single_character, to_wide};
-use crate::windows::keys::{HeldModifiers, KeyMessage, release_control_and_alt};
+use crate::windows::keys::{HeldModifiers, KeyMessage, Typed, release_control_and_alt};
 use crate::windows::message::{Message, ScreenRect, is_key, key_message, wm};
 use crate::windows::procedure::{self, Reply};
 
@@ -409,10 +409,11 @@ pub(crate) fn next_key_message(window: Hwnd) -> Option<KeyMessage> {
 }
 
 /// Takes the character messages queued right after the key press being
-/// handled (its translation, with `TranslateMessage`): the UTF-16 units
-/// it typed. Dead-key messages type nothing.
-pub(crate) fn take_typed_units(window: Hwnd) -> Vec<u16> {
+/// handled (its translation, with `TranslateMessage`): what it typed,
+/// and the accent of a dead key.
+pub(crate) fn take_typed(window: Hwnd) -> Typed {
     let mut units = Vec::new();
+    let mut dead = None;
     loop {
         let mut next = Msg::default();
         // SAFETY: `next` is a MSG to fill; the message stays queued.
@@ -426,7 +427,7 @@ pub(crate) fn take_typed_units(window: Hwnd) -> Vec<u16> {
             )
         };
         if found == 0 || !matches!(next.message, wm::CHAR | wm::DEADCHAR) {
-            return units;
+            return Typed::from_messages(&units, dead);
         }
         let mut taken = Msg::default();
         // SAFETY: `taken` is a MSG to fill; this removes the character
@@ -441,10 +442,12 @@ pub(crate) fn take_typed_units(window: Hwnd) -> Vec<u16> {
             )
         };
         if removed == 0 {
-            return units;
+            return Typed::from_messages(&units, dead);
         }
         if taken.message == wm::CHAR {
             units.push(taken.wparam as u16);
+        } else {
+            dead = Some(taken.wparam as u16);
         }
     }
 }

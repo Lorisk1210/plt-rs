@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=pltrs
+Comment=Figure windows of pltrs, matplotlib rebuilt in Rust
+Icon=pltrs
+StartupWMClass=pltrs
+NoDisplay=true

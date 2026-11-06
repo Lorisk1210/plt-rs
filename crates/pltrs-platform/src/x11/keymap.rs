@@ -137,7 +137,7 @@ impl Keymap {
     }
 
     /// All keysyms of a keycode (empty if unmapped).
-    fn keysyms_of(&self, keycode: u8) -> &[u32] {
+    pub(crate) fn keysyms_of(&self, keycode: u8) -> &[u32] {
         let Some(index) = keycode.checked_sub(self.min_keycode) else {
             return &[];
         };

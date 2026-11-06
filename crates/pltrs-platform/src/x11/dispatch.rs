@@ -138,6 +138,9 @@ impl X11Backend {
         };
         if state.focused != focused {
             state.focused = focused;
+            if !focused {
+                self.input.focus_lost();
+            }
             self.emit(out, window, WindowEvent::Focused(focused));
         }
     }

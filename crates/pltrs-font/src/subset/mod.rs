@@ -8,12 +8,16 @@
 //! renumbered in their original order, so new glyph ids match fontTools'.
 //! The font program itself ([`build`]) holds `glyf`, `loca`, `hmtx`,
 //! `cmap` and the header tables plus the original naming, `OS/2` and
-//! hinting tables, without layout tables.
+//! hinting tables, without layout tables. Its `cmap` maps the characters
+//! of the requested glyphs as fontTools' does ([`cmap`]).
 
 mod build;
 mod closure;
+mod cmap;
 mod glyf;
 mod gsub;
+
+use std::collections::BTreeSet;
 
 use crate::error::Result;
 use crate::face::Face;
@@ -44,9 +48,12 @@ impl FontSubset {
 /// missing or malformed.
 pub fn subset(face: &Face<'_>, glyphs: impl IntoIterator<Item = GlyphId>) -> Result<FontSubset> {
     let glyf = glyf::Glyf::new(face)?;
-    let kept: Vec<GlyphId> = closure::closure(face, &glyf, glyphs)?.into_iter().collect();
+    let requested: BTreeSet<GlyphId> = glyphs.into_iter().collect();
+    let kept: Vec<GlyphId> = closure::closure(face, &glyf, requested.iter().copied())?
+        .into_iter()
+        .collect();
     Ok(FontSubset {
-        data: build::font_file(face, &glyf, &kept)?,
+        data: build::font_file(face, &glyf, &kept, &requested)?,
         glyphs: kept,
     })
 }

@@ -10,12 +10,21 @@ functions.
 """
 
 from contextlib import contextmanager
+import functools
 from io import BytesIO
 import typing
 
-from .. import rcParams
+from .. import font_manager, rcParams
+from .._afm import AFM
 from .._native import ft2font as _ft2font
 from ..backend_bases import RendererBase
+
+
+@functools.lru_cache(50)
+def _cached_get_afm_from_fname(fname):
+    """The `AFM` metrics of the file *fname*, read once."""
+    with open(fname, "rb") as fh:
+        return AFM(fh)
 
 
 class _SubsetFont:
@@ -82,8 +91,9 @@ class RendererPDFPSBase(RendererBase):
     The base of the renderers of the PDF and PostScript backends, for a
     page of *width* × *height* inches drawn in points.
 
-    Subclasses define ``_use_afm_rc_name``, the rcParam choosing their
-    AFM fonts, and measure text as their backend does.
+    Subclasses define ``_afm_font_dir``, the directory of their AFM fonts,
+    and ``_use_afm_rc_name``, the rcParam choosing them, and measure text
+    as their backend does.
     """
 
     def __init__(self, width, height):
@@ -107,6 +117,13 @@ class RendererPDFPSBase(RendererBase):
     def get_canvas_width_height(self):
         # docstring inherited
         return self.width * 72.0, self.height * 72.0
+
+    def _get_font_afm(self, prop):
+        """The `AFM` metrics of the font of the backend's AFM fonts that
+        *prop* finds, those it draws text in under ``_use_afm_rc_name``."""
+        fname = font_manager.findfont(
+            prop, fontext="afm", directory=self._afm_font_dir)
+        return _cached_get_afm_from_fname(fname)
 
 
 def font_as_file(font):

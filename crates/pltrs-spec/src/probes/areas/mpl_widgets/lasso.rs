@@ -4,8 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs::axes::Axes;
-use pltrs::lines::LineProps;
-use pltrs::widgets::{Lasso, LassoSelector};
+use pltrs::widgets::{Lasso, LassoOptions, LassoSelector, LassoSelectorOptions};
 
 use super::region::alpha;
 use super::steps::{Attempt, Tool, replay, unknown};
@@ -47,22 +46,22 @@ impl Tool for LassoSelector {
 /// `LassoSelector(ax, onselect, **options)` driven by `steps`.
 pub(super) fn lasso_selector(args: Args<'_>) -> Outcome {
     styled(args, || {
-        let mut line_props = LineProps::default();
-        let mut buttons = None;
+        let mut options = LassoSelectorOptions::default();
         for (name, value) in args
             .json("options")?
             .as_object()
             .ok_or_else(|| malformed("options"))?
         {
             match name.as_str() {
-                // Blitting only speeds drawing up; selections are the same.
-                "useblit" => {}
-                "props" => line_props = props::line(value)?,
-                "button" => buttons = Some(vec![button(value)?]),
+                "useblit" => {
+                    options.useblit = value.as_bool().ok_or_else(|| malformed("useblit"))?;
+                }
+                "props" => options.props = props::line(value)?,
+                "button" => options.buttons = Some(vec![button(value)?]),
                 other => return Err(unknown("option", other)),
             }
         }
-        let tool = LassoSelector::new(&get_ax()?, line_props, buttons);
+        let tool = LassoSelector::new(&get_ax()?, options);
         let selects: Rc<RefCell<Vec<Json>>> = Rc::default();
         let sink = Rc::clone(&selects);
         tool.on_select(move |verts| {
@@ -83,7 +82,11 @@ pub(super) fn lasso_selector(args: Args<'_>) -> Outcome {
 pub(super) fn lasso(args: Args<'_>) -> Outcome {
     styled(args, || {
         let props = args.get("props").map(props::line).transpose()?;
-        let tool = Lasso::new(&get_ax()?, (100.0, 100.0), props.unwrap_or_default());
+        let options = LassoOptions {
+            props: props.unwrap_or_default(),
+            ..LassoOptions::default()
+        };
+        let tool = Lasso::new(&get_ax()?, (100.0, 100.0), options);
         let line = tool.line();
         if let Some(color) = args.opt_str("set_color")? {
             line.set_color(color);

@@ -949,8 +949,9 @@ def _data_font_path(fname, fontext='ttf'):
     """
     The path of the font file *fname*: pltrs (Rust) names the fonts it bundles
     by their bare file names, which are in the data directory's
-    ``fonts/ttf`` (``fonts/pdfcorefonts`` for AFM files), as matplotlib's
-    are in its ``mpl-data``.
+    ``fonts/ttf`` (``fonts/pdfcorefonts`` for the PDF core fonts' AFM files),
+    as matplotlib's are in its ``mpl-data``; it gives the AFM fonts of its
+    font list as paths.
     """
     if os.path.dirname(fname):
         return fname
@@ -984,7 +985,7 @@ def _entries(fontext):
                       name=name, style=style,
                       variant=variant,
                       weight=int(weight) if weight.isdigit() else weight,
-                      stretch=stretch)
+                      stretch=stretch, size='scalable')
             for fname, index, name, (style, variant, weight, stretch)
             in _font_manager.font_list(fontext)]
 
@@ -1057,7 +1058,8 @@ class FontManager:
 
     pltrs (Rust) keeps the fonts and does the search: ``ttflist`` holds the
     TrueType fonts it matches (appending to it and removing from it changes
-    them), ``afmlist`` the Adobe Font Metrics of the PostScript core fonts.
+    them), ``afmlist`` the Adobe Font Metrics of the PDF core fonts and of
+    the standard PostScript fonts.
     """
     # Increment this version number whenever the font cache data
     # format or behavior has changed and requires an existing font
@@ -1275,8 +1277,9 @@ class FontManager:
         FontPath
             The filename of the best matching font, and its face index.
         """
-        # Pass the relevant rcParams to _findfont_cached so as not to use a
-        # stale cache entry after an rcParam was changed.
+        # Pass the relevant rcParams (and the font manager, as `self`) to
+        # _findfont_cached so to prevent using a stale cache entry after an
+        # rcParam was changed.
         rc_params = tuple(
             tuple(value) if isinstance(value, list) else value
             for value in (_rcParams()[f"font.{key}"] for key in [
@@ -1285,32 +1288,38 @@ class FontManager:
         if directory is None and os.getenv('MPL_IGNORE_SYSTEM_FONTS'):
             directory = cbook._get_data_path('fonts')
         ret = self._findfont_cached(
-            FontProperties._from_any(prop), fontext,
-            None if directory is None else os.fspath(directory),
-            fallback_to_default, rc_params)
+            prop, fontext, directory, fallback_to_default, rebuild_if_missing,
+            rc_params)
         if isinstance(ret, cbook._ExceptionInfo):
             raise ret.to_exception()
         return ret
 
     @lru_cache(1024)
     def _findfont_cached(self, prop, fontext, directory, fallback_to_default,
-                         rc_params):
+                         rebuild_if_missing, rc_params):
         """
         The `FontPath` the search finds, or the exception to raise, logging
         as matplotlib does when the weight or the family is not found
-        (cached per properties, directory and font rcParams).
+        (cached per properties and directory as given, options and font
+        rcParams, as matplotlib's).
         """
+        prop = FontProperties._from_any(prop)
         fname = prop.get_file()
         if fname is not None:
             return fname
+        _log.debug('findfont: Matching %s.', prop)
+        if _log.isEnabledFor(logging.DEBUG):
+            self._log_scores(prop, fontext, directory)
+        native_directory = None if directory is None else os.fspath(directory)
         if fontext == 'afm':
-            afm_directory = _afm_directory(directory)
+            afm_directory = _afm_directory(native_directory)
             best = (None if afm_directory is False else
                     _font_manager.best_afm_font(self._props(prop), afm_directory))
-            best = self._best_added_afm(prop, directory, best)
+            best = self._best_added_afm(prop, native_directory, best)
         else:
             best = _font_manager.best_font(
-                self._props(prop), directory, cbook._get_data_path('fonts', 'ttf'))
+                self._props(prop), native_directory,
+                cbook._get_data_path('fonts', 'ttf'))
         if best is not None:
             (fname, index, name, (_, _, weight, _)), score = best
             weight = int(weight) if weight.isdigit() else weight
@@ -1338,7 +1347,59 @@ class FontManager:
                 ValueError,
                 f"Failed to find font {prop}, and fallback to the default font was "
                 f"disabled")
-        return FontPath(_data_font_path(fname, fontext), index)
+        result = _data_font_path(fname, fontext)
+        _log.debug('findfont: Matching %s to %s (%r) with score of %f.',
+                   prop, name, result, score)
+        if not os.path.isfile(result):
+            if rebuild_if_missing:
+                _log.info(
+                    'findfont: Found a missing font file.  Rebuilding cache.')
+                self._rebuild()
+                return self.findfont(
+                    prop, fontext, directory, rebuild_if_missing=False)
+            # Returned rather than raised, so that the failure is cached.
+            return cbook._ExceptionInfo(ValueError, "No valid font could be found")
+        return FontPath(_cached_realpath(result), index)
+
+    def _score(self, prop, font):
+        """The `findfont` score of the `FontEntry` *font* for the font
+        properties *prop* (0 for a perfect match)."""
+        return (self.score_family(prop.get_family(), font.name) * 10
+                + self.score_style(prop.get_style(), font.style)
+                + self.score_variant(prop.get_variant(), font.variant)
+                + self.score_weight(prop.get_weight(), font.weight)
+                + self.score_stretch(prop.get_stretch(), font.stretch)
+                + self.score_size(prop.get_size(), font.size))
+
+    def _log_scores(self, prop, fontext, directory):
+        """Log the score of every font of the list *fontext* under
+        *directory* for *prop*, up to the first perfect match, as
+        matplotlib's search does at the debug level."""
+        for font in self.afmlist if fontext == 'afm' else self.ttflist:
+            if (directory is not None and
+                    Path(directory) not in Path(font.fname).parents):
+                continue
+            score = self._score(prop, font)
+            _log.debug('findfont: score(%s) = %s', font, score)
+            if score == 0:
+                break
+
+    def _rebuild(self):
+        """
+        Rebuild the font lists from the font files, as matplotlib's
+        ``findfont`` replaces the font manager by one made anew when it
+        finds a font file missing: the fonts whose files are gone leave
+        them (pltrs (Rust)'s list of fonts too), and the lookups cached so
+        far are forgotten (making matplotlib's font manager adds its fonts
+        with `addfont`, which clears the cache).
+        """
+        for entry in [entry for entry in self.ttflist
+                      if not os.path.isfile(entry.fname)]:
+            self.ttflist.remove(entry)
+        self.afmlist = [entry for entry in self.afmlist
+                        if os.path.isfile(entry.fname)]
+        self._findfont_cached.cache_clear()
+        _log.info("generated new fontManager")
 
     def _best_added_afm(self, prop, directory, best):
         """
@@ -1355,12 +1416,7 @@ class FontManager:
                     directory is not None
                     and Path(directory).resolve() not in parents):
                 continue
-            score = (self.score_family(prop.get_family(), font.name) * 10
-                     + self.score_style(prop.get_style(), font.style)
-                     + self.score_variant(prop.get_variant(), font.variant)
-                     + self.score_weight(prop.get_weight(), font.weight)
-                     + self.score_stretch(prop.get_stretch(), font.stretch)
-                     + self.score_size(prop.get_size(), font.size))
+            score = self._score(prop, font)
             if score < best_score:
                 best_score = score
                 best = ((font.fname, font.index, font.name,

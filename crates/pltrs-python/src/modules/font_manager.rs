@@ -11,7 +11,7 @@ use pltrs::fonts::{
     FontExt, FontListEntry, FontManager, FontProperties, FontStretch, FontWeight,
     FontconfigPattern, parse_math_fontfamily, parse_style, parse_variant,
 };
-use pltrs_text::{AfmDirectory, FontSource, TextError};
+use pltrs_text::{AfmDirectory, AfmFont, FontSource, TextError};
 
 use crate::binding::prelude::*;
 
@@ -219,10 +219,32 @@ fn remove_entry(entry: PyFontEntry) -> PyResult<bool> {
     Ok(FontManager::global().remove_entry(&entry.0)?)
 }
 
-/// The fonts of the TrueType (`"ttf"`) or AFM (`"afm"`) font list.
+/// The fonts of the TrueType (`"ttf"`) or AFM (`"afm"`) font list, the
+/// files of AFM fonts as their paths in the data directory.
 fn font_list(fontext: String) -> PyResult<Vec<EntryTuple>> {
-    let entries = FontManager::global().font_list(font_ext(&fontext)?);
-    Ok(entries.into_iter().map(entry_tuple).collect())
+    let ext = font_ext(&fontext)?;
+    FontManager::global()
+        .font_list(ext)
+        .into_iter()
+        .map(|entry| match ext {
+            FontExt::Ttf => Ok(entry_tuple(entry)),
+            FontExt::Afm => afm_entry_tuple(entry),
+        })
+        .collect()
+}
+
+/// An entry of the AFM font list as a tuple, its file as its path in the
+/// data directory: the AFM fonts are in two of its directories
+/// (`fonts/afm`, `fonts/pdfcorefonts`).
+fn afm_entry_tuple(mut entry: FontListEntry) -> PyResult<EntryTuple> {
+    if let Some(font) = AfmFont::named(&entry.file) {
+        let path = pltrs::config::data_dir()
+            .map_err(|err| PyErr::runtime_error(err.to_string()))?
+            .join("fonts")
+            .join(font.relative_path());
+        entry.file = path.display().to_string();
+    }
+    Ok(entry_tuple(entry))
 }
 
 /// The best TrueType entry for `props` and its score (10 or more when no
@@ -256,19 +278,18 @@ fn best_afm_font(
     directory: Option<String>,
 ) -> PyResult<Option<(EntryTuple, f64)>> {
     let props = properties(props)?;
-    let directory = match directory.as_deref() {
-        None => None,
-        Some("pdfcorefonts") => Some(AfmDirectory::PdfCore),
-        Some("afm") => Some(AfmDirectory::PostScript),
-        Some(other) => {
-            return Err(PyErr::value_error(format!(
-                "no AFM font directory {other:?}"
-            )));
-        }
-    };
-    Ok(FontManager::global()
+    let directory = directory
+        .map(|name| {
+            AfmDirectory::ALL
+                .into_iter()
+                .find(|directory| directory.name() == name)
+                .ok_or_else(|| PyErr::value_error(format!("no AFM font directory {name:?}")))
+        })
+        .transpose()?;
+    FontManager::global()
         .best_afm_entry(&props, &pltrs::rc::params(), directory)
-        .map(|(entry, score)| (entry_tuple(entry), score)))
+        .map(|(entry, score)| Ok((afm_entry_tuple(entry)?, score)))
+        .transpose()
 }
 
 /// The family names of the TrueType fonts.

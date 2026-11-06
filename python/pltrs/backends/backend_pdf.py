@@ -913,6 +913,7 @@ class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
     pltrs (Rust) writes (*file* is None for both).
     """
 
+    _afm_font_dir = cbook._get_data_path("fonts/pdfcorefonts")
     _use_afm_rc_name = "pdf.use14corefonts"
 
     def __init__(self, file, image_dpi, height, width):

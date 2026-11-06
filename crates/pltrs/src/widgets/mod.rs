@@ -49,9 +49,10 @@ pub use cursor::{Cursor, CursorOptions, MultiCursor};
 pub use observers::CallbackId;
 pub use range_slider::RangeSlider;
 pub use selectors::{
-    EllipseSelector, Lasso, LassoSelector, ModifierKeys, PolygonSelector, PolygonSelectorOptions,
-    RectangleSelector, RectangleSelectorOptions, SelectorError, SelectorEvent, SelectorState,
-    SelectorUnits, SpanSelector, SpanSelectorOptions, UnknownState,
+    EllipseSelector, Lasso, LassoOptions, LassoSelector, LassoSelectorOptions, ModifierKeys,
+    PolygonSelector, PolygonSelectorOptions, RectangleSelector, RectangleSelectorOptions,
+    SelectorError, SelectorEvent, SelectorState, SelectorUnits, SpanSelector, SpanSelectorOptions,
+    UnknownState,
 };
 pub use slider::{HandleStyle, Slider, SliderOptions, ValStep};
 pub use subplot_tool::SubplotTool;

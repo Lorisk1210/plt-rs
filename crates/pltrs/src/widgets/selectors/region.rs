@@ -8,7 +8,7 @@ use super::driver::{Core, Tool};
 use super::handles::MarkerHandles;
 use super::shape::{Extents, RegionShape};
 use super::{SelectorEvent, SelectorState};
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::axes::Axes;
 use crate::events::CursorShape;
 use crate::lines::LineProps;
@@ -285,6 +285,7 @@ impl<S: RegionShape> Region<S> {
             handles.center.set_data((vec![cx], vec![cy]));
         }
         self.show(core.visible);
+        core.request_update();
     }
 
     /// Rotates the shape to `degrees` within ±45° (matplotlib's `rotation`
@@ -435,6 +436,14 @@ impl<S: RegionShape> Region<S> {
 impl<S: RegionShape> Tool for Region<S> {
     type Selection = (SelectorEvent, SelectorEvent);
 
+    fn artists(&self) -> Vec<RawHandle> {
+        let handles = self.handles.iter().flat_map(RegionHandles::each);
+        std::iter::once(self.patch.raw())
+            .chain(handles.map(|markers| markers.line().raw()))
+            .cloned()
+            .collect()
+    }
+
     fn show(&self, visible: bool) {
         self.patch.set_visible(visible);
         if let Some(handles) = &self.handles {
@@ -449,6 +458,10 @@ impl<S: RegionShape> Tool for Region<S> {
             self.set_grab(core, event);
         } else {
             self.grab = None;
+        }
+        if (self.grab.is_none() || !self.settings.interactive) && self.allow_creation {
+            // The shape pressed outside of goes before a new one starts.
+            core.request_update();
         }
         if self.grab.is_none() && !self.settings.ignore_event_outside && self.allow_creation {
             // A press outside starts a new, still hidden, shape.
@@ -552,6 +565,7 @@ impl<S: RegionShape> Tool for Region<S> {
             core.selection_completed = true;
             Some((press, release))
         };
+        core.request_update();
         self.grab = None;
         self.extents_on_press = None;
         selection

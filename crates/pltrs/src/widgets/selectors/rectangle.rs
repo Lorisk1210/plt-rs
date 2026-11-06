@@ -20,6 +20,8 @@ use crate::widgets::CallbackId;
 /// Options of a [`RectangleSelector`] or [`EllipseSelector`] (matplotlib's
 /// keyword arguments).
 #[derive(Clone, Debug)]
+// matplotlib's keyword arguments, each a switch of its own.
+#[allow(clippy::struct_excessive_bools)]
 pub struct RectangleSelectorOptions {
     /// Shapes no wider than this are removed (`minspanx`).
     pub minspanx: f64,
@@ -51,6 +53,9 @@ pub struct RectangleSelectorOptions {
     /// The units squares are square in: display pixels, or data units
     /// (matplotlib's `use_data_coordinates`).
     pub square_units: SelectorUnits,
+    /// Whether the selector shows its changes by blitting its animated
+    /// artists rather than by full draws (`useblit`).
+    pub useblit: bool,
 }
 
 impl Default for RectangleSelectorOptions {
@@ -74,6 +79,7 @@ impl Default for RectangleSelectorOptions {
             drag_from_anywhere: false,
             ignore_event_outside: false,
             square_units: SelectorUnits::Pixels,
+            useblit: false,
         }
     }
 }
@@ -104,7 +110,12 @@ fn region<S: RegionShape>(ax: &Axes, options: &RectangleSelectorOptions) -> Driv
         square_units: options.square_units,
     };
     let tool = Region::new(ax, patch, settings, handle_props);
-    let mut core = Core::new(ax, options.buttons.clone(), options.modifier_keys.clone());
+    let mut core = Core::new(
+        ax,
+        options.buttons.clone(),
+        options.modifier_keys.clone(),
+        options.useblit,
+    );
     if let Some(visible) = visible {
         core.visible = visible;
     }
@@ -152,8 +163,8 @@ macro_rules! region_methods {
             /// Shows the shape over `(xmin, xmax, ymin, ymax)` (matplotlib's
             /// `extents` setter).
             pub fn set_extents(&self, extents: (f64, f64, f64, f64)) -> &Self {
-                let shared = self.driver.shared.borrow();
-                shared.tool.set_extents(&shared.core, extents);
+                self.place(extents);
+                super::blit::run_requested();
                 self
             }
 
@@ -184,9 +195,12 @@ macro_rules! region_methods {
             /// Rotates the shape about its centre; angles outside ±45° are
             /// ignored (matplotlib's `rotation` setter).
             pub fn set_rotation(&self, degrees: f64) -> &Self {
-                let mut shared = self.driver.shared.borrow_mut();
-                let shared = &mut *shared;
-                shared.tool.set_rotation(&shared.core, degrees);
+                {
+                    let mut shared = self.driver.shared.borrow_mut();
+                    let shared = &mut *shared;
+                    shared.tool.set_rotation(&shared.core, degrees);
+                }
+                super::blit::run_requested();
                 self
             }
 
@@ -223,7 +237,12 @@ macro_rules! region_methods {
 
             /// Changes the shape's look (matplotlib's `set_props`).
             pub fn set_props(&self, props: PatchProps) -> &Self {
-                self.driver.shared.borrow().tool.patch.update_props(props);
+                {
+                    let shared = self.driver.shared.borrow();
+                    shared.tool.patch.update_props(props);
+                    shared.core.request_blit();
+                }
+                super::blit::run_requested();
                 self
             }
 
@@ -234,17 +253,30 @@ macro_rules! region_methods {
             ///
             /// When the selector is not interactive and has no handles.
             pub fn set_handle_props(&self, props: LineProps) -> Result<&Self, SelectorError> {
-                let mut shared = self.driver.shared.borrow_mut();
-                let handles = shared
-                    .tool
-                    .handles
-                    .as_mut()
-                    .ok_or(SelectorError::NoHandles)?;
-                for markers in handles.each() {
-                    markers.update_props(&props);
+                {
+                    let mut shared = self.driver.shared.borrow_mut();
+                    let shared = &mut *shared;
+                    let handles = shared
+                        .tool
+                        .handles
+                        .as_mut()
+                        .ok_or(SelectorError::NoHandles)?;
+                    for markers in handles.each() {
+                        markers.update_props(&props);
+                    }
+                    handles.props = std::mem::take(&mut handles.props).overlay(props);
+                    shared.core.request_blit();
                 }
-                handles.props = std::mem::take(&mut handles.props).overlay(props);
+                super::blit::run_requested();
                 Ok(self)
+            }
+
+            /// Shows the shape over `extents`, leaving the update it asks
+            /// for to whoever runs the requested updates (the selector
+            /// holding this one).
+            pub(super) fn place(&self, extents: (f64, f64, f64, f64)) {
+                let shared = self.driver.shared.borrow();
+                shared.tool.set_extents(&shared.core, extents);
             }
         }
     };

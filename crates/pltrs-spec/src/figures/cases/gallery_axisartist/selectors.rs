@@ -10,8 +10,9 @@ use pltrs::navigation::PointerButton;
 use pltrs::patches::PatchProps;
 use pltrs::prelude::*;
 use pltrs::widgets::{
-    EllipseSelector, LassoSelector, Orientation, PolygonSelector, PolygonSelectorOptions,
-    RectangleSelector, RectangleSelectorOptions, SelectorUnits, SpanSelector, SpanSelectorOptions,
+    EllipseSelector, LassoSelector, LassoSelectorOptions, Orientation, PolygonSelector,
+    PolygonSelectorOptions, RectangleSelector, RectangleSelectorOptions, SelectorUnits,
+    SpanSelector, SpanSelectorOptions,
 };
 
 use crate::figures::cases::common::map;
@@ -52,7 +53,7 @@ fn lasso_selector_demo(fig: &Figure) -> CaseResult {
         ..ScatterOptions::default()
     };
     ax.scatter_with(x, y, options)?;
-    let _lasso = LassoSelector::new(&ax, LineProps::default(), None);
+    let _lasso = LassoSelector::new(&ax, LassoSelectorOptions::default());
     ax.set_title("Press enter to accept selected points.");
     Ok(())
 }
@@ -89,6 +90,7 @@ fn rectangle_selector(fig: &Figure) -> CaseResult {
         minspany: 5.0,
         spancoords: SelectorUnits::Pixels,
         interactive: true,
+        useblit: true,
         ..RectangleSelectorOptions::default()
     };
     let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
@@ -123,6 +125,7 @@ fn span_selector(fig: &Figure) -> CaseResult {
         props: PatchProps::default().alpha(0.5).facecolor("tab:blue"),
         interactive: true,
         drag_from_anywhere: true,
+        useblit: true,
         ..SpanSelectorOptions::default()
     };
     let _span = SpanSelector::new(ax1, Orientation::Horizontal, options);

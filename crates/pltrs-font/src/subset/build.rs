@@ -1,8 +1,9 @@
 //! Writing the subset font program: the kept glyphs renumbered in their
 //! original order, with the tables a TrueType rasterizer needs.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use super::cmap::{cmap, search_range};
 use super::glyf::{Glyf, renumbered};
 use crate::error::{FontError, Result};
 use crate::face::Face;
@@ -11,17 +12,6 @@ use crate::types::{GlyphId, Tag};
 /// Tables copied unchanged from the original font: naming, metrics and
 /// the hinting programs the glyph instructions rely on.
 const COPIED: [&[u8; 4]; 6] = [b"OS/2", b"cvt ", b"fpgm", b"gasp", b"name", b"prep"];
-
-/// The table directory's search fields for `count` tables.
-fn search_fields(count: u16) -> [u16; 3] {
-    let mut power = 1u16;
-    let mut log = 0u16;
-    while power * 2 <= count {
-        power *= 2;
-        log += 1;
-    }
-    [power * 16, log, count * 16 - power * 16]
-}
 
 /// The OpenType table checksum.
 fn checksum(data: &[u8]) -> u32 {
@@ -71,58 +61,13 @@ fn glyph_tables(
     Ok((glyphs, loca))
 }
 
-/// The `cmap` of the subset: a Windows Unicode BMP (format 4) subtable
-/// mapping the original character codes of the kept glyphs.
-fn cmap(face: &Face<'_>, renumber: &BTreeMap<GlyphId, GlyphId>) -> Vec<u8> {
-    let mut mappings: Vec<(u16, u16)> = face
-        .mappings()
-        .into_iter()
-        .filter_map(|(code, glyph)| {
-            let code = u16::try_from(code).ok().filter(|&c| c != 0xFFFF)?;
-            Some((code, renumber.get(&glyph)?.0))
-        })
-        .collect();
-    mappings.sort_unstable();
-    mappings.dedup_by_key(|m| m.0);
-    // One segment per code, then the closing 0xFFFF segment.
-    let segments: Vec<(u16, u16)> = mappings.into_iter().chain([(0xFFFF, 0)]).collect();
-    let count = segments.len() as u16;
-    let [range, selector, shift] = search_fields(count);
-    let mut table = Vec::new();
-    for value in [
-        4,
-        16 + 8 * count,
-        0,
-        count * 2,
-        range / 8,
-        selector,
-        shift / 8,
-    ] {
-        table.extend(value.to_be_bytes());
-    }
-    table.extend(segments.iter().flat_map(|&(code, _)| code.to_be_bytes()));
-    table.extend(0u16.to_be_bytes());
-    table.extend(segments.iter().flat_map(|&(code, _)| code.to_be_bytes()));
-    table.extend(
-        segments
-            .iter()
-            .flat_map(|&(code, glyph)| glyph.wrapping_sub(code).to_be_bytes()),
-    );
-    table.extend(segments.iter().flat_map(|_| 0u16.to_be_bytes()));
-    let mut out = Vec::new();
-    for value in [0u16, 1, 3, 1] {
-        out.extend(value.to_be_bytes());
-    }
-    out.extend(12u32.to_be_bytes());
-    out.extend(table);
-    out
-}
-
-/// The tables of the subset, by tag.
+/// The tables of the subset keeping `kept`, its `cmap` mapping the
+/// characters of `requested`, by tag.
 fn tables(
     face: &Face<'_>,
     glyf: &Glyf<'_>,
     kept: &[GlyphId],
+    requested: &BTreeSet<GlyphId>,
 ) -> Result<BTreeMap<[u8; 4], Vec<u8>>> {
     let count = u16::try_from(kept.len()).map_err(|_| FontError::Malformed {
         table: Tag::new(b"maxp"),
@@ -159,7 +104,7 @@ fn tables(
         with_u16(required(face, *b"maxp")?, 4, count, *b"maxp")?,
     );
     tables.insert(*b"post", post);
-    tables.insert(*b"cmap", cmap(face, &renumber));
+    tables.insert(*b"cmap", cmap(face, requested, &renumber));
     for tag in COPIED {
         if let Some(data) = face.table(Tag::new(tag)) {
             tables.insert(*tag, data.to_vec());
@@ -168,15 +113,20 @@ fn tables(
     Ok(tables)
 }
 
-/// The subset font file of `kept` (sorted original glyphs).
-pub(super) fn font_file(face: &Face<'_>, glyf: &Glyf<'_>, kept: &[GlyphId]) -> Result<Vec<u8>> {
-    let tables = tables(face, glyf, kept)?;
-    let count = tables.len() as u16;
+/// The subset font file of `kept` (sorted original glyphs), its `cmap`
+/// mapping the characters of the `requested` glyphs.
+pub(super) fn font_file(
+    face: &Face<'_>,
+    glyf: &Glyf<'_>,
+    kept: &[GlyphId],
+    requested: &BTreeSet<GlyphId>,
+) -> Result<Vec<u8>> {
+    let tables = tables(face, glyf, kept, requested)?;
     let mut out = Vec::new();
     out.extend(0x0001_0000u32.to_be_bytes());
-    out.extend(count.to_be_bytes());
-    for value in search_fields(count) {
-        out.extend(value.to_be_bytes());
+    out.extend((tables.len() as u16).to_be_bytes());
+    for value in search_range(tables.len(), 16) {
+        out.extend((value as u16).to_be_bytes());
     }
     let mut offset = 12 + 16 * tables.len();
     let mut head_at = None;

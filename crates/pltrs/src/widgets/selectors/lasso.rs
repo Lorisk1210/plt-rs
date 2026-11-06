@@ -7,12 +7,59 @@ use pltrs_core::Point;
 
 use super::driver::{Core, Driver, Tool};
 use super::{ModifierKeys, SelectorEvent, selector_methods};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::axes::Axes;
 use crate::events::{Event, EventKind};
+use crate::figure::BufferRegion;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::navigation::PointerButton;
 use crate::widgets::{CallbackId, Connections, Observers, data_in};
+
+/// Options of a [`LassoSelector`] (matplotlib's keyword arguments).
+#[derive(Clone, Debug)]
+pub struct LassoSelectorOptions {
+    /// Look of the curve (`props`).
+    pub props: LineProps,
+    /// The buttons that select; all when `None` (`button`).
+    pub buttons: Option<Vec<PointerButton>>,
+    /// Whether the curve is shown by blitting it, animated, rather than by
+    /// full draws (`useblit`).
+    pub useblit: bool,
+}
+
+impl Default for LassoSelectorOptions {
+    /// matplotlib's defaults: a line of the rcParams' look, blitted,
+    /// started by any button.
+    fn default() -> Self {
+        Self {
+            props: LineProps::default(),
+            buttons: None,
+            useblit: true,
+        }
+    }
+}
+
+/// Options of a [`Lasso`] (matplotlib's keyword arguments).
+#[derive(Clone, Debug)]
+pub struct LassoOptions {
+    /// Look of the curve over matplotlib's solid black line two points
+    /// wide (`props`).
+    pub props: LineProps,
+    /// Whether each motion blits the curve over the background the lasso
+    /// saved when it was made, rather than asking for a full draw
+    /// (`useblit`).
+    pub useblit: bool,
+}
+
+impl Default for LassoOptions {
+    /// matplotlib's defaults: the black line, blitted.
+    fn default() -> Self {
+        Self {
+            props: LineProps::default(),
+            useblit: true,
+        }
+    }
+}
 
 /// A line of `props` through `points` added to `ax` without autoscaling
 /// (matplotlib's `ax.add_line(Line2D(...))`).
@@ -38,6 +85,10 @@ struct LassoTool {
 impl Tool for LassoTool {
     type Selection = Vec<(f64, f64)>;
 
+    fn artists(&self) -> Vec<RawHandle> {
+        vec![self.line.raw().clone()]
+    }
+
     fn show(&self, visible: bool) {
         self.line.set_visible(visible);
     }
@@ -47,11 +98,12 @@ impl Tool for LassoTool {
         self.line.set_visible(true);
     }
 
-    fn drag(&mut self, _core: &mut Core, event: &SelectorEvent) -> Option<Self::Selection> {
+    fn drag(&mut self, core: &mut Core, event: &SelectorEvent) -> Option<Self::Selection> {
         let verts = self.verts.as_mut()?;
         verts.push((event.xdata, event.ydata));
         let (x, y) = unzip(verts);
         self.line.set_data(&x, &y);
+        core.request_update();
         None
     }
 
@@ -77,11 +129,24 @@ pub struct LassoSelector {
 selector_methods!(LassoSelector);
 
 impl LassoSelector {
-    /// A lasso selector on `ax` drawing its curve with `props`, started by
-    /// `buttons` (all when `None`).
-    pub fn new(ax: &Axes, props: LineProps, buttons: Option<Vec<PointerButton>>) -> Self {
-        let line = add_line(ax, (Vec::new(), Vec::new()), props.clone().visible(false));
-        let core = Core::new(ax, buttons, ModifierKeys::default());
+    /// A lasso selector on `ax`.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::widgets::{LassoSelector, LassoSelectorOptions};
+    /// let ax = Figure::new().subplot();
+    /// let lasso = LassoSelector::new(&ax, LassoSelectorOptions::default());
+    /// lasso.on_select(|verts| println!("{} vertices", verts.len()));
+    /// assert!(lasso.useblit(), "matplotlib's default");
+    /// ```
+    pub fn new(ax: &Axes, options: LassoSelectorOptions) -> Self {
+        let line = add_line(ax, (Vec::new(), Vec::new()), options.props.visible(false));
+        let core = Core::new(
+            ax,
+            options.buttons,
+            ModifierKeys::default(),
+            options.useblit,
+        );
         Self {
             driver: Driver::new(core, LassoTool { line, verts: None }),
         }
@@ -107,7 +172,12 @@ impl LassoSelector {
 
     /// Changes the curve's look (matplotlib's `set_props`).
     pub fn set_props(&self, props: LineProps) -> &Self {
-        self.driver.shared.borrow().tool.line.update_props(props);
+        {
+            let shared = self.driver.shared.borrow();
+            shared.tool.line.update_props(props);
+            shared.core.request_blit();
+        }
+        super::blit::run_requested();
         self
     }
 }
@@ -120,6 +190,25 @@ struct LassoState {
     active: bool,
     /// The vertices, until the release.
     verts: Option<Vec<(f64, f64)>>,
+    /// The background of the axes saved when the lasso was made, when it
+    /// blits.
+    background: Option<BufferRegion>,
+}
+
+impl LassoState {
+    /// Shows the line as it now is (matplotlib's `Lasso.onmove`): drawn
+    /// over the saved background and blitted, or a full draw asked for.
+    fn show(&self) {
+        let canvas = self.ax.figure().canvas();
+        match &self.background {
+            Some(background) => {
+                canvas.report(canvas.restore_region(background));
+                canvas.report(self.ax.draw_artist(&self.line));
+                canvas.report(canvas.blit(Some(&self.ax.bbox())));
+            }
+            None => canvas.report(canvas.draw_idle()),
+        }
+    }
 }
 
 /// A one-shot free-hand curve started at a point, typically from a press
@@ -134,20 +223,26 @@ pub struct Lasso {
 }
 
 impl Lasso {
-    /// A lasso on `ax` starting at data point `xy`, drawn with `props` over
-    /// matplotlib's solid black line two points wide.
-    pub fn new(ax: &Axes, xy: (f64, f64), props: LineProps) -> Self {
+    /// A lasso on `ax` starting at data point `xy`; a blitting one saves
+    /// the background of `ax` now, before its line is drawn.
+    pub fn new(ax: &Axes, xy: (f64, f64), options: LassoOptions) -> Self {
+        let canvas = ax.figure().canvas();
+        let background = options
+            .useblit
+            .then(|| canvas.copy_from_bbox(&ax.bbox()))
+            .and_then(|saved| saved.map_err(|err| canvas.report(Err(err))).ok());
         let style = LineProps::default()
             .linestyle(LineStyle::Solid)
             .color("black")
             .linewidth(2.0)
-            .overlay(props.clone());
+            .overlay(options.props);
         let line = add_line(ax, (vec![xy.0], vec![xy.1]), style);
         let state = Rc::new(RefCell::new(LassoState {
             ax: ax.clone(),
             line,
             active: true,
             verts: Some(vec![xy]),
+            background,
         }));
         let selected = Observers::default();
         let mut connections = Connections::new(ax.figure());
@@ -183,18 +278,27 @@ impl Lasso {
                 let Event::Motion(mouse) = event else {
                     return;
                 };
-                let mut state = state.borrow_mut();
-                let location = &mouse.location;
-                let inside = state.ax.contains_point(Point::new(location.x, location.y));
-                if !state.active || mouse.button != Some(PointerButton::Left) || !inside {
-                    return;
-                }
-                let point = data_in(&state.ax, location);
-                let state = &mut *state;
-                if let (Some(verts), Some(p)) = (state.verts.as_mut(), point) {
-                    verts.push((p.x, p.y));
-                    let (x, y) = unzip(verts);
-                    state.line.set_data(&x, &y);
+                let moved = {
+                    let mut state = state.borrow_mut();
+                    let location = &mouse.location;
+                    let inside = state.ax.contains_point(Point::new(location.x, location.y));
+                    if !state.active || mouse.button != Some(PointerButton::Left) || !inside {
+                        return;
+                    }
+                    let point = data_in(&state.ax, location);
+                    let state = &mut *state;
+                    match (state.verts.as_mut(), point) {
+                        (Some(verts), Some(p)) => {
+                            verts.push((p.x, p.y));
+                            let (x, y) = unzip(verts);
+                            state.line.set_data(&x, &y);
+                            true
+                        }
+                        _ => false,
+                    }
+                };
+                if moved {
+                    state.borrow().show();
                 }
             });
         }
@@ -228,6 +332,13 @@ impl Lasso {
         self
     }
 
+    /// Whether each motion blits the curve over the background saved when
+    /// the lasso was made, rather than asking for a full draw
+    /// (matplotlib's `useblit`).
+    pub fn useblit(&self) -> bool {
+        self.state.borrow().background.is_some()
+    }
+
     /// The line showing the curve.
     pub fn line(&self) -> Line2D {
         self.state.borrow().line.clone()
@@ -249,11 +360,11 @@ mod tests {
         ax.set_xlim(0.0, 10.0)
             .and_then(|ax| ax.set_ylim(0.0, 10.0))
             .expect("finite limits");
-        let selector = LassoSelector::new(&ax, LineProps::default(), None);
+        let selector = LassoSelector::new(&ax, LassoSelectorOptions::default());
         let seen = Rc::new(RefCell::new(Vec::new()));
         let log = Rc::clone(&seen);
         selector.on_select(move |verts| log.borrow_mut().push(verts.len()));
-        let lasso = Lasso::new(&ax, (1.0, 1.0), LineProps::default());
+        let lasso = Lasso::new(&ax, (1.0, 1.0), LassoOptions::default());
         let log = Rc::clone(&seen);
         lasso.on_select(move |verts| log.borrow_mut().push(verts.len()));
         let mut source = EventSource::new();
@@ -274,7 +385,11 @@ mod tests {
     #[test]
     fn lasso_selectors_restyle_their_curve() {
         let ax = Figure::new().subplot();
-        let selector = LassoSelector::new(&ax, LineProps::default().color("b"), None);
+        let options = LassoSelectorOptions {
+            props: LineProps::default().color("b"),
+            ..LassoSelectorOptions::default()
+        };
+        let selector = LassoSelector::new(&ax, options);
         selector.set_props(LineProps::default().color("r").alpha(0.3));
         let line = selector.artist();
         assert_eq!(line.color(), "r".into());

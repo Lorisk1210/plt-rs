@@ -1,20 +1,23 @@
 //! The event protocol every selector shares (matplotlib's
 //! `_SelectorWidget`): which events a selector takes, how they are
-//! cleaned, and the modifier-key states.
+//! cleaned, the modifier-key states, and when it shows its changes
+//! (see [`blit`](super::blit)).
 
-use std::cell::RefCell;
+mod connected;
+
 use std::collections::HashSet;
-use std::rc::{Rc, Weak};
 
 use pltrs_core::Point;
 
+pub(super) use connected::Driver;
+
+use super::blit::Updater;
 use super::{ModifierKeys, SelectorError, SelectorEvent, SelectorState};
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::axes::Axes;
-use crate::events::{Event, EventKind, KeyEvent, Location, LockOwner, MouseEvent};
-use crate::figure::Figure;
+use crate::events::{KeyEvent, Location, LockOwner, MouseEvent};
 use crate::navigation::PointerButton;
-use crate::widgets::{CallbackId, Connections, Observers, data_in, ordered};
+use crate::widgets::{data_in, ordered};
 
 /// An event's pointer in the selector's axes, before cleaning (matplotlib's
 /// `_call_with_reparented_event`).
@@ -31,6 +34,8 @@ pub(super) struct Pointer {
 /// The state every selector has (matplotlib's `_SelectorWidget`
 /// attributes).
 #[derive(Debug)]
+// matplotlib's selector attributes, each a switch of its own.
+#[allow(clippy::struct_excessive_bools)]
 pub(super) struct Core {
     pub(super) ax: Axes,
     pub(super) active: bool,
@@ -49,11 +54,21 @@ pub(super) struct Core {
     pub(super) state: HashSet<SelectorState>,
     /// Identifies the selector to the figure's widget lock.
     owner: LockOwner,
+    /// Whether the selector blits its artists rather than asking for full
+    /// draws (matplotlib's `useblit`).
+    pub(super) useblit: bool,
+    /// Shows the selector's changes, once its state is let go.
+    updater: Updater,
 }
 
 impl Core {
-    /// The state of a new selector on `ax`.
-    pub(super) fn new(ax: &Axes, buttons: Option<Vec<PointerButton>>, keys: ModifierKeys) -> Self {
+    /// The state of a new selector on `ax`, blitting when `useblit` is set.
+    pub(super) fn new(
+        ax: &Axes,
+        buttons: Option<Vec<PointerButton>>,
+        keys: ModifierKeys,
+        useblit: bool,
+    ) -> Self {
         Self {
             ax: ax.clone(),
             active: true,
@@ -66,6 +81,22 @@ impl Core {
             prev_event: None,
             state: HashSet::new(),
             owner: LockOwner::new(),
+            useblit,
+            updater: Updater::none(),
+        }
+    }
+
+    /// Asks for the selector's changes to be shown, by blitting or a full
+    /// draw, once its state is let go (matplotlib's `update()`).
+    pub(super) fn request_update(&self) {
+        self.updater.request();
+    }
+
+    /// [`request_update`](Self::request_update) when blitting
+    /// (matplotlib's `if self.useblit: self.update()`).
+    pub(super) fn request_blit(&self) {
+        if self.useblit {
+            self.request_update();
         }
     }
 
@@ -180,6 +211,10 @@ pub(super) trait Tool: 'static {
     /// What a selection reports to the callbacks.
     type Selection: 'static;
 
+    /// The artists of the selector: the selection's, then the handles'
+    /// (matplotlib's `artists`).
+    fn artists(&self) -> Vec<RawHandle>;
+
     /// Shows or hides every artist of the selector.
     fn show(&self, visible: bool);
 
@@ -234,6 +269,12 @@ impl<T: Tool> Shared<T> {
     /// Removes the selection (matplotlib's `clear`).
     pub(super) fn clear(&mut self) {
         self.tool.clear(&mut self.core);
+        self.core.request_update();
+    }
+
+    /// The selector's axes and artists, for showing its changes.
+    fn scene(&self) -> (Axes, Vec<RawHandle>) {
+        (self.core.ax.clone(), self.tool.artists())
     }
 
     fn pointer(&self, event: &MouseEvent) -> Pointer {
@@ -341,147 +382,4 @@ impl<T: Tool> Shared<T> {
             .reparent(&event.location, None, Some(event.key.clone()));
         self.tool.key_release(&mut self.core, &pointer);
     }
-}
-
-/// A selector connected to its figure: the shared state, the callbacks
-/// and the event connections.
-pub(super) struct Driver<T: Tool> {
-    pub(super) shared: Rc<RefCell<Shared<T>>>,
-    /// Called with each completed selection (matplotlib's `onselect`).
-    pub(super) selected: Observers<T::Selection>,
-    /// Called while a selection changes (matplotlib's `onmove_callback`).
-    pub(super) moved: Observers<T::Selection>,
-    /// The connections to the events of the selector's figure.
-    connections: RefCell<Connections>,
-}
-
-impl<T: Tool + std::fmt::Debug> std::fmt::Debug for Driver<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Driver")
-            .field("shared", &self.shared)
-            .finish_non_exhaustive()
-    }
-}
-
-impl<T: Tool> Driver<T> {
-    /// Disconnects callback `id` from either signal; returns whether it
-    /// was connected.
-    pub(super) fn disconnect(&self, id: CallbackId) -> bool {
-        self.selected.disconnect(id) || self.moved.disconnect(id)
-    }
-
-    /// Connects a selector made of `core` and `tool` to the figure's
-    /// mouse and key events.
-    pub(super) fn new(core: Core, tool: T) -> Self {
-        let figure = core.ax.figure();
-        let shared = Rc::new(RefCell::new(Shared { core, tool }));
-        let selected = Observers::default();
-        let moved = Observers::default();
-        let connections = RefCell::new(connect_events(figure, &shared, &selected, &moved));
-        Self {
-            shared,
-            selected,
-            moved,
-            connections,
-        }
-    }
-
-    /// Makes the selector work in `ax` from now on, taking the events of
-    /// its figure (the event routing of matplotlib's `new_axes`, which
-    /// connects to the canvas of the new axes when it is another).
-    pub(super) fn move_to(&self, ax: &Axes) {
-        self.shared.borrow_mut().core.ax = ax.clone();
-        let figure = ax.figure();
-        if *self.connections.borrow().figure() != figure {
-            let connections = connect_events(figure, &self.shared, &self.selected, &self.moved);
-            // The old connections end as they are dropped.
-            drop(self.connections.replace(connections));
-        }
-    }
-}
-
-/// Connects the selector behind `shared` to the mouse and key events of
-/// `figure`, its selections reported to `selected` and `moved`.
-fn connect_events<T: Tool>(
-    figure: Figure,
-    shared: &Rc<RefCell<Shared<T>>>,
-    selected: &Observers<T::Selection>,
-    moved: &Observers<T::Selection>,
-) -> Connections {
-    let mut connections = Connections::new(figure);
-    let weak = || Rc::downgrade(shared);
-    connect(
-        &mut connections,
-        EventKind::ButtonPress,
-        weak(),
-        |shared, event| {
-            if let Event::ButtonPress(mouse) = event {
-                shared.borrow_mut().press(mouse);
-            }
-        },
-    );
-    let observers = selected.clone();
-    connect(
-        &mut connections,
-        EventKind::ButtonRelease,
-        weak(),
-        move |shared, event| {
-            if let Event::ButtonRelease(mouse) = event {
-                let selection = shared.borrow_mut().release(mouse);
-                if let Some(selection) = selection {
-                    observers.process(&selection);
-                }
-            }
-        },
-    );
-    let observers = moved.clone();
-    connect(
-        &mut connections,
-        EventKind::Motion,
-        weak(),
-        move |shared, event| {
-            if let Event::Motion(mouse) = event {
-                let selection = shared.borrow_mut().motion(mouse);
-                if let Some(selection) = selection {
-                    observers.process(&selection);
-                }
-            }
-        },
-    );
-    connect(
-        &mut connections,
-        EventKind::KeyPress,
-        weak(),
-        |shared, event| {
-            if let Event::KeyPress(key) = event {
-                shared.borrow_mut().key_press(key);
-            }
-        },
-    );
-    connect(
-        &mut connections,
-        EventKind::KeyRelease,
-        weak(),
-        |shared, event| {
-            if let Event::KeyRelease(key) = event {
-                shared.borrow_mut().key_release(key);
-            }
-        },
-    );
-    connections
-}
-
-/// Connects `handler` for events of `kind`, for as long as the selector
-/// behind `shared` lives.
-fn connect<T: Tool>(
-    connections: &mut Connections,
-    kind: EventKind,
-    shared: Weak<RefCell<Shared<T>>>,
-    handler: impl Fn(&RefCell<Shared<T>>, &Event) + 'static,
-) {
-    connections.connect(kind, move |event| {
-        if let Some(shared) = shared.upgrade() {
-            handler(&shared, event);
-        }
-    });
 }

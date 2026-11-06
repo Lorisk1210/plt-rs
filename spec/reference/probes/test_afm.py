@@ -1,5 +1,6 @@
 """Adobe Font Metrics: matplotlib's AFM parser and the text measurements of
-the PDF backend's 14 core fonts.
+the PDF backend's 14 core fonts and of the PostScript backend's standard
+fonts.
 
 Area ``afm`` (golden ``spec/goldens/probes/afm.json``).
 
@@ -11,7 +12,9 @@ Environment every op assumes
   ``spec_support.fonts.bundled_fonts_only``), so the AFM font list is the 61
   files of ``mpl-data/fonts/{afm,pdfcorefonts}``.
 * ``file`` args name a file of ``mpl-data/fonts/pdfcorefonts`` (the 14 PDF
-  core fonts), parsed with ``matplotlib._afm.AFM``.
+  core fonts) or of ``mpl-data/fonts/afm`` (the 35 standard PostScript
+  fonts, Helvetica Light, Utopia and Computer Modern; no name is in both),
+  parsed with ``matplotlib._afm.AFM``.
 
 Shared argument encodings
 =========================
@@ -68,6 +71,11 @@ font's ``get_str_bbox_and_descent`` scaled by ``size / 1000``.
 The same renderer's ``[ascent, descent, line_gap]`` (``ascender * size /
 1000``, ``-descender * size / 1000``, a fifth of their sum); ``KeyError``
 for fonts without an ascender (Symbol, ZapfDingbats).
+
+``backend_ps.RendererPS.get_text_width_height_descent`` -- args ``{s,
+font?}``, and ``backend_ps.RendererPS._get_font_height_metrics`` -- args
+``{font?}``: the same with ``ps.useafm = True`` for ``RendererPS(6.4, 4.8,
+None)``, whose AFM fonts are those of ``mpl-data/fonts/afm``.
 """
 
 from __future__ import annotations
@@ -81,6 +89,7 @@ from matplotlib import cbook
 from matplotlib import font_manager
 from matplotlib._afm import AFM
 from matplotlib.backends.backend_pdf import PdfFile, RendererPdf
+from matplotlib.backends.backend_ps import RendererPS
 from matplotlib.font_manager import FontProperties
 
 from spec_support import ProbeSet
@@ -94,6 +103,8 @@ pytestmark = pytest.mark.filterwarnings("ignore::UserWarning")
 FONT_KEYS = ("family", "style", "weight", "stretch", "size")
 CORE_FILES = sorted(
     f for f in os.listdir(cbook._get_data_path("fonts", "pdfcorefonts")) if f.endswith(".afm"))
+PS_FILES = sorted(
+    f for f in os.listdir(cbook._get_data_path("fonts", "afm")) if f.endswith(".afm"))
 GETTERS = [
     "get_fontname", "get_fullname", "get_familyname", "get_weight", "get_angle",
     "get_ascender", "get_descender", "get_capheight", "get_xheight",
@@ -109,7 +120,8 @@ def _bundled_fonts_only():
 
 
 def _afm(file):
-    with open(cbook._get_data_path("fonts", "pdfcorefonts", file), "rb") as fh:
+    directory = "pdfcorefonts" if file in CORE_FILES else "afm"
+    with open(cbook._get_data_path("fonts", directory, file), "rb") as fh:
         return AFM(fh)
 
 
@@ -193,6 +205,17 @@ def _pdf_height_metrics(font=None):
         return list(_pdf_renderer()._get_font_height_metrics(_font(font)))
 
 
+def _ps_whd(s, font=None):
+    with matplotlib.rc_context({"ps.useafm": True}):
+        return list(RendererPS(6.4, 4.8, None).get_text_width_height_descent(
+            s, _font(font), False))
+
+
+def _ps_height_metrics(font=None):
+    with matplotlib.rc_context({"ps.useafm": True}):
+        return list(RendererPS(6.4, 4.8, None)._get_font_height_metrics(_font(font)))
+
+
 STRINGS = [
     "", " ", "AVATAR", "Toyota", "WAVE", "Hg", "fi fl", "café naïve",
     "Ångström ±½×©", "− 1.5", "€–“”",
@@ -212,20 +235,21 @@ FONTS = [
 
 
 def test_headers():
-    for file in CORE_FILES:
+    for file in CORE_FILES + PS_FILES:
         for getter in GETTERS:
             probes.probe("_afm.AFM.header", _header, file=file, getter=getter)
 
 
 def test_string_extents():
-    for file in CORE_FILES:
+    for file in CORE_FILES + PS_FILES:
         for s in STRINGS:
             probes.probe("_afm.AFM.get_str_bbox_and_descent", _str_bbox, file=file, s=s)
 
 
 def test_character_queries():
     for file in ["Helvetica.afm", "Times-Roman.afm", "Courier.afm", "Symbol.afm",
-                 "ZapfDingbats.afm"]:
+                 "ZapfDingbats.afm", "phvr8a.afm", "pncr8a.afm", "pplri8a.afm",
+                 "psyr.afm", "pzdr.afm", "cmr10.afm", "cmsy10.afm", "putr8a.afm"]:
         for code in [32, 63, 65, 128, 233, 0x2212, 300, -1]:
             probes.probe("_afm.AFM.get_width_char", _width_char, file=file, code=code)
             probes.probe("_afm.AFM.get_glyph_name", _glyph_name, file=file, code=code)
@@ -297,4 +321,22 @@ def test_pdf_core_font_metrics():
                      font=font)
         for s in STRINGS:
             probes.probe("backend_pdf.RendererPdf.get_text_width_height_descent", _pdf_whd,
+                         s=s, font=font)
+
+
+PS_FONTS = FONTS + [
+    {"family": "Palatino", "weight": "bold", "style": "italic"},
+    {"family": "ITC Bookman", "weight": "light"},
+    {"family": "Helvetica", "stretch": "condensed", "size": 9},
+    {"family": "ITC Zapf Chancery", "size": 14},
+    {"family": "Utopia", "weight": "bold"},
+]
+
+
+def test_ps_font_metrics():
+    for font in PS_FONTS:
+        probes.probe("backend_ps.RendererPS._get_font_height_metrics", _ps_height_metrics,
+                     font=font)
+        for s in STRINGS:
+            probes.probe("backend_ps.RendererPS.get_text_width_height_descent", _ps_whd,
                          s=s, font=font)

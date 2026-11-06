@@ -335,7 +335,7 @@ pub fn measure_line_ps(
 ) -> Result<LineMetrics, TextError> {
     let afm = crate::rc::params()
         .ps_useafm
-        .then_some(AfmDirectory::PdfCore);
+        .then_some(AfmDirectory::PostScript);
     super::metrics::with_afm_metrics(afm, || measure_line(line, font, kind, dpi))
 }
 

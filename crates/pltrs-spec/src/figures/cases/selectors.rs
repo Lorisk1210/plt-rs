@@ -7,9 +7,9 @@ use pltrs::navigation::PointerButton;
 use pltrs::patches::PatchProps;
 use pltrs::prelude::*;
 use pltrs::widgets::{
-    Cursor, CursorOptions, EllipseSelector, Lasso, LassoSelector, MultiCursor, Orientation,
-    PolygonSelector, PolygonSelectorOptions, RectangleSelector, RectangleSelectorOptions,
-    SelectorUnits, SpanSelector, SpanSelectorOptions,
+    Cursor, CursorOptions, EllipseSelector, Lasso, LassoOptions, LassoSelector,
+    LassoSelectorOptions, MultiCursor, Orientation, PolygonSelector, PolygonSelectorOptions,
+    RectangleSelector, RectangleSelectorOptions, SelectorUnits, SpanSelector, SpanSelectorOptions,
 };
 
 use crate::figures::{CaseResult, FigureCase};
@@ -281,14 +281,22 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     FigureCase::new("selectors/lasso", |fig| {
         let (left, right) = pair(fig)?;
-        let props = LineProps::default().color("m").linewidth(2.0);
-        let _selector = LassoSelector::new(&left, props, None);
+        let options = LassoSelectorOptions {
+            props: LineProps::default().color("m").linewidth(2.0),
+            useblit: false,
+            ..LassoSelectorOptions::default()
+        };
+        let _selector = LassoSelector::new(&left, options);
         let path = lasso_loop();
         press(&left, path[0], PointerButton::Left)?;
         for &xy in &path[1..] {
             motion(&left, xy, Some(PointerButton::Left))?;
         }
-        let _lasso = Lasso::new(&right, (5.0, 0.0), LineProps::default().color("tab:red"));
+        let options = LassoOptions {
+            props: LineProps::default().color("tab:red"),
+            useblit: false,
+        };
+        let _lasso = Lasso::new(&right, (5.0, 0.0), options);
         for xy in [(6.0, 0.5), (7.0, 0.2), (6.5, -0.6), (5.5, -0.4)] {
             motion(&right, xy, Some(PointerButton::Left))?;
         }

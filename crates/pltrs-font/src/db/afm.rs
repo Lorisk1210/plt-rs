@@ -10,16 +10,31 @@ use crate::db::score;
 use crate::error::{FontError, Result};
 
 /// The directory of matplotlib's data an AFM file lives in, which its PDF
-/// and PostScript backends restrict their font lookups to.
+/// and PostScript backends restrict their font lookups to. pltrs bundles
+/// the files of both.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum AfmDirectory {
     /// `fonts/pdfcorefonts`: the 14 PDF core fonts (Courier, Helvetica,
-    /// Times, Symbol and `ZapfDingbats`), whose metrics pltrs bundles.
+    /// Times, Symbol and `ZapfDingbats`), the PDF backend's
+    /// (`pdf.use14corefonts`).
     PdfCore,
     /// `fonts/afm`: the 35 standard PostScript fonts, Helvetica Light,
-    /// Utopia and Computer Modern. Their files are catalogued but not
-    /// bundled: their notices do not permit redistribution.
+    /// Utopia and Computer Modern, the PostScript backend's (`ps.useafm`).
     PostScript,
+}
+
+impl AfmDirectory {
+    /// Both directories, in matplotlib's catalogue order.
+    pub const ALL: [Self; 2] = [Self::PdfCore, Self::PostScript];
+
+    /// The directory's name within matplotlib's `fonts` directory:
+    /// `"pdfcorefonts"` or `"afm"`.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::PdfCore => "pdfcorefonts",
+            Self::PostScript => "afm",
+        }
+    }
 }
 
 /// One AFM font, described as matplotlib's `afmFontProperty` reads it from
@@ -55,12 +70,22 @@ impl AfmFont {
         self.weight.parse().unwrap_or(Weight::NORMAL)
     }
 
-    /// The font's metrics.
+    /// The catalogued font of the metrics file `file`, if any.
+    pub fn named(file: &str) -> Option<&'static Self> {
+        AFM_FONTS.iter().find(|font| font.file == file)
+    }
+
+    /// The path of the metrics file within matplotlib's `fonts` directory
+    /// (`afm/pagd8a.afm`, `pdfcorefonts/Courier.afm`).
+    pub fn relative_path(&self) -> String {
+        format!("{}/{}", self.directory.name(), self.file)
+    }
+
+    /// The font's metrics, parsed from the bundled file.
     ///
     /// # Errors
     ///
-    /// When the metrics file is not bundled (the fonts of
-    /// [`AfmDirectory::PostScript`]).
+    /// Never for the catalogued fonts, whose files are bundled and parse.
     pub fn metrics(&self) -> Result<&'static AfmMetrics, AfmError> {
         bundled_metrics(self.file)
     }
@@ -281,23 +306,72 @@ mod tests {
     }
 
     #[test]
-    fn only_core_fonts_have_metrics() {
-        let core = AfmFont::find_in(
-            &FontQuery::families(["Courier"]),
-            &GenericFamilies::default(),
-            AfmDirectory::PdfCore,
-        )
-        .expect("a core font");
+    fn every_font_has_metrics() {
+        for directory in AfmDirectory::ALL {
+            let courier = AfmFont::find_in(
+                &FontQuery::families(["Courier"]),
+                &GenericFamilies::default(),
+                directory,
+            )
+            .expect("a Courier in each directory");
+            assert_eq!(
+                courier.metrics().and_then(AfmMetrics::font_name),
+                Ok("Courier")
+            );
+        }
+        let base35 = AfmFont::named("pcrr8a.afm").expect("catalogued");
+        assert_eq!(base35.relative_path(), "afm/pcrr8a.afm");
         assert_eq!(
-            core.metrics().and_then(AfmMetrics::font_name),
-            Ok("Courier")
+            AfmFont::named("Courier.afm").map(AfmFont::relative_path),
+            Some("pdfcorefonts/Courier.afm".to_owned())
         );
-        let base35 = find_in(&FontQuery::families(["Courier"]), AfmDirectory::PostScript);
-        assert_eq!(base35, "pcrr8a.afm");
-        assert!(
-            AfmFont::all()
-                .iter()
-                .all(|font| font.metrics().is_ok() == (font.directory == AfmDirectory::PdfCore))
-        );
+        assert!(AfmFont::named("DejaVuSans.ttf").is_none());
+        assert!(AfmFont::all().iter().all(|font| font.metrics().is_ok()));
+    }
+
+    /// The entry matplotlib's `afmFontProperty` makes of `metrics`:
+    /// family name, style, weight keyword and stretch.
+    fn afm_font_property(metrics: &AfmMetrics) -> (&str, FontStyle, String, Stretch) {
+        let name = metrics.family_name().expect("named");
+        let font_name = metrics.font_name().expect("named").to_lowercase();
+        let lower = name.to_lowercase();
+        let style = if metrics.angle().unwrap_or(0.0) != 0.0 || lower.contains("italic") {
+            FontStyle::Italic
+        } else if lower.contains("oblique") {
+            FontStyle::Oblique
+        } else {
+            FontStyle::Normal
+        };
+        let mut weight = metrics.weight().expect("weighted").to_lowercase();
+        if weight.parse::<Weight>().is_err() {
+            weight = "normal".to_owned();
+        }
+        let stretch = if font_name.contains("demi cond") {
+            Stretch::SEMI_CONDENSED
+        } else if ["narrow", "cond"].iter().any(|w| font_name.contains(w)) {
+            Stretch::CONDENSED
+        } else if ["wide", "expanded", "extended"]
+            .iter()
+            .any(|w| font_name.contains(w))
+        {
+            Stretch::EXPANDED
+        } else {
+            Stretch::NORMAL
+        };
+        (name, style, weight, stretch)
+    }
+
+    /// The catalogue is what matplotlib reads from the bundled files.
+    #[test]
+    fn the_catalogue_describes_the_bundled_files() {
+        for font in AfmFont::all() {
+            let metrics = font.metrics().expect("bundled");
+            assert_eq!(
+                afm_font_property(metrics),
+                (font.name, font.style, font.weight.to_owned(), font.stretch),
+                "{}",
+                font.file
+            );
+        }
     }
 }

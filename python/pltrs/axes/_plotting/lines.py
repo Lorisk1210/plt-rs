@@ -816,7 +816,7 @@ class LinesMixin:
         native = _plotting.segments(
             self._native, vertical,
             tuple(floats(np.ravel(v)) for v in (positions, low, high)),
-            _live_transforms.given_to_native(transform))
+            _live_transforms.given_to_native(transform, self))
         lines = wrap(self, native, mcoll.LineCollection)
         if transform is not None:
             lines.set_transform(transform)

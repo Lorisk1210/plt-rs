@@ -13,13 +13,16 @@
 //! * the source trees of the libraries at the versions the list pins, in
 //!   `target/refs/<name>-dl/<name>-<version>`: their sdists, or the
 //!   source archives of the releases' tags where the sdists ship no
-//!   tests (mplfinance, matplotlib-venn), with the files of the release's
-//!   source tree their suites read that the sdists leave out (pandas'
-//!   iris data, geopandas' maps), which `python/ecosystem/fetch.py`
+//!   tests (mplfinance, matplotlib-venn, arviz-plots), with the files of
+//!   the release's source tree their suites read that the sdists leave
+//!   out (pandas' iris data, geopandas' maps), which `python/ecosystem/fetch.py`
 //!   downloads (from `PyPI`, and from the repository at the release's
 //!   tag) when they are missing, checking their SHA-256;
+//! * the data the libraries' tests read that is in neither (cartopy's
+//!   Natural Earth maps, shap's datasets), checked by SHA-256 (`data`);
 //! * the baselines of the image comparisons whose own are for another
-//!   version of matplotlib (plotnine's, astropy's, mplfinance's), made in
+//!   version of matplotlib (plotnine's, astropy's, mplfinance's,
+//!   nilearn's, mpl-scatter-density's) or missing (missingno's), made in
 //!   the reference venv (`baselines`).
 
 use std::fs;
@@ -27,7 +30,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::baselines;
-use super::libraries::{LIBRARIES, Library, Source};
+use super::data;
+use super::libraries::{self, Library, Source};
 use crate::python::{self, make_venv};
 
 /// The pinned list of both venvs.
@@ -59,10 +63,11 @@ pub(super) fn run() -> Result<(), String> {
         &[REQUIREMENTS, REFERENCE_REQUIREMENTS],
     ))?;
 
-    for library in LIBRARIES {
+    for library in libraries::all() {
         fetch(&python, &library)?;
+        data::fetch(&python, &library)?;
     }
-    for library in LIBRARIES {
+    for library in libraries::all() {
         baselines::make(&library, &super::reference_venv())?;
     }
     println!(
@@ -158,7 +163,7 @@ mod tests {
 
     #[test]
     fn the_libraries_are_pinned() {
-        for library in LIBRARIES {
+        for library in libraries::all() {
             assert!(pinned(library.name).is_ok(), "{}", library.name);
         }
     }

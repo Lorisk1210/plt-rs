@@ -31,6 +31,32 @@ impl DataLimits {
         minpos: Point::new(f64::INFINITY, f64::INFINITY),
     };
 
+    /// Forgets the limits along x when `x` and along y when `y`, which the
+    /// next points then set (matplotlib's `Bbox.update_from_path` with
+    /// `ignore`).
+    ///
+    /// ```
+    /// use pltrs_core::path::DataLimits;
+    /// use pltrs_core::Point;
+    /// let mut limits = DataLimits::NULL;
+    /// limits.update_from_points(&[Point::new(-180.0, -90.0), Point::new(180.0, 90.0)], true, true);
+    /// limits.forget(true, false);
+    /// limits.update_from_points(&[Point::new(1.0, 2.0), Point::new(3.0, 4.0)], true, true);
+    /// assert_eq!((limits.bbox.x0(), limits.bbox.x1()), (1.0, 3.0));
+    /// assert_eq!((limits.bbox.y0(), limits.bbox.y1()), (-90.0, 90.0));
+    /// ```
+    pub fn forget(&mut self, x: bool, y: bool) {
+        let null = Self::NULL;
+        if x {
+            (self.bbox.p0.x, self.bbox.p1.x) = (null.bbox.p0.x, null.bbox.p1.x);
+            self.minpos.x = null.minpos.x;
+        }
+        if y {
+            (self.bbox.p0.y, self.bbox.p1.y) = (null.bbox.p0.y, null.bbox.p1.y);
+            self.minpos.y = null.minpos.y;
+        }
+    }
+
     /// Grows the limits to include `p` (C++ `update_limits`).
     fn include(&mut self, p: Point) {
         let (b, m) = (&mut self.bbox, &mut self.minpos);

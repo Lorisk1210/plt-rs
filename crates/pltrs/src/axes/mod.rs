@@ -465,6 +465,31 @@ impl Axes {
         self.raw.with::<AxesState, _>(|a| a.view_lim)
     }
 
+    /// Which axes, `(x, y)`, wait to be rescaled at the next layout (or
+    /// the next reading of the view), which then no longer wait: what
+    /// matplotlib's `_unstale_viewLim` takes to call `autoscale_view`
+    /// along them, which an Axes class of the program's overrides
+    /// (cartopy's `GeoAxes` keeps the view within its map).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert_eq!(ax.take_stale_autoscale(), (false, false));
+    /// ax.plot([0.0, 10.0], [0.0, 5.0])?;
+    /// assert_eq!(ax.take_stale_autoscale(), (true, true));
+    /// assert_eq!(ax.take_stale_autoscale(), (false, false));
+    /// assert_eq!(ax.xlim(), (0.0, 1.0), "left as it was");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn take_stale_autoscale(&self) -> (bool, bool) {
+        let [x, y] = self
+            .raw
+            .figure_state()
+            .borrow_mut()
+            .take_stale_axes(self.id());
+        (x, y)
+    }
+
     /// Applies pending autoscaling to the view limits, then runs the limit
     /// callbacks it queued; a view that is up to date is left untouched
     /// (and the figure unborrowed for change).

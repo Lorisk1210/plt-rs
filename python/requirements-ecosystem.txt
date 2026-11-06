@@ -25,6 +25,16 @@ plotnine==0.15.9
 astropy==8.0.2
 mplfinance==0.12.10b0
 matplotlib-venn==1.1.2
+mpl-scatter-density==0.8
+cartopy==0.26.0
+sympy==1.14.0
+shap==0.54.1
+nilearn==0.14.1
+missingno==0.5.2
+# arviz's plots, and the parts of arviz they plot the results of:
+arviz-plots==1.3.2
+arviz-base==1.3.1
+arviz-stats==1.3.3
 # What the libraries' plotting tests use where it is installed. geopandas:
 # shapely and pyproj (its geometries and their reference systems), pyogrio
 # (reading its test data) and mapclassify (the `scheme=` legends); xarray:
@@ -44,6 +54,13 @@ scikit-misc==0.5.3
 adjustText==1.4.0
 pytest-mpl==0.19.0
 contourpy==1.4.0
+# mpl-scatter-density: fast-histogram (its histograms); cartopy: pyshp
+# (reading Natural Earth's shapefiles); nilearn: nibabel (its images) and
+# lxml (its tests reading its HTML reports).
+fast-histogram==0.14
+pyshp==3.1.6
+nibabel==5.4.2
+lxml==6.1.3
 # What running the tests needs. tzdata: the time zones pandas' conftest
 # names, such as `US/Pacific`, which a system's own database may lack.
 # pytest 8 rather than 9: seaborn 0.13.2's `tests/test_base.py` marks its

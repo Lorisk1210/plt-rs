@@ -273,6 +273,7 @@ impl FromPy<'_> for BoxKwargs {
                 "antialiased" => patch.antialiased = Some(value.extract()?),
                 "alpha" => patch.base.alpha = value.extract()?,
                 "zorder" => patch.base.zorder = Some(value.extract()?),
+                "visible" => patch.base.visible = Some(value.extract()?),
                 _ => {
                     return Err(PyErr::new(
                         ExceptionKind::AttributeError,

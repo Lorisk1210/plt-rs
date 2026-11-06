@@ -82,11 +82,14 @@ pub(super) fn pcolor(
     .map_err(mesh_error)
 }
 
-/// The mesh painted in the RGBA `colors` (an `(M, N, 4)` array) at the
-/// optional coordinates `x` and `y` (matplotlib's `pcolormesh` of an RGB
-/// or RGBA array), shaded and placed as [`pcolor`] is.
-pub(super) fn pcolormesh_rgba(
+/// The mesh painted in the RGBA `colors` (an `(M, N, 4)` array, NaN where
+/// masked) at the optional coordinates `x` and `y`, one quadrilateral per
+/// cell left unmasked with `polygons` (matplotlib's `pcolor` of an RGB or
+/// RGBA array), else one mesh (its `pcolormesh`), shaded and placed as
+/// [`pcolor`] is.
+pub(super) fn pcolor_rgba(
     axes: Axes,
+    polygons: bool,
     colors: NdArray,
     (x, y): (Option<NdArray>, Option<NdArray>),
     (shading, transform): (Option<String>, Option<Transform>),
@@ -115,5 +118,10 @@ pub(super) fn pcolormesh_rgba(
         ..PcolorOptions::default()
     };
     options.props.base.transform = transform;
-    axes.pcolormesh_rgba(mesh, options).map_err(mesh_error)
+    if polygons {
+        axes.pcolor_rgba(mesh, options)
+    } else {
+        axes.pcolormesh_rgba(mesh, options)
+    }
+    .map_err(mesh_error)
 }

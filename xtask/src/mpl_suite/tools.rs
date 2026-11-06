@@ -56,14 +56,21 @@ fn parse_environment(text: &str) -> Result<Vec<(String, OsString)>, String> {
         .collect()
 }
 
-/// Prints what a run with `environment` lacks, and what skips for it.
-pub(crate) fn report_missing(environment: &[(String, OsString)]) {
+/// The programs the suite runs that are not on `PATH`, with what skips
+/// without each.
+pub(crate) fn missing_programs() -> Vec<(&'static str, &'static str)> {
     let path = env::var_os("PATH").unwrap_or_default();
     let dirs: Vec<PathBuf> = env::split_paths(&path).collect();
-    for (program, needs) in PROGRAMS {
-        if !on_path(&dirs, program) {
-            println!("no {program} on PATH: {needs} skip");
-        }
+    PROGRAMS
+        .into_iter()
+        .filter(|(program, _)| !on_path(&dirs, program))
+        .collect()
+}
+
+/// Prints what a run with `environment` lacks, and what skips for it.
+pub(crate) fn report_missing(environment: &[(String, OsString)]) {
+    for (program, needs) in missing_programs() {
+        println!("no {program} on PATH: {needs} skip");
     }
     if environment.is_empty() {
         println!(

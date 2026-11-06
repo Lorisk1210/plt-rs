@@ -31,6 +31,7 @@ from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from ._figure_frame import FrameMixin
 from ._figure_interaction import InteractionMixin, RootFigureMixin
+from ._axes_stack import _AxesStack
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
@@ -192,6 +193,12 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             axes3d = get_projection_class("3d")
         return [_handles.wrap(native, axes3d if is_3d else Axes, self.figure)
                 for native, is_3d in listed]
+
+    @property
+    def _axstack(self):
+        """matplotlib's register of the Axes of the figure and of its
+        current one, a subfigure's its figure's (see `._axes_stack`)."""
+        return _AxesStack(self.get_figure(root=True))
 
     @property
     def _localaxes(self):

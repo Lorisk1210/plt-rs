@@ -7,8 +7,9 @@ use std::any::Any;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use pltrs_core::Point;
+use pltrs_core::{Bbox, Point};
 
+use super::state::NextData;
 use super::{Axes, AxesState, DataLimits};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, LimitPoints, RawHandle};
 use crate::axisartist::AxisArtistState;
@@ -363,6 +364,11 @@ impl Axes {
             }
         }
         if let Some(axes) = state.artist_as_mut::<AxesState>(axes) {
+            axes.next_data = if limits.bbox == Bbox::NULL {
+                NextData::Replaces
+            } else {
+                NextData::Extends
+            };
             axes.data_lim = limits;
         }
         self
@@ -380,14 +386,59 @@ impl Axes {
     }
 
     /// Applies `update` to the data limits and autoscaling state
-    /// (matplotlib's `update_datalim` plus `_request_autoscale_view`).
+    /// (matplotlib's `update_datalim` plus `_request_autoscale_view`):
+    /// finite points replace the limits along the directions updated
+    /// while the axes ignores its existing ones, and extend them after.
     pub(crate) fn update_data(&self, update: &DataUpdate) {
         self.raw().with_mut::<AxesState, _>(|axes| {
             let (x, y) = update.update;
-            axes.data_lim.update_from_points(&update.points, x, y);
+            if update
+                .points
+                .iter()
+                .any(|point| point.x.is_finite() || point.y.is_finite())
+            {
+                if axes.next_data == NextData::Replaces {
+                    axes.data_lim.forget(x, y);
+                    axes.next_data = NextData::Extends;
+                }
+                axes.data_lim.update_from_points(&update.points, x, y);
+            }
             let (x, y) = update.autoscale;
             axes.request_autoscale(x, y);
         });
+    }
+
+    /// Whether the next data added replaces the data limits rather than
+    /// extending them (matplotlib's `ignore_existing_data_limits`): so
+    /// once the axes is made or cleared, until data is added.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.ignores_data_limits());
+    /// ax.xaxis().set_data_interval(-180.0, 180.0, true);
+    /// assert!(ax.ignores_data_limits(), "limits set directly");
+    /// ax.plot([0.0, 10.0], [0.0, 5.0])?;
+    /// assert!(!ax.ignores_data_limits());
+    /// assert_eq!(ax.xaxis().data_interval(), (0.0, 10.0), "replaced");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn ignores_data_limits(&self) -> bool {
+        self.raw()
+            .with::<AxesState, _>(|axes| axes.next_data == NextData::Replaces)
+    }
+
+    /// Sets whether the next data added replaces the data limits
+    /// ([`Axes::ignores_data_limits`]).
+    pub fn set_ignores_data_limits(&self, ignore: bool) -> &Self {
+        let next = if ignore {
+            NextData::Replaces
+        } else {
+            NextData::Extends
+        };
+        self.raw()
+            .with_mut::<AxesState, _>(|axes| axes.next_data = next);
+        self
     }
 }
 

@@ -2,7 +2,7 @@
 //! (matplotlib's `QuadContourSet._contour_args`, `_check_xyz` and
 //! `_initialize_x_y`).
 
-use pltrs_core::{Affine2D, Point};
+use pltrs_core::Point;
 
 use super::quad::GridCoordinates;
 use super::set::{ContourSource, ContourWarning};
@@ -10,6 +10,7 @@ use super::{ContourAlgorithm, ContourError, QuadContourGenerator};
 use crate::image::Origin;
 use crate::numeric::{Grid, linspace, meshgrid};
 use crate::rc::RcParams;
+use crate::transforms::ResolvedTransform;
 
 /// Where the pixel centres of an image-like grid start (matplotlib's
 /// `origin`).
@@ -140,7 +141,7 @@ impl QuadField {
         &self,
         logscale: bool,
         rc: &RcParams,
-        to_data: Option<&Affine2D>,
+        to_data: Option<&ResolvedTransform>,
     ) -> Result<ContourSource<QuadContourGenerator>, ContourError> {
         let (rows, cols) = self.z.shape();
         if rows < 2 || cols < 2 {
@@ -336,11 +337,18 @@ fn np_max(a: f64, b: f64) -> f64 {
 }
 
 /// The corners of the bounding box of the grid `points`, mapped by
-/// `to_data` first (matplotlib's `_mins` and `_maxs`): numpy's `min` and
-/// `max` of each coordinate, reduced in one pass.
-fn data_lim(points: impl Iterator<Item = Point>, to_data: Option<&Affine2D>) -> (Point, Point) {
+/// `to_data` first, all at once (matplotlib's `_mins` and `_maxs`):
+/// numpy's `min` and `max` of each coordinate, reduced in one pass.
+fn data_lim(
+    points: impl Iterator<Item = Point>,
+    to_data: Option<&ResolvedTransform>,
+) -> (Point, Point) {
     match to_data {
-        Some(to_data) => extent(points.map(|p| to_data.transform_point(p))),
+        Some(to_data) => {
+            let mut points: Vec<Point> = points.collect();
+            to_data.transform_points(&mut points);
+            extent(points.into_iter())
+        }
         None => extent(points),
     }
 }

@@ -80,6 +80,7 @@ class LimitsMixin:
         The x-axis may be inverted, in which case the *left* value will
         be greater than the *right* value.
         """
+        self._unstale_by_program()
         return _values.float64s(_axes.get_xlim(self._native))
 
     def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
@@ -171,6 +172,7 @@ class LimitsMixin:
         The y-axis may be inverted, in which case the *bottom* value
         will be greater than the *top* value.
         """
+        self._unstale_by_program()
         return _values.float64s(_axes.get_ylim(self._native))
 
     def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
@@ -269,6 +271,7 @@ class LimitsMixin:
         get_xlim, set_xlim
         invert_xaxis, xaxis_inverted
         """
+        self._unstale_by_program()
         return _values.float64s(_axes_base.get_bound(self._native, "x"))
 
     def set_xbound(self, lower=None, upper=None):
@@ -304,6 +307,7 @@ class LimitsMixin:
         get_ylim, set_ylim
         invert_yaxis, yaxis_inverted
         """
+        self._unstale_by_program()
         return _values.float64s(_axes_base.get_bound(self._native, "y"))
 
     def set_ybound(self, lower=None, upper=None):
@@ -705,4 +709,8 @@ class LimitsMixin:
         extending them: True once the Axes is cleared or its limits are
         recomputed (`relim`), until data extends them.
         """
-        return _axes_base.data_limits_empty(self._native)
+        return _axes_base.get_ignore_existing_data_limits(self._native)
+
+    @ignore_existing_data_limits.setter
+    def ignore_existing_data_limits(self, ignore):
+        _axes_base.set_ignore_existing_data_limits(self._native, bool(ignore))

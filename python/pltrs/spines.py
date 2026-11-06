@@ -75,16 +75,12 @@ class Spine(Patch):
 
     def __new__(cls, axes=None, spine_type=None, path=None, **kwargs):
         # A new spine of *axes* (see `__init__`); pickling makes a bare
-        # object.
+        # object, and so does a class of the program's naming its type in
+        # its own constructor (cartopy's ``GeoSpine(axes)``), which
+        # `__init__` binds.
         spine = super().__new__(cls)
-        if axes is not None:
-            natives = dict(_spines.axes_spines(axes._native))
-            framing = natives.get(spine_type, natives.get("top", natives.get("polar")))
-            _handles.adopt(spine, _spines.new_spine(axes._native, _spines.side(framing)),
-                           axes.figure)
-            # Known without asking pltrs (Rust), which the projection of a
-            # program's class cannot while it draws.
-            spine.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
+        if axes is not None and spine_type is not None:
+            spine._bind(axes, spine_type)
         return spine
 
     @_docstring.interpd
@@ -106,11 +102,14 @@ class Spine(Patch):
 
             %(Patch:kwdoc)s
         """
-        # pltrs: the spine is the one of *axes* on the side *spine_type*
-        # names, else the one framing its outline (a polar Axes' ``'polar'``
-        # spine), drawn as *path* through its transform (``transData`` unless
-        # it is given another).
+        # pltrs: the spine is a new one of *axes* on the side *spine_type*
+        # names, else on the side of the one framing its outline (a polar
+        # Axes' ``'polar'`` spine), drawn as *path* through its transform
+        # (``transData`` unless it is given another) once ``axes.spines``
+        # has it (see `_replace_drawn`).
         _api.check_isinstance(Path, path=path)
+        if "_native" not in self.__dict__:
+            self._bind(axes, spine_type)
         self._path = path
         self.set_facecolor('none')
         self.set_edgecolor(rcParams['axes.edgecolor'])
@@ -118,9 +117,32 @@ class Spine(Patch):
         self.set_capstyle('projecting')
         self.set_zorder(2.5)
         if spine_type not in _LINEAR_PATHS:
-            _spines.set_patch_path(self._native, path)
+            self._push_path()
             self.set_transform(axes.transData)
         self._internal_update(kwargs)
+        # A class of the program's drawing the spine itself draws it.
+        _python_drawing.attach(self)
+
+    def _bind(self, axes, spine_type):
+        """Make the bare spine (`__new__`) the object of a new native spine
+        of *axes* on the side *spine_type* names, else on that of the
+        spine framing its outline."""
+        natives = dict(_spines.axes_spines(axes._native))
+        framing = natives.get(spine_type, natives.get("top", natives.get("polar")))
+        _handles.adopt(self, _spines.new_spine(axes._native, _spines.side(framing)),
+                       axes.figure)
+        # Known without asking pltrs (Rust), which the projection of a
+        # program's class cannot while it draws.
+        self.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
+
+    def _push_path(self):
+        """Have pltrs (Rust) draw the spine of a type naming no side as its
+        ``_path``, which a class of the program's sets anew before it draws
+        (cartopy's ``GeoSpine`` clips its boundary to the view), as
+        matplotlib's draw draws ``_path``."""
+        if self.__dict__.get("_pushed_path") is not self._path:
+            _spines.set_patch_path(self._native, self._path)
+            self._pushed_path = self._path
 
     # ``Spine(...)`` takes what the constructor takes: the defaults of
     # ``__new__`` only let pickling make a bare spine.
@@ -217,6 +239,8 @@ class Spine(Patch):
     def draw(self, renderer):
         # docstring inherited
         self._check_shape()
+        if "_pushed_path" in self.__dict__:
+            self._push_path()
         return super().draw(renderer)
 
     @property
@@ -411,6 +435,8 @@ class Spine(Patch):
             # Measuring spans the path over the view, as drawing does.
             self._linear_path()
             self._span_path()
+        elif "_pushed_path" in self.__dict__:
+            self._push_path()
         extent = _spines.window_extent(self._native)
         if extent is None:
             return Bbox.null()
@@ -503,10 +529,14 @@ _TICK_SPINES = ("bottom", "top", "left", "right")
 
 def _replace_drawn(old, spine):
     """Have the Axes of *old*, a spine it draws, draw *spine*, another
-    spine of it, in its place, as matplotlib's Axes draws the spines of
-    its ``spines``."""
-    if (isinstance(old, Spine) and isinstance(spine, Spine) and spine is not old
-            and spine.axes is not None and spine.axes is old.axes):
+    spine of it, in its place, or beside the spines it draws when there is
+    no *old* (a spine of a new name), as matplotlib's Axes draws the
+    spines of its ``spines``."""
+    if not isinstance(spine, Spine) or spine is old or spine.axes is None:
+        return
+    if old is None:
+        _spines.add_spine(spine.axes._native, spine._native)
+    elif isinstance(old, Spine) and spine.axes is old.axes:
         _spines.replace_spine(old.axes._native, old._native, spine._native)
 
 
@@ -633,6 +663,10 @@ class Spines(MutableMapping):
 
     def __setitem__(self, key, value):
         _replace_drawn(self._dict.get(key), value)
+        self._join(key, value)
+
+    def _join(self, key, value):
+        """Name *value*, a spine its Axes draws already, *key*."""
         self._dict[key] = value
         _watch_tick_spines(self, value)
 

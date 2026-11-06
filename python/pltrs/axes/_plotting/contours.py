@@ -28,9 +28,9 @@ def _linestyles(styles):
     return [mcoll._native_style(style) for style in styles]
 
 
-def _contour_look(kwargs):
+def _contour_look(axes, kwargs):
     """
-    The look of a contour set popped from *kwargs*: ``(look, extras,
+    The look of a contour set of *axes* popped from *kwargs*: ``(look, extras,
     attributes, colorizer, native_cmap)``, the native look and extras
     tuples, the attributes the set keeps (``_orig_linestyles``,
     ``negative_linestyles``), the Python `.Colorizer` of its colour mapping,
@@ -73,17 +73,23 @@ def _contour_look(kwargs):
             None if linewidths is None else
             [float(w) for w in np.atleast_1d(linewidths)],
             _linestyles(linestyles), _linestyles(negative_linestyles)[0])
+    transform = _live_transforms.for_axes(kwargs.pop("transform", None), axes)
     extras = (native_extend, [None if h is None else str(h) for h in hatches],
               None if antialiased is None else bool(antialiased),
               None if locator is None
               else _tick_helpers._description("locator", locator),
-              _live_transforms.given_to_native(kwargs.pop("transform", None)))
+              _live_transforms.given_to_native(transform))
     attributes = {"_given_linewidths": linewidths,
                   "_orig_linestyles": linestyles,
                   "negative_linestyles": negative_linestyles, "_extend": extend,
                   "colors": given_colors, "hatches": hatches,
                   "logscale": logscale, "origin": None, "extent": None,
                   "nchunk": 0}
+    if transform is not None:
+        # The transform object itself, as matplotlib's set keeps it (its
+        # ``transform_path_non_affine``: cartopy's cuts paths at a map's
+        # edge, which its limits read).
+        attributes["_given_transform"] = transform
     return look, extras, attributes, made, cmap is None
 
 
@@ -181,7 +187,7 @@ class ContoursMixin:
                 (z, mask, x, y,
                  (origin, None if extent is None else tuple(map(float, extent)))),
                 generation)
-        look = _contour_look(kwargs)
+        look = _contour_look(self, kwargs)
         native = _contour.contour(self._native, bool(filled), *generator.field,
                                   _levels(levels), *look[:2])
         contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs, made)
@@ -230,7 +236,7 @@ class ContoursMixin:
             generator = _TriContourGenerator(
                 tri, np.ma.filled(z.astype(float), np.nan))
         tri, z = generator.field
-        look = _contour_look(kwargs)
+        look = _contour_look(self, kwargs)
         native = _contour.tricontour(self._native, bool(filled), tri._native, z,
                                      _levels(levels), *look[:2])
         contours = _finish(TriContourSet, native, self, look, kwargs, made)

@@ -15,6 +15,7 @@ from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import _docstring, patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
+from pltrs._changing_arrays import ChangingArray
 from . import _draw_problems
 
 
@@ -1050,13 +1051,25 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
 
     @property
     def _facecolor3d(self):
-        """The face colours the polygons are drawn with, in polygon order."""
-        return _mplot3d.poly_colors(self.axes._native, self._native)[0]
+        """The face colours the polygons are drawn with, in polygon order:
+        changed in place, they colour the polygons (nilearn's contours of
+        surface regions)."""
+        return ChangingArray(_mplot3d.poly_colors(self.axes._native, self._native)[0],
+                             self.set_facecolor)
 
     @property
     def _edgecolor3d(self):
-        """The edge colours the polygons are drawn with, in polygon order."""
-        return _mplot3d.poly_colors(self.axes._native, self._native)[1]
+        """The edge colours the polygons are drawn with, in polygon order:
+        changed in place, they colour the edges."""
+        return ChangingArray(_mplot3d.poly_colors(self.axes._native, self._native)[1],
+                             self.set_edgecolor)
+
+    @property
+    def _facecolors(self):
+        """The face colours as they were set, in polygon order (matplotlib's
+        ``_facecolors``; `get_facecolor` gives those of the last projection,
+        in drawing order)."""
+        return self._facecolor3d
 
     def _project_once(self):
         """Project the polygons in the current view unless they were

@@ -134,7 +134,13 @@ impl Default for SpinePosition {
 #[derive(Clone, Debug)]
 pub(crate) struct SpineArtist {
     base: ArtistBase,
+    /// The side the spine frames, or for a spine of no side
+    /// ([`Axes::add_spine`](crate::axes::Axes::add_spine)) the side it
+    /// stands against.
     pub(crate) side: SpineSide,
+    /// Whether it is one of the four spines of the sides, which the axes
+    /// draw their axes on; not a spine of no side.
+    frames_side: bool,
     pub(crate) style: PatchStyle,
     pub(crate) position: SpinePosition,
     /// Data interval the spine spans; `None` follows the view limits.
@@ -147,6 +153,7 @@ pub(crate) struct SpineArtist {
 pltrs_core::archive_struct!(SpineArtist {
     base,
     side,
+    frames_side,
     style,
     position,
     bounds,
@@ -175,6 +182,7 @@ impl SpineArtist {
         let mut spine = Self {
             base,
             side,
+            frames_side: true,
             style,
             position: SpinePosition::default(),
             bounds: None,
@@ -183,6 +191,12 @@ impl SpineArtist {
         };
         spine.place(SpinePosition::default());
         spine
+    }
+
+    /// Whether it is one of the four spines of the sides (not a spine of
+    /// no side), which an axis is drawn on.
+    pub(crate) fn frames_side(&self) -> bool {
+        self.frames_side
     }
 
     /// Moves the spine to `position`, which gives it the transform of
@@ -430,9 +444,18 @@ impl Spine {
         Self { raw }
     }
 
-    /// Which edge this spine frames.
+    /// Which edge this spine frames (for a spine of no side, see
+    /// [`Axes::add_spine`](crate::axes::Axes::add_spine), the edge it
+    /// stands against).
     pub fn side(&self) -> SpineSide {
         self.raw.with::<SpineArtist, _>(|s| s.side)
+    }
+
+    /// Whether this is one of the four spines of the sides of its axes,
+    /// not a spine of no side
+    /// ([`Axes::add_spine`](crate::axes::Axes::add_spine)).
+    pub fn frames_side(&self) -> bool {
+        self.raw.with::<SpineArtist, _>(SpineArtist::frames_side)
     }
 
     /// Moves the spine (outwards, to an axes fraction or to a data value);

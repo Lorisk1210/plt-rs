@@ -69,8 +69,9 @@ python/
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
   ecosystem/                    `cargo xtask ecosystem`: the libraries importing matplotlib
                                 on pltrs (pandas, seaborn, xarray, networkx, scikit-learn,
-                                statsmodels, geopandas, plotnine, astropy), `fetch.py`, which
-                                downloads their sdists, and `plugin/`, the suites' pytest plugin
+                                statsmodels, geopandas, plotnine, astropy, cartopy, nilearn,
+                                shap, ...), `fetch.py`, which downloads their sdists, and
+                                `plugin/`, the suites' pytest plugins
   tools/toolkits.sh             GTK 3 and 4, PyGObject, pycairo, cairocffi, wxPython and
                                 Qt's X libraries without root
   requirements-pltrs.txt        the pltrs venv (pinned)
@@ -1767,6 +1768,34 @@ hands out reach it again when the program sets their vertices
 (`_owned_paths`), an Axes class with its own `tick_params` keeps the ticks
 of matplotlib's `Tick` (`axes/_program_tick_params.py`), and tight layouts
 ask Axes classes measuring themselves (astropy's `WCSAxes`).
+
+The libraries of the sciences (cartopy, nilearn, sympy, arviz's plots),
+of machine learning (shap, missingno) and mpl-scatter-density run as the
+others do. The data their tests read that neither the source tree nor
+the package holds, cartopy's Natural Earth shapefiles and shap's
+datasets, is fetched once by `ecosystem setup`, each file checked
+against its SHA-256 (`Library::data`, `xtask/src/ecosystem/data.rs`), into
+`target/ecosystem/data/<library>`, which the tests find by a variable
+(`CARTOPY_DATA_DIR`) or a link where the library caches its downloads.
+Their runs are offline (`Network::Refused`): HTTP and HTTPS go through a
+proxy that refuses every connection, so that a test fetching more fails
+in both modes alike. A suite parametrized over a set collects its tests
+in an order that differs between processes, which pytest-xdist refuses;
+`python/ecosystem/plugin/ecosystem_order.py` sorts the tests of each file
+by their ids (nilearn). What these libraries need of matplotlib is the
+projections and artists of a program's own: a spine of no side
+(cartopy's `GeoSpine`: `SpineArtist::of_no_side`, framing the Axes as its
+path), an Axes class's own `autoscale_view` run whenever its data limits
+change (`_program_locators.py`, after the native autoscale reports the
+Axes it left stale), transform-givers (`_as_mpl_transform`) for text,
+markers, meshes and contours, a contour set keeping the transform it was
+given while its data limits come through it, an Axes class constructed
+with the arguments its projection object gives (`_as_mpl_axes`) for
+insets too, the private registers libraries read (an artist's `_axes`,
+`_artist_private.py`; a figure's `_axstack`, `_axes_stack.py`), arrays a
+program changes in place reaching pltrs (Rust) (`_changing_arrays.py`:
+`Poly3DCollection._facecolor3d`), and `MaxNLocator._raw_ticks` as the
+place a subclass changes its steps (cartopy's `LongitudeLocator`).
 
 ### Jupyter
 

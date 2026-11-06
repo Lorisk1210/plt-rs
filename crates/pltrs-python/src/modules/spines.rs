@@ -71,6 +71,19 @@ fn replace_spine(axes: Axes, old: Spine, spine: Spine) -> PyResult<bool> {
     Ok(axes.replace_spine(&old, &spine))
 }
 
+/// Draws `spine`, a new spine of `axes`, beside the spines it draws as a
+/// spine framing no side (a spine of a type naming no side in
+/// matplotlib's `axes.spines`); whether it did.
+fn add_spine(axes: Axes, spine: Spine) -> PyResult<bool> {
+    Ok(axes.add_spine(&spine))
+}
+
+/// Whether the spine is one of the four of the sides of its axes, not a
+/// spine of no side (`add_spine`).
+fn frames_side(spine: Spine) -> PyResult<bool> {
+    Ok(spine.frames_side())
+}
+
 /// Places the spine: `("outward", points)`, `("axes", fraction)` or
 /// `("data", value)` (`set_position`).
 fn set_position(spine: Spine, (kind, amount): (String, f64)) -> PyResult<()> {
@@ -160,6 +173,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("side", side)?;
     module.add("new_spine", new_spine)?;
     module.add("replace_spine", replace_spine)?;
+    module.add("frames_side", frames_side)?;
+    module.add("add_spine", add_spine)?;
     module.add("set_position", set_position)?;
     module.add("get_position", get_position)?;
     module.add("set_bound_ends", set_bound_ends)?;

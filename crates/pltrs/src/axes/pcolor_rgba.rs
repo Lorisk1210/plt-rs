@@ -1,13 +1,16 @@
 //! Pseudocolour meshes of colours given directly instead of colour-mapped
-//! values (matplotlib's `pcolormesh` of an `(M, N, 3)` or `(M, N, 4)`
-//! array).
+//! values (matplotlib's `pcolormesh` and `pcolor` of an `(M, N, 3)` or
+//! `(M, N, 4)` array).
 
 use pltrs_core::Rgba;
 
 use super::Axes;
-use super::mesh::{Mesh, MeshCoords, MeshFunction, pcolor_args};
-use super::pcolor::{PcolorOptions, default_shading};
-use crate::collections::Collection;
+use super::mesh::{Mesh, MeshCoords, MeshFunction, MeshValues, pcolor_args};
+use super::pcolor::{PcolorOptions, default_shading, pcolor_edge_defaults};
+use crate::artist::Artist;
+use crate::collections::{
+    Collection, CollectionArtist, CollectionKind, MeshShading, unmasked_cells,
+};
 use crate::colors::Color;
 use crate::image::{ImageError, ScalarField};
 use crate::numeric::Grid;
@@ -90,6 +93,86 @@ impl Axes {
                 .collect(),
         );
         Ok(self.add_pcolormesh(&prepared, props, options.snap))
+    }
+
+    /// Quadrilaterals painted in the given colours, one per cell
+    /// (matplotlib's `pcolor` of an RGB or RGBA array): a cell whose colour
+    /// or a corner of which is not finite (masked) is left out. The colours
+    /// replace `facecolors` and the colormap options.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::{PcolorOptions, RgbaMesh};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::colors::Rgba;
+    /// let ax = Figure::new().subplot();
+    /// let colors = Grid::from_fn(2, 3, |r, c| {
+    ///     let red = if (r, c) == (1, 2) { f64::NAN } else { 0.2 * c as f64 };
+    ///     Rgba::new(red, 0.5, r as f64, 1.0)
+    /// });
+    /// let cells = ax.pcolor_rgba(RgbaMesh::new(colors), PcolorOptions::default())?;
+    /// assert_eq!(cells.paths().len(), 5);
+    /// assert_eq!(ax.xlim(), (0.0, 3.0));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the coordinates are not finite or do not fit the colours, or
+    /// with Gouraud shading, which `pcolor` lacks.
+    // The cells' indices go through the mesh as its values, exactly (far
+    // below 2^53), and come back as the indices they were.
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    pub fn pcolor_rgba(
+        &self,
+        mesh: RgbaMesh,
+        options: PcolorOptions,
+    ) -> Result<Collection, ImageError> {
+        let (rows, cols) = mesh.colors.shape();
+        // Each cell's index stands for its colour, a masked one for none.
+        let indices = Grid::from_fn(rows, cols, |r, c| {
+            let given = mesh.colors[(r, c)].to_array().iter().all(|v| v.is_finite());
+            if given {
+                (r * cols + c) as f64
+            } else {
+                f64::NAN
+            }
+        });
+        let prepared = pcolor_args(
+            Mesh {
+                coords: mesh.coords,
+                values: ScalarField::new(indices).into(),
+            },
+            default_shading(options.shading),
+            MeshFunction::Pcolor,
+        )?;
+        if prepared.shading == MeshShading::Gouraud {
+            return Err(ImageError::ShadingNotSupported("gouraud"));
+        }
+        let MeshValues::Scalar(indices) = &prepared.values else {
+            return Err(ImageError::MultivariateNotSupported("pcolor"));
+        };
+        let grid = prepared.vertex_grid();
+        let (paths, kept) = unmasked_cells(&grid, &indices.masked_values());
+        let colors = mesh.colors.as_slice();
+        let mut props = options.props;
+        pcolor_edge_defaults(&mut props);
+        props.facecolors = Some(
+            kept.into_iter()
+                .flatten()
+                .map(|index| Color::from(colors[index as usize]))
+                .collect(),
+        );
+        let mut collection =
+            CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
+        collection.polygon_grid = Some(grid);
+        props.apply(&mut collection);
+        collection.base_mut().snap = Some(options.snap.unwrap_or(false));
+        Ok(self.add_mesh(collection, &prepared))
     }
 }
 

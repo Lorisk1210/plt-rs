@@ -87,15 +87,17 @@ fn update_datalim(axes: Axes, xys: NdArray, updatex: bool, updatey: bool) -> PyR
     Ok(())
 }
 
-/// Whether the data limits hold no point yet, in either direction, so
-/// that the next data replaces them (`ignore_existing_data_limits`, which
-/// matplotlib sets when it clears the axes or recomputes their limits and
-/// unsets when data extends them).
-fn data_limits_empty(axes: Axes) -> PyResult<bool> {
-    let bbox = axes.data_lim().bbox;
-    Ok(![bbox.p0, bbox.p1]
-        .iter()
-        .any(|corner| corner.x.is_finite() || corner.y.is_finite()))
+/// Whether the next data added replaces the data limits
+/// (`ignore_existing_data_limits`, which matplotlib sets when it clears
+/// the axes or recomputes their limits and unsets when data extends them).
+fn get_ignore_existing_data_limits(axes: Axes) -> PyResult<bool> {
+    Ok(axes.ignores_data_limits())
+}
+
+/// Sets whether the next data added replaces the data limits.
+fn set_ignore_existing_data_limits(axes: Axes, ignore: bool) -> PyResult<()> {
+    axes.set_ignores_data_limits(ignore);
+    Ok(())
 }
 
 /// Whether autoscaling stops at the sticky edges (`use_sticky_edges`).
@@ -109,8 +111,15 @@ fn set_use_sticky_edges(axes: Axes, on: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// Which axes, `(x, y)`, wait to be rescaled, which then no longer wait
+/// (what `_unstale_viewLim` hands an `autoscale_view` of the program's).
+fn take_stale_autoscale(axes: Axes) -> PyResult<(bool, bool)> {
+    Ok(axes.take_stale_autoscale())
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("take_stale_autoscale", take_stale_autoscale)?;
     module.add("get_bound", get_bound)?;
     module.add("set_bound", set_bound)?;
     module.add("get_autoscale_on", get_autoscale_on)?;
@@ -122,7 +131,14 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("relim", relim)?;
     module.add("has_data", has_data)?;
     module.add("update_datalim", update_datalim)?;
-    module.add("data_limits_empty", data_limits_empty)?;
+    module.add(
+        "get_ignore_existing_data_limits",
+        get_ignore_existing_data_limits,
+    )?;
+    module.add(
+        "set_ignore_existing_data_limits",
+        set_ignore_existing_data_limits,
+    )?;
     module.add("get_use_sticky_edges", get_use_sticky_edges)?;
     module.add("set_use_sticky_edges", set_use_sticky_edges)
 }

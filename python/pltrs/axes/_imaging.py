@@ -273,7 +273,7 @@ class ImagingMixin:
             'resample': None if resample is None else bool(resample),
             # Which coordinates the image is in decides whether imshow sets
             # the aspect (the transform itself is set with the properties).
-            'transform': _live_transforms.given_to_native(kwargs.get('transform')),
+            'transform': _live_transforms.given_to_native(kwargs.get('transform'), self),
         }
         native = _native_image.imshow(self._native, mimage._native_data(A),
                                       colorizer.cmap, colorizer.norm, spec)

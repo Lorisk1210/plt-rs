@@ -350,7 +350,7 @@ class Quiver(mcollections.PolyCollection):
              float(minshaft), float(minlength)),
             (self.pivot, _rgba(facecolor) if _single_color(facecolor)
              else (0., 0., 0., 1.)),
-            _live_transforms.given_to_native(transform))
+            _live_transforms.given_to_native(transform, ax))
         _handles.adopt(self, native, ax.figure)
         for name, value in (("scale", scale), ("width", width)):
             if value is not None:
@@ -938,7 +938,7 @@ class Barbs(mcollections.PolyCollection):
             ax._native, (np.asarray(x, float), np.asarray(y, float)),
             (_filled(u), _filled(v)), mapped, (pivot, float(length)),
             (_rgba(barbcolor), _rgba(flagcolor)), self._native_shape(flip),
-            _live_transforms.given_to_native(transform))
+            _live_transforms.given_to_native(transform, ax))
         _handles.adopt(self, native, ax.figure)
         self._offsets_dtype = np.result_type(x, y)
         self._attach_native_mapping(colorizer=made)

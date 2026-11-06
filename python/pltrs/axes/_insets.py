@@ -195,19 +195,29 @@ class InsetsMixin:
         fig = self.get_figure(root=False)
         projection_class, pkw = fig._process_projection_requirements(**kwargs)
         from ..projections import _program
+        from ._axes import Axes
         program = _program.is_program_class(projection_class)
         name = _program.native_name(projection_class)
         bounds = tuple(map(float, bounds))
-        native = _insets.inset_axes(
-            self._native, bounds,
-            None if name == "rectilinear" or program else name)
-        inset_ax = _handles.wrap(native, projection_class, self.figure)
-        inset_ax._child_of = self
-        inset_ax._init_projection()
+        constructed = program and projection_class.__init__ is not Axes.__init__
+        if constructed:
+            # A class of the program's with a constructor of its own
+            # (cartopy's ``GeoAxes``, whose keywords give its projection)
+            # makes the inset, as matplotlib's ``inset_axes`` makes it.
+            inset_ax = self.add_child_axes(
+                projection_class(fig, bounds, zorder=zorder, **pkw))
+            pkw = {}
+        else:
+            native = _insets.inset_axes(
+                self._native, bounds,
+                None if name == "rectilinear" or program else name)
+            inset_ax = _handles.wrap(native, projection_class, self.figure)
+            inset_ax._child_of = self
+            inset_ax._init_projection()
         locator = _TransformedBoundsLocator(
             bounds, self.transAxes if transform is None else transform)
         locator._parent = self
-        if transform is None:
+        if transform is None and not constructed:
             # pltrs (Rust) places insets in their parent's fractions itself.
             inset_ax._axes_locator = locator
         else:

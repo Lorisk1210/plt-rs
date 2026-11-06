@@ -15,9 +15,13 @@ its locator says (its ``_locate_by_program(renderer)``) until the next
 draw. Before the first draw an axes keeps its original position, as in
 matplotlib.
 
-The hook first runs the figure's layout engine of a class of the
-program's (`follow_engine`): its ``execute(figure)``, which matplotlib's
-draw runs before it draws the Axes (plotnine places its panels so).
+The hook first brings up to date the view limits of the Axes whose
+class of the program's autoscales them (`follow_autoscale`: their
+``autoscale_view``, as matplotlib's draw does through
+``_unstale_viewLim``; cartopy's ``GeoAxes`` keeps the view within its
+map), then runs the figure's layout engine of a class of the program's
+(`follow_engine`): its ``execute(figure)``, which matplotlib's draw runs
+before it draws the Axes (plotnine places its panels so).
 """
 
 import weakref
@@ -28,6 +32,9 @@ from .._program_classes import takes_from_program
 #: What locators of the program's place, per root figure.
 _followed = weakref.WeakKeyDictionary()
 
+#: The Axes whose class of the program's autoscales them, per root figure.
+_autoscaled = weakref.WeakKeyDictionary()
+
 
 def follow(owner, figure):
     """
@@ -36,6 +43,14 @@ def follow(owner, figure):
     lives, until `forget`.
     """
     _owners(figure).add(owner)
+
+
+def follow_autoscale(ax, figure):
+    """Have the root *figure* bring the view limits of *ax*, whose class
+    overrides ``autoscale_view``, up to date through it before every
+    layout of a draw, while *ax* lives."""
+    _owners(figure)
+    _autoscaled.setdefault(figure, weakref.WeakSet()).add(ax)
 
 
 def follow_engine(figure):
@@ -74,8 +89,11 @@ def forget(owner, figure):
 
 
 def _locate(figure):
-    """Run the layout engine of the program's of *figure*, then place
-    everything it follows, with its renderer."""
+    """Autoscale the Axes of classes of the program's that autoscale
+    themselves, run the layout engine of the program's of *figure*, then
+    place everything it follows, with its renderer."""
+    for ax in list(_autoscaled.get(figure, ())):
+        ax._unstale_viewLim()
     engine = figure.get_layout_engine()
     if (figure.axes and engine is not None
             and takes_from_program(type(engine), "execute")):

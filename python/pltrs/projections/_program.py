@@ -252,15 +252,11 @@ class _Projection:
     def __init__(self, ax, spines):
         #: The spines of the class by name, as ``ax.spines`` gives them.
         self.named_spines = dict(spines)
-        #: The sides of the native spines the class' spines are drawn as.
-        self.spine_sides = [_spines.side(spine._native) for spine in spines.values()]
-        # The Axes draws the spines its class made, each on its side.
-        drawn = {_spines.side(native): native
-                 for _, native in _spines.axes_spines(ax._native)}
-        for spine in spines.values():
-            own = drawn.get(_spines.side(spine._native))
-            if own is not None:
-                _spines.replace_spine(ax._native, own, spine._native)
+        draw_class_spines(ax, spines)
+        #: The sides of the native spines the class' spines are drawn as
+        #: (not those of no side, which pltrs (Rust) draws beside them).
+        self.spine_sides = [_spines.side(spine._native) for spine in spines.values()
+                            if _spines.frames_side(spine._native)]
         hide_unmade_spines(ax, self.spine_sides)
         self.spine_order = self.spine_sides + [
             side for side in _LINEAR_PATHS if side not in self.spine_sides]
@@ -302,7 +298,8 @@ class _Projection:
             if type(probe).draw is not Tick.draw:
                 self.probes[name] = probe
         self.spines = {side: spine for side, spine in spines.items()
-                       if type(spine)._adjust_location is not Spine._adjust_location}
+                       if type(spine)._adjust_location is not Spine._adjust_location
+                       and _spines.frames_side(spine._native)}
         self.fixes_data_ratio = type(ax).get_data_ratio is not Axes.get_data_ratio
         self.overrides = {
             "axis_transform": list(self.axis_transforms),
@@ -467,6 +464,25 @@ class _Adapter:
             return float(v0), float(v1)
 
 
+def draw_class_spines(ax, spines):
+    """
+    Have *ax* draw the spines its class made, *spines* by name: each on its
+    side, and those of a type naming no side beside them when the class
+    made spines of the sides too (cartopy's ``GeoSpine``), else in the
+    place of the spine framing its outline (a single ``'geo'`` spine).
+    """
+    natives = dict(_spines.axes_spines(ax._native))
+    drawn = {_spines.side(native): native for native in natives.values()}
+    named = [spine.__dict__.get("_spine_type") in natives for spine in spines.values()]
+    for spine, names_side in zip(spines.values(), named):
+        if any(named) and not names_side:
+            _spines.add_spine(ax._native, spine._native)
+            continue
+        own = drawn.get(_spines.side(spine._native))
+        if own is not None:
+            _spines.replace_spine(ax._native, own, spine._native)
+
+
 def hide_unmade_spines(ax, sides):
     """Hide the native spines of *ax* on the sides no spine of its class is
     drawn on (*sides*: those it made)."""
@@ -475,32 +491,43 @@ def hide_unmade_spines(ax, sides):
             _artist.set_visible(native, False)
 
 
+def makes_background(cls):
+    """Whether the Axes class *cls* is a program's projection class that
+    makes the patch of its background itself (``_gen_axes_patch``)."""
+    from ..axes._decorations import DecorationsMixin
+    from .polar import PolarAxes
+    return (is_program_class(cls)
+            and cls._gen_axes_patch not in (DecorationsMixin._gen_axes_patch,
+                                            PolarAxes._gen_axes_patch))
+
+
+def shapes_background(cls):
+    """Whether the outline of the patch the Axes class *cls* makes is the
+    shape of the background of its rectilinear Axes (see `cleared`)."""
+    return makes_background(cls) and native_name(cls) != "polar"
+
+
 def cleared(ax):
     """
     Give the Axes *ax* the background its class' ``_gen_axes_patch`` makes,
     as matplotlib's ``clear`` makes one, if the class is a program's that
     overrides it: its outline is the background's shape and clips what the
     Axes draws (matplotlib's ``set_clip_path(self.patch)``: its box for a
-    `.Rectangle`), unless it is the unit square or, for polar Axes, a
-    `.Wedge`, which pltrs (Rust) fits to the view.
+    `.Rectangle`), whenever the program changes it, unless it is the unit
+    square or, for polar Axes, a `.Wedge`, which pltrs (Rust) fits to the
+    view.
     """
-    from ..axes._decorations import DecorationsMixin
-    from .polar import PolarAxes
     cls = type(ax)
-    if (not is_program_class(cls)
-            or cls._gen_axes_patch in (DecorationsMixin._gen_axes_patch,
-                                       PolarAxes._gen_axes_patch)):
+    if not makes_background(cls):
         return
-    from ..patches import Rectangle, Wedge
+    from .._background_patch import push_outline
+    from ..patches import Wedge
     patch = ax.patch
-    outline = patch.get_patch_transform().transform_path(patch.get_path())
     if native_name(cls) == "polar":
+        outline = patch.get_patch_transform().transform_path(patch.get_path())
         _polar.set_frame_path(ax._native, None if isinstance(patch, Wedge) else outline)
-    elif isinstance(patch, Rectangle) and np.allclose(
-            outline.get_extents().bounds, (0, 0, 1, 1)):
-        _projections.set_patch_outline(ax._native, None, True)
     else:
-        _projections.set_patch_outline(ax._native, outline, isinstance(patch, Rectangle))
+        push_outline(ax, patch)
 
 
 def _build_trees(ax, as_made=False):

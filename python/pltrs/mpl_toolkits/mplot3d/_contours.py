@@ -101,7 +101,7 @@ class ContoursMixin:
         z, _mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
         if x.ndim == 1:
             x, y = np.meshgrid(x, y)
-        look = _contour_look(kwargs)
+        look = _contour_look(self, kwargs)
         grids = tuple(np.ascontiguousarray(a, dtype=float) for a in (x, y, z))
         native = _mplot3d.contour(self._native, bool(filled), grids, placement,
                                   _levels(levels), *look[:2])
@@ -120,7 +120,7 @@ class ContoursMixin:
         levels = kwargs.pop("levels", None)
         if levels is None and args:
             levels = args[0]
-        look = _contour_look(kwargs)
+        look = _contour_look(self, kwargs)
         z = np.ma.filled(np.ma.asarray(z, dtype=float), np.nan).ravel()
         native = _mplot3d.tricontour(self._native, bool(filled), (tri._native, z),
                                      placement, _levels(levels), *look[:2])

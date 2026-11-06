@@ -1,11 +1,14 @@
 //! The baselines of the libraries' image comparisons whose own are for
 //! another version of matplotlib (plotnine's are 3.10's images, astropy's
-//! hashes of 3.8's, mplfinance's older images), which `cargo xtask ecosystem setup` makes under real
-//! matplotlib 3.11.2, in the ecosystem's reference venv, from the pinned
-//! versions alone, so that every machine makes the same:
+//! hashes of 3.8's, nilearn's the oldest matplotlib's it supports,
+//! mplfinance's and mpl-scatter-density's older images) or that its source
+//! tree lacks (missingno's), which `cargo xtask ecosystem setup` makes
+//! under real matplotlib 3.11.2, in the ecosystem's reference venv, from
+//! the pinned versions alone, so that every machine makes the same:
 //! `target/ecosystem/baselines/<library>/images`, never committed.
 //!
-//! * pytest-mpl's (astropy's): one run of the library's tests with
+//! * pytest-mpl's (astropy's, nilearn's, mpl-scatter-density's,
+//!   missingno's): one run of the library's tests with
 //!   `--mpl-generate-path`, which saves each figure test's image instead
 //!   of comparing it; the suite's runs compare with them
 //!   (`--mpl-baseline-path`, or the directory the tests name, made a link
@@ -23,6 +26,7 @@
 //! complete. `made-with.txt` beside them holds the pins they were made
 //! with; setup makes them again when these change.
 
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -31,7 +35,7 @@ use pltrs_core::os::Os;
 use super::libraries::{Baselines, Library, Making};
 use super::site;
 use super::suite::Tests;
-use crate::mpl_suite::{Mode, prepare};
+use crate::mpl_suite::{Mode, prepare, tools};
 use crate::python;
 
 /// The file naming the pins the baselines were made with.
@@ -87,16 +91,28 @@ pub(super) fn comparing(library: &Library) -> Result<Vec<String>, String> {
 }
 
 /// Makes `library`'s baselines with the Python of the venv `venv`, unless
-/// they are made with the current pins.
+/// they are made with the current pins and the same programs on `PATH`
+/// (the tests needing TeX, Ghostscript or Inkscape get no baseline from a
+/// run without them).
 pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     let Some(baselines) = library.baselines else {
         return Ok(());
     };
     let dir = dir(library);
     let (images, stamp) = (dir.join("images"), dir.join(STAMP));
-    let pins = pins()?;
+    let missing = tools::missing_programs();
+    let mut pins = pins()?;
+    for (program, _) in &missing {
+        writeln!(pins, "no {program} on PATH").expect("a String takes any text");
+    }
     if images.is_dir() && fs::read_to_string(&stamp).is_ok_and(|made| made == pins) {
         return Ok(());
+    }
+    for (program, needs) in &missing {
+        println!(
+            "no {program} on PATH: {needs} of {} get no baseline",
+            library.name
+        );
     }
     let partial = dir.join("images.partial");
     prepare::remove(&partial)?;
@@ -266,10 +282,7 @@ mod tests {
 
     #[test]
     fn pytest_mpl_compares_with_the_made_baselines() {
-        let astropy = crate::ecosystem::libraries::LIBRARIES
-            .into_iter()
-            .find(|library| library.name == "astropy")
-            .unwrap();
+        let astropy = crate::ecosystem::libraries::named("astropy");
         let images = dir(&astropy).join("images");
         if images.is_dir() {
             assert_eq!(

@@ -970,6 +970,12 @@ from .projections import PolarAxes  # noqa: E402,F401
 from .scale import get_scale_names  # noqa: E402,F401
 from .text import Annotation, Text  # noqa: E402,F401
 from .widgets import Button, Slider, Widget  # noqa: E402,F401
+from .lines import AxLine  # noqa: E402,F401
+# The modules matplotlib's pyplot imports, which programs reach through it
+# (scikit-learn's ``pyplot.matplotlib.collections.QuadMesh``).
+import functools, sys, threading, time  # noqa: E402,F401,E401
+import numpy as np  # noqa: E402,F401
+matplotlib = sys.modules[__package__]
 
 # If rcParams['backend_fallback'] is true, and an interactive backend is
 # requested, ignore rcParams['backend'] and force selection of a backend that

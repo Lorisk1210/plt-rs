@@ -185,6 +185,10 @@ class TicksMixin:
         for name in self._axis_names:
             getattr(self, f"{name}axis").__dict__.pop("_zorder_set", None)
 
+    # matplotlib's attribute, which subclasses read in their ``draw``
+    # (astropy's ``WCSAxes`` orders its own ticks by it).
+    _axisbelow = property(get_axisbelow, set_axisbelow)
+
     def grid(self, visible=None, which='major', axis='both', **kwargs):
         """
         Configure the grid lines.

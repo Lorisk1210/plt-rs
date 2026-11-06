@@ -155,6 +155,7 @@ fn run_suite(options: &Options) -> Result<(), String> {
         site: &site,
         dir: &dir,
         python_path,
+        options: &[],
         targets: &targets,
         environment: &environment,
     }

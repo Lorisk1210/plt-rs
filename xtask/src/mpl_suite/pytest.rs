@@ -46,6 +46,8 @@ pub(crate) struct Run<'a> {
     /// What goes on `PYTHONPATH` ahead of the plugin's directory (and of
     /// the inherited entries).
     pub(crate) python_path: Vec<PathBuf>,
+    /// The suite's own pytest options, given before the targets.
+    pub(crate) options: &'a [String],
     /// The test files, directories or ids to run.
     pub(crate) targets: &'a [String],
     /// Variables set for the run on top of the inherited ones (the suite
@@ -116,6 +118,7 @@ impl Run<'_> {
             // pytest's temporary directories (`tmp_path`) under the run's
             // own directory, not in the system's temporary directory.
             .arg(crate::python::basetemp(&self.dir.join("pytest-tmp")))
+            .args(self.options)
             .args(self.targets)
             .current_dir(self.site)
             .env("PYTHONPATH", python_path)

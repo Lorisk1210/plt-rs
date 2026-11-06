@@ -53,8 +53,12 @@ def tracked(figure):
 
 
 def _computes_transform(artist):
-    """Whether the class of *artist* overrides ``get_transform``."""
-    return takes_from_program(type(artist), "get_transform")
+    """Whether the class of *artist* overrides ``get_transform``, but for
+    an Axes, which matplotlib's draw never asks for its own transform
+    (astropy's ``WCSAxes.get_transform(frame)`` is another method)."""
+    from .axes._base import _AxesBase
+    return (takes_from_program(type(artist), "get_transform")
+            and not isinstance(artist, _AxesBase))
 
 
 def _evaluate(figure):

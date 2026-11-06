@@ -486,7 +486,12 @@ impl Figure {
         } else {
             Painting::Stopped
         };
-        self.root_handle().measure_painters();
+        // The program's measures, which only an engine laying the figure
+        // out asks for while it is drawn (matplotlib's draws ask no artist
+        // for its tight box otherwise).
+        if self.layout_engine().is_some_and(|engine| engine.measures()) {
+            self.root_handle().measure_painters();
+        }
         self.state.work_on(|state| state.prepare_for_draw(painting));
         crate::offsetbox::measure_program_boxes(&self.root_handle());
         crate::axes::run_limit_callbacks(&self.state);

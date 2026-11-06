@@ -19,7 +19,7 @@ from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
 from ._native import artist as _artist, patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
-    ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
+    ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style, calls_program)
 
 cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
@@ -2277,6 +2277,13 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
         return self.get_transform().inverted().transform_path(Path(*arrays))
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        if (calls_program(self.get_connectionstyle())
+                and "_transform_trees" not in axes.__dict__):
+            # A connection style of the program's may read the Axes'
+            # transforms (networkx's self loops read ``transData``) where
+            # pltrs (Rust) calls it, measuring or drawing the arrow, when
+            # they can no longer be built: they are built now.
+            axes._build_transform_trees()
         added = super()._add_to_axes(axes, kind, autolim)
         if kind == "patch":
             # ``add_patch`` measures the arrow, which fails for a connection
@@ -2303,6 +2310,31 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
         if positions is not None:
             self.set_positions(*((axes.convert_xunits(x), axes.convert_yunits(y))
                                  for x, y in positions))
+
+    @property
+    def _posA_posB(self):
+        """The start and end of the arrow, ``[posA, posB]`` (None for an
+        arrow along a path), as matplotlib keeps them: those in units until
+        the arrow's Axes converts them."""
+        positions = self.__dict__.get("_unit_positions")
+        if positions is not None:
+            return list(positions)
+        ends, _ = _patches.arrow_route(self._native)
+        return None if ends is None else [tuple(end) for end in ends]
+
+    def _convert_xy_units(self, xy):
+        """Convert x and y units for a tuple (x, y)."""
+        return self.convert_xunits(xy[0]), self.convert_yunits(xy[1])
+
+    @property
+    def _dpi_cor(self):
+        """The pixels of a point the arrow was last drawn with (1 until it is
+        drawn), which scales its shrinking and mutation: matplotlib's draw
+        sets it to ``renderer.points_to_pixels(1)``."""
+        figure = self.get_figure(root=True)
+        if figure is None or not _artist.draw_count(self._native):
+            return 1.0
+        return figure.dpi / 72
 
 
 def _connection_end(xy, coords, axes):

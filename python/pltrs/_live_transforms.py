@@ -146,12 +146,17 @@ class _ProgramMap:
         return {"_transform": self._transform, "_cached": None}
 
     def transform(self, values):
-        """*values* through the transform."""
-        return self._transform.transform(values)
+        """*values*, a point or an ``(N, 2)`` array of points, through the
+        transform, which gets an ``(N, 2)`` array whatever *values* is, as
+        matplotlib's code hands it its points (astropy's world transforms
+        take their columns)."""
+        points = np.asarray(values, dtype=float)
+        mapped = np.asarray(self._transform.transform(points.reshape(-1, 2)), dtype=float)
+        return tuple(mapped[0]) if points.ndim == 1 else mapped
 
     def inverted(self):
-        """The inverse of the transform."""
-        return self._transform.inverted()
+        """The inverse of the transform, mapped the same way."""
+        return _ProgramMap(self._transform.inverted())
 
     def transform_path(self, vertices, codes, steps=1):
         """The `.Path` of *vertices* and *codes* (with *steps*

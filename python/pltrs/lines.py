@@ -428,6 +428,12 @@ class Line2D(Artist):
                                    self.get_ydata(orig=False))
         return np.column_stack([x, y]).astype(float)
 
+    # The numbers drawn, as matplotlib's ``recache`` keeps them (attributes
+    # programs read: scikit-learn's tests read ``line._y``).
+    _xy = property(get_xydata, doc="The *xy* data drawn, as a (N, 2) array.")
+    _x = property(lambda self: self.get_xydata()[:, 0], doc="The x data drawn.")
+    _y = property(lambda self: self.get_xydata()[:, 1], doc="The y data drawn.")
+
     def get_path(self):
         """Return the `~matplotlib.path.Path` associated with this line."""
         return drawn_path(self, *_lines.get_path(self._native), (

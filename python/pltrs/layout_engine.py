@@ -106,10 +106,30 @@ class LayoutEngine:
         self._figures = weakref.WeakSet()
 
     def _attach(self, fig):
-        """Become the engine of *fig*: give pltrs (Rust) its description."""
+        """
+        Become the engine of *fig*: give pltrs (Rust) its description. An
+        engine whose class of the program's lays figures out itself (its
+        own ``execute``, as plotnine's) stands as a placeholder there, and
+        the figure runs its ``execute`` before every layout of a draw, as
+        matplotlib's draw runs it (see `.axes._program_locators`).
+        """
         from ._native import figure as _figure
-        _figure.set_layout_engine(fig._native, self._native_spec())
-        self._figures.add(fig)
+        from ._program_classes import takes_from_program
+        by_program = takes_from_program(type(self), "execute")
+        _figure.set_layout_engine(
+            fig._native, self._placeholder_spec() if by_program else self._native_spec())
+        # An engine of the program's may not have run this class' __init__.
+        self.__dict__.setdefault("_figures", weakref.WeakSet()).add(fig)
+        if by_program:
+            from .axes import _program_locators
+            _program_locators.follow_engine(fig)
+
+    def _placeholder_spec(self):
+        """A placeholder of the engine as pltrs (Rust) takes it: no layout
+        of its own, the engine's compatibility with `.Figure.subplots_adjust`
+        and its way of making colorbars."""
+        return ("placeholder", bool(self.adjust_compatible),
+                bool(self.colorbar_gridspec))
 
     def _changed(self):
         """Give the figures using this engine its new parameters."""
@@ -152,8 +172,7 @@ class PlaceHolderLayoutEngine(LayoutEngine):
 
     def _native_spec(self):
         """The engine as pltrs (Rust) takes it."""
-        return ("placeholder", bool(self._adjust_compatible),
-                bool(self._colorbar_gridspec))
+        return self._placeholder_spec()
 
     def execute(self, fig):
         """

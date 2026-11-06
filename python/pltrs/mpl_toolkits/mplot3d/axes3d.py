@@ -1537,6 +1537,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                 raise TypeError("plot() for multiple values for argument 'zs'")
         else:
             zs = kwargs.pop('zs', 0)
+        # 2D plot's autoscaling flags (pyplot's `plot` passes them), which
+        # matplotlib's 3D autoscaling of every axis after it overrides.
+        kwargs.pop('scalex', None)
+        kwargs.pop('scaley', None)
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
         if len(args) > 1 or args and not isinstance(args[0], str):
@@ -1711,6 +1715,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             raise ValueError("Argument Z must be 2-dimensional.")
         Z = cbook._to_unmasked_float_array(Z)
         X, Y, Z = np.broadcast_arrays(X, Y, Z)
+        # matplotlib's check of the polygons' vertices, which refuses what
+        # is not numbers ("ufunc 'isfinite' not supported for the input
+        # types").
+        np.isfinite(np.stack((X, Y, Z)))
         sampling = _sampling(kwargs.pop('rstride', None),
                              kwargs.pop('cstride', None),
                              kwargs.pop('rcount', None),

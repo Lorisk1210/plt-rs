@@ -1,6 +1,7 @@
 //! `cargo xtask ecosystem [setup | suite ... | PYTEST ARGS...]`: pltrs
 //! (Python) as matplotlib under the libraries that import matplotlib by
-//! name, pandas and seaborn.
+//! name: pandas, seaborn, xarray, networkx, scikit-learn, statsmodels,
+//! geopandas, plotnine and astropy (`libraries`).
 //!
 //! * `ecosystem setup` makes the ecosystem's venvs with uv and downloads
 //!   the libraries' sdists (`setup`);
@@ -10,10 +11,11 @@
 //!   pltrs' smoke figures of the libraries (the tests in
 //!   `python/ecosystem`) with `PLTRS_ECOSYSTEM_PYTHON`, else the ecosystem
 //!   venv's Python, else the pltrs venv's (where they skip, without
-//!   pandas and seaborn), `python/alias` and `python` first on
+//!   the libraries), `python/alias` and `python` first on
 //!   `PYTHONPATH`, so that `import matplotlib` gives the source tree's
 //!   pltrs. The figures go to `target/ecosystem/out`.
 
+mod libraries;
 mod setup;
 mod suite;
 
@@ -69,8 +71,8 @@ fn interpreter() -> Result<PathBuf, String> {
         return Ok(own);
     }
     println!(
-        "no {} (`cargo xtask ecosystem setup` makes it): the tests skip without pandas \
-         and seaborn",
+        "no {} (`cargo xtask ecosystem setup` makes it): the tests skip without the \
+         libraries",
         own.display()
     );
     python::pltrs_python()

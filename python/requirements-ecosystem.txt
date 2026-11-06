@@ -1,11 +1,11 @@
-# The ecosystem venvs (made by `cargo xtask ecosystem setup`): pandas and
-# seaborn, with their test suites' needs. `target/ecosystem/venv` runs
-# them on pltrs as matplotlib: setup installs this list with matplotlib
-# excluded from the resolution (seaborn requires it; `python/alias` is
-# what it gets), and matplotlib must never be there.
+# The ecosystem venvs (made by `cargo xtask ecosystem setup`): the
+# libraries that import matplotlib by name, with their test suites' needs.
+# `target/ecosystem/venv` runs them on pltrs as matplotlib: setup installs
+# this list with matplotlib excluded from the resolution (what requires it
+# gets `python/alias`), and matplotlib must never be there.
 # `target/ecosystem/reference-venv` adds requirements-ecosystem-reference.txt
-# (real matplotlib) to it. setup downloads the sdists of pandas and seaborn
-# at these versions, whose tests `cargo xtask ecosystem suite` runs.
+# (real matplotlib) to it. setup downloads the sdists of the libraries at
+# these versions, whose tests `cargo xtask ecosystem suite` runs.
 #
 # What pltrs itself imports (as requirements-pltrs.txt pins it):
 numpy==2.5.4
@@ -16,11 +16,44 @@ python-dateutil==2.9.0.post0
 pandas==3.1.0
 seaborn==0.13.2
 scipy==1.18.1
+xarray==2026.9.0
+networkx==3.7
+scikit-learn==1.9.1
+statsmodels==0.15.0
+geopandas==1.2.0
+plotnine==0.15.9
+astropy==8.0.2
+# What the libraries' plotting tests use where it is installed. geopandas:
+# shapely and pyproj (its geometries and their reference systems), pyogrio
+# (reading its test data) and mapclassify (the `scheme=` legends); xarray:
+# cftime, nc-time-axis and dask (its plots of other calendars and of lazy
+# arrays); plotnine: scikit-misc and adjustText (`method="loess"` smooths
+# and adjusted labels); networkx and astropy: pytest-mpl (the image
+# comparisons of the one and the figure tests of the other).
+shapely==2.2.0
+pyproj==3.8.0
+pyogrio==0.13.0
+mapclassify==2.11.0
+cftime==1.6.6.1
+nc-time-axis==1.4.1
+dask==2026.8.0
+scikit-misc==0.5.3
+adjustText==1.4.0
+pytest-mpl==0.19.0
 # What running the tests needs. tzdata: the time zones pandas' conftest
 # names, such as `US/Pacific`, which a system's own database may lack.
 # pytest 8 rather than 9: seaborn 0.13.2's `tests/test_base.py` marks its
-# fixtures, which pytest 9 refuses to collect.
+# fixtures, which pytest 9 refuses to collect. astropy's configuration
+# names the options of pytest-doctestplus, pytest-astropy-header and
+# pytest-remotedata, and its conftest imports hypothesis. statsmodels'
+# tests mark some as `thread_unsafe`, pytest-run-parallel's marker (which
+# runs every test once, as without it, unless given `--parallel-threads`).
 tzdata==2026.6
 pytest==8.4.2
 pytest-xdist==3.8.0
 pytest-timeout==2.4.0
+pytest-doctestplus==1.7.1
+pytest-astropy-header==0.2.2
+pytest-remotedata==0.4.3
+hypothesis==6.170.14
+pytest-run-parallel==0.10.0

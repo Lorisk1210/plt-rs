@@ -17,7 +17,7 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from .. import _api, _handles
+from .. import _api, _handles, _python_drawing
 from .._native import figure as _figure, insets as _insets
 from ..transforms import Bbox
 
@@ -116,7 +116,10 @@ class ConstructionMixin:
         return ax._native, {}
 
     def _init_axes_state(self):
-        """Set up the Python state of the Axes around its native handle."""
+        """Set up the Python state of the Axes around its native handle:
+        an Axes class of the program's draws through its own ``draw``
+        (astropy's ``WCSAxes``), as matplotlib's figure draws its Axes."""
+        _python_drawing.attach(self)
 
     def get_window_extent(self, renderer=None):
         """

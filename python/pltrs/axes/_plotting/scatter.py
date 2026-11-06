@@ -322,6 +322,9 @@ class ScatterMixin:
         collection._paths_container = tuple
         _values.remember(collection, "sizes", np.asarray(s))
         collection._face_fill = True
+        if alphas is not None:
+            # The array of alphas comes back, as `set_alpha` keeps it.
+            collection._array_alpha = np.asarray(alphas)
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)

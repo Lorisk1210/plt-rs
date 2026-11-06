@@ -182,7 +182,7 @@ fn remove_links(dir: &Path) -> Result<(), String> {
 }
 
 /// Links `link_path` to `target` with a symbolic link.
-fn link(target: &Path, link_path: &Path) -> Result<(), String> {
+pub(crate) fn link(target: &Path, link_path: &Path) -> Result<(), String> {
     symlink(target, link_path).map_err(|err| format!("{}: {err}", link_path.display()))
 }
 

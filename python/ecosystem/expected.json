@@ -1,4 +1,31 @@
 {
+ "test_acf": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": null,
+    "lines": 2,
+    "patches": 0,
+    "texts": 0,
+    "title": "Autocorrelation",
+    "xlabel": "",
+    "xlim": [
+     -1.025,
+     21.525
+    ],
+    "ylabel": "",
+    "ylim": [
+     -1.0,
+     1.0
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_andrews_curves": {
   "axes": [
    {
@@ -310,6 +337,33 @@
    4.8
   ]
  },
+ "test_bars": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     0.4,
+     3.6
+    ],
+    "ylabel": "",
+    "ylim": [
+     -1.0,
+     21.0
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_bootstrap_plot": {
   "axes": [
    {
@@ -427,6 +481,33 @@
    4.8
   ]
  },
+ "test_boundary": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     -0.245,
+     5.145
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -0.09,
+     1.89
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_box": {
   "axes": [
    {
@@ -490,6 +571,63 @@
     "ylim": [
      -2.40593,
      2.39034
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_boxplots": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": null,
+    "lines": 14,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     0.5,
+     2.5
+    ],
+    "ylabel": "",
+    "ylim": [
+     -2.95323,
+     2.92854
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_categories": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": [
+     "a",
+     "b"
+    ],
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     -0.245,
+     5.145
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -0.09,
+     1.89
     ]
    }
   ],
@@ -763,6 +901,44 @@
    5.0
   ]
  },
+ "test_choropleth": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     -0.245,
+     5.145
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -0.09,
+     1.89
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     1.0,
+     5.0
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_clustermap": {
   "axes": [
    {
@@ -837,6 +1013,174 @@
    10.0
   ]
  },
+ "test_confusion_matrix": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 9,
+    "title": "",
+    "xlabel": "Predicted label",
+    "xlim": [
+     -0.5,
+     2.5
+    ],
+    "ylabel": "True label",
+    "ylim": [
+     2.5,
+     -0.5
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     0.0,
+     17.0
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_contour_colors": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     0.0,
+     4.0
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -1.0,
+     1.0
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_contourf_levels": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     0.0,
+     4.0
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -1.0,
+     1.0
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     -1.2,
+     1.2
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_dataset_scatter": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "a [m]",
+    "xlim": [
+     -1.08731,
+     1.08488
+    ],
+    "ylabel": "b [m]",
+    "ylim": [
+     -0.0488638,
+     1.02614
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     0.0,
+     0.977277
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_decision_boundary": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -3.0,
+     3.0
+    ],
+    "ylabel": "",
+    "ylim": [
+     -1.99838,
+     1.99948
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_density": {
   "axes": [
    {
@@ -855,6 +1199,33 @@
     "ylim": [
      -0.00726405,
      0.153798
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_display": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 5,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.05,
+     1.05
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.1,
+     2.1
     ]
    }
   ],
@@ -955,6 +1326,116 @@
   "size": [
    5.59,
    5.0
+  ]
+ },
+ "test_draw_networkx": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 5,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.105,
+     1.105
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.21,
+     2.21
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_edge_labels": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 2,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.105,
+     1.105
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.21,
+     2.21
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_facet_grid": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "scale = 1",
+    "xlabel": "x",
+    "xlim": [
+     -0.0689655,
+     4.06897
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -1.05263,
+     1.05263
+    ]
+   },
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "scale = 2",
+    "xlabel": "x",
+    "xlim": [
+     -0.0689655,
+     4.06897
+    ],
+    "ylabel": "",
+    "ylim": [
+     -1.05263,
+     1.05263
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     -1.97715,
+     1.97715
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   7.0,
+   3.0
   ]
  },
  "test_facetgrid": {
@@ -1072,6 +1553,69 @@
   "size": [
    9.0,
    6.0
+  ]
+ },
+ "test_facets_and_theme": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.5,
+     10.5
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.649296,
+     1.9065
+    ]
+   },
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.5,
+     10.5
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.649296,
+     1.9065
+    ]
+   },
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.5,
+     10.5
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.649296,
+     1.9065
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
   ]
  },
  "test_frame_hist": {
@@ -1335,6 +1879,60 @@
     "ylim": [
      0.0,
      23.1
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_histogram": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 12,
+    "texts": 0,
+    "title": "",
+    "xlabel": "amplitude [m]",
+    "xlim": [
+     -1.08731,
+     1.08488
+    ],
+    "ylabel": "",
+    "ylim": [
+     0.0,
+     119.7
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_histogram_fill": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.774485,
+     2.06529
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.55,
+     11.55
     ]
    }
   ],
@@ -1981,6 +2579,38 @@
    4.8
   ]
  },
+ "test_lines_hue": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": [
+     "-1.0",
+     "-0.4736842105263158",
+     "0.05263157894736836",
+     "0.5789473684210527"
+    ],
+    "lines": 4,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     -0.2,
+     4.2
+    ],
+    "ylabel": "amplitude [m]",
+    "ylim": [
+     -1.08731,
+     1.08488
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_lmplot": {
   "axes": [
    {
@@ -2011,6 +2641,96 @@
   "size": [
    5.59,
    5.0
+  ]
+ },
+ "test_mixed_geometries": {
+  "axes": [
+   {
+    "collections": 2,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     -0.2,
+     4.2
+    ],
+    "ylabel": "y",
+    "ylim": [
+     1.925,
+     3.575
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_mosaic": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 4,
+    "texts": 4,
+    "title": "mosaic",
+    "xlabel": "",
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylabel": "",
+    "ylim": [
+     0.0,
+     1.0
+    ]
+   },
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylabel": "",
+    "ylim": [
+     0.0,
+     1.0
+    ]
+   },
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylabel": "",
+    "ylim": [
+     0.0,
+     1.0
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
   ]
  },
  "test_objects_interface": {
@@ -2532,6 +3252,107 @@
    4.8
   ]
  },
+ "test_partial_dependence": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylabel": "",
+    "ylim": [
+     0.0,
+     1.0
+    ]
+   },
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x0",
+    "xlim": [
+     -0.05,
+     1.05
+    ],
+    "ylabel": "Partial dependence",
+    "ylim": [
+     -0.146185,
+     2.08949
+    ]
+   },
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x1",
+    "xlim": [
+     -1.08949,
+     1.0995
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.146185,
+     2.08949
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_pcolormesh": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "x",
+    "xlim": [
+     -0.0689655,
+     4.06897
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -1.05263,
+     1.05263
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     -0.988573,
+     0.988573
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_pie": {
   "axes": [
    {
@@ -2564,6 +3385,89 @@
    4.8
   ]
  },
+ "test_points_and_smooth": {
+  "axes": [
+   {
+    "collections": 4,
+    "legend": null,
+    "lines": 3,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.5,
+     10.5
+    ],
+    "ylabel": "",
+    "ylim": [
+     -0.649296,
+     1.9065
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_precision_recall": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": [
+     "Classifier (AP = 1.00)"
+    ],
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "Recall (Positive label: 1)",
+    "xlim": [
+     -0.01,
+     1.01
+    ],
+    "ylabel": "Precision (Positive label: 1)",
+    "ylim": [
+     -0.01,
+     1.01
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_qqplot": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 2,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "Theoretical Quantiles",
+    "xlim": [
+     -2.68066,
+     2.68066
+    ],
+    "ylabel": "Sample Quantiles",
+    "ylim": [
+     -2.23347,
+     2.25155
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_radviz": {
   "axes": [
    {
@@ -2586,6 +3490,36 @@
     "ylim": [
      -1.1,
      1.1
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_regression_plots": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": [
+     "y",
+     "fitted"
+    ],
+    "lines": 2,
+    "patches": 0,
+    "texts": 0,
+    "title": "Fitted values versus x1",
+    "xlabel": "x1",
+    "xlim": [
+     -0.05,
+     1.05
+    ],
+    "ylabel": "y",
+    "ylim": [
+     -1.809,
+     3.82708
     ]
    }
   ],
@@ -2685,6 +3619,35 @@
     "ylim": [
      -1.60955,
      1.30006
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_roc_curve": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": [
+     "model (AUC = 1.00)"
+    ],
+    "lines": 1,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "False Positive Rate (Positive label: 1)",
+    "xlim": [
+     -0.01,
+     1.01
+    ],
+    "ylabel": "True Positive Rate (Positive label: 1)",
+    "ylim": [
+     -0.01,
+     1.01
     ]
    }
   ],
@@ -2998,6 +3961,44 @@
    4.8
   ]
  },
+ "test_simple_norm": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "",
+    "xlim": [
+     -0.5,
+     49.5
+    ],
+    "ylabel": "",
+    "ylim": [
+     39.5,
+     -0.5
+    ]
+   },
+   {
+    "colorbar": true,
+    "xlim": [
+     0.0,
+     1.0
+    ],
+    "ylim": [
+     0.00923273,
+     0.980199
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
  "test_table": {
   "axes": [
    {
@@ -3046,6 +4047,60 @@
     "ylim": [
      -2.28605,
      2.28291
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_wcsaxes_image": {
+  "axes": [
+   {
+    "collections": 0,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "RA",
+    "xlim": [
+     -0.5,
+     49.5
+    ],
+    "ylabel": "Dec",
+    "ylim": [
+     -0.5,
+     39.5
+    ]
+   }
+  ],
+  "legends": [],
+  "size": [
+   6.4,
+   4.8
+  ]
+ },
+ "test_wcsaxes_overlay_and_contours": {
+  "axes": [
+   {
+    "collections": 1,
+    "legend": null,
+    "lines": 0,
+    "patches": 0,
+    "texts": 0,
+    "title": "",
+    "xlabel": "pos.eq.ra",
+    "xlim": [
+     0.0,
+     49.0
+    ],
+    "ylabel": "pos.eq.dec",
+    "ylim": [
+     0.0,
+     39.0
     ]
    }
   ],

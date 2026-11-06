@@ -48,7 +48,9 @@ impl FromPy<'_> for Colormap {
         if !object.getattr("_isinit")?.is_truthy()? {
             object.call_method("_init", &[])?;
         }
-        let name: String = object.getattr("name")?.extract()?;
+        // matplotlib keeps whatever name it is given (xarray names the
+        // colormaps of its levels by their colours, a list).
+        let name = object.getattr("name")?.str()?;
         let lut: NdArray = object.getattr("_lut")?.extract()?;
         let rows: Vec<Rgba> = lut
             .data

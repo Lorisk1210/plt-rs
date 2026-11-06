@@ -67,14 +67,16 @@ python/
   tests/test_smoke.py           `cargo xtask python test`
   backend/pltrs_backend/        the PEP 517 build backend (standard library only)
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
-  ecosystem/                    `cargo xtask ecosystem`: pandas and seaborn on pltrs
-                                (and `fetch.py`, which downloads their sdists)
+  ecosystem/                    `cargo xtask ecosystem`: the libraries importing matplotlib
+                                on pltrs (pandas, seaborn, xarray, networkx, scikit-learn,
+                                statsmodels, geopandas, plotnine, astropy), `fetch.py`, which
+                                downloads their sdists, and `plugin/`, the suites' pytest plugin
   tools/toolkits.sh             GTK 3 and 4, PyGObject, pycairo, cairocffi, wxPython and
                                 Qt's X libraries without root
   requirements-pltrs.txt        the pltrs venv (pinned)
   requirements-reference.txt    what the reference venv gets on top
   requirements-suite.txt        what both get for the suite (pandas, tornado, Qt bindings)
-  requirements-ecosystem.txt    the ecosystem venvs (pandas, seaborn, scipy, pytest)
+  requirements-ecosystem.txt    the ecosystem venvs (the libraries, what their tests use, pytest)
   requirements-ecosystem-reference.txt  what the ecosystem's reference venv adds (matplotlib)
   requirements-notebooks.txt    the notebooks' venvs (Jupyter, IPython, matplotlib-inline, ipympl)
   requirements-notebooks-reference.txt  what the notebooks' reference venv adds (matplotlib)
@@ -83,7 +85,7 @@ spec/mpl-suite/
   reference.json                outcomes under real matplotlib (committed)
   pltrs.json                    outcomes under pltrs (committed)
 spec/ecosystem/
-  reference.json, pltrs.json    the same for pandas' and seaborn's suites
+  reference.json, pltrs.json    the same for the libraries' suites (`cargo xtask ecosystem suite`)
 spec/notebooks/
   *.ipynb, execute.py           `cargo xtask notebooks`: notebooks run in Jupyter, and their driver
   reference.json, pltrs.json    the outcomes of their comparison and of the libraries' tests
@@ -1266,7 +1268,15 @@ figures without it:
   `RendererPgf` (`FigureCanvas*._program_renderer`, installed for the
   print by `FigureCanvasBase._program_drawing`, `drawing_with`), whose
   `start_rasterizing` is recorded too. A loose artist drawn this way
-  resolves its transforms in the figure drawing it.
+  resolves its transforms in the figure drawing it. An Axes class of the
+  program's (astropy's `WCSAxes`) is painted the same way, however the
+  Axes is made (`ConstructionMixin._init_axes_state`). A class that
+  measures its artists (`get_window_extent`, `get_tightbbox`) is measured
+  before a layout engine lays the figure out and before its tight box is
+  computed, as matplotlib's engines and `bbox_inches="tight"` ask, not at
+  other draws (`Figure::prepare_layout`); what the measuring draws is
+  recorded and dropped (`measure_artist`), as what matplotlib's layouts
+  draw is drawn over.
 * **Adding.** matplotlib's `add_*` methods call `set_figure`,
   `set_transform` and the `axes` setter of the artist they add, and its
   constructors the setters of the artist (a line's `set_data`): where a
@@ -1517,6 +1527,17 @@ figure out: the root figure keeps what they place
 of a draw with no borrow of the figure held, calls them and places each
 axes where its locator says until the next draw, as matplotlib calls them
 when it draws.
+
+Grids and layout engines of the program's classes (plotnine's): a grid
+deriving from `GridSpecBase` alone gets a native grid of its own when
+first needed, and an overridden `get_subplot_params` gives the margins
+its cells are placed with (`get_grid_positions`, `SubplotSpec.get_position`,
+and the native block an axes is added on, which takes them then); an
+overridden `get_grid_positions` places the blocks itself. An engine whose
+class has its own `execute` is a placeholder for pltrs (Rust), with its
+`adjust_compatible` and `colorbar_gridspec`, and the same layout hook
+runs its `execute(fig)` before the locators, as matplotlib's draw runs it
+before it draws the Axes.
 
 A `Legend(parent, handles, labels, **kwargs)` makes the native legend of
 its parent at once: matplotlib's argument handling (`_parse_legend_args`,

@@ -20,6 +20,7 @@ import numpy as np
 from . import _api, _pylab_helpers, rcParams
 from ._api import UNSET as _UNSET
 from ._native import figure_layout as _figure_layout, gridspec as _gridspec
+from ._program_classes import takes_from_program
 from .transforms import Bbox
 
 #: The margin and spacing names of a grid, in the order they cross to
@@ -85,6 +86,34 @@ class GridSpecBase:
         """Hold the native grid *native* (and register this grid)."""
         self._native = native
         _GRIDSPECS.add(self)
+
+    def __getattr__(self, name):
+        # A grid of a class of the program's deriving from this one alone
+        # (plotnine's ``p9GridSpec``) gets its native grid when first
+        # needed, without margins or spacing of its own: its
+        # ``get_subplot_params`` gives them (`_params_of`).
+        if name == "_native" and "_nrows" in self.__dict__:
+            native = _gridspec.new(
+                self._nrows, self._ncols,
+                [float(r) for r in self._col_width_ratios],
+                [float(r) for r in self._row_height_ratios], (None,) * len(_KEYS))
+            # Constrained layout only places the grids of pltrs' classes.
+            _gridspec.set_in_layout(native, False)
+            self._adopt_native(native)
+            return native
+        raise AttributeError(
+            f"{type(self).__name__!r} object has no attribute {name!r}")
+
+    def _params_of(self, figure):
+        """The subplot parameters the positions of the grid's cells in
+        *figure* follow, as a tuple: those of *figure* (else of rcParams),
+        or those the grid's class of the program's gives
+        (``get_subplot_params``), as matplotlib's `get_grid_positions`
+        asks for them."""
+        if not takes_from_program(type(self), "get_subplot_params"):
+            return _figure_params(figure)
+        params = self.get_subplot_params(figure)
+        return tuple(getattr(params, key) for key in _KEYS)
 
     def __repr__(self):
         height_arg = (f', height_ratios={self._row_height_ratios!r}'
@@ -196,7 +225,7 @@ class GridSpecBase:
             The bottom, top, left, right positions of the grid cells in
             figure coordinates.
         """
-        return _gridspec.grid_positions(self._native, _figure_params(fig))
+        return _gridspec.grid_positions(self._native, self._params_of(fig))
 
     @staticmethod
     def _check_gridspec_exists(figure, nrows, ncols):
@@ -573,8 +602,15 @@ class SubplotSpec:
 
     def _native_spec(self):
         """The native block of cells of this subplot spec."""
+        gridspec = self._gridspec
+        if takes_from_program(type(gridspec), "get_subplot_params"):
+            # The margins and spacing the grid's class of the program's
+            # gives now, which place what is added on the block as
+            # matplotlib places it (`.Axes.set_subplotspec`).
+            _gridspec.set_overrides(gridspec._native, gridspec._params_of(
+                getattr(gridspec, "figure", None)))
         rows, cols = self.rowspan, self.colspan
-        return _gridspec.span(self._gridspec._native, (rows.start, rows.stop),
+        return _gridspec.span(gridspec._native, (rows.start, rows.stop),
                               (cols.start, cols.stop))
 
     def __repr__(self):
@@ -688,8 +724,17 @@ class SubplotSpec:
         """
         Update the subplot position from ``figure.subplotpars``.
         """
+        gridspec = self.get_gridspec()
+        if takes_from_program(type(gridspec), "get_grid_positions"):
+            # The cells where the grid's class of the program's puts them,
+            # as matplotlib's `get_position` asks for them.
+            rows, cols = np.unravel_index([self.num1, self.num2],
+                                          gridspec.get_geometry())
+            bottoms, tops, lefts, rights = gridspec.get_grid_positions(figure)
+            return Bbox.from_extents(lefts[cols].min(), bottoms[rows].min(),
+                                     rights[cols].max(), tops[rows].max())
         return Bbox.from_extents(*_gridspec.spec_position(
-            self._native_spec(), _figure_params(figure)))
+            self._native_spec(), gridspec._params_of(figure)))
 
     def get_topmost_subplotspec(self):
         """

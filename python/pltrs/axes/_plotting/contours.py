@@ -7,7 +7,7 @@ import math
 import numpy as np
 
 from ... import (_api, _handles, _live_transforms, _tick_helpers, _values, artist as martist,
-                 collections as mcoll, colors as mcolors)
+                 cbook, collections as mcoll, colors as mcolors)
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
 from ..._preprocess import _preprocess_data
@@ -114,7 +114,10 @@ def _style(contours, look, kwargs):
     attributes = dict(attributes)
     widths = attributes.pop("_given_linewidths")
     if native_cmap:
-        colorizer.cmap = _from_native(contours._native_cmap())
+        cmap = _from_native(contours._native_cmap())
+        if attributes["colors"] is not None:
+            cmap = _given_colormap(cmap, attributes["colors"])
+        colorizer.cmap = cmap
     contours._attach_native_mapping(colorizer=colorizer)
     for name, value in attributes.items():
         setattr(contours, name, value)
@@ -128,6 +131,20 @@ def _style(contours, look, kwargs):
     contours.monochrome = contours.cmap.monochrome
     contours._internal_update(kwargs)
     return contours
+
+
+def _given_colormap(cmap, colors):
+    """
+    *cmap*, the listed colormap pltrs (Rust) made of the contour colours
+    *colors*, as matplotlib's contour set makes it: holding the colours as
+    given, cycled to its size (the first left out when it is the colour
+    under the lowest level), and its extremes.
+    """
+    sequence = [colors] if mcolors.is_color_like(colors) else colors
+    first = 0 if cmap._rgba_under is None else 1
+    return mcolors.ListedColormap(
+        cbook._resize_sequence(sequence[first:], cmap.N),
+        under=cmap._rgba_under, over=cmap._rgba_over)
 
 
 class ContoursMixin:

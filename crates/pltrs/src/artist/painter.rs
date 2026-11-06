@@ -510,4 +510,25 @@ mod tests {
         let count = any.downcast_ref::<Measured>().map(|m| m.0.get());
         assert_eq!(count, Some(1), "measured before the tight box");
     }
+
+    #[test]
+    fn draws_measure_painters_for_engines_measuring_alone() {
+        let fig = Figure::with_size(2.0, 2.0, 100.0);
+        let plain = fig.add_custom_artist(Plain::default());
+        let measured = Painter::new(Measured(Cell::new(0)));
+        plain.raw().set_painter(Some(measured.clone()));
+        let count = || {
+            let any: &dyn Any = measured.get();
+            any.downcast_ref::<Measured>().map(|m| m.0.get())
+        };
+        fig.layout();
+        assert_eq!(count(), Some(0), "no engine asks for tight boxes");
+        fig.set_layout_engine(crate::layout::LayoutEngine::tight())
+            .unwrap();
+        fig.layout();
+        assert_eq!(count(), Some(1), "a tight layout measures");
+        fig.set_layout_engine(None).unwrap();
+        fig.layout();
+        assert_eq!(count(), Some(1), "its placeholder does not");
+    }
 }

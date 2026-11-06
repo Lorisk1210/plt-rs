@@ -122,6 +122,20 @@ def _refuse_rank(array):
     raise ValueError('Collections can only map rank 1 arrays')
 
 
+def _no_paths(paths):
+    """The paths of a collection given None for them: None, as matplotlib
+    keeps them (networkx makes its empty node collections so)."""
+    return None
+
+
+def _paths_container(paths):
+    """What `Collection.get_paths` hands the paths given as *paths* back
+    in: a tuple or a list, as given, or None for None."""
+    if paths is None:
+        return _no_paths
+    return tuple if isinstance(paths, tuple) else list
+
+
 @_api.define_aliases({
     "antialiased": ["antialiaseds", "aa"],
     "edgecolor": ["edgecolors", "ec"],
@@ -362,8 +376,8 @@ class Collection(mcolorizer.ColorizingArtist):
         if isinstance(paths, Path):
             _collections.set_single_path(self._native, paths)
         else:
-            self._paths_container = tuple if isinstance(paths, tuple) else list
-            _collections.set_paths(self._native, list(paths))
+            self._paths_container = _paths_container(paths)
+            _collections.set_paths(self._native, [] if paths is None else list(paths))
         self.__dict__.pop("_kept_paths", None)
 
     def get_transforms(self):
@@ -633,7 +647,9 @@ class Collection(mcolorizer.ColorizingArtist):
         if lw is None:
             lw = self._get_default_linewidth()
         lw = np.atleast_1d(lw)
-        _collections.set_linewidths(self._native, [float(w) for w in lw])
+        # Masked widths draw nothing, as NaN ones (and read back masked).
+        widths = lw.astype(float).filled(np.nan) if np.ma.isMaskedArray(lw) else lw
+        _collections.set_linewidths(self._native, [float(w) for w in widths])
         _values.remember(self, "linewidth", lw)
 
     def get_linestyle(self):
@@ -906,8 +922,9 @@ class PathCollection(_CollectionWithSizes):
         sizes : array-like
             The factor by which to scale each drawn `~.path.Path`.
         """
-        self._native = _collections.new_path_collection(list(paths))
-        self._paths_container = tuple if isinstance(paths, tuple) else list
+        self._native = _collections.new_path_collection(
+            [] if paths is None else list(paths))
+        self._paths_container = _paths_container(paths)
         super().__init__(**kwargs)
         self.set_sizes(sizes)
 

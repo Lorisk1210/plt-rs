@@ -69,6 +69,16 @@ def convert_units(axes, name, values):
     array = np.asanyarray(values)
     if array.dtype.kind in "fiub":
         return values
+    from ... import units as munits
+    from ...axis import _is_native_converter
+    axis = axes._axis_map.get(name)
+    if axis is not None and not _is_native_converter(
+            axis._converter or munits.registry.get_converter(values)):
+        # A converter of the program's (nc-time-axis' of cftime dates),
+        # which the axis takes as matplotlib's ``_process_unit_info`` has
+        # it take one.
+        axis.update_units(values)
+        return axis.convert_units(values)
     native = axis_values(values)
     converted = _plotting.convert_units(axes._native, name, native)
     if array.ndim == 0:
@@ -115,6 +125,21 @@ def floats(values):
 def line_kwargs(kwargs):
     """`.Line2D` keyword arguments, aliases resolved, in native form."""
     return mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
+
+
+def made_line_kwargs(kwargs):
+    """
+    The keyword arguments of a `.Line2D` made with them (``Line2D(...,
+    **kwargs)``, as ``axhline`` makes its line), in native form: an alias
+    overrides the property it stands for (statsmodels gives ``lw`` beside
+    a ``linewidth``), as matplotlib's constructor sets its parameters, then
+    the remaining arguments.
+    """
+    to_property = mlines.Line2D._alias_to_prop
+    resolved = {key: value for key, value in kwargs.items() if key not in to_property}
+    resolved.update((to_property[key], value) for key, value in kwargs.items()
+                    if key in to_property)
+    return mlines._native_kwargs(resolved)
 
 
 def collection_kwargs(kwargs, cls=mcoll.Collection):

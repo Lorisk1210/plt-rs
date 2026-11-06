@@ -103,6 +103,8 @@ pub(crate) struct X11Backend {
     input: Input,
     cursors: Cursors,
     scale_factor: f64,
+    /// The side of cursors in pixels (`Xcursor.size`).
+    cursor_size: u32,
     waker: Arc<X11Waker>,
     /// What this connection offers on the clipboard while it owns it.
     clipboard: Option<Clipboard>,
@@ -135,7 +137,10 @@ impl X11Backend {
         let (root, visual) = WindowVisual::choose(&mut conn, screen)?;
         let atoms = Atoms::intern(&mut conn)?;
         let keymap = Keymap::query(&mut conn)?;
-        let scale_factor = resources::query_scale_factor(&mut conn, root)?;
+        let resources::Resources {
+            scale_factor,
+            cursor_size,
+        } = resources::query(&mut conn, root)?;
         // Report changes of the resource database, which holds `Xft.dpi`.
         let watch_resources = WindowAttribute::EventMask(event_mask::PROPERTY_CHANGE);
         conn.send(&request::change_window_attributes(root, &[watch_resources]))?;
@@ -150,6 +155,7 @@ impl X11Backend {
             input: Input::new(keymap),
             cursors: Cursors::default(),
             scale_factor,
+            cursor_size,
             waker,
             clipboard: None,
             pastes: BTreeMap::new(),
@@ -308,7 +314,9 @@ impl Backend for X11Backend {
 
     fn set_cursor(&mut self, window: WindowId, cursor: CursorIcon) -> Result<(), Error> {
         let (xid, _) = self.window(window)?;
-        let cursor = self.cursors.get(&mut self.conn, cursor)?;
+        let cursor = self
+            .cursors
+            .get(&mut self.conn, self.root, cursor, self.cursor_size)?;
         let attribute = WindowAttribute::Cursor(cursor);
         self.conn
             .send(&request::change_window_attributes(xid, &[attribute]))?;

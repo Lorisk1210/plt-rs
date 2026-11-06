@@ -22,6 +22,9 @@ const SELECTION_NOTIFY: u8 = 31;
 const CLIENT_MESSAGE: u8 = 33;
 const MAPPING_NOTIFY: u8 = 34;
 
+/// The bit of an event's code set when a client sent it (`SendEvent`).
+const SENT: u8 = 0x80;
+
 /// `FocusIn`/`FocusOut` detail of focus moving with the pointer, which
 /// does not give the window keyboard input.
 const NOTIFY_POINTER: u8 = 5;
@@ -173,9 +176,17 @@ pub(crate) enum ServerEvent {
 
 impl ServerEvent {
     /// Decodes a raw event. The high bit of the code (set for events sent
-    /// with `SendEvent`) is ignored.
+    /// with `SendEvent`) is ignored, but for `ConfigureNotify`: a window
+    /// manager sends those to report where a window is on the screen
+    /// (ICCCM 4.1.5), while the window's size only changes with the
+    /// server's own. Their sizes may also be stale: mutter sends them to a
+    /// window it took for one it managed before, when a client that has
+    /// just connected reuses the ids of one that has just gone.
     pub(crate) fn parse(raw: &RawEvent) -> Self {
-        match raw[0] & 0x7f {
+        if raw[0] == CONFIGURE_NOTIFY | SENT {
+            return Self::Ignored;
+        }
+        match raw[0] & !SENT {
             code @ (KEY_PRESS | KEY_RELEASE) => Self::Key {
                 state: press_state(code == KEY_PRESS),
                 keycode: raw[1],
@@ -286,7 +297,7 @@ mod tests {
             }
         );
         let mut synthetic = event;
-        synthetic[0] = BUTTON_RELEASE | 0x80;
+        synthetic[0] = BUTTON_RELEASE | SENT;
         synthetic[1] = 3;
         assert_eq!(
             ServerEvent::parse(&synthetic),
@@ -334,6 +345,13 @@ mod tests {
                 height: 600
             }
         );
+        let mut sent = configure;
+        sent[0] |= SENT;
+        assert_eq!(
+            ServerEvent::parse(&sent),
+            ServerEvent::Ignored,
+            "sizes come from the server's own configures"
+        );
         let message = raw(&[
             (0, &[CLIENT_MESSAGE, 32]),
             (4, &[9, 0, 0, 0]),
@@ -375,7 +393,7 @@ mod tests {
     #[test]
     fn selection_answers_including_sent_ones() {
         let notify = raw(&[
-            (0, &[SELECTION_NOTIFY | 0x80]),
+            (0, &[SELECTION_NOTIFY | SENT]),
             (8, &[1, 0, 0, 0]),
             (12, &[2, 0, 0, 0]),
             (16, &[3, 0, 0, 0]),

@@ -2,9 +2,9 @@
 //! a flat bar with a close and a maximize button, and no title text (the
 //! platform has no fonts).
 
+use crate::canvas::Canvas;
 use crate::decoration::{DecorationPainter, TitleBar, TitleBarButton};
 use crate::geometry::PhysicalRect;
-use crate::wayland::draw::Canvas;
 
 /// The bar of a focused window.
 const BAR: [u8; 4] = [235, 235, 235, 255];

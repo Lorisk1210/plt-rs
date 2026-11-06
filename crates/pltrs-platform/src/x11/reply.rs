@@ -58,6 +58,38 @@ pub(crate) fn property(reply: &[u8]) -> Result<Property<'_>, Error> {
     })
 }
 
+/// The server's version in a RENDER `QueryVersion` reply.
+pub(crate) fn render_version(reply: &[u8]) -> Result<(u32, u32), Error> {
+    let mut r = Reader::at(reply, 8);
+    Ok((r.u32()?, r.u32()?))
+}
+
+/// The `PICTFORMAT` of 32-bit ARGB, 8 bits a channel with alpha highest,
+/// among those of a RENDER `QueryPictFormats` reply, if the server has it.
+pub(crate) fn argb32_format(reply: &[u8]) -> Result<Option<u32>, Error> {
+    /// `PictTypeDirect`: true colour, channels at shifts and masks.
+    const DIRECT: u8 = 1;
+    /// Shift and mask of red, green, blue and alpha in ARGB32.
+    const ARGB32: [(u16, u16); 4] = [(16, 0xff), (8, 0xff), (0, 0xff), (24, 0xff)];
+    let count = Reader::at(reply, 8).u32()?;
+    let mut r = Reader::at(reply, HEADER_LEN);
+    for _ in 0..count {
+        let id = r.u32()?;
+        let (kind, depth) = (r.u8()?, r.u8()?);
+        r.skip(2)?;
+        let mut channels = [(0, 0); 4];
+        for channel in &mut channels {
+            *channel = (r.u16()?, r.u16()?);
+        }
+        // The colormap of indexed formats.
+        r.skip(4)?;
+        if kind == DIRECT && depth == 32 && channels == ARGB32 {
+            return Ok(Some(id));
+        }
+    }
+    Ok(None)
+}
+
 /// The pixel data of a `GetImage` reply.
 pub(crate) fn image_data(reply: &[u8]) -> Result<&[u8], Error> {
     reply
@@ -109,6 +141,34 @@ mod tests {
         assert_eq!(super::property(&missing).unwrap().kind, 0);
         let lying = reply(32, &[6, 0, 100], &[0; 8]);
         assert!(super::property(&lying).is_err());
+    }
+
+    /// A `PICTFORMINFO`: id, type, depth and the channels' shifts and
+    /// masks (red, green, blue, alpha).
+    fn pict_format(id: u32, kind: u8, depth: u8, channels: [(u16, u16); 4]) -> Vec<u8> {
+        let mut out = id.to_le_bytes().to_vec();
+        out.extend([kind, depth, 0, 0]);
+        for (shift, mask) in channels {
+            out.extend(shift.to_le_bytes());
+            out.extend(mask.to_le_bytes());
+        }
+        out.extend([0; 4]);
+        out
+    }
+
+    #[test]
+    fn render_replies() {
+        assert_eq!(render_version(&reply(0, &[0, 11], &[])), Ok((0, 11)));
+        let rgb24 = pict_format(0x20, 1, 24, [(16, 0xff), (8, 0xff), (0, 0xff), (0, 0)]);
+        let a8 = pict_format(0x21, 1, 8, [(0, 0), (0, 0), (0, 0), (0, 0xff)]);
+        let argb32 = pict_format(0x22, 1, 32, [(16, 0xff), (8, 0xff), (0, 0xff), (24, 0xff)]);
+        let formats = [rgb24.clone(), a8, argb32].concat();
+        assert_eq!(argb32_format(&reply(0, &[3], &formats)), Ok(Some(0x22)));
+        assert_eq!(argb32_format(&reply(0, &[1], &rgb24)), Ok(None));
+        assert!(
+            argb32_format(&reply(0, &[1000], &rgb24)).is_err(),
+            "more formats than the reply holds"
+        );
     }
 
     #[test]

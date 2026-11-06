@@ -5,18 +5,15 @@ use std::collections::HashMap;
 
 use super::connection::Connection;
 use super::decoration::layout::Edges;
-use super::draw::{Canvas, Point};
 use super::protocol::Interface;
 use super::protocol::core;
 use super::protocol::input;
 use super::shm::{PixelFormat, Pixels, Swapchain};
+use crate::cursor_art::{GRID, Outline};
 use crate::error::Error;
 use crate::frame::Frame;
 use crate::geometry::{PhysicalRect, PhysicalSize};
 use crate::window::CursorIcon;
-
-/// The size of drawn cursors, in logical pixels.
-const SIZE: u32 = 24;
 
 /// A cursor shape: the crate's icons and the resize cursors of the
 /// decorations' borders.
@@ -53,103 +50,25 @@ impl Shape {
         }
     }
 
-    /// The outline of the drawn cursor, in [`SIZE`] units, and its hot
-    /// spot.
-    fn outline(self) -> (Vec<Vec<Point>>, (i32, i32)) {
-        const CENTRE: (i32, i32) = (12, 12);
+    /// The drawn cursor's outline.
+    fn outline(self) -> Outline {
         match self {
-            Self::Icon(CursorIcon::Text) => (
-                vec![
-                    rect((11.0, 4.0), (13.0, 20.0)),
-                    rect((8.0, 3.0), (16.0, 5.0)),
-                    rect((8.0, 19.0), (16.0, 21.0)),
-                ],
-                CENTRE,
-            ),
-            Self::Icon(CursorIcon::Crosshair) => (
-                vec![
-                    rect((11.0, 3.0), (13.0, 21.0)),
-                    rect((3.0, 11.0), (21.0, 13.0)),
-                ],
-                CENTRE,
-            ),
-            Self::Icon(CursorIcon::Move) => {
-                let mut parts = double_arrow(0.0);
-                parts.extend(double_arrow(90.0));
-                (parts, CENTRE)
-            }
-            Self::Icon(CursorIcon::ResizeHorizontal) => (double_arrow(0.0), CENTRE),
-            Self::Icon(CursorIcon::ResizeVertical) => (double_arrow(90.0), CENTRE),
-            Self::Resize(Edges(edges)) => {
-                let angle = match edges {
-                    Edges::LEFT | Edges::RIGHT => 0.0,
-                    Edges::TOP | Edges::BOTTOM => 90.0,
-                    e if e == Edges::TOP | Edges::LEFT || e == Edges::BOTTOM | Edges::RIGHT => 45.0,
-                    _ => 135.0,
-                };
-                (double_arrow(angle), CENTRE)
-            }
-            Self::Icon(_) => {
-                let arrow = vec![
-                    (1.0, 1.0),
-                    (1.0, 18.0),
-                    (5.0, 14.0),
-                    (8.0, 21.0),
-                    (11.0, 20.0),
-                    (8.0, 13.0),
-                    (13.0, 13.0),
-                ];
-                (vec![arrow], (1, 1))
-            }
+            Self::Icon(icon) => Outline::of_icon(icon),
+            Self::Resize(Edges(edges)) => Outline::double_arrow(match edges {
+                Edges::LEFT | Edges::RIGHT => 0.0,
+                Edges::TOP | Edges::BOTTOM => 90.0,
+                e if e == Edges::TOP | Edges::LEFT || e == Edges::BOTTOM | Edges::RIGHT => 45.0,
+                _ => 135.0,
+            }),
         }
     }
 
     /// The cursor drawn at an integer `scale`: black with a white border,
     /// premultiplied RGBA.
     fn draw(self, scale: u32) -> (PhysicalSize, Vec<u8>) {
-        let size = PhysicalSize::new(SIZE * scale, SIZE * scale);
-        let mut pixels = vec![0; size.area() as usize * 4];
-        let mut canvas = Canvas::new(&mut pixels, size.width);
-        let s = f64::from(scale);
-        let (parts, _) = self.outline();
-        let scaled = |part: &[Point], (dx, dy): Point| -> Vec<Point> {
-            part.iter()
-                .map(|&(x, y)| (x * s + dx, y * s + dy))
-                .collect()
-        };
-        for dx in [-s, 0.0, s] {
-            for dy in [-s, 0.0, s] {
-                for part in &parts {
-                    canvas.fill(&scaled(part, (dx, dy)), [255; 4]);
-                }
-            }
-        }
-        for part in &parts {
-            canvas.fill(&scaled(part, (0.0, 0.0)), [0, 0, 0, 255]);
-        }
-        (size, pixels)
+        let side = GRID * scale;
+        (PhysicalSize::new(side, side), self.outline().draw(side))
     }
-}
-
-/// A rectangle as a polygon.
-fn rect((x0, y0): Point, (x1, y1): Point) -> Vec<Point> {
-    vec![(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
-}
-
-/// A double-headed arrow through the centre, turned by `degrees`.
-fn double_arrow(degrees: f64) -> Vec<Vec<Point>> {
-    let (sin, cos) = degrees.to_radians().sin_cos();
-    let turn = |(x, y): Point| {
-        let (x, y) = (x - 12.0, y - 12.0);
-        (12.0 + x * cos - y * sin, 12.0 + x * sin + y * cos)
-    };
-    let shaft = rect((6.0, 11.0), (18.0, 13.0));
-    let left = vec![(2.0, 12.0), (8.0, 7.0), (8.0, 17.0)];
-    let right = vec![(22.0, 12.0), (16.0, 17.0), (16.0, 7.0)];
-    [shaft, left, right]
-        .into_iter()
-        .map(|part| part.into_iter().map(turn).collect())
-        .collect()
 }
 
 /// A drawn cursor's surface; its buffer stays attached for good.
@@ -220,7 +139,7 @@ fn draw_image(
     conn.send(core::commit(surface))?;
     Ok(Image {
         surface,
-        hotspot: shape.outline().1,
+        hotspot: shape.outline().hotspot,
     })
 }
 
@@ -254,7 +173,10 @@ mod tests {
             assert!(pixels.chunks(4).any(|px| px == [255; 4]), "{shape:?}");
             assert!(pixels.chunks(4).any(|px| px[3] == 0), "{shape:?}");
         }
-        let (_, hotspot) = Shape::Icon(CursorIcon::Default).outline();
-        assert_eq!(hotspot, (1, 1));
+        assert_eq!(Shape::Icon(CursorIcon::Default).outline().hotspot, (1, 1));
+        assert_eq!(
+            Shape::Resize(Edges(Edges::LEFT)).outline(),
+            Outline::double_arrow(0.0)
+        );
     }
 }

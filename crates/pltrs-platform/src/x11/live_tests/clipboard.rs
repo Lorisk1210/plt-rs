@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use super::super::atoms::predefined;
 use super::super::request;
 use super::super::server_event::{SelectionRequest, ServerEvent};
-use super::{Driver, is, live, open_window, pump_until, x11_loop};
+use super::{Driver, is, live, open_window, pump_until, x11_loop, xid};
 use crate::backend::Wait;
 use crate::event::WindowEvent;
 use crate::event_loop::EventLoop;
@@ -183,8 +183,10 @@ fn windows_paste_their_own_text_and_other_clients_text() {
             .unwrap();
         for raw in &events {
             if let ServerEvent::SelectionRequest(asked) = ServerEvent::parse(raw) {
+                // A desktop's clipboard bridge asks too: mutter mirrors
+                // the X11 clipboard to Wayland clients.
+                answered += usize::from(asked.requestor == xid(window));
                 answer_in_latin1(&mut driver, asked);
-                answered += 1;
             }
         }
         event_loop
@@ -199,7 +201,7 @@ fn windows_paste_their_own_text_and_other_clients_text() {
             })
             .unwrap();
     }
-    assert_eq!(answered, 2, "UTF-8 first, then Latin-1");
+    assert_eq!(answered, 2, "the window asks for UTF-8 first, then Latin-1");
 }
 
 /// Answers `asked` as an owner offering only `STRING`: "café".

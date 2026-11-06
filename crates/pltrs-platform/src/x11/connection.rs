@@ -469,17 +469,23 @@ mod tests {
         (connection, handle.join().unwrap())
     }
 
-    /// Answers the connection setup of a client, with BIG-REQUESTS
-    /// raising the request length to `big_requests` words if given.
-    fn serve_setup(mut server: FakeServer, big_requests: Option<u32>) -> FakeServer {
+    /// Reads a client's whole connection setup request, the credentials
+    /// it found for the display (in `$XAUTHORITY`) included.
+    fn read_setup_request(stream: &mut UnixStream) {
         let mut setup = [0; 12];
-        server.0.read_exact(&mut setup).unwrap();
+        stream.read_exact(&mut setup).unwrap();
         let auth_len = |at: usize| {
             let len = usize::from(u16::from_le_bytes([setup[at], setup[at + 1]]));
             len.div_ceil(4) * 4
         };
         let mut auth = vec![0; auth_len(6) + auth_len(8)];
-        server.0.read_exact(&mut auth).unwrap();
+        stream.read_exact(&mut auth).unwrap();
+    }
+
+    /// Answers the connection setup of a client, with BIG-REQUESTS
+    /// raising the request length to `big_requests` words if given.
+    fn serve_setup(mut server: FakeServer, big_requests: Option<u32>) -> FakeServer {
+        read_setup_request(&mut server.0);
         server.write(fixtures::SETUP);
         assert_eq!(server.read_request(), 98, "QueryExtension");
         let major = 0x85;
@@ -508,9 +514,10 @@ mod tests {
             for (accepted, stream) in listener.incoming().enumerate() {
                 let mut stream = stream.unwrap();
                 if accepted < dropped {
+                    // Read in full, so that closing ends the client's
+                    // stream rather than resetting it over unread bytes.
                     if accepted % 2 == 1 {
-                        let mut setup = [0; 12];
-                        stream.read_exact(&mut setup).unwrap();
+                        read_setup_request(&mut stream);
                     }
                     continue;
                 }

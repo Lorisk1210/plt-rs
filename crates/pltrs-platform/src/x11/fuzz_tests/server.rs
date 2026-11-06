@@ -1,7 +1,8 @@
 //! A whole backend against a fake X server on the other end of a socket
 //! pair. The server sends the captured setup reply, sometimes mutated,
 //! and answers every query in order with a fuzzed reply — atoms that
-//! repeat or are zero, extensions, request size limits, the captured
+//! repeat or are zero, extensions, request size limits, RENDER versions
+//! and picture formats (ARGB32 among them or not), the captured
 //! keyboard and modifier mappings mutated, resource databases with any
 //! `Xft.dpi`, clipboard properties of any type and format (`INCR`
 //! included), images of the wrong size — or with an error. Before
@@ -79,6 +80,8 @@ struct FakeServer {
     next_atom: u32,
     /// The major opcode of BIG-REQUESTS, once given out.
     big_requests: Option<u8>,
+    /// The major opcode of RENDER, once given out.
+    render: Option<u8>,
     /// The root window of the first screen.
     root: u32,
     /// The windows created.
@@ -103,6 +106,7 @@ impl FakeServer {
             atoms: HashMap::new(),
             next_atom: 0x200,
             big_requests: None,
+            render: None,
             root,
             windows: Vec::new(),
         };
@@ -136,11 +140,11 @@ impl FakeServer {
     fn serve(&mut self) {
         while self.budget > 0 {
             self.budget -= 1;
-            let Some((op, body)) = self.read_request() else {
+            let Some((op, minor, body)) = self.read_request() else {
                 return;
             };
             self.sequence = self.sequence.wrapping_add(1);
-            if !self.answer(op, &body) {
+            if !self.answer(op, minor, &body) {
                 return;
             }
         }
@@ -148,8 +152,9 @@ impl FakeServer {
         self.write(&last);
     }
 
-    /// Reads a request: its opcode and the bytes after its header.
-    fn read_request(&mut self) -> Option<(u8, Vec<u8>)> {
+    /// Reads a request: its opcode, the header's detail byte (an
+    /// extension's minor opcode) and the bytes after its header.
+    fn read_request(&mut self) -> Option<(u8, u8, Vec<u8>)> {
         let mut head = [0; 4];
         self.stream.read_exact(&mut head).ok()?;
         let words = usize::from(u16::from_le_bytes([head[2], head[3]]));
@@ -162,11 +167,12 @@ impl FakeServer {
         };
         let mut body = vec![0; (words * 4).checked_sub(header)?];
         self.stream.read_exact(&mut body).ok()?;
-        Some((head[0], body))
+        Some((head[0], head[1], body))
     }
 
-    /// Answers one request; `false` once the client is gone.
-    fn answer(&mut self, op: u8, body: &[u8]) -> bool {
+    /// Answers one request (`minor`: the header's detail byte); `false`
+    /// once the client is gone.
+    fn answer(&mut self, op: u8, minor: u8, body: &[u8]) -> bool {
         if op == opcode::CREATE_WINDOW
             && let Some(id) = body.first_chunk::<4>()
         {
@@ -184,6 +190,7 @@ impl FakeServer {
                 let words = self.g.pick(&[0, 1, 4096, 65_535, 0x40_0000, u32::MAX]);
                 Some(reply(0, self.sequence, &[words], &[]))
             }
+            op if Some(op) == self.render => self.render(minor),
             _ => None,
         };
         let mut out = Vec::new();
@@ -235,8 +242,49 @@ impl FakeServer {
         if present && string(body) == b"BIG-REQUESTS" {
             self.big_requests = Some(major);
         }
+        if present && string(body) == b"RENDER" {
+            self.render = Some(major);
+        }
         let fields = u32::from(present) | u32::from(major) << 8;
         reply(0, self.sequence, &[fields], &[])
+    }
+
+    /// The reply to RENDER's request `minor`: a version (0.11 mostly) to
+    /// `QueryVersion`, formats to `QueryPictFormats`, none to the others.
+    fn render(&mut self, minor: u8) -> Option<Vec<u8>> {
+        match minor {
+            0 => {
+                let version = self.g.pick(&[11, 11, 11, 4, 0, u32::MAX]);
+                Some(reply(0, self.sequence, &[0, version], &[]))
+            }
+            1 => Some(self.pict_formats()),
+            _ => None,
+        }
+    }
+
+    /// A `QueryPictFormats` reply: formats of any kind, ARGB32 among them
+    /// mostly, and sometimes a count the reply does not hold.
+    fn pict_formats(&mut self) -> Vec<u8> {
+        const ARGB32: [u16; 8] = [16, 0xff, 8, 0xff, 0, 0xff, 24, 0xff];
+        let count = 1 + self.g.below(4);
+        let argb = self.g.chance(0.8).then(|| self.g.below(count));
+        let mut data = Vec::new();
+        for index in 0..count {
+            data.extend(word(&mut self.g).to_le_bytes());
+            if argb == Some(index) {
+                data.extend([1, 32, 0, 0]);
+                data.extend(ARGB32.iter().flat_map(|field| field.to_le_bytes()));
+            } else {
+                data.extend((0..20).map(|_| self.g.below(256) as u8));
+            }
+            data.extend(word(&mut self.g).to_le_bytes());
+        }
+        let claimed = if self.g.chance(0.1) {
+            word(&mut self.g)
+        } else {
+            count as u32
+        };
+        reply(0, self.sequence, &[claimed, 1, 0, 0, 0], &data)
     }
 
     /// A captured mapping reply, mutated sometimes, with this sequence

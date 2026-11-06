@@ -207,12 +207,18 @@ def test_saving_sends_one_draw_event_before_writing(fmt):
 # The X display checks.
 
 @pytest.mark.skipif(not os.environ.get("DISPLAY"), reason="no X display")
-def test_the_display_checks_agree_in_fresh_processes():
+@pytest.mark.parametrize("wayland", [None, "wayland-no-such-compositor"])
+def test_the_display_checks_agree_in_fresh_processes(wayland):
+    """With ``$WAYLAND_DISPLAY`` set too, as on a Wayland desktop with
+    Xwayland, the X server still counts (matplotlib's ``XOpenDisplay``)."""
+    env = {key: value for key, value in os.environ.items() if key != "WAYLAND_DISPLAY"}
+    if wayland:
+        env["WAYLAND_DISPLAY"] = wayland
     check = ("from pltrs import _c_internal_utils as u; "
              "print(u.xdisplay_is_valid(), u.display_is_valid(), u.xdisplay_is_valid())")
     for _ in range(20):
         out = subprocess.run([sys.executable, "-c", check], capture_output=True, text=True,
-                             check=True).stdout.split()
+                             env=env, check=True).stdout.split()
         assert out == ["True"] * 3
 
 

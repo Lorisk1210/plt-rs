@@ -9,12 +9,13 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use super::WaylandBackend;
 use super::protocol::data;
 use super::protocol::{Event, Interface};
+use super::sys;
 use crate::backend::Waker;
 use crate::error::Error;
 use crate::event::{Event as LoopEvent, WindowEvent};
@@ -92,8 +93,14 @@ impl Clipboard {
 
 /// Writes `bytes` to `fd` and closes it, ignoring a reader that leaves
 /// early.
+///
+/// The thread waits for the reader whenever the pipe is full, also when
+/// the pipe was handed over not blocking (mutter's are): otherwise the
+/// transfer would end after the pipe's first 64 KiB.
 fn spawn_writer(fd: OwnedFd, bytes: Arc<[u8]>) {
     std::thread::spawn(move || {
+        // Should the flag stay, the write still sends what fits.
+        let _ = sys::set_blocking(fd.as_fd());
         // A peer that closes its end early just does not get the rest.
         let _ = File::from(fd).write_all(&bytes);
     });
@@ -290,6 +297,22 @@ mod tests {
             self.0.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
+    }
+
+    #[test]
+    fn writers_wait_for_readers_of_pipes_that_do_not_block() {
+        let (ours, mut theirs) = std::os::unix::net::UnixStream::pair().unwrap();
+        ours.set_nonblocking(true).unwrap();
+        let image: Arc<[u8]> = (0..1 << 20).map(|i: u32| i as u8).collect();
+        spawn_writer(OwnedFd::from(ours), Arc::clone(&image));
+        std::thread::sleep(Duration::from_millis(50));
+        let mut received = Vec::new();
+        theirs.read_to_end(&mut received).unwrap();
+        assert_eq!(received.len(), image.len());
+        assert!(
+            received.iter().eq(image.iter()),
+            "the bytes arrive in order"
+        );
     }
 
     #[test]

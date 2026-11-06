@@ -6,7 +6,9 @@
 //! linker must be told so (`-undefined dynamic_lookup`), and the library
 //! gets the install name of the file it is installed as. (On Linux shared
 //! libraries may leave symbols undefined; on Windows the declarations
-//! name `python3.dll`, see `ffi`.)
+//! name `python3.dll`, see `ffi`.) On Windows with a GNU toolchain the
+//! script links `python3.dll` itself, from the first of the Pythons below
+//! (see [`link_python3`]).
 //!
 //! The unit tests are a program of their own, so they embed an
 //! interpreter: this script finds a shared libpython (3.14 or later,
@@ -56,10 +58,15 @@ print(sys.base_prefix)
 print("\n".join(files) if v >= (3, 14) and shared else "-")
 "#;
 
+/// What `python` prints running `code`, when it runs.
+fn run_python(python: &Path, code: &str) -> Option<String> {
+    let output = Command::new(python).args(["-c", code]).output().ok()?;
+    String::from_utf8(output.stdout).ok()
+}
+
 /// The installation `python` describes, when its libraries exist.
 fn embeddable(python: &Path) -> Option<Embeddable> {
-    let output = Command::new(python).args(["-c", PROBE]).output().ok()?;
-    let text = String::from_utf8(output.stdout).ok()?;
+    let text = run_python(python, PROBE)?;
     let mut lines = text.lines().map(str::trim_end);
     let home = lines.next()?.to_owned();
     let library = PathBuf::from(lines.next()?);
@@ -111,6 +118,38 @@ fn link_name(target_os: &str) -> &'static str {
     }
 }
 
+/// The folder `libs` of `python`'s installation, when it holds the
+/// import library of the stable ABI's `python3.dll`, `python3.lib` (the
+/// GNU linkers read MSVC's import libraries; an embeddable Python has
+/// none).
+fn python3_link_dir(python: &Path) -> Option<PathBuf> {
+    let text = run_python(python, "import sys; print(sys.base_prefix)")?;
+    let libs = Path::new(text.trim_end()).join("libs");
+    libs.join("python3.lib").is_file().then_some(libs)
+}
+
+/// Links the extension against `python3.dll` on Windows with a GNU
+/// toolchain, where rustc's `raw-dylib` runs binutils' `dlltool` and
+/// assembler, which rustup's GNU toolchains do not ship: with the import
+/// library of the first of the [`candidates`] that has one, setting
+/// `pltrs_python_link_python3`. Without one the declarations keep
+/// `raw-dylib`, which then needs MinGW-w64's binutils on `PATH`.
+fn link_python3() {
+    match candidates()
+        .iter()
+        .find_map(|python| python3_link_dir(python))
+    {
+        Some(dir) => {
+            println!("cargo::rustc-link-search=native={}", dir.display());
+            println!("cargo::rustc-cfg=pltrs_python_link_python3");
+        }
+        None => println!(
+            "cargo::warning=no Python with libs/python3.lib found (set PLTRS_PYTHON): \
+             raw-dylib needs MinGW-w64's dlltool and as on PATH"
+        ),
+    }
+}
+
 /// Tells the linker how the extension finds Python on macOS.
 fn link_extension(target_os: &str) {
     if target_os == "macos" {
@@ -126,12 +165,16 @@ fn link_extension(target_os: &str) {
 
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(pltrs_python_embed)");
+    println!("cargo::rustc-check-cfg=cfg(pltrs_python_link_python3)");
     println!("cargo::rerun-if-env-changed=PLTRS_PYTHON");
     println!("cargo::rerun-if-changed=build.rs");
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     link_extension(&target_os);
     if std::env::var_os("HOST") != std::env::var_os("TARGET") {
         return;
+    }
+    if target_os == "windows" && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("gnu") {
+        link_python3();
     }
     let Some(found) = candidates().iter().find_map(|python| embeddable(python)) else {
         println!(

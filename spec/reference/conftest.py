@@ -73,7 +73,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for probes in all_probe_sets():
             if len(probes):
                 probes.path.parent.mkdir(parents=True, exist_ok=True)
-                probes.path.write_text(dump_json(probes.document()))
+                probes.path.write_text(dump_json(probes.document()),
+                                       encoding="utf-8", newline="\n")
         return
 
     problems = []
@@ -83,7 +84,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         if not probes.path.exists():
             problems.append(f"{probes.area}: golden missing (run with --update-goldens)")
             continue
-        committed = {_key(p): p for p in json.loads(probes.path.read_text())["probes"]}
+        committed = json.loads(probes.path.read_text(encoding="utf-8"))["probes"]
+        committed = {_key(p): p for p in committed}
         fresh = json.loads(dump_json(probes.document()))["probes"]
         for probe in fresh:
             golden = committed.get(_key(probe))

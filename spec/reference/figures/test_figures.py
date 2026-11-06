@@ -31,8 +31,10 @@ def test_figure_case(case, update_goldens):
     if update_goldens:
         case.png_path.parent.mkdir(parents=True, exist_ok=True)
         case.png_path.write_bytes(png)
-        case.facts_path.write_text(dump_json(facts))
+        case.facts_path.write_text(dump_json(facts), encoding="utf-8",
+                                   newline="\n")
         return
     assert case.png_path.exists(), f"missing golden for {case.name}; run --update-goldens"
-    assert json.loads(case.facts_path.read_text()) == json.loads(dump_json(facts))
+    golden_facts = json.loads(case.facts_path.read_text(encoding="utf-8"))
+    assert golden_facts == json.loads(dump_json(facts))
     np.testing.assert_array_equal(_pixels(case.png_path.read_bytes()), _pixels(png))

@@ -54,6 +54,14 @@ pub(crate) fn from_wide(units: &[u16]) -> String {
     String::from_utf16_lossy(&units[..end])
 }
 
+/// The UTF-16 string of the little-endian `bytes` (a registry string's
+/// data) up to its first NUL, if any; an odd last byte is left out.
+pub(crate) fn string_of_bytes(bytes: &[u8]) -> String {
+    let (pairs, _odd) = bytes.as_chunks::<2>();
+    let units: Vec<u16> = pairs.iter().map(|&pair| u16::from_le_bytes(pair)).collect();
+    from_wide(&units)
+}
+
 /// The text a key typed, from the UTF-16 units of its `WM_CHAR`
 /// messages: `None` when empty or a control character (Backspace, Enter,
 /// Control+letters, ...).
@@ -121,6 +129,22 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+
+    #[test]
+    fn registry_strings_read_up_to_their_nul() {
+        let bytes: Vec<u8> = "arial.ttf\0junk"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        assert_eq!(string_of_bytes(&bytes), "arial.ttf");
+        assert_eq!(
+            string_of_bytes(&[b'a', 0, b'b']),
+            "a",
+            "an odd byte is left out"
+        );
+        assert_eq!(string_of_bytes(&[]), "");
+        assert_eq!(string_of_bytes(&[0x3d, 0xd8, 0x00, 0xde]), "\u{1f600}");
+    }
 
     #[test]
     fn dpi_maps_to_scale_factors() {

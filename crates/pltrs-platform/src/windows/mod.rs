@@ -16,7 +16,8 @@
 //! * [`message`], [`keys`] and [`convert`]: decoding messages, keyboard
 //!   input (virtual keys, left and right modifiers, `AltGr`) and units.
 //!   They hold no Win32 calls, so they are tested on every system.
-//! * [`sys`]: the Win32 calls, the backend's only unsafe code.
+//! * [`sys`]: the Win32 calls, the backend's only unsafe code, and the
+//!   registry reader the crate also offers (`registry_string_values`).
 
 #[cfg(windows)]
 mod backend;
@@ -30,9 +31,11 @@ mod procedure;
 #[cfg(windows)]
 #[allow(
     unsafe_code,
-    reason = "the Win32 FFI (user32, gdi32, kernel32), behind safe wrappers"
+    reason = "the Win32 FFI (user32, gdi32, kernel32, advapi32), behind safe wrappers"
 )]
 mod sys;
 
 #[cfg(windows)]
 pub(crate) use backend::WindowsBackend;
+#[cfg(windows)]
+pub use sys::string_values as registry_string_values;

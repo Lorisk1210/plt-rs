@@ -11,9 +11,11 @@
 //! | [`rc_file_path`]            | `./pltrsrc`, `$PLTRSRC` (a file, or a directory holding `pltrsrc`), `pltrsrc` in the configuration directory | `matplotlibrc`, `MATPLOTLIBRC` |
 //! | the user style library      | the `*.mplstyle` files of `stylelib` in the configuration directory | `stylelib`         |
 //!
-//! The XDG directories are Linux's (and the other Unix systems'): on
-//! macOS and Windows both directories are `~/.pltrs` unless
-//! `PLTRSCONFIGDIR` names one, as matplotlib's are `~/.matplotlib` there.
+//! The XDG directories are Linux's (and the other Unix systems'): unless
+//! `PLTRSCONFIGDIR` names one, both directories are `~/.pltrs` on macOS,
+//! and on Windows `%LOCALAPPDATA%\pltrs`, or `~/.pltrs` when that exists
+//! (or `LOCALAPPDATA` is unset), as matplotlib's are `~/.matplotlib` and
+//! `%LOCALAPPDATA%\matplotlib` there.
 //! A process may also [honour](honour_matplotlib_config_dir) matplotlib's
 //! `MPLCONFIGDIR`, read when `PLTRSCONFIGDIR` is unset: pltrs (Python)
 //! does, so that it works in matplotlib's environment unchanged.
@@ -116,9 +118,10 @@ static USER_RC: OnceLock<Result<Option<RcFile>, RcError>> = OnceLock::new();
 
 /// The configuration directory (matplotlib's `get_configdir`): the one
 /// `PLTRSCONFIGDIR` names, else `pltrs` in `$XDG_CONFIG_HOME` (by default
-/// `~/.config`) on Linux and `~/.pltrs` on macOS and Windows. It is made if missing; when it cannot be made or written
-/// to, a new private temporary directory takes its place. Looked up once
-/// per process.
+/// `~/.config`) on Linux, `~/.pltrs` on macOS, and on Windows
+/// `%LOCALAPPDATA%\pltrs` unless `~/.pltrs` exists. It is made if
+/// missing; when it cannot be made or written to, a new private temporary
+/// directory takes its place. Looked up once per process.
 ///
 /// # Errors
 ///

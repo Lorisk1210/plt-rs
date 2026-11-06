@@ -32,8 +32,10 @@ once per round in an order rotated from round to round, until every
 command has run ``min_runs`` times and the slowest for ``min_seconds`` (or
 the rounds reach ``max_runs``), so that every command runs equally often and the
 runs of a round can be paired. A run is timed from ``posix_spawn`` to the
-child's exit, and ``wait4`` reports its peak resident memory. One line per
-run: round, label, seconds, peak memory in KiB and exit code.
+child's exit, and ``wait4`` reports its peak resident memory; on Windows
+from ``CreateProcess`` to the exit, with the peak working set of the
+process (see `spawn_windows`). One line per run: round, label, seconds,
+peak memory in KiB and exit code.
 
 ``versions`` prints what the column runs on: the Python, numpy and Pillow
 versions (and matplotlib's where installed), the interpreter's real path,
@@ -163,6 +165,8 @@ def spawn(command):
     exit, its peak resident memory in KiB and its exit code."""
     argv = command["argv"]
     env = {**os.environ, **command.get("env", {})}
+    if sys.platform == "win32":
+        return spawn_windows(argv, env, command.get("stderr", os.devnull))
     actions = [
         (os.POSIX_SPAWN_OPEN, 0, os.devnull, os.O_RDONLY, 0),
         (os.POSIX_SPAWN_OPEN, 1, os.devnull, os.O_WRONLY, 0),
@@ -174,6 +178,64 @@ def spawn(command):
     _, status, usage = os.wait4(pid, 0)
     seconds = time.perf_counter() - start
     return seconds, usage.ru_maxrss, os.waitstatus_to_exitcode(status)
+
+
+def venv_interpreter(program):
+    """The interpreter a venv's ``python.exe`` on Windows starts, with the
+    variable that makes it run as the venv, or None for another program.
+
+    The ``python.exe`` of a venv on Windows is a launcher that starts its
+    base interpreter as a child process (naming the venv in
+    ``__PYVENV_LAUNCHER__``): timed and measured itself, it would count a
+    second process and miss the memory of the one doing the work. The
+    harness starts the base interpreter the same way instead."""
+    config = pathlib.Path(program).parent.parent / "pyvenv.cfg"
+    if not config.is_file():
+        return None
+    for line in config.read_text(encoding="utf-8").splitlines():
+        key, _, value = line.partition("=")
+        if key.strip() == "home":
+            base = pathlib.Path(value.strip()) / pathlib.Path(program).name
+            return str(base), {"__PYVENV_LAUNCHER__": program}
+    return None
+
+
+def spawn_windows(argv, env, stderr):
+    """`spawn` on Windows: timed from ``CreateProcess`` to the exit, the
+    peak memory the process's largest working set (its resident memory),
+    read from its handle once it has exited."""
+    import ctypes
+    import subprocess
+    from ctypes import wintypes
+
+    class Counters(ctypes.Structure):
+        """``PROCESS_MEMORY_COUNTERS``."""
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + [
+            (name, ctypes.c_size_t) for name in (
+                "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
+
+    launched = venv_interpreter(argv[0])
+    if launched is not None:
+        argv = [launched[0], *argv[1:]]
+        env = {**env, **launched[1]}
+    with open(stderr, "wb") as errors:
+        start = time.perf_counter()
+        process = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=errors)
+        code = process.wait()
+        seconds = time.perf_counter() - start
+    counters = Counters()
+    counters.cb = ctypes.sizeof(counters)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.K32GetProcessMemoryInfo.argtypes = [
+        wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+    # The process's handle, which Popen keeps open after the exit.
+    if not kernel32.K32GetProcessMemoryInfo(int(process._handle), ctypes.byref(counters),
+                                            counters.cb):
+        raise OSError(ctypes.get_last_error(), "GetProcessMemoryInfo failed")
+    return seconds, counters.PeakWorkingSetSize // 1024, code
 
 
 def cold(args):

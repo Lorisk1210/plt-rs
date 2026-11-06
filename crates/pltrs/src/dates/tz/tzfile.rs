@@ -1,5 +1,5 @@
 //! IANA time zones read from compiled `TZif` files, with `dateutil.tz.tzfile`
-//! semantics.
+//! semantics, found where `dateutil.tz.gettz` finds them.
 //!
 //! Like dateutil, only the version-1 (32-bit) section of the file is used:
 //! transitions cover 1901-2038, earlier times use the first standard-time
@@ -67,9 +67,16 @@ pltrs_core::archive_struct!(TzFile {
 });
 
 impl TzFile {
-    /// Loads the zone `name` from the system zoneinfo directories (or the
-    /// file at `name` if it is an absolute path).
+    /// Loads the zone `name` as `dateutil.tz.gettz` does: the file at
+    /// `name` if it is an absolute path, else from the system zoneinfo
+    /// directories, else from the zones dateutil bundles, which pltrs
+    /// bundles too (all there is on Windows).
     pub fn find(name: &str) -> Result<Self, DateError> {
+        Self::find_in(name, &TZ_PATHS)
+    }
+
+    /// [`find`](Self::find), searching the directories `dirs`.
+    fn find_in(name: &str, dirs: &[&str]) -> Result<Self, DateError> {
         let name = name.strip_prefix(':').unwrap_or(name);
         let unknown = || DateError::UnknownTimeZone(name.to_owned());
         let relative = Path::new(name);
@@ -80,11 +87,11 @@ impl TzFile {
         {
             return Err(unknown());
         }
-        let candidates: Vec<PathBuf> = if relative.is_absolute() {
+        let absolute = relative.is_absolute();
+        let candidates: Vec<PathBuf> = if absolute {
             vec![relative.to_path_buf()]
         } else {
-            TZ_PATHS
-                .iter()
+            dirs.iter()
                 .flat_map(|dir| {
                     [
                         Path::new(dir).join(name),
@@ -99,6 +106,10 @@ impl TzFile {
             .find_map(|path| {
                 let bytes = std::fs::read(path).ok()?;
                 Self::parse(&bytes, name).ok()
+            })
+            .or_else(|| {
+                let (zone, data) = (!absolute).then(|| super::bundled::zone(name)).flatten()?;
+                Self::parse(data, zone).ok()
             })
             .ok_or_else(unknown)
     }
@@ -368,6 +379,20 @@ mod tests {
         assert_eq!(zone.name_at_local(repeated, true), "EST");
         let utc = DateTime::new(2020, 11, 1, 6, 30, 0, 0).unwrap();
         assert_eq!(zone.local_from_utc(utc), Ok((repeated, true)));
+    }
+
+    #[test]
+    fn names_no_directory_holds_come_from_dateutils_zones() {
+        let zone = TzFile::find_in("US/Eastern", &[]).unwrap();
+        assert_eq!(zone.name(), "America/New_York", "dateutil's name for it");
+        let summer = DateTime::new(2020, 7, 1, 12, 0, 0, 0).unwrap();
+        assert_eq!(zone.name_at_local(summer, false), "EDT");
+        assert!(TzFile::find_in("US/Eastern", &["/no/such/dir"]).is_ok());
+        assert!(
+            TzFile::find_in("/no/such/dir/US/Eastern", &[]).is_err(),
+            "a path names a file only"
+        );
+        assert!(TzFile::find_in("No/Such_Zone", &[]).is_err());
     }
 
     #[test]

@@ -30,10 +30,10 @@
 use std::ffi::{CStr, CString, c_void};
 
 use super::convert::{FromPy, IntoPy};
-use super::error::{PyErr, PyResult};
+use super::error::{ExceptionKind, PyErr, PyResult};
 use super::gil::{Python, entry, gil_held};
 use super::object::Bound;
-use super::{deferred, home, reentrant, threads};
+use super::{deferred, home, reentrant, stack, threads};
 use crate::ffi;
 
 /// The body of a native function: arguments in, a result out.
@@ -257,9 +257,16 @@ fn native_of<'a>(capsule: &'a Bound<'_>) -> PyResult<&'a NativeFunction> {
 /// call of the thread, whose figures may be in use: a call reaching one
 /// stops there; a change (a function returning nothing) is then made once
 /// the figure is free, as the outermost native call ends ([`reentrant`]),
-/// and any other call raises `RuntimeError`.
+/// and any other call raises `RuntimeError`. A call with little of the
+/// thread's stack left raises `RecursionError` ([`stack`]).
 pub(super) fn call_nested<'py>(capsule: &Bound<'py>, args: &[Bound<'py>]) -> PyResult<Bound<'py>> {
     let py = capsule.py();
+    if stack::nearly_full() {
+        return Err(PyErr::new(
+            ExceptionKind::RecursionError,
+            "maximum recursion depth exceeded: the thread's stack is nearly full",
+        ));
+    }
     match try_nested(capsule, args)? {
         Ok(result) => result,
         Err(_) if native_of(capsule)?.returns_nothing => {

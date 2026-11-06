@@ -88,9 +88,29 @@ fn same_work(out: &mut String, results: &Results) {
     );
 }
 
+/// Whether the results were measured on Windows, whose harness spawns
+/// and measures processes its own way.
+fn on_windows(results: &Results) -> bool {
+    results.machine.kernel.starts_with("Windows")
+}
+
 /// The conditions are the same.
 fn same_conditions(out: &mut String, results: &Results) {
     let plan = &results.plan;
+    let (spawned, peak) = if on_windows(results) {
+        (
+            "`CreateProcess` (a venv's `python.exe`, a launcher on Windows that would run \
+             the interpreter as a second process, is replaced by the interpreter it starts, \
+             with the variable naming the venv that the launcher sets)",
+            "Windows reports the peak working set of each cold process \
+             (`GetProcessMemoryInfo`)",
+        )
+    } else {
+        (
+            "`posix_spawn`",
+            "The kernel reports the peak resident memory of each cold process (`wait4`)",
+        )
+    };
     let _ = write!(
         out,
         "### Same conditions\n\n\
@@ -112,7 +132,7 @@ fn same_conditions(out: &mut String, results: &Results) {
          * **Cold runs in turns.** Each cold run is a fresh process: `python script.py \
          out.png`, or the executable of pltrs (Rust) (`cargo xtask bench --child cold NAME \
          out.png`). The three take turns the same way, {cold}. The harness times a run from \
-         `posix_spawn` to the child's exit. The scripts and the executable have run before, \
+         {spawned} to the child's exit. The scripts and the executable have run before, \
          so the operating system's file cache and the libraries' font caches are warm.\n\
          * **One thread.** pltrs draws on one thread, as matplotlib does. Every Python \
          process holds numpy's BLAS to one thread (`OPENBLAS_NUM_THREADS`, \
@@ -120,8 +140,7 @@ fn same_conditions(out: &mut String, results: &Results) {
          thread per hardware thread when numpy is imported, which costs both Python \
          columns the same ([Start-up and imports](#start-up-and-imports) measures it). \
          No process is pinned to a CPU.\n\
-         * **Peak memory.** The kernel reports the peak resident memory of each cold \
-         process (`wait4`), and the tables give the median over its runs.\n\n",
+         * **Peak memory.** {peak}, and the tables give the median over its runs.\n\n",
         warm = runs(&plan.warm),
         cold = runs(&plan.cold),
     );
@@ -199,10 +218,10 @@ fn machine(out: &mut String, results: &Results) {
          | CPU | {cpu} |\n\
          | cores | {cores} cores, {threads} threads |\n\
          | memory | {memory:.0} GiB |\n\
-         | operating system | {os}, Linux {kernel} |\n\
+         | operating system | {os}, {kernel} |\n\
          | CPU frequency governor | {governor} |\n\
          | CPUs the processes may run on | {affinity} |\n\
-         | load average (1, 5, 15 min) | {before} at the start, {after} at the end |\n\
+         | {load} | {before} at the start, {after} at the end |\n\
          | Rust | {rustc} |\n\n\
          | | matplotlib's venv | pltrs (Python)'s venv |\n|---|---|---|\n",
         cpu = machine.cpu,
@@ -210,7 +229,16 @@ fn machine(out: &mut String, results: &Results) {
         threads = machine.threads,
         memory = machine.memory_gib,
         os = machine.os,
-        kernel = machine.kernel,
+        kernel = if on_windows(results) {
+            machine.kernel.clone()
+        } else {
+            format!("Linux {}", machine.kernel)
+        },
+        load = if on_windows(results) {
+            "processor load"
+        } else {
+            "load average (1, 5, 15 min)"
+        },
         governor = machine.governor.as_deref().unwrap_or("not reported"),
         affinity = machine.affinity,
         before = results.load_before,

@@ -1,10 +1,10 @@
 //! Randomised robustness tests of the configuration lookup: random
-//! systems, values for `PLTRSCONFIGDIR`, `PLTRSRC`, `XDG_CONFIG_HOME` and
-//! `XDG_CACHE_HOME`, home, working and temporary directories — relative
-//! and absolute, empty, missing, files instead of directories, read-only
-//! and unreadable directories and symbolic link loops (on Unix), `..`,
-//! names too long for the file system and names holding NUL — all within
-//! a scratch directory. The lookups must find a usable directory or fail with an
+//! systems, values for `PLTRSCONFIGDIR`, `PLTRSRC`, `XDG_CONFIG_HOME`,
+//! `XDG_CACHE_HOME` and `LOCALAPPDATA`, home, working and temporary
+//! directories — relative and absolute, empty, missing, files instead of
+//! directories, read-only and unreadable directories and symbolic link
+//! loops (on Unix), `..`, names too long for the file system and names
+//! holding NUL — all within a scratch directory. The lookups must find a usable directory or fail with an
 //! error, never leave the scratch directory, and the rc file they find
 //! must read or fail cleanly. The font catalogue kept in the cache
 //! directory they find is fuzzed too ([`catalogue`]).
@@ -23,11 +23,12 @@ use crate::fuzz::{Gen, fuzz};
 use crate::rc::RcFile;
 
 /// The variables the lookups read.
-const VARIABLES: [&str; 4] = [
+const VARIABLES: [&str; 5] = [
     CONFIG_DIR_VAR,
     RC_FILE_VAR,
     "XDG_CONFIG_HOME",
     "XDG_CACHE_HOME",
+    "LOCALAPPDATA",
 ];
 
 /// The names paths are made of: the scratch directory's fixtures, names

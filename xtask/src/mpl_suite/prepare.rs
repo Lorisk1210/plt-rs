@@ -173,12 +173,32 @@ fn remove_links(dir: &Path) -> Result<(), String> {
     {
         let placeholder = entry.file_name() == "__init__.py"
             && fs::read_to_string(entry.path()).is_ok_and(|text| text == PLACEHOLDER);
-        if placeholder || entry.file_type().is_ok_and(|kind| kind.is_symlink()) {
-            fs::remove_file(entry.path())
-                .map_err(|err| format!("{}: {err}", entry.path().display()))?;
+        let kind = entry.file_type().ok();
+        if placeholder || kind.is_some_and(|kind| kind.is_symlink()) {
+            let removed = if kind.is_some_and(is_directory_link) {
+                fs::remove_dir(entry.path())
+            } else {
+                fs::remove_file(entry.path())
+            };
+            removed.map_err(|err| format!("{}: {err}", entry.path().display()))?;
         }
     }
     Ok(())
+}
+
+/// Whether `kind` is a symbolic link that is removed as a directory:
+/// Windows' links to directories.
+#[cfg(windows)]
+fn is_directory_link(kind: fs::FileType) -> bool {
+    use std::os::windows::fs::FileTypeExt as _;
+    kind.is_symlink_dir()
+}
+
+/// Whether `kind` is a symbolic link that is removed as a directory:
+/// none off Windows.
+#[cfg(not(windows))]
+fn is_directory_link(_kind: fs::FileType) -> bool {
+    false
 }
 
 /// Links `link_path` to `target` with a symbolic link.

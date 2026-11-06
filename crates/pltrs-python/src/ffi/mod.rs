@@ -13,7 +13,14 @@
 //! writes the import library itself, so building needs no Python), which
 //! forwards them to the interpreter's `python3XY.dll`; its data symbols
 //! (`_Py_NoneStruct`, the `PyExc_*` exceptions) are reached through their
-//! import addresses, as `dllimport` statics are.
+//! import addresses, as `dllimport` statics are. On the GNU toolchains,
+//! whose `raw-dylib` runs binutils' `dlltool` and assembler (which rustup
+//! does not ship), the declarations link the import library
+//! `python3.lib` of a Python `build.rs` finds instead (which sets the
+//! `pltrs_python_link_python3` cfg), named exactly: linked as `-lpython3`,
+//! a `python3.dll` found first would be linked directly, every call then
+//! made through a 32-bit runtime pseudo-relocation that fails when the
+//! interpreter's DLL loads more than 2 GiB away.
 //!
 //! The rest of the crate never calls these functions directly: the
 //! [`binding`](crate::binding) module wraps them in safe types, each
@@ -38,6 +45,8 @@ mod object;
 mod runtime;
 mod types;
 mod values;
+#[cfg(windows)]
+mod windows;
 
 pub(crate) use buffer::*;
 pub(crate) use errors::*;
@@ -45,6 +54,8 @@ pub(crate) use object::*;
 pub(crate) use runtime::*;
 pub(crate) use types::*;
 pub(crate) use values::*;
+#[cfg(windows)]
+pub(crate) use windows::*;
 
 /// `Py_ssize_t`.
 pub(crate) type Py_ssize_t = isize;

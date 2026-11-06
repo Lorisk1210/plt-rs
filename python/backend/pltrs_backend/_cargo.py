@@ -10,6 +10,11 @@ by ``lipo``), linked as ``_linker`` decides (``-C glibc=...``).
 
 The library cargo made is found from cargo's own report of what it
 built (``--message-format=json``), wherever the target directory is.
+
+On Windows, the GNU toolchains link the extension with the import
+library of the stable ABI's ``python3.dll`` that a Python installation
+holds (see ``crates/pltrs-python/build.rs``): the Python building the
+wheel is named to cargo as ``PLTRS_PYTHON``, unless that is set.
 """
 
 import json
@@ -17,6 +22,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 
 from . import _linker
 
@@ -69,9 +75,12 @@ def _build_one(root, link):
     if link.target:
         command += ["--target", link.target]
     command += ["--", "-C", "strip=debuginfo", *link.rustc_args]
+    environment = {**os.environ, **link.environment}
+    if sys.platform == "win32":
+        environment.setdefault("PLTRS_PYTHON", sys.executable)
     # cargo's progress and diagnostics go to the frontend's error stream.
     process = subprocess.run(command, cwd=root, stdout=subprocess.PIPE, text=True,
-                             env={**os.environ, **link.environment})
+                             env=environment)
     if process.returncode != 0:
         raise RuntimeError(f"pltrs: {' '.join(command)} failed")
     for line in process.stdout.splitlines():

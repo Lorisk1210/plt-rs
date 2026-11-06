@@ -24,6 +24,7 @@ pub use score::{
     family as score_family, size as score_size, stretch as score_stretch, style as score_style,
     variant as score_variant, weight as score_weight,
 };
+pub use system::{RegistryReader, read_registry_with};
 
 use std::fs;
 use std::path::{Path, PathBuf};

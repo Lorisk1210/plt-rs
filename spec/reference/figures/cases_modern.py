@@ -32,7 +32,7 @@ def _sheet_entries(name):
     """Every parameter of a pltrs style sheet."""
     path = REPO / "crates" / "pltrs" / "src" / "style" / "sheets" / f"{name}.mplstyle"
     params = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.split("#", 1)[0].strip()
         if line:
             key, value = (part.strip() for part in line.split(":", 1))

@@ -9,7 +9,14 @@ use super::{PyObject, PyTypeObject};
 /// write to `args[-1]`.
 pub(crate) const PY_VECTORCALL_ARGUMENTS_OFFSET: usize = 1 << (usize::BITS - 1);
 
-#[cfg_attr(windows, link(name = "python3", kind = "raw-dylib"))]
+#[cfg_attr(
+    pltrs_python_link_python3,
+    link(name = "python3.lib", modifiers = "+verbatim")
+)]
+#[cfg_attr(
+    all(windows, not(pltrs_python_link_python3)),
+    link(name = "python3", kind = "raw-dylib")
+)]
 unsafe extern "C" {
     /// `Py_IncRef`: a new strong reference (the function form, which the
     /// limited API provides whatever the reference count's layout).

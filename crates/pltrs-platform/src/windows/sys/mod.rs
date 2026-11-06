@@ -1,11 +1,12 @@
 //! The Windows backend's unsafe code: the Win32 calls it makes, behind
 //! safe wrappers.
 //!
-//! * [`ffi`]: the declarations, linked with `raw-dylib`.
+//! * [`ffi`]: the declarations, and how they are linked.
 //! * [`window`]: the window class and its procedure, windows, the message
 //!   loop and keyboard and pointer queries.
 //! * [`gdi`]: painting, cursors and icons.
 //! * [`clipboard`]: text and PNG images on the clipboard.
+//! * [`registry`]: the string values of a registry key.
 //!
 //! Handles are plain values: Win32 checks them on every call and fails
 //! cleanly for a stale one, so the wrappers taking them stay sound
@@ -16,12 +17,14 @@
 mod clipboard;
 mod ffi;
 mod gdi;
+mod registry;
 mod window;
 
 use std::io;
 
 pub(crate) use clipboard::{Clipboard, clipboard_text, set_clipboard};
 pub(crate) use gdi::{OwnedIcon, Painter, icon_sides, show_cursor};
+pub use registry::string_values;
 pub(crate) use window::{
     Restore, WindowClass, capture, dispatch_messages, double_click_time, held_modifiers,
     layout_character, next_key_message, post_wake, release_capture, screen_to_client,

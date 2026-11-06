@@ -12,3 +12,45 @@ pltrs-core.workspace = true
 
 [lints]
 workspace = true
+
+# matplotlib's tutorials, each as a program (`tutorials/`):
+# `cargo run -p pltrs-examples --example quick_start`.
+[[example]]
+name = "quick_start"
+path = "tutorials/quick_start.rs"
+
+[[example]]
+name = "styles_and_rcparams"
+path = "tutorials/styles_and_rcparams.rs"
+
+[[example]]
+name = "colormaps_and_norms"
+path = "tutorials/colormaps_and_norms.rs"
+
+[[example]]
+name = "layouts"
+path = "tutorials/layouts.rs"
+
+[[example]]
+name = "saving"
+path = "tutorials/saving.rs"
+
+[[example]]
+name = "text_and_mathtext"
+path = "tutorials/text_and_mathtext.rs"
+
+[[example]]
+name = "annotation_guide"
+path = "tutorials/annotation_guide.rs"
+
+[[example]]
+name = "three_d"
+path = "tutorials/three_d.rs"
+
+[[example]]
+name = "animation_guide"
+path = "tutorials/animation_guide.rs"
+
+[[example]]
+name = "interactive"
+path = "tutorials/interactive.rs"

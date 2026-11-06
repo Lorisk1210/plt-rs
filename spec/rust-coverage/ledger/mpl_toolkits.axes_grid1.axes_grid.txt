@@ -1,0 +1,6 @@
+# mpl_toolkits.axes_grid1.axes_grid
+
+
+## CbarAxesBase
+CbarAxesBase -> pltrs::axes_grid1::CbarAxes
+CbarAxesBase.* -> pltrs::axes_grid1::CbarAxes::*

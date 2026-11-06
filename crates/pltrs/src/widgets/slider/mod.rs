@@ -76,7 +76,7 @@ pub struct Slider {
     parts: Rc<SliderParts>,
     label: Text,
     valinit: f64,
-    _connections: Connections,
+    pub(in crate::widgets) connections: Connections,
 }
 
 impl Slider {
@@ -147,7 +147,7 @@ impl Slider {
             parts,
             label,
             valinit,
-            _connections: connections,
+            connections,
         })
     }
 

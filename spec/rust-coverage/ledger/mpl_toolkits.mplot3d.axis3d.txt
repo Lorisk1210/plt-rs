@@ -1,0 +1,42 @@
+# mpl_toolkits.mplot3d.axis3d
+
+
+## Axis
+Axis -> pltrs::mplot3d::Axis3D
+Axis.get_* -> pltrs::mplot3d::Axis3D::*
+Axis.* -> pltrs::mplot3d::Axis3D::*
+Axis.get_major_ticks -> pltrs::mplot3d::Axis3D::ticks
+Axis.get_minor_ticks -> pltrs::mplot3d::Axis3D::ticks
+Axis.set_pane_color -> pltrs::mplot3d::Axes3D::set_pane_color
+Axis.set_rotate_label -> pltrs::mplot3d::Axes3D::set_rotate_label
+Axis.get_rotate_label -> pltrs::mplot3d::Axes3D::rotate_label
+Axis.active_pane n/a drawing internals of the panes
+Axis.draw_pane n/a a 3-D axis, its pane and its gridlines are drawn with their axes
+Axis.draw n/a a 3-D axis, its pane and its gridlines are drawn with their axes
+Axis.draw_grid n/a a 3-D axis, its pane and its gridlines are drawn with their axes
+Axis.get_tightbbox -> pltrs::figure::Figure::tight_bbox
+Axis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## XAxis
+XAxis -> pltrs::mplot3d::Axis3D
+XAxis.get_view_interval -> pltrs::mplot3d::Axes3D::limits, pltrs::mplot3d::Axes3D::set_limits
+XAxis.set_view_interval -> pltrs::mplot3d::Axes3D::limits, pltrs::mplot3d::Axes3D::set_limits
+XAxis.get_data_interval -> pltrs::mplot3d::Axes3D::autoscale
+XAxis.set_data_interval -> pltrs::mplot3d::Axes3D::autoscale
+XAxis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## YAxis
+YAxis -> pltrs::mplot3d::Axis3D
+YAxis.get_view_interval -> pltrs::mplot3d::Axes3D::limits, pltrs::mplot3d::Axes3D::set_limits
+YAxis.set_view_interval -> pltrs::mplot3d::Axes3D::limits, pltrs::mplot3d::Axes3D::set_limits
+YAxis.get_data_interval -> pltrs::mplot3d::Axes3D::autoscale
+YAxis.set_data_interval -> pltrs::mplot3d::Axes3D::autoscale
+YAxis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## ZAxis
+ZAxis -> pltrs::mplot3d::Axis3D
+ZAxis.get_view_interval -> pltrs::mplot3d::Axes3D::limits, pltrs::mplot3d::Axes3D::set_limits
+ZAxis.set_view_interval -> pltrs::mplot3d::Axes3D::limits, pltrs::mplot3d::Axes3D::set_limits
+ZAxis.get_data_interval -> pltrs::mplot3d::Axes3D::autoscale
+ZAxis.set_data_interval -> pltrs::mplot3d::Axes3D::autoscale
+ZAxis.set -> pltrs::artist::ArtistHandle::update_base_props

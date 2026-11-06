@@ -1,0 +1,14 @@
+# matplotlib.colorbar
+
+* -> pltrs::colorbar::*
+
+## Colorbar
+Colorbar -> pltrs::colorbar::Colorbar
+Colorbar.* -> pltrs::colorbar::Colorbar::*
+Colorbar.minorlocator -> pltrs::colorbar::Colorbar::minor_locator
+Colorbar.minorformatter -> pltrs::colorbar::Colorbar::minor_formatter
+Colorbar.update_ticks n/a ticks are rebuilt on every draw
+Colorbar.get_ticks -> pltrs::colorbar::ColorbarOptions::ticks
+Colorbar.set_ticklabels -> pltrs::axes::Axis::set_ticklabels
+Colorbar.set_alpha -> pltrs::colorbar::Colorbar::alpha
+Colorbar.drag_pan n/a interactive panning of colorbar norms

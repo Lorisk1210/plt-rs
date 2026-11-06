@@ -1,0 +1,22 @@
+# matplotlib.contour
+
+
+## ContourLabeler
+ContourLabeler -> pltrs::contour::ContourSet, pltrs::contour::ClabelOptions, pltrs::contour::ContourLabel
+ContourLabeler.* -> pltrs::contour::ContourSet::*
+ContourLabeler.print_label n/a label placement internals of clabel
+ContourLabeler.too_close n/a label placement internals of clabel
+ContourLabeler.get_text -> pltrs::contour::ContourLabel::text
+ContourLabeler.locate_label n/a label placement internals of clabel
+
+## ContourSet
+ContourSet -> pltrs::contour::ContourSet
+ContourSet.get_* -> pltrs::contour::ContourSet::*
+ContourSet.* -> pltrs::contour::ContourSet::*
+ContourSet.changed n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+ContourSet.draw -> pltrs::artist::Artist::draw
+ContourSet.set -> pltrs::contour::ContourSet::update_base_props
+
+## QuadContourSet
+QuadContourSet -> pltrs::contour::ContourSet, pltrs::contour::ContourOptions, pltrs::artist::ArtistHandle
+QuadContourSet.set -> pltrs::contour::ContourSet::update_base_props

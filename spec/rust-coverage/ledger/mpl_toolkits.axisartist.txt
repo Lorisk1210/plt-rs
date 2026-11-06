@@ -1,0 +1,65 @@
+# mpl_toolkits.axisartist
+
+FloatingAxes -> pltrs::axisartist::floating_axes::FloatingAxes
+
+## Axes
+Axes -> pltrs::axisartist::AxisArtistAxes
+Axes.* -> pltrs::axisartist::AxisArtistAxes::*
+Axes.toggle_axisline -> pltrs::axisartist::AxisArtistAxes::axis
+Axes.get_grid_helper -> pltrs::axisartist::AxisArtistAxes::with_grid_helper
+Axes.get_children -> pltrs::axisartist::AxisArtistAxes::axis_artists
+Axes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AxesZero
+AxesZero -> pltrs::axisartist::AxisArtistAxes
+AxesZero.* -> pltrs::axisartist::AxisArtistAxes::*
+AxesZero.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AxisArtist
+AxisArtist -> pltrs::axisartist::AxisArtist
+AxisArtist.get_* -> pltrs::axisartist::AxisArtist::*
+AxisArtist.* -> pltrs::axisartist::AxisArtist::*
+AxisArtist.LABELPAD -> pltrs::axisartist::AxisArtist::labelpad, pltrs::axisartist::AxisArtist::set_labelpad
+AxisArtist.get_helper n/a axis helpers are internal to AxisArtist
+AxisArtist.get_tightbbox -> pltrs::artist::ArtistHandle::window_extent
+AxisArtist.draw -> pltrs::artist::Artist::draw
+AxisArtist.set -> pltrs::axisartist::AxisArtist::update_base_props
+
+## AxisArtistHelper
+AxisArtistHelper -> pltrs::axisartist::AxisArtist, pltrs::axisartist::GridHelper, pltrs::artist::ArtistHandle
+AxisArtistHelper.Fixed -> pltrs::axisartist::AxisArtist, pltrs::axisartist::GridHelper, pltrs::artist::ArtistHandle
+AxisArtistHelper.Floating -> pltrs::axisartist::GridHelper::Floating
+
+## AxisArtistHelperRectlinear
+AxisArtistHelperRectlinear -> pltrs::axisartist::AxisArtist, pltrs::axisartist::GridHelper, pltrs::artist::ArtistHandle
+AxisArtistHelperRectlinear.Fixed -> pltrs::axisartist::AxisArtist, pltrs::axisartist::GridHelper, pltrs::artist::ArtistHandle
+AxisArtistHelperRectlinear.Floating -> pltrs::axisartist::GridHelper::Floating
+
+## FloatingAxesHostAxes
+FloatingAxesHostAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## GridHelperBase
+GridHelperBase -> pltrs::axisartist::GridHelper
+GridHelperBase.update_lim -> pltrs::axisartist::AxisArtistAxes::gridlines
+GridHelperBase.get_gridlines -> pltrs::axisartist::AxisArtistAxes::gridlines
+
+## GridHelperCurveLinear
+GridHelperCurveLinear -> pltrs::axisartist::grid_helper_curvelinear::GridHelperCurveLinear
+GridHelperCurveLinear.update_grid_finder -> pltrs::axisartist::grid_helper_curvelinear::GridHelperCurveLinear::grid_finder
+GridHelperCurveLinear.new_fixed_axis -> pltrs::axisartist::AxisArtistAxes::new_fixed_axis
+GridHelperCurveLinear.new_floating_axis -> pltrs::axisartist::AxisArtistAxes::new_floating_axis
+GridHelperCurveLinear.get_gridlines -> pltrs::axisartist::AxisArtistAxes::gridlines
+
+## GridHelperRectlinear
+GridHelperRectlinear -> pltrs::axisartist::GridHelper
+GridHelperRectlinear.new_fixed_axis -> pltrs::axisartist::AxisArtistAxes::new_fixed_axis
+GridHelperRectlinear.new_floating_axis -> pltrs::axisartist::AxisArtistAxes::new_floating_axis
+GridHelperRectlinear.get_gridlines -> pltrs::axisartist::AxisArtistAxes::gridlines
+
+## GridlinesCollection
+GridlinesCollection -> pltrs::axisartist::AxisArtistAxes, pltrs::collections::Collection, pltrs::artist::ArtistHandle
+GridlinesCollection.set_which -> pltrs::axisartist::AxisArtistAxes::grid
+GridlinesCollection.set_axis -> pltrs::axisartist::AxisArtistAxes::grid
+GridlinesCollection.set_grid_helper -> pltrs::axisartist::AxisArtistAxes::grid
+GridlinesCollection.draw -> pltrs::artist::Artist::draw
+GridlinesCollection.set -> pltrs::artist::ArtistHandle::update_base_props

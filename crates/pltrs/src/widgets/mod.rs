@@ -31,6 +31,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod base;
 mod button;
 mod cursor;
 mod observers;
@@ -42,6 +43,7 @@ mod textbox;
 mod toggles;
 
 pub use crate::orientation::Orientation;
+pub use base::{AxesWidget, Widget};
 pub use button::{Button, ButtonOptions};
 pub use cursor::{Cursor, CursorOptions, MultiCursor};
 pub use observers::CallbackId;
@@ -59,41 +61,12 @@ pub use toggles::{
     RadioButtonsOptions,
 };
 
+use base::Connections;
 use observers::Observers;
 
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
-use crate::events::{ConnectionId, Event, EventKind, Location};
-use crate::figure::Figure;
-
-/// The figure callbacks of a widget, disconnected when it is dropped.
-#[derive(Debug)]
-struct Connections {
-    figure: Figure,
-    ids: Vec<ConnectionId>,
-}
-
-impl Connections {
-    fn new(figure: Figure) -> Self {
-        Self {
-            figure,
-            ids: Vec::new(),
-        }
-    }
-
-    /// Connects `callback` for events of `kind`.
-    fn connect(&mut self, kind: EventKind, callback: impl FnMut(&Event) + 'static) {
-        self.ids.push(self.figure.connect(kind, callback));
-    }
-}
-
-impl Drop for Connections {
-    fn drop(&mut self) {
-        for &id in &self.ids {
-            self.figure.disconnect(id);
-        }
-    }
-}
+use crate::events::{Event, Location};
 
 /// Readies `ax` to hold a button, a text box or check or radio buttons
 /// (matplotlib's set-up in their constructors): no ticks and no

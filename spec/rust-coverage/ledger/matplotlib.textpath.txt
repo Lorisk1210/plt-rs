@@ -1,0 +1,16 @@
+# matplotlib.textpath
+
+
+## TextPath
+TextPath -> pltrs::path::Path, pltrs_core::archive::Archive, pltrs_core::archive::ArchiveRc
+TextPath.* -> pltrs::path::Path::*
+TextPath.set_size -> pltrs::text::text_path
+TextPath.get_size -> pltrs::text::text_path
+
+## TextToPath
+TextToPath -> pltrs::path::Path, pltrs_core::archive::Archive, pltrs_core::archive::ArchiveRc
+TextToPath.get_text_width_height_descent -> pltrs::text::measure_text
+TextToPath.get_text_path -> pltrs::text::text_path
+TextToPath.get_glyphs_with_font -> pltrs_text::TextEngine::layout_line, pltrs_text::TextEngine::layout_math
+TextToPath.get_glyphs_mathtext -> pltrs_text::TextEngine::layout_line, pltrs_text::TextEngine::layout_math
+TextToPath.get_glyphs_tex -> pltrs::text::tex_glyphs

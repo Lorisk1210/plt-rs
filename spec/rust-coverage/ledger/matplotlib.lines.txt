@@ -1,0 +1,56 @@
+# matplotlib.lines
+
+segment_hits -> pltrs::artist::ArtistHandle::contains, pltrs::lines::Line2D::pickradius
+
+## AxLine
+AxLine -> pltrs::lines::Line2D, pltrs::lines::LineProps, pltrs::artist::ArtistHandle
+AxLine.get_* -> pltrs::lines::Line2D::*
+AxLine.draw -> pltrs::artist::Artist::draw
+AxLine.get_xy1 -> pltrs::lines::Line2D::axline_xy1
+AxLine.get_xy2 -> pltrs::lines::Line2D::axline_xy2
+AxLine.get_slope -> pltrs::lines::Line2D::axline_slope
+AxLine.set_xy1 -> pltrs::lines::Line2D::set_axline_xy1
+AxLine.set_xy2 -> pltrs::lines::Line2D::set_axline_xy2
+AxLine.set_slope -> pltrs::lines::Line2D::set_axline_slope
+AxLine.set -> pltrs::lines::Line2D::update_props
+
+## Line2D
+Line2D -> pltrs::lines::Line2D
+Line2D.get_* -> pltrs::lines::Line2D::*
+Line2D.* -> pltrs::lines::Line2D::*
+Line2D.get_bbox -> pltrs::lines::Line2D::xydata
+Line2D.recache_always n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Line2D.recache n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Line2D.draw -> pltrs::artist::Artist::draw
+Line2D.set_dashes -> pltrs::lines::Line2D::set_linestyle
+Line2D.update_from n/a handles share state: there is nothing to copy (conventions)
+Line2D.is_dashed -> pltrs::lines::LineStyle::is_dashed
+Line2D.set -> pltrs::lines::Line2D::update_props
+
+## VertexSelector
+VertexSelector -> pltrs::events::PickEvent::ind
+VertexSelector.canvas -> pltrs::events::PickEvent::ind
+VertexSelector.process_selected -> pltrs::events::PickEvent::ind
+VertexSelector.onpick -> pltrs::events::PickEvent::ind
+
+## Aliases (any class)
+*.get_aa n/a alias of get_antialiased: pltrs keeps one name per property
+*.get_c n/a alias of get_color: pltrs keeps one name per property
+*.get_ds n/a alias of get_drawstyle: pltrs keeps one name per property
+*.get_ls n/a alias of get_linestyle: pltrs keeps one name per property
+*.get_lw n/a alias of get_linewidth: pltrs keeps one name per property
+*.get_mec n/a alias of get_markeredgecolor: pltrs keeps one name per property
+*.get_mew n/a alias of get_markeredgewidth: pltrs keeps one name per property
+*.get_mfc n/a alias of get_markerfacecolor: pltrs keeps one name per property
+*.get_mfcalt n/a alias of get_markerfacecoloralt: pltrs keeps one name per property
+*.get_ms n/a alias of get_markersize: pltrs keeps one name per property
+*.set_aa n/a alias of set_antialiased: pltrs keeps one name per property
+*.set_c n/a alias of set_color: pltrs keeps one name per property
+*.set_ds n/a alias of set_drawstyle: pltrs keeps one name per property
+*.set_ls n/a alias of set_linestyle: pltrs keeps one name per property
+*.set_lw n/a alias of set_linewidth: pltrs keeps one name per property
+*.set_mec n/a alias of set_markeredgecolor: pltrs keeps one name per property
+*.set_mew n/a alias of set_markeredgewidth: pltrs keeps one name per property
+*.set_mfc n/a alias of set_markerfacecolor: pltrs keeps one name per property
+*.set_mfcalt n/a alias of set_markerfacecoloralt: pltrs keeps one name per property
+*.set_ms n/a alias of set_markersize: pltrs keeps one name per property

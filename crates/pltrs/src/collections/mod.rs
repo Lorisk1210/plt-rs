@@ -32,6 +32,7 @@ mod readback;
 mod spec;
 mod style;
 mod trimesh;
+mod update;
 
 use alpha_fit::KeptColors;
 pub use array::ArrayError;

@@ -1,0 +1,8 @@
+# matplotlib.markers
+
+
+## MarkerStyle
+MarkerStyle -> pltrs::markers::MarkerStyle
+MarkerStyle.get_* -> pltrs::markers::MarkerStyle::*
+MarkerStyle.* -> pltrs::markers::MarkerStyle::*
+MarkerStyle.__bool__ n/a Python protocol or dataclass machinery

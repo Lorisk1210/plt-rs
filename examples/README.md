@@ -6,7 +6,8 @@ matplotlib's syntax (`import pltrs.pyplot as plt`). The two versions of
 an example draw the same figure from the same data.
 
 * `rust/` is the `pltrs-examples` crate, with one binary per graph in
-  `src/bin/`.
+  `src/bin/`, and matplotlib's tutorials as programs in `tutorials/`
+  (see [Tutorials](#tutorials)).
 * `python/` has one script per graph, with the same names.
 * `images/` holds what the Rust examples draw. These are the images below.
 
@@ -72,6 +73,36 @@ and the command fails when
 To add an example, write `rust/src/bin/<name>.rs` and
 `python/<name>.py`, run `cargo xtask examples`, and add the example to
 the gallery below.
+
+## Tutorials
+
+`rust/tutorials/` shows a matplotlib user how each of matplotlib's
+tutorials maps to pltrs (Rust), one program per tutorial. Each section
+of a program names the matplotlib calls it stands for. They are cargo
+examples of the `pltrs-examples` crate:
+
+```sh
+cargo run -p pltrs-examples --example quick_start   # writes its images here
+```
+
+`cargo xtask examples` builds and runs every tutorial, each in a
+directory of its own under `target/examples/tutorials/`, and fails when
+one fails; a tutorial's name runs that one alone. To add one, write
+`rust/tutorials/<name>.rs` and give it an `[[example]]` entry in
+`rust/Cargo.toml`.
+
+| tutorial | matplotlib's tutorials |
+|---|---|
+| [quick_start](rust/tutorials/quick_start.rs) | Quick start guide: the object-oriented and the pyplot style, styling artists, labels, scales, extra axes, colour-mapped data |
+| [styles_and_rcparams](rust/tutorials/styles_and_rcparams.rs) | Customizing Matplotlib with style sheets and rcParams |
+| [colormaps_and_norms](rust/tutorials/colormaps_and_norms.rs) | Choosing Colormaps, Creating Colormaps, Colormap normalization |
+| [text_and_mathtext](rust/tutorials/text_and_mathtext.rs) | Text in Matplotlib, Text properties and layout, Writing mathematical expressions |
+| [annotation_guide](rust/tutorials/annotation_guide.rs) | Annotations: coordinate systems, arrow and connection styles, anchored text |
+| [layouts](rust/tutorials/layouts.rs) | Arranging multiple Axes, Constrained layout guide, Tight layout guide, subfigures, insets |
+| [three_d](rust/tutorials/three_d.rs) | 3D plotting (`mpl_toolkits.mplot3d`) |
+| [animation_guide](rust/tutorials/animation_guide.rs) | Animations using Matplotlib: `FuncAnimation`, blitting, frame lists, movie writers |
+| [interactive](rust/tutorials/interactive.rs) | Interactive figures, Event handling and picking, widgets (`--show` opens a window) |
+| [saving](rust/tutorials/saving.rs) | Saving figures in every format, with `savefig`'s options and `PdfPages` |
 
 ## Gallery
 

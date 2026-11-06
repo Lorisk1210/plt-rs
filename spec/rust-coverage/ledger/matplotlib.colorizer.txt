@@ -1,0 +1,19 @@
+# matplotlib.colorizer
+
+
+## Colorizer
+Colorizer -> pltrs::colors::ColorizerOptions, pltrs::colors::Colorize, pltrs::colors::ScalarMappable
+Colorizer.* -> pltrs::colors::ColorizerOptions::*
+Colorizer.to_rgba -> pltrs::colors::ScalarMappable::to_rgba
+Colorizer.autoscale -> pltrs::colors::Norm::autoscale
+Colorizer.autoscale_None -> pltrs::colors::Norm::autoscale, pltrs::colors::Norm::autoscale_none
+Colorizer.set_clim -> pltrs::colors::ScalarMappable::set_clim
+Colorizer.get_clim -> pltrs::colors::ScalarMappable::clim
+Colorizer.changed n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Colorizer.clip -> pltrs::colors::Norm::clip, pltrs::colors::Norm::set_clip
+
+## ColorizingArtist
+ColorizingArtist -> pltrs::axes::ColorizingArtist
+ColorizingArtist.colorizer -> pltrs::axes::ColorizingArtist
+ColorizingArtist.draw -> pltrs::artist::Artist::draw
+ColorizingArtist.set -> pltrs::artist::ArtistHandle::update_base_props

@@ -1,0 +1,39 @@
+# matplotlib.gridspec
+
+
+## GridSpec
+GridSpec -> pltrs::gridspec::GridSpec
+GridSpec.get_* -> pltrs::gridspec::GridSpec::*
+GridSpec.* -> pltrs::gridspec::GridSpec::*
+GridSpec.locally_modified_subplot_params -> pltrs::gridspec::GridSpec::locally_modified
+
+## GridSpecBase
+GridSpecBase -> pltrs::gridspec::GridSpec, pltrs::gridspec::GridPositions
+GridSpecBase.get_* -> pltrs::gridspec::GridSpec::*
+GridSpecBase.* -> pltrs::gridspec::GridSpec::*
+GridSpecBase.nrows -> pltrs::gridspec::GridSpec::shape
+GridSpecBase.ncols -> pltrs::gridspec::GridSpec::shape
+GridSpecBase.get_geometry -> pltrs::gridspec::GridSpec::shape
+GridSpecBase.new_subplotspec -> pltrs::gridspec::GridSpec::span, pltrs::gridspec::GridSpec::cell
+GridSpecBase.__getitem__ -> pltrs::gridspec::GridSpec, pltrs::gridspec::GridPositions
+GridSpecBase.subplots -> pltrs::figure::Figure::subplots_on
+
+## GridSpecFromSubplotSpec
+GridSpecFromSubplotSpec -> pltrs::gridspec::GridSpec, pltrs::gridspec::SubplotSpec
+GridSpecFromSubplotSpec.get_* -> pltrs::gridspec::GridSpec::*
+
+## SubplotParams
+SubplotParams -> pltrs::gridspec::SubplotParams
+SubplotParams.update -> pltrs::gridspec::SubplotParams::updated
+SubplotParams.reset -> pltrs::gridspec::SubplotParams::from_rc
+SubplotParams.to_dict n/a Python dict conversion
+
+## SubplotSpec
+SubplotSpec -> pltrs::gridspec::SubplotSpec
+SubplotSpec.get_* -> pltrs::gridspec::SubplotSpec::*
+SubplotSpec.* -> pltrs::gridspec::SubplotSpec::*
+SubplotSpec.num2 n/a internal cell numbering
+SubplotSpec.get_geometry -> pltrs::gridspec::SubplotSpec::rows, pltrs::gridspec::SubplotSpec::cols, pltrs::gridspec::SubplotSpec::gridspec
+SubplotSpec.rowspan -> pltrs::gridspec::SubplotSpec::rows
+SubplotSpec.colspan -> pltrs::gridspec::SubplotSpec::cols
+SubplotSpec.subgridspec -> pltrs::gridspec::GridSpec::nested

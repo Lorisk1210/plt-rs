@@ -1,0 +1,71 @@
+# matplotlib.animation
+
+ArtistAnimation -> pltrs::animation::FuncAnimation
+FFMpegFileWriter -> pltrs::animation::MovieWriter
+FFMpegWriter -> pltrs::animation::MovieWriter
+ImageMagickWriter -> pltrs::animation::MovieWriter, pltrs::animation::FuncAnimation::to_gif
+TimedAnimation -> pltrs::animation::FuncAnimation, pltrs::animation::AnimationOptions
+adjusted_figsize n/a rounds figure sizes for ffmpeg's even-pixel codecs; save_movie handles frame sizes
+
+## AbstractMovieWriter
+AbstractMovieWriter -> pltrs::animation::MovieWriter
+AbstractMovieWriter.* -> pltrs::animation::MovieWriter::*
+AbstractMovieWriter.setup -> pltrs::animation::MovieWriter::new
+AbstractMovieWriter.saving -> pltrs::animation::MovieWriter::new, pltrs::animation::MovieWriter::finish
+
+## Animation
+Animation -> pltrs::animation::FuncAnimation, pltrs::animation::AnimationOptions
+Animation.* -> pltrs::animation::FuncAnimation::*
+Animation.new_frame_seq -> pltrs::animation::Frames
+Animation.new_saved_frame_seq -> pltrs::animation::Frames
+
+## FFMpegBase
+FFMpegBase -> pltrs::animation::MovieWriter
+FFMpegBase.output_args -> pltrs::animation::MovieOptions::extra_args
+
+## FileMovieWriter
+FileMovieWriter -> pltrs::animation::MovieWriter
+FileMovieWriter.* -> pltrs::animation::MovieWriter::*
+FileMovieWriter.setup -> pltrs::animation::MovieWriter::new
+FileMovieWriter.frame_format -> pltrs::rc::RcParams::animation_frame_format
+
+## FuncAnimation
+FuncAnimation -> pltrs::animation::FuncAnimation
+FuncAnimation.new_frame_seq -> pltrs::animation::Frames
+FuncAnimation.new_saved_frame_seq -> pltrs::animation::Frames
+
+## HTMLWriter
+HTMLWriter -> pltrs::animation::MovieWriter
+HTMLWriter.* -> pltrs::animation::MovieWriter::*
+HTMLWriter.isAvailable -> pltrs::rc::RcParams::animation_ffmpeg_path
+HTMLWriter.setup -> pltrs::animation::MovieWriter::new
+
+## ImageMagickBase
+ImageMagickBase -> pltrs::animation::MovieWriter, pltrs::animation::FuncAnimation::to_gif
+ImageMagickBase.bin_path -> pltrs::rc::RcParams::animation_ffmpeg_path
+ImageMagickBase.isAvailable -> pltrs::rc::RcParams::animation_ffmpeg_path
+
+## ImageMagickFileWriter
+ImageMagickFileWriter -> pltrs::animation::MovieWriter, pltrs::animation::FuncAnimation::to_gif
+ImageMagickFileWriter.input_names -> pltrs::animation::FuncAnimation::save
+
+## MovieWriter
+MovieWriter -> pltrs::animation::MovieWriter
+MovieWriter.* -> pltrs::animation::MovieWriter::*
+MovieWriter.setup -> pltrs::animation::MovieWriter::new
+MovieWriter.bin_path -> pltrs::rc::RcParams::animation_ffmpeg_path
+MovieWriter.isAvailable -> pltrs::rc::RcParams::animation_ffmpeg_path
+
+## MovieWriterRegistry
+MovieWriterRegistry -> pltrs::animation::FuncAnimation::save
+MovieWriterRegistry.register -> pltrs::animation::FuncAnimation::save
+MovieWriterRegistry.is_available -> pltrs::animation::FuncAnimation::save
+MovieWriterRegistry.__iter__ -> pltrs::animation::FuncAnimation::save
+MovieWriterRegistry.list -> pltrs::animation::FuncAnimation::save
+MovieWriterRegistry.__getitem__ -> pltrs::animation::FuncAnimation::save
+
+## PillowWriter
+PillowWriter -> pltrs::animation::MovieWriter
+PillowWriter.* -> pltrs::animation::MovieWriter::*
+PillowWriter.isAvailable -> pltrs::rc::RcParams::animation_ffmpeg_path
+PillowWriter.setup -> pltrs::animation::MovieWriter::new

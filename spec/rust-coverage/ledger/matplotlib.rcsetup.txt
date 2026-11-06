@@ -1,0 +1,48 @@
+# matplotlib.rcsetup
+
+cycler -> pltrs::rc::Cycler::new
+validate_any -> pltrs::rc::RcParams, pltrs::rc::set
+validate_anylist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_aspect -> pltrs::rc::RcParams, pltrs::rc::set
+validate_axisbelow -> pltrs::rc::RcParams, pltrs::rc::set
+validate_backend -> pltrs::rc::RcParams, pltrs::rc::set
+validate_bbox -> pltrs::rc::RcParams, pltrs::rc::set
+validate_bool -> pltrs::rc::RcParams, pltrs::rc::set
+validate_color -> pltrs::rc::RcParams, pltrs::rc::set
+validate_color_for_prop_cycle -> pltrs::rc::RcParams, pltrs::rc::set
+validate_color_or_auto -> pltrs::rc::RcParams, pltrs::rc::set
+validate_color_or_inherit -> pltrs::rc::RcParams, pltrs::rc::set
+validate_colorlist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_cycler -> pltrs::rc::RcParams, pltrs::rc::set
+validate_dashlist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_dpi -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fillstyle -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fillstylelist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_float -> pltrs::rc::RcParams, pltrs::rc::set
+validate_float_or_None -> pltrs::rc::RcParams, pltrs::rc::set
+validate_floatlist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_font_properties -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fontsize -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fontsize_None -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fontsizelist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fontstretch -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fonttype -> pltrs::rc::RcParams, pltrs::rc::set
+validate_fontweight -> pltrs::rc::RcParams, pltrs::rc::set
+validate_hatch -> pltrs::rc::RcParams, pltrs::rc::set
+validate_hatchlist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_hist_bins -> pltrs::rc::RcParams, pltrs::rc::set
+validate_int -> pltrs::rc::RcParams, pltrs::rc::set
+validate_int_or_None -> pltrs::rc::RcParams, pltrs::rc::set
+validate_intlist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_markevery -> pltrs::rc::RcParams, pltrs::rc::set
+validate_markeverylist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_ps_distiller -> pltrs::rc::RcParams, pltrs::rc::set
+validate_sketch -> pltrs::rc::RcParams, pltrs::rc::set
+validate_string -> pltrs::rc::RcParams, pltrs::rc::set
+validate_string_or_None -> pltrs::rc::RcParams, pltrs::rc::set
+validate_stringlist -> pltrs::rc::RcParams, pltrs::rc::set
+validate_whiskers -> pltrs::rc::RcParams, pltrs::rc::set
+
+## ValidateInStrings
+ValidateInStrings n/a a class factory of string validators; rc values parse into enums with FromStr
+ValidateInStrings.__call__ n/a a class factory of string validators; rc values parse into enums with FromStr

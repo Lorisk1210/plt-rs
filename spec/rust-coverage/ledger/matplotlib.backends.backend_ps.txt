@@ -1,0 +1,23 @@
+# matplotlib.backends.backend_ps
+
+* -> pltrs::figure::*
+gs_distill -> pltrs::figure::DistillOptions, pltrs_render::PsfragFigure::bbox, pltrs::figure::check_distiller
+pstoeps -> pltrs_render::pstoeps
+xpdf_distill -> pltrs::figure::DistillOptions, pltrs::figure::check_distiller, pltrs::figure::distill_file
+
+## FigureCanvasPS
+FigureCanvasPS.* -> pltrs::figure::Figure::*
+FigureCanvasPS.get_default_filetype -> pltrs::figure::SaveFormat::Ps
+
+## RendererPS
+RendererPS -> pltrs_render::PsRenderer, pltrs_render::Renderer
+RendererPS.get_* -> pltrs_render::PsRenderer::*
+RendererPS.* -> pltrs_render::PsRenderer::*
+RendererPS.set_color n/a the PostScript writer's state machine: PsRenderer writes the state changes each GraphicsContext needs
+RendererPS.set_linewidth n/a the PostScript writer's state machine: PsRenderer writes the state changes each GraphicsContext needs
+RendererPS.set_linejoin n/a the PostScript writer's state machine: PsRenderer writes the state changes each GraphicsContext needs
+RendererPS.set_linecap n/a the PostScript writer's state machine: PsRenderer writes the state changes each GraphicsContext needs
+RendererPS.set_linedash n/a the PostScript writer's state machine: PsRenderer writes the state changes each GraphicsContext needs
+RendererPS.set_font n/a the PostScript writer's state machine: PsRenderer writes the state changes each GraphicsContext needs
+RendererPS.create_hatch n/a the PostScript procedure of a hatch pattern: PsRenderer defines it when a path is hatched
+RendererPS.draw_mathtext -> pltrs_render::Renderer::draw_text

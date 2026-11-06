@@ -17,13 +17,20 @@
 //! * A table gives the RMS difference between each Rust image and the
 //!   Python ones. All draw in the modern look, so they nearly agree.
 //!
-//! `--check` fails when an example does not run, a committed image is not
+//! * The tutorials (`examples/rust/tutorials`, matplotlib's tutorials as
+//!   cargo examples of the same crate) are built and run, each in a
+//!   directory of its own under `target/examples/tutorials/`, where they
+//!   write their files.
+//!
+//! `--check` fails when an example or a tutorial does not run, a
+//! committed image is not
 //! the one the Rust example draws now, `examples/README.md` misses an
 //! image or a source, `examples/images/` holds an image of no example, or
 //! the Rust and matplotlib images of an example differ by more than
-//! [`TOLERANCE`]. Runs under pltrs are reported, and count as problems
-//! only with `--require-pltrs`, until pltrs runs every example. Names
-//! restrict the run to those examples.
+//! [`TOLERANCE`]. A failing tutorial fails the command without `--check`
+//! too. Runs under pltrs are reported, and count as problems only with
+//! `--require-pltrs`, until pltrs runs every example. Names restrict the
+//! run to those examples and tutorials.
 
 mod catalogue;
 mod compare;
@@ -69,20 +76,24 @@ impl<'a> Request<'a> {
         Ok(request)
     }
 
-    /// The examples of `all` the request names, or all of them.
-    fn select(&self, all: &[String]) -> Result<Vec<String>, String> {
-        if let Some(unknown) = self
-            .names
-            .iter()
-            .find(|name| !all.iter().any(|n| n == *name))
-        {
-            return Err(format!("no example is named {unknown}"));
+    /// The examples of `gallery` and the tutorials of `tutorials` the
+    /// request names, or all of them.
+    fn select(
+        &self,
+        gallery: &[String],
+        tutorials: &[String],
+    ) -> Result<(Vec<String>, Vec<String>), String> {
+        let known = |name: &&str| gallery.iter().chain(tutorials).any(|n| n == *name);
+        if let Some(unknown) = self.names.iter().find(|name| !known(name)) {
+            return Err(format!("no example or tutorial is named {unknown}"));
         }
-        Ok(all
-            .iter()
-            .filter(|name| self.names.is_empty() || self.names.contains(&name.as_str()))
-            .cloned()
-            .collect())
+        let pick = |all: &[String]| -> Vec<String> {
+            all.iter()
+                .filter(|name| self.names.is_empty() || self.names.contains(&name.as_str()))
+                .cloned()
+                .collect()
+        };
+        Ok((pick(gallery), pick(tutorials)))
     }
 }
 
@@ -155,7 +166,34 @@ fn prepare(dir: &Path, names: &[String]) -> Result<(), String> {
 /// returns the problems found.
 fn gallery(layout: &Layout, request: &Request<'_>) -> Result<Vec<String>, String> {
     let all = catalogue::discover(layout)?;
-    let names = request.select(&all)?;
+    let tutorials = catalogue::tutorials(layout)?;
+    let (names, tutorials) = request.select(&all, &tutorials)?;
+    let bin_dir = runners::build_rust()?;
+    let mut problems = Vec::new();
+    if !names.is_empty() {
+        problems.extend(compare_gallery(layout, request, &all, &names, &bin_dir)?);
+    }
+    let failures = runners::run_tutorials(&bin_dir, &tutorials, &layout.output("tutorials"));
+    println!(
+        "tutorials: {} of {} ran (in {})",
+        tutorials.len() - failures.len(),
+        tutorials.len(),
+        layout.output("tutorials").display()
+    );
+    problems.extend(failures);
+    Ok(problems)
+}
+
+/// Runs the gallery examples `names` (of `all`) in Rust, under matplotlib
+/// and under pltrs, prints the comparison table and returns the problems
+/// found.
+fn compare_gallery(
+    layout: &Layout,
+    request: &Request<'_>,
+    all: &[String],
+    names: &[String],
+    bin_dir: &Path,
+) -> Result<Vec<String>, String> {
     let rust_out = if request.check {
         layout.output("rust")
     } else {
@@ -163,14 +201,14 @@ fn gallery(layout: &Layout, request: &Request<'_>) -> Result<Vec<String>, String
     };
     let (mpl_out, pltrs_out) = (layout.output("python-mpl"), layout.output("python-pltrs"));
     for dir in [&rust_out, &mpl_out, &pltrs_out] {
-        prepare(dir, &names)?;
+        prepare(dir, names)?;
     }
 
-    let mut problems = runners::run_rust(&runners::build_rust()?, &names, &rust_out);
-    problems.extend(runners::run_matplotlib(layout, &names, &mpl_out));
+    let mut problems = runners::run_rust(bin_dir, names, &rust_out);
+    problems.extend(runners::run_matplotlib(layout, names, &mpl_out));
     let pltrs_ran = match runners::Pltrs::find(layout) {
         Ok(pltrs) => {
-            let failures = pltrs.run(layout, &names, &pltrs_out);
+            let failures = pltrs.run(layout, names, &pltrs_out);
             if request.require_pltrs {
                 problems.extend(failures);
             } else {
@@ -208,7 +246,7 @@ fn gallery(layout: &Layout, request: &Request<'_>) -> Result<Vec<String>, String
         }
     }
     if request.check {
-        problems.extend(check(layout, &all, &rows)?);
+        problems.extend(check(layout, all, &rows)?);
     }
     Ok(problems)
 }
@@ -290,20 +328,29 @@ mod tests {
 
     #[test]
     fn requests_select_examples_by_name() {
-        let args = names(&["polar", "--check"]);
+        let args = names(&["polar", "layouts", "--check"]);
         let request = Request::parse(&args).unwrap();
         assert!(request.check);
         let all = names(&["line_plot", "polar"]);
-        assert_eq!(request.select(&all).unwrap(), ["polar"]);
+        let tutorials = names(&["layouts", "saving"]);
+        let (gallery, chosen) = request.select(&all, &tutorials).unwrap();
+        assert_eq!((gallery, chosen), (names(&["polar"]), names(&["layouts"])));
         let everything = Request::parse(&[]).unwrap();
-        assert_eq!(everything.select(&all).unwrap(), all);
+        assert_eq!(
+            everything.select(&all, &tutorials).unwrap(),
+            (all, tutorials)
+        );
     }
 
     #[test]
     fn unknown_names_and_flags_are_refused() {
         let args = names(&["nothing"]);
         let request = Request::parse(&args).unwrap();
-        assert!(request.select(&names(&["polar"])).is_err());
+        assert!(
+            request
+                .select(&names(&["polar"]), &names(&["layouts"]))
+                .is_err()
+        );
         assert!(Request::parse(&names(&["--fast"])).is_err());
     }
 

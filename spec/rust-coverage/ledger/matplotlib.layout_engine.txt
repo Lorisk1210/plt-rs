@@ -1,0 +1,23 @@
+# matplotlib.layout_engine
+
+
+## ConstrainedLayoutEngine
+ConstrainedLayoutEngine -> pltrs::layout::ConstrainedLayout, pltrs::layout::LayoutEngine
+ConstrainedLayoutEngine.execute -> pltrs::figure::Figure::layout, pltrs::figure::Figure::draw
+ConstrainedLayoutEngine.set -> pltrs::layout::ConstrainedLayout::h_pad, pltrs::layout::ConstrainedLayout::w_pad, pltrs::layout::ConstrainedLayout::hspace, pltrs::layout::ConstrainedLayout::wspace, pltrs::layout::ConstrainedLayout::rect
+
+## LayoutEngine
+LayoutEngine -> pltrs::layout::LayoutEngine
+LayoutEngine.* -> pltrs::layout::LayoutEngine::*
+LayoutEngine.set n/a abstract in matplotlib (raises NotImplementedError); each engine takes its own settings
+LayoutEngine.get -> pltrs::figure::Figure::layout_engine
+LayoutEngine.execute -> pltrs::figure::Figure::layout, pltrs::figure::Figure::draw
+
+## PlaceHolderLayoutEngine
+PlaceHolderLayoutEngine -> pltrs::layout::PlaceHolderLayout, pltrs::layout::LayoutEngine
+PlaceHolderLayoutEngine.execute -> pltrs::figure::Figure::layout, pltrs::figure::Figure::draw
+
+## TightLayoutEngine
+TightLayoutEngine -> pltrs::layout::TightLayout, pltrs::layout::LayoutEngine
+TightLayoutEngine.execute -> pltrs::figure::Figure::layout, pltrs::figure::Figure::draw
+TightLayoutEngine.set -> pltrs::layout::TightLayout::pad, pltrs::layout::TightLayout::h_pad, pltrs::layout::TightLayout::w_pad, pltrs::layout::TightLayout::rect

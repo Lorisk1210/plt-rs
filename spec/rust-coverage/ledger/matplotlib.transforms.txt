@@ -1,0 +1,195 @@
+# matplotlib.transforms
+
+TransformedPatchPath -> pltrs::transforms::Transform, pltrs::patches::Patch, pltrs::path::Path
+blended_transform_factory -> pltrs::transforms::Transform::blended
+composite_transform_factory -> pltrs::transforms::Transform::then
+offset_copy -> pltrs::transforms::Transform::offset_copy
+
+## Affine2D
+Affine2D -> pltrs::transforms::Affine2D
+Affine2D.get_* -> pltrs::transforms::Affine2D::*
+Affine2D.* -> pltrs::transforms::Affine2D::*
+Affine2D.set_matrix -> pltrs_core::Affine2D::from_values, pltrs_core::Affine2D::from_rows
+Affine2D.set -> pltrs_core::Affine2D::clone_from
+Affine2D.clear -> pltrs_core::Affine2D::identity
+
+## Affine2DBase
+Affine2DBase -> pltrs::transforms::Affine2D, pltrs::transforms::Transform, pltrs::transforms::ResolvedTransform
+Affine2DBase.* -> pltrs::transforms::Affine2D::*
+Affine2DBase.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+Affine2DBase.is_separable n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+Affine2DBase.to_values -> pltrs::transforms::Affine2D
+Affine2DBase.transform_affine -> pltrs::transforms::ResolvedTransform::affine_part, pltrs::transforms::ResolvedTransform::affine
+
+## AffineBase
+AffineBase -> pltrs::transforms::Affine2D, pltrs::transforms::Transform, pltrs::transforms::ResolvedTransform
+AffineBase.__array__ -> pltrs::transforms::Affine2D, pltrs::transforms::Transform
+AffineBase.transform -> pltrs::transforms::ResolvedTransform::transform_points, pltrs_core::Affine2D::transform_point
+AffineBase.transform_affine -> pltrs::transforms::ResolvedTransform::affine_part, pltrs::transforms::ResolvedTransform::affine
+AffineBase.transform_non_affine -> pltrs::transforms::ResolvedTransform::transform_point_non_affine
+AffineBase.transform_path -> pltrs::transforms::ResolvedTransform::transform_path
+AffineBase.transform_path_affine -> pltrs::transforms::ResolvedTransform::split_path
+AffineBase.transform_path_non_affine -> pltrs::transforms::ResolvedTransform::split_path
+AffineBase.get_affine -> pltrs::transforms::ResolvedTransform::affine
+
+## AffineDeltaTransform
+AffineDeltaTransform -> pltrs::transforms::Transform
+AffineDeltaTransform.get_matrix -> pltrs_core::Affine2D::matrix
+
+## Bbox
+Bbox -> pltrs::transforms::Bbox
+Bbox.* -> pltrs::transforms::Bbox::*
+Bbox.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+Bbox.unit -> pltrs_core::Bbox::from_extents
+Bbox.null -> pltrs::transforms::TrackedBbox::new
+Bbox.ignore -> pltrs::transforms::TrackedBbox::set_ignore
+Bbox.update_from_path -> pltrs::transforms::TrackedBbox::update_from_path
+Bbox.update_from_data_x -> pltrs::transforms::TrackedBbox::update_from_x
+Bbox.update_from_data_y -> pltrs::transforms::TrackedBbox::update_from_y
+Bbox.update_from_data_xy -> pltrs::transforms::TrackedBbox::update_from_points
+Bbox.intervalx -> pltrs_core::Bbox::interval_x
+Bbox.intervaly -> pltrs_core::Bbox::interval_y
+Bbox.minpos -> pltrs::transforms::TrackedBbox::minpos
+Bbox.minposx -> pltrs::transforms::TrackedBbox::minpos
+Bbox.minposy -> pltrs::transforms::TrackedBbox::minpos
+Bbox.get_points -> pltrs_core::Bbox::p0, pltrs_core::Bbox::p1
+Bbox.set_points -> pltrs_core::Bbox::from_points
+Bbox.set -> pltrs_core::Bbox::clone_from
+Bbox.mutated -> pltrs::transforms::TrackedBbox::mutated
+Bbox.mutatedx -> pltrs::transforms::TrackedBbox::mutated_x
+Bbox.mutatedy -> pltrs::transforms::TrackedBbox::mutated_y
+
+## BboxBase
+BboxBase -> pltrs::transforms::Bbox, pltrs::transforms::TrackedBbox, pltrs_core::archive::Archive
+BboxBase.* -> pltrs::transforms::Bbox::*
+BboxBase.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+BboxBase.__array__ -> pltrs::transforms::Bbox, pltrs::transforms::TrackedBbox
+BboxBase.min -> pltrs_core::Bbox::p0
+BboxBase.max -> pltrs_core::Bbox::p1
+BboxBase.intervalx -> pltrs_core::Bbox::interval_x
+BboxBase.intervaly -> pltrs_core::Bbox::interval_y
+BboxBase.size -> pltrs_core::Bbox::width, pltrs_core::Bbox::height
+BboxBase.get_points -> pltrs_core::Bbox::p0, pltrs_core::Bbox::p1
+BboxBase.containsx -> pltrs_core::Bbox::contains_x
+BboxBase.containsy -> pltrs_core::Bbox::contains_y
+BboxBase.fully_containsx -> pltrs_core::Bbox::fully_contains_x
+BboxBase.fully_containsy -> pltrs_core::Bbox::fully_contains_y
+BboxBase.splitx -> pltrs_core::Bbox::split_x
+BboxBase.splity -> pltrs_core::Bbox::split_y
+
+## BboxTransform
+BboxTransform -> pltrs::transforms::Transform, pltrs::transforms::Affine2D, pltrs_core::archive::Archive
+BboxTransform.get_matrix -> pltrs_core::Affine2D::matrix
+
+## BboxTransformFrom
+BboxTransformFrom -> pltrs::transforms::Transform, pltrs::transforms::Affine2D, pltrs_core::archive::Archive
+BboxTransformFrom.get_matrix -> pltrs_core::Affine2D::matrix
+
+## BboxTransformTo
+BboxTransformTo -> pltrs::transforms::Transform, pltrs::transforms::Affine2D, pltrs_core::archive::Archive
+BboxTransformTo.get_matrix -> pltrs_core::Affine2D::matrix
+
+## BlendedAffine2D
+BlendedAffine2D -> pltrs::transforms::Transform
+BlendedAffine2D.get_matrix -> pltrs_core::Affine2D::matrix
+
+## BlendedGenericTransform
+BlendedGenericTransform -> pltrs::transforms::Transform
+BlendedGenericTransform.* -> pltrs::transforms::Transform::*
+BlendedGenericTransform.depth n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+BlendedGenericTransform.is_affine n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+BlendedGenericTransform.has_inverse n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+BlendedGenericTransform.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+BlendedGenericTransform.transform_non_affine -> pltrs::transforms::ResolvedTransform::transform_point_non_affine
+BlendedGenericTransform.get_affine -> pltrs::transforms::ResolvedTransform::affine
+
+## CompositeAffine2D
+CompositeAffine2D -> pltrs::transforms::Transform, pltrs::transforms::Affine2D, pltrs_core::archive::Archive
+CompositeAffine2D.depth n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+CompositeAffine2D.get_matrix -> pltrs_core::Affine2D::matrix
+
+## CompositeGenericTransform
+CompositeGenericTransform -> pltrs::transforms::Transform
+CompositeGenericTransform.* -> pltrs::transforms::Transform::*
+CompositeGenericTransform.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+CompositeGenericTransform.depth n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+CompositeGenericTransform.is_affine n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+CompositeGenericTransform.is_separable n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+CompositeGenericTransform.has_inverse n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+CompositeGenericTransform.transform_affine -> pltrs::transforms::ResolvedTransform::affine_part, pltrs::transforms::ResolvedTransform::affine
+CompositeGenericTransform.transform_non_affine -> pltrs::transforms::ResolvedTransform::transform_point_non_affine
+CompositeGenericTransform.transform_path_non_affine -> pltrs::transforms::ResolvedTransform::split_path
+CompositeGenericTransform.get_affine -> pltrs::transforms::ResolvedTransform::affine
+
+## IdentityTransform
+IdentityTransform -> pltrs::transforms::Affine2D, pltrs::transforms::Transform, pltrs_core::archive::Archive
+IdentityTransform.get_* -> pltrs::transforms::Affine2D::*
+IdentityTransform.* -> pltrs::transforms::Affine2D::*
+IdentityTransform.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+IdentityTransform.transform -> pltrs::transforms::ResolvedTransform::transform_points, pltrs_core::Affine2D::transform_point
+IdentityTransform.transform_affine -> pltrs::transforms::ResolvedTransform::affine_part, pltrs::transforms::ResolvedTransform::affine
+IdentityTransform.transform_non_affine -> pltrs::transforms::ResolvedTransform::transform_point_non_affine
+IdentityTransform.transform_path -> pltrs::transforms::ResolvedTransform::transform_path
+IdentityTransform.transform_path_affine -> pltrs::transforms::ResolvedTransform::split_path
+IdentityTransform.transform_path_non_affine -> pltrs::transforms::ResolvedTransform::split_path
+IdentityTransform.get_affine -> pltrs::transforms::ResolvedTransform::affine
+
+## LockableBbox
+LockableBbox -> pltrs::transforms::LockableBbox
+LockableBbox.* -> pltrs::transforms::LockableBbox::*
+LockableBbox.get_points -> pltrs_core::Bbox::p0, pltrs_core::Bbox::p1
+
+## ScaledTranslation
+ScaledTranslation -> pltrs::transforms::Transform, pltrs::transforms::Affine2D, pltrs_core::archive::Archive
+ScaledTranslation.get_matrix -> pltrs_core::Affine2D::matrix
+
+## Transform
+Transform -> pltrs::transforms::Transform
+Transform.* -> pltrs::transforms::Transform::*
+Transform.__add__ -> pltrs::transforms::Transform, pltrs::transforms::ResolvedTransform
+Transform.depth n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+Transform.contains_branch_seperately n/a alias: pltrs keeps one name per property (conventions: aliases)
+Transform.__sub__ -> pltrs::transforms::Transform, pltrs::transforms::ResolvedTransform
+Transform.__array__ -> pltrs::transforms::Transform, pltrs::transforms::ResolvedTransform
+Transform.transform -> pltrs::transforms::ResolvedTransform::transform_points, pltrs_core::Affine2D::transform_point
+Transform.transform_affine -> pltrs::transforms::ResolvedTransform::affine_part, pltrs::transforms::ResolvedTransform::affine
+Transform.transform_non_affine -> pltrs::transforms::ResolvedTransform::transform_point_non_affine
+Transform.transform_bbox -> pltrs::transforms::ResolvedTransform::transform_bbox
+Transform.get_affine -> pltrs::transforms::ResolvedTransform::affine
+Transform.get_matrix -> pltrs_core::Affine2D::matrix
+Transform.transform_point -> pltrs::transforms::ResolvedTransform::transform_point
+Transform.transform_path -> pltrs::transforms::ResolvedTransform::transform_path
+Transform.transform_path_affine -> pltrs::transforms::ResolvedTransform::split_path
+Transform.transform_path_non_affine -> pltrs::transforms::ResolvedTransform::split_path
+Transform.transform_angles -> pltrs::transforms::ResolvedTransform::transform_angle
+
+## TransformNode
+TransformNode -> pltrs::transforms::Transform
+TransformNode.invalidate n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+TransformNode.set_children n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+TransformNode.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+
+## TransformWrapper
+TransformWrapper -> pltrs::transforms::Transform
+TransformWrapper.frozen n/a frozen transforms: pltrs transforms are resolved values already (conventions)
+TransformWrapper.set -> pltrs::artist::ArtistHandle::set_transform
+TransformWrapper.input_dims n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+TransformWrapper.output_dims n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+TransformWrapper.is_affine n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+TransformWrapper.is_separable n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+TransformWrapper.has_inverse n/a metadata of matplotlib's lazy transform tree; pltrs transforms are resolved 2-D maps
+
+## TransformedBbox
+TransformedBbox -> pltrs::transforms::Bbox, pltrs::transforms::TrackedBbox, pltrs::transforms::Transform
+TransformedBbox.* -> pltrs::transforms::Bbox::*
+TransformedBbox.get_points -> pltrs_core::Bbox::p0, pltrs_core::Bbox::p1
+
+## TransformedPath
+TransformedPath -> pltrs::transforms::Transform, pltrs::transforms::ResolvedTransform, pltrs::path::Path
+TransformedPath.get_transformed_points_and_affine -> pltrs::transforms::ResolvedTransform::split_points
+TransformedPath.get_transformed_path_and_affine -> pltrs::transforms::ResolvedTransform::split_path, pltrs::transforms::ResolvedTransform::transform_path
+TransformedPath.get_fully_transformed_path -> pltrs::transforms::ResolvedTransform::split_path, pltrs::transforms::ResolvedTransform::transform_path
+TransformedPath.get_affine -> pltrs::transforms::ResolvedTransform::affine
+
+## _BlendedMixin
+_BlendedMixin.contains_branch_separately -> pltrs::transforms::Transform::contains_branch_separately

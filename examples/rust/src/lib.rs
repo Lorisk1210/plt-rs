@@ -11,6 +11,9 @@
 //! (Python), in matplotlib's syntax, and `cargo xtask examples`
 //! renders both into the gallery of `examples/README.md`.
 //!
+//! `tutorials/` holds matplotlib's tutorials as programs, the crate's
+//! cargo examples (`cargo run -p pltrs-examples --example quick_start`).
+//!
 //! This library holds what several examples share: [`Samples`], the seeded
 //! generator of the examples that need noisy data.
 #![forbid(unsafe_code)]

@@ -1,0 +1,62 @@
+# matplotlib.dviread
+
+find_tex_file -> pltrs_text::tex::FileFinder, pltrs_text::tex::PsfontsMap::get, pltrs_text::tex::PsfontsMap::parse
+
+## Box
+Box -> pltrs_text::tex::DviBox
+Box.__replace__ n/a Python protocol or dataclass machinery
+Box.__getnewargs__ n/a Python protocol or dataclass machinery
+
+## Dvi
+Dvi -> pltrs_text::tex::read_dvi, pltrs_text::tex::TexFiles::dvi_pages
+Dvi.__enter__ n/a Python protocol or dataclass machinery
+Dvi.__exit__ n/a Python protocol or dataclass machinery
+Dvi.__iter__ -> pltrs_text::tex::DviPage, pltrs_text::tex::TexFiles
+Dvi.close n/a the file is read whole and closed at once
+
+## DviFont
+DviFont -> pltrs_text::tex::DviFont
+DviFont.* -> pltrs_text::tex::DviFont::*
+DviFont.fname -> pltrs_text::tex::DviFont::texname
+DviFont.face_index -> pltrs_text::tex::TexFiles::native_face
+DviFont.resolve_path -> pltrs_text::tex::TexFiles::font_path
+
+## Page
+Page -> pltrs_text::tex::DviPage
+Page.__replace__ n/a Python protocol or dataclass machinery
+Page.__getnewargs__ n/a Python protocol or dataclass machinery
+
+## PsFont
+PsFont -> pltrs_text::tex::PsFont
+PsFont.__replace__ n/a Python protocol or dataclass machinery
+PsFont.__getnewargs__ n/a Python protocol or dataclass machinery
+
+## PsfontsMap
+PsfontsMap -> pltrs_text::tex::PsfontsMap
+PsfontsMap.__getitem__ -> pltrs_text::tex::PsfontsMap, pltrs_text::tex::PsFont
+
+## TexMetrics
+TexMetrics -> pltrs_text::tex::TexMetrics
+TexMetrics.__replace__ n/a Python protocol or dataclass machinery
+TexMetrics.__setattr__ n/a Python protocol or dataclass machinery
+TexMetrics.__delattr__ n/a Python protocol or dataclass machinery
+
+## Text
+Text -> pltrs_text::tex::DviText
+Text.index -> pltrs_text::tex::TexFiles::glyph_index
+Text.font_path -> pltrs_text::tex::TexFiles::font_path
+Text.font_size -> pltrs_text::tex::DviFont::size
+Text.font_effects -> pltrs_text::tex::TexFiles::effects
+Text.glyph_name_or_index -> pltrs_text::tex::TexFiles::glyph_name, pltrs_text::tex::TexFiles::glyph_index
+
+## Tfm
+Tfm -> pltrs_text::tex::Tfm
+Tfm.get_* -> pltrs_text::tex::Tfm::*
+
+## TtfMetrics
+TtfMetrics -> pltrs_text::tex::NativeFace
+TtfMetrics.get_* -> pltrs_text::tex::NativeFace::*
+
+## Vf
+Vf -> pltrs_text::tex::Vf
+Vf.__getitem__ -> pltrs_text::tex::Vf, pltrs_text::tex::VfPacket

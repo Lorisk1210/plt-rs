@@ -1,0 +1,78 @@
+# matplotlib.text
+
+
+## Annotation
+Annotation -> pltrs::text::Annotation
+Annotation.get_* -> pltrs::text::Annotation::*
+Annotation.* -> pltrs::text::Annotation::*
+Annotation.xyann -> pltrs::text::Text::position, pltrs::text::Text::set_position
+Annotation.get_anncoords -> pltrs::text::Annotation::textcoords
+Annotation.set_anncoords -> pltrs::text::Annotation::set_textcoords, pltrs::text::Annotation::xy
+Annotation.anncoords -> pltrs::text::Annotation::textcoords, pltrs::text::Annotation::set_textcoords
+Annotation.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+Annotation.update_positions n/a positions are resolved on every draw
+Annotation.draw -> pltrs::artist::Artist::draw
+Annotation.get_tightbbox -> pltrs::artist::ArtistHandle::window_extent, pltrs::figure::Figure::tight_bbox
+Annotation.set -> pltrs::text::Annotation::update_props
+
+## OffsetFrom
+OffsetFrom -> pltrs::coords::Coords
+OffsetFrom.set_unit -> pltrs::coords::Coords::OffsetFrom
+OffsetFrom.get_unit -> pltrs::coords::Coords::OffsetFrom
+OffsetFrom.__call__ -> pltrs::coords::Coords
+
+## Text
+Text -> pltrs::text::Text
+Text.get_* -> pltrs::text::Text::*
+Text.* -> pltrs::text::Text::*
+Text.update -> pltrs::text::Text::update_props
+Text.update_from n/a handles share state: there is nothing to copy (conventions)
+Text.update_bbox_position_size n/a internal layout of the text box
+Text.draw -> pltrs::artist::Artist::draw
+Text.get_fontproperties -> pltrs::text::Text::font, pltrs::text::Text::set_font
+Text.get_fontfamily -> pltrs::text::Text::font
+Text.get_fontname -> pltrs::text::Text::font
+Text.get_fontstyle -> pltrs::text::Text::font
+Text.get_fontsize -> pltrs::text::Text::font
+Text.get_fontvariant -> pltrs::text::Text::font
+Text.get_fontweight -> pltrs::text::Text::font
+Text.get_stretch -> pltrs::text::Text::font
+Text.get_horizontalalignment -> pltrs::text::Text::halign
+Text.get_unitless_position -> pltrs::text::Text::position
+Text.get_verticalalignment -> pltrs::text::Text::valign
+Text.get_tightbbox -> pltrs::artist::ArtistHandle::window_extent, pltrs::figure::Figure::tight_bbox
+Text.set_horizontalalignment -> pltrs::text::Text::set_halign
+Text.set_multialignment -> pltrs::text::Text::set_multialign
+Text.set_fontfamily -> pltrs::text::Text::set_family
+Text.set_fontvariant -> pltrs::text::Text::set_variant
+Text.set_fontstyle -> pltrs::text::Text::set_style
+Text.get_math_fontfamily -> pltrs::text::Text::font
+Text.set_fontweight -> pltrs::text::Text::set_weight
+Text.set_fontstretch -> pltrs::text::Text::set_stretch
+Text.set_verticalalignment -> pltrs::text::Text::set_valign
+Text.set_fontproperties -> pltrs::text::Text::set_font
+Text.set_fontname -> pltrs::text::Text::set_family
+Text.set -> pltrs::text::Text::update_props
+Text.get_font_properties -> pltrs::text::Text::font
+Text.set_font_properties -> pltrs::text::Text::set_font
+Text.get_family -> pltrs::text::Text::font
+Text.get_name -> pltrs::text::Text::font
+Text.set_name -> pltrs::text::Text::set_family
+Text.get_size -> pltrs::text::Text::font
+Text.set_size -> pltrs::text::Text::set_fontsize
+Text.get_style -> pltrs::text::Text::font
+Text.get_variant -> pltrs::text::Text::font
+Text.get_weight -> pltrs::text::Text::font
+
+## _AnnotationBase
+_AnnotationBase.get_* -> pltrs::text::Annotation::*
+_AnnotationBase.* -> pltrs::text::Annotation::*
+
+## Aliases (any class)
+*.get_c n/a alias of get_color: pltrs keeps one name per property
+*.get_ha n/a alias of get_horizontalalignment: pltrs keeps one name per property
+*.get_va n/a alias of get_verticalalignment: pltrs keeps one name per property
+*.set_c n/a alias of set_color: pltrs keeps one name per property
+*.set_ha n/a alias of set_horizontalalignment: pltrs keeps one name per property
+*.set_ma n/a alias of set_multialignment: pltrs keeps one name per property
+*.set_va n/a alias of set_verticalalignment: pltrs keeps one name per property

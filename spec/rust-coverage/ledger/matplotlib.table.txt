@@ -1,0 +1,27 @@
+# matplotlib.table
+
+table -> pltrs::pyplot::table
+
+## Cell
+Cell -> pltrs::table::TableCell, pltrs::table::CellEdges
+Cell.get_* -> pltrs::table::TableCell::*
+Cell.* -> pltrs::table::TableCell::*
+Cell.set_transform n/a cells are placed by their table
+Cell.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+Cell.draw -> pltrs::artist::Artist::draw
+Cell.get_text_bounds n/a internal cell layout
+Cell.get_required_width n/a internal cell layout
+Cell.set_text_props -> pltrs::table::TableCell::set_font
+Cell.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## Table
+Table -> pltrs::table::Table
+Table.get_* -> pltrs::table::Table::*
+Table.* -> pltrs::table::Table::*
+Table.__setitem__ -> pltrs::table::Table, pltrs::table::TableOptions
+Table.__getitem__ -> pltrs::table::Table, pltrs::table::TableOptions
+Table.edges -> pltrs::table::TableOptions::edges
+Table.draw -> pltrs::artist::Artist::draw
+Table.get_children -> pltrs::table::Table::cell_keys, pltrs::table::Table::cell
+Table.get_celld -> pltrs::table::Table::cell_keys
+Table.set -> pltrs::table::Table::update_base_props

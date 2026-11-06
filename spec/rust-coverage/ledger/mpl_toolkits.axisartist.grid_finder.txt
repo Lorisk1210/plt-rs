@@ -1,0 +1,29 @@
+# mpl_toolkits.axisartist.grid_finder
+
+
+## DictFormatter
+DictFormatter -> pltrs::axisartist::grid_finder::DictFormatter
+DictFormatter.__call__ -> pltrs::axisartist::grid_finder::DictFormatter, pltrs::axisartist::grid_finder::GridFormatter
+
+## ExtremeFinderSimple
+ExtremeFinderSimple -> pltrs::axisartist::grid_finder::ExtremeFinderSimple
+ExtremeFinderSimple.__call__ -> pltrs::axisartist::grid_finder::ExtremeFinderSimple, pltrs::axisartist::grid_finder::ExtremeFinder
+
+## FixedLocator
+FixedLocator -> pltrs::axisartist::grid_finder::GridFixedLocator, pltrs::axisartist::grid_finder::GridLocator
+FixedLocator.__call__ -> pltrs::axisartist::grid_finder::GridFixedLocator, pltrs::axisartist::grid_finder::GridLocator
+
+## FormatterPrettyPrint
+FormatterPrettyPrint -> pltrs::axisartist::grid_finder::FormatterPrettyPrint
+FormatterPrettyPrint.__call__ -> pltrs::axisartist::grid_finder::FormatterPrettyPrint, pltrs::axisartist::grid_finder::GridFormatter
+
+## GridFinder
+GridFinder -> pltrs::axisartist::grid_finder::GridFinder
+GridFinder.get_* -> pltrs::axisartist::grid_finder::GridFinder::*
+GridFinder.set_transform -> pltrs::axisartist::grid_finder::GridFinderOptions
+GridFinder.update_transform -> pltrs::axisartist::grid_finder::GridFinderOptions
+GridFinder.update -> pltrs::axisartist::grid_finder::GridFinderOptions
+
+## MaxNLocator
+MaxNLocator -> pltrs::axisartist::grid_finder::GridMaxNLocator, pltrs::axisartist::grid_finder::GridLocator
+MaxNLocator.__call__ -> pltrs::axisartist::grid_finder::GridMaxNLocator, pltrs::axisartist::grid_finder::GridLocator

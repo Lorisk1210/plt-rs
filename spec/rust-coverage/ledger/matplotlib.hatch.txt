@@ -1,0 +1,29 @@
+# matplotlib.hatch
+
+Circles -> pltrs_core::hatch::pattern_path
+HatchPatternBase -> pltrs_core::hatch::pattern_path
+LargeCircles -> pltrs_core::hatch::pattern_path
+SmallCircles -> pltrs_core::hatch::pattern_path
+SmallFilledCircles -> pltrs_core::hatch::pattern_path
+Stars -> pltrs_core::hatch::pattern_path
+get_path -> pltrs_core::hatch::pattern_path
+
+## HorizontalHatch
+HorizontalHatch -> pltrs_core::hatch::pattern_path
+HorizontalHatch.set_vertices_and_codes -> pltrs_core::hatch::pattern_path
+
+## NorthEastHatch
+NorthEastHatch -> pltrs_core::hatch::pattern_path
+NorthEastHatch.set_vertices_and_codes -> pltrs_core::hatch::pattern_path
+
+## Shapes
+Shapes -> pltrs_core::hatch::pattern_path
+Shapes.set_vertices_and_codes -> pltrs_core::hatch::pattern_path
+
+## SouthEastHatch
+SouthEastHatch -> pltrs_core::hatch::pattern_path
+SouthEastHatch.set_vertices_and_codes -> pltrs_core::hatch::pattern_path
+
+## VerticalHatch
+VerticalHatch -> pltrs_core::hatch::pattern_path
+VerticalHatch.set_vertices_and_codes -> pltrs_core::hatch::pattern_path

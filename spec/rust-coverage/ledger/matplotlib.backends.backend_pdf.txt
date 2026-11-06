@@ -1,0 +1,109 @@
+# matplotlib.backends.backend_pdf
+
+FigureCanvas -> pltrs::figure::FigureCanvas
+pdfRepr -> pltrs_render::PdfObject::repr
+
+## FigureCanvasPdf
+FigureCanvasPdf.* -> pltrs::figure::Figure::*
+FigureCanvasPdf.get_default_filetype -> pltrs::figure::SaveFormat::Pdf
+FigureCanvasPdf.print_pdf -> pltrs::figure::Figure::to_pdf, pltrs::figure::Figure::to_pdf_with
+
+## GraphicsContextPdf
+GraphicsContextPdf -> pltrs_render::GraphicsContext, pltrs_render::PdfRenderer
+GraphicsContextPdf.stroke n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.fill n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.paint n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.capstyle_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.joinstyle_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.linewidth_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.dash_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.alpha_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.hatch_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.rgb_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.fillcolor_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.push n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.pop n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.clip_cmd n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.delta n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.copy_properties n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+GraphicsContextPdf.finalize n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+
+## Name
+Name -> pltrs_render::PdfObject::Name
+Name.__lt__ n/a Python protocol or dataclass machinery
+Name.pdfRepr -> pltrs_render::PdfObject::repr
+Name.__gt__ n/a Python protocol or dataclass machinery
+Name.__le__ n/a Python protocol or dataclass machinery
+Name.__ge__ n/a Python protocol or dataclass machinery
+
+## Op
+Op -> pltrs_render::PdfRenderer::write
+Op.pdfRepr -> pltrs_render::PdfObject::op
+Op.paint_path n/a chooses the painting operator for a fill and a stroke: PdfRenderer::draw_path does
+
+## PdfFile
+PdfFile -> pltrs_render::PdfRenderer
+PdfFile.* -> pltrs_render::PdfRenderer::*
+PdfFile.newPage -> pltrs_render::PdfRenderer::new_page
+PdfFile.newTextnote -> pltrs_render::PdfRenderer::attach_note
+PdfFile.output -> pltrs_render::PdfRenderer::output_objects
+PdfFile.beginStream -> pltrs_render::PdfRenderer::begin_stream
+PdfFile.endStream -> pltrs_render::PdfRenderer::end_stream
+PdfFile.outputStream -> pltrs_render::PdfRenderer::output_stream
+PdfFile.fontName -> pltrs_render::PdfRenderer::font_name
+PdfFile.dviFontName -> pltrs_render::PdfRenderer::dvi_font_name
+PdfFile.writeFonts -> pltrs_render::PdfRenderer::write_fonts
+PdfFile.createType1Descriptor -> pltrs_render::PdfRenderer::create_type1_descriptor
+PdfFile.embedTTF -> pltrs_render::PdfRenderer::embed_ttf
+PdfFile.alphaState -> pltrs_render::PdfRenderer::alpha_state
+PdfFile.writeExtGSTates -> pltrs_render::PdfRenderer::write_ext_gstates
+PdfFile.hatchPattern -> pltrs_render::PdfRenderer::hatch_pattern
+PdfFile.writeHatches -> pltrs_render::PdfRenderer::write_hatches
+PdfFile.addGouraudTriangles -> pltrs_render::PdfRenderer::add_gouraud_triangles
+PdfFile.writeGouraudTriangles -> pltrs_render::PdfRenderer::write_gouraud_triangles
+PdfFile.imageObject -> pltrs_render::PdfRenderer::image_object
+PdfFile.writeImages -> pltrs_render::PdfRenderer::write_images
+PdfFile.markerObject -> pltrs_render::PdfRenderer::marker_object
+PdfFile.writeMarkers -> pltrs_render::PdfRenderer::write_markers
+PdfFile.pathCollectionObject -> pltrs_render::PdfRenderer::path_collection_object
+PdfFile.writePathCollectionTemplates -> pltrs_render::PdfRenderer::write_path_collection_templates
+PdfFile.pathOperations -> pltrs::path::Path::convert_to_string
+PdfFile.writePath -> pltrs::path::Path::convert_to_string, pltrs_render::PdfRenderer::write
+PdfFile.reserveObject -> pltrs_render::PdfRenderer::reserve_object
+PdfFile.recordXref -> pltrs_render::PdfRenderer::record_xref
+PdfFile.writeObject -> pltrs_render::PdfRenderer::write_object
+PdfFile.writeXref -> pltrs_render::PdfRenderer::write_xref
+PdfFile.writeInfoDict -> pltrs_render::PdfRenderer::write_info_dict
+PdfFile.writeTrailer -> pltrs_render::PdfRenderer::write_trailer
+
+## PdfPages
+PdfPages -> pltrs::figure::PdfPages
+PdfPages.* -> pltrs::figure::PdfPages::*
+PdfPages.__enter__ n/a Python protocol or dataclass machinery
+PdfPages.__exit__ n/a Python protocol or dataclass machinery
+PdfPages.close -> pltrs::figure::PdfPages::finish
+PdfPages.infodict -> pltrs::figure::PdfPages::attach_note, pltrs::figure::PdfPages::metadata_mut
+PdfPages.get_pagecount -> pltrs::figure::PdfPages::page_count
+
+## Reference
+Reference -> pltrs_render::PdfObject::Ref
+Reference.pdfRepr -> pltrs_render::PdfObject::repr
+Reference.write -> pltrs_render::PdfRenderer::write_object
+
+## RendererPdf
+RendererPdf -> pltrs_render::PdfRenderer, pltrs_render::Renderer
+RendererPdf.get_* -> pltrs_render::PdfRenderer::*
+RendererPdf.* -> pltrs_render::PdfRenderer::*
+RendererPdf.check_gc n/a the PDF writer's state machine: PdfRenderer writes the operators that take the graphics state from one GraphicsContext to the next
+RendererPdf.draw_mathtext -> pltrs_render::Renderer::draw_text
+RendererPdf.encode_string n/a encoding of strings in a font's encoding: PdfRenderer::draw_text encodes them
+RendererPdf.new_gc -> pltrs_render::GraphicsContext
+
+## Stream
+Stream -> pltrs_render::PdfRenderer::begin_stream, pltrs_render::PdfRenderer::write, pltrs_render::PdfRenderer::end_stream
+Stream.end -> pltrs_render::PdfRenderer::end_stream
+Stream.write -> pltrs_render::PdfRenderer::write
+
+## Verbatim
+Verbatim -> pltrs_render::PdfObject::Raw
+Verbatim.pdfRepr -> pltrs_render::PdfObject::repr

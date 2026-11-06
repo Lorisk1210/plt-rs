@@ -1,0 +1,137 @@
+# matplotlib.colors
+
+* -> pltrs::colors::*
+BivarColormapFromImage -> pltrs::colors::multivar::BivarColormap
+SegmentedBivarColormap -> pltrs::colors::multivar::BivarColormap
+get_named_colors_mapping -> pltrs::colors::named_color_table
+hex2color -> pltrs::colors::to_rgba, pltrs::colors::Color::resolve
+make_norm_from_scale -> pltrs::colors::ScaleNorm
+rgb2hex -> pltrs::colors::to_hex, pltrs_core::Rgba::to_hex
+to_rgb -> pltrs::colors::to_rgba, pltrs::colors::Color::resolve
+
+## AsinhNorm
+AsinhNorm -> pltrs::colors::AsinhNorm
+AsinhNorm.__call__ -> pltrs::colors::AsinhNorm, pltrs::colors::Norm
+AsinhNorm.inverse -> pltrs::colors::Norm::inverse
+AsinhNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+
+## BivarColormap
+BivarColormap -> pltrs::colors::multivar::BivarColormap
+BivarColormap.get_* -> pltrs::colors::multivar::BivarColormap::*
+BivarColormap.* -> pltrs::colors::multivar::BivarColormap::*
+BivarColormap.__call__ -> pltrs::colors::multivar::BivarColormap
+BivarColormap.__getitem__ -> pltrs::colors::multivar::BivarColormap
+BivarColormap.copy -> pltrs::colors::multivar::BivarColormap::clone
+
+## BoundaryNorm
+BoundaryNorm -> pltrs::colors::BoundaryNorm
+BoundaryNorm.* -> pltrs::colors::BoundaryNorm::*
+BoundaryNorm.__call__ -> pltrs::colors::BoundaryNorm, pltrs::colors::Norm
+
+## CenteredNorm
+CenteredNorm -> pltrs::colors::CenteredNorm
+CenteredNorm.* -> pltrs::colors::CenteredNorm::*
+CenteredNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+
+## ColorConverter
+ColorConverter -> pltrs::colors::to_rgba, pltrs::colors::to_rgba_array
+ColorConverter.to_rgb -> pltrs::colors::to_rgba
+ColorConverter.to_rgba -> pltrs::colors::to_rgba
+ColorConverter.to_rgba_array -> pltrs::colors::to_rgba_array
+
+## ColorSequenceRegistry
+ColorSequenceRegistry -> pltrs::colors::color_sequence, pltrs::colors::color_sequence_names
+ColorSequenceRegistry.__getitem__ -> pltrs::colors::color_sequence
+ColorSequenceRegistry.__iter__ -> pltrs::colors::color_sequence_names
+ColorSequenceRegistry.__len__ -> pltrs::colors::color_sequence_names
+ColorSequenceRegistry.register -> pltrs::colors::register_color_sequence
+ColorSequenceRegistry.unregister -> pltrs::colors::unregister_color_sequence
+
+## Colormap
+Colormap -> pltrs::colors::Colormap
+Colormap.get_* -> pltrs::colors::Colormap::*
+Colormap.* -> pltrs::colors::Colormap::*
+Colormap.__call__ -> pltrs::colors::Colormap
+Colormap.with_extremes -> pltrs::colors::Colormap::with_bad, pltrs::colors::Colormap::with_over, pltrs::colors::Colormap::with_under
+Colormap.copy -> pltrs::colors::Colormap::clone
+
+## FuncNorm
+FuncNorm -> pltrs::colors::FuncNorm
+FuncNorm.__call__ -> pltrs::colors::FuncNorm, pltrs::colors::Norm
+FuncNorm.inverse -> pltrs::colors::Norm::inverse
+FuncNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+
+## LightSource
+LightSource -> pltrs::colors::LightSource
+LightSource.* -> pltrs::colors::LightSource::*
+LightSource.blend_soft_light -> pltrs::colors::blend_soft_light
+LightSource.blend_overlay -> pltrs::colors::blend_overlay
+
+## LinearSegmentedColormap
+LinearSegmentedColormap -> pltrs::colors::Colormap, pltrs::colors::SegmentData
+LinearSegmentedColormap.* -> pltrs::colors::Colormap::*
+LinearSegmentedColormap.set_gamma -> pltrs::colors::Colormap::segmented
+
+## ListedColormap
+ListedColormap -> pltrs::colors::Colormap
+ListedColormap.* -> pltrs::colors::Colormap::*
+ListedColormap.monochrome -> pltrs::colors::Colormap::is_monochrome
+
+## LogNorm
+LogNorm -> pltrs::colors::LogNorm
+LogNorm.__call__ -> pltrs::colors::LogNorm, pltrs::colors::Norm
+LogNorm.inverse -> pltrs::colors::Norm::inverse
+LogNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+
+## MultiNorm
+MultiNorm -> pltrs::colors::MultiNorm
+MultiNorm.* -> pltrs::colors::MultiNorm::*
+MultiNorm.__call__ -> pltrs::colors::MultiNorm
+MultiNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+
+## MultivarColormap
+MultivarColormap -> pltrs::colors::multivar::MultivarColormap
+MultivarColormap.get_* -> pltrs::colors::multivar::MultivarColormap::*
+MultivarColormap.* -> pltrs::colors::multivar::MultivarColormap::*
+MultivarColormap.__call__ -> pltrs::colors::multivar::MultivarColormap
+MultivarColormap.copy -> pltrs::colors::multivar::MultivarColormap::clone
+MultivarColormap.__getitem__ -> pltrs::colors::multivar::MultivarColormap
+MultivarColormap.__iter__ -> pltrs::colors::multivar::MultivarColormap
+MultivarColormap.__len__ -> pltrs::colors::multivar::MultivarColormap
+
+## NoNorm
+NoNorm -> pltrs::colors::NoNorm
+NoNorm.* -> pltrs::colors::NoNorm::*
+NoNorm.__call__ -> pltrs::colors::NoNorm, pltrs::colors::Norm
+
+## Norm
+Norm -> pltrs::colors::Norm
+Norm.* -> pltrs::colors::Norm::*
+Norm.__call__ -> pltrs::colors::Norm
+Norm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+Norm.n_components -> pltrs::colors::MultiNorm
+
+## Normalize
+Normalize -> pltrs::colors::Normalize
+Normalize.* -> pltrs::colors::Normalize::*
+Normalize.process_value n/a numpy masked-array plumbing
+Normalize.__call__ -> pltrs::colors::Normalize, pltrs::colors::Norm
+Normalize.autoscale_None -> pltrs::colors::Norm::autoscale_none
+Normalize.n_components -> pltrs::colors::MultiNorm
+
+## PowerNorm
+PowerNorm -> pltrs::colors::PowerNorm
+PowerNorm.* -> pltrs::colors::PowerNorm::*
+PowerNorm.__call__ -> pltrs::colors::PowerNorm, pltrs::colors::Norm
+
+## SymLogNorm
+SymLogNorm -> pltrs::colors::SymLogNorm
+SymLogNorm.__call__ -> pltrs::colors::SymLogNorm, pltrs::colors::Norm
+SymLogNorm.inverse -> pltrs::colors::Norm::inverse
+SymLogNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+
+## TwoSlopeNorm
+TwoSlopeNorm -> pltrs::colors::TwoSlopeNorm
+TwoSlopeNorm.* -> pltrs::colors::TwoSlopeNorm::*
+TwoSlopeNorm.autoscale_None -> pltrs::colors::Norm::autoscale_none
+TwoSlopeNorm.__call__ -> pltrs::colors::TwoSlopeNorm, pltrs::colors::Norm

@@ -1,0 +1,96 @@
+# matplotlib.ft2font
+
+Kerning -> pltrs_font::KerningMode
+RenderMode -> pltrs_font::AutohintTarget
+
+## FT2Font
+FT2Font -> pltrs_font::Face, pltrs_font::Size, pltrs_font::FontChain::layout
+FT2Font.get_* -> pltrs_font::Face::*
+FT2Font.* -> pltrs_font::Face::*
+FT2Font.__buffer__ n/a Python protocol or dataclass machinery
+FT2Font.__release_buffer__ n/a Python protocol or dataclass machinery
+FT2Font.clear -> pltrs_font::FontChain::layout
+FT2Font.set_size -> pltrs_font::Size::new
+FT2Font.set_charmap -> pltrs_font::Face::select_charmap
+FT2Font.set_text -> pltrs_font::FontChain::layout
+FT2Font.load_char -> pltrs_font::Face::glyph_index, pltrs_font::Hinter
+FT2Font.load_glyph -> pltrs_font::Hinter, pltrs_font::Size::glyph_cbox
+FT2Font.get_width_height -> pltrs_font::TextLayout::width, pltrs_font::TextLayout::height
+FT2Font.get_bitmap_offset -> pltrs_font::TextLayout::x_min
+FT2Font.get_descent -> pltrs_font::TextLayout::descent
+FT2Font.draw_glyphs_to_bitmap -> pltrs_render::RasterRenderer::draw_text, pltrs_raster::draw_coverage
+FT2Font.draw_glyph_to_bitmap -> pltrs_render::RasterRenderer::draw_text, pltrs_raster::draw_coverage
+FT2Font.get_char_index -> pltrs_font::Face::glyph_index
+FT2Font.get_sfnt -> pltrs_font::Face::name_entries
+FT2Font.get_name_index -> pltrs_font::Face::glyph_index_by_name
+FT2Font.get_ps_font_info -> pltrs_font::Face::post, pltrs_font::Face::name_entries
+FT2Font.get_sfnt_table -> pltrs_font::Face::head, pltrs_font::Face::hhea, pltrs_font::Face::os2
+FT2Font.get_path -> pltrs_font::Face::outline
+FT2Font.get_image -> pltrs_render::RasterRenderer::draw_text, pltrs_raster::draw_coverage
+FT2Font.num_faces -> pltrs_font::face_count
+FT2Font.face_index -> pltrs_font::Face::index
+FT2Font.num_named_instances n/a pltrs reads no variable-font instances (matplotlib reports 0 for static fonts)
+FT2Font.num_fixed_sizes n/a pltrs draws outlines only: embedded bitmap strikes are not read
+FT2Font.num_charmaps -> pltrs_font::Face::charmaps
+FT2Font.scalable -> pltrs_font::FaceFlags::scalable
+FT2Font.units_per_EM -> pltrs_font::Face::units_per_em
+FT2Font.max_advance_width -> pltrs_font::Hhea::advance_width_max
+FT2Font.underline_position -> pltrs_font::Face::underline_metrics
+FT2Font.underline_thickness -> pltrs_font::Face::underline_metrics
+FT2Font.fname n/a a Face is parsed from bytes; the program keeps the path it read them from
+
+## FT2Image
+FT2Image -> pltrs_raster::Mask
+FT2Image.__buffer__ n/a Python protocol or dataclass machinery
+FT2Image.__release_buffer__ n/a Python protocol or dataclass machinery
+FT2Image.draw_rect_filled -> pltrs_raster::Mask::fill
+
+## FaceFlags
+FaceFlags -> pltrs_font::FaceFlags
+FaceFlags.__or__ n/a Python protocol or dataclass machinery
+FaceFlags.__and__ n/a Python protocol or dataclass machinery
+FaceFlags.__xor__ n/a Python protocol or dataclass machinery
+FaceFlags.__ror__ n/a Python protocol or dataclass machinery
+FaceFlags.__rand__ n/a Python protocol or dataclass machinery
+FaceFlags.__rxor__ n/a Python protocol or dataclass machinery
+FaceFlags.__invert__ n/a Python protocol or dataclass machinery
+
+## Glyph
+Glyph -> pltrs_font::GlyphMetrics
+Glyph.* -> pltrs_font::GlyphMetrics::*
+Glyph.horiBearingX -> pltrs_font::GlyphMetrics::hori_bearing_x
+Glyph.horiBearingY -> pltrs_font::GlyphMetrics::hori_bearing_y
+Glyph.horiAdvance -> pltrs_font::GlyphMetrics::hori_advance
+Glyph.linearHoriAdvance -> pltrs_font::Size::linear_advance
+Glyph.vertBearingX -> pltrs_font::HintedGlyph::vertical_metrics
+Glyph.vertBearingY -> pltrs_font::HintedGlyph::vertical_metrics
+Glyph.vertAdvance -> pltrs_font::HintedGlyph::vertical_metrics
+Glyph.bbox -> pltrs_font::HintedGlyph::control_box
+
+## LayoutItem
+LayoutItem -> pltrs_font::LaidOutGlyph
+LayoutItem.* -> pltrs_font::LaidOutGlyph::*
+LayoutItem.ft_object -> pltrs_font::LaidOutGlyph::face
+LayoutItem.char -> pltrs_font::LaidOutGlyph::cluster
+LayoutItem.glyph_index -> pltrs_font::LaidOutGlyph::glyph_id
+LayoutItem.prev_kern -> pltrs_font::LaidOutGlyph::x_advance
+
+## LoadFlags
+LoadFlags -> pltrs_font::Hinting
+LoadFlags.__or__ n/a Python protocol or dataclass machinery
+LoadFlags.__and__ n/a Python protocol or dataclass machinery
+LoadFlags.__xor__ n/a Python protocol or dataclass machinery
+LoadFlags.__ror__ n/a Python protocol or dataclass machinery
+LoadFlags.__rand__ n/a Python protocol or dataclass machinery
+LoadFlags.__rxor__ n/a Python protocol or dataclass machinery
+LoadFlags.__invert__ n/a Python protocol or dataclass machinery
+
+## StyleFlags
+StyleFlags -> pltrs_font::StyleFlags
+StyleFlags.__or__ n/a Python protocol or dataclass machinery
+StyleFlags.__and__ n/a Python protocol or dataclass machinery
+StyleFlags.__xor__ n/a Python protocol or dataclass machinery
+StyleFlags.__ror__ n/a Python protocol or dataclass machinery
+StyleFlags.__rand__ n/a Python protocol or dataclass machinery
+StyleFlags.__rxor__ n/a Python protocol or dataclass machinery
+StyleFlags.__invert__ n/a Python protocol or dataclass machinery

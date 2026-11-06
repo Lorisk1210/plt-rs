@@ -108,7 +108,7 @@ pub struct RangeSlider {
     parts: Rc<RangeParts>,
     label: Text,
     valinit: (f64, f64),
-    _connections: Connections,
+    pub(super) connections: Connections,
 }
 
 impl RangeSlider {
@@ -176,7 +176,7 @@ impl RangeSlider {
             parts,
             label,
             valinit,
-            _connections: connections,
+            connections,
         })
     }
 

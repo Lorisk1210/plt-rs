@@ -1,0 +1,44 @@
+# mpl_toolkits.axes_grid1.axes_size
+
+MaxHeight -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+MaxWidth -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+Scalable -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+from_any -> pltrs::axes_grid1::SizeSpec
+
+## Add
+Add -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+Add.get_size n/a sizes are evaluated by the divider
+
+## AxesX
+AxesX -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+AxesX.get_size n/a sizes are evaluated by the divider
+
+## AxesY
+AxesY -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+AxesY.get_size n/a sizes are evaluated by the divider
+
+## Fixed
+Fixed -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+Fixed.get_size n/a sizes are evaluated by the divider
+
+## Fraction
+Fraction -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+Fraction.get_size n/a sizes are evaluated by the divider
+
+## MaxExtent
+MaxExtent -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+MaxExtent.add_artist -> pltrs::axes_grid1::Size::MaxWidth, pltrs::axes_grid1::Size::MaxHeight
+MaxExtent.get_size n/a sizes are evaluated by the divider
+
+## Scaled
+Scaled.get_size n/a sizes are evaluated by the divider
+
+## _Base
+_Base.__rmul__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.__mul__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.__div__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.__add__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.__neg__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.__radd__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.__sub__ -> pltrs::axes_grid1::Size, pltrs::axes_grid1::SizeSpec
+_Base.get_size n/a sizes are evaluated by the divider

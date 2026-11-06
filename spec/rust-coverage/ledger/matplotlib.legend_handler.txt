@@ -1,0 +1,74 @@
+# matplotlib.legend_handler
+
+update_from_first_child n/a copies Python artist properties between handles
+
+## HandlerBase
+HandlerBase -> pltrs::legend::LegendHandler
+HandlerBase.* -> pltrs::legend::LegendHandler::*
+HandlerBase.update_prop -> pltrs::legend::LegendHandler
+HandlerBase.adjust_drawing_area -> pltrs::legend::LegendHandler
+HandlerBase.legend_artist -> pltrs::legend::LegendHandler
+
+## HandlerCircleCollection
+HandlerCircleCollection -> pltrs::legend::LegendHandler
+HandlerCircleCollection.create_collection -> pltrs::legend::LegendHandler
+
+## HandlerErrorbar
+HandlerErrorbar -> pltrs::legend::LegendHandler
+HandlerErrorbar.* -> pltrs::legend::LegendHandler::*
+HandlerErrorbar.get_err_size -> pltrs::legend::LegendHandler
+
+## HandlerLine2D
+HandlerLine2D -> pltrs::legend::LegendHandler
+HandlerLine2D.* -> pltrs::legend::LegendHandler::*
+
+## HandlerLine2DCompound
+HandlerLine2DCompound -> pltrs::legend::LegendHandler
+HandlerLine2DCompound.* -> pltrs::legend::LegendHandler::*
+
+## HandlerLineCollection
+HandlerLineCollection -> pltrs::legend::LegendHandler
+HandlerLineCollection.* -> pltrs::legend::LegendHandler::*
+HandlerLineCollection.get_numpoints -> pltrs::legend::LegendHandler
+
+## HandlerNpoints
+HandlerNpoints -> pltrs::legend::LegendHandler
+HandlerNpoints.get_numpoints -> pltrs::legend::LegendHandler
+HandlerNpoints.get_xdata -> pltrs::legend::LegendHandler
+
+## HandlerNpointsYoffsets
+HandlerNpointsYoffsets -> pltrs::legend::LegendHandler
+HandlerNpointsYoffsets.get_ydata -> pltrs::legend::LegendHandler
+
+## HandlerPatch
+HandlerPatch -> pltrs::legend::LegendHandler
+HandlerPatch.* -> pltrs::legend::LegendHandler::*
+
+## HandlerPathCollection
+HandlerPathCollection -> pltrs::legend::LegendHandler
+HandlerPathCollection.create_collection -> pltrs::legend::LegendHandler
+
+## HandlerPolyCollection
+HandlerPolyCollection -> pltrs::legend::LegendHandler
+HandlerPolyCollection.* -> pltrs::legend::LegendHandler::*
+
+## HandlerRegularPolyCollection
+HandlerRegularPolyCollection -> pltrs::legend::LegendHandler
+HandlerRegularPolyCollection.* -> pltrs::legend::LegendHandler::*
+HandlerRegularPolyCollection.get_numpoints -> pltrs::legend::LegendHandler
+HandlerRegularPolyCollection.get_sizes -> pltrs::legend::LegendHandler
+HandlerRegularPolyCollection.update_prop -> pltrs::legend::LegendHandler
+HandlerRegularPolyCollection.create_collection -> pltrs::legend::LegendHandler
+
+## HandlerStem
+HandlerStem -> pltrs::legend::LegendHandler
+HandlerStem.* -> pltrs::legend::LegendHandler::*
+HandlerStem.get_ydata -> pltrs::legend::LegendHandler
+
+## HandlerStepPatch
+HandlerStepPatch -> pltrs::legend::LegendHandler
+HandlerStepPatch.* -> pltrs::legend::LegendHandler::*
+
+## HandlerTuple
+HandlerTuple -> pltrs::legend::LegendHandler
+HandlerTuple.* -> pltrs::legend::LegendHandler::*

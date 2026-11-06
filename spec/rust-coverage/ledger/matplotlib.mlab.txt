@@ -1,0 +1,12 @@
+# matplotlib.mlab
+
+* -> pltrs::mlab::*
+detrend -> pltrs::mlab::Detrend, pltrs::mlab::detrend_mean, pltrs::mlab::detrend_linear
+
+## GaussianKDE
+GaussianKDE -> pltrs::stats::GaussianKde
+GaussianKDE.* -> pltrs::stats::GaussianKde::*
+GaussianKDE.scotts_factor -> pltrs::stats::BandwidthMethod, pltrs::stats::GaussianKde::factor
+GaussianKDE.silverman_factor -> pltrs::stats::BandwidthMethod, pltrs::stats::GaussianKde::factor
+GaussianKDE.covariance_factor -> pltrs::stats::BandwidthMethod, pltrs::stats::GaussianKde::factor
+GaussianKDE.__call__ -> pltrs::stats::GaussianKde

@@ -1,0 +1,61 @@
+# matplotlib.font_manager
+
+afmFontProperty -> pltrs::fonts::FontManager::add_font
+findSystemFonts -> pltrs::fonts::FontManager::font_list
+findfont -> pltrs::fonts::FontManager::find_font
+get_font -> pltrs_font::Face::parse, pltrs_font::FontChain
+get_font_names -> pltrs::fonts::FontManager::font_names
+get_fontext_synonyms n/a file-extension and Windows directory helpers of matplotlib's font search
+json_dump n/a matplotlib's font cache file
+json_load n/a matplotlib's font cache file
+list_fonts n/a lists the files of a directory with given extensions: std::fs::read_dir
+ttfFontProperty -> pltrs::fonts::FontManager::add_font
+win32FontDirectory n/a file-extension and Windows directory helpers of matplotlib's font search
+
+## FontEntry
+FontEntry -> pltrs::fonts::FontListEntry
+FontEntry.__replace__ n/a Python protocol or dataclass machinery
+FontEntry.__setattr__ n/a Python protocol or dataclass machinery
+FontEntry.__delattr__ n/a Python protocol or dataclass machinery
+
+## FontManager
+FontManager -> pltrs::fonts::FontManager
+FontManager.get_* -> pltrs::fonts::FontManager::*
+FontManager.* -> pltrs::fonts::FontManager::*
+FontManager.addfont -> pltrs::fonts::FontManager::add_font
+FontManager.defaultFont -> pltrs::fonts::FontManager::bundled
+FontManager.get_default_weight -> pltrs::rc::RcParams::font_weight, pltrs::rc::RcParams::font_size
+FontManager.get_default_size -> pltrs::rc::RcParams::font_weight, pltrs::rc::RcParams::font_size
+FontManager.set_default_weight -> pltrs::rc::RcParams::font_weight, pltrs::rc::RcParams::font_size
+FontManager.score_family n/a scoring internals of find_font (score_weight is public for tests)
+FontManager.score_style n/a scoring internals of find_font (score_weight is public for tests)
+FontManager.score_variant n/a scoring internals of find_font (score_weight is public for tests)
+FontManager.score_stretch n/a scoring internals of find_font (score_weight is public for tests)
+FontManager.score_size n/a scoring internals of find_font (score_weight is public for tests)
+FontManager.findfont -> pltrs::fonts::FontManager::find_font, pltrs::fonts::FontManager::best_ttf_entry
+
+## FontPath
+FontPath -> pltrs::fonts::FontListEntry, pltrs::fonts::FontProperties
+FontPath.path -> pltrs::fonts::FontListEntry::file
+FontPath.face_index -> pltrs::fonts::FontListEntry::index
+FontPath.__lt__ n/a Python protocol or dataclass machinery
+FontPath.__gt__ n/a Python protocol or dataclass machinery
+
+## FontProperties
+FontProperties -> pltrs::fonts::FontProperties
+FontProperties.get_* -> pltrs::fonts::FontProperties::*
+FontProperties.* -> pltrs::fonts::FontProperties::*
+FontProperties.get_family -> pltrs::fonts::FontProperties::families
+FontProperties.get_name -> pltrs::fonts::FontProperties::families
+FontProperties.set_family -> pltrs::fonts::FontProperties::families
+FontProperties.set_style -> pltrs::fonts::FontProperties
+FontProperties.set_variant -> pltrs::fonts::FontProperties
+FontProperties.set_weight -> pltrs::fonts::FontProperties
+FontProperties.set_stretch -> pltrs::fonts::FontProperties
+FontProperties.set_file -> pltrs::fonts::FontProperties
+FontProperties.set_math_fontfamily -> pltrs::fonts::FontProperties
+FontProperties.copy -> pltrs::fonts::FontProperties
+FontProperties.set_name -> pltrs::fonts::FontProperties::families
+FontProperties.get_slant n/a alias: pltrs keeps one name per property (conventions: aliases)
+FontProperties.set_slant n/a alias: pltrs keeps one name per property (conventions: aliases)
+FontProperties.get_size_in_points -> pltrs::fonts::FontProperties::size

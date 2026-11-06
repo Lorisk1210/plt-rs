@@ -1,0 +1,46 @@
+# matplotlib.artist
+
+allow_rasterization n/a decorator for draw methods; DrawContext handles rasterization
+get -> pltrs::colors::colormaps::get
+getp n/a looks a property up by its name, or prints them all: Python introspection; the typed getters read each
+kwdoc n/a writes the docstring list of an artist's settable properties: a docstring tool
+setp -> pltrs::artist::ArtistHandle::update_base_props
+
+## Artist
+Artist -> pltrs::artist::ArtistHandle, pltrs::artist::TypedHandle, pltrs::artist::RawHandle
+Artist.get_* -> pltrs::artist::ArtistHandle::*
+Artist.* -> pltrs::artist::ArtistHandle::*
+Artist.have_units -> pltrs::axes::Axis::have_units
+Artist.convert_xunits -> pltrs::axes::Axis::convert_units, pltrs::axes::Axes::convert_point
+Artist.convert_yunits -> pltrs::axes::Axis::convert_units, pltrs::axes::Axes::convert_point
+Artist.stale n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Artist.get_tightbbox -> pltrs::artist::Artist::tight_extent
+Artist.add_callback n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Artist.remove_callback n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Artist.pchanged n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Artist.is_transform_set -> pltrs::artist::ArtistHandle::transform
+Artist.get_children -> pltrs::artist::Artist::children
+Artist.pick -> pltrs::figure::Figure::pick
+Artist.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+Artist.get_transformed_clip_path_and_affine n/a drawing internals
+Artist.draw -> pltrs::artist::Artist::draw
+Artist.update_from n/a handles share state: there is nothing to copy (conventions)
+Artist.properties n/a introspection (conventions)
+Artist.update -> pltrs::artist::ArtistHandle::update_base_props
+Artist.set -> pltrs::artist::ArtistHandle::update_base_props
+Artist.get_cursor_data -> pltrs::collections::Collection::cursor_data
+Artist.format_cursor_data -> pltrs::colors::ScalarMappable::format_cursor_data
+
+## ArtistInspector
+ArtistInspector n/a Python introspection helper (typed getters replace it)
+ArtistInspector.get_aliases n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.get_valid_values n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.get_setters n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.number_of_parameters n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.is_alias n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.aliased_name n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.aliased_name_rest n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.pprint_setters n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.pprint_setters_rest n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.properties n/a class: Python introspection helper (typed getters replace it)
+ArtistInspector.pprint_getters n/a class: Python introspection helper (typed getters replace it)

@@ -1,0 +1,36 @@
+# mpl_toolkits.axes_grid1.inset_locator
+
+* -> pltrs::axes_grid1::*
+
+## AnchoredLocatorBase
+AnchoredLocatorBase -> pltrs::axes_grid1::InsetOptions
+AnchoredLocatorBase.draw n/a a locator is not drawn (matplotlib's raises)
+AnchoredLocatorBase.__call__ -> pltrs::axes_grid1::InsetOptions
+AnchoredLocatorBase.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AnchoredSizeLocator
+AnchoredSizeLocator -> pltrs::axes_grid1::InsetOptions
+AnchoredSizeLocator.get_bbox n/a internal inset placement
+AnchoredSizeLocator.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AnchoredZoomLocator
+AnchoredZoomLocator -> pltrs::axes_grid1::InsetOptions
+AnchoredZoomLocator.get_bbox n/a internal inset placement
+AnchoredZoomLocator.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## BboxConnector
+BboxConnector -> pltrs::axes_grid1::BboxConnector
+BboxConnector.get_* -> pltrs::axes_grid1::BboxConnector::*
+BboxConnector.get_bbox_edge_pos -> pltrs::axes_grid1::Corner::of
+BboxConnector.connect_bbox -> pltrs::axes_grid1::connect_bbox
+BboxConnector.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## BboxConnectorPatch
+BboxConnectorPatch -> pltrs::axes_grid1::BboxConnectorPatch
+BboxConnectorPatch.get_* -> pltrs::axes_grid1::BboxConnectorPatch::*
+BboxConnectorPatch.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## BboxPatch
+BboxPatch -> pltrs::axes_grid1::BboxPatch
+BboxPatch.get_* -> pltrs::axes_grid1::BboxPatch::*
+BboxPatch.set -> pltrs::artist::ArtistHandle::update_base_props

@@ -10,6 +10,7 @@
 //! cargo xtask bench [PREFIX...] --report         matplotlib and pltrs (Python, Rust) timed: benchmarks/
 //! cargo xtask bench --rewrite-report             benchmarks/README.md and charts again from results.json
 //! cargo xtask mpl-tests [--strict]               matplotlib's own tests: ported, n/a or unaccounted
+//! cargo xtask rust-coverage [--strict] [--no-doc] matplotlib's public API mapped to pltrs (Rust)
 //! cargo xtask python [--release] | setup | test   build pltrs (Python)'s extension, make its venvs, smoke-test it
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
 //!                                                 matplotlib's own test suite run against pltrs (or matplotlib)
@@ -33,6 +34,7 @@ mod examples;
 mod mpl_suite;
 mod mpl_tests;
 mod python;
+mod rust_coverage;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -56,6 +58,7 @@ fn main() -> ExitCode {
         Some((command, rest)) if command == "vectors" => vectors(rest),
         Some((command, rest)) if command == "bench" => bench::run(rest),
         Some((command, rest)) if command == "mpl-tests" => mpl_tests::run(rest),
+        Some((command, rest)) if command == "rust-coverage" => rust_coverage::run(rest),
         Some((command, rest)) if command == "python" => python::run(rest),
         Some((command, rest)) if command == "mpl-suite" => mpl_suite::run(rest),
         Some((command, rest)) if command == "examples" => examples::run(rest),
@@ -70,6 +73,7 @@ fn main() -> ExitCode {
             eprintln!("       cargo xtask bench [PREFIX...] [--reference | --report] [--runs N]");
             eprintln!("       cargo xtask bench --rewrite-report [--to DIR]");
             eprintln!("       cargo xtask mpl-tests [--strict]");
+            eprintln!("       cargo xtask rust-coverage [--strict] [--no-doc]");
             eprintln!("       cargo xtask python [--release] | setup | test");
             eprintln!(
                 "       cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]"

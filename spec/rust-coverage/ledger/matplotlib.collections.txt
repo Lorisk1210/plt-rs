@@ -1,0 +1,163 @@
+# matplotlib.collections
+
+
+## AsteriskPolygonCollection
+AsteriskPolygonCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+AsteriskPolygonCollection.set -> pltrs::collections::Collection::update_props
+
+## CircleCollection
+CircleCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+CircleCollection.set -> pltrs::collections::Collection::update_props
+
+## Collection
+Collection -> pltrs::collections::Collection
+Collection.get_* -> pltrs::collections::Collection::*
+Collection.* -> pltrs::collections::Collection::*
+Collection.get_transforms n/a per-item transforms are internal to the collection kinds
+Collection.draw -> pltrs::artist::Artist::draw
+Collection.get_hatch -> pltrs::collections::CollectionProps::hatch
+Collection.get_hatch_linewidth -> pltrs::collections::CollectionStyle::hatch_linewidth
+Collection.set_linewidth -> pltrs::collections::Collection::set_linewidths
+Collection.set_linestyle -> pltrs::collections::Collection::set_linestyles
+Collection.get_capstyle -> pltrs::collections::CollectionProps::capstyle
+Collection.get_joinstyle -> pltrs::collections::CollectionProps::joinstyle
+Collection.get_antialiased -> pltrs::collections::CollectionProps::antialiased
+Collection.set_color -> pltrs::collections::Collection::set_facecolor, pltrs::collections::Collection::set_edgecolor
+Collection.get_facecolor -> pltrs::collections::CollectionProps::facecolor
+Collection.get_edgecolor -> pltrs::collections::CollectionProps::edgecolor
+Collection.get_hatchcolor -> pltrs::collections::CollectionProps::hatchcolors
+Collection.set_hatchcolor -> pltrs::collections::Collection::set_hatchcolors
+Collection.get_linewidth -> pltrs::collections::CollectionProps::linewidth
+Collection.get_linestyle -> pltrs::collections::CollectionProps::linestyle
+Collection.update_from n/a handles share state: there is nothing to copy (conventions)
+Collection.set -> pltrs::collections::Collection::update_props
+Collection.get_antialiaseds -> pltrs::collections::Collection::set_antialiased, pltrs::collections::Collection::style
+Collection.set_antialiaseds -> pltrs::collections::Collection::set_antialiased, pltrs::collections::Collection::style
+Collection.get_edgecolors -> pltrs::collections::CollectionProps::edgecolors
+Collection.get_facecolors -> pltrs::collections::CollectionProps::facecolors
+Collection.get_linestyles -> pltrs::collections::CollectionProps::linestyles
+
+## EllipseCollection
+EllipseCollection -> pltrs::collections::EllipseCollection
+EllipseCollection.get_* -> pltrs::collections::EllipseCollection::*
+EllipseCollection.* -> pltrs::collections::EllipseCollection::*
+EllipseCollection.draw -> pltrs::artist::Artist::draw
+EllipseCollection.set -> pltrs::collections::Collection::update_props
+
+## EventCollection
+EventCollection -> pltrs::collections::EventCollection
+EventCollection.get_* -> pltrs::collections::EventCollection::*
+EventCollection.* -> pltrs::collections::EventCollection::*
+EventCollection.extend_positions -> pltrs::collections::EventCollection::add_positions
+EventCollection.append_positions -> pltrs::collections::EventCollection::add_positions
+EventCollection.get_linewidth -> pltrs::collections::Collection::linewidths
+EventCollection.set -> pltrs::collections::Collection::update_props
+
+## FillBetweenPolyCollection
+FillBetweenPolyCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::axes::FillBetweenOptions
+FillBetweenPolyCollection.get_* -> pltrs::collections::Collection::*
+FillBetweenPolyCollection.set_data -> pltrs::collections::Collection::set_fill_between_data
+FillBetweenPolyCollection.set -> pltrs::collections::Collection::update_props
+
+## LineCollection
+LineCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+LineCollection.get_* -> pltrs::collections::Collection::*
+LineCollection.* -> pltrs::collections::Collection::*
+LineCollection.set_verts n/a alias: pltrs keeps one name per property (conventions: aliases)
+LineCollection.set_color -> pltrs::collections::Collection::set_edgecolor
+LineCollection.set_colors -> pltrs::collections::Collection::set_edgecolors
+LineCollection.get_color -> pltrs::collections::Collection::colors
+LineCollection.set_gapcolor -> pltrs::collections::Collection::set_gapcolors
+LineCollection.get_gapcolor -> pltrs::collections::Collection::style
+LineCollection.set -> pltrs::collections::Collection::update_props
+
+## PatchCollection
+PatchCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+PatchCollection.* -> pltrs::collections::Collection::*
+PatchCollection.set -> pltrs::collections::Collection::update_props
+
+## PathCollection
+PathCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+PathCollection.get_* -> pltrs::collections::Collection::*
+PathCollection.* -> pltrs::collections::Collection::*
+PathCollection.set -> pltrs::collections::Collection::update_props
+
+## PolyCollection
+PolyCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+PolyCollection.* -> pltrs::collections::Collection::*
+PolyCollection.set_verts_and_codes -> pltrs::collections::Collection::set_paths
+PolyCollection.set -> pltrs::collections::Collection::update_props
+
+## PolyQuadMesh
+PolyQuadMesh -> pltrs::collections::Collection, pltrs::axes::Mesh, pltrs::artist::ArtistHandle
+PolyQuadMesh.* -> pltrs::collections::Collection::*
+PolyQuadMesh.get_edgecolor -> pltrs::collections::Collection::colors, pltrs::collections::Collection::reported_colors
+PolyQuadMesh.get_facecolor -> pltrs::collections::Collection::colors, pltrs::collections::Collection::reported_colors
+PolyQuadMesh.set -> pltrs::collections::Collection::update_props
+
+## QuadMesh
+QuadMesh -> pltrs::collections::Collection, pltrs::axes::Mesh, pltrs::artist::ArtistHandle
+QuadMesh.get_* -> pltrs::collections::Collection::*
+QuadMesh.set_paths n/a recomputes cached paths from the mesh; pltrs makes them when drawing
+QuadMesh.draw -> pltrs::artist::Artist::draw
+QuadMesh.set -> pltrs::collections::Collection::update_props
+
+## RegularPolyCollection
+RegularPolyCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+RegularPolyCollection.get_numsides -> pltrs::collections::CollectionSpec::regular_polygons
+RegularPolyCollection.get_rotation -> pltrs::collections::CollectionSpec::regular_polygons
+RegularPolyCollection.draw -> pltrs::artist::Artist::draw
+RegularPolyCollection.set -> pltrs::collections::Collection::update_props
+
+## StarPolygonCollection
+StarPolygonCollection -> pltrs::collections::Collection, pltrs::collections::CollectionSpec, pltrs::artist::ArtistHandle
+StarPolygonCollection.set -> pltrs::collections::Collection::update_props
+
+## TriMesh
+TriMesh -> pltrs::collections::TriMesh
+TriMesh.get_paths -> pltrs::collections::Collection::paths
+TriMesh.set_paths n/a recomputes cached paths from the mesh; pltrs makes them when drawing
+TriMesh.convert_mesh_to_paths -> pltrs::collections::Collection::paths
+TriMesh.draw -> pltrs::artist::Artist::draw
+TriMesh.set -> pltrs::collections::Collection::update_props
+
+## _CollectionWithSizes
+_CollectionWithSizes.get_* -> pltrs::collections::Collection::*
+_CollectionWithSizes.* -> pltrs::collections::Collection::*
+_CollectionWithSizes.draw -> pltrs::artist::Artist::draw
+_CollectionWithSizes.set -> pltrs::collections::Collection::update_props
+
+## _ScalarMappable
+_ScalarMappable.get_* -> pltrs::collections::Collection::*
+_ScalarMappable.* -> pltrs::collections::Collection::*
+_ScalarMappable.changed n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+
+## _ColorizerInterface
+_ColorizerInterface.get_* -> pltrs::collections::Collection::*
+_ColorizerInterface.* -> pltrs::collections::Collection::*
+_ColorizerInterface.to_rgba -> pltrs::colors::ScalarMappable::to_rgba
+_ColorizerInterface.autoscale -> pltrs::colors::Norm::autoscale
+_ColorizerInterface.autoscale_None -> pltrs::colors::Norm::autoscale, pltrs::colors::Norm::autoscale_none
+_ColorizerInterface.colorbar -> pltrs::axes::ColorizingArtist::colorbar
+
+## _MeshData
+_MeshData.* -> pltrs::collections::Collection::*
+_MeshData.get_coordinates -> pltrs::collections::Collection::mesh_coordinates
+_MeshData.get_edgecolor -> pltrs::collections::Collection::colors, pltrs::collections::Collection::reported_colors
+_MeshData.get_facecolor -> pltrs::collections::Collection::colors, pltrs::collections::Collection::reported_colors
+
+## Aliases (any class)
+*.get_aa n/a alias of get_antialiased: pltrs keeps one name per property
+*.get_dashes n/a alias of get_linestyle: pltrs keeps one name per property
+*.get_ec n/a alias of get_edgecolor: pltrs keeps one name per property
+*.get_fc n/a alias of get_facecolor: pltrs keeps one name per property
+*.get_ls n/a alias of get_linestyle: pltrs keeps one name per property
+*.get_lw n/a alias of get_linewidth: pltrs keeps one name per property
+*.get_transOffset n/a alias of get_offset_transform: pltrs keeps one name per property
+*.set_aa n/a alias of set_antialiased: pltrs keeps one name per property
+*.set_dashes n/a alias of set_linestyle: pltrs keeps one name per property
+*.set_ec n/a alias of set_edgecolor: pltrs keeps one name per property
+*.set_fc n/a alias of set_facecolor: pltrs keeps one name per property
+*.set_ls n/a alias of set_linestyle: pltrs keeps one name per property
+*.set_lw n/a alias of set_linewidth: pltrs keeps one name per property
+*.set_transOffset n/a alias of set_offset_transform: pltrs keeps one name per property

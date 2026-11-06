@@ -1,0 +1,24 @@
+# matplotlib.container
+
+* -> pltrs::axes::*
+
+## BarContainer
+BarContainer -> pltrs::axes::BarContainer
+BarContainer.* -> pltrs::axes::BarContainer::*
+
+## Container
+Container -> pltrs::container::Container
+Container.get_* -> pltrs::container::Container::*
+Container.* -> pltrs::container::Container::*
+Container.get_children -> pltrs::axes::ErrorbarContainer, pltrs::axes::StemContainer
+Container.set_label -> pltrs::container::Container::label
+Container.add_callback n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Container.remove_callback n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Container.pchanged n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+
+## PieContainer
+PieContainer -> pltrs::axes::PieContainer
+PieContainer.* -> pltrs::axes::PieContainer::*
+PieContainer.texts -> pltrs::axes::PieContainer::labels, pltrs::axes::PieContainer::pct_labels
+PieContainer.add_texts -> pltrs::axes::Axes::pie_label
+PieContainer.__getitem__ -> pltrs::axes::PieContainer, pltrs::container::Container

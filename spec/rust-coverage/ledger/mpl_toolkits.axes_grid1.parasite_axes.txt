@@ -1,0 +1,29 @@
+# mpl_toolkits.axes_grid1.parasite_axes
+
+* -> pltrs::axes_grid1::*
+host_axes_class_factory n/a Python machinery (class factories, introspection, file objects)
+host_subplot_class_factory n/a Python machinery (class factories, introspection, file objects)
+parasite_axes_class_factory n/a Python machinery (class factories, introspection, file objects)
+
+## AxesHostAxes
+AxesHostAxes.draw -> pltrs::artist::Artist::draw
+AxesHostAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## HostAxesBase
+HostAxesBase -> pltrs::axes_grid1::HostAxes
+HostAxesBase.get_* -> pltrs::axes_grid1::HostAxes::*
+HostAxesBase.* -> pltrs::axes_grid1::HostAxes::*
+HostAxesBase.draw -> pltrs::artist::Artist::draw
+HostAxesBase.pick -> pltrs::axes_grid1::HostAxes::axes, pltrs::axes_grid1::ParasiteAxes::axes
+HostAxesBase.get_tightbbox -> pltrs::axes_grid1::HostAxes::axes, pltrs::axes_grid1::ParasiteAxes::axes
+
+## AxesParasite
+AxesParasite.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## ParasiteAxesBase
+ParasiteAxesBase -> pltrs::axes_grid1::ParasiteAxes
+ParasiteAxesBase.get_* -> pltrs::axes_grid1::ParasiteAxes::*
+ParasiteAxesBase.* -> pltrs::axes_grid1::ParasiteAxes::*
+ParasiteAxesBase.pick -> pltrs::axes_grid1::HostAxes::axes, pltrs::axes_grid1::ParasiteAxes::axes
+ParasiteAxesBase.set_viewlim_mode -> pltrs::axes_grid1::ParasiteLink
+ParasiteAxesBase.get_viewlim_mode -> pltrs::axes_grid1::ParasiteLink

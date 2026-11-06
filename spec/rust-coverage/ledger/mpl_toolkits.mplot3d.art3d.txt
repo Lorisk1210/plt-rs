@@ -1,0 +1,96 @@
+# mpl_toolkits.mplot3d.art3d
+
+collection_2d_to_3d -> pltrs::mplot3d::Axes3D::add_collection3d
+get_dir_vector -> pltrs::mplot3d::Axis3::unit
+juggle_axes -> pltrs::mplot3d::Axis3::juggle
+line_2d_to_3d -> pltrs::mplot3d::Axes3D::plot_with
+line_collection_2d_to_3d -> pltrs::mplot3d::Axes3D::add_line_collection3d
+patch_2d_to_3d -> pltrs::mplot3d::Axes3D::add_path_patch3d
+patch_collection_2d_to_3d -> pltrs::mplot3d::Axes3D::add_collection3d
+pathpatch_2d_to_3d -> pltrs::mplot3d::Axes3D::add_path_patch3d
+poly_collection_2d_to_3d -> pltrs::mplot3d::Axes3D::add_poly_collection3d
+rotate_axes -> pltrs::mplot3d::Axis3::rotate, pltrs::mplot3d::Axis3::unrotate
+text_2d_to_3d -> pltrs::mplot3d::Axes3D::text, pltrs::mplot3d::Axes3D::set_text_position
+
+## Collection3D
+Collection3D -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Collection3D.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+Collection3D.set -> pltrs::collections::Collection::update_props
+
+## Line3D
+Line3D -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Line3D.set_3d_properties -> pltrs::mplot3d::Axes3D::set_line_data
+Line3D.set_data_3d -> pltrs::mplot3d::Axes3D::set_line_data
+Line3D.get_data_3d -> pltrs::mplot3d::Axes3D::line_data
+Line3D.draw -> pltrs::artist::Artist::draw
+Line3D.set -> pltrs::lines::Line2D::update_props
+
+## Line3DCollection
+Line3DCollection -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Line3DCollection.set_sort_zpos -> pltrs::mplot3d::Axes3D::set_sort_zpos
+Line3DCollection.set_segments -> pltrs::mplot3d::Axes3D::set_segments
+Line3DCollection.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+Line3DCollection.set -> pltrs::collections::Collection::update_props
+
+## Patch3D
+Patch3D -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Patch3D.get_* -> pltrs::lines::Line2D::*
+Patch3D.set_3d_properties -> pltrs::mplot3d::Axes3D::add_path_patch3d
+Patch3D.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+Patch3D.set -> pltrs::patches::Patch::update_props
+
+## Patch3DCollection
+Patch3DCollection -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Patch3DCollection.get_depthshade -> pltrs::mplot3d::Axes3D::depthshade
+Patch3DCollection.set_depthshade -> pltrs::mplot3d::Axes3D::set_depthshade
+Patch3DCollection.set_sort_zpos -> pltrs::mplot3d::Axes3D::set_sort_zpos
+Patch3DCollection.set_3d_properties -> pltrs::mplot3d::Axes3D::set_scatter_offsets
+Patch3DCollection.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+Patch3DCollection.get_facecolor -> pltrs::collections::Collection::set_facecolor
+Patch3DCollection.get_edgecolor -> pltrs::collections::Collection::set_edgecolor
+Patch3DCollection.set -> pltrs::collections::Collection::update_props
+
+## Path3DCollection
+Path3DCollection -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Path3DCollection.* -> pltrs::lines::Line2D::*
+Path3DCollection.draw -> pltrs::artist::Artist::draw
+Path3DCollection.set_sort_zpos -> pltrs::mplot3d::Axes3D::set_sort_zpos
+Path3DCollection.set_3d_properties -> pltrs::mplot3d::Axes3D::set_scatter_offsets, pltrs::mplot3d::Axes3D::scatter_offsets
+Path3DCollection.set_sizes -> pltrs::collections::Collection::set_sizes
+Path3DCollection.get_depthshade -> pltrs::mplot3d::Axes3D::depthshade
+Path3DCollection.set_depthshade -> pltrs::mplot3d::Axes3D::set_depthshade
+Path3DCollection.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+Path3DCollection.get_facecolor -> pltrs::collections::Collection::set_facecolor
+Path3DCollection.get_edgecolor -> pltrs::collections::Collection::set_edgecolor
+Path3DCollection.set -> pltrs::collections::Collection::update_props
+
+## PathPatch3D
+PathPatch3D -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+PathPatch3D.set_3d_properties -> pltrs::mplot3d::Axes3D::add_path_patch3d
+PathPatch3D.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+PathPatch3D.set -> pltrs::patches::Patch::update_props
+
+## Poly3DCollection
+Poly3DCollection -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Poly3DCollection.* -> pltrs::lines::Line2D::*
+Poly3DCollection.set_zsort -> pltrs::mplot3d::ZSort
+Poly3DCollection.set_verts -> pltrs::mplot3d::Axes3D::set_poly_verts
+Poly3DCollection.set_verts_and_codes -> pltrs::mplot3d::Axes3D::set_poly_verts_and_codes
+Poly3DCollection.set_3d_properties -> pltrs::mplot3d::Axes3D::set_poly_verts
+Poly3DCollection.set_sort_zpos -> pltrs::mplot3d::Axes3D::set_sort_zpos
+Poly3DCollection.do_3d_projection n/a the projection step of 3-D artists: Axes3D projects them as it draws
+Poly3DCollection.set_facecolor -> pltrs::collections::Collection::set_facecolor
+Poly3DCollection.set_edgecolor -> pltrs::collections::Collection::set_edgecolor
+Poly3DCollection.get_facecolor -> pltrs::collections::Collection::set_facecolor
+Poly3DCollection.get_edgecolor -> pltrs::collections::Collection::set_edgecolor
+Poly3DCollection.set -> pltrs::collections::Collection::update_props
+
+## Text3D
+Text3D -> pltrs::lines::Line2D, pltrs::collections::Collection, pltrs::patches::Patch
+Text3D.get_position_3d -> pltrs::mplot3d::Axes3D::text_position
+Text3D.set_position_3d -> pltrs::mplot3d::Axes3D::set_text_position
+Text3D.set_z -> pltrs::mplot3d::Axes3D::set_text_position
+Text3D.set_3d_properties -> pltrs::mplot3d::Axes3D::set_text_position
+Text3D.draw -> pltrs::artist::Artist::draw
+Text3D.get_tightbbox -> pltrs::artist::ArtistHandle::window_extent
+Text3D.set -> pltrs::text::Text::update_props

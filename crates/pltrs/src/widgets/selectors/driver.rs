@@ -392,7 +392,7 @@ impl<T: Tool> Driver<T> {
     pub(super) fn move_to(&self, ax: &Axes) {
         self.shared.borrow_mut().core.ax = ax.clone();
         let figure = ax.figure();
-        if self.connections.borrow().figure != figure {
+        if *self.connections.borrow().figure() != figure {
             let connections = connect_events(figure, &self.shared, &self.selected, &self.moved);
             // The old connections end as they are dropped.
             drop(self.connections.replace(connections));

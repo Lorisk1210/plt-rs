@@ -1,0 +1,222 @@
+# matplotlib.patches
+
+bbox_artist n/a debugging helpers of matplotlib's layout code
+draw_bbox n/a debugging helpers of matplotlib's layout code
+
+## Annulus
+Annulus -> pltrs::patches::Annulus
+Annulus.get_* -> pltrs::patches::Annulus::*
+Annulus.* -> pltrs::patches::Annulus::*
+Annulus.get_radii -> pltrs::patches::Annulus::semi_axes
+Annulus.radii -> pltrs::patches::Annulus::semi_axes
+Annulus.set -> pltrs::patches::Patch::update_props
+
+## Arc
+Arc -> pltrs::patches::Arc
+Arc.draw -> pltrs::artist::Artist::draw
+Arc.set -> pltrs::patches::Patch::update_props
+
+## Arrow
+Arrow -> pltrs::patches::Arrow
+Arrow.get_* -> pltrs::patches::Arrow::*
+Arrow.set_data -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Arrow.set -> pltrs::patches::Patch::update_props
+
+## ArrowStyle
+ArrowStyle -> pltrs::patches::ArrowStyle
+ArrowStyle.* -> pltrs::patches::ArrowStyle::*
+ArrowStyle.CurveA -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.CurveB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.CurveAB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.CurveFilledA -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.CurveFilledB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.CurveFilledAB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.BracketA -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.BracketB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.BracketAB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.BarAB -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.BracketCurve -> pltrs::patches::ArrowStyle::Curve
+ArrowStyle.CurveBracket -> pltrs::patches::ArrowStyle::Curve
+
+## BoxStyle
+BoxStyle -> pltrs::patches::BoxStyle
+BoxStyle.Square -> pltrs::patches::BoxShape::Square
+BoxStyle.Circle -> pltrs::patches::BoxShape::Circle
+BoxStyle.Ellipse -> pltrs::patches::BoxShape::Ellipse
+BoxStyle.RArrow -> pltrs::patches::BoxShape::RArrow
+BoxStyle.LArrow -> pltrs::patches::BoxShape::LArrow
+BoxStyle.DArrow -> pltrs::patches::BoxShape::DArrow
+BoxStyle.Round -> pltrs::patches::BoxShape::Round
+BoxStyle.Round4 -> pltrs::patches::BoxShape::Round4
+BoxStyle.Sawtooth -> pltrs::patches::BoxShape::Sawtooth
+BoxStyle.Roundtooth -> pltrs::patches::BoxShape::Roundtooth
+
+## Circle
+Circle -> pltrs::patches::Circle
+Circle.get_* -> pltrs::patches::Circle::*
+Circle.* -> pltrs::patches::Circle::*
+Circle.set -> pltrs::patches::Patch::update_props
+
+## CirclePolygon
+CirclePolygon -> pltrs::patches::CirclePolygon
+CirclePolygon.set -> pltrs::patches::Patch::update_props
+
+## ConnectionPatch
+ConnectionPatch -> pltrs::patches::ConnectionPatch
+ConnectionPatch.get_* -> pltrs::patches::ConnectionPatch::*
+ConnectionPatch.set_annotation_clip -> pltrs::patches::ConnectionPatch::annotation_clip
+ConnectionPatch.draw -> pltrs::artist::Artist::draw
+ConnectionPatch.set -> pltrs::patches::Patch::update_props
+
+## ConnectionStyle
+ConnectionStyle -> pltrs::patches::ConnectionStyle
+ConnectionStyle.* -> pltrs::patches::ConnectionStyle::*
+
+## Ellipse
+Ellipse -> pltrs::patches::Ellipse
+Ellipse.get_* -> pltrs::patches::Ellipse::*
+Ellipse.* -> pltrs::patches::Ellipse::*
+Ellipse.set_center -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Ellipse.set_width -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Ellipse.set_height -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Ellipse.set_angle -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Ellipse.set -> pltrs::patches::Patch::update_props
+
+## FancyArrow
+FancyArrow -> pltrs::patches::FancyArrow
+FancyArrow.set_data -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyArrow.set -> pltrs::patches::Patch::update_props
+
+## FancyArrowPatch
+FancyArrowPatch -> pltrs::patches::FancyArrowPatch
+FancyArrowPatch.get_* -> pltrs::patches::FancyArrowPatch::*
+FancyArrowPatch.set_positions -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyArrowPatch.set_patchA -> pltrs::patches::ArrowSpec::patch_a, pltrs::patches::ArrowSpec::patch_b
+FancyArrowPatch.set_patchB -> pltrs::patches::ArrowSpec::patch_a, pltrs::patches::ArrowSpec::patch_b
+FancyArrowPatch.set_connectionstyle -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyArrowPatch.get_connectionstyle -> pltrs::patches::ArrowSpec::connectionstyle
+FancyArrowPatch.set_arrowstyle -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyArrowPatch.get_arrowstyle -> pltrs::patches::ArrowSpec::arrowstyle
+FancyArrowPatch.set_mutation_scale -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyArrowPatch.get_mutation_scale -> pltrs::patches::ArrowSpec::mutation_scale
+FancyArrowPatch.set_mutation_aspect -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyArrowPatch.get_mutation_aspect -> pltrs::patches::ArrowSpec::mutation_aspect
+FancyArrowPatch.draw -> pltrs::artist::Artist::draw
+FancyArrowPatch.set -> pltrs::patches::Patch::update_props
+
+## FancyBboxPatch
+FancyBboxPatch -> pltrs::patches::FancyBboxPatch
+FancyBboxPatch.get_* -> pltrs::patches::FancyBboxPatch::*
+FancyBboxPatch.set_boxstyle -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.set_mutation_scale -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.set_mutation_aspect -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.get_x -> pltrs::patches::Rectangle::xy, pltrs::patches::FancyBboxPatch::xy
+FancyBboxPatch.get_y -> pltrs::patches::Rectangle::xy, pltrs::patches::FancyBboxPatch::xy
+FancyBboxPatch.set_x -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.set_y -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.set_width -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.set_height -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.set_bounds -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+FancyBboxPatch.get_bbox -> pltrs::patches::FancyBboxPatch::xy, pltrs::patches::FancyBboxPatch::width, pltrs::patches::FancyBboxPatch::height
+FancyBboxPatch.set -> pltrs::patches::Patch::update_props
+
+## Patch
+Patch -> pltrs::patches::Patch
+Patch.get_* -> pltrs::patches::Patch::*
+Patch.* -> pltrs::patches::Patch::*
+Patch.get_verts -> pltrs::patches::PatchShape::placed_path
+Patch.contains_point -> pltrs::patches::Patch::contains_display_point
+Patch.contains_points -> pltrs::patches::Patch::contains_display_point
+Patch.update_from n/a handles share state: there is nothing to copy (conventions)
+Patch.get_extents -> pltrs::artist::ArtistHandle::window_extent
+Patch.get_data_transform -> pltrs::artist::ArtistHandle::transform
+Patch.get_patch_transform -> pltrs::patches::PatchShape::patch_transform
+Patch.get_antialiased -> pltrs::patches::PatchProps::antialiased
+Patch.get_edgecolor -> pltrs::patches::PatchProps::edgecolor
+Patch.get_facecolor -> pltrs::patches::PatchProps::facecolor
+Patch.get_hatchcolor -> pltrs::patches::PatchProps::hatchcolor
+Patch.get_linestyle -> pltrs::patches::PatchProps::linestyle
+Patch.get_edgegapcolor -> pltrs::patches::PatchStyle::edgegapcolor
+Patch.get_fill -> pltrs::patches::PatchProps::fill
+Patch.fill -> pltrs::patches::PatchProps::fill
+Patch.get_capstyle -> pltrs::patches::PatchProps::capstyle
+Patch.get_joinstyle -> pltrs::patches::PatchProps::joinstyle
+Patch.get_hatch -> pltrs::patches::PatchProps::hatch
+Patch.get_hatch_linewidth -> pltrs::patches::PatchStyle::hatch_linewidth
+Patch.draw -> pltrs::artist::Artist::draw
+Patch.get_path -> pltrs::patches::PatchShape::path
+Patch.set -> pltrs::patches::Patch::update_props
+
+## PathPatch
+PathPatch -> pltrs::patches::Patch, pltrs::patches::PathShape, pltrs::artist::ArtistHandle
+PathPatch.get_path -> pltrs::patches::PathShape::path
+PathPatch.set_path -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+PathPatch.set -> pltrs::patches::Patch::update_props
+
+## Polygon
+Polygon -> pltrs::patches::Polygon
+Polygon.get_* -> pltrs::patches::Polygon::*
+Polygon.get_closed -> pltrs::patches::Polygon::is_closed
+Polygon.set_closed -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Polygon.get_xy -> pltrs::patches::Polygon::vertices
+Polygon.set_xy -> pltrs::patches::Patch::update_shape
+Polygon.xy -> pltrs::patches::Polygon::vertices
+Polygon.set -> pltrs::patches::Patch::update_props
+
+## Rectangle
+Rectangle -> pltrs::patches::Rectangle
+Rectangle.get_* -> pltrs::patches::Rectangle::*
+Rectangle.* -> pltrs::patches::Rectangle::*
+Rectangle.get_x -> pltrs::patches::Rectangle::xy, pltrs::patches::FancyBboxPatch::xy
+Rectangle.get_y -> pltrs::patches::Rectangle::xy, pltrs::patches::FancyBboxPatch::xy
+Rectangle.set_x -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set_y -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set_angle -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set_xy -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set_width -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set_height -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set_bounds -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Rectangle.set -> pltrs::patches::Patch::update_props
+
+## RegularPolygon
+RegularPolygon -> pltrs::patches::RegularPolygon
+RegularPolygon.get_* -> pltrs::patches::RegularPolygon::*
+RegularPolygon.set -> pltrs::patches::Patch::update_props
+
+## Shadow
+Shadow -> pltrs::patches::Shadow
+Shadow.get_* -> pltrs::patches::Shadow::*
+Shadow.draw -> pltrs::artist::Artist::draw
+Shadow.set -> pltrs::patches::Patch::update_props
+
+## StepPatch
+StepPatch -> pltrs::patches::StepPatch
+StepPatch.get_data -> pltrs::patches::StepPatch::values, pltrs::patches::StepPatch::edges, pltrs::patches::StepPatch::baseline
+StepPatch.set_data -> pltrs::patches::StepPatch::with_data
+StepPatch.set -> pltrs::patches::Patch::update_props
+
+## Wedge
+Wedge -> pltrs::patches::Wedge
+Wedge.get_* -> pltrs::patches::Wedge::*
+Wedge.set_center -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Wedge.set_radius -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Wedge.set_theta1 -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Wedge.set_theta2 -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Wedge.set_width -> pltrs::patches::Patch::update_shape, pltrs::patches::Patch::set_shape
+Wedge.set -> pltrs::patches::Patch::update_props
+
+## _Style
+_Style.get_styles -> pltrs::patches::ArrowStyle, pltrs::patches::ConnectionStyle
+_Style.pprint_styles -> pltrs::patches::ArrowStyle, pltrs::patches::ConnectionStyle
+
+## Aliases (any class)
+*.get_aa n/a alias of get_antialiased: pltrs keeps one name per property
+*.get_ec n/a alias of get_edgecolor: pltrs keeps one name per property
+*.get_fc n/a alias of get_facecolor: pltrs keeps one name per property
+*.get_ls n/a alias of get_linestyle: pltrs keeps one name per property
+*.get_lw n/a alias of get_linewidth: pltrs keeps one name per property
+*.set_aa n/a alias of set_antialiased: pltrs keeps one name per property
+*.set_ec n/a alias of set_edgecolor: pltrs keeps one name per property
+*.set_fc n/a alias of set_facecolor: pltrs keeps one name per property
+*.set_ls n/a alias of set_linestyle: pltrs keeps one name per property
+*.set_lw n/a alias of set_linewidth: pltrs keeps one name per property

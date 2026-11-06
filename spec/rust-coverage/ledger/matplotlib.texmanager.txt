@@ -1,0 +1,10 @@
+# matplotlib.texmanager
+
+
+## TexManager
+TexManager -> pltrs_text::tex::TexManager
+TexManager.get_* -> pltrs_text::tex::TexManager::*
+TexManager.* -> pltrs_text::tex::TexManager::*
+TexManager.get_basefile -> pltrs_text::tex::TexManager::base_path
+TexManager.get_font_preamble -> pltrs_text::tex::TexManager::fonts
+TexManager.get_custom_preamble -> pltrs::rc::RcParams::text_latex_preamble

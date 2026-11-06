@@ -1,0 +1,29 @@
+# mpl_toolkits.axisartist.axislines
+
+
+## FixedAxisArtistHelperRectilinear
+FixedAxisArtistHelperRectilinear -> pltrs::axisartist::AxisArtist, pltrs::axisartist::GridHelper, pltrs::artist::ArtistHandle
+FixedAxisArtistHelperRectilinear.get_tick_iterators n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+
+## FloatingAxisArtistHelperRectilinear
+FloatingAxisArtistHelperRectilinear -> pltrs::axisartist::AxisArtist, pltrs::axisartist::GridHelper, pltrs::artist::ArtistHandle
+FloatingAxisArtistHelperRectilinear.get_* -> pltrs::axisartist::AxisArtist::*
+FloatingAxisArtistHelperRectilinear.get_line_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelperRectilinear.get_axislabel_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelperRectilinear.get_axislabel_pos_angle n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelperRectilinear.get_tick_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelperRectilinear.get_tick_iterators n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+
+## _FixedAxisArtistHelperBase
+_FixedAxisArtistHelperBase.get_line -> pltrs::axisartist::AxisArtist::line
+_FixedAxisArtistHelperBase.get_line_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+_FixedAxisArtistHelperBase.get_axislabel_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+_FixedAxisArtistHelperBase.get_axislabel_pos_angle n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+_FixedAxisArtistHelperBase.get_tick_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+
+## _AxisArtistHelperBase
+_AxisArtistHelperBase.update_lim n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+_AxisArtistHelperBase.get_nth_coord n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+
+## _FloatingAxisArtistHelperBase
+_FloatingAxisArtistHelperBase.get_line -> pltrs::axisartist::AxisArtist::line

@@ -1,0 +1,99 @@
+# matplotlib.scale
+
+* -> pltrs::scale::*
+get_scale_names -> pltrs::scale::scale_names
+register_scale -> pltrs::scale::ScaleRegistry::register
+
+## AsinhScale
+AsinhScale -> pltrs::scale::AsinhScale
+AsinhScale.* -> pltrs::scale::AsinhScale::*
+AsinhScale.get_transform -> pltrs::scale::Scale::forward, pltrs::scale::Scale::inverse
+AsinhScale.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+
+## AsinhTransform
+AsinhTransform -> pltrs::scale::AsinhTransform
+AsinhTransform.transform_non_affine -> pltrs::scale::AsinhTransform::forward_all
+AsinhTransform.inverted -> pltrs::scale::AsinhTransform::inverse
+
+## FuncScale
+FuncScale -> pltrs::scale::FuncScale
+FuncScale.get_transform -> pltrs::scale::Scale::forward, pltrs::scale::Scale::inverse
+FuncScale.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+
+## FuncScaleLog
+FuncScaleLog -> pltrs::scale::FuncScaleLog
+FuncScaleLog.* -> pltrs::scale::FuncScaleLog::*
+FuncScaleLog.get_transform -> pltrs::scale::Scale::forward, pltrs::scale::Scale::inverse
+
+## FuncTransform
+FuncTransform -> pltrs::scale::FuncTransform
+FuncTransform.transform_non_affine -> pltrs::scale::FuncTransform::forward_all
+FuncTransform.inverted -> pltrs::scale::FuncTransform::inverse
+
+## InvertedAsinhTransform
+InvertedAsinhTransform -> pltrs::scale::AsinhTransform, pltrs::transforms::AxisMap
+InvertedAsinhTransform.transform_non_affine -> pltrs::scale::AsinhTransform::inverse_all
+InvertedAsinhTransform.inverted -> pltrs::scale::AsinhTransform::forward
+
+## InvertedLogTransform
+InvertedLogTransform -> pltrs::scale::LogTransform, pltrs::transforms::AxisMap
+InvertedLogTransform.transform_non_affine -> pltrs::scale::LogTransform::inverse_all
+InvertedLogTransform.inverted -> pltrs::scale::LogTransform::forward
+
+## InvertedSymmetricalLogTransform
+InvertedSymmetricalLogTransform -> pltrs::scale::SymmetricalLogTransform, pltrs::transforms::AxisMap
+InvertedSymmetricalLogTransform.transform_non_affine -> pltrs::scale::SymmetricalLogTransform::inverse_all
+InvertedSymmetricalLogTransform.inverted -> pltrs::scale::SymmetricalLogTransform::forward
+
+## LinearScale
+LinearScale -> pltrs::scale::LinearScale
+LinearScale.* -> pltrs::scale::LinearScale::*
+LinearScale.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+LinearScale.get_transform -> pltrs::scale::Scale::forward, pltrs::scale::Scale::inverse
+
+## LogScale
+LogScale -> pltrs::scale::LogScale
+LogScale.get_* -> pltrs::scale::LogScale::*
+LogScale.* -> pltrs::scale::LogScale::*
+LogScale.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+
+## LogTransform
+LogTransform -> pltrs::scale::LogTransform
+LogTransform.transform_non_affine -> pltrs::scale::LogTransform::forward_all
+LogTransform.inverted -> pltrs::scale::LogTransform::inverse
+
+## LogisticTransform
+LogisticTransform -> pltrs::scale::LogitTransform, pltrs::transforms::AxisMap
+LogisticTransform.transform_non_affine -> pltrs::scale::LogitTransform::inverse_all
+LogisticTransform.inverted -> pltrs::scale::LogitTransform::forward
+
+## LogitScale
+LogitScale -> pltrs::scale::LogitScale
+LogitScale.* -> pltrs::scale::LogitScale::*
+LogitScale.get_transform -> pltrs::scale::Scale::forward, pltrs::scale::Scale::inverse
+LogitScale.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+
+## LogitTransform
+LogitTransform -> pltrs::scale::LogitTransform
+LogitTransform.transform_non_affine -> pltrs::scale::LogitTransform::forward_all
+LogitTransform.inverted -> pltrs::scale::LogitTransform::inverse
+
+## ScaleBase
+ScaleBase -> pltrs::scale::Scale
+ScaleBase.* -> pltrs::scale::Scale::*
+ScaleBase.get_transform -> pltrs::scale::Scale::forward, pltrs::scale::Scale::inverse
+ScaleBase.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+
+## SymmetricalLogScale
+SymmetricalLogScale -> pltrs::scale::SymmetricalLogScale
+SymmetricalLogScale.get_* -> pltrs::scale::SymmetricalLogScale::*
+SymmetricalLogScale.* -> pltrs::scale::SymmetricalLogScale::*
+SymmetricalLogScale.base -> pltrs::scale::SymmetricalLogScale::transform
+SymmetricalLogScale.linthresh -> pltrs::scale::SymmetricalLogScale::transform
+SymmetricalLogScale.linscale -> pltrs::scale::SymmetricalLogScale::transform
+SymmetricalLogScale.set_default_locators_and_formatters -> pltrs::scale::Scale::default_tickers
+
+## SymmetricalLogTransform
+SymmetricalLogTransform -> pltrs::scale::SymmetricalLogTransform
+SymmetricalLogTransform.transform_non_affine -> pltrs::scale::SymmetricalLogTransform::forward_all
+SymmetricalLogTransform.inverted -> pltrs::scale::SymmetricalLogTransform::inverse

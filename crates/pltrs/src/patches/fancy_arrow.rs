@@ -258,6 +258,8 @@ pub(crate) fn round_ends(style: &mut PatchStyle) {
 }
 
 impl PatchShape for FancyArrowPatch {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     const EDGE_DEFAULT: bool = true;
 
     /// The route in the patch's coordinates (used for data limits).

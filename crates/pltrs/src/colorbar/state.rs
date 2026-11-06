@@ -108,15 +108,17 @@ pltrs_core::archive_struct!(ColorbarState {
 impl BlockSettings {
     /// matplotlib's `_process_values` for `mapping`: contour levels, or
     /// the explicit boundaries and values, or blocks from the norm (whose
-    /// limits are made non-singular).
+    /// limits are made non-singular, after autoscaling it to the
+    /// mappable's `data` when given).
     pub(crate) fn blocks(
         &self,
         contours: Option<&ContourLevels>,
-        extend: Extend,
-        inverted: bool,
+        (extend, inverted): (Extend, bool),
         mapping: &mut ScalarMappable,
+        data: Option<&[Option<f64>]>,
     ) -> Result<Blocks, ColorbarError> {
         let spec = BlockSpec {
+            data,
             ncolors: mapping.cmap().n(),
             boundaries: contours
                 .map(|levels| levels.extended.as_slice())
@@ -148,12 +150,14 @@ impl ColorbarState {
         self.mapping = source.mapping;
         self.alpha = source.alpha;
         self.contours = source.contours;
+        let data = source.data;
         let long = ax.axis_of(long_axis(self.orientation));
+        let ends = (self.extend, long.inverted());
         self.blocks = self.settings.blocks(
             self.contours.as_ref(),
-            self.extend,
-            long.inverted(),
+            ends,
             &mut self.mapping,
+            data.as_deref(),
         )?;
         let contours = self.contours.is_some();
         let scale = ticking::long_axis_scale(
@@ -183,9 +187,9 @@ impl ColorbarState {
             // `_reset_locator_formatter_scale`, the program's norm seeing it.
             self.blocks = self.settings.blocks(
                 self.contours.as_ref(),
-                self.extend,
-                long.inverted(),
+                ends,
                 &mut self.mapping,
+                data.as_deref(),
             )?;
         }
         self.edges = self.blocks.edges(self.mapping.norm_mut())?;

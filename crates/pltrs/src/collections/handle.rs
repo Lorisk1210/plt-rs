@@ -444,6 +444,18 @@ impl Collection {
         self
     }
 
+    /// Hands a norm of the program's the values of the colour mapping as
+    /// an array of `shape`, as matplotlib's collection holds them (a
+    /// mesh's rows and columns).
+    pub(crate) fn set_mapping_shape(&self, shape: Vec<usize>) -> &Self {
+        self.update(|c| {
+            if let Some(mapped) = &mut c.mapping {
+                mapped.set_shape(shape);
+            }
+        });
+        self
+    }
+
     /// Replaces the colormap of the colour mapping, if the collection has
     /// one (matplotlib's `set_cmap`); its colorbars follow.
     pub fn set_cmap(&self, cmap: Colormap) -> &Self {

@@ -216,6 +216,13 @@ pub trait Artist: Any + Debug + ArtistClone {
         self.contains(ctx, at).then(Vec::new)
     }
 
+    /// Whether measuring the artist's data limits runs code of the
+    /// program's (a box style of its own), which may read and change the
+    /// figure, so that [`Artist::limit_points`] is asked without it.
+    fn limits_run_program(&self) -> bool {
+        false
+    }
+
     /// What the artist adds to the data limits of `axes`, when it is added
     /// and, for artists the axes added the way matplotlib's `add_line`,
     /// `add_patch`, `add_image` and `add_collection` add them, when the

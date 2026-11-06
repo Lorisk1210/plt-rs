@@ -172,15 +172,15 @@ impl AxisHelper {
 
     /// What matplotlib's `AxisArtist` computes when it is made
     /// (`_init_line`, `get_line`): for a curvilinear line of constant
-    /// coordinate, the grid over the view (computed again only for other
-    /// limits) and the line.
-    pub(crate) fn init_line(&self, ctx: HelperContext<'_>) -> Result<(), String> {
-        if let Self::CurveFloating { grid, .. } = self {
-            // A grid that cannot be computed fails the draw instead.
-            let _ = grid.grid_finder().grid_info(ctx.axes.view_lim);
-            self.line_with_grid(ctx)?;
+    /// coordinate, the grid over the view limits `view` (computed again
+    /// only for other limits) and the line. Neither needs the figure;
+    /// what fails them fails the draw instead.
+    pub(crate) fn init_line(&self, view: Bbox) {
+        if let Self::CurveFloating { grid, line } = self {
+            let finder = grid.grid_finder();
+            drop(finder.grid_info(view));
+            drop(line.grid(finder, view));
         }
-        Ok(())
     }
 
     /// The coordinates of tick locations (matplotlib's

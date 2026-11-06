@@ -52,6 +52,15 @@ pub trait AxisMap: fmt::Debug + std::any::Any {
     fn inverse_column(&self, values: &mut [f64]) {
         self.inverse_all(values);
     }
+    /// Maps every value of `values` in place as matplotlib maps the
+    /// coordinates of a mesh it draws, a masked array: a map calling the
+    /// program's code hands them over as a masked row
+    /// ([`ArrayLayout::MaskedRow`](crate::scale::ArrayLayout::MaskedRow)).
+    /// The default maps them as [`forward_all`](AxisMap::forward_all)
+    /// does.
+    fn forward_masked_row(&self, values: &mut [f64]) {
+        self.forward_all(values);
+    }
     /// Whether the map runs code of the program's that observes its
     /// calls (a scale of a host language's functions): the axes it scales
     /// are then ticked as matplotlib ticks them, as often (see
@@ -90,11 +99,28 @@ pub trait PointMap: fmt::Debug + std::any::Any {
         self.forward_all(mapped.vertices_mut());
         mapped
     }
+    /// Maps the outline of a patch being drawn, as matplotlib's
+    /// `Patch.draw` maps it (`transform_path_non_affine`, anew at every
+    /// draw), where [`transform_path`](PointMap::transform_path) may keep
+    /// what it mapped as a line's `TransformedPath` does. The default maps
+    /// it as `transform_path` does.
+    fn transform_outline(&self, path: &Path) -> Path {
+        self.transform_path(path)
+    }
     /// Whether the map runs code of the program's (a transform of a host
     /// language's), which a draw lets change the figure (see
     /// [`ResolvedTransform::calls_program`]). `false` by default.
     fn calls_program(&self) -> bool {
         false
+    }
+    /// What names the program's code the map runs, so that pltrs' own
+    /// work answers from what the program answered before instead of
+    /// calling it again (matplotlib calls the program where its artists
+    /// map their parts, which pltrs models apart): maps giving the same
+    /// key answer alike while one of them lives. `None`, the default,
+    /// keeps no answers, the map being called every time.
+    fn program_key(&self) -> Option<usize> {
+        None
     }
 }
 
@@ -126,7 +152,7 @@ impl Step {
                 x.as_ref().map_or(p.x, |m| program_calls::forward(m, p.x)),
                 y.as_ref().map_or(p.y, |m| program_calls::forward(m, p.y)),
             ),
-            Self::Plane(map) => map.forward(p),
+            Self::Plane(map) => program_calls::forward_point(map, p),
             Self::Blend(x, y) => Point::new(
                 x.transform_point_non_affine(p).x,
                 y.transform_point_non_affine(p).y,
@@ -151,7 +177,7 @@ impl Step {
                     map_coordinates(points, map, |p| &mut p.y);
                 }
             }
-            Self::Plane(map) => map.forward_all(points),
+            Self::Plane(map) => program_calls::forward_points(map, points),
             Self::Blend(x, y) => {
                 let mut xs = points.to_vec();
                 x.transform_points_non_affine(&mut xs);
@@ -241,7 +267,17 @@ impl Step {
     /// vertices.
     fn transform_path(&self, mut path: Path) -> Path {
         if let Self::Plane(map) = self {
-            return map.transform_path(&path);
+            return program_calls::transform_path(map, &path);
+        }
+        self.apply_all(path.vertices_mut());
+        path
+    }
+
+    /// Maps the outline of a patch being drawn (see
+    /// [`PointMap::transform_outline`]).
+    fn transform_outline(&self, mut path: Path) -> Path {
+        if let Self::Plane(map) = self {
+            return map.transform_outline(&path);
         }
         self.apply_all(path.vertices_mut());
         path
@@ -545,6 +581,19 @@ impl ResolvedTransform {
             .steps
             .iter()
             .fold(path.clone(), |path, step| step.transform_path(path));
+        (Cow::Owned(mapped), self.affine)
+    }
+
+    /// Splits the outline of a patch being drawn like
+    /// [`split_path`](Self::split_path), its plane maps mapping it as
+    /// matplotlib's `Patch.draw` does (see
+    /// [`PointMap::transform_outline`]).
+    pub fn split_outline<'a>(&self, path: &'a Path) -> (Cow<'a, Path>, Affine2D) {
+        if self.steps.is_empty() {
+            return (Cow::Borrowed(path), self.affine);
+        }
+        let mapped =
+            (self.steps.iter()).fold(path.clone(), |path, step| step.transform_outline(path));
         (Cow::Owned(mapped), self.affine)
     }
 

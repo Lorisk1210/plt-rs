@@ -19,6 +19,7 @@ use pltrs_core::Path;
 use super::LineArtist;
 use crate::artist::{Artist, DrawContext, LayoutContext};
 use crate::transforms::ResolvedTransform;
+use crate::transforms::program_calls::same_path;
 
 /// The line's path and its vertices mapped through the non-affine part of
 /// a transform, with what they were mapped from.
@@ -131,16 +132,6 @@ impl LineArtist {
             self.kept_paths.map(&resolved, &drawn, true);
         })
     }
-}
-
-/// Whether two paths have the same vertices (bit for bit), codes and
-/// interpolation steps.
-fn same_path(a: &Path, b: &Path) -> bool {
-    a.codes() == b.codes()
-        && a.interpolation_steps() == b.interpolation_steps()
-        && a.vertices().len() == b.vertices().len()
-        && (a.vertices().iter().zip(b.vertices()))
-            .all(|(p, q)| p.x.to_bits() == q.x.to_bits() && p.y.to_bits() == q.y.to_bits())
 }
 
 #[cfg(test)]

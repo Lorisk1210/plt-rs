@@ -128,23 +128,21 @@ def _to_axes(ax, transform):
     return found[0]
 
 
-def _tick_label_placement(ax, transform, point):
-    """Where a tick label of *ax* at *point* through the label transform
-    *transform* (``get_xaxis_text1_transform`` and friends) goes, as pltrs
-    (Rust) takes it: the anchor in axes fractions and the shift in display
-    pixels after ``transAxes`` (none for a transform not made with it, or
+def _tick_label_parts(ax, transform):
+    """How the tick labels of *ax* placed by the label transform
+    *transform* (``get_xaxis_text1_transform`` and friends) go, as pltrs
+    (Rust) takes them: the transform taking a tick's point to axes
+    fractions, and the translation after ``transAxes`` whose offset is the
+    shift in display pixels (None for a transform not made with it, or
     moving the label after it otherwise than by a translation: the anchor
     is then where the whole transform puts the label)."""
-    point = np.array([point], dtype=float)
     found = _split(transform, ax.transAxes)
     matrix = None
     if found is not None and found[1].is_affine:
         matrix = found[1].get_matrix()
     if matrix is None or not np.allclose(matrix[:2, :2], np.eye(2)):
-        anchor = ax.transAxes.inverted().transform(transform.transform(point))[0]
-        return tuple(map(float, anchor)), (0.0, 0.0)
-    anchor = found[0].transform(point)[0]
-    return (tuple(map(float, anchor)), (float(matrix[0, 2]), float(matrix[1, 2])))
+        return transform + ax.transAxes.inverted(), None
+    return found[0], found[1]
 
 
 class _NonAffinePart:
@@ -158,6 +156,10 @@ class _NonAffinePart:
     def __init__(self, transform, viewing=None):
         self._transform = transform
         self._viewing = viewing
+        #: Whether the part gives the same answer for the same point for as
+        #: long as it lives (computing in no context of a view), so that
+        #: pltrs (Rust) may answer from what it answered before.
+        self._answers_alike = viewing is None
 
     def _computing(self):
         """The context of a computation."""
@@ -323,13 +325,50 @@ class _Adapter:
         self.spine_sides = projection.spine_sides
         self.fixes_data_ratio = projection.fixes_data_ratio
         self.overrides = projection.overrides
+        self._forget_parts(None)
 
     def __getstate__(self):
-        # A pickle of the figure holds the Axes anyway.
-        return {**self.__dict__, "_axes": self._axes()}
+        # A pickle of the figure holds the Axes anyway; the evaluated parts
+        # are made anew.
+        state = {**self.__dict__, "_axes": self._axes()}
+        del state["_parts"], state["_parts_at"]
+        return state
 
     def __setstate__(self, state):
         self.__dict__.update(state, _axes=weakref.ref(state["_axes"]))
+        self._forget_parts(None)
+
+    def _forget_parts(self, limits):
+        """Forget the transforms evaluated so far, as the view limits
+        become *limits*."""
+        #: The transforms evaluated at the limits ``_parts_at``, by key:
+        #: what each was evaluated from and what it gave.
+        self._parts = {}
+        self._parts_at = limits
+
+    def _kept(self, key, limits, make):
+        """What *make* gives, kept under *key* while the view limits stay
+        *limits* (*make* gives what it is made from, kept alive, and the
+        object)."""
+        if self._parts_at != limits:
+            self._forget_parts(limits)
+        kept = self._parts.get(key)
+        if kept is None:
+            kept = self._parts[key] = make()
+        return kept[1]
+
+    def _evaluated_kept(self, key, transform, limits):
+        """*transform* evaluated (see `_evaluated`), its affine matrix anew
+        and its non-affine part the same object while *key* and the view
+        limits *limits* stay: the part names the transform's code to pltrs
+        (Rust), which answers from what it answered before while it lays
+        the figure out."""
+        if transform.is_affine:
+            return np.asarray(transform.get_matrix(), dtype=float), None
+        # By the transform's identity too: the memo keeps it alive.
+        part = self._kept((key, id(transform)), limits,
+                          lambda: (transform, _NonAffinePart(transform)))
+        return np.asarray(transform.get_affine().get_matrix(), dtype=float), part
 
     @contextlib.contextmanager
     def _viewing(self, limits):
@@ -360,15 +399,17 @@ class _Adapter:
         of a polar one computes at *limits* whenever pltrs (Rust) maps
         through it, since its transform asks its Axes (``get_rorigin``)."""
         with self._viewing(limits) as (ax, projection):
-            viewing = (functools.partial(self._viewing, limits)
-                       if projection.polar else None)
-            return _evaluated(projection.to_axes, viewing)
+            if projection.polar:
+                return _evaluated(projection.to_axes,
+                                  functools.partial(self._viewing, limits))
+            return self._evaluated_kept("data", projection.to_axes, limits)
 
     def axis_transform(self, limits, name):
         """The transform of the gridlines and ticks of axis *name* up to
         ``transAxes``, evaluated."""
         with self._viewing(limits) as (ax, projection):
-            return _evaluated(projection.axis_transforms[name])
+            return self._evaluated_kept(("axis", name), projection.axis_transforms[name],
+                                        limits)
 
     def tick_interval(self, limits, name):
         """The interval axis *name* is ticked over."""
@@ -381,19 +422,27 @@ class _Adapter:
         with self._viewing(limits) as (ax, projection):
             return _drawn_sides(projection.probes[name], loc)
 
-    def tick_label(self, limits, side, loc):
-        """Where the label of the tick at *loc* on *side* goes:
-        ``(anchor, shift, halign, valign)``, the anchor in axes fractions
-        and the shift in display pixels, as the class' label transform of
-        the side puts it."""
+    def tick_label(self, limits, side):
+        """How the labels of the ticks on *side* go: ``(transform, shift,
+        halign, valign)``, the transform taking a tick's point (its
+        location along the axis, 0 across) to axes fractions, evaluated,
+        and the shift in display pixels after it, as the class' label
+        transform of the side places them."""
         with self._viewing(limits) as (ax, projection):
             name, which = _LABEL_TRANSFORMS[side]
             pad = projection.ticks[name]._pad
-            transform, valign, halign = getattr(
-                ax, f"get_{name}axis_text{which}_transform")(pad)
-            point = (loc, 0.0) if name == "x" else (0.0, loc)
-            anchor, shift = _tick_label_placement(ax, transform, point)
-            return anchor, shift, halign, valign
+
+            def made():
+                # As matplotlib's tick asks for its label transforms once.
+                transform, valign, halign = getattr(
+                    ax, f"get_{name}axis_text{which}_transform")(pad)
+                return transform, (_tick_label_parts(ax, transform), halign, valign)
+
+            (to_axes, after), halign, valign = self._kept(("label", side, pad), limits, made)
+            shift = ((0.0, 0.0) if after is None
+                     else tuple(float(v) for v in after.get_matrix()[:2, 2]))
+            evaluated = self._evaluated_kept(("label part", side, pad), to_axes, limits)
+            return evaluated, shift, halign, valign
 
     def data_ratio(self, limits):
         """The ratio of the data the class' ``get_data_ratio`` gives."""
@@ -498,6 +547,33 @@ def maker(projection_class):
                   else _gridspec.add_subplot(figure._native, spec))
         ax = _handles.wrap(native, projection_class, figure)
         ax._init_projection()
-        cleared(ax)
+        if projection_class.clear is not Axes.clear:
+            # matplotlib's `__init__` clears the Axes it made, running the
+            # class' own `clear`, then gives the ticks their sides.
+            ax.clear()
+            rc_tick_sides(ax)
+        else:
+            cleared(ax)
         return native, kwargs
     return make
+
+
+def rc_tick_sides(ax):
+    """Give the ticks and tick labels of *ax* the sides the rcParams say,
+    as matplotlib's ``Axes.__init__`` ends, after the Axes is cleared
+    (whatever the class' ``clear`` chose)."""
+    from .. import rcParams
+    for which in ("minor", "major"):
+        def on(axis, side):
+            return rcParams[f"{axis}tick.{side}"] and rcParams[f"{axis}tick.{which}.{side}"]
+
+        def label(axis, side):
+            return (rcParams[f"{axis}tick.label{side}"]
+                    and rcParams[f"{axis}tick.{which}.{side}"])
+
+        ax.tick_params(
+            top=on("x", "top"), bottom=on("x", "bottom"),
+            labeltop=label("x", "top"), labelbottom=label("x", "bottom"),
+            left=on("y", "left"), right=on("y", "right"),
+            labelleft=label("y", "left"), labelright=label("y", "right"),
+            which=which)

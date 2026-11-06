@@ -164,6 +164,8 @@ impl ConnectionPatch {
 }
 
 impl PatchShape for ConnectionPatch {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     const EDGE_DEFAULT: bool = true;
 
     fn path(&self) -> Path {

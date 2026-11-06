@@ -82,6 +82,10 @@ impl FancyBboxPatch {
 impl PatchShape for FancyBboxPatch {
     const EDGE_DEFAULT: bool = true;
 
+    fn runs_program(&self) -> bool {
+        matches!(self.boxstyle.shape, BoxShape::Program(_))
+    }
+
     fn path(&self) -> Path {
         let aspect = self.mutation_aspect;
         let mut path = self.boxstyle.path(

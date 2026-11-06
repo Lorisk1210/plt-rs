@@ -89,6 +89,8 @@ impl Arc {
 }
 
 impl PatchShape for Arc {
+    const MAPS_OUTLINE_ALONE: bool = false;
+
     fn path(&self) -> Path {
         let (theta1, theta2) = self.stretched_thetas();
         Path::arc(theta1, theta2, None)

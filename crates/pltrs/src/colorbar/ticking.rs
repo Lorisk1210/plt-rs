@@ -8,7 +8,7 @@ use std::rc::Rc;
 use super::blocks::{Blocks, NormClass, forward_boundaries, inverse_boundaries};
 use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
-use crate::colors::{Norm, NormKind, Normalized};
+use crate::colors::{ArrayForm, Norm, NormKind, Normalized};
 use crate::scale::{
     ArrayLayout, FuncScale, FuncTransform, LinearScale, Scale, ScaleFunction, ScaleName,
     ScaleOptions, scale_factory,
@@ -138,9 +138,10 @@ impl ScaleFunction for NormSpacing {
     }
 
     /// The norm (or its inverse) called once with all the values, as
-    /// matplotlib's colorbar scale calls it with arrays (a norm's own
-    /// arrays: how the values are laid out does not matter to it).
-    fn call_all(&self, values: &mut [f64], _: ArrayLayout) {
+    /// matplotlib's colorbar scale calls it with arrays, laid out as
+    /// `layout` says (a column where matplotlib's code calls the scale's
+    /// `transform`), which a norm of the program's sees.
+    fn call_all(&self, values: &mut [f64], layout: ArrayLayout) {
         let mapped: Option<Vec<f64>> = if self.inverse {
             self.norm
                 .borrow()
@@ -148,7 +149,17 @@ impl ScaleFunction for NormSpacing {
                 .ok()
                 .map(|mapped| mapped.into_iter().map(|v| v.unwrap_or(f64::NAN)).collect())
         } else {
-            self.norm.borrow_mut().normalize(values).ok().map(|mapped| {
+            let shape = match layout {
+                ArrayLayout::Row | ArrayLayout::MaskedRow => vec![values.len()],
+                ArrayLayout::Column => vec![values.len(), 1],
+            };
+            let data: Vec<Option<f64>> = values.iter().copied().map(Some).collect();
+            let form = ArrayForm {
+                shape: &shape,
+                masked: layout == ArrayLayout::MaskedRow,
+            };
+            let normalized = self.norm.borrow_mut().normalize_shaped(&data, None, form);
+            normalized.ok().map(|mapped| {
                 mapped
                     .into_iter()
                     .map(|v| match v {
@@ -305,6 +316,7 @@ mod tests {
 
     fn blocks(norm: &mut dyn Norm, boundaries: Option<&[f64]>) -> Blocks {
         let spec = BlockSpec {
+            data: None,
             ncolors: 8,
             boundaries,
             values: None,

@@ -14,7 +14,7 @@ use crate::figure::FigureState;
 use crate::spines::SpineArtist;
 use crate::text::TextArtist;
 use crate::ticker::AxisName;
-use crate::transforms::TransformContext;
+use crate::transforms::{TransformContext, program_calls};
 
 impl Axes {
     /// The extent of the axes with its decorations in display pixels, the
@@ -186,6 +186,29 @@ impl FigureState {
         Some((extent?, tight?))
     }
 
+    /// The texts among the children of `axes` placed through a transform
+    /// of the program's, their positions mapped with the figure lent, as
+    /// matplotlib's `Text.get_window_extent` maps them where a tight box
+    /// measures the axes: pltrs measures them from what the program
+    /// answered.
+    fn program_texts_measured(&mut self, axes: ArtistId) {
+        let Some(children) = self
+            .store
+            .get_as::<AxesState>(axes)
+            .map(|state| state.children.clone())
+        else {
+            return;
+        };
+        for child in children {
+            let Some(text) = self.store.shared_as::<TextArtist>(child) else {
+                continue;
+            };
+            if let Some(mapping) = text.program_anchor(LayoutContext::new(self)) {
+                self.lend(|_| program_calls::observed(mapping));
+            }
+        }
+    }
+
     /// [`axes_tight_bbox`](Self::axes_tight_bbox) with the axes placed by
     /// `placement`, taking in the children `extras` says.
     fn axes_tight_bbox_at(
@@ -199,8 +222,11 @@ impl FigureState {
             return None;
         }
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
-        // `get_tightbbox` applies the aspect, which brings a secondary
-        // axis to its host's limits.
+        // `get_tightbbox` applies the aspect, with the axes' locator when
+        // it calls it, which brings a secondary axis to its host's limits.
+        if matches!(placement, Placement::Located) {
+            self.colorbar_located(axes);
+        }
         self.sync_secondary(axes);
         self.lay_out_axes_at(axes, placement);
         let in_full = self.program_axes_measured(axes, for_layout_only, extras == Extras::Children);
@@ -220,6 +246,9 @@ impl FigureState {
             .filter_map(|child| self.axes_tight_bbox(child, false))
             .filter(has_area)
             .collect();
+        if extras == Extras::Children {
+            self.program_texts_measured(axes);
+        }
         let state = self.store.get_as::<AxesState>(axes)?;
         let layout = LayoutContext::new(self);
         if state.decorations.axis_on {
@@ -248,7 +277,11 @@ impl FigureState {
                 .iter()
                 .filter(|_| extras == Extras::Children)
                 .filter(|child| !state.titles.contains(child))
-                .filter_map(|&child| child_tight_bbox(layout, state, axes, child))
+                .filter_map(|&child| {
+                    // The program's transforms answer from the calls
+                    // `program_texts_measured` made.
+                    program_calls::quietly(|| child_tight_bbox(layout, state, axes, child))
+                })
                 .filter(has_area),
         );
         boxes

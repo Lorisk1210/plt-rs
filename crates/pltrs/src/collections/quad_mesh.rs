@@ -9,9 +9,10 @@ use pltrs_render::QuadMesh;
 
 use super::style::resolve_colors;
 use super::{CollectionArtist, CollectionKind};
-use crate::artist::{Artist, DrawContext};
+use crate::artist::{Artist, ArtistId, DrawContext};
 use crate::numeric::Grid;
 use crate::rc::RcParams;
+use crate::transforms::{Transform, program_calls};
 
 /// How the cells of a mesh are coloured.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -40,6 +41,14 @@ pltrs_core::archive_struct!(MeshGeometry {
 });
 
 impl CollectionArtist {
+    /// The vertices of the quad mesh, when the collection is one drawn
+    /// through the data coordinates of `axes` (which `QuadMesh.draw` maps
+    /// all at once).
+    pub(crate) fn mesh_coordinates_in(&self, axes: ArtistId) -> Option<&[Point]> {
+        let mesh = self.mesh.as_ref()?;
+        (self.transform() == Transform::Data(axes)).then(|| mesh.coordinates.as_slice())
+    }
+
     /// A quad mesh over `coordinates` (matplotlib's `QuadMesh`): the
     /// cells are its paths, ordered row by row, made only when asked for
     /// (see [`shapes`](Self::shapes)), as matplotlib's `get_paths` makes
@@ -139,9 +148,11 @@ pub(super) fn draw_quad_mesh(
     let (coordinates, master) = if resolved.is_affine() {
         (&mesh.coordinates, resolved.affine_part())
     } else {
-        // All the vertices at once, as matplotlib maps them.
+        // All the vertices at once, as matplotlib maps them (the program's
+        // scales answering from the call `QuadMesh.draw` makes, see
+        // `axes::transform_sites`).
         let mut vertices = mesh.coordinates.clone();
-        resolved.transform_points(vertices.as_mut_slice());
+        program_calls::quietly(|| resolved.transform_points(vertices.as_mut_slice()));
         transformed = vertices;
         (&transformed, Affine2D::IDENTITY)
     };

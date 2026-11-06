@@ -101,6 +101,22 @@ impl FigureState {
         false
     }
 
+    /// The data ratio of `axes` (see [`AxesState::data_ratio`]): a
+    /// projection of the program's giving its own is asked with the figure
+    /// lent, as matplotlib's `get_data_ratio` may read and change it, the
+    /// axes held apart from the figure meanwhile.
+    fn data_ratio_of(&mut self, axes: ArtistId) -> f64 {
+        let held = (self.asks_data_ratio(axes) && self.lendable())
+            .then(|| self.store.shared_as::<AxesState>(axes))
+            .flatten();
+        let lent = held.and_then(|held| self.lend(|_| held.data_ratio()));
+        lent.unwrap_or_else(|| {
+            self.store
+                .get_as::<AxesState>(axes)
+                .map_or(1.0, AxesState::data_ratio)
+        })
+    }
+
     /// matplotlib's `apply_aspect` called on its own, between draws: no
     /// layout-engine pass, and pending autoscaling only when a fixed
     /// aspect reads the view limits (through `get_data_ratio`). A
@@ -157,10 +173,10 @@ impl FigureState {
             .or(settings.box_aspect);
         // matplotlib reads the data ratio (through the scales, which may
         // be the program's) only to shrink the box to a fixed aspect.
-        let data_ratio = (settings.adjustable == Adjustable::Box
-            && (settings.ratio.is_some() || box_aspect.is_some()))
-        .then(|| state.data_ratio());
+        let asks = settings.adjustable == Adjustable::Box
+            && (settings.ratio.is_some() || box_aspect.is_some());
         let parent = state.base().parent;
+        let data_ratio = asks.then(|| self.data_ratio_of(axes));
         // Insets and secondary axes are placed in their host axes, in the
         // fractions of the host's figure, as matplotlib's locator places
         // them there before it applies the aspect; axes covering their host

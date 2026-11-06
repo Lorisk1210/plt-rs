@@ -85,7 +85,11 @@ pub(super) fn mesh_mappable(
 ) -> Result<ScalarMappable, ImageError> {
     scalar_only(multivariate)?;
     let mut mappable = colorizer.into_mappable(&crate::rc::params())?;
-    values.autoscale(mappable.norm_mut());
+    // A norm of the program's is autoscaled once, as the mesh takes its
+    // mapping (matplotlib's `_scale_norm`).
+    if !mappable.norm().calls_program() {
+        values.autoscale(mappable.norm_mut());
+    }
     Ok(mappable)
 }
 
@@ -179,9 +183,11 @@ impl Axes {
             MeshValues::Scalar(values) => {
                 let mappable =
                     mesh_mappable(options.colorizer, options.multivariate.as_ref(), values)?;
+                let shape = values.values().shape();
                 let values = values.masked_values();
                 let handle = self.add_pcolormesh(&mesh, options.props, options.snap);
                 handle.set_mapping(ColorMapping { values, mappable });
+                handle.set_mapping_shape(vec![shape.0, shape.1]);
                 Ok(handle)
             }
             MeshValues::Multivariate(field) => {

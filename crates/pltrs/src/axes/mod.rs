@@ -65,6 +65,7 @@ mod pie;
 mod pie_label;
 mod position;
 pub(crate) mod projection;
+mod projection_sites;
 mod prop_cycles;
 mod quiver;
 mod reference;

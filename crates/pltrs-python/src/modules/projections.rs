@@ -62,18 +62,24 @@ impl Evaluated {
     }
 }
 
-/// Where the adapter puts a tick label: `((x, y), (dx, dy), halign,
-/// valign)`, the anchor in axes fractions, the shift in display pixels and
+/// How the adapter places the tick labels of a side: `(transform, (dx,
+/// dy), halign, valign)`, the transform taking a tick's point to axes
+/// fractions (evaluated), the shift in display pixels after it and
 /// matplotlib's alignment names.
-struct PyTickLabel(TickLabelPlacement);
+struct PyTickLabels {
+    to_axes: ResolvedTransform,
+    offset: Point,
+    halign: HAlign,
+    valign: VAlign,
+}
 
-impl FromPy<'_> for PyTickLabel {
+impl FromPy<'_> for PyTickLabels {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        let ((x, y), (dx, dy), halign, valign): ((f64, f64), (f64, f64), String, String) =
+        let (to_axes, (dx, dy), halign, valign): (Evaluated, (f64, f64), String, String) =
             object.extract()?;
         let invalid = |err: String| PyErr::value_error(err);
-        Ok(Self(TickLabelPlacement {
-            anchor: Point::new(x, y),
+        Ok(Self {
+            to_axes: to_axes.resolved(),
             offset: Point::new(dx, dy),
             halign: halign
                 .parse::<HAlign>()
@@ -81,7 +87,25 @@ impl FromPy<'_> for PyTickLabel {
             valign: valign
                 .parse::<VAlign>()
                 .map_err(|err| invalid(err.to_string()))?,
-        }))
+        })
+    }
+}
+
+impl PyTickLabels {
+    /// Where the label of the tick at `loc` on `side` goes: its point
+    /// (`loc` along the axis, 0 across) through the transform, as
+    /// matplotlib's label maps its position.
+    fn placement(&self, side: SpineSide, loc: f64) -> TickLabelPlacement {
+        let point = match side.axis() {
+            AxisName::X => Point::new(loc, 0.0),
+            AxisName::Y => Point::new(0.0, loc),
+        };
+        TickLabelPlacement {
+            anchor: self.to_axes.transform_point(point),
+            offset: self.offset,
+            halign: self.halign,
+            valign: self.valign,
+        }
     }
 }
 
@@ -283,8 +307,8 @@ impl Projection for PyProjection {
             return None;
         }
         self.tick_label
-            .call::<PyTickLabel>((limits(view), side.name(), loc))
-            .map(|placement| placement.0)
+            .call::<PyTickLabels>((limits(view), side.name()))
+            .map(|labels| labels.placement(side, loc))
     }
 
     fn spine_order(&self) -> [SpineSide; 4] {
@@ -383,10 +407,11 @@ class Adapter:
     def spine_interval(self, limits, side):
         return limits[0] / 2, limits[2]
 
-    def tick_label(self, limits, side, loc):
+    def tick_label(self, limits, side):
         # Left labels 8 pixels inside the axes at their tick's height.
         x0, y0, x1, y1 = limits
-        return (0.0, (loc - y0) / (y1 - y0)), (8.0, 0.0), 'left', 'center'
+        sy = 1 / (y1 - y0)
+        return ([[1, 0, 0], [0, sy, -y0 * sy], [0, 0, 1.0]], None), (8.0, 0.0), 'left', 'center'
 ";
 
     #[test]
@@ -422,12 +447,12 @@ class Adapter:
     #[test]
     fn tick_label_placements_take_matplotlib_alignments() {
         with_python(|py| {
-            let placement: PyTickLabel =
-                eval(py, "", "((0.5, 0.0), (0.0, 4.0), 'center', 'bottom')")
-                    .extract()
-                    .unwrap();
+            // Labels at a tenth of their tick's location, shifted 4 pixels.
+            let labels =
+                "(([[0.1, 0, 0], [0, 1, 0], [0, 0, 1]], None), (0.0, 4.0), 'center', 'bottom')";
+            let labels: PyTickLabels = eval(py, "", labels).extract().unwrap();
             assert_eq!(
-                placement.0,
+                labels.placement(SpineSide::Bottom, 5.0),
                 TickLabelPlacement {
                     anchor: Point::new(0.5, 0.0),
                     offset: Point::new(0.0, 4.0),
@@ -435,8 +460,13 @@ class Adapter:
                     valign: VAlign::Bottom,
                 }
             );
-            let sideways = eval(py, "", "((0.5, 0.0), (0.0, 4.0), 'up', 'bottom')");
-            assert!(sideways.extract::<PyTickLabel>().is_err());
+            assert_eq!(
+                labels.placement(SpineSide::Left, 5.0).anchor,
+                Point::new(0.0, 5.0)
+            );
+            let sideways =
+                "(([[1, 0, 0], [0, 1, 0], [0, 0, 1]], None), (0.0, 4.0), 'up', 'bottom')";
+            assert!(eval(py, "", sideways).extract::<PyTickLabels>().is_err());
         });
     }
 

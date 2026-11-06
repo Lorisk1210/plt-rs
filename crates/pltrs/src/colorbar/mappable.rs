@@ -14,7 +14,7 @@ use crate::colorizer::{MappingChange, change_mapping};
 use crate::colors::{Extend, ScalarMappable, colormaps};
 use crate::contour::{ContourSet, ContourSetArtist};
 use crate::figure::FigureCell;
-use crate::image::{AxesImage, AxesImageArtist, ScalarKind};
+use crate::image::{AxesImage, AxesImageArtist, ScalarField, ScalarKind};
 
 /// Something with a colour mapping a colorbar can show.
 ///
@@ -89,6 +89,10 @@ pub(crate) struct Source {
     pub(crate) alpha: Option<f64>,
     /// The levels of a contour set.
     pub(crate) contours: Option<ContourLevels>,
+    /// The values of the mappable, which the colorbar autoscales a norm
+    /// of the program's to (matplotlib's `_process_values` calls the
+    /// mappable's `autoscale_None`): kept for those norms only.
+    pub(crate) data: Option<Vec<Option<f64>>>,
 }
 
 /// The levels and line styles of a contour set (matplotlib's `_levels`,
@@ -190,26 +194,34 @@ impl MappableLink {
         self,
         artists: &impl ArtistLookup,
     ) -> Option<Result<Source, ColorbarError>> {
-        let plain = |mapping: ScalarMappable, alpha| {
+        let plain = |mapping: ScalarMappable, alpha, data| {
             Ok(Source {
                 mapping,
                 alpha,
                 contours: None,
+                data,
             })
         };
         Some(match self {
             Self::Image(id) => {
                 let image = artists.artist_as::<AxesImageArtist>(id)?;
-                plain(image.core.mappable.borrow().clone(), image.base().alpha)
+                let mapping = image.core.mappable.borrow().clone();
+                let data = (mapping.norm().calls_program())
+                    .then(|| image.core.data.scalars().map(ScalarField::masked_values))
+                    .flatten();
+                plain(mapping, image.base().alpha, data)
             }
             Self::Collection(id) | Self::TriMesh(id) => {
                 let collection = artists.artist_as::<CollectionArtist>(id)?;
                 let alpha = collection.base().alpha;
                 match &collection.mapping {
-                    Some(mapped) => plain(mapped.source.mappable.clone(), alpha),
+                    Some(mapped) => {
+                        let data = mapped.at_draw().then(|| mapped.source.values.clone());
+                        plain(mapped.source.mappable.clone(), alpha, data)
+                    }
                     None => colormaps::get(&crate::rc::params().image_cmap)
                         .map_err(ColorbarError::from)
-                        .and_then(|cmap| plain(ScalarMappable::new(cmap), alpha)),
+                        .and_then(|cmap| plain(ScalarMappable::new(cmap), alpha, None)),
                 }
             }
             Self::Contour(id) => {
@@ -221,6 +233,7 @@ impl MappableLink {
                     .map(|mapping| Source {
                         mapping,
                         alpha: state.alpha,
+                        data: None,
                         contours: Some(ContourLevels {
                             levels: state.levels.clone(),
                             extended: state.extended.clone(),
@@ -274,6 +287,7 @@ impl Mappable<'_> {
                 mapping: mapping.clone(),
                 alpha: None,
                 contours: None,
+                data: None,
             }),
         }
     }

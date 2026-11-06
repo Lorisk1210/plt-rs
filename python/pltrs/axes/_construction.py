@@ -98,6 +98,9 @@ class ConstructionMixin:
         if yscale:
             self.set_yscale(yscale)
         self._internal_update(kwargs)
+        from ..projections import _program
+        if _program.is_program_class(type(self)):
+            _program.rc_tick_sides(self)
 
     @classmethod
     def _constructed_native(cls, figure, kwargs, *, spec=None, rect=None):

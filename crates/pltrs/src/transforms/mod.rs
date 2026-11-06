@@ -32,6 +32,7 @@ mod offset;
 pub(crate) mod program_calls;
 mod resolved;
 mod to_data;
+pub(crate) use to_data::NoFigure;
 mod tracked_bbox;
 
 use std::fmt;

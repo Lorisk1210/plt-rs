@@ -2419,13 +2419,20 @@ class Norm(ABC):
 def _native_norm(norm):
     """
     The callables through which pltrs (Rust) maps data with *norm*, a norm
-    of a class it has no copy of: ``normalize(values, mask, clip)``,
+    of a class it has no copy of, by name: ``normalize(values, mask, clip,
+    shape)`` (the values handed over as a masked array, unless *mask* is
+    None, of *shape*, unless it is None), ``normalize_scalar(value)`` (a
+    value handed over alone),
     ``autoscale_none(values, mask)``, ``inverse(values)``,
-    ``set_limits(vmin, vmax)`` and ``state()``. They take and give plain
-    arrays, the mask apart. pltrs (Rust) calls them while it draws, when
-    the norm's changes must not reach its mappables (which pltrs (Rust)
-    is drawing), so they change the norm without its callbacks.
+    ``set_limits(vmin, vmax)`` and ``state()``; and ``scale``, the name and
+    options of pltrs (Rust)'s scale matching the scale the norm is made
+    from (``norm._scale``), if any. They take and give plain arrays, the
+    mask apart. pltrs (Rust) calls them while it draws, when the norm's
+    changes must not reach its mappables (which pltrs (Rust) is drawing),
+    so they change the norm without its callbacks.
     """
+    from .axis import _native_scale_of
+
     def masked(values, mask):
         return np.ma.masked_array(values, mask)
 
@@ -2434,8 +2441,15 @@ def _native_norm(norm):
         return (np.ma.getdata(result).ravel(),
                 np.ma.getmaskarray(result).ravel())
 
-    def normalize(values, mask, clip):
-        return plain(norm(masked(values, mask), clip=clip))
+    def normalize(values, mask, clip, shape):
+        if mask is not None:
+            values = masked(values, mask)
+        if shape is not None:
+            values = values.reshape(shape)
+        return plain(norm(values, clip=clip))
+
+    def normalize_scalar(value):
+        return plain(norm(np.float64(value)))
 
     def autoscale_none(values, mask):
         with norm.callbacks.blocked():
@@ -2452,7 +2466,11 @@ def _native_norm(norm):
     def state():
         return norm.vmin, norm.vmax, bool(norm.clip)
 
-    return normalize, autoscale_none, inverse, set_limits, state
+    scale = getattr(norm, "_scale", None)
+    return {"normalize": normalize, "normalize_scalar": normalize_scalar,
+            "autoscale_none": autoscale_none, "inverse": inverse,
+            "set_limits": set_limits, "state": state,
+            "scale": None if scale is None else _native_scale_of(scale)}
 
 
 _register("native_norm", _native_norm)

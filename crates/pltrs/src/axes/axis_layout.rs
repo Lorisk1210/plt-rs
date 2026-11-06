@@ -290,8 +290,13 @@ impl<'a> AxisPainter<'a> {
         } else {
             style.labels.second
         };
+        // A label not shown is not placed: matplotlib's places none
+        // (through the program's transforms).
+        if !enabled {
+            return None;
+        }
         let placement = self.label_placement(cx, tick, &style, first_side)?;
-        enabled.then_some((style, placement))
+        Some((style, placement))
     }
 
     /// The label of the major (or `minor`) tick at `index` among those the
@@ -356,10 +361,7 @@ impl<'a> AxisPainter<'a> {
 
     /// A point at `loc` along the axis and `across` (0 or 1) across it.
     pub(super) fn tick_point(&self, loc: f64, across: f64) -> Point {
-        match self.name {
-            AxisName::X => Point::new(loc, across),
-            AxisName::Y => Point::new(across, loc),
-        }
+        point_on_axis(self.name, loc, across)
     }
 
     /// Where the label of `tick` on its first or second side goes,
@@ -636,4 +638,12 @@ pub(crate) fn place_text_measured(
         color,
         url: None,
     })
+}
+
+/// A point at `loc` along axis `name` and `across` (0 or 1) across it.
+pub(super) fn point_on_axis(name: AxisName, loc: f64, across: f64) -> Point {
+    match name {
+        AxisName::X => Point::new(loc, across),
+        AxisName::Y => Point::new(across, loc),
+    }
 }

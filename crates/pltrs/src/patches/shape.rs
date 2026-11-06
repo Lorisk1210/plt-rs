@@ -29,6 +29,20 @@ pub trait PatchShape: Debug + Clone + 'static {
         Affine2D::IDENTITY
     }
 
+    /// Whether [`display_paths`](Self::display_paths) only maps the
+    /// outline through the frame's transform, as the default does, needing
+    /// nothing else of the figure: a draw then lets the figure go while a
+    /// transform or a style of the program's makes or maps the outline.
+    /// Shapes overriding `display_paths` say `false`.
+    const MAPS_OUTLINE_ALONE: bool = true;
+
+    /// Whether making the outline runs code of the program's (a box style
+    /// of the program's), which matplotlib lets read and change the
+    /// figure while it is drawn.
+    fn runs_program(&self) -> bool {
+        false
+    }
+
     /// Whether the shape is degenerate and should not affect autoscaling.
     fn skips_autoscale(&self) -> bool {
         false
@@ -43,13 +57,11 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// renderer applies and whether its face is filled. By default the
     /// outline goes through the patch transform and then the artist's.
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
-        let placed =
-            ResolvedTransform::affine(self.patch_transform()).then(frame.transform.clone());
-        let outline = self
-            .path()
-            .with_interpolation_steps(frame.interpolation_steps);
-        let (path, affine) = placed.split_path(&outline);
-        Ok(vec![DisplayPath::filled(path.into_owned(), affine)])
+        Ok(outline_through(
+            self,
+            &frame.transform,
+            frame.interpolation_steps,
+        ))
     }
 
     /// The outline mapped by the patch transform: in the coordinates of the
@@ -79,6 +91,20 @@ pub trait PatchShape: Debug + Clone + 'static {
     ) -> Option<Vec<Point>> {
         None
     }
+}
+
+/// The outline of `shape` cut into `interpolation_steps` pieces per
+/// segment, through its patch transform, then `transform`, the artist's:
+/// what [`PatchShape::display_paths`] paints by default.
+pub(crate) fn outline_through<S: PatchShape>(
+    shape: &S,
+    transform: &ResolvedTransform,
+    interpolation_steps: usize,
+) -> Vec<DisplayPath> {
+    let placed = ResolvedTransform::affine(shape.patch_transform()).then(transform.clone());
+    let outline = shape.path().with_interpolation_steps(interpolation_steps);
+    let (path, affine) = placed.split_outline(&outline);
+    vec![DisplayPath::filled(path.into_owned(), affine)]
 }
 
 /// Where a patch is being drawn: what [`PatchShape::display_paths`] may

@@ -29,7 +29,7 @@ fn axis_name(name: &str) -> PyResult<AxisName> {
 /// The options of a scale from the keyword arguments the Python scale
 /// was made with (`base`, `subs`, `nonpositive`, `linthresh`,
 /// `linscale`, `linear_width`, `one_half`, `use_overline`, `functions`).
-fn options(kwargs: &Bound<'_>) -> PyResult<ScaleOptions> {
+pub(crate) fn options(kwargs: &Bound<'_>) -> PyResult<ScaleOptions> {
     let mut options = ScaleOptions::default();
     for (key, value) in dict_items(kwargs)? {
         let key: String = key.extract()?;

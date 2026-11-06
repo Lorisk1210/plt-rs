@@ -425,10 +425,11 @@ impl Axes {
     /// When adjusting the data limits would make them NaN or infinite
     /// (they are left as they are).
     pub fn apply_aspect(&self) -> Result<&Self, AspectError> {
-        self.raw
-            .figure_state()
-            .borrow_mut()
-            .apply_aspect_now(self.id(), Placement::Located)?;
+        // Worked on apart from the figure, which a projection of the
+        // program's asked for its data ratio finds free.
+        let id = self.id();
+        (self.raw.figure_state())
+            .work_on(|state| state.apply_aspect_now(id, Placement::Located))?;
         Ok(self)
     }
 
@@ -442,10 +443,11 @@ impl Axes {
     ///
     /// As [`Axes::apply_aspect`].
     pub fn apply_aspect_at(&self, position: Bbox) -> Result<&Self, AspectError> {
+        let id = self.id();
+        let placement = Placement::Given(position);
         self.raw
             .figure_state()
-            .borrow_mut()
-            .apply_aspect_now(self.id(), Placement::Given(position))?;
+            .work_on(|state| state.apply_aspect_now(id, placement))?;
         Ok(self)
     }
 }

@@ -898,19 +898,50 @@ limits mapped once while they stay (`TransformedBbox(viewLim,
 transScale)`, `AxesState::scale_box`), and a line's path kept while its
 data and transform stay, mapped anew at every draw for a line drawing a
 slice of its points (`lines/program_path.rs`, matplotlib's
-`TransformedPath`). Each call hands the arrays matplotlib hands: the
+`TransformedPath`), and a mesh's coordinates mapped at every draw
+(`QuadMesh.draw`). Each call hands the arrays matplotlib hands: the
 coordinates of the points a blend of `transData` and `transAxes` maps,
-a row where drawing maps them through the scale's `transform_non_affine`
-and a column where matplotlib calls `transform` (autoscaling, the
-function of a `functionlog` scale; `_scale_calls.ScaleCalls`). pltrs
+a row where drawing maps them through the scale's `transform_non_affine`,
+a column where matplotlib calls `transform` (autoscaling, the tick
+updates, the function of a `functionlog` scale;
+`_scale_calls.ScaleCalls`), and a masked row for a mesh's coordinates
+(`ArrayLayout::MaskedRow`). pltrs
 lays out and draws the same parts its own way meanwhile, needing the
 same values in other batches: that work runs quietly
 (`transforms/program_calls.rs`), the program's maps answering it from
 what they answered since the layout began, so that the program sees only
 matplotlib's calls. A curvilinear grid is computed where matplotlib's
 grid helper computes it, when a floating axis is made
-(`AxisArtist._init_line`, `_native.axisartist.init_line`), and again only
-for other limits.
+(`AxisArtist._init_line`, `_native.axisartist.init_line`, with the figure
+free), and again only for other limits.
+
+The transforms of a projection of the program's are called at the same
+sites (`axes/projection_sites.rs`): each tick label measured and drawn
+maps its point through the label transform of its side (the adapter's
+`tick_label` gives it evaluated, and pltrs maps each tick's point
+through it), each gridline and tick mark its path, then its points. The
+maps of the plane the adapter evaluates are kept per transform and view
+(`_Adapter._kept`), so that the program's answers are kept by the Python
+object they call (`PointMap::program_key`, `_answers_alike`) and pltrs'
+own quiet work answers from them.
+
+A norm of the program's (`PythonNorm`) is called as matplotlib's
+colorbar and mappables call it: a collection autoscales it once, when it
+is made (`_scale_norm`), and normalises its array, as a masked array of
+the collection's shape, at every draw (`update_scalarmappable`,
+`Mapped::normalize_drawn`; walked as a site of the axes' draw,
+`program_collection_drawn`, which the paint then uses); a colorbar
+autoscales it to its mappable's values in each `_process_values`,
+normalises its boundaries in `_mesh` and `_do_extends`, the values of
+its extensions alone (`Norm::normalize_scalar`), and its boundaries
+again wherever matplotlib's `_ColorbarAxesLocator` runs (`colorbar_located`,
+where the aspect is applied: `_get_draw_artists`, `Axes.draw`, tight
+boxes). A norm made from a scale (`norm._scale`, a `FuncNorm`'s
+functions) scales the colorbar's long axis with that scale, which calls
+the program's functions; another norm, with a function scale through the
+norm itself. The arrays are those matplotlib hands over
+(`Norm::normalize_shaped`, `ArrayForm`): plain for boundaries and axis
+values, masked for a mappable's array and a mesh's coordinates.
 
 Axes sharing an axis hold the same `Ticker` objects, those of the first
 Axes of the chain they share from (`Axis._take_shared_tickers`), as
@@ -972,14 +1003,27 @@ draw. An axis maps values through its scale apart from the figure
 code of the program's pay nothing: a transform calling none of it keeps
 the figure borrowed.
 
+The program's code that makes or maps a patch's outline (a transform or
+a box style of the program's) runs with the figure free: a draw lets it
+go first (`PatchParts::program_outline`, `PatchShape::MAPS_OUTLINE_ALONE`),
+and the data limits of an artist added to an axes are measured apart from
+the figure (matplotlib's `_update_patch_limits` makes the path first,
+calling a box style even for a patch in axes fractions). A projection's
+data ratio is asked with the figure lent (`FigureState::data_ratio_of`,
+`Axes::apply_aspect` working on the figure apart). A tight box maps the
+positions of the texts it measures through a transform of the program's
+with the figure lent, then measures them quietly
+(`program_texts_measured`).
+
 Other code pltrs (Rust) runs while it lays a figure out or draws it with
 the figure held finds the figure in use: taken out while it is laid out,
 borrowed for reading while it is drawn. That is the code a transform's
-resolution runs (the hooks of a projection of the program's, a function
-scale first mapping a view's ends), patches drawn through a transform of
-the program's or with a box style of the program's, the grid finders of
-axisartist, and a layout's measures of texts through transforms of the
-program's. matplotlib's may still change it, so a
+resolution runs (the hooks of a projection of the program's other than
+its data ratio: its transforms evaluated, its `get_view_interval`, its
+`Tick.draw` probe, its `Spine._adjust_location`), the grid finders of
+axisartist where an axis artist or its gridlines draw (but
+`AxisArtist._init_line`), and texts measured through transforms of the
+program's outside tight boxes. matplotlib's may still change it, so a
 native call made from such code (any native call made while another
 native call of its thread runs) runs inside `pltrs::figure::reenter`,
 which stops it where it reaches the figure in use, instead of letting the

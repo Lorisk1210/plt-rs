@@ -18,7 +18,7 @@ import weakref
 
 import numpy as np
 
-from ._native import transforms as _transforms
+from ._native import register as _register, transforms as _transforms
 from .transforms import (
     Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
     BlendedGenericTransform, CompositeAffine2D, CompositeGenericTransform,
@@ -138,6 +138,12 @@ class _ProgramMap:
     invalidated.
     """
 
+    #: The map gives the same answer for the same point for as long as it
+    #: lives, so that pltrs (Rust) may answer from what it answered before
+    #: while it lays the figure out (the program's transform is called
+    #: where matplotlib calls it, see ``transforms::program_calls``).
+    _answers_alike = True
+
     def __init__(self, transform):
         self._transform = transform
         self._cached = None
@@ -167,6 +173,13 @@ class _ProgramMap:
             path = Path(vertices, codes, _interpolation_steps=steps)
             self._cached = (key, TransformedPath(path, self._transform))
         return self._cached[1].get_fully_transformed_path()
+
+    def transform_outline(self, vertices, codes, steps=1):
+        """The outline of a patch, of *vertices* and *codes* (with *steps*
+        interpolation steps), through the transform, mapped anew as
+        matplotlib's ``Patch.draw`` maps it at every draw."""
+        path = Path(vertices, codes, _interpolation_steps=steps)
+        return self._transform.transform_path(path)
 
 
 class _Unnamed(Exception):
@@ -287,3 +300,8 @@ def _named(figure, artist_id):
     if artist is None:
         artist = figure.__dict__.get("_tree_owners", {}).get(artist_id)
     return artist
+
+
+# The masked arrays pltrs (Rust) hands the program's scales where
+# matplotlib hands masked ones (a mesh's coordinates).
+_register("masked_invalid", np.ma.masked_invalid)

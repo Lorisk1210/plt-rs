@@ -447,7 +447,7 @@ impl FigureState {
             // layout engine runs: a projection giving its own data ratio
             // is asked for it there too.
             for &id in &axes {
-                self.sync_secondary(id);
+                self.aspect_applied(id);
                 if self.asks_data_ratio(id) {
                     self.apply_aspect(id);
                 }

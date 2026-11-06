@@ -434,3 +434,11 @@ class Sankey:
         """
         _sankey.finish(self._native)
         return self.diagrams
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from .patches import PathPatch  # noqa: E402, F401
+from .path import Path  # noqa: E402, F401
+from .transforms import Affine2D  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

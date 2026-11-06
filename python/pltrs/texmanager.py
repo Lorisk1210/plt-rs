@@ -166,3 +166,14 @@ class TexManager:
         # A total height (including the descent) is returned.
         return _texmanager.text_width_height_descent(
             tex, float(fontsize), float(dpi_fraction))
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import hashlib  # noqa: E402, F401
+import logging  # noqa: E402, F401
+import subprocess  # noqa: E402, F401
+from pathlib import Path  # noqa: E402, F401
+from tempfile import TemporaryDirectory  # noqa: E402, F401
+from . import cbook, dviread  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

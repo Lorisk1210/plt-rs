@@ -32,7 +32,7 @@ from ..text import _measuring_with
 from ..transforms import BboxBase
 from . import _backend_agg
 from ._backend_agg import BufferRegion
-from ._native_drawing import MathtextDrawingMixin, NativeDrawingMixin, native_gc
+from ._native_drawing import NativeDrawingMixin, native_gc
 
 #: The raster formats written by Pillow, as matplotlib writes them: GIF,
 #: whose palette and transparency are Pillow's choice, and AVIF, whose
@@ -67,7 +67,7 @@ def _sync_texts_as_paths():
     _backends.set_texts_as_paths(RendererAgg.draw_text is RendererBase.draw_text)
 
 
-class RendererAgg(MathtextDrawingMixin, NativeDrawingMixin, RendererBase,
+class RendererAgg(NativeDrawingMixin, RendererBase,
                   metaclass=_WatchesTextDrawing):
     """
     The renderer handles all the drawing primitives using a graphics
@@ -162,6 +162,16 @@ class RendererAgg(MathtextDrawingMixin, NativeDrawingMixin, RendererBase,
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
         self._draw_line(gc, x, y, s, prop, angle, "TeX")
+
+    def draw_mathtext(self, gc, x, y, s, prop, angle):
+        """Draw mathtext using :mod:`matplotlib.mathtext`."""
+        self._draw_line(gc, x, y, s, prop, angle, True)
+
+    def start_filter(self):
+        """
+        Start filtering. It simply creates a new canvas (the old one is saved).
+        """
+        super().start_filter()
 
     def stop_filter(self, post_processing):
         """
@@ -384,8 +394,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         """
         return self.renderer.buffer_rgba()
 
-    def _print_raster(self, filename_or_obj, fmt, metadata, pil_kwargs,
-                      **kwargs):
+    def _print_raster(self, filename_or_obj, fmt, metadata, pil_kwargs):
         """
         Write the figure as the raster format *fmt*. pltrs (Rust) encodes
         it, refusing *metadata* for the formats other than PNG as
@@ -397,22 +406,20 @@ class FigureCanvasAgg(FigureCanvasBase):
         if fmt == "jpeg" and pil_kwargs is not None and set(pil_kwargs) == {"quality"}:
             settings["jpeg_quality"] = int(pil_kwargs["quality"])
         elif fmt in _PILLOW_FORMATS or pil_kwargs:
-            self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata,
-                            **kwargs)
+            self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata)
             return
         with self._printing():
-            self._print_native(fmt, filename_or_obj, **kwargs, **settings)
+            self._print_native(fmt, filename_or_obj, **settings)
 
-    def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata,
-                   **kwargs):
+    def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata):
         """
-        Draw the figure with the print settings *kwargs*, then save its
+        Draw the figure with the print settings of the moment, then save its
         pixels using `.image.imsave` (to which *pil_kwargs* and *metadata*
         are forwarded), as matplotlib's ``_print_pil`` does.
         """
         with self._printing():
             rgba = _backends.print_rgba(self.figure._native,
-                                        self._print_settings(**kwargs),
+                                        self._print_settings(),
                                         self._draw_event_sender())
         # savefig() has already applied savefig.facecolor; imsave() blends
         # semi-transparent JPEG figures against an assumed white background.
@@ -422,19 +429,15 @@ class FigureCanvasAgg(FigureCanvasBase):
                    dpi=self.figure.dpi, metadata=metadata,
                    pil_kwargs=pil_kwargs)
 
-    def print_raw(self, filename_or_obj, *, metadata=None,
-                  bbox_inches_restore=None, facecolor=None, edgecolor=None):
+    def print_raw(self, filename_or_obj, *, metadata=None):
         if metadata is not None:
             raise ValueError("metadata not supported for raw/rgba")
         with self._printing():
-            self._print_native("raw", filename_or_obj,
-                               bbox_inches_restore=bbox_inches_restore,
-                               facecolor=facecolor, edgecolor=edgecolor)
+            self._print_native("raw", filename_or_obj)
 
     print_rgba = print_raw
 
-    def print_png(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
-                  bbox_inches_restore=None, facecolor=None, edgecolor=None):
+    def print_png(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
         """
         Write the figure to a PNG file.
 
@@ -481,9 +484,7 @@ class FigureCanvasAgg(FigureCanvasBase):
             If the 'pnginfo' key is present, it completely overrides
             *metadata*, including the default 'Software' key.
         """
-        self._print_raster(filename_or_obj, "png", metadata, pil_kwargs,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+        self._print_raster(filename_or_obj, "png", metadata, pil_kwargs)
 
     def print_to_buffer(self):
         FigureCanvasAgg.draw(self)
@@ -495,39 +496,24 @@ class FigureCanvasAgg(FigureCanvasBase):
     # print_figure(), and the latter ensures that `self.figure.dpi` already
     # matches the dpi kwarg (if any).
 
-    def print_gif(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
-                  bbox_inches_restore=None, facecolor=None, edgecolor=None):
-        self._print_raster(filename_or_obj, "gif", metadata, pil_kwargs,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+    def print_gif(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_raster(filename_or_obj, "gif", metadata, pil_kwargs)
 
-    def print_jpg(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
-                  bbox_inches_restore=None, facecolor=None, edgecolor=None):
-        self._print_raster(filename_or_obj, "jpeg", metadata, pil_kwargs,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+    def print_jpg(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_raster(filename_or_obj, "jpeg", metadata, pil_kwargs)
 
     print_jpeg = print_jpg
 
-    def print_tif(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
-                  bbox_inches_restore=None, facecolor=None, edgecolor=None):
-        self._print_raster(filename_or_obj, "tiff", metadata, pil_kwargs,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+    def print_tif(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_raster(filename_or_obj, "tiff", metadata, pil_kwargs)
 
     print_tiff = print_tif
 
-    def print_webp(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
-                   bbox_inches_restore=None, facecolor=None, edgecolor=None):
-        self._print_raster(filename_or_obj, "webp", metadata, pil_kwargs,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+    def print_webp(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_raster(filename_or_obj, "webp", metadata, pil_kwargs)
 
-    def print_avif(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
-                   bbox_inches_restore=None, facecolor=None, edgecolor=None):
-        self._print_raster(filename_or_obj, "avif", metadata, pil_kwargs,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+    def print_avif(self, filename_or_obj, *, metadata=None, pil_kwargs=None):
+        self._print_raster(filename_or_obj, "avif", metadata, pil_kwargs)
 
     (print_gif.__doc__,
      print_jpg.__doc__,
@@ -555,3 +541,17 @@ class _BackendAgg(_Backend):
     backend_version = 'v2.2'
     FigureCanvas = FigureCanvasAgg
     FigureManager = FigureManagerBase
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+from PIL import features  # noqa: E402, F401
+from .. import cbook  # noqa: E402, F401
+from ..dviread import Dvi  # noqa: E402, F401
+from ..font_manager import get_font  # noqa: E402, F401
+from ..ft2font import RenderMode  # noqa: E402, F401
+from ..mathtext import MathTextParser  # noqa: E402, F401
+from ..path import Path  # noqa: E402, F401
+from ..transforms import Bbox  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

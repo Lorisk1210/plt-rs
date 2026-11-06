@@ -932,3 +932,10 @@ def _figure_subplotpars(figure_native, params=None):
         kept = given.get(key, rcParams[f"figure.subplot.{key}"])
         setattr(params, key, kept if kept == value else np.float64(value))
     return params
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import copy  # noqa: E402, F401
+import logging  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

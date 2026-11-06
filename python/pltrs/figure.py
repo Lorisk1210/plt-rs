@@ -30,11 +30,11 @@ from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from ._figure_frame import FrameMixin
-from ._figure_interaction import InteractionMixin
+from ._figure_interaction import InteractionMixin, RootFigureMixin
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
-from .text import Text, _layout_renderer, _measuring_with
+from .text import Text
 from .transforms import BboxBase
 from ._text_methods import FigureText
 from ._transform_trees import FigureTrees
@@ -180,8 +180,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         background pltrs (Rust) draws (see `._background_patch`)."""
         return _background_patch.figure_patch(self)
 
-    def get_axes(self):
-        """List of Axes in the Figure."""
+    def _listed_axes(self):
+        """The Axes of the figure or subfigure (`Figure.axes`,
+        `SubFigure.axes`)."""
         from ._native import mplot3d as _mplot3d
         listed = _mplot3d.figure_axes(self._native)
         # The 3D class (its toolkit imported) only for a figure with 3D axes.
@@ -191,8 +192,6 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             axes3d = get_projection_class("3d")
         return [_handles.wrap(native, axes3d if is_3d else Axes, self.figure)
                 for native, is_3d in listed]
-
-    axes = property(get_axes, doc="List of Axes in the Figure.")
 
     @property
     def _localaxes(self):
@@ -318,7 +317,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                 getattr(ax, f"share{name}")(other)
         # The one keyword of Axes.__init__ whose setter has another name.
         if not kwargs.pop("frameon", True):
-            ax.set_frame_on(False)
+            ax._frameon = False
         ax._internal_update(kwargs)
         # matplotlib's ``_add_axes_internal`` makes it current (``sca``).
         self._axes_changed()
@@ -871,72 +870,6 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         _figure.subplots_adjust(self._native,
                                 (left, bottom, right, top, wspace, hspace))
 
-    def set_layout_engine(self, layout=None, **kwargs):
-        """
-        Set the layout engine for this figure.
-
-        Parameters
-        ----------
-        layout : {'constrained', 'compressed', 'tight', 'none', `.LayoutEngine`, None}
-
-            - 'constrained' will use `~.ConstrainedLayoutEngine`
-            - 'compressed' will also use `~.ConstrainedLayoutEngine`, but with
-              a correction that attempts to make a good layout for fixed-aspect
-              ratio Axes.
-            - 'tight' uses `~.TightLayoutEngine`
-            - 'none' removes layout engine.
-
-            If a `.LayoutEngine` instance, that instance will be used.
-
-            If `None`, the behavior is controlled by :rc:`figure.autolayout`
-            (which if `True` behaves as if 'tight' was passed) and
-            :rc:`figure.constrained_layout.use` (which if `True` behaves as if
-            'constrained' was passed).  If both are `True`,
-            :rc:`figure.autolayout` takes priority.
-
-            Users and libraries can define their own layout engines and pass
-            the instance directly as well.
-
-        **kwargs
-            The keyword arguments are passed to the layout engine to set things
-            like padding and margin sizes.  Only used if *layout* is a string.
-
-        """
-        if layout is None:
-            if rcParams['figure.autolayout']:
-                layout = 'tight'
-            elif rcParams['figure.constrained_layout.use']:
-                layout = 'constrained'
-            else:
-                self._layout_engine = None
-                _figure.set_layout_engine(self._native, None)
-                return
-        if layout == 'tight':
-            new_layout_engine = TightLayoutEngine(**kwargs)
-        elif layout == 'constrained':
-            new_layout_engine = ConstrainedLayoutEngine(**kwargs)
-        elif layout == 'compressed':
-            new_layout_engine = ConstrainedLayoutEngine(compress=True,
-                                                        **kwargs)
-        elif layout == 'none':
-            if self._layout_engine is not None:
-                new_layout_engine = PlaceHolderLayoutEngine(
-                    self._layout_engine.adjust_compatible,
-                    self._layout_engine.colorbar_gridspec
-                )
-            else:
-                new_layout_engine = None
-        elif isinstance(layout, LayoutEngine):
-            new_layout_engine = layout
-        else:
-            raise ValueError(f"Invalid value for 'layout': {layout!r}")
-
-        if new_layout_engine is None:
-            _figure.set_layout_engine(self._native, None)
-        else:
-            new_layout_engine._attach(self)
-        self._layout_engine = new_layout_engine
-
     @_docstring.interpd
     def colorbar(self, mappable, cax=None, ax=None, use_gridspec=True,
                  **kwargs):
@@ -1235,9 +1168,6 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         return _handles.wrap_all(_legend.figure_legends(self._native),
                                  mlegend.Legend, self.figure)
 
-    def get_layout_engine(self):
-        return self._layout_engine
-
     def clear(self, keep_observers=False):
         """
         Clear the figure.
@@ -1300,29 +1230,6 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             a gui widget is tracking the Axes in the figure.
         """
         return self.clear(keep_observers=keep_observers)
-
-    def draw_without_rendering(self):
-        """
-        Draw the figure with no output.  Useful to get the final size of
-        artists that require a draw before their size is known (e.g. text).
-        """
-        renderer = self._get_renderer()  # It follows the figure.
-        canvas = self.canvas
-        printing = canvas.fixed_dpi is not None and not hasattr(canvas, "get_renderer")
-        if printing:
-            # matplotlib finds the renderer by running the print method of
-            # the canvas, which sets the figure to the canvas' fixed
-            # resolution (72 dpi for SVG, PDF and PostScript) and leaves it.
-            dpi, self.dpi = self.dpi, canvas.fixed_dpi
-        with _measuring_with(_layout_renderer(self)):
-            _figure.draw_without_rendering(self._native)
-        if self.get_visible() and canvas.callbacks.callbacks.get("draw_event"):
-            # matplotlib's draw, rendering or not, ends with its event,
-            # which carries the renderer of the print it ran.
-            make = getattr(canvas, "_program_renderer", None)
-            if printing and make is not None:
-                renderer = make(dpi, None)
-            DrawEvent("draw_event", canvas, renderer)._process()
 
     def _get_renderer(self):
         """The renderer of the root figure's canvas: the canvas' own, or the
@@ -1486,6 +1393,27 @@ class SubFigure(FigureBase):
         return self._parent.get_layout_engine()
 
     @property
+    def axes(self):
+        """
+        List of Axes in the SubFigure.  You can access and modify the Axes
+        in the SubFigure through this list.
+
+        Modifying this list has no effect. Instead, use `~.SubFigure.add_axes`,
+        `~.SubFigure.add_subplot` or `~.SubFigure.delaxes` to add or remove an
+        Axes.
+
+        Note: The `.SubFigure.axes` property and `~.SubFigure.get_axes` method
+        are equivalent.
+        """
+        return self._listed_axes()
+
+    get_axes = axes.fget
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
+    @property
     def canvas(self):
         return self._parent.canvas
 
@@ -1516,7 +1444,7 @@ class SubFigure(FigureBase):
 
 
 @_docstring.interpd
-class Figure(FigureLayout, FigureImagesMixin, FigureBase):
+class Figure(FigureLayout, FigureImagesMixin, RootFigureMixin, FigureBase):
     """
     The top level container for all the plot elements.
 
@@ -1536,6 +1464,14 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
     def __str__(self):
         width, height = self.get_size_inches() * self.dpi
         return "Figure(%gx%g)" % (width, height)
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
+    def clear(self, keep_observers=False):
+        # docstring inherited
+        super().clear(keep_observers=keep_observers)
 
     def __repr__(self):
         width, height = self.get_size_inches() * self.dpi
@@ -1903,10 +1839,13 @@ None}, default: None
         if forward and manager is not None:
             manager.resize(*(size * self.dpi).astype(int))
 
-    def get_dpi(self):
-        """Return the resolution in dots per inch as a float."""
+    def _get_dpi(self):
         # As given, as matplotlib keeps it.
         return _values.given(self, "dpi", _figure.get_dpi(self._native))
+
+    def get_dpi(self):
+        """Return the resolution in dots per inch as a float."""
+        return self.dpi
 
     def set_dpi(self, val):
         """
@@ -1928,7 +1867,7 @@ None}, default: None
             _values.remember(self, "dpi", dpi)
             self.set_size_inches(*self.get_size_inches(), forward=forward)
 
-    dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
+    dpi = property(_get_dpi, set_dpi, doc="The resolution in dots per inch.")
 
     def remove(self):
         """A root figure is in nothing it could be removed from: matplotlib's
@@ -2510,3 +2449,18 @@ def _parse_figsize(figsize, dpi):
 
 cbook._own_mixin_methods(FigureBase, Artist)
 cbook._own_mixin_methods(Figure, FigureBase)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import inspect  # noqa: E402, F401
+import itertools  # noqa: E402, F401
+import threading  # noqa: E402, F401
+from contextlib import ExitStack  # noqa: E402, F401
+from . import backend_bases, image as mimage, legend as mlegend, projections  # noqa: E402, F401
+from .artist import allow_rasterization  # noqa: E402, F401
+from .backend_bases import DrawEvent  # noqa: E402, F401
+from .patches import Rectangle  # noqa: E402, F401
+from .transforms import Affine2D, Bbox, BboxTransformTo, TransformedBbox  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

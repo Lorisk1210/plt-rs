@@ -1,6 +1,6 @@
 """
 The `Axes` class: plotting methods on a pltrs (Rust) axes (matplotlib's
-``axes._axes`` and ``axes._base``).
+``axes._axes``).
 
 Each plotting method turns matplotlib's signature (positional forms,
 aliases, defaults) into the explicit arguments of a native function of
@@ -8,15 +8,12 @@ aliases, defaults) into the explicit arguments of a native function of
 """
 
 from .. import _docstring
-from .. import _handles, _values, cbook
+from .. import _values, cbook
 from .._native import axes as _axes
 from . import _failed_calls
 from ._artist_list import ArtistList
 from ._base import _AxesBase
-from ._clear import ClearMixin
 from ..axis import XAxis, YAxis
-from ..legend import Legend
-from ..lines import Line2D
 from ._imaging import ImagingMixin
 from ._insets import InsetsMixin
 from ._plotting import PlottingMixin
@@ -27,7 +24,7 @@ from .._text_methods import AxesText
 
 @_docstring.interpd
 class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
-           ClearMixin, _AxesBase):
+           _AxesBase):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot in
     a figure.
@@ -66,137 +63,12 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         self.xaxis = XAxis(self)
         self.yaxis = YAxis(self)
 
-    def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
-                   **kwargs):
-        """
-        Set the label for the x-axis.
-
-        Parameters
-        ----------
-        xlabel : str
-            The label text.
-
-        labelpad : float, default: :rc:`axes.labelpad`
-            Spacing in points from the Axes bounding box including ticks
-            and tick labels.  If None, the previous value is left as is.
-
-        loc : {'left', 'center', 'right'}, default: :rc:`xaxis.labellocation`
-            The label position. This is a high-level alternative for passing
-            parameters *x* and *horizontalalignment*.
-
-        Other Parameters
-        ----------------
-        **kwargs : `~matplotlib.text.Text` properties
-            `.Text` properties control the appearance of the label.
-
-        See Also
-        --------
-        text : Documents the properties supported by `.Text`.
-        """
-        return self.xaxis._set_axes_label(xlabel, fontdict, labelpad, loc,
-                                          kwargs)
-
-    def get_xlabel(self):
-        """
-        Get the xlabel text string.
-        """
-        return _axes.get_xlabel(self._native)
-
-    def set_ylabel(self, ylabel, fontdict=None, labelpad=None, *, loc=None,
-                   **kwargs):
-        """
-        Set the label for the y-axis.
-
-        Parameters
-        ----------
-        ylabel : str
-            The label text.
-
-        labelpad : float, default: :rc:`axes.labelpad`
-            Spacing in points from the Axes bounding box including ticks
-            and tick labels.  If None, the previous value is left as is.
-
-        loc : {'bottom', 'center', 'top'}, default: :rc:`yaxis.labellocation`
-            The label position. This is a high-level alternative for passing
-            parameters *y* and *horizontalalignment*.
-
-        Other Parameters
-        ----------------
-        **kwargs : `~matplotlib.text.Text` properties
-            `.Text` properties control the appearance of the label.
-
-        See Also
-        --------
-        text : Documents the properties supported by `.Text`.
-        """
-        return self.yaxis._set_axes_label(ylabel, fontdict, labelpad, loc,
-                                          kwargs)
-
-    def get_ylabel(self):
-        """
-        Get the ylabel text string.
-        """
-        return _axes.get_ylabel(self._native)
-
     def _display_to_data(self, xy):
         """The data coordinates of the display point *xy*
         (``self.transData.inverted().transform(xy)``)."""
         x, y = xy
         # numpy floats, as matplotlib's transform gives them.
         return _values.float64s(_axes.display_to_data(self._native, x, y))
-
-    def get_xlim(self):
-        """
-        Return the x-axis view limits.
-
-        Returns
-        -------
-        left, right : (float, float)
-            The current x-axis limits in data coordinates.
-
-        See Also
-        --------
-        .Axes.set_xlim
-        .Axes.set_xbound, .Axes.get_xbound
-        .Axes.invert_xaxis, .Axes.xaxis_inverted
-
-        Notes
-        -----
-        The x-axis may be inverted, in which case the *left* value will
-        be greater than the *right* value.
-        """
-        return _values.float64s(_axes.get_xlim(self._native))
-
-    def get_ylim(self):
-        """
-        Return the y-axis view limits.
-
-        Returns
-        -------
-        bottom, top : (float, float)
-            The current y-axis limits in data coordinates.
-
-        See Also
-        --------
-        .Axes.set_ylim
-        .Axes.set_ybound, .Axes.get_ybound
-        .Axes.invert_yaxis, .Axes.yaxis_inverted
-
-        Notes
-        -----
-        The y-axis may be inverted, in which case the *bottom* value
-        will be greater than the *top* value.
-        """
-        return _values.float64s(_axes.get_ylim(self._native))
-
-    @property
-    def lines(self):
-        return ArtistList._of("lines", lambda: _handles.wrap_all(
-            _axes.get_lines(self._native), Line2D, self.figure))
-
-    def get_lines(self):
-        """Return a list of lines contained by the Axes."""
-        return cbook.silent_list('Line2D', self.lines)
 
     def get_legend_handles_labels(self, legend_handler_map=None):
         """
@@ -331,30 +203,6 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         from .. import legend as mlegend
         handles, labels, kwargs = mlegend._parse_legend_args([self], *args, **kwargs)
         return mlegend.Legend(self, handles, labels, **kwargs)
-
-    def get_legend(self):
-        """Return the `.Legend` instance, or None if no legend is defined."""
-        from .._native import legend as _legend
-        return _handles.wrap(_legend.axes_legend(self._native), Legend, self.figure)
-
-    @property
-    def legend_(self):
-        """The `.Legend` of the Axes, or None."""
-        return self.get_legend()
-
-    @legend_.setter
-    def legend_(self, legend):
-        # matplotlib's attribute: None takes the legend off the Axes, a
-        # legend made for the Axes becomes its legend again.
-        current = self.get_legend()
-        if legend is current:
-            return
-        if legend is None:
-            current.remove()
-            return
-        from .._native import legend as _legend
-        if not _legend.set_axes_legend(self._native, legend._native):
-            raise ValueError("legend_ must be a Legend made for this Axes")
 
 
 # matplotlib defines the methods of the mixins on Axes itself.

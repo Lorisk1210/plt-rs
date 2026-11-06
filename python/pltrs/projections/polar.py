@@ -399,6 +399,9 @@ class ThetaTick(XTick):
         self.label1.set_rotation_mode('anchor')
         self.label2.set_rotation_mode('anchor')
 
+    def update_position(self, loc):
+        super().update_position(loc)
+
 
 class ThetaAxis(XAxis):
     """
@@ -452,6 +455,9 @@ class RadialTick(YTick):
         super().__init__(*args, **kwargs)
         self.label1.set_rotation_mode('anchor')
         self.label2.set_rotation_mode('anchor')
+
+    def update_position(self, loc):
+        super().update_position(loc)
 
 
 class RadialAxis(YAxis):
@@ -566,6 +572,10 @@ class PolarAxes(PolarTrees, Axes):
         self.use_sticky_edges = True
         self.set_aspect('equal', adjustable='box', anchor='C')
         self.clear()
+
+    # What ``help`` shows, as matplotlib's (the mixin before `.Axes` in the
+    # MRO would hide it).
+    __init__.__doc__ = Axes.__init__.__doc__
 
     def _init_axes_state(self):
         super()._init_axes_state()
@@ -1042,6 +1052,21 @@ class PolarAxes(PolarTrees, Axes):
         """
         return True
 
+    # pltrs (Rust) draws the polar Axes, and pans and zooms them in azimuth
+    # and along the radius as matplotlib's do.
+
+    def draw(self, renderer):
+        super().draw(renderer)
+
+    def start_pan(self, x, y, button):
+        super().start_pan(x, y, button)
+
+    def end_pan(self):
+        super().end_pan()
+
+    def drag_pan(self, button, key, x, y):
+        super().drag_pan(button, key, x, y)
+
 
 PolarAxes.ThetaFormatter = ThetaFormatter
 PolarAxes.RadialLocator = RadialLocator
@@ -1052,3 +1077,12 @@ PolarAxes.InvertedPolarTransform = InvertedPolarTransform
 
 
 cbook._own_mixin_methods(PolarAxes, Axes)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+import types  # noqa: E402, F401
+from .. import axis as maxis, markers as mmarkers  # noqa: E402, F401
+from ..spines import Spine  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

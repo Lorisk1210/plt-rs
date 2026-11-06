@@ -409,13 +409,14 @@ def line_2d_to_3d(line, zs=0, zdir='z', axlim_clip=False):
     line.set_3d_properties(zs, zdir, axlim_clip)
 
 
+# What a 3-D collection made before an `.Axes3D` adds it holds: its 3-D
+# vertices (the loose 2-D collection holds its properties), handed to pltrs
+# (Rust) when a 3-D axes adds it (`.Axes3D.add_collection3d`,
+# `~.Axes.add_collection`, `~.Axes.add_artist`). The collection classes
+# define the public methods again as their own, as matplotlib's do. No
+# docstring, nor for the mixins below: ``help`` shows those of the classes'
+# bases, as for matplotlib's.
 class _Loose3D:
-    """
-    What a 3-D collection made before an `.Axes3D` adds it holds: its 3-D
-    vertices (the loose 2-D collection holds its properties), handed to
-    pltrs (Rust) when a 3-D axes adds it (`.Axes3D.add_collection3d`,
-    `~.Axes.add_collection`, `~.Axes.add_artist`).
-    """
 
     _zsort = None
     _closed = True
@@ -425,12 +426,12 @@ class _Loose3D:
     _codes3d = None
 
     def do_3d_projection(self):
-        """Project the collection in the view of the last draw and return
-        the depth of its nearest point (NaN without points)."""
+        # Project the collection in the view of the last draw and return
+        # the depth of its nearest point (NaN without points).
         return _projected_depth(self)
 
-    def set_sort_zpos(self, val):
-        """Set the position to use for z-sorting."""
+    def _place_sort_zpos(self, val):
+        """`set_sort_zpos` of the collection classes."""
         axes = _axes3d(self)
         if axes is None:
             self._sort_zpos = val
@@ -468,7 +469,7 @@ class _Loose3D:
                 axes._native, self._native, pending.pop('_faces3d'),
                 [np.asarray(c, np.uint8).tolist() for c in pending.pop('_codes3d')])
         if pending.get('_sort_zpos') is not None:
-            self.set_sort_zpos(pending.pop('_sort_zpos'))
+            self._place_sort_zpos(pending.pop('_sort_zpos'))
         return self
 
 
@@ -478,6 +479,10 @@ class Collection3D(_ProjectedPaths, _Loose3D, mcoll.Collection):
     def _native_geometry(self):
         # docstring inherited
         return ("paths", (self.__dict__.pop('_verts3d_pending'),))
+
+    def do_3d_projection(self):
+        """Project the points according to renderer matrix."""
+        return super().do_3d_projection()
 
 
 def collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
@@ -559,6 +564,12 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
                 raise problem
         return _projected_depth(self)
 
+    __init__.__doc__ = mcoll.LineCollection.__init__.__doc__
+
+    def set_sort_zpos(self, val):
+        """Set the position to use for z-sorting."""
+        self._place_sort_zpos(val)
+
 
 def line_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """Convert a `.LineCollection` to a `.Line3DCollection` object."""
@@ -593,32 +604,14 @@ def _lifted_paths(col, zs, zdir, finite=False):
     return lifted
 
 
+# What places the members of a 2-D collection at 3-D positions, its offsets
+# lifted along an axis (matplotlib's `Patch3DCollection` and
+# `Path3DCollection`): pltrs (Rust) projects the positions and shades the
+# members with depth.
 class _Lifted3DOffsets(_Loose3D):
-    """
-    What places the members of a 2-D collection at 3-D positions, its
-    offsets lifted along an axis (matplotlib's `Patch3DCollection` and
-    `Path3DCollection`): pltrs (Rust) projects the positions and shades
-    the members with depth.
-    """
 
     def __init__(self, *args, zs=0, zdir="z", depthshade=None,
                  depthshade_minalpha=None, axlim_clip=False, **kwargs):
-        """
-        Create a collection of flat 3D patches (or paths) with its normal
-        vector pointed in *zdir* direction, and located at *zs* on the
-        *zdir* axis. 'zs' can be a scalar or an array-like of the same
-        length as the number of members in the collection.
-
-        Constructor arguments are the same as for
-        :class:`~matplotlib.collections.PatchCollection` (or
-        :class:`~matplotlib.collections.PathCollection`). In addition,
-        keywords *zs=0* and *zdir='z'* are available.
-
-        The keyword argument *depthshade* is available to indicate whether
-        or not to shade the members in order to give the appearance of
-        depth (default is *True*). *depthshade_minalpha* sets the minimum
-        alpha value applied by depth-shading.
-        """
         super().__init__(*args, **kwargs)
         self._depthshade_pending = (depthshade, depthshade_minalpha)
         self.set_3d_properties(zs, zdir, axlim_clip)
@@ -636,19 +629,6 @@ class _Lifted3DOffsets(_Loose3D):
             _depthshade_minalpha(minalpha)))
 
     def set_3d_properties(self, zs, zdir, axlim_clip=False):
-        """
-        Set the *z* positions and direction of the members.
-
-        Parameters
-        ----------
-        zs : float or array of floats
-            The location or locations to place the members in the collection
-            along the *zdir* axis.
-        zdir : {'x', 'y', 'z'}
-            Plane to plot the members orthogonal to.
-        axlim_clip : bool, default: False
-            Whether to hide members with a vertex outside the axes view limits.
-        """
         self._axlim_clip = axlim_clip
         axes = _lifted(self)
         if axes is None:
@@ -717,17 +697,6 @@ class _Lifted3DOffsets(_Loose3D):
         return _mplot3d.get_depthshade(axes._native, self._native)
 
     def set_depthshade(self, depthshade, depthshade_minalpha=None):
-        """
-        Set whether depth shading is performed on collection members.
-
-        Parameters
-        ----------
-        depthshade : bool
-            Whether to shade the members in order to give the appearance of
-            depth.
-        depthshade_minalpha : float, default: :rc:`axes3d.depthshade_minalpha`
-            Sets the minimum alpha value used by depth-shading.
-        """
         axes = _lifted(self)
         if axes is None:
             self._depthshade_pending = (depthshade, depthshade_minalpha)
@@ -742,6 +711,94 @@ class Patch3DCollection(_Lifted3DOffsets, mcoll.PatchCollection):
     """
     A collection of 3D patches.
     """
+
+    def __init__(
+        self,
+        *args,
+        zs=0,
+        zdir="z",
+        depthshade=None,
+        depthshade_minalpha=None,
+        axlim_clip=False,
+        **kwargs
+    ):
+        """
+        Create a collection of flat 3D patches with its normal vector
+        pointed in *zdir* direction, and located at *zs* on the *zdir*
+        axis. 'zs' can be a scalar or an array-like of the same length as
+        the number of patches in the collection.
+
+        Constructor arguments are the same as for
+        :class:`~matplotlib.collections.PatchCollection`. In addition,
+        keywords *zs=0* and *zdir='z'* are available.
+
+        The keyword argument *depthshade* is available to
+        indicate whether or not to shade the patches in order to
+        give the appearance of depth (default is *True*).
+        This is typically desired in scatter plots.
+
+        *depthshade_minalpha* sets the minimum alpha value applied by
+        depth-shading.
+        """
+        super().__init__(*args, zs=zs, zdir=zdir, depthshade=depthshade,
+                         depthshade_minalpha=depthshade_minalpha,
+                         axlim_clip=axlim_clip, **kwargs)
+
+    def get_depthshade(self):
+        return super().get_depthshade()
+
+    def set_depthshade(
+        self,
+        depthshade,
+        depthshade_minalpha=None,
+    ):
+        """
+        Set whether depth shading is performed on collection members.
+
+        Parameters
+        ----------
+        depthshade : bool
+            Whether to shade the patches in order to give the appearance of
+            depth.
+        depthshade_minalpha : float, default: :rc:`axes3d.depthshade_minalpha`
+            Sets the minimum alpha value used by depth-shading.
+
+            .. versionadded:: 3.11
+        """
+        super().set_depthshade(depthshade, depthshade_minalpha)
+
+    def set_sort_zpos(self, val):
+        """Set the position to use for z-sorting."""
+        self._place_sort_zpos(val)
+
+    def set_3d_properties(self, zs, zdir, axlim_clip=False):
+        """
+        Set the *z* positions and direction of the patches.
+
+        Parameters
+        ----------
+        zs : float or array of floats
+            The location or locations to place the patches in the collection
+            along the *zdir* axis.
+        zdir : {'x', 'y', 'z'}
+            Plane to plot patches orthogonal to.
+            All patches must have the same direction.
+            See `.get_dir_vector` for a description of the values.
+        axlim_clip : bool, default: False
+            Whether to hide patches with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
+        """
+        super().set_3d_properties(zs, zdir, axlim_clip)
+
+    def do_3d_projection(self):
+        return super().do_3d_projection()
+
+    def get_facecolor(self):
+        return super().get_facecolor()
+
+    def get_edgecolor(self):
+        return super().get_edgecolor()
 
 
 def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
@@ -790,6 +847,103 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
+
+    def __init__(
+        self,
+        *args,
+        zs=0,
+        zdir="z",
+        depthshade=None,
+        depthshade_minalpha=None,
+        axlim_clip=False,
+        **kwargs
+    ):
+        """
+        Create a collection of flat 3D paths with its normal vector
+        pointed in *zdir* direction, and located at *zs* on the *zdir*
+        axis. 'zs' can be a scalar or an array-like of the same length as
+        the number of paths in the collection.
+
+        Constructor arguments are the same as for
+        :class:`~matplotlib.collections.PathCollection`. In addition,
+        keywords *zs=0* and *zdir='z'* are available.
+
+        Also, the keyword argument *depthshade* is available to
+        indicate whether or not to shade the patches in order to
+        give the appearance of depth (default is *True*).
+        This is typically desired in scatter plots.
+
+        *depthshade_minalpha* sets the minimum alpha value applied by
+        depth-shading.
+        """
+        super().__init__(*args, zs=zs, zdir=zdir, depthshade=depthshade,
+                         depthshade_minalpha=depthshade_minalpha,
+                         axlim_clip=axlim_clip, **kwargs)
+
+    def draw(self, renderer):
+        super().draw(renderer)
+
+    def set_sort_zpos(self, val):
+        """Set the position to use for z-sorting."""
+        self._place_sort_zpos(val)
+
+    def set_3d_properties(self, zs, zdir, axlim_clip=False):
+        """
+        Set the *z* positions and direction of the paths.
+
+        Parameters
+        ----------
+        zs : float or array of floats
+            The location or locations to place the paths in the collection
+            along the *zdir* axis.
+        zdir : {'x', 'y', 'z'}
+            Plane to plot paths orthogonal to.
+            All paths must have the same direction.
+            See `.get_dir_vector` for a description of the values.
+        axlim_clip : bool, default: False
+            Whether to hide paths with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
+        """
+        super().set_3d_properties(zs, zdir, axlim_clip)
+
+    def set_sizes(self, sizes, dpi=72.0):
+        super().set_sizes(sizes, dpi)
+
+    def set_linewidth(self, lw):
+        super().set_linewidth(lw)
+
+    def get_depthshade(self):
+        return super().get_depthshade()
+
+    def set_depthshade(
+        self,
+        depthshade,
+        depthshade_minalpha=None,
+    ):
+        """
+        Set whether depth shading is performed on collection members.
+
+        Parameters
+        ----------
+        depthshade : bool
+            Whether to shade the patches in order to give the appearance of
+            depth.
+        depthshade_minalpha : float
+            Sets the minimum alpha value used by depth-shading.
+
+            .. versionadded:: 3.11
+        """
+        super().set_depthshade(depthshade, depthshade_minalpha)
+
+    def do_3d_projection(self):
+        return super().do_3d_projection()
+
+    def get_facecolor(self):
+        return super().get_facecolor()
+
+    def get_edgecolor(self):
+        return super().get_edgecolor()
 
 
 class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
@@ -1026,6 +1180,16 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             _mplot3d.set_axlim_clip(axes._native, self._native, bool(axlim_clip))
         self.stale = True
 
+    def set_sort_zpos(self, val):
+        """Set the position to use for z-sorting."""
+        self._place_sort_zpos(val)
+
+    def do_3d_projection(self):
+        """
+        Perform the 3D projection for this object.
+        """
+        return super().do_3d_projection()
+
 
 def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """
@@ -1203,6 +1367,9 @@ class PathPatch3D(Patch3D):
         segment3d = [juggle_axes(x, y, z, zdir)
                      for ((x, y), z) in zip(verts, zs)]
         self._place(path, segment3d, axlim_clip)
+
+    def do_3d_projection(self):
+        return super().do_3d_projection()
 
 
 def _change_class(patch, cls):
@@ -1448,3 +1615,14 @@ def text_2d_to_3d(obj, z=0, zdir='z', axlim_clip=False):
     """
     obj.__class__ = Text3D
     obj.set_3d_properties(z, zdir, axlim_clip)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+from contextlib import contextmanager  # noqa: E402, F401
+from pltrs import artist, path as mpath  # noqa: E402, F401
+from pltrs.collections import (  # noqa: E402, F401
+    Collection, LineCollection, PatchCollection, PathCollection, PolyCollection)
+from pltrs.mpl_toolkits.mplot3d import proj3d  # noqa: E402, F401
+from pltrs.patches import Patch  # noqa: E402, F401

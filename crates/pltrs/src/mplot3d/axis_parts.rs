@@ -15,7 +15,7 @@ use super::handle::Axes3D;
 use super::state::Axes3DState;
 use super::tick_sites::MinorTicks;
 use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext};
-use crate::axes::{TickStyle, TickerDefaults};
+use crate::axes::{TickHelperKind, TickStyle, TickerDefaults};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::ticker::{Formatter, Locator, TickerError};
@@ -137,6 +137,18 @@ impl Axis3D {
     /// `_set_axes_scale` once a scale of the program's installed them).
     pub fn mark_default_tick_helpers(&self) -> &Self {
         self.set_tickers(|t| t.defaults = TickerDefaults::default())
+    }
+
+    /// Counts the major (or `minor`) `helper` as the scale's own, or not
+    /// (matplotlib's `isDefault_majloc = False`, ...); see
+    /// [`Axis::set_default_tick_helper`](crate::axes::Axis::set_default_tick_helper).
+    pub fn set_default_tick_helper(
+        &self,
+        minor: bool,
+        helper: TickHelperKind,
+        default: bool,
+    ) -> &Self {
+        self.set_tickers(|t| t.defaults.set(minor, helper, default))
     }
 
     /// Whether the label text was never set, so that a unit converter's
@@ -345,6 +357,7 @@ impl Axis3D {
 
 #[cfg(test)]
 mod tests {
+    use crate::axes::TickHelperKind;
     use crate::figure::Figure;
     use crate::mplot3d::AxisTextPart;
 
@@ -376,5 +389,16 @@ mod tests {
         assert!(axis.replace_formatter(&formatter, &axis.minor_formatter()));
         assert!(axis.is_default_formatter(false));
         assert!(!axis.replace_formatter(&formatter, &axis.minor_formatter()));
+    }
+
+    #[test]
+    fn default_flags_are_set_one_helper_at_a_time() {
+        let ax = Figure::new().subplot_3d();
+        let axis = ax.zaxis();
+        axis.set_default_tick_helper(true, TickHelperKind::Formatter, false);
+        assert!(!axis.is_default_formatter(true));
+        assert!(axis.is_default_formatter(false) && axis.is_default_locator(true));
+        axis.set_default_tick_helper(true, TickHelperKind::Formatter, true);
+        assert!(axis.is_default_formatter(true));
     }
 }

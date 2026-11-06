@@ -128,6 +128,10 @@ class FormatterHMS(FormatterDMS):
 
     _format = staticmethod(_axisartist.format_hms)
 
+    def __call__(self, direction, factor, values):  # hour
+        # (pltrs (Rust) formats the values as hours, ``values / 15``.)
+        return super().__call__(direction, factor, values)
+
 
 class ExtremeFinderCycle(ExtremeFinderSimple):
     # docstring inherited
@@ -175,3 +179,9 @@ class ExtremeFinderCycle(ExtremeFinderSimple):
         return Bbox.from_extents(*_axisartist.cycle_extent(
             lon, lat, (self.nx, self.ny), (self.lon_cycle, self.lat_cycle),
             (self.lon_minmax, self.lat_minmax)))
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+import numpy as np  # noqa: E402, F401

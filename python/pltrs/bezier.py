@@ -386,3 +386,10 @@ def make_wedged_bezier2(bezier2, width, w1=1., wm=0.5, w2=0.):
                                      c3x_right, c3y_right)
 
     return path_left, path_right
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+import warnings  # noqa: E402, F401
+from functools import lru_cache  # noqa: E402, F401

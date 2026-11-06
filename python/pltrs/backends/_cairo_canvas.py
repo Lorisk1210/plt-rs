@@ -39,15 +39,12 @@ class _CairoCanvas:
 
     print_rgba = print_raw
 
-    def _save(self, fmt, fobj, *, orientation='portrait',
-              bbox_inches_restore=None, facecolor=None, edgecolor=None):
+    def _save(self, fmt, fobj, *, orientation='portrait'):
         """Write the figure as a *fmt* document: ``pdf``, ``ps``, ``svg`` or
         ``svgz``; a PostScript page in *orientation*."""
         self.figure.dpi = 72
         _backends.drawing_like_cairo(functools.partial(
-            self._print_native, fmt, fobj, orientation=orientation,
-            bbox_inches_restore=bbox_inches_restore, facecolor=facecolor,
-            edgecolor=edgecolor))
+            self._print_native, fmt, fobj, orientation=orientation))
 
     print_pdf = functools.partialmethod(_save, "pdf")
     print_ps = functools.partialmethod(_save, "ps")

@@ -99,13 +99,8 @@ class FigureText:
 
 
 class AxesText:
-    """`text` on an axes, and the texts placed on it."""
-
-    @property
-    def texts(self):
-        from .axes._artist_list import ArtistList
-        return ArtistList._of("texts", lambda: _handles.wrap_all(
-            _text.axes_texts(self._native), Text, self.figure))
+    """`text` and `annotate` on an axes (``ax.texts`` lists the texts placed
+    on it, see `.axes._children`)."""
 
     @_docstring.interpd
     def text(self, x, y, s, fontdict=None, **kwargs):

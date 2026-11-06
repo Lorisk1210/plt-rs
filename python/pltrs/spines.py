@@ -7,6 +7,7 @@ License with `SpinesProxy`.
 
 from collections.abc import MutableMapping
 import functools
+import inspect
 
 import numpy as np
 
@@ -120,6 +121,10 @@ class Spine(Patch):
             _spines.set_patch_path(self._native, path)
             self.set_transform(axes.transData)
         self._internal_update(kwargs)
+
+    # ``Spine(...)`` takes what the constructor takes: the defaults of
+    # ``__new__`` only let pickling make a bare spine.
+    __new__.__signature__ = inspect.signature(__init__)
 
     @classmethod
     def linear_spine(cls, axes, spine_type, **kwargs):
@@ -416,6 +421,10 @@ class Spine(Patch):
         """Like `get_window_extent`: a spine is not clipped."""
         return self.get_window_extent(renderer)
 
+    def get_patch_transform(self):
+        # docstring inherited
+        return super().get_patch_transform()
+
     def get_path(self):
         # Return the path of the spine: that of a linear spine in data along
         # its axis and axes fractions across it (spanning the view where it
@@ -474,13 +483,17 @@ class Spine(Patch):
         return rgba if rgba == tuple(native) else native
 
     def set_linewidth(self, w):
-        """Set the spine width in points."""
+        # pltrs (Rust) holds the spine's width in points.
         _spines.set_linewidth(self._native, float(w))
 
+    set_linewidth.__doc__ = Patch.set_linewidth.__doc__
+
     def set_linestyle(self, ls):
-        """Set the spine line style."""
+        # pltrs (Rust) holds the spine's line style.
         _spines.set_linestyle(self._native, ls)
         self._linestyle = _kept_linestyle(ls)
+
+    set_linestyle.__doc__ = Patch.set_linestyle.__doc__
 
 
 #: The spines matplotlib's ticks read by name as they are made
@@ -633,3 +646,8 @@ class Spines(MutableMapping):
     def __len__(self):
         return len(self._dict)
 
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from . import patches as mpatches, path as mpath, transforms as mtransforms  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

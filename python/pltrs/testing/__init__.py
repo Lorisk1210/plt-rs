@@ -261,3 +261,8 @@ in between!"""
     # The resulting string contains 491 unique characters. Some file formats use 8-bit
     # tables, which the large number of characters exercises twice over.
     return fonts, test_str
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

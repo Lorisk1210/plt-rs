@@ -288,8 +288,9 @@ class Axis(maxis.XAxis):
         return np.int64(_mplot3d.tick_direction(self.axes._native, self.axis_name,
                                                 position))
 
+    @maxis._interval_method("getter")
     def get_view_interval(self):
-        """Return the view limits ``(min, max)`` of this axis."""
+        # docstring inherited.
         return np.array(_mplot3d.get_lim(self.axes._native, self.axis_name))
 
     def get_scale(self):
@@ -346,16 +347,15 @@ class Axis(maxis.XAxis):
         return self.__dict__.get("_in_layout", True)
 
     def set_in_layout(self, in_layout):
-        """Set whether the axis counts in layouts (see `get_in_layout`)."""
+        # Set whether the axis counts in layouts (see `get_in_layout`).
         self._in_layout = in_layout
 
-    def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
-        """
-        Set this Axis' tick locations and optionally tick labels.
+    set_in_layout.__doc__ = maxis.Axis.set_in_layout.__doc__
 
-        *kwargs* are `.Text` properties for the labels, allowed only with
-        *labels* (see `set_ticklabels`).
-        """
+    def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
+        # Set this Axis' tick locations and optionally tick labels. *kwargs* are
+        # `.Text` properties for the labels, allowed only with *labels* (see
+        # `set_ticklabels`).
         if labels is None and kwargs:
             first_key = next(iter(kwargs))
             raise ValueError(
@@ -374,6 +374,20 @@ class Axis(maxis.XAxis):
         if labels is not None:
             self.set_ticklabels(labels, minor=minor, **kwargs)
         return result
+
+    set_ticks.__doc__ = maxis.Axis.set_ticks.__doc__
+
+    def get_major_ticks(self, numticks=None):
+        # docstring inherited
+        return super().get_major_ticks(numticks)
+
+    def get_minor_ticks(self, numticks=None):
+        # docstring inherited
+        return super().get_minor_ticks(numticks)
+
+    def get_tightbbox(self, renderer=None, *, for_layout_only=False):
+        # docstring inherited
+        return super().get_tightbbox(renderer, for_layout_only=for_layout_only)
 
     def get_ticklocs(self, *, minor=False):
         """Return this Axis' tick locations in data coordinates."""
@@ -479,3 +493,12 @@ class YAxis(Axis):
 
 class ZAxis(Axis):
     axis_name = "z"
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import inspect  # noqa: E402, F401
+import pltrs as mpl  # noqa: E402, F401
+from dataclasses import dataclass  # noqa: E402, F401
+from pltrs import artist, text as mtext, transforms as mtransforms  # noqa: E402, F401
+from pltrs.mpl_toolkits.mplot3d import proj3d  # noqa: E402, F401

@@ -163,3 +163,8 @@ if (sys.platform == 'darwin' and
 def _exec(obj):
     # exec on PyQt6, exec_ elsewhere.
     obj.exec() if hasattr(obj, "exec") else obj.exec_()
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

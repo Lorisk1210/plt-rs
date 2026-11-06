@@ -1040,3 +1040,9 @@ def drawn_path(artist, vertices, codes, steps):
         path = artist._drawn_path = Path(vertices, codes)
     path._steps_of = steps
     return path
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from .cbook import simple_linear_interpolation  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

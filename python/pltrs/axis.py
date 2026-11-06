@@ -530,21 +530,42 @@ class Axis(DrawnWith, Artist):
     def _default(self, minor, kind):
         return _axis.is_default_helper(*self._args(), kind, bool(minor))
 
+    def _set_default(self, minor, kind, value):
+        """Count the major or *minor* tick helper *kind* as the scale's own,
+        or not (the ``isDefault_*`` setters)."""
+        _axis.set_default_helper(*self._args(), kind, bool(minor), bool(value))
+
     @property
     def isDefault_majloc(self):
         return self._default(False, "locator")
+
+    @isDefault_majloc.setter
+    def isDefault_majloc(self, value):
+        self._set_default(False, "locator", value)
 
     @property
     def isDefault_majfmt(self):
         return self._default(False, "formatter")
 
+    @isDefault_majfmt.setter
+    def isDefault_majfmt(self, value):
+        self._set_default(False, "formatter", value)
+
     @property
     def isDefault_minloc(self):
         return self._default(True, "locator")
 
+    @isDefault_minloc.setter
+    def isDefault_minloc(self, value):
+        self._set_default(True, "locator", value)
+
     @property
     def isDefault_minfmt(self):
         return self._default(True, "formatter")
+
+    @isDefault_minfmt.setter
+    def isDefault_minfmt(self, value):
+        self._set_default(True, "formatter", value)
 
     @property
     def isDefault_label(self):
@@ -967,13 +988,39 @@ class Axis(DrawnWith, Artist):
         return self._tick_objects(True, len(self.get_minorticklocs()))
 
     def get_major_ticks(self, numticks=None):
-        r"""Return the list of major `.Tick`\s."""
+        r"""
+        Return the list of major `.Tick`\s.
+
+        .. warning::
+
+            Ticks are not guaranteed to be persistent. Various operations
+            can create, delete and modify the Tick instances. There is an
+            imminent risk that changes to individual ticks will not
+            survive if you work on the figure further (including also
+            panning/zooming on a displayed figure).
+
+            Working on the individual ticks is a method of last resort.
+            Use `.set_tick_params` instead if possible.
+        """
         if numticks is None:
             numticks = len(self.get_majorticklocs())
         return self._tick_objects(False, numticks)[:numticks]
 
     def get_minor_ticks(self, numticks=None):
-        r"""Return the list of minor `.Tick`\s."""
+        r"""
+        Return the list of minor `.Tick`\s.
+
+        .. warning::
+
+            Ticks are not guaranteed to be persistent. Various operations
+            can create, delete and modify the Tick instances. There is an
+            imminent risk that changes to individual ticks will not
+            survive if you work on the figure further (including also
+            panning/zooming on a displayed figure).
+
+            Working on the individual ticks is a method of last resort.
+            Use `.set_tick_params` instead if possible.
+        """
         if numticks is None:
             numticks = len(self.get_minorticklocs())
         return self._tick_objects(True, numticks)[:numticks]
@@ -1881,6 +1928,10 @@ class Axis(DrawnWith, Artist):
         return [self.label, self.offsetText,
                 *self.get_major_ticks(), *self.get_minor_ticks()]
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
     def get_gid(self):
         """Return the group id of the axis."""
         return _axis.get_gid(*self._args())
@@ -2219,13 +2270,12 @@ class Axis(DrawnWith, Artist):
             lambda: _axis.axis_date(*self._args(), zone))
 
 
-class _AxisOfAxes:
-    """
-    What matplotlib's `XAxis` and `YAxis` define over the abstract `Axis`:
-    the intervals and the label side of an axis of an Axes, which pltrs
-    (Rust) keeps (read from the description it draws the axis with, while
-    it draws it).
-    """
+# What matplotlib's `XAxis` and `YAxis` define over the abstract `Axis`:
+# the intervals and the label side of an axis of an Axes, which pltrs (Rust)
+# keeps (read from the description it draws the axis with, while it draws
+# it). No docstring: ``help`` shows that of `Axis` for the two classes, as
+# matplotlib's do, which have none of their own.
+class _AxisOfAxes(Axis):
 
     @_interval_method("getter")
     def get_view_interval(self):
@@ -2273,7 +2323,7 @@ class _AxisOfAxes:
         _axis.set_label_position(*self._args(), position)
 
 
-class XAxis(_AxisOfAxes, Axis):
+class XAxis(_AxisOfAxes):
     __name__ = 'xaxis'
     axis_name = 'x'  #: Read-only name identifying the axis.
     _tick_class = XTick
@@ -2325,8 +2375,29 @@ class XAxis(_AxisOfAxes, Axis):
         """
         _axis.tick_to(*self._args(), "bottom")
 
+    def get_ticks_position(self):
+        """
+        Return the ticks position ("top", "bottom", "default", or "unknown").
+        """
+        return super().get_ticks_position()
 
-class YAxis(_AxisOfAxes, Axis):
+    def contains(self, mouseevent):
+        """Test whether the mouse event occurred in the x-axis."""
+        return super().contains(mouseevent)
+
+    def get_minpos(self):
+        return super().get_minpos()
+
+    def get_tick_space(self):
+        # docstring inherited
+        return super().get_tick_space()
+
+    def set_default_intervals(self):
+        # docstring inherited
+        super().set_default_intervals()
+
+
+class YAxis(_AxisOfAxes):
     __name__ = 'yaxis'
     axis_name = 'y'  #: Read-only name identifying the axis.
     _tick_class = YTick
@@ -2388,5 +2459,38 @@ class YAxis(_AxisOfAxes, Axis):
         """
         _axis.tick_to(*self._args(), "left")
 
+    def get_ticks_position(self):
+        """
+        Return the ticks position ("left", "right", "default", or "unknown").
+        """
+        return super().get_ticks_position()
+
+    def contains(self, mouseevent):
+        # docstring inherited
+        return super().contains(mouseevent)
+
+    def get_minpos(self):
+        return super().get_minpos()
+
+    def get_tick_space(self):
+        # docstring inherited
+        return super().get_tick_space()
+
+    def set_default_intervals(self):
+        # docstring inherited
+        super().set_default_intervals()
+
 
 cbook._set_module(__name__, Tick, XTick, YTick)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import logging  # noqa: E402, F401
+import warnings  # noqa: E402, F401
+from numbers import Real  # noqa: E402, F401
+from . import (  # noqa: E402, F401
+    artist as martist, colors as mcolors, lines as mlines, scale as mscale,
+    text as mtext, ticker as mticker, transforms as mtransforms)
+from .ticker import NullLocator  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

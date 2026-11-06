@@ -144,3 +144,9 @@ class RGBAxes:
         im_g = self.G.imshow(G, **kwargs)
         im_b = self.B.imshow(B, **kwargs)
         return im_rgb, im_r, im_g, im_b
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from types import MethodType  # noqa: E402, F401
+from pltrs.mpl_toolkits.axes_grid1.mpl_axes import SimpleAxisArtist  # noqa: E402, F401

@@ -9,7 +9,7 @@ arguments of a native function of ``_native.plotting``, and wraps the
 artists it returns (see `.._handles`).
 """
 
-from ._children import ChildrenMixin
+from .._ticks import LogScalePlotsMixin
 from .arrows import ArrowsMixin
 from .bars import BarsMixin
 from .bins2d import Bins2dMixin
@@ -30,7 +30,7 @@ from .stats import StatsMixin
 from .tables import TablesMixin
 
 
-class PlottingMixin(ChildrenMixin, LinesMixin, ScatterMixin, BarsMixin,
+class PlottingMixin(LinesMixin, LogScalePlotsMixin, ScatterMixin, BarsMixin,
                     ErrorbarMixin, HistMixin, FillsMixin, EventsMixin, StatsMixin,
                     ContoursMixin, MeshMixin, FieldsMixin, LabelsMixin,
                     Bins2dMixin, ImagesMixin, SpectralMixin, EcdfMixin,

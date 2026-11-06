@@ -185,3 +185,8 @@ def text_placeholders(monkeypatch):
     monkeypatch.setattr(text, '_get_text_metrics_with_cache',
                         patched_get_text_metrics_with_cache)
     monkeypatch.setattr(text.Text, 'draw', patched_text_draw)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+matplotlib = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

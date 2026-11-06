@@ -460,6 +460,10 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         self.set_rotation_mode("anchor")
         self._text_follow_ref_angle = True
 
+    # What ``help`` shows, as matplotlib's (the mixin before `.Text` in the
+    # MRO would hide it).
+    __init__.__doc__ = mtext.Text.__init__.__doc__
+
     @property
     def _ref_angle(self):
         return self.__dict__["_ref_angle_value"]
@@ -1174,6 +1178,9 @@ class GridlinesCollection(LineCollection):
         """
         self._grid_helper = grid_helper
 
+    def draw(self, renderer):
+        super().draw(renderer)
+
 
 class AxisArtist(martist.Artist):
     """
@@ -1559,8 +1566,20 @@ class AxisArtist(martist.Artist):
         if _label is not None:
             self.label.set_visible(_label)
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
 
 #: matplotlib's angles for the tick label and label directions.
 _ADD_ANGLES = {"+": 0, "-": 180}
 #: The direction of each angle.
 _DIRECTIONS = {0: "+", 180: "-"}
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import pltrs as mpl  # noqa: E402, F401
+from pltrs.mpl_toolkits.axisartist.axisline_style import AxislineStyle  # noqa: E402, F401
+from pltrs.patches import PathPatch  # noqa: E402, F401
+from pltrs.transforms import IdentityTransform  # noqa: E402, F401

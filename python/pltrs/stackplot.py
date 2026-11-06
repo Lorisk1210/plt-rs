@@ -6,7 +6,7 @@ https://stackoverflow.com/q/2225995/
 (https://stackoverflow.com/users/66549/doug)
 
 pltrs keeps matplotlib 3.11.2's module (under the Matplotlib License): its
-function draws through `.Axes.stackplot`, which pltrs (Rust) stacks.
+function is `.Axes.stackplot`, which pltrs (Rust) stacks.
 """
 
 __all__ = ['stackplot']
@@ -79,5 +79,11 @@ def stackplot(axes, x, *args,
         A list of `.PolyCollection` instances, one for each element in the
         stacked area plot.
     """
-    return axes.stackplot(x, *args, labels=labels, colors=colors,
-                          baseline=baseline, **kwargs)
+    return axes._stackplot(x, *args, labels=labels, colors=colors,
+                           baseline=baseline, **kwargs)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import numpy as np  # noqa: E402, F401
+from . import cbook, collections  # noqa: E402, F401

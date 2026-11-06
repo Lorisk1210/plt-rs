@@ -56,6 +56,50 @@ class TriInterpolator:
         # interpolator renumbers ``_z`` as matplotlib's does).
         self._native_z = self._z.astype(np.float64)
 
+    # __call__ and gradient docstrings are shared by all subclasses
+    # (except, if needed, relevant additions).
+    # However these methods are only implemented in subclasses to avoid
+    # confusion in the documentation.
+    _docstring__call__ = """
+        Returns a masked array containing interpolated values at the specified
+        (x, y) points.
+
+        Parameters
+        ----------
+        x, y : array-like
+            x and y coordinates of the same shape and any number of
+            dimensions.
+
+        Returns
+        -------
+        np.ma.array
+            Masked array of the same shape as *x* and *y*; values corresponding
+            to (*x*, *y*) points outside of the triangulation are masked out.
+
+        """
+
+    _docstringgradient = r"""
+        Returns a list of 2 masked arrays containing interpolated derivatives
+        at the specified (x, y) points.
+
+        Parameters
+        ----------
+        x, y : array-like
+            x and y coordinates of the same shape and any number of
+            dimensions.
+
+        Returns
+        -------
+        dzdx, dzdy : np.ma.array
+            2 masked arrays of the same shape as *x* and *y*; values
+            corresponding to (x, y) points outside of the triangulation
+            are masked out.
+            The first returned array contains the values of
+            :math:`\frac{\partial z}{\partial x}` and the second those of
+            :math:`\frac{\partial z}{\partial y}`.
+
+        """
+
     def _interpolate_multikeys(self, x, y, tri_index=None,
                                return_keys=('z',)):
         """
@@ -108,13 +152,6 @@ class TriInterpolator:
         return [np.ma.masked_invalid(computed[index].reshape(sh_ret), copy=False)
                 for index in indices]
 
-    def __call__(self, x, y):
-        return self._interpolate_multikeys(x, y, tri_index=None,
-                                           return_keys=('z',))[0]
-
-    def gradient(self, x, y):
-        return self._interpolate_multikeys(
-            x, y, tri_index=None, return_keys=('dzdx', 'dzdy'))
 
 
 class LinearTriInterpolator(TriInterpolator):
@@ -142,6 +179,16 @@ class LinearTriInterpolator(TriInterpolator):
     `gradient` (x, y) : Returns interpolated derivatives at (x, y) points.
 
     """
+
+    def __call__(self, x, y):
+        return self._interpolate_multikeys(x, y, tri_index=None,
+                                           return_keys=('z',))[0]
+    __call__.__doc__ = TriInterpolator._docstring__call__
+
+    def gradient(self, x, y):
+        return self._interpolate_multikeys(x, y, tri_index=None,
+                                           return_keys=('dzdx', 'dzdy'))
+    gradient.__doc__ = TriInterpolator._docstringgradient
 
 
 class CubicTriInterpolator(TriInterpolator):
@@ -293,6 +340,16 @@ class CubicTriInterpolator(TriInterpolator):
         J = _to_matrix_vectorized([[a[:, 0], a[:, 1]],
                                    [b[:, 0], b[:, 1]]])
         return J
+
+    def __call__(self, x, y):
+        return self._interpolate_multikeys(x, y, tri_index=None,
+                                           return_keys=('z',))[0]
+    __call__.__doc__ = TriInterpolator._docstring__call__
+
+    def gradient(self, x, y):
+        return self._interpolate_multikeys(x, y, tri_index=None,
+                                           return_keys=('dzdx', 'dzdy'))
+    gradient.__doc__ = TriInterpolator._docstringgradient
 
 
 class _DOF_estimator:

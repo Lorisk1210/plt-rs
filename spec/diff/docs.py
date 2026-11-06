@@ -14,11 +14,13 @@ building pltrs (Python)'s extension). It
    parameters' names, kinds, defaults by repr and order; a property's
    accessors), its docstring after matplotlib's interpolation (a class'
    and its constructor's), and its ``__module__`` and ``__qualname__``;
-3. writes ``OUT/docs.md``: the share matching overall and per module,
+3. compares the public names of matplotlib's modules, constants and
+   re-exports included (``docs_names.py``);
+4. writes ``OUT/docs.md``: the share matching overall and per module,
    signatures, docstrings and names apart, the callables of matplotlib's
    C++ extensions (whose signatures Python cannot read) apart too, then
-   the differences grouped by cause, the biggest groups first, and
-   ``OUT/docs.json`` with every difference.
+   the differences grouped by cause, the biggest groups first, then the
+   module-level names, and ``OUT/docs.json`` with every difference.
 
 A PATTERN keeps the callables whose keys (``module:Owner.name``) contain
 it. ``--failures`` prints every difference, not only the counts;
@@ -41,6 +43,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import api_index  # noqa: E402
 import driver  # noqa: E402
+from docs_names import NameComparison  # noqa: E402
 
 #: The aspects compared, as the report names them.
 ASPECTS = ("signature", "doc", "name")
@@ -48,15 +51,18 @@ ASPECTS = ("signature", "doc", "name")
 DOC_CONTEXT = 6
 
 
-def _dump(setup: driver.Setup, impl: str, api: pathlib.Path) -> dict[str, Any]:
-    """``docs_dump.py``'s descriptions under ``impl``."""
-    out = setup.out / "docs" / f"{impl}.json"
+def _dump(setup: driver.Setup, impl: str, api: pathlib.Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``docs_dump.py``'s descriptions under ``impl``: of the callables, and
+    of the module-level names (pltrs's of those matplotlib's lists)."""
+    out, names = (setup.out / "docs" / f"{impl}{suffix}.json" for suffix in ("", ".names"))
     python = setup.mpl_python if impl == "matplotlib" else setup.pltrs_python
-    done = subprocess.run([python, str(HERE / "docs_dump.py"), "--impl", impl, str(api), str(out)],
+    of = [] if impl == "matplotlib" else ["--names-of", str(setup.out / "docs" / "matplotlib.names.json")]
+    done = subprocess.run([python, str(HERE / "docs_dump.py"), "--impl", impl, str(api), str(out),
+                           "--names", str(names), *of],
                           env=setup.environment(impl), capture_output=True, text=True)
     if done.returncode != 0:
         raise SystemExit(f"describing the callables under {impl} failed:\n{done.stderr[-5000:]}")
-    return json.loads(out.read_text())
+    return json.loads(out.read_text()), json.loads(names.read_text())
 
 
 def _parameters(params: list[list[Any]]) -> str:
@@ -214,9 +220,10 @@ class Comparison:
         """The differences, the missing callables included."""
         return len(self.missing) + sum(map(len, self.differences.values()))
 
-    def report(self, failures: bool) -> tuple[str, str]:
-        """The Markdown report, with every difference, and what to print:
-        the same with ``failures``, else only the groups' counts."""
+    def report(self, failures: bool, names: NameComparison) -> tuple[str, str]:
+        """The Markdown report, with every difference and the comparison
+        of the module-level *names*, and what to print: the same with
+        ``failures``, else only the groups' counts."""
         python = [k for k in self.outcomes if k not in self.native]
         lines = [
             "# matplotlib's signatures, docstrings and names in pltrs (Python)",
@@ -232,6 +239,7 @@ class Comparison:
             f"* Names matching: {self.share(python, 'name')}",
             f"* matplotlib's C++ extensions (pybind11): {len(self.native)} callables, docstrings matching "
             f"{self.share(sorted(self.native), 'doc')}, signatures {self.share(sorted(self.native), 'signature')}",
+            names.summary_line(),
             "",
             "## By module",
             "",
@@ -258,6 +266,9 @@ class Comparison:
                 if detail:
                     lines += ["", "  ```", *("  " + line for line in detail.splitlines()), "  ```", ""]
             lines.append("")
+        named, named_summary = names.report()
+        lines += named
+        summary += named_summary
         return "\n".join(lines) + "\n", "\n".join(lines if failures else summary) + "\n"
 
     def as_json(self) -> dict[str, Any]:
@@ -282,12 +293,15 @@ def main() -> int:
     (setup.out / "docs").mkdir(parents=True, exist_ok=True)
     api = setup.out / "docs" / "api.jsonl"
     api.write_text("".join(json.dumps(r) + "\n" for r in api_index.enumerate_api(sys.executable)))
-    comparison = Comparison(_dump(setup, "matplotlib", api), _dump(setup, "pltrs", api), args.patterns)
-    report, printed = comparison.report(args.failures)
+    (mpl, mpl_names), (ours, our_names) = _dump(setup, "matplotlib", api), _dump(setup, "pltrs", api)
+    comparison = Comparison(mpl, ours, args.patterns)
+    names = NameComparison(mpl_names, our_names, args.patterns)
+    report, printed = comparison.report(args.failures, names)
     (setup.out / "docs.md").write_text(report)
-    (setup.out / "docs.json").write_text(json.dumps(comparison.as_json(), indent=1))
+    (setup.out / "docs.json").write_text(json.dumps(
+        {**comparison.as_json(), "module_names": names.as_json()}, indent=1))
     print(printed, end="")
-    differences = comparison.count()
+    differences = comparison.count() + names.count()
     if args.strict and differences:
         print(f"{differences} differences (see {setup.out / 'docs.md'})", file=sys.stderr)
         return 1

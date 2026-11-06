@@ -1035,6 +1035,32 @@ class Line2D(Artist):
             self.set_pickradius(p)
         super().set_picker(p)
 
+    def contains(self, mouseevent):
+        """
+        Test whether *mouseevent* occurred on the line.
+
+        An event is deemed to have occurred "on" the line if it is less
+        than ``self.pickradius`` (default: 5 points) away from it.  Use
+        `~.Line2D.get_pickradius` or `~.Line2D.set_pickradius` to get or set
+        the pick radius.
+
+        Parameters
+        ----------
+        mouseevent : `~matplotlib.backend_bases.MouseEvent`
+
+        Returns
+        -------
+        contains : bool
+            Whether any values are within the radius.
+        details : dict
+            A dictionary ``{'ind': pointlist}``, where *pointlist* is a
+            list of points of the line that are within the pickradius around
+            the event position.
+
+            TODO: sort returned indices by distance
+        """
+        return super().contains(mouseevent)
+
     def _contains_details(self, ind):
         """The indices of the points and segments hit."""
         return dict(ind=ind)
@@ -1174,6 +1200,10 @@ class Line2D(Artist):
             bbox = bbox.padded(ms)
         return bbox
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
 
 def _floats(values):
     """``cbook._to_unmasked_float_array(values).ravel()``, which is
@@ -1253,6 +1283,10 @@ class AxLine(Line2D):
             None if xy2 is None else tuple(map(float, xy2)),
             None if slope is None else float(slope))
         self._remember_geometry(xy1, xy2, slope)
+
+    def draw(self, renderer):
+        # (pltrs (Rust) places the line in the view as it draws it.)
+        super().draw(renderer)
 
     def get_transform(self):
         from .transforms import Bbox, BboxTransformTo
@@ -1469,3 +1503,13 @@ lineStyles = Line2D._lineStyles
 lineMarkers = MarkerStyle.markers
 drawStyles = Line2D.drawStyles
 fillStyles = MarkerStyle.fillstyles
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from numbers import Integral, Number, Real  # noqa: E402, F401
+from . import colors as mcolors  # noqa: E402, F401
+from ._enums import CapStyle, JoinStyle  # noqa: E402, F401
+from .artist import allow_rasterization  # noqa: E402, F401
+from .transforms import Bbox, BboxTransformTo, TransformedPath  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

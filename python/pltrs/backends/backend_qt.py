@@ -1208,3 +1208,8 @@ class _BackendQT(_Backend):
     FigureCanvas = FigureCanvasQT
     FigureManager = FigureManagerQT
     mainloop = FigureManagerQT.start_main_loop
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

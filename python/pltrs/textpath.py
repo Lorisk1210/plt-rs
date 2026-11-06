@@ -369,3 +369,10 @@ class TextPath(Path):
             self._cached_vertices = tr.transform(self._vertices)
             self._cached_vertices.flags.writeable = False
             self._invalid = False
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import logging  # noqa: E402, F401
+import urllib  # noqa: E402, F401
+from . import dviread  # noqa: E402, F401

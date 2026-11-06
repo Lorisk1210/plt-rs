@@ -1094,3 +1094,10 @@ def make_axes_gridspec(parent, *, location=None, orientation=None,
                   fraction=fraction, shrink=shrink, aspect=aspect)
     return _made_axes(_colorbar.make_axes_gridspec, [parent], parent._native,
                       kwargs)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import logging  # noqa: E402, F401
+from . import cbook, collections, colors, contour  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

@@ -253,11 +253,6 @@ class Patch(Artist):
         """
         return IdentityTransform()
 
-    def _native_patch_transform(self):
-        # The `.Affine2D` of the patch coordinates pltrs (Rust) has for the
-        # patch, made anew.
-        return Affine2D(_patches.get_patch_transform(self._native))
-
     def _kept_patch_transform(self):
         # The patch transform as the classes keeping one `.Affine2D`
         # (matplotlib's ``_patch_transform``) give it: the same object, with
@@ -725,6 +720,10 @@ class Patch(Artist):
         return self.get_path().contains_points(points, self.get_transform(),
                                                radius)
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
 
 @_mirrors.mirrorable
 class Rectangle(Patch):
@@ -1044,7 +1043,7 @@ class RegularPolygon(Patch):
             _unusable.keep(self, "orientation", orientation, math.cos)
 
     def get_path(self):
-        """Return the path of the polygon."""
+        # docstring inherited
         return self._native_path()
 
     def _fields(self):
@@ -1095,7 +1094,7 @@ class PathPatch(Patch):
         super().__init__(**kwargs)
 
     def get_path(self):
-        """Return the path of the patch."""
+        # docstring inherited
         return self._native_path()
 
     def set_path(self, path):
@@ -1327,7 +1326,7 @@ class Wedge(Patch):
     _refreshed_getters = ("_fields", "get_path")
 
     def get_path(self):
-        """Return the path of the wedge."""
+        # docstring inherited
         return self._native_path()
 
     def _fields(self):
@@ -1399,8 +1398,6 @@ class Wedge(Patch):
 class Arrow(Patch):
     """An arrow patch."""
 
-    get_patch_transform = Patch._kept_patch_transform
-
     def __str__(self):
         return "Arrow()"
 
@@ -1439,8 +1436,12 @@ class Arrow(Patch):
         super().__init__(**kwargs)
 
     def get_path(self):
-        """Return the path of the arrow."""
+        # docstring inherited
         return self._native_path()
+
+    def get_patch_transform(self):
+        # docstring inherited
+        return self._kept_patch_transform()
 
     def set_data(self, x=None, y=None, dx=None, dy=None, width=None):
         """
@@ -1617,7 +1618,10 @@ class Ellipse(Patch):
     #: As `Rectangle`'s.
     _aspect_ratio_correction = 1.0
 
-    get_patch_transform = Patch._native_patch_transform
+    def get_patch_transform(self):
+        # docstring inherited; the `.Affine2D` of the patch coordinates
+        # pltrs (Rust) has for the ellipse, made anew.
+        return Affine2D(_patches.get_patch_transform(self._native))
 
     def __str__(self):
         pars = (self._center[0], self._center[1],
@@ -1888,7 +1892,7 @@ class Annulus(Patch):
         super().__init__(**kwargs)
 
     def get_path(self):
-        """Return the path of the annulus."""
+        # docstring inherited
         return self._native_path()
 
     def _remember_radii(self, r):
@@ -2227,6 +2231,55 @@ class Arc(Ellipse):
             self._set_fields(center=center, angle=angle)
             _patches.set_arc_angles(self._native, float(theta1), float(theta2))
 
+    def draw(self, renderer):
+        """
+        Draw the arc to the given *renderer*.
+
+        Notes
+        -----
+        Ellipses are normally drawn using an approximation that uses
+        eight cubic Bezier splines.  The error of this approximation
+        is 1.89818e-6, according to this unverified source:
+
+          Lancaster, Don.  *Approximating a Circle or an Ellipse Using
+          Four Bezier Cubic Splines.*
+
+          https://www.tinaja.com/glib/ellipse4.pdf
+
+        There is a use case where very large ellipses must be drawn
+        with very high accuracy, and it is too expensive to render the
+        entire ellipse with enough segments (either splines or line
+        segments).  Therefore, in the case where either radius of the
+        ellipse is large enough that the error of the spline
+        approximation will be visible (greater than one pixel offset
+        from the ideal), a different technique is used.
+
+        In that case, only the visible parts of the ellipse are drawn,
+        with each visible arc using a fixed number of spline segments
+        (8).  The algorithm proceeds as follows:
+
+        1. The points where the ellipse intersects the axes (or figure)
+           bounding box are located.  (This is done by performing an inverse
+           transformation on the bbox such that it is relative to the unit
+           circle -- this makes the intersection calculation much easier than
+           doing rotated ellipse intersection directly.)
+
+           This uses the "line intersecting a circle" algorithm from:
+
+               Vince, John.  *Geometry for Computer Graphics: Formulae,
+               Examples & Proofs.*  London: Springer-Verlag, 2005.
+
+        2. The angles of each of the intersection points are calculated.
+
+        3. Proceeding counterclockwise starting in the positive
+           x-direction, each of the visible arc-segments between the
+           pairs of vertices are drawn using the Bezier arc
+           approximation technique implemented in `.Path.arc`.
+        """
+        # pltrs (Rust) draws the visible parts of a large arc as matplotlib
+        # does.
+        super().draw(renderer)
+
 
 @_mirrors.mirrorable
 class FancyBboxPatch(FancyStylesMixin, Patch):
@@ -2351,6 +2404,14 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
     def get_boxstyle(self):
         """Return the boxstyle object."""
         return self._get_style("_bbox_transmuter", BoxStyle, _patches.get_boxstyle)
+
+    def get_mutation_scale(self):
+        """Return the mutation scale."""
+        return self._mutation(0)
+
+    def get_mutation_aspect(self):
+        """Return the aspect ratio of the bbox mutation."""
+        return self._kept_mutation_aspect()
 
     @property
     def _x(self):
@@ -2741,6 +2802,20 @@ default: 'arc3'
         return self._get_style("_arrow_transmuter", ArrowStyle,
                                _patches.get_arrowstyle)
 
+    def get_mutation_scale(self):
+        """
+        Return the mutation scale.
+
+        Returns
+        -------
+        scalar
+        """
+        return self._mutation(0)
+
+    def get_mutation_aspect(self):
+        """Return the aspect ratio of the bbox mutation."""
+        return self._kept_mutation_aspect()
+
     def _link_patches(self):
         """
         Clip the ends to `patchA` and `patchB` as pltrs (Rust) draws them,
@@ -2798,6 +2873,10 @@ default: 'arc3'
         if arrays is _mirrors.OWN:
             arrays = _patches.display_path(self._native)
         return self.get_transform().inverted().transform_path(Path(*arrays))
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
     def _add_to_axes(self, axes, kind, autolim=True):
         if (calls_program(self.get_connectionstyle())
@@ -3093,6 +3172,11 @@ class ConnectionPatch(FancyArrowPatch):
         """
         return _patches.get_connection_clip(self._native)
 
+    def draw(self, renderer):
+        # (pltrs (Rust) leaves out a connection whose ends the annotation
+        # clip hides, as matplotlib's ``_check_xy``.)
+        super().draw(renderer)
+
 
 class Shadow(Patch):
 
@@ -3164,6 +3248,10 @@ class Shadow(Patch):
                                                      self._oy * scale)
         return self.patch.get_patch_transform() + self._shadow_transform
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
 
 def bbox_artist(artist, renderer, props=None, fill=True):
     """
@@ -3204,3 +3292,17 @@ def draw_bbox(bbox, renderer, color='k', trans=None):
 _docstring.interpd.register(
     FancyArrow="\n".join(
         (inspect.getdoc(FancyArrow.__init__) or "").splitlines()[2:]))
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import textwrap  # noqa: E402, F401
+from collections import namedtuple  # noqa: E402, F401
+from types import SimpleNamespace  # noqa: E402, F401
+from . import artist, colors, hatch as mhatch, lines as mlines, transforms  # noqa: E402, F401
+from .bezier import (  # noqa: E402, F401
+    get_cos_sin, get_intersection, get_parallels, inside_circle, make_wedged_bezier2,
+    NonIntersectingPathException, split_bezier_intersecting_with_closedpath,
+    split_path_inout)
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

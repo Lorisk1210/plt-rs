@@ -132,9 +132,10 @@ must reproduce them.
 * Signatures and docstrings: `cargo xtask diff --docs [PATTERN...]
   [--failures] [--strict]` compares every public callable's
   `inspect.signature`, `__doc__` (after matplotlib's interpolation) and
-  `__module__`/`__qualname__` with matplotlib's, per module
-  (`target/diff/docs.md`). Docstrings are matplotlib's, in the source,
-  with its `_docstring` machinery.
+  `__module__`/`__qualname__` with matplotlib's, and every public
+  module-level name (re-exports, constants, modules as attributes) by type
+  and value, per module (`target/diff/docs.md`). Docstrings are
+  matplotlib's, in the source, with its `_docstring` machinery.
 * Coverage of matplotlib's own tests: `cargo xtask mpl-tests [--strict]`
   sorts every `def test_*` of `matplotlib/tests` into ported (named or
   cited, with or without `test_`, in `spec/reference` or

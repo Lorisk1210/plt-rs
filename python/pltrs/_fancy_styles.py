@@ -33,7 +33,8 @@ def _style_object(style, registry, **kwargs):
 
 class FancyStylesMixin:
     """What `.FancyBboxPatch` and `.FancyArrowPatch` share: their style
-    objects and mutation."""
+    objects and mutation (whose getters each class defines, as
+    matplotlib's do, with docstrings of their own)."""
 
     def _set_style(self, key, style, registry, native_set, native_get):
         """Give the patch *style* of *registry*, set by *native_set* and
@@ -85,10 +86,6 @@ class FancyStylesMixin:
         self._keep_mutation(scale, self.get_mutation_aspect())
         self.stale = True
 
-    def get_mutation_scale(self):
-        """Return the mutation scale."""
-        return self._mutation(0)
-
     def set_mutation_aspect(self, aspect):
         """
         Set the aspect ratio of the bbox mutation.
@@ -101,7 +98,8 @@ class FancyStylesMixin:
         self._keep_mutation(self._mutation(0), aspect)
         self.stale = True
 
-    def get_mutation_aspect(self):
-        """Return the aspect ratio of the bbox mutation."""
+    def _kept_mutation_aspect(self):
+        """The mutation aspect: one the patch keeps (see `_keep_mutation`),
+        else `_mutation`'s."""
         aspect = _unusable.kept(self, "mutation_aspect", None)
         return self._mutation(1) if aspect is None else aspect

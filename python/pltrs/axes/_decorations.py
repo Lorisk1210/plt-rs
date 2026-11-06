@@ -1,12 +1,13 @@
 """
 What an Axes draws around its data (matplotlib's ``set_axis_off``,
-``axis()``, ``set_frame_on``), its background (``Axes.patch``) and the
-blended transforms of its axes (``get_xaxis_transform``): pltrs (Rust)
-keeps them (``_native.axes_base``).
+``axis()``, ``set_frame_on``), its background (``Axes.patch``), the
+labels of its axes (``set_xlabel``) and the blended transforms of its axes
+(``get_xaxis_transform``): pltrs (Rust) keeps them (``_native.axes_base``,
+``_native.axes``).
 """
 
 from .. import _api, _background_patch
-from .._native import axes_base as _axes_base
+from .._native import axes as _axes, axes_base as _axes_base
 
 
 class DecorationsMixin:
@@ -97,9 +98,19 @@ class DecorationsMixin:
         """Return the zorder value below which artists will be rasterized."""
         return _axes_base.get_rasterization_zorder(self._native)
 
+    @property
+    def _frameon(self):
+        """Whether the Axes rectangle patch is drawn (matplotlib's
+        attribute, which pltrs (Rust) holds)."""
+        return _axes_base.get_frame_on(self._native)
+
+    @_frameon.setter
+    def _frameon(self, b):
+        _axes_base.set_frame_on(self._native, bool(b))
+
     def get_frame_on(self):
         """Get whether the Axes rectangle patch is drawn."""
-        return _axes_base.get_frame_on(self._native)
+        return self._frameon
 
     def set_frame_on(self, b):
         """
@@ -109,7 +120,7 @@ class DecorationsMixin:
         ----------
         b : bool
         """
-        _axes_base.set_frame_on(self._native, bool(b))
+        self._frameon = b
 
     def axis(self, arg=None, /, *, emit=True, **kwargs):
         """
@@ -240,3 +251,75 @@ class DecorationsMixin:
             directly access the attribute `~.Axes.yaxis`.
         """
         return self.yaxis
+
+    def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
+                   **kwargs):
+        """
+        Set the label for the x-axis.
+
+        Parameters
+        ----------
+        xlabel : str
+            The label text.
+
+        labelpad : float, default: :rc:`axes.labelpad`
+            Spacing in points from the Axes bounding box including ticks
+            and tick labels.  If None, the previous value is left as is.
+
+        loc : {'left', 'center', 'right'}, default: :rc:`xaxis.labellocation`
+            The label position. This is a high-level alternative for passing
+            parameters *x* and *horizontalalignment*.
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.text.Text` properties
+            `.Text` properties control the appearance of the label.
+
+        See Also
+        --------
+        text : Documents the properties supported by `.Text`.
+        """
+        return self.xaxis._set_axes_label(xlabel, fontdict, labelpad, loc,
+                                          kwargs)
+
+    def get_xlabel(self):
+        """
+        Get the xlabel text string.
+        """
+        return _axes.get_xlabel(self._native)
+
+    def set_ylabel(self, ylabel, fontdict=None, labelpad=None, *, loc=None,
+                   **kwargs):
+        """
+        Set the label for the y-axis.
+
+        Parameters
+        ----------
+        ylabel : str
+            The label text.
+
+        labelpad : float, default: :rc:`axes.labelpad`
+            Spacing in points from the Axes bounding box including ticks
+            and tick labels.  If None, the previous value is left as is.
+
+        loc : {'bottom', 'center', 'top'}, default: :rc:`yaxis.labellocation`
+            The label position. This is a high-level alternative for passing
+            parameters *y* and *horizontalalignment*.
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.text.Text` properties
+            `.Text` properties control the appearance of the label.
+
+        See Also
+        --------
+        text : Documents the properties supported by `.Text`.
+        """
+        return self.yaxis._set_axes_label(ylabel, fontdict, labelpad, loc,
+                                          kwargs)
+
+    def get_ylabel(self):
+        """
+        Get the ylabel text string.
+        """
+        return _axes.get_ylabel(self._native)

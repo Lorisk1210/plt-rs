@@ -795,3 +795,20 @@ Artist._update_set_signature_and_docstring()
 
 cbook._set_module(__name__, _XYPair, ArtistInspector, get, getp, setp, kwdoc)
 cbook._own_mixin_methods(Artist, object)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import inspect  # noqa: E402, F401
+import logging  # noqa: E402, F401
+import operator  # noqa: E402, F401
+import re  # noqa: E402, F401
+import warnings  # noqa: E402, F401
+from collections import namedtuple  # noqa: E402, F401
+from inspect import Parameter, Signature  # noqa: E402, F401
+from numbers import Number  # noqa: E402, F401
+from .path import Path  # noqa: E402, F401
+from .transforms import (  # noqa: E402, F401
+    Bbox, BboxBase, IdentityTransform, Transform, TransformedBbox, TransformedPatchPath,
+    TransformedPath)
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

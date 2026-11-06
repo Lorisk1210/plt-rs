@@ -51,13 +51,13 @@ def _native_aux(aux_trans):
             _xy_function(mapped(inverse)))
 
 
+# What the helper of an axis artist says of its ticks, line and label
+# (matplotlib's ``get_tick_iterators``, ``get_line`` and
+# ``get_axislabel_pos_angle``): pltrs (Rust) computes them for the axis artist
+# the helper serves, in its axes' current state. The helper classes define the
+# public methods again as their own, as matplotlib's do; no docstring, so that
+# ``help`` shows their bases'.
 class _NativeHelper:
-    """
-    What the helper of an axis artist says of its ticks, line and label
-    (matplotlib's ``get_tick_iterators``, ``get_line`` and
-    ``get_axislabel_pos_angle``): pltrs (Rust) computes them for the axis
-    artist the helper serves, in its axes' current state.
-    """
 
     def _served(self):
         """The native axis artist the helper serves."""
@@ -68,7 +68,7 @@ class _NativeHelper:
         return self._artist_native
 
     def get_tick_iterators(self, axes):
-        """tick_loc, tick_angle, tick_label"""
+        # tick_loc, tick_angle, tick_label
         major, minor = _axisartist.helper_ticks(self._served())
 
         def ticks(level):
@@ -115,6 +115,13 @@ class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
 
     def get_tick_transform(self, axes):
         return axes.transData
+
+    def update_lim(self, axes):
+        super().update_lim(axes)
+
+    def get_tick_iterators(self, axes):
+        """tick_loc, tick_angle, tick_label"""
+        return super().get_tick_iterators(axes)
 
 
 class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
@@ -164,6 +171,13 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
     def get_line(self, axes):
         vertices, codes = _axisartist.helper_line(self._served())
         return Path(vertices, codes)
+
+    def update_lim(self, axes):
+        super().update_lim(axes)
+
+    def get_tick_iterators(self, axes):
+        """tick_loc, tick_angle, tick_label, (optionally) tick_label"""
+        return super().get_tick_iterators(axes)
 
 
 class GridHelperCurveLinear(GridHelperBase):
@@ -280,3 +294,9 @@ class GridHelperCurveLinear(GridHelperBase):
         # (pltrs (Rust) clips its line to the axes box).
         axisline = AxisArtist(axes, helper)
         return axisline
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import pltrs as mpl  # noqa: E402, F401

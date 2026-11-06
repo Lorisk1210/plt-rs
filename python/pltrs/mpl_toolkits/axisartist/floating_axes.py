@@ -47,6 +47,16 @@ class FixedAxisArtistHelper(grid_helper_curvelinear.FloatingAxisArtistHelper):
         if self.nth_coord_ticks != self.nth_coord:
             _axisartist.set_nth_coord_ticks(native, "xy"[self.nth_coord_ticks])
 
+    def update_lim(self, axes):
+        super().update_lim(axes)
+
+    def get_tick_iterators(self, axes):
+        """tick_loc, tick_angle, tick_label, (optionally) tick_label"""
+        return super().get_tick_iterators(axes)
+
+    def get_line(self, axes):
+        return super().get_line(axes)
+
     def _new_axis(self, axes, offset, axis_direction):
         """The native axis artist of the floating axes *axes* along this
         edge of its range."""
@@ -200,3 +210,10 @@ class FloatingAxesBase:
 floatingaxes_class_factory = cbook._make_class_factory(FloatingAxesBase, "Floating{}")
 FloatingAxes = floatingaxes_class_factory(host_axes_class_factory(axislines.Axes))
 FloatingSubplot = FloatingAxes
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import pltrs as mpl  # noqa: E402, F401
+from pltrs.path import Path  # noqa: E402, F401

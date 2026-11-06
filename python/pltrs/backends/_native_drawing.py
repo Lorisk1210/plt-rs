@@ -97,12 +97,12 @@ def _rgba_array(colors):
     return mcolors.to_rgba_array(colors)
 
 
+# matplotlib's drawing methods of a renderer, done by pltrs (Rust): each adds
+# its step to the drawing the renderer draws into (see the module
+# documentation). The renderer classes define them again as their own, as
+# matplotlib's do. No docstring, nor for the mixins below: ``help`` shows
+# those of the renderer classes' bases, as for matplotlib's.
 class NativeDrawingMixin:
-    """
-    matplotlib's drawing methods of a renderer, done by pltrs (Rust): each
-    adds its step to the drawing the renderer draws into (see the module
-    documentation).
-    """
 
     #: The drawing pltrs (Rust) records into while it draws a figure with
     #: the renderer (see `.._python_drawing`), else None.
@@ -219,9 +219,6 @@ class NativeDrawingMixin:
 
     def start_filter(self):
         # docstring inherited
-        """
-        Start filtering. It simply creates a new canvas (the old one is saved).
-        """
         with self._target() as drawing:
             _drawing.start_filter(drawing)
 
@@ -248,35 +245,14 @@ class NativeDrawingMixin:
             _table.draw_cell_into(drawing, cell._ref())
 
 
-class MathtextDrawingMixin:
-    """``draw_mathtext``, which the Agg, PDF and PostScript renderers have:
-    a line typeset as mathtext, drawn as `NativeDrawingMixin` draws text."""
-
-    def draw_mathtext(self, gc, x, y, s, prop, angle):
-        """Draw mathtext using :mod:`matplotlib.mathtext`."""
-        self._draw_line(gc, x, y, s, prop, angle, True)
-
-
-class PdfPsDrawingMixin(MathtextDrawingMixin):
-    """The drawing methods `RendererPdf` and `RendererPS` name as
-    matplotlib's do."""
-
-    def draw_gouraud_triangles(self, gc, points, colors, trans):
-        # docstring inherited
-        super().draw_gouraud_triangles(gc, points, colors, trans)
-
-
+# The drawing methods of the renderers of the vector backends (`RendererPdf`,
+# `RendererSVG`, `RendererPS`, `RendererPgf`): they draw into the document
+# pltrs (Rust) writes while it saves a figure through the format's canvas,
+# which hands the program's drawing one of them (see `.._python_drawing`). A
+# renderer the program makes around a file of its own draws into a document
+# of its own (`_page`, see ``_native.backends``), whose drawing it writes to
+# the file as matplotlib's renderers do.
 class DocumentDrawingMixin(NativeDrawingMixin):
-    """
-    The drawing methods of the renderers of the vector backends
-    (`RendererPdf`, `RendererSVG`, `RendererPS`, `RendererPgf`): they draw
-    into the document pltrs (Rust) writes while it saves a figure through
-    the format's canvas, which hands the program's drawing one of them
-    (see `.._python_drawing`). A renderer the program makes around a file
-    of its own draws into a document of its own (`_page`, see
-    ``_native.backends``), whose drawing it writes to the file as
-    matplotlib's renderers do.
-    """
 
     #: The document a renderer made around a file of the program's draws
     #: into, None for the renderers of pltrs's saves.

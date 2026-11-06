@@ -41,42 +41,52 @@ class HatchPatternBase:
     pass
 
 
-class _Lines(HatchPatternBase):
-    """
-    Straight hatch lines, the family ``_family`` of pltrs (Rust)'s
-    ``HatchLines``, for the pattern characters ``_characters``.
-    """
+def _count_lines(hatch, characters, density):
+    """The number of lines of the line family the pattern *hatch* draws
+    for each of its *characters*, *density* lines each."""
+    return int(sum(hatch.count(c) for c in characters) * density)
 
-    _family = None
-    _characters = ()
 
+def _write_family(family, num_lines, vertices, codes):
+    """Write the *num_lines* lines of the *family* (of pltrs (Rust)'s
+    ``HatchLines``) into *vertices* and *codes*."""
+    _write_lines(_hatch.line_piece(family, num_lines), vertices, codes)
+
+
+class HorizontalHatch(HatchPatternBase):
     def __init__(self, hatch, density):
-        self.num_lines = int(sum(hatch.count(c) for c in self._characters)
-                             * density)
-        self.num_vertices = _hatch.line_vertex_count(self._family, self.num_lines)
+        self.num_lines = _count_lines(hatch, ('-', '+'), density)
+        self.num_vertices = _hatch.line_vertex_count("horizontal", self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
-        _write_lines(_hatch.line_piece(self._family, self.num_lines), vertices, codes)
+        _write_family("horizontal", self.num_lines, vertices, codes)
 
 
-class HorizontalHatch(_Lines):
-    _family = "horizontal"
-    _characters = ('-', '+')
+class VerticalHatch(HatchPatternBase):
+    def __init__(self, hatch, density):
+        self.num_lines = _count_lines(hatch, ('|', '+'), density)
+        self.num_vertices = _hatch.line_vertex_count("vertical", self.num_lines)
+
+    def set_vertices_and_codes(self, vertices, codes):
+        _write_family("vertical", self.num_lines, vertices, codes)
 
 
-class VerticalHatch(_Lines):
-    _family = "vertical"
-    _characters = ('|', '+')
+class NorthEastHatch(HatchPatternBase):
+    def __init__(self, hatch, density):
+        self.num_lines = _count_lines(hatch, ('/', 'x', 'X'), density)
+        self.num_vertices = _hatch.line_vertex_count("north_east", self.num_lines)
+
+    def set_vertices_and_codes(self, vertices, codes):
+        _write_family("north_east", self.num_lines, vertices, codes)
 
 
-class NorthEastHatch(_Lines):
-    _family = "north_east"
-    _characters = ('/', 'x', 'X')
+class SouthEastHatch(HatchPatternBase):
+    def __init__(self, hatch, density):
+        self.num_lines = _count_lines(hatch, ('\\', 'x', 'X'), density)
+        self.num_vertices = _hatch.line_vertex_count("south_east", self.num_lines)
 
-
-class SouthEastHatch(_Lines):
-    _family = "south_east"
-    _characters = ('\\', 'x', 'X')
+    def set_vertices_and_codes(self, vertices, codes):
+        _write_family("south_east", self.num_lines, vertices, codes)
 
 
 class Shapes(HatchPatternBase):

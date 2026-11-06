@@ -5,7 +5,7 @@
 //! `set_in_layout`, `labelpad`, `set_label_coords`, `tick_top`,
 //! `get_tightbbox`, `have_units`, `update_units`, `axis_date`).
 
-use pltrs::axes::{Axes, AxisBelow};
+use pltrs::axes::{Axes, AxisBelow, TickHelperKind};
 use pltrs::spines::SpineSide;
 use pltrs::units::{Categories, DateConverter, UnitConverter};
 
@@ -27,6 +27,31 @@ fn is_default_helper(owner: AxisOwner, name: String, kind: String, minor: bool) 
         ("formatter", _, AnyAxis::Deep(axis)) => axis.is_default_formatter(minor),
         _ => return Err(PyErr::value_error(format!("no tick helper kind {kind:?}"))),
     })
+}
+
+/// Counts the major or `minor` locator (`kind` `"locator"`) or formatter
+/// (`"formatter"`) as the scale's own, or not (`isDefault_majloc = ...`).
+fn set_default_helper(
+    owner: AxisOwner,
+    name: String,
+    kind: String,
+    minor: bool,
+    default: bool,
+) -> PyResult<()> {
+    let helper = match kind.as_str() {
+        "locator" => TickHelperKind::Locator,
+        "formatter" => TickHelperKind::Formatter,
+        _ => return Err(PyErr::value_error(format!("no tick helper kind {kind:?}"))),
+    };
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_default_tick_helper(minor, helper, default);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.set_default_tick_helper(minor, helper, default);
+        }
+    }
+    Ok(())
 }
 
 /// Whether the label text was never set (`isDefault_label`).
@@ -329,6 +354,7 @@ fn clear(owner: AxisOwner, name: String) -> PyResult<()> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("clear", clear)?;
     module.add("is_default_helper", is_default_helper)?;
+    module.add("set_default_helper", set_default_helper)?;
     module.add("is_default_label", is_default_label)?;
     module.add("set_label_text", set_label_text)?;
     module.add("minorticks", minorticks)?;
@@ -371,6 +397,9 @@ mod tests {
         minorticks(owner(), x(), true).unwrap();
         assert!(!is_default_helper(owner(), x(), "locator".into(), true).unwrap());
         assert!(is_default_helper(owner(), x(), "artist".into(), true).is_err());
+        set_default_helper(owner(), x(), "formatter".into(), false, false).unwrap();
+        assert!(!is_default_helper(owner(), x(), "formatter".into(), false).unwrap());
+        assert!(set_default_helper(owner(), x(), "artist".into(), false, true).is_err());
         set_labelpad(owner(), "y".into(), 9.0).unwrap();
         assert_eq!(get_labelpad(owner(), "y".into()).unwrap(), 9.0);
         assert!(tick_to(ax.clone(), x(), "left".into()).is_err());

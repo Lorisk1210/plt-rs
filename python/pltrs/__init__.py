@@ -1048,3 +1048,13 @@ def sanitize_sequence(data):
 @_api.deprecated("3.10", alternative="matplotlib.rcsetup.validate_backend")
 def validate_backend(s):
     return rcsetup.validate_backend(s)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import importlib  # noqa: E402, F401
+import inspect  # noqa: E402, F401
+import locale  # noqa: E402, F401
+import tempfile  # noqa: E402, F401
+from inspect import Parameter  # noqa: E402, F401
+from pathlib import Path  # noqa: E402, F401

@@ -9,6 +9,7 @@ values, as matplotlib's (which takes them from FreeType's headers).
 """
 
 from enum import Enum, Flag
+import inspect
 import io
 import os
 
@@ -200,6 +201,12 @@ def _read_only(name, doc):
     return property(lambda self: self._values[name], doc=doc)
 
 
+#: The signature matplotlib's pybind11 classes without a constructor show:
+#: ``__init__(self)``.
+_NO_ARGUMENTS = inspect.Signature(
+    [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)])
+
+
 def _not_constructible(cls, args, kwargs):
     """Fail as constructing *cls*, a class matplotlib's pybind11 extension
     makes no constructor of, fails: with no arguments, `RuntimeError`;
@@ -229,6 +236,8 @@ class Glyph:
 
     def __init__(self, *args, **kwargs):
         _not_constructible(type(self), args, kwargs)
+
+    __init__.__signature__ = _NO_ARGUMENTS
 
     @classmethod
     def _loaded(cls, metrics, index):
@@ -266,11 +275,14 @@ class Glyph:
     bbox = _read_only("bbox", "The control box of the glyph.")
 
 
+# A glyph of laid out text, as `FT2Font._layout` yields it (no docstring, as
+# matplotlib's).
 class LayoutItem:
-    """A glyph of laid out text, as `FT2Font._layout` yields it."""
 
     def __init__(self, *args, **kwargs):
         _not_constructible(type(self), args, kwargs)
+
+    __init__.__signature__ = _NO_ARGUMENTS
 
     @classmethod
     def _laid_out(cls, ft_object, char, glyph_index, x, y, prev_kern):
@@ -334,10 +346,12 @@ class FT2Image:
     def __array__(self, dtype=None, copy=None):
         return self._buffer if dtype is None else self._buffer.astype(dtype)
 
-    def __buffer__(self, flags):
+    def __buffer__(self, flags, /):
+        """Return a buffer object that exposes the underlying memory of the object."""
         return memoryview(self._buffer)
 
-    def __release_buffer__(self, buffer):
+    def __release_buffer__(self, buffer, /):
+        """Release the buffer object that exposes the underlying memory of the object."""
         buffer.release()
 
 
@@ -492,7 +506,8 @@ class FT2Font:
         """Return a buffer object that exposes the underlying memory of the object."""
         return memoryview(self._image())
 
-    def __release_buffer__(self, buffer):
+    def __release_buffer__(self, buffer, /):
+        """Release the buffer object that exposes the underlying memory of the object."""
         buffer.release()
 
     def _image(self):
@@ -511,13 +526,13 @@ class FT2Font:
 
     @property
     def scalable(self):
-        """Whether face is scalable; attributes after this one are only
-        defined for scalable faces."""
+        """Whether face is scalable; attributes after this one are only defined for scalable faces."""  # noqa: E501
         return FaceFlags.SCALABLE in self.face_flags
 
     @property
     def num_named_instances(self):
-        """Number of named instances in the face (none: no variable fonts)."""
+        """Number of named instances in the face."""
+        # None: pltrs (Rust) reads no variable fonts.
         return 0
 
     def clear(self):

@@ -10,12 +10,10 @@ makes the image (``_native.image``).
 import PIL.Image
 
 from .. import _docstring
-from .. import (_api, _handles, _live_transforms, _values, cbook,
-               colorizer as mcolorizer)
+from .. import _api, _handles, _live_transforms, _values, colorizer as mcolorizer
 from .. import image as mimage
 from .._native import image as _native_image
 from .._preprocess import _preprocess_data
-from ._artist_list import ArtistList
 
 
 def _rc(key):
@@ -290,13 +288,3 @@ class ImagingMixin:
         im._internal_update(kwargs)
         self._sci(im)
         return im
-
-    def get_images(self):
-        r"""Return a list of `.AxesImage`\s contained by the Axes."""
-        return cbook.silent_list('AxesImage', self.images)
-
-    @property
-    def images(self):
-        return ArtistList._of("images", lambda: _handles.wrap_all(
-            _native_image.get_images(self._native), mimage.AxesImage,
-            self.figure))

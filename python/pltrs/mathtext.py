@@ -138,3 +138,9 @@ def math_to_image(s, filename_or_obj, prop=None, dpi=None, format=None,
     fig.savefig(filename_or_obj, dpi=dpi, format=format)
 
     return depth
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from .ft2font import LoadFlags  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

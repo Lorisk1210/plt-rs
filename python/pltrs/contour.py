@@ -936,8 +936,8 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         for p in self.get_paths()])
 
     def get_linewidth(self):
-        """Return the line widths of the levels (of the collection, for
-        filled contours)."""
+        # The line widths of the levels (of the collection, for filled
+        # contours).
         if self.filled:
             return super().get_linewidth()
         # The widths given, which pltrs (Rust) holds one per level, as
@@ -952,8 +952,8 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         return list(widths) * (dashes // math.gcd(dashes, len(widths)))
 
     def set_linewidth(self, lw):
-        """Set the line widths of the levels (of the collection's edges, for
-        filled contours)."""
+        # The line widths of the levels (of the collection's edges, for
+        # filled contours).
         lw = np.atleast_1d(lw)
         if self.filled:
             super().set_linewidth(lw)
@@ -961,16 +961,22 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         _contour.set_linewidths(self._contour, [float(w) for w in lw])
         _values.remember(self, "linewidth", lw)
 
+    get_linewidth.__doc__ = mcoll.Collection.get_linewidth.__doc__
+    set_linewidth.__doc__ = mcoll.Collection.set_linewidth.__doc__
+
     def get_hatch(self):
-        """Return the hatching pattern of the set as a collection: none
-        until one is set (the bands' are `hatches`)."""
+        # The hatching pattern of the set as a collection: none until one is
+        # set (the bands' are `hatches`).
         return self.__dict__.get("_collection_hatch")
 
+    get_hatch.__doc__ = mcoll.Collection.get_hatch.__doc__
+
     def set_hatch(self, hatch):
-        """Set the hatching pattern of the set as a collection (see
-        `.hatch`)."""
+        # The hatching pattern of the set as a collection.
         super().set_hatch(hatch)
         self._collection_hatch = hatch
+
+    set_hatch.__doc__ = mcoll.Collection.set_hatch.__doc__
 
     def get_facecolor(self):
         """
@@ -991,21 +997,31 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         return self.to_rgba(values, self.get_alpha())
 
     def get_edgecolor(self):
-        """Return the edge colors: those of the levels for line contours
-        until others are set, none for filled contours."""
+        # The edge colors: those of the levels for line contours until
+        # others are set, none for filled contours.
         return super().get_edgecolor()
 
+    get_edgecolor.__doc__ = mcoll.Collection.get_edgecolor.__doc__
+
     def set_edgecolor(self, c):
-        """
-        Set the edge color(s) of the contours: a color or a sequence of
-        colors, cycled over the paths of the levels or bands; ``'none'``,
-        ``'face'`` or None as for any `.Collection`.
-        """
+        # The edge color(s) of the contours: a color or a sequence of
+        # colors, cycled over the paths of the levels or bands; ``'none'``,
+        # ``'face'`` or None as for any `.Collection`.
         if c is None or isinstance(c, str) and c.lower() in ("none", "face"):
             super().set_edgecolor(c)
             return
         _contour.set_edgecolors(
             self._contour, [tuple(rgba) for rgba in mcolors.to_rgba_array(c)])
+
+    set_edgecolor.__doc__ = mcoll.Collection.set_edgecolor.__doc__
+
+    def get_transform(self):
+        """Return the `.Transform` instance used by this ContourSet."""
+        return super().get_transform()
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
     def find_nearest_contour(self, x, y, indices=None, pixel=True):
         """
@@ -1300,3 +1316,13 @@ def _contour_args(fn, args, kwargs):
 
 
 __all__ = ["ContourLabeler", "ContourSet", "QuadContourSet"]
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from contextlib import ExitStack  # noqa: E402, F401
+from . import (  # noqa: E402, F401
+    artist, cm, font_manager, patches as mpatches, ticker, transforms as mtransforms)
+from .lines import Line2D  # noqa: E402, F401
+from .text import Text  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

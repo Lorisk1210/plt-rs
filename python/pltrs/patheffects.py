@@ -531,3 +531,8 @@ class TickedStroke(AbstractPathEffect):
 
 
 withTickedStroke = _subclass_with_normal(effect_class=TickedStroke)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from . import patches as mpatches  # noqa: E402, F401

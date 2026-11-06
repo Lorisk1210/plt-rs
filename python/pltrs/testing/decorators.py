@@ -476,3 +476,9 @@ def _image_directories(func):
     result_dir = Path().resolve() / "result_images" / module_path.stem
     result_dir.mkdir(parents=True, exist_ok=True)
     return baseline_dir, result_dir
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from platform import uname  # noqa: E402, F401
+matplotlib = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

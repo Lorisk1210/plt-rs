@@ -408,13 +408,13 @@ substring of 'BRTL'
         _table.set_height(self._ref(), float(h))
 
     def set_bounds(self, *args):
-        """
-        Set the bounds of the cell as *left*, *bottom*, *width*, *height*
-        (pltrs: its table places it, so its size counts).
-        """
+        # The bounds of the cell as *left*, *bottom*, *width*, *height*: its
+        # table places it, so its size counts.
         super().set_bounds(*args)
         _table.set_width(self._ref(), float(super().get_width()))
         _table.set_height(self._ref(), float(super().get_height()))
+
+    set_bounds.__doc__ = Rectangle.set_bounds.__doc__
 
 
 CustomCell = Cell  # Backcompat. alias.
@@ -646,6 +646,10 @@ class Table(Artist):
     def get_children(self):
         """Return the Artists contained by the table."""
         return list(self.get_celld().values())
+
+    def contains(self, mouseevent):
+        # docstring inherited
+        return super().contains(mouseevent)
 
     def auto_set_column_width(self, col):
         """

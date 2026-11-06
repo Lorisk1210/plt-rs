@@ -86,15 +86,12 @@ def get_glyphs_subset(fontfile, glyphs):
     return SubsetResults(_SubsetFont(subset), dict(kept))._as_cm()
 
 
+# The base of the renderers of the PDF and PostScript backends, for a page of
+# *width* × *height* inches drawn in points. Subclasses define
+# ``_afm_font_dir``, the directory of their AFM fonts, and
+# ``_use_afm_rc_name``, the rcParam choosing them, and measure text as their
+# backend does. No docstring, as matplotlib's has none.
 class RendererPDFPSBase(RendererBase):
-    """
-    The base of the renderers of the PDF and PostScript backends, for a
-    page of *width* × *height* inches drawn in points.
-
-    Subclasses define ``_afm_font_dir``, the directory of their AFM fonts,
-    and ``_use_afm_rc_name``, the rcParam choosing them, and measure text
-    as their backend does.
-    """
 
     def __init__(self, width, height):
         super().__init__()

@@ -3459,3 +3459,8 @@ _DEFINITION = [
 
 def _params_list():
     return [elem for elem in _DEFINITION if isinstance(elem, _Param)]
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

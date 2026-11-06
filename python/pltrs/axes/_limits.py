@@ -1,6 +1,7 @@
 """
-The view bounds of an Axes and how it autoscales (matplotlib's
-``get_xbound``/``set_xbound``, ``get_autoscalex_on``, ``autoscale``,
+The view limits and bounds of an Axes and how it autoscales (matplotlib's
+``get_xlim``/``set_xlim``, ``get_xbound``/``set_xbound``,
+``get_autoscalex_on``, ``autoscale``,
 ``margins``, ``relim``, ``update_datalim``, ``use_sticky_edges``): pltrs
 (Rust) keeps them
 (``_native.axes_base``).
@@ -9,7 +10,7 @@ The view bounds of an Axes and how it autoscales (matplotlib's
 import numpy as np
 
 from .. import _api, _program_classes, _values
-from .._native import axes_base as _axes_base
+from .._native import axes as _axes, axes_base as _axes_base
 from ._ticks import _axis_method_wrapper
 
 
@@ -58,6 +59,28 @@ def _counted_images(axes):
 
 class LimitsMixin:
     """The limit, bound and autoscaling methods of `~.axes.Axes`."""
+
+    def get_xlim(self):
+        """
+        Return the x-axis view limits.
+
+        Returns
+        -------
+        left, right : (float, float)
+            The current x-axis limits in data coordinates.
+
+        See Also
+        --------
+        .Axes.set_xlim
+        .Axes.set_xbound, .Axes.get_xbound
+        .Axes.invert_xaxis, .Axes.xaxis_inverted
+
+        Notes
+        -----
+        The x-axis may be inverted, in which case the *left* value will
+        be greater than the *right* value.
+        """
+        return _values.float64s(_axes.get_xlim(self._native))
 
     def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
                  xmin=None, xmax=None):
@@ -127,6 +150,28 @@ class LimitsMixin:
         """
         left, right = _limit_args("x", left, right, xmin, xmax)
         return self.xaxis._set_lim(left, right, emit=emit, auto=auto)
+
+    def get_ylim(self):
+        """
+        Return the y-axis view limits.
+
+        Returns
+        -------
+        bottom, top : (float, float)
+            The current y-axis limits in data coordinates.
+
+        See Also
+        --------
+        .Axes.set_ylim
+        .Axes.set_ybound, .Axes.get_ybound
+        .Axes.invert_yaxis, .Axes.yaxis_inverted
+
+        Notes
+        -----
+        The y-axis may be inverted, in which case the *bottom* value
+        will be greater than the *top* value.
+        """
+        return _values.float64s(_axes.get_ylim(self._native))
 
     def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
                  ymin=None, ymax=None):

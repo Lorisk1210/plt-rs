@@ -1529,11 +1529,7 @@ class FontManager:
 
 fontManager = FontManager()
 findfont = fontManager.findfont
-
-
-def get_font_names():
-    """Return the list of available fonts."""
-    return fontManager.get_font_names()
+get_font_names = fontManager.get_font_names
 
 
 @_api.deprecated("3.11")
@@ -1756,3 +1752,9 @@ str, bytes, os.PathLike, FontPath
     # Ensure the transform is always consistent.
     font._set_transform([[0x10000, 0], [0, 0x10000]], [0, 0])
     return font
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import threading  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

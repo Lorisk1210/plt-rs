@@ -12,7 +12,7 @@ The document information helpers (`_create_pdf_info_dict`,
 Matplotlib License).
 """
 
-import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from functools import total_ordering
 import logging
@@ -36,7 +36,7 @@ from ..font_manager import (
 from ..text import _measuring_with
 from ..transforms import BboxBase
 from ._backend_pdf_ps import RendererPDFPSBase
-from ._native_drawing import DocumentDrawingMixin, PdfPsDrawingMixin, native_gc
+from ._native_drawing import DocumentDrawingMixin, native_gc
 from .backend_mixed import MixedModeRenderer
 
 _log = logging.getLogger(__name__)
@@ -70,10 +70,10 @@ def _create_pdf_info_dict(backend, metadata):
     """
     source_date_epoch = os.getenv("SOURCE_DATE_EPOCH")
     if source_date_epoch:
-        source_date = datetime.datetime.fromtimestamp(
-            int(source_date_epoch), datetime.timezone.utc)
+        source_date = datetime.fromtimestamp(
+            int(source_date_epoch), timezone.utc)
     else:
-        source_date = datetime.datetime.today()
+        source_date = datetime.today()
 
     creator = _backends.default_creator()
     info = {
@@ -95,7 +95,7 @@ _is_string_like.text_for_warning = "an instance of str"
 
 
 def _is_date(x):
-    return isinstance(x, datetime.datetime)
+    return isinstance(x, datetime)
 
 
 _is_date.text_for_warning = "an instance of datetime.datetime"
@@ -149,7 +149,7 @@ def _native_info(metadata):
     for key in _check_info(given):
         value = given[key]
         native[key] = (int(value.timestamp())
-                       if isinstance(value, datetime.datetime)
+                       if isinstance(value, datetime)
                        else value)
     return native
 
@@ -205,7 +205,7 @@ def _pdf_object(obj):
         return ('array', [_pdf_object(val) for val in obj])
     elif obj is None:
         return ('null', None)
-    elif isinstance(obj, datetime.datetime):
+    elif isinstance(obj, datetime):
         return ('text', _datetime_to_pdf(obj))
     elif isinstance(obj, BboxBase):
         return ('seq', [_pdf_object(val) for val in obj.bounds])
@@ -430,7 +430,7 @@ def _info_of(entries):
     holds it: text, and the dates in UTC.
     """
     return {key: text if date is None else
-            datetime.datetime.fromtimestamp(date, datetime.timezone.utc)
+            datetime.fromtimestamp(date, timezone.utc)
             for key, text, date in entries}
 
 
@@ -441,7 +441,7 @@ def _native_info_of(info):
     """
     native = {}
     for key, value in info.items():
-        if isinstance(value, datetime.datetime):
+        if isinstance(value, datetime):
             native[key] = int(value.timestamp())
         elif isinstance(value, Name):
             native[key] = value.name.decode('ascii')
@@ -909,7 +909,7 @@ class PdfPages:
         self._ensure_file().newTextnote(text, positionRect)
 
 
-class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
+class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
     # pltrs (Rust) writes the documents itself: the renderers pltrs hands
     # Python are the one the figure is laid out with for its document (the
     # renderer text measurement receives while a figure under the PDF canvas
@@ -977,6 +977,44 @@ class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
         if fonttype in (1, 3):
             return s.encode('cp1252', 'replace')
         return s.encode('utf-16be', 'replace')
+
+    # The drawing methods of `._native_drawing.DocumentDrawingMixin`, which
+    # pltrs (Rust) draws, as the renderer's own (matplotlib's renderers each
+    # define them).
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        # docstring inherited
+        super().draw_path(gc, path, transform, rgbFace)
+
+    def draw_path_collection(self, gc, master_transform, paths, all_transforms,
+                             offsets, offset_trans, facecolors, edgecolors,
+                             linewidths, linestyles, antialiaseds, urls,
+                             offset_position, *, hatchcolors=None):
+        # docstring inherited
+        super().draw_path_collection(
+            gc, master_transform, paths, all_transforms, offsets, offset_trans,
+            facecolors, edgecolors, linewidths, linestyles, antialiaseds, urls,
+            offset_position, hatchcolors=hatchcolors)
+
+    def draw_gouraud_triangles(self, gc, points, colors, trans):
+        # docstring inherited
+        super().draw_gouraud_triangles(gc, points, colors, trans)
+
+    def draw_image(self, gc, x, y, im, transform=None):
+        # docstring inherited
+        super().draw_image(gc, x, y, im, transform)
+
+    def draw_mathtext(self, gc, x, y, s, prop, angle):
+        # The line typeset as mathtext.
+        self._draw_line(gc, x, y, s, prop, angle, True)
+
+    def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
+        # docstring inherited
+        super().draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        # docstring inherited
+        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
 
 
 class GraphicsContextPdf(GraphicsContextBase):
@@ -1213,10 +1251,8 @@ class FigureCanvasPdf(FigureCanvasBase):
         self.figure.draw_without_rendering()
         return super().draw()
 
-    def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None,
-                  facecolor=None, edgecolor=None):
-        settings = dict(bbox_inches_restore=bbox_inches_restore,
-                        facecolor=facecolor, edgecolor=edgecolor)
+    def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None):
+        settings = dict(bbox_inches_restore=bbox_inches_restore)
         with _measuring_with(self._print_renderer()):
             if isinstance(filename, PdfPages):
                 with self._program_drawing(bbox_inches_restore):
@@ -1236,5 +1272,21 @@ class _BackendPdf(_Backend):
     FigureCanvas = FigureCanvasPdf
 
 
-
-
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import codecs  # noqa: E402, F401
+import itertools  # noqa: E402, F401
+import math  # noqa: E402, F401
+import string  # noqa: E402, F401
+import struct  # noqa: E402, F401
+import sys  # noqa: E402, F401
+import zlib  # noqa: E402, F401
+from PIL import Image  # noqa: E402, F401
+from io import BytesIO  # noqa: E402, F401
+from .._afm import AFM  # noqa: E402, F401
+from ..backend_bases import RendererBase  # noqa: E402, F401
+from ..font_manager import get_font  # noqa: E402, F401
+from ..ft2font import FaceFlags, FT2Font, LoadFlags, StyleFlags  # noqa: E402, F401
+from ..path import Path  # noqa: E402, F401
+from ..transforms import Affine2D  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

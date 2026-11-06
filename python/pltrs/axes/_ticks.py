@@ -484,6 +484,10 @@ class TicksMixin:
         self.xaxis.minorticks_off()
         self.yaxis.minorticks_off()
 
+
+class LogScalePlotsMixin:
+    """The plots of `~.axes.Axes` on log scales."""
+
     def _log_kwargs(self, kwargs, name):
         """The scale keywords of *kwargs* for the *name* axis of a log
         plot (matplotlib's ``loglog``, ``semilogx`` and ``semilogy``)."""

@@ -244,6 +244,10 @@ class InsetIndicator(artist.Artist):
         self._connectors_asked = True
         return self._connector_objects(natives)
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
     @_api.deprecated(
         '3.10',
         message=('Since Matplotlib 3.10 indicate_inset_[zoom] returns a single '
@@ -252,3 +256,10 @@ class InsetIndicator(artist.Artist):
                  'return value into two elements.'))
     def __getitem__(self, key):
         return [self.rectangle, self.connectors][key]
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from . import transforms  # noqa: E402, F401
+from .patches import PathPatch  # noqa: E402, F401
+from .path import Path  # noqa: E402, F401

@@ -4,8 +4,9 @@ The interactive side of a figure: the observers of its Axes (matplotlib's
 Axes change (one is added, removed or made current), which the toolbars
 use to keep their views; the release of the mouse an Axes grabs when it is
 removed; the current Axes (``Figure.gca``, ``sca``), which subfigures
-share with their root figure; and drawing single artists onto the canvas
-for blitting (``Figure.draw_artist``).
+share with their root figure; the hit test of a figure (``contains``);
+and, for a root figure, picking, its Axes, and drawing single artists
+onto the canvas for blitting (``Figure.draw_artist``).
 """
 
 from . import _handles, cbook
@@ -14,9 +15,9 @@ from ._native import figure as _figure
 
 class InteractionMixin:
     """
-    The Axes observers, the current Axes and ``draw_artist`` of `.Figure`
-    and `.SubFigure`; a subfigure shares the observers and the current Axes
-    of its root figure, as in matplotlib.
+    The Axes observers, the current Axes and the hit test of `.Figure` and
+    `.SubFigure`; a subfigure shares the observers and the current Axes of
+    its root figure, as in matplotlib.
     """
 
     @property
@@ -28,12 +29,6 @@ class InteractionMixin:
             registry = cbook.CallbackRegistry()
             root.__dict__["_axobserver_registry"] = registry
         return registry
-
-    def add_axobserver(self, func):
-        """Whenever the Axes state change, ``func(self)`` will be called."""
-        # Connect a wrapper lambda and not func itself, to avoid it being
-        # weakref-collected.
-        self._axobservers.connect("_axes_change_event", lambda arg: func(arg))
 
     def _axes_changed(self):
         """Call the observers: the Axes of the figure changed."""
@@ -75,6 +70,48 @@ class InteractionMixin:
     def _forget_axobservers(self):
         """Drop the observers (`.Figure.clear` without *keep_observers*)."""
         self.get_figure(root=True).__dict__.pop("_axobserver_registry", None)
+
+    def contains(self, mouseevent):
+        """
+        Test whether the mouse event occurred on the figure.
+
+        Returns
+        -------
+            bool, {}
+        """
+        return super().contains(mouseevent)
+
+
+class RootFigureMixin:
+    """What only a root `.Figure` has of a figure's interactive side:
+    adding observers of its Axes, picking, its Axes, and drawing an artist
+    alone."""
+
+    def add_axobserver(self, func):
+        """Whenever the Axes state change, ``func(self)`` will be called."""
+        # Connect a wrapper lambda and not func itself, to avoid it being
+        # weakref-collected.
+        self._axobservers.connect("_axes_change_event", lambda arg: func(arg))
+
+    def pick(self, mouseevent):
+        if not self.canvas.widgetlock.locked():
+            super().pick(mouseevent)
+
+    @property
+    def axes(self):
+        """
+        List of Axes in the Figure. You can access and modify the Axes in the
+        Figure through this list.
+
+        Do not modify the list itself. Instead, use `~Figure.add_axes`,
+        `~.Figure.add_subplot` or `~.Figure.delaxes` to add or remove an Axes.
+
+        Note: The `.Figure.axes` property and `~.Figure.get_axes` method are
+        equivalent.
+        """
+        return self._listed_axes()
+
+    get_axes = axes.fget
 
     def draw_artist(self, a):
         """

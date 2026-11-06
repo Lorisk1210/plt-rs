@@ -15,7 +15,7 @@ pub(crate) struct BundledFont {
     pub(crate) file: &'static str,
     /// The font file's contents (one face).
     pub(crate) data: &'static [u8],
-    /// The catalogue entries `entries_for_face` reads from the face, kept
+    /// The catalogue entries `entry::descriptions` reads from the face, kept
     /// here so that building the catalogue reads none of the embedded
     /// bytes (`db::tests` checks them against the fonts).
     pub(crate) entries: &'static [BundledEntry],

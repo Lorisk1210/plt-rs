@@ -1,7 +1,10 @@
 //! CFF INDEX structures and DICT operand decoding.
 
+use std::ops::Range;
+
 use crate::error::{FontError, Result};
 use crate::reader::Reader;
+use crate::region::Region;
 use crate::types::Tag;
 
 pub(crate) const CFF: Tag = Tag::new(b"CFF ");
@@ -12,34 +15,67 @@ pub(crate) struct Index<'a> {
     count: usize,
     offset_size: u8,
     offsets: &'a [u8],
-    data: &'a [u8],
+    data: Region<'a>,
 }
 
 impl<'a> Index<'a> {
     /// Reads an INDEX at the reader position, leaving the reader after it.
     pub(crate) fn read(r: &mut Reader<'a>) -> Result<Self> {
+        let Some(mut index) = Self::read_head(r)? else {
+            return Ok(Self::default());
+        };
+        index.data = Region::Held(r.bytes(index.data_len()?)?);
+        Ok(index)
+    }
+
+    /// Reads the count, offset size and offsets of an INDEX at the reader
+    /// position, whose data are `data`, held elsewhere.
+    pub(crate) fn read_offsets(r: &mut Reader<'a>, data: Region<'a>) -> Result<Self> {
+        let Some(index) = Self::read_head(r)? else {
+            return Ok(Self::default());
+        };
+        if index.data_len()? != data.len() {
+            return Err(FontError::malformed(CFF, "INDEX data elsewhere"));
+        }
+        Ok(Self { data, ..index })
+    }
+
+    /// Where the data of the INDEX at the start of `bytes` lie in them,
+    /// when they hold its count, offset size and offsets (but not
+    /// necessarily its data): what a file held for drawing leaves to read
+    /// entry by entry.
+    pub(crate) fn data_range(bytes: &'a [u8]) -> Result<Range<usize>> {
+        let mut r = Reader::new(bytes, CFF);
+        let head = Self::read_head(&mut r)?;
+        let start = r.pos();
+        Ok(start..start + head.map_or(Ok(0), |index| index.data_len())?)
+    }
+
+    /// Reads the count, offset size and offsets at the reader position:
+    /// the INDEX without its data, `None` when it is empty.
+    fn read_head(r: &mut Reader<'a>) -> Result<Option<Self>> {
         let count = usize::from(r.u16()?);
         if count == 0 {
-            return Ok(Self::default());
+            return Ok(None);
         }
         let offset_size = r.u8()?;
         if !(1..=4).contains(&offset_size) {
             return Err(FontError::malformed(CFF, "INDEX offset size outside 1..=4"));
         }
-        let offsets = r.bytes((count + 1) * usize::from(offset_size))?;
-        let mut index = Self {
+        Ok(Some(Self {
             count,
             offset_size,
-            offsets,
-            data: &[],
-        };
-        let last = index.offset(count).ok_or(FontError::Truncated(CFF))?;
+            offsets: r.bytes((count + 1) * usize::from(offset_size))?,
+            data: Region::default(),
+        }))
+    }
+
+    /// The length of the data the offsets describe.
+    fn data_len(&self) -> Result<usize> {
+        let last = self.offset(self.count).ok_or(FontError::Truncated(CFF))?;
         // Offsets are 1-based relative to the byte before the data.
-        index.data = r.bytes(
-            last.checked_sub(1)
-                .ok_or(FontError::malformed(CFF, "INDEX offset zero"))?,
-        )?;
-        Ok(index)
+        last.checked_sub(1)
+            .ok_or(FontError::malformed(CFF, "INDEX offset zero"))
     }
 
     fn offset(&self, index: usize) -> Option<usize> {

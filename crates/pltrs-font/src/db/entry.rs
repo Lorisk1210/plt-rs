@@ -132,32 +132,51 @@ pub struct FaceStyle {
     pub stretch: Stretch,
 }
 
-/// Builds the primary and alternative catalogue entries of `face`.
-pub(crate) fn entries_for_face(face: &Face<'_>, font: FontId) -> Vec<FontEntry> {
-    let FaceStyle {
-        name,
-        style,
-        variant,
-        weight,
-        stretch,
-    } = face_style(face);
-    let primary = FontEntry {
-        font,
-        name,
-        style,
-        variant,
-        weight,
-        stretch,
-    };
+pltrs_core::archive_struct!(FaceStyle {
+    name,
+    style,
+    variant,
+    weight,
+    stretch
+});
+
+impl FontEntry {
+    /// The entry matching the face `font` by `description`.
+    pub(crate) fn described(font: FontId, description: FaceStyle) -> Self {
+        let FaceStyle {
+            name,
+            style,
+            variant,
+            weight,
+            stretch,
+        } = description;
+        Self {
+            font,
+            name,
+            style,
+            variant,
+            weight,
+            stretch,
+        }
+    }
+}
+
+/// What the catalogue entries of `face` describe it as: its own family
+/// name and style first (matplotlib's `ttfFontProperty`), then each of
+/// its alternative family names with the weight of its subfamily (as
+/// `addfont` adds them).
+pub(crate) fn descriptions(face: &Face<'_>) -> Vec<FaceStyle> {
+    let primary = face_style(face);
     let alternatives =
         alternative_family_names(&primary.name, |key, name_id| face.name_string(key, name_id));
-    std::iter::once(primary.clone())
-        .chain(alternatives.into_iter().map(|(name, weight)| FontEntry {
-            name,
-            weight,
-            ..primary.clone()
-        }))
-        .collect()
+    let mut descriptions = Vec::with_capacity(1 + alternatives.len());
+    descriptions.push(primary.clone());
+    descriptions.extend(alternatives.into_iter().map(|(name, weight)| FaceStyle {
+        name,
+        weight,
+        ..primary.clone()
+    }));
+    descriptions
 }
 
 /// The family name, style, variant, weight and stretch of `face`, read

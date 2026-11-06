@@ -1,9 +1,10 @@
 //! The Objective-C runtime: objects and their reference counts,
 //! selectors, message sends, autorelease pools and class definitions.
 
-use std::ffi::{CStr, CString, c_char, c_void};
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::marker::PhantomData;
 use std::ptr::NonNull;
+use std::sync::OnceLock;
 
 /// An Objective-C object, only ever handled through pointers.
 #[repr(C)]
@@ -60,11 +61,46 @@ pub(crate) fn sel(name: &CStr) -> Sel {
     unsafe { sel_registerName(name.as_ptr()) }
 }
 
-/// The class named `name`, if it exists.
+/// The class named `name`, if it exists, loading `AppKit` the first time
+/// a class is not found (see [`load_appkit`]).
 pub(crate) fn class(name: &CStr) -> Option<NonNull<Object>> {
-    // SAFETY: the name is NUL-terminated; looking up a class has no side
-    // effects.
-    NonNull::new(unsafe { objc_getClass(name.as_ptr()) })
+    let lookup = || {
+        // SAFETY: the name is NUL-terminated; looking up a class has no
+        // side effects.
+        NonNull::new(unsafe { objc_getClass(name.as_ptr()) })
+    };
+    lookup().or_else(|| {
+        load_appkit();
+        lookup()
+    })
+}
+
+/// Where `AppKit` is.
+const APPKIT: &CStr = c"/System/Library/Frameworks/AppKit.framework/AppKit";
+
+/// `dlopen`'s `RTLD_LAZY`: functions are bound when first called.
+const RTLD_LAZY: c_int = 0x1;
+/// `dlopen`'s `RTLD_GLOBAL`: the image's symbols serve later lookups.
+const RTLD_GLOBAL: c_int = 0x8;
+
+unsafe extern "C" {
+    fn dlopen(path: *const c_char, mode: c_int) -> *mut c_void;
+}
+
+/// Loads `AppKit` into the process, once. pltrs does not link it, as a
+/// process loading it grows by some 8 MB, which a program that draws no
+/// window (saving figures, a notebook's inline images) should not pay:
+/// matplotlib only loads it with its `macosx` backend. Its classes exist
+/// from then on.
+fn load_appkit() {
+    static LOADED: OnceLock<()> = OnceLock::new();
+    LOADED.get_or_init(|| {
+        // SAFETY: the path is NUL-terminated and names a system framework;
+        // the image stays loaded for the rest of the process (it is never
+        // closed), and a failure leaves the classes missing, which the
+        // lookups report.
+        let _ = unsafe { dlopen(APPKIT.as_ptr(), RTLD_LAZY | RTLD_GLOBAL) };
+    });
 }
 
 /// The arguments of a message: tuples of the C types the method takes.

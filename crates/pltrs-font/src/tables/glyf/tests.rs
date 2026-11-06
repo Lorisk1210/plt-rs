@@ -1,5 +1,6 @@
 use super::*;
 use crate::outline::OutlinePoint;
+use crate::region::Region;
 
 /// Encodes a simple glyph with uncompressed coordinates.
 pub(crate) fn simple_glyph(contours: &[&[(i16, i16, bool)]]) -> Vec<u8> {
@@ -64,7 +65,7 @@ fn square() -> Vec<u8> {
 #[test]
 fn simple_glyph_points() {
     let (loca, data) = tables(&[Vec::new(), square()]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     assert_eq!(load(&glyf, 0, Scaling::Units).unwrap().points, Vec::new());
     let outline = load(&glyf, 1, Scaling::Units).unwrap();
     assert_eq!(outline.contour_ends, vec![4]);
@@ -109,7 +110,7 @@ fn compressed_flags_and_coordinates() {
     glyph.push(ON_CURVE | X_SAME_OR_POSITIVE | Y_SHORT);
     glyph.extend_from_slice(&[5, 5, 5, 5, 3]);
     let (loca, data) = tables(&[glyph]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     let outline = load(&glyf, 0, Scaling::Units).unwrap();
     let xy: Vec<_> = outline.points.iter().map(|p| (p.x, p.y)).collect();
     assert_eq!(xy, vec![(5.0, 5.0), (10.0, 10.0), (10.0, 7.0)]);
@@ -142,7 +143,7 @@ fn composite_offsets_and_transforms() {
         ),
     ]);
     let (loca, data) = tables(&[square(), comp]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     let outline = load(&glyf, 1, Scaling::Units).unwrap();
     assert_eq!(outline.contour_ends, vec![4, 8]);
     assert_eq!((outline.points[1].x, outline.points[1].y), (110.0, -2.0));
@@ -160,7 +161,7 @@ fn composite_two_by_two_and_anchor() {
         (0, 0, &[1, 0]),
     ]);
     let (loca, data) = tables(&[square(), comp]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     let outline = load(&glyf, 1, Scaling::Units).unwrap();
     // Rotation by 90°: (100, 0) -> (0, 100) under [xx=0, yx=1, xy=-1, yy=0].
     assert_eq!((outline.points[1].x, outline.points[1].y), (0.0, 100.0));
@@ -172,22 +173,22 @@ fn composite_two_by_two_and_anchor() {
 fn malformed_glyphs_error() {
     let recursive = composite(&[(ARGS_ARE_XY_VALUES, 0, &[0, 0])]);
     let (loca, data) = tables(&[recursive]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     assert!(load(&glyf, 0, Scaling::Units).is_err());
 
     let bad_anchor = composite(&[(0, 0, &[9, 9])]);
     let (loca, data) = tables(&[square(), bad_anchor]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     assert!(load(&glyf, 1, Scaling::Units).is_err());
 
     let full = square();
     for len in 1..full.len() {
         let (loca, data) = tables(&[full[..len].to_vec()]);
-        let glyf = Glyf::new(&loca, &data, true);
+        let glyf = Glyf::new(&loca, Region::Held(&data), true);
         assert!(load(&glyf, 0, Scaling::Units).is_err(), "len {len}");
     }
     let (loca, data) = tables(&[square()]);
-    let glyf = Glyf::new(&loca[..4], &data, true);
+    let glyf = Glyf::new(&loca[..4], Region::Held(&data), true);
     assert!(load(&glyf, 0, Scaling::Units).is_err());
 }
 
@@ -198,13 +199,13 @@ fn exponential_composites_are_rejected() {
     let mut empties = vec![Vec::new()];
     empties.extend((0..16).map(eight));
     let (loca, data) = tables(&empties);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     assert!(load(&glyf, 16, Scaling::Units).is_err());
     // With a square at the bottom the points run out first.
     let mut squares = vec![square()];
     squares.extend((0..16).map(eight));
     let (loca, data) = tables(&squares);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     assert!(load(&glyf, 16, Scaling::Units).is_err());
     assert_eq!(load(&glyf, 2, Scaling::Units).unwrap().points.len(), 4 * 64);
 }
@@ -214,7 +215,7 @@ fn decreasing_contour_ends_are_rejected() {
     let mut glyph = simple_glyph(&[&[(0, 0, true), (1, 1, true)], &[(2, 2, true)]]);
     glyph[10..14].copy_from_slice(&[0, 2, 0, 1]);
     let (loca, data) = tables(&[glyph]);
-    let glyf = Glyf::new(&loca, &data, true);
+    let glyf = Glyf::new(&loca, Region::Held(&data), true);
     assert!(load(&glyf, 0, Scaling::Units).is_err());
 }
 
@@ -222,6 +223,6 @@ fn decreasing_contour_ends_are_rejected() {
 fn short_loca_format() {
     let glyph = square();
     let loca = [0, 0, 0, (glyph.len() / 2) as u8];
-    let glyf = Glyf::new(&loca, &glyph, false);
+    let glyf = Glyf::new(&loca, Region::Held(&glyph), false);
     assert_eq!(load(&glyf, 0, Scaling::Units).unwrap().points.len(), 4);
 }

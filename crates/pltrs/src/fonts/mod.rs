@@ -1,16 +1,20 @@
 //! Fonts (matplotlib's `font_manager`): the vocabularies of font sizes,
 //! weights and stretches, [`FontProperties`] and the [`FontManager`] that
-//! finds font files for them.
+//! finds font files for them, among the fonts whose catalogue is kept in
+//! the cache directory ([`keep_catalogue`]).
 
+mod catalogue;
 mod manager;
 mod properties;
 
 use std::fmt;
 use std::str::FromStr;
 
+pub use catalogue::{catalogue_report, keep_catalogue};
 pub use manager::{FontExt, FontListEntry, FontManager};
 pub use pltrs_text::fontconfig::FontconfigPattern;
 pub use pltrs_text::mathtext::{Fontset, MathFallback, MathFont};
+pub use pltrs_text::{CatalogueReport, CatalogueState};
 pub use pltrs_text::{FontStyle, FontVariant};
 pub use properties::{FontProperties, parse_math_fontfamily, parse_style, parse_variant};
 

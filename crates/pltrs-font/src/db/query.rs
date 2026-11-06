@@ -130,6 +130,8 @@ impl Default for Weight {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct Stretch(pub u16);
 
+pltrs_core::archive_struct!(Stretch(value));
+
 impl Stretch {
     /// `normal` (500).
     pub const NORMAL: Self = Self(500);

@@ -5,7 +5,9 @@ mod afm;
 mod afm_catalogue;
 mod arena;
 mod bundled;
+mod catalogue;
 mod entry;
+mod held;
 mod query;
 mod score;
 mod sparse;
@@ -13,6 +15,7 @@ mod system;
 mod type1;
 
 pub use afm::{AfmDirectory, AfmFont};
+pub use catalogue::{CatalogueReport, CatalogueState, catalogue_file_name};
 pub use entry::{FaceStyle, FontEntry, FontId, alternative_family_names, face_style};
 pub use query::{
     FontQuery, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
@@ -24,7 +27,7 @@ pub use score::{
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{OnceLock, PoisonError, RwLock, RwLockReadGuard};
+use std::sync::{Arc, OnceLock, PoisonError, RwLock, RwLockReadGuard};
 
 use crate::autofit::Autohinter;
 use crate::error::{FontError, Result};
@@ -33,6 +36,7 @@ use crate::shape::FontChain;
 use crate::tables::directory::face_count;
 use arena::Arena;
 use bundled::{BUNDLED_FONTS, LAST_RESORT};
+use held::HeldFile;
 
 /// The contents of the bundled font file called `file_name` (such as
 /// `"Inter-Regular.ttf"`), for embedding it elsewhere (web pages).
@@ -88,27 +92,49 @@ impl FontSource {
     }
 }
 
-/// Font bytes: embedded, or read from disk on first use.
-#[derive(Debug)]
+/// Font bytes: embedded, or a file held for drawing from the first use
+/// of one of its faces (which share it).
+#[derive(Clone, Debug)]
 enum FontData {
     Static(&'static [u8]),
-    File {
-        path: PathBuf,
-        bytes: OnceLock<std::result::Result<Vec<u8>, std::io::ErrorKind>>,
-    },
+    File(Arc<FontFile>),
+}
+
+/// A font file on disk, held for drawing once one of its faces is used.
+#[derive(Debug)]
+struct FontFile {
+    path: PathBuf,
+    held: OnceLock<std::result::Result<Box<HeldFile>, std::io::ErrorKind>>,
 }
 
 impl FontData {
-    fn bytes(&self) -> Result<&[u8]> {
+    /// The file at `path`, held for drawing on first use.
+    fn read_lazily(path: &Path) -> Self {
+        Self::File(Arc::new(FontFile {
+            path: path.to_path_buf(),
+            held: OnceLock::new(),
+        }))
+    }
+
+    /// Parses face `index`.
+    fn face(&self, index: u32) -> Result<Face<'_>> {
         match self {
-            Self::Static(bytes) => Ok(bytes),
-            Self::File { path, bytes } => bytes
-                .get_or_init(|| fs::read(path).map_err(|error| error.kind()))
-                .as_deref()
-                .map_err(|&kind| FontError::Io {
-                    path: path.clone(),
-                    kind,
-                }),
+            Self::Static(bytes) => Face::parse(bytes, index),
+            Self::File(file) => {
+                let held = file
+                    .held
+                    .get_or_init(|| {
+                        HeldFile::open(&file.path)
+                            .map(Box::new)
+                            .map_err(|error| error.kind())
+                    })
+                    .as_ref()
+                    .map_err(|&kind| FontError::Io {
+                        path: file.path.clone(),
+                        kind,
+                    })?;
+                Face::parse_held(&**held, index)
+            }
         }
     }
 }
@@ -119,7 +145,7 @@ struct StoredFace {
     index: u32,
     data: FontData,
     /// The autohinter's analysis of the face, made on first use.
-    autohinter: OnceLock<Autohinter>,
+    autohinter: OnceLock<Box<Autohinter>>,
 }
 
 /// A catalogue of font faces with matplotlib's matching rules. Faces can
@@ -188,29 +214,44 @@ impl FontDatabase {
         source: &FontSource,
         bytes: &[u8],
         catalogue: bool,
-        data: impl Fn() -> FontData,
+        data: &FontData,
     ) -> Result<Vec<FontId>> {
-        // Parse every face first so that a broken collection adds nothing.
-        let faces = (0..face_count(bytes)?)
-            .map(|index| Face::parse(bytes, index).map(|face| (index, face)))
-            .collect::<Result<Vec<_>>>()?;
-        let mut ids = Vec::new();
-        for (index, face) in faces {
-            let id = FontId(self.faces.push(StoredFace {
-                source: source.clone(),
-                index,
-                data: data(),
-                autohinter: OnceLock::new(),
-            }));
-            if catalogue {
-                self.entries
-                    .write()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .extend(entry::entries_for_face(&face, id));
-            }
-            ids.push(id);
-        }
-        Ok(ids)
+        Ok(self.add_described(source, describe_faces(bytes)?, catalogue, data))
+    }
+
+    /// Adds a face of `source` for each of `faces`, in order, catalogued
+    /// with its descriptions unless only `catalogue` is unset; the faces
+    /// share `data`.
+    fn add_described(
+        &self,
+        source: &FontSource,
+        faces: Vec<Vec<FaceStyle>>,
+        catalogue: bool,
+        data: &FontData,
+    ) -> Vec<FontId> {
+        faces
+            .into_iter()
+            .zip(0..)
+            .map(|(descriptions, index)| {
+                let id = FontId(self.faces.push(StoredFace {
+                    source: source.clone(),
+                    index,
+                    data: data.clone(),
+                    autohinter: OnceLock::new(),
+                }));
+                if catalogue {
+                    self.entries
+                        .write()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .extend(
+                            descriptions
+                                .into_iter()
+                                .map(|description| FontEntry::described(id, description)),
+                        );
+                }
+                id
+            })
+            .collect()
     }
 
     /// Adds every face of the font file at `path` to the catalogue
@@ -252,10 +293,7 @@ impl FontDatabase {
             &FontSource::File(path.to_path_buf()),
             &bytes,
             catalogue,
-            || FontData::File {
-                path: path.to_path_buf(),
-                bytes: OnceLock::new(),
-            },
+            &FontData::read_lazily(path),
         )
     }
 
@@ -275,19 +313,43 @@ impl FontDatabase {
     /// font files the registry lists elsewhere). Returns the number of
     /// faces added.
     pub fn add_system_fonts(&self) -> usize {
-        let fonts = system::SystemFonts::of_this_system();
-        let in_directories: usize = fonts
-            .directories
+        system::SystemFonts::of_this_system()
+            .font_files()
             .iter()
-            .map(|dir| self.add_directory(dir))
-            .sum();
-        let listed: usize = fonts
-            .files
-            .iter()
-            .filter(|path| system::is_font_file(path))
             .map(|path| self.add_file(path).map_or(0, |ids| ids.len()))
-            .sum();
-        in_directories + listed
+            .sum()
+    }
+
+    /// Adds the fonts installed on the system as
+    /// [`add_system_fonts`](Self::add_system_fonts) does, keeping their
+    /// catalogue in the file `catalogue` between processes, as matplotlib
+    /// keeps its font list in its cache directory: only the font files new
+    /// or changed since it was written are read, and none is kept open
+    /// (see [`add_files_catalogued`](Self::add_files_catalogued)).
+    pub fn add_system_fonts_catalogued(&self, catalogue: &Path) -> CatalogueReport {
+        self.add_files_catalogued(
+            &system::SystemFonts::of_this_system().font_files(),
+            catalogue,
+        )
+    }
+
+    /// Adds the faces of the font files `paths`, in order, as
+    /// [`add_file`](Self::add_file) adds each (skipping files that cannot
+    /// be read or parsed), with their catalogue kept in the file
+    /// `catalogue`: the files unchanged since it was written are not
+    /// opened, and the catalogue is brought up to date (it is rebuilt when
+    /// it is missing, broken or of another version, and the report says
+    /// why it could not be written, when it could not). Faces are read
+    /// when they are used.
+    pub fn add_files_catalogued(&self, paths: &[PathBuf], catalogue: &Path) -> CatalogueReport {
+        let (files, report) = catalogue::refresh(catalogue, paths, describe_file);
+        for file in files {
+            if let Some(faces) = file.faces {
+                let source = FontSource::File(file.path.clone());
+                self.add_described(&source, faces, true, &FontData::read_lazily(&file.path));
+            }
+        }
+        report
     }
 
     /// The directories this system keeps fonts in, as matplotlib searches
@@ -356,7 +418,7 @@ impl FontDatabase {
     /// Parses face `id`.
     pub fn face(&self, id: FontId) -> Result<Face<'_>> {
         let stored = self.faces.get(id.0).ok_or(FontError::UnknownFont(id.0))?;
-        Face::parse(stored.data.bytes()?, stored.index)
+        stored.data.face(stored.index)
     }
 
     /// The autohinter's analysis of face `id`, made on first use and kept
@@ -367,7 +429,9 @@ impl FontDatabase {
             return Ok(analysis);
         }
         let face = self.face(id)?;
-        Ok(stored.autohinter.get_or_init(|| Autohinter::new(&face)))
+        Ok(stored
+            .autohinter
+            .get_or_init(|| Box::new(Autohinter::new(&face))))
     }
 
     /// The generic family preference lists.
@@ -545,6 +609,21 @@ impl FontDatabase {
             .collect::<Result<Vec<_>>>()?;
         Ok(FontChain::from_database(faces, self, ids))
     }
+}
+
+/// The descriptions of the catalogue entries of each face of the font
+/// `bytes` hold, failing when one of the faces cannot be parsed.
+fn describe_faces(bytes: &[u8]) -> Result<Vec<Vec<FaceStyle>>> {
+    (0..face_count(bytes)?)
+        .map(|index| Face::parse(bytes, index).map(|face| entry::descriptions(&face)))
+        .collect()
+}
+
+/// What [`FontDatabase::add_file`] catalogues of the font file at `path`:
+/// the descriptions of each face, none when a face cannot be parsed.
+fn describe_file(path: &Path) -> std::io::Result<Vec<Vec<FaceStyle>>> {
+    let bytes = sparse::read(path)?;
+    Ok(describe_faces(&bytes).unwrap_or_default())
 }
 
 #[cfg(test)]

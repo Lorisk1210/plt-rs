@@ -7,7 +7,8 @@
 use crate::error::{FontError, Result};
 use crate::fixed::{mul_fix, vector_length};
 use crate::outline::{Outline, PointKind};
-use crate::reader::{Array, Reader, slice, tail};
+use crate::reader::{Array, Reader, tail};
+use crate::region::Region;
 use crate::types::{GlyphId, Rect, Tag};
 
 pub(crate) const GLYF: Tag = Tag::new(b"glyf");
@@ -125,7 +126,7 @@ impl Matrix {
 pub(crate) struct Glyf<'a> {
     short_offsets: Option<Array<'a, u16>>,
     long_offsets: Option<Array<'a, u32>>,
-    data: &'a [u8],
+    data: Region<'a>,
 }
 
 /// Header values of one glyph record.
@@ -136,20 +137,18 @@ pub(crate) struct GlyphHeader {
 }
 
 impl<'a> Glyf<'a> {
-    /// Combines `loca` (in the given format) with `glyf`.
-    pub(crate) fn new(loca: &'a [u8], glyf: &'a [u8], long_format: bool) -> Self {
-        if long_format {
-            Self {
-                short_offsets: None,
-                long_offsets: Some(Array::new(loca)),
-                data: glyf,
-            }
+    /// Combines `loca` (in the given format) with the `glyf` table of a
+    /// file, which may be read glyph by glyph.
+    pub(crate) fn new(loca: &'a [u8], glyf: Region<'a>, long_format: bool) -> Self {
+        let (short_offsets, long_offsets) = if long_format {
+            (None, Some(Array::new(loca)))
         } else {
-            Self {
-                short_offsets: Some(Array::new(loca)),
-                long_offsets: None,
-                data: glyf,
-            }
+            (Some(Array::new(loca)), None)
+        };
+        Self {
+            short_offsets,
+            long_offsets,
+            data: glyf,
         }
     }
 
@@ -173,7 +172,7 @@ impl<'a> Glyf<'a> {
         if end <= start {
             return Ok(&[]);
         }
-        slice(self.data, start, end - start, GLYF)
+        self.data.get(start..end).ok_or(FontError::Truncated(GLYF))
     }
 
     /// The record header and the body that follows it; `None` for glyphs

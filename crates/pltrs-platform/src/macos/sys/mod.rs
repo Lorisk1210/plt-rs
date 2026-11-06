@@ -2,7 +2,8 @@
 //! Foundation and Core Graphics, behind safe wrappers.
 //!
 //! * [`runtime`]: message sends, reference counts, autorelease pools,
-//!   class definitions.
+//!   class definitions; `AppKit`, which pltrs does not link, is loaded
+//!   when its first class is looked up.
 //! * [`foundation`]: strings, dates, data, geometry, the process.
 //! * [`app`]: the application, its menu bar and event queue, wake-ups.
 //! * [`window`]: windows, pltrs's views and cursors.
@@ -64,4 +65,17 @@ unsafe fn new_object(name: &CStr) -> Result<*mut Object, Error> {
         return Err(failed("allocating an object"));
     }
     Ok(object)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::runtime::class;
+
+    #[test]
+    fn appkit_classes_are_found_once_it_is_loaded() {
+        assert!(class(c"NSString").is_some(), "Foundation is linked");
+        assert!(class(c"NSView").is_some(), "AppKit is loaded on first use");
+        assert!(class(c"NSWindow").is_some());
+        assert!(class(c"PltrsNoSuchClass").is_none());
+    }
 }

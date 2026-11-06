@@ -6,7 +6,10 @@
 //! names too long for the file system and names holding NUL — all within
 //! a scratch directory. The lookups must find a usable directory or fail with an
 //! error, never leave the scratch directory, and the rc file they find
-//! must read or fail cleanly.
+//! must read or fail cleanly. The font catalogue kept in the cache
+//! directory they find is fuzzed too ([`catalogue`]).
+
+mod catalogue;
 
 use std::ffi::OsString;
 use std::fs;
@@ -57,8 +60,9 @@ struct Scratch {
 }
 
 impl Scratch {
-    fn new() -> Self {
-        let root = std::env::temp_dir().join(format!("pltrs-fuzz-lookup-{}", std::process::id()));
+    /// The scratch directory of the test `name`.
+    fn new(name: &str) -> Self {
+        let root = std::env::temp_dir().join(format!("pltrs-fuzz-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         let base = root.join("a/b/c");
         for dir in [
@@ -243,7 +247,7 @@ impl Lookup {
 
 #[test]
 fn configuration_lookups() {
-    let scratch = Scratch::new();
+    let scratch = Scratch::new("lookup");
     fuzz("config lookup", 1_000, Lookup::generate, |lookup| {
         fs::write(scratch.base.join("rc").join(RC_FILE_NAME), &lookup.rc_text)
             .expect("the rc file is written");

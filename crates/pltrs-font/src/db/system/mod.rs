@@ -87,6 +87,19 @@ impl SystemFonts {
         fonts
     }
 
+    /// Every font file, in the order the catalogue adds them: those below
+    /// each directory (sorted), then the single files with a font
+    /// extension.
+    pub(crate) fn font_files(&self) -> Vec<PathBuf> {
+        let mut found: Vec<PathBuf> = self
+            .directories
+            .iter()
+            .flat_map(|dir| font_files(dir))
+            .collect();
+        found.extend(self.files.iter().filter(|path| is_font_file(path)).cloned());
+        found
+    }
+
     /// The fonts of `os` for the home directory `home`, the environment
     /// variables `var` gives (`XDG_DATA_HOME`, `WINDIR`) and, on Windows,
     /// what the registry holds.

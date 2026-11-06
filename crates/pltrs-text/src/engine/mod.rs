@@ -21,6 +21,9 @@ use crate::memo::{self, Memo};
 use crate::run::{GlyphChars, PlacedGlyph, TextRun, TextSource};
 use crate::shaping::Shaping;
 
+/// How the shared engine adds the system's fonts, when set.
+static SYSTEM_FONTS: OnceLock<fn(&FontDatabase)> = OnceLock::new();
+
 /// Fonts plus layout services shared by every figure and backend; the
 /// layouts it makes are kept and given again for the same inputs.
 #[derive(Debug)]
@@ -67,14 +70,27 @@ impl TextEngine {
     }
 
     /// The shared engine: the bundled fonts (matplotlib's and Inter) plus
-    /// the fonts installed on the system.
+    /// the fonts installed on the system, added when it is first used (see
+    /// [`add_system_fonts_with`](Self::add_system_fonts_with)).
     pub fn global() -> &'static Self {
         static ENGINE: OnceLock<TextEngine> = OnceLock::new();
         ENGINE.get_or_init(|| {
             let db = FontDatabase::with_bundled_fonts();
-            db.add_system_fonts();
+            match SYSTEM_FONTS.get() {
+                Some(add) => add(&db),
+                None => drop(db.add_system_fonts()),
+            }
             Self::new(db)
         })
+    }
+
+    /// Makes the [shared engine](Self::global) add the fonts installed on
+    /// the system with `add` (which keeps their catalogue between
+    /// processes, say) rather than by reading every font
+    /// ([`FontDatabase::add_system_fonts`]), if it is set before the engine
+    /// is first used. The first function set counts.
+    pub fn add_system_fonts_with(add: fn(&FontDatabase)) {
+        let _ = SYSTEM_FONTS.set(add);
     }
 
     /// An engine over the bundled fonts only, ignoring the fonts installed

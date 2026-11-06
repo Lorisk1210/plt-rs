@@ -194,8 +194,8 @@ cargo xtask python [--release]  # build the extension into python/pltrs/_native.
 cargo xtask python test       # the extension plus pltrs's smoke tests (python/tests)
 cargo xtask mpl-suite [PATTERN...] [--failures] [--imports]   # matplotlib's suite on pltrs
 cargo xtask mpl-suite --reference                           # ... on real matplotlib
-cargo xtask ecosystem [setup]   # pandas and seaborn on pltrs as matplotlib
-cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]  # their own suites
+cargo xtask ecosystem [setup]   # pandas and seaborn on pltrs as matplotlib (setup: venvs, sources, baselines)
+cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]  # the libraries' own suites and image tests
 cargo xtask notebooks [setup] [PATTERN...] [--failures]   # spec/notebooks in Jupyter, both, compared
 cargo xtask notebooks suite [--reference] [PATTERN...] [--failures]  # IPython's, matplotlib-inline's, ipympl's tests
 pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs

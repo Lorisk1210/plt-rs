@@ -11,6 +11,9 @@ suites from, checking every download's SHA-256.
   unpacked beside, then its one top directory (``NAME-VERSION``, or the
   normalised ``scikit_learn-1.9.1``) is renamed into place, so that
   ``DEST`` exists only complete;
+* ``fetch.py archive URL SHA256 DEST``: downloads the source archive of a
+  release's tag (the tests of the libraries whose sdists ship none), checks
+  its SHA-256 and unpacks it into ``DEST`` as an sdist is;
 * ``fetch.py file URL SHA256 DEST``: downloads one file (a test's data
   that the sdist leaves out) to ``DEST``, if its SHA-256 is *SHA256*.
 
@@ -52,13 +55,17 @@ def sdist_of(name, version):
 
 def sdist(name, version, dest):
     """Downloads, checks and unpacks the sdist into *dest*."""
-    url, sha256 = sdist_of(name, version)
+    archive(*sdist_of(name, version), dest)
+
+
+def archive(url, sha256, dest):
+    """Downloads, checks and unpacks the archive at *url* into *dest*."""
     data = download(url, sha256)
     partial = dest.with_name(f".{dest.name}.partial")
     shutil.rmtree(partial, ignore_errors=True)
     partial.mkdir(parents=True)
-    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
-        archive.extractall(partial, filter="data")
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+        tar.extractall(partial, filter="data")
     match list(partial.iterdir()):
         case [top] if top.is_dir():
             top.rename(dest)
@@ -80,9 +87,12 @@ if __name__ == "__main__":
     match sys.argv[1:]:
         case ["sdist", name, version, dest]:
             sdist(name, version, pathlib.Path(dest))
+        case ["archive", url, sha256, dest]:
+            archive(url, sha256, pathlib.Path(dest))
         case ["file", url, sha256, dest]:
             file(url, sha256, pathlib.Path(dest))
         case _:
             raise SystemExit(
-                "usage: fetch.py sdist NAME VERSION DEST | file URL SHA256 DEST"
+                "usage: fetch.py sdist NAME VERSION DEST | archive URL SHA256 DEST"
+                " | file URL SHA256 DEST"
             )

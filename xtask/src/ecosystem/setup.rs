@@ -10,21 +10,25 @@
 //! * `target/ecosystem/reference-venv`, matplotlib's side: the same list
 //!   and `python/requirements-ecosystem-reference.txt` (real matplotlib
 //!   3.11.2 and its dependencies), resolved together;
-//! * the sdists of the libraries at the versions the list pins, in
-//!   `target/refs/<name>-dl/<name>-<version>`, with the files of the
-//!   release's source tree their suites read that the sdists leave out
-//!   (pandas' iris data, geopandas' maps), which `python/ecosystem/fetch.py` downloads
-//!   (from `PyPI`, and from the repository at the release's tag) when they
-//!   are missing, checking their SHA-256.
+//! * the source trees of the libraries at the versions the list pins, in
+//!   `target/refs/<name>-dl/<name>-<version>`: their sdists, or the
+//!   source archives of the releases' tags where the sdists ship no
+//!   tests (mplfinance, matplotlib-venn), with the files of the release's
+//!   source tree their suites read that the sdists leave out (pandas'
+//!   iris data, geopandas' maps), which `python/ecosystem/fetch.py`
+//!   downloads (from `PyPI`, and from the repository at the release's
+//!   tag) when they are missing, checking their SHA-256;
+//! * the baselines of the image comparisons whose own are for another
+//!   version of matplotlib (plotnine's, astropy's, mplfinance's), made in
+//!   the reference venv (`baselines`).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use pltrs_core::os::Os;
-
-use super::libraries::{LIBRARIES, Library};
-use crate::python;
+use super::baselines;
+use super::libraries::{LIBRARIES, Library, Source};
+use crate::python::{self, make_venv};
 
 /// The pinned list of both venvs.
 const REQUIREMENTS: &str = "requirements-ecosystem.txt";
@@ -32,10 +36,8 @@ const REQUIREMENTS: &str = "requirements-ecosystem.txt";
 /// What the reference venv adds to [`REQUIREMENTS`].
 const REFERENCE_REQUIREMENTS: &str = "requirements-ecosystem-reference.txt";
 
-/// The Python version of the venvs (the other venvs').
-const PYTHON_VERSION: &str = "3.14";
-
-/// Makes (or completes) both venvs and fetches the missing sdists.
+/// Makes (or completes) both venvs, fetches the missing source trees and
+/// makes the missing baselines.
 pub(super) fn run() -> Result<(), String> {
     let dir = super::ecosystem_dir();
     fs::create_dir_all(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
@@ -60,25 +62,15 @@ pub(super) fn run() -> Result<(), String> {
     for library in LIBRARIES {
         fetch(&python, &library)?;
     }
+    for library in LIBRARIES {
+        baselines::make(&library, &super::reference_venv())?;
+    }
     println!(
         "ready: {} (pltrs) and {} (reference)",
         venv.display(),
         super::reference_venv().display()
     );
     Ok(())
-}
-
-/// Makes the venv `venv` unless it exists, and returns its interpreter.
-fn make_venv(venv: &Path) -> Result<PathBuf, String> {
-    let python = python::interpreter(venv, Os::CURRENT);
-    if !python.exists() {
-        python::run_checked(
-            Command::new(python::uv())
-                .args(["venv", "--python", PYTHON_VERSION])
-                .arg(venv),
-        )?;
-    }
-    Ok(python)
 }
 
 /// The version [`REQUIREMENTS`] pins `name` to.
@@ -96,7 +88,8 @@ fn pin_in(text: &str, name: &str) -> Option<String> {
     })
 }
 
-/// Where the sdist of `name` `version` is unpacked.
+/// Where the source tree (the sdist, or the source archive) of `name`
+/// `version` is unpacked.
 pub(super) fn sdist(name: &str, version: &str) -> PathBuf {
     python::root()
         .join("target/refs")
@@ -104,17 +97,25 @@ pub(super) fn sdist(name: &str, version: &str) -> PathBuf {
         .join(format!("{name}-{version}"))
 }
 
-/// Downloads and unpacks the sdist of `library` with `python`, and the
-/// files it leaves out, unless they are there.
+/// Downloads and unpacks the source tree of `library` with `python`, and
+/// the files it leaves out, unless they are there.
 fn fetch(python: &Path, library: &Library) -> Result<(), String> {
     let version = pinned(library.name)?;
     let sdist = sdist(library.name, &version);
     if !sdist.is_dir() {
-        python::run_checked(
-            fetch_command(python, "sdist")
-                .args([library.name, &version])
-                .arg(&sdist),
-        )?;
+        let mut command = match library.source {
+            Source::Sdist => {
+                let mut command = fetch_command(python, "sdist");
+                command.args([library.name, &version]);
+                command
+            }
+            Source::Archive { url, sha256 } => {
+                let mut command = fetch_command(python, "archive");
+                command.args([&url.replace("{version}", &version), sha256]);
+                command
+            }
+        };
+        python::run_checked(command.arg(&sdist))?;
     }
     let Some(left_out) = library.left_out else {
         return Ok(());

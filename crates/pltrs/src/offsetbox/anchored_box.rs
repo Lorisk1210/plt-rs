@@ -228,9 +228,10 @@ pub(crate) struct AnchoredBoxArtist {
     frame: ArtistId,
     /// Every part, for removal with the box.
     parts: Vec<ArtistId>,
-    /// Where the child box's origin was pinned by dragging, in display
-    /// pixels; the box no longer follows its anchor then (matplotlib's
-    /// `set_offset` from `DraggableOffsetBox`).
+    /// Where the child box's origin is placed instead of at the anchor,
+    /// in display pixels: pinned by dragging (matplotlib's `set_offset`
+    /// from `DraggableOffsetBox`), or where the `get_offset` of a box of
+    /// the program's puts it ([`AnchoredOffsetbox::set_child_offset`]).
     pub(crate) pinned: Option<Point>,
     /// The callbacks dragging the box, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
@@ -384,6 +385,17 @@ impl AnchoredOffsetbox {
                 anchored.font = PadFont::Points(pad_font_points(options.prop.as_ref()));
             }
         });
+        self
+    }
+
+    /// Places the child box's origin at the display point `offset`
+    /// instead of where the anchor puts it, or back at the anchor
+    /// (`None`): where a box of the program's overriding matplotlib's
+    /// `AnchoredOffsetbox.get_offset` puts its child when it is drawn
+    /// (plotnine's legends). The frame goes around the child there.
+    pub fn set_child_offset(&self, offset: Option<Point>) -> &Self {
+        self.raw
+            .with_mut::<AnchoredBoxArtist, _>(|anchored| anchored.pinned = offset);
         self
     }
 

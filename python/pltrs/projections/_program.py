@@ -57,7 +57,7 @@ from .._native import artist as _artist
 from .._native import polar as _polar
 from .._native import projections as _projections, spines as _spines
 from .._native import transforms as _transforms
-from ..axes import Axes
+from ..axes import Axes, _program_tick_params
 from ..axis import _AxisOfAxes
 from .._axis_artists import Tick
 from ..path import Path
@@ -551,29 +551,10 @@ def maker(projection_class):
             # matplotlib's `__init__` clears the Axes it made, running the
             # class' own `clear`, then gives the ticks their sides.
             ax.clear()
-            rc_tick_sides(ax)
         else:
             cleared(ax)
+        _program_tick_params.apply(ax)
         return native, kwargs
     return make
 
 
-def rc_tick_sides(ax):
-    """Give the ticks and tick labels of *ax* the sides the rcParams say,
-    as matplotlib's ``Axes.__init__`` ends, after the Axes is cleared
-    (whatever the class' ``clear`` chose)."""
-    from .. import rcParams
-    for which in ("minor", "major"):
-        def on(axis, side):
-            return rcParams[f"{axis}tick.{side}"] and rcParams[f"{axis}tick.{which}.{side}"]
-
-        def label(axis, side):
-            return (rcParams[f"{axis}tick.label{side}"]
-                    and rcParams[f"{axis}tick.{which}.{side}"])
-
-        ax.tick_params(
-            top=on("x", "top"), bottom=on("x", "bottom"),
-            labeltop=label("x", "top"), labelbottom=label("x", "bottom"),
-            left=on("y", "left"), right=on("y", "right"),
-            labelleft=label("y", "left"), labelright=label("y", "right"),
-            which=which)

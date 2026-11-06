@@ -56,11 +56,6 @@ pub(crate) struct Run<'a> {
 }
 
 impl Run<'_> {
-    /// Runs pytest and reads what the plugin recorded.
-    pub(crate) fn outcomes(&self) -> Result<Outcomes, String> {
-        self.outcomes_with(&[])
-    }
-
     /// Runs pytest with `variables` set or removed besides the run's own
     /// (a display, the GUI toolkits' libraries), and reads what the
     /// plugin recorded.

@@ -20,6 +20,7 @@ import numpy as np
 from .. import _api, _handles, _python_drawing
 from .._native import figure as _figure, insets as _insets
 from ..transforms import Bbox
+from . import _program_tick_params
 
 
 class ConstructionMixin:
@@ -88,7 +89,7 @@ class ConstructionMixin:
         self._init_axes_state()
         self._init_projection()
         # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
-        # overrides take part in.
+        # override takes part in.
         self.clear()
         for name, other in (("x", sharex), ("y", sharey)):
             if other is not None:
@@ -107,9 +108,9 @@ class ConstructionMixin:
         if yscale:
             self.set_yscale(yscale)
         self._internal_update(kwargs)
-        from ..projections import _program
-        if _program.is_program_class(type(self)):
-            _program.rc_tick_sides(self)
+        # As matplotlib's `__init__` ends: the ticks' sides from the
+        # rcParams, through the class' own `tick_params` if it has one.
+        _program_tick_params.apply(self)
 
     @classmethod
     def _constructed_native(cls, figure, kwargs, *, spec=None, rect=None):

@@ -15,9 +15,9 @@ import numpy as np
 from numpy import ma
 
 from . import _docstring
-from . import (_api, _blocking_input, _handles, _mirrors, _values,
+from . import (_api, _blocking_input, _handles, _mirrors, _owned_paths, _values,
                artist as martist, cbook, collections as mcoll, colors as mcolors)
-from ._native import artist as _artist, contour as _contour
+from ._native import artist as _artist, collections as _collections, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
 
@@ -918,7 +918,15 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                 for path, (vertices, codes) in zip(kept, native)):
             kept = self._paths_kept = [Path(vertices, codes)
                                        for vertices, codes in native]
+            _owned_paths.hand_out(kept, self._push_kept_paths)
         return kept
+
+    def _push_kept_paths(self):
+        """Hand pltrs (Rust) the paths handed out again, one of which the
+        program changed (see `._owned_paths`)."""
+        kept = self.__dict__.get("_paths_kept")
+        if kept is not None:
+            _collections.set_paths(self._native, list(kept))
 
     allsegs = property(lambda self: [
         [subp.vertices for subp in p._iter_connected_components()]

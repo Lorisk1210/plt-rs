@@ -55,8 +55,10 @@ class _AxisPart(_mirrors.Mirroring):
         self.owner._push(artist)
 
     def window_extent(self, artist, renderer=None, dpi=None):
-        if "_given_transform" in artist.__dict__:
-            # A part given a transform of its own is drawn through it.
+        if "_given_transform" in artist.__dict__ or isinstance(artist, Line2D):
+            # A part given a transform of its own is drawn through it; a
+            # tick's line holds matplotlib's data and transform, from
+            # which `.Line2D` measures itself as matplotlib's does.
             return _mirrors.OWN
         extent = self.owner._extent(artist)
         if extent is None:

@@ -171,6 +171,15 @@ impl Outcomes {
                 .is_some_and(|(id, _)| id.starts_with(&prefix))
     }
 
+    /// The ids of the tests that failed or errored.
+    pub(crate) fn failing(&self) -> Vec<String> {
+        self.tests
+            .iter()
+            .filter(|(_, outcome)| matches!(outcome, Outcome::Failed | Outcome::Error))
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
     /// How many tests ended in each outcome.
     pub(super) fn counts(&self) -> BTreeMap<Outcome, usize> {
         let mut counts = BTreeMap::new();
@@ -286,6 +295,7 @@ mod tests {
             "ImportError: gone"
         );
         assert!(Outcomes::from_results(r#"{"id": "x", "outcome": "odd"}"#).is_err());
+        assert_eq!(outcomes.failing(), ["a/test_x.py::t2"]);
     }
 
     #[test]

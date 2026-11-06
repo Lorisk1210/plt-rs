@@ -210,8 +210,9 @@ fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
     })
 }
 
-/// Removes `path` and everything in it, if it exists.
-fn remove(path: &Path) -> Result<(), String> {
+/// Removes the directory `path` and everything in it (or the link `path`,
+/// not what it links to), if it exists.
+pub(crate) fn remove(path: &Path) -> Result<(), String> {
     match fs::remove_dir_all(path) {
         Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
             Err(format!("{}: {err}", path.display()))

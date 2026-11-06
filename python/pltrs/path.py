@@ -20,7 +20,7 @@ from weakref import WeakValueDictionary
 
 import numpy as np
 
-from . import _api, _path
+from . import _api, _owned_paths, _path
 from ._native import path as _native_path
 from .cbook import _to_unmasked_float_array
 from .bezier import BezierSegment
@@ -218,6 +218,7 @@ class Path:
     def __getstate__(self):
         # A copy or a pickle is a path of its own, not an artist's.
         state = self.__dict__.copy()
+        state.pop(_owned_paths.OWNER, None)
         if state.pop("_steps_of", None) is not None:
             state["_steps"] = self._interpolation_steps
         return state
@@ -256,6 +257,7 @@ class Path:
             raise AttributeError("Can't set vertices on a readonly Path")
         self._vertices = vertices
         self._update_values()
+        _owned_paths.changed(self)
 
     @property
     def codes(self):
@@ -275,6 +277,7 @@ class Path:
             raise AttributeError("Can't set codes on a readonly Path")
         self._codes = codes
         self._update_values()
+        _owned_paths.changed(self)
 
     @property
     def simplify_threshold(self):

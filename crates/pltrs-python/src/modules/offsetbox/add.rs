@@ -143,6 +143,17 @@ fn set_anchored_options(anchored: RawHandle, options: PyAnchoredOptions) -> PyRe
     Ok(())
 }
 
+/// Places the child of the added anchored box `anchored` at the display
+/// point `offset`, or back at its anchor (`None`): where the
+/// `get_offset` of a box of the program's puts it.
+fn set_anchored_offset(anchored: RawHandle, offset: Option<(f64, f64)>) -> PyResult<()> {
+    anchored
+        .downcast::<AnchoredOffsetbox>()
+        .ok_or_else(|| PyErr::type_error("not an anchored offset box"))?
+        .set_child_offset(offset.map(Point::from));
+    Ok(())
+}
+
 /// The options of an `AnnotationBbox` as a dict: `xybox`, `xycoords`,
 /// `boxcoords`, `frameon`, `pad`, `annotation_clip`, `box_alignment`,
 /// `boxstyle` (a description), `bboxprops` (patch properties),
@@ -320,6 +331,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_annotation_clip", set_annotation_clip)?;
     module.add("set_annotation_fontsize", set_annotation_fontsize)?;
     module.add("set_anchored_options", set_anchored_options)?;
+    module.add("set_anchored_offset", set_anchored_offset)?;
     module.add("add_owned", add_owned)?;
     module.add("new_padded_frame", new_padded_frame)
 }

@@ -302,3 +302,26 @@ fn trees_map_their_artists_in_drawing_order() {
     assert_eq!(seen, [1, 2, 3]);
     assert_eq!(mapped.artists(), vec![&10, &20, &30]);
 }
+
+#[test]
+fn aux_boxes_measure_collections_by_their_shapes() {
+    use crate::collections::{Collection, CollectionSpec};
+    let fig = Figure::with_size(4.0, 3.0, 72.0);
+    let lines = Collection::loose(CollectionSpec::lines(vec![
+        vec![Point::new(0.0, 10.0), Point::new(5.0, 10.0)],
+        vec![Point::new(18.0, 10.0), Point::new(23.0, 10.0)],
+    ]));
+    let aux = AuxTransformBox::new(Transform::Display)
+        .with_artist(BoxItem::from_loose(lines.raw()).unwrap());
+    let options = AnchoredOptions {
+        pad: 0.0,
+        ..AnchoredOptions::new(AnchorLoc::Center)
+    };
+    let anchored = fig.add_anchored_box(AnchoredBox::new(aux, options));
+    fig.draw_without_rendering().unwrap();
+    let lines = anchored.artists()[0].window_extent().unwrap();
+    assert_eq!((lines.width(), lines.height()), (23.0, 0.0));
+    let anchored = anchored.raw().window_extent().unwrap();
+    assert!(anchored.is_finite());
+    assert_eq!(anchored.width(), 23.0);
+}

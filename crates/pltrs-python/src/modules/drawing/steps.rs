@@ -7,7 +7,7 @@
 //! 3×3 matrices, colours as RGBA arrays, positions in display pixels from
 //! the bottom-left corner.
 
-use pltrs::artist::{DrawStep, Drawing, RawHandle};
+use pltrs::artist::{DrawStep, Drawing, DrawnArtist, RawHandle};
 use pltrs::colors::Color;
 use pltrs::figure::{DrawErrors, Figure};
 use pltrs::transforms::Point;
@@ -342,7 +342,7 @@ fn stop_filter(drawing: Native<Drawing>, function: Callback) -> PyResult<()> {
 
 /// `artist.draw(renderer)`: the artist as pltrs draws it.
 fn draw_artist(drawing: Native<Drawing>, artist: RawHandle) -> PyResult<()> {
-    add(&drawing, DrawStep::Artist(artist));
+    add(&drawing, DrawStep::Artist(DrawnArtist::new(artist)));
     Ok(())
 }
 

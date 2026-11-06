@@ -176,6 +176,8 @@ impl Figure {
             .chain(self.axes3d().iter().map(ArtistHandle::id))
             .collect();
         let frame = self.raw().id();
+        // The axes of classes of the program's measuring themselves.
+        self.root_handle().measure_painters();
         // Worked on outside the figure's cell: the program's tick helpers
         // the measures call find the figure lent.
         self.raw().figure_state().work_on(|state| {

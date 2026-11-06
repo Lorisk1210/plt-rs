@@ -1,0 +1,125 @@
+# matplotlib.widgets
+
+* -> pltrs::widgets::*
+
+## AxesWidget
+AxesWidget -> pltrs::widgets::AxesWidget
+AxesWidget.* -> pltrs::widgets::AxesWidget::*
+AxesWidget.canvas -> pltrs::widgets::AxesWidget::figure
+AxesWidget.ignore -> pltrs::widgets::Widget::ignores_events
+
+## Button
+Button -> pltrs::widgets::Button
+Button.* -> pltrs::widgets::Button::*
+
+## CheckButtons
+CheckButtons -> pltrs::widgets::CheckButtons
+CheckButtons.get_* -> pltrs::widgets::CheckButtons::*
+CheckButtons.* -> pltrs::widgets::CheckButtons::*
+
+## Cursor
+Cursor -> pltrs::widgets::Cursor
+Cursor.clear n/a event handlers: widgets connect to their figure's events themselves
+Cursor.onmove n/a event handlers: widgets connect to their figure's events themselves
+
+## Lasso
+Lasso -> pltrs::widgets::Lasso
+Lasso.onrelease n/a event handlers: widgets connect to their figure's events themselves
+Lasso.onmove n/a event handlers: widgets connect to their figure's events themselves
+
+## LockDraw
+LockDraw -> pltrs::events::LockOwner, pltrs::events::LockError, pltrs::figure::Figure
+LockDraw.__call__ -> pltrs::events::LockOwner, pltrs::events::LockError
+LockDraw.release -> pltrs::figure::Figure::release_widgets
+LockDraw.available -> pltrs::figure::Figure::widgets_available
+LockDraw.isowner -> pltrs::figure::Figure::widgets_locked, pltrs::events::LockOwner
+LockDraw.locked -> pltrs::figure::Figure::widgets_locked
+
+## MultiCursor
+MultiCursor -> pltrs::widgets::MultiCursor
+MultiCursor.connect n/a event handlers: widgets connect to their figure's events themselves
+MultiCursor.disconnect n/a event handlers: widgets connect to their figure's events themselves
+MultiCursor.clear n/a event handlers: widgets connect to their figure's events themselves
+MultiCursor.onmove n/a event handlers: widgets connect to their figure's events themselves
+
+## PolygonSelector
+PolygonSelector -> pltrs::widgets::PolygonSelector
+PolygonSelector.* -> pltrs::widgets::PolygonSelector::*
+PolygonSelector.onmove n/a event handlers: widgets connect to their figure's events themselves
+
+## RadioButtons
+RadioButtons -> pltrs::widgets::RadioButtons
+RadioButtons.* -> pltrs::widgets::RadioButtons::*
+RadioButtons.activecolor -> pltrs::widgets::RadioButtonsOptions::activecolor
+
+## RangeSlider
+RangeSlider -> pltrs::widgets::RangeSlider
+RangeSlider.* -> pltrs::widgets::RangeSlider::*
+RangeSlider.set_min -> pltrs::widgets::RangeSlider::set_val
+RangeSlider.set_max -> pltrs::widgets::RangeSlider::set_val
+
+## RectangleSelector
+RectangleSelector -> pltrs::widgets::RectangleSelector
+RectangleSelector.* -> pltrs::widgets::RectangleSelector::*
+
+## Slider
+Slider -> pltrs::widgets::Slider
+Slider.* -> pltrs::widgets::Slider::*
+
+## SliderBase
+SliderBase -> pltrs::widgets::Slider, pltrs::widgets::RangeSlider, pltrs::widgets::SliderOptions
+SliderBase.* -> pltrs::widgets::Slider::*
+
+## SpanSelector
+SpanSelector -> pltrs::widgets::SpanSelector
+SpanSelector.* -> pltrs::widgets::SpanSelector::*
+SpanSelector.connect_default_events n/a event handlers: widgets connect to their figure's events themselves
+
+## TextBox
+TextBox -> pltrs::widgets::TextBox
+TextBox.* -> pltrs::widgets::TextBox::*
+
+## ToolHandles
+ToolHandles n/a selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.x n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.y n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.artists n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.set_data n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.set_visible n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.set_animated n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+ToolHandles.closest n/a class: selector handle markers are internal to each selector (handle props live in the selector options)
+
+## ToolLineHandles
+ToolLineHandles n/a selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.artists n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.positions n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.direction n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.set_data n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.set_visible n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.set_animated n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.remove n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+ToolLineHandles.closest n/a class: selector handle lines are internal to each selector (handle props live in the selector options)
+
+## Widget
+Widget -> pltrs::widgets::Widget
+Widget.get_* -> pltrs::widgets::Widget::*
+Widget.* -> pltrs::widgets::Widget::*
+Widget.ignore -> pltrs::widgets::Widget::ignores_events
+
+## _Buttons
+_Buttons.* -> pltrs::widgets::CheckButtons::*
+
+## _SelectorWidget
+_SelectorWidget.get_* -> pltrs::widgets::RectangleSelector::*
+_SelectorWidget.* -> pltrs::widgets::RectangleSelector::*
+_SelectorWidget.update_background n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.connect_default_events n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.ignore n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.update n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.press n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.release n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.onmove n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.on_scroll n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.on_key_press n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.on_key_release n/a event handlers: widgets connect to their figure's events themselves
+_SelectorWidget.artists -> pltrs::widgets::SpanSelector::artist, pltrs::widgets::RectangleSelector::artist

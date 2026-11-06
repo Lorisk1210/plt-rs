@@ -1,0 +1,23 @@
+# mpl_toolkits.axes_grid1.mpl_axes
+
+
+## Axes
+Axes -> pltrs::axes::Axes
+Axes.* -> pltrs::axes::Axes::*
+Axes.AxisDict -> pltrs::axes_grid1::SimpleAxisArtist, pltrs::axes::Axes, pltrs::artist::ArtistHandle
+Axes.axis -> pltrs::axes_grid1::SimpleAxisArtist
+Axes.set -> pltrs::axes::Axes::update_base_props
+
+## SimpleAxisArtist
+SimpleAxisArtist -> pltrs::axes_grid1::SimpleAxisArtist
+SimpleAxisArtist.* -> pltrs::axes_grid1::SimpleAxisArtist::*
+SimpleAxisArtist.major_ticks -> pltrs::axes_grid1::SimpleAxisArtist::set_ticklabels_visible
+SimpleAxisArtist.major_ticklabels -> pltrs::axes_grid1::SimpleAxisArtist::set_ticklabels_visible
+SimpleAxisArtist.label -> pltrs::axes_grid1::SimpleAxisArtist::set_label_visible
+SimpleAxisArtist.draw -> pltrs::artist::Artist::draw
+SimpleAxisArtist.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## SimpleChainedObjects
+SimpleChainedObjects -> pltrs::axes_grid1::SimpleAxisArtist
+SimpleChainedObjects.__getattr__ n/a Python protocol or dataclass machinery
+SimpleChainedObjects.__call__ -> pltrs::axes_grid1::SimpleAxisArtist

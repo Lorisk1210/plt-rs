@@ -1,0 +1,5 @@
+# mpl_toolkits.mplot3d.proj3d
+
+inv_transform -> pltrs::mplot3d::math::Matrix4::inverse, pltrs::mplot3d::math::Matrix4::project
+proj_transform -> pltrs::mplot3d::math::Matrix4::project, pltrs::mplot3d::math::Matrix4::project_all
+world_transformation -> pltrs::mplot3d::math::world_transformation

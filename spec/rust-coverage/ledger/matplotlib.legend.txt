@@ -1,0 +1,18 @@
+# matplotlib.legend
+
+
+## DraggableLegend
+DraggableLegend -> pltrs::legend::Legend, pltrs::artist::ArtistHandle, pltrs::animation::ChangedArtists
+DraggableLegend.finalize_offset -> pltrs::events::DragTarget::finalize_offset
+
+## Legend
+Legend -> pltrs::legend::Legend
+Legend.get_* -> pltrs::legend::Legend::*
+Legend.* -> pltrs::legend::Legend::*
+Legend.set_ncols -> pltrs::legend::LegendOptions::ncols
+Legend.draw -> pltrs::artist::Artist::draw
+Legend.get_legend_handler_map -> pltrs::legend::Legend::handler_map
+Legend.get_children -> pltrs::legend::Legend::handles, pltrs::legend::Legend::texts, pltrs::legend::Legend::frame
+Legend.get_tightbbox -> pltrs::artist::ArtistHandle::window_extent
+Legend.draw_frame -> pltrs::legend::Legend::set_frame_on
+Legend.set -> pltrs::legend::Legend::update_base_props

@@ -1,0 +1,132 @@
+# matplotlib.backend_tools
+
+ConfigureSubplotsBase -> pltrs::navigation::Navigation
+Cursors -> pltrs::events::CursorShape
+add_tools_to_container -> pltrs::figure::Figure::add_tool
+add_tools_to_manager -> pltrs::figure::Figure::add_tool
+
+## AxisScaleBase
+AxisScaleBase -> pltrs::navigation::Navigation
+AxisScaleBase.trigger -> pltrs::navigation::Navigation
+AxisScaleBase.enable -> pltrs::navigation::Navigation
+AxisScaleBase.disable -> pltrs::navigation::Navigation
+
+## RubberbandBase
+RubberbandBase -> pltrs::navigation::Navigation
+RubberbandBase.trigger -> pltrs::navigation::Navigation
+RubberbandBase.draw_rubberband -> pltrs::navigation::Navigation
+RubberbandBase.remove_rubberband -> pltrs::navigation::Navigation
+
+## SaveFigureBase
+SaveFigureBase -> pltrs::navigation::Navigation
+SaveFigureBase.default_keymap -> pltrs::navigation::Navigation
+
+## ToolBack
+ToolBack -> pltrs::navigation::Navigation
+ToolBack.default_keymap -> pltrs::navigation::Navigation
+
+## ToolBase
+ToolBase -> pltrs::gui::ToolKind::Toggle, pltrs::figure::Figure::add_tool
+ToolBase.name -> pltrs::navigation::Navigation
+ToolBase.toolmanager -> pltrs::navigation::Navigation
+ToolBase.canvas -> pltrs::navigation::Navigation
+ToolBase.set_figure -> pltrs::navigation::Navigation
+ToolBase.figure -> pltrs::navigation::Navigation
+ToolBase.trigger -> pltrs::navigation::Navigation
+
+## ToolCopyToClipboardBase
+ToolCopyToClipboardBase -> pltrs::navigation::Navigation
+ToolCopyToClipboardBase.default_keymap -> pltrs::navigation::Navigation
+ToolCopyToClipboardBase.trigger -> pltrs::navigation::Navigation
+
+## ToolCursorPosition
+ToolCursorPosition -> pltrs::navigation::Navigation
+ToolCursorPosition.set_figure -> pltrs::navigation::Navigation
+ToolCursorPosition.send_message -> pltrs::navigation::Navigation
+
+## ToolForward
+ToolForward -> pltrs::navigation::Navigation
+ToolForward.default_keymap -> pltrs::navigation::Navigation
+
+## ToolFullScreen
+ToolFullScreen -> pltrs::navigation::Navigation
+ToolFullScreen.default_keymap -> pltrs::navigation::Navigation
+ToolFullScreen.trigger -> pltrs::navigation::Navigation
+
+## ToolGrid
+ToolGrid -> pltrs::navigation::Navigation
+ToolGrid.default_keymap -> pltrs::navigation::Navigation
+ToolGrid.trigger -> pltrs::navigation::Navigation
+
+## ToolHelpBase
+ToolHelpBase -> pltrs::navigation::Navigation
+ToolHelpBase.default_keymap -> pltrs::navigation::Navigation
+ToolHelpBase.format_shortcut -> pltrs::navigation::Navigation
+
+## ToolHome
+ToolHome -> pltrs::navigation::Navigation
+ToolHome.default_keymap -> pltrs::navigation::Navigation
+
+## ToolMinorGrid
+ToolMinorGrid -> pltrs::navigation::Navigation
+ToolMinorGrid.default_keymap -> pltrs::navigation::Navigation
+ToolMinorGrid.trigger -> pltrs::navigation::Navigation
+
+## ToolPan
+ToolPan -> pltrs::navigation::Navigation
+ToolPan.default_keymap -> pltrs::navigation::Navigation
+
+## ToolQuit
+ToolQuit -> pltrs::navigation::Navigation
+ToolQuit.default_keymap -> pltrs::navigation::Navigation
+ToolQuit.trigger -> pltrs::navigation::Navigation
+
+## ToolQuitAll
+ToolQuitAll -> pltrs::navigation::Navigation
+ToolQuitAll.default_keymap -> pltrs::navigation::Navigation
+ToolQuitAll.trigger -> pltrs::navigation::Navigation
+
+## ToolSetCursor
+ToolSetCursor -> pltrs::navigation::Navigation
+ToolSetCursor.set_figure -> pltrs::navigation::Navigation
+
+## ToolToggleBase
+ToolToggleBase -> pltrs::gui::ToolKind::Toggle, pltrs::figure::Figure::add_tool
+ToolToggleBase.trigger -> pltrs::navigation::Navigation
+ToolToggleBase.enable -> pltrs::navigation::Navigation
+ToolToggleBase.disable -> pltrs::navigation::Navigation
+ToolToggleBase.toggled -> pltrs::navigation::Navigation
+ToolToggleBase.set_figure -> pltrs::navigation::Navigation
+
+## ToolViewsPositions
+ToolViewsPositions -> pltrs::navigation::Navigation
+ToolViewsPositions.* -> pltrs::navigation::Navigation::*
+ToolViewsPositions.add_figure -> pltrs::navigation::Navigation
+ToolViewsPositions.clear -> pltrs::navigation::Navigation
+ToolViewsPositions.update_view -> pltrs::navigation::Navigation
+ToolViewsPositions.update_home_views -> pltrs::navigation::Navigation
+
+## ToolXScale
+ToolXScale -> pltrs::navigation::Navigation
+ToolXScale.default_keymap -> pltrs::navigation::Navigation
+ToolXScale.set_scale -> pltrs::navigation::Navigation
+
+## ToolYScale
+ToolYScale -> pltrs::navigation::Navigation
+ToolYScale.default_keymap -> pltrs::navigation::Navigation
+ToolYScale.set_scale -> pltrs::navigation::Navigation
+
+## ToolZoom
+ToolZoom -> pltrs::navigation::Navigation
+ToolZoom.default_keymap -> pltrs::navigation::Navigation
+
+## ViewsPositionsBase
+ViewsPositionsBase -> pltrs::navigation::Navigation
+ViewsPositionsBase.trigger -> pltrs::navigation::Navigation
+
+## ZoomPanBase
+ZoomPanBase -> pltrs::navigation::Navigation
+ZoomPanBase.enable -> pltrs::navigation::Navigation
+ZoomPanBase.disable -> pltrs::navigation::Navigation
+ZoomPanBase.trigger -> pltrs::navigation::Navigation
+ZoomPanBase.scroll_zoom -> pltrs::navigation::Navigation

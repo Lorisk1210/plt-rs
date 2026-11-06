@@ -1,0 +1,22 @@
+# matplotlib.backend_managers
+
+* -> pltrs::gui::*
+ToolManagerMessageEvent -> pltrs::gui::ToolChange
+ToolTriggerEvent -> pltrs::gui::ToolChange
+
+## ToolManager
+ToolManager -> pltrs::figure::Figure::add_tool, pltrs::figure::Figure::tools, pltrs::figure::Figure::trigger_tool
+ToolManager.canvas n/a the canvas is part of the figure
+ToolManager.figure n/a the figure is the receiver of the tool methods
+ToolManager.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+ToolManager.toolmanager_connect -> pltrs::figure::Figure::on_tool_change
+ToolManager.toolmanager_disconnect -> pltrs::figure::Figure::disconnect_tool_change
+ToolManager.message_event -> pltrs::figure::Figure::tool_message
+ToolManager.active_toggle -> pltrs::figure::Figure::active_toggle
+ToolManager.get_tool_keymap -> pltrs::figure::Figure::tool
+ToolManager.update_keymap -> pltrs::figure::Figure::set_tool_keys
+ToolManager.remove_tool -> pltrs::figure::Figure::remove_tool
+ToolManager.add_tool -> pltrs::figure::Figure::add_tool
+ToolManager.trigger_tool -> pltrs::figure::Figure::trigger_tool
+ToolManager.tools -> pltrs::figure::Figure::tools
+ToolManager.get_tool -> pltrs::figure::Figure::tool

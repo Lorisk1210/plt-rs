@@ -1,0 +1,10 @@
+# matplotlib.pyplot
+
+* -> pltrs::pyplot::*
+get -> pltrs::colors::colormaps::get
+getp n/a looks a property up by its name, or prints them all: Python introspection; the typed getters read each
+install_repl_displayhook n/a Python REPL integration
+new_figure_manager n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+set_loglevel n/a pltrs does not log
+setp -> pltrs::artist::ArtistHandle::update_base_props
+uninstall_repl_displayhook n/a Python REPL integration

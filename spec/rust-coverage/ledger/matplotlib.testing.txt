@@ -1,0 +1,9 @@
+# matplotlib.testing
+
+* -> pltrs::testing::*
+ipython_in_subprocess n/a runs Python test code in a subprocess; Rust tests use std::process::Command
+is_ci_environment n/a detects the continuous-integration services matplotlib's own test suite runs on
+set_font_settings_for_testing -> pltrs::testing::setup
+set_reproducibility_for_testing -> pltrs::testing::setup
+subprocess_run_for_testing n/a runs Python test code in a subprocess; Rust tests use std::process::Command
+subprocess_run_helper n/a runs Python test code in a subprocess; Rust tests use std::process::Command

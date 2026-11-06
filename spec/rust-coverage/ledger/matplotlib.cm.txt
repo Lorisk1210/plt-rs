@@ -1,0 +1,13 @@
+# matplotlib.cm
+
+
+## ColormapRegistry
+ColormapRegistry -> pltrs::colors::colormaps::get, pltrs::colors::colormaps::names
+ColormapRegistry.__contains__ -> pltrs::colors::colormaps::contains
+ColormapRegistry.__getitem__ -> pltrs::colors::colormaps::get
+ColormapRegistry.__iter__ -> pltrs::colors::colormaps::names
+ColormapRegistry.__len__ -> pltrs::colors::colormaps::names
+ColormapRegistry.__call__ -> pltrs::colors::colormaps::names
+ColormapRegistry.register -> pltrs::colors::colormaps::register
+ColormapRegistry.unregister -> pltrs::colors::colormaps::unregister
+ColormapRegistry.get_cmap -> pltrs::colors::colormaps::get_cmap

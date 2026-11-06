@@ -1,0 +1,57 @@
+# matplotlib.image
+
+* -> pltrs::image::*
+pil_to_array n/a PIL interoperability
+
+## AxesImage
+AxesImage -> pltrs::image::AxesImage
+AxesImage.get_* -> pltrs::image::AxesImage::*
+AxesImage.* -> pltrs::image::AxesImage::*
+AxesImage.make_image n/a rendering step of the image
+AxesImage.get_cursor_data -> pltrs::collections::Collection::cursor_data
+AxesImage.set -> pltrs::image::AxesImage::update_base_props
+
+## BboxImage
+BboxImage -> pltrs::image::BboxImage
+BboxImage.get_* -> pltrs::image::BboxImage::*
+BboxImage.* -> pltrs::image::BboxImage::*
+BboxImage.make_image n/a rendering step of the image
+BboxImage.set -> pltrs::image::BboxImage::update_base_props
+
+## FigureImage
+FigureImage -> pltrs::image::FigureImage
+FigureImage.get_* -> pltrs::image::FigureImage::*
+FigureImage.* -> pltrs::image::FigureImage::*
+FigureImage.make_image n/a rendering step of the image
+FigureImage.set -> pltrs::image::FigureImage::update_base_props
+
+## NonUniformImage
+NonUniformImage -> pltrs::image::NonUniformImage
+NonUniformImage.get_* -> pltrs::image::NonUniformImage::*
+NonUniformImage.* -> pltrs::image::NonUniformImage::*
+NonUniformImage.make_image n/a rendering step of the image
+NonUniformImage.set_array n/a not supported by matplotlib either (raises NotImplementedError); set_data replaces the data
+NonUniformImage.set_filternorm -> pltrs::image::AxesImage::set_filternorm
+NonUniformImage.set_filterrad -> pltrs::image::AxesImage::set_filterrad
+NonUniformImage.get_cursor_data -> pltrs::collections::Collection::cursor_data
+NonUniformImage.set -> pltrs::image::NonUniformImage::update_base_props
+
+## PcolorImage
+PcolorImage -> pltrs::image::PcolorImage
+PcolorImage.* -> pltrs::image::PcolorImage::*
+PcolorImage.make_image n/a rendering step of the image
+PcolorImage.set_array n/a not supported by matplotlib either (raises NotImplementedError); set_data replaces the data
+PcolorImage.get_cursor_data -> pltrs::collections::Collection::cursor_data
+PcolorImage.set -> pltrs::image::PcolorImage::update_base_props
+
+## _ImageBase
+_ImageBase.get_* -> pltrs::image::AxesImage::*
+_ImageBase.* -> pltrs::image::AxesImage::*
+_ImageBase.get_size -> pltrs::image::AxesImage::shape
+_ImageBase.changed n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+_ImageBase.make_image n/a rendering step of the image
+_ImageBase.draw -> pltrs::artist::Artist::draw
+_ImageBase.write_png -> pltrs::image::imsave_png, pltrs::image::imsave
+_ImageBase.set_array -> pltrs::image::AxesImage::set_data
+_ImageBase.can_composite n/a backend compositing decision
+_ImageBase.set -> pltrs::image::AxesImage::update_base_props

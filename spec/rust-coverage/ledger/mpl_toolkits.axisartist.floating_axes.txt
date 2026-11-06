@@ -1,0 +1,20 @@
+# mpl_toolkits.axisartist.floating_axes
+
+* -> pltrs::axisartist::floating_axes::*
+FloatingAxisArtistHelper -> pltrs::axisartist::AxisArtist, pltrs::axisartist::floating_axes::FloatingGridHelper, pltrs::artist::ArtistHandle
+floatingaxes_class_factory n/a Python machinery (class factories, introspection, file objects)
+
+## FixedAxisArtistHelper
+FixedAxisArtistHelper -> pltrs::axisartist::AxisArtist, pltrs::axisartist::floating_axes::FloatingGridHelper, pltrs::artist::ArtistHandle
+FixedAxisArtistHelper.get_* -> pltrs::axisartist::AxisArtist::*
+FixedAxisArtistHelper.update_lim n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FixedAxisArtistHelper.get_tick_iterators n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+
+## FloatingAxesBase
+FloatingAxesBase -> pltrs::axisartist::floating_axes::FloatingAxes
+FloatingAxesBase.* -> pltrs::axisartist::floating_axes::FloatingAxes::*
+
+## GridHelperCurveLinear
+GridHelperCurveLinear -> pltrs::axisartist::floating_axes::FloatingGridHelper
+GridHelperCurveLinear.new_fixed_axis -> pltrs::axisartist::AxisArtistAxes::new_fixed_axis
+GridHelperCurveLinear.get_gridlines -> pltrs::axisartist::AxisArtistAxes::gridlines

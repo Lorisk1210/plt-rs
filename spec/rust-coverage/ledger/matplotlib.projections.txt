@@ -1,0 +1,58 @@
+# matplotlib.projections
+
+get_projection_class -> pltrs::projections::projection_names, pltrs::projections::ProjectionSpec
+get_projection_names -> pltrs::projections::projection_names
+register_projection -> pltrs::projections::register, pltrs::projections::register_with
+
+## AitoffAxes
+AitoffAxes -> pltrs::geo::GeoAxes, pltrs::geo::GeoProjection
+AitoffAxes.AitoffTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+AitoffAxes.InvertedAitoffTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+AitoffAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## HammerAxes
+HammerAxes -> pltrs::geo::GeoAxes, pltrs::geo::GeoProjection
+HammerAxes.HammerTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+HammerAxes.InvertedHammerTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+HammerAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## LambertAxes
+LambertAxes -> pltrs::geo::GeoAxes, pltrs::geo::GeoProjection
+LambertAxes.* -> pltrs::geo::GeoAxes::*
+LambertAxes.LambertTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+LambertAxes.InvertedLambertTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+LambertAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## MollweideAxes
+MollweideAxes -> pltrs::geo::GeoAxes, pltrs::geo::GeoProjection
+MollweideAxes.MollweideTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+MollweideAxes.InvertedMollweideTransform -> pltrs::geo::GeoProjection::forward, pltrs::geo::GeoProjection::inverse
+MollweideAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## PolarAxes
+PolarAxes -> pltrs::polar::PolarAxes
+PolarAxes.get_* -> pltrs::polar::PolarAxes::*
+PolarAxes.* -> pltrs::polar::PolarAxes::*
+PolarAxes.get_xaxis_transform -> pltrs::polar::PolarAxes::trans_xaxis
+PolarAxes.get_xaxis_text1_transform -> pltrs::polar::PolarAxes::trans_xaxis
+PolarAxes.get_xaxis_text2_transform -> pltrs::polar::PolarAxes::trans_xaxis
+PolarAxes.get_yaxis_transform -> pltrs::polar::PolarAxes::trans_yaxis
+PolarAxes.get_yaxis_text1_transform -> pltrs::polar::PolarAxes::trans_yaxis
+PolarAxes.get_yaxis_text2_transform -> pltrs::polar::PolarAxes::trans_yaxis
+PolarAxes.draw -> pltrs::artist::Artist::draw
+PolarAxes.get_rsign n/a internal sign of the radial direction
+PolarAxes.end_pan -> pltrs::navigation::AxesPan::end
+PolarAxes.drag_pan -> pltrs::navigation::AxesPan::drag
+PolarAxes.set -> pltrs::artist::ArtistHandle::update_base_props
+PolarAxes.PolarTransform -> pltrs::polar::PolarAxes, pltrs::axisartist::AuxTransform::polar
+PolarAxes.PolarAffine -> pltrs::polar::PolarAxes, pltrs::axisartist::AuxTransform::polar
+PolarAxes.InvertedPolarTransform -> pltrs::polar::PolarAxes, pltrs::axisartist::AuxTransform::polar
+PolarAxes.ThetaFormatter -> pltrs::polar::ThetaFormatter
+PolarAxes.RadialLocator -> pltrs::polar::PolarAxes::set_rticks, pltrs::ticker::Locator
+PolarAxes.ThetaLocator -> pltrs::polar::PolarAxes::set_rticks, pltrs::ticker::Locator
+
+## ProjectionRegistry
+ProjectionRegistry -> pltrs::projections::register, pltrs::projections::projection_names
+ProjectionRegistry.register -> pltrs::projections::register
+ProjectionRegistry.get_projection_class -> pltrs::projections::ProjectionSpec
+ProjectionRegistry.get_projection_names -> pltrs::projections::projection_names

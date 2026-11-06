@@ -1,0 +1,12 @@
+# matplotlib.inset
+
+
+## InsetIndicator
+InsetIndicator -> pltrs::inset::InsetIndicator
+InsetIndicator.* -> pltrs::inset::InsetIndicator::*
+InsetIndicator.set_edgecolor -> pltrs::inset::InsetIndicator::update_props
+InsetIndicator.set_color -> pltrs::inset::InsetIndicator::update_props
+InsetIndicator.set_linewidth -> pltrs::inset::InsetIndicator::update_props
+InsetIndicator.set_linestyle -> pltrs::inset::InsetIndicator::update_props
+InsetIndicator.draw -> pltrs::artist::Artist::draw
+InsetIndicator.set -> pltrs::inset::InsetIndicator::update_props

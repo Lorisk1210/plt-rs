@@ -1,0 +1,54 @@
+# matplotlib.projections.polar
+
+
+## InvertedPolarTransform
+InvertedPolarTransform -> pltrs::transforms::Transform, pltrs::polar::PolarAxes
+InvertedPolarTransform.* -> pltrs::transforms::Transform::*
+InvertedPolarTransform.transform_non_affine -> pltrs::polar::PolarAxes
+
+## PolarAffine
+PolarAffine -> pltrs::transforms::Transform, pltrs::polar::PolarAxes
+PolarAffine.get_matrix -> pltrs::polar::PolarAxes
+
+## PolarTransform
+PolarTransform -> pltrs::transforms::Transform, pltrs::polar::PolarAxes
+PolarTransform.* -> pltrs::transforms::Transform::*
+PolarTransform.transform_non_affine -> pltrs::polar::PolarAxes
+PolarTransform.transform_path_non_affine -> pltrs::polar::PolarAxes
+
+## RadialAxis
+RadialAxis -> pltrs::axes::Axis, pltrs::polar::PolarAxes
+RadialAxis.* -> pltrs::axes::Axis::*
+RadialAxis.clear n/a polar axis internals
+RadialAxis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## RadialLocator
+RadialLocator -> pltrs::ticker::Locator, pltrs::polar::PolarAxes
+RadialLocator.* -> pltrs::ticker::Locator::*
+RadialLocator.set_axis n/a tickers do not point to their axis; a TickContext gives them what they need (conventions)
+RadialLocator.__call__ -> pltrs::ticker::Locator, pltrs::polar::PolarAxes
+
+## RadialTick
+RadialTick -> pltrs::axes::Tick, pltrs::polar::PolarAxes
+RadialTick.update_position n/a internal tick placement
+RadialTick.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## ThetaAxis
+ThetaAxis -> pltrs::axes::Axis, pltrs::polar::PolarAxes
+ThetaAxis.clear n/a polar axis internals
+ThetaAxis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## ThetaFormatter
+ThetaFormatter -> pltrs::polar::ThetaFormatter
+ThetaFormatter.__call__ -> pltrs::polar::ThetaFormatter, pltrs::ticker::Formatter
+
+## ThetaLocator
+ThetaLocator -> pltrs::ticker::Locator, pltrs::polar::PolarAxes
+ThetaLocator.* -> pltrs::ticker::Locator::*
+ThetaLocator.set_axis n/a tickers do not point to their axis; a TickContext gives them what they need (conventions)
+ThetaLocator.__call__ -> pltrs::ticker::Locator, pltrs::polar::PolarAxes
+
+## ThetaTick
+ThetaTick -> pltrs::axes::Tick, pltrs::polar::PolarAxes
+ThetaTick.update_position n/a internal tick placement
+ThetaTick.set -> pltrs::artist::ArtistHandle::update_base_props

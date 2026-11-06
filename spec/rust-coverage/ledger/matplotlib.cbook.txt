@@ -1,0 +1,46 @@
+# matplotlib.cbook
+
+* -> pltrs::lines::*
+boxplot_stats -> pltrs::stats::boxplot_stats
+contiguous_regions -> pltrs::numeric::contiguous_regions
+delete_masked_points -> pltrs::units::AxisValues
+file_requires_unicode n/a Python machinery (class factories, introspection, file objects)
+flatten n/a Python machinery (class factories, introspection, file objects)
+get_sample_data n/a sample data files are not shipped
+index_of -> pltrs::axes::Axes::plot_y
+is_math_text -> pltrs_text::mathtext::is_math_text
+is_scalar_or_string n/a Python machinery (class factories, introspection, file objects)
+is_writable_file_like n/a Python machinery (class factories, introspection, file objects)
+normalize_kwargs n/a Python machinery (class factories, introspection, file objects)
+open_file_cm n/a Python machinery (class factories, introspection, file objects)
+print_cycles n/a Python machinery (class factories, introspection, file objects)
+safe_first_element n/a Python machinery (class factories, introspection, file objects)
+safe_masked_invalid -> pltrs::units::AxisValues
+sanitize_sequence n/a Python machinery (class factories, introspection, file objects)
+silent_list n/a a list subclass with a short repr; Rust returns Vec
+simple_linear_interpolation -> pltrs::path::Path::interpolated
+strip_math -> pltrs::ticker::strip_math
+to_filehandle n/a Python machinery (class factories, introspection, file objects)
+violin_stats -> pltrs::stats::violin_stats
+
+## CallbackRegistry
+CallbackRegistry -> pltrs::figure::Figure, pltrs::events::ConnectionId, pltrs::widgets::CallbackId
+CallbackRegistry.* -> pltrs::figure::Figure::*
+CallbackRegistry.process -> pltrs::figure::Figure::process_event
+CallbackRegistry.blocked -> pltrs::figure::Figure::with_callbacks_blocked
+
+## Grouper
+Grouper -> pltrs::axes::Axes, pltrs::artist::ArtistHandle, pltrs::animation::ChangedArtists
+Grouper.* -> pltrs::axes::Axes::*
+Grouper.__contains__ -> pltrs::axes::Axes, pltrs::artist::ArtistHandle
+Grouper.join -> pltrs::axes::Axes::share_x, pltrs::axes::Axes::shared_axes
+Grouper.joined -> pltrs::axes::Axes::share_x, pltrs::axes::Axes::shared_axes
+Grouper.__iter__ -> pltrs::axes::Axes, pltrs::artist::ArtistHandle
+Grouper.get_siblings -> pltrs::axes::Axes::shared_axes, pltrs::axes::Axes::twins
+
+## GrouperView
+GrouperView -> pltrs::axes::Axes, pltrs::artist::ArtistHandle, pltrs::animation::ChangedArtists
+GrouperView.__contains__ -> pltrs::axes::Axes, pltrs::artist::ArtistHandle
+GrouperView.__iter__ -> pltrs::axes::Axes, pltrs::artist::ArtistHandle
+GrouperView.joined -> pltrs::axes::Axes::share_x, pltrs::axes::Axes::shared_axes
+GrouperView.get_siblings -> pltrs::axes::Axes::shared_axes, pltrs::axes::Axes::twins

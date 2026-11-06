@@ -1,0 +1,18 @@
+# matplotlib.path
+
+get_path_collection_extents -> pltrs_core::path::CollectionGeometry::extents
+
+## Path
+Path -> pltrs::path::Path
+Path.get_* -> pltrs::path::Path::*
+Path.* -> pltrs::path::Path::*
+Path.code_type n/a numpy dtype of path codes; PathCommand is an enum
+Path.simplify_threshold -> pltrs_core::path::convert::SimplifySettings
+Path.should_simplify -> pltrs_core::path::convert::SimplifySettings, pltrs_core::path::convert::CleanupOptions
+Path.readonly n/a Rust ownership makes paths immutable unless owned
+Path.copy -> pltrs::path::Path
+Path.deepcopy -> pltrs::path::Path
+Path.make_compound_path_from_polys -> pltrs::path::Path::compound_from_polygons
+Path.make_compound_path -> pltrs::path::Path::compound
+Path.__len__ -> pltrs::path::Path, pltrs::path::PathBuilder
+Path.hatch -> pltrs_core::hatch::pattern_path

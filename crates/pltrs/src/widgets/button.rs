@@ -41,7 +41,7 @@ pub struct Button {
     ax: Axes,
     label: Text,
     clicked: Observers<()>,
-    _connections: Connections,
+    pub(super) connections: Connections,
 }
 
 impl Button {
@@ -94,7 +94,7 @@ impl Button {
             ax: ax.clone(),
             label: text,
             clicked,
-            _connections: connections,
+            connections,
         }
     }
 

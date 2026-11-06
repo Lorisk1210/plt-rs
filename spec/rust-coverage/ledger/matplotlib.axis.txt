@@ -1,0 +1,84 @@
+# matplotlib.axis
+
+
+## Axis
+Axis -> pltrs::axes::Axis
+Axis.get_* -> pltrs::axes::Axis::*
+Axis.* -> pltrs::axes::Axis::*
+Axis.isDefault_majloc -> pltrs::axes::Axis::is_default_major_locator
+Axis.isDefault_majfmt -> pltrs::axes::Axis::is_default_major_formatter
+Axis.isDefault_minloc -> pltrs::axes::Axis::is_default_minor_locator
+Axis.isDefault_minfmt -> pltrs::axes::Axis::is_default_minor_formatter
+Axis.get_transform -> pltrs::axes::Axes::transform
+Axis.get_scale -> pltrs::axes::Axes::xscale, pltrs::axes::Axes::yscale
+Axis.limit_range_for_scale -> pltrs::scale::Scale::limit_range_for_scale
+Axis.get_children -> pltrs::artist::Artist::children
+Axis.reset_ticks n/a tick caches: ticks are rebuilt on every draw
+Axis.get_tick_params -> pltrs::axes::Axes::tick_params
+Axis.set_clip_path -> pltrs::axes::Axes::set_clip_path
+Axis.set_default_intervals -> pltrs::axes::Axis::axis_date
+Axis.get_tightbbox -> pltrs::axes::Axes::decorations_tight_bbox, pltrs::axes::Axes::tight_bbox, pltrs::axes::Axis::tight_bbox
+Axis.draw n/a an axis and its ticks are drawn with their axes (RawHandle::draw_onto of the axes)
+Axis.set_label -> pltrs::axes::Axes::set_label
+Axis.get_label -> pltrs::axes::Axes::label
+Axis.get_majorticklabels -> pltrs::axes::Axis::ticklabels
+Axis.get_minorticklabels -> pltrs::axes::Axis::ticklabels
+Axis.get_majorticklines -> pltrs::axes::Axis::ticklines
+Axis.get_minorticklines -> pltrs::axes::Axis::ticklines
+Axis.get_majorticklocs -> pltrs::axes::Axis::ticklocs
+Axis.get_minorticklocs -> pltrs::axes::Axis::ticklocs
+Axis.get_ticks_direction -> pltrs::axes::Axis::tick_style
+Axis.get_major_ticks -> pltrs::axes::Axis::ticklocs, pltrs::axes::Axis::ticklines, pltrs::axes::Axis::ticklabels
+Axis.get_minor_ticks -> pltrs::axes::Axis::ticklocs, pltrs::axes::Axis::ticklines
+Axis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## Tick
+Tick -> pltrs::axes::Tick
+Tick.get_* -> pltrs::axes::Tick::*
+Tick.get_tickdir -> pltrs::axes::Axis::tick_style
+Tick.get_tick_padding -> pltrs::axes::Axis::tick_padding
+Tick.get_children -> pltrs::artist::Artist::children
+Tick.set_clip_path n/a ticks are drawn by their axis, not separate artists
+Tick.contains n/a ticks are drawn by their axis, not separate artists
+Tick.set_pad -> pltrs::axes::TickParams::pad, pltrs::axes::Axis::tick_padding
+Tick.get_pad -> pltrs::axes::TickParams::pad
+Tick.draw n/a an axis and its ticks are drawn with their axes (RawHandle::draw_onto of the axes)
+Tick.set_url n/a ticks are drawn by their axis, not separate artists
+Tick.get_view_interval n/a internal tick placement
+Tick.update_position n/a internal tick placement
+Tick.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## Ticker
+Ticker -> pltrs::axes::Axis::major_locator, pltrs::axes::Axis::major_formatter
+Ticker.locator -> pltrs::axes::Axis::major_locator, pltrs::axes::Axis::set_major_locator
+Ticker.formatter -> pltrs::axes::Axis::major_formatter, pltrs::axes::Axis::set_major_formatter
+
+## XAxis
+XAxis -> pltrs::axes::Axis, pltrs::axes::Axes, pltrs::artist::ArtistHandle
+XAxis.get_* -> pltrs::axes::Axis::*
+XAxis.* -> pltrs::axes::Axis::*
+XAxis.tick_top -> pltrs::axes::Axis::set_ticks_position, pltrs::axes::Axis::tick_to
+XAxis.tick_bottom -> pltrs::axes::Axis::tick_to
+XAxis.set_default_intervals -> pltrs::axes::Axis::axis_date
+XAxis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## XTick
+XTick -> pltrs::axes::Tick, pltrs::axes::TickSet, pltrs::axes::TickLine
+XTick.update_position n/a internal tick placement
+XTick.get_view_interval n/a internal tick placement
+XTick.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## YAxis
+YAxis -> pltrs::axes::Axis, pltrs::axes::Axes, pltrs::artist::ArtistHandle
+YAxis.get_* -> pltrs::axes::Axis::*
+YAxis.* -> pltrs::axes::Axis::*
+YAxis.tick_right -> pltrs::axes::Axis::tick_to
+YAxis.tick_left -> pltrs::axes::Axis::tick_to
+YAxis.set_default_intervals -> pltrs::axes::Axis::axis_date
+YAxis.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## YTick
+YTick -> pltrs::axes::Tick, pltrs::axes::TickSet, pltrs::axes::TickLine
+YTick.update_position n/a internal tick placement
+YTick.get_view_interval n/a internal tick placement
+YTick.set -> pltrs::artist::ArtistHandle::update_base_props

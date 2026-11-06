@@ -1,0 +1,7 @@
+# matplotlib.sankey
+
+
+## Sankey
+Sankey -> pltrs::sankey::Sankey
+Sankey.* -> pltrs::sankey::Sankey::*
+Sankey.add -> pltrs::sankey::Sankey::add

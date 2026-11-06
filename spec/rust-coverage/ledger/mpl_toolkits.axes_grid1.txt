@@ -1,0 +1,37 @@
+# mpl_toolkits.axes_grid1
+
+* -> pltrs::axes_grid1::*
+
+## Divider
+Divider -> pltrs::axes_grid1::Divider
+Divider.get_* -> pltrs::axes_grid1::Divider::*
+Divider.* -> pltrs::axes_grid1::Divider::*
+Divider.get_horizontal_sizes -> pltrs::axes_grid1::Divider::horizontal, pltrs::axes_grid1::Divider::vertical
+Divider.get_vertical_sizes -> pltrs::axes_grid1::Divider::horizontal, pltrs::axes_grid1::Divider::vertical
+Divider.get_subplotspec -> pltrs::axes_grid1::Divider::subplot
+Divider.set_locator -> pltrs::axes::Axes::set_axes_locator
+Divider.get_locator -> pltrs::axes::Axes::set_axes_locator
+Divider.get_position_runtime n/a internal layout
+Divider.new_locator -> pltrs::axes_grid1::Divider::locate, pltrs::axes_grid1::Divider::place, pltrs::axes_grid1::Divider::place_spanning
+Divider.add_auto_adjustable_area -> pltrs::axes_grid1::AxesDivider::add_auto_adjustable_area
+
+## Grid
+Grid -> pltrs::axes_grid1::AxesGrid, pltrs::axes_grid1::ImageGrid, pltrs::axes_grid1::ImageGridOptions
+Grid.n_axes -> pltrs::axes_grid1::ImageGridOptions::n_axes
+Grid.__len__ -> pltrs::axes_grid1::AxesGrid, pltrs::axes_grid1::ImageGrid
+Grid.__getitem__ -> pltrs::axes_grid1::AxesGrid, pltrs::axes_grid1::ImageGrid
+Grid.get_geometry -> pltrs::axes_grid1::ImageGridOptions
+Grid.set_axes_pad -> pltrs::axes_grid1::ImageGridOptions
+Grid.get_axes_pad -> pltrs::axes_grid1::ImageGridOptions::axes_pad
+Grid.set_aspect -> pltrs::axes_grid1::ImageGridOptions
+Grid.get_aspect -> pltrs::axes_grid1::ImageGridOptions::aspect
+Grid.set_label_mode -> pltrs::axes_grid1::ImageGridOptions
+Grid.get_divider -> pltrs::axes_grid1::ImageGridOptions
+Grid.set_axes_locator -> pltrs::axes_grid1::ImageGridOptions
+Grid.get_axes_locator -> pltrs::axes_grid1::ImageGridOptions
+
+## SubplotDivider
+SubplotDivider -> pltrs::axes_grid1::Divider
+SubplotDivider.get_* -> pltrs::axes_grid1::Divider::*
+SubplotDivider.get_subplotspec -> pltrs::axes_grid1::Divider::subplot
+SubplotDivider.set_subplotspec -> pltrs::axes_grid1::Divider::subplot

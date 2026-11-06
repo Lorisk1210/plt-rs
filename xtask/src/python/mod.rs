@@ -100,7 +100,7 @@ pub(crate) fn build(profile: Profile) -> Result<(), String> {
 
 /// The target directory cargo builds into: `CARGO_TARGET_DIR`, relative
 /// to the working directory, else the workspace's `target`.
-fn target_dir() -> PathBuf {
+pub(crate) fn target_dir() -> PathBuf {
     match env::var_os("CARGO_TARGET_DIR") {
         Some(dir) => match env::current_dir() {
             Ok(cwd) => cwd.join(dir),

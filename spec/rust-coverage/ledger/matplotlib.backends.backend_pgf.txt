@@ -1,0 +1,32 @@
+# matplotlib.backends.backend_pgf
+
+* -> pltrs::figure::*
+LatexError -> pltrs::figure::ProgramError::Failed
+make_pdf_to_png_converter -> pltrs::figure::PdfToPng::find
+
+## FigureCanvasPgf
+FigureCanvasPgf.* -> pltrs::figure::Figure::*
+FigureCanvasPgf.get_default_filetype -> pltrs::figure::SaveFormat::Pgf
+FigureCanvasPgf.print_pgf -> pltrs::figure::Figure::to_pgf, pltrs::figure::Figure::to_pgf_with
+FigureCanvasPgf.print_pdf -> pltrs::figure::Figure::to_pgf_pdf, pltrs::figure::Figure::to_pgf_pdf_with
+FigureCanvasPgf.print_png -> pltrs::figure::Figure::to_pgf_png, pltrs::figure::Figure::to_pgf_png_with
+FigureCanvasPgf.get_renderer -> pltrs_render::PgfRenderer::new
+
+## LatexManager
+LatexManager -> pltrs_text::tex::TexManager, pltrs::figure::pgf_preamble
+LatexManager.get_width_height_descent -> pltrs_text::tex::TexManager::text_width_height_descent
+
+## PdfPages
+PdfPages -> pltrs::figure::PgfPages
+PdfPages.* -> pltrs::figure::PgfPages::*
+PdfPages.__enter__ n/a Python protocol or dataclass machinery
+PdfPages.__exit__ n/a Python protocol or dataclass machinery
+PdfPages.close -> pltrs::figure::PgfPages::finish
+PdfPages.get_pagecount -> pltrs::figure::PgfPages::page_count
+
+## RendererPgf
+RendererPgf -> pltrs_render::PgfRenderer, pltrs_render::Renderer
+RendererPgf.* -> pltrs_render::PgfRenderer::*
+RendererPgf.get_text_width_height_descent -> pltrs::text::measure_line
+RendererPgf.flipy n/a whether a backend's y axis points down: pltrs renderers all take display coordinates, y up
+RendererPgf.get_canvas_width_height -> pltrs_render::Renderer::canvas_size

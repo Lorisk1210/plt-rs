@@ -1,0 +1,83 @@
+# matplotlib.axes
+
+SubplotBase n/a an alias of Axes kept for compatibility
+subplot_class_factory n/a Python machinery (class factories, introspection, file objects)
+
+## Axes
+Axes -> pltrs::axes::Axes
+Axes.get_* -> pltrs::axes::Axes::*
+Axes.* -> pltrs::axes::Axes::*
+Axes.clabel -> pltrs::contour::ContourSet::clabel
+Axes.set -> pltrs::axes::Axes::update_base_props
+
+## _AxesBase
+_AxesBase.get_* -> pltrs::axes::Axes::*
+_AxesBase.* -> pltrs::axes::Axes::*
+_AxesBase.get_subplotspec -> pltrs::axes::Axes::subplot_spec
+_AxesBase.set_subplotspec -> pltrs::axes::Axes::set_subplot_spec
+_AxesBase.get_gridspec -> pltrs::axes::Axes::subplot_spec
+_AxesBase.set_figure n/a an axes is made in its figure
+_AxesBase.viewLim -> pltrs::projections::ProjectionView::limits
+_AxesBase.get_xaxis_transform -> pltrs::axes::Axes::trans_xaxis
+_AxesBase.get_xaxis_text1_transform -> pltrs::projections::Projection::tick_label
+_AxesBase.get_xaxis_text2_transform -> pltrs::projections::Projection::tick_label
+_AxesBase.get_yaxis_transform -> pltrs::axes::Axes::trans_yaxis
+_AxesBase.get_yaxis_text1_transform -> pltrs::projections::Projection::tick_label
+_AxesBase.get_yaxis_text2_transform -> pltrs::projections::Projection::tick_label
+_AxesBase.sharex -> pltrs::axes::Axes::share_x, pltrs::axes::Axes::shared_axes
+_AxesBase.sharey -> pltrs::axes::Axes::share_y, pltrs::axes::Axes::shared_from
+_AxesBase.ArtistList -> pltrs::axes::Axes::lines, pltrs::axes::Axes::patches, pltrs::axes::Axes::texts, pltrs::axes::Axes::collections, pltrs::axes::Axes::images
+_AxesBase.axis -> pltrs::artist::ArtistHandle::set_visible, pltrs::axes::Axes::autoscale, pltrs::axes::Axes::axis_mode
+_AxesBase.get_xgridlines -> pltrs::axes::Axis::gridlines
+_AxesBase.get_xticklines -> pltrs::axes::Axis::ticklines
+_AxesBase.get_ygridlines -> pltrs::axes::Axis::gridlines
+_AxesBase.get_yticklines -> pltrs::axes::Axis::ticklines
+_AxesBase.add_image -> pltrs::axes::Axes::attach
+_AxesBase.add_table -> pltrs::axes::Axes::table, pltrs::axes::Axes::attach
+_AxesBase.in_axes -> pltrs::axes::Axes::contains_point
+_AxesBase.get_autoscalex_on -> pltrs::axes::Axes::autoscale_on
+_AxesBase.get_autoscaley_on -> pltrs::axes::Axes::autoscale_on
+_AxesBase.set_autoscalex_on -> pltrs::axes::Axes::set_axis_autoscale_on
+_AxesBase.set_autoscaley_on -> pltrs::axes::Axes::set_axis_autoscale_on
+_AxesBase.get_xmargin -> pltrs::axes::Axes::margin
+_AxesBase.get_ymargin -> pltrs::axes::Axes::margin
+_AxesBase.set_xmargin -> pltrs::axes::Axes::set_margin
+_AxesBase.set_ymargin -> pltrs::axes::Axes::set_margin
+_AxesBase.draw -> pltrs::artist::Artist::draw
+_AxesBase.get_xlabel -> pltrs::axes::Axes::label
+_AxesBase.invert_xaxis -> pltrs::axes::Axis::inverted, pltrs::axes::Axis::set_inverted
+_AxesBase.set_xinverted -> pltrs::axes::Axis::set_inverted
+_AxesBase.get_xinverted -> pltrs::axes::Axis::inverted
+_AxesBase.xaxis_inverted -> pltrs::axes::Axis::inverted, pltrs::axes::Axis::set_inverted
+_AxesBase.get_xbound -> pltrs::axes::Axes::bound
+_AxesBase.set_xbound -> pltrs::axes::Axes::set_bound
+_AxesBase.get_xticks -> pltrs::axes::Axes::ticks
+_AxesBase.get_xmajorticklabels -> pltrs::axes::Axis::ticklabels
+_AxesBase.get_xminorticklabels -> pltrs::axes::Axis::ticklabels
+_AxesBase.get_xticklabels -> pltrs::axes::Axis::ticklabels
+_AxesBase.get_ylabel -> pltrs::axes::Axes::label
+_AxesBase.invert_yaxis -> pltrs::axes::Axes::yaxis, pltrs::axes::Axis::inverted, pltrs::axes::Axis::set_inverted
+_AxesBase.set_yinverted -> pltrs::axes::Axis::set_inverted
+_AxesBase.get_yinverted -> pltrs::axes::Axis::inverted
+_AxesBase.yaxis_inverted -> pltrs::axes::Axes::yaxis, pltrs::axes::Axis::inverted, pltrs::axes::Axis::set_inverted
+_AxesBase.get_ybound -> pltrs::axes::Axes::bound
+_AxesBase.set_ybound -> pltrs::axes::Axes::set_bound
+_AxesBase.get_yticks -> pltrs::axes::Axes::ticks
+_AxesBase.get_ymajorticklabels -> pltrs::axes::Axis::ticklabels
+_AxesBase.get_yminorticklabels -> pltrs::axes::Axis::ticklabels
+_AxesBase.get_yticklabels -> pltrs::axes::Axis::ticklabels
+_AxesBase.format_xdata -> pltrs::axes::Axes::format_data
+_AxesBase.format_ydata -> pltrs::axes::Axes::format_data
+_AxesBase.get_navigate_mode -> pltrs::navigation::Navigation::mode
+_AxesBase.end_pan -> pltrs::navigation::AxesPan::end
+_AxesBase.drag_pan -> pltrs::navigation::AxesPan::drag
+_AxesBase.get_children -> pltrs::artist::Artist::children
+_AxesBase.get_default_bbox_extra_artists -> pltrs::figure::Figure::tight_bbox
+_AxesBase.get_tightbbox -> pltrs::axes::Axes::decorations_tight_bbox, pltrs::axes::Axes::tight_bbox, pltrs::axes::Axis::tight_bbox
+_AxesBase.get_shared_x_axes -> pltrs::axes::Axes::share_x, pltrs::axes::Axes::shared_axes
+_AxesBase.get_shared_y_axes -> pltrs::axes::Axes::shared_axes
+_AxesBase.set -> pltrs::axes::Axes::update_base_props
+
+## Aliases (any class)
+*.get_fc n/a alias of get_facecolor: pltrs keeps one name per property
+*.set_fc n/a alias of set_facecolor: pltrs keeps one name per property

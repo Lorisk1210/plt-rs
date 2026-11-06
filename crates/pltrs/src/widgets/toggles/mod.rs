@@ -44,7 +44,7 @@ pub struct CheckButtons {
     /// `_active_check_colors`).
     active_colors: Rc<RefCell<Vec<Color>>>,
     clicked: Observers<Option<String>>,
-    _connections: Connections,
+    pub(in crate::widgets) connections: Connections,
 }
 
 impl CheckButtons {
@@ -137,7 +137,7 @@ impl CheckButtons {
             states,
             active_colors,
             clicked,
-            _connections: connections,
+            connections,
         })
     }
 
@@ -247,7 +247,7 @@ pub struct RadioButtons {
     /// `_active_colors`).
     active_colors: Rc<RefCell<Vec<Color>>>,
     clicked: Observers<String>,
-    _connections: Connections,
+    pub(in crate::widgets) connections: Connections,
 }
 
 impl RadioButtons {
@@ -328,7 +328,7 @@ impl RadioButtons {
             initial: active,
             active_colors,
             clicked,
-            _connections: connections,
+            connections,
         })
     }
 

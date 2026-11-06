@@ -1,0 +1,35 @@
+# matplotlib.figure
+
+figaspect -> pltrs::pyplot::figaspect
+
+## Figure
+Figure -> pltrs::figure::Figure
+Figure.get_* -> pltrs::figure::Figure::*
+Figure.* -> pltrs::figure::Figure::*
+Figure.show -> pltrs::gui::show, pltrs::gui::Session::show
+Figure.number -> pltrs::pyplot::figure_num, pltrs::pyplot::FigureManager::num
+Figure.get_constrained_layout -> pltrs::figure::Figure::layout_engine
+Figure.set_canvas n/a the canvas is part of the figure
+Figure.get_figwidth -> pltrs::figure::Figure::size_inches
+Figure.get_figheight -> pltrs::figure::Figure::size_inches
+Figure.add_axobserver n/a change tracking: pltrs recomputes on every draw (conventions: what was left out)
+Figure.ginput -> pltrs::gui::Session::ginput, pltrs::pyplot::ginput
+Figure.waitforbuttonpress -> pltrs::pyplot::waitforbuttonpress
+Figure.set -> pltrs::figure::Figure::update_base_props
+
+## FigureBase
+FigureBase -> pltrs::figure::Figure, pltrs::artist::ArtistHandle, pltrs::animation::ChangedArtists
+FigureBase.get_* -> pltrs::figure::Figure::*
+FigureBase.* -> pltrs::figure::Figure::*
+FigureBase.get_children -> pltrs::artist::Artist::children
+FigureBase.get_default_bbox_extra_artists -> pltrs::figure::Figure::tight_bbox
+FigureBase.get_tightbbox -> pltrs::figure::Figure::tight_bbox, pltrs::figure::Figure::tight_extent
+FigureBase.set -> pltrs::figure::Figure::update_base_props
+
+## SubFigure
+SubFigure -> pltrs::figure::Figure, pltrs::artist::ArtistHandle, pltrs::animation::ChangedArtists
+SubFigure.get_* -> pltrs::figure::Figure::*
+SubFigure.* -> pltrs::figure::Figure::*
+SubFigure.get_constrained_layout -> pltrs::figure::Figure::layout_engine
+SubFigure.get_constrained_layout_pads -> pltrs::figure::Figure::layout_engine
+SubFigure.set -> pltrs::figure::Figure::update_base_props

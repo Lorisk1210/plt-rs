@@ -59,7 +59,7 @@ use crate::axes::Axes;
 use crate::navigation::PointerButton;
 use crate::transforms::TransformError;
 
-pub(crate) use drag::{DragTarget, Dragger};
+pub use drag::{DragTarget, Dragger};
 pub use lock::{CursorShape, LockError, LockOwner};
 pub use pick::PickEvent;
 pub(crate) use registry::CallbackRegistry;

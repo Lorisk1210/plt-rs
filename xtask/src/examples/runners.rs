@@ -53,8 +53,9 @@ fn failure(
     }
 }
 
-/// Builds the Rust examples in the profile this xtask was built in, and
-/// returns the directory of their binaries: this program's own.
+/// Builds the Rust examples and the tutorials in the profile this xtask
+/// was built in, and returns the directory of the examples' binaries:
+/// this program's own (the tutorials are in its `examples/`).
 pub(super) fn build_rust() -> Result<PathBuf, String> {
     let exe = env::current_exe().map_err(|err| format!("cannot locate xtask: {err}"))?;
     let bin_dir = exe
@@ -75,6 +76,7 @@ pub(super) fn build_rust() -> Result<PathBuf, String> {
             "-p",
             "pltrs-examples",
             "--bins",
+            "--examples",
         ])
         .status()
         .map_err(|err| format!("cannot run cargo: {err}"))?;
@@ -97,6 +99,31 @@ pub(super) fn run_rust(bin_dir: &Path, names: &[String], out: &Path) -> Vec<Stri
                 .current_dir(out)
                 .output();
             failure(name, "Rust", &binary, output)
+        })
+        .collect()
+}
+
+/// Runs each tutorial of `names`, built into `bin_dir/examples`, in a
+/// directory of its own under `out`, where it writes its files; returns
+/// why each failing one failed.
+pub(super) fn run_tutorials(bin_dir: &Path, names: &[String], out: &Path) -> Vec<String> {
+    names
+        .iter()
+        .filter_map(|name| {
+            let dir = out.join(name);
+            if let Err(err) = std::fs::create_dir_all(&dir) {
+                return Some(format!(
+                    "{name} (tutorial): cannot create {}: {err}",
+                    dir.display()
+                ));
+            }
+            let binary = bin_dir
+                .join("examples")
+                .join(format!("{name}{}", env::consts::EXE_SUFFIX));
+            let output = in_modern_look(&mut Command::new(&binary))
+                .current_dir(&dir)
+                .output();
+            failure(name, "tutorial", &binary, output)
         })
         .collect()
 }

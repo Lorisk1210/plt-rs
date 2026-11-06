@@ -1,0 +1,24 @@
+# matplotlib
+
+* -> pltrs::pyplot::*
+ExecutableNotFoundError -> pltrs::figure::ProgramError::NotFound
+get_cachedir -> pltrs::config::cache_dir, pltrs::config::config_dir
+get_configdir -> pltrs::config::cache_dir, pltrs::config::config_dir
+get_data_path -> pltrs::config::data_dir
+interactive -> pltrs::pyplot::ion, pltrs::pyplot::ioff
+is_interactive -> pltrs::pyplot::isinteractive
+matplotlib_fname -> pltrs::config::rc_file_path
+rc_file_defaults -> pltrs::rc::restore_startup
+rc_params -> pltrs::rc::RcParams::startup
+rc_params_from_file -> pltrs::rc::RcFile::parse, pltrs::rc::RcParams::apply_rc_text
+set_loglevel n/a pltrs does not log; warnings are returned as values (RcWarning, ContourWarning)
+use -> pltrs::pyplot::switch_backend
+
+## RcParams
+RcParams -> pltrs::rc::RcParams
+RcParams.__setitem__ -> pltrs::rc::RcParams, pltrs::rc::set, pltrs::rc::params
+RcParams.__getitem__ -> pltrs::rc::RcParams, pltrs::rc::set, pltrs::rc::params
+RcParams.__iter__ -> pltrs::rc::RcParams, pltrs::rc::set, pltrs::rc::params
+RcParams.__len__ -> pltrs::rc::RcParams, pltrs::rc::set, pltrs::rc::params
+RcParams.find_all -> pltrs::rc::RcParams, pltrs::rc::set, pltrs::rc::params
+RcParams.copy -> pltrs::rc::RcParams, pltrs::rc::set, pltrs::rc::params

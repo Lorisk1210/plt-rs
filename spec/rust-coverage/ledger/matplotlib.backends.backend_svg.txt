@@ -1,0 +1,22 @@
+# matplotlib.backends.backend_svg
+
+* -> pltrs::figure::*
+
+## FigureCanvasSVG
+FigureCanvasSVG.* -> pltrs::figure::Figure::*
+FigureCanvasSVG.print_svg -> pltrs::figure::Figure::to_svg, pltrs::figure::Figure::to_svg_with
+FigureCanvasSVG.print_svgz -> pltrs::figure::Figure::to_format
+FigureCanvasSVG.get_default_filetype -> pltrs::figure::SaveFormat::Svg
+
+## RendererSVG
+RendererSVG -> pltrs_render::SvgRenderer, pltrs_render::Renderer
+RendererSVG.get_* -> pltrs_render::SvgRenderer::*
+RendererSVG.* -> pltrs_render::SvgRenderer::*
+RendererSVG.finalize -> pltrs_render::SvgRenderer::finish
+RendererSVG.flipy n/a whether a backend's y axis points down: pltrs renderers all take display coordinates, y up
+RendererSVG.get_canvas_width_height -> pltrs_render::Renderer::canvas_size
+RendererSVG.get_text_width_height_descent -> pltrs::text::measure_line_svg
+
+## _XMLWriter
+_XMLWriter.* -> pltrs_render::XmlWriter::*
+_XMLWriter.flush n/a the writer writes into a string: XmlWriter::take returns it

@@ -1,0 +1,63 @@
+# matplotlib.dates
+
+* -> pltrs::dates::*
+DayLocator -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator, pltrs::ticker::Locator
+HourLocator -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator, pltrs::ticker::Locator
+MinuteLocator -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator, pltrs::ticker::Locator
+MonthLocator -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator, pltrs::ticker::Locator
+SecondLocator -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator, pltrs::ticker::Locator
+WeekdayLocator -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator, pltrs::ticker::Locator
+
+## AutoDateFormatter
+AutoDateFormatter -> pltrs::dates::AutoDateFormatter
+AutoDateFormatter.__call__ -> pltrs::dates::AutoDateFormatter, pltrs::ticker::Formatter
+
+## AutoDateLocator
+AutoDateLocator -> pltrs::dates::AutoDateLocator
+AutoDateLocator.* -> pltrs::dates::AutoDateLocator::*
+AutoDateLocator.__call__ -> pltrs::dates::AutoDateLocator, pltrs::dates::DateLocator
+
+## ConciseDateConverter
+ConciseDateConverter -> pltrs::units::UnitConverter, pltrs::units::ConversionInterface, pltrs::dates::ConciseDateFormatter
+ConciseDateConverter.axisinfo -> pltrs::units::ConversionInterface::axisinfo
+
+## ConciseDateFormatter
+ConciseDateFormatter -> pltrs::dates::ConciseDateFormatter
+ConciseDateFormatter.* -> pltrs::dates::ConciseDateFormatter::*
+ConciseDateFormatter.__call__ -> pltrs::dates::ConciseDateFormatter, pltrs::ticker::Formatter
+ConciseDateFormatter.get_offset -> pltrs::ticker::Formatter::format_ticks
+
+## DateConverter
+DateConverter -> pltrs::units::UnitConverter, pltrs::units::ConversionInterface
+DateConverter.axisinfo -> pltrs::units::ConversionInterface::axisinfo
+DateConverter.convert -> pltrs::units::ConversionInterface::convert
+DateConverter.default_units -> pltrs::units::ConversionInterface::default_units
+
+## DateFormatter
+DateFormatter -> pltrs::dates::DateFormatter
+DateFormatter.__call__ -> pltrs::dates::DateFormatter, pltrs::ticker::Formatter
+DateFormatter.set_tzinfo -> pltrs::dates::DateFormatter::with_tz
+
+## DateLocator
+DateLocator -> pltrs::dates::DateLocator
+DateLocator.set_tzinfo -> pltrs::dates::RRuleLocator::with_tz, pltrs::dates::AutoDateLocator::with_tz
+DateLocator.datalim_to_dt -> pltrs::axes::Axes::xlim
+DateLocator.viewlim_to_dt -> pltrs::axes::Axes::xlim
+DateLocator.nonsingular -> pltrs::ticker::Locator::nonsingular
+
+## MicrosecondLocator
+MicrosecondLocator -> pltrs::dates::MicrosecondLocator
+MicrosecondLocator.* -> pltrs::dates::MicrosecondLocator::*
+MicrosecondLocator.set_axis n/a tickers do not point to their axis; a TickContext gives them what they need (conventions)
+MicrosecondLocator.__call__ -> pltrs::dates::MicrosecondLocator, pltrs::dates::DateLocator
+
+## RRuleLocator
+RRuleLocator -> pltrs::dates::RRuleLocator
+RRuleLocator.* -> pltrs::dates::RRuleLocator::*
+RRuleLocator.__call__ -> pltrs::dates::RRuleLocator, pltrs::dates::DateLocator
+RRuleLocator.get_unit_generic -> pltrs::dates::rrule::Frequency::unit_days
+
+## rrulewrapper
+rrulewrapper -> pltrs::dates::rrule::RRule, pltrs::dates::rrule::RRuleSpec
+rrulewrapper.set -> pltrs::dates::rrule::RRuleSpec, pltrs::dates::rrule::RRule::new
+rrulewrapper.__getattr__ n/a Python protocol or dataclass machinery

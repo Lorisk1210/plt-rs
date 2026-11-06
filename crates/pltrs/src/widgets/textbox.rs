@@ -161,7 +161,7 @@ impl Entry {
 pub struct TextBox {
     entry: Rc<Entry>,
     label: Text,
-    _connections: Connections,
+    pub(super) connections: Connections,
 }
 
 impl TextBox {
@@ -246,7 +246,7 @@ impl TextBox {
         Self {
             entry,
             label: caption,
-            _connections: connections,
+            connections,
         }
     }
 

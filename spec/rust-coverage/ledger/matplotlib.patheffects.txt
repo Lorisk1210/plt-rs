@@ -1,0 +1,45 @@
+# matplotlib.patheffects
+
+Normal -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## AbstractPathEffect
+AbstractPathEffect -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+AbstractPathEffect.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## PathEffectRenderer
+PathEffectRenderer -> pltrs::patheffects::PathEffectRenderer
+PathEffectRenderer.* -> pltrs::patheffects::PathEffectRenderer::*
+PathEffectRenderer.copy_with_path_effect -> pltrs::patheffects::PathEffectRenderer
+PathEffectRenderer.__getattribute__ -> pltrs::patheffects::PathEffectRenderer
+
+## PathPatchEffect
+PathPatchEffect -> pltrs::patheffects::PatchEffect, pltrs::patheffects::PathEffect
+PathPatchEffect.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## SimpleLineShadow
+SimpleLineShadow -> pltrs::patheffects::LineShadow, pltrs::patheffects::PathEffect
+SimpleLineShadow.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## SimplePatchShadow
+SimplePatchShadow -> pltrs::patheffects::PatchShadow, pltrs::patheffects::PathEffect
+SimplePatchShadow.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## Stroke
+Stroke -> pltrs::patheffects::Stroke
+Stroke.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## TickedStroke
+TickedStroke -> pltrs::patheffects::TickedStroke
+TickedStroke.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## withSimplePatchShadow
+withSimplePatchShadow -> pltrs::patheffects::PatchShadow, pltrs::patheffects::PathEffect
+withSimplePatchShadow.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## withStroke
+withStroke -> pltrs::patheffects::Stroke, pltrs::patheffects::PathEffect
+withStroke.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect
+
+## withTickedStroke
+withTickedStroke -> pltrs::patheffects::TickedStroke, pltrs::patheffects::PathEffect
+withTickedStroke.draw_path -> pltrs::patheffects::PathEffect, pltrs::patheffects::Effect

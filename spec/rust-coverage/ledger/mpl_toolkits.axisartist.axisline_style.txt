@@ -1,0 +1,6 @@
+# mpl_toolkits.axisartist.axisline_style
+
+
+## AxislineStyle
+AxislineStyle -> pltrs::axisartist::AxislineStyle
+AxislineStyle.* -> pltrs::axisartist::AxislineStyle::*

@@ -1,0 +1,30 @@
+# matplotlib.backends.backend_agg
+
+* -> pltrs::figure::*
+get_hinting_flag -> pltrs::text::TextHinting::hinting
+
+## FigureCanvasAgg
+FigureCanvasAgg.* -> pltrs::figure::FigureCanvas::*
+FigureCanvasAgg.get_renderer -> pltrs::figure::Figure::canvas, pltrs_render::RasterRenderer::new
+FigureCanvasAgg.tostring_argb -> pltrs::figure::FigureCanvas::buffer_rgba
+FigureCanvasAgg.print_raw -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_rgba -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_png -> pltrs::figure::Figure::to_png
+FigureCanvasAgg.print_to_buffer -> pltrs::figure::Figure::render_raster
+FigureCanvasAgg.print_gif -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_jpg -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_jpeg -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_tif -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_tiff -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_webp -> pltrs::figure::Figure::to_format
+FigureCanvasAgg.print_avif -> pltrs::figure::Figure::to_format
+
+## RendererAgg
+RendererAgg -> pltrs_render::RasterRenderer
+RendererAgg.* -> pltrs_render::RasterRenderer::*
+RendererAgg.draw_mathtext -> pltrs_render::Renderer::draw_text
+RendererAgg.get_text_width_height_descent -> pltrs::text::measure_line
+RendererAgg.get_canvas_width_height -> pltrs_render::Renderer::canvas_size
+RendererAgg.buffer_rgba -> pltrs_render::RasterRenderer::pixmap
+RendererAgg.tostring_argb -> pltrs::figure::FigureCanvas::buffer_rgba
+RendererAgg.restore_region -> pltrs::figure::FigureCanvas::restore_region

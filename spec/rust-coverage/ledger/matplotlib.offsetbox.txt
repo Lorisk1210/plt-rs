@@ -1,0 +1,135 @@
+# matplotlib.offsetbox
+
+
+## AnchoredOffsetbox
+AnchoredOffsetbox -> pltrs::offsetbox::AnchoredOffsetbox
+AnchoredOffsetbox.set_child -> pltrs::offsetbox::AnchoredOffsetbox
+AnchoredOffsetbox.get_child -> pltrs::offsetbox::AnchoredOffsetbox
+AnchoredOffsetbox.get_children -> pltrs::offsetbox::OffsetBox, pltrs::offsetbox::OffsetBox::artists
+AnchoredOffsetbox.get_bbox -> pltrs::offsetbox::OffsetBox::bbox
+AnchoredOffsetbox.get_bbox_to_anchor -> pltrs::offsetbox::AnchoredOptions::bbox_to_anchor
+AnchoredOffsetbox.set_bbox_to_anchor -> pltrs::offsetbox::AnchoredOptions::bbox_to_anchor
+AnchoredOffsetbox.get_offset -> pltrs::offsetbox::OffsetBox::place
+AnchoredOffsetbox.update_frame n/a the frame follows the box on every draw
+AnchoredOffsetbox.draw -> pltrs::artist::Artist::draw
+AnchoredOffsetbox.set -> pltrs::offsetbox::AnchoredOffsetbox::update_base_props
+
+## AnchoredText
+AnchoredText -> pltrs::offsetbox::AnchoredBox, pltrs::offsetbox::AnchoredOffsetbox, pltrs::offsetbox::AnchoredOptions
+AnchoredText.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AnnotationBbox
+AnnotationBbox -> pltrs::offsetbox::AnnotationBbox
+AnnotationBbox.get_* -> pltrs::offsetbox::AnnotationBbox::*
+AnnotationBbox.* -> pltrs::offsetbox::AnnotationBbox::*
+AnnotationBbox.xyann -> pltrs::offsetbox::AnnotationBbox::xybox, pltrs::offsetbox::AnnotationBbox::set_xybox
+AnnotationBbox.anncoords -> pltrs::offsetbox::AnnotationBbox::boxcoords
+AnnotationBbox.get_children -> pltrs::offsetbox::OffsetBox, pltrs::offsetbox::OffsetBox::artists
+AnnotationBbox.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+AnnotationBbox.get_tightbbox -> pltrs::artist::ArtistHandle::window_extent
+AnnotationBbox.update_positions n/a positions are resolved on every draw
+AnnotationBbox.draw -> pltrs::artist::Artist::draw
+AnnotationBbox.set -> pltrs::offsetbox::AnnotationBbox::update_base_props
+
+## AuxTransformBox
+AuxTransformBox -> pltrs::offsetbox::AuxTransformBox
+AuxTransformBox.add_artist -> pltrs::offsetbox::AuxTransformBox::with_artist
+AuxTransformBox.get_transform -> pltrs::offsetbox::AuxTransformBox::aux_transform
+AuxTransformBox.set_transform -> pltrs::offsetbox::AuxTransformBox::aux_transform
+AuxTransformBox.set_offset -> pltrs::offsetbox::OffsetBox::place
+AuxTransformBox.get_offset -> pltrs::offsetbox::OffsetBox::place
+AuxTransformBox.get_bbox -> pltrs::offsetbox::OffsetBox::bbox
+AuxTransformBox.draw -> pltrs::artist::Artist::draw
+AuxTransformBox.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## DraggableAnnotation
+DraggableAnnotation -> pltrs::text::Annotation::set_draggable
+DraggableAnnotation.save_offset -> pltrs::events::DragTarget::save_offset
+DraggableAnnotation.update_offset -> pltrs::events::DragTarget::update_offset
+
+## DraggableBase
+DraggableBase -> pltrs::events::Dragger, pltrs::events::DragTarget
+DraggableBase.* -> pltrs::events::Dragger::*
+DraggableBase.canvas -> pltrs::artist::ArtistHandle::figure
+DraggableBase.cids n/a the ids of the drag callbacks; they stay inside the Dragger, which disconnect ends
+DraggableBase.on_motion -> pltrs::events::Dragger::connect
+DraggableBase.on_pick -> pltrs::events::Dragger::connect
+DraggableBase.on_release -> pltrs::events::Dragger::connect
+DraggableBase.save_offset -> pltrs::events::DragTarget::save_offset
+DraggableBase.update_offset -> pltrs::events::DragTarget::update_offset
+DraggableBase.finalize_offset -> pltrs::events::DragTarget::finalize_offset
+
+## DraggableOffsetBox
+DraggableOffsetBox -> pltrs::offsetbox::AnchoredOffsetbox::set_draggable
+DraggableOffsetBox.save_offset -> pltrs::events::DragTarget::save_offset
+DraggableOffsetBox.update_offset -> pltrs::events::DragTarget::update_offset
+DraggableOffsetBox.get_loc_in_canvas -> pltrs::artist::ArtistHandle::window_extent
+
+## DrawingArea
+DrawingArea -> pltrs::offsetbox::DrawingArea
+DrawingArea.clip_children -> pltrs::offsetbox::DrawingArea::clip
+DrawingArea.get_transform n/a the transform of a box's children follows its placement
+DrawingArea.set_transform n/a the transform of a box's children follows its placement
+DrawingArea.set_offset -> pltrs::offsetbox::OffsetBox::place
+DrawingArea.get_offset -> pltrs::offsetbox::OffsetBox::place
+DrawingArea.get_bbox -> pltrs::offsetbox::OffsetBox::bbox
+DrawingArea.add_artist -> pltrs::offsetbox::DrawingArea::with_artist
+DrawingArea.draw -> pltrs::artist::Artist::draw
+DrawingArea.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## HPacker
+HPacker -> pltrs::offsetbox::Packer, pltrs::offsetbox::OffsetBox
+HPacker.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## OffsetBox
+OffsetBox -> pltrs::offsetbox::OffsetBox
+OffsetBox.get_* -> pltrs::offsetbox::OffsetBox::*
+OffsetBox.* -> pltrs::offsetbox::OffsetBox::*
+OffsetBox.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+OffsetBox.axes -> pltrs::artist::ArtistHandle::axes
+OffsetBox.contains -> pltrs::artist::ArtistHandle::contains
+OffsetBox.set_offset -> pltrs::offsetbox::OffsetBox::place
+OffsetBox.get_offset -> pltrs::offsetbox::OffsetBox::place
+OffsetBox.set_height -> pltrs::offsetbox::DrawingArea::height, pltrs::offsetbox::OffsetBox::set_width
+OffsetBox.get_visible_children -> pltrs::offsetbox::OffsetBox::is_visible, pltrs::offsetbox::OffsetBox::artists
+OffsetBox.draw -> pltrs::artist::Artist::draw
+OffsetBox.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## OffsetImage
+OffsetImage -> pltrs::offsetbox::OffsetImage
+OffsetImage.get_* -> pltrs::offsetbox::OffsetImage::*
+OffsetImage.set_data -> pltrs::offsetbox::OffsetImage::image
+OffsetImage.get_data -> pltrs::offsetbox::OffsetImage::image
+OffsetImage.set_zoom -> pltrs::offsetbox::OffsetImage::zoom
+OffsetImage.get_offset -> pltrs::offsetbox::OffsetBox::place
+OffsetImage.get_children -> pltrs::offsetbox::OffsetBox, pltrs::offsetbox::OffsetBox::artists
+OffsetImage.get_bbox -> pltrs::offsetbox::OffsetBox::bbox
+OffsetImage.draw -> pltrs::artist::Artist::draw
+OffsetImage.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## PackerBase
+PackerBase -> pltrs::offsetbox::Packer, pltrs::offsetbox::OffsetBox
+PackerBase.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## PaddedBox
+PaddedBox -> pltrs::offsetbox::PaddedBox
+PaddedBox.draw -> pltrs::artist::Artist::draw
+PaddedBox.update_frame n/a the frame follows the box on every draw
+PaddedBox.draw_frame -> pltrs::offsetbox::PaddedBox::new, pltrs::offsetbox::PaddedBox::new_frame
+PaddedBox.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## TextArea
+TextArea -> pltrs::offsetbox::TextArea
+TextArea.get_* -> pltrs::offsetbox::TextArea::*
+TextArea.set_text -> pltrs::offsetbox::TextArea::text, pltrs::offsetbox::TextArea::multilinebaseline
+TextArea.set_multilinebaseline -> pltrs::offsetbox::TextArea::text, pltrs::offsetbox::TextArea::multilinebaseline
+TextArea.set_transform n/a the transform of a box's children follows its placement
+TextArea.set_offset -> pltrs::offsetbox::OffsetBox::place
+TextArea.get_offset -> pltrs::offsetbox::OffsetBox::place
+TextArea.get_bbox -> pltrs::offsetbox::OffsetBox::bbox
+TextArea.draw -> pltrs::artist::Artist::draw
+TextArea.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## VPacker
+VPacker -> pltrs::offsetbox::Packer, pltrs::offsetbox::OffsetBox
+VPacker.set -> pltrs::artist::ArtistHandle::update_base_props

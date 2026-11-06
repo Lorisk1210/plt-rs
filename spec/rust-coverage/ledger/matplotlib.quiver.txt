@@ -1,0 +1,23 @@
+# matplotlib.quiver
+
+
+## Barbs
+Barbs -> pltrs::quiver::Quiver, pltrs::quiver::BarbsOptions, pltrs::artist::ArtistHandle
+Barbs.set_UVC -> pltrs::quiver::Quiver::set_uvc
+Barbs.set_offsets -> pltrs::quiver::Quiver::collection
+Barbs.set -> pltrs::quiver::Quiver::update_base_props
+
+## Quiver
+Quiver -> pltrs::quiver::Quiver
+Quiver.get_datalim -> pltrs::collections::Collection::datalim
+Quiver.draw -> pltrs::artist::Artist::draw
+Quiver.set_UVC -> pltrs::quiver::Quiver::set_uvc
+Quiver.set -> pltrs::quiver::Quiver::update_base_props
+
+## QuiverKey
+QuiverKey -> pltrs::quiver::QuiverKey
+QuiverKey.* -> pltrs::quiver::QuiverKey::*
+QuiverKey.labelsep -> pltrs::quiver::QuiverKeyOptions::labelsep
+QuiverKey.draw -> pltrs::artist::Artist::draw
+QuiverKey.set_figure n/a artists are made in their figure; Axes::attach / Figure::attach move them
+QuiverKey.set -> pltrs::quiver::QuiverKey::update_base_props

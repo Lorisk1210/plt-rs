@@ -1,0 +1,18 @@
+# matplotlib.mathtext
+
+* -> pltrs::text::*
+get_unicode_index -> pltrs_text::mathtext::unicode_index
+
+## MathTextParser
+MathTextParser -> pltrs::text::MathImage, pltrs::text::MathImageOptions
+MathTextParser.parse -> pltrs_text::TextEngine::layout_math, pltrs::text::math_to_image
+
+## RasterParse
+RasterParse -> pltrs::text::MathImage
+RasterParse.__replace__ n/a Python protocol or dataclass machinery
+RasterParse.__getnewargs__ n/a Python protocol or dataclass machinery
+
+## VectorParse
+VectorParse -> pltrs::text::MathImage, pltrs::text::LaidOutText
+VectorParse.__replace__ n/a Python protocol or dataclass machinery
+VectorParse.__getnewargs__ n/a Python protocol or dataclass machinery

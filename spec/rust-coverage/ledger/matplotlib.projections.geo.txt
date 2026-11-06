@@ -1,0 +1,25 @@
+# matplotlib.projections.geo
+
+
+## GeoAxes
+GeoAxes -> pltrs::geo::GeoAxes
+GeoAxes.get_* -> pltrs::geo::GeoAxes::*
+GeoAxes.* -> pltrs::geo::GeoAxes::*
+GeoAxes.ThetaFormatter -> pltrs::geo::GeoThetaFormatter
+GeoAxes.get_xaxis_transform -> pltrs::geo::GeoAxes::trans_xaxis
+GeoAxes.get_xaxis_text1_transform -> pltrs::geo::GeoAxes::trans_xaxis
+GeoAxes.get_xaxis_text2_transform -> pltrs::geo::GeoAxes::trans_xaxis
+GeoAxes.get_yaxis_transform -> pltrs::geo::GeoAxes::trans_yaxis
+GeoAxes.get_yaxis_text1_transform -> pltrs::geo::GeoAxes::trans_yaxis
+GeoAxes.get_yaxis_text2_transform -> pltrs::geo::GeoAxes::trans_yaxis
+GeoAxes.set_yscale n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.set_xscale n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.set_xlim n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.set_ylim n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.set_xbound n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.set_ybound n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.invert_xaxis n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.invert_yaxis n/a geographic axes have fixed limits and scales: matplotlib refuses these too
+GeoAxes.end_pan -> pltrs::navigation::AxesPan::end
+GeoAxes.drag_pan -> pltrs::navigation::AxesPan::drag
+GeoAxes.set -> pltrs::artist::ArtistHandle::update_base_props

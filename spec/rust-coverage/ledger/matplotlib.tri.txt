@@ -1,0 +1,47 @@
+# matplotlib.tri
+
+* -> pltrs::tri::*
+TriRefiner -> pltrs::tri::UniformTriRefiner
+tricontour -> pltrs::pyplot::tricontour
+tricontourf -> pltrs::pyplot::tricontourf
+tripcolor -> pltrs::pyplot::tripcolor
+triplot -> pltrs::pyplot::triplot
+
+## CubicTriInterpolator
+CubicTriInterpolator -> pltrs::tri::CubicTriInterpolator
+CubicTriInterpolator.* -> pltrs::tri::CubicTriInterpolator::*
+CubicTriInterpolator.__call__ -> pltrs::tri::CubicTriInterpolator, pltrs::tri::TriInterpolator
+
+## LinearTriInterpolator
+LinearTriInterpolator -> pltrs::tri::LinearTriInterpolator
+LinearTriInterpolator.* -> pltrs::tri::LinearTriInterpolator::*
+LinearTriInterpolator.__call__ -> pltrs::tri::LinearTriInterpolator, pltrs::tri::TriInterpolator
+
+## TrapezoidMapTriFinder
+TrapezoidMapTriFinder -> pltrs::tri::TriFinder
+TrapezoidMapTriFinder.__call__ -> pltrs::tri::TriFinder
+
+## TriAnalyzer
+TriAnalyzer -> pltrs::tri::TriAnalyzer
+TriAnalyzer.get_* -> pltrs::tri::TriAnalyzer::*
+TriAnalyzer.* -> pltrs::tri::TriAnalyzer::*
+
+## TriContourSet
+TriContourSet -> pltrs::contour::ContourSet, pltrs::tri::TriContourGenerator, pltrs::artist::ArtistHandle
+TriContourSet.set -> pltrs::contour::ContourSet::update_base_props
+
+## TriFinder
+TriFinder -> pltrs::tri::TriFinder
+TriFinder.__call__ -> pltrs::tri::TriFinder
+
+## Triangulation
+Triangulation -> pltrs::tri::Triangulation
+Triangulation.get_* -> pltrs::tri::Triangulation::*
+Triangulation.* -> pltrs::tri::Triangulation::*
+Triangulation.calculate_plane_coefficients -> pltrs::tri::Triangulation::plane_coefficients
+Triangulation.get_cpp_triangulation n/a C++ extension object
+Triangulation.get_from_args_and_kwargs n/a Python machinery (class factories, introspection, file objects)
+
+## UniformTriRefiner
+UniformTriRefiner -> pltrs::tri::UniformTriRefiner
+UniformTriRefiner.* -> pltrs::tri::UniformTriRefiner::*

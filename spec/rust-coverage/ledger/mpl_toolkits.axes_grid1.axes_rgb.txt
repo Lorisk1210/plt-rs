@@ -1,0 +1,7 @@
+# mpl_toolkits.axes_grid1.axes_rgb
+
+* -> pltrs::axes_grid1::*
+
+## RGBAxes
+RGBAxes -> pltrs::axes_grid1::RgbAxes
+RGBAxes.* -> pltrs::axes_grid1::RgbAxes::*

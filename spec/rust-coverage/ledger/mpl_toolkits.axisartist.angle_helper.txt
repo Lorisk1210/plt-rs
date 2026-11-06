@@ -1,0 +1,39 @@
+# mpl_toolkits.axisartist.angle_helper
+
+* -> pltrs::axisartist::angle_helper::*
+
+## FormatterDMS
+FormatterDMS -> pltrs::axisartist::angle_helper::FormatterDms, pltrs::axisartist::grid_finder::GridFormatter
+FormatterDMS.__call__ -> pltrs::axisartist::angle_helper::FormatterDms, pltrs::axisartist::grid_finder::GridFormatter
+
+## FormatterHMS
+FormatterHMS -> pltrs::axisartist::angle_helper::FormatterHms, pltrs::axisartist::grid_finder::GridFormatter
+FormatterHMS.__call__ -> pltrs::axisartist::angle_helper::FormatterHms, pltrs::axisartist::grid_finder::GridFormatter
+
+## LocatorBase
+LocatorBase -> pltrs::axisartist::angle_helper::LocatorD, pltrs::axisartist::grid_finder::GridLocator
+LocatorBase.* -> pltrs::axisartist::angle_helper::LocatorD::*
+
+## LocatorD
+LocatorD -> pltrs::axisartist::angle_helper::LocatorD
+LocatorD.__call__ -> pltrs::axisartist::angle_helper::LocatorD, pltrs::axisartist::grid_finder::GridLocator
+
+## LocatorDM
+LocatorDM -> pltrs::axisartist::angle_helper::LocatorDm, pltrs::axisartist::grid_finder::GridLocator
+LocatorDM.__call__ -> pltrs::axisartist::angle_helper::LocatorDm, pltrs::axisartist::grid_finder::GridLocator
+
+## LocatorDMS
+LocatorDMS -> pltrs::axisartist::angle_helper::LocatorDms, pltrs::axisartist::grid_finder::GridLocator
+LocatorDMS.__call__ -> pltrs::axisartist::angle_helper::LocatorDms, pltrs::axisartist::grid_finder::GridLocator
+
+## LocatorH
+LocatorH -> pltrs::axisartist::angle_helper::LocatorH
+LocatorH.__call__ -> pltrs::axisartist::angle_helper::LocatorH, pltrs::axisartist::grid_finder::GridLocator
+
+## LocatorHM
+LocatorHM -> pltrs::axisartist::angle_helper::LocatorHm, pltrs::axisartist::grid_finder::GridLocator
+LocatorHM.__call__ -> pltrs::axisartist::angle_helper::LocatorHm, pltrs::axisartist::grid_finder::GridLocator
+
+## LocatorHMS
+LocatorHMS -> pltrs::axisartist::angle_helper::LocatorHms, pltrs::axisartist::grid_finder::GridLocator
+LocatorHMS.__call__ -> pltrs::axisartist::angle_helper::LocatorHms, pltrs::axisartist::grid_finder::GridLocator

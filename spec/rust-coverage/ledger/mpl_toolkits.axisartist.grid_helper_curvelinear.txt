@@ -1,0 +1,19 @@
+# mpl_toolkits.axisartist.grid_helper_curvelinear
+
+
+## FixedAxisArtistHelper
+FixedAxisArtistHelper -> pltrs::axisartist::AxisArtist, pltrs::axisartist::grid_helper_curvelinear::GridHelperCurveLinear, pltrs::artist::ArtistHandle
+FixedAxisArtistHelper.update_lim n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FixedAxisArtistHelper.get_tick_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FixedAxisArtistHelper.get_tick_iterators n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+
+## FloatingAxisArtistHelper
+FloatingAxisArtistHelper -> pltrs::axisartist::AxisArtist, pltrs::axisartist::grid_helper_curvelinear::GridHelperCurveLinear, pltrs::artist::ArtistHandle
+FloatingAxisArtistHelper.get_* -> pltrs::axisartist::AxisArtist::*
+FloatingAxisArtistHelper.* -> pltrs::axisartist::AxisArtist::*
+FloatingAxisArtistHelper.update_lim n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelper.get_axislabel_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelper.get_axislabel_pos_angle n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelper.get_tick_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelper.get_tick_iterators n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+FloatingAxisArtistHelper.get_line_transform n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself

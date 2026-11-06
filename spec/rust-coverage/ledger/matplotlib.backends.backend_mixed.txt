@@ -1,0 +1,7 @@
+# matplotlib.backends.backend_mixed
+
+
+## MixedModeRenderer
+MixedModeRenderer -> pltrs_render::MixedModeRenderer
+MixedModeRenderer.* -> pltrs_render::MixedModeRenderer::*
+MixedModeRenderer.__getattr__ n/a Python protocol or dataclass machinery

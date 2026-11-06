@@ -3,7 +3,7 @@
 use pltrs_core::{Bbox, Point};
 use pltrs_render::Sketch;
 
-use super::{AggFilter, ArtistId, ClipPathSpec, LayoutContext, Picker, RawHandle};
+use super::{AggFilter, ArtistId, BaseProps, ClipPathSpec, LayoutContext, Picker, RawHandle};
 use crate::axes::Axes;
 use crate::figure::{Figure, FigureState};
 use crate::patheffects::PathEffect;
@@ -562,6 +562,40 @@ pub trait ArtistHandle {
             .figure_state()
             .borrow_mut()
             .remove_artist(self.id());
+    }
+
+    /// Sets at once every property `props` sets of those all artists share
+    /// (matplotlib's `Artist.set` and `Artist.update` with them, and
+    /// `pyplot.setp` on each artist): opacity, drawing order, label,
+    /// visibility, clipping, rasterization, ids, links, transform, path
+    /// effects and picker. Unset ones stay as they are. A kind's own
+    /// properties have their own setters, which chain; the kinds with a
+    /// property set also take all of theirs at once (`update_props` of
+    /// [`Line2D`](crate::lines::Line2D::update_props),
+    /// [`Patch`](crate::patches::Patch::update_props),
+    /// [`Text`](crate::text::Text::update_props) and
+    /// [`Collection`](crate::collections::Collection::update_props)).
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, BaseProps};
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let title = ax.set_title("Results");
+    /// let props = BaseProps { alpha: Some(0.5), zorder: Some(4.0), ..BaseProps::default() };
+    /// for artist in [ax.raw(), title.raw()] {
+    ///     artist.update_base_props(props.clone());
+    /// }
+    /// assert_eq!((title.alpha(), title.zorder()), (Some(0.5), 4.0));
+    /// assert_eq!(ax.alpha(), Some(0.5));
+    /// assert!(title.visible(), "unset properties stay as they were");
+    /// ```
+    fn update_base_props(&self, props: BaseProps) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|base| props.apply(base));
+        self
     }
 }
 

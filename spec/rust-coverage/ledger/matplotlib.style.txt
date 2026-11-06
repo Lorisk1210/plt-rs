@@ -1,0 +1,4 @@
+# matplotlib.style
+
+* -> pltrs::style::*
+use -> pltrs::style::use_style

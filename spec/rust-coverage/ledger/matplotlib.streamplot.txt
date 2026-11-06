@@ -1,0 +1,28 @@
+# matplotlib.streamplot
+
+* -> pltrs::streamplot::*
+InvalidIndexError n/a streamplot integration internals (public by accident)
+OutOfBounds n/a streamplot integration internals (public by accident)
+TerminateTrajectory n/a streamplot integration internals (public by accident)
+interpgrid n/a streamplot integration internals
+streamplot -> pltrs::pyplot::streamplot
+
+## DomainMap
+DomainMap n/a streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.grid2mask n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.mask2grid n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.data2grid n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.grid2data n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.start_trajectory n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.reset_start_point n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.update_trajectory n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+DomainMap.undo_trajectory n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+
+## Grid
+Grid n/a streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+Grid.shape n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+Grid.within_grid n/a class: streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+
+## StreamMask
+StreamMask n/a streamplot integration internals (public by accident); pltrs::streamplot keeps them private
+StreamMask.__getitem__ n/a streamplot integration internals (public by accident); pltrs::streamplot keeps them private

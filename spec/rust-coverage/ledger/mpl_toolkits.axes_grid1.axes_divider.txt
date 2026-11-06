@@ -1,0 +1,21 @@
+# mpl_toolkits.axes_grid1.axes_divider
+
+* -> pltrs::axes_grid1::*
+
+## AxesDivider
+AxesDivider -> pltrs::axes_grid1::AxesDivider
+AxesDivider.* -> pltrs::axes_grid1::AxesDivider::*
+AxesDivider.new_horizontal -> pltrs::axes_grid1::AxesDivider::append_axes
+AxesDivider.new_vertical -> pltrs::axes_grid1::AxesDivider::append_axes
+AxesDivider.get_aspect -> pltrs::axes_grid1::Divider::aspect
+AxesDivider.get_position -> pltrs::axes_grid1::Divider::position
+AxesDivider.get_anchor -> pltrs::axes_grid1::Divider::anchor
+AxesDivider.get_subplotspec -> pltrs::axes_grid1::AxesDivider::axes
+
+## HBoxDivider
+HBoxDivider -> pltrs::axes_grid1::Divider
+HBoxDivider.new_locator -> pltrs::axes_grid1::Divider::locate, pltrs::axes_grid1::Divider::place, pltrs::axes_grid1::Divider::place_spanning
+
+## VBoxDivider
+VBoxDivider -> pltrs::axes_grid1::Divider
+VBoxDivider.new_locator -> pltrs::axes_grid1::Divider::locate, pltrs::axes_grid1::Divider::place, pltrs::axes_grid1::Divider::place_spanning

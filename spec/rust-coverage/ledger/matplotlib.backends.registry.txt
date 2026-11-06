@@ -1,0 +1,14 @@
+# matplotlib.backends.registry
+
+BackendFilter n/a chooses between matplotlib's interactive and non-interactive Python backend modules; pltrs::pyplot::Backend names its built-in backends
+
+## BackendRegistry
+BackendRegistry -> pltrs::pyplot::Backend
+BackendRegistry.backend_for_gui_framework n/a maps Python GUI toolkits (Qt, Tk, GTK, wx) to backends; pltrs draws its windows itself
+BackendRegistry.is_valid_backend -> pltrs::pyplot::Backend::from_str
+BackendRegistry.list_all -> pltrs::pyplot::Backend
+BackendRegistry.list_builtin -> pltrs::pyplot::Backend
+BackendRegistry.list_gui_frameworks n/a lists Python GUI toolkits (Qt, Tk, GTK, wx); pltrs draws its windows itself
+BackendRegistry.load_backend_module n/a imports a backend's Python module
+BackendRegistry.resolve_backend -> pltrs::pyplot::Backend::from_str, pltrs::pyplot::switch_backend
+BackendRegistry.resolve_gui_or_backend -> pltrs::pyplot::Backend::from_str

@@ -1,0 +1,43 @@
+# mpl_toolkits.axisartist.axis_artist
+
+
+## AttributeCopier
+AttributeCopier n/a Python helper copying attributes from a reference artist
+AttributeCopier.get_ref_artist n/a class: Python helper copying attributes from a reference artist
+AttributeCopier.get_attribute_from_ref_artist n/a class: Python helper copying attributes from a reference artist
+
+## AxisLabel
+AxisLabel -> pltrs::axisartist::AxisLabel
+AxisLabel.get_* -> pltrs::axisartist::AxisLabel::*
+AxisLabel.* -> pltrs::axisartist::AxisLabel::*
+AxisLabel.get_ref_artist n/a reference-artist plumbing for property defaults
+AxisLabel.set_default_alignment -> pltrs::axisartist::AxisArtist::set_axis_direction
+AxisLabel.set_default_angle -> pltrs::axisartist::AxisArtist::set_axis_direction
+AxisLabel.draw -> pltrs::artist::Artist::draw
+AxisLabel.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## LabelBase
+LabelBase -> pltrs::axisartist::LabelBase
+LabelBase.draw -> pltrs::artist::Artist::draw
+LabelBase.get_window_extent -> pltrs::artist::ArtistHandle::window_extent
+LabelBase.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## TickLabels
+TickLabels -> pltrs::axisartist::TickLabels
+TickLabels.* -> pltrs::axisartist::TickLabels::*
+TickLabels.get_ref_artist n/a reference-artist plumbing for property defaults
+TickLabels.draw -> pltrs::artist::Artist::draw
+TickLabels.set_locs_angles_labels n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+TickLabels.get_window_extents n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+TickLabels.get_texts_widths_heights_descents n/a axis helpers are internal to AxisArtist: it places its line, ticks and labels itself
+TickLabels.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## Ticks
+Ticks -> pltrs::axisartist::Ticks
+Ticks.get_* -> pltrs::axisartist::Ticks::*
+Ticks.* -> pltrs::axisartist::Ticks::*
+Ticks.get_ref_artist n/a reference-artist plumbing for property defaults
+Ticks.get_markeredgecolor -> pltrs::axisartist::Ticks::set_color, pltrs::axisartist::Ticks::set_markeredgewidth
+Ticks.set_locs_angles -> pltrs::axisartist::Ticks::set_color, pltrs::axisartist::Ticks::set_markeredgewidth
+Ticks.draw -> pltrs::artist::Artist::draw
+Ticks.set -> pltrs::artist::ArtistHandle::update_base_props

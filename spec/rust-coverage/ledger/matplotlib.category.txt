@@ -1,0 +1,22 @@
+# matplotlib.category
+
+
+## StrCategoryConverter
+StrCategoryConverter -> pltrs::units::Categories, pltrs::units::UnitConverter
+StrCategoryConverter.* -> pltrs::units::Categories::*
+StrCategoryConverter.axisinfo -> pltrs::units::CategoryLocator, pltrs::units::CategoryFormatter
+StrCategoryConverter.default_units -> pltrs::units::Categories
+
+## StrCategoryFormatter
+StrCategoryFormatter -> pltrs::units::CategoryFormatter, pltrs::ticker::Formatter
+StrCategoryFormatter.* -> pltrs::units::CategoryFormatter::*
+StrCategoryFormatter.__call__ -> pltrs::units::CategoryFormatter, pltrs::ticker::Formatter
+
+## StrCategoryLocator
+StrCategoryLocator -> pltrs::units::CategoryLocator, pltrs::ticker::Locator
+StrCategoryLocator.* -> pltrs::units::CategoryLocator::*
+StrCategoryLocator.__call__ -> pltrs::units::CategoryLocator, pltrs::ticker::Locator
+
+## UnitData
+UnitData -> pltrs::units::Categories
+UnitData.update -> pltrs::units::Categories

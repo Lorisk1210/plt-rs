@@ -1,0 +1,31 @@
+# matplotlib.spines
+
+
+## Spine
+Spine -> pltrs::spines::Spine
+Spine.get_* -> pltrs::spines::Spine::*
+Spine.* -> pltrs::spines::Spine::*
+Spine.get_patch_transform n/a spine drawing internals
+Spine.get_path -> pltrs::spines::Spine::line_extent, pltrs::projections::Projection::outline
+Spine.register_axis n/a spine drawing internals
+Spine.clear n/a spine drawing internals
+Spine.draw -> pltrs::artist::Artist::draw
+Spine.get_spine_transform n/a spine drawing internals
+Spine.linear_spine -> pltrs::projections::Projection::outline
+Spine.arc_spine -> pltrs::projections::Projection::outline
+Spine.circular_spine -> pltrs::projections::Projection::outline
+Spine.set -> pltrs::spines::Spine::update_base_props
+
+## Spines
+Spines -> pltrs::spines::Spines
+Spines.from_dict n/a Python dict conversion
+Spines.__getattr__ n/a Python protocol or dataclass machinery
+Spines.__getitem__ -> pltrs::spines::Spines
+Spines.__setitem__ -> pltrs::spines::Spines
+Spines.__delitem__ -> pltrs::spines::Spines
+Spines.__iter__ -> pltrs::spines::Spines
+Spines.__len__ -> pltrs::spines::Spines
+
+## SpinesProxy
+SpinesProxy -> pltrs::spines::Spines
+SpinesProxy.__getattr__ n/a Python protocol or dataclass machinery

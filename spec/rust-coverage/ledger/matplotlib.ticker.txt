@@ -1,0 +1,167 @@
+# matplotlib.ticker
+
+* -> pltrs::ticker::*
+LogFormatterExponent -> pltrs::ticker::LogFormatter, pltrs::ticker::LogLabelStyle, pltrs::ticker::Formatter
+LogFormatterSciNotation -> pltrs::ticker::LogFormatter, pltrs::ticker::LogLabelStyle, pltrs::ticker::Formatter
+
+## AsinhLocator
+AsinhLocator -> pltrs::ticker::AsinhLocator
+AsinhLocator.* -> pltrs::ticker::AsinhLocator::*
+AsinhLocator.set_params -> pltrs::ticker::AsinhLocator::with_numticks, pltrs::ticker::AsinhLocator::with_symthresh, pltrs::ticker::AsinhLocator::with_base, pltrs::ticker::AsinhLocator::with_subs
+AsinhLocator.__call__ -> pltrs::ticker::AsinhLocator, pltrs::ticker::Locator
+
+## AutoMinorLocator
+AutoMinorLocator -> pltrs::ticker::AutoMinorLocator
+AutoMinorLocator.* -> pltrs::ticker::AutoMinorLocator::*
+AutoMinorLocator.__call__ -> pltrs::ticker::AutoMinorLocator, pltrs::ticker::Locator
+
+## EngFormatter
+EngFormatter -> pltrs::ticker::EngFormatter
+EngFormatter.* -> pltrs::ticker::EngFormatter::*
+EngFormatter.__call__ -> pltrs::ticker::EngFormatter, pltrs::ticker::Formatter
+EngFormatter.set_locs -> pltrs::ticker::Formatter::format_ticks
+EngFormatter.get_offset -> pltrs::ticker::Formatter::format_ticks
+EngFormatter.format_eng -> pltrs::ticker::EngFormatter::format_data
+
+## FixedFormatter
+FixedFormatter -> pltrs::ticker::FixedFormatter
+FixedFormatter.__call__ -> pltrs::ticker::FixedFormatter, pltrs::ticker::Formatter
+FixedFormatter.get_offset -> pltrs::ticker::Formatter::format_ticks
+FixedFormatter.set_offset_string -> pltrs::ticker::FixedFormatter
+
+## FixedLocator
+FixedLocator -> pltrs::ticker::FixedLocator
+FixedLocator.* -> pltrs::ticker::FixedLocator::*
+FixedLocator.set_params -> pltrs::ticker::FixedLocator::with_nbins
+FixedLocator.__call__ -> pltrs::ticker::FixedLocator, pltrs::ticker::Locator
+
+## FormatStrFormatter
+FormatStrFormatter -> pltrs::ticker::FormatStrFormatter
+FormatStrFormatter.__call__ -> pltrs::ticker::FormatStrFormatter, pltrs::ticker::Formatter
+
+## Formatter
+Formatter -> pltrs::ticker::Formatter
+Formatter.* -> pltrs::ticker::Formatter::*
+Formatter.__call__ -> pltrs::ticker::Formatter, pltrs::ticker::LabelFormat
+Formatter.get_offset -> pltrs::ticker::Formatter::format_ticks
+Formatter.set_locs -> pltrs::ticker::Formatter::format_ticks
+Formatter.fix_minus -> pltrs::ticker::TickerSettings::fix_minus
+
+## FuncFormatter
+FuncFormatter -> pltrs::ticker::FuncFormatter
+FuncFormatter.__call__ -> pltrs::ticker::FuncFormatter, pltrs::ticker::Formatter
+FuncFormatter.get_offset -> pltrs::ticker::Formatter::format_ticks
+FuncFormatter.set_offset_string -> pltrs::ticker::FixedFormatter
+
+## IndexLocator
+IndexLocator -> pltrs::ticker::IndexLocator
+IndexLocator.* -> pltrs::ticker::IndexLocator::*
+IndexLocator.set_params -> pltrs::ticker::IndexLocator::new
+IndexLocator.__call__ -> pltrs::ticker::IndexLocator, pltrs::ticker::Locator
+
+## LinearLocator
+LinearLocator -> pltrs::ticker::LinearLocator
+LinearLocator.* -> pltrs::ticker::LinearLocator::*
+LinearLocator.set_params -> pltrs::ticker::LinearLocator::with_preset
+LinearLocator.__call__ -> pltrs::ticker::LinearLocator, pltrs::ticker::Locator
+
+## Locator
+Locator -> pltrs::ticker::Locator
+Locator.* -> pltrs::ticker::Locator::*
+Locator.set_params -> pltrs::axes::Axis::set_major_locator_params
+Locator.__call__ -> pltrs::ticker::Locator, pltrs::ticker::TickContext
+Locator.raise_if_exceeds -> pltrs::ticker::exceeds_max_ticks
+
+## LogFormatter
+LogFormatter -> pltrs::ticker::LogFormatter
+LogFormatter.* -> pltrs::ticker::LogFormatter::*
+LogFormatter.set_base -> pltrs::ticker::LogFormatter::new
+LogFormatter.set_label_minor -> pltrs::ticker::LogFormatter::with_label_only_base
+LogFormatter.set_locs -> pltrs::ticker::Formatter::format_ticks
+LogFormatter.__call__ -> pltrs::ticker::LogFormatter, pltrs::ticker::Formatter
+
+## LogFormatterMathtext
+LogFormatterMathtext -> pltrs::ticker::LogFormatter, pltrs::ticker::LogLabelStyle, pltrs::ticker::Formatter
+LogFormatterMathtext.__call__ -> pltrs::ticker::LogFormatter, pltrs::ticker::LogLabelStyle
+
+## LogLocator
+LogLocator -> pltrs::ticker::LogLocator
+LogLocator.* -> pltrs::ticker::LogLocator::*
+LogLocator.set_params -> pltrs::ticker::LogLocator::with_subs, pltrs::ticker::LogLocator::with_numticks
+LogLocator.__call__ -> pltrs::ticker::LogLocator, pltrs::ticker::Locator
+
+## LogitFormatter
+LogitFormatter -> pltrs::ticker::LogitFormatter
+LogitFormatter.* -> pltrs::ticker::LogitFormatter::*
+LogitFormatter.set_one_half -> pltrs::ticker::LogitFormatter::with_one_half
+LogitFormatter.set_minor_threshold -> pltrs::ticker::LogitFormatter::with_minor_threshold
+LogitFormatter.set_minor_number -> pltrs::ticker::LogitFormatter::with_minor_number
+LogitFormatter.set_locs -> pltrs::ticker::Formatter::format_ticks
+LogitFormatter.__call__ -> pltrs::ticker::LogitFormatter, pltrs::ticker::Formatter
+
+## LogitLocator
+LogitLocator -> pltrs::ticker::LogitLocator
+LogitLocator.* -> pltrs::ticker::LogitLocator::*
+LogitLocator.set_params -> pltrs::ticker::LogitLocator::with_nbins
+
+## MaxNLocator
+MaxNLocator -> pltrs::ticker::MaxNLocator
+MaxNLocator.* -> pltrs::ticker::MaxNLocator::*
+MaxNLocator.set_params -> pltrs::ticker::MaxNLocator::with_nbins, pltrs::ticker::MaxNLocator::with_steps, pltrs::ticker::MaxNLocator::with_integer, pltrs::ticker::MaxNLocator::with_symmetric, pltrs::ticker::MaxNLocator::with_prune, pltrs::ticker::MaxNLocator::with_min_n_ticks
+MaxNLocator.__call__ -> pltrs::ticker::MaxNLocator, pltrs::ticker::Locator
+
+## MultipleLocator
+MultipleLocator -> pltrs::ticker::MultipleLocator
+MultipleLocator.* -> pltrs::ticker::MultipleLocator::*
+MultipleLocator.set_params -> pltrs::ticker::MultipleLocator::new, pltrs::ticker::MultipleLocator::with_offset
+MultipleLocator.__call__ -> pltrs::ticker::MultipleLocator, pltrs::ticker::Locator
+
+## NullFormatter
+NullFormatter -> pltrs::ticker::NullFormatter
+NullFormatter.__call__ -> pltrs::ticker::NullFormatter, pltrs::ticker::Formatter
+
+## NullLocator
+NullLocator -> pltrs::ticker::NullLocator
+NullLocator.* -> pltrs::ticker::NullLocator::*
+NullLocator.__call__ -> pltrs::ticker::NullLocator, pltrs::ticker::Locator
+
+## PercentFormatter
+PercentFormatter -> pltrs::ticker::PercentFormatter
+PercentFormatter.* -> pltrs::ticker::PercentFormatter::*
+PercentFormatter.__call__ -> pltrs::ticker::PercentFormatter, pltrs::ticker::Formatter
+PercentFormatter.convert_to_pct -> pltrs::ticker::PercentFormatter::format_pct
+
+## ScalarFormatter
+ScalarFormatter -> pltrs::ticker::ScalarFormatter
+ScalarFormatter.get_* -> pltrs::ticker::ScalarFormatter::*
+ScalarFormatter.* -> pltrs::ticker::ScalarFormatter::*
+ScalarFormatter.set_usetex -> pltrs::ticker::ScalarFormatter::with_usetex
+ScalarFormatter.get_useOffset -> pltrs::ticker::ScalarFormatter::use_offset, pltrs::ticker::ScalarFormatter::with_use_offset
+ScalarFormatter.set_useOffset -> pltrs::ticker::ScalarFormatter::use_offset, pltrs::ticker::ScalarFormatter::with_use_offset
+ScalarFormatter.useOffset -> pltrs::ticker::ScalarFormatter::use_offset, pltrs::ticker::ScalarFormatter::with_use_offset
+ScalarFormatter.get_useLocale n/a pltrs does not read the process locale
+ScalarFormatter.set_useLocale n/a pltrs does not read the process locale
+ScalarFormatter.useLocale n/a pltrs does not read the process locale
+ScalarFormatter.get_useMathText -> pltrs::ticker::ScalarFormatter::use_mathtext, pltrs::ticker::ScalarFormatter::with_use_mathtext
+ScalarFormatter.set_useMathText -> pltrs::ticker::ScalarFormatter::use_mathtext, pltrs::ticker::ScalarFormatter::with_use_mathtext
+ScalarFormatter.useMathText -> pltrs::ticker::ScalarFormatter::use_mathtext, pltrs::ticker::ScalarFormatter::with_use_mathtext
+ScalarFormatter.__call__ -> pltrs::ticker::ScalarFormatter, pltrs::ticker::Formatter
+ScalarFormatter.set_scientific -> pltrs::ticker::ScalarFormatter::with_scientific
+ScalarFormatter.set_powerlimits -> pltrs::ticker::ScalarFormatter::with_powerlimits
+ScalarFormatter.get_offset -> pltrs::ticker::Formatter::format_ticks
+ScalarFormatter.set_locs -> pltrs::ticker::Formatter::format_ticks
+
+## StrMethodFormatter
+StrMethodFormatter -> pltrs::ticker::StrMethodFormatter
+StrMethodFormatter.__call__ -> pltrs::ticker::StrMethodFormatter, pltrs::ticker::Formatter
+
+## SymmetricalLogLocator
+SymmetricalLogLocator -> pltrs::ticker::SymmetricalLogLocator
+SymmetricalLogLocator.* -> pltrs::ticker::SymmetricalLogLocator::*
+SymmetricalLogLocator.set_params -> pltrs::ticker::SymmetricalLogLocator::with_subs, pltrs::ticker::SymmetricalLogLocator::with_numticks
+SymmetricalLogLocator.__call__ -> pltrs::ticker::SymmetricalLogLocator, pltrs::ticker::Locator
+
+## TickHelper
+TickHelper -> pltrs::ticker::Locator, pltrs::ticker::Formatter, pltrs::ticker::TickContext
+TickHelper.set_axis n/a tickers do not point to their axis; a TickContext gives them what they need (conventions)
+TickHelper.create_dummy_axis -> pltrs::ticker::TickContext::axis_or_dummy

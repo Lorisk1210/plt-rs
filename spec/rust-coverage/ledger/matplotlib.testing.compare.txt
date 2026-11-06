@@ -1,0 +1,4 @@
+# matplotlib.testing.compare
+
+* -> pltrs::testing::*
+get_cache_dir -> pltrs::config::cache_dir

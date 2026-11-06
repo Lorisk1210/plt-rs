@@ -1,0 +1,18 @@
+# mpl_toolkits.axes_grid1.anchored_artists
+
+
+## AnchoredAuxTransformBox
+AnchoredAuxTransformBox -> pltrs::axes_grid1::anchored_artists::AnchoredAuxTransformBox
+AnchoredAuxTransformBox.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AnchoredDirectionArrows
+AnchoredDirectionArrows -> pltrs::axes_grid1::anchored_artists::AnchoredDirectionArrows
+AnchoredDirectionArrows.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AnchoredDrawingArea
+AnchoredDrawingArea -> pltrs::axes_grid1::anchored_artists::AnchoredDrawingArea
+AnchoredDrawingArea.set -> pltrs::artist::ArtistHandle::update_base_props
+
+## AnchoredSizeBar
+AnchoredSizeBar -> pltrs::axes_grid1::anchored_artists::AnchoredSizeBar
+AnchoredSizeBar.set -> pltrs::artist::ArtistHandle::update_base_props

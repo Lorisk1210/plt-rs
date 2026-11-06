@@ -1,0 +1,141 @@
+# matplotlib.backend_bases
+
+* -> pltrs::events::*
+CloseEvent -> pltrs::events::Event, pltrs::events::EventKind
+DrawEvent -> pltrs::events::Event, pltrs::events::EventKind
+LocationEvent -> pltrs::events::Location, pltrs::events::MouseEvent, pltrs::events::KeyEvent
+MouseButton -> pltrs::navigation::PointerButton
+NonGuiException -> pltrs::gui::GuiError
+ResizeEvent -> pltrs::events::Event, pltrs::events::EventKind
+button_press_handler -> pltrs::navigation::Navigation
+get_registered_canvas_class n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+key_press_handler -> pltrs::navigation::Navigation
+register_backend n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+scroll_handler -> pltrs::navigation::Navigation
+
+## FigureCanvasBase
+FigureCanvasBase -> pltrs::figure::FigureCanvas, pltrs::figure::Figure, pltrs::gui::Session
+FigureCanvasBase.* -> pltrs::figure::FigureCanvas::*
+FigureCanvasBase.callbacks -> pltrs::figure::Figure::block_callbacks
+FigureCanvasBase.button_pick_id n/a internal connection ids
+FigureCanvasBase.scroll_pick_id n/a internal connection ids
+FigureCanvasBase.new_manager n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+FigureCanvasBase.is_saving n/a drawing code knows its target through DrawContext
+FigureCanvasBase.inaxes -> pltrs::events::Location::inaxes
+FigureCanvasBase.grab_mouse -> pltrs::figure::Figure::grab_mouse
+FigureCanvasBase.release_mouse -> pltrs::figure::Figure::release_mouse
+FigureCanvasBase.set_cursor -> pltrs::figure::Figure::set_cursor
+FigureCanvasBase.get_width_height -> pltrs::figure::Figure::width_height
+FigureCanvasBase.get_supported_filetypes -> pltrs::figure::SaveFormat
+FigureCanvasBase.get_supported_filetypes_grouped -> pltrs::figure::SaveFormat
+FigureCanvasBase.print_figure -> pltrs::figure::Figure::savefig_with
+FigureCanvasBase.get_default_filetype -> pltrs::rc::RcParams::savefig_format
+FigureCanvasBase.get_default_filename -> pltrs::pyplot::FigureManager::default_filename
+FigureCanvasBase.mpl_connect -> pltrs::figure::Figure::connect
+FigureCanvasBase.mpl_disconnect -> pltrs::figure::Figure::disconnect
+FigureCanvasBase.new_timer -> pltrs::figure::Figure::add_timer, pltrs::figure::Figure::remove_timer
+FigureCanvasBase.flush_events -> pltrs::gui::Session::pause, pltrs::gui::Session::run, pltrs::gui::Session::wait_for_button_press
+FigureCanvasBase.start_event_loop -> pltrs::gui::Session::pause, pltrs::gui::Session::run, pltrs::gui::Session::wait_for_button_press
+FigureCanvasBase.stop_event_loop -> pltrs::gui::Session::pause, pltrs::gui::Session::run, pltrs::gui::Session::wait_for_button_press
+
+## FigureManagerBase
+FigureManagerBase -> pltrs::pyplot::FigureManager, pltrs::gui::FigureWindow
+FigureManagerBase.get_* -> pltrs::pyplot::FigureManager::*
+FigureManagerBase.* -> pltrs::pyplot::FigureManager::*
+FigureManagerBase.create_with_canvas n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+FigureManagerBase.start_main_loop n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+FigureManagerBase.pyplot_show n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+FigureManagerBase.show -> pltrs::gui::show
+FigureManagerBase.destroy -> pltrs::gui::FigureWindow::close
+FigureManagerBase.full_screen_toggle -> pltrs::gui::WindowHost::set_fullscreen, pltrs::gui::WindowHost::is_fullscreen
+
+## GraphicsContextBase
+GraphicsContextBase -> pltrs::artist::GraphicsContext, pltrs::patheffects::GcUpdate
+GraphicsContextBase.get_* -> pltrs::artist::GraphicsContext::*
+GraphicsContextBase.copy_properties n/a GraphicsContext is a plain value: clone it
+GraphicsContextBase.restore n/a GraphicsContext is a plain value: clone it
+GraphicsContextBase.get_capstyle -> pltrs::patheffects::GcUpdate::capstyle
+GraphicsContextBase.get_clip_rectangle -> pltrs_render::GraphicsContext::clip_rect
+GraphicsContextBase.get_forced_alpha -> pltrs_render::GraphicsContext::alpha
+GraphicsContextBase.get_joinstyle -> pltrs::patheffects::GcUpdate::joinstyle
+GraphicsContextBase.get_rgb -> pltrs_render::GraphicsContext::foreground
+GraphicsContextBase.set_alpha -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_antialiased -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_capstyle -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_clip_rectangle -> pltrs_render::GraphicsContext::clip_rect
+GraphicsContextBase.set_clip_path -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_dashes -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_foreground -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_joinstyle -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_linewidth -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_url -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_gid -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_snap -> pltrs::artist::GraphicsContext
+GraphicsContextBase.set_hatch -> pltrs::artist::GraphicsContext
+GraphicsContextBase.get_hatch_path -> pltrs_render::GraphicsContext::hatch
+GraphicsContextBase.get_hatch_color -> pltrs_render::GraphicsContext::hatch
+GraphicsContextBase.set_hatch_color -> pltrs_render::GraphicsContext::hatch
+GraphicsContextBase.get_hatch_linewidth -> pltrs_render::GraphicsContext::hatch
+GraphicsContextBase.set_hatch_linewidth -> pltrs_render::GraphicsContext::hatch
+GraphicsContextBase.get_sketch_params -> pltrs_render::GraphicsContext::sketch
+GraphicsContextBase.set_sketch_params -> pltrs_render::GraphicsContext::sketch
+
+## NavigationToolbar2
+NavigationToolbar2 -> pltrs::navigation::Navigation, pltrs::navigation::NavMode
+NavigationToolbar2.* -> pltrs::navigation::Navigation::*
+NavigationToolbar2.set_message -> pltrs::navigation::Navigation::readout
+NavigationToolbar2.draw_rubberband -> pltrs::navigation::Navigation
+NavigationToolbar2.remove_rubberband -> pltrs::navigation::Navigation
+NavigationToolbar2.mouse_move -> pltrs::navigation::Navigation::readout
+NavigationToolbar2.pan -> pltrs::navigation::NavMode::Zoom, pltrs::navigation::Navigation::toggle
+NavigationToolbar2.press_pan -> pltrs::navigation::Navigation::press, pltrs::navigation::Navigation::drag, pltrs::navigation::Navigation::release
+NavigationToolbar2.drag_pan -> pltrs::navigation::Navigation::press, pltrs::navigation::Navigation::drag, pltrs::navigation::Navigation::release
+NavigationToolbar2.release_pan -> pltrs::navigation::Navigation::press, pltrs::navigation::Navigation::drag, pltrs::navigation::Navigation::release
+NavigationToolbar2.zoom -> pltrs::navigation::NavMode::Zoom, pltrs::navigation::Navigation::toggle
+NavigationToolbar2.press_zoom -> pltrs::navigation::Navigation::press, pltrs::navigation::Navigation::drag, pltrs::navigation::Navigation::release
+NavigationToolbar2.drag_zoom -> pltrs::navigation::Navigation::press, pltrs::navigation::Navigation::drag, pltrs::navigation::Navigation::release
+NavigationToolbar2.release_zoom -> pltrs::navigation::Navigation::press, pltrs::navigation::Navigation::drag, pltrs::navigation::Navigation::release
+NavigationToolbar2.configure_subplots -> pltrs::gui::Session::configure_subplots
+NavigationToolbar2.save_figure -> pltrs::gui::WindowHost::choose_file, pltrs::figure::Figure::savefig
+NavigationToolbar2.update -> pltrs::navigation::Navigation::clear_history
+NavigationToolbar2.set_history_buttons n/a GUI toolkit internals
+
+## RendererBase
+RendererBase -> pltrs::artist::Renderer, pltrs::patheffects::PathEffectRenderer
+RendererBase.get_* -> pltrs::artist::Renderer::*
+RendererBase.* -> pltrs::artist::Renderer::*
+RendererBase.get_text_width_height_descent -> pltrs::text::measure_text
+RendererBase.flipy n/a y-direction convention of a renderer; pltrs_render backends share one
+RendererBase.get_canvas_width_height -> pltrs_render::Renderer::canvas_size
+RendererBase.get_texmanager -> pltrs::text::tex_manager
+RendererBase.new_gc -> pltrs::artist::GraphicsContext
+
+## ShowBase
+ShowBase n/a backend plumbing for pyplot.show; pltrs::gui::show
+ShowBase.__call__ -> pltrs::gui::show
+
+## TimerBase
+TimerBase -> pltrs::events::TimerKey, pltrs::figure::Figure, pltrs::artist::ArtistHandle
+TimerBase.start -> pltrs::figure::Figure::add_timer, pltrs::figure::Figure::remove_timer
+TimerBase.stop -> pltrs::figure::Figure::remove_timer
+TimerBase.interval -> pltrs::figure::Figure::add_timer, pltrs::figure::Figure::remove_timer
+TimerBase.single_shot -> pltrs::figure::Figure::add_timer
+TimerBase.add_callback -> pltrs::figure::Figure::add_timer, pltrs::figure::Figure::remove_timer
+TimerBase.remove_callback -> pltrs::figure::Figure::add_timer, pltrs::figure::Figure::remove_timer
+
+## ToolContainerBase
+ToolContainerBase -> pltrs::gui::ToolSpec, pltrs::figure::Figure, pltrs::artist::ArtistHandle
+ToolContainerBase.add_tool -> pltrs::figure::Figure::add_tool
+ToolContainerBase.trigger_tool -> pltrs::figure::Figure::trigger_tool
+ToolContainerBase.add_toolitem -> pltrs::figure::Figure::add_tool
+ToolContainerBase.toggle_toolitem -> pltrs::figure::Figure::trigger_tool, pltrs::figure::Figure::tool_toggled
+ToolContainerBase.remove_toolitem -> pltrs::figure::Figure::remove_tool
+ToolContainerBase.set_message n/a GUI toolkit internals
+
+## _Backend
+_Backend.FigureManager n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+_Backend.new_figure_manager n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+_Backend.new_figure_manager_given_figure n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+_Backend.draw_if_interactive n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+_Backend.show n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)
+_Backend.export n/a backend registration plumbing: pltrs has its backends built in (pltrs::pyplot::backend, pltrs_render)

@@ -1,0 +1,10 @@
+# matplotlib.bezier
+
+* -> pltrs_core::bezier::*
+NonIntersectingPathException -> pltrs_core::bezier::BezierError::NotIntersecting
+split_de_casteljau -> pltrs_core::bezier::BezierSegment::split
+
+## BezierSegment
+BezierSegment -> pltrs_core::bezier::BezierSegment
+BezierSegment.* -> pltrs_core::bezier::BezierSegment::*
+BezierSegment.__call__ -> pltrs_core::bezier::BezierSegment

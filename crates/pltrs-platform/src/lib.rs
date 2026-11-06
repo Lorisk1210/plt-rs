@@ -55,8 +55,10 @@
 //!   `memfd_create`; `std` offers neither on this toolchain.
 //! * `macos::sys`: the Objective-C runtime (`objc_msgSend`, class
 //!   definitions), `AppKit`, Foundation and Core Graphics.
-//! * `windows::sys`: Win32 (`user32`, `gdi32` and `kernel32`, linked with
-//!   `raw-dylib`, so no import libraries are needed).
+//! * `windows::sys`: Win32 (`user32`, `gdi32` and `kernel32`, and
+//!   `advapi32` for `registry_string_values`, linked with `raw-dylib`
+//!   with MSVC, so no import libraries are needed, and with MinGW-w64's
+//!   import libraries on the GNU toolchains).
 //!
 //! ```
 //! use pltrs_platform::{Event, EventLoop, Frame, Key, WindowEvent, WindowOptions};
@@ -140,3 +142,5 @@ pub use headless::{HeadlessHandle, PresentedFrame, WindowSnapshot};
 pub use icon::{Icon, IconImage, IconLayout};
 pub use keyboard::{Key, Modifiers};
 pub use window::{CursorIcon, WindowId, WindowOptions};
+#[cfg(windows)]
+pub use windows::registry_string_values;

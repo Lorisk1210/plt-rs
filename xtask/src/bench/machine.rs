@@ -1,7 +1,10 @@
 //! What the benchmark ran on: the machine, its load, and the versions of
-//! the tools, read from `/proc`, `/sys` and the tools themselves.
+//! the tools, read from `/proc`, `/sys` and the tools themselves (on
+//! Windows from its management interface, through PowerShell).
 
+#[cfg(not(windows))]
 use std::collections::BTreeSet;
+#[cfg(not(windows))]
 use std::fs;
 use std::process::Command;
 
@@ -32,6 +35,13 @@ pub(super) struct Machine {
 
 impl Machine {
     /// Describes this machine. What cannot be read is `unknown`.
+    #[cfg(windows)]
+    pub(super) fn describe() -> Self {
+        windows::describe()
+    }
+
+    /// Describes this machine. What cannot be read is `unknown`.
+    #[cfg(not(windows))]
     pub(super) fn describe() -> Self {
         let cpuinfo = read("/proc/cpuinfo");
         let field = |line: &str, name: &str| {
@@ -88,6 +98,7 @@ impl Machine {
 }
 
 /// The 1-, 5- and 15-minute load averages, as the kernel prints them.
+#[cfg(not(windows))]
 pub(super) fn load_average() -> String {
     let loadavg = read("/proc/loadavg");
     let averages: Vec<&str> = loadavg.split_whitespace().take(3).collect();
@@ -98,7 +109,109 @@ pub(super) fn load_average() -> String {
     }
 }
 
+/// How busy the processors are, as Windows reports it in place of load
+/// averages (`Win32_Processor.LoadPercentage`, the last second's).
+#[cfg(windows)]
+pub(super) fn load_average() -> String {
+    windows::query(
+        "(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average",
+    )
+    .first()
+    .map_or_else(unknown, |load| format!("{load}% busy"))
+}
+
+/// The machine as Windows describes it.
+#[cfg(windows)]
+mod windows {
+    use super::{Machine, tool_output, unknown};
+
+    /// What [`describe`] asks: the CPU, its cores and threads, the memory
+    /// in bytes, the system's name and version, the active power plan and
+    /// the processors this process may run on (a bit mask).
+    const DESCRIPTION: &str = "$p = Get-CimInstance Win32_Processor | Select-Object -First 1; \
+        $o = Get-CimInstance Win32_OperatingSystem; \
+        $p.Name; $p.NumberOfCores; $p.NumberOfLogicalProcessors; \
+        (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory; \
+        $o.Caption; $o.Version; \
+        (Get-CimInstance -Namespace root/cimv2/power Win32_PowerPlan -Filter 'IsActive=True').ElementName; \
+        (Get-Process -Id $PID).ProcessorAffinity";
+
+    /// The lines PowerShell prints running `script`, empty when it cannot
+    /// run.
+    pub(super) fn query(script: &str) -> Vec<String> {
+        std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())
+            .map(|output| {
+                String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .map(|line| line.trim().to_owned())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// The processors a bit mask names, as ranges (`0-19`).
+    fn processors(mask: u64) -> String {
+        let mut ranges: Vec<String> = Vec::new();
+        let mut cpu = 0;
+        while cpu < 64 {
+            if mask >> cpu & 1 == 0 {
+                cpu += 1;
+                continue;
+            }
+            let first = cpu;
+            while cpu < 64 && mask >> cpu & 1 == 1 {
+                cpu += 1;
+            }
+            ranges.push(if cpu - 1 == first {
+                first.to_string()
+            } else {
+                format!("{first}-{}", cpu - 1)
+            });
+        }
+        ranges.join(",")
+    }
+
+    /// Describes this machine (PowerShell's processes run where this one
+    /// may: they inherit its processors).
+    pub(super) fn describe() -> Machine {
+        let lines = query(DESCRIPTION);
+        let line = |i: usize| lines.get(i).filter(|line| !line.is_empty()).cloned();
+        let number = |i: usize| line(i).and_then(|text| text.parse::<u64>().ok());
+        let threads = number(2).and_then(|n| usize::try_from(n).ok());
+        Machine {
+            cpu: line(0).unwrap_or_else(unknown),
+            cores: number(1).and_then(|n| usize::try_from(n).ok()).unwrap_or(1),
+            threads: threads.unwrap_or(1),
+            #[expect(clippy::cast_precision_loss, reason = "bytes of memory, as GiB")]
+            memory_gib: number(3).map_or(0.0, |bytes| bytes as f64 / f64::from(1 << 30)),
+            os: line(4).unwrap_or_else(unknown),
+            kernel: line(5).map_or_else(unknown, |version| format!("Windows NT {version}")),
+            affinity: number(7).map_or_else(unknown, processors),
+            governor: line(6).map(|plan| format!("power plan {plan}")),
+            rustc: tool_output("rustc", &["--version"]),
+            revision: tool_output("git", &["describe", "--always", "--dirty", "--abbrev=10"]),
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn masks_read_as_ranges() {
+            assert_eq!(processors(0xF_FFFF), "0-19");
+            assert_eq!(processors(0b1011), "0-1,3");
+            assert_eq!(processors(1 << 63), "63");
+        }
+    }
+}
+
 /// The text of `path`, empty when it cannot be read.
+#[cfg(not(windows))]
 fn read(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_default()
 }
@@ -128,12 +241,17 @@ mod tests {
 
     #[test]
     fn the_machine_is_described() {
-        if !std::path::Path::new("/proc/cpuinfo").exists() {
+        if cfg!(not(windows)) && !std::path::Path::new("/proc/cpuinfo").exists() {
             return;
         }
         let machine = Machine::describe();
         assert!(machine.threads >= machine.cores);
         assert!(machine.memory_gib > 0.0);
-        assert_eq!(load_average().split(' ').count(), 3);
+        let load = load_average();
+        if cfg!(windows) {
+            assert!(load.ends_with("% busy"), "{load}");
+        } else {
+            assert_eq!(load.split(' ').count(), 3);
+        }
     }
 }

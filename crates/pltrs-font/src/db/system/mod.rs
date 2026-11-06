@@ -4,8 +4,8 @@
 //! the system's and the user's font directories and the fonts the
 //! registry lists. (matplotlib also asks fontconfig's `fc-list` and
 //! macOS' `system_profiler`; pltrs keeps to directories, which hold those
-//! fonts too, so that starting up runs no program but, on Windows, the
-//! registry query. On macOS these include the two places of fonts its
+//! fonts too, so that starting up runs no program but, on Windows
+//! without a registry reader, the registry query. On macOS these include the two places of fonts its
 //! font list holds beyond its font directories: the reserved interface
 //! fonts and the fonts it downloads on demand.)
 
@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use pltrs_core::os::Os;
 
 pub(crate) use registry::Registry;
+pub use registry::{RegistryReader, read_registry_with};
 
 /// matplotlib's `X11FontDirectories`, but the user's.
 const X11_DIRECTORIES: [&str; 5] = [

@@ -5,7 +5,12 @@
 //! [`DateTime`] plus a [`TimeZone`]; arithmetic within one zone happens on
 //! the wall clock and the UTC offset is looked up from the local time (with
 //! a `fold` flag disambiguating repeated wall times).
+//!
+//! Zones are found where `dateutil.tz.gettz` finds them: in the system's
+//! database, else among the zones dateutil bundles, which pltrs bundles
+//! too.
 
+mod bundled;
 mod posix;
 mod tzfile;
 mod zoned;
@@ -104,8 +109,10 @@ pltrs_core::archive_enum!(TimeZone {
 impl TimeZone {
     /// Resolves a zone name the way matplotlib's `_get_tzinfo` does:
     /// `"UTC"` is UTC; anything else is looked up in the system zoneinfo
-    /// database (`/usr/share/zoneinfo` and friends), like
-    /// `dateutil.tz.gettz`. POSIX `TZ` rule strings are not supported.
+    /// database (`/usr/share/zoneinfo` and friends), then among the zones
+    /// dateutil bundles (Windows has no system database), like
+    /// `dateutil.tz.gettz`. POSIX `TZ` rule strings and Windows' own zone
+    /// names (`dateutil.tz.tzwin`) are not supported.
     pub fn named(name: &str) -> Result<Self, DateError> {
         if name == "UTC" {
             return Ok(Self::Utc);

@@ -74,9 +74,10 @@ pub use agl::glyph_name_to_unicode;
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
     AfmDirectory, AfmFont, CatalogueReport, CatalogueState, FaceStyle, FontDatabase, FontEntry,
-    FontId, FontQuery, FontSource, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch,
-    Weight, alternative_family_names, bundled_font_data, bundled_font_files, catalogue_file_name,
-    face_style, score_family, score_size, score_stretch, score_style, score_variant, score_weight,
+    FontId, FontQuery, FontSource, FontStyle, FontVariant, GenericFamilies, GenericFamily,
+    RegistryReader, Stretch, Weight, alternative_family_names, bundled_font_data,
+    bundled_font_files, catalogue_file_name, face_style, read_registry_with, score_family,
+    score_size, score_stretch, score_style, score_variant, score_weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};

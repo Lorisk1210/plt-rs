@@ -22,12 +22,17 @@ const DIR_NAME: &str = "pltrs";
 /// Windows (matplotlib's `.matplotlib`).
 const HOME_DIR_NAME: &str = ".pltrs";
 
+/// The variable naming Windows' folder of local (not roaming)
+/// application data, where pltrs keeps its directory on Windows.
+const LOCAL_APP_DATA_VAR: &str = "LOCALAPPDATA";
+
 /// The environment variables the lookups read.
-const VARIABLES: [&str; 4] = [
+const VARIABLES: [&str; 5] = [
     CONFIG_DIR_VAR,
     RC_FILE_VAR,
     "XDG_CONFIG_HOME",
     "XDG_CACHE_HOME",
+    LOCAL_APP_DATA_VAR,
 ];
 
 /// The variables naming the configuration and cache directory, in the
@@ -109,8 +114,9 @@ impl DirKind {
 
 /// The directory to use, with the variable that named it: the first of
 /// `$PLTRSCONFIGDIR` and `$MPLCONFIGDIR` set, else (named by no variable)
-/// `pltrs` in the XDG base directory on Linux, `~/.pltrs` on macOS and
-/// Windows; `None` without a home directory to find that in.
+/// `pltrs` in the XDG base directory on Linux, `~/.pltrs` on macOS, and
+/// on Windows [`windows_dir`]; `None` without a home directory (or on
+/// Windows `LOCALAPPDATA`) to find that in.
 fn preferred_dir(env: &Environment, kind: DirKind) -> Option<(PathBuf, Option<&'static str>)> {
     if let Some(named) = CONFIG_DIR_VARS
         .iter()
@@ -125,9 +131,23 @@ fn preferred_dir(env: &Environment, kind: DirKind) -> Option<(PathBuf, Option<&'
                 .or_else(|| env.home.as_ref().map(|home| home.join(default)))?
                 .join(DIR_NAME)
         }
-        Os::MacOs | Os::Windows => env.home.as_ref()?.join(HOME_DIR_NAME),
+        Os::MacOs => env.home.as_ref()?.join(HOME_DIR_NAME),
+        Os::Windows => windows_dir(env)?,
     };
     Some((dir, None))
+}
+
+/// The directory on Windows (matplotlib 3.11's rule): `~/.pltrs` when it
+/// already is a directory, so that an existing configuration stays in
+/// use, else `pltrs` in `%LOCALAPPDATA%` (the local application data,
+/// which does not roam), else `~/.pltrs`.
+fn windows_dir(env: &Environment) -> Option<PathBuf> {
+    let in_home = env.home.as_ref().map(|home| home.join(HOME_DIR_NAME));
+    in_home
+        .clone()
+        .filter(|dir| dir.is_dir())
+        .or_else(|| Some(env.path_var(LOCAL_APP_DATA_VAR)?.join(DIR_NAME)))
+        .or(in_home)
 }
 
 /// The configuration or cache directory in `env` (matplotlib's
@@ -334,7 +354,29 @@ mod tests {
     }
 
     #[test]
-    fn macos_and_windows_keep_both_directories_in_the_home_directory() {
+    fn windows_keeps_both_directories_in_the_local_application_data() {
+        let scratch = Scratch::new("local-app-data");
+        let mut env = scratch.env(&[("LOCALAPPDATA", "AppData/Local")]);
+        env.os = Os::Windows;
+        let local = scratch.path("AppData/Local/pltrs");
+        assert_eq!(lookup(&env, DirKind::Config), local);
+        assert_eq!(lookup(&env, DirKind::Cache), local);
+        assert!(!scratch.path("home/.pltrs").exists(), "not made");
+
+        env.home = None;
+        assert_eq!(lookup(&env, DirKind::Config), local, "without a home");
+
+        env.home = Some(scratch.path("home"));
+        fs::create_dir_all(scratch.path("home/.pltrs")).unwrap();
+        assert_eq!(
+            lookup(&env, DirKind::Config),
+            scratch.path("home/.pltrs"),
+            "an existing directory in the home directory stays in use"
+        );
+    }
+
+    #[test]
+    fn macos_and_windows_without_local_app_data_use_the_home_directory() {
         let scratch = Scratch::new("home-dir");
         for os in [Os::MacOs, Os::Windows] {
             let mut env = scratch.env(&[("XDG_CONFIG_HOME", "xdg"), ("XDG_CACHE_HOME", "xdg")]);

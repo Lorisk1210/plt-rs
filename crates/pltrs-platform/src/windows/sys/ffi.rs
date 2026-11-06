@@ -1,6 +1,10 @@
 //! The Win32 declarations the backend uses: functions of `user32`,
-//! `gdi32` and `kernel32`, linked with `raw-dylib` (no import libraries
-//! needed), and the structures and constants they take.
+//! `gdi32` and `kernel32`, and the structures and constants they take.
+//!
+//! With MSVC they are linked with `raw-dylib`, which needs no import
+//! libraries. The GNU toolchains link MinGW-w64's import libraries, which
+//! they ship (rustup's in its `self-contained` folder): their `raw-dylib`
+//! would run binutils' `dlltool` and assembler, which rustup lacks.
 //!
 //! Handles (`HWND`, `HDC`, `HICON`, ...) are pointer-sized integers here.
 //! Names and layouts follow the Windows SDK headers; only 64-bit Windows
@@ -231,7 +235,8 @@ pub(super) const DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE: Handle = -3;
 /// unchanged (Windows 10 1607).
 pub(super) const TO_UNICODE_KEEP_STATE: u32 = 0x0004;
 
-#[link(name = "user32", kind = "raw-dylib")]
+#[cfg_attr(target_env = "gnu", link(name = "user32"))]
+#[cfg_attr(not(target_env = "gnu"), link(name = "user32", kind = "raw-dylib"))]
 unsafe extern "system" {
     pub(super) fn RegisterClassExW(class: *const WindowClassEx) -> u16;
     pub(super) fn CreateWindowExW(
@@ -341,7 +346,8 @@ unsafe extern "system" {
     pub(super) fn RegisterClipboardFormatW(name: *const u16) -> u32;
 }
 
-#[link(name = "gdi32", kind = "raw-dylib")]
+#[cfg_attr(target_env = "gnu", link(name = "gdi32"))]
+#[cfg_attr(not(target_env = "gnu"), link(name = "gdi32", kind = "raw-dylib"))]
 unsafe extern "system" {
     pub(super) fn StretchDIBits(
         dc: Handle,
@@ -368,7 +374,8 @@ unsafe extern "system" {
     pub(super) fn DeleteObject(object: Handle) -> i32;
 }
 
-#[link(name = "kernel32", kind = "raw-dylib")]
+#[cfg_attr(target_env = "gnu", link(name = "kernel32"))]
+#[cfg_attr(not(target_env = "gnu"), link(name = "kernel32", kind = "raw-dylib"))]
 unsafe extern "system" {
     pub(super) fn GetModuleHandleExW(flags: u32, name: *const u16, module: *mut Handle) -> i32;
     pub(super) fn GlobalAlloc(flags: u32, bytes: usize) -> Handle;
@@ -376,4 +383,56 @@ unsafe extern "system" {
     pub(super) fn GlobalLock(memory: Handle) -> *mut c_void;
     pub(super) fn GlobalUnlock(memory: Handle) -> i32;
     pub(super) fn GlobalSize(memory: Handle) -> usize;
+}
+
+/// `HKEY_LOCAL_MACHINE`: `(HKEY)(ULONG_PTR)(LONG)0x80000002`.
+pub(super) const HKEY_LOCAL_MACHINE: Handle = -0x7FFF_FFFE;
+/// `HKEY_CURRENT_USER`: `(HKEY)(ULONG_PTR)(LONG)0x80000001`.
+pub(super) const HKEY_CURRENT_USER: Handle = -0x7FFF_FFFF;
+/// `KEY_READ`.
+pub(super) const KEY_READ: u32 = 0x0002_0019;
+/// `REG_SZ`: a string.
+pub(super) const REG_SZ: u32 = 1;
+/// `REG_EXPAND_SZ`: a string with unexpanded `%VARIABLES%`.
+pub(super) const REG_EXPAND_SZ: u32 = 2;
+/// `ERROR_SUCCESS`.
+pub(super) const ERROR_SUCCESS: i32 = 0;
+/// `ERROR_NO_MORE_ITEMS`.
+pub(super) const ERROR_NO_MORE_ITEMS: i32 = 259;
+
+#[cfg_attr(target_env = "gnu", link(name = "advapi32"))]
+#[cfg_attr(not(target_env = "gnu"), link(name = "advapi32", kind = "raw-dylib"))]
+unsafe extern "system" {
+    pub(super) fn RegOpenKeyExW(
+        key: Handle,
+        sub_key: *const u16,
+        options: u32,
+        desired: u32,
+        result: *mut Handle,
+    ) -> i32;
+    pub(super) fn RegQueryInfoKeyW(
+        key: Handle,
+        class: *mut u16,
+        class_len: *mut u32,
+        reserved: *mut u32,
+        sub_keys: *mut u32,
+        max_sub_key_len: *mut u32,
+        max_class_len: *mut u32,
+        values: *mut u32,
+        max_value_name_len: *mut u32,
+        max_value_len: *mut u32,
+        security_descriptor_len: *mut u32,
+        last_write_time: *mut u64,
+    ) -> i32;
+    pub(super) fn RegEnumValueW(
+        key: Handle,
+        index: u32,
+        name: *mut u16,
+        name_len: *mut u32,
+        reserved: *mut u32,
+        kind: *mut u32,
+        data: *mut u8,
+        data_len: *mut u32,
+    ) -> i32;
+    pub(super) fn RegCloseKey(key: Handle) -> i32;
 }

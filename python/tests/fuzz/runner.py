@@ -29,7 +29,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from . import actions, corpus
+from . import actions, corpus, memory
 from .worker import CAPS_ADDRESS_SPACE, MARKER, MEMORY_LIMIT
 
 #: The directory of the fuzzer's package, put on the workers' path.
@@ -86,17 +86,29 @@ class Bug:
         self.reduced = None
 
 
+def _interpreter():
+    """The program running this interpreter in a new process, with the
+    variables it needs: on Windows a venv's ``python.exe`` is a launcher
+    starting the base interpreter as a child, whose memory the runner would
+    not see, so the base interpreter runs directly, named the venv's as the
+    launcher names it."""
+    if sys.platform == "win32" and sys.prefix != sys.base_prefix:
+        return sys._base_executable, {"__PYVENV_LAUNCHER__": sys.executable}
+    return sys.executable, {}
+
+
 class Worker:
     """A worker process and the threads reading its output."""
 
     def __init__(self, directory):
         # The worker imports the pltrs this process does: the source
         # tree's, or an installed one.
-        environment = dict(os.environ)
+        program, variables = _interpreter()
+        environment = {**os.environ, **variables}
         environment["PYTHONPATH"] = os.pathsep.join(
             [str(PLTRS_HOME), environment.get("PYTHONPATH", "")])
         self.process = subprocess.Popen(
-            [sys.executable, "-c", BOOT], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            [program, "-c", BOOT], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, cwd=directory, env=environment)
         self.events = queue.Queue()
         self.stderr = []
@@ -162,16 +174,9 @@ class Worker:
                 return self.events.get(timeout=WATCH_INTERVAL)
             except queue.Empty:
                 waited += WATCH_INTERVAL
-            if self._resident() > MEMORY_LIMIT:
+            if memory.resident(self.process.pid) > MEMORY_LIMIT:
                 return "memory"
         return "hang"
-
-    def _resident(self):
-        """The worker's resident memory in bytes, as ``ps`` reports it
-        (zero once the worker is gone)."""
-        report = subprocess.run(["ps", "-o", "rss=", "-p", str(self.process.pid)],
-                                capture_output=True, text=True, check=False).stdout.strip()
-        return int(report) * 1024 if report.isdigit() else 0
 
     def _stderr_panics(self, start, lines):
         """Panics printed on stderr during the task (also those no

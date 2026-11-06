@@ -25,8 +25,13 @@ static REPORT: OnceLock<CatalogueReport> = OnceLock::new();
 
 /// Makes the shared text engine keep the catalogue of the system's fonts
 /// in the cache directory ([`config::cache_dir`](crate::config::cache_dir)),
-/// if the engine is not made yet (see the module documentation).
+/// if the engine is not made yet (see the module documentation). On
+/// Windows it also has the registry's font entries read in the process
+/// (`pltrs_platform::registry_string_values`) rather than by a `reg
+/// query` process per key.
 pub fn keep_catalogue() {
+    #[cfg(windows)]
+    pltrs_text::read_registry_with(pltrs_platform::registry_string_values);
     TextEngine::add_system_fonts_with(add_system_fonts);
 }
 

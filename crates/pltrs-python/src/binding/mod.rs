@@ -43,6 +43,7 @@ mod native;
 mod object;
 mod reentrant;
 mod registry;
+mod stack;
 #[cfg(test)]
 pub(crate) mod testing;
 mod threads;

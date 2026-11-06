@@ -1029,12 +1029,19 @@ def _reach_shipped_data(path):
 
 def _replace_link(entry, target):
     """Point the link *target* at *entry*, replacing it in one step, so that
-    other processes always find a link there."""
+    other processes always find a link there (but on Windows, which replaces
+    no link to a directory: there the old link goes first)."""
     temporary = target.with_name(f".{target.name}.{os.getpid()}")
     try:
         temporary.unlink(missing_ok=True)
         temporary.symlink_to(entry, target_is_directory=entry.is_dir())
-        os.replace(temporary, target)
+        try:
+            os.replace(temporary, target)
+        except PermissionError:
+            if sys.platform != "win32":
+                raise
+            target.unlink()
+            os.replace(temporary, target)
     except OSError:
         temporary.unlink(missing_ok=True)
 

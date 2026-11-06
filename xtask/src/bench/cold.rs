@@ -168,12 +168,17 @@ mod tests {
             min_seconds: 2.0,
             max_runs: 20,
         };
-        let spec = spec_json(&[command], sampling, Path::new("/logs")).expect("UTF-8 paths");
+        let logs = Path::new("/logs");
+        let spec = spec_json(&[command], sampling, logs).expect("UTF-8 paths");
+        // The log's path as the system joins it (`\logs\x` on Windows).
+        let stderr = pltrs_core::json::string(path_text(&logs.join("pltrs-rust.stderr")).unwrap());
         assert_eq!(
             spec,
-            "{\"min_runs\": 5, \"min_seconds\": 2, \"max_runs\": 20, \"commands\": [\
-             {\"label\": \"pltrs-rust\", \"argv\": [\"/bin/true\"], \"env\": {\"A\": \"1\\\"\"}, \
-             \"stderr\": \"/logs/pltrs-rust.stderr\"}]}"
+            format!(
+                "{{\"min_runs\": 5, \"min_seconds\": 2, \"max_runs\": 20, \"commands\": [\
+                 {{\"label\": \"pltrs-rust\", \"argv\": [\"/bin/true\"], \"env\": {{\"A\": \"1\\\"\"}}, \
+                 \"stderr\": {stderr}}}]}}"
+            )
         );
     }
 

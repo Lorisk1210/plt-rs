@@ -15,7 +15,9 @@ The program runs as the differential tester runs it (``trace.py``, in
   reaches nothing;
 * every attribute read becomes ``__reach_attribute__(value, name)``,
   which notes the enumeration and exception classes a program refers to
-  without calling them, and lets a property read count (below).
+  without calling them, and the properties it reads (those of
+  matplotlib's C++ extensions, and the deprecated ones, whose getters
+  ``sys.monitoring`` sees called by a wrapper, too).
 
 What Python calls implicitly (properties, dunder methods) is found with
 ``sys.monitoring``: the start of one of their codes counts when the frame
@@ -183,18 +185,29 @@ class Reach:
             if bound is not None:
                 params, extra = bound
                 self.note(callable_, params & set(callable_.params), extra)
+                # The same function under the same name elsewhere (a module's
+                # function a class also holds as a static method,
+                # ``colors.to_rgb``) is reached too.
+                for same in self.index.by_object.get(id(target), ()):
+                    if same.name == callable_.name and same is not callable_:
+                        self.note(same, params & set(same.params), extra)
         except Exception:  # noqa: BLE001 - an object Python cannot introspect reaches nothing
             pass
         return func(*args, **kwargs)
 
     def attribute(self, value: Any, name: str) -> Any:
-        """Note the enumeration and exception classes a read names; read it."""
+        """Note the enumeration and exception classes a read names, and the
+        property it reads; read it."""
         result = getattr(value, name)
         for candidate in (value, result):
             if isinstance(candidate, type) and issubclass(candidate, (enum.Enum, BaseException)):
                 found = self.index.classes.get(id(candidate))
                 if found is not None:
                     self.note(found)
+        if not isinstance(value, type):
+            found = self.index.member(type(value), name)
+            if found is not None and found.kind == "property":
+                self.note(found)
         return result
 
     def started(self, code: types.CodeType, offset: int) -> Any:
@@ -224,9 +237,11 @@ class Reach:
 
 def _named(candidates: list[api_index.Callable], called_as: str | None) -> api_index.Callable:
     """Of the callables one object is (a method and its aliases, the most
-    fitting first), the one named as the program called it."""
+    fitting first), the one named as the program called it (the most
+    fitting owner's if several are)."""
     first = candidates[0]
-    return next((c for c in candidates if c.name == called_as and c.owner == first.owner), first)
+    named = [c for c in candidates if c.name == called_as]
+    return next((c for c in named if c.owner == first.owner), named[0] if named else first)
 
 
 def _load_trace() -> types.ModuleType:

@@ -20,8 +20,15 @@ impl From<CyclerError> for PyErr {
 }
 
 impl From<AspectError> for PyErr {
+    /// matplotlib's `ValueError`s; for axes fixing their data ratio, that
+    /// of `set_adjustable('datalim')`, which every path reaches.
     fn from(err: AspectError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            AspectError::FixedDataRatio(_) => PyErr::value_error(
+                "Cannot set Axes adjustable to 'datalim' for Axes which override 'get_data_ratio'",
+            ),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 

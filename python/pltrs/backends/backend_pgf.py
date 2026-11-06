@@ -320,7 +320,7 @@ class FigureCanvasPgf(FigureCanvasBase):
                  "png": "Portable Network Graphics", }
 
     def get_default_filetype(self):
-        return 'pgf'
+        return 'pdf'
 
     def _program_renderer(self, dpi, bbox_inches_restore):
         """The renderer the program's drawing receives while the figure is

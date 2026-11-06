@@ -25,7 +25,7 @@ use crate::markers::{FillStyle, Marker};
 use crate::patches::ClipRegion;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::ticker::AxisName;
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 use crate::units::{CustomValues, UnitSources};
 
 /// A marker rotation following the θ orientation of polar axes: by angle
@@ -496,7 +496,7 @@ impl Artist for LineArtist {
     /// The drawn vertices in data coordinates, in the directions where the
     /// line's coordinates are data values; infinite lines do not count
     /// (matplotlib's `_update_line_limits`).
-    fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
+    fn limit_points(&self, axes: ArtistId, _ctx: &dyn TransformContext) -> Option<LimitPoints> {
         if self.infinite.is_some() {
             return None;
         }

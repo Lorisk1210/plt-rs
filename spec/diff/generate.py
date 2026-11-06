@@ -23,7 +23,9 @@ compared on their own. The generators are the modules of ``generators/``:
   changed once drawn, and what Axes of each patch shape clip to;
 * ``api``: every public callable of matplotlib (``api_index``) with each
   of its keyword parameters, at representative and edge values, on the
-  subject it belongs to.
+  subject it belongs to;
+* ``unreached``: the core modules' names the ``api`` programs leave
+  unreached, each called where it has what it needs.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -44,7 +46,8 @@ import matplotlib  # noqa: E402
 
 matplotlib.use("agg")
 
-from generators import api, artists, modules, offsetboxes, plotting, pyplot, randomized, three_d  # noqa: E402
+from generators import (  # noqa: E402
+    api, artists, modules, offsetboxes, plotting, pyplot, randomized, three_d, unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -55,6 +58,7 @@ GENERATORS = {
     "three_d": three_d.programs,
     "offsetboxes": offsetboxes.programs,
     "api": api.programs,
+    "unreached": unreached.programs,
 }
 
 

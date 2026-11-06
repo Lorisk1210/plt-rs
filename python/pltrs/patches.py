@@ -139,7 +139,8 @@ class Patch(Artist):
 
     def get_edgegapcolor(self):
         """Return the edge gap color."""
-        return self._get("edgegapcolor")
+        return _values.given(self, "edgegapcolor", self._get("edgegapcolor"),
+                             same=_values.same_color)
 
     def set_edgegapcolor(self, edgegapcolor):
         """
@@ -149,7 +150,10 @@ class Patch(Artist):
         ----------
         edgegapcolor : :mpltype:`color` or None
         """
+        if edgegapcolor is not None:
+            edgegapcolor = mcolors.to_rgba(edgegapcolor, self.get_alpha())
         self._set_native(edgegapcolor=edgegapcolor)
+        _values.remember(self, "edgegapcolor", edgegapcolor)
 
     def get_verts(self):
         """
@@ -192,6 +196,11 @@ class Patch(Artist):
 
     def get_path(self):
         """Return the path of this patch."""
+        raise NotImplementedError('Derived must override')
+
+    def _native_path(self):
+        """The path pltrs (Rust) holds for the patch, which the classes
+        deriving from `Patch` return (as matplotlib's keep their own)."""
         return drawn_path(self, *_patches.get_path(self._native), (
             lambda: _patches.get_interpolation_steps(self._native),
             lambda steps: _patches.set_interpolation_steps(self._native, steps)))
@@ -832,6 +841,10 @@ class RegularPolygon(Patch):
             # (``Affine2D.rotate``, through ``math.cos``).
             _unusable.keep(self, "orientation", orientation, math.cos)
 
+    def get_path(self):
+        """Return the path of the polygon."""
+        return self._native_path()
+
     def _fields(self):
         """``(x, y, numvertices, radius, orientation)``."""
         return _patches.regular_polygon(self._native)
@@ -873,6 +886,10 @@ class PathPatch(Patch):
         """
         self._native = _patches.new_path_patch(path)
         super().__init__(**kwargs)
+
+    def get_path(self):
+        """Return the path of the patch."""
+        return self._native_path()
 
     def set_path(self, path):
         """Set the path of the patch."""
@@ -977,6 +994,10 @@ class Polygon(Patch):
         self._native = _patches.new_polygon(xy.astype(float), bool(closed))
         super().__init__(**kwargs)
 
+    def get_path(self):
+        """Get the `.Path` of the polygon."""
+        return self._native_path()
+
     def _outline(self):
         """The vertices and the closedness of the polygon."""
         return _patches.polygon(self._native)
@@ -1063,6 +1084,10 @@ class Wedge(Patch):
     # A mirror (the background of polar Axes) reads its geometry as the
     # last draw fitted it.
     _refreshed_getters = ("_fields", "get_path")
+
+    def get_path(self):
+        """Return the path of the wedge."""
+        return self._native_path()
 
     def _fields(self):
         """``(x, y, r, theta1, theta2, width)``."""
@@ -1151,6 +1176,10 @@ class Arrow(Patch):
         self._native = _patches.new_arrow((float(x), float(y)), (float(dx), float(dy)),
                                    float(width))
         super().__init__(**kwargs)
+
+    def get_path(self):
+        """Return the path of the arrow."""
+        return self._native_path()
 
     def set_data(self, x=None, y=None, dx=None, dy=None, width=None):
         """
@@ -1333,6 +1362,10 @@ class Ellipse(Patch):
 
     #: The geometry matplotlib keeps as given.
     _GIVEN = ("center", "width", "height", "angle")
+
+    def get_path(self):
+        """Return the path of the ellipse."""
+        return self._native_path()
 
     def _computes(self):
         """Whether the class is one of the program's computing what
@@ -1543,6 +1576,10 @@ class Annulus(Patch):
                              ("center", "width", "angle"))
         self._remember_radii(r)
         super().__init__(**kwargs)
+
+    def get_path(self):
+        """Return the path of the annulus."""
+        return self._native_path()
 
     def _remember_radii(self, r):
         """Keep the semi-axes as matplotlib's `set_radii` keeps *r*: a pair
@@ -2287,8 +2324,9 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
         added = super()._add_to_axes(axes, kind, autolim)
         if kind == "patch":
             # ``add_patch`` measures the arrow, which fails for a connection
-            # that cannot be made, as matplotlib's ``_update_patch_limits``.
-            self.get_path()
+            # that cannot be made, as matplotlib's ``_update_patch_limits``
+            # (with the view as it is, not autoscaled first).
+            _patches.check_measurable(self._native)
         return added
 
     def set_positions(self, posA, posB):

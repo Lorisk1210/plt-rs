@@ -55,8 +55,8 @@ class PickingMixin:
         return None
 
     def _contains_details(self, ind):
-        """The details `contains` gives of a hit on the items *ind*: none,
-        for an artist hit as a whole."""
+        """The details `contains` gives of a hit on the items *ind* (none
+        for a miss): none, for an artist hit as a whole."""
         return {}
 
     def contains(self, mouseevent):
@@ -86,7 +86,7 @@ class PickingMixin:
         ind = _artist.contains(self._native, float(mouseevent.x),
                                float(mouseevent.y), radius)
         if ind is None:
-            return False, {}
+            return False, self._contains_details(np.empty(0, dtype=int))
         return True, self._contains_details(np.asarray(ind, dtype=int))
 
     def pickable(self):

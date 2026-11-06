@@ -2,43 +2,18 @@
 
 use std::str::FromStr;
 
+use pltrs_core::pyfmt::str_repr;
 use pltrs_text::mathtext::MathFallback;
 
 /// matplotlib's complaint about `text` not being one of `allowed`
 /// (`ValidateInStrings`, quoting as Python's `repr` does).
 fn not_one_of(text: &str, allowed: &[&str]) -> String {
-    let allowed: Vec<String> = allowed.iter().map(|a| python_repr(a)).collect();
+    let allowed: Vec<String> = allowed.iter().map(|a| str_repr(a)).collect();
     format!(
         "{} is not a valid value; supported values are [{}]",
-        python_repr(text),
+        str_repr(text),
         allowed.join(", ")
     )
-}
-
-/// `text` as Python's `repr` writes a string: in single quotes, or in
-/// double quotes when it holds a single quote and no double quote.
-pub(super) fn python_repr(text: &str) -> String {
-    let quote = if text.contains('\'') && !text.contains('"') {
-        '"'
-    } else {
-        '\''
-    };
-    let mut repr = String::from(quote);
-    for c in text.chars() {
-        match c {
-            '\\' => repr.push_str("\\\\"),
-            '\n' => repr.push_str("\\n"),
-            '\r' => repr.push_str("\\r"),
-            '\t' => repr.push_str("\\t"),
-            c if c == quote => {
-                repr.push('\\');
-                repr.push(c);
-            }
-            c => repr.push(c),
-        }
-    }
-    repr.push(quote);
-    repr
 }
 
 /// Parses exactly one of `allowed` into the keyword type `T` (matplotlib's
@@ -129,15 +104,6 @@ pub(crate) fn above_minus_half() -> impl Fn(&f64) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn values_are_quoted_as_python_quotes_them() {
-        assert_eq!(python_repr("auto"), "'auto'");
-        assert_eq!(python_repr("it's"), "\"it's\"");
-        assert_eq!(python_repr("'\""), "'\\'\"'");
-        assert_eq!(python_repr("a\\b\n"), "'a\\\\b\\n'");
-        assert_eq!(python_repr(""), "''");
-    }
 
     #[test]
     fn choices_parse_matplotlib_spellings_only() {

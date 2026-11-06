@@ -161,6 +161,9 @@ class ColormapRegistry(Mapping):
     def __init__(self, cmaps):
         self._cmaps = cmaps
         self._builtin_cmaps = tuple(cmaps)
+        # Whether pltrs (Rust) mirrors the registrations (`matplotlib.colormaps`
+        # does, so that :rc:`image.cmap` may name them).
+        self._native_mirror = False
 
     def __contains__(self, item):
         return item in self._cmaps
@@ -238,6 +241,8 @@ class ColormapRegistry(Mapping):
         # builtin name, so we should update it to the registered name
         if self._cmaps[name].name != name:
             self._cmaps[name].name = name
+        if self._native_mirror:
+            _cm.register(name, self._cmaps[name])
 
     def unregister(self, name):
         """
@@ -270,6 +275,8 @@ class ColormapRegistry(Mapping):
             raise ValueError(f"cannot unregister {name!r} which is a builtin "
                              "colormap.")
         self._cmaps.pop(name, None)
+        if self._native_mirror:
+            _cm.unregister(name)
 
     def get_cmap(self, cmap):
         """
@@ -304,26 +311,11 @@ class ColormapRegistry(Mapping):
         )
 
 
-class _NativeColormapRegistry(ColormapRegistry):
-    """
-    The registry of `matplotlib.colormaps`, whose registrations pltrs
-    (Rust) mirrors, so that :rc:`image.cmap` may name them.
-    """
-
-    def register(self, cmap, *, name=None, force=False):
-        super().register(cmap, name=name, force=force)
-        name = name or cmap.name
-        _cm.register(name, self._cmaps[name])
-
-    def unregister(self, name):
-        super().unregister(name)
-        _cm.unregister(name)
-
-
 # public access to the colormaps should be via `matplotlib.colormaps`. For now,
 # we still create the registry here, but that should stay an implementation
 # detail.
-_colormaps = _NativeColormapRegistry(_gen_cmap_registry())
+_colormaps = ColormapRegistry(_gen_cmap_registry())
+_colormaps._native_mirror = True
 globals().update(_colormaps)
 
 #: The definitions of the built-in segmented colormaps (matplotlib's

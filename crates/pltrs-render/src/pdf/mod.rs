@@ -258,14 +258,22 @@ impl PdfRenderer {
     /// Ends the current page, if any, and starts a page of `width ×
     /// height` inches whose images are rasterized at `image_dpi`, drawn
     /// with a fresh graphics state (matplotlib's `newPage` and a new
-    /// `RendererPdf`). Notes attached since the last page go on it.
+    /// `RendererPdf`). Notes attached since the last page go on it. Any
+    /// finite size makes a page, as matplotlib's `newPage` writes the
+    /// media box it is given (an empty one for a size of zero).
     ///
     /// # Errors
     ///
-    /// When the page size or resolution is not positive and finite, or the
-    /// previous page could not be written.
+    /// When the resolution is not positive and finite, the size is not
+    /// finite, or the previous page could not be written.
     pub fn new_page(&mut self, width: f64, height: f64, image_dpi: f64) -> Result<(), VectorError> {
-        check_canvas(width, height, image_dpi)?;
+        if !(image_dpi.is_finite() && image_dpi > 0.0) {
+            return Err(VectorError::InvalidCanvas {
+                width,
+                height,
+                dpi: image_dpi,
+            });
+        }
         self.end_page()?;
         let parents = PageParents {
             pages: self.ids.pages,

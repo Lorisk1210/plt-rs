@@ -355,6 +355,9 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         ----------
         color : :mpltype:`color`
         """
+        from .colors import to_rgba
+        # matplotlib's box patch fails to take a colour that is none.
+        to_rgba(color)
         _text.set_backgroundcolor(self._native, color)
 
     def update(self, kwargs):

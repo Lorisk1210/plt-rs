@@ -252,6 +252,8 @@ class Reference:
 class Name:
     """PDF name object."""
     __slots__ = ('name',)
+    _hexify = {c: '#%02x' % c
+               for c in {*range(256)} - {*range(ord('!'), ord('~') + 1)}}
 
     def __init__(self, name):
         if isinstance(name, Name):
@@ -259,8 +261,7 @@ class Name:
         else:
             if isinstance(name, bytes):
                 name = name.decode('ascii')
-            # pltrs (Rust) writes the bytes outside ! to ~ as #xx.
-            self.name = _backends.pdf_repr(('name', name))[1:]
+            self.name = name.translate(self._hexify).encode('ascii')
 
     def __repr__(self):
         return "<Name %s>" % self.name

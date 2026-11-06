@@ -161,7 +161,8 @@ const MAX_ARANGE: f64 = 1e7;
 
 /// numpy's `np.arange(start, stop, step)` for floats ([`numeric::arange`],
 /// whose last-bit rounding matters for tick positions), with numpy's
-/// errors for a zero step and a NaN length.
+/// errors for a zero step and for a length that is NaN or beyond any
+/// array's (infinite, of either sign).
 ///
 /// [`numeric::arange`]: crate::numeric::arange
 pub(crate) fn arange(start: f64, stop: f64, step: f64) -> Result<Vec<f64>, TickerError> {
@@ -170,7 +171,11 @@ pub(crate) fn arange(start: f64, stop: f64, step: f64) -> Result<Vec<f64>, Ticke
     }
     let len = ((stop - start) / step).ceil();
     if len.is_nan() {
-        return Err(TickerError::NonFinite("arange length"));
+        return Err(TickerError::Arange("arange: cannot compute length"));
+    }
+    // numpy's length is an `intp`.
+    if len.abs() >= 9.223_372_036_854_776e18 {
+        return Err(TickerError::Arange("Maximum allowed size exceeded"));
     }
     if len > MAX_ARANGE {
         return Err(TickerError::TooManyTicks(len as usize));
@@ -234,7 +239,18 @@ mod tests {
         assert_eq!(arange(1.0, 0.0, 1.0).unwrap(), Vec::<f64>::new());
         assert!(arange(0.0, 1.0, 0.0).is_err());
         assert!(arange(0.0, 1e300, 1.0).is_err());
-        assert!(arange(0.0, f64::NAN, 1.0).is_err());
+        assert!(matches!(
+            arange(0.0, f64::NAN, 1.0),
+            Err(TickerError::Arange("arange: cannot compute length"))
+        ));
+        // numpy refuses an infinite length of either sign.
+        for (start, stop) in [(f64::INFINITY, f64::NEG_INFINITY), (f64::INFINITY, 0.0)] {
+            assert!(matches!(
+                arange(start, stop, 3.0),
+                Err(TickerError::Arange("Maximum allowed size exceeded"))
+            ));
+        }
+        assert_eq!(arange(5.0, 1.0, 1.0).unwrap(), Vec::<f64>::new());
     }
 
     #[test]

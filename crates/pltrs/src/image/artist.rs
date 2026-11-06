@@ -20,7 +20,7 @@ use crate::artist::{
 use crate::axes::Axes;
 use crate::colors::{Colormap, Norm};
 use crate::patches::PatchShape;
-use crate::transforms::{ResolvedTransform, Transform};
+use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
 /// State of an image on a regular grid in data coordinates.
 #[derive(Clone, Debug)]
@@ -222,7 +222,7 @@ impl Artist for AxesImageArtist {
     }
 
     /// The corners of the extent (matplotlib's `_update_image_limits`).
-    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+    fn limit_points(&self, _axes: ArtistId, _ctx: &dyn TransformContext) -> Option<LimitPoints> {
         let Extent {
             left,
             right,

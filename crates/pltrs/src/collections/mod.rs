@@ -76,7 +76,7 @@ use crate::colors::{Color, NormError, ScalarMappable};
 use crate::lines::LineStyle;
 use crate::numeric::Grid;
 use crate::rc::RcParams;
-use crate::transforms::Transform;
+use crate::transforms::{Transform, TransformContext};
 
 /// Which matplotlib collection class the defaults follow.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -648,7 +648,7 @@ impl Artist for CollectionArtist {
     }
 
     /// matplotlib's `_update_collection_limits`.
-    fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
+    fn limit_points(&self, axes: ArtistId, _ctx: &dyn TransformContext) -> Option<LimitPoints> {
         let (limits, directions) = self.data_limits(axes);
         LimitPoints::from_limits(limits, directions)
     }

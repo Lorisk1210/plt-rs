@@ -79,7 +79,7 @@ class _ColorbarSpine(mspines.Spine):
         """Like `get_window_extent`: the outline is not clipped."""
         return self.get_window_extent(renderer)
 
-    get_path = mpatches.Patch.get_path
+    get_path = mpatches.Patch._native_path
     get_transform = mpatches.Patch.get_transform
     get_edgecolor = mpatches.Patch.get_edgecolor
     set_linewidth = mpatches.Patch.set_linewidth
@@ -832,10 +832,10 @@ def _made_axes(make, parents, natives, kwargs):
     if layout['pad'] is not None:
         layout['pad'] = float(layout['pad'])
     # matplotlib's errors for unknown names (`_normalize_location_orientation`).
-    if layout['location'] is None:
-        _get_ticklocation_from_orientation(layout['orientation'])
-    else:
-        _get_orientation_from_location(layout['location'])
+    location = layout['location']
+    if location is None:
+        location = _get_ticklocation_from_orientation(layout['orientation'])
+    _api.check_in_list(['left', 'right', 'top', 'bottom'], location=location)
     native, kwargs['orientation'], kwargs['ticklocation'] = make(natives, layout)
     figure = parents[0].get_figure(root=True)
     cax = _handles.wrap(native, Axes, figure)

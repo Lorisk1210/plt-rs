@@ -9,6 +9,7 @@ matplotlib does. The module-level dash helpers are matplotlib's.
 """
 
 import copy
+import logging
 
 import numpy as np
 
@@ -23,6 +24,8 @@ from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
     TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN, MarkerStyle)
 from .path import Path, drawn_path
+
+_log = logging.getLogger(__name__)
 
 
 def _rcParams():
@@ -195,6 +198,8 @@ def _native_kwargs(kwargs):
         else:
             kwargs["linestyle"] = (0, tuple(seq))
     if isinstance(kwargs.get("linestyle"), tuple):
+        # A pattern fails where matplotlib's `set_linestyle` reads it.
+        _get_dash_pattern(kwargs["linestyle"])
         offset, seq = kwargs["linestyle"]
         kwargs["linestyle"] = (offset, None if seq is None else tuple(seq))
     return kwargs
@@ -819,6 +824,18 @@ class Line2D(Artist):
     def _contains_details(self, ind):
         """The indices of the points and segments hit."""
         return dict(ind=ind)
+
+    def _contains_within(self, mouseevent, radius):
+        """`contains` as matplotlib's line answers it: no details for a
+        line of another canvas or without points, and a warning for a line
+        in no figure, which pltrs (Rust) does not hit-test (matplotlib
+        tests it in its own coordinates, its pick radius as pixels)."""
+        if self._different_canvas(mouseevent) or not len(self.get_xydata()):
+            return False, {}
+        if self.get_figure(root=True) is None:
+            _log.warning('no figure set when check if mouse is on line')
+            return False, self._contains_details(np.empty(0, dtype=int))
+        return super()._contains_within(mouseevent, radius)
 
     def get_dash_capstyle(self):
         """Return the `.CapStyle` for dashed lines."""

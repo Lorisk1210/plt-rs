@@ -285,6 +285,19 @@ impl PatchShape for FancyArrowPatch {
         };
         self.spec.display_paths(&path, dpi_cor, frame.linewidth)
     }
+
+    /// matplotlib's `_update_patch_limits` reads the arrow's `get_path()`,
+    /// its whole outline (heads, shrinks, loops) made through display
+    /// coordinates with the view as it is.
+    fn limit_outline(
+        &self,
+        transform: &Transform,
+        linewidth: f64,
+        ctx: &dyn TransformContext,
+        axes: ArtistId,
+    ) -> Option<Vec<Point>> {
+        self.outline_data_points(transform, linewidth, ctx, axes)
+    }
 }
 
 #[cfg(test)]

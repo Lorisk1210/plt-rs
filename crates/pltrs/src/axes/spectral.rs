@@ -318,13 +318,13 @@ mod tests {
     #[test]
     fn decibel_ticks_over_astronomical_bounds_fail_like_numpy() {
         // Found by fuzzing: `arange` over these bounds overflowed the
-        // capacity of the tick vector.
+        // capacity of the tick vector; numpy refuses its length.
         let ax = Figure::new().subplot();
         ax.set_ylim(-1e300, 1e300).unwrap();
         assert!(matches!(
             ax.psd(&tone(512), SpectralPlotOptions::default()),
-            Err(PlotError::Ticker(crate::ticker::TickerError::TooManyTicks(
-                _
+            Err(PlotError::Ticker(crate::ticker::TickerError::Arange(
+                "Maximum allowed size exceeded"
             )))
         ));
     }

@@ -8,7 +8,9 @@ objects kept by `._tick_helpers`, and its ticks, label and offset text are
 artists mirroring what pltrs (Rust) draws (`._axis_artists`).
 """
 
+import datetime
 import functools
+import itertools
 
 import numpy as np
 
@@ -139,6 +141,30 @@ def _is_native_converter(converter):
         return converter._interval_multiples
     return converter is None or isinstance(
         converter, (dates._SwitchableDateConverter, category.StrCategoryConverter))
+
+
+def _warn_if_incompatible(current, converter):
+    """matplotlib's warning for an axis whose converter *current* gives way
+    to *converter*, of an unrelated class."""
+    if (current is not None and not isinstance(converter, type(current))
+            and not isinstance(current, type(converter))):
+        _api.warn_external(
+            "This axis already has a converter set and "
+            "is updating to a potentially incompatible converter"
+        )
+
+
+def _check_native_units(converter, units):
+    """Fail as matplotlib's category and date converters fail to give the
+    axis info of *units* they cannot take (`Axis._update_axisinfo`), where
+    pltrs (Rust) gives the axis its tick helpers: a category converter
+    takes category data only, a date converter a time zone."""
+    from . import category
+    if isinstance(converter, category.StrCategoryConverter):
+        category.StrCategoryConverter._validate_unit(units)
+    elif converter is not None:
+        from .dates import _get_tzinfo
+        _get_tzinfo(units)
 
 
 def _keeps_limit_types(locator):
@@ -1690,6 +1716,8 @@ class Axis(DrawnWith, Artist):
         units._mapping.clear()
         units._mapping.update((keys.get(name, name), index)
                               for index, name in enumerate(names))
+        # The next category the program adds gets the next id.
+        units._counter = itertools.count(len(names))
         return units
 
     @units.setter
@@ -1773,15 +1801,14 @@ class Axis(DrawnWith, Artist):
         if converter is None:
             return False
         if _is_native_converter(converter):
-            if not _is_native_converter(self._converter):
-                self._set_converter(converter)
             from .category import StrCategoryConverter
             if not isinstance(converter, StrCategoryConverter):
                 # The first date tells pltrs (Rust) all it needs: that the
                 # axis shows dates (the others may be no dates at all, as
                 # the timedeltas of a bar's (start, width) pair).
                 data = _first_value(data)
-            return self._update_native_units(data)
+            return self._take_native_converter(
+                converter, lambda: self._update_native_units(data))
         neednew = self._converter != converter
         self._set_converter(converter)
         default = self._converter.default_units(data, self)
@@ -1790,6 +1817,22 @@ class Axis(DrawnWith, Artist):
         elif neednew:
             self._update_axisinfo()
         return True
+
+    def _take_native_converter(self, converter, take):
+        """
+        Have pltrs (Rust) convert with *converter*, one of its converters,
+        through *take* (whose result this returns), as matplotlib's axis
+        takes it: in place of another, warning for one of an unrelated
+        class, then having it check the axis' units.
+        """
+        current = self.get_converter()
+        switching = current is not None and current != converter
+        if switching:
+            _warn_if_incompatible(current, converter)
+        taken = take()
+        if switching and self.units is not None:
+            _check_native_units(converter, self.units)
+        return taken
 
     def _update_native_units(self, data):
         """Have pltrs (Rust), which converts dates and category names,
@@ -1807,8 +1850,10 @@ class Axis(DrawnWith, Artist):
     def _update_axisinfo(self):
         """Give the axis the tick helpers, label and default limits its
         converter gives for its units, when the converter is one of the
-        program's (pltrs (Rust) gives dates and categories theirs)."""
+        program's (pltrs (Rust) gives dates and categories theirs, once
+        their converter took the units)."""
         if _is_native_converter(self._converter):
+            _check_native_units(self.get_converter(), self.units)
             return
         info = self._converter.axisinfo(self.units, self)
         if info is None:
@@ -1904,13 +1949,7 @@ class Axis(DrawnWith, Artist):
             return
         if self._converter_is_explicit:
             raise RuntimeError("Axis already has an explicit converter set")
-        elif (current is not None and
-              not isinstance(converter, type(current)) and
-              not isinstance(current, type(converter))):
-            _api.warn_external(
-                "This axis already has a converter set and "
-                "is updating to a potentially incompatible converter"
-            )
+        _warn_if_incompatible(current, converter)
         kind = _native_converter_kind(converter)
         if kind is not None:
             _axis.set_converter(*self._args(), kind)
@@ -1927,7 +1966,11 @@ class Axis(DrawnWith, Artist):
         """
         from ._date_locators import _native_tz
         from .dates import _get_tzinfo
-        _axis.axis_date(*self._args(), _native_tz(_get_tzinfo(tz)))
+        # matplotlib's axis takes the units of a date in *tz*.
+        zone = _native_tz(_get_tzinfo(tz))
+        self._take_native_converter(
+            munits.registry.get_converter(datetime.datetime(2009, 1, 1)),
+            lambda: _axis.axis_date(*self._args(), zone))
 
 
 class _AxisOfAxes:

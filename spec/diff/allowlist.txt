@@ -13,7 +13,7 @@ statistics/time_series_histogram$ | ^stdout$ | the example prints the seconds it
 users_explain/axes/axes_units$ | ^image: RMS > 1$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run
 
 # A PDF names the software that wrote it.
-misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
+(misc/multipage_pdf|api/pdf_pages_0)$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
 
 # matplotlib salts the ids of its SVG elements with a random uuid unless
 # svg.hashsalt is set, so they differ between two runs of matplotlib too.
@@ -28,7 +28,7 @@ style_sheets/style_sheets_reference$ | ^warning extra: WARNING: findfont: Failed
 
 # matplotlib's C++ extensions define their classes with pybind11, whose
 # classes derive from pybind11_object; pltrs's are Python classes.
-. | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|FT2Image|Glyph)|backends\._backend_agg\.BufferRegion): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
+. | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|FT2Image|Glyph|LayoutItem)|backends\._backend_agg\.BufferRegion|_tri\.(Triangulation|TriContourGenerator|TrapezoidMapTriFinder)): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
 
 # matplotlib draws what a program puts in a figure's artists, lines, patches
 # and texts lists (Figure.get_children reads them at each draw); pltrs
@@ -41,7 +41,7 @@ artists/(sub)?figure_(getters|setters)$ | ^type\[(artists|lines|patches|texts)\]
 # the axes of a (sub)figure is the list of its Axes, so a figure with Axes
 # fails there with AttributeError (a matplotlib bug), where pltrs sets it.
 artists/subfigure_setters$ | ^exception\[set_mouseover\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a SubFigure's axes attribute is
-api/(figure_[0-9]+|subfigure_0)$ | ^exception\[(set_mouseover|set|constant)\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a (Sub)Figure's axes attribute is: set_mouseover(True), mouseover = True and set(mouseover=True)
+api/(figure(_variant)?_[0-9]+|subfigure_0)$ | ^exception\[(set_mouseover|set|constant)\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a (Sub)Figure's axes attribute is: set_mouseover(True), mouseover = True and set(mouseover=True)
 
 # pltrs (Rust) lays out the tree of an added offset box itself and asks a
 # box of the program's in it for its extent once per layout (its
@@ -70,9 +70,41 @@ specialty_plots/skewt$ | ^callback\[SkewXTick\]: runs another number of times$ |
 # pltrs has a GUI backend of its own (`backend_pltrs`, its windows), which
 # the backend registry lists among matplotlib's.
 api/module_matplotlib_0$ | ^exception message\[(use|validate_backend)\]: ValueError$ | the list of valid backends in the message of use('nonexistent_backend') and validate_backend('text') ends with pltrs' own backend, 'pltrs'
+api/module_matplotlib_rcsetup_0$ | ^exception message\[validate_backend\]: ValueError$ | the list of valid backends in the message of validate_backend('nope') ends with pltrs' own backend, 'pltrs'
+api/backend_registry_0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 
 # pltrs (Rust) writes the data files it bundles (its fonts, the template of
 # the defaults) into a data directory of its own, which programs reach as
 # matplotlib's mpl-data, and names its rc file pltrsrc.
 api/module_matplotlib_0$ | ^value\[(get_data_path|matplotlib_fname)\]: str$ | get_data_path() is pltrs' data directory ('<config>/mpl-data', where pltrs (Rust) writes its bundled files), and matplotlib_fname() its template of the defaults there, named pltrsrc
 api/module_matplotlib_style_0$ | ^value\[read_style_directory\]: dict keys$ | the stylelib directory of pltrs' data directory holds pltrs' two looks (pltrs-modern, pltrs-modern-dark) besides matplotlib's sheets, as style.available lists them
+api/font_path_0$ | ^value\[path\]: str$ | findfont() finds the bundled DejaVu Sans in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package
+api/module_matplotlib_cbook_0$ | ^exception message\[get_sample_data\]: FileNotFoundError$ | the missing sample file is named in pltrs' data directory ('<config>/mpl-data/sample_data'), as get_data_path() names it
+
+# pltrs bundles Inter, the font of its modern look, with matplotlib's
+# DejaVu and STIX fonts.
+api/(font_manager_0|module_matplotlib_font_manager_0)$ | ^value\[(get_font_names|findSystemFonts|list_fonts)\]: list length$ | the fonts of pltrs' data directory and of its font manager include Inter's five faces (Regular, Italic, SemiBold, Bold, BoldItalic: one more family name, Inter, and its SemiBold face's)
+
+# matplotlib's fallback `RendererBase.draw_path_collection` (which its
+# vector renderers use for a few paths) translates a frozen copy of the
+# master transform for each offset, and an `IdentityTransform` freezes to
+# itself, which has no `translate` (a matplotlib bug): matplotlib fails on
+# an identity master transform with offsets, where pltrs draws.
+api/(pdf|svg|ps)_renderer_0$ | ^exception\[draw_path_collection\]: missing AttributeError$ | the base draw_path_collection calls IdentityTransform().frozen().translate(xo, yo), which IdentityTransform lacks
+
+# HTMLWriter names the elements of its player with a random uuid
+# (`DISPLAY_TEMPLATE.format(id=uuid.uuid4().hex, ...)`): the HTML of one
+# animation differs between two runs of matplotlib (and the frames it
+# embeds are PNG files, whose compressed bytes are each encoder's own).
+api/func_animation_0$ | ^value\[to_jshtml\]: str$ | to_jshtml() names its elements with uuid.uuid4().hex, so its text differs between two runs of matplotlib
+
+# matplotlib's deprecated `_Style.register` checks the style against
+# `cls._Base`, which no style class has any more (a matplotlib bug): it
+# fails with AttributeError and registers nothing, where pltrs registers.
+generated/unreached/deprecated_reads$ | ^(exception\[register\]: missing AttributeError|value\[constant in\]: bool)$ | BoxStyle.register reads BoxStyle._Base, which BoxStyle lacks, so matplotlib registers nothing
+
+# An annotation whose text was moved to (nan, inf) clips its arrow to the
+# text's box patch: matplotlib's `bezier.split_path_inout` finds no segment
+# leaving the patch and lets the `StopIteration` of its exhausted iterator
+# escape from `savefig` (a matplotlib bug), where pltrs draws the arrow.
+api/annotation_0$ | ^(exception\[savefig\]: missing StopIteration|calls\[savefig\]: runs only under pltrs)$ | matplotlib's split_path_inout calls next() on an exhausted segment iterator when the arrow's path never leaves patchA, which sits at a non-finite position

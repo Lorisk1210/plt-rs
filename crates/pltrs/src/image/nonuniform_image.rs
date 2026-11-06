@@ -30,7 +30,7 @@ use crate::artist::{
 use crate::axes::NonUniformOptions;
 use crate::colors::ScalarMappable;
 use crate::numeric::{Grid, linspace};
-use crate::transforms::ResolvedTransform;
+use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// How a [`NonUniformImage`] colours the pixels between its grid centres.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -333,7 +333,7 @@ impl Artist for NonUniformImageArtist {
 
     /// The first and last centres (matplotlib's `_update_image_limits`
     /// with `get_extent`), which `relim` takes into account.
-    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+    fn limit_points(&self, _axes: ArtistId, _ctx: &dyn TransformContext) -> Option<LimitPoints> {
         grid_limits(&self.x, &self.y)
     }
 

@@ -348,8 +348,10 @@ fn select_charmap(font: Native<Ft2Font>, encoding: u32) -> PyResult<()> {
             .position(|info| wanted(info.platform_id, info.encoding_id))
     };
     let index = index.ok_or_else(|| {
+        // matplotlib's message for FreeType's error (`FT_CHECK`), which
+        // names the line of `ft2font.cpp` making the call.
         PyErr::runtime_error(
-            "In FT2Font: Can not select charmap (invalid argument; error code 0x6)",
+            "FT_Select_Charmap (ft2font.cpp line 280) failed with error 0x06: invalid argument",
         )
     })?;
     font.charmap = Some(index);

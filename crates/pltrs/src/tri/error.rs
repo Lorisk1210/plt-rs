@@ -65,9 +65,9 @@ impl fmt::Display for TriError {
                 "array must have same length as triangulation x and y arrays \
                  ({expected}), got {actual}"
             ),
-            Self::TooFewPoints => f.write_str("at least 3 points are required for triangulation"),
+            Self::TooFewPoints => f.write_str("x and y arrays must have a length of at least 3"),
             Self::TooFewUniquePoints => {
-                f.write_str("at least 3 unique points are required for triangulation")
+                f.write_str("x and y arrays must consist of at least 3 unique points")
             }
             Self::Collinear => f.write_str("all points are collinear (singular input)"),
             Self::NonFinite => f.write_str("point coordinates must be finite"),

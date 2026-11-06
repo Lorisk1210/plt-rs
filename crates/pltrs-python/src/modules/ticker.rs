@@ -435,11 +435,6 @@ fn format_pct(spec: Owned, x: f64, display_range: f64) -> PyResult<String> {
     Ok(formatter.format_pct(x, display_range, &settings())?)
 }
 
-/// matplotlib's `scale_range(vmin, vmax, n, threshold)`.
-fn scale_range(vmin: f64, vmax: f64, n: f64, threshold: f64) -> PyResult<(f64, f64)> {
-    Ok(pltrs::ticker::scale_range(vmin, vmax, n, threshold))
-}
-
 /// Whether `base` is a valid log base (finite, positive, not 1).
 fn is_log_base(base: f64) -> PyResult<bool> {
     Ok(LogBase::new(base).is_some())
@@ -459,6 +454,5 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("log_label", log_label)?;
     module.add("pprint_val", pprint_val)?;
     module.add("format_pct", format_pct)?;
-    module.add("scale_range", scale_range)?;
     module.add("is_log_base", is_log_base)
 }

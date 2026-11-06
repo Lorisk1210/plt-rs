@@ -113,7 +113,9 @@ impl Axes {
             base.transform = Some(self.trans_data());
         }
         let handle = if spec.autolim {
-            let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
+            let update = DataUpdate::autoscaled(
+                artist.limit_points(self.id(), &*self.raw().figure_state().borrow()),
+            );
             self.adopt_collection(artist, &update)
         } else {
             self.adopt(artist, &DataUpdate::default())
@@ -126,7 +128,9 @@ impl Axes {
     pub fn add_trimesh(&self, spec: TriMeshSpec) -> TriMesh {
         let mut artist = spec.artist;
         artist.base_mut().transform = Some(self.trans_data());
-        let update = DataUpdate::autoscaled(artist.limit_points(self.id()));
+        let update = DataUpdate::autoscaled(
+            artist.limit_points(self.id(), &*self.raw().figure_state().borrow()),
+        );
         TriMesh::from_raw(self.adopt_collection(artist, &update))
     }
 
@@ -185,23 +189,25 @@ impl Axes {
             AddAs::Line | AddAs::Image | AddAs::Collection { .. }
         );
         let counted = !matches!(add_as, AddAs::Artist | AddAs::Collection { autolim: false });
-        let limits = figure
-            .borrow_mut()
-            .artist_mut(artist.id())
-            .and_then(|adopted| {
-                let base = adopted.base_mut();
-                if fresh {
-                    base.transform.get_or_insert(data);
-                }
-                if base.clip_path.is_none() && add_as != AddAs::Image {
-                    base.clip_box = Some(self.id());
-                }
-                if labelled && base.label.is_empty() {
-                    base.label = format!("_child{child_count}");
-                }
-                base.in_autoscale |= counted;
-                adopted.limit_points(self.id())
-            });
+        if let Some(adopted) = figure.borrow_mut().artist_mut(artist.id()) {
+            let base = adopted.base_mut();
+            if fresh {
+                base.transform.get_or_insert(data);
+            }
+            if base.clip_path.is_none() && add_as != AddAs::Image {
+                base.clip_box = Some(self.id());
+            }
+            if labelled && base.label.is_empty() {
+                base.label = format!("_child{child_count}");
+            }
+            base.in_autoscale |= counted;
+        }
+        let limits = {
+            let state = figure.borrow();
+            state
+                .artist(artist.id())
+                .and_then(|adopted| adopted.limit_points(self.id(), &*state))
+        };
         match add_as {
             AddAs::Artist | AddAs::Image | AddAs::Collection { autolim: false } => {}
             AddAs::Line | AddAs::Patch => self.update_data(&DataUpdate::extending(limits)),

@@ -2,6 +2,8 @@
 
 use std::fmt::{self, Write as _};
 
+use pltrs_core::pyfmt::str_repr;
+
 /// The kind of file TeX machinery read when it found something wrong.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TexFile {
@@ -173,25 +175,6 @@ fn unicode_escape_repr(text: &str) -> String {
     bytes_repr(&escaped)
 }
 
-/// Python's `repr(str)` of a string without control characters: quoted
-/// in single quotes, or in double quotes when it holds a single one.
-fn python_repr(text: &str) -> String {
-    let quote = if text.contains('\'') && !text.contains('"') {
-        '"'
-    } else {
-        '\''
-    };
-    let mut out = String::from(quote);
-    for c in text.chars() {
-        if c == '\\' || c == quote {
-            out.push('\\');
-        }
-        out.push(c);
-    }
-    out.push(quote);
-    out
-}
-
 /// Python's `repr(bytes)`.
 pub(crate) fn bytes_repr(data: &[u8]) -> String {
     let quote = if data.contains(&b'\'') && !data.contains(&b'"') {
@@ -241,14 +224,17 @@ impl fmt::Display for TexError {
             Self::Io { path, message } => write!(f, "TeX cache file {path}: {message}"),
             Self::NotFound { name } => write!(
                 f,
-                "pltrs' TeX implementation searched for a file named {name:?} in your texmf \
-                 tree, but could not find it"
+                "pltrs' TeX implementation searched for a file named {} in your texmf \
+                 tree, but could not find it",
+                str_repr(name)
             ),
             Self::UnmappedFont { map, texname } => write!(
                 f,
-                "The font map {map:?} is missing a PostScript font associated to TeX font \
-                 {texname:?}; this problem can often be solved by installing a suitable \
-                 PostScript font package in your TeX package manager"
+                "The font map {} is missing a PostScript font associated to TeX font \
+                 {}; this problem can often be solved by installing a suitable \
+                 PostScript font package in your TeX package manager",
+                str_repr(map),
+                str_repr(texname)
             ),
             Self::NoType1Font { psname, texname } => write!(
                 f,
@@ -267,12 +253,12 @@ impl fmt::Display for TexError {
                 f,
                 "{} not found; install it or change rcParams['pgf.texsystem'] to an \
                  available TeX implementation",
-                python_repr(program)
+                str_repr(program)
             ),
             Self::Unstartable {
                 program,
                 missing: false,
-            } => write!(f, "Error starting {}", python_repr(program)),
+            } => write!(f, "Error starting {}", str_repr(program)),
             Self::Preamble { header, output } => {
                 write!(
                     f,

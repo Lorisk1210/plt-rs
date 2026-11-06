@@ -517,7 +517,12 @@ def _rc_params_in_file(fname, fail_on_error=False):
     pltrs (Rust) reads the file; the lines matplotlib skips are logged with
     matplotlib's messages, or raise with *fail_on_error*.
     """
-    entries, warnings = _rcsetup.read_file(_local_path(fname))
+    path = _local_path(fname)
+    try:
+        entries, warnings = _rcsetup.read_file(path)
+    except OSError:
+        _raise_undecodable(fname, path)
+        raise
     for kind, message in warnings:
         if fail_on_error and kind == "invalid value":
             raise ValueError(message)
@@ -526,6 +531,19 @@ def _rc_params_in_file(fname, fail_on_error=False):
     for key, value in entries:
         config._set(key, value)
     return config
+
+
+def _raise_undecodable(fname, path):
+    """Raise the `UnicodeDecodeError` matplotlib's reading of the file
+    *fname* at *path* meets, if it is not UTF-8, logging it as matplotlib
+    does."""
+    try:
+        with open(path, encoding='utf-8') as fd:
+            for _ in fd:
+                pass
+    except UnicodeDecodeError:
+        _log.warning('Cannot decode configuration file %r as utf-8.', fname)
+        raise
 
 
 def rc_params_from_file(fname, fail_on_error=False, use_default_template=True):

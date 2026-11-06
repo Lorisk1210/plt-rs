@@ -19,13 +19,19 @@ native_value!(Triangulation);
 impl From<TriError> for PyErr {
     /// matplotlib's `ValueError` for invalid triangulations and fields,
     /// and the `RuntimeError`s of its C++ and qhull code: points that
-    /// qhull cannot triangulate, triangles the trifinder cannot search.
+    /// qhull cannot triangulate (collinear or not finite), triangles the
+    /// trifinder cannot search.
     fn from(err: TriError) -> Self {
         match err {
             TriError::Collinear => PyErr::new(
                 ExceptionKind::RuntimeError,
                 "Error in qhull Delaunay triangulation calculation: singular input data \
                  (exitcode=2); use python verbose option (-v) to see original qhull error.",
+            ),
+            TriError::NonFinite => PyErr::new(
+                ExceptionKind::RuntimeError,
+                "Error in qhull Delaunay triangulation calculation: input inconsistency \
+                 (exitcode=1); use python verbose option (-v) to see original qhull error.",
             ),
             TriError::InvalidTriangulation => {
                 PyErr::new(ExceptionKind::RuntimeError, "Triangulation is invalid")

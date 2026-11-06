@@ -3,11 +3,11 @@
 
 use std::fmt::Debug;
 
-use pltrs_core::{Affine2D, Path};
+use pltrs_core::{Affine2D, Path, Point};
 
 use super::{PatchError, PatchStyle};
 use crate::artist::{ArtistBase, ArtistId, LayoutContext};
-use crate::transforms::ResolvedTransform;
+use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
 /// The geometry of a patch (matplotlib's `get_path` + `get_patch_transform`).
 pub trait PatchShape: Debug + Clone + 'static {
@@ -63,6 +63,21 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// clip box).
     fn clips_to_bounding_box(&self) -> bool {
         false
+    }
+
+    /// The points the shape counts in the data limits of `axes`, in its
+    /// data coordinates, when it is placed by `transform` in the figure
+    /// `ctx` as it is now and its edge is `linewidth` points wide: `None`
+    /// for those bounding its outline, which most shapes make in their own
+    /// coordinates; a shape made in display space (an arrow) gives its own.
+    fn limit_outline(
+        &self,
+        _transform: &Transform,
+        _linewidth: f64,
+        _ctx: &dyn TransformContext,
+        _axes: ArtistId,
+    ) -> Option<Vec<Point>> {
+        None
     }
 }
 

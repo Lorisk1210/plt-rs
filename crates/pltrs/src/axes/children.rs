@@ -357,7 +357,7 @@ impl Axes {
             if let Some(LimitPoints {
                 points,
                 directions: (x, y),
-            }) = artist.limit_points(axes)
+            }) = artist.limit_points(axes, &*state)
             {
                 limits.update_from_points(&points, x, y);
             }

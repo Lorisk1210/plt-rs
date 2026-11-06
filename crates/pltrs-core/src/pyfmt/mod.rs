@@ -15,6 +15,7 @@
 //! * [`StrTemplate`] — `template.format(x=x, pos=pos)` or
 //!   `template.format(x)`.
 //! * [`auto_format`] — matplotlib's `%`-or-`format` choice for one value.
+//! * [`str_repr`] — `repr(s)` of a string, as messages write `{s!r}`.
 //!
 //! ```
 //! use pltrs_core::pyfmt;
@@ -26,6 +27,7 @@
 mod dtoa;
 mod printf;
 mod spec;
+mod strings;
 mod template;
 
 use std::fmt;
@@ -33,6 +35,7 @@ use std::fmt;
 use dtoa::{EXACT_DECIMAL_PLACES, FloatStyle, Presentation, format_float};
 pub use printf::PrintfFormat;
 pub use spec::FormatSpec;
+pub use strings::str_repr;
 pub use template::{StrTemplate, TemplateValue};
 
 /// Why a Python-style format string was rejected; the variants mirror the

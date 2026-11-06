@@ -29,6 +29,10 @@ class ExecutableNotFoundError(FileNotFoundError):
     pass
 
 
+# The class of the package's top level, where matplotlib defines it.
+ExecutableNotFoundError.__module__ = __name__.rpartition(".")[0]
+
+
 def _parse_version(text):
     """*text* as a `packaging.version.Version`."""
     from packaging.version import parse

@@ -167,6 +167,21 @@ def _read_only(name, doc):
     return property(lambda self: self._values[name], doc=doc)
 
 
+def _not_constructible(cls, args, kwargs):
+    """Fail as constructing *cls*, a class matplotlib's pybind11 extension
+    makes no constructor of, fails: with no arguments, `RuntimeError`;
+    with some, pybind11's `TypeError`."""
+    if not args and not kwargs:
+        raise RuntimeError(f"{cls.__name__} is not constructible")
+    given = [", ".join(map(repr, args))] if args else []
+    if kwargs:
+        given.append("kwargs: " + ", ".join(f"{k}={v!r}" for k, v in kwargs.items()))
+    raise TypeError(
+        "__init__(): incompatible constructor arguments. The following argument "
+        f"types are supported:\n    1. {cls.__module__}.{cls.__qualname__}()\n\n"
+        f"Invoked with: {'; '.join(given)}")
+
+
 class Glyph:
     """
     Information about a single glyph.
@@ -179,7 +194,14 @@ class Glyph:
     <https://freetype.org/freetype2/docs/glyphs/glyphs-3.html>`_.
     """
 
-    def __init__(self, metrics, index):
+    def __init__(self, *args, **kwargs):
+        _not_constructible(type(self), args, kwargs)
+
+    @classmethod
+    def _loaded(cls, metrics, index):
+        """The glyph `FT2Font.load_char` or `.load_glyph` loaded with
+        *metrics* as the *index*-th of the font's glyphs."""
+        self = cls.__new__(cls)
         ((width, height, horiBearingX, horiBearingY),
          (horiAdvance, linearHoriAdvance),
          (vertBearingX, vertBearingY, vertAdvance),
@@ -190,6 +212,7 @@ class Glyph:
             linearHoriAdvance=linearHoriAdvance, vertBearingX=vertBearingX,
             vertBearingY=vertBearingY, vertAdvance=vertAdvance, bbox=bbox)
         self._index = index
+        return self
 
     width = _read_only("width", "The glyph's width.")
     height = _read_only("height", "The glyph's height.")
@@ -213,10 +236,17 @@ class Glyph:
 class LayoutItem:
     """A glyph of laid out text, as `FT2Font._layout` yields it."""
 
-    def __init__(self, ft_object, char, glyph_index, x, y, prev_kern):
+    def __init__(self, *args, **kwargs):
+        _not_constructible(type(self), args, kwargs)
+
+    @classmethod
+    def _laid_out(cls, ft_object, char, glyph_index, x, y, prev_kern):
+        """The item `FT2Font._layout` made."""
+        self = cls.__new__(cls)
         self._values = dict(ft_object=ft_object, char=char,
                             glyph_index=glyph_index, x=x, y=y,
                             prev_kern=prev_kern)
+        return self
 
     ft_object = _read_only("ft_object", "The FT_Face of the item.")
     char = _read_only("char", "The character code for the item.")
@@ -265,6 +295,12 @@ class FT2Image:
 
     def __array__(self, dtype=None, copy=None):
         return self._buffer if dtype is None else self._buffer.astype(dtype)
+
+    def __buffer__(self, flags):
+        return memoryview(self._buffer)
+
+    def __release_buffer__(self, buffer):
+        buffer.release()
 
 
 class FT2Font:
@@ -397,6 +433,9 @@ class FT2Font:
     def __buffer__(self, flags):
         return memoryview(self._image())
 
+    def __release_buffer__(self, buffer):
+        buffer.release()
+
     def _image(self):
         """The image `draw_glyphs_to_bitmap` drew."""
         return _ft2font.get_image(self._native)
@@ -425,6 +464,8 @@ class FT2Font:
     def clear(self):
         """Clear all the glyphs, reset for a new call to `.set_text`."""
         _ft2font.clear(self._native)
+        for font in self._fallbacks:
+            font.clear()
 
     def set_size(self, ptsize, dpi):
         """
@@ -568,10 +609,11 @@ class FT2Font:
                                     _flags_value(flags))
         if loaded is None:
             self._missing(charcode)
+            # matplotlib's message names the line of ft2font.cpp raising it.
             raise RuntimeError(
-                "charcode loading (ft2font.cpp) failed to find glyph to load")
+                "charcode loading (ft2font.cpp line 544) failed to find glyph to load")
         metrics, index, _face = loaded
-        return Glyph(metrics, index)
+        return Glyph._loaded(metrics, index)
 
     def load_glyph(self, glyph_index, flags=LoadFlags.FORCE_AUTOHINT):
         """
@@ -591,7 +633,7 @@ class FT2Font:
         """
         metrics, index, _face = _ft2font.load_glyph(
             self._native, int(glyph_index), _flags_value(flags))
-        return Glyph(metrics, index)
+        return Glyph._loaded(metrics, index)
 
     def set_text(self, string, angle=0.0, flags=LoadFlags.FORCE_AUTOHINT, *,
                  features=None, language=None):
@@ -613,6 +655,8 @@ class FT2Font:
                     and not any(font.get_char_index(codepoint)
                                 for font in self._fallbacks)):
                 self._missing(codepoint)
+        for font in self._fallbacks:
+            font.clear()
         xys = _ft2font.set_text(self._native, string, float(angle), flags,
                                 shaping)
         return np.array(xys, dtype=float).reshape(-1, 2)
@@ -627,13 +671,15 @@ class FT2Font:
         """
         shaping = _shaping(features, language)
         fonts = [self, *self._fallbacks]
+        for font in self._fallbacks:
+            font.clear()
         items = []
         for (face, start, end), glyph, (x, y), kern in _ft2font.layout(
                 self._native, text, _flags_value(flags), shaping):
             # Laying out loads each glyph into the font it comes from.
             fonts[face].load_glyph(glyph, flags)
-            items.append(LayoutItem(fonts[face], text[start:end], glyph, x, y,
-                                    kern))
+            items.append(LayoutItem._laid_out(fonts[face], text[start:end], glyph,
+                                              x, y, kern))
         return items
 
     def get_width_height(self):

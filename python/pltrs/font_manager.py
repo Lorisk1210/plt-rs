@@ -1156,7 +1156,9 @@ class FontManager:
         # exact match of the weight names, e.g. weight1 == weight2 == "regular"
         if cbook._str_equal(weight1, weight2):
             return 0.0
-        return _font_manager.score_weight(weight1, weight2)
+        w1 = _normalize_weight(weight1)
+        w2 = _normalize_weight(weight2)
+        return 0.95 * (abs(w1 - w2) / 1000) + 0.05
 
     def score_family(self, families, family2):
         """

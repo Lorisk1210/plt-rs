@@ -43,6 +43,9 @@ pub enum TickerError {
     Unsupported(&'static str),
     /// A Python-style format string is invalid for the value.
     Format(FormatError),
+    /// numpy's `arange` refused its interval, with numpy's message (an
+    /// infinite or NaN length).
+    Arange(&'static str),
 }
 
 pltrs_core::archive_enum!(TickerError {
@@ -56,6 +59,7 @@ pltrs_core::archive_enum!(TickerError {
     TooManyTicks(v0),
     Unsupported(v0),
     Format(v0),
+    Arange(v0),
 });
 
 impl TickerError {
@@ -63,7 +67,7 @@ impl TickerError {
     /// error when a figure is drawn.
     pub fn draw_kind(&self) -> DrawErrorKind {
         match self {
-            Self::NonPositiveLogData | Self::NotAnInteger { infinite: false } => {
+            Self::NonPositiveLogData | Self::NotAnInteger { infinite: false } | Self::Arange(_) => {
                 DrawErrorKind::InvalidValue
             }
             Self::NotAnInteger { infinite: true } => DrawErrorKind::Overflow,
@@ -107,6 +111,7 @@ impl fmt::Display for TickerError {
             Self::TooManyTicks(n) => write!(f, "refusing to generate {n} ticks"),
             Self::Unsupported(what) => write!(f, "unsupported: {what}"),
             Self::Format(err) => err.fmt(f),
+            Self::Arange(message) => f.write_str(message),
         }
     }
 }

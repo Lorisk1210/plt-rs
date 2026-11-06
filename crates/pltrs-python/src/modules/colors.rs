@@ -137,9 +137,59 @@ fn triples(array: &NdArray) -> PyResult<Vec<[f64; 3]>> {
     Ok(array.data.as_chunks::<3>().0.to_vec())
 }
 
+/// matplotlib's range check of the RGB values `rgb_to_hsv` converts: the
+/// largest of the rows' maxima when one is above 1, else the smallest
+/// value when below 0 (numpy's reductions, NaN propagating).
+fn check_unit_range(rgb: &[[f64; 3]]) -> PyResult<()> {
+    let np_max = |a: f64, b: f64| {
+        if a.is_nan() || b.is_nan() {
+            f64::NAN
+        } else {
+            a.max(b)
+        }
+    };
+    let np_min = |a: f64, b: f64| {
+        if a.is_nan() || b.is_nan() {
+            f64::NAN
+        } else {
+            a.min(b)
+        }
+    };
+    let maxima: Vec<f64> = rgb
+        .iter()
+        .map(|&[r, g, b]| np_max(np_max(r, g), b))
+        .collect();
+    if maxima.iter().any(|&max| max > 1.0) {
+        let largest = maxima.into_iter().fold(f64::NEG_INFINITY, np_max);
+        return Err(PyErr::value_error(format!(
+            "Input array must be in the range [0, 1]. Found a maximum value of {}",
+            pltrs_core::pyfmt::repr(largest)
+        )));
+    }
+    let smallest = rgb
+        .as_flattened()
+        .iter()
+        .copied()
+        .reduce(np_min)
+        .ok_or_else(|| {
+            PyErr::value_error(
+                "zero-size array to reduction operation minimum which has no identity",
+            )
+        })?;
+    if smallest < 0.0 {
+        return Err(PyErr::value_error(format!(
+            "Input array must be in the range [0, 1]. Found a minimum value of {}",
+            pltrs_core::pyfmt::repr(smallest)
+        )));
+    }
+    Ok(())
+}
+
 /// `rgb_to_hsv(arr)`: HSV values of RGB values (last axis of length 3).
 fn rgb_to_hsv_array(rgb: NdArray) -> PyResult<NdArray> {
-    let hsv = triples(&rgb)?
+    let rows = triples(&rgb)?;
+    check_unit_range(&rows)?;
+    let hsv = rows
         .into_iter()
         .map(rgb_to_hsv)
         .collect::<Result<Vec<_>, _>>()?

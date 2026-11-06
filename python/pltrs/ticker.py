@@ -1534,10 +1534,17 @@ class MultipleLocator(_NativeLocator):
 
 def scale_range(vmin, vmax, n=1, threshold=100):
     """The power of ten near ``|vmax - vmin| / n``, and an offset (a power
-    of ten) when the mean is large compared to the range."""
-    scale, offset = _ticker.scale_range(vmin, vmax, n, threshold)
-    # matplotlib's offset of a range near zero is the int 0.
-    return scale, (0 if offset == 0 else offset)
+    of ten) when the mean is large compared to the range (matplotlib's
+    arithmetic on the numbers as given, whose types decide how a zero
+    range fails)."""
+    dv = abs(vmax - vmin)  # > 0 as nonsingular is called before.
+    meanv = (vmax + vmin) / 2
+    if abs(meanv) / dv < threshold:
+        offset = 0
+    else:
+        offset = math.copysign(10 ** (math.log10(abs(meanv)) // 1), meanv)
+    scale = 10 ** (math.log10(dv / n) // 1)
+    return scale, offset
 
 
 class MaxNLocator(_NativeLocator):

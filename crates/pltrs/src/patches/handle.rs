@@ -11,6 +11,7 @@ use super::style::PatchStyle;
 use super::{DisplayPath, PatchArtist, PatchError, PatchProps};
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::{Color, ColorError};
+use crate::figure::FigureState;
 use crate::lines::LineStyle;
 use crate::rc::ColorOrEdge;
 
@@ -184,8 +185,23 @@ impl<S: PatchShape> Patch<S> {
     /// When the patch cannot be placed: it is in no figure, or its shape
     /// cannot be built there (a connection between parallel angles).
     pub fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
-        let state = self.raw.figure_state().prepared();
-        let layout = LayoutContext::new(&state);
+        self.display_paths_in(&self.raw.figure_state().prepared())
+    }
+
+    /// [`display_paths`](Self::display_paths) in the figure as it stands,
+    /// its views not autoscaled first: how matplotlib's `add_patch`
+    /// measures an arrow, through `ax.transData` as it is then.
+    ///
+    /// # Errors
+    ///
+    /// As [`display_paths`](Self::display_paths).
+    pub fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError> {
+        self.display_paths_in(&self.raw.figure_state().borrow())
+    }
+
+    /// The outlines in display pixels as `state` places the patch.
+    fn display_paths_in(&self, state: &FigureState) -> Result<Vec<Path>, PatchError> {
+        let layout = LayoutContext::new(state);
         let patch = layout
             .store()
             .get_as::<PatchArtist<S>>(self.raw.id())

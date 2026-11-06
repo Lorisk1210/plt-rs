@@ -140,9 +140,15 @@ class LayoutEngine:
     def execute(self, fig):
         """
         Execute the layout on the figure given by *fig*.
+        """
+        # subclasses must implement this.
+        raise NotImplementedError
 
-        Constrained layout returns its layout grids, a private debugging
-        structure (see `._layoutgrid`), or None without grids.
+    def _execute_native(self, fig):
+        """
+        Have pltrs (Rust) lay *fig* out with the engine: constrained layout
+        returns its layout grids, a private debugging structure (see
+        `._layoutgrid`), or None without grids.
         """
         from ._native import figure as _figure
         solved = _figure.execute_layout(fig._native, self._native_spec())
@@ -211,6 +217,25 @@ class TightLayoutEngine(LayoutEngine):
             # initialize these in case None is passed in above:
             self._params[td] = None
         self.set(pad=pad, h_pad=h_pad, w_pad=w_pad, rect=rect)
+
+    def execute(self, fig):
+        """
+        Execute tight_layout.
+
+        This decides the subplot parameters given the padding that
+        will allow the Axes labels to not be covered by other labels
+        and Axes.
+
+        Parameters
+        ----------
+        fig : `.Figure` to perform layout on.
+
+        See Also
+        --------
+        .figure.Figure.tight_layout
+        .pyplot.tight_layout
+        """
+        return self._execute_native(fig)
 
     def _native_spec(self):
         """The engine as pltrs (Rust) takes it."""
@@ -290,6 +315,16 @@ class ConstrainedLayoutEngine(LayoutEngine):
         self.set(w_pad=w_pad, h_pad=h_pad, wspace=wspace, hspace=hspace,
                  rect=rect)
         self._compress = compress
+
+    def execute(self, fig):
+        """
+        Perform constrained_layout and move and resize Axes accordingly.
+
+        Parameters
+        ----------
+        fig : `.Figure` to perform layout on.
+        """
+        return self._execute_native(fig)
 
     def _native_spec(self):
         """The engine as pltrs (Rust) takes it."""

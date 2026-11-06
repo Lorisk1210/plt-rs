@@ -1,4 +1,4 @@
-//! `cargo xtask python [--release] | setup | test`: pltrs
+//! `cargo xtask python [--release] | setup | test | wheels`: pltrs
 //! (Python).
 //!
 //! * `python [--release]` builds the extension (`crates/pltrs-python`) and
@@ -9,10 +9,13 @@
 //!   matplotlib) and adds what the suite runner needs to the reference
 //!   venv (`.venv`), from the pinned lists in `python/requirements-*.txt`;
 //! * `python test` builds the extension and runs pltrs's own smoke tests
-//!   (`python/tests`) in the pltrs venv.
+//!   (`python/tests`) in the pltrs venv;
+//! * `python wheels [TARGET...]` builds the release's wheels and sdist into
+//!   `target/wheels/` and checks them (`wheels`).
 
 mod setup;
 mod venv;
+mod wheels;
 
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -38,10 +41,12 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
     let outcome = match args.first().map(String::as_str) {
         Some("setup") => setup::run(),
         Some("test") => build(Profile::Dev).and_then(|()| smoke_test()),
+        Some("wheels") => wheels::run(&args[1..]),
         None => build(Profile::Dev),
         Some("--release") => build(Profile::Release),
         Some(other) => Err(format!(
-            "unknown argument {other:?}; usage: cargo xtask python [--release] | setup | test"
+            "unknown argument {other:?}; usage: cargo xtask python [--release] | setup | test \
+             | wheels [TARGET...]"
         )),
     };
     match outcome {

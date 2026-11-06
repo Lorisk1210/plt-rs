@@ -5,7 +5,8 @@
 //!   a Unix socket (`sendmsg`/`recvmsg` with `SCM_RIGHTS` ancillary data;
 //!   `std`'s `SocketAncillary` is unstable). Wayland hands shared-memory
 //!   pools, keymaps and clipboard pipes over this way.
-//! * [`memfd`] creates anonymous shared memory (`memfd_create`) for pixel
+//! * [`memfd`] creates anonymous shared memory (`memfd_create`, as a
+//!   system call: glibc's wrapper is too new for manylinux2014) for pixel
 //!   buffers. The buffers are written with `pwrite` through [`File`], not
 //!   mapped: no memory is shared with the compositor, so no Rust reference
 //!   can observe another process's writes and a compositor shrinking the
@@ -81,7 +82,65 @@ struct Control([u8; CONTROL_LEN]);
 unsafe extern "C" {
     fn sendmsg(socket: c_int, message: *const MsgHdr, flags: c_int) -> isize;
     fn recvmsg(socket: c_int, message: *mut MsgHdr, flags: c_int) -> isize;
-    fn memfd_create(name: *const c_char, flags: c_uint) -> c_int;
+}
+
+// `memfd_create` is a system call made through `syscall` where its number
+// is listed here, rather than through the C library's wrapper, which
+// glibc has only from 2.27 on: so the library runs on glibc 2.17, as a
+// manylinux2014 wheel of pltrs (Python) must (`python/backend`). Other
+// architectures call the wrapper.
+cfg_select! {
+    any(
+        target_arch = "x86_64",
+        target_arch = "x86",
+        target_arch = "arm",
+        target_arch = "aarch64",
+        target_arch = "riscv64",
+        target_arch = "loongarch64",
+        target_arch = "powerpc",
+        target_arch = "powerpc64",
+        target_arch = "s390x",
+    ) => {
+        use std::ffi::c_long;
+
+        unsafe extern "C" {
+            fn syscall(number: c_long, ...) -> c_long;
+        }
+
+        /// The number of the `memfd_create` system call on this
+        /// architecture (the kernel's `unistd.h`).
+        const SYS_MEMFD_CREATE: c_long = cfg_select! {
+            // x32: the x86_64 number with `__X32_SYSCALL_BIT`.
+            all(target_arch = "x86_64", target_pointer_width = "32") => { 0x4000_0000 + 319 }
+            target_arch = "x86_64" => { 319 }
+            target_arch = "x86" => { 356 }
+            target_arch = "arm" => { 385 }
+            any(target_arch = "aarch64", target_arch = "riscv64", target_arch = "loongarch64") => {
+                279
+            }
+            any(target_arch = "powerpc", target_arch = "powerpc64") => { 360 }
+            target_arch = "s390x" => { 350 }
+        };
+
+        /// `memfd_create(name, flags)`: a new descriptor, or -1 with
+        /// `errno` set.
+        ///
+        /// # Safety
+        ///
+        /// `name` points to a NUL-terminated string.
+        unsafe fn memfd_create(name: *const c_char, flags: c_uint) -> c_int {
+            // SAFETY: the system call reads the string the caller
+            // vouches for, and nothing else.
+            let fd = unsafe { syscall(SYS_MEMFD_CREATE, name, flags) };
+            // A descriptor, or -1: both fit in an int.
+            fd as c_int
+        }
+    }
+    _ => {
+        unsafe extern "C" {
+            fn memfd_create(name: *const c_char, flags: c_uint) -> c_int;
+        }
+    }
 }
 
 /// `CMSG_ALIGN`: rounds up to the alignment of ancillary data.

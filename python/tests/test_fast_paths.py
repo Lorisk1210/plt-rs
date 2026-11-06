@@ -140,6 +140,8 @@ def test_prints_tell_the_draw_event_listeners_there_are():
     assert calls == ["draw_event", "draw_event"]
 
 
+@pytest.mark.skipif(int(np.__version__.split(".")[0]) < 2,
+                    reason="the values are numpy 2's, as matplotlib computes them with it")
 def test_histograms_with_estimated_bins_and_ranges(axes):
     fig, ax = axes
     t = np.linspace(0.0, 1.0, 2001)
@@ -152,8 +154,10 @@ def test_histograms_with_estimated_bins_and_ranges(axes):
     n, _, _ = ax.hist(np.concatenate([data, [np.nan]]), bins=13, range=(-2, 3))
     assert n.tolist() == [123.0, 171.0, 238.0, 168.0, 147.0, 161.0, 172.0,
                           238.0, 188.0, 145.0, 102.0, 61.0, 30.0]
-    assert np.percentile(data, [3.0, 50.0, 97.5]).tolist() == [
-        -1.9980800490770885, 0.15798289556857342, 2.4428629064343794]
+    # numpy's own sin and exp of the data differ in the last digit with
+    # musl's libm (musllinux), so its percentiles do.
+    assert np.percentile(data, [3.0, 50.0, 97.5]).tolist() == pytest.approx([
+        -1.9980800490770885, 0.15798289556857342, 2.4428629064343794], rel=1e-15)
 
 
 def test_contours_on_implicit_coordinates(axes):

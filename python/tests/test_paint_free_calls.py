@@ -214,6 +214,8 @@ def _rtol_warnings(call):
     return sum("rtol" in str(w.message) for w in caught), len(result)
 
 
+@pytest.mark.skipif(tuple(map(int, np.__version__.split(".")[:2])) < (2, 3),
+                    reason="numpy warns of a NaN rtol from 2.3 on, as matplotlib meets it")
 @pytest.mark.parametrize("secondary, expected", [
     (False, [(0, 8), (1, 8), (1, 8)]),
     (True, [(0, 3), (1, 3), (1, 13)]),

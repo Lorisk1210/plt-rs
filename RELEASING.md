@@ -1,0 +1,140 @@
+# Releasing pltrs (Python)
+
+A release publishes the distribution `pltrs` to PyPI: its sdist and one
+wheel per platform, all tagged `cp312-abi3`, so one wheel serves CPython
+3.12 and every later version:
+
+| wheel | runs on |
+|-------|---------|
+| `manylinux_2_17_x86_64.manylinux2014_x86_64`, `manylinux_2_17_aarch64.manylinux2014_aarch64` | Linux with glibc 2.17 or later (CentOS 7, Ubuntu 14.04, Debian 8 and newer) |
+| `musllinux_1_2_x86_64`, `musllinux_1_2_aarch64` | Linux with musl 1.2 or later (Alpine 3.13 and newer) |
+| `macosx_10_12_universal2` | macOS 10.12 or later on Intel, macOS 11 or later on Apple silicon |
+| `win_amd64` (`win_arm64` when asked for) | 64-bit Windows 10 and later |
+
+The second distribution of the tree, `matplotlib` (pltrs as matplotlib,
+`pip install . -C distribution=matplotlib`), is not published: on PyPI
+the name is matplotlib's. Its wheel goes with the GitHub release.
+
+Everything runs in the workflow `.github/workflows/wheels.yml`, which
+starts only by hand or for a tag `v<version>`: never for pushes of
+branches or pull requests, as every run costs Actions minutes.
+
+## Once, before the first release
+
+1. **Choose pltrs' licence.** pltrs has none yet (`Cargo.toml` has no
+   `license`, and there is no `LICENSE` file), which leaves it "all
+   rights reserved": PyPI accepts that, but nobody may use the package.
+   Write the licence into a `LICENSE` file, add it to `license-files` in
+   `pyproject.toml`, and give its SPDX expression as `license = "..."` in
+   `[tool.pltrs-backend.pltrs]` and `[tool.pltrs-backend.matplotlib]`
+   (the backend writes it as `License-Expression`) and in Cargo.toml's
+   `[workspace.package]`. Mind `THIRD_PARTY.md`: the extension contains
+   one file under GPL-3.0-or-later (`introsort.rs`, see its note), so
+   the expression for the wheels must cover it, or that file be replaced
+   first.
+2. **Decide what the PyPI page links to.** `pyproject.toml`'s `urls` (and
+   Cargo.toml's `repository`) point at the GitHub repository, which is
+   private: visitors of the PyPI page would find nothing. Make it public,
+   or point the links elsewhere. The README is the page's text; its
+   links to files of the tree (`python/DESIGN.md`, ...) only work from
+   GitHub.
+3. **PyPI**: with an account that has two-factor authentication, add a
+   *pending trusted publisher* (https://pypi.org/manage/account/publishing/):
+   PyPI project name `pltrs`, owner `Lorisk1210`, repository `plt-rs`,
+   workflow `wheels.yml`, environment `pypi`. The first upload then
+   creates the project; no token is ever stored in GitHub. To rehearse,
+   do the same on https://test.pypi.org and add
+   `repository-url: https://test.pypi.org/legacy/` to the publish step
+   for that run.
+4. **GitHub**, in the repository's *Settings*:
+   * *Environments*: create `pypi`, with yourself as a *required
+     reviewer* and *deployment branches and tags* limited to the tag
+     pattern `v*`. The publish job waits for your approval there.
+   * *Actions > Runners*: the aarch64 Linux jobs run on
+     `ubuntu-24.04-arm`. If the repository's plan does not offer it,
+     set the repository variable `LINUX_ARM64_RUNNER` (*Secrets and
+     variables > Actions > Variables*) to a runner label that is
+     arm64 Linux (a larger or a self-hosted runner). The same holds for
+     `windows-11-arm` and `WINDOWS_ARM64_RUNNER`, when `win_arm64` is
+     built (the run's input `win_arm64`, or the variable `WIN_ARM64`
+     set to `true` for tag runs).
+5. **Minutes.** A full run costs roughly 6 hours of billed minutes:
+   about 75 Linux minutes, 35 Windows minutes (billed twice) and 25
+   macOS minutes (billed ten times). The extension's build (fat LTO,
+   one codegen unit) peaks at about 4.3 GB of memory for x86_64 and
+   5.2 GB for aarch64, within a standard runner's 7 GB.
+
+## Rehearsing
+
+* On this host: `cargo xtask python wheels` builds the sdist, the
+  alias and the four Linux wheels into `target/wheels/` (Zig links
+  them against glibc 2.17 and musl: `python/tools/zig.sh install`
+  first, and `rustup target add aarch64-unknown-linux-gnu
+  aarch64-unknown-linux-musl`), and checks them. Then, for each Python
+  to try:
+
+  ```sh
+  python python/tools/check_dist.py --install --python python3.12 \
+      target/wheels/pltrs-*manylinux*x86_64.whl target/wheels/matplotlib-*.whl
+  python python/tools/check_dist.py --install --lowest --python python3.12 \
+      target/wheels/pltrs-*manylinux*x86_64.whl
+  python python/tools/check_dist.py --install target/wheels/pltrs-*.tar.gz
+  ```
+
+  On a Mac, `cargo xtask python wheels` builds `arm64`, `x86_64` and
+  `universal2` wheels; check them natively and with an x86_64 Python
+  under Rosetta.
+* On GitHub: *Actions > wheels > Run workflow*. Everything runs but
+  publishing: the archives are the run's artifacts (`pltrs-*` and
+  `alias`), to download and try.
+* `python python/tools/check_workflows.py` checks the workflow itself
+  after any change to it.
+
+## Releasing
+
+1. Set the version in `Cargo.toml`'s `[workspace.package]`: the one
+   source of the crates', the wheels' and the alias' versions (the
+   alias is `<matplotlib version>+pltrs.<version>`). Commit and push.
+2. Tag the commit and push the tag:
+
+   ```sh
+   git tag -a v0.1.0 -m "pltrs 0.1.0"
+   git push origin v0.1.0
+   ```
+
+3. The workflow runs: it first checks that the tag is `v` followed by
+   Cargo.toml's version, then builds every archive, installs and tests each
+   on its platform (pltrs' smoke tests and a matplotlib program, on
+   Python 3.12 and 3.14, on the oldest glibc and musl the tags allow,
+   and with the lowest versions of the requirements). Nothing is
+   published unless all of that passes.
+4. Approve the `pypi` deployment when the publish job asks. It checks
+   the archives once more and uploads them to PyPI through trusted
+   publishing.
+5. A draft GitHub release then holds every archive, the alias wheel
+   included. Write its notes and publish it.
+
+If any job fails, nothing reaches PyPI. Fix the cause on `main`, delete
+the tag (`git push --delete origin v0.1.0; git tag -d v0.1.0`), tag
+again and push. A version that reached PyPI can never be uploaded again,
+even after deleting it: release the fix as the next version.
+
+## Checking the release
+
+* https://pypi.org/project/pltrs/ lists the sdist and the six (or
+  seven) wheels above, and shows the README.
+* In fresh venvs on Linux, macOS and Windows:
+
+  ```sh
+  python -m pip install pltrs
+  python -c "import pltrs.pyplot as plt; plt.plot([1, 3, 2]); plt.savefig('check.png')"
+  ```
+
+* From the sdist, with Rust installed: `python -m pip install
+  --no-binary pltrs pltrs`.
+* pltrs as matplotlib, from the release's alias wheel: `python -m pip
+  install pltrs matplotlib-<version>+pltrs.<version>-py3-none-any.whl`,
+  then run a matplotlib program unchanged.
+
+A broken release is *yanked* on PyPI (the project's *Manage* page):
+pip then no longer picks it, unless asked for that exact version.

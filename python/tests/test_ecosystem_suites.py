@@ -187,6 +187,8 @@ def test_a_mesh_keeps_the_values_it_was_given():
     assert ax.pcolormesh(np.arange(6).reshape(2, 3)).get_array().dtype == np.int64
 
 
+@pytest.mark.skipif(int(np.__version__.split(".")[0]) < 2,
+                    reason="the values are numpy 2's, as matplotlib computes them with it")
 def test_log_transforms_compute_as_numpy_does():
     x = np.abs(np.random.default_rng(0).normal(size=1000)) + 1e-3
     transform = scale.LogTransform(10)

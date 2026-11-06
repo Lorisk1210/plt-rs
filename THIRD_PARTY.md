@@ -35,6 +35,7 @@ The full texts are in [`LICENSES/`](LICENSES):
 | CPython 3.14 | PSF License Agreement (`cpython.txt`) | float formatting (`repr`, `%` and `str.format`, `crates/pltrs-core/src/pyfmt`), `divmod` and `round` (`crates/pltrs/src/ticker/pymath.rs`), the `datetime` types (`crates/pltrs/src/dates`), and the program search of `shutil.which` (`crates/pltrs-core/src/os.rs`) |
 | dateutil 2.9 | Apache-2.0 and BSD-3-Clause (`dateutil.txt`) | recurrence rules, `relativedelta` and `tzfile` time zones (`crates/pltrs/src/dates/rrule`, `relativedelta.rs`, `tz`) |
 | fontTools 4.67 | MIT (`fonttools.txt`) | the glyph closure of font subsetting (`crates/pltrs-font/src/subset`), the glyph names to characters of `agl.toUnicode` (`crates/pltrs-font/src/agl.rs`), glyph bounds for Type 42 fonts (`crates/pltrs-render/src/ps/type42.rs`) and the script data of `crates/pltrs-font/src/shape/unicode_data.rs` |
+| auditwheel 6.8 | MIT (`auditwheel.txt`) | the manylinux policies the build backend checks Linux wheels against: the libraries, glibc and libgcc versions and forbidden symbols of each, condensed (`python/backend/pltrs_backend/_manylinux.py`) |
 | Pillow 12 | MIT-CMU (`pillow.txt`) | image file reading and writing (`pltrs-codec`, `crates/pltrs/src/image`) |
 | libjpeg-turbo / IJG libjpeg | IJG, BSD-3-Clause and zlib (`pillow.txt`, "LIBJPEG") | the JPEG decoder and encoder (`crates/pltrs-codec/src/jpeg`). This software is based in part on the work of the Independent JPEG Group. |
 | libtiff | libtiff licence (`pillow.txt`, "LIBTIFF") | TIFF decompression (`crates/pltrs-codec/src/tiff`) |
@@ -72,7 +73,7 @@ engine, windowing layer and conformance suite.
 | Yorick colormaps (`gist_*`) | Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | `crates/pltrs/src/colors/colormaps` |
 | Solarized palette (`Solarize_Light2`) | MIT (`matplotlib.txt`, "Solarized") | `crates/pltrs/src/style` |
 | Unicode Character Database 17.0 | Unicode License V3 (`unicode.txt`) | `crates/pltrs-font/src/shape/ucd_tables.rs` |
-| Adobe Glyph List 2.0 (`glyphlist.txt`, as fontTools ships it in its `agl` module, whose `toUnicode` `crates/pltrs-font/src/agl.rs` ports) | BSD-3-Clause, Adobe's notice at the top of the file | `crates/pltrs-font/data/glyphlist.txt` |
+| Adobe Glyph List 2.0 (`glyphlist.txt`, as fontTools ships it in its `agl` module, whose `toUnicode` `crates/pltrs-font/src/agl.rs` ports) | BSD-3-Clause, Adobe's notice at the top of the file (`adobe-glyph-list.txt`) | `crates/pltrs-font/data/glyphlist.txt` |
 | matplotlib's sample data (`mpl-data/sample_data`: the files `cbook.get_sample_data` opens, among them the photograph `grace_hopper.jpg`, a U.S. Navy photograph in the public domain) | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data/sample_data` |
 | matplotlib's window and toolbar icons (`mpl-data/images`: the PNGs the Tk backend shows) | Matplotlib License, as matplotlib distributes them (`matplotlib.txt`) | `python/pltrs/mpl-data/images` |
 | matplotlib's WebAgg page, scripts and toolbar icons, the toolbar icons also those of the figure windows in matplotlib's look | Matplotlib License | `crates/pltrs/src/web/assets` (see its `LICENSE`), embedded for the windows by `crates/pltrs/src/gui/images.rs` |

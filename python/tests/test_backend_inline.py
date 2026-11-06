@@ -16,9 +16,12 @@ from pltrs.backends import backend_registry
 
 
 def test_the_kernels_backend_is_pltrs_own_port():
+    # With the matplotlib distribution installed, matplotlib-inline's own
+    # module imports pltrs as matplotlib, and serves.
+    aliased = importlib.util.find_spec("_pltrs_matplotlib_alias") is not None
     assert backend_registry._backend_module_name(
-        "module://matplotlib_inline.backend_inline") == \
-        "pltrs.backends.backend_inline"
+        "module://matplotlib_inline.backend_inline") == (
+        "matplotlib_inline.backend_inline" if aliased else "pltrs.backends.backend_inline")
     # Other modules stay themselves.
     assert backend_registry._backend_module_name(
         "module://some.backend") == "some.backend"

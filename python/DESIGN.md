@@ -1624,9 +1624,14 @@ two distributions:
 
 * `pltrs` (the default): the release build of `pltrs-python` and the
   package, a wheel tagged `cp312-abi3-<platform>` whose platform the
-  backend reads from the library built (`_tags`: the glibc versions of
-  its ELF symbols on Linux, the deployment target on macOS, the
-  architecture on Windows), never from the Python running the build;
+  backend reads from the library built (`_tags`: on Linux the libraries
+  and symbol versions it needs, against auditwheel's policies; on macOS
+  the oldest macOS each slice names; on Windows the architecture and the
+  stable ABI's `python3.dll`), never from the Python running the build,
+  and checks once written as an index would (`_audit`). `-C glibc=2.17`
+  links it with Zig against an old glibc (`_linker`), for
+  manylinux2014; `RELEASING.md` says how the release's wheels are
+  built, tested and published;
 * `matplotlib` (`-C distribution=matplotlib`): `python/alias`, pure
   Python. Its modules make `matplotlib`, `mpl_toolkits.<kit>` and
   `pylab` the modules of pltrs (`_pltrs_matplotlib_alias`: a meta path

@@ -5,27 +5,70 @@
 #   pip install . -C distribution=matplotlib   matplotlib, mpl_toolkits and
 #                                              pylab as aliases of pltrs
 #   pip wheel . [-C target=<Rust target> | -C target=universal2]
+#   pip wheel . -C glibc=2.17                  linked by Zig against glibc
+#                                              2.17: manylinux2014
+#   python -m build --sdist                    the source distribution
 #
 # The distributions' metadata is the backend's ([tool.pltrs-backend]):
-# their versions and source URL come from Cargo.toml and
-# python/pltrs/__init__.py.
+# their versions come from Cargo.toml and python/pltrs/__init__.py.
+# RELEASING.md says how a release is built, checked and published.
 
 [build-system]
 requires = []
 build-backend = "pltrs_backend"
 backend-path = ["python/backend"]
 
+# What both distributions share: their links, and the licence files every
+# one carries (pltrs' own notices, and those of the code it ports and the
+# fonts and data it embeds; THIRD_PARTY.md lists them).
+[tool.pltrs-backend]
+license-files = [
+    "THIRD_PARTY.md",
+    "LICENSES/*.txt",
+    "crates/pltrs-font/fonts/LICENSE_*",
+    "crates/pltrs-font/fonts/pdfcorefonts/readme.txt",
+    "crates/pltrs/src/web/assets/LICENSE",
+]
+
+[tool.pltrs-backend.urls]
+Source = "https://github.com/Lorisk1210/plt-rs"
+Issues = "https://github.com/Lorisk1210/plt-rs/issues"
+Documentation = "https://github.com/Lorisk1210/plt-rs#python"
+
 [tool.pltrs-backend.pltrs]
 summary = "matplotlib's Python API over pltrs, matplotlib rebuilt in Rust"
 readme = "README.md"
 requires-python = ">=3.12"
+keywords = ["matplotlib", "plotting", "visualization", "graphics", "rust"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Matplotlib",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+# The lowest versions that install on Python 3.12, which the CI workflow
+# tests (check_dist.py --lowest).
 dependencies = [
-    "numpy>=1.25",
+    "numpy>=1.26",
     "cycler>=0.10",
-    "pillow>=9",
+    "pillow>=10.1",
     "python-dateutil>=2.7",
 ]
 
 [tool.pltrs-backend.matplotlib]
 summary = "matplotlib, mpl_toolkits and pylab as aliases of pltrs"
 requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Matplotlib",
+    "Programming Language :: Python :: 3 :: Only",
+]

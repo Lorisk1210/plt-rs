@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 publish = false
-repository = "https://github.com/loris/plt-rs"
+repository = "https://github.com/Lorisk1210/plt-rs"
 
 [workspace.dependencies]
 pltrs-core = { path = "crates/pltrs-core" }

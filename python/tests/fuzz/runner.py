@@ -18,6 +18,7 @@ differential tester's (`corpus`) when its programs can be had, any other
 is a random program of the fuzzer's own (`actions`).
 """
 
+import importlib.util
 import json
 import os
 import pathlib
@@ -33,6 +34,19 @@ from .worker import CAPS_ADDRESS_SPACE, MARKER, MEMORY_LIMIT
 
 #: The directory of the fuzzer's package, put on the workers' path.
 TESTS = pathlib.Path(__file__).resolve().parents[1]
+
+
+def _pltrs_home():
+    """The directory this process finds pltrs in (the source tree's
+    ``python``, or an installed one's site), else the source tree's."""
+    spec = importlib.util.find_spec("pltrs")
+    if spec is None or spec.origin is None:
+        return TESTS.parents[1] / "python"
+    return pathlib.Path(spec.origin).resolve().parents[1]
+
+
+#: Where the workers import pltrs from.
+PLTRS_HOME = _pltrs_home()
 
 #: How long one program may run, in seconds.
 PROGRAM_TIME = 120
@@ -76,10 +90,11 @@ class Worker:
     """A worker process and the threads reading its output."""
 
     def __init__(self, directory):
-        root = TESTS.parents[1]
+        # The worker imports the pltrs this process does: the source
+        # tree's, or an installed one.
         environment = dict(os.environ)
         environment["PYTHONPATH"] = os.pathsep.join(
-            [str(root / "python"), environment.get("PYTHONPATH", "")])
+            [str(PLTRS_HOME), environment.get("PYTHONPATH", "")])
         self.process = subprocess.Popen(
             [sys.executable, "-c", BOOT], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, cwd=directory, env=environment)

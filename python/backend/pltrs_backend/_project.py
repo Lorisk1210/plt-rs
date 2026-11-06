@@ -6,14 +6,20 @@ The two distributions the backend builds, as ``pyproject.toml``'s
   is the Cargo workspace's.
 * ``matplotlib``: the packages ``matplotlib``, ``mpl_toolkits`` (its
   three toolkits) and the module ``pylab``, standing for pltrs' own
-  (``python/alias``, with ``_pltrs_matplotlib_alias``), so that code importing matplotlib by name (pandas,
-  seaborn) runs on pltrs. It is named ``matplotlib`` so that pip counts
-  it as matplotlib: what requires matplotlib is satisfied by it, and
-  installing it replaces a real matplotlib, or a real matplotlib it,
-  openly, rather than both writing ``matplotlib/`` into the same
-  ``site-packages``. Its version is the matplotlib version pltrs
-  implements with pltrs' as a local label (``3.11.2+pltrs.0.1.0``), and
-  it requires that pltrs.
+  (``python/alias``, with ``_pltrs_matplotlib_alias``), so that code
+  importing matplotlib by name (pandas, seaborn) runs on pltrs. It is
+  named ``matplotlib`` so that pip counts it as matplotlib: what requires
+  matplotlib is satisfied by it, and installing it replaces a real
+  matplotlib, or a real matplotlib it, openly, rather than both writing
+  ``matplotlib/`` into the same ``site-packages``. Its version is the
+  matplotlib version pltrs implements with pltrs' as a local label
+  (``3.11.2+pltrs.0.1.0``), and it requires that pltrs.
+
+``[tool.pltrs-backend]`` holds what both share (``urls``, and
+``license-files``, the patterns of the licence files every distribution
+carries), and a table per distribution: ``summary``, ``requires-python``,
+and optionally ``readme``, ``license`` (an SPDX expression),
+``keywords``, ``classifiers`` and ``dependencies``.
 """
 
 import pathlib
@@ -22,9 +28,6 @@ import tomllib
 
 #: The distributions, by the name ``-C distribution=...`` gives.
 DISTRIBUTIONS = ("pltrs", "matplotlib")
-
-#: The licence files every distribution carries, relative to the root.
-LICENSE_GLOBS = ("THIRD_PARTY.md", "LICENSES/*.txt")
 
 
 class Project:
@@ -38,7 +41,8 @@ class Project:
         self.root = pathlib.Path(root)
         self.name = name
         with open(self.root / "pyproject.toml", "rb") as file:
-            self.settings = tomllib.load(file)["tool"]["pltrs-backend"][name]
+            self.shared = tomllib.load(file)["tool"]["pltrs-backend"]
+        self.settings = self.shared[name]
 
     def _workspace_package(self):
         """The Cargo workspace's ``[workspace.package]`` table."""
@@ -75,24 +79,35 @@ class Project:
         return list(self.settings.get("dependencies", []))
 
     def license_files(self):
-        """The licence files, relative to the root, sorted."""
-        return sorted(
-            path.relative_to(self.root).as_posix()
-            for pattern in LICENSE_GLOBS for path in self.root.glob(pattern))
+        """The licence files, relative to the root, sorted. Each pattern
+        of ``license-files`` must match a file."""
+        found = set()
+        for pattern in self.shared["license-files"]:
+            matches = [path for path in self.root.glob(pattern) if path.is_file()]
+            if not matches:
+                raise ValueError(f"pltrs: the licence file pattern {pattern!r} matches nothing")
+            found.update(path.relative_to(self.root).as_posix() for path in matches)
+        return sorted(found)
 
     def metadata(self):
         """The core metadata (``METADATA``, version 2.4) as text."""
+        settings = self.settings
         lines = [
             "Metadata-Version: 2.4",
             f"Name: {self.name}",
             f"Version: {self.version}",
-            f"Summary: {self.settings['summary']}",
-            f"Requires-Python: {self.settings['requires-python']}",
-            f"Project-URL: Source, {self._workspace_package()['repository']}",
-            *(f"Requires-Dist: {requirement}" for requirement in self.dependencies),
-            *(f"License-File: {path}" for path in self.license_files()),
+            f"Summary: {settings['summary']}",
         ]
-        readme = self.settings.get("readme")
+        if "keywords" in settings:
+            lines.append(f"Keywords: {','.join(settings['keywords'])}")
+        if "license" in settings:
+            lines.append(f"License-Expression: {settings['license']}")
+        lines += [f"License-File: {path}" for path in self.license_files()]
+        lines += [f"Classifier: {classifier}" for classifier in settings.get("classifiers", [])]
+        lines.append(f"Requires-Python: {settings['requires-python']}")
+        lines += [f"Requires-Dist: {requirement}" for requirement in self.dependencies]
+        lines += [f"Project-URL: {label}, {url}" for label, url in self.shared["urls"].items()]
+        readme = settings.get("readme")
         if readme is None:
             return "\n".join(lines) + "\n"
         lines.append("Description-Content-Type: text/markdown")

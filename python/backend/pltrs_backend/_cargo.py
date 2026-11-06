@@ -6,7 +6,7 @@ build`` with the library's debug information left out, as a wheel ships
 without it), for the host or for the Rust target
 ``-C target=...`` (or ``CARGO_BUILD_TARGET``) names, or for both macOS
 architectures at once (``-C target=universal2``: the two libraries joined
-by ``lipo``).
+by ``lipo``), linked as ``_linker`` decides (``-C glibc=...``).
 
 The library cargo made is found from cargo's own report of what it
 built (``--message-format=json``), wherever the target directory is.
@@ -17,6 +17,8 @@ import os
 import pathlib
 import shutil
 import subprocess
+
+from . import _linker
 
 #: The two architectures of a universal2 library.
 UNIVERSAL2 = ("x86_64-apple-darwin", "aarch64-apple-darwin")
@@ -53,16 +55,23 @@ def requested_target(config_settings):
     return (config_settings or {}).get("target") or os.environ.get("CARGO_BUILD_TARGET")
 
 
-def _build_one(root, target):
-    """Builds the extension for *target* (None for the host) and returns
-    the library cargo wrote."""
+def requested_glibc(config_settings):
+    """The glibc version to link against (``-C glibc=...``), or None for
+    the toolchain's own."""
+    return (config_settings or {}).get("glibc")
+
+
+def _build_one(root, link):
+    """Builds the extension as *link* (a :class:`_linker.Link`) says and
+    returns the library cargo wrote."""
     command = [_cargo(), "rustc", "--profile", "extension", "-p", "pltrs-python", "--lib",
                "--message-format=json-render-diagnostics"]
-    if target:
-        command += ["--target", target]
-    command += ["--", "-C", "strip=debuginfo"]
+    if link.target:
+        command += ["--target", link.target]
+    command += ["--", "-C", "strip=debuginfo", *link.rustc_args]
     # cargo's progress and diagnostics go to the frontend's error stream.
-    process = subprocess.run(command, cwd=root, stdout=subprocess.PIPE, text=True)
+    process = subprocess.run(command, cwd=root, stdout=subprocess.PIPE, text=True,
+                             env={**os.environ, **link.environment})
     if process.returncode != 0:
         raise RuntimeError(f"pltrs: {' '.join(command)} failed")
     for line in process.stdout.splitlines():
@@ -77,15 +86,30 @@ def _build_one(root, target):
     raise RuntimeError("pltrs: cargo reported no pltrs_python library")
 
 
-def build_extension(root, target, scratch):
+def target_directory(root):
+    """cargo's target directory for the workspace at *root*."""
+    output = subprocess.run(
+        [_cargo(), "metadata", "--format-version", "1", "--no-deps", "--offline"],
+        cwd=root, check=True, capture_output=True, text=True).stdout
+    return pathlib.Path(json.loads(output)["target_directory"])
+
+
+def build_extension(root, target, scratch, glibc=None):
     """
     Builds the extension for *target* (a Rust target, ``universal2``, or
-    None for the host) and returns the library, in *scratch* when it was
-    joined there.
+    None for the host), against glibc *glibc* if given, and returns the
+    library, in *scratch* when it was joined there.
     """
     if target != "universal2":
-        return _build_one(root, target)
-    halves = [str(_build_one(root, half)) for half in UNIVERSAL2]
+        # The linker program stays where it is from build to build, so
+        # that cargo does not take a new path for a change and relink.
+        programs = target_directory(root) / "pltrs-backend"
+        programs.mkdir(parents=True, exist_ok=True)
+        link = _linker.settings(target, host_target(root), glibc, programs)
+        return _build_one(root, link)
+    if glibc is not None:
+        raise ValueError("pltrs: glibc= applies to Linux targets only")
+    halves = [str(_build_one(root, _linker.Link(half))) for half in UNIVERSAL2]
     joined = pathlib.Path(scratch) / "libpltrs_python.dylib"
     subprocess.run(["lipo", "-create", "-output", str(joined), *halves], check=True)
     return joined

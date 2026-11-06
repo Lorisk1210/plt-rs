@@ -12,6 +12,7 @@
 //! cargo xtask mpl-tests [--strict]               matplotlib's own tests: ported, n/a or unaccounted
 //! cargo xtask rust-coverage [--strict] [--no-doc] matplotlib's public API mapped to pltrs (Rust)
 //! cargo xtask python [--release] | setup | test   build pltrs (Python)'s extension, make its venvs, smoke-test it
+//! cargo xtask python wheels [TARGET...]           build and check the release's wheels and sdist
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
 //!                                                 matplotlib's own test suite run against pltrs (or matplotlib)
 //! cargo xtask ecosystem [setup] [PYTEST ARGS...]  pandas and seaborn drawing with pltrs as matplotlib
@@ -80,7 +81,7 @@ fn main() -> ExitCode {
             eprintln!("       cargo xtask bench --rewrite-report [--to DIR]");
             eprintln!("       cargo xtask mpl-tests [--strict]");
             eprintln!("       cargo xtask rust-coverage [--strict] [--no-doc]");
-            eprintln!("       cargo xtask python [--release] | setup | test");
+            eprintln!("       cargo xtask python [--release] | setup | test | wheels [TARGET...]");
             eprintln!(
                 "       cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]"
             );

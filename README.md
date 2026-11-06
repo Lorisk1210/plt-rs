@@ -251,19 +251,42 @@ package, only Python 3.12+ and cargo (the toolchain
 as `cargo rustc`, leaving the debug information out) and
 packs `python/pltrs` with the library as `pltrs/_native.abi3.so`
 (`_native.pyd` on Windows) into a wheel tagged `cp312-abi3-<platform>`:
-one wheel for CPython 3.12 and every later version. The platform comes
-from what the library was built for, never from the Python running the
-build:
+one wheel for CPython 3.12 and every later version. The platform tag is
+read from the library itself, never from the Python running the build,
+and checked the way auditwheel and delocate check wheels, so that it
+claims no more than the library delivers:
 
 | system  | platform tag |
 |---------|--------------|
-| Linux   | `manylinux_2_<N>_<arch>`, `N` the newest glibc the library's symbols need (build in an old distribution, or a manylinux container, for wheels that install widely); `linux_<arch>` if it needs a library manylinux does not allow |
-| macOS   | `macosx_<target>_<arch>` (`arm64`, `x86_64`), the target `MACOSX_DEPLOYMENT_TARGET` or rustc's default (10.12 on x86_64, 11.0 on arm64); `-C target=universal2` builds both architectures and joins them with `lipo` into one `universal2` wheel |
-| Windows | `win_amd64`, `win_arm64`, `win32`; the extension links the stable ABI's `python3.dll` without an import library (`raw-dylib`) |
+| Linux   | `manylinux_2_<N>_<arch>`, the oldest of auditwheel's policies whose glibc and libgcc versions cover every symbol the library needs (with the alias `manylinux2014` for glibc 2.17); `musllinux_1_2_<arch>` for musl; `linux_<arch>` if it needs a library no policy allows. A symbol the C library linked against lacks stops the build |
+| macOS   | `macosx_<version>_<arch>` (`arm64`, `x86_64`), the oldest macOS each slice of the library names (`MACOSX_DEPLOYMENT_TARGET`, or rustc's 10.12 on x86_64 and 11.0 on arm64); `-C target=universal2` builds both architectures and joins them with `lipo` into one `universal2` wheel. Libraries outside the system's stop the build |
+| Windows | `win_amd64`, `win_arm64`, `win32`, from the library's architecture; it links the stable ABI's `python3.dll` without an import library (`raw-dylib`), never a `python3<minor>.dll` |
 
 `-C target=<Rust target>` (or `CARGO_BUILD_TARGET`) cross-builds, when
 the Rust target and its linker are installed. `python -m build` and uv
-work the same way.
+work the same way, and `python -m build --sdist` makes the source
+distribution: the workspace the extension needs, which builds offline.
+
+A wheel built on a new Linux needs that Linux's glibc. Wheels that
+install on every Linux since glibc 2.17 (CentOS 7, Ubuntu 14.04) are
+linked against glibc 2.17's symbols by [Zig](https://ziglang.org),
+without root or containers, for x86_64 or aarch64 from either:
+
+```sh
+python/tools/zig.sh install                       # a pinned Zig in ~/.local/zig
+ZIG=$(python/tools/zig.sh path) pip wheel . -C glibc=2.17
+ZIG=$(python/tools/zig.sh path) pip wheel . -C glibc=2.17 -C target=aarch64-unknown-linux-gnu
+ZIG=$(python/tools/zig.sh path) pip wheel . -C target=x86_64-unknown-linux-musl
+cargo xtask python wheels      # the sdist and every wheel of this system, into target/wheels
+```
+
+`python/tools/check_dist.py` checks wheels and sdists as an index would
+(file names, `RECORD`, core metadata, licence files, tags), and with
+`--install` installs them into a fresh venv and runs pltrs' smoke tests
+and a matplotlib program there. The CI workflow
+(`.github/workflows/wheels.yml`) builds and tests the wheels of every
+platform when started by hand or by a version tag, and publishes them;
+[`RELEASING.md`](RELEASING.md) says how a release is made.
 
 ### Running pandas, seaborn and other matplotlib code unchanged
 

@@ -980,6 +980,7 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         self.set_facecolor(c)
         self.set_edgecolor(c)
+        self.set_hatchcolor(c)
 
     def set_alpha(self, alpha):
         if np.iterable(alpha):

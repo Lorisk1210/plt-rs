@@ -23,7 +23,7 @@ use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
 use crate::rc::{ColorOrAuto, RcParams};
-use crate::text::{BoxPlacement, TextDrawError, draw_laid_out, has_line_measurer};
+use crate::text::{BoxPlacement, TextBoxPatch, TextDrawError, draw_laid_out, has_line_measurer};
 use crate::ticker::AxisName;
 use crate::transforms::program_calls;
 
@@ -122,6 +122,9 @@ impl AxisPainter<'_> {
                 };
                 if shown {
                     groups.part(ctx, TickPart::label(!label.first_side), |ctx| {
+                        if let Some(bbox) = &style.label_bbox {
+                            self.draw_text_box(ctx, bbox, &label.text, style.label_size, rc);
+                        }
                         draw_text(
                             ctx,
                             self.axes_id,
@@ -152,18 +155,31 @@ impl AxisPainter<'_> {
     /// The box behind the axis label `label`, if it has one (drawn first
     /// by matplotlib's `Text.draw`, with the box's own path effects).
     fn draw_label_box(&self, ctx: &mut DrawContext<'_>, label: &PlacedText, rc: &RcParams) {
-        let Some(bbox) = &self.axis.label.bbox else {
-            return;
-        };
-        let (corner, size) = label.laid_out.block.frame;
+        if let Some(bbox) = &self.axis.label.bbox {
+            self.draw_text_box(ctx, bbox, label, self.axis.label.font.size, rc);
+        }
+    }
+
+    /// The box `bbox` behind the axis text `text` of `fontsize` points
+    /// (an axis label or a tick label, whose `Text.draw` draws it first,
+    /// with the box's own path effects).
+    fn draw_text_box(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        bbox: &TextBoxPatch,
+        text: &PlacedText,
+        fontsize: f64,
+        rc: &RcParams,
+    ) {
+        let (corner, size) = text.laid_out.block.frame;
         let placement = BoxPlacement {
-            anchor: label.anchor,
+            anchor: text.anchor,
             corner,
             size,
-            rotation: label.rotation,
-            fontsize_px: ctx.layout().points_to_pixels(self.axis.label.font.size),
+            rotation: text.rotation,
+            fontsize_px: ctx.layout().points_to_pixels(fontsize),
         };
-        // Axis labels are not clipped.
+        // The texts of an axis are not clipped.
         let mut owner = ArtistBase::default();
         owner.clip_on = false;
         owner.parent = Some(self.axes_id);

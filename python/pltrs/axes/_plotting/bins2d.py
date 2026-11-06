@@ -241,9 +241,11 @@ class Bins2dMixin:
             mapping, bool(marginals))
         collection = wrap(self, native, mcoll.PolyCollection)
         collection._attach_native_mapping(colorizer=made)
-        collection._internal_update(cbook.normalize_kwargs(
-            {'alpha': alpha, 'linewidths': linewidths, 'edgecolors': edgecolors,
-             **kwargs}, mcoll.PolyCollection))
+        # matplotlib makes the collection with these, then sets the other
+        # properties, which may set them again (``linewidth=``).
+        collection._internal_update(
+            {'alpha': alpha, 'linewidths': linewidths, 'edgecolors': edgecolors})
+        collection._internal_update(kwargs)
         return collection
 
     @_api.make_keyword_only("3.10", "range")

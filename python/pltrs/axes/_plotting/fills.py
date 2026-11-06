@@ -235,6 +235,9 @@ class FillsMixin:
             _live_transforms.given_to_native(kwargs.get("transform")))
         collection = wrap(self, native, mcoll.FillBetweenPolyCollection)
         collection.t_direction = ind_dir
+        if color is not None:
+            # A colour given sets the hatches' too (`Collection.set_color`).
+            collection.set_hatchcolor(color)
         collection._internal_update({**per_polygon, **kwargs})
         return collection
 

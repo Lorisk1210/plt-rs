@@ -42,7 +42,8 @@ artist_handle!(AnyImage, AxesImage, BboxImage, FigureImage);
 impl From<ImageError> for PyErr {
     /// matplotlib's `ValueError` for images it cannot make or draw; its
     /// `TypeError`s and messages for the meshes `pcolor` and `pcolormesh`
-    /// cannot fit to their colours (`_pcolorargs`).
+    /// cannot fit to their colours (`_pcolorargs`); numpy's `IndexError`
+    /// for a hexbin value missing.
     fn from(err: ImageError) -> Self {
         match err {
             ImageError::MeshShape {
@@ -58,6 +59,9 @@ impl From<ImageError> for PyErr {
                 "Dimensions of C {values:?} are incompatible with X ({nx}) and/or Y ({ny})"
             )),
             ImageError::IncompatibleCoordinates => PyErr::type_error("Incompatible X, Y inputs"),
+            missing @ ImageError::MissingValue { .. } => {
+                PyErr::new(ExceptionKind::IndexError, missing.to_string())
+            }
             other => PyErr::value_error(other.to_string()),
         }
     }

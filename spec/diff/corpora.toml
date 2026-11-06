@@ -1,0 +1,97 @@
+# The corpora of `cargo xtask diff --corpus`: programs that users of
+# matplotlib wrote, run under matplotlib and under pltrs (Python) and
+# compared as the gallery is (`spec/diff/corpora.py` reads this file).
+#
+# Each table is one corpus, fetched from its repository at `commit` into
+# `target/diff/corpora/<name>/tree` (a sparse checkout of the `fetch`
+# patterns, git's `--no-cone` syntax) and checked against `sha256`, the
+# SHA-256 of the `sha256sum` lines of every file fetched, sorted by path
+# (`find . -type f -not -path './.git' | sort | xargs sha256sum | sha256sum`,
+# in the tree, under the C locale). Only corpora whose licence allows
+# running and fixing against them are listed, and no program needing the
+# network at run time.
+#
+# * `programs`: the programs, globs in the tree. A `.py` file runs whole, as
+#   a gallery example does; a notebook (`.ipynb`) or a Markdown page with
+#   ```python blocks (`.md`) runs cell by cell, an exception stopping its
+#   cell only, and every figure a cell leaves open is compared and closed
+#   at its end, as Jupyter's inline backend shows and closes them.
+# * `exclude`: globs of programs left out, each with its reason.
+# * `outputs`: directories the programs write their figures into; each run
+#   gets them empty (the rest of the tree reaches it read-only).
+# * `data-urls`: prefixes of URLs at which programs download files of the
+#   repository itself, read from the fetched tree instead.
+#
+# Every program runs in its own directory, in a copy of the tree made of
+# links, so that the paths it reads and writes relative to it work as in
+# its repository.
+
+[rougier-book]
+title = "Nicolas P. Rougier, Scientific Visualization: Python + Matplotlib (2021), the book's code"
+repository = "https://github.com/rougier/scientific-visualization-book"
+commit = "62fa569f30333c817c13e4dc757877c1192fd15a"
+licence = "BSD-2-Clause (the code, LICENSE.txt; the book's text, CC BY-NC-SA 4.0, is not fetched)"
+fetch = ["/LICENSE.txt", "/code/"]
+sha256 = "18bc6bd05a3f271c556561c4ae8ce73f3a9508de1eff53109de61df1b8a08246"
+programs = ["code/**/*.py"]
+exclude = [
+    "code/unsorted/earthquakes.py",  # downloads USGS's feed of earthquakes
+    "code/animation/earthquakes.py",  # the same
+    "code/unsorted/github-activity.py",  # downloads GitHub's activity pages
+    "code/unsorted/git-commits.py",  # reads the history of its own git checkout
+    "code/showcases/escher-movie.py",  # the 250 frames of a movie: longer than a run may take
+]
+outputs = ["figures"]
+
+[cheatsheets]
+title = "matplotlib's cheat sheets and handouts, their figures' scripts"
+repository = "https://github.com/matplotlib/cheatsheets"
+commit = "e1f77b5067cb207359b8637188f1f2ad4a260e60"
+licence = "BSD-2-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/scripts/", "/styles/", "/fonts/"]
+sha256 = "c54520ad989cb2f5a6acffd23513946861998ff22e2ffb9280b6f688cf0ecb4d"
+programs = ["scripts/*.py"]
+exclude = []
+outputs = ["figures"]
+
+[matplotlib-tutorial]
+title = "Nicolas P. Rougier, Matplotlib tutorial, its scripts"
+repository = "https://github.com/rougier/matplotlib-tutorial"
+commit = "a47339e2baefc330aedb160309c7dbf1da1bed31"
+licence = "CC BY-SA 4.0 (README.rst: all code and material)"
+fetch = ["/README.rst", "/scripts/"]
+sha256 = "5d46e1361fc22c3b1271f20c480885502aac87226f0e73473028b6650cd8084f"
+programs = ["scripts/*.py"]
+exclude = [
+    "scripts/earthquakes.py",  # downloads USGS's feed of earthquakes
+    "scripts/check-installation.py",  # checks the versions of an installation, with distutils
+]
+outputs = ["figures"]
+
+[data-science-handbook]
+title = "Jake VanderPlas, Python Data Science Handbook (2nd edition), chapter 4: Visualization with Matplotlib"
+repository = "https://github.com/jakevdp/PythonDataScienceHandbook"
+commit = "d66231454ef753818dc9213c9b5942e067266966"
+licence = "MIT (the code, LICENSE-CODE; the text, CC BY-NC-ND 3.0, is only read for the code cells)"
+fetch = ["/LICENSE-CODE", "/notebooks/04.*.ipynb", "/notebooks/data/"]
+sha256 = "3e3fc5e81069df5523619cebba1200de22ab253fd14e66b23fdb15dd976d9551"
+programs = ["notebooks/04.*.ipynb"]
+exclude = [
+    "notebooks/04.14-*",  # seaborn's chapter: seaborn is in neither venv
+]
+outputs = []
+
+[python-graph-gallery]
+title = "Yan Holtz, The Python Graph Gallery, its posts' code"
+repository = "https://github.com/holtzy/The-Python-Graph-Gallery"
+commit = "c5af9708634098b16e28d007a561c6007b4c939e"
+licence = "0BSD (LICENSE)"
+fetch = ["/LICENSE", "/content/posts/*/index.md", "/static/data/*.csv"]
+sha256 = "678aed762c002603a5eb97f38cb1e79febadf4c0a536de0cb96c9a49ff640646"
+programs = ["content/posts/*/index.md"]
+exclude = []
+outputs = ["static/graph"]
+data-urls = [
+    "https://raw.githubusercontent.com/holtzy/The-Python-Graph-Gallery/master/",
+    "https://raw.githubusercontent.com/holtzy/The-Python-Graph-Gallery/refs/heads/master/",
+]

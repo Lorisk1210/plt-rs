@@ -94,7 +94,7 @@ impl Figure {
             size: self.size_pixels(),
             dpi: self.dpi(),
         };
-        self.draw(&mut renderer)
+        crate::text::font_notes::without_rendering(|| self.draw(&mut renderer))
     }
 }
 

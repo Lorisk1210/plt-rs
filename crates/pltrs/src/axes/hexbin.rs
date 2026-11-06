@@ -278,7 +278,10 @@ struct Points {
 }
 
 /// The points (and values) with every coordinate finite (matplotlib's
-/// `delete_masked_points`), kept in place.
+/// `delete_masked_points`), kept in place. Values of another number than
+/// the points are no part of that, as in matplotlib: the `i`-th point kept
+/// takes the `i`-th value, the values left over are ignored, and too few
+/// are an error.
 fn kept_points(
     mut x: Vec<f64>,
     mut y: Vec<f64>,
@@ -290,32 +293,34 @@ fn kept_points(
             points: x.len(),
         });
     }
-    if let Some(values) = &values
-        && values.len() != x.len()
-    {
-        return Err(ImageError::ValueCount {
-            values: values.len(),
-            points: x.len(),
-        });
-    }
-    let mut kept = 0;
-    for i in 0..x.len() {
-        let finite = x[i].is_finite()
-            && y[i].is_finite()
-            && values.as_ref().is_none_or(|v| v[i].is_finite());
-        if finite {
-            x[kept] = x[i];
-            y[kept] = y[i];
-            if let Some(values) = &mut values {
-                values[kept] = values[i];
+    let masked = values.as_ref().filter(|values| values.len() == x.len());
+    let finite: Vec<bool> = (0..x.len())
+        .map(|i| x[i].is_finite() && y[i].is_finite() && masked.is_none_or(|v| v[i].is_finite()))
+        .collect();
+    let paired = masked.is_some();
+    let keep = |data: &mut Vec<f64>| {
+        let mut kept = 0;
+        for (i, &finite) in finite.iter().enumerate() {
+            if finite {
+                data[kept] = data[i];
+                kept += 1;
             }
-            kept += 1;
         }
-    }
-    x.truncate(kept);
-    y.truncate(kept);
+        data.truncate(kept);
+    };
+    keep(&mut x);
+    keep(&mut y);
     if let Some(values) = &mut values {
-        values.truncate(kept);
+        if paired {
+            keep(values);
+        } else if values.len() < x.len() {
+            return Err(ImageError::MissingValue {
+                index: values.len(),
+                values: values.len(),
+            });
+        } else {
+            values.truncate(x.len());
+        }
     }
     Ok(Points { x, y, values })
 }
@@ -390,7 +395,34 @@ mod tests {
         let kept = kept_points(vec![1.0, f64::NAN], vec![2.0, 3.0], None).unwrap();
         assert_eq!((kept.x, kept.y, kept.values), (vec![1.0], vec![2.0], None));
         assert!(kept_points(vec![1.0], Vec::new(), None).is_err());
-        assert!(kept_points(vec![1.0], vec![1.0], Some(Vec::new())).is_err());
+        assert_eq!(
+            kept_points(vec![1.0], vec![1.0], Some(Vec::new())).err(),
+            Some(ImageError::MissingValue {
+                index: 0,
+                values: 0
+            })
+        );
+    }
+
+    #[test]
+    fn values_of_another_number_than_the_points_follow_the_points_kept() {
+        let kept = kept_points(
+            vec![1.0, 2.0, f64::NAN, 4.0, 5.0],
+            vec![1.0; 5],
+            Some(vec![1.0, f64::NAN, 3.0, 4.0, 5.0, 6.0]),
+        )
+        .unwrap();
+        assert_eq!(kept.x, [1.0, 2.0, 4.0, 5.0]);
+        let values = kept.values.unwrap();
+        assert_eq!((values.len(), values[0], values[2]), (4, 1.0, 3.0));
+        assert!(values[1].is_nan());
+        assert_eq!(
+            kept_points(vec![1.0, f64::NAN, 3.0], vec![1.0; 3], Some(vec![0.5])).err(),
+            Some(ImageError::MissingValue {
+                index: 1,
+                values: 1
+            })
+        );
     }
 
     #[test]

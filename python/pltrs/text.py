@@ -52,6 +52,24 @@ _BOX_ALIASES = {
 }
 
 
+def _check_bbox_arguments(rectprops):
+    """
+    Raise the `TypeError` matplotlib's `Text.set_bbox` raises for box
+    properties naming arguments it gives the box itself: it makes the box
+    as ``FancyBboxPatch((0, 0), 1, 1, boxstyle=..., transform=...,
+    **props)``.
+    """
+    from .patches import FancyBboxPatch
+    if "transform" in rectprops:
+        raise TypeError(
+            f"{FancyBboxPatch.__module__}.{FancyBboxPatch.__qualname__}() got "
+            "multiple values for keyword argument 'transform'")
+    for key in rectprops:
+        if key in ("xy", "width", "height"):
+            raise TypeError(
+                f"FancyBboxPatch.__init__() got multiple values for argument '{key}'")
+
+
 def _rc(name):
     """The rcParam *name* (the package's rcParams, imported once it exists)."""
     from . import rcParams
@@ -339,8 +357,9 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             _text.set_bbox(self._native, None)
             return
         # matplotlib copies the properties first (``rectprops.copy()``).
-        props = {_BOX_ALIASES.get(key, key): value
-                 for key, value in rectprops.copy().items()}
+        given = rectprops.copy()
+        _check_bbox_arguments(given)
+        props = {_BOX_ALIASES.get(key, key): value for key, value in given.items()}
         boxstyle = props.get("boxstyle")
         if boxstyle is not None:
             from .patches import BoxStyle

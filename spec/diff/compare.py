@@ -17,7 +17,8 @@ matplotlib, as ``Difference``s:
   pltrs does not;
 * ``stdout``: other printed output;
 * ``image``: a figure missing, of another size, or drawn more than
-  ``MAX_RMS`` away from matplotlib's.
+  ``MAX_RMS`` away from matplotlib's; for a corpus' program, a file it
+  writes missing or extra, or a PNG it writes more than ``MAX_RMS`` away.
 
 Each difference has a ``cause``, the key the report groups it by: its kind,
 the function or attribute the statement calls (``get_linewidth``), and
@@ -518,6 +519,27 @@ def _compare_figures(program: str, mpl: dict, pltrs: dict, mpl_dir: pathlib.Path
             yield Difference(program, "image", "image: RMS > 1", f"figure {number}", f"RMS {rms:.3f}")
 
 
+def _compare_written(program: str, mpl: dict, pltrs: dict, mpl_dir: pathlib.Path,
+                     pltrs_dir: pathlib.Path) -> Iterator[Difference]:
+    """The files a corpus' program wrote in its tree: the same ones, and
+    the same pixels in each PNG."""
+    a, b = set(mpl.get("written", [])), set(pltrs.get("written", []))
+    if a != b:
+        yield Difference(program, "image", "image: other files written", "files",
+                         f"missing {sorted(a - b)[:5]}, extra {sorted(b - a)[:5]}")
+    for name in sorted(a & b):
+        if name.lower().endswith(".png"):
+            try:
+                rms, why = image_rms(mpl_dir / "tree" / name, pltrs_dir / "tree" / name)
+            except OSError as err:
+                yield Difference(program, "image", "image: written PNG unreadable", name, str(err)[:300])
+                continue
+            if rms is None:
+                yield Difference(program, "image", "image: written PNG of other size", name, why)
+            elif rms > MAX_RMS:
+                yield Difference(program, "image", "image: written PNG RMS > 1", name, f"RMS {rms:.3f}")
+
+
 def differences(program: str, path: pathlib.Path, mpl: dict, pltrs: dict, mpl_dir: pathlib.Path,
                 pltrs_dir: pathlib.Path) -> list[Difference]:
     """Every difference of the run under pltrs from the run under matplotlib."""
@@ -529,4 +551,5 @@ def differences(program: str, path: pathlib.Path, mpl: dict, pltrs: dict, mpl_di
     found += _compare_warnings(program, source, mpl, pltrs)
     found += _compare_stdout(program, mpl, pltrs)
     found += _compare_figures(program, mpl, pltrs, mpl_dir, pltrs_dir)
+    found += _compare_written(program, mpl, pltrs, mpl_dir, pltrs_dir)
     return found

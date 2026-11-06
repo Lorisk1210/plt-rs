@@ -355,8 +355,11 @@ default: %(va)s
         """
         if bbox_extra_artists is None:
             # pltrs (Rust) unites the boxes of the figure's artists, axes
-            # and subfigures, in pixels.
-            extent = _figure_layout.figure_tightbbox(self._native)
+            # and subfigures, in pixels, measuring with the renderer's
+            # text metrics cache.
+            with _measuring_with(renderer if renderer is not None
+                                 else _layout_renderer(self)):
+                extent = _figure_layout.figure_tightbbox(self._native)
             boxes = [] if extent is None else [Bbox.from_extents(*extent)]
             # matplotlib measures each Axes with its get_tightbbox, which
             # applies its aspect and places its ticks anew.

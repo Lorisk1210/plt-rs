@@ -129,6 +129,11 @@ must reproduce them.
   compares every value, type, exception, warning, printed line and figure
   (RMS ≤ 1); `target/diff/report.md` groups the differences by cause.
   Intended ones go to `spec/diff/allowlist.txt`, with the proof.
+  `cargo xtask diff --corpus [NAME...]` runs programs users wrote instead:
+  the corpora of `spec/diff/corpora.toml` (books', cheat sheets' and
+  galleries' code at a commit, with licence and SHA-256), fetched with git
+  into `target/diff/corpora`; the report counts each corpus' clean
+  programs.
 * Signatures and docstrings: `cargo xtask diff --docs [PATTERN...]
   [--failures] [--strict]` compares every public callable's
   `inspect.signature`, `__doc__` (after matplotlib's interpolation) and

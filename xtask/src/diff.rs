@@ -1,6 +1,7 @@
-//! `cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce]
-//! [--baseline REPORT] [--jobs N] [--no-build] [--coverage | --docs [--strict]]`:
-//! the differential tester of pltrs (Python) against matplotlib.
+//! `cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...]
+//! [--failures] [--reduce] [--baseline REPORT] [--jobs N] [--no-build]
+//! [--coverage | --docs [--strict]]`: the differential tester of pltrs
+//! (Python) against matplotlib.
 //!
 //! Programs run under real matplotlib (the reference venv) and under pltrs
 //! (Python) (the pltrs venv, the import changed, in matplotlib's look), and
@@ -12,6 +13,14 @@
 //! run whole) and programs generated from matplotlib's API
 //! (`spec/diff/generators`, run statement by statement). Put TeX and
 //! Ghostscript on `PATH`, as the reference runs had them.
+//!
+//! `--corpus` runs programs users of matplotlib wrote instead: the corpora
+//! of `spec/diff/corpora.toml` (books', cheat sheets' and galleries' code,
+//! each at a commit, with its licence and SHA-256), which the driver
+//! fetches with git into `target/diff/corpora` and runs in a copy of their
+//! trees, notebooks and Markdown pages cell by cell. A NAME after it (any
+//! PATTERN naming a corpus) keeps that corpus; the report then counts each
+//! corpus' programs and clean ones.
 //!
 //! The work is done by `spec/diff/driver.py` in the reference venv; this
 //! command builds the extension first (release, as `mpl-suite` does;
@@ -45,8 +54,16 @@ use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 
 /// The flags choosing the programs a run takes, with the driver's names
-/// of their suites; without either (or with both), a run takes both.
-const SUITES: [(&str, &str); 2] = [("--gallery", "gallery"), ("--generated", "generated")];
+/// of their suites; without any (or with the first two), a run takes the
+/// first two. The corpora run alone.
+const SUITES: [(&str, &str); 3] = [
+    ("--gallery", "gallery"),
+    ("--generated", "generated"),
+    ("--corpus", CORPUS),
+];
+
+/// The driver's name of the corpora's suite.
+const CORPUS: &str = "corpus";
 
 /// The flags passed on to the script as they are, each with its value.
 const VALUE_FLAGS: [&str; 2] = ["--baseline", "--jobs"];
@@ -149,10 +166,17 @@ fn run_diff(args: &[String]) -> Result<(), String> {
             || root.join("target/refs/matplotlib-dl/matplotlib-3.11.2"),
             PathBuf::from,
         );
+        let suite = suite_of(&suites)?;
+        if suite == CORPUS && mode == Mode::Coverage {
+            return Err(
+                "--coverage measures the gallery and the generated programs, not the corpora"
+                    .to_owned(),
+            );
+        }
         script
             .arg("--gallery")
             .arg(sdist.join("galleries"))
-            .args(["--suite", suite_of(&suites)]);
+            .args(["--suite", suite]);
     } else if !suites.is_empty() {
         return Err("--docs takes no suite: it compares callables, not programs".to_owned());
     }
@@ -168,15 +192,19 @@ fn run_diff(args: &[String]) -> Result<(), String> {
 }
 
 /// The driver's name of the programs the suite flags `given` choose: one
-/// suite when only its flag is given, else both (`all`).
-fn suite_of(given: &[&str]) -> &'static str {
+/// suite when only its flag is given, else the gallery and the generated
+/// programs (`all`); the corpora go with no other suite.
+fn suite_of(given: &[&str]) -> Result<&'static str, String> {
     match SUITES
         .iter()
         .filter(|(flag, _)| given.contains(flag))
         .collect::<Vec<_>>()[..]
     {
-        [(_, suite)] => suite,
-        _ => "all",
+        [(_, suite)] => Ok(suite),
+        [_, _, ..] if given.contains(&"--corpus") => Err(
+            "--corpus runs the corpora alone: give it without --gallery or --generated".to_owned(),
+        ),
+        _ => Ok("all"),
     }
 }
 
@@ -186,10 +214,12 @@ mod tests {
 
     #[test]
     fn suite_flags_add_up() {
-        assert_eq!(suite_of(&[]), "all");
-        assert_eq!(suite_of(&["--gallery"]), "gallery");
-        assert_eq!(suite_of(&["--generated", "--generated"]), "generated");
-        assert_eq!(suite_of(&["--gallery", "--generated"]), "all");
+        assert_eq!(suite_of(&[]), Ok("all"));
+        assert_eq!(suite_of(&["--gallery"]), Ok("gallery"));
+        assert_eq!(suite_of(&["--generated", "--generated"]), Ok("generated"));
+        assert_eq!(suite_of(&["--gallery", "--generated"]), Ok("all"));
+        assert_eq!(suite_of(&["--corpus"]), Ok("corpus"));
+        assert!(suite_of(&["--corpus", "--gallery"]).is_err());
     }
 
     #[test]

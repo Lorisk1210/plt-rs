@@ -69,6 +69,14 @@ pub enum ImageError {
         /// Number of points.
         points: usize,
     },
+    /// Fewer hexbin values than points: the first point without one has
+    /// this index (matplotlib's `IndexError` reading `C[i]`).
+    MissingValue {
+        /// The index of the point.
+        index: usize,
+        /// Number of values.
+        values: usize,
+    },
     /// Both a norm and explicit `vmin`/`vmax` were given.
     NormWithLimits,
     /// An unknown or invalid colormap.
@@ -155,6 +163,12 @@ impl fmt::Display for ImageError {
             }
             Self::ValueCount { values, points } => {
                 write!(f, "{values} values given for {points} points")
+            }
+            Self::MissingValue { index, values } => {
+                write!(
+                    f,
+                    "index {index} is out of bounds for axis 0 with size {values}"
+                )
             }
             Self::NormWithLimits => f.write_str(NORM_WITH_LIMITS),
             Self::Colormap(err) => err.fmt(f),

@@ -16,6 +16,7 @@ use super::{DrawErrors, Figure};
 use crate::axes::Axes;
 use crate::colors::Color;
 use crate::rc::{ColorOrAuto, Dpi, SavefigBbox};
+use crate::text::font_notes::{self, PreDraw};
 
 /// What a save changes on the figure, put back when dropped (also when
 /// rendering fails).
@@ -81,10 +82,16 @@ struct Page {
     height: f64,
     /// The save resolution (images of vector formats are rasterized at it).
     dpi: f64,
-    /// Whether matplotlib draws the figure once before printing it,
-    /// without rendering (with a layout engine, or to cut it to its tight
-    /// box): a draw failing there fails before anything is printed.
-    predrawn: bool,
+    /// The draw matplotlib makes before the print, if it makes one.
+    pre_draw: Option<PreDraw>,
+}
+
+/// What a print makes: matplotlib's raster prints draw with their
+/// canvas' renderer, its vector prints with renderers of their own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Output {
+    Raster,
+    Vector,
 }
 
 /// The figure's colour `figure`, unless the rcParam asks for a specific
@@ -134,7 +141,12 @@ impl Figure {
     /// printed. The figure is drawn at `canvas_dpi` (the save resolution
     /// for raster output, 72 for the vector formats, which also measure
     /// the tight box at 72 dpi).
-    fn begin_print(&self, options: &SaveOptions, canvas_dpi: Option<f64>) -> (Saving<'_>, Page) {
+    fn begin_print(
+        &self,
+        options: &SaveOptions,
+        canvas_dpi: Option<f64>,
+        output: Output,
+    ) -> (Saving<'_>, Page) {
         let rc = crate::rc::params();
         let dpi = self.save_dpi(options);
         let canvas_dpi = canvas_dpi.unwrap_or(dpi);
@@ -176,14 +188,22 @@ impl Figure {
         // prints it without the engine: the program's tick helpers see
         // both draws.
         let predrawn = self.layout_engine().is_some();
+        // The first draw of a vector print measures with a renderer of
+        // its own.
+        let first_draw = |draw: &dyn Fn()| match output {
+            Output::Raster => draw(),
+            Output::Vector => font_notes::with_renderer_of_its_own(draw),
+        };
         match bbox {
             // The draw measuring the figure.
-            Some(BboxInches::Tight) => self.layout(),
+            Some(BboxInches::Tight) => first_draw(&|| self.layout()),
             // The layout the window is cut from, at the print resolution.
             Some(BboxInches::Inches(_)) => {
                 self.state_mut().draws_per_layout = usize::from(predrawn);
                 // A hook stopping the draw leaves the window as it was.
-                let _ = self.prepare_layout();
+                first_draw(&|| {
+                    let _ = self.prepare_layout();
+                });
             }
             None => {}
         }
@@ -204,16 +224,21 @@ impl Figure {
             state.draws_per_layout = 2;
         }
         drop(state);
-        let predrawn = predrawn || bbox == Some(BboxInches::Tight);
-        (
-            saving,
-            Page {
-                width,
-                height,
-                dpi,
-                predrawn,
-            },
-        )
+        let pre_draw = match (window, output) {
+            // The figure was measured for its window, which matplotlib
+            // prints with a renderer of the window's size.
+            (Some(_), _) if predrawn || bbox == Some(BboxInches::Tight) => Some(PreDraw::Measured),
+            (Some(_), _) => None,
+            (None, Output::Raster) => predrawn.then_some(PreDraw::SameRenderer),
+            (None, Output::Vector) => predrawn.then_some(PreDraw::OwnRenderers),
+        };
+        let page = Page {
+            width,
+            height,
+            dpi,
+            pre_draw,
+        };
+        (saving, page)
     }
 
     /// Renders the figure as [`Figure::savefig_with`] would for raster
@@ -242,9 +267,9 @@ impl Figure {
         &self,
         options: SaveOptions,
     ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
-        let (saving, page) = self.begin_print(&options, None);
+        let (saving, page) = self.begin_print(&options, None, Output::Raster);
         let mut canvas = Self::raster_canvas_sized(page.width, page.height, page.dpi)?;
-        let drawn = self.draw_without_event(&mut canvas);
+        let drawn = font_notes::predrawn(page.pre_draw, || self.draw_without_event(&mut canvas));
         let problems = DrawErrors::with_refused_memory(drawn, &mut canvas, self.root.id()).err();
         let printed = self.canvas().printing(canvas).map_err(SaveError::Backend);
         drop(saving);
@@ -306,10 +331,10 @@ impl Figure {
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
         drawn: impl FnOnce(&R),
     ) -> Result<R, SaveError> {
-        let (saving, page) = self.begin_print(options, canvas_dpi);
+        let (saving, page) = self.begin_print(options, canvas_dpi, Output::Vector);
         let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
         let result = self.draw_mixed(&mut renderer, page);
-        if result.is_ok() || !page.predrawn {
+        if result.is_ok() || page.pre_draw.is_none() {
             drawn(&renderer);
         }
         result?;
@@ -328,7 +353,8 @@ impl Figure {
         let core_fonts = document.afm_directory();
         crate::text::with_afm_metrics(core_fonts, || {
             crate::text::without_hinting(|| {
-                let (saving, page) = self.begin_print(options, Some(POINTS_PER_INCH));
+                let (saving, page) =
+                    self.begin_print(options, Some(POINTS_PER_INCH), Output::Vector);
                 document
                     .new_page(page.width, page.height, page.dpi)
                     .map_err(SaveError::Vector)?;
@@ -349,7 +375,8 @@ impl Figure {
             page.dpi,
             super::save::simplify_settings(),
         );
-        let drawn = self.draw(&mut mixed).map_err(SaveError::Draw);
+        let drawn =
+            font_notes::predrawn(page.pre_draw, || self.draw(&mut mixed)).map_err(SaveError::Draw);
         let rasterized = mixed.finish().map_err(SaveError::Backend);
         drawn.and(rasterized)
     }

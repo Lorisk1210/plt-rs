@@ -21,8 +21,9 @@ class EffectsMixin:
         ----------
         path_effects : list of `.AbstractPathEffect`
         """
+        # None draws as no effect, as an empty list does in matplotlib.
         _patheffects.set_path_effects(
-            self._native, [effect._native_spec() for effect in path_effects])
+            self._native, [effect._native_spec() for effect in path_effects or ()])
         self._path_effects = path_effects
 
     def get_path_effects(self):

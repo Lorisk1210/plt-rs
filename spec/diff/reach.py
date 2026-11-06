@@ -262,8 +262,8 @@ def main() -> int:
 
     instrument = trace.instrument
 
-    def instrumented(source: str, filename: str, impl: str, steps: bool) -> ast.Module:
-        return ast.fix_missing_locations(Wrapping().visit(instrument(source, filename, impl, steps)))
+    def instrumented(source: str, filename: str, impl: str, mode: str) -> ast.Module:
+        return ast.fix_missing_locations(Wrapping().visit(instrument(source, filename, impl, mode)))
 
     def source_to_code(loader: Any, data: Any, path: Any, *, _optimize: int = -1) -> Any:
         tree = trace.ImportChange(trace.IMPORT_RENAMES[loader.impl]).visit(ast.parse(data, path))

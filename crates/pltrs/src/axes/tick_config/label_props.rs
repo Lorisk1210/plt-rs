@@ -11,6 +11,7 @@ use crate::axes::ticks::TickStyle;
 use crate::axes::{Axis, TickLevel};
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontStyle, FontWeight};
+use crate::text::TextBoxPatch;
 
 /// Text properties of tick labels (the keyword arguments of matplotlib's
 /// `set_ticklabels`); unset fields keep their current value.
@@ -53,6 +54,9 @@ pub struct TickLabelProps {
     /// axis' side transform, in place of its side (matplotlib's
     /// `Tick.label1.set_x` on a y tick, `set_y` on an x tick).
     pub across: Option<f64>,
+    /// The box behind the label (matplotlib's `set_bbox` on a tick's
+    /// label).
+    pub bbox: Option<TextBoxPatch>,
 }
 
 pltrs_core::archive_struct!(TickLabelProps {
@@ -70,7 +74,8 @@ pltrs_core::archive_struct!(TickLabelProps {
     family,
     label1_visible,
     label2_visible,
-    across
+    across,
+    bbox
 });
 
 impl TickLabelProps {
@@ -101,6 +106,7 @@ impl TickLabelProps {
             label1_visible: newer.label1_visible.or(self.label1_visible),
             label2_visible: newer.label2_visible.or(self.label2_visible),
             across: newer.across.or(self.across),
+            bbox: newer.bbox.clone().or_else(|| self.bbox.clone()),
         }
     }
 
@@ -151,6 +157,9 @@ impl TickLabelProps {
         }
         if self.across.is_some() {
             style.label_across = self.across;
+        }
+        if self.bbox.is_some() {
+            style.label_bbox.clone_from(&self.bbox);
         }
     }
 }

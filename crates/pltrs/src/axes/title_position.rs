@@ -138,7 +138,9 @@ impl FigureState {
 
     /// The axes whose decorations titles must clear: the twins and the
     /// insets of `axes`, and the axes its titles are aligned with
-    /// ([`crate::figure::Figure::align_titles`]).
+    /// ([`crate::figure::Figure::align_titles`]), each once (matplotlib
+    /// gathers them in a set: `axes` is among its twins and its aligned
+    /// axes alike).
     pub(super) fn title_group(&self, axes: ArtistId) -> Vec<ArtistId> {
         let mut group = self.shared.twins(axes);
         if let Some(frame) = self.store.get(axes).and_then(|a| a.base().parent) {
@@ -149,6 +151,8 @@ impl FigureState {
             );
         }
         group.extend(self.child_axes(axes));
+        let mut seen = std::collections::HashSet::new();
+        group.retain(|&ax| seen.insert(ax));
         group
     }
 

@@ -106,6 +106,14 @@ pub(crate) fn installed() -> bool {
     CURRENT.with_borrow(Option::is_some)
 }
 
+/// Runs `measure` with `cache` installed in place of the thread's.
+pub(super) fn with_cache<R>(cache: Rc<MetricsCache>, measure: impl FnOnce() -> R) -> R {
+    let before = set_metrics_cache(Some(cache));
+    let measured = measure();
+    set_metrics_cache(before);
+    measured
+}
+
 /// The metrics of `line` through the thread's cache if one is installed,
 /// else those `measure` gives.
 pub(super) fn cached(

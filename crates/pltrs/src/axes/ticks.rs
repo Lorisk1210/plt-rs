@@ -10,6 +10,7 @@ use crate::patheffects::PathEffect;
 use crate::rc::keyword_names;
 use crate::rc::{ColorOrInherit, RcParams};
 use crate::spines::SpineSide;
+use crate::text::TextBoxPatch;
 use crate::ticker::AxisName;
 use pltrs_text::{HAlign, RotationMode, VAlign};
 
@@ -279,6 +280,9 @@ pub struct TickStyle {
     /// y tick, `set_y` on an x tick); `None` keeps it on its side. Only a
     /// single tick's label sets it.
     pub label_across: Option<f64>,
+    /// The box behind the labels (matplotlib's `set_bbox` on a tick's
+    /// label), if any.
+    pub label_bbox: Option<TextBoxPatch>,
     /// Whether gridlines are drawn at the ticks.
     pub grid_on: bool,
     /// How the gridlines are drawn; kept while they are off, like
@@ -309,6 +313,7 @@ pltrs_core::archive_struct!(TickStyle {
     label_in_layout,
     label_url,
     label_across,
+    label_bbox,
     grid_on,
     grid
 });
@@ -360,6 +365,7 @@ impl TickStyle {
             label_in_layout: true,
             label_url: None,
             label_across: None,
+            label_bbox: None,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
         }

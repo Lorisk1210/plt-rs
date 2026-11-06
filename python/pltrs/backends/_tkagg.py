@@ -12,11 +12,14 @@ pixels, ``TK_PHOTO_COMPOSITE_OVERLAY`` composites the block over them by
 ``image copy -compositingrule overlay``. Its checks and messages are the
 C helper's.
 
-What only Windows has (per-monitor DPI awareness) is matplotlib's no-op
-elsewhere: `enable_dpi_awareness` returns None.
+On Windows, `enable_dpi_awareness` hooks a per-monitor DPI aware Tk
+window's procedure, as the C helper does (through ``ctypes``), so that a
+move to a screen of another DPI sets the window's ``window_dpi<frame>``
+Tcl variable, which the Tk backend traces; elsewhere it returns None.
 """
 
 import io
+import sys
 import tkinter as tk
 
 import numpy as np
@@ -82,7 +85,10 @@ def blit(interp, photo_name, data, comp_rule, offset, bbox):
                "-compositingrule", "overlay")
 
 
-def enable_dpi_awareness(frame_handle, interp):
-    """Per-monitor DPI awareness of a Tk window, which only Windows has:
-    None (no awareness to report) elsewhere, as matplotlib's helper."""
-    return None
+if sys.platform == "win32":
+    from ._tkagg_win32 import enable_dpi_awareness
+else:
+    def enable_dpi_awareness(frame_handle, interp):
+        """Per-monitor DPI awareness of a Tk window, which only Windows has:
+        None (no awareness to report) elsewhere, as matplotlib's helper."""
+        return None

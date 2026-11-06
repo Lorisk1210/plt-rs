@@ -356,11 +356,6 @@ class FigureCanvasAgg(FigureCanvasBase):
         with self._wait_cursor(), self.get_renderer()._drawing():
             yield
 
-    def blit(self, bbox=None):
-        # docstring inherited
-        _backends.blit(self.figure._native,
-                       None if bbox is None else tuple(map(float, bbox.extents)))
-
     def get_renderer(self):
         w, h = self.get_width_height(physical=True)
         key = w, h, self.figure.dpi

@@ -232,13 +232,21 @@ impl RawHandle {
     /// Mutates the common artist properties and marks the figure stale
     /// (see [`RawHandle::mark_changed`]).
     pub(crate) fn with_base_mut<R>(&self, f: impl FnOnce(&mut ArtistBase) -> R) -> R {
+        let result = self.with_base_mut_unmarked(f);
+        self.mark_changed(&mut self.figure.borrow_mut());
+        result
+    }
+
+    /// Mutates the common artist properties whose changes matplotlib does
+    /// not count as making anything stale (`set_animated`, which only
+    /// calls `pchanged`): the artist and its figure stay as fresh or as
+    /// stale as they were.
+    pub(crate) fn with_base_mut_unmarked<R>(&self, f: impl FnOnce(&mut ArtistBase) -> R) -> R {
         let mut state = self.figure.borrow_mut();
-        let result = f(state
+        f(state
             .artist_mut(self.id)
             .unwrap_or_else(|| self.mismatched())
-            .base_mut());
-        self.mark_changed(&mut state);
-        result
+            .base_mut())
     }
 
     /// Whether display point `at` hits the artist in the figure's current

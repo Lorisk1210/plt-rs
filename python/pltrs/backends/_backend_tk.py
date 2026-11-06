@@ -9,14 +9,15 @@ for two things:
   helper, which puts the pixels into the canvas' ``PhotoImage`` with Tk's
   own photo commands; it reaches the photos of the interpreters this
   module registers with it.
-* What only Windows has is left out (keeping the foreground window,
-  per-monitor DPI awareness and the taskbar's app id of a new GUI
-  application, which ``_tkagg`` and ``_c_internal_utils`` provide there):
-  pltrs (Python)'s GUI backends run on Linux.
+* What only Windows has (keeping the foreground window, per-monitor DPI
+  awareness, the taskbar's app id of a new GUI application) goes through
+  ``_c_internal_utils`` and ``_tkagg``, which call the Windows API there
+  and do nothing elsewhere, as matplotlib's helpers.
 """
 
 import uuid
 import weakref
+from contextlib import contextmanager
 import logging
 import math
 import os.path
@@ -31,7 +32,7 @@ from tkinter.simpledialog import SimpleDialog
 import numpy as np
 from PIL import Image, ImageTk
 
-from .. import _api, backend_tools, cbook, is_interactive, rcParams
+from .. import _api, backend_tools, cbook, _c_internal_utils, is_interactive, rcParams
 from ..backend_bases import (
     _Backend, FigureCanvasBase, FigureManagerBase, NavigationToolbar2,
     TimerBase, ToolContainerBase, cursors, _Mode, MouseButton,
@@ -52,6 +53,16 @@ cursord = {
     cursors.RESIZE_HORIZONTAL: "sb_h_double_arrow",
     cursors.RESIZE_VERTICAL: "sb_v_double_arrow",
 }
+
+
+@contextmanager
+def _restore_foreground_window_at_end():
+    foreground = _c_internal_utils.Win32_GetForegroundWindow()
+    try:
+        yield
+    finally:
+        if foreground and rcParams['tk.window_focus']:
+            _c_internal_utils.Win32_SetForegroundWindow(foreground)
 
 
 _blit_args = {}
@@ -502,37 +513,53 @@ class FigureManagerTk(FigureManagerBase):
         # packing toolbar first, because if space is getting low, last packed
         # widget is getting shrunk first (-> the canvas)
         self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        # If the window has per-monitor DPI awareness, then setup a Tk variable
+        # to store the DPI, which will be updated by the C code, and the trace
+        # will handle it on the Python side.
+        window_frame = int(window.wm_frame(), 16)
+        self._window_dpi = tk.IntVar(master=window, value=96,
+                                     name=f'window_dpi{window_frame}')
+        self._window_dpi_cbname = ''
+        if _tkagg.enable_dpi_awareness(window_frame, window.tk.interpaddr()):
+            self._window_dpi_cbname = self._window_dpi.trace_add(
+                'write', self._update_window_dpi)
+
         self._shown = False
 
     @classmethod
     def create_with_canvas(cls, canvas_class, figure, num):
         # docstring inherited
-        window = tk.Tk(className="matplotlib")
-        window.withdraw()
+        with _restore_foreground_window_at_end():
+            if cbook._get_running_interactive_framework() is None:
+                cbook._setup_new_guiapp()
+                _c_internal_utils.Win32_SetProcessDpiAwareness_max()
+            window = tk.Tk(className="matplotlib")
+            window.withdraw()
 
-        # Put a Matplotlib icon on the window rather than the default tk
-        # icon. See https://www.tcl.tk/man/tcl/TkCmd/wm.html#M50
-        #
-        # `ImageTk` can be replaced with `tk` whenever the minimum
-        # supported Tk version is increased to 8.6, as Tk 8.6+ natively
-        # supports PNG images.
-        icon_fname = str(cbook._get_data_path(
-            'images/matplotlib.png'))
-        icon_img = ImageTk.PhotoImage(file=icon_fname, master=window)
+            # Put a Matplotlib icon on the window rather than the default tk
+            # icon. See https://www.tcl.tk/man/tcl/TkCmd/wm.html#M50
+            #
+            # `ImageTk` can be replaced with `tk` whenever the minimum
+            # supported Tk version is increased to 8.6, as Tk 8.6+ natively
+            # supports PNG images.
+            icon_fname = str(cbook._get_data_path(
+                'images/matplotlib.png'))
+            icon_img = ImageTk.PhotoImage(file=icon_fname, master=window)
 
-        icon_fname_large = str(cbook._get_data_path(
-            'images/matplotlib_large.png'))
-        icon_img_large = ImageTk.PhotoImage(
-            file=icon_fname_large, master=window)
+            icon_fname_large = str(cbook._get_data_path(
+                'images/matplotlib_large.png'))
+            icon_img_large = ImageTk.PhotoImage(
+                file=icon_fname_large, master=window)
 
-        window.iconphoto(False, icon_img_large, icon_img)
+            window.iconphoto(False, icon_img_large, icon_img)
 
-        canvas = canvas_class(figure, master=window)
-        manager = cls(canvas, num, window)
-        if is_interactive():
-            manager.show()
-            canvas.draw_idle()
-        return manager
+            canvas = canvas_class(figure, master=window)
+            manager = cls(canvas, num, window)
+            if is_interactive():
+                manager.show()
+                canvas.draw_idle()
+            return manager
 
     @classmethod
     def start_main_loop(cls):
@@ -547,6 +574,13 @@ class FigureManagerTk(FigureManagerBase):
                 first_manager.window.mainloop()
             finally:
                 manager_class._owns_mainloop = False
+
+    def _update_window_dpi(self, *args):
+        newdpi = self._window_dpi.get()
+        self.window.call('tk', 'scaling', newdpi / 72)
+        if self.toolbar and hasattr(self.toolbar, '_rescale'):
+            self.toolbar._rescale()
+        self.canvas._update_device_pixel_ratio()
 
     def resize(self, width, height):
         max_size = 1_400_000  # the measured max on xorg 1.20.8 was 1_409_023
@@ -563,24 +597,27 @@ class FigureManagerTk(FigureManagerBase):
         self.canvas._tkcanvas.configure(width=width, height=height)
 
     def show(self):
-        if not self._shown:
-            def destroy(*args):
-                Gcf.destroy(self)
-            self.window.protocol("WM_DELETE_WINDOW", destroy)
-            self.window.deiconify()
-            self.canvas._tkcanvas.focus_set()
-        else:
-            self.canvas.draw_idle()
-        if rcParams['figure.raise_window']:
-            self.canvas.manager.window.attributes('-topmost', 1)
-            self.canvas.manager.window.attributes('-topmost', 0)
-        self._shown = True
+        with _restore_foreground_window_at_end():
+            if not self._shown:
+                def destroy(*args):
+                    Gcf.destroy(self)
+                self.window.protocol("WM_DELETE_WINDOW", destroy)
+                self.window.deiconify()
+                self.canvas._tkcanvas.focus_set()
+            else:
+                self.canvas.draw_idle()
+            if rcParams['figure.raise_window']:
+                self.canvas.manager.window.attributes('-topmost', 1)
+                self.canvas.manager.window.attributes('-topmost', 0)
+            self._shown = True
 
     def destroy(self, *args):
         if self.canvas._idle_draw_id:
             self.canvas._tkcanvas.after_cancel(self.canvas._idle_draw_id)
         if self.canvas._event_loop_id:
             self.canvas._tkcanvas.after_cancel(self.canvas._event_loop_id)
+        if self._window_dpi_cbname:
+            self._window_dpi.trace_remove('write', self._window_dpi_cbname)
 
         # NOTE: events need to be flushed before issuing destroy (GH #9956),
         # however, self.window.update() can break user code. An async callback

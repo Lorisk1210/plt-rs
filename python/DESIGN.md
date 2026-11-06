@@ -1383,7 +1383,7 @@ backend: the framework already running, else pltrs' own windows
   without listing it among them; `backend_macosx` on macOS) are a GUI
   toolkit backend over pltrs (Rust)'s windows (`_native.gui`, a
   `pltrs::gui::WindowHost`): a window shows its figure's raster canvas
-  (whatever `FigureCanvasAgg.draw` and `blit` put there) above a toolbar
+  (whatever `FigureCanvasAgg.draw` and its `blit` put there) above a toolbar
   of the backend's buttons, and reports input, resizes, toolbar clicks,
   close requests, chosen files and timers as tuples, which
   `backends/_pltrs_loop.py` hands to the canvas (matplotlib's events,
@@ -1438,11 +1438,14 @@ A canvas draws and prints through the figure's native handle
 (`_native.backends`):
 
 * `FigureCanvasAgg.draw` draws the figure onto the raster canvas pltrs
-  (Rust) keeps per figure; `buffer_rgba`, `copy_from_bbox`,
-  `restore_region` and `blit` work on it, and `RendererAgg` stands for
+  (Rust) keeps per figure; `buffer_rgba`, `copy_from_bbox` and
+  `restore_region` work on it, and `RendererAgg` stands for
   it: `Artist.draw` with it draws the artist onto that canvas, which is
   how `Axes.draw_artist` and `Figure.draw_artist` blit (`axes/_blitting.py`,
-  `_figure_interaction.py`). The vector canvases' `draw` lays the figure
+  `_figure_interaction.py`). As in matplotlib, `FigureCanvasAgg` has no
+  `blit` of its own: the toolkits' canvases, which put it before their
+  widget's class, blit with the widget's (Qt's repaints the region), and
+  pltrs' windows record the region for the window to show. The vector canvases' `draw` lays the figure
   out without output, as matplotlib's `draw_without_rendering`.
 * `Figure.savefig` hands over to `FigureCanvasBase.print_figure`, which
   resolves the keywords (format, dpi, colours, `bbox_inches`), switches

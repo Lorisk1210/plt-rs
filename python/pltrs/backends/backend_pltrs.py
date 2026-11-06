@@ -25,7 +25,7 @@ from ..backend_bases import (
     _Backend, CloseEvent, FigureManagerBase, KeyEvent, LocationEvent,
     MouseEvent, NavigationToolbar2, ResizeEvent, TimerBase, ToolContainerBase,
     _Mode)
-from .._native import gui as _gui
+from .._native import backends as _backends, gui as _gui
 from . import _pltrs_loop
 from .backend_agg import FigureCanvasAgg
 
@@ -114,7 +114,11 @@ class FigureCanvasPltrs(FigureCanvasAgg):
 
     def blit(self, bbox=None):
         # docstring inherited
-        super().blit(bbox)
+        # The window shows the blitted region of the canvas (matplotlib's
+        # Agg canvas has no blit of its own: the toolkits' canvases, which
+        # put it before their widget's class, blit with the widget's).
+        _backends.blit(self.figure._native,
+                       None if bbox is None else tuple(map(float, bbox.extents)))
         self._present()
 
     def _present(self):

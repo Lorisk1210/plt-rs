@@ -313,14 +313,26 @@ fn ortho(zfront: f64, zback: f64) -> PyResult<NdArray> {
 }
 
 /// The points `(xs, ys, zs)` through the homogeneous matrix `matrix`,
-/// divided by their `w` (`proj_transform`, `inv_transform`).
+/// divided by their `w` (`proj_transform`).
 fn transform(matrix: NdArray, coordinates: Columns) -> PyResult<Columns> {
     let projected = array_matrix(&matrix)?.project_all(&points(coordinates));
-    Ok((
-        projected.iter().map(|p| p[0]).collect(),
-        projected.iter().map(|p| p[1]).collect(),
-        projected.iter().map(|p| p[2]).collect(),
-    ))
+    Ok(point_columns(&projected))
+}
+
+/// The points `(xs, ys, zs)` through the inverse of a projection
+/// `matrix`, divided by their `w` unless it is zero (`inv_transform`).
+fn inverse_transform(matrix: NdArray, coordinates: Columns) -> PyResult<Columns> {
+    let unprojected = array_matrix(&matrix)?.unproject_all(&points(coordinates));
+    Ok(point_columns(&unprojected))
+}
+
+/// The x, y and z columns of `points`.
+fn point_columns(points: &[Vec3]) -> Columns {
+    (
+        points.iter().map(|p| p[0]).collect(),
+        points.iter().map(|p| p[1]).collect(),
+        points.iter().map(|p| p[2]).collect(),
+    )
 }
 
 /// Whether the points `(xs, ys, zs)`, NaN ones ignored, lie on one plane
@@ -444,6 +456,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("persp_transformation", persp)?;
     module.add("ortho_transformation", ortho)?;
     module.add("transform", transform)?;
+    module.add("inverse_transform", inverse_transform)?;
     module.add("all_points_on_plane", on_plane)?;
     module.add("adopt_collection3d", adopt_collection3d)
 }

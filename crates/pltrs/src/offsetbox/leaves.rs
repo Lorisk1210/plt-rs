@@ -240,9 +240,18 @@ pub struct AuxTransformBox<A> {
     /// The extent of the artists under `aux_transform` alone, in display
     /// pixels, as last measured by the figure's layout pass.
     pub(super) extent: Option<Bbox>,
+    /// Whether the last measurement met a visible text without a figure
+    /// among the artists, which matplotlib fails to measure.
+    pub(super) figureless_text: bool,
 }
 
-pltrs_core::archive_struct!(AuxTransformBox<A> { aux_transform, artists, visible, extent });
+pltrs_core::archive_struct!(AuxTransformBox<A> {
+    aux_transform,
+    artists,
+    visible,
+    extent,
+    figureless_text
+});
 
 impl<A> AuxTransformBox<A> {
     /// A visible, empty box whose artists are in `aux_transform`
@@ -253,6 +262,7 @@ impl<A> AuxTransformBox<A> {
             artists: Vec::new(),
             visible: true,
             extent: None,
+            figureless_text: false,
         }
     }
 
@@ -263,9 +273,11 @@ impl<A> AuxTransformBox<A> {
         self
     }
 
-    /// Records the extent of the artists under the aux transform alone.
-    pub(crate) fn set_extent(&mut self, extent: Bbox) {
+    /// Records the extent of the artists under the aux transform alone,
+    /// and whether a visible text without a figure was among them.
+    pub(crate) fn set_extent(&mut self, extent: Bbox, figureless_text: bool) {
         self.extent = Some(extent);
+        self.figureless_text = figureless_text;
     }
 
     /// matplotlib's `AuxTransformBox.get_bbox`: the size of the artists'
@@ -274,10 +286,14 @@ impl<A> AuxTransformBox<A> {
     /// # Errors
     ///
     /// [`OffsetBoxError::EmptyAuxBox`] for a box without artists, whose
-    /// extent matplotlib cannot unite.
+    /// extent matplotlib cannot unite, and [`OffsetBoxError::NoFigure`]
+    /// for one measured with a visible text without a figure.
     pub(super) fn bbox(&self) -> Result<Bbox, OffsetBoxError> {
         if self.artists.is_empty() {
             return Err(OffsetBoxError::EmptyAuxBox);
+        }
+        if self.figureless_text {
+            return Err(OffsetBoxError::NoFigure);
         }
         let extent = self.extent.unwrap_or(Bbox::from_bounds(0.0, 0.0, 0.0, 0.0));
         Ok(Bbox::from_bounds(0.0, 0.0, extent.width(), extent.height()))

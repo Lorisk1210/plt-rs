@@ -7,7 +7,7 @@ use super::handle::Axes3D;
 use super::plot::spread;
 use crate::artist::ArtistHandle;
 use crate::axes::ScatterOptions;
-use crate::collections::{Collection, CollectionArtist};
+use crate::collections::{Collection, CollectionArtist, DepthSorted};
 use crate::units::AxisValues;
 
 /// The smallest z margin of an axes holding a scatter plot (and, in
@@ -88,28 +88,28 @@ impl Axes3D {
         };
         let collection = self
             .on_plane_keeping_limits(|plane| plane.scatter_with(x.clone(), y.clone(), scatter))?;
-        let points =
-            collection
-                .raw()
-                .with::<CollectionArtist, _>(|c| -> Result<Points3D, Axes3DError> {
-                    // The colours are resolved, shaded and sorted at every
-                    // projection; reject invalid ones now, as matplotlib does.
-                    c.base_colors().map_err(Axes3DError::Style)?;
-                    Ok(Points3D {
-                        positions: c
-                            .offsets
-                            .iter()
-                            .zip(&z)
-                            .map(|(o, &z)| options.zdir.juggle([o.x, o.y, z]))
-                            .collect(),
-                        depthshade: options.depthshade.unwrap_or(rc.axes3d_depthshade),
-                        min_alpha: options
-                            .depthshade_minalpha
-                            .unwrap_or(rc.axes3d_depthshade_minalpha),
-                        depth_sorted: true,
-                        sort_zpos: None,
-                    })
-                })?;
+        let points = collection.raw().with_mut::<CollectionArtist, _>(
+            |c| -> Result<Points3D, Axes3DError> {
+                // The colours are resolved, shaded and sorted at every
+                // projection; reject invalid ones now, as matplotlib does.
+                c.base_colors().map_err(Axes3DError::Style)?;
+                c.depth_sorted = Some(DepthSorted::unprojected());
+                Ok(Points3D {
+                    positions: c
+                        .offsets
+                        .iter()
+                        .zip(&z)
+                        .map(|(o, &z)| options.zdir.juggle([o.x, o.y, z]))
+                        .collect(),
+                    depthshade: options.depthshade.unwrap_or(rc.axes3d_depthshade),
+                    min_alpha: options
+                        .depthshade_minalpha
+                        .unwrap_or(rc.axes3d_depthshade_minalpha),
+                    depth_sorted: true,
+                    sort_zpos: None,
+                })
+            },
+        )?;
         self.register(collection.id(), Art3D::Points(points), options.axlim_clip);
         self.with_mut(|axes| {
             let margins = &mut axes.limits.margins;

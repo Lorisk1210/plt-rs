@@ -14,7 +14,7 @@ use super::math::Vec3;
 use super::plot::{broadcast, columns};
 use crate::artist::RawHandle;
 use crate::collections::{
-    Collection, CollectionArtist, CollectionKind, CollectionProps, CollectionSpec,
+    Collection, CollectionArtist, CollectionKind, CollectionProps, CollectionSpec, DepthSorted,
 };
 use crate::transforms::Transform;
 
@@ -156,6 +156,7 @@ impl Axes3D {
         sort_zpos: f64,
     ) -> Result<Collection, Axes3DError> {
         let positions = patch_positions(&mut artist, zs, zdir)?;
+        artist.depth_sorted = Some(DepthSorted::unprojected());
         let rc = crate::rc::params();
         let raw = self.adopt_projected(artist);
         let points = Points3D {

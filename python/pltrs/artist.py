@@ -198,6 +198,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             If False, return the (Sub)Figure this artist is on.  If True,
             return the root Figure for a nested tree of SubFigures.
         """
+        if self.__dict__.get("_no_figure"):
+            # In its figure without belonging to it, as matplotlib's
+            # artists without a figure that an aux-transform box holds.
+            return None
         if root or self._figure is None or not self._figure.subfigs:
             return self._figure
         from .figure import Figure

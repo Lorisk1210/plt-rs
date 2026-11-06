@@ -268,9 +268,9 @@ class _Projection:
         self.ticks = {}
         #: The spines whose class overrides ``_adjust_location``, by side.
         self.spines = {}
-        #: The ratio the class' ``get_data_ratio`` gives, which pltrs
-        #: (Rust) keeps (matplotlib's geographic axes give a constant).
-        self.data_ratio = None
+        #: Whether the class overrides ``get_data_ratio``, which pltrs
+        #: (Rust) then asks wherever it applies the aspect.
+        self.fixes_data_ratio = False
         #: The hooks the class overrides (see `_Adapter`).
         self.overrides = dict.fromkeys(
             ["axis_transform", "tick_interval", "tick_sides", "spine_interval",
@@ -294,9 +294,7 @@ class _Projection:
                 self.probes[name] = probe
         self.spines = {side: spine for side, spine in spines.items()
                        if type(spine)._adjust_location is not Spine._adjust_location}
-        self.data_ratio = (
-            None if type(ax).get_data_ratio is Axes.get_data_ratio
-            else float(ax.get_data_ratio()))
+        self.fixes_data_ratio = type(ax).get_data_ratio is not Axes.get_data_ratio
         self.overrides = {
             "axis_transform": list(self.axis_transforms),
             "tick_interval": [
@@ -323,7 +321,7 @@ class _Adapter:
         self.name = type(ax).name
         self.spine_order = projection.spine_order
         self.spine_sides = projection.spine_sides
-        self.data_ratio = projection.data_ratio
+        self.fixes_data_ratio = projection.fixes_data_ratio
         self.overrides = projection.overrides
 
     def __getstate__(self):
@@ -396,6 +394,11 @@ class _Adapter:
             point = (loc, 0.0) if name == "x" else (0.0, loc)
             anchor, shift = _tick_label_placement(ax, transform, point)
             return anchor, shift, halign, valign
+
+    def data_ratio(self, limits):
+        """The ratio of the data the class' ``get_data_ratio`` gives."""
+        with self._viewing(limits) as (ax, _):
+            return float(ax.get_data_ratio())
 
     def spine_interval(self, limits, side):
         """The interval the spine on *side* spans along its axis."""

@@ -37,6 +37,8 @@
 //!   do, converted on the axis each lies along
 //!   ([`Axis3D::convert_units`]).
 //! * [`LightSource`] — the light shading surfaces, bars and voxels.
+//! * [`DrawFailure`] — a problem drawing an artist meets, recorded in
+//!   advance for data matplotlib accepts but fails to draw.
 //!
 //! ```
 //! use pltrs::figure::Figure;
@@ -74,6 +76,7 @@ mod create;
 mod drawn;
 mod error;
 mod errorbar;
+mod failures;
 mod fill_between;
 mod geometry;
 mod handle;
@@ -99,6 +102,7 @@ mod stem;
 mod surface;
 mod test_data;
 mod tick_props;
+mod tick_sites;
 mod trisurf;
 #[cfg(test)]
 mod unit_tests;
@@ -123,6 +127,7 @@ pub use coords::Axis3;
 pub use create::Axes3DOptions;
 pub use error::Axes3DError;
 pub use errorbar::{Errorbar3D, Errorbar3DOptions};
+pub use failures::DrawFailure;
 pub use fill_between::{Curve3D, FillBetween3DOptions, FillMode, all_points_on_plane};
 pub use geometry::AxisPosition;
 pub use handle::Axes3D;

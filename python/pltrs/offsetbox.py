@@ -30,7 +30,7 @@ import functools
 
 import numpy as np
 
-from . import (_api, _handles, _live_transforms, _offsetbox_trees, _python_drawing, _unusable,
+from . import (_api, _handles, _live_transforms, _offsetbox_trees, _python_drawing,
                cbook)
 from . import rcParams
 from . import text as mtext
@@ -1122,12 +1122,6 @@ def _laid_out_box(description, figure, classes):
     return box
 
 
-def _resolution(figure):
-    """What matplotlib's text reads first of its *figure* to measure
-    itself: its resolution."""
-    return figure.dpi
-
-
 class AuxTransformBox(_FollowsLayout, OffsetBox):
     """
     An OffsetBox with an auxiliary transform.
@@ -1149,14 +1143,14 @@ class AuxTransformBox(_FollowsLayout, OffsetBox):
 
     def add_artist(self, a):
         """Add an `.Artist` to the container box."""
-        if (isinstance(a, mtext.Text) and a.get_figure(root=True) is None
-                and self.get_figure(root=True) is not None):
-            # matplotlib gives its children no figure (a box gives them its
-            # figure when it is added to one): a text added once the box is
-            # in a figure fails to measure, at its figure's resolution.
-            _unusable.keep(a, "figure", None, _resolution)
+        # matplotlib's leaves an artist without a figure (``figure`` None)
+        # without one, as it does not give the box's to those it adds.
+        figureless = (self.get_figure(root=False) is not None
+                      and a.get_figure() is None)
         self._children.append(a)
         a.set_transform(self.get_transform())
+        if figureless:
+            a._no_figure = True
         self._changed()
 
     def _package_tree(self):
@@ -1170,6 +1164,8 @@ class AuxTransformBox(_FollowsLayout, OffsetBox):
         super()._adopt_package_parts(natives, figure)
         for child in self._children:
             child.__dict__.pop("_given_transform", None)
+            if child.__dict__.get("_no_figure"):
+                _artist.set_figureless(child._native, True)
 
     def get_bbox(self, renderer):
         """
@@ -1224,6 +1220,11 @@ class AuxTransformBox(_FollowsLayout, OffsetBox):
         """Draw the children, where pltrs (Rust) places them: through the
         aux transform, then from the box's offset."""
         for c in self._children:
+            if (c.__dict__.get("_no_figure") and isinstance(c, mtext.Text)
+                    and c.get_visible() and c.get_text()):
+                # matplotlib's lays the text out at the resolution of the
+                # figure it does not have.
+                raise AttributeError("'NoneType' object has no attribute 'dpi'")
             c.draw(renderer)
         self.stale = False
 

@@ -195,6 +195,13 @@ fn set_data_interval(axes: Axes3D, name: String, (low, high): (f64, f64)) -> PyR
     Ok(())
 }
 
+/// Sets the view limits of axis `name` to `(low, high)` as they are, NaN
+/// included (`set_view_interval`, which sets the limit box).
+fn set_view_interval(axes: Axes3D, name: String, (low, high): (f64, f64)) -> PyResult<()> {
+    axes.set_view_interval(axis3(&name)?, low, high);
+    Ok(())
+}
+
 /// Labels the major (or `minor`) ticks of axis `name` with `labels`
 /// (`set_ticklabels`).
 fn set_ticklabels(axes: Axes3D, name: String, labels: Vec<String>, minor: bool) -> PyResult<()> {
@@ -226,7 +233,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_rotate_label", set_rotate_label)?;
     module.add("get_rotate_label", get_rotate_label)?;
     module.add("get_data_interval", get_data_interval)?;
-    module.add("set_data_interval", set_data_interval)
+    module.add("set_data_interval", set_data_interval)?;
+    module.add("set_view_interval", set_view_interval)
 }
 
 #[cfg(test)]

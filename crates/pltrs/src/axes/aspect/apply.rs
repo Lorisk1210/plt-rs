@@ -22,7 +22,7 @@ impl AxesState {
     /// matplotlib's `get_data_ratio` (always 1 for polar and geographic
     /// axes, fixed by some custom projections).
     pub(crate) fn data_ratio(&self) -> f64 {
-        if let Some(ratio) = self.projection.fixed_data_ratio() {
+        if let Some(ratio) = self.projection.fixed_data_ratio(&self.projection_view()) {
             return ratio;
         }
         let (x0, x1) = self.scaled_bound(AxisName::X);
@@ -74,6 +74,16 @@ impl FigureState {
     /// problem is reported with the next draw.
     pub(crate) fn apply_aspect(&mut self, axes: ArtistId) {
         self.apply_aspect_reporting(axes, Placement::Located);
+    }
+
+    /// Whether applying the aspect of `axes` asks a projection defined by
+    /// the program for its data ratio (see
+    /// [`Projection::data_ratio`](crate::projections::Projection::data_ratio)).
+    pub(crate) fn asks_data_ratio(&self, axes: ArtistId) -> bool {
+        self.store
+            .get_as::<AxesState>(axes)
+            .and_then(|state| state.projection.custom())
+            .is_some_and(crate::projections::Projection::fixes_data_ratio)
     }
 
     /// [`apply_aspect_at`](Self::apply_aspect_at), its problem reported

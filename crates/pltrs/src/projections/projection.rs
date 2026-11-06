@@ -56,7 +56,7 @@ impl Clone for Box<dyn Projection> {
 /// | `Spine._adjust_location`                     | [`spine_interval`](Self::spine_interval) |
 /// | `set_xlim` raising                           | [`fixed_limits`](Self::fixed_limits)   |
 /// | `set_xscale` raising                         | [`linear_only`](Self::linear_only)     |
-/// | `get_data_ratio`                             | [`data_ratio`](Self::data_ratio)       |
+/// | `get_data_ratio`                             | [`data_ratio`](Self::data_ratio), [`fixes_data_ratio`](Self::fixes_data_ratio) |
 /// | `can_zoom`, `can_pan`                        | [`can_zoom`](Self::can_zoom), [`can_pan`](Self::can_pan) |
 /// | `start_pan`, `drag_pan`, `end_pan`           | [`start_pan`](Self::start_pan), [`drag_pan`](Self::drag_pan), [`end_pan`](Self::end_pan) |
 /// | `_set_view_from_bbox`                        | [`zoom_to_box`](Self::zoom_to_box)     |
@@ -198,11 +198,20 @@ pub trait Projection: Any + fmt::Debug + Send + ProjectionClone {
     }
 
     /// The ratio of the y to the x span of the data the aspect works with
-    /// (matplotlib's `get_data_ratio`); `None`, the default, computes it
-    /// from the view limits. A fixed ratio rules out adjusting the data
-    /// limits for the aspect.
-    fn data_ratio(&self) -> Option<f64> {
+    /// in `view` (matplotlib's `get_data_ratio`, asked at each application
+    /// of the aspect); `None`, the default, computes it from the view
+    /// limits.
+    fn data_ratio(&self, view: &ProjectionView<'_>) -> Option<f64> {
+        let _ = view;
         None
+    }
+
+    /// Whether [`data_ratio`](Self::data_ratio) gives a ratio of its own,
+    /// which rules out adjusting the data limits for the aspect
+    /// (matplotlib refuses `adjustable="datalim"` for axes overriding
+    /// `get_data_ratio`); `false` by default.
+    fn fixes_data_ratio(&self) -> bool {
+        false
     }
 
     /// Whether the zoom-to-rectangle tool works on the axes (matplotlib's

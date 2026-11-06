@@ -50,35 +50,38 @@ impl From<SizeError> for PyErr {
 }
 
 impl From<DrawErrors> for PyErr {
-    /// The first problem as matplotlib raises it, drawing stopping there:
-    /// a `ValueError` with its message for a value of the program's that
-    /// cannot be drawn (malformed mathtext, ...), a `TypeError` for one of
-    /// the wrong type, an `OverflowError` for an infinity rounded, a
-    /// `NotImplementedError` for what matplotlib does not support yet, an
-    /// `IndexError` for an index out of range, a `MemoryError` for memory
-    /// the system refused, else a `RuntimeError` naming every problem.
+    /// The first problem as matplotlib raises it, drawing stopping there
+    /// (see [`draw_exception`]), else a `RuntimeError` naming every
+    /// problem.
     fn from(errors: DrawErrors) -> Self {
         match errors.0.first() {
-            Some(first) if first.kind == DrawErrorKind::OutOfMemory => {
-                PyErr::new(ExceptionKind::MemoryError, first.message.clone())
-            }
-            Some(first) if first.kind == DrawErrorKind::InvalidValue => {
-                PyErr::value_error(first.message.clone())
-            }
-            Some(first) if first.kind == DrawErrorKind::InvalidType => {
-                PyErr::new(ExceptionKind::TypeError, first.message.clone())
-            }
-            Some(first) if first.kind == DrawErrorKind::Overflow => {
-                PyErr::new(ExceptionKind::OverflowError, first.message.clone())
-            }
-            Some(first) if first.kind == DrawErrorKind::Unsupported => {
-                PyErr::new(ExceptionKind::NotImplementedError, first.message.clone())
-            }
-            Some(first) if first.kind == DrawErrorKind::OutOfRange => {
-                PyErr::new(ExceptionKind::IndexError, first.message.clone())
-            }
-            _ => PyErr::runtime_error(errors.to_string()),
+            Some(first) => match draw_exception(first.kind) {
+                Some(kind) => PyErr::new(kind, first.message.clone()),
+                None => PyErr::runtime_error(errors.to_string()),
+            },
+            None => PyErr::runtime_error(errors.to_string()),
         }
+    }
+}
+
+/// The exception matplotlib raises for a problem of `kind` met drawing:
+/// a `ValueError` for a value of the program's that cannot be drawn
+/// (malformed mathtext, ...), a `TypeError` for one of the wrong type, an
+/// `OverflowError` for an infinity rounded, a `NotImplementedError` for
+/// what matplotlib does not support yet, an `IndexError` for an index out
+/// of range, an `AttributeError` for an attribute an artist's class
+/// lacks, a `MemoryError` for memory the system refused; `None` for any
+/// other problem.
+pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<ExceptionKind> {
+    match kind {
+        DrawErrorKind::InvalidValue => Some(ExceptionKind::ValueError),
+        DrawErrorKind::InvalidType => Some(ExceptionKind::TypeError),
+        DrawErrorKind::Overflow => Some(ExceptionKind::OverflowError),
+        DrawErrorKind::Unsupported => Some(ExceptionKind::NotImplementedError),
+        DrawErrorKind::OutOfRange => Some(ExceptionKind::IndexError),
+        DrawErrorKind::MissingAttribute => Some(ExceptionKind::AttributeError),
+        DrawErrorKind::OutOfMemory => Some(ExceptionKind::MemoryError),
+        DrawErrorKind::Other => None,
     }
 }
 

@@ -20,7 +20,7 @@ from operator import methodcaller
 
 import numpy as np
 
-from pltrs import _api, _handles, _mirrors, cbook, rcParams
+from pltrs import _api, _artist_picking, _handles, _mirrors, cbook, rcParams
 import pltrs.artist as martist
 import pltrs.colors as mcolors
 import pltrs.text as mtext
@@ -1074,6 +1074,13 @@ class _AxisLine:
     set_lw = set_linewidth
 
 
+def _gridlines_choice(value, names):
+    """A setting of the gridlines as pltrs (Rust) takes it: the name of
+    *value* among *names* (None for another value) and its repr."""
+    return (value if isinstance(value, str) and value in names else None,
+            repr(value))
+
+
 class GridlinesCollection(LineCollection):
     """
     Collection of grid lines: the lines given to it. The gridlines of an
@@ -1112,6 +1119,7 @@ class GridlinesCollection(LineCollection):
         which : {"major", "minor"}
         """
         self._which = which
+        self._choose(which=_gridlines_choice(which, ("major", "minor", "both")))
 
     def set_axis(self, axis):
         """
@@ -1122,6 +1130,13 @@ class GridlinesCollection(LineCollection):
         axis : {"both", "x", "y"}
         """
         self._axis = axis
+        self._choose(axis=_gridlines_choice(axis, ("both", "x", "y")))
+
+    def _choose(self, which=None, axis=None):
+        """Have the gridlines pltrs (Rust) draws for an axes show *which*
+        and *axis* (`_gridlines_choice`), when this collection draws them;
+        matplotlib checks them only when it draws."""
+        _axisartist.choose_gridlines(self._native, which, axis)
 
     def set_grid_helper(self, grid_helper):
         """
@@ -1141,6 +1156,9 @@ class AxisArtist(martist.Artist):
     """
 
     zorder = 2.5
+
+    # matplotlib's class has no hit test of its own.
+    contains = _artist_picking.contains_untested
 
     @property
     def LABELPAD(self):

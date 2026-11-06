@@ -4,6 +4,7 @@
 use pltrs_core::Rgba;
 use pltrs_render::Dashes;
 
+use super::depth::without_last;
 use super::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::artist::Artist;
 use crate::colors::{Alpha, Color, ColorError, to_rgba_array};
@@ -19,7 +20,22 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
         .and_then(|sorted| sorted.colors.as_ref())
     {
         Some(colors) => Ok(colors.clone()),
-        None => resolve_base_colors(c),
+        None => resolve_base_colors(c)
+            .map(|(faces, edges)| (unprojected(c, faces), unprojected(c, edges))),
+    }
+}
+
+/// The collection's own colours of one side as its 3-D projection leaves
+/// them before it sorts them (see
+/// [`DepthSorted::without_last`](super::depth::DepthSorted)).
+fn unprojected(c: &CollectionArtist, colors: Vec<Rgba>) -> Vec<Rgba> {
+    if c.depth_sorted
+        .as_ref()
+        .is_some_and(|sorted| sorted.without_last)
+    {
+        without_last(colors)
+    } else {
+        colors
     }
 }
 
@@ -48,7 +64,14 @@ pub(super) fn resolve_reported_sides(c: &CollectionArtist) -> (Sided, Sided) {
         return (Ok(faces.clone()), Ok(edges.clone()));
     }
     let (faces, edges) = resolve_sides(c, c.mapped_shown.get());
-    (c.kept_colors.faces(faces), c.kept_colors.edges(edges))
+    (
+        c.kept_colors
+            .faces(faces)
+            .map(|faces| unprojected(c, faces)),
+        c.kept_colors
+            .edges(edges)
+            .map(|edges| unprojected(c, edges)),
+    )
 }
 
 /// Face and edge colours after defaults, colour mapping and alpha

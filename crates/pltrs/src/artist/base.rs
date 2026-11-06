@@ -101,6 +101,13 @@ pub struct ArtistBase {
     /// off for what they add as `add_artist` or
     /// `add_collection(..., autolim=False)` do.
     pub(crate) in_autoscale: bool,
+    /// Whether the artist is in its figure without belonging to it
+    /// (matplotlib's artist whose `figure` is `None`: a child an
+    /// aux-transform box takes after it joined its figure, which
+    /// matplotlib's `add_artist` does not give the box's figure).
+    /// Measuring such an artist where matplotlib needs the figure's
+    /// resolution (a visible text) fails as matplotlib's does.
+    pub figureless: bool,
     /// The containing artist (axes, figure, legend, ...).
     pub parent: Option<ArtistId>,
     /// The artist's own id, assigned when it is inserted into a store.
@@ -130,6 +137,7 @@ pltrs_core::archive_struct!(ArtistBase {
     painter,
     sticky_edges,
     in_autoscale,
+    figureless,
     parent,
     id
 });
@@ -216,6 +224,7 @@ impl Default for ArtistBase {
             painter: None,
             sticky_edges: (Vec::new(), Vec::new()),
             in_autoscale: false,
+            figureless: false,
             parent: None,
             id: None,
         }

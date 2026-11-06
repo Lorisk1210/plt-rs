@@ -90,7 +90,8 @@ pub(crate) struct Parasite {
     pub(crate) host: ArtistId,
     /// How its coordinates relate to the host's.
     link: ParasiteLink,
-    /// The map from the host's view limits to its own, when they follow.
+    /// The map from the host's view limits to its own, when they follow
+    /// (see [`FigureState::sync_parasites`]).
     view_map: Option<Affine2D>,
     /// Whether it was made by `twin`, `twinx` or `twiny` (removing it then
     /// shows the host's far sides again).
@@ -103,14 +104,6 @@ pltrs_core::archive_struct!(Parasite {
     view_map,
     twin
 });
-
-impl Parasite {
-    /// Whether its view limits follow its host's (see
-    /// [`FigureState::sync_parasite`]).
-    pub(crate) fn follows_host_view(&self) -> bool {
-        self.view_map.is_some()
-    }
-}
 
 /// An axes that can carry parasite axes (matplotlib's `HostAxes`, made by
 /// `host_subplot` and `host_axes`). It dereferences to [`Axes`].
@@ -464,22 +457,12 @@ pub(crate) fn parasites_of(store: &impl ArtistLookup, axes: ArtistId) -> Vec<Art
 }
 
 impl FigureState {
-    /// Brings the view limits of a parasite that follows its host up to
-    /// date: the host's, mapped back through the aux transform
-    /// (matplotlib's `_sync_lims`, which runs when the host's limits
-    /// change; here whenever the parasite's limits are needed, so a twin
-    /// made after the host's limits were set follows them too). Does
-    /// nothing for other axes.
-    pub(crate) fn sync_parasite(&mut self, axes: ArtistId) {
-        let Some((host, view_map)) = self
-            .store
-            .get_as::<AxesState>(axes)
-            .and_then(|state| state.parasite)
-            .and_then(|parasite| Some((parasite.host, parasite.view_map?)))
-        else {
-            return;
-        };
-        self.unstale_axes(host);
+    /// Gives the parasites of `host` that follow its view limits the
+    /// host's, mapped back through their aux transforms (matplotlib's
+    /// `_sync_lims`, which the host's `xlim_changed` and `ylim_changed`
+    /// callbacks run): between two changes of its host's limits, a
+    /// parasite keeps limits of its own.
+    pub(crate) fn sync_parasites(&mut self, host: ArtistId) {
         let Some(view) = self
             .store
             .get_as::<AxesState>(host)
@@ -487,15 +470,16 @@ impl FigureState {
         else {
             return;
         };
-        let mapped = Bbox::new(
-            view_map.transform_point(view.p0),
-            view_map.transform_point(view.p1),
-        );
-        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
-            state.view_lim = mapped;
-            state.view_mutated = (true, true);
-            state.xaxis.autoscale.stale = false;
-            state.yaxis.autoscale.stale = false;
+        for parasite in parasites_of(&self.store, host) {
+            if let Some(state) = self.store.get_as_mut::<AxesState>(parasite)
+                && let Some(view_map) = state.parasite.and_then(|parasite| parasite.view_map)
+            {
+                state.view_lim = Bbox::new(
+                    view_map.transform_point(view.p0),
+                    view_map.transform_point(view.p1),
+                );
+                state.view_mutated = (true, true);
+            }
         }
     }
 }
@@ -542,6 +526,10 @@ mod tests {
             .expect("finite limits");
         assert_eq!(twin.xlim(), (0.0, 2.0));
         assert_eq!(twin.ylim(), (-2.0, 2.0));
+        twin.set_xlim(5.0, 6.0).expect("finite limits");
+        assert_eq!(twin.xlim(), (5.0, 6.0), "its own until the host's change");
+        host.set_ylim(-2.0, 2.0).expect("finite limits");
+        assert_eq!((twin.xlim(), twin.ylim()), ((0.0, 2.0), (-4.0, 4.0)));
         assert_eq!(
             major_tick_sides(&twin, AxisName::X),
             ((false, true), (false, true))

@@ -66,7 +66,9 @@ fn get_xlim(axes: Axes) -> PyResult<(f64, f64)> {
 /// Sets the view limits of the axis `name` (`"x"` or `"y"`) to `(low,
 /// high)`, switching its autoscaling to `auto` when given; with `emit`,
 /// the axes sharing the axis follow and the limit callbacks run
-/// (matplotlib's `Axis._set_lim`). Returns the limits as set.
+/// (matplotlib's `Axis._set_lim`, which the fixed limits of geographic
+/// axes let through: their `set_xlim` refuses in Python). Returns the
+/// limits as set.
 fn set_lim(
     axes: Axes,
     name: String,
@@ -88,11 +90,7 @@ fn set_lim(
         high: Some(high),
         auto,
     };
-    Ok(if emit {
-        axes.set_limits_with(axis, limits)?
-    } else {
-        axes.set_limits_quietly(axis, limits)?
-    })
+    Ok(axes.axis_of(axis).set_limits(limits, emit)?)
 }
 
 /// The y limits.

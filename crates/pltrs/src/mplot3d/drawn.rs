@@ -68,7 +68,9 @@ fn numpy_inverse(matrix: &Matrix4) -> Option<Matrix4> {
 /// `Axes3D.draw`, which a figure's draws leave out for an animated or an
 /// invisible axes): its projection becomes `M`, and the artists the
 /// layout projected for the draw hold a draw's projection (with
-/// `painting` stopped, not those projected as they are drawn).
+/// `painting` stopped, or a projection of the collections and patches
+/// failing, not those projected as they are drawn; never those the draw
+/// fails on).
 pub(crate) fn note_draw(figure: &mut FigureState, id: ArtistId, painting: Painting) {
     let saving = figure.saving;
     figure.with_others::<Axes3DState, _>(id, |axes, store| {
@@ -76,10 +78,13 @@ pub(crate) fn note_draw(figure: &mut FigureState, id: ArtistId, painting: Painti
             return;
         }
         axes.keep_projection();
+        let stops = axes.stops_projecting(store);
+        let failures = &axes.failures;
         for artist in &mut axes.artists {
             let animated = store.get(artist.id).is_some_and(|a| a.base().animated);
             let as_drawn = artist.art.projected_when_drawn();
-            if (saving || !(animated && as_drawn)) && !(as_drawn && painting == Painting::Stopped) {
+            let reached = !(as_drawn && (painting == Painting::Stopped || stops));
+            if (saving || !(animated && as_drawn)) && reached && failures.of(artist.id).is_none() {
                 artist.drawn = true;
             }
         }
@@ -212,6 +217,9 @@ impl Axes3D {
         &self,
         artist: &impl ArtistHandle,
     ) -> Result<Option<f64>, Axes3DError> {
+        if let Some(failure) = self.draw_failure(artist) {
+            return Err(Axes3DError::Draw(failure));
+        }
         if let Some(matrix) = self.drawn_proj() {
             return self
                 .project_artist(artist, |projection| projection.with_matrix(matrix))

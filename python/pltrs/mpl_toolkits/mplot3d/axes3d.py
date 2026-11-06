@@ -19,6 +19,7 @@ import numpy as np
 
 from pltrs import _api, _handles, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
+from pltrs import patches as mpatches
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
 from pltrs._native import mplot3d as _mplot3d
 from pltrs.axes import Axes
@@ -32,7 +33,7 @@ from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
 from pltrs.transforms import Bbox
 
-from . import art3d, axis3d
+from . import _draw_problems, art3d, axis3d
 from ._charts import ChartsMixin
 from ._contours import ContoursMixin
 from ._limit_boxes import LimitBoxesMixin
@@ -945,6 +946,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """Create the projection matrix from the current viewing position."""
         return _mplot3d.get_proj(self._native)
 
+    def draw(self, renderer):
+        # docstring inherited; matplotlib's keeps the view it draws in as
+        # that of its last draw (``M``, ``invM``), as pltrs (Rust) keeps it
+        # when it draws the figure.
+        if self.get_visible():
+            self.M = self.get_proj()
+            self.invM = np.linalg.inv(self.M)
+        super().draw(renderer)
+
     @property
     def M(self):
         """The projection matrix of the last draw (None before the first)."""
@@ -1062,10 +1072,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
         if self._axis3don:
             # matplotlib ticks each visible axis to measure it, raising
-            # what its locator or formatter raises.
+            # what its locator or formatter raises (the measure above
+            # warned where it ticks them).
             for axis in (self.xaxis, self.yaxis, self.zaxis):
                 if axis.get_visible():
-                    _axis.place_ticks(self._native, axis.axis_name)
+                    _axis.place_level(self._native, axis.axis_name, False)
         if extent is None:
             return None
         x0, y0, x1, y1 = extent
@@ -1464,18 +1475,36 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                 # Any other collection is added as it is, as matplotlib
                 # adds it.
                 return self.add_collection(col)
-        segments = col.__dict__.get('_verts3d_pending')
+        segments = col.__dict__.get('_segments3d')
         if autolim and isinstance(col, art3d.Line3DCollection) and segments is not None:
-            # matplotlib gathers the points of the segments to autoscale,
-            # which fails without any.
-            np.concatenate(segments)
+            # matplotlib gathers the coordinates of the points of the
+            # segments to autoscale, which fails without any.
+            points = np.concatenate(segments)
+            points[:, 0], points[:, 1], points[:, 2]
         return col._adopt_into(self, autolim, axlim_clip)
 
     def add_collection(self, collection, autolim=True):
         # docstring inherited
         if isinstance(collection, art3d._Loose3D):
             return collection._adopt_into(self, bool(autolim), False)
-        return super().add_collection(collection, autolim)
+        return self._without_projection(super().add_collection(collection, autolim))
+
+    def add_patch(self, p):
+        # docstring inherited
+        return self._without_projection(super().add_patch(p))
+
+    def add_artist(self, a):
+        # docstring inherited
+        return self._without_projection(super().add_artist(a))
+
+    def _without_projection(self, artist):
+        """Record that the draws of the axes fail on *artist* when it is a
+        2-D collection or patch, without the 3-D projection matplotlib's
+        draw asks the collections and patches for; return it."""
+        if (isinstance(artist, (mcoll.Collection, mpatches.Patch))
+                and not hasattr(artist, 'do_3d_projection')):
+            _draw_problems.record(artist, _draw_problems.missing_projection(artist))
+        return artist
 
     # -- plotting ----------------------------------------------------------
 

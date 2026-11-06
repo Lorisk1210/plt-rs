@@ -35,7 +35,7 @@ mod trimesh;
 
 use alpha_fit::KeptColors;
 pub use array::ArrayError;
-pub(crate) use depth::{DepthSortError, DepthSorted};
+pub(crate) use depth::{DepthSortError, DepthSorted, without_last};
 pub use ellipses::EllipseCollection;
 pub use events::EventCollection;
 pub(crate) use events::EventLines;
@@ -157,6 +157,13 @@ pub(crate) trait DrawTimeShapes: Debug + Any {
     /// shapes left out (matplotlib's `Quiver.get_datalim`).
     fn limits_at_offsets(&self) -> bool {
         false
+    }
+
+    /// A problem drawing meets before it asks for the shapes, with the kind
+    /// of exception matplotlib raises for it (a setting it checks only
+    /// then); none by default.
+    fn problem(&self) -> Option<(DrawErrorKind, String)> {
+        None
     }
 
     /// The generator as [`Any`], for artists that read its state.
@@ -592,6 +599,8 @@ impl Artist for CollectionArtist {
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         } else if let Some(problem) = self.alpha_problem() {
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
+        } else if let Some((kind, problem)) = self.draw_time.as_ref().and_then(|g| g.problem()) {
+            ctx.report_kind(self.base.id(), kind, problem);
         } else if let Err(problem) = self.render(ctx) {
             ctx.report(self.base.id(), problem);
         }

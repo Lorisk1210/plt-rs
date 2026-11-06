@@ -27,8 +27,9 @@ from . import (_api, _image, _unusable, _values, cbook, colorizer as mcolorizer,
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
-from ._native import image as _native_image
-from .transforms import Affine2D, Bbox, BboxBase, IdentityTransform, TransformedBbox
+from ._native import artist as _artist, image as _native_image
+from .transforms import (Affine2D, Bbox, BboxBase, BboxTransformTo,
+                         IdentityTransform, TransformedBbox)
 
 _log = logging.getLogger(__name__)
 
@@ -495,14 +496,29 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         PIL.Image.fromarray(im).save(fname, format="png")
 
 
-def _made_image(image, magnification, unsampled):
+def _made_image(image, magnification, unsampled, in_bbox, trans):
     """
     *image* (an `AxesImage`, a `FigureImage` or a `BboxImage`) made for
     display by pltrs (Rust) as ``make_image`` returns it: the RGBA pixels,
-    the display corner they are drawn from and the `.Affine2D` from the
-    image to them (None for an image on non-affine axes); no pixels when
-    nothing of it shows.
+    the display corner they are drawn from and the transform from the
+    image to them; no pixels when nothing of it shows. The transform is
+    built as matplotlib's ``_make_image`` builds it, from the box *in_bbox*
+    the image fills through the image's transform *trans* (see
+    `_image_transform`).
     """
+    made = _native_made(image, magnification, unsampled)
+    if made is None:
+        return None, 0, 0, None
+    pixels, x, y, matrix = made
+    return (pixels, x, y,
+            _image_transform(image, in_bbox, trans, (x, y, magnification),
+                             matrix if unsampled else None))
+
+
+def _native_made(image, magnification, unsampled):
+    """*image* made by pltrs (Rust): its pixels, the display corner they are
+    drawn from (numpy floats) and the matrix mapping the image onto them;
+    None when nothing of it shows."""
     if image._A is None:
         raise RuntimeError('You must first set the image array')
     if image._A.size == 0:
@@ -512,10 +528,38 @@ def _made_image(image, magnification, unsampled):
     made = _native_image.make_image(image._native, float(magnification),
                                     bool(unsampled))
     if made is None:
-        return None, 0, 0, None
+        return None
     pixels, x, y, matrix = made
-    return (pixels, np.float64(x), np.float64(y),
-            None if matrix is None else Affine2D(matrix))
+    return pixels, np.float64(x), np.float64(y), matrix
+
+
+def _image_transform(image, in_bbox, trans, corner, unsampled_matrix):
+    """
+    The transform matplotlib's ``_make_image`` gives with the pixels of
+    *image*: the flip of an image of origin ``'upper'``, its pixels
+    stretched over *in_bbox*, *trans*, then the magnification and the move
+    of the magnified *corner* ``(x, y, magnification)`` to the origin; for
+    the unsampled pixels pltrs (Rust) made with *unsampled_matrix*, first
+    the move to the part of the image they keep.
+    """
+    rows, columns = image._A.shape[:2]
+    if image.origin == 'upper':
+        t0 = Affine2D().translate(0, -rows).scale(1, -1)
+    else:
+        t0 = IdentityTransform()
+    t0 += (Affine2D()
+           .scale(in_bbox.width / columns, in_bbox.height / rows)
+           .translate(in_bbox.x0, in_bbox.y0)
+           + trans)
+    x, y, magnification = corner
+    t = t0 + (Affine2D()
+              .scale(magnification)
+              .translate(-x * magnification, -y * magnification))
+    if unsampled_matrix is not None and t.is_affine:
+        # The part kept starts at whole pixels of the image.
+        kept = np.linalg.solve(t.get_matrix(), np.asarray(unsampled_matrix))
+        t = Affine2D().translate(round(kept[0, 2]), round(kept[1, 2])) + t
+    return t
 
 
 def _made_grid_image(image, magnification, unsampled, kind):
@@ -529,7 +573,7 @@ def _made_grid_image(image, magnification, unsampled, kind):
         raise RuntimeError('You must first set the image array')
     if unsampled:
         raise ValueError(f'unsampled not supported on {kind}')
-    pixels, x, y, _ = _made_image(image, magnification, False)
+    pixels, x, y, _ = _native_made(image, magnification, False) or (None, 0, 0, None)
     return pixels, x, y, IdentityTransform()
 
 
@@ -677,10 +721,12 @@ class AxesImage(_ImageBase):
             The upper left corner where the image should be drawn, in pixel
             space.
         trans : `~matplotlib.transforms.Affine2D`
-            The affine transformation from image to pixel space (None, in
-            pltrs, for an image on non-affine axes).
+            The affine transformation from image to pixel space.
         """
-        return _made_image(self, magnification, unsampled)
+        x1, x2, y1, y2 = self.get_extent()
+        return _made_image(self, magnification, unsampled,
+                           Bbox(np.array([[x1, y1], [x2, y2]])),
+                           self.get_transform())
 
 
 def imread(fname, format=None):
@@ -1262,7 +1308,11 @@ class FigureImage(_ImageBase):
         pltrs: made at the resolution of the figure (pltrs (Rust) draws
         the figure itself).
         """
-        return _made_image(self, magnification, unsampled)
+        rows, columns = self._A.shape[:2] if self._A is not None else (0, 0)
+        in_bbox = Bbox([[self.ox, self.oy],
+                        [self.ox + columns, self.oy + rows]])
+        return _made_image(self, magnification, unsampled, in_bbox,
+                           self.get_transform())
 
 
 def _native_extent_owner(bbox):
@@ -1429,7 +1479,33 @@ class BboxImage(_ImageBase):
         pltrs: made in the figure's current layout (pltrs (Rust) draws the
         figure itself).
         """
-        return _made_image(self, magnification, unsampled)
+        width, height = renderer.get_canvas_width_height()
+        in_bbox = self.get_window_extent(renderer).frozen()
+        in_bbox._points /= [width, height]
+        return _made_image(self, magnification, unsampled, in_bbox,
+                           self._canvas_transform(width, height))
+
+    def _canvas_transform(self, width, height):
+        """The transform matplotlib's ``make_image`` gives the image, which
+        maps the unit square onto its canvas of *width* × *height* pixels,
+        kept as the image's transform (see `get_transform`)."""
+        transform = BboxTransformTo(Bbox([[0, 0], [width, height]]))
+        self._canvas_transformed = (_artist.draw_count(self._native), transform)
+        return transform
+
+    def set_transform(self, t):
+        # docstring inherited; it stands until the image is next made.
+        super().set_transform(t)
+        self._canvas_transformed = (_artist.draw_count(self._native), None)
+
+    def get_transform(self):
+        # docstring inherited; matplotlib's `make_image`, which its draw
+        # calls, makes the canvas's box the transform until another is set.
+        made, transform = self.__dict__.get("_canvas_transformed", (0, None))
+        if _artist.draw_count(self._native) > made:
+            width, height = self.get_figure(root=True).bbox.size
+            transform = self._canvas_transform(width, height)
+        return super().get_transform() if transform is None else transform
 
     def contains(self, mouseevent):
         """Test whether the mouse event occurred within the image."""

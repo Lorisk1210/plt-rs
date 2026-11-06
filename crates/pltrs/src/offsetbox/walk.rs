@@ -161,6 +161,7 @@ impl<A> OffsetBox<A> {
                     .collect::<Result<_, _>>()?,
                 visible: aux.visible,
                 extent: aux.extent,
+                figureless_text: aux.figureless_text,
             }),
             Self::Image(image) => OffsetBox::Image(OffsetImage {
                 image: f(image.image)?,

@@ -77,7 +77,7 @@ pub(super) fn check_adjustable(
     axes: &AxesState,
     adjustable: Adjustable,
 ) -> Result<(), AspectError> {
-    if adjustable == Adjustable::Datalim && axes.projection.fixed_data_ratio().is_some() {
+    if adjustable == Adjustable::Datalim && axes.projection.fixes_data_ratio() {
         return Err(AspectError::FixedDataRatio(axes.projection.kind()));
     }
     Ok(())

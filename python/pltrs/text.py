@@ -197,7 +197,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 
     def __repr__(self):
         x, y = self.get_position()
-        return f"Text({x}, {y}, {self.get_text()!r})"
+        # The text as set, which a subclass's `get_text` may resolve.
+        return f"Text({x}, {y}, {Text.get_text(self)!r})"
 
     def __init__(self, x=0, y=0, text='', **kwargs):
         """
@@ -889,6 +890,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             absolute path to a font file.
         """
         _text.set_fontproperties(self._native, FontManager._props(fp))
+        # matplotlib's text holds a copy of *fp* from now on.
+        self.__dict__.pop("_font_object", None)
 
     def set_usetex(self, usetex):
         """

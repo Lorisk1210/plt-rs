@@ -12,7 +12,7 @@ use super::lift::patch_positions;
 use super::math::Vec3;
 use crate::artist::{ArtistHandle, ArtistLookup, AttachError, RawHandle};
 use crate::axes::AddAs;
-use crate::collections::{Collection, CollectionArtist};
+use crate::collections::{Collection, CollectionArtist, DepthSorted};
 
 /// The 3-D geometry a collection made outside any figure is added with.
 #[derive(Clone, Debug, PartialEq)]
@@ -138,8 +138,10 @@ impl Axes3D {
                 depthshade,
                 min_alpha,
             } => {
-                let positions =
-                    raw.with_mut::<CollectionArtist, _>(|c| patch_positions(c, &zs, zdir))?;
+                let positions = raw.with_mut::<CollectionArtist, _>(|c| {
+                    c.depth_sorted = Some(DepthSorted::unprojected());
+                    patch_positions(c, &zs, zdir)
+                })?;
                 let points = Points3D {
                     positions,
                     depthshade,

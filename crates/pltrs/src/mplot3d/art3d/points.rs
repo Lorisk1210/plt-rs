@@ -5,7 +5,7 @@
 use pltrs_core::{Point, Rgba};
 
 use crate::artist::Artist;
-use crate::collections::{CollectionArtist, DepthSortError, DepthSorted};
+use crate::collections::{CollectionArtist, DepthSortError, DepthSorted, without_last};
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::mplot3d::shade::depth_alphas;
@@ -75,6 +75,8 @@ impl Points3D {
             if let Some(sorted) = &mut collection.depth_sorted {
                 sorted.offsets = Some(order.iter().map(|&i| offsets[i]).collect());
             }
+        } else {
+            self.shade_patches(collection, &depths);
         }
         collection.offsets = offsets;
         depths
@@ -123,8 +125,30 @@ impl Points3D {
             linewidths: linewidths.ok().flatten(),
             offsets: None,
             problem: projecting.or(colors.err()),
+            without_last: false,
         });
         projecting.is_none().then_some(order)
+    }
+
+    /// Works out the colours of the patches of `collection`, as
+    /// matplotlib's `Patch3DCollection` draws and reports them: with depth
+    /// shading the collection's broadcast to one per position, unfaded (it
+    /// has no data scale to fade them over) and with its alpha applied once
+    /// more; then without their last when there are several, its depth
+    /// order staying `slice(-1)` as it never sorts the patches.
+    fn shade_patches(&self, collection: &mut CollectionArtist, depths: &[f64]) {
+        let mut sorted = DepthSorted::unprojected();
+        if self.depthshade
+            && let Ok((faces, edges)) = collection.base_colors()
+        {
+            let alpha = collection.base().alpha;
+            let shade = |colors: &[Rgba]| self.shaded(colors, depths, 0.0, alpha).map(without_last);
+            match (shade(&faces), shade(&edges)) {
+                (Ok(faces), Ok(edges)) => sorted.colors = Some((faces, edges)),
+                (Err(problem), _) | (_, Err(problem)) => sorted.problem = Some(problem),
+            }
+        }
+        collection.depth_sorted = Some(sorted);
     }
 
     /// `colors` faded with depth (one colour per marker then) when depth
@@ -207,6 +231,48 @@ mod tests {
         let scale = data_scale(&[Some([0.0, 0.0, 0.0]), None, Some([3.0, 4.0, 0.0])]);
         assert!((scale - 5.0).abs() < 1e-12);
         assert_eq!(data_scale(&[None]), 0.0);
+    }
+
+    #[test]
+    fn patches_lose_their_last_colour_and_broadcast_when_shaded() {
+        let collection = || {
+            let mut c = CollectionArtist::new(
+                crate::collections::CollectionKind::Patch,
+                Vec::new(),
+                std::rc::Rc::new(crate::rc::RcParams::default()),
+            );
+            c.facecolors = Some(vec![
+                crate::colors::Color::Rgba(Rgba::new(1.0, 0.0, 0.0, 1.0)),
+                crate::colors::Color::Rgba(Rgba::new(0.0, 1.0, 0.0, 1.0)),
+                crate::colors::Color::Rgba(Rgba::new(0.0, 0.0, 1.0, 1.0)),
+            ]);
+            c
+        };
+        let points = |depthshade| Points3D {
+            positions: Vec::new(),
+            depthshade,
+            min_alpha: 0.3,
+            depth_sorted: false,
+            sort_zpos: None,
+        };
+        let mut flat = collection();
+        points(false).shade_patches(&mut flat, &[0.0]);
+        let sorted = flat.depth_sorted.as_ref().expect("projected");
+        assert!(sorted.without_last && sorted.colors.is_none());
+        let mut shaded = collection();
+        points(true).shade_patches(&mut shaded, &[0.0]);
+        let sorted = shaded.depth_sorted.expect("projected");
+        assert_eq!(
+            sorted.problem,
+            Some(DepthSortError::Colors {
+                given: 3,
+                markers: 1
+            })
+        );
+        let mut matched = collection();
+        points(true).shade_patches(&mut matched, &[0.0, 1.0, 2.0]);
+        let (faces, _) = matched.depth_sorted.and_then(|s| s.colors).expect("shaded");
+        assert_eq!(faces.len(), 2);
     }
 
     #[test]

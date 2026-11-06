@@ -3,7 +3,7 @@
 //! `margins` and `use_sticky_edges`).
 
 use super::limits::oriented;
-use super::{Axes, AxesState, AxisName, PlotError};
+use super::{Axes, AxesState, Axis, AxisName, PlotError};
 use crate::artist::ArtistHandle;
 use crate::ticker::AutolimitMode;
 
@@ -42,6 +42,45 @@ impl Default for Limits {
     }
 }
 
+/// Who sets view limits: the axes (matplotlib's `Axes.set_xlim`, which
+/// the fixed limits of geographic axes refuse) or the axis itself
+/// (`Axis._set_lim`, which they let through).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Setter {
+    Axes,
+    Axis,
+}
+
+impl Axis {
+    /// Sets the view limits along this axis as [`Axes::set_limits_with`]
+    /// does with `emit` and [`Axes::set_limits_quietly`] without, also
+    /// where the projection fixes the limits of its axes (matplotlib's
+    /// `Axis._set_lim`, through which geographic axes are inverted).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::Limits;
+    /// use pltrs::geo::GeoProjection;
+    /// let ax = Figure::new().geo_subplot(GeoProjection::Hammer);
+    /// ax.xaxis().set_limits(Limits::new(1.0, -1.0), true)?;
+    /// assert_eq!(ax.xlim(), (1.0, -1.0));
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a limit is NaN or infinite.
+    pub fn set_limits(&self, limits: Limits, emit: bool) -> Result<(f64, f64), PlotError> {
+        if emit {
+            self.axes
+                .set_limits_observed(self.name, limits, Setter::Axis)
+        } else {
+            self.axes
+                .set_limits_unobserved(self.name, limits, false, Setter::Axis)
+        }
+    }
+}
+
 impl Axes {
     /// Sets the view limits of one axis and of the axes sharing it
     /// (matplotlib's `set_xlim`/`set_ylim`), and returns them as set:
@@ -63,7 +102,18 @@ impl Axes {
     ///
     /// When a limit is NaN or infinite.
     pub fn set_limits_with(&self, axis: AxisName, limits: Limits) -> Result<(f64, f64), PlotError> {
-        let set = self.set_limits_unobserved(axis, limits, true)?;
+        self.set_limits_observed(axis, limits, Setter::Axes)
+    }
+
+    /// Sets the view limits of one axis by `setter`, then tells the
+    /// colorbar drawn in this axes and runs the limit callbacks queued.
+    fn set_limits_observed(
+        &self,
+        axis: AxisName,
+        limits: Limits,
+        setter: Setter,
+    ) -> Result<(f64, f64), PlotError> {
+        let set = self.set_limits_unobserved(axis, limits, true, setter)?;
         // matplotlib's `xlim_changed`/`ylim_changed` observers.
         crate::colorbar::follow_view(self);
         super::run_limit_callbacks(self.raw.figure_state());
@@ -94,17 +144,19 @@ impl Axes {
         axis: AxisName,
         limits: Limits,
     ) -> Result<(f64, f64), PlotError> {
-        self.set_limits_unobserved(axis, limits, false)
+        self.set_limits_unobserved(axis, limits, false, Setter::Axes)
     }
 
-    /// [`Axes::set_limits_with`] without telling the colorbar drawn in
-    /// this axes, which sets its own limits this way; with `emit`, the
-    /// axes sharing the axis follow and the limit callbacks are queued.
+    /// [`Axes::set_limits_with`] by `setter` without telling the colorbar
+    /// drawn in this axes, which sets its own limits this way; with
+    /// `emit`, the axes sharing the axis follow and the limit callbacks
+    /// are queued.
     fn set_limits_unobserved(
         &self,
         axis: AxisName,
         limits: Limits,
         emit: bool,
+        setter: Setter,
     ) -> Result<(f64, f64), PlotError> {
         if [limits.low, limits.high]
             .into_iter()
@@ -122,13 +174,12 @@ impl Axes {
             limits.low.unwrap_or(current.0),
             limits.high.unwrap_or(current.1),
         );
-        self.raw.figure_state().borrow_mut().set_axis_limits(
-            self.id(),
-            axis,
-            requested,
-            limits.auto,
-            emit,
-        );
+        let mut figure = self.raw.figure_state().borrow_mut();
+        match setter {
+            Setter::Axes => figure.set_axis_limits(self.id(), axis, requested, limits.auto, emit),
+            Setter::Axis => figure.set_axis_view(self.id(), axis, requested, limits.auto, emit),
+        }
+        drop(figure);
         Ok(self.raw.with::<AxesState, _>(|a| a.view_interval(axis)))
     }
 
@@ -152,7 +203,7 @@ impl Axes {
         low: f64,
         high: f64,
     ) -> Result<&Self, PlotError> {
-        self.set_limits_unobserved(axis, Limits::new(low, high), true)?;
+        self.set_limits_unobserved(axis, Limits::new(low, high), true, Setter::Axes)?;
         Ok(self)
     }
 

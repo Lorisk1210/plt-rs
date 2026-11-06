@@ -182,7 +182,7 @@ class ExtremeFinderCycle(ExtremeFinderSimple):
 
     def _find_transformed_bbox(self, trans, bbox):
         # docstring inherited
-        lon, lat = _transformed_grid(trans, bbox, self.nx, self.ny)
+        lon, lat = _transformed_grid(trans, bbox, self.nx, self.ny).T
         return Bbox.from_extents(*_axisartist.cycle_extent(
             lon, lat, (self.nx, self.ny), (self.lon_cycle, self.lat_cycle),
             (self.lon_minmax, self.lat_minmax)))

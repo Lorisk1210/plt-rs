@@ -219,7 +219,7 @@ pub struct GridFinder {
 }
 
 /// A grid computed over a box.
-type LastGrid = (Bbox, Result<GridInfo, GridError>);
+type LastGrid = (Bbox, GridInfo);
 
 pltrs_core::archive_struct!(GridFinder {
     transform,
@@ -297,16 +297,17 @@ impl GridFinder {
 
     /// The grid lines and their crossings with the data box `bbox`
     /// (matplotlib's `get_grid_info`), computed again only for another
-    /// box than the last.
+    /// box than the last computed, or after a failure (matplotlib's
+    /// `update_lim` keeps the limits of the grid it last computed).
     pub fn grid_info(&self, bbox: Bbox) -> Result<GridInfo, GridError> {
         if let Some((last, info)) = self.last.borrow().as_deref()
             && *last == bbox
         {
-            return info.clone();
+            return Ok(info.clone());
         }
-        let info = self.compute_grid_info(bbox);
+        let info = self.compute_grid_info(bbox)?;
         *self.last.borrow_mut() = Some(Box::new((bbox, info.clone())));
-        info
+        Ok(info)
     }
 
     /// [`grid_info`](Self::grid_info) computed.

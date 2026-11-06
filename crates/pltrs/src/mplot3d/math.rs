@@ -183,6 +183,30 @@ impl Matrix4 {
         let batch = Batch::of(points.len());
         points.iter().map(|&p| self.project_in(batch, p)).collect()
     }
+
+    /// Maps `points` together back through this inverse of a projection
+    /// (matplotlib's `inv_transform`): each divided by its last component
+    /// unless that is zero, which leaves the point undivided.
+    ///
+    /// ```
+    /// use pltrs::mplot3d::math::Matrix4;
+    /// let flat = Matrix4::from_rows([[1.0, 0.0, 0.0, 0.0], [0.0; 4], [0.0; 4], [0.0; 4]]);
+    /// assert_eq!(flat.unproject_all(&[[0.5, 1.0, 2.0]]), vec![[0.5, 0.0, 0.0]]);
+    /// ```
+    pub fn unproject_all(&self, points: &[Vec3]) -> Vec<Vec3> {
+        let batch = Batch::of(points.len());
+        points
+            .iter()
+            .map(|&p| {
+                let [x, y, z, w] = self.transform_in(batch, [p[0], p[1], p[2], 1.0]);
+                if w == 0.0 {
+                    [x, y, z]
+                } else {
+                    [x / w, y / w, z / w]
+                }
+            })
+            .collect()
+    }
 }
 
 /// Maps the box `limits = [xmin, xmax, ymin, ymax, zmin, zmax]` onto

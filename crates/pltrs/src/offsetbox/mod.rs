@@ -144,6 +144,11 @@ pub enum OffsetBoxError {
     /// An aux-transform box has no artists to measure (matplotlib's
     /// `ValueError` uniting their extents).
     EmptyAuxBox,
+    /// An aux-transform box holds a visible text without a figure (see
+    /// [`ArtistBase::figureless`](crate::artist::ArtistBase::figureless)),
+    /// whose extent matplotlib measures at the resolution of a figure it
+    /// does not have.
+    NoFigure,
 }
 
 impl OffsetBoxError {
@@ -151,6 +156,7 @@ impl OffsetBoxError {
     pub fn draw_kind(&self) -> DrawErrorKind {
         match self {
             Self::EmptyAuxBox => DrawErrorKind::InvalidValue,
+            Self::NoFigure => DrawErrorKind::MissingAttribute,
             Self::MissingText(_)
             | Self::MissingImage(_)
             | Self::Text(_)
@@ -175,6 +181,7 @@ impl fmt::Display for OffsetBoxError {
             }
             Self::NotAFrame => f.write_str("the frame of a box must be a FancyBboxPatch"),
             Self::EmptyAuxBox => f.write_str("'bboxes' cannot be empty"),
+            Self::NoFigure => f.write_str("'NoneType' object has no attribute 'dpi'"),
         }
     }
 }
@@ -189,7 +196,8 @@ impl std::error::Error for OffsetBoxError {
             | Self::Detached
             | Self::VerticalAlignment
             | Self::NotAFrame
-            | Self::EmptyAuxBox => None,
+            | Self::EmptyAuxBox
+            | Self::NoFigure => None,
         }
     }
 }

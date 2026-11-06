@@ -407,6 +407,22 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.in_layout)
     }
 
+    /// Makes the artist one in its figure without belonging to it, or
+    /// back (see [`ArtistBase::figureless`](super::ArtistBase::figureless)).
+    fn set_figureless(&self, figureless: bool) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.figureless = figureless);
+        self
+    }
+
+    /// Whether the artist is in its figure without belonging to it (see
+    /// [`ArtistBase::figureless`](super::ArtistBase::figureless)).
+    fn figureless(&self) -> bool {
+        self.raw().with_base(|b| b.figureless)
+    }
+
     /// Sets whether the artist's paths snap to the pixel grid: always,
     /// never, or as the renderer decides with `None` (matplotlib's
     /// `set_snap`).

@@ -607,7 +607,10 @@ final `transAxes`, the gridlines' and ticks' transforms those of
 `get_xaxis_transform` where the class gives its own, the tick interval
 that of an overridden `Axis.get_view_interval`, the sides a tick draws
 those an overridden `Tick.draw` leaves visible on a tick made alone, and
-the interval of a spine that of an overridden `Spine._adjust_location`.
+the interval of a spine that of an overridden `Spine._adjust_location`,
+and the data ratio that of an overridden `get_data_ratio`, asked wherever
+matplotlib applies the aspect (`Projection::data_ratio`: where a draw of
+the figure applies it, `_get_draw_artists`, and where the axes is drawn).
 Every clear (and the making of the Axes by `add_subplot`, as matplotlib's
 `__init__` clears it) gives the Axes the patch its class'
 `_gen_axes_patch` makes (`_program.cleared`): unless it is the unit
@@ -813,7 +816,12 @@ layout placed them, positions set on them are not read back (matplotlib's
 draw overwrites them too; reading the tick labels after a draw moves
 their labels back to their locations along the axis, as matplotlib's
 `_update_ticks` does), and what a single tick would keep of its own
-is refused. Values in units plotted on 3-D axes pass as they are
+is refused. A 3-D axis is ticked once per layout; the warnings
+matplotlib's tick updates issue (numpy's about the tolerance of the minor
+ticks of a view outside the scale's domain) are issued at matplotlib's
+sites instead: each draw of the gridlines and of the ticks of an edge, each
+placement of a title (the y axis), each tight box, each read of the tick
+labels or the minor locations (`mplot3d/tick_sites.rs`). Values in units plotted on 3-D axes pass as they are
 (`Axis._native_units`): pltrs (Rust) converts them, and axes sharing an
 axis share its units but not its converter, as 2-D ones do
 (`Axis3D::own_converter`).
@@ -997,9 +1005,36 @@ figure free, as in matplotlib.
 
 A draw stops where the program's code it runs before painting fails, as
 matplotlib's draw stops at an exception: a layout hook or draw hook of the
-package's that raises (`DrawHook::stopping`; the projection of 3-D
-offsets that do not broadcast, `_locate_by_program`) leaves the figure
-laid out but its artists undrawn (a `Line3D` keeps the data it had).
+package's that raises (`DrawHook::stopping`) leaves the figure laid out
+but its artists undrawn.
+
+matplotlib accepts data its 3-D artists cannot project (a line through
+points of two coordinates, segments of 2-D points, positions whose
+coordinates differ in length) and 2-D collections and patches in a 3-D
+axes, which lack the `do_3d_projection` its draw asks them for, and fails
+only when it draws them. The package runs matplotlib's own computations
+of such data when it is given them (`mplot3d/_draw_problems.py`, ported
+from `art3d` and `proj3d`) and records the exception they raise with
+pltrs (Rust) (`Axes3D::set_draw_failure`, `pltrs::mplot3d::DrawFailure`),
+keeping the data as given: the axes' draw reports it where matplotlib's
+meets it (the collections and patches projected after the background,
+the lines and texts drawn among the other artists), leaves the artist
+unprojected and undrawn, and projects no line of a draw ending at a
+collection; `do_3d_projection` raises it, and runs the same computations
+through the projection of the last draw (`M`), failing as matplotlib's
+does before the first draw.
+
+An artist a figure holds without matplotlib's giving it the figure (a
+child an `AuxTransformBox` takes once it is in a figure, whose
+`add_artist` sets no figure) is *figureless* (`ArtistBase::figureless`):
+its `get_figure()` is None, and measuring or drawing a text among them
+raises matplotlib's `AttributeError` (`OffsetBoxError::NoFigure`).
+
+The parasites of an axes_grid1 host whose view limits follow the host's
+(`twin`, `get_aux_axes(viewlim_mode=...)`) take them when the host's
+limits change, as matplotlib's `_sync_lims` does on the host's
+`xlim_changed` and `ylim_changed` (`FigureState::sync_parasites`); between
+two changes a parasite keeps limits of its own.
 
 Some parts matplotlib keeps as artists of their own are drawn by pltrs
 (Rust) as parts of their artist: a text's box (`Text.get_bbox_patch()`)

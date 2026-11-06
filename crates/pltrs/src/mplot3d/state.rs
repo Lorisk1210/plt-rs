@@ -6,13 +6,14 @@ use std::rc::Rc;
 use pltrs_core::{Anchor, Bbox, Path, Rgba};
 use pltrs_render::JoinStyle;
 
-use super::art3d::{Artist3D, SortKind};
+use super::art3d::{Art3D, Artist3D, SortKind};
 use super::aspect::AspectSettings;
 use super::axis_draw::{axis_extents, draw_axes};
 use super::axis3d::Axis3DState;
 use super::camera::{Camera, Projection};
 use super::coords::Axis3;
 use super::drawn::DrawnMatrices;
+use super::failures::DrawFailures;
 use super::limits::Limits3D;
 use super::mouse::MouseButtons;
 use super::share::{LimitChange, Shares};
@@ -83,6 +84,9 @@ pub(crate) struct Axes3DState {
     pub(crate) facecolor: Color,
     /// The plane's artists with their 3-D geometry, in insertion order.
     pub(crate) artists: Vec<Artist3D>,
+    /// The problems drawing the plane's artists meets, recorded in
+    /// advance.
+    pub(crate) failures: DrawFailures,
     /// The mouse buttons that rotate, pan and zoom the axes.
     pub(crate) mouse: MouseButtons,
     /// The projection of the last draw (matplotlib's `M` and `invM`).
@@ -111,6 +115,7 @@ pltrs_core::archive_struct!(Axes3DState {
     computed_zorder,
     facecolor,
     artists,
+    failures,
     mouse,
     drawn,
     axis_zorder,
@@ -143,6 +148,7 @@ impl Axes3DState {
             computed_zorder: true,
             facecolor: rc.axes_facecolor.clone(),
             artists: Vec::new(),
+            failures: DrawFailures::default(),
             mouse: MouseButtons::default(),
             drawn: DrawnMatrices::default(),
             axis_zorder: rc.axes_axisbelow.zorder(),
@@ -208,6 +214,11 @@ impl Axes3DState {
     /// `Axes3D.draw` before drawing). Lines are projected as matplotlib
     /// projects them when it draws them: animated ones only while the
     /// figure is `saving`, none for a draw stopped before its artists.
+    /// Artists the draw fails on (see [`Axes3D::set_draw_failure`]) are
+    /// not projected, nor are the lines and texts of a draw that ends
+    /// projecting the collections and patches.
+    ///
+    /// [`Axes3D::set_draw_failure`]: super::Axes3D::set_draw_failure
     pub(crate) fn prepare(
         &mut self,
         store: &mut ArtistStore,
@@ -216,6 +227,7 @@ impl Axes3DState {
         (saving, painting): (bool, Option<Painting>),
     ) {
         self.artists.retain(|artist| store.contains(artist.id));
+        self.failures.retain_in(store);
         let width_points = extent.width().abs() / dpi * 72.0;
         // matplotlib reads `axes3d.automargin` when the ticks are drawn.
         let automargin = crate::rc::params().axes3d_automargin;
@@ -228,6 +240,7 @@ impl Axes3DState {
             .clone()
             .hiding_outside(Axis3::ALL.map(|axis| self.limits.bound(axis)));
         let mut depths: Vec<(ArtistId, SortKind, f64)> = Vec::new();
+        let stops = painting.is_some() && self.stops_projecting(store);
         for Artist3D {
             id,
             art,
@@ -237,8 +250,12 @@ impl Axes3DState {
         {
             let animated = store.get(*id).is_some_and(|a| a.base().animated);
             if art.projected_when_drawn()
-                && ((animated && !saving) || painting == Some(Painting::Stopped))
+                && ((animated && !saving) || painting == Some(Painting::Stopped) || stops)
             {
+                continue;
+            }
+            if self.failures.of(*id).is_some() {
+                // matplotlib's draw fails on it before it projects it.
                 continue;
             }
             let projection = if *axlim_clip { &hiding } else { &projection };
@@ -277,6 +294,8 @@ impl Axes3DState {
     fn report_animated_projections(&self, ctx: &mut DrawContext<'_>) {
         let store = ctx.layout().store();
         let failed: Vec<_> = (self.artists.iter())
+            // The colours of patches fail as they are drawn.
+            .filter(|artist| matches!(&artist.art, Art3D::Points(points) if points.depth_sorted))
             .filter_map(|artist| {
                 let collection = store.get_as::<CollectionArtist>(artist.id)?;
                 let base = collection.base();
@@ -320,7 +339,15 @@ impl Artist for Axes3DState {
             return;
         };
         self.draw_background(ctx, &extent);
+        self.warn_drawn_tick_sites(ctx.layout().store());
         self.report_animated_projections(ctx);
+        let children = ctx
+            .layout()
+            .store()
+            .get_as::<AxesState>(self.plane)
+            .map(Self::plane_children)
+            .unwrap_or_default();
+        self.report_projection_failures(ctx, &children);
         if self.axis_on {
             draw_axes(self, ctx, &extent);
         }
@@ -365,14 +392,17 @@ impl Axes3DState {
         ctx.renderer().close_part_group("patch");
     }
 
-    /// Draws the plane's artists sorted by z-order.
+    /// Draws the plane's artists sorted by z-order, but those whose
+    /// recorded problem it reports instead.
     fn draw_plane_children(&self, ctx: &mut DrawContext<'_>) {
         let Some(plane) = ctx.layout().store().get_as::<AxesState>(self.plane) else {
             return;
         };
         let mut children = Self::plane_children(plane);
         children.retain(|&id| !ctx.layout().skips_animated(id, true));
-        ctx.draw_children_sorted(&children);
+        for id in ctx.sorted_children(&children) {
+            self.draw_plane_child(ctx, id);
+        }
     }
 }
 
@@ -473,6 +503,11 @@ pub(crate) fn axes3d_fresh_tight_bbox(
     square(figure, id, true);
     prepare_one(figure, id, None);
     super::drawn::note_measure(figure, id);
+    if let Some(axes) = figure.store.get_as::<Axes3DState>(id)
+        && axes.base.visible
+    {
+        axes.warn_measured_tick_sites(&figure.store);
+    }
     axes3d_tight_bbox(figure, id, for_layout_only)
 }
 

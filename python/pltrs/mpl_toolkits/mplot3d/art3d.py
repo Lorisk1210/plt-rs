@@ -15,13 +15,24 @@ from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
-from pltrs.axes import _program_locators
+from . import _draw_problems
 
 
 def _columns(arrays):
     """The coordinate arrays broadcast together, flattened to floats."""
     return tuple(np.asarray(c, dtype=float).ravel()
                  for c in np.broadcast_arrays(*arrays))
+
+
+def _three_columns(arrays):
+    """The x, y and z coordinate arrays *arrays* broadcast together and
+    flattened to floats, or None for coordinates of another number or
+    that do not broadcast together."""
+    try:
+        columns = _columns(arrays)
+    except ValueError:
+        return None
+    return columns if len(columns) == 3 else None
 
 
 def get_dir_vector(zdir):
@@ -168,6 +179,14 @@ def _lifted(artist):
     return axes
 
 
+def _gains_projection(artist):
+    """Forget the draw problem recorded for *artist*, an artist of a 3-D
+    axes, lacking the 3-D projection the axes' draws ask the collections
+    and patches for: the class a 2-D to 3-D conversion gave it has one."""
+    if _axes3d(artist) is not None:
+        _draw_problems.record(artist, None)
+
+
 def _faces_3d(verts):
     """
     The (N, 3) float arrays of a sequence of polygons, refused as numpy
@@ -180,21 +199,21 @@ def _faces_3d(verts):
             raise ValueError(f"could not broadcast input array from shape "
                              f"({len(face)},{face.shape[1]}) into shape "
                              f"({len(face)},3)")
-    return _vertices_3d(faces)
+    return [face.reshape(-1, 3) for face in faces]
 
 
-def _vertices_3d(verts):
-    """
-    The (N, 3) float arrays of a sequence of polygons or polylines; 2-D
-    points lie in the plane z = 0.
-    """
-    vertices = []
-    for vert in verts:
-        vert = np.asarray(vert, dtype=float)
-        if vert.ndim == 2 and vert.shape[1] == 2:
-            vert = np.column_stack([vert, np.zeros(len(vert))])
-        vertices.append(vert.reshape(-1, 3))
-    return vertices
+def _segment_points(segments):
+    """The (N, 3) float arrays of the points of the 3-D *segments*, which
+    matplotlib projects (their first three coordinates), or None for
+    segments without three coordinates or of numbers."""
+    try:
+        points = [np.asarray(segment, dtype=float).reshape(len(segment), -1)
+                  for segment in segments]
+    except (TypeError, ValueError):
+        return None
+    if any(segment.shape[1] < 3 for segment in points):
+        return None
+    return [segment[:, :3] for segment in points]
 
 
 class Line3D(lines.Line2D):
@@ -239,6 +258,10 @@ class Line3D(lines.Line2D):
             _mplot3d.line_2d_to_3d(axes._native, self._native,
                                    self.__dict__.pop('_pending3d'),
                                    bool(self._axlim_clip))
+            unprojectable = self.__dict__.get('_unprojectable')
+            if unprojectable is not None:
+                _draw_problems.record(
+                    self, _draw_problems.line_problem(self, unprojectable))
         return self
 
     @property
@@ -289,6 +312,9 @@ class Line3D(lines.Line2D):
         verts3d : length-3 tuple or array-like
             The current data as a tuple or array-like.
         """
+        unprojectable = self.__dict__.get('_unprojectable')
+        if unprojectable is not None:
+            return unprojectable
         axes = _axes3d(self)
         native = (self._pending3d if axes is None else tuple(
             np.array(c) for c in _mplot3d.line_data(axes._native, self._native)))
@@ -318,12 +344,33 @@ class Line3D(lines.Line2D):
             if not np.iterable(xyz):
                 raise RuntimeError(f'{name} must be a sequence')
         axes = _axes3d(self)
-        if axes is None:
-            self._pending3d = _columns(args)
+        problem = (None if axes is None
+                   else _draw_problems.line_problem(self, args))
+        columns = None if problem is not None else _three_columns(args)
+        if columns is None:
+            # Data matplotlib's draw fails on: kept as given, the line
+            # keeping its 3-D data and its draw raising.
+            self._unprojectable = args
         else:
-            _mplot3d.set_line_data(axes._native, self._native, _columns(args))
-        _values.remember(self, "data_3d", args)
+            self.__dict__.pop('_unprojectable', None)
+            if axes is None:
+                self._pending3d = columns
+            else:
+                _mplot3d.set_line_data(axes._native, self._native, columns)
+            _values.remember(self, "data_3d", args)
+        if axes is not None:
+            _draw_problems.record(self, problem)
         self.stale = True
+
+    def draw(self, renderer):
+        # docstring inherited; matplotlib's projects the line through the
+        # view of the last draw of its axes, failing as it does.
+        axes = _lifted(self)
+        if axes is not None:
+            problem = _draw_problems.line_problem(self, self.get_data_3d(), axes.M)
+            if problem is not None:
+                raise problem
+        super().draw(renderer)
 
     def _drawn_data(self, getter):
         """The projected data *getter* reads off the native line, masked as
@@ -443,6 +490,7 @@ def collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
             zdir))
         for p, z in zip(paths, zs)]
     col.__class__ = cbook._make_class_factory(Collection3D, "{}3D")(type(col))
+    _gains_projection(col)
     col._axlim_clip = axlim_clip
     axes = _axes3d(col)
     if axes is None:
@@ -469,26 +517,64 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
             Keyword arguments are passed onto `.LineCollection`.
         """
         super().__init__([], **kwargs)
-        self._verts3d_pending = _vertices_3d(lines)
         self._axlim_clip = axlim_clip
+        self._keep_segments(lines)
 
     def set_segments(self, segments):
         """
         Set 3D segments.
         """
+        self._keep_segments(segments)
+        super().set_segments([])
+
+    def _keep_segments(self, segments):
+        """Make *segments* the 3-D segments, kept as given
+        (``_segments3d``): projected by pltrs (Rust) in a 3-D axes (else
+        once one adds the collection), but for segments matplotlib's draw
+        fails to project, on which the axes' draw raises as it does."""
+        self._segments3d = segments
         axes = _lifted(self)
         if axes is None:
-            self._verts3d_pending = _vertices_3d(segments)
-        else:
-            _mplot3d.set_segments3d(axes._native, self._native,
-                                    _vertices_3d(segments))
-        super().set_segments([])
+            self._verts3d_pending = segments
+            return
+        problem = _draw_problems.segments_problem(self, segments)
+        points = None if problem is not None else _segment_points(segments)
+        if points is not None:
+            _mplot3d.set_segments3d(axes._native, self._native, points)
+        _draw_problems.record(self, problem)
+
+    def _native_geometry(self):
+        # docstring inherited; segments matplotlib fails to project are
+        # recorded once the axes holds the collection (`_adopt_into`).
+        points = _segment_points(self.__dict__.pop('_verts3d_pending'))
+        return ("lines", ([] if points is None else points,))
+
+    def _adopt_into(self, axes, autolim, axlim_clip):
+        # docstring inherited
+        super()._adopt_into(axes, autolim, axlim_clip)
+        _draw_problems.record(
+            self, _draw_problems.segments_problem(self, self._segments3d))
+        return self
+
+    def do_3d_projection(self):
+        """Project the segments in the view of the last draw and return
+        the depth of their nearest point (NaN without points), failing as
+        matplotlib's does on the segments kept."""
+        axes = _lifted(self)
+        segments = self.__dict__.get('_segments3d')
+        if axes is not None and segments is not None:
+            problem = _draw_problems.segments_problem(self, segments, axes.M)
+            if problem is not None:
+                raise problem
+        return _projected_depth(self)
 
 
 def line_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """Convert a `.LineCollection` to a `.Line3DCollection` object."""
     col.__class__ = Line3DCollection
-    col._verts3d_pending = _lifted_paths(col, zs, zdir, finite=True)
+    _gains_projection(col)
+    col._verts3d_pending = col._segments3d = _lifted_paths(col, zs, zdir,
+                                                           finite=True)
     col._axlim_clip = axlim_clip
 
 
@@ -594,44 +680,38 @@ class _Lifted3DOffsets(_Loose3D):
 
     @_offsets3d.setter
     def _offsets3d(self, offsets):
-        try:
-            columns = _columns(offsets)
-        except ValueError:
-            # Coordinates that do not broadcast together: matplotlib keeps
-            # them, and fails to project them when it draws.
+        problem = _draw_problems.offsets_problem(self, offsets)
+        columns = None if problem is not None else _three_columns(offsets)
+        if columns is None:
             self._keep_unprojectable(offsets)
         else:
             self.__dict__.pop("_unprojectable", None)
             self.__dict__.pop("_offsets_unprojected", None)
             _mplot3d.set_scatter_offsets(self.axes._native, self._native, columns)
             _values.remember(self, "_offsets3d", offsets)
+        _draw_problems.record(self, problem)
         self.stale = True
 
     def _keep_unprojectable(self, offsets):
         """
-        Keep *offsets*, 3-D positions whose coordinates do not broadcast
-        together, as matplotlib keeps them: its draws fail to project them
-        (raising as `_locate_by_program` does, before every layout of a
-        draw), and the offsets stay those of the last projection.
+        Keep *offsets*, 3-D positions matplotlib's draws fail to project
+        (their coordinates differ in length), as matplotlib keeps them: the
+        offsets stay those of the last projection.
         """
         if "_unprojectable" not in self.__dict__:
             self._offsets_unprojected = self.get_offsets()
         self._unprojectable = offsets
-        _program_locators.follow(self, self.get_figure(root=True))
 
-    def _locate_by_program(self, renderer):
-        """Fail as matplotlib's ``do_3d_projection`` fails on the kept
-        positions that do not broadcast together, when the members are
-        drawn: gathering the masks of the coordinates outside the domains
-        of the axes' scales raises numpy's error."""
-        offsets = self.__dict__.get("_unprojectable")
-        if (offsets is None or self.axes is None or not self.get_visible()
-                or not self.axes.get_visible()):
-            return
-        axes = self.axes
-        np.logical_or.reduce(tuple(
-            np.logical_not(axis._scale.val_in_range(values))
-            for axis, values in zip((axes.xaxis, axes.yaxis, axes.zaxis), offsets)))
+    def do_3d_projection(self):
+        """Project the members in the view of the last draw and return the
+        depth of the nearest (NaN without members), failing as
+        matplotlib's does on the positions kept."""
+        axes = _lifted(self)
+        if axes is not None:
+            problem = _draw_problems.offsets_problem(self, self._offsets3d, axes.M)
+            if problem is not None:
+                raise problem
+        return _projected_depth(self)
 
     def get_offsets(self):
         # docstring inherited; those of the last projection while the
@@ -704,6 +784,7 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
         col.__class__ = Path3DCollection
     elif isinstance(col, mcoll.PatchCollection):
         col.__class__ = Patch3DCollection
+    _gains_projection(col)
     col._depthshade_pending = (depthshade, depthshade_minalpha)
     col.set_3d_properties(zs, zdir, axlim_clip)
 
@@ -881,7 +962,7 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         an ``(M, N, 3)`` array) as the 3-D vertices to project."""
         if isinstance(segments3d, np.ndarray):
             _api.check_shape((None, None, 3), segments3d=segments3d)
-        self._set_faces(_vertices_3d(segments3d), self._closed)
+        self._set_faces(_faces_3d(segments3d), self._closed)
 
     def set_verts(self, verts, closed=True):
         """
@@ -897,11 +978,11 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             Whether the polygon should be closed by adding a CLOSEPOLY
             connection at the end.
         """
-        self._set_faces(_vertices_3d(verts), closed)
+        self._set_faces(_faces_3d(verts), closed)
 
     def set_verts_and_codes(self, verts, codes):
         """Set 3D vertices with path codes."""
-        faces = _vertices_3d(verts)
+        faces = _faces_3d(verts)
         axes = _axes3d(self)
         if axes is None:
             self._verts3d_pending = faces
@@ -946,6 +1027,7 @@ def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
         Whether to hide patches with a vertex outside the axes view limits.
     """
     col.__class__ = Poly3DCollection
+    _gains_projection(col)
     col._verts3d_pending = _lifted_paths(col, zs, zdir)
     # Its alpha has faded its edges, as that of a 2-D collection does.
     col._lifted_from_2d = True
@@ -1034,8 +1116,13 @@ class Patch3D(mpatches.Patch):
         self._place(segment3d, axlim_clip)
 
     def get_path(self):
-        # docstring inherited
+        # docstring inherited; matplotlib projects a patch never projected
+        # in the view of now, which becomes that of the last draw (``M``).
         from pltrs.path import Path
+        if not (self.__dict__.get("_projections")
+                or _artist.draw_count(self._native)):
+            self.axes.M = self.axes.get_proj()
+            self.do_3d_projection()
         return Path(*_mplot3d.patch_path(self.axes._native, self._native))
 
     def get_patch_transform(self):
@@ -1105,6 +1192,7 @@ def _change_class(patch, cls):
             for name in vars(klass).get("_instance_attributes", ())}
     patch.__class__ = cls
     patch.__dict__.update(kept)
+    _gains_projection(patch)
 
 
 def patch_2d_to_3d(patch, z=0, zdir='z', axlim_clip=False):
@@ -1167,6 +1255,14 @@ class Text3D(mtext.Text):
         if _axes3d(self) is not None:
             self._lift(*self.__dict__.pop('_pending3d'))
         return self
+
+    def draw(self, renderer):
+        # docstring inherited; matplotlib's projects the text's position
+        # through the view of the last draw of its axes.
+        axes = _lifted(self)
+        if axes is not None and axes.M is None:
+            raise _no_projection_error()
+        super().draw(renderer)
 
     def _lift(self, position, direction, axlim_clip):
         """Anchor the text at *position*, its baseline along *direction*,

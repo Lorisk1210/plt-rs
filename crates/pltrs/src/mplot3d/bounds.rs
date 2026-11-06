@@ -6,6 +6,7 @@
 use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::handle::Axes3D;
+use crate::artist::ArtistHandle;
 use crate::units::AxisValue;
 
 impl Axes3D {
@@ -34,6 +35,26 @@ impl Axes3D {
     /// as they are until the axes autoscales.
     pub fn set_data_interval(&self, axis: Axis3, low: f64, high: f64) -> &Self {
         self.with_mut(|axes| axes.limits.set_data_interval(axis, (low, high)));
+        self
+    }
+
+    /// Sets the view limits of one axis to `(low, high)` as they are, NaN
+    /// and infinities included, leaving its autoscaling and the axes
+    /// sharing it alone (matplotlib's `set_view_interval(vmin, vmax,
+    /// ignore=True)` of the axes of a 3-D axes, which sets their limit
+    /// box: `xy_viewLim.intervalx`, ...). Limits a draw cannot map draw
+    /// nothing through them.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_view_interval(Axis3::X, f64::NAN, 4.0);
+    /// assert!(ax.xlim().0.is_nan());
+    /// ```
+    pub fn set_view_interval(&self, axis: Axis3, low: f64, high: f64) -> &Self {
+        self.with_mut(|axes| axes.limits.set_view_interval(axis, (low, high)));
+        self.raw().figure_state().borrow_mut().stale = true;
         self
     }
 

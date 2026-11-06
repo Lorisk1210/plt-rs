@@ -444,9 +444,13 @@ impl FigureState {
         if matches!(preparation, Preparation::Drawing(_)) {
             // `Figure.draw` applies the aspect of every axes, its secondary
             // axes after their host (`_get_draw_artists`), before its
-            // layout engine runs.
+            // layout engine runs: a projection giving its own data ratio
+            // is asked for it there too.
             for &id in &axes {
                 self.sync_secondary(id);
+                if self.asks_data_ratio(id) {
+                    self.apply_aspect(id);
+                }
             }
         }
         self.run_pending_layout();

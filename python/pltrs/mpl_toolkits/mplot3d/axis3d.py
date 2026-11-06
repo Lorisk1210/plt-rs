@@ -179,8 +179,8 @@ class Axis(maxis.XAxis):
         """
         self._set_interval(
             self.get_view_interval,
-            lambda lo, hi: _mplot3d.set_lim(
-                *self._native_args(), (lo, hi), 0.0, None),
+            lambda lo, hi: _mplot3d.set_view_interval(
+                *self._native_args(), (lo, hi)),
             vmin, vmax, ignore)
 
     d_interval = _api.deprecated(
@@ -255,6 +255,13 @@ class Axis(maxis.XAxis):
         pane.xy = xys[:, :2]
         pane.draw(renderer)
         renderer.close_group('pane3d')
+
+    def draw(self, renderer):
+        # docstring inherited; matplotlib's projects the axes' box through
+        # the view of the last draw first.
+        if self.axes.M is None:
+            raise _no_projection_error()
+        super().draw(renderer)
 
     def _gridline_artist(self):
         """The collection the gridlines are drawn as (matplotlib's

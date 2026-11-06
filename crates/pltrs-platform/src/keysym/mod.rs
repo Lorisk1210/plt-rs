@@ -2,14 +2,12 @@
 //! keys by keysym too): translation to [`Key`]s and characters, case
 //! mapping, and the keysym names keymaps are written with.
 
-// XKB keymaps name keysyms; only the Wayland backend reads them.
-#[cfg(target_os = "linux")]
+// XKB keymaps and Compose files name keysyms.
 mod name_table;
 mod table;
 
 use crate::event::{ButtonState, KeyEvent};
-use crate::keyboard::{Key, Modifiers};
-#[cfg(target_os = "linux")]
+use crate::keyboard::{DEAD_KEYS, Key, Modifiers};
 use name_table::NAMES;
 use table::RUNS;
 
@@ -35,6 +33,16 @@ pub(crate) mod names {
     pub(crate) const ALT: [u32; 4] = [0xffe9, 0xffea, 0xffe7, 0xffe8];
     /// `Super_L`, `Super_R`.
     pub(crate) const SUPER: [u32; 2] = [0xffeb, 0xffec];
+}
+
+/// `Multi_key`, the Compose key.
+const MULTI_KEY: u32 = 0xff20;
+
+/// Whether `keysym` is a modifier's, as libxkbcommon tells them
+/// (`xkb_keysym_is_modifier`): `Shift_L` ..= `Hyper_R`, `ISO_Lock` ..=
+/// `ISO_Level5_Lock`, `Mode_switch` and `Num_Lock`.
+pub(crate) const fn is_modifier(keysym: u32) -> bool {
+    matches!(keysym, 0xffe1..=0xffee | 0xfe01..=0xfe13 | 0xff7e | 0xff7f)
 }
 
 /// Whether `keysym` is on the numeric keypad (`KP_Space` ..= `KP_Equal`).
@@ -73,6 +81,12 @@ pub(crate) fn key(keysym: u32) -> Key {
         0xffe7..=0xffea => Key::Alt,
         0xffeb | 0xffec => Key::Super,
         names::ISO_LEVEL3_SHIFT => Key::AltGr,
+        MULTI_KEY => Key::Compose,
+        0xfe50..=0xfe93 => DEAD_KEYS
+            .binary_search_by_key(&keysym, |&(dead, _, _)| dead)
+            .map_or(Key::Unidentified(keysym), |index| {
+                Key::Dead(DEAD_KEYS[index].1)
+            }),
         _ => match to_char(keysym) {
             Some(c) if !c.is_control() => Key::Character(c),
             _ => Key::Unidentified(keysym),
@@ -125,10 +139,11 @@ pub(crate) fn to_char(keysym: u32) -> Option<char> {
     }
 }
 
-/// The keysym `name` stands for, as keymaps write it: a keysym name
-/// (`a`, `Return`, `Cyrillic_a`), `U` and a hexadecimal code point
-/// (`U20AC`), a hexadecimal number (`0x1008ff11`), or `NoSymbol`.
-#[cfg(target_os = "linux")]
+/// The keysym `name` stands for, as keymaps and Compose files write it
+/// (libxkbcommon's `xkb_keysym_from_name`): a keysym name (`a`,
+/// `Return`, `Cyrillic_a`), `U` and a hexadecimal code point (`U20AC`,
+/// `U2dd`; not of a control character or a surrogate), a hexadecimal
+/// number (`0x1008ff11`), or `NoSymbol`.
 pub(crate) fn from_name(name: &str) -> Option<u32> {
     if name == "NoSymbol" {
         return Some(NO_SYMBOL);
@@ -141,9 +156,11 @@ pub(crate) fn from_name(name: &str) -> Option<u32> {
     }
     let code = name
         .strip_prefix('U')
-        .filter(|digits| (4..=6).contains(&digits.len()))
+        .filter(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_hexdigit()))
         .and_then(|digits| u32::from_str_radix(digits, 16).ok())?;
-    char::from_u32(code).map(from_char)
+    char::from_u32(code)
+        .filter(|c| !c.is_control())
+        .map(from_char)
 }
 
 /// The keysym standing for character `c`.
@@ -243,7 +260,19 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "linux")]
+    fn dead_keys_and_the_compose_key() {
+        assert_eq!(key(0xfe51), Key::Dead('´'), "dead_acute");
+        assert_eq!(key(0xfe50), Key::Dead('`'), "dead_grave");
+        assert_eq!(key(0xfe52), Key::Dead('^'), "dead_circumflex");
+        assert_eq!(key(0xfe60), Key::Dead('\u{323}'), "dead_belowdot");
+        assert_eq!(key(0xfe80), Key::Unidentified(0xfe80), "dead_a");
+        assert_eq!(key(MULTI_KEY), Key::Compose);
+        assert_eq!(to_char(0xfe51), None, "dead keys type nothing");
+        assert!(is_modifier(0xffe1) && is_modifier(0xfe03) && is_modifier(0xff7f));
+        assert!(!is_modifier(0xfe51) && !is_modifier(MULTI_KEY) && !is_modifier(0x61));
+    }
+
+    #[test]
     fn names_are_looked_up() {
         assert!(
             NAMES
@@ -264,9 +293,13 @@ mod tests {
             "Latin-1 has its own keysyms"
         );
         assert_eq!(from_name("0x1008ff11"), Some(0x1008_ff11));
+        assert_eq!(from_name("U2dd"), Some(0x0100_02dd), "any number of digits");
+        assert_eq!(from_name("U41"), Some(0x41));
         assert_eq!(from_name("U110000"), None, "beyond Unicode");
         assert_eq!(from_name("UD800"), None, "a surrogate");
-        assert_eq!(from_name("U12"), None, "too few digits");
+        assert_eq!(from_name("U12"), None, "a control character");
+        assert_eq!(from_name("U"), Some(0x55), "the letter");
+        assert_eq!(from_name("U+41"), None);
         assert_eq!(from_name("0xzz"), None);
         assert_eq!(from_name("no_such_key"), None);
         assert_eq!(from_name(""), None);

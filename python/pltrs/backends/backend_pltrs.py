@@ -609,3 +609,47 @@ class _BackendPltrs(_Backend):
     FigureCanvas = FigureCanvasPltrs
     FigureManager = FigureManagerPltrs
     mainloop = FigureManagerPltrs.start_main_loop
+
+
+def install_desktop_entry(data_dir=None):
+    """
+    Install pltrs' desktop entry and icons, so that GNOME's dash and
+    overview show pltrs' icon for its windows.
+
+    GNOME's shell takes a window's icon from the desktop entry of its
+    application (named after the window's app id or ``WM_CLASS``,
+    ``pltrs``), not from the window, and pltrs never writes one unasked.
+    This writes ``applications/pltrs.desktop`` and pltrs' icon as
+    ``icons/hicolor/<side>x<side>/apps/pltrs.png`` into *data_dir*: by
+    default the user's data directory (``$XDG_DATA_HOME``, else
+    ``~/.local/share``), where GNOME looks. Files there already are
+    replaced. From a shell::
+
+        python -c "import pltrs.backends.backend_pltrs as b; b.install_desktop_entry()"
+
+    Parameters
+    ----------
+    data_dir : path-like, optional
+        The data directory to write into, such as ``/usr/share``.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The files written, the desktop entry first.
+    """
+    directory = None if data_dir is None else os.fspath(data_dir)
+    return [pathlib.Path(path) for path in _gui.install_desktop_entry(directory)]
+
+
+def remove_desktop_entry(data_dir=None):
+    """
+    Remove the files `install_desktop_entry` writes from *data_dir* (by
+    default the user's data directory).
+
+    Returns
+    -------
+    list of pathlib.Path
+        The files removed (those that were there).
+    """
+    directory = None if data_dir is None else os.fspath(data_dir)
+    return [pathlib.Path(path) for path in _gui.remove_desktop_entry(directory)]

@@ -40,8 +40,16 @@
 //!
 //! Where the desktop leaves window decorations to applications (Wayland
 //! compositors without server-side decorations, such as GNOME's), the
-//! platform adds a title bar and resize borders and handles them; a
+//! platform adds a title bar and resize borders and handles them, with
+//! the buttons and click actions the desktop's settings give (read from
+//! the XDG desktop portal over D-Bus, which the crate speaks itself); a
 //! [`DecorationPainter`] draws the title bar in the application's look.
+//!
+//! Keys type text through the system's dead keys and compose sequences:
+//! on X11 and Wayland from the Compose files libxkbcommon reads (´ then e
+//! types é, Compose o c types ©), on macOS with the keyboard layout's
+//! `UCKeyTranslate`, on Windows with `TranslateMessage`. A dead key is
+//! [`Key::Dead`], and the key completing a sequence carries its text.
 //!
 //! # Unsafe code
 //!
@@ -91,7 +99,11 @@ mod backend;
 mod canvas;
 mod click;
 #[cfg(unix)]
+mod compose;
+#[cfg(unix)]
 mod cursor_art;
+#[cfg(target_os = "linux")]
+mod dbus;
 mod decoration;
 mod error;
 mod event;
@@ -103,6 +115,8 @@ mod icon;
 mod keyboard;
 #[cfg(unix)]
 mod keysym;
+#[cfg(target_os = "linux")]
+mod portal;
 // The native backends' pure parts (key tables, event decoding, unit
 // conversions) are compiled for tests everywhere, so that they are
 // tested on Linux too.
@@ -132,7 +146,7 @@ mod x11;
 mod fuzz;
 
 pub use backend::BackendKind;
-pub use decoration::{DecorationPainter, TitleBar, TitleBarButton};
+pub use decoration::{ButtonLayout, DecorationPainter, TitleBar, TitleBarButton};
 pub use error::{Error, WaylandError, X11Error};
 pub use event::{ButtonState, Event, KeyEvent, MouseButton, ScrollDelta, WindowEvent};
 pub use event_loop::{Context, EventLoop, EventLoopProxy, PumpStatus, TimerId};

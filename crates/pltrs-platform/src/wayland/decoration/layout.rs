@@ -2,7 +2,7 @@
 //! bar and its buttons, and the resize border's edges and corners. All
 //! lengths are logical pixels.
 
-use crate::decoration::{TitleBarButton, buttons};
+use crate::decoration::{ButtonLayout, TitleBarButton, buttons};
 use crate::geometry::PhysicalRect;
 
 /// Height of the title bar, in logical pixels.
@@ -40,15 +40,16 @@ pub(crate) enum Hit {
     Resize(Edges),
 }
 
-/// What is at `(x, y)` of a title bar `width` logical pixels wide.
-pub(crate) fn title_bar_hit(x: f64, y: f64, width: u32) -> Hit {
+/// What is at `(x, y)` of a title bar `width` logical pixels wide with
+/// the buttons of `layout`.
+pub(crate) fn title_bar_hit(x: f64, y: f64, width: u32, layout: &ButtonLayout) -> Hit {
     let inside = |rect: PhysicalRect| {
         x >= f64::from(rect.x)
             && x < f64::from(rect.x + rect.width)
             && y >= f64::from(rect.y)
             && y < f64::from(rect.y + rect.height)
     };
-    buttons(width, TITLE_BAR_HEIGHT)
+    buttons(layout, width, TITLE_BAR_HEIGHT)
         .into_iter()
         .find(|&(_, rect)| inside(rect))
         .map_or(Hit::Title, |(button, _)| Hit::Button(button))
@@ -89,14 +90,24 @@ mod tests {
     #[test]
     fn title_bar_hits() {
         let h = f64::from(TITLE_BAR_HEIGHT);
-        assert_eq!(title_bar_hit(5.0, 5.0, 300), Hit::Title);
+        let layout = ButtonLayout::default();
+        assert_eq!(title_bar_hit(5.0, 5.0, 300, &layout), Hit::Title);
         assert_eq!(
-            title_bar_hit(299.0, h - 1.0, 300),
+            title_bar_hit(299.0, h - 1.0, 300, &layout),
             Hit::Button(TitleBarButton::Close)
         );
         assert_eq!(
-            title_bar_hit(300.0 - h - 1.0, 1.0, 300),
+            title_bar_hit(300.0 - h - 1.0, 1.0, 300, &layout),
             Hit::Button(TitleBarButton::Maximize)
+        );
+        assert_eq!(
+            title_bar_hit(300.0 - 2.0 * h - 1.0, 1.0, 300, &layout),
+            Hit::Button(TitleBarButton::Minimize)
+        );
+        let close_only = ButtonLayout::parse("appmenu:close");
+        assert_eq!(
+            title_bar_hit(300.0 - h - 1.0, 1.0, 300, &close_only),
+            Hit::Title
         );
     }
 

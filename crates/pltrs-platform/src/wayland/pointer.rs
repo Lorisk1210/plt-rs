@@ -1,15 +1,18 @@
 //! The pointer: crossing, motion, buttons and scrolling over window
 //! content become window events; over client-side decorations they move,
-//! resize, maximize and close the window.
+//! resize, minimize, maximize and close the window, and clicks on the
+//! title bar do what the desktop's settings say.
 
 use super::cursor::Shape;
 use super::decoration::layout::{Hit, TITLE_BAR_HEIGHT};
 use super::decoration::{ClientDecorations, Part};
 use super::protocol::shell;
 use super::protocol::{Event, Interface};
+use super::window::Window;
+use super::wire::Request;
 use super::{WaylandBackend, emit};
 use crate::click::ClickCounter;
-use crate::decoration::TitleBarButton;
+use crate::decoration::{TitleBarAction, TitleBarButton};
 use crate::error::Error;
 use crate::event::{ButtonState, Event as LoopEvent, MouseButton, ScrollDelta, WindowEvent};
 use crate::geometry::PhysicalPosition;
@@ -379,8 +382,9 @@ impl WaylandBackend {
         let Some((_, Target::Decoration(part))) = pointer.focus else {
             return None;
         };
-        let content = self.windows.get(&window)?.logical;
-        ClientDecorations::hit(part, pointer.position, content)
+        let state = self.windows.get(&window)?;
+        let layout = state.buttons(&self.desktop.get().layout);
+        ClientDecorations::hit(part, pointer.position, state.logical, &layout)
     }
 
     /// Updates the hovered button and the cursor over the decorations.
@@ -448,13 +452,17 @@ impl WaylandBackend {
                     decorations.set_buttons(hovered, None);
                 }
                 state.request_commit();
-                match held.filter(|&button| hovered == Some(button)) {
-                    Some(TitleBarButton::Close) => emit(out, window, WindowEvent::CloseRequested),
-                    Some(TitleBarButton::Maximize) if state.can_maximize => {
-                        let maximized = state.states.maximized;
-                        self.conn.send(shell::set_maximized(toplevel, !maximized))?;
+                let action = match held.filter(|&button| hovered == Some(button)) {
+                    Some(TitleBarButton::Close) => {
+                        emit(out, window, WindowEvent::CloseRequested);
+                        TitleBarAction::Nothing
                     }
-                    _ => {}
+                    Some(TitleBarButton::Maximize) => TitleBarAction::ToggleMaximize,
+                    Some(TitleBarButton::Minimize) => TitleBarAction::Minimize,
+                    _ => TitleBarAction::Nothing,
+                };
+                if let Some(request) = title_bar_request(state, action, (seat, serial), position) {
+                    self.conn.send(request)?;
                 }
                 self.commit_window(window, false)?;
             }
@@ -463,21 +471,25 @@ impl WaylandBackend {
                 let double = self
                     .pointer_mut()
                     .is_some_and(|pointer| pointer.clicks.press(MouseButton::Left, time, at) == 2);
-                let request = match self.windows.get(&window) {
-                    Some(state) if double && state.can_maximize => {
-                        shell::set_maximized(toplevel, !state.states.maximized)
-                    }
-                    _ => shell::start_move(toplevel, seat, serial),
-                };
+                let action = self.desktop.get().double_click;
+                let request = self
+                    .windows
+                    .get(&window)
+                    .filter(|_| double)
+                    .and_then(|state| title_bar_request(state, action, (seat, serial), position))
+                    .unwrap_or_else(|| shell::start_move(toplevel, seat, serial));
                 self.conn.send(request)?;
             }
-            (Some(Hit::Title), true, BTN_RIGHT) => {
-                let (x, y) = (
-                    position.0 as i32,
-                    position.1 as i32 - TITLE_BAR_HEIGHT as i32,
-                );
-                self.conn
-                    .send(shell::show_window_menu(toplevel, seat, serial, x, y))?;
+            (Some(Hit::Title), true, BTN_MIDDLE | BTN_RIGHT) => {
+                let settings = self.desktop.get();
+                let action = if code == BTN_MIDDLE {
+                    settings.middle_click
+                } else {
+                    settings.right_click
+                };
+                if let Some(request) = title_bar_request(state, action, (seat, serial), position) {
+                    self.conn.send(request)?;
+                }
             }
             (Some(Hit::Resize(edges)), true, BTN_LEFT) => {
                 self.conn
@@ -507,6 +519,34 @@ impl WaylandBackend {
             shape,
             scale,
         )
+    }
+}
+
+/// The request carrying out `action` on `window`, for a click (with the
+/// seat and serial of its press) at `position` of the title bar, if the
+/// compositor can carry it out.
+fn title_bar_request(
+    window: &Window,
+    action: TitleBarAction,
+    (seat, serial): (u32, u32),
+    position: (f64, f64),
+) -> Option<Request> {
+    let toplevel = window.toplevel;
+    match action {
+        TitleBarAction::Nothing => None,
+        TitleBarAction::ToggleMaximize => window
+            .can_maximize
+            .then(|| shell::set_maximized(toplevel, !window.states.maximized)),
+        TitleBarAction::Minimize => window.can_minimize.then(|| shell::set_minimized(toplevel)),
+        TitleBarAction::Menu => {
+            // The position in the window's surface, above which the title
+            // bar is.
+            let (x, y) = (
+                position.0 as i32,
+                position.1 as i32 - TITLE_BAR_HEIGHT as i32,
+            );
+            Some(shell::show_window_menu(toplevel, seat, serial, x, y))
+        }
     }
 }
 

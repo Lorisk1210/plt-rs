@@ -1,6 +1,7 @@
 //! Title bars of client-side window decorations, drawn in a [`Theme`]: the
-//! platform decides where the bar and its buttons are and what they do,
-//! this draws them like the rest of the window's chrome.
+//! platform decides where the bar and its buttons are (on the sides the
+//! desktop's layout gives them) and what they do, this draws them like
+//! the rest of the window's chrome.
 
 use pltrs_core::{Path, Point, Rgba};
 use pltrs_platform::{DecorationPainter, PhysicalRect, TitleBar, TitleBarButton};
@@ -26,9 +27,10 @@ const TITLE_PADDING: f64 = 12.0;
 /// that show a face when hovered or pressed.
 ///
 /// ```
-/// use pltrs_platform::{DecorationPainter, PhysicalSize, TitleBar};
+/// use pltrs_platform::{ButtonLayout, DecorationPainter, PhysicalSize, TitleBar};
 /// use pltrs_ui::{Theme, TitleBarPainter};
 ///
+/// let layout = ButtonLayout::parse("appmenu:close");
 /// let bar = TitleBar {
 ///     title: "Figure 1",
 ///     size: PhysicalSize::new(300, 34),
@@ -37,6 +39,7 @@ const TITLE_PADDING: f64 = 12.0;
 ///     maximized: false,
 ///     hovered: None,
 ///     pressed: None,
+///     layout: &layout,
 /// };
 /// let mut pixels = vec![0; 300 * 34 * 4];
 /// TitleBarPainter::new(Theme::modern()).paint(&bar, &mut pixels);
@@ -90,7 +93,7 @@ impl TitleBarPainter {
         Ok(pixmap)
     }
 
-    /// The title, centred on the bar where it fits beside the buttons,
+    /// The title, centred on the bar where it fits between the buttons,
     /// shortened with an ellipsis where it does not.
     fn draw_title(
         &self,
@@ -111,7 +114,7 @@ impl TitleBarPainter {
         let centred = (f64::from(bar.size.width) - size.width) / 2.0;
         let x = centred
             .min(area.max_x() - padding - size.width)
-            .max(padding);
+            .max(area.x + padding);
         let y = (f64::from(bar.size.height) - size.height) / 2.0;
         canvas.draw_text(&text, Point::new(x, y), ink)
     }
@@ -150,6 +153,9 @@ fn symbol_icon(button: TitleBarButton, maximized: bool) -> Icon {
         TitleBarButton::Close => Icon::new(24.0)
             .stroke(Path::polyline(vec![p(6.0, 6.0), p(18.0, 18.0)]))
             .stroke(Path::polyline(vec![p(18.0, 6.0), p(6.0, 18.0)])),
+        TitleBarButton::Minimize => {
+            Icon::new(24.0).stroke(Path::polyline(vec![p(6.0, 17.0), p(18.0, 17.0)]))
+        }
         TitleBarButton::Maximize if maximized => Icon::new(24.0)
             .stroke(square(5.0, 8.0, 16.0, 19.0))
             .stroke(Path::polyline(vec![
@@ -166,9 +172,14 @@ fn symbol_icon(button: TitleBarButton, maximized: bool) -> Icon {
 
 #[cfg(test)]
 mod tests {
-    use pltrs_platform::PhysicalSize;
+    use std::sync::LazyLock;
+
+    use pltrs_platform::{ButtonLayout, PhysicalSize};
 
     use super::*;
+
+    /// Maximize and close on the right.
+    static RIGHT: LazyLock<ButtonLayout> = LazyLock::new(|| ButtonLayout::parse(":maximize,close"));
 
     fn bar(title: &str, hovered: Option<TitleBarButton>, focused: bool) -> TitleBar<'_> {
         TitleBar {
@@ -179,6 +190,7 @@ mod tests {
             maximized: false,
             hovered,
             pressed: None,
+            layout: &RIGHT,
         }
     }
 
@@ -223,6 +235,47 @@ mod tests {
         let mut maximized = bar("t", None, true);
         maximized.maximized = true;
         assert_ne!(paint(&maximized), idle, "the restore symbol");
+    }
+
+    #[test]
+    fn buttons_and_the_title_follow_the_layout() {
+        let theme = Theme::modern();
+        let background = theme.background.to_rgba8();
+        let left = ButtonLayout::parse("close,minimize:");
+        let long = "long title ".repeat(20);
+        let titled = TitleBar {
+            layout: &left,
+            ..bar(&long, None, true)
+        };
+        let pixels = paint(&titled);
+        // The close symbol's cross in the first square, the minimize
+        // line in the second, and the title after them, elided before
+        // the right edge.
+        assert_ne!(pixel(&pixels, 17, 17), background, "the close symbol");
+        assert!(
+            (18..23).any(|y| pixel(&pixels, 34 + 17, y) != background),
+            "the minimize line"
+        );
+        assert_eq!(pixel(&pixels, 34 + 17, 12), background);
+        let blank = paint(&TitleBar {
+            title: "",
+            ..titled
+        });
+        let title: Vec<usize> = (0..240)
+            .filter(|&x| (0..34).any(|y| pixel(&pixels, x, y) != pixel(&blank, x, y)))
+            .collect();
+        assert!(title[0] >= 68 + 12, "after the buttons: {}", title[0]);
+        assert!(title[title.len() - 1] < 240 - 12, "elided: {title:?}");
+        assert_eq!(pixel(&blank, 239, 17), background, "no button on the right");
+        let nothing = ButtonLayout::parse(":");
+        let bare = paint(&TitleBar {
+            layout: &nothing,
+            ..bar("", None, true)
+        });
+        assert!(
+            (0..240).all(|x| pixel(&bare, x, 10) == background),
+            "no buttons"
+        );
     }
 
     #[test]

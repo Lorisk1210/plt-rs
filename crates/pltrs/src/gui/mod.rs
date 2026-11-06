@@ -48,11 +48,15 @@
 //! toolbar clicks, and leaves navigation and callbacks to the program.
 //!
 //! Every window shows pltrs's [`app_icon`], drawn at the sizes and in the
-//! layout each platform asks for (in the Dock on macOS).
+//! layout each platform asks for (in the Dock on macOS). GNOME's shell
+//! takes the icons of its dash and overview from the desktop entry of
+//! the windows' application instead, which [`install_desktop_entry`]
+//! writes when asked to.
 
 pub(crate) mod actions;
 mod app_icon;
 mod backend_rc;
+mod desktop_entry;
 mod dialog;
 mod help_dialog;
 mod host;
@@ -72,6 +76,10 @@ use std::fmt;
 pub use crate::events::GinputOptions;
 pub use app_icon::app_icon;
 pub use backend_rc::{MacosxWindowMode, ToolbarKind};
+pub use desktop_entry::{
+    DesktopEntry, ICON_SIDES, install_desktop_entry, install_desktop_entry_in,
+    remove_desktop_entry, remove_desktop_entry_from, user_data_dir,
+};
 pub use host::{
     CanvasInput, HostEvent, HostTimerId, HostedWindowId, InputKind, ShortcutGroup, ToolImage,
     ToolItem, WindowHost,

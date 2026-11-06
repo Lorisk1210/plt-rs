@@ -1702,7 +1702,12 @@ two distributions:
   and checks once written as an index would (`_audit`). `-C glibc=2.17`
   links it with Zig against an old glibc (`_linker`), for
   manylinux2014; `RELEASING.md` says how the release's wheels are
-  built, tested and published;
+  built, tested and published. Linux wheels also install pltrs' desktop
+  entry and icons as data under the prefix's `share` (`python/share`,
+  which `crates/pltrs/examples/install_desktop_entry.rs` writes and
+  `python/tests/test_desktop_entry.py` keeps equal to what
+  `backend_pltrs.install_desktop_entry` writes), for GNOME, which takes
+  window icons from there;
 * `matplotlib` (`-C distribution=matplotlib`): `python/alias`, pure
   Python. Its modules load pltrs's sources under matplotlib's names
   (`_pltrs_matplotlib_alias`: a meta path finder doing what the suite's

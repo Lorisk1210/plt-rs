@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 
 use super::{Arg, args, message, word};
 use crate::backend::Backend;
+use crate::decoration::{ButtonLayout, TitleBarAction, TitleBarSettings};
 use crate::frame::OwnedFrame;
 use crate::fuzz::{Gen, fuzz};
 use crate::geometry::{PhysicalRect, PhysicalSize};
@@ -126,6 +127,7 @@ fn generate(g: &mut Gen) -> Run {
         output_scale: g.pick(&[1, 2, 0, -3, i32::MAX]),
         fractional: g.pick(&[120, 180, 0, u32::MAX]),
         decoration_mode: g.pick(&[1, 2, 0, 77]),
+        title_bar: title_bar(g),
     };
     let steps = (0..g.len(10))
         .map(|_| ((0..g.len(6)).map(|_| action(g)).collect(), call(g)))
@@ -203,6 +205,24 @@ fn perform(
         Call::Raise => backend.raise_window(window),
         Call::Close => backend.destroy_window(window),
     };
+}
+
+/// Title-bar settings a desktop may have: GNOME's, others' and odd ones.
+fn title_bar(g: &mut Gen) -> TitleBarSettings {
+    const LAYOUTS: [&str; 5] = [
+        "appmenu:close",
+        ":minimize,maximize,close",
+        "close,minimize,maximize:",
+        ":",
+        "maximize,close:close,minimize",
+    ];
+    const ACTIONS: [&str; 4] = ["toggle-maximize", "minimize", "menu", "none"];
+    TitleBarSettings {
+        layout: ButtonLayout::parse(g.pick(&LAYOUTS)),
+        double_click: TitleBarAction::parse(g.pick(&ACTIONS)),
+        middle_click: TitleBarAction::parse(g.pick(&ACTIONS)),
+        right_click: TitleBarAction::parse(g.pick(&ACTIONS)),
+    }
 }
 
 #[test]

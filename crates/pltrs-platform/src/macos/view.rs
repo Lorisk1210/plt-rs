@@ -9,9 +9,9 @@
 use std::cell::RefCell;
 
 use super::convert::{PointRect, pixel_size};
-use super::keys::{self, KeyKind, KeyPress};
+use super::keys::{self, DeadKeys, KeyKind, KeyPress};
 use super::pointer::{self, Pointer};
-use super::sys::{EventRef, Image, ViewRef};
+use super::sys::{EventRef, Image, KeyboardLayout, ViewRef};
 use crate::event::{ButtonState, MouseButton, WindowEvent};
 use crate::registry::Registry;
 use crate::surface::Surface;
@@ -32,6 +32,8 @@ pub(super) struct ViewState {
     /// [`pointer::emulated_button`]), which its release reports too.
     left_button: MouseButton,
     focused: bool,
+    /// The dead key pending, whose accent goes on the next key.
+    dead_keys: DeadKeys,
 }
 
 impl ViewState {
@@ -44,6 +46,7 @@ impl ViewState {
             pointer_inside: false,
             left_button: MouseButton::Left,
             focused: false,
+            dead_keys: DeadKeys::default(),
         }
     }
 }
@@ -142,7 +145,8 @@ pub(crate) fn pointer(view: ViewRef<'_>, event: EventRef<'_>) {
     });
 }
 
-/// `keyDown:`, `keyUp:` and `flagsChanged:`.
+/// `keyDown:`, `keyUp:` and `flagsChanged:`. Dead keys are composed
+/// with the keyboard layout, whose state between keys the view keeps.
 pub(crate) fn key(view: ViewRef<'_>, event: EventRef<'_>) {
     let code = event.key_code();
     let flags = event.modifier_flags();
@@ -150,14 +154,26 @@ pub(crate) fn key(view: ViewRef<'_>, event: EventRef<'_>) {
         Some(KeyKind::Press(state)) => {
             let unmodified = event.characters_ignoring_modifiers();
             let typed = event.characters();
-            Some(keys::key_event(KeyPress {
+            let press = KeyPress {
                 code,
                 state,
                 repeat: event.is_repeat(),
                 flags,
                 unmodified: &unmodified,
                 typed: &typed,
-            }))
+            };
+            let mut dead_keys = with_views(|views| {
+                views
+                    .state_mut(view.id())
+                    .map_or_else(DeadKeys::default, |state| state.dead_keys)
+            });
+            let composition = dead_keys.press(&press, KeyboardLayout::current);
+            with_views(|views| {
+                if let Some(state) = views.state_mut(view.id()) {
+                    state.dead_keys = dead_keys;
+                }
+            });
+            Some(keys::key_event(press, &composition))
         }
         Some(KeyKind::FlagsChanged) => keys::flags_changed(code, flags),
         None => None,
@@ -226,6 +242,7 @@ pub(crate) fn window_changed(view: ViewRef<'_>, change: WindowChange) {
         if let Some(state) = views.state_mut(id)
             && std::mem::replace(&mut state.focused, focused) != focused
         {
+            state.dead_keys.reset();
             views.push(id, WindowEvent::Focused(focused));
         }
     });

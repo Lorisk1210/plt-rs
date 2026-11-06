@@ -1,26 +1,35 @@
-//! Translation of X keyboard and pointer events into window events.
+//! Translation of X keyboard and pointer events into window events,
+//! compose sequences included.
 
 use super::keymap::Keymap;
 use super::server_event::PointerInfo;
 use crate::click::ClickCounter;
+use crate::compose::Composer;
 use crate::event::{ButtonState, KeyEvent, MouseButton, ScrollDelta, WindowEvent};
 use crate::geometry::PhysicalPosition;
-use crate::keysym;
 
 /// Turns raw key and button codes into events, using the keyboard mapping
-/// and remembering recent clicks.
+/// and remembering recent clicks and the compose sequence being typed.
 #[derive(Debug)]
 pub(crate) struct Input {
     keymap: Keymap,
     clicks: ClickCounter,
+    composer: Composer,
 }
 
 impl Input {
-    /// Translates input with `keymap`.
+    /// Translates input with `keymap`, composing with the process's
+    /// Compose file.
     pub(crate) fn new(keymap: Keymap) -> Self {
+        Self::with_composer(keymap, Composer::default())
+    }
+
+    /// Translates input with `keymap`, composing with `composer`.
+    pub(crate) fn with_composer(keymap: Keymap, composer: Composer) -> Self {
         Self {
             keymap,
             clicks: ClickCounter::default(),
+            composer,
         }
     }
 
@@ -30,10 +39,22 @@ impl Input {
     }
 
     /// A key event for `keycode` under the modifier state `mask`.
-    pub(crate) fn key(&self, state: ButtonState, keycode: u8, mask: u16, repeat: bool) -> KeyEvent {
+    pub(crate) fn key(
+        &mut self,
+        state: ButtonState,
+        keycode: u8,
+        mask: u16,
+        repeat: bool,
+    ) -> KeyEvent {
         let keysym = self.keymap.keysym(keycode, mask);
         let modifiers = self.keymap.modifiers(mask);
-        keysym::key_event(keysym, state, modifiers, repeat, u32::from(keycode))
+        self.composer
+            .key_event(keysym, state, modifiers, repeat, u32::from(keycode))
+    }
+
+    /// Ends the compose sequence being typed: the keyboard focus left.
+    pub(crate) fn focus_lost(&mut self) {
+        self.composer.reset();
     }
 
     /// The event for a button press or release: wheel buttons (4 to 7)
@@ -117,7 +138,7 @@ mod tests {
     const KEY_SHIFT_L: u8 = 50;
 
     fn input() -> Input {
-        Input::new(fixtures::keymap())
+        Input::with_composer(fixtures::keymap(), Composer::without_sequences())
     }
 
     fn pointer(time: u32, mask: u16) -> PointerInfo {
@@ -132,7 +153,7 @@ mod tests {
 
     #[test]
     fn printable_keys_carry_text() {
-        let input = input();
+        let mut input = input();
         let event = input.key(ButtonState::Pressed, KEY_A, SHIFT, false);
         assert_eq!(event.key, Key::Character('A'));
         assert_eq!(event.text.as_deref(), Some("A"));
@@ -144,7 +165,7 @@ mod tests {
 
     #[test]
     fn shortcuts_and_named_keys_carry_no_text() {
-        let input = input();
+        let mut input = input();
         let ctrl_a = input.key(ButtonState::Pressed, KEY_A, CONTROL, false);
         assert_eq!(ctrl_a.key, Key::Character('a'));
         assert_eq!(ctrl_a.text, None);

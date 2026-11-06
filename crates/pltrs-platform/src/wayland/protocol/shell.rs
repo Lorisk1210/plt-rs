@@ -17,6 +17,8 @@ pub(crate) const STATES_TILED: [u32; 4] = [5, 6, 7, 8];
 
 /// `xdg_toplevel.wm_capabilities.maximize`.
 pub(crate) const CAPABILITY_MAXIMIZE: u32 = 2;
+/// `xdg_toplevel.wm_capabilities.minimize`.
+pub(crate) const CAPABILITY_MINIMIZE: u32 = 4;
 
 /// `zxdg_toplevel_decoration_v1.mode.client_side`.
 pub(crate) const MODE_CLIENT_SIDE: u32 = 1;
@@ -111,6 +113,11 @@ pub(crate) fn set_min_size(toplevel: u32, width: i32, height: i32) -> Request {
 /// `xdg_toplevel.set_maximized` or `unset_maximized`.
 pub(crate) fn set_maximized(toplevel: u32, maximized: bool) -> Request {
     Request::new(toplevel, if maximized { 9 } else { 10 })
+}
+
+/// `xdg_toplevel.set_minimized`.
+pub(crate) fn set_minimized(toplevel: u32) -> Request {
+    Request::new(toplevel, 13)
 }
 
 /// `xdg_toplevel.set_fullscreen` (on an output of the compositor's

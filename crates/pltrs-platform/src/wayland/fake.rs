@@ -17,6 +17,8 @@ use super::connection::Connection;
 use super::fixtures::DE_RU_KEYMAP;
 use super::sys;
 use super::wire::{Args, HEADER_LEN, Header, Request};
+use crate::decoration::TitleBarSettings;
+use crate::portal::DesktopSettings;
 
 /// What the fake compositor offers.
 #[derive(Debug, Clone)]
@@ -30,6 +32,8 @@ pub(crate) struct Options {
     pub(crate) fractional: u32,
     /// The decoration mode chosen for toplevels asking for one.
     pub(crate) decoration_mode: u32,
+    /// The desktop's title-bar settings.
+    pub(crate) title_bar: TitleBarSettings,
 }
 
 impl Default for Options {
@@ -41,6 +45,7 @@ impl Default for Options {
             output_scale: 1,
             fractional: 120,
             decoration_mode: 2,
+            title_bar: TitleBarSettings::default(),
         }
     }
 }
@@ -157,6 +162,7 @@ impl Fake {
     /// Starts a fake compositor and connects a backend to it.
     pub(crate) fn start(options: Options) -> (WaylandBackend, Self) {
         let (client, server) = UnixStream::pair().expect("a socket pair");
+        let desktop = DesktopSettings::fixed(options.title_bar.clone());
         let writer = Arc::new(Mutex::new(server.try_clone().expect("a second handle")));
         let state = Arc::new(Mutex::new(State::default()));
         let fake = Self {
@@ -165,7 +171,7 @@ impl Fake {
         };
         thread::spawn(move || serve(&server, &writer, &state, &options));
         let conn = Connection::new(client).expect("the first request queues");
-        let backend = WaylandBackend::with_connection(conn).expect("the backend connects");
+        let backend = WaylandBackend::with_connection(conn, desktop).expect("the backend connects");
         (backend, fake)
     }
 

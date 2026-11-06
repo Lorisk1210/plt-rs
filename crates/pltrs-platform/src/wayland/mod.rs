@@ -51,7 +51,7 @@ mod xkb;
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::backend::{Backend, BackendKind, Wait, Waker};
 use crate::decoration::DecorationPainter;
@@ -59,6 +59,7 @@ use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
 use crate::geometry::{PhysicalRect, PhysicalSize, Size};
+use crate::portal::DesktopSettings;
 use crate::window::{CursorIcon, WindowId, WindowOptions};
 use clipboard::{Clipboard, Content};
 use connection::Connection;
@@ -75,6 +76,9 @@ use window::Window;
 
 /// How many round trips a new window waits for its first configure.
 const CONFIGURE_ROUND_TRIPS: usize = 4;
+/// How long the first window with client-side decorations waits for the
+/// desktop's title-bar settings, at most.
+const SETTINGS_PATIENCE: Duration = Duration::from_millis(500);
 
 /// An output the compositor announced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,6 +106,8 @@ pub(crate) struct WaylandBackend {
     /// Activation tokens asked for, with the surface each focuses.
     activations: HashMap<u32, u32>,
     painter: Box<dyn DecorationPainter>,
+    /// How title bars behave, from the desktop's settings.
+    desktop: DesktopSettings,
     /// The window icon sizes the compositor prefers.
     icon_sizes: IconSizes,
     /// Events produced outside [`Backend::poll`], delivered by the next.
@@ -110,14 +116,18 @@ pub(crate) struct WaylandBackend {
 }
 
 impl WaylandBackend {
-    /// Connects to the compositor named by `$WAYLAND_DISPLAY`.
+    /// Connects to the compositor named by `$WAYLAND_DISPLAY`, and asks
+    /// the desktop portal how title bars behave.
     pub(crate) fn connect() -> Result<Self, Error> {
-        Self::with_connection(Connection::new(transport::connect()?)?)
+        Self::with_connection(
+            Connection::new(transport::connect()?)?,
+            DesktopSettings::from_portal(),
+        )
     }
 
     /// Binds the globals over an open connection and learns the seat and
-    /// outputs.
-    fn with_connection(mut conn: Connection) -> Result<Self, Error> {
+    /// outputs; title bars follow `desktop`.
+    fn with_connection(mut conn: Connection, desktop: DesktopSettings) -> Result<Self, Error> {
         let registry = conn.new_id(Interface::Registry)?;
         conn.send(core::get_registry(registry))?;
         let waker = Arc::new(WaylandWaker::new(conn.output()));
@@ -132,6 +142,7 @@ impl WaylandBackend {
             clipboard: Clipboard::default(),
             activations: HashMap::new(),
             painter: Box::new(PlainPainter),
+            desktop,
             icon_sizes: IconSizes::default(),
             pending: Vec::new(),
             waker,
@@ -196,8 +207,9 @@ impl WaylandBackend {
     /// Commits what changed in a window (see [`Window::commit`]).
     fn commit_window(&mut self, id: u32, now: bool) -> Result<(), Error> {
         let shm = self.globals.require(Interface::Shm)?;
+        let layout = &self.desktop.get().layout;
         match self.windows.get_mut(&id) {
-            Some(window) => window.commit(&mut self.conn, shm, &*self.painter, now),
+            Some(window) => window.commit(&mut self.conn, shm, (&*self.painter, layout), now),
             None => Ok(()),
         }
     }
@@ -225,6 +237,10 @@ impl Backend for WaylandBackend {
     }
 
     fn create_window(&mut self, options: &WindowOptions) -> Result<WindowId, Error> {
+        if self.globals.get(Interface::DecorationManager).is_none() {
+            // Its title bar is the window's to draw, as the desktop says.
+            self.desktop.wait(SETTINGS_PATIENCE);
+        }
         let fractional = self.fractional_scaling();
         let guess =
             ScaleSources::default().scale(fractional, |_| None, self.largest_output_scale());

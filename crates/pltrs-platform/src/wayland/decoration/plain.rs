@@ -1,6 +1,6 @@
 //! The built-in title bar painter, used until a toolkit installs its own:
-//! a flat bar with a close and a maximize button, and no title text (the
-//! platform has no fonts).
+//! a flat bar with its minimize, maximize and close buttons, and no title
+//! text (the platform has no fonts).
 
 use crate::canvas::Canvas;
 use crate::decoration::{DecorationPainter, TitleBar, TitleBarButton};
@@ -48,6 +48,7 @@ impl DecorationPainter for PlainPainter {
             }
             match button {
                 TitleBarButton::Close => glyph.close(&mut canvas, symbol),
+                TitleBarButton::Minimize => glyph.minimize(&mut canvas, symbol),
                 TitleBarButton::Maximize if bar.maximized => glyph.restore(&mut canvas, symbol),
                 TitleBarButton::Maximize => glyph.maximize(&mut canvas, symbol),
             }
@@ -88,6 +89,12 @@ impl Glyph {
         let ((x, y), h) = (self.centre, self.half * 0.85);
         canvas.line((x - h, y - h), (x + h, y + h), self.stroke, color);
         canvas.line((x - h, y + h), (x + h, y - h), self.stroke, color);
+    }
+
+    /// A line at the bottom of the symbol's square.
+    fn minimize(&self, canvas: &mut Canvas<'_>, color: [u8; 4]) {
+        let ((x, y), h) = (self.centre, self.half);
+        canvas.line((x - h, y + h), (x + h, y + h), self.stroke, color);
     }
 
     fn maximize(&self, canvas: &mut Canvas<'_>, color: [u8; 4]) {
@@ -131,7 +138,12 @@ impl Glyph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::decoration::ButtonLayout;
     use crate::geometry::PhysicalSize;
+
+    /// GNOME's own layout: a close button alone.
+    static CLOSE_ONLY: std::sync::LazyLock<ButtonLayout> =
+        std::sync::LazyLock::new(|| ButtonLayout::parse("appmenu:close"));
 
     fn bar(focused: bool, hovered: Option<TitleBarButton>) -> TitleBar<'static> {
         TitleBar {
@@ -142,6 +154,7 @@ mod tests {
             maximized: false,
             hovered,
             pressed: None,
+            layout: &CLOSE_ONLY,
         }
     }
 
@@ -167,5 +180,22 @@ mod tests {
         let hovered = paint(&bar(true, Some(TitleBarButton::Close)));
         let corner = (8 * 120 + 95) * 4;
         assert_eq!(&hovered[corner..corner + 4], HOVER);
+        let maximize_centre = (17 * 120 + 69) * 4;
+        assert_eq!(
+            &focused[maximize_centre..maximize_centre + 4],
+            BAR,
+            "no maximize button in GNOME's layout"
+        );
+        let all = ButtonLayout::default();
+        let full = paint(&TitleBar {
+            layout: &all,
+            ..bar(true, None)
+        });
+        let minimize_line = (22 * 120 + 35) * 4;
+        assert_ne!(
+            &full[minimize_line..minimize_line + 4],
+            BAR,
+            "the minimize line"
+        );
     }
 }

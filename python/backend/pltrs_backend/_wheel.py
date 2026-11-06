@@ -84,6 +84,13 @@ class WheelWriter:
         """Adds *data* as *relative* in the ``.dist-info`` directory."""
         self.add(f"{self.dist_info}/{relative}", data)
 
+    def add_data(self, relative, data):
+        """Adds *data* as *relative* in the ``.data/data`` directory,
+        which installers put under the installation's prefix
+        (``share/...`` lands in ``~/.local/share`` with ``--user``)."""
+        data_dir = self.dist_info.removesuffix(".dist-info") + ".data"
+        self.add(f"{data_dir}/data/{relative}", data)
+
     def write(self, directory, tags, pure):
         """
         Writes the wheel for *tags* into *directory*, with its ``WHEEL``

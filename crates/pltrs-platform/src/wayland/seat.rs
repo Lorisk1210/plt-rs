@@ -8,6 +8,7 @@ use super::pointer::Pointer;
 use super::protocol::Interface;
 use super::protocol::data;
 use super::protocol::input::{self, CAPABILITY_KEYBOARD, CAPABILITY_POINTER};
+use crate::compose::Composer;
 use crate::error::Error;
 
 /// The first seat the compositor announced.
@@ -77,7 +78,7 @@ impl WaylandBackend {
         if wants_keyboard && seat.keyboard.is_none() {
             let keyboard = self.conn.new_id(Interface::Keyboard)?;
             self.conn.send(input::get_keyboard(seat.id, keyboard))?;
-            seat.keyboard = Some(Keyboard::new(keyboard));
+            seat.keyboard = Some(Keyboard::new(keyboard, Composer::default()));
         } else if !wants_keyboard
             && let Some(keyboard) = seat.keyboard.take()
             && seat.version >= 3

@@ -70,15 +70,93 @@ pub enum Key {
     Menu,
     /// Clear (keypad 5 without Num Lock on some layouts).
     Clear,
+    /// A dead key: it types nothing itself, but puts its accent on the
+    /// character typed next (´ then e types é). The payload is the
+    /// accent as the platform gives it: a spacing character (´, ^, ~, ¨,
+    /// the grave accent, ...), or a combining one where Unicode has no
+    /// spacing form.
+    Dead(char),
+    /// The Compose key (`Multi_key`), which starts a compose sequence
+    /// (Compose, o, c types ©).
+    Compose,
     /// A key this crate has no name for; the payload is the platform's raw
     /// key symbol: a keysym on X11 and Wayland, the hardware key code on
     /// macOS, the virtual-key code on Windows.
     Unidentified(u32),
 }
 
+/// The dead keys of accents: their X keysym, the accent they put on
+/// characters and their name (the keysym's, without `dead_`), which
+/// matplotlib's GTK and Tk backends report (`dead_acute`).
+pub(crate) const DEAD_KEYS: [(u32, char, &str); 38] = [
+    (0xfe50, '`', "grave"),
+    (0xfe51, '´', "acute"),
+    (0xfe52, '^', "circumflex"),
+    (0xfe53, '~', "tilde"),
+    (0xfe54, '¯', "macron"),
+    (0xfe55, '˘', "breve"),
+    (0xfe56, '˙', "abovedot"),
+    (0xfe57, '¨', "diaeresis"),
+    (0xfe58, '˚', "abovering"),
+    (0xfe59, '˝', "doubleacute"),
+    (0xfe5a, 'ˇ', "caron"),
+    (0xfe5b, '¸', "cedilla"),
+    (0xfe5c, '˛', "ogonek"),
+    (0xfe5d, 'ͺ', "iota"),
+    (0xfe5e, '゛', "voiced_sound"),
+    (0xfe5f, '゜', "semivoiced_sound"),
+    (0xfe60, '\u{323}', "belowdot"),
+    (0xfe61, '\u{309}', "hook"),
+    (0xfe62, '\u{31b}', "horn"),
+    (0xfe63, '\u{335}', "stroke"),
+    (0xfe64, '\u{313}', "abovecomma"),
+    (0xfe65, '\u{314}', "abovereversedcomma"),
+    (0xfe66, '\u{30f}', "doublegrave"),
+    (0xfe67, '\u{325}', "belowring"),
+    (0xfe68, 'ˍ', "belowmacron"),
+    (0xfe69, '\u{32d}', "belowcircumflex"),
+    (0xfe6a, '\u{330}', "belowtilde"),
+    (0xfe6b, '\u{32e}', "belowbreve"),
+    (0xfe6c, '\u{324}', "belowdiaeresis"),
+    (0xfe6d, '\u{311}', "invertedbreve"),
+    (0xfe6e, '\u{326}', "belowcomma"),
+    (0xfe6f, '¤', "currency"),
+    (0xfe8c, 'µ', "greek"),
+    (0xfe8d, 'ء', "hamza"),
+    (0xfe90, '\u{332}', "lowline"),
+    (0xfe91, '\u{30d}', "aboveverticalline"),
+    (0xfe92, '\u{329}', "belowverticalline"),
+    (0xfe93, '\u{338}', "longsolidusoverlay"),
+];
+
+/// Other characters the systems give dead keys: Windows' US
+/// International layout gives the apostrophe and the quotation mark,
+/// macOS the modifier letters circumflex and small tilde.
+const DEAD_KEY_ALIASES: [(char, &str); 4] = [
+    ('\'', "acute"),
+    ('"', "diaeresis"),
+    ('ˆ', "circumflex"),
+    ('˜', "tilde"),
+];
+
+/// The name of the dead key putting `accent` on characters:
+/// `dead_acute`, `dead_diaeresis`, ...; `dead_` and the accent itself
+/// for accents without one.
+fn dead_key_name(accent: char) -> String {
+    let known = DEAD_KEYS
+        .iter()
+        .map(|&(_, c, name)| (c, name))
+        .chain(DEAD_KEY_ALIASES)
+        .find(|&(c, _)| c == accent);
+    match known {
+        Some((_, name)) => format!("dead_{name}"),
+        None => format!("dead_{accent}"),
+    }
+}
+
 impl Key {
     /// The matplotlib key name, e.g. `"enter"`, `"pagedown"`, `"f5"`,
-    /// `"control"`, `"a"` or `"A"`.
+    /// `"control"`, `"a"`, `"A"` or `"dead_acute"`.
     ///
     /// Modifier prefixes (`"ctrl+"`, `"alt+"`, ...) are not included; they
     /// are derived from [`Modifiers`] by the caller.
@@ -86,7 +164,9 @@ impl Key {
         let fixed = match self {
             Self::Character(c) => return Cow::Owned(c.to_string()),
             Self::F(n) => return Cow::Owned(format!("f{n}")),
+            Self::Dead(accent) => return Cow::Owned(dead_key_name(accent)),
             Self::Unidentified(raw) => return Cow::Owned(format!("unknown-{raw:#x}")),
+            Self::Compose => "multi_key",
             Self::Enter => "enter",
             Self::Escape => "escape",
             Self::Backspace => "backspace",
@@ -265,6 +345,29 @@ mod tests {
             assert_eq!(key.to_string(), name);
         }
         assert_eq!(Key::Unidentified(0x1234).name(), "unknown-0x1234");
+    }
+
+    #[test]
+    fn dead_keys_are_named_as_x_names_them() {
+        assert_eq!(Key::Dead('´').name(), "dead_acute");
+        assert_eq!(Key::Dead('`').name(), "dead_grave");
+        assert_eq!(Key::Dead('\u{323}').name(), "dead_belowdot");
+        assert_eq!(
+            Key::Dead('\'').name(),
+            "dead_acute",
+            "Windows' US International"
+        );
+        assert_eq!(Key::Dead('ˆ').name(), "dead_circumflex", "macOS");
+        assert_eq!(Key::Dead('°').name(), "dead_°", "no X name");
+        assert_eq!(Key::Compose.name(), "multi_key");
+        let mut accents: Vec<char> = DEAD_KEYS.iter().map(|&(_, accent, _)| accent).collect();
+        accents.sort_unstable();
+        accents.dedup();
+        assert_eq!(accents.len(), DEAD_KEYS.len(), "one accent per dead key");
+        assert!(
+            DEAD_KEYS.windows(2).all(|pair| pair[0].0 < pair[1].0),
+            "sorted by keysym"
+        );
     }
 
     #[test]

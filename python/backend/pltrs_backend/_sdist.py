@@ -31,6 +31,7 @@ INCLUDED = (
     "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "rustfmt.toml",
     "clippy.toml", "pyproject.toml", "README.md", "THIRD_PARTY.md", "RELEASING.md",
     ".cargo", "LICENSES", "crates", "python/pltrs", "python/alias", "python/backend",
+    "python/share",
     "python/tests", "python/tools", "python/DESIGN.md",
 )
 

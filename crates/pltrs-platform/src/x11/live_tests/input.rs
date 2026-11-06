@@ -1,9 +1,11 @@
 //! Live test of real (XTEST-faked) pointer, button, wheel and keyboard
-//! input reaching the focused window.
+//! input reaching the focused window, dead keys included.
 
+use super::super::connection::Connection;
 use super::super::keymap::Keymap;
 use super::super::request::testing;
 use super::{Driver, is, live, of, open_window, pump_until, x11_loop, xid};
+use crate::compose::Composer;
 use crate::event::{ButtonState, Event, MouseButton, ScrollDelta, WindowEvent};
 use crate::geometry::{PhysicalPosition, PhysicalSize};
 use crate::keyboard::{Key, Modifiers};
@@ -16,10 +18,48 @@ const FAKE_BUTTON_PRESS: u8 = 4;
 const FAKE_BUTTON_RELEASE: u8 = 5;
 const FAKE_MOTION: u8 = 6;
 
-/// Keysyms the input test types.
+/// Keysyms the input tests type.
 const XK_A: u32 = 0x61;
+const XK_E: u32 = 0x65;
 const XK_ESCAPE: u32 = 0xff1b;
 const XK_SHIFT_L: u32 = 0xffe1;
+const XK_DEAD_ACUTE: u32 = 0xfe51;
+
+/// A keycode given other keysyms for a test, given its own back when
+/// dropped (also when the test fails).
+struct Remapped {
+    conn: Connection,
+    keycode: u8,
+    original: Vec<u32>,
+}
+
+impl Remapped {
+    /// Maps `keycode` of `keymap` to `keysym` (at every level).
+    fn new(conn: Connection, keymap: &Keymap, keycode: u8, keysym: u32) -> Self {
+        let original = keymap.keysyms_of(keycode).to_vec();
+        let mut remapped = Self {
+            conn,
+            keycode,
+            original,
+        };
+        let keysyms = vec![keysym; remapped.original.len()];
+        remapped.change(&keysyms);
+        remapped
+    }
+
+    fn change(&mut self, keysyms: &[u32]) {
+        self.conn
+            .send_checked(&testing::change_keyboard_mapping(self.keycode, keysyms))
+            .expect("the server changes the mapping");
+    }
+}
+
+impl Drop for Remapped {
+    fn drop(&mut self) {
+        let original = std::mem::take(&mut self.original);
+        self.change(&original);
+    }
+}
 
 #[test]
 fn real_input_reaches_the_focused_window() {
@@ -113,4 +153,62 @@ fn real_input_reaches_the_focused_window() {
     pump_until(&mut event_loop, "the pointer leaving", |e| {
         is(e, window, &WindowEvent::CursorLeft)
     });
+}
+
+#[test]
+fn dead_keys_compose_with_the_next_key() {
+    let Some(live) = live() else { return };
+    let mut driver = Driver::connect(&live.name);
+    if !driver.is_bare_server() {
+        return;
+    }
+    let keymap = Keymap::query(&mut driver.conn).unwrap();
+    let free = keymap
+        .keycode_of(crate::keysym::NO_SYMBOL)
+        .expect("a keycode without keysyms");
+    let conn = Connection::connect(&live.name).expect("the mapping's connection");
+    let _remapped = Remapped::new(conn, &keymap, free, XK_DEAD_ACUTE);
+    let mut event_loop = x11_loop();
+    let options = WindowOptions::new("dead keys").with_inner_size(PhysicalSize::new(300, 200));
+    let window = open_window(&mut event_loop, &options);
+    driver.send(&testing::set_input_focus(xid(window)));
+    pump_until(&mut event_loop, "the focus", |e| {
+        is(e, window, &WindowEvent::Focused(true))
+    });
+    driver.fake(FAKE_KEY_PRESS, free, 0, 0);
+    driver.fake(FAKE_KEY_RELEASE, free, 0, 0);
+    driver.key(&keymap, XK_E, FAKE_KEY_PRESS);
+    driver.key(&keymap, XK_E, FAKE_KEY_RELEASE);
+    driver.key(&keymap, XK_ESCAPE, FAKE_KEY_PRESS);
+    driver.key(&keymap, XK_ESCAPE, FAKE_KEY_RELEASE);
+    let events = pump_until(
+        &mut event_loop,
+        "Escape",
+        |e| matches!(e, Event::Window { event: WindowEvent::Key(key), .. } if key.key == Key::Escape),
+    );
+    let presses: Vec<(Key, Option<String>)> = of(&events, window)
+        .into_iter()
+        .filter_map(|event| match event {
+            WindowEvent::Key(key) if key.state.is_pressed() => Some((key.key, key.text)),
+            _ => None,
+        })
+        .collect();
+    // What this system's Compose file makes of ´ then e: é wherever X's
+    // locale data is installed.
+    let mut composer = Composer::default();
+    let press = |composer: &mut Composer, keysym| {
+        composer
+            .key_event(keysym, ButtonState::Pressed, Modifiers::NONE, false, 0)
+            .text
+    };
+    press(&mut composer, XK_DEAD_ACUTE);
+    let composed = press(&mut composer, XK_E);
+    assert_eq!(
+        presses,
+        [
+            (Key::Dead('´'), None),
+            (Key::Character('e'), composed),
+            (Key::Escape, None),
+        ]
+    );
 }

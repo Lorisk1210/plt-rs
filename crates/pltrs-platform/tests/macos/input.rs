@@ -361,6 +361,49 @@ pub(crate) fn keys_type_text_and_name_keys() {
     );
 }
 
+/// Dead keys put their accent on the next key, composed with the
+/// keyboard layout in use: Option+e on American and most other layouts,
+/// the ´ key on German ones. `AppKit` gives a dead key no characters.
+pub(crate) fn dead_keys_compose_with_the_layout() {
+    let (mut event_loop, window, _) = window();
+    let candidates = [
+        Keystroke::new(KeyAction::Press, 0x0E, "")
+            .unmodified("e")
+            .with_flags(OPTION),
+        Keystroke::new(KeyAction::Press, 0x18, "").unmodified("´"),
+    ];
+    let mut composed = 0;
+    for dead in candidates {
+        let WindowEvent::Key(accent) = strike(&mut event_loop, window, dead) else {
+            unreachable!("strike returns key events");
+        };
+        if accent.key != Key::Dead('´') {
+            continue;
+        }
+        assert_eq!(accent.text, None, "{dead:?}");
+        let e = strike(
+            &mut event_loop,
+            window,
+            Keystroke::new(KeyAction::Press, 0x0E, "e"),
+        );
+        assert_eq!(
+            e,
+            key_event(
+                Key::Character('e'),
+                ButtonState::Pressed,
+                Some("é"),
+                Modifiers::NONE,
+                0x0E
+            ),
+            "{dead:?}"
+        );
+        composed += 1;
+    }
+    if composed == 0 {
+        println!("skipped: no dead acute on Option+e or ´ in this keyboard layout");
+    }
+}
+
 /// Modifier keys report going down and up, left and right apart, with
 /// the modifiers held before.
 pub(crate) fn modifier_keys_go_down_and_up() {

@@ -73,6 +73,29 @@ fn typing_reports_every_change() {
 }
 
 #[test]
+fn dead_keys_type_their_accent_with_the_next_key() {
+    let mut ui = field("caf", false);
+    let accent = ui
+        .handle(&key(Key::Dead('´'), None, Modifiers::NONE))
+        .unwrap();
+    assert_eq!(accent, [], "the dead key types nothing yet");
+    let composed = ui
+        .handle(&key(Key::Character('e'), Some("é"), Modifiers::NONE))
+        .unwrap();
+    assert_eq!(composed, [Report::Changed("café".into())]);
+    // An accent that goes on no letter is typed before it (Windows,
+    // macOS).
+    let both = ui
+        .handle(&key(Key::Character('x'), Some("´x"), Modifiers::NONE))
+        .unwrap();
+    assert_eq!(both, [Report::Changed("café´x".into())]);
+    let compose = ui
+        .handle(&key(Key::Compose, None, Modifiers::NONE))
+        .unwrap();
+    assert_eq!(compose, []);
+}
+
+#[test]
 fn enter_submits_only_fields_that_submit() {
     let mut plain = field("a", false);
     let enter = plain

@@ -186,6 +186,13 @@ def switch_backend(newbackend):
     # See https://github.com/matplotlib/matplotlib/issues/6092
     backends.backend = newbackend
 
+    # Make sure the repl display hook is installed in case we become interactive.
+    try:
+        install_repl_displayhook()
+    except NotImplementedError as err:
+        _log.warning("Fallback to a different backend")
+        raise ImportError from err
+
 
 def new_figure_manager(*args, **kwargs):
     """Create a new figure manager instance."""
@@ -435,6 +442,7 @@ def ioff():
     stack = ExitStack()
     stack.callback(ion if isinteractive() else ioff)
     interactive(False)
+    uninstall_repl_displayhook()
     return stack
 
 
@@ -450,6 +458,7 @@ def ion():
     stack = ExitStack()
     stack.callback(ion if isinteractive() else ioff)
     interactive(True)
+    install_repl_displayhook()
     return stack
 
 

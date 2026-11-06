@@ -1,0 +1,9 @@
+# What `cargo xtask notebooks setup` adds to requirements-notebooks.txt in
+# the notebooks' reference venv (`target/notebooks/reference-venv`): real
+# matplotlib 3.11.2 and its dependencies, as the reference venv (`.venv`)
+# holds them, for the reference runs of the notebooks and of the tests.
+matplotlib==3.11.2
+contourpy==1.4.0
+fonttools==4.67.0
+kiwisolver==1.5.1
+pyparsing==3.3.3

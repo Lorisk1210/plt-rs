@@ -883,6 +883,14 @@ class _CollectionWithSizes(Collection):
         # The resolution the items are scaled at until the next draw.
         self._sizes_scaled = (float(dpi), _artist.draw_count(self._native))
 
+    def draw(self, renderer):
+        # matplotlib's draw sets the sizes anew at the figure's resolution
+        # first, which makes the collection stale, and its Axes and figure
+        # with it: drawn alone (``draw_artist``, blitting), it leaves them
+        # stale.
+        self.stale = True
+        super().draw(renderer)
+
 
 class PathCollection(_CollectionWithSizes):
     r"""

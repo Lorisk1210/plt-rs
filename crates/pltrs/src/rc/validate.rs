@@ -17,7 +17,7 @@ fn not_one_of(text: &str, allowed: &[&str]) -> String {
 
 /// `text` as Python's `repr` writes a string: in single quotes, or in
 /// double quotes when it holds a single quote and no double quote.
-fn python_repr(text: &str) -> String {
+pub(super) fn python_repr(text: &str) -> String {
     let quote = if text.contains('\'') && !text.contains('"') {
         '"'
     } else {

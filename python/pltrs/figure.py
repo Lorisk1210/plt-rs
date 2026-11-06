@@ -237,6 +237,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         if not kwargs.pop("frameon", True):
             ax.set_frame_on(False)
         ax._internal_update(kwargs)
+        # matplotlib's ``_add_axes_internal`` makes it current (``sca``).
+        self._axes_changed()
         return ax
 
     def add_axes(self, *args, **kwargs):
@@ -278,7 +280,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             if a in self.axes:  # already here: it becomes the current axes
                 self.sca(a)
                 return a
-            return a._add_to_figure(self, False)
+            a._add_to_figure(self, False)
+            self._axes_changed()
+            return a
         rect, = args
         if isinstance(rect, BboxBase):
             rect = rect.bounds
@@ -358,7 +362,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             if ax in self.axes:  # already here: it becomes the current axes
                 self.sca(ax)
                 return ax
-            return ax._add_to_figure(self, False)
+            ax._add_to_figure(self, False)
+            self._axes_changed()
+            return ax
         if not args:
             args = (1, 1, 1)
         # Normalize correct ijk values to (i, j, k) here so that
@@ -802,6 +808,12 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         artists that require a draw before their size is known (e.g. text).
         """
         self._get_renderer()  # The canvas's renderer follows the figure.
+        canvas = self.canvas
+        if canvas.fixed_dpi is not None and not hasattr(canvas, "get_renderer"):
+            # matplotlib finds the renderer by running the print method of
+            # the canvas, which sets the figure to the canvas' fixed
+            # resolution (72 dpi for SVG, PDF and PostScript) and leaves it.
+            self.dpi = canvas.fixed_dpi
         with _measuring_with(_layout_renderer(self)):
             _figure.draw_without_rendering(self._native)
 

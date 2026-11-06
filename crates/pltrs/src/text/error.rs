@@ -44,8 +44,11 @@ impl TextDrawError {
 }
 
 impl fmt::Display for TextDrawError {
+    /// The problem as matplotlib's draw raises it: malformed mathtext as
+    /// the parser's explanation alone, the message of its `ValueError`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Layout(TextError::Math(why)) => f.write_str(why),
             Self::Layout(err) => err.fmt(f),
             Self::Color(err) => err.fmt(f),
             Self::Box(err) => err.fmt(f),
@@ -80,5 +83,20 @@ impl From<ColorError> for TextDrawError {
 impl From<CoordError> for TextDrawError {
     fn from(err: CoordError) -> Self {
         Self::Coords(err)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn malformed_math_reads_as_matplotlibs_value_error() {
+        let why = "\n\\sqrt{\n     ^\nParseSyntaxException: Expected \\sqrt{value}";
+        let err = TextDrawError::from(TextError::Math(why.to_owned()));
+        assert_eq!(err.to_string(), why);
+        assert_eq!(err.kind(), DrawErrorKind::InvalidValue);
+        let font = TextDrawError::from(TextError::Font("no file".to_owned()));
+        assert_eq!(font.to_string(), "font error: no file");
     }
 }

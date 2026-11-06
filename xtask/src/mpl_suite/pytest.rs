@@ -60,6 +60,16 @@ impl Run<'_> {
     /// (a display, the GUI toolkits' libraries), and reads what the
     /// plugin recorded.
     pub(crate) fn outcomes_with(&self, variables: &[Variable]) -> Result<Outcomes, String> {
+        self.outcomes_with_workers(WORKERS, variables)
+    }
+
+    /// Runs pytest as [`Run::outcomes_with`] does, with `workers` workers
+    /// (one where a suite's fixtures can't share a process pool).
+    pub(crate) fn outcomes_with_workers(
+        &self,
+        workers: &str,
+        variables: &[Variable],
+    ) -> Result<Outcomes, String> {
         let root = crate::python::root();
         let results = self.dir.join("results.jsonl");
         let log_path = self.dir.join("pytest.log");
@@ -96,7 +106,7 @@ impl Run<'_> {
                 "-p",
                 "no:cacheprovider",
             ])
-            .args(["-n", WORKERS, "--timeout", TEST_TIMEOUT])
+            .args(["-n", workers, "--timeout", TEST_TIMEOUT])
             .args(["--continue-on-collection-errors", "-q", "-rN"])
             // pytest's temporary directories (`tmp_path`) under the run's
             // own directory, not in the system's temporary directory.

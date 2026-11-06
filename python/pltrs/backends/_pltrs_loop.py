@@ -205,12 +205,29 @@ def _input_hook(context):
         process_events(SLICE)
 
 
+def _kernel_loop(kernel):
+    """ipykernel's event loop for the windows (``%gui pltrs`` and
+    ``%matplotlib pltrs`` in a Jupyter kernel): run them until a message
+    comes for the kernel, as its loops of the other toolkits do."""
+    from ipykernel.eventloops import get_shell_stream
+    stream = get_shell_stream(kernel)
+    while not kernel.shell.exit_now:
+        process_events(kernel._poll_interval)
+        if stream.flush(limit=1):
+            return
+
+
 def _register_ipython_hook():
     """Let IPython's terminal run the windows while it waits for input,
-    as it does Qt's and Tk's, when IPython is running."""
+    as it does Qt's and Tk's, when IPython is running, and a Jupyter
+    kernel between its messages."""
     pt_inputhooks = sys.modules.get("IPython.terminal.pt_inputhooks")
     if pt_inputhooks is not None and FRAMEWORK not in pt_inputhooks.backends:
         pt_inputhooks.register(FRAMEWORK, _input_hook)
+    if "ipykernel" in sys.modules:
+        from ipykernel import eventloops
+        if FRAMEWORK not in eventloops.loop_map:
+            eventloops.register_integration(FRAMEWORK)(_kernel_loop)
 
 
 _register_ipython_hook()

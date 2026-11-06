@@ -1,0 +1,44 @@
+# The notebooks' venvs (made by `cargo xtask notebooks setup`): Jupyter's
+# kernel and clients, IPython, matplotlib-inline, ipympl and ipywidgets,
+# the libraries the notebooks plot with, and what the tests of IPython,
+# matplotlib-inline and ipympl need. `target/notebooks/venv` runs them on
+# pltrs as matplotlib: setup installs this list with matplotlib excluded
+# from the resolution (ipympl requires it; `python/alias` is what it
+# gets), and matplotlib must never be there.
+# `target/notebooks/reference-venv` adds requirements-notebooks-reference.txt
+# (real matplotlib) to it. setup downloads the sdists of IPython,
+# matplotlib-inline and ipympl at these versions, whose tests
+# `cargo xtask notebooks suite` runs.
+#
+# What pltrs itself imports (as requirements-pltrs.txt pins it):
+numpy==2.5.4
+pillow==12.3.0
+cycler==0.12.1
+python-dateutil==2.9.0.post0
+# Jupyter: the kernel, the client executing notebooks, the formats.
+ipython==9.18.1
+ipykernel==7.4.0
+jupyter-client==8.10.0
+nbclient==0.11.0
+nbformat==5.11.1
+nbconvert==7.17.2
+# matplotlib's Jupyter backends of other distributions, and widgets.
+matplotlib-inline==0.2.2
+ipympl==0.10.0
+ipywidgets==8.1.9
+# The libraries plotting in the notebooks.
+pandas==3.1.0
+seaborn==0.13.2
+tzdata==2026.6
+# What running the tests needs: IPython's test extras (pytest-asyncio,
+# testpath, setuptools), nbval for the notebooks of matplotlib-inline
+# and ipympl, importlib-metadata for ipympl's entry point test.
+pytest==9.1.1
+pytest-xdist==3.8.0
+pytest-timeout==2.4.0
+pytest-asyncio==1.4.1.post1
+testpath==0.6.0
+packaging==26.3
+setuptools==84.2.1
+nbval==0.11.0
+importlib-metadata==10.1.0

@@ -17,6 +17,8 @@
 mod setup;
 mod suite;
 
+pub(crate) use setup::fetch_command;
+
 use std::env;
 use std::ffi::OsString;
 use std::path::PathBuf;

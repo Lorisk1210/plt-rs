@@ -17,6 +17,10 @@
 //! cargo xtask ecosystem [setup] [PYTEST ARGS...]  pandas and seaborn drawing with pltrs as matplotlib
 //! cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]
 //!                                                 pandas' and seaborn's own tests run against pltrs (or matplotlib)
+//! cargo xtask notebooks [setup] [PATTERN...] [--failures]
+//!                                                 notebooks executed in Jupyter under matplotlib and pltrs, compared
+//! cargo xtask notebooks suite [--reference] [PATTERN...] [--failures]
+//!                                                 IPython's, matplotlib-inline's and ipympl's own tests on pltrs (or matplotlib)
 //! cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage]
 //!                                                 programs run under matplotlib and pltrs (Python), compared
 //! ```
@@ -33,6 +37,7 @@ mod ecosystem;
 mod examples;
 mod mpl_suite;
 mod mpl_tests;
+mod notebooks;
 mod python;
 mod rust_coverage;
 
@@ -64,6 +69,7 @@ fn main() -> ExitCode {
         Some((command, rest)) if command == "examples" => examples::run(rest),
         Some((command, rest)) if command == "ecosystem" => ecosystem::run(rest),
         Some((command, rest)) if command == "diff" => diff::run(rest),
+        Some((command, rest)) if command == "notebooks" => notebooks::run(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
@@ -80,6 +86,8 @@ fn main() -> ExitCode {
             );
             eprintln!("       cargo xtask ecosystem [setup] [PYTEST ARGS...]");
             eprintln!("       cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]");
+            eprintln!("       cargo xtask notebooks [setup] [PATTERN...] [--failures]");
+            eprintln!("       cargo xtask notebooks suite [--reference] [PATTERN...] [--failures]");
             eprintln!(
                 "       cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage]"
             );

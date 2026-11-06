@@ -15,6 +15,7 @@ tests found, each with the values real matplotlib 3.11 gives.
 import io
 import os
 import pickle
+import shutil
 import subprocess
 import sys
 
@@ -190,6 +191,8 @@ WRITTEN_AFTER = {"png", "jpg", "tiff", "webp", "gif", "raw", "rgba", "ps", "eps"
 
 @pytest.mark.parametrize("fmt", FORMATS)
 def test_saving_sends_one_draw_event_before_writing(fmt):
+    if fmt == "pgf" and not shutil.which("xelatex"):
+        pytest.skip("the PGF backend measures text with XeLaTeX, which is not installed")
     fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
     ax.plot([0, 1], [1, 0])
     buffer = io.BytesIO()

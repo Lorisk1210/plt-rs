@@ -48,6 +48,9 @@ pub(crate) struct Run<'a> {
     pub(crate) python_path: Vec<PathBuf>,
     /// The test files, directories or ids to run.
     pub(crate) targets: &'a [String],
+    /// Variables set for the run on top of the inherited ones (the suite
+    /// tools' fonts and TeX tree, `tools::environment`).
+    pub(crate) environment: &'a [(String, OsString)],
 }
 
 impl Run<'_> {
@@ -84,6 +87,8 @@ impl Run<'_> {
         let mut path = self.python_path.clone();
         path.push(root.join("python/mpl_suite"));
         let python_path = crate::python::python_path(path)?;
+        let config = self.dir.join("mplconfig");
+        forget_font_list(&config)?;
         println!(
             "running {} with {} (log: {})",
             self.suite,
@@ -121,8 +126,9 @@ impl Run<'_> {
             // tests make theirs unwritable, which must not reach the one
             // cargo's tests share (`target/pltrs-config`), and expect the
             // warning to name `MPLCONFIGDIR`.
-            .env("MPLCONFIGDIR", self.dir.join("mplconfig"))
+            .env("MPLCONFIGDIR", &config)
             .env_remove(CONFIG_DIR_VARIABLE)
+            .envs(self.environment.iter().map(|(name, value)| (name, value)))
             .stdin(Stdio::null())
             .stdout(log)
             .stderr(stderr)
@@ -141,4 +147,23 @@ impl Run<'_> {
             .map_err(|err| format!("{}: {err}", results.display()))?;
         Outcomes::from_results(&text)
     }
+}
+
+/// Removes matplotlib's font list cache (`fontlist-v*.json`) from the
+/// configuration directory `config`: matplotlib reads it without looking
+/// at the font directories again, so a run would keep the fonts of the
+/// previous one, with or without the suite tools' fonts.
+fn forget_font_list(config: &Path) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(config) else {
+        return Ok(());
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with("fontlist-") && name.ends_with(".json") {
+            std::fs::remove_file(entry.path())
+                .map_err(|err| format!("{}: {err}", entry.path().display()))?;
+        }
+    }
+    Ok(())
 }

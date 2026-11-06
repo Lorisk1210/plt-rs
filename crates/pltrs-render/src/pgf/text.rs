@@ -44,6 +44,9 @@ impl PgfRenderer {
             fill_text(self, gc, run, origin, angle);
             return;
         };
+        if let Some(family) = pgf_unknown_family(source.font(), &self.options) {
+            self.ignored_fonts.push(family.to_owned());
+        }
         let text = pgf_text(source.text(), source.font(), &self.options);
         self.line(r"\begin{pgfscope}");
         self.clip(gc);
@@ -119,25 +122,68 @@ pub fn pgf_text(text: &str, request: &FontRequest, options: &PgfOptions) -> Stri
     escape_and_apply_props(text, &font_commands(request, options))
 }
 
+/// How matplotlib's PGF backend selects the first family of a font.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Family<'a> {
+    /// A generic family, by its LaTeX command.
+    Generic(&'static str),
+    /// LaTeX's default family (any other without `pgf.rcfonts`).
+    Default,
+    /// An installed font, by name.
+    Named(&'a str),
+    /// A family no font has, which is left out with a warning.
+    Unknown(&'a str),
+}
+
+/// How the first family of `request` is selected under `options`.
+fn family<'a>(request: &'a FontRequest, options: &PgfOptions) -> Family<'a> {
+    match request
+        .query
+        .families
+        .first()
+        .map_or("sans-serif", String::as_str)
+    {
+        "serif" => Family::Generic(r"\rmfamily"),
+        "sans" | "sans-serif" => Family::Generic(r"\sffamily"),
+        "monospace" => Family::Generic(r"\ttfamily"),
+        _ if !options.rcfonts => Family::Default,
+        name if options.font_names.iter().any(|known| known == name) => Family::Named(name),
+        name => Family::Unknown(name),
+    }
+}
+
+/// The first family of `request` when no font has it, which matplotlib's
+/// PGF backend leaves out of the text's font commands, logging "Ignoring
+/// unknown font" (its `_escape_and_apply_props`).
+///
+/// ```
+/// use pltrs_render::{PgfOptions, pgf_unknown_family};
+/// use pltrs_text::{FontQuery, FontRequest};
+/// let request = FontRequest::new(FontQuery::families(["Comic".to_owned()]));
+/// assert_eq!(pgf_unknown_family(&request, &PgfOptions::default()), Some("Comic"));
+/// ```
+pub fn pgf_unknown_family<'a>(request: &'a FontRequest, options: &PgfOptions) -> Option<&'a str> {
+    match family(request, options) {
+        Family::Unknown(name) => Some(name),
+        _ => None,
+    }
+}
+
 /// The commands selecting the family, size, style and weight of
 /// `request`.
 fn font_commands(request: &FontRequest, options: &PgfOptions) -> String {
     let font = &request.query;
     let mut commands = String::new();
-    let family = font.families.first().map_or("sans-serif", String::as_str);
-    match family {
-        "serif" => commands.push_str(r"\rmfamily"),
-        "sans" | "sans-serif" => commands.push_str(r"\sffamily"),
-        "monospace" => commands.push_str(r"\ttfamily"),
-        _ if !options.rcfonts => commands.push_str(r"\fontfamily{\familydefault}"),
-        name if options.font_names.iter().any(|known| known == name) => {
+    match family(request, options) {
+        Family::Generic(command) => commands.push_str(command),
+        Family::Default => commands.push_str(r"\fontfamily{\familydefault}"),
+        Family::Named(name) => {
             let _ = write!(
                 commands,
                 r"\ifdefined\pdftexversion\else\setmainfont{{{name}}}\rmfamily\fi"
             );
         }
-        // matplotlib ignores unknown fonts with a warning.
-        _ => {}
+        Family::Unknown(_) => {}
     }
     let _ = write!(
         commands,
@@ -180,6 +226,36 @@ mod tests {
 
     fn renderer(options: PgfOptions) -> PgfRenderer {
         PgfRenderer::new(1.0, 1.0, 100.0, options).unwrap()
+    }
+
+    #[test]
+    fn only_families_no_font_has_are_unknown() {
+        let options = PgfOptions {
+            font_names: vec!["DejaVu Serif".to_owned()],
+            ..PgfOptions::default()
+        };
+        let request = |family: &str| FontRequest::new(FontQuery::families([family.to_owned()]));
+        for known in ["serif", "sans", "sans-serif", "monospace", "DejaVu Serif"] {
+            assert_eq!(
+                pgf_unknown_family(&request(known), &options),
+                None,
+                "{known}"
+            );
+        }
+        let unknown = request("this-font-does-not-exist");
+        assert_eq!(
+            pgf_unknown_family(&unknown, &options),
+            Some("this-font-does-not-exist")
+        );
+        let latex_fonts = PgfOptions {
+            rcfonts: false,
+            ..options
+        };
+        assert_eq!(
+            pgf_unknown_family(&unknown, &latex_fonts),
+            None,
+            "LaTeX's default font"
+        );
     }
 
     #[test]

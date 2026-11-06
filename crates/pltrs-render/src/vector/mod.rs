@@ -79,6 +79,9 @@ pub enum VectorError {
     NonFinite(&'static str),
     /// Something the format cannot hold.
     Unsupported(&'static str),
+    /// A PGF picture written to no file has an image, which can only be
+    /// written beside the picture's file (matplotlib's `ValueError`).
+    StreamedImage,
     /// TeX text could not be typeset or its fonts embedded.
     Tex(TexError),
     /// A PDF object was reserved but never written before the
@@ -102,6 +105,10 @@ impl fmt::Display for VectorError {
             Self::Image(err) => write!(f, "cannot encode image: {err}"),
             Self::NonFinite(what) => write!(f, "cannot write a non-finite {what}"),
             Self::Unsupported(what) => f.write_str(what),
+            Self::StreamedImage => f.write_str(
+                "streamed pgf-code does not support raster graphics, consider using the \
+                 pgf-to-pdf option",
+            ),
             Self::Tex(err) => write!(f, "cannot draw TeX text: {err}"),
             Self::UnwrittenObject(id) => {
                 write!(f, "PDF object {id} was reserved but never written")
@@ -122,6 +129,7 @@ impl std::error::Error for VectorError {
             Self::InvalidCanvas { .. }
             | Self::NonFinite(_)
             | Self::Unsupported(_)
+            | Self::StreamedImage
             | Self::UnwrittenObject(_)
             | Self::StreamOpen => None,
         }

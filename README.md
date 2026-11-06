@@ -301,10 +301,12 @@ missing).
 pltrs (Python) is measured three ways:
 
 * **matplotlib 3.11's own test suite**, run unchanged with `matplotlib`
-  aliased to pltrs: it passes all 9,623 tests that pass under real
-  matplotlib on the same machine, the GUI backends' included, with Qt
-  (PyQt6, PySide6, PyQt5), Tk, GTK 3 and 4, wx and Cairo installed and a
-  display (`cargo xtask mpl-suite`; the outcomes per test are in
+  aliased to pltrs: it passes all 10,191 tests that pass under real
+  matplotlib on the same machine, with the tools the tests ask for
+  installed: Qt (PyQt6, PySide6, PyQt5), Tk, GTK 3 and 4, wx and Cairo
+  with a display for the GUI backends, Inkscape for the SVG image
+  comparisons, Ghostscript, TeX with xelatex and pgf, and the fonts the
+  tests name (`cargo xtask mpl-suite`; the outcomes per test are in
   `spec/mpl-suite/`).
 * **pandas' and seaborn's own test suites** (pandas 3.1's plotting tests
   and seaborn 0.13's whole suite, from their sdists), run unchanged with

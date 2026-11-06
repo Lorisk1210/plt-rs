@@ -6,17 +6,24 @@
 //! out at that size. The PDF and PostScript backends measure text that is
 //! not mathtext with Adobe Font Metrics when they draw it in standard
 //! PostScript fonts (`pdf.use14corefonts`, `ps.useafm`), line spacing
-//! included.
+//! included. The PGF backend can have a program measure every line (the
+//! TeX system typesetting the picture, [`with_line_measure`]).
 
 use std::cell::Cell;
 use std::thread::LocalKey;
 
 use pltrs_text::{
-    AfmDirectory, FontHeightMetrics, FontRequest, Hinting, TextEngine, TextError, TextRun,
-    TextSource,
+    AfmDirectory, FontHeightMetrics, FontRequest, Hinting, LineMetrics, TextEngine, TextError,
+    TextRun, TextSource,
 };
 
+use crate::fonts::FontProperties;
 use crate::rc::RcParams;
+
+/// Measures a line as a backend measures the text it draws instead of
+/// the text engine: the width, height and descent of the line typeset in
+/// the font at the resolution, in pixels.
+pub(crate) type LineMeasure = fn(&str, &FontProperties, f64) -> Result<LineMetrics, TextError>;
 
 /// The size text paths are measured at (`TextToPath.FONT_SCALE`).
 const FONT_SCALE: f64 = 100.0;
@@ -32,6 +39,8 @@ thread_local! {
     static UNHINTED: Cell<bool> = const { Cell::new(false) };
     /// The AFM fonts text that is not mathtext is measured with, if any.
     static AFM_METRICS: Cell<Option<AfmDirectory>> = const { Cell::new(None) };
+    /// What measures every line instead of the text engine, if anything.
+    static LINE_MEASURE: Cell<Option<LineMeasure>> = const { Cell::new(None) };
 }
 
 /// Restores a mode's previous value when dropped (also on panics).
@@ -77,6 +86,19 @@ pub(crate) fn without_hinting<R>(f: impl FnOnce() -> R) -> R {
 /// (`None` measures the fonts text is laid out with).
 pub(crate) fn with_afm_metrics<R>(directory: Option<AfmDirectory>, f: impl FnOnce() -> R) -> R {
     with_mode(&AFM_METRICS, directory, f)
+}
+
+/// Runs `f` with every line, TeX lines included, measured by `measure`,
+/// as matplotlib's PGF backend has the TeX system measure the text it
+/// draws (the font's own height metrics still space the lines).
+pub(crate) fn with_line_measure<R>(measure: LineMeasure, f: impl FnOnce() -> R) -> R {
+    with_mode(&LINE_MEASURE, Some(measure), f)
+}
+
+/// What measures every line instead of the text engine (inside
+/// [`with_line_measure`]).
+pub(super) fn line_measure() -> Option<LineMeasure> {
+    LINE_MEASURE.get()
 }
 
 /// Whether text that is not mathtext is measured with AFM fonts (inside
@@ -173,6 +195,24 @@ mod tests {
             .expect("bundled font");
         assert_eq!(svg.width, at_100.width / 10.0);
         assert!(!TEXT_PATH_METRICS.get(), "the mode is restored");
+    }
+
+    #[test]
+    fn line_measures_are_installed_for_their_work_only() {
+        #[expect(clippy::unnecessary_wraps, reason = "a line measure's signature")]
+        fn fixed(_: &str, _: &FontProperties, dpi: f64) -> Result<LineMetrics, TextError> {
+            Ok(LineMetrics {
+                width: dpi,
+                height: 2.0,
+                descent: 1.0,
+            })
+        }
+        assert!(line_measure().is_none());
+        let inside = with_line_measure(fixed, line_measure);
+        let font = FontProperties::from_rc(&RcParams::matplotlib());
+        let measured = inside.expect("installed")("x", &font, 50.0).expect("fixed");
+        assert_eq!(measured.width, 50.0);
+        assert!(line_measure().is_none(), "the mode is restored");
     }
 
     #[test]

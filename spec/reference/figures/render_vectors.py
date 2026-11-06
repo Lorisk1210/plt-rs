@@ -8,11 +8,12 @@ a directory, for pltrs-spec's opt-in wide comparison of vector output.
 
 Documents are named ``<group>__<name>.<format>`` and saved like the vector
 goldens (``FigureCase.render_vector``) under the reference configuration.
-matplotlib's PGF backend measures text with LaTeX, which pltrs does not
-have: here it measures text as Agg does (as pltrs does), and includes
-images with ``\\includegraphics``. PGF images go beside their documents.
-Only cases whose names start with one of the PREFIXes are rendered when any
-are given. Nothing is written to the spec itself.
+matplotlib's PGF backend measures text with LaTeX; here it measures text
+as Agg does, as pltrs (Rust) measures it by default (its
+``PgfTextMetrics::TextEngine``), so that the comparison needs no TeX, and
+includes images with ``\\includegraphics``. PGF images go beside their
+documents. Only cases whose names start with one of the PREFIXes are
+rendered when any are given. Nothing is written to the spec itself.
 """
 
 from __future__ import annotations

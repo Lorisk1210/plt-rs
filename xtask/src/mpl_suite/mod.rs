@@ -32,6 +32,7 @@ pub(crate) mod outcomes;
 pub(crate) mod prepare;
 pub(crate) mod pytest;
 pub(crate) mod report;
+pub(crate) mod tools;
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -141,6 +142,8 @@ fn run_suite(options: &Options) -> Result<(), String> {
     }
     let files = prepare::test_files(&site)?;
     let (targets, ran_files) = select(&files, &options.patterns)?;
+    let environment = tools::environment()?;
+    tools::report_missing(&environment);
 
     let dir = suite.join(options.mode.name());
     let gui = Gui::prepare(&python, &dir);
@@ -153,6 +156,7 @@ fn run_suite(options: &Options) -> Result<(), String> {
         dir: &dir,
         python_path,
         targets: &targets,
+        environment: &environment,
     }
     .outcomes_with(gui.variables())?;
     // Stops the run's own display, if it started one.

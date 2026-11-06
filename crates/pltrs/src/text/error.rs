@@ -28,14 +28,15 @@ impl TextDrawError {
     /// property name, a language range outside the text and an invalid
     /// colour are values of the program's that matplotlib refuses with a
     /// `ValueError` while drawing, as it refuses a TeX font without a
-    /// Type 1 file (`DviFont.resolve_path`).
+    /// Type 1 file (`DviFont.resolve_path`) and a text the PGF backend's
+    /// TeX system cannot measure.
     pub fn kind(&self) -> DrawErrorKind {
         match self {
             Self::Layout(
                 TextError::Math(_)
                 | TextError::UnknownName { .. }
                 | TextError::LanguageRange { .. }
-                | TextError::Tex(TexError::NoType1Font { .. }),
+                | TextError::Tex(TexError::NoType1Font { .. } | TexError::Measuring { .. }),
             )
             | Self::Color(_) => DrawErrorKind::InvalidValue,
             _ => DrawErrorKind::Other,

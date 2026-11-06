@@ -17,8 +17,8 @@ use std::rc::Rc;
 use pltrs::artist::RawHandle;
 use pltrs::fonts::FontProperties;
 use pltrs::text::{
-    FontHeightMetrics, LineKind, LineMeasurer, LineMetrics, METRICS_CACHE_SIZE, MetricsCache, Text,
-    TextError, TextPainter, set_metrics_cache as install_metrics_cache,
+    FontHeightMetrics, LineKind, LineMeasurer, LineMetrics, METRICS_CACHE_SIZE, MetricsCache,
+    TexError, Text, TextError, TextPainter, set_metrics_cache as install_metrics_cache,
 };
 
 use super::font_manager::FontProps;
@@ -98,6 +98,19 @@ fn measure_svg(
 ) -> PyResult<(f64, f64, f64)> {
     let metrics = pltrs::text::measure_line_svg(&text, &props.0, ismath.0, dpi)?;
     Ok((metrics.width, metrics.height, metrics.descent))
+}
+
+/// `RendererPgf.get_text_width_height_descent(text, prop, ismath)` at
+/// `dpi`: the line typeset by the TeX system of `pgf.texsystem`, as the
+/// PGF backend measures it (whatever `ismath`). A text TeX cannot typeset
+/// raises matplotlib's `ValueError`, a TeX system that cannot be started
+/// or stops on the preamble its `RuntimeError`.
+fn measure_pgf(text: String, props: FontProps, dpi: f64) -> PyResult<(f64, f64, f64)> {
+    match pltrs::figure::measure_pgf_text(&text, &props.0, dpi) {
+        Ok(metrics) => Ok((metrics.width, metrics.height, metrics.descent)),
+        Err(err @ TextError::Tex(TexError::Measuring { .. })) => Err(err.into()),
+        Err(err) => Err(PyErr::runtime_error(err.to_string())),
+    }
 }
 
 /// Lines measured by Python: `line(text, props, ismath, dpi)` gives
@@ -254,6 +267,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("measure_pdf", measure_pdf)?;
     module.add("measure_ps", measure_ps)?;
     module.add("measure_svg", measure_svg)?;
+    module.add("measure_pgf", measure_pgf)?;
     module.add("set_measurer", set_measurer)?;
     module.add("set_painter", set_painter)?;
     module.add("text_engine_clear_caches", text_engine_clear_caches)?;

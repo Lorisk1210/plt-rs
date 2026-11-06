@@ -209,9 +209,16 @@ pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs
   default `target/refs/matplotlib-dl/matplotlib-3.11.2`); in pltrs mode
   `matplotlib`, `mpl_toolkits` and `pylab` load from `python/pltrs`.
 * Outcomes are committed: `spec/mpl-suite/reference.json` and
-  `spec/mpl-suite/pltrs.json` (per test id). Run both modes with TinyTeX on
-  `PATH`, as they were recorded. After merging, rerun the suite rather
-  than resolving conflicts in `pltrs.json` by hand.
+  `spec/mpl-suite/pltrs.json` (per test id). Run both modes with the tools
+  on `PATH`, as they were recorded:
+  `export PATH="$HOME/.local/mpl-suite/inkscape/bin:$HOME/.local/gs/bin:$HOME/.TinyTeX/bin/x86_64-linux:$PATH"`
+  (Inkscape rasterises the SVG comparisons, Ghostscript the PDF and EPS
+  ones). `python/tools/suite-tools.sh install` installs Inkscape and the
+  fonts and TeX packages the tests ask for into `~/.local/mpl-suite`,
+  where nothing else looks; the runner gives both modes the fonts and the
+  TeX tree (`~/.local/mpl-suite/environment`) and names what a run lacks.
+  After merging, rerun the suite rather than resolving conflicts in
+  `pltrs.json` by hand.
 * The GUI backends' tests run with the toolkits and a display, as the
   outcomes were recorded: `python/tools/toolkits.sh install` (once; GTK
   3 and 4, PyGObject, pycairo, cairocffi, wxPython and Qt's X libraries,

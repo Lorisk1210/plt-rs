@@ -4,11 +4,11 @@
 use pltrs::colors::Color;
 use pltrs::events::EventKind;
 use pltrs::figure::{
-    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, SaveError, SaveFormat,
-    SaveOptions, SvgMetadata,
+    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, PgfTextMetrics, SaveError,
+    SaveFormat, SaveOptions, SvgMetadata,
 };
 use pltrs::transforms::Bbox;
-use pltrs_render::Timestamp;
+use pltrs_render::{Timestamp, VectorError};
 
 use super::super::lines::markevery_error;
 use crate::binding::dict_items;
@@ -232,13 +232,51 @@ fn print_figure(
         format: Some(format),
         ..settings.0
     };
-    match sending_draw_event(&figure, on_draw, || figure.to_format(format, options)) {
+    let printed = sending_draw_event(&figure, on_draw, || figure.to_format(format, options));
+    raised(&figure, printed).map(Bytes)
+}
+
+/// What a print of `figure` gave, its error raised as matplotlib raises
+/// it (a line whose `markevery` does not fit it: `ValueError`).
+fn raised<T>(figure: &Figure, printed: Result<T, SaveError>) -> PyResult<T> {
+    match printed {
         Err(SaveError::Draw(problems)) => {
-            Err(markevery_error(&figure, &problems)
+            Err(markevery_error(figure, &problems)
                 .unwrap_or_else(|| SaveError::Draw(problems).into()))
         }
-        printed => Ok(Bytes(printed?)),
+        printed => Ok(printed?),
     }
+}
+
+/// The figure as a PGF picture with `settings`, its text measured by the
+/// TeX system as matplotlib's PGF backend measures it (`print_pgf`): the
+/// picture and its images as `(name, png)`, named after `image_stem`, to
+/// write beside the picture's file; without a stem a figure with images
+/// cannot be written. `on_draw` is called once it is drawn.
+fn print_pgf(
+    figure: Figure,
+    settings: PrintSettings,
+    image_stem: Option<String>,
+    on_draw: Option<Callback>,
+) -> PyResult<(String, Vec<(String, Bytes)>)> {
+    let options = SaveOptions {
+        format: Some(SaveFormat::Pgf),
+        pgf_text_metrics: PgfTextMetrics::Latex,
+        ..settings.0
+    };
+    let printed = sending_draw_event(&figure, on_draw, || {
+        figure.to_pgf_document(&options, image_stem)
+    });
+    if let Err(SaveError::Vector(err @ VectorError::StreamedImage)) = &printed {
+        return Err(PyErr::value_error(err.to_string()));
+    }
+    let document = raised(&figure, printed)?;
+    let images = document
+        .images
+        .into_iter()
+        .map(|image| (image.name, Bytes(image.png)))
+        .collect();
+    Ok((document.text, images))
 }
 
 /// The pixels of the figure printed with `settings` for a raster file:
@@ -265,6 +303,7 @@ fn default_creator() -> PyResult<Option<String>> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("print_figure", print_figure)?;
+    module.add("print_pgf", print_pgf)?;
     module.add("print_rgba", print_rgba)?;
     module.add("default_creator", default_creator)
 }

@@ -20,7 +20,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 import weakref
 
-from .. import _api, _get_executable_info, cbook, ExecutableNotFoundError, rcParams
+from .. import _get_executable_info, cbook, ExecutableNotFoundError, rcParams
 from .._native import backends as _backends, texmanager as _texmanager
 from .._native import text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
@@ -308,9 +308,10 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
 
     def get_text_width_height_descent(self, s, prop, ismath):
         # docstring inherited
-        _api.check_in_list(["TeX", True, False], ismath=ismath)
-        return _text_overrides.measure(s, FontManager._props(prop), ismath,
-                                       float(self.dpi))
+        # LaTeX typesets the text, whatever ismath; its points are taken as
+        # 1/72 inch, as matplotlib takes them.
+        return _text_overrides.measure_pgf(s, FontManager._props(prop),
+                                           float(self.dpi))
 
 
 class FigureCanvasPgf(FigureCanvasBase):
@@ -336,9 +337,25 @@ class FigureCanvasPgf(FigureCanvasBase):
         Output pgf macros for drawing the figure so it can be included and
         rendered in latex documents.
         """
-        self._print_native("pgf", fname_or_fh,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+        with cbook.open_file_cm(fname_or_fh, "w", encoding="utf-8") as file:
+            # Images go beside a file of the picture's that has a name, as
+            # <stem>-img<N>.png; a stream cannot hold them.
+            name = getattr(file, "name", "")
+            path = (pathlib.Path(name)
+                    if isinstance(name, (str, os.PathLike)) and os.path.exists(name)
+                    else None)
+            settings = self._print_settings(
+                bbox_inches_restore=bbox_inches_restore,
+                facecolor=facecolor, edgecolor=edgecolor)
+            with self._program_drawing(bbox_inches_restore):
+                text, images = _backends.print_pgf(
+                    self.figure._native, settings,
+                    None if path is None else path.stem,
+                    self._draw_event_sender())
+            for image_name, png in images:
+                (path.parent / image_name).write_bytes(png)
+            file.write(text if cbook.file_requires_unicode(file)
+                       else text.encode("utf-8"))
 
     def print_pdf(self, fname_or_fh, *, metadata=None, **kwargs):
         """Use LaTeX to compile a pgf generated figure to pdf."""
@@ -377,6 +394,10 @@ class FigureCanvasPgf(FigureCanvasBase):
         """The renderer of a PGF picture of the figure (one writing to no
         file), which measures text as LaTeX typesets it."""
         return RendererPgf(self.figure, None)
+
+    def draw(self):
+        self.figure.draw_without_rendering()
+        return super().draw()
 
     def print_png(self, fname_or_fh, **kwargs):
         """Use LaTeX to compile a pgf figure to pdf and convert it to png."""

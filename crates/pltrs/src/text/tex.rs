@@ -119,13 +119,17 @@ pub(crate) fn tex_run(
 }
 
 /// The extent of the TeX line `tex` in `font` at `dpi`, typeset by
-/// `manager`.
+/// `manager`, or measured by the backend's program in its mode (see
+/// [`with_line_measure`](super::with_line_measure)).
 fn tex_metrics(
     manager: &TexManager,
     tex: &str,
     font: &FontProperties,
     dpi: f64,
 ) -> Result<LineMetrics, TextError> {
+    if let Some(measure) = super::metrics::line_measure() {
+        return measure(tex, font, dpi);
+    }
     let (width, height, descent) = manager.text_width_height_descent(tex, font.size, dpi / 72.0)?;
     Ok(LineMetrics {
         width,

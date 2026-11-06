@@ -20,6 +20,10 @@
 //!   (a long-lived `luatex --luaonly` helper, else `kpsewhich`), keeps
 //!   what it read, and maps DVI glyphs to the glyphs of their Type 1
 //!   faces ([`TexFontFile`]).
+//! * [`LatexBoxes`] is the TeX system the PGF backend measures its texts
+//!   with (matplotlib's `LatexManager`): running in the background, it
+//!   typesets each text in a box of the document's preamble and reports
+//!   the box's size ([`BoxMetrics`]).
 //! * [`TemporaryDirectory`] and [`format_command`] are the temporary
 //!   directories and program helpers TeX runs with, which the PostScript
 //!   backend's external programs share.
@@ -40,6 +44,7 @@ mod font_file;
 #[cfg(test)]
 mod fuzz_tests;
 mod kpathsea;
+mod latex_boxes;
 mod manager;
 mod map_override;
 mod native;
@@ -60,6 +65,7 @@ pub use dvi::{
 pub use error::{TexError, TexFile};
 pub use files::{FileFinder, FontSource, TexFiles};
 pub use font_file::{TexFontFile, TexHinting};
+pub use latex_boxes::{BoxMetrics, LatexBoxes};
 pub use manager::{GreyImage, TexEngine, TexManager, TexRgba};
 pub use map_override::{FontMapLookup, set_font_map_lookup};
 pub use native::{NativeEffects, NativeFace, NativeFont};

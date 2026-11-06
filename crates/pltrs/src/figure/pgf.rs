@@ -6,6 +6,7 @@ use std::path::Path as FsPath;
 use pltrs_render::{PgfDocument, PgfOptions, PgfRenderer};
 
 use super::Figure;
+use super::pgf_metrics::measuring;
 use super::print::SaveOptions;
 use super::save::{SaveError, simplify_settings};
 use crate::fonts::{FontExt, FontManager, FontProperties};
@@ -85,19 +86,70 @@ impl Figure {
         std::fs::write(path, document.text).map_err(SaveError::Io)
     }
 
-    /// The document, its images named after `image_stem`.
+    /// The figure as a PGF picture with the PNG files of its images,
+    /// named `<image_stem>-img<N>.png`, for a writer of its own to put
+    /// beside the picture's file (matplotlib's `print_pgf` to a file object
+    /// with a name).
+    ///
+    /// # Errors
+    ///
+    /// As for [`Figure::to_pgf`]; without a stem, a figure with images.
+    pub fn to_pgf_document(
+        &self,
+        options: &SaveOptions,
+        image_stem: Option<String>,
+    ) -> Result<PgfDocument, SaveError> {
+        self.pgf_document(options, image_stem)
+    }
+
+    /// The document, its images named after `image_stem`, its text
+    /// measured as `options` asks; the families its texts asked for that
+    /// no font has are logged, as matplotlib's `draw_text` logs them.
     fn pgf_document(
         &self,
         options: &SaveOptions,
         image_stem: Option<String>,
     ) -> Result<PgfDocument, SaveError> {
         let pgf = pgf_options(image_stem);
-        self.render_at_save_resolution(options, |width, height, dpi| {
-            PgfRenderer::new(width, height, dpi, pgf)
-        })?
-        .finish()
-        .map_err(SaveError::Vector)
+        let mut renderer = measuring(options.pgf_text_metrics, || {
+            self.render_at_save_resolution(options, |width, height, dpi| {
+                PgfRenderer::new(width, height, dpi, pgf)
+            })
+        })?;
+        for family in renderer.take_ignored_fonts() {
+            log_unknown_font(&family);
+        }
+        renderer.finish().map_err(SaveError::Vector)
     }
+}
+
+/// The family names of the installed fonts, which `pgf.rcfonts` selects
+/// texts' fonts by (matplotlib's `fontManager.ttflist`).
+fn font_names() -> Vec<String> {
+    FontManager::global()
+        .font_list(FontExt::Ttf)
+        .into_iter()
+        .map(|entry| entry.name)
+        .collect()
+}
+
+/// The options the font commands of texts are written with under `rc`.
+fn text_options(rc: &RcParams) -> PgfOptions {
+    PgfOptions {
+        rcfonts: rc.pgf_rcfonts,
+        font_names: font_names(),
+        ..PgfOptions::default()
+    }
+}
+
+/// Logs `family`, which no font has, as matplotlib's PGF backend logs it
+/// (`_escape_and_apply_props`): for each text asking for it that a PGF
+/// picture draws (see [`PgfRenderer::take_ignored_fonts`]) or measures.
+pub fn log_unknown_font(family: &str) {
+    crate::warnings::log(
+        "backends.backend_pgf",
+        &format!("Ignoring unknown font: {family}"),
+    );
 }
 
 /// The options of a PGF picture whose images go beside a file named after
@@ -109,11 +161,7 @@ pub(super) fn pgf_options(image_stem: Option<String>) -> PgfOptions {
         simplify: simplify_settings(),
         composite_images: rc.image_composite_image,
         rcfonts: rc.pgf_rcfonts,
-        font_names: FontManager::global()
-            .font_list(FontExt::Ttf)
-            .into_iter()
-            .map(|entry| entry.name)
-            .collect(),
+        font_names: font_names(),
         preamble: pgf_preamble(&rc),
         image_stem,
     }
@@ -131,16 +179,18 @@ pub(super) fn pgf_options(image_stem: Option<String>) -> PgfOptions {
 /// assert!(tex.starts_with(r"{\sffamily\fontsize{10.000000}{12.000000}\selectfont"));
 /// ```
 pub fn pgf_text(text: &str, props: &FontProperties, rc: &RcParams) -> String {
-    let options = PgfOptions {
-        rcfonts: rc.pgf_rcfonts,
-        font_names: FontManager::global()
-            .font_list(FontExt::Ttf)
-            .into_iter()
-            .map(|entry| entry.name)
-            .collect(),
-        ..PgfOptions::default()
-    };
-    pltrs_render::pgf_text(text, &props.request(rc), &options)
+    pltrs_render::pgf_text(text, &props.request(rc), &text_options(rc))
+}
+
+/// [`pgf_text`], logging the family of `props` when no font has it, as
+/// matplotlib's `_escape_and_apply_props` logs it.
+pub(super) fn pgf_text_logged(text: &str, props: &FontProperties, rc: &RcParams) -> String {
+    let request = props.request(rc);
+    let options = text_options(rc);
+    if let Some(family) = pltrs_render::pgf_unknown_family(&request, &options) {
+        log_unknown_font(family);
+    }
+    pltrs_render::pgf_text(text, &request, &options)
 }
 
 /// The LaTeX preamble a PGF picture assumes (matplotlib's

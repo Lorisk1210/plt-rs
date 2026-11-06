@@ -21,6 +21,7 @@ mod painting;
 mod pdf_pages;
 mod pgf;
 mod pgf_latex;
+mod pgf_metrics;
 mod postscript;
 mod print;
 mod rect;
@@ -59,8 +60,9 @@ pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
 pub use mosaic_axes::MosaicAxes;
 pub use pages::{pgf_page, ps_page, svg_page};
 pub use pdf_pages::PdfPages;
-pub use pgf::{PgfTexSystem, pgf_preamble, pgf_text};
+pub use pgf::{PgfTexSystem, log_unknown_font, pgf_preamble, pgf_text};
 pub use pgf_latex::{PdfToPng, PgfPages};
+pub use pgf_metrics::{PgfTextMetrics, measure_pgf_text};
 pub use pltrs_render::{
     Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType, SvgMetadata,
     UnknownSvgFontType,

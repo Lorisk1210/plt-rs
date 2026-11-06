@@ -5,6 +5,7 @@ What layout engines measure of an Axes (matplotlib's
 
 import numpy as np
 
+from .. import _unusable
 from .._native import figure_layout as _figure_layout
 from ..transforms import Bbox
 
@@ -74,6 +75,7 @@ class LayoutMixin:
         `.BboxBase`
             Bounding box in figure pixel coordinates.
         """
+        _unusable.check(self, measuring=True)
         extent = _figure_layout.axes_tightbbox(
             self._native, bool(for_layout_only), bbox_extra_artists is None)
         if extent is None:

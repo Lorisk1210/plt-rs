@@ -62,7 +62,7 @@ fn base_name(args: Args<'_>) -> Outcome {
             &rc.text_latex_preamble,
             TexEngine::Latex,
         );
-        let path = made(manager.base_path(tex, fontsize, dpi))?;
+        let path = made(manager.base_path(tex, fontsize, dpi.map(Into::into)))?;
         let _ = std::fs::remove_dir_all(dir);
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
         Ok(name.unwrap_or_default().into())

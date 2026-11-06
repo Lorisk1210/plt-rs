@@ -10,6 +10,7 @@ use pltrs_render::ClipPath;
 use super::DataLimits;
 use super::aspect::{AspectState, AxesLocatorFn};
 use super::axis::{AxisGeometry, AxisState};
+use super::axis_intervals::widened;
 use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::ProjectionState;
@@ -480,16 +481,11 @@ impl AxesState {
         axis.major_locator.nonsingular(v0, v1, &ctx)
     }
 
-    /// Widens the view interval of one axis to include `low..=high`,
-    /// keeping its direction (matplotlib's `Axis.set_view_interval`).
-    pub(crate) fn include_in_view(&mut self, name: AxisName, low: f64, high: f64) {
-        let (old_low, old_high) = self.view_interval(name);
-        let (start, end) = (low.min(high), low.max(high));
-        let widened = if old_low < old_high {
-            (start.min(old_low), end.max(old_high))
-        } else {
-            (end.max(old_low), start.min(old_high))
-        };
+    /// Widens the view interval of one axis to include `vmin` and `vmax`,
+    /// keeping its orientation (matplotlib's `Axis.set_view_interval`
+    /// without `ignore`, see [`widened`]).
+    pub(crate) fn include_in_view(&mut self, name: AxisName, vmin: f64, vmax: f64) {
+        let widened = widened(self.view_interval(name), vmin, vmax);
         self.set_view_interval(name, widened);
     }
 
@@ -538,6 +534,15 @@ impl AxesState {
             AxisName::X => Bbox::from_extents(b.x0().min(low), b.y0(), b.x1().max(high), b.y1()),
             AxisName::Y => Bbox::from_extents(b.x0(), b.y0().min(low), b.x1(), b.y1().max(high)),
         };
+    }
+
+    /// Widens the data interval of one axis to include `vmin` and `vmax`,
+    /// keeping its orientation and the smallest positive datum
+    /// (matplotlib's `Axis.set_data_interval` without `ignore`, see
+    /// [`widened`]).
+    pub(crate) fn include_in_data(&mut self, name: AxisName, vmin: f64, vmax: f64) {
+        let (low, high) = widened(self.data_interval(name).0, vmin, vmax);
+        self.set_data_interval(name, low, high);
     }
 
     /// Replaces the data limits of one axis with `low..=high`, keeping the

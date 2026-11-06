@@ -21,7 +21,7 @@ License).
 import numpy as np
 
 from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors,
-               _python_drawing, _values, cbook, colors as mcolors)
+               _python_drawing, _unusable, _values, cbook, colors as mcolors)
 from ._drawn_with import DrawnWith
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, table as _table
@@ -684,7 +684,15 @@ class Table(Artist):
 
     def auto_set_font_size(self, value=True):
         """Automatically set font size."""
-        _table.auto_set_font_size(self._native, bool(value))
+        try:
+            fits = bool(value)
+        except ValueError:
+            # matplotlib keeps it, and tests it when it draws the table (an
+            # array of more than one value, whose truth is ambiguous).
+            _unusable.keep(self, "autoFontsize", value, bool, measured=False)
+            return
+        _unusable.drop(self, "autoFontsize")
+        _table.auto_set_font_size(self._native, fits)
 
     def scale(self, xscale, yscale):
         """Scale column widths by *xscale* and row heights by *yscale*."""

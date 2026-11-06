@@ -34,6 +34,28 @@ def _limit_args(name, low, high, low_alias, high_alias):
             high if high_alias is None else high_alias)
 
 
+
+#: The start of pltrs (Python)'s refusal to read a figure pltrs (Rust)
+#: is laying out, for the program's code run meanwhile (a transform).
+_FIGURE_IN_USE = "this figure is being laid out or changed by pltrs"
+
+
+def _counted_images(axes):
+    """
+    The `.AxesImage` objects of *axes*, which matplotlib's `relim` reads
+    the extents of; none while pltrs (Rust) lays the figure out, when the
+    program's code it runs (a transform calling `relim`) cannot read the
+    figure, and only the native recomputation runs.
+    """
+    from ..image import AxesImage
+    try:
+        images = list(axes.images)
+    except RuntimeError as error:
+        if str(error).startswith(_FIGURE_IN_USE):
+            return []
+        raise
+    return [image for image in images if isinstance(image, AxesImage)]
+
 class LimitsMixin:
     """The limit, bound and autoscaling methods of `~.axes.Axes`."""
 
@@ -372,6 +394,11 @@ class LimitsMixin:
         visible_only : bool, default: False
             Whether to exclude invisible artists.
         """
+        for image in _counted_images(self):
+            if not visible_only or image.get_visible():
+                # matplotlib reads the extent of each image it counts,
+                # which one without data refuses.
+                image.get_extent()
         _axes_base.relim(self._native, bool(visible_only))
 
     def has_data(self):

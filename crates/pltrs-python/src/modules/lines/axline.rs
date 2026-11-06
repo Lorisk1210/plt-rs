@@ -1,7 +1,7 @@
 //! Infinite lines (matplotlib's `AxLine`, which `axline` makes): their
 //! points or slope.
 
-use pltrs::lines::{AxLineError, Line2D};
+use pltrs::lines::{AxLineError, AxLineThrough, Line2D};
 use pltrs_core::Point;
 
 use crate::binding::prelude::*;
@@ -40,6 +40,23 @@ fn axline(line: Line2D) -> PyResult<AxLineFields> {
     ))
 }
 
+/// Makes the line an infinite line through `xy1` and the second point
+/// `xy2` or else with `slope` (`AxLine.__init__`, which checks that one
+/// of the two is given).
+fn make_axline(line: Line2D, (x, y): Pair, xy2: Option<Pair>, slope: Option<f64>) -> PyResult<()> {
+    let through = match (xy2, slope) {
+        (Some((x2, y2)), None) => AxLineThrough::Point(Point::new(x2, y2)),
+        (None, Some(slope)) => AxLineThrough::Slope(slope),
+        _ => {
+            return Err(PyErr::type_error(
+                "Exactly one of 'xy2' and 'slope' must be given",
+            ));
+        }
+    };
+    line.set_infinite(Point::new(x, y), through);
+    Ok(())
+}
+
 /// Moves the first point of an infinite line.
 fn set_axline_xy1(line: Line2D, (x, y): Pair) -> PyResult<()> {
     line.set_axline_xy1(Point::new(x, y))?;
@@ -61,6 +78,7 @@ fn set_axline_slope(line: Line2D, slope: f64) -> PyResult<()> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axline", axline)?;
+    module.add("make_axline", make_axline)?;
     module.add("set_axline_xy1", set_axline_xy1)?;
     module.add("set_axline_xy2", set_axline_xy2)?;
     module.add("set_axline_slope", set_axline_slope)

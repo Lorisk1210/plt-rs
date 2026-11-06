@@ -22,7 +22,8 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import _api, _image, _values, cbook, colorizer as mcolorizer, colors as mcolors
+from . import (_api, _image, _unusable, _values, cbook, colorizer as mcolorizer,
+               colors as mcolors)
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
@@ -137,6 +138,12 @@ def _checked_alpha(alpha):
     return alpha
 
 
+def _array_size(array):
+    """What matplotlib's image draw computes first with its array: its
+    size, which an image without one fails on."""
+    return array.size
+
+
 class _ImageBase(mcolorizer.ColorizingArtist):
     """
     Base class for images.
@@ -192,6 +199,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
             'resample': bool(_val_or_rc(resample, 'image.resample')),
         })
         super().__init__(colorizer)
+        self._keep_data(self._A)
         self.axes = ax
         self._internal_update(kwargs)
 
@@ -206,7 +214,17 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """Attach the image pltrs (Rust) made to its *colorizer* and its
         data *A*."""
         self._attach_colorizer(colorizer)
+        self._keep_data(A)
+
+    def _keep_data(self, A):
+        """Take the image array *A* (None for none yet, which matplotlib's
+        image fails on when it draws: ``get_array().size``, see
+        `._unusable`)."""
         self._A = A
+        if A is None:
+            _unusable.keep(self, "array", A, _array_size, measured=False)
+        else:
+            _unusable.drop(self, "array")
 
     def changed(self):
         """
@@ -315,7 +333,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         if isinstance(A, PIL.Image.Image):
             A = pil_to_array(A)  # Needed e.g. to apply png palette.
-        self._A = self._normalize_image_array(A)
+        self._keep_data(self._normalize_image_array(A))
         _native_image.set_data(self._native, _native_data(self._A))
 
     def set_array(self, A):
@@ -1002,7 +1020,7 @@ class NonUniformImage(AxesImage):
         y = np.array(y, np.float32)
         if not (x.ndim == y.ndim == 1 and A.shape[:2] == y.shape + x.shape):
             raise TypeError("Axes don't match array shape")
-        self._A = A
+        self._keep_data(A)
         self._Ax = x
         self._Ay = y
         _native_image.set_grid_data(self._native, x.astype(float).tolist(),
@@ -1145,7 +1163,7 @@ class PcolorImage(AxesImage):
         if y[-1] < y[0]:
             y = y[::-1]
             A = A[::-1]
-        self._A = A
+        self._keep_data(A)
         self._Ax = x
         self._Ay = y
         _native_image.set_grid_data(self._native, x.tolist(), y.tolist(),

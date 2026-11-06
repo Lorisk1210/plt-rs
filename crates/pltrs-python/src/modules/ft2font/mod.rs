@@ -8,12 +8,14 @@
 //! the sfnt tables are read in [`tables`].
 
 mod bitmaps;
+mod files;
 mod glyphs;
 mod layout;
 mod tables;
 
 use std::cell::OnceCell;
-use std::rc::Rc;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use pltrs_font::{Autohinter, Face, FontError, GlyphId, Hinting, KerningMode, Size, face_count};
 
@@ -22,7 +24,8 @@ use crate::binding::prelude::*;
 /// The bytes of a font file and the face of it in use.
 #[derive(Debug)]
 struct FaceData {
-    data: Rc<[u8]>,
+    /// Shared by every face of the file open (see [`files`]).
+    data: Arc<[u8]>,
     index: u32,
     /// The autohinter's analysis of the face, made the first time one of
     /// its glyphs is autohinted and kept, as `FreeType` keeps it with the
@@ -32,7 +35,7 @@ struct FaceData {
 
 impl FaceData {
     /// Face `index` of the font file `data`.
-    fn new(data: Rc<[u8]>, index: u32) -> Self {
+    fn new(data: Arc<[u8]>, index: u32) -> Self {
         Self {
             data,
             index,
@@ -141,9 +144,25 @@ impl Ft2Font {
     }
 }
 
-/// `FT2Font(file)`: face `face_index` of the font file `data`, with the
-/// faces of `fallbacks` (each `(data, face_index)`) for missing characters.
-fn open(data: Bytes, face_index: i64, fallbacks: Vec<(Bytes, u32)>) -> PyResult<Ft2Font> {
+/// `FT2Font(path)`: face `face_index` of the font file at `path`, whose
+/// bytes the faces of it open share (see [`files`]), with the faces of
+/// the `fallbacks` fonts for missing characters.
+fn open_file(path: PathBuf, face_index: i64, fallbacks: Vec<Native<Ft2Font>>) -> PyResult<Ft2Font> {
+    let data = files::read_shared(&path)
+        .map_err(|err| PyErr::new(ExceptionKind::OSError, err.to_string()))?;
+    open_face(data, face_index, &fallbacks)
+}
+
+/// `FT2Font(file)`: face `face_index` of the font file `data` a file
+/// object gave, with the faces of the `fallbacks` fonts for missing
+/// characters.
+fn open(data: Bytes, face_index: i64, fallbacks: Vec<Native<Ft2Font>>) -> PyResult<Ft2Font> {
+    open_face(data.0.into(), face_index, &fallbacks)
+}
+
+/// Face `face_index` of the font file `data`, with the faces of the
+/// `fallbacks` fonts (sharing their files' bytes) for missing characters.
+fn open_face(data: Arc<[u8]>, face_index: i64, fallbacks: &[Native<Ft2Font>]) -> PyResult<Ft2Font> {
     let index = u32::try_from(face_index)
         .ok()
         .filter(|&index| index <= 0xffff)
@@ -153,7 +172,6 @@ fn open(data: Bytes, face_index: i64, fallbacks: Vec<(Bytes, u32)>) -> PyResult<
                 "face_index must be between 0 and 65535, inclusive",
             )
         })?;
-    let data: Rc<[u8]> = data.0.into();
     let faces = face_count(&data).map_err(|err| ft_error("load face", &err))?;
     if index >= faces {
         return Err(PyErr::runtime_error(
@@ -165,8 +183,11 @@ fn open(data: Bytes, face_index: i64, fallbacks: Vec<(Bytes, u32)>) -> PyResult<
     Ok(Ft2Font {
         face,
         fallbacks: fallbacks
-            .into_iter()
-            .map(|(data, index)| FaceData::new(data.0.into(), index))
+            .iter()
+            .map(|font| {
+                let font = font.borrow();
+                FaceData::new(Arc::clone(&font.face.data), font.face.index)
+            })
             .collect(),
         charmap: None,
         size: None,
@@ -464,6 +485,7 @@ fn face_properties(
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("open", open)?;
+    module.add("open_file", open_file)?;
     module.add("attributes", attributes)?;
     module.add("set_size", set_size)?;
     module.add("set_transform", set_transform)?;

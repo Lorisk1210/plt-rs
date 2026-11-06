@@ -5,6 +5,7 @@ A module providing some utility functions regarding Bézier path manipulation
 
 import numpy as np
 
+from . import _api
 from ._native import bezier as _bezier
 from ._native import register as _register
 
@@ -69,7 +70,9 @@ def split_de_casteljau(beta, t):
     separate segments divided at *t* and return their control points.
     """
     beta = np.asarray(beta, float)
-    return _bezier.split_de_casteljau(beta.reshape((len(beta), -1)), t)
+    left, right = _bezier.split_de_casteljau(beta.reshape((len(beta), -1)), t)
+    # Lists of control points, as matplotlib's.
+    return list(left), list(right)
 
 
 def find_bezier_t_intersecting_with_closedpath(
@@ -143,13 +146,18 @@ class BezierSegment:
         (k, d) array
             Value of the curve for each point in *t*.
         """
-        return _bezier.segment_eval(self._native, np.atleast_1d(np.asarray(t, float)))
+        t = np.asarray(t, float)
+        values = _bezier.segment_eval(self._native, np.atleast_1d(t))
+        # One point per value of *t*, as matplotlib's ``np.power.outer``.
+        return values.reshape(t.shape + (self._d,))
 
+    @_api.deprecated(
+        "3.11", alternative="Call the BezierSegment object with an argument.")
     def point_at_t(self, t):
         """
         Evaluate the curve at a single point, returning a tuple of *d* floats.
         """
-        return tuple(self(t)[0])
+        return tuple(self(t))
 
     @property
     def control_points(self):
@@ -223,8 +231,10 @@ def split_bezier_intersecting_with_closedpath(
     left, right
         Lists of control points for the two Bézier segments.
     """
-    return _bezier.split_intersecting(
+    left, right = _bezier.split_intersecting(
         np.asarray(bezier, float), inside_closedpath, tolerance)
+    # Lists of control points, as matplotlib's `split_de_casteljau`.
+    return list(left), list(right)
 
 
 def split_path_inout(path, inside, tolerance=0.01, reorder_inout=False):

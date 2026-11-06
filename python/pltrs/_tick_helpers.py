@@ -30,7 +30,7 @@ import weakref
 
 import numpy as np
 
-from ._native import axis as _axis
+from ._native import artist as _artist, axis as _axis
 from ._native import register as _register
 
 
@@ -62,6 +62,10 @@ def get(axis, kind, minor):
     _watch(helper, axis)
     if kind == "formatter" and spec is not None and spec["kind"] != "python":
         _watch_native_formatter(helper, axis)
+        if _artist.draw_count(axis.axes._native):
+            # What matplotlib's formatter keeps of the ticks drawn last.
+            helper.set_locs(axis.get_minorticklocs() if minor
+                            else axis.get_majorticklocs())
     registry[helper_id] = (token, helper, axis)
     return helper
 
@@ -256,7 +260,7 @@ def check_native(helper):
     if _is_locator(root):
         if _spec_of(root) != installed:
             changed(root)
-    elif root._spec() != installed:
+    elif root._spec() != installed or not hasattr(root.axis, "_native_info"):
         # A formatter is installed through an adapter from now on.
         for name in ("_native_spec", "_native_root"):
             object.__delattr__(root, name)

@@ -7,7 +7,7 @@ argument handling, the aspect kept and applied by pltrs (Rust).
 
 import numpy as np
 
-from .. import _api, cbook
+from .. import _api, _unusable, cbook
 from .._native import axes_base as _axes_base
 from .. import transforms as mtransforms
 from ..transforms import Bbox
@@ -105,7 +105,7 @@ class AspectMixin:
         fractions.
         """
         code, fractions = _axes_base.get_anchor(self._native)
-        return code if code is not None else fractions
+        return _unusable.kept(self, "anchor", code if code is not None else fractions)
 
     def set_anchor(self, anchor, share=False):
         """
@@ -125,9 +125,22 @@ class AspectMixin:
                              ', '.join(Bbox.coefs))
         named = isinstance(anchor, str)
         for ax in self._aspect_group(share):
+            if named and anchor not in Bbox.coefs:
+                # Two letters naming no anchor, which matplotlib keeps, and
+                # fails on where it applies a fixed aspect.
+                _unusable.keep(ax, "anchor", anchor, ax._anchor_box_corner)
+                continue
+            _unusable.drop(ax, "anchor")
             _axes_base.set_anchor(
                 ax._native, anchor if named else None,
                 (0.0, 0.0) if named else tuple(map(float, anchor)))
+
+    def _anchor_box_corner(self, anchor):
+        """What matplotlib's `apply_aspect` reads of the *anchor* when the
+        Axes has a fixed aspect: where it puts the box (``Bbox.coefs``)."""
+        if self.get_aspect() != 'auto' or self.get_box_aspect() is not None:
+            return Bbox.coefs[anchor]
+        return None
 
     def get_box_aspect(self):
         """

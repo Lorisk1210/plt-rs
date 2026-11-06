@@ -14,9 +14,12 @@ made with its constructor is an ordinary artist outside any axis.
 Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 """
 
+from numbers import Real
+
 import numpy as np
 
-from . import _api, _artist_clipping, _live_transforms, _mirrors, _values, cbook
+from . import (_api, _artist_clipping, _live_transforms, _mirrors, _unusable, _values,
+               cbook)
 from ._native import artist as _artist, axis as _axis
 from .artist import Artist
 from .lines import Line2D
@@ -313,6 +316,7 @@ class Tick(Artist):
         if drawn == self._drawn:
             return
         self._drawn = drawn
+        _unusable.drop(self, "loc")
         located = _axis.drawn_tick_label(axis.axes._native, axis.axis_name,
                                          not self._major, self._index)
         if located is None:
@@ -456,6 +460,8 @@ class Tick(Artist):
         draw). The ticks of an axis are drawn by pltrs (Rust) with their
         axis.
         """
+        if self.get_visible():
+            _unusable.check(self)
         if self.get_visible() and self.axis is None:
             renderer.open_group(self.__name__, gid=self.get_gid())
             for artist in [self.gridline, self.tick1line, self.tick2line,
@@ -494,6 +500,21 @@ class Tick(Artist):
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""
         raise NotImplementedError('Derived must override')
+
+    def _keeps_location(self, loc):
+        """
+        Whether the location *loc* is no number, which the tick keeps as
+        matplotlib's does, its parts staying where they are: drawing the
+        tick then fails as matplotlib's lines fail to read it, until its
+        axis places it again (see `._unusable`). Otherwise the tick takes
+        it, as `update_position` places it.
+        """
+        if isinstance(loc, Real):
+            _unusable.drop(self, "loc")
+            return False
+        _unusable.keep(self, "loc", loc, float, drawn=False)
+        self._loc = loc
+        return True
 
     def get_view_interval(self):
         """
@@ -581,6 +602,8 @@ class XTick(Tick):
 
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""
+        if self._keeps_location(loc):
+            return
         self.tick1line.set_xdata((loc,))
         self.tick2line.set_xdata((loc,))
         self.gridline.set_xdata((loc,))
@@ -630,6 +653,8 @@ class YTick(Tick):
 
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""
+        if self._keeps_location(loc):
+            return
         self.tick1line.set_ydata((loc,))
         self.tick2line.set_ydata((loc,))
         self.gridline.set_ydata((loc,))

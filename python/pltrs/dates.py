@@ -159,6 +159,10 @@ def date2num(d):
     if not d.size:
         # deals with an empty array...
         return d.astype('float64')
+    if not np.issubdtype(d.dtype, np.datetime64):
+        # matplotlib reads the time zone of the first element, which a
+        # 0-d array (of a string, say) has no first element for.
+        getattr(d[0], 'tzinfo', None)
     d64 = _to_datetime64(d)
     nat = np.isnat(d64)
     d = _dates.micros_to_num(d64.view(np.int64), nat)

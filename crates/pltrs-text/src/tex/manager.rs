@@ -8,12 +8,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use pltrs_codec::sha256::sha256_hex;
-use pltrs_core::pyfmt;
 
 use super::command::run_checked;
 use super::dvi::DviPage;
 use super::error::{TexError, TexFile};
 use super::files::TexFiles;
+use super::number::{TexNumber, TexResolution};
 use super::source::{TexFonts, tex_source};
 use super::tempdir::TemporaryDirectory;
 use crate::TextError;
@@ -117,7 +117,7 @@ const GREY_CACHE_LIMIT: usize = 1024;
 
 /// The coverage images read so far (`_grey_arrayd`), by document and
 /// resolution.
-type GreyCache = Mutex<HashMap<(String, u64), Arc<GreyImage>>>;
+type GreyCache = Mutex<HashMap<(String, String), Arc<GreyImage>>>;
 
 fn grey_cache() -> &'static GreyCache {
     static CACHE: OnceLock<GreyCache> = OnceLock::new();
@@ -177,13 +177,14 @@ impl TexManager {
 
     /// The document typesetting `tex` at `fontsize` points
     /// (`_get_tex_source`).
-    pub fn source(&self, tex: &str, fontsize: f64) -> String {
+    pub fn source(&self, tex: &str, fontsize: impl Into<TexNumber>) -> String {
         tex_source(tex, fontsize, &self.0.fonts, &self.0.preamble)
     }
 
     /// `_get_base_path`: the cache path (without extension) of `tex` at
     /// `fontsize` and `dpi`, named after the SHA-256 of the document and
-    /// the resolution, two levels of directories deep.
+    /// the resolution (each written as given, see [`TexNumber`]), two
+    /// levels of directories deep.
     ///
     /// # Errors
     ///
@@ -191,10 +192,10 @@ impl TexManager {
     pub fn base_path(
         &self,
         tex: &str,
-        fontsize: f64,
-        dpi: Option<f64>,
+        fontsize: impl Into<TexNumber>,
+        dpi: Option<TexResolution>,
     ) -> Result<PathBuf, TexError> {
-        let dpi = dpi.map_or_else(|| "None".to_owned(), pyfmt::repr);
+        let dpi = dpi.map_or_else(|| "None".to_owned(), |dpi| dpi.to_string());
         let hash = sha256_hex(format!("{}{dpi}", self.source(tex, fontsize)).as_bytes());
         let dir = self.0.cache_dir.join(&hash[0..2]).join(&hash[2..4]);
         make_dirs(&dir)?;
@@ -206,7 +207,8 @@ impl TexManager {
     /// # Errors
     ///
     /// When it cannot be written.
-    pub fn make_tex(&self, tex: &str, fontsize: f64) -> Result<PathBuf, TexError> {
+    pub fn make_tex(&self, tex: &str, fontsize: impl Into<TexNumber>) -> Result<PathBuf, TexError> {
+        let fontsize = fontsize.into();
         let path = self.base_path(tex, fontsize, None)?.with_extension("tex");
         std::fs::write(&path, self.source(tex, fontsize))
             .map_err(|err| TexError::io(&path, &err))?;
@@ -220,7 +222,8 @@ impl TexManager {
     ///
     /// When `latex` is missing or fails (with its output), or the cache
     /// cannot be written.
-    pub fn make_dvi(&self, tex: &str, fontsize: f64) -> Result<PathBuf, TexError> {
+    pub fn make_dvi(&self, tex: &str, fontsize: impl Into<TexNumber>) -> Result<PathBuf, TexError> {
+        let fontsize = fontsize.into();
         let dvi = self.base_path(tex, fontsize, None)?.with_extension("dvi");
         if dvi.exists() {
             return Ok(dvi);
@@ -250,16 +253,22 @@ impl TexManager {
     ///
     /// As [`make_dvi`](Self::make_dvi), and when `dvipng` is missing or
     /// fails.
-    pub fn make_png(&self, tex: &str, fontsize: f64, dpi: f64) -> Result<PathBuf, TexError> {
+    pub fn make_png(
+        &self,
+        tex: &str,
+        fontsize: impl Into<TexNumber>,
+        dpi: impl Into<TexResolution>,
+    ) -> Result<PathBuf, TexError> {
+        let (fontsize, dpi) = (fontsize.into(), dpi.into());
         let png = self
-            .base_path(tex, fontsize, Some(dpi))?
+            .base_path(tex, fontsize, Some(dpi.clone()))?
             .with_extension("png");
         if png.exists() {
             return Ok(png);
         }
         let dvi = self.make_dvi(tex, fontsize)?;
         let tmp = temporary_directory(png.parent().unwrap_or(&self.0.cache_dir))?;
-        let dpi = pyfmt::repr(dpi);
+        let dpi = dpi.to_string();
         let args = [
             OsStr::new("-bg"),
             OsStr::new("Transparent"),
@@ -284,8 +293,14 @@ impl TexManager {
     /// # Errors
     ///
     /// As [`make_png`](Self::make_png), and when the image is malformed.
-    pub fn grey(&self, tex: &str, fontsize: f64, dpi: f64) -> Result<Arc<GreyImage>, TexError> {
-        let key = (self.source(tex, fontsize), dpi.to_bits());
+    pub fn grey(
+        &self,
+        tex: &str,
+        fontsize: impl Into<TexNumber>,
+        dpi: impl Into<TexResolution>,
+    ) -> Result<Arc<GreyImage>, TexError> {
+        let (fontsize, dpi) = (fontsize.into(), dpi.into());
+        let key = (self.source(tex, fontsize), dpi.to_string());
         let cache = grey_cache();
         if let Some(grey) = cache
             .lock()
@@ -331,8 +346,8 @@ impl TexManager {
     pub fn rgba(
         &self,
         tex: &str,
-        fontsize: f64,
-        dpi: f64,
+        fontsize: impl Into<TexNumber>,
+        dpi: impl Into<TexResolution>,
         rgb: [f64; 3],
     ) -> Result<TexRgba, TexError> {
         let (width, height, alpha) = self.alpha(tex, fontsize, dpi)?;
@@ -350,7 +365,12 @@ impl TexManager {
     /// The width, height and alpha channel of the image `dvipng` makes of
     /// `tex` at `fontsize` and `dpi`, as matplotlib's `imread` reads it
     /// (floats in `[0, 1]`, rows from the top).
-    fn alpha(&self, tex: &str, fontsize: f64, dpi: f64) -> Result<(u32, u32, Vec<f32>), TexError> {
+    fn alpha(
+        &self,
+        tex: &str,
+        fontsize: impl Into<TexNumber>,
+        dpi: impl Into<TexResolution>,
+    ) -> Result<(u32, u32, Vec<f32>), TexError> {
         let path = self.make_png(tex, fontsize, dpi)?;
         let data = std::fs::read(&path).map_err(|err| TexError::io(&path, &err))?;
         let image = pltrs_codec::png::decode(&data)
@@ -433,9 +453,18 @@ mod tests {
                 .join(&hash)
         );
         assert!(base.parent().unwrap().is_dir());
-        let png = tex.base_path("x", 10.0, Some(100.0)).unwrap();
+        let png = tex.base_path("x", 10.0, Some(100.0.into())).unwrap();
         let hash = sha256_hex(format!("{}100.0", tex.source("x", 10.0)).as_bytes());
         assert!(png.ends_with(&hash));
+        // Numbers are written as given: 12 and 12.0 name two documents.
+        assert!(tex.source("x", 12).contains(r"\fontsize{12}{15.0}%"));
+        assert_ne!(
+            tex.base_path("x", 12, None).unwrap(),
+            tex.base_path("x", 12.0, None).unwrap()
+        );
+        let figure = tex.base_path("x", 10.0, Some("figure".into())).unwrap();
+        let hash = sha256_hex(format!("{}figure", tex.source("x", 10.0)).as_bytes());
+        assert!(figure.ends_with(&hash));
         let written = tex.make_tex("x", 10.0).unwrap();
         assert_eq!(
             std::fs::read_to_string(written).unwrap(),

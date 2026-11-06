@@ -5,6 +5,8 @@ use std::collections::BTreeSet;
 
 use pltrs_core::pyfmt;
 
+use super::number::TexNumber;
+
 /// `_check_cmsuper_installed`: fails the document when cm-super, which
 /// the Computer Modern families need, is not installed.
 const CHECK_CMSUPER: &str = r"\IfFileExists{type1ec.sty}{}{\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}";
@@ -144,10 +146,17 @@ pub fn usepackage_if_not_loaded(package: &str, option: Option<&str>) -> String {
 }
 
 /// `_get_tex_source`: the whole document typesetting `tex` at `fontsize`
-/// points with `fonts` and the user's `preamble` (`text.latex.preamble`).
-pub fn tex_source(tex: &str, fontsize: f64, fonts: &TexFonts, preamble: &str) -> String {
+/// points (written as given, see [`TexNumber`]) with `fonts` and the
+/// user's `preamble` (`text.latex.preamble`).
+pub fn tex_source(
+    tex: &str,
+    fontsize: impl Into<TexNumber>,
+    fonts: &TexFonts,
+    preamble: &str,
+) -> String {
     let (font_preamble, fontcmd) = fonts.preamble_and_command();
-    let baselineskip = 1.25 * fontsize;
+    let fontsize = fontsize.into();
+    let baselineskip = 1.25 * fontsize.value();
     [
         r"\RequirePackage{fix-cm}".to_owned(),
         r"\documentclass{article}".to_owned(),
@@ -173,11 +182,7 @@ pub fn tex_source(tex: &str, fontsize: f64, fonts: &TexFonts, preamble: &str) ->
         r"\begin{document}".to_owned(),
         r"% The empty hbox ensures that a page is printed even for empty".to_owned(),
         r"% inputs, except when using psfrag which gets confused by it.".to_owned(),
-        format!(
-            r"\fontsize{{{}}}{{{}}}%",
-            pyfmt::repr(fontsize),
-            pyfmt::repr(baselineskip)
-        ),
+        format!(r"\fontsize{{{fontsize}}}{{{}}}%", pyfmt::repr(baselineskip)),
         r"\ifdefined\psfrag\else\hbox{}\fi%".to_owned(),
         format!("{{{fontcmd} {tex}}}%"),
         r"\end{document}".to_owned(),

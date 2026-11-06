@@ -80,6 +80,26 @@ impl Line2D {
         Ok(self)
     }
 
+    /// Makes the line an infinite line through `xy1` and `through`, as
+    /// matplotlib's `AxLine(xy1, xy2, slope)` makes one out of the
+    /// `Line2D([0, 1], [0, 1])` it starts as (its data the diagonal of the
+    /// unit square, which its transform maps onto the part of the line in
+    /// view).
+    ///
+    /// ```
+    /// use pltrs::lines::{AxLineThrough, Line2D, LineProps};
+    /// use pltrs::transforms::Point;
+    /// let line = Line2D::loose(vec![0.0, 1.0], vec![0.0, 1.0], LineProps::default());
+    /// line.set_infinite(Point::new(0.0, 0.0), AxLineThrough::Slope(2.0));
+    /// assert_eq!((line.axline_xy1(), line.axline_slope()), (Some(Point::new(0.0, 0.0)), Some(2.0)));
+    /// ```
+    pub fn set_infinite(&self, xy1: Point, through: AxLineThrough) -> &Self {
+        self.raw().with_mut::<LineArtist, _>(|line| {
+            line.infinite = Some(InfiniteLine { xy1, through });
+        });
+        self
+    }
+
     /// The first point of an infinite line (matplotlib's `get_xy1`).
     pub fn axline_xy1(&self) -> Option<Point> {
         self.infinite().map(|line| line.xy1)

@@ -78,7 +78,6 @@ class ContourLabeler:
         labels
             A list of `.Text` instances for the labels.
         """
-        from .text import Text
         if self.filled:
             _api.warn_deprecated(
                 "3.11",
@@ -112,16 +111,17 @@ class ContourLabeler:
         if colors is not None:
             from .colors import to_rgba_array
             colors = [tuple(c) for c in to_rgba_array(colors)]
-        texts = _contour.clabel(
+        _contour.clabel(
             self._contour,
             (None if levels is None else [float(lev) for lev in levels],
              None if fontsize is None else float(fontsize), bool(inline),
              float(inline_spacing), colors, positions),
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
                   bool(use_clabeltext)), self._native_splitter)
+        self._labelled_all_levels = levels is None
         if not interactive:
-            return cbook.silent_list(
-                'text.Text', _handles.wrap_all(texts, Text, self.figure))
+            # matplotlib's: every label of the set.
+            return cbook.silent_list('text.Text', self.labelTexts)
         print('Select label locations manually using first mouse button.')
         print('End manual selection with second mouse button.')
         if not inline:
@@ -196,15 +196,13 @@ class ContourLabeler:
             is a synonym for `.IdentityTransform`; i.e. ``(x, y)`` should be
             interpreted as display coordinates.
         """
-        from .text import Text
         if transform is None:
             transform = self.axes.transData
         if transform:
             x, y = transform.transform((x, y))
-        text = _contour.add_label_near(self._contour, (float(x), float(y)),
-                                       bool(inline), float(inline_spacing),
-                                       self._native_splitter)
-        return _handles.wrap(text, Text, self.figure)
+        _contour.add_label_near(self._contour, (float(x), float(y)),
+                                bool(inline), float(inline_spacing),
+                                self._native_splitter)
 
     def pop_label(self, index=-1):
         """Defaults to removing last label, but any index can be supplied"""
@@ -237,13 +235,20 @@ class ContourLabeler:
 
     @property
     def labelLevelList(self):
-        """The levels the last `clabel` labelled."""
-        return _contour.label_levels(self._contour)
+        """The levels the last `clabel` labelled: the set's levels when it
+        labelled them all, else a list of those it labelled, as matplotlib
+        keeps them."""
+        if self.__dict__.get("_labelled_all_levels"):
+            return self.levels
+        return [np.float64(level) for level in _contour.label_levels(self._contour)]
 
     def print_label(self, linecontour, labelwidth):
         """Return whether a contour is long enough to hold a label."""
-        return _contour.print_label(
+        fits = _contour.print_label(
             np.asarray(linecontour, dtype=float).reshape(-1, 2), float(labelwidth))
+        # matplotlib's answer is numpy's but where the number of points
+        # settles it (``len(linecontour) > 10 * labelwidth``).
+        return fits if len(linecontour) > 10 * labelwidth else np.bool_(fits)
 
     def too_close(self, x, y, lw):
         """Return whether a label is already near this location."""
@@ -266,9 +271,12 @@ class ContourLabeler:
         """
         Find good place to draw a label (relatively flat part of the contour).
         """
-        return _contour.locate_label(
+        x, y, index = _contour.locate_label(
             self._contour, np.asarray(linecontour, dtype=float).reshape(-1, 2),
             float(labelwidth))
+        # matplotlib's: points of the line's own array, a numpy index.
+        number = np.asarray(linecontour).dtype.type
+        return number(x), number(y), np.int64(index)
 
     def add_label(self, x, y, rotation, lev, cvalue):
         """
@@ -619,7 +627,9 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         if nearest is None:
             return (None, None, None, None, None, None)
         level, segment, index, (xmin, ymin), d2 = nearest
-        return (level, segment, index, xmin, ymin, d2)
+        # matplotlib's: numpy's numbers but for the level's index.
+        return (level, np.int64(segment), np.int64(index), np.float64(xmin),
+                np.float64(ymin), np.float64(d2))
 
     def legend_elements(self, variable_name='x', str_format=str):
         """
@@ -645,6 +655,15 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """
         from .lines import Line2D
         from .patches import Rectangle
+        # matplotlib reads the style of each level off the collection's
+        # arrays, which fail where they hold fewer (one width set for all).
+        if self.filled:
+            for idx in range(len(self.get_paths())):
+                self.get_facecolor()[idx]
+        else:
+            for idx in range(len(self.levels)):
+                (self.get_edgecolor()[idx], self.get_linewidths()[idx],
+                 self.get_linestyles()[idx])
         entries, labels = _contour.legend_elements(
             self._contour, str(variable_name), str_format)
         artists = []

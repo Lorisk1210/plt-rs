@@ -319,10 +319,28 @@ impl<'a> Subtable<'a> {
     }
 }
 
+/// One usable subtable of a `cmap` table.
+#[derive(Clone, Copy, Debug)]
+struct Map<'a> {
+    info: CharmapInfo,
+    /// The subtable's Macintosh language (0 for any other platform).
+    language: u32,
+    subtable: Subtable<'a>,
+}
+
+/// The `language` field of the subtable starting at `data[0]` in
+/// `format`: 16 bits for the older formats, 32 for the newer ones.
+fn language(data: &[u8], format: u16) -> u32 {
+    match format {
+        0..=6 => peek::<u16>(data, 4).map_or(0, u32::from),
+        _ => peek::<u32>(data, 8).unwrap_or(0),
+    }
+}
+
 /// The `cmap` table: a list of usable subtables.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Cmap<'a> {
-    maps: Vec<(CharmapInfo, Subtable<'a>)>,
+    maps: Vec<Map<'a>>,
 }
 
 impl<'a> Cmap<'a> {
@@ -347,7 +365,11 @@ impl<'a> Cmap<'a> {
                     encoding_id: record.encoding_id,
                     format,
                 };
-                maps.push((info, subtable));
+                maps.push(Map {
+                    info,
+                    language: language(sub, format),
+                    subtable,
+                });
             }
         }
         Ok(Self { maps })
@@ -355,12 +377,19 @@ impl<'a> Cmap<'a> {
 
     /// All usable subtables in file order.
     pub(crate) fn infos(&self) -> impl Iterator<Item = CharmapInfo> + '_ {
-        self.maps.iter().map(|(info, _)| *info)
+        self.maps.iter().map(|map| map.info)
     }
 
     /// Subtable `index` (in file order among usable subtables).
     pub(crate) fn get(&self, index: usize) -> Option<(CharmapInfo, Subtable<'a>)> {
-        self.maps.get(index).copied()
+        self.maps.get(index).map(|map| (map.info, map.subtable))
+    }
+
+    /// Every usable subtable in file order, with its language.
+    pub(crate) fn subtables(&self) -> impl Iterator<Item = (CharmapInfo, u32, Subtable<'a>)> + '_ {
+        self.maps
+            .iter()
+            .map(|map| (map.info, map.language, map.subtable))
     }
 
     /// The subtable `FT_Select_Charmap(face, FT_ENCODING_UNICODE)` picks
@@ -374,8 +403,8 @@ impl<'a> Cmap<'a> {
         };
         self.maps
             .iter()
-            .rposition(|(info, _)| info.is_unicode() && ucs4(info))
-            .or_else(|| self.maps.iter().rposition(|(info, _)| info.is_unicode()))
+            .rposition(|map| map.info.is_unicode() && ucs4(&map.info))
+            .or_else(|| self.maps.iter().rposition(|map| map.info.is_unicode()))
     }
 
     /// The subtable HarfBuzz's own character map uses
@@ -394,18 +423,17 @@ impl<'a> Cmap<'a> {
             (0, 0),
         ];
         ORDER.iter().find_map(|&(platform, encoding)| {
-            self.maps
-                .iter()
-                .position(|(info, _)| (info.platform_id, info.encoding_id) == (platform, encoding))
+            self.maps.iter().position(|map| {
+                (map.info.platform_id, map.info.encoding_id) == (platform, encoding)
+            })
         })
     }
 
     /// FreeType's default charmap choice: the last UCS-4 Unicode subtable,
     /// else the last Unicode subtable, else a Windows symbol subtable.
     pub(crate) fn default_index(&self) -> Option<usize> {
-        let last = |pred: &dyn Fn(&CharmapInfo) -> bool| {
-            self.maps.iter().rposition(|(info, _)| pred(info))
-        };
+        let last =
+            |pred: &dyn Fn(&CharmapInfo) -> bool| self.maps.iter().rposition(|map| pred(&map.info));
         last(&|info| info.is_unicode() && info.is_ucs4())
             .or_else(|| last(&CharmapInfo::is_unicode))
             .or_else(|| last(&CharmapInfo::is_symbol))

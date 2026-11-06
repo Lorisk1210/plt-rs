@@ -65,6 +65,7 @@ engine, windowing layer and conformance suite.
 | STIX fonts | SIL OFL 1.1 | `crates/pltrs-font/fonts/LICENSE_STIX` |
 | BaKoMa Computer Modern fonts (`cm*.ttf`) and their metrics | BaKoMa Fonts Licence (`matplotlib.txt`, "BaKoMa Fonts") | `crates/pltrs-font/fonts`, `crates/pltrs-text/src/mathtext/data` |
 | Adobe Core 14 font metrics (`*.afm`) | Adobe's notice in `readme.txt`: copy and distribute with the notices kept and the readme alongside | `crates/pltrs-font/fonts/pdfcorefonts` |
+| The AFM metrics of matplotlib's `mpl-data/fonts/afm`: Adobe's files for the 35 standard PostScript fonts, Helvetica Light and Utopia, and the Computer Modern files of the AMS and of BaKoMa (`cm*.afm`) | Adobe's Core 35 AFM notice, the BaKoMa Fonts Licence and the AMS's SIL OFL 1.1 (`adobe-afm.txt`, which says which covers which file; Adobe's notice is also in the `readme.txt` beside the files) | `crates/pltrs-font/fonts/afm` |
 | Last Resort HE font | SIL OFL 1.1 (`matplotlib.txt`, "Last Resort fonts") | `crates/pltrs-font/fonts` |
 | Inter font (Regular, Italic, SemiBold, Bold, Bold Italic), the typeface of pltrs' modern look  | SIL OFL 1.1 | `crates/pltrs-font/fonts/LICENSE_INTER` |
 | Computer Modern Type 1 font `cmr10.pfb` by the American Mathematical Society, a test fixture (from matplotlib's test data) | SIL OFL 1.1 (`amsfonts.txt`) | `crates/pltrs-font/tests/fixtures/type1` (with `LICENSE_AMSFONTS`) |

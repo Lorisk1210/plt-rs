@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{fmt, fs, io};
 
+use pltrs_text::AfmDirectory;
+
 use super::{ConfigError, RC_FILE_NAME, cache_dir};
 use crate::rc::RcParams;
 
@@ -54,7 +56,8 @@ impl std::error::Error for DataDirError {
 /// The data directory (matplotlib's `get_data_path`): `mpl-data` in the
 /// [cache directory](cache_dir), holding matplotlib's fonts as its
 /// `mpl-data` does (`fonts/ttf`, and the AFM metrics of the PDF core
-/// fonts in `fonts/pdfcorefonts`), the bundled style sheets (`stylelib`),
+/// fonts in `fonts/pdfcorefonts` and of the standard PostScript fonts in
+/// `fonts/afm`), the bundled style sheets (`stylelib`),
 /// and the template of the rc file (`pltrsrc`, matplotlib's
 /// `mpl-data/matplotlibrc`: every parameter at matplotlib's default,
 /// commented out). The files are written from the binary the first time
@@ -64,6 +67,7 @@ impl std::error::Error for DataDirError {
 /// let dir = pltrs::config::data_dir()?;
 /// assert!(dir.join("fonts/ttf/DejaVuSans.ttf").is_file());
 /// assert!(dir.join("fonts/pdfcorefonts/Helvetica.afm").is_file());
+/// assert!(dir.join("fonts/afm/pagd8a.afm").is_file());
 /// assert!(dir.join("stylelib/ggplot.mplstyle").is_file());
 /// assert!(dir.join("pltrsrc").is_file());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -81,7 +85,12 @@ pub fn data_dir() -> Result<PathBuf, DataDirError> {
             let template = rc_template();
             write_files(&fonts.join("ttf"), pltrs_text::bundled_font_files())
                 .and_then(|()| {
-                    write_files(&fonts.join("pdfcorefonts"), pltrs_text::bundled_afm_files())
+                    AfmDirectory::ALL.into_iter().try_for_each(|directory| {
+                        write_files(
+                            &fonts.join(directory.name()),
+                            pltrs_text::bundled_afm_files(directory),
+                        )
+                    })
                 })
                 .and_then(|()| write_files(&dir.join("stylelib"), crate::style::bundled_files()))
                 .and_then(|()| {

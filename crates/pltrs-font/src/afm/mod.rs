@@ -8,8 +8,9 @@
 //!   `get_str_bbox_and_descent`.
 //! * [`type1_name`] — the glyph name a character is looked up by
 //!   (matplotlib's `uni2type1`).
-//! * [`bundled_metrics`] — the metrics of the 14 PDF core fonts pltrs
-//!   ships.
+//! * [`bundled_metrics`] — the metrics of the AFM files pltrs ships:
+//!   matplotlib's `fonts/pdfcorefonts` (the 14 PDF core fonts) and
+//!   `fonts/afm` (the 35 standard PostScript fonts and a few more).
 //!
 //! AFM data is untrusted: parsing and every query that can fail return an
 //! [`AfmError`] where matplotlib raises.

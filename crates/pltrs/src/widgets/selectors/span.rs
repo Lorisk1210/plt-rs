@@ -5,7 +5,7 @@ use pltrs_core::Point;
 use super::driver::{Core, Driver, Pointer, Tool};
 use super::handles::LineHandles;
 use super::{ModifierKeys, SelectorError, SelectorEvent, SelectorState, selector_methods};
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::axes::Axes;
 use crate::colors::Color;
 use crate::events::CursorShape;
@@ -17,6 +17,8 @@ use crate::widgets::{CallbackId, ordered};
 
 /// Options of a [`SpanSelector`] (matplotlib's keyword arguments).
 #[derive(Clone, Debug)]
+// matplotlib's keyword arguments, each a switch of its own.
+#[allow(clippy::struct_excessive_bools)]
 pub struct SpanSelectorOptions {
     /// Spans no longer than this are removed (`minspan`).
     pub minspan: f64,
@@ -42,6 +44,9 @@ pub struct SpanSelectorOptions {
     pub ignore_event_outside: bool,
     /// Values the edges snap to (`snap_values`).
     pub snap_values: Option<Vec<f64>>,
+    /// Whether the span shows its changes by blitting its animated artists
+    /// rather than by full draws (`useblit`).
+    pub useblit: bool,
 }
 
 impl Default for SpanSelectorOptions {
@@ -59,6 +64,7 @@ impl Default for SpanSelectorOptions {
             drag_from_anywhere: false,
             ignore_event_outside: false,
             snap_values: None,
+            useblit: false,
         }
     }
 }
@@ -170,6 +176,7 @@ impl Span {
             handles.set_data(self.extents());
         }
         self.show(core.visible);
+        core.request_update();
     }
 
     /// Replaces the span's rectangle and handles by hidden ones of the same
@@ -247,6 +254,14 @@ impl Span {
 impl Tool for Span {
     type Selection = (f64, f64);
 
+    fn artists(&self) -> Vec<RawHandle> {
+        let handles = self.handles.iter().flat_map(LineHandles::lines);
+        std::iter::once(self.rect.raw())
+            .chain(handles.map(ArtistHandle::raw))
+            .cloned()
+            .collect()
+    }
+
     fn show(&self, visible: bool) {
         self.rect.set_visible(visible);
         if let Some(handles) = &self.handles {
@@ -260,6 +275,10 @@ impl Tool for Span {
             self.set_grab(core, event);
         } else {
             self.grab = None;
+        }
+        if self.grab.is_none() || !self.interactive {
+            // The span pressed outside of goes before a new one starts.
+            core.request_update();
         }
         let v = self.along(event);
         if self.grab.is_none() && !self.ignore_event_outside {
@@ -314,6 +333,7 @@ impl Tool for Span {
             core.selection_completed = true;
             Some((vmin, vmax))
         };
+        core.request_update();
         self.grab = None;
         selection
     }
@@ -392,7 +412,12 @@ impl SpanSelector {
             grab: None,
             extents_on_press: None,
         };
-        let core = Core::new(ax, options.buttons.clone(), options.modifier_keys.clone());
+        let core = Core::new(
+            ax,
+            options.buttons.clone(),
+            options.modifier_keys.clone(),
+            options.useblit,
+        );
         Self {
             driver: Driver::new(core, span),
         }
@@ -431,10 +456,13 @@ impl SpanSelector {
     /// Shows a completed span between data values `extents`, snapped to the
     /// snap values (matplotlib's `extents` setter).
     pub fn set_extents(&self, extents: (f64, f64)) -> &Self {
-        let mut shared = self.driver.shared.borrow_mut();
-        let shared = &mut *shared;
-        shared.tool.set_extents(&shared.core, extents);
-        shared.core.selection_completed = true;
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            shared.tool.set_extents(&shared.core, extents);
+            shared.core.selection_completed = true;
+        }
+        super::blit::run_requested();
         self
     }
 
@@ -459,17 +487,20 @@ impl SpanSelector {
     /// Selects along `direction` from now on; the span starts over
     /// (matplotlib's `direction` setter).
     pub fn set_direction(&self, direction: Orientation) -> &Self {
-        let mut shared = self.driver.shared.borrow_mut();
-        let shared = &mut *shared;
-        let span = &mut shared.tool;
-        if span.direction == direction {
-            return self;
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            let span = &mut shared.tool;
+            if span.direction == direction {
+                return self;
+            }
+            let visible = span.rect.visible();
+            span.direction = direction;
+            shared.core.selection_completed = false;
+            span.rebuild(&shared.core.ax);
+            span.rect.set_visible(visible);
         }
-        let visible = span.rect.visible();
-        span.direction = direction;
-        shared.core.selection_completed = false;
-        span.rebuild(&shared.core.ax);
-        span.rect.set_visible(visible);
+        self.driver.animate_artists();
         self
     }
 
@@ -521,10 +552,15 @@ impl SpanSelector {
 
     /// Changes the span's look (matplotlib's `set_props`).
     pub fn set_props(&self, props: PatchProps) -> &Self {
-        let mut shared = self.driver.shared.borrow_mut();
-        let span = &mut shared.tool;
-        span.rect.update_props(props.clone());
-        span.props = std::mem::take(&mut span.props).overlay(props);
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            let span = &mut shared.tool;
+            span.rect.update_props(props.clone());
+            span.props = std::mem::take(&mut span.props).overlay(props);
+            shared.core.request_blit();
+        }
+        super::blit::run_requested();
         self
     }
 
@@ -534,11 +570,16 @@ impl SpanSelector {
     ///
     /// When the span is not interactive and has no handles.
     pub fn set_handle_props(&self, props: LineProps) -> Result<&Self, SelectorError> {
-        let mut shared = self.driver.shared.borrow_mut();
-        let span = &mut shared.tool;
-        let handles = span.handles.as_ref().ok_or(SelectorError::NoHandles)?;
-        handles.update_props(&props);
-        span.handle_props = std::mem::take(&mut span.handle_props).overlay(props);
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            let span = &mut shared.tool;
+            let handles = span.handles.as_ref().ok_or(SelectorError::NoHandles)?;
+            handles.update_props(&props);
+            span.handle_props = std::mem::take(&mut span.handle_props).overlay(props);
+            shared.core.request_blit();
+        }
+        super::blit::run_requested();
         Ok(self)
     }
 }

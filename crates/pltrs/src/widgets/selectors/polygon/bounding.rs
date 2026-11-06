@@ -9,6 +9,7 @@ use super::Polygon;
 use crate::artist::ArtistHandle;
 use crate::events::EventKind;
 use crate::widgets::Connections;
+use crate::widgets::selectors::blit;
 use crate::widgets::selectors::driver::Core;
 use crate::widgets::selectors::rectangle::{RectangleSelector, RectangleSelectorOptions};
 use crate::widgets::selectors::{ModifierKeys, SelectorState};
@@ -44,7 +45,7 @@ impl Polygon {
     pub(super) fn update_box(&mut self) {
         let (x0, y0, x1, y1) = bounds(&self.xys);
         if let Some(bounding) = &mut self.bounding {
-            bounding.selector.set_extents((x0, x1, y0, y1));
+            bounding.selector.place((x0, x1, y0, y1));
             bounding.old_extents = bounding.selector.extents();
         }
     }
@@ -58,6 +59,7 @@ impl Polygon {
             props: self.box_props.clone().unwrap_or(defaults.props),
             interactive: true,
             modifier_keys: ModifierKeys::default().without(SelectorState::Rotate),
+            useblit: core.useblit,
             ..RectangleSelectorOptions::default()
         };
         let selector = RectangleSelector::new(&core.ax, options);
@@ -65,9 +67,12 @@ impl Polygon {
         let this = Weak::clone(&self.this);
         scaling.connect(EventKind::Motion, move |_| {
             if let Some(shared) = this.upgrade() {
-                let mut shared = shared.borrow_mut();
-                let shared = &mut *shared;
-                shared.tool.scale_to_box(&shared.core);
+                {
+                    let mut shared = shared.borrow_mut();
+                    let shared = &mut *shared;
+                    shared.tool.scale_to_box(&shared.core);
+                }
+                blit::run_requested();
             }
         });
         let old_extents = selector.extents();
@@ -80,7 +85,7 @@ impl Polygon {
         if let Some(bounding) = &self.bounding {
             bounding.selector.edit_only();
         }
-        self.draw(core);
+        self.redraw(core);
     }
 
     /// Hides and drops the box (matplotlib's `_remove_box`).
@@ -120,7 +125,7 @@ impl Polygon {
             verts.push(first);
         }
         self.xys = verts;
-        self.draw(core);
+        self.redraw(core);
         if let Some(bounding) = &mut self.bounding {
             bounding.old_extents = bounding.selector.extents();
         }

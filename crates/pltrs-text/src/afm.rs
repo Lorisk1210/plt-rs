@@ -127,10 +127,31 @@ mod tests {
             .map(|f| f.file)
             .collect();
         assert_eq!(files, ["Times-Roman.afm", "Courier.afm"]);
-        assert!(
-            dejavu.afm_metrics(AfmDirectory::PostScript).is_err(),
-            "not bundled"
+        let serif = request(&["serif"], 12.0);
+        assert_eq!(
+            serif.afm_font(AfmDirectory::PostScript).map(|f| f.file),
+            Ok("pncr8a.afm")
         );
+    }
+
+    #[test]
+    fn postscript_extents_match_matplotlib() {
+        // matplotlib with ps.useafm: RendererPS
+        // .get_text_width_height_descent('AVATAR', FontProperties(family=
+        // 'serif', size=12), False) and _get_font_height_metrics.
+        let serif = request(&["serif"], 12.0);
+        let line = serif
+            .afm_line_metrics("AVATAR", AfmDirectory::PostScript, 72.0)
+            .expect("bundled");
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-12;
+        assert!(
+            close(line.width, 49.104) && close(line.height, 9.024) && close(line.descent, 0.18)
+        );
+        let heights = serif
+            .afm_height_metrics(AfmDirectory::PostScript, 72.0)
+            .expect("bundled");
+        assert!(close(heights.ascent, 8.844) && close(heights.descent, 2.46));
+        assert!(close(heights.line_gap, 2.2608));
     }
 
     #[test]

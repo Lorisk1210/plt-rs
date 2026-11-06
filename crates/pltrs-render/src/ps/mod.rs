@@ -101,15 +101,9 @@ impl Default for PsOptions {
 impl PsOptions {
     /// The AFM fonts text that is not mathtext is drawn in, and must be
     /// measured with, if any (`RendererPS._afm_font_dir` when `ps.useafm`
-    /// is set).
-    ///
-    /// matplotlib reads these metrics from `mpl-data/fonts/afm` (the 35
-    /// standard PostScript fonts); the notices of those files do not
-    /// permit redistribution, so pltrs uses the metrics of the 14 PDF
-    /// core fonts, which describe the same Courier, Helvetica, Times,
-    /// Symbol and `ZapfDingbats` fonts.
+    /// is set): those of `fonts/afm`, the 35 standard PostScript fonts.
     pub fn afm_directory(&self) -> Option<AfmDirectory> {
-        self.afm.then_some(AfmDirectory::PdfCore)
+        self.afm.then_some(AfmDirectory::PostScript)
     }
 }
 

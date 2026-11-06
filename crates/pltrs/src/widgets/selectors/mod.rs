@@ -11,7 +11,13 @@
 //! the release and draw handles to resize or move it. A selector ignores
 //! the pointer while another tool holds the figure's widget lock (the pan
 //! and zoom tools do while active).
+//!
+//! A selector shows its changes as matplotlib's do: with `useblit` set,
+//! by blitting its animated artists over a background of its axes saved
+//! at every draw of the canvas, else by asking for a full draw of the
+//! figure (see [`blit`]).
 
+mod blit;
 mod driver;
 mod handles;
 mod lasso;
@@ -24,7 +30,7 @@ mod span;
 use std::fmt;
 use std::str::FromStr;
 
-pub use lasso::{Lasso, LassoSelector};
+pub use lasso::{Lasso, LassoOptions, LassoSelector, LassoSelectorOptions};
 pub use polygon::{PolygonSelector, PolygonSelectorOptions};
 pub use rectangle::{EllipseSelector, RectangleSelector, RectangleSelectorOptions};
 pub use region::SelectorUnits;
@@ -233,10 +239,18 @@ macro_rules! selector_methods {
                 self.driver.shared.borrow().core.active
             }
 
-            /// Turns the selector on or off (matplotlib's `set_active`).
+            /// Turns the selector on or off (matplotlib's `set_active`);
+            /// a blitting selector turned on saves its background again.
             pub fn set_active(&self, active: bool) -> &Self {
-                self.driver.shared.borrow_mut().core.active = active;
+                self.driver.set_active(active);
                 self
+            }
+
+            /// Whether the selector shows its changes by blitting its
+            /// artists, which are animated, rather than by full draws of
+            /// the figure (matplotlib's `useblit`).
+            pub fn useblit(&self) -> bool {
+                self.driver.useblit()
             }
 
             /// Whether the selection is shown (matplotlib's
@@ -270,10 +284,11 @@ macro_rules! selector_methods {
                     .collect()
             }
 
-            /// Removes the selection, ready for a new one (matplotlib's
-            /// `clear`).
+            /// Removes the selection, ready for a new one, and shows it
+            /// (matplotlib's `clear`).
             pub fn clear(&self) {
                 self.driver.shared.borrow_mut().clear();
+                super::blit::run_requested();
             }
 
             /// Switches `state` on as if its key were held (matplotlib's

@@ -1,0 +1,57 @@
+The AFM font metrics of crates/pltrs-font/fonts/afm
+===================================================
+
+pltrs ships the 47 Adobe Font Metrics files matplotlib ships in
+mpl-data/fonts/afm, unmodified, beside the readme.txt carrying Adobe's
+notice (crates/pltrs-font/fonts/afm/readme.txt). They describe the fonts;
+they hold no glyph outlines.
+
+Adobe Systems' files
+--------------------
+
+The metrics of the 35 standard PostScript fonts:
+
+  pagd8a.afm pagdo8a.afm pagk8a.afm pagko8a.afm      ITC Avant Garde Gothic
+  pbkd8a.afm pbkdi8a.afm pbkl8a.afm pbkli8a.afm      ITC Bookman
+  pcrb8a.afm pcrbo8a.afm pcrr8a.afm pcrro8a.afm      Courier
+  phvb8a.afm phvbo8a.afm phvr8a.afm phvro8a.afm      Helvetica
+  phvb8an.afm phvbo8an.afm phvr8an.afm phvro8an.afm  Helvetica Narrow
+  pncb8a.afm pncbi8a.afm pncr8a.afm pncri8a.afm      New Century Schoolbook
+  pplb8a.afm pplbi8a.afm pplr8a.afm pplri8a.afm      Palatino
+  psyr.afm                                           Symbol
+  ptmb8a.afm ptmbi8a.afm ptmr8a.afm ptmri8a.afm      Times
+  pzcmi8a.afm                                        ITC Zapf Chancery
+  pzdr.afm                                           ITC Zapf Dingbats
+
+Each file keeps its copyright notice, "Copyright (c) 1985, ... Adobe Systems
+Incorporated. All Rights Reserved." and its trademark notice. Adobe
+distributes these metrics ("Adobe Core 35 AFM Files with 314 Glyph Entries")
+with this notice:
+
+    This file and the 35 PostScript(R) AFM files it accompanies may be used,
+    copied, and distributed for any purpose and without charge, with or
+    without modification, provided that all copyright notices are retained;
+    that the AFM files are not distributed without this file; that all
+    modifications to this file or any of the AFM files are prominently noted
+    in the modified file(s); and that this paragraph is not modified. Adobe
+    Systems has no responsibility or obligation to support the use of the AFM
+    files.
+
+The metrics of Helvetica Light (phvl8a.afm, phvlo8a.afm) and of Utopia
+(putb8a.afm, putbi8a.afm, putr8a.afm, putri8a.afm) are Adobe's files too,
+with Adobe's copyright notice, as matplotlib distributes them.
+
+The Computer Modern files
+-------------------------
+
+matplotlib's licence listing applies the BaKoMa Fonts Licence to its
+fonts/afm/cm*.afm (matplotlib.txt, "BaKoMa Fonts").
+
+cmti10.afm: "Copyright (C) 1994, Basil K. Malyshev. All Rights Reserved.
+BaKoMa Fonts Collection, Level-B."
+
+cmex10.afm, cmmi10.afm, cmr10.afm, cmsy10.afm and cmtt10.afm:
+"Copyright (c) 1997 American Mathematical Society. All Rights Reserved.",
+the metrics of the AMS's Type 1 Computer Modern fonts, which the AMS
+distributes with their metrics under the SIL Open Font License 1.1
+(amsfonts.txt).

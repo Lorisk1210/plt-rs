@@ -30,8 +30,9 @@
 //!   ([`FontDatabase::add_system_fonts_catalogued`]), as matplotlib keeps
 //!   its font list, so that starting up opens no font file.
 //! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
-//!   Metrics and its AFM parser, with the bundled metrics of the 14 PDF
-//!   core fonts, for text measured and drawn in standard PostScript fonts.
+//!   Metrics and its AFM parser, with the bundled metrics of all of them
+//!   (the 14 PDF core fonts and matplotlib's `fonts/afm`), for text
+//!   measured and drawn in standard PostScript fonts.
 //! * [`glyph_name_to_unicode`] — the characters a glyph name stands for,
 //!   by the Adobe Glyph List.
 //! * [`Type1Font`] / [`Type1Face`] — PostScript Type 1 fonts

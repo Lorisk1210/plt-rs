@@ -146,7 +146,7 @@ fn afm_text_is_placed_by_its_metrics_and_nothing_is_embedded() {
         },
     )
     .expect("valid figure");
-    assert_eq!(r.options.afm_directory(), Some(AfmDirectory::PdfCore));
+    assert_eq!(r.options.afm_directory(), Some(AfmDirectory::PostScript));
     let run = TextEngine::global()
         .layout_line(
             "AV",

@@ -9,13 +9,12 @@ use pltrs::artist::{ArtistHandle, Picker};
 use pltrs::axes::Axes;
 use pltrs::events::{Event, EventKind, EventSource};
 use pltrs::figure::Figure;
-use pltrs::lines::LineProps;
 use pltrs::navigation::{DragKey, NavMode, Navigation, PointerButton};
 use pltrs::transforms::{Bbox, Point};
 use pltrs::widgets::{
     Button, ButtonOptions, CheckButtons, Cursor, CursorOptions, EllipseSelector, LassoSelector,
-    Orientation, PolygonSelector, PolygonSelectorOptions, RadioButtons, RangeSlider,
-    RectangleSelector, RectangleSelectorOptions, Slider, SliderOptions, SpanSelector,
+    LassoSelectorOptions, Orientation, PolygonSelector, PolygonSelectorOptions, RadioButtons,
+    RangeSlider, RectangleSelector, RectangleSelectorOptions, Slider, SliderOptions, SpanSelector,
     SpanSelectorOptions, TextBox, TextBoxOptions, ValStep,
 };
 
@@ -316,7 +315,7 @@ fn make_selector(spec: &WidgetSpec, ax: &Axes, target: Axes, kept: &mut Kept) {
             }
         }
         WidgetSpec::Lasso => {
-            let lasso = LassoSelector::new(ax, LineProps::default(), None);
+            let lasso = LassoSelector::new(ax, LassoSelectorOptions::default());
             lasso.on_select(move |points| {
                 let (x, y): (Vec<f64>, Vec<f64>) = points.iter().copied().unzip();
                 let _ = target.plot(x, y);

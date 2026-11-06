@@ -10,7 +10,7 @@ import functools
 import os
 import pathlib
 
-from .. import _api, _get_executable_info, rcParams
+from .. import _api, _get_executable_info, cbook, rcParams
 from .._native import (
     backends as _backends, font_manager as _font_manager, text_overrides as _text_overrides)
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
@@ -111,6 +111,7 @@ class RendererPS(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
     the graphics state it keeps (``set_color``, ...).
     """
 
+    _afm_font_dir = cbook._get_data_path("fonts/afm")
     _use_afm_rc_name = "ps.useafm"
 
     def __init__(self, width, height, pswriter, imagedpi=72):

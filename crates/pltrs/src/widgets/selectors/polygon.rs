@@ -9,7 +9,7 @@ use super::driver::{Core, Driver, Pointer, Shared, Tool};
 use super::handles::MarkerHandles;
 use super::rectangle::RectangleSelector;
 use super::{ModifierKeys, SelectorError, SelectorEvent, SelectorState, selector_methods};
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::axes::Axes;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::markers::MarkerSymbol;
@@ -41,6 +41,9 @@ pub struct PolygonSelectorOptions {
     pub box_handle_props: LineProps,
     /// Look of the box (`box_props`); the rectangle selector's by default.
     pub box_props: Option<PatchProps>,
+    /// Whether the selector, and its box, show their changes by blitting
+    /// their animated artists rather than by full draws (`useblit`).
+    pub useblit: bool,
 }
 
 impl Default for PolygonSelectorOptions {
@@ -58,6 +61,7 @@ impl Default for PolygonSelectorOptions {
             draw_bounding_box: false,
             box_handle_props: LineProps::default(),
             box_props: None,
+            useblit: false,
         }
     }
 }
@@ -138,12 +142,22 @@ impl Polygon {
         if self.draw_box && self.bounding.is_none() {
             self.add_box(core);
         }
+        self.redraw(core);
+    }
+
+    /// [`draw`](Self::draw), then shows it (matplotlib's `_draw_polygon`).
+    fn redraw(&mut self, core: &Core) {
         self.draw(core);
+        core.request_update();
     }
 }
 
 impl Tool for Polygon {
     type Selection = Vec<(f64, f64)>;
+
+    fn artists(&self) -> Vec<RawHandle> {
+        vec![self.line.raw().clone(), self.handles.line().raw().clone()]
+    }
 
     fn show(&self, visible: bool) {
         self.line.set_visible(visible);
@@ -205,7 +219,7 @@ impl Tool for Polygon {
                 *last = follow;
             }
         }
-        self.draw(core);
+        self.redraw(core);
         None
     }
 
@@ -213,7 +227,7 @@ impl Tool for Polygon {
         if let Some(index) = self.grabbed.take() {
             if event.button == Some(PointerButton::Right) {
                 self.remove_vertex(core, index);
-                self.draw(core);
+                self.redraw(core);
             }
         } else if self.closed() {
             core.selection_completed = true;
@@ -238,7 +252,7 @@ impl Tool for Polygon {
                 if let Some(last) = self.xys.last_mut() {
                     *last = (f64::NAN, f64::NAN);
                 }
-                self.draw(core);
+                self.redraw(core);
             }
             return None;
         }
@@ -252,7 +266,7 @@ impl Tool for Polygon {
             || core.state.contains(&SelectorState::MoveAll);
         if !core.selection_completed && moving {
             self.xys.pop();
-            self.draw(core);
+            self.redraw(core);
         }
     }
 
@@ -266,7 +280,7 @@ impl Tool for Polygon {
         if !core.selection_completed && move_key {
             if let Some(data) = pointer.data {
                 self.xys.push((data.x, data.y));
-                self.draw(core);
+                self.redraw(core);
             }
         } else if key.is_some() && key == core.clear_key() {
             if let Some(event) = core.clean(pointer) {
@@ -336,7 +350,7 @@ impl PolygonSelector {
             bounding: None,
             this: Weak::new(),
         };
-        let core = Core::new(ax, None, ModifierKeys::polygon());
+        let core = Core::new(ax, None, ModifierKeys::polygon(), options.useblit);
         let driver = Driver::new(core, polygon);
         {
             let mut shared = driver.shared.borrow_mut();
@@ -374,9 +388,12 @@ impl PolygonSelector {
         if verts.is_empty() {
             return Err(SelectorError::NoVertices);
         }
-        let mut shared = self.driver.shared.borrow_mut();
-        let shared = &mut *shared;
-        shared.tool.set_verts(&mut shared.core, verts);
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            shared.tool.set_verts(&mut shared.core, verts);
+        }
+        super::blit::run_requested();
         Ok(self)
     }
 
@@ -422,17 +439,27 @@ impl PolygonSelector {
 
     /// Changes the line's look (matplotlib's `set_props`).
     pub fn set_props(&self, props: LineProps) -> &Self {
-        self.driver.shared.borrow().tool.line.update_props(props);
+        {
+            let shared = self.driver.shared.borrow();
+            shared.tool.line.update_props(props);
+            shared.core.request_blit();
+        }
+        super::blit::run_requested();
         self
     }
 
     /// Changes the look of the vertex markers (matplotlib's
     /// `set_handle_props`).
     pub fn set_handle_props(&self, props: LineProps) -> &Self {
-        let mut shared = self.driver.shared.borrow_mut();
-        let polygon = &mut shared.tool;
-        polygon.handles.update_props(&props);
-        polygon.handle_props = std::mem::take(&mut polygon.handle_props).overlay(props);
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            let polygon = &mut shared.tool;
+            polygon.handles.update_props(&props);
+            polygon.handle_props = std::mem::take(&mut polygon.handle_props).overlay(props);
+            shared.core.request_blit();
+        }
+        super::blit::run_requested();
         self
     }
 }

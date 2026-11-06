@@ -60,6 +60,7 @@
 //! | `SpanSelector`, `RectangleSelector`, `EllipseSelector` | [`SpanSelector`], [`RectangleSelector`], [`EllipseSelector`] |
 //! | `span.new_axes(ax)`                             | [`SpanSelector::new_axes`]                     |
 //! | `LassoSelector`, `PolygonSelector`, `Lasso`     | [`LassoSelector`], [`PolygonSelector`], [`Lasso`] |
+//! | `SpanSelector(..., useblit=True)`, `selector.useblit` | the options' `useblit` ([`SpanSelectorOptions::useblit`], [`LassoSelectorOptions::useblit`], ...), [`SpanSelector::useblit`] |
 //! | `plt.subplot_tool()`, `SubplotTool`             | [`crate::pyplot::subplot_tool`], [`SubplotTool`] |
 //! | `toolbar.pan()`, `toolbar.zoom()`               | [`Navigation::toggle`]`(&fig, NavMode::Pan)`, `NavMode::Zoom` |
 //! | `toolbar.home()`, `back()`, `forward()`, `push_current()` | [`Navigation::home`], [`Navigation::back`], [`Navigation::forward`], [`Navigation::push_current`] |
@@ -464,6 +465,9 @@
 //! [`LassoSelector`]: crate::widgets::LassoSelector
 //! [`PolygonSelector`]: crate::widgets::PolygonSelector
 //! [`Lasso`]: crate::widgets::Lasso
+//! [`SpanSelectorOptions::useblit`]: crate::widgets::SpanSelectorOptions::useblit
+//! [`LassoSelectorOptions::useblit`]: crate::widgets::LassoSelectorOptions::useblit
+//! [`SpanSelector::useblit`]: crate::widgets::SpanSelector::useblit
 //! [`SubplotTool`]: crate::widgets::SubplotTool
 //! [`Navigation`]: crate::navigation::Navigation
 //! [`Navigation::toggle`]: crate::navigation::Navigation::toggle

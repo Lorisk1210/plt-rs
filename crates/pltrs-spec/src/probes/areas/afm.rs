@@ -1,7 +1,8 @@
 //! Probe operations for the `afm` area: matplotlib's AFM parser on the
-//! bundled core-font metrics and on synthetic files, AFM font lookup by
-//! directory and the text measurements of the PDF backend's core fonts
-//! (see `spec/reference/probes/test_afm.py`).
+//! bundled metrics and on synthetic files, AFM font lookup by directory
+//! and the text measurements of the PDF backend's core fonts and of the
+//! PostScript backend's standard fonts (see
+//! `spec/reference/probes/test_afm.py`).
 
 use pltrs::rc;
 use pltrs_font::{AfmDirectory, AfmFont, AfmMetrics, StrBbox, bundled_metrics};
@@ -32,6 +33,14 @@ pub(crate) const OPS: &[Op] = &[
     Op::new(
         "backend_pdf.RendererPdf._get_font_height_metrics",
         pdf_font_height_metrics,
+    ),
+    Op::new(
+        "backend_ps.RendererPS.get_text_width_height_descent",
+        ps_width_height_descent,
+    ),
+    Op::new(
+        "backend_ps.RendererPS._get_font_height_metrics",
+        ps_font_height_metrics,
     ),
 ];
 
@@ -163,22 +172,26 @@ fn find_fonts_by_props(args: Args<'_>) -> Outcome {
     })
 }
 
-/// matplotlib's PDF renderer works at 72 dpi.
-const PDF_DPI: f64 = 72.0;
+/// matplotlib's PDF and PostScript renderers work at 72 dpi.
+const DOCUMENT_DPI: f64 = 72.0;
 
-fn pdf_width_height_descent(args: Args<'_>) -> Outcome {
+/// `[w, h, d]` of the `s` argument in the `font` argument's AFM font of
+/// `directory`.
+fn width_height_descent(args: Args<'_>, directory: AfmDirectory) -> Outcome {
     with_rc(args, || {
         let line = request(args, "font")?
-            .afm_line_metrics(args.str("s")?, AfmDirectory::PdfCore, PDF_DPI)
+            .afm_line_metrics(args.str("s")?, directory, DOCUMENT_DPI)
             .map_err(ProbeError::rejected)?;
         Ok(Json::from(vec![line.width, line.height, line.descent]))
     })
 }
 
-fn pdf_font_height_metrics(args: Args<'_>) -> Outcome {
+/// `[ascent, descent, line_gap]` of the `font` argument's AFM font of
+/// `directory`.
+fn font_height_metrics(args: Args<'_>, directory: AfmDirectory) -> Outcome {
     with_rc(args, || {
         let heights = request(args, "font")?
-            .afm_height_metrics(AfmDirectory::PdfCore, PDF_DPI)
+            .afm_height_metrics(directory, DOCUMENT_DPI)
             .map_err(ProbeError::rejected)?;
         Ok(Json::from(vec![
             heights.ascent,
@@ -186,4 +199,20 @@ fn pdf_font_height_metrics(args: Args<'_>) -> Outcome {
             heights.line_gap,
         ]))
     })
+}
+
+fn pdf_width_height_descent(args: Args<'_>) -> Outcome {
+    width_height_descent(args, AfmDirectory::PdfCore)
+}
+
+fn pdf_font_height_metrics(args: Args<'_>) -> Outcome {
+    font_height_metrics(args, AfmDirectory::PdfCore)
+}
+
+fn ps_width_height_descent(args: Args<'_>) -> Outcome {
+    width_height_descent(args, AfmDirectory::PostScript)
+}
+
+fn ps_font_height_metrics(args: Args<'_>) -> Outcome {
+    font_height_metrics(args, AfmDirectory::PostScript)
 }

@@ -68,6 +68,14 @@ impl Face<'_> {
         self.glyph_index_for_code(u32::from(c))
     }
 
+    /// Every usable character map in file order, with its language, for
+    /// copying them (into a subset).
+    pub(crate) fn cmap_subtables(
+        &self,
+    ) -> impl Iterator<Item = (CharmapInfo, u32, crate::tables::cmap::Subtable<'_>)> + '_ {
+        self.cmap.subtables()
+    }
+
     /// Every `(character code, glyph)` pair of the active character map.
     pub fn mappings(&self) -> Vec<(u32, GlyphId)> {
         let mut out = Vec::new();

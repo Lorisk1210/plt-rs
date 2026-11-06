@@ -394,7 +394,14 @@ impl FigureState {
         };
         crate::polar::update_spine_visibility(self, id);
         if laid_out {
-            self.tick_axes(id, false);
+            if self.drawn_by_figure(id) {
+                self.tick_axes(id, false);
+            } else {
+                // matplotlib computes no ticks of the axes its draw leaves
+                // out (hidden or animated ones): what their arithmetic
+                // warns about is not said there.
+                crate::warnings::capturing_runtime(|| self.tick_axes(id, false));
+            }
             if !matches!(preparation, Preparation::Drawing(_)) {
                 self.tick_axes(id, true);
             }
@@ -473,11 +480,12 @@ impl FigureState {
         if painting.is_some() {
             self.program_figure_drawn(&axes, draws);
             // The axes the program ticks that no axis draw ticked (hidden
-            // ones, which other artists may still read), but for those the
-            // figure leaves out as animated, whose tick code matplotlib
-            // never runs.
+            // ones of the axes drawn, which other artists may still read;
+            // none of those along a curvilinear grid does).
             for &id in &laid_out {
-                if !self.left_out_as_animated(id) {
+                if self.drawn_by_figure(id)
+                    && !crate::axisartist::on_curvilinear_grid(&self.store, id)
+                {
                     self.tick_axes(id, true);
                 }
             }

@@ -347,7 +347,11 @@ impl Artist for Axes3DState {
             .get_as::<AxesState>(self.plane)
             .map(Self::plane_children)
             .unwrap_or_default();
-        self.report_projection_failures(ctx, &children);
+        if self.report_projection_failures(ctx, &children) && ctx.ended() {
+            // matplotlib's draw raises projecting the collections and
+            // patches, before it draws the panes.
+            return;
+        }
         if self.axis_on {
             draw_axes(self, ctx, &extent);
         }

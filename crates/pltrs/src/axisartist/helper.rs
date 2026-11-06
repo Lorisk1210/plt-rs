@@ -324,11 +324,20 @@ impl AxisHelper {
     /// position): the axes corner, or the canvas corner for curvilinear
     /// lines, whose labels are placed in display coordinates.
     pub(crate) fn label_origin(&self, ctx: HelperContext<'_>) -> Result<Point, String> {
+        Ok(ctx
+            .resolve(&self.label_transform(ctx.id))?
+            .transform_point(Point::ORIGIN))
+    }
+
+    /// What places the label's reference point of the axis artist on
+    /// `axes` (matplotlib's `get_axislabel_transform`): axes coordinates
+    /// along an edge or a rectilinear line, display pixels along a curve.
+    pub(crate) fn label_transform(&self, axes: ArtistId) -> Transform {
         match self {
-            Self::CurveFloating { .. } | Self::FloatingFixed { .. } => Ok(Point::ORIGIN),
-            Self::Fixed(_) | Self::Floating { .. } | Self::CurveFixed { .. } => Ok(ctx
-                .resolve(&Transform::Axes(ctx.id))?
-                .transform_point(Point::ORIGIN)),
+            Self::CurveFloating { .. } | Self::FloatingFixed { .. } => Transform::Display,
+            Self::Fixed(_) | Self::Floating { .. } | Self::CurveFixed { .. } => {
+                Transform::Axes(axes)
+            }
         }
     }
 }

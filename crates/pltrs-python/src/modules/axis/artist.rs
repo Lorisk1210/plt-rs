@@ -107,12 +107,15 @@ fn place_ticks(owner: AxisOwner, name: String) -> PyResult<()> {
 
 /// Places the ticks of the `minor` level of the axis (or the major one),
 /// the other level's left as they were (matplotlib's `set_ticklabels`); a
-/// 3-D axis places both. Returns how many ticks the level has, inside the
-/// view or not (the locations matplotlib's `set_ticklabels` labels).
+/// 3-D axis, which places both levels at each layout, asks the locator of
+/// the level only, as matplotlib's `get_majorticklocs` or
+/// `get_minorticklocs` does there. Returns how many ticks the level has,
+/// inside the view or not (the locations matplotlib's `set_ticklabels`
+/// labels).
 fn place_level(owner: AxisOwner, name: String, minor: bool) -> PyResult<usize> {
     let ticks = match owner.axis(&name)? {
         AnyAxis::Flat(axis) => axis.place_level_ticks(minor)?.placed_ticks(),
-        AnyAxis::Deep(axis) => Some(axis.ticks()?),
+        AnyAxis::Deep(axis) => return Ok(axis.ticklocs(minor)?.len()),
     };
     Ok(ticks.map_or(0, |ticks| {
         if minor {

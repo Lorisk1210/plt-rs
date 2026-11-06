@@ -341,6 +341,24 @@ class LambertAxes(GeoAxes):
             # docstring inherited
             return LambertAxes.LambertTransform(*self._center, self._resolution)
 
+    @classmethod
+    def _make_native(cls, figure, kwargs, *, spec=None, rect=None):
+        """
+        The native Lambert axes ``fig.add_subplot`` (on the grid block
+        *spec*) or ``fig.add_axes`` (at *rect*) makes, centred where the
+        *center_longitude* and *center_latitude* of *kwargs* say (0 by
+        default, as matplotlib's constructor takes them); return it and the
+        other keyword arguments.
+        """
+        kwargs = dict(kwargs)
+        center = (float(kwargs.pop('center_longitude', 0)),
+                  float(kwargs.pop('center_latitude', 0)))
+        if spec is not None:
+            native = _transforms.add_lambert_subplot(figure._native, spec, center)
+        else:
+            native = _transforms.add_lambert_axes(figure._native, rect, center)
+        return native, kwargs
+
     def _get_core_transform(self, resolution):
         return self.LambertTransform(
             *_transforms.lambert_center(self._native), resolution)

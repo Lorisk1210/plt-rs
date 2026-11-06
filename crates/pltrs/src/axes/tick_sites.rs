@@ -376,7 +376,7 @@ impl FigureState {
     /// animated (figures never draw animated artists, axes only while the
     /// figure is saved: matplotlib's `Figure._get_draw_artists` and
     /// `_AxesBase.draw`).
-    fn drawn_by_figure(&self, axes: ArtistId) -> bool {
+    pub(crate) fn drawn_by_figure(&self, axes: ArtistId) -> bool {
         let mut id = axes;
         loop {
             let Some(base) = self.store.get(id).map(Artist::base) else {
@@ -394,24 +394,6 @@ impl FigureState {
             }
             id = parent;
         }
-    }
-
-    /// Whether drawing the figure leaves `axes`, or what it is placed in,
-    /// out as animated: matplotlib's `Figure._get_draw_artists` drops
-    /// animated artists, so none of their tick code runs.
-    pub(crate) fn left_out_as_animated(&self, axes: ArtistId) -> bool {
-        let mut id = axes;
-        while let Some(base) = self.store.get(id).map(Artist::base) {
-            let Some(parent) = base.parent else {
-                return false;
-            };
-            let in_axes = self.store.get_as::<AxesState>(parent).is_some();
-            if base.animated && !(in_axes && self.saving) {
-                return true;
-            }
-            id = parent;
-        }
-        false
     }
 
     /// Whether `axes` is shown.
@@ -575,28 +557,20 @@ mod tests {
     fn a_draw_leaves_out_the_axes_it_does_not_draw() {
         // matplotlib's figure leaves its animated artists out of its draw,
         // and an axes leaves out its hidden insets: their axes are not
-        // drawn, so their tick code does not run there. A hidden axes is
-        // ticked once after the draw, for the artists reading its ticks;
-        // an animated one, whose code matplotlib never runs, is not.
-        for (hide, ticked_after) in [
-            (
-                (|ax: &Axes| {
-                    ax.set_animated(true);
-                }) as fn(&Axes),
-                0,
-            ),
-            (
-                |ax: &Axes| {
-                    ax.set_visible(false);
-                },
-                1,
-            ),
+        // drawn, so their tick code does not run there.
+        for hide in [
+            |ax: &Axes| {
+                ax.set_animated(true);
+            },
+            |ax: &Axes| {
+                ax.set_visible(false);
+            },
         ] {
             let updater = Rc::new(Recording::default());
             let (fig, ax) = ticked(&updater);
             hide(&ax);
             fig.layout();
-            assert_eq!(updater.updates.borrow().len(), ticked_after);
+            assert!(updater.updates.borrow().is_empty(), "not ticked");
         }
     }
 

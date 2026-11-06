@@ -1085,7 +1085,17 @@ The parasites of an axes_grid1 host whose view limits follow the host's
 (`twin`, `get_aux_axes(viewlim_mode=...)`) take them when the host's
 limits change, as matplotlib's `_sync_lims` does on the host's
 `xlim_changed` and `ylim_changed` (`FigureState::sync_parasites`); between
-two changes a parasite keeps limits of its own.
+two changes a parasite keeps limits of its own. pltrs (Rust) draws a
+parasite over its host's box whatever position it is given; the position
+given (`set_position`, `set_subplotspec`, its host's `apply_aspect(rect)`)
+is kept by the Python object for its getters, as matplotlib's parasite
+keeps a position of its own that only its host's draw replaces.
+
+A draw matplotlib makes before printing (with a layout engine, or to cut
+the figure to its tight box) runs no renderer: what a print renderer notes
+while drawing (the PostScript backend's partially transparent colours,
+logged as drawn, so also when an artist fails later) is not noted when
+that earlier draw fails first (`Figure::render_vector_noting`).
 
 Some parts matplotlib keeps as artists of their own are drawn by pltrs
 (Rust) as parts of their artist: a text's box (`Text.get_bbox_patch()`)
@@ -1291,7 +1301,10 @@ figures without it:
   `_computed` attributes of the package's class, pushed by
   `_push_computed` when it is drawn, read as often and in the order
   matplotlib's code reads them where it makes, adds and draws the artist:
-  `Ellipse._recomputed`, `Arc._given_angles`), gets a painter
+  `Ellipse._recomputed`, `Arc._given_angles`; an image whose class gives
+  its pixels, `make_image`, `get_extent`, `get_transform`, drawn by
+  matplotlib's `_ImageBase.draw`, pltrs (Rust) making the pixels over the
+  extent and through the transform the class gives), gets a painter
   (`pltrs::artist::ArtistPainter`, `_native.drawing.set_painter`) holding
   the object weakly. Once the figure is laid out, before its artists are
   drawn and with the figure free to change, pltrs (Rust) calls

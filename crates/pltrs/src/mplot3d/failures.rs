@@ -151,12 +151,13 @@ impl Axes3DState {
 
     /// Reports the problems recorded for the visible collections and
     /// patches of the plane, in the order of its children: matplotlib's
-    /// draw projects them before it draws the axes.
+    /// draw projects them before it draws the axes. Returns whether there
+    /// was one.
     pub(super) fn report_projection_failures(
         &self,
         ctx: &mut DrawContext<'_>,
         children: &[ArtistId],
-    ) {
+    ) -> bool {
         let failed: Vec<_> = {
             let layout = ctx.layout();
             let store = layout.store();
@@ -166,9 +167,11 @@ impl Axes3DState {
                 .filter_map(|&id| Some((id, self.projection_failure(store, id)?.clone())))
                 .collect()
         };
+        let reported = !failed.is_empty();
         for (id, failure) in failed {
             ctx.report_kind(id, failure.kind, failure);
         }
+        reported
     }
 
     /// Draws `id`, an artist of the plane, unless a problem was recorded

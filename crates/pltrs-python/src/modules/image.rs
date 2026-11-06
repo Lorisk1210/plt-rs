@@ -30,6 +30,7 @@ use pltrs::image::{
 use pltrs::numeric::Grid;
 use pltrs::rc::Aspect;
 use pltrs::ticker::AxisName;
+use pltrs::transforms::Transform;
 
 use super::backends::DocumentMetadata;
 use super::transforms::matrix;
@@ -398,14 +399,20 @@ fn cursor_element(image: AxesImage, x: f64, y: f64) -> PyResult<Option<(usize, u
 /// display's bottom row first (as matplotlib's resampler writes it, and
 /// as its unsampled array is), `(x, y)` their bottom-left display corner
 /// and the 3×3 matrix of the map from array indices to them (`None` when
-/// not affine); `None` when nothing is visible.
+/// not affine); `None` when nothing is visible. An axes image is
+/// stretched over `over`, `((left, right, bottom, top), transform)`, when
+/// given: the extent and transform a subclass of the program's gives
+/// (`get_extent`, `get_transform`).
 fn make_image(
     image: RawHandle,
     magnification: f64,
     unsampled: bool,
+    over: Option<((f64, f64, f64, f64), Transform)>,
 ) -> PyResult<Option<MadeImageParts>> {
     let made = if let Some(image) = image.downcast::<AxesImage>() {
-        if unsampled {
+        if let Some((bounds, transform)) = over {
+            image.make_image_over(magnification, unsampled, extent(bounds), &transform)?
+        } else if unsampled {
             image.make_image_unsampled(magnification)?
         } else {
             image.make_image(magnification)?

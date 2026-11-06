@@ -60,9 +60,11 @@ impl Painter<'_> {
         }
     }
 
-    /// The projected tick mark of `axis` at `loc` in `span`.
+    /// The projected tick mark of `axis` at `loc` in `span`, placed where
+    /// the axis' scale maps `loc` (matplotlib's `axis.get_transform()`,
+    /// whose log scales clip what is not positive).
     pub(super) fn mark(&self, span: &MarkSpan, axis: &Axis3DState, loc: f64) -> [Point; 2] {
-        let coordinate = axis.scale.masked_forward(loc);
+        let coordinate = axis.scale.forward(loc);
         span.ends
             .map(|at| self.project(span.point(axis.dir.index(), coordinate, at)))
     }
@@ -84,7 +86,7 @@ impl Painter<'_> {
             let mark = self.mark(&span, axis, drawn.tick.loc);
             let p = span.point(
                 dir.index(),
-                axis.scale.masked_forward(drawn.tick.loc),
+                axis.scale.forward(drawn.tick.loc),
                 origin[span.tickdir],
             );
             let label_deltas = scaled(points, drawn.pad + TICK_LABEL_OFFSET);

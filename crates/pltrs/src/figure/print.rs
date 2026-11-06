@@ -81,6 +81,10 @@ struct Page {
     height: f64,
     /// The save resolution (images of vector formats are rasterized at it).
     dpi: f64,
+    /// Whether matplotlib draws the figure once before printing it,
+    /// without rendering (with a layout engine, or to cut it to its tight
+    /// box): a draw failing there fails before anything is printed.
+    predrawn: bool,
 }
 
 /// The figure's colour `figure`, unless the rcParam asks for a specific
@@ -122,15 +126,6 @@ impl Figure {
         options.bbox_inches.or_else(|| {
             (crate::rc::params().savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight)
         })
-    }
-
-    /// Whether matplotlib's print with `options` draws the figure once
-    /// without output before it prints it: when the figure has a layout
-    /// engine or is cut to its tight box. A draw that fails then fails
-    /// there, before the print's renderer draws anything.
-    pub(crate) fn drawn_before_print(&self, options: &SaveOptions) -> bool {
-        self.layout_engine().is_some()
-            || matches!(Self::bbox_inches(options), Some(BboxInches::Tight))
     }
 
     /// Prepares the figure for printing with `options` as matplotlib's
@@ -209,7 +204,16 @@ impl Figure {
             state.draws_per_layout = 2;
         }
         drop(state);
-        (saving, Page { width, height, dpi })
+        let predrawn = predrawn || bbox == Some(BboxInches::Tight);
+        (
+            saving,
+            Page {
+                width,
+                height,
+                dpi,
+                predrawn,
+            },
+        )
     }
 
     /// Renders the figure as [`Figure::savefig_with`] would for raster
@@ -259,22 +263,23 @@ impl Figure {
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
     ) -> Result<R, SaveError> {
-        let (renderer, drawn) = self.render_vector_keeping(options, make)?;
-        drawn.map(|()| renderer)
+        self.render_vector_noting(options, make, |_| {})
     }
 
-    /// [`render_vector_with`](Self::render_vector_with) giving the renderer
-    /// back with how the draw went, also when it failed: what the renderer
-    /// met before (a colour to log about) counts, as in matplotlib, whose
-    /// draw ends at its first exception.
-    pub(crate) fn render_vector_keeping<R: Renderer>(
+    /// [`render_vector_with`](Self::render_vector_with), handing `drawn`
+    /// the renderer once the figure is drawn into it, also when the draw
+    /// failed (unless the draw matplotlib makes before the print fails
+    /// first): what a renderer notes as it draws, matplotlib's reports
+    /// before an artist's failure ends the print.
+    pub(crate) fn render_vector_noting<R: Renderer>(
         &self,
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
-    ) -> Result<(R, Result<(), SaveError>), SaveError> {
+        drawn: impl FnOnce(&R),
+    ) -> Result<R, SaveError> {
         // matplotlib's vector backends lay text out unhinted.
         crate::text::without_hinting(|| {
-            self.render_into_keeping(options, Some(POINTS_PER_INCH), make)
+            self.render_into(options, Some(POINTS_PER_INCH), make, drawn)
         })
     }
 
@@ -287,35 +292,29 @@ impl Figure {
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
     ) -> Result<R, SaveError> {
-        self.render_into(options, None, make)
+        self.render_into(options, None, make, |_| {})
     }
 
     /// Draws the figure at `canvas_dpi` (default: the save resolution)
     /// into the renderer `make` creates from the page size in inches and
-    /// the save resolution.
+    /// the save resolution, then hands `drawn` the renderer, unless the
+    /// draw failed where matplotlib's draw before the print fails first.
     fn render_into<R: Renderer>(
         &self,
         options: &SaveOptions,
         canvas_dpi: Option<f64>,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+        drawn: impl FnOnce(&R),
     ) -> Result<R, SaveError> {
-        let (renderer, drawn) = self.render_into_keeping(options, canvas_dpi, make)?;
-        drawn.map(|()| renderer)
-    }
-
-    /// [`render_into`](Self::render_into) giving the renderer back with
-    /// how the draw went.
-    fn render_into_keeping<R: Renderer>(
-        &self,
-        options: &SaveOptions,
-        canvas_dpi: Option<f64>,
-        make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
-    ) -> Result<(R, Result<(), SaveError>), SaveError> {
         let (saving, page) = self.begin_print(options, canvas_dpi);
         let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
-        let drawn = self.draw_mixed(&mut renderer, page);
+        let result = self.draw_mixed(&mut renderer, page);
+        if result.is_ok() || !page.predrawn {
+            drawn(&renderer);
+        }
+        result?;
         drop(saving);
-        Ok((renderer, drawn))
+        Ok(renderer)
     }
 
     /// Draws the figure as one more page of a PDF document, as

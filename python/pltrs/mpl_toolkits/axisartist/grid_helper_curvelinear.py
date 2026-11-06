@@ -153,7 +153,7 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
         if position is None:
             return None, None
         xy, angle = position
-        return np.array(xy), angle
+        return np.array(xy), np.float64(angle)
 
     def get_tick_transform(self, axes):
         return IdentityTransform()  # axes.transData
@@ -209,6 +209,10 @@ class GridHelperCurveLinear(GridHelperBase):
             self.grid_finder.set_transform(aux_trans)
         self.grid_finder.update(**kwargs)
         self._old_limits = None  # Force revalidation.
+        axes = self.__dict__.get("_served_axes")
+        if axes is not None:
+            _axisartist.update_grid_finder(
+                axes._native, None if aux_trans is None else _native_aux(aux_trans))
 
     def _native_finder(self):
         """The parts of the grid finder as pltrs (Rust) calls them; they

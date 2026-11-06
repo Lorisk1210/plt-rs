@@ -14,7 +14,8 @@ use crate::axisartist::line::LineState;
 use crate::axisartist::ticks::TicksState;
 use crate::colors::Color;
 use crate::spines::SpineSide;
-use crate::text::{HAlign, VAlign};
+use crate::text::{HAlign, TextBoxPatch, VAlign};
+use crate::transforms::Transform;
 
 /// The tick marks of one level of an axis artist (matplotlib's `Ticks`).
 #[derive(Clone, Debug, PartialEq)]
@@ -110,6 +111,13 @@ impl Ticks {
         self.update(|ticks| ticks.alpha = alpha)
     }
 
+    /// Places the marks with `transform` in place of the helper's tick
+    /// transform followed by the artist's offset; `None` goes back to
+    /// those (matplotlib's `Ticks.set_transform`).
+    pub fn set_transform(&self, transform: Option<Transform>) -> &Self {
+        self.update(|ticks| ticks.transform = transform)
+    }
+
     /// Where the marks are in the figure's current layout (laid out
     /// first): their locations in the coordinates of the helper's tick
     /// transform and their angles in degrees (matplotlib's `locs_angles`
@@ -165,6 +173,22 @@ impl LabelBase {
                 Part::Label => &state.label,
             })
         })
+    }
+
+    /// Places the texts with `transform` in place of the helper's tick
+    /// (or label) transform followed by the artist's offset; `None` goes
+    /// back to those (matplotlib's `set_transform` of the `TickLabels` or
+    /// `AxisLabel`).
+    pub fn set_transform(&self, transform: Option<Transform>) -> &Self {
+        self.update(|label| label.transform = transform)
+    }
+
+    /// Draws `bbox` behind each text, or no box with `None` (matplotlib's
+    /// `set_bbox`, with the box a text has, [`Text::bbox_patch`]).
+    ///
+    /// [`Text::bbox_patch`]: crate::text::Text::bbox_patch
+    pub fn set_bbox_patch(&self, bbox: Option<TextBoxPatch>) -> &Self {
+        self.update(|label| label.bbox = bbox)
     }
 
     /// Adopts matplotlib's angle and alignment for an axis on `direction`

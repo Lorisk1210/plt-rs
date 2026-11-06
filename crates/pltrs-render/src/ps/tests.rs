@@ -296,10 +296,7 @@ fn usetex_texts_without_usetex_are_drawn_plain_and_said_so() {
     let mut r = renderer(false);
     r.draw_tex(&clear, &run, &tex, Point::new(1.0, 2.0), 0.0)
         .expect("not drawn");
-    assert!(
-        !document(r).tex_drawn_as_plain,
-        "transparent text is skipped"
-    );
+    assert!(!r.drew_tex_as_plain(), "transparent text is skipped");
     let mut r = renderer(false);
     r.draw_tex(
         &GraphicsContext::default(),
@@ -309,8 +306,8 @@ fn usetex_texts_without_usetex_are_drawn_plain_and_said_so() {
         0.0,
     )
     .expect("drawn");
+    assert!(r.drew_tex_as_plain());
     let plain = document(r);
-    assert!(plain.tex_drawn_as_plain);
     assert!(plain.text.contains("0 0 m /f glyphshow"), "{}", plain.text);
 }
 
@@ -320,11 +317,13 @@ fn documents_note_partially_transparent_colours() {
     let gc = GraphicsContext::default();
     r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::WHITE));
     r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::TRANSPARENT));
-    assert!(!document(r).partially_transparent, "opaque or invisible");
+    assert!(!r.drew_partial_transparency(), "opaque or invisible");
     let mut r = renderer(false);
     let half = Rgba::new(1.0, 0.0, 0.0, 0.5);
     r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(half));
-    let drawn = document(r);
-    assert!(drawn.partially_transparent);
-    assert!(drawn.text.contains("1 0 0 setrgbcolor"), "drawn opaque");
+    assert!(r.drew_partial_transparency());
+    assert!(
+        document(r).text.contains("1 0 0 setrgbcolor"),
+        "drawn opaque"
+    );
 }

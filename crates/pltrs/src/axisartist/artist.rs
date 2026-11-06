@@ -135,6 +135,8 @@ enum LabelGap {
 /// tick level, laid out.
 struct LevelDrawing {
     marks: Option<Vec<(Point, f64)>>,
+    /// What places the marks.
+    marks_transform: ResolvedTransform,
     texts: Vec<PlacedText>,
 }
 
@@ -311,7 +313,7 @@ impl AxisArtistState {
                 } = tick_labels(
                     layout,
                     &labels,
-                    &transform,
+                    &part_transform(layout, labels_state.transform.as_ref(), &transform)?,
                     labels_state,
                     external,
                     &style,
@@ -324,6 +326,11 @@ impl AxisArtistState {
             axislabel_pad = axislabel_pad.max(pad);
             levels.push(LevelDrawing {
                 marks: marks_state.visible.then_some(marks),
+                marks_transform: part_transform(
+                    layout,
+                    marks_state.transform.as_ref(),
+                    &transform,
+                )?,
                 texts,
             });
         }
@@ -482,9 +489,22 @@ impl AxisArtistState {
             Some((xy, tangent)) => (xy, tangent - 90.0 + self.axislabel_direction.add_angle()),
             None => (self.helper.label_origin(ctx)?, 0.0),
         };
-        let offset = self.resolve(layout, Transform::Display)?;
+        let anchor = match &self.label.transform {
+            None => self
+                .resolve(layout, Transform::Display)?
+                .transform_point(reference),
+            Some(given) => {
+                // The program's transform takes the reference point in the
+                // coordinates of the helper's label transform.
+                let helper = (layout.resolve(&self.helper.label_transform(self.axes)))
+                    .and_then(|transform| transform.inverted())
+                    .ok_or_else(|| GONE.to_owned())?;
+                let given = layout.resolve(given).ok_or_else(|| GONE.to_owned())?;
+                given.transform_point(helper.transform_point(reference))
+            }
+        };
         let radius = axislabel_pad + layout.points_to_pixels(self.label.pad);
-        Ok(((offset.transform_point(reference), ref_angle), radius))
+        Ok(((anchor, ref_angle), radius))
     }
 
     /// The pen of the tick marks of `ticks`: their colour and width, or
@@ -499,6 +519,16 @@ impl AxisArtistState {
             alpha: ticks.alpha,
             ..GraphicsContext::default()
         })
+    }
+
+    /// Draws `text`, one of the texts of `labels`, behind its box if the
+    /// labels have one.
+    fn draw_part_text(&self, ctx: &mut DrawContext<'_>, labels: &LabelState, text: &PlacedText) {
+        let id = self.base.id();
+        if let Err(err) = labels.draw_box(ctx, &self.base, &self.rc, text) {
+            ctx.report(id, err);
+        }
+        draw_text(ctx, id, text, &self.rc, AxisTextDraw::AfterMeasuring);
     }
 
     /// The artist properties of the line: the artist's opacity, clipped
@@ -518,6 +548,20 @@ impl AxisArtistState {
     }
 }
 
+/// What places a part of the artist: the transform the program gave it
+/// (`given`), else the helper's tick transform followed by the artist's
+/// offset (`shared`).
+fn part_transform(
+    layout: LayoutContext<'_>,
+    given: Option<&Transform>,
+    shared: &ResolvedTransform,
+) -> Result<ResolvedTransform, String> {
+    match given {
+        Some(transform) => layout.resolve(transform).ok_or_else(|| GONE.to_owned()),
+        None => Ok(shared.clone()),
+    }
+}
+
 impl Artist for AxisArtistState {
     fn base(&self) -> &ArtistBase {
         &self.base
@@ -532,28 +576,26 @@ impl Artist for AxisArtistState {
         let layout = ctx.layout();
         let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current);
         let axes = layout.store().shared_as::<AxesState>(self.axes);
-        let transform = self.resolve(layout, self.helper.tick_transform(self.axes));
         let drawing = match drawing {
             Ok(drawing) => drawing,
             Err(problem) => return ctx.report(id, problem),
         };
-        let (Some(axes), Ok(transform)) = (axes, transform) else {
+        let Some(axes) = axes else {
             return;
         };
         ctx.renderer().open_group(GROUP, self.base.gid.as_deref());
-        for (level, ticks) in drawing
-            .levels
-            .iter()
+        for ((level, ticks), labels) in (drawing.levels.iter())
             .zip([&self.major_ticks, &self.minor_ticks])
+            .zip([&self.major_ticklabels, &self.minor_ticklabels])
         {
             if let Some(marks) = &level.marks {
                 match self.mark_gc(&axes, ticks) {
-                    Ok(gc) => ticks.draw(ctx, marks, &transform, &gc),
+                    Ok(gc) => ticks.draw(ctx, marks, &level.marks_transform, &gc),
                     Err(problem) => ctx.report(id, problem),
                 }
             }
             for text in &level.texts {
-                draw_text(ctx, id, text, &self.rc, AxisTextDraw::AfterMeasuring);
+                self.draw_part_text(ctx, labels, text);
             }
         }
         if let Some(offset) = &drawing.offset {
@@ -571,7 +613,7 @@ impl Artist for AxisArtistState {
             ctx.report(id, err);
         }
         if let Some(label) = &drawing.label {
-            draw_text(ctx, id, label, &self.rc, AxisTextDraw::AfterMeasuring);
+            self.draw_part_text(ctx, &self.label, label);
         }
         ctx.renderer().close_group(GROUP);
     }

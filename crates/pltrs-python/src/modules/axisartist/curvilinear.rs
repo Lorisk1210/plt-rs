@@ -187,6 +187,13 @@ fn set_extremes(artist: AxisArtist, (min, max): (f64, f64)) -> PyResult<()> {
     Ok(())
 }
 
+/// Has the curvilinear grid of `axes` computed anew, through `aux` from
+/// now on when given (`update_grid_finder`).
+fn update_grid_finder(axes: Axes, aux: Option<PyAux>) -> PyResult<()> {
+    AxisArtistAxes::of(axes).update_grid_finder(aux.map(|aux| aux.0));
+    Ok(())
+}
+
 /// A parasite of `host` plotting in the curvilinear coordinates of
 /// `aux` (`get_aux_axes(tr)` of an axis-artist host).
 fn aux_axes(host: Axes, aux: PyAux) -> PyResult<Axes> {
@@ -196,6 +203,7 @@ fn aux_axes(host: Axes, aux: PyAux) -> PyResult<Axes> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("install_curvilinear", install)?;
+    module.add("update_grid_finder", update_grid_finder)?;
     module.add("install_floating", install_floating)?;
     module.add("clear_floating", clear_floating)?;
     module.add("share_floating_patch", share_floating_patch)?;

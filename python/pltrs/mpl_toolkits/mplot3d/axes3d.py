@@ -374,6 +374,14 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             kept = self._subplotspec_kept = spec
         return kept
 
+    def set_subplotspec(self, subplotspec):
+        # docstring inherited
+        # matplotlib places the Axes at the position the spec gives, which
+        # fails first for what is no spec.
+        subplotspec.get_position(self.get_figure(root=False))
+        _mplot3d.set_subplot_spec(self._native, subplotspec._native_spec())
+        self._subplotspec_kept = subplotspec
+
     def clear(self):
         # docstring inherited.
         _mplot3d.clear(self._native)
@@ -1512,7 +1520,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             # warned where it ticks them).
             for axis in (self.xaxis, self.yaxis, self.zaxis):
                 if axis.get_visible():
-                    _axis.place_level(self._native, axis.axis_name, False)
+                    _mplot3d.check_ticks(self._native, axis.axis_name)
         if extent is None:
             return None
         x0, y0, x1, y1 = extent

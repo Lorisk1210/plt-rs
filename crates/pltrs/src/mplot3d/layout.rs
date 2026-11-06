@@ -1,15 +1,51 @@
-//! What layout engines need from a 3-D axes: its grid cell, its original
-//! position and its extent with decorations (matplotlib's
-//! `get_subplotspec`, `get_position(original=True)`, `_set_position` and
+//! A 3-D axes' grid cell, and what layout engines need from a 3-D axes:
+//! its grid cell, its original position and its extent with decorations
+//! (matplotlib's `set_subplotspec`, `get_subplotspec`,
+//! `get_position(original=True)`, `_set_position` and
 //! `Axes3D.get_tightbbox`, which constrained layout calls on 3-D axes as
 //! on any other).
 
 use pltrs_core::Bbox;
 
+use super::Axes3D;
 use super::state::{Axes3DState, BoxFit, axes3d_fresh_tight_bbox};
-use crate::artist::{Artist, ArtistId, ArtistStore};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore};
 use crate::figure::FigureState;
-use crate::gridspec::SubplotSpec;
+use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
+
+impl Axes3D {
+    /// Moves the axes into the grid block `spec` (matplotlib's
+    /// `set_subplotspec`): its original position becomes the block's in
+    /// the subplot parameters of its frame, where its box is made square
+    /// at the next draw, as [`set_position`](Self::set_position) places
+    /// it.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::gridspec::GridSpec;
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
+    /// let ax = fig.subplot_3d();
+    /// let grid = GridSpec::new(2, 2)?;
+    /// ax.set_subplot_spec(grid.cell(0, 0)?)?;
+    /// let placed = ax.original_position();
+    /// assert!((placed.x0() - 0.125).abs() < 1e-12 && (placed.y0() - 0.53).abs() < 1e-12);
+    /// assert_eq!(ax.subplot_spec(), Some(grid.cell(0, 0)?));
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the subplot parameters leave no room for the block.
+    pub fn set_subplot_spec(&self, spec: SubplotSpec) -> Result<&Self, GridSpecError> {
+        let frame = self.with(|axes| axes.base().parent);
+        let params = frame
+            .and_then(|frame| self.raw().figure_state().borrow().subplot_params_of(frame))
+            .unwrap_or_else(|| SubplotParams::from_rc(&crate::rc::params()));
+        let position = spec.position(&params)?;
+        self.place(position, Some(spec));
+        Ok(self)
+    }
+}
 
 /// The grid cell of the 3-D axes `id` and whether it takes part in
 /// layouts; `None` when `id` is not a 3-D axes.

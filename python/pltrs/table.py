@@ -332,11 +332,12 @@ substring of 'BRTL'
         pltrs: measured where the table draws the text in the figure's
         current layout, at the figure's resolution.
         """
-        return _measured(_table.text_bounds(self._ref()))
+        return tuple(map(np.float64, _measured(_table.text_bounds(self._ref()))))
 
     def get_required_width(self, renderer):
         """Return the minimal required width for the cell."""
-        return _measured(_table.required_width(self._ref()))
+        l, b, w, h = self.get_text_bounds(renderer)
+        return w * (1.0 + (2.0 * self.PAD))
 
     def set_text_props(self, **kwargs):
         """Update the text properties: any `.Text` property of the cell's

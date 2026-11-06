@@ -534,8 +534,9 @@ class Collection(mcolorizer.ColorizingArtist):
     pickradius = property(get_pickradius, set_pickradius)
 
     def _contains_details(self, ind):
-        """The indices of the items hit."""
-        return dict(ind=ind)
+        """The indices of the items hit; none for a hidden collection,
+        which matplotlib does not test."""
+        return dict(ind=ind) if self.get_visible() else {}
 
     def get_urls(self):
         """Return a list of URLs, one for each element of the collection."""
@@ -1665,9 +1666,10 @@ class PatchCollection(Collection):
             super().__init__(**kwargs)
 
     def set_paths(self, patches):
-        """Set the paths from the outlines of *patches*."""
+        """Set the paths from the outlines of *patches*, transformed as each
+        patch draws (matplotlib's ``get_transform().transform_path``)."""
         _collections.set_paths(self._native, [
-            p.get_path().transformed(p.get_patch_transform()) for p in patches])
+            p.get_transform().transform_path(p.get_path()) for p in patches])
 
 
 class TriMesh(Collection):

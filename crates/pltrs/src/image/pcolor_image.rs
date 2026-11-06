@@ -22,6 +22,7 @@ use crate::artist::{
 use crate::axes::AxesState;
 use crate::colors::{ColorizerOptions, ScalarMappable};
 use crate::numeric::{Grid, linspace};
+use crate::transforms::TransformContext;
 
 /// State of an image whose cells have individual widths and heights.
 #[derive(Clone, Debug)]
@@ -265,7 +266,7 @@ impl Artist for PcolorImageArtist {
     }
 
     /// The corners of the grid (matplotlib's `_update_image_limits`).
-    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+    fn limit_points(&self, _axes: ArtistId, _ctx: &dyn TransformContext) -> Option<LimitPoints> {
         grid_limits(&self.x, &self.y)
     }
 

@@ -45,11 +45,6 @@ fn line_piece(family: String, lines: usize) -> PyResult<Piece> {
     piece(&lines_family(&family)?.path(lines))
 }
 
-/// The shapes of `rows` rows (`num_shapes`).
-fn shape_count(rows: usize) -> PyResult<usize> {
-    Ok(HatchShapes::shape_count(rows))
-}
-
 /// The rows of a shape: `shape`, scaled by `size`, filled or not.
 fn shapes(shape: PyPath, size: f64, filled: bool) -> HatchShapes {
     HatchShapes {
@@ -69,6 +64,5 @@ fn shape_piece(shape: PyPath, (size, filled): (f64, bool), rows: usize) -> PyRes
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("line_vertex_count", line_vertex_count)?;
     module.add("line_piece", line_piece)?;
-    module.add("shape_count", shape_count)?;
     module.add("shape_piece", shape_piece)
 }

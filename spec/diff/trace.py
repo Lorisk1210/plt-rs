@@ -338,7 +338,7 @@ def main() -> int:
 
     package = __import__(args.impl)
     package_dirs = [str(pathlib.Path(package.__file__).parent)]
-    names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"))
+    names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir))
     recorder = Recorder(names, program)
     code = compile(instrument(args.program.read_text(), program, args.impl, args.mode == "steps"),
                    program, "exec")

@@ -8,7 +8,8 @@ impl ArtistBase {
     /// `other`: visibility, alpha, label, clipping on or off, sketch, path
     /// effects and sticky edges, and with `references` the transform, the
     /// clip box and the clip path too, which refer to artists of a figure
-    /// by id.
+    /// by id. Without `references`, a clip region `other` lacks is taken
+    /// still: having none means the same in any figure.
     pub fn update_from(&mut self, other: &Self, references: bool) {
         self.visible = other.visible;
         self.alpha = other.alpha;
@@ -21,6 +22,13 @@ impl ArtistBase {
             self.transform.clone_from(&other.transform);
             self.clip_box = other.clip_box;
             self.clip_path.clone_from(&other.clip_path);
+        } else {
+            if other.clip_box.is_none() {
+                self.clip_box = None;
+            }
+            if other.clip_path.is_none() {
+                self.clip_path = None;
+            }
         }
     }
 }
@@ -78,6 +86,18 @@ mod tests {
         let sibling = ax.plot([0.0], [0.0]).expect("a line");
         assert!(sibling.raw().update_from(line.raw()));
         assert_eq!(sibling.transform(), Some(Transform::Display));
+    }
+
+    #[test]
+    fn no_clip_box_is_taken_from_any_figure() {
+        let ax = Figure::new().subplot();
+        let line = ax.plot([0.0, 1.0], [1.0, 0.0]).expect("a line");
+        assert_eq!(line.clip_box(), Some(ax.id()));
+        let loose =
+            crate::lines::Line2D::loose(vec![0.0], vec![0.0], crate::lines::LineProps::default());
+        assert!(!line.raw().update_from(loose.raw()));
+        assert_eq!(line.clip_box(), None);
+        assert_eq!(line.transform(), Some(ax.trans_data()));
     }
 
     #[test]

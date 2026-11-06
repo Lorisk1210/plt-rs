@@ -205,9 +205,8 @@ class GridSpecBase:
         return self._row_height_ratios
 
     def get_subplot_params(self, figure=None):
-        """Return the `.SubplotParams` of the grid in *figure*."""
-        return SubplotParams(*_gridspec.subplot_params(
-            self._native, _figure_params(figure)))
+        # Must be implemented in subclasses
+        pass
 
     def get_grid_positions(self, fig):
         """
@@ -458,7 +457,8 @@ class GridSpec(GridSpecBase):
 
         Note that the ``figure`` attribute of the GridSpec is always ignored.
         """
-        return super().get_subplot_params(figure)
+        return SubplotParams(*_gridspec.subplot_params(
+            self._native, _figure_params(figure)))
 
     def locally_modified_subplot_params(self):
         """
@@ -558,6 +558,22 @@ class GridSpecFromSubplotSpec(GridSpecBase):
         GridSpecBase.__init__(gridspec, nrows, ncols, height_ratios, width_ratios)
         gridspec._adopt_native(native)
         return gridspec
+
+    def get_subplot_params(self, figure=None):
+        """Return a dictionary of subplot layout parameters."""
+        hspace = (self._hspace if self._hspace is not None
+                  else figure.subplotpars.hspace if figure is not None
+                  else rcParams["figure.subplot.hspace"])
+        wspace = (self._wspace if self._wspace is not None
+                  else figure.subplotpars.wspace if figure is not None
+                  else rcParams["figure.subplot.wspace"])
+
+        figbox = self._subplot_spec.get_position(figure)
+        left, bottom, right, top = figbox.extents
+
+        return SubplotParams(left=left, right=right,
+                             bottom=bottom, top=top,
+                             wspace=wspace, hspace=hspace)
 
     def get_topmost_subplotspec(self):
         """

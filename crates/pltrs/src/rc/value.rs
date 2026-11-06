@@ -3,8 +3,8 @@
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::RcError;
-use super::validate::python_repr;
 use crate::markers::{Marker, MarkerSymbol};
+use pltrs_core::pyfmt::str_repr;
 
 /// A type that can be read from and written to rc-file text.
 pub(crate) trait RcValue: Sized {
@@ -56,7 +56,7 @@ impl RcValue for bool {
         match text.to_ascii_lowercase().as_str() {
             "t" | "y" | "yes" | "on" | "true" | "1" => Ok(true),
             "f" | "n" | "no" | "off" | "false" | "0" => Ok(false),
-            _ => Err(format!("Cannot convert {} to bool", python_repr(text))),
+            _ => Err(format!("Cannot convert {} to bool", str_repr(text))),
         }
     }
     fn format_rc(&self) -> String {
@@ -70,7 +70,7 @@ impl RcValue for f64 {
     fn parse_rc(text: &str) -> Result<Self, String> {
         without_digit_separators(text)
             .and_then(|digits| digits.parse().ok())
-            .ok_or_else(|| format!("Could not convert {} to float", python_repr(text)))
+            .ok_or_else(|| format!("Could not convert {} to float", str_repr(text)))
     }
     fn format_rc(&self) -> String {
         format!("{self:?}")
@@ -85,7 +85,7 @@ impl RcValue for i64 {
     fn parse_rc(text: &str) -> Result<Self, String> {
         without_digit_separators(text)
             .and_then(|digits| digits.parse().ok())
-            .ok_or_else(|| format!("Could not convert {} to int", python_repr(text)))
+            .ok_or_else(|| format!("Could not convert {} to int", str_repr(text)))
     }
     fn format_rc(&self) -> String {
         self.to_string()

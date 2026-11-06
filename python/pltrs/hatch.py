@@ -14,12 +14,26 @@ from ._native import hatch as _hatch
 from .path import Path
 
 
-def _write(piece, vertices, codes):
-    """Write a piece of hatch made by pltrs (Rust) into the caller's
-    *vertices* and *codes* arrays, as ``set_vertices_and_codes`` does."""
+def _write_lines(piece, vertices, codes):
+    """Write hatch lines made by pltrs (Rust) into the caller's *vertices*
+    and *codes* arrays as matplotlib's ``set_vertices_and_codes`` does,
+    each line's start and end apart (so that arrays of another size fail
+    as they fail there)."""
     piece_vertices, piece_codes = piece
-    vertices[...] = piece_vertices
-    codes[...] = piece_codes
+    for end in (0, 1):
+        vertices[end::2, 0] = piece_vertices[end::2, 0]
+        vertices[end::2, 1] = piece_vertices[end::2, 1]
+    for end in (0, 1):
+        codes[end::2] = piece_codes[end::2]
+
+
+def _write_shapes(piece, vertices, codes):
+    """Write hatch shapes made by pltrs (Rust) into the caller's
+    *vertices* and *codes* arrays as matplotlib's
+    ``set_vertices_and_codes`` does (``np.concatenate`` into them)."""
+    piece_vertices, piece_codes = piece
+    np.concatenate([piece_vertices], out=vertices)
+    np.concatenate([piece_codes], out=codes)
 
 
 class HatchPatternBase:
@@ -42,7 +56,7 @@ class _Lines(HatchPatternBase):
         self.num_vertices = _hatch.line_vertex_count(self._family, self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
-        _write(_hatch.line_piece(self._family, self.num_lines), vertices, codes)
+        _write_lines(_hatch.line_piece(self._family, self.num_lines), vertices, codes)
 
 
 class HorizontalHatch(_Lines):
@@ -73,16 +87,18 @@ class Shapes(HatchPatternBase):
             self.num_shapes = 0
             self.num_vertices = 0
         else:
-            self.num_shapes = _hatch.shape_count(self.num_rows)
+            self.num_shapes = ((self.num_rows // 2 + 1) * (self.num_rows + 1) +
+                               (self.num_rows // 2) * self.num_rows)
             self.num_vertices = (self.num_shapes *
                                  len(self.shape_vertices) *
                                  (1 if self.filled else 2))
 
     def set_vertices_and_codes(self, vertices, codes):
         shape = Path(self.shape_vertices, self.shape_codes)
-        _write(_hatch.shape_piece(shape, (float(self.size), bool(self.filled)),
-                                  self.num_rows),
-               vertices, codes)
+        _write_shapes(
+            _hatch.shape_piece(shape, (float(self.size), bool(self.filled)),
+                               self.num_rows),
+            vertices, codes)
 
 
 class Circles(Shapes):

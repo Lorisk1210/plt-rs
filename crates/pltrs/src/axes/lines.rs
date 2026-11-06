@@ -302,7 +302,9 @@ impl Axes {
         if base.transform.is_none() {
             base.transform = Some(self.trans_data());
         }
-        let update = DataUpdate::extending(line.limit_points(self.id()));
+        let update = DataUpdate::extending(
+            line.limit_points(self.id(), &*self.raw().figure_state().borrow()),
+        );
         Line2D::from_raw(self.adopt_in_autoscale(line, &update))
     }
 

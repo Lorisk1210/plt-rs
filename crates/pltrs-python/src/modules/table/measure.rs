@@ -1,6 +1,6 @@
 //! The text of a cell: as a text artist (matplotlib's `Cell.get_text`),
-//! and measured where its table draws it (`Cell.get_text_bounds`,
-//! `get_required_width` and `auto_set_font_size`); the cell's look as a
+//! and measured where its table draws it (`Cell.get_text_bounds`, which
+//! `get_required_width` widens, and `auto_set_font_size`); the cell's look as a
 //! rectangle (matplotlib's `Cell` is a `Rectangle`); the coordinates the
 //! cell is drawn in (`Cell.set_transform`); and the cell drawn alone
 //! (`Cell.draw`).
@@ -29,11 +29,6 @@ fn text_bounds(cell: CellRef) -> PyResult<Option<(f64, f64, f64, f64)>> {
         .text_bounds()
         .map_err(text_error)?
         .map(|b| (b.x0(), b.y0(), b.width(), b.height())))
-}
-
-/// The width the cell needs for its text; `None` for a table in no axes.
-fn required_width(cell: CellRef) -> PyResult<Option<f64>> {
-    cell.0.required_width().map_err(text_error)
 }
 
 /// Shrinks the cell's font until its text fits; the size.
@@ -113,7 +108,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("text_artist", text_artist)?;
     module.add("restyle_text", restyle_text)?;
     module.add("text_bounds", text_bounds)?;
-    module.add("required_width", required_width)?;
     module.add("fit_font_size", fit_font_size)?;
     module.add("set_cell_transform", set_cell_transform)?;
     module.add("draw_cell", draw_cell)?;

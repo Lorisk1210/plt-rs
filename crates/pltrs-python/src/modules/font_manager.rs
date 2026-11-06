@@ -276,15 +276,6 @@ fn font_names() -> PyResult<Vec<String>> {
     Ok(FontManager::global().font_names())
 }
 
-/// matplotlib's `score_weight(weight1, weight2)`: 0 for equal weights, up
-/// to 1 for the most different.
-fn score_weight(wanted: Scale, actual: Scale) -> PyResult<f64> {
-    Ok(FontManager::score_weight(
-        weight(&wanted)?,
-        weight(&actual)?,
-    ))
-}
-
 /// matplotlib's `score_family(families, family2)`: where `family2` comes
 /// in `families` (0.0 at the head, 1.0 when it does not come), the generic
 /// families standing for the fonts the current rcParams list for them.
@@ -424,7 +415,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("font_names", font_names)?;
     module.add("add_entry", add_entry)?;
     module.add("remove_entry", remove_entry)?;
-    module.add("score_weight", score_weight)?;
     module.add("score_family", score_family)?;
     module.add("score_style", score_style)?;
     module.add("score_variant", score_variant)?;

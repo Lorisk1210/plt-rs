@@ -742,3 +742,47 @@ SUBJECTS: list[tuple[str, list[str]]] = [
                                "obj = backend_mixed.MixedModeRenderer(fig, 6.4, 4.8, 72, RendererPdf(pdf, 72, 4.8, "
                                "6.4))"]),
 ]
+
+#: (name, base subject, statements leaving the object in ``obj``): a
+#: second object of a core subject's class, made with other arguments, on
+#: which the base subject's callables run again, so that what one object
+#: per subject misses shows.
+VARIANTS: list[tuple[str, str, list[str]]] = [
+    ("figure_variant", "figure", ["fig = plt.figure(figsize=(4, 3), dpi=80, layout='constrained')",
+                                  "fig.subplots(2, 2)", "obj = fig"]),
+    ("axes_variant", "axes", AXES + ["ax.plot(days, np.arange(7))", "ax.set_yscale('log')", "obj = ax"]),
+    ("xaxis_variant", "xaxis", AXES + ["ax.plot(['a', 'b', 'c'], [1, 2, 3])", "obj = ax.xaxis"]),
+    ("line_variant", "line", AXES + ["obj = ax.plot(days, np.arange(7), 's--', drawstyle='steps-mid', "
+                                     "markevery=2)[0]"]),
+    ("text_variant", "text", AXES + ["obj = ax.text(0.2, 0.8, 'multi\\nline $x^2$', rotation=30, va='top', "
+                                     "wrap=True, transform=ax.transAxes)"]),
+    ("rectangle_variant", "rectangle", AXES + ["obj = patches.Rectangle((0.5, 0.5), -0.3, 0.2, angle=45, "
+                                               "rotation_point='center', hatch='//', fill=False)",
+                                               "ax.add_patch(obj)"]),
+    ("scatter_variant", "scatter", AXES + ["obj = ax.scatter(x, y, s=20, marker='^', c='r', edgecolors='k', "
+                                           "linewidths=2)"]),
+    ("image_variant", "image", AXES + ["obj = ax.imshow(rgba, origin='lower', extent=(0, 3, 0, 2), "
+                                       "interpolation='nearest')"]),
+    ("contour_variant", "contour", AXES + ["obj = ax.contour(np.arange(6), np.arange(5), z, levels=[-0.5, 0, 0.5], "
+                                           "colors='k', linestyles='dashed')"]),
+    ("quadmesh_variant", "quadmesh", AXES + ["obj = ax.pcolormesh(np.arange(7), np.arange(6), z, shading='flat', "
+                                             "cmap='RdBu')"]),
+    ("legend_variant", "legend", AXES + ["ax.plot(x, y, label='a')", "ax.scatter(x, -y, label='b')",
+                                         "obj = ax.legend(loc='upper left', ncols=2, title='t', frameon=False, "
+                                         "mode='expand', bbox_to_anchor=(0, 1, 1, 0.1))"]),
+    ("normalize_variant", "normalize", ["obj = colors.Normalize(clip=True)"]),
+    ("log_norm_variant", "log_norm", ["obj = colors.LogNorm(clip=True)"]),
+    ("colormap_variant", "colormap", ["obj = plt.get_cmap('tab10', 5)"]),
+    ("scalar_formatter_variant", "scalar_formatter", AXES + ["ax.plot([1e-7, 3e-7])", "fig.canvas.draw()",
+                                                             "obj = ax.yaxis.get_major_formatter()",
+                                                             "obj.set_useMathText(True)"]),
+    ("affine2d_variant", "affine2d", ["obj = transforms.Affine2D(np.array([[1.0, 0.5, 2], [0, 3, -1], "
+                                      "[0, 0, 1]]))"]),
+    ("bbox_variant", "bbox", ["obj = transforms.Bbox([[3.0, 4.0], [1.0, -2.0]])"]),
+    ("path_variant", "path", ["obj = path.Path([(0, 0), (1, 2), (2, 0), (3, 1), (0, 0)], [1, 3, 3, 2, 79])"]),
+    ("gridspec_variant", "gridspec", ["fig = plt.figure()", "obj = gridspec.GridSpec(3, 1, figure=fig, hspace=0.5, "
+                                      "height_ratios=[3, 1, 1])"]),
+    ("table_variant", "table", AXES + ["obj = ax.table(cellText=[['1', '22'], ['333', '4']], colWidths=[0.2, 0.3], "
+                                       "cellLoc='left', loc='bottom', edges='horizontal')"]),
+]
+

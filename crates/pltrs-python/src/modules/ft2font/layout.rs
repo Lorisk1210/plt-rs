@@ -60,8 +60,8 @@ fn chain_layout(
 }
 
 /// `set_text(string, angle, flags, features, language)`: lays the text
-/// out with the chain's faces, appends its glyphs and returns their pen
-/// positions (26.6, before rotation). The text's box and advance are
+/// out with the chain's faces, makes its glyphs the loaded ones and
+/// returns their pen positions (26.6, before rotation). The text's box and advance are
 /// those of the glyphs rotated by `angle` degrees.
 fn set_text(
     font: Native<Ft2Font>,
@@ -71,6 +71,8 @@ fn set_text(
     shaping: Shaping,
 ) -> PyResult<Vec<(i64, i64)>> {
     let mut font = font.borrow_mut();
+    // matplotlib's layout starts by clearing what the font loaded.
+    font.glyphs.clear();
     let hinting = font.hinting(flags);
     let options = shape_options(shaping)?;
     let faces = font.chain_faces()?;
@@ -101,20 +103,15 @@ fn set_text(
                 Some((x0, y0, x1, y1)) => (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
             });
         }
-        placed.push(Loaded {
-            face: glyph.face,
-            glyph: glyph.glyph_id,
-            hinting,
-            pen,
-            angle,
-        });
+        placed.push(Loaded::new(glyph.face, glyph.glyph_id, hinting, pen, angle));
     }
-    font.glyphs.text = TextBox {
+    let text = TextBox {
         bbox: bbox.unwrap_or_default(),
         advance: matrix.apply((i64::from(layout.width), 0)).0,
     };
     let xys = placed.iter().map(|glyph| glyph.pen).collect();
-    font.glyphs.loaded.extend(placed);
+    font.glyphs.text = text;
+    font.glyphs.loaded = placed;
     Ok(xys)
 }
 
@@ -179,6 +176,8 @@ fn layout(
     flags: u32,
     shaping: Shaping,
 ) -> PyResult<Vec<LayoutGlyph>> {
+    // matplotlib's layout starts by clearing what the font loaded.
+    font.borrow_mut().glyphs.clear();
     let font = font.borrow();
     let options = shape_options(shaping)?;
     let faces = font.chain_faces()?;

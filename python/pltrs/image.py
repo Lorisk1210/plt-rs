@@ -1572,7 +1572,9 @@ def composite_images(images, renderer, magnification=1.0):
     composite = _native_image.composite_images(parts, float(magnification))
     if composite is None:
         return np.empty((0, 0, 4), dtype=np.uint8), 0, 0
-    return composite
+    output, x0, y0 = composite
+    # The corner of the union of the images' boxes, read off its array.
+    return output, np.float64(x0), np.float64(y0)
 
 
 @_api.deprecated('3.11', alternative="Pillow's `PIL.Image.Image.thumbnail`")

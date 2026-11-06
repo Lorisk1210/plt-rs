@@ -4,7 +4,7 @@
 //! them and applies them whenever the axes is laid out. The Python
 //! methods have checked matplotlib's arguments and handle `share`.
 
-use pltrs::axes::{Adjustable, Aspect, AspectError, Axes};
+use pltrs::axes::{Adjustable, Aspect, Axes};
 use pltrs::transforms::{Anchor, Bbox};
 
 use crate::binding::prelude::*;
@@ -38,13 +38,8 @@ fn get_aspect(axes: Axes) -> PyResult<Option<f64>> {
 
 /// Sets what keeps the aspect: `"box"` or `"datalim"`.
 fn set_adjustable(axes: Axes, name: String) -> PyResult<()> {
-    match axes.set_adjustable(adjustable(&name)?) {
-        Ok(_) => Ok(()),
-        Err(AspectError::FixedDataRatio(_)) => Err(PyErr::value_error(
-            "Cannot set Axes adjustable to 'datalim' for Axes which override 'get_data_ratio'",
-        )),
-        Err(other) => Err(other.into()),
-    }
+    axes.set_adjustable(adjustable(&name)?)?;
+    Ok(())
 }
 
 /// What keeps the aspect: `"box"` or `"datalim"`.

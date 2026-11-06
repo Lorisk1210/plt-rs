@@ -12,7 +12,7 @@ use super::glyphs::Loaded;
 use super::{Ft2Font, ft_error};
 use crate::binding::prelude::*;
 
-/// The bitmap of a loaded glyph rendered at its pen.
+/// The bitmap of a loaded glyph rendered at its pen, antialiased or not.
 fn glyph_bitmap(
     font: &Ft2Font,
     glyph: &Loaded,
@@ -67,6 +67,24 @@ fn draw_bitmap(
     }
 }
 
+/// The bitmap of the loaded glyph `index`, rendered as it was first
+/// drawn, else antialiased or not as asked (and so from then on), with
+/// whether it is antialiased.
+fn drawn_bitmap(
+    font: &mut Ft2Font,
+    index: usize,
+    antialiased: bool,
+) -> PyResult<(Option<GlyphBitmap>, bool)> {
+    let glyph = font
+        .glyphs
+        .loaded
+        .get_mut(index)
+        .ok_or_else(|| PyErr::runtime_error("glyph num is out of range"))?;
+    let antialiased = *glyph.rendered.get_or_insert(antialiased);
+    let glyph = *glyph;
+    Ok((glyph_bitmap(font, &glyph, antialiased)?, antialiased))
+}
+
 /// `draw_glyphs_to_bitmap(antialiased)`: renders the text `set_text`
 /// placed into the font's image.
 fn draw_glyphs_to_bitmap(font: Native<Ft2Font>, antialiased: bool) -> PyResult<()> {
@@ -75,11 +93,11 @@ fn draw_glyphs_to_bitmap(font: Native<Ft2Font>, antialiased: bool) -> PyResult<(
     let columns = usize::try_from((x1 - x0) / 64 + 2).unwrap_or(0);
     let rows = usize::try_from((y1 - y0) / 64 + 2).unwrap_or(0);
     let mut image = vec![0; rows * columns];
-    for glyph in &font.glyphs.loaded {
-        if let Some(bitmap) = glyph_bitmap(&font, glyph, antialiased)? {
+    for index in 0..font.glyphs.loaded.len() {
+        if let (Some(bitmap), smooth) = drawn_bitmap(&mut font, index, antialiased)? {
             let x = (f64::from(bitmap.left) - x0 as f64 / 64.0) as i64;
             let y = (y1 as f64 / 64.0 - f64::from(bitmap.top) + 1.0) as i64;
-            draw_bitmap(&mut image, (rows, columns), &bitmap, (x, y), antialiased);
+            draw_bitmap(&mut image, (rows, columns), &bitmap, (x, y), smooth);
         }
     }
     font.glyphs.image = (rows, columns, image);
@@ -97,8 +115,9 @@ fn get_image(font: Native<Ft2Font>) -> PyResult<NdArray<u8>> {
 }
 
 /// `draw_glyph_to_bitmap(image, x, y, glyph, antialiased)`: the image
-/// with loaded glyph `index` rendered at the origin and or-ed in with its
-/// left edge offset by `x` and its top row at `y`.
+/// with loaded glyph `index` rendered where it was loaded (the origin for
+/// `load_char` and `load_glyph`) and or-ed in with its left edge offset
+/// by `x` and its top row at `y`.
 fn draw_glyph_to_bitmap(
     font: Native<Ft2Font>,
     image: NdArray<u8>,
@@ -106,28 +125,14 @@ fn draw_glyph_to_bitmap(
     index: usize,
     antialiased: bool,
 ) -> PyResult<NdArray<u8>> {
-    let font = font.borrow();
-    let mut glyph = *font
-        .glyphs
-        .loaded
-        .get(index)
-        .ok_or_else(|| PyErr::runtime_error("glyph num is out of range"))?;
-    glyph.pen = (0, 0);
-    glyph.angle = 0.0;
     let shape = image.shape.clone();
     let [rows, columns] = shape[..] else {
         return Err(PyErr::value_error("image must be 2D"));
     };
     let mut pixels = image.data;
-    if let Some(bitmap) = glyph_bitmap(&font, &glyph, antialiased)? {
+    if let (Some(bitmap), smooth) = drawn_bitmap(&mut font.borrow_mut(), index, antialiased)? {
         let left = x + i64::from(bitmap.left);
-        draw_bitmap(
-            &mut pixels,
-            (rows, columns),
-            &bitmap,
-            (left, y),
-            antialiased,
-        );
+        draw_bitmap(&mut pixels, (rows, columns), &bitmap, (left, y), smooth);
     }
     NdArray::with_shape(pixels, shape)
 }
@@ -143,13 +148,7 @@ fn render_glyph_at(
     let font = font.borrow();
     let ([[xx, _], [yx, _]], [dx, dy]) = font.transform;
     let angle = (yx as f64).atan2(xx as f64).to_degrees();
-    let glyph = Loaded {
-        face: 0,
-        glyph: GlyphId(index),
-        hinting: font.hinting(flags),
-        pen: (dx, dy),
-        angle,
-    };
+    let glyph = Loaded::new(0, GlyphId(index), font.hinting(flags), (dx, dy), angle);
     match glyph_bitmap(&font, &glyph, !mono)? {
         Some(bitmap) => {
             let shape = vec![bitmap.rows as usize, bitmap.width as usize];

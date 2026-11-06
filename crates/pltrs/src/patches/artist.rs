@@ -16,7 +16,7 @@ use crate::artist::{
 use crate::colors::ColorError;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
-use crate::transforms::Transform;
+use crate::transforms::{Transform, TransformContext};
 use crate::units::CustomValues;
 
 /// The pieces a patch is drawn from, borrowed from whichever artist owns
@@ -356,8 +356,16 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     /// The outline's ends and axis extrema, in the directions where the
     /// patch's coordinates are data values (matplotlib's
     /// `_update_patch_limits`).
-    fn limit_points(&self, axes: ArtistId) -> Option<LimitPoints> {
-        LimitPoints::through(self.base.transform.as_ref()?, axes, || self.data_points())
+    fn limit_points(&self, axes: ArtistId, ctx: &dyn TransformContext) -> Option<LimitPoints> {
+        let transform = self.base.transform.as_ref()?;
+        let linewidth = self.style.linewidth.unwrap_or(self.rc.patch_linewidth);
+        match self.shape.limit_outline(transform, linewidth, ctx, axes) {
+            Some(points) => Some(LimitPoints {
+                points,
+                directions: transform.data_directions(axes),
+            }),
+            None => LimitPoints::through(transform, axes, || self.data_points()),
+        }
     }
 
     /// Whether the outline encloses `point` (matplotlib's

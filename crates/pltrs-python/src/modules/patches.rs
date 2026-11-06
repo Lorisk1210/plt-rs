@@ -75,6 +75,8 @@ trait PatchOps: StyleOps {
     fn shadow(&self, ox: f64, oy: f64, shade: f64) -> Result<Shadow<PathShape>, ShadowError>;
     /// The outlines as drawn now, in display pixels.
     fn display_paths(&self) -> Result<Vec<Path>, PatchError>;
+    /// The outlines in display pixels in the figure as it stands.
+    fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError>;
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
@@ -109,6 +111,10 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
         Patch::display_paths(self)
+    }
+
+    fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError> {
+        Patch::display_paths_as_is(self)
     }
 }
 
@@ -211,6 +217,16 @@ fn display_path(patch: AnyPatch) -> PyResult<PathArrays> {
         .display_paths()
         .map_err(|err| PyErr::value_error(err.to_string()))?;
     path_arrays(&Path::compound(&paths), false)
+}
+
+/// Fails as matplotlib's `add_patch` fails to measure the patch (an arrow
+/// whose connection cannot be made), in the figure as it stands.
+fn check_measurable(patch: AnyPatch) -> PyResult<()> {
+    patch
+        .0
+        .display_paths_as_is()
+        .map(drop)
+        .map_err(|err| PyErr::value_error(err.to_string()))
 }
 
 /// How many pieces each segment of the outline is split into before a
@@ -571,6 +587,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get", style::get)?;
     module.add("get_path", get_path)?;
     module.add("display_path", display_path)?;
+    module.add("check_measurable", check_measurable)?;
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;
     module.add("get_shared_rectangle_steps", get_shared_rectangle_steps)?;

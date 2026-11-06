@@ -408,10 +408,8 @@ def _to_rgba_no_colorcycle(c, alpha=None):
     try:
         # An alpha of one element (seaborn's mapped alpha) is its number.
         rgba = _colors.to_rgba(c, None if alpha is None else np.asarray(alpha).item())
-    except ValueError as err:
-        raise ValueError(f"Invalid RGBA argument: {c!r}") from err
-    except TypeError as err:
-        raise ValueError(f"Invalid RGBA argument: {c!r}") from err
+    except (ValueError, TypeError) as err:
+        raise ValueError(_rgba_error(c)) from err
     # matplotlib's alpha is the object given, or the int 1 for a colour of
     # three components.
     if isinstance(c, str) and c.lower() == "none":
@@ -421,6 +419,28 @@ def _to_rgba_no_colorcycle(c, alpha=None):
     if _is_rgb_triple(c):
         return (*rgba[:3], 1)
     return rgba
+
+
+def _rgba_error(c):
+    """The message of matplotlib's `ValueError` for *c*, which is no colour:
+    its first check *c* fails."""
+    if isinstance(c, str):
+        try:
+            grey = float(c)
+        except ValueError:
+            pass
+        else:
+            if not 0 <= grey <= 1:
+                return (f"Invalid string grayscale value {c!r}. "
+                        f"Value must be within 0-1 range")
+        return f"Invalid RGBA argument: {c!r}"
+    if not np.iterable(c):
+        return f"Invalid RGBA argument: {c!r}"
+    if len(c) not in [3, 4]:
+        return "RGBA sequence should have length 3 or 4"
+    if not all(isinstance(x, Real) for x in c):
+        return f"Invalid RGBA argument: {c!r}"
+    return "RGBA values should be within 0-1 range"
 
 
 def _is_rgb_triple(c):

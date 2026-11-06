@@ -59,14 +59,16 @@ pub(crate) struct Delaunay {
 /// does. Duplicate points are left out; fewer than three distinct points
 /// or (nearly) collinear points are an error.
 pub(crate) fn triangulate(points: &[Point]) -> Result<Delaunay, TriError> {
-    if points.iter().any(|p| !p.is_finite()) {
-        return Err(TriError::NonFinite);
-    }
+    // In matplotlib's order: its wrapper checks the points' number, then
+    // that three differ, and qhull refuses what is not finite.
     if points.len() < 3 {
         return Err(TriError::TooFewPoints);
     }
     if !has_three_unique(points) {
         return Err(TriError::TooFewUniquePoints);
+    }
+    if points.iter().any(|p| !p.is_finite()) {
+        return Err(TriError::NonFinite);
     }
     let hull = build(lift(points)).map_err(|_| TriError::Collinear)?;
     Ok(hull.delaunay())

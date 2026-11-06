@@ -190,9 +190,10 @@ class ContoursMixin:
         contours.nchunk = generation[1]
         return contours
 
-    def _tricontour(self, filled, args, kwargs):
+    def _tricontour(self, filled, args, kwargs, made=None):
         """The `.TriContourSet` of ``tricontour`` (or, *filled*,
-        ``tricontourf``)."""
+        ``tricontourf``): a new one, or *made*, the set whose constructor
+        contours."""
         from ...tri import Triangulation, TriContourSet
         from ...tri._tricontour import _TriContourGenerator
         levels = kwargs.pop("levels", None)
@@ -227,7 +228,7 @@ class ContoursMixin:
         look = _contour_look(kwargs)
         native = _contour.tricontour(self._native, bool(filled), tri._native, z,
                                      _levels(levels), *look[:2])
-        contours = _finish(TriContourSet, native, self, look, kwargs)
+        contours = _finish(TriContourSet, native, self, look, kwargs, made)
         contours._generator = generator
         return contours
 

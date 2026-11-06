@@ -16,8 +16,10 @@ pltrs gives a ``Names`` that renames ``pltrs.x`` to ``matplotlib.x``.
 from __future__ import annotations
 
 import math
+import os
 import re
 import sys
+import tempfile
 import types
 from typing import Any
 
@@ -28,6 +30,8 @@ MAX_ITEMS = 2000
 MAX_DEPTH = 6
 
 _ADDRESS = re.compile(r"0x[0-9a-fA-F]{4,}")
+#: The random names ``tempfile`` gives temporary files and directories.
+_TEMPORARY = re.compile(re.escape(tempfile.gettempdir() + os.sep) + r"tmp[\w-]{8}")
 
 
 class Names:
@@ -36,15 +40,18 @@ class Names:
     ``prefixes`` maps the implementation's module prefixes to matplotlib's
     (empty for matplotlib itself); ``package_dirs`` are the directories of
     the packages, which messages naming files replace with ``<package>``,
-    and ``config_dir`` the run's configuration directory (each
-    implementation has its own), replaced with ``<config>``.
+    ``config_dir`` the run's configuration directory and ``work_dir`` its
+    working directory (each implementation has its own), replaced with
+    ``<config>`` and ``<cwd>``. The random names of temporary files become
+    ``<tmp>``.
     """
 
     def __init__(self, prefixes: list[tuple[str, str]], package_dirs: list[str],
-                 config_dir: str | None = None) -> None:
+                 config_dir: str | None = None, work_dir: str | None = None) -> None:
         self.prefixes = prefixes
         self.package_dirs = sorted(package_dirs, key=len, reverse=True)
         self.config_dir = config_dir
+        self.work_dir = work_dir
         self._word = [
             (re.compile(r"(?<![\w.])" + re.escape(alias) + r"(?![\w])"), real)
             for alias, real in prefixes
@@ -64,9 +71,11 @@ class Names:
             text = text.replace(directory, "<package>")
         if self.config_dir:
             text = text.replace(self.config_dir, "<config>")
+        if self.work_dir:
+            text = text.replace(self.work_dir, "<cwd>")
         for pattern, real in self._word:
             text = pattern.sub(real, text)
-        return _ADDRESS.sub("0x?", text)
+        return _ADDRESS.sub("0x?", _TEMPORARY.sub("<tmp>", text))
 
     def class_name(self, cls: type) -> str:
         """The class' module and qualified name, in matplotlib's names."""

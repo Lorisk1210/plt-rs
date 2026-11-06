@@ -60,6 +60,31 @@ pub(super) struct Loaded {
     pub(super) pen: (i64, i64),
     /// The rotation `set_text` gave it, in degrees.
     pub(super) angle: f64,
+    /// Whether its bitmap was rendered antialiased, once drawn:
+    /// matplotlib's drawing turns `FreeType`'s glyph into its bitmap
+    /// (`FT_Glyph_To_Bitmap` destroying the outline), which every later
+    /// drawing reuses whatever antialiasing it asks for.
+    pub(super) rendered: Option<bool>,
+}
+
+impl Loaded {
+    /// A glyph of `face` not drawn yet.
+    pub(super) fn new(
+        face: usize,
+        glyph: GlyphId,
+        hinting: Hinting,
+        pen: (i64, i64),
+        angle: f64,
+    ) -> Self {
+        Self {
+            face,
+            glyph,
+            hinting,
+            pen,
+            angle,
+            rendered: None,
+        }
+    }
 }
 
 /// The extent `set_text` computed: the union of the glyph boxes and the
@@ -80,6 +105,15 @@ pub(super) struct Glyphs {
     pub(super) text: TextBox,
     /// The bitmap `draw_glyphs_to_bitmap` drew: `(rows, columns, pixels)`.
     pub(super) image: (usize, usize, Vec<u8>),
+}
+
+impl Glyphs {
+    /// Forgets the loaded glyphs and the text's extent (matplotlib's
+    /// `FT2Font::clear`, which leaves the glyph slot and the image).
+    pub(super) fn clear(&mut self) {
+        self.loaded.clear();
+        self.text = TextBox::default();
+    }
 }
 
 impl Ft2Font {
@@ -258,13 +292,7 @@ fn load(
         metrics.1.1 = font.linear_advance(&face, glyph);
         metrics
     };
-    let loaded = Loaded {
-        face: face_index,
-        glyph,
-        hinting,
-        pen: (0, 0),
-        angle: 0.0,
-    };
+    let loaded = Loaded::new(face_index, glyph, hinting, (0, 0), 0.0);
     font.glyphs.loaded.push(loaded);
     font.glyphs.slot = Some(loaded);
     Ok((metrics, font.glyphs.loaded.len() - 1, face_index))
@@ -310,7 +338,7 @@ fn get_num_glyphs(font: Native<Ft2Font>) -> PyResult<usize> {
 
 /// `clear()`: forgets the loaded glyphs and the text.
 fn clear(font: Native<Ft2Font>) -> PyResult<()> {
-    font.borrow_mut().glyphs = Glyphs::default();
+    font.borrow_mut().glyphs.clear();
     Ok(())
 }
 

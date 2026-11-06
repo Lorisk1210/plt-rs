@@ -29,8 +29,9 @@ impl From<TexError> for PyErr {
             TexError::NotFound { name } => PyErr::new(
                 ExceptionKind::FileNotFoundError,
                 format!(
-                    "Matplotlib's TeX implementation searched for a file named {name:?} in \
-                     your texmf tree, but could not find it"
+                    "Matplotlib's TeX implementation searched for a file named {} in your \
+                     texmf tree, but could not find it",
+                    pltrs_core::pyfmt::str_repr(&name)
                 ),
             ),
             TexError::Io { .. } => PyErr::new(ExceptionKind::OSError, err.to_string()),

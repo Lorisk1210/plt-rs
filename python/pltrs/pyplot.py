@@ -976,6 +976,12 @@ from .lines import AxLine  # noqa: E402,F401
 import functools, sys, threading, time  # noqa: E402,F401,E401
 import numpy as np  # noqa: E402,F401
 matplotlib = sys.modules[__package__]
+# The modules importing matplotlib's pyplot loads, which programs reach as
+# attributes of the package (``matplotlib.tri``); pyplot's own names
+# (``colorbar``, ``stackplot``) are its functions.
+for _module in ("colorbar", "dviread", "hatch", "inset", "spines", "stackplot", "tri"):
+    importlib.import_module(f".{_module}", __package__)
+del _module
 
 # If rcParams['backend_fallback'] is true, and an interactive backend is
 # requested, ignore rcParams['backend'] and force selection of a backend that

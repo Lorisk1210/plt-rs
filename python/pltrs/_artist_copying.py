@@ -128,6 +128,9 @@ class CopyingMixin:
 
     def update_from(self, other):
         """Copy properties from *other* to *self*."""
+        if not hasattr(other, "_native"):
+            # What is not an artist fails at matplotlib's first read of it.
+            raise AttributeError(f"{type(other).__name__!r} object has no attribute '_transform'")
         self._took_from(other, _artist.update_from(self._native, other._native))
 
     def _took_from(self, other, references):
@@ -146,6 +149,13 @@ class CopyingMixin:
                 # The transform object of *other* (``ax.transData``), which
                 # this artist may not reach from its own figure yet.
                 self._given_transform = other.get_transform()
+        else:
+            # No clip region is the same in any figure: pltrs (Rust) took
+            # that too.
+            if other.get_clip_box() is None:
+                self.__dict__.pop("_clipbox", None)
+            if other.get_clip_path() is None:
+                self.__dict__.pop("_clippath", None)
         if "_sticky_edges" in other.__dict__:
             # The values themselves, as matplotlib copies the lists.
             for mine, theirs in zip(self.sticky_edges, other.sticky_edges):

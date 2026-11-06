@@ -187,8 +187,9 @@ _GCD_BY = {HOURLY: ('byhour', 24), MINUTELY: ('byminute', 60),
            SECONDLY: ('bysecond', 60)}
 
 
-def _rule(construct):
-    """The native description of the rule of dateutil's keywords."""
+def _check_rule(construct):
+    """Fail as dateutil's ``rrule`` fails to be made of the keywords
+    *construct* (the values it keeps fail where they are used)."""
     unknown = set(construct) - _RULE_KEYWORDS
     if unknown:
         raise TypeError(f"rrule got an unexpected keyword argument "
@@ -199,10 +200,14 @@ def _rule(construct):
         # every so many of them with the gcd of the interval and the base,
         # which takes integers only.
         math.gcd(construct.get('interval', 1), by[1])
+
+
+def _rule(construct, started):
+    """The native description of the rule of dateutil's keywords, starting
+    at *started* when they give no start."""
     dtstart = construct.get('dtstart')
     if dtstart is None:
-        # dateutil starts rules without a start now, to the second.
-        dtstart = datetime.datetime.now().replace(microsecond=0)
+        dtstart = started
     until = construct.get('until')
     wkst = construct.get('wkst')
     return {
@@ -284,17 +289,64 @@ class rrulewrapper:
 
         self._construct = kwargs.copy()
         self._tzinfo = tzinfo
-        self._rule = _rule(self._construct)
+        _check_rule(self._construct)
+        # dateutil starts a rule without a start when it is made, to the
+        # second.
+        self._started = datetime.datetime.now().replace(microsecond=0)
+        self.__dict__.pop('_native_rule', None)
+        self.__dict__.pop('_dateutil_rule', None)
+
+    @property
+    def _rule(self):
+        """The rule as pltrs (Rust) computes its occurrences, made when
+        first needed (dateutil keeps the values it is given, failing where
+        it uses them)."""
+        rule = self.__dict__.get('_native_rule')
+        if rule is None:
+            rule = self.__dict__['_native_rule'] = _rule(self._construct, self._started)
+        return rule
+
+    @property
+    def _rrule(self):
+        """
+        The `dateutil.rrule.rrule` of the parameters: matplotlib's wrapper
+        holds one and hands it what the wrapper itself lacks (pltrs (Rust)
+        computes the occurrences the locators ask for).
+        """
+        rule = self.__dict__.get('_dateutil_rule')
+        if rule is None:
+            from dateutil.rrule import rrule
+            rule = self.__dict__['_dateutil_rule'] = rrule(
+                **{'dtstart': self._started, **self._construct})
+        return rule
+
+    def __getattr__(self, name):
+        if '_construct' not in self.__dict__:
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}")
+        f = getattr(self._rrule, name)
+        if name in {'xafter', 'xbefore'} and self._tzinfo is not None:
+            @functools.wraps(f)
+            def aware(*args, **kwargs):
+                args = tuple(self._naive(arg) for arg in args)
+                kwargs = {kw: self._naive(arg) for kw, arg in kwargs.items()}
+                return [self._attach_tzinfo(dt, self._tzinfo)
+                        for dt in f(*args, **kwargs)]
+            return aware
+        return f
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     @property
     def _freq(self):
         """The frequency (dateutil's ``rrule._freq``)."""
-        return self._rule['freq']
+        return self._construct['freq']
 
     @property
     def _interval(self):
         """The interval (dateutil's ``rrule._interval``)."""
-        return self._rule['interval']
+        return self._construct.get('interval', 1)
 
     def _attach_tzinfo(self, dt, tzinfo):
         # pytz zones are attached by "localizing" the datetime

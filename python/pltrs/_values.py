@@ -72,11 +72,15 @@ def given(artist, name, native, default=NONE_GIVEN, same=None):
 
 def same_cycled(value, native):
     """Whether *native* is *value*, an array cycled over the items of
-    *native* (one width given for every level, say)."""
-    value, native = np.atleast_1d(value), np.atleast_1d(native)
+    *native* (one width given for every level, say), its masked or NaN
+    items NaN there (as pltrs (Rust) holds them)."""
+    value, native = np.ma.atleast_1d(value), np.atleast_1d(native)
     if value.ndim != 1 or native.ndim != 1 or not value.size or not native.size:
         return False
-    return bool(np.array_equal(np.resize(value, native.size), native))
+    if np.ma.is_masked(value):
+        value = value.astype(float).filled(np.nan)
+    return bool(np.array_equal(np.resize(np.asarray(value), native.size), native,
+                               equal_nan=value.dtype.kind in "fc"))
 
 
 def same_color(a, b):

@@ -6,10 +6,11 @@ suites from, checking every download's SHA-256.
 
 * ``fetch.py sdist NAME VERSION DEST``: looks the release up in PyPI's
   JSON API, downloads its sdist, checks the SHA-256 PyPI gives for it and
-  unpacks it into ``DEST/NAME-VERSION``, with the archive filter that
+  unpacks it into the directory ``DEST``, with the archive filter that
   refuses links and paths leading out of the directory. The archive is
-  unpacked beside, then renamed into place, so that ``DEST/NAME-VERSION``
-  exists only complete;
+  unpacked beside, then its one top directory (``NAME-VERSION``, or the
+  normalised ``scikit_learn-1.9.1``) is renamed into place, so that
+  ``DEST`` exists only complete;
 * ``fetch.py file URL SHA256 DEST``: downloads one file (a test's data
   that the sdist leaves out) to ``DEST``, if its SHA-256 is *SHA256*.
 
@@ -53,15 +54,18 @@ def sdist(name, version, dest):
     """Downloads, checks and unpacks the sdist into *dest*."""
     url, sha256 = sdist_of(name, version)
     data = download(url, sha256)
-    unpacked = dest / f"{name}-{version}"
-    partial = dest / f".{name}-{version}.partial"
+    partial = dest.with_name(f".{dest.name}.partial")
     shutil.rmtree(partial, ignore_errors=True)
     partial.mkdir(parents=True)
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
         archive.extractall(partial, filter="data")
-    (partial / unpacked.name).rename(unpacked)
+    match list(partial.iterdir()):
+        case [top] if top.is_dir():
+            top.rename(dest)
+        case entries:
+            raise SystemExit(f"{url}: {len(entries)} entries at the top, expected one directory")
     shutil.rmtree(partial)
-    print(f"unpacked {url} into {unpacked}")
+    print(f"unpacked {url} into {dest}")
 
 
 def file(url, sha256, dest):

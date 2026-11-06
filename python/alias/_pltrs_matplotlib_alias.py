@@ -57,6 +57,18 @@ class _AliasLoader(importlib.abc.Loader):
         it gets its own back.
         """
         module.__spec__ = self.real_spec
+        _alias_imported_toolkits()
+
+
+def _alias_imported_toolkits():
+    """Import the aliases of the toolkits pltrs imported itself, as
+    matplotlib's own import of ``mpl_toolkits.mplot3d`` (by
+    ``matplotlib.projections``) makes it an attribute of ``mpl_toolkits``,
+    which programs reach it through (``mpl_toolkits.mplot3d.Axes3D``)."""
+    for alias, real in ALIASES:
+        if (alias.startswith("mpl_toolkits.") and real in sys.modules
+                and alias not in sys.modules):
+            importlib.import_module(alias)
 
 
 class _AliasFinder(importlib.abc.MetaPathFinder):
@@ -78,3 +90,4 @@ def become(name):
     if not any(isinstance(finder, _AliasFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _AliasFinder())
     sys.modules[name] = importlib.import_module(real_name(name))
+    _alias_imported_toolkits()

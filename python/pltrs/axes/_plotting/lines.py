@@ -14,7 +14,7 @@ from ..._artist_kwargs import keep_program_picker
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
-from ._helpers import floats, keep_data, line_data, line_kwargs, wrap
+from ._helpers import floats, keep_data, line_data, made_line_kwargs, wrap
 
 
 def _span_geometry(patch, x, y, width, height):
@@ -257,7 +257,7 @@ class LinesMixin:
                              "argument; axhline generates its own transform.")
         yy, = self._process_unit_info([("y", y)], kwargs)
         native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
-                              line_kwargs(kwargs))
+                              made_line_kwargs(kwargs))
         line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
         # matplotlib's line keeps the data it was made with.
         line._xorig, line._yorig = [xmin, xmax], [y, y]
@@ -277,7 +277,7 @@ class LinesMixin:
                              "argument; axvline generates its own transform.")
         xx, = self._process_unit_info([("x", x)], kwargs)
         native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
-                              line_kwargs(kwargs))
+                              made_line_kwargs(kwargs))
         line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
         line._xorig, line._yorig = [x, x], [ymin, ymax]
         return line
@@ -299,7 +299,7 @@ class LinesMixin:
         native = _plotting.axline(
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
-            None if slope is None else float(slope), line_kwargs(kwargs))
+            None if slope is None else float(slope), made_line_kwargs(kwargs))
         line = wrap(self, native, mlines.AxLine)
         line._remember_geometry(xy1, xy2, slope)
         return keep_program_picker(line, kwargs)

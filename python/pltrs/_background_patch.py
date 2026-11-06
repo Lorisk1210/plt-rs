@@ -11,11 +11,14 @@ coordinates matplotlib places it in, which takes the background's style
 visibility, z-order and group id) whenever it is handed out, and whose
 setters give the background their changes. Its extent, its figure,
 whether it contains a point and the region clipping to it clips to are
-those of the background.
+those of the background. A patch the program makes an Axes' patch
+(`set_axes_patch`) becomes such a mirror too, its outline the
+background's shape.
 """
 
 from . import _live_transforms, _mirrors
 from ._native import axisartist as _axisartist, patches as _patches
+from ._native import projections as _projections
 
 
 class _Background(_mirrors.Mirroring):
@@ -70,15 +73,21 @@ class _FigureBackground(_Background):
                 _live_transforms.to_native(self.owner.transSubfigure))
 
 
-def _made(owner, patch, mirroring, transform):
-    """*patch* made the mirror of the background of *owner*, placed by
-    *transform* unless it was made with a transform of its own, as
-    matplotlib places it. A patch of any class may be the background (the
-    one an Axes class of the program's makes, a `.RegularPolygon` say):
-    its class is made `~._mirrors.mirrorable` when one first is."""
+def _attach(patch, mirroring):
+    """Make *patch* the mirror of a background (*mirroring*). A patch of any
+    class may be the background (the one an Axes class of the program's
+    makes, a `.RegularPolygon` say): its class is made
+    `~._mirrors.mirrorable` when one first is."""
     if not getattr(type(patch).set_facecolor, "_pushes", False):
         _mirrors.mirrorable(type(patch))
     _mirrors.attach(patch, mirroring)
+
+
+def _made(owner, patch, mirroring, transform):
+    """*patch* made the mirror of the background of *owner*, placed by
+    *transform* unless it was made with a transform of its own, as
+    matplotlib places it."""
+    _attach(patch, mirroring)
     if not patch.is_transform_set():
         with _mirrors.detached(patch):
             patch.set_transform(transform)
@@ -104,14 +113,31 @@ def axes_patch_shape(axes):
     return patch
 
 
-def share_axes_patch(axes, patch):
-    """Make *patch*, the background of another Axes, that of *axes*
-    (matplotlib's ``aux_ax.patch = ax.patch``): the parasite *axes* clips
-    to its outline and draws it again among its children."""
+def set_axes_patch(axes, patch):
+    """
+    Make *patch* the background of *axes* (``ax.patch = patch``):
+
+    * the background of another Axes (matplotlib's ``aux_ax.patch =
+      ax.patch``): the parasite *axes* clips to its outline and draws it
+      again among its children;
+    * a patch of the program's, in an Axes or not (astropy's ``WCSAxes``
+      gives its frame's `.PathPatch`, in data coordinates): the patch
+      becomes the mirror of the background, which takes its style, and
+      its outline, in the Axes' coordinates as it is now, is the shape the
+      background fills and what the Axes clips to.
+    """
     mirror = _mirrors.mirroring(patch)
-    if not isinstance(mirror, _AxesBackground):
-        raise TypeError("an Axes' patch must be the background patch of an Axes")
-    if mirror.owner is not axes:
+    if mirror is not None and not isinstance(mirror, _AxesBackground):
+        raise TypeError("an Axes' patch cannot be the background of a figure")
+    if mirror is None:
+        from .patches import Rectangle
+        outline = (patch.get_transform() - axes.transAxes).transform_path(
+            patch.get_path())
+        _projections.set_patch_outline(axes._native, outline,
+                                       isinstance(patch, Rectangle))
+        _attach(patch, _AxesBackground(axes))
+        patch._mirror.push(patch)
+    elif mirror.owner is not axes:
         _axisartist.share_floating_patch(mirror.owner._native, axes._native)
     axes.__dict__["_patch"] = patch
 

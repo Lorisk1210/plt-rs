@@ -2,17 +2,18 @@
 //! sdists of the libraries whose suites `ecosystem suite` runs.
 //!
 //! * `target/ecosystem/venv`, pltrs' side: `python/requirements-ecosystem.txt`
-//!   (pandas, seaborn, scipy, pytest and its plugins, pltrs' own
-//!   dependencies) installed with matplotlib excluded from the resolution,
-//!   so that what requires it (seaborn) gets `python/alias`; setup checks
-//!   that the venv cannot import matplotlib;
+//!   (the libraries, what their tests use, pytest and its plugins, pltrs'
+//!   own dependencies) installed with matplotlib excluded from the
+//!   resolution, so that what requires it (seaborn, plotnine, pytest-mpl)
+//!   gets `python/alias`; setup checks that the venv cannot import
+//!   matplotlib;
 //! * `target/ecosystem/reference-venv`, matplotlib's side: the same list
 //!   and `python/requirements-ecosystem-reference.txt` (real matplotlib
 //!   3.11.2 and its dependencies), resolved together;
 //! * the sdists of the libraries at the versions the list pins, in
 //!   `target/refs/<name>-dl/<name>-<version>`, with the files of the
 //!   release's source tree their suites read that the sdists leave out
-//!   (pandas' iris data), which `python/ecosystem/fetch.py` downloads
+//!   (pandas' iris data, geopandas' maps), which `python/ecosystem/fetch.py` downloads
 //!   (from `PyPI`, and from the repository at the release's tag) when they
 //!   are missing, checking their SHA-256.
 
@@ -22,7 +23,7 @@ use std::process::Command;
 
 use pltrs_core::os::Os;
 
-use super::suite::Library;
+use super::libraries::{LIBRARIES, Library};
 use crate::python;
 
 /// The pinned list of both venvs.
@@ -56,7 +57,7 @@ pub(super) fn run() -> Result<(), String> {
         &[REQUIREMENTS, REFERENCE_REQUIREMENTS],
     ))?;
 
-    for library in super::suite::LIBRARIES {
+    for library in LIBRARIES {
         fetch(&python, &library)?;
     }
     println!(
@@ -97,14 +98,10 @@ fn pin_in(text: &str, name: &str) -> Option<String> {
 
 /// Where the sdist of `name` `version` is unpacked.
 pub(super) fn sdist(name: &str, version: &str) -> PathBuf {
-    refs(name).join(format!("{name}-{version}"))
-}
-
-/// The directory of `name`'s downloaded sdists.
-fn refs(name: &str) -> PathBuf {
     python::root()
         .join("target/refs")
         .join(format!("{name}-dl"))
+        .join(format!("{name}-{version}"))
 }
 
 /// Downloads and unpacks the sdist of `library` with `python`, and the
@@ -116,13 +113,16 @@ fn fetch(python: &Path, library: &Library) -> Result<(), String> {
         python::run_checked(
             fetch_command(python, "sdist")
                 .args([library.name, &version])
-                .arg(refs(library.name)),
+                .arg(&sdist),
         )?;
     }
-    for (path, sha256) in library.left_out {
+    let Some(left_out) = library.left_out else {
+        return Ok(());
+    };
+    for (path, sha256) in left_out.files {
         let dest = sdist.join(path);
         if !dest.is_file() {
-            let url = format!("{}/v{version}/{path}", library.repository);
+            let url = format!("{}/v{version}/{path}", left_out.repository);
             python::run_checked(
                 fetch_command(python, "file")
                     .args([url.as_str(), sha256])
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn the_libraries_are_pinned() {
-        for library in crate::ecosystem::suite::LIBRARIES {
+        for library in LIBRARIES {
             assert!(pinned(library.name).is_ok(), "{}", library.name);
         }
     }

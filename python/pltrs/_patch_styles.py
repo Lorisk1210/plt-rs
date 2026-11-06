@@ -404,6 +404,12 @@ def _arrow_pieces(style, vertices, codes, mutation_size, linewidth, aspect):
     return [(paths, bool(fillable))]
 
 
+def calls_program(style):
+    """Whether pltrs (Rust) calls the program to draw with *style*, a style
+    object: whether it is the program's (or a plain callable)."""
+    return not (isinstance(style, _Described) and type(style)._spec_name is not None)
+
+
 def _native_spec(style, registry):
     """
     *style* of *registry* (a name, which *registry* validates, or a style
@@ -415,7 +421,7 @@ def _native_spec(style, registry):
     """
     if isinstance(style, str):
         style = registry(style)
-    if isinstance(style, _Described) and type(style)._spec_name is not None:
+    if not calls_program(style):
         return style._spec()
     if not callable(style):
         raise TypeError(f"{style!r} is not a {registry.__name__}")

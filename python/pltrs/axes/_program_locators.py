@@ -14,11 +14,16 @@ what such locators place (`follow`), and its layout hook, which pltrs
 its locator says (its ``_locate_by_program(renderer)``) until the next
 draw. Before the first draw an axes keeps its original position, as in
 matplotlib.
+
+The hook first runs the figure's layout engine of a class of the
+program's (`follow_engine`): its ``execute(figure)``, which matplotlib's
+draw runs before it draws the Axes (plotnine places its panels so).
 """
 
 import weakref
 
 from .._native import insets as _insets
+from .._program_classes import takes_from_program
 
 #: What locators of the program's place, per root figure.
 _followed = weakref.WeakKeyDictionary()
@@ -30,6 +35,18 @@ def follow(owner, figure):
     before every layout of a draw, while *owner* (an Axes or a divider)
     lives, until `forget`.
     """
+    _owners(figure).add(owner)
+
+
+def follow_engine(figure):
+    """Have the root *figure* run its layout engine of the program's before
+    every layout of a draw."""
+    _owners(figure)
+
+
+def _owners(figure):
+    """What the root *figure* places by locators of the program's, its
+    layout hook installed."""
     owners = _followed.get(figure)
     if owners is None:
         owners = _followed[figure] = weakref.WeakSet()
@@ -41,7 +58,7 @@ def follow(owner, figure):
                 _locate(alive)
 
         _insets.set_layout_hook(figure._native, hook)
-    owners.add(owner)
+    return owners
 
 
 def followed(figure):
@@ -57,7 +74,16 @@ def forget(owner, figure):
 
 
 def _locate(figure):
-    """Place everything *figure* follows, with its renderer."""
+    """Run the layout engine of the program's of *figure*, then place
+    everything it follows, with its renderer."""
+    engine = figure.get_layout_engine()
+    if (figure.axes and engine is not None
+            and takes_from_program(type(engine), "execute")):
+        try:
+            engine.execute(figure)
+        except ValueError:
+            # As matplotlib's draw, which leaves the layout as it is.
+            pass
     owners = list(_followed.get(figure, ()))
     if owners:
         renderer = figure._get_renderer()

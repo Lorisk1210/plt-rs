@@ -527,8 +527,12 @@ class AxesTrees:
     def _default_axis_scale(self, axis, name):
         """The scale object of *axis*, named *name*, when none was given
         from Python (pltrs (Rust) set it, and *transScale* reads it):
-        matplotlib's default of that scale."""
-        from .scale import scale_factory
+        matplotlib's default of that scale, or the function scale of a
+        colorbar's long axis."""
+        from .scale import FuncScale, scale_factory
+        colorbar = getattr(self, "_colorbar", None)
+        if name == "function" and colorbar is not None:
+            return FuncScale(axis, colorbar._scale_functions())
         return scale_factory(name, axis)
 
     def _unstale_viewLim(self):

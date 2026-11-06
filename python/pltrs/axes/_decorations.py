@@ -21,7 +21,7 @@ class DecorationsMixin:
 
     @patch.setter
     def patch(self, patch):
-        _background_patch.share_axes_patch(self, patch)
+        _background_patch.set_axes_patch(self, patch)
 
     def _fit_patch(self, patch):
         """Give *patch*, the background, what the Axes' draw gives it:

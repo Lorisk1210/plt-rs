@@ -465,6 +465,33 @@ class Colorbar:
         """The value at the middle of each colour block."""
         return _colorbar.values(self._native)
 
+    def _forward_boundaries(self, x):
+        """Map the boundaries evenly between 0 and 1 (the forward function
+        of the long axis' scale of a colorbar with boundaries), and what
+        lies well outside them to -1 and 2, keeping ticks out of the
+        extensions."""
+        b = self._boundaries
+        y = np.interp(x, b, np.linspace(0, 1, len(b)))
+        eps = (b[-1] - b[0]) * 1e-6
+        y[x < b[0]-eps] = -1
+        y[x > b[-1]+eps] = 2
+        return y
+
+    def _inverse_boundaries(self, x):
+        """The inverse of `_forward_boundaries`."""
+        b = self._boundaries
+        return np.interp(x, np.linspace(0, 1, len(b)), b)
+
+    def _scale_functions(self):
+        """The functions of the long axis' scale when pltrs (Rust) scales it
+        by function, as matplotlib's ``_reset_locator_formatter_scale``
+        chooses them: the boundaries spaced evenly, or the norm and its
+        inverse."""
+        from .colors import BoundaryNorm
+        if self.boundaries is not None or isinstance(self.norm, BoundaryNorm):
+            return self._forward_boundaries, self._inverse_boundaries
+        return self.norm, self.norm.inverse
+
     @property
     def outline(self):
         """The spine outlining the colours and the extensions, the

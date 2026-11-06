@@ -155,11 +155,17 @@ fn contour(
 ) -> PyResult<ContourSet> {
     let field = quad_field(field, generation)?;
     let options = contour_options(requested, look, extras)?;
-    Ok(if filled {
+    let set = if filled {
         axes.contourf(&field, options)?
     } else {
         axes.contour(&field, options)?
-    })
+    };
+    // What matplotlib's constructor warns about (non-positive values of a
+    // log-scaled field masked).
+    for warning in set.warnings() {
+        pltrs::warnings::warn(&warning.to_string());
+    }
+    Ok(set)
 }
 
 /// What the contour generator of the field is made from, the defaults

@@ -7,7 +7,7 @@ Filled areas and steps: `~.Axes.fill`, `~.Axes.fill_between`,
 import numpy as np
 
 from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
-                 collections as mcoll)
+                 collections as mcoll, colors as mcolors)
 from ... import lines as mlines, patches as mpatches
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -37,6 +37,15 @@ def _rcParams():
 #: given to `~.Axes.fill` are not taken from the cycle.
 _CYCLED_PATCH_PROPS = ("color", "facecolor", "edgecolor", "linestyle",
                        "linewidth", "hatch", "alpha")
+
+
+def _first_color(color):
+    """*color*, or the first of the colours *color* lists ('none' for none
+    listed): the colour pltrs (Rust) fills with until the collection takes
+    them all."""
+    if color is None or mcolors.is_color_like(color):
+        return color
+    return color[0] if len(color) else "none"
 
 
 class FillsMixin:
@@ -80,8 +89,15 @@ class FillsMixin:
                              **kwargs):
         """`fill_between` (*ind_dir* ``"x"``) or `fill_betweenx` (``"y"``)."""
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
-        color = kwargs.pop("color", None)
-        facecolor = kwargs.pop("facecolor", None)
+        # Colours given per polygon (plotnine's ribbons) are the
+        # collection's once it is made, in the order given; pltrs (Rust)
+        # takes their first, which keeps the property cycle from
+        # advancing, as matplotlib's given colours do.
+        per_polygon = {name: value for name, value in kwargs.items()
+                       if name in ("color", "facecolor") and value is not None
+                       and not mcolors.is_color_like(value)}
+        color, facecolor = (_first_color(kwargs.pop(name, None))
+                            for name in ("color", "facecolor"))
         dep_dir = "y" if ind_dir == "x" else "x"
         ind, dep1, dep2 = np.broadcast_arrays(
             *map(np.ma.masked_invalid, self._process_unit_info(
@@ -102,7 +118,7 @@ class FillsMixin:
             _live_transforms.given_to_native(kwargs.get("transform")))
         collection = wrap(self, native, mcoll.FillBetweenPolyCollection)
         collection.t_direction = ind_dir
-        collection._internal_update(kwargs)
+        collection._internal_update({**per_polygon, **kwargs})
         return collection
 
     @_preprocess_data(replace_names=["x", "y1", "y2", "where"])

@@ -461,6 +461,24 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         return _text.get_wrapped_text(self._native)
 
+    def _get_layout(self, renderer):
+        """
+        Return
+
+        - the rotated, axis-aligned text bbox;
+        - a list of ``(line, (width, ascent, descent), xy)`` tuples for each line;
+        - a ``(xy, (width, height))`` pair of the lower-left corner and size of the
+          rotated, *text-aligned* text box (i.e. describing how to draw the
+          text-surrounding box).
+
+        pltrs (Rust) lays the text out, in pixels relative to its position,
+        measuring its lines through the text metrics cache of *renderer*.
+        """
+        with _measuring_with(renderer):
+            extents, lines, frame = _text.get_layout(self._native)
+        x0, y0, x1, y1 = extents
+        return Bbox([[x0, y0], [x1, y1]]), lines, frame
+
     def get_color(self):
         """Return the color of the text."""
         return _values.given(self, "color", _text.get_color(self._native),
@@ -853,6 +871,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             ``None`` which is converted to an empty string.
         """
         _text.set_text(self._native, '' if s is None else str(s))
+
+    # matplotlib's attribute holding the string, which programs read
+    # (plotnine's layout skips texts without one).
+    _text = property(get_text, set_text, doc="The text string.")
 
     def _preprocess_math(self, s):
         """

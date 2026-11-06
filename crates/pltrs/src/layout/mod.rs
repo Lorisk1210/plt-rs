@@ -132,6 +132,13 @@ impl LayoutEngine {
         }
     }
 
+    /// Whether laying the figure out with the engine measures its artists
+    /// (their tight boxes, matplotlib's `get_tightbbox`): constrained and
+    /// tight layouts do, a placeholder does not.
+    pub fn measures(&self) -> bool {
+        !matches!(self, Self::PlaceHolder(_))
+    }
+
     /// The placeholder standing in for this engine once it is removed.
     fn placeholder(&self) -> Self {
         Self::PlaceHolder(PlaceHolderLayout {

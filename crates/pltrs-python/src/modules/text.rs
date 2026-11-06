@@ -385,6 +385,39 @@ fn get_wrapped_text(text: Text) -> PyResult<String> {
     Ok(text.wrapped_text()?)
 }
 
+/// A laid-out line: `(line, (width, ascent, descent), (x, y))`.
+type LaidOutLine = (String, (f64, f64, f64), (f64, f64));
+
+/// The layout of a text as matplotlib's `Text._get_layout` gives it, in
+/// pixels relative to the text's position: the extents of the rotated
+/// block, the lines with their metrics and baseline origins, and the
+/// text-aligned frame `((x, y), (width, height))`.
+type TextLayout = (
+    (f64, f64, f64, f64),
+    Vec<LaidOutLine>,
+    ((f64, f64), (f64, f64)),
+);
+
+/// The layout of the text (`Text._get_layout`).
+fn get_layout(text: Text) -> PyResult<TextLayout> {
+    let laid_out = text.layout()?;
+    let block = laid_out.block;
+    let lines = laid_out
+        .lines
+        .into_iter()
+        .zip(&block.lines)
+        .map(|(line, placed)| {
+            (
+                line,
+                (placed.width, placed.ascent, placed.descent),
+                (placed.origin.x, placed.origin.y),
+            )
+        })
+        .collect();
+    let (corner, size) = block.frame;
+    Ok((block.bbox.extents(), lines, ((corner.x, corner.y), size)))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("figure_text", figure_text)?;
@@ -432,5 +465,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_language", get_language)?;
     module.add("in_data_domain", in_data_domain)?;
     module.add("get_wrapped_text", get_wrapped_text)?;
+    module.add("get_layout", get_layout)?;
     copy::register(module)
 }

@@ -250,7 +250,16 @@ def measure_artist(artist):
     and tight boxes ask it), None for no space: what pltrs (Rust) takes
     for it, before it lays the figure out or computes its tight box."""
     figure = artist.get_figure(root=True)
-    bbox = artist.get_tightbbox(None if figure is None else figure._get_renderer())
+    if figure is None:
+        bbox = artist.get_tightbbox(None)
+    else:
+        renderer = figure._get_renderer()
+        # What measuring draws with a renderer of this package (astropy's
+        # WCSAxes draws its ticks to measure them) is dropped, as what
+        # matplotlib's layouts draw is drawn over.
+        with (_recording(renderer) if hasattr(renderer, "_recording")
+              else contextlib.nullcontext()):
+            bbox = artist.get_tightbbox(renderer)
     if bbox is None or (bbox.width == 0 and bbox.height == 0):
         return None
     return tuple(map(float, bbox.extents))

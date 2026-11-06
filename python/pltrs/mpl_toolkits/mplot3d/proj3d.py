@@ -101,16 +101,16 @@ def _ortho_transformation(zfront, zback):
         np.array([zfront, zback, 0]).dtype)
 
 
-def _transform(xs, ys, zs, M):
-    """The points through the homogeneous matrix *M*, divided by ``w``."""
+def _transform(xs, ys, zs, M, through=_mplot3d.transform):
+    """The points through the homogeneous matrix *M*, divided by ``w``
+    (*through* the native function doing so)."""
     if M is None:
         # The matrix of an axes not drawn yet: numpy's error multiplying
         # the padded points by it, as matplotlib's `np.dot` raises it.
         np.dot(M, np.array([xs, ys, zs, np.ones_like(xs)]))
     columns = [np.asarray(c, dtype=float).ravel().tolist()
                for c in np.broadcast_arrays(xs, ys, zs)]
-    txs, tys, tzs = _mplot3d.transform(np.asarray(M, dtype=float),
-                                       tuple(columns))
+    txs, tys, tzs = through(np.asarray(M, dtype=float), tuple(columns))
     return np.array(txs), np.array(tys), np.array(tzs)
 
 
@@ -118,7 +118,8 @@ def inv_transform(xs, ys, zs, invM):
     """
     Transform the points by the inverse of the projection matrix, *invM*.
     """
-    return _transform(xs, ys, zs, invM)
+    # matplotlib divides each point by its w unless that is zero.
+    return _transform(xs, ys, zs, invM, _mplot3d.inverse_transform)
 
 
 def proj_transform(xs, ys, zs, M):

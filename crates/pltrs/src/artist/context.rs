@@ -257,10 +257,24 @@ pub enum DrawErrorKind {
     /// Memory the system refused, such as for the canvas filtered artists
     /// are drawn on (matplotlib's `MemoryError`).
     OutOfMemory,
+    /// An attribute the artist's class lacks, such as the 3-D projection
+    /// of a 2-D collection a 3-D axes draws (Python's `AttributeError`).
+    MissingAttribute,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,
 }
+
+pltrs_core::archive_enum!(DrawErrorKind {
+    InvalidValue,
+    InvalidType,
+    Overflow,
+    Unsupported,
+    OutOfRange,
+    OutOfMemory,
+    MissingAttribute,
+    Other
+});
 
 /// A problem that kept (part of) an artist from being drawn, such as an
 /// invalid colour string given to a setter.

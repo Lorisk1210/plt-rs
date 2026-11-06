@@ -136,8 +136,12 @@ impl Projection for Disc {
         true
     }
 
-    fn data_ratio(&self) -> Option<f64> {
+    fn data_ratio(&self, _: &ProjectionView<'_>) -> Option<f64> {
         Some(1.0)
+    }
+
+    fn fixes_data_ratio(&self) -> bool {
+        true
     }
 
     fn can_zoom(&self) -> bool {
@@ -333,6 +337,24 @@ fn fixed_projections_refuse_changes() {
     let (_, sheared) = sheared();
     assert!(sheared.can_zoom() && sheared.can_pan());
     sheared.set_adjustable(Adjustable::Datalim).unwrap();
+}
+
+#[test]
+fn fixed_limits_let_the_axis_change_them() {
+    let (fig, ax) = disc();
+    ax.xaxis().set_inverted(true);
+    let limits = crate::axes::Limits::new(-0.5, 0.5);
+    assert_eq!(ax.yaxis().set_limits(limits, true), Ok((-0.5, 0.5)));
+    assert_eq!((ax.xlim(), ax.ylim()), ((1.0, -1.0), (-0.5, 0.5)));
+    let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+    fig.draw(&mut renderer).unwrap();
+    ax.set_xlim(0.0, 1.0).unwrap();
+    let errors = fig.draw(&mut renderer).unwrap_err().0;
+    assert_eq!(errors[0].kind, crate::artist::DrawErrorKind::InvalidType);
+    assert_eq!(
+        errors[0].message,
+        "Changing axes limits of a disc projection is not supported."
+    );
 }
 
 #[test]

@@ -9,11 +9,25 @@ pick as matplotlib's recursion over the children does. A callable picker
 stays with the Python artist, which `PickingMixin.pick` asks itself.
 """
 
+import logging
 from numbers import Number
 
 import numpy as np
 
 from ._native import artist as _artist
+
+#: The logger of the `.artist` module, which matplotlib's warns with.
+_log = logging.getLogger(__name__.rpartition(".")[0] + ".artist")
+
+
+def contains_untested(artist, mouseevent):
+    """
+    matplotlib's `.Artist.contains`, for the classes whose matplotlib
+    counterparts have no hit test of their own (the axis artists of the
+    toolkits): warn, and contain nothing.
+    """
+    _log.warning("%r needs 'contains' method", artist.__class__.__name__)
+    return False, {}
 
 
 class PickingMixin:

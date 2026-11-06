@@ -95,7 +95,16 @@ fn measure_aux_boxes(state: &mut FigureState, tree: &mut OffsetBox<ArtistId>) {
             .iter()
             .filter_map(|&id| state.store.get(id)?.window_extent(&ctx))
             .reduce(|a, b| a.union(&b));
-        aux.set_extent(extent.unwrap_or(Bbox::from_bounds(0.0, 0.0, 0.0, 0.0)));
+        let figureless_text = aux.artists.iter().any(|&id| {
+            state.store.get_as::<TextArtist>(id).is_some_and(|text| {
+                let base = text.base();
+                base.figureless && base.visible
+            })
+        });
+        aux.set_extent(
+            extent.unwrap_or(Bbox::from_bounds(0.0, 0.0, 0.0, 0.0)),
+            figureless_text,
+        );
     });
 }
 

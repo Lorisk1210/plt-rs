@@ -138,6 +138,11 @@ impl Limits3D {
         (data.lo[i], data.hi[i])
     }
 
+    /// Replaces the view limits of one axis as they are.
+    pub(crate) fn set_view_interval(&mut self, axis: Axis3, interval: (f64, f64)) {
+        self.view[axis.index()] = interval;
+    }
+
     /// Replaces the data interval of one axis.
     pub(crate) fn set_data_interval(&mut self, axis: Axis3, (lo, hi): (f64, f64)) {
         let (data, i) = self.data_box(axis);

@@ -7,6 +7,7 @@ on what the x or y axis draws there, through pltrs (Rust)'s
 """
 
 import pltrs.axes as maxes
+from pltrs import _artist_picking
 from pltrs.artist import Artist
 from pltrs.axis import XAxis, YAxis
 from pltrs._native import axes_grid1 as _axes_grid1
@@ -90,6 +91,9 @@ class SimpleAxisArtist(Artist):
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
+
+    # matplotlib's class has no hit test of its own.
+    contains = _artist_picking.contains_untested
 
     def __init__(self, axis, axisnum, spine):
         self._axis = axis

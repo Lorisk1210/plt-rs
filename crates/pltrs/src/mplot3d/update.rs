@@ -16,7 +16,7 @@ use super::plot::columns;
 use super::state::Axes3DState;
 use super::units::Sources3D;
 use crate::artist::ArtistHandle;
-use crate::collections::Collection;
+use crate::collections::{Collection, CollectionArtist, DepthSorted};
 use crate::lines::Line2D;
 use crate::text::Text;
 use crate::units::AxisValues;
@@ -132,6 +132,11 @@ impl Axes3D {
             }
             _ => None,
         })?;
+        // matplotlib's `set_3d_properties` leaves the colours unsorted until
+        // the next projection.
+        scatter
+            .raw()
+            .with_mut::<CollectionArtist, _>(|c| c.depth_sorted = Some(DepthSorted::unprojected()));
         Ok(self)
     }
 
@@ -187,7 +192,8 @@ impl Axes3D {
     ///
     /// # Errors
     ///
-    /// When `artist` is not a 3-D artist of these axes.
+    /// When `artist` is not a 3-D artist of these axes, or the problem
+    /// recorded for drawing it (see [`Axes3D::set_draw_failure`]).
     pub fn do_3d_projection(&self, artist: &impl ArtistHandle) -> Result<f64, Axes3DError> {
         self.project_artist(artist, |projection| projection)
     }
@@ -200,6 +206,9 @@ impl Axes3D {
         adjust: impl FnOnce(Projection) -> Projection,
     ) -> Result<f64, Axes3DError> {
         let id = self.own_id(artist).ok_or(Axes3DError::Not3DArtist)?;
+        if let Some(failure) = self.with(|axes| axes.failure_of(id).cloned()) {
+            return Err(Axes3DError::Draw(failure));
+        }
         let depth = self.raw().with_others::<Axes3DState, _>(|axes, store| {
             let entry = axes.artists.iter().find(|a| a.id == id)?;
             let projection = adjust(axes.projection());

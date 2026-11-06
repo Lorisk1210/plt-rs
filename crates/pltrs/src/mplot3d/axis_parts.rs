@@ -13,6 +13,7 @@ use super::axis_draw::{AxisText3D, axis_extents, axis_texts};
 use super::axis_handle::Axis3D;
 use super::handle::Axes3D;
 use super::state::Axes3DState;
+use super::tick_sites::MinorTicks;
 use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext};
 use crate::axes::{TickStyle, TickerDefaults};
 use crate::colors::Color;
@@ -301,6 +302,16 @@ impl Axis3D {
     /// When a locator or formatter fails.
     pub fn tight_bbox(&self, for_layout_only: bool) -> Result<Option<Bbox>, TickerError> {
         self.ticks()?;
+        self.read(|axes| {
+            let axis = axes.axis(self.dir);
+            if axis.visible {
+                // matplotlib updates the ticks once per edge they are on.
+                let span = axes.limits.span(self.dir);
+                for _ in 0..axis.tick_edges() {
+                    axis.warn_minor_overlaps(&span, MinorTicks::Updated);
+                }
+            }
+        });
         let boxes = self.laid_out(|axes, layout, extent| {
             if axes.axis(self.dir).visible {
                 axis_extents(axes, layout, extent, for_layout_only, &[self.dir])

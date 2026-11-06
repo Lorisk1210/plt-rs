@@ -90,8 +90,12 @@ impl Projection for GeoState {
         true
     }
 
-    fn data_ratio(&self) -> Option<f64> {
+    fn data_ratio(&self, _: &ProjectionView<'_>) -> Option<f64> {
         Some(1.0)
+    }
+
+    fn fixes_data_ratio(&self) -> bool {
+        true
     }
 
     fn can_zoom(&self) -> bool {

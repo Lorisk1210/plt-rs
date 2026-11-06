@@ -644,7 +644,8 @@ impl Artist for TextArtist {
 /// the text artist along with single-line texts. TeX lines go to the
 /// renderer's `draw_tex` (or the thread's [`TexPainter`], if it has one),
 /// other lines to its `draw_text`. The thread's [`TextPainter`], if it
-/// has one, draws the block instead.
+/// has one, draws the block instead. A block anchored at a point that is
+/// not finite is not drawn, as matplotlib's `Text.draw` returns there.
 ///
 /// # Errors
 ///
@@ -656,6 +657,9 @@ pub(crate) fn draw_laid_out(
     anchor: Point,
     angle: f64,
 ) -> Result<(), TextError> {
+    if !anchor.is_finite() {
+        return Ok(());
+    }
     if let Some(painter) = overrides::painter() {
         overrides::paint(&*painter, ctx, laid_out, anchor, gc.foreground);
         return Ok(());

@@ -3,6 +3,7 @@
 use std::fmt;
 
 use super::coords::Axis3;
+use super::failures::DrawFailure;
 use super::math::Vec3;
 use crate::artist::AttachError;
 use crate::axes::PlotError;
@@ -89,6 +90,9 @@ pub enum Axes3DError {
     UnaddableErrors(Axis3),
     /// A collection made outside any figure that cannot join the axes.
     Attach(AttachError),
+    /// The problem recorded for drawing the artist (see
+    /// [`Axes3D::set_draw_failure`](super::Axes3D::set_draw_failure)).
+    Draw(DrawFailure),
 }
 
 impl fmt::Display for Axes3DError {
@@ -156,6 +160,7 @@ impl fmt::Display for Axes3DError {
             Self::Rect(err) => err.fmt(f),
             Self::Path(err) => err.fmt(f),
             Self::Attach(err) => err.fmt(f),
+            Self::Draw(failure) => failure.fmt(f),
         }
     }
 }
@@ -173,6 +178,7 @@ impl std::error::Error for Axes3DError {
             Self::Scale(err) => Some(err),
             Self::Ticker(err) => Some(err),
             Self::Attach(err) => Some(err),
+            Self::Draw(failure) => Some(failure),
             _ => None,
         }
     }

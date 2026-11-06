@@ -197,6 +197,10 @@ flags! {
     get_in_layout, set_in_layout => in_layout, set_in_layout;
     /// Whether a status bar shows the data under the pointer (`mouseover`).
     get_mouseover, set_mouseover => mouseover, set_mouseover;
+    /// Whether the artist is in its figure without belonging to it
+    /// (matplotlib's `figure` None, for the children an aux-transform box
+    /// takes once it joined its figure).
+    get_figureless, set_figureless => figureless, set_figureless;
 }
 
 /// The pixel snapping preference, `None` letting the renderer decide.
@@ -281,6 +285,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_animated", set_animated)?;
     module.add("get_in_layout", get_in_layout)?;
     module.add("set_in_layout", set_in_layout)?;
+    module.add("get_figureless", get_figureless)?;
+    module.add("set_figureless", set_figureless)?;
     module.add("get_mouseover", get_mouseover)?;
     module.add("set_mouseover", set_mouseover)?;
     module.add("get_snap", get_snap)?;

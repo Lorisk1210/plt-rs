@@ -4,8 +4,8 @@
 
 use pltrs::axes::{Axes, AxisName, GridOptions, TickDirection, TickLevel};
 use pltrs::axisartist::{
-    AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, LabelBase, TickMarks,
-    TickMarksArtist,
+    AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, GridlinesChoice, LabelBase,
+    TickMarks, TickMarksArtist, choose_gridlines,
 };
 use pltrs::collections::Collection;
 use pltrs::colors::Color;
@@ -136,6 +136,48 @@ fn grid(
 /// `ax.gridlines`), `None` once removed.
 fn gridlines(axes: Axes) -> PyResult<Option<Collection>> {
     Ok(AxisArtistAxes::of(axes).gridlines())
+}
+
+/// A setting of the gridlines as Python gives it: the name pltrs knows it
+/// by (`None` for another value) and Python's `repr` of the value.
+type GivenChoice = (Option<String>, String);
+
+/// The choice `given` names, `known` making the value of a name.
+fn choice<T>(
+    (name, spelled): GivenChoice,
+    known: impl FnOnce(&str) -> PyResult<T>,
+) -> PyResult<GridlinesChoice<T>> {
+    Ok(match name {
+        Some(name) => GridlinesChoice::Known(known(&name)?),
+        None => GridlinesChoice::Unknown(spelled),
+    })
+}
+
+/// Chooses the level (`which`) and the axis (`axis`) the gridlines
+/// `gridlines` of an axes show, each when given (matplotlib's
+/// `GridlinesCollection.set_which` and `set_axis`, which keep any value);
+/// `False` for a collection drawing no gridlines of an axes.
+fn choose(
+    gridlines: Collection,
+    which: Option<GivenChoice>,
+    axis: Option<GivenChoice>,
+) -> PyResult<bool> {
+    let which = which
+        .map(|given| {
+            choice(given, |name| {
+                name.parse::<TickLevel>()
+                    .map_err(|err| PyErr::value_error(err.to_string()))
+            })
+        })
+        .transpose()?;
+    let axis = axis
+        .map(|given| {
+            choice(given, |name| {
+                (name != "both").then(|| axis_named(name)).transpose()
+            })
+        })
+        .transpose()?;
+    Ok(choose_gridlines(&gridlines, which, axis))
 }
 
 /// Turns the axis artist's texts to the conventions of an axis on
@@ -366,6 +408,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("assign", assign)?;
     module.add("grid", grid)?;
     module.add("gridlines", gridlines)?;
+    module.add("choose_gridlines", choose)?;
     module.add("set_axis_direction", set_axis_direction)?;
     module.add("set_axisline_style", set_axisline_style)?;
     module.add("restyle_ticks", restyle_ticks)?;

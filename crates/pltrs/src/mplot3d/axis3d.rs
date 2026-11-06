@@ -593,7 +593,7 @@ impl Axis3DState {
     /// Whether a tick level is computed: something of it is shown and its
     /// locator places ticks (matplotlib's `_tick_group_visible` and
     /// `NullLocator` check).
-    fn level_computed(style: &TickStyle, locator: &dyn Locator) -> bool {
+    pub(super) fn level_computed(style: &TickStyle, locator: &dyn Locator) -> bool {
         let any: &dyn std::any::Any = locator;
         style.is_drawn() && !any.is::<NullLocator>()
     }

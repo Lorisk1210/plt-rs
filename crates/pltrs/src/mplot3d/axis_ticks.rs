@@ -9,6 +9,7 @@ use super::axis_draw::{GridLine3D, TickLine3D, grid_lines, tick_lines};
 use super::axis_handle::Axis3D;
 use super::axis3d::{Axis3DState, AxisSpan};
 use super::state::{Axes3DState, prepare_one};
+use super::tick_sites::MinorTicks;
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::axes::{AxisName, TickSet};
 use crate::dates::TimeZone;
@@ -39,6 +40,7 @@ impl Axis3DState {
             (self.tickers.minor_locator).locate(&TickContext::new(&info, &settings))?,
         )?;
         Ok(if self.remove_overlapping {
+            self.warn_minor_overlaps(span, MinorTicks::Located);
             self.without_overlaps(locs, &major, span.view)
         } else {
             locs
@@ -64,6 +66,24 @@ impl Axis3D {
             axis.warn_failed_ticks();
             axis.ticks.clone()
         })
+    }
+
+    /// [`ticks`](Self::ticks) where matplotlib updates them
+    /// (`_update_ticks`, which reading the tick labels runs), with the
+    /// warning its minor ticks meet there (see `tick_sites`).
+    ///
+    /// # Errors
+    ///
+    /// As [`ticks`](Self::ticks).
+    pub fn update_ticks(&self) -> Result<TickSet, TickerError> {
+        let ticks = self.ticks()?;
+        let dir = self.dir;
+        self.axes.with(|axes| {
+            let span = axes.limits.span(dir);
+            axes.axis(dir)
+                .warn_minor_overlaps(&span, MinorTicks::Updated);
+        });
+        Ok(ticks)
     }
 
     /// [`ticks`](Self::ticks) when they can be computed, without the

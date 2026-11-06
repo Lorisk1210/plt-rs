@@ -99,7 +99,7 @@ fn place_ticks(owner: AxisOwner, name: String) -> PyResult<()> {
             axis.place_ticks()?;
         }
         AnyAxis::Deep(axis) => {
-            axis.ticks()?;
+            axis.update_ticks()?;
         }
     }
     Ok(())

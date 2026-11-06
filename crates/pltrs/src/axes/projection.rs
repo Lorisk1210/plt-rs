@@ -2,7 +2,7 @@
 
 use super::{Axes, AxesState};
 use crate::polar::PolarState;
-use crate::projections::{AxesOutline, Projection};
+use crate::projections::{AxesOutline, Projection, ProjectionView};
 
 /// The kind of coordinate system an axes draws in.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -155,14 +155,24 @@ impl ProjectionState {
         }
     }
 
-    /// The data ratio the projection fixes (matplotlib's overridden
-    /// `get_data_ratio`): 1 for polar and geographic axes.
-    pub(crate) fn fixed_data_ratio(&self) -> Option<f64> {
+    /// The data ratio the projection gives in `view` (matplotlib's
+    /// overridden `get_data_ratio`): 1 for polar and geographic axes.
+    pub(crate) fn fixed_data_ratio(&self, view: &ProjectionView<'_>) -> Option<f64> {
         match self {
             Self::Rectilinear => None,
             Self::Polar(_) => Some(1.0),
-            Self::ProgramPolar(_, program) => program.data_ratio().or(Some(1.0)),
-            Self::Custom(custom) => custom.data_ratio(),
+            Self::ProgramPolar(_, program) => program.data_ratio(view).or(Some(1.0)),
+            Self::Custom(custom) => custom.data_ratio(view),
+        }
+    }
+
+    /// Whether the projection gives a data ratio of its own (see
+    /// [`Projection::fixes_data_ratio`]): polar and geographic axes do.
+    pub(crate) fn fixes_data_ratio(&self) -> bool {
+        match self {
+            Self::Rectilinear => false,
+            Self::Polar(_) | Self::ProgramPolar(..) => true,
+            Self::Custom(custom) => custom.fixes_data_ratio(),
         }
     }
 

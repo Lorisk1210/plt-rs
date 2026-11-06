@@ -12,6 +12,8 @@ from pltrs._native import mplot3d as _mplot3d
 from pltrs._preprocess import _preprocess_data
 from pltrs.axes._plotting.contours import _contour_look, _finish, _levels
 
+from . import _draw_problems
+
 
 def _in_3d(cls, placement):
     """The class of a contour set of *cls* placed in 3-D as *placement*
@@ -32,8 +34,33 @@ def _placement(zdir, offset, stride, axlim_clip):
             None if stride is None else int(stride), bool(axlim_clip))
 
 
+def _placed(make, cls, zdir, offset, stride, axlim_clip):
+    """
+    The contour set *make* makes at a placement (`_placement`), of the
+    class *cls* in 2-D. matplotlib places the set its 2-D method made in
+    3-D at *offset* broadcast to the set's paths, unless *stride* extends
+    it into ribbons: an offset that does not broadcast raises there,
+    leaving the 2-D set in the axes, whose draws then fail on it.
+    """
+    if stride is not None or offset is None or np.ndim(offset) == 0:
+        return make(_placement(zdir, offset, stride, axlim_clip))
+    cset = make(_placement(zdir, None, None, axlim_clip))
+    try:
+        positions = np.broadcast_to(offset, len(cset.get_paths()))
+    except ValueError:
+        cset.__class__ = cls
+        _draw_problems.record(cset, _draw_problems.missing_projection(cset))
+        raise
+    cset.remove()
+    if len(np.unique(positions)) > 1:
+        raise NotImplementedError("pltrs: contour(offset=...) with a "
+                                  "position per contour")
+    return make(_placement(zdir, positions[0] if len(positions) else None,
+                           None, axlim_clip))
+
+
 class ContoursMixin:
-    """`contour`, `contourf`, `tricontour` and `tricontourf`, and the
+    """`contour`, `contourf`, `tricontour`, `tricontourf` and `clabel`, and the
     contour sets of the projection plane placed in 3-D
     (`add_contour_set`, `add_contourf_set`)."""
 
@@ -135,9 +162,11 @@ class ContoursMixin:
         -------
         matplotlib.contour.QuadContourSet
         """
-        placement = _placement(zdir, offset, stride if extend3d else None,
-                               axlim_clip)
-        return self._contour3d(False, (X, Y, Z, *args), kwargs, placement)
+        return _placed(
+            lambda placement: self._contour3d(False, (X, Y, Z, *args),
+                                              dict(kwargs), placement),
+            mcontour.QuadContourSet, zdir, offset, stride if extend3d else None,
+            axlim_clip)
 
     contour3D = contour
 
@@ -167,10 +196,16 @@ class ContoursMixin:
         -------
         matplotlib.contour.QuadContourSet
         """
-        placement = _placement(zdir, offset, None, axlim_clip)
-        return self._contour3d(True, (X, Y, Z, *args), kwargs, placement)
+        return _placed(
+            lambda placement: self._contour3d(True, (X, Y, Z, *args),
+                                              dict(kwargs), placement),
+            mcontour.QuadContourSet, zdir, offset, None, axlim_clip)
 
     contourf3D = contourf
+
+    def clabel(self, *args, **kwargs):
+        """Currently not implemented for 3D Axes, and returns *None*."""
+        return None
 
     @_preprocess_data()
     def tricontour(self, *args,
@@ -203,9 +238,11 @@ class ContoursMixin:
         -------
         matplotlib.tri._tricontour.TriContourSet
         """
-        placement = _placement(zdir, offset, stride if extend3d else None,
-                               axlim_clip)
-        return self._tricontour3d(False, args, kwargs, placement)
+        from pltrs.tri import TriContourSet
+        return _placed(
+            lambda placement: self._tricontour3d(False, args, dict(kwargs),
+                                                 placement),
+            TriContourSet, zdir, offset, stride if extend3d else None, axlim_clip)
 
     @_preprocess_data()
     def tricontourf(self, *args, zdir='z', offset=None, axlim_clip=False, **kwargs):
@@ -233,5 +270,8 @@ class ContoursMixin:
         -------
         matplotlib.tri._tricontour.TriContourSet
         """
-        placement = _placement(zdir, offset, None, axlim_clip)
-        return self._tricontour3d(True, args, kwargs, placement)
+        from pltrs.tri import TriContourSet
+        return _placed(
+            lambda placement: self._tricontour3d(True, args, dict(kwargs),
+                                                 placement),
+            TriContourSet, zdir, offset, None, axlim_clip)

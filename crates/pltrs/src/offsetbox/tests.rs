@@ -202,9 +202,12 @@ fn aux_boxes_are_as_large_as_their_measured_artists() {
     let fig = Figure::with_size(4.0, 3.0, 72.0);
     let (one, _) = tags(&fig);
     let mut aux = AuxTransformBox::new(Transform::Display).with_artist(one);
-    aux.set_extent(Bbox::from_extents(10.0, 20.0, 40.0, 30.0));
+    aux.set_extent(Bbox::from_extents(10.0, 20.0, 40.0, 30.0), true);
+    let unmeasurable: Tree = aux.clone().into();
+    aux.set_extent(Bbox::from_extents(10.0, 20.0, 40.0, 30.0), false);
     let tree: Tree = aux.into();
     with_layout(&fig, |ctx| {
+        assert_eq!(unmeasurable.bbox(ctx), Err(OffsetBoxError::NoFigure));
         assert_eq!(tree.bbox(ctx), Ok(Bbox::from_extents(0.0, 0.0, 30.0, 10.0)));
         let placed = tree.place(ctx, Point::new(1.0, 2.0)).unwrap();
         let Placement::Artists { transform, .. } = &placed[0] else {

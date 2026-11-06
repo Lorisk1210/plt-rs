@@ -160,10 +160,12 @@ pub(super) struct PyProjection {
     spine_order: [SpineSide; 4],
     /// The sides of the spines of `_gen_axes_spines`.
     spines: Vec<SpineSide>,
-    /// The ratio the class' `get_data_ratio` gives, when it overrides it.
-    data_ratio: Option<f64>,
+    /// Whether the class overrides `get_data_ratio`, which `data_ratio`
+    /// then asks at each application of the aspect.
+    fixes_data_ratio: bool,
     overrides: Overrides,
     set_up: Callback,
+    data_ratio: Callback,
     data_to_axes: Callback,
     axis_transform: Callback,
     tick_interval: Callback,
@@ -182,8 +184,8 @@ fn limits(view: &ProjectionView<'_>) -> (f64, f64, f64, f64) {
 impl PyProjection {
     /// The projection asking `adapter`, which gives its `name`, its
     /// `spine_order` (the four side names) and `spine_sides` (those of the
-    /// spines it made), its `data_ratio` (`None` for the rectilinear one)
-    /// and its `overrides`.
+    /// spines it made), whether it overrides `get_data_ratio`
+    /// (`fixes_data_ratio`) and its `overrides`.
     pub(super) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
         let method = |name: &str| -> PyResult<Callback> { adapter.getattr(name)?.extract() };
         let sides = |name: &str| -> PyResult<Vec<SpineSide>> {
@@ -200,9 +202,10 @@ impl PyProjection {
             name: pltrs_core::interned(&adapter.getattr("name")?.extract::<String>()?),
             spine_order,
             spines: sides("spine_sides")?,
-            data_ratio: adapter.getattr("data_ratio")?.extract()?,
+            fixes_data_ratio: adapter.getattr("fixes_data_ratio")?.extract()?,
             overrides: adapter.getattr("overrides")?.extract()?,
             set_up: method("set_up")?,
+            data_ratio: method("data_ratio")?,
             data_to_axes: method("data_to_axes")?,
             axis_transform: method("axis_transform")?,
             tick_interval: method("tick_interval")?,
@@ -292,8 +295,15 @@ impl Projection for PyProjection {
         self.spines.clone()
     }
 
-    fn data_ratio(&self) -> Option<f64> {
-        self.data_ratio
+    fn data_ratio(&self, view: &ProjectionView<'_>) -> Option<f64> {
+        if !self.fixes_data_ratio {
+            return None;
+        }
+        self.data_ratio.call((limits(view),))
+    }
+
+    fn fixes_data_ratio(&self) -> bool {
+        self.fixes_data_ratio
     }
 
     fn spine_interval(&self, view: &ProjectionView<'_>, side: SpineSide) -> Option<(f64, f64)> {
@@ -340,7 +350,7 @@ class Adapter:
     name = 'leaning'
     spine_order = ['top', 'bottom', 'left', 'right']
     spine_sides = ['top', 'bottom', 'left', 'right']
-    data_ratio = None
+    fixes_data_ratio = False
     overrides = {'axis_transform': [], 'tick_interval': ['x'],
                  'tick_sides': ['x'], 'spine_interval': ['top'],
                  'tick_label': ['left']}
@@ -350,6 +360,9 @@ class Adapter:
 
     def set_up(self):
         self.calls.append('set_up')
+
+    def data_ratio(self, limits):
+        return 1.0
 
     def data_to_axes(self, limits):
         x0, y0, x1, y1 = limits

@@ -19,6 +19,8 @@
 //! * [`art3d`]: the 3-D geometry of artists already made, and the
 //!   projection math of matplotlib's `proj3d`;
 //! * [`drawn`]: what the axes keeps of its last draw (`M`, `invM`);
+//! * [`failures`]: the problems drawing its artists meets, recorded in
+//!   advance;
 //! * [`axis3d`]: the formatters, ticks and edges of the three axes.
 
 mod art3d;
@@ -28,6 +30,7 @@ mod contours;
 mod create;
 mod drawn;
 mod edits;
+mod failures;
 mod limits;
 mod plotting;
 mod solids;
@@ -43,11 +46,15 @@ artist_handle!(Axes3D);
 impl From<Axes3DError> for PyErr {
     /// matplotlib's `ValueError` for invalid values, `TypeError` for error
     /// sizes with units and for collections of a kind that is not lifted
-    /// to 3-D (the package adds those as they are, as matplotlib does).
+    /// to 3-D (the package adds those as they are, as matplotlib does),
+    /// and the exception recorded for an artist the axes fails to draw.
     fn from(err: Axes3DError) -> Self {
-        let kind = match err {
+        let kind = match &err {
             Axes3DError::UnaddableErrors(_) | Axes3DError::UnsupportedCollection => {
                 ExceptionKind::TypeError
+            }
+            Axes3DError::Draw(failure) => {
+                super::figure::draw_exception(failure.kind).unwrap_or(ExceptionKind::RuntimeError)
             }
             _ => ExceptionKind::ValueError,
         };
@@ -96,6 +103,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     charts::register(module)?;
     edits::register(module)?;
     drawn::register(module)?;
+    failures::register(module)?;
     axis3d::register(module)
 }
 

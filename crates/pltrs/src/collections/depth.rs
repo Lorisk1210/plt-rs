@@ -25,6 +25,12 @@ pub(crate) struct DepthSorted {
     pub(crate) offsets: Option<Vec<Point>>,
     /// Why the styles could not be sorted, which drawing reports.
     pub(crate) problem: Option<DepthSortError>,
+    /// Whether, without colours of the projection, the collection's own
+    /// lose their last one when there are several: matplotlib's depth
+    /// order is `slice(-1)` until a projection sorts the markers (from
+    /// `set_3d_properties` on), and for good for patches, which it never
+    /// sorts.
+    pub(crate) without_last: bool,
 }
 
 pltrs_core::archive_struct!(DepthSorted {
@@ -32,8 +38,29 @@ pltrs_core::archive_struct!(DepthSorted {
     sizes,
     linewidths,
     offsets,
-    problem
+    problem,
+    without_last
 });
+
+impl DepthSorted {
+    /// The styles before the markers are projected: the collection's own,
+    /// its colours without their last when there are several.
+    pub(crate) fn unprojected() -> Self {
+        Self {
+            without_last: true,
+            ..Self::default()
+        }
+    }
+}
+
+/// `colors` without their last one when there are several (matplotlib's
+/// colours indexed by the depth order `slice(-1)`).
+pub(crate) fn without_last(mut colors: Vec<Rgba>) -> Vec<Rgba> {
+    if colors.len() > 1 {
+        colors.pop();
+    }
+    colors
+}
 
 /// Why the markers of a 3-D scatter plot cannot be sorted by depth:
 /// styles that are neither one for all the markers nor one (at least) per

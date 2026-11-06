@@ -88,17 +88,19 @@ class ExtremeFinderSimple:
         calculations, but using a different representation of the arguments and
         return value.
         """
-        lon, lat = _transformed_grid(trans, bbox, self.nx, self.ny)
+        points = _transformed_grid(trans, bbox, self.nx, self.ny)
+        # matplotlib's `Bbox.update_from_data_xy` makes a path of them.
+        _api.check_shape((None, 2), vertices=points)
+        lon, lat = points.T
         return Bbox.from_extents(
             *_axisartist.simple_extent(lon, lat, self.nx, self.ny))
 
 
 def _transformed_grid(trans, bbox, nx, ny):
     """The ``nx * ny`` samples of *bbox* an extreme finder takes, mapped by
-    *trans*, as two arrays."""
+    *trans*, as an array of points."""
     grid = _axisartist.sample_grid(tuple(map(float, bbox.extents)), nx, ny)
-    lon, lat = np.asarray(trans.transform(grid), dtype=float).T
-    return lon, lat
+    return np.asarray(trans.transform(grid), dtype=float)
 
 
 class _User2DTransform(Transform):

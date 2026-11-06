@@ -8,7 +8,7 @@ use super::PlotError;
 use super::axis::{AxisRole, AxisState};
 use super::limits::oriented;
 use super::state::{AxesState, AxisSpace, SharedData};
-use crate::artist::{ArtistId, ArtistLookup, DrawError};
+use crate::artist::{ArtistId, ArtistLookup, DrawError, DrawErrorKind};
 use crate::figure::FigureState;
 use crate::scale::{Scale, ScaleName};
 use crate::ticker::AxisName;
@@ -126,10 +126,8 @@ impl FigureState {
 
     /// Recomputes the stale autoscaled view limits of `axes` (matplotlib's
     /// `_unstale_viewLim`): an axis is rescaled when it or any axes
-    /// sharing it changed, from the data of all of them. A parasite
-    /// following its host takes the host's limits instead.
+    /// sharing it changed, from the data of all of them.
     pub(crate) fn unstale_axes(&mut self, axes: ArtistId) {
-        self.sync_parasite(axes);
         let need = AXES.map(|name| self.autoscale_is_stale(axes, name));
         for (name, _) in AXES.into_iter().zip(need).filter(|(_, need)| *need) {
             self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
@@ -140,18 +138,12 @@ impl FigureState {
     }
 
     /// Whether [`FigureState::unstale_axes`] has anything to do for
-    /// `axes`: a parasite following its host, an axis to rescale, or limit
-    /// changes whose callbacks have yet to run. Reading the view limits of
-    /// a figure being drawn then needs no change to it.
+    /// `axes`: an axis to rescale, or limit changes whose callbacks have
+    /// yet to run. Reading the view limits of a figure being drawn then
+    /// needs no change to it.
     pub(crate) fn view_is_stale(&self, axes: ArtistId) -> bool {
-        let follows_host = self
-            .axes_state(axes)
-            .and_then(|state| state.parasite)
-            .is_some_and(|parasite| parasite.follows_host_view());
-        follows_host
-            || AXES
-                .into_iter()
-                .any(|name| self.autoscale_is_stale(axes, name))
+        AXES.into_iter()
+            .any(|name| self.autoscale_is_stale(axes, name))
             || self.limit_callbacks.has_pending()
     }
 
@@ -272,13 +264,12 @@ impl FigureState {
         }
     }
 
-    /// Sets the view limits of axis `name` of `axes` (matplotlib's
-    /// `Axis._set_lim`): validates them, marks the axis and its siblings
-    /// as autoscaled, switches autoscaling to `auto` when given and, with
-    /// `emit`, applies the same limits to every sibling and queues the
-    /// limit callbacks of all of them (`xlim_changed`). The fixed limits
-    /// of geographic axes, and of custom projections fixing theirs, refuse
-    /// to change (matplotlib raises).
+    /// Sets the view limits of axis `name` of `axes` through the axes
+    /// (matplotlib's `Axes.set_xlim` and `set_xbound`, which autoscaling,
+    /// the aspect and images call), as [`set_axis_view`](Self::set_axis_view)
+    /// does. The fixed limits of geographic axes, and of custom projections
+    /// fixing theirs, refuse to change: matplotlib's `set_xlim` raises
+    /// there, which is reported when the figure is drawn.
     pub(crate) fn set_axis_limits(
         &mut self,
         axes: ArtistId,
@@ -292,14 +283,36 @@ impl FigureState {
             .filter(|state| state.projection.fixed_limits())
         {
             if state.view_interval(name) != (v0, v1) {
-                let message = format!(
-                    "changing the limits of {} axes is not supported",
-                    projection_noun(state)
-                );
-                self.pending_errors.push(DrawError::new(axes, message));
+                let noun = projection_noun(state);
+                let mut message =
+                    format!("Changing axes limits of a {noun} projection is not supported.");
+                if state.geo().is_some() {
+                    message.push_str("  Please consider using Cartopy.");
+                }
+                self.pending_errors.push(DrawError {
+                    kind: DrawErrorKind::InvalidType,
+                    ..DrawError::new(axes, message)
+                });
             }
             return;
         }
+        self.set_axis_view(axes, name, (v0, v1), auto, emit);
+    }
+
+    /// Sets the view limits of axis `name` of `axes` (matplotlib's
+    /// `Axis._set_lim`, which fixed limits do not refuse): validates them,
+    /// marks the axis and its siblings as autoscaled, switches autoscaling
+    /// to `auto` when given and, with `emit`, applies the same limits to
+    /// every sibling and queues the limit callbacks of all of them
+    /// (`xlim_changed`).
+    pub(crate) fn set_axis_view(
+        &mut self,
+        axes: ArtistId,
+        name: AxisName,
+        (v0, v1): (f64, f64),
+        auto: Option<bool>,
+        emit: bool,
+    ) {
         let Some(state) = self.axes_state_mut(axes) else {
             return;
         };
@@ -310,11 +323,15 @@ impl FigureState {
         }
         self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
         if emit {
+            // The limit callbacks, matplotlib's parasites' `_sync_lims`
+            // among them.
             self.limit_callbacks.notify(axes, name);
+            self.sync_parasites(axes);
             for sibling in self.siblings(name, axes) {
                 if sibling != axes {
-                    self.set_axis_limits(sibling, name, limits, auto, false);
+                    self.set_axis_view(sibling, name, limits, auto, false);
                     self.limit_callbacks.notify(sibling, name);
+                    self.sync_parasites(sibling);
                 }
             }
         }

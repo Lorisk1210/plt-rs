@@ -7,10 +7,12 @@
 
 use pltrs::artist::RawHandle;
 use pltrs::offsetbox::{
-    node_extent, node_origin, rebuild_tree, text_area_baseline_shift, text_area_bbox,
+    OffsetBoxError, node_extent, node_origin, rebuild_tree, text_area_baseline_shift,
+    text_area_bbox,
 };
 use pltrs::transforms::Bbox;
 
+use super::super::figure::draw_exception;
 use super::tree::PyOffsetBox;
 use crate::binding::prelude::*;
 
@@ -30,12 +32,19 @@ fn rebuild(owner: RawHandle, tree: PyOffsetBox) -> PyResult<Vec<RawHandle>> {
     Ok(rebuild_tree(&owner, tree.0).ok_or_else(not_an_owner)??)
 }
 
+/// The exception matplotlib raises measuring a box that fails with `err`:
+/// the kind its draw would meet, else a `ValueError`.
+fn measure_error(err: &OffsetBoxError) -> PyErr {
+    let kind = draw_exception(err.draw_kind()).unwrap_or(ExceptionKind::ValueError);
+    PyErr::new(kind, err.to_string())
+}
+
 /// The bounds of the box `index` of the tree of the added box `owner`,
 /// relative to its origin (matplotlib's `get_bbox`).
 fn extent(owner: RawHandle, index: usize) -> PyResult<(f64, f64, f64, f64)> {
     let extent = node_extent(&owner, index)
         .ok_or_else(|| PyErr::value_error(format!("the box has no box {index}")))?
-        .map_err(|err| PyErr::value_error(err.to_string()))?;
+        .map_err(|err| measure_error(&err))?;
     Ok(bounds(extent))
 }
 

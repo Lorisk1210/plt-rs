@@ -325,7 +325,8 @@ impl Axis {
     }
 
     /// Makes the axis run from high to low values or back, keeping its
-    /// range (matplotlib's `Axis.set_inverted`).
+    /// range (matplotlib's `Axis.set_inverted`, which the fixed limits of
+    /// geographic axes let through).
     pub fn set_inverted(&self, inverted: bool) -> &Self {
         let (low, high) = match self.name {
             AxisName::X => self.axes.xlim(),
@@ -337,7 +338,7 @@ impl Axis {
             (high, low)
         };
         let limits = if inverted { (high, low) } else { (low, high) };
-        self.axes.raw().figure_state().borrow_mut().set_axis_limits(
+        self.axes.raw().figure_state().borrow_mut().set_axis_view(
             self.axes.id(),
             self.name,
             limits,

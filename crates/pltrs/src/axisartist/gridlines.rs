@@ -9,9 +9,12 @@ use pltrs_core::{Path, Point};
 
 use super::floating_axes;
 use super::grid_helper_curvelinear::{GridHelperCurveLinear, info_gridlines};
-use crate::artist::{Artist, ArtistId, LayoutContext};
+use crate::artist::ArtistHandle;
+use crate::artist::{Artist, ArtistId, DrawErrorKind, LayoutContext};
 use crate::axes::{AxesState, GridOptions, TickLevel};
-use crate::collections::{CollectionArtist, CollectionKind, DrawTimeShapes, EdgeColors};
+use crate::collections::{
+    Collection, CollectionArtist, CollectionKind, DrawTimeShapes, EdgeColors,
+};
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
@@ -34,14 +37,62 @@ pltrs_core::archive_enum!(SharedGridHelper {
     Floating(v0),
 });
 
+/// A setting of the gridlines as the program gave it (matplotlib's
+/// `GridlinesCollection.set_which` and `set_axis`, which keep any value):
+/// one pltrs knows, or another, on which a draw through the rectilinear
+/// grid helper fails as matplotlib's `get_gridlines` does (a curvilinear
+/// one shows no lines for an unknown axis and takes no level).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GridlinesChoice<T> {
+    /// A value pltrs knows.
+    Known(T),
+    /// Another value, as Python's `repr` spells it.
+    Unknown(String),
+}
+
+pltrs_core::archive_enum!(GridlinesChoice<T> { Known(v0), Unknown(v0) });
+
+/// Chooses the level (`which`, when given) and the axis (`axis`, when
+/// given; `None` inside for both) the gridlines `gridlines` of an
+/// axisartist axes show (matplotlib's `GridlinesCollection.set_which` and
+/// `set_axis`; see [`GridlinesChoice`]); `false` when `gridlines` draws no
+/// gridlines of an axes.
+///
+/// ```
+/// use pltrs::axes::TickLevel;
+/// use pltrs::axisartist::{AxisArtistAxes, GridlinesChoice, choose_gridlines};
+/// use pltrs::prelude::*;
+/// let fig = Figure::new();
+/// let ax = AxisArtistAxes::new(fig.subplot());
+/// let gridlines = ax.gridlines().expect("made with the axes");
+/// assert!(choose_gridlines(&gridlines, Some(GridlinesChoice::Known(TickLevel::Both)), None));
+/// ax.grid(true, Default::default());
+/// choose_gridlines(&gridlines, None, Some(GridlinesChoice::Unknown("'z'".into())));
+/// let error = fig.canvas().draw().unwrap_err();
+/// assert!(error.to_string().contains("'z' is not a valid value for axis"));
+/// ```
+pub fn choose_gridlines(
+    gridlines: &Collection,
+    which: Option<GridlinesChoice<TickLevel>>,
+    axis: Option<GridlinesChoice<Option<AxisName>>>,
+) -> bool {
+    let chosen = gridlines
+        .raw()
+        .with_mut::<CollectionArtist, _>(|collection| Gridlines::choose(collection, which, axis));
+    if chosen {
+        gridlines.raw().set_stale(true);
+    }
+    chosen
+}
+
 /// The segments of the gridlines: which levels and axes they show
 /// (matplotlib's `GridlinesCollection` `which` and `axis`).
 #[derive(Clone, Debug)]
 pub(crate) struct Gridlines {
     axes: ArtistId,
     pub(crate) helper: SharedGridHelper,
-    which: TickLevel,
-    axis: Option<AxisName>,
+    which: GridlinesChoice<TickLevel>,
+    axis: GridlinesChoice<Option<AxisName>>,
 }
 
 pltrs_core::archive_struct!(Gridlines {
@@ -69,10 +120,29 @@ impl Gridlines {
         collection.draw_time = Some(Rc::new(Self {
             axes,
             helper,
-            which: TickLevel::Major,
-            axis: None,
+            which: GridlinesChoice::Known(TickLevel::Major),
+            axis: GridlinesChoice::Known(None),
         }));
         collection
+    }
+
+    /// Replaces the level (`which`, when given) and the axis (`axis`)
+    /// the gridlines of `collection` show; `false` when `collection`
+    /// draws no gridlines of an axes.
+    pub(crate) fn choose(
+        collection: &mut CollectionArtist,
+        which: Option<GridlinesChoice<TickLevel>>,
+        axis: Option<GridlinesChoice<Option<AxisName>>>,
+    ) -> bool {
+        let Some(lines) = collection.draw_time_state::<Self>().cloned() else {
+            return false;
+        };
+        collection.draw_time = Some(Rc::new(Self {
+            which: which.unwrap_or(lines.which.clone()),
+            axis: axis.unwrap_or(lines.axis.clone()),
+            ..lines
+        }));
+        true
     }
 
     /// Shows or hides the gridlines of `options.which` and
@@ -81,8 +151,8 @@ impl Gridlines {
     pub(crate) fn apply(collection: &mut CollectionArtist, visible: bool, options: &GridOptions) {
         if let Some(lines) = collection.draw_time_state::<Self>().cloned() {
             collection.draw_time = Some(Rc::new(Self {
-                which: options.which,
-                axis: options.axis,
+                which: GridlinesChoice::Known(options.which),
+                axis: GridlinesChoice::Known(options.axis),
                 ..lines
             }));
         }
@@ -107,6 +177,11 @@ impl Gridlines {
     /// on, including positions beyond the view that the clip hides
     /// (matplotlib's `GridHelperRectlinear.get_gridlines`).
     fn rectilinear(&self, axes: &AxesState) -> Vec<Vec<Point>> {
+        let (GridlinesChoice::Known(which), GridlinesChoice::Known(axis)) =
+            (&self.which, &self.axis)
+        else {
+            return Vec::new();
+        };
         let ticks = |name: AxisName, major: bool, minor: bool| -> Vec<f64> {
             let Ok(set) = axes.axis(name).ticks.as_ref() else {
                 return Vec::new();
@@ -123,14 +198,14 @@ impl Gridlines {
         let (x1, x2) = axes.view_interval(AxisName::X);
         let (y1, y2) = axes.view_interval(AxisName::Y);
         let mut lines = Vec::new();
-        if self.axis != Some(AxisName::Y) {
-            let xs = ticks(AxisName::X, self.which.major(), self.which.minor());
+        if *axis != Some(AxisName::Y) {
+            let xs = ticks(AxisName::X, which.major(), which.minor());
             lines.extend(
                 xs.into_iter()
                     .map(|x| vec![Point::new(x, y1), Point::new(x, y2)]),
             );
         }
-        if self.axis != Some(AxisName::X) {
+        if *axis != Some(AxisName::X) {
             let yaxis = axes.axis(AxisName::Y);
             let ys = ticks(
                 AxisName::Y,
@@ -155,16 +230,21 @@ impl DrawTimeShapes for Gridlines {
         let view = axes.view_lim;
         let lines = match &self.helper {
             SharedGridHelper::Rectilinear => self.rectilinear(axes),
+            SharedGridHelper::CurveLinear(_) | SharedGridHelper::Floating(_)
+                if matches!(self.axis, GridlinesChoice::Unknown(_)) =>
+            {
+                Vec::new()
+            }
             SharedGridHelper::CurveLinear(grid) => {
                 let info = grid
                     .grid_finder()
                     .grid_info(view)
                     .map_err(|e| e.to_string())?;
-                info_gridlines(&info, self.axis)
+                info_gridlines(&info, self.known_axis())
             }
             SharedGridHelper::Floating(grid) => {
                 let info = grid.grid_info(view).map_err(|e| e.to_string())?;
-                info_gridlines(&info.lines, self.axis)
+                info_gridlines(&info.lines, self.known_axis())
             }
         };
         Ok((
@@ -173,7 +253,38 @@ impl DrawTimeShapes for Gridlines {
         ))
     }
 
+    /// The setting matplotlib's rectilinear grid helper refuses where it
+    /// draws the gridlines (its `_api.check_in_list` of the level, then of
+    /// the axis).
+    fn problem(&self) -> Option<(DrawErrorKind, String)> {
+        if !matches!(self.helper, SharedGridHelper::Rectilinear) {
+            return None;
+        }
+        let refused = |spelled: &str, key: &str, values: &str| {
+            format!("{spelled} is not a valid value for {key}. Supported values are {values}")
+        };
+        let message = match (&self.which, &self.axis) {
+            (GridlinesChoice::Unknown(which), _) => {
+                refused(which, "which", "'both', 'major', 'minor'")
+            }
+            (_, GridlinesChoice::Unknown(axis)) => refused(axis, "axis", "'both', 'x', 'y'"),
+            _ => return None,
+        };
+        Some((DrawErrorKind::InvalidValue, message))
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl Gridlines {
+    /// The axis the gridlines show, `None` for both (and for an unknown
+    /// one, which the curvilinear helpers do not reach).
+    fn known_axis(&self) -> Option<AxisName> {
+        match self.axis {
+            GridlinesChoice::Known(axis) => axis,
+            GridlinesChoice::Unknown(_) => None,
+        }
     }
 }

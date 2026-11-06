@@ -55,6 +55,7 @@ pub use axes::{AxisArtistAxes, GridHelper};
 pub(crate) use axis_texts::AxisTextsState;
 pub use axis_texts::{AxisTexts, AxisTextsArtist, AxisTextsKind};
 pub(crate) use gridlines::Gridlines;
+pub use gridlines::{GridlinesChoice, choose_gridlines};
 pub use handles::{
     AxisArtist, AxisLabel, AxisLine, LabelBase, LabelDirection, TickLabels, Ticks, Toggle,
 };

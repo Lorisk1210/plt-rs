@@ -54,6 +54,11 @@ impl WaylandBackend {
                         self.activate(object, &token)?;
                     }
                 }
+                Interface::ToplevelIconManager => match event {
+                    Event::IconSize(side) => self.icon_sizes.size(side),
+                    Event::IconSizesDone => self.icon_sizes.done(),
+                    _ => {}
+                },
                 _ => self.window_event(object, event, out)?,
             }
         }

@@ -4,7 +4,6 @@
 use std::ptr::{self, NonNull};
 
 use super::foundation::{NsPoint, date, string};
-use super::graphics::Image;
 use super::runtime::{Id, NO, Object, Sel, YES, autoreleasepool, class, sel, send};
 use super::{failed, new_object};
 use crate::error::Error;
@@ -114,9 +113,9 @@ impl App {
         unsafe { send::<_, ()>(self.0.as_ptr(), c"activateIgnoringOtherApps:", (YES,)) };
     }
 
-    /// Shows `icon` in the Dock: macOS windows have no icons of their own.
-    pub(crate) fn set_icon(self, icon: &Image) -> Result<(), Error> {
-        let image = icon.ns_image()?;
+    /// Shows `image` (an `NSImage`, see [`ns_image`](super::ns_image))
+    /// in the Dock: macOS windows have no icons of their own.
+    pub(crate) fn set_icon(self, image: &Id) {
         // SAFETY: an instance method taking a live NSImage, which it
         // retains.
         unsafe {
@@ -126,7 +125,6 @@ impl App {
                 (image.as_ptr(),),
             );
         };
-        Ok(())
     }
 
     /// Waits for an event at most `seconds` (`None`: not at all,

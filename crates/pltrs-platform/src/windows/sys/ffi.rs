@@ -200,6 +200,10 @@ pub(super) const WM_SETICON: u32 = 0x0080;
 pub(super) const ICON_SMALL: usize = 0;
 /// `ICON_BIG`.
 pub(super) const ICON_BIG: usize = 1;
+/// `SM_CXICON`: the width of large (task bar, Alt+Tab) icons.
+pub(super) const SM_CXICON: i32 = 11;
+/// `SM_CXSMICON`: the width of small (title bar) icons.
+pub(super) const SM_CXSMICON: i32 = 49;
 /// `BI_RGB`: uncompressed pixels.
 pub(super) const BI_RGB: u32 = 0;
 /// `DIB_RGB_COLORS`.
@@ -278,6 +282,7 @@ unsafe extern "system" {
         dpi: u32,
     ) -> i32;
     pub(super) fn GetDpiForWindow(window: Handle) -> u32;
+    pub(super) fn GetSystemMetricsForDpi(index: i32, dpi: u32) -> i32;
     pub(super) fn SetThreadDpiAwarenessContext(context: Handle) -> Handle;
     pub(super) fn SendMessageW(window: Handle, message: u32, wparam: usize, lparam: isize)
     -> isize;

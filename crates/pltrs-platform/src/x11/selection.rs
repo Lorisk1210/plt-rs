@@ -11,7 +11,7 @@ use crate::window::WindowId;
 
 /// The bytes a `ChangeProperty` request adds to its data: the header and
 /// the padding to a four-byte boundary.
-const CHANGE_PROPERTY_OVERHEAD: usize = 28;
+pub(crate) const CHANGE_PROPERTY_OVERHEAD: usize = 28;
 
 /// What this connection offers on the clipboard while it owns it.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -4,8 +4,10 @@
 use super::atoms::{Atoms, predefined};
 use super::auth;
 use super::request::{self, Request};
+use super::selection::CHANGE_PROPERTY_OVERHEAD;
 use crate::geometry::PhysicalSize;
-use crate::window::{Icon, WindowOptions};
+use crate::icon::{Icon, IconLayout};
+use crate::window::WindowOptions;
 
 /// `WM_SIZE_HINTS` flag: the minimum size is set.
 const P_MIN_SIZE: u32 = 1 << 4;
@@ -13,6 +15,9 @@ const P_MIN_SIZE: u32 = 1 << 4;
 const SIZE_HINTS_LEN: usize = 18;
 /// Index of the minimum width in `WM_SIZE_HINTS`.
 const SIZE_HINTS_MIN_WIDTH: usize = 5;
+/// The sides of the icon images in `_NET_WM_ICON`, from the title bar's
+/// to the task switcher's and docks'.
+const ICON_SIDES: [u32; 7] = [16, 24, 32, 48, 64, 128, 256];
 
 /// What the backend tracks about each open window.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,7 +82,8 @@ pub(crate) fn fullscreen(atoms: &Atoms, window: u32, on: bool) -> [u8; 32] {
 }
 
 /// Requests describing a new window: title, class, supported protocols
-/// (close button and ping), process, minimum size and icon.
+/// (close button and ping), process and minimum size (the icon is
+/// [`icon_property`]).
 pub(crate) fn initial_properties(
     atoms: &Atoms,
     window: u32,
@@ -122,15 +128,35 @@ pub(crate) fn initial_properties(
             &min_size_hints(min),
         ));
     }
-    if let Some(icon) = &options.icon {
-        requests.push(request::set_property_u32(
-            window,
-            atoms.net_wm_icon,
-            predefined::CARDINAL,
-            &icon_argb(icon),
-        ));
-    }
     requests
+}
+
+/// The request setting `_NET_WM_ICON` to the images of `icon` that fit a
+/// request of `max_request_bytes`, the smallest first; `None` when not
+/// even the smallest fits (or the icon draws none).
+pub(crate) fn icon_property(
+    atoms: &Atoms,
+    window: u32,
+    icon: &Icon,
+    max_request_bytes: usize,
+) -> Option<Request> {
+    let room = max_request_bytes.saturating_sub(CHANGE_PROPERTY_OVERHEAD) / 4;
+    let mut images = icon.images(&ICON_SIDES, IconLayout::FullBleed);
+    images.sort_by_key(|image| image.size().width);
+    let mut words = Vec::new();
+    for image in &images {
+        let size = image.size();
+        let len = 2 + size.width as usize * size.height as usize;
+        if words.len() + len > room {
+            break;
+        }
+        words.extend([size.width, size.height]);
+        words.extend(image.rgba().as_chunks::<4>().0.iter().map(|p| {
+            u32::from(p[3]) << 24 | u32::from(p[0]) << 16 | u32::from(p[1]) << 8 | u32::from(p[2])
+        }));
+    }
+    (!words.is_empty())
+        .then(|| request::set_property_u32(window, atoms.net_wm_icon, predefined::CARDINAL, &words))
 }
 
 /// `WM_SIZE_HINTS` carrying only a minimum size.
@@ -142,22 +168,11 @@ fn min_size_hints(min: PhysicalSize) -> [u32; SIZE_HINTS_LEN] {
     hints
 }
 
-/// `_NET_WM_ICON` data: width, height, then non-premultiplied ARGB pixels.
-fn icon_argb(icon: &Icon) -> Vec<u32> {
-    let size = icon.size();
-    let pixels = icon.rgba().as_chunks::<4>().0.iter().map(|p| {
-        u32::from(p[3]) << 24 | u32::from(p[0]) << 16 | u32::from(p[1]) << 8 | u32::from(p[2])
-    });
-    [size.width, size.height]
-        .into_iter()
-        .chain(pixels)
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::geometry::LogicalSize;
+    use crate::icon::IconImage;
 
     const ATOMS: Atoms = Atoms {
         wm_protocols: 300,
@@ -212,11 +227,9 @@ mod tests {
 
     #[test]
     fn initial_properties_describe_the_window() {
-        let icon = Icon::from_rgba(1, 1, vec![0x11, 0x22, 0x33, 0x80]).unwrap();
         let options = WindowOptions::new("t")
             .with_app_id("pltrs")
-            .with_min_inner_size(LogicalSize::new(100.0, 50.0))
-            .with_icon(icon);
+            .with_min_inner_size(LogicalSize::new(100.0, 50.0));
         let properties: Vec<_> = initial_properties(&ATOMS, 1, &options, 2.0)
             .iter()
             .map(property)
@@ -228,7 +241,57 @@ mod tests {
         let hints = words(&find(predefined::WM_NORMAL_HINTS));
         assert_eq!(hints.len(), SIZE_HINTS_LEN);
         assert_eq!((hints[0], hints[5], hints[6]), (P_MIN_SIZE, 200, 100));
-        assert_eq!(words(&find(ATOMS.net_wm_icon)), [1, 1, 0x8011_2233]);
+    }
+
+    #[test]
+    fn bitmap_icons_are_argb() {
+        let icon = Icon::from_rgba(1, 1, vec![0x11, 0x22, 0x33, 0x80]).unwrap();
+        let request = icon_property(&ATOMS, 1, &icon, 1 << 20).unwrap();
+        let (atom, kind, value) = property(&request);
+        assert_eq!((atom, kind), (ATOMS.net_wm_icon, predefined::CARDINAL));
+        assert_eq!(words(&value), [1, 1, 0x8011_2233]);
+    }
+
+    /// An icon drawing each side full bleed in a grey of its side.
+    fn rendered() -> Icon {
+        Icon::from_renderer(|side, layout| {
+            assert_eq!(layout, IconLayout::FullBleed);
+            let grey = (side % 256) as u8;
+            let pixels = vec![grey; (side * side * 4) as usize];
+            IconImage::from_rgba(side, side, pixels).ok()
+        })
+    }
+
+    /// The `(width, height, first pixel)` of each image of `_NET_WM_ICON`.
+    fn images(value: &[u32]) -> Vec<(u32, u32, u32)> {
+        let mut images = Vec::new();
+        let mut rest = value;
+        while let [width, height, pixels @ ..] = rest {
+            images.push((*width, *height, pixels[0]));
+            rest = &pixels[(width * height) as usize..];
+        }
+        images
+    }
+
+    #[test]
+    fn rendered_icons_come_in_every_size() {
+        let request = icon_property(&ATOMS, 1, &rendered(), 1 << 22).unwrap();
+        let value = words(&property(&request).2);
+        let sides: Vec<u32> = images(&value).iter().map(|image| image.0).collect();
+        assert_eq!(sides, ICON_SIDES);
+        assert!(images(&value).iter().all(|&(w, h, _)| w == h));
+        assert_eq!(images(&value)[1].2, 0x1818_1818, "24 pixels, grey 24");
+    }
+
+    #[test]
+    fn icons_shrink_to_the_request_limit() {
+        // Without BIG-REQUESTS: 256 KiB, too little for 256 × 256.
+        let request = icon_property(&ATOMS, 1, &rendered(), 0xffff * 4).unwrap();
+        let value = words(&property(&request).2);
+        let sides: Vec<u32> = images(&value).iter().map(|image| image.0).collect();
+        assert_eq!(sides, [16, 24, 32, 48, 64, 128]);
+        assert!(request.encoded().wire_len() <= 0xffff * 4);
+        assert!(icon_property(&ATOMS, 1, &rendered(), 64).is_none());
     }
 
     #[test]
@@ -250,6 +313,5 @@ mod tests {
         let requests = initial_properties(&ATOMS, 1, &WindowOptions::new("t"), 1.0);
         let atoms: Vec<u32> = requests.iter().map(|r| property(r).0).collect();
         assert!(!atoms.contains(&predefined::WM_NORMAL_HINTS));
-        assert!(!atoms.contains(&ATOMS.net_wm_icon));
     }
 }

@@ -19,6 +19,8 @@
 //! * polygons ([`Path::to_polygons`], [`Path::clip_to_bbox`]);
 //! * data limits with `minpos` ([`DataLimits`]), path collections
 //!   ([`CollectionGeometry`]) and [`count_overlapping`].
+//!
+//! [`Path::from_svg`] reads SVG path data.
 
 mod archive;
 mod builder;
@@ -30,6 +32,7 @@ mod intersect;
 pub mod outline;
 mod polygons;
 mod shapes;
+mod svg;
 
 use std::fmt;
 
@@ -37,6 +40,7 @@ pub use builder::PathBuilder;
 pub use collection::{CollectionError, CollectionGeometry};
 pub use extents::{DataLimits, count_overlapping};
 pub use polygons::PolygonOptions;
+pub use svg::SvgPathError;
 
 use crate::bezier::Bezier;
 use crate::{Affine2D, Bbox, Point};

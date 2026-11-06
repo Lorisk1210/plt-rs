@@ -42,8 +42,12 @@
 //! handle their figures' input themselves, as matplotlib's backends do
 //! (pltrs (Python)'s native backend): it reports input, resizes and
 //! toolbar clicks, and leaves navigation and callbacks to the program.
+//!
+//! Every window shows pltrs's [`app_icon`], drawn at the sizes and in the
+//! layout each platform asks for (in the Dock on macOS).
 
 pub(crate) mod actions;
+mod app_icon;
 mod backend_rc;
 mod dialog;
 mod help_dialog;
@@ -62,6 +66,7 @@ mod window;
 use std::fmt;
 
 pub use crate::events::GinputOptions;
+pub use app_icon::app_icon;
 pub use backend_rc::{MacosxWindowMode, ToolbarKind};
 pub use host::{
     CanvasInput, HostEvent, HostTimerId, HostedWindowId, InputKind, ShortcutGroup, ToolImage,

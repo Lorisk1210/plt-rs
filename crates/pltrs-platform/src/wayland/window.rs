@@ -6,6 +6,7 @@ use super::connection::Connection;
 use super::decoration::layout::TITLE_BAR_HEIGHT;
 use super::decoration::{ClientDecorations, Look};
 use super::globals::Globals;
+use super::icon::{IconSizes, PendingIcon};
 use super::protocol::Interface;
 use super::protocol::core;
 use super::protocol::scale as scaling;
@@ -120,11 +121,12 @@ pub(crate) struct Window {
 }
 
 impl Window {
-    /// Creates a window for `options` and commits its first, empty state;
-    /// the compositor answers with a configure.
+    /// Creates a window for `options` (its icon drawn at `icon_sizes`)
+    /// and commits its first, empty state; the compositor answers with a
+    /// configure.
     pub(crate) fn create(
         conn: &mut Connection,
-        globals: &Globals,
+        (globals, icon_sizes): (&Globals, &IconSizes),
         options: &WindowOptions,
         scale: Scale,
     ) -> Result<Self, Error> {
@@ -173,6 +175,16 @@ impl Window {
             }
             None => None,
         };
+        let icon = match (&options.icon, globals.get(Interface::ToplevelIconManager)) {
+            (Some(icon), Some(manager)) => PendingIcon::set(
+                conn,
+                (manager, globals.require(Interface::Shm)?),
+                toplevel,
+                (icon, icon_sizes),
+                scale.factor().ceil() as u32,
+            )?,
+            _ => None,
+        };
         let mut window = Self {
             surface,
             xdg_surface,
@@ -207,6 +219,9 @@ impl Window {
         }
         window.send_min_size(conn)?;
         conn.send(core::commit(surface))?;
+        if let Some(icon) = icon {
+            icon.destroy(conn)?;
+        }
         Ok(window)
     }
 

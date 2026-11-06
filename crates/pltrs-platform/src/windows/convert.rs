@@ -4,6 +4,7 @@
 use std::time::Instant;
 
 use crate::backend::Wait;
+use crate::icon::{Icon, IconImage, IconLayout};
 use crate::window::CursorIcon;
 
 /// The DPI of scale factor 1 (`USER_DEFAULT_SCREEN_DPI`).
@@ -86,8 +87,21 @@ pub(crate) const fn cursor_resource(icon: CursorIcon) -> u16 {
     }
 }
 
-/// Straight-alpha RGBA pixels (an [`Icon`](crate::Icon)) in the BGRA order
-/// of icon bitmaps.
+/// The images of `icon` for a window's title bar and task bar, `small`
+/// and `big` pixels wide, in Windows' full-bleed layout (a bitmap serves
+/// both); `None` when the icon draws neither.
+pub(crate) fn window_icon_images(
+    icon: &Icon,
+    (small, big): (u32, u32),
+) -> Option<(IconImage, IconImage)> {
+    let mut images = icon.images(&[small, big], IconLayout::FullBleed);
+    let large = images.pop()?;
+    let small = images.pop().unwrap_or_else(|| large.clone());
+    Some((small, large))
+}
+
+/// Straight-alpha RGBA pixels (an [`IconImage`]) in the BGRA order of
+/// icon bitmaps.
 pub(crate) fn icon_pixels(rgba: &[u8]) -> Vec<u8> {
     rgba.as_chunks::<4>()
         .0
@@ -166,6 +180,22 @@ mod tests {
         assert_eq!(cursor_resource(CursorIcon::Pointer), 32649);
         assert_eq!(cursor_resource(CursorIcon::Move), 32646);
         assert_eq!(cursor_resource(CursorIcon::ResizeVertical), 32645);
+    }
+
+    #[test]
+    fn windows_get_a_small_and_a_big_icon() {
+        let rendered = Icon::from_renderer(|side, layout| {
+            assert_eq!(layout, IconLayout::FullBleed);
+            IconImage::from_rgba(side, side, vec![0; (side * side * 4) as usize]).ok()
+        });
+        let (small, big) = window_icon_images(&rendered, (20, 40)).unwrap();
+        assert_eq!((small.size().width, big.size().width), (20, 40));
+        let bitmap = Icon::from_rgba(3, 3, vec![9; 36]).unwrap();
+        let (small, big) = window_icon_images(&bitmap, (16, 32)).unwrap();
+        assert_eq!(small, big);
+        assert_eq!(small.size().width, 3);
+        let none = Icon::from_renderer(|_, _| None);
+        assert_eq!(window_icon_images(&none, (16, 32)), None);
     }
 
     #[test]

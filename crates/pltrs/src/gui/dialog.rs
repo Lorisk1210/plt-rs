@@ -10,7 +10,7 @@ use pltrs_ui::{
     Button, Flex, Label, Overflow, Separator, Spacing, Theme, Tone, Ui, UiWindow, Widget, WidgetId,
 };
 
-use super::{GuiError, icons};
+use super::{GuiError, app_icon};
 use crate::colors::Rgba;
 use crate::figure::Figure;
 
@@ -21,10 +21,10 @@ pub(super) const GAP: Spacing = Spacing::Md;
 
 /// The options of a pltrs window titled `title`: the application id
 /// and icon of pltrs.
-pub(super) fn window_options(title: &str) -> Result<WindowOptions, GuiError> {
-    Ok(WindowOptions::new(title)
+pub(super) fn window_options(title: &str) -> WindowOptions {
+    WindowOptions::new(title)
         .with_app_id("pltrs")
-        .with_icon(icons::window_icon()?))
+        .with_icon(app_icon::app_icon())
 }
 
 /// The theme of the windows of `figure`: the chrome [look](crate::look)

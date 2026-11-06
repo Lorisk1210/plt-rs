@@ -3,8 +3,6 @@
 use pltrs_core::{Path, Point};
 use pltrs_ui::Icon;
 
-use super::GuiError;
-
 /// The side of the design grid of the icons.
 pub(crate) const GRID: f64 = 24.0;
 
@@ -82,28 +80,6 @@ pub(crate) fn subplots() -> Icon {
                 .stroke(line(&[(knob + KNOB, y), (20.0, y)]))
                 .stroke(Path::circle(p(knob, y), KNOB))
         })
-}
-
-/// A line chart over two axes: the pltrs window icon.
-pub(super) fn app() -> Icon {
-    Icon::new(GRID)
-        .with_stroke_width(2.2)
-        .stroke(line(&[(4.0, 3.5), (4.0, 20.0), (20.5, 20.0)]))
-        .stroke(line(&[
-            (7.0, 15.5),
-            (11.0, 10.0),
-            (14.5, 13.0),
-            (19.5, 5.5),
-        ]))
-}
-
-/// The icon of pltrs windows: [`app`] in white on the theme's accent,
-/// 64 pixels wide.
-pub(super) fn window_icon() -> Result<pltrs_platform::Icon, GuiError> {
-    const SIZE: u32 = 64;
-    let accent = pltrs_ui::Theme::default().accent;
-    let rgba = app().app_icon(SIZE, accent, pltrs_core::Rgba::WHITE)?;
-    Ok(pltrs_platform::Icon::from_rgba(SIZE, SIZE, rgba)?)
 }
 
 /// A folder, for directories in file lists.

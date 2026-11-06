@@ -7,6 +7,7 @@ use super::foundation::{NsRect, NsSize};
 use super::runtime::{Id, Object, autoreleasepool, class, send};
 use super::{failed, new_object};
 use crate::error::Error;
+use crate::geometry::LogicalSize;
 use crate::macos::convert::PointRect;
 
 #[link(name = "CoreGraphics", kind = "framework")]
@@ -112,22 +113,6 @@ impl Image {
         }
     }
 
-    /// An `NSImage` showing this image at its pixel size.
-    pub(crate) fn ns_image(&self) -> Result<Id, Error> {
-        let error = || failed("creating an NSImage");
-        // SAFETY: `new_object` gives an allocated NSImage, initialized
-        // with this live image (which it retains).
-        unsafe {
-            let image = new_object(c"NSImage")?;
-            Id::owned(send(
-                image,
-                c"initWithCGImage:size:",
-                (self.0.as_ptr(), NsSize::default()),
-            ))
-            .ok_or_else(error)
-        }
-    }
-
     /// Draws the image over `rect` of the view being drawn (in its
     /// flipped coordinates, in points), pixel for pixel.
     pub(crate) fn draw(&self, rect: PointRect) {
@@ -158,6 +143,49 @@ impl Image {
                 CGContextRestoreGState(context);
             }
         });
+    }
+}
+
+/// An `NSImage` of several representations, each image shown at a size
+/// in points (a 64-pixel image at 32 points is the 32-point image's 2×
+/// representation); the image's own size is the widest of them. `AppKit`
+/// draws the representation closest to each size it shows the image at.
+pub(crate) fn ns_image(representations: &[(&Image, LogicalSize)]) -> Result<Id, Error> {
+    let error = || failed("creating an NSImage");
+    let size = |points: LogicalSize| NsSize {
+        width: points.width,
+        height: points.height,
+    };
+    let largest = representations
+        .iter()
+        .map(|&(_, points)| points)
+        .max_by(|a, b| a.width.total_cmp(&b.width))
+        .ok_or_else(error)?;
+    // SAFETY: `new_object` gives allocated objects, initialized here with
+    // a size and with live images (which the representations retain);
+    // the image retains the representations added to it.
+    unsafe {
+        let image = Id::owned(send(
+            new_object(c"NSImage")?,
+            c"initWithSize:",
+            (size(largest),),
+        ))
+        .ok_or_else(error)?;
+        for &(cg_image, points) in representations {
+            let representation = Id::owned(send(
+                new_object(c"NSBitmapImageRep")?,
+                c"initWithCGImage:",
+                (cg_image.0.as_ptr(),),
+            ))
+            .ok_or_else(error)?;
+            send::<_, ()>(representation.as_ptr(), c"setSize:", (size(points),));
+            send::<_, ()>(
+                image.as_ptr(),
+                c"addRepresentation:",
+                (representation.as_ptr(),),
+            );
+        }
+        Ok(image)
     }
 }
 

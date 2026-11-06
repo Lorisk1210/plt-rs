@@ -6,7 +6,8 @@ use super::ffi::{self, BitmapInfo, BitmapInfoHeader, Handle, PaintStruct, Rect};
 use super::{Hwnd, check, last_error};
 use crate::error::Error;
 use crate::geometry::PhysicalRect;
-use crate::window::{CursorIcon, Icon};
+use crate::icon::IconImage;
+use crate::window::CursorIcon;
 use crate::windows::convert::{cursor_resource, icon_pixels, mask_len};
 
 /// A `WM_PAINT` in progress (`BeginPaint`, ended by dropping it with
@@ -137,7 +138,7 @@ pub(crate) struct OwnedIcon(Handle);
 
 impl OwnedIcon {
     /// The icon showing `icon`'s pixels.
-    pub(crate) fn new(icon: &Icon) -> Result<Self, Error> {
+    pub(crate) fn new(icon: &IconImage) -> Result<Self, Error> {
         let size = icon.size();
         let invalid = || Error::InvalidArgument("icon too large for Windows");
         let width = i32::try_from(size.width).map_err(|_| invalid())?;
@@ -180,13 +181,25 @@ impl Drop for OwnedIcon {
 }
 
 impl Hwnd {
-    /// Shows `icon` in the title bar and the task bar (the window keeps
-    /// no reference: `icon` must outlive the window or be replaced).
-    pub(crate) fn set_icon(self, icon: &OwnedIcon) {
-        for kind in [ffi::ICON_SMALL, ffi::ICON_BIG] {
+    /// Shows `small` in the title bar and `big` in the task bar and the
+    /// task switcher (the window keeps no reference: the icons must
+    /// outlive the window or be replaced).
+    pub(crate) fn set_icons(self, small: &OwnedIcon, big: &OwnedIcon) {
+        for (kind, icon) in [(ffi::ICON_SMALL, small), (ffi::ICON_BIG, big)] {
             // SAFETY: a handle-only message; the result is the previous
             // icon, which the window does not own.
             unsafe { ffi::SendMessageW(self.0, ffi::WM_SETICON, kind, icon.0) };
         }
     }
+}
+
+/// The sides of small (title bar) and large (task bar) icons at `dpi`, in
+/// pixels (0 when the system does not say).
+pub(crate) fn icon_sides(dpi: u32) -> (u32, u32) {
+    let side = |metric| {
+        // SAFETY: a query without pointers.
+        let pixels = unsafe { ffi::GetSystemMetricsForDpi(metric, dpi) };
+        u32::try_from(pixels).unwrap_or(0)
+    };
+    (side(ffi::SM_CXSMICON), side(ffi::SM_CXICON))
 }

@@ -9,7 +9,7 @@ use crate::error::Error;
 
 /// The globals bound once: interface name, the highest version this
 /// backend speaks, and the object kind.
-const SINGLETONS: [(&str, u32, Interface); 10] = [
+const SINGLETONS: [(&str, u32, Interface); 11] = [
     // Version 6 adds `wl_surface.preferred_buffer_scale`.
     ("wl_compositor", 6, Interface::Compositor),
     ("wl_subcompositor", 1, Interface::Subcompositor),
@@ -34,6 +34,11 @@ const SINGLETONS: [(&str, u32, Interface); 10] = [
         Interface::CursorShapeManager,
     ),
     ("xdg_activation_v1", 1, Interface::Activation),
+    (
+        "xdg_toplevel_icon_manager_v1",
+        1,
+        Interface::ToplevelIconManager,
+    ),
 ];
 
 /// The highest `wl_seat` version: 8 adds `axis_value120`.

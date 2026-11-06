@@ -92,7 +92,7 @@ impl FigureWindow {
         let (width, height) = figure.size_inches();
         // The window is sized in logical pixels.
         let dpi = figure.dpi() / figure.canvas().device_pixel_ratio();
-        let options = dialog::window_options(title)?
+        let options = dialog::window_options(title)
             .with_inner_size(LogicalSize::new(
                 width * dpi,
                 height * dpi + toolbar::height(),

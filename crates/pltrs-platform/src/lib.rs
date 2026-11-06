@@ -93,6 +93,7 @@ mod event_loop;
 mod frame;
 mod geometry;
 mod headless;
+mod icon;
 mod keyboard;
 #[cfg(unix)]
 mod keysym;
@@ -132,5 +133,6 @@ pub use event_loop::{Context, EventLoop, EventLoopProxy, PumpStatus, TimerId};
 pub use frame::{Frame, OwnedFrame};
 pub use geometry::{LogicalSize, PhysicalPosition, PhysicalRect, PhysicalSize, Size};
 pub use headless::{HeadlessHandle, PresentedFrame, WindowSnapshot};
+pub use icon::{Icon, IconImage, IconLayout};
 pub use keyboard::{Key, Modifiers};
-pub use window::{CursorIcon, Icon, WindowId, WindowOptions};
+pub use window::{CursorIcon, WindowId, WindowOptions};

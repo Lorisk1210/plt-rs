@@ -8,9 +8,10 @@
 use std::cell::RefCell;
 
 use super::convert::{scale_factor, typed_text};
+use super::icon::WindowIcon;
 use super::keys::{self, AltGrTracker, KeyMessage, KeyRole};
 use super::message::{Message, ScreenRect};
-use super::sys::{self, Hwnd, OwnedIcon, Painter, Restore};
+use super::sys::{self, Hwnd, Painter, Restore};
 use crate::click::ClickCounter;
 use crate::event::{ButtonState, MouseButton, ScrollDelta, WindowEvent};
 use crate::geometry::{PhysicalPosition, PhysicalSize, Size};
@@ -48,8 +49,8 @@ pub(super) struct WindowState {
     min_size: Option<Size>,
     /// How to restore the window, while it is full screen.
     pub(super) fullscreen: Option<Restore>,
-    /// The window's icon, kept alive as long as the window.
-    _icon: Option<OwnedIcon>,
+    /// The window's icon, drawn for its DPI.
+    icon: Option<WindowIcon>,
     /// Whether the pointer is over the client area.
     pub(super) pointer_inside: bool,
     focused: bool,
@@ -63,7 +64,7 @@ impl WindowState {
         surface: Surface,
         dpi: u32,
         min_size: Option<Size>,
-        icon: Option<OwnedIcon>,
+        icon: Option<WindowIcon>,
     ) -> Self {
         Self {
             surface,
@@ -71,7 +72,7 @@ impl WindowState {
             cursor: CursorIcon::Default,
             min_size,
             fullscreen: None,
-            _icon: icon,
+            icon,
             pointer_inside: false,
             focused: false,
             clicks: ClickCounter::new(sys::double_click_time()),
@@ -194,24 +195,37 @@ fn resized(
     true
 }
 
-/// Follows a new DPI, moving the window to the place the system
-/// suggests; returns whether the window is known.
+/// Follows a new DPI, drawing the icon at its sizes and moving the
+/// window to the place the system suggests; returns whether the window
+/// is known.
 fn dpi_changed(window: Hwnd, dpi: u32, suggested: ScreenRect) -> bool {
     let id = window.id();
     let known = with_windows(|windows| {
-        let Some(state) = windows.state_mut(id) else {
-            return false;
-        };
-        if std::mem::replace(&mut state.dpi, dpi) != dpi {
+        let state = windows.state_mut(id)?;
+        let changed = std::mem::replace(&mut state.dpi, dpi) != dpi;
+        let icon = changed
+            .then(|| state.icon.as_ref().map(|shown| shown.icon().clone()))
+            .flatten();
+        if changed {
             windows.push(id, WindowEvent::ScaleFactorChanged(scale_factor(dpi)));
         }
-        true
+        Some(icon)
     });
-    if known {
-        // The new client size follows as WM_SIZE.
-        window.place(suggested);
+    let Some(icon) = known else {
+        return false;
+    };
+    // `WM_SETICON` may re-enter the procedure: the registry is not
+    // borrowed meanwhile. An icon that cannot be drawn keeps the old one.
+    if let Some(Ok(Some(shown))) = icon.map(|icon| WindowIcon::show(&icon, window, dpi)) {
+        with_windows(|windows| {
+            if let Some(state) = windows.state_mut(id) {
+                state.icon = Some(shown);
+            }
+        });
     }
-    known
+    // The new client size follows as WM_SIZE.
+    window.place(suggested);
+    true
 }
 
 /// The smallest window size for the minimum client size, if one was set.

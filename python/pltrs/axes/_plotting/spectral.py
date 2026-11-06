@@ -10,6 +10,7 @@ do; pltrs (Rust) computes the spectra and draws them.
 
 import numpy as np
 
+from ... import _docstring
 from ... import _api, cbook, image as mimage, lines as mlines, mlab
 from ... import collections as mcoll
 from ..._native import plotting as _plotting
@@ -70,20 +71,54 @@ def _floats(x):
 class SpectralMixin:
     """The spectral plots of `~.axes.Axes`."""
 
+    @_api.make_keyword_only("3.10", "NFFT")
     @_preprocess_data(replace_names=["x"])
+    @_docstring.interpd
     def psd(self, x, NFFT=None, Fs=None, Fc=None, detrend=None,
             window=None, noverlap=None, pad_to=None,
             sides=None, scale_by_freq=None, return_line=None, **kwargs):
         r"""
         Plot the power spectral density.
 
+        The power spectral density :math:`P_{xx}` by Welch's average
+        periodogram method.  The vector *x* is divided into *NFFT* length
+        segments.  Each segment is detrended by function *detrend* and
+        windowed by function *window*.  *noverlap* gives the length of
+        the overlap between segments.  The :math:`|\mathrm{fft}(i)|^2`
+        of each segment :math:`i` are averaged to compute :math:`P_{xx}`,
+        with a scaling to correct for power loss due to windowing.
+
+        If len(*x*) < *NFFT*, it will be zero padded to *NFFT*.
+
+        Parameters
+        ----------
+        x : 1-D array or sequence
+            Array or sequence containing the data
+
+        %(Spectral)s
+
+        %(PSD)s
+
+        noverlap : int, default: 0 (no overlap)
+            The number of points of overlap between segments.
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
+        return_line : bool, default: False
+            Whether to include the line object plotted in the returned values.
+
         Returns
         -------
         Pxx : 1-D array
             The values for the power spectrum :math:`P_{xx}` before scaling
             (real valued).
+
         freqs : 1-D array
             The frequencies corresponding to the elements in *Pxx*.
+
         line : `~matplotlib.lines.Line2D`
             The line created by this function.
             Only returned if *return_line* is True.
@@ -92,6 +127,33 @@ class SpectralMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Keyword arguments control the `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        specgram
+            Differs in the default overlap; in not returning the mean of the
+            segment periodograms; in returning the times of the segments; and
+            in plotting a colormap instead of a line.
+        magnitude_spectrum
+            Plots the magnitude spectrum.
+        csd
+            Plots the spectral density between two signals.
+
+        Notes
+        -----
+        For plotting, the power is plotted as
+        :math:`10\log_{10}(P_{xx})` for decibels, though *Pxx* itself
+        is returned.
+
+        References
+        ----------
+        Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
+        John Wiley & Sons (1986)
         """
         Fc = 0 if Fc is None else Fc
         pxx, freqs = _plotting.psd(
@@ -105,20 +167,56 @@ class SpectralMixin:
         # The list `plot` returns, as matplotlib returns it.
         return pxx, freqs, [_last_line(self)]
 
+    @_api.make_keyword_only("3.10", "NFFT")
     @_preprocess_data(replace_names=["x", "y"], label_namer="y")
+    @_docstring.interpd
     def csd(self, x, y, NFFT=None, Fs=None, Fc=None, detrend=None,
             window=None, noverlap=None, pad_to=None,
             sides=None, scale_by_freq=None, return_line=None, **kwargs):
         r"""
         Plot the cross-spectral density.
 
+        The cross spectral density :math:`P_{xy}` by Welch's average
+        periodogram method.  The vectors *x* and *y* are divided into
+        *NFFT* length segments.  Each segment is detrended by function
+        *detrend* and windowed by function *window*.  *noverlap* gives
+        the length of the overlap between segments.  The product of
+        the direct FFTs of *x* and *y* are averaged over each segment
+        to compute :math:`P_{xy}`, with a scaling to correct for power
+        loss due to windowing.
+
+        If len(*x*) < *NFFT* or len(*y*) < *NFFT*, they will be zero
+        padded to *NFFT*.
+
+        Parameters
+        ----------
+        x, y : 1-D arrays or sequences
+            Arrays or sequences containing the data.
+
+        %(Spectral)s
+
+        %(PSD)s
+
+        noverlap : int, default: 0 (no overlap)
+            The number of points of overlap between segments.
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
+        return_line : bool, default: False
+            Whether to include the line object plotted in the returned values.
+
         Returns
         -------
         Pxy : 1-D array
             The values for the cross spectrum :math:`P_{xy}` before scaling
             (complex valued).
+
         freqs : 1-D array
             The frequencies corresponding to the elements in *Pxy*.
+
         line : `~matplotlib.lines.Line2D`
             The line created by this function.
             Only returned if *return_line* is True.
@@ -127,6 +225,26 @@ class SpectralMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Keyword arguments control the `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        psd : is equivalent to setting ``y = x``.
+
+        Notes
+        -----
+        For plotting, the power is plotted as
+        :math:`10 \log_{10}(P_{xy})` for decibels, though :math:`P_{xy}` itself
+        is returned.
+
+        References
+        ----------
+        Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
+        John Wiley & Sons (1986)
         """
         Fc = 0 if Fc is None else Fc
         (re, im), freqs = _plotting.csd(
@@ -141,17 +259,40 @@ class SpectralMixin:
         # The list `plot` returns, as matplotlib returns it.
         return pxy, freqs, [_last_line(self)]
 
+    @_api.make_keyword_only("3.10", "NFFT")
     @_preprocess_data(replace_names=["x", "y"])
+    @_docstring.interpd
     def cohere(self, x, y, NFFT=256, Fs=2, Fc=0, detrend=mlab.detrend_none,
                window=mlab.window_hanning, noverlap=0, pad_to=None,
                sides='default', scale_by_freq=None, **kwargs):
         r"""
         Plot the coherence between *x* and *y*.
 
+        Coherence is the normalized cross spectral density:
+
+        .. math::
+
+          C_{xy} = \frac{|P_{xy}|^2}{P_{xx}P_{yy}}
+
+        Parameters
+        ----------
+        %(Spectral)s
+
+        %(PSD)s
+
+        noverlap : int, default: 0 (no overlap)
+            The number of points of overlap between blocks.
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
         Returns
         -------
         Cxy : 1-D array
             The coherence vector.
+
         freqs : 1-D array
             The frequencies for the elements in *Cxy*.
 
@@ -159,6 +300,16 @@ class SpectralMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Keyword arguments control the `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        References
+        ----------
+        Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
+        John Wiley & Sons (1986)
         """
         cxy, freqs = _plotting.cohere(
             self._native, (_floats(x), _floats(y)),
@@ -184,19 +335,46 @@ class SpectralMixin:
             scale, _line(kwargs))
         return spectrum, freqs + Fc, wrap(self, line, mlines.Line2D)
 
+    @_api.make_keyword_only("3.10", "Fs")
     @_preprocess_data(replace_names=["x"])
+    @_docstring.interpd
     def magnitude_spectrum(self, x, Fs=None, Fc=None, window=None,
                            pad_to=None, sides=None, scale=None,
                            **kwargs):
         """
         Plot the magnitude spectrum.
 
+        Compute the magnitude spectrum of *x*.  Data is padded to a
+        length of *pad_to* and the windowing function *window* is applied to
+        the signal.
+
+        Parameters
+        ----------
+        x : 1-D array or sequence
+            Array or sequence containing the data.
+
+        %(Spectral)s
+
+        %(Single_Spectrum)s
+
+        scale : {'default', 'linear', 'dB'}
+            The scaling of the values in the *spec*.  'linear' is no scaling.
+            'dB' returns the values in dB scale, i.e., the dB amplitude
+            (20 * log10). 'default' is 'linear'.
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
         Returns
         -------
         spectrum : 1-D array
             The values for the magnitude spectrum before scaling (real valued).
+
         freqs : 1-D array
             The frequencies corresponding to the elements in *spectrum*.
+
         line : `~matplotlib.lines.Line2D`
             The line created by this function.
 
@@ -204,22 +382,61 @@ class SpectralMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Keyword arguments control the `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        psd
+            Plots the power spectral density.
+        angle_spectrum
+            Plots the angles of the corresponding frequencies.
+        phase_spectrum
+            Plots the phase (unwrapped angle) of the corresponding frequencies.
+        specgram
+            Can plot the magnitude spectrum of segments within the signal in a
+            colormap.
         """
         return self._single_spectrum("magnitude", x, Fs, Fc, window, pad_to, sides,
                                      scale, kwargs)
 
+    @_api.make_keyword_only("3.10", "Fs")
     @_preprocess_data(replace_names=["x"])
+    @_docstring.interpd
     def angle_spectrum(self, x, Fs=None, Fc=None, window=None,
                        pad_to=None, sides=None, **kwargs):
         """
         Plot the angle spectrum.
 
+        Compute the angle spectrum (wrapped phase spectrum) of *x*.
+        Data is padded to a length of *pad_to* and the windowing function
+        *window* is applied to the signal.
+
+        Parameters
+        ----------
+        x : 1-D array or sequence
+            Array or sequence containing the data.
+
+        %(Spectral)s
+
+        %(Single_Spectrum)s
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
         Returns
         -------
         spectrum : 1-D array
             The values for the angle spectrum in radians (real valued).
+
         freqs : 1-D array
             The frequencies corresponding to the elements in *spectrum*.
+
         line : `~matplotlib.lines.Line2D`
             The line created by this function.
 
@@ -227,22 +444,59 @@ class SpectralMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Keyword arguments control the `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        magnitude_spectrum
+            Plots the magnitudes of the corresponding frequencies.
+        phase_spectrum
+            Plots the unwrapped version of this function.
+        specgram
+            Can plot the angle spectrum of segments within the signal in a
+            colormap.
         """
         return self._single_spectrum("angle", x, Fs, Fc, window, pad_to, sides,
                                      "linear", kwargs)
 
+    @_api.make_keyword_only("3.10", "Fs")
     @_preprocess_data(replace_names=["x"])
+    @_docstring.interpd
     def phase_spectrum(self, x, Fs=None, Fc=None, window=None,
                        pad_to=None, sides=None, **kwargs):
         """
         Plot the phase spectrum.
 
+        Compute the phase spectrum (unwrapped angle spectrum) of *x*.
+        Data is padded to a length of *pad_to* and the windowing function
+        *window* is applied to the signal.
+
+        Parameters
+        ----------
+        x : 1-D array or sequence
+            Array or sequence containing the data
+
+        %(Spectral)s
+
+        %(Single_Spectrum)s
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
         Returns
         -------
         spectrum : 1-D array
             The values for the phase spectrum in radians (real valued).
+
         freqs : 1-D array
             The frequencies corresponding to the elements in *spectrum*.
+
         line : `~matplotlib.lines.Line2D`
             The line created by this function.
 
@@ -250,11 +504,28 @@ class SpectralMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Keyword arguments control the `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        magnitude_spectrum
+            Plots the magnitudes of the corresponding frequencies.
+        angle_spectrum
+            Plots the wrapped version of this function.
+        specgram
+            Can plot the phase spectrum of segments within the signal in a
+            colormap.
         """
         return self._single_spectrum("phase", x, Fs, Fc, window, pad_to, sides,
                                      "linear", kwargs)
 
+    @_api.make_keyword_only("3.10", "NFFT")
     @_preprocess_data(replace_names=["x"])
+    @_docstring.interpd
     def specgram(self, x, NFFT=None, Fs=None, Fc=None, detrend=None,
                  window=None, noverlap=None,
                  cmap=None, xextent=None, pad_to=None, sides=None,
@@ -263,22 +534,100 @@ class SpectralMixin:
         """
         Plot a spectrogram.
 
+        Compute and plot a spectrogram of data in *x*.  Data are split into
+        *NFFT* length segments and the spectrum of each section is
+        computed.  The windowing function *window* is applied to each
+        segment, and the amount of overlap of each segment is
+        specified with *noverlap*. The spectrogram is plotted as a colormap
+        (using imshow).
+
+        Parameters
+        ----------
+        x : 1-D array or sequence
+            Array or sequence containing the data.
+
+        %(Spectral)s
+
+        %(PSD)s
+
+        mode : {'default', 'psd', 'magnitude', 'angle', 'phase'}
+            What sort of spectrum to use.  Default is 'psd', which takes the
+            power spectral density.  'magnitude' returns the magnitude
+            spectrum.  'angle' returns the phase spectrum without unwrapping.
+            'phase' returns the phase spectrum with unwrapping.
+
+        noverlap : int, default: 128
+            The number of points of overlap between blocks.
+
+        scale : {'default', 'linear', 'dB'}
+            The scaling of the values in the *spec*.  'linear' is no scaling.
+            'dB' returns the values in dB scale.  When *mode* is 'psd',
+            this is dB power (10 * log10).  Otherwise, this is dB amplitude
+            (20 * log10). 'default' is 'dB' if *mode* is 'psd' or
+            'magnitude' and 'linear' otherwise.  This must be 'linear'
+            if *mode* is 'angle' or 'phase'.
+
+        Fc : int, default: 0
+            The center frequency of *x*, which offsets the x extents of the
+            plot to reflect the frequency range used when a signal is acquired
+            and then filtered and downsampled to baseband.
+
+        cmap : `.Colormap`, default: :rc:`image.cmap`
+
+        xextent : *None* or (xmin, xmax)
+            The image extent along the x-axis. The default sets *xmin* to the
+            left border of the first bin (*spectrum* column) and *xmax* to the
+            right border of the last bin. Note that for *noverlap>0* the width
+            of the bins is smaller than those of the segments.
+
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
+        vmin, vmax : float, optional
+            vmin and vmax define the data range that the colormap covers.
+            By default, the colormap covers the complete value range of the
+            data.
+
+        **kwargs
+            Additional keyword arguments are passed on to `~.axes.Axes.imshow`
+            which makes the specgram image. The origin keyword argument
+            is not supported.
+
         Returns
         -------
         spectrum : 2D array
             Columns are the periodograms of successive segments.
+
         freqs : 1-D array
             The frequencies corresponding to the rows in *spectrum*.
+
         t : 1-D array
             The times corresponding to midpoints of segments (i.e., the columns
             in *spectrum*).
+
         im : `.AxesImage`
             The image created by imshow containing the spectrogram.
 
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
+        See Also
+        --------
+        psd
+            Differs in the default overlap; in returning the mean of the
+            segment periodograms; in not returning times; and in generating a
+            line plot instead of colormap.
+        magnitude_spectrum
+            A single spectrum, similar to having a single segment when *mode*
+            is 'magnitude'. Plots a line instead of a colormap.
+        angle_spectrum
+            A single spectrum, similar to having a single segment when *mode*
+            is 'angle'. Plots a line instead of a colormap.
+        phase_spectrum
+            A single spectrum, similar to having a single segment when *mode*
+            is 'phase'. Plots a line instead of a colormap.
+
+        Notes
+        -----
+        The parameters *detrend* and *scale_by_freq* do only apply when *mode*
+        is set to 'psd'.
         """
         if NFFT is None:
             NFFT = 256  # same default as in mlab.specgram()
@@ -322,6 +671,35 @@ class SpectralMixin:
         """
         Plot the autocorrelation of *x*.
 
+        Parameters
+        ----------
+        x : array-like
+            Not run through Matplotlib's unit conversion, so this should
+            be a unit-less array.
+
+        detrend : callable, default: `.mlab.detrend_none` (no detrending)
+            A detrending function applied to *x*.  It must have the
+            signature ::
+
+                detrend(x: np.ndarray) -> np.ndarray
+
+        normed : bool, default: True
+            If ``True``, input vectors are normalised to unit length.
+
+        usevlines : bool, default: True
+            Determines the plot style.
+
+            If ``True``, vertical lines are plotted from 0 to the acorr value
+            using `.Axes.vlines`. Additionally, a horizontal line is plotted
+            at y=0 using `.Axes.axhline`.
+
+            If ``False``, markers are plotted at the acorr values using
+            `.Axes.plot`.
+
+        maxlags : int, default: 10
+            Number of lags to show. If ``None``, will return all
+            ``2 * len(x) - 1`` lags.
+
         Returns
         -------
         lags : array (length ``2*maxlags+1``)
@@ -329,24 +707,79 @@ class SpectralMixin:
         c : array  (length ``2*maxlags+1``)
             The auto correlation vector.
         line : `.LineCollection` or `.Line2D`
-            `.Artist` added to the Axes of the correlation.
+            `.Artist` added to the Axes of the correlation:
+
+            - `.LineCollection` if *usevlines* is True.
+            - `.Line2D` if *usevlines* is False.
         b : `~matplotlib.lines.Line2D` or None
             Horizontal line at 0 if *usevlines* is True
             None *usevlines* is False.
 
         Other Parameters
         ----------------
+        linestyle : `~matplotlib.lines.Line2D` property, optional
+            The linestyle for plotting the data points.
+            Only used if *usevlines* is ``False``.
+
+        marker : str, default: 'o'
+            The marker for plotting the data points.
+            Only used if *usevlines* is ``False``.
+
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Additional parameters are passed to `.Axes.vlines` and
+            `.Axes.axhline` if *usevlines* is ``True``; otherwise they are
+            passed to `.Axes.plot`.
+
+        Notes
+        -----
+        The cross correlation is performed with `numpy.correlate` with
+        ``mode = "full"``.
         """
         return self.xcorr(x, x, **kwargs)
 
+    @_api.make_keyword_only("3.10", "normed")
     @_preprocess_data(replace_names=["x", "y"], label_namer="y")
     def xcorr(self, x, y, normed=True, detrend=mlab.detrend_none,
               usevlines=True, maxlags=10, **kwargs):
         r"""
         Plot the cross correlation between *x* and *y*.
 
+        The correlation with lag k is defined as
+        :math:`\sum_n x[n+k] \cdot y^*[n]`, where :math:`y^*` is the complex
+        conjugate of :math:`y`.
+
+        Parameters
+        ----------
+        x, y : array-like of length n
+            Neither *x* nor *y* are run through Matplotlib's unit conversion, so
+            these should be unit-less arrays.
+
+        detrend : callable, default: `.mlab.detrend_none` (no detrending)
+            A detrending function applied to *x* and *y*.  It must have the
+            signature ::
+
+                detrend(x: np.ndarray) -> np.ndarray
+
+        normed : bool, default: True
+            If ``True``, input vectors are normalised to unit length.
+
+        usevlines : bool, default: True
+            Determines the plot style.
+
+            If ``True``, vertical lines are plotted from 0 to the xcorr value
+            using `.Axes.vlines`. Additionally, a horizontal line is plotted
+            at y=0 using `.Axes.axhline`.
+
+            If ``False``, markers are plotted at the xcorr values using
+            `.Axes.plot`.
+
+        maxlags : int, default: 10
+            Number of lags to show. If None, will return all ``2 * len(x) - 1``
+            lags.
+
         Returns
         -------
         lags : array (length ``2*maxlags+1``)
@@ -354,15 +787,36 @@ class SpectralMixin:
         c : array  (length ``2*maxlags+1``)
             The auto correlation vector.
         line : `.LineCollection` or `.Line2D`
-            `.Artist` added to the Axes of the correlation.
+            `.Artist` added to the Axes of the correlation:
+
+            - `.LineCollection` if *usevlines* is True.
+            - `.Line2D` if *usevlines* is False.
         b : `~matplotlib.lines.Line2D` or None
             Horizontal line at 0 if *usevlines* is True
             None *usevlines* is False.
 
         Other Parameters
         ----------------
+        linestyle : `~matplotlib.lines.Line2D` property, optional
+            The linestyle for plotting the data points.
+            Only used if *usevlines* is ``False``.
+
+        marker : str, default: 'o'
+            The marker for plotting the data points.
+            Only used if *usevlines* is ``False``.
+
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Additional parameters are passed to `.Axes.vlines` and
+            `.Axes.axhline` if *usevlines* is ``True``; otherwise they are
+            passed to `.Axes.plot`.
+
+        Notes
+        -----
+        The cross correlation is performed with `numpy.correlate` with
+        ``mode = "full"``.
         """
         Nx = len(x)
         if Nx != len(y):

@@ -4,6 +4,7 @@ Events and stems: `~.Axes.eventplot` and `~.Axes.stem`.
 
 import numpy as np
 
+from ... import _docstring
 from ... import _api, _values, artist as martist, cbook, collections as mcoll, colors as mcolors
 from ... import lines as mlines
 from ..._native import plotting as _plotting
@@ -52,24 +53,116 @@ def _remember_rows(collections, lineoffsets, linelengths, linewidths):
 class EventsMixin:
     """`eventplot` and `stem`."""
 
+    @_api.make_keyword_only("3.10", "orientation")
     @_preprocess_data(replace_names=["positions", "lineoffsets",
                                      "linelengths", "linewidths",
                                      "colors", "linestyles"])
+    @_docstring.interpd
     def eventplot(self, positions, orientation='horizontal', lineoffsets=1,
                   linelengths=1, linewidths=None, colors=None, alpha=None,
                   linestyles='solid', **kwargs):
         """
         Plot identical parallel lines at the given positions.
 
+        This type of plot is commonly used in neuroscience for representing
+        neural events, where it is usually called a spike raster, dot raster,
+        or raster plot.
+
+        However, it is useful in any situation where you wish to show the
+        timing or position of multiple sets of discrete events, such as the
+        arrival times of people to a business on each day of the month or the
+        date of hurricanes each year of the last century.
+
+        Parameters
+        ----------
+        positions : array-like or list of array-like
+            A 1D array-like defines the positions of one sequence of events.
+
+            Multiple groups of events may be passed as a list of array-likes.
+            Each group can be styled independently by passing lists of values
+            to *lineoffsets*, *linelengths*, *linewidths*, *colors* and
+            *linestyles*.
+
+            Note that *positions* can be a 2D array, but in practice different
+            event groups usually have different counts so that one will use a
+            list of different-length arrays rather than a 2D array.
+
+        orientation : {'horizontal', 'vertical'}, default: 'horizontal'
+            The direction of the event sequence:
+
+            - 'horizontal': the events are arranged horizontally.
+              The indicator lines are vertical.
+            - 'vertical': the events are arranged vertically.
+              The indicator lines are horizontal.
+
+        lineoffsets : float or array-like, default: 1
+            The offset of the center of the lines from the origin, in the
+            direction orthogonal to *orientation*.
+
+            If *positions* is 2D, this can be a sequence with length matching
+            the length of *positions*.
+
+        linelengths : float or array-like, default: 1
+            The total height of the lines (i.e. the lines stretches from
+            ``lineoffset - linelength/2`` to ``lineoffset + linelength/2``).
+
+            If *positions* is 2D, this can be a sequence with length matching
+            the length of *positions*.
+
+        linewidths : float or array-like, default: :rc:`lines.linewidth`
+            The line width(s) of the event lines, in points.
+
+            If *positions* is 2D, this can be a sequence with length matching
+            the length of *positions*.
+
+        colors : :mpltype:`color` or list of color, default: :rc:`lines.color`
+            The color(s) of the event lines.
+
+            If *positions* is 2D, this can be a sequence with length matching
+            the length of *positions*.
+
+        alpha : float or array-like, default: 1
+            The alpha blending value(s), between 0 (transparent) and 1
+            (opaque).
+
+            If *positions* is 2D, this can be a sequence with length matching
+            the length of *positions*.
+
+        linestyles : str or tuple or list of such values, default: 'solid'
+            Default is 'solid'. Valid strings are ['solid', 'dashed',
+            'dashdot', 'dotted', '-', '--', '-.', ':']. Dash tuples
+            should be of the form::
+
+                (offset, onoffseq),
+
+            where *onoffseq* is an even length tuple of on and off ink
+            in points.
+
+            If *positions* is 2D, this can be a sequence with length matching
+            the length of *positions*.
+
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Other keyword arguments are line collection properties.  See
+            `.LineCollection` for a list of the valid properties.
+
         Returns
         -------
         list of `.EventCollection`
             The `.EventCollection` that were added.
 
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
+        Notes
+        -----
+        For *linelengths*, *linewidths*, *colors*, *alpha* and *linestyles*, if
+        only a single value is given, that value is applied to all lines. If an
+        array-like is given, it must have the same length as *positions*, and
+        each value will be applied to the corresponding row of the array.
+
+        Examples
+        --------
+        .. plot:: gallery/lines_bars_and_markers/eventplot_demo.py
         """
         _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
         lineoffsets, linelengths = self._process_unit_info(
@@ -155,16 +248,81 @@ class EventsMixin:
         """
         Create a stem plot.
 
+        A stem plot draws lines perpendicular to a baseline at each location
+        *locs* from the baseline to *heads*, and places a marker there. For
+        vertical stem plots (the default), the *locs* are *x* positions, and
+        the *heads* are *y* values. For horizontal stem plots, the *locs* are
+        *y* positions, and the *heads* are *x* values.
+
+        Call signature::
+
+          stem([locs,] heads, linefmt=None, markerfmt=None, basefmt=None)
+
+        The *locs*-positions are optional. *linefmt* may be provided as
+        positional, but all other formats must be provided as keyword
+        arguments.
+
+        Parameters
+        ----------
+        locs : array-like, default: (0, 1, ..., len(heads) - 1)
+            For vertical stem plots, the x-positions of the stems.
+            For horizontal stem plots, the y-positions of the stems.
+
+        heads : array-like
+            For vertical stem plots, the y-values of the stem heads.
+            For horizontal stem plots, the x-values of the stem heads.
+
+        linefmt : str, optional
+            A string defining the color and/or linestyle of the vertical lines:
+
+            =========  =============
+            Character  Line Style
+            =========  =============
+            ``'-'``    solid line
+            ``'--'``   dashed line
+            ``'-.'``   dash-dot line
+            ``':'``    dotted line
+            =========  =============
+
+            Default: 'C0-', i.e. solid line with the first color of the color
+            cycle.
+
+            Note: Markers specified through this parameter (e.g. 'x') will be
+            silently ignored. Instead, markers should be specified using
+            *markerfmt*.
+
+        markerfmt : str, optional
+            A string defining the color and/or shape of the markers at the stem
+            heads. If the marker is not given, use the marker 'o', i.e. filled
+            circles. If the color is not given, use the color from *linefmt*.
+
+        basefmt : str, default: 'C3-' ('C2-' in classic mode)
+            A format string defining the properties of the baseline.
+
+        orientation : {'vertical', 'horizontal'}, default: 'vertical'
+            The orientation of the stems.
+
+        bottom : float, default: 0
+            The y/x-position of the baseline (depending on *orientation*).
+
+        label : str, optional
+            The label to use for the stems in legends.
+
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
         Returns
         -------
         `.StemContainer`
             The container may be treated like a tuple
             (*markerline*, *stemlines*, *baseline*)
 
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
+        Notes
+        -----
+        .. seealso::
+            The MATLAB function
+            `stem <https://www.mathworks.com/help/matlab/ref/stem.html>`_
+            which inspired this method.
         """
         if not 1 <= len(args) <= 3:
             raise _api.nargs_error('stem', '1-3', len(args))

@@ -30,12 +30,18 @@ class Triangulation:
     ----------
     triangles : (ntri, 3) array of int
         For each triangle, the indices of the three points that make
-        up the triangle.
+        up the triangle, ordered in an anticlockwise manner. If you want to
+        take the *mask* into account, use `get_masked_triangles` instead.
     mask : (ntri, 3) array of bool or None
         Masked out triangles.
     is_delaunay : bool
         Whether the Triangulation is a calculated Delaunay
         triangulation (where *triangles* was not specified) or not.
+
+    Notes
+    -----
+    For a Triangulation to be valid it must not have duplicate points,
+    triangles formed from colinear points, or overlapping triangles.
     """
 
     def __init__(self, x, y, triangles=None, mask=None):
@@ -96,8 +102,8 @@ class Triangulation:
 
     def get_cpp_triangulation(self):
         """
-        Return the underlying C++ Triangulation object (of the ``_tri``
-        extension), creating it if necessary.
+        Return the underlying C++ Triangulation object, creating it
+        if necessary.
         """
         from .. import _tri
         if getattr(self, "_cpp_triangulation", None) is None:

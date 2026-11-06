@@ -117,6 +117,16 @@ class Tick(Artist):
         The left/bottom tick label.
     label2 : `~matplotlib.text.Text`
         The right/top tick label.
+
+    Notes
+    -----
+    Ticks are managed though the autoscaling / view limit mechanism and therefore
+    need very careful handling when explicitly accessed, see :ref:`axes-tick-objects`.
+
+    The tick lines are implemented as `~matplotlib.lines.Line2D` instances using the
+    `~.matplotlib.markers` TICKLEFT, TICKRIGHT, TICKDOWN, TICKUP. Therefore,
+    properties are controlled via the marker, e.g. for the color
+    `.Line2D.set_markeredgecolor` and not `.Line2D.set_color`.
     """
 
     def __init__(
@@ -454,12 +464,10 @@ class Tick(Artist):
                                None if gid is None else str(gid))
 
     def draw(self, renderer):
-        """
-        Draw the visible parts of a tick made alone, as matplotlib's does
-        (how the projection of a program's class sees the parts its ticks
-        draw). The ticks of an axis are drawn by pltrs (Rust) with their
-        axis.
-        """
+        # Draw the visible parts of a tick made alone, as matplotlib's does
+        # (how the projection of a program's class sees the parts its ticks
+        # draw). The ticks of an axis are drawn by pltrs (Rust) with their
+        # axis.
         if self.get_visible():
             _unusable.check(self)
         if self.get_visible() and self.axis is None:

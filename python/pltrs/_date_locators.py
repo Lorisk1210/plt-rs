@@ -469,8 +469,6 @@ class DateLocator(ticker.Locator):
 
 
 class RRuleLocator(DateLocator):
-    """Ticks on the occurrences of a recurrence rule (`rrulewrapper`)."""
-
     def __init__(self, o, tz=None):
         super().__init__(tz)
         self.rule = o
@@ -490,7 +488,6 @@ class RRuleLocator(DateLocator):
                 "tz": _native_tz(self.tz)}
 
     def tick_values(self, vmin, vmax):
-        """The ticks between the date-times *vmin* and *vmax*."""
         _refuse_non_dates(vmin, vmax)
         nmin, nmax = _date2num([vmin, vmax])
         return self.raise_if_exceeds(
@@ -502,7 +499,6 @@ class RRuleLocator(DateLocator):
 
     @staticmethod
     def get_unit_generic(freq):
-        """The days in a period of the frequency *freq*."""
         if freq == YEARLY:
             return DAYS_PER_YEAR
         elif freq == MONTHLY:
@@ -558,6 +554,11 @@ class AutoDateLocator(DateLocator):
 
         When customizing, you should only modify the values for the existing
         keys. You should not add or delete entries.
+
+        Example for forcing ticks every 3 hours::
+
+            locator = AutoDateLocator()
+            locator.intervald[HOURLY] = [3]  # only show every 3 hours
     """
 
     def __init__(self, tz=None, minticks=5, maxticks=None,
@@ -916,6 +917,16 @@ class MicrosecondLocator(DateLocator):
         microsecond time resolution does not work well for
         dates that are far (about 70 years) from the epoch (check with
         `~.dates.get_epoch`).
+
+        If you want sub-microsecond resolution time plots, it is strongly
+        recommended to use floating point seconds, not datetime-like
+        time representation.
+
+        If you really must use datetime.datetime() or similar and still
+        need microsecond precision, change the time origin via
+        `.dates.set_epoch` to something closer to the dates being plotted.
+        See :doc:`/gallery/ticks/date_precision_and_epochs`.
+
     """
     def __init__(self, interval=1, tz=None):
         """

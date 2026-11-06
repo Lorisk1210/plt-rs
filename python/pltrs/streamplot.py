@@ -63,24 +63,36 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         *x* and *y*-velocities. The number of rows and columns must match
         the length of *y* and *x*, respectively.
     density : float or (float, float)
-        Controls the closeness of streamlines.
+        Controls the closeness of streamlines. When ``density = 1``, the domain
+        is divided into a 30x30 grid. *density* linearly scales this grid.
+        Each cell in the grid can have, at most, one traversing streamline.
+        For different densities in each direction, use a tuple
+        (density_x, density_y).
     linewidth : float or 2D array
-        The width of the streamlines.
+        The width of the streamlines. With a 2D array the line width can be
+        varied across the grid. The array must have the same shape as *u*
+        and *v*.
     color : :mpltype:`color` or 2D array
         The streamline color. If given an array, its values are converted to
-        colors using *cmap* and *norm*.
+        colors using *cmap* and *norm*.  The array must have the same shape
+        as *u* and *v*.
     cmap, norm
-        Data normalization and colormapping parameters for *color*.
+        Data normalization and colormapping parameters for *color*; only used
+        if *color* is an array of floats. See `~.Axes.imshow` for a detailed
+        description.
     arrowsize : float
         Scaling factor for the arrow size.
     arrowstyle : str
         Arrow style specification.
+        See `~matplotlib.patches.FancyArrowPatch`.
     minlength : float
         Minimum length of streamline in axes coordinates.
     start_points : (N, 2) array
-        Coordinates of starting points for the streamlines in data coordinates.
+        Coordinates of starting points for the streamlines in data coordinates
+        (the same coordinates as the *x* and *y* arrays).
     zorder : float
         The zorder of the streamlines and arrows.
+        Artists with lower zorder values are drawn first.
     maxlength : float
         Maximum length of streamline in axes coordinates.
     integration_direction : {'forward', 'backward', 'both'}, default: 'both'
@@ -89,15 +101,31 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         DATA_PARAMETER_PLACEHOLDER
     broken_streamlines : boolean, default: True
         If False, forces streamlines to continue until they
-        leave the plot domain.
+        leave the plot domain.  If True, they may be terminated if they
+        come too close to another streamline.
     integration_max_step_scale : float, default: 1.0
-        Multiplier on the maximum allowable step in the streamline
-        integration routine.
+        Multiplier on the maximum allowable step in the streamline integration routine.
+        A value between zero and one results in a max integration step smaller than
+        the default max step, resulting in more accurate streamlines at the cost
+        of greater computation time; a value greater than one does the converse. Must be
+        greater than zero.
+
+        .. versionadded:: 3.11
+
     integration_max_error_scale : float, default: 1.0
-        Multiplier on the maximum allowable error in the streamline
-        integration routine.
+        Multiplier on the maximum allowable error in the streamline integration routine.
+        A value between zero and one results in a tighter max integration error than
+        the default max error, resulting in more accurate streamlines at the cost
+        of greater computation time; a value greater than one does the converse. Must be
+        greater than zero.
+
+        .. versionadded:: 3.11
+
     num_arrows : int
-        Number of arrows per streamline.
+        Number of arrows per streamline. The arrows are spaced equally along the steps
+        each streamline takes. Note that this can be different to being spaced equally
+        along the distance of the streamline.
+
 
     Returns
     -------
@@ -184,8 +212,6 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
 
 
 class StreamplotSet:
-    """The artists of a streamline plot: ``lines`` and ``arrows``."""
-
     def __init__(self, lines, arrows):
         self.lines = lines
         self.arrows = arrows

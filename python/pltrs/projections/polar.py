@@ -379,10 +379,18 @@ class ThetaTick(XTick):
     """
     A theta-axis tick.
 
-    Its marks are perpendicular to the arc spine and, with 'auto' rotation,
-    its labels parallel to it, padded from the spine: pltrs (Rust) places
-    and turns them as matplotlib's ``ThetaTick.update_position`` does.
+    This subclass of `.XTick` provides angular ticks with some small
+    modification to their re-positioning such that ticks are rotated based on
+    tick location. This results in ticks that are correctly perpendicular to
+    the arc spine.
+
+    When 'auto' rotation is enabled, labels are also rotated to be parallel to
+    the spine. The label padding is also applied here since it's not possible
+    to use a generic axes transform to produce tick-specific padding.
     """
+    # Its marks are perpendicular to the arc spine and, with 'auto' rotation,
+    # its labels parallel to it, padded from the spine: pltrs (Rust) places
+    # and turns them as matplotlib's ``ThetaTick.update_position`` does.
 
     def __init__(self, axes, *args, **kwargs):
         super().__init__(axes, *args, **kwargs)
@@ -394,9 +402,11 @@ class ThetaAxis(XAxis):
     """
     A theta Axis.
 
-    pltrs (Rust) wraps its default locator and formatter for angles
-    (`ThetaLocator`, `ThetaFormatter`).
+    This overrides certain properties of an `.XAxis` to provide special-casing
+    for an angular axis.
     """
+    # pltrs (Rust) wraps its default locator and formatter for angles
+    # (`ThetaLocator`, `ThetaFormatter`).
     __name__ = 'thetaaxis'
     _tick_class = ThetaTick
 
@@ -426,10 +436,15 @@ class RadialTick(YTick):
     """
     A radial-axis tick.
 
-    Its marks and, with 'auto' rotation, its labels are perpendicular to
-    the spine: pltrs (Rust) places and turns them as matplotlib's
-    ``RadialTick.update_position`` does.
+    This subclass of `.YTick` provides radial ticks with some small
+    modification to their re-positioning such that ticks are rotated based on
+    axes limits.  This results in ticks that are correctly perpendicular to
+    the spine. Labels are also rotated to be perpendicular to the spine, when
+    'auto' rotation is enabled.
     """
+    # Its marks and, with 'auto' rotation, its labels are perpendicular to the
+    # spine: pltrs (Rust) places and turns them as matplotlib's
+    # ``RadialTick.update_position`` does.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -441,7 +456,8 @@ class RadialAxis(YAxis):
     """
     A radial Axis.
 
-    Its major locators are always wrapped in a `RadialLocator`.
+    This overrides certain properties of a `.YAxis` to provide special-casing
+    for a radial axis.
     """
     __name__ = 'radialaxis'
     _tick_class = RadialTick
@@ -676,6 +692,8 @@ class PolarAxes(PolarTrees, Axes):
         """
         Set the location of theta's zero.
 
+        This simply calls `set_theta_offset` with the correct value in radians.
+
         Parameters
         ----------
         loc : str
@@ -777,7 +795,6 @@ class PolarAxes(PolarTrees, Axes):
         return np.float64(_polar.get_rorigin(self._native))
 
     def get_rsign(self):
-        """The sign of the radial direction: 1 outwards, -1 inwards."""
         if self.__dict__.get('_answering_from_trees'):
             # What matplotlib computes, from the limits the projection of a
             # program's subclass is asked about while pltrs (Rust) draws.
@@ -831,14 +848,13 @@ class PolarAxes(PolarTrees, Axes):
         _polar.set_rlabel_position(self._native, float(value))
 
     def set_rscale(self, *args, **kwargs):
-        """Set the scale of the radial axis (`.Axes.set_yscale`)."""
         return Axes.set_yscale(self, *args, **kwargs)
 
-    def set_rticks(self, ticks, labels=None, *, minor=False, **kwargs):
-        """Set the radial ticks (`.Axes.set_yticks`)."""
-        if labels is not None or minor or kwargs:
-            return self.set_yticks(ticks, labels, minor=minor, **kwargs)
-        ticks = np.atleast_1d(ticks)
+    def set_rticks(self, *args, **kwargs):
+        # Only ticks: pltrs (Rust) sets them; else as `.Axes.set_yticks`.
+        if len(args) != 1 or kwargs:
+            return self.set_yticks(*args, **kwargs)
+        ticks = np.atleast_1d(args[0])
         _polar.set_rticks(self._native, [float(t) for t in ticks])
         return self.yaxis.get_major_ticks(len(ticks))
 
@@ -850,9 +866,11 @@ class PolarAxes(PolarTrees, Axes):
         ----------
         angles : tuple with floats, degrees
             The angles of the theta gridlines.
+
         labels : tuple with strings or None
             The labels to use at each theta gridline. The
             `.projections.polar.ThetaFormatter` will be used if None.
+
         fmt : str or None
             Format string used in `matplotlib.ticker.FormatStrFormatter`.
             For example '%f'. Note that the angle that is used is in
@@ -862,8 +880,31 @@ class PolarAxes(PolarTrees, Axes):
         -------
         lines : list of `.lines.Line2D`
             The theta gridlines.
+
         labels : list of `.text.Text`
             The tick labels.
+
+        Other Parameters
+        ----------------
+        **kwargs
+            *kwargs* are optional `.Text` properties for the labels.
+
+            .. warning::
+
+                This only sets the properties of the current ticks.
+                Ticks are not guaranteed to be persistent. Various operations
+                can create, delete and modify the Tick instances. There is an
+                imminent risk that these settings can get lost if you work on
+                the figure further (including also panning/zooming on a
+                displayed figure).
+
+                Use `.set_tick_params` instead if possible.
+
+        See Also
+        --------
+        .PolarAxes.set_rgrids
+        .Axis.get_gridlines
+        .Axis.get_ticklabels
         """
         _polar.set_thetagrids(self._native, [float(a) for a in np.atleast_1d(angles)])
         if labels is not None:
@@ -882,11 +923,14 @@ class PolarAxes(PolarTrees, Axes):
         ----------
         radii : tuple with floats
             The radii for the radial gridlines
+
         labels : tuple with strings or None
             The labels to use at each radial gridline. The
             `matplotlib.ticker.ScalarFormatter` will be used if None.
+
         angle : float
             The angular position of the radius labels in degrees.
+
         fmt : str or None
             Format string used in `matplotlib.ticker.FormatStrFormatter`.
             For example '%f'.
@@ -895,8 +939,31 @@ class PolarAxes(PolarTrees, Axes):
         -------
         lines : list of `.lines.Line2D`
             The radial gridlines.
+
         labels : list of `.text.Text`
             The tick labels.
+
+        Other Parameters
+        ----------------
+        **kwargs
+            *kwargs* are optional `.Text` properties for the labels.
+
+            .. warning::
+
+                This only sets the properties of the current ticks.
+                Ticks are not guaranteed to be persistent. Various operations
+                can create, delete and modify the Tick instances. There is an
+                imminent risk that these settings can get lost if you work on
+                the figure further (including also panning/zooming on a
+                displayed figure).
+
+                Use `.set_tick_params` instead if possible.
+
+        See Also
+        --------
+        .PolarAxes.set_thetagrids
+        .Axis.get_gridlines
+        .Axis.get_ticklabels
         """
         _polar.set_rgrids(self._native, [float(r) for r in np.atleast_1d(radii)],
                           None if angle is None else float(angle))
@@ -940,3 +1007,6 @@ PolarAxes.ThetaLocator = ThetaLocator
 PolarAxes.PolarTransform = PolarTransform
 PolarAxes.PolarAffine = PolarAffine
 PolarAxes.InvertedPolarTransform = InvertedPolarTransform
+
+
+cbook._own_mixin_methods(PolarAxes, Axes)

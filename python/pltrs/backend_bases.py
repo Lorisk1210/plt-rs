@@ -1815,6 +1815,11 @@ class FigureCanvasBase:
 
         This may have no effect if the backend does not display anything.
 
+        If required by the backend, this method should trigger an update in
+        the backend event loop after the cursor is set, as this method may be
+        called e.g. before a long-running task during which the GUI is not
+        updated.
+
         Parameters
         ----------
         cursor : `.Cursors`
@@ -1826,9 +1831,13 @@ class FigureCanvasBase:
         """
         Render the `.Figure`.
 
-        The base canvas produces no output; pltrs (Rust) lays the figure
-        out whenever it is queried or drawn.
+        This method must walk the artist tree, even if no output is produced,
+        because it triggers deferred work that users may want to access
+        before saving output to disk. For example computing limits,
+        auto-limits, and tick values.
         """
+        # The base canvas produces no output; pltrs (Rust) lays the figure out
+        # whenever it is queried or drawn.
 
     def draw_idle(self, *args, **kwargs):
         """
@@ -1836,6 +1845,12 @@ class FigureCanvasBase:
 
         Even if multiple calls to `draw_idle` occur before control returns
         to the GUI event loop, the figure will only be rendered once.
+
+        Notes
+        -----
+        Backends may choose to override the method and implement their own
+        strategy to prevent multiple renderings.
+
         """
         if not self._is_idle_drawing:
             with self._idle_draw_cntx():
@@ -1847,7 +1862,10 @@ class FigureCanvasBase:
         The ratio of physical to logical pixels used for the canvas on screen.
 
         By default, this is 1, meaning physical and logical pixels are the same
-        size.
+        size. Subclasses that support High DPI screens may set this property to
+        indicate that said ratio is different. All Matplotlib interaction,
+        unless working directly with the canvas, remains in logical pixels.
+
         """
         return self._device_pixel_ratio
 
@@ -1876,13 +1894,22 @@ class FigureCanvasBase:
         Parameters
         ----------
         physical : bool, default: False
-            Whether to return true physical pixels or logical pixels.
+            Whether to return true physical pixels or logical pixels. Physical
+            pixels may be used by backends that support HiDPI, but still
+            configure the canvas using its actual size.
 
         Returns
         -------
         width, height : int
             The size of the figure, in points or pixels, depending on the
             backend.
+
+        Notes
+        -----
+        This method normally truncates the height/width to remove any fractional pixel.
+        However, if the height/width is extremely close to the integer pixel (within
+        1e-8 pixel), the height/width is instead rounded up to account for
+        floating-point precision effects.
         """
         dpi = self.figure.dpi
         # The tolerance of 1e-8 covers a floating-point tick for even 100,000 pixels
@@ -2023,8 +2050,11 @@ class FigureCanvasBase:
 
         backend : str, optional
             Use a non-default backend to render the file, e.g. to render a
-            pdf file with the "pgf" backend rather than the default "pdf".
-            Custom backends can be referenced as "module://...".
+            png file with the "cairo" backend rather than the default "agg",
+            or a pdf file with the "pgf" backend rather than the default
+            "pdf".  Note that the default backend is normally sufficient.  See
+            :ref:`the-builtin-backends` for a list of valid backends for each
+            file format.  Custom backends can be referenced as "module://...".
         """
         if format is None:
             # get format from filename, or from backend's default filetype
@@ -2221,17 +2251,49 @@ class FigureCanvasBase:
 
                 def func(event: Event) -> Any
 
+            For the location events (button and key press/release), if the
+            mouse is over the Axes, the ``inaxes`` attribute of the event will
+            be set to the `~matplotlib.axes.Axes` the event occurs is over, and
+            additionally, the variables ``xdata`` and ``ydata`` attributes will
+            be set to the mouse location in data coordinates.  See `.KeyEvent`
+            and `.MouseEvent` for more info.
+
+            .. note::
+
+                If func is a method, this only stores a weak reference to the
+                method. Thus, the figure does not influence the lifetime of
+                the associated object. Usually, you want to make sure that the
+                object is kept alive throughout the lifetime of the figure by
+                holding a reference to it.
+
         Returns
         -------
         cid
             A connection id that can be used with
             `.FigureCanvasBase.mpl_disconnect`.
+
+        Examples
+        --------
+        ::
+
+            def on_press(event):
+                print('you pressed', event.button, event.xdata, event.ydata)
+
+            cid = canvas.mpl_connect('button_press_event', on_press)
         """
         return self.callbacks.connect(s, func)
 
     def mpl_disconnect(self, cid):
         """
         Disconnect the callback with id *cid*.
+
+        Examples
+        --------
+        ::
+
+            cid = canvas.mpl_connect('button_press_event', on_press)
+            # ... later
+            canvas.mpl_disconnect(cid)
         """
         self.callbacks.disconnect(cid)
 
@@ -2257,6 +2319,10 @@ class FigureCanvasBase:
 
             Callbacks which return ``False`` or ``0`` will be removed from the
             timer.
+
+        Examples
+        --------
+        >>> timer = fig.canvas.new_timer(callbacks=[(f1, (1,), {'a': 3})])
         """
         return self._timer_cls(interval=interval, callbacks=callbacks)
 
@@ -2605,6 +2671,38 @@ class FigureManagerBase:
     backend-independent way. It's an adapter for the real (GUI) framework that
     represents the visual figure on screen.
 
+    The figure manager is connected to a specific canvas instance, which in turn
+    is connected to a specific figure instance. To access a figure manager for
+    a given figure in user code, you typically use ``fig.canvas.manager``.
+
+    GUI backends derive from this class to translate common operations such
+    as *show* or *resize* to the GUI-specific code. Non-GUI backends do not
+    support these operations and can just use the base class.
+
+    This following basic operations are accessible:
+
+    **Window operations**
+
+    - `~.FigureManagerBase.show`
+    - `~.FigureManagerBase.destroy`
+    - `~.FigureManagerBase.full_screen_toggle`
+    - `~.FigureManagerBase.resize`
+    - `~.FigureManagerBase.get_window_title`
+    - `~.FigureManagerBase.set_window_title`
+
+    **Key and mouse button press handling**
+
+    The figure manager sets up default key and mouse button press handling by
+    hooking up the `.key_press_handler` to the matplotlib event system. This
+    ensures the same shortcuts and mouse actions across backends.
+
+    **Other operations**
+
+    Subclasses will have additional attributes and functions to access
+    additional functionality. This is of course backend-specific. For example,
+    most GUI backends have ``window`` and ``toolbar`` attributes that give
+    access to the native GUI widgets of the respective framework.
+
     Attributes
     ----------
     canvas : `FigureCanvasBase`
@@ -2615,9 +2713,17 @@ class FigureManagerBase:
 
     key_press_handler_id : int
         The default key handler cid, when using the toolmanager.
+        To disable the default key press handling use::
+
+            figure.canvas.mpl_disconnect(
+                figure.canvas.manager.key_press_handler_id)
 
     button_press_handler_id : int
         The default mouse button handler cid, when using the toolmanager.
+        To disable the default button press handling use::
+
+            figure.canvas.mpl_disconnect(
+                figure.canvas.manager.button_press_handler_id)
     """
 
     _toolbar2_class = None
@@ -2680,13 +2786,21 @@ class FigureManagerBase:
         Start the main event loop.
 
         This method is called by `.FigureManagerBase.pyplot_show`, which is the
-        implementation of `.pyplot.show`.
+        implementation of `.pyplot.show`.  To customize the behavior of
+        `.pyplot.show`, interactive backends should usually override
+        `~.FigureManagerBase.start_main_loop`; if more customized logic is
+        necessary, `~.FigureManagerBase.pyplot_show` can also be overridden.
         """
 
     @classmethod
     def pyplot_show(cls, *, block=None):
         """
         Show all figures.  This method is the implementation of `.pyplot.show`.
+
+        To customize the behavior of `.pyplot.show`, interactive backends
+        should usually override `~.FigureManagerBase.start_main_loop`; if more
+        customized logic is necessary, `~.FigureManagerBase.pyplot_show` can
+        also be overridden.
 
         Parameters
         ----------
@@ -2732,16 +2846,10 @@ class FigureManagerBase:
             f"shown")
 
     def destroy(self):
-        """
-        Close the figure's window (there is none without a GUI).
-
-        Managers may have swapped the canvas for one of their GUI
-        framework: the figure gets a base canvas back.
-        """
         self.canvas.figure._set_base_canvas()
 
     def full_screen_toggle(self):
-        """Toggle full screen mode (a GUI backend's window)."""
+        pass
 
     def resize(self, w, h):
         """For GUI backends, resize the window (in physical pixels)."""

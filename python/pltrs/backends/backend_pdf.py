@@ -366,12 +366,11 @@ class Stream:
 
     This has no pdfRepr method. Instead, call begin(), then output the
     contents of the stream by calling write(), and finally call end().
-
-    pltrs (Rust) keeps the stream's data and writes the stream whole when it
-    ends, compressed at :rc:`pdf.compression`: *file* is the `PdfFile` the
-    data goes to, and the stream keeps no compression object or position of
-    its own (``compressobj`` and ``pos`` are None).
     """
+    # pltrs (Rust) keeps the stream's data and writes the stream whole when it
+    # ends, compressed at :rc:`pdf.compression`: *file* is the `PdfFile` the
+    # data goes to, and the stream keeps no compression object or position of
+    # its own (``compressobj`` and ``pos`` are None).
     __slots__ = ('id', 'len', 'pdfFile', 'file', 'compressobj', 'extra', 'pos')
 
     def __init__(self, id, len, file, extra=None, png=None):
@@ -468,13 +467,10 @@ def _style_name(style):
 
 
 class PdfFile:
-    """
-    PDF file object.
-
-    pltrs (Rust) writes the document in memory, its objects and streams as
-    the methods ask (and its pages as `PdfPages.savefig` draws them);
-    *filename* receives it when the file is closed.
-    """
+    """PDF file object."""
+    # pltrs (Rust) writes the document in memory, its objects and streams as
+    # the methods ask (and its pages as `PdfPages.savefig` draws them);
+    # *filename* receives it when the file is closed.
 
     def __init__(self, filename, metadata=None):
         """
@@ -813,6 +809,11 @@ class PdfPages:
     ...     pdf.savefig(fig)
     ...     # When no figure is specified the current figure is saved
     ...     pdf.savefig()
+
+    Notes
+    -----
+    In reality `PdfPages` is a thin wrapper around `PdfFile`, in order to avoid
+    confusion when using `~.pyplot.savefig` and forgetting the format argument.
     """
 
     @_api.delete_parameter("3.10", "keep_empty",
@@ -827,9 +828,16 @@ class PdfPages:
             Plots using `PdfPages.savefig` will be written to a file at this location.
             The file is opened when a figure is saved for the first time (overwriting
             any older file with the same name).
+
         metadata : dict, optional
             Information dictionary object (see PDF reference section 10.2.1
-            'Document Information Dictionary').
+            'Document Information Dictionary'), e.g.:
+            ``{'Creator': 'My software', 'Author': 'Me', 'Title': 'Awesome'}``.
+
+            The standard keys are 'Title', 'Author', 'Subject', 'Keywords',
+            'Creator', 'Producer', 'CreationDate', 'ModDate', and
+            'Trapped'. Values have been predefined for 'Creator', 'Producer'
+            and 'CreationDate'. They can be removed by setting them to `None`.
         """
         self._filename = filename
         self._metadata = metadata
@@ -893,25 +901,22 @@ class PdfPages:
 
     def attach_note(self, text, positionRect=[-100, -100, 0, 0]):
         """
-        Add a new text note to the page to be saved next. The note is
-        placed outside the page, so that it is invisible on printouts.
+        Add a new text note to the page to be saved next. The optional
+        positionRect specifies the position of the new note on the
+        page. It is outside the page per default to make sure it is
+        invisible on printouts.
         """
         self._ensure_file().newTextnote(text, positionRect)
 
 
 class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
-    """
-    The renderer of a PDF page of *width* × *height* inches, drawn in
-    points, its images at *image_dpi*, into the `PdfFile` *file*.
-
-    pltrs (Rust) writes the documents itself: the renderers pltrs hands
-    Python are the one the figure is laid out with for its document (the
-    renderer text measurement receives while a figure under the PDF canvas
-    is laid out or saved), which measures text as the PDF backend does,
-    and the one the program's drawing receives while the figure is saved
-    (`FigureCanvasPdf._program_renderer`), which draws into the document
-    pltrs (Rust) writes (*file* is None for both).
-    """
+    # pltrs (Rust) writes the documents itself: the renderers pltrs hands
+    # Python are the one the figure is laid out with for its document (the
+    # renderer text measurement receives while a figure under the PDF canvas
+    # is laid out or saved), which measures text as the PDF backend does, and
+    # the one the program's drawing receives while the figure is saved
+    # (`FigureCanvasPdf._program_renderer`), which draws into the document
+    # pltrs (Rust) writes (*file* is None for both).
 
     _afm_font_dir = cbook._get_data_path("fonts/pdfcorefonts")
     _use_afm_rc_name = "pdf.use14corefonts"
@@ -947,31 +952,19 @@ class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
         _backends.pdf_file_draw(self._file_native(), drawing)
 
     def check_gc(self, gc, fillcolor=None):
-        """Change the graphics state of the page into the one *gc* and the
-        fill *fillcolor* need."""
         fill = None if fillcolor is None else tuple(map(float, to_rgba(fillcolor)))
         _backends.pdf_file_check_gc(self._file_native(), native_gc(gc), fill)
 
     def finalize(self):
-        """Restore every graphics state the page saved."""
         _backends.pdf_file_restore_gc(self._file_native())
 
     def encode_string(self, s, fonttype):
-        """*s* encoded as a PDF string shows it in a font of *fonttype*: in
-        cp1252 for Type 1 and Type 3 fonts, else in UTF-16BE."""
         if fonttype in (1, 3):
             return s.encode('cp1252', 'replace')
         return s.encode('utf-16be', 'replace')
 
 
 class GraphicsContextPdf(GraphicsContextBase):
-    """
-    A graphics context that knows the PDF operators changing the graphics
-    state of a page into its own (matplotlib's, which ``RendererPdf.check_gc``
-    keeps the page's state in); the `PdfFile` *file* names its alpha states
-    and hatch patterns.
-    """
-
     def __init__(self, file):
         super().__init__()
         self._fillcolor = (0.0, 0.0, 0.0)
@@ -1207,9 +1200,6 @@ class FigureCanvasPdf(FigureCanvasBase):
 
     def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None,
                   facecolor=None, edgecolor=None):
-        """Write the figure as a PDF document to *filename*, with the
-        document *metadata*, or as a new page of the `PdfPages` *filename*
-        (whose document has its own metadata)."""
         settings = dict(bbox_inches_restore=bbox_inches_restore,
                         facecolor=facecolor, edgecolor=edgecolor)
         with _measuring_with(self._print_renderer()):

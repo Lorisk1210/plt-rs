@@ -54,8 +54,8 @@ class TexManager:
     """
     Convert strings to dvi files using TeX, caching the results to a directory.
 
-    The cache directory is called ``tex.cache`` and is located in the
-    directory returned by `.get_cachedir`.
+    The cache directory is called ``tex.cache`` and is located in the directory
+    returned by `.get_cachedir`.
 
     Repeated calls to this constructor always return the same instance.
     """

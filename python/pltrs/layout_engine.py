@@ -51,6 +51,13 @@ class LayoutEngine:
        not (see `.colorbar.make_axes`);
     - ``engine.adjust_compatible`` stops `.Figure.subplots_adjust` from being
         run if it is not compatible with the layout engine.
+
+    To implement a custom `LayoutEngine`:
+
+    1. override ``_adjust_compatible`` and ``_colorbar_gridspec``
+    2. override `LayoutEngine.set` to update *self._params*
+    3. override `LayoutEngine.execute` with your implementation
+
     """
 
     _adjust_compatible = None
@@ -64,9 +71,6 @@ class LayoutEngine:
     def set(self, **kwargs):
         """
         Set the parameters for the layout engine.
-
-        The base class has no parameters to set; the engines deriving from
-        it override this, as in matplotlib.
         """
         raise NotImplementedError
 
@@ -160,15 +164,15 @@ class PlaceHolderLayoutEngine(LayoutEngine):
     """
     This layout engine does not adjust the figure layout at all.
 
-    The purpose of this `.LayoutEngine` is to act as a placeholder when the user
-    removes a layout engine to ensure an incompatible `.LayoutEngine` cannot be
-    set later.
+    The purpose of this `.LayoutEngine` is to act as a placeholder when the user removes
+    a layout engine to ensure an incompatible `.LayoutEngine` cannot be set later.
 
     Parameters
     ----------
     adjust_compatible, colorbar_gridspec : bool
         Allow the PlaceHolderLayoutEngine to mirror the behavior of whatever
         layout engine it is replacing.
+
     """
 
     def __init__(self, adjust_compatible, colorbar_gridspec, **kwargs):

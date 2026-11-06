@@ -8,9 +8,9 @@ are made from the methods themselves, so that each keeps its method's
 signature (without ``self``) and docstring.
 """
 
-import functools
 import inspect
 
+from ._pyplot_figure import _add_pyplot_note
 from .axes import Axes
 
 #: The plotting methods pyplot wraps, by name.
@@ -47,11 +47,14 @@ _MAPPABLES = {
 
 
 def _wrapper(name):
-    """The pyplot function calling ``gca().<name>``."""
+    """
+    The pyplot function calling ``gca().<name>``, named and documented as
+    matplotlib's ``boilerplate.py`` writes it: the method's docstring with
+    the pyplot note, and its signature without ``self``.
+    """
     method = getattr(Axes, name)
     mappable = _MAPPABLES.get(name)
 
-    @functools.wraps(method)
     def wrapper(*args, **kwargs):
         from . import pyplot
         ax = pyplot.gca()
@@ -63,7 +66,10 @@ def _wrapper(name):
     signature = inspect.signature(method)
     wrapper.__signature__ = signature.replace(
         parameters=list(signature.parameters.values())[1:])
+    wrapper.__name__ = wrapper.__qualname__ = name
     wrapper.__module__ = __name__.rpartition(".")[0] + ".pyplot"
+    wrapper.__doc__ = method.__doc__
+    _add_pyplot_note(wrapper, inspect.unwrap(method))
     return wrapper
 
 
@@ -78,6 +84,13 @@ def polar(*args, **kwargs):
     This is a convenience wrapper around `.pyplot.plot`. It ensures that the
     current Axes is polar (or creates one if needed) and then passes all parameters
     to ``.pyplot.plot``.
+
+    .. note::
+        When making polar plots using the :ref:`pyplot API <pyplot_interface>`,
+        ``polar()`` should typically be the first command because that makes sure
+        a polar Axes is created. Using other commands such as ``plt.title()``
+        before this can lead to the implicit creation of a rectangular Axes, in which
+        case a subsequent ``polar()`` call will fail.
     """
     from . import _api, pyplot
     from .projections.polar import PolarAxes

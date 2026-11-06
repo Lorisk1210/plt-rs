@@ -9,6 +9,7 @@ log scales (``loglog``, ``semilogx``, ``semilogy``).
 import inspect
 from operator import attrgetter
 
+from .. import _docstring
 from .. import _api, rcParams
 from .._native import axis as _axis
 from ..axis import Axis
@@ -156,6 +157,10 @@ class TicksMixin:
         Returns
         -------
         bool or 'line'
+
+        See Also
+        --------
+        set_axisbelow
         """
         return _axis.get_axisbelow(self._native)
 
@@ -163,7 +168,8 @@ class TicksMixin:
         """
         Set whether axis ticks and gridlines are above or below most artists.
 
-        This controls the zorder of the ticks and gridlines.
+        This controls the zorder of the ticks and gridlines. For more
+        information on the zorder see :doc:`/gallery/misc/zorder_demo`.
 
         Parameters
         ----------
@@ -177,6 +183,14 @@ class TicksMixin:
               and markers (with their default zorder = 2).
             - *False* (zorder = 2.5): Ticks and gridlines are above patches
               and lines / markers.
+
+        Notes
+        -----
+        For more control, call the `~.Artist.set_zorder` method of each axis.
+
+        See Also
+        --------
+        get_axisbelow
         """
         axisbelow = validate_axisbelow(b)
         _axis.set_axisbelow(self._native, {True: "below", "line": "line",
@@ -189,6 +203,7 @@ class TicksMixin:
     # (astropy's ``WCSAxes`` orders its own ticks by it).
     _axisbelow = property(get_axisbelow, set_axisbelow)
 
+    @_docstring.interpd
     def grid(self, visible=None, which='major', axis='both', **kwargs):
         """
         Configure the grid lines.
@@ -212,6 +227,18 @@ class TicksMixin:
             Define the line properties of the grid, e.g.::
 
                 grid(color='r', linestyle='-', linewidth=2)
+
+            Valid keyword arguments are:
+
+            %(Line2D:kwdoc)s
+
+        Notes
+        -----
+        The axis is drawn as a unit, so the effective zorder for drawing the
+        grid is determined by the zorder of each axis, not by the zorder of the
+        `.Line2D` objects comprising the grid.  Therefore, to set grid zorder,
+        use `.set_axisbelow` or, for more control, call the
+        `~.Artist.set_zorder` method of each axis.
         """
         _api.check_in_list(['x', 'y', 'both'], axis=axis)
         if axis in ['x', 'both']:
@@ -309,7 +336,8 @@ class TicksMixin:
         Parameters
         ----------
         axis : {'both', 'x', 'y'}, default: 'both'
-            The axis on which to operate.
+            The axis on which to operate.  (For 3D Axes, *axis* can also be
+            set to 'z', and 'both' refers to all three axes.)
         tight : bool or None, optional
             Parameter passed to `~.Axes.autoscale_view`.
             Default is None, for no change.
@@ -322,6 +350,14 @@ class TicksMixin:
             on the type of the locator. See for example
             `~.ticker.MaxNLocator.set_params` for the `.ticker.MaxNLocator`
             used by default for linear.
+
+        Examples
+        --------
+        When plotting small subplots, one might want to reduce the maximum
+        number of ticks and use tight bounds, for example::
+
+            ax.locator_params(tight=True, nbins=4)
+
         """
         _api.check_in_list([*self._axis_names, "both"], axis=axis)
         for name in self._axis_names:
@@ -404,6 +440,18 @@ class TicksMixin:
             Width of gridlines in points.
         grid_linestyle : str
             Any valid `.Line2D` line style spec.
+
+        Examples
+        --------
+        ::
+
+            ax.tick_params(direction='out', length=6, width=2, colors='r',
+                           grid_color='r', grid_alpha=0.5)
+
+        This will make all major ticks be red, pointing out of the box,
+        and with dimensions 6 points by 2 points.  Tick labels will
+        also be red.  Gridlines will be red and translucent.
+
         """
         _api.check_in_list(['x', 'y', 'both'], axis=axis)
         if axis in ['x', 'both']:
@@ -443,6 +491,7 @@ class TicksMixin:
                 if k in ['base', 'subs', 'nonpositive',
                          f'base{name}', f'subs{name}', f'nonpos{name}']}
 
+    @_docstring.interpd
     def loglog(self, *args, **kwargs):
         """
         Make a plot with log scaling on both the x- and y-axis.
@@ -456,17 +505,26 @@ class TicksMixin:
         both the x-axis and the y-axis to log scaling. All the concepts and
         parameters of plot can be used here as well.
 
+        The additional parameters *base*, *subs* and *nonpositive* control the
+        x/y-axis properties. They are just forwarded to `.Axes.set_xscale` and
+        `.Axes.set_yscale`. To use different properties on the x-axis and the
+        y-axis, use e.g.
+        ``ax.set_xscale("log", base=10); ax.set_yscale("log", base=2)``.
+
         Parameters
         ----------
         base : float, default: 10
             Base of the logarithm.
+
         subs : sequence, optional
             The location of the minor ticks. If *None*, reasonable locations
             are automatically chosen depending on the number of decades in the
             plot. See `.Axes.set_xscale`/`.Axes.set_yscale` for details.
+
         nonpositive : {'mask', 'clip'}, default: 'clip'
             Non-positive values can be masked as invalid, or clipped to a very
             small positive number.
+
         **kwargs
             All parameters supported by `.plot`.
 
@@ -482,14 +540,39 @@ class TicksMixin:
         return self.plot(
             *args, **{k: v for k, v in kwargs.items() if k not in {*dx, *dy}})
 
+    @_docstring.interpd
     def semilogx(self, *args, **kwargs):
         """
         Make a plot with log scaling on the x-axis.
 
+        Call signatures::
+
+            semilogx([x], y, [fmt], data=None, **kwargs)
+            semilogx([x], y, [fmt], [x2], y2, [fmt2], ..., **kwargs)
+
         This is just a thin wrapper around `.plot` which additionally changes
-        the x-axis to log scaling (*base*, *subs* and *nonpositive* as for
-        `loglog`). All the concepts and parameters of plot can be used here
-        as well.
+        the x-axis to log scaling. All the concepts and parameters of plot can
+        be used here as well.
+
+        The additional parameters *base*, *subs*, and *nonpositive* control the
+        x-axis properties. They are just forwarded to `.Axes.set_xscale`.
+
+        Parameters
+        ----------
+        base : float, default: 10
+            Base of the x logarithm.
+
+        subs : array-like, optional
+            The location of the minor xticks. If *None*, reasonable locations
+            are automatically chosen depending on the number of decades in the
+            plot. See `.Axes.set_xscale` for details.
+
+        nonpositive : {'mask', 'clip'}, default: 'clip'
+            Non-positive values in x can be masked as invalid, or clipped to a
+            very small positive number.
+
+        **kwargs
+            All parameters supported by `.plot`.
 
         Returns
         -------
@@ -501,14 +584,39 @@ class TicksMixin:
         return self.plot(
             *args, **{k: v for k, v in kwargs.items() if k not in d})
 
+    @_docstring.interpd
     def semilogy(self, *args, **kwargs):
         """
         Make a plot with log scaling on the y-axis.
 
+        Call signatures::
+
+            semilogy([x], y, [fmt], data=None, **kwargs)
+            semilogy([x], y, [fmt], [x2], y2, [fmt2], ..., **kwargs)
+
         This is just a thin wrapper around `.plot` which additionally changes
-        the y-axis to log scaling (*base*, *subs* and *nonpositive* as for
-        `loglog`). All the concepts and parameters of plot can be used here
-        as well.
+        the y-axis to log scaling. All the concepts and parameters of plot can
+        be used here as well.
+
+        The additional parameters *base*, *subs*, and *nonpositive* control the
+        y-axis properties. They are just forwarded to `.Axes.set_yscale`.
+
+        Parameters
+        ----------
+        base : float, default: 10
+            Base of the y logarithm.
+
+        subs : array-like, optional
+            The location of the minor yticks. If *None*, reasonable locations
+            are automatically chosen depending on the number of decades in the
+            plot. See `.Axes.set_yscale` for details.
+
+        nonpositive : {'mask', 'clip'}, default: 'clip'
+            Non-positive values in y can be masked as invalid, or clipped to a
+            very small positive number.
+
+        **kwargs
+            All parameters supported by `.plot`.
 
         Returns
         -------

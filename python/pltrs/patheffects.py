@@ -14,8 +14,6 @@ effect of a class of the program's has its ``draw_path`` called by pltrs
 (Rust) for every path it draws (see `._python_drawing`).
 """
 
-import math
-
 import numpy as np
 
 from .backend_bases import RendererBase
@@ -460,7 +458,7 @@ class TickedStroke(AbstractPathEffect):
     """
 
     def __init__(self, offset=(0, 0),
-                 spacing=10.0, angle=45.0, length=math.sqrt(2),
+                 spacing=10.0, angle=45.0, length=np.sqrt(2),
                  **kwargs):
         """
         Parameters

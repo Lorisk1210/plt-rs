@@ -9,6 +9,7 @@ import re
 
 import numpy as np
 
+from ... import _docstring
 from ... import _api, _live_transforms, _values, cbook, collections as mcoll, lines as mlines
 from ..._artist_kwargs import keep_program_picker
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
@@ -202,6 +203,7 @@ def _share_span_steps():
 class LinesMixin:
     """`plot`, the reference lines and spans, `hlines` and `vlines`."""
 
+    @_docstring.interpd
     def plot(self, *args, scalex=True, scaley=True, data=None, **kwargs):
         """
         Plot y versus x as lines and/or markers.
@@ -211,10 +213,239 @@ class LinesMixin:
             plot([x], y, [fmt], *, data=None, **kwargs)
             plot([x], y, [fmt], [x2], y2, [fmt2], ..., **kwargs)
 
+        The coordinates of the points or line nodes are given by *x*, *y*.
+
+        The optional parameter *fmt* is a convenient way for defining basic
+        formatting like color, marker and linestyle. It's a shortcut string
+        notation described in the *Notes* section below.
+
+        >>> plot(x, y)        # plot x and y using default line style and color
+        >>> plot(x, y, 'bo')  # plot x and y using blue circle markers
+        >>> plot(y)           # plot y using x as index array 0..N-1
+        >>> plot(y, 'r+')     # ditto, but with red plusses
+
+        You can use `.Line2D` properties as keyword arguments for more
+        control on the appearance. Line properties and *fmt* can be mixed.
+        The following two calls yield identical results:
+
+        >>> plot(x, y, 'go--', linewidth=2, markersize=12)
+        >>> plot(x, y, color='green', marker='o', linestyle='dashed',
+        ...      linewidth=2, markersize=12)
+
+        When conflicting with *fmt*, keyword arguments take precedence.
+
+
+        **Plotting labelled data**
+
+        There's a convenient way for plotting objects with labelled data (i.e.
+        data that can be accessed by index ``obj['y']``). Instead of giving
+        the data in *x* and *y*, you can provide the object in the *data*
+        parameter and just give the labels for *x* and *y*::
+
+        >>> plot('xlabel', 'ylabel', data=obj)
+
+        All indexable objects are supported. This could e.g. be a `dict`, a
+        `pandas.DataFrame` or a structured numpy array.
+
+
+        **Plotting multiple sets of data**
+
+        There are various ways to plot multiple sets of data.
+
+        - The most straight forward way is just to call `plot` multiple times.
+          Example:
+
+          >>> plot(x1, y1, 'bo')
+          >>> plot(x2, y2, 'go')
+
+        - If *x* and/or *y* are 2D arrays, a separate data set will be drawn
+          for every column. If both *x* and *y* are 2D, they must have the
+          same shape. If only one of them is 2D with shape (N, m) the other
+          must have length N and will be used for every data set m.
+
+          Example:
+
+          >>> x = [1, 2, 3]
+          >>> y = np.array([[1, 2], [3, 4], [5, 6]])
+          >>> plot(x, y)
+
+          is equivalent to:
+
+          >>> for col in range(y.shape[1]):
+          ...     plot(x, y[:, col])
+
+        - The third way is to specify multiple sets of *[x]*, *y*, *[fmt]*
+          groups::
+
+          >>> plot(x1, y1, 'g^', x2, y2, 'g-')
+
+          In this case, any additional keyword argument applies to all
+          datasets. Also, this syntax cannot be combined with the *data*
+          parameter.
+
+        By default, each line is assigned a different style specified by a
+        'style cycle'. The *fmt* and line property parameters are only
+        necessary if you want explicit deviations from these defaults.
+        Alternatively, you can also change the style cycle using
+        :rc:`axes.prop_cycle`.
+
+
+        Parameters
+        ----------
+        x, y : array-like or float
+            The horizontal / vertical coordinates of the data points.
+            *x* values are optional and default to ``range(len(y))``.
+
+            Commonly, these parameters are 1D arrays.
+
+            They can also be scalars, or two-dimensional (in that case, the
+            columns represent separate data sets).
+
+            These arguments cannot be passed as keywords.
+
+        fmt : str, optional
+            A format string, e.g. 'ro' for red circles. See the *Notes*
+            section for a full description of the format strings.
+
+            Format strings are just an abbreviation for quickly setting
+            basic line properties. All of these and more can also be
+            controlled by keyword arguments.
+
+            This argument cannot be passed as keyword.
+
+        data : indexable object, optional
+            An object with labelled data. If given, provide the label names to
+            plot in *x* and *y*.
+
+            .. note::
+                Technically there's a slight ambiguity in calls where the
+                second label is a valid *fmt*. ``plot('n', 'o', data=obj)``
+                could be ``plt(x, y)`` or ``plt(y, fmt)``. In such cases,
+                the former interpretation is chosen, but a warning is issued.
+                You may suppress the warning by adding an empty format string
+                ``plot('n', 'o', '', data=obj)``.
+
         Returns
         -------
         list of `.Line2D`
             A list of lines representing the plotted data.
+
+        Other Parameters
+        ----------------
+        scalex, scaley : bool, default: True
+            These parameters determine if the view limits are adapted to the
+            data limits. The values are passed on to
+            `~.axes.Axes.autoscale_view`.
+
+        **kwargs : `~matplotlib.lines.Line2D` properties, optional
+            *kwargs* are used to specify properties like a line label (for
+            auto legends), linewidth, antialiasing, marker face color.
+            Example::
+
+            >>> plot([1, 2, 3], [1, 2, 3], 'go-', label='line 1', linewidth=2)
+            >>> plot([1, 2, 3], [1, 4, 9], 'rs', label='line 2')
+
+            If you specify multiple lines with one plot call, the kwargs apply
+            to all those lines. In case the label object is iterable, each
+            element is used as labels for each set of data.
+
+            Here is a list of available `.Line2D` properties:
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        scatter : XY scatter plot with markers of varying size and/or color (
+            sometimes also called bubble chart).
+
+        Notes
+        -----
+        **Format Strings**
+
+        A format string consists of a part for color, marker and line::
+
+            fmt = '[marker][line][color]'
+
+        Each of them is optional. If not provided, the value from the style
+        cycle is used. Exception: If ``line`` is given, but no ``marker``,
+        the data will be a line without markers.
+
+        Other combinations such as ``[color][marker][line]`` are also
+        supported, but note that their parsing may be ambiguous.
+
+        **Markers**
+
+        =============   ===============================
+        character       description
+        =============   ===============================
+        ``'.'``         point marker
+        ``','``         pixel marker
+        ``'o'``         circle marker
+        ``'v'``         triangle_down marker
+        ``'^'``         triangle_up marker
+        ``'<'``         triangle_left marker
+        ``'>'``         triangle_right marker
+        ``'1'``         tri_down marker
+        ``'2'``         tri_up marker
+        ``'3'``         tri_left marker
+        ``'4'``         tri_right marker
+        ``'8'``         octagon marker
+        ``'s'``         square marker
+        ``'p'``         pentagon marker
+        ``'P'``         plus (filled) marker
+        ``'*'``         star marker
+        ``'h'``         hexagon1 marker
+        ``'H'``         hexagon2 marker
+        ``'+'``         plus marker
+        ``'x'``         x marker
+        ``'X'``         x (filled) marker
+        ``'D'``         diamond marker
+        ``'d'``         thin_diamond marker
+        ``'|'``         vline marker
+        ``'_'``         hline marker
+        =============   ===============================
+
+        **Line Styles**
+
+        =============    ===============================
+        character        description
+        =============    ===============================
+        ``'-'``          solid line style
+        ``'--'``         dashed line style
+        ``'-.'``         dash-dot line style
+        ``':'``          dotted line style
+        =============    ===============================
+
+        Example format strings::
+
+            'b'    # blue markers with default shape
+            'or'   # red circles
+            '-g'   # green solid line
+            '--'   # dashed line with default color
+            '^k:'  # black triangle_up markers connected by a dotted line
+
+        **Colors**
+
+        The supported color abbreviations are the single letter codes
+
+        =============    ===============================
+        character        color
+        =============    ===============================
+        ``'b'``          blue
+        ``'g'``          green
+        ``'r'``          red
+        ``'c'``          cyan
+        ``'m'``          magenta
+        ``'y'``          yellow
+        ``'k'``          black
+        ``'w'``          white
+        =============    ===============================
+
+        and the ``'CN'`` colors that index into the default property cycle.
+
+        If the color is the only part of the format string, you can
+        additionally use any  `matplotlib.colors` spec, e.g. full names
+        (``'green'``) or hex strings (``'#008000'``).
         """
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         for pos_only in "xy":
@@ -243,13 +474,70 @@ class LinesMixin:
             lines.append(keep_data(line, x, y))
         return lines
 
+    @_docstring.interpd
     def axhline(self, y=0, xmin=0, xmax=1, **kwargs):
         """
         Add a horizontal line spanning the whole or fraction of the Axes.
 
+        Note: If you want to set x-limits in data coordinates, use
+        `~.Axes.hlines` instead.
+
+        Parameters
+        ----------
+        y : float, default: 0
+            y position in :ref:`data coordinates <coordinate-systems>`.
+
+        xmin : float, default: 0
+            The start x-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the far left of the plot,
+            1 the far right of the plot.
+
+        xmax : float, default: 1
+            The end x-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the far left of the plot,
+            1 the far right of the plot.
+
         Returns
         -------
         `~matplotlib.lines.Line2D`
+            A `.Line2D` specified via two points ``(xmin, y)``, ``(xmax, y)``.
+            Its transform is set such that *x* is in
+            :ref:`axes coordinates <coordinate-systems>` and *y* is in
+            :ref:`data coordinates <coordinate-systems>`.
+
+            This is still a generic line and the horizontal character is only
+            realized through using identical *y* values for both points. Thus,
+            if you want to change the *y* value later, you have to provide two
+            values ``line.set_ydata([3, 3])``.
+
+        Other Parameters
+        ----------------
+        **kwargs
+            Valid keyword arguments are `.Line2D` properties, except for
+            'transform':
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        hlines : Add horizontal lines in data coordinates.
+        axhspan : Add a horizontal span (rectangle) across the axis.
+        axline : Add a line with an arbitrary slope.
+
+        Examples
+        --------
+        * draw a thick red hline at 'y' = 0 that spans the xrange::
+
+            >>> axhline(linewidth=4, color='r')
+
+        * draw a default hline at 'y' = 1 that spans the xrange::
+
+            >>> axhline(y=1)
+
+        * draw a default hline at 'y' = .5 that spans the middle half of
+          the xrange::
+
+            >>> axhline(y=.5, xmin=0.25, xmax=0.75)
         """
         _check_no_units([xmin, xmax], ['xmin', 'xmax'])
         if "transform" in kwargs:
@@ -263,13 +551,70 @@ class LinesMixin:
         line._xorig, line._yorig = [xmin, xmax], [y, y]
         return line
 
+    @_docstring.interpd
     def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
         """
         Add a vertical line spanning the whole or fraction of the Axes.
 
+        Note: If you want to set y-limits in data coordinates, use
+        `~.Axes.vlines` instead.
+
+        Parameters
+        ----------
+        x : float, default: 0
+            x position in :ref:`data coordinates <coordinate-systems>`.
+
+        ymin : float, default: 0
+            The start y-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the bottom of the plot, 1 the
+            top of the plot.
+
+        ymax : float, default: 1
+            The end y-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the bottom of the plot, 1 the
+            top of the plot.
+
         Returns
         -------
         `~matplotlib.lines.Line2D`
+            A `.Line2D` specified via two points ``(x, ymin)``, ``(x, ymax)``.
+            Its transform is set such that *x* is in
+            :ref:`data coordinates <coordinate-systems>` and *y* is in
+            :ref:`axes coordinates <coordinate-systems>`.
+
+            This is still a generic line and the vertical character is only
+            realized through using identical *x* values for both points. Thus,
+            if you want to change the *x* value later, you have to provide two
+            values ``line.set_xdata([3, 3])``.
+
+        Other Parameters
+        ----------------
+        **kwargs
+            Valid keyword arguments are `.Line2D` properties, except for
+            'transform':
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        vlines : Add vertical lines in data coordinates.
+        axvspan : Add a vertical span (rectangle) across the axis.
+        axline : Add a line with an arbitrary slope.
+
+        Examples
+        --------
+        * draw a thick red vline at *x* = 0 that spans the yrange::
+
+            >>> axvline(linewidth=4, color='r')
+
+        * draw a default vline at *x* = 1 that spans the yrange::
+
+            >>> axvline(x=1)
+
+        * draw a default vline at *x* = .5 that spans the middle half of
+          the yrange::
+
+            >>> axvline(x=.5, ymin=0.25, ymax=0.75)
         """
         _check_no_units([ymin, ymax], ['ymin', 'ymax'])
         if "transform" in kwargs:
@@ -282,14 +627,55 @@ class LinesMixin:
         line._xorig, line._yorig = [x, x], [ymin, ymax]
         return line
 
+    @_docstring.interpd
     def axline(self, xy1, xy2=None, *, slope=None, **kwargs):
         """
-        Add an infinitely long straight line through *xy1* and *xy2*, or
-        through *xy1* with the given *slope*.
+        Add an infinitely long straight line.
+
+        The line can be defined either by two points *xy1* and *xy2*, or
+        by one point *xy1* and a *slope*.
+
+        This draws a straight line "on the screen", regardless of the x and y
+        scales, and is thus also suitable for drawing exponential decays in
+        semilog plots, power laws in loglog plots, etc. However, *slope*
+        should only be used with linear scales; It has no clear meaning for
+        all other scales, and thus the behavior is undefined. Please specify
+        the line using the points *xy1*, *xy2* for non-linear scales.
+
+        The *transform* keyword argument only applies to the points *xy1*,
+        *xy2*. The *slope* (if given) is always in data coordinates. This can
+        be used e.g. with ``ax.transAxes`` for drawing grid lines with a fixed
+        slope.
+
+        Parameters
+        ----------
+        xy1, xy2 : (float, float)
+            Points for the line to pass through.
+            Either *xy2* or *slope* has to be given.
+        slope : float, optional
+            The slope of the line. Either *xy2* or *slope* has to be given.
 
         Returns
         -------
-        `.Line2D`
+        `.AxLine`
+
+        Other Parameters
+        ----------------
+        **kwargs
+            Valid kwargs are `.Line2D` properties
+
+            %(Line2D:kwdoc)s
+
+        See Also
+        --------
+        axhline : for horizontal lines
+        axvline : for vertical lines
+
+        Examples
+        --------
+        Draw a thick red line passing through (0, 0) and (1, 1)::
+
+            >>> axline((0, 0), (1, 1), linewidth=4, color='r')
         """
         if slope is not None and (self.get_xscale() != 'linear' or
                                   self.get_yscale() != 'linear'):
@@ -304,14 +690,42 @@ class LinesMixin:
         line._remember_geometry(xy1, xy2, slope)
         return keep_program_picker(line, kwargs)
 
+    @_docstring.interpd
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
         """
         Add a horizontal span (rectangle) across the Axes.
+
+        The rectangle spans from *ymin* to *ymax* vertically, and, by default,
+        the whole x-axis horizontally.  The x-span can be set using *xmin*
+        (default: 0) and *xmax* (default: 1) which are in axis units; e.g.
+        ``xmin = 0.5`` always refers to the middle of the x-axis regardless of
+        the limits set by `~.Axes.set_xlim`.
+
+        Parameters
+        ----------
+        ymin : float
+            Lower y-coordinate of the span, in data units.
+        ymax : float
+            Upper y-coordinate of the span, in data units.
+        xmin : float, default: 0
+            Lower x-coordinate of the span, in x-axis (0-1) units.
+        xmax : float, default: 1
+            Upper x-coordinate of the span, in x-axis (0-1) units.
 
         Returns
         -------
         `~matplotlib.patches.Rectangle`
             Horizontal span (rectangle) from (xmin, ymin) to (xmax, ymax).
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.patches.Rectangle` properties
+
+        %(Rectangle:kwdoc)s
+
+        See Also
+        --------
+        axvspan : Add a vertical span across the Axes.
         """
         _check_no_units([xmin, xmax], ['xmin', 'xmax'])
         (ymin, ymax), = self._process_unit_info([("y", [ymin, ymax])], kwargs)
@@ -324,14 +738,50 @@ class LinesMixin:
         _share_span_steps()
         return patch
 
+    @_docstring.interpd
     def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
         """
         Add a vertical span (rectangle) across the Axes.
+
+        The rectangle spans from *xmin* to *xmax* horizontally, and, by
+        default, the whole y-axis vertically.  The y-span can be set using
+        *ymin* (default: 0) and *ymax* (default: 1) which are in axis units;
+        e.g. ``ymin = 0.5`` always refers to the middle of the y-axis
+        regardless of the limits set by `~.Axes.set_ylim`.
+
+        Parameters
+        ----------
+        xmin : float
+            Lower x-coordinate of the span, in data units.
+        xmax : float
+            Upper x-coordinate of the span, in data units.
+        ymin : float, default: 0
+            Lower y-coordinate of the span, in y-axis units (0-1).
+        ymax : float, default: 1
+            Upper y-coordinate of the span, in y-axis units (0-1).
 
         Returns
         -------
         `~matplotlib.patches.Rectangle`
             Vertical span (rectangle) from (xmin, ymin) to (xmax, ymax).
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.patches.Rectangle` properties
+
+        %(Rectangle:kwdoc)s
+
+        See Also
+        --------
+        axhspan : Add a horizontal span across the Axes.
+
+        Examples
+        --------
+        Draw a vertical, green, translucent rectangle from x = 1.25 to
+        x = 1.55 that spans the yrange of the Axes.
+
+        >>> axvspan(1.25, 1.55, facecolor='g', alpha=0.5)
+
         """
         _check_no_units([ymin, ymax], ['ymin', 'ymax'])
         (xmin, xmax), = self._process_unit_info([("x", [xmin, xmax])], kwargs)
@@ -377,6 +827,7 @@ class LinesMixin:
         lines._internal_update(kwargs)
         return lines
 
+    @_api.make_keyword_only("3.10", "label")
     @_preprocess_data(replace_names=["y", "xmin", "xmax", "colors"],
                       label_namer="y")
     def hlines(self, y, xmin, xmax, colors=None, linestyles='solid',
@@ -384,6 +835,21 @@ class LinesMixin:
         """
         Plot horizontal lines at each *y* from *xmin* to *xmax*.
 
+        Parameters
+        ----------
+        y : float or array-like
+            y-indexes where to plot the lines.
+
+        xmin, xmax : float or array-like
+            Respective beginning and end of each line. If scalars are
+            provided, all lines will have the same length.
+
+        colors : :mpltype:`color` or list of color , default: :rc:`lines.color`
+
+        linestyles : {'solid', 'dashed', 'dashdot', 'dotted'}, default: 'solid'
+
+        label : str, default: ''
+
         Returns
         -------
         `~matplotlib.collections.LineCollection`
@@ -392,10 +858,17 @@ class LinesMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+        **kwargs :  `~matplotlib.collections.LineCollection` properties.
+
+        See Also
+        --------
+        vlines : vertical lines
+        axhline : horizontal line across the Axes
         """
         return self._segments(False, y, xmin, xmax, colors, linestyles, label,
                               kwargs)
 
+    @_api.make_keyword_only("3.10", "label")
     @_preprocess_data(replace_names=["x", "ymin", "ymax", "colors"],
                       label_namer="x")
     def vlines(self, x, ymin, ymax, colors=None, linestyles='solid',
@@ -403,6 +876,21 @@ class LinesMixin:
         """
         Plot vertical lines at each *x* from *ymin* to *ymax*.
 
+        Parameters
+        ----------
+        x : float or array-like
+            x-indexes where to plot the lines.
+
+        ymin, ymax : float or array-like
+            Respective beginning and end of each line. If scalars are
+            provided, all lines will have the same length.
+
+        colors : :mpltype:`color` or list of color, default: :rc:`lines.color`
+
+        linestyles : {'solid', 'dashed', 'dashdot', 'dotted'}, default: 'solid'
+
+        label : str, default: ''
+
         Returns
         -------
         `~matplotlib.collections.LineCollection`
@@ -411,6 +899,12 @@ class LinesMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+        **kwargs : `~matplotlib.collections.LineCollection` properties.
+
+        See Also
+        --------
+        hlines : horizontal lines
+        axvline : vertical line across the Axes
         """
         return self._segments(True, x, ymin, ymax, colors, linestyles, label,
                               kwargs)

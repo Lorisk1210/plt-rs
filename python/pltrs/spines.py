@@ -10,6 +10,7 @@ import functools
 
 import numpy as np
 
+from . import _docstring
 from . import _api, _handles, _python_drawing, _unusable, _values, rcParams
 from .colors import to_rgba
 from ._native import artist as _artist, spines as _spines
@@ -56,6 +57,16 @@ class Spine(Patch):
     Spines are the lines connecting the axis tick marks and noting the
     boundaries of the data area. They can be placed at arbitrary
     positions. See `~.Spine.set_position` for more information.
+
+    The default position is ``('outward', 0)``.
+
+    Spines are subclasses of `.Patch`, and inherit much of their behavior.
+
+    Spines draw a line, a circle, or an arc depending on if
+    `~.Spine.set_patch_line`, `~.Spine.set_patch_circle`, or
+    `~.Spine.set_patch_arc` has been called. Line-like is the default.
+
+    For examples see :ref:`spines_examples`.
     """
 
     def __str__(self):
@@ -68,6 +79,7 @@ class Spine(Patch):
             return super().__new__(cls)
         return cls._of_axes(axes, spine_type)
 
+    @_docstring.interpd
     def __init__(self, axes, spine_type, path, **kwargs):
         """
         Parameters
@@ -79,14 +91,17 @@ class Spine(Patch):
         path : `~matplotlib.path.Path`
             The `.Path` instance used to draw the spine.
 
+        Other Parameters
+        ----------------
         **kwargs
-            `.Patch` properties.
+            Valid keyword arguments are:
 
-        pltrs: the spine is the one of *axes* on the side *spine_type*
-        names, else the one framing its outline (a polar Axes' ``'polar'``
-        spine), drawn as *path* through its transform (``transData``
-        unless it is given another).
+            %(Patch:kwdoc)s
         """
+        # pltrs: the spine is the one of *axes* on the side *spine_type*
+        # names, else the one framing its outline (a polar Axes' ``'polar'``
+        # spine), drawn as *path* through its transform (``transData`` unless
+        # it is given another).
         _api.check_isinstance(Path, path=path)
         self._path = path
         self.set_facecolor('none')
@@ -101,8 +116,7 @@ class Spine(Patch):
 
     @classmethod
     def linear_spine(cls, axes, spine_type, **kwargs):
-        """Create and return a linear `Spine`: the spine of *axes* on the
-        side *spine_type*, as an object of *cls*."""
+        """Create and return a linear `Spine`."""
         if spine_type not in dict(_spines.axes_spines(axes._native)):
             raise ValueError(f'unable to make path for spine "{spine_type}"')
         spine = cls._of_axes(axes, spine_type)
@@ -125,12 +139,9 @@ class Spine(Patch):
     @classmethod
     def arc_spine(cls, axes, spine_type, center, radius, theta1, theta2,
                   **kwargs):
-        """
-        Create and return an arc `Spine`.
-
-        pltrs: the spine of *axes* named *spine_type* (its outline's for a
-        name of no side), drawn as the arc.
-        """
+        """Create and return an arc `Spine`."""
+        # pltrs: the spine of *axes* named *spine_type* (its outline's for a
+        # name of no side), drawn as the arc.
         result = cls._of_axes(axes, spine_type)
         result.set_patch_arc(center, radius, theta1, theta2)
         result.set(**kwargs)
@@ -138,12 +149,8 @@ class Spine(Patch):
 
     @classmethod
     def circular_spine(cls, axes, center, radius, **kwargs):
-        """
-        Create and return a circular `Spine`.
-
-        pltrs: the spine framing the outline of *axes*, drawn as the
-        circle.
-        """
+        """Create and return a circular `Spine`."""
+        # pltrs: the spine framing the outline of *axes*, drawn as the circle.
         result = cls._of_axes(axes, 'circle')
         result.set_patch_circle(center, radius)
         result.set(**kwargs)
@@ -301,6 +308,10 @@ class Spine(Patch):
 
         * 'center' -> ``('axes', 0.5)``
         * 'zero' -> ``('data', 0.0)``
+
+        Examples
+        --------
+        :doc:`/gallery/spines/spine_placement_demo`
         """
         _check_position(position)
         _spines.set_position(self._native, _position_pair(position))
@@ -327,10 +338,10 @@ class Spine(Patch):
             The bounds may also be passed as the tuple (*low*, *high*) as the
             first positional argument.
 
+            .. ACCEPTS: (low: float, high: float)
+
         high : float or None, optional
             The higher spine bound. Passing *None* leaves the limit unchanged.
-
-        ACCEPTS: (low: float, high: float)
         """
         if self.spine_type == 'circle':
             raise ValueError(
@@ -379,6 +390,11 @@ class Spine(Patch):
         """
         Return the window extent of the spines in display space, including
         padding for ticks (but not their labels)
+
+        See Also
+        --------
+        matplotlib.axes.Axes.get_tightbbox
+        matplotlib.axes.Axes.get_window_extent
         """
         self._check_shape()
         if self._is_linear:
@@ -396,12 +412,10 @@ class Spine(Patch):
         return self.get_window_extent(renderer)
 
     def get_path(self):
-        """
-        Return the path of the spine: that of a linear spine in data along
-        its axis and axes fractions across it (spanning the view where it
-        was last drawn or measured), the others in display coordinates,
-        where pltrs (Rust) lays them out.
-        """
+        # Return the path of the spine: that of a linear spine in data along
+        # its axis and axes fractions across it (spanning the view where it
+        # was last drawn or measured), the others in display coordinates,
+        # where pltrs (Rust) lays them out.
         if self._is_linear:
             return self._linear_path()
         vertices, codes = _spines.display_path(self._native) or ([[0, 0]], None)
@@ -557,7 +571,6 @@ class Spines(MutableMapping):
 
     @classmethod
     def from_dict(cls, d):
-        """The container of the spines of the dict *d*."""
         return cls(**d)
 
     def __getstate__(self):

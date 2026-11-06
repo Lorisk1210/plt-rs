@@ -3970,7 +3970,7 @@ class LassoSelector(_SelectorWidget):
         for details.
     props : dict, optional
         Properties with which the line is drawn, see `.Line2D`
-        for valid properties. Default values are defined in ``rcParams``.
+        for valid properties. Default values are defined in ``mpl.rcParams``.
     button : `.MouseButton` or list of `.MouseButton`, optional
         The mouse buttons used for rectangle selection.  Default is ``None``,
         which corresponds to all buttons.
@@ -4054,7 +4054,7 @@ class PolygonSelector(_SelectorWidget):
     handle_props : dict, optional
         Artist properties for the markers drawn at the vertices of the polygon.
         See the marker arguments in `.Line2D` for valid
-        properties.  Default values are defined in ``rcParams`` except for
+        properties.  Default values are defined in ``mpl.rcParams`` except for
         the default value of ``markeredgecolor`` which will be the same as the
         ``color`` property in *props*.
 

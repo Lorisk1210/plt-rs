@@ -36,7 +36,7 @@ class VectorParse(NamedTuple):
     rects: list
 
 
-VectorParse.__module__ = "matplotlib.mathtext"
+VectorParse.__module__ = __name__.rpartition(".")[0] + ".mathtext"
 
 
 class RasterParse(NamedTuple):
@@ -60,7 +60,7 @@ class RasterParse(NamedTuple):
     image: object
 
 
-RasterParse.__module__ = "matplotlib.mathtext"
+RasterParse.__module__ = __name__.rpartition(".")[0] + ".mathtext"
 
 
 def get_unicode_index(symbol):

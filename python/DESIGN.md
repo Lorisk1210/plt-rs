@@ -1917,9 +1917,17 @@ additive:
 
 ## Conventions for the Python code
 
-* Idiomatic Python, matplotlib's names and signatures; docstrings on
-  every public module, class and function (matplotlib's first line, or a
-  short one of our own), comments only where the code cannot speak.
+* Idiomatic Python, matplotlib's names and signatures; comments only
+  where the code cannot speak.
+* Docstrings are matplotlib's, copied into the source with the decorators
+  and snippets that interpolate them (`_docstring.interpd`, `Substitution`,
+  `copy`, `kwarg_doc`, the `%(Class:kwdoc)s` tables), so that `help()`,
+  `inspect` and Sphinx read what they read in matplotlib; where
+  matplotlib's callable has none (``# docstring inherited``), ours has none
+  either. What pltrs does differently underneath goes into comments, not
+  into the docstring. `cargo xtask diff --docs` measures signatures,
+  docstrings and names against matplotlib's; a module documenting an
+  artist class's properties (`%(Line2D:kwdoc)s`) imports that class' module.
 * No duplication: shared behaviour lives in a base class (`Artist`) or a
   helper module (`_handles`, `cbook`), as in matplotlib.
 * Code taken from matplotlib (pure-Python modules such as `_api`,

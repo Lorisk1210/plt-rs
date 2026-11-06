@@ -134,11 +134,6 @@ def proj_transform(xs, ys, zs, M):
 
 @_api.deprecated("3.10")
 def proj_transform_clip(xs, ys, zs, M):
-    """
-    Transform the points by the projection matrix *M*, as masked arrays,
-    with the mask of which points the projection keeps (an orthographic
-    projection keeps them all, but for masked ones).
-    """
     # Shaped as the points are given, as matplotlib divides the rows of
     # its padded array.
     shape = np.broadcast(xs, ys, zs).shape

@@ -219,6 +219,9 @@ class NativeDrawingMixin:
 
     def start_filter(self):
         # docstring inherited
+        """
+        Start filtering. It simply creates a new canvas (the old one is saved).
+        """
         with self._target() as drawing:
             _drawing.start_filter(drawing)
 

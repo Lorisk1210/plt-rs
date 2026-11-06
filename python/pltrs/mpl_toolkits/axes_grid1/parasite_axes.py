@@ -94,8 +94,6 @@ class ParasiteAxesBase:
                 self.transAxes, self.transData)
 
     def clear(self):
-        """Clear the parasite: its host draws the artists added from now
-        on, and the parasite's own decorations stay hidden."""
         super().clear()
         for child in self.get_children():
             child.set_visible(False)
@@ -183,9 +181,9 @@ class HostAxesBase:
         return ax2
 
     def draw(self, renderer):
-        """Draw the host and the artists of its parasites, placed by the
-        host's locator and aspect (pltrs (Rust) draws the parasites'
-        artists among the host's)."""
+        # Draw the host and the artists of its parasites, placed by the host's
+        # locator and aspect (pltrs (Rust) draws the parasites' artists among
+        # the host's).
         locator = self.get_axes_locator()
         if locator:
             pos = locator(self, renderer)

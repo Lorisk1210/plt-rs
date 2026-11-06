@@ -1861,16 +1861,38 @@ def _topmost_artist(
 def _set_module(module, *classes):
     """
     Name *module* (``__name__`` of the public module re-exporting them) as
-    the module of *classes* and of the classes nested in them, as
-    matplotlib defines them there: pltrs defines them in a private module,
-    which neither ``repr`` nor pickling should show.
+    the module of *classes* (or functions), of the classes nested in them
+    and of the functions they define, as matplotlib defines them there:
+    pltrs defines them in a private module, which neither ``repr`` nor
+    pickling should show.
     """
     for cls in classes:
-        cls.__module__ = module
-        for nested in vars(cls).values():
-            if isinstance(nested, type) and nested.__qualname__.startswith(
+        original, cls.__module__ = cls.__module__, module
+        if not isinstance(cls, type):
+            continue
+        for member in vars(cls).values():
+            if isinstance(member, type) and member.__qualname__.startswith(
                     cls.__qualname__ + "."):
-                _set_module(module, nested)
+                _set_module(module, member)
+                continue
+            if isinstance(member, (staticmethod, classmethod)):
+                member = member.__func__
+            accessors = ([member.fget, member.fset, member.fdel]
+                         if isinstance(member, property) else [member])
+            for function in accessors:
+                if inspect.isfunction(function) and function.__module__ == original:
+                    function.__module__ = module
+
+
+def _given_keywords(function, values, exclude=()):
+    """
+    The keyword-only arguments of a call of *function* that *values* (the
+    call's ``locals()``) holds other than their defaults, but those named
+    in *exclude*: what a caller gave of the keywords matplotlib names in
+    its signature, to apply as the call applies its other ``**kwargs``.
+    """
+    return {name: values[name] for name, default in function.__kwdefaults__.items()
+            if name not in exclude and values[name] is not default}
 
 
 def _own_mixin_methods(cls, base):
@@ -1879,18 +1901,22 @@ def _own_mixin_methods(cls, base):
     that are not in *base*'s) methods of *cls*, as matplotlib defines them
     there: their ``__qualname__`` (which the errors calling them raises
     name) and ``__module__`` (which pickling looks them up in) are those
-    of *cls*, and so are those of the functions they wrap.
+    of *cls*, and so are those of the functions they wrap and of the
+    accessors of its properties.
     """
     kept = set(base.__mro__)
     for mixin in cls.__mro__[1:]:
         if mixin in kept:
             continue
-        for name, function in vars(mixin).items():
-            while (inspect.isfunction(function)
-                   and function.__qualname__ == f"{mixin.__qualname__}.{name}"):
-                function.__qualname__ = f"{cls.__qualname__}.{name}"
-                function.__module__ = cls.__module__
-                function = getattr(function, "__wrapped__", None)
+        for name, member in vars(mixin).items():
+            functions = ([member.fget, member.fset, member.fdel]
+                         if isinstance(member, property) else [member])
+            for function in functions:
+                while (inspect.isfunction(function)
+                       and function.__qualname__ == f"{mixin.__qualname__}.{name}"):
+                    function.__qualname__ = f"{cls.__qualname__}.{name}"
+                    function.__module__ = cls.__module__
+                    function = getattr(function, "__wrapped__", None)
 
 
 def _str_equal(obj, s):

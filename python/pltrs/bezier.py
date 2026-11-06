@@ -11,7 +11,7 @@ from ._native import register as _register
 
 
 class NonIntersectingPathException(ValueError):
-    """Both ends of a curve lie on the same side of a closed path."""
+    pass
 
 
 _register("NonIntersectingPathException", NonIntersectingPathException)
@@ -121,6 +121,9 @@ class BezierSegment:
     """
     A d-dimensional Bézier segment.
 
+    A BezierSegment can be called with an argument, either a scalar or an array-like
+    object, to evaluate the curve at that/those location(s).
+
     Parameters
     ----------
     control_points : (N, d) array
@@ -188,6 +191,16 @@ class BezierSegment:
             is the degree of the Bézier curve and :math:`d` its dimension.
             These are the numbers (:math:`C_j`) such that the curve can be
             written :math:`\sum_{j=0}^n C_j t^j`.
+
+        Notes
+        -----
+        The coefficients are calculated as
+
+        .. math::
+
+            {n \choose j} \sum_{i=0}^j (-1)^{i+j} {j \choose i} P_i
+
+        where :math:`P_i` are the control points of the curve.
         """
         return _bezier.segment_coefficients(self._native)
 
@@ -265,8 +278,6 @@ def inside_circle(cx, cy, r):
 
 
 def get_cos_sin(x0, y0, x1, y1):
-    """The cosine and sine of the direction from (*x0*, *y0*) to (*x1*,
-    *y1*); zeros for coincident points."""
     return _bezier.cos_sin((x0, y0), (x1, y1))
 
 

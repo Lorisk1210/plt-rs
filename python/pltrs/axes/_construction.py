@@ -36,32 +36,41 @@ class ConstructionMixin:
         ----------
         fig : `~matplotlib.figure.Figure`
             The Axes is built in the `.Figure` *fig*.
+
         *args
             ``*args`` can be a single ``(left, bottom, width, height)``
             rectangle or a single `.Bbox`.  This specifies the rectangle (in
             figure coordinates) where the Axes is positioned.
 
-            ``*args`` can also consist of three numbers or a single
-            three-digit number; in the latter case, the digits are
-            considered as independent numbers.  The numbers are interpreted
-            as ``(nrows, ncols, index)``: ``(nrows, ncols)`` specifies the
-            size of an array of subplots, and ``index`` is the 1-based index
-            of the subplot being created.  Finally, ``*args`` can also
-            directly be a `.SubplotSpec` instance.
+            ``*args`` can also consist of three numbers or a single three-digit
+            number; in the latter case, the digits are considered as
+            independent numbers.  The numbers are interpreted as ``(nrows,
+            ncols, index)``: ``(nrows, ncols)`` specifies the size of an array
+            of subplots, and ``index`` is the 1-based index of the subplot
+            being created.  Finally, ``*args`` can also directly be a
+            `.SubplotSpec` instance.
+
         sharex, sharey : `~matplotlib.axes.Axes`, optional
-            The x- or y-`~.matplotlib.axis` is shared with the x- or y-axis
-            in the input `~.axes.Axes`.
+            The x- or y-`~.matplotlib.axis` is shared with the x- or y-axis in
+            the input `~.axes.Axes`.  Note that it is not possible to unshare
+            axes.
+
         frameon : bool, default: True
             Whether the Axes frame is visible.
+
         box_aspect : float, optional
             Set a fixed aspect for the Axes box, i.e. the ratio of height to
             width. See `~.axes.Axes.set_box_aspect` for details.
+
         forward_navigation_events : bool or "auto", default: "auto"
             Control whether pan/zoom events are passed through to Axes below
             this one. "auto" is *True* for axes with an invisible patch and
             *False* otherwise.
+
         **kwargs
-            Other optional keyword arguments are Axes properties.
+            Other optional keyword arguments:
+
+            %(Axes:kwdoc)s
 
         Returns
         -------
@@ -131,6 +140,12 @@ class ConstructionMixin:
         This bounding box does not include the spines, ticks, ticklabels,
         or other labels.  For a bounding box including these elements use
         `~matplotlib.axes.Axes.get_tightbbox`.
+
+        See Also
+        --------
+        matplotlib.axes.Axes.get_tightbbox
+        matplotlib.axis.Axis.get_tightbbox
+        matplotlib.spines.Spine.get_window_extent
         """
         return self.bbox
 
@@ -161,7 +176,9 @@ class ConstructionMixin:
             self._native, None if bbox is None else tuple(map(float, bbox.bounds)))
 
     def get_axes_locator(self):
-        """Return the axes_locator."""
+        """
+        Return the axes_locator.
+        """
         return self.__dict__.get("_axes_locator")
 
 

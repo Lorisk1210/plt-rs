@@ -59,13 +59,21 @@ class LayoutMixin:
         Parameters
         ----------
         renderer : `.RendererBase` subclass
-            The renderer (pltrs (Rust) measures the figure itself).
+            renderer that will be used to draw the figures (i.e.
+            ``fig.canvas.get_renderer()``)
+
         bbox_extra_artists : list of `.Artist` or ``None``
             List of artists to include in the tight bounding box.  If
             ``None`` (default), then all artist children of the Axes are
             included in the tight bounding box.
+
         call_axes_locator : bool, default: True
-            pltrs (Rust) always places the Axes with its locator.
+            If *call_axes_locator* is ``False``, it does not call the
+            ``_axes_locator`` attribute, which is necessary to get the correct
+            bounding box. ``call_axes_locator=False`` can be used if the
+            caller is only interested in the relative size of the tightbbox
+            compared to the Axes bbox.
+
         for_layout_only : default: False
             The bounding box will *not* include the x-extent of the title and
             the xlabel, or the y-extent of the ylabel.
@@ -74,6 +82,12 @@ class LayoutMixin:
         -------
         `.BboxBase`
             Bounding box in figure pixel coordinates.
+
+        See Also
+        --------
+        matplotlib.axes.Axes.get_window_extent
+        matplotlib.axis.Axis.get_tightbbox
+        matplotlib.spines.Spine.get_window_extent
         """
         _unusable.check(self, measuring=True)
         extent = _figure_layout.axes_tightbbox(

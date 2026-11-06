@@ -149,9 +149,6 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
         return Affine2D()  # axes.transData
 
     def get_axislabel_pos_angle(self, axes):
-        """The label reference position in display coordinates and the
-        direction of the line there, or ``(None, None)`` outside the
-        axes."""
         position = _axisartist.helper_label_position(self._served())
         if position is None:
             return None, None

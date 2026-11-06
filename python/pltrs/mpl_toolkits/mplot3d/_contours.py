@@ -67,17 +67,12 @@ class ContoursMixin:
     def add_contour_set(
             self, cset, extend3d=False, stride=5, zdir='z', offset=None,
             axlim_clip=False):
-        """Place the line contours *cset*, drawn on this axes, in 3-D: each
-        at its level along *zdir*, or at *offset*, or extended into
-        ribbons every *stride* points with *extend3d*."""
         _mplot3d.add_contour_set(
             self._native, cset._contour,
             (zdir, None if offset is None else float(offset), bool(axlim_clip)),
             int(stride) if extend3d else None)
 
     def add_contourf_set(self, cset, zdir='z', offset=None, *, axlim_clip=False):
-        """Place the filled contours *cset*, drawn on this axes, in 3-D at
-        the middles of their bands along *zdir*, or at *offset*."""
         self._add_contourf_set(cset, zdir=zdir, offset=offset,
                                axlim_clip=axlim_clip)
 
@@ -153,8 +148,11 @@ class ContoursMixin:
             position in a plane normal to *zdir*.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
         *args, **kwargs
             Other arguments are forwarded to `matplotlib.axes.Axes.contour`.
 
@@ -187,6 +185,8 @@ class ContoursMixin:
             position in a plane normal to *zdir*.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs
@@ -214,6 +214,10 @@ class ContoursMixin:
         """
         Create a 3D contour plot.
 
+        .. note::
+            This method currently produces incorrect output due to a
+            longstanding bug in 3D PolyCollection rendering.
+
         Parameters
         ----------
         X, Y, Z : array-like
@@ -229,6 +233,8 @@ class ContoursMixin:
             position in a plane normal to *zdir*.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs
@@ -249,6 +255,10 @@ class ContoursMixin:
         """
         Create a 3D filled contour plot.
 
+        .. note::
+            This method currently produces incorrect output due to a
+            longstanding bug in 3D PolyCollection rendering.
+
         Parameters
         ----------
         X, Y, Z : array-like
@@ -260,6 +270,8 @@ class ContoursMixin:
             position in a plane normal to zdir.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs

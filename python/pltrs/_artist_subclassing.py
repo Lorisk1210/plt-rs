@@ -61,6 +61,49 @@ def _prevent_rasterization(draw):
     return draw_wrapper
 
 
+class _Definition:
+    """
+    What an artist class held when it was defined, which matplotlib's
+    ``__init_subclass__`` reads to write the docstring of the class' ``set``
+    then: the names of its own attributes, and those of its own setters
+    without a docstring, whose docstring Python cannot look up on a base
+    class yet (the module does not name the class before its definition
+    ends).
+    """
+
+    def __init__(self, cls):
+        own = vars(cls)
+        self.names = frozenset(own)
+        self.undocumented = frozenset(
+            name for name, value in own.items()
+            if name.startswith("set_") and callable(value) and value.__doc__ is None)
+
+    def inspector(self, cls):
+        """An `.ArtistInspector` of *cls* as it was defined."""
+        from ._artist_inspector import ArtistInspector
+        definition = self
+
+        class DefinitionInspector(ArtistInspector):
+            def get_aliases(self):
+                # Not yet the aliases the class' own decorators add.
+                inherited = lambda name: any(name in vars(base) for base in cls.__mro__[1:])
+                return {
+                    prop: kept for prop, aliases in super().get_aliases().items()
+                    if (kept := {alias for alias in aliases
+                                 if any(f"{prefix}{alias}" in definition.names
+                                        or inherited(f"{prefix}{alias}")
+                                        for prefix in ("set_", "get_"))})}
+
+            def get_valid_values(self, attr):
+                func = getattr(self.o, f"set_{attr}", None)
+                if (not hasattr(func, "_kwarg_doc")
+                        and f"set_{attr}" in definition.undocumented):
+                    return 'unknown'
+                return super().get_valid_values(attr)
+
+        return DefinitionInspector(cls)
+
+
 class _LazySet:
     """
     The ``set`` of an artist class until it is first looked up: then it
@@ -148,6 +191,7 @@ class SubclassingMixin:
             # has defined a set method set itself.
             return
         cls.set = _LazySet(cls)
+        cls._definition = _Definition(cls)
 
     @classmethod
     def _update_set_signature_and_docstring(cls):
@@ -158,7 +202,8 @@ class SubclassingMixin:
         Property aliases are not listed in the signature for brevity, but
         are still accepted as keyword arguments.
         """
-        from .artist import ArtistInspector, kwdoc
+        from ._artist_inspector import ArtistInspector, _properties_doc
+        definition = vars(cls).get("_definition")
         cls.set.__signature__ = Signature(
             [Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
              *[Parameter(prop, Parameter.KEYWORD_ONLY, default=_api.UNSET)
@@ -189,4 +234,5 @@ that order is rarely relevant.
 
 Supported properties are
 
-""" + kwdoc(cls))
+""" + _properties_doc(definition.inspector(cls) if definition is not None
+                       else ArtistInspector(cls)))

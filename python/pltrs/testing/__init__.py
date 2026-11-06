@@ -19,18 +19,16 @@ _log = logging.getLogger(__name__)
 
 
 def set_font_settings_for_testing():
-    """Use the fonts matplotlib's baseline images were made with."""
     rcParams['font.family'] = 'DejaVu Sans'
     rcParams['text.hinting'] = 'default'
 
 
 def set_reproducibility_for_testing():
-    """Make SVG ids reproducible."""
     rcParams['svg.hashsalt'] = 'matplotlib'
 
 
 def setup():
-    """Configure matplotlib (here pltrs) as matplotlib's tests expect."""
+    # Configure matplotlib (here pltrs) as matplotlib's tests expect.
     try:
         locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
     except locale.Error:
@@ -51,7 +49,6 @@ def setup():
 
 
 def is_ci_environment():
-    """Whether the tests run on a continuous integration service."""
     ci_environment_variables = [
         'CI', 'CONTINUOUS_INTEGRATION', 'TRAVIS', 'CIRCLECI', 'JENKINS',
         'GITLAB_CI', 'GITHUB_ACTIONS', 'TEAMCITY_VERSION', 'TF_BUILD',
@@ -63,7 +60,41 @@ def subprocess_run_for_testing(command, env=None, timeout=60, stdout=None,
                                stderr=None, check=False, text=True,
                                capture_output=False, **kwargs):
     """
-    Create and run a subprocess (a thin wrapper around `subprocess.run`).
+    Create and run a subprocess.
+
+    Thin wrapper around `subprocess.run`, intended for testing.  Will
+    mark fork() failures on Cygwin as expected failures: not a
+    success, but not indicating a problem with the code either.
+
+    Parameters
+    ----------
+    args : list of str
+    env : dict[str, str]
+    timeout : float
+    stdout, stderr
+    check : bool
+    text : bool
+        Also called ``universal_newlines`` in subprocess.  I chose this
+        name since the main effect is returning bytes (`False`) vs. str
+        (`True`), though it also tries to normalize newlines across
+        platforms.
+    capture_output : bool
+        Set stdout and stderr to subprocess.PIPE
+
+    Returns
+    -------
+    proc : subprocess.Popen
+
+    See Also
+    --------
+    subprocess.run
+
+    Raises
+    ------
+    pytest.skip
+        If running on emscripten, which does not support subprocesses.
+    pytest.xfail
+        If platform is Cygwin and subprocess reports a fork() failure.
     """
     if capture_output:
         stdout = stderr = subprocess.PIPE
@@ -117,12 +148,6 @@ def subprocess_run_helper(func, *args, timeout, extra_env=None):
 
 
 def ipython_in_subprocess(requested_backend_or_gui_framework, all_expected_backends):
-    """
-    Check that IPython started with ``--matplotlib=<backend or framework>``
-    selects the backend *all_expected_backends* names for its version (a
-    dict ``{(major, minor): backend}``, newest first); skipped without
-    IPython. (matplotlib's helper, as it is.)
-    """
     import pytest
     IPython = pytest.importorskip("IPython")
 

@@ -33,7 +33,6 @@ class Container(tuple):
         self._label = str(label) if label is not None else None
 
     def remove(self):
-        """Remove the container's artists, and the container from its Axes."""
         for c in cbook.flatten(
                 self, scalarp=lambda x: isinstance(x, Artist)):
             if c is not None:
@@ -45,15 +44,21 @@ class Container(tuple):
             self._remove_method(self)
 
     def get_children(self):
-        """Return the artists of the container."""
         return [child for child in cbook.flatten(self) if child is not None]
 
     def get_label(self):
-        """Return the label used for this container in the legend."""
+        """Return the label used for this artist in the legend."""
         return self._label
 
     def set_label(self, s):
-        """Set a label that will be displayed in the legend."""
+        """
+        Set a label that will be displayed in the legend.
+
+        Parameters
+        ----------
+        s : object
+            *s* will be converted to a string by calling `str`.
+        """
         label = str(s) if s is not None else None
         if label != self._label:
             self._label = label
@@ -65,16 +70,51 @@ class Container(tuple):
     def add_callback(self, func):
         """
         Add a callback function that will be called whenever one of the
-        container's properties changes; return its id.
+        `.Artist`'s properties changes.
+
+        Parameters
+        ----------
+        func : callable
+            The callback function. It must have the signature::
+
+                def func(artist: Artist) -> Any
+
+            where *artist* is the calling `.Artist`. Return values may exist
+            but are ignored.
+
+        Returns
+        -------
+        int
+            The observer id associated with the callback. This id can be
+            used for removing the callback with `.remove_callback` later.
+
+        See Also
+        --------
+        remove_callback
         """
         return self._callbacks.connect("pchanged", lambda: func(self))
 
     def remove_callback(self, oid):
-        """Remove a callback based on its observer id."""
+        """
+        Remove a callback based on its observer id.
+
+        See Also
+        --------
+        add_callback
+        """
         self._callbacks.disconnect(oid)
 
     def pchanged(self):
-        """Call all of the registered callbacks."""
+        """
+        Call all of the registered callbacks.
+
+        This function is triggered internally when a property is changed.
+
+        See Also
+        --------
+        add_callback
+        remove_callback
+        """
         self._callbacks.process("pchanged")
 
 
@@ -101,6 +141,7 @@ class BarContainer(Container):
     orientation : {'vertical', 'horizontal'}, default: None
         If 'vertical', the bars are assumed to be vertical.
         If 'horizontal', the bars are assumed to be horizontal.
+
     """
 
     def __init__(self, patches, errorbar=None, *, datavalues=None,
@@ -121,18 +162,30 @@ class BarContainer(Container):
 
     @property
     def bottoms(self):
-        """Return the values at the lower end of the bars."""
+        """
+        Return the values at the lower end of the bars.
+
+        .. versionadded:: 3.11
+        """
         return self._by_orientation(lambda p: p.get_y(), lambda p: p.get_x())
 
     @property
     def tops(self):
-        """Return the values at the upper end of the bars."""
+        """
+        Return the values at the upper end of the bars.
+
+        .. versionadded:: 3.11
+        """
         return self._by_orientation(lambda p: p.get_y() + p.get_height(),
                                     lambda p: p.get_x() + p.get_width())
 
     @property
     def position_centers(self):
-        """Return the centers of bar positions."""
+        """
+        Return the centers of bar positions.
+
+        .. versionadded:: 3.11
+        """
         return self._by_orientation(lambda p: p.get_x() + p.get_width() / 2,
                                     lambda p: p.get_y() + p.get_height() / 2)
 
@@ -150,8 +203,16 @@ class ErrorbarContainer(Container):
     lines : tuple
         Tuple of ``(data_line, caplines, barlinecols)``.
 
+        - data_line : A `~matplotlib.lines.Line2D` instance of x, y plot markers
+          and/or line.
+        - caplines : A tuple of `~matplotlib.lines.Line2D` instances of the error
+          bar caps.
+        - barlinecols : A tuple of `~matplotlib.collections.LineCollection` with the
+          horizontal and vertical error ranges.
+
     has_xerr, has_yerr : bool
         ``True`` if the errorbar has x/y errors.
+
     """
 
     def __init__(self, lines, has_xerr=False, has_yerr=False, **kwargs):
@@ -164,6 +225,14 @@ class ErrorbarContainer(Container):
 class PieContainer:
     """
     Container for the artists of pie charts (e.g. created by `.Axes.pie`).
+
+    .. versionadded:: 3.11
+
+    .. warning::
+        The class name ``PieContainer`` name is provisional and may change in future
+        to reflect development of its functionality.
+
+    You can access the wedge patches and further parameters by the attributes.
 
     Attributes
     ----------
@@ -179,6 +248,7 @@ class PieContainer:
     texts : list of list of `~matplotlib.text.Text`
         The artists of any labels on the pie wedges.  Each inner list has one
         text label per wedge.
+
     """
     def __init__(self, wedges, values, normalize):
         self.wedges = wedges
@@ -188,19 +258,16 @@ class PieContainer:
 
     @property
     def texts(self):
-        """The non-empty lists of labels."""
         return [t_list for t_list in self._texts if t_list]
 
     @property
     def values(self):
-        """The data of the pie (read-only)."""
         result = self._values.copy()
         result.flags.writeable = False
         return result
 
     @property
     def fracs(self):
-        """The fraction of the pie of each wedge (read-only)."""
         if self._normalize:
             result = self._values / self._values.sum()
         else:
@@ -244,6 +311,15 @@ class StemContainer(Container):
         The artist of the horizontal baseline.
     """
     def __init__(self, markerline_stemlines_baseline, **kwargs):
+        """
+        Parameters
+        ----------
+        markerline_stemlines_baseline : tuple
+            Tuple of ``(markerline, stemlines, baseline)``.
+            ``markerline`` contains the `.Line2D` of the markers,
+            ``stemlines`` is a `.LineCollection` of the main lines,
+            ``baseline`` is the `.Line2D` of the baseline.
+        """
         markerline, stemlines, baseline = markerline_stemlines_baseline
         self.markerline = markerline
         self.stemlines = stemlines

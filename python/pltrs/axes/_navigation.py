@@ -59,13 +59,6 @@ class NavigationMixin:
                 and event.canvas is not fig.canvas)
 
     def contains(self, mouseevent):
-        """
-        Test whether the mouse event occurred in the Axes patch.
-
-        Returns
-        -------
-        bool, dict
-        """
         if self._different_canvas(mouseevent) or mouseevent.x is None:
             return False, {}
         return self.contains_point((mouseevent.x, mouseevent.y)), {}
@@ -97,7 +90,9 @@ class NavigationMixin:
         return _navigation.can_pan(self._native)
 
     def get_navigate(self):
-        """Get whether the Axes responds to navigation commands."""
+        """
+        Get whether the Axes responds to navigation commands.
+        """
         return _navigation.get_navigate(self._native)
 
     def set_navigate(self, b):
@@ -107,6 +102,11 @@ class NavigationMixin:
         Parameters
         ----------
         b : bool
+
+        See Also
+        --------
+        matplotlib.axes.Axes.set_forward_navigation_events
+
         """
         _navigation.set_navigate(self._native, bool(b))
 
@@ -145,6 +145,11 @@ class NavigationMixin:
             - False: Events are only executed on this axes.
             - "auto": Default behaviour (*True* for axes with an invisible
               patch and *False* otherwise)
+
+        See Also
+        --------
+        matplotlib.axes.Axes.set_navigate
+
         """
         _navigation.set_forward_navigation_events(
             self._native, None if forward == "auto" else bool(forward))
@@ -231,6 +236,10 @@ class NavigationMixin:
             The mouse coordinates in display coords.
         button : `.MouseButton`
             The pressed mouse button.
+
+        Notes
+        -----
+        This is intended to be overridden by new projection types.
         """
         self._pan_start = _navigation.start_pan(
             self._native, float(x), float(y), _button_number(button))
@@ -238,6 +247,10 @@ class NavigationMixin:
     def end_pan(self):
         """
         Called when a pan operation completes (when the mouse button is up.)
+
+        Notes
+        -----
+        This is intended to be overridden by new projection types.
         """
         if self._pan_start is not None:
             _navigation.end_pan(self._pan_start, self._native)
@@ -272,6 +285,10 @@ class NavigationMixin:
             The pressed key, if any.
         x, y : float
             The mouse coordinates in display coords.
+
+        Notes
+        -----
+        This is intended to be overridden by new projection types.
         """
         if self._pan_start is not None:
             _navigation.drag_pan(self._pan_start, self._native,

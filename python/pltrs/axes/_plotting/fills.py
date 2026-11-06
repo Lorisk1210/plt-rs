@@ -6,6 +6,7 @@ Filled areas and steps: `~.Axes.fill`, `~.Axes.fill_between`,
 
 import numpy as np
 
+from ... import _docstring
 from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
                  collections as mcoll, colors as mcolors)
 from ... import lines as mlines, patches as mpatches
@@ -55,9 +56,44 @@ class FillsMixin:
         """
         Plot filled polygons.
 
+        Parameters
+        ----------
+        *args : sequence of x, y, [color]
+            Each polygon is defined by the lists of *x* and *y* positions of
+            its nodes, optionally followed by a *color* specifier. See
+            :mod:`matplotlib.colors` for supported color specifiers. The
+            standard color cycle is used for polygons without a color
+            specifier.
+
+            You can plot multiple polygons by providing multiple *x*, *y*,
+            *[color]* groups.
+
+            For example, each of the following is legal::
+
+                ax.fill(x, y)                    # a polygon with default color
+                ax.fill(x, y, "b")               # a blue polygon
+                ax.fill(x, y, x2, y2)            # two polygons
+                ax.fill(x, y, "b", x2, y2, "r")  # a blue and a red polygon
+
+        data : indexable object, optional
+            An object with labelled data. If given, provide the label names to
+            plot in *x* and *y*, e.g.::
+
+                ax.fill("time", "signal",
+                        data={"time": [0, 1, 2], "signal": [0, 1, 0]})
+
         Returns
         -------
         list of `~matplotlib.patches.Polygon`
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.patches.Polygon` properties
+
+        Notes
+        -----
+        Use :meth:`fill_between` if you would like to fill the region between
+        two curves.
         """
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         closed = kwargs.pop('closed', True)
@@ -87,7 +123,88 @@ class FillsMixin:
     def _fill_between_x_or_y(self, ind_dir, ind, dep1, dep2=0, *,
                              where=None, interpolate=False, step=None,
                              **kwargs):
-        """`fill_between` (*ind_dir* ``"x"``) or `fill_betweenx` (``"y"``)."""
+        """
+        Fill the area between two {dir} curves.
+
+        The curves are defined by the points (*{ind}*, *{dep}1*) and (*{ind}*,
+        *{dep}2*).  This creates one or multiple polygons describing the filled
+        area.
+
+        You may exclude some {dir} sections from filling using *where*.
+
+        By default, the edges connect the given points directly.  Use *step*
+        if the filling should be a step function, i.e. constant in between
+        *{ind}*.
+
+        Parameters
+        ----------
+        {ind} : array-like
+            The {ind} coordinates of the nodes defining the curves.
+
+        {dep}1 : array-like or float
+            The {dep} coordinates of the nodes defining the first curve.
+
+        {dep}2 : array-like or float, default: 0
+            The {dep} coordinates of the nodes defining the second curve.
+
+        where : array-like of bool, optional
+            Define *where* to exclude some {dir} regions from being filled.
+            The filled regions are defined by the coordinates ``{ind}[where]``.
+            More precisely, fill between ``{ind}[i]`` and ``{ind}[i+1]`` if
+            ``where[i] and where[i+1]``.  Note that this definition implies
+            that an isolated *True* value between two *False* values in *where*
+            will not result in filling.  Both sides of the *True* position
+            remain unfilled due to the adjacent *False* values.
+
+        interpolate : bool, default: False
+            This option is only relevant if *where* is used and the two curves
+            are crossing each other.
+
+            Semantically, *where* is often used for *{dep}1* > *{dep}2* or
+            similar.  By default, the nodes of the polygon defining the filled
+            region will only be placed at the positions in the *{ind}* array.
+            Such a polygon cannot describe the above semantics close to the
+            intersection.  The {ind}-sections containing the intersection are
+            simply clipped.
+
+            Setting *interpolate* to *True* will calculate the actual
+            intersection point and extend the filled region up to this point.
+
+        step : {{'pre', 'post', 'mid'}}, optional
+            Define *step* if the filling should be a step function,
+            i.e. constant in between *{ind}*.  The value determines where the
+            step will occur:
+
+            - 'pre': The {dep} value is continued constantly to the left from
+              every *{ind}* position, i.e. the interval ``({ind}[i-1], {ind}[i]]``
+              has the value ``{dep}[i]``.
+            - 'post': The y value is continued constantly to the right from
+              every *{ind}* position, i.e. the interval ``[{ind}[i], {ind}[i+1])``
+              has the value ``{dep}[i]``.
+            - 'mid': Steps occur half-way between the *{ind}* positions.
+
+        Returns
+        -------
+        `.FillBetweenPolyCollection`
+            A `.FillBetweenPolyCollection` containing the plotted polygons.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            All other keyword arguments are passed on to
+            `.FillBetweenPolyCollection`. They control the `.Polygon` properties:
+
+            %(FillBetweenPolyCollection:kwdoc)s
+
+        See Also
+        --------
+        fill_between : Fill between two sets of y-values.
+        fill_betweenx : Fill between two sets of x-values.
+        """
+        # `fill_between` (*ind_dir* "x") or `fill_betweenx` ("y").
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
         # Colours given per polygon (plotnine's ribbons) are the
         # collection's once it is made, in the order given; pltrs (Rust)
@@ -121,43 +238,33 @@ class FillsMixin:
         collection._internal_update({**per_polygon, **kwargs})
         return collection
 
-    @_preprocess_data(replace_names=["x", "y1", "y2", "where"])
     def fill_between(self, x, y1, y2=0, where=None, interpolate=False,
                      step=None, **kwargs):
-        """
-        Fill the area between two horizontal curves.
-
-        Returns
-        -------
-        `.FillBetweenPolyCollection`
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
-        """
         return self._fill_between_x_or_y(
             "x", x, y1, y2,
             where=where, interpolate=interpolate, step=step, **kwargs)
 
-    @_preprocess_data(replace_names=["y", "x1", "x2", "where"])
+    if _fill_between_x_or_y.__doc__:
+        fill_between.__doc__ = _fill_between_x_or_y.__doc__.format(
+            dir="horizontal", ind="x", dep="y"
+        )
+    fill_between = _preprocess_data(
+        _docstring.interpd(fill_between),
+        replace_names=["x", "y1", "y2", "where"])
+
     def fill_betweenx(self, y, x1, x2=0, where=None,
                       step=None, interpolate=False, **kwargs):
-        """
-        Fill the area between two vertical curves.
-
-        Returns
-        -------
-        `.FillBetweenPolyCollection`
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
-        """
         return self._fill_between_x_or_y(
             "y", y, x1, x2,
             where=where, interpolate=interpolate, step=step, **kwargs)
+
+    if _fill_between_x_or_y.__doc__:
+        fill_betweenx.__doc__ = _fill_between_x_or_y.__doc__.format(
+            dir="vertical", ind="y", dep="x"
+        )
+    fill_betweenx = _preprocess_data(
+        _docstring.interpd(fill_betweenx),
+        replace_names=["y", "x1", "x2", "where"])
 
     @_preprocess_data()
     def stairs(self, values, edges=None, *,
@@ -165,14 +272,51 @@ class FillsMixin:
         """
         Draw a stepwise constant function as a line or a filled plot.
 
+        *edges* define the x-axis positions of the steps. *values* the function values
+        between these steps. Depending on *fill*, the function is drawn either as a
+        continuous line with vertical segments at the edges, or as a filled area.
+
+        Parameters
+        ----------
+        values : array-like
+            The step heights.
+
+        edges : array-like
+            The step positions, with ``len(edges) == len(vals) + 1``,
+            between which the curve takes on vals values.
+
+        orientation : {'vertical', 'horizontal'}, default: 'vertical'
+            The direction of the steps. Vertical means that *values* are along
+            the y-axis, and edges are along the x-axis.
+
+        baseline : float, array-like or None, default: 0
+            The bottom value of the bounding edges or when
+            ``fill=True``, position of lower edge. If *fill* is
+            True or an array is passed to *baseline*, a closed
+            path is drawn.
+
+            If None, then drawn as an unclosed Path.
+
+        fill : bool, default: False
+            Whether the area under the step curve should be filled.
+
+            Passing both ``fill=True` and ``baseline=None`` will likely result in
+            undesired filling: the first and last points will be connected
+            with a straight line and the fill will be between this line and the stairs.
+
+
         Returns
         -------
-        `~matplotlib.patches.StepPatch`
+        StepPatch : `~matplotlib.patches.StepPatch`
 
         Other Parameters
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            `~matplotlib.patches.StepPatch` properties
+
         """
         _api.check_in_list(('vertical', 'horizontal'), orientation=orientation)
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.StepPatch)
@@ -205,39 +349,88 @@ class FillsMixin:
         return patch
 
     @_preprocess_data()
-    def stackplot(self, x, *args, labels=(), colors=None, hatch=None,
-                  baseline='zero', where=None, interpolate=False, step=None,
+    def stackplot(axes, x, *args, labels=(), colors=None, baseline='zero',
                   **kwargs):
         """
         Draw a stacked area plot or a streamgraph.
+
+        Parameters
+        ----------
+        x : (N,) array-like
+
+        y : (M, N) array-like
+            The data can be either stacked or unstacked. Each of the following
+            calls is legal::
+
+                stackplot(x, y)  # where y has shape (M, N) e.g. y = [y1, y2, y3, y4]
+                stackplot(x, y1, y2, y3, y4)  # where y1, y2, y3, y4 have length N
+
+        baseline : {'zero', 'sym', 'wiggle', 'weighted_wiggle'}
+            Method used to calculate the baseline:
+
+            - ``'zero'``: Constant zero baseline, i.e. a simple stacked plot.
+            - ``'sym'``:  Symmetric around zero and is sometimes called
+              'ThemeRiver'.
+            - ``'wiggle'``: Minimizes the sum of the squared slopes.
+            - ``'weighted_wiggle'``: Does the same but weights to account for
+              size of each layer. It is also called 'Streamgraph'-layout. More
+              details can be found at http://leebyron.com/streamgraph/.
+
+        labels : list of str, optional
+            A sequence of labels to assign to each data series. If unspecified,
+            then no labels will be applied to artists.
+
+        colors : list of :mpltype:`color`, optional
+            A sequence of colors to be cycled through and used to color the stacked
+            areas. The sequence need not be exactly the same length as the number
+            of provided *y*, in which case the colors will repeat from the
+            beginning.
+
+            If not specified, the colors from the Axes property cycle will be used.
+
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            All other keyword arguments are passed to `.Axes.fill_between`.  The
+                following parameters additionally accept a sequence of values
+                corresponding to the *y* datasets:
+
+                - *hatch*
+                - *edgecolor*
+                - *facecolor*
+                - *linewidth*
+                - *linestyle*
+
+                .. versionadded:: 3.9
+                   Allowing a sequence of strings for *hatch*.
+
+                .. versionadded:: 3.11
+                   Allowing sequences of values in above listed `.Axes.fill_between`
+                   parameters.
 
         Returns
         -------
         list of `.PolyCollection`
             A list of `.PolyCollection` instances, one for each element in the
             stacked area plot.
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
         """
         y = np.vstack(args)
         _api.check_in_list(['zero', 'sym', 'wiggle', 'weighted_wiggle'],
                            baseline=baseline)
+        # matplotlib passes these on to the `fill_between` of every layer.
+        where, interpolate, step = (kwargs.pop('where', None),
+                                    kwargs.pop('interpolate', False), kwargs.pop('step', None))
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.PolyCollection)
         if colors is not None:
             kwargs.setdefault('facecolor', colors)
-        if hatch is not None:
-            kwargs['hatch'] = hatch
         kwargs, style_gen = _style_helpers.style_generator(kwargs)
-        x, = self._process_unit_info([("x", x)])
-        # matplotlib passes these on to the `fill_between` of every layer.
+        x, = axes._process_unit_info([("x", x)])
         fill = (_fill_mask(where, np.size(x), "x"), bool(interpolate), step)
         mcoll._check_step(step, [floats(x), *(floats(row) for row in y)], fill[0])
-        natives = _plotting.stackplot(self._native, floats(x),
+        natives = _plotting.stackplot(axes._native, floats(x),
                                       [floats(row) for row in y], baseline, [], fill)
-        collections = wrap_all(self, natives, mcoll.FillBetweenPolyCollection)
+        collections = wrap_all(axes, natives, mcoll.FillBetweenPolyCollection)
         labels = iter(labels)
         for collection in collections:
             style = next(style_gen)
@@ -250,6 +443,61 @@ class FillsMixin:
     def step(self, x, y, *args, where='pre', data=None, **kwargs):
         """
         Make a step plot.
+
+        Call signatures::
+
+            step(x, y, [fmt], *, data=None, where='pre', **kwargs)
+            step(x, y, [fmt], x2, y2, [fmt2], ..., *, where='pre', **kwargs)
+
+        This is just a thin wrapper around `.plot` which changes some
+        formatting options. Most of the concepts and parameters of plot can be
+        used here as well.
+
+        .. note::
+
+            This method uses a standard plot with a step drawstyle: The *x*
+            values are the reference positions and steps extend left/right/both
+            directions depending on *where*.
+
+            For the common case where you know the values and edges of the
+            steps, use `~.Axes.stairs` instead.
+
+        Parameters
+        ----------
+        x : array-like
+            1D sequence of x positions. It is assumed, but not checked, that
+            it is uniformly increasing.
+
+        y : array-like
+            1D sequence of y levels.
+
+        fmt : str, optional
+            A format string, e.g. 'g' for a green line. See `.plot` for a more
+            detailed description.
+
+            Note: While full format strings are accepted, it is recommended to
+            only specify the color. Line styles are currently ignored (use
+            the keyword argument *linestyle* instead). Markers are accepted
+            and plotted on the given positions, however, this is a rarely
+            needed feature for step plots.
+
+        where : {'pre', 'post', 'mid'}, default: 'pre'
+            Define where the steps should be placed:
+
+            - 'pre': The y value is continued constantly to the left from
+              every *x* position, i.e. the interval ``(x[i-1], x[i]]`` has the
+              value ``y[i]``.
+            - 'post': The y value is continued constantly to the right from
+              every *x* position, i.e. the interval ``[x[i], x[i+1])`` has the
+              value ``y[i]``.
+            - 'mid': Steps occur half-way between the *x* positions.
+
+        data : indexable object, optional
+            An object with labelled data. If given, provide the label names to
+            plot in *x* and *y*.
+
+        **kwargs
+            Additional parameters are the same as those for `.plot`.
 
         Returns
         -------

@@ -3,9 +3,10 @@ Vector fields: `~.Axes.quiver`, `~.Axes.quiverkey`, `~.Axes.barbs` and
 `~.Axes.streamplot`.
 """
 
+from ... import _docstring
 from ... import quiver as mquiver, streamplot as mstream
 from ..._preprocess import _preprocess_data
-from ._helpers import convert_units
+from ._helpers import _make_axes_method, convert_units
 
 
 class FieldsMixin:
@@ -19,58 +20,25 @@ class FieldsMixin:
         return args
 
     @_preprocess_data()
+    @_docstring.interpd
     def quiver(self, *args, **kwargs):
-        """
-        Plot a 2D field of arrows.
-
-        Call signature::
-
-            quiver([X, Y], U, V, [C], /, **kwargs)
-
-        Returns
-        -------
-        `~matplotlib.quiver.Quiver`
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
-        """
+        """%(quiver_doc)s"""
         # Make sure units are handled for x and y values
         args = self._quiver_units(args, kwargs)
         return mquiver.Quiver(self, *args, **kwargs)
 
+    @_docstring.copy(mquiver.QuiverKey.__init__)
     def quiverkey(self, Q, X, Y, U, label, **kwargs):
-        """
-        Add a key to a quiver plot.
-
-        Returns
-        -------
-        `~matplotlib.quiver.QuiverKey`
-        """
         return mquiver.QuiverKey(Q, X, Y, U, label, **kwargs)
 
     @_preprocess_data()
+    @_docstring.interpd
     def barbs(self, *args, **kwargs):
-        """
-        Plot a 2D field of wind barbs.
-
-        Call signature::
-
-            barbs([X, Y], U, V, [C], /, **kwargs)
-
-        Returns
-        -------
-        barbs : `~matplotlib.quiver.Barbs`
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
-        """
+        """%(barbs_doc)s"""
         # Make sure units are handled for x and y values
         args = self._quiver_units(args, kwargs)
         return mquiver.Barbs(self, *args, **kwargs)
 
     streamplot = _preprocess_data(
-        replace_names=["x", "y", "u", "v", "start_points"])(mstream.streamplot)
+        replace_names=["x", "y", "u", "v", "start_points"])(
+        _make_axes_method(mstream.streamplot))

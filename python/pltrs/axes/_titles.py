@@ -63,23 +63,45 @@ class TitlesMixin:
         ----------
         label : str
             Text to use for the title
+
         fontdict : dict
-            A dictionary controlling the appearance of the title text
-            (discouraged: pass the properties as keyword arguments).
+
+            .. admonition:: Discouraged
+
+               The use of *fontdict* is discouraged. Parameters should be passed as
+               individual keyword arguments or using dictionary-unpacking
+               ``set_title(..., **fontdict)``.
+
+            A dictionary controlling the appearance of the title text,
+            the default *fontdict* is::
+
+               {'fontsize': rcParams['axes.titlesize'],
+                'fontweight': rcParams['axes.titleweight'],
+                'color': rcParams['axes.titlecolor'],
+                'verticalalignment': 'baseline',
+                'horizontalalignment': loc}
+
         loc : {'center', 'left', 'right'}, default: :rc:`axes.titlelocation`
             Which title to set.
+
         y : float, default: :rc:`axes.titley`
             Vertical Axes location for the title (1.0 is the top).  If
             None (the default) and :rc:`axes.titley` is also None, y is
             determined automatically to avoid decorators on the Axes.
+
         pad : float, default: :rc:`axes.titlepad`
             The offset of the title from the top of the Axes, in points.
-        **kwargs : `~matplotlib.text.Text` properties
 
         Returns
         -------
         `.Text`
             The matplotlib text instance representing the title
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.text.Text` properties
+            Other keyword arguments are text properties, see `.Text` for a list
+            of valid text properties.
         """
         if loc is None:
             from .. import rcParams
@@ -113,6 +135,7 @@ class TitlesMixin:
         -------
         str
             The title text string.
+
         """
         loc = _api.getitem_checked(_LOCATIONS, loc=loc.lower())
         return self._title_at(loc).get_text()

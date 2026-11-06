@@ -36,6 +36,7 @@ class ChildrenSearchMixin:
         Returns
         -------
         list of `.Artist`
+
         """
         from .artist import Artist
         if match is None:  # always return True

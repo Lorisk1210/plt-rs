@@ -15,6 +15,7 @@ import weakref
 
 import numpy as np
 
+from . import _docstring
 from . import (_api, _live_transforms, _mirrors, _text_coords, _text_overrides,
                _unusable, _values, cbook, units)
 from . import _text_metrics as _text_metrics_module
@@ -171,6 +172,7 @@ def _rotation_degrees(s):
                      f"a number, not {s}")
 
 
+@_docstring.interpd
 @_api.define_aliases({
     "color": ["c"],
     "fontproperties": ["font", "font_properties"],
@@ -189,6 +191,18 @@ def _rotation_degrees(s):
 class Text(Artist, metaclass=_text_overrides.WatchesDraw):
     """Handle storing and drawing of text in window or data coordinates."""
 
+    def set_clip_box(self, clipbox):
+        # docstring inherited: matplotlib's override has none.
+        super().set_clip_box(clipbox)
+
+    def set_clip_path(self, path, transform=None):
+        # docstring inherited: matplotlib's override has none.
+        super().set_clip_path(path, transform)
+
+    def set_clip_on(self, b):
+        # docstring inherited: matplotlib's override has none.
+        super().set_clip_on(b)
+
     zorder = 3
     _charsize_cache = dict()
     #: What a mirror reads refreshed from its part (see `._mirrors`): the
@@ -200,14 +214,39 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         # The text as set, which a subclass's `get_text` may resolve.
         return f"Text({x}, {y}, {Text.get_text(self)!r})"
 
-    def __init__(self, x=0, y=0, text='', **kwargs):
+    def __init__(self,
+                 x=0, y=0, text='', *,
+                 color=None,           # defaults to rc params
+                 verticalalignment='baseline',
+                 horizontalalignment='left',
+                 multialignment=None,
+                 fontproperties=None,  # defaults to FontProperties()
+                 rotation=None,
+                 linespacing=None,
+                 rotation_mode=None,
+                 usetex=None,          # defaults to rcParams['text.usetex']
+                 wrap=False,
+                 transform_rotates_text=False,
+                 parse_math=None,    # defaults to rcParams['text.parse_math']
+                 antialiased=None,  # defaults to rcParams['text.antialiased']
+                 **kwargs
+                 ):
         """
-        Create a `.Text` instance at *x*, *y* with string *text*; *kwargs*
-        are `.Text` properties.
+        Create a `.Text` instance at *x*, *y* with string *text*.
 
-        The text is outside any figure until an axes or a figure adds it
-        (`~.Axes.add_artist`, `.Figure.add_artist`).
+        The text is aligned relative to the anchor point (*x*, *y*) according
+        to ``horizontalalignment`` (default: 'left') and ``verticalalignment``
+        (default: 'baseline'). See also
+        :doc:`/gallery/text_labels_and_annotations/text_alignment`.
+
+        While Text accepts the 'label' keyword argument, by default it is not
+        added to the handles of a legend.
+
+        Valid keyword arguments are:
+
+        %(Text:kwdoc)s
         """
+        kwargs = {**cbook._given_keywords(Text.__init__, locals()), **kwargs}
         in_units = not (units._is_natively_supported(x) and units._is_natively_supported(y))
         self._native = _text.new(0.0 if in_units else float(x),
                                  0.0 if in_units else float(y),
@@ -289,6 +328,12 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
              scale of the `.patches.FancyBboxPatch` is set to the fontsize.
 
              Pass ``None`` to remove the bbox patch completely.
+
+        Examples
+        --------
+        ::
+
+            t.set_bbox(dict(facecolor='red', alpha=0.5))
         """
         if rectprops is None:
             _text.set_bbox(self._native, None)
@@ -318,10 +363,9 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 
         This method should be used when the position and size of the bbox needs
         to be updated before actually drawing the bbox.
-
-        pltrs: the patch of `get_bbox_patch` moves where pltrs (Rust) draws
-        the box in the figure's current layout.
         """
+        # pltrs: the patch of `get_bbox_patch` moves where pltrs (Rust) draws
+        # the box in the figure's current layout.
         from ._text_box import place
         place(self)
 
@@ -337,10 +381,11 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Return the bbox Patch, or None if the `.patches.FancyBboxPatch`
         is not made.
 
-        pltrs: the patch has the box's look (box style, colours, hatch,
-        alpha, path effects), and its setters change the box; the text
-        places it when drawn, so it stays on the unit square.
+        For more details see `.Text.set_bbox`.
         """
+        # pltrs: the patch has the box's look (box style, colours, hatch,
+        # alpha, path effects), and its setters change the box; the text
+        # places it when drawn, so it stays on the unit square.
         from ._text_box import mirror
         return mirror(self)
 
@@ -354,6 +399,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         color : :mpltype:`color`
+
+        See Also
+        --------
+        .set_bbox : To change the position of the bounding box
         """
         from .colors import to_rgba
         # matplotlib's box patch fails to take a colour that is none.
@@ -361,11 +410,6 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         _text.set_backgroundcolor(self._native, color)
 
     def update(self, kwargs):
-        """
-        Update this text's properties from the dict *kwargs*: the font
-        properties first, as they have the lowest priority, the box last, as
-        it depends on them.
-        """
         ret = []
         kwargs = cbook.normalize_kwargs(kwargs, Text)
         sentinel = object()  # bbox can be None, so use another sentinel.
@@ -404,12 +448,13 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         m : {None, 'default', 'anchor', 'xtick', 'ytick'}
-            If ``"default"``, the text will be first rotated, then aligned
-            according to their horizontal and vertical alignments.  If
-            ``"anchor"``, then alignment occurs before rotation. "xtick" and
-            "ytick" adjust the horizontal/vertical alignment so that the text
-            is visually pointing towards its anchor point. Passing ``None``
-            will set the rotation mode to ``"default"``.
+            If ``"default"``, the text will be first rotated, then aligned according
+            to their horizontal and vertical alignments.  If ``"anchor"``, then
+            alignment occurs before rotation. "xtick" and "ytick" adjust the
+            horizontal/vertical alignment so that the text is visually pointing
+            towards its anchor point. This is primarily used for rotated tick
+            labels and positions them nicely towards their ticks. Passing
+            ``None`` will set the rotation mode to ``"default"``.
         """
         if m is None:
             m = "default"
@@ -429,6 +474,12 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         antialiased : bool
+
+        Notes
+        -----
+        Antialiasing will be determined by :rc:`text.antialiased`
+        and the parameter *antialiased* will have no effect if the text contains
+        math expressions.
         """
         _text.set_antialiased(self._native, bool(antialiased))
 
@@ -454,6 +505,14 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         wrap : bool
+
+        Notes
+        -----
+        Wrapping does not work together with
+        ``savefig(..., bbox_inches='tight')`` (which is also used internally
+        by ``%matplotlib inline`` in IPython/Jupyter). The 'tight' setting
+        rescales the canvas to accommodate all content and happens before
+        wrapping.
         """
         _text.set_wrap(self._native, bool(wrap))
 
@@ -488,11 +547,7 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
                              same=_values.same_color)
 
     def get_fontproperties(self):
-        """
-        Return the `.font_manager.FontProperties`: the same object while the
-        text's font stays, whose setters change the text's font, as
-        matplotlib's text keeps one.
-        """
+        """Return the `.font_manager.FontProperties`."""
         current = FontProperties._from_native(_text.get_fontproperties(self._native))
         kept = self.__dict__.get("_font_object")
         if kept is None or kept != current or not _mirrors.is_attached(kept):
@@ -504,31 +559,73 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         return self.get_fontproperties()
 
     def get_fontfamily(self):
-        """Return the list of font families used for font lookup."""
+        """
+        Return the list of font families used for font lookup.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_family
+        """
         return self.get_fontproperties().get_family()
 
     def get_fontname(self):
-        """Return the font name as a string."""
+        """
+        Return the font name as a string.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_name
+        """
         return self.get_fontproperties().get_name()
 
     def get_fontstyle(self):
-        """Return the font style as a string."""
+        """
+        Return the font style as a string.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_style
+        """
         return self.get_fontproperties().get_style()
 
     def get_fontsize(self):
-        """Return the font size as an integer."""
+        """
+        Return the font size as an integer.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_size_in_points
+        """
         return self.get_fontproperties().get_size_in_points()
 
     def get_fontvariant(self):
-        """Return the font variant as a string."""
+        """
+        Return the font variant as a string.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_variant
+        """
         return self.get_fontproperties().get_variant()
 
     def get_fontweight(self):
-        """Return the font weight as a string or a number."""
+        """
+        Return the font weight as a string or a number.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_weight
+        """
         return self.get_fontproperties().get_weight()
 
     def get_stretch(self):
-        """Return the font stretch as a string or a number."""
+        """
+        Return the font stretch as a string or a number.
+
+        See Also
+        --------
+        .font_manager.FontProperties.get_stretch
+        """
         return self.get_fontproperties().get_stretch()
 
     def get_horizontalalignment(self):
@@ -561,20 +658,23 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         Return the `.Bbox` bounding the text, in display units.
 
+        In addition to being used internally, this is useful for specifying
+        clickable regions in a png file on a web page.
+
         Parameters
         ----------
         renderer : Renderer, optional
-            pltrs (Rust) measures the text itself, through the text metrics
-            cache of the renderer (default: the figure's).
+            A renderer is needed to compute the bounding box.  If the artist
+            has already been drawn, the renderer is cached; thus, it is only
+            necessary to pass this argument when calling `get_window_extent`
+            before the first draw.  In practice, it is usually easier to
+            trigger a draw first, e.g. by calling
+            `~.Figure.draw_without_rendering` or ``plt.show()``.
 
         dpi : float, optional
-            The dpi value for computing the bbox, defaults to the figure's
-            dpi (*not* the renderer dpi); should be set e.g. if to match
-            regions with a figure saved with a custom dpi value.
-
-        The text is where its transform puts it now, as matplotlib reads
-        the transform: before a draw, at the view limits autoscaling has
-        not computed yet.
+            The dpi value for computing the bbox, defaults to
+            ``self.get_figure(root=True).dpi`` (*not* the renderer dpi); should be set
+            e.g. if to match regions with a figure saved with a custom dpi value.
         """
         if not self.get_visible():
             return Bbox.unit()
@@ -623,11 +723,6 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         return Bbox([[x0, y0], [x1, y1]])
 
     def get_tightbbox(self, renderer=None):
-        """
-        Like `get_window_extent`: a text's tight box is its extent, null
-        for a hidden or empty text and for one placed in data coordinates
-        outside the domain of its axes' scales.
-        """
         if (not self.get_visible() or self.get_text() == ""
                 or not _text.in_data_domain(self._native)):
             return Bbox.null()
@@ -651,6 +746,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         Set the horizontal alignment relative to the anchor point.
 
+        See also :doc:`/gallery/text_labels_and_annotations/text_alignment`.
+
         Parameters
         ----------
         align : {'left', 'center', 'right'}
@@ -661,6 +758,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
     def set_multialignment(self, align):
         """
         Set the text alignment for multiline texts.
+
+        The layout of the bounding box of all the lines is determined by the
+        horizontalalignment and verticalalignment properties. This property
+        controls the alignment of the text lines within that box.
 
         Parameters
         ----------
@@ -676,11 +777,11 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         spacing : 'normal' or float, default: 'normal'
-            If 'normal', then the line spacing is automatically determined by
-            font metrics for each line individually.
+            If 'normal', then the line spacing is automatically determined by font
+            metrics for each line individually.
 
-            If a float, then line spacing will be fixed to this multiple of
-            the font size for every line.
+            If a float, then line spacing will be fixed to this multiple of the font
+            size for every line.
         """
         if cbook._str_equal(spacing, 'normal'):
             _text.set_linespacing(self._native, None)
@@ -705,12 +806,22 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         Set the font family.  Can be either a single string, or a list of
         strings in decreasing priority.  Each string may be either a real font
-        name or a generic font class name.
+        name or a generic font class name.  If the latter, the specific font
+        names will be looked up in the corresponding rcParams.
+
+        If a `Text` instance is constructed with ``fontfamily=None``, then the
+        font is set to :rc:`font.family`, and the
+        same is done when `set_fontfamily()` is called on an existing
+        `Text` instance.
 
         Parameters
         ----------
         fontname : {FONTNAME, 'serif', 'sans-serif', 'cursive', 'fantasy', \
 'monospace'}
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_family
         """
         self._update_font("set_family", fontname)
 
@@ -721,6 +832,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         variant : {'normal', 'small-caps'}
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_variant
         """
         self._update_font("set_variant", variant)
 
@@ -731,6 +846,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         fontstyle : {'normal', 'italic', 'oblique'}
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_style
         """
         self._update_font("set_style", fontstyle)
 
@@ -744,6 +863,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 'large', 'x-large', 'xx-large'}
             If a float, the fontsize in points. The string values denote sizes
             relative to the default font size.
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_size
         """
         self._update_font("set_size", fontsize)
 
@@ -752,6 +875,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Return the font family name for math text rendered by Matplotlib.
 
         The default value is :rc:`mathtext.fontset`.
+
+        See Also
+        --------
+        set_math_fontfamily
         """
         return self.get_fontproperties().get_math_fontfamily()
 
@@ -766,6 +893,14 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         ----------
         fontfamily : str
             The name of the font family.
+
+            Available font families are defined in the
+            :ref:`default matplotlibrc file
+            <customizing-with-matplotlibrc-files>`.
+
+        See Also
+        --------
+        get_math_fontfamily
         """
         self._update_font("set_math_fontfamily", fontfamily)
 
@@ -778,6 +913,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         weight : {a numeric value in range 0-1000, 'ultralight', 'light', \
 'normal', 'regular', 'book', 'medium', 'roman', 'semibold', 'demibold', \
 'demi', 'bold', 'heavy', 'extra bold', 'black'}
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_weight
         """
         self._update_font("set_weight", weight)
 
@@ -790,6 +929,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         stretch : {a numeric value in range 0-1000, 'ultra-condensed', \
 'extra-condensed', 'condensed', 'semi-condensed', 'normal', 'semi-expanded', \
 'expanded', 'extra-expanded', 'ultra-expanded'}
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_stretch
         """
         self._update_font("set_stretch", stretch)
 
@@ -851,6 +994,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
     def set_verticalalignment(self, align):
         """
         Set the vertical alignment relative to the anchor point.
+
+        See also :doc:`/gallery/text_labels_and_annotations/text_alignment`.
 
         Parameters
         ----------
@@ -918,11 +1063,12 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         # matplotlib's text holds a copy of *fp* from now on.
         self.__dict__.pop("_font_object", None)
 
+    @_docstring.kwarg_doc("bool, default: :rc:`text.usetex`")
     def set_usetex(self, usetex):
         """
         Parameters
         ----------
-        usetex : bool, default: :rc:`text.usetex`
+        usetex : bool or None
             Whether to render using TeX, ``None`` means to use
             :rc:`text.usetex`.
         """
@@ -960,6 +1106,11 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         ----------
         fontname : {FONTNAME, 'serif', 'sans-serif', 'cursive', 'fantasy', \
 'monospace'}
+
+        See Also
+        --------
+        .font_manager.FontProperties.set_family
+
         """
         self.set_fontfamily(fontname)
 
@@ -976,9 +1127,25 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         features : list of str, or tuple of str, or None
-            A list of feature tags to be used with the associated font, in
-            the string formats HarfBuzz's ``hb_feature_from_string()``
-            supports.
+            A list of feature tags to be used with the associated font. These strings
+            are eventually passed to HarfBuzz, and so all `string formats supported by
+            hb_feature_from_string()
+            <https://harfbuzz.github.io/harfbuzz-hb-common.html#hb-feature-from-string>`__
+            are supported. Note though that subranges are not explicitly supported and
+            behaviour may change in the future.
+
+            For example, if your desired font includes Stylistic Sets which enable
+            various typographic alternates including one that you do not wish to use
+            (e.g., Contextual Ligatures), then you can pass the following to enable one
+            and not the other::
+
+                fp.set_features([
+                    'ss01',  # Use Stylistic Set 1.
+                    '-clig',  # But disable Contextural Ligatures.
+                ])
+
+            Available font feature tags may be found at
+            https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist
         """
         _api.check_isinstance((Sequence, None), features=features)
         if features is not None:
@@ -999,9 +1166,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         language : str or None
-            The language of the text in a format accepted by libraqm, namely
-            `a BCP47 language code
-            <https://www.w3.org/International/articles/language-tags/>`_.
+            The language of the text in a format accepted by libraqm, namely `a BCP47
+            language code <https://www.w3.org/International/articles/language-tags/>`_.
 
             If None, then defaults to :rc:`text.language`.
         """
@@ -1060,12 +1226,16 @@ class OffsetFrom:
         """
         Parameters
         ----------
-        artist : `~matplotlib.artist.Artist`
+        artist : `~matplotlib.artist.Artist` or `.BboxBase` or `.Transform`
             The object to compute the offset from.
 
         ref_coord : (float, float)
-            The location of the offset origin in fractions of the *artist*
-            bounding box.
+            If *artist* is an `.Artist` or `.BboxBase`, this values is
+            the location to of the offset origin in fractions of the
+            *artist* bounding box.
+
+            If *artist* is a transform, the offset origin is the
+            transform applied to this value.
 
         unit : {'points, 'pixels'}, default: 'points'
             The screen units to use (pixels or points) for the offset input.
@@ -1250,7 +1420,8 @@ class _AnnotationBase(CoordsMixin):
             - True or False: set the draggability.
             - None: toggle the draggability.
         use_blit : bool, default: False
-            Use blitting for faster image composition.
+            Use blitting for faster image composition. For details see
+            :ref:`func-animation`.
 
         Returns
         -------
@@ -1287,6 +1458,10 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
         A `.FancyArrowPatch` to point from *xytext* to *xy*.
     """
 
+    def set_figure(self, fig):
+        # docstring inherited: matplotlib's override has none.
+        super().set_figure(fig)
+
     def __str__(self):
         return f"Annotation({self.xy[0]:g}, {self.xy[1]:g}, {self.get_text()!r})"
 
@@ -1300,13 +1475,167 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
         """
         Annotate the point *xy* with text *text*.
 
-        In the simplest form, the text is placed at *xy*. Optionally, the
-        text can be displayed in another position *xytext*, and an arrow
-        pointing from the text to the annotated point *xy* can be added by
-        defining *arrowprops*; the parameters are those of `.Axes.annotate`.
-        The annotation is outside any figure until an axes or a figure adds
-        it (`~.Axes.add_artist`, `.Figure.add_artist`); its points are then
-        numbers or dates, which no axis converts yet.
+        In the simplest form, the text is placed at *xy*.
+
+        Optionally, the text can be displayed in another position *xytext*.
+        An arrow pointing from the text to the annotated point *xy* can then
+        be added by defining *arrowprops*.
+
+        Parameters
+        ----------
+        text : str
+            The text of the annotation.
+
+        xy : (float, float)
+            The point *(x, y)* to annotate. The coordinate system is determined
+            by *xycoords*.
+
+        xytext : (float, float), default: *xy*
+            The position *(x, y)* to place the text at. The coordinate system
+            is determined by *textcoords*.
+
+        xycoords : single or two-tuple of str or `.Artist` or `.Transform` or \
+callable, default: 'data'
+
+            The coordinate system that *xy* is given in. The following types
+            of values are supported:
+
+            - One of the following strings:
+
+              ==================== ============================================
+              Value                Description
+              ==================== ============================================
+              'figure points'      Points from the lower left of the figure
+              'figure pixels'      Pixels from the lower left of the figure
+              'figure fraction'    Fraction of figure from lower left
+              'subfigure points'   Points from the lower left of the subfigure
+              'subfigure pixels'   Pixels from the lower left of the subfigure
+              'subfigure fraction' Fraction of subfigure from lower left
+              'axes points'        Points from lower left corner of the Axes
+              'axes pixels'        Pixels from lower left corner of the Axes
+              'axes fraction'      Fraction of Axes from lower left
+              'data'               Use the coordinate system of the object
+                                   being annotated (default)
+              'polar'              *(theta, r)* if not native 'data'
+                                   coordinates
+              ==================== ============================================
+
+              Note that 'subfigure pixels' and 'figure pixels' are the same
+              for the parent figure, so users who want code that is usable in
+              a subfigure can use 'subfigure pixels'.
+
+            - An `.Artist`: *xy* is interpreted as a fraction of the artist's
+              `~matplotlib.transforms.Bbox`. E.g. *(0, 0)* would be the lower
+              left corner of the bounding box and *(0.5, 1)* would be the
+              center top of the bounding box.
+
+            - A `.Transform` to transform *xy* to screen coordinates.
+
+            - A function with one of the following signatures::
+
+                def transform(renderer) -> Bbox
+                def transform(renderer) -> Transform
+
+              where *renderer* is a `.RendererBase` subclass.
+
+              The result of the function is interpreted like the `.Artist` and
+              `.Transform` cases above.
+
+            - A tuple *(xcoords, ycoords)* specifying separate coordinate
+              systems for *x* and *y*. *xcoords* and *ycoords* must each be
+              of one of the above described types.
+
+            See :ref:`plotting-guide-annotation` for more details.
+
+        textcoords : single or two-tuple of str or `.Artist` or `.Transform` \
+or callable, default: value of *xycoords*
+            The coordinate system that *xytext* is given in.
+
+            All *xycoords* values are valid as well as the following strings:
+
+            =================   =================================================
+            Value               Description
+            =================   =================================================
+            'offset points'     Offset, in points, from the *xy* value
+            'offset pixels'     Offset, in pixels, from the *xy* value
+            'offset fontsize'   Offset, relative to fontsize, from the *xy* value
+            =================   =================================================
+
+        arrowprops : dict, optional
+            The properties used to draw a `.FancyArrowPatch` arrow between the
+            positions *xy* and *xytext*.  Defaults to None, i.e. no arrow is
+            drawn.
+
+            For historical reasons there are two different ways to specify
+            arrows, "simple" and "fancy":
+
+            **Simple arrow:**
+
+            If *arrowprops* does not contain the key 'arrowstyle' the
+            allowed keys are:
+
+            ==========  =================================================
+            Key         Description
+            ==========  =================================================
+            width       The width of the arrow in points
+            headwidth   The width of the base of the arrow head in points
+            headlength  The length of the arrow head in points
+            shrink      Fraction of total length to shrink from both ends
+            ?           Any `.FancyArrowPatch` property
+            ==========  =================================================
+
+            The arrow is attached to the edge of the text box, the exact
+            position (corners or centers) depending on where it's pointing to.
+
+            **Fancy arrow:**
+
+            This is used if 'arrowstyle' is provided in the *arrowprops*.
+
+            Valid keys are the following `.FancyArrowPatch` parameters:
+
+            ===============  ===================================
+            Key              Description
+            ===============  ===================================
+            arrowstyle       The arrow style
+            connectionstyle  The connection style
+            relpos           See below; default is (0.5, 0.5)
+            patchA           Default is bounding box of the text
+            patchB           Default is None
+            shrinkA          In points. Default is 2 points
+            shrinkB          In points. Default is 2 points
+            mutation_scale   Default is text size (in points)
+            mutation_aspect  Default is 1
+            ?                Any `.FancyArrowPatch` property
+            ===============  ===================================
+
+            The exact starting point position of the arrow is defined by
+            *relpos*. It's a tuple of relative coordinates of the text box,
+            where (0, 0) is the lower left corner and (1, 1) is the upper
+            right corner. Values <0 and >1 are supported and specify points
+            outside the text box. By default (0.5, 0.5), so the starting point
+            is centered in the text box.
+
+        annotation_clip : bool or None, default: None
+            Whether to clip (i.e. not draw) the annotation when the annotation
+            point *xy* is outside the Axes area.
+
+            - If *True*, the annotation will be clipped when *xy* is outside
+              the Axes.
+            - If *False*, the annotation will always be drawn.
+            - If *None*, the annotation will be clipped when *xy* is outside
+              the Axes and *xycoords* is 'data'.
+
+        **kwargs
+            Additional kwargs are passed to `.Text`.
+
+        Returns
+        -------
+        `.Annotation`
+
+        See Also
+        --------
+        :ref:`annotations`
+
         """
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
@@ -1360,10 +1689,8 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
                 _native_coords(self._textcoords, self.figure, "textcoords"))
 
     def get_window_extent(self, renderer=None):
-        """
-        Return the `.Bbox` bounding the text and the arrow, in display
-        units. The renderer is not used: pltrs (Rust) measures them.
-        """
+        # Return the `.Bbox` bounding the text and the arrow, in display
+        # units. The renderer is not used: pltrs (Rust) measures them.
         if not self.get_visible() or (self._figure is not None
                                       and not self._check_xy(renderer)):
             return Bbox.unit()
@@ -1401,7 +1728,6 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
 
     @property
     def xycoords(self):
-        """The coordinate system of `xy`."""
         return self._xycoords
 
     @xycoords.setter
@@ -1474,14 +1800,16 @@ class Annotation(PositionedMixin, Text, _AnnotationBase):
     def update_positions(self, renderer):
         """
         Update the pixel positions of the annotation text and the arrow patch.
-
-        pltrs (Rust) places them whenever the annotation is drawn or
-        measured; the annotation goes stale, as matplotlib's sets its
-        transform anew.
         """
+        # pltrs (Rust) places them whenever the annotation is drawn or
+        # measured; the annotation goes stale, as matplotlib's sets its
+        # transform anew.
         self.stale = True
 
 
 # pltrs (Rust) measures and draws texts through the replacements of
 # _get_text_metrics_with_cache and Text.draw the program makes.
 _text_overrides.watch(sys.modules[__name__], Text)
+
+
+_docstring.interpd.register(Annotation=Annotation.__init__.__doc__)

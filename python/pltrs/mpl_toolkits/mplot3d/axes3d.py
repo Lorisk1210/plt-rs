@@ -17,6 +17,7 @@ import warnings
 
 import numpy as np
 
+from pltrs import _docstring
 from pltrs import _api, _handles, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs import patches as mpatches
@@ -140,6 +141,7 @@ _VIEW_ANGLES = ("elev", "azim", "roll")
 _made = threading.local()
 
 
+@_docstring.interpd
 class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     """
     3D Axes object.
@@ -149,6 +151,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         As a user, you do not instantiate Axes directly, but use Axes creation
         methods instead; e.g. from `.pyplot` or `.Figure`:
         `~.pyplot.subplots`, `~.pyplot.subplot_mosaic` or `.Figure.add_axes`.
+
+    .. note::
+
+        Some of the inherited behavior of Axes is not applicable to 3d and will raise
+        an `.UnsupportedError`.
     """
     name = '3d'
 
@@ -160,34 +167,59 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                  focal_length=None, box_aspect=None, computed_zorder=True,
                  **kwargs):
         """
-        Build a 3D Axes in a figure, outside it until ``fig.add_axes(ax)``
-        adds it, as an `~.axes.Axes` made by its constructor is.
-
         Parameters
         ----------
         fig : Figure
             The parent figure.
-        rect : tuple (left, bottom, width, height), default: None.
-            The ``(left, bottom, width, height)`` Axes position, or the
-            ``(nrows, ncols, index)`` of a subplot (a `.SubplotSpec`, or
-            numbers with *args*).
-        elev, azim, roll : float, default: 30, -60, 0
-            The initial view angles, in degrees.
-        shareview, sharez : Axes3D, optional
-            Other Axes to share the view angles or the z limits with.
+        rect : tuple (left, bottom, width, height), default: (0, 0, 1, 1)
+            The ``(left, bottom, width, height)`` Axes position.
+        elev : float, default: 30
+            The elevation angle in degrees rotates the camera above and below
+            the x-y plane, with a positive angle corresponding to a location
+            above the plane.
+        azim : float, default: -60
+            The azimuthal angle in degrees rotates the camera about the z axis,
+            with a positive angle corresponding to a right-handed rotation. In
+            other words, a positive azimuth rotates the camera about the origin
+            from its location along the +x axis towards the +y axis.
+        roll : float, default: 0
+            The roll angle in degrees rotates the camera about the viewing
+            axis. A positive angle spins the camera clockwise, causing the
+            scene to rotate counter-clockwise.
+        shareview : Axes3D, optional
+            Other Axes to share view angles with.  Note that it is not possible
+            to unshare axes.
+        sharez : Axes3D, optional
+            Other Axes to share z-limits with.  Note that it is not possible to
+            unshare axes.
         proj_type : {'persp', 'ortho'}
             The projection type, default 'persp'.
         focal_length : float, default: None
-            For a projection type of 'persp', the focal length of the
-            virtual camera.
+            For a projection type of 'persp', the focal length of the virtual
+            camera. Must be > 0. If None, defaults to 1.
+            For a projection type of 'ortho', must be set to either None
+            or infinity (numpy.inf). If None, defaults to infinity.
+            The focal length can be computed from a desired Field Of View via
+            the equation: focal_length = 1/tan(FOV/2)
         box_aspect : 3-tuple of floats, default: None
-            Changes the physical dimensions of the Axes3D.
+            Changes the physical dimensions of the Axes3D, such that the ratio
+            of the axis lengths in display units is x:y:z.
+            If None, defaults to 4:4:3
         computed_zorder : bool, default: True
-            If True, the draw order is computed based on the average
-            position of the `.Artist`\\s along the view direction.
+            If True, the draw order is computed based on the average position
+            along the view direction for supported artist types (currently
+            Collections and Patches only).
+            Set to False if you want to manually control the order in which
+            Artists are drawn on top of each other using their *zorder*
+            attribute. This can be used for fine-tuning if the automatic order
+            does not produce the desired result. Note however, that a manual
+            order will only be correct for a limited view angle. If the figure
+            is rotated by the user, it will look wrong from certain angles.
+
         **kwargs
-            Other optional keyword arguments are Axes properties
-            (*sharex* and *sharey* included).
+            Other optional keyword arguments:
+
+            %(Axes3D:kwdoc)s
         """
         if rect is None:
             rect = [0.0, 0.0, 1.0, 1.0]
@@ -385,8 +417,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return self.zaxis.convert_units(z)
 
     def set_top_view(self):
-        """Show the window of projected coordinates the axes draws in, as
-        a new 3-D axes does."""
         _mplot3d.set_top_view(self._native)
         self.stale = True
 
@@ -426,10 +456,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return _mplot3d.has_data(self._native)
 
     def auto_scale_xyz(self, X, Y, Z=None, had_data=None):
-        """
-        Include the data *X*, *Y* (and *Z*) in the data limits, replacing
-        them unless *had_data*, and autoscale the view.
-        """
         def values(data):
             return np.ma.filled(np.ma.asarray(data, dtype=float), np.nan).ravel()
         _mplot3d.auto_scale_xyz(
@@ -489,19 +515,217 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
                  view_margin=None, xmin=None, xmax=None):
-        """Set the 3D x-axis view limits."""
+        """
+        Set the 3D x-axis view limits.
+
+        Parameters
+        ----------
+        left : float, optional
+            The left xlim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+            The left and right xlims may also be passed as the tuple
+            (*left*, *right*) as the first positional argument (or as
+            the *left* keyword argument).
+
+            .. ACCEPTS: (left: float, right: float)
+
+        right : float, optional
+            The right xlim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+        emit : bool, default: True
+            Whether to notify observers of limit change.
+
+        auto : bool or None, default: False
+            Whether to turn on autoscaling of the x-axis. *True* turns on,
+            *False* turns off, *None* leaves unchanged.
+
+        view_margin : float, optional
+            The additional margin to apply to the limits.
+
+        xmin, xmax : float, optional
+            They are equivalent to left and right respectively, and it is an
+            error to pass both *xmin* and *left* or *xmax* and *right*.
+
+        Returns
+        -------
+        left, right : (float, float)
+            The new x-axis limits in data coordinates.
+
+        See Also
+        --------
+        get_xlim
+        set_xbound, get_xbound
+        invert_xaxis, xaxis_inverted
+
+        Notes
+        -----
+        The *left* value may be greater than the *right* value, in which
+        case the x-axis values will decrease from *left* to *right*.
+
+        Examples
+        --------
+        >>> set_xlim(left, right)
+        >>> set_xlim((left, right))
+        >>> left, right = set_xlim(left, right)
+
+        One limit may be left unchanged.
+
+        >>> set_xlim(right=right_lim)
+
+        Limits may be passed in reverse order to flip the direction of
+        the x-axis. For example, suppose ``x`` represents depth of the
+        ocean in m. The x-axis limits might be set like the following
+        so 5000 m depth is at the left of the plot and the surface,
+        0 m, is at the right.
+
+        >>> set_xlim(5000, 0)
+        """
         return self._set_lim3d('x', left, right, emit=emit, auto=auto,
                                view_margin=view_margin, axmin=xmin, axmax=xmax)
 
     def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
                  view_margin=None, ymin=None, ymax=None):
-        """Set the 3D y-axis view limits."""
+        """
+        Set the 3D y-axis view limits.
+
+        Parameters
+        ----------
+        bottom : float, optional
+            The bottom ylim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+            The bottom and top ylims may also be passed as the tuple
+            (*bottom*, *top*) as the first positional argument (or as
+            the *bottom* keyword argument).
+
+            .. ACCEPTS: (bottom: float, top: float)
+
+        top : float, optional
+            The top ylim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+        emit : bool, default: True
+            Whether to notify observers of limit change.
+
+        auto : bool or None, default: False
+            Whether to turn on autoscaling of the y-axis. *True* turns on,
+            *False* turns off, *None* leaves unchanged.
+
+        view_margin : float, optional
+            The additional margin to apply to the limits.
+
+        ymin, ymax : float, optional
+            They are equivalent to bottom and top respectively, and it is an
+            error to pass both *ymin* and *bottom* or *ymax* and *top*.
+
+        Returns
+        -------
+        bottom, top : (float, float)
+            The new y-axis limits in data coordinates.
+
+        See Also
+        --------
+        get_ylim
+        set_ybound, get_ybound
+        invert_yaxis, yaxis_inverted
+
+        Notes
+        -----
+        The *bottom* value may be greater than the *top* value, in which
+        case the y-axis values will decrease from *bottom* to *top*.
+
+        Examples
+        --------
+        >>> set_ylim(bottom, top)
+        >>> set_ylim((bottom, top))
+        >>> bottom, top = set_ylim(bottom, top)
+
+        One limit may be left unchanged.
+
+        >>> set_ylim(top=top_lim)
+
+        Limits may be passed in reverse order to flip the direction of
+        the y-axis. For example, suppose ``y`` represents depth of the
+        ocean in m. The y-axis limits might be set like the following
+        so 5000 m depth is at the bottom of the plot and the surface,
+        0 m, is at the top.
+
+        >>> set_ylim(5000, 0)
+        """
         return self._set_lim3d('y', bottom, top, emit=emit, auto=auto,
                                view_margin=view_margin, axmin=ymin, axmax=ymax)
 
     def set_zlim(self, bottom=None, top=None, *, emit=True, auto=False,
                  view_margin=None, zmin=None, zmax=None):
-        """Set the 3D z-axis view limits."""
+        """
+        Set the 3D z-axis view limits.
+
+        Parameters
+        ----------
+        bottom : float, optional
+            The bottom zlim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+            The bottom and top zlims may also be passed as the tuple
+            (*bottom*, *top*) as the first positional argument (or as
+            the *bottom* keyword argument).
+
+            .. ACCEPTS: (bottom: float, top: float)
+
+        top : float, optional
+            The top zlim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+        emit : bool, default: True
+            Whether to notify observers of limit change.
+
+        auto : bool or None, default: False
+            Whether to turn on autoscaling of the z-axis. *True* turns on,
+            *False* turns off, *None* leaves unchanged.
+
+        view_margin : float, optional
+            The additional margin to apply to the limits.
+
+        zmin, zmax : float, optional
+            They are equivalent to bottom and top respectively, and it is an
+            error to pass both *zmin* and *bottom* or *zmax* and *top*.
+
+        Returns
+        -------
+        bottom, top : (float, float)
+            The new z-axis limits in data coordinates.
+
+        See Also
+        --------
+        get_zlim
+        set_zbound, get_zbound
+        invert_zaxis, zaxis_inverted
+
+        Notes
+        -----
+        The *bottom* value may be greater than the *top* value, in which
+        case the z-axis values will decrease from *bottom* to *top*.
+
+        Examples
+        --------
+        >>> set_zlim(bottom, top)
+        >>> set_zlim((bottom, top))
+        >>> bottom, top = set_zlim(bottom, top)
+
+        One limit may be left unchanged.
+
+        >>> set_zlim(top=top_lim)
+
+        Limits may be passed in reverse order to flip the direction of
+        the z-axis. For example, suppose ``z`` represents depth of the
+        ocean in m. The z-axis limits might be set like the following
+        so 5000 m depth is at the bottom of the plot and the surface,
+        0 m, is at the top.
+
+        >>> set_zlim(5000, 0)
+        """
         return self._set_lim3d('z', bottom, top, emit=emit, auto=auto,
                                view_margin=view_margin, axmin=zmin, axmax=zmax)
 
@@ -518,7 +742,25 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return _values.float64s(_mplot3d.get_lim(self._native, 'y'))
 
     def get_zlim(self):
-        """Return the 3D z-axis view limits."""
+        """
+        Return the 3D z-axis view limits.
+
+        Returns
+        -------
+        left, right : (float, float)
+            The current z-axis limits in data coordinates.
+
+        See Also
+        --------
+        set_zlim
+        set_zbound, get_zbound
+        invert_zaxis, zaxis_inverted
+
+        Notes
+        -----
+        The z-axis may be inverted, in which case the *left* value will
+        be greater than the *right* value.
+        """
         return _values.float64s(_mplot3d.get_lim(self._native, 'z'))
 
     get_xlim3d = get_xlim
@@ -541,15 +783,74 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                            None if view_margin is None else float(view_margin))
 
     def set_xbound(self, lower=None, upper=None, view_margin=None):
-        """Set the lower and upper numerical bounds of the x-axis."""
+        """
+        Set the lower and upper numerical bounds of the x-axis.
+
+        This method will honor axis inversion regardless of parameter order.
+        It will not change the autoscaling setting (`.get_autoscalex_on()`).
+
+        Parameters
+        ----------
+        lower, upper : float or None
+            The lower and upper bounds. If *None*, the respective axis bound
+            is not modified.
+        view_margin : float or None
+            The margin to apply to the bounds. If *None*, the margin is handled
+            by `.set_xlim`.
+
+        See Also
+        --------
+        get_xbound
+        get_xlim, set_xlim
+        invert_xaxis, xaxis_inverted
+        """
         self._set_bound3d('x', lower, upper, view_margin)
 
     def set_ybound(self, lower=None, upper=None, view_margin=None):
-        """Set the lower and upper numerical bounds of the y-axis."""
+        """
+        Set the lower and upper numerical bounds of the y-axis.
+
+        This method will honor axis inversion regardless of parameter order.
+        It will not change the autoscaling setting (`.get_autoscaley_on()`).
+
+        Parameters
+        ----------
+        lower, upper : float or None
+            The lower and upper bounds. If *None*, the respective axis bound
+            is not modified.
+        view_margin : float or None
+            The margin to apply to the bounds. If *None*, the margin is handled
+            by `.set_ylim`.
+
+        See Also
+        --------
+        get_ybound
+        get_ylim, set_ylim
+        invert_yaxis, yaxis_inverted
+        """
         self._set_bound3d('y', lower, upper, view_margin)
 
     def set_zbound(self, lower=None, upper=None, view_margin=None):
-        """Set the lower and upper numerical bounds of the z-axis."""
+        """
+        Set the lower and upper numerical bounds of the z-axis.
+        This method will honor axis inversion regardless of parameter order.
+        It will not change the autoscaling setting (`.get_autoscaley_on()`).
+
+        Parameters
+        ----------
+        lower, upper : float or None
+            The lower and upper bounds. If *None*, the respective axis bound
+            is not modified.
+        view_margin : float or None
+            The margin to apply to the bounds. If *None*, the margin is handled
+            by `.set_zlim`.
+
+        See Also
+        --------
+        get_zbound
+        get_zlim, set_zlim
+        invert_zaxis, zaxis_inverted
+        """
         self._set_bound3d('z', lower, upper, view_margin)
 
     def get_xbound(self):
@@ -561,7 +862,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return _values.float64s(_mplot3d.get_bound(self._native, 'y'))
 
     def get_zbound(self):
-        """Return the lower and upper z-axis bounds, in increasing order."""
+        """
+        Return the lower and upper z-axis bounds, in increasing order.
+
+        See Also
+        --------
+        set_zbound
+        get_zlim, set_zlim
+        invert_zaxis, zaxis_inverted
+        """
         return _values.float64s(_mplot3d.get_bound(self._native, 'z'))
 
     def invert_xaxis(self):
@@ -573,7 +882,20 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _mplot3d.set_inverted(self._native, 'y', not self.yaxis_inverted())
 
     def invert_zaxis(self):
-        """[*Discouraged*] Invert the z-axis."""
+        """
+        [*Discouraged*] Invert the z-axis.
+
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged.
+            Use `.Axes3D.set_zinverted` instead.
+
+        See Also
+        --------
+        get_zinverted
+        get_zlim, set_zlim
+        get_zbound, set_zbound
+        """
         _mplot3d.set_inverted(self._native, 'z', not self.zaxis_inverted())
 
     def xaxis_inverted(self):
@@ -610,29 +932,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         for name in self._axis_names:
             _mplot3d.set_autoscale_on(self._native, name, bool(b))
 
-    def get_autoscalex_on(self):
-        """Return whether the xaxis is autoscaled."""
-        return _mplot3d.get_autoscale_on(self._native, 'x')
-
-    def get_autoscaley_on(self):
-        """Return whether the yaxis is autoscaled."""
-        return _mplot3d.get_autoscale_on(self._native, 'y')
-
-    def get_autoscalez_on(self):
-        """Return whether the zaxis is autoscaled."""
-        return _mplot3d.get_autoscale_on(self._native, 'z')
-
-    def set_autoscalex_on(self, b):
-        """Set whether the xaxis is autoscaled."""
-        _mplot3d.set_autoscale_on(self._native, 'x', bool(b))
-
-    def set_autoscaley_on(self, b):
-        """Set whether the yaxis is autoscaled."""
-        _mplot3d.set_autoscale_on(self._native, 'y', bool(b))
-
-    def set_autoscalez_on(self, b):
-        """Set whether the zaxis is autoscaled."""
-        _mplot3d.set_autoscale_on(self._native, 'z', bool(b))
+    get_autoscalez_on = _axis_method_wrapper("zaxis", "_get_autoscale_on")
+    set_autoscalez_on = _axis_method_wrapper("zaxis", "_set_autoscale_on")
 
     def autoscale(self, enable=True, axis='both', tight=None):
         """
@@ -691,7 +992,19 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return self._get_margin('y')
 
     def get_zmargin(self):
-        """Retrieve autoscaling margin of the z-axis."""
+        """
+        Retrieve autoscaling margin of the z-axis.
+
+        .. versionadded:: 3.9
+
+        Returns
+        -------
+        zmargin : float
+
+        See Also
+        --------
+        mpl_toolkits.mplot3d.axes3d.Axes3D.set_zmargin
+        """
         return self._get_margin('z')
 
     def _set_margin(self, name, m):
@@ -710,7 +1023,21 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         self._set_margin('y', m)
 
     def set_zmargin(self, m):
-        """Set padding of Z data limits prior to autoscaling."""
+        """
+        Set padding of Z data limits prior to autoscaling.
+
+        *m* times the data interval will be added to each end of that interval
+        before it is used in autoscaling.  If *m* is negative, this will clip
+        the data range instead of expanding it.
+
+        For example, if your data is in the range [0, 2], a margin of 0.1 will
+        result in a range [-0.2, 2.2]; a margin of -0.1 will result in a range
+        of [0.2, 1.8].
+
+        Parameters
+        ----------
+        m : float greater than -0.5
+        """
         self._set_margin('z', m)
 
     def margins(self, *margins, x=None, y=None, z=None, tight=True):
@@ -774,15 +1101,51 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         axis._given_scale = scale
 
     def set_xscale(self, value, **kwargs):
-        """Set the x-axis scale."""
+        """
+        Set the x-axis scale.
+
+        Parameters
+        ----------
+        value : {"linear", "log", "symlog", "logit", ...}
+            The axis scale type to apply. See `~.scale.ScaleBase` for
+            the list of available scales.
+
+        **kwargs
+            Keyword arguments are forwarded to the scale class.
+            For example, ``base=2`` can be passed when using a log scale.
+        """
         self._set_axis_scale('x', value, **kwargs)
 
     def set_yscale(self, value, **kwargs):
-        """Set the y-axis scale."""
+        """
+        Set the y-axis scale.
+
+        Parameters
+        ----------
+        value : {"linear", "log", "symlog", "logit", ...}
+            The axis scale type to apply. See `~.scale.ScaleBase` for
+            the list of available scales.
+
+        **kwargs
+            Keyword arguments are forwarded to the scale class.
+            For example, ``base=2`` can be passed when using a log scale.
+        """
         self._set_axis_scale('y', value, **kwargs)
 
     def set_zscale(self, value, **kwargs):
-        """Set the z-axis scale."""
+        """
+        Set the z-axis scale.
+
+        Parameters
+        ----------
+        value : {"linear", "log", "symlog", "logit", ...}
+            The axis scale type to apply. See `~.scale.ScaleBase` for
+            the list of available scales.
+
+        **kwargs
+            Keyword arguments are forwarded to the scale class.
+            For example, ``base=2`` can be passed when using a log scale.
+        """
         self._set_axis_scale('z', value, **kwargs)
 
     def get_xscale(self):
@@ -804,11 +1167,47 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Set the elevation and azimuth of the Axes in degrees (not radians).
 
+        This can be used to rotate the Axes programmatically.
+
+        To look normal to the primary planes, the following elevation and
+        azimuth angles can be used. A roll angle of 0, 90, 180, or 270 deg
+        will rotate these views while keeping the axes at right angles.
+
+        ==========   ====  ====
+        view plane   elev  azim
+        ==========   ====  ====
+        XY           90    -90
+        XZ           0     -90
+        YZ           0     0
+        -XY          -90   90
+        -XZ          0     90
+        -YZ          0     180
+        ==========   ====  ====
+
         Parameters
         ----------
-        elev, azim, roll : float, default: None
-            The elevation, azimuth and roll angles in degrees; None takes the
-            initial value given to the `Axes3D` constructor.
+        elev : float, default: None
+            The elevation angle in degrees rotates the camera above the plane
+            pierced by the vertical axis, with a positive angle corresponding
+            to a location above that plane. For example, with the default
+            vertical axis of 'z', the elevation defines the angle of the camera
+            location above the x-y plane.
+            If None, then the initial value as specified in the `Axes3D`
+            constructor is used.
+        azim : float, default: None
+            The azimuthal angle in degrees rotates the camera about the
+            vertical axis, with a positive angle corresponding to a
+            right-handed rotation. For example, with the default vertical axis
+            of 'z', a positive azimuth rotates the camera about the origin from
+            its location along the +x axis towards the +y axis.
+            If None, then the initial value as specified in the `Axes3D`
+            constructor is used.
+        roll : float, default: None
+            The roll angle in degrees rotates the camera about the viewing
+            axis. A positive angle spins the camera clockwise, causing the
+            scene to rotate counter-clockwise.
+            If None, then the initial value as specified in the `Axes3D`
+            constructor is used.
         vertical_axis : {"z", "x", "y"}, default: "z"
             The axis to align vertically. *azim* rotates about this axis.
         share : bool, default: False
@@ -861,6 +1260,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         focal_length : float, default: None
             For a projection type of 'persp', the focal length of the virtual
             camera. Must be > 0. If None, defaults to 1.
+            The focal length can be computed from a desired Field Of View via
+            the equation: focal_length = 1/tan(FOV/2)
         """
         focal_length = self._checked_focal_length(proj_type, focal_length)
         _mplot3d.set_proj_type(self._native, proj_type, focal_length)
@@ -869,12 +1270,23 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Set the Axes box aspect.
 
+        The box aspect is the ratio of height to width in display
+        units for each face of the box when viewed perpendicular to
+        that face.  This is not to be confused with the data aspect (see
+        `~.Axes3D.set_aspect`). The default ratios are 4:4:3 (x:y:z).
+
+        To simulate having equal aspect in data space, set the box
+        aspect to match your data range in each dimension.
+
+        *zoom* controls the overall size of the Axes3D in the figure.
+
         Parameters
         ----------
         aspect : 3-tuple of floats or None
             Changes the physical dimensions of the Axes3D, such that the ratio
             of the axis lengths in display units is x:y:z.
             If None, defaults to (4, 4, 3).
+
         zoom : float, default: 1
             Control overall size of the Axes3D in the figure. Must be > 0.
         """
@@ -906,13 +1318,35 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         Parameters
         ----------
         aspect : {'auto', 'equal', 'equalxy', 'equalxz', 'equalyz'}
+            Possible values:
+
+            =========   ==================================================
+            value       description
+            =========   ==================================================
+            'auto'      automatic; fill the position rectangle with data.
+            'equal'     adapt all the axes to have equal aspect ratios.
+            'equalxy'   adapt the x and y axes to have equal aspect ratios.
+            'equalxz'   adapt the x and z axes to have equal aspect ratios.
+            'equalyz'   adapt the y and z axes to have equal aspect ratios.
+            =========   ==================================================
+
         adjustable : {'box', 'datalim'}, default: 'box'
+            Defines which parameter to adjust to meet the aspect ratio.
+
+            - 'box': Change the physical dimensions of the axes bounding box.
+            - 'datalim': Change the x, y, or z data limits.
+
         anchor : None or str or 2-tuple of float, optional
             .. deprecated:: 3.11
                 This parameter has no effect.
+
         share : bool, default: False
             .. deprecated:: 3.11
                 This parameter has no effect.
+
+        See Also
+        --------
+        mpl_toolkits.mplot3d.axes3d.Axes3D.set_box_aspect
         """
         if adjustable is None:
             adjustable = 'box'
@@ -1029,6 +1463,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                        vertical_axis=other._axis_names[other._vertical_axis],
                        share=True)
 
+    @_docstring.copy(Axes.set_anchor)
     def set_anchor(self, anchor, share=False):
         # docstring inherited; the square box of the 3-D axes is anchored
         # there too.
@@ -1046,6 +1481,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         return Bbox.from_extents(*_mplot3d.position(self._native, bool(original)))
 
+    @_docstring.copy(Axes.set_position)
     def set_position(self, pos, which='both'):
         # docstring inherited
         self._set_position(pos, which=which)
@@ -1089,10 +1525,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return Bbox.union(boxes)
 
     def get_axis_position(self):
-        """
-        Return whether the x, y and z axes are drawn on their high side in
-        the view of the last draw (`M`).
-        """
         position = _mplot3d.get_axis_position(self._native)
         if position is None:
             raise art3d._no_projection_error()
@@ -1135,8 +1567,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def format_zdata(self, z):
         """
         Return *z* string formatted.  This function will use the
-        :attr:`!fmt_zdata` attribute if it is callable, else will fall back
-        on the zaxis major formatter
+        :attr:`!fmt_zdata` attribute if it is callable, else will fall
+        back on the zaxis major formatter
         """
         try:
             return self.fmt_zdata(z)
@@ -1157,11 +1589,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return super().axis(arg, emit=emit, **kwargs)
 
     def set_axis_off(self):
-        """Hide the panes, axis lines, ticks and gridlines."""
         self._axis3don = False
 
     def set_axis_on(self):
-        """Show the panes, axis lines, ticks and gridlines again."""
         self._axis3don = True
 
     #: Whether the 2-D axes are drawn: never for a 3-D axes, whose own
@@ -1211,7 +1641,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return self._set_axis_label('y', ylabel, fontdict, labelpad, kwargs)
 
     def set_zlabel(self, zlabel, fontdict=None, labelpad=None, **kwargs):
-        """Set zlabel.  See doc for `.set_ylabel` for description."""
+        """
+        Set zlabel.  See doc for `.set_ylabel` for description.
+        """
         return self._set_axis_label('z', zlabel, fontdict, labelpad, kwargs)
 
     def tick_params(self, axis='both', **kwargs):
@@ -1251,7 +1683,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return _mplot3d.get_label(self._native, 'y')
 
     def get_zlabel(self):
-        """Get the zlabel text string."""
+        """
+        Get the z-label text string.
+        """
         return _mplot3d.get_label(self._native, 'z')
 
     def set_title(self, label, fontdict=None, loc='center', **kwargs):
@@ -1450,6 +1884,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
         - `.PolyCollection`
         - `.LineCollection`
+        - `.PatchCollection` (currently not supporting *autolim*)
 
         Parameters
         ----------
@@ -1463,6 +1898,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             Whether to update the data limits.
         axlim_clip : bool, default: False
             Whether to hide the scatter points outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         if not isinstance(col, art3d._Loose3D):
             zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan)
@@ -1526,6 +1963,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             When plotting 2D data, the direction to use as z.
         axlim_clip : bool, default: False
             Whether to hide data that is outside the axes view limits.
+
+            .. versionadded:: 3.10
         **kwargs
             Other arguments are forwarded to `matplotlib.axes.Axes.plot`.
         """
@@ -1588,29 +2027,53 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         xs, ys : array-like
             The data positions.
         zs : float or array-like, default: 0
-            The z-positions.
+            The z-positions. Either an array of the same length as *xs* and
+            *ys* or a single value to place all points in the same plane.
         zdir : {'x', 'y', 'z', '-x', '-y', '-z'}, default: 'z'
-            The axis direction for the *zs*.
+            The axis direction for the *zs*. This is useful when plotting 2D
+            data on a 3D Axes. The data must be passed as *xs*, *ys*. Setting
+            *zdir* to 'y' then plots the data to the x-z-plane.
+
+            See also :doc:`/gallery/mplot3d/2dcollections3d`.
+
         s : float or array-like, default: 20
-            The marker size in points**2.
+            The marker size in points**2. Either an array of the same length
+            as *xs* and *ys* or a single value to make all markers the same
+            size.
         c : :mpltype:`color`, sequence, or sequence of colors, optional
-            The marker color.
+            The marker color. Possible values:
+
+            - A single color format string.
+            - A sequence of colors of length n.
+            - A sequence of n numbers to be mapped to colors using *cmap* and
+              *norm*.
+            - A 2D array in which the rows are RGB or RGBA.
+
+            For more details see the *c* argument of `~.axes.Axes.scatter`.
         depthshade : bool, default: :rc:`axes3d.depthshade`
             Whether to shade the scatter markers to give the appearance of
-            depth.
+            depth. Each call to ``scatter()`` will perform its depthshading
+            independently.
+
         depthshade_minalpha : float, default: :rc:`axes3d.depthshade_minalpha`
             The lowest alpha value applied by depth-shading.
+
+            .. versionadded:: 3.11
+
         axlim_clip : bool, default: False
             Whether to hide the scatter points outside the axes view limits.
+
+            .. versionadded:: 3.10
+
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            All other keyword arguments are passed on to `~.axes.Axes.scatter`.
 
         Returns
         -------
         paths : `~matplotlib.collections.PathCollection`
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
         """
         if args:
             # matplotlib hands them to 2D `scatter` after *s*, given as a
@@ -1690,26 +2153,74 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Create a surface plot.
 
+        By default, it will be colored in shades of a solid color, but it also
+        supports colormapping by supplying the *cmap* argument.
+
+        .. note::
+
+           The *rcount* and *ccount* kwargs, which both default to 50,
+           determine the maximum number of samples used in each direction.  If
+           the input data is larger, it will be downsampled (by slicing) to
+           these numbers of points.
+
+        .. note::
+
+           To maximize rendering speed consider setting *rstride* and *cstride*
+           to divisors of the number of rows minus 1 and columns minus 1
+           respectively. For example, given 51 rows rstride can be any of the
+           divisors of 50.
+
+           Similarly, a setting of *rstride* and *cstride* equal to 1 (or
+           *rcount* and *ccount* equal the number of rows and columns) can use
+           the optimized path.
+
         Parameters
         ----------
         X, Y, Z : 2D arrays
             Data values.
+
         rcount, ccount : int
-            Maximum number of samples used in each direction.
+            Maximum number of samples used in each direction.  If the input
+            data is larger, it will be downsampled (by slicing) to these
+            numbers of points.  Defaults to 50.
+
         rstride, cstride : int
-            Downsampling stride in each direction.
+            Downsampling stride in each direction.  These arguments are
+            mutually exclusive with *rcount* and *ccount*.  If only one of
+            *rstride* or *cstride* is set, the other defaults to 10.
+
+            'classic' mode uses a default of ``rstride = cstride = 10`` instead
+            of the new default of ``rcount = ccount = 50``.
+
         color : :mpltype:`color`
             Color of the surface patches.
+
         cmap : Colormap, optional
             Colormap of the surface patches.
+
+        facecolors : list of :mpltype:`color`
+            Colors of each individual patch.
+
+        norm : `~matplotlib.colors.Normalize`, optional
+            Normalization for the colormap.
+
+        vmin, vmax : float, optional
+            Bounds for the normalization.
+
         shade : bool, default: True
-            Whether to shade the facecolors.
+            Whether to shade the facecolors.  Shading is always disabled when
+            *cmap* is specified.
+
+        lightsource : `~matplotlib.colors.LightSource`, optional
+            The lightsource to use when *shade* is True.
+
         axlim_clip : bool, default: False
             Whether to hide patches with a vertex outside the axes view limits.
 
-        Returns
-        -------
-        `.Poly3DCollection`
+            .. versionadded:: 3.10
+
+        **kwargs
+            Other keyword arguments are forwarded to `.Poly3DCollection`.
         """
         if Z.ndim != 2:
             raise ValueError("Argument Z must be 2-dimensional.")
@@ -1747,21 +2258,44 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Plot a 3D wireframe.
 
+        .. note::
+
+           The *rcount* and *ccount* kwargs, which both default to 50,
+           determine the maximum number of samples used in each direction.  If
+           the input data is larger, it will be downsampled (by slicing) to
+           these numbers of points.
+
         Parameters
         ----------
         X, Y, Z : 2D arrays
             Data values.
-        rcount, ccount : int
-            Maximum number of samples used in each direction.
-        rstride, cstride : int
-            Downsampling stride in each direction.
+
         axlim_clip : bool, default: False
             Whether to hide lines and patches with vertices outside the axes
             view limits.
 
-        Returns
-        -------
-        `.Line3DCollection`
+            .. versionadded:: 3.10
+
+        rcount, ccount : int
+            Maximum number of samples used in each direction.  If the input
+            data is larger, it will be downsampled (by slicing) to these
+            numbers of points.  Setting a count to zero causes the data to be
+            not sampled in the corresponding direction, producing a 3D line
+            plot rather than a wireframe plot.  Defaults to 50.
+
+        rstride, cstride : int
+            Downsampling stride in each direction.  These arguments are
+            mutually exclusive with *rcount* and *ccount*.  If only one of
+            *rstride* or *cstride* is set, the other defaults to 1.  Setting a
+            stride to zero causes the data to be not sampled in the
+            corresponding direction, producing a 3D line plot rather than a
+            wireframe plot.
+
+            'classic' mode uses a default of ``rstride = cstride = 1`` instead
+            of the new default of ``rcount = ccount = 50``.
+
+        **kwargs
+            Other keyword arguments are forwarded to `.Line3DCollection`.
         """
         if Z.ndim != 2:
             raise ValueError("Argument Z must be 2-dimensional.")
@@ -1785,8 +2319,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def text(self, x, y, z, s, zdir=None, *, axlim_clip=False, **kwargs):
         """
-        Add the text *s* to the 3D Axes at location *x*, *y*, *z* in data
-        coordinates.
+        Add the text *s* to the 3D Axes at location *x*, *y*, *z* in data coordinates.
 
         Parameters
         ----------
@@ -1795,13 +2328,19 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         s : str
             The text.
         zdir : {'x', 'y', 'z', 3-tuple}, optional
-            The direction to be used as the z-direction.
+            The direction to be used as the z-direction. Default: 'z'.
+            See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
             Whether to hide text that is outside the axes view limits.
+
+            .. versionadded:: 3.10
+        **kwargs
+            Other arguments are forwarded to `matplotlib.axes.Axes.text`.
 
         Returns
         -------
         `.Text3D`
+            The created `.Text3D` instance.
         """
         direction = tuple(map(float, art3d.get_dir_vector(zdir)))
         native = _mplot3d.text(self._native, (float(x), float(y), float(z)),
@@ -1821,22 +2360,57 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Generate a 3D barplot.
 
+        This method creates three-dimensional barplot where the width,
+        depth, height, and color of the bars can all be uniquely set.
+
         Parameters
         ----------
         x, y, z : array-like
             The coordinates of the anchor point of the bars.
+
         dx, dy, dz : float or array-like
             The width, depth, and height of the bars, respectively.
+
         color : sequence of colors, optional
             The color of the bars can be specified globally or
-            individually.
+            individually. This parameter can be:
+
+            - A single color, to color all bars the same color.
+            - An array of colors of length N bars, to color each bar
+              independently.
+            - An array of colors of length 6, to color the faces of the
+              bars similarly.
+            - An array of colors of length 6 * N bars, to color each face
+              independently.
+
+            When coloring the faces of the boxes specifically, this is
+            the order of the coloring:
+
+            1. -Z (bottom of box)
+            2. +Z (top of box)
+            3. -Y
+            4. +Y
+            5. -X
+            6. +X
+
         zsort : {'average', 'min', 'max'}, default: 'average'
-            The z-axis sorting scheme.
+            The z-axis sorting scheme passed onto `~.art3d.Poly3DCollection`
+
         shade : bool, default: True
             When true, this shades the dark sides of the bars (relative
             to the plot's source of light).
+
+        lightsource : `~matplotlib.colors.LightSource`, optional
+            The lightsource to use when *shade* is True.
+
         axlim_clip : bool, default: False
             Whether to hide the bars with points outside the axes view limits.
+
+            .. versionadded:: 3.10
+
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
         **kwargs
             Any additional keyword arguments are passed onto
             `~.art3d.Poly3DCollection`.
@@ -1845,11 +2419,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         -------
         collection : `~.art3d.Poly3DCollection`
             A collection of three-dimensional polygons representing the bars.
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
         """
         # matplotlib broadcasts the bars and takes their extent first, which
         # no bars have.
@@ -1887,30 +2456,45 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Plot a 3D field of arrows.
 
+        The arguments can be array-like or scalars, so long as they can be
+        broadcast together. The arguments can also be masked arrays. If an
+        element in any of argument is masked, then that corresponding quiver
+        element will not be plotted.
+
         Parameters
         ----------
         X, Y, Z : array-like
-            The x, y and z coordinates of the arrow locations.
+            The x, y and z coordinates of the arrow locations (default is
+            tail of arrow; see *pivot* kwarg).
+
         U, V, W : array-like
             The x, y and z components of the arrow vectors.
+
         length : float, default: 1
             The length of each quiver.
+
         arrow_length_ratio : float, default: 0.3
             The ratio of the arrow head with respect to the quiver.
+
         pivot : {'tail', 'middle', 'tip'}, default: 'tail'
-            The part of the arrow that is at the grid point.
+            The part of the arrow that is at the grid point; the arrow
+            rotates about this point, hence the name *pivot*.
+
         normalize : bool, default: False
-            Whether all arrows are normalized to have the same length.
+            Whether all arrows are normalized to have the same length, or keep
+            the lengths defined by *u*, *v*, and *w*.
+
         axlim_clip : bool, default: False
             Whether to hide arrows with points outside the axes view limits.
-        **kwargs
-            Any additional keyword arguments are delegated to
-            :class:`.LineCollection`
 
-        Other Parameters
-        ----------------
+            .. versionadded:: 3.10
+
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Any additional keyword arguments are delegated to
+            :class:`.Line3DCollection`
         """
         _api.check_in_list(['tail', 'middle', 'tip'], pivot=pivot)
         input_args = [X, Y, Z, U, V, W]
@@ -1944,6 +2528,27 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         Plot a triangulated surface.
 
+        The (optional) triangulation can be specified in one of two ways;
+        either::
+
+          plot_trisurf(triangulation, ...)
+
+        where triangulation is a `~matplotlib.tri.Triangulation` object, or::
+
+          plot_trisurf(X, Y, ...)
+          plot_trisurf(X, Y, triangles, ...)
+          plot_trisurf(X, Y, triangles=triangles, ...)
+
+        in which case a Triangulation object will be created.  See
+        `.Triangulation` for an explanation of these possibilities.
+
+        The remaining arguments are::
+
+          plot_trisurf(..., Z)
+
+        where *Z* is the array of values to contour, one per point
+        in the triangulation.
+
         Parameters
         ----------
         X, Y, Z : array-like
@@ -1957,13 +2562,22 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         vmin, vmax : float, optional
             Minimum and maximum value to map.
         shade : bool, default: True
-            Whether to shade the facecolors.
+            Whether to shade the facecolors.  Shading is always disabled when
+            *cmap* is specified.
+        lightsource : `~matplotlib.colors.LightSource`, optional
+            The lightsource to use when *shade* is True.
         axlim_clip : bool, default: False
             Whether to hide patches with a vertex outside the axes view limits.
 
-        Returns
-        -------
-        `.Poly3DCollection`
+            .. versionadded:: 3.10
+        **kwargs
+            All other keyword arguments are passed on to
+            :class:`~mpl_toolkits.mplot3d.art3d.Poly3DCollection`
+
+        Examples
+        --------
+        .. plot:: gallery/mplot3d/trisurf3d.py
+        .. plot:: gallery/mplot3d/trisurf3d_2.py
         """
         from pltrs.tri._triangulation import Triangulation
         if color is not None:
@@ -1992,6 +2606,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
         return collection
+
+
+cbook._own_mixin_methods(Axes3D, Axes)
 
 
 def get_test_data(delta=0.05):

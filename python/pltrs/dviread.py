@@ -181,10 +181,6 @@ class DviFont:
 
     The size is in Adobe points (converted from TeX points).
 
-    pltrs (Rust) makes the fonts of the DVI files it reads: their metrics
-    come from TeX font metrics, or from the OpenType and TrueType files of
-    the native fonts of XeTeX and LuaTeX.
-
     Parameters
     ----------
     scale : float
@@ -208,6 +204,9 @@ class DviFont:
        Size of the font in Adobe points, converted from the slightly
        smaller TeX points.
     """
+    # pltrs (Rust) makes the fonts of the DVI files it reads: their metrics
+    # come from TeX font metrics, or from the OpenType and TrueType files of
+    # the native fonts of XeTeX and LuaTeX.
 
     def __init__(self, scale, metrics, texname, vf):
         _api.check_isinstance(bytes, texname=texname)
@@ -231,20 +230,10 @@ class DviFont:
 
     @classmethod
     def from_luatex(cls, scale, texname):
-        """
-        The native font of LuaTeX whose *texname* is its font file in
-        brackets, optionally followed by ``:`` and its options (``index``,
-        ``embolden``, ``slant``, ``extend``) joined by ``;``.
-        """
         return cls._from_native(_dviread.font_from_luatex(scale, texname))
 
     @classmethod
     def from_xetex(cls, scale, texname, subfont, effects):
-        """
-        The native font of XeTeX: face *subfont* of the font file
-        *texname*, with the *effects* (``rgba``, ``extend``, ``slant``,
-        ``embolden``) the DVI file gives it.
-        """
         return cls._from_native(_dviread.font_from_xetex(
             scale, texname, subfont,
             tuple(effects.get(key) for key in
@@ -293,9 +282,6 @@ class DviFont:
         return list(_dviread.font_height_depth_of(self._native, char))
 
     def resolve_path(self):
-        """The font file: a native font's own, else the Type 1 file
-        :file:`pdftex.map` gives (or the PK font kpathsea makes for a
-        Metafont font the map does not know)."""
         if self._path is None:
             self._path = Path(_dviread.font_path(self._native))
         return self._path
@@ -325,7 +311,8 @@ class Vf(Dvi):
     -----
     The virtual font format is a derivative of dvi:
     http://mirrors.ctan.org/info/knuth/virtual-fonts
-    pltrs (Rust) reads it with its DVI machinery.
+    This class reuses some of the machinery of `Dvi`
+    but replaces the `!_read` loop and dispatch mechanism.
 
     Examples
     --------
@@ -426,19 +413,14 @@ class Tfm:
 
 
 class TtfMetrics:
-    """
-    The metrics of the glyphs of an OpenType or TrueType font file, with
-    TeX semantics (the metrics of the native fonts of XeTeX and LuaTeX).
-    """
-
     def __init__(self, filename):
         self._native = _dviread.ttf_metrics(os.fspath(filename))
 
     def get_metrics(self, idx):
-        """Return the TexMetrics of glyph *idx*."""
         return _tex_metrics(_dviread.ttf_metrics_get(self._native, idx))
 
 
+@lru_cache
 def find_tex_file(filename):
     """
     Find a file in the texmf tree using kpathsea_.

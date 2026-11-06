@@ -24,6 +24,7 @@ import PIL.PngImagePlugin
 
 from . import (_api, _image, _unusable, _values, cbook, colorizer as mcolorizer,
                colors as mcolors)
+from . import _docstring, artist as martist
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
@@ -445,8 +446,10 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     def set_filterrad(self, filterrad):
         """
-        Set the resize filter radius only applicable to some
-        interpolation schemes -- see help for imshow
+        Set the resize filter radius (only applicable to some
+        interpolation schemes).
+
+        See help for `~.Axes.imshow`.
 
         Parameters
         ----------
@@ -591,23 +594,37 @@ class AxesImage(_ImageBase):
     norm : str or `~matplotlib.colors.Normalize`
         Maps luminance to 0-1.
     interpolation : str, default: :rc:`image.interpolation`
-        The interpolation used when resampling.
+        Supported values are 'none', 'auto', 'nearest', 'bilinear',
+        'bicubic', 'spline16', 'spline36', 'hanning', 'hamming', 'hermite',
+        'kaiser', 'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+        'sinc', 'lanczos', 'blackman'.
     interpolation_stage : {'data', 'rgba'}, default: 'data'
-        Whether to interpolate the data or the colors.
+        If 'data', interpolation
+        is carried out on the data provided by the user.  If 'rgba', the
+        interpolation is carried out after the colormapping has been
+        applied (visual interpolation).
     origin : {'upper', 'lower'}, default: :rc:`image.origin`
         Place the [0, 0] index of the array in the upper left or lower left
-        corner of the Axes.
+        corner of the Axes. The convention 'upper' is typically used for
+        matrices and images.
     extent : tuple, optional
         The data axes (left, right, bottom, top) for making image plots
         registered with data plots.  Default is to label the pixel
         centers with the zero-based row and column indices.
     filternorm : bool, default: True
-        A parameter for the antigrain image resize filter.
+        A parameter for the antigrain image resize filter
+        (see the antigrain documentation).
+        If filternorm is set, the filter normalizes integer values and corrects
+        the rounding errors. It doesn't do anything with the source floating
+        point values, it corrects only integers according to the rule of 1.0
+        which means that any sum of pixel weights must be equal to 1.0. So,
+        the filter function must produce a graph of the proper shape.
     filterrad : float > 0, default: 4
-        The filter radius for filters that have a radius parameter.
+        The filter radius for filters that have a radius parameter, i.e. when
+        interpolation is one of: 'sinc', 'lanczos' or 'blackman'.
     resample : bool, default: False
-        When True, use a full resampling method. When False, only resample
-        when the output image is larger than the input image.
+        When True, use a full resampling method. When False, only resample when
+        the output image is larger than the input image.
     **kwargs : `~matplotlib.artist.Artist` properties
     """
 
@@ -661,8 +678,6 @@ class AxesImage(_ImageBase):
         return _values.given(self, "extent", _native_image.get_extent(self._native))
 
     def get_window_extent(self, renderer=None):
-        """Return the image's box in display space: its extent through its
-        transform as it is (matplotlib's)."""
         x0, x1, y0, y1 = self.get_extent()
         bbox = Bbox.from_extents([x0, y0, x1, y1])
         return bbox.transformed(self.get_transform())
@@ -691,11 +706,17 @@ class AxesImage(_ImageBase):
         extent : 4-tuple of float
             The position and size of the image as tuple
             ``(left, right, bottom, top)`` in data coordinates.
+        **kwargs
+            Other parameters from which unit info (i.e., the *xunits*,
+            *yunits*, *zunits* (for 3D Axes), *runits* and *thetaunits* (for
+            polar Axes) entries are applied, if present.
 
         Notes
         -----
         This updates `.Axes.dataLim`, and, if autoscaling, sets `.Axes.viewLim`
-        to tightly fit the image, regardless of `~.Axes.dataLim`.
+        to tightly fit the image, regardless of `~.Axes.dataLim`.  Autoscaling
+        state is not changed, so a subsequent call to `.Axes.autoscale_view`
+        will redo the autoscaling in accord with `~.Axes.dataLim`.
         """
         values = self.axes._extent_values(extent, kwargs)
         if kwargs:
@@ -706,23 +727,6 @@ class AxesImage(_ImageBase):
         _values.remember(self, "extent", values)
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
-        """
-        Normalize, rescale, and colormap this image's data for rendering using
-        *renderer*, with the given *magnification*.
-
-        If *unsampled* is True, the image will not be scaled, but an
-        appropriate affine transformation will be returned instead.
-
-        Returns
-        -------
-        image : (M, N, 4) `numpy.uint8` array
-            The RGBA image, resampled unless *unsampled* is True.
-        x, y : float
-            The upper left corner where the image should be drawn, in pixel
-            space.
-        trans : `~matplotlib.transforms.Affine2D`
-            The affine transformation from image to pixel space.
-        """
         x1, x2, y1, y2 = self.get_extent()
         return _made_image(self, magnification, unsampled,
                            Bbox(np.array([[x1, y1], [x2, y2]])),
@@ -733,11 +737,20 @@ def imread(fname, format=None):
     """
     Read an image from a file into an array.
 
+    .. note::
+
+        This function exists for historical reasons.  It is recommended to
+        use `PIL.Image.open` instead for loading images.
+
     Parameters
     ----------
     fname : str or file-like
-        The image file to read: a filename or a file-like object opened in
-        read-binary mode.
+        The image file to read: a filename, a URL or a file-like object opened
+        in read-binary mode.
+
+        Passing a URL is deprecated.  Please open the URL
+        for reading and pass the result to Pillow, e.g. with
+        ``np.array(PIL.Image.open(urllib.request.urlopen(url)))``.
     format : str, optional
         The image file format assumed for reading the data.  The image is
         loaded as a PNG file if *format* is set to "png", if *fname* is a path
@@ -1028,6 +1041,8 @@ class NonUniformImage(AxesImage):
 
     In contrast to `.AxesImage`, where pixels are on a regular grid,
     NonUniformImage allows rows and columns with individual heights / widths.
+
+    See also :doc:`/gallery/images_contours_and_fields/image_nonuniform`.
     """
 
     def __init__(self, ax, *, interpolation='nearest', **kwargs):
@@ -1164,8 +1179,13 @@ class PcolorImage(AxesImage):
             rectangle boundaries.  If not given, will default to
             ``range(N + 1)`` and ``range(M + 1)``, respectively.
         A : array-like
-            The data to be color-coded: (M, N) values to be colormapped, or
-            (M, N, 3) RGB, or (M, N, 4) RGBA.
+            The data to be color-coded. The interpretation depends on the
+            shape:
+
+            - (M, N) `~numpy.ndarray` or masked array: values to be colormapped
+            - (M, N, 3): RGB array
+            - (M, N, 4): RGBA array
+
         cmap : str or `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
             The Colormap instance or registered colormap name used to map
             scalar data to colors.
@@ -1192,8 +1212,12 @@ class PcolorImage(AxesImage):
             rectangle boundaries.  If not given, will default to
             ``range(N + 1)`` and ``range(M + 1)``, respectively.
         A : array-like
-            The data to be color-coded: (M, N) values to be colormapped, or
-            (M, N, 3) RGB, or (M, N, 4) RGBA.
+            The data to be color-coded. The interpretation depends on the
+            shape:
+
+            - (M, N) `~numpy.ndarray` or masked array: values to be colormapped
+            - (M, N, 3): RGB array
+            - (M, N, 4): RGBA array
         """
         A = self._normalize_image_array(A)
         x = np.arange(0., A.shape[1] + 1) if x is None else np.array(x, float).ravel()
@@ -1300,14 +1324,8 @@ class FigureImage(_ImageBase):
         return _native_image.figure_image_extent(self._native)
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
-        """
-        Normalize, rescale, and colormap this image's data for rendering:
-        one image pixel per figure pixel from the offset, clipped to the
-        figure, scaled by *magnification*.
-
-        pltrs: made at the resolution of the figure (pltrs (Rust) draws
-        the figure itself).
-        """
+        # pltrs: made at the resolution of the figure (pltrs (Rust) draws the
+        # figure itself).
         rows, columns = self._A.shape[:2] if self._A is not None else (0, 0)
         in_bbox = Bbox([[self.ox, self.oy],
                         [self.ox + columns, self.oy + rows]])
@@ -1356,24 +1374,44 @@ class BboxImage(_ImageBase):
     ----------
     bbox : BboxBase or Callable[RendererBase, BboxBase]
         The bbox or a function to generate the bbox
+
+        .. warning ::
+
+            If using `matplotlib.artist.Artist.get_window_extent` as the
+            callable ensure that the other artist is drawn first (lower zorder)
+            or you may need to renderer the figure twice to ensure that the
+            computed bbox is accurate.
+
     cmap : str or `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
         The Colormap instance or registered colormap name used to map scalar
         data to colors. This parameter is ignored if X is RGB(A).
     norm : str or `~matplotlib.colors.Normalize`
         Maps luminance to 0-1. This parameter is ignored if X is RGB(A).
     interpolation : str, default: :rc:`image.interpolation`
-        The interpolation used when resampling.
+        Supported values are 'none', 'auto', 'nearest', 'bilinear',
+        'bicubic', 'spline16', 'spline36', 'hanning', 'hamming', 'hermite',
+        'kaiser', 'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+        'sinc', 'lanczos', 'blackman'.
     origin : {'upper', 'lower'}, default: :rc:`image.origin`
         Place the [0, 0] index of the array in the upper left or lower left
-        corner of the Axes.
+        corner of the Axes. The convention 'upper' is typically used for
+        matrices and images.
     filternorm : bool, default: True
-        A parameter for the antigrain image resize filter.
+        A parameter for the antigrain image resize filter
+        (see the antigrain documentation).
+        If filternorm is set, the filter normalizes integer values and corrects
+        the rounding errors. It doesn't do anything with the source floating
+        point values, it corrects only integers according to the rule of 1.0
+        which means that any sum of pixel weights must be equal to 1.0. So,
+        the filter function must produce a graph of the proper shape.
     filterrad : float > 0, default: 4
-        The filter radius for filters that have a radius parameter.
+        The filter radius for filters that have a radius parameter, i.e. when
+        interpolation is one of: 'sinc', 'lanczos' or 'blackman'.
     resample : bool, default: False
-        When True, use a full resampling method. When False, only resample
-        when the output image is larger than the input image.
+        When True, use a full resampling method. When False, only resample when
+        the output image is larger than the input image.
     **kwargs : `~matplotlib.artist.Artist` properties
+
     """
 
     def __init__(self, bbox,
@@ -1471,14 +1509,8 @@ class BboxImage(_ImageBase):
             raise ValueError("Unknown type of bbox")
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
-        """
-        Normalize, rescale, and colormap this image's data for rendering:
-        stretched over its box, clipped to the canvas, scaled by
-        *magnification*.
-
-        pltrs: made in the figure's current layout (pltrs (Rust) draws the
-        figure itself).
-        """
+        # pltrs: made in the figure's current layout (pltrs (Rust) draws the
+        # figure itself).
         width, height = renderer.get_canvas_width_height()
         in_bbox = self.get_window_extent(renderer).frozen()
         in_bbox._points /= [width, height]
@@ -1493,6 +1525,7 @@ class BboxImage(_ImageBase):
         self._canvas_transformed = (_artist.draw_count(self._native), transform)
         return transform
 
+    @_docstring.copy(martist.Artist.set_transform)
     def set_transform(self, t):
         # docstring inherited; it stands until the image is next made.
         super().set_transform(t)

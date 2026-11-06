@@ -11,7 +11,9 @@ are matplotlib 3.11.2's, under the Matplotlib License.
 
 import numpy as np
 
+from ._pyplot_figure import _copy_docstring_and_deprecators
 from ._pyplot_plotting import _wrapper
+from .axes import Axes
 
 arrow = _wrapper("arrow")
 autoscale = _wrapper("autoscale")
@@ -45,6 +47,13 @@ def xlim(*args, **kwargs):
     -------
     left, right
         A tuple of the new x-axis limits.
+
+    Notes
+    -----
+    Calling this function with no arguments (e.g. ``xlim()``) is the pyplot
+    equivalent of calling `~.Axes.get_xlim` on the current Axes.
+    Calling this function with arguments is the pyplot equivalent of calling
+    `~.Axes.set_xlim` on the current Axes. All arguments are passed though.
     """
     ax = _gca()
     if not args and not kwargs:
@@ -74,6 +83,13 @@ def ylim(*args, **kwargs):
     -------
     bottom, top
         A tuple of the new y-axis limits.
+
+    Notes
+    -----
+    Calling this function with no arguments (e.g. ``ylim()``) is the pyplot
+    equivalent of calling `~.Axes.get_ylim` on the current Axes.
+    Calling this function with arguments is the pyplot equivalent of calling
+    `~.Axes.set_ylim` on the current Axes. All arguments are passed though.
     """
     ax = _gca()
     if not args and not kwargs:
@@ -90,6 +106,11 @@ def box(on=None):
     on : bool or None
         The new `~matplotlib.axes.Axes` box state. If ``None``, toggle
         the state.
+
+    See Also
+    --------
+    :meth:`matplotlib.axes.Axes.set_frame_on`
+    :meth:`matplotlib.axes.Axes.get_frame_on`
     """
     ax = _gca()
     if on is None:
@@ -111,14 +132,8 @@ def delaxes(ax=None):
     ax.remove()
 
 
+@_copy_docstring_and_deprecators(Axes._sci)
 def sci(im):
-    """
-    Set the current image.
-
-    This image will be the target of colormap functions like
-    ``pyplot.viridis``, and other functions such as `~.pyplot.clim`.  The
-    current image is an attribute of the current Axes.
-    """
     _gca()._sci(im)
 
 
@@ -126,15 +141,26 @@ def matshow(A, fignum=None, **kwargs):
     """
     Display a 2D array as a matrix in a new figure window.
 
-    The origin is set at the upper left hand corner. The aspect ratio of
-    the figure window is that of the array, unless this would make an
-    excessively short or narrow figure. Tick labels for the xaxis are
-    placed on top.
+    The origin is set at the upper left hand corner.
+    The indexing is ``(row, column)`` so that the first index runs vertically
+    and the second index runs horizontally in the figure:
+
+    .. code-block:: none
+
+        A[0, 0]   ⋯ A[0, M-1]
+           ⋮             ⋮
+        A[N-1, 0] ⋯ A[N-1, M-1]
+
+    The aspect ratio of the figure window is that of the array,
+    unless this would make an excessively short or narrow figure.
+
+    Tick labels for the xaxis are placed on top.
 
     Parameters
     ----------
     A : 2D array-like
         The matrix to be displayed.
+
     fignum : None or int
         If *None*, create a new, appropriately sized figure window.
 
@@ -149,6 +175,11 @@ def matshow(A, fignum=None, **kwargs):
     Returns
     -------
     `~matplotlib.image.AxesImage`
+
+    Other Parameters
+    ----------------
+    **kwargs : `~matplotlib.axes.Axes.imshow` arguments
+
     """
     from . import pyplot
     A = np.asanyarray(A)

@@ -352,23 +352,38 @@ class GridSpec(GridSpecBase):
         ----------
         nrows, ncols : int
             The number of rows and columns of the grid.
+
         figure : `.Figure`, optional
             Only used for constrained layout to create a proper layoutgrid.
+
         left, right, top, bottom : float, optional
             Extent of the subplots as a fraction of figure width or height.
             Left cannot be larger than right, and bottom cannot be larger than
             top. If not given, the values will be inferred from a figure or
             rcParams at draw time. See also `GridSpec.get_subplot_params`.
+
         wspace : float, optional
             The amount of width reserved for space between subplots,
             expressed as a fraction of the average axis width.
+            If not given, the values will be inferred from a figure or
+            rcParams when necessary. See also `GridSpec.get_subplot_params`.
+
         hspace : float, optional
             The amount of height reserved for space between subplots,
             expressed as a fraction of the average axis height.
+            If not given, the values will be inferred from a figure or
+            rcParams when necessary. See also `GridSpec.get_subplot_params`.
+
         width_ratios : array-like of length *ncols*, optional
-            Defines the relative widths of the columns.
+            Defines the relative widths of the columns. Each column gets a
+            relative width of ``width_ratios[i] / sum(width_ratios)``.
+            If not given, all columns will have the same width.
+
         height_ratios : array-like of length *nrows*, optional
-            Defines the relative heights of the rows.
+            Defines the relative heights of the rows. Each row gets a
+            relative height of ``height_ratios[i] / sum(height_ratios)``.
+            If not given, all rows will have the same height.
+
         """
         self.figure = figure
         super().__init__(nrows, ncols,
@@ -479,8 +494,7 @@ class GridSpec(GridSpecBase):
         figure : `.Figure`
             The figure.
         renderer :  `.RendererBase` subclass, optional
-            The renderer to be used (pltrs (Rust) measures the figure
-            itself).
+            The renderer to be used.
         pad : float
             Padding between the figure edge and the edges of subplots, as a
             fraction of the font-size.
@@ -691,7 +705,6 @@ class SubplotSpec:
         self._num2 = value
 
     def get_gridspec(self):
-        """Return the `GridSpec` of the subplot."""
         return self._gridspec
 
     def get_geometry(self):
@@ -721,19 +734,15 @@ class SubplotSpec:
         return range(c1, c2 + 1)
 
     def is_first_row(self):
-        """Whether the subplot touches the first row."""
         return self.rowspan.start == 0
 
     def is_last_row(self):
-        """Whether the subplot touches the last row."""
         return self.rowspan.stop == self.get_gridspec().nrows
 
     def is_first_col(self):
-        """Whether the subplot touches the first column."""
         return self.colspan.start == 0
 
     def is_last_col(self):
-        """Whether the subplot touches the last column."""
         return self.colspan.stop == self.get_gridspec().ncols
 
     def get_position(self, figure):
@@ -799,6 +808,22 @@ class SubplotSpec:
         ----------------
         **kwargs
             All other parameters are passed to `.GridSpecFromSubplotSpec`.
+
+        See Also
+        --------
+        matplotlib.pyplot.subplots
+
+        Examples
+        --------
+        Adding three subplots in the space occupied by a single subplot::
+
+            fig = plt.figure()
+            gs0 = fig.add_gridspec(3, 1)
+            ax1 = fig.add_subplot(gs0[0])
+            ax2 = fig.add_subplot(gs0[1])
+            gssub = gs0[2].subgridspec(1, 3)
+            for i in range(3):
+                fig.add_subplot(gssub[0, i])
         """
         return GridSpecFromSubplotSpec(nrows, ncols, self, **kwargs)
 

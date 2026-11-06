@@ -60,8 +60,8 @@ class Axis(maxis.XAxis):
     gridlines = property(lambda self: self._gridline_artist(),
                          doc="The collection the gridlines are drawn as.")
 
-    def __init__(self, axes, *, rotate_label=None):
-        super().__init__(axes)
+    def __init__(self, axes, *, rotate_label=None, **kwargs):
+        super().__init__(axes, **kwargs)
         if rotate_label is not None:
             self.set_rotate_label(rotate_label)
 
@@ -90,12 +90,20 @@ class Axis(maxis.XAxis):
 
     @_api.deprecated("3.6", pending=True)
     def init3d(self):
-        """Make the axis line again, as a new axis has it: shown."""
         self.line.set_visible(True)
 
     def _native_args(self):
         """The native 3-D axes and the axis name."""
         return self.axes._native, self.axis_name
+
+    def _get_autoscale_on(self):
+        # docstring inherited
+        return _mplot3d.get_autoscale_on(*self._native_args())
+
+    def _set_autoscale_on(self, b):
+        # docstring inherited
+        if b is not None:
+            _mplot3d.set_autoscale_on(*self._native_args(), bool(b))
 
     def _drawn_by_drawer(self):
         # A 3-D axes draws its axes whenever it shows them (matplotlib's
@@ -128,7 +136,7 @@ class Axis(maxis.XAxis):
 
     @maxis._interval_method("getter")
     def get_data_interval(self):
-        """Return the ``(min, max)`` data limits of this axis."""
+        # docstring inherited.
         return np.array(_mplot3d.get_data_interval(*self._native_args()))
 
     def _set_interval(self, getter, assign, vmin, vmax, ignore):
@@ -146,17 +154,7 @@ class Axis(maxis.XAxis):
 
     @maxis._interval_method("setter")
     def set_data_interval(self, vmin, vmax, ignore=False):
-        """
-        Set the axis data limits.  This method is for internal use.
-
-        If *ignore* is False (the default), this method will never reduce the
-        preexisting data limits, only expand them if *vmin* or *vmax* are not
-        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
-        the orientation of the axis will not change.
-
-        If *ignore* is True, the data limits will be set exactly to ``(vmin,
-        vmax)`` in that order.
-        """
+        # docstring inherited.
         self._set_interval(
             self.get_data_interval,
             lambda lo, hi: _mplot3d.set_data_interval(
@@ -165,18 +163,7 @@ class Axis(maxis.XAxis):
 
     @maxis._interval_method("setter")
     def set_view_interval(self, vmin, vmax, ignore=False):
-        """
-        Set the axis view limits.  This method is for internal use; Matplotlib
-        users should typically use e.g. `~.Axes.set_xlim` or `~.Axes.set_ylim`.
-
-        If *ignore* is False (the default), this method will never reduce the
-        preexisting view limits, only expand them if *vmin* or *vmax* are not
-        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
-        the orientation of the axis will not change.
-
-        If *ignore* is True, the view limits will be set exactly to ``(vmin,
-        vmax)`` in that order.
-        """
+        # docstring inherited.
         self._set_interval(
             self.get_view_interval,
             lambda lo, hi: _mplot3d.set_view_interval(
@@ -204,20 +191,12 @@ class Axis(maxis.XAxis):
         self.stale = True
 
     def get_rotate_label(self, text):
-        """Return whether a label *text* of this axis is drawn along the
-        axis: as `set_rotate_label` says, else when longer than 4 chars."""
         given = self.__dict__.get("_rotate_label")
         if given is not None:
             return given
         return _mplot3d.get_rotate_label(*self._native_args(), str(text))
 
     def active_pane(self):
-        """
-        The pane of this axis the view of the last draw (`.Axes3D.M`)
-        shows, the side of the box farthest from the viewer along the axis:
-        its four corners projected (x and y on the projection plane, then
-        depth), and where it lies along the axis.
-        """
         pane = _mplot3d.active_pane(*self._native_args())
         if pane is None:
             raise _no_projection_error()
@@ -274,8 +253,6 @@ class Axis(maxis.XAxis):
         return gridlines
 
     def draw_grid(self, renderer):
-        """Draw the gridlines of this axis across the panes, as the axes
-        draws them, if its grid is on."""
         if not _mplot3d.get_grid(self.axes._native):
             return
         renderer.open_group("grid3d", gid=self.get_gid())
@@ -442,7 +419,14 @@ class Axis(maxis.XAxis):
         self.set_ticks_position('bottom')
 
     def get_ticks_position(self):
-        """Get the ticks position."""
+        """
+        Get the ticks position.
+
+        Returns
+        -------
+        str : {'lower', 'upper', 'both', 'default', 'none'}
+            The position of the bolded axis lines, ticks, and tick labels.
+        """
         return _mplot3d.get_ticks_position(self.axes._native, self.axis_name)
 
     def set_label_position(self, position):
@@ -459,7 +443,14 @@ class Axis(maxis.XAxis):
         _mplot3d.set_label_position(self.axes._native, self.axis_name, position)
 
     def get_label_position(self):
-        """Get the label position."""
+        """
+        Get the label position.
+
+        Returns
+        -------
+        str : {'lower', 'upper', 'both', 'default', 'none'}
+            The position of the axis label.
+        """
         return _mplot3d.get_label_position(self.axes._native, self.axis_name)
 
     def set_pane_color(self, color, alpha=None):
@@ -479,15 +470,12 @@ class Axis(maxis.XAxis):
 
 
 class XAxis(Axis):
-    """The x axis of a 3-D axes."""
     axis_name = "x"
 
 
 class YAxis(Axis):
-    """The y axis of a 3-D axes."""
     axis_name = "y"
 
 
 class ZAxis(Axis):
-    """The z axis of a 3-D axes."""
     axis_name = "z"

@@ -43,8 +43,6 @@ def allow_rasterization(draw):
     are useful for changing artist-dependent renderer attributes or making
     other setup function calls, such as starting and flushing a mixed-mode
     renderer.
-
-    (matplotlib's decorator, as it is.)
     """
 
     @wraps(draw)
@@ -158,8 +156,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     @property
     def figure(self):
-        """The `.Figure` or `.SubFigure` the artist is on (for a (Sub)Figure,
-        the root `.Figure`)."""
+        """The (Sub)Figure that the artist is on.  For more control, use the `get_figure` method."""
         return self.get_figure(root=False)
 
     @figure.setter
@@ -170,9 +167,18 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         Set the `.Figure` or `.SubFigure` instance the artist belongs to.
 
-        An artist made by its constructor joins *fig* without being drawn
-        by it, until an axes or a figure adds it; it is then measured and
-        drawn in the figure's geometry.
+        .. warning::
+
+            This function should typically not be called by users.
+
+            This is a low-level API and only modifies the internal state of the
+            Artist. Only modifying this is not enough and will typically lead
+            to an inconsistent state, because the state of the figure has to
+            be changed as well.
+
+            Users should typically instead call one of the high-level APIs, i.e.
+            `.Figure.add_artist` or one of the Axes methods
+            :ref:`axes-api-adding-artists`.
 
         Parameters
         ----------
@@ -321,8 +327,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     zorder = 0
 
     def get_alpha(self):
-        """Return the alpha value used for blending - not supported on all
-        backends."""
+        """
+        Return the alpha value used for blending - not supported on all
+        backends.
+        """
         # As given, as matplotlib keeps it.
         return _values.given(self, "alpha", _artist.get_alpha(self._native))
 
@@ -354,8 +362,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ----------
         alpha : array-like or float or None
             All values must be within the 0-1 range, inclusive.
-            Masked values and nans are not supported. Only artists of many
-            items (collections, images) take an array.
+            Masked values and nans are not supported.
         """
         _check_array_alpha(alpha)
         if not np.iterable(alpha):
@@ -395,6 +402,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         enable this on an artist that does not support it, the command has no
         effect and a warning will be issued.
 
+        This setting is ignored for pixel-based output.
+
+        See also :doc:`/gallery/misc/rasterization_demo`.
+
         Parameters
         ----------
         rasterized : bool
@@ -431,6 +442,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         Return boolean flag, ``True`` if artist is included in layout
         calculations.
+
+        E.g. :ref:`constrainedlayout_guide`,
+        `.Figure.tight_layout()`, and
+        ``fig.savefig(fname, bbox_inches='tight')``.
         """
         return _artist.get_in_layout(self._native)
 
@@ -462,13 +477,23 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Parameters
         ----------
         mouseover : bool
+
+        See Also
+        --------
+        get_cursor_data
+        .ToolCursorPosition
+        .NavigationToolbar2
         """
         _artist.set_mouseover(self._native, bool(mouseover))
 
     mouseover = property(get_mouseover, set_mouseover)
 
     def get_snap(self):
-        """Return the snap setting."""
+        """
+        Return the snap setting.
+
+        See `.set_snap` for details.
+        """
         return _artist.get_snap(self._native)
 
     def set_snap(self, snap):
@@ -476,11 +501,21 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Set the snapping behavior.
 
         Snapping aligns positions with the pixel grid, which results in
-        clearer images.
+        clearer images. For example, if a black line of 1px width was
+        defined at a position in between two pixels, the resulting image
+        would contain the interpolated value of that line in the pixel grid,
+        which would be a grey value on both adjacent pixel positions. In
+        contrast, snapping will move the line to the nearest integer pixel
+        value, so that the resulting image will really contain a 1px wide
+        black line.
+
+        Snapping is currently only supported by the Agg and MacOSX backends.
 
         Parameters
         ----------
         snap : bool or None
+            Possible values:
+
             - *True*: Snap vertices to the nearest pixel center.
             - *False*: Do not modify vertex positions.
             - *None*: (auto) If the path contains only rectilinear line
@@ -501,6 +536,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Parameters
         ----------
         s : object
+            *s* will be converted to a string by calling `str`.
         """
         label = str(s) if s is not None else None
         if label != self.get_label():
@@ -539,8 +575,21 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_sketch_params(self):
         """
-        Return the sketch parameters for the artist: ``(scale, length,
-        randomness)``, or None if no sketch parameters were set.
+        Return the sketch parameters for the artist.
+
+        Returns
+        -------
+        tuple or None
+
+            A 3-tuple with the following elements:
+
+            - *scale*: The amplitude of the wiggle perpendicular to the
+              source line.
+            - *length*: The length of the wiggle along the line.
+            - *randomness*: The scale factor by which the length is
+              shrunken or expanded.
+
+            Returns *None* if no sketch parameters were set.
         """
         return _values.given(self, "sketch_params",
                              _artist.get_sketch_params(self._native))
@@ -562,7 +611,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             The scale factor by which the length is shrunken or
             expanded (default 16.0)
 
-        ACCEPTS: (scale: float, length: float, randomness: float)
+            The PGF backend uses this argument as an RNG seed and not as
+            described above. Using the same seed yields the same random shape.
+
+            .. ACCEPTS: (scale: float, length: float, randomness: float)
         """
         sketch = (None if scale is None
                   else (scale, length or 128.0, randomness or 16.0))
@@ -595,7 +647,15 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         return self
 
     def remove(self):
-        """Remove the artist from the figure if possible."""
+        """
+        Remove the artist from the figure if possible.
+
+        The effect will not be visible until the figure is redrawn, e.g.,
+        with `.FigureCanvasBase.draw_idle`.  Call `~.axes.Axes.relim` to
+        update the Axes limits if desired.
+
+        Note: there is no support for removing the artist's legend entry.
+        """
         if self._figure is None:
             raise NotImplementedError('cannot remove artist')
         # An owner removing the artist its own way (a colorbar its Axes).
@@ -618,7 +678,26 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def update(self, props):
         """
-        Update this artist's properties from the dict *props*.
+        [*Discouraged*] Update this artist's properties from the dictionary *props*.
+
+        .. admonition:: Discouraged
+
+            This method exists for historic reasons. Please use `.Artist.set` instead.
+            ``artist.update(props)`` is nowadays almost identical to
+            ``artist.set(**props)`` with the only difference that ``set`` will
+            additionally check that a property is not specified multiple times
+            through aliases.
+
+        Parameters
+        ----------
+        props : dict
+            Dictionary of properties (keys) and their new values.
+
+        Returns
+        -------
+        list
+            A list of return values from the configured setters.
+
         """
         return self._update_props(
             props, "{cls.__name__!r} object has no property {prop_name!r}")
@@ -672,13 +751,23 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         Draw the Artist (and its children) using the given renderer.
 
-        This has no effect if the artist is not visible. pltrs (Rust) draws
-        the artist as it draws it in a figure, through *renderer*: where
-        pltrs is drawing with a renderer it handed Python, onto the
-        renderer's canvas, or through the drawing methods of a renderer of
-        the program's (see `._python_drawing`). A bare `Artist` draws
-        nothing, as matplotlib's does; subclasses override it.
+        This has no effect if the artist is not visible (`.Artist.get_visible`
+        returns False).
+
+        Parameters
+        ----------
+        renderer : `~matplotlib.backend_bases.RendererBase` subclass.
+
+        Notes
+        -----
+        This method is overridden in the Artist subclasses.
         """
+        # This has no effect if the artist is not visible. pltrs (Rust) draws
+        # the artist as it draws it in a figure, through *renderer*: where
+        # pltrs is drawing with a renderer it handed Python, onto the
+        # renderer's canvas, or through the drawing methods of a renderer of
+        # the program's (see `._python_drawing`). A bare `Artist` draws
+        # nothing, as matplotlib's does; subclasses override it.
         if not self.get_visible():
             return
         _unusable.check(self)
@@ -704,4 +793,5 @@ from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: 
 Artist._update_set_signature_and_docstring()
 
 
-cbook._set_module(__name__, _XYPair, ArtistInspector)
+cbook._set_module(__name__, _XYPair, ArtistInspector, get, getp, setp, kwdoc)
+cbook._own_mixin_methods(Artist, object)

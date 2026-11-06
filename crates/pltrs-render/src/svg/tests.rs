@@ -6,7 +6,7 @@ use pltrs_core::{Affine2D, Bbox, Path, Point, Rgba};
 use super::*;
 use crate::gc::{ClipPath, Hatch};
 use crate::testing::square;
-use crate::vector::SvgMetadata;
+use crate::vector::{SvgMetadata, Timestamp};
 
 fn renderer() -> SvgRenderer {
     SvgRenderer::new(
@@ -191,6 +191,31 @@ fn images_go_beside_the_document_when_not_inline() {
     assert_eq!(images.len(), 1);
     assert_eq!(images[0].name, "out.svg.image0.png");
     assert!(images[0].png.starts_with(b"\x89PNG"));
+}
+
+#[test]
+fn documents_without_a_salt_get_ids_of_their_own() {
+    // matplotlib salts with a fresh `uuid4` when `svg.hashsalt` is None, so
+    // two saves of one figure give different ids (pytest-mpl relies on it).
+    let image_id = || {
+        let options = SvgOptions {
+            image_files: Some("out.svg".into()),
+            metadata: Metadata::none(),
+            ..SvgOptions::default()
+        };
+        let mut r = SvgRenderer::new(100.0, 50.0, 72.0, options).expect("a canvas");
+        let image = RgbaImage::new(1, 1, vec![255, 0, 0, 255]).expect("1x1");
+        r.draw_image(
+            &GraphicsContext::default(),
+            Point::new(5.0, 5.0),
+            &image,
+            None,
+        );
+        let (svg, _) = r.finish_with_images().expect("document");
+        let start = svg.find("id=\"Im_").expect("an image id");
+        svg[start..start + 24].to_owned()
+    };
+    assert_ne!(image_id(), image_id());
 }
 
 #[test]

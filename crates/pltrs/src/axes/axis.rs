@@ -101,6 +101,32 @@ pub(crate) struct TickerDefaults {
 
 pltrs_core::archive_struct!(TickerDefaults { major, minor });
 
+impl TickerDefaults {
+    /// Counts the major (or `minor`) `helper` as the scale's own or not.
+    pub(crate) fn set(&mut self, minor: bool, helper: TickHelperKind, default: bool) {
+        let level = if minor {
+            &mut self.minor
+        } else {
+            &mut self.major
+        };
+        match helper {
+            TickHelperKind::Locator => level.locator = default,
+            TickHelperKind::Formatter => level.formatter = default,
+        }
+    }
+}
+
+/// A tick helper of an axis level: the locator placing the ticks or the
+/// formatter labelling them (what matplotlib's `isDefault_majloc`,
+/// `isDefault_majfmt`, `isDefault_minloc` and `isDefault_minfmt` tell of).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TickHelperKind {
+    /// The locator.
+    Locator,
+    /// The formatter.
+    Formatter,
+}
+
 /// Whether the locator and the formatter of one tick level are still the
 /// scale's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

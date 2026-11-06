@@ -376,6 +376,10 @@ class Tick(Artist):
             part, "transform", which,
             lambda: getattr(axes, f"get_{prefix}axis_transform")(which))
 
+    def set_clip_path(self, path, transform=None):
+        # docstring inherited
+        super().set_clip_path(path, transform)
+
     def get_clip_box(self):
         """Return the clipbox: that of the Axes' patch for a tick of an
         axis, as matplotlib's Axes clip their axes (`.Axis.get_clip_box`)."""

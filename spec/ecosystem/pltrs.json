@@ -12,12 +12,8 @@
   "matplotlib-venn": "1.1.2",
   "pytest-mpl": "0.19.0",
   "matplotlib": "3.11.2",
-  "counts": {"passed": 7119, "failed": 78, "error": 27, "skipped": 82, "xfailed": 21, "xpassed": 2},
-  "collection_errors": {
-    "mplfinance/tests/original_flavor/test_date_demo2.py": "ImportError: cannot import name 'MONDAY' from 'pltrs.dates'",
-    "mplfinance/tests/original_flavor/test_finance_demo.py": "ImportError: cannot import name 'MONDAY' from 'pltrs.dates'",
-    "mplfinance/tests/original_flavor/test_plot_day_summary_oclh_demo.py": "ImportError: cannot import name 'MONDAY' from 'pltrs.dates'"
-  },
+  "counts": {"passed": 7119, "failed": 81, "error": 27, "skipped": 82, "xfailed": 21, "xpassed": 2},
+  "collection_errors": {},
   "outcomes": {
     "astropy/visualization/tests/test_basic_rgb.py::test_different_shapes_asserts": "passed",
     "astropy/visualization/tests/test_basic_rgb.py::test_float64": "passed",
@@ -725,8 +721,11 @@
     "matplotlib_venn/tests/venn3_pairwise_layout_test.py::test_compute_layout": "passed",
     "matplotlib_venn/tests/venn_ax_kw_test.py::test_ax_kw": "passed",
     "mplfinance/tests/original_flavor/test_date_demo1.py::test_date_demo1": "failed",
+    "mplfinance/tests/original_flavor/test_date_demo2.py::test_date_demo2": "failed",
+    "mplfinance/tests/original_flavor/test_finance_demo.py::test_finance_demo": "failed",
     "mplfinance/tests/original_flavor/test_finance_work2.py::test_finance_work2": "failed",
     "mplfinance/tests/original_flavor/test_longshort.py::test_longshort": "failed",
+    "mplfinance/tests/original_flavor/test_plot_day_summary_oclh_demo.py::test_plot_day_summary_oclh_demo": "failed",
     "mplfinance/tests/test_addplot.py::test_addplot01": "passed",
     "mplfinance/tests/test_addplot.py::test_addplot02": "passed",
     "mplfinance/tests/test_addplot.py::test_addplot03": "passed",

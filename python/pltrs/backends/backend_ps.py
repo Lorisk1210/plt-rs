@@ -17,7 +17,7 @@ from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
 from ..font_manager import FontManager
 from ..text import _measuring_with
 from ._backend_pdf_ps import RendererPDFPSBase
-from ._native_drawing import DocumentDrawingMixin, PdfPsDrawingMixin
+from ._native_drawing import DocumentDrawingMixin
 from .backend_mixed import MixedModeRenderer
 
 debugPS = False
@@ -100,7 +100,7 @@ def _dsc_metadata(outfile, metadata):
     return dsc_comments
 
 
-class RendererPS(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
+class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
     """
     The renderer handles all the drawing primitives using a graphics
     context instance that controls the colors/styles.
@@ -172,6 +172,49 @@ class RendererPS(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
         return _text_overrides.measure_ps(s, FontManager._props(prop), ismath,
                                           72.0)
 
+    # The drawing methods of `._native_drawing.DocumentDrawingMixin`, which
+    # pltrs (Rust) draws, as the renderer's own (matplotlib's renderers each
+    # define them).
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        # docstring inherited
+        super().draw_path(gc, path, transform, rgbFace)
+
+    def draw_markers(self, gc, marker_path, marker_trans, path, trans,
+                     rgbFace=None):
+        # docstring inherited
+        super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
+
+    def draw_path_collection(self, gc, master_transform, paths, all_transforms,
+                             offsets, offset_trans, facecolors, edgecolors,
+                             linewidths, linestyles, antialiaseds, urls,
+                             offset_position, *, hatchcolors=None):
+        # docstring inherited
+        super().draw_path_collection(
+            gc, master_transform, paths, all_transforms, offsets, offset_trans,
+            facecolors, edgecolors, linewidths, linestyles, antialiaseds, urls,
+            offset_position, hatchcolors=hatchcolors)
+
+    def draw_gouraud_triangles(self, gc, points, colors, trans):
+        # docstring inherited
+        super().draw_gouraud_triangles(gc, points, colors, trans)
+
+    def draw_image(self, gc, x, y, im, transform=None):
+        # docstring inherited
+        super().draw_image(gc, x, y, im, transform)
+
+    def draw_mathtext(self, gc, x, y, s, prop, angle):
+        """Draw the math text using matplotlib.mathtext."""
+        self._draw_line(gc, x, y, s, prop, angle, True)
+
+    def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
+        # docstring inherited
+        super().draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        # docstring inherited
+        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
+
 
 class FigureCanvasPS(FigureCanvasBase):
     fixed_dpi = 72
@@ -199,7 +242,7 @@ class FigureCanvasPS(FigureCanvasBase):
     def _print_ps(
             self, fmt, outfile, *,
             metadata=None, papertype=None, orientation='portrait',
-            bbox_inches_restore=None, facecolor=None, edgecolor=None):
+            bbox_inches_restore=None):
         """Write the figure as *fmt*, ``ps`` or ``eps``, after matplotlib's
         checks of the paper type and orientation, its texts measured
         through the metrics cache of a renderer of the print's own, as
@@ -215,7 +258,6 @@ class FigureCanvasPS(FigureCanvasBase):
             self._print_native(
                 fmt, outfile, metadata=_dsc_metadata(outfile, metadata),
                 bbox_inches_restore=bbox_inches_restore,
-                facecolor=facecolor, edgecolor=edgecolor,
                 orientation=orientation.name, papertype=papertype)
 
     print_ps = functools.partialmethod(_print_ps, "ps")
@@ -229,3 +271,28 @@ FigureManagerPS = FigureManagerBase
 class _BackendPS(_Backend):
     backend_version = 'Level II'
     FigureCanvas = FigureCanvasPS
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import bisect  # noqa: E402, F401
+import codecs  # noqa: E402, F401
+import datetime  # noqa: E402, F401
+import itertools  # noqa: E402, F401
+import logging  # noqa: E402, F401
+import math  # noqa: E402, F401
+import numpy as np  # noqa: E402, F401
+import shutil  # noqa: E402, F401
+import struct  # noqa: E402, F401
+import textwrap  # noqa: E402, F401
+import time  # noqa: E402, F401
+from io import StringIO  # noqa: E402, F401
+from tempfile import TemporaryDirectory  # noqa: E402, F401
+from ..backend_bases import RendererBase  # noqa: E402, F401
+from ..cbook import file_requires_unicode, is_writable_file_like  # noqa: E402, F401
+from ..font_manager import get_font  # noqa: E402, F401
+from ..ft2font import LoadFlags  # noqa: E402, F401
+from ..path import Path  # noqa: E402, F401
+from ..texmanager import TexManager  # noqa: E402, F401
+from ..transforms import Affine2D  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

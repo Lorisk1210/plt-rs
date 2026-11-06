@@ -1653,3 +1653,11 @@ if rcParams["backend_fallback"]:
         and cbook._get_running_interactive_framework()
     ):
         rcParams._set("backend", rcsetup._auto_backend_sentinel)
+
+# What matplotlib's pyplot has from its imports besides. It has no
+# ``__all__``: ``from pyplot import *`` takes every public name (``pylab``
+# does), so the list that gathered the names from pyplot's modules goes.
+from contextlib import AbstractContextManager  # noqa: E402, F401
+from enum import Enum  # noqa: E402, F401
+from typing import IO, cast, overload  # noqa: E402, F401
+del __all__

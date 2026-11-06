@@ -17,8 +17,11 @@ from ..artist import Artist
 from ._artist_list import ArtistList
 from ._aspect import AspectMixin
 from ._blitting import BlittingMixin
+from ._children import ChildrenMixin
+from ._clear import ClearMixin
 from ._construction import ConstructionMixin
 from ._decorations import DecorationsMixin
+from ._insets import ChildAxesMixin
 from ._insets import _TransformedBoundsLocator  # noqa: F401  (matplotlib defines it here)
 from ._layout import LayoutMixin
 from ._limits import LimitsMixin
@@ -46,7 +49,8 @@ class _SharedAxes(SharedGroups):
 
 
 @_api.define_aliases({"facecolor": ["fc"]})
-class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
+class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
+                AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
                 LimitsMixin, DecorationsMixin, AspectMixin, LayoutMixin,
                 UnitsMixin, BlittingMixin, ProjectionMixin, PropCycleMixin,
                 Artist):
@@ -56,6 +60,10 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
     def set_figure(self, fig):
         # docstring inherited: matplotlib's override has none.
         super().set_figure(fig)
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}

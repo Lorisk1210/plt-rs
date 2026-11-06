@@ -500,11 +500,9 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         return False
 
     def draw(self, renderer):
-        """
-        Draw the image with *renderer*: as pltrs (Rust) draws it, unless a
-        class of the program's computes its pixels (``_computed``), whose
-        ``make_image`` then gives them, as matplotlib's ``draw`` takes them.
-        """
+        # docstring inherited; pltrs (Rust) draws the image, unless a class
+        # of the program's computes its pixels (``_computed``), whose
+        # ``make_image`` then gives them, as matplotlib's ``draw`` takes them.
         if not any(takes_from_program(type(self), name) for name in self._computed):
             return super().draw(renderer)
         if not self.get_visible() or self.get_array().size == 0:
@@ -546,6 +544,10 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         im = self.to_rgba(self._A[::-1] if self.origin == 'lower' else self._A,
                           bytes=True, norm=True)
         PIL.Image.fromarray(im).save(fname, format="png")
+
+    def contains(self, mouseevent):
+        """Test whether the mouse event occurred within the image."""
+        return super().contains(mouseevent)
 
 
 def _made_image(image, magnification, unsampled, in_bbox, trans, over=None):
@@ -1401,6 +1403,11 @@ class FigureImage(_ImageBase):
         return _made_image(self, magnification, unsampled, in_bbox,
                            self.get_transform())
 
+    def set_data(self, A):
+        """Set the image array."""
+        super().set_data(A)
+        self.stale = True
+
 
 def _native_extent_owner(bbox):
     """
@@ -1743,3 +1750,11 @@ def thumbnail(infile, thumbfile, scale=0.1, interpolation='bilinear',
     ax.imshow(im, aspect='auto', resample=True, interpolation=interpolation)
     fig.savefig(thumbfile, dpi=dpi)
     return fig
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import warnings  # noqa: E402, F401
+from .backend_bases import FigureCanvasBase  # noqa: E402, F401
+from .transforms import BboxTransform  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

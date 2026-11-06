@@ -244,3 +244,8 @@ units.registry[str] = \
     units.registry[np.str_] = \
     units.registry[bytes] = \
     units.registry[np.bytes_] = StrCategoryConverter()
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import dateutil  # noqa: E402, F401

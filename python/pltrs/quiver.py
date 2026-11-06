@@ -271,6 +271,14 @@ class QuiverKey(martist.Artist):
             "inches": fig.dpi_scale_trans,
         }, coordinates=self.coord)
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
+    def contains(self, mouseevent):
+        # docstring inherited
+        return super().contains(mouseevent)
+
 
 class Quiver(mcollections.PolyCollection):
     """
@@ -395,6 +403,10 @@ class Quiver(mcollections.PolyCollection):
         none before the first."""
         from .path import Path
         return [Path(vertices) for vertices in _plotting.quiver_paths(self._native)]
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
     def _checked_uvc(self, U, V, C):
         """*U*, *V* and *C* as masked arrays sharing their mask, checked
@@ -724,6 +736,10 @@ get other head shapes:
 
 _docstring.interpd.register(quiver_doc=_quiver_doc)
 
+# The constructor's docstring, as matplotlib's substitutes it (the class is
+# defined above, which its plotting functions need).
+_docstring.Substitution(_quiver_doc)(Quiver.__init__)
+
 _barbs_doc = r"""
 Plot a 2D field of wind barbs.
 
@@ -1007,3 +1023,10 @@ class Barbs(mcollections.PolyCollection):
         xy = np.column_stack((x, y))
         super().set_offsets(xy)
         self.stale = True
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+from . import text as mtext  # noqa: E402, F401
+from .patches import CirclePolygon  # noqa: E402, F401

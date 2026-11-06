@@ -1,8 +1,7 @@
 """
 `pylab` is a historic interface: pyplot and numpy in one namespace
 (matplotlib's ``pylab``, from matplotlib 3.11.2 under the Matplotlib
-License, without dateutil's ``rrule`` and ``relativedelta``, which pltrs'
-``dates`` does not re-export).
+License).
 
 It imports pltrs by name, as it is loaded as the top-level ``pylab`` when
 matplotlib's suite runs.
@@ -10,13 +9,16 @@ matplotlib's suite runs.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING  # noqa: F401  (matplotlib's pyplot has it)
+from pltrs.cbook import flatten, silent_list  # noqa: F401
+
+import pltrs as mpl  # noqa: F401
 
 from pltrs.dates import (  # noqa: F401
     date2num, num2date, datestr2num, drange, DateFormatter, DateLocator,
     RRuleLocator, YearLocator, MonthLocator, WeekdayLocator, DayLocator,
-    HourLocator, MinuteLocator, SecondLocator, MO, TU, WE, TH, FR,
-    SA, SU, YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY)
+    HourLocator, MinuteLocator, SecondLocator, rrule, MO, TU, WE, TH, FR,
+    SA, SU, YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY,
+    relativedelta)
 
 # bring all the symbols in so folks can import them from
 # pylab in one fell swoop
@@ -27,10 +29,6 @@ from pltrs.mlab import (  # noqa: F401
 
 from pltrs import cbook, mlab, pyplot as plt  # noqa: F401
 from pltrs.pyplot import *  # noqa: F401, F403
-# What matplotlib's pyplot, which has no __all__, brings in besides.
-from pltrs import (  # noqa: F401
-    color_sequences, colormaps, rcParamsDefault, rcParamsOrig)
-from pltrs.backends import backend_registry  # noqa: F401
 
 from numpy import *  # noqa: F401, F403
 from numpy.fft import *  # noqa: F401, F403

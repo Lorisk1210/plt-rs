@@ -8,7 +8,7 @@ use pltrs_core::{Path, Point};
 
 use super::{
     CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors, EventLines,
-    Mapped, MeshShading,
+    Mapped, MeshShading, unmasked_cells,
 };
 use crate::artist::{Artist, ArtistId};
 use crate::colors::{Color, ColorError};
@@ -256,6 +256,31 @@ impl CollectionSpec {
         }
     }
 
+    /// The cells of the quadrilateral mesh whose vertices are
+    /// `coordinates`, drawn as polygons (matplotlib's
+    /// `PolyQuadMesh(coordinates)`): a cell with a corner that is not
+    /// finite (masked) is left out, and so are the cells the values mapped
+    /// to colours later mask.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::collections::CollectionSpec;
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let grid = Grid::from_fn(3, 4, |row, col| Point::new(col as f64, row as f64));
+    /// let mesh = ax.add_collection(CollectionSpec::poly_quad_mesh(grid));
+    /// assert_eq!(mesh.paths().len(), 6);
+    /// ```
+    pub fn poly_quad_mesh(coordinates: Grid<Point>) -> Self {
+        let (rows, cols) = coordinates.shape();
+        let cells = rows.saturating_sub(1) * cols.saturating_sub(1);
+        let (paths, _) = unmasked_cells(&coordinates, &vec![Some(0.0); cells]);
+        let mut spec = Self::new(CollectionKind::Poly, paths);
+        spec.artist.polygon_grid = Some(coordinates);
+        spec
+    }
+
     /// One line across `lineoffset` of `linelength` at each position, along
     /// x for [`Orientation::Horizontal`] (matplotlib's `EventCollection`;
     /// positions are sorted first). Added to an axes, it is an
@@ -376,6 +401,25 @@ impl CollectionArtist {
 mod tests {
     use super::*;
     use crate::patches::{Circle, Rectangle};
+
+    #[test]
+    fn a_poly_quad_mesh_leaves_out_the_cells_of_masked_corners() {
+        let mut grid = Grid::from_fn(3, 3, |row, col| Point::new(col as f64, row as f64));
+        grid[(1, 1)] = Point::new(f64::NAN, 1.0);
+        let spec = CollectionSpec::poly_quad_mesh(grid);
+        assert!(
+            spec.artist.paths.is_empty(),
+            "every cell has the masked corner"
+        );
+        let whole = CollectionSpec::poly_quad_mesh(Grid::from_fn(2, 3, |row, col| {
+            Point::new(col as f64, row as f64)
+        }));
+        assert_eq!(whole.artist.paths.len(), 2);
+        assert_eq!(
+            whole.artist.polygon_grid.as_ref().map(Grid::shape),
+            Some((2, 3))
+        );
+    }
 
     #[test]
     fn events_are_sorted_and_centred() {

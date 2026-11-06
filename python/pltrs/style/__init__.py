@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 import warnings
 
-from .. import (RcParams, _STYLE_BLACKLIST, _api, get_configdir, rc_context,
+from .. import (RcParams, _STYLE_BLACKLIST, _api, _docstring, get_configdir, rc_context,
                 rc_params_from_file, rcdefaults, rcParams, rcParamsDefault)
 from .._native import rcsetup as _rcsetup
 
@@ -38,6 +38,9 @@ USER_LIBRARY_PATHS = [os.path.join(get_configdir(), 'stylelib')]
 _STYLE_EXTENSION = 'mplstyle'
 
 
+@_docstring.Substitution(
+    "\n".join(map("- {}".format, sorted(_STYLE_BLACKLIST, key=str.lower)))
+)
 def use(style):
     """
     Use Matplotlib style settings from a style specification.
@@ -269,3 +272,8 @@ reload_library()
 # it an attribute of this package) without the deprecation warning.
 with _api.suppress_matplotlib_deprecation_warning():
     from . import core  # noqa: E402, F401
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

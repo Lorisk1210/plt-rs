@@ -19,12 +19,11 @@ from ..ticker import Formatter
 from ..transforms import Affine2D, BboxTransformTo, Transform
 
 
+# The projection of longitudes and latitudes in radians onto the plane, or
+# its inverse (``inverse``), by the projection ``projection`` names centred
+# at ``_center``. No docstring: the inverse transforms show `.Transform`'s,
+# as matplotlib's do.
 class _GeoTransform(Transform):
-    """
-    The projection of longitudes and latitudes in radians onto the plane,
-    or its inverse (``inverse``), by the projection ``projection`` names
-    centred at ``_center``.
-    """
 
     input_dims = output_dims = 2
     #: The name of the projection.
@@ -65,9 +64,10 @@ class _GeoTransform(Transform):
         return inverse
 
 
-def _transform_pair(projection, forward_doc, inverse_doc):
-    """The classes of the projection *projection* and of its inverse, named
-    as the classes matplotlib nests in the projection's axes."""
+def _transform_pair(projection, forward_doc):
+    """The classes of the projection *projection* (documented by
+    *forward_doc*) and of its inverse, named as the classes matplotlib nests
+    in the projection's axes."""
     axes = f"{projection.capitalize()}Axes"
 
     def make(name, attributes):
@@ -78,7 +78,7 @@ def _transform_pair(projection, forward_doc, inverse_doc):
     forward = make(f"{projection.capitalize()}Transform",
                    {"__doc__": forward_doc, "projection": projection})
     inverse = make(f"Inverted{projection.capitalize()}Transform",
-                   {"__doc__": inverse_doc, "projection": projection,
+                   {"__doc__": None, "projection": projection,
                     "inverse": True, "_inverse_class": forward})
     forward._inverse_class = inverse
     return forward, inverse
@@ -104,6 +104,11 @@ class GeoAxes(Axes):
         # docstring inherited
         from ..patches import Circle
         return Circle((0.5, 0.5), 0.5)
+
+    def clear(self):
+        # docstring inherited; pltrs (Rust) clears a geographic Axes to its
+        # grids, ticks and limits, as matplotlib's does.
+        super().clear()
 
     def set_yscale(self, *args, **kwargs):
         if args[0] != 'linear':
@@ -278,9 +283,13 @@ class GeoAxes(Axes):
 class AitoffAxes(GeoAxes):
     name = 'aitoff'
 
+    def __init__(self, *args, **kwargs):
+        # matplotlib's signature; pltrs (Rust) sets the axes' aspect and
+        # limits up.
+        super().__init__(*args, **kwargs)
+
     AitoffTransform, InvertedAitoffTransform = _transform_pair(
-        'aitoff', "The base Aitoff transform.",
-        "The inverse of the Aitoff transform (undefined: NaN everywhere).")
+        'aitoff', "The base Aitoff transform.")
 
     def _get_core_transform(self, resolution):
         return self.AitoffTransform(resolution)
@@ -289,9 +298,13 @@ class AitoffAxes(GeoAxes):
 class HammerAxes(GeoAxes):
     name = 'hammer'
 
+    def __init__(self, *args, **kwargs):
+        # matplotlib's signature; pltrs (Rust) sets the axes' aspect and
+        # limits up.
+        super().__init__(*args, **kwargs)
+
     HammerTransform, InvertedHammerTransform = _transform_pair(
-        'hammer', "The base Hammer transform.",
-        "The inverse of the Hammer transform.")
+        'hammer', "The base Hammer transform.")
 
     def _get_core_transform(self, resolution):
         return self.HammerTransform(resolution)
@@ -300,9 +313,13 @@ class HammerAxes(GeoAxes):
 class MollweideAxes(GeoAxes):
     name = 'mollweide'
 
+    def __init__(self, *args, **kwargs):
+        # matplotlib's signature; pltrs (Rust) sets the axes' aspect and
+        # limits up.
+        super().__init__(*args, **kwargs)
+
     MollweideTransform, InvertedMollweideTransform = _transform_pair(
-        'mollweide', "The base Mollweide transform.",
-        "The inverse of the Mollweide transform.")
+        'mollweide', "The base Mollweide transform.")
 
     def _get_core_transform(self, resolution):
         return self.MollweideTransform(resolution)
@@ -312,8 +329,7 @@ class LambertAxes(GeoAxes):
     name = 'lambert'
 
     _LambertBase, _InvertedLambertBase = _transform_pair(
-        'lambert', "The base Lambert transform.",
-        "The inverse of the Lambert transform.")
+        'lambert', "The base Lambert transform.")
 
     class LambertTransform(_LambertBase):
         """The base Lambert transform."""
@@ -341,24 +357,29 @@ class LambertAxes(GeoAxes):
             # docstring inherited
             return LambertAxes.LambertTransform(*self._center, self._resolution)
 
+    def __init__(self, *args, center_longitude=0, center_latitude=0, **kwargs):
+        super().__init__(*args, **kwargs)
+        _transforms.set_lambert_center(
+            self._native, (float(center_longitude), float(center_latitude)))
+
     @classmethod
     def _make_native(cls, figure, kwargs, *, spec=None, rect=None):
-        """
-        The native Lambert axes ``fig.add_subplot`` (on the grid block
-        *spec*) or ``fig.add_axes`` (at *rect*) makes, centred where the
-        *center_longitude* and *center_latitude* of *kwargs* say (0 by
-        default, as matplotlib's constructor takes them); return it and the
-        other keyword arguments.
-        """
-        kwargs = dict(kwargs)
-        center = (float(kwargs.pop('center_longitude', 0)),
-                  float(kwargs.pop('center_latitude', 0)))
-        if spec is not None:
-            native = _transforms.add_lambert_subplot(figure._native, spec, center)
-        else:
-            native = _transforms.add_lambert_axes(figure._native, rect, center)
-        return native, kwargs
+        """The native axes ``add_subplot`` and ``add_axes`` make: by the
+        constructor, which takes the centre among *kwargs*."""
+        return cls._constructed_native(figure, kwargs, spec=spec, rect=rect)
+
+    def clear(self):
+        # docstring inherited; pltrs (Rust) hides the latitude labels.
+        super().clear()
 
     def _get_core_transform(self, resolution):
         return self.LambertTransform(
             *_transforms.lambert_center(self._native), resolution)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from .. import axis as maxis, spines as mspines  # noqa: E402, F401
+from ..patches import Circle  # noqa: E402, F401
+from ..ticker import FixedLocator, NullFormatter, NullLocator  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

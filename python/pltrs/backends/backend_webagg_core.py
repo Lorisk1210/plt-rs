@@ -580,3 +580,8 @@ class FigureManagerWebAgg(backend_bases.FigureManagerBase):
 class _BackendWebAggCoreAgg(_Backend):
     FigureCanvas = FigureCanvasWebAggCore
     FigureManager = FigureManagerWebAgg
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import os  # noqa: E402, F401

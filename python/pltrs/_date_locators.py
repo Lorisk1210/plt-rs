@@ -5,9 +5,9 @@ with (`rrulewrapper`) and `AutoDateFormatter`.
 The classes keep matplotlib's names, parameters and attributes (from
 matplotlib 3.11.2, under the Matplotlib License); pltrs (Rust) computes the
 occurrences of the rules and the ticks (``pltrs::dates``), where matplotlib
-uses ``dateutil``, so pltrs does not import ``dateutil``: the frequency
-constants and the weekdays ``MO`` ... ``SU`` are defined here, and accept
-``dateutil``'s too.
+uses ``dateutil``'s ``rrule``: the frequency constants are defined here,
+numbered as ``dateutil`` numbers them, and the weekdays ``MO`` ... ``SU``
+are ``dateutil``'s, as matplotlib's ``dates`` re-exports them.
 """
 
 import datetime
@@ -18,6 +18,7 @@ import os
 import zoneinfo
 
 from dateutil.relativedelta import relativedelta
+from dateutil.rrule import MO, TU, WE, TH, FR, SA, SU  # noqa: F401  (`.dates` has them)
 import numpy as np
 
 from . import _api, ticker
@@ -44,40 +45,6 @@ SEC_PER_DAY = SEC_PER_HOUR * HOURS_PER_DAY
 SEC_PER_WEEK = SEC_PER_DAY * DAYS_PER_WEEK
 
 MUSECONDS_PER_DAY = 1e6 * SEC_PER_DAY
-
-
-class weekday:
-    """
-    A day of the week in a recurrence rule, optionally its *n*-th
-    occurrence in the period (dateutil's ``MO``, ``MO(+1)``, ``FR(-1)``).
-    """
-
-    __slots__ = ("weekday", "n")
-
-    _NAMES = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
-
-    def __init__(self, weekday, n=None):
-        if n == 0:
-            raise ValueError("Can't create weekday with n==0")
-        self.weekday = weekday
-        self.n = n
-
-    def __call__(self, n):
-        return self if n == self.n else type(self)(self.weekday, n)
-
-    def __eq__(self, other):
-        return (getattr(other, "weekday", None) == self.weekday
-                and getattr(other, "n", None) == self.n)
-
-    def __hash__(self):
-        return hash((self.weekday, self.n))
-
-    def __repr__(self):
-        name = self._NAMES[self.weekday]
-        return name if not self.n else f"{name}({self.n:+d})"
-
-
-MO, TU, WE, TH, FR, SA, SU = (weekday(index) for index in range(7))
 
 
 def _get_tzinfo(tz):

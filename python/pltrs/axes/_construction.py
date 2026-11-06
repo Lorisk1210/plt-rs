@@ -98,7 +98,7 @@ class ConstructionMixin:
         if facecolor is not None:
             self.set_facecolor(facecolor)
         if not frameon:
-            self.set_frame_on(frameon)
+            self._frameon = frameon
         if box_aspect is not None:
             self.set_box_aspect(box_aspect)
         if forward_navigation_events != "auto":

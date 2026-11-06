@@ -378,7 +378,13 @@ class _ColorizerInterface:
         """
         Return the values (min, max) that are mapped to the colormap limits.
         """
+        self._scale_as_drawn()
         return self._colorizer.get_clim()
+
+    def _scale_as_drawn(self):
+        """Give the norm the limits drawing it scaled it to (see
+        `ColorizingArtist._scale_as_drawn`): none for a mappable no figure
+        draws."""
 
     def set_clim(self, vmin=None, vmax=None):
         """
@@ -428,6 +434,7 @@ class _ColorizerInterface:
 
     @property
     def norm(self):
+        self._scale_as_drawn()
         return self._colorizer.norm
 
     @norm.setter
@@ -767,22 +774,6 @@ class ColorizingArtist(_ScalarMappable, artist.Artist):
         self._check_exclusionary_keywords(colorizer, **kwargs)
         self.colorizer = colorizer
 
-    @property
-    def norm(self):
-        self._scale_as_drawn()
-        return self._colorizer.norm
-
-    @norm.setter
-    def norm(self, norm):
-        self._colorizer.norm = norm
-
-    def get_clim(self):
-        """
-        Return the values (min, max) that are mapped to the colormap limits.
-        """
-        self._scale_as_drawn()
-        return super().get_clim()
-
     def _drawn_clim(self):
         """The limits pltrs (Rust)'s draws scaled the artist's mapping to,
         ``(None, None)`` where the Python side keeps the norm scaled."""
@@ -1002,3 +993,8 @@ def _ensure_multivariate_data(data, n_components):
         raise ValueError("Invalid data entry for multivariate data. The shape"
                          f" of the data must have a first dimension {n_components}"
                          f" or be of a dtype with {n_components} fields")
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

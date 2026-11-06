@@ -4262,3 +4262,10 @@ def from_levels_and_colors(levels, colors, extend='neither'):
 
     norm = BoundaryNorm(levels, ncolors=n_data_colors)
     return cmap, norm
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from PIL import Image  # noqa: E402, F401
+from PIL.PngImagePlugin import PngInfo  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

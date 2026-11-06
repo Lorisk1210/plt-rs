@@ -210,3 +210,9 @@ class FigureCanvasTemplate(FigureCanvasBase):
 
 FigureCanvas = FigureCanvasTemplate
 FigureManager = FigureManagerTemplate
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from .._pylab_helpers import Gcf  # noqa: E402, F401
+from ..figure import Figure  # noqa: E402, F401

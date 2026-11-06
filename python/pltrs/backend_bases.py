@@ -1603,10 +1603,10 @@ def _mouse_handler(event):
 def _pick_handler(event):
     """
     Pick the artists under a button press or scroll (matplotlib's
-    ``Figure.pick``), unless a widget holds the canvas' lock.
+    ``Figure.pick``, which does nothing while a widget holds the canvas'
+    lock).
     """
-    if not event.canvas.widgetlock.locked():
-        event.canvas.figure.pick(event)
+    event.canvas.figure.pick(event)
 
 
 def _canvas_callbacks(figure):
@@ -1683,6 +1683,11 @@ class FigureCanvasBase:
     # Whether the figure and axes backgrounds are left out of what is
     # saved (`.Figure.savefig`'s *transparent*), while saving.
     _transparent = None
+    #: What the `print_figure` of the moment prints the figure with besides
+    #: what it gives the ``print_<fmt>`` method, whose matplotlib signature
+    #: takes it not: the colors of the figure (``facecolor``,
+    #: ``edgecolor``) and the area to save (``bbox_inches_restore``).
+    _print_options = {}
 
     @_api.classproperty
     def supports_blit(cls):
@@ -2108,12 +2113,16 @@ class FigureCanvasBase:
             with self._laid_out_for_print(bbox_inches):
                 self.figure.pchanged()
             try:
-                return print_method(
-                    filename,
-                    orientation=orientation,
-                    bbox_inches_restore=area,
-                    **colors,
-                    **kwargs)
+                # The colors and the area, which matplotlib's print methods
+                # take from the figure print_figure adjusts, are the print's.
+                with cbook._setattr_cm(self.figure.canvas, _print_options={
+                        **colors, "bbox_inches_restore": area}):
+                    return print_method(
+                        filename,
+                        orientation=orientation,
+                        bbox_inches_restore=area,
+                        **colors,
+                        **kwargs)
             finally:
                 # The trees a program's drawing read cut to the printed
                 # window are the whole figure's again.
@@ -2156,23 +2165,30 @@ class FigureCanvasBase:
         return {"bbox_inches": tuple(bbox.padded(w_pad, h_pad).extents),
                 "pad_inches": 0}
 
-    def _print_settings(self, *, facecolor=None, edgecolor=None,
-                        orientation=None, bbox_inches_restore=None,
+    def _print_area(self, bbox_inches_restore):
+        """The area of the figure to save: *bbox_inches_restore* as a print
+        method was given it, else that of the `print_figure` of the moment
+        (None: the whole figure)."""
+        if bbox_inches_restore is not None:
+            return bbox_inches_restore
+        return self._print_options.get("bbox_inches_restore")
+
+    def _print_settings(self, *, orientation=None, bbox_inches_restore=None,
                         **settings):
         """
         The save settings pltrs (Rust) prints the figure with now: its
-        resolution, the transparency `.Figure.savefig` asked for,
-        `print_figure`'s *facecolor*, *edgecolor* and *orientation*, the
-        area to save it resolved (*bbox_inches_restore*, ``None`` for the
-        whole figure) and further *settings* of the format.
+        resolution, the transparency `.Figure.savefig` asked for, the
+        colors of the `print_figure` of the moment and *orientation*, the
+        area to save resolved (see `_print_area`) and further *settings* of
+        the format.
         """
         return {
             "dpi": self.figure.dpi,
-            "facecolor": facecolor,
-            "edgecolor": edgecolor,
+            "facecolor": self._print_options.get("facecolor"),
+            "edgecolor": self._print_options.get("edgecolor"),
             "orientation": orientation,
             "transparent": self._transparent,
-            **(bbox_inches_restore or {}),
+            **(self._print_area(bbox_inches_restore) or {}),
             **settings,
         }
 
@@ -2219,7 +2235,7 @@ class FigureCanvasBase:
         if make is None:
             return nullcontext()
         return drawing_with(functools.partial(make, self.figure.dpi,
-                                              bbox_inches_restore))
+                                              self._print_area(bbox_inches_restore)))
 
     @classmethod
     def get_default_filetype(cls):
@@ -3731,3 +3747,13 @@ class ShowBase(_Backend):
 
     def __call__(self, block=None):
         return self.show(block=block)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import io  # noqa: E402, F401
+from contextlib import ExitStack  # noqa: E402, F401
+from . import is_interactive, text, widgets  # noqa: E402, F401
+from .layout_engine import ConstrainedLayoutEngine  # noqa: E402, F401
+from .texmanager import TexManager  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

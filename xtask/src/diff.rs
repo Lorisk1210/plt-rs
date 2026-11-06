@@ -34,8 +34,10 @@
 //! `--docs` compares matplotlib's public callables themselves
 //! (`spec/diff/docs.py`): their signatures, docstrings, `__module__` and
 //! `__qualname__` under matplotlib and under pltrs (Python), per module,
-//! written to `target/diff/docs.md` and `docs.json`. A PATTERN keeps the
-//! callables whose keys (`module:Owner.name`) contain it, `--failures`
+//! and every public module-level name (re-exports, constants, modules as
+//! attributes) by its value's type and value, written to
+//! `target/diff/docs.md` and `docs.json`. A PATTERN keeps the callables
+//! and names whose keys (`module:Owner.name`) contain it, `--failures`
 //! prints every difference and `--strict` fails while any remains.
 
 use std::env;
@@ -59,7 +61,8 @@ enum Mode {
     Programs,
     /// Which of matplotlib's callables the programs reach.
     Coverage,
-    /// matplotlib's callables' signatures, docstrings and names in pltrs.
+    /// matplotlib's callables' signatures, docstrings and names, and its
+    /// modules' public names, in pltrs.
     Docs,
 }
 

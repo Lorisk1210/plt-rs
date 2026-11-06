@@ -142,19 +142,24 @@ def _pushing(method):
 def pushing(cls):
     """Class decorator: every setter of *cls* pushes a mirror of it back
     into its part once it ran (once: the setters it inherits from a class
-    made pushing already push)."""
+    made pushing already push). An alias of a setter (``set_name =
+    set_family``) stays the same function as the setter."""
+    wrappers = {}
     for name in dir(cls):
         method = getattr(cls, name) if name.startswith("set_") else None
         if callable(method) and not getattr(method, "_pushes", False):
-            _replace(cls, name, _pushing(method))
+            if method not in wrappers:
+                wrappers[method] = _pushing(method)
+            _replace(cls, name, wrappers[method], getattr(method, "__name__", name))
     return cls
 
 
-def _replace(cls, name, wrapper):
+def _replace(cls, name, wrapper, own_name=None):
     """Make *wrapper* the method *name* of *cls*, named as one of *cls*'s
-    own, so that ``inspect.getdoc`` finds the docstring its bases give a
-    method without one of its own, as for the method it wraps."""
-    wrapper.__qualname__ = f"{cls.__qualname__}.{name}"
+    own (by *own_name*, the name the wrapped function was defined under,
+    for an alias), so that ``inspect.getdoc`` finds the docstring its bases
+    give a method without one of its own, as for the method it wraps."""
+    wrapper.__qualname__ = f"{cls.__qualname__}.{own_name or name}"
     wrapper.__module__ = cls.__module__
     setattr(cls, name, wrapper)
 

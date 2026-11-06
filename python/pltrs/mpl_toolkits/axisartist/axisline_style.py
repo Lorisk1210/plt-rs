@@ -94,3 +94,13 @@ class AxislineStyle(_Style):
             return {"size": self.size, "facecolor": self._facecolor}
 
     _style_list["-|>"] = FilledArrow
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import math  # noqa: E402, F401
+import numpy as np  # noqa: E402, F401
+import pltrs as mpl  # noqa: E402, F401
+from pltrs.patches import FancyArrowPatch  # noqa: E402, F401
+from pltrs.path import Path  # noqa: E402, F401
+from pltrs.transforms import IdentityTransform  # noqa: E402, F401

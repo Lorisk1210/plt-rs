@@ -30,7 +30,7 @@ class LayoutMixin:
             # axis tight bboxes are calculated separately inside
             # Axes.get_tightbbox() using for_layout_only=True
             artists.remove(axis)
-        if not (self.axison and self.get_frame_on()):
+        if not (self.axison and self._frameon):
             # don't do bbox on spines if frame not on.
             for spine in self.spines.values():
                 artists.remove(spine)

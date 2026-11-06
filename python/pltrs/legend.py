@@ -89,6 +89,10 @@ class DraggableLegend(DraggableOffsetBox):
         self._use_blit = use_blit and self.canvas.supports_blit
         _legend.set_draggable(legend._native, True, update)
 
+    def finalize_offset(self):
+        # pltrs (Rust) updates *loc* or *bbox_to_anchor* as the drag ends.
+        super().finalize_offset()
+
     def disconnect(self):
         """Stop dragging the legend."""
         _legend.set_draggable(self.legend._native, False, self._update)
@@ -784,6 +788,18 @@ class Legend(Artist):
         # docstring inherited
         return [self._legend_box, self.get_frame()]
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
+    def get_tightbbox(self, renderer=None):
+        # docstring inherited
+        return super().get_tightbbox(renderer)
+
+    def contains(self, mouseevent):
+        # (pltrs (Rust) hit-tests the legend's frame.)
+        return super().contains(mouseevent)
+
     def get_frame(self):
         """Return the `~.patches.Rectangle` used to frame the legend."""
         return _handles.wrap(_legend.get_frame(self._native), FancyBboxPatch,
@@ -1135,3 +1151,16 @@ def _parse_legend_args(axs, *args, handles=None, labels=None, **kwargs):
         raise _api.nargs_error('legend', '0-2', len(args))
 
     return handles, labels, kwargs
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import itertools  # noqa: E402, F401
+import logging  # noqa: E402, F401
+from . import cbook, legend_handler, offsetbox  # noqa: E402, F401
+from .artist import allow_rasterization  # noqa: E402, F401
+from .offsetbox import (  # noqa: E402, F401
+    AnchoredOffsetbox, DrawingArea, HPacker, TextArea, VPacker)
+from .patches import Shadow  # noqa: E402, F401
+from .transforms import BboxTransformFrom, BboxTransformTo  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

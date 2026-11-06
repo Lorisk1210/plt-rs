@@ -351,3 +351,8 @@ def _from_native(native):
 #: The bivariate colormaps (matplotlib's ``_cm_bivar.cmaps``).
 bivar_cmaps = _gen_bivar_cmaps()
 _bivar_colormaps = ColormapRegistry(bivar_cmaps)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

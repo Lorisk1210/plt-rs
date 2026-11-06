@@ -368,3 +368,10 @@ class MarkerStyle:
         _transform = new_marker._user_transform or Affine2D()
         new_marker._user_transform = _transform.scale(sx, sy)
         return new_marker
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from . import cbook  # noqa: E402, F401
+from .transforms import IdentityTransform  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

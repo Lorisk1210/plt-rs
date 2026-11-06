@@ -6,6 +6,7 @@ recorded from matplotlib 3.11.2 running the same code.
 
 import io
 import logging
+import shutil
 
 import numpy as np
 import pytest
@@ -279,6 +280,8 @@ def test_pdf_renderers_draw_with_pdf_graphics_contexts():
                           path.Path([(0, 0)]), transforms.IdentityTransform())
 
 
+@pytest.mark.skipif(not shutil.which("xelatex"),
+                    reason="PGF measures text with xelatex, as matplotlib's does")
 def test_streamed_pgf_pictures_refuse_images():
     message = ("^streamed pgf-code does not support raster graphics, consider using the "
                "pgf-to-pdf option$")

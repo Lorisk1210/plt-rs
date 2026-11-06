@@ -25,9 +25,10 @@ def _native_font(prop):
     return FontManager._props(FontProperties._from_any(prop))
 
 
+# An anchored box pltrs (Rust) builds when an axes adds it (each subclass's
+# ``_add_native`` adds it and returns its handle). No docstring, so that
+# ``help`` shows `.AnchoredOffsetbox`'s for the subclasses, as matplotlib's.
 class _NativeAnchoredBox(AnchoredOffsetbox):
-    """An anchored box pltrs (Rust) builds when an axes adds it (each
-    subclass's ``_add_native`` adds it and returns its handle)."""
 
     def _add_to_axes(self, axes, kind, autolim=True):
         return _handles.adopt(self, self._add_native(axes), axes.figure)
@@ -405,3 +406,11 @@ class AnchoredDirectionArrows(_NativeAnchoredBox):
             (geometry, heads),
             (color, alpha, _native_font(fontproperties)),
             (text_props, arrow_props))
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from pltrs import transforms  # noqa: E402, F401
+from pltrs.offsetbox import TextArea, VPacker  # noqa: E402, F401
+from pltrs.patches import ArrowStyle, FancyArrowPatch, PathPatch, Rectangle  # noqa: E402, F401
+from pltrs.textpath import TextPath  # noqa: E402, F401

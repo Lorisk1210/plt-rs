@@ -609,6 +609,19 @@ class Collection(mcolorizer.ColorizingArtist):
 
     pickradius = property(get_pickradius, set_pickradius)
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
+    def contains(self, mouseevent):
+        """
+        Test whether the mouse event occurred in the collection.
+
+        Returns ``bool, dict(ind=itemlist)``, where every item in itemlist
+        contains the event.
+        """
+        return super().contains(mouseevent)
+
     def _contains_details(self, ind):
         """The indices of the items hit; none for a hidden collection,
         which matplotlib does not test."""
@@ -760,7 +773,9 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_linewidth(self, lw):
         """
-        Set the linewidth(s) for the collection (None: the default).
+        Set the linewidth(s) for the collection.  *lw* can be a scalar
+        or a sequence; if it is a sequence the patches will cycle
+        through the sequence
 
         Parameters
         ----------
@@ -1100,6 +1115,9 @@ class PathCollection(_CollectionWithSizes):
         super().__init__(**kwargs)
         self.set_sizes(sizes)
 
+    def get_paths(self):
+        return super().get_paths()
+
     def legend_elements(self, prop="colors", num="auto",
                         fmt=None, func=lambda x: x, **kwargs):
         """
@@ -1254,10 +1272,16 @@ class PolyCollection(_CollectionWithSizes):
             element *verts_i* defines the vertices of polygon *i* as a 2D
             array-like of shape (M, 2).
         sizes : array-like, default: None
-            Squared scaling factors for the polygons.
+            Squared scaling factors for the polygons. The coordinates of each
+            polygon *verts_i* are multiplied by the square-root of the
+            corresponding entry in *sizes* (i.e., *sizes* specify the scaling
+            of areas). The scaling is applied before the Artist master
+            transform.
         closed : bool, default: True
             Whether the polygon should be closed by adding a CLOSEPOLY
             connection at the end.
+        **kwargs
+            Forwarded to `.Collection`.
         """
         self._native = _collections.new_poly_collection(
             [np.asarray(v, float).reshape(-1, 2) for v in verts])
@@ -1531,6 +1555,10 @@ class RegularPolyCollection(_CollectionWithSizes):
     def get_rotation(self):
         return _unusable.kept(self, "rotation", _values.given(
             self, "rotation", _collections.get_rotation(self._native)))
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
 
 class StarPolygonCollection(RegularPolyCollection):
@@ -1952,6 +1980,10 @@ class EllipseCollection(Collection):
         """Get the angles of the first axes, degrees CCW from the x-axis."""
         return _collections.ellipse_sizes(self._native)[2]
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
 
 class PatchCollection(Collection):
     """
@@ -2034,6 +2066,9 @@ class TriMesh(Collection):
                         triangulation.y.reshape(-1, 1)))
         self._bbox.update_from_data_xy(xy)
 
+    def get_paths(self):
+        return super().get_paths()
+
     def set_paths(self):
         super().set_paths(self.convert_mesh_to_paths(self._triangulation))
 
@@ -2048,9 +2083,24 @@ class TriMesh(Collection):
         return [Path(vertices, codes)
                 for vertices, codes in _tri.triangle_paths(tri._native)]
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
 
 class _MeshData:
     """The vertex grid of a quadrilateral mesh (`QuadMesh`, `PolyQuadMesh`)."""
+
+    def __init__(self, coordinates):
+        _api.check_shape((None, None, 2), coordinates=coordinates)
+        # The vertices read back as matplotlib keeps them (`get_coordinates`).
+        self._coordinates_dtype = np.asarray(coordinates).dtype
+
+    @staticmethod
+    def _native_coordinates(coordinates):
+        """*coordinates* as pltrs (Rust) takes them: floats, NaN where
+        masked."""
+        return np.ma.filled(np.ma.asarray(coordinates, dtype=float), np.nan)
 
     def get_coordinates(self):
         """
@@ -2153,6 +2203,27 @@ class _MeshData:
         return array.reshape(rows, columns) if array.size == rows * columns else array
 
     def set_array(self, A):
+        """
+        Set the data values.
+
+        Parameters
+        ----------
+        A : array-like
+            The mesh data. Supported array shapes are:
+
+            - (M, N) or (M*N,): a mesh with scalar data. The values are mapped
+              to colors using normalization and a colormap. See parameters
+              *norm*, *cmap*, *vmin*, *vmax*.
+            - (M, N, 3): an image with RGB values (0-1 float or 0-255 int).
+            - (M, N, 4): an image with RGBA values (0-1 float or 0-255 int),
+              i.e. including transparency.
+
+            If the values are provided as a 2D grid, the shape must match the
+            coordinates grid. If the values are 1D, they are reshaped to 2D.
+            M, N follow from the coordinates grid, where the coordinates grid
+            shape is (M, N) for 'gouraud' *shading* and (M+1, N+1) for 'flat'
+            shading.
+        """
         height, width = self.get_coordinates().shape[0:-1]
         h, w = self._cells()
         ok_shapes = [(h, w, 3), (h, w, 4), (h, w), (h * w,)]
@@ -2211,12 +2282,10 @@ class QuadMesh(_MeshData, Collection):
     def __init__(self, coordinates, *, antialiased=True, shading='flat',
                  **kwargs):
         kwargs.setdefault("pickradius", 0)
-        _api.check_shape((None, None, 2), coordinates=coordinates)
+        super().__init__(coordinates=coordinates)
         self._native = _collections.new_quad_mesh(
-            np.ma.filled(np.ma.asarray(coordinates, dtype=float), np.nan),
-            shading == 'gouraud', bool(antialiased))
-        # The vertices read back as matplotlib keeps them (`get_coordinates`).
-        self._coordinates_dtype = np.asarray(coordinates).dtype
+            self._native_coordinates(coordinates), shading == 'gouraud',
+            bool(antialiased))
         Collection.__init__(self, **kwargs)
         self.set_mouseover(False)
 
@@ -2233,6 +2302,9 @@ class QuadMesh(_MeshData, Collection):
         if self._A is not None and kept.shape == self._A.shape:
             self._A = kept
 
+    def get_paths(self):
+        return super().get_paths()
+
     def set_paths(self):
         # Make the paths of the mesh's quadrilaterals from its coordinates
         # anew (pltrs (Rust) makes them from the coordinates whenever they are
@@ -2243,6 +2315,10 @@ class QuadMesh(_MeshData, Collection):
         bbox = mtransforms.Bbox.unit()
         bbox.update_from_data_xy(self.get_coordinates().reshape(-1, 2))
         return (self.get_transform() - transData).transform_bbox(bbox)
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
     def get_cursor_data(self, event):
         contained, info = self.contains(event)
@@ -2268,20 +2344,22 @@ class QuadMesh(_MeshData, Collection):
         _collections.set_antialiaseds(self._native, [bool(antialiased)])
 
     def get_antialiased(self):
-        """
-        Return the antialiasing of the collection: :rc:`patch.antialiased`
-        until set. matplotlib's mesh draws with the antialiasing it was made
-        with (``pcolormesh(antialiased=...)``, `_antialiased`), which this
-        does not read.
-        """
+        # The antialiasing of the collection: :rc:`patch.antialiased` until
+        # set. matplotlib's mesh draws with the antialiasing it was made
+        # with (``pcolormesh(antialiased=...)``, `_antialiased`), which this
+        # does not read.
         return np.array(self.__dict__.get(
             "_antialiaseds", [_rcParams()['patch.antialiased']]), dtype=bool)
 
+    get_antialiased.__doc__ = Collection.get_antialiased.__doc__
+
     def set_antialiased(self, aa):
-        """Set the antialiasing of the collection (see `get_antialiased`)."""
+        # Sets the antialiasing `get_antialiased` reads.
         if aa is None:
             aa = _rcParams()['patch.antialiased']
         self._antialiaseds = [bool(a) for a in np.atleast_1d(aa)]
+
+    set_antialiased.__doc__ = Collection.set_antialiased.__doc__
 
 
 class PolyQuadMesh(_MeshData, PolyCollection):
@@ -2317,6 +2395,12 @@ class PolyQuadMesh(_MeshData, PolyCollection):
     the list of paths returned.
     """
 
+    def __init__(self, coordinates, **kwargs):
+        super().__init__(coordinates=coordinates)
+        self._native = _collections.new_poly_quad_mesh(
+            self._native_coordinates(coordinates))
+        Collection.__init__(self, **kwargs)
+
     def _keep_given_array(self, given):
         """
         Keep the values *given* to `~.Axes.pcolor` as the mesh's array, as
@@ -2327,3 +2411,27 @@ class PolyQuadMesh(_MeshData, PolyCollection):
         kept = cbook.safe_masked_invalid(given, copy=True)
         if kept.shape == self._cells():
             self._A = kept
+
+    # pltrs (Rust) holds the polygons, colours and values of the cells it
+    # draws, those not masked, which these give.
+
+    def get_edgecolor(self):
+        # docstring inherited
+        return super().get_edgecolor()
+
+    def get_facecolor(self):
+        # docstring inherited
+        return super().get_facecolor()
+
+    def set_array(self, A):
+        # docstring inherited
+        super().set_array(A)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import itertools  # noqa: E402, F401
+from numbers import Number  # noqa: E402, F401
+from . import artist, hatch as mhatch, transforms  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

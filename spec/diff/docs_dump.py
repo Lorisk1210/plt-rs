@@ -1,7 +1,9 @@
 """What one implementation shows of matplotlib's public callables: their
-signatures, docstrings and names, for ``docs.py``.
+signatures, docstrings and names, for ``docs.py``; and of the public names
+of matplotlib's modules.
 
     python docs_dump.py --impl matplotlib|pltrs API_JSONL OUT_JSON
+                        --names OUT_NAMES [--names-of MPL_NAMES]
 
 ``API_JSONL`` holds ``spec/api-audit/enumerate.py``'s records (taken under
 matplotlib). Each callable among them (``api_index.CALLABLE_KINDS``) is
@@ -29,6 +31,18 @@ A class member is looked up along its class' MRO, as a program reads it,
 so that a member inherited from a base or a mixin counts as the class';
 a member of a private base (``_AxesBase``) along the MRO of the base's
 first public user (``Axes``), pltrs's private classes being its own.
+
+``OUT_NAMES`` describes the public names of matplotlib's modules: under
+matplotlib, of every module of ``matplotlib``, ``mpl_toolkits`` and
+``pylab`` that imports, but private ones and test packages (``tests``);
+under pltrs, of the modules and names ``MPL_NAMES`` (matplotlib's
+``OUT_NAMES``) lists, every one imported first, as walking matplotlib's
+modules imports them. A module's public names are those ``dir`` lists
+without a leading underscore, and its ``__all__``. Each name is described
+by its value's type (``type(value).__name__``) and, for a module, the
+module's name, for a value of its own repr that is hashable (a number, a
+string, an enum member, dateutil's weekdays, a tuple of them), its repr;
+both read as matplotlib's.
 """
 
 from __future__ import annotations
@@ -39,6 +53,7 @@ import inspect
 import json
 import os
 import pathlib
+import pkgutil
 import re
 import sys
 import types
@@ -57,6 +72,9 @@ IMPORT_PREFIXES = {
     "matplotlib": [],
     "pltrs": [("mpl_toolkits", "pltrs.mpl_toolkits"), ("matplotlib", "pltrs")],
 }
+#: The top-level modules of matplotlib's distribution that each
+#: implementation has under another name.
+TOP_LEVEL = {"matplotlib": {}, "pltrs": {"pylab": "pltrs.pylab"}}
 #: Callable objects of extension modules (C, pybind11).
 NATIVE_TYPES = (types.BuiltinFunctionType, types.WrapperDescriptorType, types.MethodDescriptorType,
                 types.ClassMethodDescriptorType, types.MethodWrapperType)
@@ -65,6 +83,10 @@ DOC_FIELDS = ("doc", "inherited_doc", "init_doc", "init_inherited_doc")
 #: The forms of ``_form`` other than callable objects of another type.
 STANDARD_FORMS = ("staticmethod", "classmethod", "property", "native", "class", "function")
 ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
+#: The top-level packages and modules whose modules' names are described.
+NAME_ROOTS = ("matplotlib", "mpl_toolkits", "pylab")
+#: The longest repr of a value described by its repr.
+LONGEST_REPR = 200
 
 
 def _renamer(prefixes: list[tuple[str, str]]) -> Any:
@@ -83,13 +105,19 @@ class Implementation:
         self.impl = impl
         self.as_matplotlib = _renamer(NAME_PREFIXES[impl])
         self._import_name = _renamer(IMPORT_PREFIXES[impl])
+        self._top_level = TOP_LEVEL[impl]
+        # A module's name read as matplotlib's: pltrs's ``pylab`` is also
+        # matplotlib's ``matplotlib.pylab``, which a package attribute is.
+        self.module_as_matplotlib = _renamer(
+            [rule for rule in NAME_PREFIXES[impl] if rule[0] != "pltrs.pylab"])
         self._modules: dict[str, types.ModuleType | None] = {}
 
     def module(self, name: str) -> types.ModuleType | None:
         """matplotlib's module ``name`` in the implementation, if it has it."""
         if name not in self._modules:
             try:
-                self._modules[name] = importlib.import_module(self._import_name(name))
+                self._modules[name] = importlib.import_module(
+                    self._top_level.get(name) or self._import_name(name))
             except ImportError:
                 self._modules[name] = None
         return self._modules[name]
@@ -256,6 +284,98 @@ def _pybind11_signature(doc: str | None, name: str) -> tuple[list[list[Any]], st
     return params, rest
 
 
+def public_modules() -> list[str]:
+    """matplotlib's public modules (no part of the name private, no test
+    package) that import, by name."""
+    names = []
+    for root in NAME_ROOTS:
+        package = importlib.import_module(root)
+        names.append(root)
+        if not hasattr(package, "__path__"):
+            continue
+        walked = pkgutil.walk_packages(package.__path__, f"{root}.", onerror=lambda name: None)
+        names += [info.name for info in walked
+                  if not any(part.startswith("_") or part == "tests"
+                             for part in info.name.split("."))]
+    imported = []
+    for name in sorted(set(names)):
+        try:
+            importlib.import_module(name)
+        except Exception:  # noqa: BLE001 - a module needing what is not installed is left out
+            continue
+        imported.append(name)
+    return imported
+
+
+def public_names(module: types.ModuleType) -> list[str]:
+    """The public names of *module*: those ``dir`` lists without a leading
+    underscore, and its ``__all__``."""
+    listed = getattr(module, "__all__", ())
+    return sorted({name for name in dir(module) if not name.startswith("_")}
+                  | {name for name in listed if isinstance(name, str)})
+
+
+class NameDescriber:
+    """Describes the values of module-level names of one implementation."""
+
+    def __init__(self, implementation: Implementation) -> None:
+        self.implementation = implementation
+
+    def value(self, obj: Any) -> str | None:
+        """What a value is compared by beside its type: a module's name,
+        else its repr for a hashable value with a repr of its own."""
+        if isinstance(obj, types.ModuleType):
+            return self.implementation.module_as_matplotlib(obj.__name__)
+        if inspect.isclass(obj) or inspect.isroutine(obj) or type(obj).__repr__ is object.__repr__:
+            return None
+        try:
+            hash(obj)
+            text = repr(obj)
+        except Exception:  # noqa: BLE001 - an unhashable value, or a broken repr, has none
+            return None
+        if ADDRESS.search(text) or len(text) > LONGEST_REPR:
+            return None
+        return self.implementation.as_matplotlib(text)
+
+    def describe(self, module_name: str, names: list[str]) -> dict[str, Any] | None:
+        """The names *names* of the module *module_name*, None without the
+        module."""
+        try:
+            module = self.implementation.module(module_name)
+        except Exception:  # noqa: BLE001 - a module failing to import is missing
+            module = None
+        if module is None:
+            return None
+        described = {}
+        for name in names:
+            try:
+                obj = getattr(module, name)
+            except Exception:  # noqa: BLE001 - a name failing to resolve is missing
+                described[name] = {"found": False}
+                continue
+            described[name] = {"found": True, "type": type(obj).__name__, "value": self.value(obj)}
+        return described
+
+
+def describe_module_names(implementation: Implementation, of: dict[str, Any] | None) -> dict[str, Any]:
+    """The public names of matplotlib's modules (see the module
+    documentation): those *of* lists (matplotlib's description), or, for
+    matplotlib itself, all."""
+    describer = NameDescriber(implementation)
+    if of is None:
+        modules = {name: public_names(importlib.import_module(name)) for name in public_modules()}
+    else:
+        modules = {name: [n for n, d in names.items() if d["found"]] for name, names in of.items()}
+        # Each module imported first, as walking matplotlib's imports them:
+        # a package then has its submodules as attributes in both.
+        for name in modules:
+            try:
+                implementation.module(name)
+            except Exception:  # noqa: BLE001 - a module failing to import is missing
+                pass
+    return {module: describer.describe(module, names) for module, names in modules.items()}
+
+
 def lookup(implementation: Implementation, record: dict[str, Any],
            private_users: dict[str, tuple[str, str]]) -> tuple[bool, Any]:
     """Whether the implementation has the record's callable, and what its
@@ -290,6 +410,8 @@ def main() -> int:
     parser.add_argument("--impl", choices=sorted(NAME_PREFIXES), required=True)
     parser.add_argument("api")
     parser.add_argument("out")
+    parser.add_argument("--names", required=True)
+    parser.add_argument("--names-of")
     args = parser.parse_args()
     os.environ.setdefault("MPLBACKEND", "agg")
     warnings.simplefilter("ignore")
@@ -309,6 +431,9 @@ def main() -> int:
                 described[key][field] = implementation.as_matplotlib(described[key][field])
         described[key]["kind"] = record["kind"]
     pathlib.Path(args.out).write_text(json.dumps(described, indent=0))
+    of = json.loads(pathlib.Path(args.names_of).read_text()) if args.names_of else None
+    names = describe_module_names(implementation, of)
+    pathlib.Path(args.names).write_text(json.dumps(names, indent=0))
     return 0
 
 

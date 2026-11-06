@@ -69,3 +69,8 @@ def get_projection_class(projection=None):
 
 get_projection_names = projection_registry.get_projection_names
 _docstring.interpd.register(projection_names=get_projection_names())
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from ..mpl_toolkits.mplot3d.axes3d import Axes3D  # noqa: E402, F401

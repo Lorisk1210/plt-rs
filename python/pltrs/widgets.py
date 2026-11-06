@@ -3340,7 +3340,7 @@ _RECTANGLESELECTOR_PARAMETERS_DOCSTRING = \
     handle_props : dict, optional
         Properties with which the interactive handles (marker artists) are
         drawn. See the marker arguments in `.Line2D` for valid
-        properties.  Default values are defined in ``rcParams`` except for
+        properties.  Default values are defined in ``mpl.rcParams`` except for
         the default value of ``markeredgecolor`` which will be the same as the
         ``edgecolor`` property in *props*.
 
@@ -4464,3 +4464,10 @@ class Lasso(AxesWidget):
             self.canvas.blit(self.ax.bbox)
         else:
             self.canvas.draw_idle()
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from cycler import cycler  # noqa: E402, F401
+from .patches import Ellipse, Polygon, Rectangle  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

@@ -1014,3 +1014,8 @@ def add_tools_to_container(container, tools=None):
     for group, grouptools in tools:
         for position, tool in enumerate(grouptools):
             container.add_tool(tool, group, position)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

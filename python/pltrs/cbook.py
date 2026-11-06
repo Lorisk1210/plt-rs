@@ -1880,7 +1880,9 @@ def _set_module(module, *classes):
             accessors = ([member.fget, member.fset, member.fdel]
                          if isinstance(member, property) else [member])
             for function in accessors:
-                if inspect.isfunction(function) and function.__module__ == original:
+                # (A cached function is a wrapper of one.)
+                if ((inspect.isfunction(function) or hasattr(function, "__wrapped__"))
+                        and function.__module__ == original):
                     function.__module__ = module
 
 
@@ -2542,3 +2544,8 @@ def _get_data_path(*args):
         return shipped
     from . import get_data_path
     return Path(get_data_path(), *args)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+matplotlib = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

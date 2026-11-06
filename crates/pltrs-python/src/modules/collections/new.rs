@@ -137,16 +137,7 @@ fn ellipse_collection(
 /// or not (matplotlib's `QuadMesh(coordinates, antialiased=...,
 /// shading=...)`).
 fn quad_mesh(coordinates: NdArray, gouraud: bool, antialiased: bool) -> PyResult<Collection> {
-    let &[rows, cols, 2] = coordinates.shape.as_slice() else {
-        return Err(PyErr::value_error(format!(
-            "'coordinates' must be 3D with shape (M, N, 2), but your input has shape {:?}",
-            coordinates.shape
-        )));
-    };
-    let (pairs, _) = coordinates.data.as_chunks::<2>();
-    let vertices = pairs.iter().map(|&[x, y]| Point::new(x, y)).collect();
-    let grid =
-        Grid::from_vec(rows, cols, vertices).map_err(|err| PyErr::value_error(err.to_string()))?;
+    let grid = vertex_grid(&coordinates)?;
     let shading = if gouraud {
         MeshShading::Gouraud
     } else {
@@ -159,6 +150,28 @@ fn quad_mesh(coordinates: NdArray, gouraud: bool, antialiased: bool) -> PyResult
     Ok(Collection::loose(
         CollectionSpec::quad_mesh(grid, shading).with_props(props),
     ))
+}
+
+/// A loose quadrilateral mesh drawn cell by cell on the vertices
+/// `coordinates`, an `(M, N, 2)` array with NaN for masked vertices
+/// (matplotlib's `PolyQuadMesh(coordinates)`).
+fn poly_quad_mesh(coordinates: NdArray) -> PyResult<Collection> {
+    Ok(Collection::loose(CollectionSpec::poly_quad_mesh(
+        vertex_grid(&coordinates)?,
+    )))
+}
+
+/// The vertex grid of a mesh from its `(M, N, 2)` array of coordinates.
+fn vertex_grid(coordinates: &NdArray) -> PyResult<Grid<Point>> {
+    let &[rows, cols, 2] = coordinates.shape.as_slice() else {
+        return Err(PyErr::value_error(format!(
+            "'coordinates' must be 3D with shape (M, N, 2), but your input has shape {:?}",
+            coordinates.shape
+        )));
+    };
+    let (pairs, _) = coordinates.data.as_chunks::<2>();
+    let vertices = pairs.iter().map(|&[x, y]| Point::new(x, y)).collect();
+    Grid::from_vec(rows, cols, vertices).map_err(|err| PyErr::value_error(err.to_string()))
 }
 
 /// A loose triangle mesh over the unmasked triangles of `triangulation`
@@ -181,6 +194,21 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_regular_poly_collection", regular_poly_collection)?;
     module.add("new_ellipse_collection", ellipse_collection)?;
     module.add("new_quad_mesh", quad_mesh)?;
+    module.add("new_poly_quad_mesh", poly_quad_mesh)?;
     module.add("new_tri_mesh", tri_mesh)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_poly_quad_mesh_takes_a_grid_of_vertices() {
+        let coordinates: Vec<f64> = (0..12).map(f64::from).collect();
+        let grid = NdArray::with_shape(coordinates.clone(), vec![2, 3, 2]).unwrap();
+        assert_eq!(poly_quad_mesh(grid).unwrap().paths().len(), 2);
+        let flat = NdArray::with_shape(coordinates, vec![6, 2]).unwrap();
+        assert!(poly_quad_mesh(flat).is_err());
+    }
 }

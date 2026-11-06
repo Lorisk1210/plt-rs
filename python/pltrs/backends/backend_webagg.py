@@ -330,3 +330,12 @@ def ipython_inline_display(figure):
 class _BackendWebAgg(_Backend):
     FigureCanvas = FigureCanvasWebAgg
     FigureManager = FigureManagerWebAgg
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import errno  # noqa: E402, F401
+import mimetypes  # noqa: E402, F401
+import random  # noqa: E402, F401
+import threading  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

@@ -33,6 +33,22 @@ def _getdoc(obj):
     return _cleaned(doc) if isinstance(doc, str) else inspect.getdoc(obj)
 
 
+def _setter_valid_values(func):
+    """The legal arguments of the setter *func* (see
+    `ArtistInspector.get_valid_values`)."""
+    if hasattr(func, '_kwarg_doc'):
+        return func._kwarg_doc
+
+    docstring = _getdoc(func)
+    if docstring is None:
+        return 'unknown'
+
+    # (pltrs: the setters of mirrorable classes are wrapped; the values
+    # are read once for every class sharing the setter.)
+    setter = inspect.unwrap(func, stop=lambda f: not getattr(f, '_pushes', False))
+    return _valid_values(docstring, setter.__code__)
+
+
 @cache
 def _valid_values(docstring, code):
     """
@@ -124,19 +140,7 @@ class ArtistInspector:
         name = 'set_%s' % attr
         if not hasattr(self.o, name):
             raise AttributeError(f'{self.o} has no function {name}')
-        func = getattr(self.o, name)
-
-        if hasattr(func, '_kwarg_doc'):
-            return func._kwarg_doc
-
-        docstring = _getdoc(func)
-        if docstring is None:
-            return 'unknown'
-
-        # (pltrs: the setters of mirrorable classes are wrapped; the values
-        # are read once for every class sharing the setter.)
-        setter = inspect.unwrap(func, stop=lambda f: not getattr(f, '_pushes', False))
-        return _valid_values(docstring, setter.__code__)
+        return _setter_valid_values(getattr(self.o, name))
 
     def _replace_path(self, source_class):
         """

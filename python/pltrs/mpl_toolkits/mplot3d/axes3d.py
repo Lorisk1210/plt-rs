@@ -142,6 +142,8 @@ _made = threading.local()
 
 
 @_docstring.interpd
+@_api.define_aliases({
+    "xlim": ["xlim3d"], "ylim": ["ylim3d"], "zlim": ["zlim3d"]})
 class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     """
     3D Axes object.
@@ -434,18 +436,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         pass
 
-    def get_zticks(self, *, minor=False):
-        """Return the zaxis' tick locations in data coordinates."""
-        return self.zaxis.get_ticklocs(minor=minor)
-
-    def set_zticks(self, ticks, labels=None, *, minor=False, **kwargs):
-        """Set the zaxis' tick locations (`.Axis.set_ticks`)."""
-        return self.zaxis.set_ticks(ticks, labels, minor=minor, **kwargs)
-
-    def set_zticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
-        """Set the zaxis' tick labels (`.Axis.set_ticklabels`)."""
-        return self.zaxis.set_ticklabels(labels, minor=minor,
-                                         fontdict=fontdict, **kwargs)
+    get_zticks = _axis_method_wrapper("zaxis", "get_ticklocs")
+    set_zticks = _axis_method_wrapper("zaxis", "set_ticks")
+    set_zticklabels = _axis_method_wrapper(
+        "zaxis", "set_ticklabels",
+        doc_sub={"Axis.set_ticks": "Axes3D.set_zticks"})
 
     def autoscale_view(self, tight=None,
                        scalex=True, scaley=True, scalez=True):
@@ -771,10 +766,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         return _values.float64s(_mplot3d.get_lim(self._native, 'z'))
 
-    get_xlim3d = get_xlim
-    get_ylim3d = get_ylim
-    get_zlim3d = get_zlim
-
     def get_w_lims(self):
         """Get 3D world limits."""
         minx, maxx = self.get_xlim3d()
@@ -914,9 +905,32 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """Return whether the yaxis is oriented in the "inverse" direction."""
         return self.yaxis.get_inverted()
 
-    def zaxis_inverted(self):
-        """Return whether the zaxis is oriented in the "inverse" direction."""
-        return self.zaxis.get_inverted()
+    zaxis_inverted = _axis_method_wrapper("zaxis", "get_inverted")
+    if zaxis_inverted.__doc__:
+        zaxis_inverted.__doc__ = ("[*Discouraged*] " + zaxis_inverted.__doc__ +
+                                  textwrap.dedent("""
+
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged.
+            Use `.Axes3D.get_zinverted` instead.
+        """))
+
+    # The frame_on methods are not available for 3D axes.
+    get_frame_on = None
+    set_frame_on = None
+
+    def apply_aspect(self, position=None):
+        # docstring inherited
+        super().apply_aspect(position)
+
+    def can_zoom(self):
+        # doc-string inherited
+        return super().can_zoom()
+
+    def can_pan(self):
+        # doc-string inherited
+        return super().can_pan()
 
     # -- autoscaling -------------------------------------------------------
 
@@ -936,9 +950,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                    for name in self._axis_names)
 
     def set_autoscale_on(self, b):
-        """Set whether autoscaling is applied to each axis on the next draw."""
+        # Set whether autoscaling is applied to each axis on the next draw.
         for name in self._axis_names:
             _mplot3d.set_autoscale_on(self._native, name, bool(b))
+
+    set_autoscale_on.__doc__ = Axes.set_autoscale_on.__doc__
 
     get_autoscalez_on = _axis_method_wrapper("zaxis", "_get_autoscale_on")
     set_autoscalez_on = _axis_method_wrapper("zaxis", "_set_autoscale_on")
@@ -1023,12 +1039,16 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         self.stale = True
 
     def set_xmargin(self, m):
-        """Set padding of X data limits prior to autoscaling."""
+        # Set padding of X data limits prior to autoscaling.
         self._set_margin('x', m)
 
+    set_xmargin.__doc__ = Axes.set_xmargin.__doc__
+
     def set_ymargin(self, m):
-        """Set padding of Y data limits prior to autoscaling."""
+        # Set padding of Y data limits prior to autoscaling.
         self._set_margin('y', m)
+
+    set_ymargin.__doc__ = Axes.set_ymargin.__doc__
 
     def set_zmargin(self, m):
         """
@@ -1369,20 +1389,22 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return _mplot3d.get_aspect(self._native)[0]
 
     def set_adjustable(self, adjustable, share=False):
-        """
-        Set what keeps the aspect: the box ('box') or the data limits
-        ('datalim'), as `.Axes.set_adjustable` records it; `set_aspect`
-        applies it.
-        """
+        # Set what keeps the aspect: the box ('box') or the data limits
+        # ('datalim'), as `.Axes.set_adjustable` records it; `set_aspect`
+        # applies it.
         _api.check_in_list(["box", "datalim"], adjustable=adjustable)
         for ax in self._aspect_group(share):
             _mplot3d.set_adjustable(ax._native, adjustable)
         self.stale = True
 
+    set_adjustable.__doc__ = Axes.set_adjustable.__doc__
+
     def get_adjustable(self):
-        """Return whether the box ('box') or the data limits ('datalim')
-        keep the aspect."""
+        # Return whether the box ('box') or the data limits ('datalim') keep the
+        # aspect.
         return _mplot3d.get_aspect(self._native)[1]
+
+    get_adjustable.__doc__ = Axes.get_adjustable.__doc__
 
     def get_proj(self):
         """Create the projection matrix from the current viewing position."""
@@ -1640,13 +1662,17 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
-        """Set the label for the x-axis."""
+        # Set the label for the x-axis.
         return self._set_axis_label('x', xlabel, fontdict, labelpad, kwargs)
+
+    set_xlabel.__doc__ = Axes.set_xlabel.__doc__
 
     def set_ylabel(self, ylabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
-        """Set the label for the y-axis."""
+        # Set the label for the y-axis.
         return self._set_axis_label('y', ylabel, fontdict, labelpad, kwargs)
+
+    set_ylabel.__doc__ = Axes.set_ylabel.__doc__
 
     def set_zlabel(self, zlabel, fontdict=None, labelpad=None, **kwargs):
         """
@@ -2743,3 +2769,16 @@ class _Quaternion:
         elev = np.arcsin(np.clip(2*(qw*qy+qz*qx)/(qw*qw+qx*qx+qy*qy+qz*qz), -1, 1))
         roll = np.arctan2(2*(qw*qx-qy*qz), qw*qw-qx*qx-qy*qy+qz*qz)
         return elev, azim, roll
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import itertools  # noqa: E402, F401
+import math  # noqa: E402, F401
+import pltrs as mpl  # noqa: E402, F401
+from collections import defaultdict  # noqa: E402, F401
+from pltrs import (  # noqa: E402, F401
+    artist as martist, container as mcontainer, image as mimage,
+    transforms as mtransforms)
+from pltrs.mpl_toolkits.mplot3d import proj3d  # noqa: E402, F401
+from pltrs.tri._triangulation import Triangulation  # noqa: E402, F401

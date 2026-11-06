@@ -1978,6 +1978,19 @@ additive:
   into the docstring. `cargo xtask diff --docs` measures signatures,
   docstrings and names against matplotlib's; a module documenting an
   artist class's properties (`%(Line2D:kwdoc)s`) imports that class' module.
+* Class layout is matplotlib's: where matplotlib's class defines a method
+  of its own, ours does too, if only to call the shared one (``def
+  draw(self, renderer): super().draw(renderer)``), so that `__qualname__`,
+  `__module__` and ``help`` read the class'. A mixin that several classes
+  share, or that comes before the class' documented base in its MRO, has
+  no docstring of its own (a comment says what it does), so that ``help``
+  shows what matplotlib's shows; a constructor whose inherited docstring
+  such a mixin hides gets it (``__init__.__doc__ = Axes.__init__.__doc__``).
+* The names matplotlib's modules have from their imports (``np``, ``mpl``,
+  the sibling modules, the classes and constants they re-export), which
+  programs import from them, are imported at the end of the module, after
+  the comment "What matplotlib's module also has from its imports";
+  `cargo xtask diff --docs` lists the ones missing.
 * No duplication: shared behaviour lives in a base class (`Artist`) or a
   helper module (`_handles`, `cbook`), as in matplotlib.
 * Code taken from matplotlib (pure-Python modules such as `_api`,

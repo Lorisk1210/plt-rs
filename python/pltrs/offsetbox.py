@@ -556,6 +556,32 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         r"""Return a list of the child `.Artist`\s."""
         return self._children
 
+    def contains(self, mouseevent):
+        """
+        Delegate the mouse event contains-check to the children.
+
+        As a container, the `.OffsetBox` does not respond itself to
+        mouseevents.
+
+        Parameters
+        ----------
+        mouseevent : `~matplotlib.backend_bases.MouseEvent`
+
+        Returns
+        -------
+        contains : bool
+            Whether any values are within the radius.
+        details : dict
+            An artist-specific dictionary of details of the event context,
+            such as which points are contained in the pick radius. See the
+            individual Artist subclasses for details.
+
+        See Also
+        --------
+        .Artist.contains
+        """
+        return super().contains(mouseevent)
+
     def get_bbox(self, renderer):
         """Return the bbox of the offsetbox, ignoring parent offsets."""
         laid_out = self._laid_out_bbox(renderer)
@@ -1719,6 +1745,9 @@ class OffsetImage(OffsetBox):
     def get_data(self):
         return self._data
 
+    def get_children(self):
+        return super().get_children()
+
     def set_zoom(self, zoom):
         self._zoom = zoom
         self._changed()
@@ -1781,6 +1810,14 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
 
     def get_tightbbox(self, renderer=None):
         return self._placed_extent()
+
+    def contains(self, mouseevent):
+        # (pltrs (Rust) hit-tests the child box while the box is shown.)
+        return super().contains(mouseevent)
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
 
     def _placed_extent(self):
         """The box placed in the figure as it is now; a box outside any
@@ -1966,30 +2003,17 @@ or callable, default: value of *xycoords*
         from ._annotation_arrow import AnnotationBboxArrow, mirror
         return mirror(self, AnnotationBboxArrow)
 
-    def set_annotation_clip(self, b):
-        """
-        Set the annotation's clipping behavior.
-
-        Parameters
-        ----------
-        b : bool or None
-            - True: The annotation will be clipped when ``self.xy`` is
-              outside the Axes.
-            - False: The annotation will always be drawn.
-            - None: The annotation will be clipped when ``self.xy`` is
-              outside the Axes and ``self.xycoords == "data"``.
-        """
+    def _set_native_annotation_clip(self, b):
+        """Keep the clipping behavior *b*, and give it to pltrs (Rust)'s
+        box once it is in a figure."""
         self._annotation_clip = b
         if self._figure is not None:
             _offsetbox.set_annotation_clip(self._native, b)
             self.stale = True
 
-    def get_annotation_clip(self):
-        """
-        Return the annotation's clipping behavior.
-
-        See `set_annotation_clip` for the meaning of return values.
-        """
+    def _native_annotation_clip(self):
+        """The clipping behavior: pltrs (Rust)'s, once the box is in a
+        figure."""
         if self._figure is not None:
             return _offsetbox.get_annotation_clip(self._native)
         return self._annotation_clip
@@ -2229,3 +2253,12 @@ class DraggableAnnotation(DraggableBase):
         ann = self.annotation
         ann.xyann = ann.get_transform().inverted().transform(
             (self.ox + dx, self.oy + dy))
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from . import artist as martist, path as mpath  # noqa: E402, F401
+from .image import BboxImage  # noqa: E402, F401
+from .patches import (  # noqa: E402, F401
+    bbox_artist as mbbox_artist, FancyArrowPatch, FancyBboxPatch)
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

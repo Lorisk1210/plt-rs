@@ -33,7 +33,33 @@ class _AxisArtistHelperBase:
     Base class for axis helper.
 
     Subclasses should define the methods listed below.  The *axes*
-    argument will be the ``.axes`` attribute of the caller artist.
+    argument will be the ``.axes`` attribute of the caller artist. ::
+
+        # Construct the spine.
+
+        def get_line_transform(self, axes):
+            return transform
+
+        def get_line(self, axes):
+            return path
+
+        # Construct the label.
+
+        def get_axislabel_transform(self, axes):
+            return transform
+
+        def get_axislabel_pos_angle(self, axes):
+            return (x, y), angle
+
+        # Construct the ticks.
+
+        def get_tick_transform(self, axes):
+            return transform
+
+        def get_tick_iterators(self, axes):
+            # A pair of iterables (one for major ticks, one for minor ticks)
+            # that yield (tick_position, tick_angle, tick_label).
+            return iter_major, iter_minor
     """
 
     def __init__(self, nth_coord):
@@ -469,3 +495,9 @@ class AxesZero(Axes):
 
 Subplot = Axes
 SubplotZero = AxesZero
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import pltrs as mpl  # noqa: E402, F401
+from pltrs.mpl_toolkits.axisartist.axisline_style import AxislineStyle  # noqa: E402, F401

@@ -116,6 +116,7 @@ pub use crate::ticker::AxisName;
 pub use add_artist::AddAs;
 pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError, AxesLocatorFn};
+pub use axis::TickHelperKind;
 pub(crate) use axis::TickerDefaults;
 pub use axis_artists::{AxisGroup, TickPart};
 pub use axis_handle::Axis;

@@ -1014,3 +1014,8 @@ _docstring.interpd.register(
     scale_type='{%s}' % ', '.join([repr(x) for x in get_scale_names()]),
     scale_docs=_get_scale_docs().rstrip(),
     )
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

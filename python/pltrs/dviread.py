@@ -564,3 +564,17 @@ def _parse_enc(path):
         The nth list item is the PostScript glyph name of the nth glyph.
     """
     return _dviread.parse_enc(Path(path).read_bytes())
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import enum  # noqa: E402, F401
+import numpy as np  # noqa: E402, F401
+import re  # noqa: E402, F401
+import struct  # noqa: E402, F401
+import subprocess  # noqa: E402, F401
+import sys  # noqa: E402, F401
+from functools import cache, partial, wraps  # noqa: E402, F401
+from . import cbook, font_manager  # noqa: E402, F401
+from .ft2font import LoadFlags  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

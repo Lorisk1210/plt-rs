@@ -20,7 +20,7 @@ from ._stream_grid import (  # noqa: F401 - matplotlib's names of the module
 __all__ = ['streamplot']
 
 cbook._set_module(__name__, DomainMap, Grid, InvalidIndexError, OutOfBounds,
-                  StreamMask, TerminateTrajectory)
+                  StreamMask, TerminateTrajectory, interpgrid)
 
 
 def _grid_axis(values, name):
@@ -217,3 +217,9 @@ class StreamplotSet:
     def __init__(self, lines, arrows):
         self.lines = lines
         self.arrows = arrows
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from . import colorizer, lines as mlines  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

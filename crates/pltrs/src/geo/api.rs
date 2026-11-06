@@ -18,6 +18,9 @@ use crate::ticker::pyfmt;
 pub enum GeoError {
     /// A grid spacing that is not a positive, finite number of degrees.
     GridSpacing(f64),
+    /// A centre given to axes drawn through another projection than
+    /// Lambert's, the one that has a centre.
+    NotLambert,
 }
 
 impl fmt::Display for GeoError {
@@ -27,6 +30,7 @@ impl fmt::Display for GeoError {
                 f,
                 "grid spacing must be a positive number of degrees, not {degrees}"
             ),
+            Self::NotLambert => f.write_str("only a Lambert projection has a centre"),
         }
     }
 }
@@ -95,6 +99,42 @@ impl GeoAxes {
     /// The map projection.
     pub fn geo_projection(&self) -> GeoProjection {
         self.settings(|settings| settings.projection)
+    }
+
+    /// Centres the Lambert projection the axes are drawn through at
+    /// `longitude` and `latitude`, in radians (matplotlib's
+    /// `LambertAxes(center_longitude=..., center_latitude=...)`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::geo::GeoProjection;
+    /// let ax = Figure::new().geo_subplot(GeoProjection::LAMBERT);
+    /// ax.set_lambert_center(0.5, -0.25)?;
+    /// assert_eq!(
+    ///     ax.geo_projection(),
+    ///     GeoProjection::Lambert { center_longitude: 0.5, center_latitude: -0.25 }
+    /// );
+    /// # Ok::<(), pltrs::geo::GeoError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the axes are drawn through another projection.
+    pub fn set_lambert_center(&self, longitude: f64, latitude: f64) -> Result<&Self, GeoError> {
+        self.axes
+            .with_projection_mut(|settings: &mut GeoState| match &mut settings.projection {
+                GeoProjection::Lambert {
+                    center_longitude,
+                    center_latitude,
+                } => {
+                    *center_longitude = longitude;
+                    *center_latitude = latitude;
+                    Ok(())
+                }
+                _ => Err(GeoError::NotLambert),
+            })
+            .expect("a GeoAxes handle refers to geographic axes")?;
+        Ok(self)
     }
 
     /// Puts a longitude gridline every `degrees`, skipping the edges at
@@ -254,6 +294,8 @@ impl Axes {
 mod tests {
     use std::f64::consts::{FRAC_PI_2, PI};
 
+    use pltrs_core::Point;
+
     use super::*;
     use crate::axes::{AxisName, ProjectionKind};
     use crate::scale::ScaleName;
@@ -326,6 +368,20 @@ mod tests {
             Some(GeoError::GridSpacing(0.0))
         );
         assert!(ax.set_latitude_grid(f64::NAN).is_err());
+    }
+
+    #[test]
+    fn only_lambert_axes_take_a_centre() {
+        let ax = Figure::new().geo_subplot(GeoProjection::LAMBERT);
+        ax.set_lambert_center(1.0, 0.5).unwrap();
+        let projected = ax.geo_projection().forward(Point::new(1.0, 0.5));
+        assert!(projected.x.abs() < 1e-12 && projected.y.abs() < 1e-12);
+        let aitoff = Figure::new().geo_subplot(GeoProjection::Aitoff);
+        assert_eq!(
+            aitoff.set_lambert_center(1.0, 0.5).err(),
+            Some(GeoError::NotLambert)
+        );
+        assert_eq!(aitoff.geo_projection(), GeoProjection::Aitoff);
     }
 
     #[test]

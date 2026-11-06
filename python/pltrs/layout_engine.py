@@ -369,3 +369,9 @@ class ConstrainedLayoutEngine(LayoutEngine):
 
 __all__ = ["LayoutEngine", "PlaceHolderLayoutEngine", "TightLayoutEngine",
            "ConstrainedLayoutEngine"]
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from contextlib import nullcontext  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

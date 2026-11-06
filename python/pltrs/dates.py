@@ -27,6 +27,10 @@ from ._date_locators import (  # noqa: F401  (matplotlib's dates defines them)
     RRuleLocator, SecondLocator, WeekdayLocator, YearLocator, rrulewrapper)
 from ._native import dates as _dates
 
+from dateutil.relativedelta import relativedelta  # noqa: F401  (matplotlib's dates has it)
+from dateutil.rrule import rrule  # noqa: F401  (matplotlib's dates has it)
+import dateutil  # noqa: F401  (matplotlib's dates has it)
+
 __all__ = ('datestr2num', 'date2num', 'num2date', 'num2timedelta', 'drange',
            'set_epoch', 'get_epoch', 'DateFormatter', 'ConciseDateFormatter',
            'AutoDateFormatter',
@@ -37,6 +41,13 @@ __all__ = ('datestr2num', 'date2num', 'num2date', 'num2timedelta', 'drange',
            'YEARLY', 'MONTHLY', 'WEEKLY', 'DAILY',
            'HOURLY', 'MINUTELY', 'SECONDLY', 'MICROSECONDLY',
            'DateConverter', 'ConciseDateConverter', 'rrulewrapper', 'UTC')
+
+EPOCH_OFFSET = float(datetime.datetime(1970, 1, 1).toordinal())
+# EPOCH_OFFSET is not used by matplotlib
+
+MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY = (
+    MO, TU, WE, TH, FR, SA, SU)
+WEEKDAYS = (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)
 
 UTC = datetime.timezone.utc
 
@@ -795,3 +806,11 @@ cbook._set_module(
     __name__, AutoDateLocator, DateLocator, DayLocator, HourLocator,
     MicrosecondLocator, MinuteLocator, MonthLocator, RRuleLocator,
     SecondLocator, WeekdayLocator, YearLocator, rrulewrapper)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import logging  # noqa: E402, F401
+import re  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

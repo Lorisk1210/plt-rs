@@ -728,6 +728,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             return Bbox.null()
         return self.get_window_extent(renderer)
 
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
     def set_color(self, color):
         """
         Set the foreground color of the text
@@ -1410,6 +1414,29 @@ class _AnnotationBase(CoordsMixin):
     the mouse.
     """
 
+    def set_annotation_clip(self, b):
+        """
+        Set the annotation's clipping behavior.
+
+        Parameters
+        ----------
+        b : bool or None
+            - True: The annotation will be clipped when ``self.xy`` is
+              outside the Axes.
+            - False: The annotation will always be drawn.
+            - None: The annotation will be clipped when ``self.xy`` is
+              outside the Axes and ``self.xycoords == "data"``.
+        """
+        self._set_native_annotation_clip(b)
+
+    def get_annotation_clip(self):
+        """
+        Return the annotation's clipping behavior.
+
+        See `set_annotation_clip` for the meaning of return values.
+        """
+        return self._native_annotation_clip()
+
     def draggable(self, state=None, use_blit=False):
         """
         Set whether the annotation is draggable with the mouse.
@@ -1698,6 +1725,18 @@ or callable, default: value of *xycoords*
         self._measured()
         return self._native_extent(lambda: Text._text_extent(self))
 
+    def contains(self, mouseevent):
+        # (pltrs (Rust) hit-tests the text and its arrow.)
+        return super().contains(mouseevent)
+
+    def get_tightbbox(self, renderer=None):
+        # docstring inherited
+        return super().get_tightbbox(renderer)
+
+    def draw(self, renderer):
+        # docstring inherited
+        super().draw(renderer)
+
     def _text_extent(self):
         # The text alone, without the arrow (``Text.get_window_extent``).
         return _annotation.text_extent(self._native)
@@ -1774,27 +1813,12 @@ or callable, default: value of *xycoords*
     anncoords = property(get_anncoords, set_anncoords, doc="""
         The coordinate system to use for `.Annotation.xyann`.""")
 
-    def set_annotation_clip(self, b):
-        """
-        Set the annotation's clipping behavior.
-
-        Parameters
-        ----------
-        b : bool or None
-            - True: The annotation will be clipped when ``self.xy`` is
-              outside the Axes.
-            - False: The annotation will always be drawn.
-            - None: The annotation will be clipped when ``self.xy`` is
-              outside the Axes and ``self.xycoords == "data"``.
-        """
+    def _set_native_annotation_clip(self, b):
+        """Give pltrs (Rust)'s annotation the clipping behavior *b*."""
         _annotation.set_annotation_clip(self._native, b)
 
-    def get_annotation_clip(self):
-        """
-        Return the annotation's clipping behavior.
-
-        See `set_annotation_clip` for the meaning of return values.
-        """
+    def _native_annotation_clip(self):
+        """The clipping behavior of pltrs (Rust)'s annotation."""
         return _annotation.get_annotation_clip(self._native)
 
     def update_positions(self, renderer):
@@ -1813,3 +1837,16 @@ _text_overrides.watch(sys.modules[__name__], Text)
 
 
 _docstring.interpd.register(Annotation=Annotation.__init__.__doc__)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import functools  # noqa: E402, F401
+import itertools  # noqa: E402, F401
+import logging  # noqa: E402, F401
+import math  # noqa: E402, F401
+from . import artist, colors as mcolors  # noqa: E402, F401
+from .font_manager import get_font  # noqa: E402, F401
+from .patches import FancyArrowPatch, FancyBboxPatch, Rectangle  # noqa: E402, F401
+from .transforms import Affine2D, BboxTransformTo, IdentityTransform  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

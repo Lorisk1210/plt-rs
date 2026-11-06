@@ -291,6 +291,54 @@ class RendererSVG(DocumentDrawingMixin, RendererBase):
         # docstring inherited
         return self.image_dpi / 72.0
 
+    # The drawing methods of `._native_drawing.DocumentDrawingMixin`, which
+    # pltrs (Rust) draws, as the renderer's own (matplotlib's renderers each
+    # define them).
+
+    def open_group(self, s, gid=None):
+        # docstring inherited
+        super().open_group(s, gid)
+
+    def close_group(self, s):
+        # docstring inherited
+        super().close_group(s)
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        # docstring inherited
+        super().draw_path(gc, path, transform, rgbFace)
+
+    def draw_markers(self, gc, marker_path, marker_trans, path, trans,
+                     rgbFace=None):
+        # docstring inherited
+        super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
+
+    def draw_path_collection(self, gc, master_transform, paths, all_transforms,
+                             offsets, offset_trans, facecolors, edgecolors,
+                             linewidths, linestyles, antialiaseds, urls,
+                             offset_position, *, hatchcolors=None):
+        # docstring inherited
+        super().draw_path_collection(
+            gc, master_transform, paths, all_transforms, offsets, offset_trans,
+            facecolors, edgecolors, linewidths, linestyles, antialiaseds, urls,
+            offset_position, hatchcolors=hatchcolors)
+
+    def draw_gouraud_triangles(self, gc, triangles_array, colors_array,
+                               transform):
+        # docstring inherited
+        super().draw_gouraud_triangles(gc, triangles_array, colors_array, transform)
+
+    def draw_image(self, gc, x, y, im, transform=None):
+        # docstring inherited
+        super().draw_image(gc, x, y, im, transform)
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        # docstring inherited
+        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
+
+    def flipy(self):
+        # docstring inherited
+        return super().flipy()
+
 
 class FigureCanvasSVG(FigureCanvasBase):
     filetypes = {'svg': 'Scalable Vector Graphics',
@@ -298,8 +346,7 @@ class FigureCanvasSVG(FigureCanvasBase):
 
     fixed_dpi = 72
 
-    def print_svg(self, filename, *, bbox_inches_restore=None, metadata=None,
-                  facecolor=None, edgecolor=None):
+    def print_svg(self, filename, *, bbox_inches_restore=None, metadata=None):
         """
         Parameters
         ----------
@@ -331,16 +378,13 @@ class FigureCanvasSVG(FigureCanvasBase):
 
             __ DC_
         """
-        self._print_svg("svg", filename, bbox_inches_restore, metadata,
-                        facecolor, edgecolor)
+        self._print_svg("svg", filename, bbox_inches_restore=bbox_inches_restore,
+                        metadata=metadata)
 
-    def print_svgz(self, filename, *, bbox_inches_restore=None, metadata=None,
-                   facecolor=None, edgecolor=None):
-        self._print_svg("svgz", filename, bbox_inches_restore, metadata,
-                        facecolor, edgecolor)
+    def print_svgz(self, filename, **kwargs):
+        self._print_svg("svgz", filename, **kwargs)
 
-    def _print_svg(self, fmt, filename, bbox_inches_restore, metadata,
-                   facecolor, edgecolor):
+    def _print_svg(self, fmt, filename, *, bbox_inches_restore=None, metadata=None):
         """Write the figure as *fmt*, ``svg`` or ``svgz``, its texts measured
         through the metrics cache of a renderer of the print's own, as
         matplotlib's ``print_svg`` draws with a new `RendererSVG`."""
@@ -348,8 +392,7 @@ class FigureCanvasSVG(FigureCanvasBase):
         renderer = RendererSVG(width * 72, height * 72, None, image_dpi=self.figure.dpi)
         with _measuring_with(renderer):
             self._print_native(fmt, filename, metadata=_svg_metadata(metadata),
-                               bbox_inches_restore=bbox_inches_restore,
-                               facecolor=facecolor, edgecolor=edgecolor)
+                               bbox_inches_restore=bbox_inches_restore)
 
     def get_default_filetype(self):
         return 'svg'
@@ -377,3 +420,23 @@ FigureManagerSVG = FigureManagerBase
 class _BackendSVG(_Backend):
     backend_version = __version__
     FigureCanvas = FigureCanvasSVG
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import base64  # noqa: E402, F401
+import codecs  # noqa: E402, F401
+import gzip  # noqa: E402, F401
+import hashlib  # noqa: E402, F401
+import itertools  # noqa: E402, F401
+import logging  # noqa: E402, F401
+import os  # noqa: E402, F401
+import re  # noqa: E402, F401
+import uuid  # noqa: E402, F401
+from PIL import Image  # noqa: E402, F401
+from io import BytesIO  # noqa: E402, F401
+from .. import cbook, font_manager as fm  # noqa: E402, F401
+from ..colors import to_hex as rgb2hex  # noqa: E402, F401
+from ..path import Path  # noqa: E402, F401
+from ..transforms import Affine2D, Affine2DBase  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

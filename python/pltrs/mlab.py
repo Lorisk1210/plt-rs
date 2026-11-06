@@ -741,3 +741,9 @@ class GaussianKDE:
         return _mlab.kde_evaluate(self._native, np.asarray(points, dtype=float))
 
     __call__ = evaluate
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import sys  # noqa: E402, F401
+from numbers import Integral  # noqa: E402, F401

@@ -319,6 +319,19 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
         return _text_overrides.measure_pgf(s, FontManager._props(prop),
                                            float(self.dpi))
 
+    # The drawing methods of `._native_drawing.DocumentDrawingMixin`, which
+    # pltrs (Rust) draws, as the renderer's own (matplotlib's renderers each
+    # define them).
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        # docstring inherited
+        super().draw_path(gc, path, transform, rgbFace)
+
+    def draw_markers(self, gc, marker_path, marker_trans, path, trans,
+                     rgbFace=None):
+        # docstring inherited
+        super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
+
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
         h, w = im.shape[:2]
@@ -330,6 +343,14 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
                 "streamed pgf-code does not support raster graphics, consider "
                 "using the pgf-to-pdf option")
         super().draw_image(gc, x, y, im, transform)
+
+    def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
+        # docstring inherited
+        super().draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        # docstring inherited
+        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
 
 
 class FigureCanvasPgf(FigureCanvasBase):
@@ -349,31 +370,33 @@ class FigureCanvasPgf(FigureCanvasBase):
             self.figure, width, height, dpi, RendererPgf(self.figure, None),
             bbox_inches_restore=bbox_inches_restore)
 
-    def print_pgf(self, fname_or_fh, *, bbox_inches_restore=None,
-                  facecolor=None, edgecolor=None):
+    def print_pgf(self, fname_or_fh, **kwargs):
         """
         Output pgf macros for drawing the figure so it can be included and
         rendered in latex documents.
         """
         with cbook.open_file_cm(fname_or_fh, "w", encoding="utf-8") as file:
-            # Images go beside a file of the picture's that has a name, as
-            # <stem>-img<N>.png; a stream cannot hold them.
-            name = getattr(file, "name", "")
-            path = (pathlib.Path(name)
-                    if isinstance(name, (str, os.PathLike)) and os.path.exists(name)
-                    else None)
-            settings = self._print_settings(
-                bbox_inches_restore=bbox_inches_restore,
-                facecolor=facecolor, edgecolor=edgecolor)
-            with self._program_drawing(bbox_inches_restore):
-                text, images = _backends.print_pgf(
-                    self.figure._native, settings,
-                    None if path is None else path.stem,
-                    self._draw_event_sender())
-            for image_name, png in images:
-                (path.parent / image_name).write_bytes(png)
-            file.write(text if cbook.file_requires_unicode(file)
-                       else text.encode("utf-8"))
+            self._print_pgf_to_fh(file, **kwargs)
+
+    def _print_pgf_to_fh(self, file, *, bbox_inches_restore=None):
+        """Write the picture's macros to *file*."""
+        # Images go beside a file of the picture's that has a name, as
+        # <stem>-img<N>.png; a stream cannot hold them.
+        name = getattr(file, "name", "")
+        path = (pathlib.Path(name)
+                if isinstance(name, (str, os.PathLike)) and os.path.exists(name)
+                else None)
+        settings = self._print_settings(
+            bbox_inches_restore=bbox_inches_restore)
+        with self._program_drawing(bbox_inches_restore):
+            text, images = _backends.print_pgf(
+                self.figure._native, settings,
+                None if path is None else path.stem,
+                self._draw_event_sender())
+        for image_name, png in images:
+            (path.parent / image_name).write_bytes(png)
+        file.write(text if cbook.file_requires_unicode(file)
+                   else text.encode("utf-8"))
 
     def print_pdf(self, fname_or_fh, *, metadata=None, **kwargs):
         """Use LaTeX to compile a pgf generated figure to pdf."""
@@ -427,10 +450,6 @@ class FigureCanvasPgf(FigureCanvasBase):
             with (png_path.open("rb") as orig,
                   cbook.open_file_cm(fname_or_fh, "wb") as dest):
                 shutil.copyfileobj(orig, dest)  # copy file contents to target
-
-    def draw(self):
-        self.figure.draw_without_rendering()
-        return super().draw()
 
 
 FigureManagerPgf = FigureManagerBase
@@ -567,3 +586,14 @@ class PdfPages:
     def get_pagecount(self):
         """Return the current number of pages in the multipage pdf file."""
         return self._n_figures
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import codecs  # noqa: E402, F401
+import math  # noqa: E402, F401
+from PIL import Image  # noqa: E402, F401
+from .. import font_manager as fm  # noqa: E402, F401
+from ..font_manager import FontProperties  # noqa: E402, F401
+from ..path import Path  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

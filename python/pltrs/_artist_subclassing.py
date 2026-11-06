@@ -61,6 +61,12 @@ def _prevent_rasterization(draw):
     return draw_wrapper
 
 
+def _is_alias(method):
+    """Whether *method* is an alias of another (`.ArtistInspector.is_alias`,
+    as a class defining it documents it)."""
+    return (method.__doc__ or "").lstrip().startswith("Alias for ")
+
+
 class _Definition:
     """
     What an artist class held when it was defined, which matplotlib's
@@ -77,25 +83,50 @@ class _Definition:
         self.undocumented = frozenset(
             name for name, value in own.items()
             if name.startswith("set_") and callable(value) and value.__doc__ is None)
+        #: The alias methods the class defined.
+        self.aliases = frozenset(name for name, value in own.items()
+                                 if callable(value) and _is_alias(value))
+        #: The setters the class defined that were no aliases then, which
+        #: its decorators may make aliases of (``set_xlim3d = set_xlim``).
+        self.setters = {name: value for name, value in own.items()
+                        if name.startswith("set_") and callable(value)
+                        and not _is_alias(value)}
 
     def inspector(self, cls):
         """An `.ArtistInspector` of *cls* as it was defined."""
-        from ._artist_inspector import ArtistInspector
+        from ._artist_inspector import ArtistInspector, _setter_valid_values
         definition = self
 
         class DefinitionInspector(ArtistInspector):
             def get_aliases(self):
-                # Not yet the aliases the class' own decorators add.
-                inherited = lambda name: any(name in vars(base) for base in cls.__mro__[1:])
+                # Not yet the aliases the class' own decorators add: only
+                # the alias methods the class defined, or inherited.
+                def was_alias(name):
+                    if name in definition.names:
+                        return name in definition.aliases
+                    return any(name in vars(klass) and self.is_alias(vars(klass)[name])
+                               for klass in cls.__mro__[1:])
                 return {
                     prop: kept for prop, aliases in super().get_aliases().items()
                     if (kept := {alias for alias in aliases
-                                 if any(f"{prefix}{alias}" in definition.names
-                                        or inherited(f"{prefix}{alias}")
+                                 if any(was_alias(f"{prefix}{alias}")
                                         for prefix in ("set_", "get_"))})}
+
+            def get_setters(self):
+                # And the setters the class defined that its decorators
+                # made aliases of afterwards.
+                setters = set(super().get_setters())
+                setters.update(
+                    name[4:] for name in definition.setters
+                    if self.number_of_parameters(getattr(self.o, name)) >= 2)
+                return sorted(setters)
 
             def get_valid_values(self, attr):
                 func = getattr(self.o, f"set_{attr}", None)
+                defined = definition.setters.get(f"set_{attr}")
+                if defined is not None and func is not defined and self.is_alias(func):
+                    # A setter its decorators made an alias of: as it was.
+                    return _setter_valid_values(defined)
                 if (not hasattr(func, "_kwarg_doc")
                         and f"set_{attr}" in definition.undocumented):
                     return 'unknown'
@@ -109,11 +140,15 @@ class _LazySet:
     The ``set`` of an artist class until it is first looked up: then it
     makes the class' ``set`` as matplotlib's ``__init_subclass__`` makes it,
     puts it in the class in its own place, and returns it (bound to the
-    instance it was looked up on).
+    instance it was looked up on). The function is named as matplotlib's
+    ``artist`` module names it while the class is being defined: by the
+    class' ``__qualname__`` then (a class factory renames its classes
+    afterwards).
     """
 
     def __init__(self, cls):
         self._cls = cls
+        self._qualname = f"{cls.__qualname__}.set"
 
     def __get__(self, instance, owner=None):
         function = self._make()
@@ -126,7 +161,8 @@ class _LazySet:
         from .artist import Artist
         function = lambda self, **kwargs: Artist.set(self, **kwargs)  # noqa: E731
         function.__name__ = "set"
-        function.__qualname__ = f"{cls.__qualname__}.set"
+        function.__qualname__ = self._qualname
+        function.__module__ = Artist.__module__
         type.__setattr__(cls, "set", function)
         cls._update_set_signature_and_docstring()
         return function
@@ -204,10 +240,12 @@ class SubclassingMixin:
         """
         from ._artist_inspector import ArtistInspector, _properties_doc
         definition = vars(cls).get("_definition")
+        inspector = (definition.inspector(cls) if definition is not None
+                     else ArtistInspector(cls))
         cls.set.__signature__ = Signature(
             [Parameter("self", Parameter.POSITIONAL_OR_KEYWORD),
              *[Parameter(prop, Parameter.KEYWORD_ONLY, default=_api.UNSET)
-               for prop in ArtistInspector(cls).get_setters()
+               for prop in inspector.get_setters()
                if prop not in cls._PROPERTIES_EXCLUDED_FROM_SET]])
         cls.set._autogenerated_signature = True
 
@@ -234,5 +272,4 @@ that order is rarely relevant.
 
 Supported properties are
 
-""" + _properties_doc(definition.inspector(cls) if definition is not None
-                       else ArtistInspector(cls)))
+""" + _properties_doc(inspector))

@@ -111,8 +111,8 @@ class _TransformedBoundsLocator:
 _TransformedBoundsLocator.__module__ = __name__.rpartition(".")[0] + "._base"
 
 
-class InsetsMixin:
-    """The child Axes of an Axes: insets and secondary axes."""
+class ChildAxesMixin:
+    """The child Axes of an Axes (`~.axes._base._AxesBase`'s)."""
 
     @property
     def child_axes(self):
@@ -133,6 +133,10 @@ class InsetsMixin:
             ax._child_of = self
         self.stale = True
         return ax
+
+
+class InsetsMixin:
+    """The child Axes `~.axes.Axes` makes: insets and secondary axes."""
 
     def inset_axes(self, bounds, *, transform=None, zorder=5, **kwargs):
         """

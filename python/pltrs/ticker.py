@@ -993,6 +993,10 @@ class LogFormatterMathtext(LogFormatter):
     # It tests for zero, then for the sign (``x < 0``).
     _value_steps = (lambda x: bool(x == 0), lambda x: bool(x < 0))
 
+    def __call__(self, x, pos=None):
+        # docstring inherited
+        return super().__call__(x, pos)
+
 
 class LogFormatterSciNotation(LogFormatterMathtext):
     """
@@ -1109,6 +1113,18 @@ class LogitFormatter(_NativeFormatter):
             below the threshold.
         """
         self._minor_number = minor_number
+
+    def set_locs(self, locs):
+        # docstring inherited
+        super().set_locs(locs)
+
+    def __call__(self, x, pos=None):
+        # docstring inherited
+        return super().__call__(x, pos)
+
+    def format_data_short(self, value):
+        # docstring inherited
+        return super().format_data_short(value)
 
 
 class EngFormatter(ScalarFormatter):
@@ -1278,6 +1294,15 @@ class EngFormatter(ScalarFormatter):
             return f"${mant:{fmt}}${suffix}"
         else:
             return f"{mant:{fmt}}{suffix}"
+
+    def set_locs(self, locs):
+        # docstring inherited
+        super().set_locs(locs)
+
+    def get_offset(self):
+        # docstring inherited; the offset pltrs (Rust) gives its labels, as
+        # matplotlib's formatter gives its own.
+        return _NativeFormatter.get_offset(self)
 
 
 class PercentFormatter(_NativeFormatter):
@@ -1524,7 +1549,6 @@ class _NativeLocator(Locator):
 
     def view_limits(self, vmin, vmax):
         # docstring inherited
-        """Try to choose the view limits intelligently."""
         return _ticker.view_limits(self._spec(), float(vmin), float(vmax),
                                    self._axis_info())
 
@@ -1562,6 +1586,9 @@ class IndexLocator(_NativeLocator):
         """Return the locations of the ticks"""
         dmin, dmax = self.axis.get_data_interval()
         return self.tick_values(dmin, dmax)
+
+    def tick_values(self, vmin, vmax):
+        return super().tick_values(vmin, vmax)
 
 
 class FixedLocator(_NativeLocator):
@@ -1693,6 +1720,10 @@ class LinearLocator(_NativeLocator):
             return self.presets[bounds]
         return super().tick_values(vmin, vmax)
 
+    def view_limits(self, vmin, vmax):
+        """Try to choose the view limits intelligently."""
+        return super().view_limits(vmin, vmax)
+
 
 class _Edge_integer:
     """
@@ -1766,6 +1797,13 @@ class MultipleLocator(_NativeLocator):
         Set the view limits to the nearest tick values that contain the data.
         """
         return super().view_limits(dmin, dmax)
+
+    def __call__(self):
+        """Return the locations of the ticks."""
+        return super().__call__()
+
+    def tick_values(self, vmin, vmax):
+        return super().tick_values(vmin, vmax)
 
 
 def scale_range(vmin, vmax, n=1, threshold=100):
@@ -1914,6 +1952,12 @@ class MaxNLocator(_NativeLocator):
         # docstring inherited
         return super().view_limits(dmin, dmax)
 
+    def __call__(self):
+        return super().__call__()
+
+    def tick_values(self, vmin, vmax):
+        return super().tick_values(vmin, vmax)
+
 
 class LogLocator(_NativeLocator):
     """
@@ -2022,6 +2066,13 @@ class LogLocator(_NativeLocator):
             return np.float64(lower), np.float64(upper)
         return vmin, vmax
 
+    def __call__(self):
+        """Return the locations of the ticks."""
+        return super().__call__()
+
+    def tick_values(self, vmin, vmax):
+        return super().tick_values(vmin, vmax)
+
 
 class SymmetricalLogLocator(_NativeLocator):
     """
@@ -2093,6 +2144,10 @@ class SymmetricalLogLocator(_NativeLocator):
             return sorted({vmin, 0, vmax})
         return super().tick_values(vmin, vmax)
 
+    def view_limits(self, vmin, vmax):
+        """Try to choose the view limits intelligently."""
+        return super().view_limits(vmin, vmax)
+
 
 class AsinhLocator(_NativeLocator):
     """
@@ -2155,6 +2210,12 @@ class AsinhLocator(_NativeLocator):
                 "symthresh": float(self.symthresh), "base": float(self.base),
                 "subs": None if self.subs is None else [
                     float(s) for s in self.subs]}
+
+    def __call__(self):
+        return super().__call__()
+
+    def tick_values(self, vmin, vmax):
+        return super().tick_values(vmin, vmax)
 
 
 class LogitLocator(MaxNLocator):
@@ -2366,3 +2427,10 @@ class _NativeFormatterView(Formatter):
         # docstring inherited
         return _axis.helper_format_data(self._token, float(value), True,
                                         self._axis_info())
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+import itertools  # noqa: E402, F401
+from . import transforms as mtransforms  # noqa: E402, F401
+mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

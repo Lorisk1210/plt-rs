@@ -12,7 +12,8 @@ from ... import (_api, _handles, _live_transforms, _tick_helpers, _values, artis
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
 from ..._preprocess import _preprocess_data
-from ...tri import _tricontour  # noqa: F401  (registers _tricontour_doc)
+from ... import tri as mtri
+from ._helpers import _make_axes_method
 from .scatter import _mapping
 
 
@@ -236,165 +237,11 @@ class ContoursMixin:
         contours._generator = generator
         return contours
 
-    @_docstring.Substitution(func='tricontour', type='lines')
-
-    @_docstring.interpd
-    def tricontour(ax, *args, **kwargs):
-        """
-        %(_tricontour_doc)s
-
-        linewidths : float or array-like, default: :rc:`contour.linewidth`
-            The line width of the contour lines.
-
-            If a number, all levels will be plotted with this linewidth.
-
-            If a sequence, the levels in ascending order will be plotted with
-            the linewidths in the order specified.
-
-            If None, this falls back to :rc:`lines.linewidth`.
-
-        linestyles : {*None*, 'solid', 'dashed', 'dashdot', 'dotted'}, optional
-            If *linestyles* is *None*, the default is 'solid' unless the lines are
-            monochrome.  In that case, negative contours will take their linestyle
-            from :rc:`contour.negative_linestyle` setting.
-
-            *linestyles* can also be an iterable of the above strings specifying a
-            set of linestyles to be used. If this iterable is shorter than the
-            number of contour levels it will be repeated as necessary.
-        """
-        return ax._tricontour(False, args, kwargs)
-
-    @_docstring.Substitution(func='tricontourf', type='regions')
-
-    @_docstring.interpd
-    def tricontourf(ax, *args, **kwargs):
-        """
-        %(_tricontour_doc)s
-
-        hatches : list[str], optional
-            A list of crosshatch patterns to use on the filled areas.
-            If None, no hatching will be added to the contour.
-
-        Notes
-        -----
-        `.tricontourf` fills intervals that are closed at the top; that is, for
-        boundaries *z1* and *z2*, the filled region is::
-
-            z1 < Z <= z2
-
-        except for the lowest interval, which is closed on both sides (i.e. it
-        includes the lowest value).
-        """
-        return ax._tricontour(True, args, kwargs)
-
-    def triplot(ax, *args, **kwargs):
-        """
-        Draw an unstructured triangular grid as lines and/or markers.
-
-        Call signatures::
-
-          triplot(triangulation, ...)
-          triplot(x, y, [triangles], *, [mask=mask], ...)
-
-        The triangular grid can be specified either by passing a `.Triangulation`
-        object as the first parameter, or by passing the points *x*, *y* and
-        optionally the *triangles* and a *mask*. If neither of *triangulation* or
-        *triangles* are given, the triangulation is calculated on the fly.
-
-        Parameters
-        ----------
-        triangulation : `.Triangulation`
-            An already created triangular grid.
-        x, y, triangles, mask
-            Parameters defining the triangular grid. See `.Triangulation`.
-            This is mutually exclusive with specifying *triangulation*.
-        other_parameters
-            All other args and kwargs are forwarded to `~.Axes.plot`.
-
-        Returns
-        -------
-        lines : `~matplotlib.lines.Line2D`
-            The drawn triangles edges.
-        markers : `~matplotlib.lines.Line2D`
-            The drawn marker nodes.
-        """
-        from ...tri import triplot
-        return triplot(ax, *args, **kwargs)
-
-    @_docstring.interpd
-    def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
-                  vmax=None, shading='flat', facecolors=None, **kwargs):
-        """
-        Create a pseudocolor plot of an unstructured triangular grid.
-
-        Call signatures::
-
-          tripcolor(triangulation, c, *, ...)
-          tripcolor(x, y, c, *, [triangles=triangles], [mask=mask], ...)
-
-        The triangular grid can be specified either by passing a `.Triangulation`
-        object as the first parameter, or by passing the points *x*, *y* and
-        optionally the *triangles* and a *mask*. See `.Triangulation` for an
-        explanation of these parameters.
-
-        It is possible to pass the triangles positionally, i.e.
-        ``tripcolor(x, y, triangles, c, ...)``. However, this is discouraged.
-        For more clarity, pass *triangles* via keyword argument.
-
-        If neither of *triangulation* or *triangles* are given, the triangulation
-        is calculated on the fly. In this case, it does not make sense to provide
-        colors at the triangle faces via *c* or *facecolors* because there are
-        multiple possible triangulations for a group of points and you don't know
-        which triangles will be constructed.
-
-        Parameters
-        ----------
-        triangulation : `.Triangulation`
-            An already created triangular grid.
-        x, y, triangles, mask
-            Parameters defining the triangular grid. See `.Triangulation`.
-            This is mutually exclusive with specifying *triangulation*.
-        c : array-like
-            The color values, either for the points or for the triangles. Which one
-            is automatically inferred from the length of *c*, i.e. does it match
-            the number of points or the number of triangles. If there are the same
-            number of points and triangles in the triangulation it is assumed that
-            color values are defined at points; to force the use of color values at
-            triangles use the keyword argument ``facecolors=c`` instead of just
-            ``c``.
-            This parameter is position-only.
-        facecolors : array-like, optional
-            Can be used alternatively to *c* to specify colors at the triangle
-            faces. This parameter takes precedence over *c*.
-        shading : {'flat', 'gouraud'}, default: 'flat'
-            If  'flat' and the color values *c* are defined at points, the color
-            values used for each triangle are from the mean c of the triangle's
-            three points. If *shading* is 'gouraud' then color values must be
-            defined at points.
-        %(cmap_doc)s
-
-        %(norm_doc)s
-
-        %(vmin_vmax_doc)s
-
-        %(colorizer_doc)s
-
-        Returns
-        -------
-        `~matplotlib.collections.PolyCollection` or `~matplotlib.collections.TriMesh`
-            The result depends on *shading*: For ``shading='flat'`` the result is a
-            `.PolyCollection`, for ``shading='gouraud'`` the result is a `.TriMesh`.
-
-        Other Parameters
-        ----------------
-        **kwargs : `~matplotlib.collections.Collection` properties
-
-            %(Collection:kwdoc)s
-        """
-        from ...tri import tripcolor
-        return tripcolor(ax, *args, alpha=alpha, norm=norm, cmap=cmap,
-                         vmin=vmin, vmax=vmax, shading=shading,
-                         facecolors=facecolors, **kwargs)
+    # matplotlib's functions of the `.tri` module, as methods.
+    tricontour = _make_axes_method(mtri.tricontour)
+    tricontourf = _make_axes_method(mtri.tricontourf)
+    tripcolor = _make_axes_method(mtri.tripcolor)
+    triplot = _make_axes_method(mtri.triplot)
 
     @_preprocess_data()
     @_docstring.interpd

@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use super::axis::{AxisState, TickerDefaults};
+use super::axis::{AxisState, TickHelperKind, TickerDefaults};
 use super::{Axes, AxesState, TickParams};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
@@ -269,6 +269,28 @@ impl Axis {
         self
     }
 
+    /// Counts the major (or `minor`) `helper` as the scale's own, or not
+    /// (matplotlib's `isDefault_majloc = False`, ...): units such as dates
+    /// or categories replace only default helpers.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::TickHelperKind;
+    /// let ax = Figure::new().subplot();
+    /// ax.xaxis().set_default_tick_helper(false, TickHelperKind::Locator, false);
+    /// assert!(!ax.xaxis().is_default_major_locator());
+    /// assert!(ax.xaxis().is_default_major_formatter());
+    /// ```
+    pub fn set_default_tick_helper(
+        &self,
+        minor: bool,
+        helper: TickHelperKind,
+        default: bool,
+    ) -> &Self {
+        self.update_shared(|axis| axis.defaults.set(minor, helper, default));
+        self
+    }
+
     /// Whether the major formatter is still the one the scale installed
     /// (matplotlib's `isDefault_majfmt`); see
     /// [`is_default_major_locator`](Self::is_default_major_locator).
@@ -444,6 +466,7 @@ impl Axes {
 mod tests {
     use std::any::Any;
 
+    use crate::axes::TickHelperKind;
     use crate::figure::{Figure, Share};
     use crate::ticker::{AutoLocator, FixedFormatter, MultipleLocator, NullLocator};
 
@@ -464,6 +487,21 @@ mod tests {
             (ax.yaxis().major_locator().as_ref() as &dyn Any).is::<AutoLocator>(),
             "the other axis keeps its own"
         );
+    }
+
+    #[test]
+    fn default_flags_are_set_one_helper_at_a_time() {
+        let ax = Figure::new().subplot();
+        let yaxis = ax.yaxis();
+        yaxis.set_default_tick_helper(true, TickHelperKind::Locator, false);
+        assert!(!yaxis.is_default_minor_locator());
+        assert!(yaxis.is_default_major_locator() && yaxis.is_default_minor_formatter());
+        yaxis.set_default_tick_helper(true, TickHelperKind::Locator, true);
+        assert!(yaxis.is_default_minor_locator());
+        yaxis.set_default_tick_helper(false, TickHelperKind::Formatter, false);
+        assert!(!yaxis.is_default_major_formatter());
+        yaxis.mark_default_tick_helpers();
+        assert!(yaxis.is_default_major_formatter());
     }
 
     #[test]

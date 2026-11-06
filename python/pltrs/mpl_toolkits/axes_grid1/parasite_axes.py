@@ -216,6 +216,11 @@ class HostAxesBase:
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
 
+    def __init__(self, *args, **kwargs):
+        # matplotlib's signature: the host's Axes class takes the arguments
+        # (pltrs (Rust) keeps the parasites, see `parasites`).
+        super().__init__(*args, **kwargs)
+
     @property
     def parasites(self):
         """The parasite axes of the host, in creation order."""
@@ -385,3 +390,8 @@ def host_axes(*args, axes_class=Axes, figure=None, **kwargs):
 
 
 host_subplot = host_axes
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from pltrs.transforms import Bbox  # noqa: E402, F401

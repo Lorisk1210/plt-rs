@@ -1,27 +1,72 @@
 //! The windows a figure window opens from its toolbar: the subplot tool,
 //! the save and figure options dialogs, and the keyboard shortcuts.
 
-use pltrs_platform::Context;
+use pltrs_platform::{Context, WindowEvent};
 
 use super::FigureWindow;
 use crate::gui::GuiError;
 use crate::gui::help_dialog::HelpDialog;
 use crate::gui::options::OptionsDialog;
 use crate::gui::save_dialog::SaveDialog;
-use crate::gui::subplot_dialog::SubplotDialog;
+use crate::gui::subplot_dialog::{self, FigureLayout, Request, SubplotDialog, SubplotLayout};
+
+/// The subplot tool of a figure window, and the layout its "Reset" puts
+/// back.
+#[derive(Debug)]
+pub(super) struct SubplotTool {
+    pub(super) dialog: SubplotDialog,
+    saved: FigureLayout,
+}
 
 impl FigureWindow {
-    /// Opens a window with sliders for the figure's subplot parameters,
-    /// or raises it when it is open (matplotlib's `configure_subplots`).
+    /// Opens the subplot tool, or raises it when it is open, showing the
+    /// figure's layout as it is now, which "Reset" puts back (matplotlib's
+    /// `configure_subplots`).
     pub(in crate::gui) fn configure_subplots(
         &mut self,
         cx: &mut Context<'_>,
     ) -> Result<(), GuiError> {
-        match &self.subplot_tool {
-            Some(tool) => cx.raise_window(tool.id())?,
-            None => self.subplot_tool = Some(SubplotDialog::open(cx, &self.figure)?),
+        let saved = FigureLayout::of(&self.figure);
+        let layout = SubplotLayout::of(&self.figure);
+        if let Some(tool) = &mut self.subplot_tool {
+            tool.saved = saved;
+            tool.dialog.show(cx, layout, "")?;
+            tool.dialog.raise(cx)?;
+        } else {
+            let offer = subplot_dialog::offers_constrained(&self.figure);
+            let dialog = SubplotDialog::open(cx, &self.figure, layout, offer)?;
+            self.subplot_tool = Some(SubplotTool { dialog, saved });
         }
         Ok(())
+    }
+
+    /// Handles an event of the subplot tool: carries out on the figure
+    /// what the user asked and shows the figure's layout in the tool.
+    pub(super) fn subplot_tool_event(
+        &mut self,
+        cx: &mut Context<'_>,
+        event: &WindowEvent,
+    ) -> Result<(), GuiError> {
+        let Some(tool) = &mut self.subplot_tool else {
+            return Ok(());
+        };
+        let mut open = true;
+        for request in tool.dialog.handle(cx, event)? {
+            match request {
+                Request::Change(change) => {
+                    let problem = tool.saved.apply(&self.figure, change).err();
+                    let layout = SubplotLayout::of(&self.figure);
+                    tool.dialog
+                        .show(cx, layout, problem.as_deref().unwrap_or_default())?;
+                }
+                Request::Close => open = false,
+            }
+        }
+        if !open {
+            self.close_subplot_tool(cx)?;
+        }
+        // The tool adjusts this window's figure.
+        self.refresh(cx)
     }
 
     /// Opens the save dialog, or raises it when it is open (matplotlib's
@@ -64,7 +109,7 @@ impl FigureWindow {
 
     pub(super) fn close_subplot_tool(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         match self.subplot_tool.take() {
-            Some(tool) => tool.close(cx),
+            Some(tool) => tool.dialog.close(cx),
             None => Ok(()),
         }
     }

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use pltrs_platform::{Context, WindowEvent, WindowId};
 use pltrs_ui::{
-    Choice, Flex, Form, Label, List, ListItem, Overflow, TextInput, UiWindow, WidgetId,
+    Dropdown, Flex, Form, Label, List, ListItem, Overflow, TextInput, UiWindow, WidgetId,
 };
 
 use super::dialog::{self, Dialog};
@@ -16,20 +16,52 @@ use crate::figure::{Figure, SaveFormat};
 /// How many rows of the directory listing show at first.
 const LISTED_ROWS: usize = 10;
 
-/// The formats offered, in the order shown.
-const FORMATS: [SaveFormat; 11] = [
-    SaveFormat::Png,
-    SaveFormat::Jpeg,
-    SaveFormat::Tiff,
-    SaveFormat::Gif,
-    SaveFormat::Webp,
-    SaveFormat::Avif,
-    SaveFormat::Svg,
-    SaveFormat::Pdf,
-    SaveFormat::Ps,
-    SaveFormat::Eps,
-    SaveFormat::Pgf,
+/// A format offered: matplotlib's name of it and the extensions of its
+/// files (`get_supported_filetypes_grouped`).
+#[derive(Clone, Copy, Debug)]
+struct Offered {
+    format: SaveFormat,
+    name: &'static str,
+    extensions: &'static str,
+}
+
+/// The formats offered, in the order matplotlib's Qt dialog lists them:
+/// by name. SVG and its compressed form, which matplotlib groups, are
+/// apart, as the format chosen gives the file's extension.
+const FORMATS: [Offered; 13] = [
+    offered(SaveFormat::Avif, "AV1 Image File Format", "*.avif"),
+    offered(SaveFormat::Eps, "Encapsulated Postscript", "*.eps"),
+    offered(SaveFormat::Gif, "Graphics Interchange Format", "*.gif"),
+    offered(
+        SaveFormat::Jpeg,
+        "Joint Photographic Experts Group",
+        "*.jpeg *.jpg",
+    ),
+    offered(SaveFormat::Pgf, "PGF code for LaTeX", "*.pgf"),
+    offered(SaveFormat::Pdf, "Portable Document Format", "*.pdf"),
+    offered(SaveFormat::Png, "Portable Network Graphics", "*.png"),
+    offered(SaveFormat::Ps, "Postscript", "*.ps"),
+    offered(SaveFormat::Raw, "Raw RGBA bitmap", "*.raw *.rgba"),
+    offered(SaveFormat::Svg, "Scalable Vector Graphics", "*.svg"),
+    offered(SaveFormat::Svgz, "Scalable Vector Graphics", "*.svgz"),
+    offered(SaveFormat::Tiff, "Tagged Image File Format", "*.tif *.tiff"),
+    offered(SaveFormat::Webp, "WebP Image Format", "*.webp"),
 ];
+
+/// A format offered under `name`, for files ending in `extensions`.
+const fn offered(format: SaveFormat, name: &'static str, extensions: &'static str) -> Offered {
+    Offered {
+        format,
+        name,
+        extensions,
+    }
+}
+
+/// The label of a format in the list, as matplotlib's Qt dialog writes
+/// its filters: `"Portable Network Graphics (*.png)"`.
+fn label(offered: &Offered) -> String {
+    format!("{} ({})", offered.name, offered.extensions)
+}
 
 /// What the dialog's widgets report.
 #[derive(Clone, Debug, PartialEq)]
@@ -120,7 +152,7 @@ fn list_directory(directory: &Path) -> Vec<Entry> {
 fn format_of(name: &str) -> Option<usize> {
     let extension = Path::new(name).extension()?.to_str()?;
     let format: SaveFormat = extension.parse().ok()?;
-    FORMATS.iter().position(|&f| f == format)
+    FORMATS.iter().position(|offered| offered.format == format)
 }
 
 /// `name` with its extension replaced by that of `format`.
@@ -189,7 +221,7 @@ impl SaveDialog {
         title: &str,
     ) -> Result<Self, GuiError> {
         let format = default_format();
-        let name = FORMATS[format].file_name_for(title);
+        let name = FORMATS[format].format.file_name_for(title);
         Self::build(cx, figure, start_directory(), name, format, Purpose::Save)
     }
 
@@ -241,11 +273,8 @@ impl SaveDialog {
             "File name",
             TextInput::new(name.clone(), DialogMessage::NameChanged),
         );
-        let labels = FORMATS
-            .iter()
-            .map(|f| f.extension().to_uppercase())
-            .collect();
-        let mut choice = Choice::new(labels, DialogMessage::Format);
+        let labels = FORMATS.iter().map(label).collect();
+        let mut choice = Dropdown::new(labels, DialogMessage::Format);
         choice.set_chosen(format);
         let formats = naming.row("Format", choice);
         content.push(naming, 0.0);
@@ -331,7 +360,7 @@ impl SaveDialog {
                     self.window.update(
                         cx,
                         self.widgets.formats,
-                        |choice: &mut Choice<DialogMessage>| {
+                        |choice: &mut Dropdown<DialogMessage>| {
                             choice.set_chosen(format);
                         },
                     )?;
@@ -340,7 +369,7 @@ impl SaveDialog {
             }
             DialogMessage::Format(format) => {
                 self.format = format;
-                let name = with_extension(&self.name, FORMATS[format]);
+                let name = with_extension(&self.name, FORMATS[format].format);
                 self.set_name(cx, name)?;
             }
             DialogMessage::Save => return self.save(cx),
@@ -357,7 +386,7 @@ impl SaveDialog {
             self.window.update(
                 cx,
                 self.widgets.formats,
-                |choice: &mut Choice<DialogMessage>| {
+                |choice: &mut Dropdown<DialogMessage>| {
                     choice.set_chosen(format);
                 },
             )?;
@@ -428,13 +457,16 @@ impl SaveDialog {
             self.set_status(cx, "Type a file name".to_owned())?;
             return Ok(Outcome::Open);
         }
-        let mut path = self.directory.join(name);
+        // A name may be a path, from the home directory too (`~/...`).
+        let mut path = self
+            .directory
+            .join(pltrs_core::os::expand_user(Path::new(name)));
         if path.is_dir() {
             self.enter(cx, path)?;
             return Ok(Outcome::Open);
         }
         if format_of(name).is_none() {
-            path.set_extension(FORMATS[self.format].extension());
+            path.set_extension(FORMATS[self.format].format.extension());
         }
         if path.exists() && self.replacing.as_ref() != Some(&path) {
             let shown = path
@@ -450,7 +482,9 @@ impl SaveDialog {
         }
         match self.figure.savefig(&path) {
             Ok(()) => {
-                remember_directory(&self.directory);
+                if let Some(directory) = path.parent() {
+                    remember_directory(directory);
+                }
                 Ok(Outcome::Done(path))
             }
             Err(err) => {
@@ -502,12 +536,21 @@ mod tests {
 
     #[test]
     fn names_and_formats() {
-        assert_eq!(format_of("plot.SVG"), Some(6));
-        assert_eq!(format_of("frame.webp"), Some(4));
-        assert_eq!(format_of("frame.avif"), Some(5));
-        assert_eq!(format_of("photo.jpeg"), Some(1));
-        assert_eq!(format_of("scan.tiff"), Some(2));
+        let format = |name| format_of(name).map(|index| FORMATS[index].format);
+        assert_eq!(format("plot.SVG"), Some(SaveFormat::Svg));
+        assert_eq!(format("plot.svgz"), Some(SaveFormat::Svgz));
+        assert_eq!(format("frame.webp"), Some(SaveFormat::Webp));
+        assert_eq!(format("frame.avif"), Some(SaveFormat::Avif));
+        assert_eq!(format("photo.jpeg"), Some(SaveFormat::Jpeg));
+        assert_eq!(format("scan.tiff"), Some(SaveFormat::Tiff));
+        assert_eq!(format("pixels.rgba"), Some(SaveFormat::Raw));
         assert_eq!(format_of("notes.txt"), None);
+        assert_eq!(
+            label(&FORMATS[3]),
+            "Joint Photographic Experts Group (*.jpeg *.jpg)"
+        );
+        let names: Vec<&str> = FORMATS.iter().map(|offered| offered.name).collect();
+        assert!(names.is_sorted(), "by name, as Qt's dialog sorts them");
         assert_eq!(with_extension("plot.png", SaveFormat::Pdf), "plot.pdf");
         assert_eq!(with_extension("plot.v2", SaveFormat::Eps), "plot.v2.eps");
     }

@@ -407,7 +407,7 @@ fn navigate(navigation: &mut Navigation, fig: &Figure, what: usize, at: Point) {
         2 => drop(navigation.press(fig, at, PointerButton::Left)),
         3 => drop(navigation.drag(at, DragKey::None)),
         4 => navigation.release(fig, at, DragKey::Control),
-        5 => navigation.wheel(fig, at, 1.0),
+        5 => navigation.wheel(fig, at, 1.0, DragKey::Control),
         6 => navigation.home(fig),
         7 => navigation.back(fig),
         _ => drop(navigation.readout(fig, at)),

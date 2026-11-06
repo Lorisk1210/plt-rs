@@ -52,12 +52,7 @@ impl FigureWindow {
                     let rubberband = self.navigation.drag(at, self.drag_key(*modifiers));
                     self.show_rubberband(cx, rubberband)?;
                 }
-                // The status line has room for one line: the data value
-                // follows the coordinates.
-                let readout = self
-                    .navigation
-                    .readout(&self.figure, at)
-                    .replace('\n', "   ");
+                let readout = self.navigation.readout(&self.figure, at);
                 self.set_status(cx, readout)?;
             }
             UiEvent::PointerDown {
@@ -95,7 +90,9 @@ impl FigureWindow {
                 }
             }
             UiEvent::Wheel {
-                delta, position, ..
+                delta,
+                position,
+                modifiers,
             } => {
                 let steps = match *delta {
                     ScrollDelta::Lines { y, .. } => y,
@@ -103,7 +100,8 @@ impl FigureWindow {
                 };
                 let at = self.to_display(*position);
                 self.events.scroll(&self.figure, at.x, at.y, steps);
-                self.navigation.wheel(&self.figure, at, steps);
+                let key = self.drag_key(*modifiers);
+                self.navigation.wheel(&self.figure, at, steps, key);
                 self.refresh_tools(cx)?;
             }
             UiEvent::PointerLeave => {

@@ -14,7 +14,7 @@ use crate::animation::{AnimationOptions, Frames, FuncAnimation};
 use crate::artist::ArtistHandle;
 use crate::events::EventKind;
 use crate::figure::SaveOptions;
-use crate::gui::subplot_dialog::{Param, SubplotMessage};
+use crate::gui::subplot_dialog::{Param, SubplotMessage, SubplotParam};
 use crate::lines::Line2D;
 use crate::widgets::{Cursor, CursorOptions};
 
@@ -234,7 +234,7 @@ fn the_subplot_tool_adjusts_the_figure() {
         .use_tool(&mut event_loop.context(), Tool::Subplots)
         .expect("the tool opens");
     let tool = window.subplot_tool.as_ref().expect("the tool is open");
-    let tool_id = tool.id();
+    let tool_id = tool.dialog.id();
     let snapshot = handle.window(tool_id).expect("the tool window exists");
     assert_eq!(snapshot.title, "Subplot configuration tool");
     assert!(window.owns_window(tool_id));
@@ -243,11 +243,15 @@ fn the_subplot_tool_adjusts_the_figure() {
 
     // Click 30% along the "left" slider: its thumb's centre travels
     // between the ends of the track, inset by the thumb's radius.
-    let tool = window.subplot_tool.as_ref().expect("the tool is open");
+    let tool = &window
+        .subplot_tool
+        .as_ref()
+        .expect("the tool is open")
+        .dialog;
     let left = tool
         .controls
         .iter()
-        .find(|control| control.param == Param::Left)
+        .find(|control| control.param == Param::Subplot(SubplotParam::Left))
         .copied()
         .expect("the tool has a left slider");
     let track = tool
@@ -265,18 +269,23 @@ fn the_subplot_tool_adjusts_the_figure() {
     pump(&mut event_loop, &mut window);
     let value = figure.subplot_params().left;
     assert!((value - 0.3).abs() < 0.01, "left is {value}");
+    assert_eq!(value, (value * 1000.0).round() / 1000.0, "three decimals");
     let redrawn: Vec<_> = handle.take_frames().iter().map(|f| f.window).collect();
     assert!(redrawn.contains(&main), "the figure is redrawn");
     assert!(redrawn.contains(&tool_id), "the slider is redrawn");
-    let tool = window.subplot_tool.as_mut().expect("the tool is open");
+    let tool = &mut window
+        .subplot_tool
+        .as_mut()
+        .expect("the tool is open")
+        .dialog;
     let shown = tool
         .window_mut()
         .ui_mut()
         .widget_mut::<pltrs_ui::TextInput<SubplotMessage>>(left.field)
         .map(|field| field.text().to_owned());
     assert_eq!(
-        shown.as_deref(),
-        Some("0.300"),
+        shown,
+        Some(format!("{value:.3}")),
         "the field follows the slider"
     );
 

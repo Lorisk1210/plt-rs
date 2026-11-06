@@ -11,7 +11,7 @@ use super::fields::{
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::colors::{Color, Colormap, colormaps};
-use crate::image::{AxesImage, Interpolation};
+use crate::image::{AxesImage, Interpolation, InterpolationStage};
 use crate::lines::{DrawStyle, Line2D, LineStyle};
 use crate::markers::Marker;
 use crate::rc::ColorOrAuto;
@@ -72,19 +72,28 @@ pub(super) struct ImageFields {
     pub(super) min: WidgetId,
     pub(super) max: WidgetId,
     pub(super) interpolation: WidgetId,
+    pub(super) stage: WidgetId,
 }
 
 impl ImageFields {
     /// The text fields, which a problem may name.
-    pub(super) fn text_fields(&self) -> [WidgetId; 5] {
-        [
-            self.label,
-            self.cmap,
-            self.min,
-            self.max,
-            self.interpolation,
-        ]
+    pub(super) fn text_fields(&self) -> [WidgetId; 4] {
+        [self.label, self.cmap, self.min, self.max]
     }
+}
+
+/// The interpolation stages offered, in matplotlib's order.
+const STAGES: [InterpolationStage; 3] = [
+    InterpolationStage::Data,
+    InterpolationStage::Rgba,
+    InterpolationStage::Auto,
+];
+
+/// The interpolations offered, by name as matplotlib's form sorts them.
+fn interpolations() -> Vec<Interpolation> {
+    let mut all = Interpolation::ALL.to_vec();
+    all.sort_by_key(|interpolation| interpolation.name());
+    all
 }
 
 /// The list of an axes' curves or images, and the stack of pages beside
@@ -131,6 +140,7 @@ pub(super) struct ImagePlan {
     cmap: Colormap,
     limits: Option<(f64, f64)>,
     interpolation: Interpolation,
+    stage: InterpolationStage,
 }
 
 /// How an artist is named in the dialog's lists.
@@ -295,7 +305,20 @@ fn image_form(image: &AxesImage) -> (ImageFields, pltrs_ui::Form<OptionsMessage>
         ("Min. value", low.map(number_text).unwrap_or_default()),
         ("Max. value", high.map(number_text).unwrap_or_default()),
     );
-    let interpolation = form.text("Interpolation", image.interpolation().name());
+    let offered = interpolations();
+    let names: Vec<&str> = offered.iter().map(|i| i.name()).collect();
+    let current = offered
+        .iter()
+        .position(|&i| i == image.interpolation())
+        .unwrap_or_default();
+    let interpolation = form.dropdown("Interpolation", &names, current);
+    let stages = STAGES.map(|stage| stage.to_string());
+    let stage_names = stages.each_ref().map(String::as_str);
+    let current_stage = STAGES
+        .iter()
+        .position(|&stage| stage == image.interpolation_stage())
+        .unwrap_or_default();
+    let stage = form.choice("Interpolation stage", &stage_names, current_stage);
     let fields = ImageFields {
         image: image.clone(),
         label,
@@ -303,6 +326,7 @@ fn image_form(image: &AxesImage) -> (ImageFields, pltrs_ui::Form<OptionsMessage>
         min,
         max,
         interpolation,
+        stage,
     };
     (fields, form.finish())
 }
@@ -362,16 +386,15 @@ pub(super) fn read_image(
             read_field(window, fields.max, |t| parse_number(&name("max. value"), t))?,
         ))
     };
-    let interpolation = read_field(window, fields.interpolation, |text| {
-        text.trim()
-            .parse()
-            .map_err(|_| format!("{label}: {text:?} is not an interpolation"))
-    })?;
+    let offered = interpolations();
+    let interpolation = offered[chosen(window, fields.interpolation).min(offered.len() - 1)];
+    let stage = STAGES[chosen(window, fields.stage).min(STAGES.len() - 1)];
     Ok(ImagePlan {
         label,
         cmap,
         limits,
         interpolation,
+        stage,
     })
 }
 
@@ -398,7 +421,8 @@ pub(super) fn apply_image(image: &AxesImage, plan: ImagePlan) {
     image.set_label(plan.label);
     image
         .set_cmap(plan.cmap)
-        .set_interpolation(plan.interpolation);
+        .set_interpolation(plan.interpolation)
+        .set_interpolation_stage(plan.stage);
     if let Some((low, high)) = plan.limits {
         image.set_clim(Some(low.min(high)), Some(low.max(high)));
     }
@@ -434,5 +458,56 @@ mod tests {
         // labels it, and its figure options list it so.
         assert_eq!(labels, ["a", "_child1"]);
         assert_eq!(shown_label(""), "(no label)");
+    }
+
+    #[test]
+    fn images_offer_matplotlibs_interpolations_and_stages() {
+        // matplotlib's `sorted(mimage.interpolations_names)`.
+        let names: Vec<&str> = interpolations().iter().map(|i| i.name()).collect();
+        assert_eq!(
+            names,
+            [
+                "antialiased",
+                "auto",
+                "bessel",
+                "bicubic",
+                "bilinear",
+                "blackman",
+                "catrom",
+                "gaussian",
+                "hamming",
+                "hanning",
+                "hermite",
+                "kaiser",
+                "lanczos",
+                "mitchell",
+                "nearest",
+                "none",
+                "quadric",
+                "sinc",
+                "spline16",
+                "spline36"
+            ]
+        );
+        let stages = STAGES.map(|stage| stage.to_string());
+        assert_eq!(stages, ["data", "rgba", "auto"]);
+        let image = Figure::new()
+            .subplot()
+            .imshow(
+                crate::numeric::Grid::filled(2, 2, 1.0),
+                crate::axes::ImshowOptions::default(),
+            )
+            .unwrap();
+        let plan = ImagePlan {
+            label: "field".into(),
+            cmap: image.cmap(),
+            limits: Some((2.0, 1.0)),
+            interpolation: Interpolation::Bicubic,
+            stage: InterpolationStage::Rgba,
+        };
+        apply_image(&image, plan);
+        assert_eq!(image.interpolation(), Interpolation::Bicubic);
+        assert_eq!(image.interpolation_stage(), InterpolationStage::Rgba);
+        assert_eq!(image.clim(), (Some(1.0), Some(2.0)));
     }
 }

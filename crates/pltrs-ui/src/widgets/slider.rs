@@ -77,13 +77,15 @@ impl Step {
 /// moves it along, sending a message with each new value.
 ///
 /// While it has the focus, the arrow keys move the value to the next
-/// multiple of a round step of about a hundredth of the range (0.01 for
-/// a range of 1), Page Up and Page Down by ten steps, and Home and End to
-/// the ends.
+/// multiple of a round step, by default of about a hundredth of the range
+/// (0.01 for a range of 1; see [`Slider::with_step`]), Page Up and Page
+/// Down by ten steps, and Home and End to the ends.
 pub struct Slider<M> {
     min: f64,
     max: f64,
     value: f64,
+    /// The step of the arrow keys, if it is not the default.
+    step: Option<Step>,
     on_change: ValueMessage<M>,
     /// Whether the thumb is being dragged.
     dragging: bool,
@@ -111,12 +113,22 @@ impl<M> Slider<M> {
             min,
             max,
             value: min,
+            step: None,
             on_change: Rc::new(on_change),
             dragging: false,
             thumb: 0.0,
         };
         slider.set_value(value);
         slider
+    }
+
+    /// Has the arrow keys move the value by `step`, taken to the nearest
+    /// round number (1, 2 or 5 times a power of ten, as 0.005); a step
+    /// that is not positive and finite leaves the default.
+    #[must_use]
+    pub fn with_step(mut self, step: f64) -> Self {
+        self.step = Step::near(step);
+        self
     }
 
     /// The value.
@@ -185,7 +197,9 @@ impl<M> Slider<M> {
         if key.state != ButtonState::Pressed || key.modifiers.control() || key.modifiers.alt() {
             return None;
         }
-        let step = Step::near((self.max - self.min) / STEPS_PER_RANGE);
+        let step = self
+            .step
+            .or_else(|| Step::near((self.max - self.min) / STEPS_PER_RANGE));
         let stepped = |step: Option<Step>, forward: bool| {
             Some(step.map_or(self.value, |step| self.stepped(step, forward)))
         };
@@ -382,5 +396,10 @@ mod tests {
         assert_eq!(messages, [1.0, 0.0]);
         let flat = Slider::new(2.0, 2.0, 2.0, |value| value);
         assert_eq!(flat.key_target(&key(Key::Right)), Some(2.0));
+        let fine = Slider::new(0.0, 1.0, 0.88, |value| value).with_step(0.005);
+        assert_eq!(fine.key_target(&key(Key::Right)), Some(0.885));
+        assert_eq!(fine.key_target(&key(Key::PageDown)), Some(0.85));
+        let default = Slider::new(0.0, 1.0, 0.88, |value| value).with_step(-1.0);
+        assert_eq!(default.key_target(&key(Key::Right)), Some(0.89));
     }
 }

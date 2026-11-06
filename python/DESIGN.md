@@ -1389,7 +1389,15 @@ backend: the framework already running, else pltrs' own windows
   `backends/_pltrs_loop.py` hands to the canvas (matplotlib's events,
   in matplotlib's coordinates), the timer or the file chooser waiting.
   Navigation, keys and callbacks stay matplotlib's (`NavigationToolbar2`
-  or the tool manager over pltrs' toolbar). The loop runs in short
+  or the tool manager over pltrs' toolbar). The subplot configuration
+  tool is pltrs' dialog (`SubplotToolPltrs`, as Qt's backend has a
+  dialog of its own rather than matplotlib's `widgets.SubplotTool`
+  figure): the host reports what the user asks as `"subplots"` events,
+  which the tool carries out with matplotlib's calls (`subplots_adjust`,
+  `tight_layout`, `ConstrainedLayoutEngine.set`) before showing the
+  figure's layout again; under constrained layout it adjusts that
+  layout's padding and spacing, or hands the subplots to the subplot
+  parameters (see `pltrs::gui`'s subplot tool). The loop runs in short
   slices, between which signals arrive (Ctrl+C) and the calls other
   threads queued for the windows run (see "Threads"); its framework
   counts as running once the host is

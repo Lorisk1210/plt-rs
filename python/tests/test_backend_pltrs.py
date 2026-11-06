@@ -444,21 +444,92 @@ def test_save_figure(tmp_path):
     _run(_save_figure, str(tmp_path))
 
 
-def _subplot_tool():
-    """The subplot tool opens in a window of its own, once."""
+def _screen_density():
+    """
+    On a screen of twice the density, the canvas has twice the pixels
+    and the figure twice the dpi, at the same size in inches, as Qt's
+    canvas takes ``devicePixelRatio``; resize callbacks learn the size in
+    logical pixels (`.FigureCanvasBase.get_width_height`), and the window
+    shows the figure at the screen's density.
+    """
     import pltrs.pyplot as plt
 
+    _gui.set_scale_factor(_display, 2.0)
     fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    sizes = []
+    fig.canvas.mpl_connect("resize_event", lambda event: sizes.append(
+        (event.width, event.height)))
+    plt.show(block=False)
+    plt.pause(0.1)
+    assert fig.canvas.device_pixel_ratio == 2
+    assert fig.dpi == 200
+    assert tuple(fig.get_size_inches()) == (6.4, 4.8)
+    assert sizes == [(640, 480)], sizes
+    window = _gui.window_system_id(_pltrs_loop.host(), fig.canvas._window)
+    assert _gui.capture(_display, window).shape[1] == 1280
+
+
+def test_screen_density():
+    _run(_screen_density)
+
+
+def _subplot_tool():
+    """
+    The subplot tool is pltrs' dialog (as Qt's is its own), opened once
+    and closed with its figure. Driven from the keyboard, it behaves as
+    matplotlib's Qt tool: the arrow keys step a value by 0.005, "Tight
+    layout" calls `tight_layout` and "Reset" puts back the parameters the
+    tool opened with. The values are those real matplotlib 3.11 takes
+    (``SubplotToolQt``'s spin box stepped once, `tight_layout` of the same
+    figure).
+    """
+    import warnings
+
+    import pytest
+
+    import pltrs.pyplot as plt
+    from pltrs.backends.backend_pltrs import SubplotToolPltrs
+    from pltrs.layout_engine import PlaceHolderLayoutEngine
+
+    fig, ax = plt.subplots()
+    ax.plot([1, 2])
     plt.show(block=False)
     plt.pause(0.05)
+    host = _pltrs_loop.host()
+    main = _gui.window_system_id(host, fig.canvas._window)
     tool = fig.canvas.toolbar.configure_subplots()
-    assert tool is not None
+    assert isinstance(tool, SubplotToolPltrs)
     assert tool == fig.canvas.toolbar.configure_subplots()
-    manager = tool.figure.canvas.manager
-    assert manager.get_window_title() == "Subplot configuration tool"
-    assert manager.toolbar is None
     plt.pause(0.05)
-    assert len(_gui.windows(_display)) == 2
+    windows = _gui.windows(_display)
+    assert len(windows) == 2
+    dialog = next(window for window in windows if window != main)
+    assert _gui.shown_title(_display, dialog) == "Subplot configuration tool"
+
+    def press(key, modifiers=()):
+        _gui.inject_key(_display, dialog, key, True, list(modifiers))
+        _gui.inject_key(_display, dialog, key, False, list(modifiers))
+        plt.pause(0.05)
+
+    params = ["left", "bottom", "right", "top", "wspace", "hspace"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        press("right")  # The first control: the top border's slider.
+        assert fig.subplotpars.top == pytest.approx(0.885)
+        # Shift+Tab from it: Close, Reset, then Tight layout.
+        for _ in range(3):
+            press("tab", ["shift"])
+        press(" ")
+    expected = [0.07300347222222223, 0.08043981481481481, 0.9765625,
+                0.96875, 0.2, 0.2]
+    assert [getattr(fig.subplotpars, name) for name in params] == (
+        pytest.approx(expected))
+    assert isinstance(fig.get_layout_engine(), PlaceHolderLayoutEngine)
+    press("tab")  # Reset
+    press(" ")
+    assert [getattr(fig.subplotpars, name) for name in params] == (
+        pytest.approx([0.125, 0.11, 0.9, 0.88, 0.2, 0.2]))
     plt.close(fig)
     plt.pause(0.05)
     assert _gui.windows(_display) == [], "the tool closes with its figure"
@@ -466,6 +537,90 @@ def _subplot_tool():
 
 def test_subplot_tool():
     _run(_subplot_tool)
+
+
+def _subplot_tool_constrained():
+    """
+    Under constrained layout (pltrs' modern look), the subplot tool adjusts
+    constrained layout's spacing, and its switch hands the subplots over
+    to the subplot parameters, starting from the tight layout of the
+    subplots where those place them; nothing warns, as matplotlib's own
+    tool does at every move under constrained layout.
+    """
+    import warnings
+
+    import pytest
+
+    import pltrs.pyplot as plt
+    from pltrs.layout_engine import (
+        ConstrainedLayoutEngine, PlaceHolderLayoutEngine)
+
+    def subplots():
+        fig, axs = plt.subplots(2, 2)
+        for ax in axs.flat:
+            ax.set_title("title")
+            ax.set_xlabel("x")
+        return fig
+
+    fig = subplots()
+    assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine)
+    plt.show(block=False)
+    plt.pause(0.05)
+    host = _pltrs_loop.host()
+    main = _gui.window_system_id(host, fig.canvas._window)
+    tool = fig.canvas.toolbar.configure_subplots()
+    plt.pause(0.05)
+    dialog = next(w for w in _gui.windows(_display) if w != main)
+
+    def press(key, modifiers=()):
+        _gui.inject_key(_display, dialog, key, True, list(modifiers))
+        _gui.inject_key(_display, dialog, key, False, list(modifiers))
+        plt.pause(0.05)
+
+    params = ["left", "bottom", "right", "top", "wspace", "hspace"]
+    w_pad = fig.get_layout_engine().get()["w_pad"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # The switch, its h_pad slider, its field, then w_pad's slider.
+        for _ in range(3):
+            press("tab")
+        press("right")
+        # To the next multiple of the step, 0.005.
+        assert fig.get_layout_engine().get()["w_pad"] == pytest.approx(
+            (w_pad // 0.005 + 1) * 0.005)
+        # Back to the switch: the subplot parameters.
+        for _ in range(3):
+            press("tab", ["shift"])
+        press("right")
+    assert isinstance(fig.get_layout_engine(), PlaceHolderLayoutEngine)
+    plain = subplots()
+    plain.set_layout_engine("none")
+    plain.tight_layout()
+    assert [getattr(fig.subplotpars, name) for name in params] == (
+        pytest.approx([getattr(plain.subplotpars, name) for name in params]))
+    tool._apply("reset", ())
+    assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine)
+    assert fig.get_layout_engine().get()["w_pad"] == w_pad
+
+
+def _subplot_tool_before_show():
+    """``plt.subplot_tool()`` before the figure is shown shows it with
+    the tool, as matplotlib's backends open their tools then."""
+    import pltrs.pyplot as plt
+    from pltrs.backends.backend_pltrs import SubplotToolPltrs
+
+    fig, ax = plt.subplots()
+    tool = plt.subplot_tool()
+    assert isinstance(tool, SubplotToolPltrs)
+    assert len(_gui.windows(_display)) == 2
+
+
+def test_subplot_tool_before_show():
+    _run(_subplot_tool_before_show)
+
+
+def test_subplot_tool_constrained():
+    _run(_subplot_tool_constrained, env={"PLTRS_LOOK": "modern"})
 
 
 def _headless():

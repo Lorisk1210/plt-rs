@@ -74,7 +74,7 @@ fn a_client_joins_and_gets_everything() {
                 back: false,
                 forward: false
             },
-            ServerEvent::CaptureScroll(true),
+            ServerEvent::CaptureScroll(false),
             ServerEvent::NavigateMode(NavMode::None),
             ServerEvent::Draw,
         ]
@@ -377,14 +377,20 @@ fn input_reaches_figure_callbacks() {
     canvas.handle(mouse(MouseKind::Motion, 200.0, 150.0));
     canvas.handle(key("a"));
     canvas.handle(mouse(MouseKind::DoubleClick, 200.0, 150.0));
-    canvas.handle(ClientMessage::Mouse(MouseInput {
-        step: 1.0,
-        wheel: 1.0,
-        ..match mouse(MouseKind::Scroll, 200.0, 150.0) {
-            ClientMessage::Mouse(input) => input,
-            _ => unreachable!(),
-        }
-    }));
+    let scroll = |ctrl| {
+        ClientMessage::Mouse(MouseInput {
+            step: 1.0,
+            wheel: 1.0,
+            ctrl,
+            ..match mouse(MouseKind::Scroll, 200.0, 150.0) {
+                ClientMessage::Mouse(input) => input,
+                _ => unreachable!(),
+            }
+        })
+    };
+    canvas.handle(scroll(false));
+    assert_eq!(xlim(&figure), (0.0, 10.0), "a bare wheel does not zoom");
+    canvas.handle(scroll(true));
     let log = log.borrow();
     let Event::KeyPress(pressed) = &log[0] else {
         panic!("a key press: {log:?}");
@@ -397,7 +403,7 @@ fn input_reaches_figure_callbacks() {
     assert!(double.dblclick);
     assert!(matches!(&log[2], Event::Scroll(scroll) if scroll.step > 0.0));
     let (low, high) = xlim(&figure);
-    assert!(high - low < 10.0, "the wheel zooms in");
+    assert!(high - low < 10.0, "the wheel zooms in with Control");
 }
 
 #[test]

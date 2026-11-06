@@ -57,7 +57,8 @@ impl IntoPy for HostEvent {
     /// The event as a tuple naming it first: `("resize", window, width,
     /// height, scale_factor)`, canvas input (see [`input_into_py`]),
     /// `("tool", window, name)`, `("close", window)`, `("file", window,
-    /// path or None)` and `("timer", timer)`.
+    /// path or None)`, `("subplots", window, kind, values)` (see
+    /// [`super::subplots`]) and `("timer", timer)`.
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
         match self {
             Self::Resized {
@@ -72,6 +73,10 @@ impl IntoPy for HostEvent {
             Self::FileChosen { window, path } => {
                 let path = path.map(|path| path.to_string_lossy().into_owned());
                 ("file", window.to_raw(), path).into_py(py)
+            }
+            Self::SubplotChange { window, change } => {
+                let (kind, values) = super::subplots::change_parts(change);
+                ("subplots", window.to_raw(), kind, values).into_py(py)
             }
             Self::Timer(timer) => ("timer", timer.to_raw()).into_py(py),
         }

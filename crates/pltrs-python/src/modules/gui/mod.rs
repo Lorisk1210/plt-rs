@@ -2,8 +2,8 @@
 //! (`backends/backend_pltrs.py`): a [`WindowHost`] running the windows,
 //! which shows each figure's canvas above a toolbar of the backend's
 //! buttons and reports input, resizes, toolbar clicks, close requests,
-//! chosen files and timers as tuples (`events`), which the backend turns
-//! into matplotlib's events.
+//! chosen files, the subplot tool's changes (`subplots`) and timers as
+//! tuples (`events`), which the backend turns into matplotlib's events.
 //!
 //! Windows and timers are numbered (`HostedWindowId`, `HostTimerId`);
 //! positions are physical pixels from the canvas' top-left corner, as the
@@ -12,6 +12,7 @@
 
 mod events;
 mod headless;
+mod subplots;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -332,6 +333,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("start_timer", start_timer)?;
     module.add("stop_timer", stop_timer)?;
     module.add("pump", pump)?;
+    subplots::register(module)?;
     headless::register(module)
 }
 

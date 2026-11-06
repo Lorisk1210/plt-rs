@@ -192,7 +192,7 @@ const LOOKS: [(&str, Appearance); 3] = [
 type Scene = fn(&mut dyn Driver) -> Result<WindowId, Box<dyn Error>>;
 
 /// The surfaces reviewed: a name for the files and how to show them.
-const SURFACES: [(&str, Scene); 21] = [
+const SURFACES: [(&str, Scene); 23] = [
     ("window-idle", |shown| Ok(shown.main())),
     ("window-hover", |shown| {
         shown.point(shown.main(), HOME_BUTTON)?;
@@ -286,6 +286,21 @@ const SURFACES: [(&str, Scene); 21] = [
         shown.settle()
     }),
     ("subplots", |shown| shown.open_tool(SUBPLOTS_TABS)),
+    ("subplots-switched", |shown| {
+        // The first control has the focus: under constrained layout, the
+        // switch, whose Right shows the subplot parameters; else the top
+        // border's slider, which Right moves.
+        let tool = shown.open_tool(SUBPLOTS_TABS)?;
+        shown.press(tool, Key::Right, Modifiers::NONE)?;
+        shown.settle()
+    }),
+    ("subplots-figure", |shown| {
+        // The figure after the change above.
+        let tool = shown.open_tool(SUBPLOTS_TABS)?;
+        shown.press(tool, Key::Right, Modifiers::NONE)?;
+        shown.settle()?;
+        Ok(shown.main())
+    }),
     ("save", |shown| {
         shown.type_text(shown.main(), "s")?;
         shown.settle()

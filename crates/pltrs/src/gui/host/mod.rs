@@ -20,6 +20,7 @@ pub use input::{CanvasInput, InputKind};
 pub use toolbar::{ToolImage, ToolItem};
 
 use super::GuiError;
+use super::subplot_dialog::{SubplotChange, SubplotLayout};
 use crate::figure::Figure;
 use toolbar::Toolbar;
 use window::HostedWindow;
@@ -105,6 +106,16 @@ pub enum HostEvent {
         window: HostedWindowId,
         /// The file, with the extension of the format chosen.
         path: Option<PathBuf>,
+    },
+    /// The user asked the subplot tool of `window`
+    /// ([`WindowHost::open_subplot_tool`]) for `change`. The program
+    /// carries it out on the figure, then shows the figure's layout in
+    /// the tool ([`WindowHost::show_subplot_layout`]).
+    SubplotChange {
+        /// The window.
+        window: HostedWindowId,
+        /// What the user asked for.
+        change: SubplotChange,
     },
     /// A timer started with [`WindowHost::start_timer`] fired.
     Timer(HostTimerId),
@@ -488,6 +499,45 @@ impl WindowHost {
         groups: Vec<ShortcutGroup>,
     ) -> Result<(), GuiError> {
         self.with_window(id, |window, cx| window.show_help(cx, groups))
+    }
+
+    /// Opens the subplot configuration tool of window `id` showing
+    /// `layout`, the figure's, or shows it there and raises the tool when
+    /// it is open (matplotlib's `configure_subplots`); with the switch to
+    /// constrained layout's values when `offer_constrained` (see
+    /// [`crate::gui`]'s subplot tool). What the user asks for arrives as
+    /// [`HostEvent::SubplotChange`].
+    ///
+    /// # Errors
+    ///
+    /// As [`WindowHost::choose_file`].
+    pub fn open_subplot_tool(
+        &mut self,
+        id: HostedWindowId,
+        layout: SubplotLayout,
+        offer_constrained: bool,
+    ) -> Result<(), GuiError> {
+        self.with_window(id, |window, cx| {
+            window.open_subplot_tool(cx, layout, offer_constrained)
+        })
+    }
+
+    /// Shows `layout`, the figure's after a [`HostEvent::SubplotChange`],
+    /// in the subplot tool of window `id`, if it is open, with `problem`,
+    /// why the figure refused the change (nothing when empty).
+    ///
+    /// # Errors
+    ///
+    /// As [`WindowHost::set_title`].
+    pub fn show_subplot_layout(
+        &mut self,
+        id: HostedWindowId,
+        layout: SubplotLayout,
+        problem: &str,
+    ) -> Result<(), GuiError> {
+        self.with_window(id, |window, cx| {
+            window.show_subplot_layout(cx, layout, problem)
+        })
     }
 
     /// Puts what the canvas of window `id` shows on the clipboard, as a

@@ -10,7 +10,9 @@ here (`FigureCanvasPltrs`), the toolbar is a `.NavigationToolbar2` or a
 `.ToolContainerBase` over pltrs' toolbar, the manager is a
 `.FigureManagerBase`, and timers are `.TimerBase`\\ s. Saving from the
 toolbar asks where with pltrs' file chooser, then saves with
-`.Figure.savefig`.
+`.Figure.savefig`. The subplot configuration tool is pltrs' dialog
+(`SubplotToolPltrs`), as Qt's backend has a dialog of its own; it adjusts
+constrained layout too.
 """
 
 import os
@@ -25,6 +27,8 @@ from ..backend_bases import (
     _Backend, CloseEvent, FigureManagerBase, KeyEvent, LocationEvent,
     MouseEvent, NavigationToolbar2, ResizeEvent, TimerBase, ToolContainerBase,
     _Mode)
+from ..layout_engine import (
+    ConstrainedLayoutEngine, PlaceHolderLayoutEngine, TightLayoutEngine)
 from .._native import backends as _backends, gui as _gui
 from . import _pltrs_loop
 from .backend_agg import FigureCanvasAgg
@@ -51,6 +55,135 @@ def _tool_picture(image_file):
     with Image.open(path) as image:
         square = image.convert("RGBA").resize((_BITMAP_SIDE, _BITMAP_SIDE))
         return None, np.asarray(square)
+
+
+#: The subplot parameters in the order the subplot tool's layouts hold
+#: them.
+_SUBPLOT_PARAMS = ("left", "bottom", "right", "top", "wspace", "hspace")
+#: Constrained layout's parameters in the order the subplot tool's
+#: layouts hold them.
+_CONSTRAINED_PARAMS = ("h_pad", "w_pad", "hspace", "wspace")
+
+
+class SubplotToolPltrs:
+    """
+    The subplot configuration tool of a pltrs window, which
+    `NavigationToolbar2Pltrs.configure_subplots` returns (as Qt's returns
+    its ``SubplotToolQt``): pltrs' dialog with a slider and a field per
+    subplot parameter and the Qt tool's buttons, or, while constrained
+    layout places the subplots (pltrs' modern looks), its padding and
+    spacing, with a switch to the subplot parameters.
+
+    The dialog reports what the user asks for; the tool carries it out
+    with matplotlib's calls (`.Figure.subplots_adjust`,
+    `.Figure.tight_layout`, `.ConstrainedLayoutEngine.set`) and shows the
+    figure's layout in the dialog again.
+    """
+
+    def __init__(self, targetfig, window):
+        self._figure = targetfig
+        self._window = window
+        #: What "Reset" puts back: the engine, its parameters and the
+        #: subplot parameters.
+        self._defaults = None
+
+    def update_from_current_subplotpars(self):
+        """
+        Show the figure's layout as it is now, which "Reset" puts back,
+        opening or raising the dialog.
+        """
+        fig = self._figure
+        engine = fig.get_layout_engine()
+        self._defaults = (
+            engine,
+            engine.get() if isinstance(engine, ConstrainedLayoutEngine) else None,
+            {name: getattr(fig.subplotpars, name) for name in _SUBPLOT_PARAMS})
+        offer = (isinstance(engine, ConstrainedLayoutEngine)
+                 or rcParams["figure.constrained_layout.use"])
+        _gui.open_subplot_tool(_pltrs_loop.host(), self._window,
+                               self._layout(), offer)
+
+    def _layout(self):
+        """The figure's layout as the dialog takes it."""
+        engine = self._figure.get_layout_engine()
+        if isinstance(engine, ConstrainedLayoutEngine):
+            params = engine.get()
+            return "constrained", tuple(float(params[name])
+                                        for name in _CONSTRAINED_PARAMS)
+        pars = self._figure.subplotpars
+        return "params", tuple(float(getattr(pars, name))
+                               for name in _SUBPLOT_PARAMS)
+
+    def _apply(self, kind, values):
+        """
+        Carry out what the dialog asked for (*kind*, with *values* in the
+        order of the dialog's layouts), then show the figure's layout in
+        it, with the reason when the figure refused.
+        """
+        fig = self._figure
+        problem = ""
+        try:
+            if kind == "adjust":
+                self._let_params_be()
+                fig.subplots_adjust(**dict(zip(_SUBPLOT_PARAMS, values)))
+            elif kind == "constrain":
+                self._constrain(dict(zip(_CONSTRAINED_PARAMS, values)))
+            elif kind == "tight_layout":
+                self._let_params_be()
+                fig.tight_layout()
+            elif kind == "reset":
+                self._reset()
+        except (RuntimeError, ValueError) as error:
+            problem = str(error)
+        if self._window is not None:
+            _gui.show_subplot_layout(_pltrs_loop.host(), self._window,
+                                     self._layout(), problem)
+        fig.canvas.draw_idle()
+
+    def _let_params_be(self):
+        """
+        Replace an engine placing the subplots at every draw (constrained
+        or tight layout) by a placeholder letting the subplot parameters
+        be, keeping its way of making colorbars, and put the subplots back
+        where the parameters place them (a tight layout measures them
+        there).
+        """
+        fig = self._figure
+        engine = fig.get_layout_engine()
+        if isinstance(engine, (ConstrainedLayoutEngine, TightLayoutEngine)):
+            fig.set_layout_engine(
+                PlaceHolderLayoutEngine(True, engine.colorbar_gridspec))
+            fig.subplots_adjust(**{name: getattr(fig.subplotpars, name)
+                                   for name in _SUBPLOT_PARAMS})
+
+    def _constrain(self, spacing):
+        """Lay the figure out by constrained layout with *spacing*, keeping
+        the rest of the engine it has, or had when the tool opened."""
+        fig = self._figure
+        engine = fig.get_layout_engine()
+        if not isinstance(engine, ConstrainedLayoutEngine):
+            saved, saved_params, _ = self._defaults
+            if isinstance(saved, ConstrainedLayoutEngine):
+                engine = ConstrainedLayoutEngine(
+                    rect=saved_params["rect"], compress=saved._compress)
+            else:
+                engine = ConstrainedLayoutEngine()
+            fig.set_layout_engine(engine)
+        engine.set(**spacing)
+
+    def _reset(self):
+        """Put back the layout the figure had when the tool opened."""
+        fig = self._figure
+        engine, engine_params, params = self._defaults
+        if isinstance(engine, ConstrainedLayoutEngine):
+            fig.set_layout_engine(engine)
+            engine.set(**{name: engine_params[name]
+                          for name in (*_CONSTRAINED_PARAMS, "rect")})
+            return
+        self._let_params_be()
+        fig.subplots_adjust(**params)
+        if engine is not None and fig.get_layout_engine() is not engine:
+            fig.set_layout_engine(engine)
 
 
 class TimerPltrs(TimerBase):
@@ -106,6 +239,8 @@ class FigureCanvasPltrs(FigureCanvasAgg):
         #: The number of the window showing the canvas, set by its manager.
         self._window = None
         self._looping = False
+        #: The subplot tool, once opened (`SubplotToolPltrs`).
+        self._subplot_tool = None
 
     def draw(self):
         # docstring inherited
@@ -178,6 +313,10 @@ class FigureCanvasPltrs(FigureCanvasAgg):
         if kind == "close":
             if self.manager is not None:
                 Gcf.destroy(self.manager)
+            return
+        if kind == "subplots":
+            if self._subplot_tool is not None:
+                self._subplot_tool._apply(*event[2:])
             return
         _, _, x, y, modifiers, buttons, detail = event
         x, y = self._mpl_coords(x, y)
@@ -349,6 +488,24 @@ class NavigationToolbar2Pltrs(NavigationToolbar2):
                 _gui.set_tool_enabled(_pltrs_loop.host(), self.canvas._window,
                                       text, enabled)
 
+    def configure_subplots(self, *args):
+        """
+        Open pltrs' subplot configuration tool, or show it again with the
+        figure's layout as it is now; return it (`SubplotToolPltrs`).
+        """
+        canvas = self.canvas
+        if canvas._window is None:
+            return None
+        # The tool belongs to the figure's window, shown with it as the
+        # figure it adjusts (``plt.subplot_tool()`` before ``plt.show()``).
+        if not _gui.is_shown(_pltrs_loop.host(), canvas._window):
+            canvas.manager.show()
+        if canvas._subplot_tool is None:
+            canvas._subplot_tool = SubplotToolPltrs(canvas.figure,
+                                                    canvas._window)
+        canvas._subplot_tool.update_from_current_subplotpars()
+        return canvas._subplot_tool
+
     def save_figure(self, *args):
         """
         Ask where to save the figure with pltrs' file chooser and save it
@@ -411,7 +568,8 @@ class SaveFigurePltrs(backend_tools.SaveFigureBase):
 @backend_tools._register_tool_class(FigureCanvasPltrs)
 class ConfigureSubplotsPltrs(backend_tools.ConfigureSubplotsBase):
     def trigger(self, *args):
-        NavigationToolbar2.configure_subplots(self)
+        NavigationToolbar2Pltrs.configure_subplots(
+            self._make_classic_style_pseudo_toolbar())
 
 
 @backend_tools._register_tool_class(FigureCanvasPltrs)

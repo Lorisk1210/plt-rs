@@ -189,15 +189,15 @@ fn projections_zoom_their_axes_themselves() {
     assert!((x0 - 3.0).abs() < 1e-9 && (x1 - 4.0).abs() < 1e-9);
     assert_eq!(ax.ylim(), (y0, y1));
 
+    // The wheel zooms rectilinear axes only, as matplotlib's
+    // `scroll_handler`.
     let mut navigation = Navigation::new();
     navigation.wheel(
         &fig,
         display(&fig, &ax.trans_data(), Point::new(3.5, 4.0)),
         1.0,
+        DragKey::Control,
     );
     let zooms = record(&ax, |s| s.zooms.clone());
-    assert_eq!(
-        zooms,
-        [(false, true), (false, true), (false, false), (true, true)]
-    );
+    assert_eq!(zooms, [(false, true), (false, true), (false, false)]);
 }

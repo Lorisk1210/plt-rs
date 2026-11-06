@@ -17,15 +17,15 @@ use pltrs_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 use super::help_dialog::HelpDialog;
 use super::options::{self, OptionsDialog};
 use super::save_dialog::{Outcome, SaveDialog};
-use super::subplot_dialog::SubplotDialog;
 use super::{GuiError, dialog, tools};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::{Figure, Presenting};
 use crate::navigation::{NavMode, Navigation};
+use dialogs::SubplotTool;
 use toolbar::{Tool, Toolbar};
 
 pub(super) use canvas::present_figure;
-pub(super) use toolbar::{button_row, height as toolbar_height, push_status};
+pub(super) use toolbar::{button_row, height as toolbar_height, one_line, push_status};
 
 /// What the widgets of a figure window report.
 #[derive(Clone, Debug, PartialEq)]
@@ -63,7 +63,7 @@ pub struct FigureWindow {
     fullscreen: bool,
     title: String,
     /// The subplot tool opened from the toolbar, while it is open.
-    subplot_tool: Option<SubplotDialog>,
+    subplot_tool: Option<SubplotTool>,
     /// The save dialog opened from the toolbar, while it is open.
     save_dialog: Option<SaveDialog>,
     /// The figure options dialog opened from the toolbar, while it is open.
@@ -204,7 +204,7 @@ impl FigureWindow {
             || self
                 .subplot_tool
                 .as_ref()
-                .is_some_and(|tool| tool.id() == window)
+                .is_some_and(|tool| tool.dialog.id() == window)
     }
 
     /// Handles an event of this window or of a tool window it opened (see
@@ -260,12 +260,12 @@ impl FigureWindow {
             }
             return Ok(true);
         }
-        if let Some(tool) = self.subplot_tool.as_mut().filter(|t| t.id() == window) {
-            if !tool.handle(cx, event)? {
-                self.close_subplot_tool(cx)?;
-            }
-            // The tool adjusts this window's figure.
-            self.refresh(cx)?;
+        if self
+            .subplot_tool
+            .as_ref()
+            .is_some_and(|tool| tool.dialog.id() == window)
+        {
+            self.subplot_tool_event(cx, event)?;
             return Ok(true);
         }
         if window != self.id() {
@@ -450,13 +450,16 @@ impl FigureWindow {
         self.sync_cursor(cx)
     }
 
-    /// Shows the cursor of the navigation mode, or the one the figure's
-    /// widgets ask for.
+    /// Shows the cursor of the navigation mode over axes that navigate,
+    /// as matplotlib does, else the one the figure's widgets ask for.
     fn sync_cursor(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        let in_mode = self
+            .pointer
+            .is_some_and(|at| self.navigation.shows_mode_cursor(&self.figure, at));
         let cursor = match self.navigation.mode() {
-            NavMode::None => cursor_icon(tools::idle_cursor(&self.figure, self.pointer)),
-            NavMode::Pan => CursorIcon::Move,
-            NavMode::Zoom => CursorIcon::Crosshair,
+            NavMode::Pan if in_mode => CursorIcon::Move,
+            NavMode::Zoom if in_mode => CursorIcon::Crosshair,
+            _ => cursor_icon(tools::idle_cursor(&self.figure, self.pointer)),
         };
         if self.cursor != Some(cursor) {
             cx.set_cursor(self.window.id(), cursor)?;

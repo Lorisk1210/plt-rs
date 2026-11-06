@@ -189,6 +189,15 @@ fn inject_window(handle: Native<HeadlessHandle>, window: u64, kind: String) -> P
     send(&handle, window, event)
 }
 
+/// Makes the display's screen `scale_factor` physical pixels per logical
+/// pixel, as when a window moves to a screen of another density.
+fn set_scale_factor(handle: Native<HeadlessHandle>, scale_factor: f64) -> PyResult<()> {
+    handle
+        .borrow()
+        .set_scale_factor(scale_factor)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
 /// What the display's window `window` shows, toolbar included, as
 /// `height × width × 4` RGBA bytes.
 fn capture(handle: Native<HeadlessHandle>, window: u64) -> PyResult<NdArray<u8>> {
@@ -220,6 +229,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("inject_pointer", inject_pointer)?;
     module.add("inject_key", inject_key)?;
     module.add("inject_window", inject_window)?;
+    module.add("set_scale_factor", set_scale_factor)?;
     module.add("capture", capture)?;
     module.add("shown_title", shown_title)
 }

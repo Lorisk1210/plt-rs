@@ -16,7 +16,9 @@
 //!   view, the middle one pans and the right one zooms (matplotlib's
 //!   `Axes3D.mouse_init`); the pan mode pans them and the zoom mode zooms
 //!   to a rectangle;
-//! * the wheel zooms around the pointer in any mode;
+//! * with Control held, the wheel zooms the rectilinear axes under the
+//!   pointer around it, along both axes, and with `x` or `y` held along
+//!   that one (matplotlib's `scroll_handler`), in any mode;
 //! * every completed change is pushed on a view history browsed with
 //!   [`Navigation::home`], [`Navigation::back`] and [`Navigation::forward`].
 //!
@@ -35,7 +37,7 @@ use self::history::ViewStack;
 use self::orbit::Orbit;
 use self::pan::PanState;
 use crate::artist::ArtistHandle;
-use crate::axes::Axes;
+use crate::axes::{Axes, ProjectionKind};
 use crate::events::{LockError, LockOwner};
 use crate::figure::Figure;
 use crate::mplot3d::Axes3D;
@@ -200,8 +202,9 @@ pub struct Navigation {
     owner: LockOwner,
 }
 
-/// How much one wheel step zooms.
-const WHEEL_ZOOM: f64 = 1.25;
+/// What one wheel step up scales the view by (matplotlib's
+/// `scroll_handler` scales it by `0.85 ** step`).
+const WHEEL_SCALE: f64 = 0.85;
 
 impl Navigation {
     /// Navigation with no mode and an empty history.
@@ -395,25 +398,40 @@ impl Navigation {
         self.drag.is_some()
     }
 
-    /// Zooms around display point `at` by `steps` wheel steps (positive
-    /// zooms in) and records the new view.
-    pub fn wheel(&mut self, figure: &Figure, at: Point, steps: f64) {
-        if steps == 0.0 {
+    /// The wheel turned by `steps` notches (positive up) at display point
+    /// `at` with `key` held (matplotlib's `scroll_handler`): with
+    /// [`DragKey::Control`], the view of the rectilinear axes under the
+    /// pointer scales by `0.85 ** steps` around it in the axes' scaled
+    /// coordinates (up zooms in), with [`DragKey::X`] or [`DragKey::Y`]
+    /// along that axis alone; the view before is recorded first
+    /// (`push_current`). Other keys, other projections and 3-D axes are
+    /// left alone.
+    pub fn wheel(&mut self, figure: &Figure, at: Point, steps: f64, key: DragKey) {
+        let along = match key {
+            DragKey::Control => (true, true),
+            DragKey::X => (true, false),
+            DragKey::Y => (false, true),
+            DragKey::None | DragKey::Shift => return,
+        };
+        if !steps.is_finite() {
             return;
         }
-        let scale = WHEEL_ZOOM.powf(steps);
-        let axes = self.interaction_axes(figure, at, true);
-        if !axes.is_empty() {
-            zoom::zoom_around(figure, &axes, at, scale);
-        } else if let Some(ax) = orbit::axes3d_at(figure, at) {
-            self.record_home(figure);
-            // Limits only fail to update for degenerate scales, which
-            // leave the view as it was.
-            let _ = ax.scale_limits([1.0 / scale; 3]);
-        } else {
+        let Some(ax) =
+            axes_at(figure, at).filter(|ax| ax.projection() == ProjectionKind::Rectilinear)
+        else {
             return;
-        }
+        };
         self.history.push(figure);
+        zoom::scroll(&ax, at, WHEEL_SCALE.powf(steps), along);
+    }
+
+    /// Whether the pointer at display point `at` shows the mode's cursor
+    /// (moving arrows to pan, a crosshair to zoom): over axes that
+    /// navigate, in a mode (matplotlib's `_update_cursor`).
+    pub fn shows_mode_cursor(&self, figure: &Figure, at: Point) -> bool {
+        self.mode != NavMode::None
+            && (axes_at(figure, at).is_some_and(|ax| ax.navigate())
+                || orbit::axes3d_at(figure, at).is_some())
     }
 
     /// The text for a status bar with the pointer at `at`: the data

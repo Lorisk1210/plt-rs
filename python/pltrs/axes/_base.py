@@ -176,7 +176,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             kept = self._spines_kept = Spines(**spines)
             self._spines_seen = set(spines)
         for name in spines.keys() - self._spines_seen:
-            kept[name] = spines[name]
+            kept._join(name, spines[name])
         self._spines_seen |= spines.keys()
         return kept
 

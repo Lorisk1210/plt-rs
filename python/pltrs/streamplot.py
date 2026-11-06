@@ -193,7 +193,7 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
          (float(integration_max_step_scale), float(integration_max_error_scale))),
         (float(arrowsize), arrowstyle, int(num_arrows)),
         (None if zorder is None else float(zorder),
-         _live_transforms.given_to_native(transform)))
+         _live_transforms.given_to_native(transform, axes)))
     figure = axes.figure
     lines = _handles.wrap(lines, mcollections.LineCollection, figure)
     lines._attach_native_mapping(colorizer=made)

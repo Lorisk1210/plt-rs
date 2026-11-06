@@ -100,27 +100,35 @@ fn position(axes: Axes3D, original: bool) -> PyResult<(f64, f64, f64, f64)> {
 }
 
 /// The 2-D data limits of the projection plane, `((x0, y0, x1, y1),
-/// (minposx, minposy))`, to give back with [`restore_plane_data_lim`].
+/// (minposx, minposy), ignores)` (`ignores`: whether the next data
+/// replaces them), to give back with [`restore_plane_data_lim`].
 fn plane_data_lim(axes: Axes3D) -> PyResult<PlaneLimits> {
-    let limits = axes.projection_plane().data_lim();
-    Ok((limits.bbox.extents(), (limits.minpos.x, limits.minpos.y)))
+    let plane = axes.projection_plane();
+    let limits = plane.data_lim();
+    Ok((
+        limits.bbox.extents(),
+        (limits.minpos.x, limits.minpos.y),
+        plane.ignores_data_limits(),
+    ))
 }
 
 /// Gives the projection plane back its 2-D data limits taken by
 /// [`plane_data_lim`] (matplotlib's `Axes3D.update_datalim` does nothing).
 fn restore_plane_data_lim(
     axes: Axes3D,
-    ((x0, y0, x1, y1), (minx, miny)): PlaneLimits,
+    ((x0, y0, x1, y1), (minx, miny), ignores): PlaneLimits,
 ) -> PyResult<()> {
-    axes.restore_plane_data_lim(DataLimits {
+    let limits = DataLimits {
         bbox: Bbox::from_extents(x0, y0, x1, y1),
         minpos: Point::new(minx, miny),
-    });
+    };
+    axes.restore_plane_data_lim(limits, ignores);
     Ok(())
 }
 
-/// The 2-D data limits of a projection plane as Python holds them.
-type PlaneLimits = ((f64, f64, f64, f64), (f64, f64));
+/// The 2-D data limits of a projection plane as Python holds them, and
+/// whether the next data replaces them.
+type PlaneLimits = ((f64, f64, f64, f64), (f64, f64), bool);
 
 /// Moves the axes to `(left, bottom, width, height)` in figure fractions,
 /// its box made square there at the next draw (`set_position`).

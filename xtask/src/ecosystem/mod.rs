@@ -1,13 +1,14 @@
 //! `cargo xtask ecosystem [setup | suite ... | PYTEST ARGS...]`: pltrs
 //! (Python) as matplotlib under the libraries that import matplotlib by
 //! name: pandas, seaborn, xarray, networkx, scikit-learn, statsmodels,
-//! geopandas, plotnine, astropy, mplfinance, matplotlib-venn and
-//! pytest-mpl (`libraries`).
+//! geopandas, plotnine, shap, astropy, cartopy, sympy, nilearn, arviz,
+//! mplfinance, matplotlib-venn, pytest-mpl, mpl-scatter-density and
+//! missingno (`libraries`).
 //!
 //! * `ecosystem setup` makes the ecosystem's venvs with uv, downloads
-//!   the libraries' source trees (`setup`) and makes the baselines of the
-//!   image comparisons whose own are for another matplotlib
-//!   (`baselines`);
+//!   the libraries' source trees (`setup`) and the data their tests read
+//!   (`data`), and makes the baselines of the image comparisons whose own
+//!   are for another matplotlib (`baselines`);
 //! * `ecosystem suite [--reference] [PATTERN...] [--failures]` runs the
 //!   libraries' own test suites against pltrs or matplotlib (`suite`);
 //! * `ecosystem [PYTEST ARGS...]` builds the extension (release) and runs
@@ -19,6 +20,7 @@
 //!   pltrs. The figures go to `target/ecosystem/out`.
 
 mod baselines;
+mod data;
 mod libraries;
 mod setup;
 mod site;

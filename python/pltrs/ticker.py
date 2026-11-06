@@ -1952,11 +1952,51 @@ class MaxNLocator(_NativeLocator):
         # docstring inherited
         return super().view_limits(dmin, dmax)
 
+    def _gives_raw_ticks(self):
+        """Whether a class of the program's places the ticks itself before
+        they are pruned (its ``_raw_ticks``, as cartopy's
+        ``LongitudeLocator`` chooses its steps): pltrs (Rust) then ticks
+        through it, as matplotlib's `tick_values` does."""
+        return _program_classes.takes_from_program(type(self), "_raw_ticks")
+
     def __call__(self):
+        # docstring inherited
+        if self._gives_raw_ticks():
+            vmin, vmax = self.axis.get_view_interval()
+            return self.tick_values(vmin, vmax)
         return super().__call__()
 
     def tick_values(self, vmin, vmax):
-        return super().tick_values(vmin, vmax)
+        # docstring inherited
+        if not self._gives_raw_ticks():
+            return super().tick_values(vmin, vmax)
+        # matplotlib's, around the class' own `_raw_ticks`.
+        from .transforms import _nonsingular
+        if self._symmetric:
+            vmax = max(abs(vmin), abs(vmax))
+            vmin = -vmax
+        vmin, vmax = _nonsingular(vmin, vmax, expander=1e-13, tiny=1e-14)
+        locs = self._raw_ticks(vmin, vmax)
+        prune = self._prune
+        if prune == 'lower':
+            locs = locs[1:]
+        elif prune == 'upper':
+            locs = locs[:-1]
+        elif prune == 'both':
+            locs = locs[1:-1]
+        return self.raise_if_exceeds(locs)
+
+    def _raw_ticks(self, vmin, vmax):
+        """
+        Generate a list of tick locations including the range *vmin* to
+        *vmax*.  In some applications, one or both of the end locations
+        will not be needed, in which case they are trimmed off
+        elsewhere.
+        """
+        # pltrs: the ticks pltrs (Rust) places over *vmin* to *vmax*, made
+        # nonsingular, neither symmetric nor pruned.
+        spec = {**self._spec(), "symmetric": False, "prune": None}
+        return _ticker.tick_values(spec, float(vmin), float(vmax), self._axis_info())
 
 
 class LogLocator(_NativeLocator):

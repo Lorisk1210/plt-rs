@@ -289,9 +289,10 @@ impl ContourState {
         }
     }
 
-    /// The `cvalues` as the values of a colour mapping.
+    /// The `cvalues` as the values of a colour mapping (see
+    /// [`mapped_values`]).
     fn cvalue_options(&self) -> Vec<Option<f64>> {
-        self.cvalues.iter().copied().map(Some).collect()
+        mapped_values(&self.cvalues)
     }
 
     /// Colours `collection`, which draws the paths of the levels or bands
@@ -371,6 +372,17 @@ impl ContourState {
         base.sticky_edges = (vec![mins.x, maxs.x], vec![mins.y, maxs.y]);
         collection
     }
+}
+
+/// `values` as matplotlib's `set_array` keeps the values a contour set
+/// maps to its colours (`safe_masked_invalid`): one that is not finite
+/// (the layer of the band up to an infinite level) is masked, which takes
+/// the colormap's bad colour.
+pub(crate) fn mapped_values(values: &[f64]) -> Vec<Option<f64>> {
+    values
+        .iter()
+        .map(|&value| value.is_finite().then_some(value))
+        .collect()
 }
 
 #[cfg(test)]

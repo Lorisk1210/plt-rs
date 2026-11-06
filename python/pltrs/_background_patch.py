@@ -16,6 +16,8 @@ those of the background. A patch the program makes an Axes' patch
 background's shape.
 """
 
+import numpy as np
+
 from . import _live_transforms, _mirrors
 from ._native import axisartist as _axisartist, patches as _patches
 from ._native import projections as _projections
@@ -57,6 +59,18 @@ class _AxesBackground(_Background):
     def refresh(self, patch):
         # What the Axes' draws gave the patch (a polar Axes' `.Wedge`).
         self.owner._fit_patch(patch)
+
+
+class _ShapedAxesBackground(_AxesBackground):
+    """The background of an Axes whose class of the program's makes its
+    patch (``_gen_axes_patch``), whose outline is the background's shape
+    and what the Axes clips to, whenever the program changes the patch
+    (cartopy's ``GeoAxes`` gives its patch the map's boundary as it draws,
+    clipped to the view)."""
+
+    def push(self, patch):
+        super().push(patch)
+        push_outline(self.owner, patch)
 
 
 class _FigureBackground(_Background):
@@ -108,9 +122,29 @@ def axes_patch_shape(axes):
     its shape and place alone (what clips to it), its style not read."""
     patch = axes.__dict__.get("_patch")
     if patch is None:
-        patch = _made(axes, axes._gen_axes_patch(), _AxesBackground(axes),
-                      axes.transAxes)
+        from .projections import _program
+        mirroring = (_ShapedAxesBackground(axes) if _program.shapes_background(type(axes))
+                     else _AxesBackground(axes))
+        patch = _made(axes, axes._gen_axes_patch(), mirroring, axes.transAxes)
     return patch
+
+
+def push_outline(axes, patch):
+    """
+    Make the outline of *patch*, in the coordinates of *axes* as they are
+    now, the shape the background of *axes* fills and what the Axes clips
+    to (matplotlib's ``set_clip_path(self.patch)``: its box for a
+    `.Rectangle`); the unit square is the Axes' own box.
+    """
+    from .artist import Artist
+    from .patches import Rectangle
+    placement = patch.get_patch_transform() + (Artist.get_transform(patch) - axes.transAxes)
+    outline = placement.transform_path(patch.get_path())
+    if isinstance(patch, Rectangle) and np.allclose(
+            outline.get_extents().bounds, (0, 0, 1, 1)):
+        _projections.set_patch_outline(axes._native, None, True)
+    else:
+        _projections.set_patch_outline(axes._native, outline, isinstance(patch, Rectangle))
 
 
 def set_axes_patch(axes, patch):

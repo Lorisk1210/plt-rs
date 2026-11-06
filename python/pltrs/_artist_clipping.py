@@ -315,8 +315,11 @@ class ClippingMixin:
 
     def _patch_spec(self, patch, outline):
         """The clip path description of *patch*: followed when the patch is
-        an artist of this artist's figure, its *outline* otherwise."""
-        if self._figure is not None and patch.figure is self._figure:
+        an artist of this artist's figure, its *outline* otherwise (also
+        the description of the part a mirror stands for, an Axes'
+        background say, which `clip_path_spec` asked)."""
+        if (self._figure is not None and patch.figure is self._figure
+                and not _mirrors.is_attached(patch)):
             return ("artist", patch._native)
         return outline
 

@@ -3,7 +3,7 @@
 use pltrs_core::{Affine2D, Point};
 
 use super::{Text, TextArtist};
-use crate::artist::{ArtistBase, ArtistHandle, DrawContext, LayoutContext};
+use crate::artist::{ArtistBase, ArtistHandle, ArtistLookup, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::patches::{
     BoxShape, BoxStyle, ClipRegion, DEFAULT_PAD, FancyBboxPatch, Patch, PatchError, PatchParts,
@@ -58,8 +58,9 @@ impl Text {
     /// the size of the text's frame and a mutation scale of its font size
     /// in pixels, and the transform rotating it and placing it in display
     /// pixels (matplotlib's `update_bbox_position_size`, which moves the
-    /// patch of `get_bbox_patch` there). `None` without a box, or for a
-    /// text outside any figure.
+    /// patch of `get_bbox_patch` there): also of a text the figure keeps
+    /// apart, given it without adding it (cartopy's gridliner labels).
+    /// `None` without a box, or for a text outside any figure.
     ///
     /// ```
     /// use pltrs::figure::Figure;
@@ -79,10 +80,7 @@ impl Text {
         let raw = self.raw();
         let state = raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
-        state
-            .store
-            .get_as::<TextArtist>(raw.id())?
-            .box_frame(layout)
+        state.artist_as::<TextArtist>(raw.id())?.box_frame(layout)
     }
 }
 
@@ -124,6 +122,8 @@ pub struct TextBoxPatch {
     boxstyle: BoxStyle,
     style: PatchStyle,
     alpha: Option<f64>,
+    /// Whether the box is drawn (the text is drawn either way).
+    visible: bool,
     /// The box's own path effects (not the text's): `path.effects` when it
     /// was made, unless given.
     path_effects: Vec<PathEffect>,
@@ -133,6 +133,7 @@ pltrs_core::archive_struct!(TextBoxPatch {
     boxstyle,
     style,
     alpha,
+    visible,
     path_effects
 });
 
@@ -159,6 +160,7 @@ impl TextBoxPatch {
             boxstyle,
             style,
             alpha: base.alpha,
+            visible: base.visible.unwrap_or(true),
             path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
         }
     }
@@ -201,13 +203,18 @@ impl TextBoxPatch {
         self.alpha
     }
 
+    /// Whether the box is drawn behind its text.
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
+
     /// The effects the box is drawn through.
     pub fn path_effects(&self) -> &[PathEffect] {
         &self.path_effects
     }
 
     /// A loose fancy box patch with the box's look (box style, face,
-    /// edge, hatch, alpha and path effects) on the unit square: what a
+    /// edge, hatch, alpha, visibility and path effects) on the unit square: what a
     /// program reads and changes of the box as the patch matplotlib's
     /// `get_bbox_patch` returns, the text placing it when drawn. Changes
     /// come back with [`TextBoxPatch::restyle_from`].
@@ -220,16 +227,18 @@ impl TextBoxPatch {
         patch
             .raw()
             .set_alpha(self.alpha)
+            .set_visible(self.visible)
             .set_path_effects(self.path_effects.clone());
         patch
     }
 
     /// Takes the look of `patch` (made by [`TextBoxPatch::to_patch`]): its
-    /// box style, face, edge, hatch, alpha and path effects.
+    /// box style, face, edge, hatch, alpha, visibility and path effects.
     pub fn restyle_from(&mut self, patch: &Patch<FancyBboxPatch>) {
         self.boxstyle = patch.shape().boxstyle;
         self.style = patch.style();
         self.alpha = patch.raw().alpha();
+        self.visible = patch.raw().visible();
         self.path_effects = patch.raw().path_effects();
     }
 
@@ -259,7 +268,7 @@ impl TextBoxPatch {
         base
     }
 
-    /// Draws the box behind the text.
+    /// Draws the box behind the text, unless it is hidden.
     pub(crate) fn draw(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -267,6 +276,9 @@ impl TextBoxPatch {
         rc: &RcParams,
         placement: &BoxPlacement,
     ) -> Result<(), PatchError> {
+        if !self.visible {
+            return Ok(());
+        }
         let (shape, transform) = self.shape(placement);
         let base = self.base(text, transform);
         PatchParts {
@@ -358,6 +370,24 @@ mod tests {
         assert_eq!(text_box.alpha(), Some(0.25));
         assert_eq!(text_box.style().facecolor, Some(Color::from("red")));
         assert_eq!(text_box.boxstyle(), round.with_pad(0.3));
+    }
+
+    #[test]
+    fn hidden_boxes_stay_hidden_through_their_patches() {
+        // cartopy's gridliner labels: `bbox=dict(pad=0, visible=False)`.
+        let mut props = TextBoxProps {
+            pad: Some(0.0),
+            ..TextBoxProps::default()
+        };
+        props.patch.base.visible = Some(false);
+        let mut hidden = TextBoxPatch::new(props, 10.0, &rc());
+        assert!(!hidden.visible());
+        let patch = hidden.to_patch();
+        assert!(!patch.visible());
+        patch.set_visible(true);
+        hidden.restyle_from(&patch);
+        assert!(hidden.visible());
+        assert!(TextBoxPatch::new(TextBoxProps::default(), 10.0, &rc()).visible());
     }
 
     #[test]

@@ -37,6 +37,7 @@ import numpy as np
 from . import rcParams
 from ._native import artist as _artist, axis as _axis
 from ._native import figure as _figure, transforms as _transforms
+from ._program_classes import takes_from_program
 from .transforms import (Affine2D, Bbox, BboxTransformFrom, BboxTransformTo,
                          IdentityTransform, ScaledTranslation, TransformNode,
                          TransformWrapper, TransformedBbox,
@@ -585,11 +586,25 @@ class AxesTrees:
 
     def _unstale_viewLim(self):
         """Apply the autoscaling pending (matplotlib's
-        ``_unstale_viewLim``), unless pltrs (Rust) is handing its leaves
-        (laying the figure out), when they are what it works with."""
+        ``_unstale_viewLim``), through the ``autoscale_view`` of an Axes
+        class of the program's (cartopy's ``GeoAxes``), unless pltrs (Rust)
+        is handing its leaves (laying the figure out), when they are what
+        it works with."""
         if not _syncing():
-            from ._native import axes as _axes
+            from ._native import axes as _axes, axes_base as _axes_base
+            if takes_from_program(type(self), "autoscale_view"):
+                scalex, scaley = _axes_base.take_stale_autoscale(self._native)
+                if scalex or scaley:
+                    self.autoscale_view(scalex=scalex, scaley=scaley)
             _axes.get_xlim(self._native)
+
+    def _unstale_by_program(self):
+        """Bring the view limits up to date through the ``autoscale_view``
+        of an Axes class of the program's overriding it before they are
+        read, as matplotlib's getters do (`_unstale_viewLim`); pltrs (Rust)
+        brings those of the other Axes up to date itself."""
+        if takes_from_program(type(self), "autoscale_view"):
+            self._unstale_viewLim()
 
     @property
     def viewLim(self):

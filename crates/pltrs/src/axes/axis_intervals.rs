@@ -83,14 +83,17 @@ impl Axis {
 
     /// Sets the data interval along this axis to `(vmin, vmax)` when
     /// `ignore`, else widens it to include both (matplotlib's
-    /// `Axis.set_data_interval`); the smallest positive datum stays, and so
-    /// does the view, until it is autoscaled again.
+    /// `Axis.set_data_interval`); the smallest positive datum stays. The
+    /// view follows at the next autoscale, which this does not ask for,
+    /// as matplotlib's does not (cartopy sets the data and view limits of
+    /// its maps so).
     ///
     /// ```
     /// let ax = pltrs::figure::Figure::new().subplot();
     /// ax.xaxis().set_data_interval(1.0, 2.0, true);
     /// ax.xaxis().set_data_interval(0.0, 1.5, false);
     /// assert_eq!(ax.xaxis().data_interval(), (0.0, 2.0));
+    /// assert_eq!(ax.xlim(), (0.0, 1.0));
     /// ```
     pub fn set_data_interval(&self, vmin: f64, vmax: f64, ignore: bool) -> &Self {
         let name = self.name;

@@ -104,30 +104,35 @@ impl Axes3D {
     /// them directly).
     pub(crate) fn on_plane_keeping_limits<R>(&self, plot: impl FnOnce(&Axes) -> R) -> R {
         let plane = self.plane();
-        let kept = plane.data_lim();
+        let kept = (plane.data_lim(), plane.ignores_data_limits());
         let result = plot(&plane);
-        self.restore_plane_data_lim(kept);
+        self.restore_plane_data_lim(kept.0, kept.1);
         result
     }
 
-    /// Gives the projection plane back the 2-D data limits `limits`, taken
-    /// (`projection_plane().data_lim()`) before a 2-D plotting method
+    /// Gives the projection plane back the 2-D data limits `limits` and
+    /// whether the next data replaces them (`ignores`,
+    /// [`Axes::ignores_data_limits`]), taken before a 2-D plotting method
     /// extended them through matplotlib's `update_datalim`, which
     /// `Axes3D` makes a no-op.
     ///
     /// ```
     /// use pltrs::figure::Figure;
     /// let ax = Figure::new().subplot_3d();
-    /// let kept = ax.projection_plane().data_lim();
-    /// ax.projection_plane().bar(vec![1.0, 2.0], vec![3.0, 4.0], Default::default())?;
-    /// ax.restore_plane_data_lim(kept);
-    /// assert_eq!(ax.projection_plane().data_lim(), kept);
+    /// let plane = ax.projection_plane();
+    /// let kept = plane.data_lim();
+    /// plane.bar(vec![1.0, 2.0], vec![3.0, 4.0], Default::default())?;
+    /// ax.restore_plane_data_lim(kept, true);
+    /// assert_eq!(plane.data_lim(), kept);
+    /// assert!(plane.ignores_data_limits());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn restore_plane_data_lim(&self, limits: DataLimits) -> &Self {
-        self.plane()
+    pub fn restore_plane_data_lim(&self, limits: DataLimits, ignores: bool) -> &Self {
+        let plane = self.plane();
+        plane
             .raw()
             .with_mut::<AxesState, _>(|axes| axes.data_lim = limits);
+        plane.set_ignores_data_limits(ignores);
         self
     }
 

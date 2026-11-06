@@ -383,6 +383,10 @@ pub(crate) fn spine_extent_with_ticks(
     layout: LayoutContext<'_>,
     spine: &SpineArtist,
 ) -> Option<Bbox> {
+    // No axis is drawn on a spine of no side.
+    if !spine.frames_side() {
+        return None;
+    }
     let axes = spine.base().parent?;
     let state = layout.store().get_as::<AxesState>(axes)?;
     let name = spine.side.axis();

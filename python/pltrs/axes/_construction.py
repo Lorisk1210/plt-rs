@@ -18,6 +18,7 @@ from collections.abc import Iterable
 import numpy as np
 
 from .. import _api, _handles, _python_drawing
+from .._program_classes import takes_from_program
 from .._native import figure as _figure, insets as _insets
 from ..transforms import Bbox
 from . import _program_tick_params
@@ -131,8 +132,13 @@ class ConstructionMixin:
     def _init_axes_state(self):
         """Set up the Python state of the Axes around its native handle:
         an Axes class of the program's draws through its own ``draw``
-        (astropy's ``WCSAxes``), as matplotlib's figure draws its Axes."""
+        (astropy's ``WCSAxes``), as matplotlib's figure draws its Axes,
+        and autoscales through its own ``autoscale_view`` (cartopy's
+        ``GeoAxes``) when it is drawn."""
         _python_drawing.attach(self)
+        if takes_from_program(type(self), "autoscale_view"):
+            from . import _program_locators
+            _program_locators.follow_autoscale(self, self._figure)
 
     def get_window_extent(self, renderer=None):
         """

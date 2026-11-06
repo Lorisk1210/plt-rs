@@ -436,7 +436,7 @@ class ScatterMixin:
             np.ma.filled(s.astype(float), np.nan), faces,
             mlines._marker_spec(marker_obj), (edgecolors, linewidths),
             (None if alpha is None else float(alpha), alphas),
-            (bool(plotnonfinite), _live_transforms.given_to_native(offset_transform)))
+            (bool(plotnonfinite), _live_transforms.given_to_native(offset_transform, self)))
         collection = wrap(self, native, mcoll.PathCollection)
         # matplotlib's scatter gives its marker path as a tuple, its sizes as
         # given, and its face colours as an array (a face, even if clear).

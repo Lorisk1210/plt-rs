@@ -65,6 +65,8 @@ pub(crate) struct AxesState {
     pub(crate) view_mutated: (bool, bool),
     /// Extent of all data added so far.
     pub(crate) data_lim: DataLimits,
+    /// What the next data added does to the data limits.
+    pub(crate) next_data: NextData,
     /// The horizontal axis.
     pub(crate) xaxis: AxisState,
     /// The vertical axis.
@@ -153,6 +155,7 @@ pltrs_core::archive_struct!(AxesState {
     view_lim,
     view_mutated,
     data_lim,
+    next_data,
     xaxis,
     yaxis,
     use_sticky_edges,
@@ -292,6 +295,21 @@ pub(crate) struct AxisSpace {
     pub(crate) tick_space: Option<usize>,
 }
 
+/// What the next data added to an axes does to its data limits
+/// (matplotlib's `ignore_existing_data_limits`): it replaces them when the
+/// axes is made or cleared, and when its limits were recomputed from no
+/// data, and extends them once data was added. Data limits set directly
+/// (cartopy sets its map's) leave it as it is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NextData {
+    /// The next data replaces the limits.
+    Replaces,
+    /// The next data extends the limits.
+    Extends,
+}
+
+pltrs_core::archive_enum!(NextData { Replaces, Extends });
+
 impl AxesState {
     /// Axes at `position` (frame fractions) configured from `rc`.
     pub(crate) fn new(position: Bbox, rc: Rc<RcParams>) -> Self {
@@ -307,6 +325,7 @@ impl AxesState {
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),
             data_lim: DataLimits::default(),
+            next_data: NextData::Replaces,
             xaxis: AxisState::new(AxisName::X, &rc),
             yaxis: AxisState::new(AxisName::Y, &rc),
             use_sticky_edges: true,

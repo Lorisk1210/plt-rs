@@ -26,9 +26,10 @@ use std::time::Instant;
 
 use pltrs_core::os::Os;
 
-use super::libraries::{LIBRARIES, Library};
-use super::{baselines, site};
+use super::libraries::{self, Library, Network};
+use super::{baselines, data, site};
 use crate::mpl_suite::outcomes::Outcomes;
+use crate::mpl_suite::pytest::Variable;
 use crate::mpl_suite::{self, Mode, Options, pytest, report};
 use crate::python;
 
@@ -91,7 +92,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     }
     let installed = python::site_packages(&venv)?;
     let mut prepared = Vec::new();
-    for library in LIBRARIES {
+    for library in libraries::all() {
         let dir = suite_dir().join(options.mode.name()).join(library.name);
         let site = site::lay_out(&library, &installed, &dir, &baselines::made(&library)?)?;
         let files = test_files(&site, library.tests)?;
@@ -134,7 +135,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         merged.merge(run, &ran_files);
     }
     let mut versions = Vec::new();
-    for library in LIBRARIES {
+    for library in libraries::all() {
         versions.push((library.name, super::setup::pinned(library.name)?));
     }
     versions.push(("matplotlib", MATPLOTLIB.to_owned()));
@@ -197,6 +198,11 @@ impl Tests<'_> {
         // downloads) in the run's own directory.
         let temporary = self.dir.join("tmp");
         fs::create_dir_all(&temporary).map_err(|err| format!("{}: {err}", temporary.display()))?;
+        let mut variables = vec![("TMPDIR".to_owned(), Some(temporary.into_os_string()))];
+        variables.extend(data::variables(self.library)?);
+        if self.library.network == Network::Refused {
+            variables.extend(offline());
+        }
         pytest::Run {
             suite: self.library.title,
             python: self.python,
@@ -207,8 +213,28 @@ impl Tests<'_> {
             targets: &targets,
             environment: &[],
         }
-        .outcomes_with(&[("TMPDIR".to_owned(), Some(temporary.into_os_string()))])
+        .outcomes_with(&variables)
     }
+}
+
+/// The proxy that refuses every connection: nothing listens on the
+/// discard port of the loopback interface.
+const REFUSING_PROXY: &str = "http://127.0.0.1:9";
+
+/// The variables running a library's tests offline
+/// ([`Network::Refused`]): HTTP and HTTPS through [`REFUSING_PROXY`],
+/// which urllib, requests and pooch heed, the loopback interface spared.
+fn offline() -> Vec<Variable> {
+    let mut variables = Vec::new();
+    for name in ["http_proxy", "https_proxy"] {
+        for name in [name.to_owned(), name.to_uppercase()] {
+            variables.push((name, Some(REFUSING_PROXY.into())));
+        }
+    }
+    for name in ["no_proxy", "NO_PROXY"] {
+        variables.push((name.to_owned(), Some("localhost,127.0.0.1,::1".into())));
+    }
+    variables
 }
 
 /// The pytest options of `library`'s runs: its own, and the selection of
@@ -299,14 +325,7 @@ fn check_patterns(patterns: &[String], prepared: &[Prepared]) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// The library named `name`.
-    fn library(name: &str) -> Library {
-        LIBRARIES
-            .into_iter()
-            .find(|library| library.name == name)
-            .unwrap()
-    }
+    use crate::ecosystem::libraries::named as library;
 
     /// `library` prepared with the test files `files`.
     fn prepared(library: &Library, files: &[&str]) -> Prepared {

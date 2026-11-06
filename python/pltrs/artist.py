@@ -29,6 +29,7 @@ from ._artist_copying import CopyingMixin, _XYPair
 from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
+from ._artist_private import PrivateAttributesMixin
 from ._artist_staleness import StalenessMixin, _stale_axes_callback  # noqa: F401
 from ._artist_subclassing import SubclassingMixin
 from ._artist_units import UnitsMixin
@@ -113,7 +114,7 @@ def _axes_class():
 
 class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
              EffectsMixin, ExtentMixin, UnitsMixin, ChildrenSearchMixin,
-             CopyingMixin, StalenessMixin):
+             CopyingMixin, StalenessMixin, PrivateAttributesMixin):
     """
     Abstract base class for objects that render into a FigureCanvas.
 
@@ -219,7 +220,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """The `~.axes.Axes` instance the artist resides in, or *None*."""
         if self._figure is None:
             return self.__dict__.get("_axes")
-        return _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
+        axes = _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
+        # An artist the program gave a figure and an Axes without adding
+        # it (cartopy's gridliner labels) keeps the Axes it was given.
+        return self.__dict__.get("_axes") if axes is None else axes
 
     @axes.setter
     def axes(self, new_axes):
@@ -234,6 +238,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     def get_transform(self):
         """Return the `.Transform` instance used by this artist."""
         given = self.__dict__.get("_given_transform")
+        if _live_transforms.gives_transform(given):
+            # The transform an object of the program's gives for the
+            # artist's Axes, asked now as matplotlib asks it.
+            self.set_transform(given._as_mpl_transform(self.axes))
+            given = self._given_transform
         if given is not None:
             return given
         return _live_transforms.of_artist(
@@ -255,6 +264,18 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ----------
         t : `~matplotlib.transforms.Transform`
         """
+        if _live_transforms.gives_transform(t):
+            # An object of the program's giving its transform for an Axes
+            # (a cartopy CRS): that of the artist's Axes, asked once the
+            # artist is in one, as matplotlib's ``get_transform`` asks it.
+            axes = self.axes
+            if axes is None:
+                self._given_transform = t
+                self.__dict__.setdefault("_on_adopt", []).append(
+                    lambda: self.set_transform(t))
+                self.pchanged()
+                return
+            t = t._as_mpl_transform(axes)
         _transforms.set_transform(self._native, _live_transforms.to_native(t))
         self._given_transform = t
         self.pchanged()

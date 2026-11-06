@@ -2102,6 +2102,12 @@ class _MeshData:
         """*coordinates* as pltrs (Rust) takes them: floats, NaN where
         masked."""
         return np.ma.filled(np.ma.asarray(coordinates, dtype=float), np.nan)
+    @property
+    def _coordinates(self):
+        """The vertices of the mesh: matplotlib's attribute behind
+        `get_coordinates`, which programs read (cartopy's
+        ``pcolormesh``)."""
+        return self.get_coordinates()
 
     def get_coordinates(self):
         """
@@ -2239,11 +2245,29 @@ class _MeshData:
                 # RGB(A) values are the colours of the cells, which
                 # ``to_rgba`` passes through.
                 mcolorizer.ColorizingArtist.set_array(self, A)
+                colors = self.to_rgba(self._A).reshape(-1, 4)
+                if isinstance(self, PolyCollection):
+                    colors = colors[self._draw_cells_of(self._A)]
                 _collections.set_array(self._native, None)
-                _collections.set_facecolors(
-                    self._native, self.to_rgba(self._A).reshape(-1, 4))
+                _collections.set_facecolors(self._native, colors)
                 return
         super().set_array(A)
+
+    def _draw_cells_of(self, colors):
+        """
+        Have the polygons of the mesh be those of its cells whose RGB(A)
+        *colors* (an ``(M, N, 3 or 4)`` array) and corners are all given,
+        as matplotlib's `PolyQuadMesh` draws them; return which cells
+        those are, in order.
+        """
+        masked = np.ma.getmaskarray(colors).any(axis=-1).ravel()
+        # The polygons are those of the cells with a value (see
+        # `CollectionArtist::mask_polygon_cells`).
+        _collections.set_array(self._native, np.where(masked, np.nan, 0.0))
+        corners = np.isfinite(self.get_coordinates()).all(axis=-1)
+        given = (corners[:-1, :-1] & corners[1:, 1:]
+                 & corners[:-1, 1:] & corners[1:, :-1])
+        return given.ravel() & ~masked
 
 
 class QuadMesh(_MeshData, Collection):

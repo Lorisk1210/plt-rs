@@ -110,7 +110,7 @@ impl ColorMapped for ContourSetArtist {
         let levels: Vec<Option<f64>> = state.levels.iter().copied().map(Some).collect();
         mapping.norm_mut().autoscale_none(&levels);
         state.norm_limits = mapping.clim();
-        let cvalues: Vec<Option<f64>> = state.cvalues.iter().copied().map(Some).collect();
+        let cvalues = super::set::mapped_values(&state.cvalues);
         let normalized = normalize_scalars(mapping, &cvalues, state.cvalue_kind)?;
         let cmap = mapping.cmap();
         state.colors = normalized.iter().map(|&n| cmap.lookup(n, None)).collect();

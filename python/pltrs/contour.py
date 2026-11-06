@@ -789,7 +789,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             raise ValueError('allkinds has different length to allsegs')
         segments = [[Path(seg, kind) for seg, kind in zip(segs, kinds)]
                     for segs, kinds in zip(allsegs, allkinds)]
-        look = _contour_look(kwargs)
+        look = _contour_look(ax, kwargs)
         native = _contour.contour_segments(
             ax._native, bool(filled), [float(level) for level in levels],
             segments, *look[:2])

@@ -240,7 +240,11 @@ impl Axes {
     /// coordinates, become the data limits and sticky edges, and
     /// autoscaling is requested; the mesh is added with `autolim=False`,
     /// so `relim` leaves it out.
-    fn add_mesh(&self, mut collection: CollectionArtist, mesh: &PreparedMesh) -> Collection {
+    pub(super) fn add_mesh(
+        &self,
+        mut collection: CollectionArtist,
+        mesh: &PreparedMesh,
+    ) -> Collection {
         let transform = collection
             .base_mut()
             .transform

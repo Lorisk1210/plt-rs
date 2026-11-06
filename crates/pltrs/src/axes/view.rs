@@ -137,6 +137,17 @@ impl FigureState {
         }
     }
 
+    /// Which axes of `axes`, `[x, y]`, wait to be rescaled (or one sharing
+    /// them does), which then no longer wait: what matplotlib's
+    /// `_unstale_viewLim` takes before it calls `autoscale_view`.
+    pub(crate) fn take_stale_axes(&mut self, axes: ArtistId) -> [bool; 2] {
+        let stale = AXES.map(|name| self.autoscale_is_stale(axes, name));
+        for (name, _) in AXES.into_iter().zip(stale).filter(|(_, stale)| *stale) {
+            self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
+        }
+        stale
+    }
+
     /// Whether [`FigureState::unstale_axes`] has anything to do for
     /// `axes`: an axis to rescale, or limit changes whose callbacks have
     /// yet to run. Reading the view limits of a figure being drawn then

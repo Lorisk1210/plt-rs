@@ -232,7 +232,7 @@ class FillsMixin:
             self._native, ind_dir == "y",
             (floats(ind), floats(dep1), floats(dep2)), (mask, bool(interpolate), step),
             (color, facecolor),
-            _live_transforms.given_to_native(kwargs.get("transform")))
+            _live_transforms.given_to_native(kwargs.get("transform"), self))
         collection = wrap(self, native, mcoll.FillBetweenPolyCollection)
         collection.t_direction = ind_dir
         if color is not None:

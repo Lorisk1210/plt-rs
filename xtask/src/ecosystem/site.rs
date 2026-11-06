@@ -10,13 +10,14 @@
 //! so that pytest runs with the library's own configuration (pandas turns
 //! every warning into an error). The directory its image comparisons read
 //! their baselines from (`Baselines::read_from`), if setup makes them, is
-//! a link to the ones made.
+//! a link to the ones made, and so is the directory a library caches its
+//! downloads in, if setup fetches its data (`Found::Link`).
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::libraries::Library;
+use super::libraries::{Found, Library};
 use crate::mpl_suite::prepare;
 
 /// The configuration file pandas installs in its package, which pytest
@@ -65,6 +66,11 @@ pub(super) fn lay_out(
         let link = site.join(read_from);
         prepare::remove(&link)?;
         prepare::link(baselines, &link)?;
+    }
+    if let Some((data, Found::Link(path))) = super::data::fetched(library)? {
+        let link = site.join(path);
+        prepare::remove(&link)?;
+        prepare::link(&data, &link)?;
     }
     Ok(site)
 }
@@ -127,15 +133,7 @@ fn copy_file(from: &Path, to: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ecosystem::libraries::LIBRARIES;
-
-    /// The library named `name`.
-    fn library(name: &str) -> Library {
-        LIBRARIES
-            .into_iter()
-            .find(|library| library.name == name)
-            .unwrap()
-    }
+    use crate::ecosystem::libraries::named as library;
 
     #[test]
     fn copies_deep_in_the_package_are_reached_through_real_directories() {

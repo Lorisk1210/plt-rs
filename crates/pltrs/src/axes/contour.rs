@@ -1,7 +1,7 @@
 //! Contour plots (matplotlib's `contour`, `contourf`, `tricontour` and
 //! `tricontourf`).
 
-use pltrs_core::{Affine2D, Path};
+use pltrs_core::Path;
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState};
@@ -11,6 +11,7 @@ use crate::contour::{
     Generator, Levels, QuadField, given_source,
 };
 use crate::numeric::{Number, to_f64s};
+use crate::transforms::ResolvedTransform;
 use crate::tri::{Triangulation, contour_source};
 
 impl Axes {
@@ -198,12 +199,14 @@ impl Axes {
 
     /// The map from the coordinates of a quadrilateral grid to the data
     /// coordinates, when they differ (matplotlib's `trans_to_data` in
-    /// `QuadContourSet._process_args`; triangulations are never mapped).
-    fn grid_to_data(&self, options: &ContourOptions) -> Option<Affine2D> {
+    /// `QuadContourSet._process_args`, also through the map of a
+    /// projection of the program's, cartopy's between two projections;
+    /// triangulations are never mapped).
+    fn grid_to_data(&self, options: &ContourOptions) -> Option<ResolvedTransform> {
         let transform = options.transform.as_ref()?;
         transform
-            .affine_before_data(self.id())
-            .filter(|map| *map != Affine2D::IDENTITY)
+            .to_data(self.id())
+            .filter(|map| !map.is_identity())
     }
 
     /// Computes the contour set and adds its collection, extending the
@@ -239,10 +242,26 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
+    use pltrs_core::{Affine2D, Point};
+
     use super::*;
     use crate::figure::Figure;
     use crate::numeric::Grid;
-    use crate::transforms::Transform;
+    use crate::transforms::{PointMap, Transform};
+
+    /// A non-affine shift of the plane (a map of the program's, as
+    /// cartopy's between two projections).
+    #[derive(Debug)]
+    struct Shift(f64);
+
+    impl PointMap for Shift {
+        fn forward(&self, p: Point) -> Point {
+            Point::new(p.x + self.0, p.y)
+        }
+        fn inverse(&self, p: Point) -> Point {
+            Point::new(p.x - self.0, p.y)
+        }
+    }
 
     #[test]
     fn boolean_triangulated_values_get_boolean_levels() {
@@ -275,5 +294,18 @@ mod tests {
         let z = Grid::from_fn(3, 4, |r, c| (r + c) as f64);
         ax.contourf(&QuadField::new(z), options).unwrap();
         assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 30.0), (0.0, 20.0)));
+    }
+
+    #[test]
+    fn grids_through_maps_of_the_program_bound_the_data_where_they_land() {
+        let ax = Figure::new().subplot();
+        let options = ContourOptions {
+            transform: Some(Transform::custom(Shift(100.0)).then(ax.trans_data())),
+            ..ContourOptions::default()
+        };
+        let z = Grid::from_fn(3, 4, |r, c| (r + c) as f64);
+        ax.contour(&QuadField::new(z), options).unwrap();
+        assert_eq!(ax.data_lim().bbox.x0(), 100.0);
+        assert_eq!(ax.data_lim().bbox.x1(), 103.0);
     }
 }

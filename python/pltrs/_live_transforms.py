@@ -86,10 +86,21 @@ def to_native(transform):
     return _transforms.native(_description(transform))
 
 
-def given_to_native(transform):
+def given_to_native(transform, axes=None):
     """`to_native` of *transform*, None when none is given (for the
-    ``transform`` keywords whose default the native function picks)."""
-    return None if transform is None else to_native(transform)
+    ``transform`` keywords whose default the native function picks); an
+    object of the program's giving its transform for an Axes (see
+    `for_axes`) gives that of *axes*, which plots with it."""
+    return None if transform is None else to_native(for_axes(transform, axes))
+
+
+def gives_transform(transform):
+    """Whether *transform* is no `.Transform` but an object of the
+    program's giving its transform for an Axes (``_as_mpl_transform``, as
+    a cartopy CRS does), which matplotlib's ``Artist.get_transform``
+    asks once the artist is in an Axes."""
+    return (not isinstance(transform, Transform)
+            and hasattr(transform, '_as_mpl_transform'))
 
 
 def for_axes(transform, axes):
@@ -98,8 +109,7 @@ def for_axes(transform, axes):
     `.Transform` gives for *axes* through its ``_as_mpl_transform`` (as
     matplotlib's ``Artist.get_transform`` asks it).
     """
-    if (not isinstance(transform, Transform)
-            and hasattr(transform, '_as_mpl_transform')):
+    if gives_transform(transform):
         return transform._as_mpl_transform(axes)
     return transform
 

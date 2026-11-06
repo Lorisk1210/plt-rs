@@ -17,9 +17,9 @@ def _mesh_args(axes, fn, args, shading):
     ``(C, (X, Y), dtype)`` of the positional arguments ``[X, Y,] C`` of
     *fn* on *axes* drawn with *shading*: the coordinates None when absent
     (numbers of the axes' units otherwise), C masked values as NaN (the
-    RGB or RGBA colours ``pcolormesh`` takes for C come as an ``(M, N,
-    4)`` array), and the dtype of the coordinates matplotlib's mesh keeps
-    (see `_coordinates_dtype`).
+    RGB or RGBA colours ``pcolor`` and ``pcolormesh`` take for C come as
+    an ``(M, N, 4)`` array), and the dtype of the coordinates matplotlib's
+    mesh keeps (see `_coordinates_dtype`).
     """
     if len(args) == 1:
         C, = args
@@ -40,7 +40,7 @@ def _mesh_args(axes, fn, args, shading):
         finite = np.isfinite(C)
         return (C if finite.all() else np.where(finite, C, np.nan)), coords, dtype
     C = cbook.safe_masked_invalid(C, copy=True)
-    if fn == "pcolormesh" and C.ndim == 3 and C.shape[2] in (3, 4):
+    if C.ndim == 3 and C.shape[2] in (3, 4):
         C = np.ma.filled(C.astype(float), np.nan)
         if C.shape[2] == 3:
             C = np.concatenate([C, np.ones(C.shape[:2] + (1,))], axis=2)
@@ -110,9 +110,9 @@ class MeshMixin:
             kwargs["antialiased"] = rcParams["patch.antialiased"]
         # The data limits cover the mesh in the coordinates it is drawn in.
         placement = (shading, _live_transforms.given_to_native(
-            kwargs.get("transform")))
+            kwargs.get("transform"), self))
         if C.ndim == 3:
-            native = _plotting.pcolormesh_rgba(self._native, C, coords, placement)
+            native = _plotting.pcolor_rgba(self._native, polygons, C, coords, placement)
         else:
             native = _plotting.pcolor(self._native, polygons, C, coords, placement,
                                       native_mapping)

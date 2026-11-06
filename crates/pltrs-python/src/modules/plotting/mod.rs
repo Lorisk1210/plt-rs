@@ -100,7 +100,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("violin", stats::violin)?;
     module.add("pie", stats::pie)?;
     module.add("pcolor", mesh::pcolor)?;
-    module.add("pcolormesh_rgba", mesh::pcolormesh_rgba)?;
+    module.add("pcolor_rgba", mesh::pcolor_rgba)?;
     module.add("convert_units", values::convert_units)?;
     module.add("quiver", fields::quiver)?;
     module.add("quiver_set_uvc", fields::quiver_set_uvc)?;

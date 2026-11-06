@@ -68,7 +68,7 @@ pub(crate) fn map_colors(
     }
     let levels: Vec<Option<f64>> = coloring.levels.iter().copied().map(Some).collect();
     norm.autoscale_none(&levels);
-    let layers: Vec<Option<f64>> = coloring.layers.iter().copied().map(Some).collect();
+    let layers = super::set::mapped_values(coloring.layers);
     let colors = norm
         .normalize_masked(&layers, None)?
         .into_iter()
@@ -214,6 +214,28 @@ mod tests {
         assert_eq!(plan.colors, [viridis.sample(0.0), viridis.sample(1.0)]);
         assert_eq!(plan.norm_limits, (Some(0.0), Some(1.0)));
         assert!(!plan.monochrome);
+    }
+
+    #[test]
+    fn bands_up_to_an_infinite_level_take_the_bad_colour() {
+        // nilearn's filled contours above a single level: matplotlib's
+        // `set_array` masks the infinite layer.
+        let mut options = ContourOptions::default();
+        options.colorizer.vmin = Some(0.0);
+        options.colorizer.vmax = Some(1.0);
+        let rc = RcParams::default();
+        let plan = map_colors(
+            &mut options,
+            &coloring(
+                &[0.4, f64::INFINITY],
+                &[f64::INFINITY],
+                true,
+                Extend::Neither,
+            ),
+            &rc,
+        )
+        .unwrap();
+        assert_eq!(plan.colors, [Rgba::TRANSPARENT]);
     }
 
     #[test]

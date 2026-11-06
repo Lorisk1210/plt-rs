@@ -8,11 +8,13 @@
 //! asked for, and artists drawn as pltrs draws them (matplotlib's
 //! `artist.draw(renderer)`).
 
+use std::rc::Rc;
+
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{GraphicsContext, PathCollectionData, QuadMeshData, Renderer, RgbaImage};
 use pltrs_text::{TextRun, TextSource};
 
-use super::{AggFilter, ArtistId, DrawContext, DrawError, DrawErrorKind, RawHandle};
+use super::{AggFilter, Artist, ArtistId, DrawContext, DrawError, DrawErrorKind, RawHandle};
 use crate::figure::StateRole;
 use crate::table::TableCell;
 
@@ -115,12 +117,41 @@ pub enum DrawStep {
     StartFilter,
     /// Ends [`DrawStep::StartFilter`], filtering what was drawn since.
     StopFilter(AggFilter),
-    /// An artist drawn as pltrs draws it, its painter left out
-    /// (matplotlib's `artist.draw(renderer)`).
-    Artist(RawHandle),
+    /// An artist drawn as pltrs draws it, its painter left out, as it
+    /// was then (matplotlib's `artist.draw(renderer)`).
+    Artist(DrawnArtist),
     /// A cell of a table drawn alone where its table places it
     /// (matplotlib's `cell.draw(renderer)`).
     TableCell(TableCell),
+}
+
+/// The artist of a [`DrawStep::Artist`]: its handle, and the artist as it
+/// was when the step was recorded. matplotlib's `artist.draw(renderer)`
+/// draws the artist as it is then, and a program's `draw` may change it
+/// and draw it again (astropy's tick labels draw one text once per
+/// label); the figure copies an artist a step keeps before it changes it,
+/// so each step draws what was drawn.
+#[derive(Clone, Debug)]
+pub struct DrawnArtist {
+    /// The artist's handle.
+    handle: RawHandle,
+    /// The artist as it was, shared with its figure; `None` for an artist
+    /// its figure no longer holds, or whose figure was busy.
+    as_drawn: Option<Rc<dyn Artist>>,
+}
+
+impl DrawnArtist {
+    /// The artist of `handle` as it is now.
+    pub fn new(handle: RawHandle) -> Self {
+        let as_drawn =
+            (handle.figure_state().try_borrow()).and_then(|state| state.shared_artist(handle.id()));
+        Self { handle, as_drawn }
+    }
+
+    /// The artist's handle.
+    pub fn handle(&self) -> &RawHandle {
+        &self.handle
+    }
 }
 
 /// What a program drew through a renderer while pltrs was not drawing,
@@ -172,7 +203,7 @@ impl Drawing {
             match step {
                 DrawStep::StartRasterizing => ctx.start_program_rasterizing(),
                 DrawStep::StopRasterizing => ctx.stop_program_rasterizing(),
-                DrawStep::Artist(handle) => ctx.draw_handle(handle),
+                DrawStep::Artist(drawn) => ctx.draw_as_drawn(drawn),
                 DrawStep::TableCell(cell) => cell.draw_in(ctx),
                 other => {
                     if let Some(problem) = render(ctx.renderer(), other) {
@@ -191,8 +222,8 @@ impl Drawing {
             match step {
                 DrawStep::StartRasterizing => renderer.start_rasterizing(),
                 DrawStep::StopRasterizing => renderer.stop_rasterizing(),
-                DrawStep::Artist(handle) => {
-                    if let Err(errors) = handle.draw_unpainted_onto(renderer) {
+                DrawStep::Artist(drawn) => {
+                    if let Err(errors) = drawn.handle.draw_unpainted_onto(renderer) {
                         problems.extend(errors.0);
                     }
                 }
@@ -292,6 +323,18 @@ fn render(renderer: &mut dyn Renderer, step: &DrawStep) -> Option<String> {
 }
 
 impl DrawContext<'_> {
+    /// Draws the artist `drawn` keeps as it was when it was drawn, if it
+    /// is an artist of the figure drawn, else as
+    /// [`draw_handle`](Self::draw_handle) draws it.
+    pub fn draw_as_drawn(&mut self, drawn: &DrawnArtist) {
+        match &drawn.as_drawn {
+            Some(artist) if self.draws(drawn.handle.figure_state()) => {
+                self.draw_own(&**artist, Some(drawn.handle.id()));
+            }
+            _ => self.draw_handle(&drawn.handle),
+        }
+    }
+
     /// Draws `artist` as pltrs draws it, its painter left out, where this
     /// context draws (matplotlib's `artist.draw(renderer)` called while a
     /// figure draws): an artist of the figure drawn, in it or removed
@@ -374,7 +417,7 @@ mod tests {
         let loose = Line2D::loose(vec![0.0, 10.0], vec![5.0, 5.0], LineProps::default());
         loose.set_transform(crate::transforms::Transform::Display);
         let mut drawing = Drawing::default();
-        drawing.push(DrawStep::Artist(loose.raw().clone()));
+        drawing.push(DrawStep::Artist(DrawnArtist::new(loose.raw().clone())));
         let mut canvas = RasterRenderer::new(10.0, 10.0, 72.0).unwrap();
         assert_eq!(drawing.draw_onto(&mut canvas), Vec::new());
         assert!(canvas.to_image().pixel(5, 4).is_some_and(|p| p[3] > 0));

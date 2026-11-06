@@ -1434,7 +1434,9 @@ class AnchoredOffsetbox(OffsetBox):
 
     def get_window_extent(self, renderer=None):
         """Return the box's extent in display space (for a box inside
-        another box's tree, its frame's: the box drawn at its anchor)."""
+        another box's tree, its frame's: the box drawn at its anchor), the
+        boxes of the program's inside measured as they are now."""
+        self.get_child()._measure_program_boxes(renderer)
         if self._synced_node() is not None:
             return self.patch._laid_out_extent()
         self._sync_tree()
@@ -1454,6 +1456,15 @@ class AnchoredOffsetbox(OffsetBox):
         self._own_tree(parts, figure, native)
         _python_drawing.attach(self)
         return self
+
+    def _locate_by_program(self, renderer):
+        # docstring inherited; the child then goes where a ``get_offset``
+        # of the program's puts it, as matplotlib's ``draw`` asks it.
+        super()._locate_by_program(renderer)
+        if takes_from_program(type(self), "get_offset"):
+            offset = self.get_offset(self.get_bbox(renderer), renderer)
+            _offsetbox.set_anchored_offset(self._tree_handle,
+                                           tuple(map(float, offset)))
 
     def get_bbox(self, renderer):
         fontsize = renderer.points_to_pixels(self.prop.get_size_in_points())

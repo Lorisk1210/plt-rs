@@ -65,7 +65,7 @@ pub(crate) use context::{DrawnDpiCor, FigureReader};
 pub(crate) use cursor::format_values;
 pub use custom::Custom;
 pub(crate) use detached::DetachedArtists;
-pub use drawing::{DrawStep, Drawing};
+pub use drawing::{DrawStep, Drawing, DrawnArtist};
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
 pub use graphics_state::{GraphicsState, drawing_with_state};

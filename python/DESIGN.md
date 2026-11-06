@@ -1688,8 +1688,10 @@ two distributions:
 alias (`python/ecosystem`), comparing each figure's structure with what
 real matplotlib recorded (`expected.json`, recorded with
 `ECOSYSTEM_RECORD=1` under matplotlib). `cargo xtask ecosystem suite`
-runs the libraries' own suites, pandas' plotting tests and seaborn's
-`tests/`, from their sdists (`ecosystem setup` downloads them into
+runs the libraries' own suites (`xtask/src/ecosystem/libraries.rs`), the
+tests of each that reach matplotlib, from their sdists, or the source
+archives of the releases' tags where the sdists ship no tests
+(mplfinance, matplotlib-venn) (`ecosystem setup` downloads them into
 `target/refs/`, with the data files the sdists leave out, checking their
 SHA-256), as `mpl-suite` runs matplotlib's and with its outcome files and
 report: in a venv with real matplotlib (`--reference`,
@@ -1717,6 +1719,30 @@ sharing an axis share its units and tick helpers but not its converter
 read as `zoneinfo` reads it, `TZ` string included (`TimeZone::Info`); and
 tick helpers ask a program's stand-in axis only what matplotlib's would
 (seaborn's legends and `PseudoAxis`: `TickHelper._axis_info`).
+
+The libraries' image comparisons measure pixels against baselines of the
+same matplotlib: `ecosystem setup` makes the baselines plotnine, astropy
+and mplfinance ship for other versions again under matplotlib 3.11.2, in
+the reference venv, from the pinned versions alone
+(`target/ecosystem/baselines`, never committed; `xtask/src/ecosystem/baselines.rs`):
+astropy's with pytest-mpl's `--mpl-generate-path` (its stored hashes are
+of PNG bytes, which measure the PNG encoder rather than the drawing),
+plotnine's and mplfinance's from the images their tests save, run again
+until none is missing, as plotnine's `tools/update_baseline_images.py`
+does. The suites then compare with their own comparison and tolerances
+(`--mpl --mpl-baseline-path` for astropy, a link to the baselines where
+the others read theirs). What drawing them showed is matplotlib's too: a
+tick label keeps the place across its axis the program moved it to
+(`TickStyle::label_across`), tick lines measure as lines, an anchored box
+of the program's places its child where its own `get_offset` says
+(`AnchoredOffsetbox::set_child_offset`, before every layout) and measures
+the boxes of the program's inside it first, collections measure the union
+of their shapes, an artist a program's `draw` draws more than once is
+drawn each time as it was then (`DrawnArtist`), the paths a collection
+hands out reach it again when the program sets their vertices
+(`_owned_paths`), an Axes class with its own `tick_params` keeps the ticks
+of matplotlib's `Tick` (`axes/_program_tick_params.py`), and tight layouts
+ask Axes classes measuring themselves (astropy's `WCSAxes`).
 
 ### Jupyter
 

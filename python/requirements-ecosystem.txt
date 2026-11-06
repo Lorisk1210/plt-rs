@@ -23,13 +23,16 @@ statsmodels==0.15.0
 geopandas==1.2.0
 plotnine==0.15.9
 astropy==8.0.2
+mplfinance==0.12.10b0
+matplotlib-venn==1.1.2
 # What the libraries' plotting tests use where it is installed. geopandas:
 # shapely and pyproj (its geometries and their reference systems), pyogrio
 # (reading its test data) and mapclassify (the `scheme=` legends); xarray:
 # cftime, nc-time-axis and dask (its plots of other calendars and of lazy
 # arrays); plotnine: scikit-misc and adjustText (`method="loess"` smooths
-# and adjusted labels); networkx and astropy: pytest-mpl (the image
-# comparisons of the one and the figure tests of the other).
+# and adjusted labels); networkx and astropy: pytest-mpl (their image
+# comparisons), whose own suite runs too; plotnine: contourpy, which its
+# `stat_density_2d` imports itself (matplotlib brings it along).
 shapely==2.2.0
 pyproj==3.8.0
 pyogrio==0.13.0
@@ -40,6 +43,7 @@ dask==2026.8.0
 scikit-misc==0.5.3
 adjustText==1.4.0
 pytest-mpl==0.19.0
+contourpy==1.4.0
 # What running the tests needs. tzdata: the time zones pandas' conftest
 # names, such as `US/Pacific`, which a system's own database may lack.
 # pytest 8 rather than 9: seaborn 0.13.2's `tests/test_base.py` marks its

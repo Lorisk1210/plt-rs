@@ -621,11 +621,15 @@ impl Artist for CollectionArtist {
             }
             None => Vec::new(),
         };
+        // The union of the shapes' extents, null for none: a union with
+        // the null box would be the whole plane.
         let shape_box = self
             .shapes()
             .iter()
             .map(|p| resolved.transform_path(p).extents())
-            .fold(Bbox::NULL, |acc, b| acc.union(&b));
+            .filter(|b| !b.is_null())
+            .reduce(|acc, b| acc.union(&b))
+            .unwrap_or(Bbox::NULL);
         if offsets.is_empty() {
             return Some(shape_box);
         }

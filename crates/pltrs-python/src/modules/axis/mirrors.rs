@@ -79,10 +79,27 @@ fn default_alignment(name: AxisName, first_side: bool) -> (HAlign, VAlign) {
 /// A point at `loc` along axis `name`, on its first or second side
 /// (data coordinates along the axis, axes fractions across it).
 fn on_side(name: AxisName, loc: f64, first_side: bool) -> Point {
-    let across = if first_side { 0.0 } else { 1.0 };
+    at(name, loc, side(first_side))
+}
+
+/// The coordinate across an axis of its first or second side.
+fn side(first_side: bool) -> f64 {
+    if first_side { 0.0 } else { 1.0 }
+}
+
+/// The point at `loc` along axis `name` and `across` it.
+fn at(name: AxisName, loc: f64, across: f64) -> Point {
     match name {
         AxisName::X => Point::new(loc, across),
         AxisName::Y => Point::new(across, loc),
+    }
+}
+
+/// The coordinate across axis `name` of `point`.
+fn across(name: AxisName, point: Point) -> f64 {
+    match name {
+        AxisName::X => point.y,
+        AxisName::Y => point.x,
     }
 }
 
@@ -99,8 +116,9 @@ fn sync_label(
     let name = axis.name();
     let (halign, valign) = default_alignment(name, first_side);
     text.set_usetex(axis.usetex());
+    let across = style.label_across.unwrap_or(side(first_side));
     text.set_text(label)
-        .set_position(on_side(name, loc, first_side))
+        .set_position(at(name, loc, across))
         .set_color(style.label_color.clone())
         .set_font(style.label_font(&pltrs::rc::params()))
         .set_rotation(style.label_rotation)
@@ -331,7 +349,13 @@ fn push_tick_label(
     };
     let level = axis.tick_style(minor);
     let alignment = default_alignment(axis.name(), !second);
-    let props = label_props(&text, &level, alignment, second);
+    let props = TickLabelProps {
+        across: own(
+            across(axis.name(), text.position()),
+            &level.label_across.unwrap_or(side(!second)),
+        ),
+        ..label_props(&text, &level, alignment, second)
+    };
     axis.set_tick_label_props_on(minor, index, !second, props);
     Ok(())
 }
@@ -370,6 +394,7 @@ pub(super) fn label_props(
             .and_then(|families| families.into_iter().next()),
         label1_visible,
         label2_visible,
+        across: None,
     }
 }
 

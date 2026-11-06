@@ -23,6 +23,7 @@ from . import _figure_artists
 from .axes import Axes
 from .axes._base import _AxesBase
 from .axes import _sharing
+from .axes import _program_tick_params
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
 from ._figure_images import FigureImagesMixin
@@ -306,6 +307,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """The Axes object of the new native axes *native*, of class
         *projection_class*, sharing and styled as *kwargs* say."""
         ax = _handles.wrap(native, projection_class, self.figure)
+        if _native_maker(projection_class) is None:
+            # As the `__init__` of matplotlib's, which no maker ran.
+            _program_tick_params.apply(ax)
         # plt.subplot reuses an axes made with the same class and keywords.
         ax._projection_init = (projection_class, dict(kwargs))
         for name in ("x", "y"):

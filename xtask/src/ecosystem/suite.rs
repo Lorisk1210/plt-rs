@@ -1,23 +1,18 @@
 //! `cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]`:
 //! the own test suites of the libraries that import matplotlib by name
 //! (`libraries`), the tests of each that reach matplotlib, run unchanged
-//! from their sdists against real matplotlib (`--reference`, in the
+//! from their source trees against real matplotlib (`--reference`, in the
 //! ecosystem's reference venv) or against pltrs as matplotlib (in the
 //! ecosystem venv, with `python/alias` on `PYTHONPATH`), as `cargo xtask
 //! mpl-suite` runs matplotlib's.
 //!
 //! Each library runs in a site of its own,
-//! `target/ecosystem/suite/<mode>/<library>/site/`, laid out as its source
-//! tree is: the library's package, made of links to the entries of the
-//! installed package and real copies of the sdist's tests (seaborn's
-//! `tests/` become `seaborn/tests/`; the directories leading to a copy
-//! deeper in the package, such as `sklearn/metrics/_plot/tests`, are real
-//! directories of links in turn), and the sdist's `pyproject.toml`, so
-//! that pytest runs with the library's own configuration (pandas turns
-//! every warning into an error) and the options the library adds
-//! (`Library::options`). Test ids name the files in the package
-//! (`pandas/tests/plotting/test_x.py::...`, `seaborn/tests/test_x.py::...`),
-//! which keeps each library's apart.
+//! `target/ecosystem/suite/<mode>/<library>/site/` (`site`), with its own
+//! pytest configuration and the options the library adds
+//! (`Library::options`); the image comparisons whose baselines setup
+//! makes compare with those (`baselines`). Test ids name the files in the
+//! package (`pandas/tests/plotting/test_x.py::...`,
+//! `seaborn/tests/test_x.py::...`), which keeps each library's apart.
 //!
 //! The outcomes of all libraries go to `spec/ecosystem/<mode>.json`,
 //! committed, and the report is `mpl-suite`'s: per test file, the tests
@@ -25,7 +20,6 @@
 //! then what holds the others back; `--failures` lists them. A PATTERN
 //! selects the test files whose path contains it, or names a test id.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -33,12 +27,10 @@ use std::time::Instant;
 use pltrs_core::os::Os;
 
 use super::libraries::{LIBRARIES, Library};
+use super::{baselines, site};
 use crate::mpl_suite::outcomes::Outcomes;
-use crate::mpl_suite::{self, Mode, Options, prepare, pytest, report};
+use crate::mpl_suite::{self, Mode, Options, pytest, report};
 use crate::python;
-
-/// The file of the sdist holding the library's pytest configuration.
-const CONFIGURATION: &str = "pyproject.toml";
 
 /// The version of matplotlib the reference run has.
 const MATPLOTLIB: &str = "3.11.2";
@@ -101,7 +93,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     let mut prepared = Vec::new();
     for library in LIBRARIES {
         let dir = suite_dir().join(options.mode.name()).join(library.name);
-        let site = site(library, &installed, &dir)?;
+        let site = site::lay_out(&library, &installed, &dir, &baselines::made(&library)?)?;
         let files = test_files(&site, library.tests)?;
         prepared.push(Prepared {
             library,
@@ -129,23 +121,15 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         }
         let everything = library.tests.iter().map(|&test| test.to_owned()).collect();
         let (targets, ran_files) = mpl_suite::select_from(files, &patterns, everything)?;
-        let sources = python::root().join("python");
-        let mut python_path = vec![site.clone(), sources.join("ecosystem/plugin")];
-        if options.mode == Mode::Pltrs {
-            python_path.extend([sources.join("alias"), sources]);
-        }
         let started = Instant::now();
-        let run = pytest::Run {
-            suite: library.title,
+        let run = Tests {
+            library,
+            mode: options.mode,
             python: &python,
             site,
             dir,
-            python_path,
-            options: &pytest_options(library),
-            targets: &targets,
-            environment: &[],
         }
-        .outcomes()?;
+        .run(&baselines::comparing(library)?, &targets)?;
         times.push((library.title, started.elapsed().as_secs()));
         merged.merge(run, &ran_files);
     }
@@ -173,6 +157,60 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// The tests of a library, made ready to run in its site.
+pub(super) struct Tests<'a> {
+    /// The library.
+    pub(super) library: &'a Library,
+    /// What they run on.
+    pub(super) mode: Mode,
+    /// The interpreter of the mode's venv.
+    pub(super) python: &'a Path,
+    /// The library's site.
+    pub(super) site: &'a Path,
+    /// The run's own directory.
+    pub(super) dir: &'a Path,
+}
+
+impl Tests<'_> {
+    /// Runs the tests `targets` (paths or test ids in the site) with the
+    /// library's options and `extra`, and reads how they ended.
+    pub(super) fn run(&self, extra: &[String], targets: &[String]) -> Result<Outcomes, String> {
+        let sources = python::root().join("python");
+        let mut python_path = vec![self.site.to_owned(), sources.join("ecosystem/plugin")];
+        if self.mode == Mode::Pltrs {
+            python_path.extend([sources.join("alias"), sources]);
+        }
+        // Tests running elsewhere in the site are named by their paths.
+        let (working_dir, targets) = match self.library.runs_in {
+            Some(dir) => (
+                self.site.join(dir),
+                targets
+                    .iter()
+                    .map(|target| self.site.join(target).to_string_lossy().into_owned())
+                    .collect(),
+            ),
+            None => (self.site.to_owned(), targets.to_vec()),
+        };
+        let mut options = pytest_options(self.library);
+        options.extend_from_slice(extra);
+        // The temporary files of the tests (pytest-mpl's results and
+        // downloads) in the run's own directory.
+        let temporary = self.dir.join("tmp");
+        fs::create_dir_all(&temporary).map_err(|err| format!("{}: {err}", temporary.display()))?;
+        pytest::Run {
+            suite: self.library.title,
+            python: self.python,
+            site: &working_dir,
+            dir: self.dir,
+            python_path,
+            options: &options,
+            targets: &targets,
+            environment: &[],
+        }
+        .outcomes_with(&[("TMPDIR".to_owned(), Some(temporary.into_os_string()))])
+    }
+}
+
 /// The pytest options of `library`'s runs: its own, and the selection of
 /// the tests taking a fixture.
 fn pytest_options(library: &Library) -> Vec<String> {
@@ -192,98 +230,9 @@ fn pytest_options(library: &Library) -> Vec<String> {
     options
 }
 
-/// Lays out `library`'s site in `dir` from its sdist and the package
-/// installed in `installed` (a venv's `site-packages`), and returns it.
-fn site(library: Library, installed: &Path, dir: &Path) -> Result<PathBuf, String> {
-    let version = super::setup::pinned(library.name)?;
-    let sdist = super::setup::sdist(library.name, &version);
-    if !sdist.is_dir() {
-        return Err(format!(
-            "{} is missing: run `cargo xtask ecosystem setup` first",
-            sdist.display()
-        ));
-    }
-    let site = dir.join("site");
-    let package = site.join(library.package);
-    for (directory, skip) in layout(&library) {
-        prepare::relink(
-            &installed.join(library.package).join(&directory),
-            &package.join(&directory),
-            &skip,
-        )?;
-    }
-    link_vendored(&library, installed, &site)?;
-    for (from, to) in library.copies {
-        let (from, to) = (sdist.join(from), site.join(to));
-        if from.is_dir() {
-            prepare::copy_tests(&from, &to)?;
-        } else {
-            copy_file(&from, &to)?;
-        }
-    }
-    copy_file(&sdist.join(CONFIGURATION), &site.join(CONFIGURATION))?;
-    Ok(site)
-}
-
-/// Links into `site` the shared libraries the wheel of `library` vendors
-/// beside its package (`scikit_learn.libs`), if it has any: its extension
-/// modules find them relative to where they are loaded from
-/// (`$ORIGIN/../../scikit_learn.libs`), which for the links of the site
-/// is the site.
-fn link_vendored(library: &Library, installed: &Path, site: &Path) -> Result<(), String> {
-    let name = format!("{}.libs", library.name.replace('-', "_"));
-    let link = site.join(&name);
-    if link.is_symlink() {
-        fs::remove_file(&link).map_err(|err| format!("{}: {err}", link.display()))?;
-    }
-    let vendored = installed.join(&name);
-    if vendored.is_dir() {
-        prepare::link(&vendored, &link)?;
-    }
-    Ok(())
-}
-
-/// The real directories of `library`'s package in its site (`""`, the
-/// package itself, and those leading to its copies), relative to the
-/// package and parents first, each with the entries of the installed
-/// package its links leave out: those that are copies or real
-/// directories, and in the package itself the `pyproject.toml` pandas
-/// installs there, which pytest would take for the site's configuration,
-/// making the package's directory its root.
-fn layout(library: &Library) -> BTreeMap<String, Vec<&'static str>> {
-    let mut layout = BTreeMap::from([(String::new(), vec![CONFIGURATION])]);
-    let inside = library.copies.iter().filter_map(|(_, to)| {
-        to.strip_prefix(library.package)
-            .and_then(|path| path.strip_prefix('/'))
-    });
-    for path in inside {
-        let mut directory = String::new();
-        for name in path.split('/') {
-            let skip = layout.entry(directory.clone()).or_default();
-            if !skip.contains(&name) {
-                skip.push(name);
-            }
-            if !directory.is_empty() {
-                directory.push('/');
-            }
-            directory.push_str(name);
-        }
-    }
-    layout
-}
-
-/// Copies the file `from` to `to`, making its directory.
-fn copy_file(from: &Path, to: &Path) -> Result<(), String> {
-    if let Some(dir) = to.parent() {
-        fs::create_dir_all(dir).map_err(|err| format!("{}: {err}", dir.display()))?;
-    }
-    fs::copy(from, to)
-        .map(drop)
-        .map_err(|err| format!("{}: {err}", from.display()))
-}
-
-/// Every test file (`test_*.py`) of `tests`, test files and directories
-/// of `site`, relative to the site with `/` between the names, sorted.
+/// Every test file (`test_*.py` or `*_test.py`, pytest's defaults) of
+/// `tests`, test files and directories of `site`, relative to the site
+/// with `/` between the names, sorted.
 fn test_files(site: &Path, tests: &[&str]) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     let mut pending = Vec::new();
@@ -304,8 +253,9 @@ fn test_files(site: &Path, tests: &[&str]) -> Result<Vec<String>, String> {
                 if name != "__pycache__" {
                     pending.push(relative);
                 }
-            } else if name.starts_with("test_")
-                && Path::new(&name).extension().is_some_and(|ext| ext == "py")
+            } else if name
+                .strip_suffix(".py")
+                .is_some_and(|stem| stem.starts_with("test_") || stem.ends_with("_test"))
             {
                 files.push(relative);
             }
@@ -359,9 +309,9 @@ mod tests {
     }
 
     /// `library` prepared with the test files `files`.
-    fn prepared(library: Library, files: &[&str]) -> Prepared {
+    fn prepared(library: &Library, files: &[&str]) -> Prepared {
         Prepared {
-            library,
+            library: *library,
             dir: PathBuf::new(),
             site: PathBuf::new(),
             files: files.iter().map(|&file| file.to_owned()).collect(),
@@ -387,8 +337,8 @@ mod tests {
             [&patterns[1], &patterns[2]].map(String::as_str)
         );
         let prepared = [
-            prepared(pandas, &["pandas/tests/plotting/test_misc.py"]),
-            prepared(seaborn, &["seaborn/tests/test_axisgrid.py"]),
+            prepared(&pandas, &["pandas/tests/plotting/test_misc.py"]),
+            prepared(&seaborn, &["seaborn/tests/test_axisgrid.py"]),
         ];
         assert!(check_patterns(&patterns, &prepared).is_ok());
         assert!(check_patterns(&["nowhere".to_owned()], &prepared).is_err());
@@ -407,34 +357,6 @@ mod tests {
             patterns_of(&[elsewhere], &networkx, &[]),
             Vec::<String>::new()
         );
-    }
-
-    #[test]
-    fn copies_deep_in_the_package_are_reached_through_real_directories() {
-        let sklearn = library("scikit-learn");
-        let sklearn = layout(&sklearn);
-        assert_eq!(
-            sklearn[""],
-            [
-                "pyproject.toml",
-                "conftest.py",
-                "inspection",
-                "metrics",
-                "model_selection",
-                "tests",
-                "tree",
-                "utils"
-            ]
-        );
-        assert_eq!(sklearn["inspection"], ["_plot"]);
-        assert_eq!(sklearn["inspection/_plot"], ["tests"]);
-        assert_eq!(sklearn["metrics/_plot"], ["tests"]);
-        assert_eq!(sklearn["tree"], ["tests"]);
-        assert!(!sklearn.contains_key("tree/tests"));
-        // Copies outside the package (xarray's own conftest) are not in it.
-        let xarray = layout(&library("xarray"));
-        assert_eq!(xarray.keys().collect::<Vec<_>>(), [""]);
-        assert_eq!(xarray[""], ["pyproject.toml", "tests"]);
     }
 
     #[test]
@@ -462,7 +384,9 @@ mod tests {
         for file in [
             "test_a.py",
             "conftest.py",
+            "utils.py",
             "_core/test_b.py",
+            "_core/b_test.py",
             "_core/__pycache__/test_c.py",
         ] {
             fs::write(tests.join(file), "").unwrap();
@@ -470,6 +394,7 @@ mod tests {
         assert_eq!(
             test_files(&site, &["lib/tests", "other/test_d.py"]).unwrap(),
             [
+                "lib/tests/_core/b_test.py",
                 "lib/tests/_core/test_b.py",
                 "lib/tests/test_a.py",
                 "other/test_d.py"

@@ -49,6 +49,10 @@ pub struct TickLabelProps {
     /// Whether the label on the second side (top or right) is drawn
     /// (matplotlib's `label2.set_visible`, `label2On`).
     pub label2_visible: Option<bool>,
+    /// Where the label is across the axis, in the coordinates of the
+    /// axis' side transform, in place of its side (matplotlib's
+    /// `Tick.label1.set_x` on a y tick, `set_y` on an x tick).
+    pub across: Option<f64>,
 }
 
 pltrs_core::archive_struct!(TickLabelProps {
@@ -65,7 +69,8 @@ pltrs_core::archive_struct!(TickLabelProps {
     url,
     family,
     label1_visible,
-    label2_visible
+    label2_visible,
+    across
 });
 
 impl TickLabelProps {
@@ -95,6 +100,7 @@ impl TickLabelProps {
             family: newer.family.clone().or_else(|| self.family.clone()),
             label1_visible: newer.label1_visible.or(self.label1_visible),
             label2_visible: newer.label2_visible.or(self.label2_visible),
+            across: newer.across.or(self.across),
         }
     }
 
@@ -142,6 +148,9 @@ impl TickLabelProps {
         }
         if let Some(visible) = self.label2_visible {
             style.labels.second = visible;
+        }
+        if self.across.is_some() {
+            style.label_across = self.across;
         }
     }
 }

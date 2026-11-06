@@ -273,6 +273,12 @@ pub struct TickStyle {
     /// The hyperlink of the labels in vector output (matplotlib's
     /// `set_url` on a tick or its labels).
     pub label_url: Option<String>,
+    /// Where the label is across the axis, in the coordinates of the
+    /// axis' side transform (0 on the first side, 1 on the second), when
+    /// the program moved it there (matplotlib's `Tick.label1.set_x` on a
+    /// y tick, `set_y` on an x tick); `None` keeps it on its side. Only a
+    /// single tick's label sets it.
+    pub label_across: Option<f64>,
     /// Whether gridlines are drawn at the ticks.
     pub grid_on: bool,
     /// How the gridlines are drawn; kept while they are off, like
@@ -302,6 +308,7 @@ pltrs_core::archive_struct!(TickStyle {
     label_style,
     label_in_layout,
     label_url,
+    label_across,
     grid_on,
     grid
 });
@@ -352,6 +359,7 @@ impl TickStyle {
             label_style: None,
             label_in_layout: true,
             label_url: None,
+            label_across: None,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
         }

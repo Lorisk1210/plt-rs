@@ -7,7 +7,8 @@ use super::aspect::Placement;
 use super::axis_layout::{AxisPainter, PlacedText};
 use super::{Axes, AxesState, Axis};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, LayoutContext, tight_extent_of,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, LayoutContext, MeasuredExtent,
+    tight_extent_of,
 };
 use crate::axes_grid1::parasites_of;
 use crate::figure::FigureState;
@@ -156,10 +157,27 @@ impl FigureState {
         axes: ArtistId,
         for_layout_only: bool,
     ) -> Option<Bbox> {
+        match self.measured_axes_extent(axes) {
+            MeasuredExtent::Extent(extent) => return Some(extent),
+            MeasuredExtent::Empty => return None,
+            MeasuredExtent::Unmeasured => {}
+        }
         if crate::mplot3d::is_axes3d(&self.store, axes) {
             return crate::mplot3d::axes3d_fresh_tight_bbox(self, axes, for_layout_only);
         }
         self.axes_tight_bbox_at(axes, for_layout_only, Placement::Located, Extras::Children)
+    }
+
+    /// The extent the painter of `axes` measured, for an axes of a class
+    /// of the program's measuring itself (astropy's
+    /// `WCSAxes.get_tightbbox`, which draws its own ticks and labels to
+    /// measure them); unmeasured without such a painter.
+    fn measured_axes_extent(&self, axes: ArtistId) -> MeasuredExtent {
+        (self.store.get(axes))
+            .and_then(|artist| artist.base().painter.as_ref())
+            .map_or(MeasuredExtent::Unmeasured, |painter| {
+                painter.get().measured_extent()
+            })
     }
 
     /// The box of `axes` and its tight box (with full decorations) at its

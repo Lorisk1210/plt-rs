@@ -18,9 +18,9 @@ import warnings
 import numpy as np
 
 from . import _docstring
-from . import (_api, _live_transforms, _unusable, _values, cbook, colorizer as mcolorizer,
-               colors as mcolors, lines as mlines, path as mpath,
-               transforms as mtransforms)
+from . import (_api, _live_transforms, _owned_paths, _unusable, _values, cbook,
+               colorizer as mcolorizer, colors as mcolors, lines as mlines,
+               path as mpath, transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
@@ -442,10 +442,26 @@ class Collection(mcolorizer.ColorizingArtist):
         paths = [Path(vertices, codes) for vertices, codes in native]
         if _collections.has_single_path(self._native):
             paths = paths[0]
+            _owned_paths.hand_out([paths], self._push_kept_paths)
         else:
             paths = self._paths_container(paths)
+            if paths is not None:
+                _owned_paths.hand_out(paths, self._push_kept_paths)
         self._kept_paths = (native, paths)
         return paths
+
+    def _push_kept_paths(self):
+        """Hand pltrs (Rust) the paths handed out again, one of which the
+        program changed (see `._owned_paths`); they stay those handed out."""
+        kept = self.__dict__.get("_kept_paths")
+        if kept is None:
+            return
+        paths = kept[1]
+        if isinstance(paths, Path):
+            _collections.set_single_path(self._native, paths)
+        else:
+            _collections.set_paths(self._native, list(paths))
+        self._kept_paths = (_collections.get_paths(self._native), paths)
 
     _paths = property(get_paths, doc="The paths of the items.")
 

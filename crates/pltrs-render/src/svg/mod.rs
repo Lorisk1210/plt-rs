@@ -22,6 +22,8 @@ mod xml;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use pltrs_codec::sha256::sha256_hex;
 use pltrs_core::path::convert::SimplifySettings;
@@ -35,7 +37,7 @@ use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
-use crate::vector::{FontCache, Metadata, Problems, Timestamp, VectorError, check_canvas, short};
+use crate::vector::{FontCache, Metadata, Problems, VectorError, check_canvas, short};
 
 /// The XML declaration and doctype every document starts with
 /// (matplotlib's `svgProlog`).
@@ -99,9 +101,9 @@ impl std::error::Error for UnknownSvgFontType {}
 /// `metadata` argument of `savefig`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SvgOptions {
-    /// `svg.hashsalt`: salt of the content-derived ids. `None` derives one
-    /// from the current time, so that documents embedded in one page do
-    /// not share ids.
+    /// `svg.hashsalt`: salt of the content-derived ids. `None` gives each
+    /// document a salt of its own, as matplotlib's `uuid4` does, so that
+    /// documents embedded in one page do not share ids.
     pub hashsalt: Option<String>,
     /// `svg.id`: the `id` of the root element.
     pub id: Option<String>,
@@ -181,10 +183,7 @@ impl SvgRenderer {
         options: SvgOptions,
     ) -> Result<Self, VectorError> {
         check_canvas(width, height, image_dpi)?;
-        let salt = options
-            .hashsalt
-            .clone()
-            .unwrap_or_else(|| format!("pltrs-{}", Timestamp::now().0));
+        let salt = options.hashsalt.clone().unwrap_or_else(fresh_salt);
         let mut writer = XmlWriter::new(PROLOG);
         let (w, h) = (short(width), short(height));
         let root = writer.start(
@@ -388,6 +387,21 @@ impl Renderer for SvgRenderer {
     fn image_magnification(&self) -> f64 {
         self.image_dpi / 72.0
     }
+}
+
+/// A salt no other document shares, for `svg.hashsalt: None` (matplotlib
+/// draws a random `uuid4`): the time to the nanosecond, the process and
+/// how many documents it salted before.
+fn fresh_salt() -> String {
+    static SALTED: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_nanos());
+    format!(
+        "pltrs-{nanos}-{}-{}",
+        std::process::id(),
+        SALTED.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 #[cfg(test)]

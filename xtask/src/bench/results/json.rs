@@ -90,6 +90,7 @@ fn count(value: u64) -> Json {
 /// The machine.
 fn machine_json(machine: &Machine) -> Json {
     object([
+        ("model", machine.model.as_deref().into()),
         ("cpu", machine.cpu.as_str().into()),
         ("cores", count(machine.cores as u64)),
         ("threads", count(machine.threads as u64)),
@@ -98,6 +99,7 @@ fn machine_json(machine: &Machine) -> Json {
         ("kernel", machine.kernel.as_str().into()),
         ("affinity", machine.affinity.as_str().into()),
         ("governor", machine.governor.as_deref().into()),
+        ("power", machine.power.as_deref().into()),
         ("rustc", machine.rustc.as_str().into()),
         ("revision", machine.revision.as_str().into()),
     ])

@@ -215,15 +215,18 @@ fn machine(out: &mut String, results: &Results) {
         out,
         "## Machine and versions\n\n\
          | | |\n|---|---|\n\
+         {model}\
          | CPU | {cpu} |\n\
          | cores | {cores} cores, {threads} threads |\n\
          | memory | {memory:.0} GiB |\n\
          | operating system | {os}, {kernel} |\n\
          | CPU frequency governor | {governor} |\n\
+         {power}\
          | CPUs the processes may run on | {affinity} |\n\
          | {load} | {before} at the start, {after} at the end |\n\
          | Rust | {rustc} |\n\n\
          | | matplotlib's venv | pltrs (Python)'s venv |\n|---|---|---|\n",
+        model = optional_row("computer", machine.model.as_deref()),
         cpu = machine.cpu,
         cores = machine.cores,
         threads = machine.threads,
@@ -240,6 +243,7 @@ fn machine(out: &mut String, results: &Results) {
             "load average (1, 5, 15 min)"
         },
         governor = machine.governor.as_deref().unwrap_or("not reported"),
+        power = optional_row("power settings", machine.power.as_deref()),
         affinity = machine.affinity,
         before = results.load_before,
         after = results.load_after,
@@ -269,6 +273,11 @@ fn machine(out: &mut String, results: &Results) {
     );
 }
 
+/// A row of the machine's table for a value the machine may not report.
+fn optional_row(title: &str, value: Option<&str>) -> String {
+    value.map_or_else(String::new, |value| format!("| {title} | {value} |\n"))
+}
+
 /// How to make the report again, and to run one script by hand.
 pub(super) fn reproduce(out: &mut String) {
     let _ = write!(
@@ -291,6 +300,14 @@ pub(super) fn reproduce(out: &mut String) {
          PYTHONPATH=python PLTRS_LOOK=matplotlib .venv-pltrs/bin/python target/bench/pltrs/line.py line.png\n\
          ```\n\n\
          The guard keeps the renderings it compared in `target/bench/guard/`, and the cold \
-         runs their documents in `target/bench/cold/`.\n"
+         runs their documents in `target/bench/cold/`.\n\n\
+         A machine that cannot build pltrs, as a quiet laptop may not, runs a pack of a \
+         build made elsewhere. `cargo xtask bench --pack DIR` gathers the executable, the \
+         package of pltrs (Python) with its extension built as the wheel builds it, the \
+         scripts and their harness into `DIR`. Copied to the machine, with the two venvs \
+         made there as `DIR/.venv` (matplotlib) and `DIR/.venv-pltrs` (without it), \
+         `DIR/xtask bench --report` measures as above and names the packed commit. \
+         `DIR/xtask bench [PREFIX...] --against OTHER` times that build against the pack \
+         in `OTHER`, both faces of pltrs, warm and cold, in turns.\n"
     );
 }

@@ -1,13 +1,14 @@
 //! Running implementations of a workload, ready for timed runs and saves:
 //! pltrs (Rust) in this process, and the Python columns in processes of
 //! the harness's `serve` mode, which keep the script and its data loaded
-//! between requests. The harness takes turns among them (`rounds`).
+//! between requests (as `--child serve` does for pltrs (Rust) of another
+//! build). The harness takes turns among them (`rounds`).
 
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use super::implementation::Implementation;
 use super::python::PythonRunner;
@@ -83,10 +84,15 @@ impl Session for RustSession {
     }
 }
 
-/// A Python column serving a script: `bench.py serve`.
-pub(super) struct PythonSession {
-    /// Which column it is.
+/// An implementation serving a workload from a process of its own, which
+/// keeps the workload's data loaded between requests: a Python column in
+/// the harness's `serve` mode, or pltrs (Rust) in an executable's
+/// (`--child serve`).
+pub(super) struct ServedSession {
+    /// Which implementation it is.
     implementation: Implementation,
+    /// What names it in errors.
+    title: String,
     /// The process.
     child: Child,
     /// Where requests go.
@@ -97,7 +103,7 @@ pub(super) struct PythonSession {
     log: PathBuf,
 }
 
-impl PythonSession {
+impl ServedSession {
     /// Starts `runner` serving `script`, the script of `workload`, its
     /// standard error going to `log`; `Unsupported` when the script cannot
     /// be loaded.
@@ -107,25 +113,41 @@ impl PythonSession {
         script: &str,
         log: &Path,
     ) -> Result<Outcome<Self>, Box<dyn Error>> {
-        let mut command = runner.serve_command(workload, script);
+        Self::spawn(
+            runner.implementation,
+            format!("bench.py ({})", runner.implementation.title()),
+            runner.serve_command(workload, script),
+            log,
+        )
+    }
+
+    /// Starts `command`, a server of `implementation` named `title`, its
+    /// standard error going to `log`, and waits until it is ready.
+    pub(super) fn spawn(
+        implementation: Implementation,
+        title: String,
+        mut command: Command,
+        log: &Path,
+    ) -> Result<Outcome<Self>, Box<dyn Error>> {
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(File::create(log)?)
             .spawn()?;
-        let requests = child.stdin.take().ok_or("no pipe to bench.py")?;
-        let replies = BufReader::new(child.stdout.take().ok_or("no pipe from bench.py")?);
+        let requests = child.stdin.take().ok_or("no pipe to the server")?;
+        let replies = BufReader::new(child.stdout.take().ok_or("no pipe from the server")?);
         let mut session = Self {
-            implementation: runner.implementation,
+            implementation,
+            title,
             child,
             requests,
             replies,
             log: log.to_owned(),
         };
         Ok(match session.reply()? {
-            Outcome::Done(line) if line == "ready" => Outcome::Done(session),
+            Outcome::Done(line) if line == READY => Outcome::Done(session),
             Outcome::Done(line) => {
-                return Err(format!("unexpected reply from bench.py: {line}").into());
+                return Err(format!("unexpected reply from {}: {line}", session.title).into());
             }
             Outcome::Unsupported(why) => Outcome::Unsupported(why),
         })
@@ -143,25 +165,28 @@ impl PythonSession {
         let mut line = String::new();
         if self.replies.read_line(&mut line)? == 0 {
             let stderr = std::fs::read_to_string(&self.log).unwrap_or_default();
-            return Err(format!(
-                "bench.py ({}) exited: {}",
-                self.implementation.title(),
-                stderr.trim()
-            )
-            .into());
+            return Err(format!("{} exited: {}", self.title, stderr.trim()).into());
         }
         let line = line.trim_end();
         Ok(match line.strip_prefix("unsupported\t") {
             Some(why) => Outcome::Unsupported(why.to_owned()),
             None => match line.strip_prefix("error\t") {
-                Some(why) => return Err(format!("bench.py: {why}").into()),
+                Some(why) => return Err(format!("{}: {why}", self.title).into()),
                 None => Outcome::Done(line.to_owned()),
             },
         })
     }
 }
 
-impl Session for PythonSession {
+/// The reply of a server that has loaded its workload.
+pub(super) const READY: &str = "ready";
+
+/// The reply to `run`: `time`, the seconds and the document's size.
+pub(super) fn time_reply(run: Run) -> String {
+    format!("time\t{}\t{}", run.seconds, run.bytes)
+}
+
+impl Session for ServedSession {
     fn implementation(&self) -> Implementation {
         self.implementation
     }
@@ -171,7 +196,7 @@ impl Session for PythonSession {
             Outcome::Done(line) => {
                 let fields: Vec<&str> = line.split('\t').collect();
                 let ["time", seconds, bytes] = fields[..] else {
-                    return Err(format!("unexpected reply from bench.py: {line}").into());
+                    return Err(format!("unexpected reply from {}: {line}", self.title).into());
                 };
                 Outcome::Done(Run {
                     seconds: seconds.parse()?,
@@ -193,7 +218,7 @@ impl Session for PythonSession {
     }
 }
 
-impl Drop for PythonSession {
+impl Drop for ServedSession {
     fn drop(&mut self) {
         // The process ends on `quit`, or on the end of its input should
         // the request fail.

@@ -11,6 +11,7 @@ use std::process::Command;
 
 use super::cold::ColdCommand;
 use super::implementation::Implementation;
+use super::pack;
 use super::workloads::{Output, Workload};
 
 /// Environment every Python process of the benchmark gets: the
@@ -46,7 +47,7 @@ impl PythonRunner {
     /// (`MPLCONFIGDIR`), so that no `matplotlibrc` of the user's changes its
     /// defaults.
     pub(super) fn matplotlib(root: &Path, config: &Path) -> Result<Self, Box<dyn Error>> {
-        let python = crate::python::reference_python();
+        let python = pack::reference_python();
         if !python.exists() {
             return Err(format!(
                 "the reference venv {} is missing (see spec/mpl-reference)",
@@ -63,16 +64,16 @@ impl PythonRunner {
         })
     }
 
-    /// pltrs in its venv, from the source tree (`python/` on the path),
-    /// running copies of the scripts written to `copies` with only their
-    /// imports changed, its configuration directory an empty one of the
-    /// benchmark's (`PLTRSCONFIGDIR`).
+    /// pltrs in its venv, from the tree `root` (its `python/` on the path),
+    /// running copies of the tree's scripts written to `copies` with only
+    /// their imports changed, its configuration directory an empty one of
+    /// the benchmark's (`PLTRSCONFIGDIR`).
     pub(super) fn pltrs(root: &Path, copies: &Path, config: &Path) -> Result<Self, Box<dyn Error>> {
         write_pltrs_copies(&root.join("benchmarks/python"), copies)?;
         fs::create_dir_all(config)?;
         Ok(Self {
             implementation: Implementation::Python,
-            python: crate::python::pltrs_python()?,
+            python: pack::pltrs_python()?,
             scripts: copies.to_owned(),
             env: vec![
                 (
@@ -93,7 +94,7 @@ impl PythonRunner {
     fn harness(&self, args: &[OsString]) -> Command {
         let mut command = Command::new(&self.python);
         command
-            .arg(crate::python::root().join("spec/reference/bench/bench.py"))
+            .arg(pack::current().harness())
             .args(args)
             .envs(PYTHON_ENV)
             .envs(self.env.iter().map(|(k, v)| (k, v)));

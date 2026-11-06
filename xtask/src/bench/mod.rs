@@ -5,6 +5,8 @@
 //! cargo xtask bench [PREFIX...] [--reference] [--runs N] [--out DIR]
 //! cargo xtask bench [PREFIX...] --report [--runs N] [--to DIR]
 //! cargo xtask bench --rewrite-report [--to DIR]
+//! cargo xtask bench --pack DIR [--revision NAME]
+//! cargo xtask bench [PREFIX...] --against DIR [--runs N]
 //! ```
 //!
 //! Every workload (`workloads`) draws the figure of a matplotlib-syntax
@@ -28,12 +30,20 @@
 //! (`charts/`) into `benchmarks/`, or the directory `--to` names; `--runs`
 //! defaults to 10 there. `--rewrite-report` writes the report and the
 //! charts again from the raw data.
+//!
+//! `--pack DIR` gathers this build into `DIR` (`pack`), to be benchmarked
+//! on a machine that cannot build it, where `DIR/xtask bench ...` runs as
+//! `cargo xtask bench ...` does here. `--against DIR` times this build
+//! against the pack in `DIR`, both faces of pltrs, warm and cold, in
+//! turns (`against`); `--runs` defaults to 10 there.
 
+mod against;
 mod child;
 mod cold;
 mod guard;
 mod implementation;
 mod machine;
+mod pack;
 mod python;
 mod render;
 mod report;
@@ -50,7 +60,7 @@ use std::process::ExitCode;
 use python::PythonRunner;
 use render::{Documents, render, user_configuration};
 use rounds::{Warm, interleave};
-use session::{Outcome, PythonSession, RustSession, Session};
+use session::{Outcome, RustSession, ServedSession, Session};
 use stats::{Ratio, Sampling, speedup};
 use workloads::{Output, Script, Workload};
 
@@ -71,12 +81,20 @@ struct Request<'a> {
     out: Option<PathBuf>,
     /// Where the report goes, if not to `benchmarks/`.
     to: Option<PathBuf>,
+    /// Where to write the pack of this build, if asked to.
+    pack: Option<PathBuf>,
+    /// The commit the pack names, if not `git describe`'s.
+    revision: Option<&'a str>,
+    /// The pack of the build to time this one against, if any.
+    against: Option<PathBuf>,
 }
 
 /// How to call the command.
 const USAGE: &str = "usage: cargo xtask bench [PREFIX...] [--reference] [--runs N] [--out DIR]\n       \
                      cargo xtask bench [PREFIX...] --report [--runs N] [--to DIR]\n       \
-                     cargo xtask bench --rewrite-report [--to DIR]";
+                     cargo xtask bench --rewrite-report [--to DIR]\n       \
+                     cargo xtask bench --pack DIR [--revision NAME]\n       \
+                     cargo xtask bench [PREFIX...] --against DIR [--runs N]";
 
 impl<'a> Request<'a> {
     fn parse(args: &'a [String]) -> Result<Self, String> {
@@ -101,10 +119,45 @@ impl<'a> Request<'a> {
                 "--to" => {
                     request.to = Some(rest.next().ok_or("--to needs a directory")?.into());
                 }
+                "--pack" => {
+                    request.pack = Some(rest.next().ok_or("--pack needs a directory")?.into());
+                }
+                "--revision" => {
+                    request.revision = Some(rest.next().ok_or("--revision needs a name")?);
+                }
+                "--against" => {
+                    request.against = Some(rest.next().ok_or("--against needs a pack")?.into());
+                }
                 flag if flag.starts_with("--") => return Err(format!("unknown flag {flag}")),
                 prefix => request.prefixes.push(prefix),
             }
         }
+        request.check_modes()?;
+        Ok(request)
+    }
+
+    /// Fails unless the flags given make one of the modes of [`USAGE`].
+    fn check_modes(&self) -> Result<(), String> {
+        let others = self.reference
+            || self.report
+            || self.rewrite
+            || self.out.is_some()
+            || self.to.is_some();
+        if self.pack.is_some()
+            && (others
+                || self.runs.is_some()
+                || self.against.is_some()
+                || !self.prefixes.is_empty())
+        {
+            return Err("--pack measures nothing: it takes only --revision".into());
+        }
+        if self.revision.is_some() && self.pack.is_none() {
+            return Err("--revision goes with --pack".into());
+        }
+        if self.against.is_some() && others {
+            return Err("--against takes only workload prefixes and --runs".into());
+        }
+        let request = self;
         let table = request.reference || request.out.is_some();
         if (request.report || request.rewrite) && table {
             return Err("--report and --rewrite-report take neither --reference nor --out".into());
@@ -117,7 +170,7 @@ impl<'a> Request<'a> {
         if request.to.is_some() && !(request.report || request.rewrite) {
             return Err("--to goes with --report or --rewrite-report".into());
         }
-        Ok(request)
+        Ok(())
     }
 
     fn selects(&self, name: &str) -> bool {
@@ -153,7 +206,11 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
         .filter(|w| request.selects(w.name))
         .collect();
     let dir = request.to.clone().unwrap_or_else(report::default_dir);
-    let outcome = if request.rewrite {
+    let outcome = if let Some(pack) = &request.pack {
+        pack::write(pack, request.revision)
+    } else if let Some(other) = &request.against {
+        against::run(&selected, request.runs.unwrap_or(10), other)
+    } else if request.rewrite {
         report::rewrite(&dir)
     } else if request.report {
         report::run(&selected, request.runs.unwrap_or(10), &dir)
@@ -178,10 +235,10 @@ fn table(request: &Request<'_>, selected: &[&'static Workload]) -> Result<(), Bo
         min_seconds: 0.0,
         max_runs: runs,
     };
-    let root = crate::python::root();
+    let root = pack::root();
     let config = root.join("target/bench/config/matplotlib");
     let matplotlib = if request.reference {
-        Some(PythonRunner::matplotlib(&root, &config)?)
+        Some(PythonRunner::matplotlib(root, &config)?)
     } else {
         None
     };
@@ -226,9 +283,9 @@ fn table_row(
     }
     let reference = match (matplotlib, workload.script) {
         (Some(runner), Script::Python(script)) => {
-            let log = crate::python::root().join("target/bench/logs/matplotlib.serve.stderr");
+            let log = pack::root().join("target/bench/logs/matplotlib.serve.stderr");
             std::fs::create_dir_all(log.parent().ok_or("a log directory")?)?;
-            match PythonSession::start(runner, workload, script, &log)? {
+            match ServedSession::start(runner, workload, script, &log)? {
                 Outcome::Done(session) => Some(session),
                 Outcome::Unsupported(why) => {
                     return Err(format!("matplotlib cannot run {script}.py: {why}").into());
@@ -306,5 +363,15 @@ mod tests {
         assert!(parsed(&["--to", "dir"]).is_err());
         assert!(parsed(&["--runs", "0"]).is_err());
         assert!(parsed(&["--fast"]).is_err());
+        let pack = parsed(&["--pack", "dir", "--revision", "abc"]).expect("valid");
+        assert_eq!(
+            (pack.pack, pack.revision),
+            (Some("dir".into()), Some("abc"))
+        );
+        assert!(parsed(&["--pack", "dir", "small/"]).is_err());
+        assert!(parsed(&["--revision", "abc"]).is_err());
+        let against = parsed(&["small/", "--against", "dir", "--runs", "5"]).expect("valid");
+        assert_eq!(against.against, Some("dir".into()));
+        assert!(parsed(&["--against", "dir", "--report"]).is_err());
     }
 }

@@ -1,16 +1,20 @@
 //! What the benchmark ran on: the machine, its load, and the versions of
 //! the tools, read from `/proc`, `/sys` and the tools themselves (on
-//! Windows from its management interface, through PowerShell).
+//! Windows from its management interface, through PowerShell), or, for a
+//! build packed elsewhere, from the pack's manifest.
 
 #[cfg(not(windows))]
 use std::collections::BTreeSet;
 #[cfg(not(windows))]
 use std::fs;
-use std::process::Command;
+
+use super::pack::{self, first_line, unknown};
 
 /// The machine and the software around the timings.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct Machine {
+    /// The maker and model of the computer, where the firmware names them.
+    pub(super) model: Option<String>,
     /// The CPU model.
     pub(super) cpu: String,
     /// Physical cores.
@@ -27,9 +31,14 @@ pub(super) struct Machine {
     pub(super) affinity: String,
     /// The first CPU's frequency governor, where the kernel reports one.
     pub(super) governor: Option<String>,
+    /// The power settings that steer the clock, where the kernel reports
+    /// them: the platform's power profile, the first CPU's energy
+    /// preference, and whether the machine runs on mains power.
+    pub(super) power: Option<String>,
     /// The Rust compiler's version.
     pub(super) rustc: String,
-    /// The commit benchmarked, `-dirty` when the tree has changes.
+    /// The commit benchmarked, `-dirty` when the tree has changes, or as
+    /// the pack names it.
     pub(super) revision: String,
 }
 
@@ -82,7 +91,9 @@ impl Machine {
         let governor = fs::read_to_string("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
             .ok()
             .map(|g| g.trim().to_owned());
+        let (rustc, revision) = build();
         Self {
+            model: model(),
             cpu,
             cores: physical.len().max(1),
             threads,
@@ -91,10 +102,85 @@ impl Machine {
             kernel: read("/proc/sys/kernel/osrelease").trim().to_owned(),
             affinity,
             governor,
-            rustc: tool_output("rustc", &["--version"]),
-            revision: tool_output("git", &["describe", "--always", "--dirty", "--abbrev=10"]),
+            power: power(),
+            rustc,
+            revision,
         }
     }
+}
+
+/// The Rust compiler and the commit of the build benchmarked: the pack's,
+/// else the workspace's.
+fn build() -> (String, String) {
+    let tree = pack::current();
+    match &tree.build {
+        Some(build) => (build.rustc.clone(), build.revision.clone()),
+        None => (
+            first_line(&tree.root, "rustc", &["--version"]),
+            first_line(&tree.root, "git", &pack::describe()),
+        ),
+    }
+}
+
+/// The computer's maker and model, as the firmware's DMI tables name
+/// them.
+#[cfg(not(windows))]
+fn model() -> Option<String> {
+    let field = |name: &str| {
+        fs::read_to_string(format!("/sys/class/dmi/id/{name}"))
+            .ok()
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
+    };
+    match (field("sys_vendor"), field("product_name")) {
+        (Some(vendor), Some(product)) => Some(format!("{vendor} {product}")),
+        (vendor, product) => vendor.or(product),
+    }
+}
+
+/// The power settings the kernel reports, described in words.
+#[cfg(not(windows))]
+fn power() -> Option<String> {
+    let setting = |path: &str| {
+        fs::read_to_string(path)
+            .ok()
+            .map(|value| value.trim().to_owned())
+    };
+    let mut parts = Vec::new();
+    if let Some(profile) = setting("/sys/firmware/acpi/platform_profile") {
+        parts.push(format!("power profile {profile}"));
+    }
+    if let Some(preference) =
+        setting("/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference")
+    {
+        parts.push(format!("energy preference {preference}"));
+    }
+    if let Some(mains) = on_mains() {
+        parts.push(
+            if mains {
+                "on mains power"
+            } else {
+                "on battery"
+            }
+            .to_owned(),
+        );
+    }
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
+/// Whether a mains supply powers the machine, where it reports a supply
+/// of that type.
+#[cfg(not(windows))]
+fn on_mains() -> Option<bool> {
+    let supplies = fs::read_dir("/sys/class/power_supply").ok()?;
+    let mut mains = None;
+    for supply in supplies.filter_map(Result::ok).map(|entry| entry.path()) {
+        if read(&supply.join("type").to_string_lossy()).trim() == "Mains" {
+            let online = read(&supply.join("online").to_string_lossy()).trim() == "1";
+            mains = Some(mains.unwrap_or(false) || online);
+        }
+    }
+    mains
 }
 
 /// The 1-, 5- and 15-minute load averages, as the kernel prints them.
@@ -123,7 +209,7 @@ pub(super) fn load_average() -> String {
 /// The machine as Windows describes it.
 #[cfg(windows)]
 mod windows {
-    use super::{Machine, tool_output, unknown};
+    use super::{Machine, build, unknown};
 
     /// What [`describe`] asks: the CPU, its cores and threads, the memory
     /// in bytes, the system's name and version, the active power plan and
@@ -182,7 +268,9 @@ mod windows {
         let line = |i: usize| lines.get(i).filter(|line| !line.is_empty()).cloned();
         let number = |i: usize| line(i).and_then(|text| text.parse::<u64>().ok());
         let threads = number(2).and_then(|n| usize::try_from(n).ok());
+        let (rustc, revision) = build();
         Machine {
+            model: None,
             cpu: line(0).unwrap_or_else(unknown),
             cores: number(1).and_then(|n| usize::try_from(n).ok()).unwrap_or(1),
             threads: threads.unwrap_or(1),
@@ -192,8 +280,9 @@ mod windows {
             kernel: line(5).map_or_else(unknown, |version| format!("Windows NT {version}")),
             affinity: number(7).map_or_else(unknown, processors),
             governor: line(6).map(|plan| format!("power plan {plan}")),
-            rustc: tool_output("rustc", &["--version"]),
-            revision: tool_output("git", &["describe", "--always", "--dirty", "--abbrev=10"]),
+            power: None,
+            rustc,
+            revision,
         }
     }
 
@@ -214,25 +303,6 @@ mod windows {
 #[cfg(not(windows))]
 fn read(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_default()
-}
-
-/// What stands for a value that cannot be read.
-fn unknown() -> String {
-    "unknown".to_owned()
-}
-
-/// The first line `program args` prints, run in the workspace, or
-/// `unknown`.
-fn tool_output(program: &str, args: &[&str]) -> String {
-    Command::new(program)
-        .args(args)
-        .current_dir(crate::python::root())
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| String::from_utf8(output.stdout).ok())
-        .and_then(|text| text.lines().next().map(str::to_owned))
-        .unwrap_or_else(unknown)
 }
 
 #[cfg(test)]

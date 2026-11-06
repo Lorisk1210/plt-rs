@@ -13,6 +13,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::process::Command;
 
+use super::pack;
 use super::python::{PYTHON_ENV, path_text};
 use super::stats::{Samples, Sampling};
 
@@ -62,7 +63,7 @@ pub(super) fn time_cold(
     std::fs::create_dir_all(logs)?;
     let spec = spec_json(commands, sampling, logs)?;
     let output = Command::new(python)
-        .arg(crate::python::root().join("spec/reference/bench/bench.py"))
+        .arg(pack::current().harness())
         .arg("cold")
         .arg(spec)
         .envs(PYTHON_ENV)

@@ -17,6 +17,7 @@ use crate::cff::Cff;
 use crate::error::Result;
 use crate::layout::common::LayoutTable;
 use crate::layout::gdef::Gdef;
+use crate::region::{LazyFile, Region};
 use crate::tables::cmap::Cmap;
 use crate::tables::directory::{SfntFlavor, TableDirectory};
 use crate::tables::glyf::Glyf;
@@ -43,6 +44,9 @@ enum Outlines<'a> {
 #[derive(Clone, Debug)]
 pub struct Face<'a> {
     data: &'a [u8],
+    /// The file `data` are the held bytes of, for a face of a file held
+    /// for drawing: what they lack is read from it.
+    file: Option<&'a dyn LazyFile>,
     index: u32,
     directory: TableDirectory<'a>,
     head: Head,
@@ -74,6 +78,18 @@ fn optional<'a, T>(
 impl<'a> Face<'a> {
     /// Parses face `index` of a font file (0 for plain `.ttf`/`.otf`).
     pub fn parse(data: &'a [u8], index: u32) -> Result<Self> {
+        Self::parse_in(data, index, None)
+    }
+
+    /// Parses face `index` of a font file held for drawing: from its held
+    /// bytes, reading its glyph programs and the tables not held from the
+    /// file when they are used.
+    pub(crate) fn parse_held(file: &'a dyn LazyFile, index: u32) -> Result<Self> {
+        Self::parse_in(file.held(), index, Some(file))
+    }
+
+    /// Parses face `index` of `data`, the held bytes of `file` if given.
+    fn parse_in(data: &'a [u8], index: u32, file: Option<&'a dyn LazyFile>) -> Result<Self> {
         let directory = TableDirectory::parse(data, index)?;
         let head = Head::parse(directory.required(Tag::new(b"head"))?)?;
         let hhea = Hhea::parse(directory.required(Tag::new(b"hhea"))?)?;
@@ -87,9 +103,10 @@ impl<'a> Face<'a> {
             Some(table) => Cmap::parse(table)?,
             None => Cmap::default(),
         };
-        let outlines = Self::outlines(&directory, &head)?;
+        let outlines = Self::outlines(&directory, &head, index, file)?;
         Ok(Self {
             data,
+            file,
             index,
             head,
             hhea,
@@ -113,16 +130,27 @@ impl<'a> Face<'a> {
         })
     }
 
-    fn outlines(directory: &TableDirectory<'a>, head: &Head) -> Result<Outlines<'a>> {
-        if let (Some(loca), Some(glyf)) = (
-            directory.table(Tag::new(b"loca")),
-            directory.table(Tag::new(b"glyf")),
-        ) {
+    /// The outlines of face `index` of `directory`, whose file `file` is
+    /// when it is held for drawing.
+    fn outlines(
+        directory: &TableDirectory<'a>,
+        head: &Head,
+        index: u32,
+        file: Option<&'a dyn LazyFile>,
+    ) -> Result<Outlines<'a>> {
+        let elsewhere =
+            |tag| file.and_then(|file| Some(Region::lazy(file, file.table(index, tag)?)));
+        let glyf = elsewhere(Tag::new(b"glyf"))
+            .or_else(|| directory.table(Tag::new(b"glyf")).map(Region::Held));
+        if let (Some(loca), Some(glyf)) = (directory.table(Tag::new(b"loca")), glyf) {
             return Ok(Outlines::TrueType(Glyf::new(
                 loca,
                 glyf,
                 head.index_to_loc_format != 0,
             )));
+        }
+        if let Some(parts) = file.and_then(|file| file.cff(index)) {
+            return Ok(Outlines::Cff(Box::new(Cff::parse_parts(parts)?)));
         }
         if let Some(cff) = directory.table(Tag::new(b"CFF ")) {
             return Ok(Outlines::Cff(Box::new(Cff::parse(cff)?)));
@@ -130,9 +158,17 @@ impl<'a> Face<'a> {
         Ok(Outlines::None)
     }
 
-    /// The whole font file this face was parsed from.
-    pub const fn data(&self) -> &'a [u8] {
-        self.data
+    /// The whole font file this face was parsed from (read now for a face
+    /// of a file held for drawing, which reads the parts it uses).
+    ///
+    /// # Errors
+    ///
+    /// When the file of a face held for drawing cannot be read.
+    pub fn data(&self) -> Result<&'a [u8]> {
+        match self.file {
+            Some(file) => file.whole(),
+            None => Ok(self.data),
+        }
     }
 
     /// Index of this face inside its file.
@@ -147,7 +183,13 @@ impl<'a> Face<'a> {
 
     /// Raw bytes of table `tag`, if present.
     pub fn table(&self, tag: Tag) -> Option<&'a [u8]> {
-        self.directory.table(tag)
+        match self
+            .file
+            .and_then(|file| Some((file, file.table(self.index, tag)?)))
+        {
+            Some((file, elsewhere)) => file.read(elsewhere),
+            None => self.directory.table(tag),
+        }
     }
 
     /// Tags of all tables in the face.

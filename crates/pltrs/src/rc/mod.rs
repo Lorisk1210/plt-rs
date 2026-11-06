@@ -66,6 +66,9 @@ impl RcParams {
     /// [`config`](crate::config); not while the user configuration is
     /// [ignored](crate::config::ignore_user_config)).
     pub fn startup() -> Self {
+        // Where a program starts using pltrs: from now on, the system's
+        // fonts are catalogued in the cache directory.
+        crate::fonts::keep_catalogue();
         crate::config::with_user_rc(crate::look::appearance().figures.params())
     }
 

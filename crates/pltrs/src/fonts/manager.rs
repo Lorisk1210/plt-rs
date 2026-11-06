@@ -60,8 +60,10 @@ fn stretch_named(value: u16) -> FontStretch {
 
 impl FontManager {
     /// The fonts text is drawn with: matplotlib's bundled fonts plus the
-    /// fonts installed on the system.
+    /// fonts installed on the system (whose catalogue is kept in the cache
+    /// directory, see [`keep_catalogue`](super::keep_catalogue)).
     pub fn global() -> Self {
+        super::keep_catalogue();
         Self {
             engine: TextEngine::global(),
         }

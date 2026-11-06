@@ -25,7 +25,10 @@
 //!   [`FontChain`] for matplotlib's per-character font fallback and text
 //!   extents.
 //! * [`FontDatabase`] — the bundled matplotlib fonts plus optional system
-//!   fonts, with matplotlib's `findfont` scoring.
+//!   fonts, with matplotlib's `findfont` scoring; the system's fonts can
+//!   be catalogued once and the catalogue kept in a file between processes
+//!   ([`FontDatabase::add_system_fonts_catalogued`]), as matplotlib keeps
+//!   its font list, so that starting up opens no font file.
 //! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
 //!   Metrics and its AFM parser, with the bundled metrics of the 14 PDF
 //!   core fonts, for text measured and drawn in standard PostScript fonts.
@@ -52,6 +55,7 @@ mod hinting;
 mod layout;
 mod outline;
 mod reader;
+mod region;
 mod scale;
 mod scan;
 mod sfnt;
@@ -68,10 +72,10 @@ pub use afm::{
 pub use agl::glyph_name_to_unicode;
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
-    AfmDirectory, AfmFont, FaceStyle, FontDatabase, FontEntry, FontId, FontQuery, FontSource,
-    FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
-    alternative_family_names, bundled_font_data, bundled_font_files, face_style, score_family,
-    score_size, score_stretch, score_style, score_variant, score_weight,
+    AfmDirectory, AfmFont, CatalogueReport, CatalogueState, FaceStyle, FontDatabase, FontEntry,
+    FontId, FontQuery, FontSource, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch,
+    Weight, alternative_family_names, bundled_font_data, bundled_font_files, catalogue_file_name,
+    face_style, score_family, score_size, score_stretch, score_style, score_variant, score_weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};

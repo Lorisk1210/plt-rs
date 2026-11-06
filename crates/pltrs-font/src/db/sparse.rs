@@ -9,14 +9,22 @@
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
+use std::ops::Range;
 use std::path::Path;
 
-/// The tables neither the face parser nor the catalogue reads: outlines
-/// (`glyf` is only located), bitmaps, variations, and Apple's outlines
-/// and shaping.
-const UNREAD: [[u8; 4]; 11] = [
+/// The tables only drawing reads, and those it reads glyph by glyph or
+/// not at all: outlines (`glyf` is only located), bitmaps, variations and
+/// Apple's outlines.
+pub(super) const DRAWN: [[u8; 4]; 10] = [
     *b"glyf", *b"sbix", *b"CBDT", *b"EBDT", *b"bdat", *b"SVG ", *b"hvgl", *b"gvar", *b"hdmx",
-    *b"CFF2", *b"morx",
+    *b"CFF2",
+];
+
+/// The tables neither the face parser nor the catalogue reads: those, and
+/// Apple's shaping.
+const UNREAD: [[u8; 4]; 11] = [
+    DRAWN[0], DRAWN[1], DRAWN[2], DRAWN[3], DRAWN[4], DRAWN[5], DRAWN[6], DRAWN[7], DRAWN[8],
+    DRAWN[9], *b"morx",
 ];
 
 /// The tag of TrueType/OpenType collections.
@@ -38,22 +46,17 @@ const TABLE_RECORD: usize = 16;
 /// with their tables but the [`UNREAD`] ones, which are empty. Files that
 /// are no sfnt fonts, or whose tables leave the file, are read whole.
 pub(super) fn read(path: &Path) -> io::Result<Vec<u8>> {
-    let file = File::open(path)?;
-    let length = file.metadata()?.len();
-    let mut file = Font { file, length };
-    if let Some((header, faces)) = file.faces()? {
-        return file.pack(header, &faces);
+    let mut file = Font::open(path)?;
+    match file.faces()? {
+        Some((header, faces)) => file.pack(header, &faces, Table::is_read),
+        None => file.whole(),
     }
-    let mut whole = Vec::new();
-    file.file.seek(SeekFrom::Start(0))?;
-    file.file.read_to_end(&mut whole)?;
-    Ok(whole)
 }
 
 /// A table of a face: its tag and checksum, and where its bytes are in
 /// the file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Table {
+pub(super) struct Table {
     tag_and_checksum: [u8; 8],
     offset: u64,
     length: u32,
@@ -62,27 +65,66 @@ struct Table {
 impl Table {
     /// Whether the face parser reads the table.
     fn is_read(&self) -> bool {
-        !UNREAD.iter().any(|tag| self.tag_and_checksum[..4] == *tag)
+        !UNREAD.iter().any(|tag| self.tag() == *tag)
+    }
+
+    /// The table's tag.
+    pub(super) fn tag(&self) -> [u8; 4] {
+        let [tag @ .., _, _, _, _] = self.tag_and_checksum;
+        tag
+    }
+
+    /// Where the table's bytes are in the file, if their offsets fit in
+    /// memory's.
+    pub(super) fn range(&self) -> Option<Range<usize>> {
+        let start = usize::try_from(self.offset).ok()?;
+        Some(start..start.checked_add(usize::try_from(self.length).ok()?)?)
     }
 }
 
 /// A face: its offset table and its tables.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct Face {
+pub(super) struct Face {
     offset_table: [u8; OFFSET_TABLE],
-    tables: Vec<Table>,
+    /// The tables, in directory order.
+    pub(super) tables: Vec<Table>,
 }
 
 /// A font file being read.
 #[derive(Debug)]
-struct Font {
+pub(super) struct Font {
     file: File,
     length: u64,
 }
 
 impl Font {
+    /// The font file at `path`.
+    pub(super) fn open(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let length = file.metadata()?.len();
+        Ok(Self { file, length })
+    }
+
+    /// The whole file.
+    pub(super) fn whole(&mut self) -> io::Result<Vec<u8>> {
+        let mut whole = Vec::new();
+        self.file.seek(SeekFrom::Start(0))?;
+        self.file.read_to_end(&mut whole)?;
+        Ok(whole)
+    }
+
+    /// The file's length.
+    pub(super) const fn length(&self) -> u64 {
+        self.length
+    }
+
+    /// The file handle, to read from later.
+    pub(super) fn into_file(self) -> File {
+        self.file
+    }
+
     /// The `length` bytes at `offset`, if the file holds them.
-    fn bytes(&mut self, offset: u64, length: u64) -> io::Result<Option<Vec<u8>>> {
+    pub(super) fn bytes(&mut self, offset: u64, length: u64) -> io::Result<Option<Vec<u8>>> {
         if offset.saturating_add(length) > self.length {
             return Ok(None);
         }
@@ -94,7 +136,7 @@ impl Font {
 
     /// The first bytes of the file and its faces, if it is an sfnt font
     /// whose faces and tables lie in it.
-    fn faces(&mut self) -> io::Result<Option<([u8; 8], Vec<Face>)>> {
+    pub(super) fn faces(&mut self) -> io::Result<Option<([u8; 8], Vec<Face>)>> {
         let Some(header) = self.bytes(0, COLLECTION_HEADER as u64)? else {
             return Ok(None);
         };
@@ -161,8 +203,14 @@ impl Font {
 
     /// The font of `faces`: for several, the collection header (whose
     /// first bytes are `header`); their directories; then the bytes of
-    /// the tables read, each once, at four-byte boundaries.
-    fn pack(&mut self, header: [u8; 8], faces: &[Face]) -> io::Result<Vec<u8>> {
+    /// the tables `kept`, each once, at four-byte boundaries. The others
+    /// are empty.
+    pub(super) fn pack(
+        &mut self,
+        header: [u8; 8],
+        faces: &[Face],
+        kept: impl Fn(&Table) -> bool,
+    ) -> io::Result<Vec<u8>> {
         let collection = header[..4] == COLLECTION;
         let mut at = if collection {
             COLLECTION_HEADER + 4 * faces.len()
@@ -180,7 +228,7 @@ impl Font {
             let same = |(other, _): &(Table, usize)| {
                 (other.offset, other.length) == (table.offset, table.length)
             };
-            if table.is_read() && !placed.iter().any(same) {
+            if kept(table) && !placed.iter().any(same) {
                 placed.push((*table, at));
                 at = (at + table.length as usize).next_multiple_of(4);
             }
@@ -199,8 +247,7 @@ impl Font {
                 let (at, length) = placed
                     .iter()
                     .find(|(read, _)| {
-                        table.is_read()
-                            && (read.offset, read.length) == (table.offset, table.length)
+                        kept(table) && (read.offset, read.length) == (table.offset, table.length)
                     })
                     .map_or((0, 0), |&(read, at)| (at, read.length));
                 bytes.extend_from_slice(&table.tag_and_checksum);

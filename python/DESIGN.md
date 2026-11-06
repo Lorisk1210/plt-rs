@@ -1454,6 +1454,29 @@ matplotlib's warning (`_log_temporary_config_dir`), naming the variable
 that named the directory. The suite runner sets `MPLCONFIGDIR` and
 removes the `PLTRSCONFIGDIR` cargo sets.
 
+### The font catalogue
+
+As matplotlib keeps its font list in its cache directory
+(`fontlist-v390.json`), pltrs (Rust) keeps the catalogue of the system's
+fonts in its own, `fontlist-v1.pltrs` (`pltrs::fonts::keep_catalogue`,
+`pltrs_font::FontDatabase::add_system_fonts_catalogued`). The shared
+text engine reads it when it is first used, which is when matplotlib's
+`findfont` would first run; nothing reads it at import. A font file that
+is new, or whose size or modification time changed, is read again, and a
+catalogue that is missing, corrupted, of another version or format, is
+rebuilt; it is written atomically, and when it cannot be written the
+fonts are used all the same and `font_manager`'s logger warns as
+matplotlib's `json_dump` does. Fonts added with `fontManager.addfont`
+stay in the process, as matplotlib's do. `ttflist`, `findfont` and the
+fallback chains are those of a process that read every font.
+
+A face's file is opened when the face is first used, for metrics,
+shaping or drawing: its tables are read then, but its glyph programs
+(`glyf`, the CFF `CharStrings`) are read glyph by glyph as they are drawn,
+and the tables pltrs draws without (bitmaps, variations) only when asked
+for, as FreeType reads a file through matplotlib's file stream. A large
+CJK font so costs the memory of the glyphs drawn, not that of its file.
+
 ### Grids, layout engines, legends
 
 A `GridSpec` holds its native grid for its whole life: pltrs (Rust) and

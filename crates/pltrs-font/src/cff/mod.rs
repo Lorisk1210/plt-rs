@@ -3,18 +3,22 @@
 //! Supports name-keyed and CID-keyed fonts, local/global subroutines, the
 //! `seac` accent composition and glyph names from the charset.
 
+mod bytes;
 mod charstring;
 mod index;
 mod strings;
 
 use crate::error::{FontError, Result};
 use crate::outline::Outline;
-use crate::reader::{Array, Reader, tail};
+use crate::reader::{Array, Reader};
 use crate::tables::glyf::Scaling;
 use crate::types::GlyphId;
 
+use bytes::CffBytes;
+pub(crate) use bytes::CffParts;
 use charstring::{Subrs, interpret};
-use index::{CFF, Index, Operator, dict_get, dict_usize, parse_dict};
+pub(crate) use index::Index;
+use index::{CFF, Operator, dict_get, dict_usize, parse_dict};
 pub(crate) use strings::{STANDARD_ENCODING, STANDARD_STRINGS};
 
 const OP_CHARSET: Operator = 15;
@@ -115,7 +119,7 @@ pub(crate) struct Cff<'a> {
 }
 
 /// Reads the local subroutines referenced by a Private DICT entry.
-fn private_subrs<'a>(data: &'a [u8], private: Option<&[f64]>) -> Result<Index<'a>> {
+fn private_subrs<'a>(data: CffBytes<'a>, private: Option<&[f64]>) -> Result<Index<'a>> {
     let Some(&[size, offset]) = private else {
         return Ok(Index::default());
     };
@@ -125,36 +129,71 @@ fn private_subrs<'a>(data: &'a [u8], private: Option<&[f64]>) -> Result<Index<'a
             .ok_or(FontError::Truncated(CFF))?,
     )?;
     match dict_usize(&dict, OP_SUBRS) {
-        Some(subrs) => Index::read(&mut Reader::at(data, offset + subrs, CFF)?),
+        Some(subrs) => Index::read(&mut data.at(offset + subrs)?),
         None => Ok(Index::default()),
     }
 }
 
+/// The Top DICT INDEX of the CFF table `data` (checking its version) and
+/// a reader after it.
+fn top_index(data: CffBytes<'_>) -> Result<(Index<'_>, Reader<'_>)> {
+    let mut r = data.at(0)?;
+    let major = r.u8()?;
+    if major != 1 {
+        return Err(FontError::UnsupportedFormat {
+            table: CFF,
+            format: u32::from(major),
+        });
+    }
+    r.skip(1)?;
+    let header_size = usize::from(r.u8()?);
+    let mut r = data.at(header_size)?;
+    Index::read(&mut r)?;
+    let top = Index::read(&mut r)?;
+    Ok((top, r))
+}
+
+/// The Top DICT of a Top DICT INDEX.
+fn top_dict(top: &Index<'_>) -> Result<Vec<(Operator, Vec<f64>)>> {
+    parse_dict(
+        top.get(0)
+            .ok_or(FontError::malformed(CFF, "missing Top DICT"))?,
+    )
+}
+
+/// Where the `CharStrings` INDEX of a CFF table is, in the table, when
+/// `head`, its first bytes, hold its header, Name INDEX and Top DICT
+/// INDEX: what a font file held for drawing reads glyph by glyph.
+pub(crate) fn charstrings_offset(head: &[u8]) -> Result<usize> {
+    let top = top_dict(&top_index(CffBytes::Whole(head))?.0)?;
+    dict_usize(&top, OP_CHARSTRINGS).ok_or(FontError::malformed(CFF, "no CharStrings"))
+}
+
 impl<'a> Cff<'a> {
+    /// Parses a CFF table.
     pub(crate) fn parse(data: &'a [u8]) -> Result<Self> {
-        let mut r = Reader::new(data, CFF);
-        let major = r.u8()?;
-        if major != 1 {
-            return Err(FontError::UnsupportedFormat {
-                table: CFF,
-                format: u32::from(major),
-            });
-        }
-        r.skip(1)?;
-        let header_size = usize::from(r.u8()?);
-        let mut r = Reader::at(data, header_size, CFF)?;
-        Index::read(&mut r)?;
-        let top = Index::read(&mut r)?;
+        Self::parse_bytes(CffBytes::Whole(data))
+    }
+
+    /// Parses a CFF table held but for its `CharStrings` data, which are
+    /// then read glyph by glyph.
+    pub(crate) fn parse_parts(parts: CffParts<'a>) -> Result<Self> {
+        Self::parse_bytes(CffBytes::Parts(parts))
+    }
+
+    fn parse_bytes(data: CffBytes<'a>) -> Result<Self> {
+        let (top, mut r) = top_index(data)?;
         let strings = Index::read(&mut r)?;
         let global_subrs = Index::read(&mut r)?;
-        let top = parse_dict(
-            top.get(0)
-                .ok_or(FontError::malformed(CFF, "missing Top DICT"))?,
-        )?;
+        let top = top_dict(&top)?;
 
         let charstrings_at =
             dict_usize(&top, OP_CHARSTRINGS).ok_or(FontError::malformed(CFF, "no CharStrings"))?;
-        let charstrings = Index::read(&mut Reader::at(data, charstrings_at, CFF)?)?;
+        let mut r = data.at(charstrings_at)?;
+        let charstrings = match data.charstrings() {
+            Some(held_elsewhere) => Index::read_offsets(&mut r, held_elsewhere)?,
+            None => Index::read(&mut r)?,
+        };
         let is_cid = dict_get(&top, OP_ROS).is_some();
         let charset = Self::charset(
             data,
@@ -165,7 +204,7 @@ impl<'a> Cff<'a> {
         let (local_subrs, fd_select) = if is_cid {
             let fd_array_at = dict_usize(&top, OP_FD_ARRAY)
                 .ok_or(FontError::malformed(CFF, "CID font without FDArray"))?;
-            let fd_array = Index::read(&mut Reader::at(data, fd_array_at, CFF)?)?;
+            let fd_array = Index::read(&mut data.at(fd_array_at)?)?;
             let subrs = (0..fd_array.len())
                 .map(|i| {
                     let dict = parse_dict(fd_array.get(i).unwrap_or(&[]))?;
@@ -174,7 +213,7 @@ impl<'a> Cff<'a> {
                 .collect::<Result<Vec<_>>>()?;
             let select_at = dict_usize(&top, OP_FD_SELECT)
                 .ok_or(FontError::malformed(CFF, "CID font without FDSelect"))?;
-            let select = tail(data, select_at, CFF)?;
+            let select = data.tail(select_at)?;
             let fd_select = match select.first() {
                 Some(0) => FdSelect::PerGlyph(&select[1..]),
                 Some(3) => FdSelect::Ranges(&select[1..]),
@@ -198,16 +237,16 @@ impl<'a> Cff<'a> {
         })
     }
 
-    fn charset(data: &'a [u8], offset: usize, glyphs: usize) -> Result<Charset<'a>> {
+    fn charset(data: CffBytes<'a>, offset: usize, glyphs: usize) -> Result<Charset<'a>> {
         match offset {
             0 => Ok(Charset::IsoAdobe),
             1 | 2 => Ok(Charset::Unsupported),
             _ => {
-                let mut r = Reader::at(data, offset, CFF)?;
+                let mut r = data.at(offset)?;
                 match r.u8()? {
                     0 => Ok(Charset::Sids(r.array(glyphs.saturating_sub(1))?)),
                     format @ (1 | 2) => Ok(Charset::Ranges {
-                        data: tail(data, offset + 1, CFF)?,
+                        data: data.tail(offset + 1)?,
                         wide: format == 2,
                     }),
                     format => Err(FontError::UnsupportedFormat {

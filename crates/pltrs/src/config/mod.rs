@@ -7,6 +7,7 @@
 //! |-----------------------------|----------------------------------------------------------------|--------------------------|
 //! | [`config_dir`]              | `$PLTRSCONFIGDIR`, `$XDG_CONFIG_HOME/pltrs`, `~/.config/pltrs` | `MPLCONFIGDIR`, `~/.config/matplotlib` |
 //! | [`cache_dir`]               | `$PLTRSCONFIGDIR`, `$XDG_CACHE_HOME/pltrs`, `~/.cache/pltrs`   | `MPLCONFIGDIR`, `~/.cache/matplotlib` |
+//! | the font catalogue          | `fontlist-v1.pltrs` in the cache directory                     | `fontlist-v390.json` |
 //! | [`rc_file_path`]            | `./pltrsrc`, `$PLTRSRC` (a file, or a directory holding `pltrsrc`), `pltrsrc` in the configuration directory | `matplotlibrc`, `MATPLOTLIBRC` |
 //! | the user style library      | the `*.mplstyle` files of `stylelib` in the configuration directory | `stylelib`         |
 //!
@@ -153,7 +154,9 @@ pub fn temp_dir_notice() -> Option<&'static TempDirNotice> {
 /// [`config_dir`] is, on Linux with `$XDG_CACHE_HOME` (by default
 /// `~/.cache`) in place of `$XDG_CONFIG_HOME`. pltrs keeps there what `text.usetex`
 /// makes, in `tex.cache` as matplotlib does (and the fonts kpathsea
-/// generates in `vartexfonts`).
+/// generates in `vartexfonts`), and the catalogue of the system's fonts,
+/// as matplotlib keeps its font list there
+/// ([`fonts::keep_catalogue`](crate::fonts::keep_catalogue)).
 ///
 /// # Errors
 ///

@@ -9,9 +9,6 @@ use super::runtime::{Id, NO, Object, Sel, YES, autoreleasepool, class, sel, send
 use super::{failed, new_object};
 use crate::error::Error;
 
-#[link(name = "AppKit", kind = "framework")]
-unsafe extern "C" {}
-
 #[link(name = "Foundation", kind = "framework")]
 unsafe extern "C" {
     /// `NSDefaultRunLoopMode`.

@@ -31,9 +31,12 @@ fn bundled_entries_are_those_of_the_fonts() {
     for font in &BUNDLED_FONTS {
         assert_eq!(face_count(font.data), Ok(1), "{}", font.file);
         parsed
-            .add_faces(&FontSource::Bundled(font.file), font.data, true, || {
-                FontData::Static(font.data)
-            })
+            .add_faces(
+                &FontSource::Bundled(font.file),
+                font.data,
+                true,
+                &FontData::Static(font.data),
+            )
             .expect("bundled fonts parse");
     }
     assert_eq!(*db.entries(), *parsed.entries());
@@ -167,4 +170,50 @@ fn unreadable_files_are_reported() {
         Err(FontError::Io { .. })
     ));
     assert_eq!(db.add_directory("/nonexistent"), 0);
+}
+
+#[test]
+fn catalogued_fonts_are_those_added() {
+    let dir = std::env::temp_dir().join(format!("pltrs-font-catalogued-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let mut paths: Vec<PathBuf> = ["DejaVuSans.ttf", "DejaVuSerif-Bold.ttf", "Inter-Italic.ttf"]
+        .iter()
+        .map(|name| {
+            let path = dir.join(name);
+            fs::write(&path, bundled_font_data(name).unwrap()).unwrap();
+            path
+        })
+        .collect();
+    paths.push(dir.join("broken.ttf"));
+    fs::write(&paths[3], b"not a font").unwrap();
+    paths.push(dir.join("missing.otf"));
+    paths.push(paths[0].clone());
+    let added = FontDatabase::with_bundled_fonts();
+    for path in &paths {
+        let _ = added.add_file(path);
+    }
+    let catalogue = dir.join(catalogue_file_name());
+    for (round, expected) in [(0, "rebuilt"), (1, "current")] {
+        let catalogued = FontDatabase::with_bundled_fonts();
+        let report = catalogued.add_files_catalogued(&paths, &catalogue);
+        let state = match report.state {
+            CatalogueState::Current => "current",
+            CatalogueState::Updated { .. } => "updated",
+            CatalogueState::Rebuilt { .. } => "rebuilt",
+        };
+        assert_eq!(state, expected, "round {round}");
+        assert_eq!(*catalogued.entries(), *added.entries(), "round {round}");
+        assert_eq!(catalogued.face_count(), added.face_count());
+        for index in 0..added.face_count() {
+            let id = FontId(index);
+            assert_eq!(catalogued.source(id), added.source(id));
+            assert_eq!(catalogued.face_index(id), added.face_index(id));
+            assert_eq!(
+                catalogued.face(id).map(|face| face.postscript_name()),
+                added.face(id).map(|face| face.postscript_name())
+            );
+        }
+    }
+    fs::remove_dir_all(&dir).unwrap();
 }

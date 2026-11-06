@@ -76,12 +76,17 @@ python/
   requirements-suite.txt        what both get for the suite (pandas, tornado, Qt bindings)
   requirements-ecosystem.txt    the ecosystem venvs (pandas, seaborn, scipy, pytest)
   requirements-ecosystem-reference.txt  what the ecosystem's reference venv adds (matplotlib)
+  requirements-notebooks.txt    the notebooks' venvs (Jupyter, IPython, matplotlib-inline, ipympl)
+  requirements-notebooks-reference.txt  what the notebooks' reference venv adds (matplotlib)
 pyproject.toml                  `pip install .`: the backend and the distributions
 spec/mpl-suite/
   reference.json                outcomes under real matplotlib (committed)
   pltrs.json                    outcomes under pltrs (committed)
 spec/ecosystem/
   reference.json, pltrs.json    the same for pandas' and seaborn's suites
+spec/notebooks/
+  *.ipynb, execute.py           `cargo xtask notebooks`: notebooks run in Jupyter, and their driver
+  reference.json, pltrs.json    the outcomes of their comparison and of the libraries' tests
 ```
 
 ## The native extension
@@ -1619,6 +1624,32 @@ sharing an axis share its units and tick helpers but not its converter
 read as `zoneinfo` reads it, `TZ` string included (`TimeZone::Info`); and
 tick helpers ask a program's stand-in axis only what matplotlib's would
 (seaborn's legends and `PseudoAxis`: `TickHelper._axis_info`).
+
+### Jupyter
+
+`cargo xtask notebooks` executes the notebooks of `spec/notebooks` in real
+Jupyter kernels (nbclient, ipykernel), once in a venv with real
+matplotlib and once with pltrs as matplotlib (`python/alias`), and
+compares everything the kernels send (`xtask/src/notebooks`): every
+output (PNG and JPEG pixels within matplotlib's RMS tolerance, SVG and PDF
+item by item, reprs, HTML, metadata, streams, errors) and the comm
+messages of ipympl's widget and of nbAgg, for which the driver
+(`execute.py`) plays the browser: it answers the kernel as their client
+scripts do and sends the mouse, key, toolbar and resize messages a cell's
+metadata lists. pltrs differs by design in its module names and its own
+`pltrs` backend in lists of backends, which the comparison reads as
+matplotlib's. `cargo xtask notebooks suite` runs the matplotlib tests of
+IPython, matplotlib-inline and ipympl, and matplotlib's own notebook tests,
+under both. What Jupyter relies on lives where matplotlib keeps it:
+pyplot connects to IPython's `post_execute` event (`install_repl_displayhook`,
+from `switch_backend`, `ion` and `ioff`), which redraws stale figures after
+every cell and every comm message; a figure's Axes observers (its manager's
+toolbar) hear of every Axes added; matplotlib's staleness side effects that
+the widget backends turn into messages are kept (a sized collection drawn
+alone leaves its Axes and figure stale; raster prints time the toolbar's
+wait cursor; vector canvases leave their figure at 72 dpi once drawn); and
+a Jupyter kernel runs pltrs' windows between its messages
+(`_pltrs_loop._kernel_loop`, `%matplotlib pltrs`).
 
 ## Adding a function: a worked example
 

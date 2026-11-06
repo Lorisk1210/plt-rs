@@ -22,7 +22,7 @@ use std::process::{Command, ExitCode};
 
 use pltrs_core::os::Os;
 
-pub(crate) use setup::{install_command, pltrs_python, refuse_matplotlib, uv};
+pub(crate) use setup::{install_command, make_venv, pltrs_python, refuse_matplotlib, uv};
 pub(crate) use venv::{interpreter, reference_python, site_packages};
 
 /// The workspace root.

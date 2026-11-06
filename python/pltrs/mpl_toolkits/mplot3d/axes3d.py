@@ -1256,11 +1256,12 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def set_title(self, label, fontdict=None, loc='center', **kwargs):
         # docstring inherited
-        # Centred whatever axes.titlelocation says, as matplotlib's is.
-        # matplotlib also lowers the title to 0.92 of its height, which
-        # its first draw replaces with the automatic position; pltrs
-        # (Rust) places 3-D titles automatically from the start.
-        return super().set_title(label, fontdict=fontdict, loc=loc, **kwargs)
+        # Centred whatever axes.titlelocation says, as matplotlib's is, and
+        # lowered to 0.92 of its height until a draw places it.
+        ret = super().set_title(label, fontdict=fontdict, loc=loc, **kwargs)
+        (x, y) = self.title.get_position()
+        self.title.set_y(0.92 * y)
+        return ret
 
     # -- navigation --------------------------------------------------------
 

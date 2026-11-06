@@ -190,6 +190,8 @@ cargo xtask mpl-suite [PATTERN...] [--failures] [--imports]   # matplotlib's sui
 cargo xtask mpl-suite --reference                           # ... on real matplotlib
 cargo xtask ecosystem [setup]   # pandas and seaborn on pltrs as matplotlib
 cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]  # their own suites
+cargo xtask notebooks [setup] [PATTERN...] [--failures]   # spec/notebooks in Jupyter, both, compared
+cargo xtask notebooks suite [--reference] [PATTERN...] [--failures]  # IPython's, matplotlib-inline's, ipympl's tests
 pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs
 ```
 

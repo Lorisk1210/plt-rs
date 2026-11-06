@@ -2658,6 +2658,12 @@ class FigureManagerBase:
             if self.toolbar:
                 tools.add_tools_to_container(self.toolbar)
 
+        @self.canvas.figure.add_axobserver
+        def notify_axes_change(fig):
+            # Called whenever the current Axes is changed.
+            if self.toolmanager is None and self.toolbar is not None:
+                self.toolbar.update()
+
     @classmethod
     def create_with_canvas(cls, canvas_class, figure, num):
         """

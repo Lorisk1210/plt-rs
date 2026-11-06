@@ -336,14 +336,29 @@ class FigureCanvasAgg(FigureCanvasBase):
         # docstring inherited
         self.renderer = self.get_renderer()
         self.renderer.clear()
-        with (self.toolbar._wait_cursor_for_draw_cm() if self.toolbar
-              else nullcontext()):
+        with self._wait_cursor():
             with self.renderer._drawing():
                 _backends.draw(self.figure._native)
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so
             # don't forget to call the superclass.
             super().draw()
+
+    def _wait_cursor(self):
+        """The toolbar's wait cursor for a draw, as matplotlib's
+        `FigureCanvasAgg.draw` sets it."""
+        return (self.toolbar._wait_cursor_for_draw_cm() if self.toolbar
+                else nullcontext())
+
+    @contextmanager
+    def _printing(self):
+        """Draw for a print as matplotlib's raster prints draw, through
+        `FigureCanvasAgg.draw`: with the renderer drawing, under the
+        toolbar's wait cursor (which a print does not show, its canvas
+        having no manager meanwhile, but which times the cursor of the next
+        draw)."""
+        with self._wait_cursor(), self.get_renderer()._drawing():
+            yield
 
     def blit(self, bbox=None):
         # docstring inherited
@@ -394,7 +409,7 @@ class FigureCanvasAgg(FigureCanvasBase):
             self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata,
                             **kwargs)
             return
-        with self.get_renderer()._drawing():
+        with self._printing():
             self._print_native(fmt, filename_or_obj, **kwargs, **settings)
 
     def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata,
@@ -404,7 +419,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         pixels using `.image.imsave` (to which *pil_kwargs* and *metadata*
         are forwarded), as matplotlib's ``_print_pil`` does.
         """
-        with self.get_renderer()._drawing():
+        with self._printing():
             rgba = _backends.print_rgba(self.figure._native,
                                         self._print_settings(**kwargs),
                                         self._draw_event_sender())
@@ -420,7 +435,7 @@ class FigureCanvasAgg(FigureCanvasBase):
                   bbox_inches_restore=None, facecolor=None, edgecolor=None):
         if metadata is not None:
             raise ValueError("metadata not supported for raw/rgba")
-        with self.get_renderer()._drawing():
+        with self._printing():
             self._print_native("raw", filename_or_obj,
                                bbox_inches_restore=bbox_inches_restore,
                                facecolor=facecolor, edgecolor=edgecolor)

@@ -3,6 +3,7 @@
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::RcError;
+use super::validate::python_repr;
 use crate::markers::{Marker, MarkerSymbol};
 
 /// A type that can be read from and written to rc-file text.
@@ -55,7 +56,7 @@ impl RcValue for bool {
         match text.to_ascii_lowercase().as_str() {
             "t" | "y" | "yes" | "on" | "true" | "1" => Ok(true),
             "f" | "n" | "no" | "off" | "false" | "0" => Ok(false),
-            _ => Err(format!("cannot convert {text:?} to bool")),
+            _ => Err(format!("Cannot convert {} to bool", python_repr(text))),
         }
     }
     fn format_rc(&self) -> String {
@@ -69,7 +70,7 @@ impl RcValue for f64 {
     fn parse_rc(text: &str) -> Result<Self, String> {
         without_digit_separators(text)
             .and_then(|digits| digits.parse().ok())
-            .ok_or_else(|| format!("could not convert {text:?} to float"))
+            .ok_or_else(|| format!("Could not convert {} to float", python_repr(text)))
     }
     fn format_rc(&self) -> String {
         format!("{self:?}")
@@ -84,7 +85,7 @@ impl RcValue for i64 {
     fn parse_rc(text: &str) -> Result<Self, String> {
         without_digit_separators(text)
             .and_then(|digits| digits.parse().ok())
-            .ok_or_else(|| format!("could not convert {text:?} to int"))
+            .ok_or_else(|| format!("Could not convert {} to int", python_repr(text)))
     }
     fn format_rc(&self) -> String {
         self.to_string()
@@ -230,7 +231,22 @@ mod tests {
         for no in ["False", "no", "off", "0", "F"] {
             assert_eq!(bool::parse_rc(no), Ok(false), "{no}");
         }
-        assert!(bool::parse_rc("maybe").is_err());
+        assert_eq!(
+            bool::parse_rc("maybe"),
+            Err("Cannot convert 'maybe' to bool".to_owned())
+        );
+    }
+
+    #[test]
+    fn numbers_refuse_text_as_matplotlib_does() {
+        assert_eq!(
+            f64::parse_rc("thick"),
+            Err("Could not convert 'thick' to float".to_owned())
+        );
+        assert_eq!(
+            i64::parse_rc("it's"),
+            Err("Could not convert \"it's\" to int".to_owned())
+        );
     }
 
     #[test]

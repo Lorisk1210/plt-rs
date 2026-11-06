@@ -198,7 +198,11 @@ fn diff_rgba(actual: &[u8], expected: &[u8]) -> Vec<u8> {
 /// Compares two RGBA buffers of equal size like `compare_images`: both
 /// are compared as RGB when their alpha is 255 everywhere, else as RGBA,
 /// by matplotlib's RMS ([`calculate_rms`]).
-fn compare_rgba(actual: &[u8], expected: &[u8]) -> PixelReport {
+///
+/// # Panics
+///
+/// If the buffers differ in length.
+pub fn compare_rgba(actual: &[u8], expected: &[u8]) -> PixelReport {
     let pixels = |data: &[u8]| data.as_chunks::<4>().0.to_vec();
     let opaque = |data: &[u8]| data.as_chunks::<4>().0.iter().all(|px| px[3] == 255);
     let channels = if opaque(actual) && opaque(expected) {

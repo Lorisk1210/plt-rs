@@ -19,7 +19,8 @@ use crate::json::Json;
 pub(crate) use cases::projections::{RangeFrame, RangeFrameOptions, register_range_frame};
 pub use facts::figure_facts;
 pub use pixels::{
-    PixelArtifacts, PixelReport, look_png, pixel_artifacts, pixel_report, render_pixels,
+    PixelArtifacts, PixelReport, compare_rgba, look_png, pixel_artifacts, pixel_report,
+    render_pixels,
 };
 
 /// What a case's build function may fail with.

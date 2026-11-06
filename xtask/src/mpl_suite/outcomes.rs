@@ -100,7 +100,7 @@ pub(super) fn file_of(id: &str) -> &str {
 
 impl Outcomes {
     /// Reads the plugin's JSON lines.
-    pub(super) fn from_results(text: &str) -> Result<Self, String> {
+    pub(crate) fn from_results(text: &str) -> Result<Self, String> {
         let mut outcomes = Self::default();
         for (number, line) in text.lines().enumerate().filter(|(_, l)| !l.is_empty()) {
             let record = Json::parse(line).map_err(|err| format!("line {}: {err}", number + 1))?;

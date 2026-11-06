@@ -69,14 +69,7 @@ pub(super) fn run() -> Result<(), String> {
     install(&reference, "requirements-reference.txt")?;
 
     let venv = pltrs_venv();
-    if !interpreter(&venv, Os::CURRENT).exists() {
-        run_checked(
-            Command::new(uv())
-                .args(["venv", "--python", PYTHON_VERSION])
-                .arg(&venv),
-        )?;
-    }
-    let python = pltrs_python()?;
+    let python = make_venv(&venv)?;
     install(&python, "requirements-pltrs.txt")?;
 
     refuse_matplotlib(&python, &venv)?;
@@ -86,6 +79,20 @@ pub(super) fn run() -> Result<(), String> {
         root.join(".venv").display()
     );
     Ok(())
+}
+
+/// Makes the venv `venv` with uv, on the Python of the other venvs,
+/// unless it exists, and returns its interpreter.
+pub(crate) fn make_venv(venv: &Path) -> Result<PathBuf, String> {
+    let python = interpreter(venv, Os::CURRENT);
+    if !python.exists() {
+        run_checked(
+            Command::new(uv())
+                .args(["venv", "--python", PYTHON_VERSION])
+                .arg(venv),
+        )?;
+    }
+    Ok(python)
 }
 
 /// Fails if `python`, the interpreter of the venv `venv`, can import

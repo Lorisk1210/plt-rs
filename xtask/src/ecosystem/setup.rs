@@ -134,7 +134,7 @@ fn fetch(python: &Path, library: &Library) -> Result<(), String> {
 }
 
 /// The command running `python/ecosystem/fetch.py COMMAND` with `python`.
-fn fetch_command(python: &Path, command: &str) -> Command {
+pub(crate) fn fetch_command(python: &Path, command: &str) -> Command {
     let mut fetch = Command::new(python);
     fetch
         .arg("-I")

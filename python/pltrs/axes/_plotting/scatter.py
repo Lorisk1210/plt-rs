@@ -10,6 +10,7 @@ from ... import (_api, _live_transforms, _values, cbook, collections as mcoll,
 from ... import colorizer as mcolorizer
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from ...artist import _check_array_alpha
 from ...markers import MarkerStyle
 from ._helpers import floats, wrap
 
@@ -424,6 +425,9 @@ class ScatterMixin:
             linewidths = [float(lw) if lw is not None
                           else _rcParams()['lines.linewidth']
                           for lw in np.ma.getdata(np.atleast_1d(linewidths))]
+        if alpha is not None:
+            # As the collection's `set_alpha` checks it.
+            _check_array_alpha(alpha)
         alphas = None
         if np.iterable(alpha):
             alphas, alpha = [float(a) for a in alpha], None

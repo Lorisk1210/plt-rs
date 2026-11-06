@@ -54,9 +54,10 @@ pub(crate) enum Placement {
 }
 
 impl FigureState {
-    /// Brings one axes up to date for layout: a due layout-engine pass,
-    /// pending autoscaling, then the aspect; whether the aspect could be
-    /// applied (see [`apply_aspect`](Self::apply_aspect)).
+    /// Brings one axes up to date for layout: a due layout-engine pass
+    /// (see [`run_measured_layout`](Self::run_measured_layout)), pending
+    /// autoscaling, then the aspect; whether the aspect could be applied
+    /// (see [`apply_aspect`](Self::apply_aspect)).
     pub(crate) fn lay_out_axes(&mut self, axes: ArtistId) -> bool {
         self.lay_out_axes_at(axes, Placement::Located)
     }
@@ -64,7 +65,7 @@ impl FigureState {
     /// [`lay_out_axes`](Self::lay_out_axes) with the axes placed by
     /// `placement`.
     pub(crate) fn lay_out_axes_at(&mut self, axes: ArtistId, placement: Placement) -> bool {
-        self.run_pending_layout();
+        self.run_measured_layout();
         self.unstale_axes(axes);
         self.apply_aspect_reporting(axes, placement)
     }

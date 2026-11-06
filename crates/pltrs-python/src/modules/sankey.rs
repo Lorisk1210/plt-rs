@@ -16,9 +16,13 @@ use crate::binding::prelude::*;
 use crate::binding::wrap_native;
 
 impl From<SankeyError> for PyErr {
-    /// matplotlib's `ValueError` for diagrams it cannot lay out.
+    /// matplotlib's `ValueError` for diagrams it cannot lay out, and the
+    /// axes' own for limits they refuse.
     fn from(err: SankeyError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            SankeyError::Limits(err) => err.into(),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 

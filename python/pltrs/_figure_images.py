@@ -10,7 +10,7 @@ Matplotlib License.
 import numpy as np
 
 from . import _docstring
-from . import _handles, colorizer as mcolorizer, image as mimage
+from . import _api, _handles, _val_or_rc, colorizer as mcolorizer, image as mimage
 from ._native import backends as _backends, image as _native_image
 
 
@@ -94,20 +94,27 @@ class FigureImagesMixin:
             f.figimage(data)
             plt.show()
         """
+        if resize:
+            dpi = self.get_dpi()
+            figsize = [x / dpi for x in (X.shape[1], X.shape[0])]
+            self.set_size_inches(figsize, forward=True)
+        # Checked in matplotlib's order: the colour mapping and the origin
+        # as the image is made, then the array as it is set.
+        made = mcolorizer._ScalarMappable._get_colorizer(cmap, norm, colorizer)
+        _api.check_in_list(["upper", "lower"],
+                           origin=_val_or_rc(origin, 'image.origin'))
         A = mimage._ImageBase._normalize_image_array(np.asanyarray(X))
-        mcolorizer._ScalarMappable._check_exclusionary_keywords(
-            colorizer, vmin=vmin, vmax=vmax)
-        colorizer = mcolorizer._ScalarMappable._get_colorizer(
-            cmap, norm, colorizer)
         if norm is None:
+            mcolorizer._ScalarMappable._check_exclusionary_keywords(
+                colorizer, vmin=vmin, vmax=vmax)
             # As matplotlib's figimage: the norm scales when first drawn.
-            colorizer.set_clim(vmin, vmax)
+            made.set_clim(vmin, vmax)
         native = _native_image.figimage(
-            self._native, mimage._native_data(A), colorizer.cmap,
-            colorizer.norm, (float(xo), float(yo)), origin, bool(resize))
+            self._native, mimage._native_data(A), made.cmap,
+            made.norm, (float(xo), float(yo)), origin)
         im = _handles.wrap(native, mimage.FigureImage, self.figure)
         im._keep_figimage_settings(xo, yo)
-        im._set_mapped_data(colorizer, A)
+        im._set_mapped_data(made, A)
         im.set_alpha(alpha)
         im._internal_update(kwargs)
         return im

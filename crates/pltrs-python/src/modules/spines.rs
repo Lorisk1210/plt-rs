@@ -56,6 +56,21 @@ fn side(spine: Spine) -> PyResult<&'static str> {
     Ok(side_name(spine.side()))
 }
 
+/// A new spine of `axes` on the side `name` (`"left"`, `"right"`,
+/// `"bottom"` or `"top"`), which the axes does not draw until it replaces
+/// one (matplotlib's `Spine(axes, ...)`).
+fn new_spine(axes: Axes, name: String) -> PyResult<Spine> {
+    let side = SpineSide::from_name(&name)
+        .ok_or_else(|| PyErr::value_error(format!("no side {name:?}")))?;
+    Ok(axes.new_spine(side))
+}
+
+/// Draws `spine` in the place of `old` among the spines of `axes`
+/// (matplotlib's `axes.spines[name] = spine`); whether it did.
+fn replace_spine(axes: Axes, old: Spine, spine: Spine) -> PyResult<bool> {
+    Ok(axes.replace_spine(&old, &spine))
+}
+
 /// Places the spine: `("outward", points)`, `("axes", fraction)` or
 /// `("data", value)` (`set_position`).
 fn set_position(spine: Spine, (kind, amount): (String, f64)) -> PyResult<()> {
@@ -143,6 +158,8 @@ fn display_path(spine: Spine) -> PyResult<Option<PathArrays>> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axes_spines", axes_spines)?;
     module.add("side", side)?;
+    module.add("new_spine", new_spine)?;
+    module.add("replace_spine", replace_spine)?;
     module.add("set_position", set_position)?;
     module.add("get_position", get_position)?;
     module.add("set_bound_ends", set_bound_ends)?;

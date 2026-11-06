@@ -7,6 +7,8 @@ the Matplotlib License); pltrs (Rust) lays out and draws the diagrams
 """
 
 import logging
+from numbers import Real
+import operator
 from types import SimpleNamespace
 
 import numpy as np
@@ -28,6 +30,41 @@ RIGHT = 0
 UP = 1
 # LEFT = 2
 DOWN = 3
+
+
+def _place_first_label(offset, flows, orientations, tolerance):
+    """
+    Place the label of the first flow matplotlib's `Sankey.add` places
+    *offset* away from the flow's tip, as its arithmetic does, for an
+    *offset* that is no number (which pltrs (Rust) cannot hold): there it
+    fails with numpy's error. matplotlib places the top-side flows first,
+    then the bottom-side ones from the middle outwards, the left-side
+    inputs from the bottom up and the right-side outputs from the top down.
+    """
+    sides = []
+    for flow, orient in zip(flows, orientations):
+        is_input = True if flow >= tolerance else False if flow <= -tolerance else None
+        if is_input is None:
+            sides.append((None, None))
+        elif orient == 0:
+            sides.append((RIGHT, is_input))
+        else:
+            sides.append(({1: DOWN, -1: UP}[orient] if is_input
+                          else {1: UP, -1: DOWN}[orient], is_input))
+    order = [side for side in sides if side in ((DOWN, True), (UP, False))]
+    order += [side for side in reversed(sides) if side in ((UP, True), (DOWN, False))]
+    order += [side for side in reversed(sides) if side == (RIGHT, True)]
+    order += [side for side in sides if side == (RIGHT, False)]
+    if not order:
+        return
+    angle, is_input = order[0]
+    tip = np.float64(0.0)  # A coordinate of the tip, a numpy float there.
+    sign = 1 if angle == UP else -1
+    if angle == RIGHT:
+        location = [tip - offset if is_input else tip + offset, tip]
+    else:
+        location = [tip, tip - sign * offset if is_input else tip + sign * offset]
+    np.zeros((1, 2))[0, :] = location
 
 
 class Sankey:
@@ -161,10 +198,13 @@ class Sankey:
         self.margin = margin
         self.pitch = np.tan(np.pi * (1 - head_angle / 180.0) / 2.0)
         self.tolerance = tolerance
+        # matplotlib keeps an offset that is no number, and fails to place
+        # the labels with it (see `add`).
+        usable_offset = offset if isinstance(offset, Real) else 0.0
         self._native = _sankey.new(
             ax._native, (float(scale), None if unit is None else str(unit), format),
-            tuple(map(float, (gap, radius, shoulder, offset, head_angle, margin,
-                              tolerance))))
+            tuple(map(float, (gap, radius, shoulder, usable_offset, head_angle,
+                              margin, tolerance))))
 
         # If there are any kwargs, create the first subdiagram.
         if len(kwargs):
@@ -261,7 +301,12 @@ class Sankey:
         # Check and preprocess the arguments.
         flows = np.array([1.0, -1.0]) if flows is None else np.array(flows)
         n = flows.shape[0]  # Number of flows
-        rotation = 0 if rotation is None else rotation
+        if rotation is None:
+            rotation = 0
+        else:
+            # matplotlib turns the rotation into quarter turns at once
+            # (``rotation /= 90.0``), which refuses what is no number.
+            operator.itruediv(rotation, 90.0)
         if orientations is None:
             orientations = 0
         try:
@@ -329,6 +374,8 @@ class Sankey:
             pathlengths = [float(length) for length in pathlengths]
         else:
             pathlengths = [float(pathlengths)]
+        if not isinstance(self.offset, Real):
+            _place_first_label(self.offset, flows, orientations, self.tolerance)
 
         # The outline is made with the face colour and the line width, as
         # matplotlib's: without a face colour it takes the next of the

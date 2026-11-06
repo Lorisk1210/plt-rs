@@ -523,7 +523,13 @@ impl Artist for LineArtist {
         radius: Option<f64>,
     ) -> Option<Vec<usize>> {
         let points = self.display_points(*ctx)?;
-        let pixels = ctx.points_to_pixels(radius.unwrap_or(self.pickradius));
+        let radius = radius.unwrap_or(self.pickradius);
+        // matplotlib takes the radius of a line in no figure as pixels.
+        let pixels = if ctx.in_no_figure(self.base.id()) {
+            radius
+        } else {
+            ctx.points_to_pixels(radius)
+        };
         let hits: Vec<usize> = if self.linestyle.is_visible() {
             let hits = segment_hits(at, &points, pixels);
             if self.drawstyle == DrawStyle::Default {

@@ -83,7 +83,8 @@ impl Axis {
 
     /// Sets the data interval along this axis to `(vmin, vmax)` when
     /// `ignore`, else widens it to include both (matplotlib's
-    /// `Axis.set_data_interval`); the smallest positive datum stays.
+    /// `Axis.set_data_interval`); the smallest positive datum stays, and so
+    /// does the view, until it is autoscaled again.
     ///
     /// ```
     /// let ax = pltrs::figure::Figure::new().subplot();
@@ -99,7 +100,6 @@ impl Axis {
             } else {
                 axes.include_in_data(name, vmin, vmax);
             }
-            axes.request_autoscale(name == AxisName::X, name == AxisName::Y);
         });
         self
     }
@@ -132,6 +132,19 @@ impl Axis {
             map.forward_column(&mut scaled);
         }
         scaled
+    }
+
+    /// Maps every value of `values` in place through the axis' scale and
+    /// back, as matplotlib's collections in data coordinates find their
+    /// data limits (`get_datalim`): what the scale clips comes back
+    /// clipped (a logarithm's 0 as `base^-1000`), the rest as the floating
+    /// point arithmetic leaves it.
+    pub(crate) fn round_trip(&self, values: &mut [f64]) {
+        // The map runs apart from the figure, as in `scaled`.
+        if let Some(map) = self.read(|axis| axis.map().cloned()) {
+            map.forward_all(values);
+            map.inverse_all(values);
+        }
     }
 
     /// Rescales the view along this axis and the axes sharing it at the

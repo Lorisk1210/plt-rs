@@ -11,7 +11,8 @@ use crate::binding::prelude::*;
 /// `figimage`: `data` drawn unresampled in `figure`'s pixels with its
 /// bottom-left corner at `(xo, yo)`, colour-mapped through `cmap` and
 /// `norm`, row 0 at the `origin` (`"upper"`, `"lower"`, or
-/// `image.origin` when `None`); `resize` fits the figure to the image.
+/// `image.origin` when `None`); the Python side resizes the figure first
+/// when asked to, as matplotlib's `figimage` does.
 fn figimage(
     figure: Figure,
     data: ImageArray,
@@ -19,7 +20,6 @@ fn figimage(
     norm: Box<dyn Norm>,
     (xo, yo): (f64, f64),
     origin: Option<String>,
-    resize: bool,
 ) -> PyResult<FigureImage> {
     let options = FigimageOptions {
         xo,
@@ -31,7 +31,7 @@ fn figimage(
         },
         origin: origin.as_deref().map(parse).transpose()?,
         alpha: None,
-        resize,
+        resize: false,
     };
     Ok(figure.figimage(data.0, options)?)
 }
@@ -74,7 +74,6 @@ mod tests {
             Box::new(Normalize::new(0.0, 1.0)),
             (10.0, 20.0),
             Some("lower".into()),
-            false,
         )
         .expect("valid options");
         assert_eq!(

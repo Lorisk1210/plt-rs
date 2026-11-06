@@ -133,7 +133,10 @@ class BezierSegment:
     def __init__(self, control_points):
         self._cpoints = np.asarray(control_points, float)
         self._N, self._d = self._cpoints.shape
-        self._native = _bezier.segment(self._cpoints)
+        # pltrs (Rust) computes with curves of one control point or more;
+        # matplotlib's formulas make a curve of none 0 everywhere, without
+        # extrema, and fail to expand it into a polynomial.
+        self._native = _bezier.segment(self._cpoints) if self._N else None
 
     def __call__(self, t):
         """
@@ -150,6 +153,8 @@ class BezierSegment:
             Value of the curve for each point in *t*.
         """
         t = np.asarray(t, float)
+        if self._native is None:
+            return np.zeros(t.shape + (self._d,))
         values = _bezier.segment_eval(self._native, np.atleast_1d(t))
         # One point per value of *t*, as matplotlib's ``np.power.outer``.
         return values.reshape(t.shape + (self._d,))
@@ -202,6 +207,10 @@ class BezierSegment:
 
         where :math:`P_i` are the control points of the curve.
         """
+        if self._native is None:
+            # numpy's error, which matplotlib's binomials meet first.
+            raise ValueError('cannot call `vectorize` on size 0 inputs '
+                             'unless `otypes` is set')
         return _bezier.segment_coefficients(self._native)
 
     def axis_aligned_extrema(self):
@@ -220,6 +229,8 @@ class BezierSegment:
             Of same size as dims. The :math:`t` such that :math:`d/dx_i B(t) =
             0`
         """
+        if self._native is None:
+            return np.array([]), np.array([])
         return _bezier.segment_extrema(self._native)
 
 

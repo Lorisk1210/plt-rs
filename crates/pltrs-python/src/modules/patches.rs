@@ -73,8 +73,6 @@ trait PatchOps: StyleOps {
     /// The patch's shadow, offset by `(ox, oy)` points and darkened by
     /// `shade` (see [`Shadow::outline_of`]).
     fn shadow(&self, ox: f64, oy: f64, shade: f64) -> Result<Shadow<PathShape>, ShadowError>;
-    /// The outlines as drawn now, in display pixels.
-    fn display_paths(&self) -> Result<Vec<Path>, PatchError>;
     /// The outlines in display pixels in the figure as it stands.
     fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError>;
 }
@@ -107,10 +105,6 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn shadow(&self, ox: f64, oy: f64, shade: f64) -> Result<Shadow<PathShape>, ShadowError> {
         Shadow::outline_of(self, ox, oy, shade)
-    }
-
-    fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
-        Patch::display_paths(self)
     }
 
     fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError> {
@@ -208,13 +202,14 @@ fn get_path(patch: AnyPatch) -> PyResult<PathArrays> {
     path_arrays(&patch.0.path(), false)
 }
 
-/// The outlines as the patch is drawn now, in display pixels, as one path
-/// (matplotlib's `FancyArrowPatch._get_path_in_displaycoord`); a patch
-/// that cannot be placed raises `ValueError`.
+/// The outlines in display pixels, as one path, in the figure as it
+/// stands (matplotlib's `FancyArrowPatch._get_path_in_displaycoord`, which
+/// places the arrow through `transData` with the views not autoscaled
+/// yet); a patch that cannot be placed raises `ValueError`.
 fn display_path(patch: AnyPatch) -> PyResult<PathArrays> {
     let paths = patch
         .0
-        .display_paths()
+        .display_paths_as_is()
         .map_err(|err| PyErr::value_error(err.to_string()))?;
     path_arrays(&Path::compound(&paths), false)
 }
@@ -559,6 +554,13 @@ fn set_step_patch(
     Ok(())
 }
 
+/// Draws a step patch as `path` until its data are set again (matplotlib's
+/// `set_path`, which `StepPatch` inherits from `PathPatch`).
+fn set_step_path(patch: Patch<StepPatch>, path: PyPath) -> PyResult<()> {
+    patch.set_shape(patch.shape().with_path(path.path));
+    Ok(())
+}
+
 /// `(x, y, width, height)` of a fancy box.
 fn fancy_bbox(patch: Patch<FancyBboxPatch>) -> PyResult<(f64, f64, f64, f64)> {
     let shape = patch.shape();
@@ -611,6 +613,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("arc", arc)?;
     module.add("step_patch", step_patch)?;
     module.add("set_step_patch", set_step_patch)?;
+    module.add("set_step_path", set_step_path)?;
     module.add("step_patch_horizontal", step_patch_horizontal)?;
     module.add("fancy_bbox", fancy_bbox)?;
     module.add("set_fancy_bbox", set_fancy_bbox)?;

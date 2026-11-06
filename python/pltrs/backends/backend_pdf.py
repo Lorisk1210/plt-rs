@@ -958,6 +958,21 @@ class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
     def finalize(self):
         _backends.pdf_file_restore_gc(self._file_native())
 
+    def new_gc(self):
+        # docstring inherited
+        return GraphicsContextPdf(self.file)
+
+    def draw_markers(self, gc, marker_path, marker_trans, path, trans,
+                     rgbFace=None):
+        # docstring inherited
+        if len(marker_path) * len(path) >= len(marker_path) + len(path) + 5:
+            # matplotlib places many markers as a template, asking the
+            # graphics context, which must be a PDF one, how to paint it.
+            gc.fill(rgbFace)
+            gc.stroke()
+        super().draw_markers(gc, marker_path, marker_trans, path, trans,
+                             rgbFace)
+
     def encode_string(self, s, fonttype):
         if fonttype in (1, 3):
             return s.encode('cp1252', 'replace')

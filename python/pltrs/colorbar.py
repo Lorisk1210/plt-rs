@@ -41,6 +41,20 @@ def _get_ticklocation_from_orientation(orientation):
         orientation=orientation)
 
 
+def _check_bracketable(values):
+    """
+    Bracket *values* by half the step between them as matplotlib's
+    ``Colorbar._process_values`` does, failing with numpy's errors for
+    values it cannot bracket: fewer than two, or not 1-D (pltrs (Rust)
+    brackets the others when it lays the colorbar out).
+    """
+    values = np.array(values)
+    b = np.zeros(len(values) + 1)
+    b[1:-1] = 0.5 * (values[:-1] + values[1:])
+    b[0] = 2.0 * b[1] - b[2]
+    b[-1] = 2.0 * b[-2] - b[-3]
+
+
 def _remove_cbar_axes(ax, cbar):
     """
     Replacement remove method for a colorbar's axes, so that the colorbar is
@@ -380,31 +394,35 @@ class Colorbar:
                    ticklocation=ticklocation)
 
     @classmethod
-    def _beside(cls, figure, mappable, parents, *, use_gridspec=True,
+    def _beside(cls, mappable, parents, *, use_gridspec=True, made=None,
                 **kwargs):
         """
         A colorbar in a new Axes taking space from *parents*, an Axes or a
-        list of them, as `.Figure.colorbar` makes it (matplotlib's
-        `make_axes`, or for one Axes on a grid `make_axes_gridspec`, then
-        `Colorbar`).
+        list of them, in the (sub)figure of the first, as `.Figure.colorbar`
+        makes it (matplotlib's `make_axes`, or for one Axes on a grid
+        `make_axes_gridspec`, then `Colorbar`); *made*, if given, is called
+        once the Axes exists.
         """
         layout = {key: kwargs.pop(key) for key in _LAYOUT_KEYS
                   if key in kwargs and key not in ('location', 'orientation')}
         layout['use_gridspec'] = use_gridspec
+        first = parents[0] if isinstance(parents, list) else parents
+        figure = first.get_figure(root=False)
         colorbar = cls.__new__(cls)
         colorbar._make(figure, mappable, cax=None, parents=parents,
-                       layout=layout, **kwargs)
+                       layout=layout, made=made, **kwargs)
         # matplotlib's make_axes labels the Axes it makes.
         colorbar.ax.set_label('<colorbar>')
         return colorbar
 
-    def _make(self, figure, mappable, *, cax, parents, layout, alpha=None,
+    def _make(self, figure, mappable, *, cax, parents, layout, made=None,
+              alpha=None,
               location=None, extend=None, extendfrac=None, extendrect=False,
               ticks=None, format=None, values=None, boundaries=None,
               spacing='uniform', drawedges=False, label='', cmap=None,
               norm=None, orientation=None, ticklocation='auto'):
         """Check the arguments as matplotlib does and make the native
-        colorbar."""
+        colorbar, calling *made* (if given) once it exists."""
         if mappable is None:
             mappable = mcolorizer._ScalarMappable(
                 colorizer=mcolorizer.Colorizer(norm=norm, cmap=cmap))
@@ -431,6 +449,8 @@ class Colorbar:
         else:
             orientation = orientation or location_orientation or "vertical"
 
+        if values is not None and boundaries is None:
+            _check_bracketable(values)
         self.mappable = mappable
         self._figure = figure.figure  # the root figure, holding the artists
         if isinstance(format, str):
@@ -484,6 +504,8 @@ class Colorbar:
         self._native = _colorbar.new(
             figure._native, self._shown(),
             None if cax is None else cax._native, parents, spec)
+        if made is not None:
+            made()
         norm_scale = getattr(getattr(self.norm, "_scale", None), "name", None)
         if (not type(self.norm).__module__.startswith(__package__)
                 or norm_scale in ("function", "functionlog")):

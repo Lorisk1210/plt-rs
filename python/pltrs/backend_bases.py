@@ -30,7 +30,7 @@ from weakref import WeakKeyDictionary
 
 import numpy as np
 
-from . import _api, _docstring, backend_tools as tools, cbook, colors, transforms
+from . import _api, _docstring, _transform_trees, backend_tools as tools, cbook, colors, transforms
 from . import _val_or_rc, rcParams
 from ._enums import JoinStyle, CapStyle
 from .colors import to_rgba
@@ -2098,12 +2098,42 @@ class FigureCanvasBase:
             if (area is not None and bbox_extra_artists is not None
                     and cbook._str_equal(bbox_inches, "tight")):
                 area = self._tight_area(bbox_extra_artists, area["pad_inches"])
-            return print_method(
-                filename,
-                orientation=orientation,
-                bbox_inches_restore=area,
-                **colors,
-                **kwargs)
+            # matplotlib sets the colours given (but 'auto') on the figure
+            # for the print, then no layout engine, and restores them
+            # after; pltrs (Rust) prints with them instead, and the
+            # figure's observers hear of each change as matplotlib's do.
+            colored = sum(color is not None for color in colors.values())
+            for _ in range(colored):
+                self.figure.pchanged()
+            with self._laid_out_for_print(bbox_inches):
+                self.figure.pchanged()
+            try:
+                return print_method(
+                    filename,
+                    orientation=orientation,
+                    bbox_inches_restore=area,
+                    **colors,
+                    **kwargs)
+            finally:
+                # The trees a program's drawing read cut to the printed
+                # window are the whole figure's again.
+                _transform_trees.sync(self.figure)
+                with self._laid_out_for_print(bbox_inches):
+                    for _ in range(colored + 1):
+                        self.figure.pchanged()
+
+    def _laid_out_for_print(self, bbox_inches):
+        """
+        The resolution the figure has while matplotlib's print sets its
+        properties after laying it out: a figure with a layout engine or
+        saved with a tight box is laid out by the print's renderer first,
+        which leaves it at the resolution of a vector format.
+        """
+        fixed_dpi = self.figure.canvas.fixed_dpi
+        if fixed_dpi is None or (self.figure.get_layout_engine() is None
+                                 and not cbook._str_equal(bbox_inches, "tight")):
+            return nullcontext()
+        return cbook._setattr_cm(self.figure, dpi=fixed_dpi)
 
     def _tight_area(self, bbox_extra_artists, pad_inches):
         """

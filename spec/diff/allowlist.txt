@@ -100,3 +100,9 @@ generated/unreached/deprecated_reads$ | ^(exception\[register\]: missing Attribu
 # leaving the patch and lets the `StopIteration` of its exhausted iterator
 # escape from `savefig` (a matplotlib bug), where pltrs draws the arrow.
 api/annotation_0$ | ^(exception\[savefig\]: missing StopIteration|calls\[savefig\]: runs only under pltrs)$ | matplotlib's split_path_inout calls next() on an exhausted segment iterator when the arrow's path never leaves patchA, which sits at a non-finite position
+
+# matplotlib's deprecated `FT2Image(width, height)` takes a negative size as
+# a huge unsigned one: the object is made, and reading it (`np.asarray`,
+# `draw_rect_filled`) crashes the interpreter with a segmentation fault;
+# pltrs refuses the size as numpy does.
+api/module_matplotlib_ft2font_0$ | ^crash: ValueError: negative dimensions are not allowed$ | an FT2Image of negative width or height crashes matplotlib's interpreter (segmentation fault) as soon as it is read

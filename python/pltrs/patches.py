@@ -401,9 +401,14 @@ class Patch(Artist):
 
     def get_hatchcolor(self):
         """Return the hatch color."""
-        # The edge colour, typed as matplotlib keeps it, when the hatch
-        # takes it.
+        # The colour given, or the edge colour when the hatch takes it,
+        # typed as matplotlib keeps them (``to_rgba`` of the colour given).
         native = self._get("hatchcolor")
+        given = self.__dict__.get("_given_values", {}).get("hatchcolor")
+        if given is not None and not cbook._str_equal(given, 'edge'):
+            typed = mcolors.to_rgba(given, self.get_alpha())
+            if tuple(typed) == tuple(native):
+                return typed
         edge = self.get_edgecolor()
         return edge if tuple(edge) == tuple(native) else native
 
@@ -420,6 +425,7 @@ class Patch(Artist):
         if not (isinstance(color, str) and color == 'edge'):
             mcolors.to_rgba(color)
         self._set_native(hatchcolor=color)
+        _values.remember(self, "hatchcolor", color)
 
     def set_color(self, c):
         """
@@ -1172,12 +1178,18 @@ class StepPatch(PathPatch):
         """
         if values is None and edges is None and baseline is None:
             raise ValueError("Must set *values*, *edges* or *baseline*.")
+        # matplotlib counts the values and edges by their size, whatever
+        # their shape.
         _patches.set_step_patch(
             self._native,
-            None if values is None else np.asarray(values, dtype=float),
-            None if edges is None else np.asarray(edges, dtype=float),
+            None if values is None else np.ravel(np.asarray(values, dtype=float)),
+            None if edges is None else np.ravel(np.asarray(edges, dtype=float)),
             (baseline is None,
              None if baseline is None else np.asarray(baseline, dtype=float)))
+
+    def set_path(self, path):
+        """Set the path of the patch, drawn until the data are set again."""
+        _patches.set_step_path(self._native, path)
 
 
 @_mirrors.mirrorable
@@ -1447,6 +1459,11 @@ class Arrow(Patch):
             Width of full arrow tail.
         """
         given = (x, y, dx, dy, width)
+        if any(np.ndim(value) for value in given if value is not None):
+            # matplotlib builds the patch transform with them, putting each
+            # into an element of its matrix (``Affine2D.scale``,
+            # ``translate``), which numpy refuses for an array.
+            raise ValueError("setting an array element with a sequence.")
         x, y, dx, dy, width = (float(current if new is None else new)
                                for new, current in
                                zip(given, _patches.arrow(self._native)))
@@ -2844,8 +2861,32 @@ default: 'arc3'
         return figure.dpi / 72
 
 
+#: The names of the coordinate systems of a `ConnectionPatch` (those of
+#: matplotlib's ``ConnectionPatch._get_xy``).
+_CONNECTION_COORDS = frozenset([
+    "figure points", "axes points", "figure fraction", "subfigure fraction",
+    "axes fraction", "data", "offset points", "polar", "figure pixels",
+    "subfigure pixels", "axes pixels"])
+
+
+def _refuse_connection_coords(coords):
+    """Fail as matplotlib's `ConnectionPatch` fails to place a point in
+    *coords*, no coordinate system it knows."""
+    raise ValueError(f"{coords} is not a valid coordinate transformation")
+
+
+def _usable_coords(coords):
+    """*coords*, or ``'data'`` for a name of no coordinate system, which
+    pltrs (Rust) cannot hold (matplotlib keeps it, and fails to place the
+    point with it, see `._unusable`)."""
+    if isinstance(coords, str) and coords not in _CONNECTION_COORDS:
+        return "data"
+    return coords
+
+
 def _connection_end(xy, coords, axes):
     """An end of a `ConnectionPatch` as ``_native.patches`` takes it."""
+    coords = _usable_coords(coords)
     from ._live_transforms import to_native
     from .text import _native_coords
     from .transforms import Transform
@@ -2881,6 +2922,7 @@ def _connection_end_property(index, part, doc):
                                     _connection_end(*ends[index]))
         self._given_points = [end[0] for end in ends]
         self._given_ends[index] = ends[index][1:]
+        self._keep_unusable_coords()
         self.stale = True
 
     return property(get, set, doc=doc)
@@ -2996,6 +3038,18 @@ class ConnectionPatch(FancyArrowPatch):
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
+        self._keep_unusable_coords()
+
+    def _keep_unusable_coords(self):
+        """Keep the coordinates of each end that pltrs (Rust) cannot hold,
+        as matplotlib keeps them until it places the points (see
+        `._unusable`)."""
+        for index, (coords, _) in enumerate(self._given_ends):
+            name = f"coords{index + 1}"
+            if _usable_coords(coords) is coords:
+                _unusable.drop(self, name)
+            else:
+                _unusable.keep(self, name, coords, _refuse_connection_coords)
 
     def _ends(self):
         """The two ends, each as ``(xy, coords, axes)``, with the points as

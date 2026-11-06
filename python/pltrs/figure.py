@@ -24,7 +24,7 @@ from .axes import Axes
 from .axes._base import _AxesBase
 from .axes import _sharing
 from .axes import _program_tick_params
-from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
+from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
 from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
@@ -1013,15 +1013,20 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
 
         """
         from .colorbar import Colorbar
-        host = getattr(mappable, "get_figure", None)
-        host = None if host is None else host(root=True)
-        if host is not None and host is not self.figure:
-            _api.warn_external(
-                f'Adding colorbar to a different Figure {host!r} than '
-                f'{self.figure!r} which fig.colorbar is called on.')
+
+        def warn_if_elsewhere():
+            # Once the colorbar's Axes exists, as matplotlib warns.
+            host = getattr(mappable, "get_figure", None)
+            host = None if host is None else host(root=True)
+            if host is not None and host is not self.figure:
+                _api.warn_external(
+                    f'Adding colorbar to a different Figure {host!r} than '
+                    f'{self.figure!r} which fig.colorbar is called on.')
+
         if ax is None:
             ax = getattr(mappable, "axes", None)
         if cax is not None:
+            warn_if_elsewhere()
             for key in ('fraction', 'pad', 'shrink', 'aspect', 'anchor',
                         'panchor'):
                 kwargs.pop(key, None)
@@ -1038,8 +1043,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             parents = list(ax)
         else:
             parents = ax  # which may give the colorbar a cell of its grid
-        return Colorbar._beside(self, mappable, parents,
-                                use_gridspec=use_gridspec, **kwargs)
+        return Colorbar._beside(mappable, parents, use_gridspec=use_gridspec,
+                                made=warn_if_elsewhere, **kwargs)
 
     def add_artist(self, artist, clip=False):
         """
@@ -1255,6 +1260,12 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """
         Remove the `~.axes.Axes` *ax* from the figure; update the current Axes.
         """
+        # Taken out of matplotlib's stack of the root figure's Axes, then out
+        # of the list of this (sub)figure's own, which refuse Axes they lack.
+        if ax not in self.get_figure(root=True).axes:
+            raise KeyError(ax)
+        if ax not in self._localaxes:
+            raise ValueError("list.remove(x): x not in list")
         ax.remove()
 
     def set_figure(self, fig):
@@ -1295,15 +1306,23 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         Draw the figure with no output.  Useful to get the final size of
         artists that require a draw before their size is known (e.g. text).
         """
-        self._get_renderer()  # The canvas's renderer follows the figure.
+        renderer = self._get_renderer()  # It follows the figure.
         canvas = self.canvas
-        if canvas.fixed_dpi is not None and not hasattr(canvas, "get_renderer"):
+        printing = canvas.fixed_dpi is not None and not hasattr(canvas, "get_renderer")
+        if printing:
             # matplotlib finds the renderer by running the print method of
             # the canvas, which sets the figure to the canvas' fixed
             # resolution (72 dpi for SVG, PDF and PostScript) and leaves it.
-            self.dpi = canvas.fixed_dpi
+            dpi, self.dpi = self.dpi, canvas.fixed_dpi
         with _measuring_with(_layout_renderer(self)):
             _figure.draw_without_rendering(self._native)
+        if self.get_visible() and canvas.callbacks.callbacks.get("draw_event"):
+            # matplotlib's draw, rendering or not, ends with its event,
+            # which carries the renderer of the print it ran.
+            make = getattr(canvas, "_program_renderer", None)
+            if printing and make is not None:
+                renderer = make(dpi, None)
+            DrawEvent("draw_event", canvas, renderer)._process()
 
     def _get_renderer(self):
         """The renderer of the root figure's canvas: the canvas' own, or the

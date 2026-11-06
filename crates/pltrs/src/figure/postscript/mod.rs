@@ -108,14 +108,21 @@ impl Figure {
             paper: ps.paper,
             orientation: ps.orientation,
         };
+        let drawn_before = self.drawn_before_print(options);
         // Text the backend draws in AFM fonts is laid out with their metrics.
-        let output = crate::text::with_afm_metrics(ps.afm_directory(), || {
-            self.render_vector_with(options, |width, height, dpi| {
+        let (renderer, drawn) = crate::text::with_afm_metrics(ps.afm_directory(), || {
+            self.render_vector_keeping(options, |width, height, dpi| {
                 PsRenderer::new(width, height, dpi, ps)
             })
-        })?
-        .finish()
-        .map_err(SaveError::Vector)?;
+        })?;
+        // Logged where matplotlib's renderer first draws such a colour,
+        // before a later artist fails to draw, unless that artist failed
+        // in the draw before the print.
+        if renderer.partially_transparent() && (drawn.is_ok() || !drawn_before) {
+            crate::warnings::log("backends.backend_ps", PARTIAL_TRANSPARENCY);
+        }
+        drawn?;
+        let output = renderer.finish().map_err(SaveError::Vector)?;
         let document = match output {
             PsOutput::Psfrag(figure) => {
                 return print_figure_tex(&figure, layout, &rc, source_date);
@@ -124,9 +131,6 @@ impl Figure {
         };
         if document.tex_drawn_as_plain {
             crate::warnings::log("backends.backend_ps", PARTIAL_USETEX);
-        }
-        if document.partially_transparent {
-            crate::warnings::log("backends.backend_ps", PARTIAL_TRANSPARENCY);
         }
         if rc.ps_usedistiller == Distiller::Off {
             return Ok(document.text.into_bytes());

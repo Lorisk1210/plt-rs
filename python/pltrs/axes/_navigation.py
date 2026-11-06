@@ -9,6 +9,7 @@ its frozen limits and transforms there.
 """
 
 from numbers import Integral
+from operator import attrgetter
 
 import numpy as np
 
@@ -324,9 +325,8 @@ class NavigationMixin:
         This function will use the `!fmt_xdata` attribute if it is not None,
         else will fall back on the xaxis major formatter.
         """
-        if self.fmt_xdata is not None:
-            return self.fmt_xdata(x)
-        return _navigation.format_data(self._native, "x", float(x)) or ""
+        return (self.fmt_xdata if self.fmt_xdata is not None
+                else self.xaxis.get_major_formatter().format_data_short)(x)
 
     def format_ydata(self, y):
         """
@@ -335,9 +335,8 @@ class NavigationMixin:
         This function will use the `!fmt_ydata` attribute if it is not None,
         else will fall back on the yaxis major formatter.
         """
-        if self.fmt_ydata is not None:
-            return self.fmt_ydata(y)
-        return _navigation.format_data(self._native, "y", float(y)) or ""
+        return (self.fmt_ydata if self.fmt_ydata is not None
+                else self.yaxis.get_major_formatter().format_data_short)(y)
 
     @property
     def _mouseover_set(self):
@@ -355,8 +354,17 @@ class NavigationMixin:
 
     def format_coord(self, x, y):
         """Return a format string formatting the *x*, *y* coordinates."""
-        if x is None or y is None:
+        twins = self._twinned_axes.get_siblings(self)
+        if len(twins) == 1:
             return "(x, y) = ({}, {})".format(
                 "???" if x is None else self.format_xdata(x),
                 "???" if y is None else self.format_ydata(y))
-        return _navigation.format_coord(self._native, float(x), float(y))
+        screen_xy = self.transData.transform((x, y))
+        xy_strs = []
+        # Retrieve twins in the order of self.figure.axes to sort tied zorders (which is
+        # the common case) by the order in which they are added to the figure.
+        for ax in sorted(twins, key=attrgetter("zorder")):
+            data_x, data_y = ax.transData.inverted().transform(screen_xy)
+            xy_strs.append(
+                "({}, {})".format(ax.format_xdata(data_x), ax.format_ydata(data_y)))
+        return "(x, y) = {}".format(" | ".join(xy_strs))

@@ -149,6 +149,10 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
             raise ValueError(f"The value of {name} must be > 0, got {scale}")
     if num_arrows < 0:
         raise ValueError(f"The value of num_arrows must be >= 0, got {num_arrows=}")
+    if color is None:
+        # Taken from the cycle before the other arguments are checked, as
+        # matplotlib takes it.
+        color = axes._get_lines.get_next_color()
     _api.check_in_list(['both', 'forward', 'backward'],
                        integration_direction=integration_direction)
     shape = (len(gy), len(gx))
@@ -194,14 +198,12 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
     lines = _handles.wrap(lines, mcollections.LineCollection, figure)
     lines._attach_native_mapping(colorizer=made)
     arrows = _handles.wrap_all(arrows, patches.FancyArrowPatch, figure)
-    for arrow in arrows:
-        # matplotlib's ``FancyArrowPatch(color=...)``: the colour given, or
-        # the line cycle's as the cycle holds it.
-        for side in ("facecolor", "edgecolor"):
-            if single is not None:
+    if single is not None:
+        for arrow in arrows:
+            # matplotlib's ``FancyArrowPatch(color=...)``: the colour given,
+            # or the one taken from the cycle, as the cycle holds it.
+            for side in ("facecolor", "edgecolor"):
                 _values.remember(arrow, side, color)
-            elif mapped is None:
-                arrow._take_cycle_color(side)
     # matplotlib's collection of the arrows, which no axes holds ("Adding
     # the collection itself is broken; see #2341."): the arrows are the
     # axes' patches.

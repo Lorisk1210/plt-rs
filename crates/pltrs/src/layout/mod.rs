@@ -250,6 +250,10 @@ pub(crate) struct LayoutState {
     pub(crate) colorbars: Vec<ColorbarLayout>,
     /// Whether the engine must run before positions are used.
     pub(crate) pending: bool,
+    /// Whether a due engine pass waits for the next draw when the figure
+    /// is measured, as matplotlib's engine runs only when the figure is
+    /// drawn ([`Figure::set_layout_when_drawn_only`]).
+    pub(crate) when_drawn_only: bool,
     /// The axes whose labels or titles align ([`Figure::align_labels`],
     /// [`Figure::align_titles`]).
     pub(crate) label_groups: LabelGroups,
@@ -264,6 +268,7 @@ pltrs_core::archive_struct!(LayoutState {
     engine,
     colorbars,
     pending,
+    when_drawn_only,
     label_groups,
     dividers,
     insets
@@ -284,6 +289,7 @@ impl LayoutState {
             engine,
             colorbars: Vec::new(),
             pending: true,
+            when_drawn_only: false,
             label_groups: LabelGroups::default(),
             dividers: Vec::new(),
             insets: Vec::new(),
@@ -362,6 +368,34 @@ impl Figure {
         self.raw().figure_state().borrow().layout.engine
     }
 
+    /// Whether the layout engine runs only when the figure is drawn, as
+    /// matplotlib's does, so that what is measured before (extents, tight
+    /// boxes, ticks) is measured where the axes stand; by default it also
+    /// runs whenever the figure changed and is measured.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::layout::LayoutEngine;
+    /// let fig = Figure::with_size(4.0, 3.0, 80.0);
+    /// fig.set_layout_engine(LayoutEngine::constrained())?;
+    /// fig.set_layout_when_drawn_only(true);
+    /// let ax = fig.subplot();
+    /// let before = ax.position();
+    /// fig.tight_bbox();
+    /// assert_eq!(ax.position(), before, "measuring leaves the axes where they are");
+    /// fig.to_png()?;
+    /// assert_ne!(ax.position(), before, "drawing lays the figure out");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_layout_when_drawn_only(&self, only: bool) -> &Self {
+        self.raw()
+            .figure_state()
+            .borrow_mut()
+            .layout
+            .when_drawn_only = only;
+        self
+    }
+
     /// Lays the figure out once with `engine`, whatever engine the figure
     /// has, which it keeps (matplotlib's `LayoutEngine.execute(fig)`).
     /// Constrained layout returns its grids as solved (matplotlib's
@@ -398,6 +432,16 @@ impl Figure {
 }
 
 impl FigureState {
+    /// [`run_pending_layout`](Self::run_pending_layout) where the figure
+    /// is measured rather than drawn: a due pass waits for the next draw
+    /// when the figure is laid out only when drawn
+    /// ([`Figure::set_layout_when_drawn_only`]).
+    pub(crate) fn run_measured_layout(&mut self) {
+        if !self.layout.when_drawn_only {
+            self.run_pending_layout();
+        }
+    }
+
     /// Runs the layout engine if a layout pass is due: after the figure
     /// changed, and before every draw. Returns the grids constrained
     /// layout laid out.

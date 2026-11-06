@@ -139,7 +139,7 @@ impl OptionsDialog {
         chrome.button("Cancel", OptionsMessage::Cancel);
         chrome.button("Apply", OptionsMessage::Apply);
         chrome.primary("OK", OptionsMessage::Ok);
-        let options = dialog::window_options("Figure options")?;
+        let options = dialog::window_options("Figure options");
         let mut window = dialog::open_fitted(cx, figure, &options, chrome.finish(content))?;
         // The first field is the title of the first axes, past its tabs.
         let title = pages.first().map(AxesPage::title_field);

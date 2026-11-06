@@ -256,6 +256,12 @@ impl Backend for X11Backend {
         for property in window::initial_properties(&self.atoms, id, options, self.scale_factor) {
             self.conn.send(&property)?;
         }
+        if let Some(icon) = &options.icon
+            && let Some(property) =
+                window::icon_property(&self.atoms, id, icon, self.conn.max_request_bytes())
+        {
+            self.conn.send(&property)?;
+        }
         self.conn.send(&request::map_window(id))?;
         self.conn.flush()?;
         self.windows.insert(id, WindowState::new(gc, size));

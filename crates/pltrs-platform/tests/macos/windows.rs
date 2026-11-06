@@ -4,8 +4,8 @@
 use std::time::{Duration, Instant};
 
 use pltrs_platform::{
-    CursorIcon, Event, EventLoop, Icon, LogicalSize, PhysicalSize, WindowEvent, WindowId,
-    WindowOptions,
+    CursorIcon, Event, EventLoop, Icon, IconImage, IconLayout, LogicalSize, PhysicalSize,
+    WindowEvent, WindowId, WindowOptions,
 };
 
 use crate::appkit::{self, NsSize};
@@ -218,6 +218,41 @@ pub(crate) fn icons_go_to_the_dock() {
             height: f64::from(height)
         }
     );
+}
+
+/// A rendered icon reaches the Dock drawn on Apple's grid at every icon
+/// size from 16 to 512 points, at 1× and 2×, and is drawn once however
+/// many windows show it.
+pub(crate) fn rendered_icons_go_to_the_dock_in_every_size() {
+    let mut event_loop = appkit_loop();
+    let drawn = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counter = std::sync::Arc::clone(&drawn);
+    let icon = Icon::from_renderer(move |side, layout| {
+        assert_eq!(layout, IconLayout::AppleGrid);
+        counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        IconImage::from_rgba(side, side, vec![200; (side * side * 4) as usize]).ok()
+    });
+    let options = WindowOptions::new("icon").with_icon(icon);
+    open_with(&mut event_loop, &options);
+    open_with(&mut event_loop, &options);
+    assert_eq!(drawn.load(std::sync::atomic::Ordering::Relaxed), 7);
+    assert_eq!(
+        appkit::app_icon_size(),
+        NsSize {
+            width: 512.0,
+            height: 512.0
+        }
+    );
+    let mut representations: Vec<(u32, i64)> = appkit::app_icon_representations()
+        .iter()
+        .map(|&(points, pixels)| (points.width as u32, pixels))
+        .collect();
+    representations.sort_unstable();
+    let expected: Vec<(u32, i64)> = [16, 32, 64, 128, 256, 512]
+        .into_iter()
+        .flat_map(|points| [(points, i64::from(points)), (points, 2 * i64::from(points))])
+        .collect();
+    assert_eq!(representations, expected);
 }
 
 /// Pumps until `window` reports a size `accept`s, for up to 10 seconds

@@ -146,7 +146,7 @@ impl HostedWindow {
             toolbar.build(&mut root);
             height += toolbar_height();
         }
-        let options = dialog::window_options(&self.title)?
+        let options = dialog::window_options(&self.title)
             .with_inner_size(LogicalSize::new(self.size.width, height))
             .with_min_inner_size(MIN_SIZE);
         let mut window = UiWindow::open(cx, &options, root)?;

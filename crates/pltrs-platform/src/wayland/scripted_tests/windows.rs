@@ -3,13 +3,15 @@
 
 use std::time::{Duration, Instant};
 
-use super::super::fake::{Fake, Options};
+use super::super::fake::{Fake, ICON_SIZES, Options};
 use super::{expect, open, poll_until, present, surface, wait_requests};
 use crate::backend::Backend;
 use crate::event::{Event, WindowEvent};
-use crate::geometry::PhysicalSize;
+use crate::geometry::{LogicalSize, PhysicalSize};
+use crate::icon::{Icon, IconImage, IconLayout};
 use crate::wayland::decoration::layout::TITLE_BAR_HEIGHT;
 use crate::wayland::wire::Request;
+use crate::window::WindowOptions;
 
 /// `xdg_toplevel.state.maximized` and `activated`, as an array.
 fn states(states: &[u32]) -> Vec<u8> {
@@ -207,4 +209,124 @@ fn raising_asks_for_activation() {
     assert_eq!(&activate.body[4..11], b"token-1");
     present(&mut backend, window);
     backend.destroy_window(window).unwrap();
+}
+
+/// An icon drawing each side full bleed.
+fn rendered_icon() -> Icon {
+    Icon::from_renderer(|side, layout| {
+        assert_eq!(layout, IconLayout::FullBleed);
+        IconImage::from_rgba(side, side, vec![255; (side * side * 4) as usize]).ok()
+    })
+}
+
+/// Opens a window showing `icon`.
+fn open_with_icon(backend: &mut super::super::WaylandBackend, icon: Icon) -> crate::WindowId {
+    let options = WindowOptions::new("icon")
+        .with_inner_size(LogicalSize::new(80.0, 60.0))
+        .with_icon(icon);
+    backend.create_window(&options).expect("the window opens")
+}
+
+#[test]
+fn icons_are_set_before_the_first_commit_at_the_compositors_sizes() {
+    let options = Options {
+        globals: vec![("xdg_toplevel_icon_manager_v1", 1)],
+        output_scale: 2,
+        ..Options::default()
+    };
+    let (mut backend, fake) = Fake::start(options);
+    let window = open_with_icon(&mut backend, rendered_icon());
+    let state = fake.state();
+    let (_, toplevel) = state.toplevel(surface(window));
+    let manager = state.id_of("xdg_toplevel_icon_manager_v1").unwrap();
+    let order: Vec<(&str, u16)> = state
+        .requests
+        .iter()
+        .map(|r| (r.interface.as_str(), r.opcode))
+        .filter(|&(interface, opcode)| {
+            matches!(
+                (interface, opcode),
+                ("xdg_toplevel_icon_manager_v1", 1 | 2)
+                    | ("xdg_toplevel_icon_v1", 0 | 2)
+                    | ("wl_surface", 6)
+            )
+        })
+        .collect();
+    assert_eq!(
+        order[..8],
+        [
+            ("xdg_toplevel_icon_manager_v1", 1),
+            ("xdg_toplevel_icon_v1", 2),
+            ("xdg_toplevel_icon_v1", 2),
+            ("xdg_toplevel_icon_v1", 2),
+            ("xdg_toplevel_icon_v1", 2),
+            ("xdg_toplevel_icon_manager_v1", 2),
+            ("wl_surface", 6),
+            ("xdg_toplevel_icon_v1", 0),
+        ]
+    );
+    let set = state.requests("xdg_toplevel_icon_manager_v1", 2)[0];
+    assert_eq!((set.object, set.word(0)), (manager, toplevel));
+    // Each preferred size at scale 1 and at the output's scale 2, in
+    // square buffers of the right size.
+    let buffers: Vec<(u32, u32)> = state
+        .requests("xdg_toplevel_icon_v1", 2)
+        .iter()
+        .map(|r| (r.word(0), r.word(1)))
+        .collect();
+    let sides: Vec<(u32, u32, u32)> = buffers
+        .iter()
+        .map(|&(buffer, scale)| {
+            let created = state
+                .requests("wl_shm_pool", 0)
+                .into_iter()
+                .find(|r| r.word(0) == buffer)
+                .unwrap();
+            (created.word(2), created.word(3), scale)
+        })
+        .collect();
+    let [small, large] = ICON_SIZES.map(|side| side as u32);
+    assert_eq!(
+        sides,
+        [
+            (small, small, 1),
+            (2 * small, 2 * small, 2),
+            (large, large, 1),
+            (2 * large, 2 * large, 2)
+        ]
+    );
+    // The buffers go with the icon.
+    let destroyed = state.requests("wl_buffer", 0);
+    assert!(
+        buffers
+            .iter()
+            .all(|(buffer, _)| destroyed.iter().any(|r| r.object == *buffer))
+    );
+}
+
+#[test]
+fn icons_need_the_protocol_and_square_images() {
+    let (mut backend, fake) = Fake::start(Options::default());
+    open_with_icon(&mut backend, rendered_icon());
+    assert_eq!(
+        fake.state().requests("xdg_toplevel_icon_v1", 2),
+        [] as [&_; 0]
+    );
+    let options = Options {
+        globals: vec![("xdg_toplevel_icon_manager_v1", 1)],
+        ..Options::default()
+    };
+    let (mut backend, fake) = Fake::start(options);
+    let oblong = Icon::from_rgba(2, 1, vec![0; 8]).unwrap();
+    open_with_icon(&mut backend, oblong);
+    assert_eq!(
+        fake.state().requests("xdg_toplevel_icon_manager_v1", 1),
+        [] as [&_; 0]
+    );
+    let square = Icon::from_rgba(3, 3, vec![0; 36]).unwrap();
+    open_with_icon(&mut backend, square);
+    let state = fake.state();
+    let added = state.requests("xdg_toplevel_icon_v1", 2);
+    assert_eq!(added.len(), 1, "a bitmap at its own size");
+    assert_eq!(added[0].word(1), 1, "at scale 1");
 }

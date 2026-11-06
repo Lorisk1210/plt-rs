@@ -159,6 +159,7 @@ cargo run -p pltrs --example widgets
 | Do | Expect |
 | --- | --- |
 | Look at the text and lines | Sharp on Retina / at 150 % (drawn at the physical resolution) |
+| Look at the Dock (macOS), the title bar and the task bar (Windows) | pltrs's contour icon (violet, with viridis bands), sharp, and in the Dock as large as the other icons; on Windows sharp again after moving the window to a monitor of another scale |
 | Hover the axes | Coordinates in the toolbar's message area |
 | Pan tool (`p`), drag | The view pans; the cursor is the move cursor |
 | Zoom tool (`o`), drag a rectangle | The rubber band shows and the view zooms; the cursor is a crosshair |

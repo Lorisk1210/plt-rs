@@ -6,7 +6,9 @@
 //! caller transforms, NaN-filters, snaps and simplifies paths beforehand.
 //!
 //! * [`Pixmap`] — RGBA8 with straight alpha (Agg's `pixfmt_rgba32_plain`),
-//!   and [`Mask`], a gray8 coverage map for clip masks and glyphs.
+//!   and [`Mask`], a gray8 coverage map for clip masks and glyphs, which
+//!   [`Mask::blurred`] blurs as SVG's `feGaussianBlur` does (drop
+//!   shadows).
 //! * [`Rasterizer`] — Agg's `rasterizer_scanline_aa`: 24.8 fixed-point cell
 //!   accumulation, non-zero/even-odd rules, [`Gamma`], clip box.
 //! * The vertex pipeline (curve flattening like `conv_curve`, dashing like
@@ -21,6 +23,7 @@
 //!   Agg's interpolation kernels and span generators.
 #![forbid(unsafe_code)]
 
+mod blur;
 mod clip;
 mod color;
 mod dda;

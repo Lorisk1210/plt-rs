@@ -11,7 +11,8 @@
 //!   generic loop at the latest; proxies wake it by posting a message to
 //!   a message-only window.
 //! * [`procedure`]: what window messages do, on the per-thread
-//!   [`Registry`](crate::registry::Registry) of windows.
+//!   [`Registry`](crate::registry::Registry) of windows; [`icon`]: each
+//!   window's icon, drawn at the sizes of its DPI.
 //! * [`message`], [`keys`] and [`convert`]: decoding messages, keyboard
 //!   input (virtual keys, left and right modifiers, `AltGr`) and units.
 //!   They hold no Win32 calls, so they are tested on every system.
@@ -20,6 +21,8 @@
 #[cfg(windows)]
 mod backend;
 mod convert;
+#[cfg(windows)]
+mod icon;
 mod keys;
 mod message;
 #[cfg(windows)]

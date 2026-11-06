@@ -1,6 +1,6 @@
 //! Conversions between `AppKit`'s units and pltrs's: points and physical
 //! pixels, wait deadlines and seconds, cursors and their `NSCursor`
-//! names.
+//! names, icon images and the sizes they represent the Dock icon at.
 
 use std::ffi::CStr;
 use std::time::Instant;
@@ -69,6 +69,24 @@ pub(crate) fn points(size: Size, scale: f64) -> LogicalSize {
         Size::Logical(size) => size,
         Size::Physical(size) => size.to_logical(scale),
     }
+}
+
+/// The pixel sides of the Dock icon's images: Apple's icon sizes, 16 to
+/// 512 points, at 1× and 2×.
+pub(crate) const DOCK_ICON_SIDES: [u32; 7] = [16, 32, 64, 128, 256, 512, 1024];
+
+/// The sizes, in points, at which an icon image of `pixels` represents
+/// the Dock icon: its own size at 1× and half of it at 2×, each within
+/// Apple's icon sizes (16 to 512 points). An image outside them still
+/// represents the icon at one of the two.
+pub(crate) fn icon_representations(pixels: PhysicalSize) -> Vec<LogicalSize> {
+    const LARGEST: u32 = 512;
+    const SMALLEST: u32 = 16;
+    let (width, height) = (f64::from(pixels.width), f64::from(pixels.height));
+    let single = (pixels.width <= LARGEST).then(|| LogicalSize::new(width, height));
+    let double = (pixels.width / 2 >= SMALLEST || single.is_none())
+        .then(|| LogicalSize::new(width / 2.0, height / 2.0));
+    single.into_iter().chain(double).collect()
 }
 
 /// How many seconds to wait for events at `now`: `None` when not to wait
@@ -154,6 +172,40 @@ mod tests {
         let later = now + Duration::from_millis(250);
         assert_eq!(seconds_until(Wait::Until(later), now), Some(0.25));
         assert_eq!(seconds_until(Wait::Until(now), later), None);
+    }
+
+    #[test]
+    fn icon_images_represent_apple_icon_sizes() {
+        let sizes = |side| icon_representations(PhysicalSize::new(side, side));
+        let square = |side| LogicalSize::new(side, side);
+        assert_eq!(sizes(16), [square(16.0)]);
+        assert_eq!(sizes(32), [square(32.0), square(16.0)]);
+        assert_eq!(sizes(512), [square(512.0), square(256.0)]);
+        assert_eq!(sizes(1024), [square(512.0)]);
+        // Every point size from 16 to 512 at both scales.
+        let mut all: Vec<(u32, bool)> = DOCK_ICON_SIDES
+            .iter()
+            .flat_map(|&side| {
+                sizes(side)
+                    .into_iter()
+                    .map(move |points| (points.width as u32, points.width < f64::from(side)))
+            })
+            .collect();
+        all.sort_unstable();
+        let expected: Vec<(u32, bool)> = [16, 32, 64, 128, 256, 512]
+            .into_iter()
+            .flat_map(|points| [(points, false), (points, true)])
+            .collect();
+        assert_eq!(all, expected);
+        // Bitmaps of other shapes and sizes.
+        assert_eq!(
+            icon_representations(PhysicalSize::new(40, 24)),
+            [LogicalSize::new(40.0, 24.0), LogicalSize::new(20.0, 12.0)]
+        );
+        assert_eq!(
+            icon_representations(PhysicalSize::new(2000, 10)),
+            [LogicalSize::new(1000.0, 5.0)]
+        );
     }
 
     #[test]

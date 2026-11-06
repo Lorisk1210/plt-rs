@@ -1,9 +1,10 @@
-//! Window identifiers, creation options, icons and cursors.
+//! Window identifiers, creation options and cursors.
 
 use std::fmt;
 
 use crate::error::Error;
 use crate::geometry::{LogicalSize, PhysicalSize, Size};
+use crate::icon::Icon;
 
 /// Identifies a window of an [`EventLoop`](crate::EventLoop).
 ///
@@ -116,51 +117,6 @@ impl Default for WindowOptions {
     }
 }
 
-/// A window icon: straight (non-premultiplied) RGBA8 pixels, row-major,
-/// top row first.
-#[derive(Clone, PartialEq, Eq)]
-pub struct Icon {
-    size: PhysicalSize,
-    rgba: Vec<u8>,
-}
-
-impl Icon {
-    /// Creates an icon, checking that `rgba` holds exactly
-    /// `width * height * 4` bytes and the icon is not empty.
-    pub fn from_rgba(width: u32, height: u32, rgba: Vec<u8>) -> Result<Self, Error> {
-        let size = PhysicalSize::new(width, height);
-        if size.is_empty() {
-            return Err(Error::InvalidArgument("icon size must be non-zero"));
-        }
-        let expected = crate::frame::rgba_len(size)?;
-        if rgba.len() != expected {
-            return Err(Error::BufferSize {
-                expected,
-                actual: rgba.len(),
-            });
-        }
-        Ok(Self { size, rgba })
-    }
-
-    /// Icon dimensions.
-    pub const fn size(&self) -> PhysicalSize {
-        self.size
-    }
-
-    /// The straight-alpha RGBA8 pixels.
-    pub fn rgba(&self) -> &[u8] {
-        &self.rgba
-    }
-}
-
-impl fmt::Debug for Icon {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Icon")
-            .field("size", &self.size)
-            .finish_non_exhaustive()
-    }
-}
-
 /// The mouse cursor shape shown over a window.
 ///
 /// Mirrors matplotlib's `backend_tools.Cursors` plus a text cursor.
@@ -210,19 +166,6 @@ mod tests {
             empty.physical_inner_size(1.0),
             Err(Error::InvalidArgument(_))
         ));
-    }
-
-    #[test]
-    fn icon_validates_buffer_length() {
-        assert!(Icon::from_rgba(2, 2, vec![0; 16]).is_ok());
-        assert_eq!(
-            Icon::from_rgba(2, 2, vec![0; 15]),
-            Err(Error::BufferSize {
-                expected: 16,
-                actual: 15
-            })
-        );
-        assert!(Icon::from_rgba(0, 2, Vec::new()).is_err());
     }
 
     #[test]

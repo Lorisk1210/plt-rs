@@ -178,7 +178,7 @@ impl SubplotDialog {
         };
         chrome.button("Reset", SubplotMessage::Reset);
         chrome.primary("Close", SubplotMessage::Close);
-        let options = dialog::window_options("Subplot configuration tool")?;
+        let options = dialog::window_options("Subplot configuration tool");
         let window = dialog::open_fitted(cx, figure, &options, chrome.finish(form))?;
         Ok(Self {
             figure: figure.clone(),

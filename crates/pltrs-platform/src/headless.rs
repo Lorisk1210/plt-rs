@@ -19,8 +19,9 @@ use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
 use crate::geometry::{PhysicalRect, PhysicalSize, Size};
+use crate::icon::Icon;
 use crate::surface::{ChannelOrder, Surface};
-use crate::window::{CursorIcon, Icon, WindowId, WindowOptions};
+use crate::window::{CursorIcon, WindowId, WindowOptions};
 
 /// A frame recorded by the headless backend.
 #[derive(Debug, Clone, PartialEq, Eq)]

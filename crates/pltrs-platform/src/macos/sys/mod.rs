@@ -35,7 +35,7 @@ pub(crate) use app::{App, WakeTarget};
 pub(crate) use classes::{app_delegate, view_class};
 pub(crate) use event::EventRef;
 pub(crate) use foundation::{NsPoint, is_main_thread, process_name};
-pub(crate) use graphics::Image;
+pub(crate) use graphics::{Image, ns_image};
 pub(crate) use pasteboard::{Content, pasteboard_text, set_pasteboard};
 pub(crate) use runtime::{Id, autoreleasepool};
 pub(crate) use window::{View, ViewRef, Window, main_screen_scale_factor, set_cursor};

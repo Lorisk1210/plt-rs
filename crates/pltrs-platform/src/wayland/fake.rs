@@ -136,7 +136,7 @@ const CORE_GLOBALS: [(&str, u32); 5] = [
 ];
 
 /// Requests destroying their object, answered with `delete_id`.
-const DESTRUCTORS: [(&str, u16); 13] = [
+const DESTRUCTORS: [(&str, u16); 14] = [
     ("wl_surface", 0),
     ("wl_buffer", 0),
     ("wl_shm_pool", 1),
@@ -150,6 +150,7 @@ const DESTRUCTORS: [(&str, u16); 13] = [
     ("wp_cursor_shape_device_v1", 0),
     ("xdg_activation_token_v1", 4),
     ("wl_pointer", 1),
+    ("xdg_toplevel_icon_v1", 0),
 ];
 
 impl Fake {
@@ -279,7 +280,7 @@ fn serve(server: &UnixStream, writer: &Mutex<UnixStream>, state: &Mutex<State>, 
 
 /// Requests creating an object (their first argument), and its
 /// interface.
-const CREATORS: [(&str, u16, &str); 17] = [
+const CREATORS: [(&str, u16, &str); 18] = [
     ("wl_display", 1, "wl_registry"),
     ("wl_compositor", 0, "wl_surface"),
     ("wl_subcompositor", 1, "wl_subsurface"),
@@ -305,6 +306,7 @@ const CREATORS: [(&str, u16, &str); 17] = [
     ("wl_data_device_manager", 0, "wl_data_source"),
     ("wl_data_device_manager", 1, "wl_data_device"),
     ("xdg_activation_v1", 1, "xdg_activation_token_v1"),
+    ("xdg_toplevel_icon_manager_v1", 1, "xdg_toplevel_icon_v1"),
 ];
 
 /// The events answering one request.
@@ -419,8 +421,11 @@ fn reply(
     }
 }
 
+/// The icon sizes the fake's `xdg_toplevel_icon_manager_v1` prefers.
+pub(crate) const ICON_SIZES: [i32; 2] = [32, 128];
+
 /// Binds a global: seats announce a pointer and a keyboard, outputs
-/// their scale.
+/// their scale, the icon manager its icon sizes.
 fn bind(state: &mut State, options: &Options, args: &mut Args<'_>) -> Vec<Request> {
     let _name = args.uint();
     let kind = args.string().unwrap_or_default();
@@ -433,6 +438,11 @@ fn bind(state: &mut State, options: &Options, args: &mut Args<'_>) -> Vec<Reques
             Request::new(id, 3).int(options.output_scale),
             Request::new(id, 2),
         ],
+        "xdg_toplevel_icon_manager_v1" => ICON_SIZES
+            .iter()
+            .map(|&side| Request::new(id, 0).int(side))
+            .chain([Request::new(id, 1)])
+            .collect(),
         _ => Vec::new(),
     }
 }

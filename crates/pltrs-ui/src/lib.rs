@@ -17,6 +17,9 @@
 //!   [`Swatch`] (a colour sample), [`Keycaps`] (keyboard shortcuts) and
 //!   [`Surface`] (an application-rendered image, e.g. a figure, with an
 //!   optional selection rectangle).
+//! * [`ColorIcon`]s are full-colour vector icons (filled shapes in solid
+//!   colours or [`LinearGradient`]s, outlines and blurred drop
+//!   [`Shadow`]s), rendered at any size: application icons.
 //! * [`Ui`] owns the tree and a window-sized framebuffer. It lays the tree
 //!   out (measure, then arrange), paints it with `pltrs-raster` (text comes
 //!   from `pltrs-text` and the bundled fonts), and routes input: hover
@@ -73,6 +76,7 @@
 #![forbid(unsafe_code)]
 
 mod canvas;
+mod color_icon;
 mod error;
 mod event;
 mod geometry;
@@ -97,6 +101,7 @@ mod window;
 mod fuzz;
 
 pub use canvas::Canvas;
+pub use color_icon::{ColorIcon, LinearGradient, Paint, Shadow};
 pub use error::UiError;
 pub use event::UiEvent;
 pub use geometry::{Constraints, Rect, Size};

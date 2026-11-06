@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use super::convert::{PointRect, pixel_size, points, seconds_until};
+use super::convert::{
+    DOCK_ICON_SIDES, PointRect, icon_representations, pixel_size, points, seconds_until,
+};
 use super::sys::{
     self, App, Content, Id, Image, NsPoint, View, WakeTarget, Window, autoreleasepool,
 };
@@ -15,10 +17,11 @@ use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
 use crate::geometry::{PhysicalRect, PhysicalSize, Size};
+use crate::icon::{Icon, IconLayout};
 use crate::registry::{LoopId, Registry};
 use crate::surface::{ChannelOrder, Surface};
 use crate::wake::WakeFlags;
-use crate::window::{CursorIcon, Icon, WindowId, WindowOptions};
+use crate::window::{CursorIcon, WindowId, WindowOptions};
 
 thread_local! {
     /// The application delegate pltrs installed, which the application
@@ -45,6 +48,8 @@ pub(crate) struct MacBackend {
     waker: Arc<MacWaker>,
     /// Where the next window's top-left corner goes, once one was placed.
     cascade: Option<NsPoint>,
+    /// The icon last put in the Dock.
+    icon: Option<Icon>,
 }
 
 impl MacBackend {
@@ -79,6 +84,7 @@ impl MacBackend {
                     target: app.wake_target(),
                 }),
                 cascade: None,
+                icon: None,
             })
         })
     }
@@ -109,13 +115,36 @@ impl MacBackend {
         self.cascade = Some(window.cascade(from));
     }
 
-    /// Shows `icon` in the Dock.
-    fn set_icon(&self, icon: &Icon) -> Result<(), Error> {
-        let size = icon.size();
-        match Image::straight_rgba(size.width, size.height, icon.rgba().to_vec()) {
-            Some(image) => self.app.set_icon(&image),
-            None => Err(Error::InvalidArgument("icon too large for macOS")),
+    /// Shows `icon` in the Dock, on Apple's icon grid, drawn at each of
+    /// Apple's icon sizes (unless it is there already).
+    fn set_icon(&mut self, icon: &Icon) -> Result<(), Error> {
+        if self.icon.as_ref() == Some(icon) {
+            return Ok(());
         }
+        let images = icon
+            .images(&DOCK_ICON_SIDES, IconLayout::AppleGrid)
+            .into_iter()
+            .map(|image| {
+                let size = image.size();
+                Image::straight_rgba(size.width, size.height, image.rgba().to_vec())
+                    .map(|cg_image| (cg_image, size))
+                    .ok_or(Error::InvalidArgument("icon too large for macOS"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let representations: Vec<_> = images
+            .iter()
+            .flat_map(|(cg_image, size)| {
+                icon_representations(*size)
+                    .into_iter()
+                    .map(move |points| (cg_image, points))
+            })
+            .collect();
+        if representations.is_empty() {
+            return Ok(());
+        }
+        self.app.set_icon(&sys::ns_image(&representations)?);
+        self.icon = Some(icon.clone());
+        Ok(())
     }
 }
 

@@ -11,7 +11,8 @@ use crate::backend::Wait;
 use crate::error::Error;
 use crate::event::WindowEvent;
 use crate::geometry::{LogicalSize, PhysicalSize};
-use crate::window::{CursorIcon, Icon, WindowOptions};
+use crate::icon::{Icon, IconImage};
+use crate::window::{CursorIcon, WindowOptions};
 
 #[test]
 fn window_properties_follow_the_options() {
@@ -66,6 +67,24 @@ fn window_properties_follow_the_options() {
         is(e, window, &WindowEvent::Destroyed)
     });
     assert_eq!(of(&events, window).last(), Some(&WindowEvent::Destroyed));
+}
+
+#[test]
+fn rendered_icons_reach_the_server_in_every_size() {
+    let Some(live) = live() else { return };
+    let mut driver = Driver::connect(&live.name);
+    let mut event_loop = x11_loop();
+    let icon = Icon::from_renderer(|side, _| {
+        IconImage::from_rgba(side, side, vec![255; (side * side * 4) as usize]).ok()
+    });
+    let window = open_window(&mut event_loop, &WindowOptions::new("icon").with_icon(icon));
+    let net_wm_icon = driver.atom("_NET_WM_ICON");
+    let value = driver.property_u32(xid(window), net_wm_icon);
+    // 16 × 16 first; the driver reads the first 2¹⁶ words of the
+    // 90,190 that sixteen to 256 pixels take (through BIG-REQUESTS).
+    assert_eq!(value[..3], [16, 16, 0xffff_ffff]);
+    assert_eq!(value.len(), 1 << 16);
+    event_loop.context().close_window(window).unwrap();
 }
 
 #[test]

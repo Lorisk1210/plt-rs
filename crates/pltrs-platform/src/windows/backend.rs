@@ -4,8 +4,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::convert::{scale_factor, timeout_ms};
+use super::icon::WindowIcon;
 use super::procedure::{WindowState, with_windows};
-use super::sys::{self, Clipboard, Hwnd, OwnedIcon, WindowClass};
+use super::sys::{self, Clipboard, Hwnd, WindowClass};
 use crate::backend::{Backend, BackendKind, Wait, Waker};
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
@@ -58,18 +59,14 @@ impl WindowsBackend {
 
     /// Registers the new window `hwnd` and shows it, at the size and with
     /// the icon `options` give.
-    fn adopt(
-        &self,
-        hwnd: Hwnd,
-        options: &WindowOptions,
-        icon: Option<OwnedIcon>,
-    ) -> Result<WindowId, Error> {
+    fn adopt(&self, hwnd: Hwnd, options: &WindowOptions) -> Result<WindowId, Error> {
         let dpi = hwnd.dpi();
         let size = options.physical_inner_size(scale_factor(dpi))?;
         let surface = Surface::new(size, ChannelOrder::Bgra)?;
-        if let Some(icon) = &icon {
-            hwnd.set_icon(icon);
-        }
+        let icon = match &options.icon {
+            Some(icon) => WindowIcon::show(icon, hwnd, dpi)?,
+            None => None,
+        };
         let window = hwnd.id();
         let state = WindowState::new(surface, dpi, options.min_inner_size, icon);
         with_windows(|windows| windows.insert(self.id, window, state));
@@ -103,9 +100,8 @@ impl Backend for WindowsBackend {
     }
 
     fn create_window(&mut self, options: &WindowOptions) -> Result<WindowId, Error> {
-        let icon = options.icon.as_ref().map(OwnedIcon::new).transpose()?;
         let hwnd = self.class.create_window(&options.title)?;
-        self.adopt(hwnd, options, icon).inspect_err(|_| {
+        self.adopt(hwnd, options).inspect_err(|_| {
             // The creation error matters more than a failure to clean up.
             let _ = hwnd.destroy();
             with_windows(|windows| windows.remove(hwnd.id()));

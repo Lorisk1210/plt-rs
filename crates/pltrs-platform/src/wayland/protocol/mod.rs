@@ -11,9 +11,11 @@
 //!   `wp_cursor_shape_manager_v1`.
 //! * [`data`]: `wl_data_device_manager` and the clipboard objects.
 //! * [`scale`]: `wp_viewporter` and `wp_fractional_scale_manager_v1`.
+//! * [`icon`]: `xdg_toplevel_icon_manager_v1` and its icons.
 
 pub(crate) mod core;
 pub(crate) mod data;
+pub(crate) mod icon;
 pub(crate) mod input;
 pub(crate) mod scale;
 pub(crate) mod shell;
@@ -88,6 +90,10 @@ pub(crate) enum Interface {
     Activation,
     /// `xdg_activation_token_v1`.
     ActivationToken,
+    /// `xdg_toplevel_icon_manager_v1`.
+    ToplevelIconManager,
+    /// `xdg_toplevel_icon_v1`.
+    ToplevelIcon,
 }
 
 /// An event this backend reacts to, from the object it was sent by.
@@ -273,6 +279,11 @@ pub(crate) enum Event {
     PreferredScale(u32),
     /// `xdg_activation_token_v1.done`.
     ActivationToken(String),
+    /// `xdg_toplevel_icon_manager_v1.icon_size`: an icon size the
+    /// compositor prefers, in surface coordinates.
+    IconSize(i32),
+    /// `xdg_toplevel_icon_manager_v1.done`: the end of the sizes.
+    IconSizesDone,
     /// An event this backend does not use, or an unknown opcode.
     Ignored,
 }
@@ -303,6 +314,7 @@ impl Event {
             | Interface::Decoration
             | Interface::ActivationToken => shell::parse(interface, opcode, args),
             Interface::FractionalScale => scale::parse(opcode, args),
+            Interface::ToplevelIconManager => icon::parse(opcode, args),
             Interface::Compositor
             | Interface::Subcompositor
             | Interface::Subsurface
@@ -315,7 +327,8 @@ impl Event {
             | Interface::FractionalScaleManager
             | Interface::CursorShapeManager
             | Interface::CursorShapeDevice
-            | Interface::Activation => Ok(Self::Ignored),
+            | Interface::Activation
+            | Interface::ToplevelIcon => Ok(Self::Ignored),
         }
     }
 }

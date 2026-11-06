@@ -21,7 +21,7 @@ mod window;
 use std::io;
 
 pub(crate) use clipboard::{Clipboard, clipboard_text, set_clipboard};
-pub(crate) use gdi::{OwnedIcon, Painter, show_cursor};
+pub(crate) use gdi::{OwnedIcon, Painter, icon_sides, show_cursor};
 pub(crate) use window::{
     Restore, WindowClass, capture, dispatch_messages, double_click_time, held_modifiers,
     layout_character, next_key_message, post_wake, release_capture, screen_to_client,

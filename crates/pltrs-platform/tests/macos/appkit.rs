@@ -260,6 +260,30 @@ pub(crate) fn app_icon_size() -> NsSize {
     })
 }
 
+/// The representations of the application's Dock icon: their sizes in
+/// points and their widths in pixels, in the order they were added.
+pub(crate) fn app_icon_representations() -> Vec<(NsSize, i64)> {
+    autoreleasepool(|| {
+        // SAFETY: the application's icon, its array of representations
+        // and each representation's size and pixel width.
+        unsafe {
+            let icon: *mut Object = send(app(), c"applicationIconImage", ());
+            assert!(!icon.is_null(), "the application has an icon");
+            let representations: *mut Object = send(icon, c"representations", ());
+            let count: usize = send(representations, c"count", ());
+            (0..count)
+                .map(|index| {
+                    let representation: *mut Object =
+                        send(representations, c"objectAtIndex:", (index,));
+                    let points: NsSize = send(representation, c"size", ());
+                    let pixels: i64 = send(representation, c"pixelsWide", ());
+                    (points, pixels)
+                })
+                .collect()
+        }
+    })
+}
+
 /// What `window`'s view draws, drawn by `AppKit` as into the window but
 /// into an sRGB bitmap of the view's pixel size: RGBA pixels, top row
 /// first.

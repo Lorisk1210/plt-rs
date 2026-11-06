@@ -72,6 +72,10 @@ const TESTS: &[Test] = &[
         windows::icons_go_to_the_dock,
     ),
     (
+        "windows::rendered_icons_go_to_the_dock_in_every_size",
+        windows::rendered_icons_go_to_the_dock_in_every_size,
+    ),
+    (
         "windows::full_screen_and_back",
         windows::full_screen_and_back,
     ),

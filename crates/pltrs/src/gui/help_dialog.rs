@@ -142,7 +142,7 @@ impl HelpDialog {
         }
         let mut chrome = Dialog::without_status();
         chrome.primary("Close", HelpMessage::Close);
-        let options = dialog::window_options("Help")?;
+        let options = dialog::window_options("Help");
         let root = chrome.finish(Scroll::new(form));
         let max = LogicalSize::new(f64::INFINITY, height.max(MIN_HEIGHT));
         Ok(Self {

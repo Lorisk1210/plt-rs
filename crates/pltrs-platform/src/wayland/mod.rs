@@ -9,7 +9,8 @@
 //!   format, object ids and event parsing.
 //! * [`protocol`]: the interfaces spoken, their requests and events.
 //! * [`globals`], [`shm`], [`scale`], [`window`], [`decoration`],
-//!   [`cursor`], [`xkb`]: protocol features built on the connection.
+//!   [`cursor`], [`icon`], [`xkb`]: protocol features built on the
+//!   connection.
 //! * [`WaylandBackend`] (with [`dispatch`], [`seat`], [`pointer`](mod@pointer),
 //!   [`keyboard`], [`clipboard`] and [`waker`]): the [`Backend`]
 //!   implementation.
@@ -27,6 +28,7 @@ mod fixtures;
 #[cfg(test)]
 mod fuzz_tests;
 mod globals;
+mod icon;
 mod keyboard;
 #[cfg(test)]
 mod live_tests;
@@ -64,6 +66,7 @@ use connection::Connection;
 use cursor::{Cursors, Shape};
 use decoration::plain::PlainPainter;
 use globals::Globals;
+use icon::IconSizes;
 use pointer::Target;
 use protocol::{Interface, core, shell};
 use scale::ScaleSources;
@@ -100,6 +103,8 @@ pub(crate) struct WaylandBackend {
     /// Activation tokens asked for, with the surface each focuses.
     activations: HashMap<u32, u32>,
     painter: Box<dyn DecorationPainter>,
+    /// The window icon sizes the compositor prefers.
+    icon_sizes: IconSizes,
     /// Events produced outside [`Backend::poll`], delivered by the next.
     pending: Vec<Event>,
     waker: Arc<WaylandWaker>,
@@ -128,6 +133,7 @@ impl WaylandBackend {
             clipboard: Clipboard::default(),
             activations: HashMap::new(),
             painter: Box::new(PlainPainter),
+            icon_sizes: IconSizes::default(),
             pending: Vec::new(),
             waker,
         };
@@ -223,7 +229,12 @@ impl Backend for WaylandBackend {
         let fractional = self.fractional_scaling();
         let guess =
             ScaleSources::default().scale(fractional, |_| None, self.largest_output_scale());
-        let window = Window::create(&mut self.conn, &self.globals, options, guess)?;
+        let window = Window::create(
+            &mut self.conn,
+            (&self.globals, &self.icon_sizes),
+            options,
+            guess,
+        )?;
         let id = window.surface;
         self.windows.insert(id, window);
         for _ in 0..CONFIGURE_ROUND_TRIPS {

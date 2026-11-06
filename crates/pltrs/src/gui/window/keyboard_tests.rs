@@ -130,12 +130,14 @@ fn the_save_dialog_works_from_the_keyboard_and_the_clipboard() {
         press(&handle, dialog, Key::Character('v'), Modifiers::CONTROL);
         pump(&mut event_loop, &mut window);
         pump(&mut event_loop, &mut window);
-        // Tab to the formats, then the last one, PGF, and back to SVG.
+        // Tab to the formats, then the last one, WebP, and up to SVG;
+        // back to the name, Enter saves.
         press(&handle, dialog, Key::Tab, Modifiers::NONE);
         press(&handle, dialog, Key::End, Modifiers::NONE);
-        for _ in 0..4 {
-            press(&handle, dialog, Key::Left, Modifiers::NONE);
+        for _ in 0..3 {
+            press(&handle, dialog, Key::Up, Modifiers::NONE);
         }
+        press(&handle, dialog, Key::Tab, Modifiers::SHIFT);
         press(&handle, dialog, Key::Enter, Modifiers::NONE);
         pump(&mut event_loop, &mut window);
         assert!(dir.join("pasted.svg").is_file(), "Enter saved the figure");
@@ -151,15 +153,20 @@ fn the_subplot_tool_starts_on_its_first_slider() {
     window
         .use_tool(&mut event_loop.context(), Tool::Subplots)
         .expect("the tool opens");
-    let tool = window.subplot_tool.as_ref().expect("the tool is open").id();
+    let tool = window
+        .subplot_tool
+        .as_ref()
+        .expect("the tool is open")
+        .dialog
+        .id();
     pump(&mut event_loop, &mut window);
     press(&handle, tool, Key::Right, Modifiers::NONE);
     press(&handle, tool, Key::Right, Modifiers::NONE);
     pump(&mut event_loop, &mut window);
     let moved = figure.subplot_params().top;
     assert!(
-        (moved - (top + 0.02)).abs() < 1e-9,
-        "two steps of 0.01 from {top}: {moved}"
+        (moved - (top + 0.01)).abs() < 1e-9,
+        "two steps of 0.005 from {top}: {moved}"
     );
     press(&handle, tool, Key::Enter, Modifiers::NONE);
     pump(&mut event_loop, &mut window);

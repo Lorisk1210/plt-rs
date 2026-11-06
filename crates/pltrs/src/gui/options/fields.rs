@@ -2,7 +2,9 @@
 //! artist properties and the text the fields show.
 
 use pltrs_core::Rgba;
-use pltrs_ui::{Choice, Flex, Label, Spacing, Swatch, TextInput, UiWindow, Widget, WidgetId};
+use pltrs_ui::{
+    Choice, Dropdown, Flex, Label, Spacing, Swatch, TextInput, UiWindow, Widget, WidgetId,
+};
 
 use super::OptionsMessage;
 use crate::dates::iso::fromisoformat;
@@ -76,6 +78,18 @@ impl Form {
         self.form.row(name, choice)
     }
 
+    /// Adds a drop-down list of `options` with `chosen` chosen, for lists
+    /// too long for segments (matplotlib's form shows every list as a
+    /// combo box).
+    pub(super) fn dropdown(&mut self, name: &str, options: &[&str], chosen: usize) -> WidgetId {
+        let mut dropdown = Dropdown::new(
+            options.iter().map(|&option| option.to_owned()).collect(),
+            |_| OptionsMessage::Edited,
+        );
+        dropdown.set_chosen(chosen);
+        self.form.row(name, dropdown)
+    }
+
     /// Adds any widget across the row.
     pub(super) fn wide(&mut self, widget: impl Widget<OptionsMessage>) -> WidgetId {
         self.form.wide_row(widget)
@@ -126,10 +140,13 @@ pub(super) fn read_field<T>(
 
 /// The chosen segment of choice `id`.
 pub(super) fn chosen(window: &mut UiWindow<OptionsMessage>, id: WidgetId) -> usize {
-    window
-        .ui_mut()
-        .widget_mut::<Choice<OptionsMessage>>(id)
-        .map_or(0, |choice| choice.chosen())
+    let ui = window.ui_mut();
+    match ui.widget_mut::<Choice<OptionsMessage>>(id) {
+        Some(choice) => choice.chosen(),
+        None => ui
+            .widget_mut::<Dropdown<OptionsMessage>>(id)
+            .map_or(0, |dropdown| dropdown.chosen()),
+    }
 }
 
 /// `x` as Python prints a float, the way matplotlib's form shows numbers.

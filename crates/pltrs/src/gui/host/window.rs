@@ -14,6 +14,7 @@ use super::{HostEvent, HostedWindowId};
 use crate::figure::{Figure, Presenting};
 use crate::gui::help_dialog::HelpDialog;
 use crate::gui::save_dialog::{Outcome, SaveDialog};
+use crate::gui::subplot_dialog::{Request, SubplotDialog, SubplotLayout};
 use crate::gui::window::{present_figure, toolbar_height};
 use crate::gui::{GuiError, dialog};
 
@@ -43,6 +44,8 @@ struct Shown {
     save_dialog: Option<SaveDialog>,
     /// The keyboard shortcuts, while they are shown.
     help_dialog: Option<HelpDialog>,
+    /// The subplot tool, while it is open.
+    subplot_tool: Option<SubplotDialog>,
 }
 
 /// A window of a [`WindowHost`](super::WindowHost).
@@ -176,6 +179,7 @@ impl HostedWindow {
             input: InputState::default(),
             save_dialog: None,
             help_dialog: None,
+            subplot_tool: None,
         });
         // The first layout reports the canvas' size.
         for message in messages {
@@ -195,6 +199,9 @@ impl HostedWindow {
         if let Some(dialog) = shown.help_dialog {
             dialog.close(cx)?;
         }
+        if let Some(tool) = shown.subplot_tool {
+            tool.close(cx)?;
+        }
         cx.close_window(shown.window.id())?;
         Ok(())
     }
@@ -205,6 +212,10 @@ impl HostedWindow {
             shown.window.id() == window
                 || shown.save_dialog.as_ref().is_some_and(|d| d.id() == window)
                 || shown.help_dialog.as_ref().is_some_and(|d| d.id() == window)
+                || shown
+                    .subplot_tool
+                    .as_ref()
+                    .is_some_and(|t| t.id() == window)
         })
     }
 
@@ -253,6 +264,21 @@ impl HostedWindow {
                 && let Some(dialog) = shown.help_dialog.take()
             {
                 dialog.close(cx)?;
+            }
+            return Ok(());
+        }
+        if let Some(tool) = shown.subplot_tool.as_mut().filter(|t| t.id() == window) {
+            let mut open = true;
+            for request in tool.handle(cx, event)? {
+                match request {
+                    Request::Change(change) => {
+                        events.push(HostEvent::SubplotChange { window: id, change });
+                    }
+                    Request::Close => open = false,
+                }
+            }
+            if !open && let Some(tool) = shown.subplot_tool.take() {
+                tool.close(cx)?;
             }
             return Ok(());
         }
@@ -481,6 +507,40 @@ impl HostedWindow {
         let height = f64::from(cx.inner_size(window)?.height) / cx.scale_factor(window)?;
         shown.help_dialog = Some(HelpDialog::open_listing(cx, &self.figure, height, groups)?);
         Ok(())
+    }
+
+    /// Opens the subplot tool showing `layout`, with the switch to
+    /// constrained layout's values when `offer_constrained`, or shows
+    /// `layout` in it and raises it when it is open.
+    pub(super) fn open_subplot_tool(
+        &mut self,
+        cx: &mut Context<'_>,
+        layout: SubplotLayout,
+        offer_constrained: bool,
+    ) -> Result<(), GuiError> {
+        let shown = self.shown.as_mut().ok_or(GuiError::NotShown)?;
+        if let Some(tool) = &mut shown.subplot_tool {
+            tool.show(cx, layout, "")?;
+            tool.raise(cx)
+        } else {
+            let tool = SubplotDialog::open(cx, &self.figure, layout, offer_constrained)?;
+            shown.subplot_tool = Some(tool);
+            Ok(())
+        }
+    }
+
+    /// Shows `layout` in the subplot tool, if it is open, with `problem`
+    /// (see [`SubplotDialog::show`]).
+    pub(super) fn show_subplot_layout(
+        &mut self,
+        cx: &mut Context<'_>,
+        layout: SubplotLayout,
+        problem: &str,
+    ) -> Result<(), GuiError> {
+        match self.shown.as_mut().and_then(|s| s.subplot_tool.as_mut()) {
+            Some(tool) => tool.show(cx, layout, problem),
+            None => Ok(()),
+        }
     }
 
     /// Puts what the canvas shows on the clipboard as a PNG image

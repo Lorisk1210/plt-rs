@@ -7,15 +7,19 @@
 //! with matplotlib's own icons in matplotlib's [look](crate::look) —
 //! with a readout of the data coordinates under the pointer. Dragging pans
 //! or zooms as in matplotlib (see [`crate::navigation`]), the wheel zooms
-//! around the pointer, and the `keymap.*` rcParams bind the usual
+//! around the pointer with Control (or `x` or `y`) held, and the
+//! `keymap.*` rcParams bind the usual
 //! shortcuts (`h` home, `p` pan, `o` zoom, `g` grids, `l`/`k` log scales,
 //! `s` save, `f` full screen, `q` close, ...), and the mouse's back and
 //! forward buttons step through the views. The window resizes the
 //! figure with it and renders at the screen's scale factor. Saving opens a
-//! dialog to pick the directory, the file name and the format (PNG, JPEG,
-//! TIFF, GIF, WebP, SVG, PDF, PS, EPS or PGF); the figure options dialog
-//! edits the titles, limits, labels and scales of the axes, the style of their curves and the
-//! colormaps of their images.
+//! dialog to pick the directory, the file name and the format (every
+//! format matplotlib's Qt dialog offers, by its name there); the figure
+//! options dialog edits the titles, limits, labels and scales of the axes,
+//! the style of their curves and the colormaps and interpolation of their
+//! images; the subplot tool adjusts the subplot parameters as matplotlib's
+//! Qt tool does, and under constrained layout that layout's padding and
+//! spacing, or hands the subplots over to the parameters.
 //!
 //! Everything works from the keyboard too, following Qt and GTK. The
 //! canvas has the focus, as in matplotlib's Qt backend, and takes it back
@@ -75,6 +79,7 @@ pub use host::{
 pub use keys::format_shortcut;
 pub use pltrs_ui::Icon;
 pub use session::Session;
+pub use subplot_dialog::{ConstrainedSpacing, SubplotChange, SubplotLayout};
 pub use tools::{
     NAVIGATION_GROUP, ToolChange, ToolError, ToolEvent, ToolKind, ToolListenerId, ToolSpec,
 };

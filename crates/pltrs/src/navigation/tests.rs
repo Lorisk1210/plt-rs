@@ -191,3 +191,76 @@ fn removed_axes_keep_their_transforms() {
     let after = fig.resolve_transform_as_is(&ax.trans_axes()).unwrap();
     assert_eq!(before.affine_part(), after.affine_part());
 }
+
+#[test]
+fn the_wheel_zooms_with_a_key_held_as_in_matplotlib() {
+    // The limits and history lengths matplotlib 3.11's `scroll_handler`
+    // gives for the same wheel steps on a 640 × 480 figure.
+    let figure = Figure::with_size(6.4, 4.8, 100.0);
+    let ax = figure.subplot();
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
+    let mut navigation = Navigation::new();
+    let at = Point::new(200.0, 200.0);
+    let near = |(a, b): (f64, f64), (c, d): (f64, f64)| {
+        assert!((a - c).abs() < 1e-9 && (b - d).abs() < 1e-9, "{a}, {b}");
+    };
+    navigation.wheel(&figure, at, 1.0, DragKey::None);
+    assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 10.0), (0.0, 10.0)));
+    assert!(!navigation.can_go_back(), "nothing recorded");
+    navigation.wheel(&figure, at, 1.0, DragKey::Control);
+    near(ax.xlim(), (0.362_903_225_806_451_5, 8.862_903_225_806_452));
+    near(ax.ylim(), (0.597_402_597_402_597_4, 9.097_402_597_402_597));
+    navigation.wheel(&figure, at, -2.0, DragKey::X);
+    near(
+        ax.xlim(),
+        (-0.426_944_971_537_002_17, 11.337_760_910_815_941),
+    );
+    near(ax.ylim(), (0.597_402_597_402_597_4, 9.097_402_597_402_597));
+    navigation.wheel(&figure, at, 1.0, DragKey::Y);
+    near(ax.ylim(), (1.105_194_805_194_805, 8.330_194_805_194_804));
+    ax.set_yscale(crate::scale::ScaleName::Log)
+        .expect("a log scale");
+    ax.set_ylim(1.0, 1000.0).expect("finite limits");
+    navigation.wheel(&figure, Point::new(300.0, 300.0), 1.0, DragKey::Y);
+    let (bottom, top) = ax.ylim();
+    assert!((bottom - 1.999_742_266_660_545_3).abs() < 1e-9, "{bottom}");
+    assert!((top - 709.535_331_227_460_6).abs() < 1e-6, "{top}");
+    // Each zoom recorded the view before it: back shows the one before
+    // the last zoom.
+    navigation.back(&figure);
+    near(
+        ax.xlim(),
+        (-0.426_944_971_537_002_17, 11.337_760_910_815_941),
+    );
+}
+
+#[test]
+fn the_wheel_leaves_other_projections_alone() {
+    let figure = Figure::with_size(6.4, 4.8, 100.0);
+    let polar = figure
+        .subplot_with_projection(crate::axes::ProjectionKind::Polar)
+        .expect("polar axes");
+    let before = polar.ylim();
+    let mut navigation = Navigation::new();
+    navigation.wheel(&figure, Point::new(320.0, 240.0), 1.0, DragKey::Control);
+    assert_eq!(polar.ylim(), before);
+    assert!(!navigation.can_go_back());
+}
+
+#[test]
+fn mode_cursors_show_over_axes_that_navigate() {
+    let figure = Figure::with_size(6.4, 4.8, 100.0);
+    let ax = figure.subplot();
+    let mut navigation = Navigation::new();
+    let (inside, outside) = (Point::new(320.0, 240.0), Point::new(5.0, 5.0));
+    assert!(!navigation.shows_mode_cursor(&figure, inside), "no mode");
+    navigation
+        .toggle(&figure, NavMode::Pan)
+        .expect("no widget holds the lock");
+    assert!(navigation.shows_mode_cursor(&figure, inside));
+    assert!(!navigation.shows_mode_cursor(&figure, outside));
+    ax.set_navigate(false);
+    assert!(!navigation.shows_mode_cursor(&figure, inside));
+}

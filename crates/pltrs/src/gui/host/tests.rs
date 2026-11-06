@@ -351,3 +351,48 @@ fn windows_show_what_the_program_draws_on_the_canvas() {
     drain(&mut host);
     assert_ne!(handle.surface(id).expect("open").into_pixels(), blank);
 }
+
+#[test]
+fn the_subplot_tool_reports_changes_for_the_program_to_carry_out() {
+    use crate::gui::{SubplotChange, SubplotLayout};
+
+    let (mut host, handle, figure, window) = shown(&[]);
+    let layout = SubplotLayout::of(&figure);
+    host.open_subplot_tool(window, layout, false)
+        .expect("the tool opens");
+    let main = platform_window(&host, window);
+    let tools: Vec<WindowId> = handle
+        .windows()
+        .into_iter()
+        .filter(|&w| w != main)
+        .collect();
+    let [tool] = tools[..] else {
+        panic!("one tool window: {tools:?}");
+    };
+    // The top border's slider has the focus; Right steps it by 0.005.
+    key(&handle, tool, Key::Right);
+    let changes: Vec<SubplotChange> = drain(&mut host)
+        .into_iter()
+        .filter_map(|event| match event {
+            HostEvent::SubplotChange { window: w, change } if w == window => Some(change),
+            _ => None,
+        })
+        .collect();
+    let [SubplotChange::Adjust(params)] = changes[..] else {
+        panic!("one adjustment: {changes:?}");
+    };
+    assert_eq!(params.top, 0.885);
+    assert_eq!(
+        figure.subplot_params().top,
+        0.88,
+        "the program carries it out"
+    );
+    host.show_subplot_layout(window, SubplotLayout::Params(params), "")
+        .expect("the tool shows it");
+    // Opening it again raises it; closing the window closes it.
+    host.open_subplot_tool(window, SubplotLayout::Params(params), false)
+        .expect("the tool is raised");
+    assert_eq!(handle.windows().len(), 2);
+    host.close(window).expect("the window closes");
+    assert_eq!(handle.windows(), Vec::<WindowId>::new());
+}

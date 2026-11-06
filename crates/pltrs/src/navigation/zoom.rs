@@ -180,14 +180,34 @@ pub(super) fn zoom_to_rect(
     true
 }
 
-/// Zooms `axes` by `scale` (> 1 zooms in) around display point `at`
-/// (matplotlib's `_set_view_from_bbox((x, y, scale))`).
-pub(super) fn zoom_around(figure: &Figure, axes: &[Axes], at: Point, scale: f64) {
-    for (ax, change) in axes.iter().zip(changes(figure, axes, DragKey::None)) {
-        if let Some((corners, direction)) = box_around(ax, at, scale) {
-            set_view_from_bbox(ax, corners, Some((at, scale)), direction, change);
-        }
-    }
+/// Scales the view of the rectilinear `ax` by `scale` (< 1 zooms in)
+/// around display point `at`, along x and y as `(x, y)` says, in the
+/// axes' scaled coordinates, which are linear in display coordinates
+/// (matplotlib's `scroll_handler`); the other axis keeps its limits.
+pub(super) fn scroll(ax: &Axes, at: Point, scale: f64, (x, y): (bool, bool)) {
+    let Some((bbox, trans)) = geometry(ax) else {
+        return;
+    };
+    let Some(inverse) = trans.inverted() else {
+        return;
+    };
+    // The view's ends in display coordinates, scaled around the pointer.
+    let scaled = |start: f64, end: f64, focus: f64| {
+        (
+            focus - (focus - start) * scale,
+            focus + (end - focus) * scale,
+        )
+    };
+    let (x0, x1) = scaled(bbox.x0(), bbox.x1(), at.x);
+    let (y0, y1) = scaled(bbox.y0(), bbox.y1(), at.y);
+    let low = inverse.transform_point(Point::new(x0, y0));
+    let high = inverse.transform_point(Point::new(x1, y1));
+    let xlim = if x { (low.x, high.x) } else { ax.xlim() };
+    let ylim = if y { (low.y, high.y) } else { ax.ylim() };
+    // matplotlib sets both, turning autoscaling off; limits that are no
+    // longer finite leave the view as it was.
+    let _ = ax.set_xlim(xlim.0, xlim.1);
+    let _ = ax.set_ylim(ylim.0, ylim.1);
 }
 
 /// The box in display coordinates that zooming `ax` by `scale` around
@@ -547,12 +567,13 @@ mod tests {
         ax.set_xlim(0.0, 10.0)
             .and_then(|ax| ax.set_ylim(0.0, 10.0))
             .expect("finite limits");
-        zoom_around(&fig, std::slice::from_ref(&ax), display(&ax, 0.0, 0.0), 2.0);
+        scroll(&ax, display(&ax, 0.0, 0.0), 0.5, (true, false));
         let (x0, x1) = ax.xlim();
         assert!(
             x0.abs() < 1e-9 && (x1 - 5.0).abs() < 1e-9,
             "the focus stays put"
         );
+        assert_eq!(ax.ylim(), (0.0, 10.0), "y keeps its limits");
     }
 
     #[test]

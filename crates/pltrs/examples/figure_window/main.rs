@@ -20,9 +20,12 @@
 //! (with the pointer's coordinates) and zooming (with a rubber band); the
 //! figure options on each tab, with the axes list open, on a datetime
 //! axis (in UTC and in the `timezone` rcParam's Tokyo), and with a problem
-//! in a field shown, on another tab and on other axes; the subplot tool; the save dialog, in a deep directory full of
-//! files, without a file name and replacing a file; and the help, at the
-//! top and scrolled to its end. Each is
+//! in a field shown, on another tab and on other axes; the subplot tool,
+//! and after its first control moved (under constrained layout, its
+//! switch to the subplot parameters), with the figure then; the save
+//! dialog, in a deep directory full of files, without a file name and
+//! replacing a file; and the help, at the top and scrolled to its end.
+//! Each is
 //! drawn at pixel ratios 1 and 2, in the modern light and dark looks and
 //! in matplotlib's. The dialogs open from the toolbar and the keyboard,
 //! as a user would open them, and synthetic input drives them.

@@ -95,14 +95,6 @@ impl<M: Clone + 'static> Dialog<M> {
         (Self { footer }, status)
     }
 
-    /// A dialog whose footer shows `note` on its left, in the quieter
-    /// secondary tone (the dialog is made wide enough for it).
-    pub(super) fn with_note(note: &str) -> Self {
-        let mut footer = Self::footer_row();
-        footer.push(Label::new(note).with_tone(Tone::Secondary), 1.0);
-        Self { footer }
-    }
-
     /// A dialog whose footer only holds buttons.
     pub(super) fn without_status() -> Self {
         let mut footer = Self::footer_row();

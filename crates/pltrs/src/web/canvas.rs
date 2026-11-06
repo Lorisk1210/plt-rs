@@ -239,8 +239,9 @@ impl WebCanvas {
         self.frames.force_full();
         self.told.history = None;
         self.sync_history();
-        // The page keeps the wheel for zooming, which navigation does.
-        self.push(ServerEvent::CaptureScroll(true));
+        // The wheel zooms only with a key held, as in matplotlib: the
+        // page scrolls with it otherwise.
+        self.push(ServerEvent::CaptureScroll(false));
         self.push(ServerEvent::NavigateMode(self.navigation.mode()));
         self.told.cursor = None;
         self.told.message.clear();
@@ -398,7 +399,8 @@ impl WebCanvas {
             }
             MouseKind::Scroll => {
                 self.events.scroll(&figure, at.x, at.y, input.step);
-                self.navigation.wheel(&figure, at, input.wheel);
+                self.navigation
+                    .wheel(&figure, at, input.wheel, self.drag_key(input));
                 self.sync_history();
             }
             MouseKind::Enter => self.events.figure_enter(&figure, at.x, at.y),

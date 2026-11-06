@@ -11,7 +11,7 @@ use pltrs_ui::{
 };
 
 use super::window::Message;
-use crate::gui::window::{button_row, push_status};
+use crate::gui::window::{button_row, one_line, push_status};
 use crate::gui::{GuiError, icons, tool_icons};
 use crate::image::RgbaImage;
 use crate::look::ChromeLook;
@@ -161,7 +161,7 @@ impl Toolbar {
         cx: &mut Context<'_>,
     ) -> Result<(), GuiError> {
         if let Some(shown) = self.shown {
-            let text = self.message.clone();
+            let text = one_line(&self.message);
             window.update(cx, shown.status, |label: &mut Label| label.set_text(text))?;
         }
         Ok(())

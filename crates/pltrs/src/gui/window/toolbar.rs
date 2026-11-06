@@ -38,6 +38,13 @@ pub(in crate::gui) fn button_row<M: 'static>() -> Flex<M> {
         .with_spacing(BUTTON_GAP)
 }
 
+/// `text` on the one line of a status line: the lines of a message of
+/// several (the data under the pointer below its coordinates, as
+/// matplotlib's `_mouse_event_to_message` gives them) side by side.
+pub(in crate::gui) fn one_line(text: &str) -> String {
+    text.lines().collect::<Vec<_>>().join("   ")
+}
+
 /// Appends the status line to the toolbar `row`, taking the space the
 /// buttons leave, and returns the id of its label.
 pub(in crate::gui) fn push_status<M: 'static>(row: &mut Flex<M>) -> WidgetId {
@@ -250,7 +257,9 @@ impl Toolbar {
         cx: &mut Context<'_>,
         text: String,
     ) -> Result<(), GuiError> {
-        window.update(cx, self.status, |label: &mut Label| label.set_text(text))?;
+        window.update(cx, self.status, |label: &mut Label| {
+            label.set_text(one_line(&text));
+        })?;
         Ok(())
     }
 
@@ -296,5 +305,15 @@ mod tests {
             let matplotlib = tool.builtin_icon(ChromeLook::Matplotlib);
             assert!(matches!(matplotlib, ToolIcon::Picture(_)), "{tool:?}");
         }
+    }
+
+    #[test]
+    fn messages_of_several_lines_take_one() {
+        assert_eq!(
+            one_line("(x, y) = (1.41, 1.47)\n[5.00]"),
+            "(x, y) = (1.41, 1.47)   [5.00]"
+        );
+        assert_eq!(one_line("x=1"), "x=1");
+        assert_eq!(one_line(""), "");
     }
 }

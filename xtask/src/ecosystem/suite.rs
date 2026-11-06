@@ -157,6 +157,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             dir,
             python_path,
             targets: &targets,
+            environment: &[],
         }
         .outcomes()?;
         merged.merge(run, &ran_files);

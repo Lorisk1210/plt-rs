@@ -9,14 +9,17 @@
 //! family, size, style and weight, anchored where and as matplotlib
 //! anchors it. Mathtext is passed through for LaTeX to typeset.
 //!
-//! matplotlib measures text with LaTeX while laying the figure out; pltrs
-//! measures it with its own (Agg) text engine, so text positions follow
-//! the bundled fonts' metrics.
+//! The writer places text where the figure's layout put it: matplotlib
+//! measures text with LaTeX while laying the figure out, which pltrs does
+//! when a save asks for it (the `pltrs` crate's `PgfTextMetrics`), and
+//! otherwise with its own text engine, text positions then following the
+//! metrics of the fonts it finds. Images go beside the document as PNG
+//! files with their rows from the top, as matplotlib writes them.
 
 mod path;
 mod text;
 
-pub use text::pgf_text;
+pub use text::{pgf_text, pgf_unknown_family};
 
 use std::fmt::Write as _;
 
@@ -92,6 +95,7 @@ pub struct PgfRenderer {
     options: PgfOptions,
     body: String,
     images: Vec<ImageFile>,
+    ignored_fonts: Vec<String>,
     problems: Problems,
 }
 
@@ -115,6 +119,7 @@ impl PgfRenderer {
             options,
             body: String::new(),
             images: Vec::new(),
+            ignored_fonts: Vec::new(),
             problems: Problems::default(),
         })
     }
@@ -127,6 +132,14 @@ impl PgfRenderer {
             std::mem::take(&mut self.body),
             std::mem::take(&mut self.images),
         )
+    }
+
+    /// The families no font has that the texts drawn since the picture
+    /// began or the last call asked for, one per text in drawing order,
+    /// which leaves none: those matplotlib's `draw_text` logs as "Ignoring
+    /// unknown font" (see [`pgf_unknown_family`]).
+    pub fn take_ignored_fonts(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.ignored_fonts)
     }
 
     /// The document (matplotlib's `_print_pgf_to_fh`).

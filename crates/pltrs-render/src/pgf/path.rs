@@ -17,7 +17,7 @@ use super::{PgfRenderer, latex_points, num};
 use crate::gc::{CapStyle, GraphicsContext, Hatch, JoinStyle};
 use crate::image::RgbaImage;
 use crate::svg::ImageFile;
-use crate::vector::{VectorError, flipped_rows, segment_starts};
+use crate::vector::{VectorError, segment_starts};
 
 /// TeX's largest dimension, in points.
 const MAX_DIMENSION: f64 = 16383.0;
@@ -202,18 +202,18 @@ impl PgfRenderer {
             return;
         }
         let Some(stem) = self.options.image_stem.clone() else {
-            self.problems.record::<()>(Err(VectorError::Unsupported(
-                "streamed pgf-code does not support raster graphics: save to a file",
-            )));
+            self.problems.record::<()>(Err(VectorError::StreamedImage));
             return;
         };
-        let rows = flipped_rows(image);
+        // The PNG file holds the rows from the top, as the image does
+        // (matplotlib's `Image.fromarray(im[::-1])` of its rows from the
+        // bottom).
         let encoded = u32::try_from(width)
             .ok()
             .zip(u32::try_from(height).ok())
             .ok_or(VectorError::Unsupported("image too large for PNG"))
             .and_then(|(w, h)| {
-                ImageRef::rgba8(w, h, &rows)
+                ImageRef::rgba8(w, h, image.data())
                     .and_then(png::encode)
                     .map_err(VectorError::Image)
             });
@@ -463,6 +463,32 @@ mod tests {
     use super::*;
     use crate::pgf::PgfOptions;
     use crate::renderer::Renderer;
+
+    #[test]
+    fn images_are_written_from_their_top_row() {
+        let options = PgfOptions {
+            image_stem: Some("figure".to_owned()),
+            ..PgfOptions::default()
+        };
+        let mut renderer = PgfRenderer::new(1.0, 1.0, 72.0, options).unwrap();
+        let red_over_blue = RgbaImage::new(1, 2, vec![255, 0, 0, 255, 0, 0, 255, 255]).unwrap();
+        renderer.draw_image(
+            &GraphicsContext::default(),
+            Point::new(0.0, 0.0),
+            &red_over_blue,
+            None,
+        );
+        let document = renderer.finish().unwrap();
+        assert_eq!(document.images.len(), 1);
+        assert_eq!(document.images[0].name, "figure-img0.png");
+        let png = png::decode(&document.images[0].png).unwrap();
+        assert_eq!(png.to_rgba8(), [255, 0, 0, 255, 0, 0, 255, 255]);
+        assert!(
+            document.text.contains("{figure-img0.png}"),
+            "{}",
+            document.text
+        );
+    }
 
     /// The hatch tiles of `path` in a one-inch picture at 72 dpi.
     fn hatch_tiles(path: &Path) -> usize {

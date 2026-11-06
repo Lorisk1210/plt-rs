@@ -76,7 +76,9 @@ pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub use metrics::clear_text_caches;
-pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
+pub(crate) use metrics::{
+    hinting, with_afm_metrics, with_line_measure, with_text_path_metrics, without_hinting,
+};
 pub(crate) use metrics_cache::installed as metrics_cache_installed;
 pub use metrics_cache::{METRICS_CACHE_SIZE, MetricsCache, MetricsCacheInfo, set_metrics_cache};
 pub(crate) use overrides::has_line_measurer;

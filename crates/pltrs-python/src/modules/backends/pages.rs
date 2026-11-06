@@ -99,6 +99,9 @@ fn page_draw(page: Native<Page>, drawing: Native<Drawing>) -> PyResult<Written> 
         }
         Page::Pgf(pgf) => {
             drawn(drawing.draw_onto(pgf))?;
+            for family in pgf.take_ignored_fonts() {
+                pltrs::figure::log_unknown_font(&family);
+            }
             let (text, images) = pgf.take_body();
             let images = images
                 .into_iter()

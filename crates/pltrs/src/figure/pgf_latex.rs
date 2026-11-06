@@ -16,7 +16,7 @@ use super::{Executable, Figure, ProgramError, Workspace, pgf_preamble};
 
 /// The class of the documents PGF pictures are typeset in (matplotlib's
 /// `_DOCUMENTCLASS`).
-const DOCUMENTCLASS: &str = r"\documentclass{article}";
+pub(super) const DOCUMENTCLASS: &str = r"\documentclass{article}";
 
 /// The `pdfinfo` option of `hyperref` that gives a PDF `metadata`
 /// (matplotlib's `_metadata_to_str` of each entry of its info dict):

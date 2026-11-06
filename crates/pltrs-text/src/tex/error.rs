@@ -106,6 +106,30 @@ pub enum TexError {
         /// The font file.
         path: String,
     },
+    /// The TeX system measuring PGF text could not be started
+    /// (`LatexManager`'s `RuntimeError`s).
+    Unstartable {
+        /// The program (`pgf.texsystem`).
+        program: String,
+        /// Whether it is not installed (else it failed to start).
+        missing: bool,
+    },
+    /// The TeX system measuring PGF text stopped on the preamble
+    /// (`LatexManager`'s `LatexError`).
+    Preamble {
+        /// The document header it was given.
+        header: String,
+        /// What it printed.
+        output: String,
+    },
+    /// The TeX system measuring PGF text could not typeset a text
+    /// (`LatexManager`'s `ValueError`).
+    Measuring {
+        /// The TeX source of the text.
+        tex: String,
+        /// What it printed.
+        output: String,
+    },
 }
 
 impl TexError {
@@ -147,6 +171,25 @@ fn unicode_escape_repr(text: &str) -> String {
         }
     }
     bytes_repr(&escaped)
+}
+
+/// Python's `repr(str)` of a string without control characters: quoted
+/// in single quotes, or in double quotes when it holds a single one.
+fn python_repr(text: &str) -> String {
+    let quote = if text.contains('\'') && !text.contains('"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut out = String::from(quote);
+    for c in text.chars() {
+        if c == '\\' || c == quote {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out.push(quote);
+    out
 }
 
 /// Python's `repr(bytes)`.
@@ -217,6 +260,33 @@ impl fmt::Display for TexError {
             Self::PkFont { path } => {
                 write!(f, "{path} is a PK bitmap font, which cannot be drawn")
             }
+            Self::Unstartable {
+                program,
+                missing: true,
+            } => write!(
+                f,
+                "{} not found; install it or change rcParams['pgf.texsystem'] to an \
+                 available TeX implementation",
+                python_repr(program)
+            ),
+            Self::Unstartable {
+                program,
+                missing: false,
+            } => write!(f, "Error starting {}", python_repr(program)),
+            Self::Preamble { header, output } => {
+                write!(
+                    f,
+                    "LaTeX errored (probably missing font or error in preamble) while \
+                     processing the following input:\n{header}"
+                )?;
+                if !output.is_empty() {
+                    write!(f, "\n{output}")?;
+                }
+                Ok(())
+            }
+            Self::Measuring { tex, output } => {
+                write!(f, "Error measuring {tex}\nLaTeX Output:\n{output}")
+            }
         }
     }
 }
@@ -262,5 +332,40 @@ mod tests {
             program: "dvipng".into(),
         };
         assert_eq!(not_installed.to_string(), "usetex mode requires dvipng.");
+    }
+
+    #[test]
+    fn pgf_measuring_errors_read_as_matplotlib_raises_them() {
+        let missing = TexError::Unstartable {
+            program: "xelatex".into(),
+            missing: true,
+        };
+        assert_eq!(
+            missing.to_string(),
+            "'xelatex' not found; install it or change rcParams['pgf.texsystem'] to an \
+             available TeX implementation"
+        );
+        let failed = TexError::Unstartable {
+            program: "it's".into(),
+            missing: false,
+        };
+        assert_eq!(failed.to_string(), r#"Error starting "it's""#);
+        let preamble = TexError::Preamble {
+            header: r"\documentclass{article}".into(),
+            output: String::new(),
+        };
+        assert_eq!(
+            preamble.to_string(),
+            "LaTeX errored (probably missing font or error in preamble) while processing \
+             the following input:\n\\documentclass{article}"
+        );
+        let measuring = TexError::Measuring {
+            tex: r"{\oops}".into(),
+            output: "! Undefined control sequence.".into(),
+        };
+        assert_eq!(
+            measuring.to_string(),
+            "Error measuring {\\oops}\nLaTeX Output:\n! Undefined control sequence."
+        );
     }
 }

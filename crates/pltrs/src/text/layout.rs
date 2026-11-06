@@ -324,9 +324,31 @@ pub(super) fn measure_uncached(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<LineMetrics, TextError> {
-    let run = super::metrics::measured(typeset(line, font, dpi, rc)?, dpi)?;
-    font_notes::note_measured(line, font, &run)?;
+    let run = measured_line(typeset(line, font, dpi, rc)?, line, font, dpi, true)?;
     Ok(metrics(&run))
+}
+
+/// `run`, `line` laid out in `font` at `dpi`, with the extent the
+/// thread's measuring mode reports: measured by the backend's program in
+/// its mode (see [`with_line_measure`](super::with_line_measure)), else
+/// by the text engine, which, when `noting`, notes what measuring the
+/// line notes in matplotlib.
+fn measured_line(
+    run: TextRun,
+    line: &Line<'_>,
+    font: &FontProperties,
+    dpi: f64,
+    noting: bool,
+) -> Result<TextRun, TextError> {
+    if let Some(measure) = super::metrics::line_measure() {
+        let (text, _) = measured_as(line);
+        return Ok(with_metrics(run, measure(text, font, dpi)?));
+    }
+    let run = super::metrics::measured(run, dpi)?;
+    if noting {
+        font_notes::note_measured(line, font, &run)?;
+    }
+    Ok(run)
 }
 
 /// Lays out one (non-empty) line, measured by the thread's
@@ -351,10 +373,7 @@ fn line_run(
     let mut slot = Some(run);
     let metrics = metrics_cache::cached(text, font, kind, dpi, || {
         let run = slot.take().expect("measured at most once");
-        let run = super::metrics::measured(run, dpi)?;
-        if measuring {
-            font_notes::note_measured(line, font, &run)?;
-        }
+        let run = measured_line(run, line, font, dpi, measuring)?;
         let measured = metrics(&run);
         slot = Some(run);
         Ok(measured)

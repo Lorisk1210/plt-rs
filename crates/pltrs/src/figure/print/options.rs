@@ -6,7 +6,7 @@ use pltrs_core::Bbox;
 use pltrs_render::{Metadata, PageOrientation, Paper};
 
 use crate::colors::Color;
-use crate::figure::SaveFormat;
+use crate::figure::{PgfTextMetrics, SaveFormat};
 
 /// Which part of the figure is saved (matplotlib's `bbox_inches`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -75,4 +75,7 @@ pub struct SaveOptions {
     /// The page of a PostScript document (`ps.papersize`; Encapsulated
     /// PostScript is sized to the figure).
     pub papertype: Option<Paper>,
+    /// How the text of a PGF picture is measured: by pltrs' text engine
+    /// (the default), or by LaTeX as matplotlib's PGF backend measures it.
+    pub pgf_text_metrics: PgfTextMetrics,
 }

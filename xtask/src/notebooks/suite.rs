@@ -288,6 +288,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             dir,
             python_path,
             targets: &targets,
+            environment: &[],
         }
         .outcomes_with_workers(library.workers, &variables)?;
         merged.merge(run, &ran_files);

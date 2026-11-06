@@ -1729,14 +1729,22 @@ cargo xtask mpl-suite --imports          # every missing import of each test fil
 * **Environment.** pytest-xdist with 8 workers, pytest-timeout at 600 s a
   test, `MPLCONFIGDIR` under the mode's directory (and no
   `PLTRSCONFIGDIR`, so that pltrs reads `MPLCONFIGDIR`), matplotlib's pytest
-  options (`--import-mode=importlib`). The committed outcomes were
-  recorded with TinyTeX on `PATH`
-  (`export PATH="$HOME/.TinyTeX/bin/x86_64-linux:$PATH"`), which runs the
-  usetex tests: run both modes the same way. Ghostscript is installed in
-  `~/.local/gs/bin` (put it on `PATH` too): `testing.compare` converts PDF
-  and EPS files to PNG with it, as matplotlib's does, so those image
-  comparisons run in both modes; there is no Inkscape, so SVG comparisons
-  skip with matplotlib's message.
+  options (`--import-mode=importlib`), and no font list cache from an
+  earlier run (matplotlib would not notice new fonts). The committed
+  outcomes were recorded with TinyTeX, Ghostscript and Inkscape on `PATH`:
+  run both modes the same way. TinyTeX runs the usetex and PGF tests;
+  `testing.compare` converts PDF and EPS files to PNG with Ghostscript
+  (`~/.local/gs/bin`) and SVG files with Inkscape, as matplotlib's does,
+  so those image comparisons run in both modes. Inkscape, the fonts the
+  tests ask for by name (WenQuanYi Zen Hei, FreeMono, Noto Sans, Noto
+  Sans CJK) and the TeX packages TinyTeX lacks (pgf, koma-script and those
+  of single tests) come from `python/tools/suite-tools.sh install`, into
+  `~/.local/mpl-suite` where nothing else looks. The runner hands both
+  modes the variables of `~/.local/mpl-suite/environment`
+  (`XDG_DATA_HOME` for the fonts, which matplotlib, fontconfig and pltrs
+  read alike, and `TEXMFHOME`, `TEXMFVAR`, `TEXMFCONFIG` for the TeX
+  tree), and says which tools a run lacks: without them those tests skip
+  in both modes, with matplotlib's messages.
 * **Outcomes.** `spec/mpl-suite/<mode>.json` holds the counts, the
   collection errors (file and reason) and every test id's outcome
   (`passed`, `failed`, `error`, `skipped`, `xfailed`, `xpassed`), one per

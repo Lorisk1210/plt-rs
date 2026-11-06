@@ -20,7 +20,14 @@
 //! (`python/mpl_suite/import_gaps.py`), where a collection error names
 //! only the first. The sdist comes from `MPL_SDIST`, by default
 //! `target/refs/matplotlib-dl/matplotlib-3.11.2`.
+//!
+//! The GUI backends' tests run on Linux with a display (`DISPLAY`'s, or
+//! an Xvfb the runner starts for the run) and the toolkits of
+//! `python/tools/toolkits.sh` once installed (see [`gui`]); the runner
+//! says which of them it lacks, whose tests then skip.
 
+mod display;
+mod gui;
 pub(crate) mod outcomes;
 pub(crate) mod prepare;
 pub(crate) mod pytest;
@@ -30,6 +37,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
+use gui::Gui;
 use outcomes::Outcomes;
 use pytest::CONFIG_DIR_VARIABLE;
 
@@ -134,15 +142,21 @@ fn run_suite(options: &Options) -> Result<(), String> {
     let files = prepare::test_files(&site)?;
     let (targets, ran_files) = select(&files, &options.patterns)?;
 
+    let dir = suite.join(options.mode.name());
+    let gui = Gui::prepare(&python, &dir);
+    let mut python_path = vec![site.clone()];
+    python_path.extend_from_slice(gui.python_path());
     let run = pytest::Run {
         suite: "matplotlib's suite",
         python: &python,
         site: &site,
-        dir: &suite.join(options.mode.name()),
-        python_path: vec![site.clone()],
+        dir: &dir,
+        python_path,
         targets: &targets,
     }
-    .outcomes()?;
+    .outcomes_with(gui.variables())?;
+    // Stops the run's own display, if it started one.
+    drop(gui);
     let path = options.mode.outcome_file();
     let details = options.mode.details_file(&suite);
     let mut merged = Outcomes::load(&path, &details)?;
@@ -185,6 +199,11 @@ fn select(files: &[String], patterns: &[String]) -> Result<(Vec<String>, Vec<Str
 /// the test files `files`, and the files they cover: the test files whose
 /// path contains a pattern, the test ids of the patterns naming one
 /// (`...py::test_x`), and without patterns `everything` and all `files`.
+///
+/// The arguments are in the order of the whole suite (pytest's, by path),
+/// whatever the patterns' order, so that tests of one run meet in its
+/// workers as they do in a run of the whole suite: a Qt test leaves its
+/// application behind in its worker, where a GTK test then skips.
 pub(crate) fn select_from(
     files: &[String],
     patterns: &[String],
@@ -211,5 +230,26 @@ pub(crate) fn select_from(
             }
         }
     }
+    targets.sort();
     Ok((targets, covered))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selections_keep_the_suites_order() {
+        let files = ["a/test_gtk3.py", "a/test_qt.py", "b/test_x.py"].map(str::to_owned);
+        let patterns = ["test_qt", "b/test_x.py::test_y", "gtk3"].map(str::to_owned);
+        let (targets, covered) = select_from(&files, &patterns, Vec::new()).expect("selected");
+        assert_eq!(
+            targets,
+            ["a/test_gtk3.py", "a/test_qt.py", "b/test_x.py::test_y"]
+        );
+        assert_eq!(covered, ["a/test_qt.py", "a/test_gtk3.py"]);
+        let (all, every_file) = select_from(&files, &[], vec!["a".to_owned()]).expect("all");
+        assert_eq!((all, every_file), (vec!["a".to_owned()], files.to_vec()));
+        assert!(select_from(&files, &["nothing".to_owned()], Vec::new()).is_err());
+    }
 }

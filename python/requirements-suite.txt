@@ -1,0 +1,30 @@
+# What `cargo xtask python setup` installs into both venvs of matplotlib's
+# suite (`.venv`, the reference, and `.venv-pltrs`), beside each one's own
+# list: the packages matplotlib's tests skip without, so that both runs
+# reach the same tests. matplotlib's `test` and `test-extra` dependency
+# groups name tornado and pandas; its CI adds the Qt bindings.
+#
+# pandas (the dates', units' and plotting tests), as the ecosystem pins it:
+pandas==3.1.0
+tzdata==2026.6
+# tornado (`test_backend_webagg.py`): 6.5, as matplotlib 3.11's tests
+# expect it. 6.6's `WebSocketHandler.check_origin` reads the application's
+# `trusted_origins` instead of comparing the origin with the `Host` header,
+# so matplotlib's `test_websocket_rejects_cross_origin` fails under it.
+tornado==6.5.10
+# The Qt bindings (`test_backend_qt.py`, the qtagg and qtcairo runs of
+# `test_backends_interactive.py`). Their xcb platform plugin needs X
+# libraries that `python/tools/toolkits.sh install` provides where the
+# system lacks them. PySide6-Essentials is the part of PySide6 holding
+# QtCore, QtGui and QtWidgets, all that matplotlib imports (the rest,
+# PySide6-Addons with Qt WebEngine, is several hundred MB more). PySide2
+# has no wheel for CPython 3.14: its last, 5.15.2.1, is tagged for 3.5 to
+# 3.10 and crashes on importing QtCore under 3.14, so it is left out.
+PyQt6==6.12.0
+PyQt6-Qt6==6.12.0
+PyQt6-sip==13.13.0
+PySide6-Essentials==6.12.0
+shiboken6==6.12.0
+PyQt5==5.15.11
+PyQt5-Qt5==5.15.19
+PyQt5-sip==12.20.0

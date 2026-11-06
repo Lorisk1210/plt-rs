@@ -69,9 +69,11 @@ python/
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
   ecosystem/                    `cargo xtask ecosystem`: pandas and seaborn on pltrs
                                 (and `fetch.py`, which downloads their sdists)
-  tools/toolkits.sh             GTK 3 and 4, PyGObject, pycairo, wxPython without root
+  tools/toolkits.sh             GTK 3 and 4, PyGObject, pycairo, cairocffi, wxPython and
+                                Qt's X libraries without root
   requirements-pltrs.txt        the pltrs venv (pinned)
   requirements-reference.txt    what the reference venv gets on top
+  requirements-suite.txt        what both get for the suite (pandas, tornado, Qt bindings)
   requirements-ecosystem.txt    the ecosystem venvs (pandas, seaborn, scipy, pytest)
   requirements-ecosystem-reference.txt  what the ecosystem's reference venv adds (matplotlib)
 pyproject.toml                  `pip install .`: the backend and the distributions
@@ -255,7 +257,7 @@ the bytes one thread renders, `rc_context` and warnings across threads, a
 seeded run of threads using pltrs at once with Python switching as often
 as it can), `test_backend_pltrs.py::test_interactive_thread_safety`, and
 matplotlib's own `test_interactive_thread_safety` (Qt, Tk, GTK, wx), which
-the suite skips here for lack of a display and toolkits.
+the suite runs with the toolkits and a display (see "Running the suite").
 
 ## The Python package
 
@@ -1295,16 +1297,22 @@ backend: the framework already running, else pltrs' own windows
   the buffer of `copy_from_bbox`'s region (`BufferRegion.__buffer__`).
   Without the toolkit they raise matplotlib's `ImportError` (the Qt
   backends after its binding selection, `qt_compat`). pltrs has no Cairo:
-  the `*cairo` backends draw with the raster too, so their widgets show
-  the pixels the `*agg` ones show (matplotlib's own Cairo variants differ
-  from its Agg ones by their text and antialiasing).
+  the `*cairo` backends draw with the raster too, but in Cairo's graphics
+  state, as matplotlib's Cairo renderer draws (`backends/_cairo_canvas.py`,
+  the mixin of every Cairo canvas: `_native.backends.drawing_like_cairo`
+  runs their draws and prints in `pltrs::artist::GraphicsState::Cairo`,
+  where lines an artist sets no join for are mitred, as on a Cairo
+  context, rather than rounded); otherwise their widgets show the pixels
+  the `*agg` ones show (matplotlib's own Cairo variants also differ from
+  its Agg ones by their text and antialiasing).
 * **Cairo** (`backends/backend_cairo.py`) is matplotlib's module, which
   needs pycairo or cairocffi as matplotlib's does: `RendererCairo` and
   `GraphicsContextCairo` draw onto a Cairo context of the program's (a
   figure drawn with one goes through their methods, see "Drawing defined
   in Python"), while the `cairo` backend's canvas, `FigureCanvasCairo`,
-  is the Agg canvas, printing PDF, PostScript and SVG with pltrs (Rust)'s
-  writers at 72 dpi as matplotlib's Cairo surfaces are.
+  is the Agg canvas in Cairo's graphics state, printing PDF, PostScript
+  and SVG with pltrs (Rust)'s writers at 72 dpi as matplotlib's Cairo
+  surfaces are.
 * **WebAgg** (`backend_webagg.py`) runs pltrs (Rust)'s web server
   (`_native.web`, a `pltrs::web::WebRelay`) instead of Tornado: it serves
   matplotlib's pages and files and hands the WebSockets' messages and the
@@ -1676,31 +1684,38 @@ cargo xtask mpl-suite --imports          # every missing import of each test fil
   reference skips that pltrs does not (they must skip the same way); then
   the blockers: each reason with the reference-passing tests it holds
   back, the most first, and the files it holds back most.
-* **GUI toolkits.** Without a display the suite skips the GUI backends'
-  tests (`test_backends_interactive.py`, `test_backend_gtk3.py`, `test_backend_tk.py`,
-  ...), and without pycairo the Cairo backend's. Tk needs only tkinter;
-  GTK 3 and 4 with PyGObject and pycairo, and wxPython, come from
-  `python/tools/toolkits.sh install`, which unpacks Debian's packages
-  into `~/.local/gtk` and builds the bindings there for the venvs'
-  Python, without root. `toolkits.sh run COMMAND` runs a command with
-  them (library, typelib and data paths, the bindings on `PYTHONPATH`,
-  which the runner keeps behind its own entries), so with an X server
-  (`Xvfb :117 -screen 0 1280x800x24 -nolisten tcp &`):
-
-  ```sh
-  export DISPLAY=:117
-  python/tools/toolkits.sh run cargo xtask mpl-suite --reference \
-      test_backend_gtk3 test_backends_interactive test_getattr test_backend_cairo
-  python/tools/toolkits.sh run cargo xtask mpl-suite \
-      test_backend_gtk3 test_backends_interactive test_getattr test_backend_cairo
-  python/tools/toolkits.sh run cargo xtask python test
-  ```
-
-  runs those tests in both modes, and the smoke tests of the real
-  toolkits (`python/tests/test_backend_gtk_wx.py`). The committed
-  outcomes are recorded without toolkits or display: put
-  `spec/mpl-suite/*.json` back (`git checkout spec/mpl-suite`) after such
-  a run.
+* **GUI toolkits.** The GUI backends' tests (`test_backend_qt.py`,
+  `test_backend_tk.py`, `test_backend_gtk3.py`,
+  `test_backend_webagg.py`, `test_backends_interactive.py`, ...) need a
+  display, the toolkits and their bindings, and the tests of dates,
+  units and plotting need pandas. pandas, tornado and the Qt bindings
+  (PyQt6, PySide6's essentials, PyQt5; PySide2 has no wheel for CPython
+  3.14) are pinned in `python/requirements-suite.txt`, which `cargo
+  xtask python setup` installs into both venvs. GTK 3 and 4 with
+  PyGObject and pycairo, cairocffi, wxPython and the X libraries of Qt's
+  xcb plugin come from `python/tools/toolkits.sh install`, which unpacks
+  Debian's packages into `~/.local/gtk` and builds the bindings there
+  for the venvs' Python, without root. On Linux the runner then gives
+  both modes the same: the toolkits' variables (`toolkits.sh env`:
+  library, typelib and data paths; their site goes on `PYTHONPATH`
+  behind the runner's own entries) and a display, `$DISPLAY`'s or an
+  Xvfb of its own on a free display number (`-noreset`, so that the
+  workers' display checks are never refused while it resets), stopped by
+  its process id when the run ends, with `$WAYLAND_DISPLAY` removed, and
+  `LC_ALL=C.UTF-8` (the toolkits set the process's locale from the
+  environment, which would otherwise make the outcome of
+  `test_use_locale` depend on whether its worker ran a Qt or GTK test
+  before, and on the host's locale). Qt then picks its xcb plugin itself
+  (`QT_QPA_PLATFORM` stays unset); where the plugin lacks a library the
+  runner runs Qt offscreen and says so. It prints what it has and what
+  it lacks: the tests of what is missing skip, and the report counts
+  them as not passing. The committed outcomes are recorded with all of
+  them. A run of some files puts them in the whole suite's order
+  whatever the patterns' (a Qt test leaves its application in its
+  worker, where a later GTK test skips). `toolkits.sh run COMMAND` runs
+  any other command with the toolkits, such as `cargo xtask python
+  test`, whose smoke tests of the real toolkits
+  (`python/tests/test_backend_gtk_wx.py`) need them and a display.
 * **Collection errors hide the next gap.** A test file that fails to
   import shows only its first missing import; `--imports` lists all of
   them, per file and in total, weighted by the reference-passing tests of

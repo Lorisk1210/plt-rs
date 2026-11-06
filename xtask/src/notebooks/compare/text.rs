@@ -1,12 +1,9 @@
 //! Text as the comparison reads it: what differs from one run to the next
 //! whatever the library (object addresses, random ids, the files the
 //! kernel compiles cells into, the venv's directory of packages) is
-//! replaced, and so is what pltrs is by design: its module names, which
-//! the `matplotlib` distribution of pltrs makes aliases of matplotlib's
-//! (`matplotlib.lines` is `pltrs.lines`, so a repr names
-//! `pltrs.lines.Line2D` where matplotlib's names `matplotlib.lines.Line2D`),
-//! and its own backend, `pltrs` (its windows), which lists of the valid
-//! backends name besides matplotlib's.
+//! replaced, and so is what pltrs has by design: its own backend, `pltrs`
+//! (its windows), which lists of the valid backends name besides
+//! matplotlib's.
 
 /// The random ids one record's text uses (comm ids, widget models, the
 /// ids of output areas and animations), numbered in the order they first
@@ -27,13 +24,6 @@ impl Names {
         self.ids.len() - 1
     }
 }
-
-/// pltrs' module prefixes and matplotlib's names of them, the longest
-/// first.
-const MODULES: [(&str, &str); 2] = [
-    ("pltrs.mpl_toolkits.", "mpl_toolkits."),
-    ("pltrs.", "matplotlib."),
-];
 
 /// pltrs' own backend as a list of backends names it.
 const PLTRS_BACKEND: [&str; 2] = ["'pltrs', ", ", 'pltrs'"];
@@ -93,13 +83,10 @@ fn replaced(text: &str) -> Option<(String, usize)> {
     if let Some(length) = site_packages_length(text) {
         return Some(("<site-packages>".to_owned(), length));
     }
-    if let Some(entry) = PLTRS_BACKEND.iter().find(|entry| text.starts_with(**entry)) {
-        return Some((String::new(), entry.len()));
-    }
-    MODULES.iter().find_map(|(module, name)| {
-        text.starts_with(module)
-            .then(|| ((*name).to_owned(), module.len()))
-    })
+    PLTRS_BACKEND
+        .iter()
+        .find(|entry| text.starts_with(**entry))
+        .map(|entry| (String::new(), entry.len()))
 }
 
 /// Whether `c` is a lowercase hex digit.
@@ -220,16 +207,14 @@ mod tests {
     }
 
     #[test]
-    fn pltrs_modules_read_as_matplotlib() {
-        assert_eq!(
-            normal("<pltrs.lines.Line2D at 0x1f> pltrs.mpl_toolkits.mplot3d"),
-            "<matplotlib.lines.Line2D at 0x…> mpl_toolkits.mplot3d"
-        );
-        assert_eq!(normal("mypltrs.x"), "mypltrs.x");
+    fn pltrs_backend_is_left_out_of_lists() {
         assert_eq!(
             normal("['pgf', 'pltrs', 'ps'] ['svg', 'pltrs']"),
             "['pgf', 'ps'] ['svg']"
         );
-        assert_eq!(normal("Grüße pltrs."), "Grüße matplotlib.");
+        assert_eq!(
+            normal("<pltrs.lines.Line2D at 0x1f>"),
+            "<pltrs.lines.Line2D at 0x…>"
+        );
     }
 }

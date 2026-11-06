@@ -2,30 +2,27 @@
 signatures, docstrings and names, for ``docs.py``; and of the public names
 of matplotlib's modules.
 
-    python docs_dump.py --impl matplotlib|pltrs API_JSONL OUT_JSON
-                        --names OUT_NAMES [--names-of MPL_NAMES]
+    python docs_dump.py API_JSONL OUT_JSON --names OUT_NAMES [--names-of MPL_NAMES]
 
 ``API_JSONL`` holds ``spec/api-audit/enumerate.py``'s records (taken under
 matplotlib). Each callable among them (``api_index.CALLABLE_KINDS``) is
-looked up in the implementation, pltrs's names read as matplotlib's
-(``matplotlib.x`` is ``pltrs.x``, ``mpl_toolkits.x`` is
-``pltrs.mpl_toolkits.x``), and described:
+looked up in the implementation that ``import matplotlib`` gives (pltrs
+through its alias, ``python/alias``, so that its names are those programs
+importing matplotlib read), and described:
 
 * ``found``: whether the implementation has it;
 * ``form``: what its owner holds (``function``, ``class``, ``property``,
   ``staticmethod``, ``classmethod``, ``native`` for a function or class of
   a C or pybind11 extension, or the type of another callable object);
 * ``signature``: ``inspect.signature``'s parameters, each ``[name, kind,
-  default]`` (the default's repr, pltrs's names read as matplotlib's and
-  memory addresses left out; None without one), or None where Python
-  cannot read one; a property's accessors instead (``getter``,
-  ``setter``, ``deleter``);
+  default]`` (the default's repr, memory addresses left out; None
+  without one), or None where Python cannot read one; a property's
+  accessors instead (``getter``, ``setter``, ``deleter``);
 * ``doc``: ``__doc__`` as importing left it (after matplotlib's
   interpolation); for a class, also its ``__init__``'s (``init_doc``);
   where it is None, ``inherited_doc`` (``init_inherited_doc``) is the
-  docstring ``inspect.getdoc`` finds on a base class instead; pltrs's
-  names in them read as matplotlib's too;
-* ``name``: ``__module__`` and ``__qualname__``, read as matplotlib's.
+  docstring ``inspect.getdoc`` finds on a base class instead;
+* ``name``: ``__module__`` and ``__qualname__``.
 
 A class member is looked up along its class' MRO, as a program reads it,
 so that a member inherited from a base or a mixin counts as the class';
@@ -41,8 +38,7 @@ modules imports them. A module's public names are those ``dir`` lists
 without a leading underscore, and its ``__all__``. Each name is described
 by its value's type (``type(value).__name__``) and, for a module, the
 module's name, for a value of its own repr that is hashable (a number, a
-string, an enum member, dateutil's weekdays, a tuple of them), its repr;
-both read as matplotlib's.
+string, an enum member, dateutil's weekdays, a tuple of them), its repr.
 """
 
 from __future__ import annotations
@@ -62,24 +58,9 @@ from typing import Any
 
 #: The kinds of ``enumerate.py``'s records that are callables.
 CALLABLE_KINDS = ("function", "class", "method", "property", "classmethod", "staticmethod")
-#: How pltrs's names read as matplotlib's, the longest first.
-NAME_PREFIXES = {
-    "matplotlib": [],
-    "pltrs": [("pltrs.mpl_toolkits", "mpl_toolkits"), ("pltrs.pylab", "pylab"), ("pltrs", "matplotlib")],
-}
-#: How matplotlib's module names read in each implementation.
-IMPORT_PREFIXES = {
-    "matplotlib": [],
-    "pltrs": [("mpl_toolkits", "pltrs.mpl_toolkits"), ("matplotlib", "pltrs")],
-}
-#: The top-level modules of matplotlib's distribution that each
-#: implementation has under another name.
-TOP_LEVEL = {"matplotlib": {}, "pltrs": {"pylab": "pltrs.pylab"}}
 #: Callable objects of extension modules (C, pybind11).
 NATIVE_TYPES = (types.BuiltinFunctionType, types.WrapperDescriptorType, types.MethodDescriptorType,
                 types.ClassMethodDescriptorType, types.MethodWrapperType)
-#: The docstrings a description holds.
-DOC_FIELDS = ("doc", "inherited_doc", "init_doc", "init_inherited_doc")
 #: The forms of ``_form`` other than callable objects of another type.
 STANDARD_FORMS = ("staticmethod", "classmethod", "property", "native", "class", "function")
 ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
@@ -89,35 +70,17 @@ NAME_ROOTS = ("matplotlib", "mpl_toolkits", "pylab")
 LONGEST_REPR = 200
 
 
-def _renamer(prefixes: list[tuple[str, str]]) -> Any:
-    """A function renaming the dotted names in a text by ``prefixes``."""
-    if not prefixes:
-        return lambda text: text
-    pattern = re.compile(r"\b(" + "|".join(re.escape(old) for old, _ in prefixes) + r")\b")
-    table = dict(prefixes)
-    return lambda text: pattern.sub(lambda m: table[m.group(1)], text)
-
-
 class Implementation:
-    """matplotlib or pltrs, imported, with its names read as matplotlib's."""
+    """The modules of the implementation ``import matplotlib`` gives."""
 
-    def __init__(self, impl: str) -> None:
-        self.impl = impl
-        self.as_matplotlib = _renamer(NAME_PREFIXES[impl])
-        self._import_name = _renamer(IMPORT_PREFIXES[impl])
-        self._top_level = TOP_LEVEL[impl]
-        # A module's name read as matplotlib's: pltrs's ``pylab`` is also
-        # matplotlib's ``matplotlib.pylab``, which a package attribute is.
-        self.module_as_matplotlib = _renamer(
-            [rule for rule in NAME_PREFIXES[impl] if rule[0] != "pltrs.pylab"])
+    def __init__(self) -> None:
         self._modules: dict[str, types.ModuleType | None] = {}
 
     def module(self, name: str) -> types.ModuleType | None:
         """matplotlib's module ``name`` in the implementation, if it has it."""
         if name not in self._modules:
             try:
-                self._modules[name] = importlib.import_module(
-                    self._top_level.get(name) or self._import_name(name))
+                self._modules[name] = importlib.import_module(name)
             except ImportError:
                 self._modules[name] = None
         return self._modules[name]
@@ -177,7 +140,7 @@ class Describer:
             text = repr(value)
         except Exception as err:  # noqa: BLE001 - a broken repr is described, not raised
             text = f"<repr raised {type(err).__name__}>"
-        return ADDRESS.sub("", self.implementation.as_matplotlib(text))
+        return ADDRESS.sub("", text)
 
     def signature(self, obj: Any) -> list[list[Any]] | None:
         """The parameters of ``obj``, None where Python cannot read them."""
@@ -191,11 +154,11 @@ class Describer:
                 for p in signature.parameters.values()]
 
     def name(self, obj: Any) -> list[str] | None:
-        """``__module__`` and ``__qualname__``, read as matplotlib's."""
+        """``__module__`` and ``__qualname__``."""
         module, qualname = getattr(obj, "__module__", None), getattr(obj, "__qualname__", None)
         if not isinstance(module, str) or not isinstance(qualname, str):
             return None
-        return [self.implementation.as_matplotlib(module), qualname]
+        return [module, qualname]
 
     def describe(self, raw: Any) -> dict[str, Any]:
         """What ``raw``, as its owner holds it, shows."""
@@ -325,7 +288,7 @@ class NameDescriber:
         """What a value is compared by beside its type: a module's name,
         else its repr for a hashable value with a repr of its own."""
         if isinstance(obj, types.ModuleType):
-            return self.implementation.module_as_matplotlib(obj.__name__)
+            return obj.__name__
         if inspect.isclass(obj) or inspect.isroutine(obj) or type(obj).__repr__ is object.__repr__:
             return None
         try:
@@ -335,7 +298,7 @@ class NameDescriber:
             return None
         if ADDRESS.search(text) or len(text) > LONGEST_REPR:
             return None
-        return self.implementation.as_matplotlib(text)
+        return text
 
     def describe(self, module_name: str, names: list[str]) -> dict[str, Any] | None:
         """The names *names* of the module *module_name*, None without the
@@ -407,7 +370,6 @@ def lookup(implementation: Implementation, record: dict[str, Any],
 def main() -> int:
     """Describe every callable of the records and write them."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--impl", choices=sorted(NAME_PREFIXES), required=True)
     parser.add_argument("api")
     parser.add_argument("out")
     parser.add_argument("--names", required=True)
@@ -417,7 +379,7 @@ def main() -> int:
     warnings.simplefilter("ignore")
     records = [json.loads(line) for line in pathlib.Path(args.api).read_text().splitlines() if line.strip()]
     private_users = {r["name"]: (r["module"], r["bases"][0]) for r in records if r["kind"] == "private_base"}
-    implementation = Implementation(args.impl)
+    implementation = Implementation()
     describer = Describer(implementation)
     described = {}
     for record in records:
@@ -426,9 +388,6 @@ def main() -> int:
         key = f"{record['module']}:{record['owner'] + '.' if record['owner'] else ''}{record['name']}"
         found, raw = lookup(implementation, record, private_users)
         described[key] = describer.describe(raw) if found else {"found": False}
-        for field in DOC_FIELDS:
-            if isinstance(described[key].get(field), str):
-                described[key][field] = implementation.as_matplotlib(described[key][field])
         described[key]["kind"] = record["kind"]
     pathlib.Path(args.out).write_text(json.dumps(described, indent=0))
     of = json.loads(pathlib.Path(args.names_of).read_text()) if args.names_of else None

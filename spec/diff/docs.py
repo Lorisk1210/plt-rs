@@ -10,10 +10,11 @@ building pltrs (Python)'s extension). It
    classes as ``spec/api-audit/enumerate.py`` takes them; functions,
    classes, methods and properties);
 2. describes each under matplotlib and under pltrs (``docs_dump.py``, in
-   each venv, pltrs's names read as matplotlib's): its signature (the
-   parameters' names, kinds, defaults by repr and order; a property's
-   accessors), its docstring after matplotlib's interpolation (a class'
-   and its constructor's), and its ``__module__`` and ``__qualname__``;
+   each venv, pltrs through its alias, as programs importing matplotlib
+   get it): its signature (the parameters' names, kinds, defaults by repr
+   and order; a property's accessors), its docstring after matplotlib's
+   interpolation (a class' and its constructor's), and its ``__module__``
+   and ``__qualname__``;
 3. compares the public names of matplotlib's modules, constants and
    re-exports included (``docs_names.py``);
 4. writes ``OUT/docs.md``: the share matching overall and per module,
@@ -33,6 +34,7 @@ import argparse
 import difflib
 import inspect
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -57,9 +59,13 @@ def _dump(setup: driver.Setup, impl: str, api: pathlib.Path) -> tuple[dict[str, 
     out, names = (setup.out / "docs" / f"{impl}{suffix}.json" for suffix in ("", ".names"))
     python = setup.mpl_python if impl == "matplotlib" else setup.pltrs_python
     of = [] if impl == "matplotlib" else ["--names-of", str(setup.out / "docs" / "matplotlib.names.json")]
-    done = subprocess.run([python, str(HERE / "docs_dump.py"), "--impl", impl, str(api), str(out),
+    env = setup.environment(impl)
+    if impl == "pltrs":
+        # pltrs as programs importing matplotlib get it: through its alias.
+        env["PYTHONPATH"] = os.pathsep.join([str(setup.root / "python" / "alias"), env["PYTHONPATH"]])
+    done = subprocess.run([python, str(HERE / "docs_dump.py"), str(api), str(out),
                            "--names", str(names), *of],
-                          env=setup.environment(impl), capture_output=True, text=True)
+                          env=env, capture_output=True, text=True)
     if done.returncode != 0:
         raise SystemExit(f"describing the callables under {impl} failed:\n{done.stderr[-5000:]}")
     return json.loads(out.read_text()), json.loads(names.read_text())
@@ -231,7 +237,7 @@ class Comparison:
             "Written by `cargo xtask diff --docs` (`spec/diff/docs.py`). Signatures compare the parameters' "
             "names, kinds, defaults (by repr) and order (a property's accessors); docstrings are compared as "
             "importing leaves them, after matplotlib's interpolation (a class' with its constructor's); "
-            "names are `__module__` and `__qualname__`, pltrs's read as matplotlib's.",
+            "names are `__module__` and `__qualname__`, with pltrs imported as matplotlib (through `python/alias`).",
             "",
             f"* Callables: {len(self.outcomes)}, {len(self.missing)} of them missing in pltrs",
             f"* Signatures matching: {self.share(python, 'signature')}",

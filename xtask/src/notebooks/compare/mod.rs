@@ -362,9 +362,7 @@ mod tests {
         let draw = r#"{"comm_id": "0123456789abcdef0123456789abcdef",
             "data": {"method": "custom", "content": {"data": "{\"type\": \"draw\"}"}}}"#;
         let a = record(vec![cell("plot", outputs, vec![message("comm_msg", draw)])]);
-        let pltrs_outputs = outputs
-            .replace("matplotlib.lines", "pltrs.lines")
-            .replace("7f00", "55aa");
+        let pltrs_outputs = outputs.replace("7f00", "55aa");
         let b = record(vec![cell(
             "plot",
             &pltrs_outputs,

@@ -306,8 +306,8 @@ mod tests {
         assert!(compare(&a, &swapped).is_err());
         assert_eq!(
             compare(
-                r#""<pltrs.lines.Line2D at 0x1>""#,
-                r#""<pltrs.lines.Line3D at 0x1>""#
+                r#""<matplotlib.lines.Line2D at 0x1>""#,
+                r#""<matplotlib.lines.Line3D at 0x1>""#
             ),
             Err(
                 r#""atplotlib.lines.Line3D at 0x…>", not "atplotlib.lines.Line2D at 0x…>""#

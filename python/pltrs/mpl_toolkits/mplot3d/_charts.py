@@ -54,31 +54,75 @@ class ChartsMixin:
         ----------
         x, y, z : float or array-like
             The data positions.
+
         xerr, yerr, zerr : float or array-like, shape (N,) or (2, N), optional
-            The errorbar sizes.
+            The errorbar sizes:
+
+            - scalar: Symmetric +/- values for all data points.
+            - shape(N,): Symmetric +/-values for each data point.
+            - shape(2, N): Separate - and + values for each bar. First row
+              contains the lower errors, the second row contains the upper
+              errors.
+            - *None*: No errorbar.
+
+            Note that all error arrays should have *positive* values.
+
         fmt : str, default: ''
             The format for the data points / data lines. See `.plot` for
             details.
+
+            Use 'none' (case-insensitive) to plot errorbars without any data
+            markers.
+
         ecolor : :mpltype:`color`, optional
-            The color of the errorbar lines.
+            The color of the errorbar lines. If not given, use the color of the
+            line connecting the markers.
+
         elinewidth : float, optional
-            The linewidth of the errorbar lines.
+            The linewidth of the errorbar lines. If not given, the linewidth of
+            the current style is used.
+
         capsize : float, default: :rc:`errorbar.capsize`
             The length of the error bar caps in points.
+
         capthick : float, default: None
-            The thickness of the error bar caps in points.
+            An alias to the keyword argument *markeredgewidth* (a.k.a. *mew*).
+            This setting is a more sensible name for the property that
+            controls the thickness of the error bar cap in points. For
+            backwards compatibility, if *mew* or *markeredgewidth* are given,
+            then they will over-ride *capthick*. This may change in future
+            releases.
+
         barsabove : bool, default: False
-            If True, will plot the errorbars above the plot symbols.
+            If True, will plot the errorbars above the plot
+            symbols. Default is below.
+
         xlolims, ylolims, zlolims : bool, default: False
-            Whether each value gives only a lower limit.
+            These arguments can be used to indicate that a value gives only
+            lower limits. In that case a caret symbol is used to indicate
+            this. *lims*-arguments may be scalars, or array-likes of the same
+            length as the errors. To use limits with inverted axes,
+            `~.set_xlim`, `~.set_ylim`, or `~.set_zlim` must be
+            called before `errorbar`. Note the tricky parameter names: setting
+            e.g. *ylolims* to True means that the y-value is a *lower* limit of
+            the True value, so, only an *upward*-pointing arrow will be drawn!
+
         xuplims, yuplims, zuplims : bool, default: False
-            Whether each value gives only an upper limit.
+            Same as above, but for controlling the upper limits.
+
         errorevery : int or (int, int), default: 1
-            Draws error bars on a subset of the data.
+            draws error bars on a subset of the data. *errorevery* =N draws
+            error bars on the points (x[::N], y[::N], z[::N]).
+            *errorevery* =(start, N) draws error bars on the points
+            (x[start::N], y[start::N], z[start::N]). e.g. *errorevery* =(6, 3)
+            adds error bars to the data at (x[6], x[9], x[12], x[15], ...).
+            Used to avoid overlapping error bars when two series share x-axis
+            values.
+
         axlim_clip : bool, default: False
             Whether to hide error bars that are outside the axes limits.
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
+
+            .. versionadded:: 3.10
 
         Returns
         -------
@@ -91,6 +135,19 @@ class ChartsMixin:
         limmarks : list
             List of `~mpl_toolkits.mplot3d.art3d.Line3D` instances each
             containing a marker with an upper or lower limit.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            All other keyword arguments for styling errorbar lines are passed
+            `~mpl_toolkits.mplot3d.art3d.Line3DCollection`.
+
+        Examples
+        --------
+        .. plot:: gallery/mplot3d/errorbar3d.py
         """
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         # Drop anything that comes in as None to use the default instead.
@@ -133,22 +190,50 @@ class ChartsMixin:
         Parameters
         ----------
         x, y, z : array-like
-            The positions of the heads of the stems.
+            The positions of the heads of the stems. The stems are drawn along
+            the *orientation*-direction from the baseline at *bottom* (in the
+            *orientation*-coordinate) to the heads. By default, the *x* and *y*
+            positions are used for the baseline and *z* for the head position,
+            but this can be changed by *orientation*.
+
         linefmt : str, default: 'C0-'
-            A string defining the color and/or linestyle of the vertical lines.
+            A string defining the properties of the vertical lines. Usually,
+            this will be a color or a color and a linestyle:
+
+            =========  =============
+            Character  Line Style
+            =========  =============
+            ``'-'``    solid line
+            ``'--'``   dashed line
+            ``'-.'``   dash-dot line
+            ``':'``    dotted line
+            =========  =============
+
+            Note: While it is technically possible to specify valid formats
+            other than color or color and linestyle (e.g. 'rx' or '-.'), this
+            is beyond the intention of the method and will most likely not
+            result in a reasonable plot.
+
         markerfmt : str, default: 'C0o'
-            A string defining the color and/or shape of the markers at the stem
-            heads.
+            A string defining the properties of the markers at the stem heads.
+
         basefmt : str, default: 'C3-'
             A format string defining the properties of the baseline.
+
         bottom : float, default: 0
             The position of the baseline, in *orientation*-coordinates.
+
         label : str, optional
             The label to use for the stems in legends.
+
         orientation : {'x', 'y', 'z'}, default: 'z'
             The direction along which stems are drawn.
+
         axlim_clip : bool, default: False
             Whether to hide stems that are outside the axes limits.
+
+            .. versionadded:: 3.10
+
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
 
@@ -157,6 +242,10 @@ class ChartsMixin:
         `.StemContainer`
             The container may be treated like a tuple
             (*markerline*, *stemlines*, *baseline*)
+
+        Examples
+        --------
+        .. plot:: gallery/mplot3d/stem3d_demo.py
         """
         _api.check_in_list(['x', 'y', 'z'], orientation=orientation)
         markerline, stemlines, baseline = _mplot3d.stem(
@@ -191,6 +280,8 @@ class ChartsMixin:
             When plotting 2D data, the direction to use as z ('x', 'y' or 'z').
         axlim_clip : bool, default: False
             Whether to hide bars with points outside the axes view limits.
+
+            .. versionadded:: 3.10
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         **kwargs
@@ -237,20 +328,45 @@ class ChartsMixin:
         ----------
         x1, y1, z1 : float or 1D array-like
             x, y, and z  coordinates of vertices for 1st line.
+
         x2, y2, z2 : float or 1D array-like
             x, y, and z coordinates of vertices for 2nd line.
+
         where : array of bool (length N), optional
-            Define *where* to exclude some regions from being filled.
+            Define *where* to exclude some regions from being filled. The
+            filled regions are defined by the coordinates ``pts[where]``,
+            for all x, y, and z pts. More precisely, fill between ``pts[i]``
+            and ``pts[i+1]`` if ``where[i] and where[i+1]``. Note that this
+            definition implies that an isolated *True* value between two
+            *False* values in *where* will not result in filling. Both sides of
+            the *True* position remain unfilled due to the adjacent *False*
+            values.
+
         mode : {'quad', 'polygon', 'auto'}, default: 'auto'
-            The fill mode.
+            The fill mode. One of:
+
+            - 'quad':  A separate quadrilateral polygon is created for each
+              pair of subsequent points in the two lines.
+            - 'polygon': The two lines are connected to form a single polygon.
+              This is faster and can render more cleanly for simple shapes
+              (e.g. for filling between two lines that lie within a plane).
+            - 'auto': If the points all lie on the same 3D plane, 'polygon' is
+              used. Otherwise, 'quad' is used.
+
         facecolors : :mpltype:`color` or list of :mpltype:`color`, optional
             Colors of each individual patch, or a single color to be used for
-            all patches.
+            all patches. If not given, the next color from the patch color
+            cycle is used.
+
         shade : bool, default: None
             Whether to shade the facecolors. If *None*, then defaults to *True*
             for 'quad' mode and *False* for 'polygon' mode.
+
         axlim_clip : bool, default: False
             Whether to hide data that is outside the axes view limits.
+
+            .. versionadded:: 3.10
+
         **kwargs
             All other keyword arguments are passed on to `.Poly3DCollection`.
 
@@ -258,6 +374,7 @@ class ChartsMixin:
         -------
         `.Poly3DCollection`
             A `.Poly3DCollection` containing the plotted polygons.
+
         """
         _api.check_in_list(['auto', 'quad', 'polygon'], mode=mode)
         x1, y1, z1, x2, y2, z2 = cbook._broadcast_with_masks(x1, y1, z1, x2, y2, z2)

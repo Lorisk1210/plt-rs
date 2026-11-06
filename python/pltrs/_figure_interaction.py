@@ -54,9 +54,6 @@ class InteractionMixin:
         Axes on a Figure, check whether ``figure.axes`` is empty.  To test
         whether there is currently a Figure on the pyplot figure stack, check
         whether `.pyplot.get_fignums()` is empty.)
-
-        A subfigure shares the current Axes of its root figure, as in
-        matplotlib.
         """
         from .axes import Axes
         root = self.get_figure(root=True)

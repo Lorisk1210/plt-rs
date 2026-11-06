@@ -11,7 +11,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from . import _docstring
 from . import _handles, cbook
+from . import patches  # noqa: F401  (whose Patch the docstrings list)
 from ._native import sankey as _sankey
 
 _log = logging.getLogger(__name__)
@@ -37,6 +39,7 @@ class Sankey:
       quantity.  They are typically used to visualize energy or
       material or cost transfers between processes.
       `Wikipedia (6/1/2011) <https://en.wikipedia.org/wiki/Sankey_diagram>`_
+
     """
 
     def __init__(self, ax=None, scale=1.0, unit='', format='%G', gap=0.25,
@@ -74,13 +77,21 @@ class Sankey:
             Axes onto which the data should be plotted.  If *ax* isn't
             provided, new Axes will be created.
         scale : float
-            Scaling factor for the flows.
+            Scaling factor for the flows.  *scale* sizes the width of the paths
+            in order to maintain proper layout.  The same scale is applied to
+            all subdiagrams.  The value should be chosen such that the product
+            of the scale and the sum of the inputs is approximately 1.0 (and
+            the product of the scale and the sum of the outputs is
+            approximately -1.0).
         unit : str
             The physical unit associated with the flow quantities.  If *unit*
             is None, then none of the quantities are labeled.
         format : str or callable
             A Python number formatting string or callable used to label the
-            flows with their quantities.
+            flows with their quantities (i.e., a number times a unit, where the
+            unit is given). If a format string is given, the label will be
+            ``format % quantity``. If a callable is given, it will be called
+            with ``quantity`` as an argument.
         gap : float
             Space between paths that break in/break away to/from the top or
             bottom.
@@ -103,6 +114,15 @@ class Sankey:
         **kwargs
             Any additional keyword arguments will be passed to `add`, which
             will create the first subdiagram.
+
+        See Also
+        --------
+        Sankey.add
+        Sankey.finish
+
+        Examples
+        --------
+        .. plot:: gallery/specialty_plots/sankey_basics.py
         """
         # Check the arguments.
         if gap < 0:
@@ -150,6 +170,7 @@ class Sankey:
         if len(kwargs):
             self.add(**kwargs)
 
+    @_docstring.interpd
     def add(self, patchlabel='', flows=None, orientations=None, labels='',
             trunklength=1.0, pathlengths=0.25, prior=None, connect=(0, 0),
             rotation=0, **kwargs):
@@ -160,29 +181,62 @@ class Sankey:
         ----------
         patchlabel : str
             Label to be placed at the center of the diagram.
+            Note that *label* (not *patchlabel*) can be passed as keyword
+            argument to create an entry in the legend.
+
         flows : list of float
             Array of flow values.  By convention, inputs are positive and
             outputs are negative.
+
+            Flows are placed along the top of the diagram from the inside out
+            in order of their index within *flows*.  They are placed along the
+            sides of the diagram from the top down and along the bottom from
+            the outside in.
+
+            If the sum of the inputs and outputs is
+            nonzero, the discrepancy will appear as a cubic Bézier curve along
+            the top and bottom edges of the trunk.
+
         orientations : list of {-1, 0, 1}
             List of orientations of the flows (or a single orientation to be
-            used for all flows).
+            used for all flows).  Valid values are 0 (inputs from
+            the left, outputs to the right), 1 (from and to the top) or -1
+            (from and to the bottom).
+
         labels : list of (str or None)
             List of labels for the flows (or a single label to be used for all
-            flows).
+            flows).  Each label may be *None* (no label), or a labeling string.
+            If an entry is a (possibly empty) string, then the quantity for the
+            corresponding flow will be shown below the string.  However, if
+            the *unit* of the main diagram is None, then quantities are never
+            shown, regardless of the value of this argument.
+
         trunklength : float
             Length between the bases of the input and output groups (in
             data-space units).
+
         pathlengths : list of float
             List of lengths of the vertical arrows before break-in or after
-            break-away.
+            break-away.  If a single value is given, then it will be applied to
+            the first (inside) paths on the top and bottom, and the length of
+            all other arrows will be justified accordingly.  The *pathlengths*
+            are not applied to the horizontal inputs and outputs.
+
         prior : int
             Index of the prior diagram to which this diagram should be
             connected.
+
         connect : (int, int)
             A (prior, this) tuple indexing the flow of the prior diagram and
-            the flow of this diagram which should be connected.
+            the flow of this diagram which should be connected.  If this is the
+            first diagram or *prior* is *None*, *connect* will be ignored.
+
         rotation : float
-            Angle of rotation of the diagram in degrees.
+            Angle of rotation of the diagram in degrees.  The interpretation of
+            the *orientations* argument will be rotated accordingly (e.g., if
+            *rotation* == 90, an *orientations* entry of 1 means to/from the
+            left).  *rotation* is ignored if this diagram is connected to an
+            existing one (using *prior* and *connect*).
 
         Returns
         -------
@@ -193,7 +247,14 @@ class Sankey:
         ----------------
         **kwargs
            Additional keyword arguments set `matplotlib.patches.PathPatch`
-           properties.
+           properties, listed below.  For example, one may want to use
+           ``fill=False`` or ``label="A legend entry"``.
+
+        %(Patch:kwdoc)s
+
+        See Also
+        --------
+        Sankey.finish
         """
         from .patches import PathPatch
         from .text import Text

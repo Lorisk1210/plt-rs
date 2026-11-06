@@ -39,6 +39,7 @@ from numbers import Number
 
 import numpy as np
 
+from . import _docstring
 from . import _api, cbook
 from ._native import mlab as _mlab
 
@@ -78,11 +79,18 @@ def detrend(x, key=None, axis=None):
     key : {'default', 'constant', 'mean', 'linear', 'none'} or function
         The detrending algorithm to use. 'default', 'mean', and 'constant' are
         the same as `detrend_mean`. 'linear' is the same as `detrend_linear`.
-        'none' is the same as `detrend_none`. The default is 'mean'. Can
+        'none' is the same as `detrend_none`. The default is 'mean'. See the
+        corresponding functions for more details regarding the algorithms. Can
         also be a function that carries out the detrend operation.
 
     axis : int
         The axis along which to do the detrending.
+
+    See Also
+    --------
+    detrend_mean : Implementation of the 'mean' algorithm.
+    detrend_linear : Implementation of the 'linear' algorithm.
+    detrend_none : Implementation of the 'none' algorithm.
     """
     name = _detrend_name(key)
     if name == "none":
@@ -119,6 +127,12 @@ def detrend_mean(x, axis=None):
     axis : int
         The axis along which to take the mean.  See `numpy.mean` for a
         description of this argument.
+
+    See Also
+    --------
+    detrend_linear : Another detrend algorithm.
+    detrend_none : Another detrend algorithm.
+    detrend : A wrapper around all the detrend algorithms.
     """
     return _detrend(x, "mean", axis)
 
@@ -135,6 +149,12 @@ def detrend_none(x, axis=None):
     axis : int
         This parameter is ignored.
         It is included for compatibility with detrend_mean
+
+    See Also
+    --------
+    detrend_mean : Another detrend algorithm.
+    detrend_linear : Another detrend algorithm.
+    detrend : A wrapper around all the detrend algorithms.
     """
     return x
 
@@ -147,6 +167,12 @@ def detrend_linear(y):
     ----------
     y : 0-D or 1-D array or sequence
         Array or sequence containing the data
+
+    See Also
+    --------
+    detrend_mean : Another detrend algorithm.
+    detrend_none : Another detrend algorithm.
+    detrend : A wrapper around all the detrend algorithms.
     """
     if np.ndim(y) > 1:
         raise ValueError('y cannot have ndim > 1')
@@ -287,6 +313,65 @@ def _single_spectrum_helper(
     return spec, freqs
 
 
+_docstring.interpd.register(
+    Spectral="""\
+Fs : float, default: 2
+    The sampling frequency (samples per time unit).  It is used to calculate
+    the Fourier frequencies, *freqs*, in cycles per time unit.
+
+window : callable or ndarray, default: `.window_hanning`
+    A function or a vector of length *NFFT*.  To create window vectors see
+    `.window_hanning`, `.window_none`, `numpy.blackman`, `numpy.hamming`,
+    `numpy.bartlett`, `scipy.signal`, `scipy.signal.get_window`, etc.  If a
+    function is passed as the argument, it must take a data segment as an
+    argument and return the windowed version of the segment.
+
+sides : {'default', 'onesided', 'twosided'}, optional
+    Which sides of the spectrum to return. 'default' is one-sided for real
+    data and two-sided for complex data. 'onesided' forces the return of a
+    one-sided spectrum, while 'twosided' forces two-sided.""",
+
+    Single_Spectrum="""\
+pad_to : int, optional
+    The number of points to which the data segment is padded when performing
+    the FFT.  While not increasing the actual resolution of the spectrum (the
+    minimum distance between resolvable peaks), this can give more points in
+    the plot, allowing for more detail. This corresponds to the *n* parameter
+    in the call to `~numpy.fft.fft`.  The default is None, which sets *pad_to*
+    equal to the length of the input signal (i.e. no padding).""",
+
+    PSD="""\
+pad_to : int, optional
+    The number of points to which the data segment is padded when performing
+    the FFT.  This can be different from *NFFT*, which specifies the number
+    of data points used.  While not increasing the actual resolution of the
+    spectrum (the minimum distance between resolvable peaks), this can give
+    more points in the plot, allowing for more detail. This corresponds to
+    the *n* parameter in the call to `~numpy.fft.fft`. The default is None,
+    which sets *pad_to* equal to *NFFT*
+
+NFFT : int, default: 256
+    The number of data points used in each block for the FFT.  A power 2 is
+    most efficient.  This should *NOT* be used to get zero padding, or the
+    scaling of the result will be incorrect; use *pad_to* for this instead.
+
+detrend : {'none', 'mean', 'linear'} or callable, default: 'none'
+    The function applied to each segment before fft-ing, designed to remove
+    the mean or linear trend.  Unlike in MATLAB, where the *detrend* parameter
+    is a vector, in Matplotlib it is a function.  The :mod:`~matplotlib.mlab`
+    module defines `.detrend_none`, `.detrend_mean`, and `.detrend_linear`,
+    but you can use a custom function as well.  You can also use a string to
+    choose one of the functions: 'none' calls `.detrend_none`. 'mean' calls
+    `.detrend_mean`. 'linear' calls `.detrend_linear`.
+
+scale_by_freq : bool, default: True
+    Whether the resulting density values should be scaled by the scaling
+    frequency, which gives density in units of 1/Hz.  This allows for
+    integration over the returned frequency values.  The default is True for
+    MATLAB compatibility.""")
+
+
+@_docstring.interpd
 def psd(x, NFFT=None, Fs=None, detrend=None, window=None,
         noverlap=None, pad_to=None, sides=None, scale_by_freq=None):
     r"""
@@ -301,6 +386,18 @@ def psd(x, NFFT=None, Fs=None, detrend=None, window=None,
 
     If len(*x*) < *NFFT*, it will be zero padded to *NFFT*.
 
+    Parameters
+    ----------
+    x : 1-D array or sequence
+        Array or sequence containing the data
+
+    %(Spectral)s
+
+    %(PSD)s
+
+    noverlap : int, default: 0 (no overlap)
+        The number of points of overlap between segments.
+
     Returns
     -------
     Pxx : 1-D array
@@ -308,6 +405,21 @@ def psd(x, NFFT=None, Fs=None, detrend=None, window=None,
 
     freqs : 1-D array
         The frequencies corresponding to the elements in *Pxx*
+
+    References
+    ----------
+    Bendat & Piersol -- Random Data: Analysis and Measurement Procedures, John
+    Wiley & Sons (1986)
+
+    See Also
+    --------
+    specgram
+        `specgram` differs in the default overlap; in not returning the mean of
+        the segment periodograms; and in returning the times of the segments.
+
+    magnitude_spectrum : returns the magnitude spectrum.
+
+    csd : returns the spectral density between two signals.
     """
     Pxx, freqs = csd(x=x, y=None, NFFT=NFFT, Fs=Fs, detrend=detrend,
                      window=window, noverlap=noverlap, pad_to=pad_to,
@@ -315,6 +427,7 @@ def psd(x, NFFT=None, Fs=None, detrend=None, window=None,
     return Pxx.real, freqs
 
 
+@_docstring.interpd
 def csd(x, y, NFFT=None, Fs=None, detrend=None, window=None,
         noverlap=None, pad_to=None, sides=None, scale_by_freq=None):
     """
@@ -332,6 +445,18 @@ def csd(x, y, NFFT=None, Fs=None, detrend=None, window=None,
     If len(*x*) < *NFFT* or len(*y*) < *NFFT*, they will be zero
     padded to *NFFT*.
 
+    Parameters
+    ----------
+    x, y : 1-D arrays or sequences
+        Arrays or sequences containing the data
+
+    %(Spectral)s
+
+    %(PSD)s
+
+    noverlap : int, default: 0 (no overlap)
+        The number of points of overlap between segments.
+
     Returns
     -------
     Pxy : 1-D array
@@ -340,6 +465,15 @@ def csd(x, y, NFFT=None, Fs=None, detrend=None, window=None,
 
     freqs : 1-D array
         The frequencies corresponding to the elements in *Pxy*
+
+    References
+    ----------
+    Bendat & Piersol -- Random Data: Analysis and Measurement Procedures, John
+    Wiley & Sons (1986)
+
+    See Also
+    --------
+    psd : equivalent to setting ``y = x``.
     """
     if NFFT is None:
         NFFT = 256
@@ -370,6 +504,7 @@ phase_spectrum.__doc__ = (
     "Compute the phase of the frequency spectrum (unwrapped phase spectrum) of *x*.")
 
 
+@_docstring.interpd
 def specgram(x, NFFT=None, Fs=None, detrend=None, window=None,
              noverlap=None, pad_to=None, sides=None, scale_by_freq=None,
              mode=None):
@@ -382,6 +517,30 @@ def specgram(x, NFFT=None, Fs=None, detrend=None, window=None,
     segment, and the amount of overlap of each segment is
     specified with *noverlap*.
 
+    Parameters
+    ----------
+    x : array-like
+        1-D array or sequence.
+
+    %(Spectral)s
+
+    %(PSD)s
+
+    noverlap : int, default: 128
+        The number of points of overlap between blocks.
+    mode : str, default: 'psd'
+        What sort of spectrum to use:
+            'psd'
+                Returns the power spectral density.
+            'complex'
+                Returns the complex-valued frequency spectrum.
+            'magnitude'
+                Returns the magnitude spectrum.
+            'angle'
+                Returns the phase spectrum without unwrapping.
+            'phase'
+                Returns the phase spectrum with unwrapping.
+
     Returns
     -------
     spectrum : array-like
@@ -393,6 +552,19 @@ def specgram(x, NFFT=None, Fs=None, detrend=None, window=None,
     t : array-like
         1-D array, the times corresponding to midpoints of segments
         (i.e the columns in *spectrum*).
+
+    See Also
+    --------
+    psd : differs in the overlap and in the return values.
+    complex_spectrum : similar, but with complex valued frequencies.
+    magnitude_spectrum : similar single segment when *mode* is 'magnitude'.
+    angle_spectrum : similar to single segment when *mode* is 'angle'.
+    phase_spectrum : similar to single segment when *mode* is 'phase'.
+
+    Notes
+    -----
+    *detrend* and *scale_by_freq* only apply when *mode* is set to 'psd'.
+
     """
     if noverlap is None:
         noverlap = 128  # default in _spectral_helper() is noverlap = 0
@@ -415,6 +587,7 @@ def specgram(x, NFFT=None, Fs=None, detrend=None, window=None,
     return spec, freqs, t
 
 
+@_docstring.interpd
 def cohere(x, y, NFFT=256, Fs=2, detrend=detrend_none, window=window_hanning,
            noverlap=0, pad_to=None, sides='default', scale_by_freq=None):
     r"""
@@ -425,12 +598,30 @@ def cohere(x, y, NFFT=256, Fs=2, detrend=detrend_none, window=window_hanning,
 
         C_{xy} = \frac{|P_{xy}|^2}{P_{xx}P_{yy}}
 
+    Parameters
+    ----------
+    x, y
+        Array or sequence containing the data
+
+    %(Spectral)s
+
+    %(PSD)s
+
+    noverlap : int, default: 0 (no overlap)
+        The number of points of overlap between segments.
+
     Returns
     -------
     Cxy : 1-D array
         The coherence vector.
     freqs : 1-D array
             The frequencies for the elements in *Cxy*.
+
+    See Also
+    --------
+    :func:`psd`, :func:`csd` :
+        For information about the methods used to compute :math:`P_{xy}`,
+        :math:`P_{xx}` and :math:`P_{yy}`.
     """
     if len(x) < 2 * NFFT:
         raise ValueError(
@@ -470,13 +661,20 @@ class GaussianKDE:
     num_dp : int
         Number of datapoints.
     factor : float
-        The bandwidth factor, obtained from `~GaussianKDE.covariance_factor`,
-        with which the covariance matrix is multiplied.
+        The bandwidth factor, obtained from `~GaussianKDE.covariance_factor`, with which
+        the covariance matrix is multiplied.
     covariance : ndarray
         The covariance matrix of *dataset*, scaled by the calculated bandwidth
         (`!kde.factor`).
     inv_cov : ndarray
         The inverse of *covariance*.
+
+    Methods
+    -------
+    kde.evaluate(points) : ndarray
+        Evaluate the estimated pdf on a provided set of points.
+    kde(points) : ndarray
+        Same as kde.evaluate(points)
     """
 
     def __init__(self, dataset, bw_method=None):
@@ -509,12 +707,10 @@ class GaussianKDE:
             self._native)
 
     def scotts_factor(self):
-        """Scott's rule: ``num_dp ** (-1 / (dim + 4))``."""
         # A numpy float, as matplotlib's ``np.power`` gives it.
         return np.float64(_mlab.bandwidth_factor("scott", self.dim, self.num_dp))
 
     def silverman_factor(self):
-        """Silverman's rule: ``(num_dp * (dim + 2) / 4) ** (-1 / (dim + 4))``."""
         return np.float64(_mlab.bandwidth_factor("silverman", self.dim, self.num_dp))
 
     #  Default method to calculate bandwidth, can be overwritten by subclass
@@ -539,6 +735,7 @@ class GaussianKDE:
         ------
         ValueError : if the dimensionality of the input points is different
                      than the dimensionality of the KDE.
+
         """
         points = np.atleast_2d(points)
         return _mlab.kde_evaluate(self._native, np.asarray(points, dtype=float))

@@ -38,7 +38,6 @@ from .transforms import Affine2D
 
 
 def update_from_first_child(tgt, src):
-    """Update *tgt* from the first child of the container *src*."""
     first_child = next(iter(src.get_children()), None)
     if first_child is not None:
         tgt.update_from(first_child)
@@ -58,6 +57,7 @@ class HandlerBase:
     The overridden method needs to create artists of the given
     transform that fits in the given dimension (xdescent, ydescent,
     width, height) that are scaled by fontsize if necessary.
+
     """
 
     def __init__(self, xpad=0., ypad=0., update_func=None):
@@ -85,8 +85,6 @@ class HandlerBase:
         legend_handle.update_from(orig_handle)
 
     def update_prop(self, legend_handle, orig_handle, legend):
-        """Give *legend_handle* the look of *orig_handle* and the
-        boilerplate properties of the artists of *legend*."""
         self._update_prop(legend_handle, orig_handle)
 
         legend._set_artist_props(legend_handle)
@@ -96,8 +94,6 @@ class HandlerBase:
     def adjust_drawing_area(self, legend, orig_handle,
                             xdescent, ydescent, width, height, fontsize,
                             ):
-        """The handle box *xdescent*, *ydescent*, *width*, *height* less
-        the handler's padding."""
         xdescent = xdescent - self._xpad * fontsize
         ydescent = ydescent - self._ypad * fontsize
         width = width - self._xpad * fontsize
@@ -189,15 +185,12 @@ class HandlerNpoints(HandlerBase):
         self._marker_pad = marker_pad
 
     def get_numpoints(self, legend):
-        """The number of points the entry shows: the handler's, else the
-        legend's."""
         if self._numpoints is None:
             return legend.numpoints
         else:
             return self._numpoints
 
     def get_xdata(self, legend, xdescent, ydescent, width, height, fontsize):
-        """The x of the line through the handle and of its markers."""
         numpoints = self.get_numpoints(legend)
         if numpoints > 1:
             # we put some pad here to compensate the size of the marker
@@ -234,8 +227,6 @@ class HandlerNpointsYoffsets(HandlerNpoints):
         self._yoffsets = yoffsets
 
     def get_ydata(self, legend, xdescent, ydescent, width, height, fontsize):
-        """The y of the markers: the handler's offsets, else the legend's
-        scatter offsets, in fractions of the height."""
         if self._yoffsets is None:
             ydata = height * legend._scatteryoffsets
         else:
@@ -410,8 +401,6 @@ class HandlerLineCollection(HandlerLine2D):
     """
 
     def get_numpoints(self, legend):
-        """The number of points the entry shows: the handler's, else the
-        legend's *scatterpoints*."""
         if self._numpoints is None:
             return legend.scatterpoints
         else:
@@ -448,8 +437,6 @@ class HandlerRegularPolyCollection(HandlerNpointsYoffsets):
         self._sizes = sizes
 
     def get_numpoints(self, legend):
-        """The number of points the entry shows: the handler's, else the
-        legend's *scatterpoints*."""
         if self._numpoints is None:
             return legend.scatterpoints
         else:
@@ -457,8 +444,6 @@ class HandlerRegularPolyCollection(HandlerNpointsYoffsets):
 
     def get_sizes(self, legend, orig_handle,
                   xdescent, ydescent, width, height, fontsize):
-        """The sizes of the markers: the handler's, else spread over those
-        of *orig_handle* scaled by the legend's *markerscale*."""
         if self._sizes is None:
             handle_sizes = orig_handle.get_sizes()
             if not len(handle_sizes):
@@ -479,8 +464,6 @@ class HandlerRegularPolyCollection(HandlerNpointsYoffsets):
         return sizes
 
     def update_prop(self, legend_handle, orig_handle, legend):
-        """Give *legend_handle* the look of *orig_handle* and the figure of
-        *legend*."""
         self._update_prop(legend_handle, orig_handle)
 
         legend_handle.set_figure(legend.get_figure(root=False))
@@ -489,8 +472,6 @@ class HandlerRegularPolyCollection(HandlerNpointsYoffsets):
         legend_handle.set_clip_path(None)
 
     def create_collection(self, orig_handle, sizes, offsets, offset_transform):
-        """A collection of the class of *orig_handle* with *sizes* at
-        *offsets*."""
         return type(orig_handle)(
             orig_handle.get_numsides(),
             rotation=orig_handle.get_rotation(), sizes=sizes,
@@ -552,7 +533,6 @@ class HandlerErrorbar(HandlerLine2D):
 
     def get_err_size(self, legend, xdescent, ydescent,
                      width, height, fontsize):
-        """The half lengths of the x and y error bars of the entry."""
         xerr_size = self._xerr_size * fontsize
 
         if self._yerr_size is None:
@@ -674,8 +654,6 @@ class HandlerStem(HandlerNpointsYoffsets):
         self._bottom = bottom
 
     def get_ydata(self, legend, xdescent, ydescent, width, height, fontsize):
-        """The y of the markers: the handler's offsets, else the legend's
-        scatter offsets in the upper half, in fractions of the height."""
         if self._yoffsets is None:
             ydata = height * (0.5 * legend._scatteryoffsets + 0.5)
         else:

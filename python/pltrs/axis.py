@@ -15,7 +15,7 @@ import itertools
 import numpy as np
 
 from . import (
-    _api, _artist_clipping, _program_classes, _scale_calls, _tick_helpers,
+    _api, _artist_clipping, _docstring, _program_classes, _scale_calls, _tick_helpers,
     _values, cbook, units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
@@ -218,6 +218,7 @@ def _interval_method(kind):
     """
     def name(method):
         method.__qualname__ = f"_make_getset_interval.<locals>.{kind}"
+        method.__module__ = __name__
         return method
     return name
 
@@ -232,10 +233,6 @@ class Ticker:
     """
     A container for the objects defining tick position and format.
 
-    The tickers of an `Axis` stand for the locator and the formatter of one
-    of its tick levels, which pltrs (Rust) keeps; a ticker made alone
-    (``Ticker()``, as seaborn's scales make them) holds its own.
-
     Attributes
     ----------
     locator : `~matplotlib.ticker.Locator` subclass
@@ -243,6 +240,9 @@ class Ticker:
     formatter : `~matplotlib.ticker.Formatter` subclass
         Determines the format of the tick labels.
     """
+    # The tickers of an `Axis` stand for the locator and the formatter of one
+    # of its tick levels, which pltrs (Rust) keeps; a ticker made alone
+    # (``Ticker()``, as seaborn's scales make them) holds its own.
 
     def __init__(self):
         self._axis = None
@@ -303,6 +303,8 @@ class Axis(DrawnWith, Artist):
 
     Attributes
     ----------
+    isDefault_label : bool
+
     axes : `~matplotlib.axes.Axes`
         The `~.axes.Axes` to which the Axis belongs.
     major : `~matplotlib.axis.Ticker`
@@ -310,17 +312,37 @@ class Axis(DrawnWith, Artist):
     minor : `~matplotlib.axis.Ticker`
         Determines the minor tick positions and their label format.
     callbacks : `~matplotlib.cbook.CallbackRegistry`
+
     label : `~matplotlib.text.Text`
         The axis label.
     labelpad : float
         The distance between the axis label and the tick labels.
+        Defaults to :rc:`axes.labelpad`.
     offsetText : `~matplotlib.text.Text`
         A `.Text` object containing the data offset of the ticks (if any).
+    pickradius : float
+        The acceptance radius for containment tests. See also `.Axis.contains`.
     majorTicks : list of `.Tick`
         The major ticks.
+
+        .. warning::
+
+            Ticks are not guaranteed to be persistent. Various operations
+            can create, delete and modify the Tick instances. There is an
+            imminent risk that changes to individual ticks will not
+            survive if you work on the figure further (including also
+            panning/zooming on a displayed figure).
+
+            Working on the individual ticks is a method of last resort.
+            Use `.set_tick_params` instead if possible.
+
     minorTicks : list of `.Tick`
         The minor ticks.
     """
+
+    def set_clip_path(self, path, transform=None):
+        # docstring inherited: matplotlib's override has none.
+        super().set_clip_path(path, transform)
 
     OFFSETTEXTPAD = 3
     axis_name = None
@@ -370,11 +392,13 @@ class Axis(DrawnWith, Artist):
         axes : `~matplotlib.axes.Axes`
             The `~.axes.Axes` to which the created Axis belongs.
         pickradius : float
-            The acceptance radius for containment tests.
+            The acceptance radius for containment tests. See also
+            `.Axis.contains`.
         clear : bool, default: True
-            Whether matplotlib clears the Axis on creation; the axis of a
-            pltrs (Rust) axes is in its default state when the axes is made,
-            either way.
+            Whether to clear the Axis on creation. This is not required, e.g.,  when
+            creating an Axis as part of an Axes, as ``Axes.clear`` will call
+            ``Axis.clear``.
+            .. versionadded:: 3.8
         """
         super().__init__()
         self._axes = axes
@@ -427,6 +451,7 @@ class Axis(DrawnWith, Artist):
             return set_
         return self._AXISBELOW_ZORDER[self.axes.get_axisbelow()]
 
+    @_docstring.copy(Artist.set_zorder)
     def set_zorder(self, level):
         # docstring inherited
         if level is None:
@@ -468,6 +493,32 @@ class Axis(DrawnWith, Artist):
     def _args(self):
         """The native axes and the axis name."""
         return self.axes._native, self.axis_name
+
+    def _get_autoscale_on(self):
+        """Return whether this Axis is autoscaled."""
+        return _axes_base.get_autoscale_on(*self._args())
+
+    def _set_autoscale_on(self, b):
+        """
+        Set whether this Axis is autoscaled when drawing or by `.Axes.autoscale_view`.
+
+        If b is None, then the value is not changed.
+
+        Parameters
+        ----------
+        b : bool
+
+        See Also
+        --------
+        matplotlib.axes.Axes.autoscale
+        matplotlib.axes.Axes.set_autoscale_on
+        matplotlib.axes.Axes.get_autoscalex_on
+        matplotlib.axes.Axes.set_autoscalex_on
+        matplotlib.axes.Axes.get_autoscaley_on
+        matplotlib.axes.Axes.set_autoscaley_on
+        """
+        if b is not None:
+            _axes_base.set_autoscale_on(*self._args(), bool(b))
 
     # --- Tick helpers --------------------------------------------------------
 
@@ -531,11 +582,15 @@ class Axis(DrawnWith, Artist):
         For a ``str`` a `~matplotlib.ticker.StrMethodFormatter` is used.
         The field used for the value must be labeled ``'x'`` and the field used
         for the position must be labeled ``'pos'``.
+        See the  `~matplotlib.ticker.StrMethodFormatter` documentation for
+        more information.
 
         For a function, a `~matplotlib.ticker.FuncFormatter` is used.
         The function must take two inputs (a tick value ``x`` and a
         position ``pos``), and return a string containing the corresponding
         tick label.
+        See the  `~matplotlib.ticker.FuncFormatter` documentation for
+        more information.
 
         Parameters
         ----------
@@ -807,14 +862,14 @@ class Axis(DrawnWith, Artist):
         Parameters
         ----------
         value : str or `.ScaleBase`
-            The axis scale type to apply.  Valid string values are the names of
-            scale classes ("linear", "log", "function",...).  These may be the
-            names of any of the :ref:`built-in scales<builtin_scales>` or of any
-            custom scales registered using `matplotlib.scale.register_scale`.
+            The axis scale type to apply.  Valid string values are the names of scale
+            classes ("linear", "log", "function",...).  These may be the names of any
+            of the :ref:`built-in scales<builtin_scales>` or of any custom scales
+            registered using `matplotlib.scale.register_scale`.
 
         **kwargs
-            If *value* is a string, keywords are passed to the instantiation
-            method of the respective class.
+            If *value* is a string, keywords are passed to the instantiation method of
+            the respective class.
         """
         from . import scale as mscale
         if isinstance(value, mscale.ScaleBase):
@@ -852,13 +907,13 @@ class Axis(DrawnWith, Artist):
             axis.axes._update_transScale()
 
     def get_transform(self):
-        """Return the transform used in the Axis' scale."""
+        """Return the transform used in the Axis' scale"""
         return self._scale.get_transform()
 
     def limit_range_for_scale(self, vmin, vmax):
         """
-        Return the range *vmin*, *vmax*, restricted to the domain supported by
-        the current scale.
+        Return the range *vmin*, *vmax*, restricted to the domain supported by the
+        current scale.
         """
         return self._scale.limit_range_for_scale(vmin, vmax, self.get_minpos())
 
@@ -938,11 +993,10 @@ class Axis(DrawnWith, Artist):
         """
         Set the default limits for the axis data and view interval if they
         have not been not mutated yet.
-
-        pltrs (Rust) shows the default limits of the axis info of the
-        axis' converter whenever the axis has neither data nor a view of
-        its own; this gives it those of the converter and units in force.
         """
+        # pltrs (Rust) shows the default limits of the axis info of the axis'
+        # converter whenever the axis has neither data nor a view of its own;
+        # this gives it those of the converter and units in force.
         converter = self._converter
         if converter is not None and not _is_native_converter(converter):
             info = converter.axisinfo(self.units, self)
@@ -992,6 +1046,16 @@ class Axis(DrawnWith, Artist):
 
         The locations are not clipped to the current axis limits and hence
         may contain locations that are not visible in the output.
+
+        Parameters
+        ----------
+        minor : bool, default: False
+            True to return the minor tick directions,
+            False to return the major tick directions.
+
+        Returns
+        -------
+        array of tick locations
         """
         if self._drawn_info is not None and not minor:
             if self._ticking:
@@ -1017,11 +1081,33 @@ class Axis(DrawnWith, Artist):
         return self.get_ticklocs(minor=True)
 
     def get_majorticklabels(self):
-        """Return this Axis' major tick labels, as a list of `~.text.Text`."""
+        """
+        Return this Axis' major tick labels, as a list of `~.text.Text`.
+
+        .. warning::
+
+            Ticks and their constituent parts, including tick labels, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query tick styling; see :ref:`axes-ticks-styling`.
+        """
         return self._ticklabels(minor=False)
 
     def get_minorticklabels(self):
-        """Return this Axis' minor tick labels, as a list of `~.text.Text`."""
+        """
+        Return this Axis' minor tick labels, as a list of `~.text.Text`.
+
+        .. warning::
+
+            Ticks and their constituent parts, including tick labels, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query tick styling; see :ref:`axes-ticks-styling`.
+        """
         return self._ticklabels(minor=True)
 
     def _ticklabels(self, minor):
@@ -1036,6 +1122,15 @@ class Axis(DrawnWith, Artist):
     def get_ticklabels(self, minor=False, which=None):
         """
         Get this Axis' tick labels.
+
+        .. warning::
+
+            Ticks and their constituent parts, including tick labels, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query tick styling; see :ref:`axes-ticks-styling`.
 
         Parameters
         ----------
@@ -1065,11 +1160,33 @@ class Axis(DrawnWith, Artist):
         return self.get_majorticklabels()
 
     def get_majorticklines(self):
-        """Return this Axis' major tick lines as a list of `.Line2D`."""
+        """
+        Return this Axis' major tick lines as a list of `.Line2D`.
+
+        .. warning::
+
+            Ticks and their constituent parts, including tick lines, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query tick styling; see :ref:`axes-ticks-styling`.
+        """
         return self._ticklines(self.get_major_ticks())
 
     def get_minorticklines(self):
-        """Return this Axis' minor tick lines as a list of `.Line2D`."""
+        """
+        Return this Axis' minor tick lines as a list of `.Line2D`.
+
+        .. warning::
+
+            Ticks and their constituent parts, including tick lines, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query tick styling; see :ref:`axes-ticks-styling`.
+        """
         return self._ticklines(self.get_minor_ticks())
 
     @staticmethod
@@ -1081,13 +1198,35 @@ class Axis(DrawnWith, Artist):
         return cbook.silent_list('Line2D ticklines', lines)
 
     def get_ticklines(self, minor=False):
-        """Return this Axis' tick lines as a list of `.Line2D`."""
+        """
+        Return this Axis' tick lines as a list of `.Line2D`.
+
+        .. warning::
+
+            Ticks and their constituent parts, including tick lines, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query tick styling; see :ref:`axes-ticks-styling`.
+        """
         if minor:
             return self.get_minorticklines()
         return self.get_majorticklines()
 
     def get_gridlines(self):
-        """Return this Axis' grid lines as a list of `.Line2D`."""
+        """
+        Return this Axis' grid lines as a list of `.Line2D`.
+
+        .. warning::
+
+            Ticks and their constituent parts, including grid lines, are not
+            persistent. Various operations can create, delete, and modify the tick
+            instances; see :ref:`axes-tick-objects`.
+
+            You should generally use `.Axis.set_tick_params` / `.Axis.get_tick_params`
+            to define and query grid styling; see :ref:`axes-ticks-styling`.
+        """
         ticks = self.get_major_ticks()
         return cbook.silent_list('Line2D gridline',
                                  [tick.gridline for tick in ticks])
@@ -1110,7 +1249,6 @@ class Axis(DrawnWith, Artist):
         return np.array([tick._tickdir for tick in ticks])
 
     def get_tick_padding(self):
-        """The tick marks' reach out of the axes, in points."""
         return _axis.get_tick_padding(*self._args())
 
     def _get_tick_label_size(self, axis_name):
@@ -1147,18 +1285,23 @@ class Axis(DrawnWith, Artist):
             *labels* yourself.
 
         labels : list of str, optional
-            Tick labels for each location in *ticks*; must have the same length
-            as *ticks*. If set, the labels are used as is, via a
-            `.FixedFormatter`. If not set, the labels are generated using the
-            axis tick `.Formatter`.
+            Tick labels for each location in *ticks*; must have the same length as
+            *ticks*. If set, the labels are used as is, via a `.FixedFormatter`.
+            If not set, the labels are generated using the axis tick `.Formatter`.
 
         minor : bool, default: False
-            If ``False``, set only the major ticks; if ``True``, only the minor
-            ticks.
+            If ``False``, set only the major ticks; if ``True``, only the minor ticks.
 
         **kwargs
             `.Text` properties for the labels. Using these is only allowed if
             you pass *labels*. In other cases, please use `~.Axes.tick_params`.
+
+        Notes
+        -----
+        The mandatory expansion of the view limits is an intentional design
+        choice to prevent the surprise of a non-visible tick. If you need
+        other limits, you should set the limits explicitly after setting the
+        ticks.
         """
         if labels is None and kwargs:
             first_key = next(iter(kwargs))
@@ -1195,21 +1338,60 @@ class Axis(DrawnWith, Artist):
         r"""
         [*Discouraged*] Set this Axis' tick labels with list of string labels.
 
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged, because of the dependency on
+            tick positions. In most cases, you'll want to use
+            ``Axes.set_[x/y/z]ticks(positions, labels)`` or ``Axis.set_ticks``
+            instead.
+
+            If you are using this method, you should always fix the tick
+            positions before, e.g. by using `.Axis.set_ticks` or by explicitly
+            setting a `~.ticker.FixedLocator`. Otherwise, ticks are free to
+            move and the labels may end up in unexpected positions.
+
         Parameters
         ----------
         labels : sequence of str or of `.Text`\s
             Texts for labeling each tick location in the sequence set by
-            `.Axis.set_ticks`; the number of labels must match the number of
-            locations.
+            `.Axis.set_ticks`; the number of labels must match the number of locations.
+            The labels are used as is, via a `.FixedFormatter` (without further
+            formatting).
 
         minor : bool
             If True, set minor ticks instead of major ticks.
 
         fontdict : dict, optional
+
+            .. admonition:: Discouraged
+
+               The use of *fontdict* is discouraged. Parameters should be passed as
+               individual keyword arguments or using dictionary-unpacking
+               ``set_ticklabels(..., **fontdict)``.
+
             A dictionary controlling the appearance of the ticklabels.
+            The default *fontdict* is::
+
+               {'fontsize': rcParams['axes.titlesize'],
+                'fontweight': rcParams['axes.titleweight'],
+                'verticalalignment': 'baseline',
+                'horizontalalignment': loc}
 
         **kwargs
             Text properties.
+
+            .. warning::
+
+                This only sets the properties of the current ticks, which is
+                only sufficient for static plots.
+
+                Ticks are not guaranteed to be persistent. Various operations
+                can create, delete and modify the Tick instances. There is an
+                imminent risk that these settings can get lost if you work on
+                the figure further (including also panning/zooming on a
+                displayed figure).
+
+                Use `.set_tick_params` instead if possible.
 
         Returns
         -------
@@ -1270,6 +1452,12 @@ class Axis(DrawnWith, Artist):
 
         For documentation of keyword arguments, see
         :meth:`matplotlib.axes.Axes.tick_params`.
+
+        See Also
+        --------
+        .Axis.get_tick_params
+            View the current style settings for ticks, ticklabels, and
+            gridlines.
         """
         _api.check_in_list(['major', 'minor', 'both'], which=which)
         kwtrans = self._translate_tick_params(kwargs)
@@ -1315,6 +1503,8 @@ class Axis(DrawnWith, Artist):
         """
         Get appearance parameters for ticks, ticklabels, and gridlines.
 
+        .. versionadded:: 3.7
+
         Parameters
         ----------
         which : {'major', 'minor'}, default: 'major'
@@ -1324,6 +1514,37 @@ class Axis(DrawnWith, Artist):
         -------
         dict
             Properties for styling tick elements added to the axis.
+
+        Notes
+        -----
+        This method returns the appearance parameters for styling *new*
+        elements added to this axis and may be different from the values
+        on current elements if they were modified directly by the user
+        (e.g., via ``set_*`` methods on individual tick objects).
+
+        Examples
+        --------
+        ::
+
+            >>> ax.yaxis.set_tick_params(labelsize=30, labelcolor='red',
+            ...                          direction='out', which='major')
+            >>> ax.yaxis.get_tick_params(which='major')
+            {'direction': 'out',
+            'left': True,
+            'right': False,
+            'labelleft': True,
+            'labelright': False,
+            'gridOn': False,
+            'labelsize': 30,
+            'labelcolor': 'red'}
+            >>> ax.yaxis.get_tick_params(which='minor')
+            {'left': True,
+            'right': False,
+            'labelleft': True,
+            'labelright': False,
+            'gridOn': False}
+
+
         """
         _api.check_in_list(['major', 'minor'], which=which)
         kw = self._major_tick_kw if which == 'major' else self._minor_tick_kw
@@ -1490,9 +1711,8 @@ class Axis(DrawnWith, Artist):
 
         .. admonition:: Discouraged
 
-           This overrides `.Artist.get_label`, which is for legend labels, with
-           a new semantic. It is recommended to use the attribute
-           ``Axis.label`` instead.
+           This overrides `.Artist.get_label`, which is for legend labels, with a new
+           semantic. It is recommended to use the attribute ``Axis.label`` instead.
         """
         return self.label
 
@@ -1523,8 +1743,8 @@ class Axis(DrawnWith, Artist):
 
             .. admonition:: Discouraged
 
-               The use of *fontdict* is discouraged. Parameters should be passed
-               as individual keyword arguments or using dictionary-unpacking
+               The use of *fontdict* is discouraged. Parameters should be passed as
+               individual keyword arguments or using dictionary-unpacking
                ``set_label_text(..., **fontdict)``.
 
         **kwargs
@@ -1598,7 +1818,7 @@ class Axis(DrawnWith, Artist):
 
     def get_label_position(self):
         """
-        Return the label position (top, bottom, left or right).
+        Return the label position (top or bottom)
         """
         return _axis.get_label_position(*self._args())
 
@@ -1750,7 +1970,6 @@ class Axis(DrawnWith, Artist):
         return keys
 
     def have_units(self):
-        """Return whether the axis converts units."""
         return (self._converter is not None or self._units is not None
                 or _axis.have_units(*self._args()))
 
@@ -1885,8 +2104,6 @@ class Axis(DrawnWith, Artist):
         return float(low), float(high)
 
     def convert_units(self, x):
-        """Convert *x* to the numbers of the axis, which takes the units
-        it brings."""
         if munits._is_natively_supported(x):
             return x
         from . import category
@@ -1923,7 +2140,13 @@ class Axis(DrawnWith, Artist):
                                          f'units: {x!r}') from e
 
     def get_converter(self):
-        """Get the unit converter for axis."""
+        """
+        Get the unit converter for axis.
+
+        Returns
+        -------
+        `~matplotlib.units.ConversionInterface` or None
+        """
         if self._converter is not None:
             return self._converter
         kind = _axis.converter_kind(*self._args())
@@ -1983,7 +2206,7 @@ class _AxisOfAxes:
 
     @_interval_method("getter")
     def get_view_interval(self):
-        """Return the ``(min, max)`` view limits of this axis."""
+        # docstring inherited.
         fields = self._drawn_fields()
         if fields is not None:
             return np.array(fields[0])
@@ -1991,24 +2214,13 @@ class _AxisOfAxes:
 
     @_interval_method("setter")
     def set_view_interval(self, vmin, vmax, ignore=False):
-        """
-        Set the axis view limits.  This method is for internal use; Matplotlib
-        users should typically use e.g. `~.Axes.set_xlim` or `~.Axes.set_ylim`.
-
-        If *ignore* is False (the default), this method will never reduce the
-        preexisting view limits, only expand them if *vmin* or *vmax* are not
-        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
-        the orientation of the axis will not change.
-
-        If *ignore* is True, the view limits will be set exactly to ``(vmin,
-        vmax)`` in that order.
-        """
+        # docstring inherited.
         _axis.set_view_interval(*self._args(), float(vmin), float(vmax),
                                 bool(ignore))
 
     @_interval_method("getter")
     def get_data_interval(self):
-        """Return the ``(min, max)`` data limits of this axis."""
+        # docstring inherited.
         fields = self._drawn_fields()
         if fields is not None:
             return np.array(fields[1])
@@ -2016,22 +2228,11 @@ class _AxisOfAxes:
 
     @_interval_method("setter")
     def set_data_interval(self, vmin, vmax, ignore=False):
-        """
-        Set the axis data limits.  This method is for internal use.
-
-        If *ignore* is False (the default), this method will never reduce the
-        preexisting data limits, only expand them if *vmin* or *vmax* are not
-        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
-        the orientation of the axis will not change.
-
-        If *ignore* is True, the data limits will be set exactly to ``(vmin,
-        vmax)`` in that order.
-        """
+        # docstring inherited.
         _axis.set_data_interval(*self._args(), float(vmin), float(vmax),
                                 bool(ignore))
 
     def get_minpos(self):
-        """Return the smallest positive datum along the axis."""
         fields = self._drawn_fields()
         if fields is not None:
             return fields[2]
@@ -2039,7 +2240,6 @@ class _AxisOfAxes:
         return np.float64(_axis.get_minpos(*self._args()))
 
     def get_tick_space(self):
-        """Return the estimated number of ticks that can fit on the axis."""
         fields = self._drawn_fields()
         if fields is not None:
             return fields[3]
@@ -2051,14 +2251,16 @@ class _AxisOfAxes:
 
 
 class XAxis(_AxisOfAxes, Axis):
-    """The x-axis of an Axes."""
-
     __name__ = 'xaxis'
     axis_name = 'x'  #: Read-only name identifying the axis.
     _tick_class = XTick
     #: matplotlib's record of the offset text's side, which its draws no
     #: longer read (the side of the ticks places the text).
     offset_text_position = 'bottom'
+
+    def __init__(self, *args, **kwargs):
+        # matplotlib's signature, whose ``_init`` the native axis did.
+        super().__init__(*args, **kwargs)
 
     def set_label_position(self, position):
         """
@@ -2102,14 +2304,16 @@ class XAxis(_AxisOfAxes, Axis):
 
 
 class YAxis(_AxisOfAxes, Axis):
-    """The y-axis of an Axes."""
-
     __name__ = 'yaxis'
     axis_name = 'y'  #: Read-only name identifying the axis.
     _tick_class = YTick
     #: matplotlib's record of the offset text's side, which its draws no
     #: longer read (`set_offset_position` places the text).
     offset_text_position = 'left'
+
+    def __init__(self, *args, **kwargs):
+        # matplotlib's signature, whose ``_init`` the native axis did.
+        super().__init__(*args, **kwargs)
 
     def set_label_position(self, position):
         """

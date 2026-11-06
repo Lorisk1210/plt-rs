@@ -24,6 +24,16 @@ def triplot(ax, *args, **kwargs):
     optionally the *triangles* and a *mask*. If neither of *triangulation* or
     *triangles* are given, the triangulation is calculated on the fly.
 
+    Parameters
+    ----------
+    triangulation : `.Triangulation`
+        An already created triangular grid.
+    x, y, triangles, mask
+        Parameters defining the triangular grid. See `.Triangulation`.
+        This is mutually exclusive with specifying *triangulation*.
+    other_parameters
+        All other args and kwargs are forwarded to `~.Axes.plot`.
+
     Returns
     -------
     lines : `~matplotlib.lines.Line2D`

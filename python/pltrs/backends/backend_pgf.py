@@ -260,17 +260,23 @@ def _metadata_to_str(key, value):
 
 
 class RendererPgf(DocumentDrawingMixin, RendererBase):
-    """
-    The renderer of a PGF picture of *figure*, written to *fh*, in the
-    figure's pixels.
-
-    pltrs (Rust) writes the pictures itself: this is the renderer the
-    program's drawing receives while a figure is saved as PGF
-    (`FigureCanvasPgf._program_renderer`), which draws into the picture
-    pltrs (Rust) writes.
-    """
+    # pltrs (Rust) writes the pictures itself: this is the renderer the
+    # program's drawing receives while a figure is saved as PGF
+    # (`FigureCanvasPgf._program_renderer`), which draws into the picture
+    # pltrs (Rust) writes.
 
     def __init__(self, figure, fh):
+        """
+        Create a new PGF renderer that translates any drawing instruction
+        into text commands to be interpreted in a latex pgfpicture environment.
+
+        Attributes
+        ----------
+        figure : `~matplotlib.figure.Figure`
+            Matplotlib figure to initialize height, width and dpi from.
+        fh : file-like
+            File handle for the output of the drawing commands.
+        """
         super().__init__()
         self.dpi = figure.dpi
         self.fh = fh
@@ -391,8 +397,6 @@ class FigureCanvasPgf(FigureCanvasBase):
                 shutil.copyfileobj(orig, dest)  # copy file contents to target
 
     def get_renderer(self):
-        """The renderer of a PGF picture of the figure (one writing to no
-        file), which measures text as LaTeX typesets it."""
         return RendererPgf(self.figure, None)
 
     def draw(self):
@@ -411,6 +415,10 @@ class FigureCanvasPgf(FigureCanvasBase):
             with (png_path.open("rb") as orig,
                   cbook.open_file_cm(fname_or_fh, "wb") as dest):
                 shutil.copyfileobj(orig, dest)  # copy file contents to target
+
+    def draw(self):
+        self.figure.draw_without_rendering()
+        return super().draw()
 
 
 FigureManagerPgf = FigureManagerBase

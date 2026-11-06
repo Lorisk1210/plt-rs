@@ -25,19 +25,42 @@ class LabelsMixin:
         container : `.BarContainer`
             Container with all the bars and optionally errorbars, likely
             returned from `.bar` or `.barh`.
+
         labels : array-like, optional
             A list of label texts, that should be displayed. If not given, the
             label texts will be the data values formatted with *fmt*.
+
         fmt : str or callable, default: '%g'
             An unnamed %-style or {}-style format string for the label or a
             function to call with the value as the first argument.
+            When *fmt* is a string and can be interpreted in both formats,
+            %-style takes precedence over {}-style.
+
+            .. versionadded:: 3.7
+               Support for {}-style format string and callables.
+
         label_type : {'edge', 'center'}, default: 'edge'
-            The label type.
+            The label type. Possible values:
+
+            - 'edge': label placed at the end-point of the bar segment, and the
+              value displayed will be the position of that end-point.
+            - 'center': label placed in the center of the bar segment, and the
+              value displayed will be the length of that segment.
+              (useful for stacked bars, i.e.,
+              :doc:`/gallery/lines_bars_and_markers/bar_label_demo`)
+
         padding : float or array-like, default: 0
             Distance of label from the end of the bar, in points.
+            If an array-like is provided, the padding values are applied
+            to each label individually. Must have the same length as container.
+            .. versionadded:: 3.11
+
         **kwargs
             Any remaining keyword arguments are passed through to
-            `.Axes.annotate`.
+            `.Axes.annotate`. The alignment parameters (
+            *horizontalalignment* / *ha*, *verticalalignment* / *va*) are
+            not supported because the labels are automatically aligned to
+            the bars.
 
         Returns
         -------
@@ -74,24 +97,50 @@ class LabelsMixin:
         """
         Label a pie chart.
 
+        .. versionadded:: 3.11
+
         Adds labels to wedges in the given `.PieContainer`.
 
         Parameters
         ----------
         container : `.PieContainer`
             Container with all the wedges, likely returned from `.pie`.
+
         labels : str or list of str
-            A sequence of strings providing the labels for each wedge, or a
-            format string with ``absval`` and/or ``frac`` placeholders.
+            A sequence of strings providing the labels for each wedge, or a format
+            string with ``absval`` and/or ``frac`` placeholders.  For example, to label
+            each wedge with its value and the percentage in brackets::
+
+                labels="{absval:d} ({frac:.0%})"
+
         distance : float, default: 0.6
-            The radial position of the labels, relative to the pie radius.
+            The radial position of the labels, relative to the pie radius. Values > 1
+            are outside the wedge and values < 1 are inside the wedge.
+
         textprops : dict, default: None
             Dict of arguments to pass to the `.Text` objects.
+
         rotate : bool, default: False
             Rotate each label to the angle of the corresponding slice if true.
+
         alignment : {'center', 'outer', 'auto'}, default: 'auto'
-            Controls the alignment of the text objects relative to their
+            Controls the horizontal alignment of the text objects relative to their
             nominal position.
+
+            - 'center': The labels are centered on their points.
+            - 'outer': Labels are aligned away from the center of the pie, i.e., labels
+              on the left side of the pie are right-aligned and labels on the right
+              side are left-aligned.
+            - 'auto': Translates to 'outer' if *distance* > 1 (so that the labels do not
+              overlap the wedges) and 'center' if *distance* < 1.
+
+            If *rotate* is True, the vertical alignment is also affected in an
+            analogous way.
+
+            - 'center': The labels are centered on their points.
+            - 'outer': Labels are aligned away from the center of the pie, i.e., labels
+              on the top half of the pie are bottom-aligned and labels on the bottom
+              half are top-aligned.
 
         Returns
         -------

@@ -7,7 +7,7 @@ classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 
 import numpy as np
 
-from . import _api, _handles
+from . import _api, _docstring, _handles
 from ._native import figure as _figure, figure_layout as _figure_layout
 from .text import Text, _layout_renderer, _measuring_with
 from .transforms import Bbox, TransformedBbox
@@ -31,12 +31,48 @@ class FigureBaseLayout:
 
     def _suplabels(self, t, kind, kwargs):
         """
-        Add or update the figure-wide text *kind* (``"title"``,
-        ``"xlabel"`` or ``"ylabel"``) showing *t*, as matplotlib's
-        ``_suplabels`` does: its defaults come back, *x* and *y* place it,
-        and the layout engine places it across its edge unless that
-        coordinate is given.
+        Add a centered %(name)s to the figure.
+
+        Parameters
+        ----------
+        t : str
+            The %(name)s text.
+        x : float, default: %(x0)s
+            The x location of the text in figure coordinates.
+        y : float, default: %(y0)s
+            The y location of the text in figure coordinates.
+        horizontalalignment, ha : {'center', 'left', 'right'}, default: %(ha)s
+            The horizontal alignment of the text relative to (*x*, *y*).
+        verticalalignment, va : {'top', 'center', 'bottom', 'baseline'}, \
+default: %(va)s
+            The vertical alignment of the text relative to (*x*, *y*).
+        fontsize, size : default: :rc:`figure.%(rc)ssize`
+            The font size of the text. See `.Text.set_size` for possible
+            values.
+        fontweight, weight : default: :rc:`figure.%(rc)sweight`
+            The font weight of the text. See `.Text.set_weight` for possible
+            values.
+
+        Returns
+        -------
+        text
+            The `.Text` instance of the %(name)s.
+
+        Other Parameters
+        ----------------
+        fontproperties : None or dict, optional
+            A dict of font properties. If *fontproperties* is given the
+            default values for font size and weight are taken from the
+            `.FontProperties` defaults. :rc:`figure.%(rc)ssize` and
+            :rc:`figure.%(rc)sweight` are ignored in this case.
+
+        **kwargs
+            Additional kwargs are `matplotlib.text.Text` properties.
         """
+        # Adds or updates the figure-wide text *kind* ("title", "xlabel" or
+        # "ylabel") showing *t*, as matplotlib's does: its defaults come
+        # back, *x* and *y* place it, and the layout engine places it across
+        # its edge unless that coordinate is given.
         x = kwargs.pop('x', None)
         y = kwargs.pop('y', None)
         make, across_is_y = _SUPER_TEXTS[kind]
@@ -50,20 +86,25 @@ class FigureBaseLayout:
         self.stale = True
         return text
 
+    @_docstring.Substitution(x0=0.5, y0=0.98, name='super title', ha='center',
+                             va='top', rc='title')
+    @_docstring.copy(_suplabels)
     def suptitle(self, t, **kwargs):
-        """
-        Add a centered super title to the figure (top center by default;
-        *x*, *y* place it, in figure coordinates; the other keywords are
-        `.Text` properties).
-        """
+        # docstring from _suplabels...
         return self._suplabels(t, "title", kwargs)
 
+    @_docstring.Substitution(x0=0.5, y0=0.01, name='super xlabel', ha='center',
+                             va='bottom', rc='label')
+    @_docstring.copy(_suplabels)
     def supxlabel(self, t, **kwargs):
-        """Add a centered super xlabel to the figure (see `suptitle`)."""
+        # docstring from _suplabels...
         return self._suplabels(t, "xlabel", kwargs)
 
+    @_docstring.Substitution(x0=0.02, y0=0.5, name='super ylabel', ha='left',
+                             va='center', rc='label')
+    @_docstring.copy(_suplabels)
     def supylabel(self, t, **kwargs):
-        """Add a centered super ylabel to the figure (see `suptitle`)."""
+        # docstring from _suplabels...
         return self._suplabels(t, "ylabel", kwargs)
 
     def _super_text(self, index):
@@ -97,12 +138,40 @@ class FigureBaseLayout:
         alignment is being done automatically (i.e. the label position is
         not manually set).
 
+        Alignment persists for draw events after this is called.
+
+        If a label is on the bottom, it is aligned with labels on Axes that
+        also have their label on the bottom and that have the same
+        bottom-most subplot row.  If the label is on the top,
+        it is aligned with labels on Axes with the same top-most row.
+
         Parameters
         ----------
         axs : list of `~matplotlib.axes.Axes`
             Optional list of (or `~numpy.ndarray`) `~matplotlib.axes.Axes`
             to align the xlabels.
             Default is to align all Axes on the figure.
+
+        See Also
+        --------
+        matplotlib.figure.Figure.align_ylabels
+        matplotlib.figure.Figure.align_titles
+        matplotlib.figure.Figure.align_labels
+
+        Notes
+        -----
+        This assumes that all Axes in ``axs`` are from the same `.GridSpec`,
+        so that their `.SubplotSpec` positions correspond to figure positions.
+
+        Examples
+        --------
+        Example with rotated xtick labels::
+
+            fig, axs = plt.subplots(1, 2)
+            axs[0].tick_params(axis='x', rotation=55)
+            axs[0].set_xlabel('XLabel 0')
+            axs[1].set_xlabel('XLabel 1')
+            fig.align_xlabels()
         """
         _figure_layout.align(self._native, _axes_natives(axs), "x")
 
@@ -112,12 +181,40 @@ class FigureBaseLayout:
         alignment is being done automatically (i.e. the label position is
         not manually set).
 
+        Alignment persists for draw events after this is called.
+
+        If a label is on the left, it is aligned with labels on Axes that
+        also have their label on the left and that have the same
+        left-most subplot column.  If the label is on the right,
+        it is aligned with labels on Axes with the same right-most column.
+
         Parameters
         ----------
         axs : list of `~matplotlib.axes.Axes`
             Optional list (or `~numpy.ndarray`) of `~matplotlib.axes.Axes`
             to align the ylabels.
             Default is to align all Axes on the figure.
+
+        See Also
+        --------
+        matplotlib.figure.Figure.align_xlabels
+        matplotlib.figure.Figure.align_titles
+        matplotlib.figure.Figure.align_labels
+
+        Notes
+        -----
+        This assumes that all Axes in ``axs`` are from the same `.GridSpec`,
+        so that their `.SubplotSpec` positions correspond to figure positions.
+
+        Examples
+        --------
+        Example with large yticks labels::
+
+            fig, axs = plt.subplots(2, 1)
+            axs[0].plot(np.arange(0, 1000, 50))
+            axs[0].set_ylabel('YLabel 0')
+            axs[1].set_ylabel('YLabel 1')
+            fig.align_ylabels()
         """
         _figure_layout.align(self._native, _axes_natives(axs), "y")
 
@@ -127,12 +224,35 @@ class FigureBaseLayout:
         alignment is being done automatically (i.e. the title position is
         not manually set).
 
+        Alignment persists for draw events after this is called.
+
         Parameters
         ----------
         axs : list of `~matplotlib.axes.Axes`
             Optional list of (or ndarray) `~matplotlib.axes.Axes`
             to align the titles.
             Default is to align all Axes on the figure.
+
+        See Also
+        --------
+        matplotlib.figure.Figure.align_xlabels
+        matplotlib.figure.Figure.align_ylabels
+        matplotlib.figure.Figure.align_labels
+
+        Notes
+        -----
+        This assumes that all Axes in ``axs`` are from the same `.GridSpec`,
+        so that their `.SubplotSpec` positions correspond to figure positions.
+
+        Examples
+        --------
+        Example with titles::
+
+            fig, axs = plt.subplots(1, 2)
+            axs[0].set_aspect('equal')
+            axs[0].set_title('Title 0')
+            axs[1].set_title('Title 1')
+            fig.align_titles()
         """
         _figure_layout.align(self._native, _axes_natives(axs), "titles")
 
@@ -142,12 +262,25 @@ class FigureBaseLayout:
         row or column (respectively) if label alignment is being
         done automatically (i.e. the label position is not manually set).
 
+        Alignment persists for draw events after this is called.
+
         Parameters
         ----------
         axs : list of `~matplotlib.axes.Axes`
             Optional list (or `~numpy.ndarray`) of `~matplotlib.axes.Axes`
             to align the labels.
             Default is to align all Axes on the figure.
+
+        See Also
+        --------
+        matplotlib.figure.Figure.align_xlabels
+        matplotlib.figure.Figure.align_ylabels
+        matplotlib.figure.Figure.align_titles
+
+        Notes
+        -----
+        This assumes that all Axes in ``axs`` are from the same `.GridSpec`,
+        so that their `.SubplotSpec` positions correspond to figure positions.
         """
         self.align_xlabels(axs=axs)
         self.align_ylabels(axs=axs)
@@ -204,7 +337,9 @@ class FigureBaseLayout:
         Parameters
         ----------
         renderer : `.RendererBase` subclass
-            The renderer (pltrs (Rust) measures the figure itself).
+            Renderer that will be used to draw the figures (i.e.
+            ``fig.canvas.get_renderer()``)
+
         bbox_extra_artists : list of `.Artist` or ``None``
             List of artists to include in the tight bounding box.  If
             ``None`` (default), then all artist children of each Axes are

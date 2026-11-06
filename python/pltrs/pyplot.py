@@ -15,6 +15,7 @@ import inspect
 import logging
 from typing import TYPE_CHECKING  # noqa: F401
 
+from . import _docstring
 from . import _pylab_helpers, get_backend, rcParams, style  # noqa: F401  (matplotlib.style, as pyplot imports it)
 from . import _api, cbook, interactive, is_interactive, set_loglevel  # noqa: F401
 from . import (rc, rc_context, rcdefaults, rcParamsDefault,  # noqa: F401  (pyplot exports them)
@@ -24,6 +25,9 @@ from . import rcParamsOrig, rcsetup
 from .backend_bases import _Backend, FigureManagerBase
 from .backends import backend_registry
 from .figure import Figure, FigureBase, figaspect  # noqa: F401  (pyplot exports figaspect)
+from . import artist as _artist
+from ._pyplot_figure import _copy_docstring_and_deprecators
+from .axes import Axes  # noqa: F401  (pyplot exports it)
 from .lines import Line2D  # noqa: F401  (pyplot exports it)
 from .patches import Arrow, Circle, Polygon, Rectangle  # noqa: F401  (pyplot exports them)
 from .gridspec import GridSpec, SubplotSpec
@@ -66,6 +70,7 @@ def switch_backend(newbackend):
     ----------
     newbackend : str
         The case-insensitive name of the backend to use.
+
     """
     global _backend_mod
     # make sure the init is pulled up so we can assign to it later
@@ -237,8 +242,15 @@ def get_current_fig_manager():
     """
     Return the figure manager of the current figure.
 
-    If no figure exists, a new one is created, and its figure manager is
-    returned.
+    The figure manager is a container for the actual backend-depended window
+    that displays the figure on screen.
+
+    If no current figure exists, a new one is created, and its figure
+    manager is returned.
+
+    Returns
+    -------
+    `.FigureManagerBase` or backend-dependent subclass thereof
     """
     return gcf().canvas.manager
 
@@ -248,7 +260,17 @@ def draw():
     Redraw the current figure.
 
     This is used to update a figure that has been altered, but not
-    automatically re-drawn.
+    automatically re-drawn.  If interactive mode is on (via `.ion()`), this
+    should be only rarely needed, but there may be ways to modify the state of
+    a figure without marking it as "stale".  Please report these cases as bugs.
+
+    This is equivalent to calling ``fig.canvas.draw_idle()``, where ``fig`` is
+    the current figure.
+
+    See Also
+    --------
+    .FigureCanvasBase.draw_idle
+    .FigureCanvasBase.draw
     """
     gcf().canvas.draw_idle()
 
@@ -273,9 +295,112 @@ def figure(num=None, figsize=None, dpi=None, *, facecolor=None,
 
     Parameters
     ----------
-    num : int or str or `.Figure`, optional
-        A unique identifier for the figure: its number, its label, or the
-        figure itself.
+    num : int or str or `.Figure` or `.SubFigure`, optional
+        A unique identifier for the figure.
+
+        If a figure with that identifier already exists, this figure is made
+        active and returned. An integer refers to the ``Figure.number``
+        attribute, a string refers to the figure label.
+
+        If there is no figure with the identifier or *num* is not given, a new
+        figure is created, made active and returned.  If *num* is an int, it
+        will be used for the ``Figure.number`` attribute, otherwise, an
+        auto-generated integer value is used (starting at 1 and incremented
+        for each new figure). If *num* is a string, the figure label and the
+        window title is set to this value.  If num is a ``SubFigure``, its
+        parent ``Figure`` is activated.
+
+        If *num* is a Figure instance that is already tracked in pyplot, it is
+        activated. If *num* is a Figure instance that is not tracked in pyplot,
+        it is added to the tracked figures and activated.
+
+    figsize : (float, float) or (float, float, str), default: :rc:`figure.figsize`
+        The figure dimensions. This can be
+
+        - a tuple ``(width, height, unit)``, where *unit* is one of "in", "cm",
+          "px".
+        - a tuple ``(x, y)``, which is interpreted as ``(x, y, "in")``.
+
+        One of *width* or *height* may be ``None``; the respective value is taken
+        from :rc:`figure.figsize`.
+
+    dpi : float, default: :rc:`figure.dpi`
+        The resolution of the figure in dots-per-inch.
+
+    facecolor : :mpltype:`color`, default: :rc:`figure.facecolor`
+        The background color.
+
+    edgecolor : :mpltype:`color`, default: :rc:`figure.edgecolor`
+        The border color.
+
+    frameon : bool, default: True
+        If False, suppress drawing the figure frame.
+
+    FigureClass : subclass of `~matplotlib.figure.Figure`
+        If set, an instance of this subclass will be created, rather than a
+        plain `.Figure`.
+
+    clear : bool, default: False
+        If True and the figure already exists, then it is cleared.
+
+    layout : {'constrained', 'compressed', 'tight', 'none', `.LayoutEngine`, None}, \
+default: None
+        The layout mechanism for positioning of plot elements to avoid
+        overlapping Axes decorations (labels, ticks, etc). Note that layout
+        managers can measurably slow down figure display.
+
+        - 'constrained': The constrained layout solver adjusts Axes sizes
+          to avoid overlapping Axes decorations.  Can handle complex plot
+          layouts and colorbars, and is thus recommended.
+
+          See :ref:`constrainedlayout_guide`
+          for examples.
+
+        - 'compressed': uses the same algorithm as 'constrained', but
+          removes extra space between fixed-aspect-ratio Axes.  Best for
+          simple grids of Axes.
+
+        - 'tight': Use the tight layout mechanism. This is a relatively
+          simple algorithm that adjusts the subplot parameters so that
+          decorations do not overlap. See `.Figure.set_tight_layout` for
+          further details.
+
+        - 'none': Do not use a layout engine.
+
+        - A `.LayoutEngine` instance. Builtin layout classes are
+          `.ConstrainedLayoutEngine` and `.TightLayoutEngine`, more easily
+          accessible by 'constrained' and 'tight'.  Passing an instance
+          allows third parties to provide their own layout engine.
+
+        If not given, fall back to using the parameters *tight_layout* and
+        *constrained_layout*, including their config defaults
+        :rc:`figure.autolayout` and :rc:`figure.constrained_layout.use`.
+
+    **kwargs
+        Additional keyword arguments are passed to the `.Figure` constructor.
+
+    Returns
+    -------
+    `~matplotlib.figure.Figure`
+
+    Notes
+    -----
+    A newly created figure is passed to the `~.FigureCanvasBase.new_manager`
+    method or the `new_figure_manager` function provided by the current
+    backend, which install a canvas and a manager on the figure.
+
+    Once this is done, :rc:`figure.hooks` are called, one at a time, on the
+    figure; these hooks allow arbitrary customization of the figure (e.g.,
+    attaching callbacks) or of associated elements (e.g., modifying the
+    toolbar).  See :doc:`/gallery/user_interfaces/mplcvd` for an example of
+    toolbar customization.
+
+    If you are creating many figures, make sure you explicitly call
+    `.pyplot.close` on the figures you are not using, because this will
+    enable pyplot to properly clean up the memory.
+
+    `~matplotlib.rcParams` defines the default values, which can be modified
+    in the matplotlibrc file.
     """
     allnums = get_fignums()
     next_num = max(allnums) + 1 if allnums else 1
@@ -362,15 +487,22 @@ def figure(num=None, figsize=None, dpi=None, *, facecolor=None,
 
 
 def gcf():
-    """Get the current figure, creating one if there is none."""
+    """
+    Get the current figure.
+
+    If there is currently no figure on the pyplot figure stack, a new one is
+    created using `~.pyplot.figure()`.  (To test whether there is currently a
+    figure on the pyplot figure stack, check whether `~.pyplot.get_fignums()`
+    is empty.)
+    """
     manager = _pylab_helpers.Gcf.get_active()
     if manager is not None:
         return manager.canvas.figure
     return figure()
 
 
+@_copy_docstring_and_deprecators(Figure.gca)
 def gca():
-    """Get the current Axes, creating one if there is none."""
     return gcf().gca()
 
 
@@ -381,8 +513,22 @@ def close(fig=None):
     Parameters
     ----------
     fig : None or int or str or `.Figure`
-        The figure to close: the current figure (None), a figure number or
-        label, a `.Figure`, or 'all'.
+        The figure to close. There are a number of ways to specify this:
+
+        - *None*: the current figure
+        - `.Figure`: the given `.Figure` instance
+        - ``int``: a figure number
+        - ``str``: a figure name
+        - 'all': all figures
+
+    Notes
+    -----
+    pyplot maintains a reference to figures created with `figure()`. When
+    work on the figure is completed, it should be closed, i.e. deregistered
+    from pyplot, to free its memory (see also :rc:`figure.max_open_warning`).
+    Closing a figure window created by `show()` automatically deregisters the
+    figure. For all other use cases, most prominently `savefig()` without
+    `show()`, the figure must be deregistered explicitly using `close()`.
     """
     if fig is None:
         manager = _pylab_helpers.Gcf.get_active()
@@ -426,6 +572,29 @@ def _raise_if_figure_exists(num, func_name, clear=False):
 def isinteractive():
     """
     Return whether plots are updated after every plotting command.
+
+    The interactive mode is mainly useful if you build plots from the command
+    line and want to see the effect of each command while you are building the
+    figure.
+
+    In interactive mode:
+
+    - newly created figures will be shown immediately;
+    - figures will automatically redraw on change;
+    - `.pyplot.show` will not block by default.
+
+    In non-interactive mode:
+
+    - newly created figures and changes to figures will not be reflected until
+      explicitly asked to be;
+    - `.pyplot.show` will block by default.
+
+    See Also
+    --------
+    ion : Enable interactive mode.
+    ioff : Disable interactive mode.
+    show : Show all figures (and maybe block).
+    pause : Show all figures, and block for a time.
     """
     return is_interactive()
 
@@ -434,10 +603,34 @@ def ioff():
     """
     Disable interactive mode.
 
+    See `.pyplot.isinteractive` for more details.
+
+    See Also
+    --------
+    ion : Enable interactive mode.
+    isinteractive : Whether interactive mode is enabled.
+    show : Show all figures (and maybe block).
+    pause : Show all figures, and block for a time.
+
+    Notes
+    -----
     For a temporary change, this can be used as a context manager::
 
+        # if interactive mode is on
+        # then figures will be shown on creation
+        plt.ion()
+        # This figure will be shown immediately
+        fig = plt.figure()
+
         with plt.ioff():
+            # interactive mode will be off
+            # figures will not automatically be shown
             fig2 = plt.figure()
+            # ...
+
+    To enable optional usage as a context manager, this function returns a
+    context manager object, which is not intended to be stored or
+    accessed by the user.
     """
     stack = ExitStack()
     stack.callback(ion if isinteractive() else ioff)
@@ -450,10 +643,34 @@ def ion():
     """
     Enable interactive mode.
 
+    See `.pyplot.isinteractive` for more details.
+
+    See Also
+    --------
+    ioff : Disable interactive mode.
+    isinteractive : Whether interactive mode is enabled.
+    show : Show all figures (and maybe block).
+    pause : Show all figures, and block for a time.
+
+    Notes
+    -----
     For a temporary change, this can be used as a context manager::
 
+        # if interactive mode is off
+        # then figures will not be shown on creation
+        plt.ioff()
+        # This figure will not be shown immediately
+        fig = plt.figure()
+
         with plt.ion():
+            # interactive mode will be on
+            # figures will automatically be shown
             fig2 = plt.figure()
+            # ...
+
+    To enable optional usage as a context manager, this function returns a
+    context manager object, which is not intended to be stored or
+    accessed by the user.
     """
     stack = ExitStack()
     stack.callback(ion if isinteractive() else ioff)
@@ -480,6 +697,31 @@ def show(*args, **kwargs):
 
         Defaults to True in non-interactive mode and to False in interactive
         mode (see `.pyplot.isinteractive`).
+
+    See Also
+    --------
+    ion : Enable interactive mode, which shows / updates the figure after
+          every plotting command, so that calling ``show()`` is not necessary.
+    ioff : Disable interactive mode.
+    savefig : Save the figure to an image file instead of showing it on screen.
+
+    Notes
+    -----
+    **Saving figures to file and showing a window at the same time**
+
+    If you want an image file as well as a user interface window, use
+    `.pyplot.savefig` before `.pyplot.show`. At the end of (a blocking)
+    ``show()`` the figure is closed and thus unregistered from pyplot. Calling
+    `.pyplot.savefig` afterwards would save a new and thus empty figure. This
+    limitation of command order does not apply if the show is non-blocking or
+    if you keep a reference to the figure and use `.Figure.savefig`.
+
+    **Auto-show in jupyter notebooks**
+
+    The jupyter backends (activated via ``%matplotlib inline``,
+    ``%matplotlib notebook``, or ``%matplotlib widget``), call ``show()`` at
+    the end of every cell by default. Thus, you usually don't have to call it
+    explicitly there.
     """
     return _get_backend_mod().show(*args, **kwargs)
 
@@ -487,7 +729,150 @@ def show(*args, **kwargs):
 def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, squeeze=True,
              width_ratios=None, height_ratios=None, subplot_kw=None,
              gridspec_kw=None, **fig_kw):
-    """Create a figure and a set of subplots."""
+    """
+    Create a figure and a set of subplots.
+
+    This utility wrapper makes it convenient to create common layouts of
+    subplots, including the enclosing figure object, in a single call.
+
+    Parameters
+    ----------
+    nrows, ncols : int, default: 1
+        Number of rows/columns of the subplot grid.
+
+    sharex, sharey : bool or {'none', 'all', 'row', 'col'}, default: False
+        Controls sharing of properties among x (*sharex*) or y (*sharey*)
+        axes:
+
+        - True or 'all': x- or y-axis will be shared among all subplots.
+        - False or 'none': each subplot x- or y-axis will be independent.
+        - 'row': each subplot row will share an x- or y-axis.
+        - 'col': each subplot column will share an x- or y-axis.
+
+        When subplots have a shared x-axis along a column, only the x tick
+        labels of the bottom subplot are created. Similarly, when subplots
+        have a shared y-axis along a row, only the y tick labels of the first
+        column subplot are created. To later turn other subplots' ticklabels
+        on, use `~matplotlib.axes.Axes.tick_params`.
+
+        When subplots have a shared axis that has units, calling
+        `.Axis.set_units` will update each axis with the new units.
+
+        Note that it is not possible to unshare axes.
+
+    squeeze : bool, default: True
+        - If True, extra dimensions are squeezed out from the returned
+          array of `~matplotlib.axes.Axes`:
+
+          - if only one subplot is constructed (nrows=ncols=1), the
+            resulting single Axes object is returned as a scalar.
+          - for Nx1 or 1xM subplots, the returned object is a 1D numpy
+            object array of Axes objects.
+          - for NxM, subplots with N>1 and M>1 are returned as a 2D array.
+
+        - If False, no squeezing at all is done: the returned Axes object is
+          always a 2D array containing Axes instances, even if it ends up
+          being 1x1.
+
+    width_ratios : array-like of length *ncols*, optional
+        Defines the relative widths of the columns. Each column gets a
+        relative width of ``width_ratios[i] / sum(width_ratios)``.
+        If not given, all columns will have the same width.  Equivalent
+        to ``gridspec_kw={'width_ratios': [...]}``.
+
+    height_ratios : array-like of length *nrows*, optional
+        Defines the relative heights of the rows. Each row gets a
+        relative height of ``height_ratios[i] / sum(height_ratios)``.
+        If not given, all rows will have the same height. Convenience
+        for ``gridspec_kw={'height_ratios': [...]}``.
+
+    subplot_kw : dict, optional
+        Dict with keywords passed to the
+        `~matplotlib.figure.Figure.add_subplot` call used to create each
+        subplot.
+
+    gridspec_kw : dict, optional
+        Dict with keywords passed to the `~matplotlib.gridspec.GridSpec`
+        constructor used to create the grid the subplots are placed on.
+
+    **fig_kw
+        All additional keyword arguments are passed to the
+        `.pyplot.figure` call.
+
+    Returns
+    -------
+    fig : `.Figure`
+
+    ax : `~matplotlib.axes.Axes` or array of Axes
+        *ax* can be either a single `~.axes.Axes` object, or an array of Axes
+        objects if more than one subplot was created.  The dimensions of the
+        resulting array can be controlled with the squeeze keyword, see above.
+
+        Typical idioms for handling the return value are::
+
+            # using the variable ax for a single Axes
+            fig, ax = plt.subplots()
+
+            # using the variable axs for multiple Axes
+            fig, axs = plt.subplots(2, 2)
+
+            # using tuple unpacking for multiple Axes
+            fig, (ax1, ax2) = plt.subplots(1, 2)
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+
+        The names ``ax`` and pluralized ``axs`` are preferred over ``axes``
+        because for the latter it's not clear if it refers to a single
+        `~.axes.Axes` instance or a collection of these.
+
+    See Also
+    --------
+    .pyplot.figure
+    .pyplot.subplot
+    .pyplot.axes
+    .Figure.subplots
+    .Figure.add_subplot
+
+    Examples
+    --------
+    ::
+
+        # First create some toy data:
+        x = np.linspace(0, 2*np.pi, 400)
+        y = np.sin(x**2)
+
+        # Create just a figure and only one subplot
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        ax.set_title('Simple plot')
+
+        # Create two subplots and unpack the output array immediately
+        f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+        ax1.plot(x, y)
+        ax1.set_title('Sharing Y axis')
+        ax2.scatter(x, y)
+
+        # Create four polar Axes and access them through the returned array
+        fig, axs = plt.subplots(2, 2, subplot_kw=dict(projection="polar"))
+        axs[0, 0].plot(x, y)
+        axs[1, 1].scatter(x, y)
+
+        # Share an X axis with each column of subplots
+        plt.subplots(2, 2, sharex='col')
+
+        # Share a Y axis with each row of subplots
+        plt.subplots(2, 2, sharey='row')
+
+        # Share both X and Y axes with all subplots
+        plt.subplots(2, 2, sharex='all', sharey='all')
+
+        # Note that this is the same as
+        plt.subplots(2, 2, sharex=True, sharey=True)
+
+        # Create figure number 10 with a single subplot
+        # and clears it if it already exists.
+        fig, ax = plt.subplots(num=10, clear=True)
+
+    """
     _raise_if_figure_exists(fig_kw.get('num'), "subplots", fig_kw.get('clear'))
     fig = figure(**fig_kw)
     axs = fig.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey,
@@ -497,27 +882,24 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, squeeze=True,
     return fig, axs
 
 
+@_copy_docstring_and_deprecators(Figure.savefig)
 def savefig(fname, **kwargs):
-    """Save the current figure (`.Figure.savefig`)."""
     fig = gcf()
     res = fig.savefig(fname, **kwargs)
     fig.canvas.draw_idle()  # Need this if 'transparent=True', to reset colors.
     return res
 
 
+@_copy_docstring_and_deprecators(Axes.plot)
 def plot(*args, scalex=True, scaley=True, data=None, **kwargs):
-    """Plot y versus x as lines and/or markers (`.Axes.plot`)."""
     return gca().plot(*args, scalex=scalex, scaley=scaley, data=data, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.scatter)
 def scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None,
             vmin=None, vmax=None, alpha=None, linewidths=None, *,
             edgecolors=None, colorizer=None, plotnonfinite=False, data=None,
             **kwargs):
-    """
-    A scatter plot of *y* vs. *x* (`.Axes.scatter`), which becomes the
-    current image (`sci`).
-    """
     ret = gca().scatter(
         x, y, s=s, c=c, marker=marker, cmap=cmap, norm=norm, vmin=vmin,
         vmax=vmax, alpha=alpha, linewidths=linewidths, edgecolors=edgecolors,
@@ -527,55 +909,53 @@ def scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None,
     return ret
 
 
+@_copy_docstring_and_deprecators(Axes.bar)
 def bar(x, height, width=0.8, bottom=None, *, align='center', data=None,
         **kwargs):
-    """Make a bar plot (`.Axes.bar`)."""
     return gca().bar(x, height, width=width, bottom=bottom, align=align,
                      data=data, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.axhline)
 def axhline(y=0, xmin=0, xmax=1, **kwargs):
-    """Add a horizontal line spanning the whole or fraction of the Axes
-    (`.Axes.axhline`)."""
     return gca().axhline(y=y, xmin=xmin, xmax=xmax, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.axvline)
 def axvline(x=0, ymin=0, ymax=1, **kwargs):
-    """Add a vertical line spanning the whole or fraction of the Axes
-    (`.Axes.axvline`)."""
     return gca().axvline(x=x, ymin=ymin, ymax=ymax, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.axhspan)
 def axhspan(ymin, ymax, xmin=0, xmax=1, **kwargs):
-    """Add a horizontal span (rectangle) across the Axes (`.Axes.axhspan`)."""
     return gca().axhspan(ymin, ymax, xmin=xmin, xmax=xmax, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.axvspan)
 def axvspan(xmin, xmax, ymin=0, ymax=1, **kwargs):
-    """Add a vertical span (rectangle) across the Axes (`.Axes.axvspan`)."""
     return gca().axvspan(xmin, xmax, ymin=ymin, ymax=ymax, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.set_title)
 def title(label, fontdict=None, loc=None, pad=None, *, y=None, **kwargs):
-    """Set a title for the Axes (`.Axes.set_title`)."""
     return gca().set_title(label, fontdict=fontdict, loc=loc, pad=pad, y=y,
                            **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.set_xlabel)
 def xlabel(xlabel, fontdict=None, labelpad=None, *, loc=None, **kwargs):
-    """Set the label for the x-axis (`.Axes.set_xlabel`)."""
     return gca().set_xlabel(xlabel, fontdict=fontdict, labelpad=labelpad,
                             loc=loc, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.set_ylabel)
 def ylabel(ylabel, fontdict=None, labelpad=None, *, loc=None, **kwargs):
-    """Set the label for the y-axis (`.Axes.set_ylabel`)."""
     return gca().set_ylabel(ylabel, fontdict=fontdict, labelpad=labelpad,
                             loc=loc, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.legend)
 def legend(*args, **kwargs):
-    """Place a legend on the Axes (`.Axes.legend`)."""
     return gca().legend(*args, **kwargs)
 
 
@@ -586,14 +966,8 @@ from .colors import Colormap, Normalize  # noqa: E402, F401
 from .colors import _color_sequences as color_sequences  # noqa: E402
 
 
+@_copy_docstring_and_deprecators(Figure._gci)
 def gci():
-    """
-    Get the current colorable artist.
-
-    Specifically, returns the current `.ScalarMappable` instance (`.Image`
-    created by `imshow` or `figimage`, `.Collection` created by `pcolor` or
-    `scatter`, etc.), or *None* if no such instance has been defined.
-    """
     return gcf()._gci()
 
 
@@ -610,6 +984,10 @@ def get_cmap(name=None, lut=None):
     lut : int or None, default: None
         If *name* is not already a Colormap instance and *lut* is not None, the
         colormap will be resampled to have *lut* entries in the lookup table.
+
+    Returns
+    -------
+    Colormap
     """
     from . import _api
     if name is None:
@@ -631,6 +1009,11 @@ def set_cmap(cmap):
     ----------
     cmap : `~matplotlib.colors.Colormap` or str
         A colormap instance or the name of a registered colormap.
+
+    See Also
+    --------
+    colormaps
+    get_cmap
     """
     from . import rc
     cmap = get_cmap(cmap)
@@ -640,11 +1023,11 @@ def set_cmap(cmap):
         im.set_cmap(cmap)
 
 
+@_copy_docstring_and_deprecators(Axes.imshow)
 def imshow(X, cmap=None, norm=None, *, aspect=None, interpolation=None,
            alpha=None, vmin=None, vmax=None, colorizer=None, origin=None,
            extent=None, interpolation_stage=None, filternorm=True,
            filterrad=4.0, resample=None, url=None, data=None, **kwargs):
-    """Display data as an image (`.Axes.imshow`)."""
     return gca().imshow(
         X, cmap=cmap, norm=norm, aspect=aspect, interpolation=interpolation,
         alpha=alpha, vmin=vmin, vmax=vmax, colorizer=colorizer,
@@ -653,18 +1036,18 @@ def imshow(X, cmap=None, norm=None, *, aspect=None, interpolation=None,
         url=url, data=data, **kwargs)
 
 
+@_copy_docstring_and_deprecators(image.imread)
 def imread(fname, format=None):
-    """Read an image from a file into an array (`.image.imread`)."""
     return image.imread(fname, format)
 
 
+@_copy_docstring_and_deprecators(image.imsave)
 def imsave(fname, arr, **kwargs):
-    """Colormap and save an array as an image file (`.image.imsave`)."""
     image.imsave(fname, arr, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Figure.colorbar)
 def colorbar(mappable=None, cax=None, ax=None, **kwargs):
-    """Add a colorbar to the current image (`.Figure.colorbar`)."""
     if mappable is None:
         mappable = gci()
         if mappable is None:
@@ -681,6 +1064,13 @@ def clim(vmin=None, vmax=None):
 
     If either *vmin* or *vmax* is None, the image min/max respectively
     will be used for color scaling.
+
+    If you want to set the clim of multiple images, use
+    `~.ScalarMappable.set_clim` on every image, for example::
+
+      for im in gca().get_images():
+          im.set_clim(0, 0.5)
+
     """
     im = gci()
     if im is None:
@@ -689,6 +1079,7 @@ def clim(vmin=None, vmax=None):
     im.set_clim(vmin, vmax)
 
 
+@_docstring.interpd
 def axes(arg=None, **kwargs):
     """
     Add an Axes to the current figure and make it the current Axes.
@@ -706,13 +1097,63 @@ def axes(arg=None, **kwargs):
 
         - *None*: A new full window Axes is added using
           ``subplot(**kwargs)``.
-        - 4-tuple of floats *rect* = ``(left, bottom, width, height)``.
+        - 4-tuple of float *rect* = ``(left, bottom, width, height)``.
           A new Axes is added with dimensions *rect* in normalized
           (0, 1) units using `~.Figure.add_axes` on the current figure.
+
+    projection : {None, 'aitoff', 'hammer', 'lambert', 'mollweide', \
+'polar', 'rectilinear', str}, optional
+        The projection type of the `~.axes.Axes`. *str* is the name of
+        a custom projection, see `~matplotlib.projections`. The default
+        None results in a 'rectilinear' projection.
+
+    polar : bool, default: False
+        If True, equivalent to projection='polar'.
+
+    sharex, sharey : `~matplotlib.axes.Axes`, optional
+        Share the x or y `~matplotlib.axis` with sharex and/or sharey.
+        The axis will have the same limits, ticks, and scale as the axis
+        of the shared Axes.
+
+    label : str
+        A label for the returned Axes.
 
     Returns
     -------
     `~.axes.Axes`, or a subclass of `~.axes.Axes`
+        The returned Axes class depends on the projection used. It is
+        `~.axes.Axes` if rectilinear projection is used and
+        `.projections.polar.PolarAxes` if polar projection is used.
+
+    Other Parameters
+    ----------------
+    **kwargs
+        This method also takes the keyword arguments for
+        the returned Axes class. The keyword arguments for the
+        rectilinear Axes class `~.axes.Axes` can be found in
+        the following table but there might also be other keyword
+        arguments if another projection is used, see the actual Axes
+        class.
+
+        %(Axes:kwdoc)s
+
+    See Also
+    --------
+    .Figure.add_axes
+    .pyplot.subplot
+    .Figure.add_subplot
+    .Figure.subplots
+    .pyplot.subplots
+
+    Examples
+    --------
+    ::
+
+        # Creating a new full window Axes
+        plt.axes()
+
+        # Creating a new Axes with specified dimensions and a grey background
+        plt.axes((left, bottom, width, height), facecolor='grey')
     """
     fig = gcf()
     pos = kwargs.pop('position', None)
@@ -725,6 +1166,7 @@ def axes(arg=None, **kwargs):
         return fig.add_axes(arg, **kwargs)
 
 
+@_docstring.interpd
 def subplot(*args, **kwargs):
     """
     Add an Axes to the current figure or retrieve an existing Axes.
@@ -737,11 +1179,119 @@ def subplot(*args, **kwargs):
        subplot(nrows, ncols, index, **kwargs)
        subplot(pos, **kwargs)
        subplot(**kwargs)
-       subplot(ax)
+
+    Parameters
+    ----------
+    *args : int, (int, int, *index*), or `.SubplotSpec`, default: (1, 1, 1)
+        The position of the subplot described by one of
+
+        - Three integers (*nrows*, *ncols*, *index*). The subplot will take the
+          *index* position on a grid with *nrows* rows and *ncols* columns.
+          *index* starts at 1 in the upper left corner and increases to the
+          right. *index* can also be a two-tuple specifying the (*first*,
+          *last*) indices (1-based, and including *last*) of the subplot, e.g.,
+          ``fig.add_subplot(3, 1, (1, 2))`` makes a subplot that spans the
+          upper 2/3 of the figure.
+        - A 3-digit integer. The digits are interpreted as if given separately
+          as three single-digit integers, i.e. ``fig.add_subplot(235)`` is the
+          same as ``fig.add_subplot(2, 3, 5)``. Note that this can only be used
+          if there are no more than 9 subplots.
+        - A `.SubplotSpec`.
+
+    projection : {None, 'aitoff', 'hammer', 'lambert', 'mollweide', \
+'polar', 'rectilinear', str}, optional
+        The projection type of the subplot (`~.axes.Axes`). *str* is the name
+        of a custom projection, see `~matplotlib.projections`. The default
+        None results in a 'rectilinear' projection.
+
+    polar : bool, default: False
+        If True, equivalent to projection='polar'.
+
+    sharex, sharey : `~matplotlib.axes.Axes`, optional
+        Share the x or y `~matplotlib.axis` with sharex and/or sharey. The
+        axis will have the same limits, ticks, and scale as the axis of the
+        shared Axes.
+
+    label : str
+        A label for the returned Axes.
 
     Returns
     -------
     `~.axes.Axes`
+
+        The Axes of the subplot. The returned Axes can actually be an instance
+        of a subclass, such as `.projections.polar.PolarAxes` for polar
+        projections.
+
+    Other Parameters
+    ----------------
+    **kwargs
+        This method also takes the keyword arguments for the returned Axes
+        base class; except for the *figure* argument. The keyword arguments
+        for the rectilinear base class `~.axes.Axes` can be found in
+        the following table but there might also be other keyword
+        arguments if another projection is used.
+
+        %(Axes:kwdoc)s
+
+    Notes
+    -----
+    .. versionchanged:: 3.8
+        In versions prior to 3.8, any preexisting Axes that overlap with the new Axes
+        beyond sharing a boundary was deleted. Deletion does not happen in more
+        recent versions anymore. Use `.Axes.remove` explicitly if needed.
+
+    If you do not want this behavior, use the `.Figure.add_subplot` method
+    or the `.pyplot.axes` function instead.
+
+    If no *kwargs* are passed and there exists an Axes in the location
+    specified by *args* then that Axes will be returned rather than a new
+    Axes being created.
+
+    If *kwargs* are passed and there exists an Axes in the location
+    specified by *args*, the projection type is the same, and the
+    *kwargs* match with the existing Axes, then the existing Axes is
+    returned.  Otherwise a new Axes is created with the specified
+    parameters.  We save a reference to the *kwargs* which we use
+    for this comparison.  If any of the values in *kwargs* are
+    mutable we will not detect the case where they are mutated.
+    In these cases we suggest using `.Figure.add_subplot` and the
+    explicit Axes API rather than the implicit pyplot API.
+
+    See Also
+    --------
+    .Figure.add_subplot
+    .pyplot.subplots
+    .pyplot.axes
+    .Figure.subplots
+
+    Examples
+    --------
+    ::
+
+        plt.subplot(221)
+
+        # equivalent but more general
+        ax1 = plt.subplot(2, 2, 1)
+
+        # add a subplot with no frame
+        ax2 = plt.subplot(222, frameon=False)
+
+        # add a polar subplot
+        plt.subplot(223, projection='polar')
+
+        # add a red subplot that shares the x-axis with ax1
+        plt.subplot(224, sharex=ax1, facecolor='red')
+
+        # delete ax2 from the figure
+        plt.delaxes(ax2)
+
+        # add ax2 to the figure again
+        plt.subplot(ax2)
+
+        # make the first Axes "current" again
+        plt.subplot(221)
+
     """
     # Here we will only normalize `polar=True` vs `projection='polar'` and let
     # downstream code deal with the rest.
@@ -819,6 +1369,22 @@ def subplot2grid(shape, loc, rowspan=1, colspan=1, fig=None, **kwargs):
     Returns
     -------
     `~.axes.Axes`
+
+        The Axes of the subplot. The returned Axes can actually be an instance
+        of a subclass, such as `.projections.polar.PolarAxes` for polar
+        projections.
+
+    Notes
+    -----
+    The following call ::
+
+        ax = subplot2grid((nrows, ncols), (row, col), rowspan, colspan)
+
+    is identical to ::
+
+        fig = gcf()
+        gs = fig.add_gridspec(nrows, ncols)
+        ax = fig.add_subplot(gs[row:row+rowspan, col:col+colspan])
     """
     if fig is None:
         fig = gcf()
@@ -835,14 +1401,102 @@ def subplot_mosaic(mosaic, *, sharex=False, sharey=False,
     """
     Build a layout of Axes based on ASCII art or nested lists.
 
-    See `.Figure.subplot_mosaic`; *fig_kw* go to `.pyplot.figure`.
+    This is a helper function to build complex GridSpec layouts visually.
+
+    See :ref:`mosaic`
+    for an example and full API documentation
+
+    Parameters
+    ----------
+    mosaic : list of list of {hashable or nested} or str
+
+        A visual layout of how you want your Axes to be arranged
+        labeled as strings.  For example ::
+
+           x = [['A panel', 'A panel', 'edge'],
+                ['C panel', '.',       'edge']]
+
+        produces 4 Axes:
+
+        - 'A panel' which is 1 row high and spans the first two columns
+        - 'edge' which is 2 rows high and is on the right edge
+        - 'C panel' which in 1 row and 1 column wide in the bottom left
+        - a blank space 1 row and 1 column wide in the bottom center
+
+        Any of the entries in the layout can be a list of lists
+        of the same form to create nested layouts.
+
+        If input is a str, then it must be of the form ::
+
+          '''
+          AAE
+          C.E
+          '''
+
+        where each character is a column and each line is a row.
+        This only allows only single character Axes labels and does
+        not allow nesting but is very terse.
+
+    sharex, sharey : bool, default: False
+        If True, the x-axis (*sharex*) or y-axis (*sharey*) will be shared
+        among all subplots.  In that case, tick label visibility and axis units
+        behave as for `subplots`.  If False, each subplot's x- or y-axis will
+        be independent.
+
+    width_ratios : array-like of length *ncols*, optional
+        Defines the relative widths of the columns. Each column gets a
+        relative width of ``width_ratios[i] / sum(width_ratios)``.
+        If not given, all columns will have the same width.  Convenience
+        for ``gridspec_kw={'width_ratios': [...]}``.
+
+    height_ratios : array-like of length *nrows*, optional
+        Defines the relative heights of the rows. Each row gets a
+        relative height of ``height_ratios[i] / sum(height_ratios)``.
+        If not given, all rows will have the same height. Convenience
+        for ``gridspec_kw={'height_ratios': [...]}``.
+
+    empty_sentinel : object, optional
+        Entry in the layout to mean "leave this space empty".  Defaults
+        to ``'.'``. Note, if *layout* is a string, it is processed via
+        `inspect.cleandoc` to remove leading white space, which may
+        interfere with using white-space as the empty sentinel.
+
+    subplot_kw : dict, optional
+        Dictionary with keywords passed to the `.Figure.add_subplot` call
+        used to create each subplot.  These values may be overridden by
+        values in *per_subplot_kw*.
+
+    per_subplot_kw : dict, optional
+        A dictionary mapping the Axes identifiers or tuples of identifiers
+        to a dictionary of keyword arguments to be passed to the
+        `.Figure.add_subplot` call used to create each subplot.  The values
+        in these dictionaries have precedence over the values in
+        *subplot_kw*.
+
+        If *mosaic* is a string, and thus all keys are single characters,
+        it is possible to use a single string instead of a tuple as keys;
+        i.e. ``"AB"`` is equivalent to ``("A", "B")``.
+
+        .. versionadded:: 3.7
+
+    gridspec_kw : dict, optional
+        Dictionary with keywords passed to the `.GridSpec` constructor used
+        to create the grid the subplots are placed on.
+
+    **fig_kw
+        All additional keyword arguments are passed to the
+        `.pyplot.figure` call.
 
     Returns
     -------
     fig : `.Figure`
        The new figure
+
     dict[label, Axes]
-       A dictionary mapping the labels to the Axes objects.
+       A dictionary mapping the labels to the Axes objects.  The order of
+       the Axes is left-to-right and top-to-bottom of their position in the
+       total layout.
+
     """
     _raise_if_figure_exists(fig_kw.get('num'), "subplot_mosaic", fig_kw.get('clear'))
     fig = figure(**fig_kw)
@@ -862,6 +1516,10 @@ def twinx(ax=None):
     Make and return a second Axes that shares the *x*-axis.  The new Axes will
     overlay *ax* (or the current Axes if *ax* is *None*), and its ticks will be
     on the right.
+
+    Examples
+    --------
+    :doc:`/gallery/subplots_axes_and_figures/two_scales`
     """
     if ax is None:
         ax = gca()
@@ -873,6 +1531,10 @@ def twiny(ax=None):
     Make and return a second Axes that shares the *y*-axis.  The new Axes will
     overlay *ax* (or the current Axes if *ax* is *None*), and its ticks will be
     on the top.
+
+    Examples
+    --------
+    :doc:`/gallery/subplots_axes_and_figures/two_scales`
     """
     if ax is None:
         ax = gca()
@@ -888,37 +1550,32 @@ def sca(ax):
     fig.sca(ax)
 
 
+@_copy_docstring_and_deprecators(Figure.subplots_adjust)
 def subplots_adjust(left=None, bottom=None, right=None, top=None,
                     wspace=None, hspace=None):
-    """Adjust the subplot layout parameters (`.Figure.subplots_adjust`)."""
     gcf().subplots_adjust(left=left, bottom=bottom, right=right, top=top,
                           wspace=wspace, hspace=hspace)
 
 
+@_copy_docstring_and_deprecators(_artist.getp)
 def getp(obj, *args, **kwargs):
-    """Return the value of an `.Artist`'s property (`.artist.getp`)."""
     from . import artist
     return artist.getp(obj, *args, **kwargs)
 
 
+@_copy_docstring_and_deprecators(_artist.setp)
 def setp(obj, *args, **kwargs):
-    """Set one or more properties on an `.Artist` (`.artist.setp`)."""
     from . import artist
     return artist.setp(obj, *args, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Figure.suptitle)
 def suptitle(t, **kwargs):
-    """Add a centered super title to the current figure (`.Figure.suptitle`)."""
     return gcf().suptitle(t, **kwargs)
 
 
-def figtext(x, y, s, fontdict=None, **kwargs):
-    """Add text to the current figure (`.Figure.text`)."""
-    return gcf().text(x, y, s, fontdict=fontdict, **kwargs)
-
-
+@_copy_docstring_and_deprecators(Axes.axis)
 def axis(arg=None, /, *, emit=True, **kwargs):
-    """Get or set some axis properties of the current Axes (`.Axes.axis`)."""
     return gca().axis(arg, emit=emit, **kwargs)
 
 
@@ -951,7 +1608,6 @@ __all__ += _axes_all
 # plt.figimage, plt.xkcd, the colormap functions, ...).
 from ._pyplot_figure import *  # noqa: E402,F401,F403
 from ._pyplot_figure import __all__ as _figure_all  # noqa: E402
-from ._pyplot_figure import _copy_docstring_and_deprecators  # noqa: E402,F401
 __all__ += _figure_all
 
 # The configuration functions (plt.rc, plt.rc_context, plt.rcdefaults,

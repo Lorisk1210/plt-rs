@@ -150,7 +150,7 @@ class ColorSequenceRegistry(Mapping):
     Read access uses a dict-like interface mapping names to lists of colors::
 
         import matplotlib as mpl
-        colors = color_sequences['tab10']
+        colors = mpl.color_sequences['tab10']
 
     For a list of built in color sequences, see :doc:`/gallery/color/color_sequences`.
     The returned lists are copies, so that their modification does not change
@@ -159,7 +159,7 @@ class ColorSequenceRegistry(Mapping):
     Additional color sequences can be added via
     `.ColorSequenceRegistry.register`::
 
-        color_sequences.register('rgb', ['r', 'g', 'b'])
+        mpl.color_sequences.register('rgb', ['r', 'g', 'b'])
     """
 
     _BUILTIN_COLOR_SEQUENCES = {
@@ -2488,9 +2488,9 @@ class Normalize(Norm):
 
         x = [-2, -1, 0, 1, 2]
 
-        norm = Normalize(vmin=-1, vmax=1, clip=False)
+        norm = mpl.colors.Normalize(vmin=-1, vmax=1, clip=False)
         norm(x)  # [-0.5, 0., 0.5, 1., 1.5]
-        norm = Normalize(vmin=-1, vmax=1, clip=True)
+        norm = mpl.colors.Normalize(vmin=-1, vmax=1, clip=True)
         norm(x)  # [0., 0., 0.5, 1., 1.]
 
     See Also

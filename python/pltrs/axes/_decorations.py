@@ -56,9 +56,8 @@ class DecorationsMixin:
 
         This sets a flag to suppress drawing of all axis decorations, i.e.
         axis labels, axis spines, and the axis tick component (tick markers,
-        tick labels, and grid lines). Individual visibility settings of
-        these components are ignored as long as `set_axis_off()` is in
-        effect.
+        tick labels, and grid lines). Individual visibility settings of these
+        components are ignored as long as `set_axis_off()` is in effect.
         """
         _axes_base.set_axis_on(self._native, False)
 
@@ -67,8 +66,8 @@ class DecorationsMixin:
         Do not hide all visual components of the x- and y-axis.
 
         This reverts the effect of a prior `.set_axis_off()` call. Whether the
-        individual axis decorations are drawn is controlled by their
-        respective visibility settings.
+        individual axis decorations are drawn is controlled by their respective
+        visibility settings.
 
         This is on by default.
         """
@@ -82,6 +81,8 @@ class DecorationsMixin:
         they support rasterization.
 
         This setting is ignored for pixel-based output.
+
+        See also :doc:`/gallery/misc/rasterization_demo`.
 
         Parameters
         ----------
@@ -130,16 +131,52 @@ class DecorationsMixin:
 
         option : bool or str
             If a bool, turns axis lines and labels on or off. If a string,
-            possible values are 'off', 'on', 'equal', 'scaled', 'tight',
-            'auto', 'image' and 'square'.
+            possible values are:
+
+            ================ ===========================================================
+            Value            Description
+            ================ ===========================================================
+            'off' or `False` Hide all axis decorations, i.e. axis labels, spines,
+                             tick marks, tick labels, and grid lines.
+                             This is the same as `~.Axes.set_axis_off()`.
+            'on' or `True`   Do not hide all axis decorations, i.e. axis labels, spines,
+                             tick marks, tick labels, and grid lines.
+                             This is the same as `~.Axes.set_axis_on()`.
+            'equal'          Set equal scaling (i.e., make circles circular) by
+                             changing the axis limits. This is the same as
+                             ``ax.set_aspect('equal', adjustable='datalim')``.
+                             Explicit data limits may not be respected in this case.
+            'scaled'         Set equal scaling (i.e., make circles circular) by
+                             changing dimensions of the plot box. This is the same as
+                             ``ax.set_aspect('equal', adjustable='box', anchor='C')``.
+                             Additionally, further autoscaling will be disabled.
+            'tight'          Set limits just large enough to show all data, then
+                             disable further autoscaling.
+            'auto'           Automatic scaling (fill plot box with data).
+            'image'          'scaled' with axis limits equal to data limits.
+            'square'         Square plot; similar to 'scaled', but initially forcing
+                             ``xmax-xmin == ymax-ymin``.
+            ================ ===========================================================
 
         emit : bool, default: True
             Whether observers are notified of the axis limit change.
+            This option is passed on to `~.Axes.set_xlim` and
+            `~.Axes.set_ylim`.
 
         Returns
         -------
         xmin, xmax, ymin, ymax : float
             The axis limits.
+
+        See Also
+        --------
+        matplotlib.axes.Axes.set_xlim
+        matplotlib.axes.Axes.set_ylim
+
+        Notes
+        -----
+        For 3D Axes, this method additionally takes *zmin*, *zmax* as
+        parameters and likewise returns them.
         """
         if isinstance(arg, (str, bool)):
             if arg is True:
@@ -183,9 +220,23 @@ class DecorationsMixin:
         self.set_position(pos, which)
 
     def get_xaxis(self):
-        """[*Discouraged*] Return the XAxis instance (``ax.xaxis``)."""
+        """
+        [*Discouraged*] Return the XAxis instance.
+
+        .. admonition:: Discouraged
+
+            The use of this function is discouraged. You should instead
+            directly access the attribute `~.Axes.xaxis`.
+        """
         return self.xaxis
 
     def get_yaxis(self):
-        """[*Discouraged*] Return the YAxis instance (``ax.yaxis``)."""
+        """
+        [*Discouraged*] Return the YAxis instance.
+
+        .. admonition:: Discouraged
+
+            The use of this function is discouraged. You should instead
+            directly access the attribute `~.Axes.yaxis`.
+        """
         return self.yaxis

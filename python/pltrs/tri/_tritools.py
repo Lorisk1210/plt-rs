@@ -56,6 +56,11 @@ class TriAnalyzer:
         It is always ``<= 0.5`` and ``== 0.5`` only for equilateral
         triangles. Circle ratios below 0.01 denote very flat triangles.
 
+        To avoid unduly low values due to a difference of scale between the 2
+        axis, the triangular mesh can first be rescaled to fit inside a unit
+        square with `scale_factors` (Only if *rescale* is True, which is
+        its default value).
+
         Parameters
         ----------
         rescale : bool, default: True
@@ -68,6 +73,7 @@ class TriAnalyzer:
             Ratio of the incircle radius over the circumcircle radius, for
             each 'rescaled' triangle of the encapsulated triangulation.
             Values corresponding to masked triangles are masked out.
+
         """
         ratios = _tri.circle_ratios(self._triangulation._native, bool(rescale))
         mask = self._triangulation.mask
@@ -88,6 +94,10 @@ class TriAnalyzer:
         *new_mask* is an extension of the initial triangulation mask
         in the sense that an initially masked triangle will remain masked.
 
+        The *new_mask* array is computed recursively; at each step flat
+        triangles are removed only if they share a side with the current mesh
+        border. Thus, no new holes in the triangulated domain will be created.
+
         Parameters
         ----------
         min_circle_ratio : float, default: 0.01
@@ -105,6 +115,17 @@ class TriAnalyzer:
             Mask to apply to encapsulated triangulation.
             All the initially masked triangles remain masked in the
             *new_mask*.
+
+        Notes
+        -----
+        The rationale behind this function is that a Delaunay
+        triangulation - of an unstructured set of points - sometimes contains
+        almost flat triangles at its border, leading to artifacts in plots
+        (especially for high-resolution contouring).
+        Masked with computed *new_mask*, the encapsulated
+        triangulation would contain no more unmasked border triangles
+        with a circle ratio below *min_circle_ratio*, thus improving the
+        mesh quality for subsequent plots or interpolation.
         """
         return np.asarray(_tri.flat_tri_mask(
             self._triangulation._native, float(min_circle_ratio), bool(rescale)),

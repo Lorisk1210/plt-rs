@@ -73,7 +73,8 @@ class PickingMixin:
             Whether any values are within the radius.
         details : dict
             An artist-specific dictionary of details of the event context,
-            such as which points are contained in the pick radius.
+            such as which points are contained in the pick radius. See the
+            individual Artist subclasses for details.
         """
         return self._contains_within(mouseevent, self._pick_radius())
 
@@ -152,7 +153,10 @@ class PickingMixin:
             - A float: If picker is a number it is interpreted as an
               epsilon tolerance in points and the artist will fire
               off an event if its data is within epsilon of the mouse
-              event.
+              event.  For some artists like lines and patch collections,
+              the artist may provide additional data to the pick event
+              that is generated, e.g., the indices of the data within
+              epsilon of the pick event
 
             - A function: If picker is callable, it is a user supplied
               function which determines whether the artist is hit by the
@@ -185,13 +189,30 @@ class PickingMixin:
         """
         Return the cursor data for a given event.
 
+        .. note::
+            This method is intended to be overridden by artist subclasses.
+            As an end-user of Matplotlib you will most likely not call this
+            method yourself.
+
         Cursor data can be used by Artists to provide additional context
         information for a given event. The default implementation just returns
         *None*.
 
+        Subclasses can override the method and return arbitrary data. However,
+        when doing so, they must ensure that `.format_cursor_data` can convert
+        the data to a string representation.
+
+        The only current use case is displaying the z-value of an `.AxesImage`
+        in the status bar of a plot window, while moving the mouse.
+
         Parameters
         ----------
         event : `~matplotlib.backend_bases.MouseEvent`
+
+        See Also
+        --------
+        format_cursor_data
+
         """
         return None
 
@@ -199,10 +220,19 @@ class PickingMixin:
         """
         Return a string representation of *data*.
 
+        .. note::
+            This method is intended to be overridden by artist subclasses.
+            As an end-user of Matplotlib you will most likely not call this
+            method yourself.
+
         The default implementation converts ints and floats and arrays of ints
         and floats into a comma-separated string enclosed in square brackets,
         unless the artist has an associated colorbar, in which case scalar
         values are formatted using the colorbar's formatter.
+
+        See Also
+        --------
+        get_cursor_data
         """
         if np.ndim(data) == 0 and hasattr(self, "_format_cursor_data_override"):
             return self._format_cursor_data_override(data)

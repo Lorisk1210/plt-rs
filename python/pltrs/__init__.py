@@ -163,16 +163,19 @@ class RcParams(MutableMapping, dict):
     """
     A dict-like key-value store for config parameters, including validation.
 
-    Values are validated and stored by pltrs (Rust): assigning an invalid value
-    raises the ``ValueError`` matplotlib raises, an unknown key the
-    ``KeyError``. Reading a value gives matplotlib's Python value: the
-    parameter's validator (`.rcsetup`) applied to the rc text pltrs (Rust)
-    keeps, or to the value given, while pltrs (Rust) holds that value (so
-    that ``'dashed'`` stays ``'dashed'`` where pltrs (Rust) keeps ``--``).
-    ``matplotlib.rcParams`` holds the current parameters; other instances
-    (``rcParamsDefault``, ``RcParams({...})``, copies) hold their own, and
-    only the keys given to them.
+    This is the data structure behind `matplotlib.rcParams`.
+
+    The complete list of rcParams can be found in :doc:`/users/explain/configuration`.
     """
+    # Values are validated and stored by pltrs (Rust): assigning an invalid
+    # value raises the ``ValueError`` matplotlib raises, an unknown key the
+    # ``KeyError``. Reading a value gives matplotlib's Python value: the
+    # parameter's validator (`.rcsetup`) applied to the rc text pltrs (Rust)
+    # keeps, or to the value given, while pltrs (Rust) holds that value (so
+    # that ``'dashed'`` stays ``'dashed'`` where pltrs (Rust) keeps ``--``).
+    # ``matplotlib.rcParams`` holds the current parameters; other instances
+    # (``rcParamsDefault``, ``RcParams({...})``, copies) hold their own, and
+    # only the keys given to them.
 
     validate = rcsetup._validators
 
@@ -306,6 +309,7 @@ class RcParams(MutableMapping, dict):
         self._keys.discard(key)
 
     def __iter__(self):
+        """Yield sorted list of keys."""
         keys = _NATIVE_KEYS if self._keys is None else self._keys
         yield from sorted(keys | self._python.keys())
 
@@ -373,6 +377,12 @@ class RcParams(MutableMapping, dict):
         """
         Return the subset of this RcParams dictionary whose keys match,
         using :func:`re.search`, the given ``pattern``.
+
+        .. note::
+
+            Changes to the returned dictionary are *not* propagated to
+            the parent RcParams dictionary.
+
         """
         pattern_re = re.compile(pattern)
         return RcParams((key, value) for key, value in self.items()
@@ -432,7 +442,52 @@ def rc(group, **kwargs):
     for ``lines.linewidth`` the group is ``lines``, for
     ``axes.facecolor``, the group is ``axes``, and so on.  Group may
     also be a list or tuple of group names, e.g., (*xtick*, *ytick*).
-    *kwargs* is a dictionary attribute name/value pairs.
+    *kwargs* is a dictionary attribute name/value pairs, e.g.,::
+
+      rc('lines', linewidth=2, color='r')
+
+    sets the current `.rcParams` and is equivalent to::
+
+      rcParams['lines.linewidth'] = 2
+      rcParams['lines.color'] = 'r'
+
+    The following aliases are available to save typing for interactive users:
+
+    ======  =================
+    Alias   Property
+    ======  =================
+    'lw'    'linewidth'
+    'ls'    'linestyle'
+    'c'     'color'
+    'fc'    'facecolor'
+    'ec'    'edgecolor'
+    'mew'   'markeredgewidth'
+    'aa'    'antialiased'
+    'sans'  'sans-serif'
+    ======  =================
+
+    Thus you could abbreviate the above call as::
+
+          rc('lines', lw=2, c='r')
+
+    Note you can use python's kwargs dictionary facility to store
+    dictionaries of default parameters.  e.g., you can customize the
+    font rc as follows::
+
+      font = {'family' : 'monospace',
+              'weight' : 'bold',
+              'size'   : 'large'}
+      rc('font', **font)  # pass in the font dict as kwargs
+
+    This enables you to easily switch between several configurations.  Use
+    ``matplotlib.style.use('default')`` or :func:`~matplotlib.rcdefaults` to
+    restore the default `.rcParams` after changes.
+
+    Notes
+    -----
+    Similar functionality is available by using the normal dict interface, i.e.
+    ``rcParams.update({"lines.linewidth": 2, ...})`` (but ``rcParams.update``
+    does not support abbreviations or grouping).
     """
     aliases = {
         'lw': 'linewidth', 'ls': 'linestyle', 'c': 'color',
@@ -459,6 +514,15 @@ def rcdefaults():
 
     Style-blacklisted `.rcParams` (defined in
     ``matplotlib.style.core.STYLE_BLACKLIST``) are not updated.
+
+    See Also
+    --------
+    matplotlib.rc_file_defaults
+        Restore the `.rcParams` from the rc file originally loaded by
+        Matplotlib.
+    matplotlib.style.use
+        Use a specific style file.  Call ``style.use('default')`` to restore
+        the default style.
     """
     kept = {key: rcParams[key] for key in _STYLE_BLACKLIST if key in rcParams}
     _rcsetup.replace(_rcsetup.defaults())
@@ -484,6 +548,33 @@ def rc_context(rc=None, fname=None):
     fname : str or path-like
         A file with Matplotlib rc settings. If both *fname* and *rc* are given,
         settings from *rc* take precedence.
+
+    See Also
+    --------
+    :ref:`customizing-with-matplotlibrc-files`
+
+    Examples
+    --------
+    Passing explicit values via a dict::
+
+        with mpl.rc_context({'interactive': False}):
+            fig, ax = plt.subplots()
+            ax.plot(range(3), range(3))
+            fig.savefig('example.png')
+            plt.close(fig)
+
+    Loading settings from a file::
+
+         with mpl.rc_context(fname='print.rc'):
+             plt.plot(x, y)  # uses 'print.rc'
+
+    Setting in the context body::
+
+        with mpl.rc_context():
+            # will be reset
+            mpl.rcParams['lines.linewidth'] = 5
+            plt.plot(x, y)
+
     """
     saved = _rcsetup.copy(None)
     given = dict(rcParams._given)
@@ -576,14 +667,25 @@ def matplotlib_fname():
 
     The file location is determined in the following order
 
-    - ``$PWD/pltrsrc``
-    - ``$PLTRSRC`` if it is not a directory
-    - ``$PLTRSRC/pltrsrc``
-    - ``pltrsrc`` in the configuration directory (`get_configdir`)
-    - Lastly, the template of the defaults in the data directory
-      (`get_data_path`), which pltrs (Rust) writes there, as matplotlib's
-      ``mpl-data/matplotlibrc``.
+    - ``$PWD/matplotlibrc``
+    - ``$MATPLOTLIBRC`` if it is not a directory
+    - ``$MATPLOTLIBRC/matplotlibrc``
+    - ``$MPLCONFIGDIR/matplotlibrc``
+    - On Linux,
+        - ``$XDG_CONFIG_HOME/matplotlib/matplotlibrc`` (if ``$XDG_CONFIG_HOME``
+          is defined)
+        - or ``$HOME/.config/matplotlib/matplotlibrc`` (if ``$XDG_CONFIG_HOME``
+          is not defined)
+    - On other platforms,
+      - ``$HOME/.matplotlib/matplotlibrc`` if ``$HOME`` is defined
+    - Lastly, it looks in ``$MATPLOTLIBDATA/matplotlibrc``, which should always
+      exist.
     """
+    # - ``$PWD/pltrsrc`` - ``$PLTRSRC`` if it is not a directory -
+    # ``$PLTRSRC/pltrsrc`` - ``pltrsrc`` in the configuration directory
+    # (`get_configdir`) - Lastly, the template of the defaults in the data
+    # directory (`get_data_path`), which pltrs (Rust) writes there, as
+    # matplotlib's ``mpl-data/matplotlibrc``.
     return _cbook.rc_file_or_template()
 
 
@@ -651,11 +753,28 @@ def set_loglevel(level):
     - set the root logger handler's level, creating the handler
       if it does not exist yet
 
+    Typically, one should call ``set_loglevel("INFO")`` or
+    ``set_loglevel("DEBUG")`` to get additional debugging information.
+
+    Users or applications that are installing their own logging handlers
+    may want to directly manipulate ``logging.getLogger('matplotlib')`` rather
+    than use this function.
+
     Parameters
     ----------
     level : {"NOTSET", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         The log level as defined in `Python logging levels
         <https://docs.python.org/3/library/logging.html#logging-levels>`__.
+
+        For backwards compatibility, the levels are case-insensitive, but
+        the capitalized version is preferred in analogy to `logging.Logger.setLevel`.
+
+    Notes
+    -----
+    The first time this function is called, an additional handler is attached
+    to Matplotlib's root handler; this handler is reused every time and this
+    function simply manipulates the logger and handler's level.
+
     """
     _log.setLevel(level.upper())
     _ensure_handler().setLevel(level.upper())
@@ -714,6 +833,13 @@ def use(backend, *, force=True):
         set up (either because it fails to import, or because an incompatible
         GUI interactive framework is already running); if False, silently
         ignore the failure.
+
+    See Also
+    --------
+    :ref:`backends`
+    matplotlib.get_backend
+    matplotlib.pyplot.switch_backend
+
     """
     from .backends import backend_registry
     if not backend_registry.is_valid_backend(backend):
@@ -760,6 +886,17 @@ def get_backend(*, auto_select=True):
         selected so far. If True, this ensures that a valid backend
         is returned. If False, this returns None if no backend has been
         selected so far.
+
+        .. versionadded:: 3.10
+
+        .. admonition:: Provisional
+
+           The *auto_select* flag is provisional. It may be changed or removed
+           without prior warning.
+
+    See Also
+    --------
+    matplotlib.use
     """
     if auto_select:
         return rcParams['backend']
@@ -792,20 +929,35 @@ def _init_tests():
 
 def get_configdir():
     """
-    Return the string path of the configuration directory: the one
-    ``PLTRSCONFIGDIR`` names, else the one matplotlib's ``MPLCONFIGDIR``
-    names, else on Linux ``$XDG_CONFIG_HOME/pltrs`` (by default
-    ``~/.config/pltrs``) and elsewhere ``~/.pltrs``, made if missing; a
-    temporary directory when it cannot be made or written to.
+    Return the string path of the configuration directory.
+
+    The directory is chosen as follows:
+
+    1. If the MPLCONFIGDIR environment variable is supplied, choose that.
+    2. On Linux, follow the XDG specification and look first in
+       ``$XDG_CONFIG_HOME``, if defined, or ``$HOME/.config``.  On Windows,
+       use ``%LOCALAPPDATA%\\matplotlib``.  On other platforms, choose
+       ``$HOME/.matplotlib``.
+    3. If the chosen directory exists and is writable, use that as the
+       configuration directory.
+    4. Else, create a temporary directory, and use it as the configuration
+       directory.
     """
+    # Return the string path of the configuration directory: the one
+    # ``PLTRSCONFIGDIR`` names, else the one matplotlib's ``MPLCONFIGDIR``
+    # names, else on Linux ``$XDG_CONFIG_HOME/pltrs`` (by default
+    # ``~/.config/pltrs``) and elsewhere ``~/.pltrs``, made if missing; a
+    # temporary directory when it cannot be made or written to.
     return _cbook.config_dir()
 
 
 def get_cachedir():
     """
-    Return the string path of the cache directory, found as the
-    configuration directory is (see `get_configdir`), on Linux in
-    ``$XDG_CACHE_HOME`` (by default ``~/.cache``).
+    Return the string path of the cache directory.
+
+    The procedure used to find the directory is the same as for
+    `get_configdir`, except using ``$XDG_CACHE_HOME``/``$HOME/.cache`` instead
+    on Linux.  On Windows, uses ``%LOCALAPPDATA%\\matplotlib`` (same as config).
     """
     return _cbook.cache_dir()
 
@@ -836,10 +988,11 @@ from .colors import _color_sequences as color_sequences  # noqa: E402
 
 
 def get_data_path():
-    """Return the path to Matplotlib data: the directory where pltrs (Rust)
-    writes the data files it bundles (its fonts), as matplotlib's
-    ``mpl-data``, which also reaches the files the package ships (the
-    sample data, the toolbar images)."""
+    """Return the path to Matplotlib data."""
+    # Return the path to Matplotlib data: the directory where pltrs (Rust)
+    # writes the data files it bundles (its fonts), as matplotlib's ``mpl-
+    # data``, which also reaches the files the package ships (the sample data,
+    # the toolbar images).
     from ._native import font_manager as _font_manager
     path = _font_manager.data_path()
     _reach_shipped_data(path)
@@ -888,12 +1041,10 @@ def _replace_link(entry, target):
 
 @_api.deprecated("3.10", alternative="matplotlib.cbook.sanitize_sequence")
 def sanitize_sequence(data):
-    """Convert dictview objects to list (`.cbook.sanitize_sequence`)."""
     from . import cbook
     return cbook.sanitize_sequence(data)
 
 
 @_api.deprecated("3.10", alternative="matplotlib.rcsetup.validate_backend")
 def validate_backend(s):
-    """Validate a backend name (`.rcsetup.validate_backend`)."""
     return rcsetup.validate_backend(s)

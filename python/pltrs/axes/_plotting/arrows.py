@@ -3,28 +3,35 @@
 view.
 """
 
+from ... import _docstring
 from ... import patches as mpatches
 
 
 class ArrowsMixin:
     """`~.Axes.arrow`."""
 
+    @_docstring.interpd
     def arrow(self, x, y, dx, dy, **kwargs):
         """
-        Add an arrow to the Axes.
+        [*Discouraged*] Add an arrow to the Axes.
 
         This draws an arrow from ``(x, y)`` to ``(x+dx, y+dy)``.
 
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged because it is not guaranteed
+            that the arrow renders reasonably. For example, the resulting arrow
+            is affected by the Axes aspect ratio and limits, which may distort
+            the arrow.
+
+            Consider using `~.Axes.annotate` without a text instead, e.g. ::
+
+                ax.annotate("", xytext=(0, 0), xy=(0.5, 0.5),
+                            arrowprops=dict(arrowstyle="->"))
+
         Parameters
         ----------
-        x, y : float
-            The x and y coordinates of the arrow base.
-        dx, dy : float
-            The length of the arrow along x and y direction.
-        **kwargs
-            The keyword arguments of `.FancyArrow` (*width*,
-            *length_includes_head*, *head_width*, *head_length*, *shape*,
-            *overhang*, *head_starts_at_zero*) and `.Patch` properties.
+        %(FancyArrow)s
 
         Returns
         -------

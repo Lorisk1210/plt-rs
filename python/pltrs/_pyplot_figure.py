@@ -13,10 +13,11 @@ from enum import Enum
 import functools
 import inspect
 import sys
+import textwrap
 import time
 
 from . import _api, _docstring, _pylab_helpers, artist, rcParams
-from .backend_bases import MouseButton
+from .backend_bases import FigureCanvasBase, MouseButton
 from .figure import Figure
 
 
@@ -44,7 +45,77 @@ def _copy_docstring_and_deprecators(method, func=None):
         method = method.__wrapped__
     for decorator in decorators[::-1]:
         func = decorator(func)
+    _add_pyplot_note(func, method)
     return func
+
+
+_NO_PYPLOT_NOTE = [
+    'FigureBase._gci',  # wrapped_func is private
+    '_AxesBase._sci',  # wrapped_func is private
+    'Artist.findobj',  # not a standard pyplot wrapper because it does not operate
+                       # on the current Figure / Axes. Explanation of relation would
+                       # be more complex and is not too important.
+]
+
+
+def _add_pyplot_note(func, wrapped_func):
+    """
+    Add a note to the docstring of *func* that it is a pyplot wrapper.
+
+    The note is added to the "Notes" section of the docstring. If that does
+    not exist, a "Notes" section is created. In numpydoc, the "Notes"
+    section is the third last possible section, only potentially followed by
+    "References" and "Examples".
+    """
+    if not func.__doc__:
+        return  # nothing to do
+
+    qualname = wrapped_func.__qualname__
+    if qualname in _NO_PYPLOT_NOTE:
+        return
+
+    wrapped_func_is_method = True
+    if "." not in qualname:
+        # method qualnames are prefixed by the class and ".", e.g. "Axes.plot"
+        wrapped_func_is_method = False
+        link = f"{wrapped_func.__module__}.{qualname}"
+    elif qualname.startswith("Axes."):  # e.g. "Axes.plot"
+        link = ".axes." + qualname
+    elif qualname.startswith("_AxesBase."):  # e.g. "_AxesBase.set_xlabel"
+        link = ".axes.Axes" + qualname[9:]
+    elif qualname.startswith("Figure."):  # e.g. "Figure.figimage"
+        link = "." + qualname
+    elif qualname.startswith("FigureBase."):  # e.g. "FigureBase.gca"
+        link = ".Figure" + qualname[10:]
+    elif qualname.startswith("FigureCanvasBase."):  # "FigureBaseCanvas.mpl_connect"
+        link = "." + qualname
+    else:
+        raise RuntimeError(f"Wrapped method from unexpected class: {qualname}")
+
+    if wrapped_func_is_method:
+        message = f"This is the :ref:`pyplot wrapper <pyplot_interface>` for `{link}`."
+    else:
+        message = f"This is equivalent to `{link}`."
+
+    # Find the correct insert position:
+    # - either we already have a "Notes" section into which we can insert
+    # - or we create one before the next present section. Note that in numpydoc, the
+    #   "Notes" section is the third last possible section, only potentially followed
+    #   by "References" and "Examples".
+    # - or we append a new "Notes" section at the end.
+    doc = inspect.cleandoc(func.__doc__)
+    if "\nNotes\n-----" in doc:
+        before, after = doc.split("\nNotes\n-----", 1)
+    elif (index := doc.find("\nReferences\n----------")) != -1:
+        before, after = doc[:index], doc[index:]
+    elif (index := doc.find("\nExamples\n--------")) != -1:
+        before, after = doc[:index], doc[index:]
+    else:
+        # No "Notes", "References", or "Examples" --> append to the end.
+        before = doc + "\n"
+        after = ""
+
+    func.__doc__ = f"{before}\nNotes\n-----\n\n.. note::\n\n    {message}\n{after}"
 
 
 # The state controlled by {,un}install_repl_displayhook().
@@ -122,6 +193,11 @@ def pause(interval):
     :mod:`matplotlib.animation`.
 
     If there is no active figure, sleep for *interval* seconds instead.
+
+    See Also
+    --------
+    matplotlib.animation : Proper animations
+    show : Show all figures and optional block until all figures are closed.
     """
     manager = _pylab_helpers.Gcf.get_active()
     if manager is not None:
@@ -139,13 +215,10 @@ def xkcd(scale=1, length=100, randomness=2):
     """
     Turn on `xkcd <https://xkcd.com/>`_ sketch-style drawing mode.
 
-    This will only have an effect on things drawn after this function is
-    called. It works by a number of rcParams, overriding those set before;
-    used as a context manager, it restores them on exit::
+    This will only have an effect on things drawn after this function is called.
 
-        with plt.xkcd():
-            # This figure will be in XKCD-style
-            fig1 = plt.figure()
+    For best results, install the `xkcd script <https://github.com/ipython/xkcd-font/>`_
+    font; xkcd fonts are not packaged with Matplotlib.
 
     Parameters
     ----------
@@ -155,6 +228,21 @@ def xkcd(scale=1, length=100, randomness=2):
         The length of the wiggle along the line.
     randomness : float, optional
         The scale factor by which the length is shrunken or expanded.
+
+    Notes
+    -----
+    This function works by a number of rcParams, overriding those set before.
+
+    If you want the effects of this function to be temporary, it can
+    be used as a context manager, for example::
+
+        with plt.xkcd():
+            # This figure will be in XKCD-style
+            fig1 = plt.figure()
+            # ...
+
+        # This figure will be in regular style
+        fig2 = plt.figure()
     """
     from contextlib import ExitStack
     from . import patheffects
@@ -186,14 +274,18 @@ def xkcd(scale=1, length=100, randomness=2):
     return stack
 
 
-@_copy_docstring_and_deprecators(Figure.clear)
 def clf():
+    """Clear the current figure."""
     _gcf().clear()
 
 
-@_copy_docstring_and_deprecators(Figure.legend)
 def figlegend(*args, **kwargs):
     return _gcf().legend(*args, **kwargs)
+if Figure.legend.__doc__:
+    figlegend.__doc__ = Figure.legend.__doc__ \
+        .replace(" legend(", " figlegend(") \
+        .replace("fig.legend(", "plt.figlegend(") \
+        .replace("ax.plot(", "plt.plot(")
 
 
 @_copy_docstring_and_deprecators(Figure.figimage)
@@ -206,15 +298,13 @@ def figimage(X, xo=0, yo=0, alpha=None, norm=None, cmap=None, vmin=None,
         **kwargs)
 
 
+@_copy_docstring_and_deprecators(FigureCanvasBase.mpl_connect)
 def connect(s, func):
-    """Connect *func* to the event *s* of the current figure's canvas
-    (`.FigureCanvasBase.mpl_connect`); return the connection id."""
     return _gcf().canvas.mpl_connect(s, func)
 
 
+@_copy_docstring_and_deprecators(FigureCanvasBase.mpl_disconnect)
 def disconnect(cid):
-    """Disconnect the callback *cid* from the current figure's canvas
-    (`.FigureCanvasBase.mpl_disconnect`)."""
     _gcf().canvas.mpl_disconnect(cid)
 
 
@@ -293,12 +383,12 @@ def _colormap_function(name):
         pyplot.set_cmap(name)
 
     set_colormap.__name__ = set_colormap.__qualname__ = name
-    set_colormap.__doc__ = f"""
+    set_colormap.__doc__ = textwrap.dedent(f"""
     Set the colormap to {name!r}.
 
     This changes the default colormap as well as the colormap of the current
     image if there is one. See ``help(colormaps)`` for more information.
-    """
+    """)
     return set_colormap
 
 

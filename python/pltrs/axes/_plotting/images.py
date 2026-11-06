@@ -5,6 +5,7 @@ Matrices drawn as images: `~.Axes.pcolorfast`, `~.Axes.spy` and
 
 import numpy as np
 
+from ... import _docstring
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors
 from ... import image as mimage, lines as mlines
 from ..._native import plotting as _plotting
@@ -45,6 +46,7 @@ class ImagesMixin:
     """`pcolorfast`, `spy` and `matshow`."""
 
     @_preprocess_data()
+    @_docstring.interpd
     def pcolorfast(self, *args, alpha=None, norm=None, cmap=None, vmin=None,
                    vmax=None, colorizer=None, **kwargs):
         """
@@ -54,15 +56,111 @@ class ImagesMixin:
 
             ax.pcolorfast([X, Y], C, /, **kwargs)
 
+        The arguments *X*, *Y*, *C* are positional-only.
+
+        This method is similar to `~.Axes.pcolor` and `~.Axes.pcolormesh`.
+        It's designed to provide the fastest pcolor-type plotting with the
+        Agg backend. To achieve this, it uses different algorithms internally
+        depending on the complexity of the input grid (regular rectangular,
+        non-regular rectangular or arbitrary quadrilateral).
+
+        .. warning::
+
+            This method is experimental. Compared to `~.Axes.pcolor` or
+            `~.Axes.pcolormesh` it has some limitations:
+
+            - It supports only flat shading (no outlines)
+            - It lacks support for log scaling of the axes.
+            - It does not have a pyplot wrapper.
+
+        Parameters
+        ----------
+        C : array-like
+            The image data. Supported array shapes are:
+
+            - (M, N): an image with scalar data.  Color-mapping is controlled
+              by *cmap*, *norm*, *vmin*, and *vmax*.
+            - (M, N, 3): an image with RGB values (0-1 float or 0-255 int).
+            - (M, N, 4): an image with RGBA values (0-1 float or 0-255 int),
+              i.e. including transparency.
+
+            The first two dimensions (M, N) define the rows and columns of
+            the image.
+
+            This parameter can only be passed positionally.
+
+        X, Y : tuple or array-like, default: ``(0, N)``, ``(0, M)``
+            *X* and *Y* are used to specify the coordinates of the
+            quadrilaterals. There are different ways to do this:
+
+            - Use tuples ``X=(xmin, xmax)`` and ``Y=(ymin, ymax)`` to define
+              a *uniform rectangular grid*.
+
+              The tuples define the outer edges of the grid. All individual
+              quadrilaterals will be of the same size. This is the fastest
+              version.
+
+            - Use 1D arrays *X*, *Y* to specify a *non-uniform rectangular
+              grid*.
+
+              In this case *X* and *Y* have to be monotonic 1D arrays of length
+              *N+1* and *M+1*, specifying the x and y boundaries of the cells.
+
+              The speed is intermediate. Note: The grid is checked, and if
+              found to be uniform the fast version is used.
+
+            - Use 2D arrays *X*, *Y* if you need an *arbitrary quadrilateral
+              grid* (i.e. if the quadrilaterals are not rectangular).
+
+              In this case *X* and *Y* are 2D arrays with shape (M + 1, N + 1),
+              specifying the x and y coordinates of the corners of the colored
+              quadrilaterals.
+
+              This is the most general, but the slowest to render.  It may
+              produce faster and more compact output using ps, pdf, and
+              svg backends, however.
+
+            These arguments can only be passed positionally.
+
+        %(cmap_doc)s
+
+            This parameter is ignored if *C* is RGB(A).
+
+        %(norm_doc)s
+
+            This parameter is ignored if *C* is RGB(A).
+
+        %(vmin_vmax_doc)s
+
+            This parameter is ignored if *C* is RGB(A).
+
+        %(colorizer_doc)s
+
+            This parameter is ignored if *C* is RGB(A).
+
+        alpha : float, default: None
+            The alpha blending value, between 0 (transparent) and 1 (opaque).
+
+        snap : bool, default: False
+            Whether to snap the mesh to pixel boundaries.
+
         Returns
         -------
         `.AxesImage` or `.PcolorImage` or `.QuadMesh`
-            The return type depends on the type of grid.
+            The return type depends on the type of grid:
+
+            - `.AxesImage` for a regular rectangular grid.
+            - `.PcolorImage` for a non-regular rectangular grid.
+            - `.QuadMesh` for a non-rectangular grid.
 
         Other Parameters
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs
+            Supported additional parameters depend on the type of grid.
+            See return types of *image* for further description.
         """
         C = args[-1]
         nr, nc = np.shape(C)[:2]
@@ -91,11 +189,62 @@ class ImagesMixin:
         ret._internal_update(kwargs)
         return ret
 
-    @_preprocess_data()
+    @_api.make_keyword_only("3.10", "precision")
+    @_docstring.interpd
     def spy(self, Z, precision=0, marker=None, markersize=None,
             aspect='equal', origin="upper", **kwargs):
         """
         Plot the sparsity pattern of a 2D array.
+
+        This visualizes the non-zero values of the array.
+
+        Two plotting styles are available: image and marker. Both
+        are available for full arrays, but only the marker style
+        works for `scipy.sparse.spmatrix` instances.
+
+        **Image style**
+
+        If *marker* and *markersize* are *None*, `~.Axes.imshow` is used. Any
+        extra remaining keyword arguments are passed to this method.
+
+        **Marker style**
+
+        If *Z* is a `scipy.sparse.spmatrix` or *marker* or *markersize* are
+        *None*, a `.Line2D` object will be returned with the value of marker
+        determining the marker type, and any remaining keyword arguments
+        passed to `~.Axes.plot`.
+
+        Parameters
+        ----------
+        Z : (M, N) array-like
+            The array to be plotted.
+
+        precision : float or 'present', default: 0
+            If *precision* is 0, any non-zero value will be plotted. Otherwise,
+            values of :math:`|Z| > precision` will be plotted.
+
+            For `scipy.sparse.spmatrix` instances, you can also
+            pass 'present'. In this case any value present in the array
+            will be plotted, even if it is identically zero.
+
+        aspect : {'equal', 'auto', None} or float, default: 'equal'
+            The aspect ratio of the Axes.  This parameter is particularly
+            relevant for images since it determines whether data pixels are
+            square.
+
+            This parameter is a shortcut for explicitly calling
+            `.Axes.set_aspect`. See there for further details.
+
+            - 'equal': Ensures an aspect ratio of 1. Pixels will be square.
+            - 'auto': The Axes is kept fixed and the aspect is adjusted so
+              that the data fit in the Axes. In general, this will result in
+              non-square pixels.
+            - *None*: Use :rc:`image.aspect`.
+
+        origin : {'upper', 'lower'}, default: :rc:`image.origin`
+            Place the [0, 0] index of the array in the upper left or lower left
+            corner of the Axes. The convention 'upper' is typically used for
+            matrices and images.
 
         Returns
         -------
@@ -104,8 +253,21 @@ class ImagesMixin:
 
         Other Parameters
         ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
+        **kwargs
+            The supported additional parameters depend on the plotting style.
+
+            For the image style, you can pass the following additional
+            parameters of `~.Axes.imshow`:
+
+            - *cmap*
+            - *alpha*
+            - *url*
+            - any `.Artist` properties (passed on to the `.AxesImage`)
+
+            For the marker style, you can pass any `.Line2D` property except
+            for *linestyle*:
+
+            %(Line2D:kwdoc)s
         """
         if marker is None and markersize is None and hasattr(Z, 'tocoo'):
             marker = 's'
@@ -151,9 +313,37 @@ class ImagesMixin:
         """
         Plot the values of a 2D matrix or array as color-coded image.
 
+        The matrix will be shown the way it would be printed, with the first
+        row at the top.  Row and column numbering is zero-based.
+
+        Parameters
+        ----------
+        Z : (M, N) array-like
+            The matrix to be displayed.
+
         Returns
         -------
         `~matplotlib.image.AxesImage`
+
+        Other Parameters
+        ----------------
+        **kwargs : `~matplotlib.axes.Axes.imshow` arguments
+
+        See Also
+        --------
+        imshow : More general function to plot data on a 2D regular raster.
+
+        Notes
+        -----
+        This is just a convenience function wrapping `.imshow` to set useful
+        defaults for displaying a matrix. In particular:
+
+        - Set ``origin='upper'``.
+        - Set ``interpolation='nearest'``.
+        - Set ``aspect='equal'``.
+        - Ticks are placed to the left and above.
+        - Ticks are formatted to show integer indices.
+
         """
         Z = np.asanyarray(Z)
         kw = {'origin': 'upper',

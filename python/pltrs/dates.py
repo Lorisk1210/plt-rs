@@ -90,11 +90,14 @@ def set_epoch(epoch):
     `~.dates.set_epoch` must be called before any dates are converted
     (i.e. near the import section) or a RuntimeError will be raised.
 
+    See also :doc:`/gallery/ticks/date_precision_and_epochs`.
+
     Parameters
     ----------
     epoch : str
         valid UTC date parsable by `numpy.datetime64` (do not include
         timezone).
+
     """
     _dates.set_epoch(str(epoch))
 
@@ -191,6 +194,11 @@ def num2date(x, tz=None):
 
         If *x* is a sequence, a sequence of `~datetime.datetime` objects will
         be returned.
+
+    Notes
+    -----
+    The Gregorian calendar is assumed; this is not universal practice.
+    For details, see the module docstring.
     """
     tz = _get_tzinfo(tz)
     values = np.asarray(x, dtype=float)
@@ -270,6 +278,7 @@ def drange(dstart, dend, delta):
     -------
     `numpy.array`
         A list floats representing Matplotlib dates.
+
     """
     f1 = date2num(dstart)
     f2 = date2num(dend)
@@ -324,7 +333,6 @@ class DateFormatter(ticker.Formatter):
         return _wrap_in_tex(result) if self._usetex else result
 
     def set_tzinfo(self, tz):
-        """Set the time zone of the labels."""
         self.tz = _get_tzinfo(tz)
 
 
@@ -371,6 +379,32 @@ class ConciseDateFormatter(ticker.Formatter):
     usetex : bool, default: :rc:`text.usetex`
         To enable/disable the use of TeX's math mode for rendering the results
         of the formatter.
+
+    Examples
+    --------
+    See :doc:`/gallery/ticks/date_concise_formatter`
+
+    .. plot::
+
+        import datetime
+        import matplotlib.dates as mdates
+
+        base = datetime.datetime(2005, 2, 1)
+        dates = np.array([base + datetime.timedelta(hours=(2 * i))
+                          for i in range(732)])
+        N = len(dates)
+        np.random.seed(19680801)
+        y = np.cumsum(np.random.randn(N))
+
+        fig, ax = plt.subplots(constrained_layout=True)
+        locator = mdates.AutoDateLocator()
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        ax.plot(dates, y)
+        ax.set_title('Concise Date Formatter')
+
     """
 
     offset_string = _api.deprecate_privatize_attribute(
@@ -552,8 +586,28 @@ class AutoDateFormatter(ticker.Formatter):
 
     The formatter uses the format string corresponding to the lowest key in
     the dictionary that is greater or equal to the current scale.  Dictionary
-    entries can be customized, with format strings or with callables taking
-    ``(x, pos)``.
+    entries can be customized::
+
+        locator = AutoDateLocator()
+        formatter = AutoDateFormatter(locator)
+        formatter.scaled[1/(24*60)] = '%M:%S' # only show min and sec
+
+    Custom callables can also be used instead of format strings.  The following
+    example shows how to use a custom format function to strip trailing zeros
+    from decimal seconds and adds the date to the first ticklabel::
+
+        def my_format_function(x, pos=None):
+            x = matplotlib.dates.num2date(x)
+            if pos == 0:
+                fmt = '%D %H:%M:%S.%f'
+            else:
+                fmt = '%H:%M:%S.%f'
+            label = x.strftime(fmt)
+            label = label.rstrip("0")
+            label = label.rstrip(".")
+            return label
+
+        formatter.scaled[1/(24*60)] = my_format_function
     """
 
     def __init__(self, locator, tz=None, defaultfmt='%Y-%m-%d', *,

@@ -22,6 +22,7 @@ import functools
 
 import numpy as np
 
+from . import _docstring
 from . import _api, _handles, artist as martist, colorizer as mcolorizer, ticker
 from . import patches as mpatches, path as mpath, spines as mspines
 from . import transforms as mtransforms
@@ -187,6 +188,96 @@ _LAYOUT_KEYS = ('location', 'orientation', 'fraction', 'shrink', 'aspect',
                 'pad', 'anchor', 'panchor')
 
 
+_docstring.interpd.register(
+    _make_axes_kw_doc="""
+location : None or {'left', 'right', 'top', 'bottom'}
+    The location, relative to the parent Axes, where the colorbar Axes
+    is created.  It also determines the *orientation* of the colorbar
+    (colorbars on the left and right are vertical, colorbars at the top
+    and bottom are horizontal).  If None, the location will come from the
+    *orientation* if it is set (vertical colorbars on the right, horizontal
+    ones at the bottom), or default to 'right' if *orientation* is unset.
+
+orientation : None or {'vertical', 'horizontal'}
+    The orientation of the colorbar.  It is preferable to set the *location*
+    of the colorbar, as that also determines the *orientation*; passing
+    incompatible values for *location* and *orientation* raises an exception.
+
+fraction : float, default: 0.15
+    Fraction of original Axes to use for colorbar.
+
+shrink : float, default: 1.0
+    Fraction by which to multiply the size of the colorbar.
+
+aspect : float, default: 20
+    Ratio of long to short dimensions.
+
+pad : float, default: 0.05 if vertical, 0.15 if horizontal
+    Fraction of original Axes between colorbar and new image Axes.
+
+anchor : (float, float), optional
+    The anchor point of the colorbar Axes.
+    Defaults to (0.0, 0.5) if vertical; (0.5, 1.0) if horizontal.
+
+panchor : (float, float), or *False*, optional
+    The anchor point of the colorbar parent Axes. If *False*, the parent
+    axes' anchor will be unchanged.
+    Defaults to (1.0, 0.5) if vertical; (0.5, 0.0) if horizontal.""",
+    _colormap_kw_doc="""
+extend : {'neither', 'both', 'min', 'max'}
+    Make pointed end(s) for out-of-range values (unless 'neither').  These are
+    set for a given colormap using the colormap set_under and set_over methods.
+
+extendfrac : {*None*, 'auto', length, lengths}
+    If set to *None*, both the minimum and maximum triangular colorbar
+    extensions will have a length of 5% of the interior colorbar length (this
+    is the default setting).
+
+    If set to 'auto', makes the triangular colorbar extensions the same lengths
+    as the interior boxes (when *spacing* is set to 'uniform') or the same
+    lengths as the respective adjacent interior boxes (when *spacing* is set to
+    'proportional').
+
+    If a scalar, indicates the length of both the minimum and maximum
+    triangular colorbar extensions as a fraction of the interior colorbar
+    length.  A two-element sequence of fractions may also be given, indicating
+    the lengths of the minimum and maximum colorbar extensions respectively as
+    a fraction of the interior colorbar length.
+
+extendrect : bool
+    If *False* the minimum and maximum colorbar extensions will be triangular
+    (the default).  If *True* the extensions will be rectangular.
+
+ticks : None or list of ticks or Locator
+    If None, ticks are determined automatically from the input.
+
+format : None or str or Formatter
+    If None, `~.ticker.ScalarFormatter` is used.
+    Format strings, e.g., ``"%4.2e"`` or ``"{x:.2e}"``, are supported.
+    An alternative `~.ticker.Formatter` may be given instead.
+
+drawedges : bool
+    Whether to draw lines at color boundaries.
+
+label : str
+    The label on the colorbar's long axis.
+
+boundaries, values : None or a sequence
+    If unset, the colormap will be displayed on a 0-1 scale.
+    If sequences, *values* must have a length 1 less than *boundaries*.  For
+    each region delimited by adjacent entries in *boundaries*, the color mapped
+    to the corresponding value in *values* will be used.  The size of each
+    region is determined by the *spacing* parameter.
+    Normally only useful for indexed colors (i.e. ``norm=NoNorm()``) or other
+    unusual circumstances.
+
+spacing : {'uniform', 'proportional'}
+    For discrete colorbars (`.BoundaryNorm` or contours), 'uniform' gives each
+    color the same space; 'proportional' makes the space proportional to the
+    data interval.""")
+
+
+@_docstring.interpd
 class Colorbar:
     r"""
     Draw a colorbar in an existing Axes.
@@ -206,6 +297,10 @@ class Colorbar:
     ----------
     ax : `~matplotlib.axes.Axes`
         The `~.axes.Axes` instance in which the colorbar is drawn.
+    lines : list
+        A list of `.LineCollection` (empty if no lines were drawn).
+    dividers : `.LineCollection`
+        A LineCollection (empty if *drawedges* is ``False``).
     """
 
     n_rasterize = 50  # rasterize solids if number of colors >= n_rasterize
@@ -227,6 +322,55 @@ class Colorbar:
         cmap=None, norm=None,  # redundant with *mappable*
         orientation=None, ticklocation='auto',  # redundant with *location*
     ):
+        """
+        Parameters
+        ----------
+        ax : `~matplotlib.axes.Axes`
+            The `~.axes.Axes` instance in which the colorbar is drawn.
+
+        mappable : `.ColorizingArtist`
+            The mappable whose colormap and norm will be used.
+
+            To show the colors versus index instead of on a 0-1 scale, set the
+            mappable's norm to ``colors.NoNorm()``.
+
+        alpha : float
+            The colorbar transparency between 0 (transparent) and 1 (opaque).
+
+        location : None or {'left', 'right', 'top', 'bottom'}
+            Set the colorbar's *orientation* and *ticklocation*. Colorbars on
+            the left and right are vertical, colorbars at the top and bottom
+            are horizontal. The *ticklocation* is the same as *location*, so if
+            *location* is 'top', the ticks are on the top. *orientation* and/or
+            *ticklocation* can be provided as well and overrides the value set by
+            *location*, but there will be an error for incompatible combinations.
+
+            .. versionadded:: 3.7
+
+        %(_colormap_kw_doc)s
+
+        Other Parameters
+        ----------------
+        cmap : `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
+            The colormap to use.  This parameter is ignored, unless *mappable* is
+            None.
+
+        norm : `~matplotlib.colors.Normalize`
+            The normalization to use.  This parameter is ignored, unless *mappable*
+            is None.
+
+        orientation : None or {'vertical', 'horizontal'}
+            If None, use the value determined by *location*. If both
+            *orientation* and *location* are None then defaults to 'vertical'.
+
+        ticklocation : {'auto', 'left', 'right', 'top', 'bottom'}
+            The location of the colorbar ticks. The *ticklocation* must match
+            *orientation*. For example, a horizontal colorbar can only have ticks
+            at the top or the bottom. If 'auto', the ticks will be the same as
+            *location*, so a colorbar to the left will have ticks to the left. If
+            *location* is None, the ticks will be at the bottom for a horizontal
+            colorbar and at the right for a vertical.
+        """
         self._make(ax.figure, mappable, cax=ax, parents=None, layout={},
                    alpha=alpha, location=location, extend=extend,
                    extendfrac=extendfrac, extendrect=extendrect, ticks=ticks,
@@ -602,20 +746,15 @@ class Colorbar:
     def update_ticks(self):
         """
         Set up the ticks and ticklabels. This should not be needed by users.
-
-        pltrs: sets the colorbar's locators and formatter back on its long
-        axis: those given through `locator`, `minorlocator` and
-        `formatter`, else those chosen for its norm.
         """
+        # pltrs: sets the colorbar's locators and formatter back on its long
+        # axis: those given through `locator`, `minorlocator` and `formatter`,
+        # else those chosen for its norm.
         self.long_axis.set_major_locator(self._locator)
         self.long_axis.set_minor_locator(self._minorlocator)
         self.long_axis.set_major_formatter(self._formatter)
 
     def drag_pan(self, button, key, x, y):
-        """
-        Pan the colorbar: the limits of its norm follow the mouse, as the
-        limits of an Axes do (``Axes.drag_pan``).
-        """
         points = self.ax._get_pan_points(button, key, x, y)
         if points is not None:
             if self.orientation == 'horizontal':
@@ -695,14 +834,26 @@ class Colorbar:
             on tick positions. In most cases, you'll want to use
             ``set_ticks(positions, labels=labels)`` instead.
 
+            If you are using this method, you should always fix the tick
+            positions before, e.g. by using `.Colorbar.set_ticks` or by
+            explicitly setting a `~.ticker.FixedLocator` on the long axis
+            of the colorbar. Otherwise, ticks are free to move and the
+            labels may end up in unexpected positions.
+
         Parameters
         ----------
         ticklabels : sequence of str or of `.Text`
             Texts for labeling each tick location in the sequence set by
             `.Colorbar.set_ticks`; the number of labels must match the number
             of locations.
+
+        update_ticks : bool, default: True
+            This keyword argument is ignored and will be removed.
+            Deprecated
+
         minor : bool
             If True, set minor ticks instead of major ticks.
+
         **kwargs
             `.Text` properties for the labels.
         """
@@ -723,7 +874,9 @@ class Colorbar:
             return self.long_axis.get_majorticklocs()
 
     def minorticks_on(self):
-        """Turn on colorbar minor ticks."""
+        """
+        Turn on colorbar minor ticks.
+        """
         _colorbar.set_minorticks(self._native, True)
 
     def minorticks_off(self):
@@ -759,6 +912,8 @@ class Colorbar:
     def add_lines(self, *args, **kwargs):
         """
         Draw lines on the colorbar.
+
+        The lines are appended to the list :attr:`!lines`.
 
         Parameters
         ----------
@@ -845,6 +1000,7 @@ def _made_axes(make, parents, natives, kwargs):
     return cax, kwargs
 
 
+@_docstring.interpd
 def make_axes(parents, location=None, orientation=None, fraction=0.15,
               shrink=1.0, aspect=20, **kwargs):
     """
@@ -857,25 +1013,7 @@ def make_axes(parents, location=None, orientation=None, fraction=0.15,
     ----------
     parents : `~matplotlib.axes.Axes` or iterable or `numpy.ndarray` of `~.axes.Axes`
         The Axes to use as parents for placing the colorbar.
-    location : None or {'left', 'right', 'top', 'bottom'}
-        The location, relative to the parent Axes, where the colorbar Axes
-        is created.  It also determines the *orientation* of the colorbar.
-    orientation : None or {'vertical', 'horizontal'}
-        The orientation of the colorbar; it is determined by *location* if
-        that is given.
-    fraction : float, default: 0.15
-        Fraction of original Axes to use for colorbar.
-    shrink : float, default: 1.0
-        Fraction by which to multiply the size of the colorbar.
-    aspect : float, default: 20
-        Ratio of long to short dimensions.
-    pad : float, default: 0.05 if vertical, 0.15 if horizontal
-        Fraction of original Axes between colorbar and new image Axes.
-    anchor : (float, float), optional
-        The anchor point of the colorbar Axes.
-    panchor : (float, float), or *False*, optional
-        The anchor point of the colorbar parent Axes. If *False*, the parent
-        axes' anchor will be unchanged.
+    %(_make_axes_kw_doc)s
 
     Returns
     -------
@@ -898,6 +1036,7 @@ def make_axes(parents, location=None, orientation=None, fraction=0.15,
                       [ax._native for ax in parents], kwargs)
 
 
+@_docstring.interpd
 def make_axes_gridspec(parent, *, location=None, orientation=None,
                        fraction=0.15, shrink=1.0, aspect=20, **kwargs):
     """
@@ -919,8 +1058,7 @@ def make_axes_gridspec(parent, *, location=None, orientation=None,
     ----------
     parent : `~matplotlib.axes.Axes`
         The Axes to use as parent for placing the colorbar.
-    location, orientation, fraction, shrink, aspect, pad, anchor, panchor
-        As for `.make_axes`.
+    %(_make_axes_kw_doc)s
 
     Returns
     -------

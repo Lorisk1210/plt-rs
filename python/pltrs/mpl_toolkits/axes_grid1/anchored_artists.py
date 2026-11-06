@@ -84,6 +84,17 @@ class AnchoredDrawingArea(_NativeAnchoredBox):
         ----------
         drawing_area : `~matplotlib.offsetbox.DrawingArea`
             A container for artists to display.
+
+        Examples
+        --------
+        To display blue and red circles of different sizes in the upper right
+        of an Axes *ax*:
+
+        >>> ada = AnchoredDrawingArea(20, 20, 0, 0,
+        ...                           loc='upper right', frameon=False)
+        >>> ada.drawing_area.add_artist(Circle((10, 10), 10, fc="b"))
+        >>> ada.drawing_area.add_artist(Circle((30, 10), 5, fc="r"))
+        >>> ax.add_artist(ada)
         """
         self.da = DrawingArea(width, height, xdescent, ydescent)
         self.drawing_area = self.da
@@ -106,8 +117,8 @@ class AnchoredAuxTransformBox(_NativeAnchoredBox):
         An anchored container with transformed coordinates.
 
         Artists added to the *drawing_area* are scaled according to the
-        coordinates of the transformation used. The dimensions of this
-        artist will scale to contain the artists added.
+        coordinates of the transformation used. The dimensions of this artist
+        will scale to contain the artists added.
 
         Parameters
         ----------
@@ -136,6 +147,16 @@ class AnchoredAuxTransformBox(_NativeAnchoredBox):
         ----------
         drawing_area : `~matplotlib.offsetbox.AuxTransformBox`
             A container for artists to display.
+
+        Examples
+        --------
+        To display an ellipse in the upper left, with a width of 0.1 and
+        height of 0.4 in data coordinates:
+
+        >>> box = AnchoredAuxTransformBox(ax.transData, loc='upper left')
+        >>> el = Ellipse((0, 0), width=0.1, height=0.4, angle=30)
+        >>> box.drawing_area.add_artist(el)
+        >>> ax.add_artist(box)
         """
         self.drawing_area = AuxTransformBox(transform)
         self._prop_given = prop
@@ -203,6 +224,40 @@ class AnchoredSizeBar(_NativeAnchoredBox):
             zero and False otherwise.
         **kwargs
             Keyword arguments forwarded to `.AnchoredOffsetbox`.
+
+        Attributes
+        ----------
+        size_bar : `~matplotlib.offsetbox.AuxTransformBox`
+            Container for the size bar.
+        txt_label : `~matplotlib.offsetbox.TextArea`
+            Container for the label of the size bar.
+
+        Notes
+        -----
+        If *prop* is passed as a keyword argument, but *fontproperties* is
+        not, then *prop* is assumed to be the intended *fontproperties*.
+        Using both *prop* and *fontproperties* is not supported.
+
+        Examples
+        --------
+        >>> import matplotlib.pyplot as plt
+        >>> import numpy as np
+        >>> from mpl_toolkits.axes_grid1.anchored_artists import (
+        ...     AnchoredSizeBar)
+        >>> fig, ax = plt.subplots()
+        >>> ax.imshow(np.random.random((10, 10)))
+        >>> bar = AnchoredSizeBar(ax.transData, 3, '3 data units', 4)
+        >>> ax.add_artist(bar)
+        >>> fig.show()
+
+        Using all the optional parameters
+
+        >>> import matplotlib.font_manager as fm
+        >>> fontprops = fm.FontProperties(size=14, family='monospace')
+        >>> bar = AnchoredSizeBar(ax.transData, 3, '3 units', 4, pad=0.5,
+        ...                       sep=5, borderpad=0.5, frameon=False,
+        ...                       size_vertical=0.5, color='white',
+        ...                       fontproperties=fontprops)
         """
         if fontproperties is None and 'prop' in kwargs:
             fontproperties = kwargs.pop('prop')
@@ -285,6 +340,47 @@ class AnchoredDirectionArrows(_NativeAnchoredBox):
             `.FancyArrowPatch`.
         **kwargs
             Keyword arguments forwarded to `.AnchoredOffsetbox`.
+
+        Attributes
+        ----------
+        arrow_x, arrow_y : `~matplotlib.patches.FancyArrowPatch`
+            Arrow x and y
+        text_path_x, text_path_y : `~matplotlib.text.TextPath`
+            Path for arrow labels
+        p_x, p_y : `~matplotlib.patches.PathPatch`
+            Patch for arrow labels
+        box : `~matplotlib.offsetbox.AuxTransformBox`
+            Container for the arrows and labels.
+
+        Notes
+        -----
+        If *prop* is passed as a keyword argument, but *fontproperties* is
+        not, then *prop* is assumed to be the intended *fontproperties*.
+        Using both *prop* and *fontproperties* is not supported.
+
+        Examples
+        --------
+        >>> import matplotlib.pyplot as plt
+        >>> import numpy as np
+        >>> from mpl_toolkits.axes_grid1.anchored_artists import (
+        ...     AnchoredDirectionArrows)
+        >>> fig, ax = plt.subplots()
+        >>> ax.imshow(np.random.random((10, 10)))
+        >>> arrows = AnchoredDirectionArrows(ax.transAxes, '111', '110')
+        >>> ax.add_artist(arrows)
+        >>> fig.show()
+
+        Using several of the optional parameters, creating downward pointing
+        arrow and high contrast text labels.
+
+        >>> import matplotlib.font_manager as fm
+        >>> fontprops = fm.FontProperties(family='monospace')
+        >>> arrows = AnchoredDirectionArrows(ax.transAxes, 'East', 'South',
+        ...                                  loc='lower left', color='k',
+        ...                                  aspect_ratio=-1, sep_x=0.02,
+        ...                                  sep_y=-0.01,
+        ...                                  text_props={'ec':'w', 'fc':'k'},
+        ...                                  fontproperties=fontprops)
         """
         if fontproperties is None and 'prop' in kwargs:
             fontproperties = kwargs.pop('prop')

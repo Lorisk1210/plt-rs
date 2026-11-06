@@ -59,11 +59,6 @@ class TextToPath:
         return _glyph_repr(font.postscript_name, glyph)
 
     def get_text_width_height_descent(self, s, prop, ismath):
-        """
-        The width, height and descent of the text *s* drawn in the font
-        *prop*, in points, unhinted: as mathtext if *ismath* is true, by
-        TeX if it is ``"TeX"``.
-        """
         fontsize = prop.get_size_in_points()
 
         if ismath == "TeX":
@@ -100,20 +95,31 @@ class TextToPath:
             The text to be converted.
         ismath : {False, True, "TeX"}
             If True, use mathtext parser.  If "TeX", use tex for rendering.
-        features : sequence of str, optional
-            The OpenType features of the text, in HarfBuzz's syntax.
-        language : str or sequence of (str, int, int), optional
+        language : str, optional
             The language of the text in a format accepted by libraqm, namely `a BCP47
-            language code <https://www.w3.org/International/articles/language-tags/>`_,
-            or such codes for ranges of the text.
+            language code <https://www.w3.org/International/articles/language-tags/>`_.
 
         Returns
         -------
         verts : list
-            A list of arrays containing the (x, y) coordinates of the
-            vertices.
+            A list of arrays containing the (x, y) coordinates of the vertices.
         codes : list
             A list of path codes.
+
+        Examples
+        --------
+        Create a list of vertices and codes from a text, and create a `.Path`
+        from those::
+
+            from matplotlib.path import Path
+            from matplotlib.text import TextToPath
+            from matplotlib.font_manager import FontProperties
+
+            fp = FontProperties(family="Comic Neue", style="italic")
+            verts, codes = TextToPath().get_text_path(fp, "ABC")
+            path = Path(verts, codes, closed=False)
+
+        Also see `TextPath` for a more direct way to create a path from a text.
         """
         if language is None or isinstance(language, str):
             language = (language, [])
@@ -295,6 +301,20 @@ class TextPath(Path):
 
         usetex : bool, default: False
             Whether to use tex rendering.
+
+        Examples
+        --------
+        The following creates a path from the string "ABC" with Helvetica
+        font face; and another path from the latex fraction 1/2::
+
+            from matplotlib.text import TextPath
+            from matplotlib.font_manager import FontProperties
+
+            fp = FontProperties(family="Helvetica", style="italic")
+            path1 = TextPath((12, 12), "ABC", size=12, prop=fp)
+            path2 = TextPath((0, 0), r"$\frac{1}{2}$", size=12, usetex=True)
+
+        Also see :doc:`/gallery/text_labels_and_annotations/demo_text_path`.
         """
         prop = FontProperties._from_any(prop)
         if size is None:

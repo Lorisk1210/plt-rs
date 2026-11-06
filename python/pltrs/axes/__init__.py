@@ -14,11 +14,10 @@ class _SubplotBaseMeta(type):
 
 
 class SubplotBase(metaclass=_SubplotBaseMeta):
-    """An Axes placed on a subplot grid (an `isinstance` check only)."""
+    pass
 
 
 def subplot_class_factory(cls):
-    """Return *cls*: every Axes class can be placed on a subplot grid."""
     return cls
 
 

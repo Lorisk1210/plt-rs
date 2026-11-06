@@ -22,6 +22,7 @@ matplotlib's ``Quiver.draw`` does.
 import numpy as np
 from numpy import ma
 
+from . import _docstring
 from . import (_api, _artist_clipping, _handles, _live_transforms, _values, cbook,
                collections as mcollections,
                colors as mcolors, transforms)
@@ -122,6 +123,10 @@ def _mapped(C, cmap, norm, clim):
 
 class QuiverKey(martist.Artist):
     """Labelled arrow for use as a quiver plot scale key."""
+
+    def set_figure(self, fig):
+        # docstring inherited: matplotlib's override has none.
+        super().set_figure(fig)
     halign = {'N': 'center', 'S': 'center', 'E': 'left', 'W': 'right'}
     valign = {'N': 'bottom', 'S': 'top', 'E': 'center', 'W': 'center'}
     pivot = {'N': 'middle', 'S': 'middle', 'E': 'tip', 'W': 'tail'}
@@ -154,7 +159,12 @@ class QuiverKey(martist.Artist):
             The angle of the key arrow, in degrees anti-clockwise from the
             horizontal axis.
         coordinates : {'axes', 'figure', 'data', 'inches'}, default: 'axes'
-            Coordinate system and units for *X*, *Y*.
+            Coordinate system and units for *X*, *Y*: 'axes' and 'figure' are
+            normalized coordinate systems with (0, 0) in the lower left and
+            (1, 1) in the upper right; 'data' are the axes data coordinates
+            (used for the locations of the vectors in the quiver plot itself);
+            'inches' is position in the figure in inches, with (0, 0) at the
+            lower left corner.
         color : :mpltype:`color`
             Overrides face and edge colors from *Q*.
         labelpos : {'N', 'S', 'E', 'W'}
@@ -269,10 +279,16 @@ class Quiver(mcollections.PolyCollection):
     Use set_UVC to change the size, orientation, and color of the
     arrows; their locations can be set using set_offsets().
 
-    pltrs makes the arrows on the Axes *ax* when the object is made (as
-    `~.Axes.quiver` adds it), and sizes them from the Axes whenever the
-    figure is drawn.
+    Much of the work in this class is done in the draw()
+    method so that as much information as possible is available
+    about the plot.  In subsequent draw() calls, recalculation
+    is limited to things that might have changed, so there
+    should be no performance penalty from putting the calculations
+    in the draw() method.
     """
+    # pltrs makes the arrows on the Axes *ax* when the object is made (as
+    # `~.Axes.quiver` adds it), and sizes them from the Axes whenever the
+    # figure is drawn.
 
     _PIVOT_VALS = ('tail', 'middle', 'tip')
 
@@ -283,7 +299,8 @@ class Quiver(mcollections.PolyCollection):
         """
         The constructor takes one required argument, an Axes
         instance, followed by the args and kwargs described
-        by the pyplot interface documentation of `~.Axes.quiver`.
+        by the following pyplot interface documentation:
+        %s
         """
         X, Y, U, V, C = _parse_args(*args, caller_name='quiver')
         self.X = X
@@ -454,13 +471,397 @@ class Quiver(mcollections.PolyCollection):
         return bbox
 
     def set_UVC(self, U, V, C=None):
-        """Set the components *U*, *V* of the arrows, and their colour
-        values *C*."""
         U, V, C = self._checked_uvc(U, V, C)
         _plotting.quiver_set_uvc(self._native, _filled(U), _filled(V))
         if C is not None:
             self.set_array(C)
         self._store_uvc(U, V, C)
+
+
+_quiver_doc = r"""
+Plot a 2D field of arrows.
+
+Call signature::
+
+  quiver([X, Y], U, V, [C], /, **kwargs)
+
+*X*, *Y* define the arrow locations, *U*, *V* define the arrow directions, and
+*C* optionally sets the color. The arguments *X*, *Y*, *U*, *V*, *C* are
+positional-only.
+
+**Arrow length**
+
+The default settings auto-scales the length of the arrows to a reasonable size.
+To change this behavior see the *scale* and *scale_units* parameters.
+
+**Arrow shape**
+
+The arrow shape is determined by *width*, *headwidth*, *headlength* and
+*headaxislength*. See the notes below.
+
+**Arrow styling**
+
+Each arrow is internally represented by a filled polygon with a default edge
+linewidth of 0. As a result, an arrow is rather a filled area, not a line with
+a head, and `.PolyCollection` properties like *linewidth*, *edgecolor*,
+*facecolor*, etc. act accordingly.
+
+
+Parameters
+----------
+X, Y : 1D or 2D array-like, optional
+    The x and y coordinates of the arrow locations.
+
+    If not given, they will be generated as a uniform integer meshgrid based
+    on the dimensions of *U* and *V*.
+
+    If *X* and *Y* are 1D but *U*, *V* are 2D, *X*, *Y* are expanded to 2D
+    using ``X, Y = np.meshgrid(X, Y)``. In this case ``len(X)`` and ``len(Y)``
+    must match the column and row dimensions of *U* and *V*.
+
+U, V : 1D or 2D array-like
+    The x and y direction components of the arrow vectors. The interpretation
+    of these components (in data or in screen space) depends on *angles*.
+
+    *U* and *V* must have the same number of elements, matching the number of
+    arrow locations in *X*, *Y*. *U* and *V* may be masked. Locations masked
+    in any of *U*, *V*, and *C* will not be drawn.
+
+C : 1D or 2D array-like, optional
+    Numeric data that defines the arrow colors by colormapping via *norm* and
+    *cmap*.
+
+    This does not support explicit colors. If you want to set colors directly,
+    use *color* instead.  The size of *C* must match the number of arrow
+    locations.
+
+angles : {'uv', 'xy'} or array-like, default: 'uv'
+    Method for determining the angle of the arrows.
+
+    - 'uv':  Arrow directions are based on
+      :ref:`display coordinates <coordinate-systems>`; i.e. a 45° angle will
+      always show up as diagonal on the screen, irrespective of figure or Axes
+      aspect ratio or Axes data ranges. This is useful when the arrows represent
+      a quantity whose direction is not tied to the x and y data coordinates.
+
+      If *U* == *V* the orientation of the arrow on the plot is 45 degrees
+      counter-clockwise from the horizontal axis (positive to the right).
+
+    - 'xy': Arrow direction in data coordinates, i.e. the arrows point from
+      (x, y) to (x+u, y+v). This is ideal for vector fields or gradient plots
+      where the arrows should directly represent movements or gradients in the
+      x and y directions.
+
+    - Arbitrary angles may be specified explicitly as an array of values
+      in degrees, counter-clockwise from the horizontal axis.
+
+      In this case *U*, *V* is only used to determine the length of the
+      arrows.
+
+      For example, ``angles=[30, 60, 90]`` will orient the arrows at 30, 60, and 90
+      degrees respectively, regardless of the *U* and *V* components.
+
+    Note: inverting a data axis will correspondingly invert the
+    arrows only with ``angles='xy'``.
+
+pivot : {'tail', 'middle', 'tip'}, default: 'tail'
+    The part of the arrow that is anchored to the *X*, *Y* grid. The arrow
+    rotates about this point.
+
+    .. admonition:: Discouraged
+
+        'mid' is a synonym for 'middle', which is retained for backwards
+        compatibility.  New code should use 'middle'.
+
+scale : float, optional
+    Scales the length of the arrow inversely.
+
+    Number of data values represented by one unit of arrow length on the plot.
+    For example, if the data represents velocity in meters per second (m/s), the
+    scale parameter determines how many meters per second correspond to one unit of
+    arrow length relative to the width of the plot.
+    Smaller scale parameter makes the arrow longer.
+
+    By default, an autoscaling algorithm is used to scale the arrow length to a
+    reasonable size, which is based on the average vector length and the number of
+    vectors.
+
+    The arrow length unit is given by the *scale_units* parameter.
+
+scale_units : {'width', 'height', 'dots', 'inches', 'x', 'y', 'xy'}, default: 'width'
+    The physical image unit, which is used for rendering the scaled arrow data U, V.
+
+    The rendered arrow length is given by:
+
+    - length in x direction = :math:`\frac{u}{\mathrm{scale}}\,\mathrm{scale\_unit}`
+    - length in y direction = :math:`\frac{v}{\mathrm{scale}}\,\mathrm{scale\_unit}`
+    For example, ``(u, v) = (0.5, 0)`` with ``scale=10, scale_units="width"`` results
+    in a horizontal arrow with a length of *0.5 / 10 * "width"*, i.e. 0.05 times the
+    Axes width.
+
+    Supported values are:
+
+    - 'width' or 'height': The arrow length is scaled relative to the width or height
+       of the Axes.
+       For example, ``scale_units='width', scale=1.0``, will result in an arrow length
+       of width of the Axes.
+
+    - 'dots': The arrow length of the arrows is in measured in display dots (pixels).
+
+    - 'inches': Arrow lengths are scaled based on the DPI (dots per inch) of the figure.
+       This ensures that the arrows have a consistent physical size on the figure,
+       in inches, regardless of data values or plot scaling.
+       For example, ``(u, v) = (1, 0)`` with ``scale_units='inches', scale=2`` results
+       in a 0.5 inch-long arrow.
+
+    - 'x' or 'y': The arrow length is scaled relative to the x or y axis units.
+       For example, ``(u, v) = (0, 1)`` with ``scale_units='x', scale=1`` results
+       in a vertical arrow with the length of 1 x-axis unit.
+
+    - 'xy': Arrow length will be same as 'x' or 'y' units.
+       This is useful for creating vectors in the x-y plane where u and v have
+       the same units as x and y. To plot vectors in the x-y plane with u and v having
+       the same units as x and y, use ``angles='xy', scale_units='xy', scale=1``.
+
+    Note: Setting *scale_units* without setting scale does not have any effect because
+    the scale units only differ by a constant factor and that is rescaled through
+    autoscaling.
+
+units : {'width', 'height', 'dots', 'inches', 'x', 'y', 'xy'}, default: 'width'
+    Affects the arrow size (except for the length). In particular, the shaft
+    *width* is measured in multiples of this unit.
+
+    Supported values are:
+
+    - 'width', 'height': The width or height of the Axes.
+    - 'dots', 'inches': Pixels or inches based on the figure dpi.
+    - 'x', 'y', 'xy': *X*, *Y* or :math:`\\sqrt{X^2 + Y^2}` in data units.
+
+    The following table summarizes how these values affect the visible arrow
+    size under zooming and figure size changes:
+
+    =================  =================   ==================
+    units              zoom                figure size change
+    =================  =================   ==================
+    'x', 'y', 'xy'     arrow size scales   —
+    'width', 'height'  —                   arrow size scales
+    'dots', 'inches'   —                   —
+    =================  =================   ==================
+
+width : float, optional
+    Shaft width in arrow units. All head parameters are relative to *width*.
+
+    The default depends on choice of *units* above, and number of vectors;
+    a typical starting value is about 0.005 times the width of the plot.
+
+headwidth : float, default: 3
+    Head width as multiple of shaft *width*. See the notes below.
+
+headlength : float, default: 5
+    Head length as multiple of shaft *width*. See the notes below.
+
+headaxislength : float, default: 4.5
+    Head length at shaft intersection as multiple of shaft *width*.
+    See the notes below.
+
+minshaft : float, default: 1
+    Length below which arrow scales, in units of head length. Do not
+    set this to less than 1, or small arrows will look terrible!
+
+minlength : float, default: 1
+    Minimum length as a multiple of shaft width; if an arrow length
+    is less than this, plot a dot (hexagon) of this diameter instead.
+
+color : :mpltype:`color` or list :mpltype:`color`, optional
+    Explicit color(s) for the arrows. If *C* has been set, *color* has no
+    effect.
+
+    This is a synonym for the `.PolyCollection` *facecolor* parameter.
+
+Other Parameters
+----------------
+data : indexable object, optional
+    DATA_PARAMETER_PLACEHOLDER
+
+**kwargs : `~matplotlib.collections.PolyCollection` properties, optional
+    All other keyword arguments are passed on to `.PolyCollection`:
+
+    %(PolyCollection:kwdoc)s
+
+Returns
+-------
+`~matplotlib.quiver.Quiver`
+
+See Also
+--------
+.Axes.quiverkey : Add a key to a quiver plot.
+
+Notes
+-----
+
+**Arrow shape**
+
+The arrow is drawn as a polygon using the nodes as shown below. The values
+*headwidth*, *headlength*, and *headaxislength* are in units of *width*.
+
+.. image:: /_static/quiver_sizes.svg
+   :width: 500px
+
+The defaults give a slightly swept-back arrow. Here are some guidelines how to
+get other head shapes:
+
+- To make the head a triangle, make *headaxislength* the same as *headlength*.
+- To make the arrow more pointed, reduce *headwidth* or increase *headlength*
+  and *headaxislength*.
+- To make the head smaller relative to the shaft, scale down all the head
+  parameters proportionally.
+- To remove the head completely, set all *head* parameters to 0.
+- To get a diamond-shaped head, make *headaxislength* larger than *headlength*.
+- Warning: For *headaxislength* < (*headlength* / *headwidth*), the "headaxis"
+  nodes (i.e. the ones connecting the head with the shaft) will protrude out
+  of the head in forward direction so that the arrow head looks broken.
+""" % _docstring.interpd.params
+
+_docstring.interpd.register(quiver_doc=_quiver_doc)
+
+_barbs_doc = r"""
+Plot a 2D field of wind barbs.
+
+Call signature::
+
+  barbs([X, Y], U, V, [C], /, **kwargs)
+
+Where *X*, *Y* define the barb locations, *U*, *V* define the barb
+directions, and *C* optionally sets the color.
+
+The arguments *X*, *Y*, *U*, *V*, *C* are positional-only and may be
+1D or 2D. *U*, *V*, *C* may be masked arrays, but masked *X*, *Y*
+are not supported at present.
+
+Barbs are traditionally used in meteorology as a way to plot the speed
+and direction of wind observations, but can technically be used to
+plot any two dimensional vector quantity.  As opposed to arrows, which
+give vector magnitude by the length of the arrow, the barbs give more
+quantitative information about the vector magnitude by putting slanted
+lines or a triangle for various increments in magnitude, as show
+schematically below::
+
+  :                   /\    \
+  :                  /  \    \
+  :                 /    \    \    \
+  :                /      \    \    \
+  :               ------------------------------
+
+The largest increment is given by a triangle (or "flag"). After those
+come full lines (barbs). The smallest increment is a half line.  There
+is only, of course, ever at most 1 half line.  If the magnitude is
+small and only needs a single half-line and no full lines or
+triangles, the half-line is offset from the end of the barb so that it
+can be easily distinguished from barbs with a single full line.  The
+magnitude for the barb shown above would nominally be 65, using the
+standard increments of 50, 10, and 5.
+
+See also https://en.wikipedia.org/wiki/Wind_barb.
+
+Parameters
+----------
+X, Y : 1D or 2D array-like, optional
+    The x and y coordinates of the barb locations. See *pivot* for how the
+    barbs are drawn to the x, y positions.
+
+    If not given, they will be generated as a uniform integer meshgrid based
+    on the dimensions of *U* and *V*.
+
+    If *X* and *Y* are 1D but *U*, *V* are 2D, *X*, *Y* are expanded to 2D
+    using ``X, Y = np.meshgrid(X, Y)``. In this case ``len(X)`` and ``len(Y)``
+    must match the column and row dimensions of *U* and *V*.
+
+U, V : 1D or 2D array-like
+    The x and y components of the barb shaft.
+
+C : 1D or 2D array-like, optional
+    Numeric data that defines the barb colors by colormapping via *norm* and
+    *cmap*.
+
+    This does not support explicit colors. If you want to set colors directly,
+    use *barbcolor* instead.
+
+length : float, default: 7
+    Length of the barb in points; the other parts of the barb
+    are scaled against this.
+
+pivot : {'tip', 'middle'} or float, default: 'tip'
+    The part of the arrow that is anchored to the *X*, *Y* grid. The barb
+    rotates about this point. This can also be a number, which shifts the
+    start of the barb that many points away from grid point.
+
+barbcolor : :mpltype:`color` or color sequence
+    The color of all parts of the barb except for the flags.  This parameter
+    is analogous to the *edgecolor* parameter for polygons, which can be used
+    instead. However this parameter will override facecolor.
+
+flagcolor : :mpltype:`color` or color sequence
+    The color of any flags on the barb.  This parameter is analogous to the
+    *facecolor* parameter for polygons, which can be used instead. However,
+    this parameter will override facecolor.  If this is not set (and *C* has
+    not either) then *flagcolor* will be set to match *barbcolor* so that the
+    barb has a uniform color. If *C* has been set, *flagcolor* has no effect.
+
+sizes : dict, optional
+    A dictionary of coefficients specifying the ratio of a given
+    feature to the length of the barb. Only those values one wishes to
+    override need to be included.  These features include:
+
+    - 'spacing' - space between features (flags, full/half barbs)
+    - 'height' - height (distance from shaft to top) of a flag or full barb
+    - 'width' - width of a flag, twice the width of a full barb
+    - 'emptybarb' - radius of the circle used for low magnitudes
+
+fill_empty : bool, default: False
+    Whether the empty barbs (circles) that are drawn should be filled with
+    the flag color.  If they are not filled, the center is transparent.
+
+rounding : bool, default: True
+    Whether the vector magnitude should be rounded when allocating barb
+    components.  If True, the magnitude is rounded to the nearest multiple
+    of the half-barb increment.  If False, the magnitude is simply truncated
+    to the next lowest multiple.
+
+barb_increments : dict, optional
+    A dictionary of increments specifying values to associate with
+    different parts of the barb. Only those values one wishes to
+    override need to be included.
+
+    - 'half' - half barbs (Default is 5)
+    - 'full' - full barbs (Default is 10)
+    - 'flag' - flags (default is 50)
+
+flip_barb : bool or array-like of bool, default: False
+    Whether the lines and flags should point opposite to normal.
+    Normal behavior is for the barbs and lines to point right (comes from wind
+    barbs having these features point towards low pressure in the Northern
+    Hemisphere).
+
+    A single value is applied to all barbs. Individual barbs can be flipped by
+    passing a bool array of the same size as *U* and *V*.
+
+Returns
+-------
+barbs : `~matplotlib.quiver.Barbs`
+
+Other Parameters
+----------------
+data : indexable object, optional
+    DATA_PARAMETER_PLACEHOLDER
+
+**kwargs
+    The barbs can further be customized using `.PolyCollection` keyword
+    arguments:
+
+    %(PolyCollection:kwdoc)s
+""" % _docstring.interpd.params
+
+_docstring.interpd.register(barbs_doc=_barbs_doc)
 
 
 class Barbs(mcollections.PolyCollection):
@@ -472,15 +873,15 @@ class Barbs(mcollections.PolyCollection):
     are changed using the :meth:`set_offsets` collection method.
     Possibly this method will be useful in animations.
 
-    There is one internal function :meth:`_find_tails` which finds
+    There is one internal function :meth:`!_find_tails` which finds
     exactly what should be put on the barb given the vector magnitude.
-    From there :meth:`_make_barbs` is used to find the vertices of the
+    From there :meth:`!_make_barbs` is used to find the vertices of the
     polygon to represent the barb based on this information.
-
-    pltrs makes the barbs on the Axes *ax* when the object is made (as
-    `~.Axes.barbs` adds it).
     """
+    # pltrs makes the barbs on the Axes *ax* when the object is made (as
+    # `~.Axes.barbs` adds it).
 
+    @_docstring.interpd
     def __init__(self, ax, *args,
                  pivot='tip', length=7, barbcolor=None, flagcolor=None,
                  sizes=None, fill_empty=False, barb_increments=None,
@@ -488,7 +889,8 @@ class Barbs(mcollections.PolyCollection):
         """
         The constructor takes one required argument, an Axes
         instance, followed by the args and kwargs described
-        by the pyplot interface documentation of `~.Axes.barbs`.
+        by the following pyplot interface documentation:
+        %(barbs_doc)s
         """
         self.sizes = sizes or dict()
         self.fill_empty = fill_empty
@@ -575,10 +977,6 @@ class Barbs(mcollections.PolyCollection):
                 bool(self.rounding), [bool(f) for f in np.ravel(flip)] or [False])
 
     def set_UVC(self, U, V, C=None):
-        """
-        Set the components *U*, *V* of the barbs, and their colour values
-        *C*; the barbs at masked vectors are left out.
-        """
         x, y, u, v, c, flip = self._unmasked(U, V, C)
         _plotting.barbs_set_uvc(
             self._native, (np.asarray(x, float), np.asarray(y, float)),

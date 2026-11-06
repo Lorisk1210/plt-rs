@@ -2,9 +2,7 @@
 Docstring helpers: %-substitution of shared snippets (``interpd``) and
 docstring copying.
 
-Kept from matplotlib 3.11.2 under the Matplotlib License. A
-``%(ClassName:kwdoc)s`` placeholder lists the artist class's settable
-properties, from its ``set_*`` methods.
+Kept from matplotlib 3.11.2 under the Matplotlib License.
 """
 
 import inspect
@@ -85,15 +83,13 @@ class _ArtistKwdocLoader(dict):
         if not key.endswith(":kwdoc"):
             raise KeyError(key)
         name = key[:-len(":kwdoc")]
-        from .artist import Artist
+        from .artist import Artist, kwdoc
         try:
             cls, = (cls for cls in _api.recursive_subclasses(Artist)
                     if cls.__name__ == name)
         except ValueError as e:
             raise KeyError(key) from e
-        properties = sorted(attr[4:] for attr in dir(cls)
-                            if attr.startswith("set_") and callable(getattr(cls, attr)))
-        return self.setdefault(key, "\n".join(properties))
+        return self.setdefault(key, kwdoc(cls))
 
 
 class _ArtistPropertiesSubstitution:

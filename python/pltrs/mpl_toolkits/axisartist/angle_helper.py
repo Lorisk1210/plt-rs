@@ -13,28 +13,19 @@ from pltrs.mpl_toolkits.axisartist.grid_finder import (
 
 
 def select_step_degree(dv):
-    """The step and factor of whole degrees, minutes or seconds for
-    intervals of *dv* degrees."""
     return _axisartist.select_step_degree(float(dv))
 
 
 def select_step_hour(dv):
-    """The step and factor of whole hours, minutes or seconds for
-    intervals of *dv* hours."""
     return _axisartist.select_step_hour(float(dv))
 
 
 def select_step_sub(dv):
-    """The step (1, 2 or 5) and factor in the decade of *dv*."""
     return _axisartist.select_step_sub(float(dv))
 
 
 def select_step(v1, v2, nv, hour=False, include_last=True,
                 threshold_factor=3600.):
-    """
-    Levels at a round angular step for about *nv* intervals between *v1*
-    and *v2*: ``(levels, n, factor)``, the levels scaled by *factor*.
-    """
     levs, n, factor = _axisartist.select_step(
         float(v1), float(v2), int(nv), bool(hour), bool(include_last),
         float(threshold_factor))
@@ -42,14 +33,12 @@ def select_step(v1, v2, nv, hour=False, include_last=True,
 
 
 def select_step24(v1, v2, nv, include_last=True, threshold_factor=3600):
-    """`select_step` for angles in degrees, at a round step of hours."""
     return _axisartist.select_step24(
         float(v1), float(v2), int(nv), bool(include_last),
         float(threshold_factor))
 
 
 def select_step360(v1, v2, nv, include_last=True, threshold_factor=3600):
-    """`select_step` for angles in degrees, at a round step of degrees."""
     return _axisartist.select_step360(
         float(v1), float(v2), int(nv), bool(include_last),
         float(threshold_factor))

@@ -26,7 +26,6 @@ class EffectsMixin:
         self._path_effects = path_effects
 
     def get_path_effects(self):
-        """Return the path effects."""
         if "_path_effects" in self.__dict__:
             return self._path_effects
         from . import rcParams

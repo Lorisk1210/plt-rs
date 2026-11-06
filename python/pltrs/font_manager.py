@@ -1056,11 +1056,30 @@ class FontManager:
     matches the specification.  If no good enough match is found, the default
     font is returned.
 
-    pltrs (Rust) keeps the fonts and does the search: ``ttflist`` holds the
-    TrueType fonts it matches (appending to it and removing from it changes
-    them), ``afmlist`` the Adobe Font Metrics of the PDF core fonts and of
-    the standard PostScript fonts.
+    Fonts added with the `FontManager.addfont` method will not persist in the
+    cache; therefore, `addfont` will need to be called every time Matplotlib is
+    imported. This method should only be used if and when a font cannot be
+    installed on your operating system by other means.
+
+    Notes
+    -----
+    The `FontManager.addfont` method must be called on the global `FontManager`
+    instance.
+
+    Example usage::
+
+        import matplotlib.pyplot as plt
+        from matplotlib import font_manager
+
+        font_dirs = ["/resources/fonts"]  # The path to the custom font file.
+        font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
+
+        for font_file in font_files:
+            font_manager.fontManager.addfont(font_file)
     """
+    # pltrs (Rust) keeps the fonts and does the search: ``ttflist`` holds the
+    # TrueType fonts it matches (appending to it and removing from it changes
+    # them), ``afmlist`` the Adobe Font Metrics of the PostScript core fonts.
     # Increment this version number whenever the font cache data
     # format or behavior has changed and requires an existing font
     # cache files to be rebuilt.
@@ -1121,7 +1140,6 @@ class FontManager:
 
     @property
     def defaultFont(self):
-        """The default font file of each font list."""
         return {ext: self.findfont(family, fontext=ext)
                 for ext, family in self.defaultFamily.items()}
 
@@ -1242,8 +1260,7 @@ class FontManager:
     def findfont(self, prop, fontext='ttf', directory=None,
                  fallback_to_default=True, rebuild_if_missing=True):
         """
-        Find the path to the font file most closely matching the given font
-        properties.
+        Find the path to the font file most closely matching the given font properties.
 
         Parameters
         ----------
@@ -1261,7 +1278,7 @@ class FontManager:
         directory : str, optional
             If given, only search this directory and its subdirectories.
             If :envvar:`MPL_IGNORE_SYSTEM_FONTS` is set, then this defaults to
-            the font directory of the data path (the fonts pltrs bundles).
+            Matplotlib's internal font directory.
 
         fallback_to_default : bool
             If True, will fall back to the default font family (usually
@@ -1275,11 +1292,32 @@ class FontManager:
         Returns
         -------
         FontPath
-            The filename of the best matching font, and its face index.
+            The filename of the best matching font.
+
+        Notes
+        -----
+        This performs a nearest neighbor search.  Each font is given a
+        similarity score to the target font properties.  The first font with
+        the highest score is returned.  If no matches below a certain
+        threshold are found, the default font (usually DejaVu Sans) is
+        returned.
+
+        The result is cached, so subsequent lookups don't have to
+        perform the O(n) nearest neighbor search.
+
+        See the `W3C Cascading Style Sheet, Level 1
+        <http://www.w3.org/TR/1998/REC-CSS2-19980512/>`_ documentation
+        for a description of the font finding algorithm.
+
+        .. _fontconfig patterns:
+           https://www.freedesktop.org/software/fontconfig/fontconfig-user.html
         """
-        # Pass the relevant rcParams (and the font manager, as `self`) to
-        # _findfont_cached so to prevent using a stale cache entry after an
-        # rcParam was changed.
+        # directory : str, optional If given, only search this directory and
+        # its subdirectories. If :envvar:`MPL_IGNORE_SYSTEM_FONTS` is set,
+        # then this defaults to the font directory of the data path (the fonts
+        # pltrs bundles).
+        # Pass the relevant rcParams to _findfont_cached so as not to use a
+        # stale cache entry after an rcParam was changed.
         rc_params = tuple(
             tuple(value) if isinstance(value, list) else value
             for value in (_rcParams()[f"font.{key}"] for key in [

@@ -9,6 +9,7 @@ from numbers import Real
 
 import numpy as np
 
+from . import _docstring
 from . import _handles, units as munits
 from ._native import annotation as _annotation, text as _text
 from .text import (
@@ -53,6 +54,7 @@ def _in_data_units(axes, xy, coords):
 class FigureText:
     """`text` on a figure."""
 
+    @_docstring.interpd
     def text(self, x, y, s, fontdict=None, **kwargs):
         """
         Add text to figure.
@@ -80,6 +82,13 @@ class FigureText:
         ----------------
         **kwargs : `~matplotlib.text.Text` properties
             Other miscellaneous text parameters.
+
+            %(Text:kwdoc)s
+
+        See Also
+        --------
+        .Axes.text
+        .pyplot.text
         """
         native = _text.figure_text(self._native, float(x), float(y),
                                    '' if s is None else str(s))
@@ -94,18 +103,19 @@ class AxesText:
 
     @property
     def texts(self):
-        """The texts placed in the Axes with `text` and `annotate`."""
         from .axes._artist_list import ArtistList
         return ArtistList._of("texts", lambda: _handles.wrap_all(
             _text.axes_texts(self._native), Text, self.figure))
 
+    @_docstring.interpd
     def text(self, x, y, s, fontdict=None, **kwargs):
         """
         Add text to the Axes.
 
         Add the text *s* to the Axes at location *x*, *y* in data coordinates,
         with a default ``horizontalalignment`` on the ``left`` and
-        ``verticalalignment`` at the ``baseline``.
+        ``verticalalignment`` at the ``baseline``. See
+        :doc:`/gallery/text_labels_and_annotations/text_alignment`.
 
         Parameters
         ----------
@@ -118,6 +128,13 @@ class AxesText:
             The text.
 
         fontdict : dict, default: None
+
+            .. admonition:: Discouraged
+
+               The use of *fontdict* is discouraged. Parameters should be passed as
+               individual keyword arguments or using dictionary-unpacking
+               ``text(..., **fontdict)``.
+
             A dictionary to override the default text properties. If fontdict
             is None, the defaults are determined by `.rcParams`.
 
@@ -130,6 +147,30 @@ class AxesText:
         ----------------
         **kwargs : `~matplotlib.text.Text` properties.
             Other miscellaneous text parameters.
+
+            %(Text:kwdoc)s
+
+        Examples
+        --------
+        Individual keyword arguments can be used to override any given
+        parameter::
+
+            >>> text(x, y, s, fontsize=12)
+
+        The default transform specifies that text is in data coords,
+        alternatively, you can specify text in axis coords ((0, 0) is
+        lower-left and (1, 1) is upper-right).  The example below places
+        text in the center of the Axes::
+
+            >>> text(0.5, 0.5, 'matplotlib', horizontalalignment='center',
+            ...      verticalalignment='center', transform=ax.transAxes)
+
+        You can put a rectangular box around the text instance (e.g., to
+        set a background color) by using the keyword *bbox*.  *bbox* is
+        a dictionary of `~matplotlib.patches.Rectangle`
+        properties.  For example::
+
+            >>> text(x, y, s, bbox=dict(facecolor='red', alpha=0.5))
         """
         native = _text.axes_text(self._native,
                                  _coordinate_number(self.convert_xunits(x)),
@@ -140,57 +181,9 @@ class AxesText:
         text._init_properties(_text_kwargs(fontdict, kwargs))
         return text
 
+    @_docstring.interpd
     def annotate(self, text, xy, xytext=None, xycoords='data', textcoords=None,
                  arrowprops=None, annotation_clip=None, **kwargs):
-        """
-        Annotate the point *xy* with text *text*.
-
-        In the simplest form, the text is placed at *xy*.
-
-        Optionally, the text can be displayed in another position *xytext*.
-        An arrow pointing from the text to the annotated point *xy* can then
-        be added by defining *arrowprops*.
-
-        Parameters
-        ----------
-        text : str
-            The text of the annotation.
-
-        xy : (float, float)
-            The point *(x, y)* to annotate. The coordinate system is determined
-            by *xycoords*.
-
-        xytext : (float, float), default: *xy*
-            The position *(x, y)* to place the text at. The coordinate system
-            is determined by *textcoords*.
-
-        xycoords : single or two-tuple of str or `.Artist` or `.OffsetFrom`, \
-default: 'data'
-            The coordinate system that *xy* is given in: a name such as
-            'figure points', 'axes fraction' or 'offset points' (for
-            *textcoords* only), an `.Artist` whose bbox *xy* is a fraction
-            of, or a tuple of these for x and y.
-
-        textcoords : single or two-tuple of str or `.Artist` or \
-`.OffsetFrom`, default: value of *xycoords*
-            The coordinate system that *xytext* is given in.
-
-        arrowprops : dict, optional
-            The properties used to draw a `.FancyArrowPatch` arrow between the
-            positions *xy* and *xytext*.  Defaults to None, i.e. no arrow is
-            drawn.
-
-        annotation_clip : bool or None, default: None
-            Whether to clip (i.e. not draw) the annotation when the annotation
-            point *xy* is outside the Axes area.
-
-        **kwargs
-            Additional kwargs are passed to `.Text`.
-
-        Returns
-        -------
-        `.Annotation`
-        """
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
         position = xy if xytext is None else xytext
@@ -210,3 +203,4 @@ default: 'data'
         _remember_position(annotation, position)
         annotation._init_annotation(xycoords, textcoords, arrowprops, kwargs)
         return annotation
+    annotate.__doc__ = Annotation.__init__.__doc__

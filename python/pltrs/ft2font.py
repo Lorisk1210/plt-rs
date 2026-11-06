@@ -35,7 +35,14 @@ GlyphIndexType = int
 
 
 class FaceFlags(Flag):
-    """Flags returned by `FT2Font.face_flags` (FreeType's ``FT_FACE_FLAG_*``)."""
+    """
+    Flags returned by `FT2Font.face_flags`.
+
+    For more information, see `the FreeType documentation
+    <https://freetype.org/freetype2/docs/reference/ft2-face_creation.html#ft_face_flag_xxx>`_.
+
+    .. versionadded:: 3.10
+    """
 
     SCALABLE = 1 << 0
     FIXED_SIZES = 1 << 1
@@ -59,7 +66,14 @@ class FaceFlags(Flag):
 
 
 class Kerning(Enum):
-    """Kerning modes for `FT2Font.get_kerning` (FreeType's ``FT_KERNING_*``)."""
+    """
+    Kerning modes for `.FT2Font.get_kerning`.
+
+    For more information, see `the FreeType documentation
+    <https://freetype.org/freetype2/docs/reference/ft2-glyph_retrieval.html#ft_kerning_mode>`_.
+
+    .. versionadded:: 3.10
+    """
 
     DEFAULT = 0
     UNFITTED = 1
@@ -67,8 +81,14 @@ class Kerning(Enum):
 
 
 class LoadFlags(Flag):
-    """Flags for `FT2Font.load_char`, `FT2Font.load_glyph` and
-    `FT2Font.set_text` (FreeType's ``FT_LOAD_*``)."""
+    """
+    Flags for `FT2Font.load_char`, `FT2Font.load_glyph`, and `FT2Font.set_text`.
+
+    For more information, see `the FreeType documentation
+    <https://freetype.org/freetype2/docs/reference/ft2-glyph_retrieval.html#ft_load_xxx>`_.
+
+    .. versionadded:: 3.10
+    """
 
     DEFAULT = 0
     NO_SCALE = 1 << 0
@@ -98,7 +118,14 @@ class LoadFlags(Flag):
 
 
 class RenderMode(Enum):
-    """Render modes (FreeType's ``FT_RENDER_MODE_*``)."""
+    """
+    Render modes.
+
+    For more information, see `the FreeType documentation
+    <https://freetype.org/freetype2/docs/reference/ft2-glyph_retrieval.html#ft_render_mode>`_.
+
+    .. versionadded:: 3.10
+    """
 
     NORMAL = 0
     LIGHT = 1
@@ -109,8 +136,14 @@ class RenderMode(Enum):
 
 
 class StyleFlags(Flag):
-    """Flags returned by `FT2Font.style_flags` (FreeType's
-    ``FT_STYLE_FLAG_*``)."""
+    """
+    Flags returned by `FT2Font.style_flags`.
+
+    For more information, see `the FreeType documentation
+    <https://freetype.org/freetype2/docs/reference/ft2-face_creation.html#ft_style_flag_xxx>`_.
+
+    .. versionadded:: 3.10
+    """
 
     NORMAL = 0
     ITALIC = 1 << 0
@@ -187,8 +220,8 @@ class Glyph:
     Information about a single glyph.
 
     You cannot create instances of this object yourself, but must use
-    `.FT2Font.load_char` or `.FT2Font.load_glyph` to generate one. This object may
-    be used in a call to `.FT2Font.draw_glyph_to_bitmap`.
+    `.FT2Font.load_char` or `.FT2Font.load_glyph` to generate one. This object may be
+    used in a call to `.FT2Font.draw_glyph_to_bitmap`.
 
     For more information on the various metrics, see `the FreeType documentation
     <https://freetype.org/freetype2/docs/glyphs/glyphs-3.html>`_.
@@ -272,22 +305,27 @@ class _PositionedBitmap:
 
 
 class FT2Image:
-    """
-    An image buffer for drawing glyphs.
-
-    .. deprecated:: 3.11
-       Use a 2D uint8 ndarray instead.
-    """
+    """An image buffer for drawing glyphs."""
 
     def __init__(self, width, height):
+        """
+        Parameters
+        ----------
+        width, height : int
+            The dimensions of the image buffer.
+        """
         _api.warn_deprecated("3.11", name="FT2Image", obj_type="class",
                              alternative="a 2D uint8 ndarray")
         self._buffer = np.zeros((int(height), int(width)), np.uint8)
 
     def draw_rect_filled(self, x0, y0, x1, y1):
         """
-        Draw a filled rectangle to the image: the end points are included and
-        clipped to the image.
+        Draw a filled rectangle to the image.
+
+        Parameters
+        ----------
+        x0, y0, x1, y1 : float
+            The bounds of the rectangle from (x0, y0) to (x1, y1).
         """
         height, width = self._buffer.shape
         self._buffer[min(y0, height):min(y1 + 1, height),
@@ -307,12 +345,21 @@ class FT2Font:
     """
     An object representing a single font face.
 
-    Outside of the font itself and querying its properties, this object
-    provides methods for processing text strings into glyph shapes.
+    Outside of the font itself and querying its properties, this object provides methods
+    for processing text strings into glyph shapes.
 
-    Commonly used methods include `set_text`, `get_width_height`, and
-    `draw_glyphs_to_bitmap`, which in combination are used to render a
-    string of text to a bitmap.
+    Commonly, one will use `FT2Font.set_text` to load some glyph metrics and outlines.
+    Then `FT2Font.draw_glyphs_to_bitmap` and `FT2Font.get_image` may be used to get a
+    rendered form of the loaded string.
+
+    For single characters, `FT2Font.load_char` or `FT2Font.load_glyph` may be used,
+    either directly for their return values, or to use `FT2Font.draw_glyph_to_bitmap` or
+    `FT2Font.get_path`.
+
+    Useful metrics may be examined via the `Glyph` return values or
+    `FT2Font.get_kerning`. Most dimensions are given in 26.6 or 16.6 fixed-point
+    integers representing subpixels. Divide these values by 64 to produce floating-point
+    pixels.
     """
 
     def __init__(self, filename, hinting_factor=None, *, face_index=0,
@@ -322,11 +369,22 @@ class FT2Font:
         Parameters
         ----------
         filename : str, bytes, os.PathLike, or io.BinaryIO
-            The source of the font data in a format (ttf or ttc) that
-            FreeType can read.
+            The source of the font data in a format (ttf or ttc) that FreeType can read.
 
         face_index : int, optional
             The index of the face in the font file to load.
+
+        _fallback_list : list of FT2Font, optional
+            A list of FT2Font objects used to find missing glyphs.
+
+            .. warning::
+                This API is both private and provisional: do not use it directly.
+
+        _warn_if_used : bool, optional
+            Used to trigger missing glyph warnings.
+
+            .. warning::
+                This API is private: do not use it directly.
         """
         if hinting_factor is not None:
             if not isinstance(hinting_factor, int):
@@ -430,7 +488,8 @@ class FT2Font:
             chunks.append(chunk)
         return b"".join(chunks), filename
 
-    def __buffer__(self, flags):
+    def __buffer__(self, flags, /):
+        """Return a buffer object that exposes the underlying memory of the object."""
         return memoryview(self._image())
 
     def __release_buffer__(self, buffer):
@@ -491,10 +550,19 @@ class FT2Font:
         """
         Make the i-th charmap current.
 
+        For more details on character mapping, see the `FreeType documentation
+        <https://freetype.org/freetype2/docs/reference/ft2-character_mapping.html>`_.
+
         Parameters
         ----------
         i : int
             The charmap number in the range [0, `.num_charmaps`).
+
+        See Also
+        --------
+        .num_charmaps
+        .select_charmap
+        .get_charmap
         """
         _ft2font.set_charmap(self._native, int(i))
 
@@ -502,21 +570,60 @@ class FT2Font:
         """
         Select a charmap by its FT_Encoding number.
 
+        For more details on character mapping, see the `FreeType documentation
+        <https://freetype.org/freetype2/docs/reference/ft2-character_mapping.html>`_.
+
         Parameters
         ----------
         i : int
-            The charmap in the form defined by FreeType.
+            The charmap in the form defined by FreeType:
+            https://freetype.org/freetype2/docs/reference/ft2-character_mapping.html#ft_encoding
+
+        See Also
+        --------
+        .set_charmap
+        .get_charmap
         """
         _ft2font.select_charmap(self._native, int(i))
 
     def get_charmap(self):
-        """Return a mapping of character codes to glyph indices in the
-        font."""
+        """
+        Return a mapping of character codes to glyph indices in the font.
+
+        The charmap is Unicode by default, but may be changed by `.set_charmap` or
+        `.select_charmap`.
+
+        Returns
+        -------
+        dict[int, int]
+            A dictionary of the selected charmap mapping character codes to their
+            corresponding glyph indices.
+        """
         return dict(_ft2font.get_charmap(self._native))
 
     def get_char_index(self, codepoint):
-        """Return the glyph index corresponding to a character code
-        point."""
+        """
+        Return the glyph index corresponding to a character code point.
+
+        Parameters
+        ----------
+        codepoint : int
+            A character code point in the current charmap (which defaults to Unicode.)
+        _fallback : bool
+            Whether to enable fallback fonts while searching for a character.
+
+        Returns
+        -------
+        int
+            The corresponding glyph index.
+
+        See Also
+        --------
+        .set_charmap
+        .select_charmap
+        .get_glyph_name
+        .get_name_index
+        """
         return _ft2font.get_char_index(self._native, int(codepoint))
 
     def get_kerning(self, left, right, mode):
@@ -526,10 +633,18 @@ class FT2Font:
         Parameters
         ----------
         left, right : int
-            The glyph indices. Note these are not characters nor character
-            codes.
+            The glyph indices. Note these are not characters nor character codes.
+            Use `.get_char_index` to convert character codes to glyph indices.
+
         mode : Kerning
-            A kerning mode constant.
+            A kerning mode constant:
+
+            - ``DEFAULT``  - Return scaled and grid-fitted kerning distances.
+            - ``UNFITTED`` - Return scaled but un-grid-fitted kerning distances.
+            - ``UNSCALED`` - Return the kerning vector in original font units.
+
+            .. versionchanged:: 3.10
+                This now takes a `.ft2font.Kerning` value instead of an `int`.
 
         Returns
         -------
@@ -546,12 +661,49 @@ class FT2Font:
         return _ft2font.get_kerning(self._native, int(left), int(right), mode)
 
     def get_glyph_name(self, index):
-        """Retrieve the ASCII name of a given glyph *index* in a face."""
+        """
+        Retrieve the ASCII name of a given glyph *index* in a face.
+
+        Due to Matplotlib's internal design, for fonts that do not contain glyph names (per
+        ``FT_FACE_FLAG_GLYPH_NAMES``), this returns a made-up name which does *not*
+        roundtrip through `.get_name_index`.
+
+        Parameters
+        ----------
+        index : int
+            The glyph number to query.
+
+        Returns
+        -------
+        str
+            The name of the glyph, or if the font does not contain names, a name synthesized
+            by Matplotlib.
+
+        See Also
+        --------
+        .get_name_index
+        """
         return _ft2font.get_glyph_name(self._native, int(index))
 
     def get_name_index(self, name):
-        """Return the glyph index of a given glyph *name*; 0 means
-        'undefined character code'."""
+        """
+        Return the glyph index of a given glyph *name*.
+
+        Parameters
+        ----------
+        name : str
+            The name of the glyph to query.
+
+        Returns
+        -------
+        int
+            The corresponding glyph index; 0 means 'undefined character code'.
+
+        See Also
+        --------
+        .get_char_index
+        .get_glyph_name
+        """
         return _ft2font.get_name_index(self._native, name)
 
     def get_num_glyphs(self):
@@ -565,22 +717,51 @@ class FT2Font:
         Returns
         -------
         dict[tuple[int, int, int, int], bytes]
-            The SFNT names table; the dictionary keys are tuples of
-            (platform-ID, ISO-encoding-scheme, language-code, description)
+            The SFNT names table; the dictionary keys are tuples of:
+
+                (platform-ID, ISO-encoding-scheme, language-code, description)
+
             and the values are the direct information from the font table.
         """
         return dict(_ft2font.get_sfnt(self._native))
 
     def get_sfnt_table(self, name):
         """
-        Return one of the SFNT tables: 'head', 'maxp', 'OS/2', 'hhea',
-        'vhea', 'post' or 'pclt', as a dict, or None if the font lacks it.
+        Return one of the SFNT tables.
+
+        Parameters
+        ----------
+        name : {"head", "maxp", "OS/2", "hhea", "vhea", "post", "pclt"}
+            Which table to return.
+
+        Returns
+        -------
+        dict[str, Any]
+            The corresponding table; for more information, see `the FreeType documentation
+            <https://freetype.org/freetype2/docs/reference/ft2-truetype_tables.html>`_.
         """
         table = _ft2font.get_sfnt_table(self._native, name)
         return None if table is None else dict(table)
 
     def get_ps_font_info(self):
-        """Return the information in the PS Font Info structure."""
+        """
+        Return the information in the PS Font Info structure.
+
+        For more information, see the `FreeType documentation on this structure
+        <https://freetype.org/freetype2/docs/reference/ft2-type1_tables.html#ps_fontinforec>`_.
+
+        Returns
+        -------
+        version : str
+        notice : str
+        full_name : str
+        family_name : str
+        weight : str
+        italic_angle : int
+        is_fixed_pitch : bool
+        underline_position : int
+        underline_thickness : int
+        """
         return _ft2font.get_ps_font_info(self._native)
 
     def _missing(self, codepoint):
@@ -596,14 +777,24 @@ class FT2Font:
         Parameters
         ----------
         charcode : int
-            The character code to prepare rendering information for.
+            The character code to prepare rendering information for. This code must be in
+            the charmap, or else a ``.notdef`` glyph may be returned instead.
         flags : LoadFlags, default: `.LoadFlags.FORCE_AUTOHINT`
             Any bitwise-OR combination of the `.LoadFlags` flags.
+
+            .. versionchanged:: 3.10
+                This now takes an `.ft2font.LoadFlags` instead of an int.
 
         Returns
         -------
         Glyph
             The glyph information corresponding to the specified character.
+
+        See Also
+        --------
+        .load_glyph
+        .select_charmap
+        .set_charmap
         """
         loaded = _ft2font.load_char(self._native, int(charcode),
                                     _flags_value(flags))
@@ -619,6 +810,9 @@ class FT2Font:
         """
         Load glyph index in current fontfile and set glyph.
 
+        Note that the glyph index is specific to a font, and not universal like a Unicode
+        code point.
+
         Parameters
         ----------
         glyph_index : int
@@ -626,10 +820,17 @@ class FT2Font:
         flags : LoadFlags, default: `.LoadFlags.FORCE_AUTOHINT`
             Any bitwise-OR combination of the `.LoadFlags` flags.
 
+            .. versionchanged:: 3.10
+                This now takes an `.ft2font.LoadFlags` instead of an int.
+
         Returns
         -------
         Glyph
             The glyph information corresponding to the specified index.
+
+        See Also
+        --------
+        .load_char
         """
         metrics, index, _face = _ft2font.load_glyph(
             self._native, int(glyph_index), _flags_value(flags))
@@ -642,11 +843,29 @@ class FT2Font:
 
         You must call this before `.draw_glyphs_to_bitmap`.
 
+        Parameters
+        ----------
+        string : str
+            The text to prepare rendering information for.
+        angle : float
+            The angle at which to render the supplied text.
+        flags : LoadFlags, default: `.LoadFlags.FORCE_AUTOHINT`
+            Any bitwise-OR combination of the `.LoadFlags` flags.
+
+            .. versionchanged:: 3.10
+                This now takes an `.ft2font.LoadFlags` instead of an int.
+        features : tuple[str, ...]
+            The font feature tags to use for the font.
+
+            Available font feature tags may be found at
+            https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist
+
+            .. versionadded:: 3.11
+
         Returns
         -------
         np.ndarray[double]
-            A sequence of x,y glyph positions in 26.6 subpixels; divide by
-            64 for pixels.
+            A sequence of x,y glyph positions in 26.6 subpixels; divide by 64 for pixels.
         """
         shaping = _shaping(features, language)
         flags = _flags_value(flags)
@@ -686,52 +905,115 @@ class FT2Font:
         """
         Get the dimensions of the current string set by `.set_text`.
 
+        The rotation of the string is accounted for.
+
         Returns
         -------
         width, height : float
-            The width and height in 26.6 subpixels of the current string.
+            The width and height in 26.6 subpixels of the current string. To get width and
+            height in pixels, divide these values by 64.
+
+        See Also
+        --------
+        .get_bitmap_offset
+        .get_descent
         """
         return _ft2font.get_width_height(self._native)
 
     def get_descent(self):
-        """Get the descent of the current string set by `.set_text`, in
-        26.6 subpixels."""
+        """
+        Get the descent of the current string set by `.set_text`.
+
+        The rotation of the string is accounted for.
+
+        Returns
+        -------
+        int
+            The descent in 26.6 subpixels of the bitmap. To get the descent in pixels,
+            divide these values by 64.
+
+        See Also
+        --------
+        .get_bitmap_offset
+        .get_width_height
+        """
         return _ft2font.get_descent(self._native)
 
     def get_bitmap_offset(self):
         """
-        Get the (x, y) offset for the bitmap if ink hangs left or below
-        (0, 0), in 26.6 subpixels.
+        Get the (x, y) offset for the bitmap if ink hangs left or below (0, 0).
+
+        Since Matplotlib only supports left-to-right text, y is always 0.
+
+        Returns
+        -------
+        x, y : float
+            The x and y offset in 26.6 subpixels of the bitmap. To get x and y in pixels,
+            divide these values by 64.
+
+        See Also
+        --------
+        .get_width_height
+        .get_descent
         """
         return _ft2font.get_bitmap_offset(self._native)
 
-    def draw_glyphs_to_bitmap(self, antialiased=True):
+    def draw_glyphs_to_bitmap(self, *, antialiased=True):
         """
         Draw the glyphs that were loaded by `.set_text` to the bitmap.
 
         The bitmap size will be automatically set to include the glyphs.
+
+        Parameters
+        ----------
+        antialiased : bool, default: True
+            Whether to render glyphs 8-bit antialiased or in pure black-and-white.
+
+        See Also
+        --------
+        .draw_glyph_to_bitmap
         """
         _ft2font.draw_glyphs_to_bitmap(self._native, bool(antialiased))
 
     def get_image(self):
-        """Return the underlying image buffer for this font object."""
+        """
+        Return the underlying image buffer for this font object.
+
+        Returns
+        -------
+        np.ndarray[int]
+
+        See Also
+        --------
+        .get_path
+        """
         return self._image()
 
     def draw_glyph_to_bitmap(self, image, x, y, glyph, antialiased=True):
         """
         Draw a single glyph to the bitmap at pixel locations x, y.
 
+        Note it is your responsibility to create the image manually with the correct size
+        before this call is made.
+
+        If you want automatic layout, use `.set_text` in combinations with
+        `.draw_glyphs_to_bitmap`. This function is instead intended for people who want to
+        render individual glyphs (e.g., returned by `.load_char`) at precise locations.
+
         Parameters
         ----------
         image : 2d array of uint8
             The image buffer on which to draw the glyph.
         x, y : int
-            The pixel location at which to draw the glyph.
+            The position of the glyph's top left corner.
         glyph : Glyph
             The glyph to draw.
         antialiased : bool, default: True
-            Whether to render glyphs 8-bit antialiased or in pure
-            black-and-white.
+            Whether to render glyphs 8-bit antialiased or in pure black-and-white.
+
+        See Also
+        --------
+        .draw_glyphs_to_bitmap
         """
         target = np.asarray(image)
         drawn = _ft2font.draw_glyph_to_bitmap(
@@ -756,6 +1038,13 @@ class FT2Font:
             The (N, 2) array of vertices describing the current glyph.
         codes : np.ndarray[np.uint8]
             The (N, ) array of codes corresponding to the vertices.
+
+        See Also
+        --------
+        .get_image
+        .load_char
+        .load_glyph
+        .set_text
         """
         vertices, codes = _ft2font.get_path(self._native)
         return vertices, codes.astype(np.uint8)

@@ -52,19 +52,42 @@ class VoxelsMixin:
         filled : 3D np.array of bool
             A 3D array of values, with truthy values indicating which voxels
             to fill
+
         x, y, z : 3D np.array, optional
-            The coordinates of the corners of the voxels. This should
-            broadcast to a shape one larger in every dimension than the shape
-            of *filled*. They can only be passed positionally.
+            The coordinates of the corners of the voxels. This should broadcast
+            to a shape one larger in every dimension than the shape of
+            *filled*.  These can be used to plot non-cubic voxels.
+
+            If not specified, defaults to increasing integers along each axis,
+            like those returned by :func:`~numpy.indices`.
+            As indicated by the ``/`` in the function signature, these
+            arguments can only be passed positionally.
+
         facecolors, edgecolors : array-like, optional
-            The color to draw the faces and edges of the voxels: one color,
-            a 3D array of colors, or a 4D array of RGB/RGBA data.
+            The color to draw the faces and edges of the voxels. Can only be
+            passed as keyword arguments.
+            These parameters can be:
+
+            - A single color value, to color all voxels the same color. This
+              can be either a string, or a 1D RGB/RGBA array
+            - ``None``, the default, to use a single color for the faces, and
+              the style default for the edges.
+            - A 3D `~numpy.ndarray` of color names, with each item the color
+              for the corresponding voxel. The size must match the voxels.
+            - A 4D `~numpy.ndarray` of RGB/RGBA data, with the components
+              along the last axis.
+
         shade : bool, default: True
             Whether to shade the facecolors.
+
         lightsource : `~matplotlib.colors.LightSource`, optional
             The lightsource to use when *shade* is True.
+
         axlim_clip : bool, default: False
             Whether to hide voxels with points outside the axes view limits.
+
+            .. versionadded:: 3.10
+
         **kwargs
             Additional keyword arguments to pass onto
             `~mpl_toolkits.mplot3d.art3d.Poly3DCollection`.
@@ -74,7 +97,16 @@ class VoxelsMixin:
         faces : dict
             A dictionary indexed by coordinate, where ``faces[i, j, k]`` is a
             `.Poly3DCollection` of the faces drawn for the voxel
-            ``filled[i, j, k]``.
+            ``filled[i, j, k]``. If no faces were drawn for a given voxel,
+            either because it was not asked to be drawn, or it is fully
+            occluded, then ``(i, j, k) not in faces``.
+
+        Examples
+        --------
+        .. plot:: gallery/mplot3d/voxels.py
+        .. plot:: gallery/mplot3d/voxels_rgb.py
+        .. plot:: gallery/mplot3d/voxels_torus.py
+        .. plot:: gallery/mplot3d/voxels_numpy_logo.py
         """
         # The name must be voxels for the right error messages.
         if len(args) >= 3:

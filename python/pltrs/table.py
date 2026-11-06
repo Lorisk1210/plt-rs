@@ -20,6 +20,7 @@ License).
 
 import numpy as np
 
+from . import _docstring
 from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors,
                _python_drawing, _unusable, _values, cbook, colors as mcolors)
 from ._drawn_with import DrawnWith
@@ -90,12 +91,11 @@ class Cell(DrawnWith, Rectangle):
     As a user, you'll most likely not creates cells yourself. Instead, you
     should use either the `~matplotlib.table.table` factory function or
     `.Table.add_cell`.
-
-    pltrs: a cell is the cell at its key in a table's native artist (see
-    the module documentation). As a `.Rectangle` it is a rectangle outside
-    any figure with the cell's look, from which every setter restyles the
-    cell; its table sizes and places it.
     """
+    # pltrs: a cell is the cell at its key in a table's native artist (see the
+    # module documentation). As a `.Rectangle` it is a rectangle outside any
+    # figure with the cell's look, from which every setter restyles the cell;
+    # its table sizes and places it.
 
     PAD = 0.1
     """Padding between text and rectangle."""
@@ -139,7 +139,7 @@ class Cell(DrawnWith, Rectangle):
         fontproperties : dict, optional
             A dict defining the font properties of the text. Supported keys and
             values are the keyword arguments accepted by `.FontProperties`.
-        visible_edges : {'closed', 'open', 'horizontal', 'vertical'} or \\
+        visible_edges : {'closed', 'open', 'horizontal', 'vertical'} or \
 substring of 'BRTL'
             The cell edges to be drawn with a line: a substring of 'BRTL'
             (bottom, right, top, left), or one of 'open' (no edges drawn),
@@ -206,14 +206,8 @@ substring of 'BRTL'
         return figure.get_figure(root=True)
 
     def set_transform(self, t):
-        """
-        Set the artist transform: the cell, its place in its table being in
-        the coordinates of *t* (pltrs: its text is drawn there too).
-
-        Parameters
-        ----------
-        t : `~matplotlib.transforms.Transform`
-        """
+        # Set the artist transform: the cell, its place in its table being in
+        # the coordinates of *t* (pltrs: its text is drawn there too).
         self._cell_transform = t
         _table.set_cell_transform(self._ref(), _live_transforms.to_native(t))
 
@@ -241,16 +235,8 @@ substring of 'BRTL'
         return self.get_patch_transform() + self.get_data_transform()
 
     def set_figure(self, fig):
-        """
-        Set the `.Figure` or `.SubFigure` instance the cell belongs to.
-
-        pltrs: a cell in a table belongs to its table's figure; one made by
-        its constructor keeps *fig* until a table takes it.
-
-        Parameters
-        ----------
-        fig : `~matplotlib.figure.Figure` or `~matplotlib.figure.SubFigure`
-        """
+        # pltrs: a cell in a table belongs to its table's figure; one made by
+        # its constructor keeps *fig* until a table takes it.
         if self._parent_figure is fig:
             return
         if self._parent_figure is not None:
@@ -262,13 +248,10 @@ substring of 'BRTL'
             self._table.set_figure(fig)
 
     def get_text(self):
-        """
-        Return the cell `.Text` instance.
-
-        pltrs: the text has the cell's string, colour, font, alignments,
-        rotation and opacity, and changing them changes the cell; the
-        table places the text when it is drawn.
-        """
+        """Return the cell `.Text` instance."""
+        # pltrs: the text has the cell's string, colour, font, alignments,
+        # rotation and opacity, and changing them changes the cell; the table
+        # places the text when it is drawn.
         native = _table.text_artist(self._ref())
         text = self.__dict__.get("_text_mirror")
         if text is None:
@@ -286,10 +269,7 @@ substring of 'BRTL'
         self.stale = True
 
     def get_fontsize(self):
-        """Return the cell fontsize: the one given since its table last
-        placed it, else the one it was placed at (matplotlib's table gives
-        its cells the size their texts fit at when it is drawn or
-        measured)."""
+        """Return the cell fontsize."""
         table = self._table
         given_at = max(self.__dict__.get("_fontsize_given_at", -1),
                        table.__dict__.get("_fontsize_given_at", -1))
@@ -300,21 +280,14 @@ substring of 'BRTL'
         return _table.get_cell_fontsize(self._ref())
 
     def auto_set_font_size(self, renderer):
-        """
-        Shrink font size until the text fits into the cell width.
-
-        pltrs: measured in the figure's current layout at its resolution.
-        """
+        """Shrink font size until the text fits into the cell width."""
+        # pltrs: measured in the figure's current layout at its resolution.
         if isinstance(self._table, _CellHolder):
             return _measured(None)
         return _table.fit_font_size(self._ref())
 
     @allow_rasterization
     def draw(self, renderer):
-        """
-        Draw the cell with *renderer*: its rectangle and its text, where
-        its table places it in its figure's layout.
-        """
         if not self.get_visible():
             return
         draw_cell = getattr(renderer, "_draw_cell", None)
@@ -326,11 +299,7 @@ substring of 'BRTL'
 
     def get_text_bounds(self, renderer):
         """
-        Return the text bounds as *(x, y, width, height)* in table
-        coordinates.
-
-        pltrs: measured where the table draws the text in the figure's
-        current layout, at the figure's resolution.
+        Return the text bounds as *(x, y, width, height)* in table coordinates.
         """
         return tuple(map(np.float64, _measured(_table.text_bounds(self._ref()))))
 
@@ -339,9 +308,15 @@ substring of 'BRTL'
         l, b, w, h = self.get_text_bounds(renderer)
         return w * (1.0 + (2.0 * self.PAD))
 
+    @_docstring.interpd
     def set_text_props(self, **kwargs):
-        """Update the text properties: any `.Text` property of the cell's
-        text (see `get_text`)."""
+        """
+        Update the text properties.
+
+        Valid keyword arguments are:
+
+        %(Text:kwdoc)s
+        """
         self.get_text()._internal_update(kwargs)
         self.stale = True
 
@@ -478,6 +453,7 @@ class Table(Artist):
         developed further. If you need more functionality, consider
         `blume <https://github.com/swfiua/blume>`__.
 
+
     The table consists of a grid of cells, which are indexed by (row, column).
 
     For a simple table, you'll have a full grid of cells with indices from
@@ -491,9 +467,9 @@ class Table(Artist):
     """
 
     def get_window_extent(self, renderer=None):
-        """Return the table's box in display space, where pltrs (Rust)
-        lays it out in the figure as it is (matplotlib computes it from the
-        table's layout, placing its cells)."""
+        # Return the table's box in display space, where pltrs (Rust) lays it
+        # out in the figure as it is (matplotlib computes it from the table's
+        # layout, placing its cells).
         self._place_cells()
         return self._extent_as_is()
 
@@ -585,6 +561,7 @@ class Table(Artist):
         -------
         `.Cell`
             The created cell.
+
         """
         xy = (0, 0)
         cell = Cell(xy, visible_edges=self.edges, *args, **kwargs)
@@ -658,6 +635,7 @@ class Table(Artist):
 
             for c in tab.get_celld().values():
                 c.visible_edges = 'horizontal'
+
         """
         return self._edges
 
@@ -741,6 +719,7 @@ class Table(Artist):
         return {key: self[key] for key in _table.cell_keys(self._native)}
 
 
+@_docstring.interpd
 def table(ax,
           cellText=None, cellColours=None,
           cellLoc='right', colWidths=None,
@@ -750,6 +729,12 @@ def table(ax,
           **kwargs):
     """
     Add a table to an `~.axes.Axes`.
+
+    .. note::
+
+        ``table()`` has some fundamental design limitations and will not be
+        developed further. If you need more functionality, consider
+        `blume <https://github.com/swfiua/blume>`__.
 
     At least one of *cellText* or *cellColours* must be specified. These
     parameters must be 2D lists, in which the outer lists define the rows and
@@ -820,6 +805,8 @@ def table(ax,
     ----------------
     **kwargs
         `.Table` properties.
+
+    %(Table:kwdoc)s
     """
     if cellColours is None and cellText is None:
         raise ValueError('At least one argument from "cellColours" or '

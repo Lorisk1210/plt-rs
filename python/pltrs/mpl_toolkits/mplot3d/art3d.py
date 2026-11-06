@@ -12,7 +12,7 @@ import numpy as np
 
 from pltrs import _api, _values, cbook, collections as mcoll, colors as mcolors, lines
 from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
-from pltrs import patches as mpatches, text as mtext
+from pltrs import _docstring, patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
 from . import _draw_problems
@@ -221,15 +221,15 @@ class Line3D(lines.Line2D):
     3D line object.
 
     .. note:: Use `get_data_3d` to obtain the data associated with the line.
-            `~.Line2D.get_data`, `~.Line2D.get_xdata`, and `~.Line2D.get_ydata`
-            return the x- and y-coordinates of the projected 2D-line, not the
-            x- and y-data of the 3D-line. Similarly, use `set_data_3d` to set
-            the data, not `~.Line2D.set_data`, `~.Line2D.set_xdata`, and
-            `~.Line2D.set_ydata`.
+            `~.Line2D.get_data`, `~.Line2D.get_xdata`, and `~.Line2D.get_ydata` return
+            the x- and y-coordinates of the projected 2D-line, not the x- and y-data of
+            the 3D-line. Similarly, use `set_data_3d` to set the data, not
+            `~.Line2D.set_data`, `~.Line2D.set_xdata`, and `~.Line2D.set_ydata`.
     """
 
     def __init__(self, xs, ys, zs, *args, axlim_clip=False, **kwargs):
         """
+
         Parameters
         ----------
         xs : array-like
@@ -240,12 +240,6 @@ class Line3D(lines.Line2D):
             The z-data to be plotted.
         *args, **kwargs
             Additional arguments are passed to `~matplotlib.lines.Line2D`.
-
-        Notes
-        -----
-        A line made this way, outside any axes, keeps its 3-D data until
-        an `.Axes3D` adds it (`~.Axes.add_line`); meanwhile it serves as a
-        legend handle.
         """
         super().__init__([], [], *args, **kwargs)
         self.set_data_3d(xs, ys, zs)
@@ -280,8 +274,11 @@ class Line3D(lines.Line2D):
             line.
         zdir : {'x', 'y', 'z'}
             Plane to plot line orthogonal to. Default: 'z'.
+            See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
             Whether to hide lines with an endpoint outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         xs = self.get_xdata()
         ys = self.get_ydata()
@@ -305,7 +302,7 @@ class Line3D(lines.Line2D):
 
     def get_data_3d(self):
         """
-        Get the current data.
+        Get the current data
 
         Returns
         -------
@@ -323,7 +320,7 @@ class Line3D(lines.Line2D):
 
     def set_data_3d(self, *args):
         """
-        Set the x, y and z data.
+        Set the x, y and z data
 
         Parameters
         ----------
@@ -402,8 +399,11 @@ def line_2d_to_3d(line, zs=0, zdir='z', axlim_clip=False):
         The location along the *zdir* axis in 3D space to position the line.
     zdir : {'x', 'y', 'z'}
         Plane to plot line orthogonal to. Default: 'z'.
+        See `.get_dir_vector` for a description of the values.
     axlim_clip : bool, default: False
         Whether to hide lines with an endpoint outside the axes view limits.
+
+        .. versionadded:: 3.10
     """
     line.__class__ = Line3D
     line.set_3d_properties(zs, zdir, axlim_clip)
@@ -502,20 +502,11 @@ def collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
 
 
 class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
-    """A collection of 3D lines."""
+    """
+    A collection of 3D lines.
+    """
 
     def __init__(self, lines, axlim_clip=False, **kwargs):
-        """
-        Parameters
-        ----------
-        lines : list of (N, 3) array-like
-            A sequence ``[line0, line1, ...]`` where each line is a (N, 3)-shape
-            array-like containing points.
-        axlim_clip : bool, default: False
-            Whether to hide lines with an endpoint outside the axes view limits.
-        **kwargs
-            Keyword arguments are passed onto `.LineCollection`.
-        """
         super().__init__([], **kwargs)
         self._axlim_clip = axlim_clip
         self._keep_segments(lines)
@@ -557,9 +548,9 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
         return self
 
     def do_3d_projection(self):
-        """Project the segments in the view of the last draw and return
-        the depth of their nearest point (NaN without points), failing as
-        matplotlib's does on the segments kept."""
+        """
+        Project the points according to renderer matrix.
+        """
         axes = _lifted(self)
         segments = self.__dict__.get('_segments3d')
         if axes is not None and segments is not None:
@@ -703,9 +694,6 @@ class _Lifted3DOffsets(_Loose3D):
         self._unprojectable = offsets
 
     def do_3d_projection(self):
-        """Project the members in the view of the last draw and return the
-        depth of the nearest (NaN without members), failing as
-        matplotlib's does on the positions kept."""
         axes = _lifted(self)
         if axes is not None:
             problem = _draw_problems.offsets_problem(self, self._offsets3d, axes.M)
@@ -720,7 +708,6 @@ class _Lifted3DOffsets(_Loose3D):
         return super().get_offsets() if kept is None else kept
 
     def get_depthshade(self):
-        """Return whether the members fade with depth."""
         axes = _lifted(self)
         if axes is None:
             from pltrs import rcParams
@@ -769,16 +756,22 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
 `~matplotlib.collections.PathCollection`
         The collection to convert.
     zs : float or array of floats
-        The location or locations to place the patches in the collection
-        along the *zdir* axis. Default: 0.
+        The location or locations to place the patches in the collection along
+        the *zdir* axis. Default: 0.
     zdir : {'x', 'y', 'z'}
         The axis in which to place the patches. Default: "z".
+        See `.get_dir_vector` for a description of the values.
     depthshade : bool, default: :rc:`axes3d.depthshade`
         Whether to shade the patches to give a sense of depth.
     axlim_clip : bool, default: False
         Whether to hide patches with a vertex outside the axes view limits.
+
+        .. versionadded:: 3.10
+
     depthshade_minalpha : float, default: :rc:`axes3d.depthshade_minalpha`
         Sets the minimum alpha value used by depth-shading.
+
+        .. versionadded:: 3.11
     """
     if isinstance(col, mcoll.PathCollection):
         col.__class__ = Path3DCollection
@@ -790,7 +783,9 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
 
 
 class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
-    """A collection of 3D paths: the markers of a 3-D scatter plot."""
+    """
+    A collection of 3D paths.
+    """
 
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
@@ -806,6 +801,16 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
 
         There is no simple definition of the enclosed surface of a 3D polygon
         unless the polygon is planar.
+
+        In practice, Matplotlib fills the 2D projection of the polygon. This
+        gives a correct filling appearance only for planar polygons. For all
+        other polygons, you'll find orientations in which the edges of the
+        polygon intersect in the projection. This will lead to an incorrect
+        visualization of the 3D area.
+
+        If you need filled areas, it is recommended to create them via
+        `~mpl_toolkits.mplot3d.axes3d.Axes3D.plot_trisurf`, which creates a
+        triangulation and thus generates consistent surfaces.
     """
 
     def _mapping_draws(self):
@@ -819,7 +824,7 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         return _artist.draw_count(axes._native) + self.__dict__.get("_projections", 0)
 
     def __init__(self, verts, *args, zsort='average', shade=False,
-                 lightsource=None, axlim_clip=False, closed=True, **kwargs):
+                 lightsource=None, axlim_clip=False, **kwargs):
         """
         Parameters
         ----------
@@ -829,16 +834,30 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             array-like of shape (N, 3).
         zsort : {'average', 'min', 'max'}, default: 'average'
             The calculation method for the z-order.
+            See `~.Poly3DCollection.set_zsort` for details.
         shade : bool, default: False
-            Whether to shade *facecolors* and *edgecolors*.
+            Whether to shade *facecolors* and *edgecolors*. When activating
+            *shade*, *facecolors* and/or *edgecolors* must be provided.
+
+            .. versionadded:: 3.7
+
         lightsource : `~matplotlib.colors.LightSource`, optional
             The lightsource to use when *shade* is True.
+
+            .. versionadded:: 3.7
+
         axlim_clip : bool, default: False
             Whether to hide polygons with a vertex outside the view limits.
-        closed : bool, default: True
-            Whether the polygons are closed.
+
+            .. versionadded:: 3.10
+
         *args, **kwargs
             All other parameters are forwarded to `.PolyCollection`.
+
+        Notes
+        -----
+        Note that this class does a bit of magic with the _facecolors
+        and _edgecolors properties.
         """
         if isinstance(verts, np.ndarray):
             _api.check_shape((None, None, 3), segments3d=verts)
@@ -857,6 +876,8 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
                 raise ValueError(
                     "You must provide facecolors, edgecolors, or both for "
                     "shade to work.")
+        # matplotlib hands *closed* on to `.PolyCollection` in **kwargs.
+        closed = kwargs.pop('closed', True)
         super().__init__([], *args, **kwargs)
         if zsort not in self._zsort_functions:
             raise KeyError(zsort)  # As matplotlib's `set_zsort` raises.
@@ -958,8 +979,6 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
 
     @_api.deprecated("3.10")
     def get_vector(self, segments3d):
-        """Take the polygons *segments3d* (a list of ``(N, 3)`` arrays, or
-        an ``(M, N, 3)`` array) as the 3-D vertices to project."""
         if isinstance(segments3d, np.ndarray):
             _api.check_shape((None, None, 3), segments3d=segments3d)
         self._set_faces(_faces_3d(segments3d), self._closed)
@@ -996,8 +1015,6 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         self.stale = True
 
     def set_3d_properties(self, axlim_clip=False):
-        """Take the colours the collection has now as the colours of its
-        polygons, ordered by the mean depth of their vertices."""
         self._axlim_clip = axlim_clip
         axes = _axes3d(self)
         if axes is None:
@@ -1019,12 +1036,11 @@ def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     col : `~matplotlib.collections.PolyCollection`
         The collection to convert.
     zs : float or array of floats
-        The location or locations to place the polygons in the collection
-        along the *zdir* axis. Default: 0.
+        The location or locations to place the polygons in the collection along
+        the *zdir* axis. Default: 0.
     zdir : {'x', 'y', 'z'}
         The axis in which to place the patches. Default: 'z'.
-    axlim_clip : bool, default: False
-        Whether to hide patches with a vertex outside the axes view limits.
+        See `.get_dir_vector` for a description of the values.
     """
     col.__class__ = Poly3DCollection
     _gains_projection(col)
@@ -1047,9 +1063,6 @@ def _get_patch_verts(patch):
 class Patch3D(mpatches.Patch):
     """
     3D patch object.
-
-    The patch follows its 3-D outline once a 3-D axes holds it; made
-    outside one, it keeps the outline until a 3-D axes adds it.
     """
 
     def __init__(self, *args, zs=(), zdir='z', axlim_clip=False, **kwargs):
@@ -1062,8 +1075,11 @@ class Patch3D(mpatches.Patch):
             patch.
         zdir : {'x', 'y', 'z'}
             Plane to plot patch orthogonal to. Default: 'z'.
+            See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
             Whether to hide patches with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         super().__init__(*args, **kwargs)
         self.set_3d_properties(zs, zdir, axlim_clip)
@@ -1082,8 +1098,6 @@ class Patch3D(mpatches.Patch):
                                 bool(axlim_clip))
 
     def do_3d_projection(self):
-        """Project the patch in the view of the last draw and return the
-        depth of its nearest point."""
         return _projected_depth(self)
 
     def _place(self, *geometry):
@@ -1107,8 +1121,11 @@ class Patch3D(mpatches.Patch):
             patch.
         zdir : {'x', 'y', 'z'}
             Plane to plot patch orthogonal to. Default: 'z'.
+            See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
             Whether to hide patches with a vertex outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         zs = np.broadcast_to(zs, len(verts))
         segment3d = [juggle_axes(x, y, z, zdir)
@@ -1146,9 +1163,11 @@ class PathPatch3D(Patch3D):
             path patch.
         zdir : {'x', 'y', 'z', 3-tuple}
             Plane to plot path patch orthogonal to. Default: 'z'.
+            See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
-            Whether to hide path patches with a point outside the axes view
-            limits.
+            Whether to hide path patches with a point outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         self._native = _patches.new_path_patch(path)
         mpatches.Patch.__init__(self, **kwargs)
@@ -1173,9 +1192,11 @@ class PathPatch3D(Patch3D):
             path patch.
         zdir : {'x', 'y', 'z', 3-tuple}
             Plane to plot path patch orthogonal to. Default: 'z'.
+            See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
-            Whether to hide path patches with a point outside the axes view
-            limits.
+            Whether to hide path patches with a point outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         verts = path.vertices
         zs = np.broadcast_to(zs, len(verts))
@@ -1227,6 +1248,8 @@ class Text3D(mtext.Text):
         the values.
     axlim_clip : bool, default: False
         Whether to hide text outside the axes view limits.
+
+        .. versionadded:: 3.10
 
     Other Parameters
     ----------------
@@ -1286,11 +1309,13 @@ class Text3D(mtext.Text):
         # it draws the text.
         return tuple(self.get_position_3d()[:2])
 
+    @_docstring.copy(mtext.Text.set_position)
     def set_position(self, xy):
         # docstring inherited; the x and y of the 3-D position.
         self.set_x(xy[0])
         self.set_y(xy[1])
 
+    @_docstring.copy(mtext.Text.set_x)
     def set_x(self, x):
         # docstring inherited; the x of the 3-D position.
         if _lifted(self) is None:
@@ -1299,6 +1324,7 @@ class Text3D(mtext.Text):
             _, y, z = self.get_position_3d()
             self.set_position_3d((x, y, z))
 
+    @_docstring.copy(mtext.Text.set_y)
     def set_y(self, y):
         # docstring inherited; the y of the 3-D position.
         if _lifted(self) is None:
@@ -1311,6 +1337,7 @@ class Text3D(mtext.Text):
         # docstring inherited
         return tuple(map(float, self.get_position_3d()[:2]))
 
+    @_docstring.copy(mtext.Text.set_rotation)
     def set_rotation(self, s):
         # docstring inherited; the rotation set, which the projection
         # replaces while the text is drawn.
@@ -1370,6 +1397,8 @@ class Text3D(mtext.Text):
             See `.get_dir_vector` for a description of the values.
         axlim_clip : bool, default: False
             Whether to hide text outside the axes view limits.
+
+            .. versionadded:: 3.10
         """
         axes = _axes3d(self)
         if _lifted(self) is not None:
@@ -1414,6 +1443,8 @@ def text_2d_to_3d(obj, z=0, zdir='z', axlim_clip=False):
         See `.get_dir_vector` for a description of the values.
     axlim_clip : bool, default: False
         Whether to hide text outside the axes view limits.
+
+        .. versionadded:: 3.10
     """
     obj.__class__ = Text3D
     obj.set_3d_properties(z, zdir, axlim_clip)

@@ -145,10 +145,6 @@ class _FloatingAxisArtistHelperBase(_AxisArtistHelperBase):
 class FixedAxisArtistHelperRectilinear(_FixedAxisArtistHelperBase):
 
     def __init__(self, axes, loc):
-        """
-        nth_coord = along which coordinate value varies
-        in 2D, nth_coord = 0 ->  x axis, nth_coord = 1 -> y axis
-        """
         super().__init__(loc)
         self.axis = [axes.xaxis, axes.yaxis][self.nth_coord]
 

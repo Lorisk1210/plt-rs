@@ -53,7 +53,6 @@ del Axes3D
 
 
 def register_projection(cls):
-    """Register the projection class *cls* under its ``name``."""
     projection_registry.register(cls)
 
 

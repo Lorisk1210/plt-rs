@@ -7,8 +7,7 @@ As in `._pyplot_plotting`, the wrappers of Axes methods are made from the
 methods themselves, keeping their signatures and docstrings.
 """
 
-import functools
-
+from ._pyplot_figure import _copy_docstring_and_deprecators
 from ._pyplot_plotting import _wrapper
 from .figure import Figure
 
@@ -16,7 +15,7 @@ text = _wrapper("text")
 annotate = _wrapper("annotate")
 
 
-@functools.wraps(Figure.text)
+@_copy_docstring_and_deprecators(Figure.text)
 def figtext(x, y, s, fontdict=None, **kwargs):
     from . import pyplot
     return pyplot.gcf().text(x, y, s, fontdict=fontdict, **kwargs)

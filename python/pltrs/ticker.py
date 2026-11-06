@@ -93,8 +93,6 @@ class _DummyAxis:
 
 
 class TickHelper:
-    """The base of locators and formatters: the axis they serve."""
-
     axis = None
 
     def __setattr__(self, name, value):
@@ -102,11 +100,9 @@ class TickHelper:
         _tick_helpers.check_native(self)
 
     def set_axis(self, axis):
-        """Attach the helper to *axis*."""
         self.axis = axis
 
     def create_dummy_axis(self, **kwargs):
-        """Attach the helper to a `_DummyAxis` unless it has an axis."""
         if self.axis is None:
             self.axis = _DummyAxis(**kwargs)
 
@@ -186,6 +182,17 @@ def _first_steps(x, *steps):
 class Formatter(TickHelper):
     """
     Create a string based on a tick value and location.
+
+    The Formatter provides four formatting methods for different use cases:
+
+    - `format_ticks`: The public API for generating tick labels from a set of
+      tick values.
+    - `__call__`: The low-level primitive for formatting a single tick value,
+      potentially in the context of multiple values.
+    - `format_data`: Context-independent representation of a single value.
+      Used internally, e.g. for offset and scientific-notation strings.
+    - `format_data_short`: Concise plain-text representation of a single value
+      for the interactive mouseover tooltip.
     """
     # some classes want to see all the locs to help format
     # individual ones
@@ -194,33 +201,73 @@ class Formatter(TickHelper):
 
     def __call__(self, x, pos=None):
         """
-        Return the format for tick value *x* at position pos.
-        ``pos=None`` indicates an unspecified location.
+        Return the tick label strings for value *x* at tick index *pos*.
+
+        This is the low-level formatting primitive for a single tick in
+        the context of multiple ticks. Any context-dependent state
+        (e.g. locs, offset, order of magnitude) must already be configured,
+        typically by a prior call to ``format_ticks`` or ``set_locs``.
+
+        *pos* defines the index into ``self.locs`` so that the format can
+        depend on the location. ``pos=None`` indicates an unspecified
+        location.
+
+        The output may contain mathtext or LaTeX markup.
+
+        Subclasses must override this method.
         """
         raise NotImplementedError('Derived must override')
 
     def format_ticks(self, values):
-        """Return the tick labels for all the ticks at once."""
+        """
+        Return the tick label strings for all *values*.
+
+        This is the public API for generating tick labels.  It calls
+        ``set_locs`` to configure context-dependent formatting state before
+        delegating to ``__call__`` for each individual value.
+
+        The output may contain mathtext or LaTeX markup.
+
+        Use this method (rather than ``__call__``) whenever formatting a
+        complete set of tick values, so that formatters which need to see
+        all tick locations (e.g. to determine precision, offsets, or which
+        date components to display) can work correctly.
+        """
         self.set_locs(values)
         return [self(value, i) for i, value in enumerate(values)]
 
     def format_data(self, value):
         """
-        Return the full string representation of the value with the
-        position unspecified.
+        Return the context-independent string representation of a single *value*.
+
+        This is used internally, e.g. for constructing offset and
+        scientific-notation strings.  It always formats with ``pos=None``
+        and should return a context-independent representation
+        rather than a concise tick label.
+
+        The output may contain mathtext or LaTeX markup.
         """
         return self.__call__(value)
 
     def format_data_short(self, value):
         """
-        Return a short string version of the tick value.
+        Return a short string representation of *value* for the mouseover
+        tooltip (the coordinate display in the interactive figure window).
 
-        Defaults to the position-independent long value.
+        This should return concise, plain text (no mathtext / LaTeX).
+        The precision is typically adapted to the current axis resolution
+        so that neighbouring pixels produce distinguishable labels.
+
+        Defaults to `.Formatter.format_data`; subclasses should override
+        this to provide a plain-text representation that is independent
+        of the current tick locations.
+
+        Note: The mouseover text can be customized by setting the
+        ``Axes.fmt_xdata`` and ``Axes.fmt_ydata`` attributes.
         """
         return self.format_data(value)
 
     def get_offset(self):
-        """Return the offset (or scale) text shown at the end of the axis."""
         return ''
 
     def set_locs(self, locs):
@@ -291,7 +338,6 @@ class FixedFormatter(Formatter):
         return self.offset_string
 
     def set_offset_string(self, ofs):
-        """Set the offset text."""
         self.offset_string = ofs
 
 
@@ -320,7 +366,6 @@ class FuncFormatter(Formatter):
         return self.offset_string
 
     def set_offset_string(self, ofs):
-        """Set the offset text."""
         self.offset_string = ofs
 
 
@@ -373,6 +418,12 @@ class StrMethodFormatter(Formatter):
     It is typically unnecessary to explicitly construct `.StrMethodFormatter`
     objects, as `~.Axis.set_major_formatter` directly accepts the format string
     itself.
+
+    Examples
+    --------
+    >>> formatter = StrMethodFormatter("{x} km")
+    >>> formatter(10)
+    "10 km"
     """
 
     def __init__(self, fmt):
@@ -426,8 +477,6 @@ class _NativeFormatter(Formatter):
             self._spec(), values, info)
 
     def __call__(self, x, pos=None):
-        """Return the label of tick value *x*, formatted with the others set
-        by `set_locs`."""
         locs = self._locs
         if pos is not None and 0 <= pos < len(locs) and locs[pos] == x:
             return self._labels[pos]
@@ -476,6 +525,43 @@ class ScalarFormatter(_NativeFormatter):
     usetex : bool, default: :rc:`text.usetex`
         To enable/disable the use of TeX's math mode for rendering the
         numbers in the formatter.
+
+        .. versionadded:: 3.10
+
+    Notes
+    -----
+    In addition to the parameters above, the formatting of scientific vs.
+    floating point representation can be configured via `.set_scientific`
+    and `.set_powerlimits`).
+
+    **Offset notation and scientific notation**
+
+    Offset notation and scientific notation look quite similar at first sight.
+    Both split some information from the formatted tick values and display it
+    at the end of the axis.
+
+    - The scientific notation splits up the order of magnitude, i.e. a
+      multiplicative scaling factor, e.g. ``1e6``.
+
+    - The offset notation separates an additive constant, e.g. ``+1e6``. The
+      offset notation label is always prefixed with a ``+`` or ``-`` sign
+      and is thus distinguishable from the order of magnitude label.
+
+    The following plot with x limits ``1_000_000`` to ``1_000_010`` illustrates
+    the different formatting. Note the labels at the right edge of the x axis.
+
+    .. plot::
+
+        lim = (1_000_000, 1_000_010)
+
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, gridspec_kw={'hspace': 2})
+        ax1.set(title='offset notation', xlim=lim)
+        ax2.set(title='scientific notation', xlim=lim)
+        ax2.xaxis.get_major_formatter().set_useOffset(False)
+        ax3.set(title='floating-point notation', xlim=lim)
+        ax3.xaxis.get_major_formatter().set_useOffset(False)
+        ax3.xaxis.get_major_formatter().set_scientific(False)
+
     """
 
     orderOfMagnitude = _api.deprecate_privatize_attribute("3.11")
@@ -508,8 +594,7 @@ class ScalarFormatter(_NativeFormatter):
         return self._usetex
 
     def set_usetex(self, val):
-        """Set whether to use TeX's math mode for rendering numbers in the
-        formatter."""
+        """Set whether to use TeX's math mode for rendering numbers in the formatter."""
         self._usetex = _val_or_rc(val, 'text.usetex')
 
     usetex = property(fget=get_usetex, fset=set_usetex)
@@ -520,12 +605,21 @@ class ScalarFormatter(_NativeFormatter):
 
         This returns True if ``set_useOffset(True)``; it returns False if an
         explicit offset was set, e.g. ``set_useOffset(1000)``.
+
+        See Also
+        --------
+        ScalarFormatter.set_useOffset
         """
         return self._useOffset
 
     def set_useOffset(self, val):
         """
         Set whether to use offset notation.
+
+        When formatting a set numbers whose value is large compared to their
+        range, the formatter can separate an additive constant. This can
+        shorten the formatted numbers so that they are less likely to overlap
+        when drawn on an axis.
 
         Parameters
         ----------
@@ -535,6 +629,15 @@ class ScalarFormatter(_NativeFormatter):
               the residual numbers significantly shorter. The exact behavior
               is controlled by :rc:`axes.formatter.offset_threshold`.
             - If a number, force an offset of the given value.
+
+        Examples
+        --------
+        With active offset notation, the values
+
+        ``100_000, 100_002, 100_004, 100_006, 100_008``
+
+        will be formatted as ``0, 2, 4, 6, 8`` plus an offset ``+1e5``, which
+        is written to the edge of the axis.
         """
         if isinstance(val, bool):
             self.offset = 0
@@ -546,7 +649,13 @@ class ScalarFormatter(_NativeFormatter):
     useOffset = property(fget=get_useOffset, fset=set_useOffset)
 
     def get_useLocale(self):
-        """Return whether locale settings are used for formatting."""
+        """
+        Return whether locale settings are used for formatting.
+
+        See Also
+        --------
+        ScalarFormatter.set_useLocale
+        """
         return self._useLocale
 
     def set_useLocale(self, val):
@@ -576,14 +685,25 @@ class ScalarFormatter(_NativeFormatter):
                 else fmt % arg)
 
     def get_useMathText(self):
-        """Return whether to use fancy math formatting."""
+        """
+        Return whether to use fancy math formatting.
+
+        See Also
+        --------
+        ScalarFormatter.set_useMathText
+        """
         return self._useMathText
 
     def set_useMathText(self, val):
-        """
+        r"""
         Set whether to use fancy math formatting.
 
-        If active, scientific notation is formatted as :math:`1.2 \\times 10^3`.
+        If active, scientific notation is formatted as :math:`1.2 \times 10^3`.
+
+        Parameters
+        ----------
+        val : bool or None
+            *None* resets to :rc:`axes.formatter.use_mathtext`.
         """
         self._useMathText = bool(_val_or_rc(val, 'axes.formatter.use_mathtext'))
 
@@ -611,6 +731,23 @@ class ScalarFormatter(_NativeFormatter):
             :math:`a \times 10^\mathrm{exp}` with :math:`1 <= |a| < 10`,
             scientific notation will be used if ``exp <= min_exp`` or
             ``exp >= max_exp``.
+
+            The default limits are controlled by :rc:`axes.formatter.limits`.
+
+            In particular numbers with *exp* equal to the thresholds are
+            written in scientific notation.
+
+            Typically, *min_exp* will be negative and *max_exp* will be
+            positive.
+
+            For example, ``formatter.set_powerlimits((-3, 4))`` will provide
+            the following formatting:
+            :math:`1 \times 10^{-3}, 9.9 \times 10^{-3}, 0.01,`
+            :math:`9999, 1 \times 10^4`.
+
+        See Also
+        --------
+        ScalarFormatter.set_scientific
         """
         if len(lims) != 2:
             raise ValueError("'lims' must be a sequence of length 2")
@@ -683,19 +820,58 @@ class LogFormatter(Formatter):
     """
     Base class for formatting ticks on a log or symlog scale.
 
+    It may be instantiated directly, or subclassed.
+
     Parameters
     ----------
     base : float, default: 10.
         Base of the logarithm used in all calculations.
+
     labelOnlyBase : bool, default: False
         If True, label ticks only at integer powers of base.
+        This is normally True for major ticks and False for minor ticks.
+
     minor_thresholds : (subset, all), default: (1, 0.4)
         If labelOnlyBase is False, these two numbers control
         the labeling of ticks that are not at integer powers of
         base; normally these are the minor ticks.
+
+        The first number (*subset*) is the largest number of major ticks for
+        which minor ticks are labeled; e.g., the default, 1, means that minor
+        ticks are labeled as long as there is no more than 1 major tick.  (It
+        is assumed that major ticks are at integer powers of *base*.)
+
+        The second number (*all*) is a threshold, in log-units of the axis
+        limit range, over which only a subset of the minor ticks are labeled,
+        so as to avoid crowding; e.g., with the default value (0.4) and the
+        usual ``base=10``, all minor ticks are shown only if the axis limit
+        range spans less than 0.4 decades.
+
     linthresh : None or float, default: None
         If a symmetric log scale is in use, its ``linthresh``
         parameter must be supplied here.
+
+    Notes
+    -----
+    The `set_locs` method must be called to enable the subsetting
+    logic controlled by the ``minor_thresholds`` parameter.
+
+    In some cases such as the colorbar, there is no distinction between
+    major and minor ticks; the tick locations might be set manually,
+    or by a locator that puts ticks at integer powers of base and
+    at intermediate locations.  For this situation, disable the
+    minor_thresholds logic by using ``minor_thresholds=(np.inf, np.inf)``,
+    so that all ticks will be labeled.
+
+    To disable labeling of minor ticks when 'labelOnlyBase' is False,
+    use ``minor_thresholds=(0, 0)``.  This is the default for the
+    "classic" style.
+
+    Examples
+    --------
+    To label a subset of minor ticks when there are up to 2 major ticks,
+    and all of the ticks when zoomed in to 0.5 decades or less, use
+    ``minor_thresholds=(2, 0.5)``.
     """
 
     _kind = "log"
@@ -945,23 +1121,43 @@ class EngFormatter(ScalarFormatter):
         ----------
         unit : str, default: ""
             Unit symbol to use, suitable for use with single-letter
-            representations of powers of 1000.
+            representations of powers of 1000. For example, 'Hz' or 'm'.
+
         places : int, default: None
             Precision with which to display the number, specified in
             digits after the decimal point (there will be between one
             and three digits before the decimal point). If it is None,
             the formatting falls back to the floating point format '%g',
-            which displays up to 6 *significant* digits.
+            which displays up to 6 *significant* digits, i.e. the equivalent
+            value for *places* varies between 0 and 5 (inclusive).
+
         sep : str, default: " "
-            Separator used between the value and the prefix/unit.
+            Separator used between the value and the prefix/unit. For
+            example, one get '3.14 mV' if ``sep`` is " " (default) and
+            '3.14mV' if ``sep`` is "". Besides the default behavior, some
+            other useful options may be:
+
+            * ``sep=""`` to append directly the prefix/unit to the value;
+            * ``sep="\N{THIN SPACE}"`` (``U+2009``);
+            * ``sep="\N{NARROW NO-BREAK SPACE}"`` (``U+202F``);
+            * ``sep="\N{NO-BREAK SPACE}"`` (``U+00A0``).
+
         usetex : bool, default: :rc:`text.usetex`
             To enable/disable the use of TeX's math mode for rendering the
             numbers in the formatter.
+
         useMathText : bool, default: :rc:`axes.formatter.use_mathtext`
             To enable/disable the use mathtext for rendering the numbers in
             the formatter.
         useOffset : bool or float, default: False
             Whether to use offset notation with :math:`10^{3*N}` based prefixes.
+            This features allows showing an offset with standard SI order of
+            magnitude prefix near the axis. Offset is computed similarly to
+            how `ScalarFormatter` computes it internally, but here you are
+            guaranteed to get an offset which will make the tick labels exceed
+            3 digits. See also `.set_useOffset`.
+
+            .. versionadded:: 3.10
         """
         self.unit = unit
         self.places = places
@@ -1105,7 +1301,6 @@ class PercentFormatter(_NativeFormatter):
         return super().__call__(x, pos)
 
     def convert_to_pct(self, x):
-        """*x* as a percentage of *xmax*."""
         return 100.0 * (x / self.xmax)
 
     def format_pct(self, x, display_range):
@@ -1209,6 +1404,9 @@ class Locator(TickHelper):
         This is intended to be called immediately before returning *locs* from
         ``__call__`` to inform users in case their Locator returns a huge
         number of ticks, causing Matplotlib to run out of memory.
+
+        The "strange" name of this method dates back to when it would raise an
+        exception instead of emitting a log.
         """
         if len(locs) >= self.MAXTICKS:
             _log.warning(
@@ -1224,6 +1422,12 @@ class Locator(TickHelper):
         This method gets called during autoscaling, with ``(v0, v1)`` set to
         the data limits on the Axes if the Axes contains any data, or
         ``(-inf, +inf)`` if not.
+
+        - If ``v0 == v1`` (possibly up to some floating point slop), this
+          method returns an expanded interval around this value.
+        - If ``(v0, v1) == (-inf, +inf)``, this method returns appropriate
+          default view limits.
+        - Otherwise, ``(v0, v1)`` is returned without modification.
         """
         from .transforms import _nonsingular
         return _nonsingular(v0, v1, expander=.05)
@@ -1288,6 +1492,7 @@ class _NativeLocator(Locator):
 
     def view_limits(self, vmin, vmax):
         # docstring inherited
+        """Try to choose the view limits intelligently."""
         return _ticker.view_limits(self._spec(), float(vmin), float(vmax),
                                    self._axis_info())
 
@@ -1301,8 +1506,8 @@ class IndexLocator(_NativeLocator):
     """
     Place ticks at every nth point plotted.
 
-    IndexLocator assumes index plotting; i.e., that the ticks are placed at
-    integer values in the range between 0 and len(data) inclusive.
+    IndexLocator assumes index plotting; i.e., that the ticks are placed at integer
+    values in the range between 0 and len(data) inclusive.
     """
 
     def __init__(self, base, offset):
@@ -1331,11 +1536,11 @@ class FixedLocator(_NativeLocator):
     r"""
     Place ticks at a set of fixed values.
 
-    If *nbins* is None ticks are placed at all values. Otherwise, the *locs*
-    array of possible positions will be subsampled to keep the number of ticks
-    :math:`\leq nbins + 1`. The subsampling will be done to include the
-    smallest absolute value; for example, if zero is included in the array of
-    possibilities, then it will be included in the chosen ticks.
+    If *nbins* is None ticks are placed at all values. Otherwise, the *locs* array of
+    possible positions will be subsampled to keep the number of ticks
+    :math:`\leq nbins + 1`. The subsampling will be done to include the smallest
+    absolute value; for example, if zero is included in the array of possibilities, then
+    it will be included in the chosen ticks.
     """
 
     def __init__(self, locs, nbins=None):
@@ -1361,9 +1566,7 @@ class FixedLocator(_NativeLocator):
 
         .. note::
 
-            Because the values are fixed, vmin and vmax are not used in this
-            method.
-
+            Because the values are fixed, *vmin* and *vmax* are not used.
         """
         if self.nbins is None:
             return self.locs
@@ -1376,7 +1579,7 @@ class FixedLocator(_NativeLocator):
 
 class NullLocator(Locator):
     """
-    No ticks
+    Place no ticks.
     """
 
     def _spec(self):
@@ -1391,8 +1594,7 @@ class NullLocator(Locator):
 
         .. note::
 
-            Because the values are Null, vmin and vmax are not used in this
-            method.
+            Because there are no ticks, *vmin* and *vmax* are not used.
         """
         return []
 
@@ -1401,10 +1603,9 @@ class LinearLocator(_NativeLocator):
     """
     Place ticks at evenly spaced values.
 
-    The first time this function is called, it will try to set the
-    number of ticks to make a nice tick partitioning.  Thereafter, the
-    number of ticks will be fixed to avoid jumping during interactive
-    navigation.
+    The first time this function is called, it will try to set the number of
+    ticks to make a nice tick partitioning.  Thereafter, the number of ticks
+    will be fixed to avoid jumping during interactive navigation.
     """
 
     _ticks_the_view = True
@@ -1428,7 +1629,6 @@ class LinearLocator(_NativeLocator):
 
     @property
     def numticks(self):
-        """The number of ticks (11 unless it was set)."""
         # Old hard-coded default.
         return self._numticks if self._numticks is not None else 11
 
@@ -1501,6 +1701,8 @@ class MultipleLocator(_NativeLocator):
             Interval between ticks.
         offset : float, default: 0.0
             Value added to each multiple of *base*.
+
+            .. versionadded:: 3.8
         """
         self._edge = _Edge_integer(base, 0)
         self._offset = offset
@@ -1519,6 +1721,8 @@ class MultipleLocator(_NativeLocator):
             Interval between ticks.
         offset : float, optional
             Value added to each multiple of *base*.
+
+            .. versionadded:: 3.8
         """
         if base is not None:
             self._edge = _Edge_integer(base, 0)
@@ -1533,10 +1737,10 @@ class MultipleLocator(_NativeLocator):
 
 
 def scale_range(vmin, vmax, n=1, threshold=100):
-    """The power of ten near ``|vmax - vmin| / n``, and an offset (a power
-    of ten) when the mean is large compared to the range (matplotlib's
-    arithmetic on the numbers as given, whose types decide how a zero
-    range fails)."""
+    # The power of ten near |vmax - vmin| / n, and an offset (a power of
+    # ten) when the mean is large compared to the range: matplotlib's
+    # arithmetic on the numbers as given, whose types decide how a zero
+    # range fails.
     dv = abs(vmax - vmin)  # > 0 as nonsingular is called before.
     meanv = (vmax + vmin) / 2
     if abs(meanv) / dv < threshold:
@@ -1551,9 +1755,8 @@ class MaxNLocator(_NativeLocator):
     """
     Place evenly spaced ticks, with a cap on the total number of ticks.
 
-    Finds nice tick locations with no more than :math:`nbins + 1` ticks being
-    within the view limits. Locations beyond the limits are added to support
-    autoscaling.
+    Finds nice tick locations with no more than :math:`nbins + 1` ticks being within the
+    view limits. Locations beyond the limits are added to support autoscaling.
     """
 
     _ticks_the_view = True
@@ -1694,24 +1897,22 @@ class LogLocator(_NativeLocator):
         Parameters
         ----------
         base : float, default: 10.0
-            The base of the log used, so major ticks are placed at ``base**n``,
-            where ``n`` is an integer.
+            The base of the log used, so major ticks are placed at ``base**n``, where
+            ``n`` is an integer.
         subs : None or {'auto', 'all'} or sequence of float, default: (1.0,)
-            Gives the multiples of integer powers of the base at which to
-            place ticks.  The default of ``(1.0, )`` places ticks only at
-            integer powers of the base.
-            Permitted string values are ``'auto'`` and ``'all'``.
-            Both of these use an algorithm based on the axis view
-            limits to determine whether and how to put ticks between
-            integer powers of the base:
+            Gives the multiples of integer powers of the base at which to place ticks.
+            The default of ``(1.0, )`` places ticks only at integer powers of the base.
+            Permitted string values are ``'auto'`` and ``'all'``. Both of these use an
+            algorithm based on the axis view limits to determine whether and how to put
+            ticks between integer powers of the base:
             - ``'auto'``: Ticks are placed only between integer powers.
             - ``'all'``: Ticks are placed between *and* at integer powers.
             - ``None``: Equivalent to ``'auto'``.
         numticks : None or int, default: None
-            The maximum number of ticks to allow on a given axis. The default
-            of ``None`` will try to choose intelligently as long as this
-            Locator has already been assigned to an axis using
-            `~.axis.Axis.get_tick_space`, but otherwise falls back to 9.
+            The maximum number of ticks to allow on a given axis. The default of
+            ``None`` will try to choose intelligently as long as this Locator has
+            already been assigned to an axis using `~.axis.Axis.get_tick_space`, but
+            otherwise falls back to 9.
         """
         if numticks is None:
             if _rc('_internal.classic_mode'):
@@ -1792,8 +1993,7 @@ class LogLocator(_NativeLocator):
 
 class SymmetricalLogLocator(_NativeLocator):
     """
-    Place ticks spaced linearly near zero and spaced logarithmically beyond a
-    threshold.
+    Place ticks spaced linearly near zero and spaced logarithmically beyond a threshold.
     """
 
     _ticks_the_view = True
@@ -1951,7 +2151,6 @@ class LogitLocator(MaxNLocator):
 
     @property
     def minor(self):
-        """Whether the locator places minor ticks."""
         return self._minor
 
     @minor.setter
@@ -1988,8 +2187,8 @@ def _warn_outside_logit(vmin, vmax):
 
 class AutoLocator(MaxNLocator):
     """
-    Place evenly spaced ticks, with the step size and maximum number of ticks
-    chosen automatically.
+    Place evenly spaced ticks, with the step size and maximum number of ticks chosen
+    automatically.
 
     This is a subclass of `~matplotlib.ticker.MaxNLocator`, with parameters
     *nbins = 'auto'* and *steps = [1, 2, 2.5, 5, 10]*.
@@ -2023,8 +2222,8 @@ class AutoLocator(MaxNLocator):
 
 class AutoMinorLocator(_NativeLocator):
     """
-    Place evenly spaced minor ticks, with the step size and maximum number of
-    ticks chosen automatically.
+    Place evenly spaced minor ticks, with the step size and maximum number of ticks
+    chosen automatically.
 
     The Axis must use a linear scale and have evenly spaced major ticks.
     """

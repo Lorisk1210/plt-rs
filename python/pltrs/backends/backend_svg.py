@@ -24,16 +24,14 @@ from .backend_mixed import MixedModeRenderer
 svgProlog = _backends.svg_prolog()
 
 
-@_api.deprecated("3.11")
-class XMLWriter:
+class _XMLWriter:
     """
     Parameters
     ----------
     file : writable text file-like object
-
-    pltrs (Rust) writes the XML (``pltrs_render::XmlWriter``); the writer
-    hands the file each piece as matplotlib's does.
     """
+    # pltrs (Rust) writes the XML (``pltrs_render::XmlWriter``); the writer
+    # hands the file each piece as matplotlib's does.
 
     def __init__(self, file):
         self.__write = file.write
@@ -48,7 +46,7 @@ class XMLWriter:
             self.__write(text)
         return result
 
-    def start(self, tag, attrib={}, **extra):
+    def start(self, tag, attrib=None, **extra):
         """
         Open a new element.  Attributes can be given as keyword
         arguments, or as a string/string dictionary. The method returns
@@ -67,6 +65,8 @@ class XMLWriter:
         -------
         An element identifier.
         """
+        if attrib is None:
+            attrib = {}
         attributes = [(k, v) for k, v in {**attrib, **extra}.items() if v]
         return self.__written(_backends.xml_start(self.__native, tag, attributes))
 
@@ -128,12 +128,14 @@ class XMLWriter:
         _backends.xml_close(self.__native, id)
         self.__written()
 
-    def element(self, tag, text=None, attrib={}, **extra):
+    def element(self, tag, text=None, attrib=None, **extra):
         """
         Add an entire element.  This is the same as calling :meth:`start`,
         :meth:`data`, and :meth:`end` in sequence. The *text* argument can be
         omitted.
         """
+        if attrib is None:
+            attrib = {}
         self.start(tag, attrib, **extra)
         if text:
             self.data(text)
@@ -142,6 +144,15 @@ class XMLWriter:
     def flush(self):
         """Flush the output stream."""
         pass  # replaced by the constructor
+
+
+@_api.deprecated("3.11")
+class XMLWriter(_XMLWriter):
+    """
+    An XML writer class.
+
+    :meta private:
+    """
 
 
 def _escape_cdata(s):
@@ -230,17 +241,11 @@ def _svg_metadata(metadata):
 
 
 class RendererSVG(DocumentDrawingMixin, RendererBase):
-    """
-    The renderer of an SVG document of *width* × *height* points, its
-    images at *image_dpi*, written to *svgwriter*.
-
-    pltrs (Rust) writes the documents itself: this is the renderer the
-    program's drawing receives while a figure is saved as SVG
-    (`FigureCanvasSVG._program_renderer`), which draws into the document
-    pltrs (Rust) writes. One the program makes around an *svgwriter* of
-    its own draws into a document of its own, which `finalize` writes
-    there.
-    """
+    # pltrs (Rust) writes the documents itself: this is the renderer the
+    # program's drawing receives while a figure is saved as SVG
+    # (`FigureCanvasSVG._program_renderer`), which draws into the document
+    # pltrs (Rust) writes. One the program makes around an *svgwriter* of its
+    # own draws into a document of its own, which `finalize` writes there.
 
     def __init__(self, width, height, svgwriter, basename=None, image_dpi=72,
                  *, metadata=None):
@@ -256,9 +261,9 @@ class RendererSVG(DocumentDrawingMixin, RendererBase):
                 _svg_metadata(metadata))
 
     def finalize(self):
-        """Write the document drawn to the *svgwriter* (the renderers of
-        pltrs's saves have no document of their own: pltrs (Rust) writes
-        it)."""
+        # Write the document drawn to the *svgwriter* (the renderers of
+        # pltrs's saves have no document of their own: pltrs (Rust) writes
+        # it).
         if self._page is not None:
             self._file.write(_backends.page_finish(self._page))
             if hasattr(self._file, "flush"):
@@ -296,22 +301,41 @@ class FigureCanvasSVG(FigureCanvasBase):
     def print_svg(self, filename, *, bbox_inches_restore=None, metadata=None,
                   facecolor=None, edgecolor=None):
         """
-        Write the figure as an SVG document.
-
         Parameters
         ----------
         filename : str or path-like or file-like
             Output target; if a string, a file will be opened for writing.
+
         metadata : dict[str, Any], optional
             Metadata in the SVG file defined as key-value pairs of strings,
-            datetimes, or lists of strings.
+            datetimes, or lists of strings, e.g., ``{'Creator': 'My software',
+            'Contributor': ['Me', 'My Friend'], 'Title': 'Awesome'}``.
+
+            The standard keys and their value types are:
+
+            * *str*: ``'Coverage'``, ``'Description'``, ``'Format'``,
+              ``'Identifier'``, ``'Language'``, ``'Relation'``, ``'Source'``,
+              ``'Title'``, and ``'Type'``.
+            * *str* or *list of str*: ``'Contributor'``, ``'Creator'``,
+              ``'Keywords'``, ``'Publisher'``, and ``'Rights'``.
+            * *str*, *date*, *datetime*, or *tuple* of same: ``'Date'``. If a
+              non-*str*, then it will be formatted as ISO 8601.
+
+            Values have been predefined for ``'Creator'``, ``'Date'``,
+            ``'Format'``, and ``'Type'``. They can be removed by setting them
+            to `None`.
+
+            Information is encoded as `Dublin Core Metadata`__.
+
+            .. _DC: https://www.dublincore.org/specifications/dublin-core/
+
+            __ DC_
         """
         self._print_svg("svg", filename, bbox_inches_restore, metadata,
                         facecolor, edgecolor)
 
     def print_svgz(self, filename, *, bbox_inches_restore=None, metadata=None,
                    facecolor=None, edgecolor=None):
-        """Write the figure as a gzip-compressed SVG document."""
         self._print_svg("svgz", filename, bbox_inches_restore, metadata,
                         facecolor, edgecolor)
 

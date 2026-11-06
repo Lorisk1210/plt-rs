@@ -137,7 +137,7 @@ class MarkerStyle:
         ----------
         marker : str, array-like, Path, MarkerStyle
             - Another instance of `MarkerStyle` copies the details of that *marker*.
-            - For other possible marker values see the module docstring
+            - For other possible marker values, see the module docstring
               `matplotlib.markers`.
 
         fillstyle : str, default: :rc:`markers.fillstyle`
@@ -188,11 +188,9 @@ class MarkerStyle:
         return bool(len(self._path.vertices))
 
     def is_filled(self):
-        """Return whether the marker is filled."""
         return self._filled
 
     def get_fillstyle(self):
-        """Return the fill style."""
         return self._fillstyle
 
     def _set_fillstyle(self, fillstyle):
@@ -211,15 +209,12 @@ class MarkerStyle:
         self._fillstyle = fillstyle
 
     def get_joinstyle(self):
-        """Return the join style."""
         return self._joinstyle.name
 
     def get_capstyle(self):
-        """Return the cap style."""
         return self._capstyle.name
 
     def get_marker(self):
-        """Return the marker as given."""
         return self._marker
 
     def _set_marker(self, marker):
@@ -300,7 +295,6 @@ class MarkerStyle:
             return (self._alt_transform + self._user_transform).frozen()
 
     def get_snap_threshold(self):
-        """Return the snapping threshold of the marker (None: no snapping)."""
         return self._snap_threshold
 
     def get_user_transform(self):

@@ -181,11 +181,6 @@ class Divider:
         return self._aspect
 
     def set_locator(self, _locator):
-        """
-        Place the divided rectangle where ``_locator(ax, renderer)`` says
-        whenever the figure is drawn (None: at `get_position`), *ax* being
-        an Axes the divider places.
-        """
         root = self._fig.get_figure(root=True)
         _program_locators.forget(self, root)
         located, self._locator = self._locator, _locator

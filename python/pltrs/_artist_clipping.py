@@ -183,8 +183,9 @@ class ClippingMixin:
         ----------
         clipbox : `~matplotlib.transforms.BboxBase` or None
             Will typically be created from a `.TransformedBbox`. For instance,
-            ``TransformedBbox(Bbox([[0, 0], [1, 1]]), ax.transAxes)`` is the
-            default clipping for an artist added to an Axes.
+            ``TransformedBbox(Bbox([[0, 0], [1, 1]]), ax.transAxes)`` is the default
+            clipping for an artist added to an Axes.
+
         """
         _api.check_isinstance((BboxBase, None), clipbox=clipbox)
         self._keep_patch_path()
@@ -285,7 +286,7 @@ class ClippingMixin:
         (*path*, *transform*) is also accepted as a single positional
         parameter.
 
-        ACCEPTS: Patch or (Path, Transform) or None
+        .. ACCEPTS: Patch or (Path, Transform) or None
         """
         from .patches import Patch, Rectangle
 

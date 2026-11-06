@@ -7,6 +7,7 @@ import itertools
 
 import numpy as np
 
+from ... import _docstring
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ... import patches as mpatches, units as munits
 from ..._native import patches as _patches, plotting as _plotting
@@ -136,10 +137,62 @@ class BarsMixin:
         return facecolor, edgecolor
 
     @_preprocess_data()
+    @_docstring.interpd
     def bar(self, x, height, width=0.8, bottom=None, *, align="center",
             **kwargs):
         r"""
         Make a bar plot.
+
+        The bars are positioned at *x* with the given *align*\ment. Their
+        dimensions are given by *height* and *width*. The vertical baseline
+        is *bottom* (default 0).
+
+        Many parameters can take either a single value applying to all bars
+        or a sequence of values, one for each bar.
+
+        Parameters
+        ----------
+        x : float or array-like
+            The x coordinates of the bars. See also *align* for the
+            alignment of the bars to the coordinates.
+
+            Bars are often used for categorical data, i.e. string labels below
+            the bars. You can provide a list of strings directly to *x*.
+            ``bar(['A', 'B', 'C'], [1, 2, 3])`` is often a shorter and more
+            convenient notation compared to
+            ``bar(range(3), [1, 2, 3], tick_label=['A', 'B', 'C'])``. They are
+            equivalent as long as the names are unique. The explicit *tick_label*
+            notation draws the names in the sequence given. However, when having
+            duplicate values in categorical *x* data, these values map to the same
+            numerical x coordinate, and hence the corresponding bars are drawn on
+            top of each other.
+
+        height : float or array-like
+            The height(s) of the bars.
+
+            Note that if *bottom* has units (e.g. datetime), *height* should be in
+            units that are a difference from the value of *bottom* (e.g. timedelta).
+
+        width : float or array-like, default: 0.8
+            The width(s) of the bars.
+
+            Note that if *x* has units (e.g. datetime), then *width* should be in
+            units that are a difference (e.g. timedelta) around the *x* values.
+
+        bottom : float or array-like, default: 0
+            The y coordinate(s) of the bottom side(s) of the bars.
+
+            Note that if *bottom* has units, then the y-axis will get a Locator and
+            Formatter appropriate for the units (e.g. dates, or categorical).
+
+        align : {'center', 'edge'}, default: 'center'
+            Alignment of the bars to the *x* coordinates:
+
+            - 'center': Center the base on the *x* positions.
+            - 'edge': Align the left edges of the bars with the *x* positions.
+
+            To align the bars on the right edge pass a negative *width* and
+            ``align='edge'``.
 
         Returns
         -------
@@ -148,8 +201,84 @@ class BarsMixin:
 
         Other Parameters
         ----------------
+        color : :mpltype:`color` or list of :mpltype:`color`, optional
+            The colors of the bar faces. This is an alias for *facecolor*.
+            If both are given, *facecolor* takes precedence.
+
+        facecolor : :mpltype:`color` or list of :mpltype:`color`, optional
+            The colors of the bar faces.
+            If both *color* and *facecolor are given, *facecolor* takes precedence.
+
+        edgecolor : :mpltype:`color` or list of :mpltype:`color`, optional
+            The colors of the bar edges.
+
+        linewidth : float or array-like, optional
+            Width of the bar edge(s). If 0, don't draw edges.
+
+        tick_label : str or list of str, optional
+            The tick labels of the bars.
+            Default: None (Use default numeric labels.)
+
+        label : str or list of str, optional
+            A single label is attached to the resulting `.BarContainer` as a
+            legend label for the whole dataset.
+            If a list is provided, it must be the same length as *x* and
+            labels the individual bars. Repeated labels are not de-duplicated
+            and will cause repeated label entries, so this is best used when
+            bars also differ in style (e.g., by passing a list to *color*).
+
+            Tip: Use `.bar_label` to place labels on the bars.
+
+        xerr, yerr : float or array-like of shape(N,) or shape(2, N), optional
+            If not *None*, add horizontal / vertical errorbars to the bar tips.
+            The values are +/- sizes relative to the data:
+
+            - scalar: symmetric +/- values for all bars
+            - shape(N,): symmetric +/- values for each bar
+            - shape(2, N): Separate - and + values for each bar. First row
+              contains the lower errors, the second row contains the upper
+              errors.
+            - *None*: No errorbar. (Default)
+
+            This is a convenience shortcut for an extra `~.axes.Axes.errorbar`
+            call. See its documentation and
+            :doc:`/gallery/statistics/errorbar_features` for an example on
+            the usage of *xerr* and *yerr*.
+
+        ecolor : :mpltype:`color` or list of :mpltype:`color`, default: 'black'
+            The line color of the errorbars.
+            Multiple colors are only supported if the errorbars do not have
+            caps. If you need individually colored errorbars with caps, instead
+            use explicit `~.axes.Axes.errorbar` calls for each data point.
+
+        capsize : float, default: :rc:`errorbar.capsize`
+           The length of the error bar caps in points.
+
+        error_kw : dict, optional
+            Dictionary of keyword arguments to be passed to the
+            `~.Axes.errorbar` method. Values of *ecolor* or *capsize* defined
+            here take precedence over the independent keyword arguments.
+
+        log : bool, default: False
+            If *True*, set the y-axis to be log scale.
+
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+
+        **kwargs : `.Rectangle` properties
+
+        %(Rectangle:kwdoc)s
+
+        See Also
+        --------
+        barh : Plot a horizontal bar plot.
+        grouped_bar : Plot multiple datasets as grouped bar plot.
+        bar_label : Add labels to bars.
+
+        Notes
+        -----
+        Stacked bars can be achieved by passing individual *bottom* values per
+        bar. See :doc:`/gallery/lines_bars_and_markers/bar_stacked`.
         """
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.Patch)
         facecolor, edgecolor = self._parse_bar_color_args(kwargs)
@@ -295,15 +424,140 @@ class BarsMixin:
                                  label=bar_container_label)
         return record_container(self, container, native)
 
+    @_docstring.interpd
     def barh(self, y, width, height=0.8, left=None, *, align="center",
              data=None, **kwargs):
         r"""
         Make a horizontal bar plot.
 
+        The bars are positioned at *y* with the given *align*\ment. Their
+        dimensions are given by *width* and *height*. The horizontal baseline
+        is *left* (default 0).
+
+        Many parameters can take either a single value applying to all bars
+        or a sequence of values, one for each bar.
+
+        Parameters
+        ----------
+        y : float or array-like
+            The y coordinates of the bars. See also *align* for the
+            alignment of the bars to the coordinates.
+
+            Bars are often used for categorical data, i.e. string labels below
+            the bars. You can provide a list of strings directly to *y*.
+            ``barh(['A', 'B', 'C'], [1, 2, 3])`` is often a shorter and more
+            convenient notation compared to
+            ``barh(range(3), [1, 2, 3], tick_label=['A', 'B', 'C'])``. They are
+            equivalent as long as the names are unique. The explicit *tick_label*
+            notation draws the names in the sequence given. However, when having
+            duplicate values in categorical *y* data, these values map to the same
+            numerical y coordinate, and hence the corresponding bars are drawn on
+            top of each other.
+
+        width : float or array-like
+            The width(s) of the bars.
+
+            Note that if *left* has units (e.g. datetime), *width* should be in
+            units that are a difference from the value of *left* (e.g. timedelta).
+
+        height : float or array-like, default: 0.8
+            The heights of the bars.
+
+            Note that if *y* has units (e.g. datetime), then *height* should be in
+            units that are a difference (e.g. timedelta) around the *y* values.
+
+        left : float or array-like, default: 0
+            The x coordinates of the left side(s) of the bars.
+
+            Note that if *left* has units, then the x-axis will get a Locator and
+            Formatter appropriate for the units (e.g. dates, or categorical).
+
+        align : {'center', 'edge'}, default: 'center'
+            Alignment of the base to the *y* coordinates*:
+
+            - 'center': Center the bars on the *y* positions.
+            - 'edge': Align the bottom edges of the bars with the *y*
+              positions.
+
+            To align the bars on the top edge pass a negative *height* and
+            ``align='edge'``.
+
         Returns
         -------
         `.BarContainer`
             Container with all the bars and optionally errorbars.
+
+        Other Parameters
+        ----------------
+        color : :mpltype:`color` or list of :mpltype:`color`, optional
+            The colors of the bar faces.
+
+        edgecolor : :mpltype:`color` or list of :mpltype:`color`, optional
+            The colors of the bar edges.
+
+        linewidth : float or array-like, optional
+            Width of the bar edge(s). If 0, don't draw edges.
+
+        tick_label : str or list of str, optional
+            The tick labels of the bars.
+            Default: None (Use default numeric labels.)
+
+        label : str or list of str, optional
+            A single label is attached to the resulting `.BarContainer` as a
+            legend label for the whole dataset.
+            If a list is provided, it must be the same length as *x* and
+            labels the individual bars. Repeated labels are not de-duplicated
+            and will cause repeated label entries, so this is best used when
+            bars also differ in style (e.g., by passing a list to *color*).
+
+            Tip: Use `.bar_label` to place labels on the bars.
+
+        xerr, yerr : float or array-like of shape(N,) or shape(2, N), optional
+            If not *None*, add horizontal / vertical errorbars to the bar tips.
+            The values are +/- sizes relative to the data:
+
+            - scalar: symmetric +/- values for all bars
+            - shape(N,): symmetric +/- values for each bar
+            - shape(2, N): Separate - and + values for each bar. First row
+              contains the lower errors, the second row contains the upper
+              errors.
+            - *None*: No errorbar. (default)
+
+            See :doc:`/gallery/statistics/errorbar_features` for an example on
+            the usage of *xerr* and *yerr*.
+
+        ecolor : :mpltype:`color` or list of :mpltype:`color`, default: 'black'
+            The line color of the errorbars.
+
+        capsize : float, default: :rc:`errorbar.capsize`
+           The length of the error bar caps in points.
+
+        error_kw : dict, optional
+            Dictionary of keyword arguments to be passed to the
+            `~.Axes.errorbar` method. Values of *ecolor* or *capsize* defined
+            here take precedence over the independent keyword arguments.
+
+        log : bool, default: False
+            If ``True``, set the x-axis to be log scale.
+
+        data : indexable object, optional
+            If given, all parameters also accept a string ``s``, which is
+            interpreted as ``data[s]`` if  ``s`` is a key in ``data``.
+
+        **kwargs : `.Rectangle` properties
+
+        %(Rectangle:kwdoc)s
+
+        See Also
+        --------
+        bar : Plot a vertical bar plot.
+        bar_label : Add labels to bars.
+
+        Notes
+        -----
+        Stacked bars can be achieved by passing individual *left* values per
+        bar. See
+        :doc:`/gallery/lines_bars_and_markers/horizontal_barchart_distribution`.
         """
         kwargs.setdefault('orientation', 'horizontal')
         patches = self.bar(x=left, height=height, width=width, bottom=y,
@@ -311,9 +565,30 @@ class BarsMixin:
         return patches
 
     @_preprocess_data()
+    @_docstring.interpd
     def broken_barh(self, xranges, yrange, align="bottom", **kwargs):
         """
         Plot a horizontal sequence of rectangles.
+
+        A rectangle is drawn for each element of *xranges*. All rectangles
+        have the same vertical position and size defined by *yrange*.
+
+        Parameters
+        ----------
+        xranges : sequence of tuples (*xmin*, *xwidth*)
+            The x-positions and extents of the rectangles. For each tuple
+            (*xmin*, *xwidth*) a rectangle is drawn from *xmin* to *xmin* +
+            *xwidth*.
+        yrange : (*ypos*, *yheight*)
+            The y-position and extent for all the rectangles.
+        align : {"bottom", "center", "top"}, default: 'bottom'
+            The alignment of the yrange with respect to the y-position. One of:
+
+            - "bottom": Resulting y-range [ypos, ypos + yheight]
+            - "center": Resulting y-range [ypos - yheight/2, ypos + yheight/2]
+            - "top": Resulting y-range [ypos - yheight, ypos]
+
+            .. versionadded:: 3.11
 
         Returns
         -------
@@ -323,6 +598,22 @@ class BarsMixin:
         ----------------
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
+        **kwargs : `.PolyCollection` properties
+
+            Each *kwarg* can be either a single argument applying to all
+            rectangles, e.g.::
+
+                facecolors='black'
+
+            or a sequence of arguments over which is cycled, e.g.::
+
+                facecolors=('black', 'blue')
+
+            would create interleaving black and blue rectangles.
+
+            Supported keywords:
+
+            %(PolyCollection:kwdoc)s
         """
         # process the unit information
         xdata = cbook._safe_first_finite(xranges) if len(xranges) else None
@@ -353,18 +644,236 @@ class BarsMixin:
         collection._internal_update(cbook.normalize_kwargs(kwargs, mcoll.PolyCollection))
         return collection
 
+    @_docstring.interpd
     def grouped_bar(self, heights, *, positions=None, group_spacing=1.5, bar_spacing=0,
                     tick_labels=None, labels=None, orientation="vertical", colors=None,
                     **kwargs):
         """
         Make a grouped bar plot.
 
+        .. versionadded:: 3.11
+
+            The API is still provisional. We may still fine-tune some aspects based on
+            user-feedback.
+
+        Grouped bar charts visualize a collection of categorical datasets. Each value
+        in a dataset belongs to a distinct category and these categories are the same
+        across all datasets. The categories typically have string names, but could
+        also be dates or index keys. The values in each dataset are represented by a
+        sequence of bars of the same color. The bars of all datasets are grouped
+        together by their shared categories. The category names are drawn as the tick
+        labels for each bar group. Each dataset has a distinct bar color, and can
+        optionally get a label that is used for the legend.
+
+        Example:
+
+        .. code-block:: python
+
+           grouped_bar([dataset_0, dataset_1, dataset_2],
+                       tick_labels=['A', 'B'],
+                       labels=['dataset 0', 'dataset 1', 'dataset 2'])
+
+        .. plot:: _embedded_plots/grouped_bar.py
+
+        Parameters
+        ----------
+        heights : list of array-like or dict of array-like or 2D array \
+or pandas.DataFrame
+            The heights for all x and groups. One of:
+
+            - list of array-like: A list of datasets, each dataset must have
+              the same number of elements.
+
+              .. code-block:: none
+
+                  #           category_A, category_B
+                  dataset_0 = [value_0_A, value_0_B]
+                  dataset_1 = [value_1_A, value_1_B]
+                  dataset_2 = [value_2_A, value_2_B]
+
+              Example call::
+
+                  grouped_bar([dataset_0, dataset_1, dataset_2])
+
+            - dict of array-like: A mapping from names to datasets. Each dataset
+              (dict value) must have the same number of elements.
+
+              Example call:
+
+              .. code-block:: python
+
+                data_dict = {'ds0': dataset_0, 'ds1': dataset_1, 'ds2': dataset_2}
+                grouped_bar(data_dict)
+
+              The names are used as *labels*, i.e. this is equivalent to
+
+              .. code-block:: python
+
+                grouped_bar(data_dict.values(), labels=data_dict.keys())
+
+              When using a dict input, you must not pass *labels* explicitly.
+
+            - a 2D array: The rows are the categories, the columns are the different
+              datasets.
+
+              .. code-block:: none
+
+                             dataset_0 dataset_1 dataset_2
+                 category_A    ds0_a     ds1_a     ds2_a
+                 category_B    ds0_b     ds1_b     ds2_b
+
+              Example call:
+
+              .. code-block:: python
+
+                  categories = ["A", "B"]
+                  dataset_labels = ["dataset_0", "dataset_1", "dataset_2"]
+                  array = np.random.random((2, 3))
+                  grouped_bar(array, tick_labels=categories, labels=dataset_labels)
+
+            - a `pandas.DataFrame`.
+
+              The index is used for the categories, the columns are used for the
+              datasets.
+
+              .. code-block:: python
+
+                  df = pd.DataFrame(
+                      np.random.random((2, 3)),
+                      index=["A", "B"],
+                      columns=["dataset_0", "dataset_1", "dataset_2"]
+                  )
+                  grouped_bar(df)
+
+              i.e. this is equivalent to
+
+              .. code-block::
+
+                  grouped_bar(df.to_numpy(), tick_labels=df.index, labels=df.columns)
+
+              Note that ``grouped_bar(df)`` produces a structurally equivalent plot like
+              ``df.plot.bar()``.
+
+        positions : array-like, optional
+            The center positions of the bar groups. The values have to be equidistant.
+            If not given, a sequence of integer positions 0, 1, 2, ... is used.
+
+        tick_labels : list of str, optional
+            The category labels, which are placed on ticks at the center *positions*
+            of the bar groups. If not set, the axis ticks (positions and labels) are
+            left unchanged.
+
+        labels : list of str, optional
+            The labels of the datasets, i.e. the bars within one group.
+            These will show up in the legend.
+
+        group_spacing : float, default: 1.5
+            The space between two bar groups as a multiple of bar width.
+
+            The default value of 1.5 thus means that there's a gap of
+            1.5 bar widths between bar groups.
+
+        bar_spacing : float, default: 0
+            The space between bars as a multiple of bar width.
+
+        orientation : {"vertical", "horizontal"}, default: "vertical"
+            The direction of the bars.
+
+        colors : list of :mpltype:`color`, optional
+            A sequence of colors to be cycled through and used to color bars
+            of the different datasets. The sequence need not be exactly the
+            same length as the number of provided y, in which case the colors
+            will repeat from the beginning.
+
+            If not specified, the colors from the Axes property cycle will be used.
+
+        **kwargs : `.Rectangle` properties
+
+            Properties applied to all bars. The following properties additionally
+            accept a sequence of values corresponding to the datasets in
+            *heights*:
+
+            - *edgecolor*
+            - *facecolor*
+            - *linewidth*
+            - *linestyle*
+            - *hatch*
+
+            %(Rectangle:kwdoc)s
+
         Returns
         -------
         _GroupedBarReturn
-            A provisional result object, whose ``bar_containers`` attribute
-            is a list of `.BarContainer` (one per dataset) and whose
-            ``remove()`` method removes all bars from the Axes.
+
+            A provisional result object. This will be refined in the future.
+            For now, the guaranteed API on the returned object is limited to
+
+            - the attribute ``bar_containers``, which is a list of
+              `.BarContainer`, i.e. the results of the individual `~.Axes.bar`
+              calls for each dataset.
+
+            - a ``remove()`` method, that remove all bars from the Axes.
+              See also `.Artist.remove()`.
+
+        See Also
+        --------
+        bar : A lower-level API for bar plots, with more degrees of freedom like
+              individual bar sizes and colors.
+
+        Notes
+        -----
+        For a better understanding, we compare the `~.Axes.grouped_bar` API with
+        those of `~.Axes.bar` and `~.Axes.boxplot`.
+
+        **Comparison to bar()**
+
+        `~.Axes.grouped_bar` intentionally deviates from the `~.Axes.bar` API in some
+        aspects. ``bar(x, y)`` is a lower-level API and places bars with height *y*
+        at explicit positions *x*. It also allows to specify individual bar widths
+        and colors. This kind of detailed control and flexibility is difficult to
+        manage and often not needed when plotting multiple datasets as a grouped bar
+        plot. Therefore, ``grouped_bar`` focusses on the abstraction of bar plots
+        as visualization of categorical data.
+
+        The following examples may help to transfer from ``bar`` to
+        ``grouped_bar``.
+
+        Positions are de-emphasized due to categories, and default to integer values.
+        If you have used ``range(N)`` as positions, you can leave that value out::
+
+           bar(range(N), heights)
+           grouped_bar([heights])
+
+        If needed, positions can be passed as keyword arguments::
+
+           bar(x, heights)
+           grouped_bar([heights], positions=x)
+
+        To place category labels in `~.Axes.bar` you could use the argument
+        *tick_label* or use a list of category names as *x*.
+        `~.Axes.grouped_bar` expects them in the argument *tick_labels*::
+
+           bar(range(N), heights, tick_label=["A", "B"])
+           bar(["A", "B"], heights)
+           grouped_bar([heights], tick_labels=["A", "B"])
+
+        Dataset labels, which are shown in the legend, are still passed via the
+        *label* parameter::
+
+           bar(..., label="dataset")
+           grouped_bar(..., label=["dataset"])
+
+        **Comparison to boxplot()**
+
+        Both, `~.Axes.grouped_bar` and `~.Axes.boxplot` visualize categorical data
+        from multiple datasets. The basic API on *tick_labels* and *positions*
+        is the same, so that you can easily switch between plotting all
+        individual values as `~.Axes.grouped_bar` or the statistical distribution
+        per category as `~.Axes.boxplot`::
+
+           grouped_bar(values, positions=..., tick_labels=...)
+           boxplot(values, positions=..., tick_labels=...)
+
         """
         if cbook._is_pandas_dataframe(heights):
             if labels is None:

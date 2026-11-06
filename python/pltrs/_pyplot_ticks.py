@@ -10,7 +10,9 @@ As in `._pyplot_plotting`, the wrappers of Axes methods are made from the
 methods themselves, keeping their signatures and docstrings.
 """
 
+from ._pyplot_figure import _copy_docstring_and_deprecators
 from ._pyplot_plotting import _wrapper
+from .axes import Axes
 from .ticker import (  # noqa: F401  (pyplot exports them)
     TickHelper, Formatter, FixedFormatter, NullFormatter, FuncFormatter,
     FormatStrFormatter, ScalarFormatter, LogFormatter, LogFormatterExponent,
@@ -33,33 +35,13 @@ def _gca():
     return pyplot.gca()
 
 
+@_copy_docstring_and_deprecators(Axes.set_xscale)
 def xscale(value, **kwargs):
-    """
-    Set the xaxis' scale (`.Axes.set_xscale` on the current Axes).
-
-    Parameters
-    ----------
-    value : str or `.ScaleBase`
-        The axis scale type to apply.
-    **kwargs
-        If *value* is a string, keywords are passed to the instantiation
-        method of the respective class.
-    """
     _gca().set_xscale(value, **kwargs)
 
 
+@_copy_docstring_and_deprecators(Axes.set_yscale)
 def yscale(value, **kwargs):
-    """
-    Set the yaxis' scale (`.Axes.set_yscale` on the current Axes).
-
-    Parameters
-    ----------
-    value : str or `.ScaleBase`
-        The axis scale type to apply.
-    **kwargs
-        If *value* is a string, keywords are passed to the instantiation
-        method of the respective class.
-    """
     _gca().set_yscale(value, **kwargs)
 
 
@@ -102,12 +84,44 @@ def xticks(ticks=None, labels=None, *, minor=False, **kwargs):
     **kwargs
         `.Text` properties can be used to control the appearance of the labels.
 
+        .. warning::
+
+            This only sets the properties of the current ticks, which is
+            only sufficient if you either pass *ticks*, resulting in a
+            fixed list of ticks, or if the plot is static.
+
+            Ticks are not guaranteed to be persistent. Various operations
+            can create, delete and modify the Tick instances. There is an
+            imminent risk that these settings can get lost if you work on
+            the figure further (including also panning/zooming on a
+            displayed figure).
+
+            Use `~.pyplot.tick_params` instead if possible.
+
+
     Returns
     -------
     locs
         The list of xtick locations.
     labels
         The list of xlabel `.Text` objects.
+
+    Notes
+    -----
+    Calling this function with no arguments (e.g. ``xticks()``) is the pyplot
+    equivalent of calling `~.Axes.get_xticks` and `~.Axes.get_xticklabels` on
+    the current Axes.
+    Calling this function with arguments is the pyplot equivalent of calling
+    `~.Axes.set_xticks` and `~.Axes.set_xticklabels` on the current Axes.
+
+    Examples
+    --------
+    >>> locs, labels = xticks()  # Get the current locations and labels.
+    >>> xticks(np.arange(0, 1, step=0.2))  # Set label locations.
+    >>> xticks(np.arange(3), ['Tom', 'Dick', 'Sue'])  # Set text labels.
+    >>> xticks([0, 1, 2], ['January', 'February', 'March'],
+    ...        rotation=20)  # Set text labels and properties.
+    >>> xticks([])  # Disable xticks.
     """
     return _ticks("x", ticks, labels, minor, kwargs)
 
@@ -131,12 +145,43 @@ def yticks(ticks=None, labels=None, *, minor=False, **kwargs):
     **kwargs
         `.Text` properties can be used to control the appearance of the labels.
 
+        .. warning::
+
+            This only sets the properties of the current ticks, which is
+            only sufficient if you either pass *ticks*, resulting in a
+            fixed list of ticks, or if the plot is static.
+
+            Ticks are not guaranteed to be persistent. Various operations
+            can create, delete and modify the Tick instances. There is an
+            imminent risk that these settings can get lost if you work on
+            the figure further (including also panning/zooming on a
+            displayed figure).
+
+            Use `~.pyplot.tick_params` instead if possible.
+
     Returns
     -------
     locs
         The list of ytick locations.
     labels
         The list of ylabel `.Text` objects.
+
+    Notes
+    -----
+    Calling this function with no arguments (e.g. ``yticks()``) is the pyplot
+    equivalent of calling `~.Axes.get_yticks` and `~.Axes.get_yticklabels` on
+    the current Axes.
+    Calling this function with arguments is the pyplot equivalent of calling
+    `~.Axes.set_yticks` and `~.Axes.set_yticklabels` on the current Axes.
+
+    Examples
+    --------
+    >>> locs, labels = yticks()  # Get the current locations and labels.
+    >>> yticks(np.arange(0, 1, step=0.2))  # Set label locations.
+    >>> yticks(np.arange(3), ['Tom', 'Dick', 'Sue'])  # Set text labels.
+    >>> yticks([0, 1, 2], ['January', 'February', 'March'],
+    ...        rotation=45)  # Set text labels and properties.
+    >>> yticks([])  # Disable yticks.
     """
     return _ticks("y", ticks, labels, minor, kwargs)
 
@@ -163,12 +208,51 @@ def rgrids(radii=None, labels=None, angle=None, fmt=None, **kwargs):
     (*lines*, *labels*). When called with arguments, the labels will
     appear at the specified radial distances and angle.
 
+    Parameters
+    ----------
+    radii : tuple with floats
+        The radii for the radial gridlines
+
+    labels : tuple with strings or None
+        The labels to use at each radial gridline. The
+        `matplotlib.ticker.ScalarFormatter` will be used if None.
+
+    angle : float
+        The angular position of the radius labels in degrees.
+
+    fmt : str or None
+        Format string used in `matplotlib.ticker.FormatStrFormatter`.
+        For example '%f'.
+
     Returns
     -------
     lines : list of `.lines.Line2D`
         The radial gridlines.
+
     labels : list of `.text.Text`
         The tick labels.
+
+    Other Parameters
+    ----------------
+    **kwargs
+        *kwargs* are optional `.Text` properties for the labels.
+
+    See Also
+    --------
+    .pyplot.thetagrids
+    .projections.polar.PolarAxes.set_rgrids
+    .Axis.get_gridlines
+    .Axis.get_ticklabels
+
+    Examples
+    --------
+    ::
+
+      # set the locations of the radial gridlines
+      lines, labels = rgrids( (0.25, 0.5, 1.0) )
+
+      # set the locations and labels of the radial gridlines
+      lines, labels = rgrids( (0.25, 0.5, 1.0), ('Tom', 'Dick', 'Harry' ))
     """
     ax = _polar_gca('rgrids')
     if all(p is None for p in [radii, labels, angle, fmt]) and not kwargs:
@@ -196,12 +280,48 @@ def thetagrids(angles=None, labels=None, fmt=None, **kwargs):
     (*lines*, *labels*). When called with arguments, the labels will
     appear at the specified angles.
 
+    Parameters
+    ----------
+    angles : tuple with floats, degrees
+        The angles of the theta gridlines.
+
+    labels : tuple with strings or None
+        The labels to use at each radial gridline. The
+        `.projections.polar.ThetaFormatter` will be used if None.
+
+    fmt : str or None
+        Format string used in `matplotlib.ticker.FormatStrFormatter`.
+        For example '%f'. Note that the angle in radians will be used.
+
     Returns
     -------
     lines : list of `.lines.Line2D`
         The theta gridlines.
+
     labels : list of `.text.Text`
         The tick labels.
+
+    Other Parameters
+    ----------------
+    **kwargs
+        *kwargs* are optional `.Text` properties for the labels.
+
+    See Also
+    --------
+    .pyplot.rgrids
+    .projections.polar.PolarAxes.set_thetagrids
+    .Axis.get_gridlines
+    .Axis.get_ticklabels
+
+    Examples
+    --------
+    ::
+
+      # set the locations of the angular gridlines
+      lines, labels = thetagrids(range(45, 360, 90))
+
+      # set the locations and labels of the angular gridlines
+      lines, labels = thetagrids(range(45, 360, 90), ('NE', 'NW', 'SW', 'SE'))
     """
     ax = _polar_gca('thetagrids')
     if all(param is None for param in [angles, labels, fmt]) and not kwargs:

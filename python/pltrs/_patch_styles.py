@@ -18,7 +18,7 @@ import textwrap
 
 import numpy as np
 
-from . import _api
+from . import _api, _docstring, _patch_style_docs as _style_docs
 from ._native import patch_styles as _styles
 from .bezier import inside_circle, split_path_inout
 from .path import Path
@@ -98,6 +98,25 @@ def _register_style(style_list, cls=None, *, name=None):
     return cls
 
 
+def _register_tables(style):
+    """
+    Register the docstring snippets listing the styles of the container
+    *style* once they are defined (``%(BoxStyle:table)s`` and
+    ``%(BoxStyle:table_and_accepts)s``, ...), as matplotlib's
+    ``_Style.__init_subclass__`` registers them, and interpolate the
+    container's docstring with them, as its ``@_docstring.interpd`` does.
+    """
+    _docstring.interpd.register(**{
+        f"{style.__name__}:table": style.pprint_styles(),
+        f"{style.__name__}:table_and_accepts": (
+            style.pprint_styles()
+            + "\n\n    .. ACCEPTS: ["
+            + "|".join(map(" '{}' ".format, style._style_list))
+            + "]")
+    })
+    _docstring.interpd(style)
+
+
 class _Described:
     """
     A style whose parameters are its constructor's arguments: it describes
@@ -157,8 +176,16 @@ class BoxStyle(_Style):
 
            BoxStyle("Round, pad=0.2")
 
-    An instance of a box style is callable: ``style(x0, y0, width,
-    height, mutation_size)`` returns the `.Path` of the box.
+    The following boxstyle classes are defined.
+
+    %(BoxStyle:table)s
+
+    An instance of a boxstyle class is a callable object, with the signature ::
+
+       __call__(self, x0, y0, width, height, mutation_size) -> Path
+
+    *x0*, *y0*, *width* and *height* specify the location and size of the box
+    to be drawn; *mutation_size* scales the outline properties such as padding.
     """
 
     _style_list = {}
@@ -188,17 +215,46 @@ for _name, _params in [
               else (BoxStyle._Base, _described(_name, **_params)))
     _style = type(_name, _bases,
                   {"_spec_name": _name.lower(), "__qualname__": f"BoxStyle.{_name}"})
+    _style_docs.document(_style, BoxStyle)
     setattr(BoxStyle, _name, _register_style(BoxStyle._style_list, _style))
+_register_tables(BoxStyle)
 
 
 class ConnectionStyle(_Style):
     """
-    `ConnectionStyle` is a container class which defines several
-    connectionstyle classes, which is used to create a path between two
-    points.  These are mainly used with `FancyArrowPatch`.
+    `ConnectionStyle` is a container class which defines
+    several connectionstyle classes, which is used to create a path
+    between two points.  These are mainly used with `FancyArrowPatch`.
 
-    An instance of a connection style is callable: ``style(posA, posB)``
-    returns the `.Path` connecting the points.
+    A connectionstyle object can be either created as::
+
+           ConnectionStyle.Arc3(rad=0.2)
+
+    or::
+
+           ConnectionStyle("Arc3", rad=0.2)
+
+    or::
+
+           ConnectionStyle("Arc3, rad=0.2")
+
+    The following classes are defined
+
+    %(ConnectionStyle:table)s
+
+    An instance of any connection style class is a callable object,
+    whose call signature is::
+
+        __call__(self, posA, posB,
+                 patchA=None, patchB=None,
+                 shrinkA=2., shrinkB=2.)
+
+    and it returns a `.Path` instance. *posA* and *posB* are
+    tuples of (x, y) coordinates of the two points to be
+    connected. *patchA* (or *patchB*) is given, the returned path is
+    clipped so that it start (or end) from the boundary of the
+    patch. The path is further shrunk by *shrinkA* (or *shrinkB*)
+    which is given in points.
     """
 
     _style_list = {}
@@ -279,8 +335,10 @@ for _name, _params in [
     _style = type(_name, (ConnectionStyle._Base, _described(_name, **_params)),
                   {"_spec_name": _name.lower(),
                    "__qualname__": f"ConnectionStyle.{_name}"})
+    _style_docs.document(_style, ConnectionStyle)
     setattr(ConnectionStyle, _name,
             _register_style(ConnectionStyle._style_list, _style))
+_register_tables(ConnectionStyle)
 
 
 class ArrowStyle(_Style):
@@ -289,9 +347,45 @@ class ArrowStyle(_Style):
     arrowstyle classes, which is used to create an arrow path along a
     given path.  These are mainly used with `FancyArrowPatch`.
 
-    An instance of an arrow style is callable: ``style(path,
-    mutation_size, linewidth, aspect_ratio)`` returns the arrow's path and
-    whether it is filled.
+    An arrowstyle object can be either created as::
+
+           ArrowStyle.Fancy(head_length=.4, head_width=.4, tail_width=.4)
+
+    or::
+
+           ArrowStyle("Fancy", head_length=.4, head_width=.4, tail_width=.4)
+
+    or::
+
+           ArrowStyle("Fancy, head_length=.4, head_width=.4, tail_width=.4")
+
+    The following classes are defined
+
+    %(ArrowStyle:table)s
+
+    For an overview of the visual appearance, see
+    :doc:`/gallery/text_labels_and_annotations/fancyarrow_demo`.
+
+    An instance of any arrow style class is a callable object,
+    whose call signature is::
+
+        __call__(self, path, mutation_size, linewidth, aspect_ratio=1.)
+
+    and it returns a tuple of a `.Path` instance and a boolean
+    value. *path* is a `.Path` instance along which the arrow
+    will be drawn. *mutation_size* and *aspect_ratio* have the same
+    meaning as in `BoxStyle`. *linewidth* is a line width to be
+    stroked. This is meant to be used to correct the location of the
+    head so that it does not overshoot the destination point, but not all
+    classes support it.
+
+    Notes
+    -----
+    *angleA* and *angleB* specify the orientation of the bracket, as either a
+    clockwise or counterclockwise angle depending on the arrow type. 0 degrees
+    means perpendicular to the line connecting the arrow's head and tail.
+
+    .. plot:: gallery/text_labels_and_annotations/angles_on_bracket_arrows.py
     """
 
     _style_list = {}
@@ -382,8 +476,10 @@ for _name, _arrow, _params in [
     _style = type(_name, (_base, _described(_name, **_params)),
                   {"_spec_name": _arrow, "arrow": _arrow,
                    "__qualname__": f"ArrowStyle.{_name}"})
+    _style_docs.document(_style, ArrowStyle)
     setattr(ArrowStyle, _name, _register_style(ArrowStyle._style_list, _style,
                                                name=_arrow))
+_register_tables(ArrowStyle)
 del _name, _arrow, _params, _base, _style
 
 

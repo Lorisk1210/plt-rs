@@ -6,13 +6,56 @@ under the Matplotlib License. `matplotlib.artist` exports them.
 
 from functools import cache
 import inspect
+from inspect import CO_VARARGS, CO_VARKEYWORDS
 import re
+from types import FunctionType
 import warnings
 
 import numpy as np
 
 from . import cbook, rcParams
 from .artist import Artist
+
+
+@cache
+def _cleaned(docstring):
+    """`inspect.cleandoc` of *docstring*, once for every class sharing it."""
+    return inspect.cleandoc(docstring)
+
+
+def _getdoc(obj):
+    """
+    `inspect.getdoc` of *obj*. pltrs: the properties of every artist class
+    `kwdoc` documents at import read the docstrings of the setters most of
+    them share, each of which is cleaned once.
+    """
+    doc = getattr(obj, "__doc__", None)
+    return _cleaned(doc) if isinstance(doc, str) else inspect.getdoc(obj)
+
+
+@cache
+def _valid_values(docstring, code):
+    """
+    The legal arguments the *docstring* of a setter, whose code is *code*,
+    gives (`ArtistInspector.get_valid_values`).
+    """
+    if docstring.startswith('Alias for '):
+        return None
+
+    match = ArtistInspector._get_valid_values_regex.search(docstring)
+    if match is not None:
+        return re.sub("\n *", " ", match.group(1))
+
+    # Much faster than list(inspect.signature(func).parameters)[1],
+    # although barely relevant wrt. matplotlib's total import time.
+    param_name = code.co_varnames[1]
+    # We could set the presence * based on whether the parameter is a
+    # varargs (it can't be a varkwargs) but it's not really worth it.
+    match = re.search(fr"(?m)^ *\*?{param_name} : (.+)", docstring)
+    if match:
+        return match.group(1)
+
+    return 'unknown'
 
 
 class ArtistInspector:
@@ -61,7 +104,7 @@ class ArtistInspector:
             if not self.is_alias(func):
                 continue
             propname = re.search(f"`({name[:4]}.*)`",  # get_.*/set_.*
-                                 inspect.getdoc(func)).group(1)
+                                 _getdoc(func)).group(1)
             aliases.setdefault(propname[4:], set()).add(name[4:])
         return aliases
 
@@ -86,28 +129,14 @@ class ArtistInspector:
         if hasattr(func, '_kwarg_doc'):
             return func._kwarg_doc
 
-        docstring = inspect.getdoc(func)
+        docstring = _getdoc(func)
         if docstring is None:
             return 'unknown'
 
-        if docstring.startswith('Alias for '):
-            return None
-
-        match = self._get_valid_values_regex.search(docstring)
-        if match is not None:
-            return re.sub("\n *", " ", match.group(1))
-
-        # Much faster than list(inspect.signature(func).parameters)[1],
-        # although barely relevant wrt. matplotlib's total import time.
-        # (pltrs: the setters of mirrorable classes are wrapped.)
-        param_name = inspect.unwrap(func).__code__.co_varnames[1]
-        # We could set the presence * based on whether the parameter is a
-        # varargs (it can't be a varkwargs) but it's not really worth it.
-        match = re.search(fr"(?m)^ *\*?{param_name} : (.+)", docstring)
-        if match:
-            return match.group(1)
-
-        return 'unknown'
+        # (pltrs: the setters of mirrorable classes are wrapped; the values
+        # are read once for every class sharing the setter.)
+        setter = inspect.unwrap(func, stop=lambda f: not getattr(f, '_pushes', False))
+        return _valid_values(docstring, setter.__code__)
 
     def _replace_path(self, source_class):
         """
@@ -143,6 +172,14 @@ class ArtistInspector:
     @cache
     def number_of_parameters(func):
         """Return number of parameters of the callable *func*."""
+        # pltrs: counted from the code of a plain function (a setter of a
+        # mirrorable class wraps one), as `inspect.signature` counts them.
+        inner = inspect.unwrap(func, stop=lambda f: hasattr(f, "__signature__"))
+        if type(inner) is FunctionType and not hasattr(inner, "__signature__"):
+            code = inner.__code__
+            return (code.co_argcount + code.co_kwonlyargcount
+                    + bool(code.co_flags & CO_VARARGS)
+                    + bool(code.co_flags & CO_VARKEYWORDS))
         return len(inspect.signature(func).parameters)
 
     @staticmethod
@@ -151,8 +188,12 @@ class ArtistInspector:
         """
         Return whether the object *method* is an alias for another method.
         """
+        # pltrs: a docstring not starting so is not cleaned to find out.
+        doc = getattr(method, "__doc__", None)
+        if isinstance(doc, str) and not doc.lstrip().startswith('Alias for '):
+            return False
 
-        ds = inspect.getdoc(method)
+        ds = _getdoc(method)
         if ds is None:
             return False
 
@@ -457,7 +498,11 @@ def kwdoc(artist):
         :rc:`docstring.hardcopy` is False and as an rst table (intended for
         use in Sphinx) if it is True.
     """
-    ai = ArtistInspector(artist)
+    return _properties_doc(ArtistInspector(artist))
+
+
+def _properties_doc(ai):
+    """The text `kwdoc` gives for the properties the inspector *ai* finds."""
     return ('\n'.join(ai.pprint_setters_rest(leadingspace=4))
             if rcParams['docstring.hardcopy'] else
             'Properties:\n' + '\n'.join(ai.pprint_setters(leadingspace=4)))

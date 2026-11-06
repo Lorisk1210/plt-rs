@@ -17,6 +17,7 @@ import warnings
 
 import numpy as np
 
+from . import _docstring
 from . import (_api, _live_transforms, _unusable, _values, cbook, colorizer as mcolorizer,
                colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
@@ -145,21 +146,44 @@ def _paths_container(paths):
     "offset_transform": ["transOffset"],
 })
 class Collection(mcolorizer.ColorizingArtist):
-    """
+    r"""
     Base class for Collections. Must be subclassed to be usable.
 
-    A Collection represents a sequence of `.Patch`\\es that can be drawn
-    more efficiently together than individually.
+    A Collection represents a sequence of `.Patch`\es that can be drawn
+    more efficiently together than individually. For example, when a single
+    path is being drawn repeatedly at different offsets, the renderer can
+    typically execute a ``draw_marker()`` call much more efficiently than a
+    series of repeated calls to ``draw_path()`` with the offsets put in
+    one-by-one.
 
-    pltrs: the colorizer is Python's, as matplotlib's is; pltrs (Rust)
-    maps the values with a copy of its colormap and norm, handed over
-    whenever it changes (`changed`).
+    Most properties of a collection can be configured per-element. Therefore,
+    Collections have "plural" versions of many of the properties of a `.Patch`
+    (e.g. `.Collection.get_paths` instead of `.Patch.get_path`). Exceptions are
+    the *zorder*, *hatch*, *pickradius*, *capstyle* and *joinstyle* properties,
+    which can only be set globally for the whole collection.
+
+    Besides these exceptions, all properties can be specified as single values
+    (applying to all elements) or sequences of values. The property of the
+    ``i``\th element of the collection is::
+
+      prop[i % len(prop)]
+
+    Each Collection can optionally be used as its own `.ScalarMappable` by
+    passing the *norm* and *cmap* parameters to its constructor. If the
+    Collection's `.ScalarMappable` matrix ``_A`` has been set (via a call
+    to `.Collection.set_array`), then at draw time this internal scalar
+    mappable will be used to set the ``facecolors`` and ``edgecolors``,
+    ignoring those that were manually passed in.
     """
+    # pltrs: the colorizer is Python's, as matplotlib's is; pltrs (Rust) maps
+    # the values with a copy of its colormap and norm, handed over whenever it
+    # changes (`changed`).
 
     # Whether to draw an edge by default.  Set on a
     # subclass-by-subclass basis.
     _edge_default = False
 
+    @_docstring.interpd
     def __init__(self, *,
                  edgecolors=None,
                  facecolors=None,
@@ -181,9 +205,70 @@ class Collection(mcolorizer.ColorizingArtist):
                  **kwargs
                  ):
         """
-        Style the collection a subclass holds in ``self._native``: the
-        collection is outside any figure until an axes or a figure adds it
-        (`~.Axes.add_collection`, `.Figure.add_artist`).
+        Parameters
+        ----------
+        edgecolors : :mpltype:`color` or list of colors, default: :rc:`patch.edgecolor`
+            Edge color for each patch making up the collection. The special
+            value 'face' can be passed to make the edgecolor match the
+            facecolor.
+        facecolors : :mpltype:`color` or list of colors, default: :rc:`patch.facecolor`
+            Face color for each patch making up the collection.
+        hatchcolors : :mpltype:`color` or list of colors, default: :rc:`hatch.color`
+            Hatch color for each patch making up the collection. The color
+            can be set to the special value 'edge' to make the hatchcolor match the
+            edgecolor.
+        linewidths : float or list of floats, default: :rc:`patch.linewidth`
+            Line width for each patch making up the collection.
+        linestyles : str or tuple or list thereof, default: 'solid'
+            Valid strings are ['solid', 'dashed', 'dashdot', 'dotted', '-',
+            '--', '-.', ':']. Dash tuples should be of the form::
+
+                (offset, onoffseq),
+
+            where *onoffseq* is an even length tuple of on and off ink lengths
+            in points. For examples, see
+            :doc:`/gallery/lines_bars_and_markers/linestyles`.
+        capstyle : `.CapStyle`-like, default: 'butt'
+            Style to use for capping lines for all paths in the collection.
+            Allowed values are %(CapStyle)s.
+        joinstyle : `.JoinStyle`-like, default: 'round'
+            Style to use for joining lines for all paths in the collection.
+            Allowed values are %(JoinStyle)s.
+        antialiaseds : bool or list of bool, default: :rc:`patch.antialiased`
+            Whether each patch in the collection should be drawn with
+            antialiasing.
+        offsets : (float, float) or list thereof, default: (0, 0)
+            A vector by which to translate each patch after rendering (default
+            is no translation). The translation is performed in screen (pixel)
+            coordinates (i.e. after the Artist's transform is applied).
+        offset_transform : `~.Transform`, default: `.IdentityTransform`
+            A single transform which will be applied to each *offsets* vector
+            before it is used.
+        cmap, norm
+            Data normalization and colormapping parameters. See
+            `.ScalarMappable` for a detailed description.
+        hatch : str, optional
+            Hatching pattern to use in filled paths, if any. Valid strings are
+            ['/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*']. See
+            :doc:`/gallery/shapes_and_collections/hatch_style_reference` for
+            the meaning of each hatch type.
+        pickradius : float, default: 5.0
+            If ``pickradius <= 0``, then `.Collection.contains` will return
+            ``True`` whenever the test point is inside of one of the polygons
+            formed by the control points of a Path in the Collection. On the
+            other hand, if it is greater than 0, then we instead check if the
+            test point is contained in a stroke of width ``2*pickradius``
+            following any of the Paths in the Collection.
+        urls : list of str, default: None
+            A URL for each patch to link to once drawn. Currently only works
+            for the SVG backend. See :doc:`/gallery/misc/hyperlinks_sgskip` for
+            examples.
+        zorder : float, default: 1
+            The drawing order, shared by all Patches in the Collection. See
+            :doc:`/gallery/misc/zorder_demo` for all defaults and examples.
+        **kwargs
+            Remaining keyword arguments will be used to set properties as
+            ``Collection.set_{key}(val)`` for each key-value pair in *kwargs*.
         """
         if not hasattr(self, "_native"):
             # The base class made directly: a collection of no paths yet.
@@ -300,7 +385,7 @@ class Collection(mcolorizer.ColorizingArtist):
         Update colors from the scalar mappable array, if any.
 
         Assign colors to edges and faces based on the array and/or
-        colors that were directly set, as appropriate (drawing does it).
+        colors that were directly set, as appropriate.
         """
         if self._A is None:
             _collections.update_scalarmappable(self._native)
@@ -350,8 +435,6 @@ class Collection(mcolorizer.ColorizingArtist):
     _paths_container = list
 
     def get_paths(self):
-        """Return the paths of the items: the same objects while they
-        stay, as matplotlib's collections keep theirs."""
         native = _collections.get_paths(self._native)
         kept = self.__dict__.get("_kept_paths")
         if kept is not None and _same_paths(kept[0], native):
@@ -367,12 +450,6 @@ class Collection(mcolorizer.ColorizingArtist):
     _paths = property(get_paths, doc="The paths of the items.")
 
     def set_paths(self, paths):
-        """
-        Set the paths of the items.
-
-        A single `.Path` is kept as it is given, as matplotlib keeps it:
-        drawing the collection then raises matplotlib's `TypeError`.
-        """
         if isinstance(paths, Path):
             _collections.set_single_path(self._native, paths)
         else:
@@ -381,16 +458,6 @@ class Collection(mcolorizer.ColorizingArtist):
         self.__dict__.pop("_kept_paths", None)
 
     def get_transforms(self):
-        """
-        Return the transforms of the items, as an ``(N, 3, 3)`` array
-        suitable for the *all_transforms* argument of
-        `~matplotlib.backend_bases.RendererBase.draw_path_collection`.
-
-        The items are scaled to their areas at the resolution of the
-        collection's figure once it was drawn since its sizes were set, as
-        matplotlib's ``draw`` scales them, else at the resolution they were
-        set at (72 dpi by default).
-        """
         dpi, draws = self.__dict__.get("_sizes_scaled", (72.0, 0))
         figure = self.get_figure(root=True)
         if figure is not None and _artist.draw_count(self._native) > draws:
@@ -414,19 +481,9 @@ class Collection(mcolorizer.ColorizingArtist):
         return _collections.get_offset_transform(self._native) is not None
 
     def get_window_extent(self, renderer=None):
-        """Return the collection's box in display space as matplotlib does:
-        its data limits in display coordinates (`get_datalim` with the
-        identity), null for items placed in other coordinates (a scatter's
-        offsets in data)."""
         return self.get_datalim(mtransforms.IdentityTransform())
 
     def get_datalim(self, transData):
-        """
-        Return the data limits of the collection in the coordinates of
-        *transData*: its shapes at their offsets where its transform
-        contains *transData*, else its offsets where those are in
-        coordinates *transData* reaches; a null box otherwise.
-        """
         # This operation depends on the transforms for the data in the
         # collection and whether the collection has offsets:
         #
@@ -513,17 +570,17 @@ class Collection(mcolorizer.ColorizingArtist):
         self.__dict__.pop("_offsets_dtype", None)
 
     def get_pickradius(self):
-        """Return the pick radius used for containment tests."""
         return _values.given(self, "pickradius",
                              _collections.get_pickradius(self._native))
 
     def set_pickradius(self, pickradius):
         """
-        Set the pick radius used for containment tests, in points.
+        Set the pick radius used for containment tests.
 
         Parameters
         ----------
         pickradius : float
+            Pick radius, in points.
         """
         if not isinstance(pickradius, (int, float)):
             raise ValueError(
@@ -539,7 +596,12 @@ class Collection(mcolorizer.ColorizingArtist):
         return dict(ind=ind) if self.get_visible() else {}
 
     def get_urls(self):
-        """Return a list of URLs, one for each element of the collection."""
+        """
+        Return a list of URLs, one for each element of the collection.
+
+        The list contains *None* for elements without a URL. See
+        :doc:`/gallery/misc/hyperlinks_sgskip` for an example.
+        """
         urls = _collections.get_urls(self._native)
         # A collection starts with `[None]` (matplotlib's `set_urls(None)`).
         if not urls and "urls" not in self.__dict__.get("_given_values", {}):
@@ -548,11 +610,14 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_urls(self, urls):
         """
-        Set the URLs, one per element (None: no link).
-
         Parameters
         ----------
         urls : list of str or None
+
+        Notes
+        -----
+        URLs are currently only implemented by the SVG backend. They are
+        ignored by all other backends.
         """
         urls = list(urls) if urls is not None else [None]
         _collections.set_urls(self._native, urls)
@@ -568,12 +633,33 @@ class Collection(mcolorizer.ColorizingArtist):
         return self._get("hatch")
 
     def set_hatch(self, hatch):
-        """
-        Set the hatching pattern (see `.hatch`).
+        r"""
+        Set the hatching pattern
+
+        *hatch* can be one of::
+
+          /   - diagonal hatching
+          \   - back diagonal
+          |   - vertical
+          -   - horizontal
+          +   - crossed
+          x   - crossed diagonal
+          o   - small circle
+          O   - large circle
+          .   - dots
+          *   - stars
+
+        Letters can be combined, in which case all the specified
+        hatchings are done.  If same letter repeats, it increases the
+        density of hatching of that pattern.
+
+        Unlike other properties such as linewidth and colors, hatching
+        can only be specified for the collection as a whole, not separately
+        for each member.
 
         Parameters
         ----------
-        hatch : {'/', '\\\\', '|', '-', '+', 'x', 'o', 'O', '.', '*'}
+        hatch : {'/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*'}
         """
         from . import hatch as mhatch
         mhatch._validate_hatch_pattern(hatch)
@@ -589,52 +675,68 @@ class Collection(mcolorizer.ColorizingArtist):
         _values.remember(self, "hatch_linewidth", lw)
 
     def get_hatchcolor(self):
-        """Return the hatch colors."""
         return self._get("hatchcolor")
 
     def set_hatchcolor(self, c):
         """
-        Set the hatchcolor(s): colors, 'edge' or None (:rc:`hatch.color`).
+        Set the hatchcolor(s) of the collection.
 
         Parameters
         ----------
         c : :mpltype:`color` or list of :mpltype:`color` or 'edge'
+            The collection hatchcolor(s).  If a sequence, the patches cycle
+            through it.
         """
         if c is None:
             c = _rcParams()['hatch.color']
         _collections.set_hatchcolors(
             self._native, c if cbook._str_equal(c, 'edge') else _rgba(c))
 
+    @_docstring.interpd
     def get_capstyle(self):
-        """Return the cap style for the collection (for all its elements)."""
+        """
+        Return the cap style for the collection (for all its elements).
+
+        Returns
+        -------
+        %(CapStyle)s or None
+        """
         return self._get("capstyle")
 
+    @_docstring.interpd
     def set_capstyle(self, cs):
         """
         Set the `.CapStyle` for the collection (for all its elements).
 
         Parameters
         ----------
-        cs : `.CapStyle` or {'butt', 'projecting', 'round'}
+        cs : `.CapStyle` or %(CapStyle)s
         """
         _collections.set_capstyle(self._native, CapStyle(cs).name)
 
+    @_docstring.interpd
     def get_joinstyle(self):
-        """Return the join style for the collection (for all its elements)."""
+        """
+        Return the join style for the collection (for all its elements).
+
+        Returns
+        -------
+        %(JoinStyle)s or None
+        """
         return self._get("joinstyle")
 
+    @_docstring.interpd
     def set_joinstyle(self, js):
         """
         Set the `.JoinStyle` for the collection (for all its elements).
 
         Parameters
         ----------
-        js : `.JoinStyle` or {'miter', 'round', 'bevel'}
+        js : `.JoinStyle` or %(JoinStyle)s
         """
         _collections.set_joinstyle(self._native, JoinStyle(js).name)
 
     def get_linewidth(self):
-        """Return the line widths, broadcast against the line styles."""
         return self._lwls()[0]
 
     def set_linewidth(self, lw):
@@ -654,17 +756,49 @@ class Collection(mcolorizer.ColorizingArtist):
         _values.remember(self, "linewidth", lw)
 
     def get_linestyle(self):
-        """Return the dash patterns, scaled by the line widths."""
         return self._lwls()[1]
 
     def set_linestyle(self, ls):
         """
-        Set the linestyle(s) for the collection: a line style or a
-        sequence of them.
+        Set the linestyle(s) for the collection.
 
         Parameters
         ----------
         ls : {'-', '--', '-.', ':', '', ...} or (offset, on-off-seq) or list thereof
+            If a list, the individual elements are assigned to the elements of the
+            collection.
+
+            Possible values:
+
+            - A string:
+
+              =======================================================  ================
+              linestyle                                                description
+              =======================================================  ================
+              ``'-'`` or ``'solid'``                                   solid line
+              ``'--'`` or ``'dashed'``                                 dashed line
+              ``'-.'`` or ``'dashdot'``                                dash-dotted line
+              ``':'`` or ``'dotted'``                                  dotted line
+              ``''`` or ``'none'`` (discouraged: ``'None'``, ``' '``)  draw nothing
+              =======================================================  ================
+
+            - A tuple describing the start position and lengths of dashes and spaces:
+
+                  (offset, onoffseq)
+
+              where
+
+              - *offset* is a float specifying the offset (in points); i.e. how much
+                is the dash pattern shifted.
+              - *onoffseq* is a sequence of on and off ink in points. There can be
+                arbitrary many pairs of on and off values.
+
+              Example: The tuple ``(0, (10, 5, 1, 5))`` means that the pattern starts
+              at the beginning of the line. It draws a 10 point long dash,
+              then a 5 point long space, then a 1 point long dash, followed by a 5 point
+              long space, and then the pattern repeats.
+
+            For examples see :doc:`/gallery/lines_bars_and_markers/linestyles`.
         """
         try:
             styles = _linestyle_list(ls)
@@ -708,7 +842,13 @@ class Collection(mcolorizer.ColorizingArtist):
         return _rcParams()['patch.edgecolor']
 
     def get_antialiased(self):
-        """Get the antialiasing state for rendering."""
+        """
+        Get the antialiasing state for rendering.
+
+        Returns
+        -------
+        array of bools
+        """
         antialiased = self._get("antialiased")
         if antialiased is None:
             antialiased = [_rcParams()['patch.antialiased']]
@@ -746,7 +886,6 @@ class Collection(mcolorizer.ColorizingArtist):
         self.stale = True
 
     def get_facecolor(self):
-        """Return the face colors, as drawn."""
         return self._get("facecolor")
 
     @property
@@ -757,9 +896,11 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_facecolor(self, c):
         """
-        Set the facecolor(s) of the collection. *c* can be a color (all
-        patches have same color), or a sequence of colors; None restores
-        the default.
+        Set the facecolor(s) of the collection. *c* can be a color (all patches
+        have same color), or a sequence of colors; if it is a sequence the
+        patches will cycle through the sequence.
+
+        If *c* is 'none', the patch will not be filled.
 
         Parameters
         ----------
@@ -771,17 +912,17 @@ class Collection(mcolorizer.ColorizingArtist):
         self._face_fill = not cbook._str_lower_equal(c, "none")
 
     def get_edgecolor(self):
-        """Return the edge colors, as drawn."""
         return self._get("edgecolor")
 
     def set_edgecolor(self, c):
         """
-        Set the edgecolor(s) of the collection: a color, a sequence of
-        colors, ``'face'`` (the face colors) or None (the default rule).
+        Set the edgecolor(s) of the collection.
 
         Parameters
         ----------
         c : :mpltype:`color` or list of :mpltype:`color` or 'face'
+            The collection edgecolor(s).  If a sequence, the patches cycle
+            through it.  If 'face', match the facecolor.
         """
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
@@ -789,24 +930,24 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_color(self, c):
         """
-        Set both the edgecolor and the facecolor.
+        Set the edgecolor, facecolor and hatchcolor.
+
+        .. versionchanged:: 3.11
+            Now sets the hatchcolor as well.
 
         Parameters
         ----------
         c : :mpltype:`color` or list of RGBA tuples
+
+        See Also
+        --------
+        Collection.set_facecolor, Collection.set_edgecolor, Collection.set_hatchcolor
+            For setting the facecolor, edgecolor, and hatchcolor individually.
         """
         self.set_facecolor(c)
         self.set_edgecolor(c)
 
     def set_alpha(self, alpha):
-        """
-        Set the transparency of the collection: a float, an array of one
-        per element, or None.
-
-        Parameters
-        ----------
-        alpha : array-like or float or None
-        """
         if np.iterable(alpha):
             alpha = np.asarray(alpha, dtype=float)
             if ((alpha < 0) | (alpha > 1)).any():
@@ -833,9 +974,9 @@ class Collection(mcolorizer.ColorizingArtist):
         if self._A is not None and self._maps_variates():
             self._map_variates()
 
+    set_alpha.__doc__ = Artist._set_alpha_for_array.__doc__
+
     def get_alpha(self):
-        """Return the transparency: a float, the array of one per element
-        it was set to, or None."""
         array = self.__dict__.get("_array_alpha")
         return super().get_alpha() if array is None else array
 
@@ -847,6 +988,9 @@ class Collection(mcolorizer.ColorizingArtist):
         ----------
         A : array-like or None
             The values that are mapped to colors.
+
+            The base class `.ScalarMappable` does not make any assumptions on
+            the dimensionality and shape of the value array *A*.
         """
         super().set_array(A)
         if self._A is not None and self._A.ndim > 1 and not isinstance(
@@ -891,6 +1035,10 @@ class _CollectionWithSizes(Collection):
         Parameters
         ----------
         sizes : `numpy.ndarray` or None
+            The size to set for each element of the collection.  The
+            value is the 'area' of the element.
+        dpi : float, default: 72
+            The dpi of the canvas.
         """
         if sizes is None:
             sizes = np.array([])
@@ -921,7 +1069,11 @@ class PathCollection(_CollectionWithSizes):
         paths : list of `.path.Path`
             The paths that will make up the `.Collection`.
         sizes : array-like
-            The factor by which to scale each drawn `~.path.Path`.
+            The factor by which to scale each drawn `~.path.Path`. One unit
+            squared in the Path's data space is scaled to be ``sizes**2``
+            points when rendered.
+        **kwargs
+            Forwarded to `.Collection`.
         """
         self._native = _collections.new_path_collection(
             [] if paths is None else list(paths))
@@ -935,24 +1087,55 @@ class PathCollection(_CollectionWithSizes):
         Create legend handles and labels for a PathCollection.
 
         Each legend handle is a `.Line2D` representing the Path that was drawn,
-        and each label is a string that represents the Path (from matplotlib
-        3.11.2, under the Matplotlib License).
+        and each label is a string that represents the Path.
+
+        This is useful for obtaining a legend for a `~.Axes.scatter` plot;
+        e.g.::
+
+            scatter = plt.scatter([1, 2, 3],  [4, 5, 6],  c=[7, 2, 3], num=None)
+            plt.legend(*scatter.legend_elements())
+
+        creates three legend elements, one for each color with the numerical
+        values passed to *c* as the labels.
+
+        Also see the :ref:`automatedlegendcreation` example.
 
         Parameters
         ----------
         prop : {"colors", "sizes"}, default: "colors"
             If "colors", the legend handles will show the different colors of
             the collection. If "sizes", the legend will show the different
-            sizes.
+            sizes. To set both, use *kwargs* to directly edit the `.Line2D`
+            properties.
         num : int, None, "auto" (default), array-like, or `~.ticker.Locator`
             Target number of elements to create.
+            If None, use all unique elements of the mappable array. If an
+            integer, target to use *num* elements in the normed range.
+            If *"auto"*, try to determine which option better suits the nature
+            of the data.
+            The number of created elements may slightly deviate from *num* due
+            to a `~.ticker.Locator` being used to find useful locations.
+            If a list or array, use exactly those elements for the legend.
+            Finally, a `~.ticker.Locator` can be provided.
         fmt : str, `~matplotlib.ticker.Formatter`, or None (default)
-            The format or formatter to use for the labels.
+            The format or formatter to use for the labels. If a string must be
+            a valid input for a `.StrMethodFormatter`. If None (the default),
+            use a `.ScalarFormatter`.
         func : function, default: ``lambda x: x``
-            Function to calculate the labels.
+            Function to calculate the labels.  Often the size (or color)
+            argument to `~.Axes.scatter` will have been pre-processed by the
+            user using a function ``s = f(x)`` to make the markers visible;
+            e.g. ``size = np.log10(x)``.  Providing the inverse of this
+            function here allows that pre-processing to be inverted, so that
+            the legend labels have the correct values; e.g. ``func = lambda
+            x: 10**x``.
         **kwargs
-            Allowed keyword arguments are *color* and *size*; any further
-            parameters are passed onto the `.Line2D` instance.
+            Allowed keyword arguments are *color* and *size*. E.g. it may be
+            useful to set the color of the markers if *prop="sizes"* is used;
+            similarly to set the size of the markers if *prop="colors"* is
+            used. Any further parameters are passed onto the `.Line2D`
+            instance. This may be useful to e.g. specify a different
+            *markeredgecolor* or *alpha* for the legend handles.
 
         Returns
         -------
@@ -1043,9 +1226,6 @@ class PathCollection(_CollectionWithSizes):
 
 
 class PolyCollection(_CollectionWithSizes):
-    """A collection of polygons (as `~.Axes.fill_between` and `~.Axes.hexbin`
-    make)."""
-
     def __init__(self, verts, sizes=None, *, closed=True, **kwargs):
         """
         Parameters
@@ -1156,17 +1336,45 @@ class FillBetweenPolyCollection(PolyCollection):
         where : array-like of bool, optional
             Define *where* to exclude some {dir} regions from being filled.
             The filled regions are defined by the coordinates ``t[where]``.
+            More precisely, fill between ``t[i]`` and ``t[i+1]`` if
+            ``where[i] and where[i+1]``.  Note that this definition implies
+            that an isolated *True* value between two *False* values in *where*
+            will not result in filling.  Both sides of the *True* position
+            remain unfilled due to the adjacent *False* values.
 
         interpolate : bool, default: False
-            Whether to extend the filled regions to where the curves cross,
-            when *where* is used.
+            This option is only relevant if *where* is used and the two curves
+            are crossing each other.
+
+            Semantically, *where* is often used for *f1* > *f2* or
+            similar.  By default, the nodes of the polygon defining the filled
+            region will only be placed at the positions in the *t* array.
+            Such a polygon cannot describe the above semantics close to the
+            intersection.  The t-sections containing the intersection are
+            simply clipped.
+
+            Setting *interpolate* to *True* will calculate the actual
+            intersection point and extend the filled region up to this point.
 
         step : {{'pre', 'post', 'mid'}}, optional
             Define *step* if the filling should be a step function,
-            i.e. constant in between *t*.
+            i.e. constant in between *t*.  The value determines where the
+            step will occur:
+
+            - 'pre': The f value is continued constantly to the left from
+              every *t* position, i.e. the interval ``(t[i-1], t[i]]`` has the
+              value ``f[i]``.
+            - 'post': The y value is continued constantly to the right from
+              every *x* position, i.e. the interval ``[t[i], t[i+1])`` has the
+              value ``f[i]``.
+            - 'mid': Steps occur half-way between the *t* positions.
 
         **kwargs
             Forwarded to `.PolyCollection`.
+
+        See Also
+        --------
+        .Axes.fill_between, .Axes.fill_betweenx
         """
         self._f_dir_from_t(t_direction)
         self.t_direction = t_direction
@@ -1240,6 +1448,11 @@ class FillBetweenPolyCollection(PolyCollection):
         where : array-like of bool, optional
             Define *where* to exclude some {dir} regions from being filled.
             The filled regions are defined by the coordinates ``t[where]``.
+            More precisely, fill between ``t[i]`` and ``t[i+1]`` if
+            ``where[i] and where[i+1]``.  Note that this definition implies
+            that an isolated *True* value between two *False* values in *where*
+            will not result in filling.  Both sides of the *True* position
+            remain unfilled due to the adjacent *False* values.
 
         See Also
         --------
@@ -1262,6 +1475,25 @@ class RegularPolyCollection(_CollectionWithSizes):
             The rotation of the polygon in radians.
         sizes : tuple of float
             The area of the circle circumscribing the polygon in points^2.
+        **kwargs
+            Forwarded to `.Collection`.
+
+        Examples
+        --------
+        See :doc:`/gallery/event_handling/lasso_demo` for a complete example::
+
+            offsets = np.random.rand(20, 2)
+            facecolors = [cm.jet(x) for x in np.random.rand(20)]
+
+            collection = RegularPolyCollection(
+                numsides=5, # a pentagon
+                rotation=0, sizes=(50,),
+                facecolors=facecolors,
+                edgecolors=("black",),
+                linewidths=(1,),
+                offsets=offsets,
+                offset_transform=ax.transData,
+                )
         """
         usable = isinstance(rotation, Real)
         self._native = _collections.new_regular_poly_collection(
@@ -1275,11 +1507,9 @@ class RegularPolyCollection(_CollectionWithSizes):
             _unusable.keep(self, "rotation", rotation, operator.neg, measured=False)
 
     def get_numsides(self):
-        """Return the number of sides of the polygons."""
         return len(self.get_paths()[0].vertices) - 1
 
     def get_rotation(self):
-        """Return the rotation of the polygons in radians."""
         return _unusable.kept(self, "rotation", _values.given(
             self, "rotation", _collections.get_rotation(self._native)))
 
@@ -1295,7 +1525,24 @@ class AsteriskPolygonCollection(RegularPolyCollection):
 class LineCollection(Collection):
     r"""
     Represents a sequence of `.Line2D`\s that should be drawn together.
+
+    This class extends `.Collection` to represent a sequence of
+    `.Line2D`\s instead of just a sequence of `.Patch`\s.
+    Just as in `.Collection`, each property of a *LineCollection* may be either
+    a single value or a list of values. This list is then used cyclically for
+    each element of the LineCollection, so the property of the ``i``\th element
+    of the collection is::
+
+      prop[i % len(prop)]
+
+    The properties of each member of a *LineCollection* default to their values
+    in :rc:`lines.*` instead of :rc:`patch.*`, and the property *colors* is
+    added in place of *edgecolors*.
     """
+
+    def set_alpha(self, alpha):
+        # docstring inherited: matplotlib's override has none.
+        super().set_alpha(alpha)
 
     _edge_default = True
 
@@ -1310,6 +1557,29 @@ class LineCollection(Collection):
         segments : list of (N, 2) array-like
             A sequence ``[line0, line1, ...]`` where each line is a (N, 2)-shape
             array-like containing points::
+
+                line0 = [(x0, y0), (x1, y1), ...]
+
+            Each line can contain a different number of points.
+        linewidths : float or list of float, default: :rc:`lines.linewidth`
+            The width of each line in points.
+        colors : :mpltype:`color` or list of color, default: :rc:`lines.color`
+            A sequence of RGBA tuples (e.g., arbitrary color strings, etc, not
+            allowed).
+        antialiaseds : bool or list of bool, default: :rc:`lines.antialiased`
+            Whether to use antialiasing for each line.
+        zorder : float, default: 2
+            zorder of the lines once drawn.
+
+        facecolors : :mpltype:`color` or list of :mpltype:`color`, default: 'none'
+            When setting *facecolors*, each line is interpreted as a boundary
+            for an area, implicitly closing the path from the last point to the
+            first point. The enclosed area is filled with *facecolor*.
+            In order to manually specify what should count as the "interior" of
+            each line, please use `.PathCollection` instead, where the
+            "interior" can be specified by appropriate usage of
+            `~.path.Path.CLOSEPOLY`.
+
         **kwargs
             Forwarded to `.Collection`.
         """
@@ -1320,7 +1590,6 @@ class LineCollection(Collection):
         super().__init__(zorder=zorder, **kwargs)
 
     def set_segments(self, segments):
-        """Set the segments: a sequence of (N, 2) arrays, one per line."""
         if segments is None:
             return
         _collections.set_segments(
@@ -1361,6 +1630,9 @@ class LineCollection(Collection):
         Parameters
         ----------
         c : :mpltype:`color` or list of :mpltype:`color`
+            Single color (all lines have same color), or a
+            sequence of RGBA tuples; if it is a sequence the lines will
+            cycle through the sequence.
         """
         self.set_edgecolor(c)
 
@@ -1389,11 +1661,9 @@ class LineCollection(Collection):
         self.stale = True
 
     def get_gapcolor(self):
-        """Return the gap colors, the alpha of the collection applied."""
         return _collections.get_gapcolors(self._native)
 
     def get_color(self):
-        """Return the edge colors of the lines."""
         return self.get_edgecolor()
 
     get_colors = get_color  # for compatibility with old versions
@@ -1401,8 +1671,10 @@ class LineCollection(Collection):
 
 class EventCollection(LineCollection):
     """
-    A collection of locations along a single axis at which an "event"
-    occurred.
+    A collection of locations along a single axis at which an "event" occurred.
+
+    The events are given by a 1-dimensional array. They do not have an
+    amplitude and are displayed as parallel lines.
     """
 
     _edge_default = True
@@ -1426,10 +1698,34 @@ class EventCollection(LineCollection):
             Each value is an event.
         orientation : {'horizontal', 'vertical'}, default: 'horizontal'
             The sequence of events is plotted along this direction.
+            The marker lines of the single events are along the orthogonal
+            direction.
         lineoffset : float, default: 0
-            The offset of the center of the markers from the origin.
+            The offset of the center of the markers from the origin, in the
+            direction orthogonal to *orientation*.
         linelength : float, default: 1
-            The total height of the marker.
+            The total height of the marker (i.e. the marker stretches from
+            ``lineoffset - linelength/2`` to ``lineoffset + linelength/2``).
+        linewidth : float or list thereof, default: :rc:`lines.linewidth`
+            The line width of the event lines, in points.
+        color : :mpltype:`color` or list of :mpltype:`color`, default: :rc:`lines.color`
+            The color of the event lines.
+        linestyle : str or tuple or list thereof, default: 'solid'
+            Valid strings are ['solid', 'dashed', 'dashdot', 'dotted',
+            '-', '--', '-.', ':']. Dash tuples should be of the form::
+
+                (offset, onoffseq),
+
+            where *onoffseq* is an even length tuple of on and off ink
+            in points.
+        antialiased : bool or list thereof, default: :rc:`lines.antialiased`
+            Whether to use antialiasing for drawing the lines.
+        **kwargs
+            Forwarded to `.LineCollection`.
+
+        Examples
+        --------
+        .. plot:: gallery/lines_bars_and_markers/eventcollection_demo.py
         """
         _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
         positions = np.asarray(positions, dtype=float)
@@ -1526,7 +1822,6 @@ class EventCollection(LineCollection):
         return super().get_linewidth()[0]
 
     def get_linewidths(self):
-        """Get the widths of the lines used to mark each event."""
         return super().get_linewidth()
 
     def get_color(self):
@@ -1543,6 +1838,8 @@ class CircleCollection(_CollectionWithSizes):
         ----------
         sizes : float or array-like
             The area of each circle in points^2.
+        **kwargs
+            Forwarded to `.Collection`.
         """
         self._native = _collections.new_circle_collection(
             np.atleast_1d(np.asarray(sizes, float)))
@@ -1573,7 +1870,15 @@ class EllipseCollection(Collection):
         angles : array-like
             The angles of the first axes, degrees CCW from the x-axis.
         units : {'points', 'inches', 'dots', 'width', 'height', 'x', 'y', 'xy'}
-            The units in which majors and minors are given.
+            The units in which majors and minors are given; 'width' and
+            'height' refer to the dimensions of the axes, while 'x' and 'y'
+            refer to the *offsets* data units. 'xy' differs from all others in
+            that the angle as plotted varies with the aspect ratio, and equals
+            the specified angle only when the aspect ratio is unity.  Hence
+            it behaves the same as the `~.patches.Ellipse` with
+            ``axes.transData`` as its transform.
+        **kwargs
+            Forwarded to `Collection`.
         """
         usable = units in _ELLIPSE_UNITS
         widths, heights, angles = np.broadcast_arrays(
@@ -1645,11 +1950,26 @@ class PatchCollection(Collection):
         patches : list of `.Patch`
             A sequence of Patch objects.  This list may include
             a heterogeneous assortment of different patch types.
+
         match_original : bool, default: False
             If True, use the colors and linewidths of the original
             patches.  If False, new colors may be assigned by
             providing the standard collection arguments, facecolor,
             edgecolor, linewidths, norm or cmap.
+
+        **kwargs
+            All other parameters are forwarded to `.Collection`.
+
+            If any of *edgecolors*, *facecolors*, *linewidths*, *antialiaseds*
+            are None, they default to their `.rcParams` patch setting, in
+            sequence form.
+
+        Notes
+        -----
+        The use of `~matplotlib.cm.ScalarMappable` functionality is optional.
+        If the `~matplotlib.cm.ScalarMappable` matrix ``_A`` has been set (via
+        a call to `~.ScalarMappable.set_array`), at draw time a call to scalar
+        mappable will be made to set the face colors.
         """
         patches = list(patches)
         self._native = _collections.new_patch_collection([p._native for p in patches],
@@ -1666,8 +1986,6 @@ class PatchCollection(Collection):
             super().__init__(**kwargs)
 
     def set_paths(self, patches):
-        """Set the paths from the outlines of *patches*, transformed as each
-        patch draws (matplotlib's ``get_transform().transform_path``)."""
         _collections.set_paths(self._native, [
             p.get_transform().transform_path(p.get_path()) for p in patches])
 
@@ -1816,27 +2134,6 @@ class _MeshData:
         return array.reshape(rows, columns) if array.size == rows * columns else array
 
     def set_array(self, A):
-        """
-        Set the data values.
-
-        Parameters
-        ----------
-        A : array-like
-            The mesh data. Supported array shapes are:
-
-            - (M, N) or (M*N,): a mesh with scalar data. The values are mapped to
-              colors using normalization and a colormap. See parameters *norm*,
-              *cmap*, *vmin*, *vmax*.
-            - (M, N, 3): an image with RGB values (0-1 float or 0-255 int).
-            - (M, N, 4): an image with RGBA values (0-1 float or 0-255 int),
-              i.e. including transparency.
-
-            If the values are provided as a 2D grid, the shape must match the
-            coordinates grid. If the values are 1D, they are reshaped to 2D.
-            M, N follow from the coordinates grid, where the coordinates grid
-            shape is (M, N) for 'gouraud' *shading* and (M+1, N+1) for 'flat'
-            shading.
-        """
         height, width = self.get_coordinates().shape[0:-1]
         h, w = self._cells()
         ok_shapes = [(h, w, 3), (h, w, 4), (h, w), (h * w,)]
@@ -1859,31 +2156,41 @@ class _MeshData:
 
 
 class QuadMesh(_MeshData, Collection):
-    """
+    r"""
     Class for the efficient drawing of a quadrilateral mesh.
 
     A quadrilateral mesh is a grid of M by N adjacent quadrilaterals that are
     defined via a (M+1, N+1) grid of vertices. The quadrilateral (m, n) is
-    defined by the vertices ``(m, n)``, ``(m, n+1)``, ``(m+1, n+1)`` and
-    ``(m+1, n)``. The mesh need not be regular and the polygons need not be
-    convex.
+    defined by the vertices ::
+
+               (m+1, n) ----------- (m+1, n+1)
+                  /                   /
+                 /                 /
+                /               /
+            (m, n) -------- (m, n+1)
+
+    The mesh need not be regular and the polygons need not be convex.
+
+    Parameters
+    ----------
+    coordinates : (M+1, N+1, 2) array-like
+        The vertices. ``coordinates[m, n]`` specifies the (x, y) coordinates
+        of vertex (m, n).
+
+    antialiased : bool, default: True
+
+    shading : {'flat', 'gouraud'}, default: 'flat'
+
+    Notes
+    -----
+    Unlike other `.Collection`\s, the default *pickradius* of `.QuadMesh` is 0,
+    i.e. `~.Artist.contains` checks whether the test point is within any of the
+    mesh quadrilaterals.
+
     """
 
     def __init__(self, coordinates, *, antialiased=True, shading='flat',
                  **kwargs):
-        """
-        Parameters
-        ----------
-        coordinates : (M+1, N+1, 2) array-like
-            The vertices. ``coordinates[m, n]`` specifies the (x, y)
-            coordinates of vertex (m, n).
-        antialiased : bool, default: True
-            Whether the mesh is drawn antialiased.
-        shading : {'flat', 'gouraud'}, default: 'flat'
-            One colour per cell, or colours interpolated from the vertices.
-        **kwargs
-            Forwarded to `.Collection`.
-        """
         kwargs.setdefault("pickradius", 0)
         _api.check_shape((None, None, 2), coordinates=coordinates)
         self._native = _collections.new_quad_mesh(
@@ -1908,21 +2215,17 @@ class QuadMesh(_MeshData, Collection):
             self._A = kept
 
     def set_paths(self):
-        """Make the paths of the mesh's quadrilaterals from its coordinates
-        anew (pltrs (Rust) makes them from the coordinates whenever they
-        are read)."""
+        # Make the paths of the mesh's quadrilaterals from its coordinates
+        # anew (pltrs (Rust) makes them from the coordinates whenever they are
+        # read).
         self.stale = True
 
     def get_datalim(self, transData):
-        """The box of the mesh's coordinates in the coordinates of
-        *transData* (matplotlib's, from its ``_bbox``)."""
         bbox = mtransforms.Bbox.unit()
         bbox.update_from_data_xy(self.get_coordinates().reshape(-1, 2))
         return (self.get_transform() - transData).transform_bbox(bbox)
 
     def get_cursor_data(self, event):
-        """The values of the cells under the event position, None outside
-        the mesh or when it maps no values."""
         contained, info = self.contains(event)
         if contained and self.get_array() is not None:
             return self.get_array().ravel()[info["ind"]]
@@ -1964,8 +2267,35 @@ class QuadMesh(_MeshData, Collection):
 
 class PolyQuadMesh(_MeshData, PolyCollection):
     """
-    Class for drawing a quadrilateral mesh as individual Polygons (as
-    `~.Axes.pcolor` makes).
+    Class for drawing a quadrilateral mesh as individual Polygons.
+
+    A quadrilateral mesh is a grid of M by N adjacent quadrilaterals that are
+    defined via a (M+1, N+1) grid of vertices. The quadrilateral (m, n) is
+    defined by the vertices ::
+
+               (m+1, n) ----------- (m+1, n+1)
+                  /                   /
+                 /                 /
+                /               /
+            (m, n) -------- (m, n+1)
+
+    The mesh need not be regular and the polygons need not be convex.
+
+    Parameters
+    ----------
+    coordinates : (M+1, N+1, 2) array-like
+        The vertices. ``coordinates[m, n]`` specifies the (x, y) coordinates
+        of vertex (m, n).
+
+    Notes
+    -----
+    Unlike `.QuadMesh`, this class will draw each cell as an individual Polygon.
+    This is significantly slower, but allows for more flexibility when wanting
+    to add additional properties to the cells, such as hatching.
+
+    Another difference from `.QuadMesh` is that if any of the vertices or data
+    of a cell are masked, that Polygon will **not** be drawn and it won't be in
+    the list of paths returned.
     """
 
     def _keep_given_array(self, given):

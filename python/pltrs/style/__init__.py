@@ -82,8 +82,10 @@ def use(style):
 
     Notes
     -----
-    The `.rcParams` of ``STYLE_BLACKLIST`` are not related to style and
-    are ignored if found in a style specification.
+    The following `.rcParams` are not related to style and will be ignored if
+    found in a style specification:
+
+    %s
     """
     if isinstance(style, (str, Path)) or hasattr(style, 'keys'):
         # If name is a single str, Path or dict, make it a single element list.
@@ -147,7 +149,31 @@ def context(style, after_reset=False):
     Parameters
     ----------
     style : str, dict, Path or list
-        A style specification (see `use`).
+        A style specification. Valid options are:
+
+        str
+            - One of the style names in `.style.available` (a builtin style or
+              a style installed in the user library path).
+
+            - A dotted name of the form "package.style_name"; in that case,
+              "package" should be an importable Python package name, e.g. at
+              ``/path/to/package/__init__.py``; the loaded style file is
+              ``/path/to/package/style_name.mplstyle``.  (Style files in
+              subpackages are likewise supported.)
+
+            - The path or URL to a style file, which gets loaded by
+              `.rc_params_from_file`.
+        dict
+            A mapping of key/value pairs for `matplotlib.rcParams`.
+
+        Path
+            The path to a style file, which gets loaded by
+            `.rc_params_from_file`.
+
+        list
+            A list of style specifiers (str, Path or dict), which are applied
+            from first to last in the list.
+
     after_reset : bool
         If True, apply style after resetting settings to their defaults;
         otherwise, apply style on top of the current settings.
@@ -198,19 +224,16 @@ def _update_nested_dict(main_dict, new_dict, empty=RcParams):
 
 @_api.deprecated("3.11")
 def update_user_library(library):
-    """Update style library with user-defined rc files."""
     return _update_user_library(library)
 
 
 @_api.deprecated("3.11")
 def read_style_directory(style_dir):
-    """Return dictionary of styles defined in *style_dir*."""
     return _read_style_directory(style_dir)
 
 
 @_api.deprecated("3.11")
 def update_nested_dict(main_dict, new_dict):
-    """Update nested dict (only level of nesting) with new values."""
     return _update_nested_dict(main_dict, new_dict, dict)
 
 

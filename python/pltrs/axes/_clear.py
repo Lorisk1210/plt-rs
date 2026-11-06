@@ -126,14 +126,11 @@ class ClearMixin:
 
     @property
     def artists(self):
-        """The artists of the Axes that are no line, patch, collection,
-        text, image or table, in the order they were added."""
         return ArtistList._of("artists", lambda: [
             _handles.wrap_any(native, self.figure)
             for native in _axes.artists(self._native)])
 
     def get_children(self):
-        """Return a list of the child `.Artist`\\s of this `.Artist`."""
         return [
             *self._children,
             *self.spines.values(),

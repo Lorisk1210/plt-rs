@@ -1082,11 +1082,9 @@ def _gridlines_choice(value, names):
 
 
 class GridlinesCollection(LineCollection):
-    """
-    Collection of grid lines: the lines given to it. The gridlines of an
-    axes drawn by axis artists are drawn by pltrs (Rust) through the axes'
-    grid helper (``ax.grid()`` styles them).
-    """
+    # Collection of grid lines: the lines given to it. The gridlines of an
+    # axes drawn by axis artists are drawn by pltrs (Rust) through the axes'
+    # grid helper (``ax.grid()`` styles them).
 
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
@@ -1483,9 +1481,9 @@ class AxisArtist(martist.Artist):
         self.label.set_text(s)
 
     def get_tightbbox(self, renderer=None):
-        """Return the box of what the axis artist draws (its tick labels,
-        label, offset text and line), None when it is hidden or draws
-        nothing, as matplotlib's (pltrs (Rust) lays the parts out)."""
+        # Return the box of what the axis artist draws (its tick labels,
+        # label, offset text and line), None when it is hidden or draws
+        # nothing, as matplotlib's (pltrs (Rust) lays the parts out).
         if not self.get_visible():
             return None
         if renderer is None:

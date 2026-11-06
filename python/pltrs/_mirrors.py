@@ -146,8 +146,17 @@ def pushing(cls):
     for name in dir(cls):
         method = getattr(cls, name) if name.startswith("set_") else None
         if callable(method) and not getattr(method, "_pushes", False):
-            setattr(cls, name, _pushing(method))
+            _replace(cls, name, _pushing(method))
     return cls
+
+
+def _replace(cls, name, wrapper):
+    """Make *wrapper* the method *name* of *cls*, named as one of *cls*'s
+    own, so that ``inspect.getdoc`` finds the docstring its bases give a
+    method without one of its own, as for the method it wraps."""
+    wrapper.__qualname__ = f"{cls.__qualname__}.{name}"
+    wrapper.__module__ = cls.__module__
+    setattr(cls, name, wrapper)
 
 
 def _asking(method, question):
@@ -179,17 +188,14 @@ def mirrorable(cls):
     whether a point is over it are asked of the part."""
     pushing(cls)
     for name in getattr(cls, "_refreshed_getters", ()):
-        setattr(cls, name, _refreshing(getattr(cls, name)))
-    cls.get_window_extent = _asking(cls.get_window_extent, "window_extent")
-    cls.get_tightbbox = _asking(cls.get_tightbbox, "tight_box")
-    cls.get_figure = _asking(cls.get_figure, "figure")
-    cls.get_transform = _asking(cls.get_transform, "transform")
-    cls.is_transform_set = _asking(cls.is_transform_set, "transform_set")
-    cls.contains = _asking(cls.contains, "contains")
-    if hasattr(cls, "contains_point"):
-        cls.contains_point = _asking(cls.contains_point, "contains_point")
-    if hasattr(cls, "get_path"):
-        cls.get_path = _asking(cls.get_path, "path")
+        _replace(cls, name, _refreshing(getattr(cls, name)))
+    questions = {"get_window_extent": "window_extent", "get_tightbbox": "tight_box",
+                 "get_figure": "figure", "get_transform": "transform",
+                 "is_transform_set": "transform_set", "contains": "contains",
+                 "contains_point": "contains_point", "get_path": "path"}
+    for name, question in questions.items():
+        if hasattr(cls, name):
+            _replace(cls, name, _asking(getattr(cls, name), question))
     return cls
 
 

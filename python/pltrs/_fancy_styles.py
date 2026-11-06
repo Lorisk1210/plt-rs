@@ -91,7 +91,7 @@ class FancyStylesMixin:
 
     def set_mutation_aspect(self, aspect):
         """
-        Set the aspect ratio of the mutation.
+        Set the aspect ratio of the bbox mutation.
 
         Parameters
         ----------
@@ -102,6 +102,6 @@ class FancyStylesMixin:
         self.stale = True
 
     def get_mutation_aspect(self):
-        """Return the aspect ratio of the mutation."""
+        """Return the aspect ratio of the bbox mutation."""
         aspect = _unusable.kept(self, "mutation_aspect", None)
         return self._mutation(1) if aspect is None else aspect

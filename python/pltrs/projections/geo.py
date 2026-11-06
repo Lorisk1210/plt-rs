@@ -276,7 +276,6 @@ class GeoAxes(Axes):
 
 
 class AitoffAxes(GeoAxes):
-    """The Aitoff projection of longitudes and latitudes."""
     name = 'aitoff'
 
     AitoffTransform, InvertedAitoffTransform = _transform_pair(
@@ -288,7 +287,6 @@ class AitoffAxes(GeoAxes):
 
 
 class HammerAxes(GeoAxes):
-    """The Hammer projection of longitudes and latitudes."""
     name = 'hammer'
 
     HammerTransform, InvertedHammerTransform = _transform_pair(
@@ -300,7 +298,6 @@ class HammerAxes(GeoAxes):
 
 
 class MollweideAxes(GeoAxes):
-    """The Mollweide projection of longitudes and latitudes."""
     name = 'mollweide'
 
     MollweideTransform, InvertedMollweideTransform = _transform_pair(
@@ -312,8 +309,6 @@ class MollweideAxes(GeoAxes):
 
 
 class LambertAxes(GeoAxes):
-    """The Lambert azimuthal equal-area projection of longitudes and
-    latitudes."""
     name = 'lambert'
 
     _LambertBase, _InvertedLambertBase = _transform_pair(
@@ -325,9 +320,9 @@ class LambertAxes(GeoAxes):
 
         def __init__(self, center_longitude, center_latitude, resolution):
             """
-            Create a new Lambert transform.  Resolution is the number of
-            steps to interpolate between each input line segment to
-            approximate its path in curved Lambert space.
+            Create a new Lambert transform.  Resolution is the number of steps
+            to interpolate between each input line segment to approximate its
+            path in curved Lambert space.
             """
             super().__init__(resolution)
             self._center = (float(center_longitude), float(center_latitude))
@@ -338,8 +333,6 @@ class LambertAxes(GeoAxes):
                 *self._center, self._resolution)
 
     class InvertedLambertTransform(_InvertedLambertBase):
-        """The inverse of the Lambert transform."""
-
         def __init__(self, center_longitude, center_latitude, resolution):
             super().__init__(resolution)
             self._center = (float(center_longitude), float(center_latitude))

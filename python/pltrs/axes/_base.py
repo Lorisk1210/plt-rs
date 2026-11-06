@@ -8,7 +8,9 @@ Ready-made artists join an axes here (``add_artist``, ``add_line``,
 that name adds it (`.Artist._add_to_axes`, `.._handles.adopt`).
 """
 
-from .. import _api, _artist_clipping, _handles, _values, cbook
+import textwrap
+
+from .. import _api, _artist_clipping, _handles, _values, cbook, colorizer as mcolorizer
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
 from ..artist import Artist
@@ -24,7 +26,7 @@ from ._navigation import NavigationMixin
 from ._projection import ProjectionMixin
 from ._sharing import SharedGroups
 from ._prop_cycles import PropCycleMixin
-from ._ticks import TicksMixin
+from ._ticks import TicksMixin, _axis_method_wrapper
 from ._units import UnitsMixin
 from ..transforms import Bbox
 
@@ -43,12 +45,17 @@ class _SharedAxes(SharedGroups):
                                  type(a), a.figure)
 
 
+@_api.define_aliases({"facecolor": ["fc"]})
 class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
                 LimitsMixin, DecorationsMixin, AspectMixin, LayoutMixin,
                 UnitsMixin, BlittingMixin, ProjectionMixin, PropCycleMixin,
                 Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
+
+    def set_figure(self, fig):
+        # docstring inherited: matplotlib's override has none.
+        super().set_figure(fig)
 
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}
@@ -205,6 +212,7 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         Returns
         -------
         `.Bbox`
+
         """
         if not original and self.get_axes_locator():
             # Only drawing places an axes with a locator, and applies its
@@ -234,6 +242,20 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
 
         which : {'both', 'active', 'original'}, default: 'both'
             Determines which position variables to change.
+
+            .. note::
+                This parameter is considered internal. End users should not use it.
+
+                For native Matplotlib `.Axes`, the active position is
+                determined by a combination of the original position and the
+                aspect ratio.  Any active position set by the user will therefore be
+                overwritten by internal handling.  This option is retained as it may be
+                relevant for some third party `.Axes` subclasses.
+
+        See Also
+        --------
+        matplotlib.transforms.Bbox.from_bounds
+        matplotlib.transforms.Bbox.from_extents
         """
         if not isinstance(pos, Bbox):
             pos = Bbox.from_bounds(*pos)
@@ -278,6 +300,21 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         native = _axes_base.shared_from(self._native, name)
         return None if native is None else _handles.wrap(native, type(self), self.figure)
 
+    def _sci(self, im):
+        """
+        Set the current image.
+
+        This image will be the target of colormap functions like
+        ``pyplot.viridis``, and other functions such as `~.pyplot.clim`.  The
+        current image is an attribute of the current Axes.
+        """
+        _api.check_isinstance(mcolorizer.ColorizingArtist, im=im)
+        self._current_image = im
+
+    def _gci(self):
+        """Helper for `~matplotlib.pyplot.gci`; do not use elsewhere."""
+        return getattr(self, '_current_image', None)
+
     @classmethod
     def get_shared_x_axes(cls):
         """Return an immutable view on the shared x-axes Grouper."""
@@ -288,85 +325,79 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         """Return an immutable view on the shared y-axes Grouper."""
         return cbook.GrouperView(cls._shared_axes["y"])
 
-    def get_xticks(self, *, minor=False):
-        """Return the xaxis' tick locations in data coordinates."""
-        return self.xaxis.get_ticklocs(minor=minor)
-
-    def set_xticks(self, ticks, labels=None, *, minor=False, **kwargs):
-        """Set the xaxis' tick locations and optionally tick labels
-        (`.Axis.set_ticks`)."""
-        return self.xaxis.set_ticks(ticks, labels, minor=minor, **kwargs)
-
-    def get_yticks(self, *, minor=False):
-        """Return the yaxis' tick locations in data coordinates."""
-        return self.yaxis.get_ticklocs(minor=minor)
-
-    def set_yticks(self, ticks, labels=None, *, minor=False, **kwargs):
-        """Set the yaxis' tick locations and optionally tick labels
-        (`.Axis.set_ticks`)."""
-        return self.yaxis.set_ticks(ticks, labels, minor=minor, **kwargs)
-
-    def set_xticklabels(self, labels, *, minor=False, **kwargs):
-        """[*Discouraged*] Set the xaxis' labels with list of string labels
-        (`.Axis.set_ticklabels`)."""
-        return self.xaxis.set_ticklabels(labels, minor=minor, **kwargs)
-
-    def set_yticklabels(self, labels, *, minor=False, **kwargs):
-        """[*Discouraged*] Set the yaxis' labels with list of string labels
-        (`.Axis.set_ticklabels`)."""
-        return self.yaxis.set_ticklabels(labels, minor=minor, **kwargs)
-
     def invert_xaxis(self):
-        """[*Discouraged*] Invert the x-axis."""
+        """
+        [*Discouraged*] Invert the x-axis.
+
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged.
+            Use `.Axes.set_xinverted` instead.
+
+        See Also
+        --------
+        get_xinverted
+        get_xlim, set_xlim
+        get_xbound, set_xbound
+        """
         self.xaxis.set_inverted(not self.xaxis.get_inverted())
 
-    def xaxis_inverted(self):
-        """Return whether the xaxis is oriented in the "inverse" direction."""
-        return self.xaxis.get_inverted()
+    xaxis_inverted = _axis_method_wrapper("xaxis", "get_inverted")
+    if xaxis_inverted.__doc__:
+        xaxis_inverted.__doc__ = ("[*Discouraged*] " + xaxis_inverted.__doc__ +
+                                  textwrap.dedent("""
+
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged.
+            Use `.Axes.get_xinverted` instead.
+        """))
+
+    get_xscale = _axis_method_wrapper("xaxis", "get_scale")
+    set_xscale = _axis_method_wrapper("xaxis", "_set_axes_scale")
+    get_xticks = _axis_method_wrapper("xaxis", "get_ticklocs")
+    set_xticks = _axis_method_wrapper("xaxis", "set_ticks",
+                                      doc_sub={'set_ticks': 'set_xticks'})
+    set_xticklabels = _axis_method_wrapper(
+        "xaxis", "set_ticklabels",
+        doc_sub={"Axis.set_ticks": "Axes.set_xticks"})
 
     def invert_yaxis(self):
-        """[*Discouraged*] Invert the y-axis."""
+        """
+        [*Discouraged*]  Invert the y-axis.
+
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged.
+            Use `.Axes.set_yinverted` instead.
+
+        See Also
+        --------
+        get_yinverted
+        get_ylim, set_ylim
+        get_ybound, set_ybound
+        """
         self.yaxis.set_inverted(not self.yaxis.get_inverted())
 
-    def yaxis_inverted(self):
-        """Return whether the yaxis is oriented in the "inverse" direction."""
-        return self.yaxis.get_inverted()
+    yaxis_inverted = _axis_method_wrapper("yaxis", "get_inverted")
+    if yaxis_inverted.__doc__:
+        yaxis_inverted.__doc__ = ("[*Discouraged*] " + yaxis_inverted.__doc__ +
+                                  textwrap.dedent("""
 
-    def set_xscale(self, value, **kwargs):
-        """
-        Set the xaxis' scale.
+        .. admonition:: Discouraged
 
-        Parameters
-        ----------
-        value : str
-            The axis scale type to apply: "linear", "log", "symlog", "logit",
-            "asinh" or "function".
-        **kwargs
-            Keyword arguments of the scale class.
-        """
-        self.xaxis._set_axes_scale(value, **kwargs)
+            The use of this method is discouraged.
+            Use `.Axes.get_yinverted` instead.
+        """))
 
-    def get_xscale(self):
-        """Return the xaxis' scale (as a str)."""
-        return _axes_base.get_scale(self._native, "x")
-
-    def set_yscale(self, value, **kwargs):
-        """
-        Set the yaxis' scale.
-
-        Parameters
-        ----------
-        value : str
-            The axis scale type to apply: "linear", "log", "symlog", "logit",
-            "asinh" or "function".
-        **kwargs
-            Keyword arguments of the scale class.
-        """
-        self.yaxis._set_axes_scale(value, **kwargs)
-
-    def get_yscale(self):
-        """Return the yaxis' scale (as a str)."""
-        return _axes_base.get_scale(self._native, "y")
+    get_yscale = _axis_method_wrapper("yaxis", "get_scale")
+    set_yscale = _axis_method_wrapper("yaxis", "_set_axes_scale")
+    get_yticks = _axis_method_wrapper("yaxis", "get_ticklocs")
+    set_yticks = _axis_method_wrapper("yaxis", "set_ticks",
+                                      doc_sub={'set_ticks': 'set_yticks'})
+    set_yticklabels = _axis_method_wrapper(
+        "yaxis", "set_ticklabels",
+        doc_sub={"Axis.set_ticks": "Axes.set_yticks"})
 
     def set_facecolor(self, color):
         """
@@ -384,9 +415,6 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         """Get the facecolor of the Axes."""
         return self.patch.get_facecolor()
 
-    set_fc = set_facecolor
-    get_fc = get_facecolor
-
     def label_outer(self, remove_inner_ticks=False):
         """
         Only show "outer" labels and tick labels.
@@ -399,6 +427,8 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         ----------
         remove_inner_ticks : bool, default: False
             If True, remove the inner ticks as well (not only tick labels).
+
+            .. versionadded:: 3.8
         """
         _axes_base.label_outer(self._native, bool(remove_inner_ticks))
 
@@ -430,9 +460,42 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         with the original `cycler.cycler` interface. Its use is discouraged
         in favor of the kwarg form, i.e. ``set_prop_cycle(label=values)``.
 
-        Passing ``None`` resets the cycle to :rc:`axes.prop_cycle`.
+        Parameters
+        ----------
+        cycler : `~cycler.Cycler` or ``None``
+            Set the given Cycler. *None* resets to the cycle defined by the
+            current style.
 
-        ACCEPTS: `~cycler.Cycler`
+            .. ACCEPTS: `~cycler.Cycler`
+
+        label : str
+            The property key. Must be a valid `.Artist` property.
+            For example, 'color' or 'linestyle'. Aliases are allowed,
+            such as 'c' for 'color' and 'lw' for 'linewidth'.
+
+        values : iterable
+            Finite-length iterable of the property values. These values
+            are validated and will raise a ValueError if invalid.
+
+        See Also
+        --------
+        matplotlib.rcsetup.cycler
+            Convenience function for creating validated cyclers for properties.
+        cycler.cycler
+            The original function for creating unvalidated cyclers.
+
+        Examples
+        --------
+        Setting the property cycle for a single property:
+
+        >>> ax.set_prop_cycle(color=['red', 'green', 'blue'])
+
+        Setting the property cycle for simultaneously cycling over multiple
+        properties (e.g. red circle, green plus, blue cross):
+
+        >>> ax.set_prop_cycle(color=['red', 'green', 'blue'],
+        ...                   marker=['o', '+', 'x'])
+
         """
         if args and kwargs:
             raise TypeError("Cannot supply both positional and keyword "
@@ -476,26 +539,40 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         Create a new Axes with an invisible x-axis and an independent
         y-axis positioned opposite to the original one (i.e. at right). The
         x-axis autoscale setting will be inherited from the original
-        Axes.
+        Axes.  To ensure that the tick marks of both y-axes align, see
+        `~matplotlib.ticker.LinearLocator`.
 
         Parameters
         ----------
         axes_class : subclass type of `~.axes.Axes`, optional
             The `.axes.Axes` subclass that is instantiated.  This parameter
-            is incompatible with *projection* and *polar*.
+            is incompatible with *projection* and *polar*.  See
+            :ref:`axisartist_users-guide-index` for examples.
 
             By default, `~.axes.Axes` is used.
+
+            .. versionadded:: 3.11
+
         delta_zorder : float, default: 0
             A zorder offset for the twin Axes, relative to the original Axes.
             The twin's zorder is set to ``self.get_zorder() + delta_zorder``.
+            By default (*delta_zorder* is 0), the twin has the same zorder as
+            the original Axes.
+
         kwargs : dict
-            The keyword arguments passed to `.Figure.add_subplot` or
-            `.Figure.add_axes`.
+            The keyword arguments passed to `.Figure.add_subplot` or `.Figure.add_axes`.
+
+            .. versionadded:: 3.11
 
         Returns
         -------
         Axes
             The newly created Axes instance
+
+        Notes
+        -----
+        For those who are 'picking' artists while using twinx, pick
+        events are only called for the artists in the top-most Axes.
         """
         return self._make_twin_axes("x", axes_class, delta_zorder, kwargs)
 
@@ -506,38 +583,44 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         Create a new Axes with an invisible y-axis and an independent
         x-axis positioned opposite to the original one (i.e. at top). The
         y-axis autoscale setting will be inherited from the original Axes.
+        To ensure that the tick marks of both x-axes align, see
+        `~matplotlib.ticker.LinearLocator`.
 
         Parameters
         ----------
         axes_class : subclass type of `~.axes.Axes`, optional
             The `.axes.Axes` subclass that is instantiated.  This parameter
-            is incompatible with *projection* and *polar*.
+            is incompatible with *projection* and *polar*.  See
+            :ref:`axisartist_users-guide-index` for examples.
 
             By default, `~.axes.Axes` is used.
+
+            .. versionadded:: 3.11
+
         delta_zorder : float, default: 0
             A zorder offset for the twin Axes, relative to the original Axes.
             The twin's zorder is set to ``self.get_zorder() + delta_zorder``.
+            By default (*delta_zorder* is 0), the twin has the same zorder as
+            the original Axes.
+
         kwargs : dict
-            The keyword arguments passed to `.Figure.add_subplot` or
-            `.Figure.add_axes`.
+            The keyword arguments passed to `.Figure.add_subplot` or `.Figure.add_axes`.
+
+            .. versionadded:: 3.11
 
         Returns
         -------
         Axes
             The newly created Axes instance
+
+        Notes
+        -----
+        For those who are 'picking' artists while using twiny, pick
+        events are only called for the artists in the top-most Axes.
         """
         return self._make_twin_axes("y", axes_class, delta_zorder, kwargs)
 
     def set_zorder(self, level):
-        """
-        Set the zorder for the artist.  Artists with lower zorder
-        values are drawn first; of twinned Axes, the bottom-most draws the
-        background.
-
-        Parameters
-        ----------
-        level : float
-        """
         super().set_zorder(level)
         _axes_base.update_twinned_patch_visibility(self._native)
 
@@ -567,33 +650,61 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         collection : `.Collection`
             The collection to add.
         autolim : bool
-            Whether to update data and view limits. If *False*, the
-            collection does not take part in any limit operations.
+            Whether to update data and view limits.
+
+            If *False*, the collection does not take part in any limit
+            operations.
+
+            .. versionchanged:: 3.11
+
+               Since 3.11 ``autolim=True`` matches the standard behavior
+               of other ``add_[artist]`` methods: Axes data and view limits
+               are both updated in the method, and the collection will
+               be considered in future data limit updates through
+               `.relim`.
+
+               Prior to matplotlib 3.11 this was only a one-time update
+               of the data limits. Updating view limits required an
+               explicit call to `~.Axes.autoscale_view`, and collections
+               did not take part in `.relim`.
+
+            As an implementation detail, the value "_datalim_only" is
+            supported to smooth the internal transition from pre-3.11
+            behavior. This is not a public interface and will be removed
+            again in the future.
         """
         from ..collections import Collection
         _api.check_isinstance(Collection, collection=collection)
         return collection._add_to_axes(self, "collection", autolim)
 
     def add_image(self, image):
-        """Add an `.AxesImage` to the Axes; return the image."""
+        """
+        Add an `.AxesImage` to the Axes; return the image.
+        """
         from ..image import AxesImage
         _api.check_isinstance(AxesImage, image=image)
         return image._add_to_axes(self, "image")
 
     def add_line(self, line):
-        """Add a `.Line2D` to the Axes; return the line."""
+        """
+        Add a `.Line2D` to the Axes; return the line.
+        """
         from ..lines import Line2D
         _api.check_isinstance(Line2D, line=line)
         return line._add_to_axes(self, "line")
 
     def add_patch(self, p):
-        """Add a `.Patch` to the Axes; return the patch."""
+        """
+        Add a `.Patch` to the Axes; return the patch.
+        """
         from ..patches import Patch
         _api.check_isinstance(Patch, p=p)
         return p._add_to_axes(self, "patch")
 
     def add_table(self, tab):
-        """Add a `.Table` to the Axes; return the table."""
+        """
+        Add a `.Table` to the Axes; return the table.
+        """
         from ..table import Table
         _api.check_isinstance(Table, tab=tab)
         added = tab._add_to_axes(self, "artist")

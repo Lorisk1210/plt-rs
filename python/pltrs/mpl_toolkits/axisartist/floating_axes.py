@@ -194,7 +194,6 @@ class FloatingAxesBase:
         self._load_axislines()
 
     def adjust_axes_lim(self):
-        """Fit the limits around the range the axes shows."""
         _axisartist.adjust_floating_lim(self._native)
 
 

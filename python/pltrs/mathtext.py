@@ -37,8 +37,6 @@ def _rc(name):
 
 
 class MathTextParser:
-    """Parse math expressions and return their layout."""
-
     _font_type_mapping = {
         'cm':          _mathtext.BakomaFonts,
         'dejavuserif': _mathtext.DejaVuSerifFonts,

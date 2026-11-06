@@ -19,6 +19,7 @@ import zoneinfo
 
 from dateutil.relativedelta import relativedelta
 from dateutil.rrule import MO, TU, WE, TH, FR, SA, SU  # noqa: F401  (`.dates` has them)
+from dateutil.rrule import weekday
 import numpy as np
 
 from . import _api, ticker

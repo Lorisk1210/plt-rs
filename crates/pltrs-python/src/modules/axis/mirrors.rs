@@ -131,7 +131,8 @@ fn sync_label(
     } else {
         style.labels.second
     })
-    .set_in_layout(style.label_in_layout);
+    .set_in_layout(style.label_in_layout)
+    .set_bbox_patch(style.label_bbox.clone());
     match &style.label_url {
         Some(url) => text.set_url(url.clone()),
         None => text.clear_url(),
@@ -395,6 +396,7 @@ pub(super) fn label_props(
         label1_visible,
         label2_visible,
         across: None,
+        bbox: own(text.bbox_patch(), &level.label_bbox).flatten(),
     }
 }
 

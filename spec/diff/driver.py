@@ -1,6 +1,6 @@
 """The differential tester: programs run under matplotlib and pltrs, compared.
 
-    python driver.py [--suite gallery|generated|all] [PATTERN...] [--jobs N]
+    python driver.py [--suite gallery|generated|all|corpus] [PATTERN...] [--jobs N]
                      [--failures] [--reduce] [--baseline REPORT]
 
 ``cargo xtask diff`` runs this in the reference venv (after building
@@ -9,14 +9,17 @@ venv's interpreter. It
 
 1. collects the programs: matplotlib's gallery (``--gallery``, the
    sdist's ``galleries/``) and the generated programs (``generate.py``
-   writes them under ``OUT/programs``);
+   writes them under ``OUT/programs``), or (``--suite corpus``) the
+   programs of the corpora of ``corpora.toml``, which ``corpora.py``
+   fetches into ``OUT/corpora`` (the corpora a PATTERN names, or all);
 2. runs each under both implementations (``trace.py``), the reference
    runs cached by the program's text (``OUT/runs/<program>/mpl``);
 3. compares them (``compare.py``), drops the differences the allowlist
    (``allowlist.txt``) proves intended, and groups the rest by cause;
 4. writes ``OUT/report.json`` (every difference) and ``OUT/report.md``
    (the groups, the biggest first, each with its smallest reproduction,
-   and the gallery examples that fail, with their causes), and prints the
+   the programs of the gallery and the corpora that fail, with their
+   causes, and each corpus' programs and clean ones), and prints the
    groups' counts; ``--baseline`` adds the counts of an earlier report.
 
 A program matplotlib itself cannot run here (a GUI toolkit, a network
@@ -44,6 +47,7 @@ from typing import Any
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import compare  # noqa: E402
+import corpora  # noqa: E402
 
 #: Seconds a program may run under one implementation.
 TIMEOUT = 300
@@ -61,10 +65,15 @@ class Setup:
         self.pltrs_python = args.pltrs_python
         self.mpl_python = sys.executable
 
-    def command(self, impl: str, mode: str, program: pathlib.Path, out: pathlib.Path) -> list[str]:
-        """The command tracing *program* under *impl* into *out*."""
+    def command(self, impl: str, program: Program, out: pathlib.Path) -> list[str]:
+        """The command tracing *program* under *impl* into *out* (a corpus'
+        program in the copy of its tree laid out there)."""
         python = self.mpl_python if impl == "matplotlib" else self.pltrs_python
-        return [python, str(HERE / "trace.py"), "--impl", impl, "--mode", mode, str(program), str(out)]
+        command = [python, str(HERE / "trace.py"), "--impl", impl, "--mode", program.mode]
+        if program.corpus is None:
+            return [*command, str(program.path), str(out)]
+        tree = out / "tree"
+        return [*command, "--in-tree", str(tree), str(program.corpus.lay_out(tree)), str(out)]
 
     def environment(self, impl: str) -> dict[str, str]:
         """The environment of a run under *impl*."""
@@ -77,24 +86,36 @@ class Setup:
         env["PYTHONHASHSEED"] = "0"
         if impl == "pltrs":
             env["PLTRS_LOOK"] = "matplotlib"
-            env["PYTHONPATH"] = str(self.root / "python")
+            # pltrs, and the `matplotlib` distribution's aliases of it, so
+            # that the libraries a program plots through (pandas) get pltrs
+            # where they import matplotlib, as they do where it is installed
+            # as matplotlib.
+            env["PYTHONPATH"] = os.pathsep.join(str(self.root / "python" / part) for part in ("", "alias"))
         return env
 
 
 class Program:
     """One program of the run."""
 
-    def __init__(self, name: str, path: pathlib.Path, mode: str) -> None:
+    def __init__(self, name: str, path: pathlib.Path, mode: str,
+                 corpus: corpora.CorpusProgram | None = None) -> None:
         self.name = name
         self.path = path
         self.mode = mode
+        self.corpus = corpus
+
+    @classmethod
+    def of_corpus(cls, program: corpora.CorpusProgram) -> Program:
+        """A program of a corpus."""
+        return cls(program.name, program.path, program.mode, program)
 
     @property
     def digest(self) -> str:
-        """What the reference run depends on: the program, its mode and the
-        tester's harness."""
-        harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py"))
-        return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + harness).hexdigest()[:16]
+        """What the reference run depends on: the program, its mode, its
+        corpus' tree and the tester's harness."""
+        harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
+        tree = self.corpus.corpus.sha256.encode() if self.corpus else b""
+        return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness).hexdigest()[:16]
 
     def directory(self, setup: Setup) -> pathlib.Path:
         """Where the runs of the program go."""
@@ -122,13 +143,21 @@ def generated_programs(setup: Setup) -> list[Program]:
     ]
 
 
+def corpus_programs(setup: Setup, patterns: list[str]) -> list[Program]:
+    """The programs of the corpora: of those a pattern names, or of all."""
+    every = corpora.load()
+    named = [corpus for corpus in every if any(corpus.name in pattern for pattern in patterns)]
+    return [Program.of_corpus(program) for corpus in named or every
+            for program in corpora.programs(corpus, setup.out)]
+
+
 def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[str, Any] | None:
     """The record of one run, or None with the reason in ``out/failure``."""
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
     try:
-        done = subprocess.run(setup.command(impl, program.mode, program.path, out), env=setup.environment(impl),
+        done = subprocess.run(setup.command(impl, program, out), env=setup.environment(impl),
                               capture_output=True, text=True, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         (out / "failure").write_text(f"timed out after {TIMEOUT} s")
@@ -163,6 +192,12 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
         return result
     if program.mode == "program" and mpl.get("uncaught") and _environmental(mpl["uncaught"]):
         result["skipped"] = f"{mpl['uncaught']['type']}: {mpl['uncaught']['message'][:200]}"
+        return result
+    lacking = [error for error in mpl["errors"] if _environmental(error)]
+    if program.mode == "cells" and lacking and not mpl["figures"]:
+        # A notebook whose figures all need what this machine lacks (a
+        # package its first cell imports, say) tests nothing.
+        result["skipped"] = f"{lacking[0]['type']}: {lacking[0]['message'][:200]}"
         return result
     pltrs = _run(setup, "pltrs", program, directory / "pltrs")
     if pltrs is None:
@@ -219,7 +254,7 @@ def _repro(difference: dict[str, Any]) -> str:
 
 
 def write_report(setup: Setup, results: list[dict[str, Any]], baseline: dict[str, int] | None,
-                 failures: bool) -> str:
+                 failures: bool, baseline_corpora: dict[str, dict[str, int]] | None = None) -> str:
     """Write ``report.md`` and ``report.json``; return the Markdown."""
     groups = _group(results)
     kinds = Counter(d["kind"] for found in groups.values() for d in found)
@@ -252,9 +287,17 @@ def write_report(setup: Setup, results: list[dict[str, Any]], baseline: dict[str
         if gone:
             lines += ["", "## Groups gone since the baseline", ""]
             lines += [f"* {cause} (before {baseline[cause]})" for cause in gone]
-    gallery = [r for r in ran if r["program"].startswith("gallery/") and r.get("differences")]
+    corpus_counts = _corpus_counts(results)
+    if corpus_counts:
+        lines += ["", "## Corpora (programs, ran under both, clean" + (", clean before" if baseline else "") + ")",
+                  ""]
+        for name, counts in corpus_counts.items():
+            before = (baseline_corpora or {}).get(name, {}).get("clean")
+            lines.append(f"* {name}: {counts['programs']}, {counts['ran']}, {counts['clean']}"
+                         + (f", before {before}" if before is not None else ""))
+    gallery = [r for r in ran if r["program"].startswith(("gallery/", "corpus/")) and r.get("differences")]
     if gallery:
-        lines += ["", "## Gallery examples with differences", ""]
+        lines += ["", "## Gallery examples and corpus programs with differences", ""]
         for result in gallery:
             causes = Counter(d["cause"] for d in result["differences"])
             lines.append(f"* {result['program']}: " + "; ".join(
@@ -267,16 +310,30 @@ def write_report(setup: Setup, results: list[dict[str, Any]], baseline: dict[str
     (setup.out / "report.md").write_text(report)
     (setup.out / "report.json").write_text(json.dumps({
         "groups": {cause: len(found) for cause, found in groups.items()},
+        "corpora": corpus_counts,
         "results": results,
     }, indent=1))
     return report
+
+
+def _corpus_counts(results: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Per corpus: its programs, those that ran under both, the clean ones."""
+    counts: dict[str, dict[str, int]] = {}
+    for result in results:
+        if result["program"].startswith("corpus/"):
+            entry = counts.setdefault(result["program"].split("/")[1], {"programs": 0, "ran": 0, "clean": 0})
+            entry["programs"] += 1
+            if "skipped" not in result:
+                entry["ran"] += 1
+                entry["clean"] += not result.get("differences")
+    return counts
 
 
 def main() -> int:
     """Run the programs, compare them and report."""
     parser = argparse.ArgumentParser()
     parser.add_argument("patterns", nargs="*")
-    parser.add_argument("--suite", choices=["gallery", "generated", "all"], default="all")
+    parser.add_argument("--suite", choices=["gallery", "generated", "all", "corpus"], default="all")
     parser.add_argument("--root", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--gallery", required=True)
@@ -296,6 +353,8 @@ def main() -> int:
         programs += gallery_programs(setup.gallery)
     if args.suite in ("generated", "all"):
         programs += generated_programs(setup)
+    if args.suite == "corpus":
+        programs += corpus_programs(setup, args.patterns)
     if args.patterns:
         programs = [p for p in programs if any(pattern in p.name for pattern in args.patterns)]
 
@@ -320,10 +379,11 @@ def main() -> int:
         for found in _group(results).values():
             reduce.reduce(setup, found[0], run_program)
 
-    baseline = None
+    baseline = baseline_corpora = None
     if args.baseline:
-        baseline = json.loads(pathlib.Path(args.baseline).read_text())["groups"]
-    report = write_report(setup, results, baseline, args.failures)
+        earlier = json.loads(pathlib.Path(args.baseline).read_text())
+        baseline, baseline_corpora = earlier["groups"], earlier.get("corpora")
+    report = write_report(setup, results, baseline, args.failures, baseline_corpora)
     print(report)
     return 0
 

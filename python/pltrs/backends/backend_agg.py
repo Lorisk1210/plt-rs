@@ -357,14 +357,19 @@ class FigureCanvasAgg(FigureCanvasBase):
                 else nullcontext())
 
     @contextmanager
-    def _printing(self):
+    def _printing(self, bbox_inches_restore=None):
         """Draw for a print as matplotlib's raster prints draw, through
         `FigureCanvasAgg.draw`: with the renderer drawing, under the
         toolbar's wait cursor (which a print does not show, its canvas
         having no manager meanwhile, but which times the cursor of the next
-        draw)."""
+        draw). A print of a part of the figure (*bbox_inches_restore*)
+        draws with a renderer of the part's size, which matplotlib's
+        canvas keeps in place of its renderer: the next draw of the whole
+        figure makes a new one."""
         with self._wait_cursor(), self.get_renderer()._drawing():
             yield
+        if bbox_inches_restore is not None:
+            self._lastKey = None
 
     def get_renderer(self):
         w, h = self.get_width_height(physical=True)
@@ -408,7 +413,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         elif fmt in _PILLOW_FORMATS or pil_kwargs:
             self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata)
             return
-        with self._printing():
+        with self._printing(self._print_area(None)):
             self._print_native(fmt, filename_or_obj, **settings)
 
     def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata):
@@ -417,7 +422,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         pixels using `.image.imsave` (to which *pil_kwargs* and *metadata*
         are forwarded), as matplotlib's ``_print_pil`` does.
         """
-        with self._printing():
+        with self._printing(self._print_area(None)):
             rgba = _backends.print_rgba(self.figure._native,
                                         self._print_settings(),
                                         self._draw_event_sender())
@@ -432,7 +437,7 @@ class FigureCanvasAgg(FigureCanvasBase):
     def print_raw(self, filename_or_obj, *, metadata=None):
         if metadata is not None:
             raise ValueError("metadata not supported for raw/rgba")
-        with self._printing():
+        with self._printing(self._print_area(None)):
             self._print_native("raw", filename_or_obj)
 
     print_rgba = print_raw

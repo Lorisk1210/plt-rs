@@ -461,7 +461,7 @@ impl FigureState {
             }
         }
         if matches!(preparation, Preparation::Drawing(_)) {
-            self.run_pending_layout();
+            crate::text::font_notes::layout_engine(|| self.run_pending_layout());
         } else {
             self.run_measured_layout();
         }

@@ -14,6 +14,7 @@ from . import _failed_calls
 from ._artist_list import ArtistList
 from ._base import _AxesBase
 from ..axis import XAxis, YAxis
+from ..legend import Legend
 from ._imaging import ImagingMixin
 from ._insets import InsetsMixin
 from ._plotting import PlottingMixin
@@ -202,7 +203,10 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         """
         from .. import legend as mlegend
         handles, labels, kwargs = mlegend._parse_legend_args([self], *args, **kwargs)
-        return mlegend.Legend(self, handles, labels, **kwargs)
+        legend = mlegend.Legend(self, handles, labels, **kwargs)
+        if isinstance(legend, Legend):  # (A program's stand-in is not drawn.)
+            self.legend_ = legend
+        return legend
 
 
 # matplotlib defines the methods of the mixins on Axes itself.

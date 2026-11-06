@@ -31,6 +31,19 @@ def _text_kwargs(fontdict, kwargs):
 
 
 
+def _init_added(text, properties):
+    """
+    Apply *properties* to the *text* just added, as matplotlib's
+    ``Text.__init__`` applies them before the text is added: a property
+    failing leaves no text.
+    """
+    try:
+        text._init_properties(properties)
+    except Exception:
+        text.remove()
+        raise
+
+
 def _in_data_units(axes, xy, coords):
     """
     The point *xy* of an annotation of *axes*, its values in units (not
@@ -94,7 +107,7 @@ class FigureText:
                                    '' if s is None else str(s))
         text = _handles.wrap(native, Text, self.figure)
         _remember_position(text, (x, y))
-        text._init_properties(_text_kwargs(fontdict, kwargs))
+        _init_added(text, _text_kwargs(fontdict, kwargs))
         return text
 
 
@@ -173,7 +186,7 @@ class AxesText:
                                  '' if s is None else str(s))
         text = _handles.wrap(native, Text, self.figure)
         _remember_position(text, (x, y))
-        text._init_properties(_text_kwargs(fontdict, kwargs))
+        _init_added(text, _text_kwargs(fontdict, kwargs))
         return text
 
     @_docstring.interpd

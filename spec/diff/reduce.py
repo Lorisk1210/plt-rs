@@ -7,7 +7,8 @@ imports and the statements defining the names that statement uses
 last first, as long as the cut program still shows a difference of the
 same cause under both implementations. The result goes into the
 difference as ``reduced``. Image differences are not reduced (every
-statement draws).
+statement draws), nor are those of the corpora's programs (they run in
+their trees).
 """
 
 from __future__ import annotations
@@ -56,7 +57,7 @@ def reduce(setup: Any, difference: dict[str, Any], run_program: Callable) -> Non
     """Reduce *difference* in place (its ``reduced`` program)."""
     from driver import Program
 
-    if difference["kind"] == "image" or difference.get("line") is None:
+    if difference["kind"] == "image" or difference.get("line") is None or difference["program"].startswith("corpus/"):
         return
     path = pathlib.Path(difference["program_path"]) if "program_path" in difference else None
     if path is None:

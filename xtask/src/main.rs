@@ -22,7 +22,7 @@
 //!                                                 notebooks executed in Jupyter under matplotlib and pltrs, compared
 //! cargo xtask notebooks suite [--reference] [PATTERN...] [--failures]
 //!                                                 IPython's, matplotlib-inline's and ipympl's own tests on pltrs (or matplotlib)
-//! cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict]]
+//! cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict]]
 //!                                                 programs run under matplotlib and pltrs (Python), compared
 //! ```
 #![forbid(unsafe_code)]
@@ -90,7 +90,7 @@ fn main() -> ExitCode {
             eprintln!("       cargo xtask notebooks [setup] [PATTERN...] [--failures]");
             eprintln!("       cargo xtask notebooks suite [--reference] [PATTERN...] [--failures]");
             eprintln!(
-                "       cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict]]"
+                "       cargo xtask diff [--gallery] [--generated] [--corpus [NAME...]] [PATTERN...] [--failures] [--reduce] [--baseline REPORT] [--coverage | --docs [--strict]]"
             );
             ExitCode::FAILURE
         }

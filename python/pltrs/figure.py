@@ -311,14 +311,20 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             _program_tick_params.apply(ax)
         # plt.subplot reuses an axes made with the same class and keywords.
         ax._projection_init = (projection_class, dict(kwargs))
-        for name in ("x", "y"):
-            other = kwargs.pop(f"share{name}", None)
-            if other is not None:
-                getattr(ax, f"share{name}")(other)
-        # The one keyword of Axes.__init__ whose setter has another name.
-        if not kwargs.pop("frameon", True):
-            ax._frameon = False
-        ax._internal_update(kwargs)
+        try:
+            for name in ("x", "y"):
+                other = kwargs.pop(f"share{name}", None)
+                if other is not None:
+                    getattr(ax, f"share{name}")(other)
+            # The one keyword of Axes.__init__ whose setter has another name.
+            if not kwargs.pop("frameon", True):
+                ax._frameon = False
+            ax._internal_update(kwargs)
+        except Exception:
+            # matplotlib's ``Axes.__init__`` fails before the figure adds
+            # the axes: none is left.
+            ax.remove()
+            raise
         # matplotlib's ``_add_axes_internal`` makes it current (``sca``).
         self._axes_changed()
         return ax

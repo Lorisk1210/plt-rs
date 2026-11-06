@@ -11,6 +11,7 @@ artists mirroring what pltrs (Rust) draws (`._axis_artists`).
 import datetime
 import functools
 import itertools
+import warnings
 
 import numpy as np
 
@@ -649,6 +650,12 @@ class Axis(DrawnWith, Artist):
             formatter = mticker.FuncFormatter(formatter)
         else:
             _api.check_isinstance(mticker.Formatter, formatter=formatter)
+        if isinstance(formatter, mticker.FixedFormatter) and len(formatter.seq) > 0:
+            locator = self.get_minor_locator() if minor else self.get_major_locator()
+            if not (isinstance(locator, mticker.FixedLocator)
+                    or isinstance(getattr(locator, 'base', None), mticker.FixedLocator)):
+                _api.warn_external('FixedFormatter should only be used together '
+                                   'with FixedLocator')
         formatter.set_axis(self)
         _tick_helpers.install(self, "formatter", minor, formatter)
         self.stale = True
@@ -911,6 +918,11 @@ class Axis(DrawnWith, Artist):
             scale = value
         else:
             scale = mscale.scale_factory(value, self, **kwargs)
+        shared = self._get_shared_axis()
+        for axis in shared:
+            # Given before pltrs (Rust) changes the scale: the transform
+            # trees it brings up to date after the change read it.
+            axis._given_scale = scale
         native = _native_scale_of(scale)
         if native is None:
             calls = _scale_calls.ScaleCalls(scale, scale.get_transform())
@@ -937,8 +949,7 @@ class Axis(DrawnWith, Artist):
             # updates call it.
             from . import _tick_updates
             _tick_updates.install(self.axes.figure)
-        for axis in self._get_shared_axis():
-            axis._given_scale = scale
+        for axis in shared:
             axis.axes._update_transScale()
 
     def get_transform(self):
@@ -1490,7 +1501,11 @@ class Axis(DrawnWith, Artist):
                 "ticks, i.e. after set_ticks() or using a FixedLocator. "
                 "Otherwise, ticks may be mislabeled.")
             formatter = mticker.FixedFormatter(labels)
-        self._set_formatter(formatter, minor=minor)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="FixedFormatter should only be used together with FixedLocator")
+            self._set_formatter(formatter, minor=minor)
         # matplotlib labels the ticks of the level as it returns them,
         # placing those of that level only, once.
         count = _axis.place_level(*self._args(), minor)

@@ -9,18 +9,19 @@ function here acts on `gcf` or `gca`, as matplotlib's does.
 # matplotlib's pyplot defers its annotations and exports both names.
 from __future__ import annotations
 
-from contextlib import ExitStack
+from contextlib import AbstractContextManager, ExitStack  # noqa: F401  (pyplot exports both)
+from enum import Enum  # noqa: F401  (pyplot exports it)
 import importlib
 import inspect
 import logging
-from typing import TYPE_CHECKING  # noqa: F401
+from typing import IO, TYPE_CHECKING, cast, overload  # noqa: F401  (pyplot exports them)
 
 from . import _docstring
 from . import _pylab_helpers, get_backend, rcParams, style  # noqa: F401  (matplotlib.style, as pyplot imports it)
-from . import _api, cbook, interactive, is_interactive, set_loglevel  # noqa: F401
-from . import (rc, rc_context, rcdefaults, rcParamsDefault,  # noqa: F401  (pyplot exports them)
-               rc_file_defaults)
-from . import image  # noqa: F401  (matplotlib.image, as pyplot imports it)
+from . import _api, cbook, interactive, set_loglevel  # noqa: F401
+from . import is_interactive as _is_interactive
+from . import rc, rc_context, rcdefaults, rcParamsDefault  # noqa: F401  (pyplot exports them)
+from . import image as _image  # matplotlib.image, as pyplot imports it
 from . import rcParamsOrig, rcsetup
 from .backend_bases import _Backend, FigureManagerBase
 from .backends import backend_registry
@@ -33,14 +34,6 @@ from .patches import Arrow, Circle, Polygon, Rectangle  # noqa: F401  (pyplot ex
 from .gridspec import GridSpec, SubplotSpec
 
 _log = logging.getLogger(__name__)
-
-__all__ = [
-    "bar", "close", "draw", "figure", "fignum_exists", "gca", "gcf",
-    "get_backend", "get_current_fig_manager", "get_fignums", "get_figlabels",
-    "legend", "new_figure_manager", "plot", "rcParams", "savefig", "scatter",
-    "show", "subplots", "switch_backend", "title", "xlabel", "ylabel",
-]
-
 
 #: The backend pyplot uses, set by `switch_backend` (a `._Backend`
 #: subclass made from the backend module).
@@ -596,7 +589,7 @@ def isinteractive():
     show : Show all figures (and maybe block).
     pause : Show all figures, and block for a time.
     """
-    return is_interactive()
+    return _is_interactive()
 
 
 def ioff():
@@ -1036,14 +1029,14 @@ def imshow(X, cmap=None, norm=None, *, aspect=None, interpolation=None,
         url=url, data=data, **kwargs)
 
 
-@_copy_docstring_and_deprecators(image.imread)
+@_copy_docstring_and_deprecators(_image.imread)
 def imread(fname, format=None):
-    return image.imread(fname, format)
+    return _image.imread(fname, format)
 
 
-@_copy_docstring_and_deprecators(image.imsave)
+@_copy_docstring_and_deprecators(_image.imsave)
 def imsave(fname, arr, **kwargs):
-    image.imsave(fname, arr, **kwargs)
+    _image.imsave(fname, arr, **kwargs)
 
 
 @_copy_docstring_and_deprecators(Figure.colorbar)
@@ -1581,34 +1574,22 @@ def axis(arg=None, /, *, emit=True, **kwargs):
 
 # The wrappers of the plotting methods (plt.hist, plt.errorbar, ...).
 from ._pyplot_plotting import *  # noqa: E402,F401,F403
-from ._pyplot_plotting import __all__ as _plotting_all  # noqa: E402
-__all__ += _plotting_all
 
 # The text functions (plt.text, plt.annotate, plt.figtext).
 from ._pyplot_text import *  # noqa: E402,F401,F403
-from ._pyplot_text import __all__ as _text_all  # noqa: E402
-__all__ += _text_all
 
 # The layout function (plt.tight_layout).
 from ._pyplot_layout import *  # noqa: E402,F401,F403
-from ._pyplot_layout import __all__ as _layout_all  # noqa: E402
-__all__ += _layout_all
 
 # The tick and scale functions (plt.xticks, plt.grid, plt.xscale, ...).
 from ._pyplot_ticks import *  # noqa: E402,F401,F403
-from ._pyplot_ticks import __all__ as _ticks_all  # noqa: E402
-__all__ += _ticks_all
 
 # The functions on the current Axes (plt.xlim, plt.cla, plt.matshow, ...).
 from ._pyplot_axes import *  # noqa: E402,F401,F403
-from ._pyplot_axes import __all__ as _axes_all  # noqa: E402
-__all__ += _axes_all
 
 # The functions on the current Figure and pyplot's state (plt.clf,
 # plt.figimage, plt.xkcd, the colormap functions, ...).
 from ._pyplot_figure import *  # noqa: E402,F401,F403
-from ._pyplot_figure import __all__ as _figure_all  # noqa: E402
-__all__ += _figure_all
 
 # The configuration functions (plt.rc, plt.rc_context, plt.rcdefaults,
 # plt.set_loglevel), pyplot's own as in matplotlib.
@@ -1656,8 +1637,7 @@ if rcParams["backend_fallback"]:
 
 # What matplotlib's pyplot has from its imports besides. It has no
 # ``__all__``: ``from pyplot import *`` takes every public name (``pylab``
-# does), so the list that gathered the names from pyplot's modules goes.
+# does).
 from contextlib import AbstractContextManager  # noqa: E402, F401
 from enum import Enum  # noqa: E402, F401
 from typing import IO, cast, overload  # noqa: E402, F401
-del __all__

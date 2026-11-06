@@ -230,7 +230,7 @@ impl Axes {
         self.children_where(|artist| {
             let any = artist as &dyn Any;
             !(any.is::<AxesState>()
-                || any.is::<LegendArtist>()
+                || is_axes_legend(artist)
                 || any.is::<ColorbarArtist>()
                 || any.is::<AxisArtistState>())
         })
@@ -402,9 +402,18 @@ fn listed_by_kind(artist: &dyn Artist) -> bool {
         || any.is::<TextArtist>()
         || any.is::<TableArtist>()
         || any.is::<SpineArtist>()
-        || any.is::<LegendArtist>()
+        || is_axes_legend(artist)
         || any.is::<ColorbarArtist>()
         || any.is::<AxisArtistState>()
+}
+
+/// Whether `artist` is the legend of its axes (matplotlib's `legend_`), a
+/// part of the axes: a legend kept as an ordinary artist
+/// (`ax.add_artist(legend)`) is one of the artists added to it.
+fn is_axes_legend(artist: &dyn Artist) -> bool {
+    (artist as &dyn Any)
+        .downcast_ref::<LegendArtist>()
+        .is_some_and(|legend| !legend.kept)
 }
 
 /// Whether matplotlib labels `artist` `_child<n>` when it is added

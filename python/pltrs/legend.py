@@ -19,7 +19,7 @@ import numpy as np
 from . import _docstring
 from . import _api, _handles, _legend_handlers, _live_transforms, _values, colors, rcParams
 from . import _val_or_rc
-from ._native import legend as _legend
+from ._native import artist as _artist, legend as _legend
 from ._native import register as _register
 from ._native import text as _text
 from .artist import Artist
@@ -579,8 +579,19 @@ class Legend(Artist):
         _api.check_in_list(["center", "left", "right"], alignment=alignment)
         self._ncols = ncols
         self._draggable = None
+        # matplotlib's constructor makes the legend for the Axes without
+        # making it their legend (`Axes.legend` does, ``legend_``), which
+        # pltrs (Rust) does as it makes it: the Axes keep the legend they
+        # had.
+        own_axes = self.isaxes and parent.name != "3d"
+        previous = _legend.axes_legend(parent._native) if own_axes else None
         native = _legend.new(parent._native, entries, kept, kwargs)
         _handles.adopt(self, native, parent.figure)
+        if own_axes:
+            if previous is None:
+                _artist.remove(native)
+            else:
+                _legend.set_axes_legend(parent._native, previous)
         made.adopt(self)
         self._made_handles = made.returned
         self._entry_handles = kept_handles

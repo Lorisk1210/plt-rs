@@ -1,6 +1,7 @@
 """Runs one program and records what it computed, for the differential tester.
 
-    python trace.py --impl matplotlib|pltrs --mode program|steps PROGRAM OUT_DIR
+    python trace.py --impl matplotlib|pltrs --mode program|steps|cells
+                    [--in-tree TREE] PROGRAM OUT_DIR
 
 The same program runs under matplotlib (the reference venv) and under
 pltrs (Python) (the pltrs venv, ``python/`` on ``PYTHONPATH``); ``compare.py``
@@ -22,6 +23,16 @@ is saved as PNG into OUT_DIR.
 * ``steps`` mode runs each top-level statement on its own: an exception is
   recorded for its statement and the next statement runs, so that one
   generated program can try many calls.
+* ``cells`` mode runs a script of cells (a notebook's or a Markdown page's,
+  ``# %%`` lines starting each) as Jupyter runs them with the inline
+  backend: an exception is recorded and stops its cell, and at the end of
+  each cell the figures open are saved (with ``bbox_inches="tight"``, as
+  the inline backend shows them) and closed.
+
+The program runs in ``OUT_DIR/cwd``; with ``--in-tree`` it is a file of
+TREE (a corpus' tree laid out for the run, ``corpora.py``) and runs in its
+own directory, paths in TREE reading as ``<cwd>`` in messages, and the
+files it writes there are listed (``written``: their paths in TREE).
 
 The record goes to ``OUT_DIR/record.json``. Its own failures (not the
 program's) exit with status 2.
@@ -65,6 +76,9 @@ NAME_PREFIXES = {
 }
 
 REC, EXC, SITE = "__difftest_record__", "__difftest_exception__", "__difftest_site__"
+CELL_END = "__difftest_cell_end__"
+#: The line starting a cell of a script in the percent format.
+CELL_MARK = "# %%"
 
 
 def _renamed(name: str, renames: list[tuple[str, str]]) -> str:
@@ -150,24 +164,46 @@ class Recording(ast.NodeTransformer):
         return node
 
 
-def instrument(source: str, filename: str, impl: str, steps: bool) -> ast.Module:
+def _recording_exception(body: list[ast.stmt], at: ast.stmt) -> ast.Try:
+    """*body* in a ``try`` recording its exception (``__difftest_exception__``)."""
+    handler = ast.ExceptHandler(
+        type=ast.Name(id="BaseException", ctx=ast.Load()),
+        name="__difftest_error__",
+        body=[ast.Expr(_call(EXC, ast.Name(id="__difftest_error__", ctx=ast.Load())))],
+    )
+    return ast.copy_location(ast.Try(body=body, handlers=[handler], orelse=[], finalbody=[]), at)
+
+
+def _cell_starts(source: str) -> list[int]:
+    """The lines starting the cells of a script in the percent format."""
+    return [number for number, line in enumerate(source.splitlines(), 1) if line.startswith(CELL_MARK)]
+
+
+def instrument(source: str, filename: str, impl: str, mode: str) -> ast.Module:
     """The program's module, its imports changed and its values recorded.
     Each top-level statement starts by naming itself (``__difftest_site__``);
-    in steps mode it is also wrapped in a ``try`` recording its exception."""
+    in steps mode it is also wrapped in a ``try`` recording its exception,
+    in cells mode each cell's statements are, and each cell ends by calling
+    ``__difftest_cell_end__`` with its number."""
     tree = ast.parse(source, filename)
     tree = Recording().visit(tree)
     body: list[ast.stmt] = []
     for index, statement in enumerate(tree.body):
         mark = ast.Expr(_call(SITE, ast.Constant(index), ast.Constant(statement.lineno)))
         body.append(ast.copy_location(mark, statement))
-        if steps and not isinstance(statement, (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.ClassDef)):
-            handler = ast.ExceptHandler(
-                type=ast.Name(id="BaseException", ctx=ast.Load()),
-                name="__difftest_error__",
-                body=[ast.Expr(_call(EXC, ast.Name(id="__difftest_error__", ctx=ast.Load())))],
-            )
-            statement = ast.copy_location(ast.Try(body=[statement], handlers=[handler], orelse=[], finalbody=[]), statement)
+        if mode == "steps" and not isinstance(statement, (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.ClassDef)):
+            statement = _recording_exception([statement], statement)
         body.append(statement)
+    if mode == "cells":
+        starts = _cell_starts(source)
+        cells: dict[int, list[ast.stmt]] = {}
+        for statement in body:
+            cell = sum(1 for start in starts if start <= statement.lineno)
+            cells.setdefault(cell, []).append(statement)
+        body = []
+        for cell, statements in cells.items():
+            body.append(_recording_exception(statements, statements[0]))
+            body.append(ast.copy_location(ast.Expr(_call(CELL_END, ast.Constant(cell))), statements[-1]))
     tree.body = body
     # Changed last, so that an import changed into two statements counts as
     # the one statement it was under both implementations.
@@ -304,15 +340,17 @@ def _seed_random_generators() -> None:
     np.random.default_rng = seeded_default_rng
 
 
-def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder) -> list[dict[str, Any]]:
+def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder, cell: int | None = None) -> list[dict[str, Any]]:
+    """Saves every figure open (those of *cell*: as the inline backend
+    shows them) and describes them."""
     figures = []
     for number in plt.get_fignums():
-        entry: dict[str, Any] = {"number": number}
+        entry: dict[str, Any] = {"number": number if cell is None else f"{cell}:{number}"}
         try:
             figure = plt.figure(number)
             entry["label"] = figure.get_label()
-            path = out / f"figure-{number}.png"
-            figure.savefig(path)
+            path = out / (f"figure-{number}.png" if cell is None else f"cell-{cell}-figure-{number}.png")
+            figure.savefig(path, **({} if cell is None else {"bbox_inches": "tight"}))
             entry["png"] = path.name
         except Exception as err:  # noqa: BLE001 - recorded, as the program's
             entry["error"] = recorder._error(err)
@@ -320,11 +358,21 @@ def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder) -> list[dict[
     return figures
 
 
+def _written(tree: pathlib.Path, program: pathlib.Path) -> list[str]:
+    """The files the program wrote in *tree*: those that are no links into
+    the corpus' tree, but the program itself and Python's caches."""
+    return sorted(
+        path.relative_to(tree).as_posix() for path in tree.rglob("*")
+        if path.is_file() and not path.is_symlink() and path != program and "__pycache__" not in path.parts
+    )
+
+
 def main() -> int:
     """Run the program and write its record."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--impl", choices=sorted(IMPORT_RENAMES), required=True)
-    parser.add_argument("--mode", choices=["program", "steps"], default="program")
+    parser.add_argument("--mode", choices=["program", "steps", "cells"], default="program")
+    parser.add_argument("--in-tree", type=pathlib.Path)
     parser.add_argument("program", type=pathlib.Path)
     parser.add_argument("out", type=pathlib.Path)
     args = parser.parse_args()
@@ -332,17 +380,27 @@ def main() -> int:
     program = str(args.program.resolve())
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    workdir = out / "cwd"
-    workdir.mkdir(exist_ok=True)
-    os.chdir(workdir)
+    if args.in_tree is None:
+        workdir = out / "cwd"
+        workdir.mkdir(exist_ok=True)
+        os.chdir(workdir)
+    else:
+        workdir = args.in_tree.resolve()
+        os.chdir(args.program.resolve().parent)
 
     package = __import__(args.impl)
     package_dirs = [str(pathlib.Path(package.__file__).parent)]
     names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir))
     recorder = Recorder(names, program)
-    code = compile(instrument(args.program.read_text(), program, args.impl, args.mode == "steps"),
-                   program, "exec")
+    code = compile(instrument(args.program.read_text(), program, args.impl, args.mode), program, "exec")
     plt = __import__(f"{args.impl}.pyplot", fromlist=["pyplot"])
+    figures: list[dict[str, Any]] = []
+
+    def cell_end(cell: int) -> None:
+        """Show the cell's figures as the inline backend does: saved, then
+        closed."""
+        figures.extend(_save_figures(plt, out, recorder, cell))
+        plt.close("all")
 
     namespace = {
         "__name__": "__main__",
@@ -351,6 +409,7 @@ def main() -> int:
         REC: recorder.record,
         EXC: recorder.exception,
         SITE: recorder.site,
+        CELL_END: cell_end,
     }
     sys.argv = [program]
     sys.path[0] = str(args.program.resolve().parent)
@@ -375,7 +434,7 @@ def main() -> int:
             sys.stdout = real_stdout
         elapsed = time.perf_counter() - started
         recorder.statement = recorder.statement_line = None
-        figures = _save_figures(plt, out, recorder)
+        figures += _save_figures(plt, out, recorder)
     logging.getLogger().removeHandler(log_handler)
 
     record = {
@@ -390,6 +449,7 @@ def main() -> int:
         "uncaught": uncaught,
         "stdout": names.text(stdout.getvalue())[:20000],
         "figures": figures,
+        "written": [] if args.in_tree is None else _written(workdir, args.program.resolve()),
     }
     (out / "record.json").write_text(json.dumps(record))
     return 0

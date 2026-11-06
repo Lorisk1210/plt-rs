@@ -190,6 +190,12 @@ def _native_kwargs(kwargs):
         # As matplotlib's `set_alpha` checks it.
         _check_alpha(kwargs["alpha"])
     kwargs = native_artist_kwargs(kwargs)
+    # A number as matplotlib's setters (its draw, for the edge width) read
+    # it, `mew="1"` being 1; the line reads back what it was given.
+    kwargs = {name: float(value)
+              if name in ("linewidth", "markersize", "markeredgewidth") and value is not None
+              else value
+              for name, value in kwargs.items()}
     if "transform" in kwargs:
         kwargs["transform"] = _live_transforms.to_native(kwargs["transform"])
     fillstyle = kwargs.get("fillstyle")
@@ -217,9 +223,20 @@ _GIVEN_COLORS = ("color", "gapcolor", "markeredgecolor", "markerfacecolor",
 _GIVEN_NUMBERS = ("markeredgewidth", "pickradius")
 
 
+def _same_number(value, native):
+    """Whether *value*, a number given as matplotlib takes it (a string of
+    one too, which its draw reads with ``float``), is *native*."""
+    try:
+        return float(value) == native
+    except (TypeError, ValueError):
+        return False
+
+
 def _remember_given(line, props):
-    """Remember what *line* reads back of its properties *props*."""
-    _values.remember_all(line, props, _GIVEN_COLORS + _GIVEN_NUMBERS)
+    """Remember what *line* reads back of its properties *props*, given
+    by any of their names (``mew``)."""
+    _values.remember_all(line, cbook.normalize_kwargs(props, Line2D),
+                         _GIVEN_COLORS + _GIVEN_NUMBERS)
 
 
 @_docstring.interpd
@@ -853,7 +870,8 @@ class Line2D(Artist):
 
         See also `~.Line2D.set_markeredgewidth`.
         """
-        return _values.given(self, "markeredgewidth", self._get("markeredgewidth"))
+        return _values.given(self, "markeredgewidth", self._get("markeredgewidth"),
+                             same=_same_number)
 
     def set_markeredgewidth(self, ew):
         """

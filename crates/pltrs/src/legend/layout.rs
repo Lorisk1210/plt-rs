@@ -64,6 +64,19 @@ pub(crate) struct LegendLayout {
     pub(crate) fontsize_px: f64,
     /// Where every text and handle box goes.
     pub(crate) placements: Vec<Placement<HandleRef>>,
+    /// The width the draw gave the legend box in the `"expand"` mode,
+    /// which it keeps (matplotlib's `_legend_box.set_width` in `draw`).
+    pub(crate) expanded_width: Option<f64>,
+}
+
+/// The legend box as a draw sizes it ([`LegendArtist::layout`]).
+struct SizedBox<'a> {
+    /// The box, as wide as its anchor in the `"expand"` mode.
+    legend_box: Cow<'a, OffsetBox<HandleRef>>,
+    /// The legend font size in pixels.
+    fontsize_px: f64,
+    /// The width of the box in the `"expand"` mode.
+    expanded_width: Option<f64>,
 }
 
 /// Why a legend cannot be laid out.
@@ -103,21 +116,39 @@ impl LegendArtist {
     }
 
     /// The legend box in display pixels (matplotlib's
-    /// `_legend_box.get_window_extent`, which locates the legend).
+    /// `_legend_box.get_window_extent`, which locates the legend) as it
+    /// measures between draws: in the `"expand"` mode as wide as its last
+    /// draw made it, as narrow as its entries before the first, since
+    /// matplotlib sets that width only when it draws the legend.
     pub(crate) fn extent(&self, ctx: LayoutContext<'_>) -> Result<Bbox, LayoutError> {
-        let (legend_box, fontsize_px) = self.sized_box(ctx)?;
+        let fontsize_px = ctx.points_to_pixels(self.settings.fontsize);
+        self.located(&self.legend_box, ctx, fontsize_px)
+    }
+
+    /// `legend_box` located as the legend, in display pixels.
+    fn located(
+        &self,
+        legend_box: &OffsetBox<HandleRef>,
+        ctx: LayoutContext<'_>,
+        fontsize_px: f64,
+    ) -> Result<Bbox, LayoutError> {
         let bbox = legend_box.bbox(ctx)?;
         let offset = self.offset(ctx, &bbox, fontsize_px)?;
         Ok(bbox.translated(offset.x, offset.y))
     }
 
-    /// Lays the legend out for the current figure geometry. As
-    /// matplotlib's `Legend.draw` does, the legend is located twice: for
-    /// its frame (`_legend_box.get_window_extent`) and for its parts
+    /// Lays the legend out for the current figure geometry, as wide as
+    /// its anchor in the `"expand"` mode. As matplotlib's `Legend.draw`
+    /// does, the legend is located twice: for its frame
+    /// (`_legend_box.get_window_extent`) and for its parts
     /// (`_legend_box.draw`).
     pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LegendLayout, LayoutError> {
-        let extent = self.extent(ctx)?;
-        let (legend_box, fontsize_px) = self.sized_box(ctx)?;
+        let SizedBox {
+            legend_box,
+            fontsize_px,
+            expanded_width,
+        } = self.sized_box(ctx)?;
+        let extent = self.located(&legend_box, ctx, fontsize_px)?;
         // matplotlib's `_legend_box.draw` measures the box as it places its
         // children, which `place` does.
         let bbox = crate::text::font_notes::unnoted(|| legend_box.bbox(ctx))?;
@@ -126,24 +157,29 @@ impl LegendArtist {
             extent,
             fontsize_px,
             placements: legend_box.place(ctx, offset)?,
+            expanded_width,
         })
     }
 
-    /// The legend box, as wide as its anchor in the `"expand"` mode, and
-    /// the legend font size in pixels.
-    fn sized_box(
-        &self,
-        ctx: LayoutContext<'_>,
-    ) -> Result<(Cow<'_, OffsetBox<HandleRef>>, f64), LayoutError> {
+    /// The legend box as a draw sizes it, as wide as its anchor in the
+    /// `"expand"` mode.
+    fn sized_box(&self, ctx: LayoutContext<'_>) -> Result<SizedBox<'_>, LayoutError> {
         let settings = &self.settings;
         let fontsize_px = ctx.points_to_pixels(settings.fontsize);
         let mut legend_box = Cow::Borrowed(&self.legend_box);
+        let mut expanded_width = None;
         if self.mode == LegendMode::Expand {
             let anchor = self.anchor_box(ctx).ok_or(LayoutError::Detached)?;
             let pad = 2.0 * (settings.borderaxespad + settings.borderpad) * fontsize_px;
-            legend_box.to_mut().set_width(Some(anchor.width() - pad));
+            let width = anchor.width() - pad;
+            legend_box.to_mut().set_width(Some(width));
+            expanded_width = Some(width);
         }
-        Ok((legend_box, fontsize_px))
+        Ok(SizedBox {
+            legend_box,
+            fontsize_px,
+            expanded_width,
+        })
     }
 
     /// Where the origin of the legend box `bbox` goes (matplotlib's
@@ -215,6 +251,11 @@ pub(crate) fn lay_out_legend(state: &mut FigureState, id: ArtistId) -> Result<()
     };
     let applied = match outcome {
         Some(Ok((layout, frame, shadow))) => {
+            if let Some(width) = layout.expanded_width
+                && let Some(legend) = state.store.get_as_mut::<LegendArtist>(id)
+            {
+                legend.legend_box.set_width(Some(width));
+            }
             apply(&mut state.store, layout, frame, shadow).map_err(|err| err.to_string())
         }
         Some(Err(message)) => Err(message),

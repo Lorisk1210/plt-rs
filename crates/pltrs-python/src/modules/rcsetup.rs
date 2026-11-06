@@ -12,7 +12,9 @@
 use std::path::PathBuf;
 
 use pltrs::colors::Color;
-use pltrs::rc::{LabelColor, RcError, RcFile, RcParams, RcWarningKind};
+use pltrs::rc::{
+    ColorOrAuto, ColorOrEdge, ColorOrInherit, LabelColor, RcError, RcFile, RcParams, RcWarningKind,
+};
 
 use crate::binding::prelude::*;
 
@@ -190,7 +192,8 @@ fn set(store: Option<Native<RcParams>>, key: String, value: RcText) -> PyResult<
 
 /// `rcParams[key] = color` for a colour rc text cannot spell, a tuple
 /// matplotlib's validator of `key` took (`legend.labelcolor`'s, which
-/// rejects tuple strings from rc files).
+/// rejects tuple strings from rc files, or one of numpy's numbers, as
+/// colormaps give them, for any colour key).
 fn set_color(store: Option<Native<RcParams>>, key: String, color: Color) -> PyResult<()> {
     let assign = |params: &mut RcParams| {
         let field = params
@@ -200,6 +203,12 @@ fn set_color(store: Option<Native<RcParams>>, key: String, color: Color) -> PyRe
             *field = color.clone();
         } else if let Some(field) = field.downcast_mut::<LabelColor>() {
             *field = LabelColor::Color(color.clone());
+        } else if let Some(field) = field.downcast_mut::<ColorOrAuto>() {
+            *field = ColorOrAuto::Color(color.clone());
+        } else if let Some(field) = field.downcast_mut::<ColorOrEdge>() {
+            *field = ColorOrEdge::Color(color.clone());
+        } else if let Some(field) = field.downcast_mut::<ColorOrInherit>() {
+            *field = ColorOrInherit::Color(color.clone());
         } else {
             return Err(PyErr::value_error(format!("Key {key}: not a colour")));
         }

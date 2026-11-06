@@ -1672,15 +1672,17 @@ them was ruled out: it cannot capture what pltrs (Rust) changes itself
 
 ### Imports inside the package
 
-The suite loads `python/pltrs` under the name `matplotlib`, so:
+The suite and the `matplotlib` distribution load `python/pltrs` under the
+name `matplotlib`, so:
 
 * modules of the package import each other relatively
   (`from . import _handles`, `from ..figure import Figure`), never as
   `pltrs`;
 * the toolkits (`pltrs/mpl_toolkits`) and `pylab.py`, which the suite loads
   as top-level packages, import pltrs by name (`from pltrs import colors`);
-  `python/mpl_suite/pltrs_alias.py` makes that name resolve to the
-  modules loaded as `matplotlib`;
+  `python/mpl_suite/pltrs_alias.py` (and the distribution's
+  `_pltrs_matplotlib_alias`) makes that name resolve to the modules
+  loaded as `matplotlib`;
 * the native module is `from ._native import lines as _lines` (its
   submodules are attributes).
 
@@ -1702,10 +1704,16 @@ two distributions:
   manylinux2014; `RELEASING.md` says how the release's wheels are
   built, tested and published;
 * `matplotlib` (`-C distribution=matplotlib`): `python/alias`, pure
-  Python. Its modules make `matplotlib`, `mpl_toolkits.<kit>` and
-  `pylab` the modules of pltrs (`_pltrs_matplotlib_alias`: a meta path
-  finder, the reverse of the suite's `pltrs_alias.py`), so that code
-  importing matplotlib by name runs on pltrs. It is named `matplotlib`
+  Python. Its modules load pltrs's sources under matplotlib's names
+  (`_pltrs_matplotlib_alias`: a meta path finder doing what the suite's
+  site and `pltrs_alias.py` do), so that code importing matplotlib by
+  name runs on pltrs, and pltrs's objects name matplotlib's modules
+  (`type(fig).__module__`, reprs, pickles, loggers), which libraries
+  read: arviz-plots picks its plotting backend by the module of a
+  figure's class. pltrs's names (`pltrs.x`, which the toolkits import)
+  are aliases of those modules. A program importing pltrs before
+  matplotlib keeps pltrs's names, matplotlib's then being the aliases.
+  The `pylab` module is matplotlib's own. It is named `matplotlib`
   for pip: what requires matplotlib is satisfied by it, and it replaces
   a real matplotlib (or is replaced by one) openly.
 

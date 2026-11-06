@@ -1,5 +1,5 @@
-"""matplotlib, as pltrs: ``import matplotlib`` gives ``pltrs`` (see
-``_pltrs_matplotlib_alias``)."""
+"""matplotlib, as pltrs: ``import matplotlib`` loads pltrs under
+matplotlib's name (see ``_pltrs_matplotlib_alias``)."""
 
 import _pltrs_matplotlib_alias
 

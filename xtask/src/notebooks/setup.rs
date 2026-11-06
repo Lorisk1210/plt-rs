@@ -72,13 +72,10 @@ fn fetch(python: &Path, library: &Library) -> Result<(), String> {
     let tree = library.tree();
     match library.source {
         Source::Sdist(sdist) if !tree.is_dir() => {
-            let refs = tree
-                .parent()
-                .ok_or("an sdist is unpacked in a directory of its own")?;
             python::run_checked(
                 fetch_command(python, "sdist")
                     .args([sdist, library.version])
-                    .arg(refs),
+                    .arg(&tree),
             )?;
         }
         Source::Matplotlib if !tree.is_dir() => {

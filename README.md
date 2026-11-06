@@ -291,9 +291,12 @@ platform when started by hand or by a version tag, and publishes them;
 ### Running pandas, seaborn and other matplotlib code unchanged
 
 Libraries such as pandas and seaborn import `matplotlib` by name. A
-second distribution of the tree, named `matplotlib`, makes that name,
-`mpl_toolkits` (its three toolkits) and `pylab` aliases of pltrs:
-`import matplotlib.pyplot` then gives `pltrs.pyplot` itself.
+second distribution of the tree, named `matplotlib`, loads pltrs under
+that name, `mpl_toolkits` (its three toolkits) and `pylab`:
+`import matplotlib.pyplot` then gives pltrs's pyplot, whose objects name
+matplotlib's modules as matplotlib's do (`type(fig).__module__` is
+`'matplotlib.figure'`, in reprs and pickles too), and `pltrs.pyplot` is
+the same module.
 
 ```sh
 pip install .                               # pltrs

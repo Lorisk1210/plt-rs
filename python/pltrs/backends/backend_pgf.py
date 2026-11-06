@@ -319,6 +319,18 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
         return _text_overrides.measure_pgf(s, FontManager._props(prop),
                                            float(self.dpi))
 
+    def draw_image(self, gc, x, y, im, transform=None):
+        # docstring inherited
+        h, w = im.shape[:2]
+        if (w and h and self.fh is not None
+                and not os.path.exists(getattr(self.fh, "name", ""))):
+            # Images go to files beside the picture's, which a stream has
+            # not (pltrs (Rust) refuses them as it writes the figure).
+            raise ValueError(
+                "streamed pgf-code does not support raster graphics, consider "
+                "using the pgf-to-pdf option")
+        super().draw_image(gc, x, y, im, transform)
+
 
 class FigureCanvasPgf(FigureCanvasBase):
     filetypes = {"pgf": "LaTeX PGF picture",

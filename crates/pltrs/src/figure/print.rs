@@ -8,7 +8,7 @@ mod tight;
 
 pub use options::{BboxInches, PadInches, SaveOptions};
 
-use pltrs_core::Rgba;
+use pltrs_core::{Bbox, Rgba};
 use pltrs_render::{MixedModeRenderer, PdfRenderer, RasterRenderer, Renderer, VectorError};
 
 use super::save::SaveError;
@@ -107,6 +107,32 @@ impl Figure {
             })
     }
 
+    /// The part of the figure a print running now is cut to, in inches
+    /// from the figure's bottom-left corner (a tight box or the
+    /// `bbox_inches` given); `None` outside prints and for whole figures.
+    /// matplotlib's print moves `transFigure` by the box's corner then,
+    /// and makes `fig.bbox` the box's size.
+    #[must_use]
+    pub fn print_window(&self) -> Option<Bbox> {
+        self.state().print_window
+    }
+
+    /// The part of the figure `options` print: theirs, or `savefig.bbox`.
+    fn bbox_inches(options: &SaveOptions) -> Option<BboxInches> {
+        options.bbox_inches.or_else(|| {
+            (crate::rc::params().savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight)
+        })
+    }
+
+    /// Whether matplotlib's print with `options` draws the figure once
+    /// without output before it prints it: when the figure has a layout
+    /// engine or is cut to its tight box. A draw that fails then fails
+    /// there, before the print's renderer draws anything.
+    pub(crate) fn drawn_before_print(&self, options: &SaveOptions) -> bool {
+        self.layout_engine().is_some()
+            || matches!(Self::bbox_inches(options), Some(BboxInches::Tight))
+    }
+
     /// Prepares the figure for printing with `options` as matplotlib's
     /// `print_figure` does: resolution (`savefig.dpi: figure` being the
     /// one the figure was made at), background colours and the part
@@ -149,9 +175,7 @@ impl Figure {
         self.set_dpi(canvas_dpi)
             .set_facecolor(face)
             .set_edgecolor(edge);
-        let bbox = options
-            .bbox_inches
-            .or_else(|| (rc.savefig_bbox == SavefigBbox::Tight).then_some(BboxInches::Tight));
+        let bbox = Self::bbox_inches(options);
         // matplotlib draws a figure with a layout engine, or to be cut to
         // its tight box, once before printing it (without rendering), and
         // prints it without the engine: the program's tick helpers see
@@ -235,8 +259,23 @@ impl Figure {
         options: &SaveOptions,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
     ) -> Result<R, SaveError> {
+        let (renderer, drawn) = self.render_vector_keeping(options, make)?;
+        drawn.map(|()| renderer)
+    }
+
+    /// [`render_vector_with`](Self::render_vector_with) giving the renderer
+    /// back with how the draw went, also when it failed: what the renderer
+    /// met before (a colour to log about) counts, as in matplotlib, whose
+    /// draw ends at its first exception.
+    pub(crate) fn render_vector_keeping<R: Renderer>(
+        &self,
+        options: &SaveOptions,
+        make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+    ) -> Result<(R, Result<(), SaveError>), SaveError> {
         // matplotlib's vector backends lay text out unhinted.
-        crate::text::without_hinting(|| self.render_into(options, Some(POINTS_PER_INCH), make))
+        crate::text::without_hinting(|| {
+            self.render_into_keeping(options, Some(POINTS_PER_INCH), make)
+        })
     }
 
     /// Renders the figure into the renderer `make` creates, drawing at the
@@ -260,11 +299,23 @@ impl Figure {
         canvas_dpi: Option<f64>,
         make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
     ) -> Result<R, SaveError> {
+        let (renderer, drawn) = self.render_into_keeping(options, canvas_dpi, make)?;
+        drawn.map(|()| renderer)
+    }
+
+    /// [`render_into`](Self::render_into) giving the renderer back with
+    /// how the draw went.
+    fn render_into_keeping<R: Renderer>(
+        &self,
+        options: &SaveOptions,
+        canvas_dpi: Option<f64>,
+        make: impl FnOnce(f64, f64, f64) -> Result<R, VectorError>,
+    ) -> Result<(R, Result<(), SaveError>), SaveError> {
         let (saving, page) = self.begin_print(options, canvas_dpi);
         let mut renderer = make(page.width, page.height, page.dpi).map_err(SaveError::Vector)?;
-        self.draw_mixed(&mut renderer, page)?;
+        let drawn = self.draw_mixed(&mut renderer, page);
         drop(saving);
-        Ok(renderer)
+        Ok((renderer, drawn))
     }
 
     /// Draws the figure as one more page of a PDF document, as

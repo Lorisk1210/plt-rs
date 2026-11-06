@@ -453,7 +453,11 @@ impl FigureState {
                 }
             }
         }
-        self.run_pending_layout();
+        if matches!(preparation, Preparation::Drawing(_)) {
+            self.run_pending_layout();
+        } else {
+            self.run_measured_layout();
+        }
         if matches!(preparation, Preparation::Drawing(_)) && !failed_before {
             // matplotlib's `Figure.draw` passes over a `ValueError` its
             // layout engine raised, and draws as the pass left the figure.
@@ -469,9 +473,13 @@ impl FigureState {
         if painting.is_some() {
             self.program_figure_drawn(&axes, draws);
             // The axes the program ticks that no axis draw ticked (hidden
-            // ones, which other artists may still read).
+            // ones, which other artists may still read), but for those the
+            // figure leaves out as animated, whose tick code matplotlib
+            // never runs.
             for &id in &laid_out {
-                self.tick_axes(id, true);
+                if !self.left_out_as_animated(id) {
+                    self.tick_axes(id, true);
+                }
             }
         }
         crate::mplot3d::prepare_axes3d(self, painting);

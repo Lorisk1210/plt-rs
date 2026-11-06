@@ -54,14 +54,36 @@ def _rcParams():
     return rcParams
 
 
+#: The first numpy operation of matplotlib's map of each scale kind, and of
+#: its inverse, on the values and the parameters: what fails first for
+#: values that are no numbers.
+_FIRST_OPERATIONS = {
+    "symlog": (lambda values, params: np.abs(values),
+               lambda values, params: np.abs(values)),
+    "asinh": (lambda values, params: values / params[0],
+              lambda values, params: values / params[0]),
+    "logit": (lambda values, params: 1 - values,
+              lambda values, params: -values),
+}
+
+
 def _native_transform(kind, params, values, inverse=False):
-    """*values* (an array-like, masked or not) mapped by pltrs (Rust)'s scale map
-    *kind* of *params*, or by its inverse."""
-    if isinstance(values, np.ma.MaskedArray):
-        out = _scale.transform(kind, params, np.ma.getdata(values).astype(float),
+    """
+    *values* (an array-like, masked or not) mapped by pltrs (Rust)'s scale
+    map *kind* of *params*, or by its inverse. Masked values come back
+    masked where they were, and where the map gives no finite value, as
+    numpy's masked arithmetic in matplotlib's maps masks them; values that
+    are no numbers fail as the first operation of matplotlib's map fails.
+    """
+    data = np.asanyarray(values)
+    if data.dtype.kind not in "biufc":
+        _FIRST_OPERATIONS[kind][inverse](data, params)
+    if isinstance(data, np.ma.MaskedArray):
+        out = _scale.transform(kind, params, np.ma.getdata(data).astype(float),
                                inverse)
-        return np.ma.MaskedArray(out, mask=np.ma.getmask(values))
-    return _scale.transform(kind, params, np.asarray(values, float), inverse)
+        return np.ma.MaskedArray(
+            out, mask=np.ma.getmaskarray(data) | ~np.isfinite(out))
+    return _scale.transform(kind, params, np.asarray(data, float), inverse)
 
 
 class ScaleBase:

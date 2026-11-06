@@ -631,7 +631,9 @@ class SubplotSpec:
         return cls(gridspec, row0 * ncols + col0, (row1 - 1) * ncols + col1 - 1)
 
     def _native_spec(self):
-        """The native block of cells of this subplot spec."""
+        """The native block of cells of this subplot spec: the rows and
+        columns between its two cells, whichever comes first, as
+        matplotlib's `get_position` places it."""
         gridspec = self._gridspec
         if takes_from_program(type(gridspec), "get_subplot_params"):
             # The margins and spacing the grid's class of the program's
@@ -639,8 +641,10 @@ class SubplotSpec:
             # matplotlib places it (`.Axes.set_subplotspec`).
             _gridspec.set_overrides(gridspec._native, gridspec._params_of(
                 getattr(gridspec, "figure", None)))
-        rows, cols = self.rowspan, self.colspan
-        return _gridspec.span(gridspec._native, (rows.start, rows.stop),
+        ncols = gridspec.ncols
+        r1, r2 = sorted([self.num1 // ncols, self.num2 // ncols])
+        cols = self.colspan
+        return _gridspec.span(gridspec._native, (r1, r2 + 1),
                               (cols.start, cols.stop))
 
     def __repr__(self):

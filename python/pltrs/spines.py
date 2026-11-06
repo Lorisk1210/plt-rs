@@ -73,11 +73,18 @@ class Spine(Patch):
         return "Spine"
 
     def __new__(cls, axes=None, spine_type=None, path=None, **kwargs):
-        # The spine is one pltrs (Rust) draws for *axes* (see `__init__`);
-        # pickling makes a bare object.
-        if axes is None:
-            return super().__new__(cls)
-        return cls._of_axes(axes, spine_type)
+        # A new spine of *axes* (see `__init__`); pickling makes a bare
+        # object.
+        spine = super().__new__(cls)
+        if axes is not None:
+            natives = dict(_spines.axes_spines(axes._native))
+            framing = natives.get(spine_type, natives.get("top", natives.get("polar")))
+            _handles.adopt(spine, _spines.new_spine(axes._native, _spines.side(framing)),
+                           axes.figure)
+            # Known without asking pltrs (Rust), which the projection of a
+            # program's class cannot while it draws.
+            spine.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
+        return spine
 
     @_docstring.interpd
     def __init__(self, axes, spine_type, path, **kwargs):
@@ -117,11 +124,11 @@ class Spine(Patch):
     @classmethod
     def linear_spine(cls, axes, spine_type, **kwargs):
         """Create and return a linear `Spine`."""
-        if spine_type not in dict(_spines.axes_spines(axes._native)):
+        if spine_type not in _LINEAR_PATHS:
             raise ValueError(f'unable to make path for spine "{spine_type}"')
-        spine = cls._of_axes(axes, spine_type)
-        spine.set(**kwargs)
-        return spine
+        result = cls(axes, spine_type, Path(_LINEAR_PATHS[spine_type]), **kwargs)
+        result.set_visible(rcParams[f'axes.spines.{spine_type}'])
+        return result
 
     @classmethod
     def _of_axes(cls, axes, spine_type):
@@ -140,20 +147,18 @@ class Spine(Patch):
     def arc_spine(cls, axes, spine_type, center, radius, theta1, theta2,
                   **kwargs):
         """Create and return an arc `Spine`."""
-        # pltrs: the spine of *axes* named *spine_type* (its outline's for a
-        # name of no side), drawn as the arc.
-        result = cls._of_axes(axes, spine_type)
+        path = Path.arc(theta1, theta2)
+        result = cls(axes, spine_type, path, **kwargs)
         result.set_patch_arc(center, radius, theta1, theta2)
-        result.set(**kwargs)
         return result
 
     @classmethod
     def circular_spine(cls, axes, center, radius, **kwargs):
         """Create and return a circular `Spine`."""
-        # pltrs: the spine framing the outline of *axes*, drawn as the circle.
-        result = cls._of_axes(axes, 'circle')
+        path = Path.unit_circle()
+        spine_type = 'circle'
+        result = cls(axes, spine_type, path, **kwargs)
         result.set_patch_circle(center, radius)
-        result.set(**kwargs)
         return result
 
     def set_patch_arc(self, center, radius, theta1, theta2):
@@ -483,6 +488,15 @@ class Spine(Patch):
 _TICK_SPINES = ("bottom", "top", "left", "right")
 
 
+def _replace_drawn(old, spine):
+    """Have the Axes of *old*, a spine it draws, draw *spine*, another
+    spine of it, in its place, as matplotlib's Axes draws the spines of
+    its ``spines``."""
+    if (isinstance(old, Spine) and isinstance(spine, Spine) and spine is not old
+            and spine.axes is not None and spine.axes is old.axes):
+        _spines.replace_spine(old.axes._native, old._native, spine._native)
+
+
 def _read_tick_spines(axes):
     """Read the spines of *axes* as matplotlib's new ticks read them: by
     name, which fails for one deleted from ``axes.spines``."""
@@ -605,6 +619,7 @@ class Spines(MutableMapping):
         return self._dict[key]
 
     def __setitem__(self, key, value):
+        _replace_drawn(self._dict.get(key), value)
         self._dict[key] = value
         _watch_tick_spines(self, value)
 

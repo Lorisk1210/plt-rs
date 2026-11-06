@@ -2,7 +2,9 @@
 
 use pltrs_core::{Bbox, Path};
 
-use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext};
+use crate::artist::{
+    Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, GraphicsContext, Sketch,
+};
 use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::figure::Figure;
@@ -30,6 +32,10 @@ pub(crate) struct FigureFrame {
     /// The id of the background's group in SVG output (matplotlib's
     /// `Figure.patch.get_gid`).
     pub(crate) patch_gid: Option<String>,
+    /// The sketch the background is drawn with: the `path.sketch` rcParam
+    /// of when the frame was made, as matplotlib's patch takes it (the
+    /// figure's own sketch, as its clipping, draws nothing).
+    patch_sketch: Option<Sketch>,
     /// Extent as a fraction of the parent frame (the unit box for the root).
     pub(crate) relative_extent: Bbox,
     /// Owned artists in insertion order (axes included).
@@ -48,6 +54,7 @@ pltrs_core::archive_struct!(FigureFrame {
     style,
     frameon,
     patch_gid,
+    patch_sketch,
     relative_extent,
     children,
     subplot_params,
@@ -104,8 +111,10 @@ impl FigureFrame {
         edgecolor: Color,
         subplot_params: SubplotParams,
     ) -> Self {
+        let base = ArtistBase::default();
         Self {
-            base: ArtistBase::default(),
+            patch_sketch: base.sketch,
+            base,
             style: PatchStyle {
                 facecolor: Some(facecolor),
                 edgecolor: Some(edgecolor),
@@ -127,7 +136,8 @@ impl FigureFrame {
     /// Draws the background and border over `extent`. The figure patch
     /// is a `Rectangle` painted as any patch (without an edge when it has
     /// no colour, unfilled when transparent, its alpha replacing the alpha
-    /// of its colours), but always without anti-aliasing.
+    /// of its colours), but always without anti-aliasing, unclipped and
+    /// sketched as it was made.
     fn draw_patch(&self, ctx: &mut DrawContext<'_>, extent: Bbox) {
         let style = PatchStyle {
             antialiased: Some(false),
@@ -140,7 +150,12 @@ impl FigureFrame {
                 return;
             }
         };
-        let gc = ctx.base_gc(&self.base);
+        let gc = GraphicsContext {
+            sketch: self.patch_sketch,
+            clip_rect: None,
+            clip_path: None,
+            ..ctx.base_gc(&self.base)
+        };
         let drawn = ctx.draw_artist(false, |ctx| {
             with_path_effects(ctx, &self.base.path_effects, |ctx| {
                 paint.paint(gc.clone(), |gc, face| {

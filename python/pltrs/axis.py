@@ -400,6 +400,11 @@ class Axis(DrawnWith, Artist):
             ``Axis.clear``.
             .. versionadded:: 3.8
         """
+        if clear and self.axis_name is None and not hasattr(self, "_init"):
+            # matplotlib's `clear` starts with ``_init``, which only the
+            # axes of a direction define: a base Axis cannot be cleared.
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute '_init'")
         super().__init__()
         self._axes = axes
         self.major = Ticker._of_axis(self, minor=False)
@@ -777,6 +782,9 @@ class Axis(DrawnWith, Artist):
         """
         v0, v1 = (float(np.asarray(self.convert_units(v), dtype=float))
                   for v in (v0, v1))
+        if not (np.isfinite(v0) and np.isfinite(v1)):
+            # Refused before anything else is said about them.
+            raise ValueError("Axis limits cannot be NaN or Inf")
         name = self.axis_name
         if self.get_scale() == 'log' and (v0 <= 0 or v1 <= 0):
             old0, old1 = self.get_view_interval()
@@ -835,9 +843,15 @@ class Axis(DrawnWith, Artist):
         ``_set_lim`` returns them: floats, but through the locators keeping
         their types, the numbers given (after their units), numpy floats
         where the axis changed them."""
-        if not _keeps_limit_types(self.get_major_locator()):
+        locator = self.get_major_locator()
+        if not _keeps_limit_types(locator):
             return limits
+        from .dates import DateLocator
+        dates = isinstance(locator, DateLocator)
         return tuple(value if np.ndim(value) == 0 and value == limit
+                     # A date locator moves a finite limit by days, a float.
+                     else type(value + 0.0)(limit)
+                     if dates and np.ndim(value) == 0 and np.isfinite(value)
                      else np.float64(limit)
                      for value, limit in zip(given, limits))
 
@@ -987,6 +1001,7 @@ class Axis(DrawnWith, Artist):
         self._units = None
         self._category_units = None
         self.__dict__.pop("_category_keys", None)
+        self.__dict__.pop("_units_given", None)
         self.stale = True
 
     def set_default_intervals(self):
@@ -1927,8 +1942,8 @@ class Axis(DrawnWith, Artist):
     @property
     def units(self):
         """The units of the axis: the category data of a categorical axis,
-        else what `set_units` set."""
-        if not _axis.has_categories(*self._args()):
+        unless the program set others, else what `set_units` set."""
+        if vars(self).get("_units_given") or not _axis.has_categories(*self._args()):
             return self._units
         units = self._shared_category_units()
         keys = self._shared_category_keys()
@@ -1942,7 +1957,11 @@ class Axis(DrawnWith, Artist):
 
     @units.setter
     def units(self, units):
+        from .category import UnitData
         self._units = units
+        # Units other than category data replace those pltrs (Rust) keeps
+        # with the categories, as matplotlib's attribute is replaced.
+        self._units_given = not isinstance(units, UnitData)
 
     def _shared_category_units(self):
         """The category data of the axis, which the axes sharing it share,
@@ -1996,7 +2015,7 @@ class Axis(DrawnWith, Artist):
             # pltrs (Rust) keeps the names of a categorical axis.
             self._update_native_units(list(u._mapping))
         for axis in self._get_shared_axis():
-            axis._units = u
+            axis.units = u
             axis._update_axisinfo()
             axis.axes._unit_change_handler(axis.axis_name)
             axis.callbacks.process('units')
@@ -2026,6 +2045,10 @@ class Axis(DrawnWith, Artist):
                 # axis shows dates (the others may be no dates at all, as
                 # the timedeltas of a bar's (start, width) pair).
                 data = _first_value(data)
+            elif self.units is None:
+                # matplotlib's converter gives an axis without units the
+                # category data (`default_units`).
+                self.__dict__.pop("_units_given", None)
             return self._take_native_converter(
                 converter, lambda: self._update_native_units(data))
         neednew = self._converter != converter

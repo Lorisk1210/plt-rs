@@ -570,6 +570,22 @@ pub(crate) fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
     (!items.is_empty()).then(|| &items[i % items.len()])
 }
 
+/// The extent of `paths`, in their own coordinates, as a collection of
+/// them without item transforms or offsets has it (matplotlib's
+/// `get_path_collection_extents`: non-finite vertices left out).
+pub(crate) fn paths_extents(paths: &[Path]) -> DataLimits {
+    CollectionGeometry {
+        master_transform: Affine2D::IDENTITY,
+        paths,
+        transforms: &[],
+        // matplotlib collections without offsets have one at the origin.
+        offsets: &[Point::ORIGIN],
+        offset_transform: Affine2D::IDENTITY,
+    }
+    .extents()
+    .unwrap_or(DataLimits::NULL)
+}
+
 impl Artist for CollectionArtist {
     fn base(&self) -> &ArtistBase {
         &self.base

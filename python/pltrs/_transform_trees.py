@@ -329,9 +329,39 @@ def _push_limits(ax, which, bbox):
 def sync(fig):
     """Bring the trees of the root figure *fig* up to date now (Python
     code run in the middle of a draw reads those of the laid-out
-    figure)."""
+    figure), cut to the window a print of it is cut to, if any."""
     if "_transform_trees" in fig.__dict__:
         _transforms.sync(fig._native)
+        _follow_print_window(fig)
+
+
+def _follow_print_window(fig):
+    """
+    While pltrs (Rust) prints the root figure *fig* cut to a window (a
+    tight box, a ``bbox_inches`` given), its trees as matplotlib's print
+    sets them (``_tight_bbox.adjust_bbox``): ``transFigure`` moved by the
+    window's corner, and so every transform through it, and ``fig.bbox``
+    of the window's size; put back once the print is over.
+    """
+    d = fig.__dict__
+    window = _figure.print_window(fig._native)
+    kept = d.get("_kept_for_window")
+    if kept is not None and (window is None or kept[0] != window):
+        _, d["bbox"], boxout = d.pop("_kept_for_window")
+        d["transFigure"]._boxout = boxout
+        d["transFigure"].invalidate()
+        kept = None
+    if window is None or kept is not None:
+        return
+    x0, y0, x1, y1 = window
+    scale = d["dpi_scale_trans"].frozen()
+    trans_figure = d["transFigure"]
+    d["_kept_for_window"] = (window, d["bbox"], trans_figure._boxout)
+    (left, bottom), size = scale.transform([(x0, y0), d["bbox_inches"].size])
+    trans_figure._boxout = Bbox.from_bounds(-left, -bottom, *size)
+    trans_figure.invalidate()
+    d["bbox"] = TransformedBbox(Bbox.from_bounds(0, 0, x1 - x0, y1 - y0), scale)
+    d["bbox"]._spanning = trans_figure
 
 
 class FigureTrees:

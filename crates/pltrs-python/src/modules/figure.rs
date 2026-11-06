@@ -12,7 +12,7 @@ use pltrs::layout::{
 };
 use pltrs::text::Text;
 use pltrs_core::alloc::caused_by_out_of_memory;
-use pltrs_render::RasterBackendError;
+use pltrs_render::{RasterBackendError, VectorError};
 
 use super::gridspec::Overrides;
 use crate::binding::prelude::*;
@@ -106,6 +106,10 @@ impl From<SaveError> for PyErr {
                     None => err.to_string(),
                 });
             }
+            SaveError::Vector(VectorError::StreamedImage) => {
+                // matplotlib's own message, which names no document.
+                return PyErr::value_error(VectorError::StreamedImage.to_string());
+            }
             SaveError::Io(_) => ExceptionKind::OSError,
             SaveError::UnsupportedFormat(_) | SaveError::Backend(RasterBackendError::Canvas(_)) => {
                 ExceptionKind::ValueError
@@ -116,9 +120,12 @@ impl From<SaveError> for PyErr {
     }
 }
 
-/// A figure of `width × height` inches at `dpi`.
+/// A figure of `width × height` inches at `dpi`, whose layout engine runs
+/// only when it is drawn, as matplotlib's does.
 fn new(width: f64, height: f64, dpi: f64) -> PyResult<Figure> {
-    Ok(Figure::with_size(width, height, dpi))
+    let figure = Figure::with_size(width, height, dpi);
+    figure.set_layout_when_drawn_only(true);
+    Ok(figure)
 }
 
 /// The figure's size in inches.
@@ -130,6 +137,14 @@ fn get_size_inches(figure: Figure) -> PyResult<(f64, f64)> {
 fn set_size_inches(figure: Figure, width: f64, height: f64) -> PyResult<()> {
     figure.set_size_inches(width, height)?;
     Ok(())
+}
+
+/// The part of the figure a print running now is cut to, as
+/// `(x0, y0, x1, y1)` in inches, or `None` (see `Figure::print_window`).
+fn print_window(figure: Figure) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(figure
+        .print_window()
+        .map(|window| (window.x0(), window.y0(), window.x1(), window.y1())))
 }
 
 /// The figure's resolution.
@@ -458,6 +473,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_size_inches", get_size_inches)?;
     module.add("set_size_inches", set_size_inches)?;
     module.add("get_dpi", get_dpi)?;
+    module.add("print_window", print_window)?;
     module.add("set_dpi", set_dpi)?;
     module.add("get_facecolor", get_facecolor)?;
     module.add("set_facecolor", set_facecolor)?;

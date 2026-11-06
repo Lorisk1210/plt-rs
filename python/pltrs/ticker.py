@@ -772,6 +772,34 @@ class ScalarFormatter(_NativeFormatter):
         math.floor(math.log10(abs(value)))
         return super().format_data(value)
 
+    def get_offset(self):
+        """
+        Return scientific notation, plus offset.
+        """
+        # Composed from the settings as they are now, as matplotlib's is.
+        if len(self._locs) == 0:
+            return ''
+        if self._orderOfMagnitude or self.offset:
+            offsetStr = ''
+            sciNotStr = ''
+            if self.offset:
+                offsetStr = self.format_data(self.offset)
+                if self.offset > 0:
+                    offsetStr = '+' + offsetStr
+            if self._orderOfMagnitude:
+                if self._usetex or self._useMathText:
+                    sciNotStr = self.format_data(10 ** self._orderOfMagnitude)
+                else:
+                    sciNotStr = '1e%d' % self._orderOfMagnitude
+            if self._useMathText or self._usetex:
+                if sciNotStr != '':
+                    sciNotStr = r'\times\mathdefault{%s}' % sciNotStr
+                s = fr'${sciNotStr}\mathdefault{{{offsetStr}}}$'
+            else:
+                s = ''.join((sciNotStr, offsetStr))
+            return self.fix_minus(s)
+        return ''
+
     def set_locs(self, locs):
         # docstring inherited
         locs = self._kept_locs(locs)
@@ -1088,6 +1116,10 @@ class EngFormatter(ScalarFormatter):
     Format axis values using engineering prefixes to represent powers
     of 1000, plus a specified unit, e.g., 10 MHz instead of 1e7.
     """
+
+    # The offset pltrs (Rust) gives its labels, as matplotlib's formatter
+    # gives its own.
+    get_offset = _NativeFormatter.get_offset
 
     # The SI engineering prefixes
     ENG_PREFIXES = {
@@ -2163,16 +2195,43 @@ class LogitLocator(MaxNLocator):
 
     def tick_values(self, vmin, vmax):
         # docstring inherited
+        self._refuse_polar()
+        _warn_outside_logit(vmin, vmax)
+        ticks = super().tick_values(vmin, vmax)
+        if (self._minor and not len(ticks)
+                and _logit_zoomed(*MaxNLocator.nonsingular(self, vmin, vmax))):
+            # matplotlib's minor ticks of a view zoomed in so far that it
+            # is ticked linearly: a list.
+            return []
+        return ticks
+
+    def __call__(self):
+        # matplotlib's call asks `tick_values`, which refuses a polar axis
+        # before anything is computed.
+        self._refuse_polar()
+        return super().__call__()
+
+    def _refuse_polar(self):
+        """Refuse to tick a polar axis, as matplotlib's locator does."""
         # dummy axis has no axes attribute
         if hasattr(self.axis, "axes") and self.axis.axes.name == "polar":
             raise NotImplementedError("Polar axis cannot be logit scaled yet")
-        _warn_outside_logit(vmin, vmax)
-        return super().tick_values(vmin, vmax)
 
     def nonsingular(self, vmin, vmax):
         # docstring inherited
         _warn_outside_logit(vmin, vmax)
         return super().nonsingular(vmin, vmax)
+
+
+def _logit_zoomed(vmin, vmax):
+    """Whether the logit view *vmin*, *vmax* holds fewer than two of the
+    ideal logit ticks (..., 1e-1, 1/2, 1-1e-1, ...), which matplotlib's
+    `LogitLocator` then ticks as a linear view."""
+    binf = int(np.floor(np.log10(vmin)) if vmin < 0.5
+               else 0 if vmin < 0.9 else -np.ceil(np.log10(1 - vmin)))
+    bsup = int(np.ceil(np.log10(vmax)) if vmax <= 0.5
+               else 1 if vmax <= 0.9 else -np.floor(np.log10(1 - vmax)))
+    return bsup - binf - 1 < 2
 
 
 def _warn_outside_logit(vmin, vmax):

@@ -198,6 +198,8 @@ class ContoursMixin:
         contours."""
         from ...tri import Triangulation, TriContourSet
         from ...tri._tricontour import _TriContourGenerator
+        # matplotlib's contour set takes the alpha first, checking it.
+        martist._check_array_alpha(kwargs.get("alpha"))
         levels = kwargs.pop("levels", None)
         if args and isinstance(args[0], TriContourSet):
             # The field of that contour set is contoured again, at its

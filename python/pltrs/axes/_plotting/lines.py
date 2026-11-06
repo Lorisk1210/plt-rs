@@ -4,7 +4,6 @@ Lines: `~.Axes.plot`, the reference lines and spans (`~.Axes.axhline`,
 and the segment families `~.Axes.hlines` and `~.Axes.vlines`.
 """
 
-import inspect
 import re
 
 import numpy as np
@@ -450,7 +449,8 @@ class LinesMixin:
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         for pos_only in "xy":
             if pos_only in kwargs:
-                raise _api.kwarg_error(inspect.stack()[1].function, pos_only)
+                # matplotlib's names the method calling its line maker.
+                raise _api.kwarg_error("plot", pos_only)
         self._process_unit_info(kwargs=kwargs)
         if not args:
             return []

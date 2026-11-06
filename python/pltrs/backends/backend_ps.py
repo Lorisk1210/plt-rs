@@ -52,8 +52,10 @@ def xpdf_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
     """
     _get_executable_info("gs")  # Effectively checks for ps2pdf.
     _get_executable_info("pdftops")
-    _backends.distill(os.fspath(tmpfile), "xpdf", bool(eps), ptype,
-                      _bbox_extents(bbox), bool(rotated))
+    # matplotlib's xpdf distillation leaves the bounding box and the
+    # rotation of the file as pdftops writes them: *bbox* and *rotated*
+    # are not used.
+    _backends.distill(os.fspath(tmpfile), "xpdf", bool(eps), ptype, None, False)
 
 
 def pstoeps(tmpfile, bbox=None, rotated=False):

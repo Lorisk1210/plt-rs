@@ -37,6 +37,7 @@ mod errorbar;
 mod eventplot;
 #[cfg(test)]
 mod extent_tests;
+mod failed_calls;
 mod fill;
 mod fill_between;
 mod grid_props;
@@ -135,6 +136,7 @@ pub use error_size::ErrorSize;
 pub(crate) use errorbar::without_marker_style;
 pub use errorbar::{ErrorbarContainer, ErrorbarFormat, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
+pub use failed_calls::CallMark;
 pub use fill_between::FillBetweenOptions;
 pub(crate) use fill_between::FillGeometry;
 pub use grid_props::{GridClip, GridLineProps, GridLinePropsOptions};

@@ -2,9 +2,11 @@
 //! `get_children` and `clear`).
 
 use pltrs::artist::{ArtistHandle, RawHandle};
-use pltrs::axes::Axes;
+use pltrs::axes::{Axes, CallMark};
 
 use crate::binding::prelude::*;
+
+native_value!(CallMark);
 
 /// The artists added to the axes, in the order they were added
 /// (matplotlib's `ax._children`).
@@ -37,9 +39,24 @@ fn clear(axes: Axes) -> PyResult<Vec<RawHandle>> {
     Ok(removed)
 }
 
+/// A mark of what the axes holds before a plotting call, to undo the
+/// call if it fails (see `undo_since`).
+fn call_mark(axes: Axes) -> PyResult<CallMark> {
+    Ok(axes.call_mark())
+}
+
+/// Puts the data limits and containers of the axes back as they were at
+/// `mark` and returns the artists added since, for the caller to remove
+/// (matplotlib's plotting call that fails adds nothing).
+fn undo_since(axes: Axes, mark: Native<CallMark>) -> PyResult<Vec<RawHandle>> {
+    Ok(axes.undo_since(&mark.borrow()))
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("children", children)?;
+    module.add("call_mark", call_mark)?;
+    module.add("undo_since", undo_since)?;
     module.add("artists", artists)?;
     module.add("clear", clear)
 }

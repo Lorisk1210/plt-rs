@@ -22,7 +22,7 @@ import numpy as np
 
 from . import _api, _owned_paths, _path
 from ._native import path as _native_path
-from .cbook import _to_unmasked_float_array
+from .cbook import _to_unmasked_float_array, simple_linear_interpolation
 from .bezier import BezierSegment
 
 
@@ -683,6 +683,19 @@ class Path:
         from .transforms import Bbox
         if transform is not None:
             self = transform.transform_path(self)
+        if (not isinstance(self.vertices, np.ndarray)
+                and (self.codes is None
+                     or len(np.intersect1d(self.codes, [Path.CURVE3, Path.CURVE4])) == 0)):
+            # matplotlib computes the extents of straight segments with the
+            # vertices as they were set, as an array, which fails for those
+            # that are none (a list); pltrs (Rust) reads them as an array.
+            if self.codes is None:
+                xys = self.vertices
+            else:
+                xys = self.vertices[np.isin(self.codes, [Path.MOVETO, Path.LINETO])]
+            if len(xys):
+                return Bbox([xys.min(axis=0), xys.max(axis=0)])
+            return Bbox.null()
         return Bbox(_native_path.get_extents(self, None))
 
     def intersects_path(self, other, filled=True):
@@ -729,6 +742,11 @@ class Path:
             return self.make_compound_path(
                 *(p.interpolated(steps) for p in self._iter_connected_components()))
 
+        if not isinstance(self.vertices, np.ndarray):
+            # matplotlib interpolates the vertices as they were set, as an
+            # array, which fails for those that are none (a list); pltrs
+            # (Rust) reads them as an array.
+            simple_linear_interpolation(self.vertices, steps)
         vertices, codes = _native_path.interpolated(self, steps)
         return Path(vertices, codes)
 
@@ -998,9 +1016,13 @@ def get_path_collection_extents(
         raise ValueError("No paths provided")
     if len(offsets) == 0:
         raise ValueError("No offsets provided")
+    transforms = np.atleast_3d(transforms)
+    if not transforms.size:
+        # matplotlib's extension reads an empty array as no transforms,
+        # whatever its shape (``[]`` is one of shape (1, 0, 1)).
+        transforms = np.empty((0, 3, 3))
     extents, minpos = _path.get_path_collection_extents(
-        master_transform, paths, np.atleast_3d(transforms),
-        offsets, offset_transform)
+        master_transform, paths, transforms, offsets, offset_transform)
     return Bbox.from_extents(*extents, minpos=minpos)
 
 

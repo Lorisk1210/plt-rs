@@ -1,5 +1,6 @@
 //! Axes spines: the lines framing the data area (matplotlib.spines).
 
+mod made;
 mod patch;
 mod style;
 

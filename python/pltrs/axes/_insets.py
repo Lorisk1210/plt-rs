@@ -208,12 +208,18 @@ class InsetsMixin:
             inset_ax._axes_locator = locator
         else:
             inset_ax.set_axes_locator(locator)
-        inset_ax.set_zorder(zorder)
-        for name in ("x", "y"):
-            other = pkw.pop(f"share{name}", None)
-            if other is not None:
-                getattr(inset_ax, f"share{name}")(other)
-        inset_ax._internal_update(pkw)
+        try:
+            inset_ax.set_zorder(zorder)
+            for name in ("x", "y"):
+                other = pkw.pop(f"share{name}", None)
+                if other is not None:
+                    getattr(inset_ax, f"share{name}")(other)
+            inset_ax._internal_update(pkw)
+        except Exception:
+            # matplotlib's inset is made, properties and all, before it is
+            # added: one that fails is not.
+            inset_ax.remove()
+            raise
         return inset_ax
 
     @_docstring.interpd

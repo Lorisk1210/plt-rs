@@ -254,6 +254,13 @@ class _Projection:
         self.named_spines = dict(spines)
         #: The sides of the native spines the class' spines are drawn as.
         self.spine_sides = [_spines.side(spine._native) for spine in spines.values()]
+        # The Axes draws the spines its class made, each on its side.
+        drawn = {_spines.side(native): native
+                 for _, native in _spines.axes_spines(ax._native)}
+        for spine in spines.values():
+            own = drawn.get(_spines.side(spine._native))
+            if own is not None:
+                _spines.replace_spine(ax._native, own, spine._native)
         hide_unmade_spines(ax, self.spine_sides)
         self.spine_order = self.spine_sides + [
             side for side in _LINEAR_PATHS if side not in self.spine_sides]
@@ -516,7 +523,10 @@ def connect(ax):
     projection the transforms made of them."""
     _build_trees(ax)
     ax._update_transScale()
-    ax._program_projection = _Projection(ax, ax._gen_axes_spines())
+    # The spines the class made, which the pickle kept.
+    spines = ax.__dict__.get("_spines_kept")
+    ax._program_projection = _Projection(
+        ax, ax._gen_axes_spines() if spines is None else dict(spines))
 
 
 def set_up(ax):

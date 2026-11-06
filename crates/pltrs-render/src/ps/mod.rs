@@ -200,6 +200,12 @@ impl PsRenderer {
         })
     }
 
+    /// Whether a partially transparent colour was drawn so far, opaque
+    /// (what matplotlib's `_is_transparent` logs, once per document).
+    pub fn partially_transparent(&self) -> bool {
+        self.partially_transparent
+    }
+
     /// The document: header comments, the prolog with the procedures and
     /// fonts, then the drawing placed on the page (matplotlib's
     /// `_print_figure`); with [`PsOptions::usetex`], the figure whose

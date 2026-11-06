@@ -10,6 +10,7 @@ aliases, defaults) into the explicit arguments of a native function of
 from .. import _docstring
 from .. import _handles, _values, cbook
 from .._native import axes as _axes
+from . import _failed_calls
 from ._artist_list import ArtistList
 from ._base import _AxesBase
 from ._clear import ClearMixin
@@ -358,3 +359,4 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
 
 # matplotlib defines the methods of the mixins on Axes itself.
 cbook._own_mixin_methods(Axes, _AxesBase)
+_failed_calls.guard(Axes)

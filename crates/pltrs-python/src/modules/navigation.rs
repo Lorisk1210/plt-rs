@@ -209,21 +209,10 @@ fn contains_point(axes: Axes, x: f64, y: f64) -> PyResult<bool> {
     Ok(axes.contains_point(Point::new(x, y)))
 }
 
-/// The data point `(x, y)` as a status bar shows it (`format_coord`).
-fn format_coord(axes: Axes, x: f64, y: f64) -> PyResult<String> {
-    Ok(axes.format_coord(x, y))
-}
-
 /// The data of the topmost visible artist with `mouseover` set under
 /// display point `(x, y)`, as a status bar shows it.
 fn cursor_text(axes: Axes, x: f64, y: f64) -> PyResult<Option<String>> {
     Ok(axes.cursor_text(Point::new(x, y)))
-}
-
-/// The coordinate `value` along axis `name` as a status bar shows it
-/// (`format_xdata`, `format_ydata`); `None` when it cannot be formatted.
-fn format_data(axes: Axes, name: String, value: f64) -> PyResult<Option<String>> {
-    Ok(axes.format_data(axis_name(&name)?, value))
 }
 
 /// Formats the coordinates along axis `name` with the Python function
@@ -262,8 +251,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("zoomed_bounds", zoomed_bounds)?;
     module.add("zoom_view", zoom_view)?;
     module.add("contains_point", contains_point)?;
-    module.add("format_coord", format_coord)?;
-    module.add("format_data", format_data)?;
     module.add("cursor_text", cursor_text)?;
     module.add("set_fmt_data", set_fmt_data)
 }

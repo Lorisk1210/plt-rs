@@ -41,7 +41,11 @@ class InteractionMixin:
 
     def sca(self, a):
         """Set the current Axes to be *a* and return *a*."""
-        _figure.sca(self.get_figure(root=True)._native, a._native)
+        root = self.get_figure(root=True)
+        if a not in root.axes:
+            # matplotlib's stack of the figure's Axes holds those added.
+            raise ValueError("Axes has not been added yet")
+        _figure.sca(root._native, a._native)
         self._axes_changed()
         return a
 

@@ -76,13 +76,17 @@ pub struct StepPatch {
     edges: Vec<f64>,
     baseline: StepBaseline,
     orientation: Orientation,
+    /// The path drawn in place of the steps' outline until the data are
+    /// set again (matplotlib's `PathPatch.set_path` on a step patch).
+    given_path: Option<Path>,
 }
 
 pltrs_core::archive_struct!(StepPatch {
     values,
     edges,
     baseline,
-    orientation
+    orientation,
+    given_path
 });
 
 impl StepPatch {
@@ -107,6 +111,7 @@ impl StepPatch {
             edges,
             baseline: StepBaseline::default(),
             orientation: Orientation::Vertical,
+            given_path: None,
         })
     }
 
@@ -163,6 +168,28 @@ impl StepPatch {
         Ok(Self::new(values, edges)?
             .with_baseline(self.baseline)?
             .with_orientation(self.orientation))
+    }
+
+    /// The same steps drawn as `path` instead of their outline, until
+    /// their data are set again with [`StepPatch::with_data`] (matplotlib's
+    /// `set_path`, which a step patch inherits from `PathPatch`).
+    ///
+    /// ```
+    /// use pltrs::patches::{PatchShape, StepPatch};
+    /// use pltrs::path::Path;
+    /// use pltrs::transforms::Point;
+    /// let square = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(1.0, 1.0)]);
+    /// let steps = StepPatch::new(vec![1.0], vec![0.0, 1.0])?.with_path(square.clone());
+    /// assert_eq!(steps.path(), square);
+    /// assert_ne!(steps.with_data(Some(vec![2.0]), None)?.path(), square);
+    /// # Ok::<(), pltrs::patches::StepPatchError>(())
+    /// ```
+    #[must_use]
+    pub fn with_path(self, path: Path) -> Self {
+        Self {
+            given_path: Some(path),
+            ..self
+        }
     }
 
     /// The step heights.
@@ -248,6 +275,9 @@ impl StepPatch {
 
 impl PatchShape for StepPatch {
     fn path(&self) -> Path {
+        if let Some(path) = &self.given_path {
+            return path.clone();
+        }
         let mut builder = Path::builder();
         for (start, end) in self.finite_runs() {
             let mut points = self

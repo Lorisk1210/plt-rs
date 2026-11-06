@@ -1,17 +1,28 @@
 //! Families of straight segments: `vlines` and `hlines`.
 
-use pltrs_core::Path;
+use pltrs_core::{Path, Point};
 
 use super::broadcast::broadcast;
 use super::children::DataUpdate;
-use super::{Axes, PlotError};
+use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
-use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
+use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors, paths_extents};
 use crate::orientation::Orientation;
 use crate::transforms::Transform;
 use crate::units::AxisValues;
 
 impl Axes {
+    /// Maps `points` in place through the scales of the axes and back
+    /// (see [`AxisHandle::round_trip`](super::AxisHandle)).
+    fn round_trip(&self, points: &mut [Point]) {
+        let (mut xs, mut ys): (Vec<f64>, Vec<f64>) = points.iter().map(|p| (p.x, p.y)).unzip();
+        self.xaxis().round_trip(&mut xs);
+        self.yaxis().round_trip(&mut ys);
+        for (point, (x, y)) in points.iter_mut().zip(xs.into_iter().zip(ys)) {
+            *point = Point::new(x, y);
+        }
+    }
+
     /// Vertical segments at `x` from `ymin` to `ymax` (matplotlib's
     /// `vlines`). `ymin` and `ymax` hold one value or one per segment;
     /// every argument may hold numbers, dates or categories.
@@ -109,7 +120,7 @@ impl Axes {
         let n = positions.len();
         let low = broadcast("min", low, n)?;
         let high = broadcast("max", high, n)?;
-        let paths = positions
+        let paths: Vec<Path> = positions
             .iter()
             .zip(low.iter().zip(&high))
             .map(|(&at, (&lo, &hi))| {
@@ -125,13 +136,28 @@ impl Axes {
                 Path::polyline(vec![start.into(), end.into()])
             })
             .collect();
+        // matplotlib adds the lines with `autolim=False`, so that `relim`
+        // leaves them out, and extends the data limits itself, by the
+        // extent's corners only, in the directions that are data values;
+        // on rectilinear axes, the extent of the lines' vertices through
+        // the scales and back (`get_datalim`), which linear scales leave
+        // as they are.
+        let through_maps = self.raw().with::<AxesState, _>(|axes| {
+            axes.projection.is_rectilinear()
+                && (axes.xaxis.map().is_some() || axes.yaxis.map().is_some())
+        });
+        let extents = if through_maps && transform == self.trans_data() {
+            let mut through_scales = paths.clone();
+            for path in &mut through_scales {
+                self.round_trip(path.vertices_mut());
+            }
+            paths_extents(&through_scales).bbox
+        } else {
+            paths_extents(&paths).bbox
+        };
         let rc = crate::rc::params();
         let mut collection = CollectionArtist::new(CollectionKind::Line, paths, rc.clone());
         collection.edgecolors = EdgeColors::Colors(vec![rc.lines_color.clone()]);
-        // matplotlib adds the lines with `autolim=False`, so that `relim`
-        // leaves them out, and extends the data limits itself, by the
-        // extent's corners only, in the directions that are data values.
-        let extents = collection.shape_extents().bbox;
         let update = if n == 0 {
             DataUpdate::default()
         } else {

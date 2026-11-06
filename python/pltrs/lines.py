@@ -16,9 +16,9 @@ import numpy as np
 from . import _docstring
 from . import _api, _live_transforms, _mirrors, _values, cbook, units
 from ._artist_kwargs import native_artist_kwargs
-from ._native import lines as _lines
+from ._native import artist as _artist, lines as _lines
 from ._program_classes import takes_from_program
-from .artist import Artist
+from .artist import Artist, _check_alpha
 from .cbook import ls_mapper, ls_mapper_r, STEP_LOOKUP_MAP  # noqa: F401
 from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
@@ -186,6 +186,9 @@ def _native_kwargs(kwargs):
         if kwargs.get(name) is not None:
             # As matplotlib's `set_color` and `set_gapcolor` check them.
             mcolors._check_color_like(color=kwargs[name])
+    if "alpha" in kwargs:
+        # As matplotlib's `set_alpha` checks it.
+        _check_alpha(kwargs["alpha"])
     kwargs = native_artist_kwargs(kwargs)
     if "transform" in kwargs:
         kwargs["transform"] = _live_transforms.to_native(kwargs["transform"])
@@ -1038,15 +1041,17 @@ class Line2D(Artist):
 
     def _contains_within(self, mouseevent, radius):
         """`contains` as matplotlib's line answers it: no details for a
-        line of another canvas or without points, and a warning for a line
-        in no figure, which pltrs (Rust) does not hit-test (matplotlib
-        tests it in its own coordinates, its pick radius as pixels)."""
+        line of another canvas or without points, and for a line in no
+        figure a warning, the line then hit-tested in the coordinates its
+        transform gives, its pick radius as pixels."""
         if self._different_canvas(mouseevent) or not len(self.get_xydata()):
             return False, {}
         if self.get_figure(root=True) is None:
             _log.warning('no figure set when check if mouse is on line')
-            return False, self._contains_details(np.empty(0, dtype=int))
-        return super()._contains_within(mouseevent, radius)
+        ind = _artist.contains(self._native, float(mouseevent.x),
+                               float(mouseevent.y), radius)
+        ind = np.asarray([] if ind is None else ind, dtype=int)
+        return len(ind) > 0, self._contains_details(ind)
 
     def get_dash_capstyle(self):
         """

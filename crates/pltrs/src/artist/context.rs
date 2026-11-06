@@ -48,6 +48,12 @@ impl<'a> LayoutContext<'a> {
         self.figure
     }
 
+    /// Whether artist `id` is in no figure: removed from this one, or made
+    /// outside any (matplotlib's `get_figure()` is then `None`).
+    pub(crate) fn in_no_figure(&self, id: ArtistId) -> bool {
+        self.figure.is_removed(id)
+    }
+
     /// The frame of the root figure.
     pub(crate) fn root(&self) -> ArtistId {
         self.figure.root

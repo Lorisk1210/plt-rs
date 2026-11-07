@@ -1,10 +1,13 @@
-//! The libraries of the sciences: astropy, cartopy, sympy, nilearn and
-//! arviz (its plots, `arviz-plots`).
+//! The libraries of the sciences: astropy, cartopy, sympy, nilearn, arviz
+//! (its plots, `arviz-plots`), scanpy and mne.
 
-use super::{Baselines, CONFIGURATION, Data, DataFile, Found, Library, Making, Network, Source};
+use super::{
+    Baselines, CONFIGURATION, Data, DataFile, DataForm, Environment, Found, Library, Making,
+    Network, PLAIN, Source, Venvs,
+};
 
 /// The libraries.
-pub(super) const LIBRARIES: [Library; 5] = [
+pub(super) const LIBRARIES: [Library; 7] = [
     Library {
         name: "astropy",
         package: "astropy",
@@ -40,6 +43,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
             making: Making::PytestMpl,
             read_from: None,
         }),
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "astropy's visualization tests",
     },
     Library {
@@ -57,10 +62,13 @@ pub(super) const LIBRARIES: [Library; 5] = [
         options: &["-m", "not network", "--mpl-results-path=mpl-results"],
         data: Some(Data {
             files: NATURAL_EARTH,
+            form: DataForm::Plain,
             found: Found::Variable("CARTOPY_DATA_DIR"),
         }),
         network: Network::Refused,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "cartopy's plotting tests",
     },
     Library {
@@ -88,6 +96,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
         data: None,
         network: Network::Refused,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "sympy's plotting tests",
     },
     Library {
@@ -151,6 +161,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
             making: Making::PytestMpl,
             read_from: None,
         }),
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "nilearn's plotting and reporting tests",
     },
     Library {
@@ -173,7 +185,87 @@ pub(super) const LIBRARIES: [Library; 5] = [
         data: None,
         network: Network::Refused,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "arviz' plots with matplotlib",
+    },
+    Library {
+        name: "scanpy",
+        package: "scanpy",
+        source: Source::Sdist,
+        // The logo its spatial tests read from the project's root, two
+        // levels above its package, which is the run's directory, above
+        // the site.
+        copies: &[
+            ("tests", "scanpy/tests"),
+            (
+                "docs/_static/img/Scanpy_Logo_RGB.png",
+                "../docs/_static/img/Scanpy_Logo_RGB.png",
+            ),
+        ],
+        left_out: None,
+        configuration: CONFIGURATION,
+        runs_in: None,
+        // Its plotting tests, and those beside them that plot.
+        tests: &[
+            "scanpy/tests/plotting",
+            "scanpy/tests/test_embedding_density.py",
+            "scanpy/tests/test_paga.py",
+        ],
+        only_taking: None,
+        options: &[],
+        data: Some(Data {
+            files: SCANPY_DATA,
+            form: DataForm::Plain,
+            // Where its tests' plugin has it keep its datasets, in pytest's
+            // cache.
+            found: Found::Link(".pytest_cache/d/scanpy-data"),
+        }),
+        network: Network::Refused,
+        // Its baselines are matplotlib 3.11's images, compared with a
+        // tolerance of 15.
+        baselines: None,
+        venvs: Venvs::Own,
+        // pytest's cache, whose `cache` fixture its image comparisons save
+        // their differences in.
+        environment: Environment {
+            variables: &[],
+            display: false,
+            cache: true,
+        },
+        title: "scanpy's plotting tests",
+    },
+    Library {
+        name: "mne",
+        package: "mne",
+        // Its sdist ships no tests.
+        source: Source::Archive {
+            url: "https://github.com/mne-tools/mne-python/archive/refs/tags/v{version}.tar.gz",
+            sha256: "b9d1e28d3e7c608975be64afc8cc3c145a32ba1992288f31b791456b2c8cef79",
+        },
+        // Its visualisation tests, with the recordings they read beside
+        // the readers' tests (those needing the large MNE-testing-data,
+        // which it downloads, skip without it).
+        copies: &[
+            ("mne/conftest.py", "mne/conftest.py"),
+            ("mne/viz/tests", "mne/viz/tests"),
+            ("mne/io/tests/data", "mne/io/tests/data"),
+            ("mne/io/kit/tests/data", "mne/io/kit/tests/data"),
+        ],
+        left_out: None,
+        configuration: CONFIGURATION,
+        runs_in: None,
+        tests: &["mne/viz/tests"],
+        only_taking: None,
+        // Without the coverage, JUnit, durations and doctest options of its
+        // configuration.
+        options: &["--override-ini=addopts="],
+        data: None,
+        network: Network::Refused,
+        baselines: None,
+        venvs: Venvs::Own,
+        environment: PLAIN,
+        title: "mne's visualisation tests",
     },
 ];
 
@@ -445,4 +537,19 @@ const NATURAL_EARTH: &[DataFile] = &[
         "coastline.shx",
         "0ff1792f2d16b58246d074215edd9d12fa280880ecaad61a91b9382fee854065"
     ),
+];
+
+/// The datasets of scanpy's plotting tests, which `scanpy.datasets`
+/// downloads from scverse's example data.
+const SCANPY_DATA: &[DataFile] = &[
+    DataFile {
+        url: "https://exampledata.scverse.org/scanpy/pbmc3k_raw.h5ad",
+        path: "pbmc3k_raw.h5ad",
+        sha256: "89a96f1beaa2dd83a687666d3f19a4513ac27a2a2d12581fcd77afed7ea653a1",
+    },
+    DataFile {
+        url: "https://exampledata.scverse.org/scanpy/pbmc3k.h5ad",
+        path: "pbmc3k_processed.h5ad",
+        sha256: "0db367b991dd95809732b218539ede489bea99113807f62ebd7ccc970025fe38",
+    },
 ];

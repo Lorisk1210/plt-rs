@@ -5,6 +5,7 @@ return, the native form of plotting values and of keyword arguments.
 
 import copy
 import datetime
+import inspect
 
 import numpy as np
 
@@ -129,15 +130,26 @@ def line_kwargs(kwargs):
     return mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
 
 
+#: The parameters of `.Line2D`'s constructor that take their rcParams'
+#: default when None.
+_LINE_DEFAULTS = frozenset(
+    name for name, parameter in inspect.signature(mlines.Line2D.__init__).parameters.items()
+    if parameter.default is None)
+
+
 def made_line_kwargs(kwargs):
     """
     The keyword arguments of a `.Line2D` made with them (``Line2D(...,
     **kwargs)``, as ``axhline`` makes its line), in native form: an alias
     overrides the property it stands for (statsmodels gives ``lw`` beside
     a ``linewidth``), as matplotlib's constructor sets its parameters, then
-    the remaining arguments.
+    the remaining arguments; a parameter of the constructor given None
+    under its own name takes its default (yellowbrick gives
+    ``color=None``).
     """
     to_property = mlines.Line2D._alias_to_prop
+    kwargs = {key: value for key, value in kwargs.items()
+              if not (value is None and key in _LINE_DEFAULTS)}
     resolved = {key: value for key, value in kwargs.items() if key not in to_property}
     resolved.update((to_property[key], value) for key, value in kwargs.items()
                     if key in to_property)

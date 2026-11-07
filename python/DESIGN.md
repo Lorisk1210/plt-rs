@@ -79,6 +79,7 @@ python/
   requirements-suite.txt        what both get for the suite (pandas, tornado, Qt bindings)
   requirements-ecosystem.txt    the ecosystem venvs (the libraries, what their tests use, pytest)
   requirements-ecosystem-reference.txt  what the ecosystem's reference venv adds (matplotlib)
+  requirements-ecosystem-<library>.txt  a library's own ecosystem venvs, where its pins clash
   requirements-notebooks.txt    the notebooks' venvs (Jupyter, IPython, matplotlib-inline, ipympl)
   requirements-notebooks-reference.txt  what the notebooks' reference venv adds (matplotlib)
 pyproject.toml                  `pip install .`: the backend and the distributions
@@ -1373,7 +1374,10 @@ figures without it:
   measures its artists (`get_window_extent`, `get_tightbbox`) is measured
   before a layout engine lays the figure out and before its tight box is
   computed, as matplotlib's engines and `bbox_inches="tight"` ask, not at
-  other draws (`Figure::prepare_layout`); what the measuring draws is
+  other draws (`Figure::prepare_layout`): parents first, the artists of
+  an Axes measuring itself measured by its own tight box (`Axes.get_tightbbox`
+  asks each artist of the Axes), and again before constrained layout's
+  second pass (`FigureState::measure_painters_lent`); what the measuring draws is
   recorded and dropped (`measure_artist`), as what matplotlib's layouts
   draw is drawn over.
 * **Adding.** matplotlib's `add_*` methods call `set_figure`,
@@ -1794,7 +1798,11 @@ SHA-256), as `mpl-suite` runs matplotlib's and with its outcome files and
 report: in a venv with real matplotlib (`--reference`,
 `target/ecosystem/reference-venv`) and in one without it, through the
 alias (`target/ecosystem/venv`, installed with matplotlib excluded from
-the resolution). Each library runs in a site of its own laid out as its
+the resolution), or in such venvs of the library's own where its pins
+clash with the others' (`target/ecosystem/venvs/<library>`: lifelines'
+pandas 2, scanpy's pytest 9), with the core metadata of the
+`matplotlib` distribution beside the alias (scanpy reads matplotlib's
+version through `importlib.metadata`). Each library runs in a site of its own laid out as its
 source tree, with the sdist's `pyproject.toml`, so that its pytest
 configuration applies (pandas turns every warning into an error); the
 outcomes are `spec/ecosystem/<mode>.json`. What they need of matplotlib

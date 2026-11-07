@@ -26,7 +26,7 @@
 //! `python/tools/toolkits.sh` once installed (see [`gui`]); the runner
 //! says which of them it lacks, whose tests then skip.
 
-mod display;
+pub(crate) mod display;
 mod gui;
 pub(crate) mod outcomes;
 pub(crate) mod prepare;
@@ -158,6 +158,7 @@ fn run_suite(options: &Options) -> Result<(), String> {
         options: &[],
         targets: &targets,
         environment: &environment,
+        cache: false,
     }
     .outcomes_with(gui.variables())?;
     // Stops the run's own display, if it started one.

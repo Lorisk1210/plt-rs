@@ -90,6 +90,7 @@ class LayoutMixin:
         matplotlib.spines.Spine.get_window_extent
         """
         _unusable.check(self, measuring=True)
+        self._place_titles_by_program(renderer)
         extent = _figure_layout.axes_tightbbox(
             self._native, bool(for_layout_only), bbox_extra_artists is None)
         if extent is None:

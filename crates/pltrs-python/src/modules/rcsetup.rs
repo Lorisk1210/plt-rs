@@ -109,8 +109,9 @@ impl IntoPy for RcValue {
 }
 
 /// A Python value spelled as rc-file text: strings as they are, `True`,
-/// `False` and `None`, numbers as Python prints them, sequences joined by
-/// commas, anything else (a `Cycler`) as its `repr`.
+/// `False` and `None`, numbers as Python prints them (numpy's as the
+/// Python numbers they hold), sequences joined by commas, anything else (a
+/// `Cycler`) as its `repr`.
 #[derive(Clone, Debug, PartialEq)]
 struct RcText(String);
 
@@ -135,6 +136,13 @@ fn rc_text(object: &Bound<'_>) -> PyResult<String> {
             .map(|item| rc_text(&item?))
             .collect::<PyResult<_>>()?;
         return Ok(parts.join(", "));
+    }
+    if object.getattr("dtype").is_ok()
+        && let Ok(number) = object.call_method("item", &[])
+    {
+        // A scalar of numpy's (`np.float64(8.0)`), whose repr no rc
+        // text spells.
+        return rc_text(&number);
     }
     object.repr()
 }
@@ -389,6 +397,11 @@ mod tests {
             assert_eq!(text("'serif'"), "serif");
             assert_eq!(text("[3.5, 42]"), "3.5, 42");
             assert_eq!(text("('a', 'b')"), "a, b");
+            // numpy's scalars as the Python numbers they hold.
+            let scalar = "class Scalar:\n    dtype = 'float64'\n    def item(self):\n        \
+                          return 8.0\n    def __repr__(self):\n        return 'np.float64(8.0)'\n";
+            let numbers = eval(py, scalar, "[Scalar(), 5.5]").extract::<RcText>();
+            assert_eq!(numbers.unwrap().0, "8.0, 5.5");
         });
     }
 

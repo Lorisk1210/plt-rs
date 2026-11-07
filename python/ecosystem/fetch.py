@@ -15,7 +15,11 @@ suites from, checking every download's SHA-256.
   release's tag (the tests of the libraries whose sdists ship none), checks
   its SHA-256 and unpacks it into ``DEST`` as an sdist is;
 * ``fetch.py file URL SHA256 DEST``: downloads one file (a test's data
-  that the sdist leaves out) to ``DEST``, if its SHA-256 is *SHA256*.
+  that the sdist leaves out) to ``DEST``, if its SHA-256 is *SHA256*;
+* ``fetch.py zip URL SHA256 DEST``: downloads a checked zip archive (a
+  dataset yellowbrick reads unpacked), unpacks it into the directory of
+  ``DEST``, refusing entries that lead out of it, then writes the archive
+  to ``DEST``, so that ``DEST`` exists only once its entries do.
 
 It uses the standard library alone.
 """
@@ -28,14 +32,20 @@ import shutil
 import sys
 import tarfile
 import urllib.request
+import zipfile
 
 #: PyPI's JSON description of a release.
 RELEASE_URL = "https://pypi.org/pypi/{name}/{version}/json"
 
+#: The user agent the downloads name: some hosts (scverse's example data)
+#: refuse urllib's own.
+USER_AGENT = "pltrs-ecosystem-fetch"
+
 
 def download(url, sha256):
     """The bytes at *url*, if their SHA-256 is *sha256*."""
-    with urllib.request.urlopen(url) as answer:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request) as answer:
         data = answer.read()
     digest = hashlib.sha256(data).hexdigest()
     if digest != sha256:
@@ -83,6 +93,21 @@ def file(url, sha256, dest):
     print(f"downloaded {url} to {dest}")
 
 
+def unzip(url, sha256, dest):
+    """Downloads the checked zip archive at *url*, unpacks it beside *dest*
+    and writes it to *dest*."""
+    data = download(url, sha256)
+    home = dest.parent.resolve()
+    home.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for name in archive.namelist():
+            if not (home / name).resolve().is_relative_to(home):
+                raise SystemExit(f"{url}: {name} leads out of {home}")
+        archive.extractall(home)
+    dest.write_bytes(data)
+    print(f"unpacked {url} into {home}")
+
+
 if __name__ == "__main__":
     match sys.argv[1:]:
         case ["sdist", name, version, dest]:
@@ -91,8 +116,10 @@ if __name__ == "__main__":
             archive(url, sha256, pathlib.Path(dest))
         case ["file", url, sha256, dest]:
             file(url, sha256, pathlib.Path(dest))
+        case ["zip", url, sha256, dest]:
+            unzip(url, sha256, pathlib.Path(dest))
         case _:
             raise SystemExit(
                 "usage: fetch.py sdist NAME VERSION DEST | archive URL SHA256 DEST"
-                " | file URL SHA256 DEST"
+                " | file URL SHA256 DEST | zip URL SHA256 DEST"
             )

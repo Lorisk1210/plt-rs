@@ -62,11 +62,12 @@ class _AxesBackground(_Background):
 
 
 class _ShapedAxesBackground(_AxesBackground):
-    """The background of an Axes whose class of the program's makes its
-    patch (``_gen_axes_patch``), whose outline is the background's shape
-    and what the Axes clips to, whenever the program changes the patch
-    (cartopy's ``GeoAxes`` gives its patch the map's boundary as it draws,
-    clipped to the view)."""
+    """The background of an Axes whose patch the program makes (its class'
+    ``_gen_axes_patch``, or `set_axes_patch`), whose outline is the
+    background's shape and what the Axes clips to, whenever the program
+    changes the patch (cartopy's ``GeoAxes`` gives its patch the map's
+    boundary as it draws, clipped to the view; astropy's frames move the
+    vertices of their patch's path)."""
 
     def push(self, patch):
         super().push(patch)
@@ -164,12 +165,7 @@ def set_axes_patch(axes, patch):
     if mirror is not None and not isinstance(mirror, _AxesBackground):
         raise TypeError("an Axes' patch cannot be the background of a figure")
     if mirror is None:
-        from .patches import Rectangle
-        outline = (patch.get_transform() - axes.transAxes).transform_path(
-            patch.get_path())
-        _projections.set_patch_outline(axes._native, outline,
-                                       isinstance(patch, Rectangle))
-        _attach(patch, _AxesBackground(axes))
+        _attach(patch, _ShapedAxesBackground(axes))
         patch._mirror.push(patch)
     elif mirror.owner is not axes:
         _axisartist.share_floating_patch(mirror.owner._native, axes._native)

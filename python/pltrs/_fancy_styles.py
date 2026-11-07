@@ -39,7 +39,7 @@ class FancyStylesMixin:
     def _set_style(self, key, style, registry, native_set, native_get):
         """Give the patch *style* of *registry*, set by *native_set* and
         described back by *native_get*; return the style object."""
-        native_set(self._native, _native_spec(style, registry))
+        native_set(self._native, _native_spec(style, registry, self))
         self.__dict__[key] = (style, native_get(self._native))
         self.stale = True
         return style

@@ -212,6 +212,7 @@ class Path:
     def _interpolation_steps(self, steps):
         if self._steps_of is None:
             self._steps = steps
+            _owned_paths.changed(self)
         else:
             self._steps_of[1](int(steps))
 

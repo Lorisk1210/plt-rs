@@ -170,6 +170,7 @@ pub use specgram::{SpecgramError, SpecgramOptions, SpecgramPlot};
 pub use spectral::{CorrelationArtists, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
 pub use spy::{Spy, SpyOptions};
 pub use stackplot::{Baseline, StackplotOptions};
+pub use state::TitlePlacement;
 pub(crate) use state::{AxesState, PatchOutline};
 pub(crate) use stem::solid_format;
 pub use stem::{StemContainer, StemOptions};

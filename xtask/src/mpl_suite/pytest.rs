@@ -53,6 +53,10 @@ pub(crate) struct Run<'a> {
     /// Variables set for the run on top of the inherited ones (the suite
     /// tools' fonts and TeX tree, `tools::environment`).
     pub(crate) environment: &'a [(String, OsString)],
+    /// Whether pytest's cache plugin runs, leaving `.pytest_cache` in the
+    /// site (scanpy's image comparisons save into its `cache` fixture);
+    /// the suites leave it out otherwise.
+    pub(crate) cache: bool,
 }
 
 impl Run<'_> {
@@ -100,14 +104,12 @@ impl Run<'_> {
             };
         }
         let status = command
-            .args([
-                "-m",
-                "pytest",
-                "-p",
-                "mpl_suite_report",
-                "-p",
-                "no:cacheprovider",
-            ])
+            .args(["-m", "pytest", "-p", "mpl_suite_report"])
+            .args(if self.cache {
+                &[][..]
+            } else {
+                &["-p", "no:cacheprovider"][..]
+            })
             .args(["-n", workers, "--timeout", TEST_TIMEOUT])
             .args(["--continue-on-collection-errors", "-q", "-rN"])
             // pytest's temporary directories (`tmp_path`) under the run's

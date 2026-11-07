@@ -7,7 +7,7 @@ use std::str::FromStr;
 use pltrs_core::bezier::{Direction, get_intersection, inside_circle, split_path_inout};
 use pltrs_core::{Path, PathCode, Point};
 
-use super::program_styles::ProgramConnection;
+use super::program_styles::{ProgramConnection, ProgramRoute};
 use super::style_spec::{StyleSpec, write_description};
 use super::{PatchError, StyleError};
 
@@ -70,8 +70,11 @@ pub enum ConnectionStyle {
         angle: Option<f64>,
     },
     /// A connection of the program's (matplotlib's `ConnectionStyle._Base`
-    /// subclasses and callables).
+    /// subclasses), which pltrs clips and shrinks.
     Program(ProgramConnection),
+    /// A route of the program's (matplotlib's plain callables given as
+    /// connection styles), which clips and shrinks itself.
+    ProgramRoute(ProgramRoute),
 }
 
 pltrs_core::archive_enum!(ConnectionStyle {
@@ -81,6 +84,7 @@ pltrs_core::archive_enum!(ConnectionStyle {
     Arc { angle_a, angle_b, arm_a, arm_b, rad },
     Bar { arm_a, arm_b, fraction, angle },
     Program(v0),
+    ProgramRoute(v0),
 });
 
 impl Default for ConnectionStyle {
@@ -196,12 +200,14 @@ impl ConnectionStyle {
                 angle,
             } => bar_connection(a, b, arm_a, arm_b, fraction, angle)?,
             Self::Program(program) => program.path(a, b),
+            Self::ProgramRoute(route) => route.path((a, b), (0.0, 0.0)),
         })
     }
 
     /// The connection from `a` to `b` clipped to `patch_a` and `patch_b`,
     /// then shrunk by `shrink_a` and `shrink_b` pixels at its ends
-    /// (`_Base.__call__`).
+    /// (`_Base.__call__`); a route of the program's as it gives it, the
+    /// shrinking its to do.
     pub fn route(
         &self,
         (a, b): (Point, Point),
@@ -209,6 +215,10 @@ impl ConnectionStyle {
         patch_a: Option<&ClipRegion>,
         patch_b: Option<&ClipRegion>,
     ) -> Result<Path, PatchError> {
+        if let Self::ProgramRoute(route) = self {
+            // The program clips and shrinks its route itself.
+            return Ok(route.path((a, b), (shrink_a, shrink_b)));
+        }
         let path = self.connect(a, b)?;
         let in_a = patch_a.map(|region| move |p: Point| region.contains(p));
         let in_b = patch_b.map(|region| move |p: Point| region.contains(p));
@@ -344,7 +354,7 @@ impl fmt::Display for ConnectionStyle {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Self::Program(_) => write_description(f, "program", &[]),
+            Self::Program(_) | Self::ProgramRoute(_) => write_description(f, "program", &[]),
             Self::Arc3 { rad } => write_description(f, "arc3", &[("rad", Some(rad))]),
             Self::Angle3 { angle_a, angle_b } => write_description(
                 f,

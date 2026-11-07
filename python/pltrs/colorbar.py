@@ -522,6 +522,7 @@ class Colorbar:
             'changed', self.update_normal)
         self._link_axes()
         self._take_contour_values()
+        self._adopt_solids()
         self.stale = True
 
     def _take_contour_values(self):
@@ -675,6 +676,15 @@ class Colorbar:
         return _handles.wrap(_colorbar.solids(self._native), QuadMesh,
                              self._figure)
 
+    def _adopt_solids(self):
+        """Have the colour blocks (`solids`) map through the colorbar's very
+        colormap and norm, as matplotlib's ``pcolormesh(..., cmap=self.cmap,
+        norm=self.norm)`` makes them whenever it draws them anew (on
+        `__init__` and `update_normal`)."""
+        solids = self.solids
+        if solids is not None:
+            solids._attach_native_mapping(cmap=self.cmap, norm=self.norm)
+
     @property
     def solids_patches(self):
         """The hatched patches drawn as the colour blocks of a hatched
@@ -804,6 +814,7 @@ class Colorbar:
         _colorbar.update_normal(self._native, self._shown())
         if self.mappable.norm is not self._ticker_norm:
             self._keep_tickers()
+        self._adopt_solids()
         self.stale = True
 
     def _shown(self):

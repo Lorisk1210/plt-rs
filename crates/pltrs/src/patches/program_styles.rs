@@ -5,6 +5,7 @@
 //! which pltrs calls wherever it draws with a style
 //! ([`BoxShape::Program`](super::BoxShape::Program),
 //! [`ConnectionStyle::Program`](super::ConnectionStyle::Program),
+//! [`ConnectionStyle::ProgramRoute`](super::ConnectionStyle::ProgramRoute),
 //! [`ArrowStyle::Program`](super::ArrowStyle::Program)).
 //!
 //! A style is a function of the program's ([`ProgramFn`]): one made with
@@ -25,6 +26,12 @@ pub type BoxFn = dyn Fn(f64, f64, f64, f64, f64) -> Path;
 /// `ConnectionStyle._Base.connect`), which pltrs then clips to the
 /// patches at its ends and shrinks as matplotlib's `_Base.__call__` does.
 pub type ConnectFn = dyn Fn(Point, Point) -> Path;
+
+/// A route of the program's between two display points, given how many
+/// pixels to shrink it by at either end (matplotlib's plain callables
+/// given as connection styles, called with `shrinkA` and `shrinkB`): the
+/// path drawn, which the program clips and shrinks as it sees fit.
+pub type RouteFn = dyn Fn((Point, Point), (f64, f64)) -> Path;
 
 /// An arrow of the program's along a path in display pixels, at
 /// mutation size, line width (pixels) and mutation aspect: its pieces,
@@ -95,6 +102,11 @@ program_style!(
 );
 
 program_style!(
+    /// A route of the program's (see [`RouteFn`]).
+    ProgramRoute(RouteFn)
+);
+
+program_style!(
     /// An arrow style of the program's (see [`ArrowFn`]).
     ProgramArrow(ArrowFn)
 );
@@ -118,6 +130,14 @@ impl ProgramConnection {
     /// The connection from `a` to `b`.
     pub(crate) fn path(&self, a: Point, b: Point) -> Path {
         (self.0.get())(a, b)
+    }
+}
+
+impl ProgramRoute {
+    /// The route from `a` to `b`, shrunk by `shrink` pixels as the program
+    /// decides.
+    pub(crate) fn path(&self, ends: (Point, Point), shrink: (f64, f64)) -> Path {
+        (self.0.get())(ends, shrink)
     }
 }
 

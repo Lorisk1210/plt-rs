@@ -1,11 +1,11 @@
 //! The baselines of the libraries' image comparisons whose own are for
 //! another version of matplotlib (plotnine's are 3.10's images, astropy's
 //! hashes of 3.8's, nilearn's the oldest matplotlib's it supports,
-//! mplfinance's and mpl-scatter-density's older images) or that its source
-//! tree lacks (missingno's), which `cargo xtask ecosystem setup` makes
-//! under real matplotlib 3.11.2, in the ecosystem's reference venv, from
-//! the pinned versions alone, so that every machine makes the same:
-//! `target/ecosystem/baselines/<library>/images`, never committed.
+//! mplfinance's, mpl-scatter-density's and yellowbrick's older images) or
+//! that its source tree lacks (missingno's), which `cargo xtask ecosystem
+//! setup` makes under real matplotlib 3.11.2, in the library's reference
+//! venv, from the pinned versions alone, so that every machine makes the
+//! same: `target/ecosystem/baselines/<library>/images`, never committed.
 //!
 //! * pytest-mpl's (astropy's, nilearn's, mpl-scatter-density's,
 //!   missingno's): one run of the library's tests with
@@ -13,14 +13,15 @@
 //!   of comparing it; the suite's runs compare with them
 //!   (`--mpl-baseline-path`, or the directory the tests name, made a link
 //!   to them);
-//! * plotnine's and mplfinance's: their tests save every image before
-//!   they compare it with its baseline, missing at first. As plotnine's
-//!   `tools/update_baseline_images.py` does, the images of a run that have
-//!   no baseline become baselines, and the tests that failed run again,
-//!   until a run adds none: a test comparing several images stops at its
-//!   first missing baseline. An image differing from the baseline made
-//!   for it (which the tool would take instead) is matplotlib's own
-//!   nondeterminism, and stays a failure of the reference run.
+//! * plotnine's, mplfinance's and yellowbrick's: their tests save every
+//!   image before they compare it with its baseline, missing at first. As
+//!   plotnine's `tools/update_baseline_images.py` does, the images of a
+//!   run that have no baseline become baselines, and the tests that failed
+//!   run again, until a run adds none: a test comparing several images
+//!   stops at its first missing baseline. An image differing from the
+//!   baseline made for it (which the tool would take instead) is
+//!   matplotlib's own nondeterminism, and stays a failure of the reference
+//!   run.
 //!
 //! The images are made in `images.partial`, which becomes `images` once
 //! complete. `made-with.txt` beside them holds the pins they were made
@@ -33,19 +34,13 @@ use std::path::{Path, PathBuf};
 use pltrs_core::os::Os;
 
 use super::libraries::{Baselines, Library, Making};
-use super::site;
 use super::suite::Tests;
+use super::{site, venvs};
 use crate::mpl_suite::{Mode, prepare, tools};
 use crate::python;
 
 /// The file naming the pins the baselines were made with.
 const STAMP: &str = "made-with.txt";
-
-/// The requirement files whose pins decide the images.
-const PINNED: [&str; 2] = [
-    "requirements-ecosystem.txt",
-    "requirements-ecosystem-reference.txt",
-];
 
 /// The most runs making baselines from the tests' own images, more than
 /// any test has images.
@@ -101,7 +96,7 @@ pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     let dir = dir(library);
     let (images, stamp) = (dir.join("images"), dir.join(STAMP));
     let missing = tools::missing_programs();
-    let mut pins = pins()?;
+    let mut pins = pins(library)?;
     for (program, _) in &missing {
         writeln!(pins, "no {program} on PATH").expect("a String takes any text");
     }
@@ -147,10 +142,11 @@ pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// The pins of [`PINNED`], one per line.
-fn pins() -> Result<String, String> {
+/// The pins of `library`'s reference venv, which decide its images, one
+/// per line.
+fn pins(library: &Library) -> Result<String, String> {
     let mut pins = String::new();
-    for file in PINNED {
+    for file in [venvs::requirements(library).as_str(), venvs::REFERENCE] {
         let path = python::root().join("python").join(file);
         let text = fs::read_to_string(&path).map_err(|err| format!("{}: {err}", path.display()))?;
         for line in text.lines().filter(|line| line.contains("==")) {

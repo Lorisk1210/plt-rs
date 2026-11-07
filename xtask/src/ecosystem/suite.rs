@@ -1,10 +1,12 @@
 //! `cargo xtask ecosystem suite [--reference] [PATTERN...] [--failures]`:
 //! the own test suites of the libraries that import matplotlib by name
 //! (`libraries`), the tests of each that reach matplotlib, run unchanged
-//! from their source trees against real matplotlib (`--reference`, in the
-//! ecosystem's reference venv) or against pltrs as matplotlib (in the
-//! ecosystem venv, with `python/alias` on `PYTHONPATH`), as `cargo xtask
-//! mpl-suite` runs matplotlib's.
+//! from their source trees against real matplotlib (`--reference`, in a
+//! reference venv) or against pltrs as matplotlib (in a venv without it,
+//! with `python/alias` and the metadata of the `matplotlib` distribution,
+//! `metadata`, on `PYTHONPATH`), as `cargo xtask mpl-suite` runs
+//! matplotlib's: the ecosystem's shared venvs, or a library's own
+//! (`venvs`).
 //!
 //! Each library runs in a site of its own,
 //! `target/ecosystem/suite/<mode>/<library>/site/` (`site`), with its own
@@ -27,7 +29,8 @@ use std::time::Instant;
 use pltrs_core::os::Os;
 
 use super::libraries::{self, Library, Network};
-use super::{baselines, data, site};
+use super::{baselines, data, metadata, site, venvs};
+use crate::mpl_suite::display::VirtualDisplay;
 use crate::mpl_suite::outcomes::Outcomes;
 use crate::mpl_suite::pytest::Variable;
 use crate::mpl_suite::{self, Mode, Options, pytest, report};
@@ -57,11 +60,13 @@ fn details_file(mode: Mode) -> PathBuf {
     suite_dir().join(mode.name()).join("details.json")
 }
 
-/// A library made ready to run: its run's directory, its site and its
-/// test files.
+/// A library made ready to run: the interpreter of its venv, its run's
+/// directory, its site and its test files.
 struct Prepared {
     /// The library.
     library: Library,
+    /// The interpreter of the venv it runs in.
+    python: PathBuf,
     /// The run's own directory.
     dir: PathBuf,
     /// The site pytest runs in.
@@ -76,28 +81,27 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     if options.imports {
         return Err("--imports is mpl-suite's".to_owned());
     }
-    let venv = match options.mode {
-        Mode::Reference => super::reference_venv(),
-        Mode::Pltrs => {
-            python::build(python::Profile::Release)?;
-            super::venv()
-        }
-    };
-    let python = python::interpreter(&venv, Os::CURRENT);
-    if !python.exists() {
-        return Err(format!(
-            "{} does not exist: run `cargo xtask ecosystem setup` first",
-            python.display()
-        ));
+    if options.mode == Mode::Pltrs {
+        python::build(python::Profile::Release)?;
+        metadata::write(&python::interpreter(&super::venv(), Os::CURRENT))?;
     }
-    let installed = python::site_packages(&venv)?;
     let mut prepared = Vec::new();
     for library in libraries::all() {
+        let venv = venvs::venv(&library, options.mode);
+        let python = python::interpreter(&venv, Os::CURRENT);
+        if !python.exists() {
+            return Err(format!(
+                "{} does not exist: run `cargo xtask ecosystem setup` first",
+                python.display()
+            ));
+        }
+        let installed = python::site_packages(&venv)?;
         let dir = suite_dir().join(options.mode.name()).join(library.name);
         let site = site::lay_out(&library, &installed, &dir, &baselines::made(&library)?)?;
         let files = test_files(&site, library.tests)?;
         prepared.push(Prepared {
             library,
+            python,
             dir,
             site,
             files,
@@ -111,6 +115,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     let mut times = Vec::new();
     for Prepared {
         library,
+        python,
         dir,
         site,
         files,
@@ -126,7 +131,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
         let run = Tests {
             library,
             mode: options.mode,
-            python: &python,
+            python,
             site,
             dir,
         }
@@ -136,7 +141,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     }
     let mut versions = Vec::new();
     for library in libraries::all() {
-        versions.push((library.name, super::setup::pinned(library.name)?));
+        versions.push((library.name, venvs::pinned(&library)?));
     }
     versions.push(("matplotlib", MATPLOTLIB.to_owned()));
     let versions: Vec<(&str, &str)> = versions
@@ -179,7 +184,7 @@ impl Tests<'_> {
         let sources = python::root().join("python");
         let mut python_path = vec![self.site.to_owned(), sources.join("ecosystem/plugin")];
         if self.mode == Mode::Pltrs {
-            python_path.extend([sources.join("alias"), sources]);
+            python_path.extend([sources.join("alias"), metadata::dir(), sources]);
         }
         // Tests running elsewhere in the site are named by their paths.
         let (working_dir, targets) = match self.library.runs_in {
@@ -203,6 +208,16 @@ impl Tests<'_> {
         if self.library.network == Network::Refused {
             variables.extend(offline());
         }
+        let environment = self.library.environment;
+        variables.extend(
+            (environment.variables.iter())
+                .map(|&(name, value)| (name.to_owned(), Some(value.into()))),
+        );
+        // Stopped once the run is over, when it is the run's own.
+        let _display = environment
+            .display
+            .then(|| give_display(self.dir, &mut variables))
+            .flatten();
         pytest::Run {
             suite: self.library.title,
             python: self.python,
@@ -212,8 +227,32 @@ impl Tests<'_> {
             options: &options,
             targets: &targets,
             environment: &[],
+            cache: environment.cache,
         }
         .outcomes_with(&variables)
+    }
+}
+
+/// Gives a run in `dir` that needs an X display one: `DISPLAY`'s, else an
+/// Xvfb of its own, returned (it stops when dropped) with `DISPLAY` naming
+/// it in `variables`; none, said, without Xvfb (the tests needing it skip).
+fn give_display(dir: &Path, variables: &mut Vec<Variable>) -> Option<VirtualDisplay> {
+    if std::env::var_os("DISPLAY").is_some_and(|display| !display.is_empty()) {
+        return None;
+    }
+    let started = pltrs_core::os::which("Xvfb")
+        .ok_or_else(|| "$DISPLAY is unset and Xvfb is not on PATH".to_owned())
+        .and_then(|xvfb| VirtualDisplay::start(&xvfb, &dir.join("xvfb.log")));
+    match started {
+        Ok(display) => {
+            variables.push(("DISPLAY".to_owned(), Some(display.name().into())));
+            variables.push(("WAYLAND_DISPLAY".to_owned(), None));
+            Some(display)
+        }
+        Err(err) => {
+            println!("no display: {err}; the tests needing one skip");
+            None
+        }
     }
 }
 
@@ -331,6 +370,7 @@ mod tests {
     fn prepared(library: &Library, files: &[&str]) -> Prepared {
         Prepared {
             library: *library,
+            python: PathBuf::new(),
             dir: PathBuf::new(),
             site: PathBuf::new(),
             files: files.iter().map(|&file| file.to_owned()).collect(),

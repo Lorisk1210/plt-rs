@@ -57,6 +57,18 @@ fn autoscale_view(axes: Axes, tight: Option<bool>, scalex: bool, scaley: bool) -
     Ok(())
 }
 
+/// Whether autoscaling leaves the view limits unrounded (`_tight`).
+fn get_tight(axes: Axes) -> PyResult<bool> {
+    Ok(axes.autoscales_tight())
+}
+
+/// Sets whether autoscaling leaves the view limits unrounded, rescaling
+/// nothing (`ax._tight = tight`).
+fn set_tight(axes: Axes, tight: bool) -> PyResult<()> {
+    axes.autoscale_view_along(Some(tight), (false, false));
+    Ok(())
+}
+
 /// The margin of axis `name` (`get_xmargin`, `get_ymargin`).
 fn get_margin(axes: Axes, name: String) -> PyResult<f64> {
     Ok(axes.margin(axis_name(&name)?))
@@ -126,6 +138,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_autoscale_on", set_autoscale_on)?;
     module.add("autoscale", autoscale)?;
     module.add("autoscale_view", autoscale_view)?;
+    module.add("get_tight", get_tight)?;
+    module.add("set_tight", set_tight)?;
     module.add("get_margin", get_margin)?;
     module.add("set_margins", set_margins)?;
     module.add("relim", relim)?;

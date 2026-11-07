@@ -67,8 +67,17 @@ class Divider:
         self._xrefindex = 0
         self._yrefindex = 0
         self._locator = None
-        self._native = self._make_native()
-        self._sync()
+
+    @property
+    def _native(self):
+        """The native divider, made once the divider first divides: like
+        matplotlib's, the constructor reads nothing of what it divides
+        (yellowbrick lays a mocked Axes out)."""
+        native = self.__dict__.get("_native_divider")
+        if native is None:
+            native = self.__dict__["_native_divider"] = self._make_native()
+            self._sync()
+        return native
 
     def _make_native(self):
         """The native divider of the rectangle this divider divides."""
@@ -78,7 +87,7 @@ class Divider:
 
     def _sync(self):
         """Give the native divider the sizes, aspect and anchor."""
-        native = self.__dict__.get("_native")
+        native = self.__dict__.get("_native_divider")
         if native is None:
             return
         _axes_grid1.divider_set_horizontal(native, _native_sizes(self._horizontal))
@@ -103,7 +112,7 @@ class Divider:
             position of the rectangle that will be divided
         """
         self._pos = pos
-        if self.__dict__.get("_native") is not None:
+        if self.__dict__.get("_native_divider") is not None:
             _axes_grid1.divider_set_position(self._native,
                                              tuple(map(float, pos)))
 

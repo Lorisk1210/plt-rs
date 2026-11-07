@@ -141,6 +141,11 @@ pub(crate) struct AxesState {
     /// The view limits as matplotlib last mapped them through the
     /// program's scales of the axes (see `transform_sites`).
     pub(crate) scale_box: RefCell<Option<ScaleBox>>,
+    /// The box of the axes when the painter of an axes class of the
+    /// program's measuring itself last measured it, around which the
+    /// layouts moving the axes keep the margins it measured (see
+    /// `tight_bbox`).
+    pub(crate) measured_at: Option<Bbox>,
 }
 
 pltrs_core::archive_struct!(AxesState {
@@ -185,18 +190,29 @@ pltrs_core::archive_struct!(AxesState {
     rasterization_zorder,
     current_image,
     rc
-} skip { scale_box });
+} skip { scale_box, measured_at });
 
-/// How the height of an axes' titles is chosen.
+/// How the height of an axes' titles is chosen (matplotlib's
+/// `_autotitlepos`, and an `Axes` subclass' `_update_title_position`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum TitlePlacement {
-    /// Lifted above the decorations on top of the axes.
+pub enum TitlePlacement {
+    /// Lifted above the decorations on top of the axes whenever the
+    /// figure is laid out.
     Auto,
-    /// Where `axes.titley` or `Axes::set_title_y` put them.
+    /// Where `axes.titley` or [`Axes::set_title_y`](super::Axes::set_title_y)
+    /// put them.
     Fixed,
+    /// Where the program puts them: lifted above the decorations on top
+    /// only when it asks ([`Axes::lift_titles`](super::Axes::lift_titles)),
+    /// as an axes class of the program's placing them its own way does.
+    Program,
 }
 
-pltrs_core::archive_enum!(TitlePlacement { Auto, Fixed });
+pltrs_core::archive_enum!(TitlePlacement {
+    Auto,
+    Fixed,
+    Program
+});
 
 /// Which decorations an axes draws (matplotlib's `axison` and
 /// `_frameon`).
@@ -375,6 +391,7 @@ impl AxesState {
             current_image: None,
             rc,
             scale_box: RefCell::new(None),
+            measured_at: None,
         }
     }
 

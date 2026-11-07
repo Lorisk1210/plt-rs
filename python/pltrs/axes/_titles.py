@@ -4,13 +4,17 @@ The titles of an Axes (matplotlib's ``set_title``, ``get_title``,
 ``_update_title_position``).
 
 pltrs (Rust) keeps the three titles of each axes and lifts them above
-the decorations on top of it as it lays the figure out. The argument
+the decorations on top of it as it lays the figure out, unless the Axes
+class places them its own way (its ``_update_title_position``): pltrs
+(Rust) then leaves them where it puts them, and calls it where
+matplotlib's ``draw`` and ``get_tightbbox`` do. The argument
 handling of ``set_title`` and ``get_title`` is matplotlib 3.11.2's,
 under the Matplotlib License.
 """
 
 from .. import _api, _handles, _live_transforms
 from .._native import axes as _axes
+from .._program_classes import takes_from_program
 from ..text import Text
 from ..transforms import ScaledTranslation
 
@@ -146,3 +150,42 @@ class TitlesMixin:
         all the ticklabels and x-axis spine and xlabel...
         """
         _axes.update_title_position(self._native)
+
+    @property
+    def _autotitlepos(self):
+        # Whether the titles are lifted above the decorations on top
+        # (matplotlib's attribute, False once ``axes.titley`` or
+        # ``set_title(y=...)`` fixed their height).
+        return _axes.title_placement(self._native) != "fixed"
+
+    @_autotitlepos.setter
+    def _autotitlepos(self, auto):
+        _axes.set_title_placement(
+            self._native,
+            ("fixed" if not auto
+             else "program" if self._places_titles() else "auto"))
+
+    def _places_titles(self):
+        """Whether the class places the titles its own way (its
+        ``_update_title_position``), which pltrs (Rust) then leaves to it
+        (`_place_titles_by_program`)."""
+        return takes_from_program(type(self), "_update_title_position")
+
+    def _place_titles_by_program(self, renderer=None):
+        """Place the titles as the class does, where matplotlib's
+        ``draw`` and ``get_tightbbox`` call its ``_update_title_position``
+        (cartopy's ``GeoAxes`` lifts them above its gridliner's labels)."""
+        if self._places_titles():
+            if renderer is None:
+                renderer = self.get_figure(root=True)._get_renderer()
+            self._update_title_position(renderer)
+
+    #: What a class of the program's may compute that matplotlib's ``draw``
+    #: reads: the titles' place, which it places when drawn
+    #: (`_push_computed`).
+    _computed = ("_update_title_position",)
+
+    def _push_computed(self):
+        """Place the titles as the class does, as matplotlib's ``draw``
+        does before it draws the Axes' artists."""
+        self._place_titles_by_program()

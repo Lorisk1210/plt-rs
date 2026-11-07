@@ -116,6 +116,20 @@ fn routes_are_shrunk_at_both_ends() {
 }
 
 #[test]
+fn routes_of_the_program_shrink_themselves() {
+    let route = ProgramRoute::new(std::rc::Rc::new(|(a, b): (Point, Point), (sa, _)| {
+        Path::polyline(vec![Point::new(a.x + sa, a.y), b])
+    }));
+    let path = ConnectionStyle::ProgramRoute(route)
+        .route((A, Point::new(100.0, 0.0)), (10.0, 20.0), None, None)
+        .unwrap();
+    assert_eq!(
+        path.vertices(),
+        [Point::new(10.0, 0.0), Point::new(100.0, 0.0)]
+    );
+}
+
+#[test]
 fn routes_start_at_the_edge_of_their_patch() {
     let square = ClipRegion {
         path: Path::polygon([

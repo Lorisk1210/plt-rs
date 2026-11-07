@@ -4,7 +4,7 @@
 use std::rc::Rc;
 
 use super::axis::Tickers;
-use super::{Axes, AxesState, AxisName, ProjectionKind};
+use super::{Axes, AxesState, AxisName, ProjectionKind, TitlePlacement};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
@@ -16,8 +16,9 @@ impl AxesState {
     /// The state a cleared axes restarts from (matplotlib's `__clear`): a
     /// fresh axes under `rc` that keeps the identity, placement, aspect,
     /// sharing, background colour, frame, navigation and status-bar
-    /// formatters of `self`, the options of its projection, and the
-    /// visibility of shared axes.
+    /// formatters of `self`, the options of its projection, the
+    /// visibility of shared axes, and titles the program places, unless
+    /// `rc` fixes their height.
     fn cleared(&self, rc: Rc<RcParams>) -> Self {
         let mut fresh = Self::new(self.position, rc);
         *fresh.base_mut() = self.base().clone();
@@ -43,6 +44,12 @@ impl AxesState {
             .clone_from(&self.patch.style.facecolor);
         fresh.decorations.frame_on = self.decorations.frame_on;
         fresh.axisbelow = self.axisbelow;
+        if self.title_placement == TitlePlacement::Program
+            && fresh.title_placement == TitlePlacement::Auto
+        {
+            // Lifted where the program lifts them, as before.
+            fresh.title_placement = TitlePlacement::Program;
+        }
         for name in [AxisName::X, AxisName::Y] {
             // matplotlib's `Axis.clear` keeps the tick parameters, except
             // whether gridlines are on, which restarts from the rc; the
@@ -186,7 +193,7 @@ impl Axes {
 
 #[cfg(test)]
 mod tests {
-    use crate::axes::{Axes, AxisName, ProjectionKind, TickParams, TitleLocation};
+    use crate::axes::{Axes, AxisName, ProjectionKind, TickParams, TitleLocation, TitlePlacement};
     use crate::colors::Color;
     use crate::figure::{Figure, SaveError};
 
@@ -254,6 +261,19 @@ mod tests {
         assert!(matches!(fig.to_png(), Err(SaveError::Draw(_))));
         ax.set_title("fine");
         fig.to_png().expect("draws");
+    }
+
+    #[test]
+    fn titles_the_program_places_stay_its_own() {
+        let ax = Figure::new().subplot();
+        ax.set_title_placement(TitlePlacement::Program);
+        ax.clear();
+        assert_eq!(ax.title_placement(), TitlePlacement::Program);
+        crate::rc::context(|| {
+            crate::rc::set("axes.titley", "1.1").expect("a valid height");
+            ax.clear();
+        });
+        assert_eq!(ax.title_placement(), TitlePlacement::Fixed);
     }
 
     #[test]

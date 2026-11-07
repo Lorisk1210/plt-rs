@@ -34,6 +34,7 @@ mod graphics_state;
 mod handle;
 mod kept;
 mod loose;
+mod measuring;
 mod painter;
 mod pick;
 #[macro_use]

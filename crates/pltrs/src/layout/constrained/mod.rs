@@ -10,7 +10,9 @@
 //! axes and its colorbars, raises the margins of their cells, makes
 //! submerged interior margins match, solves the grids and moves the
 //! subfigures, axes and colorbars into their cells, unless some cell
-//! collapsed.
+//! collapsed. The artists the program measures (see
+//! [`ArtistPainter::measure`](crate::artist::ArtistPainter::measure)) are
+//! measured again before the second pass, where the first left the axes.
 
 mod colorbars;
 mod compress;
@@ -125,7 +127,10 @@ fn lay_out(
     params: &ConstrainedLayout,
     pads: &Pads,
 ) -> Result<(), SolverError> {
-    for _ in 0..2 {
+    for pass in 0..2 {
+        if pass > 0 {
+            fig.measure_painters_lent();
+        }
         tree.make_layout_margins(fig, FIGURE, pads)?;
         tree.make_margin_suptitles(fig, FIGURE, pads)?;
         if super::failures::failed() {

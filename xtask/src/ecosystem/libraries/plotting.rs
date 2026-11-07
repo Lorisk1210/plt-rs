@@ -2,7 +2,7 @@
 //! mplfinance, matplotlib-venn, pytest-mpl, mpl-scatter-density and
 //! missingno.
 
-use super::{Baselines, CONFIGURATION, Library, Making, Network, Source};
+use super::{Baselines, CONFIGURATION, Library, Making, Network, PLAIN, Source, Venvs};
 
 /// The libraries.
 pub(super) const LIBRARIES: [Library; 5] = [
@@ -30,6 +30,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
             making: Making::Results("mplfinance/tests/test_images"),
             read_from: Some("mplfinance/tests/reference_images"),
         }),
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "mplfinance's tests",
     },
     Library {
@@ -51,6 +53,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "matplotlib-venn's tests",
     },
     Library {
@@ -69,6 +73,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "pytest-mpl's tests",
     },
     Library {
@@ -90,6 +96,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
             making: Making::PytestMpl,
             read_from: Some("mpl_scatter_density/tests/baseline/3.0.x"),
         }),
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "mpl-scatter-density's tests",
     },
     Library {
@@ -112,6 +120,8 @@ pub(super) const LIBRARIES: [Library; 5] = [
             making: Making::PytestMpl,
             read_from: None,
         }),
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "missingno's tests",
     },
 ];

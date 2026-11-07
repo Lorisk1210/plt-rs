@@ -2,7 +2,7 @@
 //! `ax._left_title`, `ax._right_title`, `titleOffsetTrans` and
 //! `_update_title_position`).
 
-use pltrs::axes::{Axes, TitleLocation};
+use pltrs::axes::{Axes, TitleLocation, TitlePlacement};
 use pltrs::text::Text;
 
 use crate::binding::prelude::*;
@@ -50,9 +50,50 @@ fn get_title_pad(axes: Axes) -> PyResult<f64> {
     Ok(axes.title_pad())
 }
 
-/// Lifts the titles above what rises over the top of the axes.
+/// Lifts the titles above what rises over the top of the axes: those of
+/// every axes as the figure is laid out, or the axes' own alone when the
+/// program places them (an `Axes` subclass' `_update_title_position`
+/// calling its base's, which may be measuring the figure); titles at a
+/// fixed height stay put.
 fn update_title_position(axes: Axes) -> PyResult<()> {
-    axes.update_title_position();
+    match axes.title_placement() {
+        TitlePlacement::Auto => {
+            axes.update_title_position();
+        }
+        TitlePlacement::Program => {
+            axes.lift_titles();
+        }
+        TitlePlacement::Fixed => {}
+    }
+    Ok(())
+}
+
+/// The name of a title placement.
+fn placement_name(placement: TitlePlacement) -> &'static str {
+    match placement {
+        TitlePlacement::Auto => "auto",
+        TitlePlacement::Fixed => "fixed",
+        TitlePlacement::Program => "program",
+    }
+}
+
+/// How the height of the titles is chosen: `"auto"`, `"fixed"` or
+/// `"program"`.
+fn title_placement(axes: Axes) -> PyResult<&'static str> {
+    Ok(placement_name(axes.title_placement()))
+}
+
+/// Chooses how the height of the titles is chosen (see `title_placement`).
+fn set_title_placement(axes: Axes, placement: String) -> PyResult<()> {
+    let placement = [
+        TitlePlacement::Auto,
+        TitlePlacement::Fixed,
+        TitlePlacement::Program,
+    ]
+    .into_iter()
+    .find(|&known| placement_name(known) == placement)
+    .ok_or_else(|| PyErr::value_error(format!("unknown title placement {placement:?}")))?;
+    axes.set_title_placement(placement);
     Ok(())
 }
 
@@ -61,7 +102,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("title_text", title_text)?;
     module.add("set_title", set_title)?;
     module.add("get_title_pad", get_title_pad)?;
-    module.add("update_title_position", update_title_position)
+    module.add("update_title_position", update_title_position)?;
+    module.add("title_placement", title_placement)?;
+    module.add("set_title_placement", set_title_placement)
 }
 
 #[cfg(test)]
@@ -84,5 +127,15 @@ mod tests {
             "t"
         );
         assert!(title_text(ax, "top".into()).is_err());
+    }
+
+    #[test]
+    fn placements_go_by_their_names() {
+        let ax = Figure::new().subplot();
+        assert_eq!(title_placement(ax.clone()).expect("a placement"), "auto");
+        set_title_placement(ax.clone(), "program".into()).expect("a placement");
+        assert_eq!(ax.title_placement(), TitlePlacement::Program);
+        assert_eq!(title_placement(ax.clone()).expect("a placement"), "program");
+        assert!(set_title_placement(ax, "high".into()).is_err());
     }
 }

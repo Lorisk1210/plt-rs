@@ -55,8 +55,43 @@ pub(super) struct Library {
     /// The baselines of its image comparisons, which setup makes under
     /// matplotlib 3.11.2 when the library's own are for another version.
     pub(super) baselines: Option<Baselines>,
+    /// The venvs its suite runs in.
+    pub(super) venvs: Venvs,
+    /// What its runs need of their environment besides the venv.
+    pub(super) environment: Environment,
     /// What the progress line calls the suite.
     pub(super) title: &'static str,
+}
+
+/// What a library's runs need of their environment besides the venv.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Environment {
+    /// The variables they set.
+    pub(super) variables: &'static [(&'static str, &'static str)],
+    /// Whether they need an X display (lifelines' plotting tests skip
+    /// without `DISPLAY`): `DISPLAY`'s, else an Xvfb of their own, started
+    /// for the run.
+    pub(super) display: bool,
+    /// Whether pytest's cache runs (scanpy's image comparisons save into
+    /// its `cache` fixture).
+    pub(super) cache: bool,
+}
+
+/// Nothing besides the venv.
+const PLAIN: Environment = Environment {
+    variables: &[],
+    display: false,
+    cache: false,
+};
+
+/// Which venvs a library's suite runs in (see `venvs`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Venvs {
+    /// The ecosystem's, whose pins the libraries share.
+    Shared,
+    /// Two of its own, pinned by `python/requirements-ecosystem-<name>.txt`:
+    /// its pins clash with the shared ones.
+    Own,
 }
 
 /// Where a library's source tree comes from.
@@ -103,8 +138,21 @@ pub(super) struct OnlyTaking {
 pub(super) struct Data {
     /// The files.
     pub(super) files: &'static [DataFile],
+    /// What the files are.
+    pub(super) form: DataForm,
     /// How the tests find the directory.
     pub(super) found: Found,
+}
+
+/// What the files of a library's [`Data`] are.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum DataForm {
+    /// Files the tests read as they are.
+    Plain,
+    /// Zip archives, unpacked into the data's directory beside them
+    /// (yellowbrick's datasets, which it reads unpacked and checks against
+    /// their archives).
+    Zips,
 }
 
 /// A file of a library's [`Data`].

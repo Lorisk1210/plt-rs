@@ -1,7 +1,8 @@
 //! The data the libraries' tests read that is neither in their source
 //! trees nor in their packages (`Library::data`): cartopy's Natural Earth
-//! maps, shap's datasets. `cargo xtask ecosystem setup` fetches each file
-//! once, checking its SHA-256 (`python/ecosystem/fetch.py file`), into
+//! maps, shap's and yellowbrick's datasets. `cargo xtask ecosystem setup`
+//! fetches each file once, checking its SHA-256 (`python/ecosystem/fetch.py
+//! file`, or `zip` for archives unpacked beside themselves), into
 //! `target/ecosystem/data/<library>`, never committed; the suites' runs
 //! then find it there offline, through a variable naming the directory or
 //! a link to it in the site, the same in both modes.
@@ -9,7 +10,7 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use super::libraries::{Found, Library};
+use super::libraries::{DataForm, Found, Library};
 use super::setup::fetch_command;
 use crate::mpl_suite::pytest::Variable;
 use crate::python;
@@ -25,11 +26,15 @@ pub(super) fn fetch(python: &Path, library: &Library) -> Result<(), String> {
         return Ok(());
     };
     let dir = dir(library);
+    let command = match data.form {
+        DataForm::Plain => "file",
+        DataForm::Zips => "zip",
+    };
     for file in data.files {
         let dest = dir.join(file.path);
         if !dest.is_file() {
             python::run_checked(
-                fetch_command(python, "file")
+                fetch_command(python, command)
                     .args([file.url, file.sha256])
                     .arg(dest),
             )?;

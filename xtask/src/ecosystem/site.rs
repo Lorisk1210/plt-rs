@@ -34,7 +34,7 @@ pub(super) fn lay_out(
     dir: &Path,
     baselines: &Path,
 ) -> Result<PathBuf, String> {
-    let version = super::setup::pinned(library.name)?;
+    let version = super::venvs::pinned(library)?;
     let sdist = super::setup::sdist(library.name, &version);
     if !sdist.is_dir() {
         return Err(format!(
@@ -70,6 +70,11 @@ pub(super) fn lay_out(
     if let Some((data, Found::Link(path))) = super::data::fetched(library)? {
         let link = site.join(path);
         prepare::remove(&link)?;
+        // In a directory the tests make for themselves (scanpy's in
+        // pytest's cache), made first.
+        if let Some(parent) = link.parent() {
+            fs::create_dir_all(parent).map_err(|err| format!("{}: {err}", parent.display()))?;
+        }
         prepare::link(&data, &link)?;
     }
     Ok(site)

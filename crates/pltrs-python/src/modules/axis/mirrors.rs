@@ -636,7 +636,7 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
         .set_position(position)
         .set_color(style.label_color.clone())
         .set_font(pltrs::fonts::FontProperties {
-            size: style.label_size,
+            size: axis.offset_text_size(),
             ..pltrs::fonts::FontProperties::from_rc(&rc)
         })
         .set_halign(halign)
@@ -645,14 +645,19 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
     Ok(())
 }
 
-/// Reads the visibility of the mirror `text` of the offset text of axis
-/// `name` back into the axis.
+/// Reads the visibility and font size of the mirror `text` of the offset
+/// text of axis `name` back into the axis.
 fn push_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
     let axis = owner.axis(&name)?;
     axis.set_gid(AxisGroup::OffsetText, text.gid());
     match axis {
         AnyAxis::Flat(axis) => {
             axis.set_offset_text_visible(text.visible());
+            // The size synced comes back as it went, which changes nothing.
+            let size = text.font().size;
+            if size.to_bits() != axis.offset_text_size().to_bits() {
+                axis.set_offset_text_size(size);
+            }
             Ok(())
         }
         AnyAxis::Deep(axis) => deep::push_offset_text(&axis, &text),

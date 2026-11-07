@@ -271,6 +271,10 @@ pub(crate) struct AxisState {
     pub(crate) offset_side: SpineSide,
     /// Whether the offset text is drawn.
     pub(crate) offset_visible: bool,
+    /// The font size of the offset text in points: the tick label size
+    /// when the axis was made or cleared (matplotlib's `xtick.labelsize`
+    /// or `ytick.labelsize` then), which the tick parameters leave.
+    pub(crate) offset_size: f64,
     /// Whether minor ticks on major ticks are dropped.
     pub(crate) remove_overlapping_locs: bool,
     /// Whether, and how, presses pick the axis.
@@ -320,6 +324,7 @@ pltrs_core::archive_struct!(AxisState {
     in_layout,
     offset_side,
     offset_visible,
+    offset_size,
     remove_overlapping_locs,
     picking,
     gids,
@@ -336,6 +341,7 @@ impl AxisState {
         };
         let scale: Rc<dyn Scale> = Rc::new(LinearScale);
         let tickers = scale.default_tickers(name, &TickerSettings::from(rc));
+        let major_style = TickStyle::from_rc(name, true, rc);
         Self {
             name,
             role: AxisRole::Cartesian,
@@ -357,7 +363,8 @@ impl AxisState {
             label_size: None,
             autolimit_mode: None,
             ticks: Ok(TickSet::default()),
-            major_style: TickStyle::from_rc(name, true, rc),
+            offset_size: major_style.label_size,
+            major_style,
             minor_style: TickStyle::from_rc(name, false, rc),
             major_overrides: TickOverrides::default(),
             minor_overrides: TickOverrides::default(),

@@ -1,14 +1,14 @@
 //! The libraries of data analysis and machine learning: pandas, seaborn,
-//! xarray, networkx, scikit-learn, statsmodels, geopandas, plotnine and
-//! shap.
+//! xarray, networkx, scikit-learn, statsmodels, geopandas, plotnine, shap,
+//! lifelines and yellowbrick.
 
 use super::{
-    Baselines, CONFIGURATION, Data, DataFile, Found, LeftOut, Library, Making, Network, OnlyTaking,
-    Source,
+    Baselines, CONFIGURATION, Data, DataFile, DataForm, Environment, Found, LeftOut, Library,
+    Making, Network, OnlyTaking, PLAIN, Source, Venvs,
 };
 
 /// The libraries.
-pub(super) const LIBRARIES: [Library; 9] = [
+pub(super) const LIBRARIES: [Library; 11] = [
     Library {
         name: "pandas",
         package: "pandas",
@@ -34,6 +34,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "pandas' plotting tests",
     },
     Library {
@@ -50,6 +52,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "seaborn's tests",
     },
     Library {
@@ -72,6 +76,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "xarray's plotting tests",
     },
     Library {
@@ -97,6 +103,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "networkx' drawing tests",
     },
     Library {
@@ -146,6 +154,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "scikit-learn's displays and plots",
     },
     Library {
@@ -167,6 +177,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "statsmodels' graphics tests",
     },
     Library {
@@ -189,6 +201,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
         data: None,
         network: Network::Allowed,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "geopandas' plotting tests",
     },
     Library {
@@ -209,6 +223,8 @@ pub(super) const LIBRARIES: [Library; 9] = [
             making: Making::Results("plotnine/tests/result_images"),
             read_from: Some("plotnine/tests/baseline_images"),
         }),
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "plotnine's tests",
     },
     Library {
@@ -227,11 +243,95 @@ pub(super) const LIBRARIES: [Library; 9] = [
         options: &["--mpl-results-path=mpl-results"],
         data: Some(Data {
             files: SHAP_DATA,
+            form: DataForm::Plain,
             found: Found::Link("shap/cached_data"),
         }),
         network: Network::Refused,
         baselines: None,
+        venvs: Venvs::Shared,
+        environment: PLAIN,
         title: "shap's plots",
+    },
+    Library {
+        name: "lifelines",
+        package: "lifelines",
+        source: Source::Sdist,
+        copies: &[
+            ("conftest.py", "conftest.py"),
+            ("lifelines/tests", "lifelines/tests"),
+        ],
+        // Its conftest (the `block` fixture and option of the plotting
+        // tests), which the sdist leaves out.
+        left_out: Some(LeftOut {
+            repository: "https://raw.githubusercontent.com/CamDavidsonPilon/lifelines",
+            files: &[(
+                "conftest.py",
+                "348979891ef8f506db75439eb97d16dc0917b1f1f41bce7a92fa040c9e2a4bd2",
+            )],
+        }),
+        configuration: "setup.cfg",
+        runs_in: None,
+        tests: &[
+            "lifelines/tests/test_plotting.py",
+            "lifelines/tests/test_generate_datasets.py",
+        ],
+        only_taking: None,
+        // Its plotting tests show their figures (`plt.show(block=...)`),
+        // which must not wait. Its source tree holds no pytest
+        // configuration: the site is the root. Its conftest seeds each
+        // test from numpy's unseeded generator, seeded by test id
+        // (`ecosystem_seed`).
+        options: &[
+            "--block=False",
+            "--rootdir=.",
+            "-c",
+            "setup.cfg",
+            "-p",
+            "ecosystem_seed",
+        ],
+        data: None,
+        network: Network::Refused,
+        baselines: None,
+        venvs: Venvs::Own,
+        // The plotting tests run where there is a display, and draw with
+        // Agg there, which shows nothing.
+        environment: Environment {
+            variables: &[("MPLBACKEND", "agg")],
+            display: true,
+            cache: false,
+        },
+        title: "lifelines' plotting tests",
+    },
+    Library {
+        name: "yellowbrick",
+        package: "yellowbrick",
+        source: Source::Sdist,
+        copies: &[("tests", "yellowbrick/tests")],
+        left_out: None,
+        configuration: "setup.cfg",
+        // Its tests import themselves by their own name (`tests.base`).
+        runs_in: Some("yellowbrick"),
+        tests: &["yellowbrick/tests"],
+        only_taking: None,
+        // Without the coverage, flakes and spec reports of its
+        // configuration, whose plugins it does not need, and with pytest's
+        // own test ids, which its conftest replaces by docstrings for the
+        // spec report (`ecosystem_ids`).
+        options: &["--override-ini=addopts=", "-p", "ecosystem_ids"],
+        data: Some(Data {
+            files: YELLOWBRICK_DATA,
+            form: DataForm::Zips,
+            found: Found::Variable("YELLOWBRICK_DATA"),
+        }),
+        network: Network::Refused,
+        // Its baselines are matplotlib 3.4's images.
+        baselines: Some(Baselines {
+            making: Making::Results("yellowbrick/tests/actual_images"),
+            read_from: Some("yellowbrick/tests/baseline_images"),
+        }),
+        venvs: Venvs::Own,
+        environment: PLAIN,
+        title: "yellowbrick's tests",
     },
 ];
 
@@ -324,4 +424,69 @@ const SHAP_DATA: &[DataFile] = &[
         path: "imagenet50_labels.csv",
         sha256: "147c2226a3c7b55ff807009f23979e09838c0f34b2bfe2b0fa35024624cfcb31",
     },
+];
+
+/// A dataset of yellowbrick's: the zip archive `name.zip` in its data lake,
+/// with its SHA-256.
+macro_rules! yellowbrick_dataset {
+    ($name:literal, $sha256:literal) => {
+        DataFile {
+            url: concat!(
+                "https://yb-data-lake.s3.us-east-2.amazonaws.com/yellowbrick/v1.0/",
+                $name,
+                ".zip"
+            ),
+            path: concat!($name, ".zip"),
+            sha256: $sha256,
+        }
+    };
+}
+
+/// yellowbrick's datasets, as its `datasets/manifest.json` names them,
+/// which `yellowbrick.datasets` downloads and unpacks.
+const YELLOWBRICK_DATA: &[DataFile] = &[
+    yellowbrick_dataset!(
+        "bikeshare",
+        "4ed07a929ccbe0171309129e6adda1c4390190385dd6001ba9eecc795a21eef2"
+    ),
+    yellowbrick_dataset!(
+        "hobbies",
+        "6114e32f46baddf049a18fb05bad3efa98f4e6a0fe87066c94071541cb1e906f"
+    ),
+    yellowbrick_dataset!(
+        "concrete",
+        "5807af2f04e14e407f61e66a4f3daf910361a99bb5052809096b47d3cccdfc0a"
+    ),
+    yellowbrick_dataset!(
+        "credit",
+        "2c6f5821c4039d70e901cc079d1404f6f49c3d6815871231c40348a69ae26573"
+    ),
+    yellowbrick_dataset!(
+        "energy",
+        "174eca3cd81e888fc416c006de77dbe5f89d643b20319902a0362e2f1972a34e"
+    ),
+    yellowbrick_dataset!(
+        "game",
+        "ce799d1c55fcf1985a02def4d85672ac86c022f8f7afefbe42b20364fba47d7a"
+    ),
+    yellowbrick_dataset!(
+        "mushroom",
+        "f79fdbc33b012dabd06a8f3cb3007d244b6aab22d41358b9aeda74417c91f300"
+    ),
+    yellowbrick_dataset!(
+        "occupancy",
+        "0b390387584586a05f45c7da610fdaaf8922c5954834f323ae349137394e6253"
+    ),
+    yellowbrick_dataset!(
+        "spam",
+        "000309ac2b61090a3001de3e262a5f5319708bb42791c62d15a08a2f9f7cb30a"
+    ),
+    yellowbrick_dataset!(
+        "walking",
+        "7a36615978bc3bb74a2e9d5de216815621bd37f6a42c65d3fc28b242b4d6e040"
+    ),
+    yellowbrick_dataset!(
+        "nfl",
+        "4989c66818ea18217ee0fe3a59932b963bd65869928c14075a5c50366cb81e1f"
+    ),
 ];

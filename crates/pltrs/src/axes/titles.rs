@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use pltrs_text::{HAlign, VAlign};
 
-use super::{Axes, AxesState, state};
+use super::{Axes, AxesState, TitlePlacement};
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::rc::ColorOrAuto;
 use crate::rc::keyword_names;
@@ -117,7 +117,7 @@ impl Axes {
     pub fn set_title_y(&self, location: TitleLocation, y: f64) -> &Self {
         self.title_text(location).set_y(y);
         self.raw
-            .with_mut::<AxesState, _>(|axes| axes.title_placement = state::TitlePlacement::Fixed);
+            .with_mut::<AxesState, _>(|axes| axes.title_placement = TitlePlacement::Fixed);
         self
     }
 
@@ -165,6 +165,55 @@ impl Axes {
     pub fn update_title_position(&self) -> &Self {
         // A hook stopping the layout leaves the titles where they are.
         let _ = self.figure().prepare_layout();
+        self
+    }
+
+    /// How the height of the titles is chosen: lifted above the
+    /// decorations on top as the figure is laid out (the default), at a
+    /// fixed height (`axes.titley`, [`Axes::set_title_y`]), or where the
+    /// program puts them.
+    pub fn title_placement(&self) -> TitlePlacement {
+        self.raw.with::<AxesState, _>(|axes| axes.title_placement)
+    }
+
+    /// Chooses how the height of the titles is chosen (see
+    /// [`Axes::title_placement`]). With [`TitlePlacement::Program`] the
+    /// titles stay where the program puts them, which lifts them with
+    /// [`Axes::lift_titles`] when it wants them clear of the decorations,
+    /// as an `Axes` subclass of matplotlib's placing its titles its own
+    /// way calls `super()._update_title_position(renderer)` first.
+    ///
+    /// ```
+    /// use pltrs::axes::TitlePlacement;
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::SpineSide;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.xaxis().tick_to(SpineSide::Top)?;
+    /// let title = ax.set_title("above the tick labels");
+    /// ax.set_title_placement(TitlePlacement::Program);
+    /// fig.layout();
+    /// assert_eq!(title.position().y, 1.0, "where the program left it");
+    /// ax.lift_titles();
+    /// assert!(title.position().y > 1.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_title_placement(&self, placement: TitlePlacement) -> &Self {
+        self.raw
+            .with_mut::<AxesState, _>(|axes| axes.title_placement = placement);
+        self
+    }
+
+    /// Lifts the titles above what rises over the top of the axes now,
+    /// the axes laid out first, however their height is chosen
+    /// ([`Axes::title_placement`]): titles at a fixed height stay put.
+    /// Unlike [`Axes::update_title_position`], this lays out no other
+    /// axes and runs no layout engine.
+    pub fn lift_titles(&self) -> &Self {
+        self.raw.figure_state().work_on(|state| {
+            state.prepare();
+            state.lift_titles(self.id());
+        });
         self
     }
 }

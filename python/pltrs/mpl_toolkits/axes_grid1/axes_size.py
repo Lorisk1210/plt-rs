@@ -15,13 +15,39 @@ operations: addition /subtraction with another unit type or a real number and sc
 matplotlib's ``mpl_toolkits.axes_grid1.axes_size`` (from matplotlib 3.11.2,
 under the Matplotlib License, kept as it is). Each class also describes
 itself to pltrs (Rust) (``_to_native``), whose dividers evaluate the sizes
-at every layout pass.
+at every layout pass; matplotlib keeps what a size is made of unchecked
+and fails on what it cannot compute with only as a divider divides, so a
+size made of what pltrs (Rust) cannot take is described as `.Unusable`
+(see ``axes_divider.Divider._locate``).
 """
 
 from numbers import Real
 
 from pltrs import _api
+from pltrs.artist import Artist
 from pltrs.axes import Axes
+from pltrs._offsetbox_trees import Unusable, number
+
+
+def _described(size):
+    """The native description of *size*; `.Unusable` for no size, or one
+    made of what pltrs (Rust) cannot take."""
+    describe = getattr(type(size), "_to_native", None)
+    if describe is None:
+        raise Unusable
+    return describe(size)
+
+
+def _natives(artists, cls):
+    """The natives of *artists*, a list of instances of *cls*;
+    `.Unusable` for anything else."""
+    try:
+        artists = list(artists)
+    except TypeError:
+        raise Unusable from None
+    if not all(isinstance(artist, cls) for artist in artists):
+        raise Unusable
+    return [artist._native for artist in artists]
 
 
 class _Base:
@@ -84,7 +110,7 @@ class Add(_Base):
         return a_rel_size + b_rel_size, a_abs_size + b_abs_size
 
     def _to_native(self):
-        return ("sum", [self._a._to_native(), self._b._to_native()])
+        return ("sum", [_described(self._a), _described(self._b)])
 
 
 class Fixed(_Base):
@@ -102,7 +128,7 @@ class Fixed(_Base):
         return rel_size, abs_size
 
     def _to_native(self):
-        return ("fixed", float(self.fixed_size))
+        return ("fixed", number(self.fixed_size))
 
 
 class Scaled(_Base):
@@ -120,7 +146,7 @@ class Scaled(_Base):
         return rel_size, abs_size
 
     def _to_native(self):
-        return ("scaled", float(self._scalable_size))
+        return ("scaled", number(self._scalable_size))
 
 
 Scalable = Scaled
@@ -146,9 +172,9 @@ class _AxesExtent(_Base):
         self._ref_ax = ref_ax
 
     def _to_native(self):
-        aspect = (("axes", self._ref_ax._native) if self._aspect == "axes"
-                  else float(self._aspect))
-        return (self._native_name, self._axes._native, aspect)
+        aspect = (("axes", _natives([self._ref_ax], Axes)[0]) if self._aspect == "axes"
+                  else number(self._aspect))
+        return (self._native_name, _natives([self._axes], Axes)[0], aspect)
 
 
 class AxesX(_AxesExtent):
@@ -216,7 +242,7 @@ class MaxExtent(_Base):
         return rel_size, abs_size
 
     def _to_native(self):
-        return (f"max_{self._w_or_h}", [a._native for a in self._artist_list])
+        return (f"max_{self._w_or_h}", _natives(self._artist_list, Artist))
 
 
 class MaxWidth(MaxExtent):
@@ -259,9 +285,9 @@ class Fraction(_Base):
             return rel_size, abs_size
 
     def _to_native(self):
-        return ("fraction", float(self._fraction),
+        return ("fraction", number(self._fraction),
                 None if self._fraction_ref is None
-                else self._fraction_ref._to_native())
+                else _described(self._fraction_ref))
 
 
 def from_any(size, fraction_ref=None):
@@ -310,5 +336,4 @@ class _AxesDecorationsSize(_Base):
         return rel_size, abs_size
 
     def _to_native(self):
-        return ("decorations", [ax._native for ax in self._ax_list],
-                self._direction)
+        return ("decorations", _natives(self._ax_list, Axes), self._direction)

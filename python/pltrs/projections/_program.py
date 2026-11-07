@@ -218,10 +218,13 @@ class _PartsProbe:
     alone shows the parts its class' ``draw`` draws), rasterizing nothing
     (``allow_rasterization`` reads its state)."""
 
+    #: Not rasterizing, as `.RendererBase` starts (the draws of artists
+    #: read it).
+    _raster_depth = 0
+    _rasterizing = False
+
     def __init__(self):
         self.drawn = set()
-        self._raster_depth = 0
-        self._rasterizing = False
 
     def _draw_artist(self, artist):
         self.drawn.add(id(artist))

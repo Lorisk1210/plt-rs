@@ -172,7 +172,8 @@ class ConstructionMixin:
         _program_locators.forget(self, self._figure)
         _insets.clear_axes_locator(self._native)
         self._axes_locator = locator
-        if locator is not None:
+        # matplotlib's draw calls the locator when it is truthy.
+        if locator:
             place = getattr(locator, "_place", None)
             if place is None:
                 _program_locators.follow(self, self._figure)

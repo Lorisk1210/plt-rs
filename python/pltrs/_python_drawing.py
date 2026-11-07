@@ -164,16 +164,33 @@ def drawing_with(make):
         renderers.pop()
 
 
+def installed_renderer():
+    """The renderer a print installed for the program's drawing
+    (`drawing_with`), made when first needed; None outside prints."""
+    renderers = _drawing_now.renderers
+    if not renderers:
+        return None
+    installed = renderers[-1]
+    if installed[1] is None:
+        installed[1] = installed[0]()
+    return installed[1]
+
+
+def drawing_renderer(artist):
+    """The renderer matplotlib's draw running now hands *artist*: that of
+    the format being saved (`installed_renderer`), else its figure's
+    canvas'."""
+    installed = installed_renderer()
+    return installed or artist.get_figure(root=True)._get_renderer()
+
+
 def _renderer_for(target, figure):
     """The renderer the program's drawing receives in a draw of *figure*
     with *target* (see ``_native.drawing``): the one installed
     (`drawing_with`), else one standing for pltrs (Rust)'s renderer."""
-    renderers = _drawing_now.renderers
-    if renderers:
-        installed = renderers[-1]
-        if installed[1] is None:
-            installed[1] = installed[0]()
-        return installed[1]
+    installed = installed_renderer()
+    if installed is not None:
+        return installed
     width, height, dpi, vector, magnification = target[:5]
     if vector:
         from .backends.backend_mixed import _stand_in
@@ -234,9 +251,10 @@ def evaluate_given_transform(artist):
     matplotlib's ``draw`` reads ``get_transform()``: a transform of the
     program's may have changed in place since (the ``offset_transform`` of
     an offset box of the program's, which its ``set_offset`` moves before
-    it draws its children)."""
+    it draws its children). Not for an artist whose ``draw`` reads no
+    transform of its own (``_draw_reads_transform``: an offset box)."""
     given = artist.__dict__.get("_given_transform")
-    if given is not None:
+    if given is not None and getattr(type(artist), "_draw_reads_transform", True):
         _transforms.set_transform(artist._native, _live_transforms.to_native(given))
 
 

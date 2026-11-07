@@ -45,6 +45,12 @@ def kept(artist, name, default):
     return default if entry is None else entry[0]
 
 
+def keeps(artist):
+    """Whether *artist* keeps a value matplotlib fails on when it draws the
+    artist (`keep`)."""
+    return any(entry[3] for entry in artist.__dict__.get("_unusable", {}).values())
+
+
 def check(artist, *, measuring=False):
     """Fail as matplotlib's *artist* fails to compute with the values it
     keeps (`keep`): with all of them when it draws, with those it

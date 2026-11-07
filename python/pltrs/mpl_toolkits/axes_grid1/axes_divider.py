@@ -5,7 +5,11 @@ matplotlib's ``mpl_toolkits.axes_grid1.axes_divider`` (from matplotlib
 3.11.2, under the Matplotlib License): the classes keep matplotlib's
 attributes and methods, and each divider holds a pltrs (Rust) divider of
 its figure (``_native.axes_grid1``), kept in step with its sizes, which
-places the axes of its locators anew at every layout pass.
+places the axes of its locators anew at every layout pass. matplotlib keeps
+a divider's rectangle and sizes unchecked and fails on what it cannot
+compute with as it places the axes: while a divider has such a value, its
+axes are placed by calling their locators, which divide as matplotlib's do
+(``Divider._locate``).
 """
 
 import functools
@@ -18,12 +22,30 @@ from pltrs.gridspec import SubplotSpec
 import pltrs.transforms as mtransforms
 from pltrs._native import axes_grid1 as _axes_grid1
 from pltrs.axes import _program_locators
+from pltrs._offsetbox_trees import Unusable, number
 from . import axes_size as Size
 
 
 def _native_sizes(sizes):
-    """The native descriptions of *sizes*."""
-    return [size._to_native() for size in sizes]
+    """The native descriptions of *sizes*; `.Unusable` for no list of
+    sizes, or a size pltrs (Rust) cannot take."""
+    try:
+        sizes = list(sizes)
+    except TypeError:
+        raise Unusable from None
+    return [Size._described(size) for size in sizes]
+
+
+def _native_position(pos):
+    """The rectangle *pos* as pltrs (Rust) takes it, four floats;
+    `.Unusable` for anything else."""
+    try:
+        position = tuple(map(number, pos))
+    except TypeError:
+        raise Unusable from None
+    if len(position) != 4:
+        raise Unusable
+    return position
 
 
 class Divider:
@@ -80,21 +102,67 @@ class Divider:
         return native
 
     def _make_native(self):
-        """The native divider of the rectangle this divider divides."""
-        return _axes_grid1.divider_new(
-            self._fig._native, tuple(map(float, self._pos)),
-            _native_sizes(self._horizontal), _native_sizes(self._vertical))
+        """The native divider of the rectangle this divider divides (the
+        unit rectangle, undivided, for one pltrs (Rust) cannot take, see
+        `_sync`)."""
+        try:
+            position = _native_position(self._pos)
+        except Unusable:
+            position = (0., 0., 1., 1.)
+        return _axes_grid1.divider_new(self._fig._native, position, [], [])
 
     def _sync(self):
-        """Give the native divider the sizes, aspect and anchor."""
+        """Give the native divider the rectangle, sizes, aspect and anchor;
+        while it cannot take one of them, have the axes placed by calling
+        their locators (`_divide_in_python`)."""
         native = self.__dict__.get("_native_divider")
         if native is None:
             return
-        _axes_grid1.divider_set_horizontal(native, _native_sizes(self._horizontal))
-        _axes_grid1.divider_set_vertical(native, _native_sizes(self._vertical))
+        try:
+            position = self._native_rectangle()
+            horizontal = _native_sizes(self._horizontal)
+            vertical = _native_sizes(self._vertical)
+            for cell in self.__dict__.get("_placed", {}).values():
+                self._check_cell(cell, horizontal, vertical)
+        except Unusable:
+            self._divide_in_python(True)
+            return
+        if position is not None:
+            _axes_grid1.divider_set_position(native, position)
+        _axes_grid1.divider_set_horizontal(native, horizontal)
+        _axes_grid1.divider_set_vertical(native, vertical)
         if self._aspect is not None:
             _axes_grid1.divider_set_aspect(native, bool(self._aspect))
         _axes_grid1.divider_set_anchor(native, self._anchor)
+        self._divide_in_python(False)
+
+    def _check_cell(self, cell, horizontal, vertical):
+        """Raise `.Unusable` for the *cell* of a locator (its ``(nx, ny,
+        nx1, ny1)``) past the offsets of the *horizontal* and *vertical*
+        sizes, where matplotlib's division fails to index them."""
+        (nx, nx1), (ny, ny1) = self._cells(*cell)
+        for indices, sizes in (((nx, nx1), horizontal), ((ny, ny1), vertical)):
+            if not all(-len(sizes) - 1 <= index <= len(sizes) for index in indices):
+                raise Unusable
+
+    def _native_rectangle(self):
+        """The rectangle pltrs (Rust) divides, as it takes it (`.Unusable`
+        for one it cannot take); None for one it follows itself (a subplot
+        box, an Axes) or a locator gives."""
+        return None if self._locator is not None else _native_position(self._pos)
+
+    def _divide_in_python(self, in_python):
+        """Place the axes of the divider's locators by calling the locators
+        (*in_python*), as matplotlib does at every draw, or natively."""
+        if in_python == self.__dict__.get("_in_python", False):
+            return
+        self._in_python = in_python
+        for axes, cell in self.__dict__.get("_placed", {}).items():
+            if in_python:
+                _program_locators.follow(axes, axes._figure)
+            else:
+                _program_locators.forget(axes, axes._figure)
+                _axes_grid1.divider_place(self._native, axes._native, *self._cells(*cell))
 
     def get_horizontal_sizes(self, renderer):
         return np.array([s.get_size(renderer) for s in self.get_horizontal()])
@@ -112,9 +180,7 @@ class Divider:
             position of the rectangle that will be divided
         """
         self._pos = pos
-        if self.__dict__.get("_native_divider") is not None:
-            _axes_grid1.divider_set_position(self._native,
-                                             tuple(map(float, pos)))
+        self._sync()
 
     def get_position(self):
         """Return the position of the rectangle."""
@@ -206,7 +272,7 @@ class Divider:
         if placed:
             _axes_grid1.divider_set_position(
                 self._native, tuple(map(float, self.get_position_runtime(
-                    placed[0], renderer))))
+                    next(iter(placed)), renderer))))
 
     def get_locator(self):
         return self._locator
@@ -264,18 +330,66 @@ class Divider:
         a `functools.partial` of this method with *nx*, *ny*, *nx1*, and *ny1*
         specifying the requested cell.
         """
+        native = self._native
+        if self.__dict__.get("_in_python"):
+            return self._locate_as_given(nx, ny, nx1, ny1, axes, renderer)
         return mtransforms.Bbox.from_bounds(
-            *_axes_grid1.divider_locate(self._native,
-                                        *self._cells(nx, ny, nx1, ny1)))
+            *_axes_grid1.divider_locate(native, *self._cells(nx, ny, nx1, ny1)))
+
+    @staticmethod
+    def _calc_k(sizes, total):
+        # sizes is a (n, 2) array of (rel_size, abs_size); this method finds
+        # the k factor such that sum(rel_size * k + abs_size) == total.
+        rel_sum, abs_sum = sizes.sum(0)
+        return (total - abs_sum) / rel_sum if rel_sum else 0
+
+    @staticmethod
+    def _calc_offsets(sizes, k):
+        # Apply k factors to (n, 2) sizes array of (rel_size, abs_size); return
+        # the resulting cumulative offset positions.
+        return np.cumsum([0, *(sizes @ [k, 1])])
+
+    def _locate_as_given(self, nx, ny, nx1, ny1, axes, renderer):
+        """matplotlib's division itself, with the rectangle and sizes as
+        the program gave them (which pltrs (Rust) cannot take), failing
+        where matplotlib's fails on them."""
+        (nx, nx1), (ny, ny1) = self._cells(nx, ny, nx1, ny1)
+        fig_w, fig_h = self._fig.bbox.size / self._fig.dpi
+        x, y, w, h = self.get_position_runtime(axes, renderer)
+        hsizes = self.get_horizontal_sizes(renderer)
+        vsizes = self.get_vertical_sizes(renderer)
+        k_h = self._calc_k(hsizes, fig_w * w)
+        k_v = self._calc_k(vsizes, fig_h * h)
+        if self.get_aspect():
+            k = min(k_h, k_v)
+            ox = self._calc_offsets(hsizes, k)
+            oy = self._calc_offsets(vsizes, k)
+            ww = (ox[-1] - ox[0]) / fig_w
+            hh = (oy[-1] - oy[0]) / fig_h
+            pb = mtransforms.Bbox.from_bounds(x, y, w, h)
+            pb1 = mtransforms.Bbox.from_bounds(x, y, ww, hh)
+            x0, y0 = pb1.anchored(self.get_anchor(), pb).p0
+        else:
+            ox = self._calc_offsets(hsizes, k_h)
+            oy = self._calc_offsets(vsizes, k_v)
+            x0, y0 = x, y
+        x1, w1 = x0 + ox[nx] / fig_w, (ox[nx1] - ox[nx]) / fig_w
+        y1, h1 = y0 + oy[ny] / fig_h, (oy[ny1] - oy[ny]) / fig_h
+        return mtransforms.Bbox.from_bounds(x1, y1, w1, h1)
 
     def _place(self, nx, ny, nx1, ny1, axes):
         """Make pltrs (Rust) place *axes* in the cell at every layout
-        (``axes.set_axes_locator(locator)``)."""
-        _axes_grid1.divider_place(self._native, axes._native,
-                                  *self._cells(nx, ny, nx1, ny1))
-        placed = self.__dict__.setdefault("_placed", [])
-        if axes not in placed:
-            placed.append(axes)
+        (``axes.set_axes_locator(locator)``), or have it placed by calling
+        the locator while the divider divides in Python (see `_sync`)."""
+        native = self._native
+        self.__dict__.setdefault("_placed", {})[axes] = (nx, ny, nx1, ny1)
+        if not self.__dict__.get("_in_python"):
+            _axes_grid1.divider_place(native, axes._native,
+                                      *self._cells(nx, ny, nx1, ny1))
+        # A cell past the sizes makes the divider divide in Python.
+        self._sync()
+        if self.__dict__.get("_in_python"):
+            _program_locators.follow(axes, axes._figure)
 
     def append_size(self, position, size):
         _api.check_in_list(["left", "right", "bottom", "top"],
@@ -290,8 +404,14 @@ class Divider:
             self._yrefindex += 1
         else:  # 'top'
             self._vertical.append(size)
-        _axes_grid1.divider_append_size(self._native, position,
-                                        size._to_native())
+        try:
+            described = Size._described(size)
+        except Unusable:
+            # A stand-in keeps the native divider's cells in step; the axes
+            # are placed by their locators meanwhile (see `_sync`).
+            described = ("fixed", 0.)
+        _axes_grid1.divider_append_size(self._native, position, described)
+        self._sync()
 
     def add_auto_adjustable_area(self, use_axes, pad=0.1, adjust_dirs=None):
         """
@@ -355,9 +475,13 @@ class SubplotDivider(Divider):
         self.set_subplotspec(self._subplotspec)
 
     def _make_native(self):
+        # The sizes come with `_sync`.
         return _axes_grid1.divider_subplot(
-            self._fig._native, self._subplotspec._native_spec(), self._kind,
-            _native_sizes(self._horizontal), _native_sizes(self._vertical))
+            self._fig._native, self._subplotspec._native_spec(), self._kind, [], [])
+
+    def _native_rectangle(self):
+        # The subplot box, which pltrs (Rust) follows, is divided.
+        return None
 
     def set_position(self, pos):
         # The subplot box, not this position, is divided (`get_position`).
@@ -374,9 +498,10 @@ class SubplotDivider(Divider):
     def set_subplotspec(self, subplotspec):
         """Set the SubplotSpec instance."""
         self._subplotspec = subplotspec
+        position = subplotspec.get_position(self.figure)
         _axes_grid1.divider_set_subplotspec(self._native,
                                             subplotspec._native_spec())
-        self.set_position(subplotspec.get_position(self.figure))
+        self.set_position(position)
 
 
 class AxesDivider(Divider):
@@ -408,6 +533,11 @@ class AxesDivider(Divider):
 
     def _make_native(self):
         return _axes_grid1.divider_of_axes(self._axes._native)
+
+    def _native_rectangle(self):
+        # docstring inherited: the Axes' box, which pltrs (Rust) follows,
+        # unless given one.
+        return None if self._pos is None else super()._native_rectangle()
 
     def _get_new_axes(self, *, axes_class=None, **kwargs):
         axes = self._axes

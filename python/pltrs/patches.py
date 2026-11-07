@@ -2573,6 +2573,11 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         *aspect*: it squeezes the height, ``height / aspect``."""
         return 1. / aspect
 
+    def _use_mutation_scale(self, scale):
+        """What matplotlib's box style computes first with the mutation
+        *scale*: its padding, ``mutation_size * pad``."""
+        return scale * getattr(self.get_boxstyle(), "pad", 1.)
+
     def get_boxstyle(self):
         """Return the boxstyle object."""
         return self._get_style("_bbox_transmuter", BoxStyle, _patches.get_boxstyle)
@@ -3045,6 +3050,12 @@ default: 'arc3'
         """What matplotlib's arrow style computes first with the mutation
         *aspect*: it squeezes the path, ``vertices / [1, aspect]``."""
         return np.zeros((1, 2)) / [1, aspect]
+
+    @staticmethod
+    def _use_mutation_scale(scale):
+        """What matplotlib's arrow computes first with the mutation *scale*:
+        the scale in pixels, ``mutation_scale * dpi_cor``."""
+        return scale * 1.
 
     def get_path(self):
         """Return the path of the arrow in the data coordinates."""

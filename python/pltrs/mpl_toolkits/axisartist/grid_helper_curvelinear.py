@@ -51,6 +51,12 @@ def _native_aux(aux_trans):
             _xy_function(mapped(inverse)))
 
 
+def _reads(axes, name):
+    """Read the attribute *name* of *axes*, as matplotlib's helpers read it
+    first (failing as theirs do for no Axes)."""
+    getattr(axes, name)
+
+
 # What the helper of an axis artist says of its ticks, line and label
 # (matplotlib's ``get_tick_iterators``, ``get_line`` and
 # ``get_axislabel_pos_angle``): pltrs (Rust) computes them for the axis artist
@@ -117,10 +123,12 @@ class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
         return axes.transData
 
     def update_lim(self, axes):
-        super().update_lim(axes)
+        self.grid_helper.update_lim(axes)
 
     def get_tick_iterators(self, axes):
         """tick_loc, tick_angle, tick_label"""
+        # matplotlib's reads the limits along the axis first.
+        (axes.get_ylim if self.nth_coord == 0 else axes.get_xlim)()
         return super().get_tick_iterators(axes)
 
 
@@ -156,6 +164,7 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
         return Affine2D()  # axes.transData
 
     def get_axislabel_pos_angle(self, axes):
+        _reads(axes, "transData")
         position = _axisartist.helper_label_position(self._served())
         if position is None:
             return None, None
@@ -169,14 +178,19 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
         return axes.transData
 
     def get_line(self, axes):
+        self.update_lim(axes)
         vertices, codes = _axisartist.helper_line(self._served())
         return Path(vertices, codes)
 
     def update_lim(self, axes):
-        super().update_lim(axes)
+        self.grid_helper.update_lim(axes)
+        # matplotlib's finds the range of the line in the limits.
+        axes.get_xlim()
+        axes.get_ylim()
 
     def get_tick_iterators(self, axes):
         """tick_loc, tick_angle, tick_label, (optionally) tick_label"""
+        _reads(axes, "transData")
         return super().get_tick_iterators(axes)
 
 

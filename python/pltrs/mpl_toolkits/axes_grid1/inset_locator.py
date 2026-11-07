@@ -7,14 +7,17 @@ the insets anew at every layout pass, and the patches outline and join
 boxes pltrs (Rust) works out at every draw (``_native.axes_grid1``).
 """
 
-from pltrs import _api, _docstring, _live_transforms
+import numbers
+
+from pltrs import _api, _docstring, _live_transforms, _unusable
 from pltrs.artist import Artist
 from pltrs.axes import _program_locators
 from pltrs.offsetbox import AnchoredOffsetbox, OffsetBox
+from pltrs._offsetbox_trees import Unusable, number
 from pltrs.patches import Patch, Rectangle
 from pltrs.path import Path
 from pltrs.transforms import Bbox
-from pltrs.transforms import BboxBase, IdentityTransform, TransformedBbox
+from pltrs.transforms import BboxBase, IdentityTransform, Transform, TransformedBbox
 from pltrs._native import artist as _artist
 from pltrs._native import axes_grid1 as _axes_grid1
 
@@ -30,22 +33,36 @@ def _native_size(value):
 
 
 def _native_placement(loc, bbox_to_anchor, bbox_transform, borderpad):
-    """The native placement of an inset: its location, the anchor box (a
-    point or a rectangle, None for the parent axes) and its transform, and
-    the padding in font sizes."""
+    """The native placement of an inset: its location code, the anchor box
+    (a point or a rectangle, None for the parent axes) and its transform,
+    and the padding in font sizes; `.Unusable` for a value matplotlib keeps
+    unchecked and fails on when it places the inset (see
+    `AnchoredLocatorBase._place`)."""
+    if not (isinstance(loc, numbers.Integral) and 1 <= loc <= 10):
+        raise Unusable
+    if bbox_transform is not None and not isinstance(bbox_transform, Transform):
+        raise Unusable
     if isinstance(bbox_to_anchor, BboxBase):
         spanning = getattr(bbox_to_anchor, "_spanning", None)
         if spanning is not None:
             bbox_to_anchor, bbox_transform = (0, 0, 1, 1), spanning
         else:
             bbox_to_anchor, bbox_transform = bbox_to_anchor.bounds, None
-    if not isinstance(borderpad, tuple):
-        borderpad = (borderpad, borderpad)
-    return (loc,
-            None if bbox_to_anchor is None else [float(v) for v in bbox_to_anchor],
+    elif bbox_to_anchor is not None:
+        try:
+            bbox_to_anchor = [number(v) for v in bbox_to_anchor]
+        except TypeError:
+            raise Unusable from None
+    try:
+        borderpad = tuple(map(number, borderpad))
+    except TypeError:
+        borderpad = (number(borderpad),) * 2
+    if len(borderpad) != 2:
+        raise Unusable
+    return (int(loc), bbox_to_anchor,
             None if bbox_transform is None
             else _live_transforms.to_native(bbox_transform),
-            tuple(map(float, borderpad)))
+            borderpad)
 
 
 class AnchoredLocatorBase(AnchoredOffsetbox):
@@ -59,6 +76,8 @@ class AnchoredLocatorBase(AnchoredOffsetbox):
         # The axes pltrs (Rust) places with the locator, and how often it
         # had been drawn then.
         self._located = None
+        # What pltrs (Rust) was told to place the axes with.
+        self._placed = None
 
     @property
     def axes(self):
@@ -73,7 +92,27 @@ class AnchoredLocatorBase(AnchoredOffsetbox):
 
     @axes.setter
     def axes(self, ax):
-        Artist.axes.fset(self, ax)
+        OffsetBox.axes.fset(self, ax)
+
+    def _placement(self):
+        """What the locator places the axes with, which matplotlib's draw
+        of the axes reads again whenever it calls the locator."""
+        return (self.loc, self.borderpad, self.pad, self.prop, self._child,
+                self._bbox_to_anchor, self._bbox_to_anchor_transform)
+
+    def _locate_by_program(self, renderer):
+        """Before every layout of a draw (see `.axes._program_locators`):
+        once the program changed what the locator places the axes with
+        since pltrs (Rust) was told, have the axes placed by calling the
+        locator from then on, as matplotlib's draw of the axes calls it
+        (failing where it fails on what the program gave)."""
+        if self._located is None or all(
+                now is placed for now, placed in zip(self._placement(), self._placed)):
+            return
+        located = self._located[0]
+        _program_locators.forget(self, located._figure)
+        _program_locators.follow(located, located._figure)
+        located._locate_by_program(renderer)
 
     def draw(self, renderer):
         raise RuntimeError("No draw method should be called")
@@ -101,12 +140,28 @@ class AnchoredLocatorBase(AnchoredOffsetbox):
         return OffsetBox.get_window_extent(self, renderer)
 
     def _locate(self, ax):
-        """Remember that pltrs (Rust) places *ax* with the locator."""
+        """Remember that pltrs (Rust) places *ax* with the locator as it is
+        now, and check before every layout whether it still is so."""
         self._located = (ax, _artist.draw_count(ax._native))
+        self._placed = self._placement()
+        _program_locators.follow(self, ax._figure)
 
     def _native_placement(self):
-        """The native placement of the inset: where it is anchored."""
-        return _native_placement(*self._anchor_args)
+        """The native placement of the inset: where it is anchored
+        (`.Unusable` for what pltrs (Rust) cannot place it with)."""
+        return _native_placement(self.loc, *self._anchor_args[1:])
+
+    def _place(self, ax):
+        """Make pltrs (Rust) place *ax* with this locator at every layout;
+        while it cannot take what the locator places the axes with (which
+        matplotlib keeps unchecked and fails on as it draws the axes),
+        place the axes by calling the locator, as matplotlib does."""
+        try:
+            self._place_natively(ax)
+        except Unusable:
+            _program_locators.follow(ax, ax._figure)
+            return
+        self._locate(ax)
 
 
 class AnchoredSizeLocator(AnchoredLocatorBase):
@@ -122,6 +177,10 @@ class AnchoredSizeLocator(AnchoredLocatorBase):
         self._sizes = (_native_size(x_size), _native_size(y_size))
         self._parent_axes = None
 
+    def _placement(self):
+        # docstring inherited
+        return (*super()._placement(), self.x_size, self.y_size)
+
     def get_bbox(self, renderer):
         bbox = self.get_bbox_to_anchor()
         dpi = renderer.points_to_pixels(72.)
@@ -136,12 +195,11 @@ class AnchoredSizeLocator(AnchoredLocatorBase):
 
         return Bbox.from_bounds(0, 0, width, height).padded(pad)
 
-    def _place(self, ax):
-        """Make pltrs (Rust) place *ax* with this locator at every layout."""
+    def _place_natively(self, ax):
+        """Have pltrs (Rust) place *ax* with this locator at every layout."""
         parent = ax if self._parent_axes is None else self._parent_axes
         _axes_grid1.place_sized_inset(parent._native, ax._native, self._sizes,
                                       self._native_placement())
-        self._locate(ax)
 
 
 class AnchoredZoomLocator(AnchoredLocatorBase):
@@ -160,6 +218,10 @@ class AnchoredZoomLocator(AnchoredLocatorBase):
         # pltrs (Rust) anchors in the parent axes when given no box.
         self._anchor_args = (loc, given, bbox_transform, borderpad)
 
+    def _placement(self):
+        # docstring inherited
+        return (*super()._placement(), self.parent_axes, self.zoom)
+
     def get_bbox(self, renderer):
         bb = self.parent_axes.transData.transform_bbox(self.axes.viewLim)
         fontsize = renderer.points_to_pixels(self.prop.get_size_in_points())
@@ -169,20 +231,21 @@ class AnchoredZoomLocator(AnchoredLocatorBase):
                 0, 0, abs(bb.width * self.zoom), abs(bb.height * self.zoom))
             .padded(pad))
 
-    def _place(self, ax):
-        """Make pltrs (Rust) place *ax* with this locator at every layout."""
+    def _place_natively(self, ax):
+        """Have pltrs (Rust) place *ax* with this locator at every layout."""
         _axes_grid1.place_zoomed_inset(self.parent_axes._native, ax._native,
-                                       float(self.zoom),
+                                       number(self.zoom),
                                        self._native_placement())
-        self._locate(ax)
 
 
 def _native_bbox(bbox):
     """The native description of the box *bbox*, which pltrs (Rust) works
     out at every draw: an axes' box, or a box in the coordinates of a
-    transform."""
+    transform; `.Unusable` for no box."""
     if isinstance(bbox, Rectangle):
         bbox = TransformedBbox(Bbox.unit(), bbox.get_transform())
+    if not isinstance(bbox, BboxBase):
+        raise Unusable
     spanning = getattr(bbox, "_spanning", None)
     if spanning is not None:
         return ("transformed", (0., 0., 1., 1.),
@@ -193,7 +256,59 @@ def _native_bbox(bbox):
     return ("transformed", tuple(map(float, bbox.extents)), None)
 
 
-class BboxPatch(Patch):
+def _native_corner(loc):
+    """The corner *loc* as pltrs (Rust) takes it, its code; `.Unusable` for
+    none of matplotlib's four."""
+    if isinstance(loc, numbers.Real) and loc in (1, 2, 3, 4):
+        return int(loc)
+    raise Unusable
+
+
+class _KeptGeometry:
+    """
+    What `BboxPatch` and `BboxConnector` share: matplotlib keeps their boxes
+    and corners unchecked and fails on them where it computes their path
+    (``get_path``: when it adds the patch to an Axes, measures or draws it);
+    the patch keeps those pltrs (Rust) cannot take, and fails so (see
+    ``pltrs._unusable``).
+    """
+
+    def _described_bbox(self, bbox):
+        """*bbox* as `_native_bbox` describes it; the unit box for one
+        pltrs (Rust) cannot take, which the patch keeps."""
+        try:
+            return _native_bbox(bbox)
+        except Unusable:
+            self._kept_geometry = True
+            return _native_bbox(Bbox.unit())
+
+    def _described_corner(self, loc):
+        """The corner *loc* as pltrs (Rust) takes it; the first for one it
+        cannot take, which the patch keeps."""
+        try:
+            return _native_corner(loc)
+        except Unusable:
+            self._kept_geometry = True
+            return 1
+
+    def _keep_geometry(self):
+        """Fail as matplotlib's patch does while it has a box or corner
+        pltrs (Rust) could not take."""
+        if self.__dict__.pop("_kept_geometry", False):
+            _unusable.keep(self, "geometry", True, self._use_geometry)
+
+    def _use_geometry(self, _kept):
+        """Compute the path as matplotlib's does, failing as it does."""
+        self.get_path()
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        if kind == "patch":
+            # matplotlib's `add_patch` reads the path for the data limits.
+            _unusable.check(self, measuring=True)
+        return super()._add_to_axes(axes, kind, autolim)
+
+
+class BboxPatch(_KeptGeometry, Patch):
     @_docstring.interpd
     def __init__(self, bbox, **kwargs):
         """
@@ -213,9 +328,10 @@ class BboxPatch(Patch):
             raise ValueError("transform should not be set")
 
         kwargs["transform"] = IdentityTransform()
-        self._native = _axes_grid1.bbox_patch(_native_bbox(bbox))
+        self._native = _axes_grid1.bbox_patch(self._described_bbox(bbox))
         super().__init__(**kwargs)
         self.bbox = bbox
+        self._keep_geometry()
 
     def get_path(self):
         # docstring inherited
@@ -223,7 +339,7 @@ class BboxPatch(Patch):
         return Path._create_closed([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
 
 
-class BboxConnector(Patch):
+class BboxConnector(_KeptGeometry, Patch):
     @staticmethod
     def get_bbox_edge_pos(bbox, loc):
         """
@@ -290,12 +406,15 @@ class BboxConnector(Patch):
             "fill", bool({'fc', 'facecolor', 'color'}.intersection(kwargs)))
         if "_native" not in self.__dict__:
             self._native = _axes_grid1.bbox_connector(
-                _native_bbox(bbox1), _native_bbox(bbox2), loc1, loc2)
+                self._described_bbox(bbox1), self._described_bbox(bbox2),
+                self._described_corner(loc1),
+                None if loc2 is None else self._described_corner(loc2))
         super().__init__(**kwargs)
         self.bbox1 = bbox1
         self.bbox2 = bbox2
         self.loc1 = loc1
         self.loc2 = loc2
+        self._keep_geometry()
 
     def get_path(self):
         # docstring inherited
@@ -337,11 +456,14 @@ class BboxConnectorPatch(BboxConnector):
         if "transform" in kwargs:
             raise ValueError("transform should not be set")
         self._native = _axes_grid1.bbox_connector_patch(
-            _native_bbox(bbox1), _native_bbox(bbox2),
-            (loc1a, loc2a, loc1b, loc2b))
+            self._described_bbox(bbox1), self._described_bbox(bbox2),
+            tuple(map(self._described_corner, (loc1a, loc2a, loc1b, loc2b))))
+        kept = self.__dict__.pop("_kept_geometry", False)
         super().__init__(bbox1, bbox2, loc1a, loc2a, **kwargs)
         self.loc1b = loc1b
         self.loc2b = loc2b
+        self._kept_geometry = kept
+        self._keep_geometry()
 
     def get_path(self):
         # docstring inherited
@@ -609,11 +731,22 @@ def mark_inset(parent_axes, inset_axes, loc1, loc2, **kwargs):
         The patches connecting two corners of the inset axes and its area.
     """
     from pltrs import _handles, cbook
+    rect = TransformedBbox(inset_axes.viewLim, parent_axes.transData)
+    try:
+        corners = (_native_corner(loc1), _native_corner(loc2))
+    except Unusable:
+        # matplotlib's adds the outline, then fails to find the corners of
+        # the connectors as it adds them.
+        kwargs.setdefault(
+            "fill", bool({'fc', 'facecolor', 'color'}.intersection(kwargs)))
+        parent_axes.add_patch(BboxPatch(rect, **kwargs))
+        for loc in (loc1, loc2):
+            BboxConnector.connect_bbox(inset_axes.bbox, rect, loc)
+        raise
     props = cbook.normalize_kwargs(kwargs, Patch)
     pp, p1, p2 = _axes_grid1.mark_inset(parent_axes._native, inset_axes._native,
-                                        (int(loc1), int(loc2)), props)
+                                        corners, props)
     figure = parent_axes.figure
-    rect = TransformedBbox(inset_axes.viewLim, parent_axes.transData)
     pp = _handles.wrap(pp, BboxPatch, figure)
     pp.bbox = rect
     p1, p2 = (_handles.wrap(p, BboxConnector, figure) for p in (p1, p2))

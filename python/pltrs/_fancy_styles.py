@@ -20,6 +20,10 @@ from ._native import patches as _patches
 from ._patch_styles import _native_spec
 
 
+#: No mutation scale kept (see `FancyStylesMixin.set_mutation_scale`).
+_NOT_KEPT = object()
+
+
 def native_aspect(aspect):
     """The mutation *aspect* as pltrs (Rust) holds it: 1 for None, the
     float of a number, 1 for anything else, which the patch keeps instead
@@ -80,7 +84,12 @@ class FancyStylesMixin:
 
     def _mutation(self, index):
         """The mutation scale (*index* 0) or aspect (1): as given while
-        pltrs (Rust) has it, else pltrs (Rust)'s."""
+        pltrs (Rust) has it, else pltrs (Rust)'s; a scale the patch keeps
+        (see `set_mutation_scale`) as it is."""
+        if index == 0:
+            kept = _unusable.kept(self, "mutation_scale", _NOT_KEPT)
+            if kept is not _NOT_KEPT:
+                return kept
         native = _patches.get_mutation(self._native)[index]
         given = self.__dict__.get("_given_mutation", (None, None))[index]
         return given if isinstance(given, Real) and float(given) == native else native

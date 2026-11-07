@@ -234,6 +234,12 @@ fn empty_aux_boxes_cannot_be_measured() {
         AuxTransformBox::new(ax.trans_data()),
         AnchoredOptions::new(AnchorLoc::Center),
     ));
+    anchored.raw().with_base_mut(|base| base.animated = true);
+    assert!(
+        fig.draw_without_rendering().is_ok(),
+        "animated before the first draw, as its layout when added failed"
+    );
+    anchored.raw().with_base_mut(|base| base.animated = false);
     let errors = fig.draw_without_rendering().expect_err("nothing to unite");
     assert_eq!(errors.0[0].kind, crate::artist::DrawErrorKind::InvalidValue);
     assert_eq!(errors.0[0].message, "'bboxes' cannot be empty");

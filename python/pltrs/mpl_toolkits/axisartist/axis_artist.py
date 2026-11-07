@@ -24,8 +24,8 @@ from operator import methodcaller
 import numpy as np
 
 from pltrs import (
-    _api, _artist_picking, _handles, _live_transforms, _mirrors, _unusable, cbook,
-    rcParams)
+    _api, _artist_picking, _handles, _live_transforms, _mirrors, _named, _unusable,
+    _values, cbook, rcParams)
 import pltrs.artist as martist
 import pltrs.colors as mcolors
 import pltrs.text as mtext
@@ -150,7 +150,8 @@ class _DrawnOnItsOwn:
         _artist.set_zorder(native, float(self.get_zorder()))
 
     def update_from(self, other):
-        # docstring inherited
+        # docstring inherited (named after its class' base, see `Ticks`
+        # and `LabelBase`)
         super().update_from(other)
         if "_given_transform" not in self.__dict__:
             # matplotlib copies the transform of *other*, which places the
@@ -158,6 +159,7 @@ class _DrawnOnItsOwn:
             self._given_transform = other.get_transform()
         self._push()
 
+    @_named.named("Artist.remove")
     def remove(self):
         # docstring inherited
         mirror = _mirrors.mirroring(self)
@@ -171,6 +173,7 @@ class _DrawnOnItsOwn:
         return None
 
 
+@_named.defined_in("Line2D")
 class _AutoStyle:
     """
     The colour and width `Ticks` leave ``"auto"`` (following their
@@ -267,6 +270,8 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         # docstring inherited
         return self._axis.majorTicks[0].tick1line
 
+    update_from = _named.named("Line2D.update_from", _DrawnOnItsOwn.update_from)
+
     def set_color(self, color):
         # docstring inherited
         # Unlike the base Line2D.set_color, this also supports "auto".
@@ -328,10 +333,8 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         or for the ticks of an `AxisArtist`, those its last draw placed
         (matplotlib's ``_update_ticks``) when it was drawn since."""
         mirror = _mirrors.mirroring(self)
-        if (isinstance(mirror, _Drawn) and mirror.axis_artist is not None
-                and mirror.drawn_since(self, "_locs_angles_at")):
-            self.__dict__["_locs_angles"] = mirror.axis_artist._tick_info(
-                mirror.name)[0]
+        if isinstance(mirror, _Drawn):
+            self._refresh(mirror)
         try:
             return self.__dict__["_locs_angles"]
         except KeyError:
@@ -426,7 +429,11 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         return _mirrors.OWN
 
     def _refresh(self, drawn):
-        pass
+        # The locations and angles the last draw of the axis artist placed
+        # the ticks at (matplotlib's ``_update_ticks``), when it was drawn
+        # since.
+        if drawn.axis_artist is not None and drawn.drawn_since(self, "_locs_angles_at"):
+            self.__dict__["_locs_angles"] = drawn.axis_artist._tick_info(drawn.name)[0]
 
 
 def _given_part_transform(artist, use):
@@ -487,6 +494,8 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
     # What ``help`` shows, as matplotlib's (the mixin before `.Text` in the
     # MRO would hide it).
     __init__.__doc__ = mtext.Text.__init__.__doc__
+
+    update_from = _named.named("Text.update_from", _DrawnOnItsOwn.update_from)
 
     @property
     def _ref_angle(self):
@@ -549,6 +558,9 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
     def get_window_extent(self, renderer=None):
         extent = self._drawn_extent(_mirrors.mirroring(self))
         if extent is not _mirrors.OWN:
+            if renderer is not None and self.get_visible() and self.get_text():
+                # matplotlib lays the text out with *renderer*.
+                mtext._check_metrics_renderer(renderer)
             return extent
         if renderer is None:
             renderer = self.get_figure(root=True)._get_renderer()
@@ -637,6 +649,20 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
     def _part_text(self):
         """The text an axis artist's part draws (only its label has one)."""
         return None
+
+    def _placed_when_drawn(self):
+        """Whether matplotlib places the text anew before it draws or
+        measures it, whatever position it was given (an axis artist's
+        label, any tick labels)."""
+        return False
+
+    def _keep_unusable_coordinate(self, index, value):
+        # docstring inherited; a text placed anew before it is drawn only
+        # reads the value back, as matplotlib never computes with it.
+        if not self._placed_when_drawn():
+            super()._keep_unusable_coordinate(index, value)
+            return
+        _values.keep(self, mtext._POSITION[index], value)
 
     def _add_native(self, axes):
         return _axisartist.add_axis_texts(axes._native, self._description(axes))
@@ -811,6 +837,12 @@ class AxisLabel(AttributeCopier, LabelBase):
     def _part_text(self):
         text = mtext.Text.get_text(self)
         return None if text == "__from_axes__" else text
+
+    def _placed_when_drawn(self):
+        # docstring inherited: the axis artist places its label where its
+        # helper says (``_update_label``).
+        mirror = _mirrors.mirroring(self)
+        return isinstance(mirror, _Drawn) and mirror.axis_artist is not None
 
     def _refresh(self, drawn):
         # matplotlib's draw places the label where the helper says.
@@ -1024,6 +1056,11 @@ class TickLabels(AxisLabel):  # mtext.Text
         if isinstance(mirror, _Drawn):
             if not self._measures_drawn(mirror):
                 return []
+            if renderer is not None:
+                # matplotlib measures the labels with *renderer*, then pads
+                # them with it.
+                self._check_measuring(renderer)
+                renderer.points_to_pixels(self.get_pad())
             extents = (_axisartist.axis_text_extents(mirror.native)
                        if mirror.axis_artist is None
                        else self._part_extents(mirror))
@@ -1060,6 +1097,7 @@ class TickLabels(AxisLabel):  # mtext.Text
         if isinstance(mirror, _Drawn):
             if not self._measures_drawn(mirror):
                 return []
+            self._check_measuring(renderer)
             if mirror.axis_artist is None:
                 return _axisartist.axis_text_metrics(mirror.native)
             return _axisartist.ticklabel_metrics(mirror.native, self._level(mirror))
@@ -1075,6 +1113,12 @@ class TickLabels(AxisLabel):  # mtext.Text
         return whd_list
 
     # -- what pltrs (Rust) draws ------------------------------------------
+
+    def _check_measuring(self, renderer):
+        """Fail as matplotlib's measures of the (non-empty) labels with
+        *renderer* fail (pltrs (Rust) measures them itself)."""
+        if any(str(label).strip() for _, _, label in self.__dict__.get("_labels", [])):
+            mtext._check_metrics_renderer(renderer)
 
     def _part_transform(self, axis_artist):
         return (axis_artist._axis_artist_helper.get_tick_transform(axis_artist._axes_of)
@@ -1104,12 +1148,17 @@ class TickLabels(AxisLabel):  # mtext.Text
     def _part_text(self):
         return None
 
+    def _placed_when_drawn(self):
+        # docstring inherited: the draw places each label it draws.
+        return True
+
     def _part_extents(self, drawn):
         return _axisartist.ticklabel_extents(drawn.native, self._level(drawn))
 
     def _refresh(self, drawn):
-        # matplotlib's draw leaves the text and position of the last
-        # (non-empty) label it drew.
+        # matplotlib's draw hands the texts their labels, and leaves the
+        # text and position of the last (non-empty) label it drew.
+        self._refresh_labels(drawn)
         if (drawn.axis_artist is None or not self.get_visible()
                 or not drawn.drawn_since(self, "_placed_at")):
             return
@@ -1140,7 +1189,8 @@ class TickLabels(AxisLabel):  # mtext.Text
         if drawn.axis_artist is None or not labels or extent is _mirrors.OWN:
             return extent
         theta = np.deg2rad(labels[-1][1])
-        r, _ = self._get_ticklabels_offsets(None, self._axis_direction)
+        r, _ = self._get_ticklabels_offsets(
+            self.get_figure(root=True)._get_renderer(), self._axis_direction)
         dx, dy = -r * np.cos(theta), -r * np.sin(theta)
         left = self.__dict__.get("_left_by_draw")
         if left is not None:
@@ -1187,6 +1237,11 @@ def _gridlines_choice(value, names):
             repr(value))
 
 
+#: The settings of gridlines pltrs (Rust) takes.
+_WHICH = ("major", "minor", "both")
+_AXIS = ("both", "x", "y")
+
+
 class GridlinesCollection(LineCollection):
     # Collection of grid lines: the lines given to it. The gridlines of an
     # axes drawn by axis artists are drawn by pltrs (Rust) through the axes'
@@ -1223,7 +1278,8 @@ class GridlinesCollection(LineCollection):
         which : {"major", "minor"}
         """
         self._which = which
-        self._choose(which=_gridlines_choice(which, ("major", "minor", "both")))
+        self._choose(which=_gridlines_choice(which, _WHICH))
+        self._keep_settings()
 
     def set_axis(self, axis):
         """
@@ -1234,7 +1290,8 @@ class GridlinesCollection(LineCollection):
         axis : {"both", "x", "y"}
         """
         self._axis = axis
-        self._choose(axis=_gridlines_choice(axis, ("both", "x", "y")))
+        self._choose(axis=_gridlines_choice(axis, _AXIS))
+        self._keep_settings()
 
     def _choose(self, which=None, axis=None):
         """Have the gridlines pltrs (Rust) draws for an axes show *which*
@@ -1251,6 +1308,44 @@ class GridlinesCollection(LineCollection):
         grid_helper : `.GridHelperBase` subclass
         """
         self._grid_helper = grid_helper
+        self._keep_settings()
+
+    def _keep_settings(self):
+        """Keep the settings of the gridlines that pltrs (Rust) cannot draw
+        with (`_unusable`), on which matplotlib's draws of the gridlines
+        fail as their grid helper computes them (a helper of no limits, a
+        setting its ``get_gridlines`` refuses), and have the axes holding
+        the gridlines fail so as it draws them, hidden ones too, which
+        pltrs (Rust) does not draw."""
+        helper = self._grid_helper
+        if (_gridlines_choice(self._which, _WHICH)[0] is not None
+                and _gridlines_choice(self._axis, _AXIS)[0] is not None
+                and (helper is None or hasattr(helper, "update_lim"))):
+            _unusable.drop(self, "settings")
+        else:
+            _unusable.keep(self, "settings", helper, self._compute_as_drawn,
+                           measured=False, drawn=False)
+        axes = self.axes
+        if axes is None:
+            return
+        if self.__dict__.get("_unusable"):
+            _unusable.keep(axes, "gridlines", self, GridlinesCollection._check_drawn,
+                           measured=False)
+        else:
+            _unusable.drop(axes, "gridlines")
+
+    def _compute_as_drawn(self, grid_helper):
+        """What matplotlib's draw of the gridlines computes first: the
+        lines *grid_helper* gives for the settings, its limits updated."""
+        if grid_helper is not None:
+            grid_helper.update_lim(self.axes)
+            grid_helper.get_gridlines(self._which, self._axis)
+
+    def _check_drawn(self):
+        """Fail as matplotlib's draw of the axes does drawing the gridlines,
+        unless it leaves them out (animated, or no axis lines drawn)."""
+        if not self.get_animated() and getattr(self.axes, "_axisline_on", True):
+            _unusable.check(self)
 
     def draw(self, renderer):
         super().draw(renderer)
@@ -1265,7 +1360,7 @@ class AxisArtist(martist.Artist):
     zorder = 2.5
 
     # matplotlib's class has no hit test of its own.
-    contains = _artist_picking.contains_untested
+    contains = _named.named("Artist.contains", _artist_picking.contains_untested)
 
     @property
     def LABELPAD(self):
@@ -1320,7 +1415,7 @@ class AxisArtist(martist.Artist):
         self._axis_artist_helper = helper
         bind = getattr(helper, "_bind", None)
         if bind is not None:
-            bind(self._native)
+            bind(self)
         axes = self._axes_of
         # The axis whose ticks and label the parts follow by default.
         self.axis = axes.yaxis if axis_direction in ["left", "right"] else axes.xaxis
@@ -1618,7 +1713,9 @@ class AxisArtist(martist.Artist):
             return None
         if renderer is None:
             # As matplotlib's, which asks its figure for a renderer.
-            self.get_figure(root=True)._get_renderer()
+            renderer = self.get_figure(root=True)._get_renderer()
+        # matplotlib places the ticks with it first (``_update_ticks``).
+        renderer.points_to_pixels(1.)
         _unusable.check(self, measuring=True)
         extent = _axisartist.tight_bbox(self._native)
         return None if extent is None else Bbox.from_extents(*extent)

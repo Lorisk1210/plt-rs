@@ -15,7 +15,10 @@
 //! matplotlib also keeps view angles it cannot compute a projection with
 //! ([`Axes3D::set_view_failure`]), and a draw fails computing the
 //! projection once the background is drawn, as it does for a singular
-//! projection (one with an infinite limit, say).
+//! projection (one with an infinite limit, say). Values of its axes it
+//! keeps unchecked (a label pad of no number, an image filter that is no
+//! function) fail its draw once it projected the collections and patches,
+//! where it draws the axes ([`Axes3D::set_axes_failure`]).
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -56,9 +59,15 @@ pub(crate) struct DrawFailures {
     artists: BTreeMap<ArtistId, DrawFailure>,
     /// The problem computing the projection of the view meets.
     view: Option<DrawFailure>,
+    /// The problem drawing the panes, gridlines and axes meets.
+    axes: Option<DrawFailure>,
 }
 
-pltrs_core::archive_struct!(DrawFailures { artists, view });
+pltrs_core::archive_struct!(DrawFailures {
+    artists,
+    view,
+    axes
+});
 
 impl DrawFailures {
     /// The problem recorded for artist `id`.
@@ -69,6 +78,11 @@ impl DrawFailures {
     /// The problem recorded for the view.
     pub(crate) fn of_view(&self) -> Option<&DrawFailure> {
         self.view.as_ref()
+    }
+
+    /// The problem recorded for drawing the axes.
+    pub(crate) fn of_axes(&self) -> Option<&DrawFailure> {
+        self.axes.as_ref()
     }
 
     /// Forgets the problems of the artists `store` no longer holds.
@@ -161,6 +175,42 @@ impl Axes3D {
         self.with(|axes| axes.failures.view.clone())
     }
 
+    /// Records that drawing the panes, gridlines and axes meets `failure`
+    /// (`None` forgets one): matplotlib keeps values of its axes it cannot
+    /// draw with (a label pad given as a string, an image filter that is
+    /// no function) and fails where its draw of the axes draws them, once
+    /// the collections and patches are projected and before the lines and
+    /// texts are, as a draw of these axes then reports `failure` (when the
+    /// axes are shown).
+    ///
+    /// ```
+    /// use pltrs::artist::DrawErrorKind;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::DrawFailure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let failure = DrawFailure {
+    ///     kind: DrawErrorKind::InvalidType,
+    ///     message: "a label pad of no number".into(),
+    /// };
+    /// ax.set_axes_failure(Some(failure.clone()));
+    /// assert_eq!(ax.axes_failure(), Some(failure));
+    /// assert!(fig.canvas().draw().is_err());
+    /// ax.set_axis_off();
+    /// assert!(fig.canvas().draw().is_ok(), "hidden axes are not drawn");
+    /// ```
+    pub fn set_axes_failure(&self, failure: Option<DrawFailure>) -> &Self {
+        self.with_mut(|axes| axes.failures.axes = failure);
+        self.raw().figure_state().borrow_mut().stale = true;
+        self
+    }
+
+    /// The problem recorded for drawing the axes (see
+    /// [`Axes3D::set_axes_failure`]).
+    pub fn axes_failure(&self) -> Option<DrawFailure> {
+        self.with(|axes| axes.failures.axes.clone())
+    }
+
     /// The id of `artist` when it is drawn on these axes.
     pub(super) fn plane_child(&self, artist: &impl ArtistHandle) -> Result<ArtistId, Axes3DError> {
         let plane = self.plane().id();
@@ -199,16 +249,23 @@ impl Axes3DState {
         projected.then_some(failure)
     }
 
-    /// Whether a draw ends where it projects the plane's collections and
-    /// patches, before it reaches the lines and texts it projects as it
-    /// draws them: draws stop at their first problem, and one of the
-    /// visible collections or patches has one recorded.
+    /// Whether a draw ends before it reaches the lines and texts it
+    /// projects as it draws them: draws stop at their first problem, and
+    /// one of the visible collections or patches has one recorded, or the
+    /// axes drawn before them do.
     pub(super) fn stops_projecting(&self, store: &ArtistStore) -> bool {
         draws_stop_at_first_problem()
-            && self.failures.artists.keys().any(|&id| {
-                store.get(id).is_some_and(|a| a.base().visible)
-                    && self.projection_failure(store, id).is_some()
-            })
+            && (self.axis_failure().is_some()
+                || self.failures.artists.keys().any(|&id| {
+                    store.get(id).is_some_and(|a| a.base().visible)
+                        && self.projection_failure(store, id).is_some()
+                }))
+    }
+
+    /// The problem a draw meets drawing the axes, when it draws them (see
+    /// [`Axes3D::set_axes_failure`]).
+    pub(super) fn axis_failure(&self) -> Option<&DrawFailure> {
+        self.axis_on.then(|| self.failures.of_axes()).flatten()
     }
 
     /// Reports the problems recorded for the visible collections and
@@ -301,5 +358,28 @@ mod tests {
             foreign.set_draw_failure(&collection, None).err(),
             Some(Axes3DError::ForeignArtist)
         );
+    }
+
+    #[test]
+    fn a_failing_axis_ends_the_draw_before_lines_are_projected() {
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]).expect("a line");
+        ax.set_axes_failure(Some(DrawFailure {
+            kind: DrawErrorKind::InvalidType,
+            message: "can only concatenate str (not \"float\") to str".into(),
+        }));
+        let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+        crate::artist::set_draws_stop_at_first_problem(true);
+        let errors = fig.draw(&mut renderer).unwrap_err().0;
+        crate::artist::set_draws_stop_at_first_problem(false);
+        assert_eq!(errors[0].kind, DrawErrorKind::InvalidType);
+        assert_eq!(ax.projected_line_mask(&line), Ok(None), "never projected");
+        ax.set_axis_off();
+        fig.draw(&mut renderer).expect("hidden axes are not drawn");
+        ax.set_axis_on();
+        ax.set_axes_failure(None);
+        fig.draw(&mut renderer).expect("nothing fails");
+        assert!(matches!(ax.projected_line_mask(&line), Ok(Some(_))));
     }
 }

@@ -15,7 +15,7 @@ from pltrs.axes._plotting._helpers import axis_values, line_kwargs, wrap, wrap_a
 from pltrs.axes._plotting.errorbar import _errorevery_to_mask
 from pltrs.container import ErrorbarContainer, StemContainer
 
-from . import _draw_problems, art3d
+from . import _draw_problems, _properties, art3d
 
 
 def _error_bounds(err, n):
@@ -484,6 +484,7 @@ class ChartsMixin:
         light = kwargs.pop('lightsource', None)
         light = (None if light is None
                  else (float(light.azdeg), float(light.altdeg)))
+        _properties.check_known(art3d.Poly3DCollection, kwargs)
         native = _mplot3d.fill_between(
             self._native,
             tuple(tuple(axis_values(c) for c in curve)

@@ -8,7 +8,7 @@ import numpy as np
 from pltrs import _handles, colors as mcolors
 from pltrs._native import mplot3d as _mplot3d
 
-from . import art3d
+from . import _properties, art3d
 
 
 def _cell_colors(color, filled, name):
@@ -131,6 +131,7 @@ class VoxelsMixin:
         edges = (None if edgecolors is None
                  else _cell_colors(edgecolors, cells, 'edgecolors'))
         light = art3d._native_light(lightsource)
+        _properties.check_known(art3d.Poly3DCollection, kwargs)
         made = _mplot3d.voxels(
             self._native, np.ascontiguousarray(filled, dtype=bool), corners,
             (None if faces is None else np.ascontiguousarray(faces, dtype=float),

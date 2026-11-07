@@ -1,52 +1,23 @@
 """
 Ready-made anchored boxes (matplotlib's
 ``mpl_toolkits.axes_grid1.anchored_artists``, from matplotlib 3.11.2, under
-the Matplotlib License): a drawing area, a box of artists in data
-coordinates, a scale bar and direction arrows. Each keeps its arguments,
-and pltrs (Rust) builds the box when an axes adds it
-(``ax.add_artist(box)``, ``_native.axes_grid1``).
+the Matplotlib License, kept as it is): a drawing area, a box of artists in
+data coordinates, a scale bar and direction arrows, offset boxes of
+`.offsetbox` that pltrs (Rust) lays out and draws as any others.
 """
 
-from pltrs import _handles, _live_transforms, cbook
-from pltrs.font_manager import FontManager
-from pltrs.offsetbox import AnchoredOffsetbox, AuxTransformBox, DrawingArea
-from pltrs.patches import Patch
-from pltrs._native import axes_grid1 as _axes_grid1
+from pltrs import transforms
+from pltrs.offsetbox import (AnchoredOffsetbox, AuxTransformBox,
+                             DrawingArea, TextArea, VPacker)
+from pltrs.patches import (Rectangle, ArrowStyle,
+                           FancyArrowPatch, PathPatch)
+from pltrs.text import TextPath
 
 __all__ = ['AnchoredDrawingArea', 'AnchoredAuxTransformBox',
            'AnchoredSizeBar', 'AnchoredDirectionArrows']
 
 
-def _native_font(prop):
-    """The native font properties of *prop* (None stays None)."""
-    if prop is None:
-        return None
-    from pltrs.font_manager import FontProperties
-    return FontManager._props(FontProperties._from_any(prop))
-
-
-# An anchored box pltrs (Rust) builds when an axes adds it (each subclass's
-# ``_add_native`` adds it and returns its handle). No docstring, so that
-# ``help`` shows `.AnchoredOffsetbox`'s for the subclasses, as matplotlib's.
-class _NativeAnchoredBox(AnchoredOffsetbox):
-
-    def _add_to_axes(self, axes, kind, autolim=True):
-        return _handles.adopt(self, self._add_native(axes), axes.figure)
-
-    def _frame(self):
-        """The paddings and frame of the box, as pltrs (Rust) takes them."""
-        return (float(self.pad), float(self.borderpad), bool(self.frameon))
-
-    def get_children(self):
-        """
-        Return the list of children: the child box, which a size bar and
-        direction arrows do not have (pltrs (Rust) builds and draws their
-        boxes whole).
-        """
-        return [] if self._child is None else [self._child]
-
-
-class AnchoredDrawingArea(_NativeAnchoredBox):
+class AnchoredDrawingArea(AnchoredOffsetbox):
     def __init__(self, width, height, xdescent, ydescent,
                  loc, pad=0.4, borderpad=0.5, prop=None, frameon=True,
                  **kwargs):
@@ -99,19 +70,14 @@ class AnchoredDrawingArea(_NativeAnchoredBox):
         """
         self.da = DrawingArea(width, height, xdescent, ydescent)
         self.drawing_area = self.da
-        self._size = tuple(map(float, (width, height, xdescent, ydescent)))
+
         super().__init__(
             loc, pad=pad, borderpad=borderpad, child=self.da, prop=None,
             frameon=frameon, **kwargs
         )
 
-    def _add_native(self, axes):
-        return _axes_grid1.add_drawing_area(
-            axes._native, (self._size, self.loc), self._frame(),
-            [child._native for child in self.da.get_children()])
 
-
-class AnchoredAuxTransformBox(_NativeAnchoredBox):
+class AnchoredAuxTransformBox(AnchoredOffsetbox):
     def __init__(self, transform, loc,
                  pad=0.4, borderpad=0.5, prop=None, frameon=True, **kwargs):
         """
@@ -160,21 +126,13 @@ class AnchoredAuxTransformBox(_NativeAnchoredBox):
         >>> ax.add_artist(box)
         """
         self.drawing_area = AuxTransformBox(transform)
-        self._prop_given = prop
+
         super().__init__(loc, pad=pad, borderpad=borderpad,
                          child=self.drawing_area, prop=prop, frameon=frameon,
                          **kwargs)
 
-    def _add_native(self, axes):
-        return _axes_grid1.add_aux_transform_box(
-            axes._native,
-            (_live_transforms.to_native(self.drawing_area.aux_transform),
-             self.loc, _native_font(self._prop_given)),
-            self._frame(),
-            [child._native for child in self.drawing_area.get_children()])
 
-
-class AnchoredSizeBar(_NativeAnchoredBox):
+class AnchoredSizeBar(AnchoredOffsetbox):
     def __init__(self, transform, size, label, loc,
                  pad=0.1, borderpad=0.1, sep=2,
                  frameon=True, size_vertical=0, color='black',
@@ -260,26 +218,38 @@ class AnchoredSizeBar(_NativeAnchoredBox):
         ...                       size_vertical=0.5, color='white',
         ...                       fontproperties=fontprops)
         """
+        if fill_bar is None:
+            fill_bar = size_vertical > 0
+
+        self.size_bar = AuxTransformBox(transform)
+        self.size_bar.add_artist(Rectangle((0, 0), size, size_vertical,
+                                           fill=fill_bar, facecolor=color,
+                                           edgecolor=color))
+
         if fontproperties is None and 'prop' in kwargs:
             fontproperties = kwargs.pop('prop')
-        self._bar = (transform, float(size), str(label), float(sep),
-                     float(size_vertical), color, bool(label_top),
-                     fontproperties, fill_bar)
-        super().__init__(loc, pad=pad, borderpad=borderpad, child=None,
+
+        if fontproperties is None:
+            textprops = {'color': color}
+        else:
+            textprops = {'color': color, 'fontproperties': fontproperties}
+
+        self.txt_label = TextArea(label, textprops=textprops)
+
+        if label_top:
+            _box_children = [self.txt_label, self.size_bar]
+        else:
+            _box_children = [self.size_bar, self.txt_label]
+
+        self._box = VPacker(children=_box_children,
+                            align="center",
+                            pad=0, sep=sep)
+
+        super().__init__(loc, pad=pad, borderpad=borderpad, child=self._box,
                          prop=fontproperties, frameon=frameon, **kwargs)
 
-    def _add_native(self, axes):
-        (transform, size, label, sep, size_vertical, color, label_top,
-         fontproperties, fill_bar) = self._bar
-        return _axes_grid1.add_size_bar(
-            axes._native,
-            (_live_transforms.to_native(transform), size, label, self.loc),
-            (self._frame(), sep, size_vertical),
-            (color, label_top, _native_font(fontproperties),
-             None if fill_bar is None else bool(fill_bar)))
 
-
-class AnchoredDirectionArrows(_NativeAnchoredBox):
+class AnchoredDirectionArrows(AnchoredOffsetbox):
     def __init__(self, transform, label_x, label_y, length=0.15,
                  fontsize=0.08, loc='upper left', angle=0, aspect_ratio=1,
                  pad=0.4, borderpad=0.4, frameon=False, color='w', alpha=1,
@@ -383,34 +353,70 @@ class AnchoredDirectionArrows(_NativeAnchoredBox):
         ...                                  text_props={'ec':'w', 'fc':'k'},
         ...                                  fontproperties=fontprops)
         """
+        if arrow_props is None:
+            arrow_props = {}
+
+        if text_props is None:
+            text_props = {}
+
+        arrowstyle = ArrowStyle("Simple",
+                                head_width=head_width,
+                                head_length=head_length,
+                                tail_width=tail_width)
+
         if fontproperties is None and 'prop' in kwargs:
             fontproperties = kwargs.pop('prop')
-        self._arrows = (
-            transform, (str(label_x), str(label_y)),
-            tuple(map(float, (length, fontsize, angle, aspect_ratio, sep_x,
-                              sep_y, back_length))),
-            tuple(map(float, (head_width, head_length, tail_width))),
-            color, float(alpha), fontproperties,
-            cbook.normalize_kwargs(text_props or {}, Patch),
-            cbook.normalize_kwargs(arrow_props or {}, Patch))
-        super().__init__(loc, pad=pad, borderpad=borderpad, child=None,
+
+        if 'color' not in arrow_props:
+            arrow_props['color'] = color
+
+        if 'alpha' not in arrow_props:
+            arrow_props['alpha'] = alpha
+
+        if 'color' not in text_props:
+            text_props['color'] = color
+
+        if 'alpha' not in text_props:
+            text_props['alpha'] = alpha
+
+        t_start = transform
+        t_end = t_start + transforms.Affine2D().rotate_deg(angle)
+
+        self.box = AuxTransformBox(t_end)
+
+        length_x = length
+        length_y = length*aspect_ratio
+
+        self.arrow_x = FancyArrowPatch(
+                (0, back_length*length_y),
+                (length_x, back_length*length_y),
+                arrowstyle=arrowstyle,
+                shrinkA=0.0,
+                shrinkB=0.0,
+                **arrow_props)
+
+        self.arrow_y = FancyArrowPatch(
+                (back_length*length_x, 0),
+                (back_length*length_x, length_y),
+                arrowstyle=arrowstyle,
+                shrinkA=0.0,
+                shrinkB=0.0,
+                **arrow_props)
+
+        self.box.add_artist(self.arrow_x)
+        self.box.add_artist(self.arrow_y)
+
+        text_path_x = TextPath((
+            length_x+sep_x, back_length*length_y+sep_y), label_x,
+            size=fontsize, prop=fontproperties)
+        self.p_x = PathPatch(text_path_x, transform=t_start, **text_props)
+        self.box.add_artist(self.p_x)
+
+        text_path_y = TextPath((
+            length_x*back_length+sep_x, length_y*(1-back_length)+sep_y),
+            label_y, size=fontsize, prop=fontproperties)
+        self.p_y = PathPatch(text_path_y, **text_props)
+        self.box.add_artist(self.p_y)
+
+        super().__init__(loc, pad=pad, borderpad=borderpad, child=self.box,
                          frameon=frameon, **kwargs)
-
-    def _add_native(self, axes):
-        (transform, labels, geometry, heads, color, alpha, fontproperties,
-         text_props, arrow_props) = self._arrows
-        return _axes_grid1.add_direction_arrows(
-            axes._native,
-            (_live_transforms.to_native(transform), labels, self.loc,
-             self._frame()),
-            (geometry, heads),
-            (color, alpha, _native_font(fontproperties)),
-            (text_props, arrow_props))
-
-
-# What matplotlib's module also has from its imports, which programs
-# import from it.
-from pltrs import transforms  # noqa: E402, F401
-from pltrs.offsetbox import TextArea, VPacker  # noqa: E402, F401
-from pltrs.patches import ArrowStyle, FancyArrowPatch, PathPatch, Rectangle  # noqa: E402, F401
-from pltrs.textpath import TextPath  # noqa: E402, F401

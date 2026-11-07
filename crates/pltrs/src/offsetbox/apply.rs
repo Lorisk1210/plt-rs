@@ -194,8 +194,11 @@ pub(super) fn refresh_tree(state: &mut FigureState, id: ArtistId) {
 
 /// Lays out the anchored, annotation or placed box `id` in the figure's
 /// state of now and moves its parts into place; a box that cannot be laid
-/// out is reported with the next draw if that draw draws it.
+/// out is reported with the next draw if that draw draws it (the problem
+/// of an earlier layout, before the box was hidden or animated, is
+/// forgotten).
 pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
+    state.pending_errors.retain(|error| error.artist != id);
     refresh_tree(state, id);
     match tree_layout(state, id) {
         Some(Ok(layout)) => apply_placements(&mut state.store, layout.placements),

@@ -52,6 +52,9 @@ _BOX_ALIASES = {
     "ls": "linestyle", "aa": "antialiased",
 }
 
+#: The colours of a text's box, which None leaves at the patch's default.
+_BOX_COLORS = frozenset({"facecolor", "edgecolor", "color"})
+
 
 def _check_bbox_arguments(rectprops):
     """
@@ -159,6 +162,16 @@ def _layout_renderer(figure):
     if hasattr(canvas, "_print_renderer"):
         return canvas._print_renderer()
     return figure._get_renderer()
+
+
+def _check_metrics_renderer(renderer):
+    """Fail as matplotlib's text metrics fail for *renderer*, which they
+    look up in a weak cache and then ask for the metrics of a line
+    (``_get_text_metrics_with_cache``)."""
+    weakref.ref(renderer)
+    if not hasattr(renderer, "get_text_width_height_descent"):
+        raise AttributeError(f"{type(renderer).__name__!r} object has no "
+                             f"attribute 'get_text_width_height_descent'")
 
 
 def _measuring_with(renderer):
@@ -376,7 +389,10 @@ class Text(Artist):
         # matplotlib copies the properties first (``rectprops.copy()``).
         given = rectprops.copy()
         _check_bbox_arguments(given)
-        props = {_BOX_ALIASES.get(key, key): value for key, value in given.items()}
+        # A colour of None is the patch's default, as matplotlib's
+        # `.FancyBboxPatch` takes it.
+        props = {_BOX_ALIASES.get(key, key): value for key, value in given.items()
+                 if not (value is None and _BOX_ALIASES.get(key, key) in _BOX_COLORS)}
         boxstyle = props.get("boxstyle")
         if boxstyle is not None:
             from .patches import BoxStyle
@@ -400,6 +416,9 @@ class Text(Artist):
         This method should be used when the position and size of the bbox needs
         to be updated before actually drawing the bbox.
         """
+        if self.get_bbox_patch() is not None:
+            # matplotlib lays the text out with *renderer* to size the box.
+            _check_metrics_renderer(renderer)
         # pltrs: the patch of `get_bbox_patch` moves where pltrs (Rust) draws
         # the box in the figure's current layout.
         from ._text_box import place
@@ -440,8 +459,16 @@ class Text(Artist):
         --------
         .set_bbox : To change the position of the bounding box
         """
+        if color is None:
+            # The patch's default colours, as matplotlib's patch takes None.
+            patch = self.get_bbox_patch()
+            if patch is None:
+                self.set_bbox(dict(facecolor=None, edgecolor=None))
+            else:
+                patch.set_facecolor(None)
+            return
         from .colors import to_rgba
-        # matplotlib's box patch fails to take a colour that is none.
+        # matplotlib's box patch fails to take a colour that is no colour.
         to_rgba(color)
         _text.set_backgroundcolor(self._native, color)
 
@@ -501,7 +528,8 @@ class Text(Artist):
         """
         Return whether rotations of the transform affect the text direction.
         """
-        return _text.get_transform_rotates_text(self._native)
+        return _values.given_flag(self, "transform_rotates_text",
+                                  _text.get_transform_rotates_text(self._native))
 
     def set_rotation_mode(self, m):
         """
@@ -544,10 +572,13 @@ class Text(Artist):
         math expressions.
         """
         _text.set_antialiased(self._native, bool(antialiased))
+        _values.remember(self, "antialiased", antialiased)
 
     def get_antialiased(self):
         """Return whether antialiased rendering is used."""
-        return _text.get_antialiased(self._native)
+        # As given, as matplotlib keeps it (``1``, ``'False'``).
+        return _values.given_flag(self, "antialiased",
+                                  _text.get_antialiased(self._native))
 
     @property
     def _antialiased(self):
@@ -555,7 +586,7 @@ class Text(Artist):
 
     def get_wrap(self):
         """Return whether the text can be wrapped."""
-        return _text.get_wrap(self._native)
+        return _values.given_flag(self, "wrap", _text.get_wrap(self._native))
 
     def set_wrap(self, wrap):
         """
@@ -577,6 +608,7 @@ class Text(Artist):
         wrapping.
         """
         _text.set_wrap(self._native, bool(wrap))
+        _values.remember(self, "wrap", wrap)
 
     def _get_wrapped_text(self):
         """
@@ -1131,6 +1163,7 @@ class Text(Artist):
         t : bool
         """
         _text.set_transform_rotates_text(self._native, bool(t))
+        _values.remember(self, "transform_rotates_text", t)
 
     def set_verticalalignment(self, align):
         """

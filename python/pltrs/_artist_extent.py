@@ -47,6 +47,18 @@ class ExtentMixin:
         """
         return Bbox([[0, 0], [0, 0]])
 
+    def _check_figure_renderer(self, renderer):
+        """
+        Fail as matplotlib's measuring methods do when they are given no
+        *renderer* and the artist has no figure to take one from
+        (``self.get_figure(root=True)._get_renderer()``): one removed from
+        its figure, say. pltrs (Rust) measures with its figure's own.
+        """
+        if renderer is None and self.get_figure(root=True) is None:
+            raise AttributeError(
+                "'NoneType' object has no attribute '_get_renderer'",
+                name="_get_renderer", obj=None)
+
     def _laid_out_extent(self):
         """
         The artist's box in display space where pltrs (Rust) lays it out

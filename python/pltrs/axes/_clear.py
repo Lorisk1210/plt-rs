@@ -15,6 +15,7 @@ import weakref
 
 from .. import _api, _handles, cbook
 from .._native import artist as _artist, axes as _axes
+from . import _foreign_children
 from ._artist_list import ArtistList
 
 
@@ -55,18 +56,27 @@ class ClearMixin:
 
     def __clear(self):
         """Clear the Axes."""
-        figure = self.figure
+        figure = self._figure
         # matplotlib's clear forgets the legend without taking it out of
         # the figure (pandas reads the title of the one it replots).
         legend = self.legend_
         if legend is not None:
             # Which keeps the Axes as its own.
             legend._cleared_from = self
+        for child in self.child_axes:
+            child._leave_host()
+        self._decouple_children()
         for native in _axes.clear(self._native):
-            artist = figure._artists.pop(_artist.id(native), None)
-            if artist is not None and artist is not legend:
-                # Out of the figure, as matplotlib's clear leaves them.
-                artist._figure = None
+            artist = figure._artists.get(_artist.id(native))
+            if artist is not None and "_child_of" in artist.__dict__:
+                # Still of the figure and of the Axes, as matplotlib's clear
+                # leaves the child Axes it forgets.
+                continue
+            figure._artists.pop(_artist.id(native), None)
+        _foreign_children.forget(self)
+        # Stale, as matplotlib's clear of each axis leaves it.
+        for axis in self._axis_map.values():
+            axis.stale = True
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)
         # A new background patch in the Axes' face colour, and new titles,
@@ -78,6 +88,15 @@ class ClearMixin:
         _program.cleared(self)
         if "_facecolor" in self.__dict__:
             self.patch.set_facecolor(self._facecolor)
+
+    def _decouple_children(self):
+        """Decouple the children from the figure and the Axes, as
+        matplotlib's clear leaves them, before pltrs (Rust) takes them
+        out."""
+        for native in _axes.children(self._native):
+            artist = self._figure._artists.get(_artist.id(native))
+            if artist is not None:
+                artist._decouple(removed=False)
 
     def clear(self):
         """Clear the Axes."""
@@ -120,15 +139,17 @@ class ClearMixin:
         """The artists added to the Axes, in the order they were added; an
         artist pltrs (Rust) makes of several (a contour set) once."""
         children = {id(child): child for child in (
-            _handles.wrap_any(native, self.figure)
+            _foreign_children.listed(_handles.wrap_any(native, self._figure))
             for native in _axes.children(self._native))}
-        return list(children.values())
+        return [*children.values(), *_foreign_children.of(self)]
 
     @property
     def artists(self):
         return ArtistList._of("artists", lambda: [
-            _handles.wrap_any(native, self.figure)
-            for native in _axes.artists(self._native)])
+            *(artist for artist in (_handles.wrap_any(native, self._figure)
+                                    for native in _axes.artists(self._native))
+              if not _foreign_children.is_stand_in(artist)),
+            *_foreign_children.of(self)])
 
     def get_children(self):
         return [

@@ -119,7 +119,7 @@ class ChildAxesMixin:
         """The Axes placed inside this one: insets and secondary axes."""
         from ._axes import Axes
         return _handles.wrap_all(_insets.child_axes(self._native), Axes,
-                                 self.figure)
+                                 self._figure)
 
     def add_child_axes(self, ax):
         """
@@ -211,7 +211,7 @@ class InsetsMixin:
             native = _insets.inset_axes(
                 self._native, bounds,
                 None if name == "rectilinear" or program else name)
-            inset_ax = _handles.wrap(native, projection_class, self.figure)
+            inset_ax = _handles.wrap(native, projection_class, self._figure)
             inset_ax._child_of = self
             inset_ax._init_projection()
         locator = _TransformedBoundsLocator(

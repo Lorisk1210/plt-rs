@@ -471,6 +471,7 @@ class Table(Artist):
         # Return the table's box in display space, where pltrs (Rust) lays it
         # out in the figure as it is (matplotlib computes it from the table's
         # layout, placing its cells).
+        self._check_figure_renderer(renderer)
         self._place_cells()
         return self._extent_as_is()
 

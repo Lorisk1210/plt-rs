@@ -463,6 +463,37 @@ part of the table's native state, and a Python `Cell` is the cell at its
 until `table[row, col] = cell` copies it into a table and makes the
 object that table's cell.
 
+### Artists removed, cleared and added though they are no artists
+
+matplotlib's `remove` and `clear` decouple an artist from its figure and
+Axes (its `figure` and `axes` read None) and leave it its transform and
+clip box, so that it keeps measuring where it was. pltrs (Rust) keeps a
+removed artist apart in its old figure (`DetachedArtists`, whose axes
+still give their trees' leaves), and the Python object keeps its root
+figure (`_figure`, through which it reaches its registry and its trees)
+while `Artist._decouple` marks it decoupled: `get_figure()` and `axes`
+read None, and `set_figure` and the `add_*` methods take it again. What
+matplotlib's last draw computed and the artist keeps (an annotation's
+transform, a quiver's) is computed as it is decoupled
+(`_keep_drawn_state`), and a child Axes keeps the place its host gave it
+(`_leave_host`). The removal methods fail as matplotlib's do: removing an
+artist again raises the `ValueError` of the list it was taken out of
+(`_remove_again`; an Axes' legend's removal does not fail), an Axes'
+removal is its figure's `delaxes`, a `KeyError` once it is out, and a
+child Axes' its host's list of child Axes (`_check_removable`), and the
+parts an artist made of itself (an Axes' spines and titles, a legend's
+texts, handles and frame: `RawHandle::is_part`) have none,
+`NotImplementedError`. An object `Axes.add_artist` is given that is no
+artist (a container, a colorbar) stays in the Axes as matplotlib's does
+once its `set_figure` fails (`axes/_foreign_children`): the Axes lists it
+among its children, and every draw of the figure fails on it in the draw
+hook, as matplotlib's `Axes.draw` asks its children whether they are
+animated. A collection of another figure that `add_collection` is given
+is listed and drawn there before the `RuntimeError` of its `set_figure`,
+as matplotlib's is: a stand-in artist of the Axes, painted through
+Python, draws it with its own `draw` and the renderer of the Axes'
+figure, through the transforms of the collection's own figure.
+
 ### Picking
 
 `Figure.pick` runs on button presses and scrolls, as in matplotlib
@@ -1739,7 +1770,13 @@ overridden `get_grid_positions` places the blocks itself. An engine whose
 class has its own `execute` is a placeholder for pltrs (Rust), with its
 `adjust_compatible` and `colorbar_gridspec`, and the same layout hook
 runs its `execute(fig)` before the locators, as matplotlib's draw runs it
-before it draws the Axes.
+before it draws the Axes. So is an engine holding a parameter pltrs
+(Rust) cannot hold (a string, a list, a rectangle of other than four
+numbers, `_layout_checks`), which matplotlib's keeps and fails on as it
+lays the figure out: its `execute` computes with the parameters as
+matplotlib's does, raising its errors at the same steps (a `ValueError`
+leaves the layout as it was, as matplotlib's draw passes over one), before
+pltrs (Rust) lays the figure out.
 
 A `Legend(parent, handles, labels, **kwargs)` makes the native legend of
 its parent at once: matplotlib's argument handling (`_parse_legend_args`,

@@ -105,7 +105,7 @@ class FigureText:
         """
         native = _text.figure_text(self._native, float(x), float(y),
                                    '' if s is None else str(s))
-        text = _handles.wrap(native, Text, self.figure)
+        text = _handles.wrap(native, Text, self._figure)
         _remember_position(text, (x, y))
         _init_added(text, _text_kwargs(fontdict, kwargs))
         return text
@@ -184,7 +184,7 @@ class AxesText:
                                  _coordinate_number(self.convert_xunits(x)),
                                  _coordinate_number(self.convert_yunits(y)),
                                  '' if s is None else str(s))
-        text = _handles.wrap(native, Text, self.figure)
+        text = _handles.wrap(native, Text, self._figure)
         _remember_position(text, (x, y))
         _init_added(text, _text_kwargs(fontdict, kwargs))
         return text
@@ -207,7 +207,7 @@ class AxesText:
              else _native_coords(textcoords, self.figure, "textcoords"),
              None if arrowprops is None else _native_arrowprops(arrowprops),
              annotation_clip))
-        annotation = _handles.wrap(native, Annotation, self.figure)
+        annotation = _handles.wrap(native, Annotation, self._figure)
         _remember_position(annotation, position)
         annotation._init_annotation(xycoords, textcoords, arrowprops, kwargs)
         return annotation

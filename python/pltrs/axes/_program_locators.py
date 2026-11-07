@@ -27,7 +27,6 @@ before it draws the Axes (plotnine places its panels so).
 import weakref
 
 from .._native import insets as _insets
-from .._program_classes import takes_from_program
 
 #: What locators of the program's place, per root figure.
 _followed = weakref.WeakKeyDictionary()
@@ -95,8 +94,7 @@ def _locate(figure):
     for ax in list(_autoscaled.get(figure, ())):
         ax._unstale_viewLim()
     engine = figure.get_layout_engine()
-    if (figure.axes and engine is not None
-            and takes_from_program(type(engine), "execute")):
+    if figure.axes and engine is not None and engine._executes_in_python():
         try:
             engine.execute(figure)
         except ValueError:

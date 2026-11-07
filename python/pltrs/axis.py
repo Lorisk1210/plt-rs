@@ -486,7 +486,8 @@ class Axis(DrawnWith, Artist):
 
     @axes.setter
     def axes(self, axes):
-        self._axes = axes
+        # `Artist`'s: an axis is of one Axes.
+        Artist.axes.fset(self, axes)
 
     @property
     def figure(self):

@@ -9,7 +9,7 @@ use pltrs_render::{CapStyle, JoinStyle};
 use super::shape::PatchShape;
 use super::style::PatchStyle;
 use super::{DisplayPath, PatchArtist, PatchError, PatchProps};
-use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
+use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::{Color, ColorError};
 use crate::figure::FigureState;
 use crate::lines::LineStyle;
@@ -182,8 +182,9 @@ impl<S: PatchShape> Patch<S> {
     ///
     /// # Errors
     ///
-    /// When the patch cannot be placed: it is in no figure, or its shape
-    /// cannot be built there (a connection between parallel angles).
+    /// When the patch cannot be placed: what its transform refers to is
+    /// gone, or its shape cannot be built there (a connection between
+    /// parallel angles).
     pub fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
         self.display_paths_in(&self.raw.figure_state().prepared())
     }
@@ -199,12 +200,13 @@ impl<S: PatchShape> Patch<S> {
         self.display_paths_in(&self.raw.figure_state().borrow())
     }
 
-    /// The outlines in display pixels as `state` places the patch.
+    /// The outlines in display pixels as `state` places the patch, also
+    /// once it was removed from it (where it was, as matplotlib's removed
+    /// patches keep their transforms).
     fn display_paths_in(&self, state: &FigureState) -> Result<Vec<Path>, PatchError> {
         let layout = LayoutContext::new(state);
-        let patch = layout
-            .store()
-            .get_as::<PatchArtist<S>>(self.raw.id())
+        let patch = state
+            .artist_as::<PatchArtist<S>>(self.raw.id())
             .ok_or(PatchError::Detached)?;
         let paths = patch.parts().measured_display_paths(layout)?;
         Ok(paths.iter().map(DisplayPath::to_display).collect())
@@ -374,5 +376,17 @@ mod tests {
         rect.set_linewidth(2.0);
         assert!(rect.contains(Point::new(150.9, 100.0)).is_some());
         assert_eq!(rect.contains(Point::new(151.1, 100.0)), None);
+    }
+
+    #[test]
+    fn removed_patches_measure_where_they_were() {
+        let ax = Figure::new().subplot();
+        let arrow = ax.add_patch(crate::patches::FancyArrowPatch::between(
+            (0.2, 0.2),
+            (0.5, 0.5),
+        ));
+        let placed = arrow.display_paths().unwrap();
+        arrow.remove();
+        assert_eq!(arrow.display_paths().unwrap(), placed);
     }
 }

@@ -90,6 +90,7 @@ class LayoutMixin:
         matplotlib.axis.Axis.get_tightbbox
         matplotlib.spines.Spine.get_window_extent
         """
+        self._check_figure_renderer(renderer)
         _unusable.check(self, measuring=True)
         self._place_titles_by_program(renderer)
         with _measured_by_given(renderer, self):

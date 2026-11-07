@@ -16,7 +16,7 @@ use pltrs_core::Bbox;
 use pltrs_core::path::DataLimits;
 
 use super::{TransformContext, unit_to_bbox};
-use crate::artist::{Artist, ArtistId};
+use crate::artist::{Artist, ArtistId, ArtistLookup};
 use crate::axes::AxesState;
 use crate::figure::{Figure, FigureFrame, FigureState};
 use crate::scale::ScaleName;
@@ -31,7 +31,8 @@ pub struct TreeLeaves {
     pub size_inches: (f64, f64),
     /// The subfigures asked for that are in the figure.
     pub frames: Vec<FrameLeaves>,
-    /// The axes asked for that are in the figure.
+    /// The axes asked for that are in the figure or were removed from it
+    /// (where they were, as matplotlib's removed Axes keep their trees).
     pub axes: Vec<AxesLeaves>,
 }
 
@@ -140,7 +141,7 @@ fn frame_leaves(state: &FigureState, id: ArtistId) -> Option<FrameLeaves> {
 }
 
 fn axes_leaves(state: &FigureState, id: ArtistId) -> Option<AxesLeaves> {
-    let axes = state.store.get_as::<AxesState>(id)?;
+    let axes = state.artist_as::<AxesState>(id)?;
     let (position, original) = positions(state, id, axes)?;
     let projection = if let Some(polar) = axes.polar() {
         ProjectionLeaves::Polar {
@@ -194,6 +195,18 @@ mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
     use crate::figure::SubfigureOptions;
+
+    #[test]
+    fn removed_axes_give_the_leaves_they_had() {
+        let fig = Figure::with_size(4.0, 2.0, 100.0);
+        let ax = fig.add_axes([0.1, 0.2, 0.5, 0.5]).unwrap();
+        ax.set_xlim(0.0, 10.0).unwrap();
+        ax.remove();
+        let leaves = fig.tree_leaves(&[], &[ax.id()]).unwrap();
+        assert_eq!(leaves.axes.len(), 1, "removed, still of the figure");
+        assert_eq!(leaves.axes[0].position.extents(), (0.1, 0.2, 0.6, 0.7));
+        assert_eq!(leaves.axes[0].view.interval_x(), (0.0, 10.0));
+    }
 
     #[test]
     fn subfigures_insets_and_projections_give_their_leaves() {

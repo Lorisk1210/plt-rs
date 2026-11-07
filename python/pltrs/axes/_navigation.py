@@ -31,7 +31,7 @@ class _TwinnedAxes:
     def get_siblings(self, a):
         """Return all of the items joined with *a*, including itself."""
         return _handles.wrap_all(_navigation.twins(a._native), type(a),
-                                 a.figure)
+                                 a._figure)
 
     def joined(self, a, b):
         """Return whether *a* and *b* are members of the same set."""
@@ -48,13 +48,44 @@ class NavigationMixin:
         Remove the Axes from its figure, whose Axes observers learn it, and
         release the mouse if the Axes grabs it.
         """
-        if self.__dict__.get("_removed"):
-            # Removed before: matplotlib's figure no longer has it.
-            raise KeyError(self)
+        self._check_removable()
+        if "_child_of" in self.__dict__:
+            self._leave_host()
+        axes = self.axes
         figure = self.get_figure(root=False)
         super().remove()
         if figure is not None:
             figure._axes_removed(self)
+        # As matplotlib's `Artist.remove` marks the Axes of what it removes
+        # stale and decouples it from it: an Axes is its own, a child Axes'
+        # is its parent.
+        if axes is not None:
+            axes.stale = True
+        self._axes = None
+
+    def _leave_host(self):
+        """Keep the trees of this child Axes at the place its host gives it
+        now, as it leaves the host (removed, or its host cleared): see
+        `.._transform_trees._apply_axes`."""
+        if "_transform_trees" not in self.__dict__:
+            self._build_transform_trees()
+        self._left_host = True
+
+    def _check_removable(self):
+        """
+        Fail as matplotlib's removal method of the Axes fails: a child
+        Axes' takes it out of the list its parent had of them when it was
+        added (`add_child_axes`; clearing the parent makes a new one), any
+        other Axes' is its figure's `delaxes`, which refuses an Axes its
+        figure no longer has.
+        """
+        if "_child_of" in self.__dict__:
+            if self.__dict__.get("_removed"):
+                raise ValueError("list.remove(x): x not in list")
+            return
+        figure = self.get_figure(root=True)
+        if figure is None or self not in figure.axes:
+            raise KeyError(self)
 
     def _different_canvas(self, event):
         """Whether *event* happened on another canvas than the Axes'."""

@@ -44,7 +44,7 @@ def leaves_nothing_on_failure(method):
         except Exception:
             del self.containers[containers:]
             for native in _axes.undo_since(self._native, mark):
-                _handles.wrap_any(native, self.figure).remove()
+                _handles.wrap_any(native, self._figure).remove()
             raise
     return plotting
 

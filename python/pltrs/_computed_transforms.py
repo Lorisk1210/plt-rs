@@ -13,7 +13,8 @@ hook sets their native transforms from the program's once the figure is
 laid out and before its artists are drawn
 (``_native.transforms.set_draw_hook``). The hook also hands pltrs (Rust)
 again the paths of the program's a collection keeps that changed in
-place (`._program_paths`).
+place (`._program_paths`), and fails as matplotlib's draw fails on the
+objects added to an Axes that are no artists (`.axes._foreign_children`).
 """
 
 import weakref
@@ -37,6 +38,12 @@ def track(artist, figure):
         return
     if evaluates_coords:
         artist._evaluate_coords()
+    follow(figure).add(artist)
+
+
+def follow(figure):
+    """Have the root *figure* run its draw hook at every draw; return the
+    artists it tracks."""
     artists = _tracked.get(figure)
     if artists is None:
         artists = _tracked[figure] = weakref.WeakSet()
@@ -48,7 +55,7 @@ def track(artist, figure):
                 _evaluate(alive)
 
         _transforms.set_draw_hook(figure._native, hook)
-    artists.add(artist)
+    return artists
 
 
 def tracked(figure):
@@ -67,9 +74,11 @@ def _computes_transform(artist):
 
 def _evaluate(figure):
     """Set the native transforms of every tracked artist still in the root
-    *figure* from the program's."""
+    *figure* from the program's; fail on the objects its Axes hold that
+    are no artists."""
+    from .axes._foreign_children import check_drawable
     for artist in list(_tracked.get(figure, ())):
-        if artist._figure is not figure:
+        if artist._figure is not figure or artist.__dict__.get("_decoupled"):
             continue
         if _computes_transform(artist):
             _transforms.set_transform(
@@ -77,3 +86,4 @@ def _evaluate(figure):
         if getattr(artist, "_evaluates_coords", False):
             artist._evaluate_coords()
         _program_paths.sync(artist)
+    check_drawable(figure)

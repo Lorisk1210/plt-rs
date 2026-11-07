@@ -15,6 +15,7 @@ from .._native import table as _table, text as _text
 from ..legend import Legend
 from ..lines import Line2D
 from ..text import Text
+from . import _foreign_children
 from ._artist_list import ArtistList
 
 
@@ -23,8 +24,10 @@ class ChildrenMixin:
 
     @property
     def collections(self):
-        return ArtistList._of("collections", lambda: _handles.wrap_all(
-            _plotting.get_collections(self._native), mcoll.Collection, self.figure))
+        return ArtistList._of("collections", lambda: [
+            *_handles.wrap_all(_plotting.get_collections(self._native),
+                               mcoll.Collection, self._figure),
+            *_foreign_children.drawn(self)])
 
     @property
     def images(self):
@@ -35,27 +38,27 @@ class ChildrenMixin:
     @property
     def lines(self):
         return ArtistList._of("lines", lambda: _handles.wrap_all(
-            _axes.get_lines(self._native), Line2D, self.figure))
+            _axes.get_lines(self._native), Line2D, self._figure))
 
     @property
     def patches(self):
         return ArtistList._of("patches", lambda: _handles.wrap_all(
-            _plotting.get_patches(self._native), mpatches.Patch, self.figure))
+            _plotting.get_patches(self._native), mpatches.Patch, self._figure))
 
     @property
     def tables(self):
         return ArtistList._of("tables", lambda: _handles.wrap_all(
-            _table.axes_tables(self._native), mtable.Table, self.figure))
+            _table.axes_tables(self._native), mtable.Table, self._figure))
 
     @property
     def texts(self):
         return ArtistList._of("texts", lambda: _handles.wrap_all(
-            _text.axes_texts(self._native), Text, self.figure))
+            _text.axes_texts(self._native), Text, self._figure))
 
     def get_legend(self):
         """Return the `.Legend` instance, or None if no legend is defined."""
         from .._native import legend as _legend
-        return _handles.wrap(_legend.axes_legend(self._native), Legend, self.figure)
+        return _handles.wrap(_legend.axes_legend(self._native), Legend, self._figure)
 
     @property
     def legend_(self):

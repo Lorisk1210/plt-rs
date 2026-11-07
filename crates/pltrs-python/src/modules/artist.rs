@@ -261,6 +261,13 @@ fn set_sketch_params(artist: RawHandle, sketch: Option<(f64, f64, f64)>) -> PyRe
     Ok(())
 }
 
+/// Whether the artist is a part another artist made of itself (an axes'
+/// spines and titles, a legend's texts), which matplotlib's `remove`
+/// refuses.
+fn is_part(artist: RawHandle) -> PyResult<bool> {
+    Ok(artist.is_part())
+}
+
 /// Removes the artist from its figure.
 fn remove(artist: RawHandle) -> PyResult<()> {
     artist.remove();
@@ -305,6 +312,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_url", set_url)?;
     module.add("get_sketch_params", get_sketch_params)?;
     module.add("set_sketch_params", set_sketch_params)?;
+    module.add("is_part", is_part)?;
     module.add("remove", remove)?;
     classes::register(module)?;
     clip::register(module)?;

@@ -97,6 +97,8 @@ def adopt(artist, native, figure):
     artist._native = native
     artist._figure = figure
     artist.__dict__.pop("_removed", None)
+    artist.__dict__.pop("_decoupled", None)
+    artist.__dict__.pop("_left_host", None)
     figure._artists[_artist.id(native)] = artist
     track(artist, figure)
     # What waited for the artist to be in a figure (an arrow clipped to it).

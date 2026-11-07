@@ -395,11 +395,13 @@ class FigureCanvasAgg(FigureCanvasBase):
         it, refusing *metadata* for the formats other than PNG as
         matplotlib does, but for what only matplotlib's own writer, Pillow,
         does: the formats of `_PILLOW_FORMATS`, and *pil_kwargs* other
-        than a JPEG quality.
+        than a JPEG quality as a number (Pillow's presets, and its errors
+        for any other value, are Pillow's).
         """
         settings = {"metadata": metadata}
-        if fmt == "jpeg" and pil_kwargs is not None and set(pil_kwargs) == {"quality"}:
-            settings["jpeg_quality"] = int(pil_kwargs["quality"])
+        if (fmt == "jpeg" and pil_kwargs is not None and set(pil_kwargs) == {"quality"}
+                and isinstance(pil_kwargs["quality"], int)):
+            settings["jpeg_quality"] = pil_kwargs["quality"]
         elif fmt in _PILLOW_FORMATS or pil_kwargs:
             self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata)
             return

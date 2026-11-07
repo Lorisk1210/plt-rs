@@ -74,24 +74,50 @@ fn redraws_are_coalesced_and_follow_input() {
     for _ in 0..3 {
         event_loop.context().request_redraw(window).unwrap();
     }
-    handle.inject(window, WindowEvent::RedrawRequested).unwrap();
-    handle
-        .inject(window, WindowEvent::Resized(PhysicalSize::new(8, 6)))
-        .unwrap();
     handle.inject(window, key_press(Key::Enter)).unwrap();
     assert_eq!(
         pump(&mut event_loop),
         [
-            window_event(window, WindowEvent::Resized(PhysicalSize::new(8, 6))),
             window_event(window, key_press(Key::Enter)),
             window_event(window, WindowEvent::RedrawRequested),
             Event::AboutToWait,
         ]
     );
+}
+
+#[test]
+fn the_platforms_redraws_come_before_the_next_input() {
+    // A window shrunk away from under the pointer: the server sends the
+    // resize, the expose and the pointer's leaving in one batch when the
+    // program is slow to read them, and the program draws its figure at
+    // the new size before it sees the pointer leave, as under `QtAgg`.
+    let (mut event_loop, handle) = EventLoop::headless();
+    let window = event_loop.context().create_window(&options(4, 3)).unwrap();
+    let other = event_loop.context().create_window(&options(4, 3)).unwrap();
+    pump(&mut event_loop);
+    event_loop.context().request_redraw(window).unwrap();
+    let size = PhysicalSize::new(8, 6);
+    let left = WindowEvent::CursorLeft { position: None };
+    handle.inject(window, WindowEvent::Resized(size)).unwrap();
+    handle.inject(window, WindowEvent::RedrawRequested).unwrap();
+    handle.inject(other, key_press(Key::Enter)).unwrap();
+    handle.inject(window, left.clone()).unwrap();
+    handle.inject(window, key_press(Key::Enter)).unwrap();
+    handle.inject(window, WindowEvent::RedrawRequested).unwrap();
     assert_eq!(
-        event_loop.context().inner_size(window),
-        Ok(PhysicalSize::new(8, 6))
+        pump(&mut event_loop),
+        [
+            window_event(window, WindowEvent::Resized(size)),
+            window_event(other, key_press(Key::Enter)),
+            window_event(window, WindowEvent::RedrawRequested),
+            window_event(window, left),
+            window_event(window, key_press(Key::Enter)),
+            window_event(window, WindowEvent::RedrawRequested),
+            Event::AboutToWait,
+        ],
+        "one early redraw, after the expose, and one for the expose after the input"
     );
+    assert_eq!(event_loop.context().inner_size(window), Ok(size));
 }
 
 #[test]

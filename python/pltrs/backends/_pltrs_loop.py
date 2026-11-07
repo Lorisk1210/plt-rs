@@ -16,7 +16,9 @@ The loop runs in slices of `SLICE` seconds, between which Python handles
 signals (Ctrl+C interrupts `plt.show()`) and the calls other threads make
 on the windows run (a worker drawing a shown figure has its window show
 the new pixels); idle draws (``draw_idle``) happen before each slice, as
-Tk's do when its loop is idle.
+Tk's do when its loop is idle, or when the window is repainted before
+then (after it was exposed or resized, before the input that came after
+that), as Qt's canvas draws when it paints.
 """
 
 import sys
@@ -128,14 +130,29 @@ def _draw_pending():
     del _idle_draws[:]
     for ref in pending:
         canvas = ref()
-        if canvas is None:
-            continue
-        try:
-            canvas._draw_idle_now()
-        except Exception:
-            # As matplotlib's Qt backend: a failing draw does not stop the
-            # event loop.
-            traceback.print_exc()
+        if canvas is not None:
+            _draw(canvas)
+
+
+def _draw_exposed(canvas):
+    """Run the idle draw of *canvas* asked for, if any, now that its
+    window is repainted (matplotlib's Qt canvas draws in its
+    ``paintEvent``)."""
+    for index, ref in enumerate(_idle_draws):
+        if ref() is canvas:
+            del _idle_draws[index]
+            _draw(canvas)
+            return
+
+
+def _draw(canvas):
+    """Run the idle draw of *canvas*."""
+    try:
+        canvas._draw_idle_now()
+    except Exception:
+        # As matplotlib's Qt backend: a failing draw does not stop the
+        # event loop.
+        traceback.print_exc()
 
 
 def _dispatch(event):
@@ -150,7 +167,11 @@ def _dispatch(event):
         _chosen[event[1]] = event[2]
         return
     canvas = _canvases.get(event[1])
-    if canvas is not None:
+    if canvas is None:
+        return
+    if kind == "expose":
+        _draw_exposed(canvas)
+    else:
         canvas._handle_window_event(event)
 
 

@@ -8,11 +8,17 @@
 //! 1. waits for platform input, but never past the earliest timer deadline
 //!    (and does not wait at all if redraws or internal events are pending);
 //! 2. dispatches every platform event in arrival order ([`Event::Window`],
-//!    [`Event::WakeUp`]);
+//!    [`Event::WakeUp`]), a window's input events (pointer, buttons,
+//!    wheel, keys) after the redraw the platform asked for before them
+//!    (`Resized`, `ScaleFactorChanged`, expose), as toolkits paint a
+//!    window when it is exposed: a program sees its figure drawn at the
+//!    new size before the input that follows, however the platform's
+//!    events were batched (matplotlib's `QtAgg` draws a shrunk window
+//!    before the pointer it shrank away from leaves);
 //! 3. dispatches every due [`Event::Timer`];
 //! 4. dispatches at most one [`WindowEvent::RedrawRequested`] per window
-//!    that needs one (after `Resized`, `ScaleFactorChanged`, expose, or
-//!    [`Context::request_redraw`]);
+//!    that still needs one (after `Resized`, `ScaleFactorChanged`, expose,
+//!    or [`Context::request_redraw`]);
 //! 5. dispatches [`Event::AboutToWait`].
 //!
 //! [`Event::Started`] is dispatched once before the first iteration, and
@@ -94,6 +100,10 @@ struct LoopState {
     /// Windows awaiting a `RedrawRequested`, in request order, no
     /// duplicates.
     redraws: Vec<WindowId>,
+    /// The windows of `redraws` whose redraw the platform asked for (an
+    /// expose, a resize, a new scale factor), dispatched before their next
+    /// input event.
+    exposed: Vec<WindowId>,
     /// Events produced by handler actions (e.g. `Destroyed`).
     pending: VecDeque<Event>,
     waker: Arc<dyn Waker>,
@@ -106,6 +116,7 @@ impl LoopState {
             exit_requested: false,
             timers: Timers::default(),
             redraws: Vec::new(),
+            exposed: Vec::new(),
             pending: VecDeque::new(),
             waker,
         }
@@ -115,6 +126,30 @@ impl LoopState {
         if !self.redraws.contains(&window) {
             self.redraws.push(window);
         }
+    }
+
+    /// Schedules the redraw the platform asked for `window`'s contents.
+    fn schedule_exposed(&mut self, window: WindowId) {
+        self.schedule_redraw(window);
+        if !self.exposed.contains(&window) {
+            self.exposed.push(window);
+        }
+    }
+
+    /// Takes `window`'s redraw if the platform asked for it.
+    fn take_exposed(&mut self, window: WindowId) -> bool {
+        let exposed = self.exposed.contains(&window);
+        if exposed {
+            self.exposed.retain(|&id| id != window);
+            self.redraws.retain(|&id| id != window);
+        }
+        exposed
+    }
+
+    /// Drops the redraws of `window`, which closed.
+    fn forget(&mut self, window: WindowId) {
+        self.redraws.retain(|&id| id != window);
+        self.exposed.retain(|&id| id != window);
     }
 
     fn take_exit(&mut self) -> bool {
@@ -356,6 +391,7 @@ impl EventLoop {
                 self.dispatch(handler, Event::Timer(timer));
             }
         }
+        self.state.exposed.clear();
         for window in std::mem::take(&mut self.state.redraws) {
             if self.backend.has_window(window) {
                 let event = WindowEvent::RedrawRequested;
@@ -366,8 +402,9 @@ impl EventLoop {
         Ok(())
     }
 
-    /// Routes one backend event: redraw requests are coalesced, events for
-    /// windows closed earlier in this iteration are dropped.
+    /// Routes one backend event: redraw requests are coalesced (but those
+    /// of the platform come before the window's next input event), events
+    /// for windows closed earlier in this iteration are dropped.
     fn deliver<F>(&mut self, handler: &mut F, event: Event)
     where
         F: FnMut(&mut Context<'_>, Event),
@@ -382,16 +419,28 @@ impl EventLoop {
             }
             match window_event {
                 WindowEvent::RedrawRequested => {
-                    self.state.schedule_redraw(window);
+                    self.state.schedule_exposed(window);
                     return;
                 }
                 WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged(_) => {
-                    self.state.schedule_redraw(window);
+                    self.state.schedule_exposed(window);
                 }
+                input if is_input(input) => self.redraw_exposed(handler, window),
                 _ => {}
             }
         }
         self.dispatch(handler, event);
+    }
+
+    /// Dispatches `window`'s redraw now if the platform asked for it.
+    fn redraw_exposed<F>(&mut self, handler: &mut F, window: WindowId)
+    where
+        F: FnMut(&mut Context<'_>, Event),
+    {
+        if self.state.take_exposed(window) {
+            let event = WindowEvent::RedrawRequested;
+            self.dispatch(handler, Event::Window { window, event });
+        }
     }
 
     /// Calls the handler, then flushes events its actions produced.
@@ -414,6 +463,20 @@ impl std::fmt::Debug for EventLoop {
             .field("state", &self.state)
             .finish()
     }
+}
+
+/// Whether `event` is the user's input: the pointer, a button, the wheel
+/// or a key.
+fn is_input(event: &WindowEvent) -> bool {
+    matches!(
+        event,
+        WindowEvent::CursorEntered { .. }
+            | WindowEvent::CursorLeft { .. }
+            | WindowEvent::CursorMoved { .. }
+            | WindowEvent::MouseInput { .. }
+            | WindowEvent::MouseWheel { .. }
+            | WindowEvent::Key(_)
+    )
 }
 
 fn earliest(a: Option<Instant>, b: Option<Instant>) -> Option<Instant> {

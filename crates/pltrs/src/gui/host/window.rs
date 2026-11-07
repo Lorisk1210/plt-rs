@@ -292,6 +292,9 @@ impl HostedWindow {
         for message in shown.window.handle(cx, event)? {
             self.apply(message, events);
         }
+        if *event == WindowEvent::RedrawRequested {
+            events.push(HostEvent::Exposed { window: id });
+        }
         Ok(())
     }
 

@@ -24,8 +24,9 @@
 //!   run.
 //!
 //! The images are made in `images.partial`, which becomes `images` once
-//! complete. `made-with.txt` beside them holds the pins they were made
-//! with; setup makes them again when these change.
+//! complete. `made-with.txt` beside them holds the pins and the library's
+//! pytest options they were made with (a plugin may change what the tests
+//! draw); setup makes them again when these change.
 
 use std::fmt::Write as _;
 use std::fs;
@@ -86,9 +87,9 @@ pub(super) fn comparing(library: &Library) -> Result<Vec<String>, String> {
 }
 
 /// Makes `library`'s baselines with the Python of the venv `venv`, unless
-/// they are made with the current pins and the same programs on `PATH`
-/// (the tests needing TeX, Ghostscript or Inkscape get no baseline from a
-/// run without them).
+/// they are made with the current pins and pytest options and the same
+/// programs on `PATH` (the tests needing TeX, Ghostscript or Inkscape get
+/// no baseline from a run without them).
 pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     let Some(baselines) = library.baselines else {
         return Ok(());
@@ -96,11 +97,12 @@ pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     let dir = dir(library);
     let (images, stamp) = (dir.join("images"), dir.join(STAMP));
     let missing = tools::missing_programs();
-    let mut pins = pins(library)?;
+    let mut made_with = pins(library)?;
+    writeln!(made_with, "pytest {}", library.options.join(" ")).expect("a String takes any text");
     for (program, _) in &missing {
-        writeln!(pins, "no {program} on PATH").expect("a String takes any text");
+        writeln!(made_with, "no {program} on PATH").expect("a String takes any text");
     }
-    if images.is_dir() && fs::read_to_string(&stamp).is_ok_and(|made| made == pins) {
+    if images.is_dir() && fs::read_to_string(&stamp).is_ok_and(|made| made == made_with) {
         return Ok(());
     }
     for (program, needs) in &missing {
@@ -132,7 +134,7 @@ pub(super) fn make(library: &Library, venv: &Path) -> Result<(), String> {
     }
     prepare::remove(&images)?;
     fs::rename(&partial, &images).map_err(|err| format!("{}: {err}", images.display()))?;
-    fs::write(&stamp, pins).map_err(|err| format!("{}: {err}", stamp.display()))?;
+    fs::write(&stamp, made_with).map_err(|err| format!("{}: {err}", stamp.display()))?;
     println!(
         "made {} baselines of {} in {}",
         count(&images)?,

@@ -398,3 +398,42 @@ fn the_subplot_tool_reports_changes_for_the_program_to_carry_out() {
     host.close(window).expect("the window closes");
     assert_eq!(handle.windows(), Vec::<WindowId>::new());
 }
+
+#[test]
+fn a_shrunk_window_is_repainted_before_the_pointer_leaves() {
+    // The window system's resize, expose and leaving pointer, read in one
+    // batch: the program draws (at the repaint) before it sees the
+    // pointer leave, as under matplotlib's `QtAgg`.
+    let (mut host, handle, _, window) = shown(&[]);
+    drain(&mut host);
+    let id = platform_window(&host, window);
+    let over = PhysicalPosition::new(100.0, 150.0);
+    handle
+        .inject(id, WindowEvent::CursorEntered { position: over })
+        .expect("the window exists");
+    drain(&mut host);
+    let height = (200.0 + toolbar_height()).round() as u32;
+    let left = WindowEvent::CursorLeft {
+        position: Some(PhysicalPosition::new(100.0, 250.0)),
+    };
+    for event in [
+        WindowEvent::Resized(PhysicalSize::new(300, height)),
+        WindowEvent::RedrawRequested,
+        left,
+    ] {
+        handle.inject(id, event).expect("the window exists");
+    }
+    let events = host.pump(Some(Duration::ZERO)).expect("the loop runs");
+    let named: Vec<&str> = events
+        .iter()
+        .map(|event| match event {
+            HostEvent::Resized { .. } => "resized",
+            HostEvent::Exposed { .. } => "exposed",
+            HostEvent::Input { input, .. } if matches!(input.kind, InputKind::Leave) => "left",
+            _ => "other",
+        })
+        .collect();
+    // (The window repaints once more for what the leaving changed.)
+    assert_eq!(named, ["resized", "exposed", "left", "exposed"]);
+    assert!(matches!(events[0], HostEvent::Resized { width: 300, .. }));
+}

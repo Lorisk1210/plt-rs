@@ -247,6 +247,14 @@ fn set_metrics_cache(cache: Option<Rc<MetricsCache>>) -> PyResult<Option<Rc<Metr
     Ok(install_metrics_cache(cache))
 }
 
+/// Has every line of text measured at `dpi` (`None`: at its figure's
+/// resolution), as a renderer of that resolution measures it
+/// (`pltrs::text::set_lines_measured_at`); returns the resolution set
+/// before.
+fn set_lines_measured_at(dpi: Option<f64>) -> PyResult<Option<f64>> {
+    Ok(pltrs::text::set_lines_measured_at(dpi))
+}
+
 /// Forgets the lines, formulas and glyph outlines pltrs (Rust) laid out
 /// or made for any figure so far, keeping the fonts loaded
 /// (`pltrs::text::clear_text_caches`): what the benchmark harness does
@@ -263,6 +271,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("metrics_cache_info", metrics_cache_info)?;
     module.add("metrics_cache_clear", metrics_cache_clear)?;
     module.add("set_metrics_cache", set_metrics_cache)?;
+    module.add("set_lines_measured_at", set_lines_measured_at)?;
     module.add("measure", measure)?;
     module.add("measure_pdf", measure_pdf)?;
     module.add("measure_ps", measure_ps)?;

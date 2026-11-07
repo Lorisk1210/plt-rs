@@ -188,6 +188,9 @@ class ClippingMixin:
 
         """
         _api.check_isinstance((BboxBase, None), clipbox=clipbox)
+        if clipbox is self.get_clip_box():
+            # matplotlib changes nothing for the box the artist has.
+            return
         self._keep_patch_path()
         spanning = getattr(clipbox, "_spanning", None)
         if clipbox is None or spanning is not None:

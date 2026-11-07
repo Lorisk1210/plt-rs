@@ -10,6 +10,7 @@ import numpy as np
 
 from ... import _docstring
 from ... import _api, _live_transforms, _values, cbook, collections as mcoll, lines as mlines
+from ... import _python_drawing
 from ..._artist_kwargs import keep_program_picker
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
@@ -688,6 +689,11 @@ class LinesMixin:
             None if slope is None else float(slope), made_line_kwargs(kwargs))
         line = wrap(self, native, mlines.AxLine)
         line._remember_geometry(xy1, xy2, slope)
+        if not hasattr(self, "transLimits"):
+            # matplotlib's line maps the view through the Axes'
+            # ``transLimits``, which Axes of other projections lack (polar
+            # ones): its draw fails there.
+            _python_drawing.draw_through_python(line, False)
         return keep_program_picker(line, kwargs)
 
     @_docstring.interpd

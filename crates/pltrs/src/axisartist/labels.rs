@@ -3,6 +3,8 @@
 //! line, and the offset text (matplotlib's `LabelBase`, `TickLabels`,
 //! `AxisLabel` and `AxisArtist._update_offsetText`).
 
+use std::borrow::Cow;
+
 use pltrs_core::{Bbox, Point};
 use pltrs_text::mathtext::is_math_text;
 use pltrs_text::{BlockStyle, HAlign, LineSpacing, RotationMode, VAlign};
@@ -65,7 +67,8 @@ impl LabelKind {
 /// How the texts of an axis artist are typeset beyond their size, colour,
 /// angle and alignment (the other `Text` properties of matplotlib's
 /// `LabelBase`): their font but its size, the alignment and spacing of
-/// the lines of multi-line texts, and how rotation and alignment combine.
+/// the lines of multi-line texts, how rotation and alignment combine,
+/// whether they are antialiased and whether their math is typeset.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextLook {
     /// The font; the size of the texts replaces its size.
@@ -77,13 +80,21 @@ pub struct TextLook {
     pub linespacing: LineSpacing,
     /// How rotation and alignment combine.
     pub rotation_mode: RotationMode,
+    /// Whether the texts are antialiased (`None`: as `text.antialiased`
+    /// says when they are drawn; matplotlib's `Text.set_antialiased`).
+    pub antialiased: Option<bool>,
+    /// Whether texts holding math are typeset as mathtext (`None`: as
+    /// `text.parse_math` says; matplotlib's `Text.set_parse_math`).
+    pub parse_math: Option<bool>,
 }
 
 pltrs_core::archive_struct!(TextLook {
     font,
     multialign,
     linespacing,
-    rotation_mode
+    rotation_mode,
+    antialiased,
+    parse_math
 });
 
 impl TextLook {
@@ -104,6 +115,8 @@ impl TextLook {
             multialign: None,
             linespacing: LineSpacing::Normal,
             rotation_mode: RotationMode::Anchor,
+            antialiased: None,
+            parse_math: None,
         }
     }
 
@@ -234,6 +247,8 @@ impl LabelState {
         TextStyle {
             font: (self.look.font.clone()).with_size(FontSize::Points(self.size), rc.font_size),
             color: self.color.clone().unwrap_or_else(|| default_color.clone()),
+            antialiased: self.look.antialiased,
+            parse_math: self.look.parse_math.unwrap_or(rc.text_parse_math),
         }
     }
 }
@@ -243,6 +258,36 @@ impl LabelState {
 pub(crate) struct TextStyle {
     pub(crate) font: FontProperties,
     pub(crate) color: Color,
+    /// Whether they are antialiased (`None`: as `text.antialiased` says).
+    pub(crate) antialiased: Option<bool>,
+    /// Whether their math is typeset as mathtext.
+    pub(crate) parse_math: bool,
+}
+
+impl TextStyle {
+    /// `text` in this style, laid out at `anchor` with `block`.
+    fn place(
+        &self,
+        layout: LayoutContext<'_>,
+        text: &str,
+        block: &BlockStyle,
+        anchor: Point,
+        rc: &RcParams,
+    ) -> Result<PlacedText, String> {
+        let rc = if self.parse_math == rc.text_parse_math {
+            Cow::Borrowed(rc)
+        } else {
+            Cow::Owned(RcParams {
+                text_parse_math: self.parse_math,
+                ..rc.clone()
+            })
+        };
+        let placed = place_text(layout, text, &self.font, &self.color, block, anchor, &rc)?;
+        Ok(PlacedText {
+            antialiased: self.antialiased,
+            ..placed
+        })
+    }
 }
 
 /// A text of `style` at `reference` (display pixels) moved `radius`
@@ -274,15 +319,7 @@ impl Label<'_> {
             self.state.valign,
             (self.ref_angle + 90.0 + self.state.rotation).rem_euclid(360.0),
         );
-        place_text(
-            layout,
-            self.text,
-            &style.font,
-            &style.color,
-            &block,
-            anchor,
-            rc,
-        )
+        style.place(layout, self.text, &block, anchor, rc)
     }
 }
 
@@ -352,7 +389,7 @@ fn label_offsets(
         .iter()
         .filter(|label| !label.text.trim().is_empty())
         .map(|label| {
-            let math = rc.text_parse_math && is_math_text(&label.text);
+            let math = style.parse_math && is_math_text(&label.text);
             measure_text(&label.text, &style.font, math, layout.dpi(), rc)
                 .map_err(|e| e.to_string())
         })
@@ -449,7 +486,7 @@ pub(crate) fn offset_text(
         multialign: halign,
         ..BlockStyle::default()
     };
-    place_text(layout, text, &style.font, &style.color, &block, anchor, rc)
+    style.place(layout, text, &block, anchor, rc)
 }
 
 #[cfg(test)]

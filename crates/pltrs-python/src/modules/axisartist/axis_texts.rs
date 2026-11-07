@@ -25,11 +25,13 @@ pub(super) struct PyTextLook(pub(super) TextLook);
 
 impl FromPy<'_> for PyTextLook {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        let (font, multialign, linespacing, rotation_mode): (
+        let (font, multialign, linespacing, rotation_mode, antialiased, parse_math): (
             FontProps,
             Option<String>,
             Option<f64>,
             String,
+            Option<bool>,
+            Option<bool>,
         ) = object.extract()?;
         Ok(Self(TextLook {
             font: font.0,
@@ -38,6 +40,8 @@ impl FromPy<'_> for PyTextLook {
                 .transpose()?,
             linespacing: linespacing.map_or(LineSpacing::Normal, LineSpacing::Factor),
             rotation_mode: named(&rotation_mode, "rotation mode")?,
+            antialiased,
+            parse_math,
         }))
     }
 }
@@ -54,6 +58,8 @@ impl IntoPy for PyTextLook {
             look.multialign.map(HAlign::name),
             linespacing,
             rotation_mode_name(look.rotation_mode),
+            look.antialiased,
+            look.parse_math,
         )
             .into_py(py)
     }
@@ -173,7 +179,7 @@ mod tests {
 
     /// A look of texts as Python describes it.
     const LOOK: &str = "look = ((['serif'], ('italic', 'normal'), ('bold', 'normal', 10.0), \
-                        ('dejavusans', None)), 'right', 1.5, 'anchor')";
+                        ('dejavusans', None)), 'right', 1.5, 'anchor', False, None)";
 
     #[test]
     fn descriptions_cross_whole() {
@@ -196,6 +202,10 @@ mod tests {
             assert_eq!(
                 (texts.look.multialign, texts.look.linespacing),
                 (Some(HAlign::Right), LineSpacing::Factor(1.5))
+            );
+            assert_eq!(
+                (texts.look.antialiased, texts.look.parse_math),
+                (Some(false), None)
             );
             let back = PyTextLook(texts.look.clone()).into_py(py).expect("a tuple");
             let again = PyTextLook::from_py(&back).expect("the same look").0;

@@ -276,6 +276,10 @@ class RendererSVG(DocumentDrawingMixin, RendererBase):
     def get_text_width_height_descent(self, s, prop, ismath):
         # docstring inherited
         _api.check_in_list(["TeX", True, False], ismath=ismath)
+        if ismath is True:
+            # As matplotlib's text-to-path measures math: parsed at its font
+            # scale, numpy's floats scaled back.
+            return self._text2path.get_text_width_height_descent(s, prop, ismath)
         return _text_overrides.measure_svg(s, FontManager._props(prop), ismath,
                                            72.0)
 

@@ -513,7 +513,10 @@ pub(crate) fn axes3d_tight_bbox(
 }
 
 /// [`axes3d_tight_bbox`] after a layout pass of the axes where it is now,
-/// as matplotlib computes the ticks afresh when it measures an axes.
+/// as matplotlib computes the ticks afresh when it measures an axes, and
+/// its titles placed (matplotlib's `get_tightbbox` calls
+/// `_update_title_position`: a title matplotlib's `Axes3D.set_title`
+/// lowered to 0.92 is measured at the top of the box, where it is drawn).
 pub(crate) fn axes3d_fresh_tight_bbox(
     figure: &mut FigureState,
     id: ArtistId,
@@ -523,11 +526,12 @@ pub(crate) fn axes3d_fresh_tight_bbox(
     square(figure, id, true);
     prepare_one(figure, id, None);
     super::drawn::note_measure(figure, id);
-    if let Some(axes) = figure.store.get_as::<Axes3DState>(id)
-        && axes.base.visible
-    {
+    let axes = figure.store.get_as::<Axes3DState>(id)?;
+    let plane = axes.plane;
+    if axes.base.visible {
         axes.warn_measured_tick_sites(&figure.store);
     }
+    figure.update_title_position(plane);
     axes3d_tight_bbox(figure, id, for_layout_only)
 }
 

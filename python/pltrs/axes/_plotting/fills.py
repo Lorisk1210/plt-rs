@@ -213,21 +213,31 @@ class FillsMixin:
         per_polygon = {name: value for name, value in kwargs.items()
                        if name in ("color", "facecolor") and value is not None
                        and not mcolors.is_color_like(value)}
+        cycled = not (_rcParams()["_internal.classic_mode"]
+                      or any(name in kwargs for name in ("color", "facecolor")))
         color, facecolor = (_first_color(kwargs.pop(name, None))
                             for name in ("color", "facecolor"))
         dep_dir = "y" if ind_dir == "x" else "x"
-        ind, dep1, dep2 = np.broadcast_arrays(
-            *map(np.ma.masked_invalid, self._process_unit_info(
-                [(ind_dir, ind), (dep_dir, dep1), (dep_dir, dep2)], kwargs)),
-            subok=True)
-        for name, array in zip([ind_dir, f"{'y' if ind_dir == 'x' else 'x'}1",
-                                f"{'y' if ind_dir == 'x' else 'x'}2"],
-                               [ind, dep1, dep2]):
-            if array.ndim > 1:
-                raise ValueError(f"{name!r} is not 1-dimensional")
-        mask = _fill_mask(where, ind.size, ind_dir)
-        curves = [np.ma.filled(np.ma.asarray(v, dtype=float), np.nan) for v in (ind, dep1, dep2)]
-        mcoll._check_step(step, curves, mask)
+        try:
+            ind, dep1, dep2 = np.broadcast_arrays(
+                *map(np.ma.masked_invalid, self._process_unit_info(
+                    [(ind_dir, ind), (dep_dir, dep1), (dep_dir, dep2)], kwargs)),
+                subok=True)
+            for name, array in zip([ind_dir, f"{'y' if ind_dir == 'x' else 'x'}1",
+                                    f"{'y' if ind_dir == 'x' else 'x'}2"],
+                                   [ind, dep1, dep2]):
+                if array.ndim > 1:
+                    raise ValueError(f"{name!r} is not 1-dimensional")
+            mask = _fill_mask(where, ind.size, ind_dir)
+            curves = [np.ma.filled(np.ma.asarray(v, dtype=float), np.nan)
+                      for v in (ind, dep1, dep2)]
+            mcoll._check_step(step, curves, mask)
+        except Exception:
+            if cycled:
+                # matplotlib takes the colour from the cycle before it
+                # checks the data.
+                self._get_patches_for_fill.get_next_color()
+            raise
         native = _plotting.fill_between(
             self._native, ind_dir == "y",
             (floats(ind), floats(dep1), floats(dep2)), (mask, bool(interpolate), step),

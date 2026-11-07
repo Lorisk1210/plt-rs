@@ -509,6 +509,16 @@ fn pdf_file_embed_ttf(
     })
 }
 
+/// Whether glyphs of face `index` of the font file `path` were drawn in
+/// the document (what matplotlib's character tracker holds).
+fn pdf_file_tracks_font(
+    document: Native<PdfDocument>,
+    path: PathBuf,
+    index: u32,
+) -> PyResult<bool> {
+    with_file(&document, |file| file.tracks_font(&path, index))
+}
+
 /// `createType1Descriptor(t1font)`: the descriptor's object.
 fn pdf_file_type1_descriptor(
     document: Native<PdfDocument>,
@@ -557,5 +567,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_file_font_names", pdf_file_font_names)?;
     module.add("pdf_file_dvi_font_name", pdf_file_dvi_font_name)?;
     module.add("pdf_file_embed_ttf", pdf_file_embed_ttf)?;
+    module.add("pdf_file_tracks_font", pdf_file_tracks_font)?;
     module.add("pdf_file_type1_descriptor", pdf_file_type1_descriptor)
 }

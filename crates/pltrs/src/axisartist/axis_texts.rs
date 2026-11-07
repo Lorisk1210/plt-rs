@@ -289,7 +289,7 @@ impl Artist for AxisTextsState {
         for text in &placed {
             let mut gc = ctx.base_gc(&self.base);
             gc.foreground = text.color;
-            gc.antialiased = self.rc.text_antialiased;
+            gc.antialiased = text.antialiased.unwrap_or(self.rc.text_antialiased);
             if let Err(err) = draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation) {
                 ctx.report(id, err);
             }

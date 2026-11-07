@@ -262,7 +262,11 @@ class ContoursMixin:
         The arguments *X*, *Y*, *Z* are positional-only.
         %(contour_doc)s
         """
-        return self._contour(False, args, kwargs)
+        contours = self._contour(False, args, kwargs)
+        # matplotlib's set autoscales the view when it is made, then
+        # ``contour`` asks for it again at the next draw.
+        self._request_autoscale_view()
+        return contours
 
     @_preprocess_data()
     @_docstring.interpd
@@ -277,7 +281,11 @@ class ContoursMixin:
         The arguments *X*, *Y*, *Z* are positional-only.
         %(contour_doc)s
         """
-        return self._contour(True, args, kwargs)
+        contours = self._contour(True, args, kwargs)
+        # matplotlib's set autoscales the view when it is made, then
+        # ``contourf`` asks for it again at the next draw.
+        self._request_autoscale_view()
+        return contours
 
     def clabel(self, CS, levels=None, **kwargs):
         """

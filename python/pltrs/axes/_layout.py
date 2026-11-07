@@ -7,6 +7,7 @@ import numpy as np
 
 from .. import _unusable
 from .._native import figure_layout as _figure_layout
+from ..text import _measured_by_given
 from ..transforms import Bbox
 
 
@@ -91,8 +92,9 @@ class LayoutMixin:
         """
         _unusable.check(self, measuring=True)
         self._place_titles_by_program(renderer)
-        extent = _figure_layout.axes_tightbbox(
-            self._native, bool(for_layout_only), bbox_extra_artists is None)
+        with _measured_by_given(renderer, self):
+            extent = _figure_layout.axes_tightbbox(
+                self._native, bool(for_layout_only), bbox_extra_artists is None)
         if extent is None:
             return None
         # matplotlib applies the aspect and places the ticks anew.

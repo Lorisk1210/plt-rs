@@ -75,7 +75,7 @@ pub use layout::{LaidOutText, measure_text, text_path, text_path_shaped, text_pa
 pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
-pub use metrics::clear_text_caches;
+pub use metrics::{clear_text_caches, set_lines_measured_at};
 pub(crate) use metrics::{
     hinting, with_afm_metrics, with_line_measure, with_text_path_metrics, without_hinting,
 };

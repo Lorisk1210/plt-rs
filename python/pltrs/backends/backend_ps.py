@@ -7,6 +7,7 @@ writes the documents.
 
 from enum import Enum
 import functools
+import logging
 import os
 import pathlib
 
@@ -38,7 +39,22 @@ def gs_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
     This yields smaller files without illegal encapsulated postscript
     operators. The output is low-level, converting text to outlines.
     """
-    _get_executable_info("gs")
+    gs = _get_executable_info("gs").executable
+    if not os.path.exists(tmpfile):
+        # pltrs (Rust) distills a copy of the file; matplotlib hands
+        # Ghostscript the file itself, whose failure it reports.
+        if eps:
+            paper_option = ["-dEPSCrop"]
+        elif ptype == "figure":
+            paper_option = [f"-dDEVICEWIDTHPOINTS={bbox[2]}",
+                            f"-dDEVICEHEIGHTPOINTS={bbox[3]}"]
+        else:
+            paper_option = [f"-sPAPERSIZE={ptype}"]
+        cbook._check_and_log_subprocess(
+            [gs, "-dBATCH", "-dNOPAUSE", "-dSAFER",
+             "-r%d" % rcParams['ps.distiller.res'], "-sDEVICE=ps2write",
+             *paper_option, f"-sOutputFile={tmpfile}.ps", tmpfile],
+            logging.getLogger(__name__))
     _backends.distill(os.fspath(tmpfile), "ghostscript", bool(eps), ptype,
                       _bbox_extents(bbox), bool(rotated))
 
@@ -279,7 +295,6 @@ import bisect  # noqa: E402, F401
 import codecs  # noqa: E402, F401
 import datetime  # noqa: E402, F401
 import itertools  # noqa: E402, F401
-import logging  # noqa: E402, F401
 import math  # noqa: E402, F401
 import numpy as np  # noqa: E402, F401
 import shutil  # noqa: E402, F401

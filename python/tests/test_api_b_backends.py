@@ -136,11 +136,14 @@ def test_pdf_file_resources():
 
 def test_pdf_file_hatch_patterns():
     _, pdf = _document()
-    pdf.hatchPattern(((0, 0, 0, 1), None, "/", 1.0))
-    # matplotlib 3.11's deprecated hatchPatterns raises TypeError here (it
-    # unpacks the names); pltrs gives the mapping it was deprecated with.
     with pytest.warns(pltrs.MatplotlibDeprecationWarning):
-        assert pdf.hatchPatterns == {((0.0, 0.0, 0.0, 1.0), None, "/"): bp.Name("H1")}
+        assert pdf.hatchPatterns == {}
+    pdf.hatchPattern(((0, 0, 0, 1), None, "/", 1.0))
+    # As matplotlib 3.11's deprecated hatchPatterns, which unpacks the names
+    # of the patterns.
+    with pytest.warns(pltrs.MatplotlibDeprecationWarning), \
+            pytest.raises(TypeError, match="cannot unpack non-iterable Name object"):
+        pdf.hatchPatterns
 
 
 def test_pdf_file_writes_its_parts_on_demand():
@@ -177,15 +180,16 @@ def test_pdf_file_fonts():
         assert pdf.type1Descriptors == {}
 
 
-def test_pdf_file_embeds_truetype_subsets():
-    pltrs.rcParams["pdf.compression"] = 0
-    out, pdf = _document()
-    # matplotlib embeds only characters it drew (it raises KeyError for
-    # others); pltrs embeds any, without text for the ToUnicode map.
+def test_pdf_file_embeds_only_truetype_fonts_drawn():
+    _, pdf = _document()
+    # As matplotlib's, which maps the codes back to the characters it drew
+    # with the font.
     path = fm.FontPath(fm.findfont("DejaVu Sans"), 0)
-    assert isinstance(pdf.embedTTF(path, 0, {65: 36}), bp.Reference)
-    pdf.close()
-    assert b"/FirstChar 65 /LastChar 65" in out.getvalue()
+    with pytest.raises(KeyError):
+        pdf.embedTTF(path, 0, {65: 36})
+    pdf.fontName(path)
+    with pytest.raises(KeyError):
+        pdf.writeFonts()
 
 
 @pytest.mark.skipif(not shutil.which("kpsewhich"), reason="TeX is not installed")

@@ -41,6 +41,9 @@ thread_local! {
     static AFM_METRICS: Cell<Option<AfmDirectory>> = const { Cell::new(None) };
     /// What measures every line instead of the text engine, if anything.
     static LINE_MEASURE: Cell<Option<LineMeasure>> = const { Cell::new(None) };
+    /// The resolution lines are measured at instead of the one their text
+    /// is laid out at, if another.
+    static LINES_AT: Cell<Option<f64>> = const { Cell::new(None) };
 }
 
 /// Restores a mode's previous value when dropped (also on panics).
@@ -99,6 +102,38 @@ pub(crate) fn with_line_measure<R>(measure: LineMeasure, f: impl FnOnce() -> R) 
 /// [`with_line_measure`]).
 pub(super) fn line_measure() -> Option<LineMeasure> {
     LINE_MEASURE.get()
+}
+
+/// Has the width, height and descent of every line of text measured at
+/// `dpi` from now on (`None`: at the resolution the text is laid out at),
+/// while the texts are still laid out, spaced and placed at their
+/// figure's; returns the resolution set before. matplotlib's renderers
+/// measure lines at their own resolution (`get_text_width_height_descent`),
+/// so a program handing a text, an axes or a figure the renderer of
+/// another resolution than the figure's (`get_window_extent(renderer)`,
+/// `get_tightbbox(renderer)`) gets lines that size.
+///
+/// ```
+/// use pltrs::artist::ArtistHandle;
+/// use pltrs::figure::Figure;
+/// use pltrs::text::set_lines_measured_at;
+/// let fig = Figure::with_size(6.4, 4.8, 100.0);
+/// let note = fig.text(0.5, 0.5, "note");
+/// let at_figure = note.raw().extent_as_is().expect("measured");
+/// let before = set_lines_measured_at(Some(50.0));
+/// let at_half = note.raw().extent_as_is().expect("measured");
+/// set_lines_measured_at(before);
+/// assert!((at_half.width() - at_figure.width() / 2.0).abs() < 2.0);
+/// assert_eq!(at_half.x0(), at_figure.x0(), "placed at the figure's resolution");
+/// ```
+pub fn set_lines_measured_at(dpi: Option<f64>) -> Option<f64> {
+    LINES_AT.replace(dpi)
+}
+
+/// The resolution lines laid out at `dpi` are measured at, when it is
+/// another (see [`set_lines_measured_at`]).
+pub(super) fn lines_measured_apart(dpi: f64) -> Option<f64> {
+    LINES_AT.get().filter(|at| at.to_bits() != dpi.to_bits())
 }
 
 /// Whether text that is not mathtext is measured with AFM fonts (inside

@@ -56,6 +56,9 @@ pub(crate) struct PlacedText {
     pub(crate) color: Rgba,
     /// The hyperlink of the text in vector output.
     pub(crate) url: Option<String>,
+    /// Whether the text is antialiased (`None`: as `text.antialiased`
+    /// says).
+    pub(crate) antialiased: Option<bool>,
 }
 
 impl PlacedText {
@@ -640,6 +643,7 @@ pub(crate) fn place_text_measured(
         rotation: block.rotation,
         color,
         url: None,
+        antialiased: None,
     })
 }
 

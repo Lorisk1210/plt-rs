@@ -20,6 +20,7 @@ use crate::axisartist::Toggle;
 use crate::figure::{AxesRectError, Figure, FigureState, insert_axes};
 use crate::gridspec::GridSpecError;
 use crate::spines::SpineSide;
+use crate::transforms::ResolvedTransform;
 
 /// How a parasite's coordinates relate to its host's.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,10 +31,13 @@ pub enum ParasiteLink {
     /// Own data coordinates, view limits equal to the host's
     /// (`viewlim_mode="equal"`, the default of `get_aux_axes`).
     Equal,
-    /// Data coordinates mapped onto the host's by an affine transform, so
-    /// the view limits are the host's mapped back
-    /// (`get_aux_axes(tr, viewlim_mode="transform")`, `twin(aux_trans)`).
-    /// The transform may scale and translate, not rotate or shear.
+    /// Data coordinates mapped onto the host's by an affine transform: the
+    /// parasite draws through it and then the host's data transform,
+    /// whatever its own limits and scales (matplotlib's `transData =
+    /// transAux + parent.transData`), and its view limits are the host's
+    /// mapped back (`get_aux_axes(tr, viewlim_mode="transform")`,
+    /// `twin(aux_trans)`). The transform may scale and translate, not
+    /// rotate or shear.
     Transform(Affine2D),
 }
 
@@ -325,6 +329,9 @@ impl HostAxes {
                     view_map,
                     twin,
                 });
+                if let ParasiteLink::Transform(aux) = link {
+                    parasite.aux_transform = Some(ResolvedTransform::affine(aux));
+                }
                 parasite.decorations.frame_on = false;
                 parasite.patch.visible = false;
                 parasite.xaxis.visible = false;

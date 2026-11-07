@@ -167,6 +167,29 @@ def _measuring_with(renderer):
         renderer, _get_text_metrics_function(renderer))
 
 
+@contextlib.contextmanager
+def _measured_by(renderer, dpi):
+    """Measure with *renderer*, which a program hands a measuring method
+    (``get_window_extent(renderer)``, ``get_tightbbox(renderer)``), for a
+    layout at *dpi*: its text metrics cache installed, and the lines
+    measured at its resolution where that is not *dpi*, as matplotlib's
+    renderers measure lines at their own (the texts are placed at the
+    figure's)."""
+    own = getattr(renderer, "dpi", None)
+    at = None if own is None or dpi is None or own == dpi else float(own)
+    with _measuring_with(renderer), _text_metrics_module.lines_measured_at(at):
+        yield
+
+
+def _measured_by_given(renderer, artist):
+    """`_measured_by` *renderer* for a layout of *artist*'s figure when the
+    program gave a renderer, else nothing."""
+    figure = artist.get_figure(root=True)
+    if renderer is None or figure is None:
+        return contextlib.nullcontext()
+    return _measured_by(renderer, figure.dpi)
+
+
 class _TextFont(_mirrors.Mirroring):
     """The font of *text*, which its `.FontProperties` object stands for."""
 
@@ -710,12 +733,28 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
                   else cbook._setattr_cm(figure, dpi=dpi)):
                 tx, ty = self.get_transform().transform(self.get_unitless_position())
                 return Bbox.from_bounds(tx, ty, 0, 0)
-        if renderer is None and figure is not None:
-            renderer = _layout_renderer(figure)
+        renderer = self._measuring_renderer(renderer, figure)
         if renderer is None:
             return self._native_extent(self._text_extent, dpi)
-        with _measuring_with(renderer):
+        laid_out_at = dpi if dpi is not None or figure is None else figure.dpi
+        with _measured_by(renderer, laid_out_at):
             return self._native_extent(self._text_extent, dpi)
+
+    def _measuring_renderer(self, renderer, figure):
+        """The renderer the text is measured with: *renderer* when given,
+        else the one it was last measured with unless it was drawn since,
+        else its figure's, which it keeps (matplotlib's ``Text._renderer``,
+        which ``draw`` sets too)."""
+        draws = None if self._figure is None else _artist.draw_count(self._native)
+        if renderer is None:
+            kept = self.__dict__.get("_measured_with")
+            if kept is not None and kept[1] == draws:
+                return kept[0]
+            if figure is None:
+                return None
+            renderer = _layout_renderer(figure)
+        self._measured_with = (renderer, draws)
+        return renderer
 
     def _text_extent(self):
         """The display box of the text where its transform puts it now (the

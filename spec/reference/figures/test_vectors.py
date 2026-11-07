@@ -31,6 +31,7 @@ import pytest
 
 from spec_support import all_cases
 from spec_support.figcases import FIGURE_ROOT, VECTOR_METADATA
+from spec_support.fonts import figure_fonts_only
 from spec_support.tex import document_skip_reason
 
 for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
@@ -198,7 +199,7 @@ def test_pdf_pages(update_goldens):
                 case = _BY_NAME[name]
                 if page == 1:
                     pages.attach_note("the second page")
-                with mpl.rc_context(case.rc):
+                with figure_fonts_only(), mpl.rc_context(case.rc):
                     fig = plt.figure(figsize=case.figsize, dpi=case.dpi)
                     try:
                         case.build(fig)

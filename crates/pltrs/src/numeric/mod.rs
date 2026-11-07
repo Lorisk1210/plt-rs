@@ -5,8 +5,9 @@
 //! The range constructors reproduce numpy's floating-point arithmetic
 //! exactly (`linspace` computes `i * step + start` and pins the endpoint),
 //! because matplotlib's results depend on those precise values;
-//! [`linspace`], [`linspace_with`] and [`remainder`] come from
-//! [`pltrs_core::numeric`], which the lower-level crates share.
+//! [`linspace`], [`linspace_with`], [`remainder`] and [`pow`] (Python's
+//! float `**`) come from [`pltrs_core::numeric`], which the lower-level
+//! crates share.
 
 mod argsort;
 mod grid;
@@ -20,7 +21,7 @@ pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
 pub use number::Number;
 pub(crate) use number::{to_f64s, with_numbers};
-pub use pltrs_core::numeric::{linspace, linspace_with, remainder};
+pub use pltrs_core::numeric::{linspace, linspace_with, pow, remainder};
 pub use regions::{block_perimeters, contiguous_regions};
 
 /// Values `start, start + step, ...` strictly before `stop` (numpy `arange`).
@@ -54,7 +55,7 @@ pub fn arange(start: f64, stop: f64, step: f64) -> Vec<f64> {
 pub fn logspace(start: f64, stop: f64, num: usize, base: f64) -> Vec<f64> {
     linspace(start, stop, num)
         .into_iter()
-        .map(|e| base.powf(e))
+        .map(|e| pow(base, e))
         .collect()
 }
 

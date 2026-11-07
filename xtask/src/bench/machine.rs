@@ -1,11 +1,12 @@
 //! What the benchmark ran on: the machine, its load, and the versions of
 //! the tools, read from `/proc`, `/sys` and the tools themselves (on
-//! Windows from its management interface, through PowerShell), or, for a
-//! build packed elsewhere, from the pack's manifest.
+//! Windows from its management interface, through PowerShell; on macOS
+//! from `sysctl` and `sw_vers`), or, for a build packed elsewhere, from the
+//! pack's manifest.
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 use std::collections::BTreeSet;
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 use std::fs;
 
 use super::pack::{self, first_line, unknown};
@@ -50,7 +51,13 @@ impl Machine {
     }
 
     /// Describes this machine. What cannot be read is `unknown`.
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    pub(super) fn describe() -> Self {
+        macos::describe()
+    }
+
+    /// Describes this machine. What cannot be read is `unknown`.
+    #[cfg(not(any(windows, target_os = "macos")))]
     pub(super) fn describe() -> Self {
         let cpuinfo = read("/proc/cpuinfo");
         let field = |line: &str, name: &str| {
@@ -124,7 +131,7 @@ fn build() -> (String, String) {
 
 /// The computer's maker and model, as the firmware's DMI tables name
 /// them.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn model() -> Option<String> {
     let field = |name: &str| {
         fs::read_to_string(format!("/sys/class/dmi/id/{name}"))
@@ -139,7 +146,7 @@ fn model() -> Option<String> {
 }
 
 /// The power settings the kernel reports, described in words.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn power() -> Option<String> {
     let setting = |path: &str| {
         fs::read_to_string(path)
@@ -170,7 +177,7 @@ fn power() -> Option<String> {
 
 /// Whether a mains supply powers the machine, where it reports a supply
 /// of that type.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn on_mains() -> Option<bool> {
     let supplies = fs::read_dir("/sys/class/power_supply").ok()?;
     let mut mains = None;
@@ -184,7 +191,7 @@ fn on_mains() -> Option<bool> {
 }
 
 /// The 1-, 5- and 15-minute load averages, as the kernel prints them.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 pub(super) fn load_average() -> String {
     let loadavg = read("/proc/loadavg");
     let averages: Vec<&str> = loadavg.split_whitespace().take(3).collect();
@@ -192,6 +199,77 @@ pub(super) fn load_average() -> String {
         averages.join(" ")
     } else {
         unknown()
+    }
+}
+
+/// The 1-, 5- and 15-minute load averages, as `vm.loadavg` gives them
+/// (`{ 1.0 2.0 3.0 }`).
+#[cfg(target_os = "macos")]
+pub(super) fn load_average() -> String {
+    let loadavg = macos::sysctl("vm.loadavg");
+    let averages: Vec<&str> = loadavg
+        .split_whitespace()
+        .filter(|word| !matches!(*word, "{" | "}"))
+        .take(3)
+        .collect();
+    if averages.len() == 3 {
+        averages.join(" ")
+    } else {
+        unknown()
+    }
+}
+
+/// The machine as macOS describes it.
+#[cfg(target_os = "macos")]
+mod macos {
+    use super::{Machine, build, first_line, unknown};
+
+    /// The value of the kernel variable `name`, or `unknown`.
+    pub(super) fn sysctl(name: &str) -> String {
+        tool("sysctl", &["-n", name])
+    }
+
+    /// The first line `program args` prints, or `unknown`.
+    fn tool(program: &str, args: &[&str]) -> String {
+        first_line(std::path::Path::new("/"), program, args)
+    }
+
+    /// Describes this machine. Apple silicon has performance and
+    /// efficiency cores, which the CPU's description counts; macOS binds
+    /// no process to CPUs, so every process may run on all of them.
+    pub(super) fn describe() -> Machine {
+        let count = |name: &str| sysctl(name).parse::<usize>().ok();
+        let threads = count("hw.logicalcpu").unwrap_or(1);
+        let mut cpu = sysctl("machdep.cpu.brand_string");
+        if let (Some(performance), Some(efficiency)) = (
+            count("hw.perflevel0.physicalcpu"),
+            count("hw.perflevel1.physicalcpu"),
+        ) {
+            cpu = format!("{cpu} ({performance} performance and {efficiency} efficiency cores)");
+        }
+        let model = sysctl("hw.model");
+        let (rustc, revision) = build();
+        Machine {
+            model: (model != unknown()).then_some(model),
+            cpu,
+            cores: count("hw.physicalcpu").unwrap_or(1),
+            threads,
+            #[expect(clippy::cast_precision_loss, reason = "bytes of memory, as GiB")]
+            memory_gib: sysctl("hw.memsize")
+                .parse::<u64>()
+                .map_or(0.0, |bytes| bytes as f64 / f64::from(1 << 30)),
+            os: format!(
+                "{} {}",
+                tool("sw_vers", &["-productName"]),
+                tool("sw_vers", &["-productVersion"])
+            ),
+            kernel: format!("{} {}", sysctl("kern.ostype"), sysctl("kern.osrelease")),
+            affinity: format!("all {threads}"),
+            governor: None,
+            power: None,
+            rustc,
+            revision,
+        }
     }
 }
 
@@ -300,7 +378,7 @@ mod windows {
 }
 
 /// The text of `path`, empty when it cannot be read.
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 fn read(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_default()
 }
@@ -311,7 +389,9 @@ mod tests {
 
     #[test]
     fn the_machine_is_described() {
-        if cfg!(not(windows)) && !std::path::Path::new("/proc/cpuinfo").exists() {
+        if cfg!(not(any(windows, target_os = "macos")))
+            && !std::path::Path::new("/proc/cpuinfo").exists()
+        {
             return;
         }
         let machine = Machine::describe();

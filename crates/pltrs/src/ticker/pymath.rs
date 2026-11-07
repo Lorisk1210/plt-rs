@@ -101,7 +101,7 @@ pub(crate) fn py_round(x: f64, ndigits: usize) -> f64 {
 
 /// `10.0 ** e` as computed by C's `pow` (Python's float power).
 pub(crate) fn pow10(e: f64) -> f64 {
-    10.0_f64.powf(e)
+    pltrs_core::numeric::pow(10.0, e)
 }
 
 /// `10**e` as Python evaluates it for an integer `e`: the double

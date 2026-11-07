@@ -102,7 +102,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "eps", "orientation": "landscape", "papertype": "figure", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0.000000 0.000000 432.000000 576.000000", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
+    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0.000000 0.000000 432.000000 576.000000", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
     "pages": ["%%Page 1 1", "%%Page: 1 1", "%%PageTrailer"]
    }
   },
@@ -110,7 +110,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "eps", "orientation": "landscape", "papertype": "letter", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0.000000 0.000000 432.000000 576.000000", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
+    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0.000000 0.000000 432.000000 576.000000", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
     "pages": ["%%Page 1 1", "%%Page: 1 1", "%%PageTrailer"]
    }
   },
@@ -118,7 +118,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "eps", "orientation": "portrait", "papertype": "figure", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0.000000 0.000000 576.000000 432.000000", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
+    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0.000000 0.000000 576.000000 432.000000", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
     "pages": ["%%Page 1 1", "%%Page: 1 1", "%%PageTrailer"]
    }
   },
@@ -126,7 +126,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "eps", "orientation": "portrait", "papertype": "letter", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0.000000 0.000000 576.000000 432.000000", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
+    "header": ["%!PS-Adobe-3.0 EPSF-3.0", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0.000000 0.000000 576.000000 432.000000", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dEPSCrop -sOutputFile=? ?", "%%LanguageLevel: 2"],
     "pages": ["%%Page 1 1", "%%Page: 1 1", "%%PageTrailer"]
    }
   },
@@ -134,7 +134,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "landscape", "papertype": "figure", "rc": {"ps.usedistiller": "ghostscript"}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=432.0 -dDEVICEHEIGHTPOINTS=576.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0 0 432.00 576.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=432.0 -dDEVICEHEIGHTPOINTS=576.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0 0 432.00 576.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 432 576", "%%PageTrailer"]
    }
   },
@@ -150,7 +150,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "landscape", "papertype": "figure", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=432.0 -dDEVICEHEIGHTPOINTS=576.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0 0 432.00 576.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=432.0 -dDEVICEHEIGHTPOINTS=576.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 432 576", "%%HiResBoundingBox: 0 0 432.00 576.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 432 576", "%%PageTrailer"]
    }
   },
@@ -158,7 +158,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "landscape", "papertype": "letter", "rc": {"ps.usedistiller": "ghostscript"}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 612 792", "%%PageTrailer"]
    }
   },
@@ -174,7 +174,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "landscape", "papertype": "letter", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 612 792", "%%PageTrailer"]
    }
   },
@@ -182,7 +182,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "portrait", "papertype": "figure", "rc": {"ps.usedistiller": "ghostscript"}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=576.0 -dDEVICEHEIGHTPOINTS=432.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0 0 576.00 432.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=576.0 -dDEVICEHEIGHTPOINTS=432.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0 0 576.00 432.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 576 432", "%%PageTrailer"]
    }
   },
@@ -198,7 +198,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "portrait", "papertype": "figure", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=576.0 -dDEVICEHEIGHTPOINTS=432.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0 0 576.00 432.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -dDEVICEWIDTHPOINTS=576.0 -dDEVICEHEIGHTPOINTS=432.0 -sOutputFile=? ?", "%%BoundingBox: 0 0 576 432", "%%HiResBoundingBox: 0 0 576.00 432.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 576 432", "%%PageTrailer"]
    }
   },
@@ -206,7 +206,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "portrait", "papertype": "letter", "rc": {"ps.usedistiller": "ghostscript"}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 612 792", "%%PageTrailer"]
    }
   },
@@ -222,7 +222,7 @@
    "op": "Figure.savefig.distilled",
    "args": {"format": "ps", "orientation": "portrait", "papertype": "letter", "rc": {"text.usetex": true}},
    "value": {
-    "header": ["%!PS-Adobe-3.0", "%%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
+    "header": ["%!PS-Adobe-3.0", "%%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write -sPAPERSIZE=letter -sOutputFile=? ?", "%%BoundingBox: 0 0 612 792", "%%HiResBoundingBox: 0 0 612.00 792.00", "%%LanguageLevel: 2", "%%Pages: 1"],
     "pages": ["%%Pages: 1", "%%Page: 1 1", "%%PageBoundingBox: 0 0 612 792", "%%PageTrailer"]
    }
   },

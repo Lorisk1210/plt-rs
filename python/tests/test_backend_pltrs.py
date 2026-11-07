@@ -682,7 +682,13 @@ def test_pltrs_is_the_default_interactive_backend():
 def _sigint(target):
     """matplotlib's ``_test_sigint_impl``: Ctrl+C interrupts show and
     pause."""
+    import signal
+
     import pltrs.pyplot as plt
+
+    # A shell starting the tests in the background (`cmd &` without job
+    # control) has them ignore SIGINT, and Python then leaves it ignored.
+    signal.signal(signal.SIGINT, signal.default_int_handler)
 
     fig = plt.figure()
     fig.canvas.mpl_connect("draw_event",

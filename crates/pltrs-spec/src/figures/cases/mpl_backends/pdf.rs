@@ -4,6 +4,7 @@
 //! scatter plots and hexagons the PDF backend leaves out when they lie
 //! outside the canvas.
 
+use pltrs::numeric::pow;
 use std::f64::consts::TAU;
 
 use pltrs::axes::{HexGridSize, HexbinOptions, ImshowOptions, MappedColors, ScatterOptions};
@@ -164,7 +165,7 @@ fn scatter_logscale(fig: &Figure) -> CaseResult {
     let mut decades = |n| -> Vec<f64> {
         random(&mut rng, n, 4.0, 0.0)
             .into_iter()
-            .map(|e| 10f64.powf(e))
+            .map(|e| pow(10.0, e))
             .collect()
     };
     let (x, y) = (decades(50), decades(50));

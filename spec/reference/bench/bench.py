@@ -177,7 +177,9 @@ def spawn(command):
     pid = os.posix_spawn(argv[0], argv, env, file_actions=actions)
     _, status, usage = os.wait4(pid, 0)
     seconds = time.perf_counter() - start
-    return seconds, usage.ru_maxrss, os.waitstatus_to_exitcode(status)
+    # Linux reports the peak in KiB, macOS in bytes.
+    peak = usage.ru_maxrss // 1024 if sys.platform == "darwin" else usage.ru_maxrss
+    return seconds, peak, os.waitstatus_to_exitcode(status)
 
 
 def venv_interpreter(program):
@@ -277,6 +279,7 @@ def versions(_args):
     print(f"interpreter\t{os.path.realpath(sys._base_executable)}")
     print(f"numpy\t{numpy.__version__}")
     print(f"numpy core\t{digest(core.__file__)}")
+    print(f"numpy blas\t{numpy.show_config(mode='dicts')['Build Dependencies']['blas']['name']}")
     print(f"pillow\t{PIL.__version__}")
     print(f"pillow zlib\t{features.version('zlib')}")
     if "zlib_ng" in features.features:

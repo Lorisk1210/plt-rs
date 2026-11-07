@@ -2,6 +2,7 @@
 //! `lorenz_attractor`, `scales3d`, `scatter3d`, `text3d` and
 //! `pathpatch3d`.
 
+use pltrs::numeric::pow;
 use std::f64::consts::{LN_10, PI};
 
 use pltrs::artist::ArtistHandle;
@@ -108,7 +109,7 @@ fn lorenz_attractor(fig: &Figure) -> CaseResult {
 
 fn scales3d(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 1.0, 400);
-    let y: Vec<f64> = x.iter().map(|x| 10_f64.powf(2.0 * x)).collect();
+    let y: Vec<f64> = x.iter().map(|x| pow(10.0, 2.0 * x)).collect();
     let z: Vec<f64> = x
         .iter()
         .zip(&y)

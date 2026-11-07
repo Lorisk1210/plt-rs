@@ -9,6 +9,7 @@ use pltrs::figure::Figure;
 use pltrs::image::{Extent, ImageData, MultiField, Origin, ScalarField};
 use pltrs::navigation::Navigation;
 use pltrs::numeric::Grid;
+use pltrs::numeric::pow;
 use pltrs_core::Point;
 
 use super::norms::multi::mappable;
@@ -85,7 +86,7 @@ fn single_image(scene: &str) -> Result<Option<(ImageData, ImshowOptions)>, Probe
     Ok(Some(match scene {
         "scalar" => (grid(field).into(), plain()),
         "lognorm" => (
-            grid(|r, c| 10f64.powf((8.0 * r + c) / 12.0 - 1.0)).into(),
+            grid(|r, c| pow(10.0, (8.0 * r + c) / 12.0 - 1.0)).into(),
             normed(LogNorm::default()),
         ),
         "boundary" => {
@@ -222,7 +223,7 @@ fn message(args: Args<'_>) -> Outcome {
 fn variate(name: &str) -> Result<Grid<f64>, ProbeError> {
     Ok(match name {
         "field" => grid(field),
-        "log" => grid(|r, c| 10f64.powf((8.0 * r + c) / 12.0 - 1.0)),
+        "log" => grid(|r, c| pow(10.0, (8.0 * r + c) / 12.0 - 1.0)),
         "masked" => grid(masked_field),
         "ramp" => grid(|r, c| (r + 2.0 * c) / 20.0),
         other => return Err(ProbeError::BadArgs(format!("unknown variate {other:?}"))),

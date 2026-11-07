@@ -4,6 +4,7 @@
 //! segments, algorithms, clipping, all four algorithms and line style
 //! aliases.
 
+use pltrs::numeric::pow;
 use std::f64::consts::PI;
 
 use pltrs::artist::ClipPathSpec;
@@ -303,11 +304,11 @@ pub(super) fn contourf_log_extension(fig: &Figure) -> CaseResult {
     })?;
     let exponents = linspace(-7.5, 9.5, 1200);
     let data = QuadField::new(Grid::from_fn(30, 40, |r, c| {
-        10f64.powf(exponents[r * 40 + c])
+        pow(10.0, exponents[r * 40 + c])
     }));
     let level_values: Vec<f64> = arange(-4.0, 7.0, 1.0)
         .into_iter()
-        .map(|e| 10f64.powf(e))
+        .map(|e| pow(10.0, e))
         .collect();
     let log_norm = |vmin: f64, vmax: f64| ContourOptions {
         colorizer: ColorizerOptions {
@@ -318,10 +319,10 @@ pub(super) fn contourf_log_extension(fig: &Figure) -> CaseResult {
         },
         ..ContourOptions::default()
     };
-    let (zmin, zmax) = (10f64.powf(-7.5), 10f64.powf(9.5));
+    let (zmin, zmax) = (pow(10.0, -7.5), pow(10.0, 9.5));
     let fixed: Vec<f64> = arange(-8.0, 12.0, 2.0)
         .into_iter()
-        .map(|e| 10f64.powf(e))
+        .map(|e| pow(10.0, e))
         .collect();
     let c1 = axs[(0, 0)].contourf(
         &data,

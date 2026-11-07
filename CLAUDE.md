@@ -186,6 +186,10 @@ must reproduce them.
   (into `~/.local/weston`) and `weston.sh run &`, then
   `WAYLAND_DISPLAY=wayland-pltrs cargo test -p pltrs-platform wayland`;
   `weston.sh run --debug` lets `weston.sh screenshot` capture the screen.
+  macOS: the AppKit tests open windows on the screen, set the Dock icon
+  and replace the clipboard, so they run only with `PLTRS_MACOS_LIVE=1`
+  (`cargo test -p pltrs-platform --test macos`), and only with the user
+  at the Mac and asked first.
   What programs see of the input in pltrs' windows is compared with
   matplotlib's QtAgg windows by `python/tests/test_gui_events.py`, on a
   private Xvfb and a weston nested in it (part of `cargo xtask python

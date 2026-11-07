@@ -17,15 +17,16 @@ import pathlib
 
 import matplotlib as mpl
 import numpy as np
-from matplotlib import _mathtext, font_manager
+from matplotlib import _mathtext
 from matplotlib.mathtext import MathTextParser
 
 from spec_support import case, rng
+from spec_support.fonts import add_spec_font
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
 
 for _font in sorted((REPO / "crates" / "pltrs-font" / "fonts").glob("Inter-*.ttf")):
-    font_manager.fontManager.addfont(str(_font))
+    add_spec_font(str(_font))
 
 
 def _sheet_entries(name):

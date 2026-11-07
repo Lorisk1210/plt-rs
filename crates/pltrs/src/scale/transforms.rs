@@ -217,7 +217,7 @@ impl AxisMap for LogitTransform {
     }
 
     fn inverse(&self, value: f64) -> f64 {
-        1.0 / (1.0 + 10.0_f64.powf(-value))
+        1.0 / (1.0 + pltrs_core::numeric::pow(10.0, -value))
     }
 }
 

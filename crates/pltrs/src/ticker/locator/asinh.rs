@@ -105,9 +105,9 @@ impl AsinhLocator {
     fn round_ticks(&self, xs: &[f64], ys: &[f64]) -> Vec<f64> {
         if self.base > 1.0 {
             let log_base = self.base.ln();
-            let pows = xs
-                .iter()
-                .map(|&x| np_sign(x) * self.base.powf((x.abs().ln() / log_base).floor()));
+            let pows = xs.iter().map(|&x| {
+                np_sign(x) * pltrs_core::numeric::pow(self.base, (x.abs().ln() / log_base).floor())
+            });
             match &self.subs {
                 Some(subs) => pows.flat_map(|p| subs.iter().map(move |s| p * s)).collect(),
                 None => pows.collect(),

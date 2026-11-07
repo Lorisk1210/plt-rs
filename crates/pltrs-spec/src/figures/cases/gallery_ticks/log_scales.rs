@@ -4,6 +4,7 @@
 
 use pltrs::axes::{AxisName, ErrorSize, GridOptions, TickLevel};
 use pltrs::layout::{LayoutEngine, TightLayout};
+use pltrs::numeric::pow;
 use pltrs::prelude::*;
 use pltrs::scale::{NonPositive, ScaleOptions};
 
@@ -71,7 +72,7 @@ fn log_demo_2(fig: &Figure) -> CaseResult {
 
 fn log_demo_3(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 2.0, 10);
-    let y = map(&x, |x| 10f64.powf(x));
+    let y = map(&x, |x| pow(10.0, x));
     let yerr = map(&y, |y| 1.75 + 0.75 * y);
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;

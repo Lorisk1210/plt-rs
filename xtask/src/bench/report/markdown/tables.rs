@@ -44,7 +44,11 @@ fn startup(out: &mut String, results: &Results) {
         ("numpy", "`python -c \"import numpy\"`".to_owned()),
         (
             "numpy-threaded",
-            format!("`python -c \"import numpy\"`, OpenBLAS's default of {threads} threads"),
+            if super::fairness::is_accelerate(results) {
+                "`python -c \"import numpy\"`, with the BLAS variables unset".to_owned()
+            } else {
+                format!("`python -c \"import numpy\"`, OpenBLAS's default of {threads} threads")
+            },
         ),
         (
             "matplotlib",

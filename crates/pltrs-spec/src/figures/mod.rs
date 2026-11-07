@@ -195,13 +195,16 @@ impl FigureCase {
     /// Builds the figure and runs `f` on it, both under `baseline` with
     /// the case's style sheet and rcParams on top. The thread keeps the
     /// reference configuration afterwards, as [`with_figure`](Self::with_figure)
-    /// leaves it.
+    /// leaves it, and the process sees only the bundled fonts from the
+    /// first case on, as the reference's figure cases see only
+    /// matplotlib's, so that no golden depends on the host's fonts.
     pub fn with_figure_from<T>(
         &self,
         baseline: Baseline,
         f: impl FnOnce(&Figure) -> Result<T, Box<dyn Error>>,
     ) -> Result<T, Box<dyn Error>> {
         crate::reference_rc();
+        crate::fonts::bundled_fonts_for_figures();
         pltrs::rc::context(|| {
             let mut rc = baseline.params();
             if let Some(style) = self.style {

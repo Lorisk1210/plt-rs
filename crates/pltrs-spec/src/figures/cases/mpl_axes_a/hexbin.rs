@@ -6,6 +6,7 @@ use pltrs::axes::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions};
 use pltrs::colorbar::ColorbarOptions;
 use pltrs::image::Extent;
 use pltrs::numeric::arange;
+use pltrs::numeric::pow;
 use pltrs::prelude::*;
 
 use super::remove_ticks_and_titles;
@@ -60,7 +61,7 @@ fn hexbin_sample() -> (Vec<f64>, Vec<f64>) {
 
 pub(super) fn hexbin_log(fig: &Figure) -> CaseResult {
     let (x, y) = hexbin_sample();
-    let y: Vec<f64> = y.into_iter().map(|y| 2f64.powf(y * 0.5)).collect();
+    let y: Vec<f64> = y.into_iter().map(|y| pow(2.0, y * 0.5)).collect();
     let options = HexbinOptions {
         yscale: HexScale::Log,
         bins: Some(HexBins::Log),

@@ -119,9 +119,17 @@ class _MemoryWriter(ctypes.Structure):
                 ("max_size", ctypes.c_size_t), ("pad", ctypes.c_uint32 * 1)]
 
 
+#: Where Pillow's wheels keep the libwebp they bundle: ``pillow.libs`` beside
+#: the package on Linux, ``PIL/.dylibs`` on macOS.
+_LIBWEBP_GLOBS = (
+    os.path.join(os.path.dirname(PIL.__file__), os.pardir, "pillow.libs", "libwebp-*.so*"),
+    os.path.join(os.path.dirname(PIL.__file__), ".dylibs", "libwebp.*.dylib"),
+)
+
+
 def _libwebp_library():
-    libs = os.path.join(os.path.dirname(PIL.__file__), os.pardir, "pillow.libs")
-    library = ctypes.CDLL(glob.glob(os.path.join(libs, "libwebp-*.so*"))[0])
+    found = [path for pattern in _LIBWEBP_GLOBS for path in sorted(glob.glob(pattern))]
+    library = ctypes.CDLL(found[0])
     library.WebPConfigInitInternal.argtypes = [ctypes.POINTER(_Config), ctypes.c_int,
                                                ctypes.c_float, ctypes.c_int]
     library.WebPPictureInitInternal.argtypes = [ctypes.POINTER(_Picture), ctypes.c_int]

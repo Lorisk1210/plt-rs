@@ -7,6 +7,7 @@ import io
 import pathlib
 from typing import Any, Callable
 
+from .fonts import figure_fonts_only
 from .golden import GOLDEN_ROOT, to_jsonable
 
 FIGURE_ROOT = GOLDEN_ROOT / "figures"
@@ -46,11 +47,16 @@ class FigureCase:
         return FIGURE_ROOT / f"{self.name}.json"
 
     def render(self) -> tuple[bytes, dict[str, Any]]:
-        """Build the figure with matplotlib; return PNG bytes and facts."""
+        """Build the figure with matplotlib; return PNG bytes and facts.
+
+        Only the fonts pltrs bundles are installed meanwhile (matplotlib's
+        and the modern cases' Inter, see ``fonts.figure_fonts_only``), so
+        that no golden depends on the fonts of the host recording it (macOS
+        has Helvetica, Times, Comic Sans MS, ... that a Linux host lacks)."""
         import matplotlib as mpl
         import matplotlib.pyplot as plt
 
-        with mpl.rc_context(self.rc):
+        with figure_fonts_only(), mpl.rc_context(self.rc):
             fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
             try:
                 self.build(fig)
@@ -72,8 +78,9 @@ class FigureCase:
         """Build the figure with matplotlib and save it as ``fmt`` (svg, pdf,
         ps or eps) with everything that varies between runs pinned: fixed SVG
         id salt, no creator or dates, ``SOURCE_DATE_EPOCH=0`` for PostScript
-        (and the programs that distill it), and the subset tags of TeX fonts
-        (see ``_stable_subset_tags``)."""
+        (and the programs that distill it), the subset tags of TeX fonts
+        (see ``_stable_subset_tags``), and the fonts (only those pltrs
+        bundles, as in ``render``)."""
         import os
 
         import matplotlib as mpl
@@ -84,7 +91,7 @@ class FigureCase:
         os.environ["SOURCE_DATE_EPOCH"] = "0"
         restore_tags = _stable_subset_tags()
         try:
-            with mpl.rc_context({**self.rc, "svg.hashsalt": "plt-rs"}):
+            with figure_fonts_only(), mpl.rc_context({**self.rc, "svg.hashsalt": "plt-rs"}):
                 fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
                 try:
                     self.build(fig)

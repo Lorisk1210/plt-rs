@@ -80,8 +80,14 @@ fn titled_line(args: Args<'_>, title_signs: bool) -> Result<String, ProbeError> 
     document(&fig, args.str("format")?, options)
 }
 
+/// How Ghostscript names the program in the `%%Invocation` comment of a
+/// distilled document when it was started by an absolute path; a host
+/// that starts it by name gets the bare name.
+const INVOKED_BY_PATH: &str = "%%Invocation: path/";
+
 /// The header comments of `document` but those naming the library, the
-/// date or the file.
+/// date or the file, with Ghostscript's program named the same however
+/// the host's Ghostscript is installed.
 fn stable_header(document: &str) -> Result<Vec<Json>, ProbeError> {
     let end = document
         .find("%%EndComments")
@@ -89,7 +95,10 @@ fn stable_header(document: &str) -> Result<Vec<Json>, ProbeError> {
     Ok(document[..end]
         .lines()
         .filter(|line| !UNSTABLE.iter().any(|prefix| line.starts_with(prefix)))
-        .map(Json::from)
+        .map(|line| match line.strip_prefix(INVOKED_BY_PATH) {
+            Some(invocation) => Json::from(format!("%%Invocation: {invocation}")),
+            None => Json::from(line),
+        })
         .collect())
 }
 

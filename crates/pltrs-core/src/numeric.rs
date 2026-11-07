@@ -15,7 +15,9 @@
 //!   [`np_maximum`]), `clip` ([`np_clip`]) and `sign` ([`np_sign`]);
 //! * numpy's `linspace` ([`linspace`], [`linspace_with`]);
 //! * numpy's `arcsinh` ([`np_arcsinh`]), correctly rounded where Rust's
-//!   `f64::asinh` is a bit off.
+//!   `f64::asinh` is a bit off;
+//! * `CPython`'s float `**` and numpy's `power` ([`pow`]): the C library's
+//!   `pow`, whatever the base.
 
 /// The remainder of `a / b` with the sign of `b`: Python's float `%` and
 /// numpy's `remainder`. A zero result takes the sign of `b`.
@@ -163,6 +165,26 @@ pub fn np_arcsinh(x: f64) -> f64 {
     w.copysign(x)
 }
 
+/// `base ** exponent` as `CPython`'s floats and numpy's `power` compute
+/// it: by the C library's `pow`.
+///
+/// `f64::powf` calls `pow` too, unless LLVM sees a constant base: it then
+/// computes `2.0.powf(x)` as `exp2(x)` and, on Apple's platforms,
+/// `10.0.powf(x)` as `__exp10(x)`, whose last bits differ from `pow`'s
+/// (macOS 26: 350 of 200,000 exponents drawn from `[-10, 10]`, while
+/// numpy's `power(10.0, x)` equals `pow` on every one). Hiding the base
+/// from the optimiser keeps the call to `pow`.
+///
+/// ```
+/// use pltrs_core::numeric::pow;
+/// assert_eq!(pow(10.0, 3.0), 1000.0);
+/// assert_eq!(pow(2.0, -1.0), 0.5);
+/// ```
+#[inline]
+pub fn pow(base: f64, exponent: f64) -> f64 {
+    std::hint::black_box(base).powf(exponent)
+}
+
 /// `num` evenly spaced samples over `[start, stop]` (numpy `linspace`).
 ///
 /// ```
@@ -198,6 +220,22 @@ pub fn linspace_with(start: f64, stop: f64, num: usize, endpoint: bool) -> Vec<f
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Exponents at which `exp2` and Apple's `__exp10` round differently
+    /// from `pow`; `pow`'s results, as glibc and macOS' libm (and so
+    /// Python and numpy) give them there.
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn constant_bases_still_go_through_pow() {
+        assert_eq!(
+            pow(10.0, -5.449_396_810_393_321).to_bits(),
+            0x3ecd_ce26_4eb4_2a8a
+        );
+        assert_eq!(
+            pow(2.0, 7.909_669_318_739_461).to_bits(),
+            0x406e_0ece_71fc_aa74
+        );
+    }
 
     #[test]
     fn divmod_matches_python() {

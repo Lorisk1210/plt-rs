@@ -315,14 +315,20 @@ mod tests {
         };
         match gs_distill(&file, &eps, 6000) {
             Ok(()) => {
-                let distilled = String::from_utf8(file.contents().unwrap()).unwrap();
+                // Ghostscript writes `path/gs` when it was started by an
+                // absolute path (a wrapper script), `gs` when by name; and
+                // its date follows `SOURCE_DATE_EPOCH` only in builds that
+                // read it (Debian's), else the clock.
+                let distilled = String::from_utf8(file.contents().unwrap())
+                    .unwrap()
+                    .replacen("%%Invocation: path/gs ", "%%Invocation: gs ", 1);
                 assert!(distilled.starts_with(
                     "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 100 100\n\
                      %%HiResBoundingBox: 0.000000 0.000000 100.000000 100.000000\n\
-                     %%Invocation: path/gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write \
+                     %%Invocation: gs -dBATCH -dNOPAUSE -dSAFER -r6000 -sDEVICE=ps2write \
                      -dEPSCrop -sOutputFile=? ?\n"
                 ));
-                assert!(distilled.contains("%%CreationDate: D:19700101000000Z00'00'\n"));
+                assert!(distilled.contains("\n%%CreationDate: D:"));
                 assert!(distilled.ends_with("restore\nshowpage\n%%EOF\n"));
             }
             Err(err) => assert_eq!(err.to_string(), "Failed to find a Ghostscript installation"),

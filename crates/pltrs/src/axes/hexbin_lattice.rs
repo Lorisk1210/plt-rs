@@ -123,7 +123,7 @@ pub(super) fn scaled(values: &[f64], scale: HexScale) -> Result<Cow<'_, [f64]>, 
 fn unscale(value: f64, scale: HexScale) -> f64 {
     match scale {
         HexScale::Linear => value,
-        HexScale::Log => 10.0_f64.powf(value),
+        HexScale::Log => pltrs_core::numeric::pow(10.0, value),
     }
 }
 

@@ -4,9 +4,10 @@
 //! depend on the fonts of the host that recorded them; pltrs evaluates
 //! those areas with only its bundled fonts too, or a host with other fonts
 //! (macOS' Times, Comic Sans MS, ...) would find them where matplotlib did
-//! not.
+//! not. Figure cases see only the bundled fonts throughout
+//! ([`crate::fonts`]).
 
-use pltrs_font::{FontEntry, FontSource};
+use pltrs_font::FontEntry;
 use pltrs_text::TextEngine;
 
 /// The areas whose reference module sees only the bundled fonts.
@@ -45,15 +46,7 @@ impl<'a> BundledFontsOnly<'a> {
     /// Removes every entry of `engine` for a font that is not bundled.
     fn install(engine: &'a TextEngine) -> Self {
         let saved = engine.database().entries().clone();
-        let installed = saved.iter().filter(|entry| {
-            !matches!(
-                engine.database().source(entry.font),
-                Some(FontSource::Bundled(_))
-            )
-        });
-        for entry in installed {
-            engine.remove_font_entry(entry);
-        }
+        crate::fonts::remove_installed_fonts(engine);
         Self { engine, saved }
     }
 }
@@ -74,7 +67,7 @@ impl Drop for BundledFontsOnly<'_> {
 
 #[cfg(test)]
 mod tests {
-    use pltrs_font::{FontDatabase, bundled_font_data};
+    use pltrs_font::{FontDatabase, FontSource, bundled_font_data};
 
     use super::*;
 

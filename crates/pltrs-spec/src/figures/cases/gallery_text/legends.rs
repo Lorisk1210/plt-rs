@@ -3,6 +3,7 @@
 //! several handles in one entry (`custom_legends`, `figlegend_demo`,
 //! `legend` and `legend_demo`).
 
+use pltrs::numeric::pow;
 use std::f64::consts::{FRAC_PI_2, PI};
 
 use pltrs::axes::StemOptions;
@@ -204,7 +205,7 @@ fn legend_demo_2(fig: &Figure) -> CaseResult {
     )?;
     ax1.plot_with(
         &x,
-        map(&x, |x| 2f64.powf(x * x)),
+        map(&x, |x| pow(2.0, x * x)),
         LineProps::default().label("$2^{x^2}$"),
     )?;
     ax1.legend(LegendOptions::default().shadow(true).fancybox(true))?;

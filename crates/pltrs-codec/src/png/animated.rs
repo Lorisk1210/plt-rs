@@ -3,12 +3,13 @@
 //! without APNG support.
 
 use super::chunk::{ChunkType, SIGNATURE, write_chunk};
-use super::encoder::compress_image;
+use super::encoder::{chunks, compress_image};
 use super::error::EncodeError;
 use super::filter::FilterStrategy;
 use super::header::Header;
 use super::image::ImageRef;
 use crate::CompressionLevel;
+use crate::deflate::Strategy;
 
 const ACTL: ChunkType = ChunkType(*b"acTL");
 const FCTL: ChunkType = ChunkType(*b"fcTL");
@@ -39,11 +40,23 @@ pub struct Frame<'a> {
 /// assert!(apng.windows(4).any(|w| w == b"acTL"));
 /// # Ok::<(), pltrs_codec::png::EncodeError>(())
 /// ```
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AnimatedEncoder {
     level: CompressionLevel,
+    strategy: Strategy,
     filter: FilterStrategy,
     plays: u32,
+}
+
+impl Default for AnimatedEncoder {
+    fn default() -> Self {
+        Self {
+            level: CompressionLevel::DEFAULT,
+            strategy: Strategy::Filtered,
+            filter: FilterStrategy::Adaptive,
+            plays: 0,
+        }
+    }
 }
 
 impl AnimatedEncoder {
@@ -63,6 +76,13 @@ impl AnimatedEncoder {
     #[must_use]
     pub fn compression(mut self, level: CompressionLevel) -> Self {
         self.level = level;
+        self
+    }
+
+    /// Sets the zlib strategy ([`Strategy::Filtered`] by default).
+    #[must_use]
+    pub fn strategy(mut self, strategy: Strategy) -> Self {
+        self.strategy = strategy;
         self
     }
 
@@ -103,13 +123,16 @@ impl AnimatedEncoder {
         };
         for (index, frame) in frames.iter().enumerate() {
             write_chunk(&mut png, FCTL, &frame_control(next(), frame));
-            let data = compress_image(&frame.image, self.filter, self.level)?;
-            if index == 0 {
-                write_chunk(&mut png, ChunkType::IDAT, &data);
-            } else {
-                let mut chunk = next().to_be_bytes().to_vec();
-                chunk.extend_from_slice(&data);
-                write_chunk(&mut png, FDAT, &chunk);
+            let data = compress_image(&frame.image, self.filter, self.level, self.strategy)?;
+            // A chunk per output buffer, as Pillow writes them.
+            for part in chunks(&data) {
+                if index == 0 {
+                    write_chunk(&mut png, ChunkType::IDAT, part);
+                } else {
+                    let mut chunk = next().to_be_bytes().to_vec();
+                    chunk.extend_from_slice(part);
+                    write_chunk(&mut png, FDAT, &chunk);
+                }
             }
         }
         write_chunk(&mut png, ChunkType::IEND, &[]);

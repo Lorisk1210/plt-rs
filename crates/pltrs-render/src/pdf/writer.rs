@@ -3,6 +3,8 @@
 //! cross-reference table and the trailer.
 
 use pltrs_codec::CompressionLevel;
+use pltrs_codec::deflate::Options;
+use pltrs_codec::zlib::Compressor;
 
 use super::object::{Obj, fill};
 use crate::vector::VectorError;
@@ -26,6 +28,9 @@ pub(super) struct PdfWriter {
     /// Offset of every object; index 0 is the free head.
     offsets: Vec<Option<usize>>,
     compression: Option<CompressionLevel>,
+    /// The compressor of every stream, which keeps its tables between
+    /// them.
+    compressor: Compressor,
     stream: Option<OpenStream>,
     /// Where the cross-reference table starts, once written.
     startxref: Option<usize>,
@@ -43,6 +48,7 @@ impl PdfWriter {
             compression: CompressionLevel::new(compression.min(9))
                 .ok()
                 .filter(|level| level.get() > 0),
+            compressor: Compressor::new(),
             stream: None,
             startxref: None,
         }
@@ -124,7 +130,12 @@ impl PdfWriter {
             return Ok(());
         };
         let data = match self.compression {
-            Some(level) if !stream.png => pltrs_codec::zlib::compress(&stream.data, level)?,
+            Some(level) if !stream.png => {
+                let mut packed = Vec::new();
+                self.compressor
+                    .compress_into(&stream.data, Options::new(level), &mut packed)?;
+                packed
+            }
             _ => stream.data,
         };
         let mut dict = stream.extra;

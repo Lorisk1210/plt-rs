@@ -6,7 +6,7 @@ use std::ops::Range;
 
 use pltrs_core::alloc::{self, OutOfMemory};
 
-use crate::deflate::input::ByteSource;
+use crate::deflate::encode::RowSource;
 
 /// A scanline filter type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -24,7 +24,9 @@ pub enum FilterType {
 }
 
 impl FilterType {
-    const ALL: [Self; 5] = [Self::None, Self::Sub, Self::Up, Self::Average, Self::Paeth];
+    /// The filters [`FilterStrategy::Adaptive`] tries after none, in
+    /// Pillow's order.
+    const TRIED: [Self; 3] = [Self::Up, Self::Sub, Self::Paeth];
 
     /// The filter with type byte `byte`.
     pub(crate) const fn from_byte(byte: u8) -> Option<Self> {
@@ -53,9 +55,9 @@ impl FilterType {
 /// How the encoder chooses a filter for each row.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum FilterStrategy {
-    /// Try every filter on each row and keep the one whose output has the
-    /// smallest sum of absolute values (bytes read as signed), libpng's
-    /// heuristic.
+    /// Pillow's choice for each row: no filter, unless Up, then Sub, then
+    /// Paeth gives a smaller sum of absolute values (bytes read as signed),
+    /// a heuristic taken from libpng.
     #[default]
     Adaptive,
     /// Use the same filter for every row.
@@ -63,9 +65,9 @@ pub enum FilterStrategy {
 }
 
 /// The filtered rows of an image, each prefixed with its filter type byte
-/// (what the `IDAT` stream compresses), made a row at a time as they are
-/// read: the compressor reads them through a window rather than from a
-/// filtered copy of the whole image.
+/// (what the `IDAT` stream compresses), made a row at a time as the
+/// compressor takes them rather than filtered into a copy of the whole
+/// image.
 #[derive(Debug)]
 pub(crate) struct FilteredRows<'a> {
     data: &'a [u8],
@@ -135,15 +137,17 @@ impl<'a> FilteredRows<'a> {
             }
             FilterStrategy::Adaptive => {
                 let mut best_filter = FilterType::None;
-                let mut best_score = u64::MAX;
-                for filter in FilterType::ALL {
+                let mut best_score = row
+                    .scored(FilterType::None, &mut self.filtered[1..], u64::MAX)
+                    .expect("no row scores u64::MAX");
+                for filter in FilterType::TRIED {
+                    if best_score == 0 {
+                        break;
+                    }
                     if let Some(score) = row.scored(filter, &mut self.candidate[1..], best_score) {
                         best_score = score;
                         best_filter = filter;
                         std::mem::swap(&mut self.candidate, &mut self.filtered);
-                        if score == 0 {
-                            break;
-                        }
                     }
                 }
                 best_filter
@@ -154,22 +158,14 @@ impl<'a> FilteredRows<'a> {
     }
 }
 
-impl ByteSource for FilteredRows<'_> {
-    fn len(&self) -> usize {
-        self.data.len() / self.row_bytes * (self.row_bytes + 1)
+impl RowSource for FilteredRows<'_> {
+    fn rows(&self) -> usize {
+        self.data.len() / self.row_bytes
     }
 
-    fn append(&mut self, start: usize, count: usize, out: &mut Vec<u8>) {
-        let end = (start + count).min(self.len());
-        let line = self.row_bytes + 1;
-        let mut position = start;
-        while position < end {
-            let (row, offset) = (position / line, position % line);
-            self.filter_row(row);
-            let taken = (line - offset).min(end - position);
-            out.extend_from_slice(&self.filtered[offset..offset + taken]);
-            position += taken;
-        }
+    fn row(&mut self, index: usize) -> &[u8] {
+        self.filter_row(index);
+        &self.filtered
     }
 }
 
@@ -345,7 +341,16 @@ mod tests {
     use super::*;
     use crate::test_util::Rng;
 
-    /// All the filtered rows of `data`, read in uneven pieces.
+    /// Every filter, in the order of their type bytes.
+    const ALL: [FilterType; 5] = [
+        FilterType::None,
+        FilterType::Sub,
+        FilterType::Up,
+        FilterType::Average,
+        FilterType::Paeth,
+    ];
+
+    /// All the filtered rows of `data`.
     fn filter_image(
         data: &[u8],
         row_bytes: usize,
@@ -353,13 +358,9 @@ mod tests {
         strategy: FilterStrategy,
     ) -> Result<Vec<u8>, OutOfMemory> {
         let mut rows = FilteredRows::new(data, row_bytes, stride, strategy)?;
-        let mut out = Vec::new();
-        let mut piece = 1;
-        while out.len() < rows.len() {
-            rows.append(out.len(), piece, &mut out);
-            piece = piece * 3 + 1;
-        }
-        Ok(out)
+        Ok((0..rows.rows())
+            .flat_map(|index| rows.row(index).to_vec())
+            .collect())
     }
 
     #[test]
@@ -380,7 +381,7 @@ mod tests {
         for stride in [1, 2, 3, 4, 6, 8] {
             let row_bytes = stride * (1 + rng.below(20));
             let image = rng.bytes(row_bytes * 5);
-            for filter in FilterType::ALL {
+            for filter in ALL {
                 let filtered =
                     filter_image(&image, row_bytes, stride, FilterStrategy::Fixed(filter)).unwrap();
                 assert_eq!(filtered.len(), image.len() + 5);
@@ -414,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn adaptive_choice_is_the_first_filter_of_smallest_score() {
+    fn adaptive_choice_is_pillows_first_filter_of_smallest_score() {
         // Rows of several chunks (filters are dropped part-way), of noise,
         // a gradient, a repeated row and a constant one (scores tie).
         let mut rng = Rng::new(24);
@@ -428,7 +429,13 @@ mod tests {
             image[4 * row_bytes..5 * row_bytes].fill(255);
             let adaptive =
                 filter_image(&image, row_bytes, stride, FilterStrategy::Adaptive).unwrap();
-            let fixed: Vec<Vec<u8>> = FilterType::ALL
+            let tried = [
+                FilterType::None,
+                FilterType::Up,
+                FilterType::Sub,
+                FilterType::Paeth,
+            ];
+            let fixed: Vec<Vec<u8>> = tried
                 .iter()
                 .map(|&f| {
                     filter_image(&image, row_bytes, stride, FilterStrategy::Fixed(f)).unwrap()
@@ -446,7 +453,7 @@ mod tests {
                     .iter()
                     .enumerate()
                     .min_by_key(|&(index, filtered)| (score(filtered), index))
-                    .expect("five filters");
+                    .expect("four filters");
                 assert_eq!(
                     adaptive[bytes.clone()],
                     fixed[first_smallest][bytes],
@@ -461,17 +468,29 @@ mod tests {
         let image = Rng::new(23).bytes(40 * 6);
         let all = filter_image(&image, 40, 4, FilterStrategy::Adaptive).unwrap();
         let mut rows = FilteredRows::new(&image, 40, 4, FilterStrategy::Adaptive).unwrap();
-        for (start, count) in [(200, 30), (5, 100), (0, 1), (230, 1000)] {
-            let mut out = Vec::new();
-            rows.append(start, count, &mut out);
-            let end = (start + count).min(all.len());
-            assert_eq!(out, all[start..end], "{count} bytes from {start}");
+        for index in [5, 1, 1, 0, 3] {
+            assert_eq!(
+                rows.row(index),
+                &all[index * 41..(index + 1) * 41],
+                "row {index}"
+            );
         }
     }
 
     #[test]
+    fn adaptive_choice_breaks_ties_as_pillow_does() {
+        // Up, Sub and Paeth score 6 on the second row, no filter 7 and
+        // Average 5: Pillow tries Up first, keeps it, and never tries
+        // Average.
+        let image = [2, 0, 3, 0, 3, 1, 1, 2];
+        let filtered = filter_image(&image, 4, 1, FilterStrategy::Adaptive).unwrap();
+        assert_eq!(filtered[0], FilterType::None.byte());
+        assert_eq!(filtered[5..], [FilterType::Up.byte(), 1, 1, 254, 2]);
+    }
+
+    #[test]
     fn filter_bytes_round_trip() {
-        for filter in FilterType::ALL {
+        for filter in ALL {
             assert_eq!(FilterType::from_byte(filter.byte()), Some(filter));
         }
         assert_eq!(FilterType::from_byte(5), None);

@@ -7,30 +7,50 @@ use super::header::Header;
 use super::image::ImageRef;
 use super::metadata::{PhysicalDimensions, TextEntry};
 use super::text;
-use crate::{CompressionLevel, zlib};
+use crate::CompressionLevel;
+use crate::deflate::encode::{self, Rows};
+use crate::deflate::{MemoryLevel, Options, Strategy};
 use pltrs_core::alloc::{self, OutOfMemory};
 
-/// Largest `IDAT` chunk the encoder writes; larger streams are split.
-const IDAT_CHUNK_LEN: usize = 1 << 20;
+/// The smallest output buffer Pillow compresses into (`MAXBLOCK`); each
+/// buffer becomes one `IDAT` chunk.
+const MIN_BUFFER: usize = 1 << 16;
 
 /// The filtered, zlib-compressed scanlines of `image` (the contents of
-/// its `IDAT` chunks), filtered as they are compressed.
+/// its `IDAT` chunks), filtered as they are compressed, and where Pillow
+/// would end each chunk: rows compressed one at a time with zlib's
+/// memory level 9 into buffers of 64 KiB or four bytes per pixel of a
+/// row, whichever is more.
 ///
 /// # Errors
 ///
-/// When the memory for the compressed scanlines cannot be allocated.
+/// When the memory for the compressor or the compressed scanlines cannot
+/// be allocated.
 pub(super) fn compress_image(
     image: &ImageRef<'_>,
-    strategy: FilterStrategy,
+    filter: FilterStrategy,
     level: CompressionLevel,
-) -> Result<Vec<u8>, OutOfMemory> {
-    let rows = FilteredRows::new(
+    strategy: Strategy,
+) -> Result<Rows, OutOfMemory> {
+    let mut rows = FilteredRows::new(
         image.data(),
         image.row_bytes(),
         image.format().filter_stride(),
-        strategy,
+        filter,
     )?;
-    zlib::compress_source(rows, level)
+    let options = Options::new(level)
+        .strategy(strategy)
+        .memory_level(MemoryLevel::MAX);
+    let buffer = MIN_BUFFER.max(4 * image.width() as usize);
+    encode::rows(&mut rows, options, buffer)
+}
+
+/// The pieces of a compressed image as Pillow cuts them into chunks.
+pub(super) fn chunks(rows: &Rows) -> impl Iterator<Item = &[u8]> {
+    let starts = std::iter::once(0).chain(rows.ends.iter().copied());
+    starts
+        .zip(&rows.ends)
+        .map(|(start, &end)| &rows.stream[start..end])
 }
 
 /// How the `pHYs` chunk was requested.
@@ -42,8 +62,9 @@ enum Resolution {
 
 /// Configures and runs PNG encoding.
 ///
-/// The defaults match what matplotlib gets from Pillow: zlib level 6 with
-/// adaptive filtering, and no ancillary chunks.
+/// The defaults match what matplotlib gets from Pillow: zlib level 6 and
+/// [`Strategy::Filtered`] with Pillow's adaptive filtering, and no
+/// ancillary chunks.
 ///
 /// ```
 /// use pltrs_codec::CompressionLevel;
@@ -59,12 +80,25 @@ enum Resolution {
 /// assert!(png.starts_with(&pltrs_codec::png::SIGNATURE));
 /// # Ok::<(), pltrs_codec::png::EncodeError>(())
 /// ```
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Encoder {
     level: CompressionLevel,
+    strategy: Strategy,
     filter: FilterStrategy,
     resolution: Option<Resolution>,
     text: Vec<TextEntry>,
+}
+
+impl Default for Encoder {
+    fn default() -> Self {
+        Self {
+            level: CompressionLevel::DEFAULT,
+            strategy: Strategy::Filtered,
+            filter: FilterStrategy::Adaptive,
+            resolution: None,
+            text: Vec::new(),
+        }
+    }
 }
 
 impl Encoder {
@@ -77,6 +111,14 @@ impl Encoder {
     #[must_use]
     pub fn compression(mut self, level: CompressionLevel) -> Self {
         self.level = level;
+        self
+    }
+
+    /// Sets the zlib strategy (Pillow's `compress_type`;
+    /// [`Strategy::Filtered`] by default).
+    #[must_use]
+    pub fn strategy(mut self, strategy: Strategy) -> Self {
+        self.strategy = strategy;
         self
     }
 
@@ -129,12 +171,11 @@ impl Encoder {
             .collect::<Result<Vec<_>, _>>()?;
 
         let format = image.format();
-        let compressed = compress_image(&image, self.filter, self.level)?;
+        let compressed = compress_image(&image, self.filter, self.level, self.strategy)?;
 
         let text_len: usize = text_chunks.iter().map(|(_, data)| data.len() + 12).sum();
-        let idat_chunks = compressed.len().div_ceil(IDAT_CHUNK_LEN);
-        let mut png =
-            alloc::try_with_capacity(compressed.len() + 12 * idat_chunks + text_len + 128)?;
+        let idat_len = compressed.stream.len() + 12 * compressed.ends.len();
+        let mut png = alloc::try_with_capacity(idat_len + text_len + 128)?;
         png.extend_from_slice(&SIGNATURE);
         let header = Header {
             width: image.width(),
@@ -150,7 +191,7 @@ impl Encoder {
         if let Some(physical) = physical {
             write_chunk(&mut png, ChunkType::PHYS, &physical.to_bytes());
         }
-        for part in compressed.chunks(IDAT_CHUNK_LEN) {
+        for part in chunks(&compressed) {
             write_chunk(&mut png, ChunkType::IDAT, part);
         }
         write_chunk(&mut png, ChunkType::IEND, &[]);

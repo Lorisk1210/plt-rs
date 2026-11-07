@@ -1,6 +1,7 @@
 //! Interoperability with the reference zlib: streams written by Python's
 //! zlib (every level, strategy, window size and flush mode) must inflate,
-//! and our output must be about as small as zlib's at the same level.
+//! and our output (zlib-ng's, pinned by `zlib_ng.rs`) must be about as
+//! small as classic zlib's at the default and best levels.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -39,11 +40,11 @@ fn inflates_every_reference_stream() {
 #[test]
 fn compression_ratio_tracks_zlib() {
     let corpus = read("corpus.bin");
-    for level in 1..=9 {
+    for level in [6, 9] {
         let ours = zlib::compress(&corpus, CompressionLevel::new(level).unwrap()).unwrap();
         let theirs = read(&format!("level{level}.zlib"));
         assert!(
-            ours.len() * 100 <= theirs.len() * 102,
+            ours.len() * 100 <= theirs.len() * 101,
             "level {level}: {} bytes vs zlib's {}",
             ours.len(),
             theirs.len()
@@ -51,5 +52,5 @@ fn compression_ratio_tracks_zlib() {
         assert_eq!(zlib::decompress(&ours).unwrap(), corpus);
     }
     let stored = zlib::compress(&corpus, CompressionLevel::NONE).unwrap();
-    assert_eq!(stored.len(), read("level0.zlib").len());
+    assert_eq!(stored, read("level0.zlib"), "stored blocks are zlib's");
 }

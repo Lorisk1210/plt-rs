@@ -2,6 +2,8 @@
 //! corresponding bytes of the pixel to its left, the pixel above and the
 //! pixel above-left, and only the prediction error is stored.
 
+use std::ops::Range;
+
 use pltrs_core::alloc::{self, OutOfMemory};
 
 use crate::deflate::input::ByteSource;
@@ -121,30 +123,21 @@ impl<'a> FilteredRows<'a> {
             Some(above) => &self.data[above * row_bytes..index * row_bytes],
             None => &self.zero_row,
         };
+        let row = Row {
+            stride: self.stride,
+            previous,
+            current,
+        };
         let filter = match self.strategy {
             FilterStrategy::Fixed(filter) => {
-                apply(
-                    filter,
-                    self.stride,
-                    previous,
-                    current,
-                    &mut self.filtered[1..],
-                );
+                row.apply(filter, &mut self.filtered[1..], 0..row_bytes);
                 filter
             }
             FilterStrategy::Adaptive => {
                 let mut best_filter = FilterType::None;
                 let mut best_score = u64::MAX;
                 for filter in FilterType::ALL {
-                    apply(
-                        filter,
-                        self.stride,
-                        previous,
-                        current,
-                        &mut self.candidate[1..],
-                    );
-                    let score = score(&self.candidate[1..]);
-                    if score < best_score {
+                    if let Some(score) = row.scored(filter, &mut self.candidate[1..], best_score) {
                         best_score = score;
                         best_filter = filter;
                         std::mem::swap(&mut self.candidate, &mut self.filtered);
@@ -180,54 +173,112 @@ impl ByteSource for FilteredRows<'_> {
     }
 }
 
-/// Sum of the filtered bytes' magnitudes when read as signed values.
-fn score(filtered: &[u8]) -> u64 {
+/// The bytes filtered and scored at a time. An adaptive choice stops
+/// trying a filter on a row once the sum so far is no better than the
+/// best filter's, and the sum of this many bytes fits a `u32`, which the
+/// compiler sums several bytes at a time.
+const CHUNK: usize = 1024;
+
+/// A scanline and the one above it, to be filtered.
+#[derive(Clone, Copy, Debug)]
+struct Row<'a> {
+    /// The distance from a byte to the corresponding one of the pixel to
+    /// its left.
+    stride: usize,
+    /// The row above (zeros above the first).
+    previous: &'a [u8],
+    /// The row filtered.
+    current: &'a [u8],
+}
+
+impl Row<'_> {
+    /// Writes the bytes `range` of the row filtered with `filter` into
+    /// the same bytes of `out`.
+    fn apply(self, filter: FilterType, out: &mut [u8], range: Range<usize>) {
+        let Self {
+            stride,
+            previous,
+            current,
+        } = self;
+        // The first pixel's bytes have no left neighbours, which count
+        // as zeros.
+        for i in range.start.min(stride)..range.end.min(stride) {
+            out[i] = current[i].wrapping_sub(predict(filter, 0, previous[i], 0));
+        }
+        let tail = range.start.max(stride)..range.end.max(stride);
+        let left = tail.start - stride..tail.end - stride;
+        let (out, current, up) = (
+            &mut out[tail.clone()],
+            &current[tail.clone()],
+            &previous[tail],
+        );
+        let (left, upper_left) = (&self.current[left.clone()], &previous[left]);
+        match filter {
+            FilterType::None => out.copy_from_slice(current),
+            FilterType::Sub => {
+                for ((o, &c), &left) in out.iter_mut().zip(current).zip(left) {
+                    *o = c.wrapping_sub(left);
+                }
+            }
+            FilterType::Up => {
+                for ((o, &c), &up) in out.iter_mut().zip(current).zip(up) {
+                    *o = c.wrapping_sub(up);
+                }
+            }
+            FilterType::Average => {
+                for ((o, &c), (&left, &up)) in out.iter_mut().zip(current).zip(left.iter().zip(up))
+                {
+                    *o = c.wrapping_sub(average(left, up));
+                }
+            }
+            FilterType::Paeth => {
+                let neighbours = left.iter().zip(up).zip(upper_left);
+                for ((o, &c), ((&left, &up), &upper_left)) in
+                    out.iter_mut().zip(current).zip(neighbours)
+                {
+                    *o = c.wrapping_sub(paeth(left, up, upper_left));
+                }
+            }
+        }
+    }
+
+    /// Writes the row filtered with `filter` into `out` and returns its
+    /// score (the sum of the filtered bytes' magnitudes, read as signed
+    /// values), unless the score reaches `bound`: then `out` holds part of
+    /// the filtered row only.
+    fn scored(self, filter: FilterType, out: &mut [u8], bound: u64) -> Option<u64> {
+        let mut score = 0;
+        let len = self.current.len();
+        for start in (0..len).step_by(CHUNK) {
+            let range = start..(start + CHUNK).min(len);
+            self.apply(filter, out, range.clone());
+            score += u64::from(chunk_score(&out[range]));
+            if score >= bound {
+                return None;
+            }
+        }
+        Some(score)
+    }
+}
+
+/// The sum of the magnitudes of at most [`CHUNK`] filtered bytes, read as
+/// signed values.
+fn chunk_score(filtered: &[u8]) -> u32 {
     filtered
         .iter()
-        .map(|&byte| u64::from((byte as i8).unsigned_abs()))
+        .map(|&byte| u32::from((byte as i8).unsigned_abs()))
         .sum()
 }
 
-/// Writes `current` filtered with `filter` into `out`.
-fn apply(filter: FilterType, stride: usize, previous: &[u8], current: &[u8], out: &mut [u8]) {
-    let (head, tail) = out.split_at_mut(stride);
-    let lefts = current;
-    let upper_lefts = previous;
-    let (current_head, current_tail) = current.split_at(stride);
-    let (previous_head, previous_tail) = previous.split_at(stride);
+/// What `filter` predicts a byte from: the corresponding bytes of the
+/// pixels to its left, above it and above-left.
+fn predict(filter: FilterType, left: u8, up: u8, upper_left: u8) -> u8 {
     match filter {
-        FilterType::None => out.copy_from_slice(current),
-        FilterType::Sub => {
-            head.copy_from_slice(current_head);
-            for ((o, &c), &left) in tail.iter_mut().zip(current_tail).zip(lefts) {
-                *o = c.wrapping_sub(left);
-            }
-        }
-        FilterType::Up => {
-            for ((o, &c), &up) in out.iter_mut().zip(current).zip(previous) {
-                *o = c.wrapping_sub(up);
-            }
-        }
-        FilterType::Average => {
-            for ((o, &c), &up) in head.iter_mut().zip(current_head).zip(previous_head) {
-                *o = c.wrapping_sub(up / 2);
-            }
-            let neighbours = lefts.iter().zip(previous_tail);
-            for ((o, &c), (&left, &up)) in tail.iter_mut().zip(current_tail).zip(neighbours) {
-                *o = c.wrapping_sub(average(left, up));
-            }
-        }
-        FilterType::Paeth => {
-            for ((o, &c), &up) in head.iter_mut().zip(current_head).zip(previous_head) {
-                *o = c.wrapping_sub(up);
-            }
-            let neighbours = lefts.iter().zip(previous_tail).zip(upper_lefts);
-            for ((o, &c), ((&left, &up), &upper_left)) in
-                tail.iter_mut().zip(current_tail).zip(neighbours)
-            {
-                *o = c.wrapping_sub(paeth(left, up, upper_left));
-            }
-        }
+        FilterType::None => 0,
+        FilterType::Sub => left,
+        FilterType::Up => up,
+        FilterType::Average => average(left, up),
+        FilterType::Paeth => paeth(left, up, upper_left),
     }
 }
 
@@ -360,6 +411,49 @@ mod tests {
         let filtered = filter_image(&noise.repeat(2), 64, 1, FilterStrategy::Adaptive).unwrap();
         assert_eq!(filtered[65], FilterType::Up.byte());
         assert!(filtered[66..].iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    fn adaptive_choice_is_the_first_filter_of_smallest_score() {
+        // Rows of several chunks (filters are dropped part-way), of noise,
+        // a gradient, a repeated row and a constant one (scores tie).
+        let mut rng = Rng::new(24);
+        for stride in [1, 3, 4, 8] {
+            let row_bytes = stride * (2 * CHUNK / stride + 1 + rng.below(50));
+            let mut image = rng.bytes(row_bytes * 6);
+            for (i, byte) in image[row_bytes..2 * row_bytes].iter_mut().enumerate() {
+                *byte = (i / 7) as u8;
+            }
+            image.copy_within(row_bytes..2 * row_bytes, 2 * row_bytes);
+            image[4 * row_bytes..5 * row_bytes].fill(255);
+            let adaptive =
+                filter_image(&image, row_bytes, stride, FilterStrategy::Adaptive).unwrap();
+            let fixed: Vec<Vec<u8>> = FilterType::ALL
+                .iter()
+                .map(|&f| {
+                    filter_image(&image, row_bytes, stride, FilterStrategy::Fixed(f)).unwrap()
+                })
+                .collect();
+            for line in (0..adaptive.len()).step_by(row_bytes + 1) {
+                let bytes = line..line + row_bytes + 1;
+                let score = |filtered: &Vec<u8>| -> u64 {
+                    filtered[line + 1..bytes.end]
+                        .iter()
+                        .map(|&b| u64::from((b as i8).unsigned_abs()))
+                        .sum()
+                };
+                let (first_smallest, _) = fixed
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|&(index, filtered)| (score(filtered), index))
+                    .expect("five filters");
+                assert_eq!(
+                    adaptive[bytes.clone()],
+                    fixed[first_smallest][bytes],
+                    "stride {stride}, line at {line}"
+                );
+            }
+        }
     }
 
     #[test]

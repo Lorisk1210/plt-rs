@@ -330,14 +330,19 @@ fn thin_margins(out: &mut String, results: &Results) {
     }
     let _ = writeln!(
         out,
-        "These speed-ups are under {}, or are slowdowns. Three causes account for most of \
-         them. Cold, both Python columns spend most of a small figure's time starting the \
-         interpreter and importing numpy, which caps the cold speed-up of pltrs (Python). \
-         Where a large PNG or PDF stream is compressed, compression takes most of the time \
-         on both sides, and matplotlib's PNG goes through zlib-ng, which is faster than the \
-         zlib-like encoder of pltrs (see [Same work](#same-work)). Where every marker of a \
-         scatter has its own size, both libraries stroke and fill each one with the same Agg \
-         algorithms.\n\n\
+        "These speed-ups are under {}, or are slowdowns. The workloads near that line fall \
+         in three groups. In figures of millions of values (the lines of 10⁶ points, the \
+         4000 × 4000 images, the 10⁶ and 10⁷ samples of a hexbin and a histogram), both \
+         libraries transform or map every value in compiled code, and pltrs also copies the \
+         values out of numpy and makes and frees buffers of tens of megabytes for every \
+         figure: the C library returns that memory to the system after each draw, so the \
+         next one faults it in again 4 KiB at a time, while numpy backs its own arrays with \
+         2 MiB pages. Where a small image is enlarged with a large kernel, both libraries \
+         resample it with the same Agg filters, and much of the rest goes to compressing the \
+         PNG, where matplotlib's Pillow uses zlib-ng, which is faster than the zlib-like \
+         encoder of pltrs (see [Same work](#same-work)). Where every marker of a scatter has \
+         its own size, both libraries stroke and fill each one with the same Agg algorithms. \
+         Cold runs add the start-up of the interpreter and of numpy to both sides.\n\n\
          | workload | implementation | run | speed-up [95% interval] |\n|---|---|---|---:|\n{}\n",
         speedup(1.0 / THIN),
         rows.join("\n")

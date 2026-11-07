@@ -42,10 +42,10 @@ impl LineArtist {
             .select_markers(ctx.layout(), &points, &affine)
             .map_err(|e| e.to_string())?
         {
-            Some(indices) => {
-                Path::polyline(indices.iter().map(|&i| points.vertices()[i]).collect())
-            }
-            None => points.into_owned(),
+            Some(indices) => Cow::Owned(Path::polyline(
+                indices.iter().map(|&i| points.vertices()[i]).collect(),
+            )),
+            None => points,
         };
         // Drawn even when `markevery` picks no point, as matplotlib does:
         // PostScript and PGF still define the marker.

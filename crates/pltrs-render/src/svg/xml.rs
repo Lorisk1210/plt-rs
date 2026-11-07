@@ -2,14 +2,69 @@
 //! indentation per level, empty elements collapsed to `<tag/>` and
 //! attributes without a value left out.
 
+use std::borrow::Cow;
+
 /// An element attribute: name and value.
 pub type Attribute<'a> = (&'a str, String);
 
-/// `_escape_cdata`.
-fn escape_cdata(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
+/// The entity of a byte of character data, if it has one
+/// (`_escape_cdata`). Every byte escaped is ASCII, which in UTF-8 is never
+/// part of another character, so text can be escaped byte by byte.
+fn cdata_entity(byte: u8) -> Option<&'static str> {
+    match byte {
+        b'&' => Some("&amp;"),
+        b'<' => Some("&lt;"),
+        b'>' => Some("&gt;"),
+        _ => None,
+    }
+}
+
+/// The entity of a byte of an attribute holding both kinds of quotes
+/// (`_quote_escape_attrib`'s last case), if it has one.
+fn attribute_entity(byte: u8) -> Option<&'static str> {
+    match byte {
+        b'\'' => Some("&apos;"),
+        b'"' => Some("&quot;"),
+        _ => cdata_entity(byte),
+    }
+}
+
+/// Whether `text` has a byte `entity` escapes. The bytes are counted
+/// rather than searched for: a loop without an early exit, which the
+/// compiler runs over many bytes at once (a path's data can be megabytes
+/// long, and has none).
+fn needs_escaping(text: &str, entity: impl Fn(u8) -> Option<&'static str>) -> bool {
+    text.bytes().filter(|&byte| entity(byte).is_some()).count() > 0
+}
+
+/// Appends `text` to `out` with every byte `entity` escapes replaced by
+/// its entity, in one pass: what matplotlib's chain of `replace` calls
+/// gives, as no entity contains a character a later one replaces.
+fn push_escaped(out: &mut String, text: &str, entity: impl Fn(u8) -> Option<&'static str> + Copy) {
+    if !needs_escaping(text, entity) {
+        out.push_str(text);
+        return;
+    }
+    let mut copied = 0;
+    for (at, byte) in text.bytes().enumerate() {
+        if let Some(escaped) = entity(byte) {
+            out.push_str(&text[copied..at]);
+            out.push_str(escaped);
+            copied = at + 1;
+        }
+    }
+    out.push_str(&text[copied..]);
+}
+
+/// `_escape_cdata`: the text itself when it has nothing to escape.
+fn escape_cdata(text: &str) -> Cow<'_, str> {
+    if needs_escaping(text, cdata_entity) {
+        let mut escaped = String::with_capacity(text.len() + 16);
+        push_escaped(&mut escaped, text, cdata_entity);
+        Cow::Owned(escaped)
+    } else {
+        Cow::Borrowed(text)
+    }
 }
 
 /// `_escape_comment`: character data escaping plus a space between
@@ -27,21 +82,22 @@ fn escape_comment(text: &str) -> String {
     out
 }
 
-/// `_quote_escape_attrib`: double quotes unless the value contains one,
-/// then single quotes, then full escaping.
-fn quote_attribute(value: &str) -> String {
+/// Appends `value` to `out` quoted as `_quote_escape_attrib` quotes it:
+/// in double quotes unless it contains one, then in single quotes, then
+/// fully escaped in double quotes.
+fn push_attribute(out: &mut String, value: &str) {
     if !value.contains('"') {
-        format!("\"{}\"", escape_cdata(value))
+        out.push('"');
+        push_escaped(out, value, cdata_entity);
+        out.push('"');
     } else if !value.contains('\'') {
-        format!("'{}'", escape_cdata(value))
+        out.push('\'');
+        push_escaped(out, value, cdata_entity);
+        out.push('\'');
     } else {
-        let escaped = value
-            .replace('&', "&amp;")
-            .replace('\'', "&apos;")
-            .replace('"', "&quot;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;");
-        format!("\"{escaped}\"")
+        out.push('"');
+        push_escaped(out, value, attribute_entity);
+        out.push('"');
     }
 }
 
@@ -91,7 +147,7 @@ impl XmlWriter {
         }
         if !self.data.is_empty() {
             let data = std::mem::take(&mut self.data);
-            self.out.push_str(&escape_cdata(&data));
+            push_escaped(&mut self.out, &data, cdata_entity);
         }
     }
 
@@ -99,7 +155,7 @@ impl XmlWriter {
     pub fn start(&mut self, tag: &str, attributes: &[Attribute<'_>]) -> usize {
         self.flush(true);
         self.data.clear();
-        let tag = escape_cdata(tag);
+        let tag = escape_cdata(tag).into_owned();
         self.indent(self.tags.len());
         self.out.push('<');
         self.out.push_str(&tag);
@@ -107,9 +163,9 @@ impl XmlWriter {
         for (name, value) in attributes {
             if !value.is_empty() {
                 self.out.push(' ');
-                self.out.push_str(&escape_cdata(name));
+                push_escaped(&mut self.out, name, cdata_entity);
                 self.out.push('=');
-                self.out.push_str(&quote_attribute(value));
+                push_attribute(&mut self.out, value);
             }
         }
         self.open = true;
@@ -174,7 +230,7 @@ impl XmlWriter {
     /// Whether `tag` names the innermost open element (matplotlib's check
     /// of `end(tag)`).
     pub fn closes(&self, tag: &str) -> bool {
-        self.tags.last() == Some(&escape_cdata(tag))
+        self.tags.last().map(String::as_str) == Some(&*escape_cdata(tag))
     }
 
     /// The text written since the last call, which the writer forgets.
@@ -191,6 +247,47 @@ impl XmlWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn escaping_is_matplotlibs_chain_of_replacements() {
+        let cdata = |text: &str| {
+            text.replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+        };
+        let quoted = |value: &str| {
+            if !value.contains('"') {
+                format!("\"{}\"", cdata(value))
+            } else if !value.contains('\'') {
+                format!("'{}'", cdata(value))
+            } else {
+                let escaped = value
+                    .replace('&', "&amp;")
+                    .replace('\'', "&apos;")
+                    .replace('"', "&quot;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
+                format!("\"{escaped}\"")
+            }
+        };
+        for text in [
+            "",
+            "M 0 0 L 1 1",
+            "a < b & c > d",
+            "&amp;&lt;",
+            "<<>>&&",
+            "é<ü>ß&€",
+            "say \"hi\"",
+            "it's \"both\" & <more>",
+            "'only single'",
+        ] {
+            assert_eq!(escape_cdata(text), cdata(text), "{text:?}");
+            let mut out = String::new();
+            push_attribute(&mut out, text);
+            assert_eq!(out, quoted(text), "{text:?}");
+        }
+        assert!(matches!(escape_cdata("M 0 0 L 1 1"), Cow::Borrowed(_)));
+    }
 
     #[test]
     fn writes_like_matplotlib() {
@@ -223,8 +320,13 @@ mod tests {
 
     #[test]
     fn quotes_attributes() {
-        assert_eq!(quote_attribute("a\"b"), "'a\"b'");
-        assert_eq!(quote_attribute("a\"b'c"), "\"a&quot;b&apos;c\"");
-        assert_eq!(quote_attribute("x<y"), "\"x&lt;y\"");
+        let quoted = |value: &str| {
+            let mut out = String::new();
+            push_attribute(&mut out, value);
+            out
+        };
+        assert_eq!(quoted("a\"b"), "'a\"b'");
+        assert_eq!(quoted("a\"b'c"), "\"a&quot;b&apos;c\"");
+        assert_eq!(quoted("x<y"), "\"x&lt;y\"");
     }
 }

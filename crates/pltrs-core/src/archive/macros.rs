@@ -8,16 +8,22 @@
 /// ```text
 /// archive_struct!(Name { field, other });        // named fields
 /// archive_struct!(Name { field } skip { cache }); // `cache` reads back as its Default
+/// archive_struct!(Name { field } check Name::valid); // read back only if `valid` accepts it
 /// archive_struct!(Name(first, second));          // a tuple struct (names bind the fields)
 /// archive_struct!(Name);                         // a unit struct
 /// archive_struct!(Name<T: Bound> { field });     // generic, with T: Archive + Bound
 /// ```
 ///
+/// A `check` names a function `fn(&Name) -> Result<(), ArchiveError>`
+/// telling whether a value read back keeps the invariants its
+/// constructors keep (a grid cell inside its grid): a corrupted archive
+/// may hold any value of every field.
+///
 /// Invoke it where the fields are visible, next to the struct.
 #[macro_export]
 macro_rules! archive_struct {
     ($name:ident $(< $($generic:ident $(: $bound:path)?),+ >)? { $($field:ident),* $(,)? }
-        $(skip { $($skipped:ident),* $(,)? })?) => {
+        $(skip { $($skipped:ident),* $(,)? })? $(check $check:path)?) => {
         impl $(< $($generic: $crate::archive::Archive $(+ $bound)?),+ >)? $crate::archive::Archive
             for $name $(< $($generic),+ >)?
         {
@@ -34,10 +40,12 @@ macro_rules! archive_struct {
                 decoder: &mut $crate::archive::Decoder<'_>,
             ) -> ::std::result::Result<Self, $crate::archive::ArchiveError> {
                 $(let $field = $crate::archive::Archive::decode(decoder)?;)*
-                ::std::result::Result::Ok(Self {
+                let value = Self {
                     $($field,)*
                     $($($skipped: ::std::default::Default::default(),)*)?
-                })
+                };
+                $($check(&value)?;)?
+                ::std::result::Result::Ok(value)
             }
         }
     };

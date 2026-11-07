@@ -5,10 +5,10 @@
 
 use pltrs::axes::{
     Axes, BoxplotOptions, EcdfOptions, EventplotOptions, HistPlotOptions, PieOptions,
-    SpecgramOptions, SpectralPlotOptions, ViolinplotOptions,
+    SpecgramOptions, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale, ViolinplotOptions,
 };
 use pltrs::lines::LineProps;
-use pltrs::mlab::XcorrOptions;
+use pltrs::mlab::{SpectrumOptions, XcorrOptions};
 use pltrs::stats::{Bins, Cumulative, HistOrientation, HistType, Whis};
 use pltrs::ticker::LabelFormat;
 
@@ -106,7 +106,7 @@ impl StatCall {
                 x: series(g, n),
                 nfft: count(g, 64),
                 overlap: count(g, 32),
-                kind: g.below(5),
+                kind: g.below(9),
             },
         }
     }
@@ -189,9 +189,13 @@ impl StatCall {
     }
 }
 
-/// A spectral plot of `x`: power, specgram, autocorrelation, coherence
-/// or cross spectral density.
+/// A spectral plot of `x`: power, specgram, autocorrelation, coherence,
+/// cross spectral density, a single-segment spectrum or the correlation
+/// of `x` with itself reversed.
 fn spectrum(ax: &Axes, x: &[f64], nfft: usize, overlap: usize, kind: usize) {
+    if kind >= 5 {
+        return single_segment(ax, x, nfft, overlap, kind);
+    }
     let mut options = SpectralPlotOptions::default();
     options.spectral.nfft = nfft;
     options.spectral.noverlap = Some(overlap);
@@ -218,5 +222,45 @@ fn spectrum(ax: &Axes, x: &[f64], nfft: usize, overlap: usize, kind: usize) {
         }
         3 => drop(ax.cohere(x, x, options)),
         _ => drop(ax.csd(x, x, options)),
+    }
+}
+
+/// A single-segment spectrum of `x` padded to `pad` points (magnitude,
+/// linear or in decibels, angle or phase), or the cross-correlation of
+/// `x` with itself reversed, of up to `lags` lags.
+fn single_segment(ax: &Axes, x: &[f64], pad: usize, lags: usize, kind: usize) {
+    let options = SpectrumPlotOptions {
+        spectrum: SpectrumOptions {
+            pad_to: Some(pad),
+            ..SpectrumOptions::default()
+        },
+        ..SpectrumPlotOptions::default()
+    };
+    let values = x.iter().copied();
+    match kind {
+        5 => {
+            let scale = if lags.is_multiple_of(2) {
+                SpectrumScale::Linear
+            } else {
+                SpectrumScale::Decibels
+            };
+            drop(ax.magnitude_spectrum(values, scale, options));
+        }
+        6 => drop(ax.angle_spectrum(values, options)),
+        7 => drop(ax.phase_spectrum(values, options)),
+        _ => {
+            let correlation = XcorrOptions {
+                maxlags: Some(lags),
+                ..XcorrOptions::default()
+            };
+            let reversed = x.iter().rev().copied();
+            drop(ax.xcorr(
+                values,
+                reversed,
+                correlation,
+                lags.is_multiple_of(3),
+                LineProps::default(),
+            ));
+        }
     }
 }

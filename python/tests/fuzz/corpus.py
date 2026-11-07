@@ -16,14 +16,17 @@ import ast
 import pathlib
 import random
 import subprocess
+import sys
 
 from . import actions, values
 
 #: The repository's root.
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 
-#: The reference venv's interpreter, which has matplotlib.
-REFERENCE_PYTHON = ROOT / ".venv" / "bin" / "python"
+#: The reference venv's interpreter, which has matplotlib (venvs keep it
+#: in ``Scripts`` on Windows).
+REFERENCE_PYTHON = ROOT / ".venv" / ("Scripts/python.exe" if sys.platform == "win32"
+                                     else "bin/python")
 
 #: Statements slipped between a program's own.
 STRESS = [
@@ -41,14 +44,17 @@ STRESS = [
 def load(directory):
     """The differential tester's programs, written into *directory*
     (once, with the reference venv) and read from there; none without
-    the reference venv."""
+    the reference venv. They are written aside and moved in place once
+    all are, so that a generation that failed is made again."""
     corpus = directory / "corpus"
     if not corpus.is_dir():
         if not REFERENCE_PYTHON.exists():
             return []
+        written = directory / "corpus.partial"
         subprocess.run([str(REFERENCE_PYTHON), str(ROOT / "spec" / "diff" / "generate.py"),
-                        str(corpus)], cwd=directory, check=True, capture_output=True)
-    return [path.read_text() for path in sorted(corpus.rglob("*.py"))]
+                        str(written)], cwd=directory, check=True, capture_output=True)
+        written.rename(corpus)
+    return [path.read_text(encoding="utf-8") for path in sorted(corpus.rglob("*.py"))]
 
 
 def _to_pltrs(statement):
@@ -57,7 +63,10 @@ def _to_pltrs(statement):
 
 
 class _Literals(ast.NodeTransformer):
-    """Replaces literals by random values, each with probability `rate`."""
+    """Replaces literals by random values, each with probability `rate`,
+    but for the arguments of calls that block (`actions.BLOCKING`): the
+    differential tester gives them short timeouts, which a mutation would
+    make into waits matplotlib makes too."""
 
     def __init__(self, rng, rate):
         self.rng = rng
@@ -78,6 +87,13 @@ class _Literals(ast.NodeTransformer):
             return self._replacement(self.values.string() if self.rng.random() < 0.7
                                      else self.values.any_value())
         return node
+
+    def visit_Call(self, node):
+        function = node.func
+        name = getattr(function, "attr", getattr(function, "id", None))
+        if name in actions.BLOCKING:
+            return node
+        return self.generic_visit(node)
 
     def visit_JoinedStr(self, node):
         # The parts of an f-string are no values of their own.

@@ -12,7 +12,20 @@ pub struct Grid<T> {
     data: Vec<T>,
 }
 
-pltrs_core::archive_struct!(Grid<T> { rows, cols, data });
+pltrs_core::archive_struct!(Grid<T> { rows, cols, data } check Grid::valid);
+
+impl<T> Grid<T> {
+    /// Whether the grid read back has `rows * cols` values, as its
+    /// constructors make sure.
+    fn valid(&self) -> Result<(), pltrs_core::archive::ArchiveError> {
+        if self.rows.checked_mul(self.cols) != Some(self.data.len()) {
+            return Err(pltrs_core::archive::ArchiveError::invalid(
+                "a grid whose shape does not match its values",
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// A shape inconsistency when building a [`Grid`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -209,7 +222,28 @@ pub(crate) fn cell_buffer<T>(rows: usize, cols: usize) -> Vec<T> {
 
 #[cfg(test)]
 mod tests {
+    use pltrs_core::archive::{NoProgram, from_bytes, to_bytes};
+
     use super::*;
+
+    #[test]
+    fn grids_whose_shape_does_not_match_their_values_are_refused() {
+        // Found by fuzzing: a mesh read back with fewer points than its
+        // shape indexed past them.
+        let bad = Grid {
+            rows: 3,
+            cols: 3,
+            data: vec![0.0; 8],
+        };
+        let (bytes, externals) = to_bytes(&bad, &NoProgram).expect("archivable");
+        assert!(from_bytes::<Grid<f64>>(&bytes, &externals, &NoProgram).is_err());
+        let good = Grid::from_fn(2, 3, |i, j| (i * 3 + j) as f64);
+        let (bytes, externals) = to_bytes(&good, &NoProgram).expect("archivable");
+        assert_eq!(
+            from_bytes::<Grid<f64>>(&bytes, &externals, &NoProgram),
+            Ok(good)
+        );
+    }
 
     #[test]
     fn construction_and_indexing() {

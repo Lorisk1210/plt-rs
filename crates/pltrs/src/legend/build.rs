@@ -444,11 +444,14 @@ fn legend_box(
 }
 
 /// numpy's `array_split` into `ncols` (at least one) columns without the
-/// empty ones: the first `len % ncols` columns get one entry more.
+/// empty ones: the first `len % ncols` columns get one entry more. The
+/// columns past the `len`th are all empty, so only `len` are made however
+/// many are asked for.
 fn split_columns<T>(items: Vec<T>, ncols: usize) -> Vec<Vec<T>> {
     let (base, extra) = (items.len() / ncols, items.len() % ncols);
+    let made = ncols.min(items.len());
     let mut items = items.into_iter();
-    (0..ncols)
+    (0..made)
         .map(|column| {
             let size = base + usize::from(column < extra);
             items.by_ref().take(size).collect::<Vec<_>>()
@@ -468,6 +471,11 @@ mod tests {
             [vec![0, 1], vec![2, 3], vec![4]]
         );
         assert_eq!(split_columns((0..2).collect(), 3), [vec![0], vec![1]]);
+        // Found by fuzzing: `ncols = usize::MAX` made every empty column.
+        assert_eq!(
+            split_columns((0..3).collect(), usize::MAX),
+            [vec![0], vec![1], vec![2]]
+        );
         assert_eq!(split_columns(Vec::<u8>::new(), 2), Vec::<Vec<u8>>::new());
     }
 

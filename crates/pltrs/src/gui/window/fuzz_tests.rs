@@ -8,7 +8,8 @@
 //! Close). Nothing may panic.
 //!
 //! Saves go to a sandbox directory dozens of levels deep, and nothing
-//! typed or pasted holds a `/`, so that no file is written outside it.
+//! typed or pasted holds a path separator (`/`, or on Windows `\`) or a
+//! drive's colon, so that no file is written outside it.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -201,12 +202,14 @@ impl Step {
     }
 }
 
-/// Pasted text: pieces, characters, or a long run.
+/// Pasted text: pieces, characters, or a long run. Separators and colons
+/// are left out on every system, so that a seed pastes the same text on
+/// all of them.
 fn pasted(g: &mut Gen) -> String {
     if g.chance(0.05) {
         "9".repeat(g.pick(&[300, 5_000]))
     } else {
-        g.soup(&PASTED, 6).replace('/', "")
+        g.soup(&PASTED, 6).replace(['/', '\\', ':'], "")
     }
 }
 

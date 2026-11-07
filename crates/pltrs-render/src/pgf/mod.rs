@@ -23,6 +23,7 @@ pub use text::{pgf_text, pgf_unknown_family};
 
 use std::fmt::Write as _;
 
+use pltrs_core::alloc::OutOfMemory;
 use pltrs_core::path::convert::SimplifySettings;
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_text::TextRun;
@@ -166,6 +167,10 @@ impl PgfRenderer {
             ),
         );
         writeln_pgf(&mut text, r"\pgfusepath{use as bounding box, clip}");
+        if text.try_reserve(self.body.len()).is_err() {
+            let bytes = text.len().saturating_add(self.body.len());
+            return Err(OutOfMemory { bytes }.into());
+        }
         text.push_str(&self.body);
         writeln_pgf(&mut text, r"\end{pgfpicture}");
         writeln_pgf(&mut text, r"\makeatother");
@@ -176,8 +181,18 @@ impl PgfRenderer {
         })
     }
 
-    /// Writes one line of the picture.
+    /// Writes one line of the picture. A picture larger than the memory
+    /// the system gives (a hatch tile written for each of thousands of
+    /// paths, as matplotlib writes it) stops growing, and the print fails
+    /// as running out of memory does.
     fn line(&mut self, line: &str) {
+        let needed = line.len() + 2;
+        if self.body.try_reserve(needed).is_err() {
+            let bytes = self.body.len().saturating_add(needed);
+            self.problems
+                .record::<()>(Err(OutOfMemory { bytes }.into()));
+            return;
+        }
         writeln_pgf(&mut self.body, line);
     }
 

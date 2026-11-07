@@ -76,7 +76,8 @@ def main() -> int:
         directory = out / group
         directory.mkdir(parents=True)
         for name, statements in generate():
-            (directory / f"{name}.py").write_text("\n".join(statements) + "\n")
+            (directory / f"{name}.py").write_text("\n".join(statements) + "\n",
+                                                  encoding="utf-8")
     return 0
 
 

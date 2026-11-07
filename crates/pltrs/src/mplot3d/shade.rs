@@ -4,6 +4,7 @@
 
 use pltrs_core::Rgba;
 
+use super::Axes3DError;
 use super::math::{Vec3, cross, dot, norm, sub};
 pub use crate::colors::LightSource;
 
@@ -30,17 +31,36 @@ pub(crate) fn polygon_normal(polygon: &[Vec3]) -> Vec3 {
 /// let up = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]];
 /// let down: Vec<_> = up.iter().rev().copied().collect();
 /// let light = LightSource::new(0.0, 90.0);
-/// let shaded = shade_faces(&[up, down], &[Rgba::opaque(1.0, 1.0, 1.0)], &light);
+/// let shaded = shade_faces(&[up, down], &[Rgba::opaque(1.0, 1.0, 1.0)], &light)?;
 /// assert!((shaded[0].r - 1.0).abs() < 1e-12 && (shaded[1].r - 0.3).abs() < 1e-12);
+/// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
 /// ```
-pub fn shade_faces(faces: &[Vec<Vec3>], colors: &[Rgba], light: &LightSource) -> Vec<Rgba> {
+///
+/// # Errors
+///
+/// [`Axes3DError::ShadeColors`] for neither one colour nor one per face.
+pub fn shade_faces(
+    faces: &[Vec<Vec3>],
+    colors: &[Rgba],
+    light: &LightSource,
+) -> Result<Vec<Rgba>, Axes3DError> {
     let normals: Vec<Vec3> = faces.iter().map(|face| polygon_normal(face)).collect();
     shade_colors(colors, &normals, light)
 }
 
 /// `colors` (one, or one per normal) darkened where their face turns away
 /// from the light, keeping their alpha (matplotlib's `_shade_colors`).
-pub(crate) fn shade_colors(colors: &[Rgba], normals: &[Vec3], light: &LightSource) -> Vec<Rgba> {
+///
+/// # Errors
+///
+/// [`Axes3DError::ShadeColors`] for neither one colour nor one per
+/// normal (when some normal is defined: otherwise the colours stay as
+/// they are, as in matplotlib).
+pub(crate) fn shade_colors(
+    colors: &[Rgba],
+    normals: &[Vec3],
+    light: &LightSource,
+) -> Result<Vec<Rgba>, Axes3DError> {
     let direction = light.direction();
     let shades: Vec<f64> = normals
         .iter()
@@ -50,11 +70,17 @@ pub(crate) fn shade_colors(colors: &[Rgba], normals: &[Vec3], light: &LightSourc
         })
         .collect();
     if shades.iter().all(|s| s.is_nan()) || colors.is_empty() {
-        return colors.to_vec();
+        return Ok(colors.to_vec());
+    }
+    if colors.len() != 1 && colors.len() != normals.len() {
+        return Err(Axes3DError::ShadeColors {
+            faces: normals.len(),
+            colors: colors.len(),
+        });
     }
     // Normalize(-1, 1) followed by Normalize(0.3, 1).inverse.
     let (vmin, vmax) = (0.3, 1.0);
-    shades
+    Ok(shades
         .iter()
         .enumerate()
         .map(|(i, &shade)| {
@@ -69,7 +95,7 @@ pub(crate) fn shade_colors(colors: &[Rgba], normals: &[Vec3], light: &LightSourc
                 color.a,
             )
         })
-        .collect()
+        .collect())
 }
 
 /// The alpha factor of each point at projected depth `zs`: 1 for the
@@ -122,7 +148,7 @@ mod tests {
         let toward = light.direction();
         let away = [-toward[0], -toward[1], -toward[2]];
         let red = Rgba::new(1.0, 0.0, 0.0, 0.5);
-        let shaded = shade_colors(&[red], &[toward, away, [0.0; 3]], &light);
+        let shaded = shade_colors(&[red], &[toward, away, [0.0; 3]], &light).expect("one colour");
         assert!((shaded[0].r - 1.0).abs() < 1e-12);
         assert!((shaded[1].r - 0.3).abs() < 1e-12);
         assert!(
@@ -130,6 +156,21 @@ mod tests {
             "degenerate faces are half lit"
         );
         assert!(shaded.iter().all(|c| (c.a - 0.5).abs() < 1e-12));
+    }
+
+    #[test]
+    fn colours_neither_one_nor_one_per_face_fail_as_numpy_broadcasting() {
+        // Found by fuzzing: six colours for the eighteen faces of three
+        // bars indexed past them (matplotlib's `ValueError`).
+        let light = LightSource::mplot3d();
+        let up = light.direction();
+        let red = Rgba::new(1.0, 0.0, 0.0, 1.0);
+        let err = shade_colors(&[red; 6], &[up; 18], &light).expect_err("6 for 18");
+        assert_eq!(
+            err.to_string(),
+            "operands could not be broadcast together with shapes (18,1) (6,4) "
+        );
+        assert!(shade_colors(&[red; 18], &[up; 18], &light).is_ok());
     }
 
     #[test]

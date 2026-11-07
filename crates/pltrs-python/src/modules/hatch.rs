@@ -5,6 +5,7 @@
 //! A piece goes back as its `(N, 2)` vertices and its `N` codes, which
 //! the class's `set_vertices_and_codes` writes into the caller's arrays.
 
+use pltrs_core::alloc::OutOfMemory;
 use pltrs_core::hatch::{HatchLines, HatchShapes};
 use pltrs_core::{Path, Point};
 
@@ -42,7 +43,13 @@ fn line_vertex_count(family: String, lines: usize) -> PyResult<usize> {
 
 /// `lines` lines of `family` (`set_vertices_and_codes`).
 fn line_piece(family: String, lines: usize) -> PyResult<Piece> {
-    piece(&lines_family(&family)?.path(lines))
+    piece(&lines_family(&family)?.path(lines).map_err(memory_error)?)
+}
+
+/// numpy's `MemoryError` for a piece of more vertices than the system
+/// gives memory for.
+fn memory_error(err: OutOfMemory) -> PyErr {
+    PyErr::new(ExceptionKind::MemoryError, err.to_string())
 }
 
 /// The rows of a shape: `shape`, scaled by `size`, filled or not.
@@ -57,7 +64,11 @@ fn shapes(shape: PyPath, size: f64, filled: bool) -> HatchShapes {
 
 /// `rows` rows of `shape` (`Shapes.set_vertices_and_codes`).
 fn shape_piece(shape: PyPath, (size, filled): (f64, bool), rows: usize) -> PyResult<Piece> {
-    piece(&shapes(shape, size, filled).path(rows))
+    piece(
+        &shapes(shape, size, filled)
+            .path(rows)
+            .map_err(memory_error)?,
+    )
 }
 
 /// Registers the module's functions.

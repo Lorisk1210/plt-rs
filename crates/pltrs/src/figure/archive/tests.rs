@@ -5,9 +5,11 @@ use pltrs_core::archive::{self, ArchiveError, External, NoProgram, ProgramKinds}
 
 use super::Figure;
 use crate::artist::{ArtistHandle, ArtistId, FigureRef, Picker, RawHandle};
+use crate::axes::AxesState;
 use crate::axes::ImshowOptions;
 use crate::colors::colormaps;
 use crate::events::EventSource;
+use crate::figure::{FigureState, SubfigureOptions};
 use crate::legend::LegendOptions;
 use crate::lines::{Line2D, LineProps};
 use crate::navigation::PointerButton;
@@ -194,4 +196,69 @@ fn corrupted_archives_are_refused_without_panicking() {
     for len in (0..bytes.len()).step_by(97) {
         assert!(Figure::from_archive(&bytes[..len], &externals, &NoProgram).is_err());
     }
+}
+
+/// The figure `fig` archived after `tamper` changed its state, as a
+/// corrupted archive may hold it, then read back.
+fn tampered(fig: &Figure, tamper: impl FnOnce(&mut FigureState)) -> Result<Figure, ArchiveError> {
+    tamper(&mut fig.state.borrow_mut());
+    let (bytes, externals) = fig.to_archive(&NoProgram).expect("archivable");
+    Figure::from_archive(&bytes, &externals, &NoProgram)
+}
+
+#[test]
+fn artists_owning_or_placed_in_themselves_are_refused() {
+    // Found by fuzzing: a subfigure listed among the children of an axes
+    // it holds, which drew the two in turn until the stack overflowed.
+    let fig = Figure::new();
+    let sub = fig
+        .subfigures(1, 1, SubfigureOptions::default())
+        .expect("a subfigure")[(0, 0)]
+        .clone();
+    let ax = sub.subplot();
+    let (frame, axes) = (sub.root.id(), ax.id());
+    let read = tampered(&fig, |state| {
+        let ax = state.artist_as_mut::<AxesState>(axes).expect("axes");
+        ax.children.push(frame);
+    });
+    assert!(matches!(read, Err(ArchiveError::Invalid(_))));
+    // A frame placed in an axes of its own: placing either asks the other.
+    let fig = Figure::new();
+    let sub = fig
+        .subfigures(1, 1, SubfigureOptions::default())
+        .expect("a subfigure")[(0, 0)]
+        .clone();
+    let ax = sub.subplot();
+    let (frame, axes) = (sub.root.id(), ax.id());
+    let read = tampered(&fig, |state| {
+        state.artist_mut(frame).expect("frame").base_mut().parent = Some(axes);
+    });
+    assert!(matches!(read, Err(ArchiveError::Invalid(_))));
+    // Untampered, the same figure reads back.
+    let fig = Figure::new();
+    fig.subfigures(1, 1, SubfigureOptions::default())
+        .expect("a subfigure")[(0, 0)]
+        .subplot();
+    assert!(tampered(&fig, |_| {}).is_ok());
+}
+
+#[test]
+fn artists_drawn_as_their_own_parts_report_a_recursion() {
+    // Found by fuzzing: the figure's frame among the titles of its axes
+    // (drawn by id, but none of its children) drew the two in turn until
+    // the stack overflowed.
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    ax.set_title("t");
+    let (root, axes) = (fig.root.id(), ax.id());
+    let read = tampered(&fig, |state| {
+        let ax = state.artist_as_mut::<AxesState>(axes).expect("axes");
+        ax.titles[1] = root;
+    })
+    .expect("no link cycle among parents and children");
+    let err = read.to_png().expect_err("the frame is its own part");
+    assert!(
+        err.to_string().contains("maximum recursion depth exceeded"),
+        "{err}"
+    );
 }

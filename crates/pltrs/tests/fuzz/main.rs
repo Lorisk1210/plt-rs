@@ -1,7 +1,8 @@
 //! Randomised robustness tests: deterministic pseudo-random inputs reach
 //! every public entry point that takes user input — string and byte
 //! parsers, plotting methods with their options and data, rendering to
-//! every output format and interaction — and nothing may panic or hang.
+//! every output format, interaction, animations and archived figures read
+//! back — and nothing may panic or hang.
 //! Errors are fine; they are how invalid input is meant to be reported.
 //!
 //! [`harness`] runs each target for a small budget by default, so that
@@ -11,6 +12,8 @@
 #[path = "../support/scratch.rs"]
 mod scratch;
 
+mod animations;
+mod archives;
 mod config;
 mod dates;
 mod fonts;

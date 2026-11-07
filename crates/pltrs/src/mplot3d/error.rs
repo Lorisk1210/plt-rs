@@ -93,6 +93,15 @@ pub enum Axes3DError {
     /// The problem recorded for drawing the artist (see
     /// [`Axes3D::set_draw_failure`](super::Axes3D::set_draw_failure)).
     Draw(DrawFailure),
+    /// Face colours to shade that are neither one nor one per face
+    /// (numpy's broadcasting `ValueError` in matplotlib's
+    /// `_shade_colors`).
+    ShadeColors {
+        /// The faces.
+        faces: usize,
+        /// The colours.
+        colors: usize,
+    },
 }
 
 impl fmt::Display for Axes3DError {
@@ -119,6 +128,10 @@ impl fmt::Display for Axes3DError {
                 "{argument} has {actual} elements where {expected} were expected"
             ),
             Self::NoStride => f.write_str("either rstride or cstride must be non zero"),
+            Self::ShadeColors { faces, colors } => write!(
+                f,
+                "operands could not be broadcast together with shapes ({faces},1) ({colors},4) "
+            ),
             Self::UnknownRotationStyle(name) => write!(
                 f,
                 "{name:?} is not a mouse rotation style (azel, trackball, sphere or arcball)"

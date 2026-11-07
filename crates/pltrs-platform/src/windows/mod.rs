@@ -15,13 +15,16 @@
 //!   window's icon, drawn at the sizes of its DPI.
 //! * [`message`], [`keys`] and [`convert`]: decoding messages, keyboard
 //!   input (virtual keys, left and right modifiers, `AltGr`) and units.
-//!   They hold no Win32 calls, so they are tested on every system.
+//!   They hold no Win32 calls, so they are tested, and fuzzed
+//!   (`fuzz_tests`), on every system.
 //! * [`sys`]: the Win32 calls, the backend's only unsafe code, and the
 //!   registry reader the crate also offers (`registry_string_values`).
 
 #[cfg(windows)]
 mod backend;
 mod convert;
+#[cfg(test)]
+mod fuzz_tests;
 #[cfg(windows)]
 mod icon;
 mod keys;

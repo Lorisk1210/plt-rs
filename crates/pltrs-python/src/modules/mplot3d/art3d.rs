@@ -219,7 +219,7 @@ fn shade_faces(
     let light = light.map_or_else(LightSource::mplot3d, |(azdeg, altdeg)| {
         LightSource::new(azdeg, altdeg)
     });
-    let shaded = pltrs::mplot3d::shade_faces(&faces, &colors, &light);
+    let shaded = pltrs::mplot3d::shade_faces(&faces, &colors, &light)?;
     let n = shaded.len();
     NdArray::with_shape(
         shaded.iter().flat_map(|c| [c.r, c.g, c.b, c.a]).collect(),

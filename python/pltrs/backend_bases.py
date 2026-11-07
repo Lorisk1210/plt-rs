@@ -31,6 +31,7 @@ from weakref import WeakKeyDictionary
 import numpy as np
 
 from . import _api, _docstring, _transform_trees, backend_tools as tools, cbook, colors, transforms
+from . import _print_targets
 from . import _val_or_rc, rcParams
 from ._enums import JoinStyle, CapStyle
 from .colors import to_rgba
@@ -2200,11 +2201,12 @@ class FigureCanvasBase:
         Drawing the figure emits a ``draw_event`` before the drawing is
         encoded, as matplotlib's ``Figure.draw`` does.
         """
+        _print_targets.check(fmt, filename_or_obj)
         with self._program_drawing(kwargs.get("bbox_inches_restore")):
             data = _backends.print_figure(
                 self.figure._native, fmt, self._print_settings(**kwargs),
                 self._draw_event_sender())
-        _write_bytes(data, filename_or_obj)
+        _write_bytes(data, filename_or_obj, fmt)
 
     def _send_draw_event(self):
         """Emit the ``draw_event`` of a draw that printed the figure
@@ -2417,16 +2419,10 @@ class FigureCanvasBase:
         self._looping = False
 
 
-def _write_bytes(data, filename_or_obj):
-    """Write the file *data* to *filename_or_obj*: a path, or a binary or
-    text file object."""
-    if isinstance(filename_or_obj, (str, os.PathLike)):
-        with open(filename_or_obj, "wb") as file:
-            file.write(data)
-    elif cbook.file_requires_unicode(filename_or_obj):
-        filename_or_obj.write(data.decode("utf-8"))
-    else:
-        filename_or_obj.write(data)
+def _write_bytes(data, filename_or_obj, fmt=None):
+    """Write the file *data*, of the format *fmt*, to *filename_or_obj*: a
+    path, or a file object (see `._print_targets`)."""
+    _print_targets.write(data, filename_or_obj, fmt)
 
 
 def key_press_handler(event, canvas=None, toolbar=None):

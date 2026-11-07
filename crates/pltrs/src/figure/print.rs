@@ -53,10 +53,15 @@ impl Saving<'_> {
 }
 
 impl Drop for Saving<'_> {
+    /// Restores the figure, unless code further up the call stack uses it
+    /// (a print started from a callback of its own layout, which failed
+    /// as it began): a destructor must not unwind while the print does.
     fn drop(&mut self) {
         let figure = self.figure;
         {
-            let mut state = figure.state_mut();
+            let Some(mut state) = figure.state.try_borrow_mut() else {
+                return;
+            };
             state.print_window = None;
             state.saving = false;
             state.draws_per_layout = 1;
@@ -151,6 +156,9 @@ impl Figure {
         let dpi = self.save_dpi(options);
         let canvas_dpi = canvas_dpi.unwrap_or(dpi);
         let transparent = options.transparent.unwrap_or(rc.savefig_transparent);
+        // First the change that fails for a figure code further up the
+        // call stack uses, before there is anything to restore.
+        self.state_mut().saving = true;
         let mut saving = Saving {
             figure: self,
             dpi: self.dpi(),
@@ -158,7 +166,6 @@ impl Figure {
             subfigure_colors: Vec::new(),
             axes_faces: Vec::new(),
         };
-        self.state_mut().saving = true;
         if transparent {
             saving.make_transparent();
         }

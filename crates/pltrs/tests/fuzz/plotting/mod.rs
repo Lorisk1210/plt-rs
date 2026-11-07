@@ -76,7 +76,7 @@ enum Step {
 
 /// A whole figure.
 #[derive(Debug)]
-struct Plan {
+pub(crate) struct Plan {
     size: (f64, f64),
     dpi: f64,
     grid: (usize, usize),
@@ -145,7 +145,8 @@ impl Step {
 }
 
 impl Plan {
-    fn generate(g: &mut Gen) -> Self {
+    /// A random plan.
+    pub(crate) fn generate(g: &mut Gen) -> Self {
         let extreme = g.chance(0.1);
         let length = |g: &mut Gen| {
             if extreme {
@@ -265,8 +266,9 @@ impl Step {
     }
 }
 
-/// Draws the plan and saves it.
-fn draw(plan: &Plan) {
+/// The figure of the plan, made but not saved; `None` when none of its
+/// axes could be made.
+pub(crate) fn build(plan: &Plan) -> Option<Figure> {
     let fig = Figure::with_size(plan.size.0, plan.size.1, plan.dpi);
     match plan.layout {
         1 => drop(fig.set_layout_engine(LayoutEngine::Constrained(ConstrainedLayout::default()))),
@@ -280,7 +282,7 @@ fn draw(plan: &Plan) {
         }
     }
     if made.is_empty() {
-        return;
+        return None;
     }
     let mut mappables = Mappables::default();
     for step in &plan.steps {
@@ -289,6 +291,14 @@ fn draw(plan: &Plan) {
     if plan.layout == 3 {
         let _ = fig.tight_layout(TightLayout::default());
     }
+    Some(fig)
+}
+
+/// Draws the plan and saves it.
+fn draw(plan: &Plan) {
+    let Some(fig) = build(plan) else {
+        return;
+    };
     let options = SaveOptions {
         dpi: plan.save_dpi,
         bbox_inches: plan.tight.then_some(BboxInches::Tight),

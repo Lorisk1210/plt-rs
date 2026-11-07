@@ -78,6 +78,21 @@ BLOCKING = {"show", "pause", "ginput", "waitforbuttonpress", "start_event_loop",
 FORMATS = ["png", "pdf", "svg", "svgz", "ps", "eps", "pgf", "raw", "rgba", "jpg", "tiff",
            "webp", "gif"]
 
+#: Files saves and image reads go to, in ``saves/`` under the worker's
+#: directory (the fuzzer's, under ``target/``), which every worker shares:
+#: names systems refuse or treat apart (non-ASCII, too long, too deep,
+#: reserved characters and Windows' trailing dots, alternate data streams
+#: and device names), paths that are directories, unknown extensions,
+#: paths as `pathlib.Path` and bytes, and files the program holds open.
+SAVE_PATHS = [
+    "'saves/plot.png'", "'saves/plot.svg'", "'saves/\\u00fcn\\u00efc\\u00f8d\\u00e9 \\U0001F600.pdf'",
+    "'saves/' + 'x' * 300 + '.png'", "'saves/' + 'deep/' * 60 + 'f.png'",
+    "'saves/trailing.'", "'saves/trailing .png '", "'saves/a:b.png'", "'saves/q?*.png'",
+    "'saves/NUL'", "'saves/NUL.png'", "'saves'", "'saves/'", "'saves/no_extension'",
+    "'saves/x.unknownformat'", "pathlib.Path('saves', 'p.eps')", "b'saves/bytes.png'",
+    "'saves/held.png'", "held", "open('saves/text.svg', 'w')", "''",
+]
+
 #: Places where the program's code runs while a figure is laid out or
 #: drawn, as templates around the name of a function to run there.
 CALLBACKS = [
@@ -150,7 +165,8 @@ class Program:
         for weight, action in [(0.22, self._plot), (0.20, self._set), (0.08, self._get),
                                (0.12, self._method), (0.12, self._draw_or_save),
                                (0.03, self._pickle), (0.05, self._event), (0.05, self._callback),
-                               (0.05, self._new_axes), (0.03, self._rc), (0.03, self._remove)]:
+                               (0.05, self._new_axes), (0.03, self._rc), (0.03, self._remove),
+                               (0.02, self._file)]:
             if roll < weight:
                 line = action()
                 if line is not None:
@@ -289,6 +305,26 @@ class Program:
         if rng.random() < 0.2:
             keywords.append(f"facecolor={self.values.color()}")
         return f"{fig}.savefig(io.BytesIO(), {', '.join(keywords)})"
+
+    def _file(self):
+        """A save to a file of `SAVE_PATHS`, an image written there or one
+        read from there; now and then a file held open (``held``) while
+        others write it."""
+        rng = self.rng
+        path = values.choose(rng, SAVE_PATHS)
+        start = "import os, pathlib; os.makedirs('saves', exist_ok=True); "
+        if path == "held" and "held" not in self.namespace:
+            return start + "held = open('saves/held.png', 'wb')"
+        kind = rng.randrange(4)
+        if kind == 0:
+            return start + f"plt.imsave({path}, {self.values.field()})"
+        if kind == 1:
+            return start + f"{self._new_name()} = plt.imread({path})"
+        fig = self._choose(self.figures)
+        if fig is None:
+            return None
+        keywords = [f"format={values.choose(rng, FORMATS)!r}"] if rng.random() < 0.4 else []
+        return start + f"{fig}.savefig({', '.join([path] + keywords)})"
 
     def _pickle(self):
         fig = self._choose(self.figures[:1] + [f for f in self.figures if f.startswith("v")])

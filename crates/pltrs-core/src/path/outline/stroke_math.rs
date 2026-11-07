@@ -186,11 +186,18 @@ impl StrokeMath {
 
     /// Agg's `int(angle / step)` intermediate points of a round cap or join.
     ///
-    /// Huge widths or approximation scales make the step zero; C++ leaves
-    /// the conversion of the infinite quotient undefined, Rust saturates it
-    /// to `i32::MAX` points. The count is capped at [`MAX_ARC_POINTS`].
+    /// Huge widths or approximation scales make the step zero. C++ leaves
+    /// the conversion of the infinite quotient undefined; matplotlib's
+    /// x86-64 builds make it `INT_MIN`, so that the arc gets no
+    /// intermediate points, as here (saturating it to `i32::MAX` points
+    /// instead made a stroke of a huge width take minutes). Finite counts
+    /// are capped at [`MAX_ARC_POINTS`].
     fn arc_points(angle: f64, step: f64) -> i32 {
-        ((angle / step) as i32).min(MAX_ARC_POINTS)
+        let count = angle / step;
+        if count.is_infinite() {
+            return 0;
+        }
+        (count as i32).min(MAX_ARC_POINTS)
     }
 
     /// Agg's `calc_arc`: the round join or cap around `center` from the
@@ -518,10 +525,16 @@ mod tests {
 
     #[test]
     fn round_caps_and_joins_stay_bounded() {
-        // A zero angular step would ask for i32::MAX points per arc.
+        // A zero angular step gives no intermediate points, as Agg's x86-64
+        // builds do (found by fuzzing: thousands of joins of i32::MAX points
+        // each, capped, still took minutes); a tiny one at most
+        // MAX_ARC_POINTS.
         let mut out = Vec::new();
         let mut round = shaped(LineCap::Round, LineJoin::Round);
         math(1e300, round).calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
+        assert_eq!(out.len(), 2);
+        out.clear();
+        math(1e12, round).calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
         assert_eq!(out.len(), MAX_ARC_POINTS as usize + 2);
         round.approximation_scale = 1e300;
         let (a, b, c) = (vd(0.0, 0.0), vd(10.0, 0.0), vd(10.0, -10.0));

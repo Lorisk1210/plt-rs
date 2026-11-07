@@ -18,6 +18,7 @@
 use std::fmt;
 
 use crate::Point;
+use crate::alloc::{OutOfMemory, try_with_capacity};
 use crate::numeric::linspace_with;
 use crate::path::{Path, PathCode};
 
@@ -69,6 +70,16 @@ struct Builder {
 }
 
 impl Builder {
+    /// A builder with room for `vertices` vertices, refusing what the
+    /// system does not give (a density of the program's can ask for any
+    /// number of lines).
+    fn with_room(vertices: usize) -> Result<Self, OutOfMemory> {
+        Ok(Self {
+            vertices: try_with_capacity(vertices)?,
+            codes: try_with_capacity(vertices)?,
+        })
+    }
+
     fn segment(&mut self, from: Point, to: Point) {
         self.vertices.extend([from, to]);
         self.codes.extend([PathCode::MoveTo, PathCode::LineTo]);
@@ -138,14 +149,20 @@ impl HatchLines {
     /// ```
     /// use pltrs_core::hatch::HatchLines;
     /// use pltrs_core::Point;
-    /// let path = HatchLines::Vertical.path(2);
+    /// let path = HatchLines::Vertical.path(2)?;
     /// assert_eq!(path.vertices()[..2], [Point::new(0.25, 0.0), Point::new(0.25, 1.0)]);
     /// assert_eq!(path.len(), HatchLines::Vertical.vertex_count(2));
+    /// # Ok::<(), pltrs_core::alloc::OutOfMemory>(())
     /// ```
-    pub fn path(self, lines: usize) -> Path {
-        let mut b = Builder::default();
+    ///
+    /// # Errors
+    ///
+    /// When the system refuses the memory of the lines (numpy's
+    /// `MemoryError` in matplotlib).
+    pub fn path(self, lines: usize) -> Result<Path, OutOfMemory> {
+        let mut b = Builder::with_room(self.vertex_count(lines))?;
         self.draw(lines, &mut b);
-        b.path()
+        Ok(b.path())
     }
 
     fn draw(self, lines: usize, b: &mut Builder) {
@@ -274,12 +291,18 @@ impl HatchShapes {
     /// ```
     /// use pltrs_core::hatch::HatchShapes;
     /// let dots = HatchShapes::small_filled_circles();
-    /// assert_eq!(dots.path(2).len(), dots.vertex_count(2));
+    /// assert_eq!(dots.path(2)?.len(), dots.vertex_count(2));
+    /// # Ok::<(), pltrs_core::alloc::OutOfMemory>(())
     /// ```
-    pub fn path(&self, rows: usize) -> Path {
-        let mut b = Builder::default();
+    ///
+    /// # Errors
+    ///
+    /// When the system refuses the memory of the shapes (numpy's
+    /// `MemoryError` in matplotlib).
+    pub fn path(&self, rows: usize) -> Result<Path, OutOfMemory> {
+        let mut b = Builder::with_room(self.vertex_count(rows))?;
         self.draw(rows, &mut b);
-        b.path()
+        Ok(b.path())
     }
 
     fn draw(&self, rows: usize, b: &mut Builder) {
@@ -432,7 +455,16 @@ mod tests {
         assert_eq!(HatchShapes::small_circles().vertex_count(2), 8 * 26 * 2);
         // An odd row count makes one shape more than counted, as in
         // matplotlib, whose arrays then refuse it.
-        assert_eq!(stars.path(1).len(), 3 * 11);
+        assert_eq!(stars.path(1).expect("memory").len(), 3 * 11);
+    }
+
+    #[test]
+    fn pieces_beyond_memory_fail_as_out_of_memory() {
+        // Found by fuzzing: `SouthEastHatch('\\\\', 1e15)` asked for 4e15
+        // vertices, an allocation that ended the process.
+        let lines = 2_000_000_000_000_000;
+        assert!(HatchLines::SouthEast.path(lines).is_err());
+        assert!(HatchShapes::stars().path(1 << 40).is_err());
     }
 
     #[test]
@@ -441,10 +473,12 @@ mod tests {
         let whole = pattern_path(pattern, 2).expect("valid");
         let mut vertices = Vec::new();
         for family in HatchLines::ALL {
-            vertices.extend_from_slice(family.path(family.count(pattern, 2)).vertices());
+            let piece = family.path(family.count(pattern, 2)).expect("memory");
+            vertices.extend_from_slice(piece.vertices());
         }
         for shapes in HatchShapes::all() {
-            vertices.extend_from_slice(shapes.path(shapes.count(pattern, 2)).vertices());
+            let piece = shapes.path(shapes.count(pattern, 2)).expect("memory");
+            vertices.extend_from_slice(piece.vertices());
         }
         assert_eq!(whole.vertices(), vertices);
     }
@@ -469,7 +503,7 @@ mod tests {
             character: None,
         };
         assert_eq!(shapes.count("oooo", 6), 0);
-        let path = shapes.path(2);
+        let path = shapes.path(2).expect("memory");
         assert_eq!(path.len(), shapes.vertex_count(2));
         assert_eq!(path.vertices()[0], Point::new(-0.125, -0.125));
     }

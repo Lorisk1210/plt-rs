@@ -8,6 +8,7 @@ mod tickers;
 use std::cell::RefCell;
 use std::fmt;
 
+use pltrs_core::alloc::OutOfMemory;
 use pltrs_core::{Bbox, Point};
 
 use super::aux_transform::AuxTransform;
@@ -35,6 +36,12 @@ pub enum GridError {
     StepOutOfRange(f64),
     /// Grid levels could not be enumerated (non-finite bounds).
     InvalidLevels(String),
+    /// The levels asked for need more memory than the system gives
+    /// (numpy's `MemoryError` in matplotlib's `select_step`).
+    OutOfMemory(OutOfMemory),
+    /// The levels asked for need more bytes than an array can hold
+    /// (numpy's `ValueError` in matplotlib's `select_step`).
+    TooManyLevels,
 }
 
 impl fmt::Display for GridError {
@@ -45,11 +52,29 @@ impl fmt::Display for GridError {
             Self::Singular => f.write_str("the grid transform is not invertible"),
             Self::StepOutOfRange(dv) => write!(f, "no grid step for an interval of {dv}"),
             Self::InvalidLevels(why) => write!(f, "invalid grid levels: {why}"),
+            Self::OutOfMemory(err) => write!(f, "{err} for the grid levels"),
+            Self::TooManyLevels => f.write_str(
+                "array is too big; `arr.size * arr.dtype.itemsize` is larger than the maximum \
+                 possible size.",
+            ),
         }
     }
 }
 
-impl std::error::Error for GridError {}
+impl std::error::Error for GridError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::OutOfMemory(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<OutOfMemory> for GridError {
+    fn from(err: OutOfMemory) -> Self {
+        Self::OutOfMemory(err)
+    }
+}
 
 impl From<TickerError> for GridError {
     fn from(err: TickerError) -> Self {

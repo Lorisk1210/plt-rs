@@ -6,7 +6,8 @@ crash, a hang or runaway memory ends the worker, not the run. Tasks come
 in on stdin, one JSON object per line: ``{"seed": n, "steps": k}`` for a
 random program (`actions.Program`), ``{"lines": [...]}`` for a program
 given as its lines. Events go out on stdout, one JSON object per line:
-``line`` before each line runs, ``bug`` when one raised what no program
+``ready`` with the worker's process id once it starts, ``line`` before
+each line runs, ``bug`` when one raised what no program
 should see (a Rust panic turned into an exception, a ``MemoryError`` in
 pltrs once memory ran away), and ``done`` when the task ended. A marker line on stderr starts each task,
 so that the runner tells which task a panic's message on stderr belongs
@@ -31,14 +32,14 @@ PANIC = "Rust panic"
 #: The stderr line that starts a task.
 MARKER = "@@pltrs-fuzz-task"
 
-#: The memory a worker may use, in bytes: its address space where the
-#: system caps it (Linux), its resident memory, which the runner watches,
-#: where it cannot (macOS, Windows).
+#: The memory a worker may use, in bytes: its address space (Linux) or
+#: its committed memory (Windows) where the system caps it, its resident
+#: memory, which the runner watches, where it cannot (macOS).
 MEMORY_LIMIT = 6 << 30
 
-#: Whether the system caps a process's address space (macOS refuses
-#: `RLIMIT_AS`; Windows has no such limit).
-CAPS_ADDRESS_SPACE = sys.platform not in ("darwin", "win32")
+#: Whether the system caps a process's memory (macOS refuses
+#: `RLIMIT_AS`).
+CAPS_ADDRESS_SPACE = sys.platform != "darwin"
 
 #: The memory past which a worker's `MemoryError` counts as runaway.
 RUNAWAY = 2 << 30
@@ -123,9 +124,10 @@ def main():
     # out of the way of the events.
     _EVENTS = os.fdopen(os.dup(sys.stdout.fileno()), "w")
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    # Which process the runner watches.
+    _send("ready", pid=os.getpid())
     if CAPS_ADDRESS_SPACE:
-        import resource
-        resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT, MEMORY_LIMIT))
+        memory.cap(MEMORY_LIMIT)
     # A crash prints where Python was, for the bug's report.
     faulthandler.enable()
     warnings.simplefilter("ignore")

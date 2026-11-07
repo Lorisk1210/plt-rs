@@ -1,4 +1,4 @@
-use pltrs_core::{Affine2D, Path, Point, Rgba};
+use pltrs_core::{Affine2D, Path, PathCode, Point, Rgba};
 use pltrs_render::{GraphicsContext, Renderer, RgbaImage};
 
 use super::*;
@@ -179,6 +179,38 @@ fn paths_reaching_far_away_get_no_ticks() {
     .unwrap()
     .draw_path(&gc, &far, &Affine2D::IDENTITY, None);
     assert_eq!(recorder.calls.len(), 0);
+}
+
+#[test]
+fn the_ticks_of_all_polylines_together_are_limited() {
+    // Found by fuzzing: thousands of polylines, each within the limit of
+    // ticks, asked for billions of ticks together.
+    let gc = GraphicsContext::default();
+    let mut recorder = Recorder::default();
+    // A tick every 10 pt (20 pixels at 144 dpi): four polylines of a third
+    // of the most ticks each, of which three fit, then one of a single
+    // tick, which fits the one left.
+    let third = 20.0 * ticked::MAX_TICKS / 3.0;
+    let mut vertices = Vec::new();
+    let mut codes = Vec::new();
+    for length in [third, third, third, third, 40.0] {
+        vertices.extend([Point::ORIGIN, Point::new(length, 0.0)]);
+        codes.extend([PathCode::MoveTo, PathCode::LineTo]);
+    }
+    let path = Path::new(vertices, codes).unwrap();
+    PathEffectRenderer::new(
+        vec![PathEffect::ticked_stroke(TickedStroke::default())],
+        &mut recorder,
+    )
+    .unwrap()
+    .draw_path(&gc, &path, &Affine2D::IDENTITY, None);
+    let ticks: usize = recorder.calls.iter().map(|call| call.1.len() / 2).sum();
+    assert_eq!(
+        recorder.calls.len(),
+        4,
+        "three long polylines, then the short one"
+    );
+    assert_eq!(ticks as f64, ticked::MAX_TICKS);
 }
 
 #[test]

@@ -358,6 +358,9 @@ pub struct DrawContext<'a> {
     /// The state the artists' graphics contexts start from (see
     /// [`drawing_with_state`](super::drawing_with_state)).
     graphics: GraphicsState,
+    /// The artists pltrs is drawing as parts of others, outermost first
+    /// (see [`DrawContext::draw_child`]).
+    drawing: Vec<ArtistId>,
 }
 
 impl std::fmt::Debug for DrawContext<'_> {
@@ -378,6 +381,7 @@ impl<'a> DrawContext<'a> {
             rasterization: Rasterization::default(),
             stops_at_problem: super::stopping::draws_stop_at_first_problem(),
             graphics: super::graphics_state::current(),
+            drawing: Vec::new(),
         }
     }
 
@@ -484,15 +488,18 @@ impl<'a> DrawContext<'a> {
             rasterization: self.rasterization,
             stops_at_problem: self.stops_at_problem,
             graphics: self.graphics,
+            drawing: std::mem::take(&mut self.drawing),
         };
         let result = f(&mut inner);
         let DrawContext {
             errors,
             rasterization,
+            drawing,
             ..
         } = inner;
         self.errors.extend(errors);
         self.rasterization = rasterization;
+        self.drawing = drawing;
         result
     }
 
@@ -578,6 +585,13 @@ impl<'a> DrawContext<'a> {
     /// one (see [`ArtistPainter`](super::ArtistPainter)), else as
     /// [`draw_unpainted`](Self::draw_unpainted) draws it.
     /// Nothing is drawn once the draw has [`ended`](Self::ended).
+    ///
+    /// An artist pltrs draws is never one of its own parts in a figure a
+    /// program makes; one read back from a corrupted archive can be (its
+    /// frame among the titles of its axes, say). Drawing it again inside
+    /// its own draw is then a problem, as matplotlib's `RecursionError`,
+    /// instead of a recursion without end. What the program draws (a
+    /// painter) starts afresh, and recurses as the program makes it.
     pub fn draw_child(&mut self, id: ArtistId) {
         if self.ended() {
             return;
@@ -586,8 +600,22 @@ impl<'a> DrawContext<'a> {
             return;
         };
         match &artist.base().painter {
-            Some(painter) => self.draw_painted(id, &*artist, painter),
-            None => self.draw_own(&*artist, Some(id)),
+            Some(painter) => {
+                let outer = std::mem::take(&mut self.drawing);
+                self.draw_painted(id, &*artist, painter);
+                self.drawing = outer;
+            }
+            None if self.drawing.contains(&id) => {
+                self.report(
+                    id,
+                    "maximum recursion depth exceeded: the artist is its own part",
+                );
+            }
+            None => {
+                self.drawing.push(id);
+                self.draw_own(&*artist, Some(id));
+                self.drawing.pop();
+            }
         }
     }
 

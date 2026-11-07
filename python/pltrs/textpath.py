@@ -15,12 +15,20 @@ import numpy as np
 
 from . import _text_helpers
 from .font_manager import FontManager, FontProperties, fontManager, get_font
-from .ft2font import LoadFlags
+from .ft2font import FT2Font, LoadFlags
 from .mathtext import MathTextParser
 from .path import Path
 from .texmanager import TexManager
 from .transforms import Affine2D
 from ._native import textpath as _textpath
+
+
+def _tex_text(s, prop):
+    """The text *s* and font properties *prop* as TeX typesets them for a
+    `TextToPath`: *s* formatted, as matplotlib's `.TexManager` writes it
+    into its source, and *prop* as given if it is font properties (else
+    the default ones: matplotlib's TeX typesetting reads none)."""
+    return f"{s}", prop if isinstance(prop, FontProperties) else FontProperties()
 
 
 def _glyph_repr(psname, glyph):
@@ -121,6 +129,16 @@ class TextToPath:
 
         Also see `TextPath` for a more direct way to create a path from a text.
         """
+        if ismath == "TeX":
+            # Typeset as `get_glyphs_tex` typesets it.
+            s, prop = _tex_text(s, prop)
+        elif not ismath:
+            # Arguments the font cannot lay out, as `get_glyphs_with_font`
+            # would lay it out.
+            layout = (s, LoadFlags.NO_HINTING), dict(features=features, language=language)
+            if FT2Font._layout.refuses((None, *layout[0]), layout[1]):
+                font = self._get_font(prop)
+                font._layout.check(font, *layout[0], **layout[1])
         if language is None or isinstance(language, str):
             language = (language, [])
         else:
@@ -225,6 +243,7 @@ class TextToPath:
     def get_glyphs_tex(self, prop, s, glyph_map=None,
                        return_new_glyphs_only=False):
         """Convert the string *s* to vertices and codes using usetex mode."""
+        s, prop = _tex_text(s, prop)
         glyphs, paths, boxes = _textpath.get_glyphs_tex(
             s, FontManager._props(prop))
         paths = {_glyph_repr(psname, index): (vertices, codes)
@@ -324,6 +343,10 @@ class TextPath(Path):
         self.set_size(size)
 
         self._cached_vertices = None
+        if not isinstance(s, str):
+            # matplotlib prepares the text as a `.Text` does first.
+            from .text import Text
+            Text(usetex=usetex)._preprocess_math(s)
         super().__init__(
             *text_to_path.get_text_path(
                 prop, s, ismath="TeX" if usetex else False),

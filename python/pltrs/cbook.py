@@ -1921,6 +1921,27 @@ def _own_mixin_methods(cls, base):
                     function = getattr(function, "__wrapped__", None)
 
 
+def _inherited_methods(cls, base, names):
+    """
+    Make the methods *names* of *cls*, which pltrs' class defines to reach
+    its native parts, the methods of *base* that matplotlib's *cls*
+    inherits: their ``__qualname__`` (which the errors calling them raise
+    name), ``__module__`` and docstring are *base*'s, for the functions
+    they wrap too and for the accessors of properties.
+    """
+    for name in names:
+        member = vars(cls)[name]
+        inherited = getattr(base, name)
+        functions = ([(member.fget, inherited.fget), (member.fset, inherited.fset)]
+                     if isinstance(member, property) else [(member, inherited)])
+        for function, original in functions:
+            while inspect.isfunction(function):
+                function.__qualname__ = original.__qualname__
+                function.__module__ = original.__module__
+                function.__doc__ = original.__doc__
+                function = getattr(function, "__wrapped__", None)
+
+
 def _str_equal(obj, s):
     """
     Return whether *obj* is a string equal to string *s*.

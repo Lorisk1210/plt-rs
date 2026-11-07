@@ -15,6 +15,7 @@ import numpy as np
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
 from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
+from . import _gridspec_kept
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from .artist import Artist
@@ -594,6 +595,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             args = tuple(map(int, str(args[0])))
         projection_class, pkw = self._process_projection_requirements(**kwargs)
         subplotspec = SubplotSpec._from_subplot_args(self, args)
+        if _gridspec_kept.in_python(subplotspec.get_gridspec(), self):
+            # matplotlib places the Axes on its spec as it makes it.
+            subplotspec.get_position(self)
         spec = subplotspec._native_spec()
         make = _native_maker(projection_class)
         if make is not None:
@@ -792,10 +796,16 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                       width_ratios=width_ratios,
                       height_ratios=height_ratios,
                       left=0, right=1, bottom=0, top=1)
+        for row in range(nrows):
+            for col in range(ncols):
+                # Each placed by the ratios as matplotlib places it.
+                _gridspec_kept.subfigure_bounds(gs[row, col])
         natives = _figure.subfigures(
-            self._native, (nrows, ncols), (wspace, hspace),
-            None if width_ratios is None else [float(r) for r in width_ratios],
-            None if height_ratios is None else [float(r) for r in height_ratios])
+            self._native, (nrows, ncols), _gridspec_kept.held((wspace, hspace)),
+            None if width_ratios is None
+            else _gridspec_kept.native_ratios(width_ratios, ncols),
+            None if height_ratios is None
+            else _gridspec_kept.native_ratios(height_ratios, nrows))
         sfarr = np.empty((nrows, ncols), dtype=object)
         for i, native in enumerate(natives):
             row, col = divmod(i, ncols)
@@ -803,6 +813,12 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                                                      **kwargs)
             self.subfigs.append(sfarr[row, col])
         self.stale = True
+        if self.get_layout_engine() is None and (wspace is not None or
+                                                 hspace is not None):
+            # matplotlib places them in the grid's cells then, failing on
+            # the spacing pltrs (Rust) cannot hold.
+            if _gridspec_kept.in_python(gs, self):
+                gs.get_grid_positions(self)
 
         if squeeze:
             # Discarding unneeded dimensions that equal 1.  If we only have one
@@ -886,8 +902,10 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                 "not calling subplots_adjust.")
             return
         self.subplotpars.update(left, bottom, right, top, wspace, hspace)
-        _figure.subplots_adjust(self._native,
-                                (left, bottom, right, top, wspace, hspace))
+        _figure.subplots_adjust(self._native, _gridspec_kept.held(
+            (left, bottom, right, top, wspace, hspace)))
+        # The subplots placed again, as matplotlib places them.
+        _gridspec_kept.check_positions(self.axes, self)
 
     @_docstring.interpd
     def colorbar(self, mappable, cax=None, ax=None, use_gridspec=True,
@@ -1352,6 +1370,8 @@ class SubFigure(FigureBase):
 
             %(SubFigure:kwdoc)s
         """
+        # Placed by the ratios of its grid as matplotlib places it.
+        _gridspec_kept.subfigure_bounds(subplotspec)
         native = _figure.add_subfigure(parent._native,
                                        subplotspec._native_spec())
         self._adopt_native(parent, native, subplotspec, facecolor=facecolor,
@@ -2367,6 +2387,12 @@ None}, default: None
             plt.draw_if_interactive()
 
         self.stale = True
+
+
+# The methods matplotlib's figures inherit.
+cbook._inherited_methods(FigureBase, Artist, ["set_transform"])
+cbook._inherited_methods(SubFigure, Artist, ["remove"])
+cbook._inherited_methods(Figure, Artist, ["remove"])
 
 
 def figaspect(arg):

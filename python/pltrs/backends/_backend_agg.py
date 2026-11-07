@@ -5,6 +5,9 @@ saves, and the pixels of a renderer (`RendererAgg`, which pltrs (Rust)
 draws for `.backend_agg.RendererAgg`).
 """
 
+import numpy as np
+
+from .. import _pybind
 from .._native import backends as _backends
 
 #: The constructor signature matplotlib's Agg extension refuses arguments
@@ -27,6 +30,49 @@ def check_renderer_arguments(width, height, dpi):
             or not (hasattr(dpi, "__float__") or hasattr(dpi, "__index__"))):
         raise TypeError(_RENDERER_SIGNATURE + ", ".join(
             map(repr, (width, height, dpi))))
+    if dpi <= 0:
+        raise ValueError("dpi must be positive")
+    if width >= 1 << 23 or height >= 1 << 23:
+        raise ValueError(
+            f"Image size of {width}x{height} pixels is too large. It must be "
+            "less than 2^23 in each direction.")
+
+
+#: The signatures of matplotlib's ``RendererAgg.restore_region`` (C++),
+#: ``{module}`` standing for this module.
+_RESTORE_REGION = (
+    "(self: {module}.RendererAgg, region: BufferRegion) -> None",
+    "(self: {module}.RendererAgg, region: BufferRegion, "
+    + ", ".join(f"{name}: typing.SupportsInt | typing.SupportsIndex"
+                for name in ("xx1", "yy1", "xx2", "yy2", "x", "y"))
+    + ") -> None",
+)
+
+
+def rect(bbox):
+    """The extents ``(x0, y0, x1, y1)`` of *bbox* as matplotlib's extension
+    converts a rectangle (``type_caster<agg::rect_d>``): None for an empty
+    one, else a ``2×2`` or 4-item array of numbers."""
+    if bbox is None:
+        return 0.0, 0.0, 0.0, 0.0
+    try:
+        points = np.asarray(bbox, dtype=float)
+    except (TypeError, ValueError):
+        points = None
+    if points is None or points.shape not in ((2, 2), (4,)):
+        raise ValueError("Invalid bounding box")
+    return tuple(map(float, points.ravel()))
+
+
+def check_restore_region(renderer, region, *coordinates):
+    """Refuse to restore *region* in *renderer* (its ``_renderer``) at
+    *coordinates* (none, or the integer corners and position) if it is no
+    region, as matplotlib's renderer refuses it."""
+    if not isinstance(region, BufferRegion):
+        raise _pybind.incompatible(
+            "restore_region", [signature.format(module=__name__)
+                               for signature in _RESTORE_REGION],
+            (renderer, region, *coordinates), {})
 
 
 class BufferRegion:

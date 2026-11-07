@@ -9,7 +9,10 @@ signature (without ``self``) and docstring.
 """
 
 import inspect
+import linecache
+import os
 
+from . import _api
 from ._pyplot_figure import _add_pyplot_note
 from .axes import Axes
 
@@ -46,16 +49,78 @@ _MAPPABLES = {
 }
 
 
+#: The module the pyplot functions are pyplot's.
+_PYPLOT = __name__.rpartition(".")[0] + ".pyplot"
+
+
+def _with_signature(name, signature, call):
+    """
+    A function *name* of pyplot's taking the parameters of *signature* and
+    handing them to *call* (``call(args, kwargs)``), as the functions
+    matplotlib's ``boilerplate.py`` writes do: arguments that do not bind
+    to them fail with Python's errors naming *name*, and each parameter
+    goes on by keyword (by position the positional-only ones and those
+    before ``*args``), *data* only when given.
+    """
+    Parameter = inspect.Parameter
+    namespace = {"_call": call, "__name__": _PYPLOT}
+    by_position = any(parameter.kind is Parameter.VAR_POSITIONAL
+                      for parameter in signature.parameters.values())
+    parameters, positional, keywords = [], [], []
+    previous = None
+    for index, parameter in enumerate(signature.parameters.values()):
+        kind, text = parameter.kind, parameter.name
+        if previous is Parameter.POSITIONAL_ONLY and kind is not previous:
+            parameters.append("/")
+        if kind is Parameter.KEYWORD_ONLY and previous not in (
+                Parameter.KEYWORD_ONLY, Parameter.VAR_POSITIONAL):
+            parameters.append("*")
+        previous = kind
+        if parameter.default is not Parameter.empty:
+            namespace[f"_default{index}"] = parameter.default
+            text += f"=_default{index}"
+        if kind is Parameter.VAR_POSITIONAL:
+            parameters.append(f"*{text}")
+            positional.append(f"*{text}")
+            continue
+        if kind is Parameter.VAR_KEYWORD:
+            parameters.append(f"**{text}")
+            keywords.append(f"**{text}")
+            continue
+        parameters.append(text)
+        if kind is Parameter.POSITIONAL_ONLY or (
+                kind is Parameter.POSITIONAL_OR_KEYWORD and by_position):
+            positional.append(parameter.name)
+        elif parameter.name == "data":
+            keywords.append("**({'data': data} if data is not None else {})")
+        else:
+            keywords.append(f"{parameter.name!r}: {parameter.name}")
+    if previous is Parameter.POSITIONAL_ONLY:
+        parameters.append("/")
+    source = (f"def {name}({', '.join(parameters)}):\n"
+              f"    return _call(({''.join(f'{p}, ' for p in positional)}), "
+              f"{{{', '.join(keywords)}}})\n")
+    # Named as a file of the package, so that `.warn_external` passes over
+    # its frame, with its source where tracebacks find it.
+    filename = os.path.join(os.path.dirname(__file__), f"<pyplot.{name}>")
+    linecache.cache[filename] = (len(source), None, source.splitlines(True), filename)
+    exec(compile(source, filename, "exec"), namespace)  # noqa: S102
+    return namespace[name]
+
+
 def _wrapper(name):
     """
     The pyplot function calling ``gca().<name>``, named and documented as
     matplotlib's ``boilerplate.py`` writes it: the method's docstring with
-    the pyplot note, and its signature without ``self``.
+    the pyplot note, its signature without ``self``, and the parameter
+    renamings and keyword-only changes ``_api`` decorated the method with
+    (`._copy_docstring_and_deprecators`), around the signature beneath
+    them.
     """
     method = getattr(Axes, name)
     mappable = _MAPPABLES.get(name)
 
-    def wrapper(*args, **kwargs):
+    def call(args, kwargs):
         from . import pyplot
         ax = pyplot.gca()
         ret = getattr(ax, name)(*args, **kwargs)
@@ -63,14 +128,30 @@ def _wrapper(name):
             ax._sci(mappable(ret))
         return ret
 
-    signature = inspect.signature(method)
-    wrapper.__signature__ = signature.replace(
-        parameters=list(signature.parameters.values())[1:])
+    # As ``boilerplate.py`` writes the function: with the signature beneath
+    # a keyword-only change, which the decorators then make again.
+    decorators, signed, layer = [], method, method
+    while hasattr(layer, "__wrapped__"):
+        decorator = _api.deprecation.DECORATORS.get(layer)
+        if decorator is not None:
+            decorators.append(decorator)
+            if decorator.func is _api.make_keyword_only and signed is method:
+                signed = layer.__wrapped__
+        layer = layer.__wrapped__
+    wrapper = _with_signature(name, _without_self(inspect.signature(signed)), call)
+    for decorator in reversed(decorators):
+        wrapper = decorator(wrapper)
+    wrapper.__signature__ = _without_self(inspect.signature(method))
     wrapper.__name__ = wrapper.__qualname__ = name
-    wrapper.__module__ = __name__.rpartition(".")[0] + ".pyplot"
+    wrapper.__module__ = _PYPLOT
     wrapper.__doc__ = method.__doc__
     _add_pyplot_note(wrapper, inspect.unwrap(method))
     return wrapper
+
+
+def _without_self(signature):
+    """*signature*, a method's, without its first parameter."""
+    return signature.replace(parameters=list(signature.parameters.values())[1:])
 
 
 def polar(*args, **kwargs):
@@ -114,4 +195,4 @@ def polar(*args, **kwargs):
 
 __all__ = [*_METHODS, "polar"]
 globals().update({name: _wrapper(name) for name in _METHODS})
-polar.__module__ = __name__.rpartition(".")[0] + ".pyplot"
+polar.__module__ = _PYPLOT

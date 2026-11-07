@@ -257,8 +257,8 @@ class TightLayoutEngine(LayoutEngine):
         # What matplotlib's computes with first (pltrs (Rust) measures with
         # the figure's renderer itself).
         fig._get_renderer()
-        _layout_checks.check_tight(fig, self._params)
-        return self._execute_native(fig)
+        if _layout_checks.check_tight(fig, self._params):
+            return self._execute_native(fig)
 
     def _held_natively(self):
         return _layout_checks.holds_tight(self._params)

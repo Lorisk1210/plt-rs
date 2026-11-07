@@ -88,6 +88,8 @@ class MathTextParser:
             prop = FontProperties()
         _api.getitem_checked(
             self._font_type_mapping, fontset=prop.get_math_fontfamily())
+        # matplotlib's parser (pyparsing) first expands the tabs of *s*.
+        s = s.expandtabs()
         props = FontManager._props(prop)
         if self._output_type == "vector":
             (width, height, depth), glyphs, rects = _native_mathtext.parse_path(

@@ -1702,8 +1702,8 @@ class FigureCanvasBase:
         self._is_saving = False
         if figure is None:
             figure = Figure()
+        figure.set_canvas(self)
         _canvas_callbacks(figure)
-        figure.canvas = self
         self.figure = figure
         self.manager = None
         self.widgetlock = LockDraw()
@@ -2089,14 +2089,6 @@ class FigureCanvasBase:
             for prop, color in [
                 ("facecolor", _val_or_rc(facecolor, "savefig.facecolor")),
                 ("edgecolor", _val_or_rc(edgecolor, "savefig.edgecolor"))]}
-        bbox_inches = _val_or_rc(bbox_inches, 'savefig.bbox')
-        if bbox_inches is None or cbook._str_equal(bbox_inches, "standard"):
-            area = None
-        else:
-            area = {"bbox_inches": (bbox_inches if isinstance(bbox_inches, str)
-                                    else tuple(bbox_inches.extents)),
-                    "pad_inches": _val_or_rc(pad_inches, 'savefig.pad_inches')}
-
         # Remove the figure manager, if any, to avoid resizing the GUI widget.
         with (cbook._setattr_cm(self, manager=None),
               self._switch_canvas_and_return_print_method(format, backend)
@@ -2104,6 +2096,12 @@ class FigureCanvasBase:
               cbook._setattr_cm(self.figure, dpi=dpi),
               cbook._setattr_cm(self.figure.canvas, _device_pixel_ratio=1),
               cbook._setattr_cm(self.figure.canvas, _is_saving=True)):
+            for color in colors.values():
+                if color is not None:
+                    # matplotlib sets them on the figure's patch here.
+                    to_rgba(color)
+            bbox_inches = _val_or_rc(bbox_inches, 'savefig.bbox')
+            area = self._print_bbox(bbox_inches, pad_inches)
             if (area is not None and bbox_extra_artists is not None
                     and cbook._str_equal(bbox_inches, "tight")):
                 area = self._tight_area(bbox_extra_artists, area["pad_inches"])
@@ -2134,6 +2132,20 @@ class FigureCanvasBase:
                 with self._laid_out_for_print(bbox_inches):
                     for _ in range(colored + 1):
                         self.figure.pchanged()
+
+    @staticmethod
+    def _print_bbox(bbox_inches, pad_inches):
+        """The area `print_figure` saves for *bbox_inches* padded by
+        *pad_inches*, as pltrs (Rust) takes it: None for the whole figure
+        (none given), else ``'tight'`` or the extents of the box given,
+        whose size matplotlib reads first (``_tight_bbox.adjust_bbox``)."""
+        if not bbox_inches or cbook._str_equal(bbox_inches, "standard"):
+            return None
+        if not cbook._str_equal(bbox_inches, "tight"):
+            bbox_inches.size  # noqa: B018
+            bbox_inches = tuple(bbox_inches.extents)
+        return {"bbox_inches": bbox_inches,
+                "pad_inches": _val_or_rc(pad_inches, 'savefig.pad_inches')}
 
     def _laid_out_for_print(self, bbox_inches):
         """
@@ -2778,8 +2790,7 @@ class FigureManagerBase:
         self.canvas = canvas
         canvas.manager = self  # store a pointer to parent
         self.num = num
-        self.set_window_title(f"Figure {num:d}" if isinstance(num, int)
-                              else str(num))
+        self.set_window_title(f"Figure {num:d}")
 
         self.key_press_handler_id = None
         self.button_press_handler_id = None

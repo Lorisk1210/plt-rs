@@ -13,6 +13,8 @@ from numbers import Real
 import numpy as np
 
 from .. import rcParams
+from ..font_manager import fontManager, get_font
+from ..ft2font import FT2Font, LoadFlags
 from ._native_drawing import affine_matrix
 
 
@@ -94,7 +96,8 @@ class PdfArgumentsMixin:
             # image with the alpha already applied).
             gc.set_alpha  # noqa: B018
         self._prepare_gc(gc)
-        check_finite(x, y)
+        values = () if transform is None else transform.frozen().to_values()
+        check_finite(x, y, *values)
         return True
 
     def _gouraud_arguments(self, gc, points, colors, trans):
@@ -129,14 +132,23 @@ class PdfArgumentsMixin:
         if mtext is not None:
             mtext.get_fontfeatures()
             mtext.get_language()
-        math.radians(angle)
+        layout = (s, LoadFlags.NO_HINTING), dict(
+            features=mtext.get_fontfeatures() if mtext is not None else None,
+            language=mtext.get_language() if mtext is not None else None)
+        if FT2Font._layout.refuses((None, *layout[0]), layout[1]):
+            # The text the font cannot lay out (matplotlib lays it out with
+            # the font of *prop*).
+            font = get_font(fontManager._find_fonts_by_props(prop))
+            font._layout.check(font, *layout[0], **layout[1])
+        # The text's matrix, rotated by *angle*.
+        math.cos(math.radians(angle))
         check_finite(x, y, angle)
 
     def _mathtext_arguments(self, gc, x, y, s, prop, angle):
         """The arguments of ``draw_mathtext`` as matplotlib reads them."""
         self._text2path.mathtext_parser.parse(s, 72, prop)
         gc.get_url()
-        math.radians(angle)
+        math.cos(math.radians(angle))
         check_finite(x, y, angle)
         self._prepare_gc(gc, gc._rgb)
 
@@ -147,7 +159,7 @@ class PdfArgumentsMixin:
         gc.get_url()
         # The transform of the text, ``Affine2D().rotate_deg(angle)
         # .translate(x, y)``, computed as numpy computes it there.
-        math.radians(angle)
+        math.cos(math.radians(angle))
         matrix = np.eye(3)
         matrix[0, 2] += x
         matrix[1, 2] += y

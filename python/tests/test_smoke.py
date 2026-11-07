@@ -216,8 +216,8 @@ def test_backends_switch_and_canvases_draw_print_and_blit(tmp_path):
     fig.canvas.draw()
     assert np.asarray(fig.canvas.buffer_rgba()).shape == (50, 100, 4)
     assert len(fig.canvas.tostring_argb()) == 50 * 100 * 4
-    corner = type("Box", (), {"extents": (0, 0, 10, 10)})
-    region = fig.canvas.copy_from_bbox(corner)
+    from pltrs.transforms import Bbox
+    region = fig.canvas.copy_from_bbox(Bbox.from_extents(0, 0, 10, 10))
     assert region.get_extents() == (0, 40, 10, 50)
     fig.canvas.restore_region(region)
     raw = io.BytesIO()

@@ -220,6 +220,10 @@ class NativeDrawingMixin:
         rotated by *angle* degrees. pltrs (Rust) lays the line out at the
         renderer's resolution, without the features and language of the
         text it may belong to."""
+        if ismath == "TeX":
+            # TeX typesets *s* as matplotlib's `.TexManager` writes it into
+            # its source.
+            s = f"{s}"
         with self._target() as drawing:
             _drawing.draw_text(
                 drawing, native_gc(gc), (float(x), float(self._display_y(y))),

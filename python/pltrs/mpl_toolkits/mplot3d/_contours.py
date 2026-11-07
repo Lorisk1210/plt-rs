@@ -12,7 +12,7 @@ from pltrs._native import mplot3d as _mplot3d
 from pltrs._preprocess import _preprocess_data
 from pltrs.axes._plotting.contours import _contour_look, _finish, _levels
 
-from . import _draw_problems
+from . import _draw_problems, _properties
 
 
 def _in_3d(cls, placement):
@@ -57,12 +57,8 @@ def _lift_contour_set(cset, zs, zdir, axlim_clip):
     that do not broadcast to the paths raise, positions matplotlib's draws
     fail to project are recorded.
     """
-    from .art3d import Collection3D, juggle_axes
-    paths = cset.get_paths()
-    positions = np.broadcast_to(zs, len(paths))
-    verts = [np.column_stack(juggle_axes(*np.column_stack(
-        [p.vertices, np.broadcast_to(z, len(p.vertices))]).T, zdir))
-        for p, z in zip(paths, positions)]
+    from .art3d import Collection3D
+    positions, verts = _lifted_verts(cset, zs, zdir)
     if not isinstance(cset, Collection3D):
         cset.__class__ = cbook._make_class_factory(Collection3D, "{}3D")(type(cset))
     cset._axlim_clip = axlim_clip
@@ -72,6 +68,49 @@ def _lift_contour_set(cset, zs, zdir, axlim_clip):
         (_plane_dir(zdir.removeprefix('-')), bool(axlim_clip)),
         [np.nan if problem is not None else float(z) for z in positions])
     _draw_problems.record(cset, problem)
+
+
+def _in_units(axes, x, y, kwargs):
+    """The grids *x* and *y* converted with the units of the x and y axes
+    of *axes*, which take their units first (and those *kwargs* gives as
+    ``xunits``, ``yunits`` and ``zunits``, popped), as matplotlib's 2-D
+    contour converts them (``_process_unit_info``)."""
+    datasets = [(axes.xaxis, x), (axes.yaxis, y)]
+    for axis, data in datasets:
+        if data is not None and not axis.have_units():
+            axis.update_units(data)
+    for name in axes._axis_names:
+        axis = getattr(axes, f"{name}axis")
+        units = kwargs.pop(f"{name}units", axis.units)
+        if units != axis.units and units is not None:
+            axis.set_units(units)
+            for data in (data for given, data in datasets if given is axis):
+                if data is not None:
+                    axis.update_units(data)
+    return [data if data is None else axis.convert_units(data)
+            for axis, data in datasets]
+
+
+def _lifted_verts(cset, zs, zdir):
+    """The positions *zs* broadcast to the paths of *cset* and its 3-D
+    vertices, each path at its position along *zdir* (matplotlib's
+    ``collection_2d_to_3d``)."""
+    from .art3d import juggle_axes
+    paths = cset.get_paths()
+    positions = np.broadcast_to(zs, len(paths))
+    return positions, [np.column_stack(juggle_axes(*np.column_stack(
+        [p.vertices, np.broadcast_to(z, len(p.vertices))]).T, zdir))
+        for p, z in zip(paths, positions)]
+
+
+def _record_lift_problem(cset, zdir):
+    """Record the problem matplotlib's draws meet projecting the paths of
+    *cset*, placed by pltrs (Rust) at its levels (the middles of its bands,
+    for filled contours) along *zdir* (data invalid on the axis scales,
+    which matplotlib's mask fails to broadcast)."""
+    levels = _band_middles(cset) if cset.filled else cset.levels
+    _draw_problems.record(cset, _draw_problems.paths_problem(
+        cset, _lifted_verts(cset, levels, '-' + _plane_dir(zdir))[1]))
 
 
 def _band_middles(cset):
@@ -100,8 +139,12 @@ def _placed(make, cls, zdir, offset, stride, axlim_clip):
         _left_2d(make(_placement('z', None, None, axlim_clip)), cls)
         raise TypeError(f'can only concatenate str (not "{type(zdir).__name__}") '
                         f'to str')
-    if stride is not None or offset is None or isinstance(offset, (int, float)):
+    if stride is not None or isinstance(offset, (int, float)):
         return make(_placement(zdir, offset, stride, axlim_clip))
+    if offset is None:
+        cset = make(_placement(zdir, offset, stride, axlim_clip))
+        _record_lift_problem(cset, zdir)
+        return cset
     cset = make(_placement(zdir, None, None, axlim_clip))
     try:
         _lift_contour_set(cset, offset, '-' + zdir, axlim_clip)
@@ -155,11 +198,15 @@ class ContoursMixin:
             from .art3d import rotate_axes
             mcontour._contour_args(fn, (*rotate_axes(*args[:3], zdir), *args[3:]),
                                    dict(kwargs))
+        if 2 < len(args) <= 4:
+            x, y, *rest = args
+            args = (*_in_units(self, x, y, kwargs), *rest)
         z, _mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
         if x.ndim == 1:
             x, y = np.meshgrid(x, y)
         look = _contour_look(self, kwargs)
         grids = tuple(np.ascontiguousarray(a, dtype=float) for a in (x, y, z))
+        _properties.check_known(mcontour.QuadContourSet, kwargs)
         native = _mplot3d.contour(self._native, bool(filled), grids, placement,
                                   _levels(levels), *look[:2])
         return _finish(_in_3d(mcontour.QuadContourSet, placement), native, self,
@@ -179,6 +226,7 @@ class ContoursMixin:
             levels = args[0]
         look = _contour_look(self, kwargs)
         z = np.ma.filled(np.ma.asarray(z, dtype=float), np.nan).ravel()
+        _properties.check_known(TriContourSet, kwargs)
         native = _mplot3d.tricontour(self._native, bool(filled), (tri._native, z),
                                      placement, _levels(levels), *look[:2])
         return _finish(_in_3d(TriContourSet, placement), native, self, look, kwargs)

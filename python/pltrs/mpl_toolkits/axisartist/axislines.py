@@ -13,6 +13,7 @@ lines run.
 """
 
 import itertools
+import numbers
 
 import numpy as np
 
@@ -147,10 +148,17 @@ class _FixedAxisArtistHelperBase(_AxisArtistHelperBase):
         """The native axis artist of *axes* along this edge."""
         native = _axisartist.new_fixed_axis(
             axes._native, next(_draft_names), self._loc,
-            tuple(map(float, offset or (0, 0))))
+            tuple(map(float, (0, 0) if offset is None else offset)))
         if axis_direction != self._loc:
             _axisartist.set_axis_direction(native, axis_direction)
         return native
+
+
+def _value_number(value):
+    """The value a floating axis runs at, as matplotlib's helpers compute
+    with it (numpy's float: NaN for None, a string of a number its
+    number)."""
+    return float(np.asarray(value, dtype=float))
 
 
 class _FloatingAxisArtistHelperBase(_AxisArtistHelperBase):
@@ -163,9 +171,14 @@ class _FloatingAxisArtistHelperBase(_AxisArtistHelperBase):
 
     def _new_axis(self, axes, offset, axis_direction):
         """The native axis artist of *axes* along this line."""
+        if not (isinstance(self.nth_coord, (numbers.Integral, np.bool_))
+                and self.nth_coord in (0, 1)):
+            # matplotlib's axis artist computes the line first, which fails
+            # for any other coordinate.
+            self.get_line(axes)
         return _axisartist.new_floating_axis(
             axes._native, next(_draft_names),
-            ("xy"[self.nth_coord], float(self._value)), axis_direction)
+            ("xy"[self.nth_coord], _value_number(self._value)), axis_direction)
 
 
 class FixedAxisArtistHelperRectilinear(_FixedAxisArtistHelperBase):
@@ -439,8 +452,12 @@ class Axes(maxes.Axes):
         """
         Toggle the gridlines, and optionally set the properties of the lines.
         """
-        _api.check_in_list(["major", "minor", "both"], which=which)
-        _api.check_in_list(["x", "y", "both"], axis=axis)
+        # matplotlib's checks the arguments as the axes' axes take them,
+        # and keeps the choice of the lines unchecked (``gridlines.set``),
+        # which its draws then compute with.
+        super().grid(visible, which=which, axis=axis, **kwargs)
+        if not self._axisline_on:
+            return
         if visible is None:
             visible = True if kwargs else not self._grid_on
         self._grid_on = bool(visible)
@@ -455,8 +472,11 @@ class Axes(maxes.Axes):
         gridlines = self.gridlines
         if rest and gridlines is not None:
             gridlines.set(**rest)
-        _axisartist.grid(self._native, bool(visible), (which, axis),
-                         tuple(style.values()))
+        _axisartist.grid(self._native, bool(visible),
+                         (which.lower(), axis), tuple(style.values()))
+        if gridlines is not None:
+            gridlines.set_which(which)
+            gridlines.set_axis(axis)
 
     @property
     def gridlines(self):
@@ -476,8 +496,15 @@ def _gridlines_of(axes):
     """The `.GridlinesCollection` drawing the gridlines of *axes*, None once
     removed."""
     native = _axisartist.gridlines(axes._native)
-    return (None if native is None
-            else _handles.wrap(native, GridlinesCollection, axes.figure))
+    if native is None:
+        return None
+    gridlines = _handles.wrap(native, GridlinesCollection, axes.figure)
+    # matplotlib's axes make their gridlines with their grid helper, of
+    # the major lines of both axes (``grid`` chooses others).
+    for name, value in (("_grid_helper", axes.get_grid_helper()),
+                        ("_which", "major"), ("_axis", "both")):
+        gridlines.__dict__.setdefault(name, value)
+    return gridlines
 
 
 class AxesZero(Axes):

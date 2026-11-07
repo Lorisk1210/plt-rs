@@ -8,8 +8,12 @@ helper's `.GridFinder` (its extreme finder, locators and formatters) for
 the range, levels and labels (``_native.axisartist``).
 """
 
+import numbers
+import weakref
+
 import numpy as np
 
+from pltrs import _unusable
 from pltrs.path import Path
 from pltrs.transforms import (
     Affine2D, Bbox, CompositeGenericTransform, IdentityTransform)
@@ -85,6 +89,32 @@ class _NativeHelper:
         return ticks(major), iter(list(ticks(minor)))
 
 
+def _coordinate_name(nth):
+    """The name of the coordinate *nth* (``"x"`` for 0, ``"y"`` for 1,
+    numpy integers and truth values too), None for any other value."""
+    if isinstance(nth, (numbers.Integral, np.bool_)) and nth in (0, 1):
+        return "xy"[int(nth)]
+    return None
+
+
+def _keep_ticks_coordinate(artist, nth):
+    """Have the axis artist *artist* show the ticks of the coordinate
+    *nth*, kept as given: matplotlib's draws (and measures) of the artist
+    fail on any other value than 0 or 1, picking the tick information of
+    the coordinate and of the other one (``["lon", "lat"][nth]``)."""
+    name = _coordinate_name(nth)
+    if name is not None:
+        _axisartist.set_nth_coord_ticks(artist._native, name)
+        _unusable.drop(artist, "nth_coord_ticks")
+        return
+
+    def use(nth):
+        for coordinate in (nth, 1 - nth):
+            ["lon", "lat"][coordinate]
+
+    _unusable.keep(artist, "nth_coord_ticks", nth, use)
+
+
 class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
     """
     Helper class for a fixed axis.
@@ -102,9 +132,10 @@ class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
         self._nth_coord_ticks = nth_coord_ticks
         self._artist_native = None
 
-    def _bind(self, native):
-        """Act on the native axis artist *native* from now on."""
-        self._artist_native = native
+    def _bind(self, artist):
+        """Act on the axis artist *artist* from now on."""
+        self._artist_native = artist._native
+        self._artist = weakref.ref(artist)
         if self._nth_coord_ticks != self.nth_coord:
             self.nth_coord_ticks = self._nth_coord_ticks
 
@@ -117,7 +148,7 @@ class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
     def nth_coord_ticks(self, nth):
         self._nth_coord_ticks = nth
         if self._artist_native is not None:
-            _axisartist.set_nth_coord_ticks(self._artist_native, "xy"[nth])
+            _keep_ticks_coordinate(self._artist(), nth)
 
     def get_tick_transform(self, axes):
         return axes.transData
@@ -147,9 +178,9 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
         self._axis_direction = axis_direction or "bottom"
         self._artist_native = None
 
-    def _bind(self, native):
-        """Act on the native axis artist *native* from now on."""
-        self._artist_native = native
+    def _bind(self, artist):
+        """Act on the axis artist *artist* from now on."""
+        self._artist_native = artist._native
 
     def set_extremes(self, e1, e2):
         if e1 is None:
@@ -184,9 +215,14 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
 
     def update_lim(self, axes):
         self.grid_helper.update_lim(axes)
-        # matplotlib's finds the range of the line in the limits.
+        # matplotlib's finds the range of the line in the limits, then the
+        # points of the line along its coordinate (none but 0 or 1).
         axes.get_xlim()
         axes.get_ylim()
+        if _coordinate_name(self.nth_coord) is None:
+            raise UnboundLocalError(
+                "cannot access local variable 'xys' where it is not associated "
+                "with a value")
 
     def get_tick_iterators(self, axes):
         """tick_loc, tick_angle, tick_label, (optionally) tick_label"""

@@ -38,7 +38,7 @@ from pltrs._text_methods import _init_added
 from pltrs.text import _measured_by_given
 from pltrs.transforms import Bbox
 
-from . import _draw_problems, _program_projection, art3d, axis3d
+from . import _draw_problems, _program_projection, _properties, art3d, axis3d
 from ._charts import ChartsMixin
 from ._contours import ContoursMixin
 from ._limit_boxes import LimitBoxesMixin
@@ -100,6 +100,12 @@ def _floats(*arrays):
     return tuple(np.ascontiguousarray(a, dtype=float).ravel() for a in arrays)
 
 
+def _failure_of(problem):
+    """The exception *problem* (None for none) as pltrs (Rust) records the
+    failure of a draw: the name of its class and its message."""
+    return None if problem is None else (type(problem).__name__, str(problem))
+
+
 def _shading(shade, lightsource):
     """The native shading: whether to shade (None: the method's default)
     and the light of a `~matplotlib.colors.LightSource` (None: mplot3d's)."""
@@ -130,8 +136,9 @@ def _check_quiver(arrows, length, arrow_length_ratio, pivot):
 def _surface_mapping(cmap, norm, vmin, vmax):
     """The colour mapping of a surface, ``(colorizer, native)`` as
     `._mapping` gives it, or ``(None, None)`` for a surface coloured
-    without one (no *cmap* nor *norm*)."""
-    if cmap is None and norm is None:
+    without one: matplotlib maps the faces only through a *cmap* given,
+    and ignores *norm*, *vmin* and *vmax* otherwise."""
+    if not cmap:
         return None, None
     return _mapping(cmap, norm, vmin, vmax)
 
@@ -1299,12 +1306,25 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             self._native, tuple(map(float, view)) if problem is None
             else _mplot3d.get_view(self._native), vertical_axis, bool(share))
         keep = _values.remember if problem is None else _values.keep
-        failure = None if problem is None else (type(problem).__name__, str(problem))
         for axes in (self._shared_axes["view"].get_siblings(self) if share
                      else [self]):
             for name, value in zip(_VIEW_ANGLES, view):
                 keep(axes, name, value)
-            _mplot3d.set_view_failure(axes._native, failure)
+            axes._view_problem = problem
+            axes._record_draw_problems()
+
+    def _record_draw_problems(self):
+        """Record with pltrs (Rust) the problems matplotlib's draw of the
+        axes meets with values it keeps unchecked, before it draws their
+        artists: computing the projection of the view (``get_proj``), then
+        the z-order of the collections and patches from those of the axes,
+        and drawing the axes (`._draw_problems`)."""
+        problem = self.__dict__.get("_view_problem")
+        if problem is None and self.computed_zorder:
+            problem = _draw_problems.zorder_problem(self)
+        _mplot3d.set_view_failure(self._native, _failure_of(problem))
+        _mplot3d.set_axes_failure(
+            self._native, _failure_of(_draw_problems.axes_problem(self)))
 
     def _view_angle(index):
         """The property of one of the view angles (as given, as matplotlib
@@ -1506,6 +1526,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def computed_zorder(self, computed):
         self._computed_zorder = bool(computed)
         _mplot3d.set_computed_zorder(self._native, bool(computed))
+        self._record_draw_problems()
 
     def _shared_from(self, name):
         native = _mplot3d.share_target(self._native, name)
@@ -1711,6 +1732,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         if len(kwargs):
             visible = True
         _mplot3d.grid(self._native, bool(visible))
+        # The gridlines are drawn first with the image filters of the axes.
+        self._record_draw_problems()
 
     def _set_axis_label(self, name, label, fontdict, labelpad, kwargs):
         """Label the axis *name* (3-D axes place their labels themselves, so
@@ -2230,6 +2253,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         given_offsets = art3d.juggle_axes(given_xs, given_ys, np.atleast_1d(zs), zdir)
         s = np.broadcast_to(np.ma.filled(np.asarray(s, dtype=float), np.nan),
                             xs.shape if s.size != 1 else (1,))
+        _properties.check_known(mcoll.PathCollection, kwargs)
         native = _mplot3d.scatter(
             self._native, _floats(xs, ys, zs),
             (np.ascontiguousarray(s, dtype=float).ravel(),
@@ -2359,6 +2383,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         made, mapping = _surface_mapping(cmap, norm, vmin, vmax)
         grids = tuple(np.ascontiguousarray(np.ma.filled(
             np.ma.asarray(a, dtype=float), np.nan)) for a in (X, Y, Z))
+        _properties.check_known(art3d.Poly3DCollection, kwargs)
         native = _mplot3d.plot_surface(
             self._native, grids, sampling, (color, mapping, fcolors),
             _shading(shade, lightsource), bool(axlim_clip))
@@ -2425,6 +2450,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         color = kwargs.pop('color', None)
         grids = tuple(np.ascontiguousarray(np.ma.filled(
             np.ma.asarray(a, dtype=float), np.nan)) for a in (X, Y, Z))
+        _properties.check_known(art3d.Line3DCollection, kwargs)
         native = _mplot3d.plot_wireframe(self._native, grids, sampling, color,
                                          bool(axlim_clip))
         collection = wrap(self, native, art3d.Line3DCollection)
@@ -2567,6 +2593,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             raise KeyError(zsort)
         columns = tuple(np.atleast_1d(np.asarray(v, dtype=float)).ravel().tolist()
                         for v in (x, y, z, dx, dy, dz))
+        _properties.check_known(art3d.Poly3DCollection, kwargs)
         native = _mplot3d.bar3d(self._native, (columns[:3], columns[3:]),
                                 (colors, zsort),
                                 _shading(bool(shade), lightsource),
@@ -2640,6 +2667,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         colors = kwargs.pop('colors', None)
         if colors is None and color is not None and np.ndim(color) == 2:
             color, colors = None, color
+        _properties.check_known(art3d.Line3DCollection, kwargs)
         native = _mplot3d.quiver(
             self._native,
             (np.column_stack([x, y, z]), np.column_stack([u, v, w])),
@@ -2722,6 +2750,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         cmap = kwargs.pop('cmap', None)
         shade = kwargs.pop('shade', None)
         made, mapping = _surface_mapping(cmap, norm, vmin, vmax)
+        _properties.check_known(art3d.Poly3DCollection, kwargs)
         native = _mplot3d.plot_trisurf(
             self._native,
             (np.asarray(tri.x, dtype=float).tolist(),

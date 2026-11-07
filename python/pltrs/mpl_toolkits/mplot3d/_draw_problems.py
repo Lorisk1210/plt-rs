@@ -255,6 +255,50 @@ def view_problem(axes, elev, azim, roll):
         return _problem(compute)
 
 
+def zorder_problem(axes):
+    """The exception matplotlib's draw of the 3-D *axes* raises computing
+    the z-order its collections and patches start at from the z-orders of
+    its axes (kept unchecked, a string say), or None."""
+    return _problem(lambda: max(axis.get_zorder() for axis in _axes_of(axes)) + 1)
+
+
+def axes_problem(axes):
+    """The exception matplotlib's draw of the 3-D *axes* raises drawing its
+    axes (`.Axis3D`), or None: calling an image filter of an axis that is
+    no function, which its draws of the gridlines (when shown) call first,
+    then computing with the label pad of an axis (kept unchecked) as it
+    draws the axis, which calls the filter again."""
+    filters = [_filter_problem(axis.get_agg_filter()) for axis in _axes_of(axes)]
+    if _mplot3d.get_grid(axes._native):
+        problem = next((problem for problem in filters if problem is not None), None)
+        if problem is not None:
+            return problem
+    for axis, filter_problem in zip(_axes_of(axes), filters):
+        problem = _labelpad_problem(axis) or filter_problem
+        if problem is not None:
+            return problem
+    return None
+
+
+def _labelpad_problem(axis):
+    """The exception matplotlib's draw of the 3-D *axis* raises offsetting
+    its label by its label pad (kept unchecked), or None."""
+    return _problem(lambda: axis.labelpad + 21.)
+
+
+def _axes_of(axes):
+    """The x, y and z axes of the 3-D *axes* (its ``_axis_map``)."""
+    return axes.xaxis, axes.yaxis, axes.zaxis
+
+
+def _filter_problem(agg_filter):
+    """The exception calling the image filter *agg_filter* (None for none)
+    with what an artist drew raises when it is no function, else None."""
+    if agg_filter is None or callable(agg_filter):
+        return None
+    return TypeError(f"{type(agg_filter).__name__!r} object is not callable")
+
+
 def sort_zpos_problem(val, M=ANY_PROJECTION):
     """The exception ``Poly3DCollection.do_3d_projection`` raises projecting
     the position *val* it orders the polygons by (``set_sort_zpos``), or

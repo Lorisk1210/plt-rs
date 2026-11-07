@@ -497,7 +497,8 @@ class Axis(DrawnWith, Artist):
     def set_zorder(self, level):
         # docstring inherited
         if level is None:
-            level = type(self).zorder
+            # The class' z-order (`.Artist`'s: the axis' is a property).
+            level = Artist.zorder
         if level != self.get_zorder():
             self._zorder_set = level
             self.pchanged()

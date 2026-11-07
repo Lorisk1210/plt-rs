@@ -42,10 +42,10 @@ class FixedAxisArtistHelper(grid_helper_curvelinear.FloatingAxisArtistHelper):
         self.nth_coord_ticks = nth_coord_ticks
         self._loc = side
 
-    def _bind(self, native):
-        super()._bind(native)
+    def _bind(self, artist):
+        super()._bind(artist)
         if self.nth_coord_ticks != self.nth_coord:
-            _axisartist.set_nth_coord_ticks(native, "xy"[self.nth_coord_ticks])
+            grid_helper_curvelinear._keep_ticks_coordinate(artist, self.nth_coord_ticks)
 
     def update_lim(self, axes):
         super().update_lim(axes)
@@ -62,7 +62,7 @@ class FixedAxisArtistHelper(grid_helper_curvelinear.FloatingAxisArtistHelper):
         edge of its range."""
         native = _axisartist.new_fixed_axis(
             axes._native, next(axislines._draft_names), self._loc,
-            tuple(map(float, offset or (0, 0))))
+            tuple(map(float, (0, 0) if offset is None else offset)))
         if axis_direction != self._loc:
             _axisartist.set_axis_direction(native, axis_direction)
         return native

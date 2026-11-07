@@ -10,6 +10,8 @@ the 3-D axis its axes and name designate. What only 3-D axes have (edges,
 panes, the axis line) is ``_native.mplot3d``'s.
 """
 
+from numbers import Real
+
 import numpy as np
 
 from pltrs import _api, _mirrors, _values, axis as maxis, colors as mcolors
@@ -105,6 +107,40 @@ class Axis(maxis.XAxis):
     def _native_args(self):
         """The native 3-D axes and the axis name."""
         return self.axes._native, self.axis_name
+
+    # The values matplotlib's draw of the axes computes with, kept
+    # unchecked: the axes' draw fails on them as matplotlib's does
+    # (`.Axes3D._record_draw_problems`).
+
+    def set_zorder(self, level):
+        # docstring inherited
+        super().set_zorder(level)
+        self._record_draw_problems()
+
+    def set_agg_filter(self, filter_func):
+        # docstring inherited
+        super().set_agg_filter(filter_func)
+        self._record_draw_problems()
+
+    def _record_draw_problems(self):
+        """Have the 3-D axes record the problems its draws meet, once it
+        has its three axes (`.Axes3D._record_draw_problems`)."""
+        if all(name in vars(self.axes) for name in ("xaxis", "yaxis", "zaxis")):
+            self.axes._record_draw_problems()
+
+    @property
+    def labelpad(self):
+        """The distance between the axis label and the tick labels, in
+        points (as given, as matplotlib keeps it)."""
+        return maxis.Axis.labelpad.fget(self)
+
+    @labelpad.setter
+    def labelpad(self, pad):
+        if isinstance(pad, Real):
+            maxis.Axis.labelpad.fset(self, pad)
+        else:
+            _values.keep(self, "labelpad", pad)
+        self._record_draw_problems()
 
     def _get_autoscale_on(self):
         # docstring inherited; as given, as matplotlib keeps it, while
@@ -380,7 +416,11 @@ class Axis(maxis.XAxis):
                 f"Incorrect use of keyword argument {first_key!r}. Keyword "
                 "arguments other than 'minor' modify the text labels and can "
                 "only be used if 'labels' are passed as well.")
+        # matplotlib converts the locations, then its FixedLocator checks
+        # them.
+        ticks = self.convert_units(ticks)
         values = np.asarray(ticks)
+        _api.check_shape((None,), locs=values)
         _mplot3d.set_ticks(self.axes._native, self.axis_name,
                            [float(t) for t in ticks], bool(minor))
         if values.dtype.kind in "iub" and values.size:

@@ -191,6 +191,23 @@ def _lifted(artist):
     return axes
 
 
+def _restore_removed(artist):
+    """Give *artist*, added back to the 3-D axes it was removed from, the
+    3-D geometry it had there, as matplotlib's 3-D artists keep their 3-D
+    data."""
+    _mplot3d.restore_removed(artist.axes._native, artist._native)
+
+
+def _restored(artist, pending):
+    """Whether *artist*, just added to a 3-D axes, was in one before (it
+    keeps no 3-D geometry as *pending*, the attribute keeping it for the
+    axes that will add it), and took back the geometry it had there."""
+    if pending in artist.__dict__:
+        return False
+    _restore_removed(artist)
+    return True
+
+
 def _gains_projection(artist):
     """Forget the draw problem recorded for *artist*, an artist of a 3-D
     axes, lacking the 3-D projection the axes' draws ask the collections
@@ -260,7 +277,7 @@ class Line3D(lines.Line2D):
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
-        if _axes3d(self) is not None:
+        if _axes3d(self) is not None and not _restored(self, '_pending3d'):
             _mplot3d.line_2d_to_3d(axes._native, self._native,
                                    self.__dict__.pop('_pending3d'),
                                    bool(self._axlim_clip))
@@ -480,8 +497,17 @@ class _Loose3D:
         # docstring inherited
         if getattr(axes, 'name', None) != '3d':
             return super()._add_to_axes(axes, kind, autolim)
-        return self._adopt_into(axes, kind == 'collection' and bool(autolim),
-                                False)
+        if self._pending_key() in self.__dict__:
+            return self._adopt_into(axes, kind == 'collection' and bool(autolim),
+                                    False)
+        super()._add_to_axes(axes, kind, autolim)
+        _restore_removed(self)
+        return self
+
+    def _pending_key(self):
+        """The attribute keeping the 3-D geometry of a collection no 3-D
+        axes holds yet."""
+        return '_verts3d_pending'
 
     def _native_geometry(self):
         """The 3-D geometry handed to pltrs (Rust): the polygons or the
@@ -651,6 +677,10 @@ class _Lifted3DOffsets(_Loose3D):
         super().__init__(*args, **kwargs)
         self._depthshade_pending = (depthshade, depthshade_minalpha)
         self.set_3d_properties(zs, zdir, axlim_clip)
+
+    def _pending_key(self):
+        # docstring inherited
+        return '_offsets3d_pending'
 
     def _native_geometry(self):
         """The 3-D geometry handed to pltrs (Rust): the offsets placed in
@@ -1361,7 +1391,7 @@ class Patch3D(mpatches.Patch):
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
-        if _axes3d(self) is not None:
+        if _axes3d(self) is not None and not _restored(self, '_pending3d'):
             self._settle(*self.__dict__.pop('_pending3d'))
         return self
 
@@ -1421,6 +1451,9 @@ class Patch3D(mpatches.Patch):
                 or _artist.draw_count(self._native)):
             self.axes.M = self.axes.get_proj()
             self.do_3d_projection()
+        if self.axes is None:
+            # Removed: the path of its last projection (``_path2d``).
+            return Path(*_patches.get_path(self._native))
         return Path(*_mplot3d.patch_path(self.axes._native, self._native))
 
     def get_patch_transform(self):
@@ -1562,7 +1595,7 @@ class Text3D(mtext.Text):
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
-        if _axes3d(self) is not None:
+        if _axes3d(self) is not None and not _restored(self, '_pending3d'):
             self._lift(*self.__dict__.pop('_pending3d'))
         return self
 

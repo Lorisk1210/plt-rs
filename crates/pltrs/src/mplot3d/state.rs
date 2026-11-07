@@ -84,6 +84,9 @@ pub(crate) struct Axes3DState {
     pub(crate) facecolor: Color,
     /// The plane's artists with their 3-D geometry, in insertion order.
     pub(crate) artists: Vec<Artist3D>,
+    /// The 3-D geometry of the artists removed from the plane, which they
+    /// take back when they are added to it again (see `readd`).
+    pub(crate) removed: Vec<Artist3D>,
     /// The visible collections and patches the last draw ordered by
     /// depth, with their depths, in insertion order (empty unless it
     /// computed their z-order).
@@ -119,6 +122,7 @@ pltrs_core::archive_struct!(Axes3DState {
     computed_zorder,
     facecolor,
     artists,
+    removed,
     depth_order,
     failures,
     mouse,
@@ -153,6 +157,7 @@ impl Axes3DState {
             computed_zorder: true,
             facecolor: rc.axes_facecolor.clone(),
             artists: Vec::new(),
+            removed: Vec::new(),
             depth_order: Vec::new(),
             failures: DrawFailures::default(),
             mouse: MouseButtons::default(),
@@ -233,7 +238,6 @@ impl Axes3DState {
         dpi: f64,
         (saving, painting): (bool, Option<Painting>),
     ) {
-        self.artists.retain(|artist| store.contains(artist.id));
         self.failures.retain_in(store);
         if self.projection_problem().is_some() {
             // matplotlib's draw fails computing the projection, before it
@@ -380,7 +384,14 @@ impl Artist for Axes3DState {
             // patches, before it draws the panes.
             return;
         }
-        if self.axis_on {
+        if let Some(problem) = self.axis_failure() {
+            // matplotlib's draw fails drawing the axes, before it draws
+            // the plane's artists.
+            ctx.report_kind(self.base.id(), problem.kind, problem.clone());
+            if ctx.ended() {
+                return;
+            }
+        } else if self.axis_on {
             draw_axes(self, ctx, &extent);
         }
         ctx.renderer().open_group("axes", self.base.gid.as_deref());
@@ -587,7 +598,9 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, painting: Opti
     let (dpi, saving) = (figure.dpi(), figure.saving);
     let plane_minpos = plane_minpos(figure, id);
     let owner_spaces = owner_tick_spaces(figure, id);
+    let removed = super::readd::removed_artists(figure, id);
     figure.with_others::<Axes3DState, _>(id, |axes, store| {
+        axes.set_aside_removed(store, &removed);
         axes.limits.plane_minpos = plane_minpos;
         for (axis, space) in axes.axes.iter_mut().zip(owner_spaces) {
             axis.owner_tick_space = space;

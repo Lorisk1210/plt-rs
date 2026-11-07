@@ -56,7 +56,7 @@ impl Axis3DState {
 }
 
 impl Axes3DState {
-    /// Forgets the artists and restarts the limits, axes, gridlines and
+    /// Sets the artists aside and restarts the limits, axes, gridlines and
     /// decorations from the current rcParams, keeping the tick parameters
     /// (matplotlib's `Axes3D.clear`, which turns the axes back on).
     fn clear(&mut self) {
@@ -72,7 +72,9 @@ impl Axes3DState {
             fresh.keep_tick_styles(axis);
             *axis = fresh;
         }
-        self.artists.clear();
+        // Set aside, as their artists keep their 3-D data (see `readd`).
+        let cleared = std::mem::take(&mut self.artists);
+        self.removed.extend(cleared);
         self.grid_on = rc.axes3d_grid;
         self.axis_on = true;
     }

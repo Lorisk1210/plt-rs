@@ -17,6 +17,7 @@ which figure and with which transform.
 
 import contextlib
 import functools
+import inspect
 import weakref
 
 #: What a `Mirroring` answers to leave a question to the mirror's class.
@@ -86,7 +87,8 @@ class Mirroring:
 
     def refresh(self, artist):
         """Give the mirror *artist* what drawing the part changed since
-        it was filled, before one of its ``_refreshed_getters`` reads it."""
+        it was filled, before one of its ``_refreshed_getters`` reads it
+        or one of its setters changes it."""
 
 
 #: The mirrorings of objects whose attributes are their value (font
@@ -130,6 +132,11 @@ def ask(obj, question, *args):
 def _pushing(method):
     @functools.wraps(method)
     def setter(self, *args, **kwargs):
+        # What drawing the part changed comes first: matplotlib's draw
+        # changed the artist before the program sets it.
+        mirror = mirroring(self)
+        if mirror is not None:
+            mirror.refresh(self)
         result = method(self, *args, **kwargs)
         mirror = mirroring(self)
         if mirror is not None:
@@ -141,9 +148,11 @@ def _pushing(method):
 
 def pushing(cls):
     """Class decorator: every setter of *cls* pushes a mirror of it back
-    into its part once it ran (once: the setters it inherits from a class
-    made pushing already push). An alias of a setter (``set_name =
-    set_family``) stays the same function as the setter."""
+    into its part once it ran, having refreshed it first (`Mirroring.refresh`:
+    what drawing the part changed comes before the setter's change), once:
+    the setters it inherits from a class made pushing already push. An
+    alias of a setter (``set_name = set_family``) stays the same function
+    as the setter."""
     wrappers = {}
     for name in dir(cls):
         method = getattr(cls, name) if name.startswith("set_") else None
@@ -174,11 +183,25 @@ def _asking(method, question):
     def asking(self, *args, **kwargs):
         mirror = self.__dict__.get("_mirror")
         if mirror is not None:
-            answer = getattr(mirror, question)(self, *args, **kwargs)
+            try:
+                answer = getattr(mirror, question)(self, *args, **kwargs)
+            except TypeError:
+                _check_arguments(method, self, *args, **kwargs)
+                raise
             if answer is not OWN:
                 return answer
         return method(self, *args, **kwargs)
     return asking
+
+
+def _check_arguments(method, *args, **kwargs):
+    """Raise what calling *method* with *args* and *kwargs* raises when
+    they do not fit its parameters (the error naming the method, rather
+    than the question a mirror's part was asked)."""
+    try:
+        inspect.signature(method).bind(*args, **kwargs)
+    except TypeError:
+        method(*args, **kwargs)
 
 
 def _refreshing(method):

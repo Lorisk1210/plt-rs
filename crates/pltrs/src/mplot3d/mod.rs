@@ -92,6 +92,7 @@ mod plot;
 mod program;
 mod quaternion;
 mod quiver;
+mod readd;
 mod readout;
 mod scales;
 mod scaling;

@@ -427,6 +427,13 @@ fn adopt_collection3d(
     Ok(axes.adopt_collection3d(&collection, geometry.0, autolim, axlim_clip)?)
 }
 
+/// Gives `artist`, removed from the axes and added back, the 3-D geometry
+/// it had (an artist added again keeps its 3-D data); whether it had one
+/// set aside.
+fn restore_removed(axes: Axes3D, artist: RawHandle) -> PyResult<bool> {
+    Ok(axes.restore_removed(&artist))
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("line_data", line_data)?;
@@ -458,7 +465,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("transform", transform)?;
     module.add("inverse_transform", inverse_transform)?;
     module.add("all_points_on_plane", on_plane)?;
-    module.add("adopt_collection3d", adopt_collection3d)
+    module.add("adopt_collection3d", adopt_collection3d)?;
+    module.add("restore_removed", restore_removed)
 }
 
 #[cfg(test)]

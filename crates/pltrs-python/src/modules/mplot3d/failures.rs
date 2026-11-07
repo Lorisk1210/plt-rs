@@ -56,10 +56,19 @@ fn set_view_failure(axes: Axes3D, failure: Option<(String, String)>) -> PyResult
     Ok(())
 }
 
+/// Records that drawing the panes, gridlines and axes raises the exception
+/// of the class named first with the message second; `None` forgets a
+/// problem recorded.
+fn set_axes_failure(axes: Axes3D, failure: Option<(String, String)>) -> PyResult<()> {
+    axes.set_axes_failure(failure.map(failure_of));
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_draw_failure", set_draw_failure)?;
-    module.add("set_view_failure", set_view_failure)
+    module.add("set_view_failure", set_view_failure)?;
+    module.add("set_axes_failure", set_axes_failure)
 }
 
 #[cfg(test)]

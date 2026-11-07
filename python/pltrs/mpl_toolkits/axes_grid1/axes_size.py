@@ -23,7 +23,7 @@ size made of what pltrs (Rust) cannot take is described as `.Unusable`
 
 from numbers import Real
 
-from pltrs import _api
+from pltrs import _api, _named
 from pltrs.artist import Artist
 from pltrs.axes import Axes
 from pltrs._offsetbox_trees import Unusable, number
@@ -184,6 +184,7 @@ class AxesX(_AxesExtent):
     """
 
     _native_name = "axes_x"
+    __init__ = _named.named("AxesX.__init__", _AxesExtent.__init__)
 
     def get_size(self, renderer):
         l1, l2 = self._axes.get_xlim()
@@ -205,6 +206,7 @@ class AxesY(_AxesExtent):
     """
 
     _native_name = "axes_y"
+    __init__ = _named.named("AxesY.__init__", _AxesExtent.__init__)
 
     def get_size(self, renderer):
         l1, l2 = self._axes.get_ylim()

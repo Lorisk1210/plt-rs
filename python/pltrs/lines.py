@@ -9,12 +9,13 @@ matplotlib does. The module-level dash helpers are matplotlib's.
 """
 
 import copy
+import functools
 import logging
 
 import numpy as np
 
 from . import _docstring
-from . import _api, _live_transforms, _mirrors, _values, cbook, units
+from . import _api, _live_transforms, _mirrors, _unusable, _values, cbook, units
 from ._artist_kwargs import native_artist_kwargs
 from ._native import artist as _artist, lines as _lines
 from ._program_classes import takes_from_program
@@ -150,8 +151,21 @@ def _mark_every_path(markevery, tpath, affine, ax):
     if ax is not None:
         (x0, y0), (x1, y1) = ax.transAxes.transform([[0, 0], [1, 1]])
         diagonal = float(np.hypot(x1 - x0, y1 - y0))
-    inds = _lines.markevery_indices(
-        markevery, np.asarray(affine.transform(verts), dtype=float), diagonal)
+    try:
+        inds = _lines.markevery_indices(
+            markevery, np.asarray(affine.transform(verts), dtype=float), diagonal)
+    except ValueError:
+        if not np.iterable(markevery) or isinstance(markevery, tuple):
+            raise
+        # matplotlib indexes the vertices with any other iterable, numpy
+        # refusing what is no index.
+        try:
+            verts[markevery]
+        except (ValueError, IndexError) as err:
+            raise ValueError(
+                f"markevery={markevery!r} is iterable but not a valid numpy "
+                f"fancy index") from err
+        raise
     return Path(verts[inds], None if codes is None else codes[inds])
 
 
@@ -413,6 +427,38 @@ class Line2D(Artist):
         _lines.update(self._native, _native_kwargs(kwargs))
         _values.remember_all(self, kwargs, _GIVEN_COLORS)
 
+    def _set_marker_color(self, name, color):
+        """
+        Set the marker colour *name*. matplotlib keeps what is no colour
+        (``3``) as it is, failing to convert it when it draws the markers:
+        the line keeps it (`._unusable`) while pltrs (Rust) keeps the colour
+        it had.
+        """
+        if (color is None or cbook._str_lower_equal(color, "auto")
+                or mcolors.is_color_like(color)):
+            _unusable.drop(self, name)
+            self._set_native(**{name: color})
+            return
+        _values.keep(self, name, color)
+        _unusable.keep(self, name, color,
+                       functools.partial(self._draw_marker_color, name),
+                       measured=False)
+        self.stale = True
+
+    def _draw_marker_color(self, name, color):
+        """Fail as matplotlib's draw converts the marker colour *name*,
+        *color*: where the line draws markers (filled ones, for the face
+        colours)."""
+        if (_draws_marker(self.get_marker()) and self.get_markersize() > 0
+                and (name == "markeredgecolor" or self.get_fillstyle() != "none")):
+            mcolors.to_rgba(color, self.get_alpha())
+
+    def _kept_order(self):
+        """The order in which matplotlib's draw computes with the values
+        the line keeps (see `._unusable`)."""
+        return ["data", "markevery", "markeredgecolor", "markerfacecolor",
+                "markerfacecoloralt"]
+
     def _given_color(self, name, default=_values.NONE_GIVEN):
         """The colour property *name* as the program gave it (`._values`)."""
         return _values.given(self, name, self._get(name), default,
@@ -420,6 +466,8 @@ class Line2D(Artist):
 
     def _marker_color(self, name, setting):
         """A marker colour: the line's colour where it is ``"auto"``."""
+        if _values.is_kept(self, name):
+            return self._given_color(name)
         if (cbook._str_lower_equal(self._get(setting), "auto")
                 and _values.same_color(self._get(name), self._get("color"))):
             return self.get_color()
@@ -459,6 +507,7 @@ class Line2D(Artist):
 
     def get_xydata(self):
         """Return the *xy* data as a (N, 2) array."""
+        _unusable.check(self, measuring=True)
         x, y = np.broadcast_arrays(self.get_xdata(orig=False),
                                    self.get_ydata(orig=False))
         return np.column_stack([x, y]).astype(float)
@@ -471,6 +520,7 @@ class Line2D(Artist):
 
     def get_path(self):
         """Return the `~matplotlib.path.Path` associated with this line."""
+        _unusable.check(self, measuring=True)
         return drawn_path(self, *_lines.get_path(self._native), (
             lambda: _lines.get_interpolation_steps(self._native),
             lambda steps: _lines.set_interpolation_steps(self._native, steps)))
@@ -497,9 +547,19 @@ class Line2D(Artist):
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
         self._xorig, self._yorig = _copied(x), _copied(y)
-        # Converted now (where units fail, set_data does), the numbers
-        # reach pltrs (Rust) when the next native call is made.
-        _deferred_data[self._native] = self._numbers()
+        # Converted now, the numbers reach pltrs (Rust) when the next native
+        # call is made. Data that converts to no numbers (strings on a
+        # numeric axis) matplotlib keeps, failing to convert it as it
+        # draws or measures the line, while pltrs (Rust) keeps the numbers
+        # it had.
+        try:
+            numbers = self._numbers()
+        except (TypeError, ValueError):
+            _unusable.keep(self, "data", None, lambda _: self._numbers())
+            self.stale = True
+            return
+        _unusable.drop(self, "data")
+        _deferred_data[self._native] = numbers
 
     def _convert_units_for(self, axes):
         if self.__dict__.pop("_unit_data", False):
@@ -867,8 +927,6 @@ class Line2D(Artist):
         sz : float
              Marker size, in points.
         """
-        if sz is None:
-            sz = _rcParams()['lines.markersize']
         self._set_native(markersize=float(sz))
 
     def get_markeredgewidth(self):
@@ -910,7 +968,7 @@ class Line2D(Artist):
         ----------
         ec : :mpltype:`color`
         """
-        self._set_native(markeredgecolor=ec)
+        self._set_marker_color("markeredgecolor", ec)
 
     def get_markerfacecolor(self):
         """
@@ -930,7 +988,7 @@ class Line2D(Artist):
         ----------
         fc : :mpltype:`color`
         """
-        self._set_native(markerfacecolor=fc)
+        self._set_marker_color("markerfacecolor", fc)
 
     def get_markerfacecoloralt(self):
         """
@@ -950,7 +1008,7 @@ class Line2D(Artist):
         ----------
         fc : :mpltype:`color`
         """
-        self._set_native(markerfacecoloralt=fc)
+        self._set_marker_color("markerfacecoloralt", fc)
 
     def get_markevery(self):
         """
@@ -1018,8 +1076,23 @@ class Line2D(Artist):
         axes-bounding-box-diagonal regardless of the actual axes data limits.
 
         """
-        self._set_native(markevery=every)
+        try:
+            self._set_native(markevery=every)
+        except ValueError:
+            # matplotlib keeps what it cannot sample markers with, failing
+            # on it as it draws the markers (`_mark_every_path`).
+            _unusable.keep(self, "markevery", every, self._draw_markevery,
+                           measured=False)
+        else:
+            _unusable.drop(self, "markevery")
         self._markevery = every
+        self.stale = True
+
+    def _draw_markevery(self, every):
+        """Fail as matplotlib's draw samples the markers with *every*: where
+        the line draws markers."""
+        if _draws_marker(self.get_marker()) and self.get_markersize() > 0:
+            _mark_every_path(every, self.get_path(), self.get_transform(), self.axes)
 
     def get_pickradius(self):
         """

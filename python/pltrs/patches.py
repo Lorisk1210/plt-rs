@@ -3057,9 +3057,14 @@ default: 'arc3'
         the scale in pixels, ``mutation_scale * dpi_cor``."""
         return scale * 1.
 
+    def _place_ends(self):
+        """Fail as matplotlib's patch fails to place its ends where it
+        measures them: nothing to place for an arrow of given points."""
+
     def get_path(self):
         """Return the path of the arrow in the data coordinates."""
         _unusable.check(self, measuring=True)
+        self._place_ends()
         # The arrow of an annotation is drawn by the annotation, which
         # places it (`._annotation_arrow`).
         arrays = _mirrors.ask(self, "display_path")
@@ -3135,6 +3140,30 @@ _CONNECTION_COORDS = frozenset([
     "figure points", "axes points", "figure fraction", "subfigure fraction",
     "axes fraction", "data", "offset points", "polar", "figure pixels",
     "subfigure pixels", "axes pixels"])
+
+
+#: What matplotlib's ``ConnectionPatch._get_xy`` reads first to place a
+#: point in each coordinate system: an attribute of the patch's figure or
+#: of the Axes of the point.
+_CONNECTION_NEEDS = {
+    "figure points": ("figure", "dpi"), "axes points": ("figure", "dpi"),
+    "figure fraction": ("figure", "transFigure"),
+    "subfigure fraction": ("figure", "transSubfigure"),
+    "axes fraction": ("axes", "transAxes"), "data": ("axes", "transData"),
+    "polar": ("axes", "transData"), "figure pixels": ("figure", "figbbox"),
+    "subfigure pixels": ("figure", "bbox"), "axes pixels": ("axes", "bbox")}
+
+
+def _place_ends_decoupled(patch):
+    """Fail as matplotlib's `ConnectionPatch` fails to place its ends once
+    it has no figure and no Axes (removed), where their coordinates need
+    them: on the attribute of None it reads first."""
+    for _, coords, axes in patch._ends():
+        need = _CONNECTION_NEEDS.get(coords) if isinstance(coords, str) else None
+        if need is not None:
+            owner = (patch.get_figure(root=False) if need[0] == "figure"
+                     else axes if axes is not None else patch.axes)
+            getattr(owner, need[1])
 
 
 def _refuse_connection_coords(coords):
@@ -3307,6 +3336,13 @@ class ConnectionPatch(FancyArrowPatch):
         self.patchB = patchB
         self._link_patches()
         self._keep_unusable_coords()
+
+    def _place_ends(self):
+        # docstring inherited
+        if self.__dict__.get("_decoupled"):
+            # Removed from its figure and Axes, the patch is measured as
+            # matplotlib's places its ends without them.
+            _place_ends_decoupled(self)
 
     def _keep_unusable_coords(self):
         """Keep the coordinates of each end that pltrs (Rust) cannot hold,

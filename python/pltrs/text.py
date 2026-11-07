@@ -445,6 +445,32 @@ class Text(Artist):
         to_rgba(color)
         _text.set_backgroundcolor(self._native, color)
 
+    def _decouple(self, removed):
+        # docstring inherited; a part of an Axes (its title) that an Axes
+        # listing it took out is drawn there still: the Axes fails to draw
+        # where matplotlib's visible text, without its figure, lays itself
+        # out at the figure's resolution.
+        axes = self.axes if _artist.is_part(self._native) else None
+        super()._decouple(removed)
+        if axes is not None:
+            self._drawn_by = axes
+            _unusable.keep(axes, self._without_figure, self,
+                           lambda text: text.get_visible() and getattr(None, "dpi"),
+                           measured=False)
+
+    def _recouple(self):
+        # docstring inherited
+        super()._recouple()
+        axes = self.__dict__.pop("_drawn_by", None)
+        if axes is not None:
+            _unusable.drop(axes, self._without_figure)
+
+    @property
+    def _without_figure(self):
+        """The name of the problem of the Axes drawing the text, a part of
+        it, while the text has no figure (`_decouple`)."""
+        return f"text {id(self)} without its figure"
+
     def update(self, kwargs):
         ret = []
         kwargs = cbook.normalize_kwargs(kwargs, Text)

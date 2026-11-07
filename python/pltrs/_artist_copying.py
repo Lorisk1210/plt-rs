@@ -16,6 +16,13 @@ from ._native import artist as _artist
 _REFERENCES = ("_given_transform", "_clipbox", "_clippath")
 
 
+def check_copyable(other):
+    """Fail as matplotlib's `.Artist.update_from` fails on *other* when it
+    is no artist: at its first read of it."""
+    if not hasattr(other, "_native"):
+        raise AttributeError(f"{type(other).__name__!r} object has no attribute '_transform'")
+
+
 class _StickyEdgeList(list):
     """
     A list of sticky edges of one axis of an artist: every change in
@@ -128,9 +135,7 @@ class CopyingMixin:
 
     def update_from(self, other):
         """Copy properties from *other* to *self*."""
-        if not hasattr(other, "_native"):
-            # What is not an artist fails at matplotlib's first read of it.
-            raise AttributeError(f"{type(other).__name__!r} object has no attribute '_transform'")
+        check_copyable(other)
         self._took_from(other, _artist.update_from(self._native, other._native))
 
     def _took_from(self, other, references):

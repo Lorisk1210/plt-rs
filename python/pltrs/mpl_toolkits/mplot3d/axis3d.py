@@ -56,6 +56,11 @@ class Axis(maxis.XAxis):
     # pltrs (Rust) converts the values in units of 3-D axes.
     _native_units = True
 
+    def _drawn_without_axes(self):
+        # matplotlib's draw of a 3-D axis, visible or not, starts from the
+        # scaled limits of its Axes.
+        getattr(None, "_get_scaled_limits")
+
     #: What `.XAxis` records of its label's side, which a 3-D axis does
     #: not read: its label goes where `get_label_position` says.
     label_position = 'bottom'

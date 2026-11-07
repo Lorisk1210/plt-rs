@@ -143,6 +143,19 @@ fn font_new(
     )))
 }
 
+/// The metrics of a font as `(tfm, face)`: its TeX font metrics, or the
+/// font file of a native font, whichever it has (the other `None`).
+type FontMetrics = (Option<Arc<Tfm>>, Option<Arc<NativeFace>>);
+
+/// `DviFont._metrics`: the TeX font metrics of a font, or the font file
+/// of a native font (`Tfm`, `TtfMetrics`), whichever it has.
+fn font_metrics(font: Arc<DviFont>) -> PyResult<FontMetrics> {
+    Ok(match font.metrics() {
+        DviMetrics::Tfm(tfm) => (Some(Arc::clone(tfm)), None),
+        DviMetrics::Native(face) => (None, Some(Arc::clone(face))),
+    })
+}
+
 /// `DviFont.from_luatex(scale, texname)`.
 fn font_from_luatex(scale: i64, texname: Bytes) -> PyResult<Arc<DviFont>> {
     Ok(Arc::new(DviFont::from_luatex(
@@ -195,6 +208,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("vf", vf)?;
     module.add("vf_packet", vf_packet)?;
     module.add("font_new", font_new)?;
+    module.add("font_metrics", font_metrics)?;
     module.add("font_from_luatex", font_from_luatex)?;
     module.add("font_from_xetex", font_from_xetex)
 }

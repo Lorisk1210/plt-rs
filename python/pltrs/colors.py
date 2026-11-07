@@ -719,8 +719,29 @@ def _create_lookup_table(N, data, gamma=1.0):
     if N == 1:
         # convention: use the y = f(x=1) value for a 1-element lookup table
         return np.clip(np.array(adata[-1, 1], dtype=float), 0.0, 1.0)
-    return _colors.lookup_table(int(N), [tuple(map(float, row)) for row in adata],
-                                float(gamma))
+    if isinstance(gamma, Real) and gamma >= 0:
+        return _colors.lookup_table(int(N), [tuple(map(float, row)) for row in adata],
+                                    float(gamma))
+    # matplotlib's sampling with another gamma (negative, NaN, no number),
+    # which pltrs (Rust) refuses: as numpy computes and fails with it.
+    x = adata[:, 0]
+    y0 = adata[:, 1]
+    y1 = adata[:, 2]
+    if x[0] != 0. or x[-1] != 1.0:
+        raise ValueError(
+            "data mapping points must start with x=0 and end with x=1")
+    if (np.diff(x) < 0).any():
+        raise ValueError("data mapping points must have x in increasing order")
+    x = x * (N - 1)
+    xind = (N - 1) * np.linspace(0, 1, N) ** gamma
+    ind = np.searchsorted(x, xind)[1:-1]
+    distance = (xind[1:-1] - x[ind - 1]) / (x[ind] - x[ind - 1])
+    lut = np.concatenate([
+        [y1[0]],
+        distance * (y0[ind] - y1[ind - 1]) + y1[ind - 1],
+        [y0[-1]],
+    ])
+    return np.clip(lut, 0.0, 1.0)
 
 
 #: The colorizers drawing with each colormap object, by its id: a colormap

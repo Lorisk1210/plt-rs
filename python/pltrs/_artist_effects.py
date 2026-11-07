@@ -70,7 +70,8 @@ class EffectsMixin:
 
 
 #: The classes whose matplotlib ``draw`` applies no agg filter.
-_UNFILTERED = frozenset({"FancyArrowPatch", "OffsetBox", "AnnotationBbox", "SubFigure"})
+_UNFILTERED = frozenset({"FancyArrowPatch", "OffsetBox", "AnnotationBbox", "SubFigure",
+                         "InsetIndicator"})
 
 
 def _draws_filtered(artist):

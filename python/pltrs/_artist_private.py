@@ -18,6 +18,11 @@ class PrivateAttributesMixin:
                 # The Axes the artist is in, as its ``axes`` gives it (an
                 # Axes itself, as matplotlib's ``self.axes = self`` sets it).
                 return type(self).axes.fget(self)
+        prop = getattr(type(self), name, None)
+        if isinstance(prop, property) and prop.fget is not None:
+            # A property whose getter raised: its error is the one, as
+            # without this hook (a figure pyplot never numbered).
+            return prop.fget(self)
         raise AttributeError(
             f"'{type(self).__name__}' object has no attribute '{name}'",
             name=name, obj=self)

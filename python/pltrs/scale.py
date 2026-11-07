@@ -34,6 +34,7 @@ Matplotlib License); the maps of the non-linear scales are pltrs (Rust)'s
 """  # noqa: E501
 
 import inspect
+import numbers
 import textwrap
 from functools import wraps
 
@@ -54,36 +55,50 @@ def _rcParams():
     return rcParams
 
 
-#: The first numpy operation of matplotlib's map of each scale kind, and of
-#: its inverse, on the values and the parameters: what fails first for
-#: values that are no numbers.
-_FIRST_OPERATIONS = {
-    "symlog": (lambda values, params: np.abs(values),
-               lambda values, params: np.abs(values)),
-    "asinh": (lambda values, params: values / params[0],
-              lambda values, params: values / params[0]),
-    "logit": (lambda values, params: 1 - values,
-              lambda values, params: -values),
+#: The parameters pltrs (Rust)'s map of each scale kind takes, as the
+#: transforms keep them (matplotlib's transforms keep what they are given).
+_NATIVE_PARAMETERS = {
+    "symlog": lambda base, linthresh, linscale: (
+        _real(base) and _real(linthresh) and _real(linscale)
+        and base > 1 and linthresh > 0 and linscale > 0),
+    "asinh": lambda linear_width: _real(linear_width) and linear_width > 0,
+    "logit": lambda nonpositive: (isinstance(nonpositive, str)
+                                  and nonpositive in ("clip", "mask")),
 }
+
+
+def _real(value):
+    """Whether *value* is a plain real number."""
+    return isinstance(value, numbers.Real)
+
+
+def _maps_natively(kind, params, values):
+    """
+    Whether pltrs (Rust)'s scale map *kind* of *params* maps *values*: an
+    array of doubles (masked or not), with parameters it takes.
+    matplotlib's map computes with anything else as it is given (a list, a
+    data frame, integers, booleans, single precision, a parameter it was
+    set to), failing or giving what numpy's arithmetic gives, so the
+    transforms run it then.
+    """
+    return (isinstance(values, np.ndarray) and values.dtype == np.float64
+            and _NATIVE_PARAMETERS[kind](*params))
 
 
 def _native_transform(kind, params, values, inverse=False):
     """
-    *values* (an array-like, masked or not) mapped by pltrs (Rust)'s scale
-    map *kind* of *params*, or by its inverse. Masked values come back
-    masked where they were, and where the map gives no finite value, as
-    numpy's masked arithmetic in matplotlib's maps masks them; values that
-    are no numbers fail as the first operation of matplotlib's map fails.
+    *values*, an array of doubles (see `_maps_natively`), masked or not,
+    mapped by pltrs (Rust)'s scale map *kind* of *params*, or by its
+    inverse. Masked values come back masked where they were, and where the
+    map gives no finite value, as numpy's masked arithmetic in
+    matplotlib's maps masks them.
     """
-    data = np.asanyarray(values)
-    if data.dtype.kind not in "biufc":
-        _FIRST_OPERATIONS[kind][inverse](data, params)
-    if isinstance(data, np.ma.MaskedArray):
-        out = _scale.transform(kind, params, np.ma.getdata(data).astype(float),
-                               inverse)
+    params = tuple(params if kind == "logit" else map(float, params))
+    if isinstance(values, np.ma.MaskedArray):
+        out = _scale.transform(kind, params, np.ma.getdata(values), inverse)
         return np.ma.MaskedArray(
-            out, mask=np.ma.getmaskarray(data) | ~np.isfinite(out))
-    return _scale.transform(kind, params, np.asarray(data, float), inverse)
+            out, mask=np.ma.getmaskarray(values) | ~np.isfinite(out))
+    return _scale.transform(kind, params, values, inverse)
 
 
 class ScaleBase:
@@ -542,9 +557,22 @@ class SymmetricalLogTransform(Transform):
         self.linscale = linscale
 
     def transform_non_affine(self, values):
-        return _native_transform(
-            "symlog", (float(self.base), float(self.linthresh),
-                       float(self.linscale)), values)
+        params = (self.base, self.linthresh, self.linscale)
+        if _maps_natively("symlog", params, values):
+            return _native_transform("symlog", params, values)
+        linscale_adj = self.linscale / (1.0 - 1.0 / self.base)
+        log_base = np.log(self.base)
+
+        abs_a = np.abs(values)
+        inside = abs_a <= self.linthresh
+        if np.all(inside):  # Fast path: all values in linear region
+            return values * linscale_adj
+        with np.errstate(divide="ignore", invalid="ignore"):
+            out = np.sign(values) * self.linthresh * (
+                linscale_adj - np.log(self.linthresh) / log_base +
+                np.log(abs_a) / log_base)
+        out[inside] = values[inside] * linscale_adj
+        return out
 
     def inverted(self):
         return InvertedSymmetricalLogTransform(self.base, self.linthresh,
@@ -574,9 +602,21 @@ class InvertedSymmetricalLogTransform(Transform):
         return invlinthresh
 
     def transform_non_affine(self, values):
-        return _native_transform(
-            "symlog", (float(self.base), float(self.linthresh),
-                       float(self.linscale)), values, inverse=True)
+        params = (self.base, self.linthresh, self.linscale)
+        if _maps_natively("symlog", params, values):
+            return _native_transform("symlog", params, values, inverse=True)
+        linscale_adj = self.linscale / (1.0 - 1.0 / self.base)
+        invlinthresh = self.inverted().transform(self.linthresh)
+
+        abs_a = np.abs(values)
+        inside = abs_a <= invlinthresh
+        if np.all(inside):  # Fast path: all values in linear region
+            return values / linscale_adj
+        with np.errstate(divide="ignore", invalid="ignore"):
+            out = np.sign(values) * self.linthresh * np.exp(
+                (abs_a / self.linthresh - linscale_adj) * np.log(self.base))
+        out[inside] = values[inside] / linscale_adj
+        return out
 
     def inverted(self):
         return SymmetricalLogTransform(self.base,
@@ -671,7 +711,9 @@ class AsinhTransform(Transform):
         self.linear_width = linear_width
 
     def transform_non_affine(self, values):
-        return _native_transform("asinh", (float(self.linear_width),), values)
+        if _maps_natively("asinh", (self.linear_width,), values):
+            return _native_transform("asinh", (self.linear_width,), values)
+        return self.linear_width * np.arcsinh(values / self.linear_width)
 
     def inverted(self):
         return InvertedAsinhTransform(self.linear_width)
@@ -686,8 +728,10 @@ class InvertedAsinhTransform(Transform):
         self.linear_width = linear_width
 
     def transform_non_affine(self, values):
-        return _native_transform("asinh", (float(self.linear_width),), values,
-                                 inverse=True)
+        if _maps_natively("asinh", (self.linear_width,), values):
+            return _native_transform("asinh", (self.linear_width,), values,
+                                     inverse=True)
+        return self.linear_width * np.sinh(values / self.linear_width)
 
     def inverted(self):
         return AsinhTransform(self.linear_width)
@@ -807,7 +851,14 @@ class LogitTransform(Transform):
 
     def transform_non_affine(self, values):
         """logit transform (base 10), masked or clipped"""
-        return _native_transform("logit", (self._nonpositive,), values)
+        if _maps_natively("logit", (self._nonpositive,), values):
+            return _native_transform("logit", (self._nonpositive,), values)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            out = np.log10(values / (1 - values))
+        if self._clip:  # See LogTransform for choice of clip value.
+            out[values <= 0] = -1000
+            out[1 <= values] = 1000
+        return out
 
     def inverted(self):
         return LogisticTransform(self._nonpositive)
@@ -825,8 +876,10 @@ class LogisticTransform(Transform):
 
     def transform_non_affine(self, values):
         """logistic transform (base 10)"""
-        return _native_transform("logit", (self._nonpositive,), values,
-                                 inverse=True)
+        if _maps_natively("logit", (self._nonpositive,), values):
+            return _native_transform("logit", (self._nonpositive,), values,
+                                     inverse=True)
+        return 1.0 / (1 + 10**(-values))
 
     def inverted(self):
         return LogitTransform(self._nonpositive)

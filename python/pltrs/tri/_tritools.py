@@ -4,6 +4,8 @@ Tools for triangular grids (matplotlib's ``tri._tritools``); pltrs
 matplotlib's (from matplotlib 3.11.2, under the Matplotlib License).
 """
 
+from numbers import Real
+
 import numpy as np
 
 from .. import _api
@@ -127,6 +129,10 @@ class TriAnalyzer:
         with a circle ratio below *min_circle_ratio*, thus improving the
         mesh quality for subsequent plots or interpolation.
         """
+        if not isinstance(min_circle_ratio, Real):
+            # matplotlib's first computation with the ratio, which fails on
+            # what compares with no array of floats.
+            self.circle_ratios(rescale) < min_circle_ratio
         return np.asarray(_tri.flat_tri_mask(
             self._triangulation._native, float(min_circle_ratio), bool(rescale)),
             dtype=bool)

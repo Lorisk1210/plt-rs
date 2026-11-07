@@ -315,6 +315,8 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         self._changed()
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        if self._comes_back(axes):
+            return Artist._add_to_axes(self, axes, kind, autolim)
         if self._sizes_itself():
             _python_drawing.paint(self)
             super()._add_to_axes(axes, kind, autolim)
@@ -327,6 +329,8 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         return self._join_at_offset(axes)
 
     def _add_to_figure(self, figure, clip):
+        if self._comes_back(figure):
+            return Artist._add_to_figure(self, figure, clip)
         if self._sizes_itself():
             _python_drawing.paint(self)
             super()._add_to_figure(figure, clip)
@@ -690,18 +694,22 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
 
     def get_figure(self, root=False):
         """Return the `.Figure` or `.SubFigure` the box is on: that of the
-        artist added with its tree, for a box inside another."""
+        artist added with its tree, for a box inside another, which keeps it
+        once that artist is removed or cleared, as matplotlib's keeps the
+        figure the artist gave it."""
         owner = self._drawer()
         if self._figure is None and owner is not None:
-            return owner.get_figure(root=root)
+            return owner._home_figure(root=root)
         return super().get_figure(root=root)
 
     def _loose_axes(self):
-        # A box inside another is in the Axes of the box that added the
-        # tree; inside an artist's tree, in none.
+        # A box inside another is in the Axes it was given (an Axes listing
+        # it, see `.axes._foreign_children`), else in the Axes of the box
+        # that added the tree; inside an artist's tree, in none.
         owner = self._drawer()
-        if owner is None:
-            return super()._loose_axes()
+        given = super()._loose_axes()
+        if owner is None or given is not None:
+            return given
         return owner.axes if isinstance(owner, OffsetBox) else None
 
 
@@ -1524,12 +1532,16 @@ class AnchoredOffsetbox(OffsetBox):
         self.patch.set_mutation_scale(self.prop.get_size_in_points())
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        if self._comes_back(axes):
+            return Artist._add_to_axes(self, axes, kind, autolim)
         # matplotlib's `add_artist` sets the Axes of the box and its children
         # first: the box anchors to it.
         self.axes = axes
         return self._join(axes)
 
     def _add_to_figure(self, figure, clip):
+        if self._comes_back(figure):
+            return Artist._add_to_figure(self, figure, clip)
         return self._join(figure)
 
     def _native_anchor(self):
@@ -2147,9 +2159,13 @@ or callable, default: value of *xycoords*
         self._internal_update(kwargs)
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        if self._comes_back(axes):
+            return Artist._add_to_axes(self, axes, kind, autolim)
         return self._join(axes)
 
     def _add_to_figure(self, figure, clip):
+        if self._comes_back(figure):
+            return Artist._add_to_figure(self, figure, clip)
         return self._join(figure)
 
     def _join(self, parent):

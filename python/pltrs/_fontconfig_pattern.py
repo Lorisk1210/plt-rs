@@ -18,6 +18,10 @@ def parse_fontconfig_pattern(pattern):
     Parse a fontconfig *pattern* into a dict that can initialize a
     `.font_manager.FontProperties` object.
     """
+    if not isinstance(pattern, str):
+        # matplotlib's pyparsing parser expands the tabs of what it parses
+        # first, failing on what has no ``expandtabs``.
+        pattern.expandtabs()
     return {key: list(values)
             for key, values in _font_manager.parse_pattern(pattern)}
 

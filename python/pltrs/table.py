@@ -199,10 +199,11 @@ substring of 'BRTL'
     @property
     def _parent_figure(self):
         """The `.Figure` or `.SubFigure` of the cell's table (the one given
-        to `set_figure` for a cell in no table)."""
+        to `set_figure` for a cell in no table): the one the table gave it,
+        which matplotlib's cell keeps once the table is removed or cleared."""
         if isinstance(self._table, _CellHolder):
             return self._table.figure
-        return self._table.get_figure(root=False)
+        return self._table._home_figure(root=False)
 
     def get_figure(self, root=False):
         """Return the `.Figure` or `.SubFigure` the cell's table is on."""

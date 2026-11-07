@@ -23,7 +23,7 @@ from . import _background_patch
 from . import _figure_artists
 from .axes import Axes
 from .axes._base import _AxesBase
-from .axes import _sharing
+from .axes import _foreign_children, _sharing
 from .axes import _program_tick_params
 from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
@@ -198,8 +198,26 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         if any(is_3d for _, is_3d in listed):
             from .projections import get_projection_class
             axes3d = get_projection_class("3d")
+        # matplotlib's stack lists the Axes as they were added, one taken
+        # out and added back last (`_add_axes_back`).
+        added_back = self.get_figure(root=True).__dict__.get("_axes_added_back", {})
+        if added_back:
+            listed = sorted(listed, key=lambda entry: added_back.get(
+                _artist.id(entry[0]), _artist.id(entry[0])))
         return [_handles.wrap(native, axes3d if is_3d else Axes, self.figure)
                 for native, is_3d in listed]
+
+    def _add_axes_back(self, ax):
+        """Add *ax*, an Axes of the figure taken out of it, back: the last
+        of the figure's Axes, as matplotlib's stack adds it."""
+        root = self.get_figure(root=True)
+        added_back = root.__dict__.setdefault("_axes_added_back", {})
+        last = max((added_back.get(_artist.id(other._native), _artist.id(other._native))
+                    for other in root.axes), default=0)
+        ax._add_to_figure(self, False)
+        added_back[_artist.id(ax._native)] = last + 0.5
+        self._axes_changed()
+        return ax
 
     @property
     def _axstack(self):
@@ -445,9 +463,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             if a in self.axes:  # already here: it becomes the current axes
                 self.sca(a)
                 return a
-            a._add_to_figure(self, False)
-            self._axes_changed()
-            return a
+            return self._add_axes_back(a)
         rect, = args
         if isinstance(rect, BboxBase):
             rect = rect.bounds
@@ -582,9 +598,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             if ax in self.axes:  # already here: it becomes the current axes
                 self.sca(ax)
                 return ax
-            ax._add_to_figure(self, False)
-            self._axes_changed()
-            return ax
+            return self._add_axes_back(ax)
         if not args:
             args = (1, 1, 1)
         # Normalize correct ijk values to (i, j, k) here so that
@@ -812,6 +826,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             sfarr[row, col] = SubFigure._from_native(self, native, gs[row, col],
                                                      **kwargs)
             self.subfigs.append(sfarr[row, col])
+            sfarr[row, col]._listed_among = self.subfigs
         self.stale = True
         if self.get_layout_engine() is None and (wspace is not None or
                                                  hspace is not None):
@@ -853,6 +868,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         """
         sf = SubFigure(self, subplotspec, **kwargs)
         self.subfigs.append(sf)
+        sf._listed_among = self.subfigs
         self.stale = True
         return sf
 
@@ -1039,12 +1055,17 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             The added artist.
         """
         # matplotlib's gives it the figure first, which fails on what is no
-        # artist and on an artist of another (sub)figure.
-        if not isinstance(artist, Artist):
+        # artist, on a (sub)figure (whose figure is set at instantiation)
+        # and on an artist of another (sub)figure.
+        if not isinstance(artist, Artist) or (
+                isinstance(artist, FigureBase)
+                and artist.get_figure(root=True) is not self.get_figure(root=True)):
             artist.set_figure(self)
         figure = artist.get_figure(root=False)
         if figure is not None and figure is not self:
             raise RuntimeError("Can not put single artist in more than one figure")
+        if _foreign_children.held_in_axes(self, artist):
+            return _foreign_children.relist_in_figure(self, artist)
         added = artist._add_to_figure(self, clip)
         _artist_clipping.take_parent_defaults(artist, self, clip)
         return added
@@ -1056,7 +1077,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         listed = {id(artist) for name in ("_lines", "_patches")
                   for artist in vars(self).get(name, ())}
         return _figure_artists.DrawnList(self, [
-            artist for artist in _handles.wrap_all(
+            _foreign_children.listed(artist) for artist in _handles.wrap_all(
                 _figure.artists(self._native), Artist, self.figure)
             if id(artist) not in listed])
 
@@ -1227,6 +1248,11 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         for ax in tuple(self.axes):
             ax.clear()
             self._axes_removed(ax)
+        # matplotlib's clear empties the figure's list of texts, which its
+        # super labels keep as their figure's: removing one fails on it.
+        for label in (self._suptitle, self._supxlabel, self._supylabel):
+            if label is not None:
+                label._out_of_lists = True
         _figure.clear(self._native)
         self.subfigs = []
         if not keep_observers:
@@ -1415,7 +1441,9 @@ class SubFigure(FigureBase):
     def remove(self):
         """Remove the subfigure, and its artists, from its parent."""
         super().remove()
-        self._parent.subfigs.remove(self)
+        # Out of the list of subfigures it was added to, as matplotlib's
+        # removal method takes it out, which its parent's clear replaced.
+        self.__dict__.get("_listed_among", self._parent.subfigs).remove(self)
 
     def get_constrained_layout(self):
         """

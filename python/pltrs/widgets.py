@@ -1036,16 +1036,7 @@ class RangeSlider(SliderBase):
 
 def _expand_text_props(props):
     props = cbook.normalize_kwargs(props, mtext.Text)
-    if not props:
-        return itertools.repeat({})
-    # What ``cycler(**props)()`` gives: the i-th value of every property,
-    # for each i, over and over.
-    lengths = {len(values) for values in props.values()}
-    if len(lengths) > 1:
-        raise ValueError("Can only add equal length cycles, "
-                         f"not {sorted(lengths)}")
-    return itertools.cycle(
-        [dict(zip(props, values)) for values in zip(*props.values())])
+    return cycler(**props)() if props else itertools.repeat({})
 
 
 class _Buttons(AxesWidget):

@@ -23,9 +23,8 @@ import numpy as np
 from numpy import ma
 
 from . import _docstring
-from . import (_api, _artist_clipping, _handles, _live_transforms, _values, cbook,
-               collections as mcollections,
-               colors as mcolors, transforms)
+from . import (_api, _handles, _live_transforms, _unusable, _values, cbook,
+               collections as mcollections, colors as mcolors, transforms)
 from . import artist as martist
 from ._native import artist as _artist, plotting as _plotting
 
@@ -91,6 +90,11 @@ def _check_consistent_shapes(*arrays):
 def _filled(values):
     """*values* (a masked array) as floats, NaN where masked."""
     return ma.filled(ma.asarray(values, dtype=float), np.nan)
+
+
+#: The coordinates a `QuiverKey` is placed in, in the order of matplotlib's
+#: transforms of them (its ``_set_transform``).
+_QUIVERKEY_COORDINATES = dict.fromkeys(["data", "axes", "figure", "inches"])
 
 
 def _rgba(color):
@@ -184,9 +188,8 @@ class QuiverKey(martist.Artist):
             Any additional keyword arguments are used to override vector
             properties taken from *Q*.
         """
-        _api.check_in_list(['axes', 'figure', 'data', 'inches'],
-                           coordinates=coordinates)
-        _api.check_in_list(['N', 'S', 'E', 'W'], labelpos=labelpos)
+        # matplotlib's constructor aligns the label by its position.
+        self.halign[labelpos]
         self.Q = Q
         self.X = X
         self.Y = Y
@@ -202,20 +205,38 @@ class QuiverKey(martist.Artist):
         if fontproperties is not None:
             from .font_manager import FontManager, FontProperties
             font = FontManager._props(FontProperties._from_any(fontproperties))
+        # matplotlib keeps coordinates and a colour as they are, failing on
+        # what is none as it draws the key: pltrs (Rust) places such a key
+        # in axes fractions and colours its arrow as its quiver's.
+        usable_coords = (isinstance(coordinates, str)
+                         and coordinates in _QUIVERKEY_COORDINATES)
+        usable_color = color is None or mcolors.is_color_like(color)
         native = _plotting.quiverkey(
             Q.axes._native, Q._native, (float(X), float(Y)), float(U), str(label),
-            (float(angle), coordinates, _rgba(color),
+            (float(angle), coordinates if usable_coords else "axes",
+             _rgba(color) if usable_color else None,
              None if zorder is None else float(zorder)),
             (float(labelsep), labelpos, _rgba(labelcolor), font),
             mcollections._native_kwargs(
                 cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)))
         _handles.adopt(self, native, Q.figure)
+        if not usable_coords:
+            _unusable.keep(self, "coordinates", coordinates,
+                           lambda coords: _api.getitem_checked(
+                               _QUIVERKEY_COORDINATES, coordinates=coords),
+                           measured=False)
+        if not usable_color:
+            _unusable.keep(self, "color", color, mcolors.to_rgba_array,
+                           measured=False)
         self._vector = mcollections.PolyCollection([], **{**Q.polykw, **kwargs})
-        # matplotlib's ``quiverkey`` adds the key with ``add_artist``.
-        _artist_clipping.take_parent_defaults(self, Q.axes)
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,
-                                  self.figure)
+                                  Q.figure)
+        # matplotlib's constructor makes the key in no figure, which its
+        # Axes' ``quiverkey`` (or the program) then adds with
+        # ``add_artist``: pltrs (Rust) keeps it apart until then.
+        _artist.remove(native)
+        self._decouple(removed=False)
 
     kw = _api.deprecated("3.11")(  # Also remove self._kw when deprecation elapses.
         property(lambda self: self._kw))

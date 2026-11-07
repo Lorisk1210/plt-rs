@@ -1193,7 +1193,24 @@ class FontManager:
         """
         if not isinstance(families, (list, tuple)):
             families = [families]
-        return _font_manager.score_family([*families], family2)
+        if isinstance(family2, str) and all(isinstance(f, str) for f in families):
+            return _font_manager.score_family([*families], family2)
+        # matplotlib's scoring, for names that are no strings: it lowercases
+        # each name as it reaches it, failing on what has no ``lower``.
+        if len(families) == 0:
+            return 1.0
+        family2 = family2.lower()
+        step = 1 / len(families)
+        for i, family1 in enumerate(families):
+            family1 = family1.lower()
+            if family1 in font_family_aliases:
+                options = [*map(str.lower, self._expand_aliases(family1))]
+                if family2 in options:
+                    idx = options.index(family2)
+                    return (i + (idx / len(options))) * step
+            elif family1 == family2:
+                return i * step
+        return 1.0
 
     def score_style(self, style1, style2):
         """
@@ -1223,6 +1240,13 @@ class FontManager:
         CSS numeric values of *stretch1* and *stretch2*, normalized
         between 0.0 and 1.0.
         """
+        # matplotlib's names a stretch by what `int` reads in it, failing on
+        # what `int` refuses otherwise than with a `ValueError`.
+        for stretch in (stretch1, stretch2):
+            try:
+                int(stretch)
+            except ValueError:
+                pass
         return _font_manager.score_stretch(stretch1, stretch2)
 
     def score_size(self, size1, size2):
@@ -1348,7 +1372,8 @@ class FontManager:
         _log.debug('findfont: Matching %s.', prop)
         if _log.isEnabledFor(logging.DEBUG):
             self._log_scores(prop, fontext, directory)
-        native_directory = None if directory is None else os.fspath(directory)
+        # matplotlib's compares the fonts' paths with ``Path(directory)``.
+        native_directory = None if directory is None else os.fspath(Path(directory))
         if fontext == 'afm':
             afm_directory = _afm_directory(native_directory)
             best = (None if afm_directory is False else

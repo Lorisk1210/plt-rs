@@ -210,8 +210,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if self.__dict__.get("_no_figure") or self.__dict__.get("_decoupled"):
             # In its figure without belonging to it, as matplotlib's
             # artists without a figure that an aux-transform box holds, and
-            # those removed or cleared from it (`_decouple`).
-            return None
+            # those removed or cleared from it (`_decouple`), unless an Axes
+            # of another figure took it since (`.axes._foreign_children`).
+            listed_in = self.__dict__.get("_listed_in")
+            return None if listed_in is None else listed_in.get_figure(root=root)
         return self._home_figure(root)
 
     def _home_figure(self, root=False):
@@ -228,6 +230,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """The `~.axes.Axes` instance the artist resides in, or *None*."""
         if self._figure is None or self.__dict__.get("_decoupled"):
             return self._loose_axes()
+        if self.__dict__.get("_axes_unset"):
+            # Still drawn in its Axes, the artist was told it has none.
+            return None
         axes = _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
         # An artist the program gave a figure and an Axes without adding
         # it (cartopy's gridliner labels) keeps the Axes it was given.
@@ -240,7 +245,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             raise ValueError("Can not reset the Axes. You are probably trying to reuse "
                              "an artist in more than one Axes which is not supported")
         # Kept for an artist outside any figure; one in a figure is in the
-        # axes pltrs (Rust) has it in.
+        # axes pltrs (Rust) has it in, unless it was told it has none.
+        if new_axes is None and self._figure is not None and self.axes is not None:
+            self._axes_unset = True
+        elif new_axes is not None:
+            self.__dict__.pop("_axes_unset", None)
         self._axes = new_axes
 
     def _loose_axes(self):
@@ -740,21 +749,29 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         Note: there is no support for removing the artist's legend entry.
         """
-        if self._figure is None or self.__dict__.get("_decoupled"):
+        if self.__dict__.get("_out_of_lists"):
+            # Of its figure still, out of the list of a figure cleared.
+            self._remove_again()
+            return
+        decoupled = self._figure is None or self.__dict__.get("_decoupled")
+        if decoupled and "_listing" not in self.__dict__:
             if self.__dict__.get("_removed"):
                 self._remove_again()
                 return
             raise NotImplementedError('cannot remove artist')
-        if _artist.is_part(self._native):
-            # Made by its owner as a part of itself (an Axes' title), it has
-            # no removal method.
-            raise NotImplementedError('cannot remove artist')
-        # An owner removing the artist its own way (a colorbar its Axes).
+        # An owner removing the artist its own way (a colorbar its Axes), or
+        # an Axes listing what pltrs (Rust) holds elsewhere (a part of its
+        # own, an artist of another figure: ``_listing``, see
+        # `.axes._foreign_children`).
         remove_method = self.__dict__.get("_remove_method")
         if remove_method is not None:
             remove_method(self)
             self._decouple(removed=True)
             return
+        if _artist.is_part(self._native):
+            # Made by its owner as a part of itself (an Axes' title), it has
+            # no removal method.
+            raise NotImplementedError('cannot remove artist')
         # Decoupled first: the end of the native removal brings the
         # artist's trees up to date, which reads it.
         self._decouple(removed=True)
@@ -784,8 +801,16 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         self._keep_drawn_state()
         self._decoupled = True
         self.__dict__.pop("_axes", None)
+        self.__dict__.pop("_listed_in", None)
         if removed:
             self._removed = True
+
+    def _recouple(self):
+        """Undo `_decouple`: the artist is in its figure (and Axes) again,
+        as one of their add methods leaves it."""
+        for name in ("_removed", "_decoupled", "_left_host", "_listed_in",
+                     "_out_of_lists", "_axes_unset"):
+            self.__dict__.pop(name, None)
 
     def _keep_drawn_state(self):
         """Compute now, in its figure and Axes, what matplotlib's last draw

@@ -43,6 +43,23 @@ def _array(value, dtype):
     return np.asarray(value, dtype=dtype)
 
 
+def _argument_array(owner, method, signature, value):
+    """
+    *value*, the one argument of the method *method* of *owner* (whose
+    remaining parameters and result *signature* gives, as pybind11 writes
+    them), as an array of doubles, or the `TypeError` pybind11 raises for an
+    argument numpy cannot make one of.
+    """
+    try:
+        return np.asarray(value, dtype=np.float64)
+    except (TypeError, ValueError):
+        raise TypeError(
+            f"{method}(): incompatible function arguments. The following "
+            "argument types are supported:\n"
+            f"    1. (self: matplotlib._tri.{type(owner).__name__}, {signature}\n\n"
+            f"Invoked with: {owner!r}, {value!r}") from None
+
+
 class Triangulation:
     """
     Create a new C++ Triangulation object.
@@ -98,7 +115,10 @@ class Triangulation:
 
     def calculate_plane_coefficients(self, z):
         """Calculate plane equation coefficients for all unmasked triangles."""
-        z = _array(z, np.float64)
+        z = _argument_array(
+            self, "calculate_plane_coefficients",
+            "arg0: typing.Annotated[numpy.typing.ArrayLike, numpy.float64]) -> "
+            "numpy.typing.NDArray[numpy.float64]", z)
         npoints = len(_native_tri.points(self._native)[0])
         if z.ndim != 1 or z.shape[0] != npoints:
             raise ValueError("z must be a 1D array with the same length as the "

@@ -15,6 +15,7 @@ import numpy as np
 
 from .. import _api, _handles
 from .._native import navigation as _navigation
+from . import _foreign_children
 
 
 def _button_number(button):
@@ -48,6 +49,12 @@ class NavigationMixin:
         Remove the Axes from its figure, whose Axes observers learn it, and
         release the mouse if the Axes grabs it.
         """
+        if _foreign_children.relisted(self):
+            # Listed among the children of an Axes (its `add_artist`), it
+            # is taken out of them, and decoupled from that Axes.
+            super().remove()
+            self._axes = None
+            return
         self._check_removable()
         if "_child_of" in self.__dict__:
             self._leave_host()

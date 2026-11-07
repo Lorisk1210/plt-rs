@@ -135,10 +135,16 @@ class PickingMixin:
         .Artist.set_picker, .Artist.get_picker, .Artist.pickable
         """
         from .backend_bases import PickEvent
+        from .figure import SubFigure
         figure = self.get_figure(root=True)
         if figure is None:
             return
-        inaxes = getattr(mouseevent, "inaxes", None)
+        if any(not isinstance(child, SubFigure) for child in self.get_children()):
+            # matplotlib's picks each such child in the event's Axes, which
+            # it reads from the event (failing on what is no event).
+            inaxes = mouseevent.inaxes
+        else:
+            inaxes = getattr(mouseevent, "inaxes", None)
         asking = [artist._native for artist in list(figure._artists.values())
                   if callable(artist.__dict__.get("_picker"))]
         order = _artist.pick_order(

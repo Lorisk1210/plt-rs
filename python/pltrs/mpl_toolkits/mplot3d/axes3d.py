@@ -1593,6 +1593,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None, for_layout_only=False):
         # docstring inherited
+        self._check_figure_renderer(renderer)
         with _measured_by_given(renderer, self):
             extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
         if self._axis3don:

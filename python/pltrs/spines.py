@@ -304,6 +304,31 @@ class Spine(Patch):
         if self.axis is not None:
             self.axis.get_visible()
 
+    def _decouple(self, removed):
+        # docstring inherited; pltrs keeps the spine its Axes, which draws
+        # it, visible or not: the Axes fails to draw where matplotlib's
+        # linear spine without its Axes (an Axes listing it took it out)
+        # fails to span its path over the view limits of the Axes.
+        axes = self.axes or self.__dict__.get("_owner_axes")
+        super()._decouple(removed)
+        self._owner_axes = axes
+        if axes is not None and self._is_linear and self.get_bounds() is None:
+            _unusable.keep(axes, self._without_axes, self,
+                           lambda spine: spine.axes.viewLim, measured=False)
+
+    def _recouple(self):
+        # docstring inherited
+        super()._recouple()
+        axes = self.__dict__.pop("_owner_axes", None)
+        if axes is not None:
+            _unusable.drop(axes, self._without_axes)
+
+    @property
+    def _without_axes(self):
+        """The name of the problem of the spine's Axes while the spine has
+        none (`_decouple`)."""
+        return f"{self.spine_type} spine without its Axes"
+
     def _watch_location(self):
         """Have the spine fail to be drawn and measured as matplotlib's
         while laying it out fails (`_locate`), and its Axes to be drawn,
@@ -809,6 +834,14 @@ class Spines(MutableMapping):
 
     def __setitem__(self, key, value):
         _replace_drawn(self._dict.get(key), value)
+        if not isinstance(value, Artist):
+            # Among the children of the Axes, on which its draws fail
+            # (`.axes._foreign_children.check_drawable`).
+            from ._computed_transforms import follow
+            axes = next((spine.axes for spine in self._dict.values()
+                         if isinstance(spine, Spine) and spine.axes is not None), None)
+            if axes is not None:
+                follow(axes._figure)
         self._join(key, value)
 
     def _join(self, key, value):

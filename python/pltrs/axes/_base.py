@@ -70,6 +70,10 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}
 
+    #: pltrs (Rust) holds an Axes in no other Axes: another Axes'
+    #: `add_artist` lists it through a stand-in (`._foreign_children`).
+    _held_in_axes = False
+
     ArtistList = ArtistList
 
     def __str__(self):
@@ -661,6 +665,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         if not isinstance(a, Artist):
             return _foreign_children.add(self, a)
+        if _foreign_children.held_elsewhere(self, a):
+            return _foreign_children.relist(self, a)
         added = a._add_to_axes(self, "artist")
         _artist_clipping.take_parent_defaults(a, self)
         return added
@@ -710,6 +716,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..image import AxesImage
         _api.check_isinstance(AxesImage, image=image)
+        if _foreign_children.add_held(self, image):
+            return image
         return image._add_to_axes(self, "image")
 
     def add_line(self, line):
@@ -718,6 +726,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..lines import Line2D
         _api.check_isinstance(Line2D, line=line)
+        if _foreign_children.add_held(self, line):
+            return line
         return line._add_to_axes(self, "line")
 
     def add_patch(self, p):
@@ -726,6 +736,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..patches import Patch
         _api.check_isinstance(Patch, p=p)
+        if _foreign_children.add_held(self, p):
+            return p
         return p._add_to_axes(self, "patch")
 
     def add_table(self, tab):
@@ -734,6 +746,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..table import Table
         _api.check_isinstance(Table, tab=tab)
+        if _foreign_children.add_held(self, tab):
+            return tab
         added = tab._add_to_axes(self, "artist")
         _artist_clipping.take_parent_defaults(tab, self)
         return added

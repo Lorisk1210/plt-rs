@@ -17,7 +17,7 @@ import numpy as np
 
 from . import (
     _api, _artist_clipping, _docstring, _program_classes, _scale_calls, _tick_helpers,
-    _values, cbook, units as munits)
+    _unusable, _values, cbook, units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -455,6 +455,27 @@ class Axis(DrawnWith, Artist):
     def _drawer(self):
         # The Axes draws its axes (see `._drawn_with`).
         return self._axes
+
+    def _decouple(self, removed):
+        # docstring inherited; pltrs keeps the axis its Axes, which draws
+        # it: the Axes fails to draw where matplotlib's axis without its
+        # Axes fails to draw itself (an Axes listing it took it out).
+        axes = self._axes
+        super()._decouple(removed)
+        self._axes = axes
+        _unusable.keep(axes, f"{self.axis_name}axis without its Axes", self,
+                       type(self)._drawn_without_axes, measured=False)
+
+    def _recouple(self):
+        # docstring inherited
+        super()._recouple()
+        _unusable.drop(self._axes, f"{self.axis_name}axis without its Axes")
+
+    def _drawn_without_axes(self):
+        """Fail as matplotlib's draw of the axis fails once it has no Axes:
+        a visible axis reads the view interval of its Axes for its ticks."""
+        if self.get_visible():
+            getattr(None, "viewLim")
 
     def _drawn_by_drawer(self):
         # The Axes leaves animated children out of its draws.

@@ -17,7 +17,9 @@
 //!   object, and the pltrs (Rust) state all of them share;
 //! * [`reentrant`] — changes Python code makes to a figure pltrs (Rust) is
 //!   laying out or drawing, applied once it is done;
-//! * [`deferred`] — work Python leaves to the next native call.
+//! * [`deferred`] — work Python leaves to the next native call;
+//! * [`Watched`] — attributes of the package a program may replace, read
+//!   where pltrs (Rust) needs to know whether they are.
 //!
 //! This is the only module besides [`crate::ffi`] with `unsafe` code;
 //! every block says why it is sound. The matplotlib modules
@@ -47,6 +49,7 @@ mod stack;
 #[cfg(test)]
 pub(crate) mod testing;
 mod threads;
+mod watched;
 
 pub(crate) use after_call::install as install_after_call;
 pub(crate) use buffer::{Element, FloatArray, NdArray};
@@ -64,6 +67,7 @@ pub(crate) use native::{
 };
 pub(crate) use object::{Bound, Owned};
 pub(crate) use registry::{lookup, registered_error};
+pub(crate) use watched::Watched;
 
 /// Everything a matplotlib module's file needs.
 pub(crate) mod prelude {

@@ -18,7 +18,7 @@ import warnings
 import numpy as np
 
 from . import _docstring
-from . import (_api, _live_transforms, _owned_paths, _unusable, _values, cbook,
+from . import (_api, _live_transforms, _owned_paths, _program_paths, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors, lines as mlines,
                path as mpath, transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
@@ -344,17 +344,13 @@ class Collection(mcolorizer.ColorizingArtist):
         self._attach_colorizer(colorizer)
         self._A = self._native_array()
 
-    def changed(self):
-        """
-        Call this whenever the mappable is changed to notify all the
-        callbackSM listeners to the 'changed' signal.
-        """
+    def _mapping_changed(self):
+        # docstring inherited
         if self._maps_variates():
             self._map_variates()
         else:
             _collections.set_mapping(self._native, self.cmap, self._colorizer.norm,
                                      self._handing_norm())
-        super().changed()
 
     def _map_variates_through(self, colorizer, A):
         """Map the values *A* of several variates through *colorizer*, a
@@ -479,6 +475,7 @@ class Collection(mcolorizer.ColorizingArtist):
             # The list itself, as matplotlib's collection keeps it.
             _owned_paths.hand_out(paths, self._push_kept_paths)
             self._kept_paths = (_collections.get_paths(self._native), paths)
+        _program_paths.keep(self, None if isinstance(paths, Path) else paths)
 
     def get_transforms(self):
         dpi, draws = self.__dict__.get("_sizes_scaled", (72.0, 0))
@@ -507,6 +504,8 @@ class Collection(mcolorizer.ColorizingArtist):
         return self.get_datalim(mtransforms.IdentityTransform())
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        # The data limits come from the paths as they are now.
+        _program_paths.sync(self)
         super()._add_to_axes(axes, kind, autolim)
         if autolim and any(takes_from_program(type(self), name)
                            for name in ("get_paths", "get_datalim")):
@@ -1046,23 +1045,14 @@ class Collection(mcolorizer.ColorizingArtist):
 
     set_alpha.__doc__ = Artist._set_alpha_for_array.__doc__
 
-    def get_alpha(self):
+    @property
+    def _alpha(self):
+        # An array of alphas as given, else the alpha.
         array = self.__dict__.get("_array_alpha")
-        return super().get_alpha() if array is None else array
+        return super()._alpha if array is None else array
 
-    def set_array(self, A):
-        """
-        Set the value array from array-like *A*.
-
-        Parameters
-        ----------
-        A : array-like or None
-            The values that are mapped to colors.
-
-            The base class `.ScalarMappable` does not make any assumptions on
-            the dimensionality and shape of the value array *A*.
-        """
-        super().set_array(A)
+    def _array_set(self):
+        # docstring inherited
         if self._A is not None and self._A.ndim > 1 and not isinstance(
                 self, (QuadMesh, PolyQuadMesh)):
             # matplotlib keeps it, and refuses it when it draws
@@ -1070,7 +1060,7 @@ class Collection(mcolorizer.ColorizingArtist):
             _unusable.keep(self, "array", self._A, _refuse_rank, measured=False)
         else:
             _unusable.drop(self, "array")
-        if A is None or self._maps_variates():
+        if self._A is None or self._maps_variates():
             _collections.set_array(self._native, None)
             if self._maps_variates():
                 self._map_variates()
@@ -1150,6 +1140,7 @@ class PathCollection(_CollectionWithSizes):
         self._paths_container = _paths_container(paths)
         super().__init__(**kwargs)
         self.set_sizes(sizes)
+        _program_paths.keep(self, paths)
 
     def get_paths(self):
         return super().get_paths()
@@ -2333,6 +2324,12 @@ class _MeshData:
                 _collections.set_facecolors(self._native, colors)
                 return
         super().set_array(A)
+
+    def _array_set(self):
+        # docstring inherited
+        # RGB(A) values colour the cells themselves (`set_array`).
+        if self._A is None or self._A.ndim != 3:
+            super()._array_set()
 
     def _draw_cells_of(self, colors):
         """

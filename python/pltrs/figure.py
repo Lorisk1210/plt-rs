@@ -72,6 +72,12 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     artists to the figure or subfigure, create Axes, etc.
     """
 
+    def __init__(self, **kwargs):
+        # The base made alone is an artist on no figure, given *kwargs*
+        # (`.Figure` and `.SubFigure` make theirs around a native frame).
+        super().__init__()
+        self.set(**kwargs)
+
     def get_figure(self, root=None):
         """
         Return the `.Figure` or `.SubFigure` instance the (Sub)Figure belongs to.

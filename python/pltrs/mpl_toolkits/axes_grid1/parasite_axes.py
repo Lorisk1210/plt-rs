@@ -8,7 +8,7 @@ keeps the position it is given for its getters, as matplotlib's keeps one
 of its own that only its host's draw replaces.
 """
 
-from pltrs import _api, _handles, cbook
+from pltrs import _api, _docstring, _handles, cbook
 import pltrs.artist as martist
 import pltrs.axes as maxes
 import pltrs.transforms as mtransforms
@@ -128,8 +128,8 @@ class ParasiteAxesBase:
                 own[kept] = pos.frozen()
         self.stale = True
 
+    @_docstring.copy(maxes.Axes.set_position)
     def set_position(self, pos, which='both'):
-        # docstring inherited
         self._set_position(pos, which=which)
         # Because this is being called externally to the library we
         # don't let it be in the layout.

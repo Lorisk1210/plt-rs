@@ -12,8 +12,11 @@
 //! as a [`LineMeasurer`], a [`TextPainter`] and a [`TexPainter`]: while a
 //! measurer is set, every line pltrs lays out is measured by it, while a
 //! painter is set, every text pltrs draws is drawn by it instead, and
-//! while a TeX painter is set, every TeX line. Without them, laying out a
-//! line or drawing a text costs one thread-local read more.
+//! while a TeX painter is set, every TeX line. A measurer or painter
+//! standing for a replacement the program may take back says whether it
+//! is in force each time it would be used ([`LineMeasurer::in_force`]).
+//! Without them, laying out a line or drawing a text costs one
+//! thread-local read more.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -62,6 +65,13 @@ pub trait LineMeasurer {
     /// the ascent and descent, without a gap (matplotlib's fallback in
     /// `Text._get_layout`).
     fn font_height(&self, font: &FontProperties, dpi: f64) -> Option<FontHeightMetrics>;
+
+    /// Whether the measurer measures now; while it does not, pltrs
+    /// measures as without one (the program put matplotlib's function
+    /// back).
+    fn in_force(&self) -> bool {
+        true
+    }
 }
 
 /// Draws texts in place of pltrs (matplotlib's `Text.draw`, replaced).
@@ -72,6 +82,12 @@ pub trait TextPainter {
     /// text is drawn, with its lines, font, colour, alignment and
     /// rotation, in a figure at `dpi`.
     fn paint(&self, stand_in: &Text, dpi: f64) -> Vec<RawHandle>;
+
+    /// Whether the painter draws now; while it does not, pltrs draws as
+    /// without one (the program put matplotlib's `Text.draw` back).
+    fn in_force(&self) -> bool {
+        true
+    }
 }
 
 /// A path the program drew in place of a TeX line: stroked as `gc` says
@@ -147,27 +163,33 @@ pub(super) fn tex_painter() -> Option<Rc<dyn TexPainter>> {
     TEX_PAINTER.with_borrow(Clone::clone)
 }
 
-/// The thread's measurer, unless the thread measures text itself for now.
+/// The thread's measurer if it is in force, unless the thread measures
+/// text itself for now.
 fn measurer() -> Option<Rc<dyn LineMeasurer>> {
     if MEASURING_ITSELF.get() {
         return None;
     }
-    MEASURER.with_borrow(Clone::clone)
+    MEASURER
+        .with_borrow(Clone::clone)
+        .filter(|measurer| measurer.in_force())
 }
 
 /// Whether the program measures the lines laid out on this thread (a
-/// [`LineMeasurer`] is set, and the thread does not measure text itself
-/// for now).
+/// [`LineMeasurer`] in force is set, and the thread does not measure text
+/// itself for now).
 pub(crate) fn has_line_measurer() -> bool {
-    !MEASURING_ITSELF.get() && MEASURER.with_borrow(Option::is_some)
+    measurer().is_some()
 }
 
-/// The thread's painter, unless the thread draws texts itself for now.
+/// The thread's painter if it is in force, unless the thread draws texts
+/// itself for now.
 pub(super) fn painter() -> Option<Rc<dyn TextPainter>> {
     if PAINTING_ITSELF.get() {
         return None;
     }
-    PAINTER.with_borrow(Clone::clone)
+    PAINTER
+        .with_borrow(Clone::clone)
+        .filter(|painter| painter.in_force())
 }
 
 /// Has the thread measure text itself while `f` runs, whatever measurer

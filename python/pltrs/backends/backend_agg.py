@@ -47,30 +47,7 @@ def get_hinting_flag():
     return LoadFlags(_ft2font.hinting_flag())
 
 
-class _WatchesTextDrawing(type):
-    """The metaclass of `RendererAgg`: it tells pltrs (Rust) when
-    ``RendererAgg.draw_text`` is taken away or given back, so that raster
-    canvases draw text as paths while it is `RendererBase.draw_text`."""
-
-    def __setattr__(cls, name, value):
-        super().__setattr__(name, value)
-        if name == "draw_text":
-            _sync_texts_as_paths()
-
-    def __delattr__(cls, name):
-        super().__delattr__(name)
-        if name == "draw_text":
-            _sync_texts_as_paths()
-
-
-def _sync_texts_as_paths():
-    """Hand pltrs (Rust) whether Agg draws text through
-    `RendererBase.draw_text`, as paths."""
-    _backends.set_texts_as_paths(RendererAgg.draw_text is RendererBase.draw_text)
-
-
-class RendererAgg(NativeDrawingMixin, RendererBase,
-                  metaclass=_WatchesTextDrawing):
+class RendererAgg(NativeDrawingMixin, RendererBase):
     """
     The renderer handles all the drawing primitives using a graphics
     context instance that controls the colors/styles
@@ -331,6 +308,11 @@ class RendererAgg(NativeDrawingMixin, RendererBase,
 
 #: The ``draw_tex`` of `RendererAgg`, which pltrs (Rust) draws TeX with.
 _OWN_DRAW_TEX = RendererAgg.draw_tex
+
+
+# Raster canvases draw text as paths while the program has taken
+# `RendererAgg.draw_text` away, as `RendererBase.draw_text` draws it.
+_backends.set_texts_as_paths((RendererAgg, "draw_text", RendererBase.draw_text))
 
 
 class FigureCanvasAgg(FigureCanvasBase):

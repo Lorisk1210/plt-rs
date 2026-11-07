@@ -76,7 +76,7 @@ def convert_units(axes, name, values):
     from ...axis import _is_native_converter
     axis = axes._axis_map.get(name)
     if axis is not None and not _is_native_converter(
-            axis._converter or munits.registry.get_converter(values)):
+            axis._given_converter or munits.registry.get_converter(values)):
         # A converter of the program's (nc-time-axis' of cftime dates),
         # which the axis takes as matplotlib's ``_process_unit_info`` has
         # it take one.

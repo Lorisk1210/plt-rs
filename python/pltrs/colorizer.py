@@ -607,6 +607,7 @@ class _ScalarMappable(_ColorizerInterface):
         """
         if A is None:
             self._A = None
+            self._array_set()
             return
 
         A = _ensure_multivariate_data(A, self.norm.n_components)
@@ -625,6 +626,12 @@ class _ScalarMappable(_ColorizerInterface):
         self._A = A
         if not self.norm.scaled():
             self._colorizer.autoscale_None(A)
+        self._array_set()
+
+    def _array_set(self):
+        """Hand the array just set (`set_array`) to what draws the mappable:
+        nothing for a mappable of no artist (pltrs's collections hand theirs
+        to pltrs (Rust))."""
 
     def get_array(self):
         """
@@ -640,8 +647,14 @@ class _ScalarMappable(_ColorizerInterface):
         Call this whenever the mappable is changed to notify all the
         callbackSM listeners to the 'changed' signal.
         """
+        self._mapping_changed()
         self.callbacks.process('changed', self)
         self.stale = True
+
+    def _mapping_changed(self):
+        """Hand the mapping, changed (`changed`), to what draws the
+        mappable: nothing for a mappable of no artist (pltrs's collections
+        hand theirs to pltrs (Rust))."""
 
     def _norm_replaced(self):
         """

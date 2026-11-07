@@ -311,3 +311,5 @@ from ..path import Path  # noqa: E402, F401
 from ..texmanager import TexManager  # noqa: E402, F401
 from ..transforms import Affine2D  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package
+from .. import _lazy_imports  # noqa: E402
+__getattr__ = _lazy_imports.getter(__name__, fontTools=("fontTools",))

@@ -311,17 +311,22 @@ pub struct PatternDefaults {
     pub variant: FontVariant,
     /// `font.weight`.
     pub weight: Weight,
+    /// The name `font.weight` was given as, if it was one (the font
+    /// manager's messages name it).
+    pub weight_keyword: Option<&'static str>,
     /// `font.stretch`.
     pub stretch: Stretch,
 }
 
 impl PatternDefaults {
-    /// The style, variant, weight and stretch of `query`.
-    pub fn of(query: &FontQuery) -> Self {
+    /// The style, variant, weight and stretch `request` asks for.
+    pub fn of(request: &FontRequest) -> Self {
+        let query = &request.query;
         Self {
             style: query.style,
             variant: query.variant,
             weight: query.weight,
+            weight_keyword: request.weight_keyword,
             stretch: query.stretch,
         }
     }
@@ -330,7 +335,7 @@ impl PatternDefaults {
 impl Default for PatternDefaults {
     /// matplotlib's defaults: normal style, variant, weight and stretch.
     fn default() -> Self {
-        Self::of(&FontQuery::default())
+        Self::of(&FontRequest::new(FontQuery::default()))
     }
 }
 

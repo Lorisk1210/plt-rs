@@ -34,10 +34,10 @@ fn text_is_drawn_as_paths_while_the_thread_asks() {
         .expect("bundled font");
     let gc = GraphicsContext::default();
     let origin = Point::new(5.0, 8.0);
-    set_texts_as_paths(true);
+    set_texts_as_paths(Some(Rc::new(|| true)));
     let mut paths = RasterRenderer::new(40.0, 30.0, 72.0).unwrap();
     paths.draw_text(&gc, &run, origin, 0.0);
-    set_texts_as_paths(false);
+    set_texts_as_paths(None);
     let mut expected = RasterRenderer::new(40.0, 30.0, 72.0).unwrap();
     crate::renderer::draw_text_as_path(&mut expected, &gc, &run, origin, 0.0);
     assert_eq!(paths.pixmap(), expected.pixmap());

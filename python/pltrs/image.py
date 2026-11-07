@@ -278,11 +278,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         self._alpha_array = alpha if np.ndim(alpha) == 2 else None
         _native_image.set_image_alpha(self._native, alpha)
 
-    def get_alpha(self):
-        """Return the alpha value used for blending: a float, a 2D array,
-        or None."""
+    @property
+    def _alpha(self):
+        # A 2D array of alphas as given, else the alpha.
         alpha = getattr(self, '_alpha_array', None)
-        return super().get_alpha() if alpha is None else alpha
+        return super()._alpha if alpha is None else alpha
 
     def _get_scalar_alpha(self):
         """

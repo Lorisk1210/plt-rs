@@ -30,15 +30,17 @@ pub(super) fn warn_missing_glyphs(py: Python<'_>) -> PyResult<()> {
 /// Hands each font lookup pltrs (Rust) made on this thread that
 /// matplotlib's font manager logs about to the package's
 /// `report_font_lookup(kind, family, style, variant, weight, stretch,
-/// size)` (registered by `_text_helpers`), which looks the fonts up with
-/// the program's font manager, logging as matplotlib's does.
+/// size, times)` (registered by `_text_helpers`), which looks the fonts
+/// up with the program's font manager as many times as pltrs (Rust) made
+/// the lookup in a row, logging as matplotlib's does.
 pub(super) fn report_font_lookups(py: Python<'_>) -> PyResult<()> {
-    let lookups = pltrs_text::take_font_lookups();
-    if lookups.is_empty() {
+    let runs = pltrs_text::take_font_lookups();
+    if runs.is_empty() {
         return Ok(());
     }
     let report = lookup(py, "report_font_lookup")?;
-    for font in lookups {
+    for run in runs {
+        let font = &run.lookup;
         let query = &font.query;
         let kind = match font.kind {
             LookupKind::Fonts => "fonts",
@@ -57,6 +59,7 @@ pub(super) fn report_font_lookups(py: Python<'_>) -> PyResult<()> {
                 weight,
                 i64::from(query.stretch.0).into_py(py)?,
                 query.size.into_py(py)?,
+                run.times.into_py(py)?,
             ],
             &[],
         )?;

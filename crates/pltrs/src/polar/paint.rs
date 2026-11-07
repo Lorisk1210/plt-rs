@@ -338,18 +338,23 @@ pub(crate) fn tick_label_anchor(
     match name {
         AxisName::X => {
             let angle = ptick.theta_angle();
-            let pad = cx
-                .read()
-                .points_to_pixels(style.label_offset() + THETA_LABEL_EXTRA_PAD);
-            let shift = Point::new(pad * angle.cos(), pad * angle.sin());
+            let pad = label_pad(
+                style.label_offset() + THETA_LABEL_EXTRA_PAD,
+                angle,
+                cx.read().dpi(),
+            );
             // The labels are flipped along the radius: label 1 sits on the
-            // outer edge, pushed outwards; label 2 on the inner edge.
-            let across = if first { 1.0 } else { 0.0 };
+            // outer edge, pushed outwards; label 2 on the inner edge,
+            // pushed inwards.
+            let (across, shift) = if first {
+                (1.0, pad)
+            } else {
+                (0.0, Point::new(-pad.x, -pad.y))
+            };
             let along = ptick.along();
             cx.release_for(&along);
-            let edge = along.transform_point(Point::new(tick.loc, across));
             Some(PolarLabel {
-                anchor: if first { edge + shift } else { edge - shift },
+                anchor: padded(along, shift, Point::new(tick.loc, across)),
                 align: (HAlign::Center, VAlign::Center),
                 rotation: rotation(theta_label_angle(angle.to_degrees())),
             })
@@ -357,7 +362,6 @@ pub(crate) fn tick_label_anchor(
         AxisName::Y => {
             let side = ptick.radial_side(first)?;
             cx.release_for(&side.transform);
-            let base = side.transform.transform_point(side.point);
             if side.full {
                 let settings = polar.settings();
                 let angle = (settings.rlabel_position.to_degrees() * polar.direction()
@@ -365,7 +369,7 @@ pub(crate) fn tick_label_anchor(
                 .rem_euclid(360.0)
                     - 90.0;
                 return Some(PolarLabel {
-                    anchor: base,
+                    anchor: side.transform.transform_point(side.point),
                     align: (HAlign::Left, VAlign::Bottom),
                     rotation: rotation(radial_label_angle(angle)),
                 });
@@ -378,15 +382,38 @@ pub(crate) fn tick_label_anchor(
                 real.x0().max(real.x1()) + FRAC_PI_2
             };
             // matplotlib's `_ThetaShift`: away from the edge.
-            let pad = cx.read().points_to_pixels(style.label_offset());
-            let shift = Point::new(pad * edge.cos(), pad * edge.sin());
+            let shift = label_pad(style.label_offset(), edge, cx.read().dpi());
             Some(PolarLabel {
-                anchor: base + shift,
+                anchor: padded(side.transform, shift, side.point),
                 align: sector_anchor(side.angle, at_start, style.label_rotation_auto),
                 rotation: rotation(radial_label_angle(side.angle)),
             })
         }
     }
+}
+
+/// The padding of a polar tick label, `pad` points towards `angle`
+/// (radians anticlockwise from east), in display pixels at `dpi`: as
+/// matplotlib's `ScaledTranslation` of the inches `pad · cos(angle) / 72`
+/// through the figure's `dpi_scale_trans` (`ThetaTick._update_padding`,
+/// `_ThetaShift`) gives it.
+fn label_pad(pad: f64, angle: f64, dpi: f64) -> Point {
+    Point::new(
+        dpi * (pad * angle.cos() / 72.0),
+        dpi * (pad * angle.sin() / 72.0),
+    )
+}
+
+/// Where `transform` followed by the translation `shift` takes `point`,
+/// computed as matplotlib computes a label's transform followed by its
+/// padding: the translation joins the transform's affine part, which then
+/// maps the point.
+fn padded(transform: ResolvedTransform, shift: Point, point: Point) -> Point {
+    transform
+        .then(ResolvedTransform::affine(Affine2D::translation(
+            shift.x, shift.y,
+        )))
+        .transform_point(point)
 }
 
 /// The automatic rotation of a θ label whose tick points `angle` degrees

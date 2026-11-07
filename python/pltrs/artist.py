@@ -219,7 +219,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     def axes(self):
         """The `~.axes.Axes` instance the artist resides in, or *None*."""
         if self._figure is None:
-            return self.__dict__.get("_axes")
+            return self._loose_axes()
         axes = _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
         # An artist the program gave a figure and an Axes without adding
         # it (cartopy's gridliner labels) keeps the Axes it was given.
@@ -234,6 +234,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         # Kept for an artist outside any figure; one in a figure is in the
         # axes pltrs (Rust) has it in.
         self._axes = new_axes
+
+    def _loose_axes(self):
+        """The Axes of the artist on no figure: the one it was given."""
+        return self.__dict__.get("_axes")
 
     def get_transform(self):
         """Return the `.Transform` instance used by this artist."""
@@ -352,10 +356,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Return the alpha value used for blending - not supported on all
         backends.
         """
-        if self._kept_only:
-            return self.__dict__.get("_kept_alpha")
-        # As given, as matplotlib keeps it.
-        return _values.given(self, "alpha", _artist.get_alpha(self._native))
+        return self._alpha
 
     def set_alpha(self, alpha):
         """
@@ -383,9 +384,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     @property
     def _alpha(self):
-        """The alpha set on the artist, None for none (matplotlib's
+        """The alpha set on the artist, None for none, as given (matplotlib's
         ``_alpha``, which `set_alpha` sets)."""
-        return self.get_alpha()
+        if self._kept_only:
+            return self.__dict__.get("_kept_alpha")
+        return _values.given(self, "alpha", _artist.get_alpha(self._native))
 
     def _set_alpha_for_array(self, alpha):
         """
@@ -558,9 +561,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_label(self):
         """Return the label used for this artist in the legend."""
-        label = _artist.get_label(self._native)
-        # A label set to None reads back as None, as matplotlib keeps it.
-        return None if label == "" and self.__dict__.get("_label_none") else label
+        return self._label
 
     def set_label(self, s):
         """
@@ -572,11 +573,22 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             *s* will be converted to a string by calling `str`.
         """
         label = str(s) if s is not None else None
-        if label != self.get_label():
-            _artist.set_label(self._native, "" if label is None else label)
-            self._label_none = label is None
+        if label != self._label:
+            self._label = label
             self.pchanged()
             self.stale = True
+
+    @property
+    def _label(self):
+        # matplotlib's attribute, which its containers keep themselves: the
+        # label pltrs (Rust) has, None for one set to None.
+        label = _artist.get_label(self._native)
+        return None if label == "" and self.__dict__.get("_label_none") else label
+
+    @_label.setter
+    def _label(self, label):
+        _artist.set_label(self._native, "" if label is None else label)
+        self._label_none = label is None
 
     def get_gid(self):
         """Return the group id."""

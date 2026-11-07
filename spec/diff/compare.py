@@ -440,9 +440,17 @@ def _warning_key(warning: dict) -> tuple[str, str, Any]:
     return warning["category"], warning["message"], warning["line"]
 
 
+def _warning_counts(record: dict) -> Counter:
+    """How many times a run issued each warning: those it recorded and
+    those it only counted (``trace.py``'s ``MAX_WARNINGS``)."""
+    counts = Counter(_warning_key(w) for w in record["warnings"])
+    for category, message, line, count in record["warnings_dropped"]:
+        counts[category, message, line] += count
+    return counts
+
+
 def _compare_warnings(program: str, source: Source, mpl: dict, pltrs: dict) -> Iterator[Difference]:
-    a = Counter(_warning_key(w) for w in mpl["warnings"])
-    b = Counter(_warning_key(w) for w in pltrs["warnings"])
+    a, b = _warning_counts(mpl), _warning_counts(pltrs)
     for (category, message, line), count in (a - b).items():
         short = category.rsplit(".", 1)[-1]
         yield Difference(program, "warning", f"warning missing: {short}: {_message_key(message)}",

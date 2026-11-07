@@ -48,7 +48,7 @@ pub use block::{
 };
 pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::TextError;
-pub use lookups::{FontLookup, LookupKind, take_font_lookups};
+pub use lookups::{FontLookup, LookupKind, LookupRun, take_font_lookups};
 pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{
     AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmMetrics, CatalogueReport, CatalogueState,

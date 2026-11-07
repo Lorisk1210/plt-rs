@@ -363,14 +363,21 @@ class Axis(DrawnWith, Artist):
     #: axis itself, so that they pass as they are (the axes of 3-D axes).
     _native_units = False
 
-    # matplotlib's ``converter`` reads ``_converter``, the converter of the
-    # axis, which `get_converter` gives here (the converters pltrs (Rust)
-    # applies are not kept in ``_converter``).
-    converter = _api.deprecated(
-        "3.10", alternative="get_converter and set_converter methods")(
-            property(lambda self: self.get_converter(),
-                     lambda self, value: setattr(self, "_converter", value)),
-            name="converter")
+    converter = _api.deprecate_privatize_attribute(
+                    "3.10",
+                    alternative="get_converter and set_converter methods"
+                )
+
+    @property
+    def _converter(self):
+        # matplotlib's attribute, which its ``converter`` reads: the axis'
+        # converter, the one pltrs (Rust) applies (dates, categories) when
+        # the program gave none (``_given_converter``).
+        return self.get_converter()
+
+    @_converter.setter
+    def _converter(self, converter):
+        self._given_converter = converter
 
     def __str__(self):
         return "{}({},{})".format(
@@ -431,13 +438,13 @@ class Axis(DrawnWith, Artist):
         self._drawn_info = None
         self._ticks = {False: [], True: []}
         self._tick_kw = {False: {}, True: {}}
-        self._label = AxisLabel(self)
+        self._axis_label = AxisLabel(self)
         self._offset_text = OffsetText(self)
         self._units = None
         self._category_units = None
         #: The scale object the axis was last given (see `_scale`).
         self._given_scale = None
-        self._converter = None
+        self._given_converter = None
         self._converter_is_explicit = False
 
     @property
@@ -1062,7 +1069,7 @@ class Axis(DrawnWith, Artist):
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
         self.reset_ticks()
         self._given_scale = None
-        self._converter = None
+        self._given_converter = None
         self._converter_is_explicit = False
         self._units = None
         self._category_units = None
@@ -1078,7 +1085,7 @@ class Axis(DrawnWith, Artist):
         # pltrs (Rust) shows the default limits of the axis info of the axis'
         # converter whenever the axis has neither data nor a view of its own;
         # this gives it those of the converter and units in force.
-        converter = self._converter
+        converter = self._given_converter
         if converter is not None and not _is_native_converter(converter):
             info = converter.axisinfo(self.units, self)
             if info is not None and info.default_limits is not None:
@@ -1783,7 +1790,7 @@ class Axis(DrawnWith, Artist):
     @property
     def label(self):
         """The `.Text` object of the axis label."""
-        return self._label._synced()
+        return self._axis_label._synced()
 
     @property
     def offsetText(self):
@@ -2064,7 +2071,7 @@ class Axis(DrawnWith, Artist):
         return keys
 
     def have_units(self):
-        return (self._converter is not None or self._units is not None
+        return (self._given_converter is not None or self._units is not None
                 or _axis.have_units(*self._args()))
 
     def get_units(self):
@@ -2110,7 +2117,7 @@ class Axis(DrawnWith, Artist):
         if *data* is registered for unit conversion.
         """
         if self._converter_is_explicit:
-            converter = self._converter
+            converter = self._given_converter
         else:
             converter = munits.registry.get_converter(data)
         if converter is None:
@@ -2135,9 +2142,9 @@ class Axis(DrawnWith, Artist):
                 if default is not None and self.units is None:
                     self.set_units(default)
             return taken
-        neednew = self._converter != converter
+        neednew = self._given_converter != converter
         self._set_converter(converter)
-        default = self._converter.default_units(data, self)
+        default = self._given_converter.default_units(data, self)
         if default is not None and self.units is None:
             self.set_units(default)
         elif neednew:
@@ -2178,17 +2185,17 @@ class Axis(DrawnWith, Artist):
         converter gives for its units, when the converter is one of the
         program's (pltrs (Rust) gives dates and categories theirs, once
         their converter took the units)."""
-        if _is_native_converter(self._converter):
+        if _is_native_converter(self._given_converter):
             _check_native_units(self.get_converter(), self.units)
             return
-        info = self._converter.axisinfo(self.units, self)
+        info = self._given_converter.axisinfo(self.units, self)
         if info is None:
             return
         limits = self._default_limits(info)
         if self._limits_unchanged():
             # matplotlib's `set_default_intervals` asks the converter
             # again for the default limits.
-            again = self._converter.axisinfo(self.units, self)
+            again = self._given_converter.axisinfo(self.units, self)
             limits = None if again is None else self._default_limits(again)
         _tick_helpers.use_axis_info(self, info, limits)
 
@@ -2214,7 +2221,7 @@ class Axis(DrawnWith, Artist):
         if munits._is_natively_supported(x):
             return x
         from . import category
-        converter = self._converter
+        converter = self._given_converter
         kind = None if converter is not None else _axis.converter_kind(*self._args())
         if converter is None and kind is None:
             converter = munits.registry.get_converter(x)
@@ -2254,8 +2261,8 @@ class Axis(DrawnWith, Artist):
         -------
         `~matplotlib.units.ConversionInterface` or None
         """
-        if self._converter is not None:
-            return self._converter
+        if self._given_converter is not None:
+            return self._given_converter
         kind = _axis.converter_kind(*self._args())
         if kind is None:
             return None
@@ -2283,7 +2290,7 @@ class Axis(DrawnWith, Artist):
         kind = _native_converter_kind(converter)
         if kind is not None:
             _axis.set_converter(*self._args(), kind)
-        self._converter = converter
+        self._given_converter = converter
 
     def axis_date(self, tz=None):
         """

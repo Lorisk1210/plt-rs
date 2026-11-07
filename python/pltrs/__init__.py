@@ -112,6 +112,16 @@ def _parse_to_version_info(version_str):
         return _VersionInfo(major, minor, micro + 1, 'alpha', int(match['post']))
 
 
+def parse_version(version):
+    """
+    The version *version* read as `packaging.version.parse` reads it,
+    which matplotlib's ``parse_version`` is; packaging is imported at the
+    first call (pltrs needs it nowhere else).
+    """
+    from packaging.version import parse
+    return parse(version)
+
+
 #: The matplotlib version whose API pltrs implements.
 __version__ = "3.11.2"
 __version_info__ = _parse_to_version_info(__version__)

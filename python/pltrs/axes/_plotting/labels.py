@@ -88,7 +88,8 @@ class LabelsMixin:
         for native in _plotting.bar_label(self._native, container._native, labels,
                                           fmt, label_type, padding):
             annotation = wrap(self, native, Annotation)
-            annotation._init_annotation("data", "offset points", None, kwargs)
+            annotation._init_annotation(annotation.xy, annotation.get_position(),
+                                        "data", "offset points", None, kwargs)
             annotations.append(annotation)
         return annotations
 

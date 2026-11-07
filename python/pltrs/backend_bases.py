@@ -1917,10 +1917,13 @@ class FigureCanvasBase:
         1e-8 pixel), the height/width is instead rounded up to account for
         floating-point precision effects.
         """
-        dpi = self.figure.dpi
+        # (The upper corner of the figure's box in pixels, ``figure.bbox.max``:
+        # at the resolution its dpi transform scales by, the origin for a
+        # negative one.)
+        dpi = self.figure._dots_per_inch()
         # The tolerance of 1e-8 covers a floating-point tick for even 100,000 pixels
         return tuple(
-            int(size * dpi / (1 if physical else self.device_pixel_ratio) + 1e-8)
+            int(max(size * dpi, 0) / (1 if physical else self.device_pixel_ratio) + 1e-8)
             for size in self.figure.get_size_inches())
 
     @classmethod

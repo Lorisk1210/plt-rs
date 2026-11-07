@@ -223,6 +223,10 @@ class _PartsProbe:
     _raster_depth = 0
     _rasterizing = False
 
+    #: The rasterization state a renderer's draws read, never rasterizing.
+    _raster_depth = 0
+    _rasterizing = False
+
     def __init__(self):
         self.drawn = set()
 

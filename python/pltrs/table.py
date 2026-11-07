@@ -146,6 +146,8 @@ substring of 'BRTL'
             'closed' (all edges drawn), 'horizontal' (bottom and top),
             'vertical' (right and left).
         """
+        # matplotlib's `Rectangle` reads the corner first.
+        xy[0], xy[1]  # noqa: B018
         self._table = _CellHolder()
         self._key = (0, 0)
         _table.add_cell(self._table._native, 0, 0, float(width), float(height))
@@ -156,8 +158,10 @@ substring of 'BRTL'
         self.set_clip_on(False)
         self.visible_edges = visible_edges
         self._loc = loc
+        # The text's alignment, checked as matplotlib's `Text` checks it.
+        _api.check_in_list(['center', 'right', 'left'], align=loc)
         _table.set_text_halign(self._ref(), loc)
-        _table.set_text(self._ref(), str(text))
+        _table.set_text(self._ref(), '' if text is None else str(text))
         if fontproperties is not None:
             from .font_manager import FontManager, FontProperties
             _table.set_font(self._ref(), FontManager._props(

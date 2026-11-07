@@ -7,6 +7,27 @@ draws for `.backend_agg.RendererAgg`).
 
 from .._native import backends as _backends
 
+#: The constructor signature matplotlib's Agg extension refuses arguments
+#: with (pybind11's message, followed by the arguments' reprs).
+_RENDERER_SIGNATURE = (
+    "__init__(): incompatible constructor arguments. The following argument "
+    "types are supported:\n    1. matplotlib.backends._backend_agg.RendererAgg("
+    "width: typing.SupportsInt | typing.SupportsIndex, height: "
+    "typing.SupportsInt | typing.SupportsIndex, dpi: typing.SupportsFloat | "
+    "typing.SupportsIndex)\n\nInvoked with: ")
+
+
+def check_renderer_arguments(width, height, dpi):
+    """Refuse the size and resolution of a renderer as matplotlib's Agg
+    extension refuses them (its ``RendererAgg(int(width), int(height),
+    dpi)``): a size no unsigned int holds, a resolution that is no
+    number."""
+    width, height = int(width), int(height)
+    if (not all(0 <= side < 1 << 32 for side in (width, height))
+            or not (hasattr(dpi, "__float__") or hasattr(dpi, "__index__"))):
+        raise TypeError(_RENDERER_SIGNATURE + ", ".join(
+            map(repr, (width, height, dpi))))
+
 
 class BufferRegion:
     """

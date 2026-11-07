@@ -733,6 +733,15 @@ scalars before it hands numbers on (`Affine2D.scale`, `Path.arc`'s angles,
 `Collection._bcast_lwls`) is done the same way, so that it raises and
 warns as it does.
 
+Values matplotlib keeps unchecked and computes with only where it draws or
+measures (a text's position, an annotation's point and coordinate systems,
+a figure's resolution) are kept by the artist when pltrs (Rust) cannot hold
+them (`_unusable`), and fail there with matplotlib's errors, in the order
+matplotlib's draw computes with them (an artist's `_kept_order`): a text's
+coordinates convert with its Axes' units as `Text.draw` converts them
+(`Text._set_text_coordinate`), an annotation places its point as
+`_check_xy` and `update_positions` do (`_annotation_kept`).
+
 ### Keyword arguments and aliases
 
 * Aliases are declared on the class, as in matplotlib:
@@ -1259,6 +1268,17 @@ copy of either) is allocated fallibly (`pltrs_core::alloc`): memory the
 system refuses, or a canvas beyond `pltrs_raster::MAX_PIXELS`, is an
 error caused by `OutOfMemory`, which the binding raises as matplotlib's
 allocations do, `MemoryError`, instead of the process ending.
+
+matplotlib's renderers read and format the arguments of their drawing
+methods and graphics state setters in Python before they write anything;
+pltrs's renderers do so too before pltrs (Rust) draws
+(`backends/_pdf_arguments.py`, `_ps_arguments.py`, `_svg_arguments.py`,
+`_backend_agg.check_renderer_arguments`), so that wrong arguments fail
+with matplotlib's errors, and a vector renderer draws a path collection
+too small to reuse its paths path by path through
+`RendererBase.draw_path_collection`, as matplotlib's do. The draws of the
+package's artist classes refuse what is no renderer as matplotlib's
+rasterization wrappers do (`_artist_subclassing._refuse_renderer`).
 
 Problems met while drawing are not raised by the artist meeting them:
 pltrs (Rust) draws the rest and returns them all (`DrawErrors`), each with

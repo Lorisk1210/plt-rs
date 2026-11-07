@@ -28,12 +28,14 @@ the Matplotlib License; the packing rules underneath (`_get_packed_offsets`,
 
 import functools
 import numbers
+import weakref
 
 import numpy as np
 
 from . import _docstring
 from . import (_api, _handles, _live_transforms, _offsetbox_trees, _python_drawing,
                _unusable, cbook)
+from ._annotation_kept import native_coords
 from . import rcParams
 from . import text as mtext
 from . import transforms as mtransforms
@@ -1260,14 +1262,19 @@ class TextArea(_FollowsLayout, OffsetBox):
         # centred on the baseline with *multilinebaseline* (pltrs (Rust)
         # measures it, as it lays the area out).
         laid_out = self._laid_out_bbox(renderer)
-        if laid_out is not None:
-            return laid_out
-        if ((self._area_text.get_figure(root=True) is None and self._drawer() is None)
+        if laid_out is None and (
+                (self._area_text.get_figure(root=True) is None and self._drawer() is None)
                 or self.__dict__.get("_joined_late")):
             # matplotlib measures the text at the dpi of the area's figure (a
             # box of a tree has its owner's, unless it joined the tree late,
-            # see `._offsetbox_trees.TreeOwner._note_late_boxes`).
+            # see `._offsetbox_trees.TreeOwner._note_late_boxes`),
             raise AttributeError("'NoneType' object has no attribute 'dpi'")
+        # with *renderer*, whose metrics it looks up in a weak cache
+        # (``_get_text_metrics_function``), which refuses what cannot be
+        # referred to weakly.
+        weakref.ref(renderer)
+        if laid_out is not None:
+            return laid_out
         self._set_baseline()
         return Bbox.from_bounds(*_offsetbox.text_area_extent(
             self._area_text._native, bool(self._multilinebaseline)))
@@ -1985,10 +1992,10 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
         # Return the annotation's box in display space, where pltrs (Rust)
         # places it in the figure as it is now (matplotlib places the box when
         # it is measured, without laying out the figure).
-        return self._placed_extent()
+        return self._placed_extent(renderer)
 
     def get_tightbbox(self, renderer=None):
-        return self._placed_extent()
+        return self._placed_extent(renderer)
 
     def contains(self, mouseevent):
         # (pltrs (Rust) hit-tests the child box while the box is shown.)
@@ -1998,12 +2005,14 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
         # docstring inherited
         super().draw(renderer)
 
-    def _placed_extent(self):
-        """The box placed in the figure as it is now; a box outside any
-        figure has no renderer to be measured with, as in matplotlib."""
+    def _placed_extent(self, renderer):
+        """The box placed in the figure as it is now, measured with
+        *renderer* (by default its figure's); a box outside any figure has
+        no renderer to be measured with, as in matplotlib."""
         self._check_figure_renderer(None)
         self._sync_tree()
-        self.update_positions(None)
+        self.update_positions(self.get_figure(root=True)._get_renderer()
+                              if renderer is None else renderer)
         return self._extent_as_is()
 
     def _tree_root(self):
@@ -2011,8 +2020,9 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
         return self.offsetbox
 
     #: The names under which the box keeps what pltrs (Rust) cannot take:
-    #: its tree, the annotated point and the position of the box.
-    _problems = ("tree", "xy", "xybox")
+    #: its tree, the annotated point, the position of the box and their
+    #: coordinate systems.
+    _problems = ("tree", "xy", "xybox", "coords")
 
     def _fail_as_drawn(self, _kept):
         # docstring inherited: matplotlib's draw checks the annotated point,
@@ -2119,7 +2129,8 @@ or callable, default: value of *xycoords*
         super().__init__()
         self._draggable = None
         self._xy = self._xybox = None
-        self.xy = xy
+        x, y = xy  # matplotlib unpacks the point as it makes the box
+        self.xy = x, y
         self.xycoords = xycoords
         self._annotation_clip = annotation_clip
         self.offsetbox = offsetbox
@@ -2146,7 +2157,7 @@ or callable, default: value of *xycoords*
         (Rust) places it at *xybox* and draws the arrow; return self."""
         from ._patch_styles import _native_spec
         from .patches import BoxStyle, FancyBboxPatch
-        from .text import _native_arrowprops, _native_coords
+        from .text import _native_arrowprops
         figure = parent.figure
         bboxprops = cbook.normalize_kwargs(self._bboxprops, FancyBboxPatch)
         boxstyle = bboxprops.pop("boxstyle", None)
@@ -2160,9 +2171,7 @@ or callable, default: value of *xycoords*
             parent._native, self._native, described,
             self._joining_point("xy"), {
                 "xybox": self._joining_point("xybox"),
-                "xycoords": _native_coords(self.xycoords, figure),
-                "boxcoords": _native_coords(self.boxcoords, figure,
-                                            "boxcoords"),
+                **self._joining_coords(figure),
                 "frameon": bool(self._frameon), "pad": float(self._pad),
                 "annotation_clip": self._annotation_clip,
                 "box_alignment": tuple(map(float, self._box_alignment)),
@@ -2175,6 +2184,7 @@ or callable, default: value of *xycoords*
         self._own_tree(parts, figure, native, described)
         for name in ("xy", "xybox"):
             self._move(name)
+        self._hold_coords(figure)
         _python_drawing.attach(self)
         loose = self.__dict__.pop("_loose_arrow", None)
         if loose is not None:
@@ -2265,6 +2275,28 @@ or callable, default: value of *xycoords*
         except (TypeError, ValueError):
             raise Unusable from None
 
+    def _native_coords(self, figure):
+        """The coordinate systems of the box in *figure* as pltrs (Rust)
+        takes them, None for those it cannot take."""
+        return {name: native_coords(getattr(self, name), figure)
+                for name in ("xycoords", "boxcoords")}
+
+    def _joining_coords(self, figure):
+        """The coordinate systems the box joins *figure* with: ``'data'``
+        for those pltrs (Rust) cannot take (`_hold_coords` then keeps
+        them)."""
+        return {name: "data" if native is None else native
+                for name, native in self._native_coords(figure).items()}
+
+    def _hold_coords(self, figure):
+        """Keep the coordinate systems of the box as a problem while pltrs
+        (Rust) cannot take one: matplotlib places the points with them as
+        it draws the box (`_fail_as_drawn`)."""
+        if None in self._native_coords(figure).values():
+            self._keep_problem("coords")
+        else:
+            _unusable.drop(self, "coords")
+
     def _joining_point(self, name):
         """The point *name* the box joins a figure with: its own, or the
         origin while pltrs (Rust) cannot take it (`_move` then keeps it)."""
@@ -2277,8 +2309,10 @@ or callable, default: value of *xycoords*
         """Update pixel positions for the annotated point, the text, and the arrow."""
         # pltrs: places the frame (`patch`) and the parts of the offset box
         # where pltrs (Rust) draws them in the figure as it is now (not laid
-        # out first, as in matplotlib).
+        # out first, as in matplotlib), which fails as there as it measures
+        # the offset box with *renderer*.
         if self._figure is not None:
+            self.offsetbox.get_bbox(renderer)
             _offsetbox.update_annotation_positions(self._native)
 
     @property

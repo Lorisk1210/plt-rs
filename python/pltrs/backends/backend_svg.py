@@ -18,6 +18,7 @@ from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, Rende
 from ..font_manager import FontManager
 from ..text import _measuring_with
 from ._native_drawing import DocumentDrawingMixin
+from ._svg_arguments import SvgArgumentsMixin
 from .backend_mixed import MixedModeRenderer
 
 #: The XML declaration and doctype every SVG document starts with.
@@ -240,7 +241,7 @@ def _svg_metadata(metadata):
     return metadata
 
 
-class RendererSVG(DocumentDrawingMixin, RendererBase):
+class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
     # pltrs (Rust) writes the documents itself: this is the renderer the
     # program's drawing receives while a figure is saved as SVG
     # (`FigureCanvasSVG._program_renderer`), which draws into the document
@@ -309,35 +310,52 @@ class RendererSVG(DocumentDrawingMixin, RendererBase):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
+        self._path_arguments(gc, path, transform, rgbFace)
         super().draw_path(gc, path, transform, rgbFace)
 
     def draw_markers(self, gc, marker_path, marker_trans, path, trans,
                      rgbFace=None):
         # docstring inherited
-        super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
+        if self._markers_arguments(gc, marker_path, marker_trans, path, trans,
+                                   rgbFace):
+            super().draw_markers(gc, marker_path, marker_trans, path, trans,
+                                 rgbFace)
 
     def draw_path_collection(self, gc, master_transform, paths, all_transforms,
                              offsets, offset_trans, facecolors, edgecolors,
                              linewidths, linestyles, antialiaseds, urls,
                              offset_position, *, hatchcolors=None):
-        # docstring inherited
-        super().draw_path_collection(
-            gc, master_transform, paths, all_transforms, offsets, offset_trans,
-            facecolors, edgecolors, linewidths, linestyles, antialiaseds, urls,
-            offset_position, hatchcolors=hatchcolors)
+        # Is the optimization worth it? Rough calculation:
+        # cost of emitting a path in-line is
+        #    (len_path + 5) * uses_per_path
+        # cost of definition+use is
+        #    (len_path + 3) + 9 * uses_per_path
+        len_path, uses_per_path = self._collection_uses(
+            paths, all_transforms, offsets, facecolors, edgecolors)
+        should_do_optimization = \
+            len_path + 9 * uses_per_path + 3 < (len_path + 5) * uses_per_path
+        self._draw_collection(
+            should_do_optimization, gc, master_transform, paths, all_transforms,
+            offsets, offset_trans, facecolors, edgecolors, linewidths, linestyles,
+            antialiaseds, urls, offset_position, hatchcolors)
 
     def draw_gouraud_triangles(self, gc, triangles_array, colors_array,
                                transform):
         # docstring inherited
+        self._gouraud_arguments(gc, triangles_array, colors_array, transform)
         super().draw_gouraud_triangles(gc, triangles_array, colors_array, transform)
 
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
-        super().draw_image(gc, x, y, im, transform)
+        if self._image_arguments(gc, x, y, im, transform):
+            super().draw_image(gc, x, y, im, transform)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
+        self._text_arguments(gc, x, y, s, prop, angle)
+        # Any true *ismath* but "TeX" typesets mathtext, as matplotlib's.
+        super().draw_text(gc, x, y, s, prop, angle,
+                          ismath if ismath == "TeX" else bool(ismath), mtext)
 
     def flipy(self):
         # docstring inherited

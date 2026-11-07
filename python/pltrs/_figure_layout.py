@@ -312,6 +312,9 @@ default: %(va)s
         _api.check_in_list(['major', 'minor', 'both'], which=which)
         _api.check_in_list(['left', 'center', 'right'], ha=ha)
         from .text import _rotation_degrees
+        if bottom is None:
+            # matplotlib's ``subplots_adjust(bottom=None)`` keeps the bottom.
+            bottom = self.subplotpars.bottom
         _figure_layout.autofmt_xdate(self._native, float(bottom),
                                      _rotation_degrees(rotation), ha, which)
         self.stale = True

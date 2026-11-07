@@ -19,6 +19,7 @@ from ..font_manager import FontManager
 from ..text import _measuring_with
 from ._backend_pdf_ps import RendererPDFPSBase
 from ._native_drawing import DocumentDrawingMixin
+from ._ps_arguments import CAPS, JOINS, PsArgumentsMixin, check_numbers
 from .backend_mixed import MixedModeRenderer
 
 debugPS = False
@@ -55,7 +56,8 @@ def gs_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
              "-r%d" % rcParams['ps.distiller.res'], "-sDEVICE=ps2write",
              *paper_option, f"-sOutputFile={tmpfile}.ps", tmpfile],
             logging.getLogger(__name__))
-    _backends.distill(os.fspath(tmpfile), "ghostscript", bool(eps), ptype,
+    # (The paper type as matplotlib formats it into the command, a string.)
+    _backends.distill(os.fspath(tmpfile), "ghostscript", bool(eps), str(ptype),
                       _bbox_extents(bbox), bool(rotated))
 
 
@@ -116,7 +118,7 @@ def _dsc_metadata(outfile, metadata):
     return dsc_comments
 
 
-class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
+class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     """
     The renderer handles all the drawing primitives using a graphics
     context instance that controls the colors/styles.
@@ -145,7 +147,11 @@ class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
         *change*, writing what that writes."""
         self._write((change(self._document_page(), *args), ()))
 
+    # The graphics state's setters check their arguments as matplotlib's
+    # format them (`._ps_arguments`) before pltrs (Rust) writes them.
+
     def set_color(self, r, g, b, store=True):
+        self._check_color(r, g, b)
         self._state(_backends.ps_set_color, (float(r), float(g), float(b)),
                     bool(store))
 
@@ -153,17 +159,23 @@ class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
         self._state(_backends.ps_set_linewidth, float(linewidth), bool(store))
 
     def set_linejoin(self, linejoin, store=True):
+        JOINS[linejoin]  # noqa: B018
         self._state(_backends.ps_set_linejoin, linejoin, bool(store))
 
     def set_linecap(self, linecap, store=True):
+        CAPS[linecap]  # noqa: B018
         self._state(_backends.ps_set_linecap, linecap, bool(store))
 
     def set_linedash(self, offset, seq, store=True):
+        if seq is not None and len(seq):
+            check_numbers(*seq)
+            check_numbers(offset)
         self._state(_backends.ps_set_linedash, float(offset),
                     None if seq is None else [float(s) for s in seq],
                     bool(store))
 
     def set_font(self, fontname, fontsize, store=True):
+        f"{fontsize:1.3f}"  # noqa: B018
         self._state(_backends.ps_set_font, str(fontname), float(fontsize),
                     bool(store))
 
@@ -194,42 +206,59 @@ class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
+        self._path_arguments(gc, path, transform, rgbFace)
         super().draw_path(gc, path, transform, rgbFace)
 
     def draw_markers(self, gc, marker_path, marker_trans, path, trans,
                      rgbFace=None):
         # docstring inherited
+        self._markers_arguments(gc, marker_path, marker_trans, path, trans, rgbFace)
         super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
 
     def draw_path_collection(self, gc, master_transform, paths, all_transforms,
                              offsets, offset_trans, facecolors, edgecolors,
                              linewidths, linestyles, antialiaseds, urls,
                              offset_position, *, hatchcolors=None):
-        # docstring inherited
-        super().draw_path_collection(
-            gc, master_transform, paths, all_transforms, offsets, offset_trans,
-            facecolors, edgecolors, linewidths, linestyles, antialiaseds, urls,
-            offset_position, hatchcolors=hatchcolors)
+        # Is the optimization worth it? Rough calculation:
+        # cost of emitting a path in-line is
+        #     (len_path + 2) * uses_per_path
+        # cost of definition+use is
+        #     (len_path + 3) + 3 * uses_per_path
+        len_path, uses_per_path = self._collection_uses(
+            paths, all_transforms, offsets, facecolors, edgecolors)
+        should_do_optimization = \
+            len_path + 3 * uses_per_path + 3 < (len_path + 2) * uses_per_path
+        self._draw_collection(
+            should_do_optimization, gc, master_transform, paths, all_transforms,
+            offsets, offset_trans, facecolors, edgecolors, linewidths, linestyles,
+            antialiaseds, urls, offset_position, hatchcolors)
 
     def draw_gouraud_triangles(self, gc, points, colors, trans):
         # docstring inherited
-        super().draw_gouraud_triangles(gc, points, colors, trans)
+        if self._gouraud_arguments(gc, points, colors, trans):
+            super().draw_gouraud_triangles(gc, points, colors, trans)
 
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
+        self._image_arguments(gc, x, y, im, transform)
         super().draw_image(gc, x, y, im, transform)
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         """Draw the math text using matplotlib.mathtext."""
+        self._mathtext_arguments(gc, x, y, s, prop, angle)
         self._draw_line(gc, x, y, s, prop, angle, True)
 
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
+        self._tex_arguments(gc, x, y, s, prop, angle)
         super().draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
+        if self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext):
+            # Any true *ismath* but "TeX" typesets mathtext, as matplotlib's.
+            super().draw_text(gc, x, y, s, prop, angle,
+                              ismath if ismath == "TeX" else bool(ismath), mtext)
 
 
 class FigureCanvasPS(FigureCanvasBase):

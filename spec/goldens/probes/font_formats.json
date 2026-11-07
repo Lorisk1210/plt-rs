@@ -1,0 +1,3421 @@
+{
+ "area": "font_formats",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 53, 0], [2, 480, 0], [2, 480, 747], [2, 53, 747], [2, 53, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 39, 0], [2, 359, 0], [2, 359, 559], [2, 39, 559], [2, 39, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 273152, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 192, "linear": 204801, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 15, 0], [2, 239, 559], [2, 463, 0], [2, 383, 0], [2, 335, 119], [2, 143, 119], [2, 95, 0], [2, 15, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 768,
+    "linear": 764827,
+    "path": [[1, 373, -11], [4, 565, -11], [4, 715, 160], [4, 715, 373], [4, 715, 587], [4, 565, 757], [4, 373, 565], [4, 181, 565], [4, 32, 394], [4, 32, 181], [4, 32, -33], [4, 181, -203], [4, 373, -203], [2, 373, -11], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 576,
+    "linear": 573442,
+    "path": [[1, 279, -8], [4, 423, -8], [4, 535, 119], [4, 535, 279], [4, 535, 439], [4, 423, 567], [4, 279, 423], [4, 135, 423], [4, 23, 295], [4, 23, 135], [4, 23, -24], [4, 135, -152], [4, 279, -152], [2, 279, -8], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 704,
+    "linear": 710196,
+    "path": [[1, 106, 0], [2, 106, 106], [2, 213, 106], [2, 213, 0], [2, 106, 0], [79, 0, 0], [1, 106, 320], [2, 160, 405], [2, 213, 320], [2, 106, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 532482,
+    "path": [[1, 79, 0], [2, 79, 79], [2, 159, 79], [2, 159, 0], [2, 79, 0], [79, 0, 0], [1, 79, 239], [2, 119, 303], [2, 159, 239], [2, 79, 239], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 53, 320], [4, 160, 341], [4, 266, 341], [4, 373, 320], [4, 480, 298], [4, 587, 298], [4, 693, 320], [2, 693, 106], [2, 53, 106], [4, -54, 160], [4, -107, 213], [4, -214, 213], [4, -321, 213], [4, -374, 160], [4, -481, 106], [2, 53, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 39, 239], [4, 119, 255], [4, 199, 255], [4, 279, 239], [4, 359, 223], [4, 439, 223], [4, 519, 239], [2, 519, 79], [2, 39, 79], [4, -40, 119], [4, -80, 159], [4, -160, 159], [4, -240, 159], [4, -280, 119], [4, -360, 79], [2, 39, 239], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 320, "linear": 327783, "path": [[1, 106, 640], [2, 192, 768], [2, 234, 736], [2, 106, 640], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 245761, "path": [[1, 79, 479], [2, 143, 575], [2, 175, 551], [2, 79, 479], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 7, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 266, 768], [2, 352, 896], [2, 394, 864], [2, 266, 768], [79, 0, 0], [1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 7, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 199, 575], [2, 263, 671], [2, 295, 647], [2, 199, 575], [79, 0, 0], [1, 15, 0], [2, 239, 559], [2, 463, 0], [2, 383, 0], [2, 335, 119], [2, 143, 119], [2, 95, 0], [2, 15, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 8, "flags": "DEFAULT"},
+   "value": {"advance": 640, "linear": 655566, "path": [[1, 42, 0], [2, 576, 0], [2, 576, 53], [2, 42, 53], [2, 42, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 8, "flags": "DEFAULT"},
+   "value": {"advance": 512, "linear": 491522, "path": [[1, 31, 0], [2, 431, 0], [2, 431, 39], [2, 31, 39], [2, 31, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 9, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 53, 53], [4, 160, 53], [4, 213, 213], [4, 426, 213], [4, 448, 320], [4, 501, 480], [4, 501, 587], [4, 821, 587], [4, 821, 693], [4, 821, 800], [4, 832, 821], [4, 864, 864], [4, 917, 928], [2, 992, 1014], [2, 1003, 1014], [2, 1003, 1024], [4, 1056, 1024], [4, 1110, 1088], [4, 1110, 1163], [2, 53, 53], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 9, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 39, 39], [4, 119, 39], [4, 159, 159], [4, 319, 159], [4, 335, 239], [4, 375, 359], [4, 375, 439], [4, 615, 439], [4, 615, 519], [4, 615, 599], [4, 623, 615], [4, 647, 647], [4, 687, 695], [2, 743, 759], [2, 751, 759], [2, 751, 767], [4, 791, 767], [4, 831, 815], [4, 831, 871], [2, 39, 39], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 64, 0], [2, 491, 0], [2, 491, 747], [2, 64, 747], [2, 64, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 64, 0], [2, 384, 0], [2, 384, 560], [2, 64, 560], [2, 64, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 273152, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 192, "linear": 204801, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 16, 0], [2, 240, 568], [2, 464, 0], [2, 384, 0], [2, 336, 128], [2, 144, 128], [2, 96, 0], [2, 16, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 768,
+    "linear": 764827,
+    "path": [[1, 405, 0], [4, 592, 0], [4, 736, 171], [4, 736, 383], [4, 736, 597], [4, 592, 768], [4, 405, 576], [4, 213, 576], [4, 64, 405], [4, 64, 192], [4, 64, -21], [4, 213, -192], [4, 405, -192], [2, 405, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 573442,
+    "path": [[1, 320, 16], [4, 464, 16], [4, 576, 144], [4, 576, 304], [4, 576, 464], [4, 464, 592], [4, 320, 448], [4, 176, 448], [4, 64, 320], [4, 64, 160], [4, 64, 0], [4, 176, -128], [4, 320, -128], [2, 320, 16], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 704,
+    "linear": 710196,
+    "path": [[1, 128, 0], [2, 128, 118], [2, 246, 118], [2, 246, 0], [2, 128, 0], [79, 0, 0], [1, 128, 320], [2, 187, 405], [2, 246, 320], [2, 128, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 532482,
+    "path": [[1, 53, -11], [2, 53, 63], [2, 127, 63], [2, 127, -11], [2, 53, -11], [79, 0, 0], [1, 53, 245], [2, 90, 309], [2, 127, 245], [2, 53, 245], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 63, 361], [4, 170, 384], [4, 277, 384], [4, 383, 363], [4, 490, 342], [4, 597, 342], [4, 704, 363], [2, 704, 128], [2, 63, 128], [4, -43, 186], [4, -97, 244], [4, -203, 244], [4, -310, 244], [4, -363, 186], [4, -470, 128], [2, 63, 361], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 32, 229], [4, 112, 246], [4, 192, 246], [4, 272, 230], [4, 352, 214], [4, 432, 214], [4, 512, 230], [2, 512, 64], [2, 32, 64], [4, -48, 106], [4, -88, 147], [4, -168, 147], [4, -248, 147], [4, -288, 106], [4, -368, 64], [2, 32, 229], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 320, "linear": 327783, "path": [[1, 107, 640], [2, 192, 768], [2, 235, 736], [2, 107, 640], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 245761, "path": [[1, 80, 480], [2, 144, 576], [2, 176, 552], [2, 80, 480], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 7, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 267, 811], [2, 352, 939], [2, 395, 907], [2, 267, 811], [79, 0, 0], [1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 7, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 200, 632], [2, 264, 728], [2, 296, 704], [2, 200, 632], [79, 0, 0], [1, 16, 0], [2, 240, 568], [2, 464, 0], [2, 384, 0], [2, 336, 128], [2, 144, 128], [2, 96, 0], [2, 16, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 8, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 640, "linear": 655566, "path": [[1, 43, 4], [2, 576, 4], [2, 576, 60], [2, 43, 60], [2, 43, 4], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 8, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 512, "linear": 491522, "path": [[1, 32, 4], [2, 432, 4], [2, 432, 60], [2, 32, 60], [2, 32, 4], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 9, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 64, 64], [4, 171, 64], [4, 224, 224], [4, 438, 224], [4, 459, 334], [4, 512, 498], [4, 512, 608], [4, 832, 608], [4, 832, 712], [4, 832, 816], [4, 842, 837], [4, 874, 878], [4, 929, 940], [2, 1003, 1024], [2, 1013, 1024], [2, 1013, 1024], [4, 1066, 1024], [4, 1120, 1093], [4, 1120, 1173], [2, 64, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 9, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 48, 64], [4, 128, 64], [4, 168, 192], [4, 328, 192], [4, 344, 274], [4, 384, 398], [4, 384, 480], [4, 640, 480], [4, 640, 560], [4, 640, 640], [4, 647, 656], [4, 669, 688], [4, 704, 736], [2, 754, 800], [2, 761, 800], [2, 761, 800], [4, 796, 800], [4, 832, 852], [4, 832, 912], [2, 48, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 53, 0], [2, 480, 0], [2, 480, 747], [2, 53, 747], [2, 53, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 39, 0], [2, 359, 0], [2, 359, 559], [2, 39, 559], [2, 39, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 273152, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 192, "linear": 204801, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 15, 0], [2, 239, 559], [2, 463, 0], [2, 383, 0], [2, 335, 119], [2, 143, 119], [2, 95, 0], [2, 15, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 768,
+    "linear": 764827,
+    "path": [[1, 373, -11], [4, 565, -11], [4, 715, 160], [4, 715, 373], [4, 715, 587], [4, 565, 757], [4, 373, 565], [4, 181, 565], [4, 32, 394], [4, 32, 181], [4, 32, -33], [4, 181, -203], [4, 373, -203], [2, 373, -11], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 576,
+    "linear": 573442,
+    "path": [[1, 279, -8], [4, 423, -8], [4, 535, 119], [4, 535, 279], [4, 535, 439], [4, 423, 567], [4, 279, 423], [4, 135, 423], [4, 23, 295], [4, 23, 135], [4, 23, -24], [4, 135, -152], [4, 279, -152], [2, 279, -8], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 704,
+    "linear": 710196,
+    "path": [[1, 106, 0], [2, 106, 106], [2, 213, 106], [2, 213, 0], [2, 106, 0], [79, 0, 0], [1, 106, 320], [2, 160, 405], [2, 213, 320], [2, 106, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 532482,
+    "path": [[1, 79, 0], [2, 79, 79], [2, 159, 79], [2, 159, 0], [2, 79, 0], [79, 0, 0], [1, 79, 239], [2, 119, 303], [2, 159, 239], [2, 79, 239], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 53, 320], [4, 160, 341], [4, 266, 341], [4, 373, 320], [4, 480, 298], [4, 587, 298], [4, 693, 320], [2, 693, 106], [2, 53, 106], [4, -54, 160], [4, -107, 213], [4, -214, 213], [4, -321, 213], [4, -374, 160], [4, -481, 106], [2, 53, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 39, 239], [4, 119, 255], [4, 199, 255], [4, 279, 239], [4, 359, 223], [4, 439, 223], [4, 519, 239], [2, 519, 79], [2, 39, 79], [4, -40, 119], [4, -80, 159], [4, -160, 159], [4, -240, 159], [4, -280, 119], [4, -360, 79], [2, 39, 239], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 320, "linear": 327783, "path": [[1, 106, 640], [2, 192, 768], [2, 234, 736], [2, 106, 640], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 245761, "path": [[1, 79, 479], [2, 143, 575], [2, 175, 551], [2, 79, 479], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 7, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 266, 768], [2, 352, 896], [2, 394, 864], [2, 266, 768], [79, 0, 0], [1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 7, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 199, 575], [2, 263, 671], [2, 295, 647], [2, 199, 575], [79, 0, 0], [1, 15, 0], [2, 239, 559], [2, 463, 0], [2, 383, 0], [2, 335, 119], [2, 143, 119], [2, 95, 0], [2, 15, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 8, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 640, "linear": 655566, "path": [[1, 42, 0], [2, 576, 0], [2, 576, 53], [2, 42, 53], [2, 42, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 8, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 512, "linear": 491522, "path": [[1, 31, 0], [2, 431, 0], [2, 431, 39], [2, 31, 39], [2, 31, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 9, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 53, 53], [4, 160, 53], [4, 213, 213], [4, 426, 213], [4, 448, 320], [4, 501, 480], [4, 501, 587], [4, 821, 587], [4, 821, 693], [4, 821, 800], [4, 832, 821], [4, 864, 864], [4, 917, 928], [2, 992, 1014], [2, 1003, 1014], [2, 1003, 1024], [4, 1056, 1024], [4, 1110, 1088], [4, 1110, 1163], [2, 53, 53], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 9, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 39, 39], [4, 119, 39], [4, 159, 159], [4, 319, 159], [4, 335, 239], [4, 375, 359], [4, 375, 439], [4, 615, 439], [4, 615, 519], [4, 615, 599], [4, 623, 615], [4, 647, 647], [4, 687, 695], [2, 743, 759], [2, 751, 759], [2, 751, 767], [4, 791, 767], [4, 831, 815], [4, 831, 871], [2, 39, 39], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 546305, "path": [[1, 53, 0], [2, 480, 0], [2, 480, 747], [2, 53, 747], [2, 53, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 409602, "path": [[1, 40, 0], [2, 360, 0], [2, 360, 560], [2, 40, 560], [2, 40, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 273152, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 204801, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 16, 0], [2, 240, 560], [2, 464, 0], [2, 384, 0], [2, 336, 120], [2, 144, 120], [2, 96, 0], [2, 16, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 764827,
+    "path": [[1, 373, -11], [4, 566, -11], [4, 715, 160], [4, 715, 373], [4, 715, 587], [4, 566, 758], [4, 373, 566], [4, 181, 566], [4, 32, 395], [4, 32, 181], [4, 32, -32], [4, 181, -203], [4, 373, -203], [2, 373, -11], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 573442,
+    "path": [[1, 280, -8], [4, 424, -8], [4, 536, 120], [4, 536, 280], [4, 536, 440], [4, 424, 568], [4, 280, 424], [4, 136, 424], [4, 24, 296], [4, 24, 136], [4, 24, -24], [4, 136, -152], [4, 280, -152], [2, 280, -8], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 710196,
+    "path": [[1, 107, 0], [2, 107, 107], [2, 213, 107], [2, 213, 0], [2, 107, 0], [79, 0, 0], [1, 107, 320], [2, 160, 405], [2, 213, 320], [2, 107, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 532482,
+    "path": [[1, 80, 0], [2, 80, 80], [2, 160, 80], [2, 160, 0], [2, 80, 0], [79, 0, 0], [1, 80, 240], [2, 120, 304], [2, 160, 240], [2, 80, 240], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 53, 320], [4, 160, 341], [4, 267, 341], [4, 373, 320], [4, 480, 299], [4, 587, 299], [4, 694, 320], [2, 694, 107], [2, 53, 107], [4, -53, 160], [4, -107, 213], [4, -213, 213], [4, -320, 213], [4, -373, 160], [4, -480, 107], [2, 53, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 40, 240], [4, 120, 256], [4, 200, 256], [4, 280, 240], [4, 360, 224], [4, 440, 224], [4, 520, 240], [2, 520, 80], [2, 40, 80], [4, -40, 120], [4, -80, 160], [4, -160, 160], [4, -240, 160], [4, -280, 120], [4, -360, 80], [2, 40, 240], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 327783, "path": [[1, 107, 640], [2, 192, 768], [2, 235, 736], [2, 107, 640], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 245761, "path": [[1, 80, 480], [2, 144, 576], [2, 176, 552], [2, 80, 480], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 7, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 267, 768], [2, 352, 896], [2, 395, 864], [2, 267, 768], [79, 0, 0], [1, 21, 0], [2, 320, 747], [2, 619, 0], [2, 512, 0], [2, 448, 160], [2, 192, 160], [2, 128, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 7, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 200, 576], [2, 264, 672], [2, 296, 648], [2, 200, 576], [79, 0, 0], [1, 16, 0], [2, 240, 560], [2, 464, 0], [2, 384, 0], [2, 336, 120], [2, 144, 120], [2, 96, 0], [2, 16, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 8, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 655566, "path": [[1, 43, 0], [2, 576, 0], [2, 576, 53], [2, 43, 53], [2, 43, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 8, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 491522, "path": [[1, 32, 0], [2, 432, 0], [2, 432, 40], [2, 32, 40], [2, 32, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 12, "dpi": 100, "glyph": 9, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 53, 53], [4, 160, 53], [4, 213, 213], [4, 427, 213], [4, 448, 320], [4, 501, 480], [4, 501, 587], [4, 822, 587], [4, 822, 694], [4, 822, 800], [4, 832, 822], [4, 864, 864], [4, 918, 928], [2, 992, 1014], [2, 1003, 1014], [2, 1003, 1024], [4, 1056, 1024], [4, 1110, 1088], [4, 1110, 1163], [2, 53, 53], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 9, "dpi": 100, "glyph": 9, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 40, 40], [4, 120, 40], [4, 160, 160], [4, 320, 160], [4, 336, 240], [4, 376, 360], [4, 376, 440], [4, 616, 440], [4, 616, 520], [4, 616, 600], [4, 624, 616], [4, 648, 648], [4, 688, 696], [2, 744, 760], [2, 752, 760], [2, 752, 768], [4, 792, 768], [4, 832, 816], [4, 832, 872], [2, 40, 40], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 53, 0], [2, 480, 0], [2, 480, 747], [2, 53, 747], [2, 53, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 39, 0], [2, 359, 0], [2, 359, 559], [2, 39, 559], [2, 39, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 320, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 288, 746], [2, 352, 746], [2, 619, 0], [2, 555, 0], [2, 320, 575], [2, 85, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 15, 0], [2, 215, 543], [2, 263, 543], [2, 463, 0], [2, 415, 0], [2, 239, 417], [2, 63, 0], [2, 15, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 320, 0], [4, 608, 0], [4, 608, 383], [4, 608, 768], [4, 608, 1130], [4, 320, 1130], [4, 32, 1130], [4, -257, 1130], [4, -257, 746], [4, -257, 362], [4, -257, 0], [4, 32, 0], [4, 320, 0], [79, 0, 0], [1, 320, 64], [4, 96, 64], [4, 96, 362], [4, 96, 661], [4, 96, 960], [4, 320, 960], [4, 544, 960], [4, 768, 960], [4, 768, 661], [4, 768, 362], [4, 768, 64], [4, 544, 64], [4, 320, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 239, 0], [4, 455, 0], [4, 455, 287], [4, 455, 576], [4, 455, 847], [4, 239, 847], [4, 23, 847], [4, -192, 847], [4, -192, 560], [4, -192, 271], [4, -192, 0], [4, 23, 0], [4, 239, 0], [79, 0, 0], [1, 239, 47], [4, 71, 47], [4, 71, 271], [4, 71, 495], [4, 71, 719], [4, 239, 719], [4, 407, 719], [4, 575, 719], [4, 575, 495], [4, 575, 271], [4, 575, 47], [4, 407, 47], [4, 239, 47], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 64, 0], [2, 64, 747], [2, 128, 747], [2, 128, 405], [2, 512, 405], [2, 512, 747], [2, 576, 747], [2, 576, 0], [2, 512, 0], [2, 512, 277], [2, 128, 277], [2, 128, 0], [2, 64, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 47, 0], [2, 47, 559], [2, 95, 559], [2, 95, 303], [2, 383, 303], [2, 383, 559], [2, 431, 559], [2, 431, 0], [2, 383, 0], [2, 383, 207], [2, 95, 207], [2, 95, 0], [2, 47, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 152965, "path": [[1, 0, 800], [2, 64, 800], [2, 128, 939], [2, 64, 939], [2, 0, 800], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 114688, "path": [[1, 0, 599], [2, 47, 599], [2, 95, 703], [2, 47, 703], [2, 0, 599], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 640, "linear": 655566, "path": [[1, 21, 0], [2, 288, 747], [2, 352, 747], [2, 619, 0], [2, 21, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 512, "linear": 491522, "path": [[1, 15, 0], [2, 215, 559], [2, 263, 559], [2, 463, 0], [2, 15, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 64, 0], [2, 491, 0], [2, 491, 747], [2, 64, 747], [2, 64, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 64, 0], [2, 384, 0], [2, 384, 560], [2, 64, 560], [2, 64, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 320, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 288, 736], [2, 352, 736], [2, 619, 0], [2, 555, 0], [2, 320, 568], [2, 85, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 16, 0], [2, 216, 576], [2, 264, 576], [2, 464, 0], [2, 416, 0], [2, 240, 444], [2, 64, 0], [2, 16, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 320, 0], [4, 608, 0], [4, 608, 388], [4, 608, 776], [4, 608, 1142], [4, 320, 1142], [4, 32, 1142], [4, -256, 1142], [4, -256, 754], [4, -256, 367], [4, -256, 0], [4, 32, 0], [4, 320, 0], [79, 0, 0], [1, 320, 64], [4, 96, 64], [4, 96, 363], [4, 96, 661], [4, 96, 960], [4, 320, 960], [4, 544, 960], [4, 768, 960], [4, 768, 661], [4, 768, 363], [4, 768, 64], [4, 544, 64], [4, 320, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 235, 0], [4, 448, 0], [4, 448, 283], [4, 448, 565], [4, 448, 832], [4, 235, 832], [4, 21, 832], [4, -192, 832], [4, -192, 549], [4, -192, 267], [4, -192, 0], [4, 21, 0], [4, 235, 0], [79, 0, 0], [1, 240, 48], [4, 72, 48], [4, 72, 267], [4, 72, 485], [4, 72, 704], [4, 240, 704], [4, 408, 704], [4, 576, 704], [4, 576, 485], [4, 576, 267], [4, 576, 48], [4, 408, 48], [4, 240, 48], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 64, 0], [2, 64, 768], [2, 128, 768], [2, 128, 384], [2, 512, 384], [2, 512, 768], [2, 576, 768], [2, 576, 0], [2, 512, 0], [2, 512, 256], [2, 128, 256], [2, 128, 0], [2, 64, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 68, 0], [2, 68, 576], [2, 124, 576], [2, 124, 320], [2, 388, 320], [2, 388, 576], [2, 444, 576], [2, 444, 0], [2, 388, 0], [2, 388, 202], [2, 124, 202], [2, 124, 0], [2, 68, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 152965, "path": [[1, 0, 832], [2, 64, 832], [2, 128, 960], [2, 64, 960], [2, 0, 832], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114688, "path": [[1, 0, 576], [2, 48, 576], [2, 96, 672], [2, 48, 672], [2, 0, 576], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 640, "linear": 655566, "path": [[1, 21, 0], [2, 288, 768], [2, 352, 768], [2, 619, 0], [2, 21, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 512, "linear": 491522, "path": [[1, 16, 0], [2, 216, 576], [2, 264, 576], [2, 464, 0], [2, 16, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 53, 0], [2, 480, 0], [2, 480, 747], [2, 53, 747], [2, 53, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 39, 0], [2, 359, 0], [2, 359, 559], [2, 39, 559], [2, 39, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 320, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 288, 746], [2, 352, 746], [2, 619, 0], [2, 555, 0], [2, 320, 575], [2, 85, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 15, 0], [2, 215, 543], [2, 263, 543], [2, 463, 0], [2, 415, 0], [2, 239, 417], [2, 63, 0], [2, 15, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 320, 0], [4, 608, 0], [4, 608, 383], [4, 608, 768], [4, 608, 1130], [4, 320, 1130], [4, 32, 1130], [4, -257, 1130], [4, -257, 746], [4, -257, 362], [4, -257, 0], [4, 32, 0], [4, 320, 0], [79, 0, 0], [1, 320, 64], [4, 96, 64], [4, 96, 362], [4, 96, 661], [4, 96, 960], [4, 320, 960], [4, 544, 960], [4, 768, 960], [4, 768, 661], [4, 768, 362], [4, 768, 64], [4, 544, 64], [4, 320, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 239, 0], [4, 455, 0], [4, 455, 287], [4, 455, 576], [4, 455, 847], [4, 239, 847], [4, 23, 847], [4, -192, 847], [4, -192, 560], [4, -192, 271], [4, -192, 0], [4, 23, 0], [4, 239, 0], [79, 0, 0], [1, 239, 47], [4, 71, 47], [4, 71, 271], [4, 71, 495], [4, 71, 719], [4, 239, 719], [4, 407, 719], [4, 575, 719], [4, 575, 495], [4, 575, 271], [4, 575, 47], [4, 407, 47], [4, 239, 47], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 64, 0], [2, 64, 747], [2, 128, 747], [2, 128, 405], [2, 512, 405], [2, 512, 747], [2, 576, 747], [2, 576, 0], [2, 512, 0], [2, 512, 277], [2, 128, 277], [2, 128, 0], [2, 64, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 47, 0], [2, 47, 559], [2, 95, 559], [2, 95, 303], [2, 383, 303], [2, 383, 559], [2, 431, 559], [2, 431, 0], [2, 383, 0], [2, 383, 207], [2, 95, 207], [2, 95, 0], [2, 47, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 152965, "path": [[1, 0, 800], [2, 64, 800], [2, 128, 939], [2, 64, 939], [2, 0, 800], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114688, "path": [[1, 0, 599], [2, 47, 599], [2, 95, 703], [2, 47, 703], [2, 0, 599], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 640, "linear": 655566, "path": [[1, 21, 0], [2, 288, 747], [2, 352, 747], [2, 619, 0], [2, 21, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 512, "linear": 491522, "path": [[1, 15, 0], [2, 215, 559], [2, 263, 559], [2, 463, 0], [2, 15, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 546305, "path": [[1, 53, 0], [2, 480, 0], [2, 480, 747], [2, 53, 747], [2, 53, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 409602, "path": [[1, 40, 0], [2, 360, 0], [2, 360, 560], [2, 40, 560], [2, 40, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 21, 0], [2, 288, 747], [2, 352, 747], [2, 619, 0], [2, 555, 0], [2, 320, 576], [2, 85, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 16, 0], [2, 216, 560], [2, 264, 560], [2, 464, 0], [2, 416, 0], [2, 240, 432], [2, 64, 0], [2, 16, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 320, -11], [4, 608, -11], [4, 608, 373], [4, 608, 758], [4, 608, 1120], [4, 320, 1120], [4, 32, 1120], [4, -256, 1120], [4, -256, 736], [4, -256, 352], [4, -256, -11], [4, 32, -11], [4, 320, -11], [79, 0, 0], [1, 320, 53], [4, 96, 53], [4, 96, 352], [4, 96, 651], [4, 96, 950], [4, 320, 950], [4, 544, 950], [4, 768, 950], [4, 768, 651], [4, 768, 352], [4, 768, 53], [4, 544, 53], [4, 320, 53], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 240, -8], [4, 456, -8], [4, 456, 280], [4, 456, 568], [4, 456, 840], [4, 240, 840], [4, 24, 840], [4, -192, 840], [4, -192, 552], [4, -192, 264], [4, -192, -8], [4, 24, -8], [4, 240, -8], [79, 0, 0], [1, 240, 40], [4, 72, 40], [4, 72, 264], [4, 72, 488], [4, 72, 712], [4, 240, 712], [4, 408, 712], [4, 576, 712], [4, 576, 488], [4, 576, 264], [4, 576, 40], [4, 408, 40], [4, 240, 40], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 64, 0], [2, 64, 747], [2, 128, 747], [2, 128, 405], [2, 512, 405], [2, 512, 747], [2, 576, 747], [2, 576, 0], [2, 512, 0], [2, 512, 277], [2, 128, 277], [2, 128, 0], [2, 64, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 48, 0], [2, 48, 560], [2, 96, 560], [2, 96, 304], [2, 384, 304], [2, 384, 560], [2, 432, 560], [2, 432, 0], [2, 384, 0], [2, 384, 208], [2, 96, 208], [2, 96, 0], [2, 48, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 152965, "path": [[1, 0, 800], [2, 64, 800], [2, 128, 939], [2, 64, 939], [2, 0, 800], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 114688, "path": [[1, 0, 600], [2, 48, 600], [2, 96, 704], [2, 48, 704], [2, 0, 600], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 12, "dpi": 100, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 655566, "path": [[1, 21, 0], [2, 288, 747], [2, 352, 747], [2, 619, 0], [2, 21, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 9, "dpi": 100, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 491522, "path": [[1, 16, 0], [2, 216, 560], [2, 264, 560], [2, 464, 0], [2, 16, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 0, 0], [2, 0, 747], [2, 427, 747], [2, 427, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 0, 0], [2, 0, 560], [2, 320, 560], [2, 320, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 320, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 768], [2, 331, 768], [2, 598, 0], [2, 534, 0], [2, 299, 592], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 576], [2, 248, 576], [2, 448, 0], [2, 400, 0], [2, 224, 444], [2, 48, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 288, 0], [3, 576, 0], [3, 576, 384], [3, 576, 768], [3, 288, 768], [3, 0, 768], [3, 0, 384], [3, 0, 0], [3, 288, 0], [79, 0, 0], [1, 288, 64], [3, 64, 64], [3, 64, 384], [3, 64, 704], [3, 288, 704], [3, 512, 704], [3, 512, 384], [3, 512, 64], [3, 288, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 224, 0], [3, 440, 0], [3, 440, 288], [3, 440, 576], [3, 224, 576], [3, 8, 576], [3, 8, 288], [3, 8, 0], [3, 224, 0], [79, 0, 0], [1, 224, 48], [3, 56, 48], [3, 56, 288], [3, 56, 528], [3, 224, 528], [3, 392, 528], [3, 392, 288], [3, 392, 48], [3, 224, 48], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 0, 768], [2, 64, 768], [2, 64, 384], [2, 448, 384], [2, 448, 768], [2, 512, 768], [2, 512, 0], [2, 448, 0], [2, 448, 320], [2, 64, 320], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 448,
+    "linear": 491522,
+    "path": [[1, 8, 0], [2, 8, 576], [2, 56, 576], [2, 56, 312], [2, 328, 312], [2, 328, 576], [2, 376, 576], [2, 376, 0], [2, 328, 0], [2, 328, 264], [2, 56, 264], [2, 56, 0], [2, 8, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 152965, "path": [[1, 0, 832], [2, 64, 832], [2, 128, 960], [2, 64, 960], [2, 0, 832], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 114688, "path": [[1, 0, 576], [2, 48, 576], [2, 96, 672], [2, 48, 672], [2, 0, 576], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 6, "flags": "DEFAULT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 768], [2, 331, 768], [2, 598, 0], [2, 534, 0], [2, 299, 592], [2, 64, 0], [2, 0, 0], [79, 0, 0], [1, 251, 832], [2, 315, 832], [2, 379, 960], [2, 315, 960], [2, 251, 832], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 6, "flags": "DEFAULT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 576], [2, 248, 576], [2, 448, 0], [2, 400, 0], [2, 224, 444], [2, 48, 0], [2, 0, 0], [79, 0, 0], [1, 188, 640], [2, 236, 640], [2, 284, 736], [2, 236, 736], [2, 188, 640], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 0, 0], [2, 0, 747], [2, 427, 747], [2, 427, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 0, 0], [2, 0, 560], [2, 320, 560], [2, 320, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 320, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 768], [2, 331, 768], [2, 598, 0], [2, 534, 0], [2, 299, 592], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 576], [2, 248, 576], [2, 448, 0], [2, 400, 0], [2, 224, 444], [2, 48, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 288, 0], [3, 576, 0], [3, 576, 384], [3, 576, 768], [3, 288, 768], [3, 0, 768], [3, 0, 384], [3, 0, 0], [3, 288, 0], [79, 0, 0], [1, 288, 64], [3, 64, 64], [3, 64, 384], [3, 64, 704], [3, 288, 704], [3, 512, 704], [3, 512, 384], [3, 512, 64], [3, 288, 64], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 224, 0], [3, 440, 0], [3, 440, 288], [3, 440, 576], [3, 224, 576], [3, 8, 576], [3, 8, 288], [3, 8, 0], [3, 224, 0], [79, 0, 0], [1, 224, 48], [3, 56, 48], [3, 56, 288], [3, 56, 528], [3, 224, 528], [3, 392, 528], [3, 392, 288], [3, 392, 48], [3, 224, 48], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 0, 768], [2, 64, 768], [2, 64, 384], [2, 448, 384], [2, 448, 768], [2, 512, 768], [2, 512, 0], [2, 448, 0], [2, 448, 320], [2, 64, 320], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 448,
+    "linear": 491522,
+    "path": [[1, 8, 0], [2, 8, 576], [2, 56, 576], [2, 56, 312], [2, 328, 312], [2, 328, 576], [2, 376, 576], [2, 376, 0], [2, 328, 0], [2, 328, 264], [2, 56, 264], [2, 56, 0], [2, 8, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 152965, "path": [[1, 0, 832], [2, 64, 832], [2, 128, 960], [2, 64, 960], [2, 0, 832], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114688, "path": [[1, 0, 576], [2, 48, 576], [2, 96, 672], [2, 48, 672], [2, 0, 576], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 768], [2, 331, 768], [2, 598, 0], [2, 534, 0], [2, 299, 592], [2, 64, 0], [2, 0, 0], [79, 0, 0], [1, 251, 832], [2, 315, 832], [2, 379, 960], [2, 315, 960], [2, 251, 832], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 576], [2, 248, 576], [2, 448, 0], [2, 400, 0], [2, 224, 444], [2, 48, 0], [2, 0, 0], [79, 0, 0], [1, 188, 640], [2, 236, 640], [2, 284, 736], [2, 236, 736], [2, 188, 640], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 512, "linear": 546305, "path": [[1, 0, 0], [2, 0, 747], [2, 427, 747], [2, 427, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 384, "linear": 409602, "path": [[1, 0, 0], [2, 0, 560], [2, 320, 560], [2, 320, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 320, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 747], [2, 331, 747], [2, 598, 0], [2, 534, 0], [2, 299, 576], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 560], [2, 248, 560], [2, 448, 0], [2, 400, 0], [2, 224, 432], [2, 48, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 288, -11], [3, 576, -11], [3, 576, 373], [3, 576, 758], [3, 288, 758], [3, 0, 758], [3, 0, 373], [3, 0, -11], [3, 288, -11], [79, 0, 0], [1, 288, 53], [3, 64, 53], [3, 64, 373], [3, 64, 694], [3, 288, 694], [3, 512, 694], [3, 512, 373], [3, 512, 53], [3, 288, 53], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 216, -8], [3, 432, -8], [3, 432, 280], [3, 432, 568], [3, 216, 568], [3, 0, 568], [3, 0, 280], [3, 0, -8], [3, 216, -8], [79, 0, 0], [1, 216, 40], [3, 48, 40], [3, 48, 280], [3, 48, 520], [3, 216, 520], [3, 384, 520], [3, 384, 280], [3, 384, 40], [3, 216, 40], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 0, 747], [2, 64, 747], [2, 64, 405], [2, 448, 405], [2, 448, 747], [2, 512, 747], [2, 512, 0], [2, 448, 0], [2, 448, 325], [2, 64, 325], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 0, 560], [2, 48, 560], [2, 48, 304], [2, 336, 304], [2, 336, 560], [2, 384, 560], [2, 384, 0], [2, 336, 0], [2, 336, 244], [2, 48, 244], [2, 48, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 152965, "path": [[1, 0, 800], [2, 64, 800], [2, 128, 939], [2, 64, 939], [2, 0, 800], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114688, "path": [[1, 0, 600], [2, 48, 600], [2, 96, 704], [2, 48, 704], [2, 0, 600], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 640,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 747], [2, 331, 747], [2, 598, 0], [2, 534, 0], [2, 299, 576], [2, 64, 0], [2, 0, 0], [79, 0, 0], [1, 251, 800], [2, 315, 800], [2, 379, 939], [2, 315, 939], [2, 251, 800], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 512,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 560], [2, 248, 560], [2, 448, 0], [2, 400, 0], [2, 224, 432], [2, 48, 0], [2, 0, 0], [79, 0, 0], [1, 188, 600], [2, 236, 600], [2, 284, 704], [2, 236, 704], [2, 188, 600], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 546305, "path": [[1, 0, 0], [2, 0, 747], [2, 427, 747], [2, 427, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 409602, "path": [[1, 0, 0], [2, 0, 560], [2, 320, 560], [2, 320, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 316857, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 237569, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 747], [2, 331, 747], [2, 598, 0], [2, 534, 0], [2, 299, 576], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 560], [2, 248, 560], [2, 448, 0], [2, 400, 0], [2, 224, 432], [2, 48, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 288, -11], [3, 576, -11], [3, 576, 373], [3, 576, 758], [3, 288, 758], [3, 0, 758], [3, 0, 373], [3, 0, -11], [3, 288, -11], [79, 0, 0], [1, 288, 53], [3, 64, 53], [3, 64, 373], [3, 64, 694], [3, 288, 694], [3, 512, 694], [3, 512, 373], [3, 512, 53], [3, 288, 53], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 216, -8], [3, 432, -8], [3, 432, 280], [3, 432, 568], [3, 216, 568], [3, 0, 568], [3, 0, 280], [3, 0, -8], [3, 216, -8], [79, 0, 0], [1, 216, 40], [3, 48, 40], [3, 48, 280], [3, 48, 520], [3, 216, 520], [3, 384, 520], [3, 384, 280], [3, 384, 40], [3, 216, 40], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 0, 747], [2, 64, 747], [2, 64, 405], [2, 448, 405], [2, 448, 747], [2, 512, 747], [2, 512, 0], [2, 448, 0], [2, 448, 325], [2, 64, 325], [2, 64, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 0, 560], [2, 48, 560], [2, 48, 304], [2, 336, 304], [2, 336, 560], [2, 384, 560], [2, 384, 0], [2, 336, 0], [2, 336, 244], [2, 48, 244], [2, 48, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 152965, "path": [[1, 0, 800], [2, 64, 800], [2, 128, 939], [2, 64, 939], [2, 0, 800], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 114688, "path": [[1, 0, 600], [2, 48, 600], [2, 96, 704], [2, 48, 704], [2, 0, 600], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 12, "dpi": 100, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 655566,
+    "path": [[1, 0, 0], [2, 267, 747], [2, 331, 747], [2, 598, 0], [2, 534, 0], [2, 299, 576], [2, 64, 0], [2, 0, 0], [79, 0, 0], [1, 251, 800], [2, 315, 800], [2, 379, 939], [2, 315, 939], [2, 251, 800], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 9, "dpi": 100, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 491522,
+    "path": [[1, 0, 0], [2, 200, 560], [2, 248, 560], [2, 448, 0], [2, 400, 0], [2, 224, 432], [2, 48, 0], [2, 0, 0], [79, 0, 0], [1, 188, 600], [2, 236, 600], [2, 284, 704], [2, 236, 704], [2, 188, 600], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 113, 0], [2, 1019, 0], [2, 1019, 1586], [2, 113, 1586], [2, 113, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 576, "linear": 580352, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 679, 1586], [2, 1314, 0], [2, 1087, 0], [2, 951, 339], [2, 407, 339], [2, 271, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1600,
+    "linear": 1624984,
+    "path": [[1, 793, -23], [4, 1201, -23], [4, 1518, 339], [4, 1518, 793], [4, 1518, 1246], [4, 1201, 1609], [4, 793, 1201], [4, 385, 1201], [4, 67, 838], [4, 67, 385], [4, 67, -68], [4, 385, -431], [4, 793, -431], [2, 793, -23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1472,
+    "linear": 1508914,
+    "path": [[1, 226, 0], [2, 226, 226], [2, 453, 226], [2, 453, 0], [2, 226, 0], [79, 0, 0], [1, 226, 679], [2, 339, 861], [2, 453, 679], [2, 226, 679], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 113, 679], [4, 339, 725], [4, 566, 725], [4, 793, 679], [4, 1019, 634], [4, 1246, 634], [4, 1473, 679], [2, 1473, 226], [2, 113, 226], [4, -114, 339], [4, -227, 453], [4, -454, 453], [4, -680, 453], [4, -794, 339], [4, -1020, 226], [2, 113, 679], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 704, "linear": 696422, "path": [[1, 226, 1359], [2, 407, 1631], [2, 498, 1563], [2, 226, 1359], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 7, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 566, 1631], [2, 747, 1903], [2, 838, 1835], [2, 566, 1631], [79, 0, 0], [1, 45, 0], [2, 679, 1586], [2, 1314, 0], [2, 1087, 0], [2, 951, 339], [2, 407, 339], [2, 271, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 8, "flags": "DEFAULT"},
+   "value": {"advance": 1344, "linear": 1392844, "path": [[1, 90, 0], [2, 1223, 0], [2, 1223, 113], [2, 90, 113], [2, 90, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 9, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 113, 113], [4, 339, 113], [4, 453, 453], [4, 906, 453], [4, 951, 679], [4, 1065, 1019], [4, 1065, 1246], [4, 1745, 1246], [4, 1745, 1473], [4, 1745, 1699], [4, 1767, 1745], [4, 1835, 1835], [4, 1949, 1971], [2, 2107, 2153], [2, 2130, 2153], [2, 2130, 2175], [4, 2243, 2175], [4, 2357, 2311], [4, 2357, 2470], [2, 113, 113], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 117, 0], [2, 1024, 0], [2, 1024, 1587], [2, 117, 1587], [2, 117, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 576, "linear": 580352, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 680, 1599], [2, 1315, 0], [2, 1088, 0], [2, 952, 352], [2, 408, 352], [2, 272, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1600,
+    "linear": 1624984,
+    "path": [[1, 789, -40], [4, 1192, -40], [4, 1504, 323], [4, 1504, 775], [4, 1504, 1229], [4, 1192, 1592], [4, 789, 1184], [4, 381, 1184], [4, 64, 821], [4, 64, 368], [4, 64, -85], [4, 381, -448], [4, 789, -448], [2, 789, -40], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1536,
+    "linear": 1508914,
+    "path": [[1, 256, 0], [2, 256, 256], [2, 512, 256], [2, 512, 0], [2, 256, 0], [79, 0, 0], [1, 256, 672], [2, 384, 853], [2, 512, 672], [2, 256, 672], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 111, 722], [4, 338, 768], [4, 565, 768], [4, 791, 722], [4, 1018, 675], [4, 1245, 675], [4, 1472, 721], [2, 1472, 256], [2, 111, 256], [4, -115, 372], [4, -229, 488], [4, -455, 488], [4, -682, 488], [4, -795, 372], [4, -1022, 256], [2, 111, 722], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 704, "linear": 696422, "path": [[1, 227, 1360], [2, 408, 1632], [2, 499, 1564], [2, 227, 1360], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 7, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 567, 1663], [2, 748, 1935], [2, 839, 1867], [2, 567, 1663], [79, 0, 0], [1, 45, 0], [2, 680, 1599], [2, 1315, 0], [2, 1088, 0], [2, 952, 352], [2, 408, 352], [2, 272, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 8, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1344, "linear": 1392844, "path": [[1, 64, 0], [2, 1216, 0], [2, 1216, 118], [2, 64, 118], [2, 64, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 9, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1408,
+    "linear": 1392844,
+    "path": [[1, 136, 128], [4, 363, 128], [4, 476, 480], [4, 930, 480], [4, 975, 700], [4, 1088, 1028], [4, 1088, 1248], [4, 1760, 1248], [4, 1760, 1481], [4, 1760, 1712], [4, 1782, 1759], [4, 1850, 1851], [4, 1963, 1990], [2, 2120, 2176], [2, 2143, 2176], [2, 2143, 2176], [4, 2255, 2176], [4, 2368, 2312], [4, 2368, 2471], [2, 136, 128], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 113, 0], [2, 1019, 0], [2, 1019, 1586], [2, 113, 1586], [2, 113, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 576, "linear": 580352, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 679, 1586], [2, 1314, 0], [2, 1087, 0], [2, 951, 339], [2, 407, 339], [2, 271, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1600,
+    "linear": 1624984,
+    "path": [[1, 793, -23], [4, 1201, -23], [4, 1518, 339], [4, 1518, 793], [4, 1518, 1246], [4, 1201, 1609], [4, 793, 1201], [4, 385, 1201], [4, 67, 838], [4, 67, 385], [4, 67, -68], [4, 385, -431], [4, 793, -431], [2, 793, -23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1472,
+    "linear": 1508914,
+    "path": [[1, 226, 0], [2, 226, 226], [2, 453, 226], [2, 453, 0], [2, 226, 0], [79, 0, 0], [1, 226, 679], [2, 339, 861], [2, 453, 679], [2, 226, 679], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 113, 679], [4, 339, 725], [4, 566, 725], [4, 793, 679], [4, 1019, 634], [4, 1246, 634], [4, 1473, 679], [2, 1473, 226], [2, 113, 226], [4, -114, 339], [4, -227, 453], [4, -454, 453], [4, -680, 453], [4, -794, 339], [4, -1020, 226], [2, 113, 679], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 704, "linear": 696422, "path": [[1, 226, 1359], [2, 407, 1631], [2, 498, 1563], [2, 226, 1359], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 7, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 566, 1631], [2, 747, 1903], [2, 838, 1835], [2, 566, 1631], [79, 0, 0], [1, 45, 0], [2, 679, 1586], [2, 1314, 0], [2, 1087, 0], [2, 951, 339], [2, 407, 339], [2, 271, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 8, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1344, "linear": 1392844, "path": [[1, 90, 0], [2, 1223, 0], [2, 1223, 113], [2, 90, 113], [2, 90, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 9, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 113, 113], [4, 339, 113], [4, 453, 453], [4, 906, 453], [4, 951, 679], [4, 1065, 1019], [4, 1065, 1246], [4, 1745, 1246], [4, 1745, 1473], [4, 1745, 1699], [4, 1767, 1745], [4, 1835, 1835], [4, 1949, 1971], [2, 2107, 2153], [2, 2130, 2153], [2, 2130, 2175], [4, 2243, 2175], [4, 2357, 2311], [4, 2357, 2470], [2, 113, 113], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1160703, "path": [[1, 113, 0], [2, 1020, 0], [2, 1020, 1587], [2, 113, 1587], [2, 113, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 580352, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 680, 1587], [2, 1315, 0], [2, 1088, 0], [2, 952, 340], [2, 408, 340], [2, 272, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1624984,
+    "path": [[1, 793, -23], [4, 1202, -23], [4, 1519, 340], [4, 1519, 793], [4, 1519, 1247], [4, 1202, 1610], [4, 793, 1202], [4, 385, 1202], [4, 68, 839], [4, 68, 385], [4, 68, -68], [4, 385, -431], [4, 793, -431], [2, 793, -23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1508914,
+    "path": [[1, 227, 0], [2, 227, 227], [2, 453, 227], [2, 453, 0], [2, 227, 0], [79, 0, 0], [1, 227, 680], [2, 340, 861], [2, 453, 680], [2, 227, 680], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 113, 680], [4, 340, 725], [4, 567, 725], [4, 793, 680], [4, 1020, 635], [4, 1247, 635], [4, 1474, 680], [2, 1474, 227], [2, 113, 227], [4, -113, 340], [4, -227, 453], [4, -453, 453], [4, -680, 453], [4, -793, 340], [4, -1020, 227], [2, 113, 680], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 696422, "path": [[1, 227, 1360], [2, 408, 1632], [2, 499, 1564], [2, 227, 1360], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 7, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 567, 1632], [2, 748, 1904], [2, 839, 1836], [2, 567, 1632], [79, 0, 0], [1, 45, 0], [2, 680, 1587], [2, 1315, 0], [2, 1088, 0], [2, 952, 340], [2, 408, 340], [2, 272, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 8, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1392844, "path": [[1, 91, 0], [2, 1224, 0], [2, 1224, 113], [2, 91, 113], [2, 91, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 17, "dpi": 150, "glyph": 9, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 113, 113], [4, 340, 113], [4, 453, 453], [4, 907, 453], [4, 952, 680], [4, 1065, 1020], [4, 1065, 1247], [4, 1746, 1247], [4, 1746, 1474], [4, 1746, 1700], [4, 1768, 1746], [4, 1836, 1836], [4, 1950, 1972], [2, 2108, 2154], [2, 2131, 2154], [2, 2131, 2176], [4, 2244, 2176], [4, 2358, 2312], [4, 2358, 2471], [2, 113, 113], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 113, 0], [2, 1019, 0], [2, 1019, 1586], [2, 113, 1586], [2, 113, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 640, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 611, 1570], [2, 747, 1570], [2, 1314, 0], [2, 1178, 0], [2, 679, 1209], [2, 181, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 679, 0], [4, 1291, 0], [4, 1291, 803], [4, 1291, 1607], [4, 1291, 2378], [4, 679, 2378], [4, 67, 2378], [4, -544, 2378], [4, -544, 1562], [4, -544, 759], [4, -544, 0], [4, 67, 0], [4, 679, 0], [79, 0, 0], [1, 679, 135], [4, 203, 135], [4, 203, 759], [4, 203, 1382], [4, 203, 2015], [4, 679, 2015], [4, 1155, 2015], [4, 1631, 2015], [4, 1631, 1382], [4, 1631, 759], [4, 1631, 135], [4, 1155, 135], [4, 679, 135], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 135, 0], [2, 135, 1586], [2, 271, 1586], [2, 271, 861], [2, 1087, 861], [2, 1087, 1586], [2, 1223, 1586], [2, 1223, 0], [2, 1087, 0], [2, 1087, 589], [2, 271, 589], [2, 271, 0], [2, 135, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 320, "linear": 324997, "path": [[1, 0, 1699], [2, 135, 1699], [2, 271, 1994], [2, 135, 1994], [2, 0, 1699], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 1344, "linear": 1392844, "path": [[1, 45, 0], [2, 611, 1586], [2, 747, 1586], [2, 1314, 0], [2, 45, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 117, 0], [2, 1024, 0], [2, 1024, 1587], [2, 117, 1587], [2, 117, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 640, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 612, 1600], [2, 748, 1600], [2, 1315, 0], [2, 1179, 0], [2, 680, 1234], [2, 181, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1408,
+    "linear": 1392844,
+    "path": [[1, 704, 0], [4, 1312, 0], [4, 1312, 826], [4, 1312, 1653], [4, 1312, 2432], [4, 704, 2432], [4, 96, 2432], [4, -512, 2432], [4, -512, 1606], [4, -512, 780], [4, -512, 0], [4, 96, 0], [4, 704, 0], [79, 0, 0], [1, 712, 136], [4, 236, 136], [4, 236, 773], [4, 236, 1411], [4, 236, 2048], [4, 712, 2048], [4, 1188, 2048], [4, 1664, 2048], [4, 1664, 1411], [4, 1664, 773], [4, 1664, 136], [4, 1188, 136], [4, 712, 136], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 128, 0], [2, 128, 1600], [2, 264, 1600], [2, 264, 832], [2, 1080, 832], [2, 1080, 1600], [2, 1216, 1600], [2, 1216, 0], [2, 1080, 0], [2, 1080, 576], [2, 264, 576], [2, 264, 0], [2, 128, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 320, "linear": 324997, "path": [[1, 0, 1728], [2, 136, 1728], [2, 272, 2016], [2, 136, 2016], [2, 0, 1728], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1344, "linear": 1392844, "path": [[1, 45, 0], [2, 612, 1600], [2, 748, 1600], [2, 1315, 0], [2, 45, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 113, 0], [2, 1019, 0], [2, 1019, 1586], [2, 113, 1586], [2, 113, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 640, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 611, 1570], [2, 747, 1570], [2, 1314, 0], [2, 1178, 0], [2, 679, 1209], [2, 181, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 679, 0], [4, 1291, 0], [4, 1291, 803], [4, 1291, 1607], [4, 1291, 2378], [4, 679, 2378], [4, 67, 2378], [4, -544, 2378], [4, -544, 1562], [4, -544, 759], [4, -544, 0], [4, 67, 0], [4, 679, 0], [79, 0, 0], [1, 679, 135], [4, 203, 135], [4, 203, 759], [4, 203, 1382], [4, 203, 2015], [4, 679, 2015], [4, 1155, 2015], [4, 1631, 2015], [4, 1631, 1382], [4, 1631, 759], [4, 1631, 135], [4, 1155, 135], [4, 679, 135], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 135, 0], [2, 135, 1586], [2, 271, 1586], [2, 271, 861], [2, 1087, 861], [2, 1087, 1586], [2, 1223, 1586], [2, 1223, 0], [2, 1087, 0], [2, 1087, 589], [2, 271, 589], [2, 271, 0], [2, 135, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 320, "linear": 324997, "path": [[1, 0, 1699], [2, 135, 1699], [2, 271, 1994], [2, 135, 1994], [2, 0, 1699], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1344, "linear": 1392844, "path": [[1, 45, 0], [2, 611, 1586], [2, 747, 1586], [2, 1314, 0], [2, 45, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1160703, "path": [[1, 113, 0], [2, 1020, 0], [2, 1020, 1587], [2, 113, 1587], [2, 113, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 45, 0], [2, 612, 1587], [2, 748, 1587], [2, 1315, 0], [2, 1179, 0], [2, 680, 1224], [2, 181, 0], [2, 45, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 680, -23], [4, 1292, -23], [4, 1292, 793], [4, 1292, 1610], [4, 1292, 2380], [4, 680, 2380], [4, 68, 2380], [4, -544, 2380], [4, -544, 1564], [4, -544, 748], [4, -544, -23], [4, 68, -23], [4, 680, -23], [79, 0, 0], [1, 680, 113], [4, 204, 113], [4, 204, 748], [4, 204, 1383], [4, 204, 2018], [4, 680, 2018], [4, 1156, 2018], [4, 1632, 2018], [4, 1632, 1383], [4, 1632, 748], [4, 1632, 113], [4, 1156, 113], [4, 680, 113], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 136, 0], [2, 136, 1587], [2, 272, 1587], [2, 272, 861], [2, 1088, 861], [2, 1088, 1587], [2, 1224, 1587], [2, 1224, 0], [2, 1088, 0], [2, 1088, 589], [2, 272, 589], [2, 272, 0], [2, 136, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 324997, "path": [[1, 0, 1700], [2, 136, 1700], [2, 272, 1995], [2, 136, 1995], [2, 0, 1700], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 17, "dpi": 150, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1392844, "path": [[1, 45, 0], [2, 612, 1587], [2, 748, 1587], [2, 1315, 0], [2, 45, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 0, 0], [2, 0, 1587], [2, 907, 1587], [2, 907, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 640, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1600], [2, 703, 1600], [2, 1270, 0], [2, 1133, 0], [2, 635, 1234], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 612, 0], [3, 1224, 0], [3, 1224, 800], [3, 1224, 1600], [3, 612, 1600], [3, 0, 1600], [3, 0, 800], [3, 0, 0], [3, 612, 0], [79, 0, 0], [1, 612, 136], [3, 136, 136], [3, 136, 800], [3, 136, 1464], [3, 612, 1464], [3, 1088, 1464], [3, 1088, 800], [3, 1088, 136], [3, 612, 136], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 0, 1600], [2, 136, 1600], [2, 136, 840], [2, 952, 840], [2, 952, 1600], [2, 1088, 1600], [2, 1088, 0], [2, 952, 0], [2, 952, 704], [2, 136, 704], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 320, "linear": 324997, "path": [[1, 0, 1728], [2, 136, 1728], [2, 272, 2016], [2, 136, 2016], [2, 0, 1728], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 6, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1600], [2, 703, 1600], [2, 1270, 0], [2, 1133, 0], [2, 635, 1234], [2, 136, 0], [2, 0, 0], [79, 0, 0], [1, 533, 1696], [2, 669, 1696], [2, 805, 1984], [2, 669, 1984], [2, 533, 1696], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 0, 0], [2, 0, 1587], [2, 907, 1587], [2, 907, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 640, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1600], [2, 703, 1600], [2, 1270, 0], [2, 1133, 0], [2, 635, 1234], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 612, 0], [3, 1224, 0], [3, 1224, 800], [3, 1224, 1600], [3, 612, 1600], [3, 0, 1600], [3, 0, 800], [3, 0, 0], [3, 612, 0], [79, 0, 0], [1, 612, 136], [3, 136, 136], [3, 136, 800], [3, 136, 1464], [3, 612, 1464], [3, 1088, 1464], [3, 1088, 800], [3, 1088, 136], [3, 612, 136], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 0, 1600], [2, 136, 1600], [2, 136, 840], [2, 952, 840], [2, 952, 1600], [2, 1088, 1600], [2, 1088, 0], [2, 952, 0], [2, 952, 704], [2, 136, 704], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 320, "linear": 324997, "path": [[1, 0, 1728], [2, 136, 1728], [2, 272, 2016], [2, 136, 2016], [2, 0, 1728], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1600], [2, 703, 1600], [2, 1270, 0], [2, 1133, 0], [2, 635, 1234], [2, 136, 0], [2, 0, 0], [79, 0, 0], [1, 533, 1696], [2, 669, 1696], [2, 805, 1984], [2, 669, 1984], [2, 533, 1696], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1152, "linear": 1160703, "path": [[1, 0, 0], [2, 0, 1587], [2, 907, 1587], [2, 907, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 640, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1587], [2, 703, 1587], [2, 1270, 0], [2, 1134, 0], [2, 635, 1224], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 612, -23], [3, 1224, -23], [3, 1224, 793], [3, 1224, 1610], [3, 612, 1610], [3, 0, 1610], [3, 0, 793], [3, 0, -23], [3, 612, -23], [79, 0, 0], [1, 612, 113], [3, 136, 113], [3, 136, 793], [3, 136, 1474], [3, 612, 1474], [3, 1088, 1474], [3, 1088, 793], [3, 1088, 113], [3, 612, 113], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 0, 1587], [2, 136, 1587], [2, 136, 861], [2, 952, 861], [2, 952, 1587], [2, 1088, 1587], [2, 1088, 0], [2, 952, 0], [2, 952, 691], [2, 136, 691], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 320, "linear": 324997, "path": [[1, 0, 1700], [2, 136, 1700], [2, 272, 1995], [2, 136, 1995], [2, 0, 1700], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1344,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1587], [2, 703, 1587], [2, 1270, 0], [2, 1134, 0], [2, 635, 1224], [2, 136, 0], [2, 0, 0], [79, 0, 0], [1, 533, 1700], [2, 669, 1700], [2, 805, 1995], [2, 669, 1995], [2, 533, 1700], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1160703, "path": [[1, 0, 0], [2, 0, 1587], [2, 907, 1587], [2, 907, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 673208, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1587], [2, 703, 1587], [2, 1270, 0], [2, 1134, 0], [2, 635, 1224], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 612, -23], [3, 1224, -23], [3, 1224, 793], [3, 1224, 1610], [3, 612, 1610], [3, 0, 1610], [3, 0, 793], [3, 0, -23], [3, 612, -23], [79, 0, 0], [1, 612, 113], [3, 136, 113], [3, 136, 793], [3, 136, 1474], [3, 612, 1474], [3, 1088, 1474], [3, 1088, 793], [3, 1088, 113], [3, 612, 113], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 0, 1587], [2, 136, 1587], [2, 136, 861], [2, 952, 861], [2, 952, 1587], [2, 1088, 1587], [2, 1088, 0], [2, 952, 0], [2, 952, 691], [2, 136, 691], [2, 136, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 324997, "path": [[1, 0, 1700], [2, 136, 1700], [2, 272, 1995], [2, 136, 1995], [2, 0, 1700], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 17, "dpi": 150, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1392844,
+    "path": [[1, 0, 0], [2, 567, 1587], [2, 703, 1587], [2, 1270, 0], [2, 1134, 0], [2, 635, 1224], [2, 136, 0], [2, 0, 0], [79, 0, 0], [1, 533, 1700], [2, 669, 1700], [2, 805, 1995], [2, 669, 1995], [2, 533, 1700], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 99, 0], [2, 892, 0], [2, 892, 1389], [2, 99, 1389], [2, 99, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 19, 0], [2, 172, 0], [2, 172, 268], [2, 19, 268], [2, 19, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 512, "linear": 507902, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 98305, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 39, 0], [2, 595, 1389], [2, 1150, 0], [2, 952, 0], [2, 833, 297], [2, 357, 297], [2, 238, 0], [2, 39, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 7, 0], [2, 115, 268], [2, 222, 0], [2, 184, 0], [2, 161, 57], [2, 69, 57], [2, 46, 0], [2, 7, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1408,
+    "linear": 1422127,
+    "path": [[1, 694, -20], [4, 1051, -20], [4, 1329, 297], [4, 1329, 694], [4, 1329, 1091], [4, 1051, 1408], [4, 694, 1051], [4, 337, 1051], [4, 59, 734], [4, 59, 337], [4, 59, -60], [4, 337, -378], [4, 694, -378], [2, 694, -20], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 275253,
+    "path": [[1, 134, -4], [4, 203, -4], [4, 257, 57], [4, 257, 134], [4, 257, 211], [4, 203, 272], [4, 134, 203], [4, 65, 203], [4, 11, 142], [4, 11, 65], [4, 11, -12], [4, 65, -73], [4, 134, -73], [2, 134, -4], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1280,
+    "linear": 1320546,
+    "path": [[1, 198, 0], [2, 198, 198], [2, 396, 198], [2, 396, 0], [2, 198, 0], [79, 0, 0], [1, 198, 595], [2, 297, 754], [2, 396, 595], [2, 198, 595], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 255592,
+    "path": [[1, 38, 0], [2, 38, 38], [2, 76, 38], [2, 76, 0], [2, 38, 0], [79, 0, 0], [1, 38, 115], [2, 57, 145], [2, 76, 115], [2, 38, 115], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 99, 595], [4, 297, 635], [4, 496, 635], [4, 694, 595], [4, 892, 555], [4, 1091, 555], [4, 1289, 595], [2, 1289, 198], [2, 99, 198], [4, -100, 297], [4, -199, 396], [4, -397, 396], [4, -596, 396], [4, -695, 297], [4, -893, 198], [2, 99, 595], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 19, 115], [4, 57, 122], [4, 95, 122], [4, 134, 115], [4, 172, 107], [4, 211, 107], [4, 249, 115], [2, 249, 38], [2, 19, 38], [4, -20, 57], [4, -39, 76], [4, -77, 76], [4, -116, 76], [4, -135, 57], [4, -173, 38], [2, 19, 115], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 576, "linear": 609483, "path": [[1, 198, 1190], [2, 357, 1428], [2, 436, 1369], [2, 198, 1190], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 117966, "path": [[1, 38, 230], [2, 69, 276], [2, 84, 264], [2, 38, 230], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 7, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 496, 1428], [2, 654, 1666], [2, 734, 1607], [2, 496, 1428], [79, 0, 0], [1, 39, 0], [2, 595, 1389], [2, 1150, 0], [2, 952, 0], [2, 833, 297], [2, 357, 297], [2, 238, 0], [2, 39, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 7, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 95, 276], [2, 126, 322], [2, 142, 310], [2, 95, 276], [79, 0, 0], [1, 7, 0], [2, 115, 268], [2, 222, 0], [2, 184, 0], [2, 161, 57], [2, 69, 57], [2, 46, 0], [2, 7, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 8, "flags": "DEFAULT"},
+   "value": {"advance": 1216, "linear": 1218966, "path": [[1, 79, 0], [2, 1071, 0], [2, 1071, 99], [2, 79, 99], [2, 79, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 8, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 15, 0], [2, 207, 0], [2, 207, 19], [2, 15, 19], [2, 15, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 9, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 99, 99], [4, 297, 99], [4, 396, 396], [4, 793, 396], [4, 833, 595], [4, 932, 892], [4, 932, 1091], [4, 1527, 1091], [4, 1527, 1289], [4, 1527, 1488], [4, 1547, 1527], [4, 1607, 1607], [4, 1706, 1726], [2, 1845, 1885], [2, 1865, 1885], [2, 1865, 1905], [4, 1964, 1905], [4, 2063, 2024], [4, 2063, 2162], [2, 99, 99], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 9, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 19, 19], [4, 57, 19], [4, 76, 76], [4, 153, 76], [4, 161, 115], [4, 180, 172], [4, 180, 211], [4, 295, 211], [4, 295, 249], [4, 295, 287], [4, 299, 295], [4, 310, 310], [4, 330, 333], [2, 356, 364], [2, 360, 364], [2, 360, 368], [4, 379, 368], [4, 399, 391], [4, 399, 418], [2, 19, 19], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 102, 0], [2, 896, 0], [2, 896, 1389], [2, 102, 1389], [2, 102, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 0, 0], [2, 154, 0], [2, 154, 269], [2, 0, 269], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 512, "linear": 507902, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 98305, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 40, 0], [2, 595, 1379], [2, 1151, 0], [2, 952, 0], [2, 833, 288], [2, 357, 288], [2, 238, 0], [2, 40, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 8, 0], [2, 115, 275], [2, 223, 0], [2, 184, 0], [2, 161, 64], [2, 69, 64], [2, 46, 0], [2, 8, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1408,
+    "linear": 1422127,
+    "path": [[1, 699, -27], [4, 1063, -27], [4, 1344, 291], [4, 1344, 686], [4, 1344, 1083], [4, 1063, 1401], [4, 699, 1044], [4, 341, 1044], [4, 64, 726], [4, 64, 329], [4, 64, -67], [4, 341, -384], [4, 699, -384], [2, 699, -27], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 384,
+    "linear": 275253,
+    "path": [[1, 187, 5], [4, 263, 5], [4, 320, 67], [4, 320, 142], [4, 320, 219], [4, 263, 281], [4, 187, 212], [4, 117, 212], [4, 64, 150], [4, 64, 74], [4, 64, -3], [4, 117, -64], [4, 187, -64], [2, 187, 5], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1280,
+    "linear": 1320546,
+    "path": [[1, 192, 0], [2, 192, 192], [2, 384, 192], [2, 384, 0], [2, 192, 0], [79, 0, 0], [1, 192, 608], [2, 288, 767], [2, 384, 608], [2, 192, 608], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 255592,
+    "path": [[1, 38, 4], [2, 38, 60], [2, 77, 60], [2, 77, 4], [2, 38, 4], [79, 0, 0], [1, 38, 132], [2, 58, 163], [2, 77, 132], [2, 38, 132], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 89, 599], [4, 288, 640], [4, 486, 640], [4, 684, 600], [4, 883, 561], [4, 1081, 561], [4, 1280, 601], [2, 1280, 192], [2, 89, 192], [4, -109, 295], [4, -208, 396], [4, -407, 396], [4, -605, 396], [4, -704, 295], [4, -903, 192], [2, 89, 599], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 25, 120], [4, 64, 127], [4, 102, 127], [4, 140, 127], [4, 179, 127], [4, 217, 127], [4, 256, 120], [2, 256, 53], [2, 25, 53], [4, -13, 70], [4, -32, 87], [4, -71, 87], [4, -109, 87], [4, -128, 70], [4, -167, 53], [2, 25, 120], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 576, "linear": 609483, "path": [[1, 198, 1190], [2, 357, 1428], [2, 436, 1369], [2, 198, 1190], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 117966, "path": [[1, 38, 230], [2, 69, 276], [2, 84, 265], [2, 38, 230], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 7, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 496, 1443], [2, 655, 1682], [2, 734, 1622], [2, 496, 1443], [79, 0, 0], [1, 40, 0], [2, 595, 1379], [2, 1151, 0], [2, 952, 0], [2, 833, 288], [2, 357, 288], [2, 238, 0], [2, 40, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 7, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 96, 339], [2, 127, 386], [2, 142, 374], [2, 96, 339], [79, 0, 0], [1, 8, 0], [2, 115, 275], [2, 223, 0], [2, 184, 0], [2, 161, 64], [2, 69, 64], [2, 46, 0], [2, 8, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 8, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1216, "linear": 1218966, "path": [[1, 64, 0], [2, 1088, 0], [2, 1088, 118], [2, 64, 118], [2, 64, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 8, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 15, 4], [2, 207, 4], [2, 207, 60], [2, 15, 60], [2, 15, 4], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 9, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 127, 128], [4, 326, 128], [4, 425, 416], [4, 822, 416], [4, 861, 617], [4, 960, 919], [4, 960, 1120], [4, 1568, 1120], [4, 1568, 1321], [4, 1568, 1520], [4, 1587, 1560], [4, 1644, 1640], [4, 1738, 1760], [2, 1871, 1920], [2, 1890, 1920], [2, 1890, 1920], [4, 1985, 1920], [4, 2080, 2039], [4, 2080, 2178], [2, 127, 128], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 9, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 31, 0], [4, 70, 0], [4, 89, 64], [4, 166, 64], [4, 173, 100], [4, 192, 156], [4, 192, 192], [4, 320, 192], [4, 320, 233], [4, 320, 272], [4, 324, 280], [4, 335, 296], [4, 354, 320], [2, 381, 352], [2, 385, 352], [2, 385, 352], [4, 404, 352], [4, 423, 377], [4, 423, 406], [2, 31, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 99, 0], [2, 892, 0], [2, 892, 1389], [2, 99, 1389], [2, 99, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 19, 0], [2, 172, 0], [2, 172, 268], [2, 19, 268], [2, 19, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 512, "linear": 507902, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 98305, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 39, 0], [2, 595, 1389], [2, 1150, 0], [2, 952, 0], [2, 833, 297], [2, 357, 297], [2, 238, 0], [2, 39, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 7, 0], [2, 115, 268], [2, 222, 0], [2, 184, 0], [2, 161, 57], [2, 69, 57], [2, 46, 0], [2, 7, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1408,
+    "linear": 1422127,
+    "path": [[1, 694, -20], [4, 1051, -20], [4, 1329, 297], [4, 1329, 694], [4, 1329, 1091], [4, 1051, 1408], [4, 694, 1051], [4, 337, 1051], [4, 59, 734], [4, 59, 337], [4, 59, -60], [4, 337, -378], [4, 694, -378], [2, 694, -20], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 275253,
+    "path": [[1, 134, -4], [4, 203, -4], [4, 257, 57], [4, 257, 134], [4, 257, 211], [4, 203, 272], [4, 134, 203], [4, 65, 203], [4, 11, 142], [4, 11, 65], [4, 11, -12], [4, 65, -73], [4, 134, -73], [2, 134, -4], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1280,
+    "linear": 1320546,
+    "path": [[1, 198, 0], [2, 198, 198], [2, 396, 198], [2, 396, 0], [2, 198, 0], [79, 0, 0], [1, 198, 595], [2, 297, 754], [2, 396, 595], [2, 198, 595], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 255592,
+    "path": [[1, 38, 0], [2, 38, 38], [2, 76, 38], [2, 76, 0], [2, 38, 0], [79, 0, 0], [1, 38, 115], [2, 57, 145], [2, 76, 115], [2, 38, 115], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 99, 595], [4, 297, 635], [4, 496, 635], [4, 694, 595], [4, 892, 555], [4, 1091, 555], [4, 1289, 595], [2, 1289, 198], [2, 99, 198], [4, -100, 297], [4, -199, 396], [4, -397, 396], [4, -596, 396], [4, -695, 297], [4, -893, 198], [2, 99, 595], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 19, 115], [4, 57, 122], [4, 95, 122], [4, 134, 115], [4, 172, 107], [4, 211, 107], [4, 249, 115], [2, 249, 38], [2, 19, 38], [4, -20, 57], [4, -39, 76], [4, -77, 76], [4, -116, 76], [4, -135, 57], [4, -173, 38], [2, 19, 115], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 576, "linear": 609483, "path": [[1, 198, 1190], [2, 357, 1428], [2, 436, 1369], [2, 198, 1190], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 117966, "path": [[1, 38, 230], [2, 69, 276], [2, 84, 264], [2, 38, 230], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 7, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 496, 1428], [2, 654, 1666], [2, 734, 1607], [2, 496, 1428], [79, 0, 0], [1, 39, 0], [2, 595, 1389], [2, 1150, 0], [2, 952, 0], [2, 833, 297], [2, 357, 297], [2, 238, 0], [2, 39, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 7, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 95, 276], [2, 126, 322], [2, 142, 310], [2, 95, 276], [79, 0, 0], [1, 7, 0], [2, 115, 268], [2, 222, 0], [2, 184, 0], [2, 161, 57], [2, 69, 57], [2, 46, 0], [2, 7, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 8, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1216, "linear": 1218966, "path": [[1, 79, 0], [2, 1071, 0], [2, 1071, 99], [2, 79, 99], [2, 79, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 8, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 15, 0], [2, 207, 0], [2, 207, 19], [2, 15, 19], [2, 15, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 9, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 99, 99], [4, 297, 99], [4, 396, 396], [4, 793, 396], [4, 833, 595], [4, 932, 892], [4, 932, 1091], [4, 1527, 1091], [4, 1527, 1289], [4, 1527, 1488], [4, 1547, 1527], [4, 1607, 1607], [4, 1706, 1726], [2, 1845, 1885], [2, 1865, 1885], [2, 1865, 1905], [4, 1964, 1905], [4, 2063, 2024], [4, 2063, 2162], [2, 99, 99], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 9, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 19, 19], [4, 57, 19], [4, 76, 76], [4, 153, 76], [4, 161, 115], [4, 180, 172], [4, 180, 211], [4, 295, 211], [4, 295, 249], [4, 295, 287], [4, 299, 295], [4, 310, 310], [4, 330, 333], [2, 356, 364], [2, 360, 364], [2, 360, 368], [4, 379, 368], [4, 399, 391], [4, 399, 418], [2, 19, 19], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1015805, "path": [[1, 99, 0], [2, 893, 0], [2, 893, 1389], [2, 99, 1389], [2, 99, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 196609, "path": [[1, 19, 0], [2, 173, 0], [2, 173, 269], [2, 19, 269], [2, 19, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 507902, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 98305, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 40, 0], [2, 595, 1389], [2, 1151, 0], [2, 952, 0], [2, 833, 298], [2, 357, 298], [2, 238, 0], [2, 40, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 235931, "path": [[1, 8, 0], [2, 115, 269], [2, 223, 0], [2, 184, 0], [2, 161, 58], [2, 69, 58], [2, 46, 0], [2, 8, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1422127,
+    "path": [[1, 694, -20], [4, 1052, -20], [4, 1329, 298], [4, 1329, 694], [4, 1329, 1091], [4, 1052, 1409], [4, 694, 1052], [4, 337, 1052], [4, 60, 734], [4, 60, 337], [4, 60, -60], [4, 337, -377], [4, 694, -377], [2, 694, -20], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 275253,
+    "path": [[1, 134, -4], [4, 204, -4], [4, 257, 58], [4, 257, 134], [4, 257, 211], [4, 204, 273], [4, 134, 204], [4, 65, 204], [4, 12, 142], [4, 12, 65], [4, 12, -12], [4, 65, -73], [4, 134, -73], [2, 134, -4], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1320546,
+    "path": [[1, 198, 0], [2, 198, 198], [2, 397, 198], [2, 397, 0], [2, 198, 0], [79, 0, 0], [1, 198, 595], [2, 298, 754], [2, 397, 595], [2, 198, 595], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 255592,
+    "path": [[1, 38, 0], [2, 38, 38], [2, 77, 38], [2, 77, 0], [2, 38, 0], [79, 0, 0], [1, 38, 115], [2, 58, 146], [2, 77, 115], [2, 38, 115], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 99, 595], [4, 298, 635], [4, 496, 635], [4, 694, 595], [4, 893, 556], [4, 1091, 556], [4, 1290, 595], [2, 1290, 198], [2, 99, 198], [4, -99, 298], [4, -198, 397], [4, -397, 397], [4, -595, 397], [4, -694, 298], [4, -893, 198], [2, 99, 595], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 19, 115], [4, 58, 123], [4, 96, 123], [4, 134, 115], [4, 173, 108], [4, 211, 108], [4, 250, 115], [2, 250, 38], [2, 19, 38], [4, -19, 58], [4, -38, 77], [4, -77, 77], [4, -115, 77], [4, -134, 58], [4, -173, 38], [2, 19, 115], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 609483, "path": [[1, 198, 1190], [2, 357, 1428], [2, 436, 1369], [2, 198, 1190], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 117966, "path": [[1, 38, 230], [2, 69, 276], [2, 84, 265], [2, 38, 230], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 7, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 496, 1428], [2, 655, 1667], [2, 734, 1607], [2, 496, 1428], [79, 0, 0], [1, 40, 0], [2, 595, 1389], [2, 1151, 0], [2, 952, 0], [2, 833, 298], [2, 357, 298], [2, 238, 0], [2, 40, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 7, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 96, 276], [2, 127, 323], [2, 142, 311], [2, 96, 276], [79, 0, 0], [1, 8, 0], [2, 115, 269], [2, 223, 0], [2, 184, 0], [2, 161, 58], [2, 69, 58], [2, 46, 0], [2, 8, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 8, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1218966, "path": [[1, 79, 0], [2, 1071, 0], [2, 1071, 99], [2, 79, 99], [2, 79, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 8, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 235931, "path": [[1, 15, 0], [2, 207, 0], [2, 207, 19], [2, 15, 19], [2, 15, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 31, "dpi": 72, "glyph": 9, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 99, 99], [4, 298, 99], [4, 397, 397], [4, 794, 397], [4, 833, 595], [4, 932, 893], [4, 932, 1091], [4, 1528, 1091], [4, 1528, 1290], [4, 1528, 1488], [4, 1548, 1528], [4, 1607, 1607], [4, 1706, 1726], [2, 1845, 1885], [2, 1865, 1885], [2, 1865, 1905], [4, 1964, 1905], [4, 2063, 2024], [4, 2063, 2163], [2, 99, 99], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-cff.otf", "size": 6, "dpi": 72, "glyph": 9, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 19, 19], [4, 58, 19], [4, 77, 77], [4, 154, 77], [4, 161, 115], [4, 180, 173], [4, 180, 211], [4, 296, 211], [4, 296, 250], [4, 296, 288], [4, 300, 296], [4, 311, 311], [4, 330, 334], [2, 357, 365], [2, 361, 365], [2, 361, 369], [4, 380, 369], [4, 399, 392], [4, 399, 419], [2, 19, 19], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 99, 0], [2, 892, 0], [2, 892, 1389], [2, 99, 1389], [2, 99, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 19, 0], [2, 172, 0], [2, 172, 268], [2, 19, 268], [2, 19, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 576, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 39, 0], [2, 535, 1414], [2, 654, 1414], [2, 1150, 0], [2, 1031, 0], [2, 595, 1094], [2, 158, 0], [2, 39, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 7, 0], [2, 103, 271], [2, 126, 271], [2, 222, 0], [2, 199, 0], [2, 115, 209], [2, 30, 0], [2, 7, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 595, 0], [4, 1131, 0], [4, 1131, 704], [4, 1131, 1408], [4, 1131, 2082], [4, 595, 2082], [4, 59, 2082], [4, -477, 2082], [4, -477, 1368], [4, -477, 665], [4, -477, 0], [4, 59, 0], [4, 595, 0], [79, 0, 0], [1, 595, 119], [4, 178, 119], [4, 178, 665], [4, 178, 1211], [4, 178, 1765], [4, 595, 1765], [4, 1012, 1765], [4, 1428, 1765], [4, 1428, 1211], [4, 1428, 665], [4, 1428, 119], [4, 1012, 119], [4, 595, 119], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 115, 0], [4, 218, 0], [4, 218, 139], [4, 218, 279], [4, 218, 409], [4, 115, 409], [4, 11, 409], [4, -93, 409], [4, -93, 271], [4, -93, 131], [4, -93, 0], [4, 11, 0], [4, 115, 0], [79, 0, 0], [1, 115, 23], [4, 34, 23], [4, 34, 131], [4, 34, 240], [4, 34, 348], [4, 115, 348], [4, 195, 348], [4, 276, 348], [4, 276, 240], [4, 276, 131], [4, 276, 23], [4, 195, 23], [4, 115, 23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 119, 0], [2, 119, 1389], [2, 238, 1389], [2, 238, 754], [2, 952, 754], [2, 952, 1389], [2, 1071, 1389], [2, 1071, 0], [2, 952, 0], [2, 952, 515], [2, 238, 515], [2, 238, 0], [2, 119, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 23, 0], [2, 23, 268], [2, 46, 268], [2, 46, 145], [2, 184, 145], [2, 184, 268], [2, 207, 268], [2, 207, 0], [2, 184, 0], [2, 184, 99], [2, 46, 99], [2, 46, 0], [2, 23, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 284425, "path": [[1, 0, 1488], [2, 119, 1488], [2, 238, 1746], [2, 119, 1746], [2, 0, 1488], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 64, "linear": 55051, "path": [[1, 0, 287], [2, 23, 287], [2, 46, 337], [2, 23, 337], [2, 0, 287], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 1216, "linear": 1218966, "path": [[1, 39, 0], [2, 535, 1389], [2, 654, 1389], [2, 1150, 0], [2, 39, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 7, 0], [2, 103, 268], [2, 126, 268], [2, 222, 0], [2, 7, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 102, 0], [2, 896, 0], [2, 896, 1389], [2, 102, 1389], [2, 102, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 0, 0], [2, 154, 0], [2, 154, 269], [2, 0, 269], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 576, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 40, 0], [2, 536, 1376], [2, 655, 1376], [2, 1151, 0], [2, 1032, 0], [2, 595, 1061], [2, 159, 0], [2, 40, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 8, 0], [2, 104, 256], [2, 127, 256], [2, 223, 0], [2, 200, 0], [2, 115, 197], [2, 31, 0], [2, 8, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 618, 0], [4, 1152, 0], [4, 1152, 717], [4, 1152, 1435], [4, 1152, 2112], [4, 618, 2112], [4, 86, 2112], [4, -448, 2112], [4, -448, 1395], [4, -448, 678], [4, -448, 0], [4, 86, 0], [4, 618, 0], [79, 0, 0], [1, 628, 119], [4, 207, 119], [4, 207, 677], [4, 207, 1234], [4, 207, 1792], [4, 628, 1792], [4, 1051, 1792], [4, 1472, 1792], [4, 1472, 1234], [4, 1472, 677], [4, 1472, 119], [4, 1051, 119], [4, 628, 119], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 149, 0], [4, 256, 0], [4, 256, 130], [4, 256, 260], [4, 256, 382], [4, 149, 382], [4, 43, 382], [4, -64, 382], [4, -64, 252], [4, -64, 123], [4, -64, 0], [4, 43, 0], [4, 149, 0], [79, 0, 0], [1, 148, 23], [4, 63, 23], [4, 63, 123], [4, 63, 222], [4, 63, 322], [4, 148, 322], [4, 235, 322], [4, 320, 322], [4, 320, 222], [4, 320, 123], [4, 320, 23], [4, 235, 23], [4, 148, 23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 128, 0], [2, 128, 1408], [2, 247, 1408], [2, 247, 768], [2, 960, 768], [2, 960, 1408], [2, 1079, 1408], [2, 1079, 0], [2, 960, 0], [2, 960, 512], [2, 247, 512], [2, 247, 0], [2, 128, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 192,
+    "linear": 235931,
+    "path": [[1, 4, 0], [2, 4, 269], [2, 60, 269], [2, 60, 119], [2, 132, 119], [2, 132, 269], [2, 188, 269], [2, 188, 0], [2, 132, 0], [2, 132, 73], [2, 60, 73], [2, 60, 0], [2, 4, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 284425, "path": [[1, 0, 1472], [2, 119, 1472], [2, 238, 1728], [2, 119, 1728], [2, 0, 1472], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 64, "linear": 55051, "path": [[1, 0, 320], [2, 23, 320], [2, 46, 384], [2, 23, 384], [2, 0, 320], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1216, "linear": 1218966, "path": [[1, 40, 0], [2, 536, 1408], [2, 655, 1408], [2, 1151, 0], [2, 40, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 8, 0], [2, 104, 269], [2, 127, 269], [2, 223, 0], [2, 8, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 99, 0], [2, 892, 0], [2, 892, 1389], [2, 99, 1389], [2, 99, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 19, 0], [2, 172, 0], [2, 172, 268], [2, 19, 268], [2, 19, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 576, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 39, 0], [2, 535, 1414], [2, 654, 1414], [2, 1150, 0], [2, 1031, 0], [2, 595, 1094], [2, 158, 0], [2, 39, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 7, 0], [2, 103, 271], [2, 126, 271], [2, 222, 0], [2, 199, 0], [2, 115, 209], [2, 30, 0], [2, 7, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 595, 0], [4, 1131, 0], [4, 1131, 704], [4, 1131, 1408], [4, 1131, 2082], [4, 595, 2082], [4, 59, 2082], [4, -477, 2082], [4, -477, 1368], [4, -477, 665], [4, -477, 0], [4, 59, 0], [4, 595, 0], [79, 0, 0], [1, 595, 119], [4, 178, 119], [4, 178, 665], [4, 178, 1211], [4, 178, 1765], [4, 595, 1765], [4, 1012, 1765], [4, 1428, 1765], [4, 1428, 1211], [4, 1428, 665], [4, 1428, 119], [4, 1012, 119], [4, 595, 119], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 115, 0], [4, 218, 0], [4, 218, 139], [4, 218, 279], [4, 218, 409], [4, 115, 409], [4, 11, 409], [4, -93, 409], [4, -93, 271], [4, -93, 131], [4, -93, 0], [4, 11, 0], [4, 115, 0], [79, 0, 0], [1, 115, 23], [4, 34, 23], [4, 34, 131], [4, 34, 240], [4, 34, 348], [4, 115, 348], [4, 195, 348], [4, 276, 348], [4, 276, 240], [4, 276, 131], [4, 276, 23], [4, 195, 23], [4, 115, 23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 119, 0], [2, 119, 1389], [2, 238, 1389], [2, 238, 754], [2, 952, 754], [2, 952, 1389], [2, 1071, 1389], [2, 1071, 0], [2, 952, 0], [2, 952, 515], [2, 238, 515], [2, 238, 0], [2, 119, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 23, 0], [2, 23, 268], [2, 46, 268], [2, 46, 145], [2, 184, 145], [2, 184, 268], [2, 207, 268], [2, 207, 0], [2, 184, 0], [2, 184, 99], [2, 46, 99], [2, 46, 0], [2, 23, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 284425, "path": [[1, 0, 1488], [2, 119, 1488], [2, 238, 1746], [2, 119, 1746], [2, 0, 1488], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 64, "linear": 55051, "path": [[1, 0, 287], [2, 23, 287], [2, 46, 337], [2, 23, 337], [2, 0, 287], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1216, "linear": 1218966, "path": [[1, 39, 0], [2, 535, 1389], [2, 654, 1389], [2, 1150, 0], [2, 39, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 7, 0], [2, 103, 268], [2, 126, 268], [2, 222, 0], [2, 7, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1015805, "path": [[1, 99, 0], [2, 893, 0], [2, 893, 1389], [2, 99, 1389], [2, 99, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 196609, "path": [[1, 19, 0], [2, 173, 0], [2, 173, 269], [2, 19, 269], [2, 19, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 40, 0], [2, 536, 1389], [2, 655, 1389], [2, 1151, 0], [2, 1032, 0], [2, 595, 1071], [2, 159, 0], [2, 40, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 8, 0], [2, 104, 269], [2, 127, 269], [2, 223, 0], [2, 200, 0], [2, 115, 207], [2, 31, 0], [2, 8, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 595, -20], [4, 1131, -20], [4, 1131, 694], [4, 1131, 1409], [4, 1131, 2083], [4, 595, 2083], [4, 60, 2083], [4, -476, 2083], [4, -476, 1369], [4, -476, 655], [4, -476, -20], [4, 60, -20], [4, 595, -20], [79, 0, 0], [1, 595, 99], [4, 179, 99], [4, 179, 655], [4, 179, 1210], [4, 179, 1766], [4, 595, 1766], [4, 1012, 1766], [4, 1428, 1766], [4, 1428, 1210], [4, 1428, 655], [4, 1428, 99], [4, 1012, 99], [4, 595, 99], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 115, -4], [4, 219, -4], [4, 219, 134], [4, 219, 273], [4, 219, 403], [4, 115, 403], [4, 12, 403], [4, -92, 403], [4, -92, 265], [4, -92, 127], [4, -92, -4], [4, 12, -4], [4, 115, -4], [79, 0, 0], [1, 115, 19], [4, 35, 19], [4, 35, 127], [4, 35, 234], [4, 35, 342], [4, 115, 342], [4, 196, 342], [4, 276, 342], [4, 276, 234], [4, 276, 127], [4, 276, 19], [4, 196, 19], [4, 115, 19], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 119, 0], [2, 119, 1389], [2, 238, 1389], [2, 238, 754], [2, 952, 754], [2, 952, 1389], [2, 1071, 1389], [2, 1071, 0], [2, 952, 0], [2, 952, 516], [2, 238, 516], [2, 238, 0], [2, 119, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 23, 0], [2, 23, 269], [2, 46, 269], [2, 46, 146], [2, 184, 146], [2, 184, 269], [2, 207, 269], [2, 207, 0], [2, 184, 0], [2, 184, 100], [2, 46, 100], [2, 46, 0], [2, 23, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 284425, "path": [[1, 0, 1488], [2, 119, 1488], [2, 238, 1746], [2, 119, 1746], [2, 0, 1488], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 55051, "path": [[1, 0, 288], [2, 23, 288], [2, 46, 338], [2, 23, 338], [2, 0, 288], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 31, "dpi": 72, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1218966, "path": [[1, 40, 0], [2, 536, 1389], [2, 655, 1389], [2, 1151, 0], [2, 40, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.otf", "size": 6, "dpi": 72, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 235931, "path": [[1, 8, 0], [2, 104, 269], [2, 127, 269], [2, 223, 0], [2, 8, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 0, 0], [2, 0, 1389], [2, 794, 1389], [2, 794, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 0, "flags": "DEFAULT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 0, 0], [2, 0, 269], [2, 154, 269], [2, 154, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 576, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 1, "flags": "DEFAULT"},
+   "value": {"advance": 128, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 2, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1408], [2, 615, 1408], [2, 1111, 0], [2, 992, 0], [2, 556, 1086], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 2, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 0, 0], [2, 96, 256], [2, 119, 256], [2, 215, 0], [2, 192, 0], [2, 108, 197], [2, 23, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 540, 0], [3, 1079, 0], [3, 1079, 704], [3, 1079, 1408], [3, 540, 1408], [3, 0, 1408], [3, 0, 704], [3, 0, 0], [3, 540, 0], [79, 0, 0], [1, 540, 119], [3, 119, 119], [3, 119, 704], [3, 119, 1289], [3, 540, 1289], [3, 960, 1289], [3, 960, 704], [3, 960, 119], [3, 540, 119], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 3, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 129, 0], [3, 235, 0], [3, 235, 128], [3, 235, 256], [3, 129, 256], [3, 21, 256], [3, 21, 128], [3, 21, 0], [3, 129, 0], [79, 0, 0], [1, 129, 23], [3, 44, 23], [3, 44, 128], [3, 44, 233], [3, 129, 233], [3, 213, 233], [3, 213, 128], [3, 213, 23], [3, 129, 23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 0, 1408], [2, 119, 1408], [2, 119, 768], [2, 832, 768], [2, 832, 1408], [2, 951, 1408], [2, 951, 0], [2, 832, 0], [2, 832, 649], [2, 119, 649], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 4, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 21, 0], [2, 21, 256], [2, 44, 256], [2, 44, 174], [2, 213, 174], [2, 213, 256], [2, 235, 256], [2, 235, 0], [2, 213, 0], [2, 213, 146], [2, 44, 146], [2, 44, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 256, "linear": 284425, "path": [[1, 0, 1472], [2, 119, 1472], [2, 238, 1728], [2, 119, 1728], [2, 0, 1472], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 5, "flags": "DEFAULT"},
+   "value": {"advance": 64, "linear": 55051, "path": [[1, 0, 320], [2, 23, 320], [2, 46, 384], [2, 23, 384], [2, 0, 320], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 6, "flags": "DEFAULT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1408], [2, 615, 1408], [2, 1111, 0], [2, 992, 0], [2, 556, 1086], [2, 119, 0], [2, 0, 0], [79, 0, 0], [1, 466, 1504], [2, 585, 1504], [2, 704, 1760], [2, 585, 1760], [2, 466, 1504], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 6, "flags": "DEFAULT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 96, 256], [2, 119, 256], [2, 215, 0], [2, 192, 0], [2, 108, 197], [2, 23, 0], [2, 0, 0], [79, 0, 0], [1, 90, 320], [2, 113, 320], [2, 136, 384], [2, 113, 384], [2, 90, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 0, 0], [2, 0, 1389], [2, 794, 1389], [2, 794, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 0, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 0, 0], [2, 0, 269], [2, 154, 269], [2, 154, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 576, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 1, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1408], [2, 615, 1408], [2, 1111, 0], [2, 992, 0], [2, 556, 1086], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 2, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 0, 0], [2, 96, 256], [2, 119, 256], [2, 215, 0], [2, 192, 0], [2, 108, 197], [2, 23, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 540, 0], [3, 1079, 0], [3, 1079, 704], [3, 1079, 1408], [3, 540, 1408], [3, 0, 1408], [3, 0, 704], [3, 0, 0], [3, 540, 0], [79, 0, 0], [1, 540, 119], [3, 119, 119], [3, 119, 704], [3, 119, 1289], [3, 540, 1289], [3, 960, 1289], [3, 960, 704], [3, 960, 119], [3, 540, 119], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 3, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 129, 0], [3, 235, 0], [3, 235, 128], [3, 235, 256], [3, 129, 256], [3, 21, 256], [3, 21, 128], [3, 21, 0], [3, 129, 0], [79, 0, 0], [1, 129, 23], [3, 44, 23], [3, 44, 128], [3, 44, 233], [3, 129, 233], [3, 213, 233], [3, 213, 128], [3, 213, 23], [3, 129, 23], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 0, 1408], [2, 119, 1408], [2, 119, 768], [2, 832, 768], [2, 832, 1408], [2, 951, 1408], [2, 951, 0], [2, 832, 0], [2, 832, 649], [2, 119, 649], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 4, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 21, 0], [2, 21, 256], [2, 44, 256], [2, 44, 174], [2, 213, 174], [2, 213, 256], [2, 235, 256], [2, 235, 0], [2, 213, 0], [2, 213, 146], [2, 44, 146], [2, 44, 0], [2, 21, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 256, "linear": 284425, "path": [[1, 0, 1472], [2, 119, 1472], [2, 238, 1728], [2, 119, 1728], [2, 0, 1472], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 5, "flags": "FORCE_AUTOHINT"},
+   "value": {"advance": 64, "linear": 55051, "path": [[1, 0, 320], [2, 23, 320], [2, 46, 384], [2, 23, 384], [2, 0, 320], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1408], [2, 615, 1408], [2, 1111, 0], [2, 992, 0], [2, 556, 1086], [2, 119, 0], [2, 0, 0], [79, 0, 0], [1, 466, 1504], [2, 585, 1504], [2, 704, 1760], [2, 585, 1760], [2, 466, 1504], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 6, "flags": "FORCE_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 96, 256], [2, 119, 256], [2, 215, 0], [2, 192, 0], [2, 108, 197], [2, 23, 0], [2, 0, 0], [79, 0, 0], [1, 90, 320], [2, 113, 320], [2, 136, 384], [2, 113, 384], [2, 90, 320], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 1024, "linear": 1015805, "path": [[1, 0, 0], [2, 0, 1389], [2, 794, 1389], [2, 794, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 0, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 192, "linear": 196609, "path": [[1, 0, 0], [2, 0, 269], [2, 154, 269], [2, 154, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 576, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 1, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 128, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1389], [2, 615, 1389], [2, 1111, 0], [2, 992, 0], [2, 555, 1071], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 2, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 235931, "path": [[1, 0, 0], [2, 96, 269], [2, 119, 269], [2, 215, 0], [2, 192, 0], [2, 107, 207], [2, 23, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 535, -20], [3, 1071, -20], [3, 1071, 694], [3, 1071, 1409], [3, 535, 1409], [3, 0, 1409], [3, 0, 694], [3, 0, -20], [3, 535, -20], [79, 0, 0], [1, 535, 99], [3, 119, 99], [3, 119, 694], [3, 119, 1290], [3, 535, 1290], [3, 952, 1290], [3, 952, 694], [3, 952, 99], [3, 535, 99], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 3, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 103, -4], [3, 207, -4], [3, 207, 134], [3, 207, 273], [3, 103, 273], [3, 0, 273], [3, 0, 134], [3, 0, -4], [3, 103, -4], [79, 0, 0], [1, 103, 19], [3, 23, 19], [3, 23, 134], [3, 23, 250], [3, 103, 250], [3, 184, 250], [3, 184, 134], [3, 184, 19], [3, 103, 19], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 0, 1389], [2, 119, 1389], [2, 119, 754], [2, 833, 754], [2, 833, 1389], [2, 952, 1389], [2, 952, 0], [2, 833, 0], [2, 833, 605], [2, 119, 605], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 4, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 0, 269], [2, 23, 269], [2, 23, 146], [2, 161, 146], [2, 161, 269], [2, 184, 269], [2, 184, 0], [2, 161, 0], [2, 161, 117], [2, 23, 117], [2, 23, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 256, "linear": 284425, "path": [[1, 0, 1488], [2, 119, 1488], [2, 238, 1746], [2, 119, 1746], [2, 0, 1488], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 5, "flags": "NO_AUTOHINT"},
+   "value": {"advance": 64, "linear": 55051, "path": [[1, 0, 288], [2, 23, 288], [2, 46, 338], [2, 23, 338], [2, 0, 288], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 1216,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1389], [2, 615, 1389], [2, 1111, 0], [2, 992, 0], [2, 555, 1071], [2, 119, 0], [2, 0, 0], [79, 0, 0], [1, 466, 1488], [2, 585, 1488], [2, 704, 1746], [2, 585, 1746], [2, 466, 1488], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 6, "flags": "NO_AUTOHINT"},
+   "value": {
+    "advance": 256,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 96, 269], [2, 119, 269], [2, 215, 0], [2, 192, 0], [2, 107, 207], [2, 23, 0], [2, 0, 0], [79, 0, 0], [1, 90, 288], [2, 113, 288], [2, 136, 338], [2, 113, 338], [2, 90, 288], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 1015805, "path": [[1, 0, 0], [2, 0, 1389], [2, 794, 1389], [2, 794, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 0, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 196609, "path": [[1, 0, 0], [2, 0, 269], [2, 154, 269], [2, 154, 0], [2, 0, 0], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 589167, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 1, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 114033, "path": []}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1389], [2, 615, 1389], [2, 1111, 0], [2, 992, 0], [2, 555, 1071], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 2, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 96, 269], [2, 119, 269], [2, 215, 0], [2, 192, 0], [2, 107, 207], [2, 23, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 535, -20], [3, 1071, -20], [3, 1071, 694], [3, 1071, 1409], [3, 535, 1409], [3, 0, 1409], [3, 0, 694], [3, 0, -20], [3, 535, -20], [79, 0, 0], [1, 535, 99], [3, 119, 99], [3, 119, 694], [3, 119, 1290], [3, 535, 1290], [3, 952, 1290], [3, 952, 694], [3, 952, 99], [3, 535, 99], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 3, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 103, -4], [3, 207, -4], [3, 207, 134], [3, 207, 273], [3, 103, 273], [3, 0, 273], [3, 0, 134], [3, 0, -4], [3, 103, -4], [79, 0, 0], [1, 103, 19], [3, 23, 19], [3, 23, 134], [3, 23, 250], [3, 103, 250], [3, 184, 250], [3, 184, 134], [3, 184, 19], [3, 103, 19], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 0, 1389], [2, 119, 1389], [2, 119, 754], [2, 833, 754], [2, 833, 1389], [2, 952, 1389], [2, 952, 0], [2, 833, 0], [2, 833, 605], [2, 119, 605], [2, 119, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 4, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 0, 269], [2, 23, 269], [2, 23, 146], [2, 161, 146], [2, 161, 269], [2, 184, 269], [2, 184, 0], [2, 161, 0], [2, 161, 117], [2, 23, 117], [2, 23, 0], [2, 0, 0], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 284425, "path": [[1, 0, 1488], [2, 119, 1488], [2, 238, 1746], [2, 119, 1746], [2, 0, 1488], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 5, "flags": "NO_HINTING"},
+   "value": {"advance": null, "linear": 55051, "path": [[1, 0, 288], [2, 23, 288], [2, 46, 338], [2, 23, 338], [2, 0, 288], [79, 0, 0]]}
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 31, "dpi": 72, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 1218966,
+    "path": [[1, 0, 0], [2, 496, 1389], [2, 615, 1389], [2, 1111, 0], [2, 992, 0], [2, 555, 1071], [2, 119, 0], [2, 0, 0], [79, 0, 0], [1, 466, 1488], [2, 585, 1488], [2, 704, 1746], [2, 585, 1746], [2, 466, 1488], [79, 0, 0]]
+   }
+  },
+  {
+   "op": "ft2font.FT2Font.load_glyph",
+   "args": {"file": "synthetic-var.ttf", "size": 6, "dpi": 72, "glyph": 6, "flags": "NO_HINTING"},
+   "value": {
+    "advance": null,
+    "linear": 235931,
+    "path": [[1, 0, 0], [2, 96, 269], [2, 119, 269], [2, 215, 0], [2, 192, 0], [2, 107, 207], [2, 23, 0], [2, 0, 0], [79, 0, 0], [1, 90, 288], [2, 113, 288], [2, 136, 338], [2, 113, 338], [2, 90, 288], [79, 0, 0]]
+   }
+  },
+  {"op": "ft2font.FT2Font.metrics", "args": {"file": "synthetic-cff.otf"}, "value": [10, 1000, 800, -200, 1000, "Plt Synthetic CFF", "Regular", "UNAVAILABLE"]},
+  {"op": "ft2font.FT2Font.metrics", "args": {"file": "synthetic-var.otf"}, "value": [7, 1000, 920, -200, 1120, "Plt Var CFF", "Regular", "UNAVAILABLE"]},
+  {"op": "ft2font.FT2Font.metrics", "args": {"file": "synthetic-var.ttf"}, "value": [7, 1000, 920, -200, 1120, "Plt Var", "Regular", "UNAVAILABLE"]}
+ ]
+}

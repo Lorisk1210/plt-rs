@@ -3,11 +3,13 @@
 
 mod afm;
 mod afm_catalogue;
+mod afm_system;
 mod arena;
 mod bundled;
 mod catalogue;
 mod entry;
 mod held;
+mod memo;
 mod query;
 mod score;
 mod sparse;
@@ -15,6 +17,7 @@ mod system;
 mod type1;
 
 pub use afm::{AfmDirectory, AfmFont};
+pub use afm_system::{AfmChoice, AfmEntry, AfmStyle};
 pub use catalogue::{CatalogueReport, CatalogueState, catalogue_file_name};
 pub use entry::{FaceStyle, FontEntry, FontId, alternative_family_names, face_style};
 pub use query::{
@@ -28,16 +31,18 @@ pub use system::{RegistryReader, read_registry_with};
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock, PoisonError, RwLock, RwLockReadGuard};
+use std::sync::{Arc, OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::autofit::Autohinter;
 use crate::error::{FontError, Result};
 use crate::face::Face;
 use crate::shape::FontChain;
 use crate::tables::directory::face_count;
+use afm_system::Described;
 use arena::Arena;
 use bundled::{BUNDLED_FONTS, LAST_RESORT};
 use held::HeldFile;
+use memo::LookupMemo;
 
 /// The contents of the bundled font file called `file_name` (such as
 /// `"Inter-Regular.ttf"`), for embedding it elsewhere (web pages).
@@ -155,6 +160,10 @@ struct StoredFace {
 pub struct FontDatabase {
     faces: Arena<StoredFace>,
     entries: RwLock<Vec<FontEntry>>,
+    /// The lookups made since the catalogue last changed.
+    lookups: LookupMemo,
+    /// The AFM fonts added (the system's).
+    afm: RwLock<Vec<AfmEntry>>,
     generics: GenericFamilies,
     default_family: String,
     type1: type1::Type1Faces,
@@ -173,6 +182,8 @@ impl FontDatabase {
         Self {
             faces: Arena::new(),
             entries: RwLock::new(Vec::new()),
+            lookups: LookupMemo::default(),
+            afm: RwLock::new(Vec::new()),
             generics: GenericFamilies::default(),
             default_family: "DejaVu Sans".to_owned(),
             type1: type1::Type1Faces::default(),
@@ -204,7 +215,7 @@ impl FontDatabase {
                 stretch: Stretch::NORMAL,
             }));
         }
-        *db.entries.write().unwrap_or_else(PoisonError::into_inner) = entries;
+        *db.entries_mut() = entries;
         db
     }
 
@@ -241,14 +252,11 @@ impl FontDatabase {
                     autohinter: OnceLock::new(),
                 }));
                 if catalogue {
-                    self.entries
-                        .write()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .extend(
-                            descriptions
-                                .into_iter()
-                                .map(|description| FontEntry::described(id, description)),
-                        );
+                    self.entries_mut().extend(
+                        descriptions
+                            .into_iter()
+                            .map(|description| FontEntry::described(id, description)),
+                    );
                 }
                 id
             })
@@ -311,10 +319,16 @@ impl FontDatabase {
     /// Adds the fonts installed on the system, where matplotlib's
     /// `findSystemFonts` finds them (see
     /// [`FontDatabase::system_font_directories`]; on Windows also the
-    /// font files the registry lists elsewhere). Returns the number of
+    /// font files the registry lists elsewhere), and the Adobe Font
+    /// Metrics files there to the AFM font list. Returns the number of
     /// faces added.
     pub fn add_system_fonts(&self) -> usize {
-        system::SystemFonts::of_this_system()
+        let fonts = system::SystemFonts::of_this_system();
+        for path in fonts.afm_files() {
+            // matplotlib skips the files it cannot describe.
+            let _ = self.add_afm_file(&path);
+        }
+        fonts
             .font_files()
             .iter()
             .map(|path| self.add_file(path).map_or(0, |ids| ids.len()))
@@ -328,26 +342,36 @@ impl FontDatabase {
     /// or changed since it was written are read, and none is kept open
     /// (see [`add_files_catalogued`](Self::add_files_catalogued)).
     pub fn add_system_fonts_catalogued(&self, catalogue: &Path) -> CatalogueReport {
-        self.add_files_catalogued(
-            &system::SystemFonts::of_this_system().font_files(),
-            catalogue,
-        )
+        let fonts = system::SystemFonts::of_this_system();
+        let mut paths = fonts.afm_files();
+        paths.extend(fonts.font_files());
+        self.add_files_catalogued(&paths, catalogue)
     }
 
     /// Adds the faces of the font files `paths`, in order, as
     /// [`add_file`](Self::add_file) adds each (skipping files that cannot
-    /// be read or parsed), with their catalogue kept in the file
+    /// be read or parsed), and the Adobe Font Metrics files among them as
+    /// [`add_afm_file`](Self::add_afm_file) does, with their catalogue
+    /// kept in the file
     /// `catalogue`: the files unchanged since it was written are not
     /// opened, and the catalogue is brought up to date (it is rebuilt when
     /// it is missing, broken or of another version, and the report says
     /// why it could not be written, when it could not). Faces are read
     /// when they are used.
     pub fn add_files_catalogued(&self, paths: &[PathBuf], catalogue: &Path) -> CatalogueReport {
-        let (files, report) = catalogue::refresh(catalogue, paths, describe_file);
+        let (files, report) = catalogue::refresh(catalogue, paths, afm_system::describe_file);
         for file in files {
-            if let Some(faces) = file.faces {
-                let source = FontSource::File(file.path.clone());
-                self.add_described(&source, faces, true, &FontData::read_lazily(&file.path));
+            match file.description {
+                Some(Described::Faces(faces)) => {
+                    let source = FontSource::File(file.path.clone());
+                    let data = FontData::read_lazily(&file.path);
+                    self.add_described(&source, faces, true, &data);
+                }
+                Some(Described::Afm(style)) => self.add_afm(AfmEntry {
+                    path: file.path,
+                    style,
+                }),
+                None => {}
             }
         }
         report
@@ -369,19 +393,28 @@ impl FontDatabase {
         self.entries.read().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// The AFM font list, to change.
+    fn afm_entries_mut(&self) -> RwLockWriteGuard<'_, Vec<AfmEntry>> {
+        self.afm.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The catalogue, to change: the lookups made so far are forgotten.
+    fn entries_mut(&self) -> RwLockWriteGuard<'_, Vec<FontEntry>> {
+        let entries = self.entries.write().unwrap_or_else(PoisonError::into_inner);
+        self.lookups.clear();
+        entries
+    }
+
     /// Appends `entry` to the catalogue: a name, style and weight its face
     /// is matched by from now on (matplotlib's `ttflist.append`).
     pub fn add_entry(&self, entry: FontEntry) {
-        self.entries
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(entry);
+        self.entries_mut().push(entry);
     }
 
     /// Removes the first catalogue entry equal to `entry` (matplotlib's
     /// `ttflist.remove`); whether there was one.
     pub fn remove_entry(&self, entry: &FontEntry) -> bool {
-        let mut entries = self.entries.write().unwrap_or_else(PoisonError::into_inner);
+        let mut entries = self.entries_mut();
         let found = entries.iter().position(|candidate| candidate == entry);
         found.map(|index| entries.remove(index)).is_some()
     }
@@ -462,16 +495,29 @@ impl FontDatabase {
     /// matplotlib's `findfont` without fallback: the best-scoring face, or
     /// `None` when no family matches.
     fn best_match(&self, query: &FontQuery, generics: &GenericFamilies) -> Option<FontId> {
-        self.best_entry(query, generics, |_| true)
+        self.best_entry(query, generics)
             .filter(|(_, score)| *score < 10.0)
             .map(|(entry, _)| entry.font)
     }
 
-    /// The best-scoring entry among those of the faces `accept` takes, and
-    /// its score, as matplotlib's `_findfont_cached` finds it (`accept`
-    /// restricts the search to a directory); `None` when it takes none. A
-    /// score of 10 or more means that no family matched.
+    /// The best-scoring entry of the catalogue and its score, as
+    /// matplotlib's `_findfont_cached` finds it, and memoizes it until the
+    /// catalogue changes; `None` for an empty catalogue. A score of 10 or
+    /// more means that no family matched.
     pub fn best_entry(
+        &self,
+        query: &FontQuery,
+        generics: &GenericFamilies,
+    ) -> Option<(FontEntry, f64)> {
+        self.lookups.find(query, generics, || {
+            self.best_entry_among(query, generics, |_| true)
+        })
+    }
+
+    /// [`best_entry`](Self::best_entry) among the entries of the faces
+    /// `accept` takes (`findfont` restricted to a directory), not
+    /// memoized; `None` when it takes none.
+    pub fn best_entry_among(
         &self,
         query: &FontQuery,
         generics: &GenericFamilies,
@@ -582,7 +628,7 @@ impl FontDatabase {
                     families: vec![family.clone()],
                     ..query.clone()
                 };
-                self.best_entry(&single, generics, |_| true)
+                self.best_entry(&single, generics)
                     .filter(|(_, score)| *score < 10.0)
                     .map(|(entry, _)| entry)
             })
@@ -622,7 +668,7 @@ fn describe_faces(bytes: &[u8]) -> Result<Vec<Vec<FaceStyle>>> {
 
 /// What [`FontDatabase::add_file`] catalogues of the font file at `path`:
 /// the descriptions of each face, none when a face cannot be parsed.
-fn describe_file(path: &Path) -> std::io::Result<Vec<Vec<FaceStyle>>> {
+fn describe_font_file(path: &Path) -> std::io::Result<Vec<Vec<FaceStyle>>> {
     let bytes = sparse::read(path)?;
     Ok(describe_faces(&bytes).unwrap_or_default())
 }

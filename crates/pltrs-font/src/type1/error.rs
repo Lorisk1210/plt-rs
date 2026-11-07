@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::psaux::CharstringError;
+
 /// A dictionary entry of a Type 1 font that is parsed by its own rules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Type1Section {
@@ -167,6 +169,19 @@ impl fmt::Display for Type1Error {
 }
 
 impl std::error::Error for Type1Error {}
+
+impl From<CharstringError> for Type1Error {
+    fn from(error: CharstringError) -> Self {
+        match error {
+            CharstringError::Malformed(why) => Self::BadCharstring(why),
+            CharstringError::Limit => Self::CharstringLimit,
+            CharstringError::MissingSubr(index) => Self::MissingSubr(index),
+            CharstringError::NotStandardCode(code) => Self::NotStandardCode(code),
+            CharstringError::MissingGlyph(name) => Self::MissingGlyph(name),
+            CharstringError::InvalidFont(why) => Self::InvalidFont(why),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

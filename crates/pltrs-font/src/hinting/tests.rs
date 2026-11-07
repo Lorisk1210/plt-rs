@@ -301,16 +301,8 @@ fn which_hinter_glyphs_get() {
         assert_eq!(Hinting::Default.hinter(&dejavu, aligned), Hinter::Bytecode);
         assert_eq!(Hinting::Native.hinter(&dejavu, aligned), Hinter::Bytecode);
         assert_eq!(Hinting::Native.hinter(&stix, aligned), Hinter::Bytecode);
-        assert_eq!(
-            Hinting::Native.hinter(&cff, aligned),
-            Hinter::Unhinted,
-            "no CFF hinter"
-        );
-        assert_eq!(
-            Hinting::Default.hinter(&cff, aligned),
-            Hinter::Unhinted,
-            "no CFF hinter"
-        );
+        assert_eq!(Hinting::Native.hinter(&cff, aligned), Hinter::Cff);
+        assert_eq!(Hinting::Default.hinter(&cff, aligned), Hinter::Cff);
     }
     // Without bytecode, or forced, axis-aligned glyphs go to the
     // autohinter and others to the native hinter.
@@ -320,7 +312,7 @@ fn which_hinter_glyphs_get() {
         assert_eq!(Hinting::Auto.hinter(face, true), Hinter::Autohinter);
     }
     assert_eq!(Hinting::Auto.hinter(&dejavu, false), Hinter::Bytecode);
-    assert_eq!(Hinting::Auto.hinter(&cff, false), Hinter::Unhinted);
+    assert_eq!(Hinting::Auto.hinter(&cff, false), Hinter::Cff);
 }
 
 /// The byte range of table `tag` in `font`.

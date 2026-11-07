@@ -104,14 +104,14 @@ fn cff_fonts_hold_all_but_their_charstrings() {
     let bytes = include_bytes!("../../../tests/fixtures/synthetic-cff.otf");
     let held = assert_holds("synthetic.otf", bytes);
     let parts = held.cff(0).expect("split around its CharStrings");
-    let table = held.table(0, Tag(CFF)).unwrap();
+    let table = held.table(0, Tag(*b"CFF ")).unwrap();
     assert_eq!(
         parts.head.len() + parts.charstrings.len() + parts.tail.len(),
         table.len()
     );
     assert!(parts.charstrings.len() > 0);
     let whole = ParsedFace::parse(bytes, 0).unwrap();
-    let cff = whole.table(Tag(CFF)).unwrap();
+    let cff = whole.table(Tag(*b"CFF ")).unwrap();
     assert_eq!(parts.head, &cff[..parts.head.len()]);
     assert_eq!(parts.tail, &cff[cff.len() - parts.tail.len()..]);
 }

@@ -2,8 +2,8 @@
 //! as the Adobe engine's outline callbacks drive it (`cf2_builder_*` in
 //! `psft.c`).
 
+use super::error::CharstringError;
 use crate::outline::{Outline, PointKind};
-use crate::type1::error::Type1Error;
 
 /// FreeType's limit on outline points and contours (`USHRT_MAX`).
 const MAX_ITEMS: usize = 0xFFFF;
@@ -29,8 +29,8 @@ pub(super) struct Builder {
     path_begun: bool,
 }
 
-const fn too_large() -> Type1Error {
-    Type1Error::BadCharstring("too many outline points")
+const fn too_large() -> CharstringError {
+    CharstringError::Malformed("too many outline points")
 }
 
 impl Builder {
@@ -49,7 +49,7 @@ impl Builder {
         });
     }
 
-    fn add_point1(&mut self, point: DevicePoint) -> Result<(), Type1Error> {
+    fn add_point1(&mut self, point: DevicePoint) -> Result<(), CharstringError> {
         if !self.has_room(1) {
             return Err(too_large());
         }
@@ -57,7 +57,7 @@ impl Builder {
         Ok(())
     }
 
-    fn add_contour(&mut self) -> Result<(), Type1Error> {
+    fn add_contour(&mut self) -> Result<(), CharstringError> {
         if self.contours.len() + 1 > MAX_ITEMS {
             return Err(too_large());
         }
@@ -68,7 +68,7 @@ impl Builder {
         Ok(())
     }
 
-    fn start_point(&mut self, point: DevicePoint) -> Result<(), Type1Error> {
+    fn start_point(&mut self, point: DevicePoint) -> Result<(), CharstringError> {
         if !self.path_begun {
             self.path_begun = true;
             self.add_contour()?;
@@ -114,7 +114,11 @@ impl Builder {
     }
 
     /// The `lineTo` callback.
-    pub(super) fn line_to(&mut self, from: DevicePoint, to: DevicePoint) -> Result<(), Type1Error> {
+    pub(super) fn line_to(
+        &mut self,
+        from: DevicePoint,
+        to: DevicePoint,
+    ) -> Result<(), CharstringError> {
         if !self.path_begun {
             self.start_point(from)?;
         }
@@ -126,7 +130,7 @@ impl Builder {
         &mut self,
         from: DevicePoint,
         controls: [DevicePoint; 3],
-    ) -> Result<(), Type1Error> {
+    ) -> Result<(), CharstringError> {
         if !self.path_begun {
             self.start_point(from)?;
         }

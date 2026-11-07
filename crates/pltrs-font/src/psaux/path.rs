@@ -8,13 +8,14 @@
 //! and consecutive elements always join: the intersection machinery of
 //! the original never runs.
 
+use super::Flavor;
 use super::blues::Blues;
 use super::buffer::Buffer;
 use super::builder::{Builder, DevicePoint};
+use super::error::CharstringError;
 use super::hintmap::HintMap;
 use super::hints::{HintMask, Hints};
 use crate::fixed::mul_fix;
-use crate::type1::error::Type1Error;
 
 /// A character-space point in 16.16.
 pub(super) type Point = (i32, i32);
@@ -49,6 +50,7 @@ impl Scale {
 #[derive(Clone, Debug)]
 pub(super) struct GlyphPath {
     pub(super) hints: Hints,
+    flavor: Flavor,
     scale: Scale,
     hinted: bool,
     blues: Blues,
@@ -73,10 +75,17 @@ pub(super) struct GlyphPath {
 }
 
 impl GlyphPath {
-    pub(super) fn new(scale: Scale, hinted: bool, blues: Blues, hint_origin: i32) -> Self {
-        let map = HintMap::new(hinted, scale.y);
+    pub(super) fn new(
+        flavor: Flavor,
+        scale: Scale,
+        hinted: bool,
+        blues: Blues,
+        hint_origin: i32,
+    ) -> Self {
+        let map = HintMap::new(hinted, flavor == Flavor::Type1, scale.y);
         Self {
             hints: Hints::default(),
+            flavor,
             scale,
             hinted,
             blues,
@@ -107,24 +116,25 @@ impl GlyphPath {
     }
 
     /// Builds the initial hint map from every stem, if not done yet.
-    fn build_initial_map(&mut self, origin: i32) {
-        if !self.initial_hint_map.valid {
-            let stems = self.hints.count();
-            let mut every = HintMask::default();
-            self.initial_hint_map.build(
-                None,
-                &mut self.hints.horizontal,
-                stems,
-                &mut every,
-                origin,
-                &self.blues,
-            );
+    fn build_initial_map(&mut self, origin: i32) -> Result<(), CharstringError> {
+        if self.initial_hint_map.valid {
+            return Ok(());
         }
+        let stems = self.hints.count();
+        let mut every = HintMask::default();
+        self.initial_hint_map.build(
+            None,
+            &mut self.hints.horizontal,
+            stems,
+            &mut every,
+            origin,
+            &self.blues,
+        )
     }
 
     /// Rebuilds the hint map from the current mask.
-    fn build_hint_map(&mut self) {
-        self.build_initial_map(self.hint_origin);
+    fn build_hint_map(&mut self) -> Result<(), CharstringError> {
+        self.build_initial_map(self.hint_origin)?;
         let stems = self.hints.count();
         self.hint_map.build(
             Some(&self.initial_hint_map),
@@ -133,17 +143,18 @@ impl GlyphPath {
             &mut self.hints.mask,
             self.hint_origin,
             &self.blues,
-        );
+        )
     }
 
     /// The `cntrmask` operator: its mask bytes, and a counter hint map
     /// built and dropped, which only places the stems it uses.
-    pub(super) fn counter_mask(&mut self, code: &mut Buffer<'_>) -> Result<(), Type1Error> {
+    pub(super) fn counter_mask(&mut self, code: &mut Buffer<'_>) -> Result<(), CharstringError> {
         let stems = self.hints.count();
         let mut mask = HintMask::default();
         mask.read(code, stems)?;
-        self.build_initial_map(0);
-        let mut counters = HintMap::new(self.hinted, self.scale.y);
+        self.build_initial_map(0)?;
+        let type1 = self.flavor == Flavor::Type1;
+        let mut counters = HintMap::new(self.hinted, type1, self.scale.y);
         counters.build(
             Some(&self.initial_hint_map),
             &mut self.hints.horizontal,
@@ -151,24 +162,33 @@ impl GlyphPath {
             &mut mask,
             0,
             &self.blues,
-        );
-        Ok(())
+        )
     }
 
     /// `cf2_glyphpath_moveTo`.
-    pub(super) fn move_to(&mut self, x: i32, y: i32, out: &mut Builder) -> Result<(), Type1Error> {
+    pub(super) fn move_to(
+        &mut self,
+        x: i32,
+        y: i32,
+        out: &mut Builder,
+    ) -> Result<(), CharstringError> {
         self.close_open_path(out)?;
         self.current_cs = (x, y);
         self.start = (x, y);
         if !self.hint_map.valid || self.hints.mask.new {
-            self.build_hint_map();
+            self.build_hint_map()?;
         }
         self.first_hint_map = self.hint_map.clone();
         Ok(())
     }
 
     /// Starts the subpath at its first element's start point.
-    fn begin(&mut self, start: Point, second: Point, out: &mut Builder) -> Result<(), Type1Error> {
+    fn begin(
+        &mut self,
+        start: Point,
+        second: Point,
+        out: &mut Builder,
+    ) -> Result<(), CharstringError> {
         if !self.open {
             self.push_move(start, out)?;
             self.open = true;
@@ -182,7 +202,12 @@ impl GlyphPath {
 
     /// `cf2_glyphpath_lineTo`: zero-length lines are dropped unless a new
     /// hint mask starts with them.
-    pub(super) fn line_to(&mut self, x: i32, y: i32, out: &mut Builder) -> Result<(), Type1Error> {
+    pub(super) fn line_to(
+        &mut self,
+        x: i32,
+        y: i32,
+        out: &mut Builder,
+    ) -> Result<(), CharstringError> {
         let new_map = self.hints.mask.new && !self.closing;
         if self.current_cs == (x, y) && !new_map {
             return Ok(());
@@ -191,7 +216,7 @@ impl GlyphPath {
         self.begin(start, (x, y), out)?;
         self.queued = Some(Element::Line { end: (x, y) });
         if new_map {
-            self.build_hint_map();
+            self.build_hint_map()?;
         }
         self.current_cs = (x, y);
         Ok(())
@@ -202,12 +227,12 @@ impl GlyphPath {
         &mut self,
         controls: [Point; 3],
         out: &mut Builder,
-    ) -> Result<(), Type1Error> {
+    ) -> Result<(), CharstringError> {
         let start = self.current_cs;
         self.begin(start, controls[0], out)?;
         self.queued = Some(Element::Cube { controls });
         if self.hints.mask.new {
-            self.build_hint_map();
+            self.build_hint_map()?;
         }
         self.current_cs = controls[2];
         Ok(())
@@ -215,7 +240,7 @@ impl GlyphPath {
 
     /// `cf2_glyphpath_closeOpenPath`: a closing line back to the start,
     /// then the queued element.
-    pub(super) fn close_open_path(&mut self, out: &mut Builder) -> Result<(), Type1Error> {
+    pub(super) fn close_open_path(&mut self, out: &mut Builder) -> Result<(), CharstringError> {
         if self.open {
             self.closing = true;
             self.line_to(self.start.0, self.start.1, out)?;
@@ -230,7 +255,7 @@ impl GlyphPath {
     }
 
     /// `cf2_glyphpath_pushMove`.
-    fn push_move(&mut self, start: Point, out: &mut Builder) -> Result<(), Type1Error> {
+    fn push_move(&mut self, start: Point, out: &mut Builder) -> Result<(), CharstringError> {
         if !self.hint_map.valid {
             // The first subpath has no move: finish setting up the map.
             self.move_to(self.start.0, self.start.1, out)?;
@@ -251,7 +276,7 @@ impl GlyphPath {
         next: Point,
         close: bool,
         out: &mut Builder,
-    ) -> Result<(), Type1Error> {
+    ) -> Result<(), CharstringError> {
         let map = if close {
             &self.first_hint_map
         } else {
@@ -295,7 +320,7 @@ mod tests {
     }
 
     fn unhinted() -> GlyphPath {
-        GlyphPath::new(Scale::UNHINTED, false, Blues::default(), 0)
+        GlyphPath::new(Flavor::Type1, Scale::UNHINTED, false, Blues::default(), 0)
     }
 
     #[test]

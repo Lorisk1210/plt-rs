@@ -92,12 +92,24 @@ impl SystemFonts {
     /// each directory (sorted), then the single files with a font
     /// extension.
     pub(crate) fn font_files(&self) -> Vec<PathBuf> {
+        self.files_where(is_font_file)
+    }
+
+    /// Every Adobe Font Metrics file (`.afm`), in the same order:
+    /// matplotlib's `findSystemFonts(fontext="afm")`.
+    pub(crate) fn afm_files(&self) -> Vec<PathBuf> {
+        self.files_where(is_afm_file)
+    }
+
+    /// The files below each directory that `wanted` takes (sorted), then
+    /// the single files it takes.
+    fn files_where(&self, wanted: fn(&Path) -> bool) -> Vec<PathBuf> {
         let mut found: Vec<PathBuf> = self
             .directories
             .iter()
-            .flat_map(|dir| font_files(dir))
+            .flat_map(|dir| files_below(dir, wanted))
             .collect();
-        found.extend(self.files.iter().filter(|path| is_font_file(path)).cloned());
+        found.extend(self.files.iter().filter(|path| wanted(path)).cloned());
         found
     }
 
@@ -213,9 +225,22 @@ pub(crate) fn is_font_file(path: &Path) -> bool {
         .is_some_and(|ext| ["ttf", "otf", "ttc"].contains(&ext.to_ascii_lowercase().as_str()))
 }
 
+/// Whether `path` is an Adobe Font Metrics file (`.afm`,
+/// case-insensitive).
+pub(crate) fn is_afm_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("afm"))
+}
+
 /// All font files below `dir`, recursively, sorted for determinism.
-/// Unreadable directories are skipped, like `os.walk` does.
 pub(crate) fn font_files(dir: &Path) -> Vec<PathBuf> {
+    files_below(dir, is_font_file)
+}
+
+/// The files below `dir` that `wanted` takes, recursively, sorted for
+/// determinism. Unreadable directories are skipped, like `os.walk` does.
+fn files_below(dir: &Path, wanted: fn(&Path) -> bool) -> Vec<PathBuf> {
     let mut found = Vec::new();
     let mut pending = vec![dir.to_path_buf()];
     while let Some(current) = pending.pop() {
@@ -226,7 +251,7 @@ pub(crate) fn font_files(dir: &Path) -> Vec<PathBuf> {
             let path = entry.path();
             match entry.file_type() {
                 Ok(kind) if kind.is_dir() => pending.push(path),
-                Ok(_) if is_font_file(&path) => found.push(path),
+                Ok(_) if wanted(&path) => found.push(path),
                 _ => {}
             }
         }
@@ -247,6 +272,7 @@ mod tests {
         assert!(is_font_file(Path::new("x.otf")));
         assert!(is_font_file(Path::new("x.ttc")));
         assert!(!is_font_file(Path::new("x.afm")));
+        assert!(is_afm_file(Path::new("/a/b.AFM")) && !is_afm_file(Path::new("b.ttf")));
         assert!(!is_font_file(Path::new("ttf")));
     }
 

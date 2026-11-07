@@ -13,8 +13,9 @@ pub(super) const MIN_COUNTER: i32 = 0x8000;
 const ICF_TOP: i32 = 880 << 16;
 const ICF_BOTTOM: i32 = -120 << 16;
 
-/// The hinting entries of a font's Private dictionary, in font units, as
-/// FreeType reads them.
+/// The hinting entries of a font's Private dictionary as FreeType keeps
+/// them for the engine (`CFF_PrivateRec`): the blue arrays in 16.16 font
+/// units, the other values in whole font units.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PrivateDict {
     pub(crate) blue_values: Vec<i32>,
@@ -26,10 +27,13 @@ pub(crate) struct PrivateDict {
     pub(crate) blue_shift: i32,
     pub(crate) blue_fuzz: i32,
     pub(crate) language_group: i32,
+    /// The item variation data a CFF2 charstring blends with until it
+    /// says otherwise.
+    pub(crate) vsindex: u32,
 }
 
 impl Default for PrivateDict {
-    /// FreeType's defaults (`T1_Open_Face`).
+    /// FreeType's defaults (`T1_Open_Face`, `cff_load_private_dict`).
     fn default() -> Self {
         Self {
             blue_values: Vec::new(),
@@ -40,6 +44,7 @@ impl Default for PrivateDict {
             blue_shift: 7,
             blue_fuzz: 1,
             language_group: 0,
+            vsindex: 0,
         }
     }
 }
@@ -98,11 +103,10 @@ impl Blues {
     /// `cf2_blues_init`: the zones of `private` at vertical scale `scale`
     /// (stem darkening is off, so zones are not moved for it).
     pub(super) fn new(private: &PrivateDict, scale: i32) -> Self {
-        let fixed = |values: &[i32]| values.iter().map(|&v| int_to_fixed(v)).collect::<Vec<_>>();
-        let blue_values = fixed(&private.blue_values);
-        let other_blues = fixed(&private.other_blues);
-        let family_blues = fixed(&private.family_blues);
-        let family_other = fixed(&private.family_other_blues);
+        let blue_values = &private.blue_values;
+        let other_blues = &private.other_blues;
+        let family_blues = &private.family_blues;
+        let family_other = &private.family_other_blues;
         let mut blues = Self {
             blue_shift: int_to_fixed(private.blue_shift),
             blue_fuzz: int_to_fixed(private.blue_fuzz),
@@ -138,14 +142,14 @@ impl Blues {
                 });
             }
         };
-        add_zones(&blue_values, true, false);
-        add_zones(&other_blues, false, true);
+        add_zones(blue_values, true, false);
+        add_zones(other_blues, false, true);
         let pixel = div_fix(1 << 16, i64::from(scale)) as i32;
         for zone in &mut blues.zones {
             zone.cs_flat = if zone.bottom {
                 let others = (0..family_other.len())
                     .step_by(2)
-                    .map(|j| value(&family_other, j + 1));
+                    .map(|j| value(family_other, j + 1));
                 let (edge, min_diff) = family_edge(zone.cs_flat, others, pixel);
                 // The first FamilyBlues zone is a bottom zone too.
                 match family_blues.get(1) {
@@ -252,9 +256,10 @@ mod tests {
     use super::*;
 
     fn cmr10() -> PrivateDict {
+        let fixed = |values: &[i32]| values.iter().map(|&v| int_to_fixed(v)).collect();
         PrivateDict {
-            blue_values: vec![-22, 0, 683, 705, 431, 448, 666, 677],
-            other_blues: vec![-206, -194],
+            blue_values: fixed(&[-22, 0, 683, 705, 431, 448, 666, 677]),
+            other_blues: fixed(&[-206, -194]),
             ..PrivateDict::default()
         }
     }

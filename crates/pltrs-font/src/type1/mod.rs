@@ -24,7 +24,6 @@
 //! Font data is untrusted: every operation returns a [`Type1Error`] where
 //! matplotlib raises, and never panics or runs unbounded.
 
-mod cf2;
 mod container;
 mod crypt;
 mod edit;

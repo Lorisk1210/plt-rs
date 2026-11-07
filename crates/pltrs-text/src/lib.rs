@@ -51,12 +51,13 @@ pub use error::TextError;
 pub use lookups::{FontLookup, LookupKind, take_font_lookups};
 pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{
-    AfmDirectory, AfmFont, AfmMetrics, CatalogueReport, CatalogueState, Feature, FontDatabase,
-    FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant, GenericFamilies, GlyphId,
-    Hinting, LanguageRange, LanguageTag, ParseFeatureError, RegistryReader, Stretch, Type1Effects,
-    Type1Encoding, Type1Face, Type1Font, Type1Glyph, Weight, bundled_afm_files, bundled_font_data,
-    bundled_font_files, catalogue_file_name, read_registry_with, score_family, score_size,
-    score_stretch, score_style, score_variant, score_weight,
+    AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmMetrics, CatalogueReport, CatalogueState,
+    Feature, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
+    GenericFamilies, GlyphId, Hinting, LanguageRange, LanguageTag, ParseFeatureError,
+    RegistryReader, Stretch, Type1Effects, Type1Encoding, Type1Face, Type1Font, Type1Glyph, Weight,
+    bundled_afm_files, bundled_font_data, bundled_font_files, catalogue_file_name,
+    read_registry_with, score_family, score_size, score_stretch, score_style, score_variant,
+    score_weight,
 };
 pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};
 pub use shaping::{Language, Shaping};

@@ -4,6 +4,7 @@
 
 use std::ops::Range;
 
+use super::Version;
 use super::index::CFF;
 use crate::error::{FontError, Result};
 use crate::reader::{Reader, tail};
@@ -13,6 +14,8 @@ use crate::region::Region;
 /// them, those after them, and the data themselves, read when used.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct CffParts<'a> {
+    /// The table's version.
+    pub(crate) version: Version,
     /// The bytes before the `CharStrings` data (the table's first bytes).
     pub(crate) head: &'a [u8],
     /// The bytes after the `CharStrings` data, to the end of the table.

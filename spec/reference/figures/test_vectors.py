@@ -46,6 +46,7 @@ VECTOR_CASES = [
     "bars/hatches",
     "basic/line",
     "contour/tripcolor_gouraud",
+    "font_formats/unhinted",
     "hinting/axes_100dpi",
     "images/clip_path_circle",
     "images/imshow_default",
@@ -136,6 +137,7 @@ VECTOR_VARIANTS = [
     ("usetex/text_basic", "encapsulated", {}, ["eps"]),
     ("usetex/text_basic", "figure", {"ps.papersize": "figure"}, ["ps"]),
     ("usetex/text_basic", "a4", {"ps.papersize": "a4"}, ["ps"]),
+    ("font_formats/unhinted", "type42", {"pdf.fonttype": 42, "ps.fonttype": 42}, ["pdf", "ps"]),
 ]
 
 #: Cases collected, one per page, into ``vectors/pages.pdf``; a note is

@@ -20,9 +20,11 @@
 //!   value programs ran; [`HintingInstance::load_glyph`] hints glyphs.
 //! * [`HintedGlyph`] — the grid-fitted outline and advance.
 //!
-//! What is left out, deliberately: FreeType's CFF hinter (CFF glyphs it
-//! would hint load unhinted); the bytecode of "tricky" fonts (a handful of
-//! CJK fonts FreeType recognises by name); variation fonts; the `hdmx`
+//! CFF glyphs FreeType hints natively go to its CFF hinter, the Adobe
+//! engine of [`crate::psaux`] ([`Face::load_cff_hinted`]).
+//!
+//! What is left out, deliberately: the bytecode of "tricky" fonts (a
+//! handful of CJK fonts FreeType recognises by name); the `hdmx`
 //! advances fonts outside backward compatibility mode may use; and
 //! non-square pixels, which pltrs never asks for. Every glyph starts from
 //! the state the control value program left (FreeType keeps twilight
@@ -40,6 +42,7 @@
 //! Wilhelm and Werner Lemberg, and ported here under the FreeType License
 //! (FTL).
 
+mod cff;
 mod error;
 mod interp;
 mod layout;
@@ -79,13 +82,15 @@ pub enum Hinting {
 /// The hinter FreeType loads a glyph with.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Hinter {
-    /// No hinting: none was asked for, or the glyph would go to FreeType's
-    /// CFF hinter, which is not ported.
+    /// No hinting: none was asked for, or the face has no outlines.
     Unhinted,
     /// The TrueType bytecode interpreter ([`HintingInstance`]).
     Bytecode,
     /// The autohinter ([`Autohinter`](crate::Autohinter)).
     Autohinter,
+    /// FreeType's CFF hinter, the Adobe engine
+    /// ([`Face::load_cff_hinted`]).
+    Cff,
 }
 
 impl Hinting {
@@ -97,10 +102,12 @@ impl Hinting {
     /// The autohinter takes every axis-aligned glyph under
     /// [`Hinting::Auto`], and those of TrueType fonts without hinting
     /// programs under [`Hinting::Default`]; native hinting is the bytecode
-    /// for TrueType fonts and the (unported) CFF hinter for CFF fonts.
+    /// for TrueType fonts and the CFF hinter for CFF fonts.
     pub fn hinter(self, face: &Face<'_>, axis_aligned: bool) -> Hinter {
         let native = if face.glyf().is_some() {
             Hinter::Bytecode
+        } else if face.has_outlines() {
+            Hinter::Cff
         } else {
             Hinter::Unhinted
         };

@@ -111,7 +111,7 @@ impl FontRequest {
             return Ok(face);
         }
         let best = db
-            .best_entry(&self.query, &self.generics, |_| true)
+            .best_entry(&self.query, &self.generics)
             .filter(|(_, score)| *score < 10.0);
         self.note(
             LookupKind::Font,

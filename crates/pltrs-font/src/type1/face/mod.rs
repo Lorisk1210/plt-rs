@@ -4,21 +4,25 @@
 //! maps TeX character codes with, the Private dictionary's alignment
 //! zones, and glyph outlines, unhinted or hinted.
 
+mod charstrings;
 mod glyph;
 mod metrics;
 mod psconv;
 
 pub use glyph::Type1Glyph;
 
+use charstrings::GlyphSet;
+
 use std::path::Path;
 
-use super::cf2::{GlyphSet, PrivateDict};
 use super::crypt::{Type1Cipher, decrypt};
 use super::error::Type1Error;
 use super::font::Type1Font;
 use super::props::{Program, Type1Properties};
 use crate::error::{FontError, Result};
 use crate::fixed::div_fix;
+use crate::matrix::{FontTransform, matrix_is_usable};
+use crate::psaux::PrivateDict;
 use crate::scale::Size;
 use crate::types::{GlyphId, Rect};
 
@@ -28,49 +32,6 @@ const TABLE_EXTEND: usize = 5;
 
 /// FreeType's `.notdef` for fonts without one: `0 333 hsbw endchar`.
 const NOTDEF: [u8; 5] = [0x8B, 0xF7, 0xE1, 0x0D, 0x0E];
-
-/// The font matrix as FreeType keeps it: normalized so that the vertical
-/// scale is one unit per em, in 16.16, with an offset in font units.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct FontTransform {
-    pub(crate) xx: i64,
-    pub(crate) yx: i64,
-    pub(crate) xy: i64,
-    pub(crate) yy: i64,
-    pub(crate) offset: (i64, i64),
-}
-
-impl FontTransform {
-    /// A font without `/FontMatrix`: FreeType's matrix stays zero.
-    const ZERO: Self = Self {
-        xx: 0,
-        yx: 0,
-        xy: 0,
-        yy: 0,
-        offset: (0, 0),
-    };
-
-    pub(crate) fn is_identity(&self) -> bool {
-        self.xx == 0x10000 && self.yy == 0x10000 && self.xy == 0 && self.yx == 0
-    }
-}
-
-/// `FT_Matrix_Check`: whether a matrix is invertible enough to use.
-fn matrix_is_usable(xx: i64, xy: i64, yx: i64, yy: i64) -> bool {
-    let val = xx.abs() | xy.abs() | yx.abs() | yy.abs();
-    if val == 0 || val > 0x7FFF_FFFF {
-        return false;
-    }
-    let shift = i64::from(63 - val.leading_zeros()) - 12;
-    let [xx, xy, yx, yy] = if shift > 0 {
-        [xx >> shift, xy >> shift, yx >> shift, yy >> shift]
-    } else {
-        [xx, xy, yx, yy]
-    };
-    let temp1 = 32 * (xx * yy - xy * yx).unsigned_abs();
-    let temp2 = (xx * xx) as u64 + (xy * xy) as u64 + (yx * yx) as u64 + (yy * yy) as u64;
-    temp1 > temp2
-}
 
 /// `t1_parse_font_matrix`: the normalized matrix and the units per em
 /// (0 when the matrix is the usual thousandth of an em).
@@ -170,16 +131,16 @@ pub struct Type1Face {
 }
 
 /// The hinting entries of the Private dictionary, as FreeType reads them:
-/// blue arrays of 16-bit integers (an even number of `BlueValues`),
-/// `BlueScale` times 1000 in 16.16, and `BlueShift` and `BlueFuzz` reset
-/// to their defaults when unlikely.
+/// blue arrays of 16-bit integers (an even number of `BlueValues`), handed
+/// to the engine in 16.16, `BlueScale` times 1000 in 16.16, and
+/// `BlueShift` and `BlueFuzz` reset to their defaults when unlikely.
 fn private_dict(prop: &Type1Properties) -> PrivateDict {
     let defined = |key: &str| prop.source(key).filter(|source| !source.is_empty());
     let array = |key: &str, max: usize| {
         defined(key).map_or_else(Vec::new, |source| {
             psconv::to_int_array(source, max)
                 .into_iter()
-                .map(|value| i32::from(value as i16))
+                .map(|value| i32::from(value as i16) << 16)
                 .collect()
         })
     };
@@ -203,6 +164,7 @@ fn private_dict(prop: &Type1Properties) -> PrivateDict {
         blue_shift: bounded("BlueShift", defaults.blue_shift),
         blue_fuzz: bounded("BlueFuzz", defaults.blue_fuzz),
         language_group: defined("LanguageGroup").map_or(0, |source| psconv::to_int(source) as i32),
+        vsindex: 0,
     }
 }
 
@@ -577,7 +539,6 @@ mod tests {
         assert!(!slanted.is_identity());
         assert!(font_transform("[0.001 0 0 0 0 0]").is_err());
         assert!(font_transform("[1 2]").is_err());
-        assert!(!matrix_is_usable(0x10000, 0x10000, 0x10000, 0x10000));
         assert_eq!((fixed_to_int(0x18000), fixed_to_int(-0x18000)), (2, -2));
     }
 }

@@ -1,4 +1,4 @@
-//! CFF INDEX structures and DICT operand decoding.
+//! CFF and CFF2 INDEX structures.
 
 use std::ops::Range;
 
@@ -8,6 +8,13 @@ use crate::region::Region;
 use crate::types::Tag;
 
 pub(crate) const CFF: Tag = Tag::new(b"CFF ");
+
+/// The width of an INDEX's count: 16 bits in CFF, 32 in CFF2.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CountSize {
+    Short,
+    Long,
+}
 
 /// An INDEX: a counted list of variable-length byte strings.
 #[derive(Clone, Copy, Debug, Default)]
@@ -19,9 +26,16 @@ pub(crate) struct Index<'a> {
 }
 
 impl<'a> Index<'a> {
-    /// Reads an INDEX at the reader position, leaving the reader after it.
+    /// Reads a CFF INDEX at the reader position, leaving the reader after
+    /// it.
     pub(crate) fn read(r: &mut Reader<'a>) -> Result<Self> {
-        let Some(mut index) = Self::read_head(r)? else {
+        Self::read_sized(r, CountSize::Short)
+    }
+
+    /// Reads a CFF or CFF2 INDEX at the reader position, leaving the
+    /// reader after it.
+    pub(crate) fn read_sized(r: &mut Reader<'a>, count: CountSize) -> Result<Self> {
+        let Some(mut index) = Self::read_head(r, count)? else {
             return Ok(Self::default());
         };
         index.data = Region::Held(r.bytes(index.data_len()?)?);
@@ -30,8 +44,12 @@ impl<'a> Index<'a> {
 
     /// Reads the count, offset size and offsets of an INDEX at the reader
     /// position, whose data are `data`, held elsewhere.
-    pub(crate) fn read_offsets(r: &mut Reader<'a>, data: Region<'a>) -> Result<Self> {
-        let Some(index) = Self::read_head(r)? else {
+    pub(crate) fn read_offsets(
+        r: &mut Reader<'a>,
+        data: Region<'a>,
+        count: CountSize,
+    ) -> Result<Self> {
+        let Some(index) = Self::read_head(r, count)? else {
             return Ok(Self::default());
         };
         if index.data_len()? != data.len() {
@@ -44,17 +62,20 @@ impl<'a> Index<'a> {
     /// when they hold its count, offset size and offsets (but not
     /// necessarily its data): what a file held for drawing leaves to read
     /// entry by entry.
-    pub(crate) fn data_range(bytes: &'a [u8]) -> Result<Range<usize>> {
+    pub(crate) fn data_range(bytes: &'a [u8], count: CountSize) -> Result<Range<usize>> {
         let mut r = Reader::new(bytes, CFF);
-        let head = Self::read_head(&mut r)?;
+        let head = Self::read_head(&mut r, count)?;
         let start = r.pos();
         Ok(start..start + head.map_or(Ok(0), |index| index.data_len())?)
     }
 
     /// Reads the count, offset size and offsets at the reader position:
     /// the INDEX without its data, `None` when it is empty.
-    fn read_head(r: &mut Reader<'a>) -> Result<Option<Self>> {
-        let count = usize::from(r.u16()?);
+    fn read_head(r: &mut Reader<'a>, count: CountSize) -> Result<Option<Self>> {
+        let count = match count {
+            CountSize::Short => usize::from(r.u16()?),
+            CountSize::Long => r.u32()? as usize,
+        };
         if count == 0 {
             return Ok(None);
         }
@@ -62,10 +83,14 @@ impl<'a> Index<'a> {
         if !(1..=4).contains(&offset_size) {
             return Err(FontError::malformed(CFF, "INDEX offset size outside 1..=4"));
         }
+        let length = count
+            .checked_add(1)
+            .and_then(|entries| entries.checked_mul(usize::from(offset_size)))
+            .ok_or(FontError::Truncated(CFF))?;
         Ok(Some(Self {
             count,
             offset_size,
-            offsets: r.bytes((count + 1) * usize::from(offset_size))?,
+            offsets: r.bytes(length)?,
             data: Region::default(),
         }))
     }
@@ -104,76 +129,6 @@ impl<'a> Index<'a> {
     }
 }
 
-/// A DICT operator: one byte, or `12 x` encoded as `1200 + x`.
-pub(crate) type Operator = u16;
-
-/// Decodes a DICT into `(operator, operands)` pairs.
-pub(crate) fn parse_dict(data: &[u8]) -> Result<Vec<(Operator, Vec<f64>)>> {
-    let mut r = Reader::new(data, CFF);
-    let mut entries = Vec::new();
-    let mut operands = Vec::new();
-    while r.remaining() > 0 {
-        let b0 = r.u8()?;
-        match b0 {
-            0..=21 => {
-                let operator = if b0 == 12 {
-                    1200 + u16::from(r.u8()?)
-                } else {
-                    u16::from(b0)
-                };
-                entries.push((operator, std::mem::take(&mut operands)));
-            }
-            28 => operands.push(f64::from(r.i16()?)),
-            29 => operands.push(f64::from(r.i32()?)),
-            30 => operands.push(read_real(&mut r)?),
-            32..=246 => operands.push(f64::from(i32::from(b0) - 139)),
-            247..=250 => operands.push(f64::from(
-                (i32::from(b0) - 247) * 256 + i32::from(r.u8()?) + 108,
-            )),
-            251..=254 => operands.push(f64::from(
-                -(i32::from(b0) - 251) * 256 - i32::from(r.u8()?) - 108,
-            )),
-            _ => return Err(FontError::malformed(CFF, "reserved DICT byte")),
-        }
-        if operands.len() > 48 {
-            return Err(FontError::malformed(CFF, "too many DICT operands"));
-        }
-    }
-    Ok(entries)
-}
-
-/// Reads a BCD-encoded real number (operator 30).
-fn read_real(r: &mut Reader<'_>) -> Result<f64> {
-    let mut text = String::new();
-    loop {
-        let byte = r.u8()?;
-        for nibble in [byte >> 4, byte & 0x0F] {
-            match nibble {
-                0..=9 => text.push(char::from(b'0' + nibble)),
-                0xA => text.push('.'),
-                0xB => text.push('E'),
-                0xC => text.push_str("E-"),
-                0xE => text.push('-'),
-                0xF => return Ok(text.parse().unwrap_or(0.0)),
-                _ => return Err(FontError::malformed(CFF, "reserved real nibble")),
-            }
-        }
-    }
-}
-
-/// Looks up the operands of `operator` in a decoded DICT.
-pub(crate) fn dict_get(dict: &[(Operator, Vec<f64>)], operator: Operator) -> Option<&[f64]> {
-    dict.iter()
-        .find(|(op, _)| *op == operator)
-        .map(|(_, operands)| operands.as_slice())
-}
-
-/// The single operand of `operator` as a non-negative offset or count.
-pub(crate) fn dict_usize(dict: &[(Operator, Vec<f64>)], operator: Operator) -> Option<usize> {
-    let value = *dict_get(dict, operator)?.first()?;
-    (value >= 0.0 && value.fract() == 0.0).then_some(value as usize)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,6 +146,9 @@ mod tests {
         assert_eq!(r.u8().unwrap(), 9);
         let mut empty = Reader::new(&[0, 0], CFF);
         assert_eq!(Index::read(&mut empty).unwrap().len(), 0);
+        let long = [0, 0, 0, 1, 1, 1, 2, b'x'];
+        let index = Index::read_sized(&mut Reader::new(&long, CFF), CountSize::Long).unwrap();
+        assert_eq!(index.get(0), Some(&b"x"[..]));
     }
 
     #[test]
@@ -198,22 +156,5 @@ mod tests {
         assert!(Index::read(&mut Reader::new(&[0, 1, 5, 1, 2], CFF)).is_err());
         assert!(Index::read(&mut Reader::new(&[0, 1, 1, 1, 9, b'a'], CFF)).is_err());
         assert!(Index::read(&mut Reader::new(&[0, 1, 1, 0, 0], CFF)).is_err());
-    }
-
-    #[test]
-    fn dict_operands() {
-        // 100 (1-byte), 1000 (2-byte), -1000, 28-short, real -2.25, op 17,
-        // then op 12 7.
-        let data = [
-            239, 250, 124, 254, 124, 28, 0x30, 0x39, 30, 0xE2, 0xA2, 0x5F, 17, 139, 12, 7,
-        ];
-        let dict = parse_dict(&data).unwrap();
-        assert_eq!(dict[0].0, 17);
-        assert_eq!(dict[0].1, vec![100.0, 1000.0, -1000.0, 12345.0, -2.25]);
-        assert_eq!(dict_get(&dict, 1207), Some(&[0.0][..]));
-        assert_eq!(dict_usize(&dict, 1207), Some(0));
-        assert_eq!(dict_usize(&dict, 17), Some(100));
-        assert!(parse_dict(&[255]).is_err());
-        assert!(parse_dict(&[28, 1]).is_err());
     }
 }

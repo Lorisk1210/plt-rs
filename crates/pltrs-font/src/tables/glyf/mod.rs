@@ -11,6 +11,11 @@ use crate::reader::{Array, Reader, tail};
 use crate::region::Region;
 use crate::types::{GlyphId, Rect, Tag};
 
+mod vary;
+
+use vary::load_simple_varied;
+pub(crate) use vary::{GlyphVariation, Varied, vary_components};
+
 pub(crate) const GLYF: Tag = Tag::new(b"glyf");
 const LOCA: Tag = Tag::new(b"loca");
 
@@ -60,6 +65,9 @@ const SCALED_COMPONENT_OFFSET: u16 = 0x0800;
 pub(crate) enum Scaling {
     /// Raw font units (composite transforms applied in floating point).
     Units,
+    /// Whole font units as FreeType loads them with `FT_LOAD_NO_SCALE`
+    /// (composites transformed in fixed point, varied points rounded).
+    Unscaled,
     /// FreeType 26.6 pixels: every coordinate scaled with `FT_MulFix` by
     /// the given 16.16 scales, composites transformed in fixed point.
     Fixed { x_scale: i64, y_scale: i64 },
@@ -68,14 +76,14 @@ pub(crate) enum Scaling {
 impl Scaling {
     fn x(self, value: i64) -> f64 {
         match self {
-            Self::Units => value as f64,
+            Self::Units | Self::Unscaled => value as f64,
             Self::Fixed { x_scale, .. } => mul_fix(value, x_scale) as f64,
         }
     }
 
     fn y(self, value: i64) -> f64 {
         match self {
-            Self::Units => value as f64,
+            Self::Units | Self::Unscaled => value as f64,
             Self::Fixed { y_scale, .. } => mul_fix(value, y_scale) as f64,
         }
     }
@@ -96,7 +104,7 @@ impl Matrix {
                 let [xx, yx, xy, yy] = self.0.map(|v| f64::from(v) / 16384.0);
                 (xx * x + xy * y, yx * x + yy * y)
             }
-            Scaling::Fixed { .. } => {
+            Scaling::Fixed { .. } | Scaling::Unscaled => {
                 let (x, y) = self.transform_fixed(x as i64, y as i64);
                 (x as f64, y as f64)
             }
@@ -198,22 +206,28 @@ impl<'a> Glyf<'a> {
 
     /// Loads `glyph` into `out` and returns its phantom points, which the
     /// caller uses to align the origin. `metrics` gives a glyph's left
-    /// side bearing and advance width (from `hmtx`).
+    /// side bearing and advance width (from `hmtx`); `variation` varies
+    /// the glyph at an instance of a variable font.
     pub(crate) fn load(
         &self,
         glyph: GlyphId,
         scaling: Scaling,
         metrics: &dyn Fn(GlyphId) -> (i16, u16),
+        variation: Option<&GlyphVariation<'_>>,
         out: &mut Outline,
     ) -> Result<Phantoms> {
-        self.load_recursive(glyph, scaling, metrics, out, &mut LoadBudget::default())
+        let load = Load {
+            scaling,
+            metrics,
+            variation,
+        };
+        self.load_recursive(glyph, &load, out, &mut LoadBudget::default())
     }
 
     fn load_recursive(
         &self,
         glyph: GlyphId,
-        scaling: Scaling,
-        metrics: &dyn Fn(GlyphId) -> (i16, u16),
+        load: &Load<'_>,
         out: &mut Outline,
         budget: &mut LoadBudget,
     ) -> Result<Phantoms> {
@@ -223,37 +237,60 @@ impl<'a> Glyf<'a> {
                 "composite glyphs nested too deeply",
             ));
         }
-        let (lsb, advance) = metrics(glyph);
-        let advance = i64::from(advance);
-        let Some((header, body)) = self.record(glyph)? else {
-            return Ok(Phantoms {
-                origin: -i64::from(lsb),
-                advance,
-            });
-        };
-        let phantoms = Phantoms {
-            origin: i64::from(header.bbox.x_min) - i64::from(lsb),
-            advance,
-        };
-        if header.contours >= 0 {
-            load_simple(body, header.contours as usize, scaling, out)?;
-            Ok(phantoms)
-        } else {
-            self.load_composite(body, scaling, metrics, out, budget, phantoms)
+        let (lsb, advance) = (load.metrics)(glyph);
+        let record = self.record(glyph)?;
+        let x_min = record.map_or(0, |(header, _)| i64::from(header.bbox.x_min));
+        let pp1 = x_min - i64::from(lsb);
+        let phantoms = (pp1, pp1 + i64::from(advance));
+        match record {
+            Some((header, body)) if header.contours >= 0 => {
+                let contours = header.contours as usize;
+                if let Some(variation) = load.variation {
+                    let (scaling, glyph) = (load.scaling, glyph);
+                    return load_simple_varied(
+                        body, contours, glyph, scaling, variation, phantoms, out,
+                    );
+                }
+                load_simple(body, contours, load.scaling, out)?;
+                Ok(Phantoms::of(load.scaling, phantoms))
+            }
+            Some((_, body)) => self.load_composite(body, glyph, load, out, budget, phantoms),
+            None => match load.variation {
+                Some(variation) => {
+                    let varied = variation.vary(glyph, &[], &[], phantoms)?;
+                    let pp = (varied.rounded[0].0, varied.rounded[1].0);
+                    Ok(Phantoms {
+                        linear: varied.linear(0),
+                        ..Phantoms::of(load.scaling, pp)
+                    })
+                }
+                None => Ok(Phantoms::of(load.scaling, phantoms)),
+            },
         }
     }
 
     fn load_composite(
         &self,
         body: &[u8],
-        scaling: Scaling,
-        metrics: &dyn Fn(GlyphId) -> (i16, u16),
+        glyph: GlyphId,
+        load: &Load<'_>,
         out: &mut Outline,
         budget: &mut LoadBudget,
-        mut phantoms: Phantoms,
+        phantoms: (i64, i64),
     ) -> Result<Phantoms> {
+        let scaling = load.scaling;
         let base_points = out.points.len();
-        let (components, _) = parse_components(body)?;
+        let (mut components, _) = parse_components(body)?;
+        let mut phantoms = match load.variation {
+            Some(variation) => {
+                let (pp, linear) = vary_components(&mut components, glyph, variation, phantoms)?;
+                Phantoms {
+                    linear,
+                    ..Phantoms::of(scaling, pp)
+                }
+            }
+            None => Phantoms::of(scaling, phantoms),
+        };
         for component in components {
             let start = out.points.len();
             budget.components += 1;
@@ -264,8 +301,7 @@ impl<'a> Glyf<'a> {
                 ));
             }
             budget.depth += 1;
-            let component_phantoms =
-                self.load_recursive(component.glyph, scaling, metrics, out, budget)?;
+            let component_phantoms = self.load_recursive(component.glyph, load, out, budget)?;
             budget.depth -= 1;
             if component.flags & USE_MY_METRICS != 0 {
                 phantoms = component_phantoms;
@@ -287,14 +323,37 @@ impl<'a> Glyf<'a> {
     }
 }
 
-/// The horizontal phantom points of a loaded glyph, in font units: the
-/// origin relative to the outline (FreeType's `pp1.x`) and the advance
-/// width (`pp2.x - pp1.x`), both from the component that supplies the
-/// metrics in composites.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// How a glyph is loaded: the coordinate space, the metrics of glyphs and
+/// the instance.
+struct Load<'l> {
+    scaling: Scaling,
+    metrics: &'l dyn Fn(GlyphId) -> (i16, u16),
+    variation: Option<&'l GlyphVariation<'l>>,
+}
+
+/// The horizontal phantom points of a loaded glyph: the origin relative
+/// to the outline (FreeType's `pp1.x`), in the space of the outline, and
+/// the advance width (`pp2.x - pp1.x`) in font units, both from the
+/// component that supplies the metrics in composites.
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) struct Phantoms {
-    pub(crate) origin: i64,
+    pub(crate) origin: f64,
     pub(crate) advance: i64,
+    /// The linear advance in font units (`linearHoriAdvance`): at an
+    /// instance, the unrounded phantom points' distance, rounded.
+    pub(crate) linear: i64,
+}
+
+impl Phantoms {
+    /// The phantom points at `pp1` and `pp2` (font units), the origin
+    /// scaled as FreeType scales phantom points (`FT_MulFix`).
+    fn of(scaling: Scaling, (pp1, pp2): (i64, i64)) -> Self {
+        Self {
+            origin: scaling.x(pp1),
+            advance: pp2 - pp1,
+            linear: pp2 - pp1,
+        }
+    }
 }
 
 /// How a component is positioned.
@@ -498,19 +557,32 @@ pub(crate) fn parse_simple(body: &[u8], contours: usize) -> Result<SimpleGlyph<'
 /// Decodes a simple glyph body into `out`, scaled by `scaling`.
 fn load_simple(body: &[u8], contours: usize, scaling: Scaling, out: &mut Outline) -> Result<()> {
     let glyph = parse_simple(body, contours)?;
+    let points: Vec<(f64, f64)> = glyph
+        .points
+        .iter()
+        .map(|point| (scaling.x(point.x), scaling.y(point.y)))
+        .collect();
+    push_simple(&glyph, &points, out)
+}
+
+/// Appends the contours of `glyph`, its points at `points`, to `out`.
+fn push_simple(glyph: &SimpleGlyph<'_>, points: &[(f64, f64)], out: &mut Outline) -> Result<()> {
     if out.points.len() + glyph.points.len() > MAX_POINTS {
         return Err(FontError::malformed(GLYF, "glyph has too many points"));
     }
     let mut contour_start = 0;
     for end in glyph.ends.iter() {
         let end = usize::from(end) + 1;
-        for point in &glyph.points[contour_start..end] {
+        for (point, &(x, y)) in glyph.points[contour_start..end]
+            .iter()
+            .zip(&points[contour_start..end])
+        {
             let kind = if point.on_curve {
                 PointKind::OnCurve
             } else {
                 PointKind::Quadratic
             };
-            out.push(scaling.x(point.x), scaling.y(point.y), kind);
+            out.push(x, y, kind);
         }
         out.end_contour();
         contour_start = end;

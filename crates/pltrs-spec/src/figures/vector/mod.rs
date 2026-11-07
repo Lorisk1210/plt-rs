@@ -43,6 +43,7 @@ pub const VECTOR_CASES: &[&str] = &[
     "bars/hatches",
     "basic/line",
     "contour/tripcolor_gouraud",
+    "font_formats/unhinted",
     "hinting/axes_100dpi",
     "images/clip_path_circle",
     "images/imshow_default",
@@ -229,6 +230,12 @@ pub const VECTOR_VARIANTS: &[VectorVariant] = &[
         name: "a4",
         rc: &[("ps.papersize", "a4")],
         formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "font_formats/unhinted",
+        name: "type42",
+        rc: &[("pdf.fonttype", "42"), ("ps.fonttype", "42")],
+        formats: &[VectorFormat::Pdf, VectorFormat::Ps],
     },
 ];
 

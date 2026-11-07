@@ -1,10 +1,11 @@
 //! Type 42 font programs (`_font_to_ps_type42`, `_serialize_type42`): a
-//! TrueType subset of the font as `sfnts` strings, its glyphs reachable by
-//! name through `CharStrings`.
+//! subset of the font (TrueType or CFF outlines, as matplotlib's fontTools
+//! subset keeps them) as `sfnts` strings, its glyphs reachable through
+//! `CharStrings` by the names fontTools gives them.
 
 use std::fmt::Write as _;
 
-use pltrs_font::{Face, NameKey, OutlineSink, Tag};
+use pltrs_font::{Face, OutlineSink, Tag};
 
 use crate::vector::{FontInfo, Subset, VectorError, repr};
 
@@ -12,17 +13,11 @@ use crate::vector::{FontInfo, Subset, VectorError, repr};
 /// bytes; one is kept for the terminating NUL).
 const MAX_STRING: usize = 65534;
 
-/// `name.getDebugName`: the Macintosh or Windows English record of
-/// `name_id`.
+/// `name.getDebugName`, as matplotlib formats it: `None` for a name the
+/// font lacks.
 fn debug_name(face: &Face<'_>, name_id: u16) -> String {
-    let windows = NameKey {
-        platform_id: 3,
-        encoding_id: 1,
-        language_id: 0x409,
-    };
-    face.name_string(NameKey::MAC_ENGLISH, name_id)
-        .or_else(|| face.name_string(windows, name_id))
-        .unwrap_or_default()
+    face.debug_name(name_id)
+        .unwrap_or_else(|| "None".to_owned())
 }
 
 /// The exact bounds of every glyph outline of a face (fontTools'
@@ -222,7 +217,7 @@ pub(super) fn type42_font(
     let mut bounds = Bounds::default();
     for glyph in 0..face.num_glyphs() {
         // Glyphs that cannot be read add nothing.
-        let _ = face.outline(pltrs_font::GlyphId(glyph), &mut bounds);
+        let _ = face.fonttools_outline(pltrs_font::GlyphId(glyph), &mut bounds);
     }
     let bbox = bounds.bounds.unwrap_or_default().map(num_to_str).join(" ");
     let head = face.table(Tag::new(b"head")).unwrap_or_default();
@@ -237,8 +232,12 @@ pub(super) fn type42_font(
     });
     let (underline_position, underline_thickness) = face.underline_metrics().unwrap_or((0, 0));
     let mut chars = format!("/CharStrings {} dict dup begin\n", program.glyphs.len());
-    for (new, &glyph) in program.glyphs.iter().enumerate() {
-        let _ = writeln!(chars, "/{} {new} def", font.glyph_name(glyph));
+    for (new, name) in face
+        .fonttools_glyph_names(&program.glyphs)
+        .iter()
+        .enumerate()
+    {
+        let _ = writeln!(chars, "/{name} {new} def");
     }
     chars.push_str("end readonly def");
     let indent = "        ";

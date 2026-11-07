@@ -1,11 +1,13 @@
 //! The glyphs a subset keeps (fontTools' `Subsetter._closure_glyphs` with
-//! matplotlib's options): the requested glyphs, the first four glyphs, the
-//! `MATH` variants and assembly parts of those, every glyph `GSUB` can
-//! substitute, and the components of composite glyphs.
+//! matplotlib's options): the requested glyphs, `.notdef` (and the next
+//! three glyphs of a TrueType font), the `MATH` variants and assembly
+//! parts of those, every glyph `GSUB` can substitute, and the components
+//! of composite glyphs or implied `seac`s.
 
 use std::collections::BTreeSet;
 
-use super::glyf::{Glyf, components};
+use super::Outlines;
+use super::glyf::components;
 use super::gsub::close_over_gsub;
 use crate::error::Result;
 use crate::face::Face;
@@ -15,8 +17,9 @@ use crate::types::{GlyphId, Tag};
 
 const MATH: Tag = Tag::new(b"MATH");
 
-/// How many leading glyphs are always kept (`.notdef` plus fontTools'
-/// "recommended glyphs").
+/// How many leading glyphs of a TrueType font are always kept
+/// (`.notdef` plus fontTools' "recommended glyphs"); of a CFF font,
+/// fontTools keeps `.notdef` alone.
 const RECOMMENDED_GLYPHS: u16 = 4;
 
 /// The variant glyphs and assembly parts of one `MathGlyphConstruction`.
@@ -82,13 +85,17 @@ fn close_over_math(math: &[u8], glyphs: &mut BTreeSet<GlyphId>) -> Result<()> {
     Ok(())
 }
 
-/// Adds the components of composite glyphs, recursively.
-fn close_over_glyf(glyf: &Glyf<'_>, glyphs: &mut BTreeSet<GlyphId>) -> Result<()> {
+/// Adds the glyphs `parts` gives each glyph, recursively: the components
+/// of composite glyphs, or the base and accent of implied `seac`s.
+fn close_over_parts(
+    glyphs: &mut BTreeSet<GlyphId>,
+    parts: impl Fn(GlyphId) -> Result<Vec<GlyphId>>,
+) -> Result<()> {
     let mut pending: Vec<GlyphId> = glyphs.iter().copied().collect();
     while !pending.is_empty() {
         let mut found = Vec::new();
         for glyph in pending {
-            found.extend(components(glyf.record(glyph)?)?);
+            found.extend(parts(glyph)?);
         }
         pending = found.into_iter().filter(|&g| glyphs.insert(g)).collect();
     }
@@ -99,12 +106,16 @@ fn close_over_glyf(glyf: &Glyf<'_>, glyphs: &mut BTreeSet<GlyphId>) -> Result<()
 /// order; glyphs the face does not have are left out.
 pub(super) fn closure(
     face: &Face<'_>,
-    glyf: &Glyf<'_>,
+    outlines: &Outlines<'_>,
     requested: impl IntoIterator<Item = GlyphId>,
 ) -> Result<BTreeSet<GlyphId>> {
     let count = face.num_glyphs();
     let mut glyphs: BTreeSet<GlyphId> = requested.into_iter().filter(|g| g.0 < count).collect();
-    glyphs.extend((0..RECOMMENDED_GLYPHS.min(count)).map(GlyphId));
+    let leading = match outlines {
+        Outlines::TrueType(_) => RECOMMENDED_GLYPHS,
+        Outlines::Cff(_) => 1,
+    };
+    glyphs.extend((0..leading.min(count)).map(GlyphId));
     if let Some(math) = face.table(MATH) {
         close_over_math(math, &mut glyphs)?;
     }
@@ -112,6 +123,11 @@ pub(super) fn closure(
         close_over_gsub(gsub, &mut glyphs)?;
     }
     glyphs.retain(|g| g.0 < count);
-    close_over_glyf(glyf, &mut glyphs)?;
+    match outlines {
+        Outlines::TrueType(glyf) => {
+            close_over_parts(&mut glyphs, |glyph| components(glyf.record(glyph)?))?;
+        }
+        Outlines::Cff(cff) => close_over_parts(&mut glyphs, |glyph| cff.components(glyph))?,
+    }
     Ok(glyphs)
 }

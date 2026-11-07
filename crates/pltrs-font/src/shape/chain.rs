@@ -218,6 +218,7 @@ impl<'a> FontChain<'a> {
             .map(|(index, ((face, size), hinter))| match hinter {
                 None | Some(Hinter::Unhinted) => None,
                 Some(Hinter::Bytecode) => Some(HintedFace::bytecode(face, size)),
+                Some(Hinter::Cff) => Some(HintedFace::cff(face, size)),
                 Some(Hinter::Autohinter) => {
                     let analysis = self
                         .cached_autohinter(index)

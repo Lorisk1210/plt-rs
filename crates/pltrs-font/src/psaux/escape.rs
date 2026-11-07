@@ -1,10 +1,11 @@
-//! The escaped (two-byte) operators of `cf2_interpT2CharString` in Type 1
-//! mode: flex, arithmetic, `seac`, `sbw`, OtherSubrs and `pop`.
+//! The escaped (two-byte) operators of `cf2_interpT2CharString`: flex
+//! and arithmetic, and Type 1's `seac`, `sbw`, stem triples, OtherSubrs
+//! and `pop`.
 
+use super::Flavor;
+use super::error::CharstringError;
 use super::interp::{Axis, Flow, Invocation, Pass, STORAGE_SIZE, add};
 use crate::fixed::{div_fix, mul_fix};
-use crate::type1::error::Type1Error;
-use crate::type1::standard::standard_name;
 
 /// Which flex values come from the stack (`dx1 dy1 ... dx6 dy6`).
 type FlexArgs = [bool; 12];
@@ -44,13 +45,14 @@ fn sqrt_fixed(value: u32) -> u32 {
     }
 }
 
-const fn invalid_othersubr() -> Type1Error {
-    Type1Error::BadCharstring("invalid OtherSubr call")
+const fn invalid_othersubr() -> CharstringError {
+    CharstringError::Malformed("invalid OtherSubr call")
 }
 
 impl Invocation<'_, '_> {
     /// Runs escaped operator `op2`.
-    pub(super) fn escape(&mut self, op2: u8) -> Result<Flow, Type1Error> {
+    pub(super) fn escape(&mut self, op2: u8) -> Result<Flow, CharstringError> {
+        let type1 = self.is_type1();
         Ok(match op2 {
             34 => self.flex(&HFLEX, false)?,
             // FreeType clears the stack after `flex` only.
@@ -61,11 +63,16 @@ impl Invocation<'_, '_> {
             36 => self.flex(&HFLEX1, false)?,
             37 => self.flex(&FLEX1, true)?,
             8 | 13 | 19 | 25 | 31 | 32 | 38.. => Flow::Clear,
+            // CFF2 has no other escaped operator.
+            _ if self.decoder.flavor == Flavor::Cff2 => Flow::Clear,
             // The arguments were all handed to earlier `pop`s.
-            _ if self.result_count > 0 && op2 != 17 => {
+            _ if type1 && self.result_count > 0 && op2 != 17 => {
                 self.result_count = 0;
                 Flow::Clear
             }
+            // `dotsection`, and the Type 1 operators elsewhere.
+            0 | 1 | 2 | 6 | 7 | 16 | 17 | 33 if !type1 => Flow::Clear,
+            0 => Flow::Clear,
             1 | 2 => self.stem3(if op2 == 1 {
                 Axis::Vertical
             } else {
@@ -76,14 +83,12 @@ impl Invocation<'_, '_> {
             16 => self.call_other_subr()?,
             17 => self.pop()?,
             33 => self.set_current_point()?,
-            // `dotsection`.
-            0 => Flow::Clear,
             _ => self.arithmetic(op2)?,
         })
     }
 
     /// `cf2_doFlex`: two curves through the flex points.
-    fn flex(&mut self, args: &FlexArgs, conditional_last: bool) -> Result<Flow, Type1Error> {
+    fn flex(&mut self, args: &FlexArgs, conditional_last: bool) -> Result<Flow, CharstringError> {
         let (cur_x, cur_y) = self.cur;
         let mut vals = [0i32; 14];
         vals[0] = cur_x;
@@ -136,7 +141,7 @@ impl Invocation<'_, '_> {
     }
 
     /// `vstem3` and `hstem3`: three stems relative to the side bearing.
-    fn stem3(&mut self, axis: Axis) -> Result<Flow, Type1Error> {
+    fn stem3(&mut self, axis: Axis) -> Result<Flow, CharstringError> {
         let (v0, v1, v2) = (self.stack.get(0)?, self.stack.get(2)?, self.stack.get(4)?);
         let first = v1.wrapping_sub(v0).wrapping_sub(self.stack.get(1)?);
         self.stack.set(2, first)?;
@@ -151,7 +156,7 @@ impl Invocation<'_, '_> {
     }
 
     /// `sbw`: side bearing and advance in both directions.
-    fn sbw(&mut self) -> Result<Flow, Type1Error> {
+    fn sbw(&mut self) -> Result<Flow, CharstringError> {
         let advance_y = self.stack.pop_fixed()?;
         let advance_x = self.stack.pop_fixed()?;
         self.decoder.advance = (advance_x, advance_y);
@@ -167,7 +172,7 @@ impl Invocation<'_, '_> {
     }
 
     /// `setcurrentpoint`, which ends a flex.
-    fn set_current_point(&mut self) -> Result<Flow, Type1Error> {
+    fn set_current_point(&mut self) -> Result<Flow, CharstringError> {
         if self.pass == Pass::Draw {
             let y = self.stack.pop_fixed()?;
             let x = self.stack.pop_fixed()?;
@@ -177,50 +182,30 @@ impl Invocation<'_, '_> {
         Ok(Flow::Clear)
     }
 
-    /// The glyph whose name the Standard Encoding gives `code` (`.notdef`
-    /// for unencoded codes), as `t1_lookup_glyph_by_stdcharcode_ps` finds
-    /// it.
-    fn standard_glyph(&self, code: i32) -> Result<usize, Type1Error> {
-        let name = u8::try_from(code)
-            .map(standard_name)
-            .map_err(|_| Type1Error::NotStandardCode(i64::from(code)))?;
-        self.decoder
-            .set
-            .names
-            .iter()
-            .position(|glyph| glyph == name)
-            .ok_or_else(|| Type1Error::MissingGlyph(name.to_owned()))
-    }
-
     /// `seac`: the base character, then the accent moved by `(adx - asb +
     /// side bearing, ady)`, keeping this glyph's metrics.
-    fn seac(&mut self) -> Result<Flow, Type1Error> {
+    fn seac(&mut self) -> Result<Flow, CharstringError> {
         let accent = self.stack.pop_int()?;
         let base = self.stack.pop_int()?;
         let ady = self.stack.pop_fixed()?;
         let adx = self.stack.pop_fixed()?;
         let asb = self.stack.pop_fixed()?;
         if self.doing_seac {
-            return Err(Type1Error::BadCharstring("nested seac"));
+            return Err(CharstringError::Malformed("nested seac"));
         }
         let adx = i64::from(adx) + i64::from(self.decoder.left_bearing.0);
-        let base = self.standard_glyph(base)?;
-        let accent = self.standard_glyph(accent)?;
-        let set = self.decoder.set;
-        let program = |glyph: usize| {
-            set.charstrings
-                .get(glyph)
-                .ok_or(Type1Error::InvalidFont("glyph without charstring"))
-        };
+        let font = self.decoder.font;
+        let base = font.standard_glyph(base)?;
+        let accent = font.standard_glyph(accent)?;
         let (mut left_bearing, mut advance) = (self.decoder.left_bearing, self.decoder.advance);
-        Invocation::new(&mut *self.decoder, true, (0, 0)).run(program(base)?)?;
+        Invocation::new(&mut *self.decoder, true, (0, 0)).run(base)?;
         if !self.have_width {
             left_bearing = self.decoder.left_bearing;
             advance = self.decoder.advance;
         }
         self.decoder.left_bearing = (0, 0);
         let origin = ((adx - i64::from(asb)) as i32, ady);
-        Invocation::new(&mut *self.decoder, true, origin).run(program(accent)?)?;
+        Invocation::new(&mut *self.decoder, true, origin).run(accent)?;
         self.decoder.left_bearing = left_bearing;
         self.decoder.advance = advance;
         Ok(Flow::Exit)
@@ -229,11 +214,11 @@ impl Invocation<'_, '_> {
     /// `callothersubr`: flex (0 to 2), hint replacement (3), counter
     /// control (12, 13), arithmetic (20 to 23, 27) and random (28); the
     /// arguments of unknown OtherSubrs are kept for `pop`.
-    fn call_other_subr(&mut self) -> Result<Flow, Type1Error> {
+    fn call_other_subr(&mut self) -> Result<Flow, CharstringError> {
         let number = self.stack.pop_int()?;
         let arg_count = self.stack.pop_int()?;
         if arg_count as u32 as usize > self.stack.count() {
-            return Err(Type1Error::BadCharstring("OtherSubr stack underflow"));
+            return Err(CharstringError::Malformed("OtherSubr stack underflow"));
         }
         self.known_results = 0;
         self.result_count = 0;
@@ -250,7 +235,7 @@ impl Invocation<'_, '_> {
                 if self.pass == Pass::Draw
                     && (!self.decoder.flex_state || self.decoder.flex_vectors != 7)
                 {
-                    return Err(Type1Error::BadCharstring("unexpected flex end"));
+                    return Err(CharstringError::Malformed("unexpected flex end"));
                 }
                 // Popped by the `setcurrentpoint` that follows.
                 self.stack.push_fixed(self.cur.0)?;
@@ -322,15 +307,15 @@ impl Invocation<'_, '_> {
     }
 
     /// OtherSubr 2: records a flex point; points 3 and 6 complete a curve.
-    fn add_flex_vector(&mut self) -> Result<(), Type1Error> {
+    fn add_flex_vector(&mut self) -> Result<(), CharstringError> {
         if !self.decoder.flex_state {
-            return Err(Type1Error::BadCharstring("missing flex start"));
+            return Err(CharstringError::Malformed("missing flex start"));
         }
         let index = self.decoder.flex_vectors;
         self.decoder.flex_vectors += 1;
         if (1..7).contains(&index) {
             if !self.decoder.out.has_room(1) {
-                return Err(Type1Error::BadCharstring("too many outline points"));
+                return Err(CharstringError::Malformed("too many outline points"));
             }
             let slot = (if index > 3 { index - 3 } else { index }) as usize * 2;
             self.flex_store[slot - 2] = self.cur.0;
@@ -345,13 +330,13 @@ impl Invocation<'_, '_> {
 
     /// `pop`: the results of known OtherSubrs are already on the stack;
     /// otherwise the kept arguments come back.
-    fn pop(&mut self) -> Result<Flow, Type1Error> {
+    fn pop(&mut self) -> Result<Flow, CharstringError> {
         if self.known_results > 0 {
             self.known_results -= 1;
             return Ok(Flow::Keep);
         }
         if self.result_count == 0 {
-            return Err(Type1Error::BadCharstring("no more operands for othersubr"));
+            return Err(CharstringError::Malformed("no more operands for othersubr"));
         }
         self.result_count -= 1;
         self.stack.push_fixed(self.results[self.result_count])?;
@@ -366,7 +351,7 @@ impl Invocation<'_, '_> {
     }
 
     /// `ifelse`: the first of two values if `cond1 <= cond2`.
-    fn if_else(&mut self) -> Result<i32, Type1Error> {
+    fn if_else(&mut self) -> Result<i32, CharstringError> {
         let cond2 = self.stack.pop_fixed()?;
         let cond1 = self.stack.pop_fixed()?;
         let second = self.stack.pop_fixed()?;
@@ -376,7 +361,7 @@ impl Invocation<'_, '_> {
 
     /// The arithmetic and stack operators, which keep their results on
     /// the stack.
-    fn arithmetic(&mut self, op2: u8) -> Result<Flow, Type1Error> {
+    fn arithmetic(&mut self, op2: u8) -> Result<Flow, CharstringError> {
         match op2 {
             12 => {
                 let stack = &mut self.stack;
@@ -416,7 +401,7 @@ impl Invocation<'_, '_> {
     }
 
     /// The operators computing a value from the top of the stack.
-    fn compute(&mut self, op2: u8) -> Result<(), Type1Error> {
+    fn compute(&mut self, op2: u8) -> Result<(), CharstringError> {
         let stack = &mut self.stack;
         match op2 {
             5 | 9 | 14 | 26 => {
@@ -456,7 +441,7 @@ impl Invocation<'_, '_> {
     }
 
     /// `dup`, `exch`, `index` and `roll`.
-    fn rearrange(&mut self, op2: u8) -> Result<(), Type1Error> {
+    fn rearrange(&mut self, op2: u8) -> Result<(), CharstringError> {
         let stack = &mut self.stack;
         match op2 {
             27 => {

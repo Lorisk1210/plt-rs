@@ -3,7 +3,7 @@
 //! them, and which of them are active.
 
 use super::buffer::Buffer;
-use crate::type1::error::Type1Error;
+use super::error::CharstringError;
 
 /// `CF2_MAX_HINTS`: horizontal and vertical stems together.
 pub(super) const MAX_HINTS: usize = 96;
@@ -72,9 +72,13 @@ impl HintMask {
 
     /// `cf2_hintmask_read`: the mask bytes following a `hintmask` or
     /// `cntrmask` operator.
-    pub(super) fn read(&mut self, code: &mut Buffer<'_>, bits: usize) -> Result<(), Type1Error> {
+    pub(super) fn read(
+        &mut self,
+        code: &mut Buffer<'_>,
+        bits: usize,
+    ) -> Result<(), CharstringError> {
         if !self.set_counts(bits) {
-            return Err(Type1Error::BadCharstring("too many stem hints"));
+            return Err(CharstringError::Malformed("too many stem hints"));
         }
         for byte in &mut self.bytes[..bits.div_ceil(8)] {
             *byte = code.read();

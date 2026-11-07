@@ -34,6 +34,49 @@ impl Autohinter {
     ) -> Result<HintedGlyph> {
         face.check_glyph(glyph)?;
         let (outline, advance) = FontOutline::load(face, glyph)?;
+        Ok(self.hint_outline(face, size, glyph, target, &outline, advance))
+    }
+
+    /// The advance `FT_Get_Advance` gives `glyph` when the autohinter
+    /// takes it, which HarfBuzz lays text out with: that of the glyph
+    /// loaded, except for CFF faces, whose driver, asked for the advance
+    /// only, stops before the charstring draws (`width_only`), so that the
+    /// autohinter hints an empty outline: the scaled advance, rounded
+    /// without the hinted stems.
+    ///
+    /// # Errors
+    ///
+    /// When the glyph does not exist or its outline is malformed.
+    pub(crate) fn layout_advance(
+        &self,
+        face: &Face<'_>,
+        size: &Size,
+        glyph: GlyphId,
+        target: AutohintTarget,
+    ) -> Result<i32> {
+        if !face.is_cff() {
+            return self
+                .load_glyph(face, size, glyph, target)
+                .map(|hinted| hinted.advance());
+        }
+        face.check_glyph(glyph)?;
+        let (_, advance) = FontOutline::load(face, glyph)?;
+        let empty = FontOutline::default();
+        Ok(self
+            .hint_outline(face, size, glyph, target, &empty, advance)
+            .advance())
+    }
+
+    /// `outline`, `glyph` in font units with its `advance`, autohinted.
+    fn hint_outline(
+        &self,
+        face: &Face<'_>,
+        size: &Size,
+        glyph: GlyphId,
+        target: AutohintTarget,
+        outline: &FontOutline,
+        advance: i64,
+    ) -> HintedGlyph {
         let style = self
             .glyph_style(face, glyph)
             .expect("checked glyphs have a style");
@@ -43,10 +86,10 @@ impl Autohinter {
             x_ppem: size.x_ppem(),
             target,
         };
-        let hints = hint(face, glyph, &outline, style, &scaler);
-        let hinted = finish(face, &outline, advance, &hints, style, &scaler);
+        let hints = hint(face, glyph, outline, style, &scaler);
+        let hinted = finish(face, outline, advance, &hints, style, &scaler);
         let vertical = vertical_metrics(face, glyph, advance, &hints, &hinted);
-        Ok(hinted.with_vertical_metrics(vertical))
+        hinted.with_vertical_metrics(vertical)
     }
 }
 

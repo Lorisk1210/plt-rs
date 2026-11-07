@@ -56,7 +56,7 @@ pub struct AfmFont {
 }
 
 /// The family `findfont` falls back to for AFM fonts.
-const DEFAULT_FAMILY: &str = "Helvetica";
+pub(super) const AFM_DEFAULT_FAMILY: &str = "Helvetica";
 
 impl AfmFont {
     /// The catalogued AFM fonts, in matplotlib's catalogue order.
@@ -140,18 +140,39 @@ impl AfmFont {
 
     /// The `findfont` score of this font for `query` (0 is a perfect match).
     fn score(&self, query: &FontQuery, generics: &GenericFamilies) -> f64 {
-        score::family(&query.families, self.name, generics) * 10.0
-            + score::style(query.style, self.style)
-            + score::variant(query.variant, FontVariant::Normal)
-            + score::weight(query.weight.0, self.weight_value().0)
-            + score::stretch(query.stretch, self.stretch)
+        afm_score(
+            query,
+            generics,
+            self.name,
+            self.style,
+            FontVariant::Normal,
+            self.weight_value(),
+            self.stretch,
+        )
     }
+}
+
+/// The `findfont` score of an AFM font of these properties for `query`.
+pub(super) fn afm_score(
+    query: &FontQuery,
+    generics: &GenericFamilies,
+    name: &str,
+    style: FontStyle,
+    variant: FontVariant,
+    weight: Weight,
+    stretch: Stretch,
+) -> f64 {
+    score::family(&query.families, name, generics) * 10.0
+        + score::style(query.style, style)
+        + score::variant(query.variant, variant)
+        + score::weight(query.weight.0, weight.0)
+        + score::stretch(query.stretch, stretch)
 }
 
 /// `query` asking for the default family instead of its own.
 fn with_default_family(query: &FontQuery) -> FontQuery {
     FontQuery {
-        families: vec![DEFAULT_FAMILY.to_owned()],
+        families: vec![AFM_DEFAULT_FAMILY.to_owned()],
         ..query.clone()
     }
 }
@@ -214,6 +235,7 @@ impl AfmFont {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::afm_system::AfmStyle;
 
     fn find(query: &FontQuery) -> &'static str {
         AfmFont::find(query, &GenericFamilies::default(), true)
@@ -329,49 +351,23 @@ mod tests {
         assert!(AfmFont::all().iter().all(|font| font.metrics().is_ok()));
     }
 
-    /// The entry matplotlib's `afmFontProperty` makes of `metrics`:
-    /// family name, style, weight keyword and stretch.
-    fn afm_font_property(metrics: &AfmMetrics) -> (&str, FontStyle, String, Stretch) {
-        let name = metrics.family_name().expect("named");
-        let font_name = metrics.font_name().expect("named").to_lowercase();
-        let lower = name.to_lowercase();
-        let style = if metrics.angle().unwrap_or(0.0) != 0.0 || lower.contains("italic") {
-            FontStyle::Italic
-        } else if lower.contains("oblique") {
-            FontStyle::Oblique
-        } else {
-            FontStyle::Normal
-        };
-        let mut weight = metrics.weight().expect("weighted").to_lowercase();
-        if weight.parse::<Weight>().is_err() {
-            weight = "normal".to_owned();
-        }
-        let stretch = if font_name.contains("demi cond") {
-            Stretch::SEMI_CONDENSED
-        } else if ["narrow", "cond"].iter().any(|w| font_name.contains(w)) {
-            Stretch::CONDENSED
-        } else if ["wide", "expanded", "extended"]
-            .iter()
-            .any(|w| font_name.contains(w))
-        {
-            Stretch::EXPANDED
-        } else {
-            Stretch::NORMAL
-        };
-        (name, style, weight, stretch)
-    }
-
     /// The catalogue is what matplotlib reads from the bundled files.
     #[test]
     fn the_catalogue_describes_the_bundled_files() {
         for font in AfmFont::all() {
-            let metrics = font.metrics().expect("bundled");
+            let style = AfmStyle::of(font.metrics().expect("bundled")).expect("described");
             assert_eq!(
-                afm_font_property(metrics),
+                (
+                    style.name.as_str(),
+                    style.style,
+                    style.weight,
+                    style.stretch
+                ),
                 (font.name, font.style, font.weight.to_owned(), font.stretch),
                 "{}",
                 font.file
             );
+            assert_eq!(style.variant, FontVariant::Normal);
         }
     }
 }

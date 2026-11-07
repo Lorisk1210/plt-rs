@@ -124,9 +124,10 @@ pub(crate) fn load_glyph(args: Args<'_>) -> Outcome {
         Hinter::Autohinter => db
             .autohinter(font)
             .and_then(|hinter| hinter.load_glyph(&face, &size, glyph, target)),
+        Hinter::Cff => face.load_cff_hinted(&size, glyph),
         Hinter::Unhinted => {
             return Err(ProbeError::BadArgs(format!(
-                "FreeType's CFF hinter takes {file} under {hinting:?}"
+                "{file} has no outlines to hint under {hinting:?}"
             )));
         }
     }

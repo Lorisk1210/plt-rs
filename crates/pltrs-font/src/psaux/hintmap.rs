@@ -5,6 +5,7 @@
 //! Stem darkening is off, so edges are never moved for it.
 
 use super::blues::{Blues, MIN_COUNTER};
+use super::error::CharstringError;
 use super::hints::{HintMask, StemHint};
 use super::stack::int_to_fixed;
 use crate::fixed::{div_fix, mul_fix};
@@ -122,15 +123,19 @@ pub(super) struct HintMap {
     /// Whether the map moves coordinates (false when unhinted, or when a
     /// Type 1 glyph has too many stems).
     hinted: bool,
+    /// Whether the glyph is a Type 1 glyph, which too many stems leave
+    /// unhinted rather than fail.
+    type1: bool,
     pub(super) valid: bool,
     scale: i32,
     edges: Vec<Hint>,
 }
 
 impl HintMap {
-    pub(super) fn new(hinted: bool, scale: i32) -> Self {
+    pub(super) fn new(hinted: bool, type1: bool, scale: i32) -> Self {
         Self {
             hinted,
+            type1,
             valid: false,
             scale,
             edges: Vec::new(),
@@ -293,6 +298,11 @@ impl HintMap {
     /// alignment zones first. The initial map (`initial` is `None`) only
     /// holds the captured stems, plus a locked edge at 0 if needed; other
     /// maps record where they placed their stems.
+    ///
+    /// # Errors
+    ///
+    /// Too many stems fail a CFF glyph (a Type 1 glyph is drawn unhinted
+    /// instead).
     pub(super) fn build(
         &mut self,
         initial: Option<&HintMap>,
@@ -301,17 +311,19 @@ impl HintMap {
         mask: &mut HintMask,
         origin: i32,
         blues: &Blues,
-    ) {
+    ) -> Result<(), CharstringError> {
         if !mask.valid && !mask.set_all(stems) {
-            // Too many stems: a Type 1 glyph is drawn unhinted.
+            if !self.type1 {
+                return Err(CharstringError::Malformed("too many stem hints"));
+            }
             self.hinted = false;
-            return;
+            return Ok(());
         }
         self.edges.clear();
         let mut active = *mask;
         let count = horizontal.len();
         if count > mask.bits {
-            return;
+            return Ok(());
         }
         if let Some((bottom, top)) = blues.em_box {
             self.insert(initial, bottom, Hint::default());
@@ -366,13 +378,14 @@ impl HintMap {
         }
         self.valid = true;
         mask.new = false;
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::type1::cf2::blues::PrivateDict;
+    use crate::psaux::PrivateDict;
 
     fn stems(pairs: &[(i32, i32)]) -> Vec<StemHint> {
         pairs
@@ -384,25 +397,28 @@ mod tests {
     #[test]
     fn stems_align_to_zones_and_pixels() {
         let private = PrivateDict {
-            blue_values: vec![-22, 0, 683, 705],
+            blue_values: [-22, 0, 683, 705].map(int_to_fixed).to_vec(),
             ..PrivateDict::default()
         };
         let scale = 6554;
         let blues = Blues::new(&private, scale);
         let mut horizontal = stems(&[(0, 31), (318, 349), (649, 680)]);
-        let mut initial = HintMap::new(true, scale);
-        initial.build(
-            None,
-            &mut horizontal,
-            3,
-            &mut HintMask::default(),
-            0,
-            &blues,
-        );
+        let mut initial = HintMap::new(true, true, scale);
+        initial
+            .build(
+                None,
+                &mut horizontal,
+                3,
+                &mut HintMask::default(),
+                0,
+                &blues,
+            )
+            .unwrap();
         assert!(initial.valid);
-        let mut map = HintMap::new(true, scale);
+        let mut map = HintMap::new(true, true, scale);
         let mut mask = HintMask::default();
-        map.build(Some(&initial), &mut horizontal, 3, &mut mask, 0, &blues);
+        map.build(Some(&initial), &mut horizontal, 3, &mut mask, 0, &blues)
+            .unwrap();
         assert!(map.valid && !mask.new);
         assert_eq!(map.edges.len(), 6);
         // The baseline stem sits on the zone's flat edge.
@@ -426,17 +442,21 @@ mod tests {
         let inverted = stems(&[(30, 5)]);
         let top = Hint::from_stem(&inverted, 0, 1 << 16, 0x10000, false);
         assert_eq!((top.flags, top.cs), (PAIR_TOP, 31 << 16));
-        let unhinted = HintMap::new(false, 0x400);
+        let unhinted = HintMap::new(false, true, 0x400);
         assert_eq!(unhinted.map(64 << 16), 1 << 16);
-        let mut too_many = HintMap::new(true, 0x10000);
-        too_many.build(
-            None,
-            &mut stems(&[(0, 1); 97]),
-            97,
-            &mut HintMask::default(),
-            0,
-            &Blues::default(),
-        );
-        assert!(!too_many.valid && !too_many.hinted);
+        let build = |type1| {
+            let mut map = HintMap::new(true, type1, 0x10000);
+            let built = map.build(
+                None,
+                &mut stems(&[(0, 1); 97]),
+                97,
+                &mut HintMask::default(),
+                0,
+                &Blues::default(),
+            );
+            (built.is_ok(), map.valid, map.hinted)
+        };
+        assert_eq!(build(false), (false, false, true));
+        assert_eq!(build(true), (true, false, false));
     }
 }

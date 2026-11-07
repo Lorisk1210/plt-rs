@@ -1,12 +1,15 @@
-//! TrueType subsetting for embedding fonts in documents, keeping the glyphs
-//! matplotlib's Type 42 embedding keeps (fontTools' `Subsetter` with
-//! `glyph_names` and `recommended_glyphs`).
+//! OpenType subsetting for embedding fonts in documents, keeping the
+//! glyphs matplotlib's Type 42 embedding keeps (fontTools' `Subsetter`
+//! with `glyph_names` and `recommended_glyphs`), of fonts with TrueType
+//! outlines or CFF and CFF2 ones.
 //!
-//! The kept glyphs are the requested ones closed over the first four
-//! glyphs, the `MATH` variants, the `GSUB` substitutions of the features
-//! fontTools keeps and composite components ([`closure`]); they are
-//! renumbered in their original order, so new glyph ids match fontTools'.
-//! The font program itself ([`build`]) holds `glyf`, `loca`, `hmtx`,
+//! The kept glyphs are the requested ones closed over `.notdef` (and the
+//! next three glyphs of a TrueType font), the `MATH` variants, the `GSUB`
+//! substitutions of the features fontTools keeps, and composite
+//! components or implied `seac`s ([`closure`]); they are renumbered in
+//! their original order, so new glyph ids match fontTools'. The font
+//! program itself ([`build`]) holds `glyf` and `loca`, or a `CFF `/`CFF2`
+//! table of the kept charstrings without subroutines, with `hmtx`,
 //! `cmap` and the header tables plus the original naming, `OS/2` and
 //! hinting tables, without layout tables. Its `cmap` maps the characters
 //! of the requested glyphs as fontTools' does ([`cmap`]).
@@ -19,14 +22,16 @@ mod gsub;
 
 use std::collections::BTreeSet;
 
-use crate::error::Result;
+use crate::cff::{CffSubsetter, Version};
+use crate::error::{FontError, Result};
 use crate::face::Face;
-use crate::types::GlyphId;
+use crate::types::{GlyphId, Tag};
 
 /// A font reduced to some of its glyphs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FontSubset {
-    /// The subset as a TrueType font file.
+    /// The subset as an OpenType font file, with the original's kind of
+    /// outlines.
     pub data: Vec<u8>,
     /// The original glyph behind every new glyph id, ascending.
     pub glyphs: Vec<GlyphId>,
@@ -40,20 +45,46 @@ impl FontSubset {
     }
 }
 
-/// The subset of the TrueType `face` keeping `glyphs` and what they need.
+/// The outlines of the face a subset is taken from.
+enum Outlines<'a> {
+    /// TrueType glyph records.
+    TrueType(glyf::Glyf<'a>),
+    /// A `CFF ` or `CFF2` table.
+    Cff(Box<CffSubsetter<'a>>),
+}
+
+impl<'a> Outlines<'a> {
+    /// The outlines `face` draws: `glyf`, else `CFF2`, else `CFF `.
+    fn of(face: &Face<'a>) -> Result<Self> {
+        let glyf = Tag::new(b"glyf");
+        if face.table(glyf).is_some() {
+            return glyf::Glyf::new(face).map(Self::TrueType);
+        }
+        for version in [Version::Cff2, Version::Cff] {
+            if let Some(data) = face.table(version.tag()) {
+                let cff = CffSubsetter::new(data, version, face.units_per_em())?;
+                return Ok(Self::Cff(Box::new(cff)));
+            }
+        }
+        Err(FontError::MissingTable(glyf))
+    }
+}
+
+/// The subset of `face` keeping `glyphs` and what they need.
 ///
 /// # Errors
 ///
-/// When the face has no TrueType outlines (`glyf`) or a table it needs is
-/// missing or malformed.
+/// When the face has no outlines (`glyf`, `CFF2` or `CFF `), a table it
+/// needs is missing or malformed, or a kept charstring cannot do without
+/// its subroutines.
 pub fn subset(face: &Face<'_>, glyphs: impl IntoIterator<Item = GlyphId>) -> Result<FontSubset> {
-    let glyf = glyf::Glyf::new(face)?;
+    let outlines = Outlines::of(face)?;
     let requested: BTreeSet<GlyphId> = glyphs.into_iter().collect();
-    let kept: Vec<GlyphId> = closure::closure(face, &glyf, requested.iter().copied())?
+    let kept: Vec<GlyphId> = closure::closure(face, &outlines, requested.iter().copied())?
         .into_iter()
         .collect();
     Ok(FontSubset {
-        data: build::font_file(face, &glyf, &kept, &requested)?,
+        data: build::font_file(face, &outlines, &kept, &requested)?,
         glyphs: kept,
     })
 }
@@ -124,6 +155,34 @@ mod tests {
         let mut glyphs = std::collections::BTreeSet::from([GlyphId(0)]);
         gsub::close_over_gsub(&gsub, &mut glyphs).expect("valid table");
         assert_eq!(glyphs.len(), 1001);
+    }
+
+    #[test]
+    fn cff_and_cff2_subsets_keep_their_outlines() {
+        // (file, glyphs kept for "Á"): .notdef and Á, and in the CFF font
+        // the A and acute its `seac` draws.
+        for (file, count) in [("synthetic-cff.otf", 4), ("synthetic-var.otf", 2)] {
+            let path = format!("{}/tests/fixtures/{file}", env!("CARGO_MANIFEST_DIR"));
+            let data = std::fs::read(path).unwrap();
+            let face = Face::parse(&data, 0).unwrap();
+            let a_acute = face.glyph_index('Á').unwrap();
+            let kept = subset(&face, [a_acute]).unwrap();
+            assert_eq!(&kept.data[..4], b"OTTO");
+            assert_eq!(kept.glyphs.len(), count, "{file}");
+            let parsed = Face::parse(&kept.data, 0).unwrap();
+            assert!(parsed.table(Tag::new(b"glyf")).is_none());
+            assert_eq!(parsed.num_glyphs(), count as u16);
+            assert_eq!(parsed.glyph_index('Á'), kept.new_id(a_acute));
+            for (new, &old) in kept.glyphs.iter().enumerate() {
+                let new = GlyphId(new as u16);
+                let (mut original, mut copy) =
+                    (OutlineRecorder::default(), OutlineRecorder::default());
+                face.outline(old, &mut original).unwrap();
+                parsed.outline(new, &mut copy).unwrap();
+                assert_eq!(original, copy, "{file} glyph {}", old.0);
+                assert_eq!(parsed.glyph_advance(new), face.glyph_advance(old));
+            }
+        }
     }
 
     #[test]

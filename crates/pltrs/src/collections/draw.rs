@@ -120,7 +120,9 @@ struct Batch<'a> {
     transforms: Vec<Affine2D>,
     offsets: Vec<Point>,
     faces: Vec<Rgba>,
-    edges: Vec<Rgba>,
+    /// The edge colours, `None` where they are the face colours (as a
+    /// scatter's edges follow its faces), kept once.
+    edges: Option<Vec<Rgba>>,
     /// The colours of the gaps of dashed edges (`None` = empty gaps).
     gaps: Option<Vec<Rgba>>,
     widths: Vec<f64>,
@@ -144,6 +146,7 @@ impl<'a> Batch<'a> {
             offsets,
         } = Geometry::new(c, ctx.layout(), (shapes, transform), c.drawn_offsets())?;
         let (faces, edges) = resolve_colors(c)?;
+        let edges = (edges != faces).then_some(edges);
         let gaps = resolve_gap_colors(c)?;
         let rc = c.rc();
         let line_defaults = c.kind == CollectionKind::Line;
@@ -176,6 +179,11 @@ impl<'a> Batch<'a> {
         })
     }
 
+    /// The edge colours.
+    fn edges(&self) -> &[Rgba] {
+        self.edges.as_deref().unwrap_or(&self.faces)
+    }
+
     /// The shape transform for drawing every item as the same marker, when
     /// matplotlib's single-path optimisation applies: one shape, style,
     /// colour pair and link, solid, unhatched and smaller than the canvas.
@@ -183,7 +191,7 @@ impl<'a> Batch<'a> {
         let uniform = self.paths.len() == 1
             && self.transforms.len() <= 1
             && self.faces.len() == 1
-            && self.edges.len() == 1
+            && self.edges().len() == 1
             && self.widths.len() == 1
             && self.dashes.iter().all(Dashes::is_solid)
             && self.antialiased.len() == 1
@@ -247,7 +255,7 @@ fn draw_shapes(
     transform: &Transform,
 ) -> Result<(), String> {
     let batch = Batch::new(c, ctx, shapes, transform)?;
-    let hatches = resolve_hatch_colors(c, &batch.edges).map_err(|e| e.to_string())?;
+    let hatches = resolve_hatch_colors(c, batch.edges()).map_err(|e| e.to_string())?;
     let gc = graphics_context(c, ctx, &hatches);
     if batch.offsets.is_empty() {
         return Ok(());
@@ -269,7 +277,7 @@ fn draw_items(
 ) {
     let canvas = ctx.renderer().canvas_size();
     if let Some(combined) = batch.single_marker(hatched, canvas) {
-        gc.foreground = batch.edges[0];
+        gc.foreground = batch.edges()[0];
         gc.linewidth = batch.widths[0];
         gc.dashes.clone_from(&batch.dashes[0]);
         gc.antialiased = batch.antialiased[0];
@@ -291,7 +299,7 @@ fn draw_items(
             path_transforms: &batch.transforms,
             offsets: &batch.offsets,
             facecolors: &batch.faces,
-            edgecolors: &batch.edges,
+            edgecolors: batch.edges(),
             hatchcolors: hatches,
             linewidths: &batch.widths,
             dashes: &batch.dashes,
@@ -434,6 +442,27 @@ mod tests {
             "matplotlib fades the default"
         );
         assert_eq!(resolve_hatch_colors(&square(None), &[]).unwrap()[0].a, 1.0);
+    }
+
+    #[test]
+    fn edges_following_the_faces_are_the_faces_kept_once() {
+        let faces = vec![Rgba::new(1.0, 0.0, 0.0, 1.0), Rgba::BLACK];
+        let batch = |edges: Option<Vec<Rgba>>| Batch {
+            paths: Vec::new().into(),
+            master: Affine2D::IDENTITY,
+            transforms: Vec::new(),
+            offsets: Vec::new(),
+            faces: faces.clone(),
+            edges,
+            gaps: None,
+            widths: vec![1.0],
+            dashes: vec![Dashes::default()],
+            antialiased: vec![true],
+            urls: vec![None],
+        };
+        assert_eq!(batch(None).edges(), faces.as_slice());
+        let own = vec![Rgba::BLACK];
+        assert_eq!(batch(Some(own.clone())).edges(), own.as_slice());
     }
 
     #[test]

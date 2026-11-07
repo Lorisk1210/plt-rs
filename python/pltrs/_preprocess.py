@@ -11,7 +11,7 @@ import inspect
 import logging
 from inspect import Parameter
 
-from . import cbook
+from . import _docstring, cbook
 
 #: The package's logger, matplotlib's ``_log``.
 _log = logging.getLogger(__package__)
@@ -63,7 +63,7 @@ def _add_data_doc(docstring, replace_names):
     if (docstring is None
             or replace_names is not None and len(replace_names) == 0):
         return docstring
-    docstring = inspect.cleandoc(docstring)
+    docstring = _docstring.cleandoc(docstring)
 
     data_doc = ("""\
     If given, all parameters also accept a string ``s``, which is

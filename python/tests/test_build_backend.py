@@ -222,8 +222,14 @@ def test_the_zig_linker_takes_what_rustc_passes(tmp_path):
     response = tmp_path / "linker-arguments"
     response.write_text("-o\nout\\ dir/lib.so\n-lgcc_s\n", encoding="utf-8")
     arguments = list(_zigcc.expanded(["-fuse-ld=lld", "-B/x/gcc-ld", "-m64", f"@{response}",
-                                      "-Wl,-O1", "-Wl,--fix-cortex-a53-843419", "-shared"]))
+                                      "-Wl,-O1", "-Wl,--fix-cortex-a53-843419", "-shared",
+                                      "-Wl,--symbol-ordering-file=/x/symbol-order.txt",
+                                      "-Wl,--no-warn-symbol-ordering"]))
     assert list(_zigcc.filtered(arguments)) == ["-o", "out dir/lib.so", "-lunwind", "-shared"]
+    # What Zig's driver refuses, LLD gets when the library is linked again.
+    assert [flag for flag in map(_zigcc.relinked, arguments) if flag] == [
+        "--fix-cortex-a53-843419", "--symbol-ordering-file=/x/symbol-order.txt",
+        "--no-warn-symbol-ordering"]
     report = ("ld.lld -o /c/libc.so.6 x.o\n"
               "ld.lld --eh-frame-hdr -shared -o out/lib.so a.o --as-needed /c/libc.so.6\n")
     assert _zigcc.lld_command(report, "out/lib.so") == [

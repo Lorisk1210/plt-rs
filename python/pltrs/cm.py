@@ -61,16 +61,32 @@ class _BuiltinSegment:
 def _from_spec(spec, definition=None):
     """The `.Colormap` a native colormap spec describes; the colours of a
     built-in colour sequence (its *definition* a ``{'listed': colors}``
-    entry of ``_cm.datad``) are the tuple of tuples matplotlib keeps."""
+    entry of ``_cm.datad``), and the rows of a segmented colormap's
+    channels, are the tuples of tuples matplotlib keeps."""
     name = spec['name']
     if definition is not None and definition[0] == "listed_data":
         return colors.ListedColormap(tuple(definition[1]), name)
     if 'colors' in spec:
         return colors.ListedColormap(spec['colors'].tolist(), name)
     segmentdata = {
-        channel: (_BuiltinSegment(name, channel) if rows is None else rows)
+        channel: (_BuiltinSegment(name, channel) if rows is None
+                  else tuple(map(tuple, rows.tolist())))
         for channel, rows in spec['segmentdata'].items()}
     return colors.LinearSegmentedColormap(name, segmentdata, spec['N'])
+
+
+def _builtin_definitions():
+    """matplotlib's definitions of the built-in base colormaps, by name
+    (``_native.cm.builtin_definition``), read once for the registry,
+    `datad` and `cmaps_listed`."""
+    if not _BUILTIN_DEFINITIONS:
+        _BUILTIN_DEFINITIONS.update(
+            (name, _cm.builtin_definition(name)) for name in _cm.colormap_names())
+    return _BUILTIN_DEFINITIONS
+
+
+#: What `_builtin_definitions` read.
+_BUILTIN_DEFINITIONS = {}
 
 
 def _gen_cmap_registry():
@@ -78,9 +94,8 @@ def _gen_cmap_registry():
     Generate a dict mapping standard colormap names to standard colormaps, as
     well as the reversed colormaps.
     """
-    cmap_d = {name: _from_spec(_cm.builtin_colormap(name),
-                               _cm.builtin_definition(name))
-              for name in _cm.colormap_names()}
+    cmap_d = {name: _from_spec(_cm.builtin_colormap(name), definition)
+              for name, definition in _builtin_definitions().items()}
     # Generate reversed cmaps.
     for cmap in list(cmap_d.values()):
         rmap = cmap.reversed()
@@ -107,8 +122,7 @@ def _gen_datad():
     colour sequences (``{'listed': colors}``), by name.
     """
     datad = {}
-    for name in _cm.colormap_names():
-        definition = _cm.builtin_definition(name)
+    for name, definition in _builtin_definitions().items():
         if definition is not None and definition[0] != "listed":
             datad[name] = _datad_entry(name, *definition)
     return datad
@@ -324,8 +338,9 @@ datad = _gen_datad()
 #: The built-in `.ListedColormap`\s of matplotlib's ``_cm_listed`` (the
 #: registry's own objects, as in matplotlib).
 cmaps_listed = {
-    name: _colormaps._cmaps[name] for name in _cm.colormap_names()
-    if (_cm.builtin_definition(name) or ("",))[0] == "listed"}
+    name: _colormaps._cmaps[name]
+    for name, definition in _builtin_definitions().items()
+    if (definition or ("",))[0] == "listed"}
 #: The multivariate colormaps (matplotlib's ``_cm_multivar.cmap_families``).
 multivar_cmaps = _gen_multivar_cmaps()
 _multivar_colormaps = ColormapRegistry(multivar_cmaps)

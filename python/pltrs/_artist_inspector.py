@@ -13,14 +13,14 @@ import warnings
 
 import numpy as np
 
-from . import cbook, rcParams
+from . import _docstring, cbook, rcParams
 from .artist import Artist
 
 
 @cache
 def _cleaned(docstring):
     """`inspect.cleandoc` of *docstring*, once for every class sharing it."""
-    return inspect.cleandoc(docstring)
+    return _docstring.cleandoc(docstring)
 
 
 def _getdoc(obj):
@@ -58,20 +58,40 @@ def _valid_values(docstring, code):
     if docstring.startswith('Alias for '):
         return None
 
-    match = ArtistInspector._get_valid_values_regex.search(docstring)
-    if match is not None:
-        return re.sub("\n *", " ", match.group(1))
+    # (pltrs: the expression cannot match a docstring without the word.)
+    if 'ACCEPTS:' in docstring:
+        match = ArtistInspector._get_valid_values_regex.search(docstring)
+        if match is not None:
+            return re.sub("\n *", " ", match.group(1))
 
     # Much faster than list(inspect.signature(func).parameters)[1],
     # although barely relevant wrt. matplotlib's total import time.
     param_name = code.co_varnames[1]
     # We could set the presence * based on whether the parameter is a
     # varargs (it can't be a varkwargs) but it's not really worth it.
-    match = re.search(fr"(?m)^ *\*?{param_name} : (.+)", docstring)
-    if match:
-        return match.group(1)
+    accepts = _parameter_type(docstring, param_name)
+    if accepts is not None:
+        return accepts
 
     return 'unknown'
+
+
+def _parameter_type(docstring, name):
+    """
+    The type the numpydoc entry of the parameter *name* gives in
+    *docstring*: the rest of its first line reading ``name : type`` after
+    spaces and at most one ``*``, or None. matplotlib finds it with the
+    expression ``(?m)^ *\\*?name : (.+)``; pltrs scans the lines, which
+    spares compiling an expression per parameter name at import.
+    """
+    prefix = f"{name} : "
+    for line in docstring.split("\n"):
+        entry = line.lstrip(" ")
+        if entry.startswith("*"):
+            entry = entry[1:]
+        if entry.startswith(prefix) and len(entry) > len(prefix):
+            return entry[len(prefix):]
+    return None
 
 
 class ArtistInspector:

@@ -106,10 +106,11 @@ def _register_tables(style):
     ``_Style.__init_subclass__`` registers them, and interpolate the
     container's docstring with them, as its ``@_docstring.interpd`` does.
     """
+    table = style.pprint_styles()
     _docstring.interpd.register(**{
-        f"{style.__name__}:table": style.pprint_styles(),
+        f"{style.__name__}:table": table,
         f"{style.__name__}:table_and_accepts": (
-            style.pprint_styles()
+            table
             + "\n\n    .. ACCEPTS: ["
             + "|".join(map(" '{}' ".format, style._style_list))
             + "]")

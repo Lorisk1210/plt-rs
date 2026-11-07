@@ -20,6 +20,28 @@ from ._native import artist as _artist
 _log = logging.getLogger(__name__.rpartition(".")[0] + ".artist")
 
 
+def _pickable_axis_parts(root, figure, inaxes):
+    """
+    The parts of the axes of the Axes under *root* (itself an Axes, or a
+    figure) that the program made pickable (a tick's label,
+    ``set_yticklabels(..., picker=True)``), which matplotlib's pick reaches
+    through an Axes' ticks after its other children: those of *inaxes*, the
+    Axes under the pointer, alone when there is one.
+    """
+    from .axes import Axes
+    for ax in list(figure._artists.values()):
+        if not (isinstance(ax, Axes) and (inaxes is None or ax is inaxes)
+                and (root is ax or root is figure or ax.get_figure(root=False) is root)):
+            continue
+        for axis in ax._axis_map.values():
+            for ticks in getattr(axis, "_ticks", {}).values():
+                for tick in ticks:
+                    for part in (tick.tick1line, tick.tick2line, tick.gridline,
+                                 tick.label1, tick.label2):
+                        if part.get_picker() is not None:
+                            yield part
+
+
 def contains_untested(artist, mouseevent):
     """
     matplotlib's `.Artist.contains`, for the classes whose matplotlib
@@ -121,8 +143,8 @@ class PickingMixin:
                   if callable(artist.__dict__.get("_picker"))]
         order = _artist.pick_order(
             self._native, None if inaxes is None else inaxes._native, asking)
-        for native in order:
-            artist = figure._artists.get(_artist.id(native))
+        artists = [figure._artists.get(_artist.id(native)) for native in order]
+        for artist in [*artists, *_pickable_axis_parts(self, figure, inaxes)]:
             if artist is None:
                 # Picked natively, the artist has no object to report.
                 continue

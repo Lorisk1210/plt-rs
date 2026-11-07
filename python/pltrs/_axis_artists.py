@@ -66,6 +66,18 @@ class _AxisPart(_mirrors.Mirroring):
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 
+    def contains(self, artist, mouseevent):
+        # A label (the axis', its offset text, a tick's) holds the pointer
+        # within the box it was drawn in, as matplotlib's `.Text.contains`
+        # tests; a line part tests itself.
+        if isinstance(artist, Line2D):
+            return _mirrors.OWN
+        extent = self.owner._extent(artist)
+        if extent is None or not artist.get_visible():
+            return False, {}
+        x0, y0, x1, y1 = extent
+        return x0 <= mouseevent.x <= x1 and y0 <= mouseevent.y <= y1, {}
+
     def refresh(self, artist):
         self.owner._refresh(artist)
 

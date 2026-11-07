@@ -451,13 +451,23 @@ class Spine(Patch):
         # docstring inherited
         return super().get_patch_transform()
 
+    def _keeps_given_path(self):
+        """Whether the spine is drawn as the path given it, through its
+        transform: a spine of a type naming no side, drawn as a line
+        (cartopy's ``GeoSpine``, which sets its ``_path`` anew before it
+        draws), whose path is the one given, as matplotlib's is."""
+        return "_pushed_path" in self.__dict__ and self._patch_type == "line"
+
     def get_path(self):
         # Return the path of the spine: that of a linear spine in data along
         # its axis and axes fractions across it (spanning the view where it
-        # was last drawn or measured), the others in display coordinates,
-        # where pltrs (Rust) lays them out.
+        # was last drawn or measured), the one given a spine drawn as it,
+        # the others in display coordinates, where pltrs (Rust) lays them
+        # out.
         if self._is_linear:
             return self._linear_path()
+        if self._keeps_given_path():
+            return self._path
         vertices, codes = _spines.display_path(self._native) or ([[0, 0]], None)
         # One path, its vertices moved as the spine is laid out again, as
         # matplotlib moves those of its ``_path``.
@@ -473,7 +483,7 @@ class Spine(Patch):
     def get_transform(self):
         """Return the transform of the spine's path: the identity for the
         spines whose `get_path` is in display coordinates."""
-        if self._is_linear:
+        if self._is_linear or self._keeps_given_path():
             return super().get_transform()
         return IdentityTransform()
 

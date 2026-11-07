@@ -205,23 +205,6 @@ impl RawHandle {
         self.with_base(|base| base.painter.clone())
     }
 
-    /// Has the painters of the figure's artists measure them (see
-    /// [`ArtistPainter::measure`]), before it is laid out or its tight box
-    /// computed.
-    pub(crate) fn measure_painters(&self) {
-        let painted: Vec<(ArtistId, Painter)> = {
-            let state = self.figure_state().borrow();
-            state
-                .store
-                .ids()
-                .filter_map(|id| Some((id, state.artist(id)?.base().painter.clone()?)))
-                .collect()
-        };
-        for (id, painter) in painted {
-            painter.get().measure(&self.sibling(id));
-        }
-    }
-
     /// Prepares the painters a draw of the artist through `renderer`
     /// reaches (see [`ArtistPainter::prepare`]): those of the artists it
     /// owns and, with `itself`, its own.

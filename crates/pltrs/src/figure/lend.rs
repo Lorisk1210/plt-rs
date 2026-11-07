@@ -123,6 +123,15 @@ impl FigureCell {
         self.work_on(FigureState::prepare);
         self.borrow_mut()
     }
+
+    /// Write access to the state as it is between draws
+    /// ([`FigureState::prepare_as_is`]: no layout engine, no aspect
+    /// applied), for what matplotlib reads without laying the figure out:
+    /// whether a point hits an artist (`contains`, picking).
+    pub(crate) fn as_is(self: &Rc<Self>) -> std::cell::RefMut<'_, FigureState> {
+        self.work_on(FigureState::prepare_as_is);
+        self.borrow_mut()
+    }
 }
 
 /// The state lent back to its cell, taken out again when dropped.

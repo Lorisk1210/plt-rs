@@ -290,6 +290,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             targets: &targets,
             environment: &[],
             options: &[],
+            cache: false,
         }
         .outcomes_with_workers(library.workers, &variables)?;
         merged.merge(run, &ran_files);

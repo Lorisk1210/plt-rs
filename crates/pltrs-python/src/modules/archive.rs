@@ -31,7 +31,9 @@ use pltrs::dates::ZoneRules;
 use pltrs::figure::Figure;
 use pltrs::gridspec::{GridSpec, SubplotSpec};
 use pltrs::legend::LegendHandle;
-use pltrs::patches::{ArrowFn, BoxFn, ConnectFn, ProgramArrow, ProgramBox, ProgramConnection};
+use pltrs::patches::{
+    ArrowFn, BoxFn, ConnectFn, ProgramArrow, ProgramBox, ProgramConnection, ProgramRoute, RouteFn,
+};
 use pltrs::path::Path;
 use pltrs::patheffects::CustomPathEffect;
 use pltrs::projections::Projection;
@@ -86,6 +88,9 @@ enum Call {
     /// `f(posA, posB)`, a connection of the program's, returning the path
     /// connecting the points.
     Connection,
+    /// `f(posA, posB, shrinkA, shrinkB)`, a route of the program's,
+    /// returning the path drawn between the points.
+    Route,
     /// `f(vertices, codes, mutation_size, linewidth, aspect)`, an arrow
     /// style of the program's, returning the pieces of the arrow as
     /// `(path, filled)` pairs.
@@ -94,13 +99,14 @@ enum Call {
 
 impl Call {
     /// Every way of calling.
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Ticks,
         Self::Coordinates,
         Self::Values,
         Self::Arrays,
         Self::BoxStyle,
         Self::Connection,
+        Self::Route,
         Self::Arrow,
     ];
 
@@ -113,6 +119,7 @@ impl Call {
             Self::Arrays => "value-arrays",
             Self::BoxStyle => "box-style",
             Self::Connection => "connection-style",
+            Self::Route => "connection-route",
             Self::Arrow => "arrow-style",
         }
     }
@@ -148,6 +155,10 @@ impl Call {
                 let function: Rc<ConnectFn> = Rc::new(connection(callback));
                 (TypeId::of::<Rc<ConnectFn>>(), Box::new(function))
             }
+            Self::Route => {
+                let function: Rc<RouteFn> = Rc::new(route(callback));
+                (TypeId::of::<Rc<RouteFn>>(), Box::new(function))
+            }
             Self::Arrow => {
                 let function: Rc<ArrowFn> = Rc::new(arrow_pieces(callback));
                 (TypeId::of::<Rc<ArrowFn>>(), Box::new(function))
@@ -173,6 +184,17 @@ fn connection(callback: Callback) -> impl Fn(Point, Point) -> Path + 'static {
     move |a, b| {
         callback
             .call::<PyPath>(((a.x, a.y), (b.x, b.y)))
+            .map(|path| path.path)
+            .unwrap_or_default()
+    }
+}
+
+/// `f(posA, posB, shrinkA, shrinkB)`, the path drawn between the points;
+/// no path when it raised.
+fn route(callback: Callback) -> impl Fn((Point, Point), (f64, f64)) -> Path + 'static {
+    move |(a, b), (shrink_a, shrink_b)| {
+        callback
+            .call::<PyPath>(((a.x, a.y), (b.x, b.y), shrink_a, shrink_b))
             .map(|path| path.path)
             .unwrap_or_default()
     }
@@ -216,6 +238,16 @@ pub(crate) fn program_connection(callable: &Bound<'_>) -> PyResult<ProgramConnec
     Ok(ProgramConnection::with_origin(
         Rc::new(connection(callback)),
         function_external(callable, Call::Connection),
+    ))
+}
+
+/// The route of the program's `callable(posA, posB, shrinkA, shrinkB)`,
+/// archived as the callable.
+pub(crate) fn program_route(callable: &Bound<'_>) -> PyResult<ProgramRoute> {
+    let callback: Callback = callable.extract()?;
+    Ok(ProgramRoute::with_origin(
+        Rc::new(route(callback)),
+        function_external(callable, Call::Route),
     ))
 }
 

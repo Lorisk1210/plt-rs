@@ -84,12 +84,14 @@ def same_cycled(value, native):
 
 
 def same_color(a, b):
-    """Whether *a* and *b* are one colour."""
+    """Whether *a* and *b* are one colour (NaN components alike: matplotlib
+    takes a colour of NaNs, which mne gives a channel without a place)."""
     from . import colors
     try:
-        return colors.to_rgba(a) == colors.to_rgba(b)
+        first, second = colors.to_rgba(a), colors.to_rgba(b)
     except (TypeError, ValueError):
         return False
+    return first == second or np.array_equal(first, second, equal_nan=True)
 
 
 def prop_cycle(axes):

@@ -56,7 +56,9 @@ pub(crate) use fancy_arrow::round_ends;
 pub use fancy_arrow::{ArrowPatches, ArrowRoute, ArrowSpec, FancyArrowPatch};
 pub use fancy_box::FancyBboxPatch;
 pub use handle::{Patch, PatchColors};
-pub use program_styles::{ArrowFn, BoxFn, ConnectFn, ProgramArrow, ProgramBox, ProgramConnection};
+pub use program_styles::{
+    ArrowFn, BoxFn, ConnectFn, ProgramArrow, ProgramBox, ProgramConnection, ProgramRoute, RouteFn,
+};
 pub use props::PatchProps;
 pub use shadow::{Shadow, ShadowError};
 pub use shape::{DisplayPath, PatchShape, ShapeFrame};

@@ -83,8 +83,11 @@ impl Figure {
     /// Fires a pick event for every pickable artist under the pointer of
     /// `mouse`, parents before children, and for the pickable axes of an
     /// axes after its children (matplotlib's `Figure.pick`, which figures
-    /// run on every button press and scroll before other callbacks).
-    /// Nothing is picked while the widget lock is held.
+    /// run on every button press and scroll before other callbacks), in
+    /// the figure as it is between draws: a figure not drawn yet is hit
+    /// where its axes stand before their layout and aspect, as
+    /// matplotlib's `contains` finds them. Nothing is picked while the
+    /// widget lock is held.
     ///
     /// ```
     /// use std::cell::RefCell;
@@ -119,7 +122,7 @@ impl Figure {
         }
         let inaxes = mouse.location.inaxes.as_ref().map(ArtistHandle::id);
         let candidates = {
-            let state = self.state_cell().prepared();
+            let state = self.state_cell().as_is();
             pickable_artists(&state, self.raw().id(), inaxes, &|_| false)
         };
         let at = Point::new(mouse.location.x, mouse.location.y);
@@ -148,7 +151,7 @@ impl Figure {
     /// How `candidate` answers a pick at display point `at`, if it is
     /// still pickable and not missed by its own hit test.
     fn answer(&self, candidate: Candidate, at: Point) -> Option<Answer> {
-        let state = self.state_cell().prepared();
+        let state = self.state_cell().as_is();
         let layout = LayoutContext::new(&state);
         match candidate {
             Candidate::Artist(id) => {
@@ -201,7 +204,7 @@ impl Figure {
         let ids: Vec<ArtistId> = also.iter().map(RawHandle::id).collect();
         let inaxes = inaxes.map(ArtistHandle::id);
         let candidates = {
-            let state = self.state_cell().prepared();
+            let state = self.state_cell().as_is();
             pickable_artists(&state, root.id(), inaxes, &|id| ids.contains(&id))
         };
         candidates

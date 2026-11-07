@@ -143,6 +143,22 @@ impl Axes {
         self
     }
 
+    /// Whether autoscaling leaves the view limits where the margins put
+    /// them, unrounded by `axes.autolimit_mode` (matplotlib's `_tight`),
+    /// as [`Axes::autoscale_view`] and the other autoscaling calls last
+    /// set it; `false` at first.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(!ax.autoscales_tight());
+    /// ax.autoscale_view_along(Some(true), (false, false));
+    /// assert!(ax.autoscales_tight());
+    /// ```
+    pub fn autoscales_tight(&self) -> bool {
+        self.raw.with::<AxesState, _>(|axes| axes.tight)
+    }
+
     /// An equal aspect honoured by `adjustable`, which the axes take
     /// ([`Axes::axis_mode`] checks the data limits are adjustable).
     fn set_equal_aspect(&self, adjustable: Adjustable) {

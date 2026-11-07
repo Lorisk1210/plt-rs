@@ -105,16 +105,15 @@ impl AxisPainter<'_> {
             return None;
         }
         let (anchor, block) = self.offset_placement(cx.read(), label_boxes)?;
-        let style = &self.axis.major_style;
         let font = FontProperties {
-            size: style.label_size,
+            size: self.axis.offset_size,
             ..FontProperties::from_rc(rc)
         };
         Some(place_text_measured(
             cx,
             text,
             &font,
-            &style.label_color,
+            &self.axis.major_style.label_color,
             &block,
             anchor,
             rc,

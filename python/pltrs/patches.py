@@ -16,7 +16,8 @@ from numbers import Number, Real
 import numpy as np
 
 from . import _docstring
-from . import _api, _mirrors, _unusable, _values, cbook, colors as mcolors, units
+from . import (_api, _mirrors, _owned_paths, _unusable, _values, cbook,
+               colors as mcolors, units)
 from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
 from ._native import artist as _artist, patches as _patches
@@ -1092,13 +1093,28 @@ class PathPatch(Patch):
         """
         self._native = _patches.new_path_patch(path)
         super().__init__(**kwargs)
+        self._keep_path(path)
 
     def get_path(self):
         # docstring inherited
-        return self._native_path()
+        given = self.__dict__.get("_given_path")
+        return self._native_path() if given is None else given
 
     def set_path(self, path):
         _patches.set_path_shape(self._native, path)
+        self._keep_path(path)
+
+    def _keep_path(self, path):
+        """Keep *path*, which `get_path` gives, as matplotlib's patch keeps
+        and draws the very path it is given: what the program changes in
+        it reaches pltrs (Rust) (`._owned_paths`)."""
+        self.__dict__["_given_path"] = path
+        _owned_paths.hand_out([path], self._push_given_path)
+
+    def _push_given_path(self):
+        """Hand pltrs (Rust) the path given again, which the program
+        changed."""
+        self.set_path(self.__dict__["_given_path"])
 
     # matplotlib keeps the path as ``_path``, which subclasses read.
     _path = property(lambda self: self.get_path(), set_path)

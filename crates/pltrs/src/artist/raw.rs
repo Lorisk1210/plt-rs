@@ -250,13 +250,14 @@ impl RawHandle {
     }
 
     /// Whether display point `at` hits the artist in the figure's current
-    /// layout within the tolerance `radius` (the artist's own with
-    /// `None`), and which of its items (matplotlib's `contains`); `None`
-    /// when it misses. An artist removed from the figure, or made outside
+    /// layout, as it is between draws (no layout engine run, no aspect
+    /// applied, as matplotlib's `contains` reads it), within the tolerance
+    /// `radius` (the artist's own with `None`), and which of its items
+    /// (matplotlib's `contains`); `None` when it misses. An artist removed from the figure, or made outside
     /// any, is hit-tested where its transform puts it, as matplotlib's
     /// artists in no figure are.
     pub(crate) fn hit_test(&self, at: Point, radius: Option<f64>) -> Option<Vec<usize>> {
-        let state = self.figure.prepared();
+        let state = self.figure.as_is();
         let layout = LayoutContext::new(&state);
         state
             .store

@@ -336,6 +336,29 @@ impl Axis {
         self.read(|axis| axis.offset_visible)
     }
 
+    /// The font size of the offset (or scale) text in points: the tick
+    /// label size when the axis was made or cleared, which
+    /// [`Axes::tick_params`] leaves (matplotlib's `offsetText.get_fontsize`).
+    ///
+    /// ```
+    /// use pltrs::axes::TickParams;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let size = ax.yaxis().offset_text_size();
+    /// ax.tick_params(TickParams { labelsize: Some(20.0.into()), ..TickParams::default() });
+    /// assert_eq!(ax.yaxis().offset_text_size(), size);
+    /// ```
+    pub fn offset_text_size(&self) -> f64 {
+        self.read(|axis| axis.offset_size)
+    }
+
+    /// Sets the font size of the offset (or scale) text in points
+    /// (matplotlib's `offsetText.set_fontsize`).
+    pub fn set_offset_text_size(&self, size: f64) -> &Self {
+        self.update(|axis| axis.offset_size = size);
+        self
+    }
+
     /// Whether the axis runs from high to low values (matplotlib's
     /// `Axis.get_inverted`).
     pub fn inverted(&self) -> bool {

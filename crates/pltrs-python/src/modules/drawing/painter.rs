@@ -135,11 +135,14 @@ impl ArtistPainter for PythonPainter {
 
     /// The class' `get_tightbbox`, through the package's
     /// `measure_artist(artist)`: the extents of the box, None for no
-    /// space; an exception raises from the native call laying out.
+    /// space; an exception raises from the native call laying out. The
+    /// extent measured before does not count meanwhile: the class' own
+    /// asks for the tight box pltrs computes (`super().get_tightbbox`).
     fn measure(&self, _artist: &RawHandle) {
         if !self.measures {
             return;
         }
+        self.measured.set(MeasuredExtent::Unmeasured);
         let extents = Python::with_gil(|py| {
             let artist = self.artist(py)?;
             let measure: Callback = lookup(py, "measure_artist").ok()?.extract().ok()?;

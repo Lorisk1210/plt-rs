@@ -134,11 +134,15 @@ class ConstructionMixin:
         an Axes class of the program's draws through its own ``draw``
         (astropy's ``WCSAxes``), as matplotlib's figure draws its Axes,
         and autoscales through its own ``autoscale_view`` (cartopy's
-        ``GeoAxes``) when it is drawn."""
+        ``GeoAxes``) when it is drawn, and places its titles through its own
+        ``_update_title_position``."""
         _python_drawing.attach(self)
         if takes_from_program(type(self), "autoscale_view"):
             from . import _program_locators
             _program_locators.follow_autoscale(self, self._figure)
+        if self._places_titles() and self._autotitlepos:
+            # Lifted where the class lifts them (`_place_titles_by_program`).
+            self._autotitlepos = True
 
     def get_window_extent(self, renderer=None):
         """

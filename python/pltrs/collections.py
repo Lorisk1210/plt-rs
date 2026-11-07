@@ -22,6 +22,7 @@ from . import (_api, _live_transforms, _owned_paths, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors, lines as mlines,
                path as mpath, transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
+from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
 from .artist import Artist
@@ -499,6 +500,19 @@ class Collection(mcolorizer.ColorizingArtist):
     def get_window_extent(self, renderer=None):
         return self.get_datalim(mtransforms.IdentityTransform())
 
+    def _add_to_axes(self, axes, kind, autolim=True):
+        super()._add_to_axes(axes, kind, autolim)
+        if autolim and any(takes_from_program(type(self), name)
+                           for name in ("get_paths", "get_datalim")):
+            # matplotlib measures the collection through its `get_datalim`,
+            # which reads the paths a class of the program's gives
+            # (cartopy's ``FeatureArtist`` projects its geometries there):
+            # pltrs (Rust) counts the paths it holds, the class' measure
+            # adds to them, here and in `relim`.
+            axes._measure_in_relim(self)
+            axes._update_collection_limits(self)
+        return self
+
     def get_datalim(self, transData):
         # This operation depends on the transforms for the data in the
         # collection and whether the collection has offsets:
@@ -947,6 +961,21 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_edgecolor(self):
         return self._get("edgecolor")
+
+    @property
+    def _offsets(self):
+        """The offsets of the items, None without (matplotlib's attribute,
+        which `get_offsets` gives as a ``(1, 2)`` array of zeros then)."""
+        return self.get_offsets() if self._has_offsets() else None
+
+    @property
+    def _edgecolors(self):
+        """The RGBA edge colours, as drawn, or ``'face'`` while the edges
+        take the face colours (matplotlib's ``_edgecolors``, which
+        `get_edgecolor` gives in RGBA)."""
+        if cbook._str_equal(self._get("edgecolor_setting"), "face"):
+            return "face"
+        return self.get_edgecolor()
 
     def set_edgecolor(self, c):
         """

@@ -4,8 +4,12 @@ The view limits and bounds of an Axes and how it autoscales (matplotlib's
 ``get_autoscalex_on``, ``autoscale``,
 ``margins``, ``relim``, ``update_datalim``, ``use_sticky_edges``): pltrs
 (Rust) keeps them
-(``_native.axes_base``).
+(``_native.axes_base``). ``_update_collection_limits`` is matplotlib
+3.11.2's, under the Matplotlib License: it measures the collections of
+classes of the program's that give their own paths.
 """
+
+import weakref
 
 import numpy as np
 
@@ -450,6 +454,17 @@ class LimitsMixin:
                                   None if tight is None else bool(tight),
                                   bool(scalex), bool(scaley))
 
+    @property
+    def _tight(self):
+        # Whether autoscaling leaves the view limits unrounded by
+        # :rc:`axes.autolimit_mode` (matplotlib's attribute, which
+        # ``autoscale_view(tight=...)`` sets; cartopy's ``GeoAxes`` sets it).
+        return _axes_base.get_tight(self._native)
+
+    @_tight.setter
+    def _tight(self, tight):
+        _axes_base.set_tight(self._native, bool(tight))
+
     def get_xmargin(self):
         """
         Retrieve autoscaling margin of the x-axis.
@@ -641,6 +656,39 @@ class LimitsMixin:
                 # which one without data refuses.
                 image.get_extent()
         _axes_base.relim(self._native, bool(visible_only))
+        for collection in list(self.__dict__.get("_measured_in_relim", ())):
+            if collection.axes is self and (not visible_only or collection.get_visible()):
+                self._update_collection_limits(collection)
+
+    def _measure_in_relim(self, collection):
+        """Have `relim` measure *collection* through its `get_datalim`, as
+        matplotlib's measures the collections it counts (one of a class of
+        the program's giving its own paths, whose extent pltrs (Rust)
+        cannot measure), while it is a child of the Axes."""
+        self.__dict__.setdefault("_measured_in_relim", weakref.WeakSet()).add(collection)
+
+    def _update_collection_limits(self, collection):
+        """Update the data limits for the given collection."""
+        datalim = collection.get_datalim(self.transData)
+        points = datalim.get_points()
+        if not np.isinf(datalim.minpos).all():
+            # By definition, if minpos (minimum positive value) is set
+            # (i.e., non-inf), then min(points) <= minpos <= max(points),
+            # and minpos would be superfluous. However, we add minpos to
+            # the call so that self.dataLim will update its own minpos.
+            # This ensures that log scales see the correct minimum.
+            points = np.concatenate([points, [datalim.minpos]])
+        # only update the dataLim for x/y if the collection uses transData
+        # in this direction.
+        x_is_data, y_is_data = (collection.get_transform()
+                                .contains_branch_separately(self.transData))
+        ox_is_data, oy_is_data = (collection.get_offset_transform()
+                                  .contains_branch_separately(self.transData))
+        self.update_datalim(
+            points,
+            updatex=x_is_data or ox_is_data,
+            updatey=y_is_data or oy_is_data,
+        )
 
     def has_data(self):
         """

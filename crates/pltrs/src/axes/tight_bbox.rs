@@ -24,6 +24,8 @@ impl Axes {
     /// labels, axis labels, offset texts, titles, spines with their ticks,
     /// inset axes and unclipped artists. `for_layout_only` leaves out the
     /// length of the axis labels and titles. `None` for invisible axes.
+    /// The painters of its artists measure them first, as matplotlib's
+    /// asks each artist for its tight box.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -34,6 +36,7 @@ impl Axes {
     /// assert!(tight.x0() < frame.x0() && tight.y0() < frame.y0());
     /// ```
     pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
+        self.raw().measure_painters_under();
         self.raw().figure_state().work_on(|state| {
             state.prepare();
             state.axes_tight_bbox(self.id(), for_layout_only)
@@ -171,13 +174,49 @@ impl FigureState {
     /// The extent the painter of `axes` measured, for an axes of a class
     /// of the program's measuring itself (astropy's
     /// `WCSAxes.get_tightbbox`, which draws its own ticks and labels to
-    /// measure them); unmeasured without such a painter.
-    fn measured_axes_extent(&self, axes: ArtistId) -> MeasuredExtent {
-        (self.store.get(axes))
+    /// measure them), with the margins it measured around the box of the
+    /// axes kept wherever a layout moved the axes since, its aspect
+    /// applied there (matplotlib's layouts ask the axes again in each of
+    /// their passes, and it applies its aspect first); unmeasured without
+    /// such a painter.
+    fn measured_axes_extent(&mut self, axes: ArtistId) -> MeasuredExtent {
+        let measured = (self.store.get(axes))
             .and_then(|artist| artist.base().painter.as_ref())
             .map_or(MeasuredExtent::Unmeasured, |painter| {
                 painter.get().measured_extent()
-            })
+            });
+        let MeasuredExtent::Extent(extent) = measured else {
+            return measured;
+        };
+        let Some(then) = self
+            .store
+            .get_as::<AxesState>(axes)
+            .and_then(|a| a.measured_at)
+        else {
+            return measured;
+        };
+        self.apply_aspect(axes);
+        self.axes_bbox(axes).map_or(measured, |now| {
+            MeasuredExtent::Extent(Bbox::from_extents(
+                extent.x0() + now.x0() - then.x0(),
+                extent.y0() + now.y0() - then.y0(),
+                extent.x1() + now.x1() - then.x1(),
+                extent.y1() + now.y1() - then.y1(),
+            ))
+        })
+    }
+
+    /// Notes the box `axes` has as its painter measured it (see
+    /// [`measured_axes_extent`](Self::measured_axes_extent)); nothing for
+    /// an artist that is no axes.
+    pub(crate) fn note_measured_axes(&mut self, axes: ArtistId) {
+        if self.store.get_as::<AxesState>(axes).is_none() {
+            return;
+        }
+        let at = self.axes_bbox(axes);
+        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            state.measured_at = at;
+        }
     }
 
     /// The box of `axes` and its tight box (with full decorations) at its

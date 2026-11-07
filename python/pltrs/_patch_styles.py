@@ -15,6 +15,7 @@ import functools
 import inspect
 from types import SimpleNamespace
 import textwrap
+import weakref
 
 import numpy as np
 
@@ -484,11 +485,29 @@ _register_tables(ArrowStyle)
 del _name, _arrow, _params, _base, _style
 
 
-def _connect_plain(style, posA, posB):
-    """The path a connection style of the program's that is a plain
-    callable gives between *posA* and *posB*, unshrunk (pltrs (Rust)
-    clips and shrinks it as ``ConnectionStyle._Base`` does)."""
-    return style(posA, posB, 0., 0., None, None)
+class _PlainRoute:
+    """
+    A connection style of the program's that is a plain callable, as
+    pltrs (Rust) calls it (a route, see ``_native.patch_styles``): with the
+    patches at the ends of the arrow drawn with it and the shrinking in
+    pixels, as matplotlib's arrows call it, its path drawn as it is
+    (networkx's self loops ignore the shrinking). The arrow is held weakly
+    and not pickled: the style of an arrow read back gets no patches.
+    """
+
+    def __init__(self, style, arrow=None):
+        self.style = style
+        self._arrow = None if arrow is None else weakref.ref(arrow)
+
+    def __getstate__(self):
+        return {"style": self.style, "_arrow": None}
+
+    def __call__(self, posA, posB, shrinkA, shrinkB):
+        arrow = None if self._arrow is None else self._arrow()
+        return self.style(posA, posB,
+                          patchA=getattr(arrow, "patchA", None),
+                          patchB=getattr(arrow, "patchB", None),
+                          shrinkA=shrinkA, shrinkB=shrinkB)
 
 
 def _arrow_pieces(style, vertices, codes, mutation_size, linewidth, aspect):
@@ -507,14 +526,15 @@ def calls_program(style):
     return not (isinstance(style, _Described) and type(style)._spec_name is not None)
 
 
-def _native_spec(style, registry):
+def _native_spec(style, registry, owner=None):
     """
     *style* of *registry* (a name, which *registry* validates, or a style
     object) as the native side takes it: a style of matplotlib's as its
     description string; a style of the program's as what pltrs (Rust)
     calls where it draws with it: a box style itself, a connection
-    style's ``connect`` (that of a plain callable, `_connect_plain`), an
-    arrow style through `_arrow_pieces`.
+    style's ``connect`` (a plain callable as a `_PlainRoute` of the arrow
+    *owner*, ``("route", route)``), an arrow style through
+    `_arrow_pieces`.
     """
     if isinstance(style, str):
         style = registry(style)
@@ -524,8 +544,7 @@ def _native_spec(style, registry):
         raise TypeError(f"{style!r} is not a {registry.__name__}")
     if registry is ConnectionStyle:
         connect = getattr(style, "connect", None)
-        return connect if connect is not None else functools.partial(
-            _connect_plain, style)
+        return connect if connect is not None else ("route", _PlainRoute(style, owner))
     if registry is ArrowStyle:
         return functools.partial(_arrow_pieces, style)
     return style

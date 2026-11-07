@@ -74,11 +74,23 @@ impl AxisState {
 }
 
 impl FigureState {
-    /// Moves the titles of `axes` up so that their bottom clears the top
-    /// of the axes and of its twins' and insets' x axis decorations, then
-    /// aligns them (matplotlib's `_update_title_position`). Titles placed
-    /// by `axes.titley` stay put.
+    /// [`lift_titles`](Self::lift_titles) as the figure is laid out:
+    /// titles the program places stay put.
     pub(crate) fn update_title_position(&mut self, axes: ArtistId) {
+        let placement = self
+            .store
+            .get_as::<AxesState>(axes)
+            .map(|a| a.title_placement);
+        if placement != Some(TitlePlacement::Program) {
+            self.lift_titles(axes);
+        }
+    }
+
+    /// Moves the titles of `axes` up so that their bottom clears the top
+    /// of the axes and of its twins' and insets' x axis decorations, the
+    /// insets placed first, then aligns them (matplotlib's
+    /// `_update_title_position`). Titles placed by `axes.titley` stay put.
+    pub(crate) fn lift_titles(&mut self, axes: ArtistId) {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;
         };
@@ -89,6 +101,10 @@ impl FigureState {
             || !titles.iter().any(|&title| self.has_text(title))
         {
             return;
+        }
+        // The insets are placed first, where their locators put them.
+        for child in self.child_axes(axes) {
+            self.apply_aspect(child);
         }
         let group = self.title_group(axes);
         let Some(extent) = self.axes_bbox(axes) else {

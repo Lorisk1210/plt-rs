@@ -1,11 +1,11 @@
 //! `cargo xtask ecosystem [setup | suite ... | PYTEST ARGS...]`: pltrs
 //! (Python) as matplotlib under the libraries that import matplotlib by
 //! name: pandas, seaborn, xarray, networkx, scikit-learn, statsmodels,
-//! geopandas, plotnine, shap, astropy, cartopy, sympy, nilearn, arviz,
-//! mplfinance, matplotlib-venn, pytest-mpl, mpl-scatter-density and
-//! missingno (`libraries`).
+//! geopandas, plotnine, shap, lifelines, yellowbrick, astropy, cartopy,
+//! sympy, nilearn, arviz, scanpy, mne, mplfinance, matplotlib-venn,
+//! pytest-mpl, mpl-scatter-density and missingno (`libraries`).
 //!
-//! * `ecosystem setup` makes the ecosystem's venvs with uv, downloads
+//! * `ecosystem setup` makes the ecosystem's venvs with uv (`venvs`), downloads
 //!   the libraries' source trees (`setup`) and the data their tests read
 //!   (`data`), and makes the baselines of the image comparisons whose own
 //!   are for another matplotlib (`baselines`);
@@ -22,9 +22,11 @@
 mod baselines;
 mod data;
 mod libraries;
+mod metadata;
 mod setup;
 mod site;
 mod suite;
+mod venvs;
 
 pub(crate) use setup::fetch_command;
 

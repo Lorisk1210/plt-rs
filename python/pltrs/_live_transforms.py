@@ -18,6 +18,7 @@ import weakref
 
 import numpy as np
 
+from . import _owned_paths
 from ._native import register as _register, transforms as _transforms
 from .transforms import (
     Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
@@ -177,7 +178,14 @@ class _ProgramMap:
     def transform_path(self, vertices, codes, steps=1):
         """The `.Path` of *vertices* and *codes* (with *steps*
         interpolation steps) through the transform: the one computed last
-        while the path and the transform stay the same."""
+        while the path and the transform stay the same. The path an
+        artist was given or handed out with that content, if one lives, is
+        mapped itself, anew, as matplotlib's collections and patches map
+        their own at every draw (programs keep what they computed by path:
+        cartopy's projections), and not kept."""
+        held = _owned_paths.held(vertices, codes, steps)
+        if held is not None:
+            return self._transform.transform_path(held)
         key = (vertices.tobytes(), None if codes is None else codes.tobytes(), steps)
         if self._cached is None or self._cached[0] != key:
             path = Path(vertices, codes, _interpolation_steps=steps)

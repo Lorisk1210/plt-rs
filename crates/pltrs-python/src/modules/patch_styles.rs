@@ -10,7 +10,7 @@
 use pltrs::patches::{ArrowStyle, BoxShape, BoxStyle, ConnectionStyle, PatchError, StyleError};
 use pltrs_core::Point;
 
-use super::archive::{program_arrow, program_box, program_connection};
+use super::archive::{program_arrow, program_box, program_connection, program_route};
 use super::path::{PathArrays, PyPath, path_arrays};
 use crate::binding::prelude::*;
 
@@ -34,16 +34,23 @@ impl FromPy<'_> for PyBoxStyle {
 }
 
 /// A connection style as Python gives it: the description of one of
-/// matplotlib's styles, or a connection of the program's, `connect(posA,
-/// posB)` returning the path between the points.
+/// matplotlib's styles, a connection of the program's, `connect(posA,
+/// posB)` returning the path between the points, or a route of the
+/// program's, `("route", route)`, `route(posA, posB, shrinkA, shrinkB)`
+/// returning the path drawn.
 pub(super) struct PyConnectionStyle(pub(super) ConnectionStyle);
 
 impl FromPy<'_> for PyConnectionStyle {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        match object.extract::<String>() {
-            Ok(spec) => spec.parse().map(Self).map_err(style_error),
-            Err(_) => Ok(Self(ConnectionStyle::Program(program_connection(object)?))),
+        if let Ok(spec) = object.extract::<String>() {
+            return spec.parse().map(Self).map_err(style_error);
         }
+        if let Ok((kind, route)) = object.extract::<(String, Bound<'_>)>()
+            && kind == "route"
+        {
+            return Ok(Self(ConnectionStyle::ProgramRoute(program_route(&route)?)));
+        }
+        Ok(Self(ConnectionStyle::Program(program_connection(object)?)))
     }
 }
 

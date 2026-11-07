@@ -67,8 +67,11 @@ pub trait DateLocator: Locator {
     /// Units between ticks (matplotlib's `_get_interval`).
     fn interval(&self) -> f64;
 
-    /// Tick locations (date numbers) between two date-times in the
-    /// locator's zone, `dmin <= dmax` (matplotlib's `tick_values`).
+    /// Tick locations (date numbers) between two date-times, `dmin <=
+    /// dmax` (matplotlib's `tick_values`). As matplotlib's, the ticks are
+    /// placed on the wall clock of the dates' zone (that of `dmin`), not
+    /// necessarily the locator's: a rule with a zone of its own runs in
+    /// that one ([`RRuleLocator::with_rule_tz`]).
     fn tick_dates(
         &self,
         dmin: &ZonedDateTime,
@@ -80,6 +83,7 @@ impl From<DateError> for TickerError {
     fn from(err: DateError) -> Self {
         match err {
             DateError::NonFinite(_) => Self::NonFinite("date number"),
+            DateError::Overflow => Self::DateOverflow,
             other => Self::InvalidParameter {
                 name: "date",
                 reason: other.to_string(),

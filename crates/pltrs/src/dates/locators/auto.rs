@@ -258,8 +258,10 @@ impl AutoDateLocator {
         Ok(self)
     }
 
-    /// Picks the delegate locator for the range `dmin..dmax` (either order;
-    /// both in this locator's zone), matplotlib's `get_locator`.
+    /// Picks the delegate locator for the range `dmin..dmax` (either order),
+    /// matplotlib's `get_locator`: on the wall clock of the dates' zone,
+    /// which the delegate's ticks are then placed in by
+    /// [`DateLocator::tick_dates`].
     pub fn get_locator(
         &self,
         dmin: &ZonedDateTime,
@@ -355,12 +357,12 @@ impl AutoDateLocator {
 
 /// The number of years, months, days, hours, minutes, seconds and
 /// microseconds spanned (matplotlib mixes `relativedelta` and `timedelta`
-/// fields here, and so do we).
+/// fields here, and so do we), on the wall clock of the dates' zone (on
+/// the instants between two zones, as Python subtracts them).
 fn tick_counts(dmin: &ZonedDateTime, dmax: &ZonedDateTime) -> Result<[f64; 7], DateError> {
-    let (lo, hi) = (dmin.local(), dmax.local());
-    let mut delta = RelativeDelta::between(hi, lo)?;
-    let mut span = hi - lo;
-    if lo > hi {
+    let mut delta = RelativeDelta::between_zoned(dmax, dmin)?;
+    let mut span = dmax.since(dmin)?;
+    if dmin.compare(dmax)?.is_gt() {
         delta = -delta;
         span = span.checked_neg().ok_or(DateError::Overflow)?;
     }

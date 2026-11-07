@@ -12,8 +12,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use pltrs::dates::{
-    AutoDateLocator, AutoFrequency, ChosenLocator, DateTime, Frequency, LocatorChoice, NthWeekday,
-    RRule, RRuleLocator, RRuleSpec, TimeZone, UtcOffset, Weekday, YearLocator, ZoneInfo,
+    AutoDateLocator, AutoFrequency, ChosenLocator, DateError, DateTime, Frequency, LocatorChoice,
+    NthWeekday, RRule, RRuleLocator, RRuleSpec, TimeZone, UtcOffset, Weekday, YearLocator,
+    ZoneInfo, ZonedDateTime, date2num,
 };
 use pltrs::ticker::Locator;
 
@@ -57,6 +58,35 @@ impl FromPy<'_> for Zone {
         }
         let seconds: i32 = object.extract()?;
         Ok(Self(TimeZone::Fixed(UtcOffset::from_seconds(seconds)?)))
+    }
+}
+
+/// A Python `datetime` as `(parts, zone, fold)`: its calendar parts, its
+/// zone as [`Zone`] takes it (`None` when it is naive) and its `fold`.
+struct PyDateTime {
+    local: DateTime,
+    zone: Option<TimeZone>,
+    fold: bool,
+}
+
+impl FromPy<'_> for PyDateTime {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let (parts, zone, fold): (Parts, Option<Zone>, bool) = object.extract()?;
+        Ok(Self {
+            local: datetime(parts)?,
+            zone: zone.map(|Zone(tz)| tz),
+            fold,
+        })
+    }
+}
+
+impl PyDateTime {
+    /// The date-time, a naive one read on the wall clock of `naive` (as a
+    /// rule with a zone of its own reads naive dates, and `date2num` reads
+    /// them in UTC).
+    fn zoned(self, naive: &TimeZone) -> ZonedDateTime {
+        ZonedDateTime::from_local(self.local, self.zone.unwrap_or_else(|| naive.clone()))
+            .with_fold(self.fold)
     }
 }
 
@@ -187,26 +217,67 @@ fn rrule_before(rule: Rule, dt: Parts, inc: bool) -> PyResult<Option<Parts>> {
     Ok(last)
 }
 
-/// The locator of a ticker spec of a date kind: `"date_rrule"` (its
-/// `rule` and `tz`) or `"date_year"` (its `base`, `month`, `day` and
-/// `tz`); `None` for other kinds.
+/// The `RRuleLocator` of a `"date_rrule"` spec: its `rule`, `tz` and
+/// `rule_tz` (the zone of matplotlib's `rrulewrapper`, `None` for none).
+fn rrule_locator(spec: &Bound<'_>) -> PyResult<RRuleLocator> {
+    let Rule(rule) = dict_value(spec, "rule")?;
+    let Zone(tz) = dict_value(spec, "tz")?;
+    let locator = RRuleLocator::new(rule).with_tz(tz);
+    Ok(match dict_value::<Option<Zone>>(spec, "rule_tz")? {
+        Some(Zone(rule_tz)) => locator.with_rule_tz(rule_tz),
+        None => locator,
+    })
+}
+
+/// The `YearLocator` of a `"date_year"` spec: its `base`, `month`, `day`
+/// and `tz`.
+fn year_locator(spec: &Bound<'_>) -> PyResult<YearLocator> {
+    let Zone(tz) = dict_value(spec, "tz")?;
+    Ok(YearLocator::new(
+        dict_value(spec, "base")?,
+        dict_value(spec, "month")?,
+        dict_value(spec, "day")?,
+    )?
+    .with_tz(tz))
+}
+
+/// The locator of a ticker spec of a date kind: `"date_rrule"`
+/// ([`rrule_locator`]) or `"date_year"` ([`year_locator`]); `None` for
+/// other kinds.
 pub(crate) fn date_locator(kind: &str, spec: &Bound<'_>) -> PyResult<Option<Box<dyn Locator>>> {
-    let zone = || -> PyResult<TimeZone> { Ok(dict_value::<Zone>(spec, "tz")?.0) };
     Ok(Some(match kind {
-        "date_rrule" => {
-            let Rule(rule) = dict_value(spec, "rule")?;
-            Box::new(RRuleLocator::new(rule).with_tz(zone()?))
-        }
-        "date_year" => Box::new(
-            YearLocator::new(
-                dict_value(spec, "base")?,
-                dict_value(spec, "month")?,
-                dict_value(spec, "day")?,
-            )?
-            .with_tz(zone()?),
-        ),
+        "date_rrule" => Box::new(rrule_locator(spec)?),
+        "date_year" => Box::new(year_locator(spec)?),
         _ => return Ok(None),
     }))
+}
+
+/// The ticks matplotlib's `tick_values(vmin, vmax)` of the locator of a
+/// `"date_rrule"` or `"date_year"` spec places, on the wall clock of the
+/// dates' own zone (naive dates in the rule's zone, else UTC), as date
+/// numbers; `None` when the rule has no occurrence there, for which
+/// matplotlib gives `date2num([vmin, vmax])`.
+fn rule_tick_values(spec: Owned, vmin: PyDateTime, vmax: PyDateTime) -> PyResult<Option<NdArray>> {
+    let found = Python::with_gil(|py| {
+        let spec = spec.bind(py);
+        let kind: String = dict_value(&spec, "kind")?;
+        PyResult::Ok(if kind == "date_rrule" {
+            let locator = rrule_locator(&spec)?;
+            let naive = locator.rule_tz().cloned().unwrap_or_default();
+            locator.occurrences(&vmin.zoned(&naive), &vmax.zoned(&naive))?
+        } else {
+            let naive = TimeZone::Utc;
+            year_locator(&spec)?.occurrences(&vmin.zoned(&naive), &vmax.zoned(&naive))?
+        })
+    })?;
+    if found.is_empty() {
+        return Ok(None);
+    }
+    let numbers = found
+        .iter()
+        .map(date2num)
+        .collect::<Result<Vec<f64>, DateError>>()?;
+    Ok(Some(NdArray::from_vec(numbers)))
 }
 
 /// The `AutoDateLocator` of a spec: its `tz`, `minticks`, `maxticks` and
@@ -291,10 +362,12 @@ impl IntoPy for Choice {
 }
 
 /// The locator `AutoDateLocator` (the spec of `auto_locator`) delegates to
-/// for the view `(vmin, vmax)` (matplotlib's `get_locator`).
-fn auto_date_choice(spec: Owned, vmin: f64, vmax: f64) -> PyResult<Choice> {
+/// from `dmin` to `dmax` (matplotlib's `get_locator`), counted on the wall
+/// clock of their zone (naive dates in UTC).
+fn auto_date_choice(spec: Owned, dmin: PyDateTime, dmax: PyDateTime) -> PyResult<Choice> {
     let locator = Python::with_gil(|py| auto_locator(&spec.bind(py)))?;
-    Ok(Choice(locator.choose(vmin, vmax)?))
+    let (dmin, dmax) = (dmin.zoned(&TimeZone::Utc), dmax.zoned(&TimeZone::Utc));
+    Ok(Choice(locator.get_locator(&dmin, &dmax)?))
 }
 
 /// Registers the module's functions.
@@ -302,5 +375,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("rrule_between", rrule_between)?;
     module.add("rrule_after", rrule_after)?;
     module.add("rrule_before", rrule_before)?;
+    module.add("rule_tick_values", rule_tick_values)?;
     module.add("auto_date_choice", auto_date_choice)
 }

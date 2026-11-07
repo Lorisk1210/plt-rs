@@ -24,6 +24,7 @@ pub(crate) mod contour_behaviour;
 pub(crate) mod contour_generator;
 pub(crate) mod cursor;
 pub(crate) mod dates;
+pub(crate) mod dates_tz;
 pub(crate) mod fancy;
 pub(crate) mod font_formats;
 pub(crate) mod image_behaviour;

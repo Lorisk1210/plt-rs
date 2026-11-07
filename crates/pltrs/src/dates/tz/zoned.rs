@@ -1,10 +1,11 @@
 //! Time-zone-aware date-times (Python's aware `datetime`).
 
+use std::cmp::Ordering;
 use std::fmt;
 
 use super::{TimeZone, UtcOffset};
 use crate::dates::strftime::strftime;
-use crate::dates::{DateError, DateTime};
+use crate::dates::{DateError, DateTime, TimeDelta};
 
 /// A wall-clock date-time in a [`TimeZone`].
 ///
@@ -87,6 +88,57 @@ impl ZonedDateTime {
         Self::from_local(local, self.tz.clone())
     }
 
+    /// The same wall-clock time and zone with another `fold`
+    /// (`replace(fold=...)`).
+    #[must_use]
+    pub const fn with_fold(mut self, fold: bool) -> Self {
+        self.fold = fold;
+        self
+    }
+
+    /// Python's `self - earlier` of aware date-times: the difference of
+    /// the wall clocks when both are in one zone, of the instants when
+    /// they are in two.
+    ///
+    /// ```
+    /// use pltrs::dates::{DateTime, TimeZone, UtcOffset, ZonedDateTime};
+    /// let east = TimeZone::Fixed(UtcOffset::from_seconds(3600)?);
+    /// let noon = DateTime::new(2020, 1, 1, 12, 0, 0, 0)?;
+    /// let utc = ZonedDateTime::utc(noon);
+    /// let there = ZonedDateTime::from_local(noon, east);
+    /// assert_eq!(utc.since(&there)?.total_seconds(), 3600.0);
+    /// assert_eq!(utc.since(&utc)?.total_seconds(), 0.0);
+    /// # Ok::<(), pltrs::dates::DateError>(())
+    /// ```
+    pub fn since(&self, earlier: &Self) -> Result<TimeDelta, DateError> {
+        Ok(if self.tz == earlier.tz {
+            self.local - earlier.local
+        } else {
+            self.to_utc()? - earlier.to_utc()?
+        })
+    }
+
+    /// Python's ordering of aware date-times: by wall clock within one
+    /// zone, by instant across two.
+    pub fn compare(&self, other: &Self) -> Result<Ordering, DateError> {
+        Ok(if self.tz == other.tz {
+            self.local.cmp(&other.local)
+        } else {
+            self.to_utc()?.cmp(&other.to_utc()?)
+        })
+    }
+
+    /// The wall-clock time in `tz` of this date-time
+    /// (`astimezone(tz).replace(tzinfo=None)`), which is its own when it
+    /// is in `tz` already.
+    pub fn local_in(&self, tz: &TimeZone) -> Result<DateTime, DateError> {
+        if &self.tz == tz {
+            Ok(self.local)
+        } else {
+            Ok(self.to_zone(tz.clone())?.local)
+        }
+    }
+
     /// The same zone and fold at another wall-clock time (Python's
     /// `replace()` of time fields).
     pub(crate) fn replace_local(&self, local: DateTime) -> Self {
@@ -135,5 +187,23 @@ mod tests {
             TimeZone::Fixed(UtcOffset::from_seconds(3600).unwrap()),
         );
         assert_eq!(early.to_utc(), Err(DateError::Overflow));
+    }
+
+    #[test]
+    fn python_compares_one_zone_on_the_wall_clock() {
+        let Ok(berlin) = TimeZone::named("Europe/Berlin") else {
+            return; // no system zoneinfo database
+        };
+        // 02:30 twice on 2020-10-25: CEST first, CET with fold.
+        let local = DateTime::new(2020, 10, 25, 2, 30, 0, 0).unwrap();
+        let first = ZonedDateTime::from_local(local, berlin.clone());
+        let second = first.clone().with_fold(true);
+        assert_eq!(first.compare(&second), Ok(Ordering::Equal));
+        assert_eq!(second.since(&first).unwrap().total_seconds(), 0.0);
+        let in_utc = ZonedDateTime::utc(second.to_utc().unwrap());
+        assert_eq!(first.compare(&in_utc), Ok(Ordering::Less));
+        assert_eq!(in_utc.since(&first).unwrap().total_seconds(), 3600.0);
+        assert_eq!(in_utc.local_in(&berlin), Ok(local));
+        assert_eq!(second.local_in(&TimeZone::Utc), Ok(in_utc.local()));
     }
 }

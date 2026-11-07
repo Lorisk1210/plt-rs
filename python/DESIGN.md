@@ -718,7 +718,13 @@ in Python (`axes/_units.py`: `_process_unit_info`, `_convert_dx`,
 dates and category names, keep their state in the native axis (its
 converter, unit and category names): `Axis.update_units` and
 `convert_units` hand their values to it (`axis_values`), and it installs
-their tick helpers. Any other converter is the program's: its axis keeps
+their tick helpers. Dates cross as date numbers with the zone of the first
+(`dates._axis_zone`), which becomes the unit of an axis without one, as
+matplotlib's `default_units` makes it; Python keeps the `tzinfo` itself as
+`Axis.units`, and `set_units` with a zone hands it over too. Date locators
+place ticks on the wall clock of the dates they are given
+(`tick_values(vmin, vmax)` passes their zones natively, `_zoned`), not
+necessarily the locator's. Any other converter is the program's: its axis keeps
 it in Python, `_update_axisinfo` installs its `AxisInfo` natively
 (`_tick_helpers.use_axis_info`, `Axis::take_axis_info`), and lines made
 from its values keep them (`_xorig`) to convert them again when the unit

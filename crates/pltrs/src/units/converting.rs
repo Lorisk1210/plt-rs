@@ -338,7 +338,14 @@ pub(crate) trait UnitHandle: Sized {
                 self.update_custom_units(&values);
                 true
             }
-            values => {
+            AxisValues::Dates { ref tz, .. } => {
+                // Dates new to the axis bring the date axis' info, its
+                // default view included (matplotlib's `_update_axisinfo`).
+                self.make_date_axis(tz.as_ref());
+                self.convert_plot_units(values);
+                true
+            }
+            values @ AxisValues::Categories(_) => {
                 self.convert_plot_units(values);
                 true
             }

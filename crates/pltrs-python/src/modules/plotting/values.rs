@@ -7,19 +7,21 @@ use pltrs::units::AxisValues;
 
 use crate::binding::prelude::*;
 use crate::modules::axis::{AnyAxis, AxisOwner};
+use crate::modules::dates::Zone;
 
 /// Values along an axis: a float array, a list of category names, or
-/// `("dates", numbers)` for dates as matplotlib's date numbers.
+/// `("dates", numbers, zone)` for dates as matplotlib's date numbers, with
+/// the zone of the first (`None` when it is naive).
 pub(crate) struct PyAxisValues(pub(crate) AxisValues);
 
 impl FromPy<'_> for PyAxisValues {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        if let Ok((tag, numbers)) = object.extract::<(String, NdArray)>()
+        if let Ok((tag, numbers, zone)) = object.extract::<(String, NdArray, Option<Zone>)>()
             && tag == "dates"
         {
             return Ok(Self(AxisValues::Dates {
                 numbers: numbers.into_vec()?,
-                tz: None,
+                tz: zone.map(|Zone(tz)| tz),
             }));
         }
         if object.type_name() == "list"

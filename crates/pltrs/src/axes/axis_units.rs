@@ -333,7 +333,7 @@ mod tests {
     use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateTime};
     use crate::figure::{Figure, Share};
     use crate::ticker::{AxisName, MultipleLocator};
-    use crate::units::DateConverter;
+    use crate::units::{AxisValues, DateConverter};
 
     /// 2020-01-01 at `hour` (UTC).
     fn at(hour: u32) -> DateTime {
@@ -397,6 +397,26 @@ mod tests {
             assert_eq!(labels(None)[0], "01-01 13");
             assert_eq!(labels(None), labels(Some(&berlin)));
         });
+    }
+
+    /// matplotlib's `update_units` with dates new to an axis updates its
+    /// axis info as `axis_date` does: the axes sharing it take its date
+    /// tick helpers too.
+    #[test]
+    fn updating_units_with_dates_shares_the_date_tickers() {
+        let fig = Figure::new();
+        let axs = fig
+            .subplots_shared(2, 1, Share::All, Share::None)
+            .expect("two axes");
+        let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
+        let dates = AxisValues::Dates {
+            numbers: vec![18_262.0],
+            tz: None,
+        };
+        assert!(top.xaxis().update_units(dates));
+        for ax in [top, bottom] {
+            assert_eq!(date_formatter(&ax.xaxis()), Some(DateConverter::Auto));
+        }
     }
 
     /// matplotlib's `update_units` sets the date ticks up only when the

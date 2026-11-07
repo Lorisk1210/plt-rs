@@ -46,6 +46,9 @@ pub enum TickerError {
     /// numpy's `arange` refused its interval, with numpy's message (an
     /// infinite or NaN length).
     Arange(&'static str),
+    /// A date-time computed beyond the years 1-9999, for which Python's
+    /// date arithmetic raises `OverflowError`.
+    DateOverflow,
 }
 
 pltrs_core::archive_enum!(TickerError {
@@ -60,6 +63,7 @@ pltrs_core::archive_enum!(TickerError {
     Unsupported(v0),
     Format(v0),
     Arange(v0),
+    DateOverflow,
 });
 
 impl TickerError {
@@ -70,7 +74,7 @@ impl TickerError {
             Self::NonPositiveLogData | Self::NotAnInteger { infinite: false } | Self::Arange(_) => {
                 DrawErrorKind::InvalidValue
             }
-            Self::NotAnInteger { infinite: true } => DrawErrorKind::Overflow,
+            Self::NotAnInteger { infinite: true } | Self::DateOverflow => DrawErrorKind::Overflow,
             Self::PolarLogit => DrawErrorKind::Unsupported,
             Self::TickKeywordTwice(_) => DrawErrorKind::InvalidType,
             _ => DrawErrorKind::Other,
@@ -112,6 +116,7 @@ impl fmt::Display for TickerError {
             Self::Unsupported(what) => write!(f, "unsupported: {what}"),
             Self::Format(err) => err.fmt(f),
             Self::Arange(message) => f.write_str(message),
+            Self::DateOverflow => f.write_str("date value out of range"),
         }
     }
 }

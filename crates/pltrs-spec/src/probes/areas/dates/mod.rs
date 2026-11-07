@@ -16,7 +16,7 @@ mod support;
 
 pub(crate) use auto::{auto_call, auto_locator};
 pub(crate) use conversions::{date2num_op, drange_op, num2date_op, num2timedelta_op};
-pub(crate) use fixed::{rrule_spec, year_call};
+pub(crate) use fixed::{FixedLocator, fixed_locator, rrule_spec, year_call};
 pub(crate) use formatters::{auto_format_ticks, concise_format_ticks, concise_formatter};
 pub(crate) use support::{date_num, ticks, zone_arg, zoned};
 

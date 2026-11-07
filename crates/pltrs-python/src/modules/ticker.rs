@@ -33,12 +33,14 @@ use crate::binding::prelude::*;
 
 impl From<TickerError> for PyErr {
     /// matplotlib's `ValueError` for invalid parameters and data,
-    /// Python's `OverflowError` for an infinity rounded to an integer,
-    /// `NotImplementedError` for a logit radial axis and `TypeError` for a
-    /// tick that cannot be made.
+    /// Python's `OverflowError` for an infinity rounded to an integer and
+    /// a date beyond the year 9999, `NotImplementedError` for a logit
+    /// radial axis and `TypeError` for a tick that cannot be made.
     fn from(err: TickerError) -> Self {
         let kind = match err {
-            TickerError::NotAnInteger { infinite: true } => ExceptionKind::OverflowError,
+            TickerError::NotAnInteger { infinite: true } | TickerError::DateOverflow => {
+                ExceptionKind::OverflowError
+            }
             TickerError::PolarLogit => ExceptionKind::NotImplementedError,
             TickerError::TickKeywordTwice(_) => ExceptionKind::TypeError,
             _ => ExceptionKind::ValueError,

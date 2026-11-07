@@ -330,6 +330,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("ticker", areas::ticker::OPS),
     ("scales", areas::scales::OPS),
     ("dates", areas::dates::OPS),
+    ("dates_tz", areas::dates_tz::OPS),
     ("transforms", areas::transforms::OPS),
     ("path", areas::path::OPS),
     ("markers", areas::markers::OPS),

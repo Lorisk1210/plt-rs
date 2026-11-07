@@ -50,8 +50,28 @@ const SMALLER_THAN_A_TOOTH: &str = "a box smaller than one tooth makes matplotli
 const UNSORTED_BOUNDARIES: &str = "matplotlib's BoundaryNorm does not check that its \
      boundaries increase and then maps every value outside the colormap; pltrs rejects them";
 
+const NAIVE_RULE_PAST_9999: &str = "a naive view whose rule would stop past the year 9999: \
+     matplotlib stops it at the last second in UTC, an aware date-time its rrulewrapper refuses \
+     to end a naive rule with (ValueError); pltrs (Rust) has no naive date-times and stops its \
+     UTC rule there (pltrs (Python) raises matplotlib's ValueError)";
+
 /// Every waiver, grouped by area.
 pub const WAIVERS: &[Waiver] = &[
+    Waiver {
+        op: "dates_tz.locate",
+        args: r#"{"via": "tick_values", "view": ["9999-12-31T00:00:00", "9999-12-31T12:00:00"]}"#,
+        reason: NAIVE_RULE_PAST_9999,
+    },
+    Waiver {
+        op: "dates_tz.locate",
+        args: r#"{"via": "tick_values", "view": ["9999-12-20T00:00:00", "9999-12-31T00:00:00"]}"#,
+        reason: NAIVE_RULE_PAST_9999,
+    },
+    Waiver {
+        op: "dates_tz.locate",
+        args: r#"{"via": "tick_values", "view": ["9999-12-31T12:00:00", "9999-12-31T23:59:59"]}"#,
+        reason: NAIVE_RULE_PAST_9999,
+    },
     Waiver {
         op: "colors.from_levels_and_colors",
         args: r#"{"levels": [2.0, 1.0, 0.0]}"#,

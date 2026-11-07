@@ -5,6 +5,8 @@
 //! data there, while [`TzFile`](super::TzFile), `dateutil`'s reading,
 //! takes the version 1 data alone.
 
+use std::path::{Component, Path};
+
 use super::posix::{self, LocalType, TzRule};
 use crate::dates::{DateError, DateTime, TimeDelta};
 
@@ -160,6 +162,52 @@ impl ZoneInfo {
             before,
             after,
         })
+    }
+
+    /// The zone `key` as `zoneinfo.ZoneInfo(key)` finds and reads it: the
+    /// first file of its default search path (`zoneinfo.TZPATH`, the
+    /// directories [`TzFile::find`](super::TzFile::find) searches too),
+    /// else the zone pltrs bundles under that name (dateutil's, standing
+    /// in for the `tzdata` package, as on Windows).
+    ///
+    /// ```
+    /// use pltrs::dates::{DateTime, TimeZone, ZoneInfo, ZonedDateTime};
+    /// let zone = ZoneInfo::find("Australia/Lord_Howe")?;
+    /// assert_eq!(zone.key(), "Australia/Lord_Howe");
+    /// let winter = DateTime::new(2020, 7, 1, 12, 0, 0, 0)?;
+    /// let there = ZonedDateTime::from_local(winter, TimeZone::Info(zone.into()));
+    /// assert_eq!(there.isoformat(), "2020-07-01T12:00:00+10:30");
+    /// assert!(ZoneInfo::find("../etc/passwd").is_err());
+    /// # Ok::<(), pltrs::dates::DateError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`DateError::UnknownTimeZone`] when neither has the zone, or the
+    /// key is no relative path inside the search path (`zoneinfo` refuses
+    /// those too).
+    pub fn find(key: &str) -> Result<Self, DateError> {
+        let unknown = || DateError::UnknownTimeZone(key.to_owned());
+        let path = Path::new(key);
+        if key.is_empty()
+            || path
+                .components()
+                .any(|c| !matches!(c, Component::Normal(_)))
+        {
+            return Err(unknown());
+        }
+        super::tzfile::TZ_PATHS
+            .iter()
+            .map(|dir| Path::new(dir).join(path))
+            .find(|file| file.is_file())
+            .and_then(|file| std::fs::read(file).ok())
+            .map_or_else(
+                || {
+                    let (_, data) = super::bundled::zone(key).ok_or_else(unknown)?;
+                    Self::parse(data, key)
+                },
+                |data| Self::parse(&data, key),
+            )
     }
 
     /// The zone's key.

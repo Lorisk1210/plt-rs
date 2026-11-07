@@ -423,15 +423,24 @@ def _category(name, axis):
     return getattr(category, name)(units._mapping if units is not None else {})
 
 
+def _date_zone(axis):
+    """The zone of the date helpers pltrs (Rust) gave *axis*: its unit
+    (matplotlib's converters make them with ``tz=unit``), when a zone."""
+    import datetime
+    units = axis.units
+    return units if isinstance(units, datetime.tzinfo) else None
+
+
 def _date_locator(spec, axis):
     from . import dates
-    return dates.AutoDateLocator()
+    return dates.AutoDateLocator(tz=_date_zone(axis))
 
 
 def _date_formatter(cls_name):
     def make(spec, axis):
         from . import dates
-        return getattr(dates, cls_name)(axis.get_major_locator())
+        return getattr(dates, cls_name)(axis.get_major_locator(),
+                                        tz=_date_zone(axis))
     return make
 
 

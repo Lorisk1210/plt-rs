@@ -7,8 +7,9 @@
 //! CPUs with AVX-512 (`X86_V4`, as on the machine the goldens are made on)
 //! with Intel's x86-simd-sort:
 //!
-//! * an array with NaN goes to libstdc++'s `std::sort` (NaN last), an
-//!   array already in order keeps its indices;
+//! * an array with NaN goes to C++'s `std::sort` (NaN last), which
+//!   [`fallback`] reproduces as GCC's standard library sorts; an array
+//!   already in order keeps its indices;
 //! * up to 256 values are sorted by bitonic networks ([`network`]);
 //! * longer arrays are partitioned around a median of eight samples, four
 //!   registers at a time, down to network-sized ranges ([`partition`]);
@@ -24,7 +25,7 @@
 //! assert_eq!(argsort(&[1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0]), vec![1, 3, 7, 5, 2, 0, 4, 6, 8]);
 //! ```
 
-mod introsort;
+mod fallback;
 mod network;
 mod partition;
 
@@ -39,7 +40,7 @@ pub fn argsort(values: &[f64]) -> Vec<usize> {
         return indices;
     }
     if values.iter().any(|v| v.is_nan()) {
-        introsort::sort(&mut indices, |a, b| nan_last_less(values[a], values[b]));
+        fallback::sort(&mut indices, |a, b| nan_last_less(values[a], values[b]));
     } else if !values.is_sorted() {
         let max_iters = 2 * values.len().ilog2() as usize;
         partition::sort(values, &mut indices, max_iters);

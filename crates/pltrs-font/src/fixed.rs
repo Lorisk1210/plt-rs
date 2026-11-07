@@ -7,6 +7,9 @@
 //! products and FreeType's vector length and normalisation. Like FreeType
 //! on 64-bit platforms they compute in 64 bits and wrap on overflow, which
 //! only hostile font data reaches.
+//!
+//! FreeType's arithmetic is copyright David Turner, Robert Wilhelm and
+//! Werner Lemberg, and ported here under the FreeType License (FTL).
 
 /// `FT_MulFix`: `a * b / 65536`, rounded half away from zero.
 pub(crate) const fn mul_fix(a: i64, b: i64) -> i64 {

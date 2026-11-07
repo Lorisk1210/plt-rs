@@ -2,6 +2,10 @@
 //! it: normalized so that the vertical scale is one unit per em, in 16.16,
 //! with an offset in whole font units, and applied to glyph outlines in
 //! font units before they are scaled.
+//!
+//! FreeType's handling of the matrix is copyright David Turner, Robert
+//! Wilhelm and Werner Lemberg, and ported here under the FreeType License
+//! (FTL).
 
 use crate::fixed::{mul_div, mul_fix};
 use crate::outline::Outline;

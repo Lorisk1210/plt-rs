@@ -2,7 +2,7 @@
 //! [`network::MAX_KEYS`] keys are partitioned around a median of eight
 //! samples, four AVX-512 registers at a time (`argpartition_unrolled`).
 
-use super::{LANES, introsort, network};
+use super::{LANES, fallback, network};
 
 /// Registers each partition step takes in (`num_unroll`).
 const UNROLL: usize = 4;
@@ -11,10 +11,10 @@ const UNROLL: usize = 4;
 const BLOCK: usize = UNROLL * LANES;
 
 /// Sorts `indices` by their `values`, with `max_iters` more levels of
-/// partitions before libstdc++'s `std::sort` takes over.
+/// partitions before `std::sort` ([`fallback`]) takes over.
 pub(super) fn sort(values: &[f64], indices: &mut [usize], max_iters: usize) {
     if max_iters == 0 {
-        introsort::sort(indices, |a, b| values[a] < values[b]);
+        fallback::sort(indices, |a, b| values[a] < values[b]);
         return;
     }
     if indices.len() <= network::MAX_KEYS {

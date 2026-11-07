@@ -3,6 +3,9 @@
 //! indices and names, the font's metrics, the encoding vector `dviread`
 //! maps TeX character codes with, the Private dictionary's alignment
 //! zones, and glyph outlines, unhinted or hinted.
+//!
+//! FreeType's Type 1 driver is copyright David Turner, Robert Wilhelm and
+//! Werner Lemberg, and ported here under the FreeType License (FTL).
 
 mod charstrings;
 mod glyph;

@@ -10,6 +10,10 @@
 //! arcs are bisected until flat enough (`gray_render_cubic`). The contours
 //! are returned in those 24.8 units, for `pltrs_raster::render_glyph`,
 //! `FreeType`'s rasterizer.
+//!
+//! `FreeType`'s outline handling and flattening are copyright David
+//! Turner, Robert Wilhelm and Werner Lemberg, and ported here under the
+//! `FreeType` License (FTL).
 
 use pltrs_core::Point;
 use pltrs_font::{ScanOutline, ScanPointKind};

@@ -13,6 +13,9 @@
 //! coordinates with y up. Outlines whose glyph data asks for overlap
 //! handling (`FT_OUTLINE_OVERLAP`) are rendered four times oversampled in
 //! each direction and averaged, as `ft_smooth_raster_overlap` does.
+//!
+//! The rasterizer is copyright David Turner, Robert Wilhelm and Werner
+//! Lemberg, and ported here under the `FreeType` License (FTL).
 
 use crate::error::RasterError;
 use crate::mask::Mask;

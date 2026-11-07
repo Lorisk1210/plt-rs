@@ -19,10 +19,13 @@ build-backend = "pltrs_backend"
 backend-path = ["python/backend"]
 
 # What both distributions share: their links, and the licence files every
-# one carries (pltrs' own notices, and those of the code it ports and the
-# fonts and data it embeds; THIRD_PARTY.md lists them).
+# one carries (pltrs' own licence, MIT OR Apache-2.0, and the notices of
+# the code it ports and the fonts and data it embeds; THIRD_PARTY.md lists
+# them).
 [tool.pltrs-backend]
 license-files = [
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
     "THIRD_PARTY.md",
     "LICENSES/*.txt",
     "crates/pltrs-font/fonts/LICENSE_*",
@@ -38,6 +41,7 @@ Documentation = "https://github.com/Lorisk1210/plt-rs#python"
 [tool.pltrs-backend.pltrs]
 summary = "matplotlib's Python API over pltrs, matplotlib rebuilt in Rust"
 readme = "README.md"
+license = "MIT OR Apache-2.0"
 requires-python = ">=3.12"
 keywords = ["matplotlib", "plotting", "visualization", "graphics", "rust"]
 classifiers = [
@@ -67,6 +71,7 @@ dependencies = [
 [tool.pltrs-backend.matplotlib]
 summary = "matplotlib, mpl_toolkits and pylab as aliases of pltrs"
 requires-python = ">=3.12"
+license = "MIT OR Apache-2.0"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: Matplotlib",

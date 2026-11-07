@@ -7,6 +7,9 @@
 //! rows set the pixels whose centres lie inside, columns add the edges and
 //! drop-outs the rows missed. Thin features keep a pixel per scanline as
 //! the glyph's drop-out rules ask.
+//!
+//! `ftraster.c` is copyright David Turner, Robert Wilhelm and Werner
+//! Lemberg, and ported here under the `FreeType` License (FTL).
 
 mod profiles;
 mod sweep;

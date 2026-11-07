@@ -7,6 +7,9 @@
 //! `FT_Outline_Decompose`, including implied on-curve points between
 //! consecutive quadratic control points and the explicit closing line back to
 //! the contour start.
+//!
+//! `FT_Outline_Decompose` is copyright David Turner, Robert Wilhelm and
+//! Werner Lemberg, and ported here under the FreeType License (FTL).
 
 /// Receives a glyph outline, one contour at a time.
 ///

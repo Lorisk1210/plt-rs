@@ -1,0 +1,169 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "figure_enter_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": true, "inaxes": 0, "key": "p", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "p", "mode": "pan/zoom", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "p", "modifiers": [], "name": "key_release_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 174, "xdata": 4.0, "y": 148, "ydata": 4.97835}
+{"gui": false, "name": "draw_event"}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 143, "xdata": 4.0, "y": 125, "ydata": 3.98268}
+{"gui": false, "name": "draw_event"}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": null, "mode": "pan/zoom", "name": "view", "xlim": [2.0, 12.0], "xscale": "linear", "ylim": [0.995671, 10.9957], "yscale": "linear"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 143, "xdata": 5.0, "y": 125, "ydata": 4.97835}
+{"gui": false, "name": "draw_event"}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 205, "xdata": 7.0, "y": 148, "ydata": 5.97403}
+{"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 205, "xdata": 7.0, "y": 148, "ydata": 5.97403}
+{"button": 3, "buttons": [3], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 236, "xdata": 8.0, "y": 172, "ydata": 7.01299}
+{"gui": false, "name": "draw_event"}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": null, "mode": "pan/zoom", "name": "view", "xlim": [3.02836, 10.9716], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 7.79433, "y": 172, "ydata": 6.79193}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 7.79433, "y": 172, "ydata": 6.79193}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 205, "xdata": 7.0, "y": 148, "ydata": 5.97403}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "button_press_event", "step": 0, "x": 205, "xdata": 7.0, "y": 148, "ydata": 5.97403}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 174, "xdata": 6.20567, "y": 125, "ydata": 5.1902}
+{"gui": false, "name": "draw_event"}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": "x", "mode": "pan/zoom", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "button_release_event", "step": 0, "x": 174, "xdata": 7.0, "y": 125, "ydata": 5.1902}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "x", "mode": "pan/zoom", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_release_event", "x": 174, "xdata": 7.0, "y": 125, "ydata": 5.1902}
+{"gui": true, "inaxes": 0, "key": "p", "modifiers": [], "name": "key_press_event", "x": 174, "xdata": 7.0, "y": 125, "ydata": 5.1902}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "p", "mode": "", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "p", "modifiers": [], "name": "key_release_event", "x": 174, "xdata": 7.0, "y": 125, "ydata": 5.1902}
+{"gui": true, "inaxes": 0, "key": "o", "modifiers": [], "name": "key_press_event", "x": 174, "xdata": 7.0, "y": 125, "ydata": 5.1902}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "o", "mode": "zoom rect", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "o", "modifiers": [], "name": "key_release_event", "x": 174, "xdata": 7.0, "y": 125, "ydata": 5.1902}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 112, "xdata": 5.41134, "y": 79, "ydata": 3.62255}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 112, "xdata": 5.41134, "y": 79, "ydata": 3.62255}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 174, "xdata": 7.0, "y": 102, "ydata": 4.40637}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": null, "mode": "zoom rect", "name": "view", "xlim": [5.41134, 8.58866], "xscale": "linear", "ylim": [3.62255, 6.79193], "yscale": "linear"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": false, "name": "draw_event"}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 112, "xdata": 6.04681, "y": 79, "ydata": 4.25368}
+{"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 112, "xdata": 6.04681, "y": 79, "ydata": 4.25368}
+{"button": 3, "buttons": [3], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 236, "xdata": 7.31773, "y": 172, "ydata": 5.52967}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": null, "mode": "zoom rect", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 7.31773, "y": 172, "ydata": 5.52967}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 112, "xdata": 5.41134, "y": 79, "ydata": 3.62255}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "button_press_event", "step": 0, "x": 112, "xdata": 5.41134, "y": 79, "ydata": 3.62255}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": "y", "mode": "zoom rect", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [3.62255, 6.79193], "yscale": "linear"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "y", "mode": "zoom rect", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [3.62255, 6.79193], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 5.52967}
+{"gui": true, "inaxes": 0, "key": "o", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 5.52967}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "o", "mode": "", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [3.62255, 6.79193], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "o", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 5.52967}
+{"gui": true, "inaxes": 0, "key": "c", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 5.52967}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "c", "mode": "", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "c", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": true, "inaxes": 0, "key": "left", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "left", "mode": "", "name": "view", "xlim": [5.41134, 8.58866], "xscale": "linear", "ylim": [3.62255, 6.79193], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "left", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 7.31773, "y": 172, "ydata": 5.52967}
+{"gui": true, "inaxes": 0, "key": "v", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 7.31773, "y": 172, "ydata": 5.52967}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "v", "mode": "", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "v", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": true, "inaxes": 0, "key": "right", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "right", "mode": "", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [3.62255, 6.79193], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "right", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 5.52967}
+{"gui": true, "inaxes": 0, "key": "backspace", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 5.52967}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "backspace", "mode": "", "name": "view", "xlim": [3.82269, 11.766], "xscale": "linear", "ylim": [2.0549, 9.92724], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "backspace", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": true, "inaxes": 0, "key": "h", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 8.58866, "y": 172, "ydata": 6.79193}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "h", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "h", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"button": 8, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": null, "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"button": 8, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"button": 9, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"after": "button_release_event", "grid": [false, false, false, false], "key": null, "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"button": 9, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "r", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, false, false, false], "key": "r", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "r", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "g", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [true, false, false, false], "key": "g", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "g", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "g", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [true, true, false, false], "key": "g", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "g", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "G", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [true, false, false, false], "key": "G", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "G", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"after": "key_release_event", "grid": [true, false, false, false], "key": "shift", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "G", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [true, true, false, false], "key": "G", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "G", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"after": "key_release_event", "grid": [true, true, false, false], "key": "shift", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "g", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "g", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "g", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "l", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, true], "key": "l", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "log"}
+{"gui": true, "inaxes": 0, "key": "l", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 0.0}
+{"gui": true, "inaxes": 0, "key": "l", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 0.0}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "l", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "l", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "k", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "k", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "log", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "k", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 0.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 0.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "key": "L", "modifiers": [], "name": "key_press_event", "x": 236, "xdata": 0.0, "y": 172, "ydata": 6.01732}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "L", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "L", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "shift", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 236, "xdata": 6.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "axes_leave_event", "x": 10, "xdata": -1.29032, "y": 10, "ydata": -0.995671}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 10, "xdata": null, "y": 10, "ydata": null}
+{"gui": true, "inaxes": null, "key": "g", "modifiers": [], "name": "key_press_event", "x": 10, "xdata": null, "y": 10, "ydata": null}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "g", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": null, "key": "g", "modifiers": [], "name": "key_release_event", "x": 10, "xdata": null, "y": 10, "ydata": null}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"after": "scroll_event", "grid": [false, true, false, false], "key": "control", "mode": "", "name": "view", "xlim": [0.75, 9.25], "xscale": "linear", "ylim": [0.746753, 9.24675], "yscale": "linear"}
+{"button": "up", "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "control", "modifiers": ["ctrl"], "name": "scroll_event", "step": 1.0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "control", "mode": "", "name": "view", "xlim": [0.75, 9.25], "xscale": "linear", "ylim": [0.746753, 9.24675], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_release_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"after": "scroll_event", "grid": [false, true, false, false], "key": "x", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.746753, 9.24675], "yscale": "linear"}
+{"button": "down", "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "scroll_event", "step": -1.0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "x", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.746753, 9.24675], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_release_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": true, "inaxes": 0, "key": "h", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": false, "name": "draw_event"}
+{"after": "key_release_event", "grid": [false, true, false, false], "key": "h", "mode": "", "name": "view", "xlim": [0.0, 10.0], "xscale": "linear", "ylim": [0.0, 10.0], "yscale": "linear"}
+{"gui": true, "inaxes": 0, "key": "h", "modifiers": [], "name": "key_release_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": false, "name": "close_event"}
+{"gui": true, "inaxes": 0, "key": "q", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"name": "end"}

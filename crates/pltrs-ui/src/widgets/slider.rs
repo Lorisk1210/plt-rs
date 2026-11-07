@@ -290,7 +290,7 @@ impl<M: 'static> Widget<M> for Slider<M> {
                 button: MouseButton::Left,
                 ..
             } => self.dragging = false,
-            UiEvent::PointerEnter(_) | UiEvent::PointerLeave => cx.request_paint(),
+            UiEvent::PointerEnter(_) | UiEvent::PointerLeave(_) => cx.request_paint(),
             UiEvent::Key(key) => {
                 if let Some(value) = self.key_target(key) {
                     self.change(cx, value);

@@ -15,6 +15,7 @@ toolbar asks where with pltrs' file chooser, then saves with
 constrained layout too.
 """
 
+import collections
 import os
 import pathlib
 
@@ -186,6 +187,22 @@ class SubplotToolPltrs:
             fig.set_layout_engine(engine)
 
 
+class WindowEvent(collections.namedtuple(
+        "WindowEvent", "kind window x y modifiers buttons detail")):
+    """
+    What a pltrs window reported, which the matplotlib events made from it
+    keep as their ``guiEvent`` (as Qt's backend keeps the ``QEvent``):
+    *kind* (``"motion"``, ``"enter"``, ``"leave"``, ``"press"``,
+    ``"release"``, ``"scroll"``, ``"key_press"``, ``"key_release"``), the
+    *window*'s number, the pointer's *x* and *y* in physical pixels from
+    the canvas' top-left corner (None when it was never over the canvas),
+    the *modifiers* and mouse *buttons* held, and the *detail*: ``(button,
+    dblclick)`` for a press, the button for a release, the wheel's steps
+    for a scroll, the key's name for keys.
+    """
+    __slots__ = ()
+
+
 class TimerPltrs(TimerBase):
     """`.TimerBase` firing in the windows' event loop."""
 
@@ -263,8 +280,10 @@ class FigureCanvasPltrs(FigureCanvasAgg):
 
     def draw_idle(self):
         # docstring inherited
-        if not self._is_idle_drawing:
-            _pltrs_loop.draw_idle(self)
+        # As Qt's canvas: a draw asked for while drawing (a draw_event
+        # callback changing the figure) is another draw, once this one is
+        # done.
+        _pltrs_loop.draw_idle(self)
 
     def _draw_idle_now(self):
         """The idle draw `draw_idle` asked for, as the loop runs it."""
@@ -318,31 +337,36 @@ class FigureCanvasPltrs(FigureCanvasAgg):
             if self._subplot_tool is not None:
                 self._subplot_tool._apply(*event[2:])
             return
-        _, _, x, y, modifiers, buttons, detail = event
-        x, y = self._mpl_coords(x, y)
+        gui_event = WindowEvent(*event)
+        x, y = self._mpl_coords(gui_event.x, gui_event.y)
+        modifiers, detail = gui_event.modifiers, gui_event.detail
         if kind == "motion":
-            MouseEvent("motion_notify_event", self, x, y, buttons=buttons,
-                       modifiers=modifiers)._process()
+            MouseEvent("motion_notify_event", self, x, y,
+                       buttons=gui_event.buttons, modifiers=modifiers,
+                       guiEvent=gui_event)._process()
         elif kind == "enter":
             LocationEvent("figure_enter_event", self, x, y,
-                          modifiers=modifiers)._process()
+                          modifiers=modifiers, guiEvent=gui_event)._process()
         elif kind == "leave":
             LocationEvent("figure_leave_event", self, x, y,
-                          modifiers=modifiers)._process()
+                          modifiers=modifiers, guiEvent=gui_event)._process()
         elif kind == "press":
             button, dblclick = detail
             MouseEvent("button_press_event", self, x, y, button,
-                       dblclick=dblclick, modifiers=modifiers)._process()
+                       dblclick=dblclick, modifiers=modifiers,
+                       guiEvent=gui_event)._process()
         elif kind == "release":
             MouseEvent("button_release_event", self, x, y, detail,
-                       modifiers=modifiers)._process()
+                       modifiers=modifiers, guiEvent=gui_event)._process()
         elif kind == "scroll":
             MouseEvent("scroll_event", self, x, y, step=detail,
-                       modifiers=modifiers)._process()
+                       modifiers=modifiers, guiEvent=gui_event)._process()
         elif kind == "key_press":
-            KeyEvent("key_press_event", self, detail, x, y)._process()
+            KeyEvent("key_press_event", self, detail, x, y,
+                     guiEvent=gui_event)._process()
         elif kind == "key_release":
-            KeyEvent("key_release_event", self, detail, x, y)._process()
+            KeyEvent("key_release_event", self, detail, x, y,
+                     guiEvent=gui_event)._process()
 
     def _resize(self, width, height, scale_factor):
         """The window's canvas is *width* × *height* physical pixels at

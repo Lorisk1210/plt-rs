@@ -150,9 +150,11 @@ fn real_input_reaches_the_focused_window() {
     );
 
     driver.fake(FAKE_MOTION, 0, 1000, 700);
-    pump_until(&mut event_loop, "the pointer leaving", |e| {
-        is(e, window, &WindowEvent::CursorLeft)
-    });
+    pump_until(
+        &mut event_loop,
+        "the pointer leaving",
+        |e| matches!(e, Event::Window { window: w, event: WindowEvent::CursorLeft { position: Some(_) } } if *w == window),
+    );
 }
 
 #[test]

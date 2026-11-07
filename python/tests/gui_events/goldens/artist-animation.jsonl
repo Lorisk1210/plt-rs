@@ -1,0 +1,31 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"name": "drawn", "visible": ["frame 0", "frame 1", "frame 2", "frame 3", "frame 4", "frame 5", "frame 6", "frame 7"]}
+{"gui": false, "name": "draw_event"}
+{"name": "drawn", "visible": []}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 0"]}
+{"name": "drawn", "visible": ["frame 0"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 1"]}
+{"name": "drawn", "visible": ["frame 1"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 2"]}
+{"name": "drawn", "visible": ["frame 2"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 3"]}
+{"name": "drawn", "visible": ["frame 3"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 4"]}
+{"name": "drawn", "visible": ["frame 4"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 5"]}
+{"name": "drawn", "visible": ["frame 5"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 6"]}
+{"name": "drawn", "visible": ["frame 6"]}
+{"gui": false, "name": "draw_event"}
+{"name": "frame", "visible": ["frame 7"]}
+{"name": "drawn", "visible": ["frame 7"]}
+{"gui": false, "name": "draw_event"}
+{"gui": false, "name": "close_event"}
+{"name": "end"}

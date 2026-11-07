@@ -199,8 +199,10 @@ pub enum Event {
     AxesLeave(Location),
     /// The pointer entered the figure.
     FigureEnter(Location),
-    /// The pointer left the figure.
-    FigureLeave,
+    /// The pointer left the figure (the location is where it went, if
+    /// known, outside the figure: matplotlib leaves the axes it was over
+    /// until it moves over the figure again).
+    FigureLeave(Location),
     /// The figure was resized to `width × height` pixels.
     Resize {
         /// The new width in pixels.
@@ -230,7 +232,7 @@ impl Event {
             Self::AxesEnter(_) => EventKind::AxesEnter,
             Self::AxesLeave(_) => EventKind::AxesLeave,
             Self::FigureEnter(_) => EventKind::FigureEnter,
-            Self::FigureLeave => EventKind::FigureLeave,
+            Self::FigureLeave(_) => EventKind::FigureLeave,
             Self::Resize { .. } => EventKind::Resize,
             Self::Close => EventKind::Close,
             Self::Pick(_) => EventKind::Pick,
@@ -247,10 +249,11 @@ impl Event {
             | Self::Scroll(mouse)
             | Self::Pick(PickEvent { mouse, .. }) => Some(&mouse.location),
             Self::KeyPress(key) | Self::KeyRelease(key) => Some(&key.location),
-            Self::AxesEnter(location) | Self::AxesLeave(location) | Self::FigureEnter(location) => {
-                Some(location)
-            }
-            Self::FigureLeave | Self::Resize { .. } | Self::Close | Self::Draw => None,
+            Self::AxesEnter(location)
+            | Self::AxesLeave(location)
+            | Self::FigureEnter(location)
+            | Self::FigureLeave(location) => Some(location),
+            Self::Resize { .. } | Self::Close | Self::Draw => None,
         }
     }
 }

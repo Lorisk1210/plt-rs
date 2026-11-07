@@ -11,6 +11,7 @@ use pltrs_platform::{
 };
 
 use super::*;
+use crate::gui::input::InputKind;
 use crate::gui::window::toolbar_height;
 use crate::image::RgbaImage;
 
@@ -146,7 +147,8 @@ fn input_over_the_canvas_is_reported_in_matplotlibs_terms() {
                 double: false
             },
             &InputKind::Release { button: 1 },
-            &InputKind::Motion,
+            // The second click's motion to where the pointer is already
+            // is no event, as in Qt.
             &InputKind::Press {
                 button: 1,
                 double: true
@@ -160,7 +162,7 @@ fn input_over_the_canvas_is_reported_in_matplotlibs_terms() {
     assert_eq!(inputs[2].buttons, [1]);
     assert_eq!(inputs[3].buttons, []);
     assert_eq!(
-        inputs[7].position,
+        inputs[6].position,
         Some(Point::new(100.0, 50.0)),
         "keys report where the pointer is"
     );

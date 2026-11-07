@@ -179,10 +179,11 @@ fn inject_key(
 }
 
 /// Makes the display take the pointer out of its window `window`
-/// (`"leave"`) or ask to close it (`"close"`).
+/// (`"leave"`, not saying where to, as Wayland's compositors do) or ask
+/// to close it (`"close"`).
 fn inject_window(handle: Native<HeadlessHandle>, window: u64, kind: String) -> PyResult<()> {
     let event = match kind.as_str() {
-        "leave" => WindowEvent::CursorLeft,
+        "leave" => WindowEvent::CursorLeft { position: None },
         "close" => WindowEvent::CloseRequested,
         other => return Err(PyErr::value_error(format!("no window event {other:?}"))),
     };

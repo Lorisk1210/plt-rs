@@ -1,0 +1,59 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "figure_enter_event", "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"artist": "line", "button": 1, "gui": true, "ind": [0], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 222, "ydata": 8.18182}
+{"artist": "line", "button": 1, "gui": true, "ind": [0], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": true, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 222, "ydata": 8.18182}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 222, "ydata": 8.18182}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 226, "ydata": 8.35498}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 226, "ydata": 8.35498}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 226, "ydata": 8.35498}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"artist": "line", "button": 3, "gui": true, "ind": [0], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"artist": "line", "button": 2, "gui": true, "ind": [0], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 2, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": 2, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"artist": "line", "button": "up", "gui": true, "ind": [0], "mouse": "scroll_event", "name": "pick_event"}
+{"button": "up", "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "scroll_event", "step": 1.0, "x": 128, "xdata": 2.51613, "y": 218, "ydata": 8.00866}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 236, "xdata": 6.0, "y": 218, "ydata": 8.00866}
+{"artist": "marker", "button": 1, "gui": true, "ind": [0], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 236, "xdata": 6.0, "y": 218, "ydata": 8.00866}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 236, "xdata": 6.0, "y": 218, "ydata": 8.00866}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 112, "xdata": 2.0, "y": 79, "ydata": 1.99134}
+{"artist": "patch", "button": 1, "gui": true, "ind": null, "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 112, "xdata": 2.0, "y": 79, "ydata": 1.99134}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 112, "xdata": 2.0, "y": 79, "ydata": 1.99134}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 283, "xdata": 7.51613, "y": 148, "ydata": 4.97835}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 283, "xdata": 7.51613, "y": 148, "ydata": 4.97835}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 283, "xdata": 7.51613, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 298, "xdata": 8.0, "y": 148, "ydata": 4.97835}
+{"artist": "scatter", "button": 1, "gui": true, "ind": [1], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 298, "xdata": 8.0, "y": 148, "ydata": 4.97835}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 298, "xdata": 8.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 245, "xdata": 6.29032, "y": 82, "ydata": 2.12121}
+{"artist": "text", "button": 1, "gui": true, "ind": null, "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 245, "xdata": 6.29032, "y": 82, "ydata": 2.12121}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 245, "xdata": 6.29032, "y": 82, "ydata": 2.12121}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 90, "xdata": 1.29032, "y": 185, "ydata": 6.58009}
+{"artist": "legend", "button": 1, "gui": true, "ind": null, "mouse": "button_press_event", "name": "pick_event"}
+{"artist": "legend handle line", "button": 1, "gui": true, "ind": [1], "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 90, "xdata": 1.29032, "y": 185, "ydata": 6.58009}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 90, "xdata": 1.29032, "y": 185, "ydata": 6.58009}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 125, "xdata": 2.41935, "y": 184, "ydata": 6.5368}
+{"artist": "legend", "button": 1, "gui": true, "ind": null, "mouse": "button_press_event", "name": "pick_event"}
+{"artist": "legend text line", "button": 1, "gui": true, "ind": null, "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 125, "xdata": 2.41935, "y": 184, "ydata": 6.5368}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 125, "xdata": 2.41935, "y": 184, "ydata": 6.5368}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 165, "xdata": 3.70968, "y": 112, "ydata": 3.41991}
+{"artist": "legend", "button": 1, "gui": true, "ind": null, "mouse": "button_press_event", "name": "pick_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 165, "xdata": 3.70968, "y": 112, "ydata": 3.41991}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 165, "xdata": 3.70968, "y": 112, "ydata": 3.41991}
+{"gui": false, "name": "close_event"}
+{"name": "end"}

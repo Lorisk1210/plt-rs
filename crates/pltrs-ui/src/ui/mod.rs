@@ -209,7 +209,7 @@ impl<M: 'static> Ui<M> {
             WindowEvent::Resized(size) => self.resize(*size, self.scale_factor)?,
             WindowEvent::ScaleFactorChanged(scale) => self.resize(self.size(), *scale)?,
             WindowEvent::CursorEntered { position } => self.update_hot(Some(point(position))),
-            WindowEvent::CursorLeft => self.update_hot(None),
+            WindowEvent::CursorLeft { position } => self.pointer_left(position.as_ref().map(point)),
             WindowEvent::CursorMoved {
                 position,
                 modifiers,

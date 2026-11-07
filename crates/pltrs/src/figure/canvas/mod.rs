@@ -323,7 +323,7 @@ impl FigureCanvas {
     pub fn blit(&self, bbox: Option<&Bbox>) -> Result<(), CanvasError> {
         let (width, height) = self.figure.width_height();
         let region = match bbox {
-            Some(bbox) => PixelBox::covering(bbox, width, height)?,
+            Some(bbox) => PixelBox::repainted(bbox, width, height, self.device_pixel_ratio())?,
             None => PixelBox::canvas(width, height),
         };
         self.figure.state_mut().canvas.blitted(region);

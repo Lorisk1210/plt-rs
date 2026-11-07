@@ -62,6 +62,7 @@ mod help_dialog;
 mod host;
 pub(crate) mod icons;
 pub(crate) mod images;
+mod input;
 pub(crate) mod keys;
 mod options;
 mod save_dialog;
@@ -81,9 +82,9 @@ pub use desktop_entry::{
     remove_desktop_entry, remove_desktop_entry_from, user_data_dir,
 };
 pub use host::{
-    CanvasInput, HostEvent, HostTimerId, HostedWindowId, InputKind, ShortcutGroup, ToolImage,
-    ToolItem, WindowHost,
+    HostEvent, HostTimerId, HostedWindowId, ShortcutGroup, ToolImage, ToolItem, WindowHost,
 };
+pub use input::{CanvasInput, InputKind};
 pub use keys::format_shortcut;
 pub use pltrs_ui::Icon;
 pub use session::Session;

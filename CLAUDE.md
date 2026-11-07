@@ -186,6 +186,11 @@ must reproduce them.
   (into `~/.local/weston`) and `weston.sh run &`, then
   `WAYLAND_DISPLAY=wayland-pltrs cargo test -p pltrs-platform wayland`;
   `weston.sh run --debug` lets `weston.sh screenshot` capture the screen.
+  What programs see of the input in pltrs' windows is compared with
+  matplotlib's QtAgg windows by `python/tests/test_gui_events.py`, on a
+  private Xvfb and a weston nested in it (part of `cargo xtask python
+  test`); from `python/tests`, `.venv/bin/python -m gui_events [SCENARIO...]`
+  runs both side by side and `--record` records QtAgg's goldens.
 
 ## pltrs (Python): `python/`, `crates/pltrs-python`
 

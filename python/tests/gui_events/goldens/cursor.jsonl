@@ -1,0 +1,13 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "figure_enter_event", "x": 143, "xdata": 3.0, "y": 125, "ydata": 3.98268}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 143, "xdata": 3.0, "y": 125, "ydata": 3.98268}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 143, "xdata": 3.0, "y": 125, "ydata": 3.98268}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 267, "xdata": 7.0, "y": 172, "ydata": 6.01732}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "axes_leave_event", "x": 20, "xdata": -0.967742, "y": 20, "ydata": -0.562771}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 20, "xdata": null, "y": 20, "ydata": null}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": true, "inaxes": null, "modifiers": [], "name": "figure_leave_event", "x": 440, "xdata": null, "y": 150, "ydata": null}
+{"gui": false, "name": "close_event"}
+{"name": "end"}

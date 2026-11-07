@@ -178,10 +178,18 @@ fn the_pointer_reports_motion_buttons_and_scrolling() {
             .fixed(20.0),
     );
     let at = PhysicalPosition::new(10.5, 20.0);
-    expect(
+    let entered = expect(
         &mut backend,
         window,
         &WindowEvent::CursorEntered { position: at },
+    );
+    let came = WindowEvent::CursorMoved {
+        position: at,
+        modifiers: Modifiers::NONE,
+    };
+    assert!(
+        entered.contains(&came),
+        "the entry is a motion too: {entered:?}"
     );
     wait_requests(&mut backend, &fake, "wl_pointer", 0, 1);
     for x in [30.0, 40.0] {
@@ -248,7 +256,11 @@ fn the_pointer_reports_motion_buttons_and_scrolling() {
         &wheel(ScrollDelta::Pixels { x: -2.5, y: 0.0 }),
     );
     fake.send(Request::new(pointer, 1).uint(10).uint(id));
-    expect(&mut backend, window, &WindowEvent::CursorLeft);
+    expect(
+        &mut backend,
+        window,
+        &WindowEvent::CursorLeft { position: None },
+    );
 }
 
 #[test]

@@ -1,7 +1,6 @@
 //! `_native.axes`: axes and their plotting methods (matplotlib's
 //! `axes`).
 
-use pltrs::artist::ArtistHandle;
 use pltrs::axes::{Axes, AxisName, Limits, PlotError};
 use pltrs::lines::Line2D;
 use pltrs::patches::{Patch, Rectangle};
@@ -135,27 +134,11 @@ fn axspan(
     })
 }
 
-/// The data coordinates of the display point `(x, y)`
-/// (`ax.transData.inverted().transform((x, y))`); `ValueError` when the
-/// data transform cannot be inverted.
-fn display_to_data(axes: Axes, x: f64, y: f64) -> PyResult<(f64, f64)> {
-    let figure = axes.figure();
-    let to_display = figure
-        .resolve_transform_as_is(&axes.trans_data())
-        .map_err(|err| PyErr::value_error(err.to_string()))?;
-    let to_data = to_display
-        .inverted()
-        .ok_or_else(|| PyErr::value_error("the data transform of the axes is singular"))?;
-    let point = to_data.transform_point(pltrs::transforms::Point::new(x, y));
-    Ok((point.x, point.y))
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     titles::register(module)?;
     children::register(module)?;
     callbacks::register(module)?;
-    module.add("display_to_data", display_to_data)?;
     module.add("axline", axline)?;
     module.add("axspan", axspan)?;
     module.add("get_xlabel", get_xlabel)?;

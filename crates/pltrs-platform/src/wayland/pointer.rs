@@ -251,6 +251,17 @@ impl WaylandBackend {
             let position = self.content_position(window);
             if let Some(cursor) = self.windows.get(&window).map(|state| state.cursor) {
                 emit(out, window, WindowEvent::CursorEntered { position });
+                // The pointer came there by moving, as X11 and Windows
+                // report it with the crossing.
+                let modifiers = self.modifiers();
+                emit(
+                    out,
+                    window,
+                    WindowEvent::CursorMoved {
+                        position,
+                        modifiers,
+                    },
+                );
                 self.show_cursor(window, Shape::Icon(cursor))?;
             }
             return Ok(());
@@ -270,7 +281,8 @@ impl WaylandBackend {
             return Ok(());
         };
         if target == Target::Content {
-            emit(out, window, WindowEvent::CursorLeft);
+            // The compositor does not tell where the pointer went.
+            emit(out, window, WindowEvent::CursorLeft { position: None });
         } else if let Some(decorations) = &mut state.decorations
             && decorations.set_buttons(None, None)
         {

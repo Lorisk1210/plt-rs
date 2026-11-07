@@ -122,12 +122,13 @@ impl X11Backend {
             return;
         }
         state.pointer_inside = entered;
+        let position = input::position(pointer);
         let event = if entered {
-            WindowEvent::CursorEntered {
-                position: input::position(pointer),
-            }
+            WindowEvent::CursorEntered { position }
         } else {
-            WindowEvent::CursorLeft
+            WindowEvent::CursorLeft {
+                position: Some(position),
+            }
         };
         self.emit(out, pointer.window, event);
     }

@@ -1,0 +1,30 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "figure_enter_event", "x": 100, "xdata": 3.54839, "y": 150, "ydata": 5.06494}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 100, "xdata": 3.54839, "y": 150, "ydata": 5.06494}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 100, "xdata": 3.54839, "y": 150, "ydata": 5.06494}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 100, "xdata": 3.54839, "y": 150, "ydata": 5.06494}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": "shift", "modifiers": ["shift"], "name": "motion_notify_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 150, "ydata": 5.06494}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "shift", "modifiers": ["shift"], "name": "button_press_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 150, "ydata": 5.06494}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "shift", "modifiers": ["shift"], "name": "button_release_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 150, "ydata": 5.06494}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 110, "xdata": 4.25806, "y": 150, "ydata": 5.06494}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_press_event", "x": 110, "xdata": 4.25806, "y": 150, "ydata": 5.06494}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": "control", "modifiers": ["ctrl"], "name": "motion_notify_event", "step": 0, "x": 120, "xdata": 4.96774, "y": 150, "ydata": 5.06494}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "control", "modifiers": ["ctrl"], "name": "button_press_event", "step": 0, "x": 120, "xdata": 4.96774, "y": 150, "ydata": 5.06494}
+{"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": "control", "modifiers": ["ctrl"], "name": "motion_notify_event", "step": 0, "x": 130, "xdata": 5.67742, "y": 160, "ydata": 5.49784}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "control", "modifiers": ["ctrl"], "name": "button_release_event", "step": 0, "x": 130, "xdata": 5.67742, "y": 160, "ydata": 5.49784}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_release_event", "x": 130, "xdata": 5.67742, "y": 160, "ydata": 5.49784}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_press_event", "x": 130, "xdata": 5.67742, "y": 160, "ydata": 5.49784}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 140, "xdata": 6.3871, "y": 150, "ydata": 5.06494}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "button_press_event", "step": 0, "x": 140, "xdata": 6.3871, "y": 150, "ydata": 5.06494}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "button_release_event", "step": 0, "x": 140, "xdata": 6.3871, "y": 150, "ydata": 5.06494}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_release_event", "x": 140, "xdata": 6.3871, "y": 150, "ydata": 5.06494}
+{"gui": true, "inaxes": null, "modifiers": [], "name": "figure_leave_event", "x": 440, "xdata": null, "y": 150, "ydata": null}
+{"gui": true, "inaxes": null, "key": "a", "modifiers": [], "name": "key_press_event", "x": 440, "xdata": null, "y": 150, "ydata": null}
+{"gui": true, "inaxes": null, "key": "a", "modifiers": [], "name": "key_release_event", "x": 440, "xdata": null, "y": 150, "ydata": null}
+{"gui": true, "inaxes": null, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 440, "xdata": null, "y": 150, "ydata": null}
+{"gui": true, "inaxes": 0, "modifiers": ["shift"], "name": "figure_enter_event", "x": 100, "xdata": 3.54839, "y": 100, "ydata": 2.90043}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": "shift", "modifiers": ["shift"], "name": "motion_notify_event", "step": 0, "x": 100, "xdata": 3.54839, "y": 100, "ydata": 2.90043}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 100, "xdata": 3.54839, "y": 100, "ydata": 2.90043}
+{"gui": false, "name": "close_event"}
+{"name": "end"}

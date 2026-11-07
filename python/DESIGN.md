@@ -1493,6 +1493,28 @@ backend: the framework already running, else pltrs' own windows
   made (`cbook._get_running_interactive_framework`). A headless host
   (`_pltrs_loop.connect_headless`) opens windows off screen and takes
   injected input, for tests.
+
+  What a program sees of the user's input is what matplotlib's QtAgg
+  gives it, event for event (`pltrs::gui`'s canvas input, shared with
+  pltrs (Rust)'s `FigureWindow`): Qt's key names (`meta` for the Super
+  key, Caps Lock lowering letters, a modifier key left out of its own
+  name), no event for a motion that does not move, for a sideways wheel
+  or for Alt and the wheel, a leave held back until the last button is
+  released and reported where the pointer went, a draw asked for while
+  drawing done afterwards, and the blitted region Qt repaints. Every
+  event carries its `guiEvent` (`backend_pltrs.WindowEvent`). The
+  deliberate exceptions, dead keys composed and Shift+Tab reaching the
+  canvas, follow matplotlib's GTK and Tk backends.
+  `python/tests/test_gui_events.py` measures this: the scenarios of
+  `python/tests/gui_events` (pointer, wheel, keys, picking, resizing,
+  every widget and selector, the toolbar's shortcuts, animations) show a
+  figure in a real window of a private Xvfb, feed it input through the X
+  server (XTEST) and compare every `mpl_connect` event, what the widgets
+  report and the pixels they show with what matplotlib's program saw
+  under QtAgg (goldens recorded with `python -m gui_events --record`),
+  on X11 and on Wayland through a weston nested in the Xvfb.
+  `python -m gui_events` (from `python/tests`) runs matplotlib and pltrs
+  side by side.
 * **Tk** (`backends/_backend_tk.py`, `backend_tkagg.py`, matplotlib's)
   blits through `_tkagg`, pltrs' counterpart of matplotlib's C helper,
   which hands Tk the pixels with its photo commands, as PNG data.

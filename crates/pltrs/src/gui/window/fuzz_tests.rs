@@ -224,7 +224,11 @@ fn window_event(g: &mut Gen) -> WindowEvent {
         3 => WindowEvent::ScaleFactorChanged(g.pick(&[0.5, 1.0, 2.0, 1e-9, 1e-300, 1e9, 1e300])),
         4 => WindowEvent::Focused(g.chance(0.5)),
         5 => WindowEvent::RedrawRequested,
-        6 => WindowEvent::CursorLeft,
+        6 => WindowEvent::CursorLeft {
+            position: g
+                .chance(0.5)
+                .then(|| pltrs_platform::PhysicalPosition::new(g.pick(&[-1.0, 0.0, 5e3]), 12.0)),
+        },
         _ => WindowEvent::CloseRequested,
     }
 }

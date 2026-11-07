@@ -205,7 +205,7 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
                     cx.emit(enter.clone());
                 }
             }
-            UiEvent::PointerLeave => {
+            UiEvent::PointerLeave(_) => {
                 if let Some((_, leave)) = &self.hover {
                     cx.emit(leave.clone());
                 }

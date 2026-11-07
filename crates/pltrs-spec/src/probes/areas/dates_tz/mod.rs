@@ -2,7 +2,8 @@
 //! formatters and date axes of `matplotlib.dates` in time zones, with the
 //! argument conventions of `spec/reference/probes/_dates_tz.py`.
 //!
-//! Zones and dates are read in [`support`]; the operations are the
+//! Zones and dates are read in [`support`] (the zones the probes write as
+//! `tzinfo` classes in [`program`]); the operations are the
 //! [`conversions`], [`locate`] and the formatters and plots of [`axes`].
 //! Naive dates have no type of their own in pltrs (Rust): they are UTC,
 //! as `date2num` reads them, except where a recurrence rule with a zone
@@ -11,6 +12,7 @@
 mod axes;
 mod conversions;
 mod locate;
+mod program;
 mod support;
 
 use crate::probes::Op;

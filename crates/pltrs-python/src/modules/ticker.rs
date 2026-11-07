@@ -289,18 +289,21 @@ pub(super) fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
             spec, "fmt",
         )?)?),
         "scalar" => Box::new(scalar_formatter(spec)?),
-        "logit" => Box::new(
-            LogitFormatter::new()
-                .with_use_overline(dict_value(spec, "use_overline")?)
-                .with_one_half(dict_value::<String>(spec, "one_half")?)
-                .with_minor(dict_value(spec, "minor")?)
-                .with_minor_threshold(dict_value(spec, "minor_threshold")?)
-                .with_minor_number(dict_value(spec, "minor_number")?),
-        ),
+        "logit" => Box::new(logit_formatter(spec)?),
         "eng" => Box::new(eng_formatter(spec)?),
         "percent" => Box::new(percent_formatter(spec)?),
         _ => return Err(PyErr::value_error(format!("no formatter kind {kind:?}"))),
     })
+}
+
+/// The logit formatter a `"logit"` spec describes.
+fn logit_formatter(spec: &Bound<'_>) -> PyResult<LogitFormatter> {
+    Ok(LogitFormatter::new()
+        .with_use_overline(dict_value(spec, "use_overline")?)
+        .with_one_half(dict_value::<String>(spec, "one_half")?)
+        .with_minor(dict_value(spec, "minor")?)
+        .with_minor_threshold(dict_value(spec, "minor_threshold")?)
+        .with_minor_number(dict_value(spec, "minor_number")?))
 }
 
 /// The scalar formatter a `"scalar"` spec describes.
@@ -349,18 +352,25 @@ enum OffsetFormatter {
     Eng(EngFormatter),
 }
 
+impl OffsetFormatter {
+    /// The formatter of a `"scalar"` or an `"eng"` spec.
+    fn of(spec: &Owned) -> PyResult<Self> {
+        Python::with_gil(|py| {
+            let spec = spec.bind(py);
+            Ok(if dict_value::<String>(&spec, "kind")? == "eng" {
+                Self::Eng(eng_formatter(&spec)?)
+            } else {
+                Self::Scalar(scalar_formatter(&spec)?)
+            })
+        })
+    }
+}
+
 /// The offset and order of magnitude the scalar (or engineering)
 /// formatter `spec` gives the ticks `values` on the axis `info`
 /// (`ScalarFormatter.set_locs`).
 fn scalar_offset(spec: Owned, values: NdArray, info: Option<Owned>) -> PyResult<(f64, i32)> {
-    let formatter = Python::with_gil(|py| -> PyResult<_> {
-        let spec = spec.bind(py);
-        Ok(if dict_value::<String>(&spec, "kind")? == "eng" {
-            OffsetFormatter::Eng(eng_formatter(&spec)?)
-        } else {
-            OffsetFormatter::Scalar(scalar_formatter(&spec)?)
-        })
-    })?;
+    let formatter = OffsetFormatter::of(&spec)?;
     with_context(info, |ctx| {
         Ok(match &formatter {
             OffsetFormatter::Scalar(scalar) => scalar.offset_and_order(&values.data, ctx)?,
@@ -369,11 +379,24 @@ fn scalar_offset(spec: Owned, values: NdArray, info: Option<Owned>) -> PyResult<
     })
 }
 
-/// The printf format of the labels the scalar formatter `spec` gives the
-/// ticks at `values` on the axis `info` (matplotlib's `format`).
+/// The printf format of the labels the scalar (or engineering) formatter
+/// `spec` gives the ticks at `values` on the axis `info` (matplotlib's
+/// `format`).
 fn scalar_format(spec: Owned, values: NdArray, info: Option<Owned>) -> PyResult<String> {
-    let formatter = Python::with_gil(|py| scalar_formatter(&spec.bind(py)))?;
-    with_context(info, |ctx| Ok(formatter.label_format(&values.data, ctx)?))
+    let formatter = OffsetFormatter::of(&spec)?;
+    with_context(info, |ctx| {
+        Ok(match &formatter {
+            OffsetFormatter::Scalar(scalar) => scalar.label_format(&values.data, ctx)?,
+            OffsetFormatter::Eng(eng) => eng.label_format(&values.data, ctx)?,
+        })
+    })
+}
+
+/// The ticks among `values` the logit formatter `spec` labels
+/// (`LogitFormatter.set_locs`, kept as `_labelled`).
+fn logit_labelled(spec: Owned, values: NdArray) -> PyResult<Vec<f64>> {
+    let formatter = Python::with_gil(|py| logit_formatter(&spec.bind(py)))?;
+    Ok(formatter.labelled(&values.data))
 }
 
 /// `format_ticks(values)` of the formatter `spec` on the axis `info`: the
@@ -451,6 +474,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("format_ticks", format_ticks)?;
     module.add("scalar_offset", scalar_offset)?;
     module.add("scalar_format", scalar_format)?;
+    module.add("logit_labelled", logit_labelled)?;
     module.add("format_data", format_data)?;
     module.add("log_sublabels", log_sublabels)?;
     module.add("log_label", log_label)?;

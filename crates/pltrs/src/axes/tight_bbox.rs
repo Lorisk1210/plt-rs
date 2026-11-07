@@ -316,7 +316,7 @@ pub(super) fn axis_tight_bbox(
     painter: &AxisPainter<'_>,
     for_layout_only: bool,
 ) -> Option<Bbox> {
-    painter.axis.ticks_placed.set(true);
+    painter.axis.place_ticks();
     let texts = painter.texts(&mut { layout }, &painter.axes.rc);
     let label = texts.label.as_ref().map(|label| {
         let bbox = label.bbox();

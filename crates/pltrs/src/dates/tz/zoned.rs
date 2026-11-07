@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use super::{TimeZone, UtcOffset};
-use crate::dates::strftime::strftime;
+use crate::dates::strftime::{ZoneFields, strftime};
 use crate::dates::{DateError, DateTime, TimeDelta};
 
 /// A wall-clock date-time in a [`TimeZone`].
@@ -151,7 +151,7 @@ impl ZonedDateTime {
 
     /// Formats with a C-library/Python `strftime` format string.
     pub fn strftime(&self, format: &str) -> String {
-        strftime(format, self.local, Some((self.offset(), &self.tz_name())))
+        strftime(format, self.local, Some(&ZoneFields::new(self)))
     }
 
     /// Python's `isoformat()`, e.g. `2020-01-01T00:00:00+00:00`.

@@ -51,6 +51,17 @@ pub(super) struct ScalarLayout {
 }
 
 impl ScalarLayout {
+    /// The printf format of the labels (matplotlib's `format`): `%1.<n>f`,
+    /// in `$\mathdefault{...}$` with `math`.
+    pub(super) fn printf(&self, math: bool) -> String {
+        let format = format!("%1.{}f", self.decimals);
+        if math {
+            format!("$\\mathdefault{{{format}}}$")
+        } else {
+            format
+        }
+    }
+
     /// One tick label (matplotlib's `ScalarFormatter.__call__`), written
     /// with the conventions of `locale` if given.
     pub(super) fn label(
@@ -599,13 +610,7 @@ impl ScalarFormatter {
         if locs.is_empty() {
             return Ok(String::new());
         }
-        let layout = self.layout(locs, ctx.view_interval())?;
-        let format = format!("%1.{}f", layout.decimals);
-        Ok(if self.math() {
-            format!("$\\mathdefault{{{format}}}$")
-        } else {
-            format
-        })
+        Ok(self.layout(locs, ctx.view_interval())?.printf(self.math()))
     }
 
     /// The value with as many significant digits as needed to tell it

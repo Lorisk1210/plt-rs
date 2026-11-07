@@ -16,7 +16,7 @@ import datetime
 
 import numpy as np
 
-from . import _api, cbook, ticker, units
+from . import _api, _tick_state, cbook, ticker, units
 from ._date_locators import (  # noqa: F401  (matplotlib's dates defines them)
     MO, TU, WE, TH, FR, SA, SU, YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY,
     MINUTELY, SECONDLY, MICROSECONDLY, HOURS_PER_DAY, MIN_PER_HOUR,
@@ -200,17 +200,13 @@ def _axis_zone(values):
     """
     The zone of *values*, dates, as pltrs (Rust) takes it for the unit of
     the axis they are along: that of the first finite one
-    (`DateConverter.default_units`); None for a naive one, and for a zone
-    pltrs (Rust) has no model of.
+    (`DateConverter.default_units`); None for a naive one.
     """
     tz = DateConverter.default_units(values, None)
     if tz is None:
         return None
     from ._date_locators import _native_tz
-    try:
-        return _native_tz(tz)
-    except ValueError:
-        return None
+    return _native_tz(tz)
 
 
 def num2date(x, tz=None):
@@ -449,6 +445,7 @@ class ConciseDateFormatter(ticker.Formatter):
     offset_string = _api.deprecate_privatize_attribute(
         "3.11", alternative="get_offset()"
     )
+    _offset_string = _tick_state.ticked('')
 
     def __init__(self, locator, tz=None, formats=None, offset_formats=None,
                  zero_formats=None, show_offset=True, *, usetex=None):
@@ -648,6 +645,8 @@ class AutoDateFormatter(ticker.Formatter):
 
         formatter.scaled[1/(24*60)] = my_format_function
     """
+
+    _formatter = _tick_state.ticked()
 
     def __init__(self, locator, tz=None, defaultfmt='%Y-%m-%d', *,
                  usetex=None):

@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use super::Axis;
-use super::tick_set::TickSet;
+use super::tick_set::{Labelling, TickSet};
 use crate::artist::DrawContext;
 use crate::ticker::{AxisName, TickerError};
 
@@ -312,7 +312,10 @@ impl Axis {
         self.read(|axis| axis.ticks_placed.set(true));
         let (raw, name) = (&self.axes().raw, self.name());
         (raw.figure_state()).work_on(|state| state.place_ticks_as_is(raw.id(), name));
-        self.read(|axis| axis.ticks.as_ref().map(drop).map_err(Clone::clone))?;
+        self.read(|axis| {
+            axis.place_ticks();
+            axis.ticks.as_ref().map(drop).map_err(Clone::clone)
+        })?;
         Ok(self)
     }
 
@@ -327,7 +330,10 @@ impl Axis {
         self.read(|axis| axis.ticks_placed.set(true));
         let (raw, name) = (&self.axes().raw, self.name());
         (raw.figure_state()).work_on(|state| state.place_level_as_is(raw.id(), name, minor));
-        self.read(|axis| axis.ticks.as_ref().map(drop).map_err(Clone::clone))?;
+        self.read(|axis| {
+            axis.place_ticks();
+            axis.ticks.as_ref().map(drop).map_err(Clone::clone)
+        })?;
         Ok(self)
     }
 
@@ -342,6 +348,19 @@ impl Axis {
                 .then(|| axis.ticks.as_ref().ok().cloned())
                 .flatten()
         })
+    }
+
+    /// The number of the tick update that placed the axis' ticks last,
+    /// when it labelled their major (or `minor`) level (see
+    /// [`TickSet::labelled`]), without computing them; `None` otherwise.
+    pub fn labelled(&self, minor: bool) -> Option<u64> {
+        self.read(|axis| axis.ticks.as_ref().ok()?.labelled(minor))
+    }
+
+    /// What that update gave the formatter of the level (see
+    /// [`TickSet::labelling`]), without computing the ticks.
+    pub fn labelling(&self, minor: bool) -> Option<Labelling> {
+        self.read(|axis| axis.ticks.as_ref().ok()?.labelling(minor))
     }
 }
 

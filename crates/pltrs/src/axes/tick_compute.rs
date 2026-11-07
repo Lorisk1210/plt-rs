@@ -12,8 +12,8 @@ use super::{AxesState, TickLevels};
 use crate::artist::ArtistHandle;
 use crate::figure::FigureState;
 use crate::ticker::{
-    AxisInfo, AxisName, LogitLocator, OverlapTolerance, TickContext, TickerError, TickerSettings,
-    drawable_ticks,
+    AxisInfo, AxisName, Locator, LogitLocator, NullLocator, OverlapTolerance, TickContext,
+    TickerError, TickerSettings, drawable_ticks,
 };
 use crate::transforms::{TransformContext, interval_contains_close};
 
@@ -126,11 +126,25 @@ impl AxisState {
         self.install_ticks(ticks);
     }
 
+    /// Counts the axis' ticks as placed by one of matplotlib's tick
+    /// updates (see [`Axis::ticks_placed`] and [`TickSet::labelled`]).
+    ///
+    /// [`Axis::ticks_placed`]: crate::axes::Axis::ticks_placed
+    pub(crate) fn place_ticks(&self) {
+        self.ticks_placed.set(true);
+        if let Ok(ticks) = &self.ticks {
+            ticks.place(false);
+        }
+    }
+
     /// Makes `ticks` the axis' ticks, making the ticks of every location;
     /// ticks a level cannot make (see [`GridLineProps::refused`]) fail.
     ///
     /// [`GridLineProps::refused`]: crate::axes::GridLineProps::refused
     pub(crate) fn install_ticks(&mut self, ticks: Result<TickSet, TickerError>) {
+        if let (Ok(ticks), Ok(before)) = (&ticks, &self.ticks) {
+            ticks.succeed(before);
+        }
         self.ticks = ticks;
         let Ok(ticks) = &self.ticks else {
             return;
@@ -277,6 +291,15 @@ impl AxisState {
             ticks.minor_all = collect(&unclipped(&all_locs, labels.labels));
             ticks.minor_locs = all_locs;
         }
+        // matplotlib's update labels no level a `NullLocator` places.
+        let labels = |locator: &dyn Locator| !(locator as &dyn Any).is::<NullLocator>();
+        ticks.record(
+            &info,
+            [
+                levels.major && labels(self.major_locator.as_ref()),
+                levels.minor && labels(self.minor_locator.as_ref()),
+            ],
+        );
         Ok(ticks)
     }
 

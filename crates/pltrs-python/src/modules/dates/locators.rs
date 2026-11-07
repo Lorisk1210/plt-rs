@@ -5,19 +5,21 @@
 //! A rule crosses as a dict of dateutil's `rrule` keywords (the `by*` ones
 //! as lists, weekdays as `(index, n)` pairs, naive date-times as calendar
 //! parts), a time zone as its name (with its `TZif` data where Python
-//! reads it from elsewhere than the system) or as its offset from UTC in
-//! seconds.
+//! reads it from elsewhere than the system), as its offset from UTC in
+//! seconds, or as the adapter of a zone of the program's
+//! ([`super::zones`]).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use pltrs::dates::{
-    AutoDateLocator, AutoFrequency, ChosenLocator, DateError, DateTime, Frequency, LocatorChoice,
-    NthWeekday, RRule, RRuleLocator, RRuleSpec, TimeZone, UtcOffset, Weekday, YearLocator,
-    ZoneInfo, ZonedDateTime, date2num,
+    AutoDateLocator, AutoFrequency, ChosenLocator, DateTime, Frequency, LocatorChoice, NthWeekday,
+    ProgramZone, RRule, RRuleLocator, RRuleSpec, TimeZone, UtcOffset, Weekday, YearLocator,
+    ZoneInfo, ZonedDateTime, date2num_all,
 };
 use pltrs::ticker::Locator;
 
+use super::zones::PyZone;
 use crate::binding::dict_value;
 use crate::binding::prelude::*;
 
@@ -42,8 +44,9 @@ pub(super) fn parts(dt: DateTime) -> Parts {
 
 /// A time zone: its name (read as `dateutil` reads it), the key of a
 /// `zoneinfo.ZoneInfo` with the `TZif` data it reads (from the system or
-/// the `tzdata` package; read as `zoneinfo` reads it), or its offset from
-/// UTC in seconds.
+/// the `tzdata` package; read as `zoneinfo` reads it), its offset from
+/// UTC in seconds, or the adapter of a zone of the program's (see
+/// [`PyZone`]).
 pub(crate) struct Zone(pub(crate) TimeZone);
 
 impl FromPy<'_> for Zone {
@@ -56,8 +59,12 @@ impl FromPy<'_> for Zone {
                 &data, &key,
             )?))));
         }
-        let seconds: i32 = object.extract()?;
-        Ok(Self(TimeZone::Fixed(UtcOffset::from_seconds(seconds)?)))
+        if let Ok(seconds) = object.extract::<i32>() {
+            return Ok(Self(TimeZone::Fixed(UtcOffset::from_seconds(seconds)?)));
+        }
+        Ok(Self(TimeZone::Program(ProgramZone::new(PyZone::of(
+            object,
+        )?))))
     }
 }
 
@@ -273,11 +280,7 @@ fn rule_tick_values(spec: Owned, vmin: PyDateTime, vmax: PyDateTime) -> PyResult
     if found.is_empty() {
         return Ok(None);
     }
-    let numbers = found
-        .iter()
-        .map(date2num)
-        .collect::<Result<Vec<f64>, DateError>>()?;
-    Ok(Some(NdArray::from_vec(numbers)))
+    Ok(Some(NdArray::from_vec(date2num_all(&found)?)))
 }
 
 /// The `AutoDateLocator` of a spec: its `tz`, `minticks`, `maxticks` and

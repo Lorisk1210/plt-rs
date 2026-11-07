@@ -13,7 +13,6 @@ use super::axis_draw::{AxisText3D, axis_extents, axis_texts};
 use super::axis_handle::Axis3D;
 use super::handle::Axes3D;
 use super::state::Axes3DState;
-use super::tick_sites::MinorTicks;
 use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext};
 use crate::axes::{TickHelperKind, TickStyle, TickerDefaults};
 use crate::colors::Color;
@@ -320,7 +319,7 @@ impl Axis3D {
                 // matplotlib updates the ticks once per edge they are on.
                 let span = axes.limits.span(self.dir);
                 for _ in 0..axis.tick_edges() {
-                    axis.warn_minor_overlaps(&span, MinorTicks::Updated);
+                    axis.update_at_site(&span);
                 }
             }
         });

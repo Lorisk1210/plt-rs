@@ -739,6 +739,20 @@ from its values keep them (`_xorig`) to convert them again when the unit
 changes. An artist made outside any axes with values in units converts
 them when it joins one (`_convert_units_for`).
 
+A zone crosses as pltrs (Rust) models it where it can (`_date_locators._native_tz`:
+the names of `zoneinfo`, pytz and dateutil's files, the fixed offsets that
+name themselves as `datetime.timezone` does); any other `tzinfo`
+(`dateutil.tz.tzlocal()`, `tzstr`, a class of the program's) crosses as a
+`_program_zones.ProgramZone`, which pltrs (Rust) asks what it needs
+(`pltrs::dates::ZoneRules`, `TimeZone::Program`) through the zone's own
+methods, as matplotlib's `date2num` and `num2date` do (`astimezone` to and
+from UTC, `tzname`), the offsets of a locator's ticks in one call and the
+names only where a format writes them, so the zone is never asked more
+often than matplotlib asks it. Zones compare by identity, as Python's
+aware `datetime`s compare theirs. A name pltrs (Rust) finds no zone of (a
+POSIX `TZ` string in :rc:`timezone`) is read by dateutil's `gettz`, as
+matplotlib reads it (`pltrs::dates::set_zone_finder`).
+
 ### Colour mapping
 
 Colormaps and norms are matplotlib's Python classes (`colors`, with the
@@ -817,6 +831,19 @@ matplotlib's objects:
   adapter in place of pltrs (Rust)'s the first time one of its attributes
   changes its spec (`ticklabel_format`, `set_useOffset`), since
   matplotlib's formatters change in place.
+* **What ticking leaves in helpers** (`_tick_state`, `_native.axis`
+  `labelled`, `labelling`): matplotlib's `_update_ticks` leaves what the
+  helpers computed in their attributes (a formatter's `_locs`, `offset`,
+  order of magnitude and `_format`, the `_freq` of an `AutoDateLocator`,
+  the `ndivs` an `AutoMinorLocator` settles). pltrs (Rust) numbers each set
+  of ticks the first time one of matplotlib's tick updates places it
+  (drawing or measuring the axis, reading its tick labels, axisartist's
+  `get_tick_iterators`; `TickSet::labelled`) and keeps the locations and
+  the description of the axis it labelled; the attributes such an update
+  sets are `_tick_state.ticked` descriptors, which first make the object of
+  a helper pltrs (Rust) ticks with natively do quietly what matplotlib's
+  update did with it (`format_ticks(locs)`, a locator's call), once per
+  set of ticks.
 * **Mirrors** (`_axis_artists`, `_native.axis` `mirrors`): the ticks
   (`Tick` with `label1`, `label2`, `tick1line`, `tick2line`, `gridline`),
   the axis label and the offset text are loose `Text` and `Line2D`

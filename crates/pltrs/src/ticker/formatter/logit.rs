@@ -123,10 +123,21 @@ impl LogitFormatter {
         self.minor_number
     }
 
-    /// matplotlib's `set_locs`: the minor ticks that get labels.
-    fn labelled(&self, locs: &[f64]) -> Vec<f64> {
+    /// The ticks among `locs` that a formatter of minor ticks labels
+    /// (matplotlib's `_labelled`, which `set_locs` computes): a few with
+    /// room around them, when there are few; none for a formatter of major
+    /// ticks, which labels them all.
+    ///
+    /// ```
+    /// use pltrs::ticker::LogitFormatter;
+    /// let minor = LogitFormatter::new().with_minor(true);
+    /// assert_eq!(minor.labelled(&[0.2, 0.3]), [0.2, 0.3]);
+    /// assert_eq!(minor.labelled(&[0.01, 0.5]), Vec::<f64>::new());
+    /// assert_eq!(LogitFormatter::new().labelled(&[0.2, 0.3]), Vec::<f64>::new());
+    /// ```
+    pub fn labelled(&self, locs: &[f64]) -> Vec<f64> {
         let ideal = |x: f64| is_decade(x) || is_decade(1.0 - x) || is_one_half(x);
-        if locs.iter().all(|&x| ideal(x)) || locs.len() >= self.minor_threshold {
+        if !self.minor || locs.iter().all(|&x| ideal(x)) || locs.len() >= self.minor_threshold {
             // Minor ticks subsampled from the ideal ones get no labels.
             return Vec::new();
         }
@@ -247,11 +258,7 @@ impl Formatter for LogitFormatter {
         locs: &[f64],
         _: &TickContext<'_>,
     ) -> Result<FormattedTicks, TickerError> {
-        let labelled = if self.minor {
-            self.labelled(locs)
-        } else {
-            Vec::new()
-        };
+        let labelled = self.labelled(locs);
         FormattedTicks::each(locs, |x| self.label(x, locs, &labelled))
     }
 

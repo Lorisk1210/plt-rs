@@ -38,7 +38,7 @@ native_value!(TickHelper);
 
 impl TickHelper {
     /// The helper's identity: its address, unique while it lives.
-    fn id(&self) -> usize {
+    pub(super) fn id(&self) -> usize {
         match self {
             Self::Locator(locator) => Rc::as_ptr(locator).cast::<()>().addr(),
             Self::Formatter(formatter) => Rc::as_ptr(formatter).cast::<()>().addr(),
@@ -236,7 +236,7 @@ fn install_formatter(
 
 /// The four tick helpers of `axis`: the major and minor locators, then
 /// the major and minor formatters.
-fn tick_helpers(axis: &AnyAxis) -> [TickHelper; 4] {
+pub(super) fn tick_helpers(axis: &AnyAxis) -> [TickHelper; 4] {
     let (locators, formatters) = match axis {
         AnyAxis::Flat(axis) => (
             [axis.major_locator(), axis.minor_locator()],

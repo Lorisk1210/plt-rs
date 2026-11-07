@@ -1,5 +1,7 @@
 //! Time zones: UTC, fixed offsets and IANA zones read from `TZif` files,
-//! the way `dateutil` reads them or the way Python's `zoneinfo` does.
+//! the way `dateutil` reads them or the way Python's `zoneinfo` does, and
+//! zones the program defines ([`ZoneRules`]), which all answer what pltrs
+//! asks of a zone as Python's `tzinfo` does.
 //!
 //! The model is Python's: a [`ZonedDateTime`] is a local wall-clock
 //! [`DateTime`] plus a [`TimeZone`]; arithmetic within one zone happens on
@@ -8,10 +10,12 @@
 //!
 //! Zones are found where `dateutil.tz.gettz` finds them: in the system's
 //! database, else among the zones dateutil bundles, which pltrs bundles
-//! too.
+//! too, else by the program's [`ZoneFinder`].
 
 mod bundled;
+mod finder;
 mod posix;
+mod rules;
 mod tzfile;
 mod zoned;
 mod zoneinfo;
@@ -19,6 +23,8 @@ mod zoneinfo;
 use std::fmt::{self, Write as _};
 use std::sync::Arc;
 
+pub use finder::{ZoneFinder, clear_zone_finder, set_zone_finder};
+pub use rules::{ProgramZone, ZoneRules};
 pub use tzfile::TzFile;
 pub use zoned::ZonedDateTime;
 pub use zoneinfo::ZoneInfo;
@@ -77,6 +83,26 @@ impl UtcOffset {
     }
 }
 
+impl ZoneRules for UtcOffset {
+    fn offset_at_local(&self, _: DateTime, _: bool) -> UtcOffset {
+        *self
+    }
+
+    /// `UTC` for no offset, else `UTC±HH:MM`, as Python names
+    /// `datetime.timezone`s.
+    fn name_at_local(&self, _: DateTime, _: bool) -> String {
+        if *self == Self::UTC {
+            "UTC".to_owned()
+        } else {
+            format!("UTC{self}")
+        }
+    }
+
+    fn local_from_utc(&self, utc: DateTime) -> Result<(DateTime, bool), DateError> {
+        Ok((utc.checked_add(self.as_timedelta())?, false))
+    }
+}
+
 impl fmt::Display for UtcOffset {
     /// `±HH:MM`, as in ISO 8601 strings.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -97,6 +123,9 @@ pub enum TimeZone {
     /// An IANA zone as Python's `zoneinfo.ZoneInfo` reads its data, the
     /// rules of its `TZ` string included.
     Info(Arc<ZoneInfo>),
+    /// A zone the program defines (a Python `tzinfo` pltrs has no model
+    /// of, for pltrs's Python package), asked what pltrs needs.
+    Program(ProgramZone),
 }
 
 pltrs_core::archive_enum!(TimeZone {
@@ -104,6 +133,7 @@ pltrs_core::archive_enum!(TimeZone {
     Fixed(v0),
     Zone(v0),
     Info(v0),
+    Program(v0),
 });
 
 impl TimeZone {
@@ -111,13 +141,16 @@ impl TimeZone {
     /// `"UTC"` is UTC; anything else is looked up in the system zoneinfo
     /// database (`/usr/share/zoneinfo` and friends), then among the zones
     /// dateutil bundles (Windows has no system database), like
-    /// `dateutil.tz.gettz`. POSIX `TZ` rule strings and Windows' own zone
-    /// names (`dateutil.tz.tzwin`) are not supported.
+    /// `dateutil.tz.gettz`, then by the program's finder, if it set one
+    /// ([`set_zone_finder`]: pltrs's Python package has dateutil read POSIX
+    /// `TZ` strings and Windows' own zone names).
     pub fn named(name: &str) -> Result<Self, DateError> {
         if name == "UTC" {
             return Ok(Self::Utc);
         }
-        TzFile::find(name).map(|zone| Self::Zone(Arc::new(zone)))
+        TzFile::find(name)
+            .map(|zone| Self::Zone(Arc::new(zone)))
+            .or_else(|err| finder::find(name).ok_or(err))
     }
 
     /// The zone the `timezone` rcParam names, resolved by
@@ -145,40 +178,32 @@ impl TimeZone {
         Self::named(&crate::rc::params().timezone)
     }
 
+    /// What answers for the zone.
+    pub fn rules(&self) -> &dyn ZoneRules {
+        match self {
+            Self::Utc => &UtcOffset::UTC,
+            Self::Fixed(offset) => offset,
+            Self::Zone(zone) => &**zone,
+            Self::Info(zone) => &**zone,
+            Self::Program(zone) => zone.rules(),
+        }
+    }
+
     /// The offset in effect at the wall-clock time `local`; `fold` selects
     /// the second occurrence of a repeated wall time.
     pub fn offset_at_local(&self, local: DateTime, fold: bool) -> UtcOffset {
-        match self {
-            Self::Utc => UtcOffset::UTC,
-            Self::Fixed(offset) => *offset,
-            Self::Zone(zone) => zone.offset_at_local(local, fold),
-            Self::Info(zone) => {
-                let seconds = i32::try_from(zone.offset_at_local(local, fold)).unwrap_or(0);
-                UtcOffset::from_seconds(seconds).unwrap_or(UtcOffset::UTC)
-            }
-        }
+        self.rules().offset_at_local(local, fold)
     }
 
     /// The zone abbreviation in effect at `local` (Python's `tzname()`).
     pub fn name_at_local(&self, local: DateTime, fold: bool) -> String {
-        match self {
-            Self::Utc => "UTC".to_owned(),
-            Self::Fixed(offset) if *offset == UtcOffset::UTC => "UTC".to_owned(),
-            Self::Fixed(offset) => format!("UTC{offset}"),
-            Self::Zone(zone) => zone.name_at_local(local, fold).to_owned(),
-            Self::Info(zone) => zone.name_at_local(local, fold).to_owned(),
-        }
+        self.rules().name_at_local(local, fold)
     }
 
     /// Converts a UTC instant to this zone's wall clock, returning the local
     /// time and its `fold`.
     pub fn local_from_utc(&self, utc: DateTime) -> Result<(DateTime, bool), DateError> {
-        match self {
-            Self::Utc => Ok((utc, false)),
-            Self::Fixed(offset) => Ok((utc.checked_add(offset.as_timedelta())?, false)),
-            Self::Zone(zone) => zone.local_from_utc(utc),
-            Self::Info(zone) => zone.local_from_utc(utc),
-        }
+        self.rules().local_from_utc(utc)
     }
 }
 

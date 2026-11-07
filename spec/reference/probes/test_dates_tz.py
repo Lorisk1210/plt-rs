@@ -381,3 +381,46 @@ def test_plotted_dates_take_their_zone():
     probe("dates_tz.plot", d=[{"at": "2020-06-01T00:00:00", "tz": "Asia/Kolkata"},
                               {"at": "2020-06-01T12:00:00", "tz": "America/New_York"}])
     probe("dates_tz.plot", d=["2020-06-01T00:00:00+05:30", "2020-06-02T00:00:00-04:00"])
+
+
+#: Zones a program writes, as `tzinfo` classes: a fixed offset with a name
+#: of its own, and daylight saving time by rules written in Python.
+PROGRAM_ZONES = [{"kind": "class_fixed", "minutes": 330, "name": "IST!"},
+                 {"kind": "class_fixed", "minutes": -210, "name": "NST*"},
+                 {"kind": "class_us", "hours": -5, "std": "EST", "dst": "EDT"},
+                 {"kind": "class_us", "hours": -8, "std": "PST", "dst": "PDT"}]
+
+#: The United States' changes of the clocks in 2020, in UTC for Eastern
+#: time (forward, back).
+US_CHANGES = ("2020-03-08T07:00:00", "2020-11-01T06:00:00")
+
+
+def test_zones_the_program_writes():
+    for tz in PROGRAM_ZONES:
+        for change in US_CHANGES:
+            for locator, params, span in LOCATORS[:3] + LOCATORS[6:8] + LOCATORS[9:18]:
+                for via, view in views(change, span, tz):
+                    probe("dates_tz.locate", locator=locator, params=params,
+                          tz=tz, view=view, via=via)
+            center = datetime.datetime.fromisoformat(change)
+            x = (center - datetime.datetime(1970, 1, 1)) / DAY
+            probe("dates_tz.num2date", tz=tz, x=[x + k / 48 for k in range(-6, 7)])
+            for span in [3 * HOUR, DAY, 10 * DAY]:
+                start = instant(change) - span / 2
+                view = [d.replace(tzinfo=None).isoformat() for d in (start, start + span)]
+                for formatter, params in [
+                        ("DateFormatter", {"fmt": "%Y-%m-%d %H:%M:%S %Z %z"}),
+                        ("AutoDateFormatter", {}), ("ConciseDateFormatter", {})]:
+                    probe("dates_tz.format", formatter=formatter, params=params,
+                          tz=tz, view=view)
+            for converter in (None, "concise"):
+                for count, step in [(7, 1), (10, 6)]:
+                    start = instant(change) - count * step * HOUR / 2
+                    probe("dates_tz.plot", converter=converter,
+                          d=_hours(start.replace(tzinfo=None).isoformat(), count, tz,
+                                   step))
+        for at in ("2020-11-01T01:30:00", "2020-03-08T02:30:00", "2020-07-01T12:00:00",
+                   "2021-01-01T00:00:00"):
+            for fold in (0, 1):
+                probe("dates_tz.date2num", d={"at": at, "tz": tz, "fold": fold})
+        probe("dates_tz.num2date", x=[18346.25, 18560.25, 18566.4], tz=tz)

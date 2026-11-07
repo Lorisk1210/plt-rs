@@ -53,6 +53,18 @@ impl Axis3DState {
         }
     }
 
+    /// One of matplotlib's tick updates of the axis (`_update_ticks`): it
+    /// places the axis' ticks (see [`TickSet::labelled`]), and warns as
+    /// [`warn_minor_overlaps`](Self::warn_minor_overlaps) does.
+    ///
+    /// [`TickSet::labelled`]: crate::axes::TickSet::labelled
+    pub(crate) fn update_at_site(&self, span: &AxisSpan) {
+        if let Ok(ticks) = &self.ticks {
+            ticks.place(false);
+        }
+        self.warn_minor_overlaps(span, MinorTicks::Updated);
+    }
+
     /// How many edges the ticks are drawn on (matplotlib's
     /// `_update_all_positions` updates the ticks once per edge).
     pub(crate) fn tick_edges(&self) -> usize {
@@ -103,8 +115,7 @@ impl Axes3DState {
     fn warn_sites(&self, dir: Axis3, sites: usize) {
         let span = self.limits.span(dir);
         for _ in 0..sites {
-            self.axis(dir)
-                .warn_minor_overlaps(&span, MinorTicks::Updated);
+            self.axis(dir).update_at_site(&span);
         }
     }
 

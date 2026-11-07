@@ -35,7 +35,7 @@ impl AxisPainter<'_> {
         if !self.axis.visible {
             return;
         }
-        self.axis.ticks_placed.set(true);
+        self.axis.place_ticks();
         // The program's scales answer from the calls matplotlib's draw
         // makes (see `transform_sites`).
         program_calls::quietly(|| {

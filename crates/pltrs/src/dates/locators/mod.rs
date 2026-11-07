@@ -152,10 +152,7 @@ fn date_nonsingular(vmin: f64, vmax: f64, unit: f64, interval: f64) -> (f64, f64
 fn to_nums<'a>(
     dates: impl IntoIterator<Item = &'a ZonedDateTime>,
 ) -> Result<Vec<f64>, TickerError> {
-    dates
-        .into_iter()
-        .map(|d| super::convert::date2num(d).map_err(TickerError::from))
-        .collect()
+    Ok(super::convert::date2num_all(dates)?)
 }
 
 #[cfg(test)]

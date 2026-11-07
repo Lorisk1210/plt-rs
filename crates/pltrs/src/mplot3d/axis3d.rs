@@ -484,6 +484,9 @@ impl Axis3DState {
         let (ticks, warnings) = crate::warnings::capturing_runtime(|| {
             self.compute_ticks(span, length_points, automargin)
         });
+        if let (Ok(ticks), Ok(before)) = (&ticks, &self.ticks) {
+            ticks.succeed(before);
+        }
         self.ticks = ticks;
         self.tick_warnings = match &self.ticks {
             Ok(ticks) => {
@@ -564,7 +567,11 @@ impl Axis3DState {
                 .unzip()
         };
         let mut ticks = TickSet::default();
-        if Self::level_computed(&self.major_style, self.tickers.major_locator.as_ref()) {
+        let levels = [
+            Self::level_computed(&self.major_style, self.tickers.major_locator.as_ref()),
+            Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()),
+        ];
+        if levels[0] {
             let labels = self
                 .tickers
                 .major_formatter
@@ -573,7 +580,7 @@ impl Axis3DState {
             (ticks.major, ticks.major_index) = inside(&ticks.major_unclipped);
             ticks.offset = labels.offset;
         }
-        if Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()) {
+        if levels[1] {
             let minor = drawable_ticks(self.tickers.minor_locator.locate(&ctx)?)?;
             let minor_locs = if self.remove_overlapping {
                 self.without_overlaps(minor, &major_locs, span.view)
@@ -587,6 +594,7 @@ impl Axis3DState {
             ticks.minor_unclipped = unclipped(&minor_locs, labels.labels);
             (ticks.minor, ticks.minor_index) = inside(&ticks.minor_unclipped);
         }
+        ticks.record(&info, levels);
         Ok(ticks)
     }
 

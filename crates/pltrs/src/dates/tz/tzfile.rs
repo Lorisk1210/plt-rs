@@ -11,7 +11,7 @@ use std::path::{Component, Path, PathBuf};
 use crate::dates::timedelta::MICROS_PER_SECOND;
 use crate::dates::{DateError, DateTime, TimeDelta};
 
-use super::UtcOffset;
+use super::{UtcOffset, ZoneRules};
 
 /// Directories searched for zone files, in dateutil's order (which is
 /// also `zoneinfo`'s default `TZPATH`).
@@ -169,28 +169,6 @@ impl TzFile {
         &self.name
     }
 
-    /// The offset at a wall-clock time (`utcoffset`).
-    pub(crate) fn offset_at_local(&self, local: DateTime, fold: bool) -> UtcOffset {
-        self.type_at_local(local, fold)
-            .and_then(|t| UtcOffset::from_seconds(t.offset as i32).ok())
-            .unwrap_or(UtcOffset::UTC)
-    }
-
-    /// The abbreviation at a wall-clock time (`tzname`).
-    pub(crate) fn name_at_local(&self, local: DateTime, fold: bool) -> &str {
-        self.type_at_local(local, fold)
-            .map_or("", |t| t.abbreviation.as_str())
-    }
-
-    /// The wall-clock time and fold of a UTC instant (`fromutc`).
-    pub(crate) fn local_from_utc(&self, utc: DateTime) -> Result<(DateTime, bool), DateError> {
-        let index = last_transition(&self.transitions_utc, utc);
-        let offset = self.type_for(index).map_or(0, |t| t.offset);
-        let local = utc.checked_add(TimeDelta::from_micros(offset * MICROS_PER_SECOND))?;
-        let fold = self.is_ambiguous(local, index);
-        Ok((local, fold))
-    }
-
     fn type_at_local(&self, local: DateTime, fold: bool) -> Option<&LocalTimeType> {
         self.standard?;
         let index = last_transition(&self.transitions_local, local);
@@ -331,6 +309,30 @@ impl<'a> Reader<'a> {
     fn i32(&mut self) -> Result<i32, DateError> {
         let bytes = self.take(4)?;
         Ok(i32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+}
+
+impl ZoneRules for TzFile {
+    /// The offset at a wall-clock time (`utcoffset`).
+    fn offset_at_local(&self, local: DateTime, fold: bool) -> UtcOffset {
+        self.type_at_local(local, fold)
+            .and_then(|t| UtcOffset::from_seconds(t.offset as i32).ok())
+            .unwrap_or(UtcOffset::UTC)
+    }
+
+    /// The abbreviation at a wall-clock time (`tzname`).
+    fn name_at_local(&self, local: DateTime, fold: bool) -> String {
+        self.type_at_local(local, fold)
+            .map_or_else(String::new, |t| t.abbreviation.clone())
+    }
+
+    /// The wall-clock time and fold of a UTC instant (`fromutc`).
+    fn local_from_utc(&self, utc: DateTime) -> Result<(DateTime, bool), DateError> {
+        let index = last_transition(&self.transitions_utc, utc);
+        let offset = self.type_for(index).map_or(0, |t| t.offset);
+        let local = utc.checked_add(TimeDelta::from_micros(offset * MICROS_PER_SECOND))?;
+        let fold = self.is_ambiguous(local, index);
+        Ok((local, fold))
     }
 }
 

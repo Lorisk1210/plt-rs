@@ -7,10 +7,11 @@
 //! (`_`, `-`, `0`, `^`, `#`), field widths and `E`/`O` modifiers.
 //! Unknown conversions are copied literally, as glibc does.
 
+use std::cell::OnceCell;
 use std::fmt::Write as _;
 
 use super::calendar::{Weekday, month_name};
-use super::tz::UtcOffset;
+use super::tz::{UtcOffset, ZonedDateTime};
 use super::{Date, DateTime};
 
 impl DateTime {
@@ -28,17 +29,56 @@ impl DateTime {
     }
 }
 
+/// What `%z` and `%Z` write for an aware date-time: its offset from UTC
+/// and the name of its zone, asked of the zone only when a format has
+/// them, as Python's `strftime` asks `utcoffset()` and `tzname()`.
+pub(crate) struct ZoneFields<'a> {
+    zoned: &'a ZonedDateTime,
+    offset: OnceCell<UtcOffset>,
+    name: OnceCell<String>,
+}
+
+impl<'a> ZoneFields<'a> {
+    /// The fields of `zoned`, not asked yet.
+    pub(crate) fn new(zoned: &'a ZonedDateTime) -> Self {
+        Self {
+            zoned,
+            offset: OnceCell::new(),
+            name: OnceCell::new(),
+        }
+    }
+
+    fn offset(&self) -> UtcOffset {
+        *self.offset.get_or_init(|| self.zoned.offset())
+    }
+
+    fn name(&self) -> &str {
+        self.name.get_or_init(|| self.zoned.tz_name())
+    }
+
+    /// The length of the name, once it was asked.
+    fn known_name_len(&self) -> usize {
+        self.name.get().map_or(0, String::len)
+    }
+}
+
+/// The longest output worth writing for `format` (see [`strftime`]):
+/// Python's own substitutions lengthen a two- or three-byte sequence to at
+/// most 16 bytes or the zone's name (`name_len` bytes), bounding the C
+/// format's length.
+fn output_cap(format: &str, name_len: usize) -> usize {
+    python_output_limit(format.len().saturating_mul(name_len.max(8)))
+}
+
 /// Formats `dt` with `format`; `zone` supplies `%z`/`%Z` for aware values.
 ///
 /// Like Python, whose `time.strftime` gives up on outputs too long for its
 /// largest buffer ([`python_output_limit`] of the format the C library is
 /// handed), an output that long is empty; field widths beyond any such
 /// limit are cut short, so that no width allocates without bound.
-pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str)>) -> String {
-    // Python's own substitutions lengthen a two- or three-byte sequence to
-    // at most 16 bytes or the zone's name, bounding the C format's length.
-    let name_len = zone.map_or(0, |(_, name)| name.len());
-    let cap = python_output_limit(format.len().saturating_mul(name_len.max(8)));
+pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<&ZoneFields<'_>>) -> String {
+    let known_name_len = || zone.map_or(0, ZoneFields::known_name_len);
+    let mut cap = output_cap(format, known_name_len());
     let mut c_format_len = format.len();
     let mut out = String::with_capacity(format.len() + 16);
     let mut rest = format;
@@ -58,24 +98,16 @@ pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str
                 1
             }
             'z' => {
-                out.push_str(
-                    &zone
-                        .map(|(offset, _)| offset.format(""))
-                        .unwrap_or_default(),
-                );
+                out.push_str(&zone.map(|z| z.offset().format("")).unwrap_or_default());
                 1
             }
             'Z' => {
-                out.push_str(zone.map_or("", |(_, name)| name));
+                out.push_str(zone.map_or("", ZoneFields::name));
                 1
             }
             ':' => match chars.next() {
                 Some('z') => {
-                    out.push_str(
-                        &zone
-                            .map(|(offset, _)| offset.format(":"))
-                            .unwrap_or_default(),
-                    );
+                    out.push_str(&zone.map(|z| z.offset().format(":")).unwrap_or_default());
                     2
                 }
                 // Python drops a dangling `%:`.
@@ -107,6 +139,7 @@ pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str
         if python_layer {
             c_format_len = (c_format_len + out.len() - before).saturating_sub(consumed + 1);
         }
+        cap = cap.max(output_cap(format, known_name_len()));
         if out.len() > cap {
             return String::new();
         }
@@ -224,7 +257,7 @@ impl Conversion {
         Some(conversion)
     }
 
-    fn write(&self, out: &mut String, dt: DateTime, zone: Option<(UtcOffset, &str)>) {
+    fn write(&self, out: &mut String, dt: DateTime, zone: Option<&ZoneFields<'_>>) {
         let date = dt.date();
         let year = i64::from(date.year());
         let hour12 = (dt.hour() + 11) % 12 + 1;
@@ -235,7 +268,7 @@ impl Conversion {
             'B' => self.text(month_name(date.month()), false),
             'p' => self.text(if dt.hour() < 12 { "AM" } else { "PM" }, true),
             'P' => self.text(if dt.hour() < 12 { "am" } else { "pm" }, false),
-            'Z' => self.text(zone.map_or("", |(_, name)| name), true),
+            'Z' => self.text(zone.map_or("", ZoneFields::name), true),
             'c' => self.composite("%a %b %e %H:%M:%S %Y", dt, zone),
             'D' | 'x' => self.composite("%m/%d/%y", dt, zone),
             'F' => self.composite("%+4Y-%m-%d", dt, zone),
@@ -245,9 +278,7 @@ impl Conversion {
             'n' => "\n".to_owned(),
             't' => "\t".to_owned(),
             '%' => "%".to_owned(),
-            'z' => zone
-                .map(|(offset, _)| offset.format(""))
-                .unwrap_or_default(),
+            'z' => zone.map(|z| z.offset().format("")).unwrap_or_default(),
             other => self.numeric(other, dt, date, year, hour12),
         };
         out.push_str(&text);
@@ -311,7 +342,7 @@ impl Conversion {
         self.pad_text(cased)
     }
 
-    fn composite(&self, format: &str, dt: DateTime, zone: Option<(UtcOffset, &str)>) -> String {
+    fn composite(&self, format: &str, dt: DateTime, zone: Option<&ZoneFields<'_>>) -> String {
         let mut expanded = String::new();
         let mut rest = format;
         while let Some(start) = rest.find('%') {
@@ -369,8 +400,8 @@ mod tests {
         assert_eq!(d.strftime("%Y|%G|%y|%C|%F"), "0005|0004|05|00|0005-01-01");
         assert_eq!(d.strftime("%c"), "Sat Jan  1 00:00:00 5");
         assert_eq!(d.strftime("%f|%z|%Z|%:z|%"), "000000||||%");
-        let utc = Some((UtcOffset::UTC, "UTC"));
-        assert_eq!(strftime("%z %:z %Z", d, utc), "+0000 +00:00 UTC");
+        let utc = ZonedDateTime::utc(d);
+        assert_eq!(utc.strftime("%z %:z %Z"), "+0000 +00:00 UTC");
         assert_eq!(d.strftime("%:"), "");
         assert_eq!(d.strftime("%:a"), "%:a");
     }

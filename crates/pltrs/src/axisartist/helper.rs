@@ -351,13 +351,16 @@ enum Across {
     Data(f64),
 }
 
-/// The major and minor ticks of the axis `nth` on a rectilinear line.
+/// The major and minor ticks of the axis `nth` on a rectilinear line,
+/// which matplotlib's `get_tick_iterators` labels with the axis'
+/// formatters (as a tick update would, every minor location included).
 fn rectilinear_levels(
     axes: &AxesState,
     nth: AxisName,
     across: Across,
 ) -> Result<TickLevels, String> {
     let ticked = axes.axis(nth).ticks.as_ref().map_err(ToString::to_string)?;
+    ticked.place(true);
     Ok((
         rectilinear_ticks(axes, nth, across, &ticked.major),
         rectilinear_ticks(axes, nth, across, &ticked.minor_all),

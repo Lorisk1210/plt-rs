@@ -185,10 +185,9 @@ impl TickParams {
         }
         for line in &mut overrides.lines {
             let color = colors || self.color.is_some();
-            clear_if(&mut line.color, color);
-            clear_if(&mut line.markeredgecolor, color);
-            clear_if(&mut line.size, self.length.is_some());
-            clear_if(&mut line.width, self.width.is_some());
+            for mark in [&mut line.marks, &mut line.second_mark] {
+                mark.clear(color, self.length.is_some(), self.width.is_some());
+            }
             clear_if(&mut line.tick1_visible, low.is_some());
             clear_if(&mut line.tick2_visible, high.is_some());
             clear_if(&mut line.grid_color, self.grid_color.is_some());

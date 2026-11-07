@@ -13,7 +13,8 @@
 
 use pltrs::artist::ArtistHandle;
 use pltrs::axes::{
-    Axis, AxisGroup, LabelLoc, TickDirection, TickLabelProps, TickLineProps, TickPart, TickStyle,
+    Axis, AxisGroup, LabelLoc, TickDirection, TickLabelProps, TickLineProps, TickMarkProps,
+    TickPart, TickStyle,
 };
 use pltrs::colors::Color;
 use pltrs::lines::Line2D;
@@ -309,7 +310,7 @@ fn sync_flat_tick(
     let second_style = axis.tick_label_style_at(minor, index, false);
     sync_label(&label2, axis, loc, label, &second_style, false);
     sync_mark(&tick1, name, loc, &style, true);
-    sync_mark(&tick2, name, loc, &style, false);
+    sync_mark(&tick2, name, loc, &style.mark_style(true), false);
     sync_gridline(&grid, name, loc, &style);
     let rotation_mode = if style.label_rotation_auto {
         "auto"
@@ -419,26 +420,44 @@ fn push_tick_mark(
     let level = axis.tick_style(minor);
     let previous = axis.tick_line_props(minor, index);
     let visible = line.visible();
-    let (tick1_visible, tick2_visible) = if second {
-        (previous.tick1_visible, own(visible, &level.ticks.second))
+    let props = if second {
+        let mut under = level;
+        previous.marks.apply(&mut under);
+        TickLineProps {
+            second_mark: TickMarkProps::between(&drawn_as(&line, &under), &under),
+            tick2_visible: own(visible, &under.ticks.second),
+            ..previous
+        }
     } else {
-        (own(visible, &level.ticks.first), previous.tick2_visible)
-    };
-    let edge = level
-        .edgecolor
-        .clone()
-        .unwrap_or_else(|| level.color.clone());
-    let props = TickLineProps {
-        markeredgecolor: own(line.effective_markeredgecolor(), &edge),
-        color: own(line.color(), &level.color),
-        size: own(line.markersize(), &level.size),
-        width: own(line.markeredgewidth(), &level.width),
-        tick1_visible,
-        tick2_visible,
-        ..previous
+        // The second mark keeps its look: what it had of its own is what
+        // it now differs by from the first.
+        let mut kept = level.clone();
+        previous.marks.apply(&mut kept);
+        previous.second_mark.apply(&mut kept);
+        let marks = TickMarkProps::between(&drawn_as(&line, &level), &level);
+        let mut under = level.clone();
+        marks.apply(&mut under);
+        TickLineProps {
+            second_mark: TickMarkProps::between(&kept, &under),
+            marks,
+            tick1_visible: own(visible, &level.ticks.first),
+            ..previous
+        }
     };
     axis.set_tick_line_props(minor, index, props);
     Ok(())
+}
+
+/// `under` with the look of the mark mirror `line`: its size, width,
+/// colour and edge colour.
+fn drawn_as(line: &Line2D, under: &TickStyle) -> TickStyle {
+    TickStyle {
+        size: line.markersize(),
+        width: line.markeredgewidth(),
+        color: line.color(),
+        edgecolor: Some(line.effective_markeredgecolor()),
+        ..under.clone()
+    }
 }
 
 /// Reads the gridline mirror `line` of the major (or `minor`) tick at

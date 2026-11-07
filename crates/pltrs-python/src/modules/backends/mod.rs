@@ -4,7 +4,8 @@
 //! (`print_png`, `print_pdf`, ...) and collecting pages (`PdfPages`).
 //! `ft2font` subsets the fonts the documents embed (`_backend_pdf_ps`).
 //! The canvases matplotlib draws with Cairo draw and print in Cairo's
-//! graphics state (`drawing_like_cairo`).
+//! graphics state (`drawing_like_cairo`), and the raster canvas in the
+//! program's graphics contexts while it replaced `new_gc`.
 
 mod agg_text;
 mod canvas;
@@ -14,6 +15,7 @@ mod pages;
 mod pdf_file;
 mod pdf_pages;
 mod print;
+mod program_gc;
 
 pub(super) use gc::PyGc;
 pub(super) use print::DocumentMetadata;
@@ -87,6 +89,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     print::register(module)?;
     documents::register(module)?;
     pdf_pages::register(module)?;
+    program_gc::register(module)?;
     pages::register(module)?;
     pdf_file::register(module)
 }

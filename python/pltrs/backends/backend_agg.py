@@ -15,6 +15,7 @@ matplotlib's ``RendererBase._draw_text_as_path`` does.
 """
 
 from contextlib import contextmanager, nullcontext
+import inspect
 
 import numpy as np
 
@@ -22,6 +23,7 @@ from .. import _api, _python_drawing, rc_context
 from .._native import (
     backends as _backends, drawing as _drawing, ft2font as _ft2font, table as _table,
     text_overrides as _text_overrides)
+from .._program_classes import from_program
 from .._python_drawing import drawing_with
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
@@ -221,17 +223,23 @@ class RendererAgg(NativeDrawingMixin, RendererBase,
     @contextmanager
     def _drawing(self):
         """Draw with this renderer: its text metrics cache measures the
-        texts, a replaced ``draw_tex`` draws the TeX lines, and the
-        program's drawing receives it."""
+        texts, a replaced ``draw_tex`` draws the TeX lines, a ``new_gc``
+        of the program's makes the graphics contexts the artists start
+        from, and the program's drawing receives it."""
         replaced = getattr(self.draw_tex, "__func__", None) is not _OWN_DRAW_TEX
+        program_gc = from_program(inspect.getattr_static(type(self), "new_gc"))
         with _measuring_with(self), drawing_with(lambda: self):
             if replaced:
                 _backends.set_tex_painter(self._paint_tex)
+            if program_gc:
+                _backends.set_program_gc(lambda: native_gc(self.new_gc()))
             try:
                 yield
             finally:
                 if replaced:
                     _backends.set_tex_painter(None)
+                if program_gc:
+                    _backends.set_program_gc(None)
 
     def _draw_artist(self, artist):
         """Draw *artist*, as pltrs (Rust) draws it, onto the canvas over

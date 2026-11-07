@@ -68,7 +68,7 @@ pub(crate) use detached::DetachedArtists;
 pub use drawing::{DrawStep, Drawing, DrawnArtist};
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
-pub use graphics_state::{GraphicsState, drawing_with_state};
+pub use graphics_state::{GcSource, GraphicsState, drawing_with_state, set_gc_source};
 pub use handle::{ArtistHandle, TypedHandle};
 pub use kept::ArtistClone;
 pub(crate) use kept::KeptArtist;

@@ -80,13 +80,17 @@ pub(crate) fn apply_placements<A: ArtistRef>(
 }
 
 /// Measures the artists of every aux-transform box of `tree` under their
-/// aux transform alone (matplotlib's `AuxTransformBox.get_bbox`, which
-/// clears the box's offset first).
+/// aux transform followed by the box's offsets cleared (matplotlib's
+/// `AuxTransformBox.get_bbox`, which clears them first).
 fn measure_aux_boxes(state: &mut FigureState, tree: &mut OffsetBox<ArtistId>) {
     tree.for_each_aux_mut(&mut |aux| {
+        let cleared = aux
+            .aux_transform
+            .clone()
+            .then(Transform::Affine(Affine2D::IDENTITY));
         for &id in &aux.artists {
             if let Some(artist) = state.store.get_mut(id) {
-                artist.base_mut().transform = Some(aux.aux_transform.clone());
+                artist.base_mut().transform = Some(cleared.clone());
             }
         }
         let ctx = LayoutContext::new(state);

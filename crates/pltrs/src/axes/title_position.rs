@@ -119,8 +119,10 @@ impl FigureState {
             }
             if self.title_extent(title).is_some_and(|b| b.ymin() < top) {
                 self.set_title_y(title, to_axes(top));
-                if let Some(bottom) = self.title_extent(title).map(|b| b.ymin())
-                    && bottom < top
+                // matplotlib measures the title once more for the place it
+                // moves it to, after the test (the font lookups count).
+                if self.title_extent(title).is_some_and(|b| b.ymin() < top)
+                    && let Some(bottom) = self.title_extent(title).map(|b| b.ymin())
                 {
                     self.set_title_y(title, to_axes(2.0 * top - bottom));
                 }

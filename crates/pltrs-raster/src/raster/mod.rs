@@ -197,6 +197,16 @@ impl Rasterizer {
         self.gamma[cover.min(255) as usize]
     }
 
+    /// Whether the geometry added since the last reset covers any cell
+    /// (Agg's `rewind_scanlines`): one whose contributions all cancel
+    /// within a single cell, such as a zero-width outline inside one
+    /// pixel, covers none. Closes the open polygon.
+    pub fn covers_cells(&mut self) -> bool {
+        self.close_polygon();
+        self.cells.sort();
+        !self.cells.is_empty()
+    }
+
     /// Closes the open polygon, sorts the cells and calls `render` for
     /// every non-empty scanline from top to bottom. The geometry is kept
     /// (a second sweep yields the same scanlines) until the next sub-path

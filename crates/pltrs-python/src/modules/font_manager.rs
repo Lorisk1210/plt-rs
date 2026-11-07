@@ -99,33 +99,6 @@ impl IntoPy for FontProps {
     }
 }
 
-/// Checks that text can be set in the font file `path` (or the bundled
-/// font so named), as matplotlib finds out when it opens it:
-/// `FileNotFoundError` for a file that does not exist, `OSError` for one
-/// that cannot be read, `RuntimeError` for one that holds no font.
-pub(super) fn check_font_file(path: &std::path::Path) -> PyResult<()> {
-    match pltrs_text::TextEngine::global().database().file_faces(path) {
-        Ok(_) => Ok(()),
-        Err(pltrs_font::FontError::Io { path, kind }) => {
-            let (exception, errno) = if kind == std::io::ErrorKind::NotFound {
-                (
-                    ExceptionKind::FileNotFoundError,
-                    "[Errno 2] No such file or directory",
-                )
-            } else {
-                (ExceptionKind::OSError, "cannot read the font file")
-            };
-            Err(PyErr::new(
-                exception,
-                format!("{errno}: '{}'", path.display()),
-            ))
-        }
-        Err(err) => Err(PyErr::runtime_error(format!(
-            "In FT2Font: Can not load face ({err})"
-        ))),
-    }
-}
-
 /// The font properties a tuple describes.
 fn properties(
     (families, (style, variant), (weight_spec, stretch_spec, size), (math, file)): PropsTuple,

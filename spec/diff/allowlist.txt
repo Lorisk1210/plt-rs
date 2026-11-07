@@ -110,13 +110,17 @@ api/module_matplotlib_ft2font_0$ | ^crash: ValueError: negative dimensions are n
 # Programs that time themselves: the times are their own, under either.
 corpus/cheatsheets/scripts/performance-tips$ | ^(value\[perf_counter\]: float|stdout)$ | the cheat sheet's tip times plot and scatter with time.perf_counter() and prints the seconds
 corpus/rougier-book/code/optimization/(line|scatter)-benchmark$ | ^(value\[timer\]: float|image: (RMS > 1|written PNG RMS > 1))$ | the program times its plotting with timeit's default_timer and draws the times it measured as bars
+corpus/from-python-to-numpy/code/(allocations|benchmark|random_walk|vectorization)$ | ^(stdout|callback\[[^]]+\]: runs another number of times)$ | the program times its functions with the book's tools.timeit, which picks the number of loops from a first timed run and prints the best time
+corpus/matplotlib-3d/elevation$ | ^(value\[(time|format)\]: (float|str)|image: (RMS > 1|written PNG RMS > 1))$ | the program times its rendering with time.time() and writes the seconds into the figure's title
 # pltrs' two looks are style sheets that style.available lists with
 # matplotlib's (as for the gallery's style_sheets_reference).
-corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^]]+\]: runs another number of times|image: other files written)$ | the program draws and saves one figure per available style, two more with pltrs' own looks (pltrs-modern, pltrs-modern-dark)
+corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^]]+\]: runs another number of times|image: other files written|warning extra: WARNING: findfont: Font family '…' not found\.)$ | the program draws and saves one figure per available style, two more with pltrs' own looks (pltrs-modern, pltrs-modern-dark), whose titles look the missing family up as often as the others' do
 # A family no font has leaves matplotlib's findfont scoring every font
 # on the other properties, and the first of those scoring best is the one
 # its weight warning names: its font list is in the order of a Python set
 # of the font files' paths (findSystemFonts), which differ between the two
-# installations. The fallback font drawn is the same.
-^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for (DejaVu Serif|DejaVu Sans|STIXSizeTwoSym), now using N\.$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
+# installations (a matplotlib run with another configuration directory, so
+# another cached list, names STIXNonUnicode where the reference names Last
+# Resort High-Efficiency). The fallback font drawn is the same.
+^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for (DejaVu Serif|DejaVu Sans|STIXSizeTwoSym|STIXGeneral|STIXNonUnicode|Last Resort High-Efficiency), now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
 corpus/python-graph-gallery/content/posts/199-matplotlib-style-sheets/index$ | ^value\[available\]: list length$ | style.available lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets

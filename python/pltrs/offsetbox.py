@@ -251,6 +251,11 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
             owner = self
         if owner is not None:
             owner._sync_tree()
+        relay = self.__dict__.get("_relay_change")
+        if relay is not None:
+            # A box pltrs (Rust) laid out for an artist (a legend's box)
+            # hands that artist what the program set on it.
+            relay(self)
         self.stale = True
 
     @_docstring.copy(Artist.set_visible)

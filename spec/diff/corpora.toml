@@ -5,9 +5,10 @@
 # Each table is one corpus, fetched from its repository at `commit` into
 # `target/diff/corpora/<name>/tree` (a sparse checkout of the `fetch`
 # patterns, git's `--no-cone` syntax) and checked against `sha256`, the
-# SHA-256 of the `sha256sum` lines of every file fetched, sorted by path
-# (`find . -type f -not -path './.git' | sort | xargs sha256sum | sha256sum`,
-# in the tree, under the C locale). Only corpora whose licence allows
+# SHA-256 of the `sha256sum` lines of every regular file fetched (symbolic
+# links are not hashed), sorted by path (`find . -type f -not -path
+# './.git' | sort | xargs sha256sum | sha256sum`, in the tree, under the C
+# locale). Only corpora whose licence allows
 # running and fixing against them are listed, and no program needing the
 # network at run time.
 #
@@ -95,3 +96,73 @@ data-urls = [
     "https://raw.githubusercontent.com/holtzy/The-Python-Graph-Gallery/master/",
     "https://raw.githubusercontent.com/holtzy/The-Python-Graph-Gallery/refs/heads/master/",
 ]
+
+[scientific-python-lectures]
+title = "Scientific Python Lectures (formerly the Scipy Lecture Notes), their examples"
+repository = "https://github.com/scipy-lectures/scientific-python-lectures"
+commit = "41f35e9aabec1c2ae741786c317347b589c8e983"
+licence = "CC BY 4.0 (LICENSE.md: all code and material)"
+fetch = ["/LICENSE.md", "/intro/", "/advanced/", "/packages/", "/guide/"]
+sha256 = "b97b6cbc9c9d9de6a8628a5f9169e8ef238f23b8dcc4327f443fbbab2e806600"
+programs = ["**/examples/**/*.py", "intro/scipy/summary-exercises/*.py"]
+exclude = []
+outputs = []
+
+[python-novice-inflammation]
+title = "Software Carpentry, Programming with Python (the inflammation lesson), its episodes"
+repository = "https://github.com/swcarpentry/python-novice-inflammation"
+commit = "167240ef962b6882dfcdaefd7f8d23fa9e26f4dc"
+licence = "CC BY 4.0 (LICENSE.md: instructional material; its code, MIT)"
+fetch = ["/LICENSE.md", "/episodes/*.md", "/episodes/data/*.csv"]
+sha256 = "d8c39f1b22a95334bd07a127a51574672ab6538e7e1abc07987e9a8560bb520b"
+programs = ["episodes/*.md"]
+exclude = [
+    "episodes/12-cmdline.md",  # its cells read standard input (sys.stdin) until it ends
+]
+outputs = []
+
+[python-novice-gapminder]
+title = "Software Carpentry, Plotting and Programming in Python (the gapminder lesson), its episodes"
+repository = "https://github.com/swcarpentry/python-novice-gapminder"
+commit = "03c39315c48b6a13c4b887bb200cbcd83ac6915c"
+licence = "CC BY 4.0 (LICENSE.md: instructional material; its code, MIT)"
+fetch = ["/LICENSE.md", "/episodes/*.md", "/episodes/data/*.csv"]
+sha256 = "33017e2da5946210523e6c425b0e73ee6f16fdfcee8be88dda4e6acedd418571"
+programs = ["episodes/*.md"]
+exclude = []
+outputs = []
+
+[pydata-book]
+title = "Wes McKinney, Python for Data Analysis (3rd edition), the book's notebooks"
+repository = "https://github.com/wesm/pydata-book"
+commit = "a892791ce5a3831134cfa2989033ecbb9289f1ea"
+licence = "MIT (COPYING: the code examples; the datasets/ directory, 276 MB, is not fetched)"
+fetch = ["/COPYING", "/ch*.ipynb", "/appa.ipynb", "/examples/"]
+sha256 = "3081a16fbfa0ada8c1a171cf0a4bb5db5c4c92be3ebd3c78cd404102e6e63536"
+programs = ["ch*.ipynb", "appa.ipynb"]
+exclude = []
+outputs = []
+
+[matplotlib-3d]
+title = "Nicolas P. Rougier, matplotlib-3d: 3-D rendering with 2-D matplotlib"
+repository = "https://github.com/rougier/matplotlib-3d"
+commit = "5e79358cf1d3baec17674a0651de0a8571df5831"
+licence = "BSD-2-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/*.py", "/mpl3d/", "/data/"]
+sha256 = "39ee5b2ece6447b632bf65c5ffc41b6a65eb52559345cfeb23622d4888fdca93"
+programs = ["*.py"]
+exclude = [
+    "setup.py",  # the package's installer, no program
+]
+outputs = []
+
+[from-python-to-numpy]
+title = "Nicolas P. Rougier, From Python to Numpy (2017), the book's code"
+repository = "https://github.com/rougier/from-python-to-numpy"
+commit = "8a5f0d9973fe7513ef8463291ec71bf0f2453688"
+licence = "BSD-3-Clause (the code, LICENSE-code.txt; the book's text, CC BY-NC-SA 4.0, is not fetched)"
+fetch = ["/LICENSE-code.txt", "/code/"]
+sha256 = "80f9f0f48570402d3af7dabdcf0da5c2c190627d7686ec38829fae8ebf2f1789"
+programs = ["code/*.py"]
+exclude = []
+outputs = []

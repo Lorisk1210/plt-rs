@@ -226,7 +226,8 @@ impl AxisPainter<'_> {
                 ctx.draw_artist(false, |ctx| {
                     if on {
                         groups.part(ctx, TickPart::mark(second), |ctx| {
-                            self.draw_tick_mark(ctx, loc, second, mark, style);
+                            let style = style.mark_style(second);
+                            self.draw_tick_mark(ctx, loc, second, mark, &style);
                         });
                     }
                 });

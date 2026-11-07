@@ -1359,6 +1359,24 @@ figures without it:
   through the renderer's methods (`_native.drawing.draw_through`,
   `forward_drawing`): a figure is laid out and drawn whole, its rasterized
   artists through the renderer's `start_rasterizing`.
+* **Graphics contexts of the program's.** While the canvas's renderer has
+  a `new_gc` of the program's (`RendererBase.new_gc = ...`, returning a
+  `GraphicsContextBase` subclass), every artist pltrs (Rust) draws on the
+  raster canvas starts from a context it makes
+  (`pltrs::artist::GcSource`, `_native.backends.set_program_gc`, installed
+  by `RendererAgg._drawing`), as matplotlib's artists start from
+  `renderer.new_gc()`.
+* **3-D projections of the program's.** A 2-D patch or collection added to
+  a 3-D axes whose class gives `do_3d_projection` (the `Arrow3D` of many
+  programs) is drawn through Python, and before it is drawn its
+  projection runs (`mplot3d._program_projection`, a preparation
+  `_python_drawing.before_drawing` registers): the depth it returns
+  orders it among the axes' collections and patches
+  (`Axes3D::set_program_depth`).
+
+A print that matplotlib draws twice (laid out by an engine, or cut to its
+tight box) prepares the painters twice, so that the program's `draw` runs
+as often as matplotlib's.
 
 A painted artist's object is pickled with its figure (the painter is
 archived as the object), so a figure with one pickles as matplotlib's

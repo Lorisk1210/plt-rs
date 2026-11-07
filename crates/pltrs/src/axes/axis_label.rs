@@ -377,9 +377,11 @@ impl Axis {
     /// beyond the tick labels at the end of the axis (matplotlib's
     /// `offsetText.get_position()`, in display units across the axis).
     /// Reading it does not run the layout engine, as matplotlib places the
-    /// text when it draws.
+    /// text when it draws, nor note the fonts its texts look up (see
+    /// [`take_font_lookups`](pltrs_text::take_font_lookups)), as reading
+    /// matplotlib's measures nothing.
     pub fn offset_text_anchor(&self) -> Option<Point> {
-        self.with_texts_as_is(|texts, _| texts.offset_anchor)
+        crate::text::font_notes::unnoted(|| self.with_texts_as_is(|texts, _| texts.offset_anchor))
             .flatten()
     }
 

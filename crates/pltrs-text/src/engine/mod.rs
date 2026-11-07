@@ -150,6 +150,26 @@ impl TextEngine {
         Ok(self.db.file_faces(path)?)
     }
 
+    /// Opens the font file `path` as matplotlib's `FT2Font` does to
+    /// measure a text set in it.
+    ///
+    /// # Errors
+    ///
+    /// [`TextError::MissingFontFile`] when the file does not exist, and
+    /// matplotlib's message when it cannot be read or holds no font.
+    pub fn open_font_file(&self, path: &std::path::Path) -> Result<(), TextError> {
+        match self.db.file_faces(path) {
+            Ok(_) => Ok(()),
+            Err(pltrs_font::FontError::Io {
+                kind: std::io::ErrorKind::NotFound,
+                ..
+            }) => Err(TextError::MissingFontFile(path.to_path_buf())),
+            Err(err) => Err(TextError::Font(format!(
+                "In FT2Font: Can not load face ({err})"
+            ))),
+        }
+    }
+
     /// Forgets every memoised layout.
     fn forget_layouts(&self) {
         self.lines.clear();

@@ -161,9 +161,11 @@ def _files(tree: pathlib.Path) -> Iterator[pathlib.Path]:
 
 
 def tree_digest(tree: pathlib.Path) -> str:
-    """The SHA-256 of the ``sha256sum`` lines of every file of *tree*,
-    sorted by path (bytewise, as the C locale sorts them)."""
-    paths = sorted((f"./{relative.as_posix()}" for relative in _files(tree)), key=str.encode)
+    """The SHA-256 of the ``sha256sum`` lines of every regular file of
+    *tree*, sorted by path (bytewise, as the C locale sorts them); symbolic
+    links, which ``find -type f`` leaves out too, are not hashed."""
+    paths = sorted((f"./{relative.as_posix()}" for relative in _files(tree)
+                    if not (tree / relative).is_symlink()), key=str.encode)
     listing = "".join(f"{hashlib.sha256((tree / path).read_bytes()).hexdigest()}  {path}\n" for path in paths)
     return hashlib.sha256(listing.encode()).hexdigest()
 
@@ -195,7 +197,8 @@ def fetch(corpus: Corpus, out: pathlib.Path) -> pathlib.Path:
     _output_listing(tree).write_text(json.dumps(sorted(set(outputs))))
     for relative in _files(tree):
         path = tree / relative
-        path.chmod(path.stat().st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
+        if not path.is_symlink():
+            path.chmod(path.stat().st_mode & ~(stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))
     stamp.write_text(entry)
     return tree
 

@@ -29,17 +29,25 @@ from ..path import Path
 from ..transforms import Affine2D, Bbox, TransformedPath
 
 
+def _style_name(style):
+    """The name of the cap or join style *style* as Agg reads a graphics
+    context's: an enum member's, or the string a program's subclass set
+    (``self._capstyle = "round"``)."""
+    return str(getattr(style, "name", style))
+
+
 def native_gc(gc):
     """The graphics context *gc* as pltrs (Rust) takes it (``(stroke,
-    dashes, clipping, hatch, extras)``)."""
+    dashes, clipping, hatch, extras)``), its styles read as Agg reads them
+    (``_capstyle``, ``_joinstyle``)."""
     offset, dashes = gc.get_dashes()
     clip = gc.get_clip_rectangle()
     clip_path, clip_transform = gc.get_clip_path()
     hatch_color = gc.get_hatch_color()
     return (
         (tuple(gc.get_rgb()), gc.get_alpha() if gc.get_forced_alpha() else None,
-         bool(gc.get_antialiased()), gc.get_capstyle(), gc.get_joinstyle(),
-         float(gc.get_linewidth())),
+         bool(gc.get_antialiased()), _style_name(gc._capstyle),
+         _style_name(gc._joinstyle), float(gc.get_linewidth())),
         (float(offset or 0), None if dashes is None else [float(d) for d in dashes]),
         (None if clip is None else tuple(map(float, clip.extents)),
          None if clip_path is None

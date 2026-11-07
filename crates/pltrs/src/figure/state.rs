@@ -493,9 +493,15 @@ impl FigureState {
         }
         crate::mplot3d::prepare_axes3d(self, painting);
         // Titles clear the decorations of twins and insets, whose ticks
-        // are only all known now.
+        // are only all known now. matplotlib places them when it draws
+        // (and measures an axes' tight box): the fonts they look up count
+        // for a draw only.
         for id in axes {
-            self.update_title_position(id);
+            if painting.is_some() {
+                crate::text::font_notes::measured_before(|| self.update_title_position(id));
+            } else {
+                crate::text::font_notes::unnoted(|| self.update_title_position(id));
+            }
         }
         crate::legend::lay_out_legends(self);
         crate::offsetbox::lay_out_boxes(self);

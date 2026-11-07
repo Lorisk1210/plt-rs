@@ -18,7 +18,7 @@ use pltrs::text::{
 };
 use pltrs_core::Point;
 
-use super::font_manager::{FontProps, check_font_file};
+use super::font_manager::FontProps;
 use super::patch_styles::PyBoxStyle;
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
@@ -192,11 +192,9 @@ fn get_fontproperties(text: Text) -> PyResult<FontProps> {
     Ok(FontProps(text.font()))
 }
 
-/// Sets the font properties; a font file they name must hold a font.
+/// Sets the font properties (a font file they name is opened when the
+/// text is measured, as matplotlib opens it).
 fn set_fontproperties(text: Text, props: FontProps) -> PyResult<()> {
-    if let Some(file) = &props.0.file {
-        check_font_file(file)?;
-    }
     text.set_font(props.0);
     Ok(())
 }

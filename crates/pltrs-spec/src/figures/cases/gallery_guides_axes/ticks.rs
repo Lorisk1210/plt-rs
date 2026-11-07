@@ -1,7 +1,7 @@
 //! `axes_ticks`: manual major and minor ticks, the tick locators, tick
 //! parameters and the style of a single tick.
 
-use pltrs::axes::{TickDirection, TickLabelProps, TickLineProps, TickParams};
+use pltrs::axes::{TickDirection, TickLabelProps, TickLineProps, TickMarkProps, TickParams};
 use pltrs::layout::LayoutEngine;
 use pltrs::prelude::*;
 use pltrs::ticker::{
@@ -150,7 +150,10 @@ fn axes_ticks_6(fig: &Figure) -> CaseResult {
     xaxis.set_major_tick_line_props(
         5,
         TickLineProps {
-            markeredgecolor: red(),
+            marks: TickMarkProps {
+                markeredgecolor: red(),
+                ..TickMarkProps::default()
+            },
             grid_visible: Some(true),
             grid_linestyle: Some(LineStyle::Dotted),
             grid_linewidth: Some(1.5),

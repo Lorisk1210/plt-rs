@@ -19,7 +19,7 @@ use pltrs::text::{HAlign, Text, VAlign};
 use pltrs::transforms::Bbox;
 use pltrs_core::Point;
 
-use pltrs::axes::TickLineProps;
+use pltrs::axes::{TickLineProps, TickMarkProps};
 
 use super::mirrors::{TickMirrors, TickState, label_props, own};
 use crate::binding::prelude::*;
@@ -155,9 +155,13 @@ pub(super) fn push_tick_mark(
 ) -> PyResult<()> {
     if !second {
         let level = axis.tick_style(minor);
+        let previous = axis.tick_line_props(minor, index);
         let props = TickLineProps {
-            color: own(line.color(), &level.color),
-            ..axis.tick_line_props(minor, index)
+            marks: TickMarkProps {
+                color: own(line.color(), &level.color),
+                ..previous.marks.clone()
+            },
+            ..previous
         };
         axis.set_tick_line_props(minor, index, props);
     }

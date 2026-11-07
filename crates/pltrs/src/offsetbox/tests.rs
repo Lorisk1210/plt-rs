@@ -319,8 +319,10 @@ fn aux_boxes_measure_collections_by_their_shapes() {
     };
     let anchored = fig.add_anchored_box(AnchoredBox::new(aux, options));
     fig.draw_without_rendering().unwrap();
+    // Placed by the box, the lines have no extent of their own, as
+    // matplotlib's collections placed by a translation have none.
     let lines = anchored.artists()[0].window_extent().unwrap();
-    assert_eq!((lines.width(), lines.height()), (23.0, 0.0));
+    assert!(lines.is_null());
     let anchored = anchored.raw().window_extent().unwrap();
     assert!(anchored.is_finite());
     assert_eq!(anchored.width(), 23.0);

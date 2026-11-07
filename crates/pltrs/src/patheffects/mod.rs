@@ -503,10 +503,12 @@ pub(crate) fn with_path_effects<R>(
         .iter()
         .map(|effect| effect.colors().map(|colors| (effect.clone(), colors)))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(ctx.with_wrapped_renderer(
-        move |renderer| Box::new(PathEffectRenderer::resolved(resolved, renderer)),
-        f,
-    ))
+    Ok(crate::text::font_notes::through_effects(|| {
+        ctx.with_wrapped_renderer(
+            move |renderer| Box::new(PathEffectRenderer::resolved(resolved, renderer)),
+            f,
+        )
+    }))
 }
 
 #[cfg(test)]

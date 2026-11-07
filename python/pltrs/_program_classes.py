@@ -65,3 +65,12 @@ def takes_from_program(cls, name):
             return path is None or not os.path.realpath(path).startswith(
                 _PACKAGE_DIR + os.sep)
     return False
+
+
+def from_program(function):
+    """Whether *function*, a function or a method as a class holds it
+    (``RendererBase.new_gc = types.MethodType(...)``), is defined outside
+    this package (a callable of another kind always is)."""
+    code = getattr(getattr(function, "__func__", function), "__code__", None)
+    return code is None or not os.path.realpath(code.co_filename).startswith(
+        _PACKAGE_DIR + os.sep)

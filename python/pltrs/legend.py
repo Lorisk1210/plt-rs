@@ -792,8 +792,20 @@ class Legend(Artist):
             from .offsetbox import _laid_out_box
             box = _laid_out_box(_legend.legend_box(self._native), self.figure,
                                 _DRAWN_CLASSES)
+            box._relay_change = self._legend_box_changed
             self._legend_box_object = box
         return box
+
+    def _legend_box_changed(self, box):
+        """Align the title and the entries as the program aligned the
+        legend's box (``legend._legend_box.align = ...``), which
+        matplotlib's draw reads: a `.VPacker` aligns its children
+        horizontally, on the left for ``left``, ``bottom`` and
+        ``baseline``, on the right for ``right`` and ``top``."""
+        alignment = {"left": "left", "bottom": "left", "baseline": "left",
+                     "center": "center", "right": "right", "top": "right"}.get(box.align)
+        if alignment is not None:
+            _legend.set_alignment(self._native, alignment)
 
     def get_children(self):
         # docstring inherited

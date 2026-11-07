@@ -169,6 +169,24 @@ mod tests {
     }
 
     #[test]
+    fn printing_a_figure_in_use_fails_without_aborting() {
+        // Found by fuzzing: a save started from a transform called while
+        // the figure was measured failed as it began, and the guard
+        // restoring the figure then unwound again in its destructor,
+        // aborting the process.
+        let fig = Figure::new();
+        fig.subplot().set_title("t");
+        let reading = fig.state();
+        let printed = reenter(|| fig.to_png());
+        drop(reading);
+        assert_eq!(
+            printed.map(drop).map_err(FigureInUse::access),
+            Err(Access::Change)
+        );
+        assert!(fig.to_png().is_ok(), "the figure prints once it is free");
+    }
+
+    #[test]
     #[should_panic(expected = "the figure cannot be changed")]
     fn outside_reenter_a_figure_in_use_panics() {
         let fig = Figure::new();

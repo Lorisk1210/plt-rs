@@ -1,12 +1,19 @@
 //! Axis decorations: tick parameters, tick formatters and locators with
-//! random templates and counts, explicit ticks, grids and limits.
+//! random templates and counts, explicit ticks, grids and limits, the
+//! tick label format and locator parameters, the axes box (its aspect,
+//! adjustable and anchor) and secondary axes mapped by any scale.
 
-use pltrs::axes::{Axes, GridOptions, TickDirection, TickLevel, TickParams};
+use pltrs::axes::{
+    Adjustable, Axes, GridOptions, LocatorParams, SecondaryLocation, TickDirection, TickLevel,
+    TickParams, TicklabelFormat,
+};
 use pltrs::fonts::FontSize;
+use pltrs::scale::FuncTransform;
 use pltrs::ticker::{
     EngFormatter, FormatStrFormatter, LinearLocator, LogLocator, MaxNLocator, MultipleLocator,
-    Nbins, PercentFormatter, StrMethodFormatter,
+    Nbins, OffsetMode, PercentFormatter, StrMethodFormatter,
 };
+use pltrs::transforms::Anchor;
 
 use super::data::{count, length, series};
 use crate::harness::Gen;
@@ -51,12 +58,40 @@ pub(crate) enum AxisDecor {
         x: (f64, f64),
         y: (f64, f64),
     },
+    TickFormat {
+        scientific: bool,
+        scilimits: (i32, i32),
+        offset: Option<f64>,
+        nbins: usize,
+        integer: bool,
+        symmetric: bool,
+    },
+    BoxLayout {
+        box_aspect: Option<f64>,
+        datalim: bool,
+        anchor: Anchor,
+        minor_ticks: bool,
+    },
+    Secondary {
+        x: bool,
+        location: f64,
+        scale: f64,
+    },
 }
+
+/// Anchors of a shrunken axes: the named ones and fractions of any size.
+const ANCHORS: [Anchor; 5] = [
+    Anchor::C,
+    Anchor::SW,
+    Anchor::NE,
+    Anchor::Fraction(0.25, 0.75),
+    Anchor::Fraction(-3.0, f64::NAN),
+];
 
 impl AxisDecor {
     /// A random decoration.
     pub(crate) fn generate(g: &mut Gen) -> Self {
-        match g.below(6) {
+        match g.below(9) {
             0 => Self::TickParams {
                 length: g.number_in(0.0, 20.0),
                 width: g.number_in(0.0, 5.0),
@@ -90,9 +125,28 @@ impl AxisDecor {
                 width: g.number_in(0.0, 3.0),
                 minor: g.chance(0.3),
             },
-            _ => Self::Limits {
+            5 => Self::Limits {
                 x: (g.number(), g.number()),
                 y: (g.number(), g.number()),
+            },
+            6 => Self::TickFormat {
+                scientific: g.chance(0.5),
+                scilimits: (g.below(12) as i32 - 6, g.below(12) as i32 - 6),
+                offset: g.chance(0.3).then(|| g.number()),
+                nbins: count(g, 12),
+                integer: g.chance(0.3),
+                symmetric: g.chance(0.3),
+            },
+            7 => Self::BoxLayout {
+                box_aspect: g.chance(0.7).then(|| g.number()),
+                datalim: g.chance(0.5),
+                anchor: g.pick(&ANCHORS),
+                minor_ticks: g.chance(0.5),
+            },
+            _ => Self::Secondary {
+                x: g.chance(0.5),
+                location: g.number_in(-0.5, 1.5),
+                scale: g.number(),
             },
         }
     }
@@ -169,6 +223,28 @@ impl AxisDecor {
                 let _ = ax.set_xlim(x.0, x.1);
                 let _ = ax.set_ylim(y.0, y.1);
             }
+            Self::TickFormat {
+                scientific,
+                scilimits,
+                offset,
+                nbins,
+                integer,
+                symmetric,
+            } => tick_format(
+                ax,
+                *scientific,
+                *scilimits,
+                *offset,
+                *nbins,
+                (*integer, *symmetric),
+            ),
+            Self::BoxLayout {
+                box_aspect,
+                datalim,
+                anchor,
+                minor_ticks,
+            } => box_layout(ax, *box_aspect, *datalim, *anchor, *minor_ticks),
+            Self::Secondary { x, location, scale } => secondary(ax, *x, *location, *scale),
         }
     }
 }
@@ -218,4 +294,58 @@ fn locator(ax: &Axes, x: bool, kind: usize, value: f64, count: usize) {
             }
         }
     }
+}
+
+/// The tick label format (scientific or not, its limits, an offset) and
+/// the major locators' parameters (bins, integer or symmetric ticks).
+fn tick_format(
+    ax: &Axes,
+    scientific: bool,
+    scilimits: (i32, i32),
+    offset: Option<f64>,
+    nbins: usize,
+    (integer, symmetric): (bool, bool),
+) {
+    let format = TicklabelFormat {
+        scientific: Some(scientific),
+        scilimits: Some(scilimits),
+        use_offset: Some(offset.map_or(OffsetMode::Auto, OffsetMode::Fixed)),
+        ..TicklabelFormat::default()
+    };
+    let params = LocatorParams {
+        nbins: Some(Nbins::Fixed(nbins)),
+        integer: Some(integer),
+        symmetric: Some(symmetric),
+        ..LocatorParams::default()
+    };
+    let _ = ax.ticklabel_format(format);
+    let _ = ax.locator_params(params);
+}
+
+/// The axes box: its aspect, what gives way to the data's aspect, where a
+/// shrunken box sits, and minor ticks.
+fn box_layout(ax: &Axes, box_aspect: Option<f64>, datalim: bool, anchor: Anchor, minor: bool) {
+    let _ = ax.set_box_aspect(box_aspect);
+    let adjustable = if datalim {
+        Adjustable::Datalim
+    } else {
+        Adjustable::Box
+    };
+    let _ = ax.set_adjustable(adjustable);
+    ax.set_anchor(anchor);
+    if minor {
+        ax.minorticks_on();
+    }
+}
+
+/// A secondary x or y axis at `location` across the axes, its values the
+/// host's times `scale` (zero, negative and NaN included).
+fn secondary(ax: &Axes, x: bool, location: f64, scale: f64) {
+    let functions = FuncTransform::new(move |v| v * scale, move |v| v / scale);
+    let location = SecondaryLocation::Fraction(location);
+    let _ = if x {
+        ax.secondary_xaxis(location, Some(functions))
+    } else {
+        ax.secondary_yaxis(location, Some(functions))
+    };
 }

@@ -9,7 +9,13 @@ tests found, each with the values real matplotlib 3.11 gives.
   written, as matplotlib's ``Figure.draw`` does inside ``print_<format>``.
 * The X display checks are steady in a fresh process.
 * Pickles: figures with a layout engine, artists' sticky edges.
+* An artist drawing its own axes or figure recurses as in matplotlib.
+* A colormap resampled to no entries, and angular grid steps and hatch
+  lines of more values than memory holds, fail as in matplotlib; so do
+  the colours of 3-D bars that do not broadcast against their faces.
 * Polar arcs at astronomical angles.
+* What ``savefig`` writes to, per format: a path given as bytes, a file
+  opened as text.
 """
 
 import io
@@ -245,6 +251,60 @@ def test_sticky_edges_pickle_with_their_values():
     assert restored.sticky_edges.x == [0, 5, 9]
 
 
+@pytest.mark.parametrize("target", ["axes", "figure"])
+def test_an_artist_drawing_its_own_container_recurses_as_in_matplotlib(target):
+    # matplotlib: RecursionError, for the figure as for the axes.
+    fig, ax = plt.subplots()
+    ax.add_artist(type("A", (pltrs.artist.Artist,),
+                       {"draw": lambda self, r: getattr(self, target).draw(r)})())
+    with pytest.raises(RecursionError):
+        fig.savefig(io.BytesIO(), format="png")
+
+
+@pytest.mark.parametrize("lut", [1e-300, 0, 0.5])
+def test_a_colormap_of_no_entries_fails_when_used_as_in_matplotlib(lut):
+    # Found by fuzzing: the lookup table of no entries overflowed.
+    cmap = plt.get_cmap("jet", lut)
+    with pytest.raises(ValueError, match=r"could not broadcast input array from "
+                                         r"shape \(2,\) into shape \(0,\)"):
+        cmap(0.5)
+
+
+def test_angular_steps_beyond_memory_fail_as_in_matplotlib():
+    # Found by fuzzing: 2**31 intervals asked for 14 GB of levels and the
+    # allocation ended the process. matplotlib: numpy's errors.
+    from pltrs.mpl_toolkits.axisartist import angle_helper
+    with pytest.raises(MemoryError):
+        angle_helper.select_step(0, 10, 2 ** 40, hour=True)
+    with pytest.raises(ValueError, match="array is too big"):
+        angle_helper.select_step(0, 10, 2 ** 62, hour=True)
+
+
+def test_hatch_lines_beyond_memory_fail_as_in_matplotlib():
+    # Found by fuzzing: 2e15 lines asked for an allocation that ended the
+    # process. matplotlib: numpy's MemoryError.
+    from pltrs import hatch
+    lines = hatch.SouthEastHatch('\\\\', 1e15)
+    with pytest.raises(MemoryError):
+        lines.set_vertices_and_codes(np.zeros((4, 2)), np.ones(4, dtype=np.uint8))
+
+
+@pytest.mark.parametrize("count, message", [
+    (6, r"\(18,1\) \(6,4\)"), (2, r"\(18,1\) \(36,4\)"), (18, None), (3, None)])
+def test_bar3d_colours_broadcast_as_in_matplotlib(count, message):
+    # Found by fuzzing: six colours for three bars indexed past them.
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    bars = ([0], [0], np.array([1, 2, 3], dtype=np.int8), 1, 1, 1)
+    colors = ["r", "g", "b", "c", "none", "y"][:count] if count <= 6 else ["r"] * count
+    if message is None:
+        ax.bar3d(*bars, color=colors)
+    else:
+        with pytest.raises(ValueError, match="operands could not be broadcast together "
+                                             "with shapes " + message):
+            ax.bar3d(*bars, color=colors)
+
+
 # Polar arcs.
 
 def test_polar_axes_at_astronomical_angles_save():
@@ -254,3 +314,51 @@ def test_polar_axes_at_astronomical_angles_save():
     ax.set_xlim(-1, 2**63)
     fig.savefig(io.BytesIO(), format="png")
     assert np.isfinite(ax.get_xlim()).all()
+
+
+# What savefig writes to: matplotlib's writers take a path given as bytes
+# through Pillow alone, and write text formats into a file opened as text
+# (JPEG too, through Pillow writing to the file's descriptor).
+
+#: Per format: savefig(b"path") and savefig(<file opened as text>), as
+#: matplotlib 3.11 ends them.
+TARGETS = {
+    "png": ("ok", "TypeError: write() argument must be str, not bytes"),
+    "jpg": ("ok", "ok"),
+    "tiff": ("ok", "TypeError: write() argument must be str, not bytes"),
+    "webp": ("ok", "TypeError: write() argument must be str, not bytes"),
+    "pdf": ("ValueError: fname must be a PathLike or file handle",
+            "TypeError: write() argument must be str, not bytes"),
+    "svg": ("ValueError: fname must be a PathLike or file handle", "ok"),
+    "svgz": ("ValueError: fname must be a PathLike or file handle",
+             "TypeError: write() argument must be str, not bytes"),
+    "ps": ("ValueError: outfile must be a path or a file-like object", "ok"),
+    "eps": ("ValueError: outfile must be a path or a file-like object", "ok"),
+    "raw": ("ValueError: fname must be a PathLike or file handle",
+            "TypeError: write() argument must be str, not memoryview"),
+}
+
+
+def _outcome(save):
+    try:
+        save()
+    except (TypeError, ValueError) as error:
+        return f"{type(error).__name__}: {error}"
+    return "ok"
+
+
+@pytest.mark.parametrize("fmt", TARGETS)
+def test_savefig_targets_end_as_in_matplotlib(fmt, tmp_path):
+    fig, ax = plt.subplots()
+    ax.plot([1, 2])
+    path = tmp_path / f"figure.{fmt}"
+
+    def into_text_file():
+        with open(tmp_path / f"text.{fmt}", "w") as file:
+            fig.savefig(file, format=fmt)
+
+    outcomes = (_outcome(lambda: fig.savefig(os.fsencode(path), format=fmt)),
+                _outcome(into_text_file))
+    assert outcomes == TARGETS[fmt]
+    if outcomes[0] == "ok":
+        assert path.stat().st_size > 0

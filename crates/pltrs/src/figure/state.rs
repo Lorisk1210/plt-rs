@@ -1,6 +1,7 @@
 //! The shared, mutable state behind a [`Figure`](super::Figure) handle.
 
 mod archive;
+mod links;
 
 use std::cell::Cell;
 use std::rc::Rc;

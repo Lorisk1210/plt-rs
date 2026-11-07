@@ -297,9 +297,13 @@ fn anchors_table(n: usize, rows: &[[f64; 3]], gamma: f64) -> Result<Vec<f64>, Se
     if rows.windows(2).any(|pair| pair[1][0] - pair[0][0] < 0.0) {
         return Err(SegmentProblem::Decreasing);
     }
-    if n == 1 {
+    match n {
+        // numpy's concatenation of the first and last values around no
+        // samples (matplotlib then fails to fit them in no entries).
+        0 => return Ok(vec![first[2], last[1]]),
         // matplotlib's convention: a one-entry table holds f(1).
-        return Ok(vec![last[1]]);
+        1 => return Ok(vec![last[1]]),
+        _ => {}
     }
     let span = (n - 1) as f64;
     let x: Vec<f64> = rows.iter().map(|row| row[0] * span).collect();
@@ -341,6 +345,12 @@ mod tests {
             [0.0, 0.25, 1.0]
         );
         assert_eq!(lookup_table(1, &ramp, 1.0, Channel::Red).unwrap(), [1.0]);
+        // Found by fuzzing: no entries (`get_cmap(name, 1e-300)`)
+        // overflowed; numpy gives the two ends.
+        assert_eq!(
+            lookup_table(0, &ramp, 1.0, Channel::Red).unwrap(),
+            [0.0, 1.0]
+        );
     }
 
     #[test]

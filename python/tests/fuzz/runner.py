@@ -109,7 +109,12 @@ class Worker:
             [str(PLTRS_HOME), environment.get("PYTHONPATH", "")])
         self.process = subprocess.Popen(
             [program, "-c", BOOT], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, text=True, cwd=directory, env=environment)
+            stderr=subprocess.PIPE, encoding="utf-8", errors="replace", cwd=directory,
+            env=environment)
+        # The interpreter running the worker, once it tells: on Windows, a
+        # venv's python.exe is a launcher starting it as a process of its
+        # own (which ends with the launcher).
+        self.pid = self.process.pid
         self.events = queue.Queue()
         self.stderr = []
         threading.Thread(target=self._read_events, daemon=True).start()
@@ -117,7 +122,11 @@ class Worker:
 
     def _read_events(self):
         for line in self.process.stdout:
-            self.events.put(json.loads(line))
+            event = json.loads(line)
+            if event["event"] == "ready":
+                self.pid = event["pid"]
+            else:
+                self.events.put(event)
         self.events.put(None)
 
     def _read_stderr(self):
@@ -174,7 +183,7 @@ class Worker:
                 return self.events.get(timeout=WATCH_INTERVAL)
             except queue.Empty:
                 waited += WATCH_INTERVAL
-            if memory.resident(self.process.pid) > MEMORY_LIMIT:
+            if memory.resident(self.pid) > MEMORY_LIMIT:
                 return "memory"
         return "hang"
 
@@ -286,7 +295,7 @@ def run(scale=1, replay=None, jobs=4, reduce_bugs=True, directory=None, first=0)
         path = directory / "failures" / f"bug{number}-seed{bug.seed}.py"
         path.write_text(f"# {bug.signature}\n# seed {bug.seed}, {note}\n"
                         + "".join(f"# {line}\n" for line in bug.detail.splitlines()[-15:])
-                        + "\n".join(program) + "\n")
+                        + "\n".join(program) + "\n", encoding="utf-8")
         bug.path = path
     return list(distinct.values())
 

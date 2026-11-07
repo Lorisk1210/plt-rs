@@ -16,10 +16,12 @@ use crate::binding::prelude::*;
 
 impl From<GridError> for PyErr {
     /// matplotlib's `IndexError` for intervals beyond the step tables,
-    /// `ValueError` otherwise.
+    /// numpy's `MemoryError` for levels beyond memory, `ValueError`
+    /// otherwise.
     fn from(err: GridError) -> Self {
         let kind = match err {
             GridError::StepOutOfRange(_) => ExceptionKind::IndexError,
+            GridError::OutOfMemory(_) => ExceptionKind::MemoryError,
             _ => ExceptionKind::ValueError,
         };
         PyErr::new(kind, err.to_string())

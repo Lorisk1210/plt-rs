@@ -140,7 +140,14 @@ pub fn select_step(
         )));
     }
     let count = (stop - first).ceil().max(0.0) as usize;
-    let mut levels: Vec<f64> = (0..count).map(|i| (first + i as f64) * step).collect();
+    if count
+        .checked_mul(size_of::<f64>())
+        .is_none_or(|bytes| isize::try_from(bytes).is_err())
+    {
+        return Err(GridError::TooManyLevels);
+    }
+    let mut levels = pltrs_core::alloc::try_with_capacity(count)?;
+    levels.extend((0..count).map(|i| (first + i as f64) * step));
     let cycle = unit.cycle();
     #[expect(clippy::float_cmp, reason = "matplotlib tests the factor exactly")]
     let whole_units = factor == 1.0;
@@ -406,6 +413,21 @@ impl ExtremeFinder for ExtremeFinderCycle {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn levels_beyond_memory_fail_as_out_of_memory() {
+        // Found by fuzzing: 2³¹ intervals of an hour's range asked for 1.8e9
+        // levels, an allocation that ended the process (numpy's
+        // `MemoryError` in matplotlib).
+        let err = select_step(0.0, 10.0, 1 << 40, AngleUnit::Hour, false, 3600.0)
+            .expect_err("5 TiB of levels");
+        assert!(matches!(err, GridError::OutOfMemory(_)), "{err}");
+        assert!(pltrs_core::alloc::caused_by_out_of_memory(&err));
+        // More bytes than an array holds: numpy's `ValueError`.
+        let err = select_step(0.0, 10.0, 1 << 62, AngleUnit::Hour, false, 3600.0)
+            .expect_err("too many levels");
+        assert_eq!(err, GridError::TooManyLevels);
+    }
 
     fn levels(result: Result<GridLevels, GridError>) -> (Vec<f64>, usize, f64) {
         let GridLevels { levels, n, factor } = result.unwrap();

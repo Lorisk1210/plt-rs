@@ -205,9 +205,13 @@ impl RcValue for Marker {
             Err(_) => text.parse().map_err(|err| format!("{err}")),
         }
     }
+    /// The marker as it was spelled: a mathtext marker as its text, as
+    /// matplotlib keeps the string it was given.
     fn format_rc(&self) -> String {
-        let Self::Symbol(symbol) = self else {
-            return "custom".to_owned();
+        let symbol = match self {
+            Self::Symbol(symbol) => symbol,
+            Self::Math(text) => return text.clone(),
+            _ => return "custom".to_owned(),
         };
         MarkerSymbol::all().find(|(_, s)| s == symbol).map_or_else(
             String::new,
@@ -247,6 +251,15 @@ mod tests {
             i64::parse_rc("it's"),
             Err("Could not convert \"it's\" to int".to_owned())
         );
+    }
+
+    #[test]
+    fn mathtext_markers_read_back() {
+        // Found by fuzzing: "No$eNo$e" printed as "custom".
+        for text in ["$\\clubsuit$", "No$eNo$eNo$eNo$e"] {
+            let marker = Marker::parse_rc(text).expect("a mathtext marker");
+            assert_eq!(marker.format_rc(), text);
+        }
     }
 
     #[test]

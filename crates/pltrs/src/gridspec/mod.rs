@@ -9,6 +9,7 @@ use std::ops::Range;
 use std::rc::Rc;
 
 use pltrs_core::Bbox;
+use pltrs_core::archive::ArchiveError;
 
 use crate::artist::ArtistHandle;
 use crate::figure::Figure;
@@ -41,7 +42,20 @@ pltrs_core::archive_struct!(GridData {
     overrides,
     parent,
     in_layout
-});
+} check GridData::valid);
+
+impl GridData {
+    /// Whether the grid read back has cells, and a ratio for each row and
+    /// column, as [`GridSpec::with_ratios`] makes sure.
+    fn valid(&self) -> Result<(), ArchiveError> {
+        let rows = self.height_ratios.borrow().len();
+        let cols = self.width_ratios.borrow().len();
+        if self.nrows == 0 || self.ncols == 0 || rows != self.nrows || cols != self.ncols {
+            return Err(ArchiveError::invalid("a grid without cells or ratios"));
+        }
+        Ok(())
+    }
+}
 
 /// `given` ratios for `n` rows or columns, equal ones for `None`.
 fn ratios(given: Option<Vec<f64>>, n: usize) -> Result<Vec<f64>, GridSpecError> {
@@ -494,9 +508,23 @@ pltrs_core::archive_struct!(SubplotSpec {
     gridspec,
     rows,
     cols
-});
+} check SubplotSpec::valid);
 
 impl SubplotSpec {
+    /// Whether the block read back covers cells of its grid, as
+    /// [`GridSpec::span`] makes sure.
+    fn valid(&self) -> Result<(), ArchiveError> {
+        let (nrows, ncols) = self.gridspec.shape();
+        if self.rows.is_empty()
+            || self.cols.is_empty()
+            || self.rows.end > nrows
+            || self.cols.end > ncols
+        {
+            return Err(ArchiveError::invalid("a grid cell outside its grid"));
+        }
+        Ok(())
+    }
+
     /// The grid this block belongs to.
     pub fn gridspec(&self) -> &GridSpec {
         &self.gridspec

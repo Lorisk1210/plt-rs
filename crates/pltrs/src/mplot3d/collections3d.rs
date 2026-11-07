@@ -108,24 +108,24 @@ impl Axes3D {
             Some(_) => polys.faces.iter().map(|f| polygon_normal(f)).collect(),
             None => Vec::new(),
         };
-        let shade = |colors: Vec<Rgba>| -> Vec<Color> {
+        let shade = |colors: Vec<Rgba>| -> Result<Vec<Color>, Axes3DError> {
             let colors = match &polys.light {
-                Some(light) => shade_colors(&colors, &normals, light),
+                Some(light) => shade_colors(&colors, &normals, light)?,
                 None => colors,
             };
-            colors.into_iter().map(Color::from).collect()
+            Ok(colors.into_iter().map(Color::from).collect())
         };
         let mut collection =
             CollectionArtist::new(CollectionKind::Poly, Vec::new(), crate::rc::params());
         let mapping = match polys.colors {
             PolyFaces::Colors(colors) => {
-                collection.facecolors = Some(shade(colors));
+                collection.facecolors = Some(shade(colors)?);
                 None
             }
             PolyFaces::Mapped(mapping) => Some(mapping),
         };
         if let Some(edges) = polys.shaded_edges {
-            collection.edgecolors = EdgeColors::Colors(shade(edges));
+            collection.edgecolors = EdgeColors::Colors(shade(edges)?);
         }
         polys.props.apply(&mut collection);
         let raw = self.adopt_projected(collection);

@@ -44,15 +44,21 @@ impl Default for TickedStroke {
     }
 }
 
-/// The most ticks drawn along one polyline. A path reaching far beyond the
-/// canvas would ask for more ticks than memory holds (matplotlib raises
-/// `MemoryError`); such a polyline gets none.
-const MAX_TICKS: f64 = 1_048_576.0;
+/// The most ticks drawn along one path, all its polylines together. A path
+/// reaching far beyond the canvas would ask for more ticks than memory
+/// holds (matplotlib raises `MemoryError`), and so would thousands of
+/// polylines each within the limit; the polylines past it get none.
+pub(super) const MAX_TICKS: f64 = 1_048_576.0;
 
 impl TickedStroke {
     /// The tick segments along one polyline (display pixels), or `None`
     /// when it is a single point or would take more than 2²⁰ ticks.
     pub fn ticks(&self, polyline: &[Point], spacing_px: f64) -> Option<Path> {
+        self.ticks_within(polyline, spacing_px, MAX_TICKS)
+    }
+
+    /// [`ticks`](Self::ticks), `None` past `most` ticks.
+    fn ticks_within(&self, polyline: &[Point], spacing_px: f64, most: f64) -> Option<Path> {
         if polyline.len() < 2 {
             return None;
         }
@@ -65,7 +71,7 @@ impl TickedStroke {
         }
         let total = s[s.len() - 1];
         let num = ((total / spacing_px).ceil() - 1.0).max(0.0);
-        if num > MAX_TICKS {
+        if num > most {
             return None;
         }
         let num = num as usize;
@@ -114,8 +120,10 @@ impl TickedStroke {
             ..PolygonOptions::default()
         };
         let display = path.transformed(affine);
+        let mut left = MAX_TICKS;
         for polyline in display.to_polygons(&options) {
-            if let Some(ticks) = self.ticks(&polyline, spacing_px) {
+            if let Some(ticks) = self.ticks_within(&polyline, spacing_px, left) {
+                left -= (ticks.len() / 2) as f64;
                 renderer.draw_path(&gc, &ticks, &to_display, fill);
             }
         }

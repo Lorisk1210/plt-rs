@@ -3,9 +3,10 @@
 use pltrs_core::numeric::{py_max, py_min};
 
 use super::{FormattedTicks, Formatter, strip_math};
-use crate::numeric::linspace;
 use crate::ticker::pyfmt::{exponential, fixed, general, integer, repr};
-use crate::ticker::pymath::{arange, floor_int, is_close_to_int, log_base, pow10, round_int};
+use crate::ticker::pymath::{
+    arange, floor_int, is_close_to_int, linspace, log_base, pow10, round_int,
+};
 use crate::ticker::{ScaleHint, TickContext, TickerError, TickerSettings};
 use crate::transforms::nonsingular;
 
@@ -196,7 +197,7 @@ impl LogFormatter {
             vec![1.0]
         } else if numdec > all {
             // Log-spaced coefficients, e.g. 1, 2, 3, 4, 6, 10 for base 10.
-            geomspace_coefficients(b)
+            geomspace_coefficients(b)?
         } else {
             arange(1.0, b + 1.0, 1.0)?
         }))
@@ -325,10 +326,11 @@ impl Default for LogFormatter {
     }
 }
 
-/// `set(np.round(np.geomspace(1, b, int(b) // 2 + 1)))`.
-fn geomspace_coefficients(b: f64) -> Vec<f64> {
+/// `set(np.round(np.geomspace(1, b, int(b) // 2 + 1)))`, refusing a base
+/// so large that numpy could not hold the coefficients.
+fn geomspace_coefficients(b: f64) -> Result<Vec<f64>, TickerError> {
     let num = (b.trunc() as usize) / 2 + 1;
-    let exponents = linspace(0.0, b.log10(), num);
+    let exponents = linspace(0.0, b.log10(), num)?;
     let mut coeffs: Vec<f64> = exponents.iter().map(|&e| pow10(e)).collect();
     if let Some(first) = coeffs.first_mut() {
         *first = 1.0;
@@ -338,7 +340,7 @@ fn geomspace_coefficients(b: f64) -> Vec<f64> {
     {
         *last = b;
     }
-    coeffs.iter().map(|c| c.round_ties_even()).collect()
+    Ok(coeffs.iter().map(|c| c.round_ties_even()).collect())
 }
 
 /// `LogFormatter._pprint_val`: a short representation of `x` given the
@@ -447,9 +449,16 @@ mod tests {
     #[test]
     fn helpers() {
         assert_eq!(
-            geomspace_coefficients(10.0),
+            geomspace_coefficients(10.0).expect("coefficients"),
             [1.0, 2.0, 3.0, 4.0, 6.0, 10.0]
         );
+        // Found by fuzzing: a base of 10^12 asked for half as many
+        // coefficients, and the allocation's size overflowed.
+        assert!(matches!(
+            geomspace_coefficients(1e12),
+            Err(TickerError::TooManyTicks(_))
+        ));
+        assert!(geomspace_coefficients(1e300).is_err());
         assert_eq!(pprint_val(2.5, 5.0), "2.5");
         assert_eq!(pprint_val(12345.0, 1e6), "1.2e4");
         assert_eq!(pprint_val(3.0, 1.0), "3");

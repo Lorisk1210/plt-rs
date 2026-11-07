@@ -378,7 +378,12 @@ pub(crate) fn value_and_jac_angle(
     xlim: (f64, f64),
     ylim: (f64, f64),
 ) -> (Vec<Point>, Vec<f64>, Vec<f64>) {
-    let n = xs.len().max(ys.len());
+    // numpy's broadcasting: a single value takes the other's length, an
+    // empty array included.
+    let n = match (xs.len(), ys.len()) {
+        (1, n) | (n, 1) => n,
+        (x, y) => x.min(y),
+    };
     let broadcast = |values: &[f64]| -> Vec<f64> {
         match values {
             [single] => vec![*single; n],
@@ -417,6 +422,18 @@ mod tests {
     /// `f` applied to each point in place.
     fn pointwise(f: impl Fn(Point) -> Point) -> impl Fn(&mut [Point]) {
         move |points: &mut [Point]| points.iter_mut().for_each(|p| *p = f(*p))
+    }
+
+    #[test]
+    fn no_points_broadcast_against_one_give_none() {
+        // Found by fuzzing: the tick positions of a floating axes with an
+        // infinite extreme are none, which indexed past the empty array.
+        let shear = pointwise(|p: Point| Point::new(p.x, p.y - p.x));
+        let unbounded = (f64::NEG_INFINITY, f64::INFINITY);
+        for (xs, ys) in [(&[][..], &[1.0][..]), (&[1.0][..], &[][..])] {
+            let (values, dx, dy) = value_and_jac_angle(&shear, xs, ys, unbounded, unbounded);
+            assert!(values.is_empty() && dx.is_empty() && dy.is_empty());
+        }
     }
 
     #[test]

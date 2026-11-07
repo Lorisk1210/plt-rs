@@ -112,6 +112,9 @@ impl Archive for FigureState {
         if state.store.get_as::<FigureFrame>(state.root).is_none() {
             return Err(ArchiveError::invalid("the figure has no root frame"));
         }
+        if !super::links::links_end(&state) {
+            return Err(ArchiveError::invalid("an artist contains or owns itself"));
+        }
         Ok(state)
     }
 }

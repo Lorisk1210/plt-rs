@@ -16,7 +16,11 @@ reach.
 3. writes ``OUT/coverage.md``: the share of the callables and of their
    parameters the programs call themselves, overall, for the plotting
    methods (``Axes``, ``Axes3D`` and pyplot), per module and per class,
-   then every callable and plotting parameter not reached, and
+   the kinds of values the parameters are given (``coverage_kinds``:
+   ``None``, each type, empty and single-element data, NaN, inf,
+   negative numbers and zero, each string choice of matplotlib's checks,
+   unknown keywords, aliases), then every callable and plotting parameter
+   not reached and every string choice not given, and
    ``OUT/coverage.json`` with the same, per callable.
 """
 
@@ -38,14 +42,16 @@ from typing import Any
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import api_index  # noqa: E402
+import coverage_kinds  # noqa: E402
 import driver  # noqa: E402
+import kinds  # noqa: E402
 
 #: Seconds a program may run.
 TIMEOUT = 300
 #: The groups (module, or module:Owner) whose methods are the plotting methods.
 PLOTTING_GROUPS = ("matplotlib.axes:Axes", "mpl_toolkits.mplot3d:Axes3D", "matplotlib.pyplot")
 #: The files the traced runs depend on, besides the program.
-HARNESS = ("reach.py", "trace.py", "describe.py", "api_index.py")
+HARNESS = ("reach.py", "trace.py", "describe.py", "api_index.py", "kinds.py")
 
 
 def _reach(setup: driver.Setup, api: pathlib.Path, program: driver.Program,
@@ -92,6 +98,7 @@ class Coverage:
         for callable_ in index.callables:
             if callable_.owner and callable_.key in self.params:
                 self.params.setdefault(f"{callable_.module}:{callable_.owner}", set())
+        self.kinds = coverage_kinds.KindsCoverage(index, runs, kinds.Checks(index.callables), set(self.params))
 
     def reached(self, callable_: api_index.Callable) -> bool:
         """Whether a program reached ``callable_``."""
@@ -128,6 +135,7 @@ class Coverage:
             f"* Keyword parameters given: {_share(given, params)}",
             f"* Parameters of the plotting methods (`Axes`, `Axes3D`, pyplot) given: "
             f"{_share(plot_given, plot_params)}",
+            *self.kinds.summary(),
             "",
             "## By module",
             "",
@@ -156,13 +164,14 @@ class Coverage:
             missing = self.missing_params(callable_)
             if missing:
                 lines.append(f"* `{callable_.key}`: " + ", ".join(missing))
+        lines += ["", *self.kinds.kinds_table(), "", *self.kinds.missing_choices()]
         return "\n".join(lines) + "\n"
 
     def as_json(self) -> dict[str, Any]:
         """Every callable with whether it was reached and its parameters."""
         return {"callables": [
             dict(c.as_json(), reached=self.reached(c), missing_params=self.missing_params(c),
-                 extra=sorted(self.extra.get(c.key, ())))
+                 extra=sorted(self.extra.get(c.key, ())), **self.kinds.as_json(c))
             for c in self.index.callables
         ]}
 
@@ -211,7 +220,7 @@ def main() -> int:
     report = coverage.report(len(programs), sorted(failed))
     (setup.out / "coverage.md").write_text(report)
     (setup.out / "coverage.json").write_text(json.dumps(coverage.as_json(), indent=1))
-    print("\n".join(report.splitlines()[:9]))
+    print("\n".join(report.splitlines()[:17]))
     return 0
 
 

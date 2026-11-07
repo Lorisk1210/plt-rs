@@ -48,6 +48,9 @@ class NavigationMixin:
         Remove the Axes from its figure, whose Axes observers learn it, and
         release the mouse if the Axes grabs it.
         """
+        if self.__dict__.get("_removed"):
+            # Removed before: matplotlib's figure no longer has it.
+            raise KeyError(self)
         figure = self.get_figure(root=False)
         super().remove()
         if figure is not None:

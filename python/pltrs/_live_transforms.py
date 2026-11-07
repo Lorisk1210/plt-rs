@@ -95,6 +95,13 @@ def given_to_native(transform, axes=None):
     return None if transform is None else to_native(for_axes(transform, axes))
 
 
+def holds_natively(transform):
+    """Whether pltrs (Rust) can hold *transform* as an artist's: a
+    `.Transform`, or None (display coordinates). matplotlib keeps any other
+    object an artist is given, which its draw then fails on."""
+    return transform is None or isinstance(transform, Transform)
+
+
 def gives_transform(transform):
     """Whether *transform* is no `.Transform` but an object of the
     program's giving its transform for an Axes (``_as_mpl_transform``, as

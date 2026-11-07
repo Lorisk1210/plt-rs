@@ -1212,8 +1212,11 @@ class Text(Artist):
         _api.check_isinstance((Sequence, None), features=features)
         if features is not None:
             features = tuple(features)
-        _text.set_fontfeatures(self._native,
-                               None if features is None else list(features))
+        # Tags that are no strings are kept unchecked, as matplotlib keeps
+        # them until it lays the text out.
+        if features is None or all(isinstance(tag, str) for tag in features):
+            _text.set_fontfeatures(self._native,
+                                   None if features is None else list(features))
         self._features = features
 
     def get_language(self):

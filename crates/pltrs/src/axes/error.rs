@@ -99,7 +99,7 @@ pub enum PlotError {
     },
     /// A view limit that is NaN or infinite.
     NonFiniteLimit(AxisName),
-    /// An autoscaling margin of -0.5 or less, or not finite.
+    /// An autoscaling margin of -0.5 or less.
     InvalidMargin(f64),
     /// A side that the axis cannot be drawn on (e.g. `Left` for x).
     WrongSide {
@@ -200,10 +200,9 @@ impl fmt::Display for PlotError {
             Self::NonFiniteLimit(axis) => {
                 write!(f, "{}-axis limits cannot be NaN or Inf", axis.name())
             }
-            Self::InvalidMargin(margin) => write!(
-                f,
-                "margin must be finite and greater than -0.5, got {margin}"
-            ),
+            Self::InvalidMargin(margin) => {
+                write!(f, "margin must be greater than -0.5, got {margin}")
+            }
             Self::ExplicitConverter(axis) => {
                 axis_problem(f, *axis, "already has an explicit converter set")
             }

@@ -1215,7 +1215,10 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             raise KeyError(ax)
         if ax not in self._localaxes:
             raise ValueError("list.remove(x): x not in list")
-        ax.remove()
+        # Out of the figure but still of it, as matplotlib's `delaxes` leaves
+        # the Axes (plotted on, added back), which `ax.remove()` then decouples.
+        _artist.remove(ax._native)
+        self._axes_removed(ax)
 
     def set_figure(self, fig):
         """

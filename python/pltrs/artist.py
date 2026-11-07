@@ -280,7 +280,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                 self.pchanged()
                 return
             t = t._as_mpl_transform(axes)
-        _transforms.set_transform(self._native, _live_transforms.to_native(t))
+        if _live_transforms.holds_natively(t):
+            _transforms.set_transform(self._native, _live_transforms.to_native(t))
         self._given_transform = t
         self.pchanged()
 
@@ -343,8 +344,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if level is None:
             level = type(self).zorder
         if level != self.get_zorder():
-            _artist.set_zorder(self._native, level)
-            _values.remember(self, "zorder", level)
+            if isinstance(level, Real):
+                _artist.set_zorder(self._native, level)
+                _values.remember(self, "zorder", level)
+            else:
+                # Kept unchecked, as matplotlib keeps it until it sorts.
+                _values.keep(self, "zorder", level)
             self.pchanged()
             self.stale = True
 
@@ -673,6 +678,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ``"artist"``, ``"line"``, ``"patch"``, ``"image"`` or
         ``"collection"``, the last with *autolim*); return self.
         """
+        if kind == "artist":
+            # matplotlib's `add_artist` sets the Axes before the figure.
+            self.axes = axes
         self._convert_units_for(axes)
         had_transform = self.is_transform_set()
         native = _artist.adopt_into_axes(axes._native, self._native, kind,
@@ -702,6 +710,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Note: there is no support for removing the artist's legend entry.
         """
         if self._figure is None:
+            if self.__dict__.get("_removed"):
+                # Removed before: matplotlib's removal method, the list the
+                # artist was in, no longer finds it.
+                raise ValueError("list.remove(x): x not in list")
             raise NotImplementedError('cannot remove artist')
         # An owner removing the artist its own way (a colorbar its Axes).
         remove_method = self.__dict__.get("_remove_method")
@@ -710,8 +722,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             return
         _artist.remove(self._native)
         _handles.forget(self)
-        # Decoupled from its figure, as matplotlib's `remove` leaves it.
+        # Decoupled from its figure and Axes, as matplotlib's `remove`
+        # leaves it.
         self._figure = None
+        self.__dict__.pop("_axes", None)
+        self._removed = True
 
     def properties(self):
         """Return a dictionary of all the properties of the artist."""

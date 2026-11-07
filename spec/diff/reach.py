@@ -13,6 +13,9 @@ The program runs as the differential tester runs it (``trace.py``, in
   the parameters the call binds (by keyword or position, and the keys of
   a ``**kwargs``), then makes the call; a call its signature refuses
   reaches nothing;
+  and the kinds of the values it gives them (``kinds.of``); a call the
+  signature refuses, or that fails on an unexpected keyword, is noted as
+  refused, with why;
 * every attribute read becomes ``__reach_attribute__(value, name)``,
   which notes the enumeration and exception classes a program refers to
   without calling them, and the properties it reads (those of
@@ -22,7 +25,10 @@ The program runs as the differential tester runs it (``trace.py``, in
 What Python calls implicitly (properties, dunder methods) is found with
 ``sys.monitoring``: the start of one of their codes counts when the frame
 calling it is the program's. Only what the program calls itself counts,
-not what matplotlib calls on its behalf. The calls go to
+not what matplotlib calls on its behalf. The choices matplotlib's
+``_api.check_in_list`` and ``_api.getitem_checked`` check a value against
+count for the parameter of the program's call the value was given to,
+however deep down the check is. The calls go to
 ``OUT_DIR/reach.json``; the trace's own record to ``OUT_DIR/trace/``.
 """
 
@@ -31,6 +37,7 @@ from __future__ import annotations
 import ast
 import builtins
 import enum
+import functools
 import importlib.util
 import inspect
 import json
@@ -42,8 +49,14 @@ from typing import Any
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import api_index  # noqa: E402
+import kinds  # noqa: E402
 
 CALL, ATTRIBUTE = "__reach_call__", "__reach_attribute__"
+#: The longest string value noted as a choice given.
+MAX_CHOICE = 60
+#: How a refusal of a call reads, by the start of the ``TypeError`` binding it.
+REFUSALS = {"got an unexpected keyword": "unknown keyword", "missing a required": "missing argument",
+            "too many positional": "too many arguments", "multiple values": "argument given twice"}
 #: Calls never wrapped: their meaning depends on the frame they run in.
 FRAME_CALLS = {"super", "locals", "globals", "vars", "dir", "eval", "exec", "__import__"}
 
@@ -93,7 +106,18 @@ class Reach:
         self.calls: dict[str, set[str]] = {}
         #: key -> keys given to its **kwargs
         self.extra: dict[str, set[str]] = {}
-        self._signatures: dict[int, inspect.Signature | None] = {}
+        #: key -> parameter (``**key`` for a **kwargs' key) -> kinds of the values given
+        self.kinds: dict[str, dict[str, set[str]]] = {}
+        #: key -> parameter -> the strings given
+        self.strings: dict[str, dict[str, set[str]]] = {}
+        #: key -> parameter -> the choices matplotlib checked the values given against
+        self.choices: dict[str, dict[str, set[str]]] = {}
+        #: key -> why calls of it were refused
+        self.refused: dict[str, set[str]] = {}
+        #: The program's calls running, innermost last: key and bound arguments.
+        self._running: list[tuple[str, dict[str, Any]]] = []
+        #: (id of a function, whether bound) -> the function and its signature
+        self._signatures: dict[tuple[int, bool], tuple[Any, inspect.Signature | None]] = {}
         self._program_files: dict[str, bool] = {}
 
     def is_program(self, filename: str) -> bool:
@@ -112,32 +136,62 @@ class Reach:
             self.extra.setdefault(callable_.key, set()).update(extra)
 
     def _signature(self, target: Any) -> inspect.Signature | None:
-        key = id(target)
+        """``target``'s signature, cached by the function a bound method
+        binds (a bound method is made anew for each call, and its id is
+        soon another's), which the cache keeps alive."""
+        inner = getattr(target, "__func__", target)
+        key = (id(inner), inspect.ismethod(target))
         if key not in self._signatures:
             try:
-                self._signatures[key] = inspect.signature(target)
+                signature = inspect.signature(target)
             except (TypeError, ValueError):
-                self._signatures[key] = None
-        return self._signatures[key]
+                signature = None
+            self._signatures[key] = (inner, signature)
+        return self._signatures[key][1]
 
-    def _bound(self, target: Any, args: tuple, kwargs: dict[str, Any]) -> tuple[set[str], set[str]] | None:
-        """The parameters a call binds and the keys it gives a ``**kwargs``;
-        None for a call its signature refuses, which reaches nothing."""
+    def _bound(self, target: Any, args: tuple, kwargs: dict[str, Any]) -> dict[str, Any] | str:
+        """The arguments a call binds, by parameter (a ``**kwargs``' keys as
+        ``**key``), or why its signature refuses it, which reaches nothing."""
         signature = self._signature(target)
         if signature is None:
-            return set(kwargs), set()
+            return {name: value for name, value in kwargs.items()}
         try:
             bound = signature.bind(*args, **kwargs).arguments
-        except TypeError:
-            return None
-        params, extra = set(), set()
+        except TypeError as err:
+            return next((why for start, why in REFUSALS.items() if start in str(err)), "refused")
+        arguments = {}
         for name, value in bound.items():
             kind = signature.parameters[name].kind
             if kind is inspect.Parameter.VAR_KEYWORD:
-                extra.update(value)
+                arguments.update((f"**{key}", given) for key, given in value.items())
             elif kind is not inspect.Parameter.VAR_POSITIONAL:
-                params.add(name)
-        return params, extra
+                arguments[name] = value
+        return arguments
+
+    def _note_arguments(self, callable_: api_index.Callable, arguments: dict[str, Any]) -> None:
+        """Note the parameters a call of ``callable_`` binds, and the kinds
+        of their values."""
+        params = {name for name in arguments if not name.startswith("**")} & set(callable_.params)
+        extra = {name[2:] for name in arguments if name.startswith("**")}
+        self.note(callable_, params, extra)
+        kinds_given = self.kinds.setdefault(callable_.key, {})
+        for name, value in arguments.items():
+            if name in params or name.startswith("**"):
+                kinds_given.setdefault(name, set()).update(kinds.of(value))
+                if isinstance(value, str) and len(value) <= MAX_CHOICE:
+                    self.strings.setdefault(callable_.key, {}).setdefault(name, set()).add(value)
+
+    def checked(self, values: Any, kwargs: dict[str, Any]) -> None:
+        """Note the choices of a check of matplotlib's for the parameter of
+        a running call of the program's that was given the value checked."""
+        for name, value in kwargs.items():
+            for key, arguments in reversed(self._running):
+                parameter = next((p for p in (name, f"**{name}") if p in arguments), None)
+                given = arguments.get(parameter)
+                if parameter is not None and (given is value or (
+                        isinstance(value, str) and isinstance(given, str) and given.lower() == value.lower())):
+                    self.choices.setdefault(key, {}).setdefault(parameter, set()).update(kinds.choices_of(values))
+                    break
 
     def _called(self, func: Any, called_as: str | None) -> tuple[api_index.Callable | None, Any, tuple]:
         """The callable a call of ``func`` (read as the attribute
@@ -178,36 +232,62 @@ class Reach:
 
     def call(self, func: Any, called_as: str | None, /, *args: Any, **kwargs: Any) -> Any:
         """Note what calling ``func`` (read as the attribute ``called_as``)
-        reaches, then call it."""
+        reaches, then call it. A call its signature refuses counts as
+        refused when it fails, and with its keywords when it does not (a
+        signature narrower than the function: ``Artist.set``'s lists the
+        properties, not their aliases)."""
+        callable_, arguments, refusal = None, {}, None
         try:
             callable_, target, before = self._called(func, called_as)
             bound = None if callable_ is None else self._bound(target, before + args, kwargs)
-            if bound is not None:
-                params, extra = bound
-                self.note(callable_, params & set(callable_.params), extra)
-                # The same function under the same name elsewhere (a module's
-                # function a class also holds as a static method,
-                # ``colors.to_rgb``) is reached too.
-                for same in self.index.by_object.get(id(target), ()):
-                    if same.name == callable_.name and same is not callable_:
-                        self.note(same, params & set(same.params), extra)
+            if isinstance(bound, str):
+                refusal = bound
+            elif bound is not None:
+                arguments = bound
+                self._note_all(callable_, target, arguments)
         except Exception:  # noqa: BLE001 - an object Python cannot introspect reaches nothing
             pass
-        return func(*args, **kwargs)
+        if callable_ is None:
+            return func(*args, **kwargs)
+        self._running.append((callable_.key, arguments))
+        try:
+            result = func(*args, **kwargs)
+        except (TypeError, AttributeError) as err:
+            if refusal is not None:
+                self.refused.setdefault(callable_.key, set()).add(refusal)
+            elif "unexpected keyword argument" in str(err):
+                self.refused.setdefault(callable_.key, set()).add("unknown keyword")
+            raise
+        finally:
+            self._running.pop()
+        if refusal is not None:
+            self._note_all(callable_, target, {name if name in callable_.params else f"**{name}": value
+                                               for name, value in kwargs.items()})
+        return result
+
+    def _note_all(self, callable_: api_index.Callable, target: Any, arguments: dict[str, Any]) -> None:
+        """Note the arguments of a call of ``callable_``, and of the same
+        function under the same name elsewhere (a module's function a class
+        also holds as a static method, ``colors.to_rgb``)."""
+        self._note_arguments(callable_, arguments)
+        for same in self.index.by_object.get(id(target), ()):
+            if same.name == callable_.name and same is not callable_:
+                self._note_arguments(same, arguments)
 
     def attribute(self, value: Any, name: str) -> Any:
         """Note the enumeration and exception classes a read names, and the
         property it reads; read it."""
+        if not isinstance(value, type):
+            # A property whose getter raises is reached too.
+            found = self.index.member(type(value), name)
+            if found is not None and found.kind == "property":
+                self.note(found)
         result = getattr(value, name)
         for candidate in (value, result):
             if isinstance(candidate, type) and issubclass(candidate, (enum.Enum, BaseException)):
                 found = self.index.classes.get(id(candidate))
                 if found is not None:
                     self.note(found)
-        if not isinstance(value, type):
-            found = self.index.member(type(value), name)
-            if found is not None and found.kind == "property":
-                self.note(found)
         return result
 
     def started(self, code: types.CodeType, offset: int) -> Any:
@@ -231,8 +311,14 @@ class Reach:
 
     def as_json(self) -> dict[str, Any]:
         """What was reached."""
+        def nested(table: dict[str, dict[str, set[str]]]) -> dict[str, dict[str, list[str]]]:
+            return {key: {name: sorted(found) for name, found in sorted(by_name.items())}
+                    for key, by_name in sorted(table.items())}
+
         return {"calls": {key: sorted(params) for key, params in sorted(self.calls.items())},
-                "extra": {key: sorted(keys) for key, keys in sorted(self.extra.items())}}
+                "extra": {key: sorted(keys) for key, keys in sorted(self.extra.items())},
+                "kinds": nested(self.kinds), "strings": nested(self.strings), "choices": nested(self.choices),
+                "refused": {key: sorted(why) for key, why in sorted(self.refused.items())}}
 
 
 def _named(candidates: list[api_index.Callable], called_as: str | None) -> api_index.Callable:
@@ -242,6 +328,23 @@ def _named(candidates: list[api_index.Callable], called_as: str | None) -> api_i
     first = candidates[0]
     named = [c for c in candidates if c.name == called_as]
     return next((c for c in named if c.owner == first.owner), named[0] if named else first)
+
+
+def _watch_checks(reach: Reach) -> None:
+    """Have matplotlib's choice checks tell ``reach`` what they check."""
+    from matplotlib import _api
+
+    for name in kinds.CHOICE_CHECKS:
+        check = getattr(_api, name)
+
+        def watched(values: Any, /, *args: Any, _check: Any = check, **kwargs: Any) -> Any:
+            try:
+                reach.checked(values, {k: v for k, v in kwargs.items() if not k.startswith("_")})
+            except Exception:  # noqa: BLE001 - what a check sees is noted when it can be
+                pass
+            return _check(values, *args, **kwargs)
+
+        setattr(_api, name, functools.wraps(check)(watched))
 
 
 def _load_trace() -> types.ModuleType:
@@ -269,6 +372,7 @@ def main() -> int:
         tree = trace.ImportChange(trace.IMPORT_RENAMES[loader.impl]).visit(ast.parse(data, path))
         return compile(ast.fix_missing_locations(Wrapping().visit(tree)), path, "exec", dont_inherit=True)
 
+    _watch_checks(reach)
     trace.instrument = instrumented
     trace._ChangedImportsLoader.source_to_code = source_to_code
     setattr(builtins, CALL, reach.call)

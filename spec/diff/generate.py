@@ -25,7 +25,18 @@ compared on their own. The generators are the modules of ``generators/``:
   of its keyword parameters, at representative and edge values, on the
   subject it belongs to;
 * ``unreached``: the core modules' names the ``api`` programs leave
-  unreached, each called where it has what it needs.
+  unreached, each called where it has what it needs;
+* ``hostile``: every callable of the ``api`` programs again, each
+  parameter given what users get wrong (other types, None, empty data,
+  NaN, inf, negative and zero sizes, every string choice and a wrong
+  one), unknown keywords, missing and extra arguments, mismatched data
+  and the aliases of the artists' properties;
+* ``orders``: calls in unusual orders: on artists removed, on closed
+  figures and cleared Axes, artists moved across Axes and figures, and
+  the same call twice;
+* ``rest``: the callables and parameters no other generator reaches
+  (DVI fonts, FreeType's buffers, the testing helpers, an animation
+  saved), each called where it has what it needs.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -47,7 +58,8 @@ import matplotlib  # noqa: E402
 matplotlib.use("agg")
 
 from generators import (  # noqa: E402
-    api, artists, modules, offsetboxes, plotting, pyplot, randomized, three_d, unreached)
+    api, artists, hostile, modules, offsetboxes, orders, plotting, pyplot, randomized, rest, three_d,
+    unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -59,6 +71,9 @@ GENERATORS = {
     "offsetboxes": offsetboxes.programs,
     "api": api.programs,
     "unreached": unreached.programs,
+    "hostile": hostile.programs,
+    "orders": orders.programs,
+    "rest": rest.programs,
 }
 
 

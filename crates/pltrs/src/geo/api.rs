@@ -16,7 +16,7 @@ use crate::ticker::pyfmt;
 /// Why a geographic setting was refused.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GeoError {
-    /// A grid spacing that is not a positive, finite number of degrees.
+    /// A grid spacing of zero degrees, or one that is not finite.
     GridSpacing(f64),
     /// A centre given to axes drawn through another projection than
     /// Lambert's, the one that has a centre.
@@ -28,7 +28,7 @@ impl fmt::Display for GeoError {
         match self {
             Self::GridSpacing(degrees) => write!(
                 f,
-                "grid spacing must be a positive number of degrees, not {degrees}"
+                "grid spacing must be a finite, non-zero number of degrees, not {degrees}"
             ),
             Self::NotLambert => f.write_str("only a Lambert projection has a centre"),
         }
@@ -142,7 +142,7 @@ impl GeoAxes {
     ///
     /// # Errors
     ///
-    /// When `degrees` is not positive and finite.
+    /// When `degrees` is zero or not finite.
     pub fn set_longitude_grid(&self, degrees: f64) -> Result<&Self, GeoError> {
         check_spacing(degrees)?;
         install_grid(&self.xaxis(), degrees, LONGITUDE_EDGE);
@@ -154,7 +154,7 @@ impl GeoAxes {
     ///
     /// # Errors
     ///
-    /// When `degrees` is not positive and finite.
+    /// When `degrees` is zero or not finite.
     pub fn set_latitude_grid(&self, degrees: f64) -> Result<&Self, GeoError> {
         check_spacing(degrees)?;
         install_grid(&self.yaxis(), degrees, LATITUDE_EDGE);
@@ -207,10 +207,11 @@ pub(super) fn format_lonlat(longitude: f64, latitude: f64) -> String {
     )
 }
 
-/// Refuses grid spacings that are not a positive, finite number of
-/// degrees.
+/// Refuses grid spacings of no gridline at all: zero and those that are
+/// not finite (a negative spacing puts none, as matplotlib's `arange`
+/// counting down from below the top puts none).
 fn check_spacing(degrees: f64) -> Result<(), GeoError> {
-    if degrees.is_finite() && degrees > 0.0 {
+    if degrees.is_finite() && degrees != 0.0 {
         Ok(())
     } else {
         Err(GeoError::GridSpacing(degrees))
@@ -368,6 +369,11 @@ mod tests {
             Some(GeoError::GridSpacing(0.0))
         );
         assert!(ax.set_latitude_grid(f64::NAN).is_err());
+        ax.set_latitude_grid(-15.0).unwrap();
+        assert!(
+            ax.ticks(AxisName::Y).unwrap().major.is_empty(),
+            "counting down puts none"
+        );
     }
 
     #[test]

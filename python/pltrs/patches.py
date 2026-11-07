@@ -617,7 +617,12 @@ class Patch(Artist):
 
     def set_hatch_linewidth(self, lw):
         """Set the hatch linewidth."""
-        self._set_native(hatch_linewidth=float(lw))
+        if not isinstance(lw, Real):
+            # Kept unchecked, as matplotlib keeps it until it draws.
+            _values.keep(self, "hatch_linewidth", lw)
+            return
+        native = float(lw)
+        self._set_native(hatch_linewidth=native)
         _values.remember(self, "hatch_linewidth", lw)
 
     def contains_point(self, point, radius=None):

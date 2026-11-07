@@ -9,6 +9,12 @@ a value of the same type and, where one is compared, the same value: the
 re-exports of numpy, dateutil, enum and the standard library programs
 import from matplotlib's modules (``from matplotlib.dates import MO``),
 constants, and the modules reachable as attributes (``matplotlib.cbook.np``).
+
+A class or function of matplotlib's C++ extensions (pybind11's
+``FT2Font``, ``image.resample``) matches a Python class or function of
+pltrs's, as ``docs.py`` compares their callables: Python reimplements them,
+so the type of the value (pybind11's metaclass, a builtin function) is
+pybind11's, not matplotlib's.
 """
 
 from __future__ import annotations
@@ -30,7 +36,8 @@ def _difference(theirs: dict[str, Any], mine: dict[str, Any] | None) -> tuple[st
     """The cause and the detail of a name's difference, or None."""
     if mine is None or not mine["found"]:
         return "missing", _shown(theirs)
-    if theirs["type"] != mine["type"]:
+    reimplemented = theirs.get("native") and theirs.get("kind") == mine.get("kind")
+    if theirs["type"] != mine["type"] and not reimplemented:
         return "type", f"{theirs['type']} -> {mine['type']}"
     if theirs["value"] != mine["value"]:
         return "value", f"{theirs['value']} -> {mine['value']}"

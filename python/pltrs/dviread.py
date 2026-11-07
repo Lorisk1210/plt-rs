@@ -461,23 +461,7 @@ def _lookup_replaced(texname):
     return PsfontsMap(find_tex_file("pdftex.map"))[texname]
 
 
-class _WatchesLookup(type):
-    """The metaclass of `PsfontsMap`: it tells pltrs (Rust) when
-    ``PsfontsMap.__getitem__`` is replaced or restored, so that usetex
-    looks fonts up through the replacement, as matplotlib's does."""
-
-    def __setattr__(cls, name, value):
-        super().__setattr__(name, value)
-        if name == "__getitem__":
-            _sync_lookup()
-
-    def __delattr__(cls, name):
-        super().__delattr__(name)
-        if name == "__getitem__":
-            _sync_lookup()
-
-
-class PsfontsMap(metaclass=_WatchesLookup):
+class PsfontsMap:
     """
     A psfonts.map formatted file, mapping TeX fonts to PS fonts.
 
@@ -542,15 +526,10 @@ class PsfontsMap(metaclass=_WatchesLookup):
             self._native, texname, find_tex_file))
 
 
-#: The ``PsfontsMap.__getitem__`` of the package, which reads the map.
-_ORIGINAL_GETITEM = PsfontsMap.__getitem__
-
-
-def _sync_lookup():
-    """Hand pltrs (Rust) the replacement of ``PsfontsMap.__getitem__`` in
-    force, or none."""
-    replaced = PsfontsMap.__dict__.get("__getitem__") is not _ORIGINAL_GETITEM
-    _dviread.set_font_lookup(_lookup_replaced if replaced else None)
+# usetex looks fonts up through the program's replacement of
+# ``PsfontsMap.__getitem__`` while there is one, as matplotlib's does.
+_dviread.set_font_lookup(_lookup_replaced,
+                         (PsfontsMap, "__getitem__", PsfontsMap.__getitem__))
 
 
 def _parse_enc(path):
@@ -583,3 +562,5 @@ from functools import cache, partial, wraps  # noqa: E402, F401
 from . import cbook, font_manager  # noqa: E402, F401
 from .ft2font import LoadFlags  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package
+from . import _lazy_imports  # noqa: E402
+__getattr__ = _lazy_imports.getter(__name__, fontTools=("fontTools.agl",))

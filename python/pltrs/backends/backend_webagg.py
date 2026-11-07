@@ -38,6 +38,7 @@ import logging
 from pathlib import Path
 import signal
 import sys
+import threading
 from urllib.parse import urlparse
 
 from .. import colors, rcParams
@@ -244,6 +245,12 @@ class WebAggApplication:
             loop.run_until_complete(cls._serve())
 
     @classmethod
+    async def _serve_from_thread(cls):
+        """Run the server in the event loop of `webagg_server_thread`."""
+        cls.started = True
+        await cls._serve()
+
+    @classmethod
     async def _serve(cls):
         """Hand what the clients send to the figures while the server runs."""
         while cls.started:
@@ -299,17 +306,23 @@ class WebAggApplication:
         return buff.getvalue()
 
 
+#: The thread serving the figures shown inline while no event loop runs,
+#: in an event loop of its own (matplotlib's runs Tornado's).
+webagg_server_thread = threading.Thread(
+    target=lambda: asyncio.run(WebAggApplication._serve_from_thread()))
+
+
 def ipython_inline_display(figure):
     """The HTML showing *figure* inline in a notebook (`.Figure.
     _repr_html_`), its WebSocket served by `WebAggApplication` from the
-    kernel's event loop, which runs while the notebook waits for cells
-    (pltrs (Rust) values live on the thread that made them, so there is no
-    server thread)."""
+    event loop running (a notebook's kernel's, while it waits for cells),
+    else from `webagg_server_thread`, as matplotlib's is."""
     WebAggApplication.initialize()
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        pass
+        if not webagg_server_thread.is_alive():
+            webagg_server_thread.start()
     else:
         WebAggApplication.start()
     fignum = figure.number
@@ -337,5 +350,7 @@ class _BackendWebAgg(_Backend):
 import errno  # noqa: E402, F401
 import mimetypes  # noqa: E402, F401
 import random  # noqa: E402, F401
-import threading  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package
+from .. import _lazy_imports  # noqa: E402
+__getattr__ = _lazy_imports.getter(
+    __name__, tornado=("tornado.web", "tornado.ioloop", "tornado.websocket"))

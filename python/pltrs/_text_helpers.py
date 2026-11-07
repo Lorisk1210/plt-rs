@@ -24,22 +24,24 @@ def warn_on_missing_glyph(codepoint: CharacterCodeType, fontnames: str):
 _register("warn_on_missing_glyph", warn_on_missing_glyph)
 
 
-def report_font_lookup(kind, family, style, variant, weight, stretch, size):
+def report_font_lookup(kind, family, style, variant, weight, stretch, size,
+                       times):
     """
     Look up, with the program's font manager, the fonts of a text pltrs
     (Rust) laid out that matplotlib's font manager logs about (a family no
-    font has, a face of another weight than asked for): as matplotlib's
-    renderers do for every text they lay out (``_find_fonts_by_props``
-    for *kind* ``"fonts"``, ``findfont`` for ``"font"``), so that the
-    program's font manager logs as matplotlib's does.
+    font has, a face of another weight than asked for), *times* times: as
+    matplotlib's renderers do for every text they lay out
+    (``_find_fonts_by_props`` for *kind* ``"fonts"``, ``findfont`` for
+    ``"font"``), so that the program's font manager logs as matplotlib's
+    does.
     """
     from .font_manager import FontProperties, fontManager
     prop = FontProperties(family=family, style=style, variant=variant,
                           weight=weight, stretch=stretch, size=size)
-    if kind == "fonts":
-        fontManager._find_fonts_by_props(prop)
-    else:
-        fontManager.findfont(prop)
+    find = (fontManager._find_fonts_by_props if kind == "fonts"
+            else fontManager.findfont)
+    for _ in range(times):
+        find(prop)
 
 
 _register("report_font_lookup", report_font_lookup)

@@ -481,4 +481,5 @@ def _image_directories(func):
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 from platform import uname  # noqa: E402, F401
+from .. import parse_version  # noqa: E402, F401
 matplotlib = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

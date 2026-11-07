@@ -229,7 +229,7 @@ def _rotation_degrees(s):
     "multialignment": ["ma"],
 })
 @_mirrors.mirrorable
-class Text(Artist, metaclass=_text_overrides.WatchesDraw):
+class Text(Artist):
     """Handle storing and drawing of text in window or data coordinates."""
 
     def set_clip_box(self, clipbox):

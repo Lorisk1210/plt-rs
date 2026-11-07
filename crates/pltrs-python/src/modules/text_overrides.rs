@@ -5,12 +5,15 @@
 //! and draws every text through them (`pltrs::text::set_line_measurer`,
 //! `pltrs::text::set_text_painter`).
 //!
-//! The package installs a replacement when the program assigns one
-//! (`monkeypatch.setattr(text, "_get_text_metrics_with_cache", ...)`) and
-//! removes it when the original comes back, so that pltrs (Rust) only
-//! calls Python while there is one. A renderer's metrics cache is
-//! installed while pltrs lays out or draws with the renderer
-//! (`set_metrics_cache`), which costs no call into Python per text.
+//! The package installs, once, the stand-ins measuring and drawing
+//! through the program's replacements, each with the attribute the
+//! program replaces ([`Watched`]): pltrs (Rust) uses a stand-in only while
+//! the attribute is not matplotlib's (`monkeypatch.setattr(text,
+//! "_get_text_metrics_with_cache", ...)` until the original comes back),
+//! so that it only calls Python while there is a replacement. A
+//! renderer's metrics cache is installed while pltrs lays out or draws
+//! with the renderer (`set_metrics_cache`), which costs no call into
+//! Python per text.
 
 use std::rc::Rc;
 
@@ -22,6 +25,7 @@ use pltrs::text::{
 };
 
 use super::font_manager::FontProps;
+use crate::binding::Watched;
 use crate::binding::prelude::*;
 
 /// A line's typesetting as matplotlib's `ismath` gives it: `False`,
@@ -115,10 +119,11 @@ fn measure_pgf(text: String, props: FontProps, dpi: f64) -> PyResult<(f64, f64, 
 
 /// Lines measured by Python: `line(text, props, ismath, dpi)` gives
 /// `(width, height, descent)` and `font_height(props, dpi)` the font's
-/// `(ascent, descent, line_gap)` or None.
+/// `(ascent, descent, line_gap)` or None, while `original` is replaced.
 struct PythonMeasurer {
     line: Callback,
     font_height: Callback,
+    original: Watched,
 }
 
 impl LineMeasurer for PythonMeasurer {
@@ -152,20 +157,31 @@ impl LineMeasurer for PythonMeasurer {
             line_gap,
         })
     }
+
+    fn in_force(&self) -> bool {
+        !self.original.holds()
+    }
 }
 
 /// Measures every line pltrs (Rust) lays out on this thread with `line`
-/// and `font_height` (see [`PythonMeasurer`]), or with pltrs (Rust)'s own
-/// measurement again when both are None.
-fn set_measurer(line: Option<Callback>, font_height: Option<Callback>) -> PyResult<()> {
-    let measurer = match (line, font_height) {
-        (Some(line), Some(font_height)) => {
-            Some(Rc::new(PythonMeasurer { line, font_height }) as Rc<dyn LineMeasurer>)
-        }
-        (None, None) => None,
+/// and `font_height` (see [`PythonMeasurer`]) while `original`,
+/// `(module, name, function)`, is replaced, or with pltrs (Rust)'s own
+/// measurement always when all are None.
+fn set_measurer(
+    line: Option<Callback>,
+    font_height: Option<Callback>,
+    original: Option<Watched>,
+) -> PyResult<()> {
+    let measurer = match (line, font_height, original) {
+        (Some(line), Some(font_height), Some(original)) => Some(Rc::new(PythonMeasurer {
+            line,
+            font_height,
+            original,
+        }) as Rc<dyn LineMeasurer>),
+        (None, None, None) => None,
         _ => {
             return Err(PyErr::type_error(
-                "set_measurer takes both callables or neither",
+                "set_measurer takes both callables and the original, or none",
             ));
         }
     };
@@ -174,9 +190,11 @@ fn set_measurer(line: Option<Callback>, font_height: Option<Callback>) -> PyResu
 }
 
 /// Texts drawn by Python: `paint(stand_in, dpi)` gives the native handles
-/// of the artists to draw in place of the text `stand_in` stands for.
+/// of the artists to draw in place of the text `stand_in` stands for,
+/// while `original` is replaced.
 struct PythonPainter {
     paint: Callback,
+    original: Watched,
 }
 
 impl TextPainter for PythonPainter {
@@ -185,14 +203,28 @@ impl TextPainter for PythonPainter {
             .call::<Vec<RawHandle>>((stand_in.clone(), dpi))
             .unwrap_or_default()
     }
+
+    fn in_force(&self) -> bool {
+        !self.original.holds()
+    }
 }
 
 /// Draws every text pltrs (Rust) draws on this thread with `paint` (see
-/// [`PythonPainter`]), or as pltrs (Rust) draws it again with None.
-fn set_painter(paint: Option<Callback>) -> PyResult<()> {
-    pltrs::text::set_text_painter(
-        paint.map(|paint| Rc::new(PythonPainter { paint }) as Rc<dyn TextPainter>),
-    );
+/// [`PythonPainter`]) while `original`, `(class, name, function)`, is
+/// replaced, or as pltrs (Rust) draws it always when both are None.
+fn set_painter(paint: Option<Callback>, original: Option<Watched>) -> PyResult<()> {
+    let painter = match (paint, original) {
+        (Some(paint), Some(original)) => {
+            Some(Rc::new(PythonPainter { paint, original }) as Rc<dyn TextPainter>)
+        }
+        (None, None) => None,
+        _ => {
+            return Err(PyErr::type_error(
+                "set_painter takes the callable and the original, or neither",
+            ));
+        }
+    };
+    pltrs::text::set_text_painter(painter);
     Ok(())
 }
 
@@ -285,7 +317,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::binding::testing::{eval, extension, with_python};
+    use crate::binding::testing::{eval, extension, import, with_python};
     use crate::binding::{Bound, PyResult};
     use pltrs::artist::ArtistHandle;
 
@@ -343,32 +375,57 @@ mod tests {
                 "lambda s, prop, ismath, dpi: (10.0 * len(s), prop[2][2], 0.0)",
             );
             let tables = eval(py, "", "lambda prop, dpi: None");
+            // The module whose `measure` is watched: matplotlib's `len`
+            // until the program replaces it.
+            let original = eval(
+                py,
+                "import types\nmodule = types.SimpleNamespace(measure=len)",
+                "(module, 'measure', len)",
+            );
+            let module = original
+                .call_method("__getitem__", &[eval(py, "", "0")])
+                .unwrap();
+            let replace = |value: &str| {
+                let setattr = import(py, "builtins").getattr("setattr").unwrap();
+                let args = [
+                    module.clone(),
+                    eval(py, "", "'measure'"),
+                    eval(py, "", value),
+                ];
+                setattr.call(&args, &[]).unwrap();
+            };
             call(
                 &native,
                 "text_overrides",
                 "set_measurer",
-                &[line, tables.clone()],
+                &[line, tables.clone(), original],
             )
             .unwrap();
+            let unreplaced = text_width(&native);
+            replace("abs");
             let replaced = text_width(&native);
             let again = measure("False");
+            replace("len");
+            let restored = text_width(&native);
             let none = eval(py, "", "None");
             let half = call(
                 &native,
                 "text_overrides",
                 "set_measurer",
-                &[tables, none.clone()],
+                &[tables, none.clone(), none.clone()],
             );
             call(
                 &native,
                 "text_overrides",
                 "set_measurer",
-                &[none.clone(), none],
+                &[none.clone(), none.clone(), none],
             )
             .unwrap();
+            assert_eq!(unreplaced, measured, "in force while replaced only");
             assert_eq!(replaced, 40.0);
             assert_eq!(again.unwrap(), own, "the original ignores the measurer");
-            assert!(half.is_err(), "both callables or neither");
+            assert_eq!(restored, measured);
+            assert!(half.is_err(), "all or none");
             assert_eq!(text_width(&native), measured);
         });
     }

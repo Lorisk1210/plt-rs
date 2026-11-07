@@ -162,7 +162,9 @@ impl AxisPainter<'_> {
 
     /// The box `bbox` behind the axis text `text` of `fontsize` points
     /// (an axis label or a tick label, whose `Text.draw` draws it first,
-    /// with the box's own path effects).
+    /// with the box's own path effects), placed around the text laid out
+    /// once more, as matplotlib's `update_bbox_position_size` lays it out
+    /// (`_get_textbox`).
     fn draw_text_box(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -171,7 +173,19 @@ impl AxisPainter<'_> {
         fontsize: f64,
         rc: &RcParams,
     ) {
-        let (corner, size) = text.laid_out.block.frame;
+        // The program measures the text again with the figure free.
+        if has_line_measurer() {
+            ctx.free();
+        }
+        let laid_out = match text.as_drawn(ctx.layout().dpi(), rc, AxisTextDraw::AfterMeasuring) {
+            Ok(laid_out) => laid_out,
+            Err(err) => {
+                let err = TextDrawError::from(err);
+                ctx.report_kind(self.axes_id, err.kind(), err);
+                return;
+            }
+        };
+        let (corner, size) = laid_out.block.frame;
         let placement = BoxPlacement {
             anchor: text.anchor,
             corner,

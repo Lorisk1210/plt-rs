@@ -504,7 +504,8 @@ mod tests {
             engine.note_font_lookup(&missing).unwrap();
             let lookups = crate::take_font_lookups();
             assert_eq!(lookups.len(), 1);
-            assert_eq!(lookups[0].query, missing.query);
+            assert_eq!(lookups[0].lookup.query, missing.query);
+            assert_eq!(lookups[0].times, 1);
         }
         engine
             .note_font_lookup(&FontRequest::dejavu_sans(12.0))

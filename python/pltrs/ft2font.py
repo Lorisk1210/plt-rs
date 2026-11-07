@@ -616,7 +616,7 @@ class FT2Font:
         """
         return dict(_ft2font.get_charmap(self._native))
 
-    def get_char_index(self, codepoint):
+    def get_char_index(self, codepoint, *, _fallback=True):
         """
         Return the glyph index corresponding to a character code point.
 
@@ -639,7 +639,7 @@ class FT2Font:
         .get_glyph_name
         .get_name_index
         """
-        return _ft2font.get_char_index(self._native, int(codepoint))
+        return _ft2font.get_char_index(self._native, int(codepoint), bool(_fallback))
 
     def get_kerning(self, left, right, mode):
         """

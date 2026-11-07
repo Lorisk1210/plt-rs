@@ -4,6 +4,8 @@
 //! has loaded is kept here for the text layout ([`super::layout`]) and the
 //! bitmaps ([`super::bitmaps`]).
 
+use std::collections::HashMap;
+
 use pltrs_core::PathCode;
 use pltrs_font::{
     AutohintTarget, Face, GlyphId, HintedGlyph, Hinter, Hinting, HintingInstance, Rect, Size,
@@ -105,14 +107,19 @@ pub(super) struct Glyphs {
     pub(super) text: TextBox,
     /// The bitmap `draw_glyphs_to_bitmap` drew: `(rows, columns, pixels)`.
     pub(super) image: (usize, usize, Vec<u8>),
+    /// The face of the chain each character `load_char` loaded came from
+    /// (matplotlib's `char_to_font`), for `get_char_index`.
+    pub(super) char_faces: HashMap<u32, usize>,
 }
 
 impl Glyphs {
-    /// Forgets the loaded glyphs and the text's extent (matplotlib's
-    /// `FT2Font::clear`, which leaves the glyph slot and the image).
+    /// Forgets the loaded glyphs, the text's extent and the faces the
+    /// characters came from (matplotlib's `FT2Font::clear`, which leaves
+    /// the glyph slot and the image).
     pub(super) fn clear(&mut self) {
         self.loaded.clear();
         self.text = TextBox::default();
+        self.char_faces.clear();
     }
 }
 
@@ -313,9 +320,11 @@ fn load_char(
             .filter(|&glyph| glyph != GlyphId::NOTDEF)
             .map(|glyph| (index, glyph))
     });
-    found
-        .map(|(index, glyph)| load(&mut font, index, glyph, flags))
-        .transpose()
+    let Some((index, glyph)) = found else {
+        return Ok(None);
+    };
+    font.glyphs.char_faces.insert(code, index);
+    load(&mut font, index, glyph, flags).map(Some)
 }
 
 /// `load_glyph(index, flags)`.

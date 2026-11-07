@@ -18,6 +18,12 @@ pub trait FontMapLookup {
     ///
     /// When there is none.
     fn lookup(&self, texname: &[u8]) -> Result<PsFont, TexError>;
+
+    /// Whether the replacement looks fonts up now; while it does not, the
+    /// font map does (the program put matplotlib's lookup back).
+    fn in_force(&self) -> bool {
+        true
+    }
 }
 
 pltrs_core::thread_state! {
@@ -31,9 +37,11 @@ pub fn set_font_map_lookup(lookup: Option<Rc<dyn FontMapLookup>>) {
     LOOKUP.set(lookup);
 }
 
-/// The thread's replacement of the font map.
+/// The thread's replacement of the font map, if it is in force.
 pub(crate) fn font_map_lookup() -> Option<Rc<dyn FontMapLookup>> {
-    LOOKUP.with_borrow(Clone::clone)
+    LOOKUP
+        .with_borrow(Clone::clone)
+        .filter(|lookup| lookup.in_force())
 }
 
 #[cfg(test)]

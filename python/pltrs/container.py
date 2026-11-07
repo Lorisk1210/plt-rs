@@ -46,29 +46,11 @@ class Container(tuple):
     def get_children(self):
         return [child for child in cbook.flatten(self) if child is not None]
 
-    def get_label(self):
-        """Return the label used for this artist in the legend."""
-        return self._label
-
-    def set_label(self, s):
-        """
-        Set a label that will be displayed in the legend.
-
-        Parameters
-        ----------
-        s : object
-            *s* will be converted to a string by calling `str`.
-        """
-        label = str(s) if s is not None else None
-        if label != self._label:
-            self._label = label
-            self.pchanged()
-            # matplotlib's `Artist.set_label` (which containers take)
-            # marks the container stale: a plain attribute of a container.
-            self.stale = True
-
-    # Artist's own, as matplotlib's containers take them (the registry is
-    # the container's `_callbacks`).
+    # Artist's own, as matplotlib's containers take them (the label is the
+    # container's `_label`, the registry its `_callbacks`; `set_label`
+    # marks it stale, a plain attribute of a container).
+    get_label = Artist.get_label
+    set_label = Artist.set_label
     _property_callbacks = Artist._property_callbacks
     add_callback = Artist.add_callback
     remove_callback = Artist.remove_callback

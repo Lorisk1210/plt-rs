@@ -54,7 +54,7 @@ pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
         },
         dejavu_symbols: rc.pltrs_mathtext_dejavu_symbols,
         font: font.drawn_request(),
-        pattern_defaults: PatternDefaults::of(&FontProperties::from_rc(rc).request(rc).query),
+        pattern_defaults: PatternDefaults::of(&FontProperties::from_rc(rc).request(rc)),
         dpi,
     }
 }

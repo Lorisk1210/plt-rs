@@ -374,4 +374,5 @@ __all__ = ["LayoutEngine", "PlaceHolderLayoutEngine", "TightLayoutEngine",
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 from contextlib import nullcontext  # noqa: E402, F401
+from ._tight_layout import get_subplotspec_list  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

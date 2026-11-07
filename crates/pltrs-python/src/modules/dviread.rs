@@ -14,6 +14,7 @@ use pltrs_text::tex::{
     FileFinder, FontMapLookup, PsFont, PsfontsMap, TexError, TexFiles, set_font_map_lookup,
 };
 
+use crate::binding::Watched;
 use crate::binding::new_dict;
 use crate::binding::prelude::*;
 
@@ -143,8 +144,12 @@ type PsFontFields = (
 );
 
 /// Fonts looked up by the program's `PsfontsMap.__getitem__`:
-/// `lookup(texname)` gives the fields of a `PsFont`.
-struct PythonLookup(Callback);
+/// `lookup(texname)` gives the fields of a `PsFont`, while `original` is
+/// replaced.
+struct PythonLookup {
+    lookup: Callback,
+    original: Watched,
+}
 
 impl FontMapLookup for PythonLookup {
     fn lookup(&self, texname: &[u8]) -> Result<PsFont, TexError> {
@@ -153,7 +158,7 @@ impl FontMapLookup for PythonLookup {
             texname: String::from_utf8_lossy(texname).into_owned(),
         };
         let (texname, psname, effects, encoding, filename) = self
-            .0
+            .lookup
             .call::<PsFontFields>((Bytes(texname.to_vec()),))
             .ok_or_else(unmapped)?;
         let effects = effects.unwrap_or_default();
@@ -168,15 +173,29 @@ impl FontMapLookup for PythonLookup {
             filename,
         })
     }
+
+    fn in_force(&self) -> bool {
+        !self.original.holds()
+    }
 }
 
 /// Looks every TeX font usetex draws on this thread up with `lookup` (a
-/// callable giving the fields of matplotlib's `PsFont` for a TeX name),
-/// or in `pdftex.map` again with None.
-fn set_font_lookup(lookup: Option<Callback>) -> PyResult<()> {
-    set_font_map_lookup(
-        lookup.map(|lookup| Rc::new(PythonLookup(lookup)) as Rc<dyn FontMapLookup>),
-    );
+/// callable giving the fields of matplotlib's `PsFont` for a TeX name)
+/// while `original`, `(class, name, function)`, is replaced, or in
+/// `pdftex.map` always when both are None.
+fn set_font_lookup(lookup: Option<Callback>, original: Option<Watched>) -> PyResult<()> {
+    let lookup = match (lookup, original) {
+        (Some(lookup), Some(original)) => {
+            Some(Rc::new(PythonLookup { lookup, original }) as Rc<dyn FontMapLookup>)
+        }
+        (None, None) => None,
+        _ => {
+            return Err(PyErr::type_error(
+                "set_font_lookup takes the callable and the original, or neither",
+            ));
+        }
+    };
+    set_font_map_lookup(lookup);
     Ok(())
 }
 

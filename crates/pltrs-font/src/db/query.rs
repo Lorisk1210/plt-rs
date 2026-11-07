@@ -85,11 +85,40 @@ impl FontVariant {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct Weight(pub u16);
 
+/// matplotlib's weight names (`font_manager.weight_dict`) and their
+/// weights.
+const WEIGHT_NAMES: [(&str, u16); 14] = [
+    ("ultralight", 100),
+    ("light", 200),
+    ("normal", 400),
+    ("regular", 400),
+    ("book", 400),
+    ("medium", 500),
+    ("roman", 500),
+    ("semibold", 600),
+    ("demibold", 600),
+    ("demi", 600),
+    ("bold", 700),
+    ("heavy", 800),
+    ("extra bold", 800),
+    ("black", 900),
+];
+
 impl Weight {
     /// `normal` / `regular` (400).
     pub const NORMAL: Self = Self(400);
     /// `bold` (700).
     pub const BOLD: Self = Self(700);
+
+    /// `text` if it is one of matplotlib's weight names, which
+    /// `FontProperties.set_weight` keeps as given (and its font manager's
+    /// messages name); `None` for anything else, a number included.
+    pub fn keyword(text: &str) -> Option<&'static str> {
+        WEIGHT_NAMES
+            .iter()
+            .find(|(name, _)| *name == text)
+            .map(|&(name, _)| name)
+    }
 }
 
 impl FromStr for Weight {
@@ -101,16 +130,9 @@ impl FromStr for Weight {
     /// in 0–1000.
     fn from_str(text: &str) -> Result<Self, FontError> {
         let lower = text.trim().to_ascii_lowercase();
-        let named = match lower.as_str() {
-            "ultralight" => 100,
-            "light" => 200,
-            "normal" | "regular" | "book" => 400,
-            "medium" | "roman" => 500,
-            "semibold" | "demibold" | "demi" => 600,
-            "bold" => 700,
-            "heavy" | "extra bold" => 800,
-            "black" => 900,
-            number => number
+        let named = match WEIGHT_NAMES.iter().find(|(name, _)| *name == lower) {
+            Some(&(_, weight)) => weight,
+            None => lower
                 .parse()
                 .ok()
                 .filter(|&value| value <= 1000)
@@ -400,6 +422,15 @@ impl fmt::Display for FontQuery {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn weight_keywords_are_matplotlib_names_as_given() {
+        assert_eq!(Weight::keyword("semibold"), Some("semibold"));
+        assert_eq!(Weight::keyword("extra bold"), Some("extra bold"));
+        assert_eq!(Weight::keyword("600"), None);
+        assert_eq!(Weight::keyword("Bold"), None);
+        assert_eq!(Weight::keyword("fat"), None);
+    }
 
     #[test]
     fn parses_names_and_numbers() {

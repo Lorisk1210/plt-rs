@@ -11,12 +11,14 @@ outside this package, and an annotation with such coordinate systems
 (``_evaluates_coords``), are kept for their figure (`track`), whose draw
 hook sets their native transforms from the program's once the figure is
 laid out and before its artists are drawn
-(``_native.transforms.set_draw_hook``).
+(``_native.transforms.set_draw_hook``). The hook also hands pltrs (Rust)
+again the paths of the program's a collection keeps that changed in
+place (`._program_paths`).
 """
 
 import weakref
 
-from . import _live_transforms
+from . import _live_transforms, _program_paths
 from ._program_classes import takes_from_program
 from ._native import transforms as _transforms
 
@@ -27,9 +29,11 @@ _tracked = weakref.WeakKeyDictionary()
 def track(artist, figure):
     """Have the root *figure* evaluate the transforms of *artist* at every
     draw when its class overrides ``get_transform`` or it evaluates
-    coordinate systems of the program's, which it then evaluates now."""
+    coordinate systems of the program's, which it then evaluates now, and
+    hand over again the paths of the program's it keeps if they changed."""
     evaluates_coords = getattr(artist, "_evaluates_coords", False)
-    if not (evaluates_coords or _computes_transform(artist)):
+    if not (evaluates_coords or _computes_transform(artist)
+            or _program_paths.kept(artist)):
         return
     if evaluates_coords:
         artist._evaluate_coords()
@@ -72,3 +76,4 @@ def _evaluate(figure):
                 artist._native, _live_transforms.to_native(artist.get_transform()))
         if getattr(artist, "_evaluates_coords", False):
             artist._evaluate_coords()
+        _program_paths.sync(artist)

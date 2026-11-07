@@ -15,9 +15,11 @@ use std::sync::Arc;
 
 use pltrs_font::{FontQuery, GenericFamilies};
 
-/// The most lookups kept until they are taken; later ones are dropped, so
-/// that a program that never takes them does not grow.
-const MAX_KEPT: usize = 1024;
+/// The most runs of lookups kept until they are taken (a run being one
+/// lookup made several times in a row, as for the tick labels of an
+/// axis); later ones are dropped, so that a program that never takes
+/// them does not grow.
+const MAX_KEPT: usize = 4096;
 
 /// How the fonts of a lookup were asked for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,9 +45,28 @@ pub struct FontLookup {
     pub weight_keyword: Option<&'static str>,
 }
 
+impl FontLookup {
+    /// Whether `other` looks up the same fonts as `self`.
+    fn repeats(&self, other: &Self) -> bool {
+        self.kind == other.kind
+            && self.weight_keyword == other.weight_keyword
+            && self.query == other.query
+            && (Arc::ptr_eq(&self.generics, &other.generics) || self.generics == other.generics)
+    }
+}
+
+/// A font lookup made `times` times in a row.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LookupRun {
+    /// The lookup.
+    pub lookup: FontLookup,
+    /// How many times in a row it was made.
+    pub times: usize,
+}
+
 thread_local! {
     /// The lookups made on this thread and not taken yet.
-    static LOOKUPS: RefCell<Vec<FontLookup>> = const { RefCell::new(Vec::new()) };
+    static LOOKUPS: RefCell<Vec<LookupRun>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Records `lookup` if matplotlib's font manager logs about it: a family
@@ -62,16 +83,22 @@ pub(crate) fn note(lookup: FontLookup, found: &[Option<u16>]) {
     }
     LOOKUPS.with(|lookups| {
         let mut lookups = lookups.borrow_mut();
-        if lookups.len() < MAX_KEPT {
-            lookups.push(lookup);
+        if let Some(last) = lookups
+            .last_mut()
+            .filter(|last| last.lookup.repeats(&lookup))
+        {
+            last.times += 1;
+        } else if lookups.len() < MAX_KEPT {
+            lookups.push(LookupRun { lookup, times: 1 });
         }
     });
 }
 
 /// The lookups made on this thread since the last call that matplotlib's
-/// font manager logs about, in the order they were made. At most the first
-/// 1024 are kept between calls.
-pub fn take_font_lookups() -> Vec<FontLookup> {
+/// font manager logs about, in the order they were made, those made
+/// several times in a row as one run. At most the first 4096 runs are
+/// kept between calls.
+pub fn take_font_lookups() -> Vec<LookupRun> {
     LOOKUPS.with(|lookups| std::mem::take(&mut *lookups.borrow_mut()))
 }
 
@@ -93,6 +120,13 @@ mod tests {
         }
     }
 
+    fn run(weight: u16, times: usize) -> LookupRun {
+        LookupRun {
+            lookup: lookup(weight),
+            times,
+        }
+    }
+
     #[test]
     fn only_lookups_matplotlib_logs_about_are_kept() {
         take_font_lookups();
@@ -100,7 +134,33 @@ mod tests {
         assert_eq!(take_font_lookups(), [], "every family found at its weight");
         note(lookup(400), &[None, Some(400)]);
         note(lookup(300), &[Some(400)]);
-        assert_eq!(take_font_lookups(), [lookup(400), lookup(300)]);
+        assert_eq!(take_font_lookups(), [run(400, 1), run(300, 1)]);
         assert_eq!(take_font_lookups(), []);
+    }
+
+    #[test]
+    fn lookups_made_in_a_row_are_one_run_and_none_is_lost() {
+        take_font_lookups();
+        for _ in 0..3000 {
+            note(lookup(300), &[Some(400)]);
+        }
+        note(lookup(200), &[Some(400)]);
+        note(lookup(300), &[Some(400)]);
+        assert_eq!(
+            take_font_lookups(),
+            [run(300, 3000), run(200, 1), run(300, 1)]
+        );
+    }
+
+    #[test]
+    fn runs_beyond_the_most_kept_are_dropped() {
+        take_font_lookups();
+        for index in 0..=MAX_KEPT {
+            let weight = if index % 2 == 0 { 300 } else { 200 };
+            note(lookup(weight), &[Some(400)]);
+        }
+        let runs = take_font_lookups();
+        assert_eq!(runs.len(), MAX_KEPT);
+        assert!(runs.iter().all(|run| run.times == 1));
     }
 }

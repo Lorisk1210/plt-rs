@@ -716,6 +716,16 @@ method), and passes arrays to native functions, which take `NdArray`.
 Results that matplotlib returns as arrays come back as `NdArray` (numpy
 arrays); lists come back as `Vec`.
 
+pltrs (Rust) keeps copies of what it is given, where matplotlib keeps
+the program's arrays and reads them again when it draws. Where programs
+change such arrays in place, pltrs (Python) hands them over again: the
+`Path` objects of the program's a collection is given keep copies of
+their arrays (`_program_paths`), compared when an Axes adds the
+collection and at each draw of its figure (the draw hook of
+`_computed_transforms`), and handed to pltrs (Rust) again if they
+changed; arrays pltrs hands out whose items the program assigns give
+their owner the values again (`_changing_arrays`).
+
 ### Units
 
 Plotting methods convert values in units (dates, categories, the
@@ -1272,16 +1282,20 @@ matplotlib measures every line of text through the module function
 `text._get_text_metrics_with_cache` and draws every text through
 `Text.draw`; its tests replace both (`monkeypatch.setattr`, the
 `text_placeholders` fixture) to turn texts into boxes. `_text_overrides`
-makes such replacements take effect: the `text` module's class and
-`Text`'s metaclass notice when either attribute is replaced or restored,
-and hand pltrs (Rust) a `pltrs::text::LineMeasurer` (every line it lays
-out, tick labels included, is measured by calling the module function;
-the font height metrics come from `FT2Font.get_sfnt_table` as in
-`Text._get_layout`) or a `pltrs::text::TextPainter` (every text it draws
-is drawn by calling `Text.draw` on a stand-in `Text` in display
-coordinates, with a renderer whose `Artist.draw` queues artists that
-pltrs (Rust) then draws in the text's place). Without replacements pltrs
-(Rust) never calls Python for text.
+makes such replacements take effect: it hands pltrs (Rust), once, a
+`pltrs::text::LineMeasurer` (every line it lays out, tick labels
+included, is measured by calling the module function; the font height
+metrics come from `FT2Font.get_sfnt_table` as in `Text._get_layout`) and
+a `pltrs::text::TextPainter` (every text it draws is drawn by calling
+`Text.draw` on a stand-in `Text` in display coordinates, with a renderer
+whose `Artist.draw` queues artists that pltrs (Rust) then draws in the
+text's place), each with the attribute it stands for (`binding::Watched`:
+the module and the name, and the original function). pltrs (Rust) reads
+the attribute each time it would use one (`in_force`) and uses it only
+while the attribute is not the original, so the module and the class stay
+plain (no module class or metaclass watching assignments, which programs
+would see as `type(Text)`). Without replacements pltrs (Rust) never calls
+Python for text.
 
 matplotlib caches the metrics of the lines it measures per renderer
 (`text._get_text_metrics_function`, a `WeakKeyDictionary` of
@@ -1321,13 +1335,14 @@ the instance, or `RendererBase.draw_tex`), its draws hand pltrs (Rust) a
 `pltrs::text::TexPainter`: every TeX line is drawn by calling it, and the
 paths it draws with `draw_path` are queued and drawn by pltrs in the
 line's place. While `RendererAgg.draw_text` is `RendererBase.draw_text`
-(the class watches it), raster canvases draw text as paths
-(`pltrs_render::set_texts_as_paths`), as `_draw_text_as_path` does.
+(a `Watched` attribute again, read whenever a raster canvas draws text),
+raster canvases draw text as paths (`pltrs_render::set_texts_as_paths`),
+as `_draw_text_as_path` does.
 
 usetex looks TeX fonts up through `dviread.PsfontsMap.__getitem__`, which
-tests replace: `PsfontsMap`'s metaclass notices it, and pltrs-text's font
-map lookups (`pltrs_text::tex::set_font_map_lookup`) call the replacement
-while it is in force.
+tests replace: pltrs-text's font map lookups
+(`pltrs_text::tex::set_font_map_lookup`) call the replacement while the
+watched attribute is not the original.
 
 ### Drawing defined in Python
 

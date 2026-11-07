@@ -16,12 +16,16 @@ use super::super::font_manager::FontProps;
 use super::super::path::PyPath;
 use super::super::transforms::affine;
 use super::gc::PyGc;
+use crate::binding::Watched;
 use crate::binding::prelude::*;
 
-/// Makes the raster canvases draw text as paths while `as_paths` (while
-/// `RendererAgg.draw_text` is `RendererBase.draw_text`).
-fn set_texts_as_paths(as_paths: bool) -> PyResult<()> {
-    pltrs_render::set_texts_as_paths(as_paths);
+/// Makes the raster canvases draw text as paths while `base`, `(class,
+/// name, function)`, holds its function (while `RendererAgg.draw_text`
+/// is `RendererBase.draw_text`), or never with None.
+fn set_texts_as_paths(base: Option<Watched>) -> PyResult<()> {
+    pltrs_render::set_texts_as_paths(
+        base.map(|base| Rc::new(move || base.holds()) as Rc<dyn Fn() -> bool>),
+    );
     Ok(())
 }
 

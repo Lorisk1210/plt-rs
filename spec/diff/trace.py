@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+from collections import Counter
 import importlib.abc
 import importlib.machinery
 import importlib.util
@@ -61,7 +62,9 @@ from describe import Describer, Names, public_mro  # noqa: E402
 
 #: Recorded occurrences of one site; later ones are only counted.
 MAX_OCCURRENCES = 30
-#: Recorded warnings of one run; later ones are only counted.
+#: Recorded warnings of one run; later ones are only counted, by message
+#: (for the first ``MAX_WARNINGS`` messages), so that the counts compared
+#: are those of the whole run whatever order the warnings came in.
 MAX_WARNINGS = 500
 
 #: The module renames of the import change, per implementation.
@@ -220,7 +223,12 @@ class Recorder:
         self.describer = Describer(names)
         self.sites: dict[str, dict[str, Any]] = {}
         self.warnings: list[dict[str, Any]] = []
-        self.warnings_dropped = 0
+        #: (category, message, line) -> how many of the warnings beyond
+        #: the recorded ones it was.
+        self.warnings_dropped: Counter[tuple[str, str, int | None]] = Counter()
+        #: The warnings beyond the recorded ones whose message was not
+        #: counted.
+        self.warnings_uncounted = 0
         self.errors: list[dict[str, Any]] = []
         self.statement: int | None = None
         self.statement_line: int | None = None
@@ -259,15 +267,20 @@ class Recorder:
 
     def warning(self, category: type, message: str, filename: str, lineno: int | None) -> None:
         """Record a warning."""
-        if len(self.warnings) >= MAX_WARNINGS:
-            self.warnings_dropped += 1
-            return
-        self.warnings.append({
+        warning = {
             "category": self.names.class_name(category),
             "message": self.names.text(message),
             "statement_line": self.statement_line,
             "line": lineno if filename == self.program else None,
-        })
+        }
+        if len(self.warnings) < MAX_WARNINGS:
+            self.warnings.append(warning)
+            return
+        key = warning["category"], warning["message"], warning["line"]
+        if key in self.warnings_dropped or len(self.warnings_dropped) < MAX_WARNINGS:
+            self.warnings_dropped[key] += 1
+        else:
+            self.warnings_uncounted += 1
 
 
 class _LogWarnings(logging.Handler):
@@ -444,7 +457,8 @@ def main() -> int:
         "seconds": round(elapsed, 3),
         "sites": recorder.sites,
         "warnings": recorder.warnings,
-        "warnings_dropped": recorder.warnings_dropped,
+        "warnings_dropped": [[*key, count] for key, count in recorder.warnings_dropped.items()],
+        "warnings_uncounted": recorder.warnings_uncounted,
         "errors": recorder.errors,
         "uncaught": uncaught,
         "stdout": names.text(stdout.getvalue())[:20000],

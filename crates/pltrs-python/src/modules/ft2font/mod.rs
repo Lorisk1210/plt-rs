@@ -371,12 +371,19 @@ fn get_charmap(font: Native<Ft2Font>) -> PyResult<Vec<(u32, u16)>> {
         .collect())
 }
 
-/// `get_char_index(codepoint)`: the glyph of a character in the active
-/// map, 0 for none.
-fn get_char_index(font: Native<Ft2Font>, code: u32) -> PyResult<u16> {
+/// `get_char_index(codepoint, _fallback=fallback)`: the glyph of a
+/// character in the active map, 0 for none; with `fallback`, in the face
+/// of the chain `load_char` loaded the character from since the glyphs
+/// were last cleared, if it did (matplotlib's `char_to_font`).
+fn get_char_index(font: Native<Ft2Font>, code: u32, fallback: bool) -> PyResult<u16> {
+    let font = font.borrow();
+    let index = if fallback {
+        font.glyphs.char_faces.get(&code).copied().unwrap_or(0)
+    } else {
+        0
+    };
     Ok(font
-        .borrow()
-        .face()?
+        .chain_face(index)?
         .glyph_index_for_code(code)
         .map_or(0, |glyph| glyph.0))
 }

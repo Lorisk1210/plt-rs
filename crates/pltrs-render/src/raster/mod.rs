@@ -14,8 +14,9 @@ mod mono;
 mod tex;
 mod text;
 
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::fmt;
+use std::rc::Rc;
 
 use pltrs_codec::png::{self, EncodeError, ImageRef};
 use pltrs_core::Path;
@@ -29,21 +30,26 @@ use crate::vector::PngMetadata;
 pub use self::bitmap::{GlyphBitmap, GlyphShape, glyph_axis_aligned, render_glyph};
 
 pltrs_core::thread_state! {
-    /// Whether the thread's raster canvases draw text as paths.
-    static TEXTS_AS_PATHS: Cell<bool> = const { Cell::new(false) };
+    /// What says whether the thread's raster canvases draw text as paths.
+    static TEXTS_AS_PATHS: RefCell<Option<Rc<dyn Fn() -> bool>>> = const { RefCell::new(None) };
 }
 
-/// Makes the raster canvases of this thread draw text as paths (or as
-/// glyphs again, with `false`), as matplotlib's Agg renderer does without
-/// its own `draw_text`: `RendererBase.draw_text` fills the outlines
-/// `TextToPath` makes of the text (`_draw_text_as_path`).
-pub fn set_texts_as_paths(as_paths: bool) {
-    TEXTS_AS_PATHS.set(as_paths);
+/// Makes the raster canvases of this thread draw text as paths whenever
+/// `rule` says so (or as glyphs again, with `None`), as matplotlib's Agg
+/// renderer does without its own `draw_text`: `RendererBase.draw_text`
+/// fills the outlines `TextToPath` makes of the text
+/// (`_draw_text_as_path`). The rule is asked each time a canvas draws
+/// text, so that it can follow the program (pltrs (Python): whether
+/// `RendererAgg.draw_text` is taken away).
+pub fn set_texts_as_paths(rule: Option<Rc<dyn Fn() -> bool>>) {
+    TEXTS_AS_PATHS.set(rule);
 }
 
-/// Whether the thread's raster canvases draw text as paths.
+/// Whether the thread's raster canvases draw text as paths now.
 fn texts_as_paths() -> bool {
-    TEXTS_AS_PATHS.get()
+    TEXTS_AS_PATHS
+        .with_borrow(Clone::clone)
+        .is_some_and(|rule| rule())
 }
 
 /// Why a raster canvas could not be created or encoded.

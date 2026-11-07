@@ -7,8 +7,9 @@ matplotlib measures every line of text through the module function
 and axis labels, legend and table texts, annotations) through
 ``Text.draw``. Its tests replace both with ``monkeypatch.setattr``, so that
 texts become placeholder boxes (the ``text_placeholders`` fixture). pltrs
-(Rust) measures and draws texts itself, so the `.text` module and its
-`.Text` class watch these two attributes (`watch`):
+(Rust) measures and draws texts itself, so it is given stand-ins calling
+the replacements, with the attributes they stand for (`watch`), which it
+reads each time it would use a stand-in:
 
 * while ``_get_text_metrics_with_cache`` is replaced, pltrs (Rust)
   measures every line it lays out by calling it, and reads the font height
@@ -20,11 +21,11 @@ texts become placeholder boxes (the ``text_placeholders`` fixture). pltrs
   artists drawn with that renderer are drawn in place of the text.
 
 When the originals come back, pltrs (Rust) measures and draws texts itself
-again, without calling Python.
+again, without calling Python. The module and the class stay plain:
+nothing watches the assignments.
 """
 
 import functools
-import types
 
 from ._native import text_overrides as _native
 from ._text_metrics import current_renderer
@@ -37,8 +38,8 @@ _HEIGHT_TABLES = (
     ('hhea', 'lineGap', 'ascent', 'descent'),
 )
 
-#: The module watched for a replaced ``_get_text_metrics_with_cache``, the
-#: class watched for a replaced ``draw``, and their originals.
+#: The module whose ``_get_text_metrics_with_cache`` and the class whose
+#: ``draw`` the program may replace.
 _watched = {}
 
 
@@ -119,50 +120,13 @@ def _paint(stand_in, dpi):
     return renderer._drawn
 
 
-def _sync():
-    """Hand pltrs (Rust) the replacements in force, or none."""
-    module = _watched["module"]
-    measured = (module.__dict__.get("_get_text_metrics_with_cache")
-                is not _watched["measure"])
-    _native.set_measurer(*((_measure_line, _font_height) if measured
-                           else (None, None)))
-    painted = _watched["class"].draw is not _watched["draw"]
-    _native.set_painter(_paint if painted else None)
-
-
-class _WatchedModule(types.ModuleType):
-    """The class of the `.text` module: it tells pltrs (Rust) when
-    ``_get_text_metrics_with_cache`` is replaced or restored."""
-
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if name == "_get_text_metrics_with_cache":
-            _sync()
-
-    def __delattr__(self, name):
-        super().__delattr__(name)
-        if name == "_get_text_metrics_with_cache":
-            _sync()
-
-
-class WatchesDraw(type):
-    """The metaclass of `.Text`: it tells pltrs (Rust) when ``Text.draw``
-    is replaced or restored."""
-
-    def __setattr__(cls, name, value):
-        super().__setattr__(name, value)
-        if name == "draw" and _watched:
-            _sync()
-
-    def __delattr__(cls, name):
-        super().__delattr__(name)
-        if name == "draw" and _watched:
-            _sync()
-
-
 def watch(module, text_class):
-    """Watch *module* (`.text`) and *text_class* (`.Text`), whose current
-    ``_get_text_metrics_with_cache`` and ``draw`` are the originals."""
-    _watched.update(module=module, measure=module._get_text_metrics_with_cache,
-                    **{"class": text_class, "draw": text_class.draw})
-    module.__class__ = _WatchedModule
+    """Have pltrs (Rust) measure and draw texts through the program's
+    replacements of the ``_get_text_metrics_with_cache`` of *module*
+    (`.text`) and of the ``draw`` of *text_class* (`.Text`) while there
+    are any; their current ones are the originals."""
+    _watched.update(module=module, **{"class": text_class})
+    _native.set_measurer(_measure_line, _font_height,
+                         (module, "_get_text_metrics_with_cache",
+                          module._get_text_metrics_with_cache))
+    _native.set_painter(_paint, (text_class, "draw", text_class.draw))

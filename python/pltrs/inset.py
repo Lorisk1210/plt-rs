@@ -132,9 +132,10 @@ class InsetIndicator(artist.Artist):
         _unusable.drop(self, "alpha")
         self._shared_setter('alpha', alpha)
 
-    def get_alpha(self):
-        # docstring inherited
-        return self.__dict__.get("_given_alpha", super().get_alpha())
+    @property
+    def _alpha(self):
+        # The alpha given, which the indicator's parts share.
+        return self.__dict__.get("_given_alpha", super()._alpha)
 
     def _connectors_made(self):
         """Whether matplotlib's indicator would have made its connectors:

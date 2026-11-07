@@ -609,17 +609,13 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
             return owner.get_figure(root=root)
         return super().get_figure(root=root)
 
-    @property
-    def axes(self):
-        """The `~.axes.Axes` instance the artist resides in, or *None*."""
+    def _loose_axes(self):
+        # A box inside another is in the Axes of the box that added the
+        # tree; inside an artist's tree, in none.
         owner = self._drawer()
-        if self._figure is None and owner is not None:
-            return owner.axes if isinstance(owner, OffsetBox) else None
-        return Artist.axes.fget(self)
-
-    @axes.setter
-    def axes(self, ax):
-        Artist.axes.fset(self, ax)
+        if owner is None:
+            return super()._loose_axes()
+        return owner.axes if isinstance(owner, OffsetBox) else None
 
 
 class PackerBase(OffsetBox):

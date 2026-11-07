@@ -38,7 +38,10 @@ modules imports them. A module's public names are those ``dir`` lists
 without a leading underscore, and its ``__all__``. Each name is described
 by its value's type (``type(value).__name__``) and, for a module, the
 module's name, for a value of its own repr that is hashable (a number, a
-string, an enum member, dateutil's weekdays, a tuple of them), its repr.
+string, an enum member, dateutil's weekdays, a tuple of them), its repr;
+a class or function also by its kind (``kind``: ``class`` or
+``routine``), and whether an extension module (C, pybind11) defines it
+(``native``).
 """
 
 from __future__ import annotations
@@ -316,8 +319,21 @@ class NameDescriber:
             except Exception:  # noqa: BLE001 - a name failing to resolve is missing
                 described[name] = {"found": False}
                 continue
-            described[name] = {"found": True, "type": type(obj).__name__, "value": self.value(obj)}
+            described[name] = {"found": True, "type": type(obj).__name__, "value": self.value(obj),
+                               **_kind(obj)}
         return described
+
+
+def _kind(obj: Any) -> dict[str, Any]:
+    """The kind of a class or function, and whether an extension module
+    defines it; nothing for any other value."""
+    if inspect.isclass(obj):
+        kind = "class"
+    elif inspect.isroutine(obj):
+        kind = "routine"
+    else:
+        return {}
+    return {"kind": kind, "native": _is_native(obj)}
 
 
 def describe_module_names(implementation: Implementation, of: dict[str, Any] | None) -> dict[str, Any]:

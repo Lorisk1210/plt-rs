@@ -427,11 +427,17 @@ def _given_part_transform(artist):
 def _look_of(text):
     """How pltrs (Rust) typesets *text* beyond its size, colour, angle and
     alignment: its font properties, the alignment of its lines (None: as
-    the text), its line spacing (None: normal) and its rotation mode."""
+    the text), its line spacing (None: normal), its rotation mode
+    (``anchor`` for a text wrapped: matplotlib's ``_get_wrap_line_width``
+    sets it so whenever it lays the text out, as pltrs (Rust) lays its
+    texts out), whether it is antialiased and whether its math is
+    typeset."""
+    wrapped = text.get_wrap() and not text.get_usetex()
     return (FontManager._props(text.get_fontproperties()),
             _text.get_multialignment(text._native),
             _text.get_linespacing(text._native),
-            text.get_rotation_mode())
+            "anchor" if wrapped else text.get_rotation_mode(),
+            bool(text.get_antialiased()), bool(text.get_parse_math()))
 
 
 @_mirrors.pushing
@@ -1072,9 +1078,37 @@ class TickLabels(AxisLabel):  # mtext.Text
         if drawn_labels:
             (x, y), _, label = drawn_labels[-1]
             with _mirrors.detached(self):
-                mtext.Text.set_x(self, x)
-                mtext.Text.set_y(self, y)
+                # numpy's floats, as matplotlib's tick helpers give them.
+                mtext.Text.set_x(self, np.float64(x))
+                mtext.Text.set_y(self, np.float64(y))
                 mtext.Text.set_text(self, label)
+                self._left_by_draw = self._as_left()
+
+    def _as_left(self):
+        """The position and text of the text object, which a draw leaves
+        as the last label it drew."""
+        return (*mtext.Text.get_position(self), mtext.Text.get_text(self))
+
+    def _drawn_extent(self, drawn):
+        # The box of the last label drawn, where matplotlib measures the
+        # text object the draw leaves as that label (``AxisLabel.
+        # get_window_extent``): nearer its tick by the room the labels'
+        # alignment leaves, which the draw adds to the pad, and where the
+        # program moved the text object.
+        extent = super()._drawn_extent(drawn)
+        labels = [label for label in self._drawn_labels(drawn) if label[2].strip()]
+        if drawn.axis_artist is None or not labels or extent is _mirrors.OWN:
+            return extent
+        theta = np.deg2rad(labels[-1][1])
+        r, _ = self._get_ticklabels_offsets(None, self._axis_direction)
+        dx, dy = -r * np.cos(theta), -r * np.sin(theta)
+        left = self.__dict__.get("_left_by_draw")
+        if left is not None:
+            with _mirrors.detached(self):
+                here = mtext.Text.get_position(self)
+            (x0, y0), (x1, y1) = self.get_transform().transform([left[:2], here])
+            dx, dy = dx + x1 - x0, dy + y1 - y0
+        return extent.translated(dx, dy)
 
 
 class _AxisLine:

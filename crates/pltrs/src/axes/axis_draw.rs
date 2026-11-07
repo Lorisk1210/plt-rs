@@ -484,7 +484,7 @@ pub(crate) fn draw_text(
 ) {
     let gc = GraphicsContext {
         foreground: text.color,
-        antialiased: rc.text_antialiased,
+        antialiased: text.antialiased.unwrap_or(rc.text_antialiased),
         url: text.url.clone(),
         ..GraphicsContext::default()
     };

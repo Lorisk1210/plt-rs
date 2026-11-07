@@ -15,6 +15,7 @@ Matplotlib License).
 from datetime import datetime, timezone
 from enum import Enum
 from functools import total_ordering
+import io
 import logging
 import os
 import time
@@ -461,6 +462,23 @@ def _rgba_pixels(image):
     return np.ascontiguousarray(image, np.uint8)
 
 
+def _check_png_encodable(image):
+    """Fail as matplotlib's ``writeImages`` fails on an image of other
+    values than bytes, whose channels Pillow encodes as PNG for a
+    compressed document (``_unpack`` and ``_writeImg``)."""
+    data = np.asarray(image)
+    if data.dtype == np.uint8 or not rcParams['pdf.compression']:
+        return
+    from PIL import Image
+    data = data[::-1]
+    if data.ndim == 3:
+        if data.shape[2] == 4 and not np.all(data[:, :, 3] == 255):
+            Image.fromarray(np.array(data[:, :, 3], order='C')).save(
+                io.BytesIO(), format='png')
+        data = np.array(data[:, :, :3], order='C')
+    Image.fromarray(data).save(io.BytesIO(), format='png')
+
+
 def _style_name(style):
     """The name of a join or cap style (an enum member or a string)."""
     return style.name if isinstance(style, Enum) else str(style)
@@ -634,7 +652,18 @@ class PdfFile:
         return Name(pdfname)
 
     def writeFonts(self):
+        for (path, _), _name in sorted(self._fontNames.items()):
+            # matplotlib embeds each TrueType font named with the
+            # characters its tracker holds for it, which fails for one
+            # never drawn.
+            if not path.path.endswith('.afm') and not self._tracks_font(path):
+                raise KeyError(path)
         _backends.pdf_file_write_fonts(self._native)
+
+    def _tracks_font(self, path):
+        """Whether glyphs of the font *path* (a `FontPath`) were drawn in
+        the document (matplotlib's ``_character_tracker.used``)."""
+        return _backends.pdf_file_tracks_font(self._native, path.path, path.face_index)
 
     @_api.delete_parameter("3.11", "fontfile")
     def createType1Descriptor(self, t1font, fontfile=None):
@@ -646,6 +675,10 @@ class PdfFile:
     def embedTTF(self, filename, subset_index, charmap):
         """Embed the TTF font from the named file into the document."""
         path = filename if isinstance(filename, FontPath) else FontPath(filename, 0)
+        if not self._tracks_font(path):
+            # matplotlib maps the codes back to the characters its tracker
+            # holds for the font.
+            raise KeyError(path)
         return Reference(_backends.pdf_file_embed_ttf(
             self._native, path.path, path.face_index, subset_index,
             [(int(code), int(glyph)) for code, glyph in charmap.items()]))
@@ -666,13 +699,15 @@ class PdfFile:
         return Name(_backends.pdf_file_hatch_pattern(
             self._native, (*colors, hatch, float(lw))))
 
-    # The patterns by (edge, face, hatch), as matplotlib deprecated them
-    # (matplotlib 3.11's unpacks the names of the patterns, and raises
-    # TypeError once there is one).
-    hatchPatterns = _api.deprecated("3.10")(property(lambda self: {
-        (e if e is None else tuple(e), f if f is None else tuple(f), h): Name(n)
-        for e, f, h, n in _backends.pdf_file_hatch_patterns(self._native)
-    }))
+    def _hatch_patterns(self):
+        """The deprecated patterns by style: matplotlib 3.11 unpacks the
+        name of each pattern as its style, which fails once there is one."""
+        if _backends.pdf_file_hatch_patterns(self._native):
+            raise TypeError("cannot unpack non-iterable Name object")
+        return {}
+
+    hatchPatterns = _api.deprecated("3.10")(property(
+        lambda self: self._hatch_patterns()))
 
     def writeHatches(self):
         _backends.pdf_file_write_hatches(self._native)
@@ -715,26 +750,35 @@ class PdfFile:
         return name
 
     def writeImages(self):
+        for image, _name in self._image_objects.values():
+            _check_png_encodable(image)
         _backends.pdf_file_write_images(self._native)
 
     def markerObject(self, path, trans, fill, stroke, lw, joinstyle,
                      capstyle):
         """Return name of a marker XObject representing the given path."""
+        self._made_markers = True
         return Name(_backends.pdf_file_marker(
             self._native, path, np.asarray(trans, float), bool(fill),
             bool(stroke), float(lw), _style_name(joinstyle),
             _style_name(capstyle)))
 
     def writeMarkers(self):
+        # matplotlib begins a stream per marker (``beginStream`` asserts
+        # that none is open).
+        assert not self.__dict__.get("_made_markers") or self.currentstream is None
         _backends.pdf_file_write_markers(self._native)
 
     def pathCollectionObject(self, gc, path, trans, padding, filled, stroked):
+        self._made_templates = True
         return Name(_backends.pdf_file_path_collection(
             self._native, path, np.asarray(trans, float), float(padding),
             bool(filled), bool(stroked), _style_name(gc.get_joinstyle()),
             _style_name(gc.get_capstyle())))
 
     def writePathCollectionTemplates(self):
+        # A stream per template, as for `writeMarkers`.
+        assert not self.__dict__.get("_made_templates") or self.currentstream is None
         _backends.pdf_file_write_templates(self._native)
 
     @staticmethod

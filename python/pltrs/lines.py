@@ -1303,7 +1303,9 @@ class AxLine(Line2D):
         self._remember_geometry(xy1, xy2, slope)
 
     def draw(self, renderer):
-        # (pltrs (Rust) places the line in the view as it draws it.)
+        # (pltrs (Rust) places the line in the view as it draws it, where
+        # matplotlib's draw reads the transform first.)
+        self.get_transform()
         super().draw(renderer)
 
     def get_transform(self):

@@ -230,6 +230,11 @@ class DviFont:
 
     @classmethod
     def from_luatex(cls, scale, texname):
+        # The name is checked first, as matplotlib's reads it before the
+        # scale.
+        _path_b, sep, rest = texname[1:].rpartition(b"]")
+        if not (texname.startswith(b"[") and sep and rest[:1] in [b"", b":"]):
+            raise ValueError(f"Invalid modern font name: {texname}")
         return cls._from_native(_dviread.font_from_luatex(scale, texname))
 
     @classmethod

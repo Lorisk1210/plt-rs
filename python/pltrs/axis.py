@@ -23,6 +23,7 @@ from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
 from .artist import Artist
+from .text import _measured_by_given
 
 __all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
 
@@ -1980,7 +1981,8 @@ class Axis(DrawnWith, Artist):
         too-long labels when doing their layout.
         """
         from .transforms import Bbox
-        extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
+        with _measured_by_given(renderer, self):
+            extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
         if extent is None:
             return None
         self._moved_ticks()

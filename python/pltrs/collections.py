@@ -318,8 +318,10 @@ class Collection(mcolorizer.ColorizingArtist):
     def _native_array(self):
         """The values pltrs (Rust) maps, masked where invalid, or None."""
         array = _collections.get_array(self._native)
-        # The array is a fresh copy: masking it in place spares another.
-        return None if array is None else np.ma.masked_invalid(array, copy=False)
+        # The array is a fresh copy: masking it in place spares another
+        # (as matplotlib's ``set_array`` masks it, with no mask array when
+        # every value is valid).
+        return None if array is None else cbook.safe_masked_invalid(array)
 
     def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
         """
@@ -473,6 +475,10 @@ class Collection(mcolorizer.ColorizingArtist):
             self._paths_container = _paths_container(paths)
             _collections.set_paths(self._native, [] if paths is None else list(paths))
         self.__dict__.pop("_kept_paths", None)
+        if isinstance(paths, list) and all(isinstance(path, Path) for path in paths):
+            # The list itself, as matplotlib's collection keeps it.
+            _owned_paths.hand_out(paths, self._push_kept_paths)
+            self._kept_paths = (_collections.get_paths(self._native), paths)
 
     def get_transforms(self):
         dpi, draws = self.__dict__.get("_sizes_scaled", (72.0, 0))
@@ -1335,6 +1341,8 @@ class PolyCollection(_CollectionWithSizes):
             Whether the polygon should be closed by adding a CLOSEPOLY
             connection at the end.
         """
+        # New paths, as matplotlib makes them.
+        self.__dict__.pop("_kept_paths", None)
         if not closed:
             _collections.set_segments(
                 self._native, [np.asarray(v, float).reshape(-1, 2) for v in verts])
@@ -1964,6 +1972,10 @@ class EllipseCollection(Collection):
         self._native = _collections.new_ellipse_collection(
             (widths, heights, angles), units if usable else 'points')
         super().__init__(**kwargs)
+        self._units = units
+        # The unit circle itself, as matplotlib's collection keeps it,
+        # until other paths are set.
+        self._unit_paths = [Path.unit_circle()]
         if not usable:
             # matplotlib keeps them, and refuses them when it draws.
             _unusable.keep(self, "units", units, _refuse_ellipse_units, measured=False)
@@ -2009,6 +2021,46 @@ class EllipseCollection(Collection):
     def get_angles(self):
         """Get the angles of the first axes, degrees CCW from the x-axis."""
         return _collections.ellipse_sizes(self._native)[2]
+
+    def get_paths(self):
+        unit_paths = self.__dict__.get("_unit_paths")
+        return super().get_paths() if unit_paths is None else unit_paths
+
+    def set_paths(self, paths):
+        self.__dict__.pop("_unit_paths", None)
+        super().set_paths(paths)
+
+    def get_transforms(self):
+        # None before the first draw, then the ellipses' as the draws
+        # work them out from the sizes in their units (matplotlib's
+        # ``_set_transforms``).
+        if self._figure is None or not _artist.draw_count(self._native):
+            return super().get_transforms()
+        ax, fig = self.axes, self.get_figure(root=False)
+        sc = _api.getitem_checked({
+            'xy': lambda: 1,
+            'x': lambda: ax.bbox.width / ax.viewLim.width,
+            'y': lambda: ax.bbox.height / ax.viewLim.height,
+            'inches': lambda: fig.dpi,
+            'points': lambda: fig.dpi / 72.0,
+            'width': lambda: ax.bbox.width,
+            'height': lambda: ax.bbox.height,
+            'dots': lambda: 1.0,
+        }, units=self._units)()
+        transforms = np.zeros((len(self._widths), 3, 3))
+        try:
+            widths, heights = self._widths * sc, self._heights * sc
+            sin_angle, cos_angle = np.sin(self._angles), np.cos(self._angles)
+            transforms[:, 0, 0] = widths * cos_angle
+            transforms[:, 0, 1] = heights * -sin_angle
+            transforms[:, 1, 0] = widths * sin_angle
+            transforms[:, 1, 1] = heights * cos_angle
+            transforms[:, 2, 2] = 1.0
+        except ValueError:
+            # Sizes of different lengths fail matplotlib's draws there,
+            # which leave the transforms as far as they got.
+            pass
+        return transforms
 
     def draw(self, renderer):
         # docstring inherited
@@ -2362,7 +2414,8 @@ class QuadMesh(_MeshData, Collection):
     def set_paths(self):
         # Make the paths of the mesh's quadrilaterals from its coordinates
         # anew (pltrs (Rust) makes them from the coordinates whenever they are
-        # read).
+        # read): `get_paths` hands out new ones.
+        self.__dict__.pop("_kept_paths", None)
         self.stale = True
 
     def get_datalim(self, transData):

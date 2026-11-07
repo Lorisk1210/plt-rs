@@ -92,14 +92,15 @@ class MathTextParser:
         if self._output_type == "vector":
             (width, height, depth), glyphs, rects = _native_mathtext.parse_path(
                 s, float(dpi), props)
-            # The numpy floats of the boxes matplotlib's parser sets.
+            # The numpy floats of the boxes matplotlib's parser sets (and
+            # of the glyphs' heights, which it moves them by).
             return VectorParse(
                 np.float64(width), np.float64(height), np.float64(depth),
                 [(get_font(FontPath(_data_font_path(file), face_index)),
-                  size, code, index, ox, oy)
+                  size, code, index, ox, np.float64(oy))
                  for (file, face_index), size, (code, index), (ox, oy)
                  in glyphs],
-                rects)
+                [(x, np.float64(y), width, height) for x, y, width, height in rects])
         (width, height, depth), image = _native_mathtext.parse_raster(
             s, float(dpi), props, bool(antialiased))
         return RasterParse(0, 0, width, height, depth, image)

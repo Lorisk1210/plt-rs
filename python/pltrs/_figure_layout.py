@@ -12,7 +12,7 @@ from . import _api, _docstring, _handles, rcParams
 from ._native import figure as _figure, figure_layout as _figure_layout
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
-from .text import Text, _layout_renderer, _measuring_with
+from .text import Text, _layout_renderer, _measured_by, _measuring_with
 from .transforms import Bbox, TransformedBbox
 
 #: The native function making each figure-wide text, and whether its
@@ -357,8 +357,8 @@ default: %(va)s
             # pltrs (Rust) unites the boxes of the figure's artists, axes
             # and subfigures, in pixels, measuring with the renderer's
             # text metrics cache.
-            with _measuring_with(renderer if renderer is not None
-                                 else _layout_renderer(self)):
+            with (_measuring_with(_layout_renderer(self)) if renderer is None
+                  else _measured_by(renderer, self.get_figure(root=True).dpi)):
                 extent = _figure_layout.figure_tightbbox(self._native)
             boxes = [] if extent is None else [Bbox.from_extents(*extent)]
             # matplotlib measures each Axes with its get_tightbbox, which

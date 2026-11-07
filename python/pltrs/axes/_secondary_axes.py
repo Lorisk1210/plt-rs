@@ -81,6 +81,12 @@ class SecondaryAxis(Axes):
         if self._pos < 0.5:
             # flip the location strings...
             self._locstrings = self._locstrings[::-1]
+        if (isinstance(native_location, float)
+                and (native_location >= 0.5) != (self._pos >= 0.5)):
+            # A location in the coordinates of another transform faces the
+            # way the location says there, as matplotlib aligns the axis by
+            # it, wherever the transform puts it.
+            self.set_alignment(self._locstrings[0])
         self._internal_update(kwargs)
 
     def __repr__(self):

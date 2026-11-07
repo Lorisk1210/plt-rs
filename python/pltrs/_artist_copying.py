@@ -149,6 +149,13 @@ class CopyingMixin:
                 # The transform object of *other* (``ax.transData``), which
                 # this artist may not reach from its own figure yet.
                 self._given_transform = other.get_transform()
+        elif self._kept_only:
+            # Kept as the objects of *other*, whatever figure they are of,
+            # as matplotlib copies them.
+            self._clipbox = other.get_clip_box()
+            self._clippath = other.get_clip_path()
+            if other.is_transform_set():
+                self._given_transform = other.get_transform()
         else:
             # No clip region is the same in any figure: pltrs (Rust) took
             # that too.

@@ -98,3 +98,16 @@ def measuring_with(renderer, metrics):
     finally:
         renderers.pop()
         _native.set_metrics_cache(previous)
+
+
+@contextlib.contextmanager
+def lines_measured_at(dpi):
+    """Have pltrs (Rust) measure every line of text at *dpi* on this thread
+    (None: at the resolution its text is laid out at), as a renderer of
+    that resolution measures it, the texts still placed at their figure's
+    (see `measured_by`)."""
+    previous = _native.set_lines_measured_at(dpi)
+    try:
+        yield
+    finally:
+        _native.set_lines_measured_at(previous)

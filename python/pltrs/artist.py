@@ -352,6 +352,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Return the alpha value used for blending - not supported on all
         backends.
         """
+        if self._kept_only:
+            return self.__dict__.get("_kept_alpha")
         # As given, as matplotlib keeps it.
         return _values.given(self, "alpha", _artist.get_alpha(self._native))
 
@@ -365,9 +367,19 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             *alpha* must be within the 0-1 range, inclusive.
         """
         _check_alpha(alpha)
-        _artist.set_alpha(self._native, alpha)
-        _values.remember(self, "alpha", alpha)
+        if self._kept_only:
+            self._kept_alpha = alpha
+            self.stale = True
+        else:
+            _artist.set_alpha(self._native, alpha)
+            _values.remember(self, "alpha", alpha)
         self.pchanged()
+
+    #: Whether the alpha, transform and clip regions the artist is given
+    #: are only kept, matplotlib drawing nothing with them (a figure's: its
+    #: background has an alpha of its own), else pltrs (Rust) draws the
+    #: artist with them.
+    _kept_only = False
 
     @property
     def _alpha(self):

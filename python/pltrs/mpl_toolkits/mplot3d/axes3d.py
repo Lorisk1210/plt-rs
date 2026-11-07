@@ -33,6 +33,7 @@ from pltrs.axes._plotting._helpers import wrap
 from pltrs.axes._plotting.lines import _plot_datasets
 from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
+from pltrs.text import _measured_by_given
 from pltrs.transforms import Bbox
 
 from . import _draw_problems, _program_projection, art3d, axis3d
@@ -1536,7 +1537,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None, for_layout_only=False):
         # docstring inherited
-        extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
+        with _measured_by_given(renderer, self):
+            extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
         if self._axis3don:
             # matplotlib ticks each visible axis to measure it, raising
             # what its locator or formatter raises (the measure above

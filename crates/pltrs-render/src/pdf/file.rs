@@ -360,6 +360,18 @@ impl PdfRenderer {
         )
     }
 
+    /// Whether glyphs of face `index` of the font file `path` were drawn
+    /// in the document (matplotlib's character tracker holds the font,
+    /// which `writeFonts` and `embedTTF` read).
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or has no face `index`.
+    pub fn tracks_font(&self, path: &FsPath, index: u32) -> Result<bool, VectorError> {
+        let id = face_of_file(path, index)?;
+        Ok(self.tracker.subset(id, 0).is_some())
+    }
+
     /// Embeds the glyphs `charmap` (character codes and the glyphs they
     /// show) of face `index` of the TrueType file `path` as subset
     /// `subset_index`, in the format of `pdf.fonttype` (`embedTTF`);

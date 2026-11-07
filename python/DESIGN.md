@@ -1303,6 +1303,16 @@ a tick label out again where it draws it; while a cache is installed, pltrs
 (`LaidOutText::measure_again`), so the cache sees the same lookups without
 the cost of a second layout.
 
+matplotlib's renderers measure lines at their own resolution, while texts
+are placed (and their fonts' heights scaled) at the figure's: a renderer of
+another resolution handed to `get_window_extent(renderer)` or
+`get_tightbbox(renderer)` (another figure's, one kept from before the dpi
+changed) gives lines that size. `text._measured_by` installs such a
+renderer's cache and has pltrs (Rust) measure the lines at its resolution
+meanwhile (`pltrs::text::set_lines_measured_at`); a `Text` keeps the
+renderer it was last measured with until it is drawn, as matplotlib's
+`Text._renderer`.
+
 The renderer's text drawing can be replaced too. `RendererAgg.draw_text`
 and `draw_tex` draw a line onto the canvas (`_native.drawing.draw_text`,
 see "Drawing defined in Python").

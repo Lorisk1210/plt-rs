@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use pltrs_text::{
-    AfmDirectory, AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, Stretch,
-    TextEngine, Type1Face,
+    AfmChoice, AfmDirectory, AfmEntry, AfmFont, FontEntry, FontId, FontSource, FontStyle,
+    FontVariant, Stretch, TextEngine, Type1Face,
 };
 
 use super::properties::generic_families;
@@ -113,7 +113,17 @@ impl FontManager {
                 .iter()
                 .map(|entry| self.list_entry(entry))
                 .collect(),
-            FontExt::Afm => AfmFont::all().iter().map(afm_entry).collect(),
+            FontExt::Afm => AfmFont::all()
+                .iter()
+                .map(afm_entry)
+                .chain(
+                    self.engine
+                        .database()
+                        .afm_entries()
+                        .iter()
+                        .map(system_afm_entry),
+                )
+                .collect(),
         }
     }
 
@@ -292,9 +302,11 @@ impl FontManager {
                 };
                 Ok(self.file_name(id))
             }
-            FontExt::Afm => Ok(AfmFont::find(query, generics, fallback_to_default)?
-                .file
-                .to_owned()),
+            FontExt::Afm => Ok(self
+                .engine
+                .database()
+                .find_afm(query, generics, fallback_to_default)?
+                .file()),
         }
     }
 
@@ -352,7 +364,7 @@ impl FontManager {
     ) -> Option<(FontListEntry, f64)> {
         let request = props.request(rc);
         let db = self.engine.database();
-        db.best_entry(&request.query, &request.generics, |id| {
+        db.best_entry_among(&request.query, &request.generics, |id| {
             db.source(id).is_some_and(&accept)
         })
         .map(|(entry, score)| (self.list_entry(&entry), score))
@@ -371,8 +383,17 @@ impl FontManager {
         directory: Option<AfmDirectory>,
     ) -> Option<(FontListEntry, f64)> {
         let request = props.request(rc);
-        AfmFont::best_scored(&request.query, &request.generics, directory)
-            .map(|(font, score)| (afm_entry(font), score))
+        let (query, generics) = (&request.query, &request.generics);
+        if directory.is_some() {
+            return AfmFont::best_scored(query, generics, directory)
+                .map(|(font, score)| (afm_entry(font), score));
+        }
+        let (font, score) = self.engine.database().best_afm(query, generics)?;
+        let entry = match font {
+            AfmChoice::Bundled(font) => afm_entry(font),
+            AfmChoice::System(entry) => system_afm_entry(&entry),
+        };
+        Some((entry, score))
     }
 
     /// matplotlib's `_find_fonts_by_props`: the best TrueType file for
@@ -407,6 +428,21 @@ fn afm_entry(font: &AfmFont) -> FontListEntry {
         weight: FontWeight::from_name(font.weight)
             .unwrap_or(FontWeight::numeric(font.weight_value().0)),
         stretch: stretch_named(font.stretch.0),
+    }
+}
+
+/// An AFM font of the system as an entry of `afmlist`.
+fn system_afm_entry(entry: &AfmEntry) -> FontListEntry {
+    let style = &entry.style;
+    FontListEntry {
+        file: entry.path.display().to_string(),
+        index: 0,
+        name: style.name.clone(),
+        style: style.style,
+        variant: style.variant,
+        weight: FontWeight::from_name(&style.weight)
+            .unwrap_or(FontWeight::numeric(style.weight_value().0)),
+        stretch: stretch_named(style.stretch.0),
     }
 }
 

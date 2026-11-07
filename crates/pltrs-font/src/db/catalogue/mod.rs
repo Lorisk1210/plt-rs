@@ -6,8 +6,9 @@
 //! A catalogue is a file of pltrs' own format: an archive
 //! ([`pltrs_core::archive`], which heads it with pltrs' version) of the
 //! format's version and the font files in the order they are added, each
-//! with its length and modification time when it was read and the
-//! descriptions of its faces, followed by a checksum of the archive. When fonts are added with a catalogue
+//! with its length and modification time when it was read and its
+//! description (that of each of its faces, or of an Adobe Font Metrics
+//! file), followed by a checksum of the archive. When fonts are added with a catalogue
 //! ([`refresh`]):
 //!
 //! * a file that is new, or whose length or modification time changed,
@@ -35,14 +36,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::UNIX_EPOCH;
 
-use pltrs_core::archive::{self, NoProgram};
-
-use super::entry::FaceStyle;
+use pltrs_core::archive::{self, Archive, NoProgram};
 
 /// The version of the format, raised whenever what a catalogue holds
 /// changes, or how faces are described: a catalogue of another version is
 /// rebuilt.
-const FORMAT: u32 = 1;
+const FORMAT: u32 = 2;
 
 /// The largest catalogue read, far above any system's (a few hundred
 /// kilobytes for a thousand fonts): a larger file is no catalogue, and
@@ -53,7 +52,7 @@ const MAX_SIZE: u64 = 16 << 20;
 /// with the format's version (as matplotlib's `fontlist-v390.json` does).
 ///
 /// ```
-/// assert_eq!(pltrs_font::catalogue_file_name(), "fontlist-v1.pltrs");
+/// assert_eq!(pltrs_font::catalogue_file_name(), "fontlist-v2.pltrs");
 /// ```
 pub fn catalogue_file_name() -> String {
     format!("fontlist-v{FORMAT}.pltrs")
@@ -119,23 +118,26 @@ impl Stamp {
     }
 }
 
-/// A font file as catalogued.
+/// A font file as catalogued, described by a `D`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct CataloguedFile {
+pub(crate) struct CataloguedFile<D> {
     /// Where the file is.
     pub(crate) path: PathBuf,
     /// Its stamp when it was read; `None` when it had none (it is then
     /// read at every start).
     stamp: Option<Stamp>,
-    /// The descriptions of the catalogue entries of each of its faces, in
-    /// face order: none when it holds no font pltrs reads, `None` when it
-    /// could not be read (it is then read at the next start).
-    pub(crate) faces: Option<Vec<Vec<FaceStyle>>>,
+    /// Its description: `None` when it could not be read (it is then read
+    /// at the next start).
+    pub(crate) description: Option<D>,
 }
 
-pltrs_core::archive_struct!(CataloguedFile { path, stamp, faces });
+pltrs_core::archive_struct!(CataloguedFile<D> {
+    path,
+    stamp,
+    description
+});
 
-impl CataloguedFile {
+impl<D> CataloguedFile<D> {
     /// Whether the catalogue's file can keep this file: its path is text.
     fn is_kept(&self) -> bool {
         self.path.to_str().is_some()
@@ -144,23 +146,22 @@ impl CataloguedFile {
 
 /// A catalogue as its file holds it.
 #[derive(Debug)]
-struct Kept {
+struct Kept<D> {
     format: u32,
-    files: Vec<CataloguedFile>,
+    files: Vec<CataloguedFile<D>>,
 }
 
-pltrs_core::archive_struct!(Kept { format, files });
+pltrs_core::archive_struct!(Kept<D> { format, files });
 
 /// The catalogue of the font files `paths`, in their order, kept in the
 /// file `catalogue` (see the module documentation): what it holds of the
 /// files unchanged since it was written, and what `describe` reads of the
-/// others (the descriptions of each face, an empty list for a file
-/// holding no font, an error for one that cannot be read).
-pub(crate) fn refresh(
+/// others (an error for one that cannot be read).
+pub(crate) fn refresh<D: Archive + Clone + PartialEq>(
     catalogue: &Path,
     paths: &[PathBuf],
-    describe: impl Fn(&Path) -> io::Result<Vec<Vec<FaceStyle>>>,
-) -> (Vec<CataloguedFile>, CatalogueReport) {
+    describe: impl Fn(&Path) -> io::Result<D>,
+) -> (Vec<CataloguedFile<D>>, CatalogueReport) {
     let kept = match read(catalogue) {
         Ok(files) if is_current(&files, paths) => {
             let report = CatalogueReport {
@@ -172,20 +173,20 @@ pub(crate) fn refresh(
         }
         kept => kept,
     };
-    let known: HashMap<&Path, &CataloguedFile> = kept
+    let known: HashMap<&Path, &CataloguedFile<D>> = kept
         .as_deref()
         .unwrap_or_default()
         .iter()
         .map(|file| (file.path.as_path(), file))
         .collect();
     let mut read_count = 0;
-    let files: Vec<CataloguedFile> = paths
+    let files: Vec<CataloguedFile<D>> = paths
         .iter()
         .map(|path| {
             let stamp = Stamp::of(path);
-            let unchanged = known
-                .get(path.as_path())
-                .filter(|known| stamp.is_some() && known.stamp == stamp && known.faces.is_some());
+            let unchanged = known.get(path.as_path()).filter(|known| {
+                stamp.is_some() && known.stamp == stamp && known.description.is_some()
+            });
             if let Some(known) = unchanged {
                 return (*known).clone();
             }
@@ -193,11 +194,11 @@ pub(crate) fn refresh(
             CataloguedFile {
                 path: path.clone(),
                 stamp,
-                faces: describe(path).ok(),
+                description: describe(path).ok(),
             }
         })
         .collect();
-    let kept_now: Vec<CataloguedFile> = files
+    let kept_now: Vec<CataloguedFile<D>> = files
         .iter()
         .filter(|file| file.is_kept())
         .cloned()
@@ -221,11 +222,11 @@ pub(crate) fn refresh(
 
 /// Whether the catalogue of `files` holds the files `paths` as they are:
 /// the same files in the same order, each read and unchanged since.
-fn is_current(files: &[CataloguedFile], paths: &[PathBuf]) -> bool {
+fn is_current<D>(files: &[CataloguedFile<D>], paths: &[PathBuf]) -> bool {
     files.len() == paths.len()
         && files.iter().zip(paths).all(|(file, path)| {
             file.path == *path
-                && file.faces.is_some()
+                && file.description.is_some()
                 && file.stamp.is_some()
                 && file.stamp == Stamp::of(path)
         })
@@ -233,7 +234,7 @@ fn is_current(files: &[CataloguedFile], paths: &[PathBuf]) -> bool {
 
 /// The files of the catalogue in the file `catalogue`, or why it cannot
 /// be used.
-fn read(catalogue: &Path) -> Result<Vec<CataloguedFile>, String> {
+fn read<D: Archive>(catalogue: &Path) -> Result<Vec<CataloguedFile<D>>, String> {
     let size = fs::metadata(catalogue)
         .map_err(|err| err.to_string())?
         .len();
@@ -247,7 +248,7 @@ fn read(catalogue: &Path) -> Result<Vec<CataloguedFile>, String> {
     if u64::from_le_bytes(*sum) != checksum(archived) {
         return Err("a corrupted font catalogue".to_owned());
     }
-    let kept: Kept =
+    let kept: Kept<D> =
         archive::from_bytes(archived, &[], &NoProgram).map_err(|err| err.to_string())?;
     if kept.format != FORMAT {
         return Err(format!(
@@ -260,7 +261,7 @@ fn read(catalogue: &Path) -> Result<Vec<CataloguedFile>, String> {
 
 /// Writes the catalogue of `files` to the file `catalogue`: to a new file
 /// in the same directory, then renamed over it.
-fn write(catalogue: &Path, files: Vec<CataloguedFile>) -> io::Result<()> {
+fn write<D: Archive>(catalogue: &Path, files: Vec<CataloguedFile<D>>) -> io::Result<()> {
     let kept = Kept {
         format: FORMAT,
         files,

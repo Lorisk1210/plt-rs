@@ -2,6 +2,7 @@
 //! the family, style and full names FreeType reports (from `name`).
 
 use super::{Face, Outlines};
+use crate::cff::Version;
 use crate::tables::name::{NameKey, id};
 use crate::tables::os2::Os2;
 use crate::tables::post::PostTable;
@@ -11,15 +12,16 @@ impl<'a> Face<'a> {
     /// Whether glyph names are available.
     pub fn has_glyph_names(&self) -> bool {
         match &self.outlines {
-            Outlines::Cff(cff) => cff.has_glyph_names(),
+            Outlines::Cff(cff) if cff.version() == Version::Cff => cff.has_glyph_names(),
             _ => self.post.as_ref().is_some_and(PostTable::has_names),
         }
     }
 
-    /// PostScript name of `glyph` (from `CFF` or `post`).
+    /// PostScript name of `glyph`: from a `CFF ` table's charset, else
+    /// from `post` (as FreeType names the glyphs of `CFF2` fonts too).
     pub fn glyph_name(&self, glyph: GlyphId) -> Option<&'a str> {
         match &self.outlines {
-            Outlines::Cff(cff) => cff.glyph_name(glyph),
+            Outlines::Cff(cff) if cff.version() == Version::Cff => cff.glyph_name(glyph),
             _ => self.post.as_ref()?.glyph_name(glyph),
         }
     }
@@ -27,7 +29,7 @@ impl<'a> Face<'a> {
     /// Glyph with PostScript name `name` (FreeType's `FT_Get_Name_Index`).
     pub fn glyph_index_by_name(&self, name: &str) -> Option<GlyphId> {
         match &self.outlines {
-            Outlines::Cff(_) => (0..self.maxp.num_glyphs)
+            Outlines::Cff(cff) if cff.version() == Version::Cff => (0..self.maxp.num_glyphs)
                 .map(GlyphId)
                 .find(|&glyph| self.glyph_name(glyph) == Some(name)),
             _ => self.post.as_ref()?.glyph_by_name(name),
@@ -67,6 +69,12 @@ impl<'a> Face<'a> {
     /// PostScript name as FreeType reports it.
     pub fn postscript_name(&self) -> Option<String> {
         self.name.postscript_name()
+    }
+
+    /// The name `name_id` as fontTools' `getDebugName` reads it: the
+    /// Windows English record, else the Macintosh English one, else any.
+    pub fn debug_name(&self, name_id: u16) -> Option<String> {
+        self.name.debug_string(name_id)
     }
 
     /// The `name` record with exactly this key and id, decoded (Latin-1 for

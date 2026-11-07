@@ -1,10 +1,8 @@
 //! The operand stack of FreeType's Adobe charstring engine (`psstack.c`):
-//! integers and 16.16 fixed-point numbers, 48 deep.
+//! integers and 16.16 fixed-point numbers, 48 deep (a CFF2 font's
+//! `maxstack` deep).
 
-use crate::type1::error::Type1Error;
-
-/// `CF2_OPERAND_STACK_SIZE`.
-const STACK_SIZE: usize = 48;
+use super::error::CharstringError;
 
 /// A number on the stack.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -29,17 +27,26 @@ impl Number {
     }
 }
 
-const fn error(why: &'static str) -> Type1Error {
-    Type1Error::BadCharstring(why)
+const fn error(why: &'static str) -> CharstringError {
+    CharstringError::Malformed(why)
 }
 
 /// The operand stack.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub(super) struct Stack {
     values: Vec<Number>,
+    size: usize,
 }
 
 impl Stack {
+    /// An empty stack of `size` numbers.
+    pub(super) fn new(size: usize) -> Self {
+        Self {
+            values: Vec::with_capacity(size),
+            size,
+        }
+    }
+
     pub(super) fn count(&self) -> usize {
         self.values.len()
     }
@@ -48,24 +55,24 @@ impl Stack {
         self.values.clear();
     }
 
-    fn push(&mut self, number: Number) -> Result<(), Type1Error> {
-        if self.values.len() == STACK_SIZE {
+    fn push(&mut self, number: Number) -> Result<(), CharstringError> {
+        if self.values.len() >= self.size {
             return Err(error("stack overflow"));
         }
         self.values.push(number);
         Ok(())
     }
 
-    pub(super) fn push_int(&mut self, value: i32) -> Result<(), Type1Error> {
+    pub(super) fn push_int(&mut self, value: i32) -> Result<(), CharstringError> {
         self.push(Number::Int(value))
     }
 
-    pub(super) fn push_fixed(&mut self, value: i32) -> Result<(), Type1Error> {
+    pub(super) fn push_fixed(&mut self, value: i32) -> Result<(), CharstringError> {
         self.push(Number::Fixed(value))
     }
 
     /// Pops an integer; a fixed-point number on top is an error.
-    pub(super) fn pop_int(&mut self) -> Result<i32, Type1Error> {
+    pub(super) fn pop_int(&mut self) -> Result<i32, CharstringError> {
         match self.values.last() {
             None => Err(error("stack underflow")),
             Some(Number::Fixed(_)) => Err(error("integer expected")),
@@ -77,7 +84,7 @@ impl Stack {
     }
 
     /// Pops a number as fixed point.
-    pub(super) fn pop_fixed(&mut self) -> Result<i32, Type1Error> {
+    pub(super) fn pop_fixed(&mut self) -> Result<i32, CharstringError> {
         self.values
             .pop()
             .map(Number::to_fixed)
@@ -85,7 +92,7 @@ impl Stack {
     }
 
     /// The number at `index` from the bottom, as fixed point.
-    pub(super) fn get(&self, index: usize) -> Result<i32, Type1Error> {
+    pub(super) fn get(&self, index: usize) -> Result<i32, CharstringError> {
         self.values
             .get(index)
             .map(|&number| number.to_fixed())
@@ -94,7 +101,7 @@ impl Stack {
 
     /// Replaces the number at `index` from the bottom; one past the top is
     /// accepted and has no effect, as in FreeType.
-    pub(super) fn set(&mut self, index: usize, value: i32) -> Result<(), Type1Error> {
+    pub(super) fn set(&mut self, index: usize, value: i32) -> Result<(), CharstringError> {
         let len = self.values.len();
         match self.values.get_mut(index) {
             Some(slot) => *slot = Number::Fixed(value),
@@ -104,8 +111,13 @@ impl Stack {
         Ok(())
     }
 
+    /// Drops the numbers above the first `count` (`cf2_stack_pop`).
+    pub(super) fn truncate(&mut self, count: usize) {
+        self.values.truncate(count);
+    }
+
     /// `cf2_stack_roll`: rotates the top `count` numbers by `shift`.
-    pub(super) fn roll(&mut self, count: i32, shift: i32) -> Result<(), Type1Error> {
+    pub(super) fn roll(&mut self, count: i32, shift: i32) -> Result<(), CharstringError> {
         if count < 2 {
             return Ok(());
         }
@@ -136,10 +148,11 @@ impl Stack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::psaux::STACK_SIZE;
 
     #[test]
     fn typed_numbers() {
-        let mut stack = Stack::default();
+        let mut stack = Stack::new(STACK_SIZE);
         stack.push_int(3).unwrap();
         stack.push_fixed(0x18000).unwrap();
         assert!(stack.pop_int().is_err());
@@ -152,7 +165,7 @@ mod tests {
 
     #[test]
     fn limits_set_and_roll() {
-        let mut stack = Stack::default();
+        let mut stack = Stack::new(STACK_SIZE);
         for i in 0..48 {
             stack.push_int(i).unwrap();
         }

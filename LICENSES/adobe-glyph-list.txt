@@ -1,5 +1,6 @@
-The Adobe Glyph List (crates/pltrs-font/data/glyphlist.txt, which
-pltrs-font embeds) is distributed under this notice:
+The Adobe Glyph List (crates/pltrs-font/data/glyphlist.txt) and the
+Adobe Glyph List For New Fonts (crates/pltrs-font/data/aglfn.txt), which
+pltrs-font embeds, are distributed under this notice:
 
 Copyright 2002-2019 Adobe (http://www.adobe.com/).
 

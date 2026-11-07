@@ -1,6 +1,7 @@
 //! Hinted glyph metrics for text layout: what HarfBuzz's FreeType
 //! integration and matplotlib's `FT2Font.set_text` read from glyphs loaded
-//! with hinting, by the bytecode interpreter or the autohinter.
+//! with hinting, by the bytecode interpreter, the autohinter or the CFF
+//! hinter.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -26,6 +27,7 @@ struct GlyphMetrics {
 enum Loader<'s, 'f> {
     Bytecode(Box<HintingInstance<'f>>),
     Autohinter(&'s Autohinter, Size),
+    Cff(Size),
 }
 
 /// One face at one size hinted for laying out a string: glyphs are hinted
@@ -50,6 +52,11 @@ impl<'s, 'f> HintedFace<'s, 'f> {
         Self::with_loader(face, Loader::Autohinter(hinter, *size))
     }
 
+    /// `face`, a CFF face, hinted at `size` by the CFF hinter.
+    pub(crate) fn cff(face: &'s Face<'f>, size: &Size) -> Self {
+        Self::with_loader(face, Loader::Cff(*size))
+    }
+
     fn with_loader(face: &'s Face<'f>, loader: Loader<'s, 'f>) -> Self {
         Self {
             face,
@@ -64,6 +71,18 @@ impl<'s, 'f> HintedFace<'s, 'f> {
             Loader::Autohinter(hinter, size) => {
                 hinter.load_glyph(self.face, size, glyph, AutohintTarget::Normal)
             }
+            Loader::Cff(size) => self.face.load_cff_hinted(size, glyph),
+        }
+    }
+
+    /// The advance HarfBuzz reads with `FT_Get_Advance`: the hinted
+    /// glyph's, but for the autohinter's CFF glyphs.
+    fn layout_advance(&self, glyph: GlyphId, hinted: &HintedGlyph) -> Result<i32> {
+        match &self.loader {
+            Loader::Autohinter(hinter, size) if self.face.is_cff() => {
+                hinter.layout_advance(self.face, size, glyph, AutohintTarget::Normal)
+            }
+            _ => Ok(hinted.advance()),
         }
     }
 
@@ -72,8 +91,9 @@ impl<'s, 'f> HintedFace<'s, 'f> {
             .borrow_mut()
             .entry(glyph)
             .or_insert_with(|| {
-                self.load(glyph).map(|hinted| GlyphMetrics {
-                    advance: hinted.advance(),
+                let hinted = self.load(glyph)?;
+                Ok(GlyphMetrics {
+                    advance: self.layout_advance(glyph, &hinted)?,
                     control_box: hinted.control_box(),
                 })
             })

@@ -14,6 +14,7 @@ use crate::face::Face;
 use crate::fixed::{div_fix, mul_div, mul_fix};
 use crate::scale::Size;
 use crate::types::Tag;
+use crate::var::vary_cvt;
 
 /// The work one program run, or one glyph load, may do (instructions
 /// plus points visited) before it is stopped as too long. Real fonts stay
@@ -130,7 +131,7 @@ fn prepare<'f>(face: &Face<'f>, metrics: Metrics, num_glyphs: u16) -> Result<Pre
     let max_stack = usize::from(maxp.max_stack_elements);
     let stack_size = max_stack + (max_stack / 2).max(128);
     let mut definitions = DefinitionTable::new(maxp.max_function_defs, maxp.max_instruction_defs);
-    let unscaled: Vec<i64> = face
+    let mut unscaled: Vec<i64> = face
         .table(Tag::new(b"cvt "))
         .unwrap_or(&[])
         .as_chunks::<2>()
@@ -138,6 +139,14 @@ fn prepare<'f>(face: &Face<'f>, metrics: Metrics, num_glyphs: u16) -> Result<Pre
         .iter()
         .map(|&value| i64::from(i16::from_be_bytes(value)))
         .collect();
+    if let (Some(variations), Some(cvar)) = (face.varied(), face.table(Tag::new(b"cvar"))) {
+        vary_cvt(
+            cvar,
+            variations.gvar.as_ref(),
+            &variations.coords,
+            &mut unscaled,
+        )?;
+    }
     let twilight = Zone::twilight(usize::from(maxp.max_twilight_points) + 4);
     let mut resources = Resources {
         cvt: vec![0; unscaled.len()],

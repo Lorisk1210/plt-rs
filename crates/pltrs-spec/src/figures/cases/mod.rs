@@ -13,6 +13,7 @@ mod common;
 mod contour;
 mod fields;
 mod figure;
+mod font_formats;
 mod gallery_3d;
 mod gallery_axisartist;
 mod gallery_guides_axes;
@@ -128,6 +129,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         geo::ARTISTS,
         geo::CASES,
         geo::GRIDS,
+        font_formats::CASES,
         hinting::CASES,
         hist::CASES,
         images::CASES,

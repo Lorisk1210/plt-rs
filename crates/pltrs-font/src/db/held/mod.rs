@@ -1,8 +1,9 @@
 //! Font files held for drawing (see [`crate::region`]): read when one of
 //! their faces is first used, with every table but those drawing reads
 //! glyph by glyph or not at all (`glyf`, bitmaps, variations) and, of a
-//! CFF table, all but its `CharStrings` data. The rest is read from the
-//! file, a range at a time, when it is used, and kept while the file is.
+//! `CFF ` or `CFF2` table, all but its `CharStrings` data. The rest is
+//! read from the file, a range at a time, when it is used, and kept while
+//! the file is.
 
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -13,25 +14,28 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 
 use super::arena::Arena;
 use super::sparse::{DRAWN, Face, Font, Table};
-use crate::cff::{CffParts, Index, charstrings_offset};
+use crate::cff::{CffParts, Index, Version, charstrings_offset};
 use crate::error::{FontError, Result};
 use crate::region::{LazyFile, Region};
 use crate::types::Tag;
 
-/// The tag of CFF tables.
-const CFF: [u8; 4] = *b"CFF ";
+/// The versions of CFF tables, in the order a face looks for them.
+const CFF_VERSIONS: [Version; 2] = [Version::Cff2, Version::Cff];
 
 /// The first bytes of a CFF table read to find its `CharStrings`: its
-/// header, Name INDEX and Top DICT INDEX take far fewer.
+/// header, Name INDEX and Top DICT (INDEX) take far fewer.
 const CFF_HEAD: usize = 64 << 10;
 
-/// The most bytes the count, offset size and offsets of an INDEX take
-/// (65 535 entries with four-byte offsets).
-const INDEX_HEAD: usize = 3 + 4 * (u16::MAX as usize + 1);
+/// The most bytes the count, offset size and offsets of an INDEX of a
+/// font's glyphs take (65 535 entries with four-byte offsets, after a
+/// CFF2 count).
+const INDEX_HEAD: usize = 5 + 4 * (u16::MAX as usize + 1);
 
 /// A CFF table held but for its `CharStrings` data.
 #[derive(Debug)]
 struct SplitCff {
+    /// The table's version.
+    version: Version,
     /// Where the table is in the file.
     table: Range<usize>,
     /// Where its `CharStrings` data are in the table.
@@ -119,11 +123,17 @@ fn is_held(table: &Table, split: &[SplitCff]) -> bool {
 fn split_cffs(font: &mut Font, faces: &[Face]) -> io::Result<Vec<SplitCff>> {
     let mut split: Vec<SplitCff> = Vec::new();
     for table in faces.iter().flat_map(|face| &face.tables) {
-        let Some(range) = table.range().filter(|_| table.tag() == CFF) else {
+        let Some(version) = CFF_VERSIONS
+            .into_iter()
+            .find(|version| version.tag().0 == table.tag())
+        else {
+            continue;
+        };
+        let Some(range) = table.range() else {
             continue;
         };
         if split.iter().all(|cff| cff.table != range)
-            && let Some(cff) = split_cff(font, range)?
+            && let Some(cff) = split_cff(font, version, range)?
         {
             split.push(cff);
         }
@@ -133,12 +143,16 @@ fn split_cffs(font: &mut Font, faces: &[Face]) -> io::Result<Vec<SplitCff>> {
 
 /// The CFF table at `table` of the file, held but for its `CharStrings`
 /// data; `None` when they cannot be found.
-fn split_cff(font: &mut Font, table: Range<usize>) -> io::Result<Option<SplitCff>> {
+fn split_cff(
+    font: &mut Font,
+    version: Version,
+    table: Range<usize>,
+) -> io::Result<Option<SplitCff>> {
     let mut read = |start: usize, len: usize| font.bytes(start as u64, len as u64);
     let Some(head) = read(table.start, table.len().min(CFF_HEAD))? else {
         return Ok(None);
     };
-    let Some(at) = charstrings_offset(&head)
+    let Some(at) = charstrings_offset(&head, version)
         .ok()
         .filter(|&at| at < table.len())
     else {
@@ -147,7 +161,7 @@ fn split_cff(font: &mut Font, table: Range<usize>) -> io::Result<Option<SplitCff
     let Some(index) = read(table.start + at, (table.len() - at).min(INDEX_HEAD))? else {
         return Ok(None);
     };
-    let Ok(data) = Index::data_range(&index) else {
+    let Ok(data) = Index::data_range(&index, version.count_size()) else {
         return Ok(None);
     };
     let charstrings = at + data.start..at + data.end;
@@ -157,6 +171,7 @@ fn split_cff(font: &mut Font, table: Range<usize>) -> io::Result<Option<SplitCff
     let head = read(table.start, charstrings.start)?;
     let tail = read(table.start + charstrings.end, table.len() - charstrings.end)?;
     Ok(head.zip(tail).map(|(head, tail)| SplitCff {
+        version,
         table,
         charstrings,
         head,
@@ -177,11 +192,14 @@ impl LazyFile for HeldFile {
     }
 
     fn cff(&self, face: u32) -> Option<CffParts<'_>> {
-        let table = self.table(face, Tag(CFF))?;
+        let table = CFF_VERSIONS
+            .into_iter()
+            .find_map(|version| self.table(face, version.tag()))?;
         let split = self.cffs.iter().find(|cff| cff.table == table)?;
         let charstrings =
             table.start + split.charstrings.start..table.start + split.charstrings.end;
         Some(CffParts {
+            version: split.version,
             head: &split.head,
             tail: &split.tail,
             charstrings: Region::lazy(self, charstrings),

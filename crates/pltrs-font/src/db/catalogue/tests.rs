@@ -6,7 +6,11 @@ use std::fs::{self, File};
 use std::time::{Duration, SystemTime};
 
 use super::*;
-use crate::db::FontStyle;
+use crate::db::{FaceStyle, FontStyle};
+
+/// What the catalogue keeps of a font file in these tests: the
+/// descriptions of each of its faces.
+type Faces = Vec<Vec<FaceStyle>>;
 
 /// A scratch directory of the temporary directory, removed when dropped.
 struct Scratch(PathBuf);
@@ -90,7 +94,7 @@ impl Describer {
         &self,
         catalogue: &Path,
         paths: &[PathBuf],
-    ) -> (Vec<CataloguedFile>, CatalogueReport, Vec<PathBuf>) {
+    ) -> (Vec<CataloguedFile<Faces>>, CatalogueReport, Vec<PathBuf>) {
         self.read.borrow_mut().clear();
         let (files, report) = refresh(catalogue, paths, |path| self.describe(path));
         (files, report, self.read.take())
@@ -121,7 +125,7 @@ fn catalogues_are_written_once_and_read_back() {
     assert!(matches!(report.state, CatalogueState::Rebuilt { .. }));
     assert!(report.save_error.is_none(), "{:?}", report.save_error);
     assert_eq!(read, paths);
-    let faces: Vec<_> = files.iter().map(|file| file.faces.clone()).collect();
+    let faces: Vec<_> = files.iter().map(|file| file.description.clone()).collect();
     assert_eq!(
         faces,
         [
@@ -166,7 +170,7 @@ fn files_are_read_again_when_they_change() {
     let (files, report, read) = describer.refresh(&catalogue, &[a.clone(), b.clone()]);
     assert_eq!(report.state, CatalogueState::Updated { read: 1 });
     assert_eq!(read, [a.as_path()]);
-    assert_eq!(files[0].faces.as_ref().map(Vec::len), Some(2));
+    assert_eq!(files[0].description.as_ref().map(Vec::len), Some(2));
 
     let c = scratch.file("c.otf", b"font");
     let (files, report, read) = describer.refresh(&catalogue, &[c.clone(), a.clone(), b.clone()]);
@@ -200,8 +204,8 @@ fn unreadable_files_are_tried_at_every_start() {
     let describer = Describer::default();
     let with_missing = [paths.clone(), vec![missing.clone()]].concat();
     let (files, _, _) = describer.refresh(&catalogue, &with_missing);
-    assert_eq!(files[0].faces, None);
-    assert_eq!(files[2].faces, None);
+    assert_eq!(files[0].description, None);
+    assert_eq!(files[2].description, None);
     let (_, report, read) = describer.refresh(&catalogue, &with_missing);
     assert_eq!(
         report.state,
@@ -239,7 +243,7 @@ fn broken_catalogues_are_rebuilt() {
     let other_pltrs = sealed(other_pltrs);
     let other_format = sealed(
         archive::to_bytes(
-            &Kept {
+            &Kept::<Faces> {
                 format: FORMAT + 1,
                 files: Vec::new(),
             },
@@ -274,7 +278,7 @@ fn broken_catalogues_are_rebuilt() {
         let (files, report, read) = describer.refresh(&scratch.catalogue(), &paths);
         assert_eq!(read, paths, "{name}");
         assert_eq!(
-            files[0].faces,
+            files[0].description,
             Some(vec![vec![described("a.ttf")]]),
             "{name}"
         );
@@ -311,7 +315,7 @@ fn catalogues_that_cannot_be_written_are_used_in_memory() {
     let (files, report, _) = describer.refresh(&scratch.catalogue(), &paths);
     assert!(matches!(report.state, CatalogueState::Rebuilt { .. }));
     assert!(report.save_error.is_some());
-    assert_eq!(files[0].faces, Some(vec![vec![described("a.ttf")]]));
+    assert_eq!(files[0].description, Some(vec![vec![described("a.ttf")]]));
     assert_eq!(
         scratch.listing(),
         ["a.ttf", &catalogue_file_name()],

@@ -2,6 +2,7 @@
 //! loaded from `glyf` or `CFF` with FreeType's origin alignment.
 
 use super::{Face, Outlines};
+use crate::cff::CffScale;
 use crate::error::{FontError, Result};
 use crate::outline::{Midpoint, Outline, OutlineSink};
 use crate::tables::glyf::{Glyf, Scaling};
@@ -10,9 +11,28 @@ use crate::tables::hmtx::Hmtx;
 use crate::types::{GlyphId, Rect, Tag};
 
 impl<'a> Face<'a> {
-    /// Horizontal advance of `glyph` in font units.
+    /// Horizontal advance of `glyph` in font units: FreeType's
+    /// `linearHoriAdvance`, which at an instance of a variable font is
+    /// varied by `HVAR` or the phantom points' deltas.
     pub fn glyph_advance(&self, glyph: GlyphId) -> u16 {
-        self.hmtx.advance(glyph)
+        let advance = self.hmtx_advance(glyph);
+        match (&self.outlines, &self.variations) {
+            (Outlines::TrueType(_), Some(variations)) if variations.glyph_variation().is_some() => {
+                self.load_with_advance(glyph, Scaling::Units)
+                    .map_or(advance, |(_, _, linear)| linear as u16)
+            }
+            _ => advance,
+        }
+    }
+
+    /// The advance of `glyph` in `hmtx`, varied by `HVAR` for design
+    /// coordinates (`tt_face_get_metrics`).
+    pub(crate) fn hmtx_advance(&self, glyph: GlyphId) -> u16 {
+        let advance = self.hmtx.advance(glyph);
+        self.variations
+            .as_ref()
+            .and_then(|variations| variations.advance_delta(glyph))
+            .map_or(advance, |delta| (i64::from(advance) + delta) as u16)
     }
 
     /// Left side bearing of `glyph` in font units (from `hmtx`).
@@ -68,57 +88,102 @@ impl<'a> Face<'a> {
     /// with FreeType's origin alignment applied.
     pub(crate) fn load_outline(&self, glyph: GlyphId, scaling: Scaling) -> Result<Outline> {
         self.load_with_advance(glyph, scaling)
-            .map(|(outline, _)| outline)
+            .map(|(outline, _, _)| outline)
     }
 
     /// Loads `glyph` like FreeType's `FT_Load_Glyph` with
     /// `FT_LOAD_NO_SCALE`: the outline in whole font units (TrueType
-    /// composites transformed in fixed point, CFF coordinates floored as
-    /// FreeType's CFF engine stores them) and the advance width in font
-    /// units.
+    /// composites transformed in fixed point, CFF coordinates as the
+    /// Adobe engine stores them) and the advance width in font units.
     pub(crate) fn load_unscaled(&self, glyph: GlyphId) -> Result<(Outline, i64)> {
-        let unit = Scaling::Fixed {
-            x_scale: 0x10000,
-            y_scale: 0x10000,
-        };
-        match &self.outlines {
-            Outlines::Cff(_) => {
-                let (mut outline, advance) = self.load_with_advance(glyph, Scaling::Units)?;
-                for point in &mut outline.points {
-                    point.x = point.x.floor();
-                    point.y = point.y.floor();
-                }
-                Ok((outline, advance))
-            }
-            Outlines::TrueType(_) | Outlines::None => self.load_with_advance(glyph, unit),
-        }
+        self.load_with_advance(glyph, Scaling::Unscaled)
+            .map(|(outline, advance, _)| (outline, advance))
     }
 
-    /// The outline of `glyph` with the origin aligned, and the advance
-    /// width in font units.
-    fn load_with_advance(&self, glyph: GlyphId, scaling: Scaling) -> Result<(Outline, i64)> {
+    /// Loads `glyph` of a CFF face hinted by FreeType's CFF hinter, the
+    /// Adobe engine, at a size of the 16.16 scales `x_scale` and
+    /// `y_scale`: the outline in 26.6 pixels and the advance, unrounded;
+    /// `None` for a face without CFF outlines.
+    pub(crate) fn load_cff_outline_hinted(
+        &self,
+        glyph: GlyphId,
+        x_scale: i64,
+        y_scale: i64,
+    ) -> Result<Option<(Outline, i64)>> {
+        let Outlines::Cff(cff) = &self.outlines else {
+            return Ok(None);
+        };
+        self.check_glyph(glyph)?;
+        let advance = i64::from(self.hmtx_advance(glyph));
+        let scale = CffScale::Hinted { x_scale, y_scale };
+        cff.load(glyph, advance, scale, self.units_per_em())
+            .map(Some)
+    }
+
+    /// The outline of `glyph` with the origin aligned, the advance width
+    /// in font units, and the linear advance (`linearHoriAdvance`).
+    fn load_with_advance(&self, glyph: GlyphId, scaling: Scaling) -> Result<(Outline, i64, i64)> {
+        self.load_placed(glyph, scaling, true)
+    }
+
+    /// Emits the outline of `glyph` in font units as fontTools' glyph sets
+    /// draw it, by which matplotlib measures the bounds of Type 42 fonts:
+    /// simple TrueType glyphs moved by their left side bearing as FreeType
+    /// moves them, composites at the offsets they store.
+    ///
+    /// # Errors
+    ///
+    /// When the glyph is beyond the face's glyphs or its outline is
+    /// malformed.
+    pub fn fonttools_outline(&self, glyph: GlyphId, sink: &mut impl OutlineSink) -> Result<()> {
+        let composite = match &self.outlines {
+            Outlines::TrueType(glyf) => glyf
+                .record(glyph)?
+                .is_some_and(|(header, _)| header.contours < 0),
+            _ => false,
+        };
+        let (outline, _, _) = self.load_placed(glyph, Scaling::Units, !composite)?;
+        outline.decompose(sink, Midpoint::Exact);
+        Ok(())
+    }
+
+    /// [`load_with_advance`](Self::load_with_advance), a TrueType outline's
+    /// origin aligned when `align`.
+    fn load_placed(
+        &self,
+        glyph: GlyphId,
+        scaling: Scaling,
+        align: bool,
+    ) -> Result<(Outline, i64, i64)> {
         self.check_glyph(glyph)?;
         let mut outline = Outline::default();
-        let mut advance = i64::from(self.hmtx.advance(glyph));
+        let mut advance = i64::from(self.hmtx_advance(glyph));
+        let mut linear = advance;
         match &self.outlines {
             Outlines::TrueType(glyf) => {
-                let metrics = |g: GlyphId| (self.hmtx.left_side_bearing(g), self.hmtx.advance(g));
-                let phantoms = glyf.load(glyph, scaling, &metrics, &mut outline)?;
-                let shift = match scaling {
-                    Scaling::Units => phantoms.origin as f64,
-                    Scaling::Fixed { x_scale, .. } => {
-                        crate::fixed::mul_fix(phantoms.origin, x_scale) as f64
-                    }
-                };
-                if shift != 0.0 {
-                    outline.translate(-shift, 0.0);
+                let metrics = |g: GlyphId| (self.hmtx.left_side_bearing(g), self.hmtx_advance(g));
+                let variation = self
+                    .variations
+                    .as_ref()
+                    .and_then(|variations| variations.glyph_variation());
+                let phantoms =
+                    glyf.load(glyph, scaling, &metrics, variation.as_ref(), &mut outline)?;
+                if align && phantoms.origin != 0.0 {
+                    outline.translate(-phantoms.origin, 0.0);
                 }
                 advance = phantoms.advance;
+                linear = phantoms.linear;
             }
-            Outlines::Cff(cff) => cff.load(glyph, scaling, &mut outline)?,
+            Outlines::Cff(cff) => {
+                let scale = match scaling {
+                    Scaling::Units | Scaling::Unscaled => CffScale::Units,
+                    Scaling::Fixed { x_scale, y_scale } => CffScale::Scaled { x_scale, y_scale },
+                };
+                (outline, advance) = cff.load(glyph, advance, scale, self.units_per_em())?;
+            }
             Outlines::None => {}
         }
-        Ok((outline, advance))
+        Ok((outline, advance, linear))
     }
 
     /// Emits the outline of `glyph` in font units and returns its control
@@ -163,6 +228,11 @@ impl<'a> Face<'a> {
         };
         // C's division, truncating towards zero.
         ((advance - height) / 2, advance)
+    }
+
+    /// Whether the face has CFF or CFF2 outlines.
+    pub(crate) const fn is_cff(&self) -> bool {
+        matches!(self.outlines, Outlines::Cff(_))
     }
 
     /// Whether the face has TrueType or CFF outlines.

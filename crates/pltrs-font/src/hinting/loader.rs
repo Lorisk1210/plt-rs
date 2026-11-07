@@ -16,9 +16,9 @@ use crate::reader::Reader;
 use crate::scale::PixelSink;
 use crate::scan::{Dropouts, ScanOutline, ScanRules};
 use crate::tables::glyf::{
-    Component, GLYF, Glyf, MAX_COMPONENT_DEPTH, MAX_COMPONENTS, MAX_POINTS, Placement,
-    ROUND_XY_TO_GRID, USE_MY_METRICS, WE_HAVE_INSTRUCTIONS, bad_anchor, parse_components,
-    parse_simple,
+    Component, GLYF, Glyf, GlyphVariation, MAX_COMPONENT_DEPTH, MAX_COMPONENTS, MAX_POINTS,
+    Placement, ROUND_XY_TO_GRID, USE_MY_METRICS, Varied, WE_HAVE_INSTRUCTIONS, bad_anchor,
+    parse_components, parse_simple, vary_components,
 };
 use crate::types::{GlyphId, Rect};
 
@@ -212,7 +212,7 @@ impl GlyphLoad<'_, '_> {
     /// vertical ones centred as the version 40 interpreter places them).
     fn phantom_points(&self, glyph: GlyphId, bbox: Rect) -> [Vector; 4] {
         let lsb = i64::from(self.face.left_side_bearing(glyph));
-        let advance = i64::from(self.face.glyph_advance(glyph));
+        let advance = i64::from(self.face.hmtx_advance(glyph));
         let (tsb, advance_height) = self.face.glyph_vertical_metrics(glyph, bbox.y_max);
         let pp1 = Vector::new(i64::from(bbox.x_min) - lsb, 0);
         let pp3 = Vector::new(advance / 2, i64::from(bbox.y_max) + i64::from(tsb));
@@ -240,17 +240,43 @@ impl GlyphLoad<'_, '_> {
         self.phantoms = self.phantom_points(glyph, bbox);
         match record {
             None => {
+                if let Some(variation) = self.variation() {
+                    let [pp1, pp2, ..] = self.phantoms;
+                    let varied = variation.vary(glyph, &[], &[], (pp1.x, pp2.x))?;
+                    self.phantoms[0].x = varied.rounded[0].0;
+                    self.phantoms[1].x = varied.rounded[1].0;
+                }
                 self.phantoms = self.phantoms.map(|p| self.scale(p));
                 Ok(())
             }
             Some((header, body)) if header.contours > 0 => {
-                self.load_simple(body, header.contours as usize)
+                self.load_simple(glyph, body, header.contours as usize)
             }
             Some((_, body)) => {
                 let length = self.glyf.data(glyph)?.len();
-                self.load_composite(body, length, depth)
+                self.load_composite(glyph, body, length, depth)
             }
         }
+    }
+
+    /// What varies the glyphs at the face's instance, if anything does.
+    fn variation(&self) -> Option<GlyphVariation<'_>> {
+        self.face.varied()?.glyph_variation()
+    }
+
+    /// A point of `varied` in font units (rounded) and scaled from its
+    /// unrounded position, as FreeType scales points at an instance.
+    fn place_varied(&self, varied: &Varied, index: usize) -> (Vector, Vector) {
+        let (x, y) = varied.rounded[index];
+        let (ux, uy) = varied.unrounded[index];
+        let scaled = |value: i64, scale: i64| (mul_fix(value, scale) + 32) >> 6;
+        (
+            Vector::new(x, y),
+            Vector::new(
+                scaled(ux, self.instance.x_scale),
+                scaled(uy, self.instance.y_scale),
+            ),
+        )
     }
 
     fn check_points(&self, more: usize) -> Result<()> {
@@ -260,20 +286,35 @@ impl GlyphLoad<'_, '_> {
         Ok(())
     }
 
-    fn load_simple(&mut self, body: &[u8], contours: usize) -> Result<()> {
+    fn load_simple(&mut self, id: GlyphId, body: &[u8], contours: usize) -> Result<()> {
         if contours >= MAX_CONTOURS {
             return Err(FontError::malformed(GLYF, "glyph has too many contours"));
         }
         let glyph = parse_simple(body, contours)?;
         let count = glyph.points.len();
         self.check_points(count + 4)?;
-        let orus: Vec<Vector> = glyph
+        let mut orus: Vec<Vector> = glyph
             .points
             .iter()
             .map(|p| Vector::new(p.x, p.y))
             .chain(self.phantoms)
             .collect();
-        let cur: Vec<Vector> = orus.iter().map(|&p| self.scale(p)).collect();
+        let mut cur: Vec<Vector> = orus.iter().map(|&p| self.scale(p)).collect();
+        let mut phantoms = [cur[count], cur[count + 1], cur[count + 2], cur[count + 3]];
+        if let Some(variation) = self.variation() {
+            let points: Vec<(i64, i64)> = glyph.points.iter().map(|p| (p.x, p.y)).collect();
+            let ends: Vec<usize> = glyph.ends.iter().map(usize::from).collect();
+            let [pp1, pp2, ..] = self.phantoms;
+            let varied = variation.vary(id, &points, &ends, (pp1.x, pp2.x))?;
+            for index in 0..count + 2 {
+                (orus[index], cur[index]) = self.place_varied(&varied, index);
+            }
+            // With `HVAR`, the advance keeps to the scaled metrics; else the
+            // varied phantom points give it.
+            if !variation.fixed_phantoms {
+                (phantoms[0], phantoms[1]) = (cur[count], cur[count + 1]);
+            }
+        }
         let mut zone = Zone {
             org: Vec::new(),
             tags: glyph
@@ -286,12 +327,7 @@ impl GlyphLoad<'_, '_> {
             cur,
             orus,
         };
-        self.phantoms = [
-            zone.cur[count],
-            zone.cur[count + 1],
-            zone.cur[count + 2],
-            zone.cur[count + 3],
-        ];
+        self.phantoms = phantoms;
         if self.prepared.instructions {
             self.hint(&mut zone, glyph.instructions, false);
         }
@@ -365,8 +401,14 @@ impl GlyphLoad<'_, '_> {
         }
     }
 
-    fn load_composite(&mut self, body: &[u8], length: usize, depth: u8) -> Result<()> {
-        let (components, rest) = parse_components(body)?;
+    fn load_composite(&mut self, id: GlyphId, body: &[u8], length: usize, depth: u8) -> Result<()> {
+        let (mut components, rest) = parse_components(body)?;
+        if let Some(variation) = self.variation() {
+            let [pp1, pp2, ..] = self.phantoms;
+            let ((x1, x2), _) = vary_components(&mut components, id, &variation, (pp1.x, pp2.x))?;
+            self.phantoms[0].x = x1;
+            self.phantoms[1].x = x2;
+        }
         self.phantoms = self.phantoms.map(|p| self.scale(p));
         let (start_point, start_contour) = (self.points.len(), self.ends.len());
         for component in &components {

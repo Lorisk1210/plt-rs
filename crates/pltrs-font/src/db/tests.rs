@@ -81,18 +81,18 @@ fn best_entries_carry_their_score() {
     let db = FontDatabase::with_bundled_fonts();
     let generics = db.generic_families().clone();
     let heavy = FontQuery::families(["DejaVu Sans"]).with_weight(Weight(750));
-    let (entry, score) = db.best_entry(&heavy, &generics, |_| true).unwrap();
+    let (entry, score) = db.best_entry(&heavy, &generics).unwrap();
     assert_eq!((entry.name.as_str(), entry.weight), ("DejaVu Sans", 700));
     assert!(score < 10.0);
     let missing = FontQuery::families(["No Such Font"]);
-    let (_, score) = db.best_entry(&missing, &generics, |_| true).unwrap();
+    let (_, score) = db.best_entry(&missing, &generics).unwrap();
     assert!(score >= 10.0);
     let serif = db.find_font(&FontQuery::families(["serif"])).unwrap();
     let (entry, _) = db
-        .best_entry(&heavy, &generics, |font| font == serif)
+        .best_entry_among(&heavy, &generics, |font| font == serif)
         .unwrap();
     assert_eq!(entry.font, serif);
-    assert!(db.best_entry(&heavy, &generics, |_| false).is_none());
+    assert!(db.best_entry_among(&heavy, &generics, |_| false).is_none());
 }
 
 #[test]

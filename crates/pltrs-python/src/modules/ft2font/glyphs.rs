@@ -153,6 +153,7 @@ impl Ft2Font {
                 glyph,
                 AutohintTarget::Normal,
             ),
+            Hinter::Cff => face.load_cff_hinted(size, glyph),
             Hinter::Unhinted => return Ok(None),
         };
         loaded.map(Some).map_err(|err| ft_error("load glyph", &err))

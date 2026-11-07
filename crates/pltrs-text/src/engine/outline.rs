@@ -123,6 +123,7 @@ impl TextEngine {
                 glyph,
                 AutohintTarget::Normal,
             )?),
+            Hinter::Cff => Some(face.load_cff_hinted(size, glyph)?),
             Hinter::Unhinted => None,
         })
     }

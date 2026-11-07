@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-CATALOGUE = "fontlist-v1.pltrs"
+CATALOGUE = "fontlist-v2.pltrs"
 
 # A program drawing text, then printing its cache directory, the font
 # list, what findfont finds and the font names.

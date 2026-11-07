@@ -7,7 +7,7 @@
 //! |-----------------------------|----------------------------------------------------------------|--------------------------|
 //! | [`config_dir`]              | `$PLTRSCONFIGDIR`, `$XDG_CONFIG_HOME/pltrs`, `~/.config/pltrs` | `MPLCONFIGDIR`, `~/.config/matplotlib` |
 //! | [`cache_dir`]               | `$PLTRSCONFIGDIR`, `$XDG_CACHE_HOME/pltrs`, `~/.cache/pltrs`   | `MPLCONFIGDIR`, `~/.cache/matplotlib` |
-//! | the font catalogue          | `fontlist-v1.pltrs` in the cache directory                     | `fontlist-v390.json` |
+//! | the font catalogue          | `fontlist-v2.pltrs` in the cache directory                     | `fontlist-v390.json` |
 //! | [`rc_file_path`]            | `./pltrsrc`, `$PLTRSRC` (a file, or a directory holding `pltrsrc`), `pltrsrc` in the configuration directory | `matplotlibrc`, `MATPLOTLIBRC` |
 //! | the user style library      | the `*.mplstyle` files of `stylelib` in the configuration directory | `stylelib`         |
 //!

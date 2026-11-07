@@ -54,7 +54,9 @@ mod face;
 mod fixed;
 mod hinting;
 mod layout;
+mod matrix;
 mod outline;
+mod psaux;
 mod reader;
 mod region;
 mod scale;
@@ -65,6 +67,7 @@ mod subset;
 mod tables;
 mod type1;
 mod types;
+mod var;
 
 pub use afm::{
     AfmError, AfmMetrics, AfmSection, CharMetrics, CompositePart, StrBbox, bundled_afm_files,
@@ -73,11 +76,11 @@ pub use afm::{
 pub use agl::glyph_name_to_unicode;
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
-    AfmDirectory, AfmFont, CatalogueReport, CatalogueState, FaceStyle, FontDatabase, FontEntry,
-    FontId, FontQuery, FontSource, FontStyle, FontVariant, GenericFamilies, GenericFamily,
-    RegistryReader, Stretch, Weight, alternative_family_names, bundled_font_data,
-    bundled_font_files, catalogue_file_name, face_style, read_registry_with, score_family,
-    score_size, score_stretch, score_style, score_variant, score_weight,
+    AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmStyle, CatalogueReport, CatalogueState,
+    FaceStyle, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle, FontVariant,
+    GenericFamilies, GenericFamily, RegistryReader, Stretch, Weight, alternative_family_names,
+    bundled_font_data, bundled_font_files, catalogue_file_name, face_style, read_registry_with,
+    score_family, score_size, score_stretch, score_style, score_variant, score_weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};
@@ -108,3 +111,4 @@ pub use type1::{
     Type1Parts, Type1Properties, Type1Section, ps_tokenize,
 };
 pub use types::{Direction, GlyphId, Rect, Tag};
+pub use var::{NamedInstance, VariationAxis};

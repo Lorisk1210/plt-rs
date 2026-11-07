@@ -49,7 +49,7 @@ pub(crate) fn tables(glyphs: &[Vec<u8>]) -> (Vec<u8>, Vec<u8>) {
 
 fn load(glyf: &Glyf<'_>, glyph: u16, scaling: Scaling) -> Result<Outline> {
     let mut out = Outline::default();
-    glyf.load(GlyphId(glyph), scaling, &|_| (0, 0), &mut out)?;
+    glyf.load(GlyphId(glyph), scaling, &|_| (0, 0), None, &mut out)?;
     Ok(out)
 }
 

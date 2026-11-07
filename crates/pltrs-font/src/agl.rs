@@ -1,12 +1,46 @@
 //! Glyph names to characters, by the Adobe Glyph List specification
 //! (fontTools' `agl.toUnicode`, which matplotlib's `dviread` uses to tell
-//! the characters of TeX's glyphs).
+//! the characters of TeX's glyphs), and characters to the names fontTools
+//! gives glyphs of fonts without names (`agl.UV2AGL`).
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
 /// Adobe's `glyphlist.txt` (AGL 2.0): `name;XXXX[ XXXX...]` lines.
 const GLYPH_LIST: &str = include_str!("../data/glyphlist.txt");
+
+/// Adobe's `aglfn.txt` (AGLFN 1.7): `XXXX;name;description` lines.
+const NEW_FONTS_LIST: &str = include_str!("../data/aglfn.txt");
+
+/// The name of every code point of the glyph list for new fonts, read
+/// once.
+fn new_fonts_list() -> &'static HashMap<u32, &'static str> {
+    static LIST: OnceLock<HashMap<u32, &'static str>> = OnceLock::new();
+    LIST.get_or_init(|| {
+        NEW_FONTS_LIST
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .filter_map(|line| {
+                let mut fields = line.split(';');
+                let code = u32::from_str_radix(fields.next()?, 16).ok()?;
+                Some((code, fields.next()?))
+            })
+            .collect()
+    })
+}
+
+/// The name fontTools makes for a glyph of character `code`
+/// (`TTFont._makeGlyphName`): its name in the Adobe Glyph List For New
+/// Fonts, else `uniXXXX` in the Basic Multilingual Plane and `uXXXXX`
+/// beyond.
+pub(crate) fn name_of_code(code: u32) -> Cow<'static, str> {
+    match new_fonts_list().get(&code) {
+        Some(name) => Cow::Borrowed(name),
+        None if code <= 0xFFFF => Cow::Owned(format!("uni{code:04X}")),
+        None => Cow::Owned(format!("u{code:X}")),
+    }
+}
 
 /// The code points of every name of the glyph list, read once.
 fn glyph_list() -> &'static HashMap<&'static str, Vec<char>> {
@@ -86,6 +120,17 @@ fn u_char(component: &str) -> Option<char> {
 #[cfg(test)]
 mod tests {
     use super::glyph_name_to_unicode as to_unicode;
+    use super::name_of_code;
+
+    #[test]
+    fn code_points_get_new_font_names() {
+        assert_eq!(name_of_code(0x41), "A");
+        assert_eq!(name_of_code(0x20), "space");
+        assert_eq!(name_of_code(0x3B6), "zeta");
+        // Names of the full list only, and characters of none.
+        assert_eq!(name_of_code(0x306A), "uni306A");
+        assert_eq!(name_of_code(0x1F600), "u1F600");
+    }
 
     #[test]
     fn names_of_the_glyph_list_are_their_characters() {

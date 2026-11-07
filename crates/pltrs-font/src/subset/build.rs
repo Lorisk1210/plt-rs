@@ -1,8 +1,9 @@
 //! Writing the subset font program: the kept glyphs renumbered in their
-//! original order, with the tables a TrueType rasterizer needs.
+//! original order, with the tables a TrueType or CFF rasterizer needs.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::Outlines;
 use super::cmap::{cmap, search_range};
 use super::glyf::{Glyf, renumbered};
 use crate::error::{FontError, Result};
@@ -61,27 +62,49 @@ fn glyph_tables(
     Ok((glyphs, loca))
 }
 
-/// The tables of the subset keeping `kept`, its `cmap` mapping the
-/// characters of `requested`, by tag.
+/// The sfnt version of a font with TrueType outlines.
+const TRUETYPE: u32 = 0x0001_0000;
+
+/// The sfnt version of a font with CFF outlines (`OTTO`).
+const OPENTYPE_CFF: u32 = 0x4F54_544F;
+
+/// The tables of a font file, by tag.
+type Tables = BTreeMap<[u8; 4], Vec<u8>>;
+
+/// The sfnt version and the tables of the subset keeping `kept`, its
+/// `cmap` mapping the characters of `requested`.
 fn tables(
     face: &Face<'_>,
-    glyf: &Glyf<'_>,
+    outlines: &Outlines<'_>,
     kept: &[GlyphId],
     requested: &BTreeSet<GlyphId>,
-) -> Result<BTreeMap<[u8; 4], Vec<u8>>> {
+) -> Result<(u32, Tables)> {
     let count = u16::try_from(kept.len()).map_err(|_| FontError::Malformed {
         table: Tag::new(b"maxp"),
         reason: "too many glyphs",
     })?;
     let renumber: BTreeMap<GlyphId, GlyphId> =
         kept.iter().copied().zip((0..).map(GlyphId)).collect();
-    let (glyphs, loca) = glyph_tables(glyf, kept, &renumber)?;
+    let mut tables = BTreeMap::new();
+    let mut head = required(face, *b"head")?.to_vec();
+    let version = match outlines {
+        Outlines::TrueType(glyf) => {
+            let (glyphs, loca) = glyph_tables(glyf, kept, &renumber)?;
+            tables.insert(*b"glyf", glyphs);
+            tables.insert(*b"loca", loca);
+            head = with_u16(&head, 50, 1, *b"head")?;
+            TRUETYPE
+        }
+        Outlines::Cff(cff) => {
+            tables.insert(cff.version().tag().0, cff.table(kept)?);
+            OPENTYPE_CFF
+        }
+    };
     let mut hmtx = Vec::with_capacity(kept.len() * 4);
     for &glyph in kept {
         hmtx.extend(face.glyph_advance(glyph).to_be_bytes());
         hmtx.extend(face.left_side_bearing(glyph).to_be_bytes());
     }
-    let mut head = with_u16(required(face, *b"head")?, 50, 1, *b"head")?;
     head.get_mut(8..12)
         .ok_or(FontError::Truncated(Tag::new(b"head")))?
         .fill(0);
@@ -90,9 +113,6 @@ fn tables(
         .map(<[u8]>::to_vec)
         .ok_or(FontError::Truncated(Tag::new(b"post")))?;
     post[..4].copy_from_slice(&0x0003_0000u32.to_be_bytes());
-    let mut tables = BTreeMap::new();
-    tables.insert(*b"glyf", glyphs);
-    tables.insert(*b"loca", loca);
     tables.insert(*b"hmtx", hmtx);
     tables.insert(*b"head", head);
     tables.insert(
@@ -110,20 +130,20 @@ fn tables(
             tables.insert(*tag, data.to_vec());
         }
     }
-    Ok(tables)
+    Ok((version, tables))
 }
 
 /// The subset font file of `kept` (sorted original glyphs), its `cmap`
 /// mapping the characters of the `requested` glyphs.
 pub(super) fn font_file(
     face: &Face<'_>,
-    glyf: &Glyf<'_>,
+    outlines: &Outlines<'_>,
     kept: &[GlyphId],
     requested: &BTreeSet<GlyphId>,
 ) -> Result<Vec<u8>> {
-    let tables = tables(face, glyf, kept, requested)?;
+    let (version, tables) = tables(face, outlines, kept, requested)?;
     let mut out = Vec::new();
-    out.extend(0x0001_0000u32.to_be_bytes());
+    out.extend(version.to_be_bytes());
     out.extend((tables.len() as u16).to_be_bytes());
     for value in search_range(tables.len(), 16) {
         out.extend((value as u16).to_be_bytes());

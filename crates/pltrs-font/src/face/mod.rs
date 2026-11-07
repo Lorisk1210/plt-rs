@@ -7,13 +7,15 @@
 //! descriptors).
 
 mod charmap;
+mod glyph_order;
 mod glyphs;
 mod names;
 mod style;
+mod variations;
 
 pub use style::StyleFlags;
 
-use crate::cff::Cff;
+use crate::cff::{Cff, Version};
 use crate::error::Result;
 use crate::layout::common::LayoutTable;
 use crate::layout::gdef::Gdef;
@@ -28,6 +30,7 @@ use crate::tables::name::Name;
 use crate::tables::os2::Os2;
 use crate::tables::post::{Post, PostTable};
 use crate::types::{GlyphId, Rect, Tag};
+use crate::var::{Fvar, Variations};
 
 /// Outline source of a face.
 #[derive(Clone, Debug)]
@@ -63,6 +66,8 @@ pub struct Face<'a> {
     gdef: Gdef<'a>,
     gsub: Option<LayoutTable<'a>>,
     gpos: Option<LayoutTable<'a>>,
+    /// The variation tables and instance of a variable font.
+    variations: Option<Box<Variations<'a>>>,
 }
 
 /// Parses an optional table, treating a broken table like an absent one
@@ -103,7 +108,12 @@ impl<'a> Face<'a> {
             Some(table) => Cmap::parse(table)?,
             None => Cmap::default(),
         };
-        let outlines = Self::outlines(&directory, &head, index, file)?;
+        let variations =
+            optional(&directory, *b"fvar", Fvar::parse).map(|fvar| Box::new(Variations::new(fvar)));
+        let coords = variations
+            .as_ref()
+            .map_or(&[][..], |variations| &variations.coords[..]);
+        let outlines = Self::outlines(&directory, &head, index, file, coords)?;
         Ok(Self {
             data,
             file,
@@ -127,16 +137,21 @@ impl<'a> Face<'a> {
                 LayoutTable::parse(d, Tag::new(b"GPOS"), 9)
             }),
             directory,
+            variations,
         })
     }
 
     /// The outlines of face `index` of `directory`, whose file `file` is
-    /// when it is held for drawing.
+    /// when it is held for drawing, at the instance of normalized
+    /// coordinates `coords`: `glyf`, else `CFF2` (which FreeType prefers),
+    /// else `CFF `. An empty `CFF2` table, as the catalogue's view of a
+    /// file leaves it, has no outlines.
     fn outlines(
         directory: &TableDirectory<'a>,
         head: &Head,
         index: u32,
         file: Option<&'a dyn LazyFile>,
+        coords: &[i64],
     ) -> Result<Outlines<'a>> {
         let elsewhere =
             |tag| file.and_then(|file| Some(Region::lazy(file, file.table(index, tag)?)));
@@ -149,11 +164,20 @@ impl<'a> Face<'a> {
                 head.index_to_loc_format != 0,
             )));
         }
+        let units_per_em = head.units_per_em;
         if let Some(parts) = file.and_then(|file| file.cff(index)) {
-            return Ok(Outlines::Cff(Box::new(Cff::parse_parts(parts)?)));
+            let cff = Cff::parse_parts(parts, units_per_em, coords)?;
+            return Ok(Outlines::Cff(Box::new(cff)));
         }
-        if let Some(cff) = directory.table(Tag::new(b"CFF ")) {
-            return Ok(Outlines::Cff(Box::new(Cff::parse(cff)?)));
+        for version in [Version::Cff2, Version::Cff] {
+            let Some(table) = directory.table(version.tag()) else {
+                continue;
+            };
+            if version == Version::Cff2 && table.is_empty() {
+                break;
+            }
+            let cff = Cff::parse(table, version, units_per_em, coords)?;
+            return Ok(Outlines::Cff(Box::new(cff)));
         }
         Ok(Outlines::None)
     }
@@ -255,20 +279,39 @@ impl<'a> Face<'a> {
         }
     }
 
+    /// The ascender, descender and line height at the face's instance:
+    /// `MVAR`'s typographic deltas added to FreeType's choice of metrics
+    /// (`tt_apply_mvar`).
+    fn varied_vertical_metrics(&self) -> (i16, i16, i16) {
+        let (ascender, descender, height) = self.vertical_metrics();
+        let Some(variations) = &self.variations else {
+            return (ascender, descender, height);
+        };
+        let deltas = variations.line_metrics();
+        let line_gap = height.wrapping_sub(ascender).wrapping_add(descender);
+        let ascender = ascender.wrapping_add(deltas.ascender);
+        let descender = descender.wrapping_add(deltas.descender);
+        let height = ascender
+            .wrapping_sub(descender)
+            .wrapping_add(line_gap)
+            .wrapping_add(deltas.line_gap);
+        (ascender, descender, height)
+    }
+
     /// Typographic ascender (FreeType's `face->ascender`).
     pub fn ascender(&self) -> i16 {
-        self.vertical_metrics().0
+        self.varied_vertical_metrics().0
     }
 
     /// Typographic descender, usually negative (FreeType's
     /// `face->descender`).
     pub fn descender(&self) -> i16 {
-        self.vertical_metrics().1
+        self.varied_vertical_metrics().1
     }
 
     /// Baseline-to-baseline distance (FreeType's `face->height`).
     pub fn height(&self) -> i16 {
-        self.vertical_metrics().2
+        self.varied_vertical_metrics().2
     }
 
     /// Extra line gap from `hhea`.

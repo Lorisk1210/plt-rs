@@ -15,16 +15,17 @@ use std::path::Path;
 /// The tables only drawing reads, and those it reads glyph by glyph or
 /// not at all: outlines (`glyf` is only located), bitmaps, variations and
 /// Apple's outlines.
-pub(super) const DRAWN: [[u8; 4]; 10] = [
+pub(super) const DRAWN: [[u8; 4]; 9] = [
     *b"glyf", *b"sbix", *b"CBDT", *b"EBDT", *b"bdat", *b"SVG ", *b"hvgl", *b"gvar", *b"hdmx",
-    *b"CFF2",
 ];
 
-/// The tables neither the face parser nor the catalogue reads: those, and
-/// Apple's shaping.
+/// The tables neither the face parser nor the catalogue reads: those, the
+/// `CFF2` outlines of variable fonts (which a face held for drawing reads
+/// as it reads `CFF ` tables, but for their `CharStrings`) and Apple's
+/// shaping.
 const UNREAD: [[u8; 4]; 11] = [
     DRAWN[0], DRAWN[1], DRAWN[2], DRAWN[3], DRAWN[4], DRAWN[5], DRAWN[6], DRAWN[7], DRAWN[8],
-    DRAWN[9], *b"morx",
+    *b"CFF2", *b"morx",
 ];
 
 /// The tag of TrueType/OpenType collections.

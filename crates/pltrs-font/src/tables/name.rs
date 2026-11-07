@@ -148,6 +148,28 @@ impl<'a> Name<'a> {
         })
     }
 
+    /// fontTools' `getDebugName`, which matplotlib's PostScript Type 42
+    /// fonts are named by: the first Windows English record for `name_id`,
+    /// else the first Macintosh English one, else the last record there
+    /// is, decoded as [`decoded`](Self::decoded) decodes them.
+    pub(crate) fn debug_string(&self, name_id: u16) -> Option<String> {
+        let (mut mac_english, mut any) = (None, None);
+        for entry in self.entries().filter(|entry| entry.name_id == name_id) {
+            let text = if entry.key.is_utf16() {
+                decode_utf16be(entry.bytes)
+            } else {
+                decode_latin1(entry.bytes)
+            };
+            match (entry.key.platform_id, entry.key.language_id) {
+                (3, 0x409) => return Some(text),
+                (1, 0) if mac_english.is_none() => mac_english = Some(text.clone()),
+                _ => {}
+            }
+            any = Some(text);
+        }
+        mac_english.or(any)
+    }
+
     /// FreeType's `tt_face_get_name`: picks the best English record for
     /// `name_id` and converts it to ASCII, replacing other characters by `?`.
     pub(crate) fn freetype_string(&self, name_id: u16) -> Option<String> {
@@ -315,6 +337,27 @@ mod tests {
         assert_eq!(name.decoded(NameKey::WINDOWS_ENGLISH, 2), None);
         // FreeType prefers the English Windows record and ASCII-fies it.
         assert_eq!(name.freetype_string(1).as_deref(), Some("Caf?"));
+    }
+
+    #[test]
+    fn debug_names_prefer_windows_english() {
+        let french = NameKey {
+            platform_id: 3,
+            encoding_id: 1,
+            language_id: 0x040C,
+        };
+        let data = table(&[
+            (NameKey::MAC_ENGLISH, 4, b"Nimbus Sans".to_vec()),
+            (french, 4, utf16("Nimbus Sans Normal")),
+            (NameKey::WINDOWS_ENGLISH, 4, utf16("NimbusSans-Regular")),
+            (NameKey::MAC_ENGLISH, 5, b"Version 1".to_vec()),
+            (french, 6, utf16("Nimbus")),
+        ]);
+        let name = Name::parse(&data).unwrap();
+        assert_eq!(name.debug_string(4).as_deref(), Some("NimbusSans-Regular"));
+        assert_eq!(name.debug_string(5).as_deref(), Some("Version 1"));
+        assert_eq!(name.debug_string(6).as_deref(), Some("Nimbus"));
+        assert_eq!(name.debug_string(1), None);
     }
 
     #[test]

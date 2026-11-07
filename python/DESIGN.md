@@ -1537,7 +1537,7 @@ removes the `PLTRSCONFIGDIR` cargo sets.
 
 As matplotlib keeps its font list in its cache directory
 (`fontlist-v390.json`), pltrs (Rust) keeps the catalogue of the system's
-fonts in its own, `fontlist-v1.pltrs` (`pltrs::fonts::keep_catalogue`,
+fonts in its own, `fontlist-v2.pltrs` (`pltrs::fonts::keep_catalogue`,
 `pltrs_font::FontDatabase::add_system_fonts_catalogued`). The shared
 text engine reads it when it is first used, which is when matplotlib's
 `findfont` would first run; nothing reads it at import. A font file that

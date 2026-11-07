@@ -3,16 +3,12 @@
 //! size by the Adobe engine.
 
 use super::{Type1Face, fixed_to_int};
-use crate::fixed::{div_fix, mul_div, mul_fix, pix_round};
+use crate::fixed::{mul_div, mul_fix, pix_round};
 use crate::outline::{Midpoint, Outline, OutlineSink};
+use crate::psaux::{Rendering, decode, engine_rendering};
 use crate::scale::Size;
-use crate::type1::cf2::{Rendering, decode};
 use crate::type1::error::Type1Error;
 use crate::types::{GlyphId, Rect};
-
-/// The largest size the Adobe engine hints, in pixels per em
-/// (`CF2_MAX_SIZE`); FreeType scales larger glyphs unhinted.
-const MAX_HINTED_PPEM: i64 = 2000;
 
 /// A loaded glyph: its outline and advance width.
 #[derive(Clone, Debug, PartialEq)]
@@ -88,21 +84,12 @@ impl Type1Face {
     /// 26.6 pixels, the advance rounded to whole pixels.
     pub fn load_glyph_hinted(&self, glyph: GlyphId, size: &Size) -> Result<Type1Glyph, Type1Error> {
         let (x_scale, y_scale) = (size.x_scale(), size.y_scale());
-        // `cf2_getScaleAndHintFlag` and `cf2_checkTransform`.
-        let engine = |scale: i64| (scale as i32).wrapping_add(32) / 64;
-        let (x, y) = (engine(x_scale), engine(y_scale));
-        if x <= 0 || y <= 0 {
-            return Err(Type1Error::InvalidFont("invalid size"));
-        }
-        if self.units_per_em > 0x7FFF {
-            return Err(Type1Error::InvalidFont("glyph too big"));
-        }
-        let largest = div_fix(MAX_HINTED_PPEM << 16, i64::from(self.units_per_em) << 16);
-        let mut loaded = if i64::from(x) > largest || i64::from(y) > largest {
+        let rendering = engine_rendering(x_scale, y_scale, true, self.units_per_em)?;
+        let mut loaded = if rendering == Rendering::Unhinted {
             // Too large for the engine: FreeType scales the unhinted glyph.
             self.load_glyph(glyph)?.scaled(x_scale, y_scale)
         } else {
-            let glyph = self.load(glyph, Rendering::Hinted { x, y })?;
+            let glyph = self.load(glyph, rendering)?;
             Type1Glyph {
                 advance: mul_fix(glyph.advance, x_scale),
                 linear_advance: mul_div(glyph.linear_advance, x_scale, 64),
@@ -120,19 +107,12 @@ impl Type1Face {
         if index >= self.charstrings.len() {
             return Err(Type1Error::GlyphOutOfRange(glyph.0));
         }
-        let decoded = decode(self.glyph_set(), index, rendering)?;
+        let set = self.glyph_set();
+        let decoded = decode(&set, &self.charstrings[index], rendering)?;
         let mut outline = decoded.outline;
         let linear_advance = fixed_to_int(i64::from(decoded.advance.0));
-        let mut advance = linear_advance;
         let transform = self.transform();
-        if !transform.is_identity() {
-            for point in &mut outline.points {
-                let (x, y) = (point.x as i64, point.y as i64);
-                point.x = (mul_fix(x, transform.xx) + mul_fix(y, transform.xy)) as f64;
-                point.y = (mul_fix(x, transform.yx) + mul_fix(y, transform.yy)) as f64;
-            }
-            advance = mul_fix(advance, transform.xx);
-        }
+        let mut advance = transform.apply(&mut outline, linear_advance);
         // FreeType adds the offset in font units even to hinted outlines.
         let (dx, dy) = transform.offset;
         if dx != 0 || dy != 0 {

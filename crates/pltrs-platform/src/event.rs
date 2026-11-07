@@ -44,7 +44,9 @@ pub enum WindowEvent {
     /// factor changed, when the platform lost its contents, and after
     /// [`Context::request_redraw`](crate::Context::request_redraw).
     /// Coalesced: at most one per window per loop iteration, after input
-    /// events.
+    /// events, but for the one the platform asked for (a resize, a new
+    /// scale factor, lost contents), which comes before the window's next
+    /// input event.
     RedrawRequested,
     /// The content area changed size (in physical pixels).
     Resized(PhysicalSize),

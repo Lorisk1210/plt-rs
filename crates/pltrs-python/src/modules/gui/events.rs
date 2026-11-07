@@ -55,7 +55,8 @@ fn input_into_py(
 
 impl IntoPy for HostEvent {
     /// The event as a tuple naming it first: `("resize", window, width,
-    /// height, scale_factor)`, canvas input (see [`input_into_py`]),
+    /// height, scale_factor)`, `("expose", window)`, canvas input (see
+    /// [`input_into_py`]),
     /// `("tool", window, name)`, `("close", window)`, `("file", window,
     /// path or None)`, `("subplots", window, kind, values)` (see
     /// [`super::subplots`]) and `("timer", timer)`.
@@ -67,6 +68,7 @@ impl IntoPy for HostEvent {
                 height,
                 scale_factor,
             } => ("resize", window.to_raw(), width, height, scale_factor).into_py(py),
+            Self::Exposed { window } => ("expose", window.to_raw()).into_py(py),
             Self::Input { window, input } => input_into_py(py, window, input),
             Self::ToolClicked { window, name } => ("tool", window.to_raw(), name).into_py(py),
             Self::CloseRequested { window } => ("close", window.to_raw()).into_py(py),

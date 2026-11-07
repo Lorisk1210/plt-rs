@@ -27,6 +27,21 @@ const TEST_TIMEOUT: &str = "600";
 /// expect matplotlib's defaults (matplotlib itself ignores it).
 const LOOK_VARIABLE: &str = "PLTRS_LOOK";
 
+/// The variables holding the numeric libraries of every process a run
+/// starts to one thread each: BLAS's (`OpenBLAS`, MKL, Accelerate) and
+/// `OpenMP`'s pools, numexpr's and numba's. A run has a pytest worker per
+/// core or so, and each starting a pool of a thread per core besides
+/// (yellowbrick's workers took 100 to 240% of a core each) overloads the
+/// machine, and the tests depending on timing then fail.
+pub(crate) const ONE_THREAD: [(&str, &str); 6] = [
+    ("OMP_NUM_THREADS", "1"),
+    ("OPENBLAS_NUM_THREADS", "1"),
+    ("MKL_NUM_THREADS", "1"),
+    ("VECLIB_MAXIMUM_THREADS", "1"),
+    ("NUMEXPR_NUM_THREADS", "1"),
+    ("NUMBA_NUM_THREADS", "1"),
+];
+
 /// pltrs' own variable naming its configuration directory, which cargo
 /// sets for what it runs (`.cargo/config.toml`) and a suite must not
 /// pass on: pltrs (Python) then reads matplotlib's `MPLCONFIGDIR`.
@@ -65,8 +80,8 @@ pub(crate) struct Run<'a> {
 
 impl Run<'_> {
     /// Runs pytest with `variables` set or removed besides the run's own
-    /// (a display, the GUI toolkits' libraries), and reads what the
-    /// plugin recorded.
+    /// (a display, the GUI toolkits' libraries, after [`ONE_THREAD`]), and
+    /// reads what the plugin recorded.
     pub(crate) fn outcomes_with(&self, variables: &[Variable]) -> Result<Outcomes, String> {
         let workers = std::env::var(WORKERS_VARIABLE).ok();
         self.outcomes_with_workers(workers.as_deref().unwrap_or(WORKERS), variables)
@@ -102,6 +117,7 @@ impl Run<'_> {
             log_path.display()
         );
         let mut command = Command::new(self.python);
+        command.envs(ONE_THREAD);
         for (name, value) in variables {
             match value {
                 Some(value) => command.env(name, value),

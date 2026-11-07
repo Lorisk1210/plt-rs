@@ -22,6 +22,13 @@ venv's interpreter. It
    causes, and each corpus' programs and clean ones), and prints the
    groups' counts; ``--baseline`` adds the counts of an earlier report.
 
+The gallery's and the generated programs run offline, as the ecosystem
+suites run (``OFFLINE``): a program asking the network for something
+(the gallery's timeline, GitHub's list of matplotlib's releases) takes
+the same fallback under both implementations, in every run. The corpora's
+programs keep the network, whose data (seaborn's datasets, CSV files on
+the web) their authors read from it.
+
 A program matplotlib itself cannot run here (a GUI toolkit, a network
 download) is listed as skipped, with matplotlib's error. ``--reduce``
 reduces the first difference of each group to the fewest statements that
@@ -53,6 +60,16 @@ import corpora  # noqa: E402
 TIMEOUT = 300
 #: Gallery directories run, under the sdist's ``galleries/``.
 GALLERY_PARTS = ("examples", "plot_types", "tutorials", "users_explain")
+#: The proxy refusing every connection: nothing listens on the discard
+#: port of the loopback interface.
+REFUSING_PROXY = "http://127.0.0.1:9"
+#: The variables running a program offline: HTTP and HTTPS through
+#: `REFUSING_PROXY`, which urllib and requests heed, the loopback
+#: interface spared (``cargo xtask ecosystem suite``'s).
+OFFLINE = {
+    **{name: REFUSING_PROXY for name in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY")},
+    **{name: "localhost,127.0.0.1,::1" for name in ("no_proxy", "NO_PROXY")},
+}
 
 
 class Setup:
@@ -75,10 +92,12 @@ class Setup:
         tree = out / "tree"
         return [*command, "--in-tree", str(tree), str(program.corpus.lay_out(tree)), str(out)]
 
-    def environment(self, impl: str) -> dict[str, str]:
-        """The environment of a run under *impl*."""
+    def environment(self, impl: str, offline: bool = True) -> dict[str, str]:
+        """The environment of a run under *impl*, `OFFLINE` if *offline*."""
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(("MPL", "PLTRS", "PYTHON")) and k != "CARGO_TARGET_DIR"}
+        if offline:
+            env.update(OFFLINE)
         env["MPLBACKEND"] = "agg"
         # (Named apart from the package names `trace.py` replaces in messages.)
         env["MPLCONFIGDIR"] = str(self.out / ("config-reference" if impl == "matplotlib"
@@ -110,12 +129,20 @@ class Program:
         return cls(program.name, program.path, program.mode, program)
 
     @property
+    def offline(self) -> bool:
+        """Whether the program runs offline (`OFFLINE`): unless it is a
+        corpus' program."""
+        return self.corpus is None
+
+    @property
     def digest(self) -> str:
         """What the reference run depends on: the program, its mode, its
-        corpus' tree and the tester's harness."""
+        corpus' tree, the tester's harness and whether it runs offline."""
         harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
         tree = self.corpus.corpus.sha256.encode() if self.corpus else b""
-        return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness).hexdigest()[:16]
+        network = json.dumps(OFFLINE).encode() if self.offline else b""
+        return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness
+                              + network).hexdigest()[:16]
 
     def directory(self, setup: Setup) -> pathlib.Path:
         """Where the runs of the program go."""
@@ -157,7 +184,8 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
         shutil.rmtree(out)
     out.mkdir(parents=True)
     try:
-        done = subprocess.run(setup.command(impl, program, out), env=setup.environment(impl),
+        done = subprocess.run(setup.command(impl, program, out),
+                              env=setup.environment(impl, offline=program.offline),
                               capture_output=True, text=True, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         (out / "failure").write_text(f"timed out after {TIMEOUT} s")

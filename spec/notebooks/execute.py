@@ -38,13 +38,16 @@ the next cell runs.
 
 Before the notebooks run, ``matplotlib.pyplot`` is imported once in a
 process of its own, so that no kernel builds the font cache (and logs
-that it does).
+that it does). The client takes the run's Jupyter configuration
+(``jupyter_config.py``: the sockets of its kernels), as Jupyter's
+applications do.
 """
 
 import asyncio
 import base64
 import collections
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -52,6 +55,7 @@ import sys
 import nbformat
 from nbclient import NotebookClient
 from nbclient.exceptions import CellTimeoutError, DeadKernelError
+from traitlets.config.loader import load_pyconfig_files
 
 #: The seconds a cell may run, and those the kernel may take to answer
 #: what the frontend sent.
@@ -232,7 +236,7 @@ async def execute(path, work):
     frontend = Frontend()
     client = RecordingClient(
         nb, frontend, timeout=TIMEOUT, allow_errors=True, kernel_name="python3",
-        resources={"metadata": {"path": str(work)}})
+        resources={"metadata": {"path": str(work)}}, config=jupyter_config())
     cells = []
     failure = None
     async with client.async_setup_kernel():
@@ -255,6 +259,13 @@ async def execute(path, work):
             if failure:
                 break
     return {"cells": cells, "failure": failure}
+
+
+def jupyter_config():
+    """The run's Jupyter configuration (``JUPYTER_CONFIG_DIR``'s
+    ``jupyter_config.py``), which Jupyter's applications read and a
+    client made in a program does not."""
+    return load_pyconfig_files(["jupyter_config.py"], os.environ["JUPYTER_CONFIG_DIR"])
 
 
 def warm_up():

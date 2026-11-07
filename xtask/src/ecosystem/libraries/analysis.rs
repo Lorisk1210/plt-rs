@@ -215,8 +215,14 @@ pub(super) const LIBRARIES: [Library; 11] = [
         runs_in: None,
         tests: &["plotnine/tests"],
         only_taking: None,
-        // Without the coverage report (pytest-cov).
-        options: &["--override-ini=addopts=--pyargs --import-mode=importlib"],
+        // Without the coverage report (pytest-cov), and each worker in a
+        // working directory of its own, where its tests of `ggsave` save
+        // the files they count from 0 (`ecosystem_worker_dirs`).
+        options: &[
+            "--override-ini=addopts=--pyargs --import-mode=importlib",
+            "-p",
+            "ecosystem_worker_dirs",
+        ],
         data: None,
         network: Network::Allowed,
         baselines: Some(Baselines {
@@ -314,10 +320,18 @@ pub(super) const LIBRARIES: [Library; 11] = [
         tests: &["yellowbrick/tests"],
         only_taking: None,
         // Without the coverage, flakes and spec reports of its
-        // configuration, whose plugins it does not need, and with pytest's
+        // configuration, whose plugins it does not need, with pytest's
         // own test ids, which its conftest replaces by docstrings for the
-        // spec report (`ecosystem_ids`).
-        options: &["--override-ini=addopts=", "-p", "ecosystem_ids"],
+        // spec report (`ecosystem_ids`), and with the colour codes its
+        // import sets in every test, which its test of `set_color_codes`
+        // changes for the tests after it (`ecosystem_color_codes`).
+        options: &[
+            "--override-ini=addopts=",
+            "-p",
+            "ecosystem_ids",
+            "-p",
+            "ecosystem_color_codes",
+        ],
         data: Some(Data {
             files: YELLOWBRICK_DATA,
             form: DataForm::Zips,

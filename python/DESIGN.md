@@ -1473,8 +1473,8 @@ backend: the framework already running, else pltrs' own windows
   toolkit backend over pltrs (Rust)'s windows (`_native.gui`, a
   `pltrs::gui::WindowHost`): a window shows its figure's raster canvas
   (whatever `FigureCanvasAgg.draw` and its `blit` put there) above a toolbar
-  of the backend's buttons, and reports input, resizes, toolbar clicks,
-  close requests, chosen files and timers as tuples, which
+  of the backend's buttons, and reports input, resizes, repaints, toolbar
+  clicks, close requests, chosen files and timers as tuples, which
   `backends/_pltrs_loop.py` hands to the canvas (matplotlib's events,
   in matplotlib's coordinates), the timer or the file chooser waiting.
   Navigation, keys and callbacks stay matplotlib's (`NavigationToolbar2`
@@ -1501,7 +1501,9 @@ backend: the framework already running, else pltrs' own windows
   name), no event for a motion that does not move, for a sideways wheel
   or for Alt and the wheel, a leave held back until the last button is
   released and reported where the pointer went, a draw asked for while
-  drawing done afterwards, and the blitted region Qt repaints. Every
+  drawing done afterwards, an idle draw done when the window repaints
+  (after a resize, before the input that came after it, however the
+  window system batched them), and the blitted region Qt repaints. Every
   event carries its `guiEvent` (`backend_pltrs.WindowEvent`). The
   deliberate exceptions, dead keys composed and Shift+Tab reaching the
   canvas, follow matplotlib's GTK and Tk backends.

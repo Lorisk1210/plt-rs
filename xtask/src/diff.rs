@@ -12,7 +12,10 @@
 //! (the `galleries/` of the sdist `MPL_SDIST` names, as for `mpl-suite`,
 //! run whole) and programs generated from matplotlib's API
 //! (`spec/diff/generators`, run statement by statement). Put TeX and
-//! Ghostscript on `PATH`, as the reference runs had them.
+//! Ghostscript on `PATH`, as the reference runs had them. Both run
+//! offline, through a refusing proxy as the ecosystem suites do, so that
+//! the gallery's timeline takes matplotlib's fallback for GitHub's list of
+//! releases under both implementations.
 //!
 //! `--corpus` runs programs users of matplotlib wrote instead: the corpora
 //! of `spec/diff/corpora.toml` (books', cheat sheets' and galleries' code,

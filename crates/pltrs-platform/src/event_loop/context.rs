@@ -41,7 +41,7 @@ impl<'a> Context<'a> {
     /// the current handler call returns, and no other event follows it.
     pub fn close_window(&mut self, window: WindowId) -> Result<(), Error> {
         self.backend.destroy_window(window)?;
-        self.state.redraws.retain(|&id| id != window);
+        self.state.forget(window);
         let event = WindowEvent::Destroyed;
         self.state
             .pending

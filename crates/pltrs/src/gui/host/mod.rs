@@ -78,6 +78,14 @@ pub enum HostEvent {
         /// `device_pixel_ratio`).
         scale_factor: f64,
     },
+    /// `window` is being repainted: the window system shows it again
+    /// (after an expose or a resize, before the input that came after
+    /// them), or it changed. A program draws the idle draw it asked for
+    /// then, as matplotlib's Qt canvas does when it paints.
+    Exposed {
+        /// The window.
+        window: HostedWindowId,
+    },
     /// Input over the canvas of `window`.
     Input {
         /// The window.

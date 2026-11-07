@@ -28,7 +28,10 @@
 //! `PYTHONPATH` makes `import matplotlib` give the source tree's pltrs,
 //! in the kernels too. Every Python process of a mode keeps its
 //! configuration under `target/notebooks/<mode>/`: `IPython`'s profile,
-//! Jupyter's directories and matplotlib's configuration directory.
+//! Jupyter's directories and matplotlib's configuration directory. Their
+//! Jupyter configuration (`spec/notebooks/jupyter_config.py`) gives the
+//! kernels Unix sockets on Linux, which no other process of the machine
+//! can take from them as it can take a TCP port.
 
 mod compare;
 mod record;
@@ -43,7 +46,7 @@ use std::process::ExitCode;
 
 use pltrs_core::os::Os;
 
-use crate::mpl_suite::Mode;
+use crate::mpl_suite::{Mode, pytest};
 use crate::python;
 
 /// The version of matplotlib the reference runs have.
@@ -113,12 +116,18 @@ fn versions() -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
+/// The Jupyter configuration of the runs (`jupyter_config.py`, which
+/// gives kernels sockets no other process can take), copied into each
+/// run's configuration directory.
+const JUPYTER_CONFIG: &str = "spec/notebooks/jupyter_config.py";
+
 /// The variables of every Python process of `mode` whose files go to
 /// `dir`: the venv's scripts first on `PATH` (`jupyter`), `IPython`'s
-/// profile and Jupyter's configuration, data and runtime directories in
-/// `dir`, one hash seed (so that sets of strings, which messages list,
-/// iterate in one order in every run) and no warning of the debugger
-/// about frozen modules.
+/// profile and Jupyter's configuration (holding [`JUPYTER_CONFIG`]),
+/// data and runtime directories in `dir`, one hash seed (so that sets of
+/// strings, which messages list, iterate in one order in every run), no
+/// warning of the debugger about frozen modules, and one thread for the
+/// numeric libraries ([`pytest::ONE_THREAD`]).
 fn environment(mode: Mode, dir: &Path) -> Result<Vec<(&'static str, OsString)>, String> {
     let scripts = interpreter(mode)?
         .parent()
@@ -128,16 +137,27 @@ fn environment(mode: Mode, dir: &Path) -> Result<Vec<(&'static str, OsString)>, 
     let path = env::join_paths([scripts].into_iter().chain(env::split_paths(&inherited)))
         .map_err(|err| format!("cannot set PATH: {err}"))?;
     let jupyter = dir.join("jupyter");
-    Ok(vec![
+    let config = jupyter.join("config");
+    std::fs::create_dir_all(&config).map_err(|err| format!("{}: {err}", config.display()))?;
+    let source = python::root().join(JUPYTER_CONFIG);
+    std::fs::copy(&source, config.join("jupyter_config.py"))
+        .map_err(|err| format!("{}: {err}", source.display()))?;
+    let mut variables = vec![
         ("PATH", path),
         ("IPYTHONDIR", dir.join("ipython").into()),
-        ("JUPYTER_CONFIG_DIR", jupyter.join("config").into()),
+        ("JUPYTER_CONFIG_DIR", config.into()),
         ("JUPYTER_DATA_DIR", jupyter.join("data").into()),
         ("JUPYTER_RUNTIME_DIR", jupyter.join("runtime").into()),
         ("JUPYTER_PLATFORM_DIRS", "1".into()),
         ("PYTHONHASHSEED", "0".into()),
         ("PYDEVD_DISABLE_FILE_VALIDATION", "1".into()),
-    ])
+    ];
+    variables.extend(
+        pytest::ONE_THREAD
+            .iter()
+            .map(|&(name, value)| (name, value.into())),
+    );
+    Ok(variables)
 }
 
 #[cfg(test)]

@@ -5,9 +5,11 @@ use std::fmt;
 
 /// A zlib-compatible compression level from 0 (store only) to 9 (smallest).
 ///
-/// Levels trade speed for size the way zlib's do: level 0 emits stored
-/// blocks, levels 1–3 use greedy parsing and levels 4–9 lazy matching with
-/// progressively longer hash-chain searches.
+/// Levels trade speed for size as zlib-ng's do: level 0 emits stored
+/// blocks, level 1 one fixed-code block of the first matches found, level
+/// 2 greedy parsing, levels 3 to 6 greedy parsing with a look-ahead match
+/// and levels 7 to 9 lazy matching, with progressively longer hash-chain
+/// searches.
 ///
 /// ```
 /// use pltrs_codec::CompressionLevel;
@@ -43,30 +45,6 @@ impl CompressionLevel {
     pub const fn get(self) -> u8 {
         self.0
     }
-
-    /// Parameters of the compressor at this level (zlib's
-    /// `configuration_table`).
-    pub(crate) const fn params(self) -> LevelParams {
-        let (parsing, good_length, lazy_length, nice_length, max_chain) = match self.0 {
-            0 => (Parsing::Stored, 0, 0, 0, 0),
-            1 => (Parsing::Greedy, 4, 4, 8, 4),
-            2 => (Parsing::Greedy, 4, 5, 16, 8),
-            3 => (Parsing::Greedy, 4, 6, 32, 32),
-            4 => (Parsing::Lazy, 4, 4, 16, 16),
-            5 => (Parsing::Lazy, 8, 16, 32, 32),
-            6 => (Parsing::Lazy, 8, 16, 128, 128),
-            7 => (Parsing::Lazy, 8, 32, 128, 256),
-            8 => (Parsing::Lazy, 32, 128, 258, 1024),
-            _ => (Parsing::Lazy, 32, 258, 258, 4096),
-        };
-        LevelParams {
-            parsing,
-            good_length,
-            lazy_length,
-            nice_length,
-            max_chain,
-        }
-    }
 }
 
 impl Default for CompressionLevel {
@@ -101,35 +79,6 @@ impl fmt::Display for InvalidCompressionLevel {
 
 impl Error for InvalidCompressionLevel {}
 
-/// How the LZ77 stage chooses between literals and matches.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Parsing {
-    /// No LZ77 at all: stored blocks only.
-    Stored,
-    /// Take the longest match at each position.
-    Greedy,
-    /// Defer each match by one byte to see whether a longer one follows.
-    Lazy,
-}
-
-/// Match-finder tuning for one compression level.
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct LevelParams {
-    /// Literal/match selection strategy.
-    pub(crate) parsing: Parsing,
-    /// Once the previous match is this long, chain searches are cut to a
-    /// quarter.
-    pub(crate) good_length: usize,
-    /// Lazy parsing: do not look for a better match after one this long.
-    /// Greedy parsing: insert every position of matches up to this long into
-    /// the hash chains.
-    pub(crate) lazy_length: usize,
-    /// Stop searching as soon as a match this long is found.
-    pub(crate) nice_length: usize,
-    /// Maximum number of hash-chain candidates examined per search.
-    pub(crate) max_chain: usize,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,13 +101,5 @@ mod tests {
         );
         assert_eq!(CompressionLevel::default(), CompressionLevel::DEFAULT);
         assert_eq!(u8::from(CompressionLevel::BEST), 9);
-    }
-
-    #[test]
-    fn parsing_strategy_follows_zlib() {
-        assert_eq!(CompressionLevel::NONE.params().parsing, Parsing::Stored);
-        assert_eq!(CompressionLevel::FASTEST.params().parsing, Parsing::Greedy);
-        assert_eq!(CompressionLevel::DEFAULT.params().parsing, Parsing::Lazy);
-        assert_eq!(CompressionLevel::BEST.params().max_chain, 4096);
     }
 }

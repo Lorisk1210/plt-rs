@@ -3,14 +3,8 @@
 
 /// Shortest back-reference DEFLATE can express.
 pub(crate) const MIN_MATCH: usize = 3;
-/// Longest back-reference DEFLATE can express.
-pub(crate) const MAX_MATCH: usize = 258;
-/// Size of the sliding window: the farthest a back-reference may reach.
-pub(crate) const WINDOW_SIZE: usize = 32_768;
 /// Longest Huffman code in the literal/length and distance alphabets.
 pub(crate) const MAX_CODE_BITS: usize = 15;
-/// Longest Huffman code in the code-length alphabet.
-pub(crate) const MAX_CODE_LENGTH_BITS: usize = 7;
 /// The end-of-block symbol of the literal/length alphabet.
 pub(crate) const END_OF_BLOCK: usize = 256;
 /// Literal/length symbols a dynamic block may define (0–285).
@@ -114,12 +108,18 @@ pub(crate) fn dist_index(distance: usize) -> usize {
 }
 
 /// Code lengths of the fixed literal/length code (RFC 1951 §3.2.6).
-pub(crate) fn fixed_litlen_lengths() -> [u8; FIXED_LITLEN_SYMBOLS] {
-    std::array::from_fn(|symbol| match symbol {
-        144..=255 => 9,
-        256..=279 => 7,
-        _ => 8,
-    })
+pub(crate) const fn fixed_litlen_lengths() -> [u8; FIXED_LITLEN_SYMBOLS] {
+    let mut lengths = [8; FIXED_LITLEN_SYMBOLS];
+    let mut symbol = 144;
+    while symbol < 256 {
+        lengths[symbol] = 9;
+        symbol += 1;
+    }
+    while symbol < 280 {
+        lengths[symbol] = 7;
+        symbol += 1;
+    }
+    lengths
 }
 
 /// Code lengths of the fixed distance code.
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn length_index_brackets_every_length() {
-        for length in MIN_MATCH..=MAX_MATCH {
+        for length in MIN_MATCH..=258 {
             let index = length_index(length);
             let base = usize::from(LENGTH_BASE[index]);
             let span = 1 << LENGTH_EXTRA[index];
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn dist_index_brackets_every_distance() {
-        for distance in 1..=WINDOW_SIZE {
+        for distance in 1..=32_768 {
             let index = dist_index(distance);
             let base = usize::from(DIST_BASE[index]);
             let span = 1 << DIST_EXTRA[index];

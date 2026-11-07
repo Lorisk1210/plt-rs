@@ -2,11 +2,13 @@
 //!
 //! # Compression
 //!
-//! [`compress`] works like zlib: LZ77 over a 32 KiB window with hash chains
-//! (greedy parsing for levels 1–3, lazy matching for 4–9), then every block
-//! of up to 16 Ki tokens is written as whichever of stored, fixed-Huffman or
-//! dynamic-Huffman is smallest. Dynamic blocks use optimal length-limited
-//! Huffman codes. Level 0 writes stored blocks only.
+//! [`compress`] writes the bytes zlib-ng 2.3 writes: its parsers (one
+//! fixed-code block at level 1, greedy parsing at level 2, its "medium"
+//! parsing with a look-ahead match at levels 3 to 6, lazy parsing at 7 to
+//! 9), its match finder and hashes, and zlib's block splitting and
+//! Huffman codes, ported step for step. [`compress_with`] also takes
+//! zlib's strategy and memory level ([`Options`]). Level 0 writes stored
+//! blocks only.
 //!
 //! # Decompression
 //!
@@ -26,81 +28,56 @@
 
 mod bit_reader;
 pub(crate) mod bit_writer;
-mod block;
 pub(crate) mod code_lengths;
 mod decode_table;
+pub(crate) mod encode;
 mod error;
 pub(crate) mod huffman;
 mod inflate;
-pub(crate) mod input;
 mod level;
-mod lz77;
-mod matcher;
 mod tables;
 
+pub use encode::{InvalidMemoryLevel, MemoryLevel, Options, Strategy};
 pub use error::{HuffmanTable, InflateError};
 pub use level::{CompressionLevel, InvalidCompressionLevel};
 
-use bit_writer::BitWriter;
-use block::BlockSink;
-use input::{Input, Whole};
-use level::Parsing;
 use pltrs_core::alloc::OutOfMemory;
 
-/// Compresses `data` into a new raw DEFLATE stream.
+use encode::Wrap;
+
+/// Compresses `data` into a new raw DEFLATE stream at `level`.
 ///
 /// # Errors
 ///
 /// When the memory for the output cannot be allocated.
 pub fn compress(data: &[u8], level: CompressionLevel) -> Result<Vec<u8>, OutOfMemory> {
-    let mut out = Vec::new();
-    compress_into(data, level, &mut out)?;
-    Ok(out)
+    compress_with(data, Options::new(level))
 }
 
-/// Appends the raw DEFLATE compression of `data` to `out`.
+/// Compresses `data` into a new raw DEFLATE stream as zlib-ng does with
+/// `options`.
 ///
 /// # Errors
 ///
-/// When the memory for the output cannot be allocated (what was written
-/// of it stays in `out`).
+/// When the memory for the compressor or the output cannot be allocated.
+pub fn compress_with(data: &[u8], options: Options) -> Result<Vec<u8>, OutOfMemory> {
+    let mut out = Vec::new();
+    encode::one_shot(data, options, Wrap::Raw, &mut None, &mut out)?;
+    Ok(out)
+}
+
+/// Appends the raw DEFLATE compression of `data` at `level` to `out`.
+///
+/// # Errors
+///
+/// When the memory for the compressor or the output cannot be allocated
+/// (what was written of it stays in `out`).
 pub fn compress_into(
     data: &[u8],
     level: CompressionLevel,
     out: &mut Vec<u8>,
 ) -> Result<(), OutOfMemory> {
-    compress_input(&mut Whole(data), level, out)
-}
-
-/// Appends the raw DEFLATE compression of `input` to `out`: the same
-/// stream [`compress_into`] writes for the same bytes, whether or not the
-/// input holds them all at once.
-///
-/// # Errors
-///
-/// When the memory for the output cannot be allocated (what was written
-/// of it stays in `out`).
-pub(crate) fn compress_input(
-    input: &mut impl Input,
-    level: CompressionLevel,
-    out: &mut Vec<u8>,
-) -> Result<(), OutOfMemory> {
-    let params = level.params();
-    let len = input.view().len();
-    // Room for the usual output at once; the writer grows it further if
-    // the data compresses less (a refusal here is not yet a failure).
-    let _ = out.try_reserve(match params.parsing {
-        Parsing::Stored => len + 5 * (len / 65_535 + 1),
-        Parsing::Greedy | Parsing::Lazy => len / 4 + 64,
-    });
-    let mut writer = BitWriter::new(out);
-    match params.parsing {
-        Parsing::Stored => block::write_stored_input(&mut writer, input),
-        Parsing::Greedy => lz77::greedy(input, &params, BlockSink::new(&mut writer)),
-        Parsing::Lazy => lz77::lazy(input, &params, BlockSink::new(&mut writer)),
-    }
-    writer.align_to_byte();
-    writer.finish()
+    encode::one_shot(data, Options::new(level), Wrap::Raw, &mut None, out)
 }
 
 /// Decompresses the raw DEFLATE stream at the start of `input`.

@@ -1,0 +1,51 @@
+=========================
+ The zlib-ng licence
+=========================
+
+zlib-ng 2.3 (https://github.com/zlib-ng/zlib-ng), a fork of zlib by
+Jean-loup Gailly and Mark Adler, is under the zlib licence. Its LICENSE.md:
+
+(C) 1995-2024 Jean-loup Gailly and Mark Adler
+
+This software is provided 'as-is', without any express or implied
+warranty. In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software
+   in a product, an acknowledgment in the product documentation would be
+   appreciated but is not required.
+
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+
+3. This notice may not be removed or altered from any source distribution.
+
+The files pltrs ports carry these notices besides:
+
+- deflate.c, deflate_p.h, deflate_fast.c, deflate_slow.c, deflate_stored.c,
+  deflate_huff.c, deflate_rle.c, insert_string*.c, match_tpl.h,
+  arch/generic/slide_hash_c.c: Copyright (C) 1995-2024 Jean-loup Gailly and
+  Mark Adler.
+- trees.c: Copyright (C) 1995-2024 Jean-loup Gailly.
+- deflate_medium.c: Copyright (C) 2013 Intel Corporation. All rights
+  reserved. Authors: Arjan van de Ven.
+- deflate_quick.c, insert_string_tpl.h (the latter also Jean-loup Gailly
+  and Mark Adler's): Copyright (C) 2013 Intel
+  Corporation. All rights reserved. Authors: Wajdi Feghali, Jim Guilford,
+  Vinodh Gopal, Erdinc Ozturk, Jim Kukunas. Portions Copyright (C) 2016
+  12Sided Technology, LLC. Author: Phil Vachon.
+- match_tpl.h: portions Copyright (C) 2014-2021 Konstantin Nosov (fast-zlib
+  optimized longest_match, https://github.com/gildor2/fast_zlib).
+- arch/generic/compare256_p.h: Copyright (C) 2020 Nathan Moinvaziri;
+  compare256_rle.h: Copyright (C) 2022 Nathan Moinvaziri.
+
+All of them: "For conditions of distribution and use, see copyright notice
+in zlib.h", which is the zlib licence above.
+
+pltrs's port (crates/pltrs-codec/src/deflate/encode) is an altered version:
+the same algorithms rewritten in Rust.

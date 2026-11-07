@@ -78,13 +78,13 @@ fn pinned_inputs() -> [Vec<u8>; 3] {
 }
 
 #[test]
-fn compressed_bytes_stay_the_same() {
-    // FNV-1a over the streams of levels 1 to 9, as the encoder wrote them
-    // before its match finder was sped up: speed-ups must not change them.
+fn compressed_bytes_are_zlib_ngs() {
+    // FNV-1a over the raw streams of levels 1 to 9 as zlib-ng 2.3.3's
+    // `compress2` writes them (crates/pltrs-codec/tools/zlib_ng).
     let expected = [
-        0x1998_26cf_8757_b6be_u64,
-        0x30a8_986e_d645_1108,
-        0xe0e5_7025_f532_dfd0,
+        0xd080_ca6c_2146_a6d4_u64,
+        0x042a_d978_1e47_6775,
+        0x4944_9258_6559_68b7,
     ];
     for (input, expected) in pinned_inputs().iter().zip(expected) {
         let fingerprint = (1..=9)
@@ -130,8 +130,15 @@ fn compresses_redundant_data_and_bounds_expansion() {
     let zeros = vec![0u8; 1 << 20];
     for level in all_levels().skip(1) {
         let packed = compress(&zeros, level).unwrap();
+        // Level 1 writes fixed codes only, and its matches reach back to
+        // the previous one: 20 bits per 258 bytes.
+        let bound = if level == CompressionLevel::FASTEST {
+            10_500
+        } else {
+            1100
+        };
         assert!(
-            packed.len() < 1100,
+            packed.len() < bound,
             "level {level:?}: {} bytes",
             packed.len()
         );
@@ -139,13 +146,15 @@ fn compresses_redundant_data_and_bounds_expansion() {
     let noise = Rng::new(3).bytes(200_000);
     for level in all_levels() {
         let packed = compress(&noise, level).unwrap();
-        // Each block of 16 Ki literals falls back to stored blocks.
-        let stored_size = noise.len() + 5 * noise.len().div_ceil(1 << 14);
-        assert!(
-            packed.len() <= stored_size + 5,
-            "level {level:?}: {}",
-            packed.len()
-        );
+        // Blocks fall back to stored blocks of up to 64 KiB, except at
+        // level 1, whose one fixed-code block takes nine bits for the
+        // upper half of the bytes (zlib-ng's `DEFLATE_QUICK_OVERHEAD`).
+        let bound = if level == CompressionLevel::FASTEST {
+            noise.len() + noise.len().div_ceil(8) + 8
+        } else {
+            noise.len() + 5 * noise.len().div_ceil(1 << 14) + 5
+        };
+        assert!(packed.len() <= bound, "level {level:?}: {}", packed.len());
     }
 }
 

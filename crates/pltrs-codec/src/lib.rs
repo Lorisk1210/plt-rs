@@ -15,9 +15,9 @@
 //! * [`jpeg`] — baseline JPEG encoding matching Pillow's output byte for
 //!   byte, and baseline, extended and progressive decoding whose pixels are
 //!   Pillow's (libjpeg-turbo's arithmetic, ported).
-//! * [`deflate`] — raw DEFLATE (RFC 1951): an LZ77 + Huffman compressor with
-//!   zlib-style levels 0–9, and a strictly validating, table-driven
-//!   decompressor.
+//! * [`deflate`] — raw DEFLATE (RFC 1951): a compressor writing zlib-ng
+//!   2.3's bytes at levels 0–9 and every strategy, and a strictly
+//!   validating, table-driven decompressor.
 //! * [`tiff`] — uncompressed RGBA TIFF files, laid out as Pillow writes them,
 //!   and decoding of the TIFF layouts and compressions Pillow reads.
 //! * [`raster`] — decoded JPEG, TIFF, GIF and WebP images in the Pillow mode
@@ -30,7 +30,8 @@
 //! * [`zlib`] — the RFC 1950 container (header and Adler-32 trailer) around
 //!   DEFLATE, in both directions.
 //! * [`png`] — a PNG encoder (grey, grey + alpha, RGB and RGBA at 8 or 16 bits,
-//!   adaptive row filtering, `pHYs` resolution and text metadata) and a
+//!   rows filtered and compressed as Pillow does with zlib-ng, `pHYs`
+//!   resolution and text metadata) and a
 //!   decoder for every standard PNG flavour: all colour types and bit depths,
 //!   palettes, `tRNS` transparency and Adam7 interlacing.
 //!

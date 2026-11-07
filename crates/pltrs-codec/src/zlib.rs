@@ -13,14 +13,12 @@
 use std::error::Error;
 use std::fmt;
 
-use pltrs_core::alloc::{self, OutOfMemory};
+use pltrs_core::alloc::OutOfMemory;
 
 use crate::checksum::adler32;
-use crate::deflate::input::{ByteSource, Window};
-use crate::deflate::{self, CompressionLevel, InflateError};
+use crate::deflate::encode::{self, Deflater, Wrap};
+use crate::deflate::{self, CompressionLevel, InflateError, Options};
 
-/// Compression method 8 (DEFLATE) with a 32 KiB window (`CINFO` = 7).
-const CMF_DEFLATE_32K: u8 = 0x78;
 /// The `FDICT` flag: a preset dictionary identifier follows the header.
 const FLAG_DICTIONARY: u8 = 0x20;
 
@@ -91,67 +89,85 @@ impl From<InflateError> for ZlibError {
     }
 }
 
-/// Compresses `data` into a new zlib stream.
+/// Compresses `data` into a new zlib stream at `level`, as zlib-ng's
+/// `compress2` does.
 ///
 /// # Errors
 ///
-/// When the memory for the output cannot be allocated.
+/// When the memory for the compressor or the output cannot be allocated.
 pub fn compress(data: &[u8], level: CompressionLevel) -> Result<Vec<u8>, OutOfMemory> {
+    compress_with(data, Options::new(level))
+}
+
+/// Compresses `data` into a new zlib stream as zlib-ng does with
+/// `options`.
+///
+/// # Errors
+///
+/// When the memory for the compressor or the output cannot be allocated.
+pub fn compress_with(data: &[u8], options: Options) -> Result<Vec<u8>, OutOfMemory> {
     let mut out = Vec::new();
-    compress_into(data, level, &mut out)?;
+    encode::one_shot(data, options, Wrap::Zlib, &mut None, &mut out)?;
     Ok(out)
 }
 
-/// Appends the zlib compression of `data` to `out`.
+/// Appends the zlib compression of `data` at `level` to `out`.
 ///
 /// # Errors
 ///
-/// When the memory for the output cannot be allocated.
+/// When the memory for the compressor or the output cannot be allocated
+/// (what was written of it stays in `out`).
 pub fn compress_into(
     data: &[u8],
     level: CompressionLevel,
     out: &mut Vec<u8>,
 ) -> Result<(), OutOfMemory> {
-    alloc::try_reserve(out, 2)?;
-    out.extend_from_slice(&header(level));
-    deflate::compress_into(data, level, out)?;
-    alloc::try_reserve(out, 4)?;
-    out.extend_from_slice(&adler32(data).to_be_bytes());
-    Ok(())
+    encode::one_shot(data, Options::new(level), Wrap::Zlib, &mut None, out)
 }
 
-/// The zlib stream [`compress`] makes of the bytes `source` produces,
-/// which are read a window at a time rather than held all at once.
+/// Compresses stream after stream with the same tables, for writers of
+/// many streams (PDF's): each stream is the one [`compress_with`] writes,
+/// without allocating and clearing the compressor's 300 KiB of tables
+/// anew for each.
 ///
-/// # Errors
+/// ```
+/// use pltrs_codec::{zlib, CompressionLevel};
+/// use pltrs_codec::deflate::Options;
 ///
-/// When the memory for the window or the output cannot be allocated.
-pub(crate) fn compress_source(
-    source: impl ByteSource,
-    level: CompressionLevel,
-) -> Result<Vec<u8>, OutOfMemory> {
-    let mut window = Window::new(source)?;
-    let mut out = alloc::try_with_capacity(2)?;
-    out.extend_from_slice(&header(level));
-    deflate::compress_input(&mut window, level, &mut out)?;
-    alloc::try_reserve(&mut out, 4)?;
-    out.extend_from_slice(&window.checksum().to_be_bytes());
-    Ok(out)
+/// let mut compressor = zlib::Compressor::new();
+/// let options = Options::new(CompressionLevel::DEFAULT);
+/// for text in [&b"first stream"[..], b"second, second"] {
+///     let mut packed = Vec::new();
+///     compressor.compress_into(text, options, &mut packed)?;
+///     assert_eq!(packed, zlib::compress_with(text, options)?);
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+#[derive(Debug, Default)]
+pub struct Compressor {
+    tables: Option<Deflater>,
 }
 
-/// The two header bytes zlib writes for `level`: the `FLEVEL` field records
-/// the speed/size trade-off, the low bits make the header a multiple of 31.
-fn header(level: CompressionLevel) -> [u8; 2] {
-    let level_flags: u8 = match level.get() {
-        0 | 1 => 0,
-        2..=5 => 1,
-        6 => 2,
-        _ => 3,
-    };
-    let flags = level_flags << 6;
-    let remainder = (u16::from(CMF_DEFLATE_32K) << 8 | u16::from(flags)) % 31;
-    let check = ((31 - remainder) % 31) as u8;
-    [CMF_DEFLATE_32K, flags | check]
+impl Compressor {
+    /// A compressor that allocates its tables at its first stream.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Appends the zlib stream of `data` with `options` to `out`.
+    ///
+    /// # Errors
+    ///
+    /// When the memory for the compressor or the output cannot be
+    /// allocated (what was written of the stream stays in `out`).
+    pub fn compress_into(
+        &mut self,
+        data: &[u8],
+        options: Options,
+        out: &mut Vec<u8>,
+    ) -> Result<(), OutOfMemory> {
+        encode::one_shot(data, options, Wrap::Zlib, &mut self.tables, out)
+    }
 }
 
 /// Decompresses a complete zlib stream; trailing bytes are an error.
@@ -208,6 +224,8 @@ pub fn decompress_into(input: &[u8], out: &mut Vec<u8>, limit: usize) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::deflate::encode::RowSource;
+    use crate::deflate::{MemoryLevel, Strategy};
     use crate::test_util::{Rng, varied_inputs};
 
     #[test]
@@ -225,12 +243,15 @@ mod tests {
             [0x78, 0xDA],
         ];
         for (level, bytes) in (0..=9).zip(expected) {
-            assert_eq!(
-                header(CompressionLevel::new(level).unwrap()),
-                bytes,
-                "level {level}"
-            );
+            let packed = compress(b"", CompressionLevel::new(level).unwrap()).unwrap();
+            assert_eq!(packed[..2], bytes, "level {level}");
         }
+        for strategy in [Strategy::HuffmanOnly, Strategy::Rle, Strategy::Fixed] {
+            let options = Options::new(CompressionLevel::BEST).strategy(strategy);
+            assert_eq!(compress_with(b"", options).unwrap()[..2], [0x78, 0x01]);
+        }
+        let filtered = Options::new(CompressionLevel::BEST).strategy(Strategy::Filtered);
+        assert_eq!(compress_with(b"", filtered).unwrap()[..2], [0x78, 0xDA]);
     }
 
     #[test]
@@ -254,37 +275,67 @@ mod tests {
         }
     }
 
-    /// The bytes of a slice, as a source that makes them on demand.
-    struct Slice<'a>(&'a [u8]);
+    /// Rows of `len` bytes cut from `data`.
+    struct Rows<'a> {
+        data: &'a [u8],
+        len: usize,
+    }
 
-    impl ByteSource for Slice<'_> {
-        fn len(&self) -> usize {
-            self.0.len()
+    impl encode::RowSource for Rows<'_> {
+        fn rows(&self) -> usize {
+            self.data.len() / self.len
         }
 
-        fn append(&mut self, start: usize, count: usize, out: &mut Vec<u8>) {
-            out.extend_from_slice(&self.0[start..(start + count).min(self.0.len())]);
+        fn row(&mut self, index: usize) -> &[u8] {
+            &self.data[index * self.len..(index + 1) * self.len]
         }
     }
 
     #[test]
-    fn sources_compress_to_the_stream_of_their_whole_bytes() {
+    fn rows_arrive_in_buffers_of_the_given_size() {
         let mut rng = Rng::new(12);
-        let mut inputs = varied_inputs(&mut rng);
-        // Longer than a window's refill, compressible and not.
-        inputs.push(rng.bytes(400_000));
-        inputs.push((0..600_000).map(|i| (i / 7 % 13) as u8).collect());
-        for input in &inputs {
+        let noise = rng.bytes(300_000);
+        let pattern: Vec<u8> = (0..300_000).map(|i| (i / 7 % 13) as u8).collect();
+        for data in [&noise, &pattern] {
             for level in [0, 1, 3, 6, 9] {
-                let level = CompressionLevel::new(level).unwrap();
-                assert_eq!(
-                    compress_source(Slice(input), level).unwrap(),
-                    compress(input, level).unwrap(),
-                    "{} bytes at level {}",
-                    input.len(),
-                    level.get()
+                let options = Options::new(CompressionLevel::new(level).unwrap());
+                let mut rows = Rows { data, len: 1201 };
+                let packed = encode::rows(&mut rows, options, 65_536).unwrap();
+                let whole = rows.rows() * rows.len;
+                assert_eq!(decompress(&packed.stream).unwrap(), data[..whole]);
+                assert_eq!(packed.ends.last(), Some(&packed.stream.len()));
+                let full = &packed.ends[..packed.ends.len() - 1];
+                assert!(
+                    full.iter()
+                        .zip(1..)
+                        .all(|(&end, index)| end == index * 65_536),
+                    "every buffer full but the last, level {level}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn a_reused_compressor_writes_what_a_new_one_writes() {
+        let mut rng = Rng::new(13);
+        let mut inputs = varied_inputs(&mut rng);
+        // Long inputs first, so that short ones follow tables full of
+        // their hashes and window bytes.
+        inputs.sort_by_key(|input| std::cmp::Reverse(input.len()));
+        let mut compressor = Compressor::new();
+        for (index, input) in inputs.iter().enumerate() {
+            let level = CompressionLevel::new((index % 10) as u8).unwrap();
+            let memory = MemoryLevel::new([8, 9, 1][index % 3]).unwrap();
+            let options = Options::new(level).memory_level(memory);
+            let mut packed = vec![0xAA];
+            compressor
+                .compress_into(input, options, &mut packed)
+                .unwrap();
+            assert_eq!(
+                packed[1..],
+                compress_with(input, options).unwrap(),
+                "input {index}"
+            );
         }
     }
 

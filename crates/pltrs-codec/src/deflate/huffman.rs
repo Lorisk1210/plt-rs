@@ -52,15 +52,6 @@ impl HuffmanCode {
             .collect();
         Self { lengths, codes }
     }
-
-    /// Total bits needed to encode symbols with frequencies `freqs`.
-    pub(crate) fn cost(&self, freqs: &[u32]) -> u64 {
-        freqs
-            .iter()
-            .zip(&self.lengths)
-            .map(|(&freq, &length)| u64::from(freq) * u64::from(length))
-            .sum()
-    }
 }
 
 /// Optimal code lengths no longer than `max_bits` (package-merge).
@@ -146,6 +137,15 @@ mod tests {
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
 
+    /// Total bits `code` takes for symbols with frequencies `freqs`.
+    fn cost(code: &HuffmanCode, freqs: &[u32]) -> u64 {
+        freqs
+            .iter()
+            .zip(&code.lengths)
+            .map(|(&freq, &length)| u64::from(freq) * u64::from(length))
+            .sum()
+    }
+
     /// Cost of an unconstrained Huffman code, by the classic heap method.
     fn huffman_cost(freqs: &[u32]) -> u64 {
         let mut heap: BinaryHeap<Reverse<u64>> = freqs
@@ -194,7 +194,7 @@ mod tests {
             let freqs = pseudo_random_freqs(seed, 40, 4);
             let code = HuffmanCode::optimal(&freqs, 15);
             if freqs.iter().filter(|&&f| f > 0).count() >= 2 {
-                assert_eq!(code.cost(&freqs), huffman_cost(&freqs), "seed {seed}");
+                assert_eq!(cost(&code, &freqs), huffman_cost(&freqs), "seed {seed}");
             }
         }
     }
@@ -211,7 +211,7 @@ mod tests {
             let code = HuffmanCode::optimal(&freqs, max_bits);
             assert!(code.lengths.iter().all(|&l| usize::from(l) <= max_bits));
             assert_eq!(kraft_sum(&code.lengths, max_bits), 1 << max_bits);
-            assert!(code.cost(&freqs) >= huffman_cost(&freqs));
+            assert!(cost(&code, &freqs) >= huffman_cost(&freqs));
         }
     }
 

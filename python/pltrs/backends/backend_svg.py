@@ -3,11 +3,12 @@ The SVG backend (matplotlib's ``backend_svg``): `FigureCanvasSVG`, whose
 ``print_svg`` and ``print_svgz`` write the figure as an SVG document,
 plain or gzip-compressed. pltrs (Rust) writes the documents.
 
-The checks of the metadata are matplotlib's (from matplotlib 3.11.2, under
-the Matplotlib License).
+The checks of the metadata and the escaping functions of the XML writer
+are matplotlib's (from matplotlib 3.11.2, under the Matplotlib License).
 """
 
 import datetime
+import re
 from datetime import UTC  # noqa: F401  (matplotlib's backend_svg has it)
 
 import numpy as np
@@ -16,9 +17,10 @@ from .. import __version__, _api, rcParams
 from .._native import backends as _backends, text_overrides as _text_overrides
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..font_manager import FontManager
+from ..path import Path
 from ..text import _measuring_with
 from ._native_drawing import DocumentDrawingMixin
-from ._svg_arguments import SvgArgumentsMixin
+from ._svg_arguments import SvgArgumentsMixin, short_float
 from .backend_mixed import MixedModeRenderer
 
 #: The XML declaration and doctype every SVG document starts with.
@@ -32,13 +34,18 @@ class _XMLWriter:
     file : writable text file-like object
     """
     # pltrs (Rust) writes the XML (``pltrs_render::XmlWriter``); the writer
-    # hands the file each piece as matplotlib's does.
+    # hands the file each piece as matplotlib's does. What matplotlib's
+    # writer computes with in Python is computed here first, so that what
+    # it cannot write fails as there: the escaped tags, attributes and
+    # comments, the character data kept until an element is written (and
+    # joined then), the open elements closed one by one.
 
     def __init__(self, file):
         self.__write = file.write
         if hasattr(file, "flush"):
             self.flush = file.flush
         self.__native = _backends.xml_new()
+        self.__data = []
 
     def __written(self, result=None):
         """Write what pltrs (Rust) wrote to the file; return *result*."""
@@ -46,6 +53,13 @@ class _XMLWriter:
         if text:
             self.__write(text)
         return result
+
+    def __flush(self):
+        """Hand pltrs (Rust) the character data kept (`data`), joined."""
+        if self.__data:
+            text = ''.join(self.__data)
+            self.__data = []
+            _backends.xml_data(self.__native, text)
 
     def start(self, tag, attrib=None, **extra):
         """
@@ -68,7 +82,20 @@ class _XMLWriter:
         """
         if attrib is None:
             attrib = {}
-        attributes = [(k, v) for k, v in {**attrib, **extra}.items() if v]
+        self.__flush()
+        _escape_cdata(tag)
+        attributes = []
+        try:
+            for k, v in {**attrib, **extra}.items():
+                if v:
+                    _escape_cdata(k)
+                    _quote_escape_attrib(v)
+                    attributes.append((k, v))
+        except Exception:
+            # matplotlib's writer opened the element before it failed on
+            # its attributes.
+            self.__written(_backends.xml_start(self.__native, tag, []))
+            raise
         return self.__written(_backends.xml_start(self.__native, tag, attributes))
 
     def comment(self, comment):
@@ -80,6 +107,8 @@ class _XMLWriter:
         comment : str
             Comment text.
         """
+        self.__flush()
+        _escape_comment(comment)
         _backends.xml_comment(self.__native, comment)
         self.__written()
 
@@ -92,7 +121,7 @@ class _XMLWriter:
         text : str
             Character data.
         """
-        _backends.xml_data(self.__native, text)
+        self.__data.append(text)
 
     def end(self, tag=None, indent=True):
         """
@@ -109,10 +138,18 @@ class _XMLWriter:
         tags = _backends.xml_tags(self.__native)
         if tag:
             assert tags, f"unbalanced end({tag})"
-            assert _backends.xml_closes(self.__native, tag), \
+            assert _escape_cdata(tag) == tags[-1], \
                 f"expected end({tags[-1]}), got {tag}"
         else:
             assert tags, "unbalanced end()"
+        try:
+            self.__flush()
+        except TypeError:
+            # matplotlib's writer takes the element off before it writes
+            # the data, which it then fails to join: nothing is written.
+            _backends.xml_end(self.__native, bool(indent))
+            _backends.xml_take(self.__native)
+            raise
         _backends.xml_end(self.__native, bool(indent))
         self.__written()
 
@@ -126,8 +163,8 @@ class _XMLWriter:
         id
             Element identifier, as returned by the :meth:`start` method.
         """
-        _backends.xml_close(self.__native, id)
-        self.__written()
+        while len(_backends.xml_tags(self.__native)) > id:
+            self.end()
 
     def element(self, tag, text=None, attrib=None, **extra):
         """
@@ -162,6 +199,29 @@ def _escape_cdata(s):
     s = s.replace("<", "&lt;")
     s = s.replace(">", "&gt;")
     return s
+
+
+_escape_xml_comment = re.compile(r'-(?=-)')
+
+
+def _escape_comment(s):
+    s = _escape_cdata(s)
+    return _escape_xml_comment.sub('- ', s)
+
+
+def _escape_attrib(s):
+    s = s.replace("&", "&amp;")
+    s = s.replace("'", "&apos;")
+    s = s.replace('"', "&quot;")
+    s = s.replace("<", "&lt;")
+    s = s.replace(">", "&gt;")
+    return s
+
+
+def _quote_escape_attrib(s):
+    return ('"' + _escape_cdata(s) + '"' if '"' not in s else
+            "'" + _escape_cdata(s) + "'" if "'" not in s else
+            '"' + _escape_attrib(s) + '"')
 
 #: The metadata keys an SVG document holds.
 _METADATA_KEYS = frozenset([
@@ -256,6 +316,10 @@ class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
         self.image_dpi = image_dpi
         self.basename = basename
         if svgwriter is not None:
+            # matplotlib's renderer makes its XML writer, then writes the
+            # size of the page.
+            svgwriter.write  # noqa: B018
+            short_float(height), short_float(width)
             self._file = svgwriter
             self._page = _backends.svg_page_new(
                 float(width), float(height), float(image_dpi),
@@ -302,6 +366,12 @@ class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
 
     def open_group(self, s, gid=None):
         # docstring inherited
+        if gid:
+            # The id matplotlib's writer writes.
+            _quote_escape_attrib(gid)
+        else:
+            # matplotlib counts the groups of each name.
+            {}.get(s)
         super().open_group(s, gid)
 
     def close_group(self, s):
@@ -318,6 +388,9 @@ class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
         # docstring inherited
         if self._markers_arguments(gc, marker_path, marker_trans, path, trans,
                                    rgbFace):
+            if marker_path is None:
+                # matplotlib's extension writes no marker path as an empty one.
+                marker_path = Path(np.zeros((0, 2)))
             super().draw_markers(gc, marker_path, marker_trans, path, trans,
                                  rgbFace)
 
@@ -453,12 +526,10 @@ import hashlib  # noqa: E402, F401
 import itertools  # noqa: E402, F401
 import logging  # noqa: E402, F401
 import os  # noqa: E402, F401
-import re  # noqa: E402, F401
 import uuid  # noqa: E402, F401
 from PIL import Image  # noqa: E402, F401
 from io import BytesIO  # noqa: E402, F401
 from .. import cbook, font_manager as fm  # noqa: E402, F401
 from ..colors import to_hex as rgb2hex  # noqa: E402, F401
-from ..path import Path  # noqa: E402, F401
 from ..transforms import Affine2D, Affine2DBase  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

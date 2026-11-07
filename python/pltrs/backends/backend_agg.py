@@ -32,7 +32,8 @@ from ..ft2font import LoadFlags
 from ..image import imsave
 from ..text import _measuring_with
 from ..transforms import BboxBase
-from . import _backend_agg
+from . import _agg_arguments, _backend_agg
+from ._agg_arguments import AggArgumentsMixin
 from ._backend_agg import BufferRegion
 from ._native_drawing import NativeDrawingMixin, native_gc
 
@@ -43,11 +44,32 @@ from ._native_drawing import NativeDrawingMixin, native_gc
 _PILLOW_FORMATS = frozenset({"gif", "avif"})
 
 
+def _check_pil_arguments(fmt, metadata, pil_kwargs):
+    """Compute with *metadata* and *pil_kwargs* as matplotlib's
+    `.image.imsave` does before Pillow writes the format *fmt*, for its
+    errors: the keywords copied, the text chunks of a PNG added (Pillow's
+    ``PngInfo.add_text`` encodes each key and value), metadata refused
+    for the other formats, the format and resolution given as keywords."""
+    pil_kwargs = {} if pil_kwargs is None else pil_kwargs.copy()
+    if fmt == "png":
+        if "pnginfo" not in pil_kwargs:
+            metadata = {"Software": "", **(metadata if metadata is not None else {})}
+            pil_kwargs["pnginfo"] = None
+            for key, value in metadata.items():
+                if value is not None:
+                    for text in (value, key):
+                        if not isinstance(text, bytes):
+                            text.encode
+    elif metadata is not None:
+        raise ValueError(f"metadata not supported for format {fmt!r}")
+    pil_kwargs.setdefault("format", fmt)
+
+
 def get_hinting_flag():
     return LoadFlags(_ft2font.hinting_flag())
 
 
-class RendererAgg(NativeDrawingMixin, RendererBase):
+class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
     """
     The renderer handles all the drawing primitives using a graphics
     context instance that controls the colors/styles
@@ -59,6 +81,10 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
     # pltrs (Rust) draws the figure, where pltrs is drawing (see
     # `._native_drawing`). A renderer the program makes, behind no figure's
     # canvas, draws onto pixels of its own.
+
+    #: How many filters `start_filter` opened that `stop_filter` has not
+    #: closed.
+    _filters_open = 0
 
     def __init__(self, width, height, dpi):
         super().__init__()
@@ -119,6 +145,7 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
+        _agg_arguments.path_arguments(gc, path, transform, rgbFace)
         if self._queued is not None:
             self._queued.append(
                 (native_gc(gc), path,
@@ -137,14 +164,18 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        self._draw_line(gc, x, y, s, prop, angle, ismath)
+        self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext)
+        # Any true *ismath* draws mathtext, as in matplotlib's renderer.
+        self._draw_line(gc, x, y, s, prop, angle, bool(ismath))
 
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
+        self._tex_arguments(gc, x, y, s, prop, angle)
         self._draw_line(gc, x, y, s, prop, angle, "TeX")
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         """Draw mathtext using :mod:`matplotlib.mathtext`."""
+        self._mathtext_arguments(gc, x, y, s, prop, angle)
         self._draw_line(gc, x, y, s, prop, angle, True)
 
     def start_filter(self):
@@ -152,6 +183,7 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
         Start filtering. It simply creates a new canvas (the old one is saved).
         """
         super().start_filter()
+        self._filters_open += 1
 
     def stop_filter(self, post_processing):
         """
@@ -171,6 +203,10 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
         The saved renderer is restored and the returned image from
         post_processing is plotted (using draw_image) on it.
         """
+        if not self._filters_open:
+            # matplotlib takes back the canvas `start_filter` saved.
+            raise IndexError("pop from empty list")
+        self._filters_open -= 1
         super().stop_filter(post_processing)
 
     def _paint_tex(self, gc_spec, line, props, placement):
@@ -271,7 +307,7 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
     def copy_from_bbox(self, bbox):
         """Save the pixels inside *bbox* (display coordinates)."""
         return BufferRegion(_backends.copy_from_bbox(
-            self._canvas_figure(), tuple(map(float, bbox.extents))))
+            self._canvas_figure(), _backend_agg.rect(bbox)))
 
     def restore_region(self, region, bbox=None, xy=None):
         """
@@ -298,11 +334,14 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
                 ox, oy = x1, y1
             else:
                 ox, oy = xy
+            corners = tuple(int(v) for v in (x1, y1, x2, y2))
+            _backend_agg.check_restore_region(
+                self._renderer, region, *corners, int(ox), int(oy))
             _backends.restore_region(
                 self._canvas_figure(), region._native,
-                tuple(float(int(v)) for v in (x1, y1, x2, y2)),
-                (float(int(ox)), float(int(oy))))
+                tuple(map(float, corners)), (float(int(ox)), float(int(oy))))
         else:
+            _backend_agg.check_restore_region(self._renderer, region)
             _backends.restore_region(
                 self._canvas_figure(), region._native, None, None)
 
@@ -399,6 +438,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         than a JPEG quality as a number (Pillow's presets, and its errors
         for any other value, are Pillow's).
         """
+        _check_pil_arguments(fmt, metadata, pil_kwargs)
         settings = {"metadata": metadata}
         if (fmt == "jpeg" and pil_kwargs is not None and set(pil_kwargs) == {"quality"}
                 and isinstance(pil_kwargs["quality"], int)):

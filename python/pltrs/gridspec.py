@@ -17,7 +17,7 @@ import weakref
 
 import numpy as np
 
-from . import _api, _pylab_helpers, rcParams
+from . import _api, _gridspec_kept, _layout_checks, _pylab_helpers, rcParams
 from ._api import UNSET as _UNSET
 from ._native import figure_layout as _figure_layout, gridspec as _gridspec
 from ._program_classes import takes_from_program
@@ -95,8 +95,9 @@ class GridSpecBase:
         if name == "_native" and "_nrows" in self.__dict__:
             native = _gridspec.new(
                 self._nrows, self._ncols,
-                [float(r) for r in self._col_width_ratios],
-                [float(r) for r in self._row_height_ratios], (None,) * len(_KEYS))
+                _gridspec_kept.native_ratios(self._col_width_ratios, self._ncols),
+                _gridspec_kept.native_ratios(self._row_height_ratios, self._nrows),
+                (None,) * len(_KEYS))
             # Constrained layout only places the grids of pltrs' classes.
             _gridspec.set_in_layout(native, False)
             self._adopt_native(native)
@@ -168,7 +169,10 @@ class GridSpecBase:
                              'match the number of columns of the grid')
         self._col_width_ratios = width_ratios
         native = self.__dict__.get("_native")
-        if native is not None:
+        if native is not None and _gridspec_kept.holds_ratios(width_ratios):
+            # Ratios that are no numbers stay with the grid alone, whose
+            # cells are then placed with matplotlib's arithmetic
+            # (`._gridspec_kept`).
             _gridspec.set_width_ratios(native, [float(r) for r in width_ratios])
 
     def set_height_ratios(self, height_ratios):
@@ -185,7 +189,7 @@ class GridSpecBase:
                              'match the number of rows of the grid')
         self._row_height_ratios = height_ratios
         native = self.__dict__.get("_native")
-        if native is not None:
+        if native is not None and _gridspec_kept.holds_ratios(height_ratios):
             _gridspec.set_height_ratios(native, [float(r) for r in height_ratios])
 
     def get_width_ratios(self):
@@ -224,6 +228,8 @@ class GridSpecBase:
             The bottom, top, left, right positions of the grid cells in
             figure coordinates.
         """
+        if _gridspec_kept.in_python(self, fig):
+            return _gridspec_kept.grid_positions(self, fig)
         return _gridspec.grid_positions(self._native, self._params_of(fig))
 
     @staticmethod
@@ -389,11 +395,16 @@ class GridSpec(GridSpecBase):
         super().__init__(nrows, ncols,
                          width_ratios=width_ratios,
                          height_ratios=height_ratios)
+        given = (left, bottom, right, top, wspace, hspace)
+        # Margins and spacing pltrs (Rust) cannot hold stay with the grid
+        # (`._gridspec_kept`).
+        self._kept_params = {key: value for key, value in zip(_KEYS, given)
+                             if not _gridspec_kept.holds(value)}
         self._adopt_native(_gridspec.new(
             nrows, ncols,
-            [float(r) for r in self._col_width_ratios],
-            [float(r) for r in self._row_height_ratios],
-            (left, bottom, right, top, wspace, hspace)))
+            _gridspec_kept.native_ratios(self._col_width_ratios, ncols),
+            _gridspec_kept.native_ratios(self._row_height_ratios, nrows),
+            _gridspec_kept.held(given)))
         if figure is None:
             # Constrained layout only places the grids of a figure.
             _gridspec.set_in_layout(self._native, False)
@@ -414,11 +425,19 @@ class GridSpec(GridSpecBase):
         the native grid holds: the numpy float a tight layout computed, as
         matplotlib's `tight_layout` sets it, while it stays."""
         def get(self):
+            kept = self.__dict__.get("_kept_params", {})
+            if _KEYS[index] in kept:
+                return kept[_KEYS[index]]
             value = _gridspec.overrides(self._native)[index]
             computed = self.__dict__.get("_tight_overrides", {}).get(index)
             return np.float64(value) if value is not None and value == computed else value
 
         def set(self, value):
+            kept = self.__dict__.setdefault("_kept_params", {})
+            if not _gridspec_kept.holds(value):
+                kept[_KEYS[index]] = value
+                return
+            kept.pop(_KEYS[index], None)
             values = list(_gridspec.overrides(self._native))
             values[index] = value
             _gridspec.set_overrides(self._native, tuple(values))
@@ -455,9 +474,14 @@ class GridSpec(GridSpecBase):
         overrides = _gridspec.overrides(self._native)
         for manager in _pylab_helpers.Gcf.figs.values():
             figure = manager.canvas.figure
-            if any(ax.get_subplotspec() is not None
-                   and ax.get_subplotspec().get_topmost_subplotspec()
-                   .get_gridspec() is self for ax in figure.axes):
+            placed = [ax for ax in figure.axes
+                      if ax.get_subplotspec() is not None
+                      and ax.get_subplotspec().get_topmost_subplotspec()
+                      .get_gridspec() is self]
+            if placed:
+                # Placed again as matplotlib places them, which fails on
+                # the values pltrs (Rust) cannot hold.
+                _gridspec_kept.check_positions(placed)
                 _gridspec.update(self._native, figure._native, overrides)
 
     def get_subplot_params(self, figure=None):
@@ -472,6 +496,8 @@ class GridSpec(GridSpecBase):
 
         Note that the ``figure`` attribute of the GridSpec is always ignored.
         """
+        if _gridspec_kept.in_python(self, figure):
+            return _gridspec_kept.subplot_params(self, figure)
         return SubplotParams(*_gridspec.subplot_params(
             self._native, _figure_params(figure)))
 
@@ -506,8 +532,14 @@ class GridSpec(GridSpecBase):
             coordinates that the whole subplots area (including labels) will
             fit into. Default (None) is the whole figure.
         """
+        if renderer is None:
+            renderer = figure._get_renderer()
+        params = dict(pad=pad, h_pad=h_pad, w_pad=w_pad, rect=rect)
+        if (_layout_checks.tight_in_python(figure, params, grid_spec=self)
+                and not _layout_checks.check_tight(figure, params, grid_spec=self)):
+            return  # No Axes of the grid to lay out.
         not_applied = _figure_layout.grid_tight_layout(
-            self._native, figure._native, float(pad), h_pad, w_pad,
+            self._native, figure._native, pad, h_pad, w_pad,
             None if rect is None else tuple(rect))
         if not_applied is not None:
             _api.warn_external(not_applied)
@@ -554,9 +586,9 @@ class GridSpecFromSubplotSpec(GridSpecBase):
                          height_ratios=height_ratios)
         self._adopt_native(_gridspec.nested(
             subplot_spec._native_spec(), (nrows, ncols),
-            [float(r) for r in self._col_width_ratios],
-            [float(r) for r in self._row_height_ratios],
-            (wspace, hspace)))
+            _gridspec_kept.native_ratios(self._col_width_ratios, ncols),
+            _gridspec_kept.native_ratios(self._row_height_ratios, nrows),
+            _gridspec_kept.held((wspace, hspace))))
 
     @classmethod
     def _from_native(cls, native, subplot_spec):
@@ -754,9 +786,11 @@ class SubplotSpec:
         Update the subplot position from ``figure.subplotpars``.
         """
         gridspec = self.get_gridspec()
-        if takes_from_program(type(gridspec), "get_grid_positions"):
+        if (takes_from_program(type(gridspec), "get_grid_positions")
+                or _gridspec_kept.in_python(gridspec, figure)):
             # The cells where the grid's class of the program's puts them,
-            # as matplotlib's `get_position` asks for them.
+            # or matplotlib's arithmetic with values pltrs (Rust) cannot
+            # hold, as matplotlib's `get_position` asks for them.
             rows, cols = np.unravel_index([self.num1, self.num2],
                                           gridspec.get_geometry())
             bottoms, tops, lefts, rights = gridspec.get_grid_positions(figure)
@@ -890,15 +924,21 @@ class SubplotParams:
             self.wspace = wspace
         if hspace is not None:
             self.hspace = hspace
-        given = {key: value for key, value in zip(
-            _KEYS, (left, bottom, right, top, wspace, hspace)) if value is not None}
+        values = (left, bottom, right, top, wspace, hspace)
+        given = {key: value for key, value in zip(_KEYS, values) if value is not None}
         self.__dict__.setdefault("_given", {}).update(given)
+        # What pltrs (Rust) cannot hold stays here (`._gridspec_kept`).
+        kept = self.__dict__.setdefault("_kept", {})
+        for key, value in given.items():
+            if _gridspec_kept.holds(value):
+                kept.pop(key, None)
+            else:
+                kept[key] = value
         figure_native = _FIGURE_OF_PARAMS.get(self)
         if figure_native is not None:
             # The parameters of a figure, which pltrs (Rust) holds.
             from ._native import figure as _figure
-            _figure.subplots_adjust(figure_native,
-                                    (left, bottom, right, top, wspace, hspace))
+            _figure.subplots_adjust(figure_native, _gridspec_kept.held(values))
 
     def reset(self):
         """Restore the subplot positioning parameters to the default rcParams values"""
@@ -926,7 +966,12 @@ def _figure_subplotpars(figure_native, params=None):
         params = SubplotParams.__new__(SubplotParams)
         _FIGURE_OF_PARAMS[params] = figure_native
     given = params.__dict__.get("_given", {})
+    unheld = params.__dict__.get("_kept", {})
     for key, value in zip(_KEYS, _gridspec.figure_params(figure_native)):
+        if key in unheld:
+            # A value pltrs (Rust) cannot hold reads back as given.
+            setattr(params, key, unheld[key])
+            continue
         # A parameter given (or the rc's) reads back as given; one a tight
         # layout computed is the numpy float matplotlib's computes.
         kept = given.get(key, rcParams[f"figure.subplot.{key}"])

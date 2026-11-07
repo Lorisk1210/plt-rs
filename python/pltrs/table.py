@@ -18,6 +18,8 @@ signatures and checks are matplotlib's (3.11.2, under the Matplotlib
 License).
 """
 
+from numbers import Real
+
 import numpy as np
 
 from . import _docstring
@@ -27,7 +29,7 @@ from ._drawn_with import DrawnWith
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, table as _table
 from .artist import Artist, allow_rasterization
-from .patches import Rectangle
+from .patches import Patch, Rectangle
 from .path import Path
 from .text import Text
 from .transforms import BboxBase, Bbox
@@ -146,8 +148,8 @@ substring of 'BRTL'
             'closed' (all edges drawn), 'horizontal' (bottom and top),
             'vertical' (right and left).
         """
-        # matplotlib's `Rectangle` reads the corner first.
-        xy[0], xy[1]  # noqa: B018
+        # matplotlib's `Rectangle` adds the size to the corner first.
+        xy[0] + width, xy[1] + height  # noqa: B018
         self._table = _CellHolder()
         self._key = (0, 0)
         _table.add_cell(self._table._native, 0, 0, float(width), float(height))
@@ -339,7 +341,7 @@ substring of 'BRTL'
 
     @visible_edges.setter
     def visible_edges(self, value):
-        _table.set_visible_edges(self._ref(), 'closed' if value is None else value)
+        _table.set_visible_edges(self._ref(), _edges_of(value))
         self.stale = True
 
     def get_path(self):
@@ -419,10 +421,33 @@ substring of 'BRTL'
         _table.set_width(self._ref(), float(super().get_width()))
         _table.set_height(self._ref(), float(super().get_height()))
 
-    set_bounds.__doc__ = Rectangle.set_bounds.__doc__
 
+# The methods matplotlib's cell inherits.
+cbook._inherited_methods(Cell, Artist, ["get_figure", "is_transform_set"])
+cbook._inherited_methods(Cell, Patch, ["get_data_transform", "get_transform"])
+cbook._inherited_methods(Cell, Rectangle, [
+    "get_xy", "get_bbox", "get_x", "get_y", "get_width", "get_height",
+    "set_width", "set_height", "set_bounds"])
 
 CustomCell = Cell  # Backcompat. alias.
+
+
+def _edges_of(value):
+    """The visible edges *value* gives a cell, checked as matplotlib's
+    `Cell.visible_edges` checks them: a name of the cell's edge aliases, a
+    sequence of its edges, or None for all of them; as pltrs (Rust) takes
+    them (a string)."""
+    if value is None:
+        return 'closed'
+    if value in Cell._edge_aliases:
+        return value
+    if any(edge not in Cell._edges for edge in value):
+        raise ValueError('Invalid edge param {}, must only be one of '
+                         '{} or string of {}'.format(
+                             value,
+                             ", ".join(Cell._edge_aliases),
+                             ", ".join(Cell._edges)))
+    return ''.join(value)
 
 
 def _loc_name(loc):
@@ -439,13 +464,26 @@ def _loc_name(loc):
     return next(name for name, code in Table.codes.items() if code == loc)
 
 
+def _integer(index):
+    """Whether *index*, a row or column, is an integer, at which pltrs
+    (Rust) places a cell (a float with an integer value keys the same cell
+    in matplotlib's dict of cells)."""
+    return (isinstance(index, (Real, np.bool_)) and np.isfinite(index)
+            and index == int(index))
+
+
 def _extents(bbox):
-    """The extents of *bbox*, a `.Bbox` or ``[xmin, ymin, width, height]``."""
+    """The extents of *bbox*, a `.Bbox` or ``[xmin, ymin, width, height]``;
+    None for none, or for one pltrs (Rust) cannot place a table in, which
+    the table keeps (`Table._keep_bbox`)."""
     if bbox is None:
         return None
-    if not isinstance(bbox, BboxBase):
-        bbox = Bbox.from_bounds(*bbox)
-    return tuple(float(v) for v in bbox.extents)
+    try:
+        if not isinstance(bbox, BboxBase):
+            bbox = Bbox.from_bounds(*bbox)
+        return tuple(float(v) for v in bbox.extents)
+    except (TypeError, ValueError):
+        return None
 
 
 class Table(Artist):
@@ -476,8 +514,46 @@ class Table(Artist):
         # out in the figure as it is (matplotlib computes it from the table's
         # layout, placing its cells).
         self._check_figure_renderer(renderer)
+        _unusable.check(self, measuring=True)
         self._place_cells()
         return self._extent_as_is()
+
+    def _kept_order(self):
+        """The order in which matplotlib's table computes with what it
+        keeps when it places its cells (``_update_positions``)."""
+        return ["autoFontsize", "cells", "bbox"]
+
+    def _keep_bbox(self, bbox):
+        """Keep *bbox*, the box given to place the table in, if pltrs (Rust)
+        cannot place the table in it (`_extents`): matplotlib keeps it
+        unchecked, and computes with it when it places the cells."""
+        if bbox is not None and _extents(bbox) is None:
+            _unusable.keep(self, "bbox", bbox, self._place_in)
+
+    @staticmethod
+    def _place_in(bbox):
+        """Compute with *bbox* as matplotlib's table does when it places its
+        cells in it (``_update_positions``: the cells scaled to its size and
+        moved to its corner, from the box of the grid, of numpy floats), for
+        its errors."""
+        rl, rb, rw, rh = bbox.bounds if isinstance(bbox, BboxBase) else bbox
+        unit = np.float64(1.0)
+        rw / unit, rh / unit, rl - unit, rb - unit  # noqa: B018
+
+    def _align_cells(self, kept):
+        """Align the cells as matplotlib's ``_do_cell_alignment`` does
+        before it places them, with the positions *kept* by the table
+        alone, for its errors: their rows and columns sorted, which fails
+        for positions that do not compare (pltrs (Rust) places the others)."""
+        widths = {}
+        heights = {}
+        for (row, col), cell in self.get_celld().items():
+            height = heights.setdefault(row, 0.0)
+            heights[row] = max(height, cell.get_height())
+            width = widths.setdefault(col, 0.0)
+            widths[col] = max(width, cell.get_width())
+        sorted(widths)
+        sorted(heights, reverse=True)
 
     def _place_cells(self):
         """Count a placing of the cells outside the figure's draws."""
@@ -536,11 +612,16 @@ class Table(Artist):
         **kwargs
             `.Artist` properties.
         """
-        self._native = _table.new(ax._native, _loc_name(loc), _extents(bbox))
+        loc = _loc_name(loc)
+        # matplotlib's table takes the figure of its Axes first.
+        ax.get_figure(root=False)
+        self._native = _table.new(ax._native, loc, _extents(bbox))
         super().__init__()
         self._axes = ax
         self._edges = None
         self._cells = {}
+        self._kept_cells = {}
+        self._keep_bbox(bbox)
         self._internal_update(kwargs)
 
     @classmethod
@@ -548,6 +629,7 @@ class Table(Artist):
         table = super()._from_native(native, figure)
         table._edges = None
         table._cells = {}
+        table._kept_cells = {}
         return table
 
     def add_cell(self, row, col, *args, **kwargs):
@@ -585,6 +667,17 @@ class Table(Artist):
             raise KeyError('Only tuples length 2 are accepted as '
                            'coordinates') from err
         cell.set_figure(self.get_figure(root=False))
+        if not (_integer(row) and _integer(col)):
+            # matplotlib keys its cells by any position, and fails when it
+            # places them by positions that do not compare. pltrs (Rust)
+            # places cells at integer positions: this one stays with the
+            # table alone (drawn nowhere), which fails as matplotlib's.
+            cell.set_transform(self.get_transform())
+            cell.set_clip_on(False)
+            self._cells[row, col] = self._kept_cells[row, col] = cell
+            _unusable.keep(self, "cells", self._kept_cells, self._align_cells)
+            self.stale = True
+            return
         _table.put_cell(self._native, int(row), int(col), cell._ref())
         cell._table = self
         cell._key = (row, col)
@@ -604,6 +697,7 @@ class Table(Artist):
         if not self.get_visible():
             return
         self._place_cells()  # Drawing places the cells first.
+        _unusable.check(self)
         renderer.open_group('table', gid=self.get_gid())
         for key in sorted(_table.cell_keys(self._native)):
             self[key].draw(renderer)
@@ -655,6 +749,10 @@ class Table(Artist):
 
     def contains(self, mouseevent):
         # docstring inherited
+        if self._kept_cells and not self._different_canvas(mouseevent):
+            # matplotlib measures the cells at rows and columns from 0 on,
+            # comparing every position with 0.
+            [key for key in self.get_celld() if key[0] >= 0 and key[1] >= 0]
         return super().contains(mouseevent)
 
     def auto_set_column_width(self, col):
@@ -685,7 +783,9 @@ class Table(Artist):
 
     def scale(self, xscale, yscale):
         """Scale column widths by *xscale* and row heights by *yscale*."""
-        _table.scale(self._native, float(xscale), float(yscale))
+        for c in self.get_celld().values():
+            c.set_width(c.get_width() * xscale)
+            c.set_height(c.get_height() * yscale)
 
     def set_fontsize(self, size):
         """
@@ -726,7 +826,54 @@ class Table(Artist):
             cell = table[row, col]
 
         """
-        return {key: self[key] for key in _table.cell_keys(self._native)}
+        cells = {key: self[key] for key in _table.cell_keys(self._native)}
+        return {**cells, **self._kept_cells}
+
+
+def _labels(labels, colours, align, count):
+    """The *count* labels of a table's columns or rows, their colours and
+    alignment, as matplotlib's `table` fills them in (empty labels for
+    colours alone, white for labels alone), or None for none."""
+    if labels is None and colours is None:
+        return None
+    return ([''] * count if labels is None else labels,
+            'w' * count if colours is None else colours, align)
+
+
+def _check_table_cells(ax, loc, widths, cols, edges, body, col_labels, row_labels):
+    """
+    Fail as matplotlib's `table` fails making the table (`Table`) on the
+    Axes *ax* at *loc*, then adding its cells one by one (each a `Cell`,
+    *widths* wide, else evenly, with the visible *edges*): the first row
+    of the body, the column labels, the row labels. *body* holds the
+    colours of the body's first row (None for white) and its alignment,
+    *col_labels* and *row_labels* the labels, colours and alignment of
+    the labels, or None for none (their texts and colours are indexed by
+    column and row, as matplotlib's are).
+    """
+    _loc_name(loc)
+    ax.get_figure(root=False)
+    widths = [1.0 / cols] * cols if widths is None else widths
+
+    def check(colour, width, align):
+        mcolors.to_rgba(colour)
+        0 + width  # noqa: B018  (the corner plus the width)
+        _edges_of(edges)
+        _api.check_in_list(['center', 'right', 'left'], align=align)
+
+    colours, align = body
+    for col in range(cols):
+        check('w' if colours is None else colours[col], widths[col], align)
+    if col_labels is not None:
+        labels, colours, align = col_labels
+        for col in range(cols):
+            labels[col]  # noqa: B018
+            check(colours[col], widths[col], align)
+    if row_labels is not None:
+        labels, colours, align = row_labels
+        for row in range(len(labels)):
+            labels[row]  # noqa: B018
+            check(colours[row], 1e-15, align)
 
 
 @_docstring.interpd
@@ -868,17 +1015,26 @@ def table(ax,
     def colours(values):
         return None if values is None else [mcolors.to_rgba(c) for c in values]
 
+    _check_table_cells(
+        ax, loc, colWidths, cols, edges,
+        (None if cellColours is None else cellColours[0], cellLoc),
+        _labels(colLabels, colColours, colLoc, cols),
+        _labels(rowLabels, rowColours, rowLoc, rows))
     fontsize = kwargs.pop("fontsize", None)
     native = _table.axes_table(
         ax._native,
         ([texts(row) for row in cellText],
          None if cellColours is None else [colours(row) for row in cellColours],
          cellLoc, None if colWidths is None else [float(w) for w in colWidths]),
-        (texts(rowLabels), colours(rowColours), rowLoc),
-        (texts(colLabels), colours(colColours), colLoc),
-        (_loc_name(loc), _extents(bbox), edges,
+        # (The alignment of labels there are none of is never checked.)
+        (texts(rowLabels), colours(rowColours),
+         rowLoc if rowLabels is not None else 'left'),
+        (texts(colLabels), colours(colColours),
+         colLoc if colLabels is not None else 'center'),
+        (_loc_name(loc), _extents(bbox), _edges_of(edges),
          None if fontsize is None else float(fontsize)))
     table = _handles.wrap(native, Table, ax.figure)
+    table._keep_bbox(bbox)
     # matplotlib's ``table`` adds the table with ``add_table``.
     _artist_clipping.take_parent_defaults(table, ax)
     table.edges = edges

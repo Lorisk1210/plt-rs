@@ -18,7 +18,7 @@ draw passes over one of its layout engine.
 
 from numbers import Real
 
-from . import rcParams
+from . import _gridspec_kept, rcParams
 
 
 def holds_tight(params):
@@ -40,15 +40,34 @@ def holds_constrained(params):
             and _rectangle(params['rect'], exactly=False))
 
 
-def check_tight(fig, params):
+def tight_in_python(fig, params, grid_spec=None):
+    """Whether matplotlib's tight layout of *fig* (of the Axes of
+    *grid_spec* alone, if given) computes with what pltrs (Rust) cannot
+    hold or computes otherwise: its parameters (`holds_tight`), or the
+    grids of its Axes (`._gridspec_kept.in_python`)."""
+    if not holds_tight(params):
+        return True
+    from ._tight_layout import get_subplotspec_list
+    return any(spec is not None and _gridspec_kept.in_python(spec.get_gridspec(), fig)
+               for spec in get_subplotspec_list(fig.axes, grid_spec=grid_spec))
+
+
+def check_tight(fig, params, grid_spec=None):
     """
     Compute with the parameters of a tight layout engine laying *fig* out
-    as matplotlib's ``get_tight_layout_figure`` does (its subplot
-    parameters, then the rectangle they fit in), raising its errors; none
-    for a figure without Axes in a grid, which it leaves as it is.
+    (the Axes of *grid_spec* alone, if given) as matplotlib's
+    ``get_tight_layout_figure`` does (the boxes of the subplots, the pads,
+    the decorations of the Axes measured, then the rectangle the subplots
+    fit in), raising its errors; none for a figure without Axes in a grid,
+    which it leaves as it is. Return whether it lays out any Axes.
     """
-    if all(ax.get_subplotspec() is None for ax in fig.axes):
-        return
+    from ._tight_layout import get_subplotspec_list
+    specs = get_subplotspec_list(fig.axes, grid_spec=grid_spec)
+    if all(spec is None for spec in specs):
+        return False
+    for spec in dict.fromkeys(spec for spec in specs if spec is not None):
+        if _gridspec_kept.in_python(spec.get_gridspec(), fig):
+            spec.get_position(fig)
     from .font_manager import FontProperties
     font_size_inch = FontProperties(
         size=rcParams["font.size"]).get_size_in_points() / 72
@@ -58,6 +77,10 @@ def check_tight(fig, params):
             params[pad] * font_size_inch
     rect = params['rect']
     if rect is not None:
+        renderer = fig._get_renderer()
+        for ax, spec in zip(fig.axes, specs):
+            if spec is not None and ax.get_visible():
+                ax.get_tightbbox(renderer, for_layout_only=True)
         # Fitted into the rectangle with the subplot parameters found
         # (fractions of the figure).
         left, bottom, right, top = rect
@@ -67,6 +90,7 @@ def check_tight(fig, params):
         for side, fitted in ((right, 1.0), (top, 1.0)):
             if side is not None:
                 side - (1 - fitted)
+    return True
 
 
 def check_constrained(fig, params):

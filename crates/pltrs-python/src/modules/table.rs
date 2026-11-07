@@ -141,12 +141,6 @@ fn set_fontsize(table: Table, size: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// Scales column widths by `xscale` and row heights by `yscale`.
-fn scale(table: Table, xscale: f64, yscale: f64) -> PyResult<()> {
-    table.scale(xscale, yscale);
-    Ok(())
-}
-
 /// Fits the widths of `columns` to their texts when the table is drawn.
 fn auto_set_column_width(table: Table, columns: Vec<i32>) -> PyResult<()> {
     table.auto_set_column_width(&columns);
@@ -276,7 +270,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("put_cell", put_cell)?;
     module.add("auto_set_font_size", auto_set_font_size)?;
     module.add("set_fontsize", set_fontsize)?;
-    module.add("scale", scale)?;
     module.add("auto_set_column_width", auto_set_column_width)?;
     module.add("get_text", get_text)?;
     module.add("set_text", set_text)?;

@@ -35,7 +35,7 @@ Spectral functions
 """
 
 import functools
-from numbers import Number
+from numbers import Integral, Number
 
 import numpy as np
 
@@ -92,12 +92,13 @@ def detrend(x, key=None, axis=None):
     detrend_linear : Implementation of the 'linear' algorithm.
     detrend_none : Implementation of the 'none' algorithm.
     """
-    name = _detrend_name(key)
-    if name == "none":
-        return x
-    if name is not None:
-        return _detrend(x, name, axis)
-    if callable(key):
+    if key is None or key in ['constant', 'mean', 'default']:
+        return detrend(x, key=detrend_mean, axis=axis)
+    elif key == 'linear':
+        return detrend(x, key=detrend_linear, axis=axis)
+    elif key == 'none':
+        return detrend(x, key=detrend_none, axis=axis)
+    elif callable(key):
         x = np.asarray(x)
         if axis is not None and axis + 1 > x.ndim:
             raise ValueError(f'axis(={axis}) out of bounds')
@@ -109,9 +110,10 @@ def detrend(x, key=None, axis=None):
             return key(x, axis=axis)
         except TypeError:
             return np.apply_along_axis(key, axis=axis, arr=x)
-    raise ValueError(
-        f"Unknown value for key: {key!r}, must be one of: 'default', "
-        f"'constant', 'mean', 'linear', or a function")
+    else:
+        raise ValueError(
+            f"Unknown value for key: {key!r}, must be one of: 'default', "
+            f"'constant', 'mean', 'linear', or a function")
 
 
 def detrend_mean(x, axis=None):
@@ -134,7 +136,14 @@ def detrend_mean(x, axis=None):
     detrend_none : Another detrend algorithm.
     detrend : A wrapper around all the detrend algorithms.
     """
-    return _detrend(x, "mean", axis)
+    x = np.asarray(x)
+
+    if axis is not None and axis+1 > x.ndim:
+        raise ValueError('axis(=%s) out of bounds' % axis)
+
+    if _computed_natively(x, axis):
+        return _detrend(x, "mean", axis)
+    return x - x.mean(axis, keepdims=True)
 
 
 def detrend_none(x, axis=None):
@@ -174,9 +183,24 @@ def detrend_linear(y):
     detrend_none : Another detrend algorithm.
     detrend : A wrapper around all the detrend algorithms.
     """
-    if np.ndim(y) > 1:
+    y = np.asarray(y)
+
+    if y.ndim > 1:
         raise ValueError('y cannot have ndim > 1')
-    return _detrend(y, "linear", None)
+
+    # short-circuit 0-D array.
+    if not y.ndim:
+        return np.array(0., dtype=y.dtype)
+
+    if _computed_natively(y, None):
+        return _detrend(y, "linear", None)
+    x = np.arange(y.size, dtype=float)
+
+    C = np.cov(x, y, bias=1)
+    b = C[0, 1]/C[0, 0]
+
+    a = y.mean() - b*x.mean()
+    return y - (b*x + a)
 
 
 #: The detrend functions pltrs (Rust) implements, by the name it knows them by.
@@ -195,6 +219,17 @@ def _detrend_name(key):
     if callable(key):
         return _DETREND_FUNCTIONS.get(key)
     return None
+
+
+def _computed_natively(x, axis):
+    """Whether pltrs (Rust) detrends the array *x* along *axis* as numpy's
+    arithmetic does in matplotlib's: finite integers or doubles, at least
+    one, along an integer axis (or all of them). Anything else (other
+    dtypes, NaN, nothing, an axis of no integer) is computed with numpy, for
+    its result types, errors and warnings."""
+    return ((x.dtype.kind in "iu" or x.dtype == np.float64) and x.size > 0
+            and (axis is None or isinstance(axis, Integral))
+            and bool(np.isfinite(x).all()))
 
 
 def _detrend(x, name, axis):
@@ -746,4 +781,3 @@ class GaussianKDE:
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 import sys  # noqa: E402, F401
-from numbers import Integral  # noqa: E402, F401

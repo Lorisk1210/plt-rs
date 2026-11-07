@@ -529,9 +529,16 @@ class PdfFile:
         """The fonts named so far: ``(FontPath, subset)`` to `Name`."""
         return {
             (FontPath(_data_font_path(fname, 'afm' if core else 'ttf'), index),
-             subset): Name(name)
+             subset): self._name_object(name)
             for fname, index, subset, core, name
             in _backends.pdf_file_font_names(self._native)}
+
+    def _name_object(self, name):
+        """The `Name` *name* of a resource of the document (a font, an
+        alpha state): one object per resource, as matplotlib keeps them
+        (``_fontNames``, ``alphaStates``)."""
+        return self.__dict__.setdefault("_name_objects", {}).setdefault(
+            name, Name(name))
 
     @property
     def _images(self):
@@ -564,6 +571,8 @@ class PdfFile:
     def newPage(self, width, height):
         self.endStream()
         self.width, self.height = width, height
+        # The page's media box, in points.
+        72 * width, 72 * height  # noqa: B018
         _backends.pdf_file_new_page(self._native, width, height)
 
     def newTextnote(self, text, positionRect=[-100, -100, 0, 0]):
@@ -583,6 +592,12 @@ class PdfFile:
         _write_bytes(_backends.pdf_file_close(self._native), self._filename)
 
     def write(self, data):
+        try:
+            memoryview(data)
+        except TypeError:
+            # The message of matplotlib's file (or compressor) writing it.
+            raise TypeError("a bytes-like object is required, not "
+                            f"'{type(data).__name__}'") from None
         _backends.pdf_file_write(self._native, data)
 
     def output(self, *data):
@@ -638,7 +653,7 @@ class PdfFile:
             name = _backends.pdf_file_font_name(
                 self._native, path.path, path.face_index, subset)
         _log.debug('Assigning font %s (subset %d) = %r', name, subset, fname)
-        return Name(name)
+        return self._name_object(name)
 
     def dviFontName(self, dvifont):
         """
@@ -686,8 +701,10 @@ class PdfFile:
 
     def alphaState(self, alpha):
         """Return name of an ExtGState that sets alpha to the given value."""
-        stroke, fill = alpha
-        return Name(_backends.pdf_file_alpha_state(
+        # matplotlib looks the state up by *alpha*, then reads both alphas.
+        {}.get(alpha)
+        stroke, fill = alpha[0], alpha[1]
+        return self._name_object(_backends.pdf_file_alpha_state(
             self._native, (float(stroke), float(fill))))
 
     def writeExtGSTates(self):
@@ -1022,9 +1039,8 @@ class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
                              rgbFace)
 
     def encode_string(self, s, fonttype):
-        if fonttype in (1, 3):
-            return s.encode('cp1252', 'replace')
-        return s.encode('utf-16be', 'replace')
+        encoding = {1: 'cp1252', 3: 'latin-1', 42: 'utf-16be'}[fonttype]
+        return s.encode(encoding, 'replace')
 
     # The drawing methods of `._native_drawing.DocumentDrawingMixin`, which
     # pltrs (Rust) draws, as the renderer's own (matplotlib's renderers each

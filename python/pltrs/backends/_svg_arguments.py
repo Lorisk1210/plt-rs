@@ -88,7 +88,8 @@ class SvgArgumentsMixin:
         whether there are markers to draw."""
         if not len(path.vertices):
             return False
-        marker_path.vertices  # noqa: B018
+        if marker_path is not None:  # (None is an empty path to the extension)
+            marker_path.vertices  # noqa: B018
         marker_trans + Affine2D().scale(1.0, -1.0)  # noqa: B018
         self._style_arguments(gc, rgbFace)
         self._clip_arguments(gc)

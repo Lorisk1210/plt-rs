@@ -15,7 +15,7 @@ import os
 
 import numpy as np
 
-from . import _api
+from . import _api, _pybind
 from ._native import ft2font as _ft2font
 
 #: The FreeType version pltrs (Rust) ports.
@@ -330,6 +330,12 @@ class FT2Image:
                              alternative="a 2D uint8 ndarray")
         self._buffer = np.zeros((int(height), int(width)), np.uint8)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Image, '
+        'x0: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex, '
+        'y0: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex, '
+        'x1: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex, '
+        'y1: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex) -> None')
     def draw_rect_filled(self, x0, y0, x1, y1):
         """
         Draw a filled rectangle to the image.
@@ -535,12 +541,18 @@ class FT2Font:
         # None: pltrs (Rust) reads no variable fonts.
         return 0
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> None')
     def clear(self):
         """Clear all the glyphs, reset for a new call to `.set_text`."""
         _ft2font.clear(self._native)
         for font in self._fallbacks:
             font.clear()
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'ptsize: typing.SupportsFloat | typing.SupportsIndex, '
+        'dpi: typing.SupportsFloat | typing.SupportsIndex) -> None')
     def set_size(self, ptsize, dpi):
         """
         Set the size of the text.
@@ -561,6 +573,9 @@ class FT2Font:
         dx, dy = (int(v) for v in delta)
         _ft2font.set_transform(self._native, ((xx, xy), (yx, yy)), (dx, dy))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'i: typing.SupportsInt | typing.SupportsIndex) -> None')
     def set_charmap(self, i):
         """
         Make the i-th charmap current.
@@ -581,6 +596,9 @@ class FT2Font:
         """
         _ft2font.set_charmap(self._native, int(i))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'i: typing.SupportsInt | typing.SupportsIndex) -> None')
     def select_charmap(self, i):
         """
         Select a charmap by its FT_Encoding number.
@@ -601,6 +619,8 @@ class FT2Font:
         """
         _ft2font.select_charmap(self._native, int(i))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> dict')
     def get_charmap(self):
         """
         Return a mapping of character codes to glyph indices in the font.
@@ -616,6 +636,10 @@ class FT2Font:
         """
         return dict(_ft2font.get_charmap(self._native))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'codepoint: typing.SupportsInt | typing.SupportsIndex, *, '
+        '_fallback: bool = True) -> int')
     def get_char_index(self, codepoint, *, _fallback=True):
         """
         Return the glyph index corresponding to a character code point.
@@ -641,6 +665,11 @@ class FT2Font:
         """
         return _ft2font.get_char_index(self._native, int(codepoint), bool(_fallback))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'left: typing.SupportsInt | typing.SupportsIndex, '
+        'right: typing.SupportsInt | typing.SupportsIndex, '
+        'mode: Kerning | typing.SupportsInt | typing.SupportsIndex) -> int')
     def get_kerning(self, left, right, mode):
         """
         Get the kerning between two glyphs.
@@ -675,6 +704,9 @@ class FT2Font:
             raise TypeError("mode must be Kerning or int")
         return _ft2font.get_kerning(self._native, int(left), int(right), mode)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'index: typing.SupportsInt | typing.SupportsIndex) -> str')
     def get_glyph_name(self, index):
         """
         Retrieve the ASCII name of a given glyph *index* in a face.
@@ -700,6 +732,8 @@ class FT2Font:
         """
         return _ft2font.get_glyph_name(self._native, int(index))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, name: str) -> int', name=_pybind.optional_text)
     def get_name_index(self, name):
         """
         Return the glyph index of a given glyph *name*.
@@ -719,12 +753,17 @@ class FT2Font:
         .get_char_index
         .get_glyph_name
         """
-        return _ft2font.get_name_index(self._native, name)
+        # matplotlib's extension takes a C string, None for no name.
+        return _ft2font.get_name_index(self._native, "" if name is None else name)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> int')
     def get_num_glyphs(self):
         """Return the number of loaded glyphs."""
         return _ft2font.get_num_glyphs(self._native)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> dict')
     def get_sfnt(self):
         """
         Load the entire SFNT names table.
@@ -740,6 +779,8 @@ class FT2Font:
         """
         return dict(_ft2font.get_sfnt(self._native))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, name: str) -> dict | None')
     def get_sfnt_table(self, name):
         """
         Return one of the SFNT tables.
@@ -758,6 +799,8 @@ class FT2Font:
         table = _ft2font.get_sfnt_table(self._native, name)
         return None if table is None else dict(table)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> tuple')
     def get_ps_font_info(self):
         """
         Return the information in the PS Font Info structure.
@@ -785,6 +828,10 @@ class FT2Font:
         names = [self.family_name, *(font.family_name for font in self._fallbacks)]
         warn_on_missing_glyph(codepoint, ", ".join(names))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'charcode: typing.SupportsInt | typing.SupportsIndex, '
+        'flags: LoadFlags | typing.SupportsInt | typing.SupportsIndex = <LoadFlags.FORCE_AUTOHINT: 32>) -> {module}.Glyph')
     def load_char(self, charcode, flags=LoadFlags.FORCE_AUTOHINT):
         """
         Load character in current fontfile and set glyph.
@@ -821,6 +868,10 @@ class FT2Font:
         metrics, index, _face = loaded
         return Glyph._loaded(metrics, index)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, '
+        'glyph_index: typing.SupportsInt | typing.SupportsIndex, '
+        'flags: LoadFlags | typing.SupportsInt | typing.SupportsIndex = <LoadFlags.FORCE_AUTOHINT: 32>) -> {module}.Glyph')
     def load_glyph(self, glyph_index, flags=LoadFlags.FORCE_AUTOHINT):
         """
         Load glyph index in current fontfile and set glyph.
@@ -851,6 +902,14 @@ class FT2Font:
             self._native, int(glyph_index), _flags_value(flags))
         return Glyph._loaded(metrics, index)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, string: str, '
+        'angle: typing.SupportsFloat | typing.SupportsIndex = 0.0, '
+        'flags: LoadFlags | typing.SupportsInt | typing.SupportsIndex = <LoadFlags.FORCE_AUTOHINT: 32>, '
+        '*, features: collections.abc.Sequence[str] | None = None, '
+        'language: collections.abc.Sequence[tuple[str, '
+        'typing.SupportsInt | typing.SupportsIndex, '
+        'typing.SupportsInt | typing.SupportsIndex]] | None | str = None) -> numpy.typing.NDArray[numpy.float64]')
     def set_text(self, string, angle=0.0, flags=LoadFlags.FORCE_AUTOHINT, *,
                  features=None, language=None):
         """
@@ -895,9 +954,15 @@ class FT2Font:
                                 shaping)
         return np.array(xys, dtype=float).reshape(-1, 2)
 
-    def _layout(self, text, flags, features=None, language=None):
+    @_pybind.binds(
+        '(self: {module}.FT2Font, string: str, flags: LoadFlags, *, '
+        'features: collections.abc.Sequence[str] | None = None, '
+        'language: collections.abc.Sequence[tuple[str, '
+        'typing.SupportsInt | typing.SupportsIndex, '
+        'typing.SupportsInt | typing.SupportsIndex]] | None | str = None) -> list[{module}.LayoutItem]')
+    def _layout(self, string, flags, *, features=None, language=None):
         """
-        Lay out *text* with the font and its fallbacks.
+        Lay out *string* with the font and its fallbacks.
 
         Returns
         -------
@@ -909,13 +974,15 @@ class FT2Font:
             font.clear()
         items = []
         for (face, start, end), glyph, (x, y), kern in _ft2font.layout(
-                self._native, text, _flags_value(flags), shaping):
+                self._native, string, _flags_value(flags), shaping):
             # Laying out loads each glyph into the font it comes from.
             fonts[face].load_glyph(glyph, flags)
-            items.append(LayoutItem._laid_out(fonts[face], text[start:end], glyph,
+            items.append(LayoutItem._laid_out(fonts[face], string[start:end], glyph,
                                               x, y, kern))
         return items
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> tuple[int, int]')
     def get_width_height(self):
         """
         Get the dimensions of the current string set by `.set_text`.
@@ -935,6 +1002,8 @@ class FT2Font:
         """
         return _ft2font.get_width_height(self._native)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> int')
     def get_descent(self):
         """
         Get the descent of the current string set by `.set_text`.
@@ -954,6 +1023,8 @@ class FT2Font:
         """
         return _ft2font.get_descent(self._native)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> tuple[int, int]')
     def get_bitmap_offset(self):
         """
         Get the (x, y) offset for the bitmap if ink hangs left or below (0, 0).
@@ -973,6 +1044,8 @@ class FT2Font:
         """
         return _ft2font.get_bitmap_offset(self._native)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, *, antialiased: bool = True) -> None')
     def draw_glyphs_to_bitmap(self, *, antialiased=True):
         """
         Draw the glyphs that were loaded by `.set_text` to the bitmap.
@@ -990,6 +1063,8 @@ class FT2Font:
         """
         _ft2font.draw_glyphs_to_bitmap(self._native, bool(antialiased))
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> numpy.typing.NDArray[numpy.uint8]')
     def get_image(self):
         """
         Return the underlying image buffer for this font object.
@@ -1004,7 +1079,12 @@ class FT2Font:
         """
         return self._image()
 
-    def draw_glyph_to_bitmap(self, image, x, y, glyph, antialiased=True):
+    @_pybind.binds(
+        '(self: {module}.FT2Font, image: collections.abc.Buffer, '
+        'x: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex, '
+        'y: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex, '
+        'glyph: {module}.Glyph, *, antialiased: bool = True) -> None')
+    def draw_glyph_to_bitmap(self, image, x, y, glyph, *, antialiased=True):
         """
         Draw a single glyph to the bitmap at pixel locations x, y.
 
@@ -1043,6 +1123,8 @@ class FT2Font:
             self._native, int(index), _flags_value(flags), mono)
         return _PositionedBitmap(left, top, buffer)
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font) -> tuple')
     def get_path(self):
         """
         Get the path data from the currently loaded glyph.

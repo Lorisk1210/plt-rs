@@ -302,22 +302,20 @@ fn set_rectangle(
     Ok(())
 }
 
+/// matplotlib's message for a rotation point that is none.
+const ROTATION_POINT_ERROR: &str =
+    "`rotation_point` must be one of {'xy', 'center', (number, number)}.";
+
 /// A rectangle's rotation point: `"xy"`, `"center"` or a point.
 fn rotation(rotation_point: &Bound<'_>) -> PyResult<RotationPoint> {
     Ok(match rotation_point.extract::<String>() {
         Ok(name) if name == "xy" => RotationPoint::Xy,
         Ok(name) if name == "center" => RotationPoint::Center,
-        Ok(_) => {
-            return Err(PyErr::value_error(
-                "rotation_point must be one of {'xy', 'center', (number, number)}",
-            ));
-        }
+        Ok(_) => return Err(PyErr::value_error(ROTATION_POINT_ERROR)),
         Err(_) => {
-            let (px, py): (f64, f64) = rotation_point.extract().map_err(|_| {
-                PyErr::value_error(
-                    "rotation_point must be one of {'xy', 'center', (number, number)}",
-                )
-            })?;
+            let (px, py): (f64, f64) = rotation_point
+                .extract()
+                .map_err(|_| PyErr::value_error(ROTATION_POINT_ERROR))?;
             RotationPoint::At(Point::new(px, py))
         }
     })

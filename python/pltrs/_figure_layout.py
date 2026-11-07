@@ -8,8 +8,9 @@ classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 
 import numpy as np
 
-from . import _api, _docstring, _handles, rcParams
+from . import _api, _docstring, _handles, _layout_checks, rcParams
 from ._native import figure as _figure, figure_layout as _figure_layout
+from ._native import rcsetup as _rcsetup
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .text import Text, _layout_renderer, _measured_by, _measuring_with
@@ -26,7 +27,10 @@ _SUPER_TEXTS = {
 
 def _axes_natives(axs):
     """The native handles of *axs*, or None for all the figure's axes."""
-    return None if axs is None else [ax._native for ax in axs]
+    if axs is None:
+        return None
+    # matplotlib aligns those of *axs* that are subplots.
+    return [ax._native for ax in np.ravel(axs) if ax.get_subplotspec() is not None]
 
 
 class FigureBaseLayout:
@@ -521,10 +525,26 @@ class FigureLayout:
         """
         from .layout_engine import PlaceHolderLayoutEngine, TightLayoutEngine
         previous_engine = self.get_layout_engine()
+        params = dict(pad=pad, h_pad=h_pad, w_pad=w_pad, rect=rect)
+        # pltrs' modern looks keep constrained layout (see below).
+        kept = (_rcsetup.get(None, "pltrs.tight_layout.keep_constrained")
+                and isinstance(previous_engine, ConstrainedLayoutEngine))
+        if not kept and _layout_checks.tight_in_python(self, params):
+            try:
+                # What matplotlib's tight layout computes with first.
+                laid_out = _layout_checks.check_tight(self, params)
+            except Exception:
+                # matplotlib's figure is left without an engine all the
+                # same, as after a pass.
+                self.set_layout_engine(PlaceHolderLayoutEngine(True, True))
+                raise
+            if not laid_out:
+                # No Axes to lay out, which nothing computes with.
+                pad, h_pad, w_pad, rect = 1.08, None, None, None
         try:
             with _measuring_with(_layout_renderer(self)):
                 replaced, not_applied = _figure_layout.tight_layout(
-                    self._native, float(pad), h_pad, w_pad,
+                    self._native, pad, h_pad, w_pad,
                     None if rect is None else tuple(rect))
         except RuntimeError:
             # The colorbars refused tight layout; the engine is removed

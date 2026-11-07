@@ -1762,9 +1762,10 @@ None}, default: None
         hspace = info['hspace']
 
         if relative and (w_pad is not None or h_pad is not None):
-            width, height = self.get_size_inches()
-            w_pad = w_pad / width
-            h_pad = h_pad / height
+            renderer = self._get_renderer()
+            dpi = renderer.dpi
+            w_pad = w_pad * dpi / renderer.width
+            h_pad = h_pad * dpi / renderer.height
 
         return w_pad, h_pad, wspace, hspace
 
@@ -1863,13 +1864,18 @@ None}, default: None
         """
         if h is None:
             w, h = w
+        if w is None or h is None:
+            raise ValueError(
+                "Figure.set_size_inches does not accept None; provide both "
+                "width and height explicitly")
         size = np.array([w, h])
         if not np.isfinite(size).all() or (size < 0).any():
             raise ValueError(f'figure size must be positive finite not {size}')
         _figure.set_size_inches(self._native, float(w), float(h))
-        manager = getattr(self.canvas, "manager", None)
-        if forward and manager is not None:
-            manager.resize(*(size * self.dpi).astype(int))
+        if forward:
+            manager = self.canvas.manager
+            if manager is not None:
+                manager.resize(*(size * self.dpi).astype(int))
 
     def _get_dpi(self):
         # As given, as matplotlib keeps it.
@@ -1878,6 +1884,12 @@ None}, default: None
     def get_dpi(self):
         """Return the resolution in dots per inch as a float."""
         return self.dpi
+
+    def _dots_per_inch(self):
+        """The resolution the figure's ``dpi_scale_trans`` scales by, as
+        pltrs (Rust) holds it: 1 for a resolution matplotlib keeps without
+        scaling by it (see `_set_dpi`)."""
+        return _figure.get_dpi(self._native)
 
     def set_dpi(self, val):
         """
@@ -1894,10 +1906,22 @@ None}, default: None
         """Set the resolution, passing *forward* on to `set_size_inches`:
         matplotlib sets the size again, resizing the manager's window
         unless *forward* is false (a canvas's new device pixel ratio)."""
-        if dpi != self.dpi:
-            _figure.set_dpi(self._native, float(dpi))
-            _values.remember(self, "dpi", dpi)
-            self.set_size_inches(*self.get_size_inches(), forward=forward)
+        if dpi == self.dpi:
+            return
+        try:
+            # matplotlib scales its ``dpi_scale_trans`` by the resolution,
+            # which fails on what is no number; it keeps the resolution, its
+            # transform cleared to the identity, one dot per inch.
+            scale = np.eye(3)
+            scale[0, 0] *= dpi
+            number = float(dpi)
+        except (TypeError, ValueError):
+            _figure.set_dpi(self._native, 1.0)
+            _values.keep(self, "dpi", dpi)
+            raise
+        _figure.set_dpi(self._native, number)
+        _values.remember(self, "dpi", dpi)
+        self.set_size_inches(*self.get_size_inches(), forward=forward)
 
     dpi = property(_get_dpi, set_dpi, doc="The resolution in dots per inch.")
 
@@ -2259,8 +2283,10 @@ None}, default: None
         if transparent:
             kwargs.setdefault('facecolor', 'none')
             kwargs.setdefault('edgecolor', 'none')
-        with cbook._setattr_cm(self.canvas, _transparent=transparent):
-            self.canvas.print_figure(fname, **kwargs)
+        canvas = self.canvas
+        print_figure = canvas.print_figure  # Fails first on no canvas, as there.
+        with cbook._setattr_cm(canvas, _transparent=transparent):
+            print_figure(fname, **kwargs)
 
     def __reduce__(self):
         # Made around the native state of the pickle (see `._pickling`),

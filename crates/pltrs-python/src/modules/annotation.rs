@@ -261,6 +261,13 @@ fn set_xy(text: Text, x: f64, y: f64) -> PyResult<()> {
     Ok(())
 }
 
+/// Checks that `coords` name coordinate systems pltrs (Rust) knows,
+/// raising matplotlib's `ValueError` for a name it does not know.
+fn check_coords(coords: PyCoords) -> PyResult<()> {
+    let PyCoords(_) = coords;
+    Ok(())
+}
+
 /// Sets the coordinates of the annotated point (`xycoords`).
 fn set_xycoords(text: Text, coords: PyCoords) -> PyResult<()> {
     annotation(&text)?.set_xycoords(coords.0)?;
@@ -333,6 +340,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
     module.add("get_xy", get_xy)?;
     module.add("set_xy", set_xy)?;
+    module.add("check_coords", check_coords)?;
     module.add("set_xycoords", set_xycoords)?;
     module.add("set_textcoords", set_textcoords)?;
     module.add("get_annotation_clip", get_annotation_clip)?;

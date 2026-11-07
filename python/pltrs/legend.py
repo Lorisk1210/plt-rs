@@ -508,6 +508,8 @@ class Legend(Artist):
                               if scatterpoints is None else scatterpoints)
         # The paddings legend handlers read, as fractions of the font size.
         self.borderpad = _val_or_rc(borderpad, 'legend.borderpad')
+        if self.numpoints <= 0:
+            raise ValueError("numpoints must be > 0; it was %d" % numpoints)
         if scatteryoffsets is None:
             self._scatteryoffsets = np.array([3. / 8., 4. / 8., 2.5 / 8.])
         else:

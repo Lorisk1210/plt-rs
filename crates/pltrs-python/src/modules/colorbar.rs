@@ -55,6 +55,8 @@ impl From<ColorbarError> for PyErr {
                     ticklocation.name()
                 ))
             }
+            // The axes made for the colorbar, refused as the figure's are.
+            ColorbarError::Rect(rect) => rect.into(),
             other => PyErr::value_error(other.to_string()),
         }
     }

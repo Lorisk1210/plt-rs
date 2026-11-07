@@ -89,6 +89,23 @@ def given(artist, name, native, default=NONE_GIVEN, same=None):
     return value
 
 
+def given_flag(artist, name, native):
+    """*artist*'s flag *name* (``visible``, ``clip_on``, ...) as the
+    program gave it (`remember`), matplotlib keeping the object (``1``,
+    ``'False'``, None), while pltrs (Rust) still holds its truth value
+    *native*; else *native*. ``snap`` has a third state, None (auto),
+    which only None stands for."""
+    return given(artist, name, native,
+                 same=_same_snap if name == "snap" else _same_truth)
+
+
+def given_text(artist, name, native):
+    """*artist*'s text property *name* (``gid``, ``url``) as the program
+    gave it (`remember`), matplotlib keeping the object (an int), while
+    pltrs (Rust) still holds its `str` *native*; else *native*."""
+    return given(artist, name, native, same=_same_text)
+
+
 def same_cycled(value, native):
     """Whether *native* is *value*, an array cycled over the items of
     *native* (one width given for every level, say), its masked or NaN
@@ -129,6 +146,29 @@ def cycle_color(axes, native):
         if same_color(color, native):
             return color
     return NONE_GIVEN
+
+
+def _same_truth(value, native):
+    """Whether *value* has the truth value pltrs (Rust) holds as
+    *native*."""
+    try:
+        return bool(value) == bool(native)
+    except ValueError:  # an array of several items has no truth value
+        return False
+
+
+def _same_snap(value, native):
+    """Whether *value* is the snapping pltrs (Rust) holds as *native*:
+    None (auto) only for None, else a truth value."""
+    if value is None or native is None:
+        return value is native
+    return _same_truth(value, native)
+
+
+def _same_text(value, native):
+    """Whether *value* is the text pltrs (Rust) holds as *native* (None
+    for none)."""
+    return (None if value is None else str(value)) == native
 
 
 def _same(value, native):

@@ -65,6 +65,7 @@ class RendererAgg(NativeDrawingMixin, RendererBase):
         self.dpi = dpi
         self.width = width
         self.height = height
+        _backend_agg.check_renderer_arguments(width, height, dpi)
         self._figure = None
         # The pixels of a renderer behind no figure's canvas, made when it
         # first draws.

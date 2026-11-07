@@ -38,6 +38,7 @@ from ..text import _measuring_with
 from ..transforms import BboxBase
 from ._backend_pdf_ps import RendererPDFPSBase
 from ._native_drawing import DocumentDrawingMixin, native_gc
+from ._pdf_arguments import PdfArgumentsMixin
 from .backend_mixed import MixedModeRenderer
 
 _log = logging.getLogger(__name__)
@@ -953,7 +954,7 @@ class PdfPages:
         self._ensure_file().newTextnote(text, positionRect)
 
 
-class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
+class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     # pltrs (Rust) writes the documents itself: the renderers pltrs hands
     # Python are the one the figure is laid out with for its document (the
     # renderer text measurement receives while a figure under the PDF canvas
@@ -996,6 +997,7 @@ class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
         _backends.pdf_file_draw(self._file_native(), drawing)
 
     def check_gc(self, gc, fillcolor=None):
+        self._prepare_gc(gc, fillcolor)
         fill = None if fillcolor is None else tuple(map(float, to_rgba(fillcolor)))
         _backends.pdf_file_check_gc(self._file_native(), native_gc(gc), fill)
 
@@ -1009,11 +1011,13 @@ class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
     def draw_markers(self, gc, marker_path, marker_trans, path, trans,
                      rgbFace=None):
         # docstring inherited
-        if len(marker_path) * len(path) >= len(marker_path) + len(path) + 5:
-            # matplotlib places many markers as a template, asking the
-            # graphics context, which must be a PDF one, how to paint it.
-            gc.fill(rgbFace)
-            gc.stroke()
+        # matplotlib places many markers as a template, asking the graphics
+        # context, which must be a PDF one, how to paint it; else it draws
+        # each marker as a path.
+        if not self._markers_reused(gc, marker_path, path, rgbFace):
+            RendererBase.draw_markers(self, gc, marker_path, marker_trans,
+                                      path, trans, rgbFace)
+            return
         super().draw_markers(gc, marker_path, marker_trans, path, trans,
                              rgbFace)
 
@@ -1028,37 +1032,69 @@ class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
+        self._path_arguments(gc, path, transform, rgbFace)
         super().draw_path(gc, path, transform, rgbFace)
 
     def draw_path_collection(self, gc, master_transform, paths, all_transforms,
                              offsets, offset_trans, facecolors, edgecolors,
                              linewidths, linestyles, antialiaseds, urls,
                              offset_position, *, hatchcolors=None):
-        # docstring inherited
-        super().draw_path_collection(
-            gc, master_transform, paths, all_transforms, offsets, offset_trans,
-            facecolors, edgecolors, linewidths, linestyles, antialiaseds, urls,
-            offset_position, hatchcolors=hatchcolors)
+        # We can only reuse the objects if the presence of fill and
+        # stroke (and the amount of alpha for each) is the same for
+        # all of them
+        can_do_optimization = True
+        facecolors = np.asarray(facecolors)
+        edgecolors = np.asarray(edgecolors)
+
+        if not len(facecolors):
+            can_do_optimization = not gc.get_hatch()
+        elif not np.all(facecolors[:, 3] == facecolors[0, 3]):
+            can_do_optimization = False
+
+        if (len(edgecolors) and not np.all(np.asarray(linewidths) == 0.0)
+                and not np.all(edgecolors[:, 3] == edgecolors[0, 3])):
+            can_do_optimization = False
+
+        # Is the optimization worth it? Rough calculation:
+        # cost of emitting a path in-line is len_path * uses_per_path
+        # cost of XObject is len_path + 5 for the definition,
+        #    uses_per_path for the uses
+        len_path, uses_per_path = self._collection_uses(
+            paths, all_transforms, offsets, facecolors, edgecolors)
+        should_do_optimization = \
+            len_path + uses_per_path + 5 < len_path * uses_per_path
+        reuse = can_do_optimization and should_do_optimization
+        if reuse:
+            np.max(linewidths)  # The padding of the paths' templates.
+        self._draw_collection(
+            reuse, gc, master_transform, paths, all_transforms, offsets,
+            offset_trans, facecolors, edgecolors, linewidths, linestyles,
+            antialiaseds, urls, offset_position, hatchcolors)
 
     def draw_gouraud_triangles(self, gc, points, colors, trans):
-        # docstring inherited
-        super().draw_gouraud_triangles(gc, points, colors, trans)
+        if self._gouraud_arguments(gc, points, colors, trans):
+            super().draw_gouraud_triangles(gc, points, colors, trans)
 
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
-        super().draw_image(gc, x, y, im, transform)
+        if self._image_arguments(gc, x, y, im, transform):
+            super().draw_image(gc, x, y, im, transform)
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         # The line typeset as mathtext.
+        self._mathtext_arguments(gc, x, y, s, prop, angle)
         self._draw_line(gc, x, y, s, prop, angle, True)
 
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
+        self._tex_arguments(gc, x, y, s, prop, angle)
         super().draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        super().draw_text(gc, x, y, s, prop, angle, ismath, mtext)
+        self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext)
+        # Any true *ismath* typesets mathtext, as matplotlib's does.
+        super().draw_text(gc, x, y, s, prop, angle, bool(ismath), mtext)
 
 
 class GraphicsContextPdf(GraphicsContextBase):

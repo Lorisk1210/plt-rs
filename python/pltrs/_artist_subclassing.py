@@ -39,15 +39,26 @@ class ClassZOrder:
         artist.set_zorder(level)
 
 
-def _prevent_rasterization(draw):
+def _prevent_rasterization(draw, allowing=False):
     """
     Wrap the *draw* method of an artist which cannot be rasterized: drawn
     outside any rasterized parent, it stops the rasterization an artist
-    drawn before it started.
+    drawn before it started. *allowing* tells that matplotlib wraps it
+    with `.allow_rasterization` instead (a class of this package whose
+    rasterization pltrs (Rust) applies), which takes the renderer alone
+    and fails otherwise on what is no renderer.
     """
 
     @wraps(draw)
     def draw_wrapper(artist, renderer, *args, **kwargs):
+        if allowing and args:
+            raise TypeError(f"{draw.__qualname__}() takes 2 positional arguments "
+                            f"but {2 + len(args)} were given")
+        if allowing and kwargs:
+            raise TypeError(f"{draw.__qualname__}() got an unexpected keyword "
+                            f"argument '{next(iter(kwargs))}'")
+        if not hasattr(renderer, "_raster_depth"):
+            _refuse_renderer(artist, renderer, allowing)
         if renderer._raster_depth == 0 and renderer._rasterizing:
             # Only stop when we are not in a rasterized parent
             # and something has been rasterized since last stop.
@@ -58,6 +69,30 @@ def _prevent_rasterization(draw):
 
     draw_wrapper._supports_rasterization = False
     return draw_wrapper
+
+
+def _refuse_renderer(artist, renderer, allowing):
+    """
+    Raise the `AttributeError` matplotlib's ``draw`` of *artist* raises
+    for a *renderer* that is none (None, a number) as its rasterization
+    wrapper reads it: `.allow_rasterization`'s (when *allowing*), whose
+    ``finally`` clause fails last, else this module's.
+    """
+    if allowing:
+        if artist.get_agg_filter() is not None:
+            renderer.stop_filter  # noqa: B018
+        if not artist.get_rasterized():
+            renderer._rasterizing  # noqa: B018
+    renderer._raster_depth  # noqa: B018
+
+
+def _allows_rasterization(cls):
+    """Whether matplotlib decorates the ``draw`` *cls* defines with
+    `.allow_rasterization`: *cls* is a class of this package defining it,
+    whose rasterization pltrs (Rust) applies."""
+    from ._program_classes import takes_from_program
+    return ("draw" in vars(cls) and not cls._ignores_rasterization
+            and not takes_from_program(cls, "draw"))
 
 
 def _is_alias(method):
@@ -235,7 +270,7 @@ class SubclassingMixin:
         # decorated (has a `_supports_rasterization` attribute), it won't be
         # decorated.
         if not hasattr(cls.draw, "_supports_rasterization"):
-            cls.draw = _prevent_rasterization(cls.draw)
+            cls.draw = _prevent_rasterization(cls.draw, _allows_rasterization(cls))
 
         # Inject custom set() methods into the subclass with signature and
         # docstring based on the subclasses' properties, made when first

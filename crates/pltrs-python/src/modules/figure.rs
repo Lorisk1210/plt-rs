@@ -27,8 +27,15 @@ impl From<GridSpecError> for PyErr {
 }
 
 impl From<AxesRectError> for PyErr {
+    /// `ValueError`, with the message of matplotlib's `Axes` for a negative
+    /// size (its `add_axes` checks the rest).
     fn from(err: AxesRectError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            AxesRectError::NegativeSize(_) => {
+                PyErr::value_error("Width and height specified must be non-negative")
+            }
+            AxesRectError::NonFinite(_) => PyErr::value_error(err.to_string()),
+        }
     }
 }
 

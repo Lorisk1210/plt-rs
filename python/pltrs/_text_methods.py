@@ -12,17 +12,8 @@ import numpy as np
 from . import _docstring
 from . import _handles, units as munits
 from ._native import annotation as _annotation, text as _text
-from .text import (
-    Annotation, Text, _is_offset, _native_arrowprops, _native_coords, _point,
-    _remember_position)
-
-
-def _coordinate_number(value):
-    """A coordinate of a text, converted from its units, as a number: a
-    sequence of one value (one category name, say) stands for its value."""
-    if np.ndim(value) and np.size(value) == 1:
-        return float(np.ravel(value)[0])
-    return float(value)
+from ._annotation_kept import annotate_arguments, warn_textcoords
+from .text import Annotation, Text, _is_offset, _place
 
 
 def _text_kwargs(fontdict, kwargs):
@@ -103,10 +94,9 @@ class FigureText:
         .Axes.text
         .pyplot.text
         """
-        native = _text.figure_text(self._native, float(x), float(y),
-                                   '' if s is None else str(s))
+        native = _text.figure_text(self._native, 0.0, 0.0, '' if s is None else str(s))
         text = _handles.wrap(native, Text, self._figure)
-        _remember_position(text, (x, y))
+        _place(text, (x, y))
         _init_added(text, _text_kwargs(fontdict, kwargs))
         return text
 
@@ -180,35 +170,29 @@ class AxesText:
 
             >>> text(x, y, s, bbox=dict(facecolor='red', alpha=0.5))
         """
-        native = _text.axes_text(self._native,
-                                 _coordinate_number(self.convert_xunits(x)),
-                                 _coordinate_number(self.convert_yunits(y)),
-                                 '' if s is None else str(s))
+        native = _text.axes_text(self._native, 0.0, 0.0, '' if s is None else str(s))
         text = _handles.wrap(native, Text, self._figure)
-        _remember_position(text, (x, y))
+        _place(text, (x, y))
         _init_added(text, _text_kwargs(fontdict, kwargs))
         return text
 
     @_docstring.interpd
     def annotate(self, text, xy, xytext=None, xycoords='data', textcoords=None,
                  arrowprops=None, annotation_clip=None, **kwargs):
+        x, y = xy  # matplotlib unpacks both points as it makes the annotation
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
-        position = xy if xytext is None else xytext
-        xy = _in_data_units(self, xy, xycoords)
+        warn_textcoords(xytext, textcoords, xycoords)
+        tx, ty = (x, y) if xytext is None else xytext
+        in_units = _in_data_units(self, (x, y), xycoords)
         if xytext is not None:
             xytext = _in_data_units(self, xytext, xycoords if textcoords is None else textcoords)
         native = _annotation.axes_annotate(
             self._native, '' if text is None else str(text),
-            (_point(xy),
-             None if xytext is None else _point(xytext),
-             _native_coords(xycoords, self.figure),
-             None if textcoords is None
-             else _native_coords(textcoords, self.figure, "textcoords"),
-             None if arrowprops is None else _native_arrowprops(arrowprops),
-             annotation_clip))
+            annotate_arguments(in_units, xytext, xycoords, textcoords, arrowprops,
+                               annotation_clip, self.figure))
         annotation = _handles.wrap(native, Annotation, self._figure)
-        _remember_position(annotation, position)
-        annotation._init_annotation(xycoords, textcoords, arrowprops, kwargs)
+        annotation._init_annotation((x, y), (tx, ty), xycoords, textcoords, arrowprops,
+                                    kwargs)
         return annotation
     annotate.__doc__ = Annotation.__init__.__doc__

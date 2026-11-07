@@ -23,6 +23,7 @@ from contextlib import contextmanager
 import numpy as np
 
 from .. import _python_drawing, colors as mcolors
+from ..backend_bases import RendererBase
 from .._native import backends as _drawing_pages, drawing as _drawing
 from ..font_manager import FontManager
 from ..path import Path
@@ -88,9 +89,19 @@ def gc_from_native(spec, gc):
     return gc
 
 
-def _matrix(transform):
-    """The 3×3 matrix of the affine *transform*."""
-    return np.asarray(transform.get_matrix(), dtype=float)
+def affine_matrix(transform):
+    """The 3×3 matrix of the affine *transform* as matplotlib's C++ drawing
+    code reads one (through ``__array__``; None for no transform),
+    refusing what is none as it does."""
+    if transform is None:
+        return np.eye(3)
+    try:
+        matrix = np.asarray(transform, dtype=float)
+    except (TypeError, ValueError):
+        matrix = None
+    if matrix is None or matrix.shape != (3, 3):
+        raise ValueError("Invalid affine transformation matrix")
+    return matrix
 
 
 def _face(rgbFace):
@@ -138,7 +149,7 @@ class NativeDrawingMixin:
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
         with self._target() as drawing:
-            _drawing.draw_path(drawing, native_gc(gc), path, _matrix(transform),
+            _drawing.draw_path(drawing, native_gc(gc), path, affine_matrix(transform),
                                _face(rgbFace))
 
     def draw_markers(self, gc, marker_path, marker_trans, path, trans,
@@ -146,7 +157,7 @@ class NativeDrawingMixin:
         # docstring inherited
         with self._target() as drawing:
             _drawing.draw_markers(drawing, native_gc(gc), marker_path,
-                                  _matrix(marker_trans), path, _matrix(trans),
+                                  affine_matrix(marker_trans), path, affine_matrix(trans),
                                   _face(rgbFace))
 
     def draw_path_collection(self, gc, master_transform, paths, all_transforms,
@@ -164,7 +175,7 @@ class NativeDrawingMixin:
         with self._target() as drawing:
             _drawing.draw_path_collection(
                 drawing, native_gc(gc),
-                (_matrix(master_transform), list(paths), transforms, offsets),
+                (affine_matrix(master_transform), list(paths), transforms, offsets),
                 (_rgba_array(facecolors), _rgba_array(edgecolors),
                  _rgba_array(hatchcolors)),
                 ([float(w) for w in np.atleast_1d(linewidths)], linestyles,
@@ -179,7 +190,7 @@ class NativeDrawingMixin:
             (meshHeight + 1, meshWidth + 1, 2))
         with self._target() as drawing:
             _drawing.draw_quad_mesh(
-                drawing, native_gc(gc), _matrix(master_transform), coordinates,
+                drawing, native_gc(gc), affine_matrix(master_transform), coordinates,
                 _rgba_array(facecolors), bool(antialiased),
                 _rgba_array(edgecolors))
 
@@ -191,7 +202,7 @@ class NativeDrawingMixin:
                 drawing, native_gc(gc),
                 np.asarray(triangles_array, dtype=float).reshape((-1, 3, 2)),
                 np.asarray(colors_array, dtype=float).reshape((-1, 3, 4)),
-                _matrix(transform))
+                affine_matrix(transform))
 
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
@@ -199,7 +210,7 @@ class NativeDrawingMixin:
             _drawing.draw_image(
                 drawing, native_gc(gc), (float(x), float(y)),
                 np.asarray(im, dtype=np.uint8),
-                None if transform is None else _matrix(transform))
+                None if transform is None else affine_matrix(transform))
 
     def _draw_line(self, gc, x, y, s, prop, angle, ismath):
         """Draw the line *s* typeset as *ismath* says (``draw_text``, and
@@ -294,7 +305,49 @@ class DocumentDrawingMixin(NativeDrawingMixin):
 
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
-        self._draw_line(gc, x, y, s, prop, angle, "TeX")
+        # (TeX typesets *s* as matplotlib's template writes it: as `str`.)
+        self._draw_line(gc, x, y, str(s), prop, angle, "TeX")
+
+    def _collection_uses(self, paths, all_transforms, offsets, facecolors,
+                         edgecolors):
+        """The length of the first path of a collection and how often each
+        path is drawn, which matplotlib's vector renderers weigh to decide
+        whether reusing the paths is worth it."""
+        len_path = len(paths[0].vertices) if len(paths) > 0 else 0
+        return len_path, self._iter_collection_uses_per_path(
+            paths, all_transforms, offsets, facecolors, edgecolors)
+
+    def _draw_collection(self, reuse, gc, master_transform, paths, all_transforms,
+                         offsets, offset_trans, facecolors, edgecolors,
+                         linewidths, linestyles, antialiaseds, urls,
+                         offset_position, hatchcolors):
+        """
+        Draw a path collection as matplotlib's vector renderers draw one:
+        path by path through `.RendererBase.draw_path_collection` (and so
+        `draw_path`) unless *reuse* (the renderer's estimate that reusing the
+        paths is worth it), else as one, which pltrs (Rust) draws once the
+        arguments went through matplotlib's generators, so that they fail
+        as there.
+        """
+        if hatchcolors is None:
+            hatchcolors = []
+        if not reuse:
+            return RendererBase.draw_path_collection(
+                self, gc, master_transform, paths, all_transforms,
+                offsets, offset_trans, facecolors, edgecolors,
+                linewidths, linestyles, antialiaseds, urls,
+                offset_position, hatchcolors=hatchcolors)
+        path_ids = list(self._iter_collection_raw_paths(
+            master_transform, paths, all_transforms))
+        for _ in self._iter_collection(
+                gc, path_ids, offsets, offset_trans, facecolors, edgecolors,
+                linewidths, linestyles, antialiaseds, urls, offset_position,
+                hatchcolors=hatchcolors):
+            pass
+        return NativeDrawingMixin.draw_path_collection(
+            self, gc, master_transform, paths, all_transforms, offsets,
+            offset_trans, facecolors, edgecolors, linewidths, linestyles,
+            antialiaseds, urls, offset_position, hatchcolors=hatchcolors)
 
     def _draw_now(self, drawing):
         """Draw *drawing* into the renderer's own document, writing what

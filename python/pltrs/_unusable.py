@@ -54,8 +54,17 @@ def keeps(artist):
 def check(artist, *, measuring=False):
     """Fail as matplotlib's *artist* fails to compute with the values it
     keeps (`keep`): with all of them when it draws, with those it
-    measures with when *measuring*."""
-    for value, use, measured, _ in list(artist.__dict__.get("_unusable", {}).values()):
+    measures with when *measuring*, in the order matplotlib computes with
+    them (the names an artist's ``_kept_order()`` gives first, in its
+    order, then the others as they were kept)."""
+    kept = artist.__dict__.get("_unusable", {})
+    names = list(kept)
+    order = getattr(artist, "_kept_order", None)
+    if order is not None:
+        first = order()
+        names.sort(key=lambda name: first.index(name) if name in first else len(first))
+    for name in names:
+        value, use, measured, _ = kept[name]
         if measured or not measuring:
             use(value)
 

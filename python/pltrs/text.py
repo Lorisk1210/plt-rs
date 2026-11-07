@@ -22,6 +22,7 @@ from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
 from ._annotation_coords import CoordsMixin, PositionedMixin
+from ._annotation_kept import KeptMixin, annotate_arguments, warn_textcoords
 from ._native import annotation as _annotation, artist as _artist, text as _text
 from .artist import Artist
 from .font_manager import FontManager, FontProperties, fontManager  # noqa: F401
@@ -288,25 +289,18 @@ class Text(Artist):
         %(Text:kwdoc)s
         """
         kwargs = {**cbook._given_keywords(Text.__init__, locals()), **kwargs}
-        in_units = not (units._is_natively_supported(x) and units._is_natively_supported(y))
-        self._native = _text.new(0.0 if in_units else float(x),
-                                 0.0 if in_units else float(y),
-                                 "" if text is None else str(text))
+        self._native = _text.new(0.0, 0.0, "" if text is None else str(text))
         super().__init__()
-        if in_units:
-            # Converted once the text joins an axes (`_convert_units_for`),
-            # as matplotlib converts its position when drawn.
-            self._unit_position = (x, y)
-        else:
-            _remember_position(self, (x, y))
+        _place(self, (x, y))
         self._init_properties(kwargs)
 
     def _convert_units_for(self, axes):
-        position = self.__dict__.pop("_unit_position", None)
-        if position is not None:
-            x, y = position
-            self.set_position((float(axes.convert_xunits(x)),
-                               float(axes.convert_yunits(y))))
+        # A coordinate in units converts once the text joins *axes*, as
+        # matplotlib converts its position when drawn.
+        for index, name in enumerate(_POSITION):
+            given = _unusable.kept(self, name, _NOT_KEPT)
+            if given is not _NOT_KEPT:
+                self._set_text_coordinate(index, given, axes)
 
     def _char_index_at(self, x):
         """
@@ -679,7 +673,13 @@ class Text(Artist):
 
     def get_unitless_position(self):
         """Return the (x, y) unitless position of the text."""
-        return _text.get_position(self._native)
+        # A coordinate pltrs (Rust) could not hold converts (and fails) as
+        # matplotlib converts it here (see `_set_text_coordinate`).
+        return tuple(
+            value if (given := _unusable.kept(self, name, _NOT_KEPT)) is _NOT_KEPT
+            else self._unitless_coordinate(index, given)
+            for index, (name, value) in enumerate(
+                zip(_POSITION, _text.get_position(self._native))))
 
     def get_position(self):
         """Return the (x, y) position of the text."""
@@ -754,6 +754,10 @@ class Text(Artist):
                 return None
             renderer = _layout_renderer(figure)
         self._measured_with = (renderer, draws)
+        # matplotlib looks the renderer's metrics up in a weak cache
+        # (``_get_text_metrics_function``), which refuses what cannot be
+        # referred to weakly.
+        weakref.ref(renderer)
         return renderer
 
     def _text_extent(self):
@@ -788,7 +792,10 @@ class Text(Artist):
 
     def draw(self, renderer):
         # docstring inherited
-        super().draw(renderer)
+        # matplotlib draws no empty text, which it returns from before it
+        # converts the position.
+        if self.get_text() != '':
+            super().draw(renderer)
 
     def set_color(self, color):
         """
@@ -1017,8 +1024,7 @@ class Text(Artist):
         ----------
         x : float
         """
-        _text.set_position(self._native, float(x), self.get_unitless_position()[1])
-        _values.remember(self, "x", x)
+        self._set_text_coordinate(0, x)
 
     def set_y(self, y):
         """
@@ -1028,8 +1034,55 @@ class Text(Artist):
         ----------
         y : float
         """
-        _text.set_position(self._native, self.get_unitless_position()[0], float(y))
-        _values.remember(self, "y", y)
+        self._set_text_coordinate(1, y)
+
+    def _set_text_coordinate(self, index, value, axes=None):
+        """
+        Set the coordinate *index* of the position (0 for x, 1 for y) to
+        *value*, which reads back as given. matplotlib keeps it unchecked
+        and converts it wherever it draws or measures the text
+        (`_unitless_coordinate`, with the units of *axes*, by default the
+        text's): a value that fails to convert is kept (see `._unusable`),
+        and the text fails there as matplotlib's does.
+        """
+        try:
+            number = self._unitless_coordinate(index, value, axes)
+        except (TypeError, ValueError):
+            self._keep_unusable_coordinate(index, value)
+        else:
+            position = list(_text.get_position(self._native))
+            position[index] = number
+            _text.set_position(self._native, *position)
+            self._remember_coordinate(index, value)
+            _unusable.drop(self, _POSITION[index])
+        self.stale = True
+
+    def _keep_unusable_coordinate(self, index, value):
+        """Keep *value*, the coordinate *index* of the position, which
+        pltrs (Rust) cannot hold (see `._unusable`)."""
+        name = _POSITION[index]
+        _values.keep(self, name, value)
+        _unusable.keep(self, name, value,
+                       lambda given: self._unitless_coordinate(index, given))
+
+    def _remember_coordinate(self, index, value):
+        """Have the coordinate *index* of the position read back as
+        *value*: a number while pltrs (Rust) still holds it, a value in
+        units whatever it converts to."""
+        if units._is_natively_supported(value):
+            _values.remember(self, _POSITION[index], value)
+        else:
+            _values.keep(self, _POSITION[index], value)
+
+    def _unitless_coordinate(self, index, value, axes=None):
+        """*value*, the coordinate *index* of the position, as matplotlib
+        draws it: NaN when masked, else converted with the units of *axes*
+        (by default the text's) into a float."""
+        if np.ma.is_masked(value):
+            return np.nan
+        artist = self if axes is None else axes
+        convert = artist.convert_xunits if index == 0 else artist.convert_yunits
+        return float(convert(value))
 
     def set_rotation(self, s):
         """
@@ -1377,6 +1430,7 @@ def _native_coords(coords, figure, name="xycoords"):
     description.
     """
     if isinstance(coords, str):
+        _annotation.check_coords(coords)
         return coords
     if isinstance(coords, tuple):
         xcoords, ycoords = coords
@@ -1388,6 +1442,9 @@ def _native_coords(coords, figure, name="xycoords"):
         return ("artist", coords._native)
     if isinstance(coords, Transform):
         return ("transform", _live_transforms.to_native(coords))
+    if isinstance(coords, BboxBase):
+        from .transforms import BboxTransformTo
+        return ("transform", _live_transforms.to_native(BboxTransformTo(coords)))
     if callable(coords):
         return _text_coords.native(coords, figure)
     raise TypeError(
@@ -1410,6 +1467,9 @@ def _coordinate(value):
 #: The names `_values` keeps a text's coordinates under.
 _POSITION = ("x", "y")
 
+#: What `_unusable.kept` answers for a coordinate it does not keep.
+_NOT_KEPT = object()
+
 
 def _given_position(text, native):
     """
@@ -1431,6 +1491,14 @@ def _remember_position(text, xy):
     """Keep the coordinates of *xy* as *text*'s position reads them back
     (`_given_position`), as matplotlib keeps the objects it is given."""
     _values.remember_all(text, dict(zip(_POSITION, xy)), _POSITION)
+
+
+def _place(text, xy):
+    """Give the new *text* its position *xy*, kept as matplotlib keeps it
+    (see `Text._set_text_coordinate`)."""
+    x, y = xy
+    text._set_text_coordinate(0, x)
+    text._set_text_coordinate(1, y)
 
 
 def _point(xy):
@@ -1532,7 +1600,7 @@ class _AnnotationBase(CoordsMixin):
         return self._draggable
 
 
-class Annotation(PositionedMixin, Text, _AnnotationBase):
+class Annotation(PositionedMixin, KeptMixin, Text, _AnnotationBase):
     """
     An `.Annotation` is a `.Text` that can refer to a specific position *xy*.
     Optionally an arrow pointing from the text to *xy* can be drawn.
@@ -1726,26 +1794,26 @@ or callable, default: value of *xycoords*
         :ref:`annotations`
 
         """
+        x, y = xy  # matplotlib unpacks both points as it makes the annotation
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
+        warn_textcoords(xytext, textcoords, xycoords)
+        position = (x, y) if xytext is None else xytext
+        tx, ty = position
         self._native = _annotation.new(
             '' if text is None else str(text),
-            (_point(xy),
-             None if xytext is None else _point(xytext),
-             _native_coords(xycoords, None),
-             None if textcoords is None
-             else _native_coords(textcoords, None, "textcoords"),
-             None if arrowprops is None else _native_arrowprops(arrowprops),
-             annotation_clip))
+            annotate_arguments((x, y), xytext, xycoords, textcoords,
+                               arrowprops, annotation_clip, None))
         Artist.__init__(self)
-        _remember_position(self, xy if xytext is None else xytext)
-        self._init_annotation(xycoords, textcoords, arrowprops, kwargs)
+        self._init_annotation((x, y), (tx, ty), xycoords, textcoords, arrowprops, kwargs)
 
-    def _init_annotation(self, xycoords, textcoords, arrowprops, kwargs):
-        """Record what the annotation was made with, then apply its text
-        properties *kwargs*, as ``Annotation.__init__`` does."""
+    def _init_annotation(self, xy, position, xycoords, textcoords, arrowprops, kwargs):
+        """Record what the annotation was made with (its point *xy*, its
+        text *position*, ...), then apply its text properties *kwargs*, as
+        ``Annotation.__init__`` does."""
         self._xycoords = xycoords
         self._textcoords = xycoords if textcoords is None else textcoords
+        self._keep_given(xy, position)
         self.arrowprops = arrowprops
         self._draggable = None
         self._init_properties(kwargs)
@@ -1784,6 +1852,8 @@ or callable, default: value of *xycoords*
                                       and not self._check_xy(renderer)):
             return Bbox.unit()
         self.update_positions(renderer)
+        # matplotlib's measures the text then (``Text.get_window_extent``).
+        self._measuring_renderer(renderer, self.get_figure(root=True))
         self._measured()
         return self._native_extent(lambda: Text._text_extent(self))
 
@@ -1799,7 +1869,8 @@ or callable, default: value of *xycoords*
 
     def draw(self, renderer):
         # docstring inherited
-        super().draw(renderer)
+        # (Its arrow is drawn whatever its text, not `Text.draw`.)
+        Artist.draw(self, renderer)
 
     def _text_extent(self):
         # The text alone, without the arrow (``Text.get_window_extent``).
@@ -1822,12 +1893,11 @@ or callable, default: value of *xycoords*
     @property
     def xy(self):
         """The annotated position, in `xycoords`."""
-        return _annotation.get_xy(self._native)
+        return _values.given(self, "xy", _annotation.get_xy(self._native))
 
     @xy.setter
     def xy(self, xy):
-        x, y = xy
-        _annotation.set_xy(self._native, float(x), float(y))
+        self._hold_xy(xy)
 
     @property
     def xycoords(self):
@@ -1837,8 +1907,7 @@ or callable, default: value of *xycoords*
     def xycoords(self, xycoords):
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
-        _annotation.set_xycoords(self._native,
-                                 _native_coords(xycoords, self.figure))
+        self._hold_coords("xycoords", xycoords)
         self._xycoords = xycoords
         self._track_coords()
 
@@ -1869,8 +1938,7 @@ or callable, default: value of *xycoords*
 
         See also *xycoords* in `.Annotation`.
         """
-        _annotation.set_textcoords(self._native,
-                                   _native_coords(coords, self.figure, "textcoords"))
+        self._hold_coords("anncoords", coords)
         self._textcoords = coords
         self._track_coords()
 
@@ -1891,7 +1959,12 @@ or callable, default: value of *xycoords*
         """
         # pltrs (Rust) places them whenever the annotation is drawn or
         # measured; the annotation goes stale, as matplotlib's sets its
-        # transform anew.
+        # transform anew. What matplotlib's computes with fails as there:
+        # the text coordinates, and for the arrow the text's extent (with
+        # *renderer*) and the point.
+        _unusable.check(self, measuring=True)
+        if self.arrowprops is not None:
+            self._measuring_renderer(renderer, self.get_figure(root=True))
         self.stale = True
 
 

@@ -319,7 +319,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_visible(self):
         """Return the visibility."""
-        return _artist.get_visible(self._native)
+        return _values.given_flag(self, "visible", _artist.get_visible(self._native))
 
     def set_visible(self, b):
         """
@@ -329,8 +329,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ----------
         b : bool
         """
-        _artist.set_visible(self._native, bool(b))
-        self.pchanged()
+        if b != self.get_visible():
+            _artist.set_visible(self._native, bool(b))
+            _values.remember(self, "visible", b)
+            self.pchanged()
+            self.stale = True
 
     def get_zorder(self):
         """Return the artist's zorder."""
@@ -421,7 +424,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_clip_on(self):
         """Return whether the artist uses clipping."""
-        return _artist.get_clip_on(self._native)
+        return _values.given_flag(self, "clip_on", _artist.get_clip_on(self._native))
 
     def set_clip_on(self, b):
         """
@@ -435,10 +438,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         b : bool
         """
         _artist.set_clip_on(self._native, bool(b))
+        _values.remember(self, "clip_on", b)
 
     def get_rasterized(self):
         """Return whether the artist is to be rasterized."""
-        return _artist.get_rasterized(self._native)
+        return _values.given_flag(self, "rasterized",
+                                  _artist.get_rasterized(self._native))
 
     _rasterized = property(get_rasterized,
                            doc="Whether the artist is to be rasterized.")
@@ -462,10 +467,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if rasterized and self._rasterization_ignored():
             _api.warn_external(f"Rasterization of '{self}' will be ignored")
         _artist.set_rasterized(self._native, bool(rasterized))
+        _values.remember(self, "rasterized", rasterized)
 
     def get_animated(self):
         """Return whether the artist is animated."""
-        return _artist.get_animated(self._native)
+        return _values.given_flag(self, "animated", _artist.get_animated(self._native))
 
     def set_animated(self, b):
         """
@@ -485,6 +491,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         if self.get_animated() != b:
             _artist.set_animated(self._native, bool(b))
+            _values.remember(self, "animated", b)
             self.pchanged()
 
     def get_in_layout(self):
@@ -496,7 +503,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         `.Figure.tight_layout()`, and
         ``fig.savefig(fname, bbox_inches='tight')``.
         """
-        return _artist.get_in_layout(self._native)
+        return _values.given_flag(self, "in_layout", _artist.get_in_layout(self._native))
 
     def set_in_layout(self, in_layout):
         """
@@ -510,6 +517,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         in_layout : bool
         """
         _artist.set_in_layout(self._native, bool(in_layout))
+        _values.remember(self, "in_layout", in_layout)
 
     def get_mouseover(self):
         """
@@ -534,6 +542,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         .NavigationToolbar2
         """
         _artist.set_mouseover(self._native, bool(mouseover))
+        axes = self.axes
+        if axes:
+            # matplotlib adds the artist to its Axes' ``_mouseover_set``,
+            # which an Axes of pltrs's computes when read: an ``axes`` that
+            # is no Axes (a figure's list of them) fails as there.
+            axes._mouseover_set  # noqa: B018
 
     mouseover = property(get_mouseover, set_mouseover)
 
@@ -543,7 +557,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         See `.set_snap` for details.
         """
-        return _artist.get_snap(self._native)
+        return _values.given_flag(self, "snap", _artist.get_snap(self._native))
 
     def set_snap(self, snap):
         """
@@ -571,6 +585,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
               segments, round to the nearest pixel center.
         """
         _artist.set_snap(self._native, None if snap is None else bool(snap))
+        _values.remember(self, "snap", snap)
 
     def get_label(self):
         """Return the label used for this artist in the legend."""
@@ -605,7 +620,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_gid(self):
         """Return the group id."""
-        return _artist.get_gid(self._native)
+        return _values.given_text(self, "gid", _artist.get_gid(self._native))
 
     def set_gid(self, gid):
         """
@@ -616,10 +631,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         gid : str
         """
         _artist.set_gid(self._native, None if gid is None else str(gid))
+        _values.remember(self, "gid", gid)
 
     def get_url(self):
         """Return the url."""
-        return _artist.get_url(self._native)
+        return _values.given_text(self, "url", _artist.get_url(self._native))
 
     def set_url(self, url):
         """
@@ -630,6 +646,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         url : str
         """
         _artist.set_url(self._native, None if url is None else str(url))
+        _values.remember(self, "url", url)
 
     def get_sketch_params(self):
         """
@@ -676,9 +693,15 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         sketch = (None if scale is None
                   else (scale, length or 128.0, randomness or 16.0))
-        _artist.set_sketch_params(
-            self._native, None if sketch is None else tuple(map(float, sketch)))
-        _values.remember(self, "sketch_params", sketch)
+        try:
+            native = None if sketch is None else tuple(map(float, sketch))
+        except (TypeError, ValueError):
+            # Kept unchecked, as matplotlib keeps it until it draws.
+            _values.keep(self, "sketch_params", sketch)
+        else:
+            _artist.set_sketch_params(self._native, native)
+            _values.remember(self, "sketch_params", sketch)
+        self.stale = True
 
     def _add_to_axes(self, axes, kind, autolim=True):
         """
@@ -871,6 +894,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         # nothing, as matplotlib's does; subclasses override it.
         if not self.get_visible():
             return
+        draw_artist = getattr(renderer, "_draw_artist", None)
+        if draw_artist is None and not hasattr(renderer, "draw_path"):
+            # No renderer (None, a number) reaches here only through
+            # `Artist.draw` itself (the wrappers of the subclasses' draws
+            # refuse it), which draws nothing in matplotlib.
+            return
         _unusable.check(self)
         # What matplotlib's draw reads, computed by a class of the program's.
         push_computed = getattr(self, "_push_computed", None)
@@ -878,7 +907,6 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             push_computed()
         if _python_drawing.figure_changeable():
             _python_drawing.evaluate_given_transform(self)
-        draw_artist = getattr(renderer, "_draw_artist", None)
         if draw_artist is not None:
             draw_artist(self)
         else:

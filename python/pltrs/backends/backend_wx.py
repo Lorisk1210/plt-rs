@@ -9,6 +9,9 @@ Copyright (C) Jeremy O'Donoghue & John Hunter, 2003-4.
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is but for
 its imports of the package. Its ``wx`` backend draws through `RendererWx`, which pltrs (Rust) hands each
 artist's drawing (`.RendererBase._draw_artist`); ``wxagg`` draws with Agg.
+Whatever thread draws, ``draw_idle`` asks wx for a paint, ``set_cursor``
+sets the cursor and the Agg canvas shows what it drew from wx's main thread
+only (`_FigureCanvasWxBase._on_main_thread`).
 """
 
 import functools
@@ -543,6 +546,29 @@ class _FigureCanvasWxBase(FigureCanvasBase, wx.Panel):
         if self._set_device_pixel_ratio(self.GetDPIScaleFactor()):
             self.draw()
 
+    def _on_main_thread(self, function, *args, **kwargs):
+        """
+        Call *function* with *args* and *kwargs* on wx's main thread: at
+        once when called there, else from its event loop (``wx.CallAfter``,
+        as `FigureManagerWx.destroy` closes its frame), if the canvas still
+        exists then.
+
+        pltrs's addition: wx must only be called from its main thread. A
+        draw from a worker thread that painted the window there met the
+        main thread painting it too, both looking up wx's system colours,
+        whose reference counts broke (a corrupted heap, in matplotlib's
+        ``test_interactive_thread_safety``).
+        """
+        if wx.IsMainThread():
+            function(*args, **kwargs)
+            return
+
+        def call():
+            if self:  # Not once the window is deleted.
+                function(*args, **kwargs)
+
+        wx.CallAfter(call)
+
     def draw_idle(self):
         # docstring inherited
         _log.debug("%s - draw_idle()", type(self))
@@ -550,7 +576,7 @@ class _FigureCanvasWxBase(FigureCanvasBase, wx.Panel):
         # Triggering a paint event is all that is needed to defer drawing
         # until later. The platform will send the event when it thinks it is
         # a good time (usually as soon as there are no other events pending).
-        self.Refresh(eraseBackground=False)
+        self._on_main_thread(self.Refresh, eraseBackground=False)
 
     def flush_events(self):
         # docstring inherited
@@ -772,7 +798,7 @@ class _FigureCanvasWxBase(FigureCanvasBase, wx.Panel):
 
     def set_cursor(self, cursor):
         # docstring inherited
-        cursor = wx.Cursor(_api.getitem_checked({
+        stock = _api.getitem_checked({
             cursors.MOVE: wx.CURSOR_HAND,
             cursors.HAND: wx.CURSOR_HAND,
             cursors.POINTER: wx.CURSOR_ARROW,
@@ -780,8 +806,13 @@ class _FigureCanvasWxBase(FigureCanvasBase, wx.Panel):
             cursors.WAIT: wx.CURSOR_WAIT,
             cursors.RESIZE_HORIZONTAL: wx.CURSOR_SIZEWE,
             cursors.RESIZE_VERTICAL: wx.CURSOR_SIZENS,
-        }, cursor=cursor))
-        self.SetCursor(cursor)
+        }, cursor=cursor)
+        # A draw from another thread sets the toolbar's wait cursor.
+        self._on_main_thread(self._show_cursor, stock)
+
+    def _show_cursor(self, stock):
+        """Show wx's stock cursor *stock* (`set_cursor`'s work)."""
+        self.SetCursor(wx.Cursor(stock))
         self.Refresh()
 
     def _set_capture(self, capture=True):

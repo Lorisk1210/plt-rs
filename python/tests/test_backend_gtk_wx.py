@@ -203,6 +203,71 @@ def test_other_threads_change_a_shown_figure(backend, loop):
         "[True] [2.0, 1.0, 0.0] from the worker")
 
 
+def _draw_from_a_worker(backend):
+    """A worker thread draws, asks for a draw and blits a shown figure, as
+    matplotlib's ``test_interactive_thread_safety`` draws, a second after
+    the last draw so that the toolbar shows its wait cursor; print the wx
+    methods pltrs called in the worker (not those of ``wx.CallAfter``,
+    which is thread-safe) and whether the window shows its drawing once
+    wx's loop ran."""
+    import sys
+    import threading
+    import time
+
+    import numpy as np
+    import wx
+
+    import pltrs
+    pltrs.use(backend)
+    import pltrs.pyplot as plt
+
+    fig, ax = plt.subplots()
+    plt.pause(0.2)
+    ax.plot([1, 3, 6])
+    canvas = fig.canvas
+    calls = []
+
+    def record(frame, event, function):
+        if (event == "c_call"
+                and frame.f_globals["__name__"].startswith("pltrs")
+                and isinstance(getattr(function, "__self__", None),
+                               wx.Object)):
+            calls.append(function.__qualname__)
+
+    def draw():
+        sys.setprofile(record)
+        try:
+            canvas.draw()
+            canvas.draw_idle()
+            canvas.blit()
+        finally:
+            sys.setprofile(None)
+
+    time.sleep(1.1)
+    worker = threading.Thread(target=draw)
+    worker.start()
+    worker.join()
+    canvas.start_event_loop(0.2)
+    shown = np.frombuffer(bytes(canvas.bitmap.ConvertToImage().GetData()),
+                          np.uint8)
+    drawn = np.asarray(canvas.buffer_rgba())[..., :3].ravel()
+    print(calls, shown.size == drawn.size and (shown == drawn).all())
+    plt.close(fig)
+
+
+@pytest.mark.parametrize("backend", ["wxagg", "wxcairo"])
+def test_other_threads_never_call_wx(backend):
+    """wx is not thread-safe: a draw from a worker thread that painted the
+    window there met the main thread painting it, and broke wx's reference
+    counts (a corrupted heap, a crash in a run of matplotlib's
+    ``test_interactive_thread_safety[wxagg]`` in twenty or so). The canvas
+    leaves what it does with wx to the main thread's loop."""
+    reason = _skip_reason(backend)
+    if reason:
+        pytest.skip(reason)
+    assert _run(_draw_from_a_worker, backend).strip() == "[] True"
+
+
 def test_toolbar_images_are_shipped():
     """Every toolbar image the GUI backends load: ``<name>.svg`` (wx),
     ``<name>-symbolic.svg`` (GTK), ``<name>.png`` and ``<name>_large.png``

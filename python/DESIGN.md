@@ -1530,7 +1530,12 @@ backend: the framework already running, else pltrs' own windows
   where lines an artist sets no join for are mitred, as on a Cairo
   context, rather than rounded); otherwise their widgets show the pixels
   the `*agg` ones show (matplotlib's own Cairo variants also differ from
-  its Agg ones by their text and antialiasing).
+  its Agg ones by their text and antialiasing). wx's canvases call wx
+  from its main thread only (`_FigureCanvasWxBase._on_main_thread`): a
+  draw, blit, `draw_idle` or cursor change from another thread is shown
+  from the main thread's loop (`wx.CallAfter`). wx is not thread-safe,
+  and a worker's draw painting the window while the main thread painted
+  it corrupted wx's heap.
 * **Cairo** (`backends/backend_cairo.py`) is matplotlib's module, which
   needs pycairo or cairocffi as matplotlib's does: `RendererCairo` and
   `GraphicsContextCairo` draw onto a Cairo context of the program's (a

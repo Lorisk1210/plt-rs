@@ -197,6 +197,56 @@ pub fn date2num(dt: &ZonedDateTime) -> Result<f64, DateError> {
     Ok(get_epoch().date2num(dt.to_utc()?))
 }
 
+/// The date numbers of aware date-times (`dates.date2num` of a list): as
+/// [`date2num`] gives them one by one, the offsets of date-times all in
+/// one zone of the program's asked of it at once
+/// ([`ZoneRules::offsets_at_local`](super::ZoneRules::offsets_at_local)).
+///
+/// ```
+/// use pltrs::dates::{DateTime, TimeZone, ZonedDateTime, date2num_all};
+/// let noon = ZonedDateTime::utc(DateTime::new(1970, 1, 1, 12, 0, 0, 0)?);
+/// assert_eq!(date2num_all([&noon, &noon])?, [0.5, 0.5]);
+/// # Ok::<(), pltrs::dates::DateError>(())
+/// ```
+///
+/// # Errors
+///
+/// [`DateError::Overflow`] for a date-time whose instant is outside the
+/// years 1–9999.
+pub fn date2num_all<'a>(
+    dates: impl IntoIterator<Item = &'a ZonedDateTime>,
+) -> Result<Vec<f64>, DateError> {
+    let dates: Vec<&ZonedDateTime> = dates.into_iter().collect();
+    let epoch = get_epoch();
+    let one_zone = match dates.first().map(|d| d.tz()) {
+        Some(TimeZone::Program(zone))
+            if dates
+                .iter()
+                .all(|d| matches!(d.tz(), TimeZone::Program(other) if other == zone)) =>
+        {
+            Some(zone)
+        }
+        _ => None,
+    };
+    let locals: Vec<(DateTime, bool)> = dates.iter().map(|d| (d.local(), d.fold())).collect();
+    let offsets = one_zone
+        .map(|zone| zone.rules().offsets_at_local(&locals))
+        .filter(|offsets| offsets.len() == locals.len());
+    match offsets {
+        Some(offsets) => locals
+            .iter()
+            .zip(offsets)
+            .map(|(&(local, _), offset)| {
+                Ok(epoch.date2num(local.checked_sub(offset.as_timedelta())?))
+            })
+            .collect(),
+        None => dates
+            .iter()
+            .map(|d| Ok(epoch.date2num(d.to_utc()?)))
+            .collect(),
+    }
+}
+
 /// The date number of a numpy `datetime64` value; `NaT` (`None`) gives NaN.
 pub fn datetime64_to_num(value: Option<Datetime64>) -> f64 {
     value.map_or(f64::NAN, |v| get_epoch().datetime64_to_num(v))

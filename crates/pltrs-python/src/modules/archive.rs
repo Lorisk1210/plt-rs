@@ -9,10 +9,10 @@
 //! What an archive cannot hold, it refers to as *externals*, which cross
 //! as `(role, object)` pairs the package pickles beside the bytes: the
 //! Python objects pltrs (Rust) calls (formatters, norms and transforms of
-//! Python classes, role `None`), the callables the binding made pltrs
-//! (Rust) functions of (role: how it calls them, see [`Call`]) and the
-//! figures that handles inside a value reach (role `"figure"`, the handle
-//! of the figure's root). The binding's own types behind pltrs (Rust)'s
+//! Python classes, time zones of the program's, role `None`), the
+//! callables the binding made pltrs (Rust) functions of (role: how it
+//! calls them, see [`Call`]) and the figures that handles inside a value
+//! reach (role `"figure"`, the handle of the figure's root). The binding's own types behind pltrs (Rust)'s
 //! traits are archived by [`PythonProgram`]: a Python tick helper as the
 //! helper (its adapter holds it weakly), which the package registers again
 //! with its figure once the figure is read back (`_tick_helpers`).
@@ -27,6 +27,7 @@ use pltrs::axes_grid1::Divider;
 use pltrs::colorbar::Colorbar;
 use pltrs::colors::Norm;
 use pltrs::container::Container;
+use pltrs::dates::ZoneRules;
 use pltrs::figure::Figure;
 use pltrs::gridspec::{GridSpec, SubplotSpec};
 use pltrs::legend::LegendHandle;
@@ -45,6 +46,7 @@ use pltrs_core::archive::{
 use super::artist::PlainArtist;
 use super::axis::{PyFormatter, PyLocator};
 use super::colors::PythonNorm;
+use super::dates::PyZone;
 use super::drawing::{PythonEffect, PythonPainter};
 use super::path::{PyPath, path_arrays};
 use super::projections::PyProjection;
@@ -389,6 +391,7 @@ const POINT_MAP: &str = "python-transform";
 const PAINTER: &str = "python-painter";
 const EFFECT: &str = "python-path-effect";
 const PROJECTION: &str = "python-projection";
+const ZONE: &str = "python-time-zone";
 
 /// An exception raised while reading an archive, as an archive error.
 fn read_failure(py: Python<'_>, err: &PyErr) -> ArchiveError {
@@ -451,6 +454,8 @@ impl ProgramKinds for PythonProgram {
                 PROJECTION,
                 Python::with_gil(|py| projection.adapter().clone_ref(py)),
             )
+        } else if let Some(zone) = value.downcast_ref::<PyZone>() {
+            (ZONE, Python::with_gil(|py| zone.adapter().clone_ref(py)))
         } else {
             return Err(ArchiveError::unsupported(format!(
                 "a {} of a type of the program's",
@@ -509,6 +514,10 @@ impl ProgramKinds for PythonProgram {
                 PROJECTION => PyProjection::of(&object).map(|projection| {
                     let projection: Box<dyn Projection> = Box::new(projection);
                     Box::new(projection) as Box<dyn Any>
+                }),
+                ZONE => PyZone::of(&object).map(|zone| {
+                    let zone: Box<dyn ZoneRules> = Box::new(zone);
+                    Box::new(zone) as Box<dyn Any>
                 }),
                 _ => {
                     return Err(ArchiveError::invalid(format!(

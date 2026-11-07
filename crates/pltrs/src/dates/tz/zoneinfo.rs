@@ -8,6 +8,7 @@
 use std::path::{Component, Path};
 
 use super::posix::{self, LocalType, TzRule};
+use super::{UtcOffset, ZoneRules};
 use crate::dates::{DateError, DateTime, TimeDelta};
 
 /// The 44 bytes of a `TZif` header.
@@ -237,17 +238,6 @@ impl ZoneInfo {
         }
     }
 
-    /// The offset east of UTC, in seconds, at a wall-clock time.
-    pub(crate) fn offset_at_local(&self, local: DateTime, fold: bool) -> i64 {
-        self.at_local(local, fold).map_or(0, |t| t.offset)
-    }
-
-    /// The abbreviation at a wall-clock time.
-    pub(crate) fn name_at_local(&self, local: DateTime, fold: bool) -> &str {
-        self.at_local(local, fold)
-            .map_or("", |t| t.abbreviation.as_str())
-    }
-
     /// The local type at a UTC instant and whether its wall time is the
     /// second of a repeated one (`fromutc`).
     fn at_utc(&self, utc: DateTime) -> (Option<&LocalType>, bool) {
@@ -290,9 +280,25 @@ impl ZoneInfo {
             }
         }
     }
+}
+
+impl ZoneRules for ZoneInfo {
+    /// The offset at a wall-clock time.
+    fn offset_at_local(&self, local: DateTime, fold: bool) -> UtcOffset {
+        self.at_local(local, fold)
+            .and_then(|t| i32::try_from(t.offset).ok())
+            .and_then(|seconds| UtcOffset::from_seconds(seconds).ok())
+            .unwrap_or(UtcOffset::UTC)
+    }
+
+    /// The abbreviation at a wall-clock time.
+    fn name_at_local(&self, local: DateTime, fold: bool) -> String {
+        self.at_local(local, fold)
+            .map_or_else(String::new, |t| t.abbreviation.clone())
+    }
 
     /// The wall-clock time and fold of a UTC instant.
-    pub(crate) fn local_from_utc(&self, utc: DateTime) -> Result<(DateTime, bool), DateError> {
+    fn local_from_utc(&self, utc: DateTime) -> Result<(DateTime, bool), DateError> {
         let (local, fold) = self.at_utc(utc);
         let offset = local.map_or(0, |t| t.offset);
         let local = utc.checked_add(TimeDelta::from_micros(offset * 1_000_000))?;
@@ -458,7 +464,7 @@ mod tests {
         assert_eq!(zone.name_at_local(local(2030, 7, 1, 12, 0), false), "PDT");
         assert_eq!(
             zone.offset_at_local(local(2030, 1, 1, 12, 0), false),
-            -8 * 3600
+            UtcOffset::from_seconds(-8 * 3600).unwrap()
         );
         assert_eq!(
             zone.name_at_local(local(2000, 7, 1, 12, 0), false),
@@ -492,7 +498,10 @@ mod tests {
         data.extend([0, 0]);
         data.extend(b"CET\0");
         let zone = ZoneInfo::parse(&data, "Fixed").unwrap();
-        assert_eq!(zone.offset_at_local(local(2020, 1, 1, 0, 0), false), 3600);
+        assert_eq!(
+            zone.offset_at_local(local(2020, 1, 1, 0, 0), false),
+            UtcOffset::from_seconds(3600).unwrap()
+        );
         assert_eq!(
             zone.local_from_utc(local(2020, 1, 1, 0, 0)).unwrap(),
             (local(2020, 1, 1, 1, 0), false)

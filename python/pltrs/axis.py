@@ -187,14 +187,10 @@ def _converted_limit(axis, value):
 
 
 def _set_native_zone(axis, tz):
-    """Have pltrs (Rust) take the zone *tz* as the unit of *axis*, where it
-    has a model of it (a date axis then ticks in it)."""
+    """Have pltrs (Rust) take the zone *tz* as the unit of *axis* (a date
+    axis then ticks in it)."""
     from ._date_locators import _native_tz
-    try:
-        zone = _native_tz(tz)
-    except ValueError:
-        return
-    _axis.set_date_unit(*axis._args(), zone)
+    _axis.set_date_unit(*axis._args(), _native_tz(tz))
 
 
 def _first_value(data):

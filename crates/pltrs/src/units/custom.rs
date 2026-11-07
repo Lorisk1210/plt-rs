@@ -430,7 +430,10 @@ impl<T: Convertible> From<Vec<T>> for CustomValues {
     }
 }
 
-pltrs_core::archive_kinds!(dyn AnyUnit {});
+pltrs_core::archive_kinds!(dyn AnyUnit {
+    // The zone of a date axis (see `dates`).
+    "time-zone" => crate::dates::TimeZone,
+});
 pltrs_core::archive_kinds!(dyn AnyConverter {});
 pltrs_core::archive_kinds!(dyn AnyValues {});
 

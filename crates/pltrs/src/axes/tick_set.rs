@@ -1,7 +1,11 @@
 //! The ticks an axis computes for its view, inside it or not, and what
 //! matplotlib's tick getters read from them.
 
+use std::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use super::ticks::Sides;
+use crate::ticker::AxisInfo;
 
 /// A tick with its label text.
 #[derive(Clone, Debug, PartialEq)]
@@ -13,6 +17,19 @@ pub struct Tick {
 }
 
 pltrs_core::archive_struct!(Tick { loc, label });
+
+/// What a formatter was given by the last tick update of its axis (see
+/// [`TickSet::labelling`]): what matplotlib's formatters keep computing
+/// from after `Axis._update_ticks`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Labelling {
+    /// The number of that update (see [`TickSet::labelled`]).
+    pub serial: u64,
+    /// The locations the formatter labelled, inside the view or not.
+    pub locs: Vec<f64>,
+    /// What the tick helpers knew of the axis then.
+    pub info: AxisInfo,
+}
 
 /// The ticks an axis draws in the current view.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -44,6 +61,18 @@ pub struct TickSet {
     pub(crate) minor_index: Vec<usize>,
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
+    /// What the tick helpers knew of the axis when they computed these
+    /// ticks, its major locations included; `None` for ticks given rather
+    /// than computed.
+    pub(crate) info: Option<AxisInfo>,
+    /// Whether the computation labelled the major and the minor level.
+    pub(crate) computed: [bool; 2],
+    /// The number of the update that placed these ticks first, once one
+    /// did (see [`TickSet::labelled`]).
+    pub(crate) placed: Cell<Option<u64>>,
+    /// Whether the last update that placed them labelled every minor
+    /// location, those on major ticks included (axisartist's).
+    pub(crate) whole_minor: Cell<bool>,
 }
 
 pltrs_core::archive_struct!(TickSet {
@@ -57,12 +86,91 @@ pltrs_core::archive_struct!(TickSet {
     minor_unclipped,
     minor_index,
     offset
-});
+} skip { info, computed, placed, whole_minor });
 
 impl TickSet {
+    /// Records that the computation of these ticks labelled the levels
+    /// `computed` (major, minor) on the axis `info` describes.
+    pub(crate) fn record(&mut self, info: &AxisInfo, computed: [bool; 2]) {
+        self.info = Some(info.clone());
+        self.computed = computed;
+    }
+
+    /// Counts these ticks as placed by one of matplotlib's tick updates
+    /// (`Axis._update_ticks`, which drawing or measuring the axis and
+    /// reading its tick labels run; with `whole_minor`, axisartist's
+    /// `get_tick_iterators`, which labels every minor location): the first
+    /// time, they get a number no other ticks get.
+    pub(crate) fn place(&self, whole_minor: bool) {
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        self.whole_minor.set(whole_minor);
+        if self.placed.get().is_none() {
+            self.placed.set(Some(NEXT.fetch_add(1, Ordering::Relaxed)));
+        }
+    }
+
+    /// Takes the number of the update that placed `before` when these are
+    /// the same ticks computed again (see [`TickSet::labelled`]): pltrs
+    /// computes the ticks of an axis wherever it lays it out, matplotlib
+    /// in its tick updates, and computing them for the same view changes
+    /// nothing its helpers keep.
+    pub(crate) fn succeed(&self, before: &Self) {
+        let placed = self.placed.replace(before.placed.get());
+        if self != before {
+            self.placed.set(placed);
+        }
+    }
+
+    /// The number of the tick update that placed these ticks first when
+    /// their major (or `minor`) level was labelled, different for every
+    /// set of ticks placed: matplotlib's formatters keep what they
+    /// computed in the last update of their axis (`Axis._update_ticks`);
+    /// `None` when the level was not labelled or the ticks were not placed
+    /// (computed for another purpose: matplotlib's updates run where it
+    /// draws or measures the axis, or reads its tick labels).
+    ///
+    /// ```
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.xaxis().place_ticks()?;
+    /// let first = ax.xaxis().placed_ticks().and_then(|t| t.labelled(false));
+    /// ax.set_xlim(0.0, 5.0)?;
+    /// ax.xaxis().place_ticks()?;
+    /// let second = ax.xaxis().placed_ticks().and_then(|t| t.labelled(false));
+    /// assert!(first.is_some() && second > first);
+    /// assert_eq!(ax.xaxis().placed_ticks().and_then(|t| t.labelled(true)), None);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn labelled(&self, minor: bool) -> Option<u64> {
+        self.computed[usize::from(minor)]
+            .then(|| self.placed.get())
+            .flatten()
+    }
+
+    /// What the tick helpers knew of the axis when they computed these
+    /// ticks (its view, its major locations, ...); `None` for ticks never
+    /// computed.
+    pub fn info(&self) -> Option<&AxisInfo> {
+        self.info.as_ref()
+    }
+
+    /// What the update that placed these ticks gave the formatter of the
+    /// major (or `minor`) level; `None` when it did not label that level.
+    pub fn labelling(&self, minor: bool) -> Option<Labelling> {
+        Some(Labelling {
+            serial: self.labelled(minor)?,
+            locs: if minor && self.whole_minor.get() {
+                self.minor_locs.clone()
+            } else {
+                self.unclipped_locs(minor)
+            },
+            info: self.info.clone()?,
+        })
+    }
+
     /// Takes the ticks of the `minor` level (or the major one) from
     /// `other`: the level an update left alone.
     pub(crate) fn keep_level(&mut self, other: &Self, minor: bool) {
+        self.computed[usize::from(minor)] = other.computed[usize::from(minor)];
         if minor {
             self.minor.clone_from(&other.minor);
             self.minor_all.clone_from(&other.minor_all);

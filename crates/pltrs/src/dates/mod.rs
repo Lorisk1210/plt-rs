@@ -8,7 +8,8 @@
 //!   resolution, proleptic Gregorian [`calendar`]), [`TimeDelta`] and the
 //!   month-aware [`RelativeDelta`];
 //! * time zones: UTC, fixed offsets and IANA zones read from the system's
-//!   `TZif` files ([`TimeZone::named`], with `dateutil.tz.tzfile` semantics);
+//!   `TZif` files ([`TimeZone::named`], with `dateutil.tz.tzfile` semantics),
+//!   and zones the program defines ([`ZoneRules`]);
 //! * parsing ([`iso`]) and `strftime` formatting
 //!   ([`DateTime::strftime`]) with Python's and the C library's semantics,
 //!   and numpy's `datetime64` instants of every [`TimeUnit`];
@@ -61,7 +62,7 @@ mod tz;
 
 pub use calendar::Weekday;
 pub use convert::{
-    Epoch, MICROSECONDS_PER_DAY, date2num, datestr2num, datestr2num_with_default,
+    Epoch, MICROSECONDS_PER_DAY, date2num, date2num_all, datestr2num, datestr2num_with_default,
     datetime64_to_num, drange, get_epoch, num2date, num2timedelta, reset_epoch, set_epoch,
 };
 pub use datetime::{Date, DateTime, MAX_YEAR, MIN_YEAR, Time};
@@ -77,4 +78,7 @@ pub use relativedelta::RelativeDelta;
 pub use rrule::{Frequency, NthWeekday, RRule, RRuleSpec};
 pub use time_unit::TimeUnit;
 pub use timedelta::TimeDelta;
-pub use tz::{TimeZone, TzFile, UtcOffset, ZoneInfo, ZonedDateTime};
+pub use tz::{
+    ProgramZone, TimeZone, TzFile, UtcOffset, ZoneFinder, ZoneInfo, ZoneRules, ZonedDateTime,
+    clear_zone_finder, set_zone_finder,
+};

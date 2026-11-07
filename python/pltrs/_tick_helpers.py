@@ -23,6 +23,10 @@ the same one.
   ticks, units, polar axes) becomes the object of matplotlib's class its
   spec describes (`_from_spec`), or, without one, a view computing through
   its token.
+
+The objects of the helpers pltrs (Rust) ticks with natively follow the
+ticks of their axis (`._tick_state`): read after a draw, they hold what
+matplotlib's would.
 """
 
 import contextlib
@@ -30,7 +34,8 @@ import weakref
 
 import numpy as np
 
-from ._native import artist as _artist, axis as _axis
+from . import _tick_state
+from ._native import axis as _axis
 from ._native import register as _register
 
 
@@ -60,13 +65,12 @@ def get(axis, kind, minor):
     helper = _from_spec(spec, token, axis, kind)
     helper.set_axis(_locator_axis(axis))
     _watch(helper, axis)
-    if kind == "formatter" and spec is not None and spec["kind"] != "python":
+    native = spec is None or spec["kind"] != "python"
+    if kind == "formatter" and spec is not None and native:
         _watch_native_formatter(helper, axis)
-        if _artist.draw_count(axis.axes._native):
-            # What matplotlib's formatter keeps of the ticks drawn last.
-            helper.set_locs(axis.get_minorticklocs() if minor
-                            else axis.get_majorticklocs())
     registry[helper_id] = (token, helper, axis)
+    if native:
+        _tick_state.follow(helper, axis, helper_id)
     return helper
 
 
@@ -89,7 +93,7 @@ def adopt(axis, helper, kind, minor):
     major or *minor* ticks of *axis*, the object that one reads as."""
     installed = _axis.helper(axis.axes._native, axis.axis_name, kind, bool(minor))
     helper.set_axis(axis)
-    _keep(axis, helper, installed)
+    _keep(axis, helper, installed, True)
 
 
 def _spec_of(helper):
@@ -160,7 +164,7 @@ def _install(axis, kind, minor, helper, replacing):
     installed = install_native(axis.axes._native, axis.axis_name, bool(minor),
                                *description, replacing)
     if installed is not None:
-        _keep(axis, helper, installed)
+        _keep(axis, helper, installed, description[1])
     _ticked_by_program(axis, [description])
 
 
@@ -171,14 +175,18 @@ def _description(kind, helper):
     return (spec, True) if spec is not None else (_adapter(kind, helper), False)
 
 
-def _keep(axis, helper, installed):
+def _keep(axis, helper, installed, native):
     """Register *helper*, installed on *axis* with the identity and token
-    *installed*."""
+    *installed*, natively (else through an adapter)."""
     _watch(helper, axis)
     registry = _axis_registry(axis)
     _prune(registry)
     helper_id, token = installed
     registry[helper_id] = (token, helper, axis)
+    if native:
+        _tick_state.follow(helper, axis, helper_id)
+    else:
+        _tick_state.unfollow(helper)
 
 
 def use_axis_info(axis, info, default_limits):
@@ -200,9 +208,10 @@ def use_axis_info(axis, info, default_limits):
         axis.axes._native, axis.axis_name, descriptions,
         None if info.label is None else str(info.label), default_limits)
     _ticked_by_program(axis, [d for d in descriptions if d is not None])
-    for (helper, _), identity in zip(slots, installed):
+    for (helper, _), description, identity in zip(slots, descriptions,
+                                                  installed):
         if identity is not None:
-            _keep(axis, helper, identity)
+            _keep(axis, helper, identity, description[1])
 
 
 def _ticked_by_program(axis, descriptions):
@@ -250,9 +259,10 @@ def _is_locator(helper):
 
 def check_native(helper):
     """Install *helper* again if its spec changed since it was natively
-    installed (called when an attribute of a tick helper is set)."""
+    installed (called when an attribute of a tick helper is set), unless
+    it is catching up with the ticks of its axis (see `settled`)."""
     root = helper.__dict__.get("_native_root")
-    if root is None:
+    if root is None or _tick_state.catching_up(root):
         return
     installed = root.__dict__.get("_native_spec")
     if installed is None:
@@ -265,6 +275,20 @@ def check_native(helper):
         for name in ("_native_spec", "_native_root"):
             object.__delattr__(root, name)
         changed(root)
+
+
+def settled(helper):
+    """
+    Count what *helper* computed catching up with the ticks of its axis
+    (``ndivs`` an `.AutoMinorLocator` settled) as no change of its own: it
+    computed it on the ticks pltrs (Rust) computed with the spec it is
+    installed from, which stays its spec.
+    """
+    if "_native_spec" not in helper.__dict__:
+        return
+    spec = _spec_of(helper) if _is_locator(helper) else helper._spec()
+    if spec is not None:
+        object.__setattr__(helper, "_native_spec", spec)
 
 
 # --- Python helpers pltrs (Rust) calls ---------------------------------------
@@ -556,6 +580,8 @@ def unpickled(figure, uses):
         helper_id, token = _axis.helper(axis.axes._native, axis.axis_name,
                                         kind, minor)
         registry[helper_id] = (token, helper, axis)
+        if "_ticked_on" in helper.__dict__:
+            _tick_state.follow(helper, axis, helper_id)
     # The axes read back with helpers or scales of the program's are
     # ticked as matplotlib ticks them.
     from . import _tick_updates

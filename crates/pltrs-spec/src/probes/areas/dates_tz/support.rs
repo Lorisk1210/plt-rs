@@ -5,9 +5,11 @@ use std::sync::Arc;
 
 use pltrs::dates::iso::{Datetime64, fromisoformat};
 use pltrs::dates::{
-    Date, DateTime, TimeZone, UtcOffset, ZoneInfo, ZonedDateTime, date2num, datetime64_to_num,
+    Date, DateTime, ProgramZone, TimeZone, UtcOffset, ZoneInfo, ZonedDateTime, date2num,
+    datetime64_to_num,
 };
 
+use super::program::{FixedClass, UsClass};
 use crate::json::Json;
 use crate::probes::{Args, ProbeError, made, malformed};
 
@@ -15,7 +17,10 @@ use crate::probes::{Args, ProbeError, made, malformed};
 /// `timezone` rcParam); a string as `dateutil.tz.gettz` reads it
 /// (`"UTC"` is UTC); `{"kind": ...}` for `datetime.timezone` objects
 /// (`utc`, `offset`), `zoneinfo.ZoneInfo` (`zoneinfo`), `dateutil.tz`
-/// (`dateutil`, `tzutc`).
+/// (`dateutil`, `tzutc`), and the probes' own `tzinfo` classes
+/// (`class_fixed`, `class_us`: a new zone each time, see [`program`]).
+///
+/// [`program`]: super::program
 pub(super) fn zone(spec: &Json) -> Result<Option<TimeZone>, ProbeError> {
     if spec.is_null() {
         return Ok(None);
@@ -24,15 +29,34 @@ pub(super) fn zone(spec: &Json) -> Result<Option<TimeZone>, ProbeError> {
         return made(TimeZone::named(name)).map(Some);
     }
     let spec = Args::new(spec);
-    let seconds = || {
-        let seconds = i32::try_from(spec.i64("seconds")?).map_err(|_| malformed("seconds"))?;
+    let offset = |key: &str, unit: i64| {
+        let seconds = spec
+            .i64(key)?
+            .checked_mul(unit)
+            .and_then(|seconds| i32::try_from(seconds).ok())
+            .ok_or_else(|| malformed(key))?;
         made(UtcOffset::from_seconds(seconds))
     };
     Ok(Some(match spec.str("kind")? {
         "utc" | "tzutc" => TimeZone::Utc,
-        "offset" => TimeZone::Fixed(seconds()?),
+        "offset" => TimeZone::Fixed(offset("seconds", 1)?),
         "zoneinfo" => TimeZone::Info(Arc::new(made(ZoneInfo::find(spec.str("name")?))?)),
         "dateutil" => made(TimeZone::named(spec.str("name")?))?,
+        "class_fixed" => TimeZone::Program(ProgramZone::new(FixedClass {
+            offset: offset("minutes", 60)?,
+            name: spec.str("name")?.to_owned(),
+        })),
+        "class_us" => {
+            let hours = spec.i64("hours")?;
+            TimeZone::Program(ProgramZone::new(UsClass {
+                standard: offset("hours", 3600)?,
+                daylight: made(UtcOffset::from_seconds(
+                    i32::try_from((hours + 1) * 3600).map_err(|_| malformed("hours"))?,
+                ))?,
+                std: spec.str("std")?.to_owned(),
+                dst: spec.str("dst")?.to_owned(),
+            }))
+        }
         _ => return Err(malformed("zone kind")),
     }))
 }

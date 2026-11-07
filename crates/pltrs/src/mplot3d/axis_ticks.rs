@@ -11,7 +11,7 @@ use super::axis3d::{Axis3DState, AxisSpan};
 use super::state::{Axes3DState, prepare_one};
 use super::tick_sites::MinorTicks;
 use crate::artist::{ArtistHandle, LayoutContext};
-use crate::axes::{AxisName, TickSet};
+use crate::axes::{AxisName, Labelling, TickSet};
 use crate::dates::TimeZone;
 use crate::ticker::{AxisInfo, TickContext, TickerError, TickerSettings, drawable_ticks};
 use crate::transforms::TransformContext;
@@ -80,8 +80,7 @@ impl Axis3D {
         let dir = self.dir;
         self.axes.with(|axes| {
             let span = axes.limits.span(dir);
-            axes.axis(dir)
-                .warn_minor_overlaps(&span, MinorTicks::Updated);
+            axes.axis(dir).update_at_site(&span);
         });
         Ok(ticks)
     }
@@ -94,6 +93,23 @@ impl Axis3D {
         self.lay_out();
         let dir = self.dir;
         self.axes.with(|axes| axes.axis(dir).ticks.clone().ok())
+    }
+
+    /// The number of the tick update that placed the axis' ticks last,
+    /// when it labelled their major (or `minor`) level (see
+    /// [`TickSet::labelled`]), without computing them; `None` otherwise.
+    pub fn labelled(&self, minor: bool) -> Option<u64> {
+        let dir = self.dir;
+        self.axes
+            .with(|axes| axes.axis(dir).ticks.as_ref().ok()?.labelled(minor))
+    }
+
+    /// What that update gave the formatter of the level (see
+    /// [`TickSet::labelling`]), without computing the ticks.
+    pub fn labelling(&self, minor: bool) -> Option<Labelling> {
+        let dir = self.dir;
+        self.axes
+            .with(|axes| axes.axis(dir).ticks.as_ref().ok()?.labelling(minor))
     }
 
     /// Brings the layout of the axes up to date (a removed axes where it

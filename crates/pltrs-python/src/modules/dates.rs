@@ -4,15 +4,18 @@
 //! Instants cross as microseconds since 1970 (numpy's `datetime64[us]`)
 //! one way, and as UTC calendar parts `((year, month, day), (hour, minute,
 //! second, microsecond))` the other; Python attaches time zones. The
-//! locators and recurrence rules are in [`locators`].
+//! locators and recurrence rules are in [`locators`], the zones of the
+//! program's in [`zones`].
 
 mod locators;
+mod zones;
 
 pub(super) use locators::{Zone, date_locator};
 use pltrs::dates::{
     DateError, Datetime64, MICROSECONDS_PER_DAY, TimeZone, datetime64_to_num, get_epoch, num2date,
     num2timedelta, reset_epoch, set_epoch, wrap_in_tex,
 };
+pub(super) use zones::PyZone;
 
 use crate::binding::prelude::*;
 
@@ -142,6 +145,7 @@ fn tex(text: String) -> PyResult<String> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    pltrs::dates::set_zone_finder(zones::GettzFinder);
     locators::register(module)?;
     module.add("is_datetime_string", is_datetime_string)?;
     module.add("instants_to_num", instants_to_num)?;

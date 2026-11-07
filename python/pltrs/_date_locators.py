@@ -20,8 +20,9 @@ from dateutil.relativedelta import relativedelta
 from dateutil.rrule import MO, TU, WE, TH, FR, SA, SU  # noqa: F401  (`.dates` has them)
 import numpy as np
 
-from . import _api, ticker
-from ._native import artist as _artist, dates as _dates
+from . import _api, _tick_state, ticker
+from ._native import dates as _dates
+from ._program_zones import ProgramZone
 
 # The frequencies of recurrence rules, numbered as dateutil numbers them.
 YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY = range(7)
@@ -65,26 +66,39 @@ def _num2date(x, tz):
     return num2date(x, tz)
 
 
+#: The classes of fixed offsets from UTC, by module and name, which pltrs
+#: (Rust) models as long as they name themselves as `datetime.timezone`
+#: names an offset.
+_FIXED_OFFSETS = {('datetime', 'timezone'), ('dateutil.tz.tz', 'tzutc'),
+                  ('dateutil.tz.tz', 'tzoffset')}
+
+
 def _native_tz(tz):
     """
-    The time zone *tz* as pltrs (Rust) takes it: its IANA name (with the
-    data `zoneinfo` reads for it, as a pair), or its offset from UTC in
-    seconds.
+    The time zone *tz* as pltrs (Rust) takes it: the IANA name of a zone
+    of `zoneinfo` (with the data it reads, as a pair), of ``pytz`` or of
+    ``dateutil``'s files; the offset from UTC in seconds of a fixed one;
+    else the `._program_zones.ProgramZone` pltrs (Rust) asks it through.
     """
     if tz is datetime.timezone.utc:
         return 'UTC'
+    kind = (type(tz).__module__, type(tz).__qualname__)
     key = getattr(tz, 'key', None)
-    if isinstance(key, str):  # zoneinfo
+    if kind == ('zoneinfo', 'ZoneInfo') and isinstance(key, str):
         data = _zoneinfo_data(key)
         return key if data is None else (key, data)
-    for name in (getattr(tz, 'zone', None),       # pytz
-                 getattr(tz, '_filename', None)):  # dateutil.tz.tzfile
-        if isinstance(name, str):
-            return name
-    offset = tz.utcoffset(None)
-    if offset is None:
-        raise ValueError(f"pltrs cannot place ticks in the time zone {tz!r}")
-    return int(offset.total_seconds())
+    zone = getattr(tz, 'zone', None)
+    if kind[0].partition('.')[0] == 'pytz' and isinstance(zone, str):
+        return zone
+    filename = getattr(tz, '_filename', None)
+    if kind == ('dateutil.tz.tz', 'tzfile') and isinstance(filename, str):
+        return filename
+    if kind in _FIXED_OFFSETS:
+        offset = tz.utcoffset(None)
+        if (offset % datetime.timedelta(seconds=1) == datetime.timedelta(0)
+                and tz.tzname(None) == datetime.timezone(offset).tzname(None)):
+            return int(offset.total_seconds())
+    return ProgramZone(tz)
 
 
 @functools.cache
@@ -212,20 +226,6 @@ def _refuse_non_dates(dmin, dmax):
     *dmax* (``relativedelta(dmax, dmin)``, which also refuses a naive and
     an aware one)."""
     relativedelta(dmax, dmin)
-
-
-def _refuse_aware_stop(vmax, delta):
-    """
-    Fail as matplotlib's rule locators fail to stop a naive rule (of naive
-    dates, without a zone of its own) one span *delta* after *vmax* when
-    that is beyond the year 9999: at the last second they represent, in
-    UTC, which `rrulewrapper` refuses as an aware end of a naive rule.
-    """
-    try:
-        vmax + delta
-    except (ValueError, OverflowError):
-        raise ValueError('until cannot be aware if dtstart is naive and '
-                         'tzinfo is None') from None
 
 
 def _zoned_datetime(dt):
@@ -499,10 +499,32 @@ class RRuleLocator(DateLocator):
     def tick_values(self, vmin, vmax):
         # The rule runs on the wall clock of the dates' own zone (naive
         # ones: naive), not of the locator's, as matplotlib's does.
-        delta = relativedelta(vmax, vmin)
-        if vmin.tzinfo is None and self.rule._base_tzinfo is None:
-            _refuse_aware_stop(vmax, delta)
+        self._create_rrule(vmin, vmax)
         return self._ticks_between(vmin, vmax)
+
+    def _create_rrule(self, vmin, vmax):
+        # set appropriate rrule dtstart and until and return
+        # start and end
+        delta = relativedelta(vmax, vmin)
+
+        # We need to cap at the endpoints of valid datetime
+        try:
+            start = vmin - delta
+        except (ValueError, OverflowError):
+            # cap
+            start = datetime.datetime(1, 1, 1, 0, 0, 0,
+                                      tzinfo=datetime.timezone.utc)
+
+        try:
+            stop = vmax + delta
+        except (ValueError, OverflowError):
+            # cap
+            stop = datetime.datetime(9999, 12, 31, 23, 59, 59,
+                                     tzinfo=datetime.timezone.utc)
+
+        self.rule.set(dtstart=start, until=stop)
+
+        return vmin, vmax
 
     def _ticks_between(self, vmin, vmax):
         """The ticks of the rule between the date-times *vmin* and *vmax*,
@@ -581,6 +603,10 @@ class AutoDateLocator(DateLocator):
             locator = AutoDateLocator()
             locator.intervald[HOURLY] = [3]  # only show every 3 hours
     """
+
+    # The frequency the locator picked last, which a locator pltrs (Rust)
+    # ticks an axis with natively picks again from the axis' ticks.
+    _freq = _tick_state.ticked(YEARLY)
 
     def __init__(self, tz=None, minticks=5, maxticks=None,
                  interval_multiples=True):
@@ -666,18 +692,6 @@ class AutoDateLocator(DateLocator):
         return vmin, vmax
 
     def _get_unit(self):
-        axes = getattr(self.axis, "axes", None)
-        drawn = 0 if axes is None else _artist.draw_count(axes._native)
-        if drawn and drawn != self.__dict__.get("_freq_drawn"):
-            # pltrs (Rust) locates the ticks of an axis itself as it draws
-            # it, where matplotlib's draw calls the locator: the frequency
-            # is the one it picks for the view, which that call left in
-            # ``_freq``; an axis not drawn yet keeps the one it had.
-            self._freq_drawn = drawn
-            choice = _dates.auto_date_choice(
-                self._spec(), *map(_zoned, self.viewlim_to_dt()))
-            if choice['frequency'] is not None:
-                self._freq = choice['frequency']
         if self._freq in [MICROSECONDLY]:
             return 1. / MUSECONDS_PER_DAY
         else:
@@ -769,13 +783,23 @@ class YearLocator(RRuleLocator):
                 "month": int(c.get('bymonth', 1)),
                 "day": int(c.get('bymonthday', 1)), "tz": _native_tz(self.tz)}
 
-    def tick_values(self, vmin, vmax):
-        # matplotlib's YearLocator replaces the year and the time of day of
-        # *vmin* (`datetime.date` has no time of day) and reads the year of
-        # *vmax*.
-        vmin.replace(hour=0, minute=0, second=0)
-        vmax.year  # noqa: B018
-        return self._ticks_between(vmin, vmax)
+    def _create_rrule(self, vmin, vmax):
+        # 'start' needs to be a multiple of the interval to create ticks on
+        # interval multiples when the tick frequency is YEARLY
+        ymin = max(self.base.le(vmin.year) * self.base.step, 1)
+        ymax = min(self.base.ge(vmax.year) * self.base.step, 9999)
+
+        c = self.rule._construct
+        replace = {'year': ymin,
+                   'month': c.get('bymonth', 1),
+                   'day': c.get('bymonthday', 1),
+                   'hour': 0, 'minute': 0, 'second': 0}
+
+        start = vmin.replace(**replace)
+        stop = start.replace(year=ymax)
+        self.rule.set(dtstart=start, until=stop)
+
+        return start, stop
 
 
 class MonthLocator(RRuleLocator):

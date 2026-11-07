@@ -176,7 +176,7 @@ pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
 pub use tick_lines::{GridLine, TickLine, TickLineProps, TickMarkProps};
-pub use tick_set::{Tick, TickSet};
+pub use tick_set::{Labelling, Tick, TickSet};
 pub use tick_updates::{SpineAxis, TickLevels, TickUpdater, UpdatedLevel, UpdatedTicks};
 pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickPosition, TickStyle};

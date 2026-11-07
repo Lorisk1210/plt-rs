@@ -14,7 +14,14 @@ Zones (``tz``, ``rc``, the zone of a date):
 * ``{"kind": "offset", "seconds": s}``: ``datetime.timezone(timedelta(seconds=s))``;
 * ``{"kind": "zoneinfo", "name": n}``: ``zoneinfo.ZoneInfo(n)``;
 * ``{"kind": "dateutil", "name": n}``: ``dateutil.tz.gettz(n)``;
-* ``{"kind": "tzutc"}``: ``dateutil.tz.tzutc()``.
+* ``{"kind": "tzutc"}``: ``dateutil.tz.tzutc()``;
+* ``{"kind": "class_fixed", "minutes": m, "name": n}``: a `tzinfo` class a
+  program writes, *m* minutes east of UTC and called *n* (`FixedClass`);
+* ``{"kind": "class_us", "hours": h, "std": s, "dst": d}``: one with the
+  United States' rules for daylight saving time, written in Python
+  (`USClass`), *h* hours east of UTC in standard time *s*, in daylight
+  time *d*. Each spec makes a new object of these classes, which
+  `datetime` tells apart (its date-times of two objects compare in UTC).
 
 Dates:
 
@@ -72,6 +79,82 @@ import numpy as np
 FREQUENCIES = ("YEARLY", "MONTHLY", "WEEKLY", "DAILY", "HOURLY", "MINUTELY",
                "SECONDLY")
 
+ZERO = datetime.timedelta(0)
+HOUR = datetime.timedelta(hours=1)
+
+
+class FixedClass(datetime.tzinfo):
+    """A fixed offset from UTC with a name of its own, as a program writes
+    one (Python's `datetime.tzinfo` documentation)."""
+
+    def __init__(self, minutes, name):
+        self._offset = datetime.timedelta(minutes=minutes)
+        self._name = name
+
+    def utcoffset(self, dt):
+        return self._offset
+
+    def dst(self, dt):
+        return ZERO
+
+    def tzname(self, dt):
+        return self._name
+
+
+def _first_sunday_on_or_after(dt):
+    return dt + datetime.timedelta(days=6 - dt.weekday())
+
+
+def _us_dst_range(year):
+    """When daylight time starts and ends in *year*, on the wall clock:
+    the second Sunday of March and the first of November at 2:00, the
+    United States' rules since 2007 (for every year here)."""
+    start = _first_sunday_on_or_after(datetime.datetime(year, 3, 8, 2))
+    end = _first_sunday_on_or_after(datetime.datetime(year, 11, 1, 2))
+    return start, end
+
+
+class USClass(datetime.tzinfo):
+    """The United States' rules for daylight saving time, written in
+    Python (Python's `datetime.tzinfo` documentation's ``USTimeZone``)."""
+
+    def __init__(self, hours, std, dst):
+        self._std_offset = datetime.timedelta(hours=hours)
+        self._std, self._dst = std, dst
+
+    def tzname(self, dt):
+        return self._dst if self.dst(dt) else self._std
+
+    def utcoffset(self, dt):
+        return self._std_offset + self.dst(dt)
+
+    def dst(self, dt):
+        if dt is None or dt.tzinfo is None:
+            return ZERO
+        start, end = _us_dst_range(dt.year)
+        dt = dt.replace(tzinfo=None)
+        if start + HOUR <= dt < end - HOUR:
+            return HOUR
+        if end - HOUR <= dt < end:
+            # The repeated hour: its fold says which.
+            return ZERO if dt.fold else HOUR
+        if start <= dt < start + HOUR:
+            # The skipped hour: the fold rule reversed.
+            return HOUR if dt.fold else ZERO
+        return ZERO
+
+    def fromutc(self, dt):
+        start, end = _us_dst_range(dt.year)
+        start = start.replace(tzinfo=self)
+        end = end.replace(tzinfo=self)
+        std_time = dt + self._std_offset
+        dst_time = std_time + HOUR
+        if end <= dst_time < end + HOUR:
+            return std_time.replace(fold=1)
+        if std_time < start or dst_time >= end:
+            return std_time
+        return dst_time
+
 
 def zone(spec):
     """The ``tz`` argument a zone spec stands for (strings and null pass as
@@ -89,6 +172,10 @@ def zone(spec):
         return dateutil.tz.gettz(spec["name"])
     if kind == "tzutc":
         return dateutil.tz.tzutc()
+    if kind == "class_fixed":
+        return FixedClass(spec["minutes"], spec["name"])
+    if kind == "class_us":
+        return USClass(spec["hours"], spec["std"], spec["dst"])
     raise ValueError(f"unknown zone kind {kind!r}")
 
 

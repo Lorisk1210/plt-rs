@@ -181,7 +181,7 @@ fn gunzip(member: &[u8]) -> Option<Vec<u8>> {
 mod tests {
     use super::*;
     use crate::dates::DateTime;
-    use crate::dates::tz::TzFile;
+    use crate::dates::tz::{TzFile, ZoneRules};
 
     #[test]
     fn every_zone_of_the_archive_reads() {

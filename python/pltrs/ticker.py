@@ -17,7 +17,10 @@ axis it was given to.
 
 A helper given to an axis is installed there by `._tick_helpers`: from its
 spec when pltrs (Rust) can compute in its place, and installed again when
-one of its attributes changes the spec (`TickHelper.__setattr__`).
+one of its attributes changes the spec (`TickHelper.__setattr__`). What
+matplotlib's tick updates leave in a helper (a formatter's locations and
+offset) are `._tick_state.ticked` attributes, which a helper pltrs (Rust)
+ticks with natively computes again from the last ticks of its axis.
 """
 
 import locale
@@ -28,7 +31,7 @@ import string
 
 import numpy as np
 
-from . import _api, _program_classes, _tick_helpers, cbook
+from . import _api, _program_classes, _tick_helpers, _tick_state, cbook
 from ._native import axis as _axis, ticker as _ticker
 
 _log = logging.getLogger(__name__)
@@ -96,8 +99,15 @@ class TickHelper:
     axis = None
 
     def __setattr__(self, name, value):
+        # What the axis' last ticks left in the helper comes first, as in
+        # matplotlib, where they left it there.
+        _tick_state.catch_up(self)
         super().__setattr__(name, value)
         _tick_helpers.check_native(self)
+
+    def __getstate__(self):
+        _tick_state.catch_up(self)
+        return super().__getstate__()
 
     def set_axis(self, axis):
         self.axis = axis
@@ -196,7 +206,7 @@ class Formatter(TickHelper):
     """
     # some classes want to see all the locs to help format
     # individual ones
-    _locs = []
+    _locs = _tick_state.ticked([])
     locs = _api.deprecate_privatize_attribute("3.11")
 
     def __call__(self, x, pos=None):
@@ -446,8 +456,8 @@ class _NativeFormatter(Formatter):
     formatter looks the label of a value up among them.
     """
 
-    _labels = ()
-    _offset = ''
+    _labels = _tick_state.ticked(())
+    _offset = _tick_state.ticked('')
 
     def _spec(self):
         """The native description of the formatter (its kind and
@@ -566,6 +576,9 @@ class ScalarFormatter(_NativeFormatter):
 
     orderOfMagnitude = _api.deprecate_privatize_attribute("3.11")
     format = _api.deprecate_privatize_attribute("3.11")
+    offset = _tick_state.ticked(0)
+    _orderOfMagnitude = _tick_state.ticked(0)
+    _format = _tick_state.ticked('')
 
     def __init__(self, useOffset=None, useMathText=None, useLocale=None, *,
                  usetex=None):
@@ -813,8 +826,7 @@ class ScalarFormatter(_NativeFormatter):
         if self._useOffset:
             # matplotlib's offset: 0, else a numpy float.
             self.offset = np.float64(offset) if offset else 0
-        if self._spec()["kind"] == "scalar":
-            self._format = _ticker.scalar_format(self._spec(), locs, info)
+        self._format = _ticker.scalar_format(self._spec(), locs, info)
 
     def _program_view_info(self, info, locs):
         """*info* with the view interval the program's class of the axis
@@ -903,6 +915,7 @@ class LogFormatter(Formatter):
     """
 
     _kind = "log"
+    _sublabels = _tick_state.ticked()
 
     def __init__(self, base=10.0, labelOnlyBase=False,
                  minor_thresholds=None,
@@ -950,7 +963,12 @@ class LogFormatter(Formatter):
 
         The *locs* parameter is ignored in the present algorithm.
         """
-        self._sublabels = _ticker.log_sublabels(self._spec(), self._axis_info())
+        sublabels = _ticker.log_sublabels(self._spec(), self._axis_info())
+        # As matplotlib's sets: {1} for the powers of the base alone, else
+        # numpy's numbers.
+        self._sublabels = (None if sublabels is None
+                           else {1} if sublabels == [1.0]
+                           else set(np.asarray(sublabels)))
 
     #: matplotlib's first steps with the value (see `_first_steps`): it
     #: tests for zero (``x == 0.0``), then takes its absolute value.
@@ -1011,6 +1029,8 @@ class LogitFormatter(_NativeFormatter):
     Probability formatter (using Math text).
     """
 
+    _labelled = _tick_state.ticked()
+
     def __init__(
         self,
         *,
@@ -1047,6 +1067,7 @@ class LogitFormatter(_NativeFormatter):
         self._use_overline = use_overline
         self._one_half = one_half
         self._minor = minor
+        self._labelled = set()
         self._minor_threshold = minor_threshold
         self._minor_number = minor_number
 
@@ -1117,6 +1138,9 @@ class LogitFormatter(_NativeFormatter):
     def set_locs(self, locs):
         # docstring inherited
         super().set_locs(locs)
+        # The minor ticks that get labels.
+        self._labelled = set(_ticker.logit_labelled(
+            self._spec(), np.asarray(self._locs, dtype=float)))
 
     def __call__(self, x, pos=None):
         # docstring inherited
@@ -1747,6 +1771,30 @@ class _Edge_integer:
             raise ValueError("'step' must be positive")
         self.step = step
         self._offset = abs(offset)
+
+    def closeto(self, ms, edge):
+        # Allow more slop when the offset is large compared to the step.
+        if self._offset > 0:
+            digits = np.log10(self._offset / self.step)
+            tol = max(1e-10, 10 ** (digits - 12))
+            tol = min(0.4999, tol)
+        else:
+            tol = 1e-10
+        return abs(ms - edge) < tol
+
+    def le(self, x):
+        """Return the largest n: n*step <= x."""
+        d, m = divmod(x, self.step)
+        if self.closeto(m / self.step, 1):
+            return d + 1
+        return d
+
+    def ge(self, x):
+        """Return the smallest n: n*step >= x."""
+        d, m = divmod(x, self.step)
+        if self.closeto(m / self.step, 0):
+            return d
+        return d + 1
 
 
 class MultipleLocator(_NativeLocator):
@@ -2389,6 +2437,7 @@ class AutoMinorLocator(_NativeLocator):
     """
 
     _reads_major_ticks = True
+    ndivs = _tick_state.ticked()
 
     def __init__(self, n=None):
         """
@@ -2410,7 +2459,28 @@ class AutoMinorLocator(_NativeLocator):
 
     def __call__(self):
         # docstring inherited
-        return _ticker.locate(self._spec(), self._axis_info())
+        info = self._axis_info()
+        locs = _ticker.locate(self._spec(), info)
+        if self.ndivs is None:
+            self._settle_ndivs(info)
+        return locs
+
+    def _settle_ndivs(self, info):
+        """Take the rcParam's number of divisions, as matplotlib's locator
+        does the first time it places ticks between major ones (at least
+        two, those of *info*, the description of its axis), on an axis not
+        of a log scale."""
+        axis = self.axis
+        get_scale = getattr(axis, "get_scale", None)
+        if info is None or get_scale is None or get_scale() == 'log':
+            return
+        major = (info["major_ticks"] if isinstance(info, dict)
+                 else _axis.info_fields(info)[4])
+        if len(np.unique(major)) < 2:
+            return
+        self.ndivs = _rc('ytick.minor.ndivs'
+                         if getattr(axis, "axis_name", None) == 'y'
+                         else 'xtick.minor.ndivs')  # for x and z axis
 
     def tick_values(self, vmin, vmax):
         raise NotImplementedError(
@@ -2440,7 +2510,7 @@ class _NativeFormatterView(Formatter):
     own here: it labels ticks through its token (see `._tick_helpers`).
     """
 
-    _offset = ''
+    _offset = _tick_state.ticked('')
 
     def __init__(self, token):
         self._token = token

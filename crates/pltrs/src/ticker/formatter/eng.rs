@@ -312,6 +312,32 @@ impl EngFormatter {
         let layout = self.layout(locs, ctx.view_interval())?;
         Ok((layout.offset, layout.oom))
     }
+
+    /// The printf format of the labels of the ticks at `locs` when they
+    /// have an offset (matplotlib's `format`, which `set_locs` computes as
+    /// `ScalarFormatter`'s does, for the order of magnitude of the
+    /// engineering prefixes); empty without ticks.
+    ///
+    /// ```
+    /// use pltrs::ticker::{AxisInfo, EngFormatter, TickContext, TickerSettings};
+    /// let axis = AxisInfo::with_view(1e6, 1e6 + 10.0);
+    /// let settings = TickerSettings::DEFAULT;
+    /// let ctx = TickContext::new(&axis, &settings);
+    /// let formatter = EngFormatter::from_settings(&settings);
+    /// assert_eq!(formatter.label_format(&[1e6, 1e6 + 5.0], &ctx)?, "%1.0f");
+    /// assert_eq!(formatter.label_format(&[], &ctx)?, "");
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the view is empty.
+    pub fn label_format(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<String, TickerError> {
+        if locs.is_empty() {
+            return Ok(String::new());
+        }
+        Ok(self.layout(locs, ctx.view_interval())?.printf(self.math()))
+    }
 }
 
 impl Formatter for EngFormatter {

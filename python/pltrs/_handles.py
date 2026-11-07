@@ -96,6 +96,7 @@ def adopt(artist, native, figure):
     figure = figure._figure  # The root keeps the registry.
     artist._native = native
     artist._figure = figure
+    artist.__dict__.pop("_removed", None)
     figure._artists[_artist.id(native)] = artist
     track(artist, figure)
     # What waited for the artist to be in a figure (an arrow clipped to it).

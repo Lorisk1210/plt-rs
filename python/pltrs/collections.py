@@ -25,7 +25,7 @@ from ._enums import CapStyle, JoinStyle
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
-from .artist import Artist
+from .artist import Artist, _check_array_alpha
 from .path import Path
 
 
@@ -620,7 +620,7 @@ class Collection(mcolorizer.ColorizingArtist):
         pickradius : float
             Pick radius, in points.
         """
-        if not isinstance(pickradius, (int, float)):
+        if not isinstance(pickradius, Real):
             raise ValueError(
                 f"pickradius must be a real-valued number, not {pickradius!r}")
         _collections.set_pickradius(self._native, float(pickradius))
@@ -653,6 +653,8 @@ class Collection(mcolorizer.ColorizingArtist):
         The list contains *None* for elements without a URL. See
         :doc:`/gallery/misc/hyperlinks_sgskip` for an example.
         """
+        if _values.is_kept(self, "urls"):
+            return _values.given(self, "urls", None)
         urls = _collections.get_urls(self._native)
         # A collection starts with `[None]` (matplotlib's `set_urls(None)`).
         if not urls and "urls" not in self.__dict__.get("_given_values", {}):
@@ -670,9 +672,10 @@ class Collection(mcolorizer.ColorizingArtist):
         URLs are currently only implemented by the SVG backend. They are
         ignored by all other backends.
         """
-        urls = list(urls) if urls is not None else [None]
-        _collections.set_urls(self._native, urls)
-        _values.remember(self, "urls", urls)
+        urls = urls if urls is not None else [None]
+        # Kept as given (matplotlib writes any object as its text).
+        _collections.set_urls(self._native, [None if url is None else str(url) for url in urls])
+        _values.keep(self, "urls", urls)
 
     def get_path_effects(self):
         """Return the path effects (None until set, as matplotlib's
@@ -722,7 +725,12 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def set_hatch_linewidth(self, lw):
         """Set the hatch linewidth."""
-        _collections.set_hatch_linewidth(self._native, float(lw))
+        if not isinstance(lw, Real):
+            # Kept unchecked, as matplotlib keeps it until it draws.
+            _values.keep(self, "hatch_linewidth", lw)
+            return
+        native = float(lw)
+        _collections.set_hatch_linewidth(self._native, native)
         _values.remember(self, "hatch_linewidth", lw)
 
     def get_hatchcolor(self):
@@ -1017,19 +1025,15 @@ class Collection(mcolorizer.ColorizingArtist):
         self.set_hatchcolor(c)
 
     def set_alpha(self, alpha):
+        _check_array_alpha(alpha)
         if np.iterable(alpha):
             alpha = np.asarray(alpha, dtype=float)
-            if ((alpha < 0) | (alpha > 1)).any():
-                raise ValueError("alpha must be between 0 and 1, inclusive")
             # The array itself comes back, as matplotlib keeps it, even
             # when it does not fit the colours.
             self._array_alpha = alpha
             _collections.set_alphas(self._native, alpha.ravel().tolist(),
                                     list(alpha.shape))
         else:
-            if alpha is not None and not isinstance(alpha, (int, float)):
-                raise TypeError(
-                    f'alpha must be numeric or None, not {type(alpha)}')
             array = self.__dict__.get("_array_alpha")
             if array is not None:
                 # matplotlib's `Artist.set_alpha` compares the alpha with

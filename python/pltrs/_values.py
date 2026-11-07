@@ -12,7 +12,10 @@ matplotlib answers:
 * `remember` and `given` keep a property as the program gave it: a setter
   remembers the value matplotlib would keep, and its getter returns that
   value as long as pltrs (Rust) still holds what it was converted to, else
-  what pltrs (Rust) holds now (a value pltrs (Rust) changed itself).
+  what pltrs (Rust) holds now (a value pltrs (Rust) changed itself);
+* `keep` keeps a value matplotlib stores unchecked that pltrs (Rust)
+  cannot hold (a string zorder, a hatch line width of None): the getter
+  returns it until the property is set again.
 """
 
 import numpy as np
@@ -30,6 +33,20 @@ def float64s(values):
 def remember(artist, name, value):
     """Keep *value* as what *artist*'s property *name* reads back as."""
     artist.__dict__.setdefault("_given_values", {})[name] = value
+    artist.__dict__.get("_unheld_values", set()).discard(name)
+
+
+def keep(artist, name, value):
+    """Keep *value*, which pltrs (Rust) cannot hold, as what *artist*'s
+    property *name* reads back as, whatever pltrs (Rust) holds."""
+    remember(artist, name, value)
+    artist.__dict__.setdefault("_unheld_values", set()).add(name)
+
+
+def is_kept(artist, name):
+    """Whether *artist*'s property *name* holds a value pltrs (Rust) could
+    not (`keep`)."""
+    return name in getattr(artist, "__dict__", {}).get("_unheld_values", ())
 
 
 def remember_all(artist, values, names):
@@ -65,6 +82,8 @@ def given(artist, name, native, default=NONE_GIVEN, same=None):
     holds (as *same* compares, by default as numbers); else *native*.
     """
     value = artist.__dict__.get("_given_values", {}).get(name, default)
+    if is_kept(artist, name):
+        return value
     if value is NONE_GIVEN or not (same or _same)(value, native):
         return native
     return value

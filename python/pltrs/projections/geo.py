@@ -234,18 +234,26 @@ class GeoAxes(Axes):
         """
         Set the number of degrees between each longitude grid.
         """
+        # matplotlib's grid, its fixed limits skipped: what it refuses,
+        # refused alike.
+        np.arange(-180 + degrees, 180, degrees)
         _transforms.set_longitude_grid(self._native, float(degrees))
 
     def set_latitude_grid(self, degrees):
         """
         Set the number of degrees between each latitude grid.
         """
+        # matplotlib's grid, its fixed limits skipped: what it refuses,
+        # refused alike.
+        np.arange(-90 + degrees, 90, degrees)
         _transforms.set_latitude_grid(self._native, float(degrees))
 
     def set_longitude_grid_ends(self, degrees):
         """
         Set the latitude(s) at which to stop drawing the longitude grids.
         """
+        # matplotlib's conversion to radians: what it refuses, refused alike.
+        np.deg2rad(degrees)
         _transforms.set_longitude_grid_ends(self._native, float(degrees))
 
     def get_data_ratio(self):

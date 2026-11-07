@@ -386,11 +386,14 @@ impl Axes {
     /// autoscaling, as a fraction of the data span; negative margins clip
     /// the data (matplotlib's `set_xmargin`/`set_ymargin`).
     ///
+    /// A margin that is not finite adds nothing, as matplotlib's
+    /// autoscaling drops a padding that is not finite.
+    ///
     /// # Errors
     ///
-    /// When the margin is -0.5 or less, or not finite.
+    /// When the margin is -0.5 or less.
     pub fn set_margin(&self, axis: AxisName, margin: f64) -> Result<&Self, PlotError> {
-        if !(margin.is_finite() && margin > -0.5) {
+        if margin <= -0.5 {
             return Err(PlotError::InvalidMargin(margin));
         }
         self.raw.with_mut::<AxesState, _>(|a| {
@@ -417,8 +420,7 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When a margin is -0.5 or less, or not finite; then no margin
-    /// changes.
+    /// When a margin is -0.5 or less; then no margin changes.
     pub fn set_margins(
         &self,
         x: impl Into<Option<f64>>,
@@ -460,7 +462,7 @@ impl Axes {
         if let Some(bad) = margins
             .iter()
             .filter_map(|&(_, margin)| margin)
-            .find(|m| !(m.is_finite() && *m > -0.5))
+            .find(|&m| m <= -0.5)
         {
             return Err(PlotError::InvalidMargin(bad));
         }
@@ -571,8 +573,8 @@ mod tests {
             Some(PlotError::InvalidMargin(-0.5))
         );
         assert_eq!(
-            ax.set_margins(0.2, f64::NAN).err().map(|e| e.to_string()),
-            Some("margin must be finite and greater than -0.5, got NaN".to_owned())
+            ax.set_margins(0.2, -1.0).err().map(|e| e.to_string()),
+            Some("margin must be greater than -0.5, got -1".to_owned())
         );
         assert_eq!(ax.margins(), (0.05, 0.05), "nothing changed");
         ax.set_margins(-0.2, 0.5).unwrap();

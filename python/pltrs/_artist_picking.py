@@ -191,7 +191,7 @@ class PickingMixin:
               properties you want added to the PickEvent attributes.
         """
         self._picker = picker
-        _artist.set_picker(self._native, None if callable(picker) else picker)
+        _artist.set_picker(self._native, _native_picker(picker))
 
     def get_picker(self):
         """
@@ -265,3 +265,15 @@ class PickingMixin:
         data_str = ', '.join(f'{item:0.3g}' for item in data
                              if isinstance(item, Number))
         return "[" + data_str + "]"
+
+
+def _native_picker(picker):
+    """What pltrs (Rust) picks with for *picker*: its tolerance for a
+    number, None for a callable (which Python calls), and, as for True,
+    the artist's own test for any other object matplotlib keeps (a
+    string), which picks as ``contains`` does."""
+    if callable(picker):
+        return None
+    if picker is None or isinstance(picker, (bool, Number)):
+        return picker
+    return True

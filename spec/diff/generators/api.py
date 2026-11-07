@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import functools
 import inspect
 import sys
 import warnings
@@ -257,6 +258,9 @@ class Subject:
         obj = namespace.get("obj")
         self.cls = obj if isinstance(obj, type) else type(obj)
         self.scope = Scope(namespace)
+        #: What the statements bind under matplotlib, for values to be
+        #: looked at.
+        self.namespace = namespace
         self.callables: list[tuple[api_index.Callable, str | None]] = []
 
     def _made(self, callable_: api_index.Callable, owner: str | None) -> list[str]:
@@ -354,10 +358,22 @@ def _variants(objects: list[Subject]) -> list[Subject]:
     return variants
 
 
-def programs() -> Iterator[tuple[str, list[str]]]:
-    """The programs of every module and every subject."""
+@functools.cache
+def index() -> api_index.Index:
+    """matplotlib's public callables, as the coverage counts them."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        index = api_index.Index(api_index.enumerate_api(sys.executable))
-    for subject in _subjects(index):
+        return api_index.Index(api_index.enumerate_api(sys.executable))
+
+
+@functools.cache
+def subjects() -> list[Subject]:
+    """Every module's and every object's subject, with its callables (made
+    once, for the generators calling the callables in other ways too)."""
+    return _subjects(index())
+
+
+def programs() -> Iterator[tuple[str, list[str]]]:
+    """The programs of every module and every subject."""
+    for subject in subjects():
         yield from subject.programs()

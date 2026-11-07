@@ -160,19 +160,11 @@ impl EventSource {
         figure.process_event(&Event::FigureEnter(locate(figure, x, y)));
     }
 
-    /// The pointer left the figure; the axes it was over are left too.
-    pub fn figure_leave(&mut self, figure: &Figure) {
-        if let Some(last) = self.last_axes.take() {
-            let location = Location {
-                x: f64::NAN,
-                y: f64::NAN,
-                inaxes: Some(last),
-                xdata: None,
-                ydata: None,
-            };
-            figure.process_event(&Event::AxesLeave(location));
-        }
-        figure.process_event(&Event::FigureLeave);
+    /// The pointer left the figure for display point `(x, y)` (NaN where
+    /// unknown). As in matplotlib, the axes it was over count as left
+    /// only once it moves over the figure again, elsewhere.
+    pub fn figure_leave(&mut self, figure: &Figure, x: f64, y: f64) {
+        figure.process_event(&Event::FigureLeave(locate(figure, x, y)));
     }
 }
 

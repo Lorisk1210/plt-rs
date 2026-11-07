@@ -460,7 +460,7 @@ impl<M: 'static> Widget<M> for List<M> {
                     cx.request_paint();
                 }
             }
-            UiEvent::PointerLeave => {
+            UiEvent::PointerLeave(_) => {
                 self.hot = None;
                 cx.request_paint();
             }

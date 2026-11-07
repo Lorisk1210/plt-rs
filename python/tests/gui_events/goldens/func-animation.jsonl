@@ -1,0 +1,25 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"frame": 0, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 0, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 1, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 2, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 3, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 4, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 5, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 6, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 7, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 8, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"frame": 9, "name": "frame"}
+{"gui": false, "name": "draw_event"}
+{"gui": false, "name": "close_event"}
+{"name": "end"}

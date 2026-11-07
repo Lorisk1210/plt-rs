@@ -326,6 +326,7 @@ unsafe extern "system" {
     pub(super) fn SetCapture(window: Handle) -> Handle;
     pub(super) fn ReleaseCapture() -> i32;
     pub(super) fn ScreenToClient(window: Handle, point: *mut Point) -> i32;
+    pub(super) fn GetCursorPos(point: *mut Point) -> i32;
     pub(super) fn LoadCursorW(instance: Handle, name: *const u16) -> Handle;
     pub(super) fn SetCursor(cursor: Handle) -> Handle;
     pub(super) fn CreateIconIndirect(info: *const IconInfo) -> Handle;

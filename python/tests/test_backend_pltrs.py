@@ -266,7 +266,13 @@ def _canvas_input():
                         (0, 1, -1.0))
     _gui.inject_key(_display, window, "a", True, [])
     _gui.inject_key(_display, window, "a", False, [])
+    # As in Qt, the pointer leaving with a button held leaves once the
+    # button is released (outside).
     _gui.inject_window(_display, window, "leave")
+    plt.pause(0.05)
+    seen.append("released:")
+    _gui.inject_pointer(_display, window, "release", (-10.0, 60.0), [],
+                        (3, 1, 0.0))
     plt.pause(0.05)
     assert seen == [
         ("button_press_event", 100, 430, MouseButton.LEFT, False,
@@ -276,6 +282,8 @@ def _canvas_input():
         ("scroll_event", 110, 420, "down", False, [], -1.0),
         ("key_press_event", 110, 420, "a"),
         ("key_release_event", 110, 420, "a"),
+        "released:",
+        ("button_release_event", -10, 420, MouseButton.RIGHT, False, [], 0),
         ("figure_leave_event",),
     ], seen
 

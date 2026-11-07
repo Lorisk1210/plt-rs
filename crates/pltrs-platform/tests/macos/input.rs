@@ -191,7 +191,9 @@ pub(crate) fn the_pointer_enters_and_leaves() {
     let at = (5.0, 6.5);
     enter(&mut event_loop, window, at);
     appkit::post_crossing(&mut event_loop, window, false, at);
-    receive(&mut event_loop, window, |e| *e == WindowEvent::CursorLeft);
+    receive(&mut event_loop, window, |e| {
+        matches!(e, WindowEvent::CursorLeft { position: Some(_) })
+    });
 }
 
 /// Wheels scroll lines and touchpads pixels, rightwards positive, where

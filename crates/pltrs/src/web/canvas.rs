@@ -406,7 +406,7 @@ impl WebCanvas {
             MouseKind::Enter => self.events.figure_enter(&figure, at.x, at.y),
             MouseKind::Leave => {
                 self.pointer = None;
-                self.events.figure_leave(&figure);
+                self.events.figure_leave(&figure, at.x, at.y);
                 self.set_message(String::new());
             }
         }

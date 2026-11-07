@@ -1,0 +1,93 @@
+{"gui": false, "name": "draw_event"}
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "figure_enter_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcx"}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "x", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy"}
+{"gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "y", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy "}
+{"gui": true, "inaxes": 0, "key": " ", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": " ", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy "}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy Z"}
+{"gui": true, "inaxes": 0, "key": "Z", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "Z", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy "}
+{"gui": true, "inaxes": 0, "key": "backspace", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "backspace", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy "}
+{"gui": true, "inaxes": 0, "key": "left", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "left", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy "}
+{"gui": true, "inaxes": 0, "key": "left", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "left", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxy "}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxQy "}
+{"gui": true, "inaxes": 0, "key": "Q", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "Q", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "shift", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxQ "}
+{"gui": true, "inaxes": 0, "key": "delete", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "delete", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "abcxQ "}
+{"gui": true, "inaxes": 0, "key": "home", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "home", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "1abcxQ "}
+{"gui": true, "inaxes": 0, "key": "1", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "1", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "1abcxQ "}
+{"gui": true, "inaxes": 0, "key": "end", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "end", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "1abcxQ "}
+{"gui": true, "inaxes": 0, "key": "escape", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "escape", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "1abcxQ "}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "1abcxQ "}
+{"gui": true, "inaxes": 0, "key": "ctrl+a", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "ctrl+a", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": false, "name": "draw_event"}
+{"name": "change", "text": "1abcxQ "}
+{"name": "submit", "text": "1abcxQ "}
+{"gui": true, "inaxes": 0, "key": "enter", "modifiers": [], "name": "key_press_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "key": "enter", "modifiers": [], "name": "key_release_event", "x": 200, "xdata": 0.5, "y": 150, "ydata": 0.5}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "axes_leave_event", "x": 200, "xdata": 0.5, "y": 50, "ydata": -2.83333}
+{"gui": false, "name": "draw_event"}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 200, "xdata": null, "y": 50, "ydata": null}
+{"gui": false, "name": "draw_event"}
+{"name": "submit", "text": "1abcxQ "}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 200, "xdata": null, "y": 50, "ydata": null}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 200, "xdata": null, "y": 50, "ydata": null}
+{"cursor": 7, "name": "state", "text": "1abcxQ "}
+{"gui": false, "name": "close_event"}
+{"name": "end"}

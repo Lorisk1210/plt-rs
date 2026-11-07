@@ -1,14 +1,16 @@
 //! Input on the figure canvas: figure events for connected callbacks,
-//! pan/zoom navigation and keyboard shortcuts.
+//! pan/zoom navigation and keyboard shortcuts, from the input as
+//! matplotlib's Qt backend reports it ([`crate::gui::input`]).
 
 use pltrs_core::Point;
-use pltrs_platform::{ButtonState, Context, Key, KeyEvent, Modifiers, MouseButton, ScrollDelta};
+use pltrs_platform::{ButtonState, Context, Key};
 use pltrs_ui::{Rect, Surface, UiEvent};
 
 use super::toolbar::Tool;
 use super::{FigureWindow, Message};
 use crate::gui::GuiError;
 use crate::gui::actions;
+use crate::gui::input::{CanvasInput, InputKind};
 use crate::gui::keys::{self, HistoryStep, KeyAction};
 use crate::navigation::{DragKey, PointerButton, Rubberband};
 
@@ -19,12 +21,15 @@ impl FigureWindow {
         Point::new(position.x, f64::from(self.canvas_size.height) - position.y)
     }
 
-    fn drag_key(&self, modifiers: Modifiers) -> DragKey {
+    /// How a drag or a wheel turn is constrained: by the `x` or `y` key
+    /// held, else by Control or Shift among `modifiers` (matplotlib's
+    /// names).
+    fn drag_key(&self, modifiers: &[&str]) -> DragKey {
         match self.held {
             Some('x') => DragKey::X,
             Some('y') => DragKey::Y,
-            _ if modifiers.control() => DragKey::Control,
-            _ if modifiers.shift() => DragKey::Shift,
+            _ if modifiers.contains(&"ctrl") => DragKey::Control,
+            _ if modifiers.contains(&"shift") => DragKey::Shift,
             _ => DragKey::None,
         }
     }
@@ -36,35 +41,51 @@ impl FigureWindow {
         cx: &mut Context<'_>,
         event: &UiEvent,
     ) -> Result<bool, GuiError> {
-        match event {
-            UiEvent::PointerEnter(position) => {
-                let at = self.to_display(*position);
-                self.events.figure_enter(&self.figure, at.x, at.y);
+        if let UiEvent::Key(key) = event
+            && let Key::Character(c @ ('x' | 'y')) = key.key
+        {
+            self.held = (key.state == ButtonState::Pressed).then_some(c);
+        }
+        for input in self.input.convert(event) {
+            if !self.canvas_event(cx, input)? {
+                return Ok(false);
             }
-            UiEvent::PointerMove {
-                position,
-                modifiers,
-            } => {
-                let at = self.to_display(*position);
-                self.pointer = Some(at);
-                self.events.motion(&self.figure, at.x, at.y);
-                if self.navigation.is_dragging() {
-                    let rubberband = self.navigation.drag(at, self.drag_key(*modifiers));
-                    self.show_rubberband(cx, rubberband)?;
+        }
+        Ok(true)
+    }
+
+    /// Handles one event of the canvas; returns `false` once the window
+    /// should close.
+    fn canvas_event(&mut self, cx: &mut Context<'_>, input: CanvasInput) -> Result<bool, GuiError> {
+        let at = input.position.map(|position| self.to_display(position));
+        let (x, y) = at.map_or((f64::NAN, f64::NAN), |at| (at.x, at.y));
+        match input.kind {
+            InputKind::Enter => {
+                self.pointer = at;
+                self.events.figure_enter(&self.figure, x, y);
+            }
+            InputKind::Leave => {
+                self.pointer = at;
+                self.events.figure_leave(&self.figure, x, y);
+                self.set_status(cx, String::new())?;
+            }
+            InputKind::Motion => {
+                self.pointer = at;
+                self.events.motion(&self.figure, x, y);
+                if let Some(at) = at {
+                    if self.navigation.is_dragging() {
+                        let key = self.drag_key(&input.modifiers);
+                        let rubberband = self.navigation.drag(at, key);
+                        self.show_rubberband(cx, rubberband)?;
+                    }
+                    let readout = self.navigation.readout(&self.figure, at);
+                    self.set_status(cx, readout)?;
                 }
-                let readout = self.navigation.readout(&self.figure, at);
-                self.set_status(cx, readout)?;
             }
-            UiEvent::PointerDown {
-                button,
-                position,
-                click_count,
-                ..
-            } => {
-                if let Some(button) = pointer_button(*button) {
-                    let at = self.to_display(*position);
-                    self.events
-                        .button_press(&self.figure, at.x, at.y, button, *click_count == 2);
+            InputKind::Press { button, double } => {
+                let button = pointer_button(button);
+                if let (Some(button), Some(at)) = (button, at) {
+                    self.events.button_press(&self.figure, x, y, button, double);
                     self.navigation.press(&self.figure, at, button);
                     match keys::history_step(button, &crate::rc::params()) {
                         Some(HistoryStep::Back) => self.use_tool(cx, Tool::Back)?,
@@ -73,73 +94,55 @@ impl FigureWindow {
                     }
                 }
             }
-            UiEvent::PointerUp {
-                button,
-                position,
-                modifiers,
-            } => {
-                let at = self.to_display(*position);
-                if let Some(button) = pointer_button(*button) {
-                    self.events.button_release(&self.figure, at.x, at.y, button);
+            InputKind::Release { button } => {
+                if let Some(button) = pointer_button(button) {
+                    self.events.button_release(&self.figure, x, y, button);
                 }
-                if self.navigation.is_dragging() {
-                    self.navigation
-                        .release(&self.figure, at, self.drag_key(*modifiers));
+                if let Some(at) = at
+                    && self.navigation.is_dragging()
+                {
+                    let key = self.drag_key(&input.modifiers);
+                    self.navigation.release(&self.figure, at, key);
                     self.show_rubberband(cx, None)?;
                     self.refresh_tools(cx)?;
                 }
             }
-            UiEvent::Wheel {
-                delta,
-                position,
-                modifiers,
-            } => {
-                let steps = match *delta {
-                    ScrollDelta::Lines { y, .. } => y,
-                    ScrollDelta::Pixels { y, .. } => y / 40.0,
-                };
-                let at = self.to_display(*position);
-                self.events.scroll(&self.figure, at.x, at.y, steps);
-                let key = self.drag_key(*modifiers);
-                self.navigation.wheel(&self.figure, at, steps, key);
-                self.refresh_tools(cx)?;
+            InputKind::Scroll { step } => {
+                self.events.scroll(&self.figure, x, y, step);
+                if let Some(at) = at {
+                    let key = self.drag_key(&input.modifiers);
+                    self.navigation.wheel(&self.figure, at, step, key);
+                    self.refresh_tools(cx)?;
+                }
             }
-            UiEvent::PointerLeave => {
-                self.pointer = None;
-                self.events.figure_leave(&self.figure);
-                self.set_status(cx, String::new())?;
-            }
-            UiEvent::Key(key) => return self.key(cx, key),
-            _ => {}
+            InputKind::KeyPress(name) => return self.key_press(cx, &name, x, y),
+            InputKind::KeyRelease(name) => self.events.key_release(&self.figure, &name, x, y),
         }
         Ok(true)
     }
 
-    /// Delivers a key to the figure's callbacks, then runs its `keymap.*`
-    /// shortcut unless the figure captures keys.
-    fn key(&mut self, cx: &mut Context<'_>, event: &KeyEvent) -> Result<bool, GuiError> {
-        if let Key::Character(c @ ('x' | 'y')) = event.key {
-            self.held = (event.state == ButtonState::Pressed).then_some(c);
-        }
-        let Some(name) = keys::key_name(event) else {
-            return Ok(true);
-        };
-        let at = self.pointer.unwrap_or(Point::new(f64::NAN, f64::NAN));
-        if event.state != ButtonState::Pressed {
-            self.events.key_release(&self.figure, &name, at.x, at.y);
-            return Ok(true);
-        }
-        self.events.key_press(&self.figure, &name, at.x, at.y);
+    /// Delivers the press of key `name` (matplotlib's) with the pointer
+    /// at display point `(x, y)` to the figure's callbacks, then runs its
+    /// `keymap.*` shortcut unless the figure captures keys; returns
+    /// `false` once the window should close.
+    fn key_press(
+        &mut self,
+        cx: &mut Context<'_>,
+        name: &str,
+        x: f64,
+        y: f64,
+    ) -> Result<bool, GuiError> {
+        self.events.key_press(&self.figure, name, x, y);
         if self.figure.captures_keys() {
             return Ok(true);
         }
         // The figure's own tools come first, as they were bound on purpose.
-        if let Some(tool) = self.figure.tool_for_key(&name) {
+        if let Some(tool) = self.figure.tool_for_key(name) {
             self.figure.trigger_tool(&tool);
             return self.refresh_tools(cx).map(|()| true);
         }
         let rc = crate::rc::params();
-        let Some(action) = keys::action(&name, &rc) else {
+        let Some(action) = keys::action(name, &rc) else {
             return Ok(true);
         };
         match action {
@@ -191,14 +194,9 @@ impl FigureWindow {
     }
 }
 
-/// The navigation button of a mouse button.
-fn pointer_button(button: MouseButton) -> Option<PointerButton> {
-    match button {
-        MouseButton::Left => Some(PointerButton::Left),
-        MouseButton::Middle => Some(PointerButton::Middle),
-        MouseButton::Right => Some(PointerButton::Right),
-        MouseButton::Back => Some(PointerButton::Back),
-        MouseButton::Forward => Some(PointerButton::Forward),
-        MouseButton::Other(_) => None,
-    }
+/// The navigation button of matplotlib's button number `number`.
+fn pointer_button(number: u16) -> Option<PointerButton> {
+    u8::try_from(number)
+        .ok()
+        .and_then(PointerButton::from_number)
 }

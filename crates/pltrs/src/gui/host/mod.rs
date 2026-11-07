@@ -1,7 +1,6 @@
 //! The windows of programs that handle their figures' input themselves
 //! ([`WindowHost`]).
 
-mod input;
 #[cfg(test)]
 mod tests;
 mod toolbar;
@@ -16,10 +15,10 @@ use pltrs_platform::{
 };
 use pltrs_ui::TitleBarPainter;
 
-pub use input::{CanvasInput, InputKind};
 pub use toolbar::{ToolImage, ToolItem};
 
 use super::GuiError;
+use super::input::CanvasInput;
 use super::subplot_dialog::{SubplotChange, SubplotLayout};
 use crate::figure::Figure;
 use toolbar::Toolbar;

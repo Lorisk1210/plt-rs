@@ -70,13 +70,33 @@ pub(crate) fn history_step(button: PointerButton, rc: &RcParams) -> Option<Histo
     }
 }
 
-/// The Super key's modifier prefix: on macOS it is Command, which
-/// matplotlib's macOS and Qt backends call `cmd` there (its default
-/// keymaps bind `cmd+w` and `cmd+c`).
-const SUPER_PREFIX: &str = if cfg!(target_os = "macos") {
-    "cmd+"
+/// The Super key's name, as matplotlib's Qt backend gives it: `cmd` on
+/// macOS, where it is Command (matplotlib's default keymaps bind `cmd+w`
+/// and `cmd+c`), and `meta` elsewhere, where Qt calls it Meta.
+pub(crate) const SUPER_NAME: &str = if cfg!(target_os = "macos") {
+    "cmd"
 } else {
-    "super+"
+    "meta"
+};
+
+/// The modifiers in the order matplotlib's Qt backend names them before
+/// a key (`ctrl+alt+shift+meta+a`), with their names: Qt's Control,
+/// Alt, Shift and Meta modifiers, which on macOS are Command, Option,
+/// Shift and Control.
+pub(crate) const MODIFIER_ORDER: [(Modifiers, &str); 4] = if cfg!(target_os = "macos") {
+    [
+        (Modifiers::SUPER, SUPER_NAME),
+        (Modifiers::ALT, "alt"),
+        (Modifiers::SHIFT, "shift"),
+        (Modifiers::CONTROL, "ctrl"),
+    ]
+} else {
+    [
+        (Modifiers::CONTROL, "ctrl"),
+        (Modifiers::ALT, "alt"),
+        (Modifiers::SHIFT, "shift"),
+        (Modifiers::SUPER, SUPER_NAME),
+    ]
 };
 
 /// The character a key press typed in place of its key's own, if it
@@ -97,17 +117,54 @@ fn composed_character(event: &KeyEvent) -> Option<char> {
     }
 }
 
-/// matplotlib's name of a key press, or `None` for keys it ignores. A
-/// key ending a compose sequence is named by the character it typed, so
-/// that text boxes take accented letters, as matplotlib's Tk backend
-/// names them; dead keys and the Compose key are named as matplotlib's
-/// GTK and Tk backends name them (`dead_acute`, `multi_key`).
+/// A character key as matplotlib's Qt backend names it: Qt reports the
+/// key's capital, which Shift leaves as it is and anything else (Caps
+/// Lock included) lowers. Characters without a one-character capital or
+/// small form stay as they are.
+fn qt_case(c: char, shift: bool) -> char {
+    let mut mapped = if shift {
+        c.to_uppercase().collect::<Vec<char>>()
+    } else {
+        c.to_lowercase().collect()
+    };
+    match (mapped.pop(), mapped.is_empty()) {
+        (Some(single), true) => single,
+        _ => c,
+    }
+}
+
+/// The modifier a modifier key sets while held (none for other keys),
+/// which matplotlib leaves out of the key's own name (Shift alone is
+/// `shift`, not `shift+shift`).
+pub(crate) fn own_modifier(key: Key) -> Modifiers {
+    match key {
+        Key::Shift => Modifiers::SHIFT,
+        Key::Control => Modifiers::CONTROL,
+        Key::Alt => Modifiers::ALT,
+        Key::Super => Modifiers::SUPER,
+        _ => Modifiers::NONE,
+    }
+}
+
+/// matplotlib's name of a key press, as its Qt backend gives it, or
+/// `None` for keys it has no name for (F13 and beyond, Num Lock, Menu,
+/// Print Screen, `AltGr`, ...). A key ending a compose sequence is named
+/// by the character it typed, so that text boxes take accented letters,
+/// and dead keys and the Compose key are named as matplotlib's GTK and Tk
+/// backends name them (`dead_acute`, `multi_key`): Qt's canvas composes
+/// nothing and reports no dead key.
 pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
     if let Some(typed) = composed_character(event) {
         return Some(typed.to_string());
     }
+    let mut modifiers = event.modifiers.with(own_modifier(event.key), false);
     let base = match &event.key {
-        Key::Character(c) => c.to_string(),
+        Key::Character(c) => {
+            let shift = modifiers.shift();
+            // Shift is in the character.
+            modifiers = modifiers.with(Modifiers::SHIFT, false);
+            qt_case(*c, shift).to_string()
+        }
         key @ (Key::Dead(_) | Key::Compose) => key.name().into_owned(),
         Key::Enter => "enter".into(),
         Key::Escape => "escape".into(),
@@ -123,27 +180,22 @@ pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
         Key::Right => "right".into(),
         Key::Up => "up".into(),
         Key::Down => "down".into(),
-        Key::F(n) => format!("f{n}"),
+        Key::F(n @ 1..=12) => format!("f{n}"),
         Key::Shift => "shift".into(),
         Key::Control => "control".into(),
         Key::Alt => "alt".into(),
-        Key::Super if cfg!(target_os = "macos") => "cmd".into(),
+        Key::Super => SUPER_NAME.into(),
+        Key::CapsLock => "caps_lock".into(),
+        Key::Pause => "pause".into(),
+        Key::Clear => "clear".into(),
         _ => return None,
     };
-    let modifiers = event.modifiers;
     let mut name = String::new();
-    for (flag, prefix) in [
-        (Modifiers::CONTROL, "ctrl+"),
-        (Modifiers::ALT, "alt+"),
-        (Modifiers::SUPER, SUPER_PREFIX),
-    ] {
+    for (flag, prefix) in MODIFIER_ORDER {
         if modifiers.contains(flag) {
             name.push_str(prefix);
+            name.push('+');
         }
-    }
-    // Shift is already applied to characters; other keys spell it out.
-    if modifiers.contains(Modifiers::SHIFT) && !matches!(event.key, Key::Character(_)) {
-        name.push_str("shift+");
     }
     name.push_str(&base);
     Some(name)
@@ -308,11 +360,65 @@ mod tests {
             assert_eq!(close.as_deref(), Some("cmd+w"));
             assert_eq!(command.as_deref(), Some("cmd"));
         } else {
-            assert_eq!(close.as_deref(), Some("super+w"));
-            assert_eq!(command, None);
+            assert_eq!(close.as_deref(), Some("meta+w"));
+            assert_eq!(command.as_deref(), Some("meta"));
         }
         assert_eq!(action("cmd+w", &rc), Some(KeyAction::Quit));
         assert_eq!(action("cmd+c", &rc), Some(KeyAction::Copy));
+    }
+
+    #[test]
+    fn names_follow_matplotlibs_qt_backend() {
+        let name = |key, modifiers| key_name(&press(key, modifiers));
+        // A modifier key leaves itself out, on its press and its release.
+        assert_eq!(name(Key::Shift, Modifiers::SHIFT).as_deref(), Some("shift"));
+        let ctrl_shift = Modifiers::CONTROL | Modifiers::SHIFT;
+        assert_eq!(name(Key::Shift, ctrl_shift).as_deref(), Some("ctrl+shift"));
+        assert_eq!(
+            name(Key::Control, Modifiers::CONTROL).as_deref(),
+            Some("control")
+        );
+        // Caps Lock lowers what Shift does not raise.
+        assert_eq!(
+            name(Key::Character('A'), Modifiers::NONE).as_deref(),
+            Some("a")
+        );
+        assert_eq!(
+            name(Key::Character('a'), Modifiers::SHIFT).as_deref(),
+            Some("A")
+        );
+        assert_eq!(
+            name(Key::Character('ß'), Modifiers::SHIFT).as_deref(),
+            Some("ß")
+        );
+        assert_eq!(
+            name(Key::Character('!'), Modifiers::SHIFT).as_deref(),
+            Some("!")
+        );
+        // Qt's names, and the keys it has none for.
+        assert_eq!(
+            name(Key::CapsLock, Modifiers::NONE).as_deref(),
+            Some("caps_lock")
+        );
+        assert_eq!(name(Key::Pause, Modifiers::NONE).as_deref(), Some("pause"));
+        assert_eq!(name(Key::F(12), Modifiers::NONE).as_deref(), Some("f12"));
+        for key in [
+            Key::F(13),
+            Key::NumLock,
+            Key::Menu,
+            Key::PrintScreen,
+            Key::AltGr,
+        ] {
+            assert_eq!(name(key, Modifiers::NONE), None, "{key:?}");
+        }
+        // Modifiers in Qt's order.
+        let all = Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT | Modifiers::SUPER;
+        let expected = if cfg!(target_os = "macos") {
+            "cmd+alt+shift+ctrl+left"
+        } else {
+            "ctrl+alt+shift+meta+left"
+        };
+        assert_eq!(name(Key::Left, all).as_deref(), Some(expected));
     }
 
     #[test]

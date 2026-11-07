@@ -138,7 +138,11 @@ pub(crate) fn pointer(view: ViewRef<'_>, event: EventRef<'_>) {
             Pointer::Entered if !std::mem::replace(&mut state.pointer_inside, true) => {
                 WindowEvent::CursorEntered { position }
             }
-            Pointer::Exited if std::mem::take(&mut state.pointer_inside) => WindowEvent::CursorLeft,
+            Pointer::Exited if std::mem::take(&mut state.pointer_inside) => {
+                WindowEvent::CursorLeft {
+                    position: Some(position),
+                }
+            }
             Pointer::Entered | Pointer::Exited => return,
         };
         views.push(id, reported);

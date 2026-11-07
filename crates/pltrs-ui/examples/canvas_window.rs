@@ -62,7 +62,7 @@ fn canvas_message(event: SurfaceEvent) -> Option<Message> {
         SurfaceEvent::Input(UiEvent::PointerMove { position, .. }) => {
             Some(Message::PointerAt(position))
         }
-        SurfaceEvent::Input(UiEvent::PointerLeave) => Some(Message::PointerLeft),
+        SurfaceEvent::Input(UiEvent::PointerLeave(_)) => Some(Message::PointerLeft),
         SurfaceEvent::Input(UiEvent::Key(key))
             if key.key == Key::Escape && key.state == ButtonState::Pressed =>
         {

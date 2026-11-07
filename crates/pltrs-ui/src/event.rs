@@ -16,8 +16,10 @@ use pltrs_platform::{KeyEvent, Modifiers, MouseButton, ScrollDelta};
 pub enum UiEvent {
     /// The pointer moved onto the widget.
     PointerEnter(Point),
-    /// The pointer moved off the widget (or left the window).
-    PointerLeave,
+    /// The pointer moved off the widget (or left the window), to the
+    /// position given where it is known (outside the widget; the platform
+    /// may not tell where the pointer went when it left the window).
+    PointerLeave(Option<Point>),
     /// The pointer moved.
     PointerMove {
         /// Pointer position.
@@ -70,7 +72,8 @@ impl UiEvent {
             | Self::PointerDown { position, .. }
             | Self::PointerUp { position, .. }
             | Self::Wheel { position, .. } => Some(*position),
-            Self::PointerLeave | Self::Key(_) | Self::Paste(_) => None,
+            Self::PointerLeave(position) => *position,
+            Self::Key(_) | Self::Paste(_) => None,
         }
     }
 
@@ -85,8 +88,9 @@ impl UiEvent {
             | Self::PointerMove { position, .. }
             | Self::PointerDown { position, .. }
             | Self::PointerUp { position, .. }
-            | Self::Wheel { position, .. } => *position = shift(position),
-            Self::PointerLeave | Self::Key(_) | Self::Paste(_) => {}
+            | Self::Wheel { position, .. }
+            | Self::PointerLeave(Some(position)) => *position = shift(position),
+            Self::PointerLeave(None) | Self::Key(_) | Self::Paste(_) => {}
         }
         event
     }
@@ -107,10 +111,15 @@ mod tests {
         assert_eq!(down.position(), Some(Point::new(15.0, 25.0)));
         let local = down.relative_to(Point::new(10.0, 20.0));
         assert_eq!(local.position(), Some(Point::new(5.0, 5.0)));
-        assert_eq!(UiEvent::PointerLeave.position(), None);
+        assert_eq!(UiEvent::PointerLeave(None).position(), None);
         assert_eq!(
-            UiEvent::PointerLeave.relative_to(Point::new(1.0, 1.0)),
-            UiEvent::PointerLeave
+            UiEvent::PointerLeave(None).relative_to(Point::new(1.0, 1.0)),
+            UiEvent::PointerLeave(None)
+        );
+        let left = UiEvent::PointerLeave(Some(Point::new(-3.0, 4.0)));
+        assert_eq!(
+            left.relative_to(Point::new(1.0, 1.0)).position(),
+            Some(Point::new(-4.0, 3.0))
         );
     }
 }

@@ -122,9 +122,12 @@ def draw_idle(canvas):
 
 
 def _draw_pending():
-    """Run the idle draws asked for."""
-    while _idle_draws:
-        canvas = _idle_draws.pop(0)()
+    """Run the idle draws asked for; those asked for meanwhile wait for
+    the next round, as Qt's single-shot timers do."""
+    pending = _idle_draws[:]
+    del _idle_draws[:]
+    for ref in pending:
+        canvas = ref()
         if canvas is None:
             continue
         try:
@@ -153,12 +156,13 @@ def _dispatch(event):
 
 def process_events(timeout=0):
     """
-    Run one round of the loop: the idle draws, then whatever the window
-    system has within *timeout* seconds (none: wait until something
-    happens), then the calls other threads queued for the windows.
+    Run one round of the loop: whatever the window system has within
+    *timeout* seconds (none: wait until something happens; no wait while
+    idle draws are due), then the idle draws, then the calls other threads
+    queued for the windows. A window shown reports its size before it is
+    first drawn, as Qt's widgets do.
     """
-    _draw_pending()
-    for event in _gui.pump(host(), timeout):
+    for event in _gui.pump(host(), 0 if _idle_draws else timeout):
         _dispatch(event)
     _draw_pending()
     run_queued_calls()

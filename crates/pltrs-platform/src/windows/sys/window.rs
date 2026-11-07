@@ -516,3 +516,12 @@ pub(crate) fn screen_to_client(window: Hwnd, (x, y): (i32, i32)) -> (i32, i32) {
     unsafe { ffi::ScreenToClient(window.0, &raw mut point) };
     (point.x, point.y)
 }
+
+/// Where the pointer is, in `window`'s client coordinates; `None` when
+/// the system cannot tell (another desktop has the input).
+pub(crate) fn cursor_in_client(window: Hwnd) -> Option<(i32, i32)> {
+    let mut point = Point { x: 0, y: 0 };
+    // SAFETY: `point` is a POINT the call fills in.
+    let found = unsafe { ffi::GetCursorPos(&raw mut point) } != 0;
+    found.then(|| screen_to_client(window, (point.x, point.y)))
+}

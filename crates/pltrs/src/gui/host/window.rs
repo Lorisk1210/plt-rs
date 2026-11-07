@@ -8,11 +8,11 @@ use pltrs_platform::{Context, CursorIcon, LogicalSize, TimerId, WindowEvent, Win
 use pltrs_ui::{Flex, Rect, Surface, SurfaceEvent, UiWindow, WidgetId};
 
 use super::ShortcutGroup;
-use super::input::InputState;
 use super::toolbar::{ToolItem, Toolbar};
 use super::{HostEvent, HostedWindowId};
 use crate::figure::{Figure, Presenting};
 use crate::gui::help_dialog::HelpDialog;
+use crate::gui::input::InputState;
 use crate::gui::save_dialog::{Outcome, SaveDialog};
 use crate::gui::subplot_dialog::{Request, SubplotDialog, SubplotLayout};
 use crate::gui::window::{present_figure, toolbar_height};
@@ -311,7 +311,7 @@ impl HostedWindow {
                 scale_factor: shown.window.ui().scale_factor(),
             }),
             Message::Canvas(SurfaceEvent::Input(input)) if !modal => {
-                if let Some(input) = shown.input.convert(&input) {
+                for input in shown.input.convert(&input) {
                     events.push(HostEvent::Input { window, input });
                 }
             }

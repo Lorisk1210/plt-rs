@@ -98,31 +98,43 @@ impl PixelBox {
         Ok(saved)
     }
 
-    /// The whole pixels covering the display box `bbox` on a canvas
-    /// `width × height` pixels large, within the canvas: what a window
-    /// updates for a blit of `bbox` (matplotlib's Tk backend rounds the
-    /// box outwards this way).
+    /// The pixels a window updates for a blit of the display box `bbox`
+    /// on a canvas `width × height` pixels large shown at `ratio`
+    /// physical pixels per logical pixel, within the canvas: those
+    /// matplotlib's Qt canvas repaints. Its `blit` truncates the box's
+    /// left, bottom, width and height to whole logical pixels, and its
+    /// paint copies the logical rectangle these make, with its corners
+    /// truncated to physical pixels.
     ///
     /// # Errors
     ///
     /// When a coordinate is not finite.
-    pub(crate) fn covering(bbox: &Bbox, width: u32, height: u32) -> Result<Self, CanvasError> {
+    pub(crate) fn repainted(
+        bbox: &Bbox,
+        width: u32,
+        height: u32,
+        ratio: f64,
+    ) -> Result<Self, CanvasError> {
         let coordinates = [bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1()];
         if !coordinates.iter().all(|c| c.is_finite()) {
             return Err(CanvasError::InvalidBox(*bbox));
         }
-        let (left, right) = (bbox.xmin().floor(), bbox.xmax().ceil());
-        let (bottom, top) = (bbox.ymin().floor(), bbox.ymax().ceil());
-        let flipped = |y: f64| f64::from(height) - y;
-        // Float-to-int `as` casts saturate; the box is clipped to the
-        // canvas right after.
-        let covering = Self::new(
-            left as i64,
-            flipped(top) as i64,
-            right as i64,
-            flipped(bottom) as i64,
+        let logical = |value: f64| (value / ratio).trunc();
+        let (left, bottom) = (logical(bbox.x0()), logical(bbox.y0()));
+        let (right, top) = (
+            left + logical(bbox.width()),
+            bottom + logical(bbox.height()),
         );
-        Ok(covering.intersection(Self::canvas(width, height)))
+        // Float-to-int `as` casts saturate, and so does the flip; the box
+        // is clipped to the canvas right after.
+        let flipped = |y: f64| i64::from(height).saturating_sub((y * ratio).trunc() as i64);
+        let repainted = Self::new(
+            (left * ratio).trunc() as i64,
+            flipped(top),
+            (right * ratio).trunc() as i64,
+            flipped(bottom),
+        );
+        Ok(repainted.intersection(Self::canvas(width, height)))
     }
 }
 

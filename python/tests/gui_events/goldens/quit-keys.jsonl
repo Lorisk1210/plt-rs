@@ -1,0 +1,9 @@
+{"gui": false, "inches": [4.0, 3.0], "name": "resize_event", "size": [400, 300]}
+{"gui": false, "name": "draw_event"}
+{"gui": true, "inaxes": 0, "modifiers": [], "name": "figure_enter_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "event": "motion_notify_event", "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "axes_enter_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": true, "inaxes": 0, "key": "control", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"gui": false, "name": "close_event"}
+{"gui": true, "inaxes": 0, "key": "ctrl+w", "modifiers": [], "name": "key_press_event", "x": 205, "xdata": 5.0, "y": 148, "ydata": 4.97835}
+{"name": "end"}

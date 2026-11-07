@@ -8,8 +8,7 @@ aliases, defaults) into the explicit arguments of a native function of
 """
 
 from .. import _docstring
-from .. import _values, cbook
-from .._native import axes as _axes
+from .. import cbook
 from . import _failed_calls
 from ._artist_list import ArtistList
 from ._base import _AxesBase
@@ -63,13 +62,6 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         super()._init_axes_state()
         self.xaxis = XAxis(self)
         self.yaxis = YAxis(self)
-
-    def _display_to_data(self, xy):
-        """The data coordinates of the display point *xy*
-        (``self.transData.inverted().transform(xy)``)."""
-        x, y = xy
-        # numpy floats, as matplotlib's transform gives them.
-        return _values.float64s(_axes.display_to_data(self._native, x, y))
 
     def get_legend_handles_labels(self, legend_handler_map=None):
         """

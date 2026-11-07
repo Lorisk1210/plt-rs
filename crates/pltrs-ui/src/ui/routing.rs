@@ -173,10 +173,22 @@ impl<M: 'static> Ui<M> {
     /// popup is open, only its widget (and its ancestors) count as under
     /// the pointer.
     pub(super) fn update_hot(&mut self, position: Option<Point>) {
-        self.routing.pointer = position;
+        self.retarget(position, position);
+    }
+
+    /// The pointer left the window for `position` (window pixels, if the
+    /// platform tells): no widget is under it any more.
+    pub(super) fn pointer_left(&mut self, position: Option<Point>) {
+        self.retarget(None, position);
+    }
+
+    /// [`Self::update_hot`] for the pointer at `position`, which the
+    /// widgets' leave events report, hitting the widgets under `hit`.
+    fn retarget(&mut self, hit: Option<Point>, position: Option<Point>) {
+        self.routing.pointer = hit;
         let path = match self.routing.popup {
             Some(owner) => path_to(&self.root, owner),
-            None => position.map_or_else(Vec::new, |p| hit_path(&self.root, p)),
+            None => hit.map_or_else(Vec::new, |p| hit_path(&self.root, p)),
         };
         let left: Vec<WidgetId> = self
             .routing
@@ -197,9 +209,9 @@ impl<M: 'static> Ui<M> {
         self.needs_paint = true;
         self.update_tooltip();
         for id in left.into_iter().rev() {
-            self.deliver(Some(id), &UiEvent::PointerLeave);
+            self.deliver(Some(id), &UiEvent::PointerLeave(position));
         }
-        if let Some(position) = position {
+        if let Some(position) = hit {
             for id in entered {
                 self.deliver(Some(id), &UiEvent::PointerEnter(position));
             }

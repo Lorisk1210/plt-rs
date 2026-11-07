@@ -268,7 +268,7 @@ fn blits_are_recorded_for_presenters_only() {
     assert_eq!(
         canvas.take_presentation(),
         Presentation::Regions(vec![
-            PixelBox::new(10, 29, 21, 40),
+            PixelBox::new(10, 30, 20, 40),
             PixelBox::new(0, 0, 50, 5)
         ])
     );
@@ -278,6 +278,34 @@ fn blits_are_recorded_for_presenters_only() {
     drop(presenting);
     canvas.draw().unwrap();
     assert_eq!(canvas.take_presentation(), Presentation::Nothing);
+}
+
+#[test]
+fn blits_repaint_what_matplotlibs_qt_canvas_repaints() {
+    // An axes' box a hair above whole pixels (0.4 × 300 and 0.6 × 300 in
+    // floating point): Qt truncates the bottom and the height, and leaves
+    // the row above the box as it was.
+    let bbox = Bbox::from_extents(120.0, 120.000_000_000_000_01, 280.0, 180.000_000_000_000_03);
+    assert_eq!(
+        PixelBox::repainted(&bbox, 400, 300, 1.0).unwrap(),
+        PixelBox::new(120, 120, 280, 180)
+    );
+    // At two physical pixels per logical pixel, whole logical pixels.
+    let bbox = Bbox::from_extents(11.0, 21.0, 31.0, 51.0);
+    assert_eq!(
+        PixelBox::repainted(&bbox, 100, 100, 2.0).unwrap(),
+        PixelBox::new(10, 50, 30, 80)
+    );
+    // At 1.5, logical pixels truncated, then their physical corners.
+    assert_eq!(
+        PixelBox::repainted(&bbox, 100, 100, 1.5).unwrap(),
+        PixelBox::new(10, 49, 30, 79)
+    );
+    let infinite = Bbox::from_extents(0.0, 0.0, f64::INFINITY, 1.0);
+    assert!(PixelBox::repainted(&infinite, 10, 10, 1.0).is_err());
+    // Coordinates beyond the integers' range clip to the canvas.
+    let huge = Bbox::from_extents(1.0, -4.8e145, 0.6, 0.4);
+    assert!(PixelBox::repainted(&huge, 10, 10, 1.0).unwrap().is_empty());
 }
 
 #[test]

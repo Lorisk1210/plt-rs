@@ -20,6 +20,7 @@ use super::save_dialog::{Outcome, SaveDialog};
 use super::{GuiError, dialog, tools};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::{Figure, Presenting};
+use crate::gui::input::InputState;
 use crate::navigation::{NavMode, Navigation};
 use dialogs::SubplotTool;
 use toolbar::{Tool, Toolbar};
@@ -48,6 +49,8 @@ pub struct FigureWindow {
     canvas: WidgetId,
     toolbar: Toolbar,
     navigation: Navigation,
+    /// Turns the canvas' input into what matplotlib's Qt backend reports.
+    input: InputState,
     /// Turns canvas input into figure events for connected callbacks.
     events: EventSource,
     /// The platform timers running the figure's timers.
@@ -55,7 +58,8 @@ pub struct FigureWindow {
     canvas_size: PhysicalSize,
     /// The `x` or `y` key held to constrain dragging.
     held: Option<char>,
-    /// The last pointer position over the canvas, in display coordinates.
+    /// Where the pointer is, in display coordinates (outside the canvas
+    /// once it left), once known.
     pointer: Option<Point>,
     /// The cursor shown, once set.
     cursor: Option<CursorIcon>,
@@ -109,6 +113,7 @@ impl FigureWindow {
             canvas,
             toolbar,
             navigation: Navigation::new(),
+            input: InputState::default(),
             events: EventSource::new(),
             timers: Vec::new(),
             canvas_size: PhysicalSize::default(),
@@ -502,6 +507,8 @@ fn cursor_icon(shape: CursorShape) -> CursorIcon {
 
 #[cfg(test)]
 mod fuzz_tests;
+#[cfg(test)]
+mod input_tests;
 #[cfg(test)]
 mod keyboard_tests;
 #[cfg(test)]

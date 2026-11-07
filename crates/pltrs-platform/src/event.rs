@@ -65,7 +65,12 @@ pub enum WindowEvent {
         position: PhysicalPosition,
     },
     /// The pointer left the content area.
-    CursorLeft,
+    CursorLeft {
+        /// Where the pointer went, in the window's coordinates (outside
+        /// the content area), where the platform tells: X11, macOS and
+        /// Windows do, Wayland does not.
+        position: Option<PhysicalPosition>,
+    },
     /// The pointer moved inside the content area (or anywhere while a
     /// button is held). Consecutive motions may be coalesced.
     CursorMoved {

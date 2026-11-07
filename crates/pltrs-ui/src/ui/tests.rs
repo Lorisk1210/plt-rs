@@ -99,7 +99,7 @@ fn kinds(log: &[Log]) -> Vec<(&'static str, &'static str)> {
         .map(|(name, event)| {
             let kind = match event {
                 UiEvent::PointerEnter(_) => "enter",
-                UiEvent::PointerLeave => "leave",
+                UiEvent::PointerLeave(_) => "leave",
                 UiEvent::PointerMove { .. } => "move",
                 UiEvent::PointerDown { .. } => "down",
                 UiEvent::PointerUp { .. } => "up",
@@ -136,7 +136,11 @@ fn pointer_events_reach_the_widget_under_the_pointer() {
         modifiers: Modifiers::NONE,
     };
     assert_eq!(kinds(&ui.handle(&wheel).unwrap()), [("right", "wheel")]);
-    let log = ui.handle(&WindowEvent::CursorLeft).unwrap();
+    let log = ui
+        .handle(&WindowEvent::CursorLeft {
+            position: Some(at(150.0, 120.0)),
+        })
+        .unwrap();
     assert_eq!(kinds(&log), [("right", "leave")]);
 }
 

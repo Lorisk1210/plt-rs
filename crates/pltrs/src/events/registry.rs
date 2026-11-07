@@ -229,6 +229,17 @@ mod tests {
         assert_eq!(draws.get(), 1);
     }
 
+    /// The pointer leaving a figure for a place unknown.
+    fn left() -> Event {
+        Event::FigureLeave(crate::events::Location {
+            x: f64::NAN,
+            y: f64::NAN,
+            inaxes: None,
+            xdata: None,
+            ydata: None,
+        })
+    }
+
     #[test]
     fn callbacks_run_by_kind_until_disconnected() {
         let fig = Figure::new();
@@ -236,7 +247,7 @@ mod tests {
         let seen = Rc::clone(&count);
         let id = fig.connect(EventKind::Close, move |_| seen.set(seen.get() + 1));
         fig.process_event(&Event::Close);
-        fig.process_event(&Event::FigureLeave);
+        fig.process_event(&left());
         assert_eq!(count.get(), 1);
         assert!(fig.disconnect(id));
         assert!(!fig.disconnect(id));
@@ -254,7 +265,7 @@ mod tests {
         }
         let send = || {
             fig.process_event(&Event::Close);
-            fig.process_event(&Event::FigureLeave);
+            fig.process_event(&left());
         };
         let close = fig.block_callbacks(Some(EventKind::Close));
         send();

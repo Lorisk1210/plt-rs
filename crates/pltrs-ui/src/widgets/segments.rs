@@ -124,7 +124,7 @@ impl Segments {
             UiEvent::PointerEnter(position) | UiEvent::PointerMove { position, .. } => {
                 self.at(position.x - rect.x)
             }
-            UiEvent::PointerLeave => None,
+            UiEvent::PointerLeave(_) => None,
             _ => return false,
         };
         let changed = hot != self.hot;
@@ -154,7 +154,7 @@ mod tests {
         assert!(segments.track_hover(&UiEvent::PointerEnter(Point::new(15.0, 5.0)), rect));
         assert_eq!(segments.hot, Some(0));
         assert!(!segments.track_hover(&UiEvent::PointerEnter(Point::new(16.0, 5.0)), rect));
-        assert!(segments.track_hover(&UiEvent::PointerLeave, rect));
+        assert!(segments.track_hover(&UiEvent::PointerLeave(None), rect));
         assert_eq!(segments.hot, None);
     }
 

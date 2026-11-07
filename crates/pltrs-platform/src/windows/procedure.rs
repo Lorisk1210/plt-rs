@@ -128,7 +128,11 @@ pub(crate) fn handle(window: Hwnd, message: Message) -> Reply {
             }
         }
         Message::MouseMove(position) => handled(pointer_moved(window, position)),
-        Message::MouseLeave => handled(with_windows(|windows| pointer_left(windows, id))),
+        Message::MouseLeave => {
+            let position = sys::cursor_in_client(window)
+                .map(|(x, y)| PhysicalPosition::new(f64::from(x), f64::from(y)));
+            handled(with_windows(|windows| pointer_left(windows, id, position)))
+        }
         Message::Button {
             button,
             state,
@@ -277,13 +281,18 @@ fn pointer_moved(window: Hwnd, position: PhysicalPosition) -> bool {
     entered.is_some()
 }
 
-/// Reports the pointer leaving; returns whether the window is known.
-fn pointer_left(windows: &mut Registry<WindowState>, window: WindowId) -> bool {
+/// Reports the pointer leaving for `position` (client coordinates);
+/// returns whether the window is known.
+fn pointer_left(
+    windows: &mut Registry<WindowState>,
+    window: WindowId,
+    position: Option<PhysicalPosition>,
+) -> bool {
     let Some(state) = windows.state_mut(window) else {
         return false;
     };
     if std::mem::take(&mut state.pointer_inside) {
-        windows.push(window, WindowEvent::CursorLeft);
+        windows.push(window, WindowEvent::CursorLeft { position });
     }
     true
 }

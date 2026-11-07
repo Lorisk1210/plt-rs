@@ -486,11 +486,6 @@ fn is_attached(collection: Collection) -> PyResult<bool> {
     Ok(collection.raw().is_attached())
 }
 
-/// The positions of the events.
-fn event_positions(events: EventCollection) -> PyResult<NdArray> {
-    Ok(NdArray::from_vec(events.positions()))
-}
-
 /// Replaces the positions of the events.
 fn set_event_positions(events: EventCollection, positions: NdArray) -> PyResult<()> {
     events.set_positions(&positions.into_vec()?);
@@ -612,7 +607,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_cmap", get_cmap)?;
     module.add("set_mapping", set_mapping)?;
     module.add("is_attached", is_attached)?;
-    module.add("event_positions", event_positions)?;
     module.add("set_event_positions", set_event_positions)?;
     module.add("event_orientation", event_orientation)?;
     module.add("set_event_orientation", set_event_orientation)?;

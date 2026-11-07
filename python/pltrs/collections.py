@@ -10,6 +10,7 @@ after the defaults and alpha, until a draw maps the values onto them
 (`Collection.update_scalarmappable`). Widths read back as given.
 """
 
+import functools
 import math
 from numbers import Real
 import operator
@@ -25,7 +26,7 @@ from ._enums import CapStyle, JoinStyle
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
-from .artist import Artist, _check_array_alpha
+from .artist import Artist, _check_array_alpha, allow_rasterization
 from .path import Path
 
 
@@ -421,8 +422,16 @@ class Collection(mcolorizer.ColorizingArtist):
         ----------
         offset_transform : `.Transform`
         """
-        _collections.set_offset_transform(
-            self._native, _live_transforms.to_native(offset_transform))
+        if (offset_transform is None or isinstance(offset_transform, mtransforms.Transform)
+                or hasattr(offset_transform, '_as_mpl_transform')):
+            _collections.set_offset_transform(
+                self._native, _live_transforms.to_native(offset_transform))
+            _unusable.drop(self, "offset_transform")
+        else:
+            # matplotlib keeps it, and fails to use it as it draws and
+            # measures the collection; pltrs (Rust) keeps the one it had.
+            _unusable.keep(self, "offset_transform", offset_transform,
+                           operator.attrgetter("is_affine"))
         self._offset_transform = offset_transform
 
     def _get(self, name):
@@ -434,6 +443,12 @@ class Collection(mcolorizer.ColorizingArtist):
     _paths_container = list
 
     def get_paths(self):
+        # The paths of an `EllipseCollection` before it is first drawn.
+        unit_paths = self.__dict__.get("_unit_paths")
+        if unit_paths is not None:
+            return unit_paths
+        if _values.is_kept(self, "paths"):
+            return self.__dict__["_given_values"]["paths"]
         native = _collections.get_paths(self._native)
         kept = self.__dict__.get("_kept_paths")
         if kept is not None and _same_paths(kept[0], native):
@@ -465,6 +480,14 @@ class Collection(mcolorizer.ColorizingArtist):
     _paths = property(get_paths, doc="The paths of the items.")
 
     def set_paths(self, paths):
+        self.__dict__.pop("_unit_paths", None)
+        if not (paths is None or isinstance(paths, Path)
+                or (np.iterable(paths) and all(isinstance(path, Path) for path in paths))):
+            # matplotlib keeps them as given; pltrs (Rust) keeps the paths it
+            # had.
+            _values.keep(self, "paths", paths)
+            return
+        _values.remember(self, "paths", paths)
         if isinstance(paths, Path):
             _collections.set_single_path(self._native, paths)
         else:
@@ -478,11 +501,19 @@ class Collection(mcolorizer.ColorizingArtist):
         _program_paths.keep(self, None if isinstance(paths, Path) else paths)
 
     def get_transforms(self):
+        drawn = self._drawn_transforms()
+        if drawn is not None:
+            return drawn
         dpi, draws = self.__dict__.get("_sizes_scaled", (72.0, 0))
         figure = self.get_figure(root=True)
         if figure is not None and _artist.draw_count(self._native) > draws:
             dpi = float(figure.dpi)
         return _collections.get_transforms(self._native, dpi)
+
+    def _drawn_transforms(self):
+        """The transforms the class' draws compute, which `get_transforms`
+        gives once it is drawn (an `EllipseCollection`'s), else None."""
+        return None
 
     def get_offsets(self):
         """Return the offsets for the collection."""
@@ -628,6 +659,7 @@ class Collection(mcolorizer.ColorizingArtist):
 
     pickradius = property(get_pickradius, set_pickradius)
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -811,6 +843,10 @@ class Collection(mcolorizer.ColorizingArtist):
         if lw is None:
             lw = self._get_default_linewidth()
         lw = np.atleast_1d(lw)
+        # matplotlib scales the dash patterns by the widths, failing on
+        # widths that are no numbers.
+        self._bcast_lwls(lw, [mlines._get_dash_pattern(style)
+                              for style in self._given_linestyles()])
         # Masked widths draw nothing, as NaN ones (and read back masked).
         widths = lw.astype(float).filled(np.nan) if np.ma.isMaskedArray(lw) else lw
         _collections.set_linewidths(self._native, [float(w) for w in widths])
@@ -882,14 +918,45 @@ class Collection(mcolorizer.ColorizingArtist):
             self, "linewidth", np.asarray(self._get("linewidth"), dtype=float),
             same=_values.same_cycled)
         dashes = [mlines._get_dash_pattern(style) for style in self._given_linestyles()]
+        return self._bcast_lwls(linewidths, dashes)
+
+    @staticmethod
+    def _bcast_lwls(linewidths, dashes):
+        """
+        Internal helper function to broadcast + scale ls/lw
+
+        In the collection drawing code, the linewidth and linestyle are cycled
+        through as circular buffers (via ``v[i % len(v)]``).  Thus, if we are
+        going to scale the dash pattern at set time (not draw time) we need to
+        do the broadcasting now and expand both lists to be the same length.
+
+        Parameters
+        ----------
+        linewidths : list
+            line widths of collection
+        dashes : list
+            dash specification (offset, (dash pattern tuple))
+
+        Returns
+        -------
+        linewidths, dashes : list
+            Will be the same length, dashes are scaled by paired linewidth
+        """
         if _rcParams()['_internal.classic_mode']:
             return linewidths, dashes
+        # make sure they are the same length so we can zip them
         if len(dashes) != len(linewidths):
-            gcd = math.gcd(len(dashes), len(linewidths))
-            dashes, linewidths = (list(dashes) * (len(linewidths) // gcd),
-                                  list(linewidths) * (len(dashes) // gcd))
-        return linewidths, [mlines._scale_dashes(o, d, lw)
-                            for (o, d), lw in zip(dashes, linewidths)]
+            l_dashes = len(dashes)
+            l_lw = len(linewidths)
+            gcd = math.gcd(l_dashes, l_lw)
+            dashes = list(dashes) * (l_lw // gcd)
+            linewidths = list(linewidths) * (l_dashes // gcd)
+
+        # scale the dash patterns
+        dashes = [mlines._scale_dashes(o, d, lw)
+                  for (o, d), lw in zip(dashes, linewidths)]
+
+        return linewidths, dashes
 
     def _get_default_linewidth(self):
         return _rcParams()['patch.linewidth']
@@ -1106,12 +1173,17 @@ class _CollectionWithSizes(Collection):
         """
         if sizes is None:
             sizes = np.array([])
-        sizes = np.atleast_1d(sizes)
+        sizes = np.asarray(sizes)
+        # matplotlib's scales of the items, which fail and warn on sizes that
+        # are no numbers or negative.
+        len(sizes)
+        np.sqrt(sizes) * dpi / 72.0
         _collections.set_sizes(self._native, np.asarray(sizes, float))
         _values.remember(self, "sizes", sizes)
         # The resolution the items are scaled at until the next draw.
         self._sizes_scaled = (float(dpi), _artist.draw_count(self._native))
 
+    @allow_rasterization
     def draw(self, renderer):
         # matplotlib's draw sets the sizes anew at the figure's resolution
         # first, which makes the collection stale, and its Axes and figure
@@ -1458,8 +1530,8 @@ class FillBetweenPolyCollection(PolyCollection):
         # fails for anything else.
         for array in (t, f1, f2):
             getattr(array, "ndim")
-        curves, mask = self._checked_data(t, f1, f2, where)
-        _check_step(step, np.broadcast_arrays(*curves), mask)
+        curves, mask = self._checked_data(t_direction, t, f1, f2, where)
+        _check_step(step, curves, mask)
         self._native = _collections.new_fill_between_collection(
             t_direction == "y", curves, mask, bool(interpolate), step)
         Collection.__init__(self, **kwargs)
@@ -1480,14 +1552,16 @@ class FillBetweenPolyCollection(PolyCollection):
         """The direction that is other than `self.t_direction`."""
         return self._f_dir_from_t(self.t_direction)
 
-    def _checked_data(self, t, f1, f2, where):
+    @classmethod
+    def _checked_data(cls, t_dir, t, f1, f2, where):
         """
-        The curves as float arrays (masked points as NaN, which are not
-        filled) and *where* as a list of flags, checked as matplotlib's
-        ``_validate_shapes`` and ``_get_data_mask`` do.
+        The curves along *t_dir* as float arrays broadcast together (masked
+        points as NaN, which are not filled) and *where* as a list of flags,
+        checked as matplotlib's ``_validate_shapes`` and ``_get_data_mask``
+        do.
         """
         t, f1, f2 = (np.ma.asarray(v, dtype=float) for v in (t, f1, f2))
-        t_dir, f_dir = self.t_direction, self._f_direction
+        f_dir = cls._f_dir_from_t(t_dir)
         names = (d + s for d, s in zip((t_dir, f_dir, f_dir), ("", "1", "2")))
         for name, array in zip(names, [t, f1, f2]):
             if array.ndim > 1:
@@ -1502,9 +1576,17 @@ class FillBetweenPolyCollection(PolyCollection):
                 msg = "where size ({}) does not match {!r} size ({})".format(
                     where.size, t_dir, t.size)
                 raise ValueError(msg)
-            where = where.ravel().tolist()
-        curves = tuple(np.atleast_1d(np.ma.filled(v, np.nan)) for v in (t, f1, f2))
-        return curves, where
+        # matplotlib's mask of the points masked in any curve, which fails
+        # for curves that do not broadcast together.
+        masked = functools.reduce(np.logical_or, map(np.ma.getmaskarray, [t, f1, f2]))
+        curves = np.broadcast_arrays(*(np.atleast_1d(np.ma.filled(v, np.nan))
+                                       for v in (t, f1, f2)))
+        if where is None:
+            return curves, None
+        # matplotlib takes the points it fills, which fails for flags of
+        # another shape.
+        curves[0][where & ~masked]
+        return curves, where.ravel().tolist()
 
     def set_data(self, t, f1, f2, *, where=None):
         """
@@ -1534,7 +1616,7 @@ class FillBetweenPolyCollection(PolyCollection):
         --------
         .PolyCollection.set_verts, .Line2D.set_data
         """
-        curves, mask = self._checked_data(t, f1, f2, where)
+        curves, mask = self._checked_data(self.t_direction, t, f1, f2, where)
         _collections.set_fill_between_data(self._native, curves, mask)
 
 
@@ -1589,6 +1671,7 @@ class RegularPolyCollection(_CollectionWithSizes):
         return _unusable.kept(self, "rotation", _values.given(
             self, "rotation", _collections.get_rotation(self._native)))
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -1686,7 +1769,21 @@ class LineCollection(Collection):
             List of segments in the LineCollection. Each list item contains an
             array of vertices.
         """
-        return [path.vertices for path in self.get_paths()]
+        segments = []
+
+        for path in self.get_paths():
+            vertices = [
+                vertex
+                for vertex, _
+                # Never simplify here, we want to get the data-space values
+                # back and there in no way to know the "right" simplification
+                # threshold so never try.
+                in path.iter_segments(simplify=False)
+            ]
+            vertices = np.asarray(vertices)
+            segments.append(vertices)
+
+        return segments
 
     def _get_default_linewidth(self):
         return _rcParams()['lines.linewidth']
@@ -1826,7 +1923,8 @@ class EventCollection(LineCollection):
         """
         Return an array containing the floating-point values of the positions.
         """
-        return list(_collections.event_positions(self._native))
+        pos = 0 if self.is_horizontal() else 1
+        return [segment[0, pos] for segment in self.get_segments()]
 
     def set_positions(self, positions):
         """Set the positions of the events."""
@@ -1863,7 +1961,13 @@ class EventCollection(LineCollection):
         Switch the orientation of the event line, either from vertical to
         horizontal or vice versus.
         """
-        self.set_orientation('vertical' if self.is_horizontal() else 'horizontal')
+        # matplotlib flips each segment, failing on one of no two vertices
+        # (a position of NaN).
+        for segment in self.get_segments():
+            np.fliplr(segment)
+        _collections.set_event_orientation(
+            self._native, 'vertical' if self.is_horizontal() else 'horizontal')
+        self.stale = True
 
     def set_orientation(self, orientation):
         """
@@ -1873,9 +1977,19 @@ class EventCollection(LineCollection):
         ----------
         orientation : {'horizontal', 'vertical'}
         """
-        _api.getitem_checked({"horizontal": True, "vertical": False},
-                             orientation=orientation)
-        _collections.set_event_orientation(self._native, orientation)
+        is_horizontal = _api.getitem_checked(
+            {"horizontal": True, "vertical": False}, orientation=orientation)
+        if is_horizontal != self.is_horizontal():
+            self.switch_orientation()
+
+    def _place_lines(self, lineoffset, linelength):
+        """Compute the ends of the event lines at *lineoffset* and of
+        *linelength*, as matplotlib does on each segment: failing as it does
+        on what is no number, or a segment of no two vertices."""
+        pos = 1 if self.is_horizontal() else 0
+        for segment in self.get_segments():
+            segment[0, pos] = lineoffset + linelength / 2.
+            segment[1, pos] = lineoffset - linelength / 2.
 
     def get_linelength(self):
         """Return the length of the lines used to mark each event."""
@@ -1884,6 +1998,9 @@ class EventCollection(LineCollection):
 
     def set_linelength(self, linelength):
         """Set the length of the lines used to mark each event."""
+        if linelength == self.get_linelength():
+            return
+        self._place_lines(self.get_lineoffset(), linelength)
         _collections.set_event_lines(self._native, None, float(linelength))
         _values.remember(self, "linelength", linelength)
 
@@ -1894,6 +2011,9 @@ class EventCollection(LineCollection):
 
     def set_lineoffset(self, lineoffset):
         """Set the offset of the lines used to mark each event."""
+        if lineoffset == self.get_lineoffset():
+            return
+        self._place_lines(lineoffset, self.get_linelength())
         _collections.set_event_lines(self._native, float(lineoffset), None)
         _values.remember(self, "lineoffset", lineoffset)
 
@@ -1992,16 +2112,21 @@ class EllipseCollection(Collection):
 
     def set_widths(self, widths):
         """Set the lengths of the first axes (e.g., major axis)."""
+        # matplotlib halves them, failing on what is no number.
+        0.5 * np.asarray(widths).ravel()
         _collections.set_ellipse_sizes(
             self._native, (np.ravel(widths).astype(float), None, None))
 
     def set_heights(self, heights):
         """Set the lengths of second axes (e.g., minor axes)."""
+        0.5 * np.asarray(heights).ravel()
         _collections.set_ellipse_sizes(
             self._native, (None, np.ravel(heights).astype(float), None))
 
     def set_angles(self, angles):
         """Set the angles of the first axes, degrees CCW from the x-axis."""
+        # matplotlib keeps them in radians, failing on what is no number.
+        np.deg2rad(angles).ravel()
         _collections.set_ellipse_sizes(
             self._native, (None, None, np.ravel(angles).astype(float)))
 
@@ -2017,20 +2142,12 @@ class EllipseCollection(Collection):
         """Get the angles of the first axes, degrees CCW from the x-axis."""
         return _collections.ellipse_sizes(self._native)[2]
 
-    def get_paths(self):
-        unit_paths = self.__dict__.get("_unit_paths")
-        return super().get_paths() if unit_paths is None else unit_paths
-
-    def set_paths(self, paths):
-        self.__dict__.pop("_unit_paths", None)
-        super().set_paths(paths)
-
-    def get_transforms(self):
+    def _drawn_transforms(self):
         # None before the first draw, then the ellipses' as the draws
         # work them out from the sizes in their units (matplotlib's
         # ``_set_transforms``).
         if self._figure is None or not _artist.draw_count(self._native):
-            return super().get_transforms()
+            return None
         ax, fig = self.axes, self.get_figure(root=False)
         sc = _api.getitem_checked({
             'xy': lambda: 1,
@@ -2057,6 +2174,7 @@ class EllipseCollection(Collection):
             pass
         return transforms
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -2160,6 +2278,7 @@ class TriMesh(Collection):
         return [Path(vertices, codes)
                 for vertices, codes in _tri.triangle_paths(tri._native)]
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -2424,6 +2543,7 @@ class QuadMesh(_MeshData, Collection):
         bbox.update_from_data_xy(self.get_coordinates().reshape(-1, 2))
         return (self.get_transform() - transData).transform_bbox(bbox)
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)

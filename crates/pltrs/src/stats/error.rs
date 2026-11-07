@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use pltrs_core::pyfmt;
+
 /// Why a statistical computation rejected its input.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StatsError {
@@ -111,17 +113,19 @@ impl fmt::Display for StatsError {
                 } else {
                     "supplied"
                 };
-                write!(f, "{origin} range of [{lo}, {hi}] is not finite")
+                // numpy's message, the bounds as Python writes floats.
+                write!(
+                    f,
+                    "{origin} range of [{}, {}] is not finite",
+                    pyfmt::repr(*lo),
+                    pyfmt::repr(*hi)
+                )
             }
             Self::WeightsMismatch { expected, actual } => {
                 write!(f, "{actual} weights given for {expected} samples")
             }
-            Self::SampleLengthMismatch { x, y } => {
-                write!(
-                    f,
-                    "x and y must have the same length, but have {x} and {y} values"
-                )
-            }
+            // numpy's message.
+            Self::SampleLengthMismatch { .. } => f.write_str("x and y must have the same length."),
             Self::WeightedEstimator => f.write_str(
                 "automated estimation of the number of bins is not supported for weighted data",
             ),

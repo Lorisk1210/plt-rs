@@ -16,9 +16,11 @@ from . import _api, _handles, _python_drawing, _unusable, _values, rcParams
 from .colors import to_rgba
 from ._native import artist as _artist, spines as _spines
 from .artist import Artist, allow_rasterization
+from .cbook import _str_equal
+from .lines import _get_dash_pattern
 from .patches import Patch, _kept_linestyle
 from .path import Path
-from .transforms import Bbox, IdentityTransform
+from .transforms import Affine2D, Bbox, IdentityTransform
 
 #: matplotlib's paths of the linear spines (``Spine.linear_spine``), in
 #: data along their axis and axes fractions across it, until a draw or a
@@ -127,10 +129,12 @@ class Spine(Patch):
         """Make the bare spine (`__new__`) the object of a new native spine
         of *axes* on the side *spine_type* names, else on that of the
         spine framing its outline."""
+        # The figure first, as matplotlib's constructor asks *axes* for it.
+        figure = axes.get_figure(root=False)
         natives = dict(_spines.axes_spines(axes._native))
         framing = natives.get(spine_type, natives.get("top", natives.get("polar")))
         _handles.adopt(self, _spines.new_spine(axes._native, _spines.side(framing)),
-                       axes.figure)
+                       figure)
         # Known without asking pltrs (Rust), which the projection of a
         # program's class cannot while it draws.
         self.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
@@ -190,24 +194,45 @@ class Spine(Patch):
 
     def set_patch_arc(self, center, radius, theta1, theta2):
         """Set the spine to be arc-like."""
-        _spines.set_patch_arc(self._native, tuple(map(float, center)),
-                              float(radius), (float(theta1), float(theta2)))
+        size = radius * 2
         # The arc's path, which the spine keeps as matplotlib's does.
-        self._path = Path.arc(theta1, theta2)
-        self._watch_shape()
-        self.stale = True
+        path = Path.arc(theta1, theta2)
+        self._set_shape(center, size, lambda center, radius: _spines.set_patch_arc(
+            self._native, center, radius, (float(theta1), float(theta2))))
+        self._path = path
+        self._watch_location()
 
     def set_patch_circle(self, center, radius):
         """Set the spine to be circular."""
-        _spines.set_patch_circle(self._native, tuple(map(float, center)),
-                                 float(radius))
-        self._watch_shape()
-        self.stale = True
+        self._set_shape(center, radius * 2, lambda center, radius: _spines.set_patch_circle(
+            self._native, center, radius))
+        self._watch_location()
 
     def set_patch_line(self):
         """Set the spine to be linear."""
         _spines.set_patch_line(self._native)
-        self._watch_shape()
+        self._watch_location()
+        self.stale = True
+
+    def _set_shape(self, center, size, shape):
+        """
+        Have *shape(center, radius)* draw the spine as an arc or a circle of
+        centre *center* and width and height *size*, which the spine keeps
+        as given, as matplotlib's does (``_center``, ``_width``): a centre
+        or a size pltrs (Rust) cannot hold leaves pltrs (Rust) a circle of
+        nothing, and the spine fails as matplotlib's computes with them
+        (`_locate`).
+        """
+        self._shape = (center, size)
+        try:
+            center = (float(center[0]), float(center[1]))
+        except (TypeError, ValueError, LookupError):
+            center = (0.0, 0.0)
+        try:
+            radius = float(size) / 2
+        except (TypeError, ValueError):
+            radius = 0.0
+        shape(center, radius)
         self.stale = True
 
     def _misshapen(self):
@@ -221,24 +246,83 @@ class Spine(Patch):
                 and "_path" in self.__dict__
                 and self._path.vertices.shape != (2, 2))
 
-    def _check_shape(self):
-        """Fail as matplotlib's spine fails to lay out (`_misshapen`), when
-        it is drawn or measured."""
-        assert not self._misshapen(), 'unexpected vertices shape'
+    def _unlocatable(self):
+        """Whether laying the spine out fails as matplotlib's does
+        (`_locate`): it is misshapen, its bounds or its arc's or circle's
+        centre and size are no numbers, or the axis registered is no
+        axis."""
+        if self._misshapen() or self.__dict__.get("_unheld_bounds"):
+            return True
+        axis = self.__dict__.get("_axis")
+        if axis is not None and not callable(getattr(axis, "get_visible", None)):
+            return True
+        if self._patch_type == "line" or "_shape" not in self.__dict__:
+            return False
+        center, size = self._shape
+        if self._patch_type == "arc" and self.spine_type == "bottom":
+            # Its draw sizes it to the radial view.
+            size = 1.0
+        try:
+            numbers = (float(center[0]), float(center[1]), float(size))
+        except (TypeError, ValueError, LookupError):
+            return True
+        # A shape of no finite numbers has no extents (`Path.get_extents`).
+        return not np.isfinite(numbers).all()
 
-    def _watch_shape(self):
-        """Have pltrs (Rust) draw and measure the spine through `draw` and
-        `get_tightbbox` while it is misshapen, so that drawing or measuring
-        its figure fails as matplotlib's does; as before otherwise."""
-        if self._misshapen():
-            _python_drawing.draw_through_python(self, True)
+    def _locate(self, _=None):
+        """
+        Lay the spine out as matplotlib's draw and measure do, from what it
+        keeps (its ``_adjust_location``, then for an arc or a circle its
+        ``_recompute_transform``, then the visibility of its axis), raising
+        as they do (`_unlocatable`).
+        """
+        bounds = self.get_bounds()
+        if self._patch_type == "arc" and self.spine_type in ("bottom", "top"):
+            if bounds is not None:
+                direction = getattr(self.axes, "get_theta_direction", lambda: 1)()
+                offset = getattr(self.axes, "get_theta_offset", lambda: 0)()
+                low, high = (end * direction + offset for end in bounds)
+                if low > high:
+                    low, high = high, low
+                Path.arc(np.rad2deg(low), np.rad2deg(high))
+        elif self._patch_type != "arc" and self.spine_type in _LINEAR_PATHS:
+            assert not self._misshapen(), 'unexpected vertices shape'
+            if bounds is not None:
+                # matplotlib writes them into the path's vertices.
+                vertices = np.empty(2)
+                vertices[0], vertices[1] = bounds
+        if self._patch_type in ("arc", "circle") and "_shape" in self.__dict__:
+            center, size = self._shape
+            if self._patch_type == "arc" and self.spine_type == "bottom":
+                size = 0.0
+            center = (self.convert_xunits(center[0]), self.convert_yunits(center[1]))
+            width = self.convert_xunits(size)
+            height = self.convert_yunits(size)
+            transform = Affine2D().scale(width * 0.5, height * 0.5).translate(*center)
+            # Measured: the extents of its path through that transform.
+            self._path.get_extents(transform)
+        if self.axis is not None:
+            self.axis.get_visible()
+
+    def _watch_location(self):
+        """Have the spine fail to be drawn and measured as matplotlib's
+        while laying it out fails (`_locate`), and its Axes to be drawn,
+        whose axes measure the spines beside their labels."""
+        if self._unlocatable():
+            _unusable.keep(self, "location", None, self._locate)
         else:
-            _python_drawing.attach(self, again=True)
+            _unusable.drop(self, "location")
+        axes = self.axes
+        spines = getattr(axes, "spines", {})
+        if any(isinstance(spine, Spine) and spine._unlocatable()
+               for spine in spines.values()):
+            _unusable.keep(axes, "spine locations", axes, _locate_label_spines)
+        else:
+            _unusable.drop(axes, "spine locations")
 
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
-        self._check_shape()
         if "_pushed_path" in self.__dict__:
             self._push_path()
         return super().draw(renderer)
@@ -353,6 +437,10 @@ class Spine(Patch):
         self._given_position = position
         # The spine takes the transform of its position again.
         self.__dict__.pop("_given_transform", None)
+        if self.axis is not None:
+            # The ticks of its axis are made anew, as matplotlib's.
+            self.axis.reset_ticks()
+        self.stale = True
 
     def get_position(self):
         """Return the spine position."""
@@ -382,21 +470,41 @@ class Spine(Patch):
                 'set_bounds() method incompatible with circular spines')
         if high is None and np.iterable(low):
             low, high = low
-        previous = self.get_bounds()
-        _spines.set_bound_ends(self._native,
-                               None if low is None else float(low),
-                               None if high is None else float(high))
+        old_low, old_high = self._bounds_or_view()
+        low = old_low if low is None else low
+        high = old_high if high is None else high
+        try:
+            ends = (float(low), float(high))
+        except (TypeError, ValueError):
+            # matplotlib keeps them, and fails to lay the spine out with them
+            # (`_locate`); pltrs (Rust) keeps the bounds it had.
+            ends = None
+        else:
+            _spines.set_bound_ends(self._native, *ends)
         # Read back as given, an end left unchanged as it was (the view's
         # as a numpy float), as matplotlib keeps them.
-        if previous is None:
-            previous = tuple(map(np.float64, _spines.get_bounds(self._native)))
-        self._given_bounds = tuple(kept if value is None else value
-                                   for value, kept in zip((low, high), previous))
+        self._given_bounds = (low, high)
+        self._unheld_bounds = ends is None
+        self._watch_location()
+        self.stale = True
+
+    def _bounds_or_view(self):
+        """The bounds of the spine, else the view interval along it."""
+        bounds = self.get_bounds()
+        if bounds is not None:
+            return bounds
+        if self.spine_type in ('left', 'right'):
+            return tuple(self.axes.viewLim.intervaly)
+        if self.spine_type in ('top', 'bottom'):
+            return tuple(self.axes.viewLim.intervalx)
+        raise ValueError(f'spine_type: {self.spine_type} not supported')
 
     def get_bounds(self):
         """Get the bounds of the spine."""
         bounds = _spines.get_bounds(self._native)
         given = self.__dict__.get("_given_bounds")
+        if self.__dict__.get("_unheld_bounds"):
+            return given
         if given is not None and bounds is not None and tuple(map(float, given)) == bounds:
             return given
         return bounds
@@ -419,6 +527,9 @@ class Spine(Patch):
         properties when needed.
         """
         self._axis = axis
+        # matplotlib measures the spine with its axis' ticks while the axis
+        # is visible, which an object that is no axis fails (`_locate`).
+        self._watch_location()
 
     def get_window_extent(self, renderer=None):
         """
@@ -430,7 +541,7 @@ class Spine(Patch):
         matplotlib.axes.Axes.get_tightbbox
         matplotlib.axes.Axes.get_window_extent
         """
-        self._check_shape()
+        _unusable.check(self, measuring=True)
         if self._is_linear:
             # Measuring spans the path over the view, as drawing does.
             self._linear_path()
@@ -504,8 +615,19 @@ class Spine(Patch):
         if c is not None:
             # matplotlib's patch converts the colour at once.
             to_rgba(c)
-        _spines.set_color(self._native, c)
+        _spines.set_color(self._native, self._edge_or_default(c))
         _values.remember(self, "edgecolor", c)
+
+    def _edge_or_default(self, color):
+        """*color*, else the edge colour matplotlib's patches take for
+        None: :rc:`patch.edgecolor` for a patch of no face (a spine's),
+        else none."""
+        if color is not None:
+            return color
+        face = self.__dict__.get("_given_values", {}).get("facecolor")
+        if rcParams['patch.force_edgecolor'] or _str_equal(face, 'none'):
+            return rcParams['patch.edgecolor']
+        return 'none'
 
     def get_edgecolor(self):
         """Return the edge color."""
@@ -520,14 +642,18 @@ class Spine(Patch):
 
     def set_linewidth(self, w):
         # pltrs (Rust) holds the spine's width in points.
+        if w is None:
+            w = rcParams['patch.linewidth']
         _spines.set_linewidth(self._native, float(w))
 
     set_linewidth.__doc__ = Patch.set_linewidth.__doc__
 
     def set_linestyle(self, ls):
-        # pltrs (Rust) holds the spine's line style.
-        _spines.set_linestyle(self._native, ls)
+        # pltrs (Rust) holds the spine's line style, kept as matplotlib's
+        # patches keep it before they make its dash pattern.
         self._linestyle = _kept_linestyle(ls)
+        _get_dash_pattern(self._linestyle)
+        _spines.set_linestyle(self._native, self._linestyle)
 
     set_linestyle.__doc__ = Patch.set_linestyle.__doc__
 
@@ -548,6 +674,16 @@ def _replace_drawn(old, spine):
         _spines.add_spine(spine.axes._native, spine._native)
     elif isinstance(old, Spine) and spine.axes is old.axes:
         _spines.replace_spine(old.axes._native, old._native, spine._native)
+
+
+def _locate_label_spines(axes):
+    """Lay out the spines beside the labels of the visible axes of *axes*
+    as matplotlib's axes measure them as they place their labels
+    (``_update_label_position``), failing as they do (`Spine._locate`)."""
+    for axis in (axes.xaxis, axes.yaxis):
+        spine = axes.spines.get(axis.get_label_position())
+        if axis.get_visible() and isinstance(spine, Spine):
+            spine._locate()
 
 
 def _read_tick_spines(axes):

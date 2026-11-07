@@ -11,7 +11,9 @@ the description pltrs (Rust) gives otherwise (the patches pltrs (Rust)
 makes itself, those their owner restyled).
 """
 
+import functools
 from numbers import Real
+import types
 
 from . import _unusable
 from ._native import patches as _patches
@@ -35,6 +37,15 @@ class FancyStylesMixin:
     """What `.FancyBboxPatch` and `.FancyArrowPatch` share: their style
     objects and mutation (whose getters each class defines, as
     matplotlib's do, with docstrings of their own)."""
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if FancyStylesMixin in cls.__bases__:
+            # Each class defines the setters, as matplotlib's do: the
+            # errors calling them name it.
+            for name in ("set_mutation_scale", "set_mutation_aspect"):
+                if name not in vars(cls):
+                    setattr(cls, name, _owned(vars(FancyStylesMixin)[name], cls))
 
     def _set_style(self, key, style, registry, native_set, native_get):
         """Give the patch *style* of *registry*, set by *native_set* and
@@ -82,7 +93,13 @@ class FancyStylesMixin:
         ----------
         scale : float
         """
-        _patches.set_mutation(self._native, float(scale), None)
+        if isinstance(scale, Real):
+            _patches.set_mutation(self._native, float(scale), None)
+            _unusable.drop(self, "mutation_scale")
+        else:
+            # matplotlib keeps it, and fails to mutate the patch with it
+            # (``_use_mutation_scale``, see `._unusable`).
+            _unusable.keep(self, "mutation_scale", scale, self._use_mutation_scale)
         self._keep_mutation(scale, self.get_mutation_aspect())
         self.stale = True
 
@@ -98,8 +115,25 @@ class FancyStylesMixin:
         self._keep_mutation(self._mutation(0), aspect)
         self.stale = True
 
+    def _kept_mutation_scale(self):
+        """The mutation scale: one the patch keeps (see
+        `set_mutation_scale`), else `_mutation`'s."""
+        return _unusable.kept(self, "mutation_scale", self._mutation(0))
+
     def _kept_mutation_aspect(self):
         """The mutation aspect: one the patch keeps (see `_keep_mutation`),
         else `_mutation`'s."""
         aspect = _unusable.kept(self, "mutation_aspect", None)
         return self._mutation(1) if aspect is None else aspect
+
+
+def _owned(function, cls):
+    """A copy of *function*, a method of `FancyStylesMixin`, as a method of
+    *cls*."""
+    copy = types.FunctionType(function.__code__, function.__globals__, function.__name__,
+                              function.__defaults__, function.__closure__)
+    functools.update_wrapper(copy, function)
+    del copy.__wrapped__
+    copy.__qualname__ = f"{cls.__qualname__}.{function.__name__}"
+    copy.__module__ = cls.__module__
+    return copy

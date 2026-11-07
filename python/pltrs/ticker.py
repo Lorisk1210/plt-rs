@@ -23,6 +23,7 @@ offset) are `._tick_state.ticked` attributes, which a helper pltrs (Rust)
 ticks with natively computes again from the last ticks of its axis.
 """
 
+from collections.abc import Mapping
 import locale
 import logging
 import math
@@ -1720,9 +1721,12 @@ class LinearLocator(_NativeLocator):
         self._numticks = numticks
 
     def _spec(self):
+        # Presets that are no mapping, which matplotlib keeps, preset no
+        # ticks of the axis (`tick_values` looks them up as matplotlib does).
+        presets = self.presets.items() if isinstance(self.presets, Mapping) else ()
         return {"kind": "linear", "numticks": self.numticks,
                 "presets": [((float(a), float(b)), [float(v) for v in locs])
-                            for (a, b), locs in self.presets.items()]}
+                            for (a, b), locs in presets]}
 
     def set_params(self, numticks=None, presets=None):
         """Set parameters within this locator."""
@@ -1745,8 +1749,25 @@ class LinearLocator(_NativeLocator):
         return super().tick_values(vmin, vmax)
 
     def view_limits(self, vmin, vmax):
-        """Try to choose the view limits intelligently."""
-        return super().view_limits(vmin, vmax)
+        'Try to choose the view limits intelligently.'
+
+        if vmax < vmin:
+            vmin, vmax = vmax, vmin
+
+        if vmin == vmax:
+            vmin -= 1
+            vmax += 1
+
+        if _rc('axes.autolimit_mode') == 'round_numbers':
+            exponent, remainder = divmod(
+                math.log10(vmax - vmin), math.log10(max(self.numticks - 1, 1)))
+            exponent -= (remainder < .5)
+            scale = max(self.numticks - 1, 1) ** (-exponent)
+            vmin = math.floor(scale * vmin) / scale
+            vmax = math.ceil(scale * vmax) / scale
+
+        from .transforms import _nonsingular
+        return _nonsingular(vmin, vmax)
 
 
 class _Edge_integer:

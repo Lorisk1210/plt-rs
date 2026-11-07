@@ -16,7 +16,7 @@ from numbers import Number, Real
 import numpy as np
 
 from . import _docstring
-from . import (_api, _mirrors, _owned_paths, _unusable, _values, cbook,
+from . import (_api, _kept_geometry, _mirrors, _owned_paths, _unusable, _values, cbook,
                colors as mcolors, units)
 from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
@@ -26,7 +26,8 @@ from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
 
 cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
-from .artist import Artist
+from .artist import Artist, allow_rasterization
+from .lines import _get_dash_pattern
 from .path import Path, drawn_path
 from ._transform_trees import set_matrix
 from .transforms import Affine2D, BboxTransformTo, IdentityTransform
@@ -284,6 +285,10 @@ class Patch(Artist):
         """
         return self.get_path().get_extents(self.get_transform())
 
+    def _convert_xy_units(self, xy):
+        """Convert x and y units for a tuple (x, y)."""
+        return self.convert_xunits(xy[0]), self.convert_yunits(xy[1])
+
     def update_from(self, other):
         super().update_from(other)
         _patches.update_style_from(self._native, other._native)
@@ -508,6 +513,8 @@ class Patch(Artist):
             For examples see :doc:`/gallery/lines_bars_and_markers/linestyles`.
         """
         ls = self._linestyle = _kept_linestyle(ls)
+        # The dash pattern matplotlib makes of it, refusing what it cannot.
+        _get_dash_pattern(ls)
         if isinstance(ls, tuple):
             offset, seq = ls
             ls = (offset, None if seq is None else tuple(seq))
@@ -726,6 +733,7 @@ class Patch(Artist):
         return self.get_path().contains_points(points, self.get_transform(),
                                                radius)
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -786,22 +794,21 @@ class Rectangle(Patch):
         --------
         FancyBboxPatch : A rectangle with a fancy box style, e.g. rounded corners.
         """
-        x0, y0 = xy
-        if all(units._is_natively_supported(v) for v in (x0, y0, width, height)):
-            self._native = _patches.new_rectangle(
-                (float(x0), float(y0)), (float(width), float(height)),
-                float(angle))
-            _values.remember_all(self, {"x": x0, "y": y0, "width": width,
-                                        "height": height, "angle": float(angle)},
-                                 self._FIELDS)
-        else:
+        x0, y0 = xy[0], xy[1]
+        self._native = _patches.new_rectangle((0., 0.), (0., 0.), 0.)
+        if any(map(_kept_geometry.in_units, (x0, y0, width, height))):
             # Values in units convert once the rectangle joins an axes; the
             # far corner is summed now, which checks that the units add up,
             # as matplotlib's constructor does.
             self._unit_bounds = (x0, y0, x0 + width, y0 + height)
-            self._native = _patches.new_rectangle((0., 0.), (0., 0.), float(angle))
+            self._hold_fields(angle=float(angle))
+        else:
+            self._hold_fields(x=x0, y=y0, width=width, height=height, angle=float(angle))
         self.rotation_point = rotation_point
         super().__init__(**kwargs)
+        if "_unit_bounds" not in self.__dict__:
+            self._converted_bounds()  # Validate the inputs, as matplotlib does.
+        self._watch_geometry()
 
     def _convert_units_for(self, axes):
         bounds = self.__dict__.pop("_unit_bounds", None)
@@ -837,17 +844,37 @@ class Rectangle(Patch):
         return _values.given_fields(self, self._FIELDS,
                                     _patches.rectangle(self._native))
 
-    def _set_fields(self, x=None, y=None, width=None, height=None, angle=None,
-                    rotation_point=None):
-        given = (x, y, width, height, angle, rotation_point)
-        current = self._fields()
-        values = [current[i] if value is None else value
-                  for i, value in enumerate(given)]
-        _patches.set_rectangle(self._native, (float(values[0]), float(values[1])),
-                               (float(values[2]), float(values[3])),
-                               float(values[4]), values[5])
-        _values.remember_all(self, {name: value for name, value in zip(self._FIELDS, given)
-                                    if value is not None}, self._FIELDS)
+    def _set_fields(self, x=_values.NONE_GIVEN, y=_values.NONE_GIVEN,
+                    width=_values.NONE_GIVEN, height=_values.NONE_GIVEN,
+                    angle=_values.NONE_GIVEN, rotation_point=_values.NONE_GIVEN):
+        """Change the fields of the geometry given (by name or in the
+        order of `_FIELDS`), kept as given (see `._kept_geometry`)."""
+        given = zip(self._FIELDS, (x, y, width, height, angle, rotation_point))
+        self._hold_fields(**{name: value for name, value in given
+                             if value is not _values.NONE_GIVEN})
+        self._watch_geometry()
+
+    def _hold_fields(self, **given):
+        """Hand pltrs (Rust) the fields *given* it can hold (see
+        `._kept_geometry.hold`)."""
+        held = dict(zip(self._FIELDS, _patches.rectangle(self._native)))
+        for name, value in given.items():
+            if name == "rotation_point":
+                # Checked by pltrs (Rust) as matplotlib's setter checks it.
+                held[name] = value
+                _values.remember(self, name, value)
+            else:
+                held[name] = _kept_geometry.hold(self, name, value, _kept_geometry.real,
+                                                 held[name])
+        _patches.set_rectangle(self._native, (held["x"], held["y"]),
+                               (held["width"], held["height"]), held["angle"],
+                               held["rotation_point"])
+
+    def _watch_geometry(self):
+        """Have the rectangle recompute its transform where matplotlib's
+        does while its geometry is one it fails or warns on."""
+        _kept_geometry.watch(self, self._FIELDS, _patches.rectangle(self._native)[:5],
+                             self.get_patch_transform)
 
     @property
     def rotation_point(self):
@@ -927,7 +954,8 @@ class Rectangle(Patch):
         ----------
         xy : (float, float)
         """
-        self._set_fields(x=xy[0], y=xy[1])
+        x, y = xy
+        self._set_fields(x=x, y=y)
 
     def set_width(self, w):
         """Set the width of the rectangle."""
@@ -957,11 +985,17 @@ class Rectangle(Patch):
     def get_bbox(self):
         """Return the `.Bbox`."""
         from .transforms import Bbox
-        return Bbox.from_extents(*self._convert_bounds())
+        return Bbox.from_extents(*self._converted_bounds())
 
-    def _convert_bounds(self):
+    def _converted_bounds(self):
+        """Convert bounds of the rectangle (matplotlib's
+        ``Rectangle._convert_units``)."""
         x, y, width, height = self._fields()[:4]
-        return x, y, x + width, y + height
+        x0 = self.convert_xunits(x)
+        y0 = self.convert_yunits(y)
+        x1 = self.convert_xunits(x + width)
+        y1 = self.convert_yunits(y + height)
+        return x0, y0, x1, y1
 
     #: The correction of the rotation for unequal axis scales (matplotlib's;
     #: the selector widgets set it on their rectangles).
@@ -1332,15 +1366,20 @@ class Wedge(Patch):
 
         %(Patch:kwdoc)s
         """
-        self._native = _patches.new_wedge(
-            (float(center[0]), float(center[1])), float(r),
-            (float(theta1), float(theta2)), None if width is None else float(width))
-        _values.remember_all(self, {"center": center, "r": r, "theta1": theta1,
-                                    "theta2": theta2, "width": width}, self._GIVEN)
+        self._native = _patches.new_wedge((0., 0.), 1., (0., 360.), None)
         super().__init__(**kwargs)
+        self._hold_fields(center=center, r=r, theta1=theta1, theta2=theta2, width=width)
+        if self._watch_geometry():
+            # matplotlib's constructor computes the path, kept until it
+            # changes.
+            self._recompute_path()
+            _unusable.drop(self, "geometry")
 
-    #: The geometry matplotlib keeps as given.
-    _GIVEN = ("center", "r", "theta1", "theta2", "width")
+    #: The geometry matplotlib keeps as given, and how pltrs (Rust) holds
+    #: each field (see `._kept_geometry`).
+    _FIELDS = {"center": lambda center: _wedge_center(center), "r": _kept_geometry.real,
+               "theta1": _kept_geometry.real, "theta2": _kept_geometry.real,
+               "width": lambda width: None if width is None else _kept_geometry.real(width)}
 
     # A mirror (the background of polar Axes) reads its geometry as the
     # last draw fitted it.
@@ -1348,26 +1387,67 @@ class Wedge(Patch):
 
     def get_path(self):
         # docstring inherited
+        _unusable.check(self, measuring=True)
         return self._native_path()
 
     def _fields(self):
         """``(x, y, r, theta1, theta2, width)``."""
         return _patches.wedge(self._native)
 
-    def _set_fields(self, center=None, r=None, theta1=None, theta2=None,
-                    width=None, *, clear_width=False):
-        x, y, r0, t1, t2, w = self._fields()
-        given = {"center": center, "r": r, "theta1": theta1, "theta2": theta2,
-                 "width": width}
-        center = (x, y) if center is None else center
-        _patches.set_wedge(
-            self._native, (float(center[0]), float(center[1])),
-            float(r0 if r is None else r),
-            (float(t1 if theta1 is None else theta1),
-             float(t2 if theta2 is None else theta2)),
-            None if clear_width else (w if width is None else float(width)))
-        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
-                             self._GIVEN)
+    def _set_fields(self, **given):
+        """Change the fields of the geometry *given* (``center``, ``r``,
+        ``theta1``, ``theta2``, ``width``), kept as given (see
+        `._kept_geometry`)."""
+        self._hold_fields(**given)
+        self._watch_geometry()
+        self.stale = True
+
+    def _hold_fields(self, **given):
+        """Hand pltrs (Rust) the fields *given* it can hold (see
+        `._kept_geometry.hold`)."""
+        x, y, r, theta1, theta2, width = self._fields()
+        held = {"center": (x, y), "r": r, "theta1": theta1, "theta2": theta2,
+                "width": width}
+        for name, value in given.items():
+            held[name] = _kept_geometry.hold(self, name, value, self._FIELDS[name], held[name])
+        _patches.set_wedge(self._native, held["center"], held["r"],
+                           (held["theta1"], held["theta2"]), held["width"])
+
+    def _watch_geometry(self):
+        """Have the wedge recompute its path where matplotlib's does while
+        its geometry is one it fails or warns on (a ring of no radius
+        divides by it); whether it does."""
+        x, y, r, theta1, theta2, width = self._fields()
+        return _kept_geometry.watch(
+            self, self._FIELDS, (x, y, r, theta1, theta2, 0.0 if width is None else width),
+            self._recompute_path, suspect=r == 0 and self.width is not None, cached=True)
+
+    def _recompute_path(self):
+        """The path matplotlib's constructor, draws and measures compute
+        from the geometry as given (``_recompute_path``), raising and
+        warning as they do."""
+        # Inner and outer rings are connected unless the annulus is complete
+        if abs((self.theta2 - self.theta1) - 360) <= 1e-12:
+            theta1, theta2 = 0, 360
+            connector = Path.MOVETO
+        else:
+            theta1, theta2 = self.theta1, self.theta2
+            connector = Path.LINETO
+        # Form the outer ring
+        arc = Path.arc(theta1, theta2)
+        if self.width is not None:
+            # Partial annulus needs to draw the outer ring
+            # followed by a reversed and scaled inner ring
+            v1 = arc.vertices
+            v2 = arc.vertices[::-1] * (self.r - self.width) / self.r
+            v = np.concatenate([v1, v2, [(0, 0)]])
+            c = [*arc.codes, connector, *arc.codes[1:], Path.CLOSEPOLY]
+        else:
+            # Wedge doesn't need an inner ring
+            v = np.concatenate([arc.vertices, [(0, 0), (0, 0)]])
+            c = [*arc.codes, connector, Path.CLOSEPOLY]
+        # Shift and scale the wedge to the final location.
+        return Path(v * self.r + self.center, c)
 
     def _given(self, name, index):
         """Field *name* (at *index* of `_fields`) as given."""
@@ -1413,7 +1493,20 @@ class Wedge(Patch):
         self._set_fields(theta2=theta2)
 
     def set_width(self, width):
-        self._set_fields(width=width, clear_width=width is None)
+        self._set_fields(width=width)
+
+
+def _wedge_center(center):
+    """The centre of a wedge, which matplotlib adds to its vertices, as
+    pltrs (Rust) holds it: a pair, or one number (alone or in a sequence)
+    for both coordinates (see `._kept_geometry`)."""
+    match np.shape(center):
+        case () | (1,):
+            x = _kept_geometry.real(np.ravel(center)[0])
+            return x, x
+        case (2,):
+            return _kept_geometry.point(center)
+    raise ValueError(f"{center!r} is no point")
 
 
 class Arrow(Patch):
@@ -1633,6 +1726,12 @@ class CirclePolygon(RegularPolygon):
         return _patches.circle_polygon(self._native)
 
 
+#: How pltrs (Rust) holds each field of an ellipse's geometry (see
+#: `._kept_geometry`).
+_ELLIPSE_FIELDS = {"center": _kept_geometry.point, "width": _kept_geometry.real,
+                   "height": _kept_geometry.real, "angle": _kept_geometry.real}
+
+
 class Ellipse(Patch):
     """A scale-free ellipse."""
 
@@ -1641,7 +1740,9 @@ class Ellipse(Patch):
 
     def get_patch_transform(self):
         # docstring inherited; the `.Affine2D` of the patch coordinates
-        # pltrs (Rust) has for the ellipse, made anew.
+        # pltrs (Rust) has for the ellipse, made anew, as matplotlib's is
+        # recomputed (failing for a geometry it cannot compute with).
+        _unusable.check(self, measuring=True)
         return Affine2D(_patches.get_patch_transform(self._native))
 
     def __str__(self):
@@ -1670,12 +1771,11 @@ class Ellipse(Patch):
 
         %(Patch:kwdoc)s
         """
-        center, size = self._native_geometry(xy, width, height)
-        self._native = _patches.new_ellipse(center, size, float(angle))
-        _values.remember_all(self, {"center": xy, "width": width, "height": height,
-                                    "angle": angle}, self._GIVEN)
+        self._native = _patches.new_ellipse((0., 0.), (0., 0.), 0.)
+        self._make_geometry(xy, width, height, angle)
         super().__init__(**kwargs)
         self._set_center_as_made(xy)
+        self._watch_geometry()
 
     #: The geometry matplotlib keeps as given.
     _GIVEN = ("center", "width", "height", "angle")
@@ -1713,15 +1813,22 @@ class Ellipse(Patch):
             self._set_fields(center=center, angle=angle)
         return super()._add_to_axes(axes, kind, autolim)
 
-    def _native_geometry(self, xy, width, height):
-        """The centre and size of the ellipse as numbers; values in units
-        (``basic_units``' ``TaggedValue``) convert once the ellipse joins an
-        Axes, as matplotlib converts them when it draws."""
-        values = (xy[0], xy[1], width, height)
-        if all(units._is_natively_supported(v) for v in values):
-            return (float(xy[0]), float(xy[1])), (float(width), float(height))
-        self._unit_geometry = values
-        return (0., 0.), (0., 0.)
+    def _make_geometry(self, xy, width, height, angle):
+        """Give the ellipse made its geometry, as given (see
+        `._kept_geometry`); values in units (``basic_units``'
+        ``TaggedValue``) convert once the ellipse joins an Axes, as
+        matplotlib converts them when it draws."""
+        try:
+            values = (xy[0], xy[1], width, height)
+        except (TypeError, LookupError):
+            values = ()
+        if any(map(_kept_geometry.in_units, values)):
+            self._unit_geometry = values
+            _values.remember_all(self, {"center": xy, "width": width, "height": height},
+                                 self._GIVEN)
+            self._hold_fields(angle=angle)
+        else:
+            self._hold_fields(center=xy, width=width, height=height, angle=angle)
 
     def _convert_units_for(self, axes):
         values = self.__dict__.pop("_unit_geometry", None)
@@ -1738,16 +1845,45 @@ class Ellipse(Patch):
         """``(x, y, width, height, angle)``."""
         return _patches.ellipse(self._native)
 
-    def _set_fields(self, center=None, width=None, height=None, angle=None):
+    def _set_native_fields(self, center, width, height, angle):
+        """Have pltrs (Rust) hold the geometry, in numbers."""
+        _patches.set_ellipse(self._native, center, width, height, angle)
+
+    def _set_fields(self, **given):
+        """Change the fields of the geometry *given* (``center``,
+        ``width``, ``height``, ``angle``), kept as given (see
+        `._kept_geometry`)."""
+        self._hold_fields(**given)
+        self._watch_geometry()
+
+    def _hold_fields(self, **given):
+        """Hand pltrs (Rust) the fields *given* it can hold (see
+        `._kept_geometry.hold`)."""
         x, y, w, h, a = self._fields()
-        given = {"center": center, "width": width, "height": height, "angle": angle}
-        center = (x, y) if center is None else center
-        _patches.set_ellipse(self._native, (float(center[0]), float(center[1])),
-                             float(w if width is None else width),
-                             float(h if height is None else height),
-                             float(a if angle is None else angle))
-        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
-                             self._GIVEN)
+        held = {"center": (x, y), "width": w, "height": h, "angle": a}
+        for name, value in given.items():
+            held[name] = _kept_geometry.hold(self, name, value, _ELLIPSE_FIELDS[name],
+                                             held[name])
+        self._set_native_fields(**held)
+
+    def _watch_geometry(self):
+        """Have the ellipse recompute its transform where matplotlib's
+        does while its geometry is one it fails or warns on."""
+        _kept_geometry.watch(self, self._GIVEN, self._fields(), self._recompute_transform)
+
+    def _recompute_transform(self):
+        """The patch transform matplotlib's draws and measures compute
+        from the geometry as given (``_recompute_transform``), raising and
+        warning as they do."""
+        center = (self.convert_xunits(self._center[0]),
+                  self.convert_yunits(self._center[1]))
+        width = self.convert_xunits(self.width)
+        height = self.convert_yunits(self.height)
+        return Affine2D() \
+            .scale(width * 0.5, height * 0.5 * self._aspect_ratio_correction) \
+            .rotate_deg(self.angle) \
+            .scale(1, 1 / self._aspect_ratio_correction) \
+            .translate(*center)
 
     #: The attributes matplotlib's ``draw`` reads (its
     #: ``_recompute_transform``; the size it reads is the one the ellipse
@@ -1904,23 +2040,18 @@ class Annulus(Patch):
 
             %(Patch:kwdoc)s
         """
-        self._native = _patches.new_annulus(
-            (float(xy[0]), float(xy[1])), _annulus_radii(r), float(width),
-            float(angle))
-        _values.remember_all(self, {"center": xy, "width": width, "angle": angle},
-                             ("center", "width", "angle"))
-        self._remember_radii(r)
+        self._native = _patches.new_annulus((0., 0.), (1., 1.), 0., 0.)
         super().__init__(**kwargs)
+        # matplotlib's constructor sets them one by one.
+        self.set_radii(r)
+        self.set_center(xy)
+        self.set_width(width)
+        self.set_angle(angle)
 
     def get_path(self):
         # docstring inherited
+        _unusable.check(self, measuring=True)
         return self._native_path()
-
-    def _remember_radii(self, r):
-        """Keep the semi-axes as matplotlib's `set_radii` keeps *r*: a pair
-        as given, one radius as a float for both."""
-        a, b = r if np.shape(r) == (2,) else (float(r),) * 2
-        _values.remember_all(self, {"a": a, "b": b}, ("a", "b"))
 
     def __str__(self):
         a, b = self.radii
@@ -1930,10 +2061,51 @@ class Annulus(Patch):
             *map(_number_text, self.center), r, _number_text(self.width),
             _number_text(self.angle))
 
-    def _set(self, center=None, radii=None, width=None, angle=None):
-        """Change the given parts of the annulus (see `_native.patches`)."""
-        _patches.set_annulus(self._native, center, radii, width, angle)
+    #: The geometry matplotlib keeps as given, and how pltrs (Rust) holds
+    #: each field (see `._kept_geometry`).
+    _FIELDS = {"center": _kept_geometry.point, "a": _kept_geometry.real,
+               "b": _kept_geometry.real, "width": _kept_geometry.real,
+               "angle": _kept_geometry.real}
+
+    def _set(self, **given):
+        """Change the fields of the annulus *given*, kept as given (see
+        `._kept_geometry`)."""
+        center, (a, b), width, angle = _patches.annulus(self._native)
+        held = {"center": center, "a": a, "b": b, "width": width, "angle": angle}
+        for name, value in given.items():
+            held[name] = _kept_geometry.hold(self, name, value, self._FIELDS[name], held[name])
+        # pltrs (Rust) is handed the fields given that it holds.
+        changed = {name for name in given if not _values.is_kept(self, name)}
+        _patches.set_annulus(
+            self._native, held["center"] if "center" in changed else None,
+            (held["a"], held["b"]) if changed & {"a", "b"} else None,
+            held["width"] if "width" in changed else None,
+            held["angle"] if "angle" in changed else None)
+        _kept_geometry.watch(self, self._FIELDS, (*held["center"], held["a"], held["b"],
+                                                  held["width"], held["angle"]),
+                             self._recompute_path, cached=True)
         self.stale = True
+
+    def _transform_verts(self, verts, a, b):
+        return Affine2D() \
+            .scale(*self._convert_xy_units((a, b))) \
+            .rotate_deg(self.angle) \
+            .translate(*self._convert_xy_units(self.center)) \
+            .transform(verts)
+
+    def _recompute_path(self):
+        """The path matplotlib's draws and measures compute from the
+        geometry as given (``_recompute_path``), raising and warning as
+        they do."""
+        arc = Path.arc(0, 360)
+        a, b, w = self.a, self.b, self.width
+        v1 = self._transform_verts(arc.vertices, a, b)
+        v2 = self._transform_verts(arc.vertices[::-1], a - w, b - w)
+        v = np.vstack([v1, v2, v1[0, :], (0, 0)])
+        c = np.hstack([arc.codes, Path.MOVETO,
+                       arc.codes[1:], Path.MOVETO,
+                       Path.CLOSEPOLY])
+        return Path(v, c)
 
     def set_center(self, xy):
         """
@@ -1943,8 +2115,7 @@ class Annulus(Patch):
         ----------
         xy : (float, float)
         """
-        self._set(center=(float(xy[0]), float(xy[1])))
-        _values.remember(self, "center", xy)
+        self._set(center=xy)
 
     def get_center(self):
         """Return the center of the annulus."""
@@ -1962,8 +2133,10 @@ class Annulus(Patch):
         ----------
         width : float
         """
-        self._set(width=float(width))
-        _values.remember(self, "width", width)
+        if width > min(self.a, self.b):
+            raise ValueError(
+                'Width of annulus must be less than or equal to semi-minor axis')
+        self._set(width=width)
 
     def get_width(self):
         """Return the width (thickness) of the annulus ring."""
@@ -1979,8 +2152,7 @@ class Annulus(Patch):
         ----------
         angle : float
         """
-        self._set(angle=float(angle))
-        _values.remember(self, "angle", angle)
+        self._set(angle=angle)
 
     def get_angle(self):
         """Return the angle of the annulus."""
@@ -1996,8 +2168,7 @@ class Annulus(Patch):
         ----------
         a : float
         """
-        self._set(radii=(float(a), self.b))
-        _values.remember(self, "a", float(a))
+        self._set(a=float(a))
 
     def set_semiminor(self, b):
         """
@@ -2007,8 +2178,7 @@ class Annulus(Patch):
         ----------
         b : float
         """
-        self._set(radii=(self.a, float(b)))
-        _values.remember(self, "b", float(b))
+        self._set(b=float(b))
 
     def set_radii(self, r):
         """
@@ -2022,8 +2192,13 @@ class Annulus(Patch):
             - If float: radius of the outer circle.
             - If two floats: semi-major and -minor axes of outer ellipse.
         """
-        self._set(radii=_annulus_radii(r))
-        self._remember_radii(r)
+        if np.shape(r) == (2,):
+            a, b = r
+        elif np.shape(r) == ():
+            a = b = float(r)
+        else:
+            raise ValueError("Parameter 'r' must be one or two floats.")
+        self._set(a=a, b=b)
 
     def get_radii(self):
         """Return the semi-major and semi-minor radii of the annulus."""
@@ -2036,16 +2211,6 @@ class Annulus(Patch):
                  doc="The semi-major axis of the outer ellipse.")
     b = property(lambda self: self.get_radii()[1], set_semiminor,
                  doc="The semi-minor axis of the outer ellipse.")
-
-
-def _annulus_radii(r):
-    """The outer semi-axes ``(a, b)`` of an annulus of radius or radii *r*."""
-    if np.shape(r) == (2,):
-        a, b = r
-        return float(a), float(b)
-    if np.shape(r) == ():
-        return float(r), float(r)
-    raise ValueError("Parameter 'r' must be one or two floats.")
 
 
 @_mirrors.mirrorable
@@ -2071,11 +2236,12 @@ class Circle(Ellipse):
 
         %(Patch:kwdoc)s
         """
-        self._native = _patches.new_circle((float(xy[0]), float(xy[1])), float(radius))
         # matplotlib's circle is an ellipse of that width and height.
-        _values.remember_all(self, {"center": xy, "width": radius * 2,
-                                    "height": radius * 2, "angle": 0}, self._GIVEN)
+        size = radius * 2
+        self._native = _patches.new_circle((0., 0.), 0.)
+        self._hold_fields(center=xy, width=size, height=size, angle=0)
         Patch.__init__(self, **kwargs)
+        self._watch_geometry()
 
     # The ellipse the circle is: its width, height and angle change apart,
     # as matplotlib's `Ellipse` setters change them.
@@ -2083,16 +2249,8 @@ class Circle(Ellipse):
     def _fields(self):
         return _patches.circle(self._native)
 
-    def _set_fields(self, center=None, width=None, height=None, angle=None):
-        x, y, w, h, a = self._fields()
-        given = {"center": center, "width": width, "height": height, "angle": angle}
-        center = (x, y) if center is None else center
-        _patches.set_circle(self._native, (float(center[0]), float(center[1])),
-                            float(w if width is None else width),
-                            float(h if height is None else height),
-                            float(a if angle is None else angle))
-        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
-                             self._GIVEN)
+    def _set_native_fields(self, center, width, height, angle):
+        _patches.set_circle(self._native, center, width, height, angle)
 
     def set_radius(self, radius):
         """
@@ -2166,14 +2324,14 @@ class Arc(Ellipse):
         fill = kwargs.setdefault('fill', False)
         if fill:
             raise ValueError("Arc objects cannot be filled")
-        center, size = self._native_geometry(xy, width, height)
-        self._native = _patches.new_arc(center, size, float(angle),
+        self._native = _patches.new_arc((0., 0.), (0., 0.), 0.,
                                         (float(theta1), float(theta2)))
-        _values.remember_all(self, {"center": xy, "width": width, "height": height,
-                                    "angle": angle, "theta1": theta1, "theta2": theta2},
-                             self._GIVEN + ("theta1", "theta2"))
+        _values.remember_all(self, {"theta1": theta1, "theta2": theta2},
+                             ("theta1", "theta2"))
+        self._make_geometry(xy, width, height, angle)
         Patch.__init__(self, **kwargs)
         self._set_center_as_made(xy)
+        self._watch_geometry()
         if self._computes():
             # matplotlib's ``__init__`` sets the angles, then stretches them.
             for name, theta in (("theta1", theta1), ("theta2", theta2)):
@@ -2199,16 +2357,8 @@ class Arc(Ellipse):
         (x, y, w, h), (angle, _, _) = _patches.arc(self._native)
         return x, y, w, h, angle
 
-    def _set_fields(self, center=None, width=None, height=None, angle=None):
-        x, y, w, h, a = self._fields()
-        given = {"center": center, "width": width, "height": height, "angle": angle}
-        center = (x, y) if center is None else center
-        _patches.set_arc(self._native, (float(center[0]), float(center[1])),
-                         float(w if width is None else width),
-                         float(h if height is None else height),
-                         float(a if angle is None else angle))
-        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
-                             self._GIVEN)
+    def _set_native_fields(self, center, width, height, angle):
+        _patches.set_arc(self._native, center, width, height, angle)
 
     @property
     def theta1(self):
@@ -2252,6 +2402,7 @@ class Arc(Ellipse):
             self._set_fields(center=center, angle=angle)
             _patches.set_arc_angles(self._native, float(theta1), float(theta2))
 
+    @allow_rasterization
     def draw(self, renderer):
         """
         Draw the arc to the given *renderer*.
@@ -2428,7 +2579,12 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
 
     def get_mutation_scale(self):
         """Return the mutation scale."""
-        return self._mutation(0)
+        return self._kept_mutation_scale()
+
+    def _use_mutation_scale(self, scale):
+        """What matplotlib's box style computes first with the mutation
+        *scale*: the pad, ``mutation_size * self.pad``."""
+        return scale * getattr(self.get_boxstyle(), "pad", 1.)
 
     def get_mutation_aspect(self):
         """Return the aspect ratio of the bbox mutation."""
@@ -2831,7 +2987,12 @@ default: 'arc3'
         -------
         scalar
         """
-        return self._mutation(0)
+        return self._kept_mutation_scale()
+
+    def _use_mutation_scale(self, scale):
+        """What matplotlib's arrow computes first with the mutation
+        *scale*: its size in pixels, ``scale * dpi_cor``."""
+        return scale * self._dpi_cor
 
     def get_mutation_aspect(self):
         """Return the aspect ratio of the bbox mutation."""
@@ -2945,10 +3106,6 @@ default: 'arc3'
             return list(positions)
         ends, _ = _patches.arrow_route(self._native)
         return None if ends is None else [tuple(end) for end in ends]
-
-    def _convert_xy_units(self, xy):
-        """Convert x and y units for a tuple (x, y)."""
-        return self.convert_xunits(xy[0]), self.convert_yunits(xy[1])
 
     @property
     def _dpi_cor(self):

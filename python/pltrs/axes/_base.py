@@ -13,7 +13,7 @@ import textwrap
 from .. import _api, _artist_clipping, _handles, _values, cbook, colorizer as mcolorizer
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
-from ..artist import Artist
+from ..artist import Artist, allow_rasterization
 from ._artist_list import ArtistList
 from ._aspect import AspectMixin
 from ._blitting import BlittingMixin
@@ -61,6 +61,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         # docstring inherited: matplotlib's override has none.
         super().set_figure(fig)
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -267,6 +268,11 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         if not isinstance(pos, Bbox):
             pos = Bbox.from_bounds(*pos)
+        if which not in ('both', 'active', 'original'):
+            # matplotlib changes neither position then, and takes the Axes
+            # out of its layout.
+            self.set_in_layout(False)
+            return
         _axes_base.set_position(self._native, tuple(map(float, pos.bounds)),
                                 which)
 

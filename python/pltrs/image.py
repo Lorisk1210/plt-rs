@@ -499,6 +499,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         return False
 
+    @martist.allow_rasterization
     def draw(self, renderer):
         # docstring inherited; pltrs (Rust) draws the image, unless a class
         # of the program's computes its pixels (``_computed``), whose

@@ -135,7 +135,7 @@ def _pie_geometry(wedges, fracs, explode, radius, startangle, counterclock, cent
         _values.remember_all(wedge, {
             "center": (x_pos, y_pos), "r": radius,
             "theta1": 360. * min(theta1, theta2),
-            "theta2": 360. * max(theta1, theta2)}, mpatches.Wedge._GIVEN)
+            "theta2": 360. * max(theta1, theta2)}, mpatches.Wedge._FIELDS)
         theta1 = theta2
 
 class StatsMixin:

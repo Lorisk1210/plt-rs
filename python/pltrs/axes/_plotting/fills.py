@@ -219,18 +219,9 @@ class FillsMixin:
                             for name in ("color", "facecolor"))
         dep_dir = "y" if ind_dir == "x" else "x"
         try:
-            ind, dep1, dep2 = np.broadcast_arrays(
-                *map(np.ma.masked_invalid, self._process_unit_info(
-                    [(ind_dir, ind), (dep_dir, dep1), (dep_dir, dep2)], kwargs)),
-                subok=True)
-            for name, array in zip([ind_dir, f"{'y' if ind_dir == 'x' else 'x'}1",
-                                    f"{'y' if ind_dir == 'x' else 'x'}2"],
-                                   [ind, dep1, dep2]):
-                if array.ndim > 1:
-                    raise ValueError(f"{name!r} is not 1-dimensional")
-            mask = _fill_mask(where, ind.size, ind_dir)
-            curves = [np.ma.filled(np.ma.asarray(v, dtype=float), np.nan)
-                      for v in (ind, dep1, dep2)]
+            curves, mask = mcoll.FillBetweenPolyCollection._checked_data(
+                ind_dir, *map(np.ma.masked_invalid, self._process_unit_info(
+                    [(ind_dir, ind), (dep_dir, dep1), (dep_dir, dep2)], kwargs)), where)
             mcoll._check_step(step, curves, mask)
         except Exception:
             if cycled:
@@ -240,7 +231,7 @@ class FillsMixin:
             raise
         native = _plotting.fill_between(
             self._native, ind_dir == "y",
-            (floats(ind), floats(dep1), floats(dep2)), (mask, bool(interpolate), step),
+            tuple(map(floats, curves)), (mask, bool(interpolate), step),
             (color, facecolor),
             _live_transforms.given_to_native(kwargs.get("transform"), self))
         collection = wrap(self, native, mcoll.FillBetweenPolyCollection)

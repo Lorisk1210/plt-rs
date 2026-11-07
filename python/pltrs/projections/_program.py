@@ -215,10 +215,13 @@ def _evaluated(transform, viewing=None):
 
 class _PartsProbe:
     """A renderer recording the artists drawn with it (how a tick made
-    alone shows the parts its class' ``draw`` draws)."""
+    alone shows the parts its class' ``draw`` draws), rasterizing nothing
+    (``allow_rasterization`` reads its state)."""
 
     def __init__(self):
         self.drawn = set()
+        self._raster_depth = 0
+        self._rasterizing = False
 
     def _draw_artist(self, artist):
         self.drawn.add(id(artist))

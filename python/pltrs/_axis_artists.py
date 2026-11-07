@@ -21,7 +21,7 @@ import numpy as np
 from . import (_api, _artist_clipping, _live_transforms, _mirrors, _unusable, _values,
                cbook)
 from ._native import artist as _artist, axis as _axis
-from .artist import Artist
+from .artist import Artist, allow_rasterization
 from .lines import Line2D
 from .text import Text
 from .transforms import Bbox, IdentityTransform, blended_transform_factory
@@ -481,6 +481,7 @@ class Tick(Artist):
             _axis.set_tick_gid(*self._gid_args(),
                                None if gid is None else str(gid))
 
+    @allow_rasterization
     def draw(self, renderer):
         # Draw the visible parts of a tick made alone, as matplotlib's does
         # (how the projection of a program's class sees the parts its ticks

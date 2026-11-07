@@ -103,7 +103,7 @@ def _add_pyplot_note(func, wrapped_func):
     #   "Notes" section is the third last possible section, only potentially followed
     #   by "References" and "Examples".
     # - or we append a new "Notes" section at the end.
-    doc = inspect.cleandoc(func.__doc__)
+    doc = _docstring.cleandoc(func.__doc__)
     if "\nNotes\n-----" in doc:
         before, after = doc.split("\nNotes\n-----", 1)
     elif (index := doc.find("\nReferences\n----------")) != -1:

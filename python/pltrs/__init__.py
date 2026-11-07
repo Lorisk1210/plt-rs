@@ -68,13 +68,15 @@ _log = logging.getLogger(__name__)
 _VersionInfo = namedtuple('_VersionInfo',
                           'major, minor, micro, releaselevel, serial')
 
-#: The parts of a PEP 440 version string that matplotlib's versions use.
-_VERSION_PATTERN = re.compile(r"""
-    (?P<release>\d+(?:\.\d+)*)
-    (?:(?P<pre_l>a|b|rc)(?P<pre_n>\d+))?
-    (?:\.post(?P<post>\d+))?
-    (?:\.dev(?P<dev>\d+))?
-    (?:\+[a-z0-9.]+)?$""", re.VERBOSE | re.IGNORECASE)
+@functools.cache
+def _version_pattern():
+    """The parts of a PEP 440 version string that matplotlib's versions use."""
+    return re.compile(r"""
+        (?P<release>\d+(?:\.\d+)*)
+        (?:(?P<pre_l>a|b|rc)(?P<pre_n>\d+))?
+        (?:\.post(?P<post>\d+))?
+        (?:\.dev(?P<dev>\d+))?
+        (?:\+[a-z0-9.]+)?$""", re.VERBOSE | re.IGNORECASE)
 
 
 def _parse_to_version_info(version_str):
@@ -85,7 +87,12 @@ def _parse_to_version_info(version_str):
     https://packaging.pypa.io/en/latest/version.html#packaging.version.parse
     https://docs.python.org/3/library/sys.html#sys.version_info
     """
-    match = _VERSION_PATTERN.match(version_str)
+    release = version_str.split(".")
+    if all(part.isdecimal() for part in release):
+        # A final release (as pltrs's own version is), without the pattern.
+        major, minor, micro = ([*map(int, release), 0, 0])[:3]
+        return _VersionInfo(major, minor, micro, 'final', 0)
+    match = _version_pattern().match(version_str)
     if match is None:
         raise ValueError(f"Invalid version: {version_str!r}")
     major, minor, micro = ([*map(int, match['release'].split('.')), 0, 0])[:3]
@@ -158,6 +165,10 @@ _STYLE_BLACKLIST = {
 #: parameters change (a program may change a list or dict it was given).
 _IMMUTABLE_VALUES = frozenset([bool, int, float, str, type(None)])
 
+#: matplotlib's defaults, which a new `RcParams` starts from a copy of
+#: (quicker to copy than to make again).
+_MATPLOTLIB_DEFAULTS = _rcsetup.defaults()
+
 
 class RcParams(MutableMapping, dict):
     """
@@ -180,7 +191,7 @@ class RcParams(MutableMapping, dict):
     validate = rcsetup._validators
 
     def __init__(self, *args, **kwargs):
-        self._store = _rcsetup.defaults()
+        self._store = _rcsetup.copy(_MATPLOTLIB_DEFAULTS)
         self._keys = set()
         self._python = {}
         self._given = {}

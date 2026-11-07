@@ -2,12 +2,40 @@
 Docstring helpers: %-substitution of shared snippets (``interpd``) and
 docstring copying.
 
-Kept from matplotlib 3.11.2 under the Matplotlib License.
+Kept from matplotlib 3.11.2 under the Matplotlib License. pltrs adds
+`cleandoc`, which cleans the docstrings Python compiles quicker than
+`inspect.cleandoc`, and keeps the ``ClassName:kwdoc`` tables of its own
+artist classes between runs (`_KwdocTables`): together they are most of
+the time ``import matplotlib.pyplot`` spends on docstrings.
 """
 
+import atexit
+import contextlib
 import inspect
+import marshal
+import os
+import re
+import sys
+import zlib
 
 from . import _api
+
+#: A line after the first that starts with neither a space nor a line
+#: break: the text has no indentation common to those lines.
+_UNINDENTED_LINE = re.compile(r"\n[^ \n]")
+
+
+def cleandoc(doc):
+    """
+    `inspect.cleandoc` of *doc*. Python 3.13 and later compile docstrings
+    without the indentation their lines after the first share, which leaves
+    only the first line's and the blank lines around to strip: done here
+    without going through the lines one by one.
+    """
+    if "\t" in doc or not _UNINDENTED_LINE.search(doc):
+        return inspect.cleandoc(doc)
+    first, newline, rest = doc.partition("\n")
+    return (first.lstrip(" ") + newline + rest).strip("\n")
 
 
 def kwarg_doc(text):
@@ -72,7 +100,7 @@ class Substitution:
 
     def __call__(self, func):
         if func.__doc__:
-            func.__doc__ = inspect.cleandoc(func.__doc__) % self.params
+            func.__doc__ = cleandoc(func.__doc__) % self.params
         return func
 
 
@@ -89,7 +117,7 @@ class _ArtistKwdocLoader(dict):
                     if cls.__name__ == name)
         except ValueError as e:
             raise KeyError(key) from e
-        return self.setdefault(key, kwdoc(cls))
+        return self.setdefault(key, _kwdoc_tables.get(cls, kwdoc))
 
 
 class _ArtistPropertiesSubstitution:
@@ -130,7 +158,7 @@ class _ArtistPropertiesSubstitution:
 
     def __call__(self, obj):
         if obj.__doc__:
-            obj.__doc__ = inspect.cleandoc(obj.__doc__) % self.params
+            obj.__doc__ = cleandoc(obj.__doc__) % self.params
         if isinstance(obj, type) and obj.__init__ != object.__init__:
             self(obj.__init__)
         return obj
@@ -148,3 +176,119 @@ def copy(source):
 # Create a decorator that will house the various docstring snippets reused
 # throughout Matplotlib.
 interpd = _ArtistPropertiesSubstitution()
+
+
+class _KwdocTables:
+    """
+    The ``ClassName:kwdoc`` tables of the package's own artist classes,
+    kept between runs in a file of the cache directory, as Python keeps
+    compiled modules: the tables written there are used while no module of
+    the package, nor its extension, has changed size or modification time
+    since, and are computed again (and written when Python exits)
+    otherwise. A table depends on the class and on ``docstring.hardcopy``
+    alone.
+    """
+
+    #: The version of the file's format.
+    _FORMAT = 1
+
+    def __init__(self):
+        #: The tables by class and ``docstring.hardcopy``, once read.
+        self._tables = None
+        #: What the file must have been written for: the format, Python,
+        #: the package and the sizes and times of its files.
+        self._stamp = None
+        #: Whether a table was computed that the file lacks.
+        self._changed = False
+
+    def get(self, cls, kwdoc):
+        """The table of the artist class *cls*: ``kwdoc(cls)``, kept."""
+        module = sys.modules.get(cls.__module__)
+        if not _in_package(getattr(module, "__file__", None)):
+            return kwdoc(cls)
+        from . import rcParams
+        key = f"{cls.__module__}.{cls.__qualname__}:{rcParams['docstring.hardcopy']}"
+        tables = self._read()
+        table = tables.get(key)
+        if type(table) is not str:
+            table = tables[key] = kwdoc(cls)
+            if not self._changed:
+                self._changed = True
+                atexit.register(self._write)
+        return table
+
+    def _read(self):
+        """The tables of the file, if it was written for this package as it
+        is, else none."""
+        if self._tables is None:
+            self._tables = {}
+            try:
+                self._stamp = (self._FORMAT, sys.version, sys.flags.optimize,
+                               _PACKAGE, _package_files())
+                with open(_cache_file(), "rb") as file:
+                    stamp, tables = marshal.load(file)
+            except (OSError, EOFError, ValueError, TypeError):
+                return self._tables
+            if stamp == self._stamp and isinstance(tables, dict):
+                self._tables = tables
+        return self._tables
+
+    def _write(self):
+        """Write the tables to the file, replacing it; nothing when the
+        package's files or the cache directory cannot be read or written."""
+        if self._stamp is None:
+            return
+        try:
+            path = _cache_file()
+        except OSError:
+            return
+        written = f"{path}.{os.getpid()}"
+        try:
+            with open(written, "wb") as file:
+                marshal.dump((self._stamp, self._tables), file)
+            os.replace(written, path)
+        except OSError:
+            with contextlib.suppress(OSError):
+                os.remove(written)
+
+
+#: The directory of the package.
+_PACKAGE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _in_package(path):
+    """Whether the file *path* (if any) belongs to the package."""
+    return path is not None and os.path.abspath(path).startswith(_PACKAGE + os.sep)
+
+
+def _package_files():
+    """The modules of the package (in it and in its subdirectories named as
+    packages) and its extension, as ``(path, size, modification time)``
+    tuples, the paths of the modules relative to the package."""
+    from . import _native
+    status = os.stat(_native.__file__)
+    files = [(_native.__file__, status.st_size, status.st_mtime_ns)]
+    pending = [""]
+    while pending:
+        directory = pending.pop()
+        with os.scandir(os.path.join(_PACKAGE, directory)) as entries:
+            for entry in entries:
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name.isidentifier() and entry.name != "__pycache__":
+                        pending.append(os.path.join(directory, entry.name))
+                elif entry.name.endswith(".py"):
+                    status = entry.stat()
+                    files.append((os.path.join(directory, entry.name),
+                                  status.st_size, status.st_mtime_ns))
+    return tuple(sorted(files))
+
+
+def _cache_file():
+    """The file of the cache directory holding the tables, one for each
+    directory the package is in."""
+    from ._native import cbook
+    name = f"kwdoc-v{_KwdocTables._FORMAT}-{zlib.crc32(os.fsencode(_PACKAGE)):08x}.pltrs"
+    return os.path.join(cbook.cache_dir(), name)
+
+
+_kwdoc_tables = _KwdocTables()

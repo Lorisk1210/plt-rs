@@ -118,6 +118,14 @@ starts it with the PEP 741 `PyInitConfig` API. Without one the crate's test
 build is empty (with a cargo warning), so `cargo test --workspace` still
 works on a machine without Python.
 
+On x86_64 Linux the linker lays the extension's functions out in the order
+of `crates/pltrs-python/symbol-order.txt`: the code every program runs
+first, so that a process maps about 5 MiB of the library's code rather
+than 11 (see `build.rs`). `crates/pltrs-python/tools/symbol_order.py`
+writes the file from what the benchmark scripts run; a function it does
+not name (new code) is laid out after the others, so the file only needs
+writing again when much of the code has changed.
+
 ### `unsafe`
 
 The crate lifts the workspace's ban on `unsafe`, as only it and
@@ -2044,6 +2052,11 @@ additive:
   into the docstring. `cargo xtask diff --docs` measures signatures,
   docstrings and names against matplotlib's; a module documenting an
   artist class's properties (`%(Line2D:kwdoc)s`) imports that class' module.
+  What docstrings cost at import is kept small: the tables of the
+  package's own classes are kept between runs in the cache directory
+  (`_docstring._KwdocTables`, read while no file of the package or its
+  extension has changed), and docstrings are cleaned with
+  `_docstring.cleandoc`, which gives `inspect.cleandoc`'s result quicker.
 * Class layout is matplotlib's: where matplotlib's class defines a method
   of its own, ours does too, if only to call the shared one (``def
   draw(self, renderer): super().draw(renderer)``), so that `__qualname__`,

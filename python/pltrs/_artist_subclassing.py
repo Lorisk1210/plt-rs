@@ -64,33 +64,47 @@ def _prevent_rasterization(draw):
 def _is_alias(method):
     """Whether *method* is an alias of another (`.ArtistInspector.is_alias`,
     as a class defining it documents it)."""
-    return (method.__doc__ or "").lstrip().startswith("Alias for ")
+    doc = method.__doc__ or ""
+    # The start of a long docstring, stripped, unless spaces fill it.
+    head = doc[:80].lstrip()
+    if len(head) < len("Alias for ") and len(doc) > 80:
+        head = doc.lstrip()
+    return head.startswith("Alias for ")
 
 
 class _Definition:
     """
     What an artist class held when it was defined, which matplotlib's
     ``__init_subclass__`` reads to write the docstring of the class' ``set``
-    then: the names of its own attributes, and those of its own setters
-    without a docstring, whose docstring Python cannot look up on a base
-    class yet (the module does not name the class before its definition
-    ends).
+    then: the names of its own accessors (``set_*``, ``get_*``), and those
+    of its own setters without a docstring, whose docstring Python cannot
+    look up on a base class yet (the module does not name the class before
+    its definition ends).
     """
 
     def __init__(self, cls):
-        own = vars(cls)
-        self.names = frozenset(own)
-        self.undocumented = frozenset(
-            name for name, value in own.items()
-            if name.startswith("set_") and callable(value) and value.__doc__ is None)
-        #: The alias methods the class defined.
-        self.aliases = frozenset(name for name, value in own.items()
-                                 if callable(value) and _is_alias(value))
+        names, undocumented, aliases, setters = [], [], [], {}
+        for name, value in vars(cls).items():
+            if not name.startswith(("set_", "get_")):
+                continue
+            names.append(name)
+            if not callable(value):
+                continue
+            alias = _is_alias(value)
+            if alias:
+                aliases.append(name)
+            if name.startswith("set_"):
+                if value.__doc__ is None:
+                    undocumented.append(name)
+                if not alias:
+                    setters[name] = value
+        self.names = frozenset(names)
+        self.undocumented = frozenset(undocumented)
+        #: The alias accessors the class defined.
+        self.aliases = frozenset(aliases)
         #: The setters the class defined that were no aliases then, which
         #: its decorators may make aliases of (``set_xlim3d = set_xlim``).
-        self.setters = {name: value for name, value in own.items()
-                        if name.startswith("set_") and callable(value)
-                        and not _is_alias(value)}
+        self.setters = setters
 
     def inspector(self, cls):
         """An `.ArtistInspector` of *cls* as it was defined."""
@@ -143,12 +157,15 @@ class _LazySet:
     instance it was looked up on). The function is named as matplotlib's
     ``artist`` module names it while the class is being defined: by the
     class' ``__qualname__`` then (a class factory renames its classes
-    afterwards).
+    afterwards). `.Artist`'s own ``set`` (*function*) gets its signature
+    and docstring so, when first looked up, as matplotlib gives them when
+    its module is imported.
     """
 
-    def __init__(self, cls):
+    def __init__(self, cls, function=None):
         self._cls = cls
         self._qualname = f"{cls.__qualname__}.set"
+        self._function = function
 
     def __get__(self, instance, owner=None):
         function = self._make()
@@ -158,11 +175,13 @@ class _LazySet:
         cls = self._cls
         if not isinstance(cls.__dict__.get("set"), _LazySet):
             return cls.__dict__["set"]  # Made by an earlier lookup.
-        from .artist import Artist
-        function = lambda self, **kwargs: Artist.set(self, **kwargs)  # noqa: E731
-        function.__name__ = "set"
-        function.__qualname__ = self._qualname
-        function.__module__ = Artist.__module__
+        function = self._function
+        if function is None:
+            from .artist import Artist
+            function = lambda self, **kwargs: Artist.set(self, **kwargs)  # noqa: E731
+            function.__name__ = "set"
+            function.__qualname__ = self._qualname
+            function.__module__ = Artist.__module__
         type.__setattr__(cls, "set", function)
         cls._update_set_signature_and_docstring()
         return function

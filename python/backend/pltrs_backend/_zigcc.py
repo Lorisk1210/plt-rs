@@ -18,10 +18,12 @@ afresh for every link.
 
 Zig's driver refuses ``-Wl,--fix-cortex-a53-843419``, the workaround
 for Cortex-A53 erratum 843419 (the Raspberry Pi 3's core has it) rustc
-asks for on aarch64, but the LLD Zig links with applies it. So such a
-library is linked by Zig, which reports the LLD command it ran (``-v``),
-then relinked by that command with the flag (``zig ld.lld``); the build
-fails if the command cannot be found.
+asks for on aarch64, and the order of the extension's functions
+(``-Wl,--symbol-ordering-file=...``, see ``crates/pltrs-python/build.rs``),
+but the LLD Zig links with applies them. So such a library is linked by
+Zig, which reports the LLD command it ran (``-v``), then relinked by that
+command with the flags (``zig ld.lld``); the build fails if the command
+cannot be found.
 
 Response files (``@file``, which rustc writes when a command line is too
 long) are read, filtered and passed on as arguments.
@@ -40,7 +42,19 @@ DROPPED_PREFIXES = ("-B", "--target=")
 REPLACED = {"-lgcc_s": "-lunwind"}
 
 #: Arguments Zig's driver refuses, and the LLD flags they stand for.
-RELINKED = {"-Wl,--fix-cortex-a53-843419": "--fix-cortex-a53-843419"}
+RELINKED = {"-Wl,--fix-cortex-a53-843419": "--fix-cortex-a53-843419",
+            "-Wl,--no-warn-symbol-ordering": "--no-warn-symbol-ordering"}
+
+#: Prefixes of arguments Zig's driver refuses, which stand for the LLD
+#: flag after ``-Wl,``.
+RELINKED_PREFIXES = ("-Wl,--symbol-ordering-file=",)
+
+
+def relinked(argument):
+    """The LLD flag *argument* stands for, if Zig's driver refuses it."""
+    if argument.startswith(RELINKED_PREFIXES):
+        return argument.removeprefix("-Wl,")
+    return RELINKED.get(argument)
 
 
 def response_file(text):
@@ -72,7 +86,7 @@ def expanded(arguments):
 def filtered(arguments):
     """The arguments Zig's driver gets for rustc's *arguments*."""
     for argument in arguments:
-        if argument in DROPPED or argument in RELINKED or argument.startswith(DROPPED_PREFIXES):
+        if argument in DROPPED or relinked(argument) or argument.startswith(DROPPED_PREFIXES):
             continue
         yield REPLACED.get(argument, argument)
 
@@ -92,7 +106,7 @@ def main(argv):
     zig, target, *rest = argv
     arguments = list(expanded(rest))
     command = [zig, "cc", "-target", target, *filtered(arguments)]
-    flags = [RELINKED[argument] for argument in arguments if argument in RELINKED]
+    flags = [flag for flag in map(relinked, arguments) if flag]
     if not flags:
         sys.exit(subprocess.run(command).returncode)
     linked = subprocess.run([*command, "-v"], stderr=subprocess.PIPE, text=True)

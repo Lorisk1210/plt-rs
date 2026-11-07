@@ -10,6 +10,16 @@
 //! script links `python3.dll` itself, from the first of the Pythons below
 //! (see [`link_python3`]).
 //!
+//! On x86-64 Linux the extension's functions are laid out in the order of
+//! `symbol-order.txt`, which `tools/symbol_order.py` writes from what the
+//! benchmark scripts run: the code every program runs first, then the
+//! code fewer programs run. A process maps the library's code a page at a
+//! time and the pages around it with it, so that this halves the code a
+//! process holds (a small figure's 11.4 MiB became 5.0 MiB). The order
+//! goes to rustc's own linker for the target, LLD (which the wheels' Zig
+//! links with too); a linker configured for the target or in `RUSTFLAGS`
+//! gets none.
+//!
 //! The unit tests are a program of their own, so they embed an
 //! interpreter: this script finds a shared libpython (3.14 or later,
 //! whose `PyInitConfig` API sets the interpreter's home) and lets the
@@ -163,6 +173,35 @@ fn link_extension(target_os: &str) {
     }
 }
 
+/// The order of the extension's functions (see the module's
+/// documentation), relative to the crate.
+const SYMBOL_ORDER: &str = "symbol-order.txt";
+
+/// Lays the extension's functions out in [`SYMBOL_ORDER`]'s order where
+/// rustc links with LLD through the C compiler: on x86-64 Linux with GNU's
+/// C library, unless a linker is configured for the target or the flags
+/// in `RUSTFLAGS` change how it links. A function the order does not name
+/// (the code has changed since it was written) is laid out after those it
+/// does.
+fn order_functions(target_os: &str) {
+    println!("cargo::rerun-if-changed={SYMBOL_ORDER}");
+    let var = |name| std::env::var(name).unwrap_or_default();
+    let linked_by_lld = target_os == "linux"
+        && var("CARGO_CFG_TARGET_ARCH") == "x86_64"
+        && var("CARGO_CFG_TARGET_ENV") == "gnu"
+        && std::env::var_os("RUSTC_LINKER").is_none()
+        && !var("CARGO_ENCODED_RUSTFLAGS").contains("link");
+    if linked_by_lld {
+        let crate_dir = PathBuf::from(var("CARGO_MANIFEST_DIR"));
+        let order = crate_dir.join(SYMBOL_ORDER);
+        println!(
+            "cargo::rustc-cdylib-link-arg=-Wl,--symbol-ordering-file={}",
+            order.display()
+        );
+        println!("cargo::rustc-cdylib-link-arg=-Wl,--no-warn-symbol-ordering");
+    }
+}
+
 fn main() {
     println!("cargo::rustc-check-cfg=cfg(pltrs_python_embed)");
     println!("cargo::rustc-check-cfg=cfg(pltrs_python_link_python3)");
@@ -170,6 +209,7 @@ fn main() {
     println!("cargo::rerun-if-changed=build.rs");
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     link_extension(&target_os);
+    order_functions(&target_os);
     if std::env::var_os("HOST") != std::env::var_os("TARGET") {
         return;
     }

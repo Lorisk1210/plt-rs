@@ -31,7 +31,7 @@ from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
 from ._artist_private import PrivateAttributesMixin
 from ._artist_staleness import StalenessMixin, _stale_axes_callback  # noqa: F401
-from ._artist_subclassing import SubclassingMixin
+from ._artist_subclassing import SubclassingMixin, _LazySet
 from ._artist_units import UnitsMixin
 from ._native import artist as _artist
 from ._native import transforms as _transforms
@@ -809,9 +809,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 # The introspection of artist properties, which needs `Artist` defined.
 from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: E402, F401
 
-# The signature and docstring of `Artist.set`, which subclasses get theirs
-# from as they are defined (`._artist_subclassing`).
-Artist._update_set_signature_and_docstring()
+# The signature and docstring of `Artist.set`, made when it is first looked
+# up, as those of its subclasses (`._artist_subclassing`).
+Artist.set = _LazySet(Artist, Artist.set)
 
 
 cbook._set_module(__name__, _XYPair, ArtistInspector, get, getp, setp, kwdoc)

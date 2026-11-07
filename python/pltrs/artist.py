@@ -187,7 +187,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         if fig is self.get_figure(root=False):
             return
-        if self._figure is not None:
+        # A part of another artist answers with that artist's figure.
+        if self.get_figure(root=False) is not None or (
+                self._figure is not None and not self.__dict__.get("_decoupled")):
             raise RuntimeError("Can not put single artist in "
                                "more than one figure")
         _handles.adopt(self, _artist.take_into_figure(fig._native, self._native),
@@ -205,10 +207,16 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             If False, return the (Sub)Figure this artist is on.  If True,
             return the root Figure for a nested tree of SubFigures.
         """
-        if self.__dict__.get("_no_figure"):
+        if self.__dict__.get("_no_figure") or self.__dict__.get("_decoupled"):
             # In its figure without belonging to it, as matplotlib's
-            # artists without a figure that an aux-transform box holds.
+            # artists without a figure that an aux-transform box holds, and
+            # those removed or cleared from it (`_decouple`).
             return None
+        return self._home_figure(root)
+
+    def _home_figure(self, root=False):
+        """The (sub)figure pltrs (Rust) keeps the artist in, the root with
+        *root*: its figure, also once it was decoupled from it."""
         if root or self._figure is None or not self._figure.subfigs:
             return self._figure
         from .figure import Figure
@@ -218,7 +226,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     @property
     def axes(self):
         """The `~.axes.Axes` instance the artist resides in, or *None*."""
-        if self._figure is None:
+        if self._figure is None or self.__dict__.get("_decoupled"):
             return self._loose_axes()
         axes = _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
         # An artist the program gave a figure and an Axes without adding
@@ -709,24 +717,57 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         Note: there is no support for removing the artist's legend entry.
         """
-        if self._figure is None:
+        if self._figure is None or self.__dict__.get("_decoupled"):
             if self.__dict__.get("_removed"):
-                # Removed before: matplotlib's removal method, the list the
-                # artist was in, no longer finds it.
-                raise ValueError("list.remove(x): x not in list")
+                self._remove_again()
+                return
+            raise NotImplementedError('cannot remove artist')
+        if _artist.is_part(self._native):
+            # Made by its owner as a part of itself (an Axes' title), it has
+            # no removal method.
             raise NotImplementedError('cannot remove artist')
         # An owner removing the artist its own way (a colorbar its Axes).
         remove_method = self.__dict__.get("_remove_method")
         if remove_method is not None:
             remove_method(self)
+            self._decouple(removed=True)
             return
-        _artist.remove(self._native)
+        # Decoupled first: the end of the native removal brings the
+        # artist's trees up to date, which reads it.
+        self._decouple(removed=True)
+        self._remove_natively()
         _handles.forget(self)
-        # Decoupled from its figure and Axes, as matplotlib's `remove`
-        # leaves it.
-        self._figure = None
+
+    def _remove_again(self):
+        """Remove the artist once more, as matplotlib's removal method does:
+        the list the artist was taken out of no longer finds it."""
+        raise ValueError("list.remove(x): x not in list")
+
+    def _remove_natively(self):
+        """Take the artist out of its figure in pltrs (Rust) (`remove`; a
+        class made of several native artists takes them all out)."""
+        _artist.remove(self._native)
+
+    def _decouple(self, removed):
+        """
+        Leave the artist decoupled from its figure and Axes, as matplotlib's
+        `remove` and ``clear`` leave it: its ``figure`` and ``axes`` are
+        None, while pltrs (Rust) keeps it apart in its old figure, where it
+        keeps measuring with the transform and clip box it had there, as
+        matplotlib's keeps its ``_transform``. *removed* tells whether it
+        was removed (removing it again fails as matplotlib's removal method
+        does) rather than cleared (which leaves matplotlib's none).
+        """
+        self._keep_drawn_state()
+        self._decoupled = True
         self.__dict__.pop("_axes", None)
-        self._removed = True
+        if removed:
+            self._removed = True
+
+    def _keep_drawn_state(self):
+        """Compute now, in its figure and Axes, what matplotlib's last draw
+        of the artist computed and the artist keeps once decoupled from
+        them (see `_decouple`): nothing for most artists."""
 
     def properties(self):
         """Return a dictionary of all the properties of the artist."""

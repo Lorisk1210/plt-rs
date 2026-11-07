@@ -14,6 +14,7 @@ from .. import _api, _artist_clipping, _handles, _values, cbook, colorizer as mc
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
 from ..artist import Artist, allow_rasterization
+from . import _foreign_children
 from ._artist_list import ArtistList
 from ._aspect import AspectMixin
 from ._blitting import BlittingMixin
@@ -45,7 +46,7 @@ class _SharedAxes(SharedGroups):
 
     def _siblings(self, a):
         return _handles.wrap_all(_axes_base.shared(a._native, self._name),
-                                 type(a), a.figure)
+                                 type(a), a._figure)
 
 
 @_api.define_aliases({"facecolor": ["fc"]})
@@ -163,7 +164,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             # The spines a program's projection class made.
             spines = dict(programmed.named_spines)
         else:
-            spines = {name: _handles.wrap(native, Spine, self.figure)
+            spines = {name: _handles.wrap(native, Spine, self._figure)
                       for name, native in _spines.axes_spines(self._native)}
         colorbar = self.__dict__.get("_colorbar")
         if colorbar is not None:
@@ -312,7 +313,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
 
     def _shared_from(self, name):
         native = _axes_base.shared_from(self._native, name)
-        return None if native is None else _handles.wrap(native, type(self), self.figure)
+        return None if native is None else _handles.wrap(native, type(self), self._figure)
 
     def _sci(self, im):
         """
@@ -531,10 +532,17 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         an *axes_class* or keywords of `.Figure.add_subplot`, the Axes they
         make at its place, which becomes its twin.
         """
+        if self.get_figure(root=False) is None:
+            # matplotlib's makes the twin with its figure's `add_subplot`
+            # (`add_axes` without a subplot spec), which an Axes removed
+            # from its figure has not.
+            name = "add_subplot" if self.get_subplotspec() else "add_axes"
+            raise AttributeError(f"'NoneType' object has no attribute '{name}'",
+                                 name=name, obj=None)
         if axes_class is None and not kwargs:
             from ._axes import Axes
             native = _axes_base.twin(self._native, shared, float(delta_zorder))
-            return _handles.wrap(native, Axes, self.figure)
+            return _handles.wrap(native, Axes, self._figure)
         if axes_class is not None:
             kwargs["axes_class"] = axes_class
         kwargs[f"share{shared}"] = self
@@ -651,6 +659,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         ``artist.get_transform() == None``) then the transform is set to
         ``ax.transData``.
         """
+        if not isinstance(a, Artist):
+            return _foreign_children.add(self, a)
         added = a._add_to_axes(self, "artist")
         _artist_clipping.take_parent_defaults(a, self)
         return added
@@ -689,6 +699,9 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """
         from ..collections import Collection
         _api.check_isinstance(Collection, collection=collection)
+        figure = collection.get_figure(root=True)
+        if figure is not None and figure is not self._figure:
+            _foreign_children.add_drawn(self, collection)
         return collection._add_to_axes(self, "collection", autolim)
 
     def add_image(self, image):

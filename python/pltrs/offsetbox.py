@@ -1623,6 +1623,7 @@ class AnchoredOffsetbox(OffsetBox):
         """Return the box's extent in display space (for a box inside
         another box's tree, its frame's: the box drawn at its anchor), the
         boxes of the program's inside measured as they are now."""
+        self._check_figure_renderer(renderer)
         owner = self.__dict__.get("_tree_owner", self)
         owner._sync_tree()
         if owner._tree_unusable():
@@ -2000,9 +2001,7 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
     def _placed_extent(self):
         """The box placed in the figure as it is now; a box outside any
         figure has no renderer to be measured with, as in matplotlib."""
-        if self._figure is None:
-            raise AttributeError(
-                "'NoneType' object has no attribute '_get_renderer'")
+        self._check_figure_renderer(None)
         self._sync_tree()
         self.update_positions(None)
         return self._extent_as_is()

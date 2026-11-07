@@ -3427,8 +3427,8 @@ class Shadow(Patch):
     def get_patch_transform(self):
         # The offset in points as the shadow is drawn, which matplotlib
         # sets when it draws the shadow (a shadow drawn is fresh, and stays
-        # offset after that).
-        figure = self.get_figure(root=True)
+        # offset after that, also once removed from its figure).
+        figure = self._home_figure(root=True)
         if figure is not None and not self.stale:
             self._drawn = True
         if self.__dict__.get("_drawn"):

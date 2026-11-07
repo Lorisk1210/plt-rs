@@ -375,6 +375,7 @@ class Legend(Artist):
         # Return the legend's box in display space, where pltrs (Rust) lays it
         # out in the figure as it is (matplotlib computes it from the legend's
         # layout, the view limits not autoscaled first).
+        self._check_figure_renderer(renderer)
         return self._extent_as_is()
 
     # 'best' is only implemented for Axes legends
@@ -611,7 +612,14 @@ class Legend(Artist):
         if self.parent is not axes:
             return super()._add_to_axes(axes, kind, autolim)
         _legend.keep(axes._native, self._native)
-        return self
+        # Back in the Axes if it was removed from it.
+        return _handles.adopt(self, self._native, axes.figure)
+
+    def _remove_again(self):
+        # The removal method of an Axes' legend forgets the Axes' legend,
+        # again without fail; a figure's takes it out of its legends.
+        if not self.isaxes:
+            super()._remove_again()
 
     def _validated_loc(self, loc):
         """*loc* as pltrs (Rust) takes it (a name, a code or a point), or

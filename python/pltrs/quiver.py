@@ -460,6 +460,10 @@ class Quiver(mcollections.PolyCollection):
                 draws, transforms.Affine2D().scale(self._dots_per_unit(self.units)))
         return made[1]
 
+    def _keep_drawn_state(self):
+        # The transform of its arrows, made with its Axes.
+        self.get_transform()
+
     def _dots_per_unit(self, units):
         """Return a scale factor for converting from units to pixels."""
         bb = self.axes.bbox

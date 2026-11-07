@@ -141,10 +141,15 @@ class PositionedMixin:
             return None
         made = self.__dict__.get("_positioned_transform")
         if made is None or made[0] != key:
-            renderer = self.get_figure(root=True)._get_renderer()
+            # Its figure's renderer, also once it was removed from it.
+            renderer = self._home_figure(root=True)._get_renderer()
             made = self._positioned_transform = (
                 key, self._get_xy_transform(renderer, self.anncoords))
         return made[1]
+
+    def _keep_drawn_state(self):
+        # The transform of its text coordinates, made with its Axes.
+        self._positioned()
 
     def _measured(self):
         """Record that the annotation was positioned to be measured (its

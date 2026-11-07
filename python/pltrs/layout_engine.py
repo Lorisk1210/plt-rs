@@ -25,7 +25,7 @@ whenever the engine or its parameters change.
 
 import weakref
 
-from . import _layoutgrid, rcParams
+from . import _layout_checks, _layoutgrid, rcParams
 
 
 class LayoutEngine:
@@ -118,15 +118,30 @@ class LayoutEngine:
         matplotlib's draw runs it (see `.axes._program_locators`).
         """
         from ._native import figure as _figure
-        from ._program_classes import takes_from_program
-        by_program = takes_from_program(type(self), "execute")
+        in_python = self._executes_in_python()
         _figure.set_layout_engine(
-            fig._native, self._placeholder_spec() if by_program else self._native_spec())
+            fig._native, self._placeholder_spec() if in_python else self._native_spec())
         # An engine of the program's may not have run this class' __init__.
         self.__dict__.setdefault("_figures", weakref.WeakSet()).add(fig)
-        if by_program:
+        if in_python:
             from .axes import _program_locators
             _program_locators.follow_engine(fig)
+
+    def _executes_in_python(self):
+        """
+        Whether pltrs (Rust) leaves the layout to the engine's ``execute``,
+        which the figure runs before every layout of a draw: an engine of
+        a class of the program's with its own, or one holding parameters
+        pltrs (Rust) cannot hold, which matplotlib fails on as it lays the
+        figure out (see `._layout_checks`).
+        """
+        from ._program_classes import takes_from_program
+        return takes_from_program(type(self), "execute") or not self._held_natively()
+
+    def _held_natively(self):
+        """Whether pltrs (Rust) holds the engine's parameters (the base
+        class has none)."""
+        return True
 
     def _placeholder_spec(self):
         """A placeholder of the engine as pltrs (Rust) takes it: no layout
@@ -239,7 +254,14 @@ class TightLayoutEngine(LayoutEngine):
         .figure.Figure.tight_layout
         .pyplot.tight_layout
         """
+        # What matplotlib's computes with first (pltrs (Rust) measures with
+        # the figure's renderer itself).
+        fig._get_renderer()
+        _layout_checks.check_tight(fig, self._params)
         return self._execute_native(fig)
+
+    def _held_natively(self):
+        return _layout_checks.holds_tight(self._params)
 
     def _native_spec(self):
         """The engine as pltrs (Rust) takes it."""
@@ -328,7 +350,11 @@ class ConstrainedLayoutEngine(LayoutEngine):
         ----------
         fig : `.Figure` to perform layout on.
         """
+        _layout_checks.check_constrained(fig, self._params)
         return self._execute_native(fig)
+
+    def _held_natively(self):
+        return _layout_checks.holds_constrained(self._params)
 
     def _native_spec(self):
         """The engine as pltrs (Rust) takes it."""
@@ -336,7 +362,7 @@ class ConstrainedLayoutEngine(LayoutEngine):
         return ("constrained",
                 (float(info['h_pad']), float(info['w_pad']),
                  float(info['hspace']), float(info['wspace'])),
-                tuple(map(float, info['rect'])), bool(self._compress))
+                tuple(float(info['rect'][i]) for i in range(4)), bool(self._compress))
 
     def set(self, *, h_pad=None, w_pad=None,
             hspace=None, wspace=None, rect=None):

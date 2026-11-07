@@ -15,14 +15,19 @@ class ProjectionMixin:
     def axes(self):
         """The Axes itself (matplotlib's ``self.axes = self``), or for a
         child Axes (an inset, a secondary axis) the Axes it is a child of,
-        as matplotlib's ``add_child_axes`` sets it."""
+        as matplotlib's ``add_child_axes`` sets it; the one it was set to
+        since (None once it was removed)."""
+        if "_axes" in self.__dict__:
+            return self._axes
         return self.__dict__.get("_child_of", self)
 
     @axes.setter
     def axes(self, new_axes):
-        if new_axes is not None and new_axes is not self:
+        current = self.axes
+        if new_axes is not None and current is not None and new_axes is not current:
             raise ValueError("Can not reset the Axes. You are probably trying to reuse "
                              "an artist in more than one Axes which is not supported")
+        self._axes = new_axes
 
     def _gen_axes_spines(self, locations=None, offset=0.0, units='inches'):
         """

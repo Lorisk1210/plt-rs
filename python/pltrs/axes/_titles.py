@@ -27,7 +27,7 @@ class TitlesMixin:
 
     def _title_at(self, loc):
         return _handles.wrap(_axes.title_text(self._native, loc), Text,
-                             self.figure)
+                             self._figure)
 
     @property
     def title(self):
@@ -115,7 +115,7 @@ class TitlesMixin:
             _axes.set_title(self._native, loc, "",
                             None if pad is None else float(pad),
                             None if y is None else float(y)),
-            Text, self.figure)
+            Text, self._figure)
         title.set_text(label)
         if fontdict is not None:
             title.update(fontdict)

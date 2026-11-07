@@ -14,6 +14,7 @@ use crate::artist::{
     downcast_ref,
 };
 use crate::axes::AxesState;
+use crate::legend::LegendArtist;
 use crate::mplot3d::Axes3DState;
 
 /// A figure's artists, in the figure or removed from it.
@@ -67,6 +68,22 @@ impl FigureState {
     /// owning it was removed.
     pub(crate) fn is_attached(&self, id: ArtistId) -> bool {
         self.store.contains(id)
+    }
+
+    /// Whether artist `id` is a part its owner made of itself rather than
+    /// one added to it (see [`RawHandle::is_part`]).
+    fn is_part(&self, id: ArtistId) -> bool {
+        let Some(owner) = self
+            .artist(id)
+            .and_then(|artist| artist.base().parent)
+            .and_then(|parent| self.artist(parent))
+        else {
+            return false;
+        };
+        match downcast_ref::<AxesState>(owner) {
+            Some(axes) => axes.spines.contains(&id) || axes.titles.contains(&id),
+            None => downcast_ref::<LegendArtist>(owner).is_some(),
+        }
     }
 
     /// Whether artist `id` was removed itself, rather than with an artist
@@ -209,6 +226,25 @@ impl FigureState {
     }
 }
 
+impl RawHandle {
+    /// Whether the artist is a part another artist made of itself, rather
+    /// than one added to a figure or an axes: a spine or a title of an
+    /// axes, a text, handle or frame of a legend. matplotlib's
+    /// `Artist.remove` refuses those, which have no removal method.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let title = ax.set_title("title");
+    /// let note = ax.text(0.5, 0.5, "note");
+    /// assert!(title.raw().is_part() && !note.raw().is_part());
+    /// ```
+    pub fn is_part(&self) -> bool {
+        self.figure_state().borrow().is_part(self.id())
+    }
+}
+
 /// Adds the removed artist behind `artist` back to `figure` as a child of
 /// its container `parent` (see [`FigureState::attach_artist`]).
 pub(crate) fn attach(
@@ -238,6 +274,30 @@ mod tests {
     use crate::artist::ArtistHandle;
     use crate::figure::{Figure, SubfigureOptions};
     use crate::text::TextArtist;
+
+    #[test]
+    fn parts_are_told_from_added_artists() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax
+            .plot_with(
+                [0.0, 1.0],
+                [0.0, 1.0],
+                crate::lines::LineProps::default().label("line"),
+            )
+            .unwrap();
+        let legend = ax.legend(crate::legend::LegendOptions::default()).unwrap();
+        let spine = ax
+            .spines()
+            .get(crate::spines::SpineSide::Left)
+            .raw()
+            .clone();
+        assert!(spine.is_part() && legend.frame().raw().is_part());
+        assert!(legend.texts().iter().all(|text| text.raw().is_part()));
+        assert!(!line.raw().is_part() && !legend.raw().is_part() && !ax.raw().is_part());
+        line.remove();
+        assert!(!line.raw().is_part(), "a removed artist has no owner");
+    }
 
     /// The children of the axes `id`, wherever it is.
     fn children(fig: &Figure, id: ArtistId) -> Vec<ArtistId> {

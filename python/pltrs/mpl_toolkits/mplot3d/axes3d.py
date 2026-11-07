@@ -388,6 +388,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def clear(self):
         # docstring inherited.
+        self._decouple_children()
         _mplot3d.clear(self._native)
         for axis in (self.xaxis, self.yaxis, self.zaxis):
             axis._given_scale = None

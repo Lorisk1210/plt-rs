@@ -1,28 +1,28 @@
 //! Clearing a figure (matplotlib's `Figure.clear`, `clf` and `delaxes`).
 
+use std::rc::Rc;
+
 use super::frame::SuperTexts;
 use super::{Figure, FigureFrame, FigureState};
-use crate::artist::{ArtistHandle, ArtistId};
+use crate::artist::{ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::gridspec::SubplotParams;
 
 impl FigureState {
+    /// The children of frame `frame`, none if it is no frame in the figure.
+    fn frame_children(&self, frame: ArtistId) -> Vec<ArtistId> {
+        self.store
+            .get_as::<FigureFrame>(frame)
+            .map(|node| node.children.clone())
+            .unwrap_or_default()
+    }
+
     /// Removes everything in frame `frame` (matplotlib's
-    /// `FigureBase.clear`): each axes is cleared, which resets the scales
-    /// of axes shared with it, then removed with the subfigures, texts,
-    /// legends and other artists; the subplot parameters return to the
-    /// rc defaults.
+    /// `FigureBase.clear`), its axes cleared already: the axes, the
+    /// subfigures, texts, legends and other artists; the subplot
+    /// parameters return to the rc defaults.
     fn clear_frame(&mut self, frame: ArtistId) {
-        let Some(node) = self.store.get_as::<FigureFrame>(frame) else {
-            return;
-        };
-        let children = node.children.clone();
-        for &child in &children {
-            if self.store.get_as::<AxesState>(child).is_some() {
-                self.clear_axes(child);
-            }
-        }
-        for child in children {
+        for child in self.frame_children(frame) {
             self.remove_artist(child);
         }
         if let Some(node) = self.store.get_as_mut::<FigureFrame>(frame) {
@@ -37,6 +37,18 @@ impl Figure {
     /// and resets the subplot parameters to `figure.subplot.*`, keeping
     /// the size, colours and layout engine (matplotlib's `Figure.clear`).
     pub fn clear(&self) -> &Self {
+        // Each axes cleared as `Axes::clear` clears it (resetting the
+        // scales of the axes shared with it; a polar or custom axes stays
+        // so, removed), before it is removed.
+        let children = self.state().frame_children(self.id());
+        let axes: Vec<Axes> = children
+            .into_iter()
+            .filter(|&id| self.state().store.get_as::<AxesState>(id).is_some())
+            .map(|id| Axes::from_raw(RawHandle::new(Rc::clone(self.state_cell()), id)))
+            .collect();
+        for ax in &axes {
+            ax.clear();
+        }
         self.state_mut().clear_frame(self.id());
         self
     }
@@ -74,6 +86,17 @@ mod tests {
         let ax = fig.gca();
         assert_eq!(fig.axes(), std::slice::from_ref(&ax));
         fig.delaxes(&ax);
+        assert_eq!(fig.axes(), Vec::<Axes>::new());
+    }
+
+    #[test]
+    fn cleared_polar_axes_stay_polar() {
+        // Removed with the figure's clear, a polar axes is still one, as
+        // matplotlib's `Axes.clear` leaves it.
+        let fig = Figure::new();
+        let polar = fig.add_polar_axes([0.1, 0.1, 0.8, 0.8]).unwrap();
+        fig.clear();
+        assert_eq!(polar.projection(), crate::axes::ProjectionKind::Polar);
         assert_eq!(fig.axes(), Vec::<Axes>::new());
     }
 

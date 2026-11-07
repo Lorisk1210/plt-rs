@@ -15,7 +15,7 @@ from ..._native import plotting as _plotting
 
 def wrap(axes, native, cls):
     """The object of class *cls* for the artist *native* of *axes*' figure."""
-    return _handles.wrap(native, cls, axes.figure)
+    return _handles.wrap(native, cls, axes._figure)
 
 
 def wrap_all(axes, natives, cls):

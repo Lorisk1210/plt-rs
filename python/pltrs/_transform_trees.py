@@ -222,7 +222,9 @@ def build_axes(ax, as_made=False):
     them the Axes' own, for a projection class of the program's, whose
     ``_set_lim_and_transforms`` may read them.
     """
-    fig = ax.get_figure(root=False)
+    # Its (sub)figure's, also for an Axes removed from it, which keeps
+    # measuring there as matplotlib's keeps its trees.
+    fig = ax._home_figure()
     root = ax._figure
     d = ax.__dict__
     d["_transform_trees"] = ()
@@ -267,12 +269,14 @@ def build_axes(ax, as_made=False):
     root._tree_owners[_transforms.watch_axes(ax._native)] = ax
 
 
-def _set_axes_boxes(ax, leaves):
-    """Give the boxes of *ax* the values of its *leaves*."""
+def _set_axes_boxes(ax, leaves, positions=True):
+    """Give the boxes of *ax* the values of its *leaves* (its positions
+    too with *positions*)."""
     d = ax.__dict__
     _, (position, original), view, (data, minpos), _, _ = leaves
-    set_extents(d["_position"], position)
-    set_extents(d["_originalPosition"], original)
+    if positions:
+        set_extents(d["_position"], position)
+        set_extents(d["_originalPosition"], original)
     set_extents(d["_viewLim"], view)
     data_lim = d["dataLim"]
     set_extents(data_lim, data)
@@ -280,9 +284,12 @@ def _set_axes_boxes(ax, leaves):
 
 
 def _apply_axes(ax, leaves):
-    """Give the trees of *ax* its new *leaves*."""
-    _set_axes_boxes(ax, leaves)
+    """Give the trees of *ax* its new *leaves*: an Axes placed in another
+    (an inset, a secondary axis) that left it keeps the position its host
+    placed it at, as matplotlib's keeps the one its locator set at its
+    last draw, where pltrs (Rust) has its place in the host's fractions."""
     d = ax.__dict__
+    _set_axes_boxes(ax, leaves, positions=not d.get("_left_host"))
     if d.get("_tree_scales") != leaves[4]:
         d["_tree_scales"] = leaves[4]
         ax._update_transScale()

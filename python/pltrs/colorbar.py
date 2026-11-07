@@ -994,6 +994,9 @@ class Colorbar:
         If the colorbar was created with ``use_gridspec=True`` the previous
         gridspec is restored.
         """
+        # matplotlib's takes the Axes out first, with the removal method it
+        # had (its figure's `delaxes`), which fails on an Axes taken out.
+        self.ax._check_removable()
         self.mappable.callbacks.disconnect(self.mappable.colorbar_cid)
         self.mappable.colorbar = None
         self.mappable.colorbar_cid = None

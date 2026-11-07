@@ -1020,6 +1020,13 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         `~matplotlib.artist.Artist`
             The added artist.
         """
+        # matplotlib's gives it the figure first, which fails on what is no
+        # artist and on an artist of another (sub)figure.
+        if not isinstance(artist, Artist):
+            artist.set_figure(self)
+        figure = artist.get_figure(root=False)
+        if figure is not None and figure is not self:
+            raise RuntimeError("Can not put single artist in more than one figure")
         added = artist._add_to_figure(self, clip)
         _artist_clipping.take_parent_defaults(artist, self, clip)
         return added
@@ -1197,6 +1204,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             Set *keep_observers* to True if, for example,
             a gui widget is tracking the Axes in the figure.
         """
+        for subfig in self.subfigs:
+            subfig.clear(keep_observers=keep_observers)
         for ax in tuple(self.axes):
             ax.clear()
             self._axes_removed(ax)
@@ -1204,6 +1213,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         self.subfigs = []
         if not keep_observers:
             self._forget_axobservers()
+        self.stale = True
 
     def delaxes(self, ax):
         """

@@ -297,7 +297,7 @@ class ContourLabeler:
         """The label `.Text` instances."""
         from .text import Text
         return _handles.wrap_all(_contour.label_texts(self._contour), Text,
-                                 self.figure)
+                                 self._figure)
 
     @property
     def labelXYs(self):
@@ -372,8 +372,10 @@ class ContourLabeler:
                               self._native_splitter)
 
     def remove(self):
+        super().remove()
+
+    def _remove_natively(self):
         _contour.remove(self._contour)
-        _handles.forget(self)
 
 
 class _Bands(_mirrors.Mirroring):

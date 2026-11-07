@@ -277,7 +277,7 @@ class ImagingMixin:
         }
         native = _native_image.imshow(self._native, mimage._native_data(A),
                                       colorizer.cmap, colorizer.norm, spec)
-        im = _handles.wrap(native, mimage.AxesImage, self.figure)
+        im = _handles.wrap(native, mimage.AxesImage, self._figure)
         mimage._warn_identical_limits(self, im.get_extent())
         # The extent as matplotlib's imshow keeps it (``set_extent``).
         _values.remember(im, "extent", (list(im.get_extent()) if extent is None

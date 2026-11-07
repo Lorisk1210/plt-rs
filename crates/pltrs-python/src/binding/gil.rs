@@ -88,7 +88,9 @@ pub(crate) fn gil_held() -> bool {
 }
 
 /// Runs `f` with the GIL released, taking it back afterwards (also when
-/// `f` panics), so that other threads run meanwhile.
+/// `f` panics), so that other threads run meanwhile. The thread does not
+/// count as holding the GIL meanwhile, even inside a native call: a
+/// reference `f` drops (a call it gives up) waits for the next entry.
 ///
 /// # Safety
 ///
@@ -96,17 +98,24 @@ pub(crate) fn gil_held() -> bool {
 /// called it: a native call), and `f` touches no Python object and no
 /// pltrs (Rust) value (see [`threads`]).
 pub(super) unsafe fn without_gil<R>(f: impl FnOnce() -> R) -> R {
-    /// Takes the GIL back when dropped.
-    struct Restore(*mut c_void);
+    /// Takes the GIL back and counts the thread's scopes again when
+    /// dropped.
+    struct Restore {
+        state: *mut c_void,
+        scopes: usize,
+    }
     impl Drop for Restore {
         fn drop(&mut self) {
             // SAFETY: the thread state `PyEval_SaveThread` returned below,
             // on the same thread.
-            unsafe { ffi::PyEval_RestoreThread(self.0) };
+            unsafe { ffi::PyEval_RestoreThread(self.state) };
+            GIL_COUNT.with(|count| count.set(self.scopes));
         }
     }
+    let scopes = GIL_COUNT.with(|count| count.replace(0));
     // SAFETY: (caller) this thread holds the GIL and has a thread state.
-    let _restore = Restore(unsafe { ffi::PyEval_SaveThread() });
+    let state = unsafe { ffi::PyEval_SaveThread() };
+    let _restore = Restore { state, scopes };
     f()
 }
 
@@ -241,4 +250,46 @@ pub(crate) fn panic_message(payload: &(dyn Any + Send)) -> &str {
         .copied()
         .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
         .unwrap_or("unknown panic")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::binding::testing::{eval, import, with_python};
+
+    /// `sys.getrefcount(object)`.
+    fn references(object: &Bound<'_>) -> i64 {
+        import(object.py(), "sys")
+            .call_method("getrefcount", std::slice::from_ref(object))
+            .and_then(|count| count.extract())
+            .expect("a count")
+    }
+
+    #[test]
+    fn a_thread_waiting_without_the_gil_releases_no_reference() {
+        with_python(|py| {
+            let object = eval(py, "", "object()");
+            let given_up = object.clone().unbind();
+            let before = references(&object);
+            // SAFETY: the test holds the GIL through a thread state of its
+            // own, inside a scope as a native call would; the closure only
+            // gives a reference up, which waits.
+            let counted = unsafe {
+                without_gil(|| {
+                    let counted = gil_held();
+                    drop(given_up);
+                    counted
+                })
+            };
+            assert!(!counted, "the thread does not count as holding the GIL");
+            assert!(gil_held(), "it does once it has it back");
+            assert_eq!(references(&object), before, "the reference waits");
+            Python::with_gil(|_| ());
+            assert_eq!(
+                references(&object),
+                before - 1,
+                "the next scope releases it"
+            );
+        });
+    }
 }

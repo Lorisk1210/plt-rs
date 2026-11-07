@@ -3,7 +3,9 @@ The wxPython backend drawing with Agg (matplotlib's ``backend_wxagg``): each
 draw copies pltrs (Rust)'s raster canvas into the widget's bitmap.
 
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is but for
-its imports of the package.
+its imports of the package, and for showing what a draw or blit drew from
+wx's main thread, whatever thread draws
+(``_FigureCanvasWxBase._on_main_thread``).
 """
 
 import wx
@@ -20,12 +22,20 @@ class FigureCanvasWxAgg(FigureCanvasAgg, _FigureCanvasWxBase):
         Render the figure using agg.
         """
         FigureCanvasAgg.draw(self)
+        self._on_main_thread(self._show_drawing, drawDC)
+
+    def _show_drawing(self, drawDC):
+        """Show what the canvas drew, on *drawDC* if given (`draw`'s end)."""
         self.bitmap = self._create_bitmap()
         self._isDrawn = True
         self.gui_repaint(drawDC=drawDC)
 
     def blit(self, bbox=None):
         # docstring inherited
+        self._on_main_thread(self._blit, bbox)
+
+    def _blit(self, bbox):
+        """Show what the canvas holds inside *bbox* (`blit`'s work)."""
         bitmap = self._create_bitmap()
         if bbox is None:
             self.bitmap = bitmap

@@ -6,6 +6,7 @@
 //! writing fills a new array of `numpy.empty` through its buffer, so the
 //! array Python gets owns its data and is writable.
 
+use std::borrow::Cow;
 use std::sync::OnceLock;
 
 use super::containers::tuple;
@@ -541,12 +542,12 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
         return Ok(None);
     }
     let raw = &view.view;
-    // SAFETY: a filled view has a NUL-terminated format (requested with
-    // `PyBUF_FORMAT`) and `ndim` entries in `shape` and `strides`, all
-    // valid (and borrowed here) until the view is released, when this
+    // SAFETY: a filled view has a NUL-terminated format or none, and `ndim`
+    // entries in `shape` and `strides` (requested with `PyBUF_STRIDES`),
+    // all valid (and borrowed here) until the view is released, when this
     // function returns.
     let (format, shape, strides) = unsafe {
-        let format = std::ffi::CStr::from_ptr(raw.format).to_string_lossy();
+        let format = format_of(raw.format);
         let ndim = usize::try_from(raw.ndim).unwrap_or_default();
         if ndim == 0 {
             (format, &[][..], &[][..])
@@ -569,6 +570,13 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
         .map(|&extent| usize::try_from(extent).unwrap_or_default())
         .collect();
     let count = shape.iter().product::<usize>();
+    if count == 0 {
+        // Nothing to read, from a pointer that may be NULL.
+        return Ok(Some(NdArray {
+            data: Vec::new(),
+            shape,
+        }));
+    }
     let item = |bytes: &[u8]| {
         let scalar = layout.decode(bytes);
         T::from_scalar(scalar).ok_or_else(|| {
@@ -607,6 +615,20 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
         advance(&mut index, &shape);
     }
     Ok(Some(NdArray { data, shape }))
+}
+
+/// The item format of a filled buffer view: `"B"` (unsigned bytes) when
+/// the exporter gives none, as the buffer protocol says.
+///
+/// # Safety
+///
+/// `format` is NULL or a NUL-terminated string valid for `'a`.
+unsafe fn format_of<'a>(format: *const std::ffi::c_char) -> Cow<'a, str> {
+    if format.is_null() {
+        return Cow::Borrowed("B");
+    }
+    // SAFETY: (caller) a NUL-terminated string valid for `'a`.
+    unsafe { std::ffi::CStr::from_ptr(format) }.to_string_lossy()
 }
 
 /// Whether `strides` lay out items of `size` bytes in row-major order,
@@ -751,6 +773,30 @@ mod tests {
                 "0.5 is no integer"
             );
         });
+    }
+
+    #[test]
+    fn empty_buffers_need_no_memory() {
+        with_python(|py| {
+            // A view of no memory at all: its buffer's pointer is NULL.
+            let nothing = eval(
+                py,
+                "import ctypes\n\
+                 view = ctypes.pythonapi.PyMemoryView_FromMemory\n\
+                 view.restype = ctypes.py_object\n\
+                 view.argtypes = [ctypes.c_void_p, ctypes.c_ssize_t, ctypes.c_int]",
+                "view(None, 0, 0x100)",
+            );
+            let empty = nothing.extract::<NdArray<u8>>().unwrap();
+            assert_eq!((empty.shape, empty.data), (vec![0], vec![]));
+        });
+    }
+
+    #[test]
+    fn buffers_without_a_format_hold_unsigned_bytes() {
+        // SAFETY: no format, then a NUL-terminated one.
+        let (none, doubles) = unsafe { (format_of(std::ptr::null()), format_of(c"<d".as_ptr())) };
+        assert_eq!((&*none, &*doubles), ("B", "<d"));
     }
 
     #[test]

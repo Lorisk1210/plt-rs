@@ -730,6 +730,9 @@ class Line2D(Artist):
             if ls in [' ', '', 'none']:
                 ls = 'None'
             _api.check_in_list([*self._lineStyles, *cbook.ls_mapper_r], ls=ls)
+        else:
+            # matplotlib makes the dash pattern of any other style.
+            _get_dash_pattern(ls)
         self._set_native(linestyle=ls)
 
     @property
@@ -840,7 +843,11 @@ class Line2D(Artist):
 
             For examples see :ref:`marker_fill_styles`.
         """
-        _api.check_in_list(MarkerStyle.fillstyles, fs=fs)
+        # matplotlib's `MarkerStyle` checks it, :rc:`markers.fillstyle` for
+        # None.
+        if fs is None:
+            fs = _rcParams()['markers.fillstyle']
+        _api.check_in_list(MarkerStyle.fillstyles, fillstyle=fs)
         self._set_native(fillstyle=fs)
 
     def get_markersize(self):

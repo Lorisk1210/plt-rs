@@ -22,7 +22,7 @@ from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
-from .artist import Artist
+from .artist import Artist, allow_rasterization
 from .text import _measured_by_given
 
 __all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
@@ -1397,11 +1397,10 @@ class Axis(DrawnWith, Artist):
                 f"Incorrect use of keyword argument {first_key!r}. Keyword arguments "
                 "other than 'minor' modify the text labels and can only be used if "
                 "'labels' are passed as well.")
-        if not np.iterable(ticks) or isinstance(ticks, str):
-            raise TypeError(
-                f"ticks must be a sequence, not {type(ticks).__name__}")
+        # matplotlib converts the locations, then its FixedLocator checks
+        # them.
+        ticks = self.convert_units(ticks)
         values = np.asarray(ticks)
-        # matplotlib's FixedLocator takes the locations.
         _api.check_shape((None,), locs=values)
         if values.dtype.kind in "fiub" or not values.size:
             native = values.astype(float)
@@ -1958,6 +1957,7 @@ class Axis(DrawnWith, Artist):
         return [self.label, self.offsetText,
                 *self.get_major_ticks(), *self.get_minor_ticks()]
 
+    @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -2163,6 +2163,10 @@ class Axis(DrawnWith, Artist):
         if switching:
             _warn_if_incompatible(current, converter)
         taken = take()
+        if self._given_converter is not None:
+            # It replaces the converter set before (a category converter set
+            # by a conversion that failed), as matplotlib's does.
+            self._given_converter = converter
         if switching and self.units is not None:
             _check_native_units(converter, self.units)
         return taken
@@ -2231,11 +2235,12 @@ class Axis(DrawnWith, Artist):
                 self._set_converter(converter)
             elif (isinstance(converter, category.StrCategoryConverter)
                   and self.units is None):
-                # Category names convert with the categories `update_units`
-                # gives the axis: matplotlib's converter, set without them,
-                # refuses them.
                 self._set_converter(converter)
-                return self._converted(converter, x)
+        if self.units is None and isinstance(self.get_converter(), category.StrCategoryConverter):
+            # Category names convert with the categories `update_units`
+            # gives the axis: matplotlib's converter, set without them,
+            # refuses them, whenever it is asked.
+            return self._converted(self.get_converter(), x)
         from .axes._plotting._helpers import axis_values, convert_units
         if kind == "dates" and isinstance(axis_values(x), list):
             # The axis' date converter converts what it is given, as

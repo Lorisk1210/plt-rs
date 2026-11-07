@@ -345,6 +345,10 @@ class Bins2dMixin:
            extents of the histogram; now, autoscaling also takes other plot
            elements into account.
         """
+        # numpy's histogram2d, which matplotlib's computes with, compares
+        # the lengths first.
+        if len(x) != len(y):
+            raise ValueError('x and y must have the same length.')
         if np.ndim(bins) == 0 or (np.ndim(bins) == 1 and len(bins) != 2):
             bins = (bins, bins)
         xrange, yrange = (None, None) if range is None else range

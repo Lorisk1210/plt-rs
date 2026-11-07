@@ -271,6 +271,7 @@ class QuiverKey(martist.Artist):
             "inches": fig.dpi_scale_trans,
         }, coordinates=self.coord)
 
+    @martist.allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
@@ -404,6 +405,7 @@ class Quiver(mcollections.PolyCollection):
         from .path import Path
         return [Path(vertices) for vertices in _plotting.quiver_paths(self._native)]
 
+    @martist.allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)

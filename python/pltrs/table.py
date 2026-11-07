@@ -359,16 +359,17 @@ substring of 'BRTL'
 
     xy = property(get_xy, Rectangle.set_xy)
 
-    def _set_fields(self, x=None, y=None, *args, **kwargs):
+    def _set_fields(self, x=_values.NONE_GIVEN, y=_values.NONE_GIVEN, *args, **kwargs):
         # A corner given stays until the table places the cell again.
-        if x is not None or y is not None:
+        absent = _values.NONE_GIVEN
+        if x is not absent or y is not absent:
             corner = self.get_xy()
-            self._given_xy = ((corner[0] if x is None else x,
-                               corner[1] if y is None else y),
+            self._given_xy = ((corner[0] if x is absent else x,
+                               corner[1] if y is absent else y),
                               self._table._placements)
         super()._set_fields(x, y, *args, **kwargs)
-        if (kwargs.get("angle") is not None or kwargs.get("rotation_point") is not None
-                or len(args) > 2):
+        if (kwargs.get("angle", absent) is not absent
+                or kwargs.get("rotation_point", absent) is not absent or len(args) > 2):
             # The ``angle`` and ``rotation_point`` properties rotate the cell
             # as `set_angle` does.
             self._mirror.push(self)

@@ -686,6 +686,22 @@ pltrs (Rust) took from the property cycle read back as the cycle holds them
 int `1` for a colour of three components). `cargo xtask diff` compares
 pltrs' answers with matplotlib's (`spec/diff`).
 
+matplotlib's setters keep many values unchecked and fail only when they
+compute with them. A value pltrs (Rust) cannot hold is kept on the Python
+side (`_values.keep` for what reads back, `_unusable.keep` for what then
+fails), and the artist is drawn and measured through Python, where the
+same computation as matplotlib's raises the same error. Patches keep their
+geometry this way (`_kept_geometry`): a field that is no number, or a
+geometry whose arithmetic fails or warns (an infinite angle), has the
+patch recompute it as matplotlib does (`Ellipse._recompute_transform`,
+`Annulus._recompute_path`, ...) wherever matplotlib's draws and measures
+do; spines keep their bounds, centre and size, and their Axes fails to
+draw while a spine its axes measure beside their labels cannot be laid
+out (`Spine._locate`). Arithmetic matplotlib does on Python's or numpy's
+scalars before it hands numbers on (`Affine2D.scale`, `Path.arc`'s angles,
+`Collection._bcast_lwls`) is done the same way, so that it raises and
+warns as it does.
+
 ### Keyword arguments and aliases
 
 * Aliases are declared on the class, as in matplotlib:

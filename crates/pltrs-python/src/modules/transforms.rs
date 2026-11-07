@@ -126,26 +126,6 @@ fn invert(mtx: NdArray) -> PyResult<NdArray> {
     matrix(inverse)
 }
 
-/// The matrix followed by a rotation of `theta` radians.
-fn rotate(mtx: NdArray, theta: f64) -> PyResult<NdArray> {
-    matrix(affine(&mtx)?.rotate(theta))
-}
-
-/// The matrix followed by a translation.
-fn translate(mtx: NdArray, tx: f64, ty: f64) -> PyResult<NdArray> {
-    matrix(affine(&mtx)?.translate(tx, ty))
-}
-
-/// The matrix followed by a scaling.
-fn scale(mtx: NdArray, sx: f64, sy: f64) -> PyResult<NdArray> {
-    matrix(affine(&mtx)?.scale(sx, sy))
-}
-
-/// The matrix followed by a skew of angles in radians.
-fn skew(mtx: NdArray, x_shear: f64, y_shear: f64) -> PyResult<NdArray> {
-    matrix(affine(&mtx)?.skew(x_shear, y_shear))
-}
-
 /// The matrix taking the box `boxin` onto the box `boxout`
 /// (`BboxTransform`).
 fn transform_between(boxin: NdArray, boxout: NdArray) -> PyResult<NdArray> {
@@ -292,10 +272,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("affine_transform", affine_transform)?;
     module.add("compose", compose)?;
     module.add("invert", invert)?;
-    module.add("rotate", rotate)?;
-    module.add("translate", translate)?;
-    module.add("scale", scale)?;
-    module.add("skew", skew)?;
     module.add("transform_between", transform_between)?;
     module.add("transform_to", transform_to)?;
     module.add("transform_from", transform_from)?;

@@ -15,6 +15,7 @@ extents and the unit shapes.
 """
 
 import copy
+import operator
 from functools import cache, lru_cache
 from weakref import WeakValueDictionary
 
@@ -684,12 +685,11 @@ class Path:
         from .transforms import Bbox
         if transform is not None:
             self = transform.transform_path(self)
-        if (not isinstance(self.vertices, np.ndarray)
-                and (self.codes is None
-                     or len(np.intersect1d(self.codes, [Path.CURVE3, Path.CURVE4])) == 0)):
+        if (self.codes is None
+                or len(np.intersect1d(self.codes, [Path.CURVE3, Path.CURVE4])) == 0):
             # matplotlib computes the extents of straight segments with the
-            # vertices as they were set, as an array, which fails for those
-            # that are none (a list); pltrs (Rust) reads them as an array.
+            # vertices as they were set, as an array (NaN coordinates
+            # spreading), which fails for vertices that are none (a list).
             if self.codes is None:
                 xys = self.vertices
             else:
@@ -697,7 +697,12 @@ class Path:
             if len(xys):
                 return Bbox([xys.min(axis=0), xys.max(axis=0)])
             return Bbox.null()
-        return Bbox(_native_path.get_extents(self, None))
+        extents = Bbox(_native_path.get_extents(self, None))
+        if extents.x0 == np.inf and next(self.iter_bezier(**kwargs), None) is None:
+            # matplotlib concatenates the extents of the path's curves, of
+            # which there are none (every vertex NaN): it fails.
+            np.concatenate([])
+        return extents
 
     def intersects_path(self, other, filled=True):
         """
@@ -932,9 +937,8 @@ class Path:
            polylines, quadratic or cubic Bezier curves
            <https://web.archive.org/web/20190318044212/http://www.spaceroots.org/documents/ellipse/index.html>`_.
         """
-        if n is not None and n < 1:
-            raise ValueError("n must be >= 1 or None")
-        vertices, codes = _native_path.arc(theta1, theta2, n, is_wedge)
+        n = _arc_segments(theta1, theta2, n)
+        vertices, codes = _native_path.arc(float(theta1), float(theta2), n, is_wedge)
         return cls(vertices, codes, readonly=True)
 
     @classmethod
@@ -1041,6 +1045,30 @@ def drawn_path(artist, vertices, codes, steps):
         path = artist._drawn_path = Path(vertices, codes)
     path._steps_of = steps
     return path
+
+
+def _arc_segments(theta1, theta2, n):
+    """
+    The number of curve segments of `Path.arc` from *theta1* to *theta2*
+    degrees, *n* unless it is None, computed with matplotlib's arithmetic
+    on the angles: it raises and warns as numpy's does on angles that are
+    no numbers or not finite (a span of no finite number of turns has no
+    number of segments).
+    """
+    n_turns = (theta2 - theta1) / 360
+    nearest_turn = np.rint(n_turns)
+    if nearest_turn != 0 and abs(n_turns - nearest_turn) <= 1e-12:
+        eta2 = theta1 + 360
+    else:
+        eta2 = theta2 - 360 * np.floor(n_turns)
+    eta1, eta2 = np.deg2rad([theta1, eta2])
+    if n is None:
+        n = int(2 ** np.ceil((eta2 - eta1) / (np.pi * 0.5)))
+    if n < 1:
+        raise ValueError("n must be >= 1 or None")
+    # The count of the angles sampled (``np.linspace``'s *num*), which must
+    # be an integer.
+    return operator.index(n + 1) - 1
 
 
 # What matplotlib's module also has from its imports, which programs

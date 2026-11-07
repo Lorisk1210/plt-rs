@@ -1019,6 +1019,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """Return the `.Transform` instance used by this ContourSet."""
         return super().get_transform()
 
+    @martist.allow_rasterization
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)

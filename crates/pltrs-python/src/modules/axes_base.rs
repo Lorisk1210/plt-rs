@@ -20,14 +20,19 @@ impl From<CyclerError> for PyErr {
 }
 
 impl From<AspectError> for PyErr {
-    /// matplotlib's `ValueError`s; for axes fixing their data ratio, that
-    /// of `set_adjustable('datalim')`, which every path reaches.
+    /// matplotlib's `ValueError`s: that of `set_aspect` (which `imshow` and
+    /// `spy` call) for a ratio that is not positive, with its trailing
+    /// space; for axes fixing their data ratio, that of
+    /// `set_adjustable('datalim')`, which every path reaches.
     fn from(err: AspectError) -> Self {
         match err {
+            AspectError::NotPositive(_) => {
+                PyErr::value_error("aspect must be finite and positive ")
+            }
             AspectError::FixedDataRatio(_) => PyErr::value_error(
                 "Cannot set Axes adjustable to 'datalim' for Axes which override 'get_data_ratio'",
             ),
-            other => PyErr::value_error(other.to_string()),
+            AspectError::NonFiniteLimits => PyErr::value_error(err.to_string()),
         }
     }
 }

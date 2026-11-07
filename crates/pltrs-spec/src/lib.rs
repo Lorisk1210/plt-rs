@@ -27,6 +27,7 @@
 
 pub mod compare;
 pub mod figures;
+mod fonts;
 pub mod json;
 pub mod probes;
 pub mod rng;

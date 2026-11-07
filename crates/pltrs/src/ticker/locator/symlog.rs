@@ -126,14 +126,23 @@ impl Locator for SymmetricalLogLocator {
         let mut decades = Vec::new();
         if has_a {
             let exponents = arange(a_lo, a_hi, stride)?;
-            decades.extend(exponents.iter().rev().map(|&e| -self.base.powf(e)));
+            decades.extend(
+                exponents
+                    .iter()
+                    .rev()
+                    .map(|&e| -pltrs_core::numeric::pow(self.base, e)),
+            );
         }
         if has_b {
             decades.push(0.0);
         }
         if has_c {
             let exponents = arange(c_lo, c_hi, stride)?;
-            decades.extend(exponents.iter().map(|&e| self.base.powf(e)));
+            decades.extend(
+                exponents
+                    .iter()
+                    .map(|&e| pltrs_core::numeric::pow(self.base, e)),
+            );
         }
 
         match self.subs.as_slice() {

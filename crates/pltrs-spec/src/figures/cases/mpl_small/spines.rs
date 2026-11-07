@@ -7,7 +7,7 @@ use pltrs::axes::{AxisName, ErrorbarOptions, FillBetweenOptions, HistPlotOptions
 use pltrs::axes::{TickDirection, TickPosition};
 use pltrs::figure::Figure;
 use pltrs::lines::LineProps;
-use pltrs::numeric::{arange, linspace, logspace};
+use pltrs::numeric::{arange, linspace, logspace, pow};
 use pltrs::scale::{FuncTransform, NonPositive, ScaleOptions};
 use pltrs::spines::{SpinePosition, SpineSide};
 use pltrs::stats::Bins;
@@ -104,7 +104,7 @@ fn logscale_mask(fig: &Figure) -> CaseResult {
     ax.set_yscale("log")?;
     let ticks: Vec<f64> = arange(-300.0, 0.0, 24.0)
         .iter()
-        .map(|e| 10f64.powf(*e))
+        .map(|e| pow(10.0, *e))
         .collect();
     ax.set_yticks(ticks);
     remove_text(fig);

@@ -89,7 +89,9 @@ pub(crate) fn build(profile: Profile) -> Result<(), String> {
     }
     run_checked(&mut command)?;
     let (built, installed) = venv::extension_files(Os::CURRENT);
-    let built = target_dir().join(profile.directory()).join(built);
+    let built = built_dir(env::var_os("CARGO_BUILD_TARGET").as_deref())
+        .join(profile.directory())
+        .join(built);
     let installed = root().join("python/pltrs").join(installed);
     // Replacing the file (rather than writing over it) keeps a running
     // interpreter that mapped the old library from crashing.
@@ -101,6 +103,18 @@ pub(crate) fn build(profile: Profile) -> Result<(), String> {
         .map_err(|err| format!("cannot install {}: {err}", built.display()))?;
     println!("installed {}", installed.display());
     Ok(())
+}
+
+/// Where cargo puts what it builds for `triple`, the target cargo builds
+/// for (`CARGO_BUILD_TARGET`, set to build the extension for another
+/// architecture, such as `x86_64-apple-darwin` to run under Rosetta): the
+/// target directory, or its subdirectory of that name.
+fn built_dir(triple: Option<&OsStr>) -> PathBuf {
+    let dir = target_dir();
+    match triple {
+        Some(triple) => dir.join(triple),
+        None => dir,
+    }
 }
 
 /// The target directory cargo builds into: `CARGO_TARGET_DIR`, relative
@@ -179,6 +193,15 @@ mod tests {
     /// The entries of the path list `list`.
     fn entries(list: &OsStr) -> Vec<PathBuf> {
         env::split_paths(list).collect()
+    }
+
+    #[test]
+    fn another_targets_build_lives_in_its_subdirectory() {
+        assert_eq!(built_dir(None), target_dir());
+        assert_eq!(
+            built_dir(Some(OsStr::new("x86_64-apple-darwin"))),
+            target_dir().join("x86_64-apple-darwin")
+        );
     }
 
     #[test]

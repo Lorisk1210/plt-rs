@@ -1,8 +1,12 @@
-//! The public API against `AppKit`, on macOS with a window server. On
-//! other systems, or without a display, there is nothing to test:
+//! The public API against `AppKit`, on macOS with a window server. The
+//! tests open windows on the user's screen, go full screen, set the Dock
+//! icon and replace the clipboard's contents, so they run only when asked
+//! for with `PLTRS_MACOS_LIVE=1` (a session logged in at the Mac always
+//! has a window server, even over ssh). On other systems, without a
+//! display, or without the variable, there is nothing to test:
 //!
 //! ```text
-//! cargo test -p pltrs-platform --test macos [-- FILTER...]
+//! PLTRS_MACOS_LIVE=1 cargo test -p pltrs-platform --test macos [-- FILTER...]
 //! ```
 //!
 //! `AppKit` only runs on the main thread, which libtest keeps for its
@@ -42,6 +46,9 @@ use std::io::Write;
 use std::panic;
 use std::process::ExitCode;
 use std::time::Instant;
+
+/// The variable that lets the tests use the screen and the clipboard.
+const LIVE_VARIABLE: &str = "PLTRS_MACOS_LIVE";
 
 /// A live test: its name and its body.
 type Test = (&'static str, fn());
@@ -208,6 +215,12 @@ fn main() -> ExitCode {
         for (name, _) in &selected {
             println!("{name}: test");
         }
+        return ExitCode::SUCCESS;
+    }
+    if std::env::var_os(LIVE_VARIABLE).is_none() {
+        println!(
+            "\nrunning 0 tests (they use the screen and the clipboard: set {LIVE_VARIABLE}=1)\n"
+        );
         return ExitCode::SUCCESS;
     }
     if !has_window_server() {

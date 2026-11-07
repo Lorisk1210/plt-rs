@@ -1,5 +1,6 @@
 //! Lines, markers, filled areas, stacked areas, stems and axis scales.
 
+use pltrs::numeric::pow;
 use std::f64::consts::PI;
 
 use pltrs::axes::{Baseline, StackplotOptions, StemOptions};
@@ -288,7 +289,7 @@ fn axis_scales() -> Built {
     let x = linspace(0.01, 10.0, 400);
     axs[(0, 0)].plot(&x, &x)?;
     axs[(0, 0)].set_title("linear");
-    axs[(0, 1)].plot(&x, map(&x, |x| 10_f64.powf(x / 2.0)))?;
+    axs[(0, 1)].plot(&x, map(&x, |x| pow(10.0, x / 2.0)))?;
     axs[(0, 1)].set_yscale("log")?.set_title("log");
     let wide = linspace(-10.0, 10.0, 400);
     axs[(1, 0)].plot(&wide, map(&wide, |x| x.powi(3)))?;

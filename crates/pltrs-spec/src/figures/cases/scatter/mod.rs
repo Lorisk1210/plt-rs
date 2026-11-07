@@ -11,7 +11,7 @@ use pltrs::axes::{MappedColors, ScatterColors, ScatterOptions};
 use pltrs::collections::EdgeColors;
 use pltrs::colorbar::{ColorbarAxes, ColorbarOptions};
 use pltrs::colors::{Color, Colorize, LogNorm, TwoSlopeNorm, colormaps};
-use pltrs::numeric::{arange, linspace, logspace};
+use pltrs::numeric::{arange, linspace, logspace, pow};
 use pltrs::orientation::Orientation;
 
 use crate::figures::FigureCase;
@@ -79,7 +79,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let x = linspace(0.0, 1.0, 50);
         let y: Vec<f64> = x.iter().map(|v| v * v).collect();
-        let c: Vec<f64> = x.iter().map(|v| 10f64.powf(4.0 * v)).collect();
+        let c: Vec<f64> = x.iter().map(|v| pow(10.0, 4.0 * v)).collect();
         let options = ScatterOptions {
             colors: MappedColors::new(c)
                 .cmap(colormaps::get("cividis")?)

@@ -12,8 +12,12 @@ use super::outcomes::Outcomes;
 /// its own.
 pub(crate) type Variable = (String, Option<OsString>);
 
-/// The pytest workers of a run.
+/// The pytest workers of a run, unless [`WORKERS_VARIABLE`] says.
 const WORKERS: &str = "8";
+
+/// The variable giving another number of pytest workers, for a machine
+/// shared with other work.
+const WORKERS_VARIABLE: &str = "PLTRS_SUITE_WORKERS";
 
 /// The seconds a single test may take before pytest-timeout fails it.
 const TEST_TIMEOUT: &str = "600";
@@ -64,7 +68,8 @@ impl Run<'_> {
     /// (a display, the GUI toolkits' libraries), and reads what the
     /// plugin recorded.
     pub(crate) fn outcomes_with(&self, variables: &[Variable]) -> Result<Outcomes, String> {
-        self.outcomes_with_workers(WORKERS, variables)
+        let workers = std::env::var(WORKERS_VARIABLE).ok();
+        self.outcomes_with_workers(workers.as_deref().unwrap_or(WORKERS), variables)
     }
 
     /// Runs pytest as [`Run::outcomes_with`] does, with `workers` workers

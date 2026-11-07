@@ -14,7 +14,7 @@ use pltrs::colors::{
 };
 use pltrs::figure::Figure;
 use pltrs::gridspec::SubplotOverrides;
-use pltrs::numeric::{Grid, linspace};
+use pltrs::numeric::{Grid, linspace, pow};
 use pltrs::orientation::Orientation;
 use pltrs::prelude::*;
 use pltrs::spines::SpineSide;
@@ -238,7 +238,7 @@ pub(super) fn boundaries_values_irregular(fig: &Figure) -> CaseResult {
 /// `10 ** np.add.outer(x, x / 2)` for 40 points over `[0, 4]`.
 fn decades() -> Grid<f64> {
     let x = linspace(0.0, 4.0, 40);
-    Grid::from_fn(40, 40, |r, c| 10f64.powf(x[r] + x[c] / 2.0))
+    Grid::from_fn(40, 40, |r, c| pow(10.0, x[r] + x[c] / 2.0))
 }
 
 pub(super) fn lognorm_extend_minor_custom_ticks(fig: &Figure) -> CaseResult {

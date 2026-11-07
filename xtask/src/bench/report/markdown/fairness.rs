@@ -6,11 +6,12 @@ use std::fmt::Write as _;
 use super::super::super::guard::{DEVIATION, TOLERANCE};
 use super::super::super::results::Results;
 use super::super::super::stats::{RESAMPLES, Sampling};
+use super::Links;
 
 /// The fairness rules, what is not compared, and the machine.
-pub(super) fn write(out: &mut String, results: &Results) {
+pub(super) fn write(out: &mut String, results: &Results, links: &Links) {
     out.push_str("## How the comparison is kept fair\n\n");
-    same_output(out);
+    same_output(out, links);
     same_work(out, results);
     same_conditions(out, results);
     statistics(out);
@@ -19,15 +20,15 @@ pub(super) fn write(out: &mut String, results: &Results) {
 }
 
 /// The figures are the same, and the guard checks it.
-fn same_output(out: &mut String) {
+fn same_output(out: &mut String, links: &Links) {
     let _ = write!(
         out,
         "### Same output\n\n\
          Each workload is one figure. Its Python version is a script in \
-         [`benchmarks/python`](python) written for matplotlib. pltrs (Python) runs a copy in \
+         [`benchmarks/python`]({python}) written for matplotlib. pltrs (Python) runs a copy in \
          which every `import matplotlib...` reads `import pltrs...` and nothing else \
          changes. Its Rust version is in \
-         [`xtask/src/bench/workloads`](../xtask/src/bench/workloads). Both make the same data \
+         [`xtask/src/bench/workloads`]({workloads}). Both make the same data \
          from the same seeded generator (SplitMix64, drawn with numpy in Python).\n\n\
          All three draw in matplotlib's look with matplotlib's default rcParams: the same \
          figure size, 100 dpi, DejaVu Sans, matplotlib's default hinting and antialiasing. \
@@ -48,6 +49,8 @@ fn same_output(out: &mut String) {
          are left out.\n\n\
          A figure that fails a check is timed but marked †, and the summary leaves it \
          out.\n\n",
+        python = links.python,
+        workloads = links.workloads,
     );
 }
 
@@ -94,6 +97,17 @@ fn on_windows(results: &Results) -> bool {
     results.machine.kernel.starts_with("Windows")
 }
 
+/// The kernel as the report names it: Windows' and macOS' are recorded
+/// with their names (`Windows NT 10.0.26200`, `Darwin 25.6.0`), Linux's as
+/// the bare release.
+fn kernel(recorded: &str) -> String {
+    if recorded.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("Linux {recorded}")
+    } else {
+        recorded.to_owned()
+    }
+}
+
 /// The conditions are the same.
 fn same_conditions(out: &mut String, results: &Results) {
     let plan = &results.plan;
@@ -136,14 +150,31 @@ fn same_conditions(out: &mut String, results: &Results) {
          so the operating system's file cache and the libraries' font caches are warm.\n\
          * **One thread.** pltrs draws on one thread, as matplotlib does. Every Python \
          process holds numpy's BLAS to one thread (`OPENBLAS_NUM_THREADS`, \
-         `OMP_NUM_THREADS` and `MKL_NUM_THREADS` set to 1). Left alone, OpenBLAS starts a \
-         thread per hardware thread when numpy is imported, which costs both Python \
-         columns the same ([Start-up and imports](#start-up-and-imports) measures it). \
+         `OMP_NUM_THREADS` and `MKL_NUM_THREADS` set to 1). {blas_threads} \
          No process is pinned to a CPU.\n\
          * **Peak memory.** {peak}, and the tables give the median over its runs.\n\n",
         warm = runs(&plan.warm),
         cold = runs(&plan.cold),
+        blas_threads = blas_threads(results),
     );
+}
+
+/// What numpy's BLAS does with threads when it is left alone.
+fn blas_threads(results: &Results) -> &'static str {
+    if is_accelerate(results) {
+        "numpy's BLAS here is Apple's Accelerate, which starts no threads of its own when \
+         numpy is imported."
+    } else {
+        "Left alone, OpenBLAS starts a thread per hardware thread when numpy is imported, \
+         which costs both Python columns the same ([Start-up and \
+         imports](#start-up-and-imports) measures it)."
+    }
+}
+
+/// Whether numpy's BLAS is Apple's Accelerate (numpy's macOS wheels);
+/// results recorded before the BLAS was were all measured with `OpenBLAS`.
+pub(super) fn is_accelerate(results: &Results) -> bool {
+    results.versions.reference("numpy blas") == "accelerate"
 }
 
 /// How often `sampling` runs a workload, in words.
@@ -232,11 +263,7 @@ fn machine(out: &mut String, results: &Results) {
         threads = machine.threads,
         memory = machine.memory_gib,
         os = machine.os,
-        kernel = if on_windows(results) {
-            machine.kernel.clone()
-        } else {
-            format!("Linux {}", machine.kernel)
-        },
+        kernel = kernel(&machine.kernel),
         load = if on_windows(results) {
             "processor load"
         } else {
@@ -254,11 +281,16 @@ fn machine(out: &mut String, results: &Results) {
         ("interpreter", "interpreter"),
         ("numpy", "numpy"),
         ("numpy core", "numpy core library (SHA-256 prefix)"),
+        ("numpy blas", "numpy's BLAS"),
         ("pillow", "Pillow"),
         ("pillow zlib-ng", "Pillow's zlib-ng"),
         ("python zlib", "Python's zlib"),
         ("matplotlib", "matplotlib"),
     ] {
+        // Results recorded before a version was asked for lack it.
+        if v.reference(name) == "unknown" && v.pltrs(name) == "unknown" {
+            continue;
+        }
         let _ = writeln!(
             out,
             "| {title} | {} | {} |",

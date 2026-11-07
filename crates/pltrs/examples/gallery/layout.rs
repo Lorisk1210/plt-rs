@@ -7,6 +7,7 @@ use pltrs::colors::ColorizerOptions;
 use pltrs::figure::{MosaicOptions, Share, SubfigureOptions};
 use pltrs::gridspec::{GridSpec, SubplotOverrides};
 use pltrs::layout::{ConstrainedLayout, LayoutEngine};
+use pltrs::numeric::pow;
 use pltrs::prelude::*;
 use pltrs::rc;
 use pltrs::scale::FuncTransform;
@@ -255,7 +256,7 @@ fn secondary_axes() -> Built {
     let to_thz = FuncTransform::new(|nm| 299_792.0 / nm, |thz| 299_792.0 / thz);
     let top = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(to_thz))?;
     top.set_xlabel("frequency (THz)");
-    let to_db = FuncTransform::new(|p: f64| 10.0 * p.log10(), |db: f64| 10_f64.powf(db / 10.0));
+    let to_db = FuncTransform::new(|p: f64| 10.0 * p.log10(), |db: f64| pow(10.0, db / 10.0));
     let right = ax.secondary_yaxis(SecondaryLocation::Side(SpineSide::Right), Some(to_db))?;
     right.set_ylabel("power (dB)");
     ax.set_title("secondary_xaxis and secondary_yaxis");

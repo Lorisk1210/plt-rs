@@ -7,6 +7,7 @@ mod summary;
 mod tables;
 
 use std::fmt::Write as _;
+use std::path::Path;
 
 use super::super::cold::ColdResult;
 use super::super::implementation::Implementation;
@@ -15,12 +16,58 @@ use super::super::stats::{Ratio, Samples, factor_of, speedup};
 use super::analysis::Mode;
 use super::charts::Charts;
 
+/// Where the report links to the scripts and the Rust workloads, from
+/// the directory it is written to (`benchmarks/` itself, or another
+/// machine's report such as `benchmarks/macos/`).
+#[derive(Debug, PartialEq)]
+pub(super) struct Links {
+    /// The Python scripts, `benchmarks/python`.
+    python: String,
+    /// The Rust workloads, `xtask/src/bench/workloads`.
+    workloads: String,
+}
+
+impl Links {
+    /// The links from a report in `dir` (relative to the working
+    /// directory, as `--to` names it, or absolute): relative within the
+    /// workspace, absolute outside it.
+    pub(super) fn for_dir(dir: &Path) -> Self {
+        let dir = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
+        Self::within(&crate::python::root(), &dir)
+    }
+
+    /// The links from a report in `dir` of the workspace `root`.
+    fn within(root: &Path, dir: &Path) -> Self {
+        let link = |target: &str| match dir.strip_prefix(root) {
+            Ok(inside) => relative(inside, Path::new(target)),
+            Err(_) => root.join(target).display().to_string(),
+        };
+        Self {
+            python: link("benchmarks/python"),
+            workloads: link("xtask/src/bench/workloads"),
+        }
+    }
+}
+
+/// The path from the directory `from` to `to`, both relative to the same
+/// root, with forward slashes.
+fn relative(from: &Path, to: &Path) -> String {
+    let from: Vec<_> = from.components().collect();
+    let to: Vec<_> = to.components().collect();
+    let common = from.iter().zip(&to).take_while(|(a, b)| a == b).count();
+    let ups = std::iter::repeat_n("..".to_owned(), from.len() - common);
+    let downs = to[common..]
+        .iter()
+        .map(|part| part.as_os_str().to_string_lossy().into_owned());
+    ups.chain(downs).collect::<Vec<_>>().join("/")
+}
+
 /// The report.
-pub(super) fn render(results: &Results, charts: &Charts) -> String {
+pub(super) fn render(results: &Results, charts: &Charts, links: &Links) -> String {
     let mut out = String::new();
     header(&mut out, results);
     summary::write(&mut out, results, charts);
-    fairness::write(&mut out, results);
+    fairness::write(&mut out, results, links);
     tables::write(&mut out, results);
     fairness::reproduce(&mut out);
     out
@@ -141,6 +188,19 @@ mod tests {
     use crate::bench::results::tests::sample;
 
     #[test]
+    fn links_lead_from_the_report_to_the_scripts() {
+        let root = Path::new("/work");
+        let here = Links::within(root, &root.join("benchmarks"));
+        assert_eq!(here.python, "python");
+        assert_eq!(here.workloads, "../xtask/src/bench/workloads");
+        let macos = Links::within(root, &root.join("benchmarks/macos"));
+        assert_eq!(macos.python, "../python");
+        assert_eq!(macos.workloads, "../../xtask/src/bench/workloads");
+        let outside = Links::within(root, Path::new("/elsewhere"));
+        assert_eq!(outside.python, "/work/benchmarks/python");
+    }
+
+    #[test]
     fn numbers_read_well() {
         assert_eq!(ms(0.001_234), "1.23");
         assert_eq!(ms(0.012_34), "12.3");
@@ -173,7 +233,8 @@ mod tests {
     fn the_report_covers_every_section() {
         let results = sample();
         let charts = Charts::default();
-        let report = render(&results, &charts);
+        let links = Links::within(Path::new("/work"), Path::new("/work/benchmarks"));
+        let report = render(&results, &charts, &links);
         for heading in [
             "## Summary",
             "### pltrs (Python) as a drop-in replacement for matplotlib",
@@ -187,6 +248,7 @@ mod tests {
             assert!(report.contains(heading), "{heading}");
         }
         assert!(report.contains("`small/line_svg`"));
+        assert!(report.contains("[`benchmarks/python`](python)"));
         assert!(!report.contains('—'), "no em dashes in the report");
         assert!(progress_line(&results.workloads[0]).contains("guard pltrs-rust: same."));
     }

@@ -280,7 +280,10 @@ impl PanState {
                     dx = f64::midpoint(dx, dy);
                     dy = dx;
                 }
-                let (ax_scale, ay_scale) = (10f64.powf(dx), 10f64.powf(dy));
+                let (ax_scale, ay_scale) = (
+                    pltrs_core::numeric::pow(10.0, dx),
+                    pltrs_core::numeric::pow(10.0, dy),
+                );
                 let old = bbox_through(lim, trans);
                 let scale = |v: f64, origin: f64, alpha: f64| origin + alpha * (v - origin);
                 let scaled = Bbox::from_extents(

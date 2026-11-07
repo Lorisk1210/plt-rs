@@ -53,12 +53,23 @@ fn words(text: &str) -> Vec<Token> {
         .collect()
 }
 
-/// The header comments but those naming the program, date or file.
+/// How Ghostscript names itself in `%%Invocation` when it was started by
+/// an absolute path (a host that starts it by name gets `gs`).
+const INVOKED_BY_PATH: &str = "%%Invocation: path/";
+
+/// The header comments but those naming the program, date or file, with
+/// Ghostscript's program named the same however the host installed it.
 fn header_item(header: &str) -> Item {
     let mut item = Item::new("header");
     for line in header.lines().filter(|line| line.starts_with("%%")) {
-        if !UNSTABLE.iter().any(|unstable| line.starts_with(unstable)) {
-            item.tokens.extend(words(line));
+        if UNSTABLE.iter().any(|unstable| line.starts_with(unstable)) {
+            continue;
+        }
+        match line.strip_prefix(INVOKED_BY_PATH) {
+            Some(invocation) => item
+                .tokens
+                .extend(words(&format!("%%Invocation: {invocation}"))),
+            None => item.tokens.extend(words(line)),
         }
     }
     item
@@ -221,6 +232,17 @@ mod tests {
         assert_eq!(
             items.last().map(String::as_str),
             Some("trailer %%Trailer end cleartomark restore showpage %%EOF")
+        );
+    }
+
+    #[test]
+    fn ghostscript_reads_the_same_however_it_was_started() {
+        let by_path = header_item("%%Invocation: path/gs -dBATCH -r6000\n%%Pages: 1\n");
+        let by_name = header_item("%%Invocation: gs -dBATCH -r6000\n%%Pages: 1\n");
+        assert_eq!(by_path.to_string(), by_name.to_string());
+        assert_eq!(
+            by_name.to_string(),
+            "header %%Invocation: gs -dBATCH -r6000 %%Pages: 1"
         );
     }
 

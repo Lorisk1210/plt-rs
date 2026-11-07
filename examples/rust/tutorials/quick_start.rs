@@ -15,6 +15,7 @@ use pltrs::contour::{ContourOptions, Levels, QuadCoords, QuadField};
 use pltrs::figure::Share;
 use pltrs::image::Extent;
 use pltrs::layout::LayoutEngine;
+use pltrs::numeric::pow;
 use pltrs::prelude::*;
 use pltrs::pyplot as plt;
 use pltrs::scale::FuncTransform;
@@ -143,7 +144,7 @@ fn scales_and_extra_axes() -> Result<(), Box<dyn std::error::Error>> {
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let [log_ax, twin_ax] = [fig.add_subplot(1, 2, 1)?, fig.add_subplot(1, 2, 2)?];
 
-    log_ax.plot(&x, x.iter().map(|v| 10f64.powf(v / 20.0)))?;
+    log_ax.plot(&x, x.iter().map(|&v| pow(10.0, v / 20.0)))?;
     log_ax.set_yscale("log")?;
     log_ax.set_xticks([0.0, 25.0, 50.0, 75.0, 100.0]);
     log_ax.set_xticklabels(["zero", "25", "fifty", "75", "100"])?;

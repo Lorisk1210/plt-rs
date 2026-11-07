@@ -100,8 +100,11 @@ def test_the_box_of_an_axis_text_lays_the_text_out_again(logged):
 
 
 def test_a_mathtext_font_pattern_names_its_weight_as_given(logged):
+    # A cursive family installed nowhere: on macOS matplotlib finds Apple
+    # Chancery for the custom fontset's ``cal``, and warns about its weight.
     with pltrs.rc_context({"mathtext.fontset": "custom",
-                           "mathtext.rm": "DejaVu Sans:semibold"}):
+                           "mathtext.rm": "DejaVu Sans:semibold",
+                           "font.cursive": ["No Such Cursive Family"]}):
         fig = plt.figure()
         fig.text(0.5, 0.5, r"$\mathrm{ab}$")
         fig.savefig(io.BytesIO(), format="png")

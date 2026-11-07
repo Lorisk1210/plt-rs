@@ -2,6 +2,7 @@
 //! all the scales, data the scale rejects, log bases and subs, and
 //! symlog thresholds.
 
+use pltrs::numeric::pow;
 use std::f64::consts::{E, PI};
 
 use pltrs::collections::CollectionProps;
@@ -26,10 +27,10 @@ use crate::rng::SpecRng;
 fn log_data() -> [Vec<f64>; 3] {
     let t = linspace(0.0, 2.0 * PI, 50);
     [
-        t.iter().map(|t| 10_f64.powf(t / 2.0)).collect(),
-        t.iter().map(|t| 10_f64.powf(1.0 + t.sin())).collect(),
+        t.iter().map(|t| pow(10.0, t / 2.0)).collect(),
+        t.iter().map(|t| pow(10.0, 1.0 + t.sin())).collect(),
         t.iter()
-            .map(|t| 10_f64.powf(2.0 * (1.0 + t.cos() / 2.0)))
+            .map(|t| pow(10.0, 2.0 * (1.0 + t.cos() / 2.0)))
             .collect(),
     ]
 }

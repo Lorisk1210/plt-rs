@@ -20,7 +20,7 @@ use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
 use pltrs::legend::LegendOptions;
 use pltrs::lines::{LineProps, LineStyle};
-use pltrs::numeric::{Grid, linspace, meshgrid};
+use pltrs::numeric::{Grid, linspace, meshgrid, pow};
 use pltrs::offsetbox::AnchorLoc;
 use pltrs::patches::PatchProps;
 use pltrs::polar::{Compass, PolarAxes, ThetaDirection};
@@ -170,7 +170,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let theta = linspace(0.0, TAU, 200);
         let r: Vec<f64> = theta
             .iter()
-            .map(|t| 10f64.powf(1.0 + 2.0 * t / TAU))
+            .map(|t| pow(10.0, 1.0 + 2.0 * t / TAU))
             .collect();
         ax.plot(theta, r)?;
         ax.set_rscale("log")?;

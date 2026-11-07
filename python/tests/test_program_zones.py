@@ -39,7 +39,11 @@ def matplotlib_defaults():
 
 @pytest.fixture
 def chicago(monkeypatch):
-    """The machine's local zone is Chicago's while the test runs."""
+    """The machine's local zone is Chicago's while the test runs. Some
+    Pythons cannot change it (python-build-standalone's macOS x86_64 builds,
+    cross-compiled, have no ``time.tzset``)."""
+    if not hasattr(time, "tzset"):
+        pytest.skip("this Python cannot change the local time zone (no time.tzset)")
     monkeypatch.setenv("TZ", "America/Chicago")
     time.tzset()
     yield

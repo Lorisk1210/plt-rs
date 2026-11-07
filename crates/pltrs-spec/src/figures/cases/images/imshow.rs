@@ -10,7 +10,7 @@ use pltrs::image::{
     ScalarField,
 };
 use pltrs::lines::LineProps;
-use pltrs::numeric::{Grid, linspace};
+use pltrs::numeric::{Grid, linspace, pow};
 use pltrs::patches::Circle;
 use pltrs::rc::Aspect;
 
@@ -197,7 +197,7 @@ pub(super) fn vmin_vmax(fig: &Figure) -> CaseResult {
 
 pub(super) fn lognorm(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 4.0, 40);
-    let data = Grid::from_fn(40, 40, |r, c| 10.0_f64.powf(x[r] + x[c] / 2.0));
+    let data = Grid::from_fn(40, 40, |r, c| pow(10.0, x[r] + x[c] / 2.0));
     let colors = ColorizerOptions::default().norm(LogNorm::default());
     fig.subplot()
         .imshow(data, ImshowOptions::default().colorizer(colors))?;

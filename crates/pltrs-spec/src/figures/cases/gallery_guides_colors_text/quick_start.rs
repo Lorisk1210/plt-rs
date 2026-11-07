@@ -4,6 +4,7 @@
 //! secondary axes, colour-mapped plots with colorbars and a mosaic of axes
 //! (`quick_start`).
 
+use pltrs::numeric::pow;
 use std::error::Error;
 use std::f64::consts::PI;
 
@@ -204,7 +205,7 @@ fn quick_start_12(fig: &Figure) -> CaseResult {
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     let xdata = indices(data1.len());
-    let data = map(&data1, |v| 10f64.powf(v));
+    let data = map(&data1, |v| pow(10.0, v));
     axs[(0, 0)].plot(&xdata, &data)?;
     axs[(0, 1)].set_yscale("log")?;
     axs[(0, 1)].plot(&xdata, &data)?;

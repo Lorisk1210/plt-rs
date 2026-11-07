@@ -10,6 +10,7 @@ use pltrs::colors::{
 use pltrs::figure::Figure;
 use pltrs::image::{ImageData, ScalarField, color_image_bytes, color_image_rgba};
 use pltrs::numeric::Grid;
+use pltrs::numeric::pow;
 
 use super::norms::{self, make_norm, normalized_json};
 use crate::json::Json;
@@ -93,7 +94,7 @@ pub(super) fn two_slope_scaled(args: Args<'_>) -> Outcome {
 fn func_norm(args: Args<'_>) -> Result<FuncNorm, ProbeError> {
     let mut norm = match args.str("functions")? {
         "square" => FuncNorm::new(|x| x * x, f64::sqrt),
-        "log10" => FuncNorm::new(f64::log10, |x| 10_f64.powf(x)),
+        "log10" => FuncNorm::new(f64::log10, |x| pow(10.0, x)),
         other => return Err(ProbeError::BadArgs(format!("functions {other}"))),
     };
     norm.set_vmin(Some(args.f64("vmin")?));

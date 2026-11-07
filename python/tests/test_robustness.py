@@ -272,10 +272,14 @@ def test_a_colormap_of_no_entries_fails_when_used_as_in_matplotlib(lut):
 
 def test_angular_steps_beyond_memory_fail_as_in_matplotlib():
     # Found by fuzzing: 2**31 intervals asked for 14 GB of levels and the
-    # allocation ended the process. matplotlib: numpy's errors.
+    # allocation ended the process. matplotlib: numpy's errors. macOS grants
+    # any allocation and backs it as it is written (numpy's
+    # ``np.empty(2**40)`` succeeds there), so both would write levels until
+    # the system ended the process.
     from pltrs.mpl_toolkits.axisartist import angle_helper
-    with pytest.raises(MemoryError):
-        angle_helper.select_step(0, 10, 2 ** 40, hour=True)
+    if sys.platform != "darwin":
+        with pytest.raises(MemoryError):
+            angle_helper.select_step(0, 10, 2 ** 40, hour=True)
     with pytest.raises(ValueError, match="array is too big"):
         angle_helper.select_step(0, 10, 2 ** 62, hour=True)
 

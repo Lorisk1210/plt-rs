@@ -224,6 +224,8 @@ def test_reading_the_offset_text_looks_no_font_up(logged):
 
 
 def test_the_custom_math_fontset_looks_its_fonts_up(logged):
+    # A cursive family installed nowhere (macOS has Apple Chancery).
+    pltrs.rcParams["font.cursive"] = ["No Such Cursive Family"]
     pltrs.rcParams["mathtext.fontset"] = "custom"
     # A weight no other test asks for, so that findfont's cache misses.
     pltrs.rcParams["mathtext.cal"] = "cursive:light"

@@ -2,6 +2,7 @@
 //! Anscombe's quartet (`ishikawa_diagram`, `packed_bubbles`, `hinton_demo`
 //! and `anscombe`).
 
+use pltrs::numeric::pow;
 use std::f64::consts::PI;
 
 use pltrs::axes::TickParams;
@@ -324,7 +325,7 @@ fn hinton_demo(fig: &Figure) -> CaseResult {
     let matrix: Vec<f64> = values.iter().map(|v| v - 0.5).collect();
     let ax = fig.subplot();
     let largest = matrix.iter().fold(0.0_f64, |m, w| m.max(w.abs()));
-    let max_weight = 2.0_f64.powf(largest.log2().ceil());
+    let max_weight = pow(2.0, largest.log2().ceil());
     ax.set_facecolor("gray");
     ax.set_shared_aspect(Aspect::Equal, pltrs::axes::Adjustable::Box)?;
     ax.xaxis().set_major_locator(NullLocator);

@@ -13,7 +13,7 @@ use pltrs::mplot3d::{
     Aspect3D, Axes3D, Axes3DError, Axes3DOptions, Axis3, FaceColors, Sampling, SurfaceOptions,
     WireframeOptions,
 };
-use pltrs::numeric::{Grid, linspace};
+use pltrs::numeric::{Grid, linspace, pow};
 use pltrs::ticker::{AutoMinorLocator, MinorDivisions, MultipleLocator};
 
 use super::surface;
@@ -144,7 +144,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.set_zscale("log")?;
         let (xx, yy, _) = surface(15);
         let zz = Grid::from_fn(15, 15, |i, j| {
-            10.0_f64.powf(1.5 + xx[(i, j)].cos() + 0.5 * yy[(i, j)])
+            pow(10.0, 1.5 + xx[(i, j)].cos() + 0.5 * yy[(i, j)])
         });
         mapped_surface(&ax, (xx, yy, zz), "magma")
     })

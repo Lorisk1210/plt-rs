@@ -378,7 +378,9 @@ fn files_without_a_stamp_are_read_at_every_start() {
     assert_eq!(report.state, CatalogueState::Current);
 }
 
-#[cfg(unix)]
+// macOS' file systems refuse names that are not UTF-8 ("Illegal byte
+// sequence"), so no font there has such a path.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn paths_that_are_not_text_are_read_at_every_start() {
     use std::ffi::OsStr;

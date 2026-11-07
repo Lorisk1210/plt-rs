@@ -119,7 +119,7 @@ Press each key with the window focused (no modifier held):
 | macOS, US layout: Option+`e`, then `e` | `Dead('´')` with `text: None` (and `modifiers: {ALT}`), then `Character('e')` with `text: Some("é")` |
 | macOS, German layout: `´` (the key left of Backspace), then `e`; Option+`u`, then `u` on a US layout | `Dead('´')`, then `text: Some("é")`; `Dead('¨')`, then `text: Some("ü")` |
 | macOS: a dead key, then `x`; a dead key, then Command+`c`, then `e` | `text: Some("´x")`; Command+`c` ends the pending accent, so `e` types `e` |
-| macOS live test: `cargo test -p pltrs-platform --test macos -- input::dead_keys_compose_with_the_layout` | Passes, or says the layout has no dead acute on Option+`e` or `´` |
+| macOS live test: `PLTRS_MACOS_LIVE=1 cargo test -p pltrs-platform --test macos -- input::dead_keys_compose_with_the_layout` | Passes, or says the layout has no dead acute on Option+`e` or `´` |
 | Both: in a figure window's save dialog (Ctrl+S / ⌘S), type a dead key then a letter | The file name field shows the accented letter |
 | Windows: Alt alone, then `a` | `Alt` pressed/released; the next `a` is a normal key (no menu mode swallowing it) |
 | Windows: Alt+Space | The system menu opens |

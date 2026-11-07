@@ -103,7 +103,8 @@ pub(super) fn rewrite(dir: &Path) -> Result<(), Box<dyn Error>> {
 fn write(results: &Results, dir: &Path) -> Result<(), Box<dyn Error>> {
     let charts = charts::write(results, &dir.join("charts"))?;
     let path = dir.join("README.md");
-    std::fs::write(&path, markdown::render(results, &charts))?;
+    let links = markdown::Links::for_dir(dir);
+    std::fs::write(&path, markdown::render(results, &charts, &links))?;
     println!("wrote {}", path.display());
     Ok(())
 }

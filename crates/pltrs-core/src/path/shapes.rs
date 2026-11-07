@@ -153,7 +153,7 @@ fn arc_path(theta1: f64, theta2: f64, segments: Option<usize>, is_wedge: bool) -
     let (eta1, eta2) = (theta1.to_radians(), eta2.to_radians());
     // NaN spans cast to zero pieces, infinite ones saturate: both clamp.
     let n = segments
-        .unwrap_or_else(|| 2.0_f64.powf(((eta2 - eta1) / FRAC_PI_2).ceil()) as usize)
+        .unwrap_or_else(|| crate::numeric::pow(2.0, ((eta2 - eta1) / FRAC_PI_2).ceil()) as usize)
         .clamp(1, MAX_ARC_SEGMENTS);
 
     let deta = (eta2 - eta1) / n as f64;

@@ -83,6 +83,15 @@ probe = prober(probes)
 UNSTABLE = ("%%Creator", "%%CreationDate", "%%Title")
 
 
+def _stable_header(head):
+    """The header comments of a document but the ``UNSTABLE`` ones, with
+    Ghostscript's program named the same however the host's Ghostscript is
+    installed: a distilled document's ``%%Invocation`` names ``path/gs``
+    when gs was started by an absolute path, ``gs`` when by name."""
+    return [line.replace("%%Invocation: path/", "%%Invocation: ", 1)
+            for line in head.splitlines() if not line.startswith(UNSTABLE)]
+
+
 def _saved(format, orientation, papertype, log):
     fig, ax = plt.subplots()
     if log:
@@ -97,7 +106,7 @@ def _saved(format, orientation, papertype, log):
     body = body[body.index("mpldict begin"):]
     body = body[:body.index("rectclip")]
     return {
-        "header": [line for line in head.splitlines() if not line.startswith(UNSTABLE)],
+        "header": _stable_header(head),
         "placement": body.splitlines()[1:-1],
     }
 
@@ -135,7 +144,7 @@ def _distilled(format, orientation, papertype):
     document = buffer.getvalue().decode("latin-1")
     head = document[:document.index("%%EndComments")]
     return {
-        "header": [line for line in head.splitlines() if not line.startswith(UNSTABLE)],
+        "header": _stable_header(head),
         "pages": [line for line in document.splitlines() if line.startswith("%%Page")],
     }
 

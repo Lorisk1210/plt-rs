@@ -62,11 +62,14 @@ def _measure_pgf_text_like_agg() -> None:
 
 
 def _render_pgf(case, path: pathlib.Path) -> None:
-    """Saves the case as a PGF file (images go beside it)."""
+    """Saves the case as a PGF file (images go beside it), with only the
+    fonts pltrs bundles installed, as ``FigureCase.render_vector`` does."""
     import matplotlib as mpl
     import matplotlib.pyplot as plt
 
-    with mpl.rc_context(case.rc):
+    from spec_support.fonts import figure_fonts_only
+
+    with figure_fonts_only(), mpl.rc_context(case.rc):
         fig = plt.figure(figsize=case.figsize, dpi=case.dpi)
         try:
             case.build(fig)

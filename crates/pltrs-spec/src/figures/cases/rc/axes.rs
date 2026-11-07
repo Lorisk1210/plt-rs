@@ -1,5 +1,6 @@
 //! The `axes.*` and `xaxis`/`yaxis` label cases, tick formatting included.
 
+use pltrs::numeric::pow;
 use pltrs::prelude::*;
 
 use super::{LABELLED, SMALL, curves, labelled, map, rc_cases, t};
@@ -48,7 +49,7 @@ fn offsets(fig: &Figure) -> CaseResult {
 fn logs(fig: &Figure) -> CaseResult {
     let t = t();
     fig.subplot()
-        .semilogy(&t, map(&t, |x| 10f64.powf(x - 2.0)))?;
+        .semilogy(&t, map(&t, |x| pow(10.0, x - 2.0)))?;
     Ok(())
 }
 

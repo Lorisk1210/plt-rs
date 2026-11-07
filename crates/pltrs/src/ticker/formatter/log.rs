@@ -259,7 +259,7 @@ impl LogFormatter {
         } else {
             fx.floor()
         };
-        let coeff = round_int(b.powf(fx - exponent), "coefficient")? as f64;
+        let coeff = round_int(pltrs_core::numeric::pow(b, fx - exponent), "coefficient")? as f64;
         if label_only_base && !is_decade {
             return Ok(String::new());
         }
@@ -307,7 +307,7 @@ impl LogFormatter {
             return format!("$\\mathdefault{{{sign}{base}^{{{}}}}}$", fixed(fx, 2));
         }
         let exponent = fx.floor();
-        let mut coeff = self.base.powf(fx - exponent);
+        let mut coeff = pltrs_core::numeric::pow(self.base, fx - exponent);
         if is_close_to_int(coeff) {
             coeff = coeff.round_ties_even();
         }

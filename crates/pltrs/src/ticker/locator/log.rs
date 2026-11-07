@@ -294,12 +294,15 @@ impl Locator for LogLocator {
 
         let is_minor = subs.len() > 1 || (subs.len() == 1 && subs[0] != 1.0);
         let ticklocs: Vec<f64> = if !is_minor {
-            decades.iter().map(|&d| b.powf(d as f64)).collect()
+            decades
+                .iter()
+                .map(|&d| pltrs_core::numeric::pow(b, d as f64))
+                .collect()
         } else if stride == 1 || n_avail <= 1 {
             // Minor ticks start in the decade preceding the first major.
             (emin - 1..=emax)
                 .flat_map(|decade| {
-                    let power = b.powf(decade as f64);
+                    let power = pltrs_core::numeric::pow(b, decade as f64);
                     subs.iter().map(move |s| s * power)
                 })
                 .collect()
@@ -369,7 +372,7 @@ pub(crate) fn decade_less_equal(x: f64, base: f64) -> f64 {
     } else if x < 0.0 {
         -decade_greater_equal(-x, base)
     } else {
-        base.powf((x.ln() / base.ln()).floor())
+        pltrs_core::numeric::pow(base, (x.ln() / base.ln()).floor())
     }
 }
 
@@ -380,7 +383,7 @@ pub(crate) fn decade_greater_equal(x: f64, base: f64) -> f64 {
     } else if x < 0.0 {
         -decade_less_equal(-x, base)
     } else {
-        base.powf((x.ln() / base.ln()).ceil())
+        pltrs_core::numeric::pow(base, (x.ln() / base.ln()).ceil())
     }
 }
 

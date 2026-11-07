@@ -10,7 +10,7 @@ use pltrs::colors::{
 };
 use pltrs::figure::Figure;
 use pltrs::image::ImageData;
-use pltrs::numeric::{Grid, linspace};
+use pltrs::numeric::{Grid, linspace, pow};
 
 use super::data::field;
 use crate::figures::CaseResult;
@@ -57,7 +57,7 @@ pub(super) fn boundarynorm_proportional_extend(fig: &Figure) -> CaseResult {
 
 pub(super) fn lognorm(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 4.0, 40);
-    let data = Grid::from_fn(40, 40, |r, c| 10f64.powf(x[r] + x[c] / 2.0));
+    let data = Grid::from_fn(40, 40, |r, c| pow(10.0, x[r] + x[c] / 2.0));
     let colors = ColorizerOptions::default().norm(LogNorm::default());
     image_colorbar(fig, data, colors, ColorbarOptions::default())
 }

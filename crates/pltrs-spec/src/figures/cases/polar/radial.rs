@@ -1,6 +1,7 @@
 //! Radial scale, grid, spine and annotation cases of
 //! `figures/cases_polar.py`.
 
+use pltrs::numeric::pow;
 use std::f64::consts::{PI, TAU};
 
 use pltrs::axes::{AxisName, ErrorbarOptions, StemOptions, TickParams};
@@ -34,7 +35,7 @@ fn log_rgrids(fig: &Figure) -> CaseResult {
     let theta = linspace(0.0, 2.0 * TAU, 300);
     let r: Vec<f64> = theta
         .iter()
-        .map(|t| 10f64.powf(t / (2.0 * TAU) * 3.0))
+        .map(|t| pow(10.0, t / (2.0 * TAU) * 3.0))
         .collect();
     ax.plot(theta, r)?;
     ax.set_rscale("log")?;

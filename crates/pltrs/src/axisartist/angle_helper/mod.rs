@@ -418,11 +418,16 @@ mod tests {
     fn levels_beyond_memory_fail_as_out_of_memory() {
         // Found by fuzzing: 2³¹ intervals of an hour's range asked for 1.8e9
         // levels, an allocation that ended the process (numpy's
-        // `MemoryError` in matplotlib).
-        let err = select_step(0.0, 10.0, 1 << 40, AngleUnit::Hour, false, 3600.0)
-            .expect_err("5 TiB of levels");
-        assert!(matches!(err, GridError::OutOfMemory(_)), "{err}");
-        assert!(pltrs_core::alloc::caused_by_out_of_memory(&err));
+        // `MemoryError` in matplotlib). macOS grants any allocation and
+        // backs it as it is written (numpy's `np.empty(2**40)` succeeds
+        // there too), so the levels would be written until the system ends
+        // the process: only an allocator that refuses can be tested.
+        if cfg!(not(target_os = "macos")) {
+            let err = select_step(0.0, 10.0, 1 << 40, AngleUnit::Hour, false, 3600.0)
+                .expect_err("5 TiB of levels");
+            assert!(matches!(err, GridError::OutOfMemory(_)), "{err}");
+            assert!(pltrs_core::alloc::caused_by_out_of_memory(&err));
+        }
         // More bytes than an array holds: numpy's `ValueError`.
         let err = select_step(0.0, 10.0, 1 << 62, AngleUnit::Hour, false, 3600.0)
             .expect_err("too many levels");

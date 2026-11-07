@@ -259,7 +259,8 @@ pub fn drange(
     let mut count = steps as i64;
     let shift = delta.checked_mul(count).ok_or(DateError::Overflow)?;
     let mut interval_end = start.with_local(start.local().checked_add(shift)?);
-    if interval_end.to_utc()? >= end.to_utc()? {
+    // Python compares aware date-times of one zone on the wall clock.
+    if interval_end.compare(end)?.is_ge() {
         interval_end = interval_end.with_local(interval_end.local().checked_sub(delta)?);
         count -= 1;
     }

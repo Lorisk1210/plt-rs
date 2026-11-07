@@ -2,7 +2,8 @@
 //! and `RRuleLocator` over the rule an `rrulewrapper` describes.
 
 use pltrs::dates::{
-    DateLocator, Frequency, MicrosecondLocator, NthWeekday, RRuleLocator, RRuleSpec, YearLocator,
+    DateLocator, Frequency, MicrosecondLocator, NthWeekday, RRuleLocator, RRuleSpec, TimeZone,
+    YearLocator,
 };
 
 use super::support::{
@@ -18,12 +19,12 @@ macro_rules! fixed_locator_ops {
         $(
             pub(crate) fn $call(args: Args<'_>) -> Outcome {
                 let locator = fixed_locator($class, args)?;
-                ticks(located(locator.as_ref(), args)?)
+                ticks(located(locator.as_date_locator(), args)?)
             }
 
             pub(super) fn $nonsingular(args: Args<'_>) -> Outcome {
                 let locator = fixed_locator($class, args)?;
-                nonsingular(locator.as_ref(), args)
+                nonsingular(locator.as_date_locator(), args)
             }
         )*
     };
@@ -40,14 +41,45 @@ fixed_locator_ops! {
     "MicrosecondLocator" => microsecond_call, microsecond_nonsingular;
 }
 
+/// A locator of one of the fixed frequencies.
+pub(crate) enum FixedLocator {
+    /// The locators of a recurrence rule (`MonthLocator` ...
+    /// `SecondLocator`).
+    Rule(Box<RRuleLocator>),
+    /// `YearLocator`.
+    Year(YearLocator),
+    /// `MicrosecondLocator`.
+    Micro(MicrosecondLocator),
+}
+
+impl FixedLocator {
+    /// The locator, placing ticks in `tz` rather than the rcParam's zone.
+    pub(crate) fn with_tz(self, tz: TimeZone) -> Self {
+        match self {
+            Self::Rule(locator) => Self::Rule(Box::new(locator.with_tz(tz))),
+            Self::Year(locator) => Self::Year(locator.with_tz(tz)),
+            Self::Micro(locator) => Self::Micro(locator.with_tz(tz)),
+        }
+    }
+
+    /// The locator as a date locator.
+    pub(crate) fn as_date_locator(&self) -> &dyn DateLocator {
+        match self {
+            Self::Rule(locator) => locator.as_ref(),
+            Self::Year(locator) => locator,
+            Self::Micro(locator) => locator,
+        }
+    }
+}
+
 /// `LOCATORS[class](**params)`.
-fn fixed_locator(class: &str, args: Args<'_>) -> Result<Box<dyn DateLocator>, ProbeError> {
+pub(crate) fn fixed_locator(class: &str, args: Args<'_>) -> Result<FixedLocator, ProbeError> {
     let interval = |params: Args<'_>| positive_int(params, "interval", 1);
     Ok(match class {
         "YearLocator" => {
             let params = Params::of(args, &["base", "month", "day"])?.args();
             let get = |key: &str| positive_int(params, key, 1);
-            Box::new(
+            FixedLocator::Year(
                 YearLocator::new(get("base")?, get("month")?, get("day")?)
                     .map_err(ProbeError::rejected)?,
             )
@@ -55,48 +87,53 @@ fn fixed_locator(class: &str, args: Args<'_>) -> Result<Box<dyn DateLocator>, Pr
         "MonthLocator" => {
             let params = Params::of(args, &["bymonth", "bymonthday", "interval"])?.args();
             let monthday = int_list(params.get("bymonthday"))?.unwrap_or_else(|| vec![1]);
-            Box::new(RRuleLocator::months(
+            FixedLocator::Rule(Box::new(RRuleLocator::months(
                 &by_list(params, "bymonth")?,
                 &convert_all(monthday)?,
                 interval(params)?,
-            ))
+            )))
         }
         "WeekdayLocator" => {
             let params = Params::of(args, &["byweekday", "interval"])?.args();
             let days = int_list(params.get("byweekday"))?.unwrap_or_else(|| vec![1]);
-            Box::new(RRuleLocator::weekdays(&weekdays(days), interval(params)?))
+            FixedLocator::Rule(Box::new(RRuleLocator::weekdays(
+                &weekdays(days),
+                interval(params)?,
+            )))
         }
         "DayLocator" => {
             let params = Params::of(args, &["bymonthday", "interval"])?.args();
-            Box::new(
+            FixedLocator::Rule(Box::new(
                 RRuleLocator::days(&by_list(params, "bymonthday")?, interval(params)?)
                     .map_err(ProbeError::rejected)?,
-            )
+            ))
         }
         "HourLocator" => {
             let params = Params::of(args, &["byhour", "interval"])?.args();
-            Box::new(RRuleLocator::hours(
+            FixedLocator::Rule(Box::new(RRuleLocator::hours(
                 &by_list(params, "byhour")?,
                 interval(params)?,
-            ))
+            )))
         }
         "MinuteLocator" => {
             let params = Params::of(args, &["byminute", "interval"])?.args();
-            Box::new(RRuleLocator::minutes(
+            FixedLocator::Rule(Box::new(RRuleLocator::minutes(
                 &by_list(params, "byminute")?,
                 interval(params)?,
-            ))
+            )))
         }
         "SecondLocator" => {
             let params = Params::of(args, &["bysecond", "interval"])?.args();
-            Box::new(RRuleLocator::seconds(
+            FixedLocator::Rule(Box::new(RRuleLocator::seconds(
                 &by_list(params, "bysecond")?,
                 interval(params)?,
-            ))
+            )))
         }
         "MicrosecondLocator" => {
             let params = Params::of(args, &["interval"])?.args();
-            Box::new(MicrosecondLocator::new(interval(params)?).map_err(ProbeError::rejected)?)
+            FixedLocator::Micro(
+                MicrosecondLocator::new(interval(params)?).map_err(ProbeError::rejected)?,
+            )
         }
         other => return Err(ProbeError::BadArgs(format!("unknown locator {other}"))),
     })

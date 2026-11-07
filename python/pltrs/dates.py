@@ -125,16 +125,22 @@ def get_epoch():
     return _dates.get_epoch()
 
 
-def _to_datetime64(d):
-    """The dates *d* (datetimes, dates, ``datetime64``) as an array of
-    ``datetime64[us]`` in UTC."""
-    d = np.asarray(d)
-    if not np.issubdtype(d.dtype, np.datetime64):
-        flat = [x.astimezone(UTC).replace(tzinfo=None)
-                if isinstance(x, datetime.datetime) and x.tzinfo is not None
-                else x for x in d.ravel()]
-        d = np.array(flat, dtype='datetime64[us]').reshape(d.shape)
-    return d.astype('datetime64[us]')
+def _dt64_to_ordinalf(d):
+    """
+    Convert a `numpy.ndarray` of np.datetime64 to
+    Gregorian date as UTC float relative to the epoch (see `.get_epoch`).
+    Roundoff is float64 precision.  Practically: microseconds for dates
+    between 290301 BC, 294241 AD, milliseconds for larger dates
+    (see `numpy.datetime64`).
+    """
+    # numpy splits the instants into whole seconds and nanoseconds, with
+    # its own rounding and range (finer units than nanoseconds lose the
+    # rest); pltrs (Rust) numbers them.
+    dseconds = d.astype('datetime64[s]')
+    extra = (d - dseconds).astype('timedelta64[ns]')
+    return _dates.instants_to_num(np.ascontiguousarray(dseconds.view(np.int64)),
+                                  np.ascontiguousarray(extra.view(np.int64)),
+                                  np.ascontiguousarray(np.isnat(d)))
 
 
 def date2num(d):
@@ -170,19 +176,41 @@ def date2num(d):
     masked = np.ma.is_masked(d)
     mask = np.ma.getmask(d)
     d = np.asarray(d)
-    if not d.size:
-        # deals with an empty array...
-        return d.astype('float64')
+
+    # convert to datetime64 arrays, if not already:
     if not np.issubdtype(d.dtype, np.datetime64):
-        # matplotlib reads the time zone of the first element, which a
-        # 0-d array (of a string, say) has no first element for.
-        getattr(d[0], 'tzinfo', None)
-    d64 = _to_datetime64(d)
-    nat = np.isnat(d64)
-    d = _dates.micros_to_num(d64.view(np.int64), nat)
+        # datetime arrays
+        if not d.size:
+            # deals with an empty array...
+            return d
+        tzi = getattr(d[0], 'tzinfo', None)
+        if tzi is not None:
+            # make datetime naive:
+            d = [dt.astimezone(UTC).replace(tzinfo=None) for dt in d]
+            d = np.asarray(d)
+        d = d.astype('datetime64[us]')
+
+    d = _dt64_to_ordinalf(d)
     if masked:
         d = np.ma.masked_array(d, mask=mask)
     return d if iterable else d[0]
+
+
+def _axis_zone(values):
+    """
+    The zone of *values*, dates, as pltrs (Rust) takes it for the unit of
+    the axis they are along: that of the first finite one
+    (`DateConverter.default_units`); None for a naive one, and for a zone
+    pltrs (Rust) has no model of.
+    """
+    tz = DateConverter.default_units(values, None)
+    if tz is None:
+        return None
+    from ._date_locators import _native_tz
+    try:
+        return _native_tz(tz)
+    except ValueError:
+        return None
 
 
 def num2date(x, tz=None):

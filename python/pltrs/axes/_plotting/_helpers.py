@@ -35,7 +35,8 @@ def _is_dates(values):
 def axis_values(values):
     """
     *values* as the native side takes plotting values: a float array, a
-    list of category names, or ``("dates", numbers)``.
+    list of category names, or ``("dates", numbers, zone)`` (the zone of the
+    first date, `.dates._axis_zone`).
     """
     values = cbook._unpack_to_numpy(values)
     if isinstance(values, str):
@@ -59,7 +60,8 @@ def axis_values(values):
         return [str(v) for v in array.ravel()]
     if _is_dates(array):
         from ... import dates
-        return ("dates", np.atleast_1d(np.asarray(dates.date2num(array), float)).ravel())
+        return ("dates", np.atleast_1d(np.asarray(dates.date2num(array), float)).ravel(),
+                dates._axis_zone(array))
     return np.atleast_1d(array.astype(float)).ravel()
 
 

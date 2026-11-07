@@ -17,11 +17,15 @@ use pltrs::dates::{
 use crate::binding::prelude::*;
 
 impl From<DateError> for PyErr {
-    /// matplotlib's `ValueError` for dates it cannot convert, and its
-    /// `RuntimeError` for an epoch set after dates were used.
+    /// matplotlib's `ValueError` for dates it cannot convert, Python's
+    /// `OverflowError` for date arithmetic beyond the year 9999, and
+    /// matplotlib's `RuntimeError` for an epoch set after dates were used.
     fn from(err: DateError) -> Self {
         match err {
             DateError::EpochAlreadySet => PyErr::runtime_error(err.to_string()),
+            DateError::Overflow => {
+                PyErr::new(ExceptionKind::OverflowError, "date value out of range")
+            }
             other => PyErr::value_error(other.to_string()),
         }
     }
@@ -33,23 +37,25 @@ fn is_datetime_string(text: String) -> PyResult<bool> {
     Ok(Datetime64::parse(&text).is_ok())
 }
 
-/// The date numbers of instants given as microseconds since 1970 (NaN
-/// where `nat` is set).
-fn micros_to_num(micros: NdArray<i64>, nat: NdArray<bool>) -> PyResult<NdArray> {
-    let numbers = micros
+/// The date numbers of instants given as whole seconds since 1970 and
+/// nanoseconds beyond them (NaN where `nat` is set), as numpy splits a
+/// `datetime64` array for matplotlib's `_dt64_to_ordinalf`.
+fn instants_to_num(
+    seconds: NdArray<i64>,
+    nanos: NdArray<i64>,
+    nat: NdArray<bool>,
+) -> PyResult<NdArray> {
+    let numbers = seconds
         .data
         .iter()
+        .zip(&nanos.data)
         .zip(&nat.data)
-        .map(|(&us, &nat)| {
-            (!nat).then(|| {
-                let (seconds, rest) = (us.div_euclid(1_000_000), us.rem_euclid(1_000_000));
-                let nanos = u32::try_from(rest * 1_000).unwrap_or_default();
-                Datetime64::new(seconds, nanos)
-            })
+        .map(|((&seconds, &nanos), &nat)| {
+            (!nat).then(|| Datetime64::new(seconds, u32::try_from(nanos).unwrap_or_default()))
         })
         .map(datetime64_to_num)
         .collect();
-    NdArray::with_shape(numbers, micros.shape)
+    NdArray::with_shape(numbers, seconds.shape)
 }
 
 /// UTC calendar parts of a date.
@@ -138,7 +144,7 @@ fn tex(text: String) -> PyResult<String> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     locators::register(module)?;
     module.add("is_datetime_string", is_datetime_string)?;
-    module.add("micros_to_num", micros_to_num)?;
+    module.add("instants_to_num", instants_to_num)?;
     module.add("num_to_utc", num_to_utc)?;
     module.add("num_to_timedelta", num_to_timedelta)?;
     module.add("get_epoch", epoch)?;
@@ -154,10 +160,12 @@ mod tests {
     #[test]
     fn instants_number_as_days_since_the_epoch() {
         pltrs::rc::restore_startup();
-        let micros = NdArray::from_vec(vec![43_200_000_000, -86_400_000_000, 0]);
+        let seconds = NdArray::from_vec(vec![43_200, -86_401, 0]);
+        let nanos = NdArray::from_vec(vec![0, 999_999_999, 0]);
         let nat = NdArray::from_vec(vec![false, false, true]);
-        let days = micros_to_num(micros, nat).unwrap().data;
-        assert_eq!(days[..2], [0.5, -1.0]);
+        let days = instants_to_num(seconds, nanos, nat).unwrap().data;
+        assert_eq!(days[0], 0.5);
+        assert_eq!(days[1], (-86_401.0 + 0.999_999_999) / 86_400.0);
         assert!(days[2].is_nan());
         let parts = num_to_utc(NdArray::from_vec(vec![0.5])).unwrap();
         assert_eq!(parts, [((1970, 1, 1), (12, 0, 0, 0))]);

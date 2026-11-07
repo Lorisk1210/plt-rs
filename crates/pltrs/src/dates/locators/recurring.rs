@@ -16,15 +16,22 @@ use crate::ticker::{Locator, TickContext, TickerError};
 /// the occurrences inside the view become ticks. Without any, the view
 /// limits themselves are returned.
 ///
+/// The rule runs on the wall clock of its own zone when it has one
+/// ([`with_rule_tz`](Self::with_rule_tz), matplotlib's `rrulewrapper(...,
+/// tzinfo=tz)`), else on that of the dates located: the locator's zone
+/// for a view, the dates' own for [`DateLocator::tick_dates`] (as
+/// matplotlib's `tick_values` takes them).
+///
 /// The constructors named after matplotlib's subclasses (`MonthLocator`,
 /// `WeekdayLocator`, ...) build the corresponding rules.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RRuleLocator {
     rule: RRuleSpec,
     tz: TickZone,
+    rule_tz: Option<TimeZone>,
 }
 
-pltrs_core::archive_struct!(RRuleLocator { rule, tz });
+pltrs_core::archive_struct!(RRuleLocator { rule, tz, rule_tz });
 
 /// The `byhour=0, byminute=0, bysecond=0` of matplotlib's `hms0d`.
 fn at_midnight(mut rule: RRuleSpec) -> RRuleSpec {
@@ -52,7 +59,11 @@ impl RRuleLocator {
 
     /// Ticks at the occurrences of `rule` in `tz`.
     pub(super) const fn in_zone(rule: RRuleSpec, tz: TickZone) -> Self {
-        Self { rule, tz }
+        Self {
+            rule,
+            tz,
+            rule_tz: None,
+        }
     }
 
     /// Places ticks in `tz` instead of the zone of the `timezone` rcParam.
@@ -62,9 +73,52 @@ impl RRuleLocator {
         self
     }
 
+    /// Runs the rule on the wall clock of `tz` (matplotlib's
+    /// `rrulewrapper(..., tzinfo=tz)`), whatever zone the dates located
+    /// are in.
+    #[must_use]
+    pub fn with_rule_tz(mut self, tz: TimeZone) -> Self {
+        self.rule_tz = Some(tz);
+        self
+    }
+
     /// The recurrence rule.
     pub fn rule(&self) -> &RRuleSpec {
         &self.rule
+    }
+
+    /// The zone of the rule, if it has one of its own.
+    pub const fn rule_tz(&self) -> Option<&TimeZone> {
+        self.rule_tz.as_ref()
+    }
+
+    /// The occurrences of the rule between `dmin` and `dmax`, inclusive,
+    /// which become the ticks (matplotlib's `_create_rrule` and
+    /// `rule.between(dmin, dmax, True)`): the rule is started one span
+    /// (`relativedelta(dmax, dmin)`) before `dmin` and stopped one after
+    /// `dmax`, at the first and last representable seconds in UTC when the
+    /// span reaches beyond them, and runs on the wall clock of its own
+    /// zone, else of `dmin`'s.
+    pub fn occurrences(
+        &self,
+        dmin: &ZonedDateTime,
+        dmax: &ZonedDateTime,
+    ) -> Result<Vec<ZonedDateTime>, TickerError> {
+        let delta = RelativeDelta::between_zoned(dmax, dmin)?;
+        let start = delta.subtract_from(dmin.local()).map_or_else(
+            |_| ZonedDateTime::utc(DateTime::midnight(crate::dates::Date::MIN)),
+            |local| dmin.with_local(local),
+        );
+        let stop = delta.add_to(dmax.local()).map_or_else(
+            |_| ZonedDateTime::utc(last_second()),
+            |local| dmax.with_local(local),
+        );
+        occurrences(
+            &self.rule,
+            self.rule_tz.as_ref(),
+            (&start, &stop),
+            (dmin, dmax),
+        )
     }
 
     /// matplotlib's `MonthLocator`: ticks on day `bymonthday` of the months
@@ -136,30 +190,39 @@ impl RRuleLocator {
     }
 }
 
-/// The occurrences of `rule` between `after` and `before` (inclusive) when
-/// it is evaluated from `start` to `stop`, as date numbers; the view
-/// limits when there are none.
-fn rule_ticks(
+/// The occurrences of `rule`, started at `start` and stopped at `stop`,
+/// from `after` to `before` (inclusive), as matplotlib's `rrulewrapper`
+/// finds them: on the wall clock of `rule_tz`, else of `start`'s zone, in
+/// which the other date-times are read.
+fn occurrences(
     rule: &RRuleSpec,
-    tz: &TimeZone,
-    (start, stop): (DateTime, DateTime),
-    (after, before): (DateTime, DateTime),
-    view: (&ZonedDateTime, &ZonedDateTime),
-) -> Result<Vec<f64>, TickerError> {
+    rule_tz: Option<&TimeZone>,
+    (start, stop): (&ZonedDateTime, &ZonedDateTime),
+    (after, before): (&ZonedDateTime, &ZonedDateTime),
+) -> Result<Vec<ZonedDateTime>, TickerError> {
+    let zone = rule_tz.unwrap_or_else(|| start.tz());
     let rule = RRule::new(&RRuleSpec {
-        dtstart: Some(start),
-        until: Some(stop),
+        dtstart: Some(start.local_in(zone)?),
+        until: Some(stop.local_in(zone)?),
         ..rule.clone()
     })?;
-    let dates = rule.between(after, before, true)?;
-    if dates.is_empty() {
-        return to_nums([view.0, view.1]);
-    }
-    let zoned: Vec<ZonedDateTime> = dates
+    let found = rule.between(after.local_in(zone)?, before.local_in(zone)?, true)?;
+    Ok(found
         .into_iter()
-        .map(|d| ZonedDateTime::from_local(d, tz.clone()))
-        .collect();
-    to_nums(&zoned)
+        .map(|d| ZonedDateTime::from_local(d, zone.clone()))
+        .collect())
+}
+
+/// The ticks at `occurrences`, or the view limits when there are none.
+fn ticks_or_view(
+    occurrences: &[ZonedDateTime],
+    view: (&ZonedDateTime, &ZonedDateTime),
+) -> Result<Vec<f64>, TickerError> {
+    if occurrences.is_empty() {
+        to_nums([view.0, view.1])
+    } else {
+        to_nums(occurrences)
+    }
 }
 
 locate_dates_in_view!(RRuleLocator);
@@ -182,20 +245,7 @@ impl DateLocator for RRuleLocator {
         dmin: &ZonedDateTime,
         dmax: &ZonedDateTime,
     ) -> Result<Vec<f64>, TickerError> {
-        let (lo, hi) = (dmin.local(), dmax.local());
-        let delta = RelativeDelta::between(hi, lo)?;
-        // matplotlib caps the expanded range at the representable dates.
-        let start = delta
-            .subtract_from(lo)
-            .unwrap_or(DateTime::midnight(crate::dates::Date::MIN));
-        let stop = delta.add_to(hi).unwrap_or_else(|_| last_second());
-        rule_ticks(
-            &self.rule,
-            self.tz.get()?,
-            (start, stop),
-            (lo, hi),
-            (dmin, dmax),
-        )
+        ticks_or_view(&self.occurrences(dmin, dmax)?, (dmin, dmax))
     }
 }
 
@@ -278,6 +328,29 @@ impl YearLocator {
             ..RRuleSpec::new(Frequency::Yearly)
         })
     }
+
+    /// The days of the years between `dmin` and `dmax` which become the
+    /// ticks: the rule runs from the multiple of `base` at or below
+    /// `dmin`'s year to the one at or above `dmax`'s (clamped to 1..=9999),
+    /// on the wall clock of `dmin`'s zone (matplotlib's `_create_rrule`,
+    /// which replaces the date and time of day of `dmin`, keeping its
+    /// microseconds).
+    pub fn occurrences(
+        &self,
+        dmin: &ZonedDateTime,
+        dmax: &ZonedDateTime,
+    ) -> Result<Vec<ZonedDateTime>, TickerError> {
+        let base = i64::from(self.base);
+        let lo = dmin.local();
+        let first_year = (i64::from(lo.year()).div_euclid(base) * base).max(1);
+        let last_year = (-(-i64::from(dmax.local().year())).div_euclid(base) * base).min(9999);
+        let anchored = |year: i64| {
+            DateTime::new(year as i32, self.month, self.day, 0, 0, 0, lo.microsecond())
+                .map(|local| dmin.replace_local(local))
+        };
+        let (start, stop) = (anchored(first_year)?, anchored(last_year)?);
+        occurrences(&self.rule(), None, (&start, &stop), (&start, &stop))
+    }
 }
 
 locate_dates_in_view!(YearLocator);
@@ -295,28 +368,12 @@ impl DateLocator for YearLocator {
         f64::from(self.base)
     }
 
-    /// Evaluates the rule from the multiple of `base` at or below `dmin`'s
-    /// year to the one at or above `dmax`'s (clamped to 1..=9999).
     fn tick_dates(
         &self,
         dmin: &ZonedDateTime,
         dmax: &ZonedDateTime,
     ) -> Result<Vec<f64>, TickerError> {
-        let base = i64::from(self.base);
-        let (lo, hi) = (dmin.local(), dmax.local());
-        let first_year = (i64::from(lo.year()).div_euclid(base) * base).max(1);
-        let last_year = (-(-i64::from(hi.year())).div_euclid(base) * base).min(9999);
-        let anchored =
-            |year: i64| DateTime::new(year as i32, self.month, self.day, 0, 0, 0, lo.microsecond());
-        let start = anchored(first_year)?;
-        let stop = anchored(last_year)?;
-        rule_ticks(
-            &self.rule(),
-            self.tz.get()?,
-            (start, stop),
-            (start, stop),
-            (dmin, dmax),
-        )
+        ticks_or_view(&self.occurrences(dmin, dmax)?, (dmin, dmax))
     }
 }
 
@@ -406,6 +463,74 @@ mod tests {
                 18_567.291_666_666_668,
                 18_567.333_333_333_332
             ]
+        );
+    }
+
+    fn utc(text: &str) -> ZonedDateTime {
+        ZonedDateTime::parse_iso(text).unwrap()
+    }
+
+    #[test]
+    fn dates_located_bring_their_zone() {
+        let Ok(berlin) = TimeZone::named("Europe/Berlin") else {
+            return; // no system zoneinfo database
+        };
+        // Recorded from matplotlib: `HourLocator(tz="Europe/Berlin")
+        // .tick_values(a, b)` runs the rule on the wall clock of `a`, so
+        // dates in UTC tick on UTC hours, and those in Berlin across its
+        // skipped hour twice at 01:00 CET (where dateutil puts 02:00).
+        let hours = RRuleLocator::hours(&[], 1).with_tz(berlin.clone());
+        let (a, b) = (utc("2020-03-29T00:00"), utc("2020-03-29T03:00"));
+        let in_utc = [
+            18_350.0,
+            18_350.041_666_666_668,
+            18_350.083_333_333_332,
+            18_350.125,
+        ];
+        assert_eq!(hours.tick_dates(&a, &b).unwrap(), in_utc);
+        let (a, b) = (
+            a.to_zone(berlin.clone()).unwrap(),
+            b.to_zone(berlin).unwrap(),
+        );
+        let ticks = hours.tick_dates(&a, &b).unwrap();
+        assert_eq!(ticks[..2], [18_350.0, 18_350.0]);
+        assert_eq!(ticks[2..], in_utc[1..]);
+        let years = YearLocator::new(1, 1, 1).unwrap();
+        let (a, b) = (utc("2019-06-01"), utc("2022-06-01"));
+        let ticks = years.tick_dates(&a, &b).unwrap();
+        assert_eq!(ticks, [17_897.0, 18_262.0, 18_628.0, 18_993.0]);
+    }
+
+    #[test]
+    fn a_rule_with_a_zone_of_its_own_runs_in_it() {
+        let Ok(berlin) = TimeZone::named("Europe/Berlin") else {
+            return; // no system zoneinfo database
+        };
+        // `RRuleLocator(rrulewrapper(DAILY, tzinfo=UTC, byhour=[0, 12],
+        // ...), tz="Europe/Berlin")` on an axis, from matplotlib.
+        let rule = RRuleSpec {
+            byhour: vec![0, 12],
+            byminute: vec![0],
+            bysecond: vec![0],
+            ..RRuleSpec::new(Frequency::Daily)
+        };
+        let locator = RRuleLocator::new(rule)
+            .with_tz(berlin)
+            .with_rule_tz(TimeZone::Utc);
+        assert_eq!(locator.rule_tz(), Some(&TimeZone::Utc));
+        let (a, b) = view("2020-10-23T01:00", "2020-10-25T01:00");
+        let ticks = locator.tick_values(a, b, &TickContext::default()).unwrap();
+        assert_eq!(ticks, [18_558.5, 18_559.0, 18_559.5, 18_560.0]);
+    }
+
+    #[test]
+    fn rules_stopped_past_9999_in_utc_overflow_in_other_zones() {
+        let east = TimeZone::Fixed(crate::dates::UtcOffset::from_seconds(3600).unwrap());
+        let days = RRuleLocator::days(&[], 1).unwrap().with_tz(east);
+        let (a, b) = view("9999-12-20", "9999-12-31");
+        assert_eq!(
+            days.tick_values(a, b, &TickContext::default()),
+            Err(TickerError::DateOverflow)
         );
     }
 

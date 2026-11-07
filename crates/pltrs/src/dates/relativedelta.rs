@@ -4,7 +4,7 @@ use std::ops::Neg;
 
 use super::calendar::days_in_month;
 use super::timedelta::{MICROS_PER_DAY, MICROS_PER_SECOND};
-use super::{DateError, DateTime, TimeDelta};
+use super::{DateError, DateTime, TimeDelta, ZonedDateTime};
 
 /// A difference in years, months, days and clock units that adds to dates
 /// month-aware: adding one month to January 31 gives the last day of
@@ -67,22 +67,61 @@ impl RelativeDelta {
     /// assert_eq!((d.years(), d.months(), d.days(), d.hours()), (1, 2, 1, 12));
     /// ```
     pub fn between(later: DateTime, earlier: DateTime) -> Result<Self, DateError> {
-        let mut months = i64::from(later.year() - earlier.year()) * 12 + i64::from(later.month())
-            - i64::from(earlier.month());
-        let step = if later < earlier { 1 } else { -1 };
+        Self::months_then_rest(Self::month_count(later, earlier), later, earlier, |delta| {
+            delta.add_to(earlier)
+        })
+    }
+
+    /// `relativedelta(later, earlier)` of aware date-times: [`between`]
+    /// their wall clocks when they are in one zone. In two, dateutil
+    /// counts the months on the wall clocks but, as Python compares and
+    /// subtracts aware date-times of two zones, steps back and takes the
+    /// rest between the instants.
+    ///
+    /// [`between`]: Self::between
+    pub fn between_zoned(
+        later: &ZonedDateTime,
+        earlier: &ZonedDateTime,
+    ) -> Result<Self, DateError> {
+        if later.tz() == earlier.tz() {
+            return Self::between(later.local(), earlier.local());
+        }
+        let months = Self::month_count(later.local(), earlier.local());
+        Self::months_then_rest(months, later.to_utc()?, earlier.to_utc()?, |delta| {
+            earlier.with_local(delta.add_to(earlier.local())?).to_utc()
+        })
+    }
+
+    /// The months between the year and month fields of two date-times.
+    fn month_count(later: DateTime, earlier: DateTime) -> i64 {
+        i64::from(later.year() - earlier.year()) * 12 + i64::from(later.month())
+            - i64::from(earlier.month())
+    }
+
+    /// dateutil's difference of `later` and `earlier` from `months` months:
+    /// one month fewer (more) while `shift`ing `earlier` by them overshoots
+    /// `later`, the rest as seconds and microseconds.
+    fn months_then_rest(
+        mut months: i64,
+        later: DateTime,
+        earlier: DateTime,
+        shift: impl Fn(Self) -> Result<DateTime, DateError>,
+    ) -> Result<Self, DateError> {
+        let backwards = later < earlier;
+        let step = if backwards { 1 } else { -1 };
         let overshoots = |shifted: DateTime| {
-            if later < earlier {
+            if backwards {
                 later > shifted
             } else {
                 later < shifted
             }
         };
         let mut delta = Self::from_months(months);
-        let mut shifted = delta.add_to(earlier)?;
+        let mut shifted = shift(delta)?;
         while overshoots(shifted) {
             months += step;
             delta = Self::from_months(months);
-            shifted = delta.add_to(earlier)?;
+            shifted = shift(delta)?;
         }
         let rest = later - shifted;
         delta.seconds = rest.seconds() + rest.days() * 86_400;
@@ -250,6 +289,21 @@ mod tests {
         )
         .unwrap();
         assert_eq!(parts(d), [-1, 0, -14, -6, 0, 0, 0]);
+    }
+
+    #[test]
+    fn zoned_differences_cross_zones_by_instant() {
+        use crate::dates::{TimeZone, UtcOffset};
+        let east = TimeZone::Fixed(UtcOffset::from_seconds(3600).unwrap());
+        let later = ZonedDateTime::from_local(datetime(2020, 3, 1, 0, 30, 0, 0), east.clone());
+        let utc = ZonedDateTime::utc(datetime(2020, 1, 31, 0, 0, 0, 0));
+        let d = RelativeDelta::between_zoned(&later, &utc).unwrap();
+        assert_eq!(parts(d), [0, 1, 0, 23, 30, 0, 0]);
+        let earlier = ZonedDateTime::from_local(datetime(2020, 1, 31, 0, 0, 0, 0), east);
+        let d = RelativeDelta::between_zoned(&later, &earlier).unwrap();
+        assert_eq!(parts(d), [0, 1, 1, 0, 30, 0, 0]);
+        let d = RelativeDelta::between_zoned(&earlier, &later).unwrap();
+        assert_eq!(parts(d), [0, -1, -1, 0, -30, 0, 0]);
     }
 
     #[test]

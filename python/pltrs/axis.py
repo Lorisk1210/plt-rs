@@ -186,6 +186,17 @@ def _converted_limit(axis, value):
     return np.asarray(converted)[()] if np.ndim(converted) == 0 else converted
 
 
+def _set_native_zone(axis, tz):
+    """Have pltrs (Rust) take the zone *tz* as the unit of *axis*, where it
+    has a model of it (a date axis then ticks in it)."""
+    from ._date_locators import _native_tz
+    try:
+        zone = _native_tz(tz)
+    except ValueError:
+        return
+    _axis.set_date_unit(*axis._args(), zone)
+
+
 def _first_value(data):
     """The first finite value of *data* as a list of one, or *data* itself
     when it is an empty array (whose type says what it holds)."""
@@ -2080,6 +2091,8 @@ class Axis(DrawnWith, Artist):
         if isinstance(u, UnitData):
             # pltrs (Rust) keeps the names of a categorical axis.
             self._update_native_units(list(u._mapping))
+        elif isinstance(u, datetime.tzinfo):
+            _set_native_zone(self, u)
         for axis in self._get_shared_axis():
             axis.units = u
             axis._update_axisinfo()
@@ -2115,8 +2128,15 @@ class Axis(DrawnWith, Artist):
                 # matplotlib's converter gives an axis without units the
                 # category data (`default_units`).
                 self.__dict__.pop("_units_given", None)
-            return self._take_native_converter(
+            taken = self._take_native_converter(
                 converter, lambda: self._update_native_units(data))
+            if not isinstance(converter, StrCategoryConverter):
+                # The zone of the first date is the unit of an axis
+                # without one (pltrs (Rust) took it with the dates).
+                default = converter.default_units(data, self)
+                if default is not None and self.units is None:
+                    self.set_units(default)
+            return taken
         neednew = self._converter != converter
         self._set_converter(converter)
         default = self._converter.default_units(data, self)
@@ -2276,13 +2296,13 @@ class Axis(DrawnWith, Artist):
         tz : str or `datetime.tzinfo`, default: :rc:`timezone`
             The timezone used to create date labels.
         """
-        from ._date_locators import _native_tz
-        from .dates import _get_tzinfo
-        # matplotlib's axis takes the units of a date in *tz*.
-        zone = _native_tz(_get_tzinfo(tz))
-        self._take_native_converter(
-            munits.registry.get_converter(datetime.datetime(2009, 1, 1)),
-            lambda: _axis.axis_date(*self._args(), zone))
+        # By providing a sample datetime instance with the desired timezone,
+        # the registered converter can be selected, and the "units" attribute,
+        # which is the timezone, can be set.
+        if isinstance(tz, str):
+            import dateutil.tz
+            tz = dateutil.tz.gettz(tz)
+        self.update_units(datetime.datetime(2009, 1, 1, 0, 0, 0, 0, tz))
 
 
 # What matplotlib's `XAxis` and `YAxis` define over the abstract `Axis`:

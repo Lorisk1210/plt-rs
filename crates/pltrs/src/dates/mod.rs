@@ -10,7 +10,8 @@
 //! * time zones: UTC, fixed offsets and IANA zones read from the system's
 //!   `TZif` files ([`TimeZone::named`], with `dateutil.tz.tzfile` semantics);
 //! * parsing ([`iso`]) and `strftime` formatting
-//!   ([`DateTime::strftime`]) with Python's and the C library's semantics;
+//!   ([`DateTime::strftime`]) with Python's and the C library's semantics,
+//!   and numpy's `datetime64` instants of every [`TimeUnit`];
 //! * the conversions [`date2num`], [`num2date`], [`num2timedelta`],
 //!   [`drange`] and [`datestr2num`], and evenly spaced date-times
 //!   ([`DateRange`]);
@@ -54,6 +55,7 @@ mod range;
 mod relativedelta;
 pub mod rrule;
 mod strftime;
+mod time_unit;
 mod timedelta;
 mod tz;
 
@@ -73,5 +75,6 @@ pub use locators::{
 pub use range::{DateRange, MAX_RANGE_DATES};
 pub use relativedelta::RelativeDelta;
 pub use rrule::{Frequency, NthWeekday, RRule, RRuleSpec};
+pub use time_unit::TimeUnit;
 pub use timedelta::TimeDelta;
 pub use tz::{TimeZone, TzFile, UtcOffset, ZoneInfo, ZonedDateTime};

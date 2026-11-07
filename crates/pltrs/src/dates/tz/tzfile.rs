@@ -13,8 +13,9 @@ use crate::dates::{DateError, DateTime, TimeDelta};
 
 use super::UtcOffset;
 
-/// Directories searched for zone files, in dateutil's order.
-const TZ_PATHS: [&str; 4] = [
+/// Directories searched for zone files, in dateutil's order (which is
+/// also `zoneinfo`'s default `TZPATH`).
+pub(super) const TZ_PATHS: [&str; 4] = [
     "/usr/share/zoneinfo",
     "/usr/lib/zoneinfo",
     "/usr/share/lib/zoneinfo",

@@ -1355,12 +1355,13 @@ def _native_coords(coords, figure, name="xycoords"):
 
 def _coordinate(value):
     """A coordinate of an annotated point as `_native.annotation` takes
-    it: a number, a category name, or ``("dates", number)`` for a date."""
+    it: a number, a category name, or ``("dates", number, zone)`` for a
+    date (`.dates._axis_zone`)."""
     if isinstance(value, (str, bytes)):
         return value.decode() if isinstance(value, bytes) else value
     if isinstance(value, (datetime.date, np.datetime64)):
         from . import dates
-        return ("dates", float(dates.date2num(value)))
+        return ("dates", float(dates.date2num(value)), dates._axis_zone(value))
     return float(value)
 
 

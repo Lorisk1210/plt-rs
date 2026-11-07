@@ -24,6 +24,7 @@ use super::patches::PatchKwargs;
 use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
+use crate::modules::dates::Zone;
 
 impl From<CoordError> for PyErr {
     /// `ValueError` with matplotlib's messages where it has one.
@@ -104,7 +105,8 @@ impl FromPy<'_> for PyCoords {
 }
 
 /// A coordinate of an annotated point as the Python side gives it: a
-/// number, a category name, or `("dates", number)`.
+/// number, a category name, or `("dates", number, zone)`, the zone `None`
+/// for a naive date.
 struct PyAxisValue(AxisValue);
 
 impl FromPy<'_> for PyAxisValue {
@@ -112,10 +114,13 @@ impl FromPy<'_> for PyAxisValue {
         if let Ok(name) = object.extract::<String>() {
             return Ok(Self(AxisValue::Category(name)));
         }
-        if let Ok((tag, number)) = object.extract::<(String, f64)>()
+        if let Ok((tag, number, zone)) = object.extract::<(String, f64, Option<Zone>)>()
             && tag == "dates"
         {
-            return Ok(Self(AxisValue::Date { number, tz: None }));
+            return Ok(Self(AxisValue::Date {
+                number,
+                tz: zone.map(|Zone(tz)| tz),
+            }));
         }
         Ok(Self(AxisValue::Number(object.extract()?)))
     }

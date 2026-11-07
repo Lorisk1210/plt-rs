@@ -18,11 +18,10 @@ import os
 
 from dateutil.relativedelta import relativedelta
 from dateutil.rrule import MO, TU, WE, TH, FR, SA, SU  # noqa: F401  (`.dates` has them)
-from dateutil.rrule import weekday
 import numpy as np
 
 from . import _api, ticker
-from ._native import artist as _artist, dates as _dates, ticker as _ticker
+from ._native import artist as _artist, dates as _dates
 
 # The frequencies of recurrence rules, numbered as dateutil numbers them.
 YEARLY, MONTHLY, WEEKLY, DAILY, HOURLY, MINUTELY, SECONDLY = range(7)
@@ -117,6 +116,18 @@ def _parts(dt):
             (dt.hour, dt.minute, dt.second, dt.microsecond))
 
 
+def _zoned(dt):
+    """
+    The date-time *dt* as pltrs (Rust) takes it: its calendar parts, its
+    zone (None when naive) and its fold; a `datetime.date` is its
+    midnight, as ``relativedelta`` reads it.
+    """
+    if not isinstance(dt, datetime.datetime):
+        dt = datetime.datetime.combine(dt, datetime.time())
+    tz = dt.tzinfo
+    return _parts(dt), None if tz is None else _native_tz(tz), bool(dt.fold)
+
+
 def _from_parts(parts):
     """The naive `datetime.datetime` of calendar parts."""
     (year, month, day), (hour, minute, second, microsecond) = parts
@@ -198,8 +209,31 @@ def _rule(construct, started):
 def _refuse_non_dates(dmin, dmax):
     """Fail as matplotlib's rule locators fail on what is no date-time: on
     the first step they compute, the calendar difference of *dmin* and
-    *dmax* (``relativedelta(dmax, dmin)``)."""
+    *dmax* (``relativedelta(dmax, dmin)``, which also refuses a naive and
+    an aware one)."""
     relativedelta(dmax, dmin)
+
+
+def _refuse_aware_stop(vmax, delta):
+    """
+    Fail as matplotlib's rule locators fail to stop a naive rule (of naive
+    dates, without a zone of its own) one span *delta* after *vmax* when
+    that is beyond the year 9999: at the last second they represent, in
+    UTC, which `rrulewrapper` refuses as an aware end of a naive rule.
+    """
+    try:
+        vmax + delta
+    except (ValueError, OverflowError):
+        raise ValueError('until cannot be aware if dtstart is naive and '
+                         'tzinfo is None') from None
+
+
+def _zoned_datetime(dt):
+    """`_zoned` of what a rule starts or stops at: a `datetime.datetime`
+    (a `datetime.date` has no ``tzinfo`` for matplotlib's
+    `rrulewrapper`)."""
+    dt.tzinfo  # noqa: B018  (raises for dates, as the rule's start does)
+    return _zoned(dt)
 
 
 class rrulewrapper:
@@ -327,8 +361,11 @@ class rrulewrapper:
 
     def _naive(self, arg):
         """A date-time argument in the rule's zone, without the zone."""
-        if (self._tzinfo is not None and isinstance(arg, datetime.datetime)
-                and arg.tzinfo is not None):
+        if isinstance(arg, datetime.datetime) and arg.tzinfo is not None:
+            if self._tzinfo is None:
+                # A naive rule compares its occurrences with the argument.
+                raise TypeError(
+                    "can't compare offset-naive and offset-aware datetimes")
             if arg.tzinfo is not self._tzinfo:
                 arg = arg.astimezone(self._tzinfo)
             return arg.replace(tzinfo=None)
@@ -454,14 +491,28 @@ class RRuleLocator(DateLocator):
 
     def _spec(self):
         """The native description of the locator."""
+        rule_tz = self.rule._base_tzinfo
         return {"kind": "date_rrule", "rule": self.rule._rule,
-                "tz": _native_tz(self.tz)}
+                "tz": _native_tz(self.tz),
+                "rule_tz": None if rule_tz is None else _native_tz(rule_tz)}
 
     def tick_values(self, vmin, vmax):
-        _refuse_non_dates(vmin, vmax)
-        nmin, nmax = _date2num([vmin, vmax])
-        return self.raise_if_exceeds(
-            _ticker.tick_values(self._spec(), float(nmin), float(nmax), None))
+        # The rule runs on the wall clock of the dates' own zone (naive
+        # ones: naive), not of the locator's, as matplotlib's does.
+        delta = relativedelta(vmax, vmin)
+        if vmin.tzinfo is None and self.rule._base_tzinfo is None:
+            _refuse_aware_stop(vmax, delta)
+        return self._ticks_between(vmin, vmax)
+
+    def _ticks_between(self, vmin, vmax):
+        """The ticks of the rule between the date-times *vmin* and *vmax*,
+        else the two (matplotlib's ``tick_values`` once the dates are
+        known to be some)."""
+        ticks = _dates.rule_tick_values(self._spec(), _zoned_datetime(vmin),
+                                        _zoned_datetime(vmax))
+        if ticks is None:
+            return _date2num([vmin, vmax])
+        return self.raise_if_exceeds(ticks)
 
     def _get_unit(self):
         # docstring inherited
@@ -623,8 +674,8 @@ class AutoDateLocator(DateLocator):
             # is the one it picks for the view, which that call left in
             # ``_freq``; an axis not drawn yet keeps the one it had.
             self._freq_drawn = drawn
-            nmin, nmax = _date2num(self.viewlim_to_dt())
-            choice = _dates.auto_date_choice(self._spec(), float(nmin), float(nmax))
+            choice = _dates.auto_date_choice(
+                self._spec(), *map(_zoned, self.viewlim_to_dt()))
             if choice['frequency'] is not None:
                 self._freq = choice['frequency']
         if self._freq in [MICROSECONDLY]:
@@ -647,9 +698,7 @@ class AutoDateLocator(DateLocator):
     def get_locator(self, dmin, dmax):
         """Pick the best locator based on a distance."""
         _refuse_non_dates(dmin, dmax)
-        nmin, nmax = _date2num([dmin, dmax])
-        choice = _dates.auto_date_choice(self._spec(), float(nmin),
-                                         float(nmax))
+        choice = _dates.auto_date_choice(self._spec(), _zoned(dmin), _zoned(dmax))
         if choice['frequency'] is not None:
             self._freq = choice['frequency']
         if choice['fallback_interval'] is not None:
@@ -660,22 +709,25 @@ class AutoDateLocator(DateLocator):
                 f"intervald dictionary. Defaulting to "
                 f"{choice['fallback_interval']}.")
         if choice['kind'] == 'rrule':
-            rule = dict(choice['rule'])
-            freq = rule.pop('freq')
-            for key in ('dtstart', 'until'):
-                if rule[key] is not None:
-                    rule[key] = _from_parts(rule[key])
-            if rule['byweekday'] is not None:
-                rule['byweekday'] = [weekday(index, n)
-                                     for index, n in rule['byweekday']]
-            locator = RRuleLocator(rrulewrapper(freq, **{
-                key: value for key, value in rule.items()
-                if value is not None}), tz=self.tz)
+            rule = choice['rule']
+            rrule = rrulewrapper(
+                rule['freq'], interval=rule['interval'], dtstart=dmin,
+                until=dmax, **{key: rule[key] for key in (
+                    'bymonth', 'bymonthday', 'byhour', 'byminute',
+                    'bysecond')})
+            locator = RRuleLocator(rrule, tz=self.tz)
         elif choice['kind'] == 'year':
             locator = YearLocator(choice['base'], month=choice['month'],
                                   day=choice['day'], tz=self.tz)
         else:
             locator = MicrosecondLocator(choice['interval'], tz=self.tz)
+            if _date2num(dmin) > 70 * 365 and choice['interval'] < 1000:
+                from .dates import get_epoch
+                _api.warn_external(
+                    'Plotting microsecond time intervals for dates far from '
+                    f'the epoch (time origin: {get_epoch()}) is not well-'
+                    'supported. See matplotlib.dates.set_epoch to change the '
+                    'epoch.')
         locator.set_axis(self.axis)
         return locator
 
@@ -716,6 +768,14 @@ class YearLocator(RRuleLocator):
         return {"kind": "date_year", "base": int(self.base.step),
                 "month": int(c.get('bymonth', 1)),
                 "day": int(c.get('bymonthday', 1)), "tz": _native_tz(self.tz)}
+
+    def tick_values(self, vmin, vmax):
+        # matplotlib's YearLocator replaces the year and the time of day of
+        # *vmin* (`datetime.date` has no time of day) and reads the year of
+        # *vmax*.
+        vmin.replace(hour=0, minute=0, second=0)
+        vmax.year  # noqa: B018
+        return self._ticks_between(vmin, vmax)
 
 
 class MonthLocator(RRuleLocator):

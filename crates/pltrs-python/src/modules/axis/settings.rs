@@ -3,7 +3,7 @@
 //! the side of its ticks and offset text, its extent, and its units
 //! (matplotlib's `Axis.clear`, `isDefault_majloc`, `minorticks_on`,
 //! `set_in_layout`, `labelpad`, `set_label_coords`, `tick_top`,
-//! `get_tightbbox`, `have_units`, `update_units`, `axis_date`).
+//! `get_tightbbox`, `have_units`, `update_units`, `set_units` of a zone).
 
 use pltrs::axes::{Axes, AxisBelow, TickHelperKind};
 use pltrs::spines::SpineSide;
@@ -322,16 +322,16 @@ fn set_converter(owner: AxisOwner, name: String, kind: String) -> PyResult<()> {
     set.map_err(|err| PyErr::new(ExceptionKind::RuntimeError, err))
 }
 
-/// Ticks the axis, of a 2-D or a 3-D axes, as an axis of dates in the
-/// time zone `tz` (`axis_date`, `zaxis_date`).
-fn axis_date(owner: AxisOwner, name: String, tz: Option<Zone>) -> PyResult<()> {
-    let tz = tz.as_ref().map(|zone| &zone.0);
+/// Gives axis `name`, of a 2-D or a 3-D axes, the zone `tz` as its unit
+/// (`set_units` with a `datetime.tzinfo`, which `axis_date` sets with
+/// the units of a date): a date axis then ticks and labels in it.
+fn set_date_unit(owner: AxisOwner, name: String, tz: Zone) -> PyResult<()> {
     match owner.axis(&name)? {
         AnyAxis::Flat(axis) => {
-            axis.axis_date(tz);
+            axis.set_units(tz.0);
         }
         AnyAxis::Deep(axis) => {
-            axis.axis_date(tz);
+            axis.set_units(tz.0);
         }
     }
     Ok(())
@@ -380,7 +380,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("update_units", update_units)?;
     module.add("converter_kind", converter_kind)?;
     module.add("set_converter", set_converter)?;
-    module.add("axis_date", axis_date)
+    module.add("set_date_unit", set_date_unit)
 }
 
 #[cfg(test)]

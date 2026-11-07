@@ -2,10 +2,13 @@
 //! font map of `BaKoMa`, STIX, `DejaVu` and custom glyph sets and the sets
 //! they fall back on.
 
+use std::sync::Arc;
+
 use pltrs_font::{FontDatabase, FontId, FontQuery, GenericFamilies};
 
 use super::{GlyphSet, Kind};
 use crate::error::TextError;
+use crate::lookups::{self, FontLookup, LookupKind};
 use crate::mathtext::data::BakomaFile;
 use crate::mathtext::font_name::FontName;
 use crate::mathtext::fonts::MathFonts;
@@ -27,13 +30,27 @@ struct Finder<'a> {
     /// The fonts.
     db: &'a FontDatabase,
     /// `font.serif`, `font.sans-serif`, ... lists.
-    generics: &'a GenericFamilies,
+    generics: &'a Arc<GenericFamilies>,
     /// What a pattern leaves out ([`MathStyle::pattern_defaults`]).
     defaults: PatternDefaults,
 }
 
 impl Finder<'_> {
+    /// `findfont` of `query`, the lookup noted where matplotlib's
+    /// `findfont` logs about it (a family no font has, as the `cursive` of
+    /// the custom fontset's `mathtext.cal` here, or a face of another
+    /// weight).
     fn query(self, query: &FontQuery) -> Result<FontId, TextError> {
+        let best = (self.db)
+            .best_entry(query, self.generics)
+            .filter(|(_, score)| *score < 10.0);
+        let lookup = FontLookup {
+            kind: LookupKind::Font,
+            query: query.clone(),
+            generics: Arc::clone(self.generics),
+            weight_keyword: None,
+        };
+        lookups::note(lookup, &[best.map(|(entry, _)| entry.weight)]);
         Ok(self.db.find_font_with(query, self.generics)?)
     }
 

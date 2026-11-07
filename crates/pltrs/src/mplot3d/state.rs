@@ -84,6 +84,10 @@ pub(crate) struct Axes3DState {
     pub(crate) facecolor: Color,
     /// The plane's artists with their 3-D geometry, in insertion order.
     pub(crate) artists: Vec<Artist3D>,
+    /// The visible collections and patches the last draw ordered by
+    /// depth, with their depths, in insertion order (empty unless it
+    /// computed their z-order).
+    pub(crate) depth_order: Vec<(ArtistId, SortKind, f64)>,
     /// The problems drawing the plane's artists meets, recorded in
     /// advance.
     pub(crate) failures: DrawFailures,
@@ -115,6 +119,7 @@ pltrs_core::archive_struct!(Axes3DState {
     computed_zorder,
     facecolor,
     artists,
+    depth_order,
     failures,
     mouse,
     drawn,
@@ -148,6 +153,7 @@ impl Axes3DState {
             computed_zorder: true,
             facecolor: rc.axes_facecolor.clone(),
             artists: Vec::new(),
+            depth_order: Vec::new(),
             failures: DrawFailures::default(),
             mouse: MouseButtons::default(),
             drawn: DrawnMatrices::default(),
@@ -267,10 +273,20 @@ impl Axes3DState {
                 depths.push((*id, kind, depth));
             }
         }
-        if !(self.computed_zorder && painting.is_some()) {
-            return;
+        if self.computed_zorder && painting.is_some() {
+            self.depth_order = depths;
+            self.order_by_depth(store);
+        } else {
+            self.depth_order.clear();
         }
-        // Deepest first; ties keep their insertion order.
+    }
+
+    /// Gives the collections and patches of `depth_order` their computed
+    /// z-order: the deepest first (ties keep their insertion order), above
+    /// the axes, collections and patches numbered apart (matplotlib's
+    /// `Axes3D.draw`).
+    pub(super) fn order_by_depth(&self, store: &mut ArtistStore) {
+        let mut depths = self.depth_order.clone();
         depths.sort_by(|a, b| b.2.total_cmp(&a.2));
         let start = self.axis_zorder + 1.0;
         let (mut collection_z, mut patch_z) = (start, start);

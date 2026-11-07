@@ -330,8 +330,12 @@ impl CollectionArtist {
         } else {
             1.0
         };
+        let mut base = ArtistBase::with_zorder(zorder);
+        // matplotlib's collections start without the rc's path effects
+        // (`Collection.__init__` sets `_path_effects` to None).
+        base.path_effects.clear();
         Self {
-            base: ArtistBase::with_zorder(zorder),
+            base,
             kind,
             paths,
             single_path: false,
@@ -628,7 +632,24 @@ impl Artist for CollectionArtist {
         }
     }
 
+    /// matplotlib's `get_window_extent`, its `get_datalim` in display
+    /// coordinates: the shapes of a quad mesh, a `fill_between` collection,
+    /// a 3-D or a draw-time collection (whose classes measure their data),
+    /// the shapes or offsets of one placed in display coordinates (its
+    /// transform ending in one that changes nothing, as the offsets an
+    /// aux-transform box clears to measure it), and the null box for any
+    /// other (matplotlib's collections cannot place their data without the
+    /// data transform it is given).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        let measures_data = self.mesh.is_some()
+            || self.fill_geometry.is_some()
+            || self.draw_time.is_some()
+            || self.depth_sorted.is_some();
+        let offsets_in_display = (self.offset_transform.as_ref()).is_none_or(ends_in_display);
+        let placed = ends_in_display(&self.transform()) || !self.offsets.is_empty();
+        if !(measures_data || offsets_in_display && placed) {
+            return Some(Bbox::NULL);
+        }
         let resolved = ctx.resolve(&self.transform())?;
         let offsets = match &self.offset_transform {
             Some(t) => {
@@ -683,6 +704,18 @@ impl Artist for CollectionArtist {
     fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
         let values = self.cursor_values(ctx, at)?;
         Some(format_values(values.into_iter().flatten()))
+    }
+}
+
+/// Whether `transform` ends in one that changes nothing (matplotlib's
+/// `contains_branch(IdentityTransform())`, which an affine transform of the
+/// identity matrix equals).
+fn ends_in_display(transform: &Transform) -> bool {
+    match transform {
+        Transform::Display => true,
+        Transform::Affine(affine) => affine.is_identity(),
+        Transform::Composite(_, last) => ends_in_display(last),
+        _ => false,
     }
 }
 

@@ -63,8 +63,16 @@ impl Painter {
         let mut stroke_rows = Vec::new();
         if let Some(style) = stroke {
             self.add_stroke(path, style);
-            self.rasterizer
-                .sweep(&mut self.scanline, |sl| stroke_rows.push(sl.clone()))?;
+            if self.rasterizer.covers_cells() {
+                self.rasterizer
+                    .sweep(&mut self.scanline, |sl| stroke_rows.push(sl.clone()))?;
+            } else {
+                // Agg's scanline storage keeps the fill when the stroke
+                // covers no cell (a zero-width outline inside one pixel):
+                // matplotlib's `draw_markers` stamps the fill again, in the
+                // edge colour.
+                stroke_rows.clone_from(&fill_rows);
+            }
         }
         Ok(MarkerStamp::new(fill_rows, stroke_rows))
     }

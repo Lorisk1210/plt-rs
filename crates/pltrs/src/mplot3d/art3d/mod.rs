@@ -72,6 +72,8 @@ pub(crate) enum SortKind {
     Patch,
 }
 
+pltrs_core::archive_enum!(SortKind { Collection, Patch });
+
 /// A path whose vertices live in 3-D space; its codes are kept by a 2-D
 /// template path.
 #[derive(Clone, Debug, PartialEq)]
@@ -166,6 +168,15 @@ pub(crate) enum Art3D {
     Patch(Vec<Vec3>),
     /// The path of a patch, codes kept (`PathPatch3D`).
     PathPatch(Path3D),
+    /// A 2-D patch or collection of a class of the program's that projects
+    /// itself (matplotlib's `do_3d_projection` of a subclass), at the
+    /// depth it last returned.
+    Program {
+        /// How computed z-order counts it.
+        kind: SortKind,
+        /// The depth its projection last returned (NaN before the first).
+        depth: f64,
+    },
 }
 
 pltrs_core::archive_enum!(Art3D {
@@ -177,6 +188,7 @@ pltrs_core::archive_enum!(Art3D {
     Polys(v0),
     Patch(v0),
     PathPatch(v0),
+    Program { kind, depth },
 });
 
 impl Art3D {
@@ -194,7 +206,8 @@ impl Art3D {
             | Self::Text { .. }
             | Self::Paths(_)
             | Self::Patch(_)
-            | Self::PathPatch(_) => None,
+            | Self::PathPatch(_)
+            | Self::Program { .. } => None,
         }
     }
 
@@ -220,6 +233,7 @@ impl Art3D {
                 Some(SortKind::Collection)
             }
             Self::Patch(_) | Self::PathPatch(_) => Some(SortKind::Patch),
+            Self::Program { kind, .. } => Some(*kind),
         }
     }
 
@@ -228,7 +242,7 @@ impl Art3D {
     pub(crate) fn points(&self) -> Vec<Vec3> {
         match self {
             Self::Line(points) | Self::Patch(points) => points.clone(),
-            Self::Text { .. } => Vec::new(),
+            Self::Text { .. } | Self::Program { .. } => Vec::new(),
             Self::Paths(paths) => (paths.iter())
                 .flat_map(|path| path.vertices.iter().copied())
                 .collect(),
@@ -263,7 +277,8 @@ impl Art3D {
             | Self::Points(_)
             | Self::Polys(_)
             | Self::Patch(_)
-            | Self::PathPatch(_) => {}
+            | Self::PathPatch(_)
+            | Self::Program { .. } => {}
         }
     }
 
@@ -278,7 +293,8 @@ impl Art3D {
             | Self::Text { .. }
             | Self::Paths(_)
             | Self::Patch(_)
-            | Self::PathPatch(_) => None,
+            | Self::PathPatch(_)
+            | Self::Program { .. } => None,
         }
     }
 
@@ -292,13 +308,15 @@ impl Art3D {
             | Self::Text { .. }
             | Self::Paths(_)
             | Self::Patch(_)
-            | Self::PathPatch(_) => None,
+            | Self::PathPatch(_)
+            | Self::Program { .. } => None,
         }
     }
 
     /// Projects the geometry onto the 2-D artist `id` and returns the
     /// depth used for computed z-order (matplotlib's `do_3d_projection`);
-    /// `None` when the artist is gone or of another type.
+    /// `None` when the artist is gone or of another type. An artist of
+    /// the program's projects itself: its last depth.
     pub(crate) fn project(
         &self,
         id: ArtistId,
@@ -398,6 +416,7 @@ impl Art3D {
                 patch.shape = ProjectedPath(projected);
                 Some(depth.min_or(f64::NAN))
             }
+            Self::Program { depth, .. } => store.contains(id).then_some(*depth),
         }
     }
 }

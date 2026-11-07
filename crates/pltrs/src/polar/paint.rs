@@ -221,13 +221,13 @@ fn draw_theta_marks(
     };
     let along = ptick.along();
     let rotation = ptick.theta_angle() - FRAC_PI_2;
-    for (on, symbol, across, part) in [
-        (style.ticks.first, mark1, 0.0, TickPart::Tick1Line),
-        (style.ticks.second, mark2, 1.0, TickPart::Tick2Line),
+    for (on, symbol, second) in [
+        (style.ticks.first, mark1, false),
+        (style.ticks.second, mark2, true),
     ] {
         if on {
-            let point = Point::new(ptick.loc, across);
-            groups.part(ctx, part, |ctx| {
+            let point = Point::new(ptick.loc, if second { 1.0 } else { 0.0 });
+            groups.part(ctx, TickPart::mark(second), |ctx| {
                 draw_mark(
                     ctx,
                     axes,
@@ -235,7 +235,7 @@ fn draw_theta_marks(
                     point,
                     symbol,
                     theta_mark(symbol, rotation),
-                    style,
+                    &style.mark_style(second),
                 );
             });
         }
@@ -271,7 +271,7 @@ fn draw_radial_marks(
                     side.point,
                     symbol,
                     transform,
-                    style,
+                    &style.mark_style(!first),
                 );
             });
         }

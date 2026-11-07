@@ -89,6 +89,7 @@ mod patch3d;
 mod path_patch;
 mod pending;
 mod plot;
+mod program;
 mod quaternion;
 mod quiver;
 mod readout;

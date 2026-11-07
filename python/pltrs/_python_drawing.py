@@ -64,6 +64,18 @@ class _Drawing(threading.local):
 
 _drawing_now = _Drawing()
 
+#: What runs before every artist drawn through Python is drawn (see
+#: `before_drawing`).
+_preparations = []
+
+
+def before_drawing(prepare):
+    """Have *prepare* called with every artist drawn through Python
+    before its ``draw``, once its figure is laid out and free to change
+    (how a 3-D axes projects the program's artists, as matplotlib's
+    ``Axes3D.draw`` does before drawing them)."""
+    _preparations.append(prepare)
+
 
 def figure_changeable():
     """Whether the program's drawing running now may change the figure it
@@ -194,6 +206,8 @@ def record_drawing(artist, target):
     draw, _ = _draw_of(artist)
     with _figure_drawn(target[6]), _recording(renderer, target[5]) as drawing:
         if figure_changeable():
+            for prepare in _preparations:
+                prepare(artist)
             _evaluate_transforms(artist)
             place = getattr(artist, "_place_as_laid_out", None)
             if place is not None:

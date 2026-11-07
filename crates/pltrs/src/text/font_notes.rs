@@ -36,11 +36,15 @@ thread_local! {
     /// The draw matplotlib makes before the print drawn now, if it makes
     /// one.
     static PRE_DRAW: Cell<Option<PreDraw>> = const { Cell::new(None) };
-    /// Whether the layout engine of such a print is laying it out.
-    static ENGINE: Cell<bool> = const { Cell::new(false) };
+    /// Whether the lookups noted now stand for one of the draws of such a
+    /// print only: its layout engine laying it out (matplotlib runs it in
+    /// the first draw only), or what pltrs measured before the print.
+    static SINGLE: Cell<bool> = const { Cell::new(false) };
     /// Whether the figure drawn now is drawn without rendering, its
     /// renderer drawing no text.
     static NOT_RENDERING: Cell<bool> = const { Cell::new(false) };
+    /// Whether texts are drawn through path effects now.
+    static THROUGH_EFFECTS: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Runs `draw`, a draw without rendering (matplotlib's
@@ -86,6 +90,12 @@ pub(crate) fn predrawn<R>(pre_draw: Option<PreDraw>, draw: impl FnOnce() -> R) -
     drawn
 }
 
+/// How many of matplotlib's draws the draw running now stands for: two
+/// for a print matplotlib draws once before (see [`predrawn`]), else one.
+pub(crate) fn draws_of_print() -> usize {
+    if PRE_DRAW.get().is_some() { 2 } else { 1 }
+}
+
 /// Runs `measure` with a renderer of its own, whose text metrics cache
 /// starts empty, where the program measures through a cache.
 pub(crate) fn with_renderer_of_its_own<R>(measure: impl FnOnce() -> R) -> R {
@@ -104,14 +114,28 @@ pub(crate) fn layout_engine<R>(lay_out: impl FnOnce() -> R) -> R {
     let Some(pre_draw) = PRE_DRAW.get() else {
         return lay_out();
     };
-    let before = ENGINE.replace(true);
+    let before = SINGLE.replace(true);
     let laid_out = if pre_draw == PreDraw::OwnRenderers {
         with_renderer_of_its_own(lay_out)
     } else {
         lay_out()
     };
-    ENGINE.set(before);
+    SINGLE.set(before);
     laid_out
+}
+
+/// Runs `measure`, a part of the draw of a print matplotlib draws twice
+/// that pltrs measured before the print (the titles of a print cut to its
+/// tight box, placed in the layout that measured it): its lookups stand
+/// for the print's draw only.
+pub(crate) fn measured_before<R>(measure: impl FnOnce() -> R) -> R {
+    if PRE_DRAW.get() != Some(PreDraw::Measured) {
+        return measure();
+    }
+    let before = SINGLE.replace(true);
+    let measured = measure();
+    SINGLE.set(before);
+    measured
 }
 
 /// How many draws a lookup noted now stands for: two for a lookup of the
@@ -120,7 +144,7 @@ pub(crate) fn layout_engine<R>(lay_out: impl FnOnce() -> R) -> R {
 /// renderers of the first draw's own (whose cache misses it too).
 fn draws_noted(measured: bool) -> usize {
     match PRE_DRAW.get() {
-        Some(pre_draw) if !ENGINE.get() && (!measured || pre_draw == PreDraw::OwnRenderers) => 2,
+        Some(pre_draw) if !SINGLE.get() && (!measured || pre_draw == PreDraw::OwnRenderers) => 2,
         _ => 1,
     }
 }
@@ -192,8 +216,20 @@ pub(super) fn note_measured(
     Ok(())
 }
 
+/// Runs `draw`, which draws through path effects: matplotlib's
+/// `PathEffectRenderer` draws text as paths (`RendererBase.draw_text`),
+/// looking its fonts up even in the draw without rendering before a
+/// print, whose renderer's own `draw_text` does nothing.
+pub(crate) fn through_effects<R>(draw: impl FnOnce() -> R) -> R {
+    let before = THROUGH_EFFECTS.replace(true);
+    let drawn = draw();
+    THROUGH_EFFECTS.set(before);
+    drawn
+}
+
 /// Notes the lookup drawing the line `run` makes in matplotlib (its
-/// renderers' `draw_text` prepares the fonts of plain lines).
+/// renderers' `draw_text` prepares the fonts of plain lines): in each of
+/// the draws of a print drawn through path effects, else in the last.
 ///
 /// # Errors
 ///
@@ -202,8 +238,16 @@ pub(super) fn note_drawn(run: &TextRun) -> Result<(), TextError> {
     if NOT_RENDERING.get() {
         return Ok(());
     }
-    match &run.source {
-        Some(TextSource::Plain { font, .. }) => TextEngine::global().note_font_lookup(font),
-        _ => Ok(()),
+    let Some(TextSource::Plain { font, .. }) = &run.source else {
+        return Ok(());
+    };
+    let draws = if THROUGH_EFFECTS.get() {
+        draws_of_print()
+    } else {
+        1
+    };
+    for _ in 0..draws {
+        TextEngine::global().note_font_lookup(font)?;
     }
+    Ok(())
 }

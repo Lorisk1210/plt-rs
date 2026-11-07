@@ -12,9 +12,16 @@
 //! matplotlib's Cairo renderer does draws its figure in
 //! [`GraphicsState::Cairo`], with [`drawing_with_state`].
 //!
+//! A program may also replace the graphics contexts themselves
+//! (matplotlib's `RendererBase.new_gc` replaced, a `GraphicsContextBase`
+//! subclass with round caps, say): every artist's context then starts
+//! from one its [`GcSource`] makes, as matplotlib's artists start from
+//! what `renderer.new_gc()` returns.
+//!
 //! [`DrawContext::base_gc`]: super::DrawContext::base_gc
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
 use pltrs_render::{GraphicsContext, JoinStyle};
 
@@ -46,6 +53,34 @@ impl GraphicsState {
             join,
             ..GraphicsContext::default()
         }
+    }
+}
+
+/// The graphics contexts of the program's (matplotlib's `new_gc` of the
+/// renderer, replaced by the program).
+pub trait GcSource {
+    /// A new graphics context, which an artist about to draw starts from
+    /// (matplotlib's `renderer.new_gc()`).
+    fn new_gc(&self) -> GraphicsContext;
+}
+
+pltrs_core::thread_state! {
+    /// The program's graphics contexts on this thread, if it replaced them.
+    static SOURCE: RefCell<Option<Rc<dyn GcSource>>> = const { RefCell::new(None) };
+}
+
+/// Sets (or, with `None`, removes) what makes the graphics contexts the
+/// artists drawn on this thread start from.
+pub fn set_gc_source(source: Option<Rc<dyn GcSource>>) {
+    SOURCE.set(source);
+}
+
+/// The graphics context an artist drawn now in `state` starts from: the
+/// program's, if it makes them, else the state's.
+pub(crate) fn new_gc(state: GraphicsState) -> GraphicsContext {
+    match SOURCE.with_borrow(Clone::clone) {
+        Some(source) => source.new_gc(),
+        None => state.context(),
     }
 }
 
@@ -91,6 +126,36 @@ mod tests {
                 join: JoinStyle::Round,
                 ..cairo
             },
+            GraphicsContext::default()
+        );
+    }
+
+    /// Graphics contexts with square caps.
+    struct Square;
+
+    impl GcSource for Square {
+        fn new_gc(&self) -> GraphicsContext {
+            GraphicsContext {
+                cap: pltrs_render::CapStyle::Projecting,
+                ..GraphicsContext::default()
+            }
+        }
+    }
+
+    #[test]
+    fn the_programs_contexts_replace_the_states() {
+        assert_eq!(new_gc(GraphicsState::Cairo).join, JoinStyle::Miter);
+        set_gc_source(Some(Rc::new(Square)));
+        let made = new_gc(GraphicsState::Cairo);
+        set_gc_source(None);
+        assert_eq!(made.cap, pltrs_render::CapStyle::Projecting);
+        assert_eq!(
+            made.join,
+            JoinStyle::Round,
+            "the program's, whatever the state"
+        );
+        assert_eq!(
+            new_gc(GraphicsState::Matplotlib),
             GraphicsContext::default()
         );
     }

@@ -164,6 +164,43 @@ fn coverage_mask_and_markers() {
 }
 
 #[test]
+fn a_zero_width_stroke_inside_one_pixel_stamps_the_fill_again() {
+    let mut painter = Painter::new();
+    let red = Rgba::opaque(1.0, 0.0, 0.0);
+    let gray = Rgba::opaque(0.5, 0.5, 0.5);
+    let stamped = |painter: &mut Painter, path: &Path, fill: bool| {
+        let stamp = painter
+            .marker_stamp(path, fill, Some(&StrokeStyle::new(0.0)))
+            .unwrap();
+        let mut target = Pixmap::new(8, 8).unwrap();
+        let face = fill.then_some(gray);
+        stamp
+            .draw(&mut target, &[p(4.0, 4.0)], face, Some(red), &Clip::NONE)
+            .unwrap();
+        target
+    };
+    let dot = Path::polygon([p(0.2, 0.2), p(0.8, 0.2), p(0.8, 0.8), p(0.2, 0.8)]);
+    let pixel = stamped(&mut painter, &dot, true).pixel(4, 4).unwrap();
+    assert!(
+        pixel.r > 4 * pixel.g,
+        "the edge colour over the fill: {pixel:?}"
+    );
+    assert_eq!(
+        alpha_sum(&stamped(&mut painter, &dot, false)),
+        0,
+        "no fill, nothing"
+    );
+    let square = Path::polygon([p(0.0, 0.0), p(3.0, 0.0), p(3.0, 3.0), p(0.0, 3.0)]);
+    let target = stamped(&mut painter, &square, true);
+    let pixel = target.pixel(5, 5).unwrap();
+    assert_eq!(
+        (pixel.r, pixel.g),
+        (pixel.b, pixel.b),
+        "the stroke covers its cells"
+    );
+}
+
+#[test]
 fn gouraud_and_transformed_coverage_draw_something() {
     let mut painter = Painter::new();
     let mut target = Pixmap::new(16, 16).unwrap();

@@ -266,6 +266,9 @@ pub enum DrawErrorKind {
     /// An attribute the artist's class lacks, such as the 3-D projection
     /// of a 2-D collection a 3-D axes draws (Python's `AttributeError`).
     MissingAttribute,
+    /// A file the program named that does not exist, such as the font
+    /// file of a text (Python's `FileNotFoundError`).
+    FileNotFound,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,
@@ -279,6 +282,7 @@ pltrs_core::archive_enum!(DrawErrorKind {
     OutOfRange,
     OutOfMemory,
     MissingAttribute,
+    FileNotFound,
     Other
 });
 
@@ -683,8 +687,9 @@ impl<'a> DrawContext<'a> {
     /// clipping, snapping (never when `path.snap` is off, as matplotlib's
     /// `get_snap`), sketch, alpha override, url and gid. The rest keeps
     /// [`GraphicsContext`]'s defaults (black, 1 point wide, solid, round
-    /// joins; mitred ones in [`GraphicsState::Cairo`]), for the artist to
-    /// set from properties of its own: its public fields `foreground`,
+    /// joins; mitred ones in [`GraphicsState::Cairo`]; the program's when
+    /// it makes them, see [`GcSource`](super::GcSource)), for the artist
+    /// to set from properties of its own: its public fields `foreground`,
     /// `linewidth`, `dashes`, ...
     pub fn base_gc(&self, base: &ArtistBase) -> GraphicsContext {
         let snap = if crate::rc::params().path_snap {
@@ -702,7 +707,7 @@ impl<'a> DrawContext<'a> {
             sketch: base.sketch,
             url: base.url.clone(),
             gid: base.gid.clone(),
-            ..self.graphics.context()
+            ..super::graphics_state::new_gc(self.graphics)
         };
         if base.clip_on {
             gc.clip_rect = self.layout().clip_rect(base);

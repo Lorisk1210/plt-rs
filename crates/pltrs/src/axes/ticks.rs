@@ -1,7 +1,10 @@
 //! Tick and grid appearance (matplotlib's tick parameters).
 
+use std::borrow::Cow;
+
 use super::grid_props::{GridLineProps, GridLinePropsOptions};
 use super::grid_stroke::{GridStroke, GridStrokeOptions};
+use super::tick_lines::TickMarkProps;
 use super::which::TickLevel;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontStyle, FontWeight};
@@ -288,6 +291,10 @@ pub struct TickStyle {
     /// How the gridlines are drawn; kept while they are off, like
     /// matplotlib's `grid_*` tick parameters.
     pub grid: GridStyle,
+    /// What the mark on the second side (top or right) has of its own
+    /// (matplotlib's `tick2line` of a single tick changed alone); unset
+    /// in the style of a level.
+    pub second_mark: TickMarkProps,
 }
 
 pltrs_core::archive_struct!(TickStyle {
@@ -315,7 +322,8 @@ pltrs_core::archive_struct!(TickStyle {
     label_across,
     label_bbox,
     grid_on,
-    grid
+    grid,
+    second_mark
 });
 
 impl TickStyle {
@@ -368,7 +376,25 @@ impl TickStyle {
             label_bbox: None,
             grid_on: grid_on_from_rc(axis, major, rc),
             grid: GridStyle::from_rc(major, rc),
+            second_mark: TickMarkProps::default(),
         }
+    }
+
+    /// The style the mark on the first or the `second` side is drawn
+    /// with: this one, with what the second mark has of its own on top.
+    pub fn mark_style(&self, second: bool) -> Cow<'_, Self> {
+        if !second || self.second_mark == TickMarkProps::default() {
+            return Cow::Borrowed(self);
+        }
+        let mut style = self.clone();
+        self.second_mark.apply(&mut style);
+        Cow::Owned(style)
+    }
+
+    /// The colour the edges of the marks are drawn in (matplotlib's
+    /// `get_markeredgecolor` of the tick lines).
+    pub fn mark_edgecolor(&self) -> Color {
+        self.edgecolor.clone().unwrap_or_else(|| self.color.clone())
     }
 
     /// Whether anything of this tick level is drawn: marks, labels or

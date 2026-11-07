@@ -128,7 +128,9 @@ def _callee(node: ast.AST) -> str:
 
 
 def _numbers_close(a: Any, b: Any) -> bool:
-    if isinstance(a, str) or isinstance(b, str):
+    if isinstance(a, (str, dict)) or isinstance(b, (str, dict)):
+        # Strings, and the descriptions of what is no plain number (the
+        # elements of a complex or structured array's summary).
         return a == b
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(_numbers_close(x, y) for x, y in zip(a, b))

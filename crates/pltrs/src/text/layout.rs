@@ -295,6 +295,7 @@ fn typeset(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
+    font_file_opens(font)?;
     let engine = TextEngine::global();
     match line {
         Line::Plain(text) => engine.layout_line(text, &font.drawn_request(), dpi),
@@ -511,7 +512,17 @@ fn mathtext_height_metrics(
     {
         return Ok(measured);
     }
+    font_file_opens(font)?;
     super::metrics::font_height_metrics(&font.drawn_request(), dpi)
+}
+
+/// Fails as matplotlib's `FT2Font` fails to open the font file `font`
+/// names, when it names one that does not exist or holds no font (a
+/// request for it sets the text in the font its families find instead).
+fn font_file_opens(font: &FontProperties) -> Result<(), TextError> {
+    font.file
+        .as_deref()
+        .map_or(Ok(()), |file| TextEngine::global().open_font_file(file))
 }
 
 #[cfg(test)]

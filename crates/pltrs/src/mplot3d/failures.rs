@@ -113,7 +113,7 @@ impl Axes3D {
     }
 
     /// The id of `artist` when it is drawn on these axes.
-    fn plane_child(&self, artist: &impl ArtistHandle) -> Result<ArtistId, Axes3DError> {
+    pub(super) fn plane_child(&self, artist: &impl ArtistHandle) -> Result<ArtistId, Axes3DError> {
         let plane = self.plane().id();
         let id = self.own_id(artist).ok_or(Axes3DError::ForeignArtist)?;
         let on_plane = (self.raw().figure_state().borrow().artist(id))

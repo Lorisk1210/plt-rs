@@ -81,6 +81,7 @@ pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<Exceptio
         DrawErrorKind::OutOfRange => Some(ExceptionKind::IndexError),
         DrawErrorKind::MissingAttribute => Some(ExceptionKind::AttributeError),
         DrawErrorKind::OutOfMemory => Some(ExceptionKind::MemoryError),
+        DrawErrorKind::FileNotFound => Some(ExceptionKind::FileNotFoundError),
         DrawErrorKind::Other => None,
     }
 }

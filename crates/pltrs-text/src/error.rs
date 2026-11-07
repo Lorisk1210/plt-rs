@@ -1,6 +1,7 @@
 //! Errors raised while laying out text.
 
 use std::fmt;
+use std::path::PathBuf;
 
 /// Why text could not be laid out.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,6 +29,10 @@ pub enum TextError {
     },
     /// TeX could not typeset or draw usetex text.
     Tex(crate::tex::TexError),
+    /// The font file a text names (matplotlib's `FontProperties(fname=
+    /// ...)`) does not exist; matplotlib accepts the name and fails with a
+    /// `FileNotFoundError` when it opens the file to measure the text.
+    MissingFontFile(PathBuf),
 }
 
 impl TextError {
@@ -56,6 +61,11 @@ impl fmt::Display for TextError {
             ),
             Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
             Self::Tex(err) => err.fmt(f),
+            Self::MissingFontFile(path) => write!(
+                f,
+                "[Errno 2] No such file or directory: '{}'",
+                path.display()
+            ),
         }
     }
 }

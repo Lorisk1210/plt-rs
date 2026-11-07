@@ -50,22 +50,110 @@ pub struct GridLine {
     pub style: GridStyle,
 }
 
+/// The look of tick marks (matplotlib's `tick1line` and `tick2line`, the
+/// marker lines of a tick) on top of the style they follow; unset fields
+/// keep it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TickMarkProps {
+    /// Edge colour of the marks, the colour of matplotlib's line-like tick
+    /// markers (`tick1line.set_markeredgecolor(...)`).
+    pub markeredgecolor: Option<Color>,
+    /// Colour of the marks (`tick1line.set_color(...)`). Their edges, all
+    /// a mark draws, keep the colour they had unless `markeredgecolor` is
+    /// set, as matplotlib's tick lines are made with an edge colour of
+    /// their own.
+    pub color: Option<Color>,
+    /// Length of the marks in points (`set_markersize`).
+    pub size: Option<f64>,
+    /// Line width of the marks in points (`set_markeredgewidth`).
+    pub width: Option<f64>,
+}
+
+pltrs_core::archive_struct!(TickMarkProps {
+    markeredgecolor,
+    color,
+    size,
+    width
+});
+
+impl TickMarkProps {
+    /// `self` with every property set in `newer` replaced.
+    fn overlay(&self, newer: &Self) -> Self {
+        Self {
+            markeredgecolor: newer
+                .markeredgecolor
+                .clone()
+                .or_else(|| self.markeredgecolor.clone()),
+            color: newer.color.clone().or_else(|| self.color.clone()),
+            size: newer.size.or(self.size),
+            width: newer.width.or(self.width),
+        }
+    }
+
+    /// Sets the mark properties of `style` that are set here.
+    pub fn apply(&self, style: &mut TickStyle) {
+        if let Some(color) = &self.color {
+            if style.edgecolor.is_none() {
+                style.edgecolor = Some(style.color.clone());
+            }
+            style.color = color.clone();
+        }
+        if self.markeredgecolor.is_some() {
+            style.edgecolor.clone_from(&self.markeredgecolor);
+        }
+        if let Some(size) = self.size {
+            style.size = size;
+        }
+        if let Some(width) = self.width {
+            style.width = width;
+        }
+    }
+
+    /// The properties that make the marks of `under` look as those of
+    /// `style` do: its size, width, colour and edge colour where they
+    /// differ.
+    pub fn between(style: &TickStyle, under: &TickStyle) -> Self {
+        Self {
+            markeredgecolor: own(style.mark_edgecolor(), &under.mark_edgecolor()),
+            color: own(style.color.clone(), &under.color),
+            size: own(style.size, &under.size),
+            width: own(style.width, &under.width),
+        }
+    }
+
+    /// Unsets the properties that tick parameters setting the colour
+    /// (`color`), the length (`length`) and the width (`width`) give
+    /// back to the level (matplotlib's `Tick._apply_params` setting them
+    /// on both marks).
+    pub(crate) fn clear(&mut self, color: bool, length: bool, width: bool) {
+        if color {
+            self.color = None;
+            self.markeredgecolor = None;
+        }
+        if length {
+            self.size = None;
+        }
+        if width {
+            self.width = None;
+        }
+    }
+}
+
+/// `value` when it differs from `current`.
+fn own<T: PartialEq>(value: T, current: &T) -> Option<T> {
+    (value != *current).then_some(value)
+}
+
 /// The look of one tick's marks and gridline on top of the style of its
 /// level; unset fields keep it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickLineProps {
-    /// Edge colour of the tick marks, the colour of matplotlib's line-like
-    /// tick markers (`tick1line.set_markeredgecolor(...)`).
-    pub markeredgecolor: Option<Color>,
-    /// Colour of the tick marks (`tick1line.set_color(...)`). Their edges,
-    /// all a mark draws, keep the colour they had unless `markeredgecolor`
-    /// is set, as matplotlib's tick lines are made with an edge colour of
-    /// their own.
-    pub color: Option<Color>,
-    /// Length of the tick marks in points (`set_markersize`).
-    pub size: Option<f64>,
-    /// Line width of the tick marks in points (`set_markeredgewidth`).
-    pub width: Option<f64>,
+    /// The look of both marks (the mark on the second side takes
+    /// `second_mark` on top).
+    pub marks: TickMarkProps,
+    /// What the mark on the second side (top or right) has of its own,
+    /// on top of `marks` (matplotlib's `tick2line` changed alone).
+    pub second_mark: TickMarkProps,
     /// Whether the mark on the first side (bottom or left) is drawn
     /// (`tick1line.set_visible(...)`, `tick1On`).
     pub tick1_visible: Option<bool>,
@@ -85,10 +173,8 @@ pub struct TickLineProps {
 }
 
 pltrs_core::archive_struct!(TickLineProps {
-    markeredgecolor,
-    color,
-    size,
-    width,
+    marks,
+    second_mark,
     tick1_visible,
     tick2_visible,
     grid_visible,
@@ -102,13 +188,8 @@ impl TickLineProps {
     /// `self` with every property set in `newer` replaced.
     fn overlay(&self, newer: &Self) -> Self {
         Self {
-            markeredgecolor: newer
-                .markeredgecolor
-                .clone()
-                .or_else(|| self.markeredgecolor.clone()),
-            color: newer.color.clone().or_else(|| self.color.clone()),
-            size: newer.size.or(self.size),
-            width: newer.width.or(self.width),
+            marks: self.marks.overlay(&newer.marks),
+            second_mark: self.second_mark.overlay(&newer.second_mark),
             tick1_visible: newer.tick1_visible.or(self.tick1_visible),
             tick2_visible: newer.tick2_visible.or(self.tick2_visible),
             grid_visible: newer.grid_visible.or(self.grid_visible),
@@ -124,21 +205,8 @@ impl TickLineProps {
 
     /// Sets the mark and gridline properties of `style` that are set here.
     pub(crate) fn apply(&self, style: &mut TickStyle) {
-        if let Some(color) = &self.color {
-            if style.edgecolor.is_none() {
-                style.edgecolor = Some(style.color.clone());
-            }
-            style.color = color.clone();
-        }
-        if self.markeredgecolor.is_some() {
-            style.edgecolor.clone_from(&self.markeredgecolor);
-        }
-        if let Some(size) = self.size {
-            style.size = size;
-        }
-        if let Some(width) = self.width {
-            style.width = width;
-        }
+        self.marks.apply(style);
+        style.second_mark = style.second_mark.overlay(&self.second_mark);
         if let Some(visible) = self.tick1_visible {
             style.ticks.first = visible;
         }
@@ -195,23 +263,23 @@ impl Axis {
         Ok(self.read(|axis| {
             styled(axis, unclipped, in_view, minor)
                 .flat_map(|(tick, in_view, style)| {
-                    [false, true].map(|high| TickLine {
-                        loc: tick.loc,
-                        side: SpineSide::of(name, high),
-                        visible: if high {
-                            style.ticks.second
-                        } else {
-                            style.ticks.first
-                        },
-                        in_view,
-                        size: style.size,
-                        width: style.width,
-                        direction: style.direction,
-                        color: style.color.clone(),
-                        edgecolor: style
-                            .edgecolor
-                            .clone()
-                            .unwrap_or_else(|| style.color.clone()),
+                    [false, true].map(|high| {
+                        let mark = style.mark_style(high);
+                        TickLine {
+                            loc: tick.loc,
+                            side: SpineSide::of(name, high),
+                            visible: if high {
+                                mark.ticks.second
+                            } else {
+                                mark.ticks.first
+                            },
+                            in_view,
+                            size: mark.size,
+                            width: mark.width,
+                            direction: mark.direction,
+                            color: mark.color.clone(),
+                            edgecolor: mark.mark_edgecolor(),
+                        }
                     })
                 })
                 .collect()
@@ -352,7 +420,10 @@ mod tests {
             2,
             TickLineProps {
                 grid_visible: Some(true),
-                markeredgecolor: Some(Color::from("red")),
+                marks: TickMarkProps {
+                    markeredgecolor: Some(Color::from("red")),
+                    ..TickMarkProps::default()
+                },
                 ..TickLineProps::default()
             },
         );
@@ -386,7 +457,10 @@ mod tests {
         let ax = Figure::new().subplot();
         ax.set_xticks([0.0, 0.5, 1.0]);
         let red = TickLineProps {
-            markeredgecolor: Some(Color::from("red")),
+            marks: TickMarkProps {
+                markeredgecolor: Some(Color::from("red")),
+                ..TickMarkProps::default()
+            },
             grid_visible: Some(true),
             grid_linewidth: Some(1.5),
             ..TickLineProps::default()
@@ -422,6 +496,52 @@ mod tests {
             styled.grid.linestyle,
             LineStyle::Dotted,
             "later calls add up"
+        );
+    }
+
+    #[test]
+    fn the_second_mark_of_a_tick_keeps_a_look_of_its_own() {
+        let ax = Figure::new().subplot();
+        ax.set_xticks([0.0, 0.5, 1.0]);
+        ax.xaxis().set_major_tick_line_props(
+            1,
+            TickLineProps {
+                marks: TickMarkProps {
+                    width: Some(2.0),
+                    ..TickMarkProps::default()
+                },
+                second_mark: TickMarkProps {
+                    size: Some(9.0),
+                    color: Some(Color::from("red")),
+                    ..TickMarkProps::default()
+                },
+                tick2_visible: Some(true),
+                ..TickLineProps::default()
+            },
+        );
+        let marks = ax.xaxis().ticklines(false).expect("ticks");
+        let level = ax.xaxis().tick_style(false);
+        let looks: Vec<(f64, f64)> = marks.iter().map(|mark| (mark.size, mark.width)).collect();
+        assert_eq!(
+            looks[2..4],
+            [(level.size, 2.0), (9.0, 2.0)],
+            "the first mark keeps the size of its level"
+        );
+        assert_eq!(
+            (looks[0], looks[5]),
+            ((level.size, level.width), (level.size, level.width))
+        );
+        assert_eq!(marks[3].color, Color::from("red"));
+        assert_eq!(marks[3].edgecolor, level.color, "the edge keeps its colour");
+        assert_eq!(marks[2].color, level.color);
+        let style = ax.xaxis().tick_style_at(false, 1);
+        assert_eq!(
+            TickMarkProps::between(&style.mark_style(true), &style),
+            TickMarkProps {
+                size: Some(9.0),
+                color: Some(Color::from("red")),
+                ..TickMarkProps::default()
+            }
         );
     }
 }

@@ -28,13 +28,14 @@ from pltrs.axes._base import _SharedAxes
 from pltrs.axes._ticks import _axis_method_wrapper
 from pltrs._artist_kwargs import keep_program_picker
 from pltrs._preprocess import _preprocess_data
+from pltrs._program_classes import takes_from_program
 from pltrs.axes._plotting._helpers import wrap
 from pltrs.axes._plotting.lines import _plot_datasets
 from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
 from pltrs.transforms import Bbox
 
-from . import _draw_problems, art3d, axis3d
+from . import _draw_problems, _program_projection, art3d, axis3d
 from ._charts import ChartsMixin
 from ._contours import ContoursMixin
 from ._limit_boxes import LimitBoxesMixin
@@ -1972,10 +1973,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def _without_projection(self, artist):
         """Record that the draws of the axes fail on *artist* when it is a
         2-D collection or patch, without the 3-D projection matplotlib's
-        draw asks the collections and patches for; return it."""
-        if (isinstance(artist, (mcoll.Collection, mpatches.Patch))
-                and not hasattr(artist, 'do_3d_projection')):
-            _draw_problems.record(artist, _draw_problems.missing_projection(artist))
+        draw asks the collections and patches for, and have them call the
+        projection of one whose class gives it; return it."""
+        if isinstance(artist, (mcoll.Collection, mpatches.Patch)):
+            if not hasattr(artist, 'do_3d_projection'):
+                _draw_problems.record(artist, _draw_problems.missing_projection(artist))
+            elif takes_from_program(type(artist), 'do_3d_projection'):
+                _program_projection.follow(self, artist)
         return artist
 
     # -- plotting ----------------------------------------------------------

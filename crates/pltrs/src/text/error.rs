@@ -39,6 +39,7 @@ impl TextDrawError {
                 | TextError::Tex(TexError::NoType1Font { .. } | TexError::Measuring { .. }),
             )
             | Self::Color(_) => DrawErrorKind::InvalidValue,
+            Self::Layout(TextError::MissingFontFile(_)) => DrawErrorKind::FileNotFound,
             _ => DrawErrorKind::Other,
         }
     }

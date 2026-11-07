@@ -54,7 +54,8 @@ impl From<Axes3DError> for PyErr {
                 ExceptionKind::TypeError
             }
             Axes3DError::Draw(failure) => {
-                super::figure::draw_exception(failure.kind).unwrap_or(ExceptionKind::RuntimeError)
+                return super::figure::draw_error(failure.kind, &failure.message)
+                    .unwrap_or_else(|| PyErr::runtime_error(failure.message.clone()));
             }
             _ => ExceptionKind::ValueError,
         };

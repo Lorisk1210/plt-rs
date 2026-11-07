@@ -130,8 +130,7 @@ class VoxelsMixin:
                  else _cell_colors(facecolors, cells, 'facecolors'))
         edges = (None if edgecolors is None
                  else _cell_colors(edgecolors, cells, 'edgecolors'))
-        light = (None if lightsource is None
-                 else (float(lightsource.azdeg), float(lightsource.altdeg)))
+        light = art3d._native_light(lightsource)
         made = _mplot3d.voxels(
             self._native, np.ascontiguousarray(filled, dtype=bool), corners,
             (None if faces is None else np.ascontiguousarray(faces, dtype=float),

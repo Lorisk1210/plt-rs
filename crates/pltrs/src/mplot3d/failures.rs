@@ -11,6 +11,11 @@
 //! its axes are, and draws its lines and texts among its other artists.
 //! A recorded problem is reported at the same place, and its artist is
 //! left undrawn.
+//!
+//! matplotlib also keeps view angles it cannot compute a projection with
+//! ([`Axes3D::set_view_failure`]), and a draw fails computing the
+//! projection once the background is drawn, as it does for a singular
+//! projection (one with an infinite limit, say).
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -44,21 +49,31 @@ impl fmt::Display for DrawFailure {
 
 impl std::error::Error for DrawFailure {}
 
-/// The problems recorded for the artists of a 3-D axes.
+/// The problems recorded for the artists of a 3-D axes and for its view.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct DrawFailures(BTreeMap<ArtistId, DrawFailure>);
+pub(crate) struct DrawFailures {
+    /// The problem drawing each artist meets.
+    artists: BTreeMap<ArtistId, DrawFailure>,
+    /// The problem computing the projection of the view meets.
+    view: Option<DrawFailure>,
+}
 
-pltrs_core::archive_struct!(DrawFailures(v0));
+pltrs_core::archive_struct!(DrawFailures { artists, view });
 
 impl DrawFailures {
     /// The problem recorded for artist `id`.
     pub(crate) fn of(&self, id: ArtistId) -> Option<&DrawFailure> {
-        self.0.get(&id)
+        self.artists.get(&id)
+    }
+
+    /// The problem recorded for the view.
+    pub(crate) fn of_view(&self) -> Option<&DrawFailure> {
+        self.view.as_ref()
     }
 
     /// Forgets the problems of the artists `store` no longer holds.
     pub(crate) fn retain_in(&mut self, store: &ArtistStore) {
-        self.0.retain(|&id, _| store.contains(id));
+        self.artists.retain(|&id, _| store.contains(id));
     }
 }
 
@@ -98,8 +113,8 @@ impl Axes3D {
     ) -> Result<&Self, Axes3DError> {
         let id = self.plane_child(artist)?;
         self.with_mut(|axes| match failure {
-            Some(failure) => axes.failures.0.insert(id, failure),
-            None => axes.failures.0.remove(&id),
+            Some(failure) => axes.failures.artists.insert(id, failure),
+            None => axes.failures.artists.remove(&id),
         });
         self.raw().figure_state().borrow_mut().stale = true;
         Ok(self)
@@ -110,6 +125,40 @@ impl Axes3D {
     pub fn draw_failure(&self, artist: &impl ArtistHandle) -> Option<DrawFailure> {
         let id = self.own_id(artist)?;
         self.with(|axes| axes.failures.of(id).cloned())
+    }
+
+    /// Records that computing the projection of the axes meets `failure`
+    /// (`None` forgets one): matplotlib keeps view angles it cannot compute
+    /// with (a roll given as a string, say) and fails at its next draw,
+    /// once the background is drawn, where a draw of these axes reports
+    /// `failure`.
+    ///
+    /// ```
+    /// use pltrs::artist::DrawErrorKind;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::DrawFailure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let failure = DrawFailure {
+    ///     kind: DrawErrorKind::InvalidType,
+    ///     message: "a roll of no number".into(),
+    /// };
+    /// ax.set_view_failure(Some(failure.clone()));
+    /// assert_eq!(ax.view_failure(), Some(failure));
+    /// assert!(fig.canvas().draw().is_err());
+    /// ax.set_view_failure(None);
+    /// assert!(fig.canvas().draw().is_ok());
+    /// ```
+    pub fn set_view_failure(&self, failure: Option<DrawFailure>) -> &Self {
+        self.with_mut(|axes| axes.failures.view = failure);
+        self.raw().figure_state().borrow_mut().stale = true;
+        self
+    }
+
+    /// The problem recorded for computing the projection (see
+    /// [`Axes3D::set_view_failure`]).
+    pub fn view_failure(&self) -> Option<DrawFailure> {
+        self.with(|axes| axes.failures.view.clone())
     }
 
     /// The id of `artist` when it is drawn on these axes.
@@ -123,6 +172,19 @@ impl Axes3D {
 }
 
 impl Axes3DState {
+    /// The problem matplotlib's draw meets computing the projection of the
+    /// axes (`get_proj`, then its inverse) once the background is drawn:
+    /// the one recorded for the view, else a singular projection's.
+    pub(super) fn projection_problem(&self) -> Option<DrawFailure> {
+        if let Some(failure) = self.failures.of_view() {
+            return Some(failure.clone());
+        }
+        self.projection().matrix.is_singular().then(|| DrawFailure {
+            kind: DrawErrorKind::Singular,
+            message: "Singular matrix".to_owned(),
+        })
+    }
+
     /// The problem recorded for artist `id` of the plane when the axes
     /// projects it before drawing (a collection or a patch), else `None`.
     fn projection_failure<'a>(
@@ -143,7 +205,7 @@ impl Axes3DState {
     /// visible collections or patches has one recorded.
     pub(super) fn stops_projecting(&self, store: &ArtistStore) -> bool {
         draws_stop_at_first_problem()
-            && self.failures.0.keys().any(|&id| {
+            && self.failures.artists.keys().any(|&id| {
                 store.get(id).is_some_and(|a| a.base().visible)
                     && self.projection_failure(store, id).is_some()
             })

@@ -133,14 +133,22 @@ fn add_contour_set(
     Ok(())
 }
 
-/// Places the filled contour set `set` of the axes' projection plane in
-/// 3-D and returns the positions of its bands (`_add_contourf_set`).
-fn add_contourf_set(axes: Axes3D, set: ContourSet, place: Placement) -> PyResult<Vec<f64>> {
-    Ok(axes.add_contourf_set(&set, placement(place)?)?)
+/// Places the paths of the contour set `set` of the axes' projection plane
+/// in 3-D, path `i` at `positions[i]` along `zdir` (`collection_2d_to_3d`
+/// of `add_contour_set` and `add_contourf_set`).
+fn lift_contour_paths(
+    axes: Axes3D,
+    set: ContourSet,
+    (zdir, axlim_clip): (String, bool),
+    positions: Vec<f64>,
+) -> PyResult<()> {
+    axes.lift_contour_paths(&set, zdir_axis(&zdir)?, &positions, axlim_clip)?;
+    Ok(())
 }
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("lift_contour_paths", lift_contour_paths)?;
     module.add("set_sort_zpos", set_sort_zpos)?;
     module.add("set_zsort", set_zsort)?;
     module.add("set_poly_verts", set_poly_verts)?;
@@ -149,6 +157,5 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_poly_3d_properties", set_poly_3d_properties)?;
     module.add("lift_paths", lift_paths)?;
     module.add("set_axlim_clip", set_axlim_clip)?;
-    module.add("add_contour_set", add_contour_set)?;
-    module.add("add_contourf_set", add_contourf_set)
+    module.add("add_contour_set", add_contour_set)
 }

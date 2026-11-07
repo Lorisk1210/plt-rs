@@ -165,6 +165,52 @@ impl Matrix4 {
         Some(Self(inv))
     }
 
+    /// Whether LAPACK's LU factorization of the matrix with partial
+    /// pivoting (`dgetrf`, which numpy's `linalg.inv` runs) meets a zero
+    /// pivot, on which numpy raises `LinAlgError: Singular matrix`. The
+    /// pivot of a column is its first entry of the largest magnitude, as
+    /// BLAS's `idamax` picks it: a NaN only when it comes first, so that
+    /// NaN entries spread through the elimination without failing it,
+    /// unless they sit beside zeros.
+    ///
+    /// ```
+    /// use pltrs::mplot3d::math::Matrix4;
+    /// let flat_x = Matrix4::from_rows([
+    ///     [0.0, 1.0, 0.0, f64::NAN],
+    ///     [0.0, 1.0, 1.0, f64::NAN],
+    ///     [0.0, 0.0, 1.0, f64::NAN],
+    ///     [0.0, 1.0, 0.0, 1.0],
+    /// ]);
+    /// assert!(flat_x.is_singular());
+    /// assert!(!Matrix4::IDENTITY.is_singular());
+    /// ```
+    pub fn is_singular(&self) -> bool {
+        let mut a = self.0;
+        for col in 0..4 {
+            let pivot = (col + 1..4).fold(col, |best, row| {
+                if a[row][col].abs() > a[best][col].abs() {
+                    row
+                } else {
+                    best
+                }
+            });
+            if a[pivot][col] == 0.0 {
+                return true;
+            }
+            a.swap(col, pivot);
+            let (above, below) = a.split_at_mut(col + 1);
+            let pivot_row = above[col];
+            let reciprocal = 1.0 / pivot_row[col];
+            for row in below {
+                let factor = row[col] * reciprocal;
+                for (cell, &pivot_cell) in row.iter_mut().zip(&pivot_row).skip(col + 1) {
+                    *cell -= factor * pivot_cell;
+                }
+            }
+        }
+        false
+    }
+
     /// Projects a single point: `self · [x, y, z, 1]` divided by its last
     /// component (matplotlib's `proj_transform` of scalars).
     pub fn project(&self, p: Vec3) -> Vec3 {
@@ -318,6 +364,32 @@ mod tests {
             }
         }
         assert_eq!(Matrix4::from_rows([[0.0; 4]; 4]).inverse(), None);
+    }
+
+    #[test]
+    fn singular_matrices_are_those_lapack_meets_a_zero_pivot_in() {
+        let nan = f64::NAN;
+        let rows = |first: [f64; 4]| {
+            Matrix4::from_rows([
+                first,
+                [0.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0, 1.0],
+            ])
+        };
+        // A NaN pivot taken first spreads without failing.
+        assert!(!rows([nan, 1.0, 0.0, 0.0]).is_singular());
+        // A NaN after a zero is never the largest entry: the zero pivots.
+        let mut late_nan = *rows([0.0, 1.0, 0.0, 0.0]).rows();
+        late_nan[1][0] = nan;
+        assert!(Matrix4::from_rows(late_nan).is_singular());
+        // An infinite pivot does not fail either.
+        assert!(!rows([f64::INFINITY, 1.0, 0.0, 0.0]).is_singular());
+        // Rows proportional to each other leave a zero pivot.
+        let mut dependent = *rows([1.0, 2.0, 3.0, 4.0]).rows();
+        dependent[1] = [2.0, 4.0, 6.0, 8.0];
+        assert!(Matrix4::from_rows(dependent).is_singular());
+        assert!(!rows([1.0, 2.0, 3.0, 4.0]).is_singular());
     }
 
     fn close(a: f64, b: f64) -> bool {

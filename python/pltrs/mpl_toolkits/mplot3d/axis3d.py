@@ -20,6 +20,11 @@ from . import art3d
 from .art3d import _no_projection_error
 
 
+
+def _same_truth(value, native):
+    """Whether the flag *value*, as given, is the bool *native*."""
+    return bool(value) == native
+
 class _AxisLinePart(_mirrors.Mirroring):
     """
     The bolded line of a 3-D axis, which pltrs (Rust) draws along the edge
@@ -97,13 +102,17 @@ class Axis(maxis.XAxis):
         return self.axes._native, self.axis_name
 
     def _get_autoscale_on(self):
-        # docstring inherited
-        return _mplot3d.get_autoscale_on(*self._native_args())
+        # docstring inherited; as given, as matplotlib keeps it, while
+        # pltrs (Rust) holds its truth.
+        return _values.given(self, "autoscale_on",
+                             _mplot3d.get_autoscale_on(*self._native_args()),
+                             same=_same_truth)
 
     def _set_autoscale_on(self, b):
         # docstring inherited
         if b is not None:
             _mplot3d.set_autoscale_on(*self._native_args(), bool(b))
+            _values.remember(self, "autoscale_on", b)
 
     def _drawn_by_drawer(self):
         # A 3-D axes draws its axes whenever it shows them (matplotlib's
@@ -304,6 +313,10 @@ class Axis(maxis.XAxis):
 
     def set_inverted(self, inverted):
         """Set whether this Axis is oriented in the "inverse" direction."""
+        # matplotlib sets the view interval again, in the order asked for:
+        # its limits are checked again.
+        if not np.isfinite(self.get_view_interval()).all():
+            raise ValueError("Axis limits cannot be NaN or Inf")
         _mplot3d.set_inverted(self.axes._native, self.axis_name, bool(inverted))
 
     def get_tick_space(self):

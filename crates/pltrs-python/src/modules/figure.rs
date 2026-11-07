@@ -16,6 +16,7 @@ use pltrs_render::{RasterBackendError, VectorError};
 
 use super::gridspec::Overrides;
 use crate::binding::prelude::*;
+use crate::binding::registered_error;
 
 artist_handle!(Figure);
 
@@ -51,17 +52,24 @@ impl From<SizeError> for PyErr {
 
 impl From<DrawErrors> for PyErr {
     /// The first problem as matplotlib raises it, drawing stopping there
-    /// (see [`draw_exception`]), else a `RuntimeError` naming every
-    /// problem.
+    /// (see [`draw_error`]), else a `RuntimeError` naming every problem.
     fn from(errors: DrawErrors) -> Self {
-        match errors.0.first() {
-            Some(first) => match draw_exception(first.kind) {
-                Some(kind) => PyErr::new(kind, first.message.clone()),
-                None => PyErr::runtime_error(errors.to_string()),
-            },
-            None => PyErr::runtime_error(errors.to_string()),
-        }
+        errors
+            .0
+            .first()
+            .and_then(|first| draw_error(first.kind, &first.message))
+            .unwrap_or_else(|| PyErr::runtime_error(errors.to_string()))
     }
+}
+
+/// The exception matplotlib raises for a problem of `kind` met drawing,
+/// with `message`: those of [`draw_exception`], and numpy's `LinAlgError`
+/// for a matrix without inverse; `None` for any other problem.
+pub(in crate::modules) fn draw_error(kind: DrawErrorKind, message: &str) -> Option<PyErr> {
+    if kind == DrawErrorKind::Singular {
+        return Some(registered_error("LinAlgError", message));
+    }
+    draw_exception(kind).map(|kind| PyErr::new(kind, message.to_owned()))
 }
 
 /// The exception matplotlib raises for a problem of `kind` met drawing:
@@ -82,7 +90,7 @@ pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<Exceptio
         DrawErrorKind::MissingAttribute => Some(ExceptionKind::AttributeError),
         DrawErrorKind::OutOfMemory => Some(ExceptionKind::MemoryError),
         DrawErrorKind::FileNotFound => Some(ExceptionKind::FileNotFoundError),
-        DrawErrorKind::Other => None,
+        DrawErrorKind::Singular | DrawErrorKind::Other => None,
     }
 }
 

@@ -37,18 +37,6 @@ fn get_bound(axes: Axes3D, name: String) -> PyResult<(f64, f64)> {
     Ok(axes.bound(axis3(&name)?))
 }
 
-/// Sets the bounds of axis `name` keeping its orientation, `None` keeping
-/// a bound, widened by `view_margin` (`set_xbound`, ...).
-fn set_bound(
-    axes: Axes3D,
-    name: String,
-    (lower, upper): (Option<f64>, Option<f64>),
-    view_margin: Option<f64>,
-) -> PyResult<()> {
-    axes.set_bound_with_margin(axis3(&name)?, lower, upper, view_margin)?;
-    Ok(())
-}
-
 /// The padding of autoscaled limits as a fraction of their span
 /// (`_view_margin`).
 fn get_view_margin(axes: Axes3D) -> PyResult<f64> {
@@ -57,7 +45,7 @@ fn get_view_margin(axes: Axes3D) -> PyResult<f64> {
 
 /// Sets the padding of autoscaled limits (`_view_margin`).
 fn set_view_margin(axes: Axes3D, margin: f64) -> PyResult<()> {
-    axes.set_view_margin(margin)?;
+    axes.set_view_margin(margin);
     Ok(())
 }
 
@@ -210,7 +198,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_lim", get_lim)?;
     module.add("set_lim", set_lim)?;
     module.add("get_bound", get_bound)?;
-    module.add("set_bound", set_bound)?;
     module.add("get_view_margin", get_view_margin)?;
     module.add("set_view_margin", set_view_margin)?;
     module.add("get_autoscale_on", get_autoscale_on)?;

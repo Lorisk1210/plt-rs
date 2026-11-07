@@ -38,12 +38,21 @@ pltrs_core::archive_struct!(DrawnMatrices { matrix, inverse });
 impl Axes3DState {
     /// Keeps the projection of the view as it is now as the one drawn
     /// with (matplotlib's `self.M = self.get_proj()` and `self.invM =
-    /// np.linalg.inv(self.M)`).
+    /// np.linalg.inv(self.M)`, which fails on a singular matrix and leaves
+    /// the inverse of the last draw; a view `get_proj` fails on leaves
+    /// both).
     fn keep_projection(&mut self) {
+        if self.failures.of_view().is_some() {
+            return;
+        }
         let matrix = self.projection().matrix;
         self.drawn = DrawnMatrices {
             matrix: Some(matrix),
-            inverse: numpy_inverse(&matrix),
+            inverse: if matrix.is_singular() {
+                self.drawn.inverse
+            } else {
+                numpy_inverse(&matrix)
+            },
         };
     }
 

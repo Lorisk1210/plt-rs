@@ -100,9 +100,10 @@ pub(crate) fn shade_colors(
 
 /// The alpha factor of each point at projected depth `zs`: 1 for the
 /// nearest, fading to `min_alpha` over `data_scale` (matplotlib's
-/// `_zalpha`).
+/// `_zalpha`). A NaN `min_alpha` makes every factor NaN, as numpy's `clip`
+/// to a NaN bound does.
 pub(crate) fn depth_alphas(zs: &[f64], min_alpha: f64, data_scale: f64) -> Vec<f64> {
-    let min_alpha = min_alpha.clamp(0.0, 1.0);
+    let min_alpha = numpy_clip(min_alpha, 0.0, 1.0);
     if data_scale == 0.0 {
         return vec![1.0; zs.len()];
     }
@@ -112,13 +113,31 @@ pub(crate) fn depth_alphas(zs: &[f64], min_alpha: f64, data_scale: f64) -> Vec<f
         .filter(|z| !z.is_nan())
         .fold(f64::INFINITY, f64::min);
     zs.iter()
-        .map(|z| (1.0 - (z - nearest) / data_scale).clamp(min_alpha, 1.0))
+        .map(|z| numpy_clip(1.0 - (z - nearest) / data_scale, min_alpha, 1.0))
         .collect()
+}
+
+/// `value` limited to `[low, high]` as numpy's `clip` limits it: NaN when
+/// any of the three is NaN.
+fn numpy_clip(value: f64, low: f64, high: f64) -> f64 {
+    if value.is_nan() || low.is_nan() || high.is_nan() {
+        f64::NAN
+    } else {
+        value.max(low).min(high)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_nan_minimum_alpha_makes_every_alpha_nan() {
+        let alphas = depth_alphas(&[0.0, 1.0], f64::NAN, 2.0);
+        assert!(alphas.iter().all(|a| a.is_nan()));
+        assert_eq!(depth_alphas(&[0.0, 1.0], -1.5, 2.0), [1.0, 0.5]);
+        assert_eq!(depth_alphas(&[0.0, 4.0], f64::INFINITY, 2.0), [1.0, 1.0]);
+    }
 
     #[test]
     fn light_direction_matches_matplotlib() {

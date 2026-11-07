@@ -230,6 +230,33 @@ impl Axes3D {
         Ok(self.lift_contourf(set, set.extend(), placement))
     }
 
+    /// Places the contour paths of `set`, drawn on the projection plane of
+    /// these axes, in 3-D: path `i` in the plane at `positions[i]` along
+    /// `zdir` (NaN for a path beyond them), its points outside the view
+    /// limits hidden with `axlim_clip` (matplotlib's `collection_2d_to_3d`
+    /// of a contour set, which `add_contour_set` and `add_contourf_set`
+    /// give an offset per path).
+    ///
+    /// # Errors
+    ///
+    /// When `set` is not drawn on these axes.
+    pub fn lift_contour_paths(
+        &self,
+        set: &ContourSet,
+        zdir: Axis3,
+        positions: &[f64],
+        axlim_clip: bool,
+    ) -> Result<(), Axes3DError> {
+        self.check_on_plane(set)?;
+        let placement = ContourPlacement {
+            zdir,
+            offset: None,
+            axlim_clip,
+        };
+        self.lift(set, placement, positions);
+        Ok(())
+    }
+
     /// Fails unless `set` is drawn on the projection plane of these axes.
     fn check_on_plane(&self, set: &ContourSet) -> Result<(), Axes3DError> {
         if set.axes().id() == self.plane().id() {
@@ -288,10 +315,13 @@ impl Axes3D {
 
     /// Places the contour paths of `set` in 3-D: path `i` in the plane at
     /// the placement's offset, or at `positions[i]`, along its `zdir`
-    /// (matplotlib's `collection_2d_to_3d`).
+    /// (matplotlib's `collection_2d_to_3d`), in place of a placement made
+    /// before.
     fn lift(&self, set: &ContourSet, placement: ContourPlacement, positions: &[f64]) {
         let mut index = 0;
         for collection in set.collections() {
+            let id = collection.id();
+            self.with_mut(|axes| axes.artists.retain(|artist| artist.id != id));
             let paths = collection
                 .paths()
                 .into_iter()
@@ -309,7 +339,7 @@ impl Axes3D {
                     Path3D::new(path, vertices)
                 })
                 .collect();
-            self.register(collection.id(), Art3D::Paths(paths), placement.axlim_clip);
+            self.register(id, Art3D::Paths(paths), placement.axlim_clip);
         }
     }
 
@@ -470,6 +500,31 @@ mod tests {
             1,
             "one ribbon collection"
         );
+    }
+
+    #[test]
+    fn contour_paths_lift_at_a_position_each() {
+        let x = linspace(0.0, 3.0, 4);
+        let (xx, yy) = meshgrid(&x, &x);
+        let zz = Grid::from_fn(4, 4, |i, j| xx[(i, j)] + yy[(i, j)]);
+        let ax = Figure::new().subplot_3d();
+        let set = ax
+            .contour(&xx, &yy, &zz, Contour3DOptions::default())
+            .unwrap();
+        let heights = || -> Vec<f64> {
+            ax.with(|axes| {
+                (axes.artists.iter())
+                    .filter(|artist| matches!(artist.art, Art3D::Paths(_)))
+                    .flat_map(|artist| artist.art.points())
+                    .map(|point| point[1])
+                    .collect()
+            })
+        };
+        ax.lift_contour_paths(&set, Axis3::Y, &vec![2.5; set.paths().len()], false)
+            .unwrap();
+        assert!(!heights().is_empty() && heights().iter().all(|&y| (y - 2.5).abs() < 1e-12));
+        ax.lift_contour_paths(&set, Axis3::Y, &[], false).unwrap();
+        assert!(heights().iter().all(|y| y.is_nan()), "beyond the positions");
     }
 
     #[test]

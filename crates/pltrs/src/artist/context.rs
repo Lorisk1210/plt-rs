@@ -269,6 +269,9 @@ pub enum DrawErrorKind {
     /// A file the program named that does not exist, such as the font
     /// file of a text (Python's `FileNotFoundError`).
     FileNotFound,
+    /// A matrix without inverse, such as the projection of a 3-D axes
+    /// through an infinite limit (numpy's `LinAlgError`).
+    Singular,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,
@@ -283,6 +286,7 @@ pltrs_core::archive_enum!(DrawErrorKind {
     OutOfMemory,
     MissingAttribute,
     FileNotFound,
+    Singular,
     Other
 });
 

@@ -24,7 +24,8 @@ from operator import methodcaller
 import numpy as np
 
 from pltrs import (
-    _api, _artist_picking, _handles, _live_transforms, _mirrors, cbook, rcParams)
+    _api, _artist_picking, _handles, _live_transforms, _mirrors, _unusable, cbook,
+    rcParams)
 import pltrs.artist as martist
 import pltrs.colors as mcolors
 import pltrs.text as mtext
@@ -35,6 +36,8 @@ from pltrs.path import Path
 from pltrs.transforms import Affine2D, Bbox, IdentityTransform, ScaledTranslation
 from pltrs._native import (
     artist as _artist, axisartist as _axisartist, text as _text)
+
+from . import _unchecked_parts
 
 
 class AttributeCopier:
@@ -93,6 +96,11 @@ class _Drawn(_mirrors.Mirroring):
 
     def refresh(self, artist):
         artist._refresh(self)
+
+    def owner(self):
+        """What the part is measured in the figure of: the Axes of its axis
+        artist, or the Axes that added it."""
+        return self.figure_of if self.axis_artist is None else self.axis_artist._axes_of
 
     def drawn_since(self, artist, key):
         """Whether the axis artist was drawn since *artist* last asked
@@ -383,29 +391,36 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         return (None if cbook._str_equal(color, "auto") else color,
                 None if cbook._str_equal(width, "auto") else float(width))
 
-    def _marks(self):
-        """The native description of ticks drawn on their own: their axis,
-        locations and angles, and style."""
+    def _native_ticksize(self, owner):
+        """The size pltrs (Rust) draws the ticks with (see
+        `._unchecked_parts`), in the figure of *owner*."""
+        return _unchecked_parts.points(self, "ticksize", self._ticksize,
+                                       _unchecked_parts.sized(owner))
+
+    def _marks(self, owner):
+        """The native description of ticks drawn on their own in the figure
+        of *owner*: their axis, locations and angles, and style."""
         color, width = self._own_style()
         return ("x" if self._axis is None else self._axis.axis_name,
                 [((float(x), float(y)), float(angle))
                  for (x, y), angle in self.__dict__.get("_locs_angles", [])],
-                (float(self._ticksize), self._tick_dir, color, width))
+                (self._native_ticksize(owner), self._tick_dir, color, width))
 
     def _restyle(self, drawn):
         if drawn.axis_artist is None:
-            _axisartist.set_tick_marks(drawn.native, *self._marks())
+            _axisartist.set_tick_marks(drawn.native, *self._marks(drawn.owner()))
             self._sync_drawn(drawn.native)
             return
         color, width = self._own_style()
         _axisartist.restyle_ticks(drawn.native, drawn.name, (
-            float(self._ticksize), self._tick_dir, bool(self.get_visible()),
-            color, width, self.get_alpha()))
-        _axisartist.set_ticks_transform(drawn.native, drawn.name,
-                                        _given_part_transform(self))
+            self._native_ticksize(drawn.owner()), self._tick_dir,
+            bool(self.get_visible()), color, width, self.get_alpha()))
+        _axisartist.set_ticks_transform(
+            drawn.native, drawn.name, _given_part_transform(self, _unchecked_parts.placed))
+        _unchecked_parts.note_kept(self, drawn)
 
     def _add_native(self, axes):
-        return _axisartist.add_tick_marks(axes._native, *self._marks())
+        return _axisartist.add_tick_marks(axes._native, *self._marks(axes))
 
     def _drawn_extent(self, drawn):
         return _mirrors.OWN
@@ -414,13 +429,16 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         pass
 
 
-def _given_part_transform(artist):
+def _given_part_transform(artist, use):
     """The native transform the program gave *artist*, a part of an axis
     artist (`~.Artist.set_transform`, `~.Artist.update_from`), which then
-    places it; None while the axis artist places it."""
-    if "_given_transform" not in artist.__dict__:
+    places it; None while the axis artist places it, as while the one
+    given is no transform (which the part keeps, failing as *use* does,
+    see `._unchecked_parts`)."""
+    given = artist.__dict__.get("_given_transform")
+    if (not _unchecked_parts.usable_transform(artist, given, use)
+            or "_given_transform" not in artist.__dict__):
         return None
-    given = artist.__dict__["_given_transform"]
     return _live_transforms.to_native(IdentityTransform() if given is None else given)
 
 
@@ -578,36 +596,50 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         x, y = self.get_position()
         return [((float(x), float(y)), float(self._ref_angle), self.get_text())]
 
-    def _description(self):
-        """The native description of the texts drawn on their own."""
+    def _draws_text(self):
+        """Whether matplotlib's draw of the text draws a line (an empty
+        text draws none)."""
+        return bool(self.get_text())
+
+    def _native_pad(self, owner):
+        """The pad pltrs (Rust) leaves, in points (see `._unchecked_parts`),
+        in the figure of *owner*."""
+        return _unchecked_parts.points(self, "pad", self._pad_points(),
+                                       _unchecked_parts.padded(owner))
+
+    def _description(self, owner):
+        """The native description of the texts drawn on their own in the
+        figure of *owner*."""
         return (self._KIND, float(self._offset_radius), self._texts(), (
-            float(self._pad_points()), self._resolved_color(),
+            self._native_pad(owner), self._resolved_color(),
             float(self.get_fontsize()), _look_of(self),
             float(self.get_rotation()), (self.get_va(), self.get_ha()),
             self.__dict__.get("_axis_direction", "bottom")))
 
     def _restyle(self, drawn):
         if drawn.axis_artist is None:
-            _axisartist.set_axis_texts(drawn.native, self._description())
+            _axisartist.set_axis_texts(drawn.native, self._description(drawn.owner()))
             self._sync_drawn(drawn.native)
             return
         color = mtext.Text.get_color(self)
         _axisartist.restyle_label(drawn.native, drawn.name, (
-            (bool(self.get_visible()), float(self._pad_points()),
+            (bool(self.get_visible()), self._native_pad(drawn.owner()),
              None if cbook._str_equal(color, "auto") else color),
             (float(self.get_fontsize()), _look_of(self), float(self.get_rotation())),
             (self.get_va(), self.get_ha(), self._axis_direction),
             self._part_text()))
         _axisartist.set_part_bbox(drawn.native, drawn.name, self._native)
-        _axisartist.set_text_transform(drawn.native, drawn.name,
-                                       _given_part_transform(self))
+        _axisartist.set_text_transform(
+            drawn.native, drawn.name, _given_part_transform(self, _unchecked_parts.shifted))
+        _unchecked_parts.check_text_drawing(self)
+        _unchecked_parts.note_kept(self, drawn)
 
     def _part_text(self):
         """The text an axis artist's part draws (only its label has one)."""
         return None
 
     def _add_native(self, axes):
-        return _axisartist.add_axis_texts(axes._native, self._description())
+        return _axisartist.add_axis_texts(axes._native, self._description(axes))
 
     def _drawn_extent(self, drawn):
         """Where pltrs (Rust) draws the text (`OWN` for a text it does not
@@ -1061,6 +1093,14 @@ class TickLabels(AxisLabel):  # mtext.Text
         return [((float(x), float(y)), float(a), str(label)) for (x, y), a, label
                 in self.__dict__.get("_labels", [])]
 
+    def _draws_text(self):
+        # docstring inherited: matplotlib's draws each label with a line.
+        try:
+            labels = self._locs_angles_labels
+        except AttributeError:
+            return False
+        return any(str(label).strip() for _, _, label in labels)
+
     def _part_text(self):
         return None
 
@@ -1245,7 +1285,14 @@ class AxisArtist(martist.Artist):
         """
         if offset is None:
             offset = (0, 0)
-        # Unpacked as matplotlib's `ScaledTranslation(*offset, ...)` does.
+        # What matplotlib's constructor computes first, failing as it does:
+        # the transform of the offset in the figure of the axes, and (as it
+        # sets the direction) the alignments of the direction.
+        self.offset_transform = ScaledTranslation(
+            *offset,
+            Affine2D().scale(1 / 72)  # points to inches.
+            + axes.get_figure(root=False).dpi_scale_trans)
+        _api.getitem_checked(AxisLabel._default_alignments, d=axis_direction)
         self._offset = (*offset,)
         native = helper._new_axis(axes, offset, axis_direction)
         # What matplotlib's `_init_line` computes (a curvilinear line).
@@ -1304,6 +1351,20 @@ class AxisArtist(martist.Artist):
     #: The parts in the order ``_native.axisartist.parts_visible`` says
     #: whether they are shown.
     _PARTS = ("major", "minor", "major_ticklabels", "minor_ticklabels", "label")
+
+    def _parts(self):
+        """The parts made so far, in the order matplotlib's draw draws
+        them."""
+        names = ("major_ticks", "major_ticklabels", "minor_ticks",
+                 "minor_ticklabels", "label")
+        return [self.__dict__[name] for name in names if name in self.__dict__]
+
+    def _check_parts(self, _kept):
+        """Fail as matplotlib's draw of the axis artist fails on its parts
+        (see `._unchecked_parts`): it draws each one shown."""
+        for part in self._parts():
+            if part.get_visible():
+                _unusable.check(part)
 
     def _attach(self, part, name):
         """Make *part* the mirror of the part *name* pltrs (Rust) draws,
@@ -1558,6 +1619,7 @@ class AxisArtist(martist.Artist):
         if renderer is None:
             # As matplotlib's, which asks its figure for a renderer.
             self.get_figure(root=True)._get_renderer()
+        _unusable.check(self, measuring=True)
         extent = _axisartist.tight_bbox(self._native)
         return None if extent is None else Bbox.from_extents(*extent)
 

@@ -13,7 +13,8 @@ that is no list fails as matplotlib's iteration over it does, once a path
 is drawn. Any filter other than None is called when the artist is drawn
 into pixels, by the artists whose matplotlib ``draw`` applies filters
 (``allow_rasterization`` wraps it, or the ``draw`` of a class it calls):
-not offset boxes, fancy arrows and subfigures (`_UNFILTERED`).
+not offset boxes and annotation boxes, fancy arrows and subfigures
+(`_UNFILTERED`).
 """
 
 import functools
@@ -69,7 +70,7 @@ class EffectsMixin:
 
 
 #: The classes whose matplotlib ``draw`` applies no agg filter.
-_UNFILTERED = frozenset({"FancyArrowPatch", "OffsetBox", "SubFigure"})
+_UNFILTERED = frozenset({"FancyArrowPatch", "OffsetBox", "AnnotationBbox", "SubFigure"})
 
 
 def _draws_filtered(artist):

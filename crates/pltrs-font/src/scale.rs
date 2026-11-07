@@ -5,6 +5,10 @@
 //! the exact integer arithmetic of both libraries, which [`Size`]
 //! reproduces: FreeType's 16.16 scale, `hb-ft`'s rounding of advances, and
 //! HarfBuzz's `em_mult` scaling of `GPOS` values.
+//!
+//! The arithmetic is ported from FreeType, copyright David Turner, Robert
+//! Wilhelm and Werner Lemberg, under the FreeType License (FTL), and from
+//! HarfBuzz under its MIT licence.
 
 use crate::error::Result;
 use crate::face::Face;

@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "python" / "backend"))
 
 import pltrs_backend  # noqa: E402
 from pltrs_backend import _audit, _core_metadata, _linker, _sdist, _zigcc  # noqa: E402
-from pltrs_backend._project import Project  # noqa: E402
+from pltrs_backend._project import DISTRIBUTIONS, Project  # noqa: E402
 from pltrs_backend._wheel import WheelWriter, normalise  # noqa: E402
 
 
@@ -85,11 +85,16 @@ def test_the_metadata_is_valid_and_carries_every_notice():
     assert message["Version"] == workspace["version"]
     assert f"Source, {workspace['repository']}" in message.get_all("Project-URL")
     licences = message.get_all("License-File")
-    for notice in ("THIRD_PARTY.md", "LICENSES/matplotlib.txt", "LICENSES/libstdc++.txt",
+    for notice in ("LICENSE-MIT", "LICENSE-APACHE", "THIRD_PARTY.md", "LICENSES/matplotlib.txt",
                    "crates/pltrs-font/fonts/LICENSE_DEJAVU", "crates/pltrs-font/fonts/LICENSE_STIX",
                    "crates/pltrs-font/fonts/LICENSE_INTER", "crates/pltrs/src/web/assets/LICENSE",
                    "LICENSES/adobe-glyph-list.txt"):
         assert notice in licences
+    # Both distributions are under the crates' licence.
+    for name in DISTRIBUTIONS:
+        distribution = _core_metadata.parse(Project(ROOT, name).metadata())
+        assert distribution["License-Expression"] == workspace["license"] == "MIT OR Apache-2.0"
+        assert distribution.get_all("License-File") == licences
     assert "Programming Language :: Python :: 3.12" in message.get_all("Classifier")
     assert message.get_payload().startswith("# pltrs")
     assert _core_metadata.lower_bounds(metadata)["numpy"]
@@ -146,6 +151,12 @@ def test_the_alias_wheel_and_the_sdist_are_built_and_checked(tmp_path, monkeypat
                      "crates/pltrs-python/build.rs", "crates/pltrs-font/fonts/DejaVuSans.ttf",
                      "python/backend/pltrs_backend/_zigcc.py", "python/tests/test_smoke.py"):
             assert f"{stem}/{kept}" in names
+        # The licence, and each crate's links to it as plain files.
+        for licence in ("LICENSE-MIT", "LICENSE-APACHE"):
+            for at in ("", "crates/pltrs/", "crates/pltrs-python/"):
+                member = archive.getmember(f"{stem}/{at}{licence}")
+                assert member.isfile()
+                assert archive.extractfile(member).read() == (ROOT / licence).read_bytes()
         for dropped in ("crates/pltrs-spec", "xtask", "examples", "spec", "benchmarks", "target"):
             assert not [n for n in names if n.startswith(f"{stem}/{dropped}/")]
         manifest = tomllib.loads(archive.extractfile(f"{stem}/Cargo.toml").read().decode())

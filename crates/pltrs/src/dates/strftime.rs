@@ -6,6 +6,10 @@
 //! two-layer behaviour with glibc's conversions, including its flags
 //! (`_`, `-`, `0`, `^`, `#`), field widths and `E`/`O` modifiers.
 //! Unknown conversions are copied literally, as glibc does.
+//!
+//! The conversions follow what glibc's manual documents and what its
+//! `strftime` prints (the `dates` probes record Python's output on
+//! glibc); none of glibc's code is in this module.
 
 use std::cell::OnceCell;
 use std::fmt::Write as _;

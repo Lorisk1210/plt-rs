@@ -41,6 +41,10 @@
 //!   for embedding) and FreeType's Type 1 driver (glyph names and indices,
 //!   metrics, and outlines from its Adobe charstring engine, hinted or
 //!   not).
+//!
+//! What the crate ports from FreeType 2.14 it takes under the FreeType
+//! License (FTL), not FreeType's alternative, the GPL; the modules that
+//! port its drivers and engines say so, and `THIRD_PARTY.md` lists them.
 #![forbid(unsafe_code)]
 
 mod aat;

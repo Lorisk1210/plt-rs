@@ -1,9 +1,14 @@
 # Third-party code and data
 
-pltrs uses no other crates, but to reproduce matplotlib's output exactly
-it ports the code of the libraries matplotlib is built on, and it ships
-some of their fonts and data. Those parts stay under their own licences.
-The full texts are in [`LICENSES/`](LICENSES):
+pltrs is licensed under the MIT licence or the Apache License 2.0, at
+your option (`LICENSE-MIT`, `LICENSE-APACHE`). It uses no other crates,
+but to reproduce matplotlib's output exactly it ports the code of the
+libraries matplotlib is built on, and it ships some of their fonts and
+data. Those parts, listed below, keep their own licences: permissive
+licences for the code and data, and font licences for the fonts (the SIL
+Open Font License and others, which let software under any licence
+bundle them). Their notices are in [`LICENSES/`](LICENSES), or beside the
+fonts and files they cover:
 
 * `LICENSES/matplotlib.txt` holds matplotlib's licence followed by the
   licences of the components it bundles.
@@ -25,14 +30,13 @@ The full texts are in [`LICENSES/`](LICENSES):
 | matplotlib-inline 0.2 and IPython 9 | BSD-3-Clause (`matplotlib-inline.txt`) | Jupyter's inline backend for pltrs (`python/pltrs/backends/backend_inline.py`): matplotlib-inline's `backend_inline` and `config`, and IPython's `select_figure_formats` and `activate_matplotlib`, over pltrs' names |
 | kiwisolver 1.5 | BSD-3-Clause (`kiwisolver.txt`) | the Cassowary constraint solver constrained layout states its layout grids to, step for step (`crates/pltrs/src/layout/kiwi`) |
 | Anti-Grain Geometry 2.4 | Agg 2.4 notice (`agg.txt`) | the rasterizer, stroker, dashes, compositing and image resampling (`pltrs-raster`, `crates/pltrs/src/image`) |
-| FreeType 2.14 | FTL or GPL-2.0-or-later; pltrs uses the FTL (`matplotlib.txt`, "FreeType")  | the TrueType bytecode interpreter (`crates/pltrs-font/src/hinting`), the autohinter (`crates/pltrs-font/src/autofit`), glyph loading, the Type 1 driver and the Adobe charstring engine (`crates/pltrs-font/src/type1/face`, `crates/pltrs-font/src/type1/cf2`), and the monochrome rasterizer (`crates/pltrs-render/src/raster/mono`) |
+| FreeType 2.14 | FTL or GPL-2.0-or-later; pltrs takes the FTL (`matplotlib.txt`, "FreeType") | the TrueType bytecode interpreter and glyph loader (`crates/pltrs-font/src/hinting`), the autohinter (`crates/pltrs-font/src/autofit`), the CFF driver (`crates/pltrs-font/src/cff`), font variations (`crates/pltrs-font/src/var`), the Type 1 driver (`crates/pltrs-font/src/type1/face`), the Adobe charstring engine (`crates/pltrs-font/src/psaux`), the fixed-point arithmetic, scaling, font matrices and outline decomposition (`crates/pltrs-font/src`: `fixed.rs`, `scale.rs`, `matrix.rs`, `outline.rs`), the smooth rasterizer (`crates/pltrs-raster/src/raster/grays.rs`, with its outline flattening in `crates/pltrs-render/src/raster/glyph.rs`) and the monochrome rasterizer (`crates/pltrs-render/src/raster/mono`) |
 | HarfBuzz 14 | MIT-Modern-Variant (`matplotlib.txt`, "HarfBuzz") | OpenType shaping and layout tables (`crates/pltrs-font/src/shape`, `crates/pltrs-font/src/layout`); Apple Advanced Typography shaping by `morx`, `mort`, `kern`, `kerx` and `trak` (`crates/pltrs-font/src/aat`); the BCP 47 to OpenType language tag table `crates/pltrs-font/src/layout/ot_tags/tables.rs`, generated from HarfBuzz's `hb-ot-tag-table.hh` (itself built from the IANA Language Subtag Registry and Microsoft's OpenType language tag list) |
 | libraqm | MIT (`matplotlib.txt`, "libraqm") | text run layout (`crates/pltrs-font/src/shape`, `pltrs-text`) |
 | Qhull | Qhull licence (`matplotlib.txt`, "QHull") | Delaunay triangulation (`crates/pltrs/src/tri/delaunay`) |
 | ContourPy 1.4 | BSD-3-Clause (`contourpy.txt`); its `mpl2005` algorithm comes from `gcntr.c` of the GIST package, under the Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | the quad contour generators `mpl2005`, `mpl2014` and `serial` (`crates/pltrs/src/contour`) |
 | NumPy 2.5 and Intel's x86-simd-sort | BSD-3-Clause (`numpy.txt`) | `argsort` of floats, down to the order of ties (`crates/pltrs/src/numeric/argsort`), and the exact results of the numpy functions matplotlib calls (`interp`, `searchsorted`, `arange`, `linspace`, quantiles and others; `crates/pltrs/src/numeric` and throughout `pltrs`) |
 | pocketfft (C++, as vendored by NumPy 2.5) | BSD-3-Clause (`pocketfft.txt`) | the complex FFTs of `numpy.fft`, step for step: its FFTPACK passes, Bluestein's algorithm, the choice between them and its twiddle factors (`crates/pltrs/src/mlab/fft`) |
-| libstdc++ (GCC 14) | GPL-3.0-or-later with the GCC Runtime Library Exception 3.1; the original STL code under Hewlett-Packard's and Silicon Graphics' permissive notices (`libstdc++.txt`) | `std::sort`, which x86-simd-sort falls back to (`crates/pltrs/src/numeric/argsort/introsort.rs`); see the note below |
 | CPython 3.14 | PSF License Agreement (`cpython.txt`) | float formatting (`repr`, `%` and `str.format`, `crates/pltrs-core/src/pyfmt`), `divmod` and `round` (`crates/pltrs/src/ticker/pymath.rs`), the `datetime` types (`crates/pltrs/src/dates`), the `USTimeZone` example of the `datetime` documentation (the `tzinfo` classes of the `dates_tz` probes, `spec/reference/probes/_dates_tz.py` and `crates/pltrs-spec/src/probes/areas/dates_tz/program.rs`, and of `python/tests/test_program_zones.py`), and the program search of `shutil.which` (`crates/pltrs-core/src/os.rs`) |
 | dateutil 2.9 | Apache-2.0 and BSD-3-Clause (`dateutil.txt`) | recurrence rules, `relativedelta` and `tzfile` time zones (`crates/pltrs/src/dates/rrule`, `relativedelta.rs`, `tz`); its bundled `dateutil-zoneinfo.tar.gz` of tzdata 2024a, whose zones are in the public domain, unchanged (`crates/pltrs/src/dates/tz`) |
 | fontTools 4.67 | MIT (`fonttools.txt`) | the glyph closure of font subsetting (`crates/pltrs-font/src/subset`), the glyph names to characters of `agl.toUnicode` (`crates/pltrs-font/src/agl.rs`), glyph bounds for Type 42 fonts (`crates/pltrs-render/src/ps/type42.rs`) and the script data of `crates/pltrs-font/src/shape/unicode_data.rs` |
@@ -45,13 +49,6 @@ The full texts are in [`LICENSES/`](LICENSES):
 
 The FreeType parts are based in part on the work of the FreeType Team
 (https://freetype.org).
-
-`crates/pltrs/src/numeric/argsort/introsort.rs` is the one part under a
-copyleft licence. The GCC Runtime Library Exception covers programs
-compiled with GCC, not translations of libstdc++'s source, so that file
-stays under GPL-3.0-or-later. It only decides the order of ties in
-arrays with NaN or in degenerate partitions; replacing it with a
-permissively licensed sort would change only that order.
 
 As matplotlib's licence asks, the changes in summary: pltrs rewrites
 matplotlib and the code above in Rust. It keeps their algorithms and

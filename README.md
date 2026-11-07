@@ -461,9 +461,19 @@ confidence interval of its speed-up excludes 1. `cargo xtask bench
 
 See `CLAUDE.md` for the coding conventions.
 
+## Licence
+
+pltrs is dual-licensed under the MIT licence (`LICENSE-MIT`) or the
+Apache License, Version 2.0 (`LICENSE-APACHE`), at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in pltrs by you, as defined in the Apache-2.0
+licence, shall be dual-licensed as above, without any additional terms
+or conditions.
+
 pltrs ports code from matplotlib, Anti-Grain Geometry, FreeType,
 HarfBuzz, libraqm, Qhull, ContourPy, NumPy and x86-simd-sort, CPython,
-dateutil, fontTools, Pillow, libjpeg-turbo, libtiff and libwebp (and one
-file from libstdc++, under GPL-3.0-or-later), and bundles fonts (including
-Inter), colour data and Unicode data; see `THIRD_PARTY.md` for their
-licences.
+dateutil, fontTools, Pillow, libjpeg-turbo, libtiff and libwebp, and
+bundles fonts (including Inter), colour data and Unicode data. Those
+parts keep their own permissive licences: `THIRD_PARTY.md` lists them,
+and `LICENSES/` holds their notices.

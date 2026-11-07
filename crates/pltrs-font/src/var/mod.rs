@@ -16,6 +16,9 @@
 //!
 //! The bytecode hints glyphs at an instance with its control values varied
 //! by `cvar`. Left out: vertical metrics (`VVAR`).
+//!
+//! `ttgxvar.c` is copyright David Turner, Robert Wilhelm, Werner Lemberg
+//! and George Williams, and ported here under the FreeType License (FTL).
 
 mod avar;
 mod cvar;

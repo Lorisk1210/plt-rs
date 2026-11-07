@@ -7,6 +7,9 @@
 //! implied `seac`, glyph names from the charset, font matrices, and the
 //! CFF2 tables of variable fonts: their Font DICTs, Private DICTs blended
 //! at an instance and the variation store `blend` reads.
+//!
+//! FreeType's CFF driver is copyright David Turner, Robert Wilhelm and
+//! Werner Lemberg, and ported here under the FreeType License (FTL).
 
 mod bytes;
 mod charset;

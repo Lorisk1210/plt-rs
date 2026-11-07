@@ -21,17 +21,14 @@ branches or pull requests, as every run costs Actions minutes.
 
 ## Once, before the first release
 
-1. **Choose pltrs' licence.** pltrs has none yet (`Cargo.toml` has no
-   `license`, and there is no `LICENSE` file), which leaves it "all
-   rights reserved": PyPI accepts that, but nobody may use the package.
-   Write the licence into a `LICENSE` file, add it to `license-files` in
-   `pyproject.toml`, and give its SPDX expression as `license = "..."` in
+1. **pltrs' licence** is chosen: MIT OR Apache-2.0 (`LICENSE-MIT`,
+   `LICENSE-APACHE`). Cargo.toml's `[workspace.package]` gives it to
+   every crate (each links the two files, which `cargo package` takes
+   in), and `pyproject.toml` to both distributions: `license` in
    `[tool.pltrs-backend.pltrs]` and `[tool.pltrs-backend.matplotlib]`
-   (the backend writes it as `License-Expression`) and in Cargo.toml's
-   `[workspace.package]`. Mind `THIRD_PARTY.md`: the extension contains
-   one file under GPL-3.0-or-later (`introsort.rs`, see its note), so
-   the expression for the wheels must cover it, or that file be replaced
-   first.
+   (the backend writes it as `License-Expression`), and the two files in
+   `license-files` beside the notices of `THIRD_PARTY.md`.
+   `python/tests/test_build_backend.py` checks that the three agree.
 2. **Decide what the PyPI page links to.** `pyproject.toml`'s `urls` (and
    Cargo.toml's `repository`) point at the GitHub repository, which is
    private: visitors of the PyPI page would find nothing. Make it public,

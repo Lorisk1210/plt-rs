@@ -24,6 +24,7 @@ from collections import namedtuple
 import dataclasses
 from functools import cached_property, lru_cache
 import logging
+from numbers import Integral
 import os
 from pathlib import Path
 
@@ -170,6 +171,26 @@ class Dvi:
             self.file.close()
 
 
+def _mul1220(num1, num2):
+    """Multiply two numbers in 20.12 fixed point format."""
+    # Separated into a function because >> has surprising precedence
+    return (num1*num2) >> 20
+
+
+def _native_scale(scale):
+    """
+    The 12.20 fixed-point scale pltrs (Rust) makes a font of *scale* with:
+    *scale* itself, an integer as DVI files give it. matplotlib's font
+    keeps any other value as it is, computing its size and its widths with
+    it (`DviFont`), so pltrs (Rust) only holds the integral part of a
+    number, and 0 for anything else.
+    """
+    try:
+        return int(scale)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 class DviFont:
     """
     Encapsulation of a font that a DVI file can refer to.
@@ -211,22 +232,34 @@ class DviFont:
     def __init__(self, scale, metrics, texname, vf):
         _api.check_isinstance(bytes, texname=texname)
         self._set_native(_dviread.font_new(
-            scale, metrics._native, texname, None if vf is None else vf._native))
+            _native_scale(scale), metrics._native, texname,
+            None if vf is None else vf._native))
+        self._scale = scale
         self._metrics = metrics
         self._vf = vf
 
     @classmethod
-    def _from_native(cls, native):
-        """The font of the native DVI font *native*."""
+    def _from_native(cls, native, scale=None):
+        """The font of the native DVI font *native*, of *scale* as the
+        program gave it (one that is no integer, see `_native_scale`)."""
         self = cls.__new__(cls)
         self._set_native(native)
+        if scale is not None:
+            self._scale = scale
         return self
 
     def _set_native(self, native):
         """Make the font that of the native DVI font *native*."""
         self._native = native
-        self.texname, self._scale, self._size = _dviread.font_name_and_size(native)
+        self.texname, self._scale, _ = _dviread.font_name_and_size(native)
         self._path = None
+
+    @cached_property
+    def _metrics(self):
+        """The metrics of the glyphs: TeX font metrics, or those of the
+        font file of a native font."""
+        tfm, face = _dviread.font_metrics(self._native)
+        return Tfm._from_native(tfm) if tfm is not None else TtfMetrics._from_native(face)
 
     @classmethod
     def from_luatex(cls, scale, texname):
@@ -240,11 +273,11 @@ class DviFont:
     @classmethod
     def from_xetex(cls, scale, texname, subfont, effects):
         return cls._from_native(_dviread.font_from_xetex(
-            scale, texname, subfont,
+            _native_scale(scale), texname, subfont,
             tuple(effects.get(key) for key in
-                  ("rgba", "extend", "slant", "embolden"))))
+                  ("rgba", "extend", "slant", "embolden"))), scale)
 
-    size = property(lambda self: self._size)
+    size = property(lambda self: self._scale * (72.0 / (72.27 * 2**16)))
 
     # matplotlib 3.11's deprecated property, as it is: it reads the TFM
     # file fonts no longer keep (``_tfm``), so it raises AttributeError.
@@ -280,10 +313,20 @@ class DviFont:
 
     def _width_of(self, char):
         """Width of char in dvi units."""
+        if not isinstance(self._scale, Integral):
+            # matplotlib's fixed-point product with a scale that is no
+            # integer fails on its shift.
+            metrics = self._metrics.get_metrics(char)
+            return 0 if metrics is None else _mul1220(metrics.tex_width, self._scale)
         return _dviread.font_width_of(self._native, char)
 
     def _height_depth_of(self, char):
         """Height and depth of char in dvi units."""
+        if not isinstance(self._scale, Integral):
+            metrics = self._metrics.get_metrics(char)
+            return [0, 0] if metrics is None else [
+                _mul1220(metrics.tex_height, self._scale),
+                _mul1220(metrics.tex_depth, self._scale)]
         return list(_dviread.font_height_depth_of(self._native, char))
 
     def resolve_path(self):
@@ -393,8 +436,19 @@ class Tfm:
     def __init__(self, filename):
         _log.debug('opening tfm file %s', filename)
         with open(filename, 'rb') as file:
-            self._native = _dviread.tfm(file.read())
-        self.checksum, self.design_size = _dviread.tfm_header(self._native)
+            self._set_native(_dviread.tfm(file.read()))
+
+    @classmethod
+    def _from_native(cls, native):
+        """The metrics of the native TFM file *native*."""
+        self = cls.__new__(cls)
+        self._set_native(native)
+        return self
+
+    def _set_native(self, native):
+        """Make the metrics those of the native TFM file *native*."""
+        self._native = native
+        self.checksum, self.design_size = _dviread.tfm_header(native)
 
     def get_metrics(self, idx):
         """Return a glyph's TexMetrics, or None if unavailable."""
@@ -420,6 +474,13 @@ class Tfm:
 class TtfMetrics:
     def __init__(self, filename):
         self._native = _dviread.ttf_metrics(os.fspath(filename))
+
+    @classmethod
+    def _from_native(cls, native):
+        """The metrics of the native font file *native*."""
+        self = cls.__new__(cls)
+        self._native = native
+        return self
 
     def get_metrics(self, idx):
         return _tex_metrics(_dviread.ttf_metrics_get(self._native, idx))

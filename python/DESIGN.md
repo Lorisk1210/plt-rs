@@ -494,6 +494,28 @@ as matplotlib's is: a stand-in artist of the Axes, painted through
 Python, draws it with its own `draw` and the renderer of the Axes'
 figure, through the transforms of the collection's own figure.
 
+The same stand-ins list what matplotlib lists in a second place, which
+pltrs (Rust), holding each artist in one place of one figure, cannot
+(`_foreign_children.held_elsewhere`, `relist`): `add_artist` given an
+artist of another figure lists it before the `RuntimeError`, one removed
+from another figure moves into the Axes' figure (which it then reads as
+its own, `_listed_in`), and a part of the Axes (a spine, a title), an
+artist of the figure itself, a box of a tree of offset boxes or an Axes
+are listed once more and drawn twice; `Figure.add_artist` given a child
+of one of its Axes lists it among its artists too (`relist_in_figure`).
+The stand-in's removal method takes such an artist out again
+(`_listing`, which `remove` consults before refusing a part). A part
+taken out so is decoupled while its owner still draws it: its owner then
+fails to draw where matplotlib's part reads its missing Axes or figure
+first (a linear spine its Axes' view limits, an axis the view interval
+or a 3-D Axes' scaled limits, a visible title its figure's resolution),
+kept as a problem of the owner (`_unusable`), since a hidden part is not
+drawn at all. The other add methods give the artist the figure first,
+failing on one of another figure before anything else (`add_held`).
+`artist.axes = None` on an artist of an Axes reads None from then on
+(`_axes_unset`), and `_recouple` undoes all of these as an add method
+takes the artist back.
+
 ### Picking
 
 `Figure.pick` runs on button presses and scrolls, as in matplotlib

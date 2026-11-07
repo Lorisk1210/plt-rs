@@ -301,7 +301,8 @@ class RcParams(MutableMapping, dict):
         if (key == "backend" and val is rcsetup._auto_backend_sentinel
                 and "backend" in self):
             return
-        if key not in _PYTHON_PARAMS and not key.startswith("pltrs."):
+        if key not in _PYTHON_PARAMS and not (isinstance(key, str)
+                                              and key.startswith("pltrs.")):
             _api.getitem_checked(self.validate, rcParam=key, _error_cls=KeyError)
         self._set(key, val)
         if key in _WARNING_VALIDATORS:

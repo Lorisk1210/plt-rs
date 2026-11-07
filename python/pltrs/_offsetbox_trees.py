@@ -173,6 +173,13 @@ class TreeOwner:
         """The box whose tree this is."""
         return self
 
+    def _comes_back(self, parent):
+        """Whether the owner joins *parent*, an Axes or a (sub)figure, of
+        the figure it was removed from with its tree: pltrs (Rust) kept
+        both, and takes them back as they were."""
+        return (bool(self.__dict__.get("_removed")) and "_tree_handle" in self.__dict__
+                and self._figure is parent.get_figure(root=True))
+
     def _tree_description(self):
         """The tree's description as it is now (see ``_native.offsetbox``);
         `Unusable` while pltrs (Rust) cannot take it."""

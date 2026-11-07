@@ -133,3 +133,8 @@ corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^
 # Resort High-Efficiency). The fallback font drawn is the same.
 ^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for (DejaVu Serif|DejaVu Sans|STIXSizeTwoSym|STIXGeneral|STIXNonUnicode|Last Resort High-Efficiency|cmrN), now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
 corpus/python-graph-gallery/content/posts/199-matplotlib-style-sheets/index$ | ^value\[available\]: list length$ | style.available lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+
+# An artist inspector's reST table of setters names each setter by module
+# (pltrs.artist.Artist.set_alpha), and its first column is as wide as the
+# longest name: five letters per name narrower than matplotlib's.
+^generated/(api|hostile)/inspector_\d+$ | ^value\[pprint_setters_rest\]: str$ | the rows name the same setters as matplotlib's once pltrs reads matplotlib; only the "=" rules and the padding to the column's width differ, by the package name's length

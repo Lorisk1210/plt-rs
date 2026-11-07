@@ -19,9 +19,9 @@ import warnings
 import numpy as np
 
 from . import _docstring
-from . import (_api, _live_transforms, _owned_paths, _program_paths, _unusable, _values, cbook,
-               colorizer as mcolorizer, colors as mcolors, lines as mlines,
-               path as mpath, transforms as mtransforms)
+from . import (_api, _artist_copying, _live_transforms, _owned_paths, _program_paths,
+               _unusable, _values, cbook, colorizer as mcolorizer, colors as mcolors,
+               lines as mlines, path as mpath, transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
@@ -1004,6 +1004,7 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def update_from(self, other):
         """Copy properties from other to self."""
+        _artist_copying.check_copyable(other)
         self._took_from(other, _collections.update_from(self._native, other._native))
         self._array_alpha = other.__dict__.get("_array_alpha")
         self._face_fill = other.__dict__.get("_face_fill")
@@ -2275,8 +2276,15 @@ class TriMesh(Collection):
         This function is primarily of use to implementers of backends that do
         not directly support meshes.
         """
+        native = getattr(tri, "_native", None)
+        if native is None:
+            # Not one of the package's triangulations: matplotlib's
+            # conversion, through what the object has.
+            triangles = tri.get_masked_triangles()
+            verts = np.stack((tri.x[triangles], tri.y[triangles]), axis=-1)
+            return [Path(x) for x in verts]
         return [Path(vertices, codes)
-                for vertices, codes in _tri.triangle_paths(tri._native)]
+                for vertices, codes in _tri.triangle_paths(native)]
 
     @allow_rasterization
     def draw(self, renderer):

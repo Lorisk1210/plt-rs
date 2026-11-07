@@ -155,12 +155,17 @@ def pushing(cls):
 
 
 def _replace(cls, name, wrapper, own_name=None):
-    """Make *wrapper* the method *name* of *cls*, named as one of *cls*'s
-    own (by *own_name*, the name the wrapped function was defined under,
-    for an alias), so that ``inspect.getdoc`` finds the docstring its bases
-    give a method without one of its own, as for the method it wraps."""
-    wrapper.__qualname__ = f"{cls.__qualname__}.{own_name or name}"
-    wrapper.__module__ = cls.__module__
+    """Make *wrapper* the method *name* of *cls*. A method *cls* defines
+    itself is named as one of *cls*'s own (by *own_name*, the name the
+    wrapped function was defined under, for an alias), so that
+    ``inspect.getdoc`` finds the docstring its bases give a method without
+    one of its own, as for the method it wraps; one it inherits keeps the
+    name and module of the method it wraps, as matplotlib's inherited
+    method has them (`.ArtistInspector` names a property's setter by
+    them)."""
+    if name in vars(cls):
+        wrapper.__qualname__ = f"{cls.__qualname__}.{own_name or name}"
+        wrapper.__module__ = cls.__module__
     setattr(cls, name, wrapper)
 
 

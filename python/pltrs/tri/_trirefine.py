@@ -86,8 +86,11 @@ class UniformTriRefiner(TriRefiner):
             point of *refi_triangulation*.
             Returned only if *return_tri_index* is set to True.
         """
-        refined, found_index = _tri.refine(self._triangulation._native, int(subdiv))
-        refi_triangulation = Triangulation._from_native(refined)
+        subdiv = _refinements(subdiv)
+        refined, found_index = _tri.refine(self._triangulation._native, subdiv)
+        # Refined no times, it is the triangulation itself, as matplotlib's.
+        refi_triangulation = (Triangulation._from_native(refined) if subdiv
+                              else self._triangulation)
         if return_tri_index:
             return refi_triangulation, found_index.astype(np.int32)
         return refi_triangulation
@@ -122,9 +125,18 @@ class UniformTriRefiner(TriRefiner):
             _api.check_isinstance(TriInterpolator,
                                   triinterpolator=triinterpolator)
             interp = triinterpolator
+        subdiv = _refinements(subdiv)
         refined, refi_z = _tri.refine_field(
             self._triangulation._native, np.asarray(interp._z, dtype=float),
-            interp._native_kind, int(subdiv))
+            interp._native_kind, subdiv)
         # A masked array, as matplotlib's interpolators return values.
-        return (Triangulation._from_native(refined),
+        return (Triangulation._from_native(refined) if subdiv
+                else self._triangulation,
                 np.ma.masked_invalid(refi_z, copy=False))
+
+
+def _refinements(subdiv):
+    """How many times matplotlib's refiner refines for *subdiv*: it loops
+    ``for _ in range(subdiv)``, failing as `range` fails on what is no
+    integer, and not at all for one below one."""
+    return len(range(subdiv))

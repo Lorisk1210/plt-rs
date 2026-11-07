@@ -27,7 +27,7 @@ class ChildrenMixin:
         return ArtistList._of("collections", lambda: [
             *_handles.wrap_all(_plotting.get_collections(self._native),
                                mcoll.Collection, self._figure),
-            *_foreign_children.drawn(self)])
+            *_foreign_children.drawn(self, mcoll.Collection)])
 
     @property
     def images(self):

@@ -376,7 +376,16 @@ class Legend(Artist):
         # out in the figure as it is (matplotlib computes it from the legend's
         # layout, the view limits not autoscaled first).
         self._check_figure_renderer(renderer)
+        self._measure_box_with(renderer)
         return self._extent_as_is()
+
+    @staticmethod
+    def _measure_box_with(renderer):
+        """Fail as matplotlib's legend box fails to be measured with
+        *renderer* when it is no renderer: its packers ask it the size of a
+        point first."""
+        if renderer is not None:
+            renderer.points_to_pixels(1.)
 
     # 'best' is only implemented for Axes legends
     codes = {'best': 0, **{
@@ -827,7 +836,18 @@ class Legend(Artist):
 
     def get_tightbbox(self, renderer=None):
         # docstring inherited
-        return super().get_tightbbox(renderer)
+        # matplotlib's is the extent of the legend's box, which keeps its
+        # figure (and renderer) once the legend is removed: where the legend
+        # was then.
+        self._measure_box_with(renderer)
+        kept = self.__dict__.get("_kept_extent")
+        if kept is not None and self.__dict__.get("_decoupled"):
+            return Bbox(kept.get_points())
+        return self._extent_as_is()
+
+    def _keep_drawn_state(self):
+        # docstring inherited: the extent of the legend's box.
+        self._kept_extent = self._extent_as_is()
 
     def contains(self, mouseevent):
         # (pltrs (Rust) hit-tests the legend's frame.)
@@ -842,7 +862,7 @@ class Legend(Artist):
 
     def get_frame_on(self):
         """Get whether the legend box patch is drawn."""
-        return _legend.get_frame_on(self._native)
+        return self.legendPatch.get_visible()
 
     def set_frame_on(self, b):
         """
@@ -852,7 +872,13 @@ class Legend(Artist):
         ----------
         b : bool
         """
-        _legend.set_frame_on(self._native, bool(b))
+        # matplotlib's sets the visibility of the frame, which keeps the
+        # object it is given (``1``, ``'False'``) when it changes.
+        patch = self.legendPatch
+        if b != patch.get_visible():
+            _legend.set_frame_on(self._native, bool(b))
+            _values.remember(patch, "visible", b)
+        self.stale = True
 
     draw_frame = set_frame_on  # Backcompat alias.
 
@@ -1034,7 +1060,19 @@ class Legend(Artist):
         if transform is None:
             transform = self._fractions()
 
-        anchored = TransformedBbox(bbox, transform)
+        try:
+            anchored = TransformedBbox(bbox, transform)
+        except (TypeError, ValueError):
+            # matplotlib's legend holds the box itself by then, in display
+            # coordinates.
+            self._anchor_to(bbox, bbox, IdentityTransform())
+            raise
+        self._anchor_to(anchored, bbox, transform)
+        self.stale = True
+
+    def _anchor_to(self, anchored, bbox, transform):
+        """Anchor the legend to *bbox* in the coordinates of *transform*,
+        *anchored* being the box `get_bbox_to_anchor` returns."""
         spanning = getattr(bbox, "_spanning", None)
         if spanning is not None:
             bbox, transform = Bbox.unit(), spanning + transform
@@ -1044,7 +1082,6 @@ class Legend(Artist):
         _legend.set_bbox_to_anchor(self._native, bounds,
                                    _live_transforms.to_native(transform))
         self._bbox_to_anchor = (anchored, bounds)
-        self.stale = True
 
 
 def _get_legend_handles(axs, legend_handler_map=None):

@@ -773,6 +773,16 @@ class GaussianKDE:
 
         """
         points = np.atleast_2d(points)
+        if points.dtype.kind not in "biuf":
+            # matplotlib's estimate subtracts the points from the data
+            # first (once their dimension is checked), failing as numpy
+            # fails on what is no number.
+            dim, num_m = points.shape
+            if dim == self.dim and num_m:
+                if num_m >= self.num_dp:
+                    self.dataset[:, 0, np.newaxis] - points
+                else:
+                    self.dataset - points[:, 0, np.newaxis]
         return _mlab.kde_evaluate(self._native, np.asarray(points, dtype=float))
 
     __call__ = evaluate

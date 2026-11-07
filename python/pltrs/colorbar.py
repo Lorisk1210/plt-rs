@@ -19,6 +19,7 @@ matplotlib's (from matplotlib 3.11.2, under the Matplotlib License).
 """
 
 import functools
+import logging
 
 import numpy as np
 
@@ -27,6 +28,8 @@ from . import _api, _handles, artist as martist, colorizer as mcolorizer, ticker
 from . import patches as mpatches, path as mpath, spines as mspines
 from . import transforms as mtransforms
 from ._native import colorbar as _colorbar, patches as _patches
+
+_log = logging.getLogger(__name__)
 
 
 def _get_orientation_from_location(location):
@@ -807,8 +810,13 @@ class Colorbar:
         changes values of *vmin*, *vmax* or *cmap* then the old formatter
         and locator will be preserved.
         """
-        if mappable is not None:
+        if mappable:
+            # The mappable keyword argument exists because
+            # ScalarMappable.changed() emits self.callbacks.process('changed', self)
+            # in contrast, ColorizingArtist (and Colorizer) emit
+            # self.callbacks.process('changed') without passing a mappable.
             self.mappable = mappable
+        _log.debug('colorbar update normal %r %r', self.mappable.norm, self.norm)
         self.set_alpha(self.mappable.get_alpha())
         self._scale_norm()
         _colorbar.update_normal(self._native, self._shown())
@@ -1003,6 +1011,23 @@ class Colorbar:
         ax = self.ax
         _colorbar.remove(self._native)
         _handles.forget(ax)
+        self._give_back_place(ax)
+
+    def _give_back_place(self, ax):
+        """Fail as matplotlib's removal fails at its end, giving the Axes of
+        the mappable back the place the colorbar Axes *ax* took from it,
+        when the mappable has no Axes (removed): pltrs (Rust) gave the
+        place back."""
+        try:
+            parent = self.mappable.axes
+        except AttributeError:
+            return
+        if parent is None:
+            try:
+                ax.get_subplotspec().get_gridspec()._subplot_spec
+            except AttributeError:  # use_gridspec was False
+                getattr(parent, "get_position")
+            getattr(parent, "set_subplotspec")
 
 
 ColorbarBase = Colorbar  # Backcompat API
@@ -1112,6 +1137,5 @@ def make_axes_gridspec(parent, *, location=None, orientation=None,
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.
-import logging  # noqa: E402, F401
 from . import cbook, collections, colors, contour  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

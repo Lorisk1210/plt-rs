@@ -76,6 +76,10 @@ class MathTextParser:
         # mutable, so we key the cache using an internal copy; likewise,
         # we need to check the mutable state of the text.antialiased and
         # text.hinting rcParams (raster output hints its glyphs).
+        if not isinstance(s, str):
+            # matplotlib's pyparsing parser expands the tabs of what it
+            # parses first, failing on what has no ``expandtabs``.
+            s.expandtabs()
         prop = prop.copy() if prop is not None else None
         if antialiased is None:
             antialiased = _rc('text.antialiased')

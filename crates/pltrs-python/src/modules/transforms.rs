@@ -96,16 +96,49 @@ fn bboxes(array: &NdArray) -> PyResult<Vec<Bbox>> {
 }
 
 /// `affine_transform(points, matrix)`: the points (anything
-/// `numpy.asarray(points, float)` takes) mapped by the matrix.
-fn affine_transform(FloatArray(mut values): FloatArray, mtx: NdArray) -> PyResult<NdArray> {
-    let affine = affine(&mtx)?;
+/// `numpy.asarray(points, float)` takes) mapped by the matrix, with the
+/// checks and messages of matplotlib's C++ function, and pybind11's
+/// `TypeError` for points numpy cannot make doubles of.
+fn affine_transform(points: Owned, mtx: Owned) -> PyResult<NdArray> {
+    let (values, mtx) = Python::with_gil(|py| {
+        let (points, mtx) = (points.bind(py), mtx.bind(py));
+        match FloatArray::from_py(&points) {
+            Ok(FloatArray(values)) => Ok((values, NdArray::from_py(&mtx)?)),
+            Err(_) => Err(PyErr::type_error(format!(
+                "affine_transform(): incompatible function arguments. The following \
+                 argument types are supported:\n    1. (points: typing.Annotated[\
+                 numpy.typing.ArrayLike, numpy.float64], trans: trans_affine) -> object\n\n\
+                 Invoked with: {}, {}",
+                points.repr()?,
+                mtx.repr()?
+            ))),
+        }
+    })?;
+    map_vertices(values, affine(&mtx)?)
+}
+
+/// `values`, an array of vertices, mapped by `affine` where they are, as
+/// matplotlib's C++ `affine_transform` checks and maps them: one point, or
+/// an `(N, 2)` array (any empty one mapping to an `(N, 2)` array).
+fn map_vertices(mut values: NdArray, affine: Affine2D) -> PyResult<NdArray> {
     match values.shape[..] {
-        // matplotlib's C++ check of a single point's length.
-        [len] if len != 2 => return Err(PyErr::runtime_error("Invalid vertices array.")),
         [2] | [_, 2] => {}
-        _ => return Err(PyErr::value_error("Invalid vertices array.")),
+        [_] => return Err(PyErr::runtime_error("Invalid vertices array.")),
+        [rows, _] if values.data.is_empty() => {
+            return NdArray::with_shape(Vec::new(), vec![rows, 2]);
+        }
+        [rows, columns] => {
+            return Err(PyErr::value_error(format!(
+                "vertices must have shape (N, 2), got ({rows}, {columns})"
+            )));
+        }
+        ref shape => {
+            return Err(PyErr::value_error(format!(
+                "vertices must be 1D or 2D, not{}D",
+                shape.len()
+            )));
+        }
     }
-    // The numbers are mapped where they are, and returned in their shape.
     for xy in values.data.as_chunks_mut::<2>().0 {
         let mapped = affine.transform_point(Point::new(xy[0], xy[1]));
         *xy = [mapped.x, mapped.y];
@@ -306,21 +339,26 @@ mod tests {
         let shift = matrix(Affine2D::translation(1.0, 0.0)).unwrap();
         let both = compose(scale, shift).unwrap();
         assert_eq!(both.data, [2.0, 0.0, 1.0, 0.0, 3.0, 0.0, 0.0, 0.0, 1.0]);
-        let mapped = affine_transform(FloatArray(array(&[1.0, 1.0], &[2])), both).unwrap();
+        let mapped = map_vertices(array(&[1.0, 1.0], &[2]), affine(&both).unwrap()).unwrap();
         assert_eq!((mapped.data, mapped.shape), (vec![3.0, 3.0], vec![2]));
     }
 
     #[test]
     fn malformed_points_and_matrices_are_refused() {
-        let identity = matrix(Affine2D::IDENTITY).unwrap();
-        assert!(affine_transform(FloatArray(array(&[], &[0])), identity.clone()).is_err());
-        assert!(
-            affine_transform(FloatArray(array(&[1.0, 2.0, 3.0], &[3])), identity.clone()).is_err()
-        );
-        let grid = FloatArray(array(&[1.0; 6], &[2, 3]));
-        assert!(affine_transform(grid, identity).is_err());
+        let identity = Affine2D::IDENTITY;
+        assert!(map_vertices(array(&[], &[0]), identity).is_err());
+        assert!(map_vertices(array(&[1.0, 2.0, 3.0], &[3]), identity).is_err());
+        assert!(map_vertices(array(&[1.0; 6], &[2, 3]), identity).is_err());
+        assert!(map_vertices(array(&[1.0; 8], &[2, 2, 2]), identity).is_err());
+        assert!(map_vertices(array(&[1.0], &[]), identity).is_err());
         assert!(affine(&array(&[1.0; 4], &[2, 2])).is_err());
         assert!(bbox(&array(&[0.0; 3], &[3])).is_err());
+    }
+
+    #[test]
+    fn empty_vertex_arrays_map_to_pairs() {
+        let mapped = map_vertices(array(&[], &[0, 3]), Affine2D::IDENTITY).unwrap();
+        assert_eq!((mapped.data.len(), mapped.shape), (0, vec![0, 2]));
     }
 
     #[test]

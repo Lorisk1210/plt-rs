@@ -98,7 +98,7 @@ class Triangulation:
         position in triangle tri to be calculated using
         ``z = array[tri, 0] * x  + array[tri, 1] * y + array[tri, 2]``.
         """
-        return _tri.plane_coefficients(self._native, np.asarray(z, dtype=float))
+        return self.get_cpp_triangulation().calculate_plane_coefficients(z)
 
     def get_cpp_triangulation(self):
         """

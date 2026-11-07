@@ -268,6 +268,12 @@ fn is_part(artist: RawHandle) -> PyResult<bool> {
     Ok(artist.is_part())
 }
 
+/// Whether the artist is in its figure's tree, drawn there: added to it
+/// and not removed (nor made only for it, as `set_figure` alone makes it).
+fn is_attached(artist: RawHandle) -> PyResult<bool> {
+    Ok(artist.is_attached())
+}
+
 /// Removes the artist from its figure.
 fn remove(artist: RawHandle) -> PyResult<()> {
     artist.remove();
@@ -313,6 +319,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_sketch_params", get_sketch_params)?;
     module.add("set_sketch_params", set_sketch_params)?;
     module.add("is_part", is_part)?;
+    module.add("is_attached", is_attached)?;
     module.add("remove", remove)?;
     classes::register(module)?;
     clip::register(module)?;

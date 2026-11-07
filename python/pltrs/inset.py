@@ -75,6 +75,11 @@ class InsetIndicator(artist.Artist):
         self._linestyle = self._rectangle.get_linestyle()
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        if (self.__dict__.get("_removed")
+                and self._figure is axes.get_figure(root=True)):
+            # Removed from the figure with its rectangle and connectors,
+            # which pltrs (Rust) takes back as they were.
+            return artist.Artist._add_to_axes(self, axes, kind, autolim)
         transform = self._transform_given
         if transform is not None:
             if hasattr(transform, "_as_mpl_transform"):
@@ -88,6 +93,20 @@ class InsetIndicator(artist.Artist):
         _handles.adopt(self._rectangle, _insets.indicator_rectangle(native),
                        axes.figure)
         return self
+
+    @artist.Artist.axes.setter
+    def axes(self, new_axes):
+        # Set axes on the rectangle (required for some external transforms to work) as
+        # well as the InsetIndicator artist.
+        self.rectangle.axes = new_axes
+        artist.Artist.axes.fset(self, new_axes)
+        # pltrs keeps it in its Axes: told it has none, its draw fails where
+        # matplotlib's orients its connectors by the axes of its Axes.
+        if new_axes is None and self._inset_ax is not None and self._figure is not None:
+            _unusable.keep(self, "axes", self, lambda ind: ind.axes.xaxis,
+                           measured=False)
+        else:
+            _unusable.drop(self, "axes")
 
     def _shared_setter(self, prop, val):
         """

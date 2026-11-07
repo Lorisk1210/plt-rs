@@ -255,7 +255,9 @@ class ColormapRegistry(Mapping):
         # builtin name, so we should update it to the registered name
         if self._cmaps[name].name != name:
             self._cmaps[name].name = name
-        if self._native_mirror:
+        # pltrs (Rust) looks colormaps up by their names, which are strings
+        # (the registry keeps one under any key, as matplotlib's).
+        if self._native_mirror and isinstance(name, str):
             _cm.register(name, self._cmaps[name])
 
     def unregister(self, name):
@@ -289,7 +291,7 @@ class ColormapRegistry(Mapping):
             raise ValueError(f"cannot unregister {name!r} which is a builtin "
                              "colormap.")
         self._cmaps.pop(name, None)
-        if self._native_mirror:
+        if self._native_mirror and isinstance(name, str):
             _cm.unregister(name)
 
     def get_cmap(self, cmap):

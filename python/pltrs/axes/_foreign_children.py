@@ -1,39 +1,48 @@
 """
 What an Axes lists among its children that its figure does not hold:
 objects that are no artists (matplotlib's ``add_artist`` of a container or
-a colorbar), and collections of another figure (its ``add_collection``).
+a colorbar), artists pltrs (Rust) holds elsewhere (its ``add_artist`` of
+an artist of another figure, of one removed from another figure, of a part
+of the Axes or of an artist of the figure itself), and collections of
+another figure (its ``add_collection``).
 
 matplotlib's `add_artist` sets the object's Axes and lists it among the
 Axes' children before it fails to give it the figure (the object has no
 ``set_figure``), and keeps it there: the Axes lists it among its children,
 removing it takes it out of them again, and every draw of its figure fails
 on it, asking it whether it is animated (when saving, for its z-order).
-Its ``add_collection`` lists a collection of another figure among the
-Axes' children before giving it the figure fails, and the Axes then draws
-it there too, through the transforms of the collection's own figure.
-pltrs (Rust) holds the artists of one figure only, so the Axes keeps such
-objects itself (`add`, `of`), after its other children, and the draw hook
-of its figure fails on them as matplotlib's draw does (`check_drawable`);
-a collection of another figure is drawn by a stand-in in the Axes
-(`add_drawn`, `_Drawing`), whose ``draw`` is the collection's.
+An artist of another figure stays listed the same way, and the Axes draws
+it there, through the transforms of its own figure; so does a collection
+of another figure ``add_collection`` was given. An artist removed from
+another figure moves into the Axes and its figure. A part of the Axes (a
+spine, a title) and an artist of the figure itself are listed once more,
+and drawn twice, there and as they were.
+pltrs (Rust) holds the artists of one figure only, each in one place, so
+the Axes keeps such objects itself (`add`, `of`), after its other
+children, and the draw hook of its figure fails on them as matplotlib's
+draw does (`check_drawable`); an artist is drawn by a stand-in in the Axes
+(`relist`, `add_drawn`, `_Drawing`), whose ``draw`` is the artist's.
 """
 
 from operator import attrgetter
 
 from .. import _python_drawing
+from .._native import artist as _artist
 from ..artist import Artist
 
 
 class _Drawing(Artist):
     """
-    The stand-in in an Axes for an artist of another figure the Axes
-    draws (`add_drawn`): drawn at the artist's z-order through the
-    artist's own ``draw``, with the renderer drawing the Axes' figure.
+    The stand-in in an Axes for an artist pltrs (Rust) holds elsewhere
+    that the Axes draws (`relist`, `add_drawn`): drawn at the artist's
+    z-order through the artist's own ``draw``, with the renderer drawing
+    the Axes' figure.
     """
 
-    def __init__(self, drawn):
+    def __init__(self, drawn, parent):
         super().__init__()
         self._drawn = drawn
+        self._parent = parent
         self.set_zorder(drawn.get_zorder())
 
     def draw(self, renderer):
@@ -41,8 +50,11 @@ class _Drawing(Artist):
 
     def _take_out(self, drawn):
         """The removal method of the artist drawn: it is no longer listed
-        nor drawn here."""
-        self.axes.__dict__["_drawings"].remove(self)
+        nor drawn here, and one moved here from another figure leaves the
+        Axes' figure again."""
+        self._parent.__dict__["_drawings"].remove(self)
+        drawn.__dict__.pop("_listing", None)
+        drawn.__dict__.pop("_listed_in", None)
         self.remove()
 
 
@@ -63,10 +75,121 @@ def is_stand_in(child):
     return isinstance(child, _Drawing)
 
 
-def drawn(ax):
-    """The collections of other figures *ax* draws (`add_drawn`), in the
-    order they were added."""
-    return [drawing._drawn for drawing in ax.__dict__.get("_drawings", ())]
+def relisted(artist):
+    """Whether *artist* is listed by a stand-in (`relist`, `add_drawn`),
+    whose removal method it has."""
+    return "_listing" in artist.__dict__
+
+
+def drawn(ax, cls):
+    """The artists of class *cls* pltrs (Rust) holds elsewhere that *ax*
+    draws (`relist`, `add_drawn`), in the order they were added."""
+    return [drawing._drawn for drawing in ax.__dict__.get("_drawings", ())
+            if isinstance(drawing._drawn, cls)]
+
+
+def held_elsewhere(ax, a):
+    """
+    Whether *a*, an artist given to *ax*'s `add_artist`, is one pltrs
+    (Rust) holds elsewhere (see `relist`): an artist of another
+    (sub)figure, one removed from another figure, a part of *ax* (its
+    spines and titles), an artist the figure itself holds, a box of a tree
+    of offset boxes, or one pltrs (Rust) holds in no Axes (an Axes,
+    ``_held_in_axes``).
+    """
+    figure = a.get_figure(root=False)
+    if figure is not None and figure is not ax.get_figure(root=False):
+        return True
+    if "_tree_owner" in a.__dict__:
+        return figure is not None
+    if a._figure is None:
+        return False
+    if not getattr(a, "_held_in_axes", True):
+        return True
+    if _artist.is_part(a._native):
+        owner = _artist.axes(a._native)
+        return (a._figure is ax._figure and owner is not None
+                and _artist.id(owner) == _artist.id(ax._native))
+    if figure is None:
+        return a._figure is not ax._figure
+    return _artist.axes(a._native) is None and _artist.is_attached(a._native)
+
+
+def relist(ax, a):
+    """
+    Add *a*, an artist pltrs (Rust) holds elsewhere (`held_elsewhere`), to
+    *ax* as matplotlib's `add_artist` adds it: with *ax* as its Axes (an
+    artist of another Axes fails), listed among its children and drawn
+    there by a stand-in. An artist of another figure stays there once
+    giving it *ax*'s figure fails; one removed from another figure moves
+    into *ax*'s, which it then reads as its own (``_listed_in``), and is
+    measured and drawn in its own geometry still. Return *a*.
+    """
+    a.axes = ax
+    _list_drawn(ax, a)
+    if a._figure is ax._figure:
+        # A part of the Axes decoupled since it was last listed is back.
+        a._recouple()
+    check_figure(ax, a)
+    if a.get_figure(root=False) is None:
+        a._listed_in = ax
+        a.pchanged()
+    elif a.get_clip_path() is None:
+        a.set_clip_path(ax.patch)
+    ax.stale = True
+    return a
+
+
+def add_held(ax, artist):
+    """
+    Begin adding *artist* to *ax* as matplotlib's add methods but
+    `add_artist` and ``add_collection`` begin: they fail on an artist of
+    another (sub)figure, giving it *ax*'s figure first, and list one pltrs
+    (Rust) holds elsewhere in the figure once more (`relist`), which this
+    then lists. Return whether it did.
+    """
+    check_figure(ax, artist)
+    if held_elsewhere(ax, artist):
+        relist(ax, artist)
+        return True
+    return False
+
+
+def check_figure(ax, artist):
+    """Fail as matplotlib fails to give *artist*, of another (sub)figure,
+    *ax*'s figure."""
+    figure = artist.get_figure(root=False)
+    if figure is not None and figure is not ax.get_figure(root=False):
+        raise RuntimeError("Can not put single artist in more than one figure")
+
+
+def _list_drawn(parent, artist):
+    """List *artist* among the children of *parent*, an Axes or a
+    (sub)figure, drawn there by a stand-in, and taken out again by its
+    removal."""
+    drawing = _Drawing(artist, parent)
+    parent.add_artist(drawing)
+    _python_drawing.draw_through_python(drawing, False)
+    parent.__dict__.setdefault("_drawings", []).append(drawing)
+    artist._listing = drawing
+    artist._remove_method = drawing._take_out
+
+
+def held_in_axes(figure, artist):
+    """Whether *artist*, given to the `.Figure.add_artist` of *figure*,
+    of its figure, is an artist an Axes of the figure holds, which
+    matplotlib's figure lists once more (`relist_in_figure`)."""
+    return (artist._figure is figure._figure and _artist.is_attached(artist._native)
+            and _artist.axes(artist._native) is not None)
+
+
+def relist_in_figure(figure, artist):
+    """Add *artist*, which an Axes of *figure* holds (`held_in_axes`), to
+    *figure* as matplotlib's `.Figure.add_artist` adds it: listed among
+    its artists (and drawn there by a stand-in) once more; return it."""
+    _list_drawn(figure, artist)
+    figure.stale = True
+    return artist
 
 
 def add(ax, a):
@@ -96,11 +219,7 @@ def add_drawn(ax, collection):
     """
     if not collection.get_label():
         collection.set_label(f'_child{len(ax._children)}')
-    drawing = _Drawing(collection)
-    ax.add_artist(drawing)
-    _python_drawing.draw_through_python(drawing, False)
-    ax.__dict__.setdefault("_drawings", []).append(drawing)
-    collection._remove_method = drawing._take_out
+    _list_drawn(ax, collection)
     raise RuntimeError("Can not put single artist in more than one figure")
 
 
@@ -119,13 +238,15 @@ def forget(ax):
 def check_drawable(figure):
     """
     Fail as matplotlib's draw of the root *figure* fails on the objects
-    added to its Axes that are no artists: each visible Axes asks its
-    children whether they are animated (unless the canvas is saving), then
-    sorts them by z-order.
+    added to its Axes that are no artists, and on those an Axes' ``spines``
+    holds (``ax.spines['top'] = None``), which are among its children:
+    each visible Axes asks its children whether they are animated (unless
+    the canvas is saving), then sorts them by z-order.
     """
     saving = figure.canvas.is_saving()
     for ax in figure.axes:
-        foreign = of(ax)
+        foreign = [*of(ax), *(spine for spine in getattr(ax, "spines", {}).values()
+                              if not isinstance(spine, Artist))]
         if not foreign or not ax.get_visible():
             continue
         drawn = foreign if saving else [a for a in foreign if not a.get_animated()]

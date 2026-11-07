@@ -27,36 +27,88 @@ def _in_3d(cls, placement):
     return cbook._make_class_factory(art3d.Collection3D, "{}3D")(cls)
 
 
+def _plane_dir(zdir):
+    """The axis normal to the planes of the contours of *zdir*:
+    matplotlib turns the data for ``'x'`` and ``'y'`` (``rotate_axes``) and
+    turns the contours back (``'-x'``, ``'-y'``), any other string leaving
+    them along z."""
+    return zdir if zdir in ('x', 'y') else 'z'
+
+
 def _placement(zdir, offset, stride, axlim_clip):
     """The native placement of contours: along *zdir*, at *offset* if
     given, extended into ribbons every *stride* points if not None."""
-    return (zdir, None if offset is None else float(offset),
+    return (_plane_dir(zdir), None if offset is None else float(offset),
             None if stride is None else int(stride), bool(axlim_clip))
+
+
+def _left_2d(cset, cls):
+    """Leave the contour set *cset* in its 3-D axes as the 2-D set of *cls*
+    matplotlib's failed placement leaves there, whose draws fail on it."""
+    cset.__class__ = cls
+    _draw_problems.record(cset, _draw_problems.missing_projection(cset))
+
+
+def _lift_contour_set(cset, zs, zdir, axlim_clip):
+    """
+    Place the paths of *cset*, a contour set of a 3-D axes, at *zs* (one
+    position for all, or one per path) along *zdir* (``'-'`` and the
+    direction), as given (matplotlib's ``collection_2d_to_3d``): positions
+    that do not broadcast to the paths raise, positions matplotlib's draws
+    fail to project are recorded.
+    """
+    from .art3d import Collection3D, juggle_axes
+    paths = cset.get_paths()
+    positions = np.broadcast_to(zs, len(paths))
+    verts = [np.column_stack(juggle_axes(*np.column_stack(
+        [p.vertices, np.broadcast_to(z, len(p.vertices))]).T, zdir))
+        for p, z in zip(paths, positions)]
+    if not isinstance(cset, Collection3D):
+        cset.__class__ = cbook._make_class_factory(Collection3D, "{}3D")(type(cset))
+    cset._axlim_clip = axlim_clip
+    problem = _draw_problems.paths_problem(cset, verts)
+    _mplot3d.lift_contour_paths(
+        cset.axes._native, cset._contour,
+        (_plane_dir(zdir.removeprefix('-')), bool(axlim_clip)),
+        [np.nan if problem is not None else float(z) for z in positions])
+    _draw_problems.record(cset, problem)
+
+
+def _band_middles(cset):
+    """The positions of the bands of the filled contour set *cset*: their
+    middles, an extended end half a band beyond the outer level (matplotlib's
+    ``_add_contourf_set``)."""
+    levels = cset.levels
+    midpoints = levels[:-1] + np.diff(levels) / 2
+    if cset.extend in ('both', 'min'):
+        midpoints = np.insert(midpoints, 0, levels[0] - np.diff(levels[:2]) / 2)
+    if cset.extend in ('both', 'max'):
+        midpoints = np.append(midpoints, levels[-1] + np.diff(levels[-2:]) / 2)
+    return midpoints
 
 
 def _placed(make, cls, zdir, offset, stride, axlim_clip):
     """
     The contour set *make* makes at a placement (`_placement`), of the
-    class *cls* in 2-D. matplotlib places the set its 2-D method made in
-    3-D at *offset* broadcast to the set's paths, unless *stride* extends
-    it into ribbons: an offset that does not broadcast raises there,
-    leaving the 2-D set in the axes, whose draws then fail on it.
+    class *cls* in 2-D. matplotlib makes the 2-D set, then places it in
+    3-D (``'-' + zdir``) at its levels, or at *offset* broadcast to the
+    set's paths, unless *stride* extends it into ribbons: a *zdir* of no
+    string, or an offset that does not broadcast, raises there, leaving the
+    2-D set in the axes, whose draws then fail on it.
     """
-    if stride is not None or offset is None or np.ndim(offset) == 0:
+    if not isinstance(zdir, str):
+        _left_2d(make(_placement('z', None, None, axlim_clip)), cls)
+        raise TypeError(f'can only concatenate str (not "{type(zdir).__name__}") '
+                        f'to str')
+    if stride is not None or offset is None or isinstance(offset, (int, float)):
         return make(_placement(zdir, offset, stride, axlim_clip))
     cset = make(_placement(zdir, None, None, axlim_clip))
     try:
-        positions = np.broadcast_to(offset, len(cset.get_paths()))
+        _lift_contour_set(cset, offset, '-' + zdir, axlim_clip)
     except ValueError:
-        cset.__class__ = cls
-        _draw_problems.record(cset, _draw_problems.missing_projection(cset))
+        _left_2d(cset, cls)
         raise
-    cset.remove()
-    if len(np.unique(positions)) > 1:
-        raise NotImplementedError("pltrs: contour(offset=...) with a "
-                                  "position per contour")
-    return make(_placement(zdir, positions[0] if len(positions) else None,
-                           None, axlim_clip))
+    return cset
 
 
 class ContoursMixin:
@@ -67,10 +119,13 @@ class ContoursMixin:
     def add_contour_set(
             self, cset, extend3d=False, stride=5, zdir='z', offset=None,
             axlim_clip=False):
-        _mplot3d.add_contour_set(
-            self._native, cset._contour,
-            (zdir, None if offset is None else float(offset), bool(axlim_clip)),
-            int(stride) if extend3d else None)
+        zdir = '-' + zdir
+        if extend3d:
+            _mplot3d.add_contour_set(self._native, cset._contour,
+                                     ('z', None, bool(axlim_clip)), int(stride))
+        else:
+            _lift_contour_set(cset, offset if offset is not None else cset.levels,
+                              zdir, axlim_clip)
 
     def add_contourf_set(self, cset, zdir='z', offset=None, *, axlim_clip=False):
         self._add_contourf_set(cset, zdir=zdir, offset=offset,
@@ -83,9 +138,11 @@ class ContoursMixin:
         levels : `numpy.ndarray`
             Levels at which the filled contours are added.
         """
-        return np.array(_mplot3d.add_contourf_set(
-            self._native, cset._contour,
-            (zdir, None if offset is None else float(offset), bool(axlim_clip))))
+        zdir = '-' + zdir
+        midpoints = _band_middles(cset)
+        _lift_contour_set(cset, offset if offset is not None else midpoints,
+                          zdir, axlim_clip)
+        return midpoints
 
     def _contour3d(self, filled, args, kwargs, placement):
         """The `.QuadContourSet` of ``contour`` (or, *filled*,

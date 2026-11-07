@@ -5,6 +5,8 @@
 use std::any::Any;
 use std::rc::Rc;
 
+use pltrs_core::numeric::{py_max, py_min};
+
 use super::axis3d::{Tickers3D, tick_style};
 use super::coords::Axis3;
 use super::error::Axes3DError;
@@ -222,13 +224,14 @@ impl Axis3D {
         self.set_minor_locator(FixedLocator::new(ticks))
     }
 
-    /// matplotlib's `_set_tick_locations` widening the view intervals.
+    /// matplotlib's `_set_tick_locations` widening the view intervals to
+    /// Python's `min` and `max` of the ticks (a NaN first is kept).
     fn include_ticks_in_view(&self, ticks: &[f64]) {
-        if ticks.is_empty() {
+        let Some((&first, rest)) = ticks.split_first() else {
             return;
-        }
-        let low = ticks.iter().copied().fold(f64::INFINITY, f64::min);
-        let high = ticks.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        };
+        let low = rest.iter().copied().fold(first, py_min);
+        let high = rest.iter().copied().fold(first, py_max);
         let dir = self.dir;
         self.update_shared(|axes| axes.include_in_view(dir, low, high));
     }

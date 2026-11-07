@@ -14,13 +14,14 @@ Matplotlib License, kept as it is).
 import textwrap
 import threading
 import warnings
+import weakref
 
 import numpy as np
 
 from pltrs import _docstring
 from pltrs import _api, _handles, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
-from pltrs import patches as mpatches
+from pltrs import patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
 from pltrs._native import mplot3d as _mplot3d
 from pltrs.axes import Axes
@@ -33,6 +34,7 @@ from pltrs.axes._plotting._helpers import wrap
 from pltrs.axes._plotting.lines import _plot_datasets
 from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
+from pltrs._text_methods import _init_added
 from pltrs.text import _measured_by_given
 from pltrs.transforms import Bbox
 
@@ -62,6 +64,21 @@ class _SharedAxes3D(_SharedAxes):
                                  type(a), a.figure)
 
 
+def _native_share(other, kind):
+    """The native axes a new 3-D axes shares an axis (*kind* ``'x'``,
+    ``'y'``, ``'z'``) or, ``'3'``, its view with, None for none: matplotlib
+    checks those of a 2-D axes to be axes, and joins the others to its
+    groups by weak reference."""
+    if other is None:
+        return None
+    if kind in 'xy':
+        from pltrs.axes._base import _AxesBase
+        _api.check_isinstance(_AxesBase, other=other)
+    else:
+        weakref.ref(other)
+    return other._native
+
+
 def _margined(lower, upper, view_margin):
     """
     The limits *lower* and *upper* as matplotlib's ``_set_lim3d`` hands them
@@ -86,9 +103,28 @@ def _floats(*arrays):
 def _shading(shade, lightsource):
     """The native shading: whether to shade (None: the method's default)
     and the light of a `~matplotlib.colors.LightSource` (None: mplot3d's)."""
-    return (None if shade is None else bool(shade),
-            None if lightsource is None
-            else (float(lightsource.azdeg), float(lightsource.altdeg)))
+    return (None if shade is None else bool(shade), art3d._native_light(lightsource))
+
+
+def _check_quiver(arrows, length, arrow_length_ratio, pivot):
+    """Raise what matplotlib's ``quiver`` raises computing the shafts of
+    the *arrows* (its arguments broadcast together, the masked ones left
+    out) from *length*, *arrow_length_ratio* and *pivot*: numpy's errors on
+    values of no numbers. Return whether there is an arrow (matplotlib
+    reads none of the three for none)."""
+    if any(len(v) == 0 for v in arrows):
+        return False
+    shaft_dt = np.array([0., length], dtype=float)
+    shaft_dt * arrow_length_ratio
+    _api.check_in_list(['tail', 'middle', 'tip'], pivot=pivot)
+    if pivot == 'tail':
+        shaft_dt -= length
+    elif pivot == 'middle':
+        shaft_dt -= length / 2
+    XYZ = np.column_stack(arrows[:3])
+    UVW = np.column_stack(arrows[3:]).astype(float)
+    XYZ - np.multiply.outer(shaft_dt, UVW)
+    return True
 
 
 def _surface_mapping(cmap, norm, vmin, vmax):
@@ -271,8 +307,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         given_shares = (kwargs.pop('sharex', None), kwargs.pop('sharey', None),
                         kwargs.pop('sharez', None), kwargs.pop('shareview', None))
         _made.shareview = given_shares[3]
-        shares = tuple(None if other is None else other._native
-                       for other in given_shares)
+        shares = tuple(map(_native_share, given_shares, 'xyz3'))
         options = ((initial, 'z', proj_type, focal_length),
                    None if box_aspect is None
                    else tuple(map(float, box_aspect)),
@@ -492,11 +527,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             upper = axmax
         if np.isinf(lower) or np.isinf(upper):
             raise ValueError(f"Axis limits {lower}, {upper} cannot be infinite")
-        if np.isnan(lower) or np.isnan(upper):
+        margin = (view_margin if view_margin is not None
+                  else self._view_margin if rcParams['axes3d.automargin'] else 0)
+        given = _margined(lower, upper, margin)
+        if not all(np.isfinite(given)):
+            # The limits matplotlib's axis is handed, NaN, or made infinite
+            # by a margin that is not positive.
             raise ValueError("Axis limits cannot be NaN or Inf")
-        given = _margined(lower, upper, view_margin if view_margin is not None
-                          else self._view_margin if rcParams['axes3d.automargin']
-                          else 0)
         lower, upper = float(lower), float(upper)
         if _mplot3d.get_scale(self._native, name) == 'log':
             if lower <= 0:
@@ -516,6 +553,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _mplot3d.set_lim(self._native, name, (lower, upper),
                          None if view_margin is None else float(view_margin),
                          None if auto is None else bool(auto))
+        if auto is not None:
+            # matplotlib's axis keeps the flag as the bool of *auto*.
+            _values.remember(getattr(self, f"{name}axis"), "autoscale_on", bool(auto))
         return getattr(self, f"{name}axis")._typed_limits(
             given, _mplot3d.get_lim(self._native, name))
 
@@ -777,12 +817,18 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         return minx, maxx, miny, maxy, minz, maxz
 
     def _set_bound3d(self, name, lower, upper, view_margin):
+        """Set the bounds of axis *name* through its limits, ordered as the
+        axis is (matplotlib's ``_set_bound3d``)."""
         if upper is None and np.iterable(lower):
             lower, upper = lower
-        _mplot3d.set_bound(self._native, name,
-                           (None if lower is None else float(lower),
-                            None if upper is None else float(upper)),
-                           None if view_margin is None else float(view_margin))
+        old_lower, old_upper = getattr(self, f"get_{name}bound")()
+        if lower is None:
+            lower = old_lower
+        if upper is None:
+            upper = old_upper
+        inverted = _mplot3d.get_inverted(self._native, name)
+        getattr(self, f"set_{name}lim")(sorted((lower, upper), reverse=inverted),
+                                        auto=None, view_margin=view_margin)
 
     def set_xbound(self, lower=None, upper=None, view_margin=None):
         """
@@ -1179,17 +1225,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         """
         self._set_axis_scale('z', value, **kwargs)
 
-    def get_xscale(self):
-        """Return the xaxis' scale (as a str)."""
-        return _mplot3d.get_scale(self._native, 'x')
-
-    def get_yscale(self):
-        """Return the yaxis' scale (as a str)."""
-        return _mplot3d.get_scale(self._native, 'y')
-
-    def get_zscale(self):
-        """Return the zaxis' scale (as a str)."""
-        return _mplot3d.get_scale(self._native, 'z')
+    get_zscale = _axis_method_wrapper("zaxis", "get_scale")
 
     # -- the camera and the box --------------------------------------------
 
@@ -1249,9 +1285,26 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         view = (self.initial_elev if elev is None else elev,
                 self.initial_azim if azim is None else azim,
                 self.initial_roll if roll is None else roll)
-        _mplot3d.view_init(self._native, tuple(map(float, view)), vertical_axis,
-                           bool(share))
-        _values.remember_all(self, dict(zip(_VIEW_ANGLES, view)), _VIEW_ANGLES)
+        self._turn(view, vertical_axis, share)
+
+    def _turn(self, view, vertical_axis, share):
+        """
+        Turn the view to the angles *view* (elev, azim, roll), kept as
+        given, with *vertical_axis* up, the axes sharing the view too with
+        *share*. matplotlib keeps angles its projection fails on: the view
+        stays as it was, and the draws of the axes fail as matplotlib's do.
+        """
+        problem = _draw_problems.view_problem(self, *view)
+        _mplot3d.view_init(
+            self._native, tuple(map(float, view)) if problem is None
+            else _mplot3d.get_view(self._native), vertical_axis, bool(share))
+        keep = _values.remember if problem is None else _values.keep
+        failure = None if problem is None else (type(problem).__name__, str(problem))
+        for axes in (self._shared_axes["view"].get_siblings(self) if share
+                     else [self]):
+            for name, value in zip(_VIEW_ANGLES, view):
+                keep(axes, name, value)
+            _mplot3d.set_view_failure(axes._native, failure)
 
     def _view_angle(index):
         """The property of one of the view angles (as given, as matplotlib
@@ -1262,11 +1315,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             return _values.given(self, name, _mplot3d.get_view(self._native)[index])
 
         def set(self, value):
-            view = list(_mplot3d.get_view(self._native))
-            view[index] = float(value)
-            _mplot3d.view_init(self._native, tuple(view),
-                               self._axis_names[self._vertical_axis], False)
-            _values.remember(self, name, value)
+            view = [getattr(self, angle) for angle in _VIEW_ANGLES]
+            view[index] = value
+            self._turn(view, self._axis_names[self._vertical_axis], False)
         return property(get, set)
 
     elev = _view_angle(0)
@@ -1411,6 +1462,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
     def get_proj(self):
         """Create the projection matrix from the current viewing position."""
+        problem = _draw_problems.view_problem(
+            self, *(getattr(self, angle) for angle in _VIEW_ANGLES))
+        if problem is not None:
+            raise problem
         return _mplot3d.get_proj(self._native)
 
     def draw(self, renderer):
@@ -1607,7 +1662,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         try:
             return self.fmt_zdata(z)
         except (AttributeError, TypeError):
-            return _mplot3d.format_data(self._native, 'z', float(z)) or ""
+            return self.zaxis.get_major_formatter().format_data_short(z)
 
     # -- decorations -------------------------------------------------------
 
@@ -1939,8 +1994,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
 
             .. versionadded:: 3.10
         """
+        zvals = np.atleast_1d(zs)
+        if zvals.size:
+            # matplotlib orders the collection by the lowest position.
+            np.min(zvals)
         if not isinstance(col, art3d._Loose3D):
-            zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan)
+            if not isinstance(col, mcoll.LineCollection):
+                zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan)
             if isinstance(col, mcoll.PolyCollection):
                 art3d.poly_collection_2d_to_3d(col, zs=zs, zdir=zdir)
             elif isinstance(col, mcoll.LineCollection):
@@ -2034,6 +2094,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         else:
             datasets = [(xs, ys, zs, args[0] if args else None,
                          kwargs.get("label"))]
+        # matplotlib places the lines along *zdir* (``juggle_axes``), which
+        # fails on a direction of no string.
+        art3d.juggle_axes(xs, ys, zs, zdir)
         lines = []
         for x, y, z, fmt, label in datasets:
             props = {k: v for k, v in kwargs.items() if v is not None}
@@ -2049,7 +2112,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             # The 3-D data as matplotlib's `set_3d_properties` keeps them:
             # the 2-D data as given, and the z values as floats.
             z = np.broadcast_to(cbook._to_unmasked_float_array(z).ravel(), len(x))
-            _values.remember(line, "data_3d", art3d.juggle_axes(x, y, z, zdir))
+            verts = art3d.juggle_axes(x, y, z, zdir)
+            _values.remember(line, "data_3d", verts)
+            _draw_problems.record(line, _draw_problems.line_problem(line, verts))
             lines.append(line)
         return lines
 
@@ -2175,6 +2240,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         collection = wrap(self, native, art3d.Path3DCollection)
         _values.remember(collection, "sizes", given_sizes)
         _values.remember(collection, "_offsets3d", given_offsets)
+        _draw_problems.record(
+            collection, _draw_problems.offsets_problem(collection, given_offsets))
         # matplotlib's scatter gives its marker path as a tuple.
         collection._paths_container = tuple
         if made is not None:
@@ -2360,6 +2427,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         native = _mplot3d.plot_wireframe(self._native, grids, sampling, color,
                                          bool(axlim_clip))
         collection = wrap(self, native, art3d.Line3DCollection)
+        if any(a.dtype.kind not in 'biuf' for a in (X, Y, Z)):
+            # Values of no number, on which matplotlib's draws fail: its
+            # lines through them, of the rows and the columns.
+            lines = ([list(zip(*row)) for row in zip(X, Y, Z)]
+                     + [list(zip(*col)) for col in zip(X.T, Y.T, Z.T)])
+            _draw_problems.record(
+                collection, _draw_problems.segments_problem(collection, lines))
         collection._internal_update(kwargs)
         return collection
 
@@ -2389,11 +2463,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             The created `.Text3D` instance.
         """
         direction = tuple(map(float, art3d.get_dir_vector(zdir)))
-        native = _mplot3d.text(self._native, (float(x), float(y), float(z)),
-                               str(s), direction, bool(axlim_clip))
-        text = wrap(self, native, art3d.Text3D)
-        _values.remember(text, "position_3d", (x, y, z))
-        text._internal_update(kwargs)
+        native = _mplot3d.text(self._native, art3d._text_floats((x, y, z)),
+                               '' if s is None else str(s), direction,
+                               bool(axlim_clip))
+        # A 2-D text given its properties, then made 3-D (with the position
+        # as given), as matplotlib's is.
+        text = wrap(self, native, mtext.Text)
+        art3d._keep_text_position(text, (x, y, z))
+        _init_added(text, kwargs)
+        art3d.text_2d_to_3d(text, z, zdir, axlim_clip)
         return text
 
     text3D = text
@@ -2466,12 +2544,12 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         collection : `~.art3d.Poly3DCollection`
             A collection of three-dimensional polygons representing the bars.
         """
-        # matplotlib broadcasts the bars and takes their extent first, which
-        # no bars have.
-        anchors = np.broadcast_arrays(np.atleast_1d(x), y, z, dx, dy, dz)[0]
-        if anchors.size == 0:
-            raise ValueError("zero-size array to reduction operation minimum "
-                             "which has no identity")
+        # matplotlib broadcasts the bars and takes their extent first,
+        # failing as numpy does on bars of none or of no numbers.
+        x, y, z, dx, dy, dz = np.broadcast_arrays(np.atleast_1d(x), y, z, dx, dy, dz)
+        for p, dp in ((x, dx), (y, dy), (z, dz)):
+            np.min(p), np.max(p + dp)
+        colors = None if color is None else mcolors.to_rgba_array(color)
         # The positional arguments go to the `.Poly3DCollection` after its
         # vertices: its *sizes*.
         if len(args) > 1:
@@ -2483,10 +2561,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                 raise TypeError("PolyCollection.__init__() got multiple "
                                 "values for argument 'sizes'")
             kwargs['sizes'] = args[0]
-        _api.check_in_list(['average', 'min', 'max'], zsort=zsort)
+        if zsort not in ('average', 'min', 'max'):
+            # matplotlib's `.Poly3DCollection` looks the sorting up.
+            raise KeyError(zsort)
         columns = tuple(np.atleast_1d(np.asarray(v, dtype=float)).ravel().tolist()
                         for v in (x, y, z, dx, dy, dz))
-        colors = None if color is None else mcolors.to_rgba_array(color)
         native = _mplot3d.bar3d(self._native, (columns[:3], columns[3:]),
                                 (colors, zsort),
                                 _shading(bool(shade), lightsource),
@@ -2542,7 +2621,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             Any additional keyword arguments are delegated to
             :class:`.Line3DCollection`
         """
-        _api.check_in_list(['tail', 'middle', 'tip'], pivot=pivot)
+        if not _check_quiver(
+                cbook._broadcast_with_masks(X, Y, Z, U, V, W, compress=True),
+                length, arrow_length_ratio, pivot):
+            length, arrow_length_ratio, pivot = 1, .3, 'tail'
         input_args = [X, Y, Z, U, V, W]
         masks = [np.ma.getmaskarray(a) for a in input_args
                  if isinstance(a, np.ma.MaskedArray)]

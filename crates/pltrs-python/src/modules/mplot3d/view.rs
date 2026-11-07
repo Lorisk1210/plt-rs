@@ -292,12 +292,6 @@ fn rotation_coords(axes: Axes3D) -> PyResult<String> {
     Ok(axes.rotation_coords())
 }
 
-/// The coordinate `value` along axis `name` as the status bar shows it
-/// (`format_xdata`, ...); `None` when it cannot be formatted.
-fn format_data(axes: Axes3D, name: String, value: f64) -> PyResult<Option<String>> {
-    Ok(axes.format_data(axis3(&name)?, value))
-}
-
 /// Turns the view as dragging the rotate button from `start` to `end`
 /// does (projected coordinates); `snap` rounds the angles to
 /// `axes3d.snap_rotation` (`_on_move` with the rotate button).
@@ -389,7 +383,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_proj", get_proj)?;
     module.add("format_coord", format_coord)?;
     module.add("rotation_coords", rotation_coords)?;
-    module.add("format_data", format_data)?;
     module.add("zoom_data_limits", zoom_data_limits)?;
     module.add("get_focal_length", get_focal_length)?;
     module.add("clear", clear)?;

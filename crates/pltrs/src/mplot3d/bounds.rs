@@ -104,7 +104,8 @@ impl Axes3D {
     ///
     /// # Errors
     ///
-    /// When a limit or the margin is infinite or NaN.
+    /// When a limit is infinite or NaN, or the margin (neither positive
+    /// nor 0) makes one so.
     pub fn set_limits_with_margin(
         &self,
         axis: Axis3,
@@ -112,7 +113,6 @@ impl Axes3D {
         high: f64,
         view_margin: Option<f64>,
     ) -> Result<&Self, Axes3DError> {
-        check_view_margin(view_margin)?;
         self.with_mut(|axes| axes.set_lim3d(axis, low, high, Some(false), view_margin))?;
         Ok(self)
     }
@@ -229,7 +229,8 @@ impl Axes3D {
     ///
     /// # Errors
     ///
-    /// When a bound or the margin is infinite or NaN.
+    /// When a bound is infinite or NaN, or the margin (neither positive
+    /// nor 0) makes one so.
     pub fn set_bound_with_margin(
         &self,
         axis: Axis3,
@@ -237,7 +238,6 @@ impl Axes3D {
         upper: Option<f64>,
         view_margin: Option<f64>,
     ) -> Result<&Self, Axes3DError> {
-        check_view_margin(view_margin)?;
         self.with_mut(|axes| {
             let (old_lower, old_upper) = axes.limits.bound(axis);
             axes.set_bound(
@@ -344,21 +344,16 @@ impl Axes3D {
     /// ```
     /// use pltrs::figure::Figure;
     /// let ax = Figure::new().subplot_3d();
-    /// ax.set_view_margin(0.0)?;
+    /// ax.set_view_margin(0.0);
     /// ax.set_margins([Some(0.0); 3], None)?;
     /// ax.plot(&[0.0, 1.0], &[0.0, 2.0], &[0.0, 3.0])?;
     /// assert_eq!(ax.view_margin(), 0.0);
     /// assert_eq!(ax.zlim(), (0.0, 3.0));
     /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// When the margin is infinite or NaN.
-    pub fn set_view_margin(&self, margin: f64) -> Result<&Self, Axes3DError> {
-        check_view_margin(Some(margin))?;
+    pub fn set_view_margin(&self, margin: f64) -> &Self {
         self.with_mut(|axes| axes.limits.view_margin = margin);
-        Ok(self)
+        self
     }
 
     /// Sets the autoscaling margin of one axis as a fraction of the data
@@ -504,20 +499,14 @@ impl Axes3D {
     }
 }
 
-/// Checks that an autoscaling margin is above -0.5.
+/// Checks that an autoscaling margin is above -0.5, or NaN, which
+/// autoscaling leaves out as matplotlib's does (it widens only by a
+/// positive margin).
 fn check_margin(margin: f64) -> Result<(), Axes3DError> {
-    if margin.is_nan() || margin <= -0.5 {
+    if margin <= -0.5 {
         Err(Axes3DError::Margin(margin))
     } else {
         Ok(())
-    }
-}
-
-/// Checks that a view margin, if given, is finite.
-fn check_view_margin(view_margin: Option<f64>) -> Result<(), Axes3DError> {
-    match view_margin {
-        Some(margin) if !margin.is_finite() => Err(Axes3DError::ViewMargin(margin)),
-        _ => Ok(()),
     }
 }
 
@@ -567,12 +556,15 @@ mod tests {
         assert!((low - 0.1).abs() < 1e-12 && (high - 1000.0).abs() < 1e-9);
         assert!(matches!(
             ax.set_limits_with_margin(Axis3::X, 0.0, 1.0, Some(f64::NAN)),
-            Err(Axes3DError::ViewMargin(margin)) if margin.is_nan()
+            Err(Axes3DError::NonFiniteLimits(low, _)) if low.is_nan()
         ));
         assert!(matches!(
-            ax.set_bound_with_margin(Axis3::X, None, None, Some(f64::INFINITY)),
-            Err(Axes3DError::ViewMargin(_))
+            ax.set_limits_with_margin(Axis3::X, 0.0, 1.0, Some(f64::NEG_INFINITY)),
+            Err(Axes3DError::NonFiniteLimits(..))
         ));
+        ax.set_bound_with_margin(Axis3::X, Some(0.0), Some(3.0), Some(f64::INFINITY))
+            .unwrap();
+        assert_eq!(ax.xlim(), (0.0, 3.0), "an infinite widening leaves them");
         crate::rc::context(|| {
             crate::rc::set("axes3d.automargin", "True").unwrap();
             let ax = Figure::new().subplot_3d();
@@ -594,5 +586,11 @@ mod tests {
         ax.set_margin(Axis3::Z, 0.2).unwrap();
         assert_eq!(ax.margin(Axis3::Z), 0.2);
         assert_eq!(ax.margin(Axis3::X), 0.05);
+        ax.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]).unwrap();
+        ax.set_margin(Axis3::Z, f64::NAN).unwrap();
+        assert!(ax.margin(Axis3::Z).is_nan());
+        ax.set_margin(Axis3::Y, 0.0).unwrap();
+        ax.autoscale_view(None, [true; 3]).unwrap();
+        assert_eq!(ax.zlim(), ax.ylim(), "a NaN margin widens by none");
     }
 }

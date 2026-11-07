@@ -170,6 +170,17 @@ def _depthshade_minalpha(minalpha):
                  if minalpha is None else minalpha)
 
 
+def _native_light(lightsource):
+    """The light of a `~matplotlib.colors.LightSource` as pltrs (Rust)
+    takes it, its azimuth and altitude, None for mplot3d's own (*lightsource*
+    None): matplotlib shades with its direction, which an object of no
+    light lacks."""
+    if lightsource is None:
+        return None
+    lightsource.direction
+    return float(lightsource.azdeg), float(lightsource.altdeg)
+
+
 def _lifted(artist):
     """The 3-D axes in which *artist* has its 3-D geometry, or None (an
     artist outside any 3-D axes, or a 2-D one of its projection plane)."""
@@ -370,13 +381,29 @@ class Line3D(lines.Line2D):
                 raise problem
         super().draw(renderer)
 
+    @_docstring.copy(lines.Line2D.set_data)
+    def set_data(self, *args):
+        # docstring inherited; the 2-D data, which the next draw replaces
+        # with the projection of the 3-D data, as matplotlib's draw sets it.
+        super().set_data(*args)
+        self._data_set_at = _artist.draw_count(self._native)
+
+    def _numbers(self):
+        # docstring inherited; a line lifted in a 3-D axes keeps the numbers
+        # of its projection: matplotlib converts the 2-D data of none.
+        if _lifted(self) is None:
+            return super()._numbers()
+        return _lines.get_xdata(self._native), _lines.get_ydata(self._native)
+
     def _drawn_data(self, getter):
         """The projected data *getter* reads off the native line, masked as
         matplotlib's `draw` gives them to the line, once a draw projected
-        it; else None."""
+        it and while no 2-D data was set since; else None."""
         axes = _lifted(self)
-        mask = (None if axes is None
-                else _mplot3d.projected_line_mask(axes._native, self._native))
+        if (axes is None or self.__dict__.get('_data_set_at')
+                == _artist.draw_count(self._native)):
+            return None
+        mask = _mplot3d.projected_line_mask(axes._native, self._native)
         return None if mask is None else np.ma.masked_array(getter(self._native), mask)
 
     def get_xdata(self, orig=True):
@@ -432,13 +459,21 @@ class _Loose3D:
         return _projected_depth(self)
 
     def _place_sort_zpos(self, val):
-        """`set_sort_zpos` of the collection classes."""
+        """`set_sort_zpos` of the collection classes: a position of no
+        number is kept as given (the order stays as it was), and fails the
+        draws of polygons, which matplotlib projects it for."""
         axes = _axes3d(self)
         if axes is None:
             self._sort_zpos = val
-        else:
+        elif val is None or (np.ndim(val) == 0
+                             and np.asarray(val).dtype.kind in 'biuf'):
             _mplot3d.set_sort_zpos(axes._native, self._native,
                                    None if val is None else float(val))
+            if self.__dict__.pop('_sort_zpos_fails', False):
+                _draw_problems.record(self, None)
+        elif isinstance(self, Poly3DCollection):
+            self._sort_zpos_fails = True
+            _draw_problems.record(self, _draw_problems.sort_zpos_problem(val))
         self.stale = True
 
     def _add_to_axes(self, axes, kind, autolim=True):
@@ -584,8 +619,8 @@ def line_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
 def _lifted_paths(col, zs, zdir, finite=False):
     """
     The paths of the 2-D collection *col* placed at *zs* along *zdir*: one
-    position for all, one per path, or one per vertex of each path;
-    without their non-finite points with *finite* (matplotlib's
+    position for all, one per path, or one per vertex of each path, as
+    given; without their non-finite points with *finite* (matplotlib's
     ``_paths_to_3d_segments``).
     """
     paths = col.get_paths()
@@ -596,7 +631,7 @@ def _lifted_paths(col, zs, zdir, finite=False):
     lifted = []
     for path, path_zs in zip(paths, zs):
         vertices = path.vertices
-        path_zs = np.broadcast_to(np.asarray(path_zs, dtype=float), len(vertices))
+        path_zs = np.broadcast_to(path_zs, len(vertices))
         if finite:
             keep = np.isfinite(vertices).all(axis=1)
             vertices, path_zs = vertices[keep], path_zs[keep]
@@ -631,14 +666,32 @@ class _Lifted3DOffsets(_Loose3D):
 
     def set_3d_properties(self, zs, zdir, axlim_clip=False):
         self._axlim_clip = axlim_clip
-        axes = _lifted(self)
-        if axes is None:
+        offsets = self._lifted_offsets(zs, zdir)
+        if _lifted(self) is None:
             self._offsets3d_pending = (zs, zdir)
         else:
-            offsets = self.get_offsets()
-            xs, ys = offsets.T if len(offsets) else ([], [])
-            self._offsets3d = juggle_axes(xs, ys, np.atleast_1d(zs), zdir)
+            self._offsets3d = offsets
         self.stale = True
+
+    def _lifted_offsets(self, zs, zdir):
+        """The 3-D positions of the members: their 2-D offsets placed at
+        *zs* along *zdir*, as given (matplotlib's ``set_3d_properties``)."""
+        offsets = self.get_offsets()
+        xs, ys = offsets.T if len(offsets) else ([], [])
+        return juggle_axes(xs, ys, np.atleast_1d(zs), zdir)
+
+    def _adopt_into(self, axes, autolim, axlim_clip):
+        # docstring inherited; positions matplotlib's draws fail to project
+        # (more z values than offsets, say) are recorded once the axes
+        # holds the collection.
+        zs, zdir = self.__dict__['_offsets3d_pending']
+        offsets = self._lifted_offsets(zs, zdir)
+        super()._adopt_into(axes, autolim, axlim_clip)
+        problem = _draw_problems.offsets_problem(self, offsets)
+        if problem is not None:
+            self._keep_unprojectable(offsets)
+            _draw_problems.record(self, problem)
+        return self
 
     @property
     def _offsets3d(self):
@@ -646,6 +699,9 @@ class _Lifted3DOffsets(_Loose3D):
         unprojectable = self.__dict__.get("_unprojectable")
         if unprojectable is not None:
             return unprojectable
+        pending = self.__dict__.get("_offsets3d_pending")
+        if pending is not None:
+            return self._lifted_offsets(*pending)
         return _values.given(self, "_offsets3d", tuple(
             np.array(c) for c in
             _mplot3d.scatter_offsets(self.axes._native, self._native)))
@@ -695,7 +751,10 @@ class _Lifted3DOffsets(_Loose3D):
             depthshade = self._depthshade_pending[0]
             return (rcParams['axes3d.depthshade'] if depthshade is None
                     else depthshade)
-        return _mplot3d.get_depthshade(axes._native, self._native)
+        # As given, as matplotlib keeps it.
+        return _values.given(self, "depthshade",
+                             _mplot3d.get_depthshade(axes._native, self._native),
+                             same=lambda given, native: bool(given) == native)
 
     def set_depthshade(self, depthshade, depthshade_minalpha=None):
         axes = _lifted(self)
@@ -705,6 +764,7 @@ class _Lifted3DOffsets(_Loose3D):
             _mplot3d.set_depthshade(axes._native, self._native,
                                     bool(depthshade),
                                     _depthshade_minalpha(depthshade_minalpha))
+            _values.remember(self, "depthshade", depthshade)
         self.stale = True
 
 
@@ -1229,6 +1289,43 @@ def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     col._axlim_clip = axlim_clip
 
 
+def _outline_points(segment3d):
+    """The (N, 3) float array of the outline *segment3d* of a 3-D patch,
+    NaN for an outline of values that are not numbers, which matplotlib's
+    draws fail to project (`_draw_problems.patch_problem`)."""
+    try:
+        return np.asarray(segment3d, dtype=float).reshape(-1, 3)
+    except (TypeError, ValueError):
+        return np.full((len(segment3d), 3), np.nan)
+
+
+def _is_number(value):
+    """Whether *value* converts to a float."""
+    try:
+        float(value)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _text_floats(position):
+    """The 3-D *position* of a text as floats, NaN for a coordinate that is
+    no number (which matplotlib's draws fail on,
+    `_draw_problems.text_problem`)."""
+    return tuple(float(value) if _is_number(value) else np.nan
+                 for value in position)
+
+
+def _keep_text_position(text, position):
+    """Keep the 3-D *position* of *text*, a text lifted in a 3-D axes, as
+    given (`_values`): pltrs (Rust) holds it as floats, NaN for what is no
+    number."""
+    if all(_is_number(value) for value in position):
+        _values.remember(text, "position_3d", tuple(position))
+    else:
+        _values.keep(text, "position_3d", tuple(position))
+
+
 def _get_patch_verts(patch):
     """Return a list of vertices for the path of a patch."""
     trans = patch.get_patch_transform()
@@ -1265,14 +1362,21 @@ class Patch3D(mpatches.Patch):
         # docstring inherited
         super()._add_to_axes(axes, kind, autolim)
         if _axes3d(self) is not None:
-            self._lift(*self.__dict__.pop('_pending3d'))
+            self._settle(*self.__dict__.pop('_pending3d'))
         return self
 
     def _lift(self, segment3d, axlim_clip):
         """Follow the outline *segment3d* in the 3-D axes holding the patch."""
         _mplot3d.patch_2d_to_3d(self.axes._native, self._native,
-                                np.asarray(segment3d, dtype=float).reshape(-1, 3),
-                                bool(axlim_clip))
+                                _outline_points(segment3d), bool(axlim_clip))
+
+    def _settle(self, *geometry):
+        """Lift the patch with *geometry* (its outline last but one) in the
+        3-D axes holding it, recording the problem matplotlib's draws meet
+        projecting the outline."""
+        problem = _draw_problems.patch_problem(self, geometry[-2])
+        self._lift(*geometry)
+        _draw_problems.record(self, problem)
 
     def do_3d_projection(self):
         return _projected_depth(self)
@@ -1283,7 +1387,7 @@ class Patch3D(mpatches.Patch):
         if _axes3d(self) is None:
             self._pending3d = geometry
         else:
-            self._lift(*geometry)
+            self._settle(*geometry)
         self.stale = True
 
     def set_3d_properties(self, verts, zs=0, zdir='z', axlim_clip=False):
@@ -1324,6 +1428,10 @@ class Patch3D(mpatches.Patch):
         from pltrs.transforms import IdentityTransform
         return IdentityTransform()
 
+    # matplotlib's class inherits `.Patch`'s (whose name its errors give):
+    # this one leaves out the transform of the patch it was made from.
+    get_patch_transform.__qualname__ = "Patch.get_patch_transform"
+
 
 class PathPatch3D(Patch3D):
     """
@@ -1353,9 +1461,8 @@ class PathPatch3D(Patch3D):
     def _lift(self, path, segment3d, axlim_clip):
         """Follow *path*, its vertices at *segment3d*, in the 3-D axes
         holding the patch."""
-        _mplot3d.pathpatch_2d_to_3d(
-            self.axes._native, self._native, path,
-            np.asarray(segment3d, dtype=float).reshape(-1, 3))
+        _mplot3d.pathpatch_2d_to_3d(self.axes._native, self._native, path,
+                                    _outline_points(segment3d))
 
     def set_3d_properties(self, path, zs=0, zdir='z', axlim_clip=False):
         """
@@ -1472,8 +1579,41 @@ class Text3D(mtext.Text):
         in the 3-D axes holding it."""
         _mplot3d.text_2d_to_3d(
             self.axes._native, self._native,
-            (tuple(map(float, position)), tuple(map(float, direction))),
+            (_text_floats(position), tuple(map(float, direction))),
             bool(axlim_clip))
+        self._settle(position)
+
+    def _settle(self, position):
+        """Keep the 3-D *position* of the text as given, as matplotlib
+        keeps it unchecked, recording the problem its draws meet with it."""
+        _keep_text_position(self, position)
+        _draw_problems.record(self, _draw_problems.text_problem(self, position))
+
+    def _has_3d(self):
+        """Whether the text has its 3-D geometry yet (`set_3d_properties`)."""
+        return _lifted(self) is not None or '_pending3d' in self.__dict__
+
+    def _place3d(self, position, direction=None):
+        """Move the text to the 3-D *position* (kept as given), its
+        baseline along *direction* (None: as it is)."""
+        axes = _lifted(self)
+        if axes is None:
+            _, kept, axlim_clip = self._pending3d
+            self._pending3d = (tuple(position), kept if direction is None
+                               else direction, axlim_clip)
+        else:
+            _mplot3d.set_text_position(
+                axes._native, self._native, _text_floats(position),
+                None if direction is None else tuple(map(float, direction)))
+            self._settle(position)
+        self.stale = True
+
+    def _set_coordinate(self, index, value):
+        """Set the coordinate *index* (0, 1, 2 for x, y, z) of the 3-D
+        position to *value*."""
+        position = list(self.get_position_3d())
+        position[index] = value
+        self._place3d(position)
 
     def get_position_3d(self):
         """Return the (x, y, z) position of the text."""
@@ -1491,27 +1631,26 @@ class Text3D(mtext.Text):
 
     @_docstring.copy(mtext.Text.set_position)
     def set_position(self, xy):
-        # docstring inherited; the x and y of the 3-D position.
+        # docstring inherited; the x and y of the 3-D position, set one
+        # after the other as matplotlib's sets them.
         self.set_x(xy[0])
         self.set_y(xy[1])
 
     @_docstring.copy(mtext.Text.set_x)
     def set_x(self, x):
         # docstring inherited; the x of the 3-D position.
-        if _lifted(self) is None:
-            super().set_x(x)
+        if self._has_3d():
+            self._set_coordinate(0, x)
         else:
-            _, y, z = self.get_position_3d()
-            self.set_position_3d((x, y, z))
+            super().set_x(x)
 
     @_docstring.copy(mtext.Text.set_y)
     def set_y(self, y):
         # docstring inherited; the y of the 3-D position.
-        if _lifted(self) is None:
-            super().set_y(y)
+        if self._has_3d():
+            self._set_coordinate(1, y)
         else:
-            x, _, z = self.get_position_3d()
-            self.set_position_3d((x, y, z))
+            super().set_y(y)
 
     def get_unitless_position(self):
         # docstring inherited
@@ -1540,18 +1679,10 @@ class Text3D(mtext.Text):
             The direction of the text. If unspecified, the *zdir* will not be
             changed. See `.get_dir_vector` for a description of the values.
         """
-        direction = None if zdir is None else get_dir_vector(zdir)
-        axes = _lifted(self)
-        if axes is None:
-            _, kept, axlim_clip = self._pending3d
-            self._pending3d = (tuple(xyz), kept if direction is None
-                               else direction, axlim_clip)
-        else:
-            _mplot3d.set_text_position(
-                axes._native, self._native, tuple(map(float, xyz)),
-                None if direction is None else tuple(map(float, direction)))
-            _values.remember(self, "position_3d", tuple(xyz))
-        self.stale = True
+        self.set_position(xyz[:2])
+        self.set_z(xyz[2])
+        if zdir is not None:
+            self._place3d(self.get_position_3d(), get_dir_vector(zdir))
 
     def set_z(self, z):
         """
@@ -1561,8 +1692,7 @@ class Text3D(mtext.Text):
         ----------
         z : float
         """
-        x, y, _ = self.get_position_3d()
-        self.set_position_3d((x, y, z))
+        self._set_coordinate(2, z)
 
     def set_3d_properties(self, z=0, zdir='z', axlim_clip=False):
         """
@@ -1590,7 +1720,6 @@ class Text3D(mtext.Text):
             self._pending3d = geometry
         else:
             self._lift(*geometry)
-            _values.remember(self, "position_3d", (x, y, z))
         self.stale = True
 
     def get_tightbbox(self, renderer=None):

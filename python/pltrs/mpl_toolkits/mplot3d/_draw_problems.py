@@ -152,6 +152,116 @@ def offsets_problem(collection, offsets, M=ANY_PROJECTION):
     return _problem(compute)
 
 
+def patch_problem(patch, segment3d, M=ANY_PROJECTION):
+    """The exception the ``do_3d_projection`` of ``Patch3D`` and
+    ``PathPatch3D`` raises for the outline *segment3d* of *patch* (in its
+    3-D axes) projected through *M*, or None: none for no point, a
+    ``float()`` of a ``zip`` for points invalid on their axis scales, which
+    matplotlib means to mask. (Its mask of the points outside the view
+    limits, with ``axlim_clip``, depends on the limits of the draw.)"""
+    def compute():
+        axes = patch.axes
+        xs0, ys0, zs0 = zip(*segment3d)
+        mask = _scale_invalid_mask(xs0, ys0, zs0, axes)
+        if np.any(mask):
+            xs, ys, zs = np.ma.array(zip(*segment3d), dtype=float,
+                                     mask=mask).filled(np.nan)
+        else:
+            xs, ys, zs = xs0, ys0, zs0
+        _project_columns(xs, ys, zs, axes, M)
+    return _problem(compute)
+
+
+def paths_problem(collection, verts, M=ANY_PROJECTION):
+    """The exception ``Collection3D.do_3d_projection`` raises for the 3-D
+    vertices *verts* (an (N, 3) array per path) of *collection* projected
+    through *M*, or None: matplotlib masks the invalid points of a path
+    with a mask it fails to broadcast to the path's vertices."""
+    def compute():
+        axes = collection.axes
+        masks = [_scale_invalid_mask(*vs.T, axes) for vs in verts]
+        if _clips(collection):
+            masks = [m | _viewlim_mask(*vs.T, axes) for m, vs in zip(masks, verts)]
+        for vs, m in zip(verts, masks):
+            if np.any(m):
+                vs = np.ma.array(vs, mask=np.broadcast_to(m, vs.shape))
+            _project_columns(vs[:, 0], vs[:, 1], vs[:, 2], axes, M)
+    return _problem(compute)
+
+
+def text_problem(text, position):
+    """The exception ``Text3D.draw`` raises for the 3-D *position* of
+    *text* (in its 3-D axes), or None: coordinates that are no numbers
+    (None, strings), on which numpy's ``isfinite`` fails."""
+    def compute():
+        axes = text.axes
+        mask = _scale_invalid_mask(*position, axes)
+        if _clips(text):
+            mask |= _viewlim_mask(*position, axes)
+        if np.any(mask):
+            np.ma.array(position, mask=mask, dtype=float)
+        else:
+            np.array(position, dtype=float)
+    return _problem(compute)
+
+
+def _norm_angle(a):
+    """The angle *a* normalized to -180 < *a* <= 180 degrees (matplotlib's
+    ``art3d._norm_angle``)."""
+    a = (a + 360) % 360
+    if a > 180:
+        a = a - 360
+    return a
+
+
+def view_problem(axes, elev, azim, roll):
+    """The exception matplotlib's ``get_proj`` of *axes* raises computing
+    with the view angles *elev*, *azim* and *roll* (degrees, kept
+    unchecked), or None: its computations of the eye and of the view
+    axes."""
+    def compute():
+        R = np.full(3, 0.5)
+        elev_rad = np.deg2rad(elev)
+        azim_rad = np.deg2rad(azim)
+        ps = np.roll([np.cos(elev_rad) * np.cos(azim_rad),
+                      np.cos(elev_rad) * np.sin(azim_rad),
+                      np.sin(elev_rad)], axes._vertical_axis - 2)
+        eye = R + 10 * ps
+        elev_rad = np.deg2rad(_norm_angle(elev))
+        roll_rad = np.deg2rad(_norm_angle(roll))
+        V = np.zeros(3)
+        V[axes._vertical_axis] = -1 if abs(elev_rad) > np.pi / 2 else 1
+        w = eye - R
+        w = w / np.linalg.norm(w)
+        u = np.cross(V, w)
+        u = u / np.linalg.norm(u)
+        v = np.cross(w, u)
+        if roll_rad != 0:
+            angle = -roll_rad
+            vx, vy, vz = w / np.linalg.norm(w)
+            s, c = np.sin(angle), np.cos(angle)
+            t = 2 * np.sin(angle / 2) ** 2
+            rotation = np.array([
+                [t * vx * vx + c, t * vx * vy - vz * s, t * vx * vz + vy * s],
+                [t * vy * vx + vz * s, t * vy * vy + c, t * vy * vz - vx * s],
+                [t * vz * vx - vy * s, t * vz * vy + vx * s, t * vz * vz + c]])
+            u = np.dot(rotation, u)
+            v = np.dot(rotation, v)
+        Mr, Mt = np.eye(4), np.eye(4)
+        Mr[:3, :3] = [u, v, w]
+        Mt[:3, -1] = -eye
+
+    with np.errstate(all="ignore"):
+        return _problem(compute)
+
+
+def sort_zpos_problem(val, M=ANY_PROJECTION):
+    """The exception ``Poly3DCollection.do_3d_projection`` raises projecting
+    the position *val* it orders the polygons by (``set_sort_zpos``), or
+    None."""
+    return _problem(lambda: np.dot(M, np.array([[0], [0], [val], [1]])))
+
+
 def record(artist, problem):
     """Record *problem*, the exception matplotlib's draw raises for
     *artist*, an artist of a 3-D axes (None: its draw meets none), with

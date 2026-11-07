@@ -101,46 +101,78 @@ def _ortho_transformation(zfront, zback):
         np.array([zfront, zback, 0]).dtype)
 
 
-def _transform(xs, ys, zs, M, through=_mplot3d.transform):
-    """The points through the homogeneous matrix *M*, divided by ``w``
-    (*through* the native function doing so)."""
-    if M is None:
-        # The matrix of an axes not drawn yet: numpy's error multiplying
-        # the padded points by it, as matplotlib's `np.dot` raises it.
-        np.dot(M, np.array([xs, ys, zs, np.ones_like(xs)]))
-    columns = [np.asarray(c, dtype=float).ravel().tolist()
-               for c in np.broadcast_arrays(xs, ys, zs)]
-    txs, tys, tzs = through(np.asarray(M, dtype=float), tuple(columns))
-    return np.array(txs), np.array(tys), np.array(tzs)
+def _vec_pad_ones(xs, ys, zs):
+    """The points in homogeneous coordinates, a row per coordinate, as
+    numpy makes the array of them (of coordinates of other lengths, none)."""
+    if np.ma.isMA(xs) or np.ma.isMA(ys) or np.ma.isMA(zs):
+        return np.ma.array([xs, ys, zs, np.ones_like(xs)])
+    else:
+        return np.array([xs, ys, zs, np.ones_like(xs)])
+
+
+def _native_takes(vec, M):
+    """Whether pltrs (Rust) projects the padded points *vec* through *M*:
+    numbers through a 4 x 4 matrix of numbers, neither masked."""
+    return (not np.ma.isMA(vec) and not np.ma.isMA(M) and np.shape(M) == (4, 4)
+            and np.asarray(M).dtype.kind in "biuf" and vec.dtype.kind in "biuf"
+            and vec.ndim <= 2)
+
+
+def _native_rows(vec, M, through):
+    """The rows x, y and z of the padded points *vec* (numbers, see
+    `_native_takes`) through *M* by the native function *through*."""
+    columns = tuple(np.ravel(row).astype(float).tolist() for row in vec[:3])
+    return np.reshape(through(np.asarray(M, dtype=float), columns),
+                      (3,) + vec.shape[1:])
+
+
+def _projected_rows(vec, M):
+    """The rows x/w, y/w and z/w of the padded points *vec* through *M*
+    (matplotlib's ``np.dot(M, vec.data)`` divided by its last row): by
+    pltrs (Rust), else as numpy computes them, raising what it raises (for
+    a matrix of no 4 x 4 numbers, the matrix of an axes not drawn yet)."""
+    if _native_takes(vec, M):
+        return _native_rows(vec, M, _mplot3d.transform)
+    vecw = np.dot(M, vec.data)
+    return vecw[0:3] / vecw[3]
 
 
 def inv_transform(xs, ys, zs, invM):
     """
     Transform the points by the inverse of the projection matrix, *invM*.
     """
-    # matplotlib divides each point by its w unless that is zero.
-    return _transform(xs, ys, zs, invM, _mplot3d.inverse_transform)
+    vec = _vec_pad_ones(xs, ys, zs)
+    if _native_takes(vec, invM):
+        # matplotlib divides each point by its w unless that is zero.
+        rows = _native_rows(vec.reshape((4, -1)), invM, _mplot3d.inverse_transform)
+        return rows[0], rows[1], rows[2]
+    vecr = np.dot(invM, vec)
+    if vecr.shape == (4,):
+        vecr = vecr.reshape((4, 1))
+    for i in range(vecr.shape[1]):
+        if vecr[3][i] != 0:
+            vecr[:, i] = vecr[:, i] / vecr[3][i]
+    return vecr[0], vecr[1], vecr[2]
 
 
 def proj_transform(xs, ys, zs, M):
     """
     Transform the points by the projection matrix *M*.
     """
-    # Shaped as the points are given: numpy floats for one point, as
-    # matplotlib divides the rows of its padded array.
-    shape = np.broadcast(xs, ys, zs).shape
-    return tuple(np.reshape(ts, shape)[()] for ts in _transform(xs, ys, zs, M))
+    vec = _vec_pad_ones(xs, ys, zs)
+    ts = _projected_rows(vec, M)
+    if np.ma.isMA(vec):
+        ts = np.ma.array(ts, mask=vec.mask)
+    return ts[0], ts[1], ts[2]
 
 
 @_api.deprecated("3.10")
 def proj_transform_clip(xs, ys, zs, M):
-    # Shaped as the points are given, as matplotlib divides the rows of
-    # its padded array.
-    shape = np.broadcast(xs, ys, zs).shape
-    txs, tys, tzs = (np.reshape(ts, shape) for ts in _transform(xs, ys, zs, M))
-    tis = np.ones(shape, dtype=bool)
-    for given in (xs, ys, zs):
-        if np.ma.isMA(given):
-            tis &= ~np.ma.getmaskarray(given)
+    vec = _vec_pad_ones(xs, ys, zs)
+    txs, tys, tzs = _projected_rows(vec, M)
+    tis = np.ones(txs.shape, dtype=bool)
+    for row in vec[:3]:
+        if np.ma.isMA(row):
+            tis = tis & ~row.mask
     return (np.ma.masked_array(txs, ~tis), np.ma.masked_array(tys, ~tis),
             np.ma.masked_array(tzs, ~tis), tis)

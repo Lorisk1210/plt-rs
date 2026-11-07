@@ -222,7 +222,8 @@ impl Axes3DState {
     /// figure is `saving`, none for a draw stopped before its artists.
     /// Artists the draw fails on (see [`Axes3D::set_draw_failure`]) are
     /// not projected, nor are the lines and texts of a draw that ends
-    /// projecting the collections and patches.
+    /// projecting the collections and patches, nor anything when the
+    /// projection itself fails.
     ///
     /// [`Axes3D::set_draw_failure`]: super::Axes3D::set_draw_failure
     pub(crate) fn prepare(
@@ -234,6 +235,11 @@ impl Axes3DState {
     ) {
         self.artists.retain(|artist| store.contains(artist.id));
         self.failures.retain_in(store);
+        if self.projection_problem().is_some() {
+            // matplotlib's draw fails computing the projection, before it
+            // updates the ticks or projects an artist.
+            return;
+        }
         let width_points = extent.width().abs() / dpi * 72.0;
         // matplotlib reads `axes3d.automargin` when the ticks are drawn.
         let automargin = crate::rc::params().axes3d_automargin;
@@ -355,6 +361,12 @@ impl Artist for Axes3DState {
             return;
         };
         self.draw_background(ctx, &extent);
+        if let Some(problem) = self.projection_problem() {
+            // matplotlib's draw computes the projection and its inverse
+            // once the background is drawn, and fails there.
+            ctx.report_kind(self.base.id(), problem.kind, problem);
+            return;
+        }
         self.warn_drawn_tick_sites(ctx.layout().store());
         self.report_animated_projections(ctx);
         let children = ctx

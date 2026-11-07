@@ -3,6 +3,8 @@
 //! `_set_bound3d`, `_set_lim3d`, `Axis._set_lim` and
 //! `_set_lims_from_transformed`).
 
+use pltrs_core::numeric::{py_max, py_min};
+
 use super::axis3d::AxisSpan;
 use super::coords::Axis3;
 use super::error::Axes3DError;
@@ -393,17 +395,20 @@ impl Axes3DState {
         } else {
             0.0
         });
+        // A positive margin widens in the coordinates of the scale (an
+        // infinite widening leaves the limits), any other (negative, NaN)
+        // in data coordinates, where limits it makes infinite or NaN fail.
         let (lower, upper) = if margin > 0.0 {
             let scale = &self.axis(axis).scale;
             let limited = scale.limit_range(lower, upper, self.limits.minpos(axis));
             scale.widened(limited, margin)
         } else {
             let delta = (upper - lower) * margin;
-            if delta.is_finite() {
-                (lower - delta, upper + delta)
-            } else {
-                (lower, upper)
+            let (lower, upper) = (lower - delta, upper + delta);
+            if !(lower.is_finite() && upper.is_finite()) {
+                return Err(Axes3DError::NonFiniteLimits(lower, upper));
             }
+            (lower, upper)
         };
         if auto != Some(true) {
             self.aspect.forget_restore_limits(axis);
@@ -460,13 +465,16 @@ impl Axes3DState {
 
     /// Widens the view of one axis to include `[low, high]` keeping its
     /// orientation, without margins or autoscaling changes (matplotlib's
-    /// `set_view_interval` without `ignore`).
+    /// `set_view_interval` without `ignore`, with Python's `min` and `max`,
+    /// which keep a NaN met first).
     pub(crate) fn include_in_view(&mut self, axis: Axis3, low: f64, high: f64) {
         let (old0, old1) = self.limits.view(axis);
+        let lowest = |end| py_min(py_min(low, high), end);
+        let highest = |end| py_max(py_max(low, high), end);
         self.limits.view[axis.index()] = if old0 < old1 {
-            (low.min(high).min(old0), low.max(high).max(old1))
+            (lowest(old0), highest(old1))
         } else {
-            (low.max(high).max(old0), low.min(high).min(old1))
+            (highest(old0), lowest(old1))
         };
     }
 

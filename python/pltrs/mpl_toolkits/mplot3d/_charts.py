@@ -15,7 +15,7 @@ from pltrs.axes._plotting._helpers import axis_values, line_kwargs, wrap, wrap_a
 from pltrs.axes._plotting.errorbar import _errorevery_to_mask
 from pltrs.container import ErrorbarContainer, StemContainer
 
-from . import art3d
+from . import _draw_problems, art3d
 
 
 def _error_bounds(err, n):
@@ -32,6 +32,78 @@ def _error_bounds(err, n):
 def _flags(lims, n):
     """Limit flags, one per point."""
     return np.broadcast_to(lims, n).astype(bool).tolist()
+
+
+def _stem_lines(x, y, z, bottom, orientation):
+    """The stems from *bottom* to the heads ``(x, y, z)`` along
+    *orientation*, as matplotlib's ``stem`` makes them from the values as
+    given, raising what it raises on them (their limits first)."""
+    for values in (x, y, z):
+        np.min(values), np.max(values)
+    index = 'xyz'.index(orientation)
+    lines = []
+    for head in zip(x, y, z):
+        foot = list(head)
+        foot[index] = bottom
+        lines.append([tuple(foot), head])
+    return lines
+
+
+def _format_string(fmt):
+    """The format *fmt* as a string: matplotlib's ``_process_plot_format``
+    takes a colour as a whole (a tuple, say), and fails on anything else
+    of no string, which has no length to read it by."""
+    if isinstance(fmt, str):
+        return fmt
+    try:
+        return mcolors.to_hex(mcolors.to_rgba(fmt), keep_alpha=True)
+    except ValueError:
+        len(fmt)
+        raise
+
+
+def _fill_regions(curves, where, mode):
+    """
+    The number of polygons matplotlib's ``fill_between`` makes between the
+    *curves* ``(x1, y1, z1, x2, y2, z2)`` (broadcast together) where
+    *where* holds, raising what its arithmetic on them raises (numpy's
+    ``isnan`` of values that are no numbers, joining values of no common
+    type), and the fill mode it settles on for *mode*.
+    """
+    x1, y1, z1, x2, y2, z2 = curves
+    where = (True if where is None else where) & ~np.isnan(x1)
+    if mode == 'auto':
+        points = [np.concatenate((a[where], b[where]))
+                  for a, b in ((x1, x2), (y1, y2), (z1, z2))]
+        np.isnan(np.column_stack(points))
+        mode = ('polygon' if art3d._all_points_on_plane(*points, atol=1e-12)
+                else 'quad')
+    count = 0
+    for idx0, idx1 in cbook.contiguous_regions(where):
+        region = [c[idx0:idx1] for c in curves]
+        if not len(region[0]):
+            continue
+        if mode == 'quad':
+            corners = np.empty((len(region[0]) - 1, 3))
+            for part in (slice(None, -1), slice(1, None)):
+                corners[:] = np.column_stack([c[part] for c in region[:3]])
+                corners[:] = np.column_stack([c[part] for c in region[3:]])
+            count += len(corners)
+        else:
+            outline = np.concatenate((np.column_stack(region[:3]),
+                                      np.column_stack([c[::-1] for c in region[3:]])))
+            np.empty(outline.shape)[:] = outline
+            count += 1
+    return count, mode
+
+
+def _check_shaded(colors, count):
+    """Raise as matplotlib's shading of the face colours *colors* of
+    *count* polygons does for no colour (to which the shades of more than
+    one polygon do not broadcast)."""
+    if count > 1 and not len(colors):
+        raise ValueError(f"operands could not be broadcast together with "
+                         f"shapes ({count},1) (0,4) ")
 
 
 class ChartsMixin:
@@ -248,13 +320,27 @@ class ChartsMixin:
         .. plot:: gallery/mplot3d/stem3d_demo.py
         """
         _api.check_in_list(['x', 'y', 'z'], orientation=orientation)
+        lines = _stem_lines(x, y, z, bottom, orientation)
+        linefmt = _format_string(linefmt)
+        if not isinstance(basefmt, str):
+            # matplotlib's ``plot`` of the baseline takes it for its zs.
+            raise TypeError("plot() for multiple values for argument 'zs'")
+        base = (y, z) if orientation == 'x' else (x, z) if orientation == 'y' else (x, y)
+        cbook._broadcast_with_masks(*base, bottom)
+        if markerfmt is None:
+            raise ValueError("x, y, and format string must not be None")
+        markerfmt = _format_string(markerfmt)
+        x, y, z = cbook._broadcast_with_masks(x, y, z)
         markerline, stemlines, baseline = _mplot3d.stem(
             self._native, (axis_values(x), axis_values(y), axis_values(z)),
-            (linefmt, markerfmt, basefmt), float(bottom), orientation,
+            (linefmt, markerfmt, basefmt),
+            float(bottom) if art3d._is_number(bottom) else np.nan, orientation,
             bool(axlim_clip))
+        stemlines = wrap(self, stemlines, art3d.Line3DCollection)
+        _draw_problems.record(
+            stemlines, _draw_problems.segments_problem(stemlines, lines))
         container = StemContainer(
-            (wrap(self, markerline, art3d.Line3D),
-             wrap(self, stemlines, art3d.Line3DCollection),
+            (wrap(self, markerline, art3d.Line3D), stemlines,
              wrap(self, baseline, art3d.Line3D)), label=label)
         self.add_container(container)
         return container
@@ -378,14 +464,18 @@ class ChartsMixin:
         """
         _api.check_in_list(['auto', 'quad', 'polygon'], mode=mode)
         x1, y1, z1, x2, y2, z2 = cbook._broadcast_with_masks(x1, y1, z1, x2, y2, z2)
+        faces = (None if facecolors is None
+                 else np.ascontiguousarray(mcolors.to_rgba_array(facecolors)))
         if where is not None:
             where = np.asarray(where, dtype=bool)
             if where.size != x1.size:
                 raise ValueError(f"where size ({where.size}) does not match "
                                  f"size ({x1.size})")
+        count, settled = _fill_regions((x1, y1, z1, x2, y2, z2), where, mode)
+        if faces is not None and (settled == 'quad' if shade is None else shade):
+            _check_shaded(faces, count)
+        if where is not None:
             where = np.broadcast_to(where, x1.shape).ravel().tolist()
-        faces = (None if facecolors is None
-                 else np.ascontiguousarray(mcolors.to_rgba_array(facecolors)))
         # Shading applies to the face colours, and to edge colours given as
         # `edgecolors` (matplotlib's `Poly3DCollection` keyword).
         edges = kwargs.pop('edgecolors', None)
@@ -398,7 +488,7 @@ class ChartsMixin:
             self._native,
             tuple(tuple(axis_values(c) for c in curve)
                   for curve in ((x1, y1, z1), (x2, y2, z2))),
-            (where, mode), (faces, edges),
+            (where, settled), (faces, edges),
             (None if shade is None else bool(shade), light), bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
         collection._internal_update(kwargs)

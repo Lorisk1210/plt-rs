@@ -27,8 +27,6 @@ pub enum Axes3DError {
     BoxAspect(Vec3),
     /// An autoscaling margin that is not above -0.5.
     Margin(f64),
-    /// A view margin of limits that is infinite or NaN.
-    ViewMargin(f64),
     /// Axis limits that are infinite or NaN.
     NonFiniteLimits(f64, f64),
     /// Coordinate arrays of different lengths or shapes.
@@ -115,7 +113,6 @@ impl fmt::Display for Axes3DError {
                 write!(f, "box aspect {aspect:?} must have positive components")
             }
             Self::Margin(value) => write!(f, "margin {value} must be greater than -0.5"),
-            Self::ViewMargin(value) => write!(f, "view margin {value} must be finite"),
             Self::NonFiniteLimits(low, high) => {
                 write!(f, "axis limits {low}, {high} cannot be infinite or NaN")
             }

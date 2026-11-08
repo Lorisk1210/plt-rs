@@ -202,8 +202,12 @@ impl Figure {
             Output::Vector => font_notes::with_renderer_of_its_own(draw),
         };
         match bbox {
-            // The draw measuring the figure.
-            Some(BboxInches::Tight) => first_draw(&|| self.layout()),
+            // The draw measuring the figure, which lays the axis artists
+            // out as their draw does.
+            Some(BboxInches::Tight) => first_draw(&|| {
+                self.layout();
+                crate::axisartist::lay_out_as_drawn(&self.state());
+            }),
             // The layout the window is cut from, at the print resolution.
             Some(BboxInches::Inches(_)) => {
                 self.state_mut().draws_per_layout = usize::from(predrawn);

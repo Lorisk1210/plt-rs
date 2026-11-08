@@ -109,8 +109,9 @@ impl<'a> LayoutContext<'a> {
         self.figure.frame_bbox(frame)
     }
 
-    /// Where the background of a frame is drawn (the whole canvas for the
-    /// root figure while part of it is saved).
+    /// The frame's `bbox` as matplotlib's figures have it: where its
+    /// background is drawn, the whole canvas for the root figure while
+    /// part of it is saved.
     pub fn frame_patch_extent(&self, frame: ArtistId) -> Option<Bbox> {
         self.figure.frame_patch_bbox(frame)
     }

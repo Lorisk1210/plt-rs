@@ -58,20 +58,60 @@ class _BuiltinSegment:
         return f"<{self._channel} channel of colormap {self._cmap_name!r}>"
 
 
+#: The channels of a segmented colormap, in matplotlib's order.
+_CHANNELS = ("red", "green", "blue", "alpha")
+
+#: matplotlib's aliases of built-in colormaps (``_gen_cmap_registry``):
+#: copies of the colormap each names, sharing its segment data.
+_ALIASES = {'grey': 'gray', 'gist_grey': 'gist_gray',
+            'gist_yerg': 'gist_yarg', 'Grays': 'Greys'}
+
+#: The built-in colormaps whose segment data matplotlib's ``_cm`` writes
+#: as lists of tuples, where the others' are tuples of tuples.
+_LISTS_OF_SEGMENTS = frozenset({"Wistia", "coolwarm", "nipy_spectral"})
+
+#: The numbers matplotlib's ``_cm`` writes as int literals in segment data,
+#: by colormap and channel: ``i`` for an int, ``f`` for a float, row after
+#: row (``(0.35, 0, 0)`` is ``fii``).
+_INT_LITERALS = {
+    "gist_stern": {"green": "iiiiii"},
+    "gray": {"red": "fiifii", "green": "fiifii", "blue": "fiifii"},
+    "jet": {"red": "fiifiifiifiifff", "green": "fiifiifiifiifiifii",
+            "blue": "ffffiifiifiifii"},
+}
+
+
+def _segment(name, channel, rows, kind):
+    """One channel of the segment data of the built-in colormap *name*,
+    as matplotlib keeps it: a function for a channel pltrs (Rust)
+    computes (*rows* None), the columns of an array for a colormap of
+    colours (*kind* ``"colors"`` or ``"stops"``, which ``from_list``
+    makes), and otherwise the literal of ``_cm``."""
+    if rows is None:
+        return _BuiltinSegment(name, channel)
+    if kind != "segmented":
+        return np.array(rows, dtype=float)
+    literal = iter(_INT_LITERALS.get(name, {}).get(channel, ""))
+    rows = [tuple(int(v) if next(literal, "f") == "i" else v for v in row)
+            for row in np.asarray(rows, dtype=float).tolist()]
+    return rows if name in _LISTS_OF_SEGMENTS else tuple(rows)
+
+
 def _from_spec(spec, definition=None):
     """The `.Colormap` a native colormap spec describes; the colours of a
     built-in colour sequence (its *definition* a ``{'listed': colors}``
-    entry of ``_cm.datad``), and the rows of a segmented colormap's
-    channels, are the tuples of tuples matplotlib keeps."""
+    entry of ``_cm.datad``), and the segment data of a built-in colormap,
+    are what matplotlib keeps (see `_segment`)."""
     name = spec['name']
     if definition is not None and definition[0] == "listed_data":
         return colors.ListedColormap(tuple(definition[1]), name)
     if 'colors' in spec:
         return colors.ListedColormap(spec['colors'].tolist(), name)
+    kind = "segmented" if definition is None else definition[0]
+    segments = spec['segmentdata']
     segmentdata = {
-        channel: (_BuiltinSegment(name, channel) if rows is None
-                  else tuple(map(tuple, rows.tolist())))
-        for channel, rows in spec['segmentdata'].items()}
+        channel: _segment(name, channel, segments[channel], kind)
+        for channel in _CHANNELS if channel in segments}
     return colors.LinearSegmentedColormap(name, segmentdata, spec['N'])
 
 
@@ -94,8 +134,14 @@ def _gen_cmap_registry():
     Generate a dict mapping standard colormap names to standard colormaps, as
     well as the reversed colormaps.
     """
+    definitions = _builtin_definitions()
     cmap_d = {name: _from_spec(_cm.builtin_colormap(name), definition)
-              for name, definition in _builtin_definitions().items()}
+              for name, definition in definitions.items()
+              if name not in _ALIASES}
+    for alias, original_name in _ALIASES.items():
+        cmap = cmap_d[original_name].copy()
+        cmap.name = alias
+        cmap_d[alias] = cmap
     # Generate reversed cmaps.
     for cmap in list(cmap_d.values()):
         rmap = cmap.reversed()
@@ -107,9 +153,8 @@ def _datad_entry(name, kind, data):
     """The entry of ``_cm.datad`` for the built-in colormap *name*, from
     its definition in pltrs (Rust)."""
     if kind == "segmented":
-        return {channel: (_BuiltinSegment(name, channel) if rows is None
-                          else tuple(rows))
-                for channel, rows in zip(("red", "green", "blue"), data)}
+        return {channel: _segment(name, channel, rows, kind)
+                for channel, rows in zip(_CHANNELS, data)}
     if kind == "listed_data":
         return {"listed": tuple(data)}
     return tuple(data)

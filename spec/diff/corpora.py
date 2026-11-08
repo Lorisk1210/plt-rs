@@ -12,7 +12,8 @@ uses this module to
    outside its ``data-urls`` (they would need the network); a notebook or
    a Markdown page becomes a script of cells (``# %%`` lines, the percent
    format) under ``OUT/corpora/<name>/converted``, as does a script whose
-   URLs of the repository's files are rewritten into the tree;
+   URLs of the repository's files are rewritten into the tree (as paths,
+   or as ``file:`` URLs for the programs that download them);
 3. lay out the tree a run sees (``shadow``): the tree's directories, its
    files as links into it, and the ``outputs`` directories empty (with the
    subdirectories their repository has, which ``fetch`` lists from git's
@@ -48,6 +49,12 @@ CELL_MARK = "# %%"
 CELL_SUFFIXES = (".ipynb", ".md")
 #: A Markdown page's blocks of Python code.
 _MARKDOWN_CODE = re.compile(r"^```(?:python|py)[ \t]*\n(.*?)^```", re.M | re.S)
+#: A MyST page's code cells (the blocks Jupyter runs, its other blocks only
+#: shown), each with its kernel's name.
+_MYST_CODE = re.compile(r"^```\{code-cell\}(?:[ \t]+[\w-]+)?[ \t]*\n(.*?)^```", re.M | re.S)
+#: The options opening a MyST code cell: ``:key: value`` lines, or a YAML
+#: block between ``---`` lines.
+_MYST_OPTIONS = re.compile(r"\A(?:---\n.*?^---\n|(?:^:[\w-]+:.*\n)+)", re.M | re.S)
 #: An IPython line magic, shell escape or help request: no Python.
 _IPYTHON_LINE = re.compile(r"^\s*(?:[%!]|[\w.]+\?{1,2}\s*$)")
 #: A string naming a URL.
@@ -73,6 +80,7 @@ class Corpus:
     exclude: tuple[str, ...]
     outputs: tuple[str, ...]
     data_urls: tuple[str, ...]
+    file_urls: tuple[str, ...]
 
     def directory(self, out: pathlib.Path) -> pathlib.Path:
         """Where the corpus' tree and converted programs go."""
@@ -137,6 +145,7 @@ def load(manifest: pathlib.Path = MANIFEST) -> list[Corpus]:
             exclude=tuple(table.get("exclude", ())),
             outputs=tuple(table.get("outputs", ())),
             data_urls=tuple(table.get("data-urls", ())),
+            file_urls=tuple(table.get("file-urls", ())),
         )
         for name, table in tables.items()
     ]
@@ -217,9 +226,10 @@ def _matches(relative: str, patterns: tuple[str, ...]) -> bool:
 
 def _rewrite_urls(text: str, corpus: Corpus, tree: pathlib.Path) -> str:
     """*text* with the URLs of the repository's own files made paths into
-    *tree*."""
-    for prefix in corpus.data_urls:
-        text = re.sub(re.escape(prefix), lambda _: tree.as_posix() + "/", text, flags=re.I)
+    *tree* (``data-urls``) or ``file:`` URLs of them (``file-urls``)."""
+    for prefixes, into in ((corpus.data_urls, tree.as_posix() + "/"), (corpus.file_urls, tree.as_uri() + "/")):
+        for prefix in prefixes:
+            text = re.sub(re.escape(prefix), lambda _, into=into: into, text, flags=re.I)
     return text
 
 
@@ -255,14 +265,23 @@ def _cell_code(source: str) -> str | None:
     return code
 
 
+def _notebook_sources(notebook: dict[str, Any]) -> list[str]:
+    """The sources of a notebook's code cells: of its ``cells`` (nbformat 4)
+    or of its worksheets' (nbformat 3, the source under ``input``)."""
+    every = notebook.get("cells") or [cell for sheet in notebook.get("worksheets", []) for cell in sheet["cells"]]
+    sources = (cell.get("source", cell.get("input", "")) for cell in every if cell["cell_type"] == "code")
+    return ["".join(source) if isinstance(source, list) else source for source in sources]
+
+
 def cells(path: pathlib.Path) -> list[str]:
-    """The code cells of a notebook or of a Markdown page's Python blocks."""
+    """The code cells of a notebook, of a MyST page (its ``{code-cell}``
+    blocks, their options left out) or of a Markdown page's Python blocks."""
     if path.suffix == ".ipynb":
-        notebook = json.loads(path.read_text())
-        sources = ["".join(cell["source"]) if isinstance(cell["source"], list) else cell["source"]
-                   for cell in notebook["cells"] if cell["cell_type"] == "code"]
+        sources = _notebook_sources(json.loads(path.read_text()))
     else:
-        sources = _MARKDOWN_CODE.findall(path.read_text())
+        text = path.read_text()
+        sources = ([_MYST_OPTIONS.sub("", block, count=1) for block in _MYST_CODE.findall(text)]
+                   or _MARKDOWN_CODE.findall(text))
     return [code for code in map(_cell_code, sources) if code is not None and code.strip()]
 
 

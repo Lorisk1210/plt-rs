@@ -32,16 +32,36 @@ impl TextDrawError {
     /// TeX system cannot measure.
     pub fn kind(&self) -> DrawErrorKind {
         match self {
-            Self::Layout(
-                TextError::Math(_)
-                | TextError::UnknownName { .. }
-                | TextError::LanguageRange { .. }
-                | TextError::Tex(TexError::NoType1Font { .. } | TexError::Measuring { .. }),
-            )
-            | Self::Color(_) => DrawErrorKind::InvalidValue,
-            Self::Layout(TextError::MissingFontFile(_)) => DrawErrorKind::FileNotFound,
-            _ => DrawErrorKind::Other,
+            Self::Layout(err) => layout_error_kind(err),
+            Self::Color(_) => DrawErrorKind::InvalidValue,
+            Self::Box(_) | Self::Coords(_) => DrawErrorKind::Other,
         }
+    }
+}
+
+/// The kind of draw error a text that cannot be laid out makes, wherever
+/// it is drawn (a text artist, an offset box's text area): see
+/// [`TextDrawError::kind`]; a font file that is not there is matplotlib's
+/// `FileNotFoundError`.
+pub(crate) fn layout_error_kind(err: &TextError) -> DrawErrorKind {
+    match err {
+        TextError::Math(_)
+        | TextError::UnknownName { .. }
+        | TextError::LanguageRange { .. }
+        | TextError::Tex(TexError::NoType1Font { .. } | TexError::Measuring { .. }) => {
+            DrawErrorKind::InvalidValue
+        }
+        TextError::MissingFontFile(_) => DrawErrorKind::FileNotFound,
+        _ => DrawErrorKind::Other,
+    }
+}
+
+/// A text that cannot be laid out, in the words of matplotlib's draw:
+/// malformed mathtext as the parser's explanation alone.
+pub(crate) fn fmt_layout_error(err: &TextError, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match err {
+        TextError::Math(why) => f.write_str(why),
+        err => fmt::Display::fmt(err, f),
     }
 }
 
@@ -50,8 +70,7 @@ impl fmt::Display for TextDrawError {
     /// the parser's explanation alone, the message of its `ValueError`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Layout(TextError::Math(why)) => f.write_str(why),
-            Self::Layout(err) => err.fmt(f),
+            Self::Layout(err) => fmt_layout_error(err, f),
             Self::Color(err) => err.fmt(f),
             Self::Box(err) => err.fmt(f),
             Self::Coords(err) => err.fmt(f),

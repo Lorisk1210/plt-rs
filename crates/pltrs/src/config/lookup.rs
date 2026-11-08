@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 use pltrs_core::os::{self, Os};
 
 use super::{
-    CONFIG_DIR_VAR, ConfigError, DirProblem, MATPLOTLIB_CONFIG_DIR_VAR, RC_FILE_NAME, RC_FILE_VAR,
+    CONFIG_DIR_VAR, ConfigError, DirProblem, MATPLOTLIB_CONFIG_DIR_VAR, MATPLOTLIB_RC_FILE_NAME,
+    MATPLOTLIB_RC_FILE_VAR, RC_FILE_NAME, RC_FILE_VAR,
 };
 
 /// The name of pltrs' directories in the XDG base directories and of its
@@ -60,14 +61,21 @@ pub(crate) struct Environment {
     pub(crate) current_dir: PathBuf,
     /// Where temporary directories go.
     pub(crate) temp_dir: PathBuf,
+    /// Whether the rc file may also be matplotlib's: `matplotlibrc` where
+    /// pltrs looks for `pltrsrc`, and the one `MATPLOTLIBRC` names.
+    pub(crate) matplotlib_rc: bool,
 }
 
 impl Environment {
-    /// The process's environment: `MPLCONFIGDIR` among its variables only
-    /// when the process [honours](super::honour_matplotlib_config_dir) it.
+    /// The process's environment: matplotlib's `MPLCONFIGDIR` and
+    /// `MATPLOTLIBRC` among its variables, and its `matplotlibrc` files,
+    /// only when the process [honours](super::honour_matplotlib_config_dir)
+    /// them.
     pub(crate) fn process() -> Self {
-        let matplotlib =
-            super::matplotlib_config_dir_honoured().then_some(MATPLOTLIB_CONFIG_DIR_VAR);
+        let honoured = super::matplotlib_config_dir_honoured();
+        let matplotlib = [MATPLOTLIB_CONFIG_DIR_VAR, MATPLOTLIB_RC_FILE_VAR]
+            .into_iter()
+            .filter(|_| honoured);
         Self {
             os: Os::CURRENT,
             vars: VARIABLES
@@ -79,6 +87,17 @@ impl Environment {
             home: std::env::home_dir(),
             current_dir: PathBuf::new(),
             temp_dir: std::env::temp_dir(),
+            matplotlib_rc: honoured,
+        }
+    }
+
+    /// The names of the rc file: pltrs', then matplotlib's where the
+    /// environment allows it.
+    fn rc_file_names(&self) -> &'static [&'static str] {
+        if self.matplotlib_rc {
+            &[RC_FILE_NAME, MATPLOTLIB_RC_FILE_NAME]
+        } else {
+            &[RC_FILE_NAME]
         }
     }
 
@@ -249,24 +268,35 @@ fn private_dir_builder() -> DirBuilder {
 
 /// The rc file in `env` (matplotlib's `matplotlib_fname`): the first of
 /// `./pltrsrc`, `$PLTRSRC`, `$PLTRSRC/pltrsrc` and `pltrsrc` in the directory
-/// `config_dir` returns that exists and is not a directory. `config_dir`
-/// is only asked when the others are missing.
+/// `config_dir` returns that exists and is not a directory. Where `env`
+/// allows matplotlib's rc file, `./matplotlibrc` follows `./pltrsrc`,
+/// `$MATPLOTLIBRC` and `$MATPLOTLIBRC/matplotlibrc` follow `$PLTRSRC`'s,
+/// and `matplotlibrc` in `config_dir` follows `pltrsrc` there.
+/// `config_dir` is only asked when the others are missing.
 pub(crate) fn find_rc_file(
     env: &Environment,
     config_dir: impl FnOnce() -> Option<PathBuf>,
 ) -> Option<PathBuf> {
     let is_file = |path: &PathBuf| path.exists() && !path.is_dir();
-    let from_variable = env.path_var(RC_FILE_VAR);
-    let early = [
-        Some(env.current_dir.join(RC_FILE_NAME)),
-        from_variable.clone(),
-        from_variable.map(|path| path.join(RC_FILE_NAME)),
-    ];
-    early
+    let names = env.rc_file_names();
+    let named = |(variable, name): (&str, &str)| {
+        let path = env.path_var(variable);
+        [path.clone(), path.map(|path| path.join(name))]
+    };
+    let variables = [RC_FILE_VAR, MATPLOTLIB_RC_FILE_VAR]
         .into_iter()
+        .zip(names.iter().copied())
+        .flat_map(named);
+    names
+        .iter()
+        .map(|name| Some(env.current_dir.join(name)))
+        .chain(variables)
         .flatten()
         .find(is_file)
-        .or_else(|| Some(config_dir()?.join(RC_FILE_NAME)).filter(is_file))
+        .or_else(|| {
+            let dir = config_dir()?;
+            names.iter().map(|name| dir.join(name)).find(is_file)
+        })
 }
 
 #[cfg(test)]
@@ -305,6 +335,7 @@ mod tests {
                 home: Some(self.path("home")),
                 current_dir: self.path("cwd"),
                 temp_dir: self.path("tmp"),
+                matplotlib_rc: false,
             }
         }
     }
@@ -532,5 +563,35 @@ mod tests {
         let env = scratch.env(&[("PLTRSRC", "missing")]);
         fs::remove_file(scratch.path("cwd/pltrsrc")).unwrap();
         assert_eq!(find_rc_file(&env, || None), None);
+    }
+
+    #[test]
+    fn matplotlibs_rc_files_follow_pltrs_where_allowed() {
+        let scratch = Scratch::new("matplotlibrc");
+        let config = scratch.path("config");
+        fs::create_dir_all(&config).unwrap();
+        let find = |env: &Environment| find_rc_file(env, || Some(config.clone()));
+        let mut env = scratch.env(&[("MATPLOTLIBRC", "theirs")]);
+        fs::write(config.join("matplotlibrc"), "").unwrap();
+        fs::create_dir_all(scratch.path("theirs")).unwrap();
+        fs::write(scratch.path("theirs/matplotlibrc"), "").unwrap();
+        fs::write(scratch.path("cwd/matplotlibrc"), "").unwrap();
+        assert_eq!(find(&env), None, "matplotlib's files are not pltrs'");
+
+        env.matplotlib_rc = true;
+        assert_eq!(find(&env), Some(scratch.path("cwd/matplotlibrc")));
+        fs::write(scratch.path("cwd/pltrsrc"), "").unwrap();
+        assert_eq!(
+            find(&env),
+            Some(scratch.path("cwd/pltrsrc")),
+            "pltrs' comes first"
+        );
+        fs::remove_file(scratch.path("cwd/pltrsrc")).unwrap();
+        fs::remove_file(scratch.path("cwd/matplotlibrc")).unwrap();
+        assert_eq!(find(&env), Some(scratch.path("theirs/matplotlibrc")));
+        fs::remove_file(scratch.path("theirs/matplotlibrc")).unwrap();
+        assert_eq!(find(&env), Some(config.join("matplotlibrc")));
+        fs::write(config.join("pltrsrc"), "").unwrap();
+        assert_eq!(find(&env), Some(config.join("pltrsrc")));
     }
 }

@@ -58,7 +58,7 @@ pub use trimesh::{TriMesh, TriMeshError, TriMeshSpec};
 
 use std::any::Any;
 use std::borrow::Cow;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -276,6 +276,13 @@ pub(crate) struct CollectionArtist {
     /// its group in SVG output.
     pub(crate) class_name: Option<&'static str>,
     rc: Rc<RcParams>,
+    /// The parameters the default face and edge colours were resolved
+    /// with at the last draw that resolved them again (matplotlib's
+    /// `update_scalarmappable` sets the colours as given again, with the
+    /// parameters of the moment, at a collection's first draw, and at
+    /// each draw while values are mapped); `None` before, the colours
+    /// then following the parameters the collection was made with.
+    colors_rc: RefCell<Option<Rc<RcParams>>>,
 }
 
 pltrs_core::archive_struct!(CollectionArtist {
@@ -320,7 +327,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     draw_time,
     class_name,
     rc
-});
+} skip { colors_rc });
 
 impl CollectionArtist {
     /// An empty collection of the given kind with rc defaults.
@@ -376,6 +383,7 @@ impl CollectionArtist {
             draw_time: None,
             class_name: None,
             rc,
+            colors_rc: RefCell::new(None),
         }
     }
 
@@ -411,6 +419,25 @@ impl CollectionArtist {
 
     pub(crate) fn rc(&self) -> &RcParams {
         &self.rc
+    }
+
+    /// The parameters the default face and edge colours follow now (see
+    /// `colors_rc`).
+    pub(crate) fn colors_rc(&self) -> Rc<RcParams> {
+        self.colors_rc
+            .borrow()
+            .clone()
+            .unwrap_or_else(|| Rc::clone(&self.rc))
+    }
+
+    /// Resolves the default colours again with the parameters of the
+    /// moment, as matplotlib's draw does the first time and, while values
+    /// are mapped, each time (`update_scalarmappable`).
+    pub(crate) fn resolve_colors_again(&self) {
+        let first = self.colors_rc.borrow().is_none();
+        if first || MappedSides::of(self) != MappedSides::default() {
+            *self.colors_rc.borrow_mut() = Some(crate::rc::params());
+        }
     }
 
     /// The edge widths in points, or the kind's default width

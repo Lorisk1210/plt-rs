@@ -34,13 +34,16 @@ def _native_bins(bins):
 def _narrow_edges(x, bins, bin_range, weights):
     """
     The edges of *bins* (a count or a strategy name) for the datasets *x*
-    when their values are floats narrower than ``float64``, which numpy's
-    `~numpy.histogram` computes in their type (matplotlib then makes them
-    floats); None otherwise, for pltrs (Rust) to compute in ``float64``.
+    when their values are floats narrower than ``float64`` or complex
+    numbers, which numpy's `~numpy.histogram` computes in their type
+    (matplotlib then makes them floats, numpy warning of the imaginary
+    parts it drops); None otherwise, for pltrs (Rust) to compute in
+    ``float64``.
     """
     arrays = [np.asarray(xi) for xi in x]
     dtype = np.result_type(*[a.dtype for a in arrays]) if arrays else None
-    if (dtype is None or dtype.kind != "f" or dtype.itemsize >= 8
+    if (dtype is None or dtype.kind not in "fc"
+            or dtype.kind == "f" and dtype.itemsize >= 8
             or np.iterable(bins) and not isinstance(bins, str)):
         return None
     data = np.concatenate([a.ravel() for a in arrays])
@@ -48,7 +51,8 @@ def _narrow_edges(x, bins, bin_range, weights):
         bin_range = (np.nanmin(data), np.nanmax(data))
     if weights is not None:
         weights = np.concatenate([np.asarray(wi, float) for wi in weights])
-    return np.histogram_bin_edges(data, _native_bins(bins), bin_range, weights)
+    edges = np.histogram_bin_edges(data, _native_bins(bins), bin_range, weights)
+    return np.array(edges, float) if dtype.kind == "c" else edges
 
 
 class HistMixin:

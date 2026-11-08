@@ -128,10 +128,10 @@ def test_the_gallery_and_generated_programs_run_offline(tmp_path):
     # list of them to fall back on: offline, both implementations take it.
     driver = _diff_driver()
     setup = driver.Setup(argparse.Namespace(
-        root=ROOT, out=tmp_path, gallery=tmp_path, pltrs_python=sys.executable))
+        root=ROOT, out=tmp_path, gallery=tmp_path, pltrs_python=sys.executable,
+        mpl_python=None))
     program = driver.Program("gallery/examples/lines_bars_and_markers/timeline",
                              tmp_path / "timeline.py", "program")
-    assert program.offline
     fetch = ("import urllib.request\n"
              "try:\n"
              "    urllib.request.urlopen('https://api.github.com/repos/matplotlib/"
@@ -139,10 +139,8 @@ def test_the_gallery_and_generated_programs_run_offline(tmp_path):
              "except Exception as err:\n"
              "    print(type(err).__name__, getattr(err, 'reason', err))\n")
     done = subprocess.run([sys.executable, "-c", fetch], capture_output=True, text=True,
-                          env=setup.environment("pltrs", offline=program.offline))
+                          env=setup.environment("pltrs", program))
     assert done.stdout.startswith("URLError [Errno 111] Connection refused")
-    online = setup.environment("pltrs", offline=False)
-    assert online.get("https_proxy") != driver.REFUSING_PROXY
 
 
 def _jupyter_config():

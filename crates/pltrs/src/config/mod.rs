@@ -17,8 +17,10 @@
 //! (or `LOCALAPPDATA` is unset), as matplotlib's are `~/.matplotlib` and
 //! `%LOCALAPPDATA%\matplotlib` there.
 //! A process may also [honour](honour_matplotlib_config_dir) matplotlib's
-//! `MPLCONFIGDIR`, read when `PLTRSCONFIGDIR` is unset: pltrs (Python)
-//! does, so that it works in matplotlib's environment unchanged.
+//! `MPLCONFIGDIR`, read when `PLTRSCONFIGDIR` is unset, and its rc files
+//! (`matplotlibrc`, `MATPLOTLIBRC`), read after pltrs' at each place:
+//! pltrs (Python) does, so that it works in matplotlib's environment
+//! unchanged.
 //!
 //! Like matplotlib, pltrs makes the configuration and cache directories
 //! when they are missing; when one cannot be made or written to, a new
@@ -90,6 +92,16 @@ pub const RC_FILE_VAR: &str = "PLTRSRC";
 /// The file name of the rc file (matplotlib's `matplotlibrc`).
 pub const RC_FILE_NAME: &str = "pltrsrc";
 
+/// matplotlib's environment variable naming its rc file, or a directory
+/// holding one, which a process [honouring](honour_matplotlib_config_dir)
+/// matplotlib's environment reads after [`RC_FILE_VAR`].
+pub const MATPLOTLIB_RC_FILE_VAR: &str = "MATPLOTLIBRC";
+
+/// The file name of matplotlib's rc file, which a process
+/// [honouring](honour_matplotlib_config_dir) matplotlib's environment
+/// reads where no [`RC_FILE_NAME`] is.
+pub const MATPLOTLIB_RC_FILE_NAME: &str = "matplotlibrc";
+
 /// The directory of user style sheets in the configuration directory.
 const STYLE_LIBRARY_DIR: &str = "stylelib";
 
@@ -134,8 +146,10 @@ pub fn config_dir() -> Result<PathBuf, ConfigError> {
 
 /// Makes the process read matplotlib's `MPLCONFIGDIR` when
 /// `PLTRSCONFIGDIR` is unset, in the lookups of [`config_dir`] and
-/// [`cache_dir`] not made yet: what pltrs (Python) does, so that it works
-/// in matplotlib's environment unchanged.
+/// [`cache_dir`] not made yet, and its rc file (`matplotlibrc`, and the one
+/// `MATPLOTLIBRC` names) after pltrs' at each place [`rc_file_path`]
+/// looks: what pltrs (Python) does, so that it works in matplotlib's
+/// environment unchanged.
 pub fn honour_matplotlib_config_dir() {
     MATPLOTLIB_VAR.store(true, Ordering::Relaxed);
 }
@@ -191,8 +205,10 @@ fn temp_dir(problem: &DirProblem) -> Result<PathBuf, String> {
 /// The rc file to start from (matplotlib's `matplotlib_fname`): the first
 /// of `pltrsrc` in the working directory, the file `$PLTRSRC` names, `pltrsrc`
 /// in the directory `$PLTRSRC` names and `pltrsrc` in the [`config_dir`]
-/// that exists and is not a directory. `None` when there is none; pltrs'
-/// defaults are built in rather than read from a file.
+/// that exists and is not a directory (with matplotlib's after each where
+/// the process [honours](honour_matplotlib_config_dir) them). `None` when
+/// there is none; pltrs' defaults are built in rather than read from a
+/// file.
 pub fn rc_file_path() -> Option<PathBuf> {
     lookup::find_rc_file(&Environment::process(), || config_dir().ok())
 }

@@ -119,6 +119,13 @@ def _native_kwargs(kwargs):
     return native
 
 
+def _scale_of(sizes):
+    """Take the square root of the marker areas *sizes*, as matplotlib's
+    ``set_sizes`` scales the items by it, so that numpy warns of a negative
+    area as it does there (under the program's `numpy.errstate`)."""
+    np.sqrt(np.asarray(sizes))
+
+
 def _refuse_rank(array):
     """Raise what matplotlib's collections raise for a value *array* of
     more than one dimension (but meshes) when they map it to colours."""
@@ -1659,6 +1666,7 @@ class RegularPolyCollection(_CollectionWithSizes):
             int(numsides), float(rotation) if usable else 0.,
             np.atleast_1d(np.asarray(sizes, float)))
         super().__init__(**kwargs)
+        _scale_of(sizes)
         _values.remember(self, "rotation", rotation)
         if not usable:
             # matplotlib keeps it, and fails to turn the polygons by it
@@ -2045,6 +2053,7 @@ class CircleCollection(_CollectionWithSizes):
         self._native = _collections.new_circle_collection(
             np.atleast_1d(np.asarray(sizes, float)))
         super().__init__(**kwargs)
+        _scale_of(sizes)
 
 
 #: The units `EllipseCollection` sizes its ellipses in.

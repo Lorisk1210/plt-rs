@@ -705,9 +705,10 @@ def matplotlib_fname():
     """
     # - ``$PWD/pltrsrc`` - ``$PLTRSRC`` if it is not a directory -
     # ``$PLTRSRC/pltrsrc`` - ``pltrsrc`` in the configuration directory
-    # (`get_configdir`) - Lastly, the template of the defaults in the data
-    # directory (`get_data_path`), which pltrs (Rust) writes there, as
-    # matplotlib's ``mpl-data/matplotlibrc``.
+    # (`get_configdir`), each followed by matplotlib's ``matplotlibrc``
+    # (``$MATPLOTLIBRC``) there - Lastly, the template of the defaults in
+    # the data directory (`get_data_path`), which pltrs (Rust) writes
+    # there, as matplotlib's ``mpl-data/matplotlibrc``.
     return _cbook.rc_file_or_template()
 
 

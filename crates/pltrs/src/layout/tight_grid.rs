@@ -55,7 +55,9 @@ impl GridSpec {
                     return Ok(());
                 };
                 warn_about_left_out_axes(state, &axes, Some(self));
-                let measured = Measured::new(state, &axes, &subplot_params, Some(self))?;
+                let measured = crate::text::measuring(|| {
+                    Measured::new(state, &axes, &subplot_params, Some(self))
+                })??;
                 if let Some(overrides) = adjusted_params(state, &measured, &params)? {
                     self.merge_overrides(&overrides);
                     state.set_subplot_params(subplot_params)?;

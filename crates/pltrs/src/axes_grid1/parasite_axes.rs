@@ -14,13 +14,13 @@ use std::rc::Rc;
 use pltrs_core::{Affine2D, Bbox};
 
 use super::mpl_axes::SimpleAxisArtist;
-use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::axisartist::Toggle;
 use crate::figure::{AxesRectError, Figure, FigureState, insert_axes};
 use crate::gridspec::GridSpecError;
 use crate::spines::SpineSide;
-use crate::transforms::ResolvedTransform;
+use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
 
 /// How a parasite's coordinates relate to its host's.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -100,13 +100,19 @@ pub(crate) struct Parasite {
     /// Whether it was made by `twin`, `twinx` or `twiny` (removing it then
     /// shows the host's far sides again).
     twin: bool,
+    /// The position matplotlib's parasite has of its own, in the fractions
+    /// of its host's (sub)figure: its host's active position when it was
+    /// made, until one is given. Its host draws it at the host's
+    /// position, but its tight box is measured here.
+    position: Bbox,
 }
 
 pltrs_core::archive_struct!(Parasite {
     host,
     link,
     view_map,
-    twin
+    twin,
+    position
 });
 
 /// An axes that can carry parasite axes (matplotlib's `HostAxes`, made by
@@ -317,6 +323,11 @@ impl HostAxes {
     ) -> ParasiteAxes {
         let figure = self.axes.raw().figure_state();
         let current = figure.borrow().current_axes;
+        // matplotlib's parasite is made at its host's `_position`.
+        let position = self
+            .axes
+            .raw()
+            .with::<AxesState, _>(|host| host.aspect.active_position(&host.position));
         let axes = insert_axes(figure, self.axes.id(), Bbox::UNIT, None);
         let mut state = figure.borrow_mut();
         state.current_axes = current;
@@ -328,6 +339,7 @@ impl HostAxes {
                     link,
                     view_map,
                     twin,
+                    position,
                 });
                 if let ParasiteLink::Transform(aux) = link {
                     parasite.aux_transform = Some(ResolvedTransform::affine(aux));
@@ -373,6 +385,14 @@ impl Deref for ParasiteAxes {
 }
 
 impl ParasiteAxes {
+    /// The parasite `axes` is, if it is one.
+    pub fn of(axes: &Axes) -> Option<Self> {
+        let parasite = axes
+            .raw()
+            .with::<AxesState, _>(|state| state.parasite.is_some());
+        parasite.then(|| Self { axes: axes.clone() })
+    }
+
     /// The underlying axes.
     pub fn axes(&self) -> &Axes {
         &self.axes
@@ -386,6 +406,26 @@ impl ParasiteAxes {
     /// How its coordinates relate to its host's.
     pub fn link(&self) -> ParasiteLink {
         self.parasite().link
+    }
+
+    /// The position the parasite has of its own, in figure fractions
+    /// (matplotlib's `get_position(original=True)` of a parasite): its
+    /// host's active position when it was made, until one is set. Its
+    /// host draws it at the host's position; its tight box is measured at
+    /// this one.
+    pub fn own_position(&self) -> Bbox {
+        self.parasite().position
+    }
+
+    /// Gives the parasite a position of its own, in figure fractions
+    /// (matplotlib's `set_position` of a parasite, which its host's draws
+    /// override).
+    pub fn set_own_position(&self, position: Bbox) {
+        self.axes.raw().with_mut::<AxesState, _>(|state| {
+            if let Some(parasite) = &mut state.parasite {
+                parasite.position = position;
+            }
+        });
     }
 
     /// The host.
@@ -441,6 +481,17 @@ impl ParasiteAxes {
     }
 }
 
+/// Whether a locator places `axes` at each layout (matplotlib's
+/// `get_axes_locator()` is not `None`): a function, a divider's cell, an
+/// inset's or a colorbar's locator.
+fn placed_by_locator(axes: &AxesState) -> bool {
+    let aspect = &axes.aspect;
+    axes.axes_locator.is_some()
+        || aspect.divider.is_some()
+        || aspect.inset.is_some()
+        || aspect.locator.is_some()
+}
+
 /// Whether `axes` is the parasite of another axes.
 pub(crate) fn is_parasite(store: &impl ArtistLookup, axes: ArtistId) -> bool {
     store
@@ -464,6 +515,23 @@ pub(crate) fn parasites_of(store: &impl ArtistLookup, axes: ArtistId) -> Vec<Art
 }
 
 impl FigureState {
+    /// The display box of the parasite `axes` at its own position, which
+    /// its tight box takes in (matplotlib's parasite `get_tightbbox`
+    /// applies its aspect to its own position, where its host's draws
+    /// place it at theirs); `None` for an axes that is no parasite, and
+    /// for the parasite of a host placed by a locator, which matplotlib's
+    /// parasite borrows to be measured where its host is placed.
+    pub(crate) fn parasite_own_extent(&self, axes: ArtistId) -> Option<Bbox> {
+        let parasite = self.store.get_as::<AxesState>(axes)?.parasite?;
+        let host = self.store.get_as::<AxesState>(parasite.host)?;
+        if placed_by_locator(host) {
+            return None;
+        }
+        let frame = host.base().parent.or(host.home).unwrap_or(self.root);
+        let frame = self.frame_bbox(frame)?;
+        Some(parasite.position.transformed(&unit_to_bbox(&frame)))
+    }
+
     /// Gives the parasites of `host` that follow its view limits the
     /// host's, mapped back through their aux transforms (matplotlib's
     /// `_sync_lims`, which the host's `xlim_changed` and `ylim_changed`
@@ -557,6 +625,32 @@ mod tests {
                 .to_string()
                 .contains("inverted")
         );
+    }
+
+    #[test]
+    fn a_parasite_is_measured_at_its_own_position() {
+        let fig = Figure::new();
+        fig.set_size_inches(4.0, 3.0).unwrap();
+        let host = host_axes(&fig, [0.125, 0.11, 0.775, 0.77]).expect("a valid rectangle");
+        let par = host.aux_axes(ParasiteLink::Equal).unwrap();
+        assert_eq!(par.own_position(), host.original_position());
+        assert!(ParasiteAxes::of(&host).is_none() && ParasiteAxes::of(&par).is_some());
+        // Moving the host leaves the parasite where it was made, and its
+        // tight box covers that place.
+        host.set_position([0.5, 0.5, 0.3, 0.3]);
+        let tight = host.tight_bbox(false).unwrap();
+        assert!(tight.x0() <= 50.0 && tight.y0() <= 33.0 && tight.x1() >= 360.0);
+        par.set_own_position(Bbox::from_bounds(0.6, 0.6, 0.1, 0.1));
+        let tight = host.tight_bbox(false).unwrap();
+        assert!(tight.x0() > 150.0 && tight.y0() > 100.0, "{tight:?}");
+        // The parasite of a host placed by a locator is measured where the
+        // locator places the host.
+        par.set_own_position(Bbox::from_bounds(0.0, 0.0, 0.1, 0.1));
+        host.set_axes_locator(Some(crate::axes::AxesLocatorFn::new(|_: Bbox| {
+            Bbox::from_bounds(0.5, 0.5, 0.3, 0.3)
+        })));
+        let tight = host.tight_bbox(false).unwrap();
+        assert!(tight.x0() > 150.0 && tight.y0() > 100.0, "{tight:?}");
     }
 
     #[test]

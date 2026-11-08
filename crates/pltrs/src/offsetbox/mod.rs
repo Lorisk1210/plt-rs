@@ -157,9 +157,9 @@ impl OffsetBoxError {
         match self {
             Self::EmptyAuxBox => DrawErrorKind::InvalidValue,
             Self::NoFigure => DrawErrorKind::MissingAttribute,
+            Self::Text(err) => crate::text::layout_error_kind(err),
             Self::MissingText(_)
             | Self::MissingImage(_)
-            | Self::Text(_)
             | Self::Coords(_)
             | Self::Detached
             | Self::VerticalAlignment
@@ -173,7 +173,7 @@ impl fmt::Display for OffsetBoxError {
         match self {
             Self::MissingText(id) => write!(f, "text area artist {id} is not a text"),
             Self::MissingImage(id) => write!(f, "offset image artist {id} is not an image"),
-            Self::Text(err) => write!(f, "cannot measure text: {err}"),
+            Self::Text(err) => crate::text::fmt_layout_error(err, f),
             Self::Coords(err) => write!(f, "cannot place the annotation box: {err}"),
             Self::Detached => f.write_str("the box's axes or anchor no longer exists"),
             Self::VerticalAlignment => {

@@ -4,6 +4,7 @@
 
 use pltrs::axes::{Axes, AxisName};
 use pltrs::axes_grid1::{HostAxes, ParasiteAxes, ParasiteError, ParasiteLink};
+use pltrs_core::Bbox;
 
 use super::super::transforms::affine;
 use crate::binding::prelude::*;
@@ -83,10 +84,31 @@ fn remove_parasite(host: Axes, parasite: Axes) -> PyResult<()> {
     Ok(())
 }
 
+/// The parasite `axes` is, or matplotlib's `TypeError` for another axes.
+fn parasite_of(axes: &Axes) -> PyResult<ParasiteAxes> {
+    ParasiteAxes::of(axes).ok_or_else(|| PyErr::type_error("the axes is no parasite axes"))
+}
+
+/// `(left, bottom, right, top)` of the position the parasite `axes` has
+/// of its own, in figure fractions (its `get_position(original=True)`).
+fn own_position(axes: Axes) -> PyResult<(f64, f64, f64, f64)> {
+    Ok(parasite_of(&axes)?.own_position().extents())
+}
+
+/// Gives the parasite `axes` the position `rect`, `[left, bottom, width,
+/// height]` in figure fractions, as its own (its `set_position`).
+fn set_own_position(axes: Axes, rect: (f64, f64, f64, f64)) -> PyResult<()> {
+    let (left, bottom, width, height) = rect;
+    parasite_of(&axes)?.set_own_position(Bbox::from_bounds(left, bottom, width, height));
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("aux_axes", aux_axes)?;
     module.add("twin", twin)?;
     module.add("parasites", parasites)?;
+    module.add("own_position", own_position)?;
+    module.add("set_own_position", set_own_position)?;
     module.add("remove_parasite", remove_parasite)
 }

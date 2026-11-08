@@ -1,7 +1,7 @@
 //! The tight box of a figure (matplotlib's `Figure.get_tightbbox`) and the
 //! padding a tight save puts around it.
 
-use pltrs_core::Bbox;
+use pltrs_core::{Affine2D, Bbox};
 
 use super::PadInches;
 use crate::artist::{ArtistHandle, ArtistId, LayoutContext, tight_extent_of};
@@ -81,20 +81,21 @@ impl FigureState {
 
 impl Figure {
     /// The area everything visible is drawn in, in inches from the
-    /// figure's bottom-left corner (matplotlib's `get_tightbbox`); the
-    /// whole figure when nothing is drawn.
+    /// figure's bottom-left corner (matplotlib's `get_tightbbox`, which
+    /// maps its pixels through the inverse of `dpi_scale_trans`: by the
+    /// reciprocal resolution); the whole figure when nothing is drawn.
     pub fn tight_bbox(&self) -> Bbox {
         self.root_handle().measure_painters();
         self.state_cell().work_on(|state| {
             let dpi = state.dpi();
             let root = state.root;
-            state.frame_tight_bbox(root).map_or_else(
-                || {
-                    let (w, h) = state.size_inches;
-                    Bbox::from_bounds(0.0, 0.0, w, h)
-                },
-                |b| Bbox::from_extents(b.x0() / dpi, b.y0() / dpi, b.x1() / dpi, b.y1() / dpi),
-            )
+            let (w, h) = state.size_inches;
+            let whole = Bbox::from_bounds(0.0, 0.0, w, h);
+            let to_inches = Affine2D::scaling(dpi, dpi).inverted();
+            match (state.frame_tight_bbox(root), to_inches) {
+                (Some(pixels), Some(to_inches)) => pixels.transformed_enclosing(&to_inches),
+                _ => whole,
+            }
         })
     }
 

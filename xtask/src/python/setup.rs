@@ -11,6 +11,7 @@
 //! venv's own list. Rerunning setup brings existing venvs to the lists.
 
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -83,7 +84,7 @@ pub(super) fn run() -> Result<(), String> {
 
 /// Makes the venv `venv` with uv, on the Python of the other venvs,
 /// unless it exists, and returns its interpreter.
-pub(crate) fn make_venv(venv: &Path) -> Result<PathBuf, String> {
+fn make_venv(venv: &Path) -> Result<PathBuf, String> {
     let python = interpreter(venv, Os::CURRENT);
     if !python.exists() {
         run_checked(
@@ -97,7 +98,7 @@ pub(crate) fn make_venv(venv: &Path) -> Result<PathBuf, String> {
 
 /// Fails if `python`, the interpreter of the venv `venv`, can import
 /// matplotlib, which a venv running pltrs must not hold.
-pub(crate) fn refuse_matplotlib(python: &Path, venv: &Path) -> Result<(), String> {
+fn refuse_matplotlib(python: &Path, venv: &Path) -> Result<(), String> {
     let leaked = Command::new(python)
         .args(["-c", "import matplotlib"])
         .output()
@@ -122,11 +123,40 @@ fn install(python: &Path, requirements: &str) -> Result<(), String> {
 
 /// The uv command installing the pinned lists `python/<list>` of `lists`
 /// together into `python`'s venv.
-pub(crate) fn install_command(python: &Path, lists: &[&str]) -> Command {
+fn install_command(python: &Path, lists: &[&str]) -> Command {
     let mut command = Command::new(uv());
     command.args(["pip", "install", "--python"]).arg(python);
     for list in lists {
         command.arg("-r").arg(root().join("python").join(list));
     }
     command
+}
+
+/// Makes (or completes) two venvs of the pinned lists `python/<list>` of
+/// `lists`, and returns their interpreters: `pltrs`, the lists installed
+/// with matplotlib excluded from the resolution, so that what requires it
+/// gets `python/alias` (checked: it cannot import matplotlib), and
+/// `reference`, the lists and `reference_list` (real matplotlib) resolved
+/// together.
+pub(crate) fn make_venv_pair(
+    pltrs: &Path,
+    reference: &Path,
+    lists: &[&str],
+    reference_list: &str,
+) -> Result<(PathBuf, PathBuf), String> {
+    let pltrs_python = make_venv(pltrs)?;
+    let excludes = pltrs.join("excludes.txt");
+    fs::write(&excludes, "matplotlib\n").map_err(|err| format!("{}: {err}", excludes.display()))?;
+    run_checked(
+        install_command(&pltrs_python, lists)
+            .arg("--excludes")
+            .arg(&excludes),
+    )?;
+    refuse_matplotlib(&pltrs_python, pltrs)?;
+    let reference_python = make_venv(reference)?;
+    run_checked(&mut install_command(
+        &reference_python,
+        &[lists, &[reference_list]].concat(),
+    ))?;
+    Ok((pltrs_python, reference_python))
 }

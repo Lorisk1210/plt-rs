@@ -197,7 +197,10 @@ impl Step {
                 x.as_ref().map_or(p.x, |m| m.forward_masked(p.x)),
                 y.as_ref().map_or(p.y, |m| m.forward_masked(p.y)),
             ),
-            Self::Blend(x, y) => Point::new(x.non_affine_masked(p).x, y.non_affine_masked(p).y),
+            Self::Blend(x, y) => Point::new(
+                x.transform_point_non_affine_masked(p).x,
+                y.transform_point_non_affine_masked(p).y,
+            ),
             Self::Affine(_) | Self::Plane(_) => self.apply(p),
         }
     }
@@ -518,11 +521,13 @@ impl ResolvedTransform {
     /// Maps one point of a masked array: NaN where a non-linear scale
     /// masks it (see [`AxisMap::forward_masked`]).
     pub fn transform_point_masked(&self, p: Point) -> Point {
-        self.affine.transform_point(self.non_affine_masked(p))
+        self.affine
+            .transform_point(self.transform_point_non_affine_masked(p))
     }
 
-    /// The non-affine steps applied to one point of a masked array.
-    fn non_affine_masked(&self, p: Point) -> Point {
+    /// [`transform_point_non_affine`](Self::transform_point_non_affine)
+    /// for one point of a masked array.
+    pub fn transform_point_non_affine_masked(&self, p: Point) -> Point {
         self.steps.iter().fold(p, |p, step| step.apply_masked(p))
     }
 

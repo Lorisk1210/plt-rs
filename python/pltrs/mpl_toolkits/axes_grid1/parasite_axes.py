@@ -106,17 +106,18 @@ class ParasiteAxesBase:
     # matplotlib's parasite has a position of its own, its host's when it
     # was made, which its host's draw replaces by the host's box for that
     # draw (``ax.apply_aspect(rect)``). pltrs (Rust) draws a parasite over
-    # its host whatever position it is given: the position given is kept
-    # here, for the getters to read back.
+    # its host whatever position it has, and measures its tight box at its
+    # own original position; the active one is kept here, for the getters
+    # to read back.
 
     def _own_positions(self):
-        """The parasite's own original and active positions, those pltrs
-        (Rust) holds until one is given."""
+        """The parasite's own original and active positions: both the
+        original one pltrs (Rust) holds until one is given."""
         own = self.__dict__.get("_own_position")
         if own is None:
-            own = self._own_position = {
-                which: super().get_position(original=which == "original")
-                for which in ("original", "active")}
+            given = mtransforms.Bbox.from_extents(
+                *_axes_grid1.own_position(self._native))
+            own = self._own_position = {"original": given, "active": given}
         return own
 
     def _set_position(self, pos, which='both'):
@@ -126,6 +127,9 @@ class ParasiteAxesBase:
         for kept in ("active", "original"):
             if which in ("both", kept):
                 own[kept] = pos.frozen()
+        if which in ("both", "original"):
+            _axes_grid1.set_own_position(self._native,
+                                         tuple(map(float, pos.bounds)))
         self.stale = True
 
     @_docstring.copy(maxes.Axes.set_position)
@@ -137,21 +141,16 @@ class ParasiteAxesBase:
 
     def get_position(self, original=False):
         # docstring inherited
-        own = self.__dict__.get("_own_position")
-        if own is None:
-            return super().get_position(original)
         if not original and not self.get_axes_locator():
             # matplotlib's apply_aspect sets the active position anew.
             self.apply_aspect()
-        return own["original" if original else "active"].frozen()
+        return self._own_positions()[
+            "original" if original else "active"].frozen()
 
     def apply_aspect(self, position=None):
         # docstring inherited
-        own = self.__dict__.get("_own_position")
-        if position is None and own is None:
-            return super().apply_aspect()
         if position is None:
-            position = own["original"]
+            position = self._own_positions()["original"]
         position = mtransforms.Bbox.from_bounds(*position.bounds)
         aspect, box_aspect = self.get_aspect(), self.get_box_aspect()
         if self.get_adjustable() == "box" and aspect != "auto":

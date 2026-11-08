@@ -445,6 +445,9 @@ class Axis(DrawnWith, Artist):
         #: The scale object the axis was last given (see `_scale`).
         self._given_scale = None
         self._given_converter = None
+        #: The converter of the program's units pltrs (Rust) converts with
+        #: (dates, categories), as the registry found it then.
+        self._native_converter = None
         self._converter_is_explicit = False
 
     @property
@@ -1093,6 +1096,7 @@ class Axis(DrawnWith, Artist):
         self.reset_ticks()
         self._given_scale = None
         self._given_converter = None
+        self._native_converter = None
         self._converter_is_explicit = False
         self._units = None
         self._category_units = None
@@ -2197,6 +2201,7 @@ class Axis(DrawnWith, Artist):
             # It replaces the converter set before (a category converter set
             # by a conversion that failed), as matplotlib's does.
             self._given_converter = converter
+        self._native_converter = converter
         if switching and self.units is not None:
             _check_native_units(converter, self.units)
         return taken
@@ -2301,6 +2306,10 @@ class Axis(DrawnWith, Artist):
         kind = _axis.converter_kind(*self._args())
         if kind is None:
             return None
+        if self._native_converter is not None:
+            # The one the axis took, which the registry may have replaced
+            # since (pandas registers its converters while it plots).
+            return self._native_converter
         return munits.registry.get_converter(
             ["a"] if kind == "category" else [np.datetime64("2000-01-01")])
 

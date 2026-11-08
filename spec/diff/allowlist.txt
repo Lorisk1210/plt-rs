@@ -1,7 +1,9 @@
 # Differences of pltrs (Python) from matplotlib that are intended, each with
-# the reason it is: `<program regex> | <cause regex> | why`. `cargo xtask
-# diff` leaves them out of its report (it lists them per program as
-# `allowed` in report.json). Anything else is a difference to fix.
+# the reason it is: `<program regex> | <cause regex> | why`, or `<program
+# regex> | <cause regex> @ <where regex> | why` for those at some places
+# only (a value's key). `cargo xtask diff` leaves them out of its report
+# (it lists them per program as `allowed` in report.json). Anything else is
+# a difference to fix.
 
 # The program reads the clock: the time it prints is its own, under either.
 images_contours_and_fields/plot_streamplot$ | ^value\[(time|joinedstr)\]: | the example times streamplot with time.time() and writes the time into a figure title
@@ -119,7 +121,7 @@ rest/testing_helpers$ | ^exception message\[subprocess_run_for_testing\]: Called
 corpus/cheatsheets/scripts/performance-tips$ | ^(value\[perf_counter\]: float|stdout)$ | the cheat sheet's tip times plot and scatter with time.perf_counter() and prints the seconds
 corpus/rougier-book/code/optimization/(line|scatter)-benchmark$ | ^(value\[timer\]: float|image: (RMS > 1|written PNG RMS > 1))$ | the program times its plotting with timeit's default_timer and draws the times it measured as bars
 corpus/from-python-to-numpy/code/(allocations|benchmark|random_walk|vectorization)$ | ^(stdout|callback\[[^]]+\]: runs another number of times)$ | the program times its functions with the book's tools.timeit, which picks the number of loops from a first timed run and prints the best time
-corpus/from-python-to-numpy/code/random_walk$ | ^value\[(choices|constant)\]: int$ | the walks the timed statements draw continue Python's random generator from where the runs before them, whose number tools.timeit picks from the time a first run took, left it
+corpus/from-python-to-numpy/code/random_walk$ | ^value\[(choices|constant|walk)\]: int$ | the walks the timed statements draw continue Python's random generator from where the runs before them, whose number tools.timeit picks from the time a first run took, left it
 corpus/matplotlib-3d/elevation$ | ^(value\[(time|format)\]: (float|str)|image: (RMS > 1|written PNG RMS > 1))$ | the program times its rendering with time.time() and writes the seconds into the figure's title
 # pltrs' two looks are style sheets that style.available lists with
 # matplotlib's (as for the gallery's style_sheets_reference).
@@ -130,11 +132,54 @@ corpus/cheatsheets/scripts/styles$ | ^(value\[available\]: list length|calls\[[^
 # of the font files' paths (findSystemFonts), which differ between the two
 # installations (a matplotlib run with another configuration directory, so
 # another cached list, names STIXNonUnicode where the reference names Last
-# Resort High-Efficiency). The fallback font drawn is the same.
-^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for (DejaVu Serif|DejaVu Sans|STIXSizeTwoSym|STIXGeneral|STIXNonUnicode|Last Resort High-Efficiency|cmrN), now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
-corpus/python-graph-gallery/content/posts/199-matplotlib-style-sheets/index$ | ^value\[available\]: list length$ | style.available lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+# Resort High-Efficiency; the corpora's reference venv, STIXSizeFourSym), so
+# that any of the fonts scoring alike may be named. The fallback font drawn
+# is the same.
+^corpus/ | ^warning (missing|extra): WARNING: findfont: Failed to find font weight \S+ for [\w -]+, now using( N\.)?$ | the font named for a family not found is the first in the font list of those scoring best, in an order of set iteration over the font paths
 
 # An artist inspector's reST table of setters names each setter by module
 # (pltrs.artist.Artist.set_alpha), and its first column is as wide as the
 # longest name: five letters per name narrower than matplotlib's.
 ^generated/(api|hostile)/inspector_\d+$ | ^value\[pprint_setters_rest\]: str$ | the rows name the same setters as matplotlib's once pltrs reads matplotlib; only the "=" rules and the padding to the column's width differ, by the package name's length
+
+# What the corpora's programs read of the machine and the moment, which
+# differs between any two runs, two of matplotlib's too (each entry below
+# was checked by running the program twice under matplotlib).
+# A clock read: the seconds a program measures its work by.
+^corpus/ | ^value\[(time|perf_counter|timer|default_timer|process_time|monotonic)\]: float$ | the value is a reading of a clock
+# scikit-learn's results of cross-validation and searches hold the seconds
+# each fit and score took.
+^corpus/ | ^value\[\w+\]: array values$ @ \['(mean_|std_)?(fit|score)_time'\]$ | the seconds scikit-learn's fits and scores took
+# Programs printing or drawing the time their work took.
+corpus/scientific-python-lectures/advanced/scipy_sparse/examples/lobpcg_sakurai$ | ^stdout$ | the example prints the seconds lobpcg took
+corpus/matplotlib-3d/cortex$ | ^(value\[format\]: str|image: (RMS > 1|written PNG RMS > 1))$ | the program writes the seconds its rendering took into the figure's title
+corpus/astroml-figures/book_figures/chapter5/fig_ABCexample$ | ^value\[(theta|weights)\]: array values$ | the arrays are made with np.empty and recorded whole each iteration, so their rows not yet sampled hold whatever memory the process had there (two matplotlib runs agree, the heap of pltrs's process differs)
+corpus/johansson-lectures/Lecture-6B-HPC$ | ^(stdout|value\[(getpid|task)\]: int|image: RMS > 1)$ | the lecture prints the ids of the processes its pool starts and the seconds its tasks took, and plots the seconds a matrix-vector product took (time.time() around numpy.dot)
+corpus/networkx-examples/examples/algorithms/plot_parallel_betweenness$ | ^stdout$ | the example prints the seconds each betweenness computation took
+corpus/scikit-image-gallery/doc/examples/applications/plot_haar_extraction_selection_classification$ | ^(stdout|value\[joinedstr\]: str)$ | the example prints the seconds its feature extraction and training took
+corpus/astroml-figures/book_figures/chapter2/fig_(search|sort)_scaling$ | ^(value\[(t1|scale|log)\]: (float|array values)|image: RMS > 1)$ | the figure plots the times searches and sorts took
+corpus/matplotlib-3-cookbook/Chapter09/Chapter 9 - Developing Interactive Plots$ | ^callback\[time\]: runs another number of times$ | the recipe's animation reads the clock in a callback whose calls follow the seconds the run takes
+corpus/scikit-learn-examples/examples/applications/plot_prediction_latency$ | ^(value\[\w+\]: (float|int|numpy scalar|array values)|image: RMS > 1|callback\[predict\]: runs another number of times)$ | the example measures and plots the latency and throughput of predictions
+corpus/scikit-learn-examples/examples/(cluster/plot_(birch_vs_minibatchkmeans|coin_ward_segmentation|digits_linkage|kmeans_digits|ward_structured_vs_unstructured)|ensemble/plot_forest_importances|feature_selection/plot_select_from_model_diabetes|gaussian_process/plot_compare_gpr_krr|linear_model/plot_lasso_(and_elasticnet|dense_vs_sparse_data)|manifold/plot_(manifold_sphere|t_sne_perplexity)|miscellaneous/plot_kernel_ridge_regression|model_selection/plot_randomized_search|neural_networks/plot_rbm_logistic_classification|release_highlights/plot_release_highlights_1_[68]_0)$ | ^stdout$ | the example prints the seconds its fits took
+corpus/scikit-learn-examples/examples/(cluster/plot_(kmeans_digits|ward_structured_vs_unstructured)|ensemble/plot_stack_predictors|linear_model/plot_(lasso_model_selection|theilsen)|manifold/plot_(lle_digits|manifold_sphere)|miscellaneous/plot_kernel_(approximation|ridge_regression)|mixture/plot_gmm_init|model_selection/plot_(learning_curve|successive_halving_heatmap))$ | ^(value\[(name|end|init_time|times_init|joinedstr|learning_curve)\]: (float|str|array values)|image: RMS > 1)$ | the example draws the seconds its fits took (in titles, bars or curves)
+corpus/scikit-learn-examples/examples/model_selection/plot_grid_search_digits$ | ^(stdout|value\[(best_params_|fastest_top_recall_high_precision_index|idxmin)\]: (int|numpy scalar))$ | the example refits the candidate whose fit was fastest, which the seconds its fits took decide
+corpus/scikit-learn-examples/examples/cluster/plot_(cluster|linkage)_comparison$ | ^image: RMS > 1$ | the example writes the seconds each clustering took into its plots
+corpus/scikit-learn-examples/examples/cluster/plot_(coin_segmentation|mini_batch_kmeans)$ | ^(stdout|value\[constant\]: str|image: RMS > 1)$ | the example prints and writes into its plots the seconds each clustering took
+corpus/scikit-learn-examples/examples/(miscellaneous/plot_anomaly_comparison|neighbors/plot_caching_nearest_neighbors)$ | ^image: RMS > 1$ | the example draws the seconds its fits took
+corpus/scikit-learn-examples/examples/callbacks/plot_scoring_monitor$ | ^stdout$ | the progress bar prints the fits of the grid search's two joblib workers in the order they finish, which differs between two matplotlib runs
+corpus/scikit-learn-examples/examples/svm/plot_svm_scale_c$ | ^value\[(mean|validation_curve)\]: array values$ | the scores come from fits its joblib workers make in processes whose random state is not the program's
+corpus/scikit-learn-mooc/python_scripts/(02_numerical_pipeline_scaling|03_categorical_pipeline_(ex_02|sol_02)|cross_validation_time)$ | ^stdout$ | the script prints the seconds its fits took
+corpus/scikit-learn-mooc/python_scripts/cross_validation_time$ | ^value\[cross_val_score\]: array values$ | the scores come from fits its joblib workers make in processes whose random state is not the program's
+corpus/scikit-learn-mooc/python_scripts/(cross_validation_sol_02|feature_selection_introduction)$ | ^image: RMS > 1$ | the script plots the seconds its fits took
+corpus/scipy-cookbook/ipython/ApplyFIRFilter$ | ^(value\[min\]: float|image: RMS > 1)$ | the recipe plots the seconds each filter took (the least of three runs)
+# Memory addresses (a NumPy array's data pointer).
+corpus/ipython-cookbook/chapter04_optimization/(05_array_copies|07_rolling_average)$ | ^value\[(__array_interface__|aid|ax)\]: int$ | the recipe reads where NumPy keeps its arrays' data (`__array_interface__['data'][0]`)
+# sympy orders the solutions of a system as its sets iterate, which differs
+# between two runs.
+corpus/johansson-lectures/Lecture-5-Sympy$ | ^type\[solve\]: | sympy's solve returns its solutions in an order of its own from run to run
+# pltrs' own looks and backend, and the files of its configuration.
+^corpus/ | ^value\[available\]: list length$ | style.available lists pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+corpus/ipython-cookbook/chapter06_viz/01_styles$ | ^value\[sorted\]: list length$ | the recipe sorts style.available, which lists pltrs' two looks with matplotlib's sheets
+^corpus/ | ^value\[matplotlib_fname\]: str$ | without an rc file of the program's, the file named is the template of the defaults, pltrs' `pltrsrc` in its data directory
+corpus/scipy-cookbook/ipython/Matplotlib_PySide$ | ^exception message\[use\]: ValueError$ | the backends a name may name are matplotlib's and pltrs' own GUI backend (`pltrs`)
+corpus/matplotlib-3-cookbook/Chapter12/Chapter 12 - Using axisartist Toolkit$ | ^exception message\[\?\]: ImportError$ | the message names the file of the package imported from, matplotlib's mpl_toolkits beside it in site-packages, pltrs' inside its package

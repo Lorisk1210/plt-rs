@@ -104,12 +104,15 @@ impl From<OffsetBoxError> for LayoutError {
 }
 
 impl LegendArtist {
-    /// The display box `loc` refers to (matplotlib's `get_bbox_to_anchor`).
+    /// The display box `loc` refers to (matplotlib's `get_bbox_to_anchor`):
+    /// without `bbox_to_anchor`, the parent's `bbox`, which for the root
+    /// figure is the saved window while part of it is printed
+    /// (matplotlib's `adjust_bbox` replaces the figure's `bbox`).
     pub(crate) fn anchor_box(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
         match &self.anchor {
             None => match self.parent {
                 LegendParent::Axes(id) => ctx.axes_extent(id),
-                LegendParent::Figure(id) => ctx.frame_extent(id),
+                LegendParent::Figure(id) => ctx.frame_patch_extent(id),
             },
             Some((bbox, transform)) => Some(transformed_bbox(bbox, &ctx.resolve(transform)?)),
         }

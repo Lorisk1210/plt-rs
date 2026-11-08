@@ -1731,13 +1731,16 @@ which reports the lines matplotlib logs.
 pltrs (Rust) looks the configuration and cache directories up
 (`pltrs::config`): `PLTRSCONFIGDIR`, else the XDG directories. pltrs
 (Python) also reads matplotlib's own `MPLCONFIGDIR` when `PLTRSCONFIGDIR`
-is unset (`config::honour_matplotlib_config_dir`, which `modules::register`
+is unset, and matplotlib's rc files (`matplotlibrc` in the working and
+configuration directories, `MATPLOTLIBRC`) after pltrs' `pltrsrc` at each
+place (`config::honour_matplotlib_config_dir`, which `modules::register`
 calls before anything looks the directories up), so that it works in
-matplotlib's environment unchanged. When the directory cannot be made or
-written to, a temporary one stands in, and importing the package logs
-matplotlib's warning (`_log_temporary_config_dir`), naming the variable
-that named the directory. The suite runner sets `MPLCONFIGDIR` and
-removes the `PLTRSCONFIGDIR` cargo sets.
+matplotlib's environment unchanged: a program's directory holding a
+`matplotlibrc` styles its figures under both. When the directory cannot
+be made or written to, a temporary one stands in, and importing the
+package logs matplotlib's warning (`_log_temporary_config_dir`), naming
+the variable that named the directory. The suite runner sets
+`MPLCONFIGDIR` and removes the `PLTRSCONFIGDIR` cargo sets.
 
 ### The font catalogue
 

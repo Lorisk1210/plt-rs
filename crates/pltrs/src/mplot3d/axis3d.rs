@@ -16,7 +16,7 @@ use crate::lines::LineStyle;
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, Scale};
 use crate::ticker::{
-    AxisInfo, AxisName, Formatter, Locator, NullLocator, OverlapTolerance, TickContext,
+    AxisInfo, AxisName, Formatter, Locator, NullLocator, OverlapTolerance, TickContext, TickSpace,
     TickerError, TickerSettings, drawable_ticks,
 };
 use crate::transforms::interval_contains_close;
@@ -243,7 +243,7 @@ pub(crate) struct Axis3DState {
     pub(crate) locator_owner: Option<ArtistId>,
     /// How many ticks fit along the axis of the locator's owner, as the
     /// last layout pass found it.
-    pub(crate) owner_tick_space: Option<usize>,
+    pub(crate) owner_tick_space: Option<TickSpace>,
     /// The unit converter, how it was chosen, and the unit.
     pub(crate) units: AxisUnits,
     /// Category names, once categorical values were plotted.
@@ -440,13 +440,8 @@ impl Axis3DState {
 
     /// How many ticks fit along an axis `length_points` long (matplotlib's
     /// `XAxis.get_tick_space`, which every 3-D axis inherits).
-    pub(crate) fn tick_space(&self, length_points: f64) -> usize {
-        let size = self.major_style.label_size * 3.0;
-        if size > 0.0 {
-            (length_points / size).floor().max(0.0) as usize
-        } else {
-            usize::MAX >> 1
-        }
+    pub(crate) fn tick_space(&self, length_points: f64) -> TickSpace {
+        TickSpace::along(length_points, self.major_style.label_size * 3.0)
     }
 
     /// `(v0, v1)` expanded when singular by the major locator.

@@ -15,6 +15,7 @@ extents and the unit shapes.
 """
 
 import copy
+from numbers import Integral, Real
 import operator
 from functools import cache, lru_cache
 from weakref import WeakValueDictionary
@@ -32,6 +33,12 @@ def _rcParams():
     """The current rcParams (the package's, imported once it exists)."""
     from . import rcParams
     return rcParams
+
+
+def _is_count(value):
+    """Whether *value* is a count of vertices pltrs (Rust) makes a unit
+    shape of: a positive integer (not a bool)."""
+    return isinstance(value, Integral) and not isinstance(value, bool) and value > 0
 
 
 class Path:
@@ -829,8 +836,16 @@ class Path:
         else:
             path = None
         if path is None:
-            path = cls(*_native_path.unit_shape("polygon", numVertices, 0.0),
-                       readonly=True)
+            if _is_count(numVertices):
+                path = cls(*_native_path.unit_shape("polygon", numVertices, 0.0),
+                           readonly=True)
+            else:
+                # matplotlib's numpy arithmetic, for a count that is no
+                # positive integer.
+                theta = ((2 * np.pi / numVertices) * np.arange(numVertices + 1)
+                         + np.pi / 2)
+                verts = np.column_stack((np.cos(theta), np.sin(theta)))
+                path = cls(verts, closed=True, readonly=True)
             if numVertices <= 16:
                 cls._unit_regular_polygons[numVertices] = path
         return path
@@ -848,8 +863,19 @@ class Path:
         else:
             path = None
         if path is None:
-            path = cls(*_native_path.unit_shape("star", numVertices, innerCircle),
-                       readonly=True)
+            if _is_count(numVertices) and isinstance(innerCircle, Real):
+                path = cls(*_native_path.unit_shape("star", numVertices, innerCircle),
+                           readonly=True)
+            else:
+                # matplotlib's numpy arithmetic, for a count that is no
+                # positive integer or a radius that is no number.
+                ns2 = numVertices * 2
+                theta = (2*np.pi/ns2 * np.arange(ns2 + 1))
+                theta += np.pi / 2.0
+                r = np.ones(ns2 + 1)
+                r[1::2] = innerCircle
+                verts = (r * np.vstack((np.cos(theta), np.sin(theta)))).T
+                path = cls(verts, closed=True, readonly=True)
             if numVertices <= 16:
                 cls._unit_regular_stars[(numVertices, innerCircle)] = path
         return path
@@ -898,7 +924,14 @@ class Path:
           Lancaster, Don.  `Approximating a Circle or an Ellipse Using Four
           Bezier Cubic Splines <https://www.tinaja.com/glib/ellipse4.pdf>`_.
         """
-        vertices, codes = _native_path.circle(tuple(center), radius)
+        if (np.shape(center) == (2,) and all(isinstance(c, Real) for c in center)
+                and isinstance(radius, Real)):
+            vertices, codes = _native_path.circle(tuple(center), radius)
+        else:
+            # matplotlib's numpy arithmetic on the unit circle, for a centre
+            # or a radius that is no plain number.
+            unit, codes = _native_path.circle((0.0, 0.0), 1.0)
+            vertices = unit * radius + center
         return Path(vertices, codes, readonly=readonly)
 
     _unit_circle_righthalf = None

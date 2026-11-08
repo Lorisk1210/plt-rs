@@ -254,11 +254,9 @@ impl MaxNLocator {
     pub(crate) fn resolved_nbins(&self, ctx: &TickContext<'_>) -> Result<usize, TickerError> {
         let nbins = match (self.nbins, ctx.axis()) {
             (Nbins::Fixed(n), _) => n,
-            // np.clip(space, lo, 9) == min(max(space, lo), 9), even if lo > 9.
             (Nbins::Auto, Some(axis)) => axis
                 .tick_space
-                .max(self.min_n_ticks.saturating_sub(1).max(1))
-                .min(9),
+                .clipped(self.min_n_ticks.saturating_sub(1).max(1), 9)?,
             (Nbins::Auto, None) => 9,
         };
         if nbins == 0 {

@@ -175,6 +175,7 @@ pub(crate) use state::{AxesState, PatchOutline};
 pub(crate) use stem::solid_format;
 pub use stem::{StemContainer, StemOptions};
 pub use steps::StairsOptions;
+pub(crate) use tick_compute::axis_length_points;
 pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat};
 pub use tick_lines::{GridLine, TickLine, TickLineProps, TickMarkProps};
 pub use tick_set::{Labelling, Tick, TickSet};

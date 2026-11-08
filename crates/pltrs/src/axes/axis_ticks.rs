@@ -5,6 +5,8 @@
 use std::any::Any;
 use std::rc::Rc;
 
+use pltrs_core::numeric::{py_max, py_min};
+
 use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::axis_layout::{AxisPainter, AxisTexts};
@@ -36,8 +38,9 @@ impl Axis {
         if ticks.is_empty() {
             return;
         }
-        let lowest = ticks.iter().copied().fold(f64::INFINITY, f64::min);
-        let highest = ticks.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        // Python's `min` and `max` of the ticks, which keep a NaN first.
+        let lowest = ticks[1..].iter().copied().fold(ticks[0], py_min);
+        let highest = ticks[1..].iter().copied().fold(ticks[0], py_max);
         self.axes.unstale_view();
         let figure = self.axes.raw().figure_state();
         {

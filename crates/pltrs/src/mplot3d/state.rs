@@ -26,6 +26,7 @@ use crate::colors::Color;
 use crate::figure::{FigureState, Painting};
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
 use crate::rc::RcParams;
+use crate::ticker::{AxisName, TickSpace};
 use crate::transforms::{TransformContext, unit_to_bbox};
 
 /// State of one 3-D axes.
@@ -244,7 +245,7 @@ impl Axes3DState {
             // updates the ticks or projects an artist.
             return;
         }
-        let width_points = extent.width().abs() / dpi * 72.0;
+        let width_points = crate::axes::axis_length_points(extent, dpi, AxisName::X);
         // matplotlib reads `axes3d.automargin` when the ticks are drawn.
         let automargin = crate::rc::params().axes3d_automargin;
         for dir in Axis3::ALL {
@@ -613,13 +614,13 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId, painting: Opti
 /// of the other axes its major locator was set on, if it was (matplotlib
 /// computes a locator's ticks for its `axis`: shared locators place the
 /// ticks of every axes sharing them as they fit along that one).
-fn owner_tick_spaces(figure: &FigureState, id: ArtistId) -> [Option<usize>; 3] {
+fn owner_tick_spaces(figure: &FigureState, id: ArtistId) -> [Option<TickSpace>; 3] {
     let Some(axes) = figure.artist_as::<Axes3DState>(id) else {
         return [None; 3];
     };
     Axis3::ALL.map(|dir| {
         let owner = axes.axis(dir).locator_owner.filter(|&owner| owner != id)?;
-        let width = figure.axes_bbox(owner)?.width().abs() / figure.dpi() * 72.0;
+        let width = figure.axis_length_points(owner, AxisName::X)?;
         Some(
             figure
                 .artist_as::<Axes3DState>(owner)?

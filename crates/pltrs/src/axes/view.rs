@@ -8,10 +8,11 @@ use super::PlotError;
 use super::axis::{AxisRole, AxisState};
 use super::limits::oriented;
 use super::state::{AxesState, AxisSpace, SharedData};
+use super::tick_compute::axis_length_points;
 use crate::artist::{ArtistId, ArtistLookup, DrawError, DrawErrorKind};
 use crate::figure::FigureState;
 use crate::scale::{Scale, ScaleName};
-use crate::ticker::AxisName;
+use crate::ticker::{AxisName, TickSpace};
 use crate::transforms::TransformContext;
 
 /// Both axis names, in matplotlib's order.
@@ -39,7 +40,7 @@ impl FigureState {
     /// axis of another axes its locators are bound to, if they are
     /// (matplotlib's `locator.axis.get_tick_space()` for locators shared
     /// with a sibling of another size).
-    pub(crate) fn shared_tick_spaces(&self, axes: ArtistId) -> [Option<usize>; 2] {
+    pub(crate) fn shared_tick_spaces(&self, axes: ArtistId) -> [Option<TickSpace>; 2] {
         AXES.map(|name| {
             let owner = self
                 .axes_state(axes)?
@@ -52,14 +53,9 @@ impl FigureState {
     }
 
     /// The length of axis `name` of `axes` in points, once the axes has a
-    /// box.
+    /// box (see [`axis_length_points`]).
     pub(crate) fn axis_length_points(&self, axes: ArtistId, name: AxisName) -> Option<f64> {
-        let extent = self.axes_bbox(axes)?;
-        let pixels = match name {
-            AxisName::X => extent.width(),
-            AxisName::Y => extent.height(),
-        };
-        Some(pixels.abs() / self.dpi() * 72.0)
+        Some(axis_length_points(&self.axes_bbox(axes)?, self.dpi(), name))
     }
 
     /// Applies `update` to axis `name` of `axes` and of every axes sharing

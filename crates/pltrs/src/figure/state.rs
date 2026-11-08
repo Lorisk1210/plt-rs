@@ -703,9 +703,12 @@ impl TransformContext for FigureState {
     }
 }
 
-/// The part of `outer` described by `fraction` (a box in `outer`'s unit square).
+/// The part of `outer` described by `fraction` (a box in `outer`'s unit
+/// square), as matplotlib's `TransformedBbox` of an axes' position bounds
+/// it: by Python's `min` and `max` of its corners, so that a NaN edge
+/// after a finite one collapses the box onto that edge.
 fn fraction_of(outer: &Bbox, fraction: &Bbox) -> Bbox {
-    fraction.transformed(&crate::transforms::unit_to_bbox(outer))
+    fraction.transformed_enclosing(&crate::transforms::unit_to_bbox(outer))
 }
 
 /// The map from the fractions of the box `host` of an axes to those of

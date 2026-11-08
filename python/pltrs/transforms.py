@@ -46,6 +46,7 @@ import itertools
 import textwrap
 import weakref
 import math
+import numbers
 
 import numpy as np
 from numpy.linalg import inv  # noqa: F401  (matplotlib's transforms has it)
@@ -414,12 +415,20 @@ class BboxBase(TransformNode):
         """
         Return whether *x* is in the closed (:attr:`x0`, :attr:`x1`) interval.
         """
+        if not isinstance(x, numbers.Real):
+            # matplotlib's comparisons, for what is no number.
+            x0, x1 = self.intervalx
+            return x0 <= x <= x1 or x0 >= x >= x1
         return np.bool_(_transforms.contains(self.get_points(), x, None, False))
 
     def containsy(self, y):
         """
         Return whether *y* is in the closed (:attr:`y0`, :attr:`y1`) interval.
         """
+        if not isinstance(y, numbers.Real):
+            # matplotlib's comparisons, for what is no number.
+            y0, y1 = self.intervaly
+            return y0 <= y <= y1 or y0 >= y >= y1
         return np.bool_(_transforms.contains(self.get_points(), None, y, False))
 
     def contains(self, x, y):
@@ -436,18 +445,28 @@ class BboxBase(TransformNode):
         ----------
         other : `.BboxBase`
         """
-        return np.bool_(_transforms.overlaps(self.get_points(), other.get_points(), False))
+        # The extents of *other*, which matplotlib reads.
+        return np.bool_(_transforms.overlaps(
+            self.get_points(), np.reshape(other.extents, (2, 2)), False))
 
     def fully_containsx(self, x):
         """
         Return whether *x* is in the open (:attr:`x0`, :attr:`x1`) interval.
         """
+        if not isinstance(x, numbers.Real):
+            # matplotlib's comparisons, for what is no number.
+            x0, x1 = self.intervalx
+            return x0 < x < x1 or x0 > x > x1
         return np.bool_(_transforms.contains(self.get_points(), x, None, True))
 
     def fully_containsy(self, y):
         """
         Return whether *y* is in the open (:attr:`y0`, :attr:`y1`) interval.
         """
+        if not isinstance(y, numbers.Real):
+            # matplotlib's comparisons, for what is no number.
+            y0, y1 = self.intervaly
+            return y0 < y < y1 or y0 > y > y1
         return np.bool_(_transforms.contains(self.get_points(), None, y, True))
 
     def fully_contains(self, x, y):
@@ -465,7 +484,9 @@ class BboxBase(TransformNode):
         ----------
         other : `.BboxBase`
         """
-        return np.bool_(_transforms.overlaps(self.get_points(), other.get_points(), True))
+        # The extents of *other*, which matplotlib reads.
+        return np.bool_(_transforms.overlaps(
+            self.get_points(), np.reshape(other.extents, (2, 2)), True))
 
     def transformed(self, transform):
         """
@@ -503,10 +524,12 @@ class BboxBase(TransformNode):
         --------
         .Axes.set_anchor
         """
-        if isinstance(c, str):
-            c = self.coefs[c]
+        # matplotlib reads the container's bounds, then its own, then the
+        # coefficients.
+        container.bounds  # noqa: B018
+        cx, cy = self.coefs[c] if isinstance(c, str) else c
         return Bbox(_transforms.anchored(
-            self.get_points(), c, np.asarray(container.get_points(), float)))
+            self.get_points(), (cx, cy), np.asarray(container.get_points(), float)))
 
     def shrunk(self, mx, my):
         """
@@ -529,8 +552,12 @@ class BboxBase(TransformNode):
         *fig_aspect*, so that *box_aspect* can also be given as a
         ratio of the absolute dimensions, not the relative dimensions.
         """
+        if box_aspect <= 0 or fig_aspect <= 0:
+            raise ValueError("'box_aspect' and 'fig_aspect' must be positive")
         if container is None:
             container = self
+        # The container's size, which matplotlib reads.
+        container.size  # noqa: B018
         return Bbox(_transforms.shrunk_to_aspect(
             self.get_points(), box_aspect, container.get_points(), fig_aspect))
 
@@ -578,8 +605,14 @@ class BboxBase(TransformNode):
         ----------
         bboxes : sequence of `.BboxBase`
         """
-        others = np.array([np.asarray(x, float).reshape((2, 2)) for x in bboxes])
-        return _transforms.count_overlaps(self.get_points(), others)
+        others = np.atleast_3d([np.array(x) for x in bboxes])
+        if not others.size:
+            return 0
+        if others.ndim != 3 or others.shape[1:] != (2, 2):
+            # matplotlib's ``count_bboxes_overlapping_bbox`` refuses it.
+            raise ValueError(
+                f"bbox array must have shape (N, 2, 2), got {others.shape}")
+        return _transforms.count_overlaps(self.get_points(), others.astype(float))
 
     def expanded(self, sw, sh):
         """
@@ -640,8 +673,7 @@ class BboxBase(TransformNode):
         """Return a `Bbox` that contains all of the given *bboxes*."""
         if not len(bboxes):
             raise ValueError("'bboxes' cannot be empty")
-        return Bbox(_transforms.union(
-            np.array([bbox.get_points() for bbox in bboxes], float)))
+        return Bbox(_transforms.union(np.array([_limits(bbox) for bbox in bboxes], float)))
 
     @staticmethod
     def intersection(bbox1, bbox2):
@@ -649,8 +681,15 @@ class BboxBase(TransformNode):
         Return the intersection of *bbox1* and *bbox2* if they intersect, or
         None if they don't.
         """
-        points = _transforms.intersection(bbox1.get_points(), bbox2.get_points())
+        points = _transforms.intersection(_limits(bbox1), _limits(bbox2))
         return None if points is None else Bbox(points)
+
+
+def _limits(bbox):
+    """The corners of *bbox* from its limits (``xmin``, ``ymin``, ``xmax``,
+    ``ymax``), which matplotlib's `BboxBase.union` and `intersection`
+    read."""
+    return [[bbox.xmin, bbox.ymin], [bbox.xmax, bbox.ymax]]
 
 
 _default_minpos = np.array([np.inf, np.inf])

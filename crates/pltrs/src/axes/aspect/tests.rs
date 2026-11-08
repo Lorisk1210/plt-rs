@@ -101,11 +101,27 @@ fn datalim_widens_the_view() {
 #[test]
 fn box_aspect_fixes_the_box_shape() {
     let (_fig, ax) = axes_with_limits((0.0, 3.0), (0.0, 1.0));
-    ax.set_box_aspect(Some(1.0)).unwrap();
+    ax.set_box_aspect(Some(1.0));
     assert_eq!(ax.adjustable(), Adjustable::Datalim);
     let (_, _, w, h) = ax.position().bounds();
     assert!((w * 640.0 - h * 480.0).abs() < 1e-9);
     assert_eq!(ax.xlim(), (0.0, 3.0), "auto aspect leaves the limits");
+}
+
+#[test]
+fn box_aspects_are_kept_and_fail_when_applied_unless_positive() {
+    let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
+    for ratio in [-1.5, 0.0] {
+        ax.set_box_aspect(Some(ratio));
+        assert_eq!(ax.box_aspect(), Some(ratio));
+        assert_eq!(ax.apply_aspect().err(), Some(AspectError::BoxNotPositive));
+    }
+    ax.set_box_aspect(Some(f64::NAN));
+    ax.apply_aspect().unwrap();
+    assert!(
+        ax.position().width().is_nan(),
+        "a NaN aspect leaves no size"
+    );
 }
 
 #[test]
@@ -125,7 +141,6 @@ fn invalid_ratios_are_rejected() {
     let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
     for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
         assert!(ax.set_aspect(Aspect::Ratio(bad)).is_err(), "{bad}");
-        assert!(ax.set_box_aspect(Some(bad)).is_err(), "{bad}");
     }
     assert_eq!(ax.aspect(), Aspect::Auto);
     assert!(

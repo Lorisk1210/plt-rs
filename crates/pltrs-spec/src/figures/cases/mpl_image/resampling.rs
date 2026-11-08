@@ -111,7 +111,7 @@ fn nonuniform_logscale(fig: &Figure) -> CaseResult {
     let centres = [1.0, 4.0, 9.0];
     for (i, ax) in axs.as_slice().iter().enumerate() {
         ax.set_xlim(1.0, 16.0)?.set_ylim(1.0, 16.0)?;
-        ax.set_box_aspect(Some(1.0))?;
+        ax.set_box_aspect(Some(1.0));
         if i > 0 {
             let base = ScaleOptions {
                 base: Some(if i == 1 { 2.0 } else { 4.0 }),

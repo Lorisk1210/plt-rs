@@ -6,6 +6,8 @@ The checks of the grid and the arguments are matplotlib's (from matplotlib
 and draws them with their arrows.
 """
 
+import operator
+
 import numpy as np
 
 from . import (_api, _handles, _live_transforms, _values, cbook, colors as mcolors,
@@ -24,18 +26,13 @@ cbook._set_module(__name__, DomainMap, Grid, InvalidIndexError, OutOfBounds,
 
 
 def _grid_axis(values, name):
-    """The 1D coordinates of the grid along *name* (``'x'`` or ``'y'``):
-    *values* itself, or the common row (x) or column (y) of a 2D mesh."""
+    """The 1D coordinates of the grid along *name* (``'x'`` or ``'y'``) that
+    `Grid` checked: *values* itself, or the row (x) or column (y) of a 2D
+    mesh."""
     if np.ndim(values) == 1:
         return np.asarray(values, dtype=float)
-    if np.ndim(values) == 2:
-        mesh = values if name == 'x' else np.transpose(values)
-        first = mesh[0]
-        if not np.allclose(first, mesh):
-            raise ValueError("The rows of 'x' must be equal" if name == 'x'
-                             else "The columns of 'y' must be equal")
-        return np.asarray(first, dtype=float)
-    raise ValueError(f"'{name}' can have at maximum 2 dimensions")
+    mesh = values if name == 'x' else np.transpose(values)
+    return np.asarray(mesh[0], dtype=float)
 
 
 def _filled(values):
@@ -141,6 +138,9 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         to the colormap, alpha, etc. for both lines and arrows, but these
         changes should be backward compatible.
     """
+    # matplotlib's grid and mask, which check the coordinates and density.
+    grid = Grid(x, y)
+    DomainMap(grid, StreamMask(density))
     gx = _grid_axis(x, 'x')
     gy = _grid_axis(y, 'y')
     for name, scale in (("integration_max_step_scale", integration_max_step_scale),
@@ -153,9 +153,15 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         # Taken from the cycle before the other arguments are checked, as
         # matplotlib takes it.
         color = axes._get_lines.get_next_color()
+    # matplotlib computes its arrows' mutation scale and halves the length
+    # to integrate each way with here (pltrs (Rust) does so as it traces),
+    # failing for values that are no numbers.
+    10 * arrowsize  # noqa: B018
     _api.check_in_list(['both', 'forward', 'backward'],
                        integration_direction=integration_direction)
-    shape = (len(gy), len(gx))
+    if integration_direction == 'both':
+        operator.itruediv(maxlength, 2.)  # noqa: B018
+    shape = grid.shape
 
     made = mapped = single = None
     if isinstance(color, np.ndarray):
@@ -177,12 +183,14 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
     elif linewidth is not None:
         uniform = float(linewidth)
 
-    if np.shape(u) != shape or np.shape(v) != shape:
+    if u.shape != shape or v.shape != shape:
         raise ValueError("'u' and 'v' must match the shape of the (x, y) grid")
 
     density = np.broadcast_to(np.asarray(density, dtype=float), (2,))
     if start_points is not None:
-        start_points = np.asanyarray(start_points, dtype=float).reshape(-1, 2)
+        start_points = np.asanyarray(start_points, dtype=float)
+        # The columns matplotlib shifts to the grid's origin.
+        start_points = np.column_stack([start_points[:, 0], start_points[:, 1]])
     arrowstyle = _native_spec(_style_object(arrowstyle, ArrowStyle), ArrowStyle)
     lines, arrows = _plotting.streamplot(
         axes._native, (gx, gy), (_filled(u), _filled(v)), (single, mapped),

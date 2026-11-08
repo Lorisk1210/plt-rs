@@ -126,11 +126,15 @@ pub struct ThetaFormatter;
 pltrs_core::archive_struct!(ThetaFormatter);
 
 impl ThetaFormatter {
-    /// The number of decimals for a view `span` radians wide.
+    /// The number of decimals for a view `span` radians wide; Python's
+    /// errors of matplotlib's `int` for a span that is no finite non-zero
+    /// number.
     fn digits(span: f64) -> Result<usize, TickerError> {
         let order = span.abs().to_degrees().log10() - 1.5;
         if !order.is_finite() {
-            return Err(TickerError::NonFinite("the theta view span"));
+            return Err(TickerError::NotAnInteger {
+                infinite: order.is_infinite(),
+            });
         }
         // Python's `max(-int(order), 0)`; `order` is finite here.
         Ok((-order.trunc()).max(0.0) as usize)
@@ -275,7 +279,7 @@ mod tests {
     fn sectors_tick_at_degree_multiples_with_more_digits_when_narrow() {
         let (locator, formatter) = theta_tickers(&TickerSettings::DEFAULT);
         let axis = AxisInfo {
-            tick_space: 6,
+            tick_space: crate::ticker::TickSpace::of(6),
             ..AxisInfo::with_view(45f64.to_radians(), 135f64.to_radians())
         };
         let ticks = locator.locate(&context(&axis)).unwrap();
@@ -286,6 +290,19 @@ mod tests {
             .format_ticks(&[0.5f64.to_radians()], &context(&narrow))
             .unwrap();
         assert_eq!(labels.labels, ["0.5°"]);
+    }
+
+    #[test]
+    fn spans_of_no_number_fail_as_pythons_int() {
+        assert_eq!(
+            ThetaFormatter::digits(f64::NAN),
+            Err(TickerError::NotAnInteger { infinite: false })
+        );
+        assert_eq!(
+            ThetaFormatter::digits(0.0),
+            Err(TickerError::NotAnInteger { infinite: true })
+        );
+        assert_eq!(ThetaFormatter::digits(TAU), Ok(0));
     }
 
     #[test]

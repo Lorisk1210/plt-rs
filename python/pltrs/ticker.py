@@ -27,12 +27,14 @@ from collections.abc import Mapping
 import locale
 import logging
 import math
+import numbers
 from numbers import Integral
 import string
 
 import numpy as np
 
-from . import _api, _program_classes, _tick_helpers, _tick_state, cbook
+from . import (_api, _locators_as_matplotlib, _program_classes, _qualnames, _tick_helpers,
+               _tick_state, cbook)
 from ._native import axis as _axis, ticker as _ticker
 
 _log = logging.getLogger(__name__)
@@ -188,6 +190,41 @@ def _first_steps(x, *steps):
     """
     for step in steps:
         step(x)
+
+
+class _Unheld(Exception):
+    """A parameter of a locator is no number pltrs (Rust) holds."""
+
+
+def _held(value, kind=float, least=0):
+    """
+    *value*, a parameter of a locator, as pltrs (Rust) holds it: a real
+    number (a count, an integer of at least *least*, for *kind* `int`).
+    Anything else (a string, None, a sequence, a smaller count) raises
+    `_Unheld`, and the locator computes with it as matplotlib's does (see
+    `_NativeLocator`).
+    """
+    if kind is int:
+        if (isinstance(value, bool) or not isinstance(value, numbers.Integral)
+                or value < least):
+            raise _Unheld(value)
+    elif isinstance(value, bool) or not isinstance(value, numbers.Real):
+        raise _Unheld(value)
+    return kind(value)
+
+
+def _held_all(values):
+    """The parameters *values* (a sequence) as pltrs (Rust) holds them
+    (see `_held`)."""
+    if not np.iterable(values) or isinstance(values, str):
+        raise _Unheld(values)
+    return [_held(value) for value in values]
+
+
+def _all_numbers(*values):
+    """Whether *values*, limits a locator is asked to tick, are all real
+    numbers pltrs (Rust) computes with."""
+    return all(isinstance(v, numbers.Real) for v in values)
 
 
 class Formatter(TickHelper):
@@ -460,13 +497,38 @@ class _NativeFormatter(Formatter):
     _labels = _tick_state.ticked(())
     _offset = _tick_state.ticked('')
 
+    #: matplotlib's ``__call__`` of the class, with which a formatter whose
+    #: parameters pltrs (Rust) does not hold (`_spec` raises `_Unheld`)
+    #: labels its ticks (None: the class has none).
+    _matplotlib_call = None
+
     def _spec(self):
         """The native description of the formatter (its kind and
         parameters)."""
         raise NotImplementedError('Derived must override')
 
+    def _as_matplotlib(self, *values):
+        """Whether to label *values* as matplotlib's formatter does: when
+        the class can and a parameter or a value is no number pltrs (Rust)
+        holds."""
+        if self._matplotlib_call is None:
+            return False
+        if not _all_numbers(*values):
+            return True
+        try:
+            self._spec()
+        except _Unheld:
+            return True
+        return False
+
+    @_qualnames.named_as("Formatter.set_locs")
     def set_locs(self, locs):
         # docstring inherited
+        if self._as_matplotlib() or not np.iterable(locs):
+            # matplotlib's keeps them, labelling each when it is called.
+            self._locs = self._kept_locs(locs) if np.iterable(locs) else locs
+            self._labels = ()
+            return
         self._set_locs_on(locs, self._axis_info())
 
     @staticmethod
@@ -487,9 +549,12 @@ class _NativeFormatter(Formatter):
         self._labels, self._offset = _ticker.format_ticks(
             self._spec(), values, info)
 
+    @_qualnames.named_as("Formatter.__call__")
     def __call__(self, x, pos=None):
+        if self._as_matplotlib(x):
+            return self._matplotlib_call(x, pos)
         locs = self._locs
-        if pos is not None and 0 <= pos < len(locs) and locs[pos] == x:
+        if isinstance(pos, Integral) and 0 <= pos < len(locs) and locs[pos] == x:
             return self._labels[pos]
         if x in locs:
             return self._labels[list(locs).index(x)]
@@ -497,23 +562,29 @@ class _NativeFormatter(Formatter):
             self._spec(), np.asarray([*locs, x], dtype=float), self._axis_info())
         return labels[-1]
 
+    @_qualnames.named_as("Formatter.format_ticks")
     def format_ticks(self, values):
         # docstring inherited
         self.set_locs(values)
-        if type(self).__call__.__module__ != __name__:
-            # A subclass of the program's labels each tick itself.
+        if type(self).__call__.__module__ != __name__ or self._as_matplotlib():
+            # A subclass of the program's labels each tick itself, as
+            # matplotlib's formatter does with parameters pltrs (Rust) does
+            # not hold.
             return [self(value, i) for i, value in enumerate(values)]
         return list(self._labels)
 
+    @_qualnames.named_as("Formatter.get_offset")
     def get_offset(self):
         # docstring inherited
         return self._offset
 
+    @_qualnames.named_as("Formatter.format_data")
     def format_data(self, value):
         # docstring inherited
         return _ticker.format_data(self._spec(), float(value), False,
                                    self._axis_info())
 
+    @_qualnames.named_as("Formatter.format_data_short")
     def format_data_short(self, value):
         # docstring inherited
         return _ticker.format_data(self._spec(), float(value), True,
@@ -816,6 +887,11 @@ class ScalarFormatter(_NativeFormatter):
 
     def set_locs(self, locs):
         # docstring inherited
+        # matplotlib's first steps: the number of locations, then, to
+        # compute an offset, their comparison with the view.
+        _first_steps(locs, len)
+        if len(locs) and self._useOffset:
+            _first_steps(locs, lambda values: np.float64(0.0) <= np.asarray(values))
         locs = self._kept_locs(locs)
         info = self._program_view_info(self._axis_info(), locs)
         self._set_locs_on(locs, info)
@@ -1083,6 +1159,7 @@ class LogitFormatter(_NativeFormatter):
         # matplotlib's logit formatter keeps its locations as an array.
         return np.array(locs)
 
+    @_qualnames.named_as("Formatter.format_data")
     def format_data(self, value):
         # docstring inherited
         # matplotlib's formats it through `__call__`, which first tests it
@@ -1145,10 +1222,16 @@ class LogitFormatter(_NativeFormatter):
 
     def __call__(self, x, pos=None):
         # docstring inherited
+        # matplotlib's first steps: an unlabelled minor tick, then the
+        # interval (``x <= 0 or x >= 1``).
+        if not (self._minor and x not in self._labelled):
+            _first_steps(x, lambda v: v <= 0 or v >= 1)
         return super().__call__(x, pos)
 
     def format_data_short(self, value):
         # docstring inherited
+        # matplotlib's first step: its threshold of scientific notation.
+        _first_steps(value, lambda v: v < 0.1)
         return super().format_data_short(value)
 
 
@@ -1364,11 +1447,25 @@ class PercentFormatter(_NativeFormatter):
         self._is_latex = is_latex
 
     def _spec(self):
-        return {"kind": "percent", "xmax": self.xmax, "decimals": self.decimals,
+        if not (isinstance(self._symbol, str) or self._symbol is None):
+            raise _Unheld(self._symbol)
+        decimals = self.decimals
+        return {"kind": "percent", "xmax": _held(self.xmax),
+                "decimals": None if decimals is None else _held(decimals, int),
                 "symbol": self._symbol, "is_latex": bool(self._is_latex)}
 
+    def _matplotlib_call(self, x, pos=None):
+        """matplotlib's ``__call__``: *x* as a percentage, with the
+        decimals the axis' view asks for."""
+        ax_min, ax_max = self.axis.get_view_interval()
+        display_range = abs(ax_max - ax_min)
+        return self.fix_minus(self.format_pct(x, display_range))
+
+    @_qualnames.named_as("Formatter.format_data_short")
     def format_data_short(self, value):
         # docstring inherited
+        if self._as_matplotlib(value):
+            return self(value)
         # matplotlib's formats it through `__call__`, its first steps the
         # percentage (``x / self.xmax``) written with decimals.
         _first_steps(value, lambda x: f'{self.convert_to_pct(x):0.1f}')
@@ -1376,7 +1473,9 @@ class PercentFormatter(_NativeFormatter):
 
     def __call__(self, x, pos=None):
         """Format the tick as a percentage with the appropriate scaling."""
-        if len(self._locs) == 0:
+        if self._as_matplotlib(x):
+            return self._matplotlib_call(x, pos)
+        if not np.iterable(self._locs) or len(self._locs) == 0:
             labels, _ = _ticker.format_ticks(
                 self._spec(), np.asarray([x], dtype=float), self._axis_info())
             return labels[0]
@@ -1407,7 +1506,25 @@ class PercentFormatter(_NativeFormatter):
         extremely large ones. It assumes that the values on the chart
         are percentages displayed on a reasonable scale.
         """
-        return _ticker.format_pct(self._spec(), float(x), float(display_range))
+        if not self._as_matplotlib(x, display_range):
+            return _ticker.format_pct(self._spec(), float(x), float(display_range))
+        # matplotlib's, for values or parameters that are no numbers.
+        x = self.convert_to_pct(x)
+        if self.decimals is None:
+            # conversion works because display_range is a difference
+            scaled_range = self.convert_to_pct(display_range)
+            if scaled_range <= 0:
+                decimals = 0
+            else:
+                decimals = math.ceil(2.0 - math.log10(2.0 * scaled_range))
+                if decimals > 5:
+                    decimals = 5
+                elif decimals < 0:
+                    decimals = 0
+        else:
+            decimals = self.decimals
+        s = f'{x:0.{int(decimals)}f}'
+        return s + self.symbol
 
     @property
     def symbol(self):
@@ -1479,6 +1596,12 @@ class Locator(TickHelper):
         """Return the locations of the ticks."""
         raise NotImplementedError('Derived must override')
 
+    def _held_spec(self):
+        """The native description pltrs (Rust) places the locator's ticks
+        from (its ``_spec``), None for a locator that has none."""
+        spec = getattr(self, "_spec", None)
+        return None if spec is None else spec()
+
     def raise_if_exceeds(self, locs):
         """
         Log at WARNING level if *locs* is longer than `Locator.MAXTICKS`.
@@ -1546,26 +1669,58 @@ def _with_view(info, view):
 
 
 class _NativeLocator(Locator):
-    """A locator whose ticks pltrs (Rust) computes from its parameters."""
+    """
+    A locator whose ticks pltrs (Rust) computes from its parameters.
+
+    While a parameter is no number pltrs (Rust) holds (`_spec` raises
+    `_Unheld`), or for limits that are no numbers, the locator computes as
+    matplotlib's does, with its class' functions of
+    `._locators_as_matplotlib` (the ``_matplotlib_*`` attributes; a class
+    without one computes natively all the same).
+    """
 
     #: Whether matplotlib's ``__call__`` of the class ticks the view
     #: interval it asks the axis for (``tick_values(*get_view_interval())``),
     #: which an axis of the program's class answers itself.
     _ticks_the_view = False
 
+    #: matplotlib's computations of the class (see the class).
+    _matplotlib_call = _locators_as_matplotlib.view_call
+    _matplotlib_tick_values = None
+    _matplotlib_view_limits = None
+
     def _spec(self):
         """The native description of the locator (its kind and
         parameters)."""
         raise NotImplementedError('Derived must override')
 
+    def _held_spec(self):
+        # docstring inherited
+        # None while a parameter is no number pltrs (Rust) holds.
+        try:
+            return self._spec()
+        except _Unheld:
+            return None
+
+    def _as_matplotlib(self, *values):
+        """Whether to compute as matplotlib's locator does, for limits
+        *values*: when the class can and a parameter or a limit is no
+        number pltrs (Rust) holds."""
+        return (self._matplotlib_tick_values is not None
+                and (not _all_numbers(*values) or self._held_spec() is None))
+
     def tick_values(self, vmin, vmax):
         # docstring inherited
+        if self._as_matplotlib(vmin, vmax):
+            return self._matplotlib_tick_values(vmin, vmax)
         locs = _ticker.tick_values(self._spec(), float(vmin), float(vmax),
                                    self._axis_info())
         return self.raise_if_exceeds(locs)
 
     def __call__(self):
         """Return the locations of the ticks."""
+        if self._as_matplotlib():
+            return self._matplotlib_call()
         if self._ticks_the_view and _asks_program_view(self.axis):
             vmin, vmax = self.axis.get_view_interval()
             return self.tick_values(vmin, vmax)
@@ -1574,11 +1729,17 @@ class _NativeLocator(Locator):
 
     def view_limits(self, vmin, vmax):
         # docstring inherited
+        if self._as_matplotlib(vmin, vmax):
+            if self._matplotlib_view_limits is None:
+                return super().view_limits(vmin, vmax)
+            return self._matplotlib_view_limits(vmin, vmax)
         return _ticker.view_limits(self._spec(), float(vmin), float(vmax),
                                    self._axis_info())
 
     def nonsingular(self, v0, v1):
         # docstring inherited
+        if self._as_matplotlib(v0, v1):
+            return super().nonsingular(v0, v1)
         return _ticker.nonsingular(self._spec(), float(v0), float(v1),
                                    self._axis_info())
 
@@ -1596,9 +1757,12 @@ class IndexLocator(_NativeLocator):
         self._base = base
         self.offset = offset
 
+    _matplotlib_call = _locators_as_matplotlib.index_call
+    _matplotlib_tick_values = _locators_as_matplotlib.index_tick_values
+
     def _spec(self):
-        return {"kind": "index", "base": float(self._base),
-                "offset": float(self.offset)}
+        return {"kind": "index", "base": _held(self._base),
+                "offset": _held(self.offset)}
 
     def set_params(self, base=None, offset=None):
         """Set parameters within this locator"""
@@ -1839,9 +2003,12 @@ class MultipleLocator(_NativeLocator):
         self._edge = _Edge_integer(base, 0)
         self._offset = offset
 
+    _matplotlib_tick_values = _locators_as_matplotlib.multiple_tick_values
+    _matplotlib_view_limits = _locators_as_matplotlib.multiple_view_limits
+
     def _spec(self):
-        return {"kind": "multiple", "base": float(self._edge.step),
-                "offset": float(self._offset)}
+        return {"kind": "multiple", "base": _held(self._edge.step),
+                "offset": _held(self._offset)}
 
     def set_params(self, base=None, offset=None):
         """
@@ -2010,6 +2177,9 @@ class MaxNLocator(_NativeLocator):
         if kwargs:
             raise _api.kwarg_error("set_params", kwargs)
 
+    _matplotlib_tick_values = _locators_as_matplotlib.maxn_tick_values
+    _matplotlib_view_limits = _locators_as_matplotlib.maxn_view_limits
+
     def _spec(self):
         return {"kind": "maxn", "nbins": self._nbins,
                 "steps": [float(s) for s in self._steps],
@@ -2040,20 +2210,7 @@ class MaxNLocator(_NativeLocator):
         if not self._gives_raw_ticks():
             return super().tick_values(vmin, vmax)
         # matplotlib's, around the class' own `_raw_ticks`.
-        from .transforms import _nonsingular
-        if self._symmetric:
-            vmax = max(abs(vmin), abs(vmax))
-            vmin = -vmax
-        vmin, vmax = _nonsingular(vmin, vmax, expander=1e-13, tiny=1e-14)
-        locs = self._raw_ticks(vmin, vmax)
-        prune = self._prune
-        if prune == 'lower':
-            locs = locs[1:]
-        elif prune == 'upper':
-            locs = locs[:-1]
-        elif prune == 'both':
-            locs = locs[1:-1]
-        return self.raise_if_exceeds(locs)
+        return _locators_as_matplotlib.maxn_tick_values(self, vmin, vmax)
 
     def _raw_ticks(self, vmin, vmax):
         """
@@ -2138,11 +2295,14 @@ class LogLocator(_NativeLocator):
                                  "1-dimensional, not "
                                  f"{self._subs.ndim}-dimensional.")
 
+    _matplotlib_tick_values = _locators_as_matplotlib.log_tick_values
+
     def _spec(self):
         subs = self._subs if isinstance(self._subs, str) else [
             float(s) for s in self._subs]
+        numticks = self.numticks if self.numticks == "auto" else _held(self.numticks, int)
         return {"kind": "log", "base": self._base, "subs": subs,
-                "numticks": self.numticks}
+                "numticks": numticks}
 
     def view_limits(self, vmin, vmax):
         """Try to choose the view limits intelligently."""
@@ -2231,11 +2391,14 @@ class SymmetricalLogLocator(_NativeLocator):
         if subs is not None:
             self._subs = subs
 
+    _matplotlib_tick_values = _locators_as_matplotlib.symlog_tick_values
+    _matplotlib_view_limits = _locators_as_matplotlib.symlog_view_limits
+
     def _spec(self):
-        return {"kind": "symlog", "base": float(self._base),
-                "linthresh": float(self._linthresh),
-                "subs": [float(s) for s in self._subs],
-                "numticks": int(self.numticks)}
+        return {"kind": "symlog", "base": _held(self._base),
+                "linthresh": _held(self._linthresh),
+                "subs": _held_all(self._subs),
+                "numticks": _held(self.numticks, int, least=2)}
 
     def __call__(self):
         """Return the locations of the ticks."""
@@ -2313,12 +2476,14 @@ class AsinhLocator(_NativeLocator):
         if subs is not None:
             self.subs = subs if len(subs) > 0 else None
 
+    _matplotlib_call = _locators_as_matplotlib.asinh_call
+    _matplotlib_tick_values = _locators_as_matplotlib.asinh_tick_values
+
     def _spec(self):
-        return {"kind": "asinh", "linear_width": float(self.linear_width),
-                "numticks": int(self.numticks),
-                "symthresh": float(self.symthresh), "base": float(self.base),
-                "subs": None if self.subs is None else [
-                    float(s) for s in self.subs]}
+        return {"kind": "asinh", "linear_width": _held(self.linear_width),
+                "numticks": _held(self.numticks, int),
+                "symthresh": _held(self.symthresh), "base": _held(self.base),
+                "subs": None if self.subs is None else _held_all(self.subs)}
 
     def __call__(self):
         return super().__call__()
@@ -2359,6 +2524,8 @@ class LogitLocator(MaxNLocator):
     def minor(self, value):
         self.set_params(minor=value)
 
+    _matplotlib_tick_values = _locators_as_matplotlib.logit_tick_values
+
     def _spec(self):
         return {"kind": "logit", "minor": bool(self._minor),
                 "nbins": self._nbins}
@@ -2366,7 +2533,7 @@ class LogitLocator(MaxNLocator):
     def tick_values(self, vmin, vmax):
         # docstring inherited
         self._refuse_polar()
-        _warn_outside_logit(vmin, vmax)
+        _locators_as_matplotlib.warn_outside_logit(vmin, vmax)
         ticks = super().tick_values(vmin, vmax)
         if (self._minor and not len(ticks)
                 and _logit_zoomed(*MaxNLocator.nonsingular(self, vmin, vmax))):
@@ -2389,7 +2556,7 @@ class LogitLocator(MaxNLocator):
 
     def nonsingular(self, vmin, vmax):
         # docstring inherited
-        _warn_outside_logit(vmin, vmax)
+        _locators_as_matplotlib.warn_outside_logit(vmin, vmax)
         return super().nonsingular(vmin, vmax)
 
 
@@ -2402,16 +2569,6 @@ def _logit_zoomed(vmin, vmax):
     bsup = int(np.ceil(np.log10(vmax)) if vmax <= 0.5
                else 1 if vmax <= 0.9 else -np.floor(np.log10(1 - vmax)))
     return bsup - binf - 1 < 2
-
-
-def _warn_outside_logit(vmin, vmax):
-    """matplotlib's warning of `LogitLocator.nonsingular` for finite limits
-    holding no value between 0 and 1."""
-    vmin, vmax = min(vmin, vmax), max(vmin, vmax)
-    if np.isfinite(vmin) and np.isfinite(vmax) and (vmax <= 0 or vmin >= 1):
-        _api.warn_external(
-            "Data has no values between 0 and 1, and therefore cannot be "
-            "logit-scaled.")
 
 
 class AutoLocator(MaxNLocator):
@@ -2496,7 +2653,7 @@ class AutoMinorLocator(_NativeLocator):
         if info is None or get_scale is None or get_scale() == 'log':
             return
         major = (info["major_ticks"] if isinstance(info, dict)
-                 else _axis.info_fields(info)[4])
+                 else _axis.info_fields(info)[3])
         if len(np.unique(major)) < 2:
             return
         self.ndivs = _rc('ytick.minor.ndivs'

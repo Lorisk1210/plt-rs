@@ -84,7 +84,7 @@ pub(super) const CASES: &[FigureCase] = &[
         let gs = fig.add_gridspec(1, 2)?;
         let ax1 = fig.add_subplot_spec(&gs.cell(0, 0)?)?;
         let ax2 = fig.add_subplot_spec_3d(&gs.cell(0, 1)?, Axes3DOptions::default())?;
-        ax1.set_box_aspect(Some(0.5))?;
+        ax1.set_box_aspect(Some(0.5));
         ax2.set_box_aspect(Some([2.0, 1.0, 1.0]), 1.0)?;
         remove_ticks_and_titles(fig);
         Ok(())

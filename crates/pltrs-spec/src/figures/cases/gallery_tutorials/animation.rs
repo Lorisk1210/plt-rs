@@ -130,7 +130,7 @@ fn multiple_axes(fig: &Figure) -> CaseResult {
     let axs = fig.subplots_on(&grid, Share::None, Share::All)?;
     let (axl, axr) = (&axs[(0, 0)], &axs[(0, 1)]);
     axl.set_aspect(Aspect::Ratio(1.0))?;
-    axr.set_box_aspect(Some(1.0 / 3.0))?;
+    axr.set_box_aspect(Some(1.0 / 3.0));
     axr.yaxis().set_visible(false);
     axr.xaxis().set_ticks([0.0, PI, 2.0 * PI]);
     axr.xaxis().set_ticklabels(["0", r"$\pi$", r"$2\pi$"])?;

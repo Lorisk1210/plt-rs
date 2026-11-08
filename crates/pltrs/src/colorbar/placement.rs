@@ -273,8 +273,11 @@ impl<'a> Request<'a> {
             }
         }
         cax.set_anchor(self.anchor);
-        cax.set_box_aspect(Some(self.box_aspect()))
-            .map_err(|_| ColorbarError::InvalidAspect(self.options.aspect))?;
+        let box_aspect = self.box_aspect();
+        if !(box_aspect > 0.0 && box_aspect.is_finite()) {
+            return Err(ColorbarError::InvalidAspect(self.options.aspect));
+        }
+        cax.set_box_aspect(Some(box_aspect));
         cax.set_aspect(Aspect::Auto)
             .expect("the auto aspect is always valid");
         let layout = ColorbarLayout {

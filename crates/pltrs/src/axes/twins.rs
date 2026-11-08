@@ -342,7 +342,7 @@ mod tests {
             !ax.raw()
                 .with::<AxesState, _>(|state| state.base().in_layout)
         );
-        twin.set_box_aspect(Some(1.0)).unwrap();
+        twin.set_box_aspect(Some(1.0));
         assert_eq!(ax.box_aspect(), Some(1.0));
         assert_eq!(twin.position(), ax.position());
     }

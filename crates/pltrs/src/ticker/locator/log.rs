@@ -246,7 +246,7 @@ impl Locator for LogLocator {
     ) -> Result<Vec<f64>, TickerError> {
         let n_request = match (self.numticks, ctx.axis()) {
             (NumTicks::Fixed(n), _) => n,
-            (NumTicks::Auto, Some(axis)) => axis.tick_space.clamp(2, 9),
+            (NumTicks::Auto, Some(axis)) => axis.tick_space.clipped(2, 9)?,
             (NumTicks::Auto, None) => 9,
         };
         let n_request = i64::try_from(n_request).unwrap_or(i64::MAX);

@@ -271,12 +271,14 @@ class AspectMixin:
             for a description of aspect handling.
         """
         if aspect is not None:
+            aspect = float(aspect)
             # The twinned Axes adjust their data limits from now on (which
-            # Axes overriding get_data_ratio refuse), as matplotlib's do.
+            # Axes overriding get_data_ratio refuse), as matplotlib's do;
+            # the aspect is kept as given, and fails when it is applied
+            # unless positive.
             for ax in self._twinned_axes.get_siblings(self):
                 ax.set_adjustable("datalim")
-        _axes_base.set_box_aspect(self._native,
-                                  None if aspect is None else float(aspect))
+        _axes_base.set_box_aspect(self._native, aspect)
 
     def reset_position(self):
         """

@@ -43,8 +43,13 @@ def leaves_nothing_on_failure(method):
             return method(self, *args, **kwargs)
         except Exception:
             del self.containers[containers:]
-            for native in _axes.undo_since(self._native, mark):
-                _handles.wrap_any(native, self._figure).remove()
+            # An artist of several native parts (a contour set and its
+            # bands) is taken back once.
+            added = {id(artist): artist for artist in (
+                _handles.wrap_any(native, self._figure)
+                for native in _axes.undo_since(self._native, mark))}
+            for artist in added.values():
+                artist.remove()
             raise
     return plotting
 

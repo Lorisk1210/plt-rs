@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use pltrs_core::Bbox;
 use pltrs_core::archive::ArchiveError;
+use pltrs_core::numeric::{np_maximum, np_minimum};
 
 use crate::artist::ArtistHandle;
 use crate::figure::Figure;
@@ -575,9 +576,10 @@ impl SubplotSpec {
         let p = self.gridspec.grid_positions(figure)?;
         let rows = self.rows.clone();
         let cols = self.cols.clone();
-        let min = |v: &[f64], r: Range<usize>| v[r].iter().copied().fold(f64::INFINITY, f64::min);
+        // numpy's `min` and `max` of the edges, which a NaN wins.
+        let min = |v: &[f64], r: Range<usize>| v[r].iter().copied().fold(f64::INFINITY, np_minimum);
         let max =
-            |v: &[f64], r: Range<usize>| v[r].iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            |v: &[f64], r: Range<usize>| v[r].iter().copied().fold(f64::NEG_INFINITY, np_maximum);
         Ok(Bbox::from_extents(
             min(&p.lefts, cols.clone()),
             min(&p.bottoms, rows.clone()),

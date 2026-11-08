@@ -5,13 +5,19 @@ Spectral plots: `~.Axes.psd`, `~.Axes.csd`, `~.Axes.cohere`,
 `~.Axes.xcorr`.
 
 The arguments default and check as matplotlib's (and its ``mlab``'s)
-do; pltrs (Rust) computes the spectra and draws them.
+do; pltrs (Rust) computes the spectra and draws them. Arguments pltrs
+(Rust) cannot take as they are, or refuses, are computed with as
+matplotlib's ``mlab`` computes (`._mlab_reference`), which fails where and
+as it fails (`_as_matplotlib`).
 """
+
+import math
+import numbers
 
 import numpy as np
 
 from ... import _docstring
-from ... import _api, cbook, image as mimage, lines as mlines, mlab
+from ... import _api, _mlab_reference, cbook, image as mimage, lines as mlines, mlab
 from ... import collections as mcoll
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -41,6 +47,36 @@ def _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq,
         "detrend": mlab._detrend_spec(detrend),
         "window": mlab._window_spec(window, NFFT, np.asarray(x).dtype),
     }
+
+
+def _plain(signals, sizes, Fs, window):
+    """Whether pltrs (Rust) takes the arguments of a spectrum as they are:
+    *signals* of numbers along one dimension, *sizes* that are integers or
+    None, a sampling frequency *Fs* that is a finite nonzero number or
+    None, and a *window* that is None, a function or an array."""
+    return (all(np.ndim(signal) == 1 and np.asarray(signal).dtype.kind in "biuf"
+                for signal in signals)
+            and all(size is None or isinstance(size, numbers.Integral) for size in sizes)
+            and (Fs is None or (isinstance(Fs, numbers.Real) and math.isfinite(Fs)
+                                and Fs != 0))
+            and (window is None or callable(window) or isinstance(window, np.ndarray)))
+
+
+def _as_matplotlib(compute, reference, plain):
+    """
+    What *compute()*, a spectrum pltrs (Rust) computes and plots, returns.
+    With arguments that are not *plain*, or that it refuses,
+    *reference()* first computes the spectrum as matplotlib's ``mlab``
+    does, raising matplotlib's exception where that fails.
+    """
+    if not plain:
+        reference()
+    try:
+        return compute()
+    except (TypeError, ValueError, OverflowError, ZeroDivisionError) as error:
+        failure = error
+    reference()
+    raise failure
 
 
 def _line(kwargs):
@@ -156,10 +192,14 @@ class SpectralMixin:
         John Wiley & Sons (1986)
         """
         Fc = 0 if Fc is None else Fc
-        pxx, freqs = _plotting.psd(
-            self._native, mlab._signal(np.asarray(x)),
-            (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
-                    scale_by_freq), float(Fc)), _line(kwargs))
+        pxx, freqs = _as_matplotlib(
+            lambda: _plotting.psd(
+                self._native, mlab._signal(np.asarray(x)),
+                (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                        scale_by_freq), float(Fc)), _line(kwargs)),
+            lambda: _mlab_reference.csd(x, None, NFFT, Fs, detrend, window,
+                                        noverlap, pad_to, sides, scale_by_freq),
+            _plain((x,), (NFFT, noverlap, pad_to), Fs, window))
         _integer_yticks(self)
         freqs = freqs + Fc
         if return_line is None or not return_line:
@@ -247,10 +287,15 @@ class SpectralMixin:
         John Wiley & Sons (1986)
         """
         Fc = 0 if Fc is None else Fc
-        (re, im), freqs = _plotting.csd(
-            self._native, (_floats(x), _floats(y)),
-            (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
-                    scale_by_freq), float(Fc)), _line(kwargs))
+        (re, im), freqs = _as_matplotlib(
+            # Without *y*, matplotlib's cross spectrum is the spectrum of *x*.
+            lambda: _plotting.csd(
+                self._native, (_floats(x), _floats(x if y is None else y)),
+                (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                        scale_by_freq), float(Fc)), _line(kwargs)),
+            lambda: _mlab_reference.csd(x, y, NFFT, Fs, detrend, window,
+                                        noverlap, pad_to, sides, scale_by_freq),
+            _plain((x, y), (NFFT, noverlap, pad_to), Fs, window))
         _integer_yticks(self)
         freqs = freqs + Fc
         pxy = re + 1j * im
@@ -311,28 +356,41 @@ class SpectralMixin:
         Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
         John Wiley & Sons (1986)
         """
-        cxy, freqs = _plotting.cohere(
-            self._native, (_floats(x), _floats(y)),
-            (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
-                    scale_by_freq), float(Fc)), _line(kwargs))
+        cxy, freqs = _as_matplotlib(
+            lambda: _plotting.cohere(
+                self._native, (_floats(x), _floats(y)),
+                (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                        scale_by_freq), float(Fc)), _line(kwargs)),
+            lambda: _mlab_reference.cohere(x, y, NFFT, Fs, detrend, window,
+                                           noverlap, pad_to, sides, scale_by_freq),
+            _plain((x, y), (NFFT, noverlap, pad_to), Fs, window))
         return cxy, freqs + Fc
 
     def _single_spectrum(self, kind, x, Fs, Fc, window, pad_to, sides, scale,
                          kwargs):
         """A single-segment spectrum `kind` of *x*, plotted."""
-        x = _floats(x)
-        sides = 'default' if sides is None else sides
-        _api.check_in_list(['default', 'onesided', 'twosided'], sides=sides)
-        # matplotlib checks the scale once the spectrum is computed.
-        scale = _api.getitem_checked(
-            {None: 'linear', 'default': 'linear', 'linear': 'linear', 'dB': 'dB'},
-            scale=scale)
         Fc = 0 if Fc is None else Fc
-        spectrum, freqs, line = _plotting.single_spectrum(
-            self._native, kind, x,
-            ((2.0 if Fs is None else float(Fs), mlab._window_spec(window, len(x), x.dtype),
-              None if pad_to is None else int(pad_to), sides), float(Fc)),
-            scale, _line(kwargs))
+
+        def compute():
+            signal = _floats(x)
+            checked = 'default' if sides is None else sides
+            _api.check_in_list(['default', 'onesided', 'twosided'], sides=checked)
+            # matplotlib checks the scale once the spectrum is computed.
+            named = _api.getitem_checked(
+                {None: 'linear', 'default': 'linear', 'linear': 'linear', 'dB': 'dB'},
+                scale=scale)
+            return _plotting.single_spectrum(
+                self._native, kind, signal,
+                ((2.0 if Fs is None else float(Fs),
+                  mlab._window_spec(window, len(signal), signal.dtype),
+                  None if pad_to is None else int(pad_to), checked), float(Fc)),
+                named, _line(kwargs))
+
+        spectrum, freqs, line = _as_matplotlib(
+            compute,
+            lambda: _mlab_reference.single_spectrum_helper(kind, x, Fs, window,
+                                                           pad_to, sides),
+            _plain((x,), (pad_to,), Fs, window))
         return spectrum, freqs + Fc, wrap(self, line, mlines.Line2D)
 
     @_api.make_keyword_only("3.10", "Fs")
@@ -643,8 +701,17 @@ class SpectralMixin:
             scale = 'linear' if mode in ['angle', 'phase'] else 'dB'
         elif mode in ['angle', 'phase'] and scale == 'dB':
             raise ValueError('Cannot use dB scale with angle or phase mode')
-        welch = _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
-                       scale_by_freq, mode='default' if mode is None else mode)
+        if len(x) <= NFFT:
+            _api.warn_external("Only one segment is calculated since parameter "
+                               f"NFFT (={NFFT}) >= signal length (={len(x)}).")
+        reference_mode = mode
+        welch = _as_matplotlib(
+            lambda: _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                           scale_by_freq, mode='default' if mode is None else mode),
+            lambda: _mlab_reference.spectral_helper(
+                x, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                scale_by_freq, reference_mode),
+            _plain((x,), (NFFT, noverlap, pad_to), Fs, window))
         mode = 'psd' if mode in (None, 'default') else mode
         if scale not in ('linear', 'dB'):
             raise ValueError(f'Unknown scale {scale!r}')
@@ -652,10 +719,15 @@ class SpectralMixin:
             raise _api.kwarg_error("specgram", "origin")
         made, mapping = _mapping(cmap, kwargs.pop('norm', None), vmin, vmax,
                                  kwargs.pop('colorizer', None))
-        spec, freqs, t, native = _plotting.specgram(
-            self._native, _floats(x), (welch, float(Fc)),
-            (mode, scale), None if xextent is None else tuple(map(float, xextent)),
-            mapping)
+        spec, freqs, t, native = _as_matplotlib(
+            lambda: _plotting.specgram(
+                self._native, _floats(x), (welch, float(Fc)),
+                (mode, scale), None if xextent is None else tuple(map(float, xextent)),
+                mapping),
+            lambda: _mlab_reference.spectral_helper(
+                x, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+                scale_by_freq, reference_mode),
+            True)
         im = wrap(self, native, mimage.AxesImage)
         shown = spec
         if scale == 'dB':

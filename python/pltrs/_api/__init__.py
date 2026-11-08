@@ -485,3 +485,23 @@ def warn_external(message, category=None):
 from .._native import register as _register  # noqa: E402
 
 _register("warn_external", lambda message: warn_external(message))
+
+
+def _numpy_error_mode(message):
+    """
+    How numpy's error state (``np.errstate``) treats *message*, a warning
+    of the floating-point arithmetic pltrs (Rust) did where matplotlib's
+    numpy arithmetic warns: ``'ignore'``, ``'warn'``, ...; numpy's
+    `FloatingPointError` for ``'raise'``.
+    """
+    import numpy as np
+    kind = ("divide" if message.startswith("divide by zero") else
+            "over" if message.startswith("overflow") else
+            "under" if message.startswith("underflow") else "invalid")
+    mode = np.geterr()[kind]
+    if mode == "raise":
+        raise FloatingPointError(message)
+    return mode
+
+
+_register("numpy_error_mode", _numpy_error_mode)

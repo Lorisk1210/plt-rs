@@ -32,7 +32,9 @@ impl From<AspectError> for PyErr {
             AspectError::FixedDataRatio(_) => PyErr::value_error(
                 "Cannot set Axes adjustable to 'datalim' for Axes which override 'get_data_ratio'",
             ),
-            AspectError::NonFiniteLimits => PyErr::value_error(err.to_string()),
+            AspectError::NonFiniteLimits | AspectError::BoxNotPositive => {
+                PyErr::value_error(err.to_string())
+            }
         }
     }
 }

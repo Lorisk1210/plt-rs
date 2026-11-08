@@ -96,7 +96,7 @@ impl Locator for LogitLocator {
     ) -> Result<Vec<f64>, TickerError> {
         let nbins = match (self.max_n.nbins(), ctx.axis()) {
             (Nbins::Fixed(n), _) => n,
-            (Nbins::Auto, Some(axis)) => axis.tick_space.max(2),
+            (Nbins::Auto, Some(axis)) => axis.tick_space.clipped(2, usize::MAX)?,
             (Nbins::Auto, None) => 9,
         } as i64;
         let (vmin, vmax) = self.nonsingular(vmin, vmax, ctx);

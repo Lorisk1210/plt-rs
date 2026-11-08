@@ -6,6 +6,7 @@
 //! [`TickContext`], together with the [`TickerSettings`] in effect.
 
 use super::settings::TickerSettings;
+use super::tick_space::TickSpace;
 
 /// Which axis of an axes a tick helper serves.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -59,8 +60,8 @@ pub struct AxisInfo {
     pub data_interval: (f64, f64),
     /// Smallest positive data value (used by log and logit locators).
     pub minpos: f64,
-    /// Number of ticks that fit along the axis (`Axis.get_tick_space`).
-    pub tick_space: usize,
+    /// How many ticks fit along the axis (`Axis.get_tick_space`).
+    pub tick_space: TickSpace,
     /// Current major tick locations (consulted by `AutoMinorLocator`).
     pub major_ticks: Vec<f64>,
     /// The axis' scale.
@@ -78,7 +79,7 @@ impl AxisInfo {
         view_interval: (0.0, 1.0),
         data_interval: (0.0, 1.0),
         minpos: 0.0,
-        tick_space: 9,
+        tick_space: TickSpace::of(9),
         major_ticks: Vec::new(),
         scale: ScaleHint::Linear,
         three_d: false,
@@ -168,7 +169,7 @@ mod tests {
         let ctx = TickContext::default();
         assert!(ctx.axis().is_none());
         assert_eq!(ctx.view_interval(), (0.0, 1.0));
-        assert_eq!(ctx.axis_or_dummy().tick_space, 9);
+        assert_eq!(ctx.axis_or_dummy().tick_space, TickSpace::of(9));
         let axis = AxisInfo::with_view(3.0, -1.0);
         let settings = TickerSettings::default();
         let ctx = TickContext::new(&axis, &settings);

@@ -120,8 +120,7 @@ fn compressed_suptitle(args: Args<'_>) -> Outcome {
             let ax = add_cell(&fig, &gs, row, 0)?;
             ax.axis_mode(AxisMode::Equal)
                 .map_err(ProbeError::rejected)?;
-            ax.set_box_aspect(Some(box_aspect))
-                .map_err(ProbeError::rejected)?;
+            ax.set_box_aspect(Some(box_aspect));
         }
         let mut out = Vec::new();
         for call in args.json("calls")?.as_array().unwrap_or(&[]) {

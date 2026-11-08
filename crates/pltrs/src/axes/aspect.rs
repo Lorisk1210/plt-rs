@@ -51,6 +51,9 @@ pub enum AspectError {
     /// beyond `(0, 1)`), so the data ratio is not finite (matplotlib's
     /// `set_xbound` refuses the limits).
     NonFiniteLimits,
+    /// The box cannot be shrunk to the aspect: it or the figure's is not
+    /// positive (matplotlib's `Bbox.shrunk_to_aspect` refuses it).
+    BoxNotPositive,
 }
 
 impl fmt::Display for AspectError {
@@ -65,6 +68,7 @@ impl fmt::Display for AspectError {
                 projection.name()
             ),
             Self::NonFiniteLimits => f.write_str("Axis limits cannot be NaN or Inf"),
+            Self::BoxNotPositive => f.write_str("'box_aspect' and 'fig_aspect' must be positive"),
         }
     }
 }
@@ -348,15 +352,18 @@ impl Axes {
 
     /// Fixes the height/width ratio of the box of this axes and of its
     /// twins, independent of the data (matplotlib's `set_box_aspect`); a
-    /// ratio switches their adjustable to [`Adjustable::Datalim`].
+    /// ratio switches their adjustable to [`Adjustable::Datalim`]. The
+    /// ratio is kept as given: a ratio that is not positive fails when the
+    /// aspect is applied ([`AspectError::BoxNotPositive`]), one that is NaN
+    /// leaves the box no size.
     ///
-    /// # Errors
-    ///
-    /// When the ratio is not finite and positive.
-    pub fn set_box_aspect(&self, ratio: Option<f64>) -> Result<&Self, AspectError> {
-        if let Some(ratio) = ratio {
-            ratio_of(Aspect::Ratio(ratio))?;
-        }
+    /// ```
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.set_box_aspect(Some(-1.0));
+    /// assert_eq!(ax.box_aspect(), Some(-1.0));
+    /// assert!(ax.apply_aspect().is_err());
+    /// ```
+    pub fn set_box_aspect(&self, ratio: Option<f64>) -> &Self {
         for twin in self.twins() {
             twin.raw.with_mut::<AxesState, _>(|axes| {
                 if ratio.is_some() {
@@ -365,7 +372,7 @@ impl Axes {
                 axes.aspect.box_aspect = ratio;
             });
         }
-        Ok(self)
+        self
     }
 
     /// The fixed height/width ratio of the axes box, if any.

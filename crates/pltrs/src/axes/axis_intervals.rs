@@ -9,7 +9,7 @@ use pltrs_core::numeric::{py_max, py_min};
 use super::axis_handle::Axis;
 use super::state::AxesState;
 use crate::artist::ArtistHandle;
-use crate::ticker::{AxisInfo, AxisName, TickerError};
+use crate::ticker::{AxisInfo, AxisName, TickSpace, TickerError};
 
 /// The interval `(old_min, old_max)` widened to include `vmin` and `vmax`,
 /// keeping its orientation, as matplotlib's interval setters widen one
@@ -166,13 +166,18 @@ impl Axis {
 
     /// How many ticks fit along this axis in the figure's current
     /// layout: its length in points over three (x) or two (y) times the
-    /// tick label size (matplotlib's `Axis.get_tick_space`).
+    /// tick label size (matplotlib's `Axis.get_tick_space`), none along an
+    /// axes placed at NaN.
     ///
     /// ```
     /// let ax = pltrs::figure::Figure::new().subplot();
-    /// assert!(ax.xaxis().tick_space() > ax.yaxis().tick_space() / 2);
+    /// let (x, y) = (ax.xaxis().tick_space().count()?, ax.yaxis().tick_space().count()?);
+    /// assert!(x > y / 2);
+    /// ax.set_position([0.6, 0.1, -0.5, 0.5]);
+    /// assert!(ax.xaxis().tick_space().count()? < 0);
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
     /// ```
-    pub fn tick_space(&self) -> usize {
+    pub fn tick_space(&self) -> TickSpace {
         let state = self.axes.raw().figure_state().borrow();
         let points = state.axis_length_points(self.axes.id(), self.name);
         drop(state);

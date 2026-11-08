@@ -74,7 +74,7 @@ fn axes_margins_2(fig: &Figure) -> CaseResult {
 fn axes_box_aspect_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xlim(300.0, 400.0)?;
-    ax.set_box_aspect(Some(1.0))?;
+    ax.set_box_aspect(Some(1.0));
     Ok(())
 }
 
@@ -83,8 +83,8 @@ fn axes_box_aspect_2(fig: &Figure) -> CaseResult {
     let (ax, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     ax.plot([1.0, 5.0], [0.0, 10.0])?;
     ax2.plot([100.0, 500.0], [10.0, 15.0])?;
-    ax.set_box_aspect(Some(1.0))?;
-    ax2.set_box_aspect(Some(1.0))?;
+    ax.set_box_aspect(Some(1.0));
+    ax2.set_box_aspect(Some(1.0));
     Ok(())
 }
 
@@ -93,7 +93,7 @@ fn axes_box_aspect_3(fig: &Figure) -> CaseResult {
     let ax2 = ax.twinx()?;
     ax.plot_y([0.0, 10.0]);
     ax2.plot_y([12.0, 10.0]);
-    ax.set_box_aspect(Some(1.0))?;
+    ax.set_box_aspect(Some(1.0));
     Ok(())
 }
 
@@ -104,7 +104,7 @@ fn axes_box_aspect_4(fig: &Figure) -> CaseResult {
     let ratio = image.rows() as f64 / image.cols() as f64;
     axs[(0, 0)].imshow(image, ImshowOptions::default())?;
     axs[(0, 1)].plot_y([23.0, 45.0]);
-    axs[(0, 1)].set_box_aspect(Some(ratio))?;
+    axs[(0, 1)].set_box_aspect(Some(ratio));
     Ok(())
 }
 
@@ -118,9 +118,9 @@ fn axes_box_aspect_5(fig: &Figure) -> CaseResult {
     )?;
     let axs = fig.subplots_on(&grid, Share::Col, Share::Row)?;
     axs[(0, 1)].set_visible(false);
-    axs[(0, 0)].set_box_aspect(Some(1.0 / 3.0))?;
-    axs[(1, 0)].set_box_aspect(Some(1.0))?;
-    axs[(1, 1)].set_box_aspect(Some(3.0 / 1.0))?;
+    axs[(0, 0)].set_box_aspect(Some(1.0 / 3.0));
+    axs[(1, 0)].set_box_aspect(Some(1.0));
+    axs[(1, 1)].set_box_aspect(Some(3.0 / 1.0));
     let normal = SpecRng::new(SEED).normal(2 * 400, 0.0, 1.0);
     let x = map(&normal[..400], |v| v * 0.5);
     let y = map(&normal[400..], |v| v * 180.0);
@@ -139,7 +139,7 @@ fn axes_box_aspect_6(fig: &Figure) -> CaseResult {
     ax.add_patch(Circle::new((5.0, 3.0), 1.0));
     ax.set_aspect(Aspect::Equal)?
         .set_adjustable(Adjustable::Datalim)?;
-    ax.set_box_aspect(Some(0.5))?;
+    ax.set_box_aspect(Some(0.5));
     ax.autoscale(None, None);
     Ok(())
 }
@@ -149,7 +149,7 @@ fn axes_box_aspect_7(fig: &Figure) -> CaseResult {
     let axs = fig.subplots_shared(2, 3, Share::All, Share::All)?;
     let hsv = colormaps::get("hsv")?;
     for (i, ax) in axs.as_slice().iter().enumerate() {
-        ax.set_box_aspect(Some(1.0))?;
+        ax.set_box_aspect(Some(1.0));
         let options = ScatterOptions {
             colors: ScatterColors::Single(hsv.sample(i as f64 / 6.0).into()),
             sizes: Some(vec![300.0]),

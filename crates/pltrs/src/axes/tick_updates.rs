@@ -26,7 +26,7 @@ use super::tick_set::{Tick, TickSet};
 use super::{Axes, AxesState};
 use crate::artist::{ArtistId, RawHandle};
 use crate::figure::{Figure, FigureState};
-use crate::ticker::{AxisInfo, AxisName, TickerError};
+use crate::ticker::{AxisInfo, AxisName, TickSpace, TickerError};
 use crate::transforms::TransformContext;
 
 /// The program's code ticking the axes whose tick helpers or scale call
@@ -370,7 +370,7 @@ impl FigureState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<usize>,
+        tick_space: Option<TickSpace>,
     ) {
         if self.program_ticker(axes, name).is_some() {
             let current = self.store.get_as::<AxesState>(axes).map(|state| {
@@ -393,7 +393,7 @@ impl FigureState {
         axes: ArtistId,
         extent: &Bbox,
         dpi: f64,
-        shared: [Option<usize>; 2],
+        shared: [Option<TickSpace>; 2],
     ) {
         for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
             self.tick_axis_now(axes, name, extent, dpi, tick_space);

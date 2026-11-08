@@ -17,7 +17,9 @@ use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
-use crate::ticker::{AutolimitMode, AxisName, Formatter, Locator, TickerError, TickerSettings};
+use crate::ticker::{
+    AutolimitMode, AxisName, Formatter, Locator, TickSpace, TickerError, TickerSettings,
+};
 use crate::transforms::{AxisMap, program_calls};
 use crate::units::{AxisUnits, Categories, UnitAxisInfo, UnitData, UnitState};
 
@@ -51,7 +53,7 @@ pub(crate) struct AxisGeometry {
     pub(crate) length_points: f64,
     /// How many ticks fit along the axis of another axes the locators are
     /// bound to (`None` measures this axis).
-    pub(crate) tick_space: Option<usize>,
+    pub(crate) tick_space: Option<TickSpace>,
     /// Major ticks at or below this value are dropped before labelling
     /// (the origin of full-circle polar axes).
     pub(crate) tick_floor: Option<f64>,

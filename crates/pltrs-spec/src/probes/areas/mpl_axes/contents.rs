@@ -269,7 +269,7 @@ pub(super) fn box_aspect_constrained(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         let axs = made(fig.subplots(2, 3))?;
         for ax in axs.as_slice() {
-            made(ax.set_box_aspect(Some(1.0)))?;
+            ax.set_box_aspect(Some(1.0));
         }
         fig.set_layout_engine(LayoutEngine::constrained())
             .map_err(ProbeError::rejected)?;

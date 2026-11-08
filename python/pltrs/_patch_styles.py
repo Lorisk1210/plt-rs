@@ -19,7 +19,7 @@ import weakref
 
 import numpy as np
 
-from . import _api, _docstring, _patch_style_docs as _style_docs
+from . import _api, _docstring, _patch_style_docs as _style_docs, _qualnames
 from ._native import patch_styles as _styles
 from .bezier import inside_circle, split_path_inout
 from .path import Path
@@ -141,24 +141,34 @@ class _Described:
         return ",".join(parts)
 
 
-def _described(name, **defaults):
+def _described(name, qualname, check=None, **defaults):
     """
     A `_Described` style class named *name* whose constructor takes the
-    keyword parameters *defaults* (with their default values).
+    keyword parameters *defaults* (with their default values), as the
+    constructor matplotlib defines in its class *qualname*
+    (``"BoxStyle.Square"``), so that Python words the errors of a call as
+    it words matplotlib's. *check*, given the parameters, raises
+    matplotlib's errors for values its constructor refuses.
     """
-    def __init__(self, *args, **kwargs):
-        bound = signature.bind(self, *args, **kwargs)
-        bound.apply_defaults()
-        params = dict(bound.arguments)
-        params.pop("self")
-        _Described.__init__(self, **params)
+    parameters = ", ".join(f"{key}=_defaults[{key!r}]" for key in defaults)
+    arguments = ", ".join(f"{key}={key}" for key in defaults)
+    namespace = {"_defaults": defaults, "_check": check, "_Described": _Described}
+    exec(textwrap.dedent(f"""
+        def __init__(self, {parameters}):
+            if _check is not None:
+                _check({arguments})
+            _Described.__init__(self, {arguments})
+    """), namespace)
+    init = _qualnames.named_as(f"{qualname}.__init__")(namespace["__init__"])
+    return type(name, (_Described,), {"__init__": init})
 
-    signature = inspect.Signature(
-        [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
-        + [inspect.Parameter(key, inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                             default=value) for key, value in defaults.items()])
-    __init__.__signature__ = signature
-    return type(name, (_Described,), {"__init__": __init__})
+
+def _check_rarrow(pad, head_width, head_angle):
+    """matplotlib's checks of the head of `BoxStyle.RArrow`."""
+    if head_width < 0:
+        raise ValueError("'head_width' must be nonnegative")
+    if head_angle % 360 == 0:
+        raise ValueError("'head_angle' must be nonzero")
 
 
 class BoxStyle(_Style):
@@ -206,7 +216,7 @@ for _name, _params in [
         ("Square", dict(pad=0.3)),
         ("Circle", dict(pad=0.3)),
         ("Ellipse", dict(pad=0.3)),
-        ("RArrow", dict(pad=0.3, head_width=1.5, head_angle=90)),
+        ("RArrow", dict(pad=0.3, head_width=1.5, head_angle=90, check=_check_rarrow)),
         ("LArrow", "RArrow"),
         ("DArrow", "RArrow"),
         ("Round", dict(pad=0.3, rounding_size=None)),
@@ -214,7 +224,7 @@ for _name, _params in [
         ("Sawtooth", dict(pad=0.3, tooth_size=None)),
         ("Roundtooth", "Sawtooth")]:
     _bases = ((getattr(BoxStyle, _params),) if isinstance(_params, str)
-              else (BoxStyle._Base, _described(_name, **_params)))
+              else (BoxStyle._Base, _described(_name, f"BoxStyle.{_name}", **_params)))
     _style = type(_name, _bases,
                   {"_spec_name": _name.lower(), "__qualname__": f"BoxStyle.{_name}"})
     _style_docs.document(_style, BoxStyle)
@@ -334,7 +344,8 @@ for _name, _params in [
         ("Angle", dict(angleA=90, angleB=0, rad=0.)),
         ("Arc", dict(angleA=0, angleB=0, armA=None, armB=None, rad=0.)),
         ("Bar", dict(armA=0., armB=0., fraction=0.3, angle=None))]:
-    _style = type(_name, (ConnectionStyle._Base, _described(_name, **_params)),
+    _style = type(_name, (ConnectionStyle._Base,
+                          _described(_name, f"ConnectionStyle.{_name}", **_params)),
                   {"_spec_name": _name.lower(),
                    "__qualname__": f"ConnectionStyle.{_name}"})
     _style_docs.document(_style, ConnectionStyle)
@@ -475,7 +486,9 @@ for _name, _arrow, _params in [
         ("Wedge", "wedge", dict(tail_width=.3, shrink_factor=0.5))]:
     _base = (ArrowStyle._Base if _name in ("Simple", "Fancy", "Wedge")
              else ArrowStyle._Curve)
-    _style = type(_name, (_base, _described(_name, **_params)),
+    # The curves with heads take the parameters of matplotlib's `_Curve`.
+    _owner = "_Curve" if _params is _CURVE else _name
+    _style = type(_name, (_base, _described(_name, f"ArrowStyle.{_owner}", **_params)),
                   {"_spec_name": _arrow, "arrow": _arrow,
                    "__qualname__": f"ArrowStyle.{_name}"})
     _style_docs.document(_style, ArrowStyle)

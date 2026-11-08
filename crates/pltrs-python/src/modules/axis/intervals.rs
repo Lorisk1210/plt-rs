@@ -41,9 +41,15 @@ fn get_minpos(axes: Axes, name: String) -> PyResult<f64> {
     Ok(axis(&axes, &name)?.minpos())
 }
 
-/// How many ticks fit along the axis.
-fn get_tick_space(axes: Axes, name: String) -> PyResult<usize> {
-    Ok(axis(&axes, &name)?.tick_space())
+/// How many ticks fit along the axis; matplotlib's `ValueError` for an
+/// axis whose length is no number.
+fn get_tick_space(axes: Axes, name: String) -> PyResult<i64> {
+    Ok(axis(&axes, &name)?.tick_space().count()?)
+}
+
+/// How many ticks fit along the axis the description `info` describes.
+fn info_tick_space(info: AxisInfo) -> PyResult<i64> {
+    Ok(info.tick_space.count()?)
 }
 
 /// What the helpers of axis `name` know of it (see
@@ -56,8 +62,9 @@ fn axis_info(owner: AxisOwner, name: String) -> PyResult<AxisInfo> {
 }
 
 /// The fields of an axis description: view and data intervals, smallest
-/// positive datum, tick space and major tick locations.
-type InfoFields = ((f64, f64), (f64, f64), f64, usize, NdArray);
+/// positive datum and major tick locations (its tick space is
+/// `info_tick_space`'s, which may fail).
+type InfoFields = ((f64, f64), (f64, f64), f64, NdArray);
 
 /// The fields of the axis description `info`.
 fn info_fields(info: AxisInfo) -> PyResult<InfoFields> {
@@ -65,7 +72,6 @@ fn info_fields(info: AxisInfo) -> PyResult<InfoFields> {
         info.view_interval,
         info.data_interval,
         info.minpos,
-        info.tick_space,
         NdArray::from_vec(info.major_ticks),
     ))
 }
@@ -103,6 +109,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_data_interval", set_data_interval)?;
     module.add("get_minpos", get_minpos)?;
     module.add("get_tick_space", get_tick_space)?;
+    module.add("info_tick_space", info_tick_space)?;
     module.add("axis_info", axis_info)?;
     module.add("info_fields", info_fields)
 }
@@ -127,7 +134,8 @@ mod tests {
         );
         assert!(get_tick_space(ax.clone(), "x".into()).unwrap() > 0);
         let info = axis_info(AxisOwner::Flat(ax), "x".into()).unwrap();
-        let (view, _, _, _, major) = info_fields(info).unwrap();
+        assert!(info_tick_space(info.clone()).unwrap() > 0);
+        let (view, _, _, major) = info_fields(info).unwrap();
         assert_eq!(view, (2.0, -1.0));
         assert_ne!(major.into_vec().unwrap(), [] as [f64; 0]);
     }

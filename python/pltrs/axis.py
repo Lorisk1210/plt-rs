@@ -1173,7 +1173,7 @@ class Axis(DrawnWith, Artist):
                 # The program's code ticking the axis reads its locator,
                 # as matplotlib's does.
                 return self.major.locator()
-            return self._drawn_fields()[4]
+            return self._drawn_fields()[3]
         if not minor and _program_classes.takes_from_program(
                 type(self), "get_view_interval"):
             # matplotlib's locator asks the program's class for the view.
@@ -1434,11 +1434,18 @@ class Axis(DrawnWith, Artist):
         if values.dtype.kind in "iub" and values.size:
             # matplotlib's locator keeps the locations as given (ints).
             from .ticker import FixedLocator
-            _tick_helpers.adopt(self, FixedLocator(values), "locator", minor)
+            locator = FixedLocator(values)
+            _tick_helpers.adopt(self, locator if minor else self._as_major_locator(locator),
+                                "locator", minor)
         if labels is not None:
             self.set_ticklabels(labels, minor=minor, **kwargs)
         get_ticks = self.get_minor_ticks if minor else self.get_major_ticks
         return get_ticks(len(values))
+
+    def _as_major_locator(self, locator):
+        """*locator* as the axis' major locator holds it once
+        `set_major_locator` gives it (a radial axis wraps it)."""
+        return locator
 
     @staticmethod
     def _format_with_dict(tickd, x, pos):
@@ -2381,9 +2388,8 @@ class _AxisOfAxes(Axis):
         return np.float64(_axis.get_minpos(*self._args()))
 
     def get_tick_space(self):
-        fields = self._drawn_fields()
-        if fields is not None:
-            return fields[3]
+        if self._drawn_info is not None:
+            return _axis.info_tick_space(self._drawn_info)
         return _axis.get_tick_space(*self._args())
 
     def _set_label_side(self, position):

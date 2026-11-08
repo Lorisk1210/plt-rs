@@ -37,6 +37,7 @@ mod locator;
 mod log_base;
 pub(crate) mod pymath;
 mod settings;
+mod tick_space;
 
 pub use context::{AxisInfo, AxisName, ScaleHint, TickContext};
 pub use error::TickerError;
@@ -57,3 +58,4 @@ pub(crate) use locator::{OverlapTolerance, drawable_ticks};
 pub use log_base::LogBase;
 pub use pltrs_core::pyfmt;
 pub use settings::{AutolimitMode, MinorDivisions, TickerSettings};
+pub use tick_space::TickSpace;

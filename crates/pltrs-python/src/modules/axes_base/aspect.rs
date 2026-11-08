@@ -88,7 +88,7 @@ fn get_anchor(axes: Axes) -> PyResult<(Option<&'static str>, (f64, f64))> {
 /// Fixes the ratio of the box's height to its width (with its twins), or
 /// frees it (`None`).
 fn set_box_aspect(axes: Axes, ratio: Option<f64>) -> PyResult<()> {
-    axes.set_box_aspect(ratio)?;
+    axes.set_box_aspect(ratio);
     Ok(())
 }
 

@@ -121,6 +121,10 @@ impl Locator for SymmetricalLogLocator {
             (0.0, 0.0)
         };
         let total_ticks = (a_hi - a_lo) + (c_hi - c_lo) + if has_b { 1.0 } else { 0.0 };
+        if total_ticks.is_infinite() {
+            // numpy's floor division of the infinite count of decades.
+            crate::warnings::warn_runtime("invalid value encountered in scalar floor_divide");
+        }
         let stride = py_max(floor_div(total_ticks, (self.numticks - 1) as f64), 1.0);
 
         let mut decades = Vec::new();
@@ -208,5 +212,15 @@ mod tests {
         assert_eq!(ticks(&loc, 0.0, 0.0), Vec::<f64>::new());
         let minor = loc.with_subs([2.0, 5.0]);
         assert_eq!(ticks(&minor, 0.0, 20.0), [0.0, 2.0, 5.0, 20.0, 50.0]);
+    }
+
+    #[test]
+    fn an_infinite_count_of_decades_warns_as_numpys_floor_division() {
+        let loc = SymmetricalLogLocator::new(10.0, 1.0);
+        let (ticks, warned) = crate::warnings::capturing_runtime(|| {
+            loc.tick_values(f64::INFINITY, 100.0, &TickContext::default())
+        });
+        assert!(ticks.is_err());
+        assert_eq!(warned, ["invalid value encountered in scalar floor_divide"]);
     }
 }

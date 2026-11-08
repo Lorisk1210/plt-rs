@@ -101,11 +101,10 @@ impl Axes {
     /// use pltrs::prelude::*;
     /// let ax = Figure::new().subplot();
     /// let inset = ax.inset_axes([0.5, 0.5, 0.25, 0.25]);
-    /// inset.set_box_aspect(Some(2.0))?;
+    /// inset.set_box_aspect(Some(2.0));
     /// let placed = inset.located_position();
     /// assert!((placed.width() - 0.25 * ax.position().width()).abs() < 1e-12);
     /// assert!(inset.position().width() < placed.width(), "the aspect narrows it");
-    /// # Ok::<(), pltrs::axes::AspectError>(())
     /// ```
     pub fn located_position(&self) -> Bbox {
         let host = self.host().map(|host| host.located_position());

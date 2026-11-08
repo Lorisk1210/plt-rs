@@ -13,9 +13,9 @@ use crate::artist::ArtistHandle;
 use crate::figure::FigureState;
 use crate::ticker::{
     AxisInfo, AxisName, Locator, LogitLocator, NullLocator, OverlapTolerance, TickContext,
-    TickerError, TickerSettings, drawable_ticks,
+    TickSpace, TickerError, TickerSettings, drawable_ticks,
 };
-use crate::transforms::{TransformContext, interval_contains_close};
+use crate::transforms::{Bbox, TransformContext, interval_contains_close};
 
 impl Axis {
     /// Every major (or minor) tick location of the current view, as
@@ -57,6 +57,27 @@ impl Axis {
     }
 }
 
+/// The length in points of axis `name` of an axes `extent` in display
+/// pixels at `dpi`, as matplotlib's `get_tick_space` measures it: the unit
+/// box through `transAxes - dpi_scale_trans`, whose width (x) or height
+/// (y) is negative for a box of negative size and NaN for one whose size
+/// or origin is no finite number (an infinite scale maps the origin to
+/// `inf * 0`).
+pub(crate) fn axis_length_points(extent: &Bbox, dpi: f64, name: AxisName) -> f64 {
+    let (origin, size) = match name {
+        AxisName::X => (extent.x0(), extent.width()),
+        AxisName::Y => (extent.y0(), extent.height()),
+    };
+    // The corners through the composite affine `scale * x + offset`, whose
+    // coefficients are numpy's inverse of the dpi scale times the box
+    // transform's: the origin maps to NaN for an infinite scale.
+    let to_inches = 1.0 / dpi;
+    let (scale, offset) = (to_inches * size, to_inches * origin);
+    let start = scale * 0.0 + offset;
+    let end = scale + offset;
+    (end - start) * 72.0
+}
+
 impl AxisState {
     /// What tick helpers know about this axis.
     pub(crate) fn info(&self, geometry: &AxisGeometry) -> AxisInfo {
@@ -79,7 +100,7 @@ impl AxisState {
     /// from the tick parameters, the size is the rc's when the ticks are
     /// laid out, as matplotlib reads it at draw time
     /// (`_get_tick_label_size`).
-    pub(crate) fn tick_space(&self, length_points: f64) -> usize {
+    pub(crate) fn tick_space(&self, length_points: f64) -> TickSpace {
         let label_size = self.label_size.unwrap_or_else(|| {
             let rc = crate::rc::params();
             let size = match self.name {
@@ -92,12 +113,7 @@ impl AxisState {
             AxisName::X => 3.0,
             AxisName::Y => 2.0,
         };
-        let size = label_size * ratio;
-        if size > 0.0 {
-            (length_points / size).floor().max(0.0) as usize
-        } else {
-            usize::MAX >> 1
-        }
+        TickSpace::along(length_points, label_size * ratio)
     }
 
     /// Computes the ticks to draw for the current view (matplotlib's
@@ -358,8 +374,10 @@ mod tests {
     #[test]
     fn tick_space_heuristic() {
         let axis = AxisState::new(AxisName::X, &RcParams::matplotlib());
-        assert_eq!(axis.tick_space(357.12), 11);
+        assert_eq!(axis.tick_space(357.12).count(), Ok(11));
+        assert_eq!(axis.tick_space(-100.0).count(), Ok(-4));
+        assert!(axis.tick_space(f64::NAN).count().is_err());
         let y = AxisState::new(AxisName::Y, &RcParams::matplotlib());
-        assert_eq!(y.tick_space(266.112), 13);
+        assert_eq!(y.tick_space(266.112).count(), Ok(13));
     }
 }

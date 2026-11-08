@@ -7,8 +7,7 @@
 //! takes radians (`set_theta_offset`).
 
 use pltrs::axes::Axes;
-use pltrs::polar::{Compass, PolarAxes, PolarError, PolarFrame, ThetaDirection};
-use pltrs::units::AxisValues;
+use pltrs::polar::{PolarAxes, PolarError, PolarFrame, ThetaDirection};
 
 use super::path::PyPath;
 use crate::binding::prelude::*;
@@ -34,25 +33,6 @@ fn get_theta_offset(axes: Axes) -> PyResult<f64> {
 /// Turns θ = 0 by `offset` radians.
 fn set_theta_offset(axes: Axes, offset: f64) -> PyResult<()> {
     polar(&axes)?.set_theta_offset(offset);
-    Ok(())
-}
-
-/// Puts θ = 0 at the compass point `loc` (`"N"`, `"NW"`, ..., `"E"`),
-/// turned by `offset` degrees.
-fn set_theta_zero_location(axes: Axes, loc: String, offset: f64) -> PyResult<()> {
-    let location = match loc.as_str() {
-        "N" => Compass::N,
-        "NW" => Compass::NW,
-        "W" => Compass::W,
-        "SW" => Compass::SW,
-        "S" => Compass::S,
-        "SE" => Compass::SE,
-        "E" => Compass::E,
-        "NE" => Compass::NE,
-        // matplotlib looks the name up in a dict.
-        _ => return Err(PyErr::key_error(loc)),
-    };
-    polar(&axes)?.set_theta_zero_location(location, offset);
     Ok(())
 }
 
@@ -141,25 +121,6 @@ fn set_rlabel_position(axes: Axes, degrees: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// Puts the radial ticks at `radii`.
-fn set_rticks(axes: Axes, radii: Vec<f64>) -> PyResult<()> {
-    polar(&axes)?.set_rticks(AxisValues::Numbers(radii));
-    Ok(())
-}
-
-/// Puts the angular gridlines at `degrees`.
-fn set_thetagrids(axes: Axes, degrees: Vec<f64>) -> PyResult<()> {
-    polar(&axes)?.set_thetagrids(degrees);
-    Ok(())
-}
-
-/// Puts the radial gridlines at `radii`, their labels at `angle` degrees
-/// (`None`: where they are).
-fn set_rgrids(axes: Axes, radii: Vec<f64>, angle: Option<f64>) -> PyResult<()> {
-    polar(&axes)?.set_rgrids(AxisValues::Numbers(radii), angle);
-    Ok(())
-}
-
 /// Gives the axes the background `outline`, a `Path` in axes fractions
 /// (the patch a subclass' `_gen_axes_patch` makes, when it is no wedge),
 /// or the wedge again (`None`).
@@ -173,7 +134,6 @@ fn set_frame_path(axes: Axes, outline: Option<PyPath>) -> PyResult<()> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_theta_offset", get_theta_offset)?;
     module.add("set_theta_offset", set_theta_offset)?;
-    module.add("set_theta_zero_location", set_theta_zero_location)?;
     module.add("get_theta_direction", get_theta_direction)?;
     module.add("set_theta_direction", set_theta_direction)?;
     module.add("get_thetalim", get_thetalim)?;
@@ -188,8 +148,5 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_rorigin_set", get_rorigin_set)?;
     module.add("get_rlabel_position", get_rlabel_position)?;
     module.add("set_rlabel_position", set_rlabel_position)?;
-    module.add("set_rticks", set_rticks)?;
-    module.add("set_thetagrids", set_thetagrids)?;
-    module.add("set_rgrids", set_rgrids)?;
     module.add("set_frame_path", set_frame_path)
 }

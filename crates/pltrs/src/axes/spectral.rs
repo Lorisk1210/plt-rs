@@ -73,7 +73,7 @@ impl Axes {
     ) -> Result<Spectrum, PlotError> {
         let scale_by_freq = options.spectral.scale_by_freq;
         let spectrum = mlab::psd(x, options.spectral).map_err(PlotError::Mlab)?;
-        let db: Vec<f64> = spectrum.values.iter().map(|p| 10.0 * p.log10()).collect();
+        let db = decibels(10.0, spectrum.values.iter().copied());
         self.plot_with(shifted(&spectrum.freqs, options.fc), db, options.line)?;
         let units = if scale_by_freq { "dB/Hz" } else { "dB" };
         self.set_xlabel("Frequency")
@@ -97,11 +97,7 @@ impl Axes {
     ) -> Result<Spectrum<Complex>, PlotError> {
         let spectrum =
             mlab::csd(&to_f64s(x), &to_f64s(y), options.spectral).map_err(PlotError::Mlab)?;
-        let db: Vec<f64> = spectrum
-            .values
-            .iter()
-            .map(|p| 10.0 * p.abs().log10())
-            .collect();
+        let db = decibels(10.0, spectrum.values.iter().map(|p| p.abs()));
         self.plot_with(shifted(&spectrum.freqs, options.fc), db, options.line)?;
         self.set_xlabel("Frequency")
             .set_ylabel("Cross Spectrum Magnitude (dB)");
@@ -148,10 +144,7 @@ impl Axes {
             mlab::magnitude_spectrum(&to_f64s(x), options.spectrum).map_err(PlotError::Mlab)?;
         let (values, units): (Vec<f64>, _) = match scale {
             SpectrumScale::Linear => (spectrum.values.clone(), "energy"),
-            SpectrumScale::Decibels => (
-                spectrum.values.iter().map(|m| 20.0 * m.log10()).collect(),
-                "dB",
-            ),
+            SpectrumScale::Decibels => (decibels(20.0, spectrum.values.iter().copied()), "dB"),
         };
         let line = self.plot_with(shifted(&spectrum.freqs, options.fc), values, options.line)?;
         self.set_xlabel("Frequency")
@@ -285,6 +278,14 @@ fn style_lines(lines: &Collection, props: &LineProps) {
     }
 }
 
+/// `factor * np.log10(values)`, the decibels matplotlib plots, with the
+/// warnings numpy's logarithm issues for zeros and negative values.
+fn decibels(factor: f64, values: impl Iterator<Item = f64>) -> Vec<f64> {
+    let values: Vec<f64> = values.collect();
+    crate::ticker::pymath::warn_log("log10", &values);
+    values.iter().map(|v| factor * v.log10()).collect()
+}
+
 /// `freqs + fc`.
 fn shifted(freqs: &[f64], fc: f64) -> Vec<f64> {
     freqs.iter().map(|f| f + fc).collect()
@@ -313,6 +314,25 @@ mod tests {
             .map(|w| w[1].loc - w[0].loc)
             .collect();
         assert!(steps.iter().all(|&s| s >= 1.0 && s.fract() == 0.0));
+    }
+
+    #[test]
+    fn decibels_of_zeros_warn_as_numpys_logarithm() {
+        let (db, warned) =
+            crate::warnings::capturing_runtime(|| decibels(10.0, [0.0, 1.0, -1.0].into_iter()));
+        assert_eq!(db[..2], [f64::NEG_INFINITY, 0.0]);
+        assert!(db[2].is_nan());
+        assert_eq!(
+            warned,
+            [
+                "divide by zero encountered in log10",
+                "invalid value encountered in log10"
+            ]
+        );
+        let ((), quiet) = crate::warnings::capturing_runtime(|| {
+            decibels(20.0, [1.0, 10.0].into_iter());
+        });
+        assert_eq!(quiet, [] as [String; 0]);
     }
 
     #[test]

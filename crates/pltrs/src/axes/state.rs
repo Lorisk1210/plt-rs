@@ -15,6 +15,7 @@ use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::ProjectionState;
 use super::secondary::Secondary;
+use super::tick_compute::axis_length_points;
 use super::transform_sites::ScaleBox;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::axes_grid1::Parasite;
@@ -27,7 +28,7 @@ use crate::projections::SharedOptions;
 use crate::rc::{AxisBelow, Cycler, RcParams};
 use crate::scale::ScaleName;
 use crate::spines::SpineSide;
-use crate::ticker::{AxisInfo, AxisName, Formatter, TickContext, TickerError};
+use crate::ticker::{AxisInfo, AxisName, Formatter, TickContext, TickSpace, TickerError};
 use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// The formatters of the x and y coordinates a status bar shows, unset
@@ -308,7 +309,7 @@ pub(crate) struct AxisSpace {
     pub(crate) length_points: f64,
     /// How many ticks fit along the axis of another axes the locator is
     /// bound to (`None` measures this axis).
-    pub(crate) tick_space: Option<usize>,
+    pub(crate) tick_space: Option<TickSpace>,
 }
 
 /// What the next data added to an axes does to its data limits
@@ -655,7 +656,7 @@ impl AxesState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<usize>,
+        tick_space: Option<TickSpace>,
     ) {
         let geometry = self.axis_geometry(name, extent, dpi, tick_space);
         self.axis_mut(name).update_ticks(&geometry);
@@ -668,7 +669,7 @@ impl AxesState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<usize>,
+        tick_space: Option<TickSpace>,
         minor: bool,
     ) -> Result<Vec<f64>, TickerError> {
         self.axis(name)
@@ -682,18 +683,14 @@ impl AxesState {
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
-        tick_space: Option<usize>,
+        tick_space: Option<TickSpace>,
     ) -> AxisGeometry {
         let ((lo, hi), minpos) = self.data_interval(name);
-        let length_pixels = match name {
-            AxisName::X => extent.width().abs(),
-            AxisName::Y => extent.height().abs(),
-        };
         AxisGeometry {
             view: self.tick_interval(name),
             data: (lo, hi),
             minpos,
-            length_points: length_pixels / dpi * 72.0,
+            length_points: axis_length_points(extent, dpi, name),
             tick_space,
             tick_floor: self.tick_floor(name),
         }

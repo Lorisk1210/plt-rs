@@ -208,20 +208,20 @@ impl FigureState {
                 located
                     .shrunk_to_aspect(aspect, Some(&located), fig_aspect)
                     .map(|b| b.anchored(settings.anchor(), &located))
+                    .ok_or(AspectError::BoxNotPositive)
             };
-            match (settings.adjustable, box_aspect) {
+            let position = match (settings.adjustable, box_aspect) {
                 (Adjustable::Box, _) => {
-                    shrunk(settings.ratio.unwrap_or(1.0) * data_ratio.unwrap_or(1.0))
+                    shrunk(settings.ratio.unwrap_or(1.0) * data_ratio.unwrap_or(1.0))?
                 }
-                (Adjustable::Datalim, Some(box_aspect)) => shrunk(box_aspect),
-                (Adjustable::Datalim, None) => Some(located),
+                (Adjustable::Datalim, Some(box_aspect)) => shrunk(box_aspect)?,
+                (Adjustable::Datalim, None) => located,
+            };
+            if let (Adjustable::Datalim, Some(ratio)) = (settings.adjustable, settings.ratio) {
+                let box_aspect = fig_aspect * scalar_divide(position.height(), position.width());
+                adjusted = self.adjust_datalim(axes, ratio, box_aspect);
             }
-            .inspect(|position| {
-                if let (Adjustable::Datalim, Some(ratio)) = (settings.adjustable, settings.ratio) {
-                    let box_aspect = fig_aspect * (position.height() / position.width());
-                    adjusted = self.adjust_datalim(axes, ratio, box_aspect);
-                }
-            })
+            Some(position)
         } else {
             None
         };
@@ -337,4 +337,17 @@ impl FigureState {
         self.set_axis_limits(axes, name, bound, None, true);
         Ok(())
     }
+}
+
+/// numpy's division of the scalars `numerator / denominator`, with the
+/// warnings it issues dividing by zero.
+fn scalar_divide(numerator: f64, denominator: f64) -> f64 {
+    if denominator == 0.0 {
+        crate::warnings::warn_runtime(if numerator == 0.0 || numerator.is_nan() {
+            "invalid value encountered in scalar divide"
+        } else {
+            "divide by zero encountered in scalar divide"
+        });
+    }
+    numerator / denominator
 }

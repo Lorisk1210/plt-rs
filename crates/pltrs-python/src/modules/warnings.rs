@@ -6,7 +6,9 @@
 //!
 //! The runtime warnings of the arithmetic pltrs (Rust) does where
 //! matplotlib's numpy code warns (`warn_runtime`) are issued as numpy
-//! issues them, as `RuntimeWarning`s.
+//! issues them, as `RuntimeWarning`s, under numpy's error state
+//! (`np.errstate`, through the package's `numpy_error_mode`): ignored, or
+//! raised as its `FloatingPointError`.
 //!
 //! A warning that the warning filters turn into an exception raises from
 //! the native call that issued it, as an exception of a callback does
@@ -24,14 +26,33 @@ pub(super) fn register(_module: &Module<'_>) -> PyResult<()> {
     Ok(())
 }
 
-/// Issues `message` as a `RuntimeWarning`, as numpy does; one the warning
-/// filters turn into an exception raises from the native call running.
+/// Issues `message` as a `RuntimeWarning`, as numpy does under its error
+/// state; one the warning filters turn into an exception raises from the
+/// native call running, as does numpy's `FloatingPointError`.
 fn warn_runtime(message: &str) {
+    match numpy_error_mode(message).as_deref() {
+        Some("ignore") | None => return,
+        _ => {}
+    }
     Python::with_gil(|py| {
         if let Err(err) = runtime_warning(py, message) {
             report(err);
         }
     });
+}
+
+/// How numpy's error state treats the warning `message` (`"warn"`,
+/// `"ignore"`, ...), through the registered `numpy_error_mode`, which
+/// raises numpy's `FloatingPointError` for `"raise"` (the exception goes
+/// to the native call running, and the warning is not issued); `"warn"`
+/// before the package registered it.
+fn numpy_error_mode(message: &str) -> Option<String> {
+    let mode =
+        Python::with_gil(|py| lookup(py, "numpy_error_mode").and_then(|f| f.extract::<Callback>()));
+    match mode {
+        Ok(mode) => mode.call((message.to_owned(),)),
+        Err(_) => Some("warn".to_owned()),
+    }
 }
 
 /// Logs `message` as a warning of the package's module `module` through

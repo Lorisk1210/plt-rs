@@ -101,7 +101,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let axs = fig.subplots(1, 2)?;
         for (ax, ratio) in axs.as_slice().iter().zip([1.0, 0.5]) {
             line(ax)?;
-            ax.set_box_aspect(Some(ratio))?;
+            ax.set_box_aspect(Some(ratio));
         }
         Ok(())
     })

@@ -14,7 +14,7 @@ import math
 
 import numpy as np
 
-from .. import _api, _mirrors, _tick_helpers, cbook, ticker as mticker
+from .. import _api, _mirrors, _numpy_values, _tick_helpers, cbook, ticker as mticker
 from .. import patches as mpatches, transforms as mtransforms
 from .._native import artist as _artist, axis as _axis, polar as _polar
 from ..axes import Axes
@@ -401,6 +401,15 @@ class ThetaTick(XTick):
 
     def update_position(self, loc):
         super().update_position(loc)
+        # matplotlib's angles of the tick, with which it turns its marks
+        # (pltrs (Rust) turns them as it draws): Python's and numpy's
+        # arithmetic on *loc*, which fails and warns as they do.
+        axes = self.axes
+        angle = loc * axes.get_theta_direction() + axes.get_theta_offset()
+        np.rad2deg(angle) % 360  # noqa: B018
+        turned = {mmarkers.TICKUP, mmarkers.TICKDOWN, '|'}
+        if {self.tick1line.get_marker(), self.tick2line.get_marker()} & turned:
+            mtransforms.Affine2D().rotate(angle - np.pi / 2)
 
 
 class ThetaAxis(XAxis):
@@ -472,9 +481,11 @@ class RadialAxis(YAxis):
 
     def set_major_locator(self, locator):
         # docstring inherited
-        if not isinstance(locator, RadialLocator):
-            locator = RadialLocator(locator)
-        super().set_major_locator(locator)
+        super().set_major_locator(self._as_major_locator(locator))
+
+    def _as_major_locator(self, locator):
+        # A radial axis wraps its major locators.
+        return locator if isinstance(locator, RadialLocator) else RadialLocator(locator)
 
     def _wrap_locator_formatter(self):
         self.set_major_locator(self.get_major_locator())
@@ -685,7 +696,7 @@ class PolarAxes(PolarTrees, Axes):
 
     def set_thetamax(self, thetamax):
         """Set the maximum theta limit in degrees."""
-        _polar.set_thetamax(self._native, float(thetamax))
+        _polar.set_thetamax(self._native, _numpy_values.degrees(thetamax))
 
     def get_thetamax(self):
         """Return the maximum theta limit in degrees."""
@@ -693,7 +704,7 @@ class PolarAxes(PolarTrees, Axes):
 
     def set_thetamin(self, thetamin):
         """Set the minimum theta limit in degrees."""
-        _polar.set_thetamin(self._native, float(thetamin))
+        _polar.set_thetamin(self._native, _numpy_values.degrees(thetamin))
 
     def get_thetamin(self):
         """Get the minimum theta limit in degrees."""
@@ -732,7 +743,7 @@ class PolarAxes(PolarTrees, Axes):
         """
         Set the offset for the location of 0 in radians.
         """
-        _polar.set_theta_offset(self._native, float(offset))
+        _polar.set_theta_offset(self._native, _numpy_values.element(offset))
 
     def get_theta_offset(self):
         """
@@ -755,7 +766,16 @@ class PolarAxes(PolarTrees, Axes):
             this offset is *always* applied counter-clockwise regardless of
             the direction setting.
         """
-        _polar.set_theta_zero_location(self._native, loc, float(offset))
+        mapping = {
+            'N': np.pi * 0.5,
+            'NW': np.pi * 0.75,
+            'W': np.pi,
+            'SW': np.pi * 1.25,
+            'S': np.pi * 1.5,
+            'SE': np.pi * 1.75,
+            'E': 0,
+            'NE': np.pi * 0.25}
+        return self.set_theta_offset(mapping[loc] + np.deg2rad(offset))
 
     def set_theta_direction(self, direction):
         """
@@ -796,7 +816,7 @@ class PolarAxes(PolarTrees, Axes):
         ----------
         rmax : float
         """
-        _polar.set_rmax(self._native, float(rmax))
+        _polar.set_rmax(self._native, _numpy_values.element(rmax))
 
     def get_rmax(self):
         """
@@ -815,7 +835,7 @@ class PolarAxes(PolarTrees, Axes):
         ----------
         rmin : float
         """
-        _polar.set_rmin(self._native, float(rmin))
+        _polar.set_rmin(self._native, _numpy_values.element(rmin))
 
     def get_rmin(self):
         """
@@ -897,18 +917,13 @@ class PolarAxes(PolarTrees, Axes):
         value : number
             The angular position of the radius labels in degrees.
         """
-        _polar.set_rlabel_position(self._native, float(value))
+        _polar.set_rlabel_position(self._native, _numpy_values.degrees(value))
 
     def set_rscale(self, *args, **kwargs):
         return Axes.set_yscale(self, *args, **kwargs)
 
     def set_rticks(self, *args, **kwargs):
-        # Only ticks: pltrs (Rust) sets them; else as `.Axes.set_yticks`.
-        if len(args) != 1 or kwargs:
-            return self.set_yticks(*args, **kwargs)
-        ticks = np.atleast_1d(args[0])
-        _polar.set_rticks(self._native, [float(t) for t in ticks])
-        return self.yaxis.get_major_ticks(len(ticks))
+        return Axes.set_yticks(self, *args, **kwargs)
 
     def set_thetagrids(self, angles, labels=None, fmt=None, **kwargs):
         """
@@ -958,7 +973,10 @@ class PolarAxes(PolarTrees, Axes):
         .Axis.get_gridlines
         .Axis.get_ticklabels
         """
-        _polar.set_thetagrids(self._native, [float(a) for a in np.atleast_1d(angles)])
+        # Make sure we take into account unitized data
+        angles = self.convert_yunits(angles)
+        angles = np.deg2rad(angles)
+        self.set_xticks(angles)
         if labels is not None:
             self.set_xticklabels(labels)
         elif fmt is not None:
@@ -1017,12 +1035,18 @@ class PolarAxes(PolarTrees, Axes):
         .Axis.get_gridlines
         .Axis.get_ticklabels
         """
-        _polar.set_rgrids(self._native, [float(r) for r in np.atleast_1d(radii)],
-                          None if angle is None else float(angle))
+        # Make sure we take into account unitized data
+        radii = self.convert_xunits(radii)
+        radii = np.asarray(radii)
+
+        self.set_yticks(radii)
         if labels is not None:
             self.set_yticklabels(labels)
         elif fmt is not None:
             self.yaxis.set_major_formatter(mticker.FormatStrFormatter(fmt))
+        if angle is None:
+            angle = self.get_rlabel_position()
+        self.set_rlabel_position(angle)
         for t in self.yaxis.get_ticklabels():
             t._internal_update(kwargs)
         return self.yaxis.get_gridlines(), self.yaxis.get_ticklabels()

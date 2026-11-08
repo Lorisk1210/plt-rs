@@ -106,7 +106,7 @@ def _spec_of(helper):
     what they computed for the ticks drawn last (``offset``,
     ``get_offset()``), which programs read after drawing.
     """
-    spec = getattr(helper, "_spec", None)
+    spec = getattr(helper, "_held_spec", None)
     package = __name__.rpartition(".")[0]
     native = {f"{package}.{name}" for name in _NATIVE_MODULES}
     if (spec is None or not _is_locator(helper)

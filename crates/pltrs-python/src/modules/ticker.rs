@@ -25,7 +25,7 @@ use pltrs::ticker::{
     LogFormatter, LogLabelStyle, LogLocator, LogSubs, LogitFormatter, LogitLocator, MaxNLocator,
     MinorDivisions, MultipleLocator, Nbins, NullFormatter, NullLocator, NumTicks, OffsetMode,
     PercentFormatter, Prune, ScalarFormatter, ScaleHint, StrMethodFormatter, SymmetricalLogLocator,
-    TickContext, TickerError, TickerSettings,
+    TickContext, TickSpace, TickerError, TickerSettings,
 };
 
 use crate::binding::dict_value;
@@ -68,7 +68,7 @@ fn axis_info(info: Option<&Bound<'_>>) -> PyResult<Option<AxisInfo>> {
         view_interval: dict_value(info, "view_interval")?,
         data_interval: dict_value(info, "data_interval")?,
         minpos: dict_value(info, "minpos")?,
-        tick_space: dict_value(info, "tick_space")?,
+        tick_space: TickSpace::of(dict_value(info, "tick_space")?),
         major_ticks: dict_value(info, "major_ticks")?,
         scale: match (scale.as_str(), linthresh) {
             ("linear", _) => ScaleHint::Linear,

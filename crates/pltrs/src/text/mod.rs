@@ -39,6 +39,7 @@ mod hinting;
 mod layout;
 mod math;
 mod math_image;
+mod measuring;
 mod metrics;
 mod metrics_cache;
 mod overrides;
@@ -67,6 +68,7 @@ pub use annotation::{
 };
 pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget, StartRegion};
 pub use error::TextDrawError;
+pub(crate) use error::{fmt_layout_error, layout_error_kind};
 pub use handle::{Text, TextProps};
 pub use hinting::TextHinting;
 use layout::rc_language;
@@ -75,6 +77,7 @@ pub use layout::{LaidOutText, measure_text, text_path, text_path_shaped, text_pa
 pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
+pub use measuring::measuring;
 pub use metrics::{clear_text_caches, set_lines_measured_at};
 pub(crate) use metrics::{
     hinting, with_afm_metrics, with_line_measure, with_text_path_metrics, without_hinting,
@@ -612,11 +615,20 @@ impl Artist for TextArtist {
         }
     }
 
+    /// The text's extent; a text that cannot be laid out has none, and
+    /// notes its error for the measurement running (see [`measuring`]).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        match &self.annotation {
-            Some(annotation) => annotation.extent(self, *ctx).ok(),
-            None => self.extent_at(*ctx, self.anchor(*ctx)?).ok(),
-        }
+        let extent = match &self.annotation {
+            Some(annotation) => annotation.extent(self, *ctx),
+            None => self.extent_at(*ctx, self.anchor(*ctx)?),
+        };
+        extent
+            .inspect_err(|err| {
+                if matches!(err, TextDrawError::Layout(_)) {
+                    measuring::note(err);
+                }
+            })
+            .ok()
     }
 
     /// An annotation whose point is not shown is not drawn
@@ -627,10 +639,14 @@ impl Artist for TextArtist {
             .is_none_or(|annotation| annotation.is_shown(self, *ctx))
     }
 
-    /// An annotation whose point is not shown takes no space
-    /// (`Annotation.get_tightbbox` gives a null box where
+    /// An empty text takes no space, not even its annotation's arrow
+    /// (`Text.get_tightbbox`), and neither does an annotation whose point
+    /// is not shown (`Annotation.get_tightbbox` gives a null box where
     /// `get_window_extent` gives the unit one).
     fn tight_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        if self.text.is_empty() {
+            return None;
+        }
         match &self.annotation {
             Some(annotation) if !annotation.is_shown(self, *ctx) => None,
             _ => self.window_extent(ctx),

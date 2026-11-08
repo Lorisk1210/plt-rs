@@ -9,19 +9,25 @@
 # links are not hashed), sorted by path (`find . -type f -not -path
 # './.git' | sort | xargs sha256sum | sha256sum`, in the tree, under the C
 # locale). Only corpora whose licence allows
-# running and fixing against them are listed, and no program needing the
-# network at run time.
+# running and fixing against them are listed, and no program naming a URL
+# but those of its repository's files.
 #
 # * `programs`: the programs, globs in the tree. A `.py` file runs whole, as
-#   a gallery example does; a notebook (`.ipynb`) or a Markdown page with
-#   ```python blocks (`.md`) runs cell by cell, an exception stopping its
+#   a gallery example does; a notebook (`.ipynb`, nbformat 3 or 4) or a
+#   Markdown page with ```python blocks or a MyST page's ```{code-cell}
+#   blocks (`.md`) runs cell by cell, an exception stopping its
 #   cell only, and every figure a cell leaves open is compared and closed
 #   at its end, as Jupyter's inline backend shows and closes them.
 # * `exclude`: globs of programs left out, each with its reason.
 # * `outputs`: directories the programs write their figures into; each run
 #   gets them empty (the rest of the tree reaches it read-only).
-# * `data-urls`: prefixes of URLs at which programs download files of the
-#   repository itself, read from the fetched tree instead.
+# * `data-urls`: prefixes of URLs at which programs read files of the
+#   repository itself (with pandas' `read_csv`, say), read from the fetched
+#   tree instead: the URLs become the files' paths.
+# * `file-urls`: the same, for programs that download the files (with
+#   urllib's `urlretrieve`): the URLs become `file:` URLs of the files.
+#
+# The programs run offline: what they would download fails under both.
 #
 # Every program runs in its own directory, in a copy of the tree made of
 # links, so that the paths it reads and writes relative to it work as in
@@ -70,16 +76,14 @@ exclude = [
 outputs = ["figures"]
 
 [data-science-handbook]
-title = "Jake VanderPlas, Python Data Science Handbook (2nd edition), chapter 4: Visualization with Matplotlib"
+title = "Jake VanderPlas, Python Data Science Handbook (2nd edition), its chapters' notebooks"
 repository = "https://github.com/jakevdp/PythonDataScienceHandbook"
 commit = "d66231454ef753818dc9213c9b5942e067266966"
 licence = "MIT (the code, LICENSE-CODE; the text, CC BY-NC-ND 3.0, is only read for the code cells)"
-fetch = ["/LICENSE-CODE", "/notebooks/04.*.ipynb", "/notebooks/data/"]
-sha256 = "3e3fc5e81069df5523619cebba1200de22ab253fd14e66b23fdb15dd976d9551"
-programs = ["notebooks/04.*.ipynb"]
-exclude = [
-    "notebooks/04.14-*",  # seaborn's chapter: seaborn is in neither venv
-]
+fetch = ["/LICENSE-CODE", "/notebooks/0*.ipynb", "/notebooks/data/", "/notebooks/helpers_05_08.py"]
+sha256 = "8685f0baa0a36f89e9658382491c4d913f893d079625f7875c418fe2f5078894"
+programs = ["notebooks/0*.ipynb"]
+exclude = []
 outputs = []
 
 [python-graph-gallery]
@@ -164,5 +168,277 @@ licence = "BSD-3-Clause (the code, LICENSE-code.txt; the book's text, CC BY-NC-S
 fetch = ["/LICENSE-code.txt", "/code/"]
 sha256 = "80f9f0f48570402d3af7dabdcf0da5c2c190627d7686ec38829fae8ebf2f1789"
 programs = ["code/*.py"]
+exclude = []
+outputs = []
+
+[think-stats]
+title = "Allen B. Downey, Think Stats (3rd edition), the book's notebooks with the exercises solved"
+repository = "https://github.com/AllenDowney/ThinkStats"
+commit = "65a3662216686bcf399c2ffd594589f16b999c8d"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/soln/*.ipynb", "/nb/*.py", "/data/"]
+sha256 = "aec19d96adb64b03076edb587c6b818a1f2fe55775d99ebdcf42b49af026ce9c"
+programs = ["soln/chap*.ipynb"]
+exclude = []
+outputs = []
+file-urls = ["https://github.com/AllenDowney/ThinkStats/raw/v3/"]
+
+[think-bayes]
+title = "Allen B. Downey, Think Bayes (2nd edition), the book's notebooks with the exercises solved"
+repository = "https://github.com/AllenDowney/ThinkBayes2"
+commit = "3f56df49a3c1aacd5f85f0715ff097cda0af6edf"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/soln/", "/data/"]
+sha256 = "ccab05c6def4f4f16d471ddb5460425af2f67e904358c31b86cce29d17dc4e59"
+programs = ["soln/*.ipynb"]
+exclude = []
+outputs = []
+file-urls = [
+    "https://github.com/AllenDowney/ThinkBayes2/raw/master/",
+    "https://raw.githubusercontent.com/AllenDowney/ThinkBayes2/master/",
+]
+
+[think-dsp]
+title = "Allen B. Downey, Think DSP: Digital Signal Processing in Python, the book's notebooks with the exercises solved"
+repository = "https://github.com/AllenDowney/ThinkDSP"
+commit = "f9efe78b9e58224007d939253393f884b43dc309"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/soln/", "/thinkdsp/", "/data/"]
+sha256 = "27386c3790c41f80b1191dfd8abbb22d8fd586cc6b2d5f72df8e685038dd626b"
+programs = ["soln/*.ipynb"]
+exclude = []
+outputs = []
+file-urls = ["https://github.com/AllenDowney/ThinkDSP/raw/master/"]
+
+[python-for-signal-processing]
+title = "José Unpingco, Python for Signal Processing, the blog's and book's notebooks"
+repository = "https://github.com/unpingco/Python-for-Signal-Processing"
+commit = "0183e2f799556b20eb4519c9cc6ff9ec0afd3089"
+licence = "CC BY 3.0 (LICENSE.html)"
+fetch = ["/*"]
+sha256 = "d439b84b1c533c2b16055ebc5824637eed69e6754df1cdf3f44950800e89c11b"
+programs = ["*.ipynb"]
+exclude = []
+outputs = []
+
+[johansson-lectures]
+title = "Robert Johansson, Lectures on scientific computing with Python, the notebooks"
+repository = "https://github.com/jrjohansson/scientific-python-lectures"
+commit = "cbbf81112a88a635a680a5319a1116b4f04c9f94"
+licence = "CC BY 3.0 (README.md: this work)"
+fetch = ["/README.md", "/*.ipynb", "/stockholm_td_adj.dat", "/scripts/"]
+sha256 = "9fc1a89ae50065498e41173cdf9087506419403d6ffca4b19039b5fb14dc0e43"
+programs = ["Lecture-*.ipynb"]
+exclude = []
+outputs = []
+
+[cfd-python]
+title = "Lorena A. Barba, CFD Python: 12 steps to Navier-Stokes, the lessons"
+repository = "https://github.com/barbagroup/CFDPython"
+commit = "92c8220070824e95402d83f193c4e496f4308dcb"
+licence = "CC BY 4.0 (LICENSE: instructional material) and BSD-3-Clause (its software)"
+fetch = ["/LICENSE", "/lessons/"]
+sha256 = "ffb8c084c2aa968d75023d503a203607af91768b11bc0740a60541405b09f177"
+programs = ["lessons/*.ipynb"]
+exclude = []
+outputs = []
+
+[numerical-mooc]
+title = "Lorena A. Barba et al., Practical Numerical Methods with Python (numerical-mooc), the lessons"
+repository = "https://github.com/numerical-mooc/numerical-mooc"
+commit = "6a70f986729067dee9ca1fb26ba164b035fc971b"
+licence = "CC BY 4.0 (LICENSE: instructional material) and MIT (its software)"
+fetch = ["/LICENSE", "/lessons/"]
+sha256 = "95eb5dd50ef3be2cc57c651fce4bf336fcee3294d34d797f2fc13499e413b665"
+programs = ["lessons/**/*.ipynb"]
+exclude = []
+outputs = []
+
+[scipy-cookbook]
+title = "The SciPy Cookbook, its recipes' notebooks"
+repository = "https://github.com/scipy/scipy-cookbook"
+commit = "9b9d05d28feb3e5189376fcbd10ef52c62bc43c6"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/ipython/"]
+sha256 = "d42dbada9237c2c4fe23a365f72942940dae901d18f6905818b26f214765a239"
+programs = ["ipython/*.ipynb"]
+exclude = []
+outputs = []
+
+[ipython-cookbook]
+title = "Cyrille Rossant, IPython Interactive Computing and Visualization Cookbook (2nd edition), the recipes' notebooks"
+repository = "https://github.com/ipython-books/cookbook-2nd-code"
+commit = "56bb11462b8d24d9a984fd5bd4bc239c0fa0475e"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/chapter*/"]
+sha256 = "56a10991dd5922683514db3276f065d6a128d9c21737e496db9a339f303aaaa3"
+programs = ["chapter*/**/*.ipynb"]
+exclude = []
+outputs = []
+
+[matplotlib-3-cookbook]
+title = "Srinivasa Rao Poladi, Matplotlib 3.0 Cookbook (Packt), the chapters' notebooks"
+repository = "https://github.com/PacktPublishing/Matplotlib-3.0-Cookbook"
+commit = "f291581c598b915158d962d97cb829592a04ae45"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/Chapter*/"]
+sha256 = "f9bd132376db0541611cddbc65fb93b131df31001883962df437de04d7361773"
+programs = ["Chapter*/*.ipynb"]
+exclude = []
+outputs = []
+
+[matplotlib-for-python-developers]
+title = "Aldrin Yim, Claire Chung, Allen Yu, Matplotlib for Python Developers (2nd edition, Packt), the chapters' notebooks"
+repository = "https://github.com/PacktPublishing/Matplotlib-for-Python-Developers-Second-Edition"
+commit = "d1d6f7675917fc1155a3390e3b3effe14c993b8e"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/Chapter0[1-79]/", "/Chapter1*/"]
+sha256 = "49871ab913e8265047c8ae34c8324c9c428f62e47c309c433d4dce78a44d792d"
+programs = ["Chapter*/*.ipynb"]
+exclude = []
+outputs = []
+
+[mastering-matplotlib]
+title = "Mastering Matplotlib 2.x (Packt), the notebooks"
+repository = "https://github.com/PacktPublishing/Mastering-Matplotlib-2.x"
+commit = "d2f58b8b350e1177c58455e9df596e9682d9df76"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "fca689628258eb935f4d3ee9e36a9db81f5d359863ce5a5852de89d982029889"
+programs = ["**/*.ipynb"]
+exclude = []
+outputs = []
+
+[matplotlib-2-by-example]
+title = "Allen Yu, Claire Chung, Aldrin Yim, Matplotlib 2.x By Example (Packt), the chapters' notebooks"
+repository = "https://github.com/PacktPublishing/Matplotlib-2.x-By-Example"
+commit = "1cdc54fa423eef2daa4fa7aaf8750de2a7ac993a"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "11e5c909339a94eb6155e700f2c8ecb5fb7b9be835caaf5f5bea2d617dc30d41"
+programs = ["**/*.ipynb"]
+exclude = []
+outputs = []
+
+[data-visualization-recipes]
+title = "Data Visualization Recipes with Python and Matplotlib 3 (Packt), the notebooks"
+repository = "https://github.com/PacktPublishing/Data-Visualization-Recipes-with-Python-and-Matplotlib-3"
+commit = "cc600fbb20a9818d2f0272949507d88db0ff5251"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "81e264465b3f1bc8889c7ff5ff4d833f86ff499e59e3dad2bc30a67962b15965"
+programs = ["**/*.ipynb"]
+exclude = []
+outputs = []
+
+[python-data-visualization-matplotlib]
+title = "Python Data Visualization with Matplotlib 2.x (Packt), the notebooks"
+repository = "https://github.com/PacktPublishing/Python-Data-Visualization-with-Matplotlib-2.x"
+commit = "3a83b610450dbaf33f6b52c0c1c55116f8901ab3"
+licence = "MIT (LICENSE)"
+fetch = ["/*"]
+sha256 = "121f6ee43f35265d4bde2ce15d984cb72e48553e11a07c77a05958f87647b99e"
+programs = ["**/*.ipynb"]
+exclude = [
+    "*/.ipynb_checkpoints/*",  # Jupyter's autosaved copies of the notebooks
+]
+outputs = []
+
+[mplfinance]
+title = "mplfinance (matplotlib's financial plots), its examples' notebooks"
+repository = "https://github.com/matplotlib/mplfinance"
+commit = "493811dac9a203de7ec148fb95504e7d3f400ba5"
+licence = "matplotlib's licence (LICENSE: the License agreement for mplfinance)"
+fetch = ["/LICENSE", "/examples/*.ipynb", "/examples/data/", "/examples/indicators/", "/examples/original_flavor/"]
+sha256 = "4cf86f5e4ff03a979a572811c0fc686fc3c60a6123c6bf02d5acc75363036db2"
+programs = ["examples/*.ipynb", "examples/indicators/*.ipynb"]
+exclude = []
+outputs = []
+
+[numpy-tutorials]
+title = "NumPy tutorials, the MyST pages"
+repository = "https://github.com/numpy/numpy-tutorials"
+commit = "111746b684f91facbb55e893ee95d49bf6018a4d"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/content/"]
+sha256 = "4dd55f85c4c13420237b40e0cd605c846fe80e8d1561aae86853dcd10da3a70f"
+programs = ["content/*.md"]
+exclude = []
+outputs = []
+
+[machine-learning-book]
+title = "Sebastian Raschka, Vahid Mirjalili, Python Machine Learning (3rd edition), the chapters' notebooks"
+repository = "https://github.com/rasbt/python-machine-learning-book-3rd-edition"
+commit = "bf62496f44a92a21d23250d5ed13d2d2e617e0e2"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/ch0[2-8]/", "/ch1[0-2]/"]
+sha256 = "767b07bb74262755007e41f2095000703af12e8845fc15cf50f2a7db09ed8a24"
+programs = ["ch*/ch*.ipynb"]
+exclude = []
+outputs = []
+
+[scikit-learn-examples]
+title = "scikit-learn 1.9.1's gallery of examples"
+repository = "https://github.com/scikit-learn/scikit-learn"
+commit = "866c0f51e7560ef0303cbcc5f159df5382ea9e3f"
+licence = "BSD-3-Clause (COPYING)"
+fetch = ["/COPYING", "/examples/"]
+sha256 = "d5c8b07de4332c47de36caeb26d14f806b527c3f9f4cb5e45455b449ea981937"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[networkx-examples]
+title = "NetworkX 3.7's gallery of examples"
+repository = "https://github.com/networkx/networkx"
+commit = "49ca2290b80c1389eb4d8d8e49dcba73f8fec016"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/"]
+sha256 = "e6c51beb129473060b27a515a70c30c8d04d17c78c18841f2bb9eed13322fddd"
+programs = ["examples/**/*.py"]
+exclude = []
+outputs = []
+
+[scikit-image-gallery]
+title = "scikit-image 0.26's gallery of examples"
+repository = "https://github.com/scikit-image/scikit-image"
+commit = "ee0a7a3ebd9ac8c2602f40e55bc015a3c8a81ae8"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/doc/examples/"]
+sha256 = "9bae26c347db1ebb36156f319a3292b2d9b558e481c5c49ab50b5090b944329d"
+programs = ["doc/examples/**/*.py"]
+exclude = []
+outputs = []
+
+[statsmodels-examples]
+title = "statsmodels 0.15's example notebooks"
+repository = "https://github.com/statsmodels/statsmodels"
+commit = "278ff9950636cdd4939b4055e339a8e681d79cab"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/notebooks/"]
+sha256 = "90a00cc176f76c64237bfde94a5288a7bc74c8ade60779036d408273f24e3ca7"
+programs = ["examples/notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[scikit-learn-mooc]
+title = "Inria, Machine learning in Python with scikit-learn (the MOOC), its scripts"
+repository = "https://github.com/INRIA/scikit-learn-mooc"
+commit = "1b294d95296e7e52dec5b9c69076f8010b2bc51f"
+licence = "CC BY 4.0 (LICENSE)"
+fetch = ["/LICENSE", "/python_scripts/", "/datasets/"]
+sha256 = "5f6f708d9fd4c0dcc869a949ee8c0272c3328de68cec957da53f3e8180e8d566"
+programs = ["python_scripts/*.py"]
+exclude = []
+outputs = []
+
+[astroml-figures]
+title = "Željko Ivezić, Andrew Connolly, Jacob VanderPlas, Alexander Gray, Statistics, Data Mining, and Machine Learning in Astronomy, the book's figures (astroML)"
+repository = "https://github.com/astroML/astroML_figures"
+commit = "742df9181f73e5c903ea0fd0894ad6af83099c96"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/LICENSE", "/book_figures/"]
+sha256 = "56a24a10c3ae0370b2f5faf7d5c2a2edc908247fb92564b7f6c22dbbff26bf4e"
+programs = ["book_figures/**/*.py"]
 exclude = []
 outputs = []

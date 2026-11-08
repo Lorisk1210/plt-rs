@@ -20,6 +20,7 @@ use super::ticks::{TicksState, tick_info};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, DrawContext, LayoutContext};
 use crate::axes::axis_draw::{AxisTextDraw, draw_text};
 use crate::axes::{AxesState, PlacedText};
+use crate::figure::FigureState;
 use crate::fonts::FontProperties;
 use crate::patches::{DisplayPath, paint_paths};
 use crate::rc::RcParams;
@@ -559,6 +560,30 @@ fn part_transform(
     match given {
         Some(transform) => layout.resolve(transform).ok_or_else(|| GONE.to_owned()),
         None => Ok(shared.clone()),
+    }
+}
+
+impl AxisArtistState {
+    /// Lays the parts out as a draw does, remembering the gaps they leave
+    /// (matplotlib's `AxisArtist.draw` sets `_axislabel_pad` and
+    /// `_external_pad`, which a later measurement places the label by).
+    fn lay_out_as_drawn(&self, layout: LayoutContext<'_>) {
+        // What cannot be laid out is reported when the artist is drawn.
+        let _ = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current);
+    }
+}
+
+/// Lays the visible axis artists of the figure out as a draw does (see
+/// [`AxisArtistState::lay_out_as_drawn`]): the draw matplotlib makes
+/// before it measures the figure for a tight print.
+pub(crate) fn lay_out_as_drawn(state: &FigureState) {
+    let layout = LayoutContext::new(state);
+    for id in state.store.ids() {
+        if let Some(artist) = state.store.get_as::<AxisArtistState>(id)
+            && artist.base.visible
+        {
+            artist.lay_out_as_drawn(layout);
+        }
     }
 }
 

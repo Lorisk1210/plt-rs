@@ -5,7 +5,9 @@
 
 ``cargo xtask diff`` runs this in the reference venv (after building
 pltrs (Python)'s extension), with ``--pltrs-python`` naming the pltrs
-venv's interpreter. It
+venv's interpreter (and, for the corpora, ``--mpl-python`` the
+interpreter of a reference venv of their own, which holds the packages
+their programs import). It
 
 1. collects the programs: matplotlib's gallery (``--gallery``, the
    sdist's ``galleries/``) and the generated programs (``generate.py``
@@ -13,7 +15,10 @@ venv's interpreter. It
    programs of the corpora of ``corpora.toml``, which ``corpora.py``
    fetches into ``OUT/corpora`` (the corpora a PATTERN names, or all);
 2. runs each under both implementations (``trace.py``), the reference
-   runs cached by the program's text (``OUT/runs/<program>/mpl``);
+   runs cached by the program's text (``OUT/runs/<program>/mpl``), every
+   program offline, and a corpus' programs with ``OUT/home`` for their
+   home directory, so that what they would keep in a cache there stays in
+   ``OUT``, and their linear algebra on one thread;
 3. compares them (``compare.py``), drops the differences the allowlist
    (``allowlist.txt``) proves intended, and groups the rest by cause;
 4. writes ``OUT/report.json`` (every difference) and ``OUT/report.md``
@@ -22,12 +27,12 @@ venv's interpreter. It
    causes, and each corpus' programs and clean ones), and prints the
    groups' counts; ``--baseline`` adds the counts of an earlier report.
 
-The gallery's and the generated programs run offline, as the ecosystem
-suites run (``OFFLINE``): a program asking the network for something
-(the gallery's timeline, GitHub's list of matplotlib's releases) takes
-the same fallback under both implementations, in every run. The corpora's
-programs keep the network, whose data (seaborn's datasets, CSV files on
-the web) their authors read from it.
+Every program runs offline, as the ecosystem suites run (``OFFLINE``):
+a program asking the network for something (the gallery's timeline,
+GitHub's list of matplotlib's releases) takes the same fallback under
+both implementations, in every run, and a corpus' program reading its
+data from the web (seaborn's datasets, CSV files) fails under both, so is
+skipped.
 
 A program matplotlib itself cannot run here (a GUI toolkit, a network
 download) is listed as skipped, with matplotlib's error. ``--reduce``
@@ -60,11 +65,14 @@ import corpora  # noqa: E402
 TIMEOUT = 300
 #: Gallery directories run, under the sdist's ``galleries/``.
 GALLERY_PARTS = ("examples", "plot_types", "tutorials", "users_explain")
+#: The pinned list of the corpora's venvs, on which their reference runs
+#: depend.
+CORPUS_REQUIREMENTS = HERE.parents[1] / "python" / "requirements-corpora.txt"
 #: The proxy refusing every connection: nothing listens on the discard
 #: port of the loopback interface.
 REFUSING_PROXY = "http://127.0.0.1:9"
 #: The variables running a program offline: HTTP and HTTPS through
-#: `REFUSING_PROXY`, which urllib and requests heed, the loopback
+#: `REFUSING_PROXY`, which urllib, requests and pooch heed, the loopback
 #: interface spared (``cargo xtask ecosystem suite``'s).
 OFFLINE = {
     **{name: REFUSING_PROXY for name in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY")},
@@ -80,7 +88,7 @@ class Setup:
         self.out = pathlib.Path(args.out).resolve()
         self.gallery = pathlib.Path(args.gallery).resolve()
         self.pltrs_python = args.pltrs_python
-        self.mpl_python = sys.executable
+        self.mpl_python = args.mpl_python or sys.executable
 
     def command(self, impl: str, program: Program, out: pathlib.Path) -> list[str]:
         """The command tracing *program* under *impl* into *out* (a corpus'
@@ -92,12 +100,19 @@ class Setup:
         tree = out / "tree"
         return [*command, "--in-tree", str(tree), str(program.corpus.lay_out(tree)), str(out)]
 
-    def environment(self, impl: str, offline: bool = True) -> dict[str, str]:
-        """The environment of a run under *impl*, `OFFLINE` if *offline*."""
+    def environment(self, impl: str, program: Program | None = None) -> dict[str, str]:
+        """The environment of a run of *program* under *impl*: offline
+        (`OFFLINE`, whatever proxy the tester's own environment names), and
+        for a corpus' program with a home directory of the tester's."""
         env = {k: v for k, v in os.environ.items()
-               if not k.startswith(("MPL", "PLTRS", "PYTHON")) and k != "CARGO_TARGET_DIR"}
-        if offline:
-            env.update(OFFLINE)
+               if not k.startswith(("MPL", "PLTRS", "PYTHON")) and k != "CARGO_TARGET_DIR"
+               and k.lower() not in ("http_proxy", "https_proxy", "all_proxy", "no_proxy")}
+        env.update(OFFLINE)
+        if program is not None and program.corpus is not None:
+            env["HOME"] = str(self.out / "home")
+            # One thread for the linear algebra, whose sums several threads
+            # add in an order of their own from run to run.
+            env.update(dict.fromkeys(("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"))
         env["MPLBACKEND"] = "agg"
         # (Named apart from the package names `trace.py` replaces in messages.)
         env["MPLCONFIGDIR"] = str(self.out / ("config-reference" if impl == "matplotlib"
@@ -129,18 +144,13 @@ class Program:
         return cls(program.name, program.path, program.mode, program)
 
     @property
-    def offline(self) -> bool:
-        """Whether the program runs offline (`OFFLINE`): unless it is a
-        corpus' program."""
-        return self.corpus is None
-
-    @property
     def digest(self) -> str:
         """What the reference run depends on: the program, its mode, its
-        corpus' tree, the tester's harness and whether it runs offline."""
+        corpus' tree and venvs, the tester's harness and the network it is
+        refused (`OFFLINE`)."""
         harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
-        tree = self.corpus.corpus.sha256.encode() if self.corpus else b""
-        network = json.dumps(OFFLINE).encode() if self.offline else b""
+        tree = self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes() if self.corpus else b""
+        network = json.dumps(OFFLINE).encode()
         return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness
                               + network).hexdigest()[:16]
 
@@ -184,8 +194,7 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
         shutil.rmtree(out)
     out.mkdir(parents=True)
     try:
-        done = subprocess.run(setup.command(impl, program, out),
-                              env=setup.environment(impl, offline=program.offline),
+        done = subprocess.run(setup.command(impl, program, out), env=setup.environment(impl, program),
                               capture_output=True, text=True, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         (out / "failure").write_text(f"timed out after {TIMEOUT} s")
@@ -242,15 +251,20 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
 
 def _environmental(error: dict[str, Any]) -> bool:
     """Whether matplotlib's own run failed for want of something this
-    machine lacks (a GUI toolkit, a network, a module)."""
-    kinds = ("ModuleNotFoundError", "ImportError", "URLError", "ConnectionError", "TimeoutError",
-             "TclError", "OSError", "FileNotFoundError")
-    return error["type"].rsplit(".", 1)[-1] in kinds or "display" in error["message"].lower()
+    machine lacks (a GUI toolkit, a network, a module): an exception of one
+    of those kinds, or of a subclass of one (requests' ProxyError, a
+    ConnectionError)."""
+    kinds = {"ModuleNotFoundError", "ImportError", "URLError", "ConnectionError", "TimeoutError",
+             "TclError", "OSError", "FileNotFoundError"}
+    return (error["type"].rsplit(".", 1)[-1] in kinds or not kinds.isdisjoint(error.get("mro", ()))
+            or "display" in error["message"].lower())
 
 
 class Allowlist:
-    """Differences proven intended: ``<program regex> | <cause regex> |
-    reason`` lines of ``allowlist.txt`` (the fields apart by `` | ``)."""
+    """Differences proven intended: ``<program regex> | <cause regex>[ @
+    <where regex>] | reason`` lines of ``allowlist.txt`` (the fields apart
+    by `` | ``; a where regex narrows the entry to the places it matches,
+    a value's key, say)."""
 
     def __init__(self, path: pathlib.Path) -> None:
         self.entries = []
@@ -258,12 +272,14 @@ class Allowlist:
             for line in path.read_text().splitlines():
                 if line.strip() and not line.lstrip().startswith("#"):
                     program, cause, reason = (part.strip() for part in line.split(" | ", 2))
-                    self.entries.append((re.compile(program), re.compile(cause), reason))
+                    cause, _, where = cause.partition(" @ ")
+                    self.entries.append((re.compile(program), re.compile(cause), re.compile(where), reason))
 
     def allows(self, difference: dict[str, Any]) -> bool:
         """Whether the allowlist allows *difference*."""
         return any(p.search(difference["program"]) and c.search(difference["cause"])
-                   for p, c, _ in self.entries)
+                   and w.search(difference.get("where", ""))
+                   for p, c, w, _ in self.entries)
 
 
 def _group(results: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -366,6 +382,7 @@ def main() -> int:
     parser.add_argument("--out", required=True)
     parser.add_argument("--gallery", required=True)
     parser.add_argument("--pltrs-python", required=True)
+    parser.add_argument("--mpl-python")
     parser.add_argument("--jobs", type=int, default=8)
     parser.add_argument("--failures", action="store_true")
     parser.add_argument("--reduce", action="store_true")

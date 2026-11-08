@@ -19,6 +19,7 @@ use crate::axes::AxesState;
 use crate::figure::{Figure, FigureState};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotParams, SubplotSpec};
 use crate::layout::{LayoutEngine, LayoutEngineError};
+use crate::text::TextDrawError;
 
 mod fit;
 
@@ -63,8 +64,8 @@ impl Default for TightLayout {
 
 /// Why tight layout left the figure unchanged (matplotlib warns instead,
 /// with the messages of [`Display`](fmt::Display), except for an
-/// incompatible layout engine).
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// incompatible layout engine and a text it cannot measure).
+#[derive(Clone, Debug, PartialEq)]
 pub enum TightLayoutError {
     /// The left and right margins the decorations need take the figure's
     /// whole width.
@@ -85,6 +86,9 @@ pub enum TightLayoutError {
     /// The figure refuses tight layout as its engine (a colorbar was made
     /// under constrained layout).
     Engine(LayoutEngineError),
+    /// A text the decorations measure cannot be laid out (matplotlib's
+    /// measuring raises its error).
+    Text(TextDrawError),
 }
 
 impl fmt::Display for TightLayoutError {
@@ -116,6 +120,7 @@ impl fmt::Display for TightLayoutError {
             ),
             Self::Grid(err) => write!(f, "tight layout not applied: {err}"),
             Self::Engine(err) => err.fmt(f),
+            Self::Text(err) => err.fmt(f),
         }
     }
 }
@@ -125,6 +130,12 @@ impl std::error::Error for TightLayoutError {}
 impl From<LayoutEngineError> for TightLayoutError {
     fn from(err: LayoutEngineError) -> Self {
         Self::Engine(err)
+    }
+}
+
+impl From<TextDrawError> for TightLayoutError {
+    fn from(err: TextDrawError) -> Self {
+        Self::Text(err)
     }
 }
 
@@ -213,7 +224,8 @@ impl FigureState {
         let Some(subplot_params) = self.subplot_params_of(frame) else {
             return Ok(());
         };
-        let measured = Measured::new(self, axes, &subplot_params, None)?;
+        let measured =
+            crate::text::measuring(|| Measured::new(self, axes, &subplot_params, None))??;
         if params.rect.is_some() && self.ticks_by_program() {
             // matplotlib measures the axes again to fit them into the
             // rectangle, which the program's tick helpers see.

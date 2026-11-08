@@ -36,15 +36,13 @@ use pltrs_core::os::Os;
 use super::libraries::{self, Library, Source};
 use super::{baselines, data, venvs};
 use crate::mpl_suite::Mode;
-use crate::python::{self, make_venv};
+use crate::python;
 
 /// Makes (or completes) the venvs, fetches the missing source trees and
 /// makes the missing baselines.
 pub(super) fn run() -> Result<(), String> {
     let dir = super::ecosystem_dir();
     fs::create_dir_all(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
-    let excludes = dir.join("excludes.txt");
-    fs::write(&excludes, "matplotlib\n").map_err(|err| format!("{}: {err}", excludes.display()))?;
 
     let mut made = Vec::new();
     for library in libraries::all() {
@@ -52,19 +50,12 @@ pub(super) fn run() -> Result<(), String> {
         if made.contains(&list) {
             continue;
         }
-        let venv = venvs::venv(&library, Mode::Pltrs);
-        let python = make_venv(&venv)?;
-        python::run_checked(
-            python::install_command(&python, &[list.as_str()])
-                .arg("--excludes")
-                .arg(&excludes),
+        python::make_venv_pair(
+            &venvs::venv(&library, Mode::Pltrs),
+            &venvs::venv(&library, Mode::Reference),
+            &[list.as_str()],
+            venvs::REFERENCE,
         )?;
-        python::refuse_matplotlib(&python, &venv)?;
-        let reference = make_venv(&venvs::venv(&library, Mode::Reference))?;
-        python::run_checked(&mut python::install_command(
-            &reference,
-            &[list.as_str(), venvs::REFERENCE],
-        ))?;
         made.push(list);
     }
 

@@ -82,6 +82,9 @@ REC, EXC, SITE = "__difftest_record__", "__difftest_exception__", "__difftest_si
 CELL_END = "__difftest_cell_end__"
 #: The line starting a cell of a script in the percent format.
 CELL_MARK = "# %%"
+#: The moment (seconds since the epoch) the calendar reads of `time` find
+#: (`_fix_the_calendar`).
+CALENDAR_NOW = 1_700_000_000
 
 
 def _renamed(name: str, renames: list[tuple[str, str]]) -> str:
@@ -182,13 +185,28 @@ def _cell_starts(source: str) -> list[int]:
     return [number for number, line in enumerate(source.splitlines(), 1) if line.startswith(CELL_MARK)]
 
 
+def _leading(module: ast.Module) -> list[ast.stmt]:
+    """What must stay at the top of *module*, as it was: its docstring, and
+    its ``from __future__`` imports (in a notebook's cells, wherever they
+    are: they apply to the cells after them, the whole script here)."""
+    docstring = module.body[:1] if (
+        module.body and isinstance(module.body[0], ast.Expr)
+        and isinstance(module.body[0].value, ast.Constant) and isinstance(module.body[0].value.value, str)) else []
+    futures = [statement for statement in module.body
+               if isinstance(statement, ast.ImportFrom) and statement.module == "__future__"]
+    return docstring + futures
+
+
 def instrument(source: str, filename: str, impl: str, mode: str) -> ast.Module:
     """The program's module, its imports changed and its values recorded.
-    Each top-level statement starts by naming itself (``__difftest_site__``);
-    in steps mode it is also wrapped in a ``try`` recording its exception,
-    in cells mode each cell's statements are, and each cell ends by calling
-    ``__difftest_cell_end__`` with its number."""
+    Each top-level statement (but the docstring and the ``__future__``
+    imports, which stay first) starts by naming itself
+    (``__difftest_site__``); in steps mode it is also wrapped in a ``try``
+    recording its exception, in cells mode each cell's statements are, and
+    each cell ends by calling ``__difftest_cell_end__`` with its number."""
     tree = ast.parse(source, filename)
+    leading = _leading(tree)
+    tree.body = [statement for statement in tree.body if all(statement is not kept for kept in leading)]
     tree = Recording().visit(tree)
     body: list[ast.stmt] = []
     for index, statement in enumerate(tree.body):
@@ -207,7 +225,7 @@ def instrument(source: str, filename: str, impl: str, mode: str) -> ast.Module:
         for cell, statements in cells.items():
             body.append(_recording_exception(statements, statements[0]))
             body.append(ast.copy_location(ast.Expr(_call(CELL_END, ast.Constant(cell))), statements[-1]))
-    tree.body = body
+    tree.body = leading + body
     # Changed last, so that an import changed into two statements counts as
     # the one statement it was under both implementations.
     tree = ImportChange(IMPORT_RENAMES[impl]).visit(tree)
@@ -336,8 +354,9 @@ class _ChangedImportsLoader(importlib.machinery.SourceFileLoader):
 
 def _seed_random_generators() -> None:
     """The global generators start alike in both runs, and a generator made
-    without a seed (``np.random.default_rng()``) gets a fixed one, so that
-    programs drawing random data draw the same data under both."""
+    without a seed (``np.random.default_rng()``, ``random.Random()``, as the
+    libraries a program calls make them) gets a fixed one, so that programs
+    drawing random data draw the same data under both."""
     import random
 
     import numpy as np
@@ -345,12 +364,43 @@ def _seed_random_generators() -> None:
     random.seed(19680801)
     np.random.seed(19680801)
     default_rng = np.random.default_rng
+    seed = random.Random.seed
 
     def seeded_default_rng(seed: Any = None) -> Any:
         """``np.random.default_rng``, seeded when no seed is given."""
         return default_rng(19680801 if seed is None else seed)
 
+    def seeded_seed(self: random.Random, a: Any = None, version: int = 2) -> None:
+        """``random.Random.seed``, with a fixed seed when none is given."""
+        seed(self, 19680801 if a is None else a, version)
+
     np.random.default_rng = seeded_default_rng
+    random.Random.seed = seeded_seed  # type: ignore[method-assign]
+
+
+def _fix_the_calendar() -> None:
+    """The calendar reads of `time` given no time (``time.localtime()``,
+    ``time.strftime(format)``, ...) find `CALENDAR_NOW` in both runs, as
+    the random generators start alike: statsmodels' summaries print the
+    time of day they were made. The clocks timing what a program does
+    (``time.time``, ``perf_counter``) run on."""
+    import functools
+    import time
+
+    def at_now(read: Any, position: int) -> Any:
+        """*read*, given `CALENDAR_NOW`'s time where its argument at
+        *position* is left out or None."""
+        def now(*args: Any) -> Any:
+            if len(args) > position and args[position] is not None:
+                return read(*args)
+            moment = CALENDAR_NOW if read in (localtime, gmtime, ctime) else localtime(CALENDAR_NOW)
+            return read(*args[:position], moment)
+        return functools.wraps(read)(now)
+
+    localtime, gmtime, ctime = time.localtime, time.gmtime, time.ctime
+    time.localtime, time.gmtime, time.ctime = (at_now(read, 0) for read in (localtime, gmtime, ctime))
+    time.asctime = at_now(time.asctime, 0)
+    time.strftime = at_now(time.strftime, 1)
 
 
 def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder, cell: int | None = None) -> list[dict[str, Any]]:
@@ -403,7 +453,7 @@ def main() -> int:
 
     package = __import__(args.impl)
     package_dirs = [str(pathlib.Path(package.__file__).parent)]
-    names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir))
+    names = Names(NAME_PREFIXES[args.impl], package_dirs, os.environ.get("MPLCONFIGDIR"), str(workdir), sys.prefix)
     recorder = Recorder(names, program)
     code = compile(instrument(args.program.read_text(), program, args.impl, args.mode), program, "exec")
     plt = __import__(f"{args.impl}.pyplot", fromlist=["pyplot"])
@@ -428,6 +478,7 @@ def main() -> int:
     sys.path[0] = str(args.program.resolve().parent)
     sys.meta_path.insert(0, _ChangedImports(sys.path[0], args.impl))
     _seed_random_generators()
+    _fix_the_calendar()
     stdout = io.StringIO()
     real_stdout = sys.stdout
     log_handler = _LogWarnings(recorder)

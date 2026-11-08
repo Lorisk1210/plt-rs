@@ -179,6 +179,7 @@ pub(crate) fn build(
             .collect(),
         parts: parts.clone(),
         kept: false,
+        current: matches!(parent, LegendParent::Axes(_)),
         dragger: None,
         drag_update: LegendDragUpdate::Loc,
         handler_map: options.handler_map.clone(),

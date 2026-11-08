@@ -33,7 +33,7 @@ impl Collection {
     /// ```
     pub fn fill(&self) -> bool {
         self.raw()
-            .with::<CollectionArtist, _>(|c| !unfilled(&c.face_spec(c.rc())))
+            .with::<CollectionArtist, _>(|c| !unfilled(&c.face_spec(&c.colors_rc())))
     }
 
     /// The rotation of the items scaled to their sizes, in radians

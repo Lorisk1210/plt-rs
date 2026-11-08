@@ -18,14 +18,15 @@ use std::path::{Path, PathBuf};
 use pltrs_core::os::{self, Os};
 
 use super::lookup::{DirKind, Environment, find_dir, find_rc_file, make_temp_dir};
-use super::{CONFIG_DIR_VAR, RC_FILE_NAME, RC_FILE_VAR};
+use super::{CONFIG_DIR_VAR, MATPLOTLIB_RC_FILE_VAR, RC_FILE_NAME, RC_FILE_VAR};
 use crate::fuzz::{Gen, fuzz};
 use crate::rc::RcFile;
 
 /// The variables the lookups read.
-const VARIABLES: [&str; 5] = [
+const VARIABLES: [&str; 6] = [
     CONFIG_DIR_VAR,
     RC_FILE_VAR,
+    MATPLOTLIB_RC_FILE_VAR,
     "XDG_CONFIG_HOME",
     "XDG_CACHE_HOME",
     "LOCALAPPDATA",
@@ -177,6 +178,8 @@ struct Lookup {
     /// absolute variables may then be used with.
     current: Option<Place>,
     temp: Place,
+    /// Whether matplotlib's rc files count too.
+    matplotlib_rc: bool,
     rc_text: String,
 }
 
@@ -211,6 +214,7 @@ impl Lookup {
                         .to_owned(),
                 ],
             },
+            matplotlib_rc: g.chance(0.5),
             rc_text: g.text(
                 &[
                     "lines.linewidth: 2\n",
@@ -242,6 +246,7 @@ impl Lookup {
                 .as_ref()
                 .map_or_else(PathBuf::new, |place| place.path(&scratch.base)),
             temp_dir: self.temp.path(&scratch.base),
+            matplotlib_rc: self.matplotlib_rc,
         }
     }
 }

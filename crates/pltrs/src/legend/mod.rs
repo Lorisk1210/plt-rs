@@ -367,17 +367,30 @@ pub(crate) fn outside_legends(state: &FigureState, frame: ArtistId) -> Vec<(Outs
         .collect()
 }
 
-/// The legends among `children` that are the axes legend, not kept as
-/// ordinary artists (at most one).
+/// The legends among `children` that are the axes legend (at most one).
 fn axes_legends(state: &FigureState, children: &[ArtistId]) -> Vec<ArtistId> {
     legends_in(state, children)
         .into_iter()
         .filter(|&id| {
             state
                 .artist_as::<LegendArtist>(id)
-                .is_some_and(|legend| !legend.kept)
+                .is_some_and(|legend| legend.current)
         })
         .collect()
+}
+
+/// Makes `old`, the axes legend until now, no longer the axes legend: an
+/// ordinary artist of the axes if it was kept as one, else removed.
+fn retire_axes_legend(state: &mut FigureState, old: ArtistId) {
+    let kept = state
+        .artist_as_mut::<LegendArtist>(old)
+        .is_some_and(|legend| {
+            legend.current = false;
+            legend.kept
+        });
+    if !kept {
+        state.remove_artist(old);
+    }
 }
 
 /// The legends among `children`.
@@ -421,7 +434,7 @@ impl Axes {
             &handlers,
         )?;
         for old in previous {
-            state.remove_artist(old);
+            retire_axes_legend(&mut state, old);
         }
         drop(state);
         Ok(Legend::made(figure, id, options.draggable))
@@ -442,8 +455,10 @@ impl Axes {
     /// Keeps `legend` on the axes as an ordinary artist, so that the next
     /// [`Axes::legend`] adds a legend beside it instead of replacing it
     /// (matplotlib's `ax.add_artist(legend)` for showing several legends).
-    /// The kept legend is no longer the one [`Axes::current_legend`] returns.
-    /// A legend of the axes that a newer one replaced comes back on it.
+    /// The axes legend kept so stays the one [`Axes::current_legend`]
+    /// returns (and is drawn twice, as matplotlib draws it) until the next
+    /// [`Axes::legend`]. A legend of the axes that a newer one replaced
+    /// comes back on it.
     ///
     /// ```
     /// use pltrs::artist::ArtistHandle;
@@ -493,7 +508,7 @@ impl Axes {
         let own = legend.raw.with_mut::<LegendArtist, _>(|made| {
             let own = made.parent == LegendParent::Axes(self.id());
             if own {
-                made.kept = false;
+                made.current = true;
             }
             own
         });
@@ -507,7 +522,7 @@ impl Axes {
             .map(|axes| axes_legends(&state, &axes.children))
             .unwrap_or_default();
         for old in previous.into_iter().filter(|&old| old != id) {
-            state.remove_artist(old);
+            retire_axes_legend(&mut state, old);
         }
         if state.is_removed(id) {
             state

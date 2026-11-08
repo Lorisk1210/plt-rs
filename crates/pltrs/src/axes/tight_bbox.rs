@@ -301,7 +301,7 @@ impl FigureState {
         let mut boxes: Vec<Bbox> = insets
             .into_iter()
             .filter_map(|child| self.axes_tight_bbox(child, false))
-            .filter(has_area)
+            .filter(is_finite)
             .collect();
         if extras == Extras::Children {
             self.program_texts_measured(axes);
@@ -318,7 +318,8 @@ impl FigureState {
                 }
             }
         }
-        boxes.push(extent);
+        // A parasite is measured at its own position, not its host's.
+        boxes.push(self.parasite_own_extent(axes).unwrap_or(extent));
         boxes.extend(state.titles.iter().filter_map(|&title| {
             let text = layout.store().get_as::<TextArtist>(title)?;
             let bbox = text.base().visible.then(|| text.window_extent(&layout))??;
@@ -339,7 +340,7 @@ impl FigureState {
                     // `program_texts_measured` made.
                     program_calls::quietly(|| child_tight_bbox(layout, state, axes, child))
                 })
-                .filter(has_area),
+                .filter(is_finite),
         );
         boxes
             .into_iter()
@@ -375,7 +376,7 @@ pub(super) fn axis_tight_bbox(
                 .map(|label| label.text.bbox()),
         )
         .chain(label)
-        .filter(has_area)
+        .filter(is_finite)
         .reduce(|a, b| a.union(&b))
 }
 
@@ -471,10 +472,12 @@ pub(crate) fn clipped_extent(
     }
 }
 
-/// Whether a box has a positive, finite width and height.
-fn has_area(bbox: &Bbox) -> bool {
+/// Whether a box is finite and no single point: a vertical or horizontal
+/// line counts (matplotlib's `Bbox._is_finite`, which filters the boxes a
+/// tight box unites, a spine's among them).
+fn is_finite(bbox: &Bbox) -> bool {
     let (w, h) = (bbox.width(), bbox.height());
-    0.0 < w && w < f64::INFINITY && 0.0 < h && h < f64::INFINITY
+    (w > 0.0 || h > 0.0) && w < f64::INFINITY && h < f64::INFINITY
 }
 
 /// `bbox` narrowed to one pixel around its horizontal centre.
@@ -598,6 +601,16 @@ mod tests {
         let bbox = Bbox::from_extents(10.0, 0.0, 30.0, 4.0);
         assert_eq!(collapse_x(&bbox), Bbox::from_extents(19.5, 0.0, 20.5, 4.0));
         assert_eq!(collapse_y(&bbox), Bbox::from_extents(10.0, 1.5, 30.0, 2.5));
-        assert!(!has_area(&Bbox::from_extents(0.0, 0.0, 0.0, 1.0)));
+        assert!(is_finite(&Bbox::from_extents(0.0, 0.0, 0.0, 1.0)), "a line");
+        assert!(
+            !is_finite(&Bbox::from_extents(1.0, 1.0, 1.0, 1.0)),
+            "a point"
+        );
+        assert!(!is_finite(&Bbox::from_extents(
+            0.0,
+            0.0,
+            f64::INFINITY,
+            1.0
+        )));
     }
 }

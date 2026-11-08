@@ -431,6 +431,8 @@ class ScatterMixin:
         alphas = None
         if np.iterable(alpha):
             alphas, alpha = [float(a) for a in alpha], None
+        # The collection's `set_sizes` (numpy warns of a negative area).
+        mcoll._scale_of(s)
         native = _plotting.scatter(
             self._native, (floats(x), floats(y)),
             np.ma.filled(s.astype(float), np.nan), faces,

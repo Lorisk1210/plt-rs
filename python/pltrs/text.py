@@ -9,7 +9,9 @@ aliases and validation, and its keyword handling.
 from collections.abc import Sequence
 import contextlib
 import datetime
+import errno
 from numbers import Real
+import os
 import sys
 import weakref
 
@@ -838,9 +840,21 @@ class Text(Artist):
             finally:
                 figure.dpi = old_dpi
         if extent is None:
+            self._raise_layout_error()
             return Bbox.unit()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
+
+    def _raise_layout_error(self):
+        """Raise what keeps pltrs (Rust) from measuring the text, as
+        matplotlib's measuring raises it: the `FileNotFoundError` of a font
+        file the text's properties name (``fname``) that is not there
+        (``FT2Font`` opening it), else the text's layout error (malformed
+        mathtext's `ValueError`)."""
+        path = self.get_fontproperties().get_file()
+        if path is not None and not os.path.exists(path):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), os.fspath(path))
+        _text.get_layout(self._native)
 
     def get_tightbbox(self, renderer=None):
         if (not self.get_visible() or self.get_text() == ""

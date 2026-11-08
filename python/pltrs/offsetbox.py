@@ -2185,8 +2185,8 @@ or callable, default: value of *xycoords*
         described = self._tree_to_join()
         native, parts, frame = _offsetbox.add_annotation_bbox(
             parent._native, self._native, described,
-            self._joining_point("xy"), {
-                "xybox": self._joining_point("xybox"),
+            self._joining_point("xy", parent), {
+                "xybox": self._joining_point("xybox", parent),
                 **self._joining_coords(figure),
                 "frameon": bool(self._frameon), "pad": float(self._pad),
                 "annotation_clip": self._annotation_clip,
@@ -2282,11 +2282,21 @@ or callable, default: value of *xycoords*
             self._native, *(point if part == name else None for part in ("xy", "xybox")))
         self.stale = True
 
-    def _native_point(self, name):
+    def _native_point(self, name, parent=None):
         """The point *name* (``"xy"`` or ``"xybox"``) as pltrs (Rust) takes
-        it, a pair of floats; `Unusable` for any other value."""
+        it, a pair of floats, its ``"data"`` coordinates in units (dates,
+        say) converted by *parent* or the box's Axes, as matplotlib's
+        ``_get_xy`` converts them; `Unusable` for any other value."""
+        coords = self.xycoords if name == "xy" else self.boxcoords
+        axes = self.axes if parent is None else parent
         try:
             x, y = getattr(self, name)
+            if hasattr(axes, "convert_xunits"):
+                xcoords, ycoords = coords if isinstance(coords, tuple) else (coords, coords)
+                if cbook._str_equal(xcoords, "data"):
+                    x = axes.convert_xunits(x)
+                if cbook._str_equal(ycoords, "data"):
+                    y = axes.convert_yunits(y)
             return (number(x), number(y))
         except (TypeError, ValueError):
             raise Unusable from None
@@ -2313,11 +2323,12 @@ or callable, default: value of *xycoords*
         else:
             _unusable.drop(self, "coords")
 
-    def _joining_point(self, name):
-        """The point *name* the box joins a figure with: its own, or the
-        origin while pltrs (Rust) cannot take it (`_move` then keeps it)."""
+    def _joining_point(self, name, parent):
+        """The point *name* the box joins *parent* (an Axes or a figure)
+        with: its own, or the origin while pltrs (Rust) cannot take it
+        (`_move` then keeps it)."""
         try:
-            return self._native_point(name)
+            return self._native_point(name, parent)
         except Unusable:
             return (0.0, 0.0)
 

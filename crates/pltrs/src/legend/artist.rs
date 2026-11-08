@@ -127,10 +127,14 @@ pub(crate) struct LegendArtist {
     pub(crate) handles: Vec<Vec<ArtistId>>,
     /// Every part, for removal with the legend.
     pub(crate) parts: Vec<ArtistId>,
-    /// Whether the legend stays on its axes as an ordinary artist
+    /// Whether the legend is also an ordinary artist of its axes
     /// (matplotlib's `ax.add_artist(legend)`): a new axes legend does not
-    /// replace it and it is no longer the axes' legend.
+    /// remove it.
     pub(crate) kept: bool,
+    /// Whether the legend is its axes' legend (matplotlib's `ax.legend_`);
+    /// one both kept and the axes' legend is drawn twice, as matplotlib's
+    /// axes draws its legend and its artists.
+    pub(crate) current: bool,
     /// The callbacks dragging the legend, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
     /// What dragging the legend changes (kept while it is not draggable,
@@ -159,6 +163,7 @@ pltrs_core::archive_struct!(LegendArtist {
     handles,
     parts,
     kept,
+    current,
     dragger,
     drag_update,
     handler_map
@@ -200,16 +205,19 @@ impl Artist for LegendArtist {
     /// Draws the shadow, the frame, then the title and the entries in
     /// box order (matplotlib's `Legend.draw`).
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        ctx.renderer()
-            .open_group("legend", self.base.gid.as_deref());
-        if let Some(shadow) = self.shadow_id() {
-            ctx.draw_child(shadow);
+        let draws = if self.kept && self.current { 2 } else { 1 };
+        for _ in 0..draws {
+            ctx.renderer()
+                .open_group("legend", self.base.gid.as_deref());
+            if let Some(shadow) = self.shadow_id() {
+                ctx.draw_child(shadow);
+            }
+            ctx.draw_child(self.frame);
+            for artist in self.legend_box.artists() {
+                ctx.draw_child(artist.id);
+            }
+            ctx.renderer().close_group("legend");
         }
-        ctx.draw_child(self.frame);
-        for artist in self.legend_box.artists() {
-            ctx.draw_child(artist.id);
-        }
-        ctx.renderer().close_group("legend");
     }
 
     fn children(&self) -> Vec<ArtistId> {

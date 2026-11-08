@@ -143,16 +143,17 @@ def _surface_mapping(cmap, norm, vmin, vmax):
     return _mapping(cmap, norm, vmin, vmax)
 
 
-def _sampling(rstride, cstride, rcount, ccount):
+def _sampling(rstride, cstride, rcount, ccount, default_stride):
     """The native sampling of a surface or wireframe (strides or counts,
-    which matplotlib refuses together)."""
+    which matplotlib refuses together); a stride left out of strides given
+    is *default_stride* (a surface's 10, a wireframe's 1)."""
     has_stride = rstride is not None or cstride is not None
     has_count = rcount is not None or ccount is not None
     if has_stride and has_count:
         raise ValueError("Cannot specify both stride and count arguments")
     if has_stride:
-        return ("stride", 10 if rstride is None else int(rstride),
-                10 if cstride is None else int(cstride))
+        return ("stride", default_stride if rstride is None else int(rstride),
+                default_stride if cstride is None else int(cstride))
     if has_count:
         return ("count", 50 if rcount is None else int(rcount),
                 50 if ccount is None else int(ccount))
@@ -2371,7 +2372,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         sampling = _sampling(kwargs.pop('rstride', None),
                              kwargs.pop('cstride', None),
                              kwargs.pop('rcount', None),
-                             kwargs.pop('ccount', None))
+                             kwargs.pop('ccount', None), 10)
         color = kwargs.pop('color', None)
         cmap = kwargs.pop('cmap', None)
         fcolors = kwargs.pop('facecolors', None)
@@ -2443,7 +2444,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         rcount, ccount = kwargs.pop('rcount', None), kwargs.pop('ccount', None)
         if (rstride == 0 and cstride == 0) or (rcount == 0 and ccount == 0):
             raise ValueError("Either rstride or cstride must be non zero")
-        sampling = _sampling(rstride, cstride, rcount, ccount)
+        sampling = _sampling(rstride, cstride, rcount, ccount, 1)
         if sampling is None and rcParams['_internal.classic_mode']:
             sampling = ("stride", 1, 1)
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)

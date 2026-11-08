@@ -18,13 +18,15 @@ use crate::transforms::{ResolvedTransform, Transform};
 
 /// Where a collection's items are for one draw: the shapes after the
 /// non-affine part of the transform (the shapes themselves under an
-/// affine transform), its affine rest, the per-item shape transforms and
-/// the offsets in display space.
+/// affine transform), its affine rest, the per-item shape transforms, and
+/// the offsets after the non-affine part of the offset transform with its
+/// affine rest (matplotlib's `_prepare_points`).
 pub(super) struct Geometry<'a> {
     paths: Cow<'a, [Path]>,
     master: Affine2D,
     transforms: Vec<Affine2D>,
     offsets: Vec<Point>,
+    offset_affine: Affine2D,
 }
 
 impl<'a> Geometry<'a> {
@@ -62,26 +64,35 @@ impl<'a> Geometry<'a> {
             }
             (None, sizes) => c.item_transforms(sizes, dpi),
         };
-        let offsets = match &c.offset_transform {
+        let (offsets, offset_affine) = match &c.offset_transform {
             Some(t) => {
                 let r = layout
                     .resolve(t)
                     .ok_or("its offset coordinate system no longer exists")?;
                 let place = if c.offsets_masked {
-                    ResolvedTransform::transform_point_masked
+                    ResolvedTransform::transform_point_non_affine_masked
                 } else {
-                    ResolvedTransform::transform_point
+                    ResolvedTransform::transform_point_non_affine
                 };
-                offsets.iter().map(|&p| place(&r, p)).collect()
+                let placed = offsets.iter().map(|&p| place(&r, p)).collect();
+                (placed, r.affine_part())
             }
-            None => vec![Point::ORIGIN],
+            None => (vec![Point::ORIGIN], Affine2D::IDENTITY),
         };
         Ok(Self {
             paths,
             master,
             transforms,
             offsets,
+            offset_affine,
         })
+    }
+
+    /// The offsets in display space.
+    fn display_offsets(&self) -> Vec<Point> {
+        (self.offsets.iter())
+            .map(|&p| self.offset_affine.transform_point(p))
+            .collect()
     }
 
     /// The items within `radius` pixels of display point `at` — on their
@@ -97,7 +108,9 @@ impl<'a> Geometry<'a> {
                 let path = &self.paths[i % self.paths.len()];
                 // No offsets (matplotlib's `Noffsets == 0`) leave the
                 // paths where they are.
-                let offset = cycled(&self.offsets, i).copied().unwrap_or_default();
+                let offset = cycled(&self.offsets, i)
+                    .map(|&p| self.offset_affine.transform_point(p))
+                    .unwrap_or_default();
                 let transform = cycled(&self.transforms, i)
                     .copied()
                     .unwrap_or_default()
@@ -115,10 +128,7 @@ impl<'a> Geometry<'a> {
 
 /// A collection resolved for one draw: its geometry and per-item styles.
 struct Batch<'a> {
-    paths: Cow<'a, [Path]>,
-    master: Affine2D,
-    transforms: Vec<Affine2D>,
-    offsets: Vec<Point>,
+    geometry: Geometry<'a>,
     faces: Vec<Rgba>,
     /// The edge colours, `None` where they are the face colours (as a
     /// scatter's edges follow its faces), kept once.
@@ -139,12 +149,7 @@ impl<'a> Batch<'a> {
         shapes: &'a [Path],
         transform: &Transform,
     ) -> Result<Self, String> {
-        let Geometry {
-            paths,
-            master,
-            transforms,
-            offsets,
-        } = Geometry::new(c, ctx.layout(), (shapes, transform), c.drawn_offsets())?;
+        let geometry = Geometry::new(c, ctx.layout(), (shapes, transform), c.drawn_offsets())?;
         let (faces, edges) = resolve_colors(c)?;
         let edges = (edges != faces).then_some(edges);
         let gaps = resolve_gap_colors(c)?;
@@ -165,10 +170,7 @@ impl<'a> Batch<'a> {
             c.urls.clone()
         };
         Ok(Self {
-            paths,
-            master,
-            transforms,
-            offsets,
+            geometry,
             faces,
             edges,
             gaps,
@@ -188,8 +190,8 @@ impl<'a> Batch<'a> {
     /// matplotlib's single-path optimisation applies: one shape, style,
     /// colour pair and link, solid, unhatched and smaller than the canvas.
     fn single_marker(&self, hatched: bool, canvas: (f64, f64)) -> Option<Affine2D> {
-        let uniform = self.paths.len() == 1
-            && self.transforms.len() <= 1
+        let uniform = self.geometry.paths.len() == 1
+            && self.geometry.transforms.len() <= 1
             && self.faces.len() == 1
             && self.edges().len() == 1
             && self.widths.len() == 1
@@ -200,11 +202,11 @@ impl<'a> Batch<'a> {
         if !uniform {
             return None;
         }
-        let combined = cycled(&self.transforms, 0)
+        let combined = cycled(&self.geometry.transforms, 0)
             .copied()
             .unwrap_or_default()
-            .then(self.master);
-        let path = self.paths[0].transformed(&combined);
+            .then(self.geometry.master);
+        let path = self.geometry.paths[0].transformed(&combined);
         // matplotlib's `get_extents` takes NumPy minima and maxima, which a
         // non-finite vertex turns NaN or infinite: no shortcut then.
         let finite = path
@@ -224,6 +226,8 @@ pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
 ) -> Result<(), String> {
+    warn_of_negative_sizes(c);
+    c.resolve_colors_again();
     let (shapes, transform) = c.drawn_shapes(ctx.layout())?;
     let name = c.class_name.unwrap_or(match c.kind {
         CollectionKind::Generic => "Collection",
@@ -244,6 +248,20 @@ pub(super) fn draw_collection(
     drawn
 }
 
+/// Warns, as numpy does, of the square root of a negative marker area
+/// that matplotlib takes in each of its draws the draw running now stands
+/// for (`_CollectionWithSizes.draw` scales the items again,
+/// `set_sizes(sizes, dpi)`).
+fn warn_of_negative_sizes(c: &CollectionArtist) {
+    if c.drawn_sizes()
+        .is_some_and(|sizes| sizes.iter().any(|&area| area < 0.0))
+    {
+        for _ in 0..crate::text::font_notes::draws_of_print() {
+            crate::warnings::warn_runtime("invalid value encountered in sqrt");
+        }
+    }
+}
+
 /// Draws the items of `shapes` through the collection's path effects,
 /// using `draw_markers` when every item shares one shape and style
 /// (matplotlib's single-path optimisation); a collection placed at
@@ -257,7 +275,7 @@ fn draw_shapes(
     let batch = Batch::new(c, ctx, shapes, transform)?;
     let hatches = resolve_hatch_colors(c, batch.edges()).map_err(|e| e.to_string())?;
     let gc = graphics_context(c, ctx, &hatches);
-    if batch.offsets.is_empty() {
+    if batch.geometry.offsets.is_empty() {
         return Ok(());
     }
     with_path_effects(ctx, &c.base().path_effects, |ctx| {
@@ -282,22 +300,26 @@ fn draw_items(
         gc.dashes.clone_from(&batch.dashes[0]);
         gc.antialiased = batch.antialiased[0];
         gc.url.clone_from(&batch.urls[0]);
-        let positions = Path::polyline(batch.offsets.clone());
+        // Agg composes the offsets' affine transform with its own flip
+        // into the device, so the rows markers land on depend on it.
+        let geometry = &batch.geometry;
+        let positions = Path::polyline(geometry.offsets.clone());
         let fill = Some(batch.faces[0]);
         ctx.renderer().draw_markers(
             &gc,
-            &batch.paths[0],
+            &geometry.paths[0],
             &combined,
             &positions,
-            &Affine2D::IDENTITY,
+            &geometry.offset_affine,
             fill,
         );
     } else {
+        let offsets = batch.geometry.display_offsets();
         let collection = PathCollection {
-            master_transform: batch.master,
-            paths: &batch.paths,
-            path_transforms: &batch.transforms,
-            offsets: &batch.offsets,
+            master_transform: batch.geometry.master,
+            paths: &batch.geometry.paths,
+            path_transforms: &batch.geometry.transforms,
+            offsets: &offsets,
             facecolors: &batch.faces,
             edgecolors: batch.edges(),
             hatchcolors: hatches,
@@ -308,7 +330,7 @@ fn draw_items(
         };
         if let Some(gaps) = &batch.gaps {
             // The gaps first, with transparent faces, as matplotlib does.
-            let (paths, dashes) = inverse_paths_and_dashes(&batch.paths, &batch.dashes);
+            let (paths, dashes) = inverse_paths_and_dashes(&batch.geometry.paths, &batch.dashes);
             let gap_pass = PathCollection {
                 paths: &paths,
                 facecolors: &[Rgba::TRANSPARENT],
@@ -448,10 +470,13 @@ mod tests {
     fn edges_following_the_faces_are_the_faces_kept_once() {
         let faces = vec![Rgba::new(1.0, 0.0, 0.0, 1.0), Rgba::BLACK];
         let batch = |edges: Option<Vec<Rgba>>| Batch {
-            paths: Vec::new().into(),
-            master: Affine2D::IDENTITY,
-            transforms: Vec::new(),
-            offsets: Vec::new(),
+            geometry: Geometry {
+                paths: Vec::new().into(),
+                master: Affine2D::IDENTITY,
+                transforms: Vec::new(),
+                offsets: Vec::new(),
+                offset_affine: Affine2D::IDENTITY,
+            },
             faces: faces.clone(),
             edges,
             gaps: None,
@@ -475,6 +500,7 @@ mod tests {
             master: Affine2D::IDENTITY,
             transforms: Vec::new(),
             offsets: Vec::new(),
+            offset_affine: Affine2D::IDENTITY,
         };
         assert_eq!(geometry.hits(Point::new(5.0, 0.0), 1.0, false), [0]);
         assert_eq!(

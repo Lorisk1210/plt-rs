@@ -382,6 +382,10 @@ fn panning_moves_the_view_through_the_inverse() {
 #[test]
 fn layouts_make_room_for_the_labels() {
     let (fig, ax) = sheared();
+    // The top spine, sheared a whole axes width to the right, would count
+    // as the horizontal line it is (matplotlib's `Bbox._is_finite`) and
+    // leave the axes no room.
+    ax.spines().top.set_visible(false);
     ax.set_ylabel("height");
     let before = ax.position();
     fig.tight_layout(TightLayout::default()).unwrap();

@@ -66,7 +66,7 @@ impl CollectionArtist {
     /// fit.
     pub(crate) fn alpha_colors_problem(&self) -> Option<String> {
         let alphas = self.alphas.as_ref()?.len();
-        let faces = self.face_spec(self.rc());
+        let faces = self.face_spec(&self.colors_rc());
         let edges = match &self.edgecolors {
             EdgeColors::Colors(colors) => Some(colors.as_slice()),
             EdgeColors::Default | EdgeColors::Face => None,

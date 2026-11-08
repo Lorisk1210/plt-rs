@@ -46,7 +46,7 @@ mod parasites;
 mod tick_marks;
 mod ticks;
 
-pub(crate) use artist::AxisArtistState;
+pub(crate) use artist::{AxisArtistState, lay_out_as_drawn};
 pub use aux_transform::AuxTransform;
 pub(crate) use aux_transform::{
     Functions as AuxFunctions, Inverse as AuxInverse, Polar as AuxPolar,

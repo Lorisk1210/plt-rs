@@ -40,18 +40,20 @@ class Names:
     ``prefixes`` maps the implementation's module prefixes to matplotlib's
     (empty for matplotlib itself); ``package_dirs`` are the directories of
     the packages, which messages naming files replace with ``<package>``,
-    ``config_dir`` the run's configuration directory and ``work_dir`` its
-    working directory (each implementation has its own), replaced with
-    ``<config>`` and ``<cwd>``. The random names of temporary files become
-    ``<tmp>``.
+    ``config_dir`` the run's configuration directory, ``work_dir`` its
+    working directory and ``venv_dir`` its venv (each implementation has
+    its own), replaced with ``<config>``, ``<cwd>`` and ``<venv>``. The
+    random names of temporary files become ``<tmp>``.
     """
 
     def __init__(self, prefixes: list[tuple[str, str]], package_dirs: list[str],
-                 config_dir: str | None = None, work_dir: str | None = None) -> None:
+                 config_dir: str | None = None, work_dir: str | None = None,
+                 venv_dir: str | None = None) -> None:
         self.prefixes = prefixes
         self.package_dirs = sorted(package_dirs, key=len, reverse=True)
         self.config_dir = config_dir
         self.work_dir = work_dir
+        self.venv_dir = venv_dir
         self._word = [
             (re.compile(r"(?<![\w.])" + re.escape(alias) + r"(?![\w])"), real)
             for alias, real in prefixes
@@ -73,6 +75,8 @@ class Names:
             text = text.replace(self.config_dir, "<config>")
         if self.work_dir:
             text = text.replace(self.work_dir, "<cwd>")
+        if self.venv_dir:
+            text = text.replace(self.venv_dir, "<venv>")
         for pattern, real in self._word:
             text = pattern.sub(real, text)
         return _ADDRESS.sub("0x?", _TEMPORARY.sub("<tmp>", text))
@@ -176,10 +180,14 @@ class Describer:
         if value.dtype.kind in "biufc":
             if flat.size > MAX_ITEMS:
                 finite = flat[np.isfinite(flat)] if value.dtype.kind in "fc" else flat
+                # (A sum overflowing is the summary's, no warning of the
+                # program's.)
+                with np.errstate(all="ignore"):
+                    total = finite.sum() if finite.size else None
                 return {
                     "size": int(flat.size),
                     "head": [self._element(x) for x in flat[:50]],
-                    "sum": self._element(finite.sum()) if finite.size else None,
+                    "sum": None if total is None else self._element(total),
                     "min": self._element(finite.min()) if finite.size else None,
                     "max": self._element(finite.max()) if finite.size else None,
                     "nonfinite": int(flat.size - finite.size),

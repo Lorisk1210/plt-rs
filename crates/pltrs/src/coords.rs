@@ -292,12 +292,15 @@ pub struct CoordFrame<'a> {
 }
 
 impl CoordFrame<'_> {
-    /// The frames from the owner up to the root figure.
+    /// The `bbox`es of the frames from the owner up to the root figure:
+    /// the root figure's is the saved window while part of it is printed
+    /// (matplotlib's `adjust_bbox` replaces it, so that `"figure ..."`
+    /// coordinates start at the window's corner).
     fn frames(&self) -> Vec<Bbox> {
         let mut frames = Vec::new();
         let mut next = self.owner;
         while let Some(id) = next {
-            if let Some(extent) = self.layout.frame_extent(id) {
+            if let Some(extent) = self.layout.frame_patch_extent(id) {
                 frames.push(extent);
             }
             next = self.layout.store().get(id).and_then(|a| a.base().parent);

@@ -21,9 +21,12 @@
 //! of `spec/diff/corpora.toml` (books', cheat sheets' and galleries' code,
 //! each at a commit, with its licence and SHA-256), which the driver
 //! fetches with git into `target/diff/corpora` and runs in a copy of their
-//! trees, notebooks and Markdown pages cell by cell. A NAME after it (any
-//! PATTERN naming a corpus) keeps that corpus; the report then counts each
-//! corpus' programs and clean ones.
+//! trees, notebooks and Markdown pages cell by cell, offline. A NAME after
+//! it (any PATTERN naming a corpus) keeps that corpus; the report then
+//! counts each corpus' programs and clean ones. The corpora run in venvs of
+//! their own, `target/diff/venvs/pltrs` and `reference`, holding the
+//! packages their programs import (`python/requirements-corpora.txt`),
+//! which the command makes or brings up to that list first.
 //!
 //! The work is done by `spec/diff/driver.py` in the reference venv; this
 //! command builds the extension first (release, as `mpl-suite` does;
@@ -67,6 +70,13 @@ const SUITES: [(&str, &str); 3] = [
 
 /// The driver's name of the corpora's suite.
 const CORPUS: &str = "corpus";
+
+/// The pinned list of the corpora's venvs, in `python/`.
+const CORPUS_REQUIREMENTS: &str = "requirements-corpora.txt";
+
+/// What the corpora's reference venv adds to [`CORPUS_REQUIREMENTS`]: real
+/// matplotlib 3.11.2, as the ecosystem's reference venvs hold it.
+const MATPLOTLIB_REQUIREMENTS: &str = "requirements-ecosystem-reference.txt";
 
 /// The flags passed on to the script as they are, each with its value.
 const VALUE_FLAGS: [&str; 2] = ["--baseline", "--jobs"];
@@ -136,6 +146,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     let mode = Mode::of(args)?;
     let mut build = mode.runs_pltrs();
     let mut suites = Vec::new();
+    let mut corpus = false;
     let mut script = Command::new(root.join(".venv/bin/python"));
     script
         .arg(root.join("spec/diff").join(mode.script()))
@@ -170,7 +181,8 @@ fn run_diff(args: &[String]) -> Result<(), String> {
             PathBuf::from,
         );
         let suite = suite_of(&suites)?;
-        if suite == CORPUS && mode == Mode::Coverage {
+        corpus = suite == CORPUS;
+        if corpus && mode == Mode::Coverage {
             return Err(
                 "--coverage measures the gallery and the generated programs, not the corpora"
                     .to_owned(),
@@ -186,12 +198,31 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     if build {
         crate::python::build(crate::python::Profile::Release)?;
     }
-    if mode.runs_pltrs() {
+    if corpus {
+        let (pltrs, reference) = corpus_venvs()?;
+        script
+            .arg("--pltrs-python")
+            .arg(pltrs)
+            .arg("--mpl-python")
+            .arg(reference);
+    } else if mode.runs_pltrs() {
         script
             .arg("--pltrs-python")
             .arg(crate::python::pltrs_python()?);
     }
     crate::python::run_checked(&mut script)
+}
+
+/// The corpora's venvs, made or brought up to their pinned list first:
+/// the interpreters of the pltrs side and of the reference side.
+fn corpus_venvs() -> Result<(PathBuf, PathBuf), String> {
+    let venvs = crate::python::root().join("target/diff/venvs");
+    crate::python::make_venv_pair(
+        &venvs.join("pltrs"),
+        &venvs.join("reference"),
+        &[CORPUS_REQUIREMENTS],
+        MATPLOTLIB_REQUIREMENTS,
+    )
 }
 
 /// The driver's name of the programs the suite flags `given` choose: one

@@ -8,11 +8,12 @@ use pltrs::figure::Figure;
 use pltrs::gridspec::GridSpec;
 use pltrs::layout::failures::{ErrorClass, Failures};
 use pltrs::layout::{LayoutEngine, TightLayout, TightLayoutError};
-use pltrs::text::{HAlign, Text};
+use pltrs::text::{HAlign, Text, TextDrawError};
 use pltrs_core::Bbox;
 
 use crate::binding::prelude::*;
 use crate::binding::{callback_failed, forgive};
+use crate::modules::figure::draw_exception;
 
 /// The failures of Python's code the layout engines ask about: the
 /// exceptions callbacks raised in the native call running (see
@@ -49,13 +50,28 @@ fn params(pad: f64, h_pad: Option<f64>, w_pad: Option<f64>, rect: Rect) -> Tight
 
 /// The outcome of a tight layout pass: None once applied, the warning
 /// matplotlib issues when it is not, matplotlib's `RuntimeError` when the
-/// figure's colorbars refuse the engine.
+/// figure's colorbars refuse the engine, and the error of a text it could
+/// not measure as matplotlib's measuring raises it.
 fn outcome<T>(result: Result<T, TightLayoutError>) -> PyResult<Option<String>> {
     match result {
         Ok(_) => Ok(None),
         Err(TightLayoutError::Engine(err)) => Err(err.into()),
+        Err(TightLayoutError::Text(err)) => Err(text_error(&err)),
         Err(err) => Ok(Some(err.to_string())),
     }
+}
+
+/// The exception matplotlib's measuring raises for a text it cannot lay
+/// out (as a draw raises it, see [`draw_exception`]).
+fn text_error(err: &TextDrawError) -> PyErr {
+    let kind = draw_exception(err.kind()).unwrap_or(ExceptionKind::RuntimeError);
+    PyErr::new(kind, err.to_string())
+}
+
+/// The outcome of measuring: what `measure` measured, or the error of the
+/// first text it could not lay out (see [`pltrs::text::measuring`]).
+fn measured<R>(measure: impl FnOnce() -> R) -> PyResult<R> {
+    pltrs::text::measuring(measure).map_err(|err| text_error(&err))
 }
 
 /// Fits the figure's subplot parameters to the decorations of its
@@ -160,11 +176,13 @@ fn axes_tightbbox(
     // matplotlib's `get_tightbbox` applies the aspect, then places the
     // ticks of each axis it measures; both may raise.
     axes.apply_aspect()?;
-    let bbox = if children {
-        axes.tight_bbox(for_layout_only)
-    } else {
-        axes.decorations_tight_bbox(for_layout_only)
-    };
+    let bbox = measured(|| {
+        if children {
+            axes.tight_bbox(for_layout_only)
+        } else {
+            axes.decorations_tight_bbox(for_layout_only)
+        }
+    })?;
     if axes.axis_on() {
         for name in [AxisName::X, AxisName::Y] {
             let axis = axes.axis_of(name);
@@ -181,7 +199,7 @@ fn axes_tightbbox(
 /// pixels, None when nothing is (`FigureBase.get_tightbbox` before the
 /// root figure's box is turned into inches).
 fn figure_tightbbox(figure: Figure) -> PyResult<Option<(f64, f64, f64, f64)>> {
-    Ok(figure.tight_extent().map(extents))
+    Ok(measured(|| figure.tight_extent())?.map(extents))
 }
 
 /// Registers the module's functions.

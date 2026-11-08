@@ -40,6 +40,22 @@ _CYCLED_PATCH_PROPS = ("color", "facecolor", "edgecolor", "linestyle",
                        "linewidth", "hatch", "alpha")
 
 
+def _in_given_order(given, updates):
+    """
+    The property *updates* of a fill between curves made with the
+    properties *given* (in the order given): with the colour given after
+    an edge or face colour too, which matplotlib sets in that order, so
+    that it overrides them.
+    """
+    names = list(given)
+    if "color" not in names or "color" in updates:
+        return updates
+    if not any(name in names[:names.index("color")] for name in ("edgecolor", "facecolor")):
+        return updates
+    return {name: given["color"] if name == "color" else updates[name]
+            for name in names if name == "color" or name in updates}
+
+
 def _first_color(color):
     """*color*, or the first of the colours *color* lists ('none' for none
     listed): the colour pltrs (Rust) fills with until the collection takes
@@ -215,6 +231,7 @@ class FillsMixin:
                        and not mcolors.is_color_like(value)}
         cycled = not (_rcParams()["_internal.classic_mode"]
                       or any(name in kwargs for name in ("color", "facecolor")))
+        given = dict(kwargs)
         color, facecolor = (_first_color(kwargs.pop(name, None))
                             for name in ("color", "facecolor"))
         dep_dir = "y" if ind_dir == "x" else "x"
@@ -239,7 +256,7 @@ class FillsMixin:
         if color is not None:
             # A colour given sets the hatches' too (`Collection.set_color`).
             collection.set_hatchcolor(color)
-        collection._internal_update({**per_polygon, **kwargs})
+        collection._internal_update(_in_given_order(given, {**per_polygon, **kwargs}))
         return collection
 
     def fill_between(self, x, y1, y2=0, where=None, interpolate=False,

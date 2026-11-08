@@ -1807,10 +1807,14 @@ class Ellipse(Patch):
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited; ``add_patch`` measures the patch through its
         # transform (``_update_patch_limits``), which matplotlib recomputes
-        # from the geometry a class of the program's computes.
+        # from the geometry a class of the program's computes, failing on
+        # a geometry it cannot compute with (a size no number, as a 1x1
+        # `numpy.matrix`).
         if kind == "patch" and self._computes():
             center, angle = self._recomputed()
             self._set_fields(center=center, angle=angle)
+        if kind == "patch":
+            _unusable.check(self, measuring=True)
         return super()._add_to_axes(axes, kind, autolim)
 
     def _make_geometry(self, xy, width, height, angle):

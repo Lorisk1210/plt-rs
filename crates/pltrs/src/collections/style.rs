@@ -108,7 +108,7 @@ impl MappedSides {
         if c.mapping.is_none() && c.program_colors.is_none() {
             return Self::default();
         }
-        let face_is_none = unfilled(&c.face_spec(c.rc()));
+        let face_is_none = unfilled(&c.face_spec(&c.colors_rc()));
         let edges = if face_is_none {
             matches!(c.edgecolors, EdgeColors::Default)
         } else {
@@ -134,10 +134,10 @@ fn resolve_mapped_on(
 /// [`resolve_mapped_on`]'s face and edge colours, each side failing on
 /// its own: an edge colour that fails leaves the faces resolved.
 pub(super) fn resolve_sides(c: &CollectionArtist, on: MappedSides) -> (Sided, Sided) {
-    let rc = c.rc();
+    let rc = c.colors_rc();
     let alpha = collection_alpha(c);
     let resolve = |colors: &[Color]| with_alpha(c, &alpha, colors);
-    let face_spec = c.face_spec(rc);
+    let face_spec = c.face_spec(&rc);
     let face_is_none = unfilled(&face_spec);
     let edge_default = c.kind == CollectionKind::Line;
 
@@ -169,7 +169,7 @@ pub(super) fn resolve_sides(c: &CollectionArtist, on: MappedSides) -> (Sided, Si
         (_, _, EdgeColors::Colors(colors)) => resolve(colors),
         (_, _, EdgeColors::Default) => {
             if rc.patch_force_edgecolor || edge_default || face_is_none {
-                resolve(std::slice::from_ref(default_edge(c)))
+                resolve(std::slice::from_ref(default_edge(c, &rc)))
             } else {
                 Ok(Vec::new())
             }
@@ -294,7 +294,9 @@ pub(super) fn resolve_hatch_colors(
 ) -> Result<Vec<Rgba>, ColorError> {
     let alpha = c.base().alpha;
     match &c.hatchcolors {
-        HatchColors::Edge if edges.is_empty() => Ok(vec![default_edge(c).resolve_alpha(alpha)?]),
+        HatchColors::Edge if edges.is_empty() => {
+            Ok(vec![default_edge(c, &c.colors_rc()).resolve_alpha(alpha)?])
+        }
         HatchColors::Edge => Ok(edges.to_vec()),
         HatchColors::Colors(colors) => colors
             .iter()
@@ -304,11 +306,11 @@ pub(super) fn resolve_hatch_colors(
 }
 
 /// The edge colour a collection of its kind gets by default.
-fn default_edge(c: &CollectionArtist) -> &Color {
+fn default_edge<'a>(c: &CollectionArtist, rc: &'a RcParams) -> &'a Color {
     if c.kind == CollectionKind::Line {
-        &c.rc().lines_color
+        &rc.lines_color
     } else {
-        &c.rc().patch_edgecolor
+        &rc.patch_edgecolor
     }
 }
 

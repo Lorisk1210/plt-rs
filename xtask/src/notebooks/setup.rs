@@ -36,24 +36,11 @@ const REFERENCE_REQUIREMENTS: &str = "requirements-notebooks-reference.txt";
 pub(super) fn run() -> Result<(), String> {
     let dir = super::notebooks_dir();
     fs::create_dir_all(&dir).map_err(|err| format!("{}: {err}", dir.display()))?;
-    let excludes = dir.join("excludes.txt");
-    fs::write(&excludes, "matplotlib\n").map_err(|err| format!("{}: {err}", excludes.display()))?;
 
     let venv = super::venv(Mode::Pltrs);
-    let python = python::make_venv(&venv)?;
-    python::run_checked(
-        python::install_command(&python, &[REQUIREMENTS])
-            .arg("--excludes")
-            .arg(&excludes),
-    )?;
-    python::refuse_matplotlib(&python, &venv)?;
-
     let reference = super::venv(Mode::Reference);
-    let reference_python = python::make_venv(&reference)?;
-    python::run_checked(&mut python::install_command(
-        &reference_python,
-        &[REQUIREMENTS, REFERENCE_REQUIREMENTS],
-    ))?;
+    let (python, _) =
+        python::make_venv_pair(&venv, &reference, &[REQUIREMENTS], REFERENCE_REQUIREMENTS)?;
 
     for library in &LIBRARIES {
         fetch(&python, library)?;

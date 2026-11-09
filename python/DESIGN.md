@@ -770,6 +770,16 @@ coordinates convert with its Axes' units as `Text.draw` converts them
 (`Text._set_text_coordinate`), an annotation places its point as
 `_check_xy` and `update_positions` do (`_annotation_kept`).
 
+A plotting method whose matplotlib code is a computation in numpy over
+artists (`hexbin`, `pie`) runs that code over the package's artists for
+the arguments pltrs (Rust) does not take as they are, and after pltrs
+(Rust) refuses arguments (`axes/_plotting/_hexbin_reference.py`,
+`_pie_reference.py`): it raises matplotlib's errors, or makes what
+matplotlib makes of them. Others check what matplotlib's first steps
+check, in its order, before pltrs (Rust) computes (`hist2d` bins unusual
+arguments with numpy's `histogram2d`; `bxp` merges its properties;
+`stackplot` checks its first layer as `fill_between`).
+
 ### Keyword arguments and aliases
 
 * Aliases are declared on the class, as in matplotlib:
@@ -832,7 +842,11 @@ it in Python, `_update_axisinfo` installs its `AxisInfo` natively
 (`_tick_helpers.use_axis_info`, `Axis::take_axis_info`), and lines made
 from its values keep them (`_xorig`) to convert them again when the unit
 changes. An artist made outside any axes with values in units converts
-them when it joins one (`_convert_units_for`).
+them when it joins one (`_convert_units_for`). As matplotlib's, an
+Axes follows a change of its axes' units (recomputing its data limits and
+autoscaling) only until it is cleared: its first clear after it is made
+disconnects the handler with the axis' callbacks (`Axis::follows_units`),
+and a clear keeps the data limits for the next data to replace.
 
 A zone crosses as pltrs (Rust) models it where it can (`_date_locators._native_tz`:
 the names of `zoneinfo`, pytz and dateutil's files, the fixed offsets that
@@ -939,6 +953,10 @@ matplotlib's objects:
   a helper pltrs (Rust) ticks with natively do quietly what matplotlib's
   update did with it (`format_ticks(locs)`, a locator's call), once per
   set of ticks.
+* **The axis as an artist**: an axis set animated is left out of its
+  Axes' draws but printing, and one given an image filter is drawn
+  through it, as matplotlib's `Axes.draw` and `allow_rasterization` treat
+  an axis (`Axis::set_animated`, `Axis::set_agg_filter`).
 * **Mirrors** (`_axis_artists`, `_native.axis` `mirrors`): the ticks
   (`Tick` with `label1`, `label2`, `tick1line`, `tick2line`, `gridline`),
   the axis label and the offset text are loose `Text` and `Line2D`

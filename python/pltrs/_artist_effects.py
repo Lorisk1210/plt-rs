@@ -62,7 +62,7 @@ class EffectsMixin:
         self._agg_filter = filter_func
         _artist.set_agg_filter(
             self._native, None if filter_func is None or not _draws_filtered(self)
-            else functools.partial(_filtered, filter_func))
+            else functools.partial(filtered, filter_func))
 
     def get_agg_filter(self):
         """Return filter function to be used for agg filter."""
@@ -109,7 +109,7 @@ def _effect_specs(path_effects):
             for effect in effects]
 
 
-def _filtered(filter_func, image, dpi):
+def filtered(filter_func, image, dpi):
     """What *filter_func*, an artist's agg filter, makes of *image*: called
     as matplotlib calls it, whatever it is."""
     return filter_func(image, dpi)

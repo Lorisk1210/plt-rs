@@ -339,7 +339,6 @@ class FillsMixin:
             `~matplotlib.patches.StepPatch` properties
 
         """
-        _api.check_in_list(('vertical', 'horizontal'), orientation=orientation)
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.StepPatch)
         color = kwargs.pop('color', None)
         if baseline is None and fill:
@@ -352,15 +351,22 @@ class FillsMixin:
                 "very likely that the resulting fill patterns is not the desired "
                 "result."
             )
+        if edges is None:
+            edges = np.arange(len(values) + 1)
         edge_axis, value_axis = ("x", "y") if orientation == "vertical" else ("y", "x")
         edges, values, baseline = self._process_unit_info(
             [(edge_axis, edges), (value_axis, values), (value_axis, baseline)],
             kwargs)
+        # The checks of matplotlib's `StepPatch`, which takes any orientation
+        # other than 'vertical' for 'horizontal'.
+        mpatches.StepPatch._check_data(edges, values, baseline)
         native = _plotting.stairs(
-            self._native, floats(values), None if edges is None else floats(edges),
+            self._native, floats(values), floats(edges),
             None if baseline is None else np.asarray(baseline, dtype=float),
-            (orientation, bool(fill)), color)
+            ('vertical' if orientation == 'vertical' else 'horizontal', bool(fill)), color)
         patch = wrap(self, native, mpatches.StepPatch)
+        patch._given_orientation = orientation
+        patch._keep_data(values, edges, baseline)
         if color is None:
             patch._take_cycle_color("facecolor" if fill else "edgecolor")
         if not fill:
@@ -385,6 +391,21 @@ class FillsMixin:
             kwargs.setdefault('facecolor', colors)
         kwargs, style_gen = _style_helpers.style_generator(kwargs)
         x, = axes._process_unit_info([("x", x)])
+        try:
+            # matplotlib fills each layer with `fill_between`, whose checks of
+            # the data fail first between the baseline and the first layer.
+            first = 0. if baseline == 'zero' else np.zeros(np.shape(y)[1:])
+            mcoll.FillBetweenPolyCollection._checked_data(
+                "x", *map(np.ma.masked_invalid, (x, first, y[0])), where)
+        except Exception:
+            if colors is None:
+                # matplotlib takes the layers' colours from the cycle first.
+                for _ in y:
+                    axes._get_lines.get_next_color()
+            raise
+        # The layers broadcast with the positions, as `fill_between`'s data do.
+        x, y = np.broadcast_arrays(np.atleast_1d(floats(x)), np.asarray(y, dtype=float))
+        x = x[0] if len(x) else np.atleast_1d(floats(x))
         fill = (_fill_mask(where, np.size(x), "x"), bool(interpolate), step)
         mcoll._check_step(step, [floats(x), *(floats(row) for row in y)], fill[0])
         natives = _plotting.stackplot(axes._native, floats(x),

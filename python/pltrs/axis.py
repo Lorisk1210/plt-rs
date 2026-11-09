@@ -11,13 +11,14 @@ artists mirroring what pltrs (Rust) draws (`._axis_artists`).
 import datetime
 import functools
 import itertools
+import numbers
 import warnings
 
 import numpy as np
 
 from . import (
-    _api, _artist_clipping, _docstring, _program_classes, _scale_calls, _tick_helpers,
-    _unusable, _values, cbook, units as munits)
+    _api, _artist_clipping, _artist_effects, _docstring, _numpy_values, _program_classes,
+    _scale_calls, _tick_helpers, _unusable, _values, cbook, units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -230,6 +231,25 @@ def _interval_method(kind):
         method.__module__ = __name__
         return method
     return name
+
+
+def _interval_ends(getter, vmin, vmax, ignore):
+    """
+    The ends ``(vmin, vmax, True)`` an interval setter hands pltrs (Rust):
+    numbers as they are (pltrs (Rust) widens the interval *getter* gives,
+    unless *ignore*); any other value as matplotlib's setter widens it with
+    Python's ``min`` and ``max`` and assigns it into its box, raising what
+    those comparisons and numpy's assignment raise.
+    """
+    if all(isinstance(end, numbers.Real) for end in (vmin, vmax)):
+        return float(vmin), float(vmax), bool(ignore)
+    if not ignore:
+        oldmin, oldmax = getter()
+        if oldmin < oldmax:
+            vmin, vmax = min(vmin, vmax, oldmin), max(vmin, vmax, oldmax)
+        else:
+            vmin, vmax = max(vmin, vmax, oldmin), min(vmin, vmax, oldmax)
+    return _numpy_values.element(vmin), _numpy_values.element(vmax), True
 
 
 #: What matplotlib's ticks draw when no parameter says (``Tick.__init__``):
@@ -480,9 +500,30 @@ class Axis(DrawnWith, Artist):
         if self.get_visible():
             getattr(None, "viewLim")
 
+    def _label_placed_at(self, pad):
+        """Fail as matplotlib's axis fails to place its label at the pad
+        *pad*, which is no number, where it draws: it converts it to pixels,
+        ``pad * dpi / 72``."""
+        if self.get_visible() and self.axes.axison:
+            pad * self.figure.dpi / 72
+
     def _drawn_by_drawer(self):
         # The Axes leaves animated children out of its draws.
         return self.get_visible() and not self.get_animated()
+
+    def set_animated(self, b):
+        super().set_animated(b)
+        if self.axes.name != "3d":
+            # pltrs (Rust) draws the axis with its Axes, which leaves it out
+            # while it is animated.
+            _axis.set_animated(*self._args(), bool(self.get_animated()))
+
+    def set_agg_filter(self, filter_func):
+        super().set_agg_filter(filter_func)
+        if self.axes.name != "3d":
+            # pltrs (Rust) draws the axis with its Axes, through the filter.
+            _axis.set_agg_filter(*self._args(), None if filter_func is None else
+                                 functools.partial(_artist_effects.filtered, filter_func))
 
     #: The zorder of an axis by the ``axisbelow`` of its Axes (matplotlib's
     #: ``set_axisbelow`` sets it on the axes of the Axes).
@@ -543,7 +584,9 @@ class Axis(DrawnWith, Artist):
 
     def _get_autoscale_on(self):
         """Return whether this Axis is autoscaled."""
-        return _axes_base.get_autoscale_on(*self._args())
+        # matplotlib keeps the object it was given (``1``, ``'False'``).
+        return _values.given_flag(self, "autoscale_on",
+                                  _axes_base.get_autoscale_on(*self._args()))
 
     def _set_autoscale_on(self, b):
         """
@@ -566,16 +609,20 @@ class Axis(DrawnWith, Artist):
         """
         if b is not None:
             _axes_base.set_autoscale_on(*self._args(), bool(b))
+            _values.remember(self, "autoscale_on", b)
 
     # --- Tick helpers --------------------------------------------------------
 
     def _default(self, minor, kind):
-        return _axis.is_default_helper(*self._args(), kind, bool(minor))
+        # matplotlib keeps the object it was given (``1``, ``'False'``).
+        return _values.given_flag(self, f"default_{kind}_{minor}",
+                                  _axis.is_default_helper(*self._args(), kind, bool(minor)))
 
     def _set_default(self, minor, kind, value):
         """Count the major or *minor* tick helper *kind* as the scale's own,
         or not (the ``isDefault_*`` setters)."""
         _axis.set_default_helper(*self._args(), kind, bool(minor), bool(value))
+        _values.remember(self, f"default_{kind}_{minor}", value)
 
     @property
     def isDefault_majloc(self):
@@ -1918,8 +1965,16 @@ class Axis(DrawnWith, Artist):
 
     @labelpad.setter
     def labelpad(self, pad):
+        if not isinstance(pad, numbers.Real) and self.axes.name != "3d":
+            # matplotlib keeps it, and fails to place the label with it
+            # where it draws the axis.
+            _values.keep(self, "labelpad", pad)
+            _unusable.keep(self.axes, f"{self.axis_name}axis labelpad", pad,
+                           self._label_placed_at, measured=False)
+            return
         _axis.set_labelpad(*self._args(), float(pad))
         _values.remember(self, "labelpad", pad)
+        _unusable.drop(self.axes, f"{self.axis_name}axis labelpad")
 
     def set_label_coords(self, x, y, transform=None):
         """
@@ -2135,7 +2190,9 @@ class Axis(DrawnWith, Artist):
         for axis in self._get_shared_axis():
             axis.units = u
             axis._update_axisinfo()
-            axis.axes._unit_change_handler(axis.axis_name)
+            if _axis.follows_units(*axis._args()):
+                # matplotlib's Axes handler, until a clear disconnects it.
+                axis.axes._unit_change_handler(axis.axis_name)
             axis.callbacks.process('units')
 
     def _get_shared_axis(self):
@@ -2387,8 +2444,8 @@ class _AxisOfAxes(Axis):
     @_interval_method("setter")
     def set_view_interval(self, vmin, vmax, ignore=False):
         # docstring inherited.
-        _axis.set_view_interval(*self._args(), float(vmin), float(vmax),
-                                bool(ignore))
+        _axis.set_view_interval(
+            *self._args(), *_interval_ends(self.get_view_interval, vmin, vmax, ignore))
 
     @_interval_method("getter")
     def get_data_interval(self):
@@ -2401,8 +2458,8 @@ class _AxisOfAxes(Axis):
     @_interval_method("setter")
     def set_data_interval(self, vmin, vmax, ignore=False):
         # docstring inherited.
-        _axis.set_data_interval(*self._args(), float(vmin), float(vmax),
-                                bool(ignore))
+        _axis.set_data_interval(
+            *self._args(), *_interval_ends(self.get_data_interval, vmin, vmax, ignore))
 
     def get_minpos(self):
         fields = self._drawn_fields()
@@ -2580,6 +2637,9 @@ class YAxis(_AxisOfAxes):
 
 
 cbook._set_module(__name__, Tick, XTick, YTick)
+# What matplotlib's `Axis` inherits from `Artist`, which pltrs' class
+# defines to reach the axis pltrs (Rust) draws.
+cbook._inherited_methods(Axis, Artist, ["set_animated", "set_agg_filter"])
 
 
 # What matplotlib's module also has from its imports, which programs

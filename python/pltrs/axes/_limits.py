@@ -9,6 +9,7 @@ The view limits and bounds of an Axes and how it autoscales (matplotlib's
 classes of the program's that give their own paths.
 """
 
+import numbers
 import weakref
 
 import numpy as np
@@ -252,9 +253,13 @@ class LimitsMixin:
         if upper is None and np.iterable(lower):
             lower, upper = lower
         axis = getattr(self, f"{name}axis")
-        if _program_classes.takes_from_program(type(axis), "get_view_interval"):
+        if (_program_classes.takes_from_program(type(axis), "get_view_interval")
+                or not all(bound is None or isinstance(bound, numbers.Real)
+                           for bound in (lower, upper))):
             # matplotlib's code, which asks the program's class of the axis
-            # whether it is inverted.
+            # whether it is inverted, and sorts and converts bounds that
+            # are no numbers (strings in units, which may make the axis
+            # categorical).
             old_lower, old_upper = getattr(self, f"get_{name}bound")()
             bounds = (old_lower if lower is None else lower,
                       old_upper if upper is None else upper)
@@ -339,7 +344,7 @@ class LimitsMixin:
 
     def get_autoscale_on(self):
         """Return True if each axis is autoscaled, False otherwise."""
-        return _axes_base.get_autoscale_on(self._native, None)
+        return all(axis._get_autoscale_on() for axis in self._axis_map.values())
 
     def set_autoscale_on(self, b):
         """
@@ -357,7 +362,8 @@ class LimitsMixin:
         matplotlib.axes.Axes.set_autoscalex_on
         matplotlib.axes.Axes.set_autoscaley_on
         """
-        _axes_base.set_autoscale_on(self._native, None, bool(b))
+        for axis in self._axis_map.values():
+            axis._set_autoscale_on(b)
 
     get_autoscalex_on = _axis_method_wrapper("xaxis", "_get_autoscale_on")
     get_autoscaley_on = _axis_method_wrapper("yaxis", "_get_autoscale_on")
@@ -395,7 +401,12 @@ class LimitsMixin:
         matplotlib.axes.Axes.set_autoscalex_on
         matplotlib.axes.Axes.set_autoscaley_on
         """
-        _api.check_in_list(['both', 'x', 'y'], axis=axis)
+        if not any(axis == name for name in ('both', 'x', 'y')):
+            # matplotlib autoscales neither axis for another name, both when
+            # asked to leave the autoscaling state as it is.
+            if enable is not None:
+                return
+            axis = 'both'
         _axes_base.autoscale(self._native,
                              None if enable is None else bool(enable),
                              None if axis == 'both' else axis,

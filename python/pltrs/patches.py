@@ -1136,11 +1136,18 @@ class PathPatch(Patch):
 
     def get_path(self):
         # docstring inherited
-        given = self.__dict__.get("_given_path")
-        return self._native_path() if given is None else given
+        if "_given_path" in self.__dict__:
+            return self.__dict__["_given_path"]
+        return self._native_path()
 
     def set_path(self, path):
+        if not isinstance(path, Path):
+            # matplotlib keeps it, and fails to draw its vertices.
+            self.__dict__["_given_path"] = path
+            _unusable.keep(self, "path", path, _path_vertices, measured=False)
+            return
         _patches.set_path_shape(self._native, path)
+        _unusable.drop(self, "path")
         self._keep_path(path)
 
     def _keep_path(self, path):
@@ -1199,25 +1206,55 @@ class StepPatch(PathPatch):
 
             %(Patch:kwdoc)s
         """
-        _api.check_in_list(('vertical', 'horizontal'), orientation=orientation)
+        self._keep_data(values, edges, baseline)
+        self._check_data(edges, values, baseline)
         self._native = _patches.new_step_patch(
             np.asarray(values, dtype=float), np.asarray(edges, dtype=float),
             None if baseline is None else np.asarray(baseline, dtype=float),
-            orientation == 'horizontal')
+            orientation != 'vertical')
+        self._given_orientation = orientation
         # The native step patch holds its path: no `PathPatch.__init__`.
         Patch.__init__(self, **kwargs)
 
+    @staticmethod
+    def _check_data(edges, values, baseline=None):
+        """Raise matplotlib's errors for steps of *values* between *edges*
+        above *baseline* it cannot draw (``_update_path``): NaN edges, a
+        count of edges that is not one more than that of the values, values
+        or a baseline that are no numbers or do not broadcast together."""
+        edges, values = np.asarray(edges), np.asarray(values)
+        if np.isnan(np.sum(edges)):
+            raise ValueError('Nan values in "edges" are disallowed')
+        if edges.size - 1 != values.size:
+            raise ValueError('Size mismatch between "values" and "edges". '
+                             "Expected `len(values) + 1 == len(edges)`, but "
+                             f"`len(values) = {values.size}` and "
+                             f"`len(edges) = {edges.size}`.")
+        # matplotlib's mask of the steps it leaves out.
+        nan_mask = np.isnan(values)
+        if baseline is not None:
+            nan_mask |= np.isnan(baseline)
+
     @property
     def orientation(self):
-        """The direction of the steps: 'vertical' or 'horizontal'."""
-        return ('horizontal' if _patches.step_patch_horizontal(self._native)
-                else 'vertical')
+        """The direction of the steps: 'vertical', or anything else for
+        horizontal steps, as it was given."""
+        return self.__dict__.get("_given_orientation", (
+            'horizontal' if _patches.step_patch_horizontal(self._native) else 'vertical'))
 
     def get_data(self):
         """Get `.StepPatch` values, edges and baseline as namedtuple."""
         from collections import namedtuple
         StairData = namedtuple('StairData', 'values edges baseline')
-        return StairData(*_patches.step_patch(self._native))
+        return StairData(*self.__dict__.get("_given_data",
+                                            _patches.step_patch(self._native)))
+
+    def _keep_data(self, values, edges, baseline):
+        """Keep the *values*, *edges* and *baseline* as matplotlib's patch
+        keeps them, arrays of what was given (which `get_data` gives back
+        even when it could not draw them)."""
+        self._given_data = (np.asarray(values), np.asarray(edges),
+                            None if baseline is None else np.asarray(baseline))
 
     def set_data(self, values=None, edges=None, baseline=None):
         """
@@ -1232,6 +1269,14 @@ class StepPatch(PathPatch):
         """
         if values is None and edges is None and baseline is None:
             raise ValueError("Must set *values*, *edges* or *baseline*.")
+        # matplotlib keeps them as arrays before it checks them (which
+        # leaves the steps drawn as they were).
+        old_values, old_edges, old_baseline = self.get_data()
+        self._keep_data(old_values if values is None else values,
+                        old_edges if edges is None else edges,
+                        old_baseline if baseline is None else baseline)
+        values, edges, baseline = self._given_data
+        self._check_data(edges, values, baseline)
         # matplotlib counts the values and edges by their size, whatever
         # their shape.
         _patches.set_step_patch(
@@ -1243,6 +1288,13 @@ class StepPatch(PathPatch):
 
     def set_path(self, path):
         """Set the path of the patch, drawn until the data are set again."""
+        if not isinstance(path, Path):
+            # matplotlib keeps it, and fails to draw its vertices.
+            self.__dict__["_given_path"] = path
+            _unusable.keep(self, "path", path, _path_vertices, measured=False)
+            return
+        self.__dict__.pop("_given_path", None)
+        _unusable.drop(self, "path")
         _patches.set_step_path(self._native, path)
 
 
@@ -2881,10 +2933,13 @@ default: 'arc3'
             raise ValueError("Either posA and posB, or path need to provided")
         arrowstyle = _style_object(arrowstyle, ArrowStyle)
         connectionstyle = _style_object(connectionstyle, ConnectionStyle)
+        # A style that cannot be called the arrow keeps (`set_arrowstyle`),
+        # drawn with the default meanwhile.
         self._native = _patches.new_fancy_arrow_patch(
             (ends, path),
-            (_native_spec(arrowstyle, ArrowStyle),
-             _native_spec(connectionstyle, ConnectionStyle),
+            (_native_spec(arrowstyle if callable(arrowstyle) else "simple", ArrowStyle),
+             _native_spec(connectionstyle if callable(connectionstyle) else "arc3",
+                          ConnectionStyle),
              float(shrinkA), float(shrinkB), float(mutation_scale),
              native_aspect(mutation_aspect)))
         kwargs.setdefault("joinstyle", JoinStyle.round)
@@ -3011,9 +3066,18 @@ default: 'arc3'
         """
         Clip the ends to `patchA` and `patchB` as pltrs (Rust) draws them,
         which it can once they are in the arrow's figure: the arrow or
-        patch added later links them when it is added.
+        patch added later links them when it is added. An end clipped by
+        what is no patch the arrow keeps, as matplotlib's does, and fails
+        to draw where matplotlib's asks it whether it contains the end
+        (any true value); a false one clips nothing.
         """
-        patches = (self.patchA, self.patchB)
+        patches = tuple(patch if isinstance(patch, Patch) else None
+                        for patch in (self.patchA, self.patchB))
+        for name, given in (("patchA", self.patchA), ("patchB", self.patchB)):
+            if given is not None and not isinstance(given, Patch) and given:
+                _unusable.keep(self, name, given, _contains_end)
+            else:
+                _unusable.drop(self, name)
         linked = _patches.set_arrow_patches(
             self._native, *(None if patch is None else patch._native
                             for patch in patches))
@@ -3106,9 +3170,39 @@ default: 'arc3'
             (x, y) coordinates of arrow tail and arrow head respectively. If
             `None` use current value.
         """
-        _patches.set_arrow_positions(
-            self._native, *(None if pos is None else tuple(map(float, pos))
-                            for pos in (posA, posB)))
+        positions = self._posA_posB
+        for index, pos in enumerate((posA, posB)):
+            if pos is not None:
+                positions[index] = pos
+        try:
+            ends = [tuple(map(float, pos)) for pos in positions]
+        except (TypeError, ValueError):
+            ends = None
+        if ends is None or any(len(end) != 2 for end in ends):
+            # matplotlib keeps them, and fails where it converts them and
+            # maps them to the display.
+            _unusable.keep(self, "positions", positions, self._place_ends_as_drawn)
+            return
+        _unusable.drop(self, "positions")
+        _patches.set_arrow_positions(self._native, *ends)
+        # Read back as given, as matplotlib keeps them.
+        self._given_positions = positions
+
+    def _kept_order(self):
+        """The order matplotlib's ``_get_path_in_displaycoord`` computes with
+        the values the arrow keeps: the ends, the connection (clipped by the
+        patches), the mutation scale, then the arrow style (squeezed by the
+        mutation aspect)."""
+        return ["positions", "_connector", "patchA", "patchB", "mutation_scale",
+                "_arrow_transmuter", "mutation_aspect"]
+
+    def _place_ends_as_drawn(self, positions):
+        """Fail as matplotlib's arrow fails to place its ends *positions*:
+        converted with the units of its Axes, then mapped by its
+        transform."""
+        ends = [(self.convert_xunits(pos[0]), self.convert_yunits(pos[1]))
+                for pos in positions]
+        self.get_transform().transform(ends)
 
     def _convert_units_for(self, axes):
         positions = self.__dict__.pop("_unit_positions", None)
@@ -3121,11 +3215,19 @@ default: 'arc3'
         """The start and end of the arrow, ``[posA, posB]`` (None for an
         arrow along a path), as matplotlib keeps them: those in units until
         the arrow's Axes converts them."""
+        kept = _unusable.kept(self, "positions", None)
+        if kept is not None:
+            return list(kept)
         positions = self.__dict__.get("_unit_positions")
         if positions is not None:
             return list(positions)
         ends, _ = _patches.arrow_route(self._native)
-        return None if ends is None else [tuple(end) for end in ends]
+        if ends is None:
+            return None
+        given = self.__dict__.get("_given_positions")
+        if given is not None and [tuple(map(float, pos)) for pos in given] == list(ends):
+            return list(given)
+        return [tuple(end) for end in ends]
 
     @property
     def _dpi_cor(self):
@@ -3168,6 +3270,19 @@ def _place_ends_decoupled(patch):
             owner = (patch.get_figure(root=False) if need[0] == "figure"
                      else axes if axes is not None else patch.axes)
             getattr(owner, need[1])
+
+
+def _path_vertices(path):
+    """Fail as matplotlib's patch fails to draw *path*, which is no
+    `.Path`: it reads its vertices."""
+    path.vertices
+
+
+def _contains_end(patch):
+    """Fail as matplotlib's connection styles fail to clip an arrow's end
+    by *patch*, what is no patch: they ask it whether it contains the
+    end."""
+    patch.contains(SimpleNamespace(x=0., y=0.))
 
 
 def _refuse_connection_coords(coords):

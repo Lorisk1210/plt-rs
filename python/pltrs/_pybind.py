@@ -106,6 +106,64 @@ def buffer(value):
     return True
 
 
+def float_array(value):
+    """Whether pybind11 converts *value* to an array of doubles
+    (``py::array_t<double>``, as ``np.asarray(value, float)`` does)."""
+    try:
+        np.asarray(value, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+# matplotlib's own casters (``py_converters.h``, ``py_adaptors.h``,
+# ``path_converters.h``, ``_backend_agg_basic_types.h``): they take what
+# they convert, and raise their own errors for the rest.
+
+def path_iterator(path):
+    """matplotlib's ``PathIterator``: None (an empty path), else what has
+    the attributes it reads (their `AttributeError` raised)."""
+    if path is not None:
+        for name in ("vertices", "codes", "should_simplify", "simplify_threshold"):
+            getattr(path, name)
+    return True
+
+
+def trans_affine(trans):
+    """matplotlib's ``trans_affine``: None (the identity), else a 3x3 array of
+    doubles."""
+    if trans is not None and not (float_array(trans)
+                                  and np.shape(np.asarray(trans, dtype=float)) == (3, 3)):
+        raise ValueError("Invalid affine transformation matrix")
+    return True
+
+
+def rect_d(rect):
+    """matplotlib's ``rect_d``: None (an empty box), else a box's 2x2 points
+    or its four bounds."""
+    if rect is not None and not (float_array(rect)
+                                 and np.shape(np.asarray(rect, dtype=float)) in ((2, 2), (4,))):
+        raise ValueError("Invalid bounding box")
+    return True
+
+
+def snap_mode(snap):
+    """matplotlib's ``e_snap_mode``: None (automatic), else cast to a
+    ``bool``."""
+    if not boolean(snap):
+        raise cast_error(snap)
+    return True
+
+
+def sketch_params(sketch):
+    """matplotlib's ``SketchParams``: None, else cast to three doubles."""
+    if sketch is not None and not (
+            _has(sketch, "__len__") and _has(sketch, "__getitem__")
+            and len(sketch) == 3 and all(double(value) for value in sketch)):
+        raise cast_error(sketch)
+    return True
+
+
 def _instance(name):
     """The predicate of a class of the extension named *name* (its last
     component, as the signature names it)."""
@@ -128,6 +186,12 @@ ACCEPTS = {
     "collections.abc.Sequence[tuple[str, typing.SupportsInt | typing.SupportsIndex, "
     "typing.SupportsInt | typing.SupportsIndex]]": language_ranges,
     "collections.abc.Buffer": buffer,
+    "typing.Annotated[numpy.typing.ArrayLike, numpy.float64]": float_array,
+    "PathIterator": path_iterator,
+    "trans_affine": trans_affine,
+    "rect_d": rect_d,
+    "e_snap_mode": snap_mode,
+    "SketchParams": sketch_params,
 }
 
 
@@ -166,19 +230,19 @@ def _predicate(annotation):
     return lambda value: any(check(value) for check in checks)
 
 
-def _predicates(signature):
+def _predicates(signature, method):
     """The predicate of each parameter of the pybind11 *signature*, by
-    name (``self`` left out)."""
+    name (``self`` left out of a *method*'s)."""
     inside = signature[signature.index("(") + 1:signature.rindex(") ->")]
     predicates = {}
-    for parameter in _split(inside, ", ")[1:]:
+    for parameter in _split(inside, ", ")[method:]:
         name, _, annotation = parameter.partition(": ")
         if annotation:
             predicates[name] = _predicate(annotation.partition(" = ")[0])
     return predicates
 
 
-def binds(signature, **accepts):
+def binds(signature, *, method=True, **accepts):
     """
     Decorator: the method takes its arguments as the method of the
     extension of *signature* does (its text as the extension's docstring
@@ -191,8 +255,12 @@ def binds(signature, **accepts):
     whether it would (the arguments' types alone decide, not ``self``).
     *accepts* gives the predicates of parameters whose C++ type the
     signature does not tell (a ``const char *``, which takes None too).
+    A function of an extension module (not *method*) binds every
+    parameter. pybind11 converts every argument, in order, before it
+    refuses the call: a caster of matplotlib's raising its own error raises
+    it then.
     """
-    predicates = {**_predicates(signature), **accepts}
+    predicates = {**_predicates(signature, method), **accepts}
 
     def decorate(method):
         python = inspect.signature(method)
@@ -207,14 +275,14 @@ def binds(signature, **accepts):
 
         def refuses(args, kwargs):
             if not kwargs and required <= len(args) <= len(positional):
-                return any(check is not None and not check(value)
-                           for check, value in zip(positional, args))
+                return any([check is not None and not check(value)
+                            for check, value in zip(positional, args)])
             try:
                 arguments = python.bind(*args, **kwargs).arguments
             except TypeError:
                 return True
-            return any(not predicates[name](value)
-                       for name, value in arguments.items() if name in predicates)
+            return any([not predicates[name](value)
+                        for name, value in arguments.items() if name in predicates])
 
         def check(*args, **kwargs):
             if refuses(args, kwargs):

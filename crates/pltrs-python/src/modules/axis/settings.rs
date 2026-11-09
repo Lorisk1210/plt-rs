@@ -3,7 +3,9 @@
 //! the side of its ticks and offset text, its extent, and its units
 //! (matplotlib's `Axis.clear`, `isDefault_majloc`, `minorticks_on`,
 //! `set_in_layout`, `labelpad`, `set_label_coords`, `tick_top`,
-//! `get_tightbbox`, `have_units`, `update_units`, `set_units` of a zone).
+//! `get_tightbbox`, `have_units`, `update_units`, `set_units` of a zone,
+//! whether the axes follows its changes of units, and the axis' animation
+//! and image filter).
 
 use pltrs::axes::{Axes, AxisBelow, TickHelperKind};
 use pltrs::spines::SpineSide;
@@ -12,6 +14,7 @@ use pltrs::units::{Categories, DateConverter, UnitConverter};
 use super::owner::{AnyAxis, AxisOwner};
 use super::{axis, side};
 use crate::binding::prelude::*;
+use crate::modules::artist::filter::python_filter;
 use crate::modules::dates::Zone;
 use crate::modules::plotting::values::PyAxisValues;
 
@@ -167,6 +170,37 @@ fn get_in_layout(axes: Axes, name: String) -> PyResult<bool> {
 /// Includes the axis' texts in layouts, or leaves them out.
 fn set_in_layout(axes: Axes, name: String, in_layout: bool) -> PyResult<()> {
     axis(&axes, &name)?.set_in_layout(in_layout);
+    Ok(())
+}
+
+/// Animates the axis, or not: its axes leaves it out of the draws of its
+/// figure but printing (`Artist.set_animated` on an axis).
+fn set_animated(axes: Axes, name: String, animated: bool) -> PyResult<()> {
+    axis(&axes, &name)?.set_animated(animated);
+    Ok(())
+}
+
+/// Draws the axis through the Python image filter `function`, or through
+/// none (`Artist.set_agg_filter` on an axis).
+fn set_agg_filter(axes: Axes, name: String, function: Option<Callback>) -> PyResult<()> {
+    axis(&axes, &name)?.set_agg_filter(function.map(python_filter));
+    Ok(())
+}
+
+/// Whether the axes follows the axis' changes of units (recomputing its
+/// data limits and autoscaling), as matplotlib's does until the axis is
+/// cleared; a 3-D axes follows those of its axes as it converts them.
+fn follows_units(owner: AxisOwner, name: String) -> PyResult<bool> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.follows_units(),
+        AnyAxis::Deep(_) => true,
+    })
+}
+
+/// Has the axes follow the axis' changes of units, or not: matplotlib's
+/// `__init__` connects its handler after the first clear.
+fn set_follows_units(axes: Axes, name: String, follows: bool) -> PyResult<()> {
+    axis(&axes, &name)?.set_follows_units(follows);
     Ok(())
 }
 
@@ -365,6 +399,10 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_labelpad", get_labelpad)?;
     module.add("set_labelpad", set_labelpad)?;
     module.add("set_label_coords", set_label_coords)?;
+    module.add("set_animated", set_animated)?;
+    module.add("set_agg_filter", set_agg_filter)?;
+    module.add("follows_units", follows_units)?;
+    module.add("set_follows_units", set_follows_units)?;
     module.add("get_in_layout", get_in_layout)?;
     module.add("set_in_layout", set_in_layout)?;
     module.add("get_tightbbox", get_tightbbox)?;

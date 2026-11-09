@@ -682,7 +682,7 @@ mod tests {
     use crate::patches::{Circle, Rectangle, RotationPoint};
 
     #[test]
-    fn resampling_settings_read_back_and_reject_bad_radii() {
+    fn resampling_settings_read_back_and_reject_radii_at_most_zero() {
         let ax = Figure::new().subplot();
         let image = ax
             .imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
@@ -697,10 +697,15 @@ mod tests {
             image.set_filterrad(2.5).ok().map(AxesImage::filterrad),
             Some(2.5)
         );
-        for bad in [0.0, -1.0, f64::NAN] {
+        for bad in [0.0, -1.0] {
             assert!(image.set_filterrad(bad).is_err(), "{bad}");
         }
         assert_eq!(image.filterrad(), 2.5);
+        image
+            .set_filterrad(f64::NAN)
+            .expect("NaN is kept, as matplotlib's `set_filterrad` keeps it");
+        assert!(image.filterrad().is_nan());
+        image.set_filterrad(2.5).expect("a positive radius");
         assert!(!image.filternorm() && image.resample());
         assert_eq!(image.interpolation_stage(), InterpolationStage::Rgba);
     }

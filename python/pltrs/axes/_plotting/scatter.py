@@ -421,10 +421,16 @@ class ScatterMixin:
             faces = (np.asarray(colors, dtype=float).reshape(-1, 4), None)
         if edgecolors is not None and not cbook._str_equal(edgecolors, 'face'):
             edgecolors = mcolors.to_rgba_array(edgecolors)
+        given_linewidths = None
         if linewidths is not None:
-            linewidths = [float(lw) if lw is not None
-                          else _rcParams()['lines.linewidth']
-                          for lw in np.ma.getdata(np.atleast_1d(linewidths))]
+            try:
+                linewidths = [float(lw) if lw is not None
+                              else _rcParams()['lines.linewidth']
+                              for lw in np.ma.getdata(np.atleast_1d(linewidths))]
+            except (TypeError, ValueError):
+                # Widths that are no numbers: the collection keeps them
+                # (its `set_linewidth`), as matplotlib's does.
+                given_linewidths, linewidths = linewidths, None
         if alpha is not None:
             # As the collection's `set_alpha` checks it.
             _check_array_alpha(alpha)
@@ -450,5 +456,7 @@ class ScatterMixin:
             collection._array_alpha = np.asarray(alphas)
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
+        if given_linewidths is not None:
+            collection.set_linewidth(given_linewidths)
         collection._internal_update(kwargs)
         return collection

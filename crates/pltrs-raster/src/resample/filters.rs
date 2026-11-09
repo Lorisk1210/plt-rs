@@ -66,9 +66,11 @@ impl MitchellCoefficients {
 impl FilterShape {
     /// The kernel matplotlib uses for `interpolation`, or `None` for
     /// nearest-neighbour sampling. `radius` only affects the windowed sinc
-    /// family, whose radius is clamped to at least 2 as in Agg.
+    /// family, whose radius is clamped to at least 2 as in Agg; a NaN
+    /// radius (which Agg's kernel tables read out of bounds with) is that
+    /// smallest window.
     pub(super) fn for_interpolation(interpolation: Interpolation, radius: f64) -> Option<Self> {
-        let windowed = if radius < 2.0 { 2.0 } else { radius };
+        let windowed = if radius >= 2.0 { radius } else { 2.0 };
         Some(match interpolation {
             Interpolation::Nearest => return None,
             Interpolation::Bilinear => Self::Bilinear,
@@ -336,6 +338,8 @@ mod tests {
         assert_eq!(k.weight(2.5), 0.0);
         let k = FilterShape::for_interpolation(Interpolation::Sinc, 5.5).expect("filter");
         assert_eq!(k.radius(), 5.5);
+        let k = FilterShape::for_interpolation(Interpolation::Blackman, f64::NAN).expect("filter");
+        assert_eq!(k.radius(), 2.0, "a NaN radius is the smallest window");
     }
 
     #[test]

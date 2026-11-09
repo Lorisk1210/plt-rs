@@ -473,7 +473,7 @@ pub(crate) fn grid_gc(
 
 /// Runs `draw` through the image filter `filter`, if there is one (the
 /// `agg_filter` of matplotlib's `allow_rasterization`).
-fn with_agg_filter<R>(
+pub(super) fn with_agg_filter<R>(
     ctx: &mut DrawContext<'_>,
     filter: Option<&AggFilter>,
     draw: impl FnOnce(&mut DrawContext<'_>) -> R,

@@ -755,6 +755,10 @@ class Path:
             return self.make_compound_path(
                 *(p.interpolated(steps) for p in self._iter_connected_components()))
 
+        if not (isinstance(steps, Integral) and steps > 1):
+            # matplotlib's arithmetic, which fails as numpy's for a number
+            # of steps that is no count.
+            return self._interpolated_by_numpy(steps)
         if not isinstance(self.vertices, np.ndarray):
             # matplotlib interpolates the vertices as they were set, as an
             # array, which fails for those that are none (a list); pltrs
@@ -762,6 +766,26 @@ class Path:
             simple_linear_interpolation(self.vertices, steps)
         vertices, codes = _native_path.interpolated(self, steps)
         return Path(vertices, codes)
+
+    def _interpolated_by_numpy(self, steps):
+        """`interpolated` of a path of one component as matplotlib computes
+        it, with numpy."""
+        if self.codes is not None and self.CLOSEPOLY in self.codes and not np.all(
+                self.vertices[self.codes == self.CLOSEPOLY] == self.vertices[0]):
+            vertices = self.vertices.copy()
+            vertices[self.codes == self.CLOSEPOLY] = vertices[0]
+        else:
+            vertices = self.vertices
+
+        vertices = simple_linear_interpolation(vertices, steps)
+        codes = self.codes
+        if codes is not None:
+            new_codes = np.full((len(codes) - 1) * steps + 1, Path.LINETO,
+                                dtype=self.code_type)
+            new_codes[0::steps] = codes
+        else:
+            new_codes = None
+        return Path(vertices, new_codes)
 
     def to_polygons(self, transform=None, width=0, height=0, closed_only=True):
         """

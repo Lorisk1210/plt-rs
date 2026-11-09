@@ -4,7 +4,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use crate::artist::ArtistId;
+use crate::artist::{AggFilter, ArtistId};
 
 use super::axis_artists::AxisGids;
 use super::axis_label::{AxisLabel, label_font};
@@ -265,6 +265,13 @@ pub(crate) struct AxisState {
     pub(crate) label: AxisLabel,
     /// Whether ticks, tick labels, the label and the offset text are drawn.
     pub(crate) visible: bool,
+    /// Whether the axis is animated: its axes leaves it out of the draws of
+    /// its figure but printing, as matplotlib's `Axes.draw` leaves out its
+    /// animated children.
+    pub(crate) animated: bool,
+    /// The image filter the axis is drawn through (matplotlib's
+    /// `allow_rasterization` around `Axis.draw`).
+    pub(crate) agg_filter: Option<AggFilter>,
     /// Whether layouts make room for the axis' texts (matplotlib's
     /// `Axis.set_in_layout`).
     pub(crate) in_layout: bool,
@@ -287,6 +294,12 @@ pub(crate) struct AxisState {
     /// see [`super::Axis::ticks_placed`]); set while drawing, hence a
     /// cell.
     pub(crate) ticks_placed: Cell<bool>,
+    /// Whether the axes follows a change of the axis' units (recomputing
+    /// its data limits and autoscaling): matplotlib connects its
+    /// `_unit_change_handler` to the axis' callbacks once the axes is
+    /// made, and the first `Axis.clear` after that (the axes' own clear
+    /// included) disconnects it with the other callbacks.
+    pub(crate) follows_units: bool,
     /// The ends of the view interval last mapped through the scale (their
     /// bits) and where they went (see [`AxisState::scaled_ends`]).
     scaled_view: Cell<Option<([u64; 2], [f64; 2])>>,
@@ -323,6 +336,8 @@ pltrs_core::archive_struct!(AxisState {
     minor_overrides,
     label,
     visible,
+    animated,
+    agg_filter,
     in_layout,
     offset_side,
     offset_visible,
@@ -331,6 +346,7 @@ pltrs_core::archive_struct!(AxisState {
     picking,
     gids,
     ticks_placed,
+    follows_units,
     scaled_view
 } skip { program_ticked, program_view });
 
@@ -390,6 +406,8 @@ impl AxisState {
                 bbox: None,
             },
             visible: true,
+            animated: false,
+            agg_filter: None,
             in_layout: true,
             offset_side: SpineSide::of(name, false),
             offset_visible: true,
@@ -397,6 +415,7 @@ impl AxisState {
             picking: AxisPicking::default(),
             gids: AxisGids::default(),
             ticks_placed: Cell::new(false),
+            follows_units: true,
             scaled_view: Cell::new(None),
             program_ticked: None,
             program_view: false,

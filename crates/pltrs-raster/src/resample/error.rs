@@ -41,8 +41,8 @@ pub enum ResampleError {
     },
     /// `alpha` is not a finite value in `[0, 1]`.
     InvalidAlpha(f64),
-    /// `radius` is not finite and positive, or exceeds
-    /// [`MAX_FILTER_RADIUS`](super::MAX_FILTER_RADIUS).
+    /// `radius` is not positive, or exceeds
+    /// [`MAX_FILTER_RADIUS`](super::MAX_FILTER_RADIUS) (NaN is taken).
     InvalidRadius(f64),
     /// An interpolation name matplotlib's `_image` module does not know.
     UnknownInterpolation(String),

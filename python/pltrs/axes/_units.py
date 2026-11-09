@@ -7,6 +7,7 @@ only sees numbers.
 """
 
 import functools
+from numbers import Real
 
 import numpy as np
 
@@ -103,11 +104,16 @@ class UnitsMixin:
 
     def _extent_values(self, extent, kwargs=None):
         """The image extent ``[left, right, bottom, top]`` converted from
-        its units, the numbers as given (matplotlib's ``AxesImage._extent``)."""
+        its units, the numbers as given (matplotlib's ``AxesImage._extent``),
+        refused as matplotlib's ``_validate_converted_limits`` refuses
+        limits that are not finite."""
         (xmin, xmax), (ymin, ymax) = self._process_unit_info(
             [("x", [extent[0], extent[1]]), ("y", [extent[2], extent[3]])],
             kwargs)
-        return [xmin, xmax, ymin, ymax]
+        values = [xmin, xmax, ymin, ymax]
+        if any(isinstance(value, Real) and not np.isfinite(value) for value in values):
+            raise ValueError("Axis limits cannot be NaN or Inf")
+        return values
 
     def _unit_change_handler(self, axis_name):
         """

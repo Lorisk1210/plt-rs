@@ -11,17 +11,20 @@ use pltrs_core::Bbox;
 
 use super::aspect::AspectState;
 use super::axis::AutoscaleState;
+use super::state::NextData;
 use super::{Axes, AxesState, DataLimits};
 use crate::artist::{ArtistHandle, RawHandle};
 
 /// What an axes held before a plotting call: how many children and
-/// containers, its data and view limits, its autoscaling and its aspect
-/// (which `imshow` sets).
+/// containers, its data and view limits (and whether the next data
+/// replaces the data limits), its autoscaling and its aspect (which
+/// `imshow` sets).
 #[derive(Clone, Copy, Debug)]
 pub struct CallMark {
     children: usize,
     containers: usize,
     data_lim: DataLimits,
+    next_data: NextData,
     view_lim: Bbox,
     view_mutated: (bool, bool),
     autoscale: (AutoscaleState, AutoscaleState),
@@ -37,6 +40,7 @@ impl Axes {
             children: axes.children.len(),
             containers: axes.containers.len(),
             data_lim: axes.data_lim,
+            next_data: axes.next_data,
             view_lim: axes.view_lim,
             view_mutated: axes.view_mutated,
             autoscale: (axes.xaxis.autoscale, axes.yaxis.autoscale),
@@ -66,6 +70,7 @@ impl Axes {
     pub fn undo_since(&self, mark: &CallMark) -> Vec<RawHandle> {
         let since: BTreeSet<_> = self.raw().with_mut::<AxesState, _>(|axes| {
             axes.data_lim = mark.data_lim;
+            axes.next_data = mark.next_data;
             axes.view_lim = mark.view_lim;
             axes.view_mutated = mark.view_mutated;
             (axes.xaxis.autoscale, axes.yaxis.autoscale) = mark.autoscale;
@@ -96,6 +101,16 @@ mod tests {
     use crate::artist::{ArtistHandle, RawHandle};
     use crate::axes::{AxesState, BarOptions};
     use crate::figure::Figure;
+
+    #[test]
+    fn undoing_a_call_restores_whether_the_next_data_replace_the_limits() {
+        let ax = Figure::new().subplot();
+        let mark = ax.call_mark();
+        ax.plot([0.0, 1.0], [0.0, 2.0]).expect("plotted");
+        assert!(!ax.ignores_data_limits());
+        ax.undo_since(&mark);
+        assert!(ax.ignores_data_limits(), "the next data replace them again");
+    }
 
     #[test]
     fn undoing_nothing_changes_nothing() {

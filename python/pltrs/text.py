@@ -25,6 +25,7 @@ from . import _text_metrics as _text_metrics_module
 from . import _text_helpers  # noqa: F401
 from ._annotation_coords import CoordsMixin, PositionedMixin
 from ._annotation_kept import KeptMixin, annotate_arguments, warn_textcoords
+from ._artist_copying import check_copyable
 from ._native import annotation as _annotation, artist as _artist, text as _text
 from .artist import Artist
 from .font_manager import FontManager, FontProperties, fontManager  # noqa: F401
@@ -388,8 +389,10 @@ class Text(Artist):
         if rectprops is None:
             _text.set_bbox(self._native, None)
             return
-        # matplotlib copies the properties first (``rectprops.copy()``).
+        # matplotlib copies the properties first (``rectprops.copy()``),
+        # then pops the box style and pad off the copy.
         given = rectprops.copy()
+        rectprops.copy().pop("boxstyle", None)
         _check_bbox_arguments(given)
         # A colour of None is the patch's default, as matplotlib's
         # `.FancyBboxPatch` takes it.
@@ -428,6 +431,7 @@ class Text(Artist):
 
     def update_from(self, other):
         # docstring inherited
+        check_copyable(other)
         self._took_from(other, _text.update_from(self._native, other._native))
         if "_picker" in other.__dict__:
             self._picker = other._picker

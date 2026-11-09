@@ -282,6 +282,10 @@ pub enum DrawErrorKind {
     /// A matrix without inverse, such as the projection of a 3-D axes
     /// through an infinite limit (numpy's `LinAlgError`).
     Singular,
+    /// A library matplotlib draws with refusing what it is asked, such as
+    /// `FreeType` refusing a font size, which matplotlib raises as a
+    /// `RuntimeError` with the library's message.
+    Library,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,
@@ -297,7 +301,8 @@ pltrs_core::archive_enum!(DrawErrorKind {
     MissingAttribute,
     FileNotFound,
     Singular,
-    Other
+    Other,
+    Library
 });
 
 /// A problem that kept (part of) an artist from being drawn, such as an
@@ -653,6 +658,17 @@ impl<'a> DrawContext<'a> {
     /// Draws `artist` itself (see [`DrawContext::draw_unpainted`]), which
     /// then counts as drawn when it is artist `id` of the figure drawn.
     pub(super) fn draw_own(&mut self, artist: &dyn Artist, id: Option<ArtistId>) {
+        self.draw_own_filtered(artist, id, true);
+    }
+
+    /// Draws `artist` itself as [`DrawContext::draw_own`] does, through
+    /// its image filter only with `own_filter`.
+    pub(super) fn draw_own_filtered(
+        &mut self,
+        artist: &dyn Artist,
+        id: Option<ArtistId>,
+        own_filter: bool,
+    ) {
         if self.ended() {
             return;
         }
@@ -661,7 +677,7 @@ impl<'a> DrawContext<'a> {
             if !base.visible {
                 return;
             }
-            match &base.agg_filter {
+            match base.agg_filter.as_ref().filter(|_| own_filter) {
                 Some(filter) => {
                     ctx.renderer().start_filter();
                     artist.draw(ctx);

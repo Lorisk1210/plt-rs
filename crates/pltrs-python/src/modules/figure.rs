@@ -85,8 +85,9 @@ pub(in crate::modules) fn draw_error(kind: DrawErrorKind, message: &str) -> Opti
 /// `OverflowError` for an infinity rounded, a `NotImplementedError` for
 /// what matplotlib does not support yet, an `IndexError` for an index out
 /// of range, an `AttributeError` for an attribute an artist's class
-/// lacks, a `MemoryError` for memory the system refused; `None` for any
-/// other problem.
+/// lacks, a `MemoryError` for memory the system refused, a `RuntimeError`
+/// with the message of a library refusing what it is asked; `None` for
+/// any other problem.
 pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<ExceptionKind> {
     match kind {
         DrawErrorKind::InvalidValue => Some(ExceptionKind::ValueError),
@@ -97,6 +98,7 @@ pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<Exceptio
         DrawErrorKind::MissingAttribute => Some(ExceptionKind::AttributeError),
         DrawErrorKind::OutOfMemory => Some(ExceptionKind::MemoryError),
         DrawErrorKind::FileNotFound => Some(ExceptionKind::FileNotFoundError),
+        DrawErrorKind::Library => Some(ExceptionKind::RuntimeError),
         DrawErrorKind::Singular | DrawErrorKind::Other => None,
     }
 }

@@ -1,7 +1,13 @@
 """
 `Axes3D.voxels`: cubes filling the cells of a 3-D grid, drawn by pltrs
-(Rust) (``_native.mplot3d.voxels``) with matplotlib's signature.
+(Rust) (``_native.mplot3d.voxels``) with matplotlib's signature. Colours
+some voxel takes other than one of (none, several, or one that is no
+colour) go through matplotlib's own loop, which makes the voxels one by
+one and fails as the first that cannot be made fails.
 """
+
+from collections import defaultdict
+import itertools
 
 import numpy as np
 
@@ -11,25 +17,126 @@ from pltrs._native import mplot3d as _mplot3d
 from . import _properties, art3d
 
 
-def _cell_colors(color, filled, name):
-    """
-    The colour of every cell of *filled* as RGBA rows of shape
-    ``filled.shape + (4,)``: one colour for all, a 3D array of colours or a
-    4D array of RGB(A) values (matplotlib's ``_broadcast_color_arg``). Only
-    the colours of filled cells are read, as matplotlib reads them (an
-    empty cell's colour may be anything).
-    """
-    shape = filled.shape
+def _broadcast_color_arg(color, filled, name):
+    """*color* for every cell of *filled*: one colour for all, a 3D array
+    of colours or a 4D array of RGB(A) values (matplotlib's
+    ``_broadcast_color_arg``)."""
     if np.ndim(color) in (0, 1):
-        return np.broadcast_to(mcolors.to_rgba(color), shape + (4,))
+        return np.broadcast_to(color, filled.shape + np.shape(color))
     if np.ndim(color) in (3, 4):
-        if np.shape(color)[:3] != shape:
+        if np.shape(color)[:3] != filled.shape:
             raise ValueError(
                 f"When multidimensional, {name} must match the shape of filled")
-        rows = np.zeros(shape + (4,))
-        rows[filled] = mcolors.to_rgba_array(np.asarray(color)[filled])
-        return rows
+        return color
     raise ValueError(f"Invalid {name} argument")
+
+
+def _cell_colors(color, cells):
+    """
+    The colour of every cell of *cells* (a boolean array) as RGBA rows of
+    shape ``cells.shape + (4,)``, from the colour argument *color*, which
+    `_broadcast_color_arg` takes; None when some filled cell takes other
+    than exactly one colour from it, as matplotlib's ``to_rgba_array`` of
+    the cell's entry reads it. Only the colours of filled cells are read,
+    as matplotlib reads them (an empty cell's colour may be anything).
+    """
+    shape = cells.shape
+    try:
+        if np.ndim(color) in (0, 1):
+            # Every cell's entry is the argument itself, as an array entry.
+            entry = np.broadcast_to(color, (1,) + np.shape(color))[0]
+            rgba = mcolors.to_rgba_array(entry)
+            return None if len(rgba) != 1 else np.broadcast_to(rgba[0], shape + (4,))
+        values = np.asarray(color)
+        if values.ndim == 4 and (values.shape[3] not in (3, 4)
+                                 or values.dtype.kind not in "biuf"):
+            return None
+        rgba = mcolors.to_rgba_array(values[cells])
+    except (TypeError, ValueError):
+        return None
+    if rgba.shape != (np.count_nonzero(cells), 4):
+        return None
+    rows = np.zeros(shape + (4,))
+    rows[cells] = rgba
+    return rows
+
+
+def _permutation_matrices(n):
+    """Cyclic permutation matrices (matplotlib's)."""
+    mat = np.eye(n, dtype=np.intp)
+    for _ in range(n):
+        yield mat
+        mat = np.roll(mat, 1, axis=0)
+
+
+def _voxel_faces(filled):
+    """The faces of each filled cell of *filled* drawn between it and an
+    empty cell or the outside, as corner indices, keyed by cell in the
+    order matplotlib's loop finds them."""
+    size = np.array(filled.shape, dtype=np.intp)
+    # points lying on corners of a square
+    square = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+                      dtype=np.intp)
+    voxel_faces = defaultdict(list)
+    for permute in _permutation_matrices(3):
+        pc, qc, rc = permute.T.dot(size)
+        square_rot_pos = square.dot(permute.T)
+        square_rot_neg = square_rot_pos[::-1]
+        for p in np.arange(pc):
+            for q in np.arange(qc):
+                p0 = permute.dot([p, q, 0])
+                i0 = tuple(p0)
+                if filled[i0]:
+                    voxel_faces[i0].append(p0 + square_rot_neg)
+                for r1, r2 in itertools.pairwise(np.arange(rc)):
+                    p1 = permute.dot([p, q, r1])
+                    p2 = permute.dot([p, q, r2])
+                    i1, i2 = tuple(p1), tuple(p2)
+                    if filled[i1] and not filled[i2]:
+                        voxel_faces[i1].append(p2 + square_rot_pos)
+                    elif not filled[i1] and filled[i2]:
+                        voxel_faces[i2].append(p2 + square_rot_neg)
+                pk = permute.dot([p, q, rc - 1])
+                pk2 = permute.dot([p, q, rc])
+                ik = tuple(pk)
+                if filled[ik]:
+                    voxel_faces[ik].append(pk2 + square_rot_pos)
+    return voxel_faces
+
+
+def _voxels_as_matplotlib(ax, xyz, filled, colors, options, kwargs):
+    """matplotlib's voxels from its colour arguments broadcast over the
+    cells, ``colors = (facecolors, edgecolors)``, and ``options = (shade,
+    lightsource, axlim_clip)``: a `.Poly3DCollection` per voxel, in its
+    order, after the view takes in every corner."""
+    facecolors, edgecolors = colors
+    shade, lightsource, axlim_clip = options
+    coord_shape = tuple(np.array(filled.shape, dtype=np.intp) + 1)
+    if xyz is None:
+        x, y, z = np.indices(coord_shape)
+    else:
+        x, y, z = (np.broadcast_to(c, coord_shape) for c in xyz)
+    ax.auto_scale_xyz(x, y, z)
+    polygons = {}
+    for coord, faces_inds in _voxel_faces(filled).items():
+        if xyz is None:
+            faces = faces_inds
+        else:
+            faces = []
+            for face_inds in faces_inds:
+                ind = face_inds[:, 0], face_inds[:, 1], face_inds[:, 2]
+                face = np.empty(face_inds.shape)
+                face[:, 0] = x[ind]
+                face[:, 1] = y[ind]
+                face[:, 2] = z[ind]
+                faces.append(face)
+        poly = art3d.Poly3DCollection(
+            faces, facecolors=facecolors[coord], edgecolors=edgecolors[coord],
+            shade=shade, lightsource=lightsource, axlim_clip=axlim_clip,
+            **kwargs)
+        ax.add_collection3d(poly)
+        polygons[coord] = poly
+    return polygons
 
 
 class VoxelsMixin:
@@ -125,16 +232,22 @@ class VoxelsMixin:
             coord_shape = tuple(np.array(filled.shape) + 1)
             corners = tuple(np.ascontiguousarray(
                 np.broadcast_to(c, coord_shape), dtype=float) for c in xyz)
+        if facecolors is None:
+            facecolors = self._get_patches_for_fill.get_next_color()
+        broadcast = (_broadcast_color_arg(facecolors, filled, 'facecolors'),
+                     _broadcast_color_arg(edgecolors, filled, 'edgecolors'))
         cells = filled.astype(bool)
-        faces = (None if facecolors is None
-                 else _cell_colors(facecolors, cells, 'facecolors'))
-        edges = (None if edgecolors is None
-                 else _cell_colors(edgecolors, cells, 'edgecolors'))
+        faces = _cell_colors(facecolors, cells)
+        edges = None if edgecolors is None else _cell_colors(edgecolors, cells)
+        if faces is None or (edges is None and edgecolors is not None):
+            return _voxels_as_matplotlib(
+                self, xyz, filled, broadcast, (shade, lightsource, axlim_clip),
+                kwargs)
         light = art3d._native_light(lightsource)
         _properties.check_known(art3d.Poly3DCollection, kwargs)
         made = _mplot3d.voxels(
             self._native, np.ascontiguousarray(filled, dtype=bool), corners,
-            (None if faces is None else np.ascontiguousarray(faces, dtype=float),
+            (np.ascontiguousarray(faces, dtype=float),
              None if edges is None else np.ascontiguousarray(edges, dtype=float)),
             (bool(shade), light), bool(axlim_clip))
         polygons = {}

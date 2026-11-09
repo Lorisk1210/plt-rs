@@ -15,7 +15,7 @@ from pltrs.axes._plotting._helpers import axis_values, line_kwargs, wrap, wrap_a
 from pltrs.axes._plotting.errorbar import _errorevery_to_mask
 from pltrs.container import ErrorbarContainer, StemContainer
 
-from . import _draw_problems, _properties, art3d
+from . import _draw_problems, _errorbars, _properties, art3d
 
 
 def _error_bounds(err, n):
@@ -64,9 +64,9 @@ def _format_string(fmt):
 
 def _fill_regions(curves, where, mode):
     """
-    The number of polygons matplotlib's ``fill_between`` makes between the
-    *curves* ``(x1, y1, z1, x2, y2, z2)`` (broadcast together) where
-    *where* holds, raising what its arithmetic on them raises (numpy's
+    The polygons matplotlib's ``fill_between`` makes between the *curves*
+    ``(x1, y1, z1, x2, y2, z2)`` (broadcast together) where *where* holds,
+    as it makes them, raising what its arithmetic on them raises (numpy's
     ``isnan`` of values that are no numbers, joining values of no common
     type), and the fill mode it settles on for *mode*.
     """
@@ -78,23 +78,27 @@ def _fill_regions(curves, where, mode):
         np.isnan(np.column_stack(points))
         mode = ('polygon' if art3d._all_points_on_plane(*points, atol=1e-12)
                 else 'quad')
-    count = 0
+    polys = []
     for idx0, idx1 in cbook.contiguous_regions(where):
         region = [c[idx0:idx1] for c in curves]
         if not len(region[0]):
             continue
         if mode == 'quad':
-            corners = np.empty((len(region[0]) - 1, 3))
-            for part in (slice(None, -1), slice(1, None)):
-                corners[:] = np.column_stack([c[part] for c in region[:3]])
-                corners[:] = np.column_stack([c[part] for c in region[3:]])
-            count += len(corners)
+            corners = np.empty((len(region[0]) - 1, 4, 3))
+            for corner, (part, columns) in enumerate((
+                    (slice(None, -1), region[:3]), (slice(1, None), region[:3]),
+                    (slice(1, None), region[3:]), (slice(None, -1), region[3:]))):
+                corners[:, corner, :] = np.column_stack([c[part] for c in columns])
+            polys.extend(corners)
         else:
-            outline = np.concatenate((np.column_stack(region[:3]),
-                                      np.column_stack([c[::-1] for c in region[3:]])))
-            np.empty(outline.shape)[:] = outline
-            count += 1
-    return count, mode
+            outline = np.concatenate((
+                np.column_stack(region[:3]),
+                np.column_stack([c[::-1] for c in region[3:]])))
+            # matplotlib's polygons take the outline as floats.
+            face = np.empty(outline.shape)
+            face[:] = outline
+            polys.append(face)
+    return polys, mode
 
 
 def _check_shaded(colors, count):
@@ -231,10 +235,22 @@ class ChartsMixin:
             raise ValueError("'x', 'y', and 'z' must have the same size")
         n = len(x)
         everymask = _errorevery_to_mask(np.asarray(x, dtype=object), errorevery)
+        _errorbars.check_format(fmt)
+        try:
+            _errorbars.check(
+                (x, y, z), (xerr, yerr, zerr),
+                ((xlolims, ylolims, zlolims), (xuplims, yuplims, zuplims)),
+                everymask, (ecolor, capsize))
+        except Exception:
+            _errorbars.leave_data_line(self, (x, y, z), fmt, kwargs,
+                                       (barsabove, axlim_clip))
+            raise
         errors = tuple(None if err is None else _error_bounds(err, n)
                        for err in (xerr, yerr, zerr))
         lims = ((_flags(xlolims, n), _flags(ylolims, n), _flags(zlolims, n)),
                 (_flags(xuplims, n), _flags(yuplims, n), _flags(zuplims, n)))
+        (elinewidth, capthick), problems = _errorbars.drawn_widths(
+            elinewidth, capthick)
         data_line, errlines, caplines = _mplot3d.errorbar(
             self._native, (axis_values(x), axis_values(y), axis_values(z)),
             errors, (fmt, line_kwargs(kwargs)),
@@ -243,6 +259,10 @@ class ChartsMixin:
         data_line = wrap(self, data_line, art3d.Line3D)
         errlines = wrap_all(self, errlines, art3d.Line3DCollection)
         caplines = wrap_all(self, caplines, art3d.Line3D)
+        for artists, problem in zip((errlines, caplines), problems):
+            if problem is not None:
+                for artist in artists:
+                    _draw_problems.record(artist, problem)
         self.containers.append(ErrorbarContainer(
             (data_line, tuple(caplines), tuple(errlines)),
             has_xerr=(xerr is not None or yerr is not None),
@@ -471,9 +491,14 @@ class ChartsMixin:
             if where.size != x1.size:
                 raise ValueError(f"where size ({where.size}) does not match "
                                  f"size ({x1.size})")
-        count, settled = _fill_regions((x1, y1, z1, x2, y2, z2), where, mode)
-        if faces is not None and (settled == 'quad' if shade is None else shade):
-            _check_shaded(faces, count)
+        polys, settled = _fill_regions((x1, y1, z1, x2, y2, z2), where, mode)
+        if settled == 'quad' if shade is None else shade:
+            if any(np.isinf(poly).any() for poly in polys):
+                # matplotlib's normals of the faces, whose arithmetic on
+                # infinite corners warns.
+                art3d._generate_normals(polys)
+            if faces is not None:
+                _check_shaded(faces, len(polys))
         if where is not None:
             where = np.broadcast_to(where, x1.shape).ravel().tolist()
         # Shading applies to the face colours, and to edge colours given as

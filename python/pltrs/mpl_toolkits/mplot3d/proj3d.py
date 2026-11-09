@@ -112,10 +112,11 @@ def _vec_pad_ones(xs, ys, zs):
 
 def _native_takes(vec, M):
     """Whether pltrs (Rust) projects the padded points *vec* through *M*:
-    numbers through a 4 x 4 matrix of numbers, neither masked."""
+    numbers through a 4 x 4 matrix of numbers, neither masked, the points
+    finite (numpy's product warns on infinite ones)."""
     return (not np.ma.isMA(vec) and not np.ma.isMA(M) and np.shape(M) == (4, 4)
             and np.asarray(M).dtype.kind in "biuf" and vec.dtype.kind in "biuf"
-            and vec.ndim <= 2)
+            and vec.ndim <= 2 and not np.isinf(vec).any())
 
 
 def _native_rows(vec, M, through):

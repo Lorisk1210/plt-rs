@@ -6,6 +6,7 @@ use std::rc::Rc;
 use super::axis::Tickers;
 use super::{Axes, AxesState, AxisName, ProjectionKind, TitlePlacement};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
+use crate::axes_grid1::parasites_of;
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
 use crate::scale::LinearScale;
@@ -17,11 +18,13 @@ impl AxesState {
     /// fresh axes under `rc` that keeps the identity, placement, aspect,
     /// sharing, background colour, frame, navigation and status-bar
     /// formatters of `self`, the options of its projection, the
-    /// visibility of shared axes, and titles the program places, unless
-    /// `rc` fixes their height. Its data limits stay too, as matplotlib's
-    /// `dataLim` does, for the next data to replace (autoscaling and a
-    /// data-limited aspect read them meanwhile).
-    fn cleared(&self, rc: Rc<RcParams>) -> Self {
+    /// visibility of shared axes, titles the program places, unless `rc`
+    /// fixes their height, the `parasites` it hosts, and what makes it a
+    /// parasite (matplotlib's host and parasite `clear` keep them). Its
+    /// data limits stay too, as matplotlib's `dataLim` does, for the next
+    /// data to replace (autoscaling and a data-limited aspect read them
+    /// meanwhile).
+    fn cleared(&self, rc: Rc<RcParams>, parasites: &[ArtistId]) -> Self {
         let mut fresh = Self::new(self.position, rc);
         *fresh.base_mut() = self.base().clone();
         fresh.data_lim = self.data_lim;
@@ -34,9 +37,13 @@ impl AxesState {
         fresh.home = self.home;
         fresh.shares = self.shares;
         fresh.secondary.clone_from(&self.secondary);
+        fresh.parasite = self.parasite;
+        fresh.aux_transform.clone_from(&self.aux_transform);
         fresh.spines.clone_from(&self.spines);
         fresh.titles.clone_from(&self.titles);
-        fresh.children = self.spines.iter().chain(&self.titles).copied().collect();
+        fresh.children = (self.spines.iter().chain(&self.titles).chain(parasites))
+            .copied()
+            .collect();
         fresh.navigate = self.navigate;
         fresh.forward_navigation = self.forward_navigation;
         fresh.fmt_data.clone_from(&self.fmt_data);
@@ -79,13 +86,17 @@ impl FigureState {
     /// Removes the artists of axes `id` and resets it (matplotlib's
     /// `Axes.__clear`): the titles start empty, the spines at the edges,
     /// the shared axes' scales linear, and shared axes take their
-    /// partners' limits again.
+    /// partners' limits again. The parasites of a host stay and are
+    /// cleared in turn, and a parasite's decorations stay hidden
+    /// (matplotlib's `HostAxesBase.clear` and `ParasiteAxesBase.clear`).
     pub(crate) fn clear_axes(&mut self, id: ArtistId) {
         let rc = crate::rc::params();
+        let parasites = parasites_of(self, id);
         let Some(old) = self.artist_as::<AxesState>(id) else {
             return;
         };
-        let fresh = old.cleared(Rc::clone(&rc));
+        let fresh = old.cleared(Rc::clone(&rc), &parasites);
+        let parasite = fresh.parasite.is_some();
         let doomed: Vec<ArtistId> = old
             .children
             .iter()
@@ -134,6 +145,12 @@ impl FigureState {
                 None => self.set_axis_limits(id, name, (0.0, 1.0), Some(true), true),
             }
         }
+        if parasite {
+            self.hide_parasite_decorations(id);
+        }
+        for parasite in parasites {
+            self.clear_axes(parasite);
+        }
         self.stale = true;
         self.layout.pending = true;
     }
@@ -170,13 +187,23 @@ impl Axes {
     /// scales, tickers, grids and the property cycle start over; the
     /// position, aspect, sharing, background colour and frame are kept,
     /// and polar, geographic and custom axes stay so (a custom projection
-    /// sets the axes up again). The limit callbacks of the axes are
+    /// sets the axes up again). The parasites of a host stay, cleared.
+    /// The limit callbacks of the axes and its parasites are
     /// disconnected; those of the axes sharing its limits see them reset.
     pub fn clear(&self) -> &Self {
         let polar = self.projection() == ProjectionKind::Polar;
         let custom = self.take_custom_projection();
         let figure = self.raw().figure_state();
-        let disconnected = figure.borrow_mut().limit_callbacks.take_axes(self.id());
+        let disconnected: Vec<_> = {
+            let mut state = figure.borrow_mut();
+            let owners: Vec<ArtistId> = std::iter::once(self.id())
+                .chain(parasites_of(&*state, self.id()))
+                .collect();
+            owners
+                .into_iter()
+                .flat_map(|owner| state.limit_callbacks.take_axes(owner))
+                .collect()
+        };
         figure.borrow_mut().clear_axes(self.id());
         // Dropped once the figure is free: a callback may own handles whose
         // drop uses it.

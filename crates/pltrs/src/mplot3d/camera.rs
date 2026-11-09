@@ -6,7 +6,7 @@ use super::coords::{Axis3, roll};
 use super::error::Axes3DError;
 use super::math::{
     Batch, Matrix4, Vec3, add, ortho_transformation, persp_transformation, scaled, view_axes,
-    view_transformation, world_transformation,
+    view_transformation, warn_world_transformation, world_transformation,
 };
 use super::scaling::AxisScale;
 
@@ -276,6 +276,13 @@ impl Camera {
     /// Undoes [`Camera::vertical_order`].
     fn storage_order(&self, a: Vec3) -> Vec3 {
         roll(a, 2 - self.vertical.index() as isize)
+    }
+
+    /// Issues the runtime warnings numpy issues where matplotlib's
+    /// `get_proj` computes the projection for `limits` (see
+    /// [`Camera::projection`]).
+    pub(crate) fn warn_projection(&self, limits: [f64; 6]) {
+        warn_world_transformation(limits, self.box_aspect());
     }
 
     /// The projection for the axis limits `[xmin, xmax, ymin, ymax, zmin,

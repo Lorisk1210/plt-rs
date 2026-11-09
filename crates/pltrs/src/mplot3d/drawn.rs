@@ -42,6 +42,7 @@ impl Axes3DState {
     /// the inverse of the last draw; a view `get_proj` fails on leaves
     /// both).
     fn keep_projection(&mut self) {
+        self.camera.warn_projection(self.scaled_limits());
         if self.failures.of_view().is_some() {
             return;
         }

@@ -14,7 +14,7 @@ from numbers import Real
 
 import numpy as np
 
-from pltrs import _api, _mirrors, _values, axis as maxis, colors as mcolors
+from pltrs import _api, _mirrors, _values, artist, axis as maxis, colors as mcolors
 from pltrs import collections as mcoll, lines as mlines, patches as mpatches
 from pltrs._native import artist as _artist, mplot3d as _mplot3d
 
@@ -302,6 +302,7 @@ class Axis(maxis.XAxis):
             gridlines.set_figure(self.axes.get_figure(root=True))
         return gridlines
 
+    @artist.allow_rasterization
     def draw_grid(self, renderer):
         if not _mplot3d.get_grid(self.axes._native):
             return
@@ -558,5 +559,5 @@ class ZAxis(Axis):
 import inspect  # noqa: E402, F401
 import pltrs as mpl  # noqa: E402, F401
 from dataclasses import dataclass  # noqa: E402, F401
-from pltrs import artist, text as mtext, transforms as mtransforms  # noqa: E402, F401
+from pltrs import text as mtext, transforms as mtransforms  # noqa: E402, F401
 from pltrs.mpl_toolkits.mplot3d import proj3d  # noqa: E402, F401

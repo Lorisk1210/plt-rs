@@ -211,8 +211,10 @@ class _AutoStyle:
 
     def _follows_color(self, setting):
         """Whether the marker colour *setting* is the line colour, while
-        that is ``"auto"``."""
-        return self._auto_color and cbook._str_lower_equal(
+        that is ``"auto"`` (not while the line keeps one pltrs (Rust)
+        cannot hold, see `.Line2D`)."""
+        kept = _unusable.kept(self, setting.removesuffix("_setting"), None)
+        return kept is None and self._auto_color and cbook._str_lower_equal(
             self._get(setting), "auto")
 
     def get_markeredgecolor(self):
@@ -271,6 +273,24 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         return self._axis.majorTicks[0].tick1line
 
     update_from = _named.named("Line2D.update_from", _DrawnOnItsOwn.update_from)
+
+    def set_visible(self, b):
+        # docstring inherited
+        Line2D.set_visible(self, b)
+        _unchecked_parts.visibility(self, b)
+
+    # The marks' draw reads the edge colour of the line alone: no marker,
+    # face colour, dashes or marker sampling it keeps fails it.
+
+    def _draw_marker_color(self, name, color):
+        if name == "markeredgecolor":
+            mcolors.to_rgba(color)
+
+    def _draw_markevery(self, every):
+        pass
+
+    def _draw_dashes(self, dashes):
+        pass
 
     def set_color(self, color):
         # docstring inherited
@@ -391,7 +411,8 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         following the reference artist."""
         color = _AutoStyle.get_markeredgecolor(self)
         width = _AutoStyle.get_markeredgewidth(self)
-        return (None if cbook._str_equal(color, "auto") else color,
+        # A colour kept unchecked (see `.Line2D`) fails their draw instead.
+        return (color if mcolors.is_color_like(color) else None,
                 None if cbook._str_equal(width, "auto") else float(width))
 
     def _native_ticksize(self, owner):
@@ -1458,7 +1479,10 @@ class AxisArtist(martist.Artist):
 
     def _check_parts(self, _kept):
         """Fail as matplotlib's draw of the axis artist fails on its parts
-        (see `._unchecked_parts`): it draws each one shown."""
+        (see `._unchecked_parts`): it pads the tick labels by the major
+        ticks, then draws each part shown."""
+        if "major_ticks" in self.__dict__:
+            _unchecked_parts.tick_label_pad(self)
         for part in self._parts():
             if part.get_visible():
                 _unusable.check(part)

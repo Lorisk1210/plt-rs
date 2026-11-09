@@ -270,6 +270,44 @@ pub fn world_transformation(limits: [f64; 6], aspect: Vec3) -> Matrix4 {
     ])
 }
 
+/// Issues the runtime warnings numpy's scalar arithmetic issues where
+/// matplotlib computes [`world_transformation`] of `limits` and `aspect`
+/// (`get_proj`), on infinite or equal limits, in its order.
+pub(crate) fn warn_world_transformation(limits: [f64; 6], aspect: Vec3) {
+    let [xmin, xmax, ymin, ymax, zmin, zmax] = limits;
+    let spans = [(xmin, xmax), (ymin, ymax), (zmin, zmax)].map(|(lo, hi)| scalar_subtract(hi, lo));
+    let deltas = [0, 1, 2].map(|i| scalar_divide(spans[i], aspect[i]));
+    for (min, delta) in [xmin, ymin, zmin].into_iter().zip(deltas) {
+        scalar_divide(1.0, delta);
+        scalar_divide(-min, delta);
+    }
+}
+
+/// numpy's subtraction of float64 scalars, warning as numpy does when it
+/// makes no number of numbers (`inf - inf`).
+fn scalar_subtract(a: f64, b: f64) -> f64 {
+    let difference = a - b;
+    if difference.is_nan() && !a.is_nan() && !b.is_nan() {
+        crate::warnings::warn_runtime("invalid value encountered in scalar subtract");
+    }
+    difference
+}
+
+/// numpy's division of float64 scalars, warning as numpy does when it
+/// divides a finite number other than zero by zero, or makes no number of
+/// numbers (`0 / 0`, `inf / inf`).
+fn scalar_divide(a: f64, b: f64) -> f64 {
+    let quotient = a / b;
+    if !a.is_nan() && !b.is_nan() {
+        if quotient.is_nan() {
+            crate::warnings::warn_runtime("invalid value encountered in scalar divide");
+        } else if b == 0.0 && a.is_finite() {
+            crate::warnings::warn_runtime("divide by zero encountered in scalar divide");
+        }
+    }
+    quotient
+}
+
 /// The rotation by `angle` radians about the direction `v`
 /// (matplotlib's `_rotation_about_vector`).
 fn rotation_about_vector(v: Vec3, angle: f64) -> [Vec3; 3] {
@@ -394,6 +432,36 @@ mod tests {
 
     fn close(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-12
+    }
+
+    #[test]
+    fn the_world_transformation_warns_as_numpy_on_infinite_and_equal_limits() {
+        let seen = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let sink = std::rc::Rc::clone(&seen);
+        crate::warnings::set_runtime_handler(move |m| sink.borrow_mut().push(m.to_owned()));
+        let aspect = [4.0, 4.0, 3.0];
+        warn_world_transformation([0.0, 1.0, 0.0, 1.0, 0.0, 1.0], aspect);
+        assert!(seen.borrow().is_empty());
+        warn_world_transformation([f64::INFINITY, -0.5, 0.0, 1.0, f64::NAN, 1.0], aspect);
+        assert_eq!(
+            *seen.borrow(),
+            ["invalid value encountered in scalar divide"]
+        );
+        seen.borrow_mut().clear();
+        warn_world_transformation([f64::INFINITY, f64::INFINITY, 2.0, 2.0, 0.0, 0.0], aspect);
+        crate::warnings::clear_runtime_handler();
+        let invalid = "invalid value encountered in scalar ";
+        let by_zero = "divide by zero encountered in scalar divide";
+        assert_eq!(
+            *seen.borrow(),
+            [
+                format!("{invalid}subtract"),
+                by_zero.to_owned(),
+                by_zero.to_owned(),
+                by_zero.to_owned(),
+                format!("{invalid}divide"),
+            ]
+        );
     }
 
     #[test]

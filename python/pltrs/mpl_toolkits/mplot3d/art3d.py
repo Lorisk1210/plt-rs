@@ -8,6 +8,8 @@ plus a 3-D geometry, which pltrs (Rust) keeps and projects at every draw:
 the classes here read and replace that geometry.
 """
 
+from numbers import Real
+
 import numpy as np
 
 from pltrs import _api, _values, cbook, collections as mcoll, colors as mcolors, lines
@@ -82,9 +84,65 @@ def _all_points_on_plane(xs, ys, zs, atol=1e-8):
     atol : float, default: 1e-8
         The tolerance for the equality check.
     """
-    columns = tuple(np.asarray(c, dtype=float).ravel().tolist()
-                    for c in (xs, ys, zs))
-    return _mplot3d.all_points_on_plane(columns, float(atol))
+    columns = tuple(np.asarray(c, dtype=float).ravel() for c in (xs, ys, zs))
+    if any(np.isinf(c).any() for c in columns):
+        # matplotlib's numpy arithmetic, which warns on infinite points.
+        return _points_on_plane_with_numpy(*columns, atol)
+    return _mplot3d.all_points_on_plane(tuple(c.tolist() for c in columns),
+                                        float(atol))
+
+
+def _points_on_plane_with_numpy(xs, ys, zs, atol):
+    """`_all_points_on_plane` as matplotlib computes it."""
+    points = np.column_stack([xs, ys, zs])
+    points = points[~np.isnan(points).any(axis=1)]
+    # Check for the case where we have less than 3 unique points
+    points = np.unique(points, axis=0)
+    if len(points) <= 3:
+        return True
+    # Calculate the vectors from the first point to all other points
+    vs = (points - points[0])[1:]
+    vs = vs / np.linalg.norm(vs, axis=1)[:, np.newaxis]
+    # Filter out parallel vectors
+    vs = np.unique(vs, axis=0)
+    if len(vs) <= 2:
+        return True
+    # Filter out parallel and antiparallel vectors to the first vector
+    cross_norms = np.linalg.norm(np.cross(vs[0], vs[1:]), axis=1)
+    zero_cross_norms = np.where(np.isclose(cross_norms, 0, atol=atol))[0] + 1
+    vs = np.delete(vs, zero_cross_norms, axis=0)
+    if len(vs) <= 2:
+        return True
+    # Calculate the normal vector from the first three points
+    n = np.cross(vs[0], vs[1])
+    n = n / np.linalg.norm(n)
+    # If the dot product of the normal vector and all other vectors is zero,
+    # all points are on the same plane
+    dots = np.dot(n, vs.transpose())
+    return np.allclose(dots, 0, atol=atol)
+
+
+def _generate_normals(polygons):
+    """
+    The normal of each polygon of *polygons* from three of its vertices
+    spread around it (matplotlib's numpy arithmetic, which pltrs (Rust)
+    shades faces with; run for its warnings on infinite vertices).
+    """
+    if isinstance(polygons, np.ndarray):
+        n = polygons.shape[-2]
+        i1, i2, i3 = 0, n//3, 2*n//3
+        v1 = polygons[..., i1, :] - polygons[..., i2, :]
+        v2 = polygons[..., i2, :] - polygons[..., i3, :]
+    else:
+        v1 = np.empty((len(polygons), 3))
+        v2 = np.empty((len(polygons), 3))
+        for poly_i, ps in enumerate(polygons):
+            n = len(ps)
+            ps = np.asarray(ps)
+            i1, i2, i3 = 0, n//3, 2*n//3
+            v1[poly_i, :] = ps[i1, :] - ps[i2, :]
+            v2[poly_i, :] = ps[i2, :] - ps[i3, :]
+    return np.cross(v1, v2)
 
 
 def juggle_axes(xs, ys, zs, zdir):
@@ -222,6 +280,11 @@ def _faces_3d(verts):
     refuses to put points of another dimension into matplotlib's array of
     faces.
     """
+    if not isinstance(verts, np.ndarray):
+        # matplotlib counts the faces and the points of each first.
+        len(verts)
+        for vert in verts:
+            len(vert)
     faces = [np.asarray(vert, dtype=float) for vert in verts]
     for face in faces:
         if face.ndim == 2 and face.shape[1] != 3:
@@ -281,10 +344,14 @@ class Line3D(lines.Line2D):
             _mplot3d.line_2d_to_3d(axes._native, self._native,
                                    self.__dict__.pop('_pending3d'),
                                    bool(self._axlim_clip))
-            unprojectable = self.__dict__.get('_unprojectable')
-            if unprojectable is not None:
-                _draw_problems.record(
-                    self, _draw_problems.line_problem(self, unprojectable))
+            data = self.__dict__.get('_unprojectable')
+            if data is None and not all(
+                    np.asarray(c).dtype.kind in "biuf" for c in self.get_data_3d()):
+                # Data given before the line had axes to project in (dates,
+                # say), which matplotlib's draw projects as given.
+                data = self.get_data_3d()
+            if data is not None:
+                _draw_problems.record(self, _draw_problems.line_problem(self, data))
         return self
 
     @property
@@ -1193,7 +1260,10 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         self._refresh_colors(False, True)
 
     def set_alpha(self, alpha):
-        # docstring inherited
+        # docstring inherited; matplotlib's checks the value as an
+        # `.Artist`'s, whose message names its type.
+        if alpha is not None and not isinstance(alpha, Real):
+            raise TypeError(f'alpha must be numeric or None, not {type(alpha)}')
         super().set_alpha(alpha)
         self._refresh_colors(True, False)
 
@@ -1260,6 +1330,15 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         """Set 3D vertices with path codes."""
         faces = _faces_3d(verts)
         axes = _axes3d(self)
+        if codes is None or not len(codes) or len(codes) < len(faces):
+            # matplotlib keeps the codes unchecked: its projection draws
+            # without none, and fails indexing too few by face.
+            self._set_faces(faces, False)
+            self._codes3d = codes
+            if axes is not None:
+                _draw_problems.record(self, _draw_problems.codes_problem(codes, len(faces)))
+            return
+        codes = codes[:len(faces)]
         if axes is None:
             self._verts3d_pending = faces
             self._faces3d = faces

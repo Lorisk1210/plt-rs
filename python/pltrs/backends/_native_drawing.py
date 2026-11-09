@@ -22,7 +22,7 @@ from contextlib import contextmanager
 
 import numpy as np
 
-from .. import _python_drawing, colors as mcolors
+from .. import _artist_effects, _python_drawing, colors as mcolors
 from ..backend_bases import RendererBase
 from .._native import backends as _drawing_pages, drawing as _drawing
 from ..font_manager import FontManager
@@ -258,7 +258,8 @@ class NativeDrawingMixin:
             _python_drawing.draw_through(self, artist)
             return
         with self._target() as drawing:
-            _drawing.draw_artist(drawing, artist._native)
+            _drawing.draw_artist(drawing, artist._native,
+                                 _artist_effects.filter_applied(artist))
 
     def _draw_cell(self, cell):
         """Draw the table `.Cell` *cell* alone, as pltrs (Rust) draws it

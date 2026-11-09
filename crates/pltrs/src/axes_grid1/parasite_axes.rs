@@ -331,20 +331,33 @@ impl HostAxes {
         let axes = insert_axes(figure, self.axes.id(), Bbox::UNIT, None);
         let mut state = figure.borrow_mut();
         state.current_axes = current;
-        let decorations = state
-            .artist_as_mut::<AxesState>(axes.id())
+        if let Some(parasite) = state.artist_as_mut::<AxesState>(axes.id()) {
+            parasite.parasite = Some(Parasite {
+                host: self.axes.id(),
+                link,
+                view_map,
+                twin,
+                position,
+            });
+            if let ParasiteLink::Transform(aux) = link {
+                parasite.aux_transform = Some(ResolvedTransform::affine(aux));
+            }
+            parasite.decorations.frame_on = false;
+        }
+        state.hide_parasite_decorations(axes.id());
+        drop(state);
+        ParasiteAxes { axes }
+    }
+}
+
+impl FigureState {
+    /// Hides the background, axes, spines and titles of the parasite
+    /// `axes`, which its host never draws (matplotlib's
+    /// `ParasiteAxesBase.clear` hides all its children).
+    pub(crate) fn hide_parasite_decorations(&mut self, axes: ArtistId) {
+        let decorations = self
+            .artist_as_mut::<AxesState>(axes)
             .map(|parasite| {
-                parasite.parasite = Some(Parasite {
-                    host: self.axes.id(),
-                    link,
-                    view_map,
-                    twin,
-                    position,
-                });
-                if let ParasiteLink::Transform(aux) = link {
-                    parasite.aux_transform = Some(ResolvedTransform::affine(aux));
-                }
-                parasite.decorations.frame_on = false;
                 parasite.patch.visible = false;
                 parasite.xaxis.visible = false;
                 parasite.yaxis.visible = false;
@@ -357,12 +370,10 @@ impl HostAxes {
             })
             .unwrap_or_default();
         for id in decorations {
-            if let Some(artist) = state.artist_mut(id) {
+            if let Some(artist) = self.artist_mut(id) {
                 artist.base_mut().visible = false;
             }
         }
-        drop(state);
-        ParasiteAxes { axes }
     }
 }
 
@@ -589,6 +600,31 @@ mod tests {
         assert_eq!(par.xlim(), (0.0, 5.0), "the x axis is shared");
         assert_eq!(fig.axes(), [host.axes().clone()]);
         assert_eq!(fig.gca(), *host.axes());
+    }
+
+    #[test]
+    fn clearing_keeps_the_parasites_cleared() {
+        // matplotlib's `HostAxesBase.clear` clears the parasites it keeps,
+        // and a cleared parasite stays one, its decorations hidden.
+        let fig = Figure::new();
+        let host = host_subplot(&fig, 1, 1, 1).unwrap();
+        let par = host.twinx();
+        par.plot([0.0, 1.0], [2.0, 3.0]).expect("finite data");
+        assert!(host.child_axes().is_empty(), "parasites are no child axes");
+        host.cla();
+        assert_eq!(host.parasites(), std::slice::from_ref(&par));
+        assert_eq!(par.lines().len(), 0, "the parasite is cleared");
+        assert!(!par.spines().right.visible() && !par.yaxis().visible());
+        host.set_xlim(0.0, 5.0).expect("finite limits");
+        assert_eq!(par.xlim(), (0.0, 5.0), "the x axis is still shared");
+        let aux = host.aux_axes(ParasiteLink::Equal).unwrap();
+        aux.cla();
+        assert!(ParasiteAxes::of(&aux).is_some());
+        assert_eq!(host.parasites().len(), 2);
+        assert!(!aux.spines().left.visible() && !aux.xaxis().visible());
+        host.set_ylim(-1.0, 1.0).expect("finite limits");
+        fig.layout();
+        assert_eq!(aux.ylim(), (-1.0, 1.0), "its limits still follow");
     }
 
     #[test]

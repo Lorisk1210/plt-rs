@@ -492,6 +492,14 @@ impl AxisState {
         self.scale = scale;
     }
 
+    /// Has the scale's transform map nothing, the scale kept (matplotlib's
+    /// `transScale` made anew as an identity by `set_figure`), until the
+    /// scale is set again.
+    pub(crate) fn unmap_scale(&mut self) {
+        self.map = None;
+        self.scaled_view.set(None);
+    }
+
     /// The tick helpers, to share with another axis.
     pub(crate) fn tickers(&self) -> Tickers {
         Tickers {

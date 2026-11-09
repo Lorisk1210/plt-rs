@@ -13,7 +13,10 @@ that way, and stop drawing each artist taken out of it.
 `Figure.artists` and `Figure.texts` list what pltrs (Rust) draws on the
 figure itself, the artists `~.Figure.add_artist` and `~.Figure.text`
 added included; `Figure.lines` and `Figure.patches` the artists put in
-them.
+them. `Figure.legends` lists the legends pltrs (Rust) draws on the
+figure: a legend made for it (``Legend(fig, ...)``) is drawn once it is
+put in the list, as `~.Figure.legend` and libraries building legends
+themselves (seaborn) put it there.
 """
 
 from .transforms import IdentityTransform
@@ -88,6 +91,21 @@ class DrawnList(list):
         old = list(self)
         super().clear()
         self._take(old)
+
+
+class LegendList(DrawnList):
+    """The legends *figure* draws (matplotlib's ``Figure.legends``): a
+    legend made for the figure and put in the list is drawn, one taken out
+    no longer."""
+
+    def _put(self, legends):
+        """Have the figure draw *legends*, those it does not draw yet as
+        they were made for it; return them."""
+        legends = list(legends)
+        for legend in legends:
+            if legend not in self:
+                legend._add_to_figure(self._figure, False)
+        return legends
 
 
 def replace(current, artists):

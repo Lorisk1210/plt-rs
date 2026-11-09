@@ -31,6 +31,7 @@
 
 mod artist;
 mod best;
+mod box_offset;
 mod build;
 mod drag;
 pub(crate) use drag::reconnect_drag;
@@ -260,6 +261,7 @@ impl Legend {
             legend.location = placement.location;
             legend.loc_used_default = used_default;
             legend.outside = placement.outside;
+            legend.box_offset = None;
         });
         Ok(self)
     }

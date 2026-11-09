@@ -1,10 +1,10 @@
-//! Where a legend is anchored and how it is dragged (matplotlib's
-//! `Legend.get_bbox_to_anchor`, `set_bbox_to_anchor`, `set_draggable` and
-//! `DraggableLegend`).
+//! Where a legend is anchored and where its box is placed (matplotlib's
+//! `Legend.get_bbox_to_anchor`, `set_bbox_to_anchor`, `_findoffset` and
+//! `_legend_box.set_offset`, which `DraggableLegend` drags it with).
 
-use pltrs::legend::{Legend, LegendDragUpdate};
+use pltrs::legend::Legend;
 use pltrs::offsetbox::BboxToAnchor;
-use pltrs::transforms::Transform;
+use pltrs::transforms::{Point, Transform};
 
 use crate::binding::prelude::*;
 
@@ -35,25 +35,31 @@ fn set_bbox_to_anchor(
     Ok(())
 }
 
-/// Makes the legend draggable or not, its drag changing its `"loc"` or its
-/// `"bbox"` (to anchor).
-fn set_draggable(legend: Legend, draggable: bool, update: String) -> PyResult<()> {
-    let update = match update.as_str() {
-        "loc" => LegendDragUpdate::Loc,
-        "bbox" => LegendDragUpdate::Bbox,
-        other => {
-            return Err(PyErr::value_error(format!(
-                "{other:?} is not a valid value for update; supported values are 'loc', 'bbox'"
-            )));
-        }
-    };
-    legend.set_draggable_by(draggable, update);
+/// Pins the origin of the legend box at the display point `offset`, or
+/// places the legend at its location again with `None` (matplotlib's
+/// `_legend_box.set_offset`).
+fn set_box_offset(legend: Legend, offset: Option<(f64, f64)>) -> PyResult<()> {
+    legend.set_box_offset(offset.map(|(x, y)| Point::new(x, y)));
     Ok(())
+}
+
+/// The display point the origin of the legend box is pinned at, if any.
+fn box_offset(legend: Legend) -> PyResult<Option<(f64, f64)>> {
+    Ok(legend.box_offset().map(|point| (point.x, point.y)))
+}
+
+/// Where the location of the legend puts the origin of its box now
+/// (matplotlib's `_findoffset`), `None` for a legend its figure does not
+/// lay out.
+fn located_box_offset(legend: Legend) -> PyResult<Option<(f64, f64)>> {
+    Ok(legend.located_box_offset().map(|point| (point.x, point.y)))
 }
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_bbox_to_anchor", get_bbox_to_anchor)?;
     module.add("set_bbox_to_anchor", set_bbox_to_anchor)?;
-    module.add("set_draggable", set_draggable)
+    module.add("set_box_offset", set_box_offset)?;
+    module.add("box_offset", box_offset)?;
+    module.add("located_box_offset", located_box_offset)
 }

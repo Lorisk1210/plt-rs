@@ -183,9 +183,11 @@ fn mesh_on(
     })
 }
 
-/// `{"faces", "edges"}` of a collection.
+/// `{"faces", "edges"}` of a collection after `update_scalarmappable`,
+/// as `get_facecolor` and `get_edgecolor` report them then (the update
+/// decides the default edges anew).
 fn faces_and_edges(collection: &Collection) -> Result<Json, ProbeError> {
-    let resolved = made(collection.colors())?;
+    let resolved = made(collection.update_scalarmappable().reported_colors())?;
     Ok(object([
         ("faces", colors(resolved.faces)),
         ("edges", colors(resolved.edges)),

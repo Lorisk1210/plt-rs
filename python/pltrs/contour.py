@@ -1130,6 +1130,12 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             self._mapped_at_draw = _artist.draw_count(self._native)
         super(mcoll.Collection, self).changed()
 
+    def _mapping_changed(self):
+        # docstring inherited: `changed` hands pltrs (Rust) the mapping of
+        # the contour set itself (``_contour.set_mapping``), the explicit
+        # colours' `.NoNorm` included, not that of a plain collection.
+        pass
+
     alpha = property(lambda self: self.get_alpha())
     linestyles = property(lambda self: self.__dict__.get("_orig_linestyles"))
 

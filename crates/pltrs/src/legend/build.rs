@@ -162,6 +162,7 @@ pub(crate) fn build(
         outside: placement.outside,
         mode: options.mode,
         anchor: anchor(options, parent),
+        box_offset: None,
         legend_box: legend_box(inserted.boxes, title_box, ncols, options, &settings),
         alignment: options.alignment,
         settings,

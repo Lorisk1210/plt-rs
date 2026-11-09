@@ -107,6 +107,10 @@ pub(crate) struct LegendArtist {
     pub(crate) mode: LegendMode,
     /// `bbox_to_anchor` in the coordinates of its transform.
     pub(crate) anchor: Option<(Bbox, Transform)>,
+    /// The display point the origin of the legend box is pinned at
+    /// instead of where its location puts it (matplotlib's
+    /// `_legend_box.set_offset((x, y))`), until the location is set again.
+    pub(crate) box_offset: Option<Point>,
     /// The title and the columns of entries (matplotlib's `_legend_box`);
     /// the title is the first child.
     pub(crate) legend_box: OffsetBox<HandleRef>,
@@ -154,6 +158,7 @@ pltrs_core::archive_struct!(LegendArtist {
     outside,
     mode,
     anchor,
+    box_offset,
     legend_box,
     alignment,
     frame,

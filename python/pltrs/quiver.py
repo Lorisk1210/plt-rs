@@ -211,15 +211,17 @@ class QuiverKey(martist.Artist):
         usable_coords = (isinstance(coordinates, str)
                          and coordinates in _QUIVERKEY_COORDINATES)
         usable_color = color is None or mcolors.is_color_like(color)
+        # The Axes the quiver is on, or was made for before it is added.
+        made_for = Q.axes or Q._made_for
         native = _plotting.quiverkey(
-            Q.axes._native, Q._native, (float(X), float(Y)), float(U), str(label),
+            made_for._native, Q._native, (float(X), float(Y)), float(U), str(label),
             (float(angle), coordinates if usable_coords else "axes",
              _rgba(color) if usable_color else None,
              None if zorder is None else float(zorder)),
             (float(labelsep), labelpos, _rgba(labelcolor), font),
             mcollections._native_kwargs(
                 cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)))
-        _handles.adopt(self, native, Q.figure)
+        _handles.adopt(self, native, made_for.figure)
         if not usable_coords:
             _unusable.keep(self, "coordinates", coordinates,
                            lambda coords: _api.getitem_checked(
@@ -231,11 +233,10 @@ class QuiverKey(martist.Artist):
         self._vector = mcollections.PolyCollection([], **{**Q.polykw, **kwargs})
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,
-                                  Q.figure)
+                                  made_for.figure)
         # matplotlib's constructor makes the key in no figure, which its
         # Axes' ``quiverkey`` (or the program) then adds with
-        # ``add_artist``: pltrs (Rust) keeps it apart until then.
-        _artist.remove(native)
+        # ``add_artist``: pltrs (Rust) made it apart until then.
         self._decouple(removed=False)
 
     kw = _api.deprecated("3.11")(  # Also remove self._kw when deprecation elapses.
@@ -316,9 +317,9 @@ class Quiver(mcollections.PolyCollection):
     should be no performance penalty from putting the calculations
     in the draw() method.
     """
-    # pltrs makes the arrows on the Axes *ax* when the object is made (as
-    # `~.Axes.quiver` adds it), and sizes them from the Axes whenever the
-    # figure is drawn.
+    # pltrs makes the arrows for the Axes *ax* when the object is made,
+    # which `~.Axes.quiver` adds to them, and sizes them from the Axes
+    # whenever the figure is drawn.
 
     _PIVOT_VALS = ('tail', 'middle', 'tip')
 
@@ -332,6 +333,9 @@ class Quiver(mcollections.PolyCollection):
         by the following pyplot interface documentation:
         %s
         """
+        # The Axes the arrows are made for, which a key made for them
+        # before they are added is made for too.
+        self._made_for = ax
         X, Y, U, V, C = _parse_args(*args, caller_name='quiver')
         self.X = X
         self.Y = Y
@@ -387,6 +391,9 @@ class Quiver(mcollections.PolyCollection):
         self._internal_update(kwargs)
         self.polykw = polykw
         self._store_uvc(U, V, C)
+        # matplotlib's constructor puts the arrows on no figure: they join
+        # that of the Axes they are added to.
+        self._decouple(removed=False)
 
     def _sizes(index, name, doc):
         """The attribute *name*, the *index* of what pltrs (Rust) gives
@@ -921,8 +928,8 @@ class Barbs(mcollections.PolyCollection):
     From there :meth:`!_make_barbs` is used to find the vertices of the
     polygon to represent the barb based on this information.
     """
-    # pltrs makes the barbs on the Axes *ax* when the object is made (as
-    # `~.Axes.barbs` adds it).
+    # pltrs makes the barbs for the Axes *ax* when the object is made,
+    # which `~.Axes.barbs` adds to them.
 
     @_docstring.interpd
     def __init__(self, ax, *args,
@@ -972,6 +979,8 @@ class Barbs(mcollections.PolyCollection):
         # matplotlib's default width of the barbs.
         _values.remember(self, "linewidth", np.atleast_1d(1))
         self._internal_update(kwargs)
+        # On no figure until added, as the arrows of a `Quiver`.
+        self._decouple(removed=False)
 
     def _unmasked(self, U, V, C):
         """

@@ -8,6 +8,7 @@
 //! as its 2×2 array of points `[[x0, y0], [x1, y1]]`, points as an `(N, 2)`
 //! array (or one `(2,)` point).
 
+use pltrs::numeric::numpy_arith;
 use pltrs::transforms::{
     Affine2D, Anchor, Bbox, Point, TrackedBbox, bbox_transform, bbox_transform_from,
     interval_contains, interval_contains_close, interval_contains_open, nonsingular, unit_to_bbox,
@@ -148,7 +149,21 @@ fn map_vertices(mut values: NdArray, affine: Affine2D) -> PyResult<NdArray> {
 
 /// The matrix applying `a`, then `b`.
 fn compose(a: NdArray, b: NdArray) -> PyResult<NdArray> {
-    matrix(affine(&a)?.then(affine(&b)?))
+    let (first, then) = (affine(&a)?, affine(&b)?);
+    if a.data.iter().chain(&b.data).all(|v| v.is_finite()) {
+        return matrix(first.then(then));
+    }
+    // matplotlib's `np.dot(b, a)` of the whole matrices, which carries a
+    // NaN into the bottom row and warns about infinities times zero.
+    let rows = |m: &NdArray| -> [[f64; 3]; 3] {
+        let mut rows = [[0.0; 3]; 3];
+        for (row, values) in rows.iter_mut().zip(m.data.as_chunks::<3>().0) {
+            *row = *values;
+        }
+        rows
+    };
+    let product = numpy_arith::dot3(&rows(&b), &rows(&a));
+    NdArray::with_shape(product.concat(), vec![3, 3])
 }
 
 /// The inverse matrix; numpy's `LinAlgError` when it is singular.
@@ -160,19 +175,51 @@ fn invert(mtx: NdArray) -> PyResult<NdArray> {
 }
 
 /// The matrix taking the box `boxin` onto the box `boxout`
-/// (`BboxTransform`).
+/// (`BboxTransform`), with the warnings numpy issues as matplotlib's
+/// `get_matrix` computes it.
 fn transform_between(boxin: NdArray, boxout: NdArray) -> PyResult<NdArray> {
-    matrix(bbox_transform(&bbox(&boxin)?, &bbox(&boxout)?))
+    let (boxin, boxout) = (bbox(&boxin)?, bbox(&boxout)?);
+    let (in_size, out_size) = (numpy_size(&boxin), numpy_size(&boxout));
+    let scales = (
+        numpy_arith::divide(out_size.0, in_size.0),
+        numpy_arith::divide(out_size.1, in_size.1),
+    );
+    numpy_arith::add(numpy_arith::multiply(-boxin.x0(), scales.0), boxout.x0());
+    numpy_arith::add(numpy_arith::multiply(-boxin.y0(), scales.1), boxout.y0());
+    matrix(bbox_transform(&boxin, &boxout))
 }
 
-/// The matrix taking the unit square onto the box (`BboxTransformTo`).
+/// The matrix taking the unit square onto the box (`BboxTransformTo`),
+/// with the warnings numpy issues as matplotlib's `get_matrix` computes
+/// it.
 fn transform_to(boxout: NdArray) -> PyResult<NdArray> {
-    matrix(unit_to_bbox(&bbox(&boxout)?))
+    let boxout = bbox(&boxout)?;
+    numpy_size(&boxout);
+    matrix(unit_to_bbox(&boxout))
 }
 
-/// The matrix taking the box onto the unit square (`BboxTransformFrom`).
+/// The matrix taking the box onto the unit square (`BboxTransformFrom`),
+/// with the warnings numpy issues as matplotlib's `get_matrix` computes
+/// it.
 fn transform_from(boxin: NdArray) -> PyResult<NdArray> {
-    matrix(bbox_transform_from(&bbox(&boxin)?))
+    let boxin = bbox(&boxin)?;
+    let (width, height) = numpy_size(&boxin);
+    let scales = (
+        numpy_arith::divide(1.0, width),
+        numpy_arith::divide(1.0, height),
+    );
+    numpy_arith::multiply(-boxin.x0(), scales.0);
+    numpy_arith::multiply(-boxin.y0(), scales.1);
+    matrix(bbox_transform_from(&boxin))
+}
+
+/// The width and height of `bbox` as matplotlib's box transforms take its
+/// `bounds`, with numpy's warnings (infinite corners of one sign).
+fn numpy_size(bbox: &Bbox) -> (f64, f64) {
+    (
+        numpy_arith::subtract(bbox.x1(), bbox.x0()),
+        numpy_arith::subtract(bbox.y1(), bbox.y0()),
+    )
 }
 
 /// `update_from_data_xy`: the points and `minpos` of the box `points`

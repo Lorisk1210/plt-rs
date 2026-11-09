@@ -357,7 +357,7 @@ fn measured_line(
 /// thread's [`MetricsCache`](super::MetricsCache) if one is installed; a
 /// line `measuring` that the cache does not hold notes what matplotlib's
 /// measuring notes (see [`font_notes`]). The line is measured at the
-/// resolution [`set_lines_measured_at`](super::set_lines_measured_at) set,
+/// resolution [`set_measured_at`](crate::artist::set_measured_at) set,
 /// cached under `dpi` (matplotlib's cache key is the figure's).
 fn line_run(
     line: &Line<'_>,
@@ -368,7 +368,7 @@ fn line_run(
 ) -> Result<TextRun, TextError> {
     let run = typeset(line, font, dpi, rc)?;
     let (text, kind) = measured_as(line);
-    let apart = super::metrics::lines_measured_apart(dpi);
+    let apart = crate::artist::measured_apart(dpi);
     if let Some(metrics) = overrides::measure(text, font, kind, apart.unwrap_or(dpi)) {
         return Ok(with_metrics(run, metrics));
     }

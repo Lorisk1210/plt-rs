@@ -22,6 +22,8 @@ from ._native_drawing import DocumentDrawingMixin
 from ._ps_arguments import CAPS, JOINS, PsArgumentsMixin, check_numbers
 from .backend_mixed import MixedModeRenderer
 
+_log = logging.getLogger(__name__)
+
 debugPS = False
 
 #: The Adobe glyph names of the characters that have one, by code point
@@ -136,11 +138,15 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     def __init__(self, width, height, pswriter, imagedpi=72):
         super().__init__(width, height)
         self._pswriter = pswriter
+        if rcParams['text.usetex']:
+            self.textcnt = 0
+            self.psfrag = []
         self.imagedpi = imagedpi
         if pswriter is not None:
             self._file = pswriter
             self._page = _backends.ps_page_new(float(width), float(height),
                                                float(imagedpi))
+        self._logwarn_once = functools.cache(_log.warning)
 
     def _state(self, change, *args):
         """Change the page's graphics state with ``_native.backends``'
@@ -250,6 +256,19 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
+        if self._is_transparent(gc.get_rgb()):
+            return  # Special handling for fully transparent.
+        if not hasattr(self, "psfrag"):
+            if self._pswriter is not None:
+                # Drawing into a document of the program's (pltrs (Rust)
+                # logs this once per document it prints).
+                self._logwarn_once(
+                    "The PS backend determines usetex status solely based on "
+                    "rcParams['text.usetex'] and does not support having "
+                    "usetex=True only for some elements; this element will "
+                    "thus be rendered as if usetex=False.")
+            self.draw_text(gc, x, y, s, prop, angle, False, mtext)
+            return
         self._tex_arguments(gc, x, y, s, prop, angle)
         super().draw_tex(gc, x, y, s, prop, angle, mtext=mtext)
 

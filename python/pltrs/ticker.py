@@ -855,7 +855,9 @@ class ScalarFormatter(_NativeFormatter):
         # matplotlib's first step, which refuses zero, NaN and infinities
         # in the words of the running Python.
         math.floor(math.log10(abs(value)))
-        return super().format_data(value)
+        # The value alone, as matplotlib's formats it: no tick of the axis
+        # is computed (which would set the order of magnitude).
+        return _ticker.format_data(self._spec(), float(value), False, None)
 
     def get_offset(self):
         """

@@ -226,6 +226,16 @@ impl Axes {
         Ok(artist)
     }
 
+    /// Keeps `artist`, made for this axes, outside the figure as a removed
+    /// artist with the artists it owns (matplotlib's constructors that
+    /// take the axes, `Quiver(ax, ...)`, and leave adding the artist to an
+    /// `add_*` method): [`Axes::adopt_artist`] adds it.
+    pub(crate) fn removed(&self, artist: impl Artist) -> RawHandle {
+        let figure = self.raw().figure_state();
+        let id = figure.borrow_mut().insert_removed(Box::new(artist));
+        RawHandle::new(Rc::clone(figure), id)
+    }
+
     /// Whether `artist` is a child of this axes now.
     fn has_child(&self, artist: &RawHandle) -> bool {
         Rc::ptr_eq(self.raw().figure_state(), artist.figure_state())

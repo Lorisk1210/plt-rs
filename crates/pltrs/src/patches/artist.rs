@@ -367,6 +367,7 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        self.shape.warn_drawing();
         if let Err(err) = self.parts().paint(ctx) {
             ctx.report(self.base.id(), err);
         }

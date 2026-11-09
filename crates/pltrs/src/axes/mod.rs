@@ -38,6 +38,7 @@ mod eventplot;
 #[cfg(test)]
 mod extent_tests;
 mod failed_calls;
+mod figure_reset;
 mod fill;
 mod fill_between;
 mod grid_props;

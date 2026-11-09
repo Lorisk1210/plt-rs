@@ -124,7 +124,7 @@ impl LegendArtist {
     /// draw made it, as narrow as its entries before the first, since
     /// matplotlib sets that width only when it draws the legend.
     pub(crate) fn extent(&self, ctx: LayoutContext<'_>) -> Result<Bbox, LayoutError> {
-        let fontsize_px = ctx.points_to_pixels(self.settings.fontsize);
+        let fontsize_px = ctx.measuring_points_to_pixels(self.settings.fontsize);
         self.located(&self.legend_box, ctx, fontsize_px)
     }
 
@@ -186,8 +186,23 @@ impl LegendArtist {
     }
 
     /// Where the origin of the legend box `bbox` goes (matplotlib's
-    /// `_findoffset`, through `_legend_box.get_offset`).
+    /// `_legend_box.get_offset`): the point it is pinned at, else where
+    /// the location puts it.
     fn offset(
+        &self,
+        ctx: LayoutContext<'_>,
+        bbox: &Bbox,
+        fontsize_px: f64,
+    ) -> Result<Point, LayoutError> {
+        match self.box_offset {
+            Some(offset) => Ok(offset),
+            None => self.located_offset(ctx, bbox, fontsize_px),
+        }
+    }
+
+    /// Where the location of the legend puts the origin of the legend box
+    /// `bbox` (matplotlib's `_findoffset`).
+    pub(super) fn located_offset(
         &self,
         ctx: LayoutContext<'_>,
         bbox: &Bbox,

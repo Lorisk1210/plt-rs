@@ -279,12 +279,13 @@ fn set_metrics_cache(cache: Option<Rc<MetricsCache>>) -> PyResult<Option<Rc<Metr
     Ok(install_metrics_cache(cache))
 }
 
-/// Has every line of text measured at `dpi` (`None`: at its figure's
-/// resolution), as a renderer of that resolution measures it
-/// (`pltrs::text::set_lines_measured_at`); returns the resolution set
-/// before.
-fn set_lines_measured_at(dpi: Option<f64>) -> PyResult<Option<f64>> {
-    Ok(pltrs::text::set_lines_measured_at(dpi))
+/// Has what matplotlib measures with the renderer it is handed (every
+/// line of text, the pads its code converts with the renderer) measured at
+/// `dpi` (`None`: at the figure's resolution), as a renderer of that
+/// resolution measures it (`pltrs::artist::set_measured_at`); returns the
+/// resolution set before.
+fn set_measured_at(dpi: Option<f64>) -> PyResult<Option<f64>> {
+    Ok(pltrs::artist::set_measured_at(dpi))
 }
 
 /// Forgets the lines, formulas and glyph outlines pltrs (Rust) laid out
@@ -303,7 +304,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("metrics_cache_info", metrics_cache_info)?;
     module.add("metrics_cache_clear", metrics_cache_clear)?;
     module.add("set_metrics_cache", set_metrics_cache)?;
-    module.add("set_lines_measured_at", set_lines_measured_at)?;
+    module.add("set_measured_at", set_measured_at)?;
     module.add("measure", measure)?;
     module.add("measure_pdf", measure_pdf)?;
     module.add("measure_ps", measure_ps)?;

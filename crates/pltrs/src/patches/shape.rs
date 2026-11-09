@@ -43,6 +43,11 @@ pub trait PatchShape: Debug + Clone + 'static {
         false
     }
 
+    /// Issues the runtime warnings numpy issues each time matplotlib's
+    /// draw maps the outline (invalid arithmetic in the patch transform;
+    /// see [`warn_runtime`](crate::warnings::warn_runtime)).
+    fn warn_drawing(&self) {}
+
     /// Whether the shape is degenerate and should not affect autoscaling.
     fn skips_autoscale(&self) -> bool {
         false

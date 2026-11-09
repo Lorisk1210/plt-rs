@@ -162,7 +162,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     @figure.setter
     def figure(self, fig):
-        self.set_figure(fig)
+        # matplotlib's property is made of `Artist.set_figure` itself: a
+        # subclass' override (an Axes' making its transforms anew) is not
+        # called.
+        Artist.set_figure(self, fig)
 
     def set_figure(self, fig):
         """

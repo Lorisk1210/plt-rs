@@ -63,7 +63,7 @@ pub(super) fn resolve_reported_sides(c: &CollectionArtist) -> (Sided, Sided) {
     {
         return (Ok(faces.clone()), Ok(edges.clone()));
     }
-    let (faces, edges) = resolve_sides(c, c.mapped_shown.get());
+    let (faces, edges) = resolve_sides(c, Reading::Reported(c.mapped_shown.get()));
     (
         c.kept_colors
             .faces(faces)
@@ -78,7 +78,18 @@ pub(super) fn resolve_reported_sides(c: &CollectionArtist) -> (Sided, Sided) {
 /// (matplotlib's `_set_facecolor`, `_set_edgecolor` and
 /// `update_scalarmappable`).
 pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
-    resolve_mapped_on(c, MappedSides::BOTH)
+    let (faces, edges) = resolve_sides(c, Reading::Drawing);
+    Ok((faces?, edges?))
+}
+
+/// What the colours of a collection are resolved for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Reading {
+    /// A draw: the mapping colours the sides it colours now.
+    Drawing,
+    /// matplotlib's getters: the mapping colours the sides of these that
+    /// the last draw mapped (see [`CollectionArtist::mapped_shown`]).
+    Reported(MappedSides),
 }
 
 /// The sides of a collection's items (faces, edges) coloured by its
@@ -94,12 +105,6 @@ pub(crate) struct MappedSides {
 pltrs_core::archive_struct!(MappedSides { faces, edges });
 
 impl MappedSides {
-    /// Both sides, where the mapping colours them.
-    const BOTH: Self = Self {
-        faces: true,
-        edges: true,
-    };
-
     /// The sides the colour mapping of `c` colours (matplotlib's
     /// `_set_mappable_flags`): the faces unless they are `'none'`, and the
     /// edges when they follow the faces, or when the faces are `'none'`
@@ -122,31 +127,28 @@ impl MappedSides {
 }
 
 /// Face and edge colours after defaults, alpha and the colour mapping on
-/// the sides of `on` it colours.
-fn resolve_mapped_on(
-    c: &CollectionArtist,
-    on: MappedSides,
-) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
-    let (faces, edges) = resolve_sides(c, on);
-    Ok((faces?, edges?))
-}
-
-/// [`resolve_mapped_on`]'s face and edge colours, each side failing on
-/// its own: an edge colour that fails leaves the faces resolved.
-pub(super) fn resolve_sides(c: &CollectionArtist, on: MappedSides) -> (Sided, Sided) {
+/// the sides it colours for `reading`, each side failing on its own: an
+/// edge colour that fails leaves the faces resolved. Defaults follow the
+/// parameters the colours were last resolved with
+/// ([`CollectionArtist::colors_rc`]).
+pub(super) fn resolve_sides(c: &CollectionArtist, reading: Reading) -> (Sided, Sided) {
     let rc = c.colors_rc();
     let alpha = collection_alpha(c);
     let resolve = |colors: &[Color]| with_alpha(c, &alpha, colors);
     let face_spec = c.face_spec(&rc);
-    let face_is_none = unfilled(&face_spec);
-    let edge_default = c.kind == CollectionKind::Line;
 
     let sides = MappedSides::of(c);
-    let face_mapped = sides.faces && on.faces;
-    let edge_mapped = sides.edges && on.edges;
+    let (face_mapped, edge_mapped) = match reading {
+        Reading::Drawing => (sides.faces, sides.edges),
+        // The edges the last draw mapped are reported mapped until they
+        // are set again, even when the faces changed since so that the
+        // mapping would no longer colour them (matplotlib's `_edgecolors`
+        // keeps the mapped colours until `update_scalarmappable`).
+        Reading::Reported(shown) => (sides.faces && shown.faces, shown.edges),
+    };
     // A draw maps the values whether or not a side shows them (and fails
     // when they cannot be mapped), as matplotlib's `update_scalarmappable`.
-    let mapping = on == MappedSides::BOTH || face_mapped || edge_mapped;
+    let mapping = reading == Reading::Drawing || face_mapped || edge_mapped;
     let mapped = match (&c.program_colors, &c.mapping) {
         (Some(colors), _) if mapping => Some(colors.clone()),
         (None, Some(mapping_of_values)) if mapping => match mapping_of_values.colors(&alpha) {
@@ -168,7 +170,7 @@ pub(super) fn resolve_sides(c: &CollectionArtist, on: MappedSides) -> (Sided, Si
         (_, _, EdgeColors::Face) => faces.clone(),
         (_, _, EdgeColors::Colors(colors)) => resolve(colors),
         (_, _, EdgeColors::Default) => {
-            if rc.patch_force_edgecolor || edge_default || face_is_none {
+            if c.default_edges_for(reading) {
                 resolve(std::slice::from_ref(default_edge(c, &rc)))
             } else {
                 Ok(Vec::new())
@@ -183,6 +185,66 @@ pub(super) fn resolve_sides(c: &CollectionArtist, on: MappedSides) -> (Sided, Si
 pub(super) type Sided = Result<Vec<Rgba>, String>;
 
 impl CollectionArtist {
+    /// Whether the default rule of [`EdgeColors::Default`] gives the items
+    /// edges with the colours as they are now (see
+    /// [`CollectionArtist::default_rule_edges_as`]).
+    pub(super) fn default_rule_edges(&self) -> bool {
+        self.default_rule_edges_as(unfilled(&self.face_spec(&self.colors_rc())))
+    }
+
+    /// Whether the default rule gives the items edges when the faces are
+    /// `unfilled` or not: when edges are forced (`patch.force_edgecolor`),
+    /// the kind draws edges by default (lines), or the faces are not drawn.
+    fn default_rule_edges_as(&self, unfilled: bool) -> bool {
+        self.colors_rc().patch_force_edgecolor || self.kind == CollectionKind::Line || unfilled
+    }
+
+    /// Whether [`EdgeColors::Default`] gives the items edges for
+    /// `reading`: as the default rule last decided, or as it decides anew
+    /// for a draw whose `update_scalarmappable` decides again.
+    fn default_edges_for(&self, reading: Reading) -> bool {
+        if reading == Reading::Drawing && self.update_decides_default_edges() {
+            return self.default_rule_edges();
+        }
+        self.default_edges
+            .get()
+            .unwrap_or_else(|| self.default_rule_edges())
+    }
+
+    /// Whether `update_scalarmappable` decides the default edges anew:
+    /// for a collection with values to map, when it maps a side or the
+    /// sides it maps changed, and the mapping does not colour the edges
+    /// (matplotlib's `_set_edgecolor(self._original_edgecolor)` there).
+    pub(super) fn update_decides_default_edges(&self) -> bool {
+        let mapped = MappedSides::of(self);
+        let has_values = self.mapping.is_some() || self.program_colors.is_some();
+        has_values && !mapped.edges && (mapped.faces || mapped != self.mapped_shown.get())
+    }
+
+    /// Has the default rule decide now whether default edges are drawn,
+    /// which they stay until it decides again (see
+    /// [`CollectionArtist::default_edges`]).
+    pub(super) fn decide_default_edges(&self) {
+        self.decide_default_edges_as(unfilled(&self.face_spec(&self.colors_rc())));
+    }
+
+    /// [`CollectionArtist::decide_default_edges`] as if the faces were
+    /// `unfilled` or not.
+    pub(super) fn decide_default_edges_as(&self, unfilled: bool) {
+        if self.edgecolors == EdgeColors::Default {
+            self.default_edges
+                .set(Some(self.default_rule_edges_as(unfilled)));
+        }
+    }
+
+    /// Has the default rule decide with the colours as they are, before
+    /// they change, if it has not decided yet.
+    pub(super) fn keep_default_edges(&self) {
+        if self.default_edges.get().is_none() {
+            self.decide_default_edges();
+        }
+    }
+
     /// The getters report the face colours as set until the next draw.
     pub(super) fn unmap_faces(&self) {
         let shown = self.mapped_shown.get();
@@ -383,6 +445,37 @@ mod tests {
         assert_eq!(faces.len(), 0, "no faces");
         assert_eq!(edges.len(), 2, "one mapped colour per line");
         assert_ne!(edges[0], edges[1]);
+    }
+
+    #[test]
+    fn the_default_edge_colour_is_decided_when_set() {
+        use crate::artist::ArtistHandle;
+        use crate::collections::CollectionSpec;
+        use crate::figure::Figure;
+        use pltrs_core::Point;
+
+        let ax = Figure::new().subplot();
+        let triangle = vec![
+            Point::new(0.0, 0.0),
+            Point::new(1.0, 0.0),
+            Point::new(1.0, 1.0),
+        ];
+        let polys = ax.add_collection(CollectionSpec::polygons(vec![triangle]));
+        let edges = |polys: &crate::collections::Collection| {
+            polys
+                .raw()
+                .with::<CollectionArtist, _>(CollectionArtist::reported_colors)
+                .unwrap()
+                .1
+                .len()
+        };
+        assert_eq!(edges(&polys), 0, "filled: no default edges");
+        polys.set_facecolor(Color::none());
+        assert_eq!(edges(&polys), 0, "decided with the faces it had");
+        polys.set_edgecolors(EdgeColors::Default);
+        assert_eq!(edges(&polys), 1, "decided anew: the faces are not drawn");
+        polys.set_facecolor(Color::from("y"));
+        assert_eq!(edges(&polys), 1, "kept when the faces change");
     }
 
     #[test]

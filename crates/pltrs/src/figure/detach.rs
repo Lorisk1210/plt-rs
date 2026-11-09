@@ -117,13 +117,14 @@ impl FigureState {
     }
 
     /// Inserts `artist` as a removed artist: outside the figure, owned by
-    /// none.
+    /// none, together with the artists of the figure it owns.
     pub(crate) fn insert_removed(&mut self, artist: impl Into<KeptArtist>) -> ArtistId {
         let mut artist = artist.into();
         artist.get_mut().base_mut().parent = None;
         let id = self.store.insert_kept(artist);
-        let artist = self.store.take(id).expect("the artist was just inserted");
-        self.detached.insert(id, artist);
+        for (id, artist) in self.store.take_tree(id) {
+            self.detached.insert(id, artist);
+        }
         id
     }
 

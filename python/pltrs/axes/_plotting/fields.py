@@ -25,7 +25,9 @@ class FieldsMixin:
         """%(quiver_doc)s"""
         # Make sure units are handled for x and y values
         args = self._quiver_units(args, kwargs)
-        return mquiver.Quiver(self, *args, **kwargs)
+        q = mquiver.Quiver(self, *args, **kwargs)
+        self.add_collection(q)
+        return q
 
     @_docstring.copy(mquiver.QuiverKey.__init__)
     def quiverkey(self, Q, X, Y, U, label, **kwargs):
@@ -39,7 +41,9 @@ class FieldsMixin:
         """%(barbs_doc)s"""
         # Make sure units are handled for x and y values
         args = self._quiver_units(args, kwargs)
-        return mquiver.Barbs(self, *args, **kwargs)
+        b = mquiver.Barbs(self, *args, **kwargs)
+        self.add_collection(b)
+        return b
 
     streamplot = _preprocess_data(
         replace_names=["x", "y", "u", "v", "start_points"])(

@@ -232,7 +232,7 @@ impl AnnotationBboxArtist {
             text_bbox: geometry.extent,
             point: geometry.point,
             fontsize: self.fontsize,
-            mutation_unit: layout.points_to_pixels(1.0),
+            mutation_unit: layout.measuring_points_to_pixels(1.0),
             start_region: StartRegion::Fresh(self.frame_region(layout)?),
         })
     }
@@ -319,7 +319,7 @@ impl BoxOwner for AnnotationBboxArtist {
         tree.placements.push(Placement::Frame {
             frame: self.frame,
             bbox: geometry.extent,
-            mutation_scale: Some(layout.points_to_pixels(self.fontsize)),
+            mutation_scale: Some(layout.measuring_points_to_pixels(self.fontsize)),
         });
         self.child
             .place_into(layout, geometry.offset, None, &mut tree, 0)?;

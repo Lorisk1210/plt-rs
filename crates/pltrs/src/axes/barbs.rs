@@ -4,6 +4,7 @@ use pltrs_core::Path;
 
 use super::children::DataUpdate;
 use super::data_coords::data_offsets;
+use super::quiver::{MadeField, mapped};
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
@@ -100,6 +101,50 @@ impl Axes {
         field: VectorField,
         options: BarbsOptions,
     ) -> Result<Collection, PlotError> {
+        let (collection, limits, mapping) = self.barbs_collection(field, options)?;
+        let barbs = self.adopt_collection(collection, &DataUpdate::limits(limits));
+        Ok(mapped(barbs, mapping))
+    }
+
+    /// The barbs of [`Axes::barbs`] made for this axes outside the figure,
+    /// as a removed collection (matplotlib's `Barbs(ax, ...)`, which
+    /// leaves adding them to `ax.add_collection`): neither drawn nor in the
+    /// data limits until [`Axes::adopt_artist`] adds them.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::prelude::*;
+    /// use pltrs::quiver::{BarbsOptions, VectorField};
+    /// let ax = Figure::new().subplot();
+    /// let field = VectorField::new([0.0, 1.0], [0.0, 0.0], [15.0, 65.0], [0.0, 10.0]);
+    /// let barbs = ax.removed_barbs(field, BarbsOptions::default())?;
+    /// assert!(ax.collections().is_empty());
+    /// ax.adopt_artist(barbs.raw(), AddAs::Collection { autolim: true })?;
+    /// assert_eq!(ax.collections(), [barbs]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::barbs`].
+    pub fn removed_barbs(
+        &self,
+        field: VectorField,
+        options: BarbsOptions,
+    ) -> Result<Collection, PlotError> {
+        let (collection, _, mapping) = self.barbs_collection(field, options)?;
+        Ok(mapped(self.removed(collection), mapping))
+    }
+
+    /// The collection of the barbs of `field` for this axes, with the data
+    /// limits their positions span and the mapping of their colour values
+    /// (see [`Axes::barbs`]).
+    fn barbs_collection(
+        &self,
+        field: VectorField,
+        options: BarbsOptions,
+    ) -> Result<MadeField, PlotError> {
         let (mut points, paths) = barb_items(field, &options)?;
         let mut collection =
             CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
@@ -128,12 +173,7 @@ impl Axes {
         collection.offset_transform = Some(positions);
         let mut limits = DataLimits::NULL;
         limits.update_from_points(&data_positions.unwrap_or_default(), true, true);
-        let barbs =
-            Collection::from_raw(self.adopt_collection(collection, &DataUpdate::limits(limits)));
-        if let Some(mapping) = points.colors.take() {
-            barbs.set_mapping(mapping);
-        }
-        Ok(barbs)
+        Ok((collection, limits, points.colors.take()))
     }
 }
 

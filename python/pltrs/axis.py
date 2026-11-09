@@ -2010,13 +2010,40 @@ class Axis(DrawnWith, Artist):
         transform.  If None, the default coordinate system will be the axes
         coordinate system: (0, 0) is bottom left, (0.5, 0.5) is center, etc.
         """
-        if transform is not None:
-            x, y = (transform - self.axes.transAxes).transform((x, y))
-        _axis.set_label_coords(*self._args(), float(x), float(y))
+        from .transforms import Transform
+        key = f"{self.axis_name}axis label coordinates"
+        given = transform
+        if transform is None:
+            transform = self.axes.transAxes
         # The label's transform, as matplotlib gives it (`_axis_artists`).
-        self._label_transform = (self.axes.transAxes if transform is None
-                                 else transform)
+        self._label_transform = transform
+        try:
+            fx, fy = float(x), float(y)
+        except (TypeError, ValueError):
+            fx = fy = None
+        label = self.label
+        if fx is None or not isinstance(transform, Transform):
+            # matplotlib's label keeps them, and fails to place itself with
+            # them where it is drawn or measured.
+            _unusable.keep(self.axes, key, (x, y, transform), self._place_label_at)
+            for name, value in (("x", x), ("y", y)):
+                _values.keep(label, name, value)
+        else:
+            if given is not None:
+                fx, fy = (transform - self.axes.transAxes).transform((fx, fy))
+            _axis.set_label_coords(*self._args(), float(fx), float(fy))
+            _unusable.drop(self.axes, key)
+            for name, value in (("x", x), ("y", y)):
+                _values.remember(label, name, value)
         self.stale = True
+
+    def _place_label_at(self, kept):
+        """Fail as matplotlib's label (with text) fails to place itself at
+        the coordinates *kept*, ``(x, y, transform)``: they are read as
+        floats, then mapped by the transform."""
+        x, y, transform = kept
+        if self.label.get_visible() and self.label.get_text():
+            transform.transform((float(x), float(y)))
 
     def get_label_position(self):
         """
@@ -2257,7 +2284,9 @@ class Axis(DrawnWith, Artist):
                 # again through them: values of the converter replaced (a
                 # line of dates) are no categories.
                 for axis in self._get_shared_axis():
-                    axis.axes._unit_change_handler(axis.axis_name)
+                    if _axis.follows_units(*axis._args()):
+                        # (Until a clear disconnects the handler.)
+                        axis.axes._unit_change_handler(axis.axis_name)
                     axis.callbacks.process('units')
             if not isinstance(converter, StrCategoryConverter):
                 # The zone of the first date is the unit of an axis
@@ -2478,6 +2507,14 @@ class Axis(DrawnWith, Artist):
 # it). No docstring: ``help`` shows that of `Axis` for the two classes, as
 # matplotlib's do, which have none of their own.
 class _AxisOfAxes(Axis):
+
+    def contains(self, mouseevent):
+        # matplotlib's x- and y-axis read the event's position before
+        # anything else (an event of no position fails there).
+        if self._different_canvas(mouseevent):
+            return False, {}
+        mouseevent.x, mouseevent.y  # noqa: B018
+        return super().contains(mouseevent)
 
     @_interval_method("getter")
     def get_view_interval(self):

@@ -190,6 +190,16 @@ class ImagesMixin:
         ret._internal_update(kwargs)
         return ret
 
+    def _warn_identical_spy_limits(self, name):
+        """Warn as matplotlib's `spy` warns setting the limits of its
+        axis *name* along no rows or columns, ``(-0.5, -0.5)``, which
+        `_set_lim` expands; those of a log axis it ignores instead (pltrs
+        (Rust) warns of them, between the warnings of the x and y axis)."""
+        if self._axis_map[name].get_scale() != 'log':
+            _api.warn_external(
+                f"Attempting to set identical low and high {name}lims makes "
+                "transformation singular; automatically expanding.")
+
     @_api.make_keyword_only("3.10", "precision")
     @_docstring.interpd
     def spy(self, Z, precision=0, marker=None, markersize=None,
@@ -301,10 +311,15 @@ class ImagesMixin:
         if aspect is not None and not cbook._str_equal(aspect, 'equal'):
             # As matplotlib's `set_aspect` takes it.
             aspect = _checked_aspect(aspect)
+        rows, columns = np.shape(Z)[:2]
+        if not columns:
+            self._warn_identical_spy_limits("x")
         image, line = _plotting.spy(
             self._native, np.asarray(Z, dtype=float), float(precision), mapping,
             (None if marker is None else mlines._marker_spec(marker),
              None if markersize is None else float(markersize), aspect, origin, line))
+        if not rows:
+            self._warn_identical_spy_limits("y")
         if image is not None:
             ret = wrap(self, image, mimage.AxesImage)
             # matplotlib's spy draws through imshow, which keeps the extent

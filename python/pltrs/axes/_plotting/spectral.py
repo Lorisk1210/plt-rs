@@ -107,10 +107,12 @@ def _floats(x):
 
 
 def _plain_series(values):
-    """Whether *values* are a non-empty 1-D array of numbers, as pltrs
-    (Rust) correlates them."""
+    """Whether *values* are a non-empty 1-D array of finite numbers (not
+    of booleans, which numpy sums as such), as pltrs (Rust) correlates
+    them (numpy warns about what infinite ones make)."""
     array = np.asarray(values)
-    return array.ndim == 1 and array.size > 0 and array.dtype.kind in "biuf"
+    return (array.ndim == 1 and array.size > 0 and array.dtype.kind in "iuf"
+            and bool(np.isfinite(array).all()))
 
 class SpectralMixin:
     """The spectral plots of `~.axes.Axes`."""
@@ -364,6 +366,12 @@ class SpectralMixin:
         Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
         John Wiley & Sons (1986)
         """
+        if not isinstance(Fc, numbers.Real):
+            # matplotlib shifts its frequencies in place, failing on what is
+            # no number.
+            _, freqs = _mlab_reference.cohere(x, y, NFFT, Fs, detrend, window,
+                                              noverlap, pad_to, sides, scale_by_freq)
+            freqs += Fc
         cxy, freqs = _as_matplotlib(
             lambda: _plotting.cohere(
                 self._native, (_floats(x), _floats(y)),
@@ -904,9 +912,11 @@ class SpectralMixin:
         if not callable(detrend):
             # matplotlib calls *detrend* on both series first.
             raise TypeError(f"'{type(detrend).__name__}' object is not callable")
-        if not (_plain_series(x) and _plain_series(y)):
+        plain = _plain_series(x) and _plain_series(y)
+        if not plain:
             # matplotlib correlates them with numpy before it looks at
-            # *maxlags*, which fails on series of no numbers.
+            # *maxlags*, which fails on series of no numbers (and sums
+            # booleans as numpy does).
             x_detrended = detrend(np.asarray(x))
             y_detrended = detrend(np.asarray(y))
             correls = np.correlate(x_detrended, y_detrended, mode="full")
@@ -918,6 +928,20 @@ class SpectralMixin:
         if maxlags >= Nx or maxlags < 1:
             raise ValueError('maxlags must be None or strictly '
                              f'positive < {Nx:d}')
+        if not plain:
+            # matplotlib's plot of the correlations numpy computed.
+            lags = np.arange(-maxlags, maxlags + 1)
+            correls = correls[Nx - 1 - maxlags:Nx + maxlags]
+            if usevlines:
+                a = self.vlines(lags, [0], correls, **kwargs)
+                kwargs.pop('label', '')
+                b = self.axhline(**kwargs)
+            else:
+                kwargs.setdefault('marker', 'o')
+                kwargs.setdefault('linestyle', 'None')
+                a, = self.plot(lags, correls, **kwargs)
+                b = None
+            return lags, correls, a, b
         # matplotlib's lags, and the correlations at them, which a *maxlags*
         # that is no integer fails to make.
         _ = np.arange(-maxlags, maxlags + 1)

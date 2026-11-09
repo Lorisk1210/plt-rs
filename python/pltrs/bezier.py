@@ -8,8 +8,6 @@ number) are computed with matplotlib 3.11.2's arithmetic (under the
 Matplotlib License), for its result types, errors and warnings.
 """
 
-import math
-
 import numpy as np
 
 from . import _api
@@ -244,9 +242,20 @@ class BezierSegment:
         (k, d) array
             Value of the curve for each point in *t*.
         """
-        t = np.asarray(t, float)
+        t = np.asarray(t)
+        # matplotlib's first arithmetic on the points, which fails as it
+        # does on what are no numbers.
+        1 - t  # noqa: B018
+        t = t.astype(float)
         if self._native is None:
             return np.zeros(t.shape + (self._d,))
+        if not np.isfinite(t).all():
+            # matplotlib's polynomial, as numpy evaluates (and warns about)
+            # it beyond the curve.
+            orders = np.arange(self._N)
+            coefficients = [math.comb(self._N - 1, i) for i in range(self._N)]
+            return (np.power.outer(1 - t, orders[::-1]) * np.power.outer(t, orders)) \
+                @ (np.asarray(coefficients)[:, None] * self._cpoints)
         values = _bezier.segment_eval(self._native, np.atleast_1d(t))
         # One point per value of *t*, as matplotlib's ``np.power.outer``.
         return values.reshape(t.shape + (self._d,))

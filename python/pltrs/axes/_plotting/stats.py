@@ -19,7 +19,7 @@ from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
 from . import _boxplot_reference, _pie_reference
-from ._helpers import check_format, wrap, wrap_all
+from ._helpers import check_format, takes_properties, wrap, wrap_all
 
 
 def _rcParams():
@@ -58,7 +58,9 @@ def _cycled_colors(parts):
 
 def _check_stats_keys(stats, shownotches, showmeans, showfliers):
     """Raise matplotlib's `KeyError` for the first statistic of *stats*
-    that `~.Axes.bxp` reads (in its order) and that is missing."""
+    that `~.Axes.bxp` reads (in its order, after the label) and that is
+    missing."""
+    stats.get('label')  # matplotlib's first read: the box's label
     needed = ["q1", "whislo", "q3", "whishi", "med"]
     needed += ["cilo", "cihi"] if shownotches else []
     needed += ["mean"] if showmeans else []
@@ -161,6 +163,14 @@ def _pie_plain(colors, pctdistance, labeldistance, startangle, radius, wedgeprop
             and numbers(center) and len(center) == 2
             and (hatch is None or all(isinstance(h, str) for h in np.atleast_1d(hatch)))
             and (explode is None or numbers(explode)))
+
+def _pie_props_taken(wedgeprops, textprops):
+    """Whether a wedge and a text take *wedgeprops* and *textprops* (see
+    `.takes_properties`)."""
+    from ...text import Text
+    return ((not wedgeprops or takes_properties(mpatches.Wedge((0, 0), 1, 0, 90), wedgeprops))
+            and (not textprops or takes_properties(Text(0, 0, ''), textprops)))
+
 
 class StatsMixin:
     """`boxplot`, `bxp`, `violinplot`, `violin` and `pie`."""
@@ -1025,6 +1035,12 @@ class StatsMixin:
                 raise TypeError(
                     "np.datetime64 'position' values require np.timedelta64 'widths'")
         _api.check_in_list(["both", "low", "high"], side=side)
+        # matplotlib computes the ends of the statistics lines, then reads
+        # each violin's values as it fills its body.
+        ([[-0.25 if side in ['both', 'low'] else 0],
+          [0.25 if side in ['both', 'high'] else 0]] * np.array(widths) + positions)
+        for stats in vpstats:
+            stats['vals']  # noqa: B018
         value_axis = "y" if orientation == "vertical" else "x"
         vpstats = [_converted_stats(self, value_axis, stats, (
             "coords", "mean", "median", "min", "max", "quantiles"))
@@ -1164,8 +1180,9 @@ class StatsMixin:
         arguments = (x, explode, labels, colors, autopct, pctdistance, shadow,
                      labeldistance, startangle, radius, counterclock, wedgeprops,
                      textprops, center, frame, rotatelabels, normalize, hatch)
-        if not _pie_plain(colors, pctdistance, labeldistance, startangle, radius,
-                          wedgeprops, textprops, center, hatch, explode):
+        if not (_pie_plain(colors, pctdistance, labeldistance, startangle, radius,
+                           wedgeprops, textprops, center, hatch, explode)
+                and _pie_props_taken(wedgeprops, textprops)):
             return _pie_reference.pie(self, *arguments)
         try:
             return self._native_pie(*arguments)

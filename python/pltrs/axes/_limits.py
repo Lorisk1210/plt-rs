@@ -255,11 +255,12 @@ class LimitsMixin:
         axis = getattr(self, f"{name}axis")
         if (_program_classes.takes_from_program(type(axis), "get_view_interval")
                 or not all(bound is None or isinstance(bound, numbers.Real)
-                           for bound in (lower, upper))):
+                           for bound in (lower, upper))
+                or (lower is not None and lower == upper)):
             # matplotlib's code, which asks the program's class of the axis
-            # whether it is inverted, and sorts and converts bounds that
-            # are no numbers (strings in units, which may make the axis
-            # categorical).
+            # whether it is inverted, sorts and converts bounds that are no
+            # numbers (strings in units, which may make the axis
+            # categorical), and warns about identical ones.
             old_lower, old_upper = getattr(self, f"get_{name}bound")()
             bounds = (old_lower if lower is None else lower,
                       old_upper if upper is None else upper)

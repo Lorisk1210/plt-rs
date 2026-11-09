@@ -13,6 +13,7 @@ from ... import patches as mpatches, units as munits
 from ..._native import patches as _patches, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer, ErrorbarContainer
+from . import _bars_reference
 from ._helpers import floats, record_container, wrap, wrap_all
 from .errorbar import _error_bounds
 
@@ -33,6 +34,17 @@ def _converted_span(convert, start, extent):
         return start, extent
     low, high = convert((start, start + extent))
     return low, high - low
+
+
+def _aligned_span(y0, dy, align):
+    """The bottom and top of `~.Axes.broken_barh`'s bars at *y0*, *dy*
+    high, aligned there as *align* tells, as matplotlib computes them (a
+    height in a list sums to an array, or fails to)."""
+    if align == "bottom":
+        return y0, y0 + dy
+    if align == "center":
+        return y0 - dy / 2, y0 + dy / 2
+    return y0 - dy, y0
 
 
 def _bar_geometry(patches, vertical, align, x, y, width, height):
@@ -134,6 +146,20 @@ def _check_bar_geometry(x, height, width, y, align, orientation):
                                 f'and height ({height.dtype}) '
                                 f'are incompatible') from e
     _ = left[0] + width[0], bottom[0] + height[0]
+
+
+def _plain_groups(heights, positions, colors):
+    """Whether pltrs (Rust) makes `~.Axes.grouped_bar`'s bars as
+    matplotlib's calls of `~.Axes.bar` make them (else `._bars_reference`
+    does): *positions* none or one per group, *colors* none or a sequence
+    of single colours, one per dataset, cycled."""
+    try:
+        groups = len(next(iter(heights)))
+    except Exception:
+        return False
+    return ((positions is None or np.shape(positions) == (groups,))
+            and (colors is None or (not isinstance(colors, str) and np.iterable(colors)
+                                    and all(mcolors.is_color_like(c) for c in colors))))
 
 
 def _grouped_bar_checks(heights, positions, spacing, orientation, labels):
@@ -685,7 +711,13 @@ class BarsMixin:
         ydata = cbook._safe_first_finite(yrange) if len(yrange) else None
         self._process_unit_info(
             [("x", xdata), ("y", ydata)], kwargs, convert=False)
+        ypos, height = yrange
+        # The height converts as bar widths do (`_convert_dx`, whose
+        # fallback hands a scalar back in a list).
+        y0 = self.convert_yunits(ypos)
+        dy = self._convert_dx(height, ypos, np.array(y0), self.convert_yunits)
         _api.check_in_list(['bottom', 'center', 'top'], align=align)
+        low, high = _aligned_span(y0, dy, align)
         starts, widths = [], []
         for xr in xranges:  # convert the absolute values, not the x and dx
             try:
@@ -697,11 +729,10 @@ class BarsMixin:
             x0, dx = _converted_span(self.convert_xunits, x0, dx)
             starts.append(x0)
             widths.append(dx)
-        ypos, height = yrange
-        # The height converts as bar widths do (`_convert_dx`, whose
-        # fallback hands a scalar back in a list).
-        y0 = self.convert_yunits(ypos)
-        dy = self._convert_dx(height, ypos, np.array(y0), self.convert_yunits)
+        if np.ndim(low) or np.ndim(high):
+            # matplotlib's vertices, of a height in a list, are ragged.
+            np.array([[(x0, low), (x0, high), (x0 + dx, high), (x0 + dx, low)]
+                      for x0, dx in zip(starts, widths)])
         native = _plotting.broken_barh(
             self._native, (floats(starts), floats(widths)),
             (float(y0), float(np.ravel(dy)[0])), align)
@@ -953,6 +984,10 @@ or pandas.DataFrame
             heights = list(heights.values())
         elif hasattr(heights, 'shape'):  # numpy array
             heights = heights.T
+        if not _plain_groups(heights, positions, colors):
+            return _GroupedBarReturn(_bars_reference.grouped_bar(
+                self, heights, positions, (group_spacing, bar_spacing), tick_labels,
+                labels, orientation, colors, kwargs))
         _grouped_bar_checks(heights, positions, (group_spacing, bar_spacing),
                             orientation, labels)
         # Where the bars start, `bar`'s *bottom* (`barh`'s *left*), which

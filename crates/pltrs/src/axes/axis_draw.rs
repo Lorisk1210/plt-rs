@@ -61,10 +61,20 @@ impl AxisPainter<'_> {
             let key = ticks
                 .drawn_key(index)
                 .expect("the styled ticks are the ticks in view");
+            let tick_labels = std::iter::from_fn(|| labels.next_if(|l| l.tick == index));
+            let (minor, at) = key;
+            if !self.axis.tick_visible(minor, at) {
+                // matplotlib's `Tick.draw` of a hidden tick draws nothing
+                // and opens no group.
+                tick_labels.for_each(drop);
+                continue;
+            }
             let name = tick_group_name(self.name);
-            gids.tick(ctx, name, key, |ctx, groups| {
-                let tick_labels = std::iter::from_fn(|| labels.next_if(|l| l.tick == index));
-                self.draw_tick(ctx, groups, tick, style, tick_labels, rc);
+            // As `allow_rasterization` filters the tick's draw.
+            with_agg_filter(ctx, self.axis.tick_agg_filter(minor, at), |ctx| {
+                gids.tick(ctx, name, key, |ctx, groups| {
+                    self.draw_tick(ctx, groups, tick, style, tick_labels, rc);
+                });
             });
         }
         if let Some(label) = &texts.label {

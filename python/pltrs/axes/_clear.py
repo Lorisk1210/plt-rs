@@ -75,10 +75,11 @@ class ClearMixin:
                 continue
             figure._artists.pop(_artist.id(native), None)
         _foreign_children.forget(self)
-        # Stale and without units, as matplotlib's clear of each axis
-        # leaves it.
+        # Stale, without units and with ticks made anew, as matplotlib's
+        # clear of each axis leaves it.
         for axis in self._axis_map.values():
             axis._forget_units()
+            axis.reset_ticks()
             axis.stale = True
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)

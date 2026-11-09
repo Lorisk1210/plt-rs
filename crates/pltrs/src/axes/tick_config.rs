@@ -1,12 +1,14 @@
 //! Configuring ticks: minor ticks, axis z-order and tick label formats
 //! (matplotlib's `minorticks_on`, `set_axisbelow`, `ticklabel_format`).
 //! Tick parameters (`tick_params`) are in `tick_params`, tick label
-//! properties in `label_props`, the pads of single ticks in `pads` and
-//! locator parameters (`locator_params`) in `locator_params`.
+//! properties in `label_props`, the pads of single ticks in `pads`, single
+//! ticks as artists of their own in `tick_artists` and locator parameters
+//! (`locator_params`) in `locator_params`.
 
 mod label_props;
 mod locator_params;
 mod pads;
+mod tick_artists;
 mod tick_params;
 
 pub use label_props::TickLabelProps;

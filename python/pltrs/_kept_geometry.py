@@ -44,6 +44,15 @@ def point(value):
     return real(value[0]), real(value[1])
 
 
+def same_point(value, native):
+    """Whether the point *value* is the point pltrs (Rust) holds as
+    *native*: its first two items (`point`), whatever follows them."""
+    try:
+        return len(value) >= 2 and _values._same(value[:2], native)
+    except TypeError:
+        return False
+
+
 def hold(artist, name, value, convert, held):
     """
     *value*, given as *artist*'s field *name*, as pltrs (Rust) holds it

@@ -704,6 +704,10 @@ class Path:
             if len(xys):
                 return Bbox([xys.min(axis=0), xys.max(axis=0)])
             return Bbox.null()
+        if kwargs:
+            # matplotlib iterates the curves with them (`iter_segments`
+            # refuses those it does not take).
+            next(self.iter_bezier(**kwargs), None)
         extents = Bbox(_native_path.get_extents(self, None))
         if extents.x0 == np.inf and next(self.iter_bezier(**kwargs), None) is None:
             # matplotlib concatenates the extents of the path's curves, of
@@ -1024,9 +1028,9 @@ class Path:
         can be used in a repeated hatching pattern.  *density* is the
         number of lines per unit square.
         """
-        if hatchpattern is None:
-            return None
-        return Path(*_native_path.hatch(hatchpattern, int(density)))
+        from .hatch import get_path
+        return (get_path(hatchpattern, density)
+                if hatchpattern is not None else None)
 
     def clip_to_bbox(self, bbox, inside=True):
         """

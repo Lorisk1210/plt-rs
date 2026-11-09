@@ -168,6 +168,12 @@ pub trait Artist: Any + Debug + ArtistClone {
         false
     }
 
+    /// What drawing an artist that is hidden (and not
+    /// [drawn while hidden](Self::draws_hidden)) does, where matplotlib's
+    /// `draw` computes before it asks the artist's visibility: nothing
+    /// for most artists.
+    fn draw_hidden(&self, _ctx: &mut DrawContext<'_>) {}
+
     /// Whether drawing the visible artist makes it fresh (matplotlib's
     /// `draw` ending with `self.stale = False`): not for an annotation
     /// whose point is clipped, whose `draw` returns first, nor for an

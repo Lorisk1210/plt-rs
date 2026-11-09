@@ -33,6 +33,8 @@ def _mesh_args(axes, fn, args, shading):
                        for v in (X, Y))
     else:
         raise _api.nargs_error(fn, takes="1 or 3", given=len(args))
+    if given is not None:
+        _check_mesh_shape(fn, *coords, np.shape(C), shading)
     dtype = _coordinates_dtype(given, np.shape(C), shading)
     if type(C) is np.ndarray and C.ndim == 2 and C.dtype == np.float64 and C.dtype.isnative:
         # What the masking below makes of plain floats, without its copies:
@@ -54,6 +56,57 @@ def _rc_shading():
     """:rc:`pcolor.shading`."""
     from ... import rcParams
     return rcParams['pcolor.shading']
+
+
+def _check_mesh_shape(fn, X, Y, shape, shading):
+    """Fail as matplotlib's ``_pcolorargs`` fails for coordinates *X* and
+    *Y* that do not fit each other, or the values of *shape* with
+    *shading*."""
+    nrows, ncols = shape[:2]
+    Nx = X.shape[-1]
+    Ny = Y.shape[0]
+    if X.ndim != 2 or X.shape[0] == 1:
+        X = X.reshape(1, Nx).repeat(Ny, axis=0)
+    if Y.ndim != 2 or Y.shape[1] == 1:
+        Y = Y.reshape(Ny, 1).repeat(Nx, axis=1)
+    if X.shape != Y.shape:
+        raise TypeError(f'Incompatible X, Y inputs to {fn}; see help({fn})')
+    if shading in (None, 'auto'):
+        shading = (shading or _rc_shading()).lower()
+    if shading == 'auto':
+        shading = 'nearest' if (ncols, nrows) == (Nx, Ny) else 'flat'
+    if shading == 'flat':
+        if (Nx, Ny) != (ncols + 1, nrows + 1):
+            raise TypeError(f"Dimensions of C {shape} should be one smaller than X({Nx}) "
+                            f"and Y({Ny}) while using shading='flat' see help({fn})")
+    elif (Nx, Ny) != (ncols, nrows):
+        raise TypeError('Dimensions of C %s are incompatible with X (%d) and/or Y (%d); '
+                        'see help(%s)' % (shape, Nx, Ny, fn))
+
+
+def _valid_shading(shading):
+    """*shading*, or 'auto' for one matplotlib does not know, which it
+    warns about."""
+    valid = ['gouraud', 'nearest', 'flat', 'auto']
+    try:
+        _api.check_in_list(valid, shading=shading)
+    except ValueError:
+        _api.warn_external(f"shading value '{shading}' not in list of valid values "
+                           f"{valid}. Setting shading='auto'.")
+        return 'auto'
+    return shading
+
+
+def _refuse_gouraud_cells(shape):
+    """Fail as matplotlib's `~.Axes.pcolor` fails with ``shading='gouraud'``
+    once its coordinates are checked to be the size of the values of
+    *shape* (as for 'nearest', see `_check_mesh_shape`): its mesh of flat
+    cells refuses the values as one too many along each side."""
+    ny, nx = shape[:2]
+    h, w = ny - 1, nx - 1
+    ok_shapes = [(h, w, 3), (h, w, 4), (h, w), (h * w,)]
+    raise ValueError(f"For X ({nx}) and Y ({ny}) with flat shading, A should have "
+                     f"shape {' or '.join(map(str, ok_shapes))}, not {shape}")
 
 
 def _coordinates_dtype(given, shape, shading):
@@ -114,11 +167,11 @@ class MeshMixin:
         its values as *mapping* (`_mapping`'s pair) says; the mesh of
         `pcolormesh` is drawn *antialiased* or not."""
         if shading is not None:
-            _api.check_in_list(['flat', 'nearest', 'gouraud', 'auto'],
-                               shading=shading.lower())
-            shading = shading.lower()
+            shading = _valid_shading(shading.lower())
         made, native_mapping = mapping
-        if polygons and (shading or _rc_shading()).lower() == 'gouraud':
+        if polygons and shading is None and _rc_shading().lower() == 'gouraud':
+            # Gouraud shading from :rc:`pcolor.shading`; given explicitly,
+            # it fails once the coordinates are checked (below).
             _refuse_gouraud_polygons(args)
         variates = None
         if made.norm.n_components > 1 and args and not polygons:
@@ -130,6 +183,8 @@ class MeshMixin:
             args = (*args[:-1], _first_variate(variates))
             native_mapping = (None, None, None, None)
         C, coords, dtype = _mesh_args(self, fn, args, shading)
+        if polygons and shading == 'gouraud':
+            _refuse_gouraud_cells(np.shape(args[-1]))
         kwargs = cbook.normalize_kwargs(kwargs, cls)
         if (polygons and "antialiased" not in kwargs
                 and not cbook._str_lower_equal(kwargs.get("edgecolor", "none"), "none")):

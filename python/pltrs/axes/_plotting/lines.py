@@ -9,7 +9,8 @@ import re
 import numpy as np
 
 from ... import _docstring
-from ... import _api, _live_transforms, _values, cbook, collections as mcoll, lines as mlines
+from ... import _api, _live_transforms, _values, cbook, collections as mcoll, colors as mcolors
+from ... import lines as mlines
 from ... import _python_drawing
 from .. import _failed_calls
 from ..._artist_kwargs import check_known, keep_program_picker
@@ -82,11 +83,13 @@ def _given_format_color(fmt):
     return None if color is None else _format_color(fmt) or color
 
 
-def _plot_datasets(args, data, kwargs):
+def _plot_datasets(args, data, kwargs, axes=None):
     """
     Split ``plot``'s positional arguments into ``(x, y, fmt, label)``
     datasets, as matplotlib's ``_process_plot_var_args`` does: each group
     is ``[x], y, [fmt]``, and 2D *x* or *y* hold one dataset per column.
+    The axis of *axes* take the units of each group's data before its
+    shapes are checked, as matplotlib's do.
     """
     if data is None:
         args = [cbook.sanitize_sequence(a) for a in args]
@@ -135,10 +138,10 @@ def _plot_datasets(args, data, kwargs):
         if args and isinstance(args[0], str):
             this += args[0],
             args = args[1:]
-        yield from _group_datasets(this, kwargs, ambiguous_fmt_datakey)
+        yield from _group_datasets(this, kwargs, ambiguous_fmt_datakey, axes)
 
 
-def _group_datasets(tup, kwargs, ambiguous_fmt_datakey):
+def _group_datasets(tup, kwargs, ambiguous_fmt_datakey, axes):
     """The datasets of one ``([x], y, [fmt])`` group (``_plot_args``)."""
     fmt = None
     if len(tup) > 1 and isinstance(tup[-1], str):
@@ -164,6 +167,9 @@ def _group_datasets(tup, kwargs, ambiguous_fmt_datakey):
         y = cbook._check_1d(xy[1])
     else:
         x, y = cbook.index_of(xy[-1])
+    if axes is not None:
+        axes.xaxis.update_units(x)
+        axes.yaxis.update_units(y)
     if x.shape[0] != y.shape[0]:
         raise ValueError(f"x and y must have same first dimension, but "
                          f"have shapes {x.shape} and {y.shape}")
@@ -457,7 +463,7 @@ class LinesMixin:
         if not args:
             return []
         lines = []
-        for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs)):
+        for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs, self)):
             props = {k: v for k, v in kwargs.items() if v is not None}
             if "transform" in props:
                 props["transform"] = _live_transforms.for_axes(
@@ -847,6 +853,11 @@ class LinesMixin:
             high = [high]
         positions, low, high = cbook._combine_masks(positions, low, high)
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.LineCollection)
+        # matplotlib makes the collection with the line styles and colours
+        # given, which it refuses before it adds the collection.
+        mcoll._checked_linestyles(linestyles)
+        if colors is not None:
+            mcolors.to_rgba_array(colors)
         transform = kwargs.pop("transform", None)
         native = _plotting.segments(
             self._native, vertical,

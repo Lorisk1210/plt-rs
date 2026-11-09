@@ -121,6 +121,8 @@ def _watch(helper, axis):
     helpers it wraps install it again (see `check_native`)."""
     spec = _spec_of(helper)
     if spec is None:
+        # Installed through an adapter now: no spec to compare with.
+        helper.__dict__.pop("_native_spec", None)
         return
     object.__setattr__(helper, "_native_spec", spec)
     object.__setattr__(helper, "_native_axis", axis)

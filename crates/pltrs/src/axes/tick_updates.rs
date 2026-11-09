@@ -365,7 +365,8 @@ impl FigureState {
     /// its helpers, or for an axis the program ticks, those it gave last
     /// while they were for the same geometry, else the program's anew. An
     /// animated axis, which matplotlib's draw leaves out (but printing), is
-    /// never ticked by the program meanwhile.
+    /// not ticked meanwhile: its helpers, which may be the program's, are
+    /// not asked.
     pub(crate) fn tick_axis_now(
         &mut self,
         axes: ArtistId,
@@ -377,7 +378,10 @@ impl FigureState {
         let left_out = !self.saving
             && (self.store.get_as::<AxesState>(axes))
                 .is_some_and(|state| state.axis(name).animated);
-        if !left_out && self.program_ticker(axes, name).is_some() {
+        if left_out {
+            return;
+        }
+        if self.program_ticker(axes, name).is_some() {
             let current = self.store.get_as::<AxesState>(axes).map(|state| {
                 let geometry = state.axis_geometry(name, extent, dpi, tick_space);
                 let axis = state.axis(name);

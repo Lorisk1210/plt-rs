@@ -201,6 +201,27 @@ mod tests {
     }
 
     #[test]
+    fn mismatched_sizes_fail_the_draw_even_hidden() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let spec =
+            CollectionSpec::ellipses(&[2.0, 1.0], &[3.0, 1.0], &[0.0, 30.0], EllipseUnits::Xy);
+        let ellipses: EllipseCollection = ax.add_collection(spec).raw().downcast().unwrap();
+        ellipses.set_widths(&[0.3]);
+        for visible in [true, false] {
+            ellipses.set_visible(visible);
+            let err = fig.to_png().expect_err("the transforms do not broadcast");
+            assert!(
+                err.to_string()
+                    .contains("could not broadcast input array from shape (2,) into shape (1,)"),
+                "{err}"
+            );
+        }
+        ellipses.set_widths(&[0.3, 0.4]);
+        fig.to_png().expect("sizes that broadcast draw");
+    }
+
+    #[test]
     fn other_collections_are_not_ellipses() {
         let ax = Figure::new().subplot();
         let circles = ax.add_collection(CollectionSpec::circles(vec![4.0]));

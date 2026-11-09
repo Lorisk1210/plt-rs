@@ -129,6 +129,12 @@ fn take_stale_autoscale(axes: Axes) -> PyResult<(bool, bool)> {
     Ok(axes.take_stale_autoscale())
 }
 
+/// Which axes, `(x, y)`, wait to be rescaled, left waiting (whether
+/// matplotlib's next draw autoscales along them).
+fn stale_autoscale(axes: Axes) -> PyResult<(bool, bool)> {
+    Ok(axes.stale_autoscale())
+}
+
 /// The view limits the unit box, the data limits null and the scales'
 /// transforms identities, as matplotlib's `_AxesBase.set_figure` makes
 /// the boxes and transforms of an axes anew.
@@ -140,6 +146,7 @@ fn reset_for_figure(axes: Axes) -> PyResult<()> {
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("take_stale_autoscale", take_stale_autoscale)?;
+    module.add("stale_autoscale", stale_autoscale)?;
     module.add("reset_for_figure", reset_for_figure)?;
     module.add("get_bound", get_bound)?;
     module.add("set_bound", set_bound)?;

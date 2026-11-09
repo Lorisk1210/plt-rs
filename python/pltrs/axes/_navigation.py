@@ -4,11 +4,11 @@ of matplotlib's ``axes._base``): whether the toolbar acts on it, panning
 and zooming it, and the coordinates a status bar shows.
 
 pltrs (Rust) pans and zooms (``_native.navigation``); a pan in progress
-is the native state the axes keeps as ``_pan_start``, as matplotlib keeps
+keeps the native state of the axes as ``_pan_start``, as matplotlib keeps
 its frozen limits and transforms there.
 """
 
-from numbers import Integral, Real
+from numbers import Real
 from operator import attrgetter
 
 import numpy as np
@@ -19,8 +19,41 @@ from . import _foreign_children
 
 
 def _button_number(button):
-    """matplotlib's number of the mouse button *button*, or None."""
-    return int(button) if isinstance(button, Integral) else None
+    """
+    The number of the mouse button *button* as matplotlib's pan methods
+    tell buttons apart: 1 (left) and 3 (right) by equality (``1.0`` and
+    ``MouseButton.LEFT`` are 1), and 2 for any other value, which neither
+    pans nor zooms.
+    """
+    return 1 if button == 1 else 3 if button == 3 else 2
+
+
+def _display_point(x, y):
+    """The display point ``(x, y)`` as floats, which numpy makes of the
+    values matplotlib's transforms are given (None is NaN, ``'60'`` is
+    60)."""
+    return tuple(np.asarray((x, y), dtype=float).tolist())
+
+
+class _PanStart:
+    """
+    A pan in progress (matplotlib's ``_pan_start``): the native state of
+    the axes when the button went down (None for an axes not laid out),
+    and the coordinates the pan started at as they were given, which
+    matplotlib keeps unchecked and subtracts from the pointer's as the
+    pointer moves.
+    """
+
+    def __init__(self, native, x, y):
+        self.native = native
+        self.x = x
+        self.y = y
+
+    def moved_to(self, x, y):
+        """Fail as matplotlib's rectilinear pan fails to measure the
+        pointer's motion to ``(x, y)`` (``x - p.x``)."""
+        x - self.x  # noqa: B018
+        y - self.y  # noqa: B018
 
 
 class _TwinnedAxes:
@@ -302,8 +335,9 @@ class NavigationMixin:
         -----
         This is intended to be overridden by new projection types.
         """
-        self._pan_start = _navigation.start_pan(
-            self._native, float(x), float(y), _button_number(button))
+        self._pan_start = _PanStart(
+            _navigation.start_pan(self._native, *_display_point(x, y),
+                                  _button_number(button)), x, y)
 
     def end_pan(self):
         """
@@ -313,8 +347,8 @@ class NavigationMixin:
         -----
         This is intended to be overridden by new projection types.
         """
-        if self._pan_start is not None:
-            _navigation.end_pan(self._pan_start, self._native)
+        if self._pan_start.native is not None:
+            _navigation.end_pan(self._pan_start.native, self._native)
         del self._pan_start
 
     def _get_pan_points(self, button, key, x, y):
@@ -323,11 +357,13 @@ class NavigationMixin:
         array ``[[x0, y0], [x1, y1]]`` of the new limits, None where a
         limit would not be finite; None when nothing moves.
         """
-        if self._pan_start is None:
+        start = self._pan_start
+        start.moved_to(x, y)
+        if start.native is None:
             return None
         limits = _navigation.pan_limits(
-            self._pan_start, self._native, _button_number(button), key,
-            float(x), float(y))
+            start.native, self._native, _button_number(button), key,
+            *_display_point(x, y))
         if limits is None:
             return None
         points = np.empty((2, 2), dtype=object)
@@ -351,10 +387,15 @@ class NavigationMixin:
         -----
         This is intended to be overridden by new projection types.
         """
-        if self._pan_start is not None:
-            _navigation.drag_pan(self._pan_start, self._native,
+        start = self._pan_start
+        if self.name != "polar":
+            # matplotlib's polar Axes compute with the pointer only in the
+            # mode the press chose.
+            start.moved_to(x, y)
+        if start.native is not None:
+            _navigation.drag_pan(start.native, self._native,
                                  _button_number(button), key,
-                                 float(x), float(y))
+                                 *_display_point(x, y))
 
     @property
     def fmt_xdata(self):

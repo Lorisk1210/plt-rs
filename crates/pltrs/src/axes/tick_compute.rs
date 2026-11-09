@@ -297,7 +297,10 @@ impl AxisState {
             ticks.offset = labels.offset;
             ticks.major_locs.clone_from(&major_locs);
         }
-        if levels.minor {
+        // matplotlib's `_update_ticks` skips a level a `NullLocator`
+        // places: it places nothing, and is not compared with the majors.
+        let null = |locator: &dyn Locator| (locator as &dyn Any).is::<NullLocator>();
+        if levels.minor && !null(self.minor_locator.as_ref()) {
             let all_locs = self.all_minor_locs(&ctx)?;
             let minor_locs = self.minor_locs(&all_locs, &major_locs, geometry.view);
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
@@ -308,12 +311,11 @@ impl AxisState {
             ticks.minor_locs = all_locs;
         }
         // matplotlib's update labels no level a `NullLocator` places.
-        let labels = |locator: &dyn Locator| !(locator as &dyn Any).is::<NullLocator>();
         ticks.record(
             &info,
             [
-                levels.major && labels(self.major_locator.as_ref()),
-                levels.minor && labels(self.minor_locator.as_ref()),
+                levels.major && !null(self.major_locator.as_ref()),
+                levels.minor && !null(self.minor_locator.as_ref()),
             ],
         );
         Ok(ticks)
@@ -369,6 +371,30 @@ mod tests {
             ]
         );
         assert!(ticks.minor.is_empty(), "minor ticks are off by default");
+    }
+
+    #[test]
+    fn a_null_minor_locator_is_not_compared_with_the_majors() {
+        let mut axis = AxisState::new(AxisName::Y, &RcParams::matplotlib());
+        let ((), warnings) = crate::warnings::capturing_runtime(|| {
+            axis.update_ticks(&geometry((-1.0, f64::INFINITY)));
+        });
+        assert!(
+            !warnings
+                .iter()
+                .any(|w| w.starts_with("One of rtol or atol")),
+            "{warnings:?}"
+        );
+        let (minor, warnings) = crate::warnings::capturing_runtime(|| {
+            axis.level_locs(&geometry((-1.0, f64::INFINITY)), true)
+        });
+        assert_eq!(minor.ok(), Some(Vec::new()));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.starts_with("One of rtol or atol")),
+            "asked for, the minor ticks are compared: {warnings:?}"
+        );
     }
 
     #[test]

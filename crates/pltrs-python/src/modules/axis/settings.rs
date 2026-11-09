@@ -4,8 +4,8 @@
 //! (matplotlib's `Axis.clear`, `isDefault_majloc`, `minorticks_on`,
 //! `set_in_layout`, `labelpad`, `set_label_coords`, `tick_top`,
 //! `get_tightbbox`, `have_units`, `update_units`, `set_units` of a zone,
-//! whether the axes follows its changes of units, and the axis' animation
-//! and image filter).
+//! whether the axes follows its changes of units, the axis' animation and
+//! image filter, and the visibility and image filters of its single ticks).
 
 use pltrs::axes::{Axes, AxisBelow, TickHelperKind};
 use pltrs::spines::SpineSide;
@@ -184,6 +184,33 @@ fn set_animated(axes: Axes, name: String, animated: bool) -> PyResult<()> {
 /// none (`Artist.set_agg_filter` on an axis).
 fn set_agg_filter(axes: Axes, name: String, function: Option<Callback>) -> PyResult<()> {
     axis(&axes, &name)?.set_agg_filter(function.map(python_filter));
+    Ok(())
+}
+
+/// Draws the major (or `minor`) tick at `index` of the axis, or hides it
+/// (`Tick.set_visible` on a tick of an axis).
+fn set_tick_visible(
+    axes: Axes,
+    name: String,
+    minor: bool,
+    index: usize,
+    visible: bool,
+) -> PyResult<()> {
+    axis(&axes, &name)?.set_tick_visible(minor, index, visible);
+    Ok(())
+}
+
+/// Draws the major (or `minor`) tick at `index` of the axis through the
+/// Python image filter `function`, or through none (`Tick.set_agg_filter`
+/// on a tick of an axis).
+fn set_tick_agg_filter(
+    axes: Axes,
+    name: String,
+    minor: bool,
+    index: usize,
+    function: Option<Callback>,
+) -> PyResult<()> {
+    axis(&axes, &name)?.set_tick_agg_filter(minor, index, function.map(python_filter));
     Ok(())
 }
 
@@ -401,6 +428,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_label_coords", set_label_coords)?;
     module.add("set_animated", set_animated)?;
     module.add("set_agg_filter", set_agg_filter)?;
+    module.add("set_tick_visible", set_tick_visible)?;
+    module.add("set_tick_agg_filter", set_tick_agg_filter)?;
     module.add("follows_units", follows_units)?;
     module.add("set_follows_units", set_follows_units)?;
     module.add("get_in_layout", get_in_layout)?;

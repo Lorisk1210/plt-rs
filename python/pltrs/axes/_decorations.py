@@ -6,7 +6,10 @@ labels of its axes (``set_xlabel``) and the blended transforms of its axes
 ``_native.axes``).
 """
 
-from .. import _api, _background_patch, _values
+from numbers import Real
+from operator import attrgetter
+
+from .. import _api, _background_patch, _unusable, _values
 from .._native import axes as _axes, axes_base as _axes_base
 
 
@@ -91,12 +94,30 @@ class DecorationsMixin:
             The zorder below which artists are rasterized.
             If ``None`` rasterization based on zorder is deactivated.
         """
-        _axes_base.set_rasterization_zorder(
-            self._native, None if z is None else float(z))
+        if z is None or isinstance(z, Real):
+            _axes_base.set_rasterization_zorder(
+                self._native, None if z is None else float(z))
+            _values.remember(self, "rasterization_zorder", z)
+            _unusable.drop(self, "rasterization zorder")
+        else:
+            # matplotlib keeps it, and fails to compare z-orders with it
+            # where it draws the Axes.
+            _values.keep(self, "rasterization_zorder", z)
+            _unusable.keep(self, "rasterization zorder", z,
+                           self._compare_rasterization_zorder, measured=False)
+
+    def _compare_rasterization_zorder(self, z):
+        """Fail as matplotlib's draw fails to compare the lowest z-order
+        of what it draws with the rasterization z-order *z*."""
+        drawn = [artist for artist in self.get_children()
+                 if artist is not self.patch and not artist.get_animated()]
+        if drawn:
+            min(drawn, key=attrgetter("zorder")).zorder < z  # noqa: B015
 
     def get_rasterization_zorder(self):
         """Return the zorder value below which artists will be rasterized."""
-        return _axes_base.get_rasterization_zorder(self._native)
+        return _values.given(self, "rasterization_zorder",
+                             _axes_base.get_rasterization_zorder(self._native))
 
     @property
     def _frameon(self):

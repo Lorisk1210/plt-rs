@@ -642,6 +642,14 @@ impl Artist for CollectionArtist {
         &mut self.base
     }
 
+    fn draw_hidden(&self, ctx: &mut DrawContext<'_>) {
+        // matplotlib's `EllipseCollection.draw` makes the ellipses'
+        // transforms before `Collection.draw` asks whether it is visible.
+        if let Some(problem) = self.ellipses.as_ref().and_then(Ellipses::broadcast_problem) {
+            ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
+        }
+    }
+
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         if let Some(mapped) = self.mapping.as_ref().filter(|mapped| mapped.at_draw()) {
             // The program's norm normalises with the figure free.

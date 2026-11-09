@@ -10,6 +10,7 @@ after the defaults and alpha, until a draw maps the values onto them
 (`Collection.update_scalarmappable`). Widths read back as given.
 """
 
+import contextlib
 import functools
 import math
 from numbers import Real
@@ -19,9 +20,10 @@ import warnings
 import numpy as np
 
 from . import _docstring
-from . import (_api, _artist_copying, _live_transforms, _owned_paths, _program_paths,
-               _unusable, _values, cbook, colorizer as mcolorizer, colors as mcolors,
-               lines as mlines, path as mpath, transforms as mtransforms)
+from . import (_api, _artist_copying, _collection_draw_checks, _live_transforms,
+               _owned_paths, _program_paths, _refused_colors, _unusable, _values, cbook,
+               colorizer as mcolorizer, colors as mcolors, lines as mlines, path as mpath,
+               transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
 from ._program_classes import takes_from_program
 from ._native import artist as _artist, collections as _collections
@@ -67,6 +69,21 @@ def _linestyle_list(ls):
         for style in styles:
             mlines._get_dash_pattern(style)
         return styles
+
+
+def _event_positions(positions, lineoffset, linelength):
+    """The sorted positions of the events of an `.EventCollection`, checked
+    as matplotlib's ``set_positions`` checks them computing their segments
+    with the line *lineoffset* and *linelength* (None for no positions)."""
+    if positions is None:
+        positions = []
+    if np.ndim(positions) != 1:
+        raise ValueError('positions must be one-dimensional')
+    segments = np.empty((len(positions), 2, 2))
+    segments[:, :, 0] = np.sort(positions)[:, None]
+    segments[:, 0, 1] = lineoffset + linelength / 2
+    segments[:, 1, 1] = lineoffset - linelength / 2
+    return segments[:, 0, 0]
 
 
 def _checked_linestyles(ls):
@@ -795,10 +812,13 @@ class Collection(mcolorizer.ColorizingArtist):
         if not isinstance(lw, Real):
             # Kept unchecked, as matplotlib keeps it until it draws.
             _values.keep(self, "hatch_linewidth", lw)
+            _unusable.keep(self, "hatch_linewidth", lw, functools.partial(
+                _collection_draw_checks.hatch_linewidth, self), measured=False)
             return
         native = float(lw)
         _collections.set_hatch_linewidth(self._native, native)
         _values.remember(self, "hatch_linewidth", lw)
+        _unusable.drop(self, "hatch_linewidth")
 
     def get_hatchcolor(self):
         return self._get("hatchcolor")
@@ -880,8 +900,18 @@ class Collection(mcolorizer.ColorizingArtist):
         lw = np.atleast_1d(lw)
         # matplotlib scales the dash patterns by the widths, failing on
         # widths that are no numbers.
-        self._bcast_lwls(lw, [mlines._get_dash_pattern(style)
-                              for style in self._given_linestyles()])
+        bcast, _ = self._bcast_lwls(lw, [mlines._get_dash_pattern(style)
+                                         for style in self._given_linestyles()])
+        if any(isinstance(w, str) for w in bcast):
+            # matplotlib keeps widths given as text, which its renderers
+            # take or fail on (`._collection_draw_checks`); pltrs (Rust)
+            # draws with those a float reads.
+            _values.keep(self, "linewidth", bcast)
+            _unusable.keep(self, "linewidth", bcast, functools.partial(
+                _collection_draw_checks.linewidths, self), measured=False)
+            with contextlib.suppress(ValueError):
+                _collections.set_linewidths(self._native, [float(w) for w in lw])
+            return
         # Masked widths draw nothing, as NaN ones (and read back masked).
         widths = lw.astype(float).filled(np.nan) if np.ma.isMaskedArray(lw) else lw
         try:
@@ -1078,7 +1108,8 @@ class Collection(mcolorizer.ColorizingArtist):
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
         self._original_facecolor = c
-        _collections.set_facecolors(self._native, None if c is None else _rgba(c))
+        _refused_colors.take(self, "facecolor", c, lambda: _collections.set_facecolors(
+            self._native, None if c is None else _rgba(c)))
         self._face_fill = not cbook._str_lower_equal(c, "none")
 
     def get_edgecolor(self):
@@ -1111,7 +1142,8 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
-        _collections.set_edgecolors(self._native, _edge_spec(c))
+        _refused_colors.take(self, "edgecolor", c, lambda: _collections.set_edgecolors(
+            self._native, _edge_spec(c)))
         if c is None and "_original_facecolor" in self.__dict__:
             # matplotlib decides from the face colour given last, which a
             # colour it refused still is.
@@ -1222,17 +1254,24 @@ class _CollectionWithSizes(Collection):
         if sizes is None:
             sizes = np.array([])
         sizes = np.asarray(sizes)
-        if sizes.ndim == 0:
-            # matplotlib keeps them before it counts them, and its draws
-            # fail to count them again.
-            _unusable.keep(self, "sizes", sizes, len, measured=False)
-        # matplotlib's scales of the items, which fail and warn on sizes that
-        # are no numbers or negative.
-        len(sizes)
-        np.sqrt(sizes) * dpi / 72.0
+        try:
+            # matplotlib's scales of the items, which fail and warn on
+            # sizes that are no numbers or negative, the sizes kept.
+            _collection_draw_checks.size_scales(sizes, dpi)
+        except (TypeError, ValueError):
+            _values.keep(self, "sizes", sizes)
+            _unusable.keep(self, "sizes", sizes, _collection_draw_checks.size_scales,
+                           measured=False)
+            raise
         _collections.set_sizes(self._native, np.asarray(sizes, float))
-        _unusable.drop(self, "sizes")
         _values.remember(self, "sizes", sizes)
+        if len(sizes) or not isinstance(self, RegularPolyCollection):
+            _unusable.drop(self, "sizes")
+        else:
+            # Regular polygons of no rotated transforms, which matplotlib's
+            # renderers fail to draw.
+            _unusable.keep(self, "sizes", sizes, functools.partial(
+                _collection_draw_checks.no_sizes, self), measured=False)
         # The resolution the items are scaled at until the next draw.
         self._sizes_scaled = (float(dpi), _artist.draw_count(self._native))
 
@@ -1462,11 +1501,17 @@ class PolyCollection(_CollectionWithSizes):
         """
         # New paths, as matplotlib makes them.
         self.__dict__.pop("_kept_paths", None)
-        polygons = _polygon_vertices(verts, closed)
-        if closed:
+        if not closed:
+            _collections.set_segments(self._native, _polygon_vertices(verts, closed))
+            return
+        polygons = []
+        try:
+            for vertices in _each_polygon_vertices(verts, closed):
+                polygons.append(vertices)
+        finally:
+            # matplotlib's collection keeps the polygons it made before it
+            # failed (its list of closed paths is new from the start).
             _collections.set_verts(self._native, polygons)
-        else:
-            _collections.set_segments(self._native, polygons)
 
     set_paths = set_verts
 
@@ -1489,24 +1534,26 @@ def _path_vertices(vertices):
     return vertices
 
 
-def _polygon_vertices(verts, closed):
-    """The (N, 2) float arrays of the polygons *verts*, refused as
-    matplotlib's `.PolyCollection.set_verts` refuses them making their
+def _each_polygon_vertices(verts, closed):
+    """The (N, 2) float arrays of the polygons *verts*, one by one, refused
+    as matplotlib's `.PolyCollection.set_verts` refuses them making their
     paths: it counts the points of each polygon to close, and checks the
     shape of its points with the first repeated."""
     if isinstance(verts, np.ma.MaskedArray):
         verts = verts.astype(float).filled(np.nan)
-    if not closed:
-        return [_path_vertices(xy) for xy in verts]
-    polygons = []
     for xy in verts:
-        if not len(xy):
-            polygons.append(_path_vertices(xy))
+        if not closed or not len(xy):
+            yield _path_vertices(xy)
             continue
         vertices = cbook._to_unmasked_float_array(xy)
         _api.check_shape((None, 2), vertices=np.concatenate([vertices, vertices[:1]]))
-        polygons.append(vertices)
-    return polygons
+        yield vertices
+
+
+def _polygon_vertices(verts, closed):
+    """The (N, 2) float arrays of all the polygons *verts* (see
+    `_each_polygon_vertices`)."""
+    return list(_each_polygon_vertices(verts, closed))
 
 
 def _check_step(step, curves, where):
@@ -1839,6 +1886,8 @@ class LineCollection(Collection):
         if segments is None:
             return
         _collections.set_segments(self._native, [_path_vertices(seg) for seg in segments])
+        # New paths, as matplotlib makes them.
+        self.__dict__.pop("_kept_paths", None)
 
     set_verts = set_segments  # for compatibility with PolyCollection
     set_paths = set_segments
@@ -1986,13 +2035,16 @@ class EventCollection(LineCollection):
         --------
         .. plot:: gallery/lines_bars_and_markers/eventcollection_demo.py
         """
+        # matplotlib makes the line collection with its properties first,
+        # then sets the orientation and computes the segments of the
+        # positions with the offset and length as given.
+        _checked_linestyles(linestyle)
+        if color is not None:
+            mcolors.to_rgba_array(color)
         _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
-        positions = np.asarray(positions, dtype=float)
-        if positions.ndim > 1:
-            raise ValueError('positions must be one-dimensional')
+        positions = _event_positions(positions, lineoffset, linelength)
         self._native = _collections.new_event_collection(
-            np.atleast_1d(positions), orientation == 'vertical',
-            float(lineoffset), float(linelength))
+            positions, orientation == 'vertical', float(lineoffset), float(linelength))
         _values.remember_all(self, {"lineoffset": lineoffset, "linelength": linelength},
                              ("lineoffset", "linelength"))
         Collection.__init__(self, linewidths=linewidth, linestyles=linestyle,
@@ -2010,12 +2062,8 @@ class EventCollection(LineCollection):
 
     def set_positions(self, positions):
         """Set the positions of the events."""
-        if positions is None:
-            positions = []
-        if np.ndim(positions) != 1:
-            raise ValueError('positions must be one-dimensional')
-        _collections.set_event_positions(
-            self._native, np.sort(np.asarray(positions, dtype=float)))
+        _collections.set_event_positions(self._native, _event_positions(
+            positions, self.get_lineoffset(), self.get_linelength()))
 
     def add_positions(self, position):
         """Add one or more events at the specified positions."""
@@ -2316,6 +2364,8 @@ class PatchCollection(Collection):
     def set_paths(self, patches):
         _collections.set_paths(self._native, [
             p.get_transform().transform_path(p.get_path()) for p in patches])
+        # New paths, as matplotlib makes them.
+        self.__dict__.pop("_kept_paths", None)
 
 
 class TriMesh(Collection):

@@ -3,15 +3,18 @@ Streamline plotting for 2D vector fields (matplotlib's ``streamplot``).
 
 The checks of the grid and the arguments are matplotlib's (from matplotlib
 3.11.2, under the Matplotlib License); pltrs (Rust) traces the streamlines
-and draws them with their arrows.
+and draws them with their arrows, but for arguments it does not take as
+they are, whose streamlines matplotlib's code makes.
 """
 
+import math
 import operator
+from numbers import Integral, Real
 
 import numpy as np
 
-from . import (_api, _handles, _live_transforms, _values, cbook, colors as mcolors,
-               collections as mcollections, patches)
+from . import (_api, _handles, _live_transforms, _streamplot_reference, _values, cbook,
+               colors as mcolors, collections as mcollections, patches)
 from ._fancy_styles import _style_object
 from ._native import plotting as _plotting
 from ._patch_styles import ArrowStyle, _native_spec
@@ -39,6 +42,22 @@ def _filled(values):
     """*values* as a float array, NaN where masked or invalid."""
     return np.ma.filled(np.ma.masked_invalid(np.ma.asarray(values, dtype=float)),
                         np.nan)
+
+
+def _taken_natively(linewidth, arrowsize, arrowstyle, minlength, maxlength, zorder,
+                    num_arrows):
+    """Whether pltrs (Rust) takes the arguments as they are: numbers where
+    matplotlib computes with numbers (a finite arrow size, a minimum length
+    that is not negative, a whole number of arrows), a style given by name
+    or as a style; matplotlib's own code makes the streamlines of any
+    others (`._streamplot_reference`)."""
+    return ((linewidth is None or isinstance(linewidth, (Real, np.ndarray)))
+            and isinstance(arrowsize, Real) and math.isfinite(arrowsize)
+            and (isinstance(arrowstyle, str) or callable(arrowstyle))
+            and isinstance(minlength, Real) and not minlength < 0
+            and isinstance(maxlength, Real)
+            and (zorder is None or isinstance(zorder, Real))
+            and isinstance(num_arrows, Integral))
 
 
 def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
@@ -138,6 +157,15 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         to the colormap, alpha, etc. for both lines and arrows, but these
         changes should be backward compatible.
     """
+    if not _taken_natively(linewidth, arrowsize, arrowstyle, minlength, maxlength,
+                           zorder, num_arrows):
+        return StreamplotSet(*_streamplot_reference.streamplot(
+            axes, x, y, u, v, density, linewidth, color, cmap, norm, arrowsize,
+            arrowstyle, minlength, transform, zorder, start_points, maxlength,
+            integration_direction, broken_streamlines,
+            integration_max_step_scale=integration_max_step_scale,
+            integration_max_error_scale=integration_max_error_scale,
+            num_arrows=num_arrows))
     # matplotlib's grid and mask, which check the coordinates and density.
     grid = Grid(x, y)
     DomainMap(grid, StreamMask(density))

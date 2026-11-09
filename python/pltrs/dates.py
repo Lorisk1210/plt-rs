@@ -209,6 +209,23 @@ def _axis_zone(values):
     return _native_tz(tz)
 
 
+def _counted_values(x):
+    """The dates *x* as an array of doubles, those that are numpy floats
+    narrower than a double rounded to the microseconds they count in their
+    own precision, as matplotlib's `num2date` counts them (it reads the
+    values of an array as Python floats)."""
+    values = np.asarray(x, dtype=float)
+    if isinstance(x, np.ndarray) and x.ndim:
+        return values
+    items = np.asarray(x, dtype=object).ravel()
+    if not any(isinstance(v, np.floating) and v.itemsize < 8 for v in items):
+        return values
+    return np.array([
+        float(np.round(v * MUSECONDS_PER_DAY)) / MUSECONDS_PER_DAY
+        if isinstance(v, np.floating) and v.itemsize < 8 else float(v)
+        for v in items]).reshape(values.shape)
+
+
 def num2date(x, tz=None):
     """
     Convert Matplotlib dates to `~datetime.datetime` objects.
@@ -239,7 +256,7 @@ def num2date(x, tz=None):
     if np.asarray(x).dtype.kind not in 'biuf':
         # matplotlib multiplies each value by the microseconds of a day.
         np.vectorize(lambda value: value * MUSECONDS_PER_DAY, otypes="O")(x)
-    values = np.asarray(x, dtype=float)
+    values = _counted_values(x)
     dates = [datetime.datetime(*date, *time, tzinfo=UTC).astimezone(tz)
              for date, time in _dates.num_to_utc(values.ravel())]
     if np.iterable(x):

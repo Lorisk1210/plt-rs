@@ -431,10 +431,13 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         v = _val_or_rc(v, 'image.resample')
         self._set_resampling("resample", bool(v))
+        # Read back as given, as matplotlib keeps it.
+        _values.remember(self, "resample", v)
 
     def get_resample(self):
         """Return whether image resampling is used."""
-        return self._resampling("resample")
+        return _values.given(self, "resample", self._resampling("resample"),
+                             same=_values._same_truth)
 
     def set_filternorm(self, filternorm):
         """
@@ -580,9 +583,26 @@ def _made_image(image, magnification, unsampled, in_bbox, trans, over=None,
     if made is None:
         return None, 0, 0, None
     pixels, x, y, matrix = made
-    return (pixels, x, y,
-            _image_transform(image, in_bbox, trans, (x, y, magnification),
-                             matrix if unsampled else None))
+    transform, kept = _image_transform(image, in_bbox, trans, (x, y, magnification),
+                                       matrix if unsampled else None)
+    if unsampled:
+        pixels = _unsampled_pixels(image._A, pixels, kept)
+    return pixels, x, y, transform
+
+
+def _unsampled_pixels(data, pixels, kept):
+    """The unsampled *pixels* of the image *data*, the part of it from its
+    pixel *kept* ``(column, row)`` on, as matplotlib's ``to_rgba`` gives
+    them: masked where the data are for RGBA data, which it takes as they
+    are (the data of other shapes it maps or completes into new arrays)."""
+    if np.ndim(data) != 3 or data.shape[-1] != 4:
+        return pixels
+    mask = np.ma.getmask(data)
+    if mask is not np.ma.nomask:
+        column, row = kept
+        rows, columns = pixels.shape[:2]
+        mask = mask[row:row + rows, column:column + columns]
+    return np.ma.masked_array(pixels, mask=mask)
 
 
 def _native_made(image, magnification, unsampled, over=None):
@@ -610,7 +630,8 @@ def _image_transform(image, in_bbox, trans, corner, unsampled_matrix):
     stretched over *in_bbox*, *trans*, then the magnification and the move
     of the magnified *corner* ``(x, y, magnification)`` to the origin; for
     the unsampled pixels pltrs (Rust) made with *unsampled_matrix*, first
-    the move to the part of the image they keep.
+    the move to the part of the image they keep. With it, the pixel
+    ``(column, row)`` of the image that part starts at.
     """
     rows, columns = image._A.shape[:2]
     if image.origin == 'upper':
@@ -625,11 +646,13 @@ def _image_transform(image, in_bbox, trans, corner, unsampled_matrix):
     t = t0 + (Affine2D()
               .scale(magnification)
               .translate(-x * magnification, -y * magnification))
+    kept = (0, 0)
     if unsampled_matrix is not None and t.is_affine:
         # The part kept starts at whole pixels of the image.
-        kept = np.linalg.solve(t.get_matrix(), np.asarray(unsampled_matrix))
-        t = Affine2D().translate(round(kept[0, 2]), round(kept[1, 2])) + t
-    return t
+        matrix = np.linalg.solve(t.get_matrix(), np.asarray(unsampled_matrix))
+        kept = (round(matrix[0, 2]), round(matrix[1, 2]))
+        t = Affine2D().translate(*kept) + t
+    return t, kept
 
 
 def _made_grid_image(image, magnification, unsampled, kind):

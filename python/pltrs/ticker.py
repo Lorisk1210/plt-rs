@@ -667,9 +667,11 @@ class ScalarFormatter(_NativeFormatter):
 
     def _spec(self):
         # An offset that is no number (which `set_locs` fails on as
-        # matplotlib's does) offsets nothing.
+        # matplotlib's does) offsets nothing; numpy's booleans are numbers
+        # its arithmetic takes.
         use_offset = True if self._useOffset else (
-            float(self.offset) if isinstance(self.offset, numbers.Real) and self.offset else False)
+            float(self.offset)
+            if isinstance(self.offset, (numbers.Real, np.bool_)) and self.offset else False)
         return {"kind": "scalar", "use_offset": use_offset,
                 "use_mathtext": bool(self._useMathText), "usetex": self._usetex,
                 "scientific": self._scientific,
@@ -858,10 +860,29 @@ class ScalarFormatter(_NativeFormatter):
         # docstring inherited
         # matplotlib's first step, which refuses zero, NaN and infinities
         # in the words of the running Python.
-        math.floor(math.log10(abs(value)))
+        e = math.floor(math.log10(abs(value)))
+        if isinstance(value, np.floating) and value.dtype != np.float64:
+            # Its significand computed in its own precision.
+            return self._format_in_precision(value, e)
         # The value alone, as matplotlib's formats it: no tick of the axis
         # is computed (which would set the order of magnitude).
         return _ticker.format_data(self._spec(), float(value), False, None)
+
+    def _format_in_precision(self, value, e):
+        """`format_data` of *value*, a numpy float of another precision
+        than a double's, of decimal exponent *e*: matplotlib's arithmetic,
+        in that precision."""
+        s = round(value / 10**e, 10)
+        significand = self._format_maybe_minus_and_locale(
+            "%d" if s % 1 == 0 else "%1.10g", s)
+        if e == 0:
+            return significand
+        exponent = self._format_maybe_minus_and_locale("%d", e)
+        if self._useMathText or self._usetex:
+            exponent = "10^{%s}" % exponent
+            return (exponent if s == 1  # reformat 1x10^y as 10^y
+                    else rf"{significand} \times {exponent}")
+        return f"{significand}e{exponent}"
 
     def get_offset(self):
         """
@@ -1067,17 +1088,23 @@ class LogFormatter(Formatter):
 
     def __call__(self, x, pos=None):
         # docstring inherited
-        return self._log_label(x, LogFormatter._value_steps)
+        # A mathtext formatter labels as this class does when the program
+        # calls this method on it (its exponents label as their class).
+        kind = None if self._kind == LogFormatterExponent._kind else LogFormatter._kind
+        return self._log_label(x, LogFormatter._value_steps, kind)
 
-    def _log_label(self, x, steps):
+    def _log_label(self, x, steps, kind=None):
         """The label of *x*, after matplotlib's first *steps* with it (its
-        class' ``__call__``'s, see `_first_steps`)."""
+        class' ``__call__``'s, see `_first_steps`), written as the formatters
+        of *kind* write it (by default, as this one's)."""
         _first_steps(x, *steps)
         if isinstance(x, numbers.Real) and math.isinf(x):
             # matplotlib rounds the exponent of an infinite value first.
             _ = round(x)
-        return _ticker.log_label(self._spec(), float(x), self._sublabels,
-                                 self._axis_info())
+        spec = self._spec()
+        if kind is not None:
+            spec["kind"] = kind
+        return _ticker.log_label(spec, float(x), self._sublabels, self._axis_info())
 
     def format_data(self, value):
         # docstring inherited
@@ -1362,6 +1389,9 @@ class EngFormatter(ScalarFormatter):
         engineering formatting that fits the given argument, independently.
         """
         if len(self._locs) == 0 or self._offset == '':
+            if not isinstance(x, numbers.Real):
+                # matplotlib's arithmetic, on what is no number.
+                return self.fix_minus(self.format_data(x))
             labels, _ = _ticker.format_ticks(
                 {**self._spec(), "use_offset": False},
                 np.asarray([x], dtype=float), self._axis_info())
@@ -2564,9 +2594,10 @@ class LogitLocator(MaxNLocator):
             return []
         return ticks
 
+    @_qualnames.named_as("MaxNLocator.__call__")
     def __call__(self):
-        # matplotlib's call asks `tick_values`, which refuses a polar axis
-        # before anything is computed.
+        # matplotlib's call (`MaxNLocator`'s) asks `tick_values`, which
+        # refuses a polar axis before anything is computed.
         self._refuse_polar()
         return super().__call__()
 

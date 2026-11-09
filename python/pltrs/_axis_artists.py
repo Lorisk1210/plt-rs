@@ -14,12 +14,13 @@ made with its constructor is an ordinary artist outside any axis.
 Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 """
 
+import functools
 from numbers import Real
 
 import numpy as np
 
-from . import (_api, _artist_clipping, _live_transforms, _mirrors, _unusable, _values,
-               cbook)
+from . import (_api, _artist_clipping, _artist_effects, _live_transforms, _mirrors,
+               _unusable, _values, cbook)
 from ._native import artist as _artist, axis as _axis
 from .artist import Artist, allow_rasterization
 from .lines import Line2D
@@ -489,6 +490,28 @@ class Tick(Artist):
             _axis.set_tick_gid(*self._gid_args(),
                                None if gid is None else str(gid))
 
+    def _drawn_by_its_axis(self):
+        """Whether pltrs (Rust) draws the tick with the 2-D axis it is a
+        tick of."""
+        axis = self.axis
+        return axis is not None and axis.axes.name != "3d"
+
+    def set_visible(self, b):
+        # docstring inherited
+        super().set_visible(b)
+        if self._drawn_by_its_axis():
+            # matplotlib's `Tick.draw` draws nothing of a hidden tick.
+            _axis.set_tick_visible(*self._gid_args(), bool(self.get_visible()))
+
+    def set_agg_filter(self, filter_func):
+        # docstring inherited
+        super().set_agg_filter(filter_func)
+        if self._drawn_by_its_axis():
+            # matplotlib's `allow_rasterization` filters the tick's draw.
+            _axis.set_tick_agg_filter(
+                *self._gid_args(), None if filter_func is None else
+                functools.partial(_artist_effects.filtered, filter_func))
+
     @allow_rasterization
     def draw(self, renderer):
         # Draw the visible parts of a tick made alone, as matplotlib's does
@@ -590,6 +613,9 @@ class Tick(Artist):
             for line in (self.tick1line, self.tick2line):
                 line.set_markersize(self._size)
                 line.set_markeredgewidth(self._width)
+            # matplotlib places the labels at the new pad (its
+            # ``_get_text1_transform``), failing on a pad it cannot add.
+            self._pad  # noqa: B018
         tick_kw = {k: v for k, v in kwargs.items() if k in ['color', 'zorder']}
         if 'color' in kwargs:
             tick_kw['markeredgecolor'] = kwargs['color']

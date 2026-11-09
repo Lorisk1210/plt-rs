@@ -494,6 +494,27 @@ impl Axes {
         (x, y)
     }
 
+    /// Which axes, `(x, y)`, wait to be rescaled, as
+    /// [`take_stale_autoscale`](Self::take_stale_autoscale) tells, which
+    /// still wait: whether matplotlib's next draw computes the view limits
+    /// along them with the locators (`autoscale_view`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.0, 10.0], [0.0, 5.0])?;
+    /// assert_eq!(ax.stale_autoscale(), (true, true));
+    /// assert_eq!(ax.stale_autoscale(), (true, true));
+    /// let (low, high) = ax.xlim();
+    /// assert!(low <= 0.0 && 10.0 <= high, "rescaled as it is read");
+    /// assert_eq!(ax.stale_autoscale(), (false, false));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn stale_autoscale(&self) -> (bool, bool) {
+        let [x, y] = self.raw.figure_state().borrow().stale_axes(self.id());
+        (x, y)
+    }
+
     /// Applies pending autoscaling to the view limits, then runs the limit
     /// callbacks it queued; a view that is up to date is left untouched
     /// (and the figure unborrowed for change).

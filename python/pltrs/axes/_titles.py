@@ -12,7 +12,9 @@ handling of ``set_title`` and ``get_title`` is matplotlib 3.11.2's,
 under the Matplotlib License.
 """
 
-from .. import _api, _handles, _live_transforms
+from numbers import Real
+
+from .. import _api, _handles, _live_transforms, _unusable
 from .._native import axes as _axes
 from .._program_classes import takes_from_program
 from ..text import Text
@@ -111,15 +113,27 @@ class TitlesMixin:
             from .. import rcParams
             loc = rcParams['axes.titlelocation']
         loc = _api.getitem_checked(_LOCATIONS, loc=loc.lower())
+        # A height that is no number the title keeps as given (matplotlib's
+        # `.Text.set_y`), failing as its draws convert it.
+        kept_y = y is not None and not isinstance(y, Real)
         title = _handles.wrap(
             _axes.set_title(self._native, loc, "",
                             None if pad is None else float(pad),
-                            None if y is None else float(y)),
+                            None if y is None or kept_y else float(y)),
             Text, self._figure)
         title.set_text(label)
         if fontdict is not None:
             title.update(fontdict)
         title._internal_update(kwargs)
+        if kept_y:
+            self._autotitlepos = False
+            title.set_y(y)
+        elif _unusable.kept(title, "y", None) is not None:
+            # The height replaces the one kept, as matplotlib sets it anew.
+            if y is None:
+                from .. import rcParams
+                y = rcParams['axes.titley']
+            title.set_y(1.0 if y is None else y)
         return title
 
     def get_title(self, loc="center"):

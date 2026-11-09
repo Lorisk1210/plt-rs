@@ -127,6 +127,11 @@ class ChildAxesMixin:
 
         This is the lowlevel version.  See `.axes.Axes.inset_axes`.
         """
+        if not hasattr(ax, "__dict__"):
+            # matplotlib sets the child's ``_axes`` first.
+            raise AttributeError(f"{type(ax).__name__!r} object has no attribute '_axes' "
+                                 "and no __dict__ for setting new attributes",
+                                 name="_axes", obj=ax)
         if ax.__dict__.get("_child_of") is not self:
             # matplotlib adds a child twice over; pltrs (Rust) keeps one.
             _insets.add_child_axes(self._native, ax._native)
@@ -192,6 +197,10 @@ class InsetsMixin:
 
         """
         kwargs.setdefault('label', 'inset_axes')
+        # matplotlib places the inset with its locator first, which fails
+        # on bounds that are no four values and transforms that are none.
+        _TransformedBoundsLocator(
+            bounds, self.transAxes if transform is None else transform)(self, None)
         fig = self.get_figure(root=False)
         projection_class, pkw = fig._process_projection_requirements(**kwargs)
         from ..projections import _program

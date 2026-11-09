@@ -38,6 +38,13 @@ class ArrowsMixin:
         `.FancyArrow`
             The created `.FancyArrow` object.
         """
+        # Strip away units for the underlying patch since units
+        # do not make sense to most patch-like code
+        x = self.convert_xunits(x)
+        y = self.convert_yunits(y)
+        dx = self.convert_xunits(dx)
+        dy = self.convert_yunits(dy)
+
         a = mpatches.FancyArrow(x, y, dx, dy, **kwargs)
         self.add_patch(a)
         self._request_autoscale_view()

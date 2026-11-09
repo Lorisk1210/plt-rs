@@ -1,5 +1,6 @@
 //! Labelling line contours (matplotlib's `ContourLabeler`): `clabel`,
-//! `labels`, `add_label_near`, `add_label`, the placement rules
+//! `labels`, `add_label_near`, `add_label` (and the texts the Python side
+//! makes labels of, `adopt_label`), the placement rules
 //! (`print_label`, `too_close`, `locate_label`) and the cutting of lines
 //! under labels.
 //!
@@ -186,6 +187,12 @@ fn add_label(set: ContourSet, (x, y): (f64, f64), rotation: f64, level: usize) -
     Ok(set.add_label(Point::new(x, y), &Transform::Display, rotation, level)?)
 }
 
+/// Lists `text`, made by matplotlib's `add_label` in the set's axes, among
+/// the set's labels as a label of `level` at the display point `(x, y)`.
+fn adopt_label(set: ContourSet, text: Text, (x, y): (f64, f64), level: f64) -> PyResult<()> {
+    Ok(set.adopt_label(&text, Point::new(x, y), level)?)
+}
+
 /// The display positions of the set's labels (matplotlib's `labelXYs`).
 fn label_positions(set: &ContourSet) -> Vec<Point> {
     set.labels().iter().map(|label| label.position).collect()
@@ -212,12 +219,9 @@ fn label_too_close(set: ContourSet, (x, y): (f64, f64), width: f64) -> PyResult<
 /// away from the set's labels: `(x, y, index)` (`locate_label`).
 fn locate(set: ContourSet, line: NdArray, width: f64) -> PyResult<(f64, f64, usize)> {
     let line = points(&line)?;
-    if line.is_empty() {
-        return Err(PyErr::value_error(
-            "a label needs a line of at least one vertex",
-        ));
-    }
-    let (at, index) = locate_label(&line, width, &label_positions(&set));
+    let (at, index) = locate_label(&line, width, &label_positions(&set)).ok_or_else(|| {
+        PyErr::value_error("a label needs a line of at least one vertex and a finite width")
+    })?;
     Ok((at.x, at.y, index))
 }
 
@@ -252,6 +256,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("label_levels", label_levels)?;
     module.add("label_text_levels", label_text_levels)?;
     module.add("add_label", add_label)?;
+    module.add("adopt_label", adopt_label)?;
     module.add("label_positions", get_label_positions)?;
     module.add("print_label", label_fits)?;
     module.add("too_close", label_too_close)?;

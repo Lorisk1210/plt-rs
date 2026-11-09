@@ -550,11 +550,17 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             name = "add_subplot" if self.get_subplotspec() else "add_axes"
             raise AttributeError(f"'NoneType' object has no attribute '{name}'",
                                  name=name, obj=None)
-        if axes_class is None and not kwargs:
+        try:
+            self.get_zorder() + delta_zorder
+        except TypeError:
+            # matplotlib sets the twin's z-order once it made the twin.
+            self._make_twin_axes(shared, axes_class, 0.0, kwargs)
+            raise
+        if not axes_class and not kwargs:
             from ._axes import Axes
             native = _axes_base.twin(self._native, shared, float(delta_zorder))
             return _handles.wrap(native, Axes, self._figure)
-        if axes_class is not None:
+        if axes_class:
             kwargs["axes_class"] = axes_class
         kwargs[f"share{shared}"] = self
         fig = self.get_figure(root=False)

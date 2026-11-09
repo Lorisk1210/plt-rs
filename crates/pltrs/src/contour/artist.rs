@@ -68,12 +68,12 @@ impl ContourSetArtist {
         let count = state.colors.len();
         for k in 0..state.labels.len().min(count) {
             let label = &state.labels[k];
-            if !label.follows {
+            let Some(index) = label.index.filter(|_| label.follows) else {
                 continue;
-            }
+            };
             let color = state
                 .colors
-                .get(label.index)
+                .get(index)
                 .map_or(Rgba::TRANSPARENT, |&c| state.with_alpha(c));
             if let Some(text) = others.get_as_mut::<TextArtist>(label.artist) {
                 text.color = Color::from(color);

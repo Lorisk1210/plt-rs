@@ -9,14 +9,16 @@ matplotlib, the collection drawing its contours (``self._native``).
 
 import functools
 import math
-from numbers import Integral
+import operator
+from numbers import Integral, Real
 
 import numpy as np
 from numpy import ma
 
-from . import _docstring
+from . import _contour_reference, _docstring
 from . import (_api, _blocking_input, _handles, _mirrors, _owned_paths, _values,
-               artist as martist, cbook, collections as mcoll, colors as mcolors)
+               artist as martist, cbook, collections as mcoll, colors as mcolors,
+               lines as mlines)
 from ._native import artist as _artist, collections as _collections, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
@@ -50,6 +52,23 @@ def _contour_labeler_event_handler(cs, inline, inline_spacing, event):
             cs.add_label_near(event.x, event.y, transform=False,
                               inline=inline, inline_spacing=inline_spacing)
             canvas.draw()
+
+
+def _spacing_number(spacing):
+    """The spacing of inline labels pltrs (Rust) holds: the one given when
+    it is a number (the labels' cuts fail on others where matplotlib's do,
+    see `ContourLabeler._split_path_and_get_label_rotation`)."""
+    return float(spacing) if isinstance(spacing, Real) else 0.0
+
+
+def _level_indices(indices, count):
+    """Whether *indices* are indices of some of *count* levels, as
+    pltrs (Rust) takes them."""
+    if not np.iterable(indices):
+        return False
+    values = np.atleast_1d(indices)
+    return (values.size > 0 and values.dtype.kind in "iu"
+            and bool(((values >= -count) & (values < count)).all()))
 
 
 def _label_texts(fmt, levels):
@@ -167,10 +186,18 @@ class ContourLabeler:
                         "using contour() in addition to contourf() and add the labels "
                         "to the contour lines."
             )
+        if levels is not None:
+            levlabs = list(levels)
+            if sum(lev in levlabs for lev in self.levels) < len(levlabs):
+                raise ValueError(f"Specified levels {levlabs} don't match "
+                                 f"available levels {self.levels}")
+        fmt_given, fontsize_given = fmt, fontsize
         if isinstance(fmt, dict):
             fmt = [(float(level), str(text)) for level, text in fmt.items()]
-        elif fmt is not None and not isinstance(fmt, str) and (
+        elif fmt is not None and (
                 not callable(fmt) or callable(getattr(fmt, "format_ticks", None))):
+            # A template too: matplotlib writes the levels, numpy floats,
+            # with ``%``.
             labelled = self.levels if levels is None else [
                 lev for lev in self.levels if lev in list(levels)]
             fmt = _label_texts(fmt, labelled)
@@ -187,6 +214,8 @@ class ContourLabeler:
         if isinstance(fontsize, str):
             from .font_manager import FontProperties
             fontsize = FontProperties(size=fontsize).get_size_in_points()
+        self._keep_label_setup(fmt_given, levels, fontsize_given, colors,
+                               (manual, rightside_up, zorder, use_clabeltext))
         if colors is not None:
             from .colors import to_rgba_array
             colors = [tuple(c) for c in to_rgba_array(colors)]
@@ -194,9 +223,9 @@ class ContourLabeler:
             self._contour,
             (None if levels is None else [float(lev) for lev in levels],
              None if fontsize is None else float(fontsize), bool(inline),
-             float(inline_spacing), colors, positions),
+             _spacing_number(inline_spacing), colors, positions),
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
-                  bool(use_clabeltext)), self._native_splitter)
+                  bool(use_clabeltext)), self._splitter(inline_spacing))
         self._labelled_all_levels = levels is None
         if not interactive:
             # matplotlib's: every label of the set.
@@ -213,11 +242,45 @@ class ContourLabeler:
                 self, inline, inline_spacing))
         return cbook.silent_list('text.Text', self.labelTexts)
 
-    def _native_splitter(self, vertices, codes, idx, screen_pos, lw, spacing):
+    def _keep_label_setup(self, fmt, levels, fontsize, colors, label_args):
+        """
+        Keep what matplotlib's `clabel` sets on the set before it places
+        the labels, which `add_label` labels with (pltrs (Rust) keeps its
+        own for the labels it places): the format, the labelled levels'
+        indices and colour values, the font, the z-order, and what the
+        colours map with.
+        """
+        from . import cm, font_manager, ticker
+        if fmt is None:
+            fmt = ticker.ScalarFormatter(useOffset=False)
+            fmt.create_dummy_axis()
+        self.labelFmt = fmt
+        manual, rightside_up, zorder, use_clabeltext = label_args
+        self._use_clabeltext = use_clabeltext
+        self.labelManual = manual
+        self.rightside_up = rightside_up
+        self._clabel_zorder = 2 + self.get_zorder() if zorder is None else zorder
+        self.labelIndiceList = (list(range(len(self.cvalues))) if levels is None else
+                                [i for i, lev in enumerate(self.levels) if lev in list(levels)])
+        self._label_font_props = font_manager.FontProperties(size=fontsize)
+        if colors is None:
+            self.labelMappable = self
+            self.labelCValueList = np.take(self.cvalues, self.labelIndiceList)
+        else:
+            num_levels = len(self.labelIndiceList)
+            colors = cbook._resize_sequence(mcolors.to_rgba_array(colors), num_levels)
+            self.labelMappable = cm.ScalarMappable(
+                cmap=mcolors.ListedColormap(colors), norm=mcolors.NoNorm())
+            self.labelCValueList = list(range(num_levels))
+
+    def _splitter(self, spacing):
         """What pltrs (Rust) calls for each label it places: matplotlib's
-        `_split_path_and_get_label_rotation` on the line as a `.Path`."""
-        return self._split_path_and_get_label_rotation(
-            Path(vertices, codes), idx, screen_pos, lw, spacing)
+        `_split_path_and_get_label_rotation` on the line as a `.Path`, with
+        the *spacing* given (pltrs (Rust) holds a number for it)."""
+        def split(vertices, codes, idx, screen_pos, lw, _held_spacing):
+            return self._split_path_and_get_label_rotation(
+                Path(vertices, codes), idx, screen_pos, lw, spacing)
+        return split
 
     def _split_path_and_get_label_rotation(self, path, idx, screen_pos, lw, spacing=5):
         """
@@ -249,6 +312,12 @@ class ContourLabeler:
         multiple times, which is relatively costly. pltrs (Rust) computes
         them.
         """
+        # matplotlib widens the cut by the spacing, which fails for what is
+        # no number, then floors the indices of its ends, NaN for NaN.
+        if not isinstance(spacing, Real):
+            _ = -spacing
+        elif math.isnan(spacing):
+            raise ValueError("cannot convert float NaN to integer")
         rotation, (vertices, codes) = _contour.split_path(
             self._contour, path, int(idx), tuple(map(float, screen_pos)),
             (float(lw), float(spacing)))
@@ -278,13 +347,24 @@ class ContourLabeler:
         if transform is None:
             transform = self.axes.transData
         if transform:
+            x = self.axes.convert_xunits(x)
+            y = self.axes.convert_yunits(y)
             x, y = transform.transform((x, y))
+        if not _contour_reference.is_point(x, y):
+            # matplotlib finds no line nearest to a point that is no
+            # number, and indexes the lines with the None it found.
+            paths = self.get_paths()
+            nearest, _, _ = _contour_reference.nearest_contour(
+                paths, self.get_transform(), (x, y), self.labelIndiceList)
+            _ = paths[nearest]
         _contour.add_label_near(self._contour, (float(x), float(y)),
-                                bool(inline), float(inline_spacing),
-                                self._native_splitter)
+                                bool(inline), _spacing_number(inline_spacing),
+                                self._splitter(inline_spacing))
 
     def pop_label(self, index=-1):
         """Defaults to removing last label, but any index can be supplied"""
+        # (An index as `list.pop` takes it, before it looks at the list.)
+        index = operator.index(index)
         count = len(self.labelTexts)
         if not count:
             raise IndexError("pop from empty list")
@@ -301,16 +381,27 @@ class ContourLabeler:
 
     @property
     def labelXYs(self):
-        """The display positions of the labels."""
-        return _contour.label_positions(self._contour)
+        """The display positions of the labels: numpy floats, as
+        matplotlib's placement computes them, or as given to `add_label`."""
+        adopted = self.__dict__.get("_adopted_labels", {})
+        return [adopted[key][0] if key in adopted else (np.float64(x), np.float64(y))
+                for key, (x, y) in zip(self._label_ids(),
+                                       _contour.label_positions(self._contour))]
+
+    def _label_ids(self):
+        """The ids of the label texts, in order."""
+        return [_artist.id(text) for text in _contour.label_texts(self._contour)]
 
     @property
     def labelCValues(self):
-        """The colour values (`cvalues`) of the levels of the labels."""
+        """The colour values (`cvalues`) of the levels of the labels, or as
+        given to `add_label`."""
         index = {level: i for i, level in enumerate(self.levels)}
         cvalues = self.cvalues
-        return [cvalues[index[level]]
-                for level in _contour.label_text_levels(self._contour)]
+        adopted = self.__dict__.get("_adopted_labels", {})
+        return [adopted[key][1] if key in adopted else cvalues[index[level]]
+                for key, level in zip(self._label_ids(),
+                                      _contour.label_text_levels(self._contour))]
 
     @property
     def labelLevelList(self):
@@ -323,6 +414,8 @@ class ContourLabeler:
 
     def print_label(self, linecontour, labelwidth):
         """Return whether a contour is long enough to hold a label."""
+        if not (_contour_reference.is_line(linecontour) and isinstance(labelwidth, Real)):
+            return _contour_reference.print_label(linecontour, labelwidth)
         fits = _contour.print_label(
             np.asarray(linecontour, dtype=float).reshape(-1, 2), float(labelwidth))
         # matplotlib's answer is numpy's but where the number of points
@@ -331,6 +424,8 @@ class ContourLabeler:
 
     def too_close(self, x, y, lw):
         """Return whether a label is already near this location."""
+        if not all(isinstance(value, Real) for value in (x, y, lw)):
+            return _contour_reference.too_close(self.labelXYs, x, y, lw)
         return _contour.too_close(self._contour, (float(x), float(y)), float(lw))
 
     def get_text(self, lev, fmt):
@@ -350,6 +445,9 @@ class ContourLabeler:
         """
         Find good place to draw a label (relatively flat part of the contour).
         """
+        if not (_contour_reference.is_line(linecontour)
+                and _contour_reference.is_point(labelwidth)):
+            return _contour_reference.locate_label(self, linecontour, labelwidth)
         x, y, index = _contour.locate_label(
             self._contour, np.asarray(linecontour, dtype=float).reshape(-1, 2),
             float(labelwidth))
@@ -359,17 +457,51 @@ class ContourLabeler:
 
     def add_label(self, x, y, rotation, lev, cvalue):
         """Add a contour label, respecting whether *use_clabeltext* was set."""
-        # pltrs: the label of level *lev* at the display point (*x*, *y*), in
-        # the colour and font the last `clabel` gave the labels of that level.
-        levels = [float(level) for level in self.levels]
-        if float(lev) not in levels:
-            raise ValueError(f"{lev!r} is not a level of the contour set")
-        _contour.add_label(self._contour, (float(x), float(y)), float(rotation),
-                           levels.index(float(lev)))
+        level = self._labelled_level(x, y, rotation, lev, cvalue)
+        if level is not None:
+            # pltrs (Rust) labels the level as the last `clabel` labels it.
+            _contour.add_label(self._contour, (float(x), float(y)), float(rotation),
+                               level)
+            return
+        # matplotlib's own label: a text of any level and colour.
+        from .text import Text
+        data_x, data_y = self.axes.transData.inverted().transform((x, y))
+        t = Text(
+            data_x, data_y,
+            text=self.get_text(lev, self.labelFmt),
+            rotation=rotation,
+            horizontalalignment='center', verticalalignment='center',
+            zorder=self._clabel_zorder,
+            color=self.labelMappable.to_rgba(cvalue, alpha=self.get_alpha()),
+            fontproperties=self._label_font_props,
+            clip_box=self.axes.bbox)
+        if self._use_clabeltext:
+            data_rotation, = self.axes.transData.inverted().transform_angles(
+                [rotation], [[x, y]])
+            t.set(rotation=data_rotation, transform_rotates_text=True)
+        self.axes.add_artist(t)
+        position = tuple(value if isinstance(value, Real) else np.nan for value in (x, y))
+        _contour.adopt_label(self._contour, t._native, position,
+                             lev if isinstance(lev, Real) else np.nan)
+        self.__dict__.setdefault("_adopted_labels", {})[_artist.id(t._native)] = (
+            (x, y), cvalue)
+
+    def _labelled_level(self, x, y, rotation, lev, cvalue):
+        """The index of the level *lev* when pltrs (Rust) makes the label
+        as matplotlib's `add_label` would: at a point and rotation that
+        are numbers, of a level the last `clabel` labelled, in its colour;
+        else None."""
+        if not ("labelFmt" in self.__dict__
+                and all(isinstance(value, Real) for value in (x, y, rotation, lev))):
+            return None
+        for k, index in enumerate(self.labelIndiceList):
+            if self.levels[index] == lev:
+                return index if self.labelCValueList[k] == cvalue else None
+        return None
 
     def labels(self, inline, inline_spacing):
-        _contour.place_labels(self._contour, bool(inline), float(inline_spacing),
-                              self._native_splitter)
+        _contour.place_labels(self._contour, bool(inline),
+                              _spacing_number(inline_spacing), self._splitter(inline_spacing))
 
     def remove(self):
         super().remove()
@@ -956,10 +1088,16 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def set_linewidth(self, lw):
         # The line widths of the levels (of the collection's edges, for
         # filled contours).
+        if lw is None:
+            lw = self._get_default_linewidth()
         lw = np.atleast_1d(lw)
         if self.filled:
             super().set_linewidth(lw)
             return
+        # matplotlib scales the dash patterns by the widths, failing on
+        # widths that are no numbers.
+        self._bcast_lwls(lw, [mlines._get_dash_pattern(style)
+                              for style in self._given_linestyles()])
         _contour.set_linewidths(self._contour, [float(w) for w in lw])
         _values.remember(self, "linewidth", lw)
 
@@ -1060,6 +1198,14 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         d2 : float
             The squared distance from ``(xmin, ymin)`` to ``(x, y)``.
         """
+        if not (_contour_reference.is_point(x, y)
+                and (indices is None or _level_indices(indices, len(self.levels)))):
+            from .transforms import IdentityTransform
+            if self.filled:
+                raise ValueError("Method does not support filled contours")
+            return _contour_reference.find_nearest_contour(
+                self.get_paths(), self.get_transform() if pixel else IdentityTransform(),
+                x, y, indices)
         if indices is not None:
             indices = [int(i) for i in np.atleast_1d(indices)]
         nearest = _contour.find_nearest_contour(

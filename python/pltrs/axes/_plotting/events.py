@@ -10,7 +10,7 @@ from ... import lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
-from ._helpers import floats, keep_data, record_container, wrap, wrap_all
+from ._helpers import check_format, floats, keep_data, record_container, wrap, wrap_all
 from .lines import _given_format_color
 
 
@@ -357,6 +357,8 @@ class EventsMixin:
         if basefmt is None:
             basefmt = ("C2-" if _rcParams()["_internal.classic_mode"] else
                        "C3-")
+        for fmt in (linefmt, markerfmt, basefmt):
+            check_format(fmt)
         native, markerline, stemlines, baseline = _plotting.stem(
             self._native, (floats(locs), floats(heads)),
             (linefmt, markerfmt, basefmt), float(bottom), orientation,

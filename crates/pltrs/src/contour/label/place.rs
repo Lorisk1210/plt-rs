@@ -53,21 +53,27 @@ pub fn too_close(p: Point, width: f64, labels: &[Point]) -> bool {
 /// each scored by the summed distance of its points from its chord. If
 /// every block is too close, the straightest one is used anyway. Returns
 /// the block's middle vertex and its index (matplotlib's
-/// `ContourLabeler.locate_label`).
+/// `ContourLabeler.locate_label`); `None` for a line without vertices or
+/// a width that cuts it into no block (an infinite one, which matplotlib
+/// refuses to count).
 ///
 /// ```
 /// use pltrs::contour::locate_label;
 /// use pltrs::transforms::Point;
 /// let line: Vec<Point> = (0..8).map(|i| Point::new(f64::from(i), 0.0)).collect();
-/// assert_eq!(locate_label(&line, 4.0, &[]), (Point::new(2.0, 0.0), 2));
+/// assert_eq!(locate_label(&line, 4.0, &[]), Some((Point::new(2.0, 0.0), 2)));
+/// assert_eq!(locate_label(&line, f64::INFINITY, &[]), None);
 /// ```
-pub fn locate_label(line: &[Point], width: f64, labels: &[Point]) -> (Point, usize) {
+pub fn locate_label(line: &[Point], width: f64, labels: &[Point]) -> Option<(Point, usize)> {
     let size = line.len();
     let n_blocks = if width > 1.0 {
         (size as f64 / width).ceil() as usize
     } else {
         1
     };
+    if size == 0 || n_blocks == 0 {
+        return None;
+    }
     let block_size = if n_blocks == 1 { size } else { width as usize };
     let at = |block: usize, k: usize| line[(block * block_size + k) % size];
     let distances: Vec<f64> = (0..n_blocks)
@@ -95,7 +101,7 @@ pub fn locate_label(line: &[Point], width: f64, labels: &[Point]) -> (Point, usi
             break;
         }
     }
-    (chosen.0, (chosen.1 * block_size + half) % size)
+    Some((chosen.0, (chosen.1 * block_size + half) % size))
 }
 
 #[cfg(test)]
@@ -117,10 +123,16 @@ mod tests {
         // A straight run followed by a zig-zag.
         let mut path = points(&[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)]);
         path.extend(points(&[(4.0, 3.0), (5.0, -3.0), (6.0, 3.0), (7.0, -3.0)]));
-        let (p, index) = locate_label(&path, 4.0, &[]);
+        let (p, index) = locate_label(&path, 4.0, &[]).unwrap();
         assert_eq!((p, index), (Point::new(2.0, 0.0), 2));
-        let (_, index) = locate_label(&path, 4.0, &[Point::new(2.0, 0.0)]);
+        let (_, index) = locate_label(&path, 4.0, &[Point::new(2.0, 0.0)]).unwrap();
         assert_eq!(index, 6, "the straight block is too close to a label");
+        assert_eq!(
+            locate_label(&[], 4.0, &[]),
+            None,
+            "no vertex to place it at"
+        );
+        assert_eq!(locate_label(&path, f64::INFINITY, &[]), None, "no block");
     }
 
     #[test]

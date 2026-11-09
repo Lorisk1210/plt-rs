@@ -152,13 +152,10 @@ class UnitsMixin:
                 x = cbook._safe_first_finite(xconv)
             except (TypeError, IndexError, KeyError):
                 x = xconv
-            delist = False
-            if not np.iterable(dx):
-                dx = [dx]
-                delist = True
-            dx = [convert(x0 + ddx) - x for ddx in dx]
-            if delist:
-                dx = dx[0]
+            if np.iterable(dx):
+                dx = [convert(x0 + ddx) - x for ddx in dx]
+            else:
+                dx = convert(x0 + dx) - x
         except (ValueError, TypeError, AttributeError):
             # If the above fails (for any reason) just fallback to what
             # we do by default and convert dx by itself.

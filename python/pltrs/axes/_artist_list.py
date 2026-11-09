@@ -6,6 +6,7 @@ sequences read from pltrs (Rust) whenever they are used (matplotlib
 """
 
 from collections.abc import Sequence
+import types
 
 
 class ArtistList(Sequence):
@@ -86,3 +87,12 @@ class ArtistList(Sequence):
         if isinstance(other, tuple):
             return other + tuple(self)
         return NotImplemented
+
+
+# matplotlib defines the class in ``_AxesBase``, which names its methods (in
+# the errors of their calls too).
+for _name, _method in vars(ArtistList).items():
+    if isinstance(_method, types.FunctionType):
+        _method.__qualname__ = f"_AxesBase.ArtistList.{_name}"
+        _method.__code__ = _method.__code__.replace(co_qualname=_method.__qualname__)
+del _name, _method

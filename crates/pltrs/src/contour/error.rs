@@ -97,6 +97,8 @@ pub enum ContourError {
     /// There is no label to remove: none at the index given, or none at
     /// all (`None`).
     NoLabel(Option<usize>),
+    /// A text of another figure was to become a label of the set.
+    ForeignLabel,
     /// More levels (this many) to label than
     /// [`MAX_LABELLED_LEVELS`](super::MAX_LABELLED_LEVELS).
     TooManyLabelledLevels(usize),
@@ -199,6 +201,9 @@ impl fmt::Display for ContourError {
             ),
             Self::NoLabel(Some(index)) => write!(f, "the contour set has no label {index}"),
             Self::NoLabel(None) => f.write_str("the contour set has no labels"),
+            Self::ForeignLabel => {
+                f.write_str("a label of a contour set must be a text of its figure")
+            }
             Self::TooManyLabelledLevels(count) => write!(
                 f,
                 "{count} levels to label are more than {}",

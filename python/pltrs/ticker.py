@@ -671,7 +671,7 @@ class ScalarFormatter(_NativeFormatter):
         use_offset = True if self._useOffset else (
             float(self.offset) if isinstance(self.offset, numbers.Real) and self.offset else False)
         return {"kind": "scalar", "use_offset": use_offset,
-                "use_mathtext": self._useMathText, "usetex": self._usetex,
+                "use_mathtext": bool(self._useMathText), "usetex": self._usetex,
                 "scientific": self._scientific,
                 "powerlimits": tuple(self._powerlimits),
                 "locale": _numeric_locale() if self._useLocale else None}
@@ -754,7 +754,8 @@ class ScalarFormatter(_NativeFormatter):
         val : bool or None
             *None* resets to :rc:`axes.formatter.use_locale`.
         """
-        self._useLocale = bool(_val_or_rc(val, 'axes.formatter.use_locale'))
+        # (Kept as given, as matplotlib's; its truth tells.)
+        self._useLocale = _val_or_rc(val, 'axes.formatter.use_locale')
 
     useLocale = property(fget=get_useLocale, fset=set_useLocale)
 
@@ -792,7 +793,8 @@ class ScalarFormatter(_NativeFormatter):
         val : bool or None
             *None* resets to :rc:`axes.formatter.use_mathtext`.
         """
-        self._useMathText = bool(_val_or_rc(val, 'axes.formatter.use_mathtext'))
+        # (Kept as given, as matplotlib's; its truth tells.)
+        self._useMathText = _val_or_rc(val, 'axes.formatter.use_mathtext')
 
     useMathText = property(fget=get_useMathText, fset=set_useMathText)
 
@@ -1065,7 +1067,15 @@ class LogFormatter(Formatter):
 
     def __call__(self, x, pos=None):
         # docstring inherited
-        _first_steps(x, *self._value_steps)
+        return self._log_label(x, LogFormatter._value_steps)
+
+    def _log_label(self, x, steps):
+        """The label of *x*, after matplotlib's first *steps* with it (its
+        class' ``__call__``'s, see `_first_steps`)."""
+        _first_steps(x, *steps)
+        if isinstance(x, numbers.Real) and math.isinf(x):
+            # matplotlib rounds the exponent of an infinite value first.
+            _ = round(x)
         return _ticker.log_label(self._spec(), float(x), self._sublabels,
                                  self._axis_info())
 
@@ -1102,7 +1112,7 @@ class LogFormatterMathtext(LogFormatter):
 
     def __call__(self, x, pos=None):
         # docstring inherited
-        return super().__call__(x, pos)
+        return self._log_label(x, LogFormatterMathtext._value_steps)
 
 
 class LogFormatterSciNotation(LogFormatterMathtext):

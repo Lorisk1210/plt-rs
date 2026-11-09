@@ -8,7 +8,7 @@ is the native state the axes keeps as ``_pan_start``, as matplotlib keeps
 its frozen limits and transforms there.
 """
 
-from numbers import Integral
+from numbers import Integral, Real
 from operator import attrgetter
 
 import numpy as np
@@ -110,7 +110,12 @@ class NavigationMixin:
         Return whether *point* (pair of pixel coordinates) is inside the Axes
         patch.
         """
-        x, y = point
+        # matplotlib's patch hands the path test the point's first two
+        # items, which pybind11 takes only as numbers.
+        x, y = point[0], point[1]
+        if not all(isinstance(value, Real) for value in (x, y)):
+            patch = self.patch
+            return patch.get_path().contains_point(point, patch.get_transform(), 1.0)
         return _navigation.contains_point(self._native, float(x), float(y))
 
     def in_axes(self, mouseevent):

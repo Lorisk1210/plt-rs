@@ -102,6 +102,13 @@ impl<'a> PolarView<'a> {
         Bbox::from_extents(start, self.view.y0(), end, self.view.y1())
     }
 
+    /// Whether the wedge of the θ view (after the shift) has finite
+    /// angles, as matplotlib's `_WedgeBbox` needs to make its arc.
+    pub(crate) fn has_finite_wedge(&self) -> bool {
+        let (start, end) = self.real_view().interval_x();
+        start.is_finite() && end.is_finite()
+    }
+
     /// The sorted θ limits after the shift, in degrees.
     pub(crate) fn real_theta_degrees(&self) -> (f64, f64) {
         let (a, b) = self.real_view().interval_x();

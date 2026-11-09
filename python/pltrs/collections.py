@@ -69,6 +69,15 @@ def _linestyle_list(ls):
         return styles
 
 
+def _checked_linestyles(ls):
+    """*ls* as the list of styles `.Collection.set_linestyle` takes from
+    it, failing as it does."""
+    try:
+        return _linestyle_list(ls)
+    except ValueError as err:
+        raise ValueError(f'Do not know how to convert {ls!r} to dashes') from err
+
+
 def _linestyle_specs(ls):
     """*ls* (one line style or a sequence) as a list of native styles."""
     return [_native_style(style) for style in _linestyle_list(ls)]
@@ -926,10 +935,7 @@ class Collection(mcolorizer.ColorizingArtist):
 
             For examples see :doc:`/gallery/lines_bars_and_markers/linestyles`.
         """
-        try:
-            styles = _linestyle_list(ls)
-        except ValueError as err:
-            raise ValueError(f'Do not know how to convert {ls!r} to dashes') from err
+        styles = _checked_linestyles(ls)
         _collections.set_linestyles(self._native, [_native_style(s) for s in styles])
         # matplotlib scales the dash patterns as given (ints stay ints).
         _values.remember(self, "linestyle", styles)
@@ -1652,6 +1658,10 @@ class FillBetweenPolyCollection(PolyCollection):
         --------
         .PolyCollection.set_verts, .Line2D.set_data
         """
+        # matplotlib's Axes converts them with its units first
+        # (``_fill_between_process_units``).
+        t, f1, f2 = map(np.ma.masked_invalid, self.axes._process_unit_info(
+            [(self.t_direction, t), (self._f_direction, f1), (self._f_direction, f2)], {}))
         curves, mask = self._checked_data(self.t_direction, t, f1, f2, where)
         _collections.set_fill_between_data(self._native, curves, mask)
 
@@ -2340,6 +2350,18 @@ class _MeshData:
         """*coordinates* as pltrs (Rust) takes them: floats, NaN where
         masked."""
         return np.ma.filled(np.ma.asarray(coordinates, dtype=float), np.nan)
+
+    def get_edgecolor(self):
+        # docstring inherited
+        # Note that we want to return an array of shape (N*M, 4)
+        # a flattened RGBA collection
+        return super().get_edgecolor().reshape(-1, 4)
+
+    def get_facecolor(self):
+        # docstring inherited
+        # Note that we want to return an array of shape (N*M, 4)
+        # a flattened RGBA collection
+        return super().get_facecolor().reshape(-1, 4)
     @property
     def _coordinates(self):
         """The vertices of the mesh: matplotlib's attribute behind
@@ -2478,7 +2500,7 @@ class _MeshData:
                 raise ValueError(
                     f"For X ({width}) and Y ({height}) with {self._shading} "
                     f"shading, A should have shape "
-                    f"{' or '.join(map(str, ok_shapes))}, not {shape}")
+                    f"{' or '.join(map(str, ok_shapes))}, not {A.shape}")
             if len(shape) == 3:
                 # RGB(A) values are the colours of the cells, which
                 # ``to_rgba`` passes through.

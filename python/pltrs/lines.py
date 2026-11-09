@@ -1381,6 +1381,30 @@ def _joinstyle_name(s):
     return JoinStyle(s).name
 
 
+def _axline_geometry(xy1, xy2, slope):
+    """
+    The points and slope of an `AxLine` as pltrs (Rust) takes them, or
+    None for those it cannot hold: points that are no pairs of numbers, a
+    slope that is no number (matplotlib keeps them, and fails where it
+    computes with them).
+    """
+    point1 = _axline_point(xy1)
+    point2 = None if xy2 is None else _axline_point(xy2)
+    if (point1 is None or (xy2 is not None and point2 is None)
+            or not (slope is None or isinstance(slope, Real))):
+        return None
+    return point1, point2, None if slope is None else float(slope)
+
+
+def _axline_point(xy):
+    """The point *xy* of an `AxLine` as pltrs (Rust) takes it, or None for
+    one that is no pair of numbers."""
+    values = np.asarray(xy)
+    if values.shape != (2,) or values.dtype.kind not in "biuf":
+        return None
+    return tuple(map(float, values))
+
+
 class AxLine(Line2D):
     """
     A helper class that implements `~.Axes.axline`, by recomputing the artist
@@ -1408,11 +1432,24 @@ class AxLine(Line2D):
             them must be None.
         """
         super().__init__([0, 1], [0, 1], **kwargs)
-        _lines.make_axline(
-            self._native, tuple(map(float, xy1)),
-            None if xy2 is None else tuple(map(float, xy2)),
-            None if slope is None else float(slope))
+        if (xy2 is None and slope is None or
+                xy2 is not None and slope is not None):
+            raise TypeError(
+                "Exactly one of 'xy2' and 'slope' must be given")
+        geometry = _axline_geometry(xy1, xy2, slope)
+        if geometry is None:
+            # matplotlib keeps them and fails where its draw places the
+            # line (`get_transform`): pltrs holds a placeholder and draws
+            # the line through Python.
+            from . import _python_drawing
+            geometry = ((0.0, 0.0), None if xy2 is None else (1.0, 1.0),
+                        None if slope is None else 0.0)
+            _python_drawing.draw_through_python(self, False)
+        _lines.make_axline(self._native, *geometry)
         self._remember_geometry(xy1, xy2, slope)
+        if geometry != _axline_geometry(xy1, xy2, slope):
+            for name, value in (("xy1", xy1), ("xy2", xy2), ("slope", slope)):
+                _values.keep(self, name, value)
 
     def draw(self, renderer):
         # (pltrs (Rust) places the line in the view as it draws it, where
@@ -1425,7 +1462,7 @@ class AxLine(Line2D):
         ax = self.axes
         points_transform = (Artist.get_transform(self) - ax.transData
                             + ax.transScale)
-        xy1, xy2, slope = _lines.axline(self._native)
+        xy1, xy2, slope = self.get_xy1(), self.get_xy2(), self.get_slope()
         if xy2 is not None:
             # two points were given
             (x1, y1), (x2, y2) = points_transform.transform([xy1, xy2])
@@ -1500,9 +1537,7 @@ class AxLine(Line2D):
             xy1 = params["x"], params["y"]
         else:
             xy1 = params["xy1"]
-        _lines.set_axline_xy1(self._native, tuple(map(float, xy1)))
-        _values.remember(self, "xy1", xy1)
-        self.stale = True
+        self._hold_geometry("xy1", xy1, _axline_point(xy1))
 
     def set_xy2(self, *args, **kwargs):
         """
@@ -1532,9 +1567,7 @@ class AxLine(Line2D):
             xy2 = params["x"], params["y"]
         else:
             xy2 = params["xy2"]
-        _lines.set_axline_xy2(self._native, tuple(map(float, xy2)))
-        _values.remember(self, "xy2", xy2)
-        self.stale = True
+        self._hold_geometry("xy2", xy2, _axline_point(xy2))
 
     def set_slope(self, slope):
         """
@@ -1554,8 +1587,23 @@ class AxLine(Line2D):
         if self.get_xy2() is not None:
             raise ValueError("Cannot set a 'slope' value while 'xy2' is set;"
                              " they differ but their functionalities overlap")
-        _lines.set_axline_slope(self._native, float(slope))
-        _values.remember(self, "slope", slope)
+        self._hold_geometry("slope", slope,
+                            float(slope) if isinstance(slope, Real) else None)
+
+    def _hold_geometry(self, name, value, held):
+        """
+        Make *value* the line's *name* (``xy1``, ``xy2`` or ``slope``):
+        handed to pltrs (Rust) as *held*, its numbers, else, None, kept as
+        given (matplotlib keeps it unchecked), the line then drawn through
+        Python, where matplotlib's draw fails on it (`get_transform`).
+        """
+        if held is None:
+            from . import _python_drawing
+            _values.keep(self, name, value)
+            _python_drawing.draw_through_python(self, False)
+        else:
+            getattr(_lines, f"set_axline_{name}")(self._native, held)
+            _values.remember(self, name, value)
         self.stale = True
 
 

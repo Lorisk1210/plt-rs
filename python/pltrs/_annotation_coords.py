@@ -143,8 +143,13 @@ class PositionedMixin:
         if made is None or made[0] != key:
             # Its figure's renderer, also once it was removed from it.
             renderer = self._home_figure(root=True)._get_renderer()
-            made = self._positioned_transform = (
-                key, self._get_xy_transform(renderer, self.anncoords))
+            try:
+                transform = self._get_xy_transform(renderer, self.anncoords)
+            except Exception:
+                # matplotlib's ``update_positions`` raised before it set the
+                # transform (the draw failed there): it stays as it was.
+                transform = None if made is None else made[1]
+            made = self._positioned_transform = (key, transform)
         return made[1]
 
     def _keep_drawn_state(self):

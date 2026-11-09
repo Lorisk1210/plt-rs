@@ -19,6 +19,7 @@ import numpy as np
 from ... import _docstring
 from ... import _api, _mlab_reference, cbook, image as mimage, lines as mlines, mlab
 from ... import collections as mcoll
+from ..._artist_kwargs import check_known
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ._helpers import wrap
@@ -103,6 +104,13 @@ def _floats(x):
     """A signal as a 1D float array."""
     return np.ravel(np.asarray(x, dtype=float))
 
+
+
+def _plain_series(values):
+    """Whether *values* are a non-empty 1-D array of numbers, as pltrs
+    (Rust) correlates them."""
+    array = np.asarray(values)
+    return array.ndim == 1 and array.size > 0 and array.dtype.kind in "biuf"
 
 class SpectralMixin:
     """The spectral plots of `~.axes.Axes`."""
@@ -896,11 +904,25 @@ class SpectralMixin:
         if not callable(detrend):
             # matplotlib calls *detrend* on both series first.
             raise TypeError(f"'{type(detrend).__name__}' object is not callable")
+        if not (_plain_series(x) and _plain_series(y)):
+            # matplotlib correlates them with numpy before it looks at
+            # *maxlags*, which fails on series of no numbers.
+            x_detrended = detrend(np.asarray(x))
+            y_detrended = detrend(np.asarray(y))
+            correls = np.correlate(x_detrended, y_detrended, mode="full")
+            if normed:
+                correls = correls / np.sqrt(np.dot(x_detrended, x_detrended)
+                                            * np.dot(y_detrended, y_detrended))
         if maxlags is None:
             maxlags = Nx - 1
         if maxlags >= Nx or maxlags < 1:
             raise ValueError('maxlags must be None or strictly '
                              f'positive < {Nx:d}')
+        # matplotlib's lags, and the correlations at them, which a *maxlags*
+        # that is no integer fails to make.
+        _ = np.arange(-maxlags, maxlags + 1)
+        _ = np.empty(0)[Nx - 1 - maxlags:Nx + maxlags]
+        check_known(mcoll.LineCollection if usevlines else mlines.Line2D, kwargs)
         lags, c, (lines, zero, markers) = _plotting.xcorr(
             self._native, (_floats(x), _floats(y)),
             (bool(normed), mlab._detrend_spec(detrend), int(maxlags)),

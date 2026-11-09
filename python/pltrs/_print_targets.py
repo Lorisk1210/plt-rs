@@ -51,6 +51,9 @@ def write(data, target, fmt=None):
     elif fmt == "jpeg" and cbook.file_requires_unicode(target):
         _write_to_descriptor(data, target)
     else:
+        if fmt == "tiff":
+            # Pillow's TIFF writer asks the file where it stands first.
+            target.tell  # noqa: B018
         # matplotlib writes raw pixels as the renderer's buffer.
         target.write(memoryview(data) if fmt == "raw" else data)
 

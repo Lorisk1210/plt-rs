@@ -12,14 +12,18 @@ from . import _api, _unusable, _values, units
 from ._native import annotation as _annotation
 
 
-def native_point(xy):
-    """The point *xy* as `_native.annotation` takes it, or None for one
-    pltrs (Rust) cannot hold."""
+def native_point(xy, figure):
+    """The point *xy* as `_native.annotation` takes it for an annotation
+    in *figure*, or None for one pltrs (Rust) cannot hold (category names
+    outside any figure, where no Axes' units convert them)."""
     from .text import _point
     try:
-        return _point(xy)
+        point = _point(xy)
     except (TypeError, ValueError):
         return None
+    if figure is None and any(isinstance(value, str) for value in point):
+        return None
+    return point
 
 
 def native_coords(coords, figure):
@@ -43,8 +47,8 @@ def annotate_arguments(xy, xytext, xycoords, textcoords, arrowprops,
     """
     from .text import _native_arrowprops
     origin = (0.0, 0.0)
-    return (native_point(xy) or origin,
-            None if xytext is None else native_point(xytext) or origin,
+    return (native_point(xy, figure) or origin,
+            None if xytext is None else native_point(xytext, figure) or origin,
             native_coords(xycoords, figure) or "data",
             None if textcoords is None else native_coords(textcoords, figure) or "data",
             None if arrowprops is None else _native_arrowprops(arrowprops),
@@ -125,7 +129,7 @@ class KeptMixin:
         made with as given, and those of them and of its coordinate systems
         that pltrs (Rust) could not hold as unusable (see
         `annotate_arguments`)."""
-        if native_point(xy) is None:
+        if native_point(xy, self.figure) is None:
             self._keep_unusable_xy(xy)
         else:
             self._remember_xy(xy)

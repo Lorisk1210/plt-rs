@@ -7,7 +7,7 @@ use pltrs_core::Bbox;
 use super::colorbars::Offsets;
 use super::frames::{FrameMap, pixels_to_figure};
 use super::tree::LayoutTree;
-use crate::artist::ArtistId;
+use crate::artist::{Artist, ArtistId};
 use crate::axes::AxesState;
 use crate::figure::{FigureFrame, FigureState};
 
@@ -23,10 +23,24 @@ impl LayoutTree {
                 (0..nrows).all(|r| {
                     (0..ncols).all(|c| {
                         let bbox = grid.inner_bbox(&(r..r + 1), &(c..c + 1));
-                        bbox.width() > 0.0 && bbox.height() > 0.0
+                        // A side that is not a number has not collapsed
+                        // (matplotlib asks `bb.width <= 0`).
+                        let collapsed = |side: f64| side <= 0.0;
+                        !collapsed(bbox.width()) && !collapsed(bbox.height())
                     })
                 })
             })
+    }
+
+    /// Whether a visible axes the layout measures is placed at a position
+    /// that is not a number: matplotlib's measure of its ticks fails then
+    /// (Python's `int` of a tick space that is no number), ending the
+    /// layout with a `ValueError` its draw passes over.
+    pub(super) fn measures_axes_placed_nowhere(&self, fig: &FigureState) -> bool {
+        self.all_axes()
+            .filter(|ax| ax.cells().is_some())
+            .filter_map(|ax| fig.store.get_as::<AxesState>(ax.id))
+            .any(|state| state.base().visible && !state.position.is_finite())
     }
 
     /// matplotlib's `reposition_axes` for the frame `frame`: each

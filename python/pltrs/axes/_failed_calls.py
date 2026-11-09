@@ -18,14 +18,16 @@ from .._native import axes as _axes
 #: The methods of `~.axes.Axes` whose matplotlib versions make all their
 #: artists before adding any. Not among them: ``hist`` and ``vlines``,
 #: which set the properties on the artists they added, nor ``eventplot``,
-#: ``acorr`` and ``xcorr``, which add some artists before making others.
+#: ``acorr`` and ``xcorr``, which add some artists before making others,
+#: nor ``loglog``, ``semilogx`` and ``semilogy``, whose scales (and the
+#: autoscaling they ask for) stay set when their ``plot`` fails.
 METHODS = (
     "annotate", "axhline", "axhspan", "axline", "axvline", "axvspan", "bar",
     "bar_label", "barbs", "barh", "broken_barh", "contour", "contourf",
     "ecdf", "fill", "fill_between", "fill_betweenx", "grouped_bar",
-    "hexbin", "hist2d", "imshow", "loglog", "matshow", "pcolor",
+    "hexbin", "hist2d", "imshow", "matshow", "pcolor",
     "pcolorfast", "pcolormesh", "plot", "quiver", "quiverkey", "scatter",
-    "semilogx", "semilogy", "spy", "stackplot", "stairs", "step", "table",
+    "spy", "stackplot", "stairs", "step", "table",
     "text", "tricontour", "tricontourf", "tripcolor", "triplot",
     "angle_spectrum", "cohere", "csd", "magnitude_spectrum", "phase_spectrum",
     "psd", "specgram",

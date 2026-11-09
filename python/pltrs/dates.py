@@ -236,6 +236,9 @@ def num2date(x, tz=None):
     For details, see the module docstring.
     """
     tz = _get_tzinfo(tz)
+    if np.asarray(x).dtype.kind not in 'biuf':
+        # matplotlib multiplies each value by the microseconds of a day.
+        np.vectorize(lambda value: value * MUSECONDS_PER_DAY, otypes="O")(x)
     values = np.asarray(x, dtype=float)
     dates = [datetime.datetime(*date, *time, tzinfo=UTC).astimezone(tz)
              for date, time in _dates.num_to_utc(values.ravel())]
@@ -260,12 +263,29 @@ def num2timedelta(x):
     -------
     `datetime.timedelta` or list[`datetime.timedelta`]
     """
+    if not _plain_days(x):
+        # matplotlib's own conversion, value by value.
+        return np.vectorize(
+            lambda days: datetime.timedelta(days=days), otypes="O")(x).tolist()
     values = np.asarray(x, dtype=float)
     deltas = [datetime.timedelta(microseconds=int(us))
               for us in _dates.num_to_timedelta(values.ravel())]
     if np.iterable(x):
         return np.array(deltas, dtype=object).reshape(values.shape).tolist()
     return deltas[0]
+
+
+def _plain_days(x):
+    """Whether pltrs (Rust) converts the numbers of days *x* as matplotlib's
+    value-by-value conversion does: finite numbers in a list or an array
+    (which numpy hands over as Python numbers), or a Python number or a
+    float64 (no other numpy number, which ``timedelta`` refuses)."""
+    values = np.asarray(x)
+    if values.dtype.kind not in 'biuf':
+        return False
+    if isinstance(x, np.generic) and not isinstance(x, np.float64):
+        return False
+    return bool(np.isfinite(values).all())
 
 
 def datestr2num(d, default=None):

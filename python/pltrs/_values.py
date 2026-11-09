@@ -93,10 +93,14 @@ def given_flag(artist, name, native):
     """*artist*'s flag *name* (``visible``, ``clip_on``, ...) as the
     program gave it (`remember`), matplotlib keeping the object (``1``,
     ``'False'``, None), while pltrs (Rust) still holds its truth value
-    *native*; else *native*. ``snap`` has a third state, None (auto),
-    which only None stands for."""
+    *native*; else *native*. ``snap`` and ``annotation_clip`` have a
+    third state, None (auto), which only None stands for."""
     return given(artist, name, native,
-                 same=_same_snap if name == "snap" else _same_truth)
+                 same=_same_snap if name in _THREE_STATES else _same_truth)
+
+
+#: The flags with a third state, None (auto).
+_THREE_STATES = frozenset({"snap", "annotation_clip"})
 
 
 def given_text(artist, name, native):

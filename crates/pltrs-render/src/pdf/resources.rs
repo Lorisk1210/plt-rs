@@ -160,6 +160,12 @@ impl Resources {
         if let Some((_, name)) = self.alpha_states.iter().find(|(a, _)| *a == alphas) {
             return name.clone();
         }
+        self.new_alpha_state(alphas)
+    }
+
+    /// A new graphics state setting stroke and fill alpha, though another
+    /// may set the same.
+    pub(super) fn new_alpha_state(&mut self, alphas: (f64, f64)) -> String {
         let name = format!("A{}", self.alpha_states.len() + 1);
         self.alpha_states.push((alphas, name.clone()));
         name
@@ -182,6 +188,11 @@ impl Resources {
         if let Some((_, name)) = self.hatches.iter().find(|(s, _)| *s == style) {
             return name.clone();
         }
+        self.new_hatch_pattern(style)
+    }
+
+    /// A new hatch pattern, though another may draw the same.
+    pub(super) fn new_hatch_pattern(&mut self, style: HatchStyle) -> String {
         let name = format!("H{}", self.hatches.len() + 1);
         self.hatches.push((style, name.clone()));
         name

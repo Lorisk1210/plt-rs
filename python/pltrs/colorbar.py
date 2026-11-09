@@ -53,11 +53,44 @@ def _check_bracketable(values):
     values it cannot bracket: fewer than two, or not 1-D (pltrs (Rust)
     brackets the others when it lays the colorbar out).
     """
-    values = np.array(values)
+    array = np.array(values)
     b = np.zeros(len(values) + 1)
-    b[1:-1] = 0.5 * (values[:-1] + values[1:])
+    b[1:-1] = 0.5 * (array[:-1] + array[1:])
     b[0] = 2.0 * b[1] - b[2]
     b[-1] = 2.0 * b[-2] - b[-3]
+
+
+class _UnfinishedColorbarLocator:
+    """
+    The locator a colorbar whose making failed leaves on its Axes:
+    matplotlib's constructor installs its `_ColorbarAxesLocator` before it
+    computes with the rest of its arguments. Extended, it places the Axes
+    as the locator it replaced does, then fails reading the boundaries the
+    colorbar never computed.
+    """
+
+    def __init__(self, ax):
+        self._orig_locator = ax.get_axes_locator()
+
+    def __call__(self, ax, renderer):
+        if self._orig_locator is not None:
+            self._orig_locator(ax, renderer)
+        raise AttributeError("'Colorbar' object has no attribute '_boundaries'")
+
+
+def _leave_unfinished_locator(cax, extend, mappable, cmap, norm):
+    """Place *cax* as the locator of a colorbar that failed to be made
+    leaves it: extended (*extend*, else as the colormap or norm of
+    *mappable*, or *cmap* and *norm* without one, extend), the colorbar
+    fails placing it; else it keeps its place."""
+    if extend is None:
+        if mappable is not None:
+            cmap, norm = mappable.cmap, mappable.norm
+        extend = getattr(cmap, 'colorbar_extend', False)
+        if extend is False:
+            extend = getattr(norm, 'extend', 'neither')
+    if extend != 'neither':
+        cax.set_axes_locator(_UnfinishedColorbarLocator(cax))
 
 
 def _remove_cbar_axes(ax, cbar):
@@ -390,13 +423,18 @@ class Colorbar:
             *location* is None, the ticks will be at the bottom for a horizontal
             colorbar and at the right for a vertical.
         """
-        self._make(None, mappable, cax=ax, parents=None, layout={},
-                   alpha=alpha, location=location, extend=extend,
-                   extendfrac=extendfrac, extendrect=extendrect, ticks=ticks,
-                   format=format, values=values, boundaries=boundaries,
-                   spacing=spacing, drawedges=drawedges, label=label,
-                   cmap=cmap, norm=norm, orientation=orientation,
-                   ticklocation=ticklocation)
+        try:
+            self._make(None, mappable, cax=ax, parents=None, layout={},
+                       alpha=alpha, location=location, extend=extend,
+                       extendfrac=extendfrac, extendrect=extendrect, ticks=ticks,
+                       format=format, values=values, boundaries=boundaries,
+                       spacing=spacing, drawedges=drawedges, label=label,
+                       cmap=cmap, norm=norm, orientation=orientation,
+                       ticklocation=ticklocation)
+        except Exception:
+            if self.__dict__.pop("_placing", False) and isinstance(ax, martist.Artist):
+                _leave_unfinished_locator(ax, extend, mappable, cmap, norm)
+            raise
 
     @classmethod
     def _beside(cls, mappable, parents, *, use_gridspec=True, made=None,
@@ -458,6 +496,9 @@ class Colorbar:
                     "location and orientation are mutually exclusive")
         else:
             orientation = orientation or location_orientation or "vertical"
+        # matplotlib's constructor places *cax* with its locator here,
+        # before it computes with the rest of its arguments.
+        self._placing = True
         if figure is None:
             if not isinstance(cax, martist.Artist):
                 # matplotlib's colorbar places *cax* with a locator around
@@ -469,6 +510,8 @@ class Colorbar:
 
         if values is not None and boundaries is None:
             _check_bracketable(values)
+        elif values is None and boundaries is not None:
+            _colorbar_checks.check_boundaries(boundaries, extend, mappable.norm)
         self.mappable = mappable
         self._figure = figure.figure  # the root figure, holding the artists
         if isinstance(format, str):
@@ -542,6 +585,7 @@ class Colorbar:
         self._take_contour_values()
         self._adopt_solids()
         self.stale = True
+        del self._placing
 
     def _take_contour_values(self):
         """Give the colorbar of a contour set the contour set's

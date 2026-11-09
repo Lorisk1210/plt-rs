@@ -950,6 +950,40 @@ def _init_tests():
     _base_library['_classic_test'] = library['_classic_test'] = classic_test
 
 
+def _logged_cached(fmt, func=None):
+    """
+    Decorator that logs a function's return value, and memoizes that value.
+
+    After ::
+
+        @_logged_cached(fmt)
+        def func(): ...
+
+    the first call to *func* will log its return value at the DEBUG level using
+    %-format string *fmt*, and memoize it; later calls to *func* will directly
+    return that value.
+    """
+    # matplotlib's decorator, as it is: later calls take any keyword
+    # arguments, which only the first call passes on.
+    if func is None:  # Return the actual decorator.
+        return functools.partial(_logged_cached, fmt)
+
+    called = False
+    ret = None
+
+    @functools.wraps(func)
+    def wrapper(**kwargs):
+        nonlocal called, ret
+        if not called:
+            ret = func(**kwargs)
+            called = True
+            _log.debug(fmt, ret)
+        return ret
+
+    return wrapper
+
+
+@_logged_cached('CONFIGDIR=%s')
 def get_configdir():
     """
     Return the string path of the configuration directory.
@@ -974,6 +1008,7 @@ def get_configdir():
     return _cbook.config_dir()
 
 
+@_logged_cached('CACHEDIR=%s')
 def get_cachedir():
     """
     Return the string path of the cache directory.
@@ -1010,6 +1045,7 @@ from .cm import _bivar_colormaps as bivar_colormaps  # noqa: E402
 from .colors import _color_sequences as color_sequences  # noqa: E402
 
 
+@_logged_cached('matplotlib data path: %s')
 def get_data_path():
     """Return the path to Matplotlib data."""
     # Return the path to Matplotlib data: the directory where pltrs (Rust)
@@ -1067,6 +1103,13 @@ def _replace_link(entry, target):
             os.replace(temporary, target)
     except OSError:
         temporary.unlink(missing_ok=True)
+
+
+# matplotlib loads its rc files from the data and configuration directories
+# as it is imported, and the functions remember them (`_logged_cached`):
+# pltrs (Rust) read its rc files from the same directories.
+get_data_path()
+get_configdir()
 
 
 @_api.deprecated("3.10", alternative="matplotlib.cbook.sanitize_sequence")

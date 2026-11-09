@@ -13,7 +13,6 @@ are ``dateutil``'s, as matplotlib's ``dates`` re-exports them.
 import datetime
 import functools
 import importlib.resources
-import math
 import os
 
 from dateutil.relativedelta import relativedelta
@@ -169,34 +168,6 @@ def _weekdays(values):
             else (value.weekday, value.n) for value in values]
 
 
-#: The keywords of a dateutil ``rrule`` pltrs (Rust) takes.
-_RULE_KEYWORDS = {'freq', 'dtstart', 'interval', 'wkst', 'count', 'until',
-                  'bysetpos', 'bymonth', 'bymonthday', 'byyearday',
-                  'byweekno', 'byweekday', 'byhour', 'byminute', 'bysecond',
-                  'byeaster', 'cache'}
-
-
-#: The rule keyword dateutil reduces with the interval, and its base, per
-#: frequency.
-_GCD_BY = {HOURLY: ('byhour', 24), MINUTELY: ('byminute', 60),
-           SECONDLY: ('bysecond', 60)}
-
-
-def _check_rule(construct):
-    """Fail as dateutil's ``rrule`` fails to be made of the keywords
-    *construct* (the values it keeps fail where they are used)."""
-    unknown = set(construct) - _RULE_KEYWORDS
-    if unknown:
-        raise TypeError(f"rrule got an unexpected keyword argument "
-                        f"{unknown.pop()!r}")
-    by = _GCD_BY.get(construct['freq'])
-    if by is not None and construct.get(by[0]) is not None:
-        # dateutil reduces the hours (minutes, seconds) of a rule repeating
-        # every so many of them with the gcd of the interval and the base,
-        # which takes integers only.
-        math.gcd(construct.get('interval', 1), by[1])
-
-
 def _rule(construct, started):
     """The native description of the rule of dateutil's keywords, starting
     at *started* when they give no start."""
@@ -293,12 +264,15 @@ class rrulewrapper:
 
         self._construct = kwargs.copy()
         self._tzinfo = tzinfo
-        _check_rule(self._construct)
         # dateutil starts a rule without a start when it is made, to the
         # second.
         self._started = datetime.datetime.now().replace(microsecond=0)
         self.__dict__.pop('_native_rule', None)
-        self.__dict__.pop('_dateutil_rule', None)
+        # matplotlib's wrapper makes dateutil's rule here, which checks the
+        # keywords (and fails on them) as it is made.
+        from dateutil.rrule import rrule
+        self.__dict__['_dateutil_rule'] = rrule(
+            **{'dtstart': self._started, **self._construct})
 
     @property
     def _rule(self):
@@ -317,12 +291,7 @@ class rrulewrapper:
         holds one and hands it what the wrapper itself lacks (pltrs (Rust)
         computes the occurrences the locators ask for).
         """
-        rule = self.__dict__.get('_dateutil_rule')
-        if rule is None:
-            from dateutil.rrule import rrule
-            rule = self.__dict__['_dateutil_rule'] = rrule(
-                **{'dtstart': self._started, **self._construct})
-        return rule
+        return self.__dict__['_dateutil_rule']
 
     def __getattr__(self, name):
         if '_construct' not in self.__dict__:

@@ -31,10 +31,11 @@ def cast_error(value):
         "for details)")
 
 
-def incompatible(name, signatures, args, kwargs):
+def incompatible(name, signatures, args, kwargs, what="function"):
     """pybind11's error for the call ``name(*args, **kwargs)`` of a function
     of *signatures* (the texts of its overloads, as the function's docstring
-    gives them, without the name), to none of which the call binds."""
+    gives them, without the name), to none of which the call binds (*what*
+    is ``"constructor"`` for a class' constructor)."""
     invoked = ", ".join(map(repr, args))
     if kwargs:
         invoked += "; kwargs: " + ", ".join(
@@ -42,8 +43,18 @@ def incompatible(name, signatures, args, kwargs):
     supported = "".join(f"\n    {number}. {signature}"
                         for number, signature in enumerate(signatures, 1))
     return TypeError(
-        f"{name}(): incompatible function arguments. The following argument "
+        f"{name}(): incompatible {what} arguments. The following argument "
         f"types are supported:{supported}\n\nInvoked with: {invoked}")
+
+
+def incompatible_constructor(cls, signature, args, kwargs):
+    """pybind11's error for the construction ``cls(*args, **kwargs)`` of a
+    class whose constructor has *signature* (its text, ``self`` first, as
+    the constructor's docstring gives it, without the name)."""
+    inside = signature[signature.index("(") + 1:signature.rindex(") ->")]
+    parameters = ", ".join(_split(inside, ", ")[1:])
+    return incompatible("__init__", [f"{cls.__module__}.{cls.__qualname__}({parameters})"],
+                        args, kwargs, "constructor")
 
 
 def _has(value, method):
@@ -79,6 +90,13 @@ def texts(value):
     """Whether pybind11 casts *value* to a sequence of strings."""
     return (not isinstance(value, (str, bytes)) and _has(value, "__len__")
             and _has(value, "__getitem__") and all(map(text, value)))
+
+
+def instances(value, name):
+    """Whether pybind11 casts *value* to a sequence of instances of the
+    extension's class *name*."""
+    return (not isinstance(value, (str, bytes)) and _has(value, "__len__")
+            and _has(value, "__getitem__") and all(map(_instance(name), value)))
 
 
 def language_ranges(value):
@@ -256,7 +274,8 @@ def binds(signature, *, method=True, **accepts):
     *accepts* gives the predicates of parameters whose C++ type the
     signature does not tell (a ``const char *``, which takes None too).
     A function of an extension module (not *method*) binds every
-    parameter. pybind11 converts every argument, in order, before it
+    parameter; a constructor (``__init__``) is refused with pybind11's
+    words for constructors. pybind11 converts every argument, in order, before it
     refuses the call: a caster of matplotlib's raising its own error raises
     it then.
     """
@@ -286,8 +305,10 @@ def binds(signature, *, method=True, **accepts):
 
         def check(*args, **kwargs):
             if refuses(args, kwargs):
-                raise incompatible(method.__name__, [signature.format(
-                    module=type(args[0]).__module__ if args else "")], args, kwargs)
+                text = signature.format(module=type(args[0]).__module__ if args else "")
+                if method.__name__ == "__init__":
+                    raise incompatible_constructor(type(args[0]), text, args[1:], kwargs)
+                raise incompatible(method.__name__, [text], args, kwargs)
 
         @functools.wraps(method)
         def bound(*args, **kwargs):

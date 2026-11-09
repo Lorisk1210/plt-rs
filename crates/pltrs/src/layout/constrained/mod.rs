@@ -90,9 +90,21 @@ struct Pads {
 }
 
 /// matplotlib's `do_constrained_layout` on the figure: the grids laid
-/// out, `None` when no axes is on a grid or the solver failed.
+/// out, `None` when no axes is on a grid, the figure has no area or the
+/// solver failed.
 pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) -> Option<LayoutTree> {
     let (width, height) = fig.size_inches;
+    // matplotlib divides the pads by the figure's size with numpy, which
+    // warns of a size of zero.
+    for (pad, side) in [(params.w_pad, width), (params.h_pad, height)] {
+        if side == 0.0 {
+            crate::warnings::warn_runtime(if pad == 0.0 {
+                "invalid value encountered in scalar divide"
+            } else {
+                "divide by zero encountered in scalar divide"
+            });
+        }
+    }
     let pads = Pads {
         w_pad: params.w_pad / width,
         h_pad: params.h_pad / height,
@@ -109,6 +121,12 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) -> Opti
             }
             return Ok(None);
         };
+        if width == 0.0 || height == 0.0 {
+            // matplotlib measures the axes through the inverse of the
+            // figure's transform, which a figure of no area has not: its
+            // draw swallows that error, and the layout ends.
+            return Ok(None);
+        }
         lay_out(&mut tree, fig, params, &pads)?;
         Ok(Some(tree))
     });
@@ -130,6 +148,9 @@ fn lay_out(
     for pass in 0..2 {
         if pass > 0 {
             fig.measure_painters_lent();
+        }
+        if tree.measures_axes_placed_nowhere(fig) {
+            return Ok(());
         }
         tree.make_layout_margins(fig, FIGURE, pads)?;
         tree.make_margin_suptitles(fig, FIGURE, pads)?;

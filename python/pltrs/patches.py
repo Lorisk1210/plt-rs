@@ -226,8 +226,14 @@ class Patch(Artist):
         -------
         (bool, empty dict)
         """
-        return self._contains_within(mouseevent,
-                                     float(self._process_radius(radius)))
+        if self._different_canvas(mouseevent):
+            return False, {}
+        radius = float(self._process_radius(radius))
+        # matplotlib hit-tests the event's position with the patch's path
+        # (also for a patch in no figure, in the coordinates of its
+        # transform).
+        mouseevent.x, mouseevent.y  # noqa: B018
+        return self._contains_within(mouseevent, radius)
 
     def _set_native(self, **kwargs):
         """Set native properties by their resolved names, in order."""
@@ -314,8 +320,9 @@ class Patch(Artist):
     def get_antialiased(self):
         """Return whether antialiasing is used for drawing."""
         antialiased = self._get("antialiased")
-        return (_rcParams()['patch.antialiased'] if antialiased is None
-                else antialiased)
+        return _values.given_flag(
+            self, "antialiased",
+            _rcParams()['patch.antialiased'] if antialiased is None else antialiased)
 
     def set_antialiased(self, aa):
         """
@@ -326,6 +333,8 @@ class Patch(Artist):
         aa : bool or None
         """
         self._set_native(antialiased=None if aa is None else bool(aa))
+        # matplotlib keeps the object given (``1``, ``'False'``).
+        _values.remember(self, "antialiased", aa)
 
     def get_edgecolor(self):
         """Return the edge color."""

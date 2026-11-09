@@ -68,24 +68,24 @@ api/inspector_0$ | ^value\[pprint_setters_rest\]: str$ | the reST table pads its
 
 # pltrs has a GUI backend of its own (`backend_pltrs`, its windows), which
 # the backend registry lists among matplotlib's.
-api/module_matplotlib_0$ | ^exception message\[(use|validate_backend)\]: ValueError$ | the list of valid backends in the message of use('nonexistent_backend') and validate_backend('text') ends with pltrs' own backend, 'pltrs'
-api/module_matplotlib_rcsetup_0$ | ^exception message\[validate_backend\]: ValueError$ | the list of valid backends in the message of validate_backend('nope') ends with pltrs' own backend, 'pltrs'
+(api|hostile)/module_matplotlib_0$ | ^exception message\[(use|validate_backend)\]: ValueError$ | the list of valid backends in the message of use('nonexistent_backend') and validate_backend('text') ends with pltrs' own backend, 'pltrs'
+(api|hostile)/module_matplotlib_rcsetup_0$ | ^exception message\[validate_backend\]: ValueError$ | the list of valid backends in the message of validate_backend('nope') ends with pltrs' own backend, 'pltrs'
 api/backend_registry_0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 
 # pltrs (Rust) writes the data files it bundles (its fonts, the template of
 # the defaults) into a data directory of its own, which programs reach as
 # matplotlib's mpl-data, and names its rc file pltrsrc.
-api/module_matplotlib_0$ | ^value\[(get_data_path|matplotlib_fname)\]: str$ | get_data_path() is pltrs' data directory ('<config>/mpl-data', where pltrs (Rust) writes its bundled files), and matplotlib_fname() its template of the defaults there, named pltrsrc
+(api|hostile)/module_matplotlib_0$ | ^value\[(get_data_path|matplotlib_fname)\]: str$ | get_data_path() is pltrs' data directory ('<config>/mpl-data', where pltrs (Rust) writes its bundled files), and matplotlib_fname() its template of the defaults there, named pltrsrc
 api/module_matplotlib_style_0$ | ^value\[read_style_directory\]: dict keys$ | the stylelib directory of pltrs' data directory holds pltrs' two looks (pltrs-modern, pltrs-modern-dark) besides matplotlib's sheets, as style.available lists them
 api/font_path_0$ | ^value\[path\]: str$ | findfont() finds the bundled DejaVu Sans in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package
-api/module_matplotlib_cbook_0$ | ^exception message\[get_sample_data\]: FileNotFoundError$ | the missing sample file is named in pltrs' data directory ('<config>/mpl-data/sample_data'), as get_data_path() names it
+(api|hostile)/module_matplotlib_cbook_0$ | ^(exception message\[get_sample_data\]: FileNotFoundError|value\[get_sample_data\]: str)$ | the missing sample file is named in pltrs' data directory ('<config>/mpl-data/sample_data'), as get_data_path() names it
 api/pdf_file_0$ | ^exception message\[(writeFonts|embedTTF)\]: KeyError$ | the KeyError names the FontPath of the bundled DejaVu Sans that findfont() finds in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package
-api/module_matplotlib_0$ | ^warning (missing|extra): WARNING: Cannot decode configuration file FontPath\('…', N\) as utf-N\.$ | the file rc_params_from_file is handed (the FontPath findfont() gives) is the bundled DejaVu Sans of pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package; the warning is the same
-api/module_matplotlib_font_manager_0$ | ^warning (missing|extra): ResourceWarning: unclosed file <_io\.BufferedReader name='…'>$ | the AFM file the program opens from get_data_path() is in pltrs' data directory ('<config>/mpl-data/fonts/afm'), where matplotlib's is in its package; the warning is the same
+(api|hostile)/module_matplotlib_0$ | ^warning (missing|extra): WARNING: Cannot decode configuration file FontPath\('…', N\) as utf-N\.$ | the file rc_params_from_file is handed (the FontPath findfont() gives) is the bundled DejaVu Sans of pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package; the warning is the same
+(api|hostile)/module_matplotlib_font_manager_0$ | ^warning (missing|extra): ResourceWarning: unclosed file <_io\.BufferedReader name='…'>$ | the AFM file the program opens from get_data_path() is in pltrs' data directory ('<config>/mpl-data/fonts/afm'), where matplotlib's is in its package; the warning is the same
 
 # pltrs bundles Inter, the font of its modern look, with matplotlib's
 # DejaVu and STIX fonts.
-api/(font_manager_0|module_matplotlib_font_manager_0)$ | ^value\[(get_font_names|findSystemFonts|list_fonts)\]: list length$ | the fonts of pltrs' data directory and of its font manager include Inter's five faces (Regular, Italic, SemiBold, Bold, BoldItalic: one more family name, Inter, and its SemiBold face's)
+(api/(font_manager_0|module_matplotlib_font_manager_0)|hostile/module_matplotlib_font_manager_1)$ | ^value\[(get_font_names|findSystemFonts|list_fonts)\]: list length$ | the fonts of pltrs' data directory and of its font manager include Inter's five faces (Regular, Italic, SemiBold, Bold, BoldItalic: one more family name, Inter, and its SemiBold face's)
 
 # matplotlib's fallback `RendererBase.draw_path_collection` (which its
 # vector renderers use for a few paths) translates a frozen copy of the

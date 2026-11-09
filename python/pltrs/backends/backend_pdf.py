@@ -30,16 +30,18 @@ from ..colors import to_rgba
 from .._native import backends as _backends, text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
 from ..backend_bases import (
-    _Backend, _write_bytes, FigureCanvasBase, FigureManagerBase,
+    _Backend, FigureCanvasBase, FigureManagerBase,
     GraphicsContextBase)
 from ..dates import UTC
 from ..figure import Figure
 from ..font_manager import (
     _data_font_path, FontManager, FontPath, fontManager as _fontManager)
+from ..path import Path
 from ..text import _measuring_with
 from ..transforms import BboxBase
 from ._backend_pdf_ps import RendererPDFPSBase
-from ._native_drawing import DocumentDrawingMixin, native_gc
+from . import _pdf_kept
+from ._native_drawing import DocumentDrawingMixin, affine_matrix, native_gc
 from ._pdf_arguments import PdfArgumentsMixin
 from .backend_mixed import MixedModeRenderer
 
@@ -409,7 +411,11 @@ class Stream:
                                'DecodeParms': png})
         index = file._xref_index(id)
         self.pos = None
-        if len is None:
+        if len is None or not isinstance(len, Reference) or file.currentstream is not None:
+            # Kept here, and written whole when it ends: a stream of inline
+            # length; one beside an open stream, which matplotlib writes
+            # into the file at once; one whose length is no object, which
+            # matplotlib fails writing at the end (`end`).
             self.file = _StreamBuffer(index, extra, png)
         else:
             _backends.pdf_file_begin_stream(
@@ -430,10 +436,13 @@ class Stream:
         """Finalize stream."""
         buffer = self.file
         if isinstance(buffer, _StreamBuffer):
+            data = buffer.getvalue()
             _backends.pdf_file_write_stream(
                 self.pdfFile._native, buffer.index, _pdf_entries(buffer.extra or {}),
-                None if buffer.png is None else _pdf_object(buffer.png),
-                buffer.getvalue())
+                None if buffer.png is None else _pdf_object(buffer.png), data)
+            if self.len is not None:
+                # The object of the length, which matplotlib writes last.
+                self.pdfFile.writeObject(self.len, len(data))
         else:
             _backends.pdf_file_end_stream(self.pdfFile._native)
 
@@ -454,6 +463,42 @@ class _StreamBuffer(io.BytesIO):
     def __init__(self, index, extra, png):
         super().__init__()
         self.index, self.extra, self.png = index, extra, png
+
+
+#: The first lines of every PDF document, which matplotlib writes as soon as
+#: it opens the file.
+_HEADER = b"%PDF-1.4\n%\254\334 \253\272\n"
+
+
+class _DocumentFile:
+    """The file a `PdfFile` writes to, opened (or taken) and begun with the
+    document's first lines when the document is made, as matplotlib's
+    (whose errors for a target that is no file come out there); pltrs
+    (Rust) hands over the rest of the document when it is closed."""
+
+    def __init__(self, filename):
+        fh, self._opened = cbook.to_filehandle(filename, "wb", return_opened=True)
+        self._original = None
+        if not self._opened:
+            try:
+                filename.tell()
+            except OSError:
+                # A file object that cannot tell where it stands is written
+                # at the end, as a whole.
+                self._original, fh = filename, io.BytesIO()
+        fh.write(_HEADER)
+        self._fh = fh
+
+    def finish(self, document):
+        """Write *document*, the whole file, after its first lines, then
+        close the file (flush a file object of the program's)."""
+        self._fh.write(document[len(_HEADER):])
+        if self._opened:
+            self._fh.close()
+        elif self._original is not None:
+            self._original.write(self._fh.getvalue())
+        else:
+            self._fh.flush()
 
 
 def _bytes(data):
@@ -504,23 +549,6 @@ def _rgba_pixels(image):
     return np.ascontiguousarray(image, np.uint8)
 
 
-def _check_png_encodable(image):
-    """Fail as matplotlib's ``writeImages`` fails on an image of other
-    values than bytes, whose channels Pillow encodes as PNG for a
-    compressed document (``_unpack`` and ``_writeImg``)."""
-    data = np.asarray(image)
-    if data.dtype == np.uint8 or not rcParams['pdf.compression']:
-        return
-    from PIL import Image
-    data = data[::-1]
-    if data.ndim == 3:
-        if data.shape[2] == 4 and not np.all(data[:, :, 3] == 255):
-            Image.fromarray(np.array(data[:, :, 3], order='C')).save(
-                io.BytesIO(), format='png')
-        data = np.array(data[:, :, :3], order='C')
-    Image.fromarray(data).save(io.BytesIO(), format='png')
-
-
 def _style_name(style):
     """The name of a join or cap style (an enum member or a string)."""
     return style.name if isinstance(style, Enum) else str(style)
@@ -551,10 +579,12 @@ class PdfFile:
         """
         super().__init__()
         self._filename = filename
+        self._document_file = _DocumentFile(filename)
         self._native = _backends.pdf_pages_new(_native_info(metadata or {}))
         self.infoDict = _info_of(_backends.pdf_file_info(self._native))
         self._dviFontInfo = {}   # maps pdf names to dvifonts
         self._image_objects = {}  # images by id: (image, name)
+        self._given = _pdf_kept.Given()
         # The names of the objects, for the error of an unwritten one.
         self._object_names = dict(enumerate([
             'the zero object', 'root', 'pages', 'fonts',
@@ -567,12 +597,15 @@ class PdfFile:
 
     @property
     def _fontNames(self):
-        """The fonts named so far: ``(FontPath, subset)`` to `Name`."""
-        return {
+        """The fonts named so far, in the order named: ``(FontPath, subset)``
+        to `Name`."""
+        names = {
             (FontPath(_data_font_path(fname, 'afm' if core else 'ttf'), index),
              subset): self._name_object(name)
             for fname, index, subset, core, name
             in _backends.pdf_file_font_names(self._native)}
+        names.update(self._given.fonts)
+        return dict(sorted(names.items(), key=lambda item: int(item[1].name[1:])))
 
     def _name_object(self, name):
         """The `Name` *name* of a resource of the document (a font, an
@@ -635,13 +668,32 @@ class PdfFile:
         if unwritable is not None:
             self.endStream()
             raise unwritable
+        self._check_resources()
         _backends.pdf_file_set_info(self._native,
                                     _native_info_of(self.infoDict))
         _backends.pdf_file_finalize(self._native)
 
+    def _check_resources(self):
+        """Fail as matplotlib's ``finalize`` fails writing the resources
+        given (see `_pdf_kept`), in its order; fonts only once the program
+        named some itself."""
+        given = self._given
+        if given.named_fonts:
+            self.endStream()
+            _pdf_kept.check_fonts(self._fontNames, self._tracks_font)
+        if given.hatches or given.shadings or self._image_objects or (
+                given.markers or given.templates):
+            self.endStream()
+            _pdf_kept.check_hatches(self, given.hatches)
+            _pdf_kept.check_shadings(self, given.shadings)
+            _pdf_kept.check_images(
+                self, [image for image, _name in self._image_objects.values()])
+            _pdf_kept.check_markers(self, given.markers)
+            _pdf_kept.check_templates(self, given.templates)
+
     def close(self):
         """Flush all buffers and free all resources."""
-        _write_bytes(_backends.pdf_file_close(self._native), self._filename)
+        self._document_file.finish(_backends.pdf_file_close(self._native))
 
     def write(self, data):
         current = self.__dict__.get("_current")
@@ -705,6 +757,7 @@ class PdfFile:
                 directory=cbook._get_data_path('fonts/pdfcorefonts'))
         else:
             filenames = _fontManager._find_fonts_by_props(fontprop)
+        self._given.named_fonts = True
         names = [self._font_name(fname, subset) for fname in filenames]
         # find_fontsprop's first value always adheres to
         # findfont's value, so technically no behaviour change
@@ -717,8 +770,18 @@ class PdfFile:
                 self._native, os.path.basename(fname))
         else:
             path = fname if isinstance(fname, FontPath) else FontPath(fname, 0)
+            count = _pdf_kept.plain_subset(subset)
+            kept = self._given.fonts.get((path, subset))
+            if kept is not None:
+                return kept
+            if count is None or not os.path.isfile(path.path):
+                # matplotlib names any file and subset, and fails only
+                # writing the fonts (`writeFonts`).
+                name = self._given.fonts[(path, subset)] = self._name_object(
+                    _backends.pdf_file_reserve_font_name(self._native))
+                return name
             name = _backends.pdf_file_font_name(
-                self._native, path.path, path.face_index, subset)
+                self._native, path.path, path.face_index, count)
         _log.debug('Assigning font %s (subset %d) = %r', name, subset, fname)
         return self._name_object(name)
 
@@ -735,18 +798,15 @@ class PdfFile:
         return Name(pdfname)
 
     def writeFonts(self):
-        for (path, _), _name in sorted(self._fontNames.items()):
-            # matplotlib embeds each TrueType font named with the
-            # characters its tracker holds for it, which fails for one
-            # never drawn.
-            if not path.path.endswith('.afm') and not self._tracks_font(path):
-                raise KeyError(path)
+        _pdf_kept.check_fonts(self._fontNames, self._tracks_font)
         _backends.pdf_file_write_fonts(self._native)
 
     def _tracks_font(self, path):
         """Whether glyphs of the font *path* (a `FontPath`) were drawn in
-        the document (matplotlib's ``_character_tracker.used``)."""
-        return _backends.pdf_file_tracks_font(self._native, path.path, path.face_index)
+        the document (matplotlib's ``_character_tracker.used``); none of a
+        file that is no font."""
+        return os.path.isfile(path.path) and _backends.pdf_file_tracks_font(
+            self._native, path.path, path.face_index)
 
     @_api.delete_parameter("3.11", "fontfile")
     def createType1Descriptor(self, t1font, fontfile=None):
@@ -757,6 +817,7 @@ class PdfFile:
 
     def embedTTF(self, filename, subset_index, charmap):
         """Embed the TTF font from the named file into the document."""
+        _pdf_kept.check_embedding(self, filename, charmap)
         path = filename if isinstance(filename, FontPath) else FontPath(filename, 0)
         if not self._tracks_font(path):
             # matplotlib maps the codes back to the characters its tracker
@@ -768,21 +829,38 @@ class PdfFile:
 
     def alphaState(self, alpha):
         """Return name of an ExtGState that sets alpha to the given value."""
-        # matplotlib looks the state up by *alpha*, then reads both alphas.
-        {}.get(alpha)
+        state = self._given.alpha_states.get(alpha, None)
+        if state is not None:
+            return state
         stroke, fill = alpha[0], alpha[1]
-        return self._name_object(_backends.pdf_file_alpha_state(
-            self._native, (float(stroke), float(fill))))
+        name = self._given.alpha_states[alpha] = Name(
+            _backends.pdf_file_alpha_state(self._native, (float(stroke), float(fill))))
+        return name
 
     def writeExtGSTates(self):
         _backends.pdf_file_write_ext_gstates(self._native)
 
     def hatchPattern(self, hatch_style):
+        # The colors may come in as numpy arrays, which aren't hashable
         edge, face, hatch, lw = hatch_style
+        if edge is not None:
+            edge = tuple(edge)
+        if face is not None:
+            face = tuple(face)
+        hatch_style = (edge, face, hatch, lw)
+
+        pattern = self._given.hatches.get(hatch_style, None)
+        if pattern is not None:
+            return pattern
+        if not _pdf_kept.plain_hatch(hatch_style):
+            # Kept as given, a stand-in drawing nothing in its place (see
+            # `_pdf_kept`).
+            edge, face, hatch, lw = (0, 0, 0), None, '', 0
         colors = [None if c is None else [float(v) for v in c]
                   for c in (edge, face)]
-        return self._name_object(_backends.pdf_file_hatch_pattern(
-            self._native, (*colors, hatch, float(lw))))
+        name = self._given.hatches[hatch_style] = Name(
+            _backends.pdf_file_hatch_pattern(self._native, (*colors, hatch, float(lw))))
+        return name
 
     def _hatch_patterns(self):
         """The deprecated patterns by style: matplotlib 3.11 unpacks the
@@ -795,6 +873,7 @@ class PdfFile:
         lambda self: self._hatch_patterns()))
 
     def writeHatches(self):
+        _pdf_kept.check_hatches(self, self._given.hatches)
         _backends.pdf_file_write_hatches(self._native)
 
     def addGouraudTriangles(self, points, colors):
@@ -815,12 +894,16 @@ class PdfFile:
         -------
         Name, Reference
         """
+        self._given.shadings.append((points, colors))
+        if not _pdf_kept.plain_shading(points, colors):
+            # Kept as given, a stand-in in its place (see `_pdf_kept`).
+            points, colors = np.zeros((1, 3, 2)), np.zeros((1, 3, 1))
         name, ob = _backends.pdf_file_gouraud(
-            self._native, np.asarray(points, float).reshape((-1, 3, 2)),
-            np.asarray(colors, float))
+            self._native, np.asarray(points, float), np.asarray(colors, float))
         return Name(name), Reference(ob)
 
     def writeGouraudTriangles(self):
+        _pdf_kept.check_shadings(self, self._given.shadings)
         _backends.pdf_file_write_gouraud(self._native)
 
     def imageObject(self, image):
@@ -830,40 +913,50 @@ class PdfFile:
         if entry is not None:
             return entry[1]
 
-        name = Name(_backends.pdf_file_image(self._native, _rgba_pixels(image)))
+        # One that is no image of bytes is kept as given, a stand-in in its
+        # place (see `_pdf_kept`).
+        pixels = (_rgba_pixels(image) if _pdf_kept.plain_image(image)
+                  else np.zeros((1, 1, 4), np.uint8))
+        name = Name(_backends.pdf_file_image(self._native, pixels))
         self._image_objects[id(image)] = (image, name)
         return name
 
     def writeImages(self):
-        for image, _name in self._image_objects.values():
-            _check_png_encodable(image)
+        _pdf_kept.check_images(
+            self, [image for image, _name in self._image_objects.values()])
         _backends.pdf_file_write_images(self._native)
 
     def markerObject(self, path, trans, fill, stroke, lw, joinstyle,
                      capstyle):
         """Return name of a marker XObject representing the given path."""
-        self._made_markers = True
+        # matplotlib computes the path's operations and its extents here,
+        # and keeps the rest to write the marker (see `_pdf_kept`).
+        self.pathOperations(path, trans, simplify=False)
+        self._given.markers.append((path.get_extents(trans), lw, joinstyle, capstyle))
+        if not _pdf_kept.plain_marker(trans, lw, joinstyle, capstyle):
+            trans, lw, joinstyle, capstyle = None, 0, 'miter', 'butt'
         return Name(_backends.pdf_file_marker(
-            self._native, path, np.asarray(trans, float), bool(fill),
+            self._native, path, affine_matrix(trans), bool(fill),
             bool(stroke), float(lw), _style_name(joinstyle),
             _style_name(capstyle)))
 
     def writeMarkers(self):
-        # matplotlib begins a stream per marker (``beginStream`` asserts
-        # that none is open).
-        assert not self.__dict__.get("_made_markers") or self.currentstream is None
+        _pdf_kept.check_markers(self, self._given.markers)
         _backends.pdf_file_write_markers(self._native)
 
     def pathCollectionObject(self, gc, path, trans, padding, filled, stroked):
-        self._made_templates = True
+        joinstyle, capstyle = gc.get_joinstyle(), gc.get_capstyle()
+        self._given.templates.append((path, trans, padding, joinstyle, capstyle))
+        if not _pdf_kept.plain_template(path, trans, padding):
+            # Kept as given, a stand-in in its place (see `_pdf_kept`).
+            path, trans, padding = Path(np.zeros((0, 2))), None, 0
         return Name(_backends.pdf_file_path_collection(
-            self._native, path, np.asarray(trans, float), float(padding),
-            bool(filled), bool(stroked), _style_name(gc.get_joinstyle()),
-            _style_name(gc.get_capstyle())))
+            self._native, path, affine_matrix(trans), float(padding),
+            bool(filled), bool(stroked), _style_name(joinstyle),
+            _style_name(capstyle)))
 
     def writePathCollectionTemplates(self):
-        # A stream per template, as for `writeMarkers`.
-        assert not self.__dict__.get("_made_templates") or self.currentstream is None
+        _pdf_kept.check_templates(self, self._given.templates)
         _backends.pdf_file_write_templates(self._native)
 
     @staticmethod
@@ -1161,7 +1254,11 @@ class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
         if self._image_arguments(gc, x, y, im, transform):
-            super().draw_image(gc, x, y, im, transform)
+            # matplotlib's document keeps the image as given, its values
+            # never cast here (no numpy warning for those that are no
+            # bytes).
+            with np.errstate(invalid='ignore'):
+                super().draw_image(gc, x, y, im, transform)
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         # The line typeset as mathtext.
@@ -1449,6 +1546,5 @@ from .._afm import AFM  # noqa: E402, F401
 from ..backend_bases import RendererBase  # noqa: E402, F401
 from ..font_manager import get_font  # noqa: E402, F401
 from ..ft2font import FaceFlags, FT2Font, LoadFlags, StyleFlags  # noqa: E402, F401
-from ..path import Path  # noqa: E402, F401
 from ..transforms import Affine2D  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

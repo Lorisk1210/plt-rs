@@ -10,9 +10,9 @@ class FrameMixin:
     """The edge colour, line width and visibility of the background of
     `.Figure` and `.SubFigure`."""
 
-    # A (sub)figure's own alpha, transform and clip regions are kept, not
-    # drawn: matplotlib's ``Figure.draw`` draws nothing with them, and its
-    # background has an alpha of its own (``patch.set_alpha``).
+    # A (sub)figure's own alpha, transform, clip regions and path effects
+    # are kept, not drawn: matplotlib's ``Figure.draw`` draws nothing with
+    # them, and its background has an alpha of its own (``patch.set_alpha``).
     _kept_only = True
 
     def get_edgecolor(self):

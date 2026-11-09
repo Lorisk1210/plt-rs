@@ -22,6 +22,10 @@ pub(super) enum FontKey {
     Embedded(FontId, usize),
     /// One of the 14 PDF core fonts (`pdf.use14corefonts`).
     Core(&'static AfmFont),
+    /// A name held for a font pltrs cannot embed (the `n`-th font named):
+    /// matplotlib's `fontName` names any file, and fails only writing it.
+    /// It is written as no font.
+    Reserved(usize),
 }
 
 /// The `/Fn` names of the fonts used, in first-use order.
@@ -39,6 +43,12 @@ impl FontNames {
     /// `fontName` for a core font, assigned on first use.
     pub(super) fn core_name(&mut self, font: &'static AfmFont) -> String {
         self.name_of(FontKey::Core(font))
+    }
+
+    /// A new name for a font pltrs cannot embed (see
+    /// [`FontKey::Reserved`]).
+    pub(super) fn reserve(&mut self) -> String {
+        self.name_of(FontKey::Reserved(self.names.len()))
     }
 
     /// The fonts named, with their names, in first-use order.
@@ -399,6 +409,7 @@ pub(super) fn write_fonts(
                 let sort_key = fonts.get(id)?.sort_key().to_owned();
                 used.push((sort_key, subset, id, name.clone()));
             }
+            FontKey::Reserved(_) => {}
         }
     }
     core.sort_by_key(|(font, _)| font.file);

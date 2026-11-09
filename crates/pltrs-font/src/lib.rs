@@ -94,7 +94,7 @@ pub use hinting::{
 };
 pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
-pub use scale::{KerningMode, Size};
+pub use scale::{KerningMode, Size, SizeError};
 pub use scan::{Dropouts, ScanOutline, ScanPoint, ScanPointKind, ScanRules};
 pub use sfnt::FaceFlags;
 pub use shape::{

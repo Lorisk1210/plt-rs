@@ -11,10 +11,23 @@ use crate::vector::{Metadata, VectorError};
 /// A text note shown on a page (`newTextnote`).
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Note {
-    /// The note's text.
-    pub(super) text: String,
-    /// Where it is shown, `[x0, y0, x1, y1]` in points.
-    pub(super) rect: [f64; 4],
+    /// The note's text (a string object, or whatever matplotlib's
+    /// `newTextnote` is given).
+    pub(super) contents: Obj,
+    /// Where it is shown, `[x0, y0, x1, y1]` in points (or whatever
+    /// matplotlib's `newTextnote` is given).
+    pub(super) rect: Obj,
+}
+
+/// The media box of a `width × height` inch page, in points (as
+/// matplotlib's `newPage` writes it).
+pub(super) fn media_box(width: f64, height: f64) -> Obj {
+    Obj::Array(vec![
+        Obj::Int(0),
+        Obj::Int(0),
+        Obj::Real(72.0 * width),
+        Obj::Real(72.0 * height),
+    ])
 }
 
 impl Note {
@@ -23,8 +36,8 @@ impl Note {
         Obj::dict([
             ("Type", Obj::name("Annot")),
             ("Subtype", Obj::name("Text")),
-            ("Contents", text_string(&self.text)),
-            ("Rect", Obj::reals(self.rect)),
+            ("Contents", self.contents.clone()),
+            ("Rect", self.rect.clone()),
         ])
     }
 }
@@ -152,15 +165,14 @@ impl Pages {
         }
     }
 
-    /// Writes the page object of a `width × height` inch page whose
-    /// content stream is object `contents` and returns that object number
-    /// (the page itself takes the pending notes).
+    /// Writes the page object of a page spanning `media_box` whose content
+    /// stream is object `contents` and returns that object number (the
+    /// page itself takes the pending notes).
     pub(super) fn start(
         &mut self,
         writer: &mut PdfWriter,
         parents: PageParents,
-        width: f64,
-        height: f64,
+        media_box: Obj,
     ) -> Result<u32, VectorError> {
         let contents = writer.reserve();
         let annotations = writer.reserve();
@@ -171,15 +183,7 @@ impl Pages {
                 ("Type", Obj::name("Page")),
                 ("Parent", Obj::Ref(parents.pages)),
                 ("Resources", Obj::Ref(parents.resources)),
-                (
-                    "MediaBox",
-                    Obj::Array(vec![
-                        Obj::Int(0),
-                        Obj::Int(0),
-                        Obj::Real(72.0 * width),
-                        Obj::Real(72.0 * height),
-                    ]),
-                ),
+                ("MediaBox", media_box),
                 ("Contents", Obj::Ref(contents)),
                 ("Annots", Obj::Ref(annotations)),
             ]),
@@ -298,11 +302,15 @@ mod tests {
         };
         let mut pages = Pages::default();
         pages.add_note(Note {
-            text: "hello".to_owned(),
-            rect: [-100.0, -100.0, 0.0, 0.0],
+            contents: text_string("hello"),
+            rect: Obj::reals([-100.0, -100.0, 0.0, 0.0]),
         });
-        pages.start(&mut writer, parents, 1.0, 1.0).unwrap();
-        pages.start(&mut writer, parents, 2.0, 1.0).unwrap();
+        pages
+            .start(&mut writer, parents, media_box(1.0, 1.0))
+            .unwrap();
+        pages
+            .start(&mut writer, parents, media_box(2.0, 1.0))
+            .unwrap();
         assert_eq!(pages.len(), 2);
         assert_eq!(pages.pages[0].notes.len(), 1);
         assert_eq!(pages.pages[1].notes, []);

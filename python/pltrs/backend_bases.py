@@ -1792,7 +1792,10 @@ class FigureCanvasBase:
             The topmost visible Axes containing the point, or None if there
             is no Axes at the point.
         """
-        return self.figure._axes_at(*xy)
+        if not self.figure.get_axes():
+            return None
+        # matplotlib's patches read the point's coordinates first.
+        return self.figure._axes_at(xy[0], xy[1])
 
     def grab_mouse(self, ax):
         """
@@ -2183,9 +2186,11 @@ class FigureCanvasBase:
 
     def _print_area(self, bbox_inches_restore):
         """The area of the figure to save: *bbox_inches_restore* as a print
-        method was given it, else that of the `print_figure` of the moment
-        (None: the whole figure)."""
-        if bbox_inches_restore is not None:
+        method was given it by `print_figure`, else that of the
+        `print_figure` of the moment (None: the whole figure). matplotlib's
+        print methods read another value only to rasterize parts of the
+        figure, which pltrs (Rust) does in the area saved."""
+        if isinstance(bbox_inches_restore, dict):
             return bbox_inches_restore
         return self._print_options.get("bbox_inches_restore")
 

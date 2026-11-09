@@ -185,3 +185,17 @@ def figure_patch(figure):
             patch.set_in_layout(False)
     patch._mirror.pull(patch)
     return patch
+
+
+def checked_style(facecolor, edgecolor, linewidth):
+    """
+    The width of the background of a (sub)figure styled *facecolor*,
+    *edgecolor* and *linewidth*, checked as the `.Rectangle` matplotlib
+    makes its ``patch`` of checks them (the edge colour, then the face
+    colour, `.colors.to_rgba`; then the width, ``float``, as it keeps it;
+    None for the rc defaults of patches).
+    """
+    from . import colors, rcParams
+    colors.to_rgba(rcParams['patch.edgecolor'] if edgecolor is None else edgecolor)
+    colors.to_rgba(rcParams['patch.facecolor'] if facecolor is None else facecolor)
+    return float(rcParams['patch.linewidth'] if linewidth is None else linewidth)

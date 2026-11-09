@@ -408,6 +408,8 @@ class GridSpec(GridSpecBase):
         if figure is None:
             # Constrained layout only places the grids of a figure.
             _gridspec.set_in_layout(self._native, False)
+        elif self._kept_params:
+            _layout_checks.refresh_layout(figure)
 
     @classmethod
     def _from_native(cls, native, figure):
@@ -436,6 +438,8 @@ class GridSpec(GridSpecBase):
             kept = self.__dict__.setdefault("_kept_params", {})
             if not _gridspec_kept.holds(value):
                 kept[_KEYS[index]] = value
+                if self.figure is not None:
+                    _layout_checks.refresh_layout(self.figure)
                 return
             kept.pop(_KEYS[index], None)
             values = list(_gridspec.overrides(self._native))
@@ -958,13 +962,13 @@ _FIGURE_OF_PARAMS = weakref.WeakKeyDictionary()
 def _figure_subplotpars(figure_native, params=None):
     """
     The `SubplotParams` of the figure *figure_native*: *params*, the
-    object the figure gave before (a new one for None), with the
-    parameters pltrs (Rust) holds for the figure now. Its `~.SubplotParams.update`
-    gives the figure its changes.
+    object the figure gave before or was made with (a new one for None),
+    with the parameters pltrs (Rust) holds for the figure now. Its
+    `~.SubplotParams.update` gives the figure its changes.
     """
     if params is None:
         params = SubplotParams.__new__(SubplotParams)
-        _FIGURE_OF_PARAMS[params] = figure_native
+    _FIGURE_OF_PARAMS[params] = figure_native
     given = params.__dict__.get("_given", {})
     unheld = params.__dict__.get("_kept", {})
     for key, value in zip(_KEYS, _gridspec.figure_params(figure_native)):

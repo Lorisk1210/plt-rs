@@ -10,7 +10,7 @@ that name adds it (`.Artist._add_to_axes`, `.._handles.adopt`).
 
 import textwrap
 
-from .. import _api, _artist_clipping, _handles, _values, cbook, colorizer as mcolorizer
+from .. import _api, _artist_clipping, _handles, _values, cbook
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
 from ..artist import Artist, allow_rasterization
@@ -333,7 +333,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         ``pyplot.viridis``, and other functions such as `~.pyplot.clim`.  The
         current image is an attribute of the current Axes.
         """
-        _api.check_isinstance(mcolorizer.ColorizingArtist, im=im)
+        from .. import collections as mcoll, image as mimage
+        _api.check_isinstance((mcoll.Collection, mimage.AxesImage), im=im)
         self._current_image = im
 
     def _gci(self):

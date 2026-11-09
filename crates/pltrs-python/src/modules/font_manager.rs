@@ -16,9 +16,13 @@ use pltrs_text::{AfmDirectory, AfmFont, FontSource, TextError};
 use crate::binding::prelude::*;
 
 impl From<TextError> for PyErr {
-    /// `ValueError` for fonts that cannot be found or read.
+    /// `ValueError` for fonts that cannot be found or read; matplotlib's
+    /// `RuntimeError` for a font size `FreeType` refuses.
     fn from(err: TextError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            TextError::FontSize(_) => PyErr::runtime_error(err.to_string()),
+            err => PyErr::value_error(err.to_string()),
+        }
     }
 }
 

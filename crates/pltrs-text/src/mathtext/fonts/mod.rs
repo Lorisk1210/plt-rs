@@ -225,7 +225,8 @@ impl<'e> Fonts<'e> {
             .set
             .glyph(&mut self.faces, key.font, key.class, key.symbol)?;
         let face = self.faces.face(glyph.font)?;
-        let size = Size::new(face, key.fontsize, self.dpi);
+        // matplotlib's mathtext sets the size of every glyph's font.
+        let size = Size::checked(face, key.fontsize, self.dpi).map_err(FontError::from)?;
         let glyph_id = face.glyph_index_for_code(glyph.code).unwrap_or(GlyphId(0));
         let cbox = size.glyph_cbox(face, glyph_id)?.unwrap_or(Rect {
             x_min: 0,

@@ -17,7 +17,8 @@ import time
 import numpy as np
 
 from . import _docstring
-from . import _api, _handles, _legend_handlers, _live_transforms, _values, colors, rcParams
+from . import (_api, _handles, _legend_checks, _legend_handlers, _live_transforms,
+               _values, colors, rcParams)
 from . import _val_or_rc
 from ._native import artist as _artist, legend as _legend
 from ._native import register as _register
@@ -495,35 +496,32 @@ class Legend(Artist):
         """
         from .axes._base import _AxesBase
         from .figure import FigureBase
-        if shadow is None:
-            shadow = rcParams["legend.shadow"]
-        if not isinstance(shadow, dict):
-            if shadow not in (0, 1, True, False):
-                raise ValueError(
-                    'Legend shadow must be a dict or bool, not '
-                    f'{shadow!r} of type {type(shadow)}.')
-            shadow = bool(shadow)
-        if title_fontsize is not None and title_fontproperties is not None:
-            raise ValueError(
-                "title_fontsize and title_fontproperties can't be specified "
-                "at the same time. Only use one of them. ")
-        if isinstance(parent, _AxesBase):
-            self.isaxes = True
-        elif isinstance(parent, FigureBase):
-            self.isaxes = False
+        # matplotlib's constructor computes with its arguments in this order
+        # (see `._legend_checks`).
+        if prop is None:
+            self.prop = FontProperties(size=_val_or_rc(fontsize, "legend.fontsize"))
         else:
-            raise TypeError(
-                "Legend needs either Axes or FigureBase as parent"
-            )
-        self.parent = parent
+            self.prop = FontProperties._from_any(prop)
+            if isinstance(prop, dict) and "size" not in prop:
+                self.prop.set_size(rcParams["legend.fontsize"])
+        self._fontsize = self.prop.get_size_in_points()
         self._custom_handler_map = handler_map
-        self.numpoints = rcParams['legend.numpoints'] if numpoints is None else numpoints
-        self.markerscale = (rcParams['legend.markerscale'] if markerscale is None
-                            else markerscale)
-        self.scatterpoints = (rcParams['legend.scatterpoints']
-                              if scatterpoints is None else scatterpoints)
+        self.numpoints = _val_or_rc(numpoints, 'legend.numpoints')
+        self.markerscale = _val_or_rc(markerscale, 'legend.markerscale')
+        self.scatterpoints = _val_or_rc(scatterpoints, 'legend.scatterpoints')
         # The paddings legend handlers read, as fractions of the font size.
         self.borderpad = _val_or_rc(borderpad, 'legend.borderpad')
+        self.labelspacing = _val_or_rc(labelspacing, 'legend.labelspacing')
+        self.handlelength = _val_or_rc(handlelength, 'legend.handlelength')
+        self.handleheight = _val_or_rc(handleheight, 'legend.handleheight')
+        self.handletextpad = _val_or_rc(handletextpad, 'legend.handletextpad')
+        self.borderaxespad = _val_or_rc(borderaxespad, 'legend.borderaxespad')
+        self.columnspacing = _val_or_rc(columnspacing, 'legend.columnspacing')
+        shadow = _val_or_rc(shadow, 'legend.shadow')
+        handles = list(handles)
+        if len(handles) < 2:
+            ncols = 1
+        ncols = ncols if ncols != 1 else ncol
         if self.numpoints <= 0:
             raise ValueError("numpoints must be > 0; it was %d" % numpoints)
         if scatteryoffsets is None:
@@ -533,24 +531,33 @@ class Legend(Artist):
         reps = self.scatterpoints // len(self._scatteryoffsets) + 1
         self._scatteryoffsets = np.tile(self._scatteryoffsets,
                                         reps)[:self.scatterpoints]
-        if prop is None:
-            self.prop = FontProperties(size=_val_or_rc(fontsize, "legend.fontsize"))
+        if isinstance(parent, _AxesBase):
+            self.isaxes = True
+        elif isinstance(parent, FigureBase):
+            self.isaxes = False
         else:
-            self.prop = FontProperties._from_any(prop)
-            if isinstance(prop, dict) and "size" not in prop:
-                self.prop.set_size(rcParams["legend.fontsize"])
-        self._fontsize = self.prop.get_size_in_points()
-        self.handlelength = _val_or_rc(handlelength, 'legend.handlelength')
-        self.handleheight = _val_or_rc(handleheight, 'legend.handleheight')
-        self.labelspacing = _val_or_rc(labelspacing, 'legend.labelspacing')
-        self.handletextpad = _val_or_rc(handletextpad, 'legend.handletextpad')
-        self.borderaxespad = _val_or_rc(borderaxespad, 'legend.borderaxespad')
-        self.columnspacing = _val_or_rc(columnspacing, 'legend.columnspacing')
+            raise TypeError(
+                "Legend needs either Axes or FigureBase as parent"
+            )
+        self.parent = parent
+        self._mode = mode
+        _legend_checks.check_anchor(bbox_to_anchor, parent)
+        if not isinstance(shadow, dict):
+            if shadow not in (0, 1, True, False):
+                raise ValueError(
+                    'Legend shadow must be a dict or bool, not '
+                    f'{shadow!r} of type {type(shadow)}.')
+            shadow = bool(shadow)
+        width = _legend_checks.check_frame(facecolor, edgecolor, linewidth, framealpha)
+        if linewidth is not None:
+            linewidth = width  # As the frame keeps it.
+        _api.check_in_list(["center", "left", "right"], alignment=alignment)
         self.shadow = True if isinstance(shadow, dict) else shadow
         # What the handlers running in Python read before the legend is made.
         self._figure = None
         self._axes = parent if self.isaxes else None
         handler_map = self.get_legend_handler_map()
+        _legend_checks.check_entries(self, handles, handler_map, ncols)
         entries, kept, kept_handles = [], [], []
         made = _legend_handlers.MadeEntries()
         for handle, label in zip(handles, labels):
@@ -572,7 +579,8 @@ class Legend(Artist):
             kept.append(str(label))
             kept_handles.append(handle)
         loc = self._validated_loc(loc)
-        ncols = ncols if ncols != 1 else ncol
+        _legend_checks.check_title(title_fontsize, title_fontproperties)
+        _legend_checks.check_labelcolor(labelcolor)
         if (labelcolor is not None and not isinstance(labelcolor, str)
                 and colors.is_color_like(labelcolor)):
             # One colour, as the cycle of one that gives it to every label.
@@ -587,15 +595,17 @@ class Legend(Artist):
             fontsize=fontsize, labelcolor=labelcolor, borderpad=borderpad,
             labelspacing=labelspacing, handlelength=handlelength,
             handleheight=handleheight, handletextpad=handletextpad,
-            borderaxespad=borderaxespad, columnspacing=columnspacing,
-            ncols=1 if len(kept) < 2 else ncols, mode=mode,
+            borderaxespad=_legend_checks.held_pad(borderaxespad),
+            columnspacing=columnspacing,
+            ncols=1 if len(kept) < 2 else ncols,
+            mode=_legend_checks.native_mode(mode),
             fancybox=fancybox, shadow=shadow,
             title=title, title_fontsize=title_fontsize,
             framealpha=framealpha, edgecolor=edgecolor, facecolor=facecolor,
             linewidth=linewidth, bbox_to_anchor=bbox_to_anchor,
-            bbox_transform=_live_transforms.given_to_native(bbox_transform),
+            bbox_transform=(None if bbox_to_anchor is None
+                            else _live_transforms.given_to_native(bbox_transform)),
             frameon=frameon, alignment=alignment)
-        _api.check_in_list(["center", "left", "right"], alignment=alignment)
         self._ncols = ncols
         self._draggable = None
         # matplotlib's constructor makes the legend for the Axes without
@@ -612,6 +622,7 @@ class Legend(Artist):
         elif own_axes or not self.isaxes:
             _artist.remove(native)
         made.adopt(self)
+        _legend_checks.keep_borderaxespad(self, borderaxespad)
         self._made_handles = made.returned
         self._entry_handles = kept_handles
         if draggable:

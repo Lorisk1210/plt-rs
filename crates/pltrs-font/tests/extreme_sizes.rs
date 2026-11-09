@@ -6,8 +6,8 @@ mod common;
 
 use common::font_bytes;
 use pltrs_font::{
-    AutohintTarget, Autohinter, Face, FontChain, GlyphId, Hinting, HintingInstance, KerningMode,
-    OutlineRecorder, ShapeOptions, Size, shape_at_size,
+    AutohintTarget, Autohinter, Face, FontChain, FontError, GlyphId, Hinting, HintingInstance,
+    KerningMode, OutlineRecorder, ShapeOptions, Size, SizeError, shape_at_size,
 };
 
 const SIZES: [f64; 10] = [
@@ -73,4 +73,32 @@ fn long_strings_at_huge_sizes_do_not_overflow() {
             let _ = chain.layout(&text, points, 1e4, &ShapeOptions::default(), hinting);
         }
     }
+}
+
+#[test]
+fn sizes_freetype_refuses_are_refused() {
+    let data = font_bytes("DejaVuSans.ttf");
+    let face = Face::parse(&data, 0).expect("bundled font");
+    let chain = FontChain::new(vec![face.clone()]);
+    let options = ShapeOptions::default();
+    // No pixel per em at a resolution of 2 dots per inch.
+    let refused = chain.layout("ab", 10.0, 2.5, &options, Hinting::None);
+    assert_eq!(refused.err(), Some(FontError::Size(SizeError::InvalidPpem)));
+    assert!(
+        chain
+            .layout("ab", 10.0, 72.0, &options, Hinting::None)
+            .is_ok()
+    );
+    // A resolution of zero is FreeType's default of 72; more than 65 535
+    // pixels per em are refused too.
+    assert!(Size::checked(&face, 10.0, 0.0).is_ok());
+    assert_eq!(
+        Size::checked(&face, 1e6, 72.0),
+        Err(SizeError::InvalidPixelSize)
+    );
+    assert_eq!(SizeError::InvalidPpem.code(), 0x97);
+    assert_eq!(
+        SizeError::InvalidPixelSize.to_string(),
+        "invalid pixel size"
+    );
 }

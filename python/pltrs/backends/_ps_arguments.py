@@ -30,6 +30,19 @@ def check_coordinates(*values):
         f"{value:g}"  # noqa: B018
 
 
+def _check_layout(s, prop, features, language):
+    """Look the font of *prop* up and lay *s* out with it as matplotlib's
+    PostScript renderer does (``_get_font_ttf``, then ``FT2Font._layout``
+    through ``_text_helpers.layout``), for their errors."""
+    from ..font_manager import FontProperties, fontManager, get_font
+    from ..ft2font import FT2Font, LoadFlags
+    prop = FontProperties._from_any(prop)
+    if not isinstance(s, str):
+        font = get_font(fontManager._find_fonts_by_props(prop))
+        FT2Font._layout.check(font, s, LoadFlags.NO_HINTING,
+                              features=features, language=language)
+
+
 class PsArgumentsMixin:
     """The arguments of `.RendererPS`'s drawing methods and setters, used
     as matplotlib's renderer uses them."""
@@ -133,9 +146,11 @@ class PsArgumentsMixin:
         elif ismath:
             self._mathtext_arguments(gc, x, y, s, prop, angle)
         else:
+            features = language = None
             if mtext is not None:
-                mtext.get_fontfeatures()
-                mtext.get_language()
+                features = mtext.get_fontfeatures()
+                language = mtext.get_language()
+            _check_layout(s, prop, features, language)
             prop.get_size_in_points()
             self._check_color(*gc.get_rgb())
             check_coordinates(x, y, angle)

@@ -106,8 +106,9 @@ pub(in crate::modules) fn draw_exception(kind: DrawErrorKind) -> Option<Exceptio
 impl From<SaveError> for PyErr {
     /// matplotlib's `ValueError` for unknown formats and canvases too large
     /// to make (Agg's limit), `MemoryError` for memory the system refused,
-    /// `OSError` for files that cannot be written, and the problems drawing
-    /// met as [`DrawErrors`] raise them.
+    /// `OSError` for files that cannot be written, the `ValueError` of
+    /// matplotlib's PDF writer for a number it cannot write, and the
+    /// problems drawing met as [`DrawErrors`] raise them.
     fn from(err: SaveError) -> Self {
         if caused_by_out_of_memory(&err) {
             return PyErr::new(ExceptionKind::MemoryError, err.to_string());
@@ -127,6 +128,10 @@ impl From<SaveError> for PyErr {
             SaveError::Vector(VectorError::StreamedImage) => {
                 // matplotlib's own message, which names no document.
                 return PyErr::value_error(VectorError::StreamedImage.to_string());
+            }
+            SaveError::Vector(VectorError::NonFinite(_)) => {
+                // matplotlib's PDF writer refusing a number it cannot write.
+                return PyErr::value_error("Can only output finite numbers in PDF");
             }
             SaveError::Io(_) => ExceptionKind::OSError,
             SaveError::UnsupportedFormat(_) | SaveError::Backend(RasterBackendError::Canvas(_)) => {

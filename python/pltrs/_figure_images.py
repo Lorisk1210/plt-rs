@@ -7,6 +7,8 @@ argument handling of ``figimage`` is matplotlib 3.11.2's, under the
 Matplotlib License.
 """
 
+from numbers import Real
+
 import numpy as np
 
 from . import _docstring
@@ -103,15 +105,22 @@ class FigureImagesMixin:
         made = mcolorizer._ScalarMappable._get_colorizer(cmap, norm, colorizer)
         _api.check_in_list(["upper", "lower"],
                            origin=_val_or_rc(origin, 'image.origin'))
+        # matplotlib's image takes the keyword arguments as it is made,
+        # before its array is set: a name it has no setter for fails there.
+        for name in kwargs:
+            if not callable(getattr(mimage.FigureImage, f"set_{name}", None)):
+                raise AttributeError("FigureImage.set() got an unexpected keyword "
+                                     f"argument {name!r}", name=name)
         A = mimage._ImageBase._normalize_image_array(np.asanyarray(X))
         if norm is None:
             mcolorizer._ScalarMappable._check_exclusionary_keywords(
                 colorizer, vmin=vmin, vmax=vmax)
             # As matplotlib's figimage: the norm scales when first drawn.
             made.set_clim(vmin, vmax)
+        held = all(isinstance(offset, Real) for offset in (xo, yo))
         native = _native_image.figimage(
             self._native, mimage._native_data(A), made.cmap,
-            made.norm, (float(xo), float(yo)), origin)
+            made.norm, (float(xo), float(yo)) if held else (0.0, 0.0), origin)
         im = _handles.wrap(native, mimage.FigureImage, self.figure)
         im._keep_figimage_settings(xo, yo)
         im._set_mapped_data(made, A)

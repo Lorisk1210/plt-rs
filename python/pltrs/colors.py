@@ -402,8 +402,13 @@ def _to_rgba_no_colorcycle(c, alpha=None):
     if c is np.ma.masked:
         return (0., 0., 0., 0.)
     if isinstance(c, np.ndarray):
+        orig_c = c
         if c.ndim == 2 and c.shape[0] == 1:
             c = c.reshape(-1)
+        if c.ndim == 1 and len(c) in (3, 4) and not all(isinstance(x, Real) for x in c):
+            # matplotlib takes numbers alone: no numpy bools, strings or
+            # masked elements.
+            raise ValueError(f"Invalid RGBA argument: {orig_c!r}")
         c = tuple(c)
     try:
         # An alpha of one element (seaborn's mapped alpha) is its number.

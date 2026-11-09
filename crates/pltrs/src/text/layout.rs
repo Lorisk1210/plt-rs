@@ -438,11 +438,24 @@ pub(crate) fn lay_out(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<LaidOutText, TextError> {
+    lay_out_as(text, font, style, dpi, rc, Typesetting::from_rc(rc))
+}
+
+/// [`lay_out`] typeset as `typesetting` says (a text's own `parse_math`
+/// and `usetex` properties).
+pub(crate) fn lay_out_as(
+    text: &str,
+    font: &FontProperties,
+    style: &BlockStyle,
+    dpi: f64,
+    rc: &RcParams,
+    typesetting: Typesetting,
+) -> Result<LaidOutText, TextError> {
     let shaping = Shaping {
         features: Vec::new(),
         language: rc_language(rc),
     };
-    lay_out_with(text, font, style, dpi, rc, Typesetting::from_rc(rc))?.shaped(&shaping)
+    lay_out_with(text, font, style, dpi, rc, typesetting)?.shaped(&shaping)
 }
 
 /// The language matplotlib gives the texts it creates: `text.language`.

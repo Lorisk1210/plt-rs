@@ -117,7 +117,9 @@ impl<'a> FontChain<'a> {
     /// runs split by bidi level, script, font and language are shaped
     /// separately and placed one after the other in visual order. Faces
     /// `hinting` hints (by bytecode or the autohinter) get hinted advances
-    /// and extents.
+    /// and extents. A size FreeType refuses for any face of the chain
+    /// ([`Size::checked`]) fails as `FT2Font.set_size` does, which sizes
+    /// the fallback fonts too.
     pub fn layout(
         &self,
         text: &str,
@@ -126,11 +128,11 @@ impl<'a> FontChain<'a> {
         options: &ShapeOptions,
         hinting: Hinting,
     ) -> Result<TextLayout> {
-        let sizes: Vec<Size> = self
+        let sizes = self
             .faces
             .iter()
-            .map(|face| Size::new(face, points, dpi))
-            .collect();
+            .map(|face| Size::checked(face, points, dpi))
+            .collect::<Result<Vec<Size>, _>>()?;
         self.lay_out(text, &sizes, options, hinting, false)
     }
 

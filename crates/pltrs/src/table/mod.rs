@@ -37,7 +37,6 @@ pub use handle::{Table, TableCell};
 
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
-use crate::fonts::FontSize;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 use cell::Cell;
@@ -298,7 +297,7 @@ impl TableArtist {
     fn set_fontsize(&mut self, size: f64) {
         let base = self.rc.font_size;
         for (_, cell) in &mut self.cells {
-            cell.font.set_size(FontSize::Points(size), base);
+            cell.set_fontsize(size, base);
         }
     }
 
@@ -392,12 +391,10 @@ impl TableBuilder {
         let rc = Rc::clone(&table.rc);
         let white = || rc.pltrs_table_facecolor.clone();
         let make = |width: f64, text: &str, facecolor: Color, loc: HAlign| {
-            let mut cell = Cell {
-                text: text.to_owned(),
-                loc,
-                edges: options.edges,
-                ..Cell::new(width, height, &rc)
-            };
+            let mut cell = Cell::new(width, height, &rc);
+            text.clone_into(&mut cell.text);
+            cell.loc = loc;
+            cell.edges = options.edges;
             cell.style.facecolor = Some(facecolor);
             cell
         };
@@ -489,6 +486,7 @@ impl Artist for TableArtist {
         let Some((maps, placed)) = self.placed_for_drawing(ctx) else {
             return;
         };
+        self.remember_fitted(&placed);
         let mut order: Vec<usize> = (0..self.cells.len()).collect();
         order.sort_by_key(|&i| self.cells[i].0);
         ctx.renderer().open_group("table", self.base.gid.as_deref());
@@ -501,8 +499,9 @@ impl Artist for TableArtist {
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         let maps = AxesMaps::of(&self.axes_box(*ctx)?)?;
         let cell_maps = self.cell_maps(*ctx, &maps);
-        self.place(*ctx, &maps)
-            .ok()?
+        let placed = self.place(*ctx, &maps).ok()?;
+        self.remember_fitted(&placed);
+        placed
             .iter()
             .zip(&self.cells)
             .zip(&cell_maps)

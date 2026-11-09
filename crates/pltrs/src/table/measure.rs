@@ -90,7 +90,7 @@ impl TableCell {
     pub fn required_width(&self) -> Result<Option<f64>, TextDrawError> {
         self.measured(|cell, index, table, layout, maps| {
             let to_axes = &table.cell_maps(layout, maps)[index].to_axes;
-            cell.required_width(cell.font.size, layout, &table.rc, to_axes)
+            cell.required_width(cell.fontsize(), layout, &table.rc, to_axes)
         })
         .transpose()
     }
@@ -171,7 +171,7 @@ impl TableCell {
             (
                 cell.text.clone(),
                 cell.text_color.clone(),
-                cell.font.clone(),
+                cell.font(),
                 cell.loc,
                 cell.text_valign,
                 cell.text_rotation,
@@ -197,7 +197,7 @@ impl TableCell {
         self.update(|cell| {
             cell.text = string;
             cell.text_color = color;
-            cell.font = font;
+            cell.set_font(font);
             cell.loc = halign;
             cell.text_valign = valign;
             cell.text_rotation = rotation;
@@ -214,7 +214,7 @@ fn fitted_size(
     rc: &RcParams,
     maps: &AxesMaps,
 ) -> Result<f64, TextDrawError> {
-    let mut size = cell.font.size;
+    let mut size = cell.fontsize();
     let mut required = cell.required_width(size, layout, rc, &maps.to_axes)?;
     while size > 1.0 && required > cell.width {
         size -= 1.0;

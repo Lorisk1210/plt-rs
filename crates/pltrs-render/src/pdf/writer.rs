@@ -6,7 +6,7 @@ use pltrs_codec::CompressionLevel;
 use pltrs_codec::deflate::Options;
 use pltrs_codec::zlib::Compressor;
 
-use super::object::{Obj, fill};
+use super::object::{Obj, line};
 use crate::vector::VectorError;
 
 /// A stream being written.
@@ -19,6 +19,16 @@ struct OpenStream {
     /// Data already PNG-encoded (stored without further compression).
     png: bool,
     data: Vec<u8>,
+}
+
+/// Adds the filter of PNG-predicted data with the decoding parameters
+/// `png` to the stream entries `extra`; whether there are any.
+fn png_filter(extra: &mut Vec<(String, Obj)>, png: Option<Obj>) -> bool {
+    png.is_some_and(|parms| {
+        extra.push(("Filter".to_owned(), Obj::name("FlateDecode")));
+        extra.push(("DecodeParms".to_owned(), parms));
+        true
+    })
 }
 
 /// Assembles a PDF file in memory.
@@ -91,12 +101,7 @@ impl PdfWriter {
 
     /// `output`: objects joined by `_fill`, then a newline.
     pub(super) fn output(&mut self, objects: &[Obj]) -> Result<(), VectorError> {
-        let parts = objects
-            .iter()
-            .map(Obj::repr)
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut line = fill(&parts);
-        line.push(b'\n');
+        let line = line(objects)?;
         self.write(&line);
         Ok(())
     }
@@ -110,11 +115,7 @@ impl PdfWriter {
         mut extra: Vec<(String, Obj)>,
         png: Option<Obj>,
     ) {
-        let png = png.is_some_and(|parms| {
-            extra.push(("Filter".to_owned(), Obj::name("FlateDecode")));
-            extra.push(("DecodeParms".to_owned(), parms));
-            true
-        });
+        let png = png_filter(&mut extra, png);
         self.stream = Some(OpenStream {
             id,
             length,
@@ -126,9 +127,15 @@ impl PdfWriter {
 
     /// Closes the open stream (`endStream`), compressing its data.
     pub(super) fn end_stream(&mut self) -> Result<(), VectorError> {
-        let Some(stream) = self.stream.take() else {
-            return Ok(());
-        };
+        match self.stream.take() {
+            Some(stream) => self.write_stream_object(stream),
+            None => Ok(()),
+        }
+    }
+
+    /// Writes the stream object `stream` whole, compressing its data, and
+    /// its length to the object receiving it.
+    fn write_stream_object(&mut self, stream: OpenStream) -> Result<(), VectorError> {
         let data = match self.compression {
             Some(level) if !stream.png => {
                 let mut packed = Vec::new();
@@ -167,6 +174,32 @@ impl PdfWriter {
         self.begin_stream(id, None, extra, None);
         self.write(data);
         self.end_stream()
+    }
+
+    /// Writes the stream `id` whole, with `data` and an inline length, at
+    /// the end of the file whether or not a stream is open (matplotlib's
+    /// `Stream` buffering its data and writing itself when it ends).
+    pub(super) fn write_stream(
+        &mut self,
+        id: u32,
+        mut extra: Vec<(String, Obj)>,
+        png: Option<Obj>,
+        data: Vec<u8>,
+    ) -> Result<(), VectorError> {
+        let png = png_filter(&mut extra, png);
+        self.write_stream_object(OpenStream {
+            id,
+            length: None,
+            extra,
+            png,
+            data,
+        })
+    }
+
+    /// How many objects the cross-reference table lists (matplotlib's
+    /// ``len(xrefTable)``).
+    pub(super) fn object_count(&self) -> usize {
+        self.offsets.len()
     }
 
     /// The first object reserved but not written yet, if any.

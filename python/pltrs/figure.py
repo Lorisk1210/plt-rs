@@ -15,7 +15,7 @@ import numpy as np
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
 from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
-from . import _gridspec_kept
+from . import _gridspec_kept, _layout_checks
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from .artist import Artist
@@ -37,7 +37,7 @@ from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
 from .text import Text
-from .transforms import BboxBase
+from .transforms import Bbox, BboxBase
 from ._text_methods import FigureText
 from ._transform_trees import FigureTrees
 from ._artist_staleness import _stale_figure_callback  # noqa: F401
@@ -470,6 +470,12 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         if not np.isfinite(rect).all():
             raise ValueError(f'all entries in rect must be finite not {rect}')
         projection_class, pkw = self._process_projection_requirements(**kwargs)
+        if not np.iterable(rect):
+            # matplotlib's Axes places itself at a subplot for a position
+            # that is no sequence.
+            SubplotSpec._from_subplot_args(self, (rect,))
+            return self.add_subplot(rect, **kwargs)
+        Bbox.from_bounds(*rect)  # As matplotlib's Axes takes the bounds.
         rect = tuple(map(float, rect))
         make = _native_maker(projection_class)
         if make is not None:
@@ -827,6 +833,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                                                      **kwargs)
             self.subfigs.append(sfarr[row, col])
             sfarr[row, col]._listed_among = self.subfigs
+        if _gridspec_kept.in_python(gs, None):
+            # The layout engine lays the grid's spacing out as matplotlib's.
+            _layout_checks.refresh_layout(self)
         self.stale = True
         if self.get_layout_engine() is None and (wspace is not None or
                                                  hspace is not None):
@@ -870,6 +879,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         sf._add_to_figure(self, False)
         self.subfigs.append(sf)
         sf._listed_among = self.subfigs
+        if _gridspec_kept.in_python(subplotspec.get_gridspec(), None):
+            # The layout engine lays the grid's spacing out as matplotlib's.
+            _layout_checks.refresh_layout(self)
         self.stale = True
         return sf
 
@@ -1406,8 +1418,14 @@ class SubFigure(FigureBase):
 
             %(SubFigure:kwdoc)s
         """
+        if not isinstance(parent, FigureBase):
+            parent._root_figure  # noqa: B018  (matplotlib's first read of it)
         # Placed by the ratios of its grid as matplotlib places it.
         _gridspec_kept.subfigure_bounds(subplotspec)
+        linewidth = _background_patch.checked_style(
+            "none" if facecolor is None else facecolor,
+            rcParams['figure.edgecolor'] if edgecolor is None else edgecolor,
+            linewidth)
         # Made for *parent* but not drawn there until `.Figure.add_subfigure`
         # adds it, as matplotlib's constructor leaves that to it.
         native = _figure.add_subfigure(parent._native,
@@ -1676,6 +1694,11 @@ None}, default: None
         if not all(math.isfinite(v) and v > 0 for v in (width, height)):
             raise ValueError(
                 f'figure size must be positive finite not {figsize}')
+        np.float64(1.0) * dpi  # matplotlib's ``Affine2D().scale(dpi)``.
+        linewidth = _background_patch.checked_style(
+            rcParams['figure.facecolor'] if facecolor is None else facecolor,
+            rcParams['figure.edgecolor'] if edgecolor is None else edgecolor,
+            linewidth)
         self._native = _figure.new(float(width), float(height), float(dpi))
         _values.remember(self, "dpi", dpi)
         self._figure = self
@@ -1721,7 +1744,11 @@ None}, default: None
             # everything is None, so use default:
             self.set_layout_engine(layout=layout)
         if subplotpars is not None:
-            self.subplots_adjust(**subplotpars.to_dict())
+            # matplotlib's figure keeps the parameters given, which its
+            # ``clear`` resets to the rc defaults.
+            subplotpars.reset()
+            if isinstance(subplotpars, SubplotParams):
+                self._subplotpars = _figure_subplotpars(self._native, subplotpars)
         self._internal_update(kwargs)
 
     @property

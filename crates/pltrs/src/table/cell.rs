@@ -224,7 +224,13 @@ pub(crate) struct Cell {
     /// Horizontal alignment of the text, which also sets where it sits.
     pub(crate) loc: HAlign,
     pub(crate) edges: CellEdges,
-    pub(crate) font: FontProperties,
+    /// The font of the text as given; see [`Cell::fontsize`] for its size.
+    font: FontProperties,
+    /// The size the table last fitted the text to when it was drawn or
+    /// measured (matplotlib's `Table._auto_set_font_size` sets every
+    /// cell's font to it), which its next fitting starts from; `None`
+    /// before, and once a font is given again.
+    fitted_size: std::cell::Cell<Option<f64>>,
     pub(crate) text_color: Color,
     /// The vertical alignment of the text at the middle of the cell
     /// (centred, as matplotlib's `Cell` makes its text).
@@ -253,6 +259,7 @@ pltrs_core::archive_struct!(Cell {
     loc,
     edges,
     font,
+    fitted_size,
     text_color,
     text_valign,
     text_rotation,
@@ -282,6 +289,7 @@ impl Cell {
             loc: HAlign::Right,
             edges: CellEdges::CLOSED,
             font: FontProperties::from_rc(rc),
+            fitted_size: std::cell::Cell::new(None),
             text_color: rc.text_color.clone(),
             text_valign: VAlign::Center,
             text_rotation: 0.0,
@@ -290,6 +298,38 @@ impl Cell {
             angle: 0.0,
             rotation_point: RotationPoint::Xy,
         }
+    }
+
+    /// The size of the text in points: the one given, or the one the
+    /// table fitted it to since (matplotlib's `Cell.get_fontsize`).
+    pub(crate) fn fontsize(&self) -> f64 {
+        self.fitted_size.get().unwrap_or(self.font.size)
+    }
+
+    /// The font of the text, at its [`fontsize`](Self::fontsize).
+    pub(crate) fn font(&self) -> FontProperties {
+        FontProperties {
+            size: self.fontsize(),
+            ..self.font.clone()
+        }
+    }
+
+    /// Gives the text `font`, its size included.
+    pub(crate) fn set_font(&mut self, font: FontProperties) {
+        self.font = font;
+        self.fitted_size.set(None);
+    }
+
+    /// Gives the text a size of `size` points (`base` being the size of
+    /// the relative ones).
+    pub(crate) fn set_fontsize(&mut self, size: f64, base: f64) {
+        self.font.set_size(FontSize::Points(size), base);
+        self.fitted_size.set(None);
+    }
+
+    /// Remembers that the table fitted the text to `size` points.
+    pub(crate) fn fitted(&self, size: f64) {
+        self.fitted_size.set(Some(size));
     }
 
     /// The outline of the cell placed at `bbox`, in the coordinates it is

@@ -3,6 +3,7 @@
 use pltrs::figure::{Figure, PdfPages};
 use pltrs_render::PdfRenderer;
 
+use super::pdf_file::PyPdfObject;
 use super::print::{DocumentMetadata, PrintSettings, sending_draw_event};
 use crate::binding::prelude::*;
 
@@ -74,17 +75,18 @@ fn pdf_pages_images(document: Native<PdfDocument>) -> PyResult<Vec<String>> {
     Ok(document.borrow_mut().pages()?.image_names())
 }
 
-/// Attaches a text note shown at `(x0, y0, x1, y1)` (points) to the
-/// next page saved.
+/// Attaches a text note `text` shown at `rect` (points), as matplotlib's
+/// `newTextnote` writes them (any objects), to the next page saved.
 fn pdf_pages_attach_note(
     document: Native<PdfDocument>,
-    text: String,
-    (x0, y0, x1, y1): (f64, f64, f64, f64),
+    text: PyPdfObject,
+    rect: PyPdfObject,
 ) -> PyResult<()> {
     document
         .borrow_mut()
         .pages()?
-        .attach_note_at(&text, [x0, y0, x1, y1]);
+        .document_mut()
+        .attach_note_objects(text.0, rect.0);
     Ok(())
 }
 

@@ -7,6 +7,8 @@ there, with matplotlib's errors. Ported from matplotlib 3.11.2's
 ``backends/backend_svg.py`` under the Matplotlib License.
 """
 
+import numpy as np
+
 from .. import rcParams
 from ..colors import rgb2hex
 from ..transforms import Affine2D
@@ -106,6 +108,11 @@ class SvgArgumentsMixin:
         self._clip_arguments(gc)
         gc.get_url()
         gc.get_gid()
+        if rcParams['svg.image_inline'] and np.asarray(im).dtype != np.uint8:
+            # matplotlib's writer has Pillow encode the image, which takes
+            # bytes or one channel.
+            from PIL import Image
+            Image.fromarray(np.asarray(im))
         if transform is None:
             w = 72.0 * w / self.image_dpi
             h = 72.0 * h / self.image_dpi
@@ -125,11 +132,41 @@ class SvgArgumentsMixin:
         self._clip_arguments(gc)
         flipped = self._flipped(transform.frozen())
         for points, colors in zip(triangles_array, colors_array):
-            flipped.transform(points)
-            for color in colors:
-                rgb2hex(color)
+            self._gouraud_triangle_arguments(flipped.transform(points), colors)
 
-    def _text_arguments(self, gc, x, y, s, prop, angle):
+    @staticmethod
+    def _gouraud_triangle_arguments(points, colors):
+        """Compute with a triangle's corners *points* and *colors* as
+        matplotlib's ``_draw_gouraud_triangle`` does (one gradient towards
+        each corner over the triangle in their average colour), for its
+        errors and warnings."""
+        avg_color = np.average(colors, axis=0)
+        if avg_color[-1] == 0:
+            return  # matplotlib skips a transparent triangle.
+        for i in range(3):
+            x1, y1 = points[i]
+            x2, y2 = points[(i + 1) % 3]
+            x3, y3 = points[(i + 2) % 3]
+            if x2 == x3:
+                xb, yb = x2, y1
+            elif y2 == y3:
+                xb, yb = x1, y2
+            else:
+                m1 = (y2 - y3) / (x2 - x3)
+                m2 = -(1.0 / m1)
+                b2 = y1 - (m2 * x1)
+                xb = (-(y2 - (m1 * x2)) + b2) / (m1 - m2)
+                yb = m2 * xb + b2
+            for value in (x1, y1, xb, yb):
+                short_float(value)
+            rgb2hex(avg_color)
+            short_float(colors[i][-1])
+            rgb2hex(colors[i])
+        for value in (x1, y1, x2, y2, x3, y3):
+            short_float(value)
+        rgb2hex(avg_color)
+
+    def _text_arguments(self, gc, x, y, s, prop, angle, mtext=None):
         """The arguments of ``draw_text`` as matplotlib reads them before
         it lays the text out (as paths, or as text)."""
         self._clip_arguments(gc)
@@ -140,6 +177,9 @@ class SvgArgumentsMixin:
         rgb2hex(gc.get_rgb())
         if as_paths:
             prop.get_size_in_points()
+            if mtext is not None:
+                mtext.get_fontfeatures()
+                mtext.get_language()
         alpha = gc.get_alpha() if gc.get_forced_alpha() else gc.get_rgb()[3]
         if alpha != 1:
             short_float(alpha)

@@ -79,3 +79,8 @@ def _watch(artist):
         _python_drawing.draw_through_python(artist, any(entry[2] for entry in drawn))
     else:
         _python_drawing.attach(artist, again=True)
+    # An artist another draws as a part of it (a table's cell) has that one
+    # check what it keeps.
+    changed = getattr(artist, "_kept_changed", None)
+    if changed is not None:
+        changed()

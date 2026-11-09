@@ -79,7 +79,7 @@ impl TableArtist {
         let mut sizes = Sizes {
             width: cells.iter().map(|(_, c)| c.width).collect(),
             height: cells.iter().map(|(_, c)| c.height).collect(),
-            fontsize: cells.iter().map(|(_, c)| c.font.size).collect(),
+            fontsize: cells.iter().map(|(_, c)| c.fontsize()).collect(),
         };
         let cell_maps = self.cell_maps(layout, maps);
         let required = |i: usize, fontsize: f64| {
@@ -145,6 +145,18 @@ impl TableArtist {
                 fontsize,
             })
             .collect())
+    }
+
+    /// Remembers the font size the table fitted the texts of its cells to
+    /// in `placed`, from which it fits them next (matplotlib's
+    /// `_auto_set_font_size` sets every cell's font to it when the table
+    /// is drawn or measured, never growing it back).
+    pub(super) fn remember_fitted(&self, placed: &[PlacedCell]) {
+        if self.auto_fontsize {
+            for ((_, cell), placed) in self.cells.iter().zip(placed) {
+                cell.fitted(placed.fontsize);
+            }
+        }
     }
 
     /// The lower-left corner of every cell: columns side by side from 0,
@@ -324,6 +336,31 @@ mod tests {
             table.auto_set_font_size(false);
         });
         assert_eq!(fixed[0].fontsize, 10.0);
+    }
+
+    #[test]
+    fn fonts_fitted_when_drawn_stay_until_given_again() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let options = TableOptions {
+            col_widths: Some(vec![0.05]),
+            ..TableOptions::with_text(texts(&[&["a rather long cell text"]]))
+        };
+        let table = ax.table(options).expect("valid table");
+        let cell = table.cell(0, 0).expect("a cell");
+        assert_eq!(cell.fontsize(), 10.0, "fitted only when drawn");
+        fig.render_raster().expect("drawn");
+        let fitted = cell.fontsize();
+        assert!(fitted < 10.0);
+        // A wider cell keeps the size its text shrank to, as matplotlib's
+        // fitting never grows a font back.
+        cell.set_width(10.0);
+        fig.render_raster().expect("drawn");
+        assert_eq!(cell.fontsize(), fitted);
+        assert_eq!(cell.font().size, fitted);
+        cell.set_fontsize(12.0);
+        fig.render_raster().expect("drawn");
+        assert_eq!(cell.fontsize(), 12.0);
     }
 
     #[test]

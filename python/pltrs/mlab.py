@@ -278,6 +278,24 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
     Private helper implementing the common parts between the psd, csd,
     spectrogram and complex, magnitude, angle, and phase spectrums.
     """
+    # pltrs (Rust) computes the spectrum; with arguments it cannot take as
+    # they are, or refuses, matplotlib's computation runs first, for its
+    # errors (see `.axes._plotting.spectral`).
+    from . import _mlab_reference
+    from .axes._plotting.spectral import _as_matplotlib, _plain
+    signals = (x,) if y is None or y is x else (x, y)
+    return _as_matplotlib(
+        lambda: _native_spectral_helper(x, y, NFFT, Fs, detrend_func, window,
+                                        noverlap, pad_to, sides, scale_by_freq, mode),
+        lambda: _mlab_reference.spectral_helper(x, y, NFFT, Fs, detrend_func, window,
+                                                noverlap, pad_to, sides,
+                                                scale_by_freq, mode),
+        _plain(signals, (NFFT, noverlap, pad_to), Fs, window))
+
+
+def _native_spectral_helper(x, y, NFFT, Fs, detrend_func, window, noverlap,
+                            pad_to, sides, scale_by_freq, mode):
+    """`_spectral_helper` as pltrs (Rust) computes it."""
     # The checks for if y is x are so that we can use the same function to
     # implement the core of psd(), csd(), and spectrogram() without doing
     # extra calculations.  We return the unaveraged Pxy, freqs, and t.

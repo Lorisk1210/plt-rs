@@ -228,13 +228,22 @@ class Sankey:
         self.margin = margin
         self.pitch = np.tan(np.pi * (1 - head_angle / 180.0) / 2.0)
         self.tolerance = tolerance
-        # matplotlib keeps an offset that is no number, and fails to place
-        # the labels with it (see `add`).
-        usable_offset = offset if isinstance(offset, Real) else 0.0
-        self._native = _sankey.new(
-            ax._native, (float(scale), None if unit is None else str(unit), format),
-            tuple(map(float, (gap, radius, shoulder, usable_offset, head_angle,
-                              margin, tolerance))))
+        # matplotlib keeps a scale, format, offset, shoulder or margin it
+        # cannot compute with, and fails where it does (see `add` and
+        # `finish`); pltrs (Rust) has its defaults meanwhile.
+        usable = {name: value if isinstance(value, Real) else default
+                  for name, value, default in (("scale", scale, 1.0),
+                                               ("offset", offset, 0.15),
+                                               ("shoulder", shoulder, 0.03),
+                                               ("margin", margin, 0.4))}
+        # pltrs (Rust) places diagrams on an Axes; matplotlib keeps any
+        # *ax*, and fails where it places a diagram on it (see `add`).
+        from .axes import Axes
+        self._native = None if not isinstance(ax, Axes) else _sankey.new(
+            ax._native, (usable["scale"], None if unit is None else str(unit),
+                         format if isinstance(format, str) or callable(format) else '%G'),
+            tuple(map(float, (gap, radius, usable["shoulder"], usable["offset"],
+                              head_angle, usable["margin"], tolerance))))
 
         # If there are any kwargs, create the first subdiagram.
         if len(kwargs):
@@ -407,6 +416,12 @@ class Sankey:
             pathlengths = [0.25]
         else:
             pathlengths = [float(pathlengths)]
+        # matplotlib scales the flows first, and formats the quantities
+        # of the labels with the format.
+        self.scale * flows  # noqa: B018
+        if (self.unit is not None and any(label is not None for label in labels)
+                and not (isinstance(self.format, str) or callable(self.format))):
+            raise TypeError('format must be callable or a format string')
         if not isinstance(self.offset, Real):
             _place_first_label(self.offset, flows, orientations, self.tolerance)
 
@@ -421,6 +436,8 @@ class Sankey:
             # matplotlib turns the diagram by the angle in radians, which
             # `math.cos` refuses when infinite.
             math.cos(math.radians(rotation / 90.0 * 90))
+        if self._native is None:
+            self._place_on_no_axes(patchlabel, fc)
         # matplotlib labels the flows after it drew the patch, and measures
         # the labels' extent then: what fails there leaves the patch.
         failure = _labelling_failure(self, flows, labels) or _extent_failure(n)
@@ -489,8 +506,30 @@ class Sankey:
         --------
         Sankey.add
         """
+        if self._native is None:
+            # matplotlib sets the limits of *ax*, which is no Axes, around
+            # the diagrams, of which there can be none.
+            extent = np.array((np.inf, -np.inf, np.inf, -np.inf))
+            self.ax.axis([extent[0] - self.margin, extent[1] + self.margin,
+                          extent[2] - self.margin, extent[3] + self.margin])
+            self.ax.set_aspect('equal', adjustable='datalim')
+            return self.diagrams
+        if not isinstance(self.margin, Real):
+            # matplotlib widens the extent of the diagrams by the margin.
+            np.float64(0.0) - self.margin  # noqa: B018
         _sankey.finish(self._native)
         return self.diagrams
+
+    def _place_on_no_axes(self, patchlabel, fc):
+        """Place a diagram on *ax*, which is no Axes, as matplotlib's
+        `add` does: its label, then its patch in the next colour of the
+        property cycle, failing on the first method *ax* lacks; pltrs
+        (Rust) places diagrams on an Axes alone."""
+        self.ax.text(0, 0, s=patchlabel, ha='center', va='center')
+        if fc is None:
+            self.ax._get_patches_for_fill.get_next_color()
+        self.ax.add_patch  # noqa: B018
+        raise TypeError(f"pltrs places Sankey diagrams on an Axes, not on {self.ax!r}")
 
 
 # What matplotlib's module also has from its imports, which programs

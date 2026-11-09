@@ -141,6 +141,31 @@ impl PdfRenderer {
         self.writer.output_stream(id, data, extra)
     }
 
+    /// Writes the stream object `id` holding `data` whole, with the `extra`
+    /// entries and, for data PNG-predicted already, the decode parameters
+    /// `png`, whether or not a stream is open: matplotlib's `Stream` of an
+    /// inline length keeps its data until it ends, then writes itself to
+    /// the end of the file.
+    ///
+    /// # Errors
+    ///
+    /// When `extra` holds a non-finite number.
+    pub fn write_stream(
+        &mut self,
+        id: u32,
+        extra: Vec<(String, Obj)>,
+        png: Option<Obj>,
+        data: Vec<u8>,
+    ) -> Result<(), VectorError> {
+        self.writer.write_stream(id, extra, png, data)
+    }
+
+    /// How many objects the file numbers so far, the zero object included
+    /// (the length of matplotlib's ``xrefTable``).
+    pub fn object_count(&self) -> usize {
+        self.writer.object_count()
+    }
+
     /// The name of the graphics state setting the stroke and fill alpha
     /// `alphas` (`alphaState`), made on first use.
     pub fn alpha_state(&mut self, alphas: (f64, f64)) -> String {

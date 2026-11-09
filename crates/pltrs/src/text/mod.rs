@@ -68,13 +68,13 @@ pub use annotation::{
 };
 pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget, StartRegion};
 pub use error::TextDrawError;
-pub(crate) use error::{fmt_layout_error, layout_error_kind};
+pub(crate) use error::{TextProblem, fmt_layout_error, layout_error_kind};
 pub use handle::{Text, TextProps};
 pub use hinting::TextHinting;
 use layout::rc_language;
 pub use layout::typeset_line;
 pub use layout::{LaidOutText, measure_text, text_path, text_path_shaped, text_path_tex};
-pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
+pub(crate) use layout::{Typesetting, lay_out, lay_out_as, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub use measuring::measuring;

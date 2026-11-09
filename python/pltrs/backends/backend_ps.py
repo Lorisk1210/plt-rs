@@ -8,8 +8,10 @@ writes the documents.
 from enum import Enum
 import functools
 import logging
+import math
 import os
 import pathlib
+from tempfile import TemporaryDirectory
 
 from .. import _api, _get_executable_info, cbook, rcParams
 from .._native import (
@@ -36,31 +38,44 @@ def _bbox_extents(bbox):
     return None if bbox is None else tuple(map(float, bbox))
 
 
+def _paper_options(eps, ptype, bbox, sep):
+    """The paper matplotlib's distillers ask for, its options joined by
+    *sep* (``-dEPSCrop``, the size of the figure read from *bbox*, or
+    *ptype*), with their errors; and the paper pltrs (Rust) distills on,
+    which *eps* crops to the bounding box."""
+    if eps:
+        return ["-dEPSCrop"], "letter"
+    if ptype == "figure":
+        # The bbox will have its lower-left corner at (0, 0), so upper-right
+        # corner corresponds with paper size.
+        return [f"-dDEVICEWIDTHPOINTS{sep}{bbox[2]}",
+                f"-dDEVICEHEIGHTPOINTS{sep}{bbox[3]}"], ptype
+    return [f"-sPAPERSIZE{sep}{ptype}"], str(ptype)
+
+
 def gs_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
     """
     Use ghostscript's pswrite or epswrite device to distill a file.
     This yields smaller files without illegal encapsulated postscript
     operators. The output is low-level, converting text to outlines.
     """
+    paper_option, paper = _paper_options(eps, ptype, bbox, "=")
+    psfile = tmpfile + '.ps'
     gs = _get_executable_info("gs").executable
     if not os.path.exists(tmpfile):
         # pltrs (Rust) distills a copy of the file; matplotlib hands
         # Ghostscript the file itself, whose failure it reports.
-        if eps:
-            paper_option = ["-dEPSCrop"]
-        elif ptype == "figure":
-            paper_option = [f"-dDEVICEWIDTHPOINTS={bbox[2]}",
-                            f"-dDEVICEHEIGHTPOINTS={bbox[3]}"]
-        else:
-            paper_option = [f"-sPAPERSIZE={ptype}"]
         cbook._check_and_log_subprocess(
             [gs, "-dBATCH", "-dNOPAUSE", "-dSAFER",
              "-r%d" % rcParams['ps.distiller.res'], "-sDEVICE=ps2write",
-             *paper_option, f"-sOutputFile={tmpfile}.ps", tmpfile],
-            logging.getLogger(__name__))
-    # (The paper type as matplotlib formats it into the command, a string.)
-    _backends.distill(os.fspath(tmpfile), "ghostscript", bool(eps), str(ptype),
-                      _bbox_extents(bbox), bool(rotated))
+             *paper_option, f"-sOutputFile={psfile}", tmpfile],
+            _log)
+    if eps:
+        # matplotlib's `pstoeps` of the distilled file.
+        _check_eps_header(bbox, rotated)
+    _backends.distill(os.fspath(tmpfile), "ghostscript", bool(eps), paper,
+                      _bbox_extents(bbox) if eps or paper == "figure" else None,
+                      bool(eps and rotated))
 
 
 def xpdf_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
@@ -72,10 +87,48 @@ def xpdf_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
     """
     _get_executable_info("gs")  # Effectively checks for ps2pdf.
     _get_executable_info("pdftops")
+    paper_option, paper = _paper_options(eps, ptype, bbox, "#")
+    if not (isinstance(tmpfile, (str, os.PathLike)) and os.path.exists(tmpfile)):
+        # matplotlib hands ps2pdf the file itself, whose failure it reports.
+        with TemporaryDirectory() as tmpdir:
+            cbook._check_and_log_subprocess(
+                ["ps2pdf",
+                 "-dSAFER",
+                 "-dAutoFilterColorImages#false",
+                 "-dAutoFilterGrayImages#false",
+                 "-sAutoRotatePages#None",
+                 "-sGrayImageFilter#FlateEncode",
+                 "-sColorImageFilter#FlateEncode",
+                 *paper_option,
+                 tmpfile, pathlib.Path(tmpdir, "tmp.pdf")],
+                _log)
     # matplotlib's xpdf distillation leaves the bounding box and the
-    # rotation of the file as pdftops writes them: *bbox* and *rotated*
-    # are not used.
-    _backends.distill(os.fspath(tmpfile), "xpdf", bool(eps), ptype, None, False)
+    # rotation of the file as pdftops writes them: *bbox* sizes a page the
+    # size of the figure alone, and *rotated* is not used.
+    _backends.distill(os.fspath(tmpfile), "xpdf", bool(eps), paper,
+                      _bbox_extents(bbox) if paper == "figure" else None, False)
+
+
+def _get_bbox_header(lbrt):
+    """Return a PostScript header string for bounding box *lbrt*=(l, b, r, t)."""
+    l, b, r, t = lbrt
+    return (f"%%BoundingBox: {int(l)} {int(b)} {math.ceil(r)} {math.ceil(t)}\n"
+            f"%%HiResBoundingBox: {l:.6f} {b:.6f} {r:.6f} {t:.6f}")
+
+
+def _get_rotate_command(lbrt):
+    """Return a PostScript 90° rotation command for bounding box *lbrt*=(l, b, r, t)."""
+    l, b, r, t = lbrt
+    return f"{l+r:.2f} {0:.2f} translate\n90 rotate"
+
+
+def _check_eps_header(bbox, rotated):
+    """Write the header of an EPS file declaring *bbox* and turned by
+    *rotated* as matplotlib's `pstoeps` writes it, for its errors."""
+    if bbox:
+        _get_bbox_header(bbox)
+    if rotated:
+        _get_rotate_command(bbox)
 
 
 def pstoeps(tmpfile, bbox=None, rotated=False):
@@ -84,6 +137,12 @@ def pstoeps(tmpfile, bbox=None, rotated=False):
     the eps file will be replaced with the given *bbox* argument. If
     None, original bbox will be used.
     """
+    epsfile = tmpfile + '.eps'
+    # matplotlib writes the EPS file beside the file, reading the file.
+    with open(epsfile, 'wb'), open(tmpfile, 'rb'):
+        pass
+    os.remove(epsfile)
+    _check_eps_header(bbox, rotated)
     _backends.pstoeps(os.fspath(tmpfile), _bbox_extents(bbox), bool(rotated))
 
 #: The paper sizes, in inches (portrait), by matplotlib's names.
@@ -142,11 +201,15 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
             self.textcnt = 0
             self.psfrag = []
         self.imagedpi = imagedpi
+        self._hatches = {}
+        self._logwarn_once = functools.cache(_log.warning)
+        self.image_magnification = imagedpi / 72
         if pswriter is not None:
             self._file = pswriter
-            self._page = _backends.ps_page_new(float(width), float(height),
-                                               float(imagedpi))
-        self._logwarn_once = functools.cache(_log.warning)
+
+    def _new_page(self):
+        return _backends.ps_page_new(float(self.width), float(self.height),
+                                     float(self.imagedpi))
 
     def _state(self, change, *args):
         """Change the page's graphics state with ``_native.backends``'
@@ -186,9 +249,13 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
                     bool(store))
 
     def create_hatch(self, hatch, linewidth):
+        if hatch in self._hatches:
+            return self._hatches[hatch]
+        f"{linewidth:g}"  # noqa: B018  (matplotlib writes it into the pattern)
         name, written = _backends.ps_create_hatch(
             self._document_page(), str(hatch), float(linewidth))
         self._write((written, ()))
+        self._hatches[hatch] = name
         return name
 
     def get_image_magnification(self):
@@ -198,7 +265,7 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
         Allows a backend to have images at a different resolution to other
         artists.
         """
-        return self.imagedpi / 72.0
+        return self.image_magnification
 
     def get_text_width_height_descent(self, s, prop, ismath):
         # docstring inherited
@@ -343,14 +410,12 @@ import bisect  # noqa: E402, F401
 import codecs  # noqa: E402, F401
 import datetime  # noqa: E402, F401
 import itertools  # noqa: E402, F401
-import math  # noqa: E402, F401
 import numpy as np  # noqa: E402, F401
 import shutil  # noqa: E402, F401
 import struct  # noqa: E402, F401
 import textwrap  # noqa: E402, F401
 import time  # noqa: E402, F401
 from io import StringIO  # noqa: E402, F401
-from tempfile import TemporaryDirectory  # noqa: E402, F401
 from ..backend_bases import RendererBase  # noqa: E402, F401
 from ..cbook import file_requires_unicode, is_writable_file_like  # noqa: E402, F401
 from ..font_manager import get_font  # noqa: E402, F401

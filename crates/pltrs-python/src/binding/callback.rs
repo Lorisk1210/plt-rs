@@ -137,21 +137,28 @@ impl Callback {
     where
         R: for<'py> FromPy<'py>,
     {
+        self.try_call(args).unwrap_or_else(|err| {
+            report(err);
+            None
+        })
+    }
+
+    /// Calls it with `args` and converts the result, handing back the
+    /// exception it raised instead of raising it from the running native
+    /// call (for the caller to raise later, with [`report`]); `Ok(None)`
+    /// when an earlier callback of the same call raised.
+    pub(crate) fn try_call<R>(&self, args: impl CallArgs) -> PyResult<Option<R>>
+    where
+        R: for<'py> FromPy<'py>,
+    {
         Python::with_gil(|py| {
             if failed() {
-                return None;
+                return Ok(None);
             }
-            let outcome = args
-                .into_args(py)
+            args.into_args(py)
                 .and_then(|args| self.callable.bind(py).call(&args, &[]))
-                .and_then(|result| result.extract::<R>());
-            match outcome {
-                Ok(value) => Some(value),
-                Err(err) => {
-                    keep(py, err);
-                    None
-                }
-            }
+                .and_then(|result| result.extract::<R>())
+                .map(Some)
         })
     }
 }

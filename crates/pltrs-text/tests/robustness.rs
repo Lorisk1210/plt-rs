@@ -187,3 +187,26 @@ fn character_soups_do_not_panic() {
         let _ = typeset(&soup);
     }
 }
+
+#[test]
+fn sizes_of_no_pixel_fail_as_matplotlibs_ft2font_reports_freetype() {
+    let request = FontRequest::new(FontQuery::default());
+    let refused = TextEngine::global().layout_line("ab", &request, 2.5);
+    let message = "FT_Set_Char_Size (ft2font.cpp line 248) failed with error 0x97: \
+                   invalid ppem value";
+    assert!(matches!(&refused, Err(TextError::FontSize(_))));
+    assert_eq!(
+        refused.err().map(|err| err.to_string()).as_deref(),
+        Some(message)
+    );
+    let math = TextEngine::global().typeset_math(r"$x^2$", &MathStyle::default().with_dpi(2.5));
+    assert_eq!(
+        math.err().map(|err| err.to_string()).as_deref(),
+        Some(message)
+    );
+    assert!(
+        TextEngine::global()
+            .layout_line("ab", &request, 72.0)
+            .is_ok()
+    );
+}

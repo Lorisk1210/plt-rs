@@ -149,6 +149,8 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
             raise ValueError(f"The value of {name} must be > 0, got {scale}")
     if num_arrows < 0:
         raise ValueError(f"The value of num_arrows must be >= 0, got {num_arrows=}")
+    if transform is None:
+        axes.transData  # noqa: B018  (matplotlib's default transform)
     if color is None:
         # Taken from the cycle before the other arguments are checked, as
         # matplotlib takes it.

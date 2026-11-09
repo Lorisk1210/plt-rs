@@ -404,6 +404,7 @@ impl AxisState {
                 valign: None,
                 coords: None,
                 bbox: None,
+                usetex: rc.text_usetex,
             },
             visible: true,
             animated: false,

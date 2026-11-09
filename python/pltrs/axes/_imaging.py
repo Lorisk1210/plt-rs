@@ -10,10 +10,11 @@ makes the image (``_native.image``).
 import PIL.Image
 
 from .. import _docstring
-from .. import _api, _handles, _live_transforms, _values, colorizer as mcolorizer
+from .. import _api, _handles, _live_transforms, _values, cbook, colorizer as mcolorizer
 from .. import image as mimage
 from .._native import image as _native_image
 from .._preprocess import _preprocess_data
+from ._aspect import _checked_aspect
 
 
 def _rc(key):
@@ -262,6 +263,9 @@ class ImagingMixin:
         if filterrad <= 0:
             raise ValueError("The filter radius must be a positive number")
         colorizer._scale_norm(norm, vmin, vmax, A)
+        if aspect is not None and not cbook._str_equal(aspect, 'equal'):
+            # As matplotlib's `set_aspect` takes it.
+            aspect = _checked_aspect(aspect)
         spec = {
             'aspect': aspect,
             'interpolation': interpolation,

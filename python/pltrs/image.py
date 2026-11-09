@@ -22,7 +22,7 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _live_transforms, _unusable, _values, cbook,
+from . import (_api, _image, _image_magnified, _live_transforms, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
 from ._program_classes import takes_from_program
@@ -551,7 +551,8 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         return super().contains(mouseevent)
 
 
-def _made_image(image, magnification, unsampled, in_bbox, trans, over=None):
+def _made_image(image, magnification, unsampled, in_bbox, trans, over=None,
+                rounded=True):
     """
     *image* (an `AxesImage`, a `FigureImage` or a `BboxImage`) made for
     display by pltrs (Rust) as ``make_image`` returns it: the RGBA pixels,
@@ -560,8 +561,20 @@ def _made_image(image, magnification, unsampled, in_bbox, trans, over=None):
     built as matplotlib's ``_make_image`` builds it, from the box *in_bbox*
     the image fills through the image's transform *trans* (see
     `_image_transform`). pltrs (Rust) stretches the image over *over*,
-    ``(extent, transform)``, when given (see `_native_made`).
+    ``(extent, transform)``, when given (see `_native_made`). A
+    magnification that is no positive number magnifies the box the image
+    shows in as matplotlib's does (rounded to the pixels when *rounded*),
+    failing or showing nothing as it does.
     """
+    if not _image_magnified.plain(magnification):
+        shown = _native_made(image, 1.0, False, over)
+        if shown is None:
+            return None, 0, 0, None
+        pixels, x, y, _ = shown
+        rows, columns = pixels.shape[:2]
+        if not _image_magnified.resampled_shows(
+                (x, y, x + columns, y + rows), magnification, rounded and not unsampled):
+            return None, 0, 0, None
     made = _native_made(image, magnification, unsampled, over)
     if made is None:
         return None, 0, 0, None
@@ -629,6 +642,15 @@ def _made_grid_image(image, magnification, unsampled, kind):
         raise RuntimeError('You must first set the image array')
     if unsampled:
         raise ValueError(f'unsampled not supported on {kind}')
+    if not _image_magnified.plain(magnification):
+        # matplotlib samples its Axes' box at the magnification, which
+        # fails, or finds no pixel to sample.
+        if kind == 'NonUniformImage':
+            _image_magnified.nonuniform_image(image, magnification)
+        else:
+            empty = _image_magnified.pcolor_image(image, magnification)
+            if empty is not None:
+                return empty
     pixels, x, y, _ = _native_made(image, magnification, False) or (None, 0, 0, None)
     return pixels, x, y, IdentityTransform()
 
@@ -1397,12 +1419,16 @@ class FigureImage(_ImageBase):
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
         # pltrs: made at the resolution of the figure (pltrs (Rust) draws the
-        # figure itself).
+        # figure itself), as matplotlib's at the renderer's, which divides
+        # the magnification by its ratio to the figure's.
+        fac = renderer.dpi / self.get_figure(root=True).dpi
+        if not _image_magnified.plain(magnification):
+            magnification = magnification / fac
         rows, columns = self._A.shape[:2] if self._A is not None else (0, 0)
         in_bbox = Bbox([[self.ox, self.oy],
                         [self.ox + columns, self.oy + rows]])
         return _made_image(self, magnification, unsampled, in_bbox,
-                           self.get_transform())
+                           self.get_transform(), rounded=False)
 
     def set_data(self, A):
         """Set the image array."""

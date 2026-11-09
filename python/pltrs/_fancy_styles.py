@@ -24,6 +24,12 @@ from ._patch_styles import _native_spec
 _NOT_KEPT = object()
 
 
+def call_style(style):
+    """Fail as matplotlib's patch fails to call its *style*, an object
+    that is not callable, to make its path."""
+    style()
+
+
 def native_aspect(aspect):
     """The mutation *aspect* as pltrs (Rust) holds it: 1 for None, the
     float of a number, 1 for anything else, which the patch keeps instead
@@ -53,14 +59,23 @@ class FancyStylesMixin:
 
     def _set_style(self, key, style, registry, native_set, native_get):
         """Give the patch *style* of *registry*, set by *native_set* and
-        described back by *native_get*; return the style object."""
-        native_set(self._native, _native_spec(style, registry, self))
-        self.__dict__[key] = (style, native_get(self._native))
+        described back by *native_get*; return the style object. A style
+        that is neither a name nor callable the patch keeps, as matplotlib's
+        does, failing to call it where it draws (see `._unusable`)."""
+        if not isinstance(style, str) and not callable(style):
+            _unusable.keep(self, key, style, call_style)
+        else:
+            native_set(self._native, _native_spec(style, registry, self))
+            self.__dict__[key] = (style, native_get(self._native))
+            _unusable.drop(self, key)
         self.stale = True
         return style
 
     def _get_style(self, key, registry, native_get):
         """The style object of *registry* the patch has (see the module)."""
+        kept = _unusable.kept(self, key, _NOT_KEPT)
+        if kept is not _NOT_KEPT:
+            return kept
         description = native_get(self._native)
         style, kept = self.__dict__.get(key, (None, None))
         if kept != description:

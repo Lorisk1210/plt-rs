@@ -13,6 +13,19 @@ from .. import transforms as mtransforms
 from ..transforms import Bbox
 
 
+
+def _checked_aspect(aspect):
+    """*aspect* as matplotlib's `~.Axes.set_aspect` takes it: ``'auto'``,
+    else a ratio (1 for ``'equal'``), raising its errors for one that is
+    no finite positive number."""
+    if cbook._str_equal(aspect, 'equal'):
+        aspect = 1
+    if not cbook._str_equal(aspect, 'auto'):
+        aspect = float(aspect)  # raise ValueError if necessary
+        if aspect <= 0 or not np.isfinite(aspect):
+            raise ValueError("aspect must be finite and positive ")
+    return aspect
+
 class AspectMixin:
     """The aspect methods of `~.axes._base._AxesBase`."""
 
@@ -94,12 +107,7 @@ class AspectMixin:
             Force the update required to meet the aspect ratio to happen
             immediately.
         """
-        if cbook._str_equal(aspect, 'equal'):
-            aspect = 1
-        if not cbook._str_equal(aspect, 'auto'):
-            aspect = float(aspect)  # raise ValueError if necessary
-            if aspect <= 0 or not np.isfinite(aspect):
-                raise ValueError("aspect must be finite and positive ")
+        aspect = _checked_aspect(aspect)
         for ax in self._aspect_group(share):
             _axes_base.set_aspect(ax._native,
                                   None if aspect == 'auto' else aspect)

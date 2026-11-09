@@ -6,7 +6,7 @@ labels of its axes (``set_xlabel``) and the blended transforms of its axes
 ``_native.axes``).
 """
 
-from .. import _api, _background_patch
+from .. import _api, _background_patch, _values
 from .._native import axes as _axes, axes_base as _axes_base
 
 
@@ -102,11 +102,13 @@ class DecorationsMixin:
     def _frameon(self):
         """Whether the Axes rectangle patch is drawn (matplotlib's
         attribute, which pltrs (Rust) holds)."""
-        return _axes_base.get_frame_on(self._native)
+        # matplotlib keeps the object it was given (``1``, ``'False'``).
+        return _values.given_flag(self, "frameon", _axes_base.get_frame_on(self._native))
 
     @_frameon.setter
     def _frameon(self, b):
         _axes_base.set_frame_on(self._native, bool(b))
+        _values.remember(self, "frameon", b)
 
     def get_frame_on(self):
         """Get whether the Axes rectangle patch is drawn."""

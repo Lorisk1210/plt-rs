@@ -19,7 +19,7 @@ import numpy as np
 
 from .. import _api, _handles, _python_drawing
 from .._program_classes import takes_from_program
-from .._native import figure as _figure, insets as _insets
+from .._native import axis as _axis, figure as _figure, insets as _insets
 from ..transforms import Bbox
 from . import _program_tick_params
 
@@ -92,6 +92,10 @@ class ConstructionMixin:
         # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
         # override takes part in.
         self.clear()
+        # matplotlib's `__init__` then connects the Axes' handler of its
+        # axes' changes of units, which a later clear disconnects.
+        for name in self._axis_map:
+            _axis.set_follows_units(self._native, name, True)
         for name, other in (("x", sharex), ("y", sharey)):
             if other is not None:
                 getattr(self, f"share{name}")(other)

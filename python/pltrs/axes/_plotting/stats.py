@@ -6,6 +6,7 @@ The statistics are computed in Python as matplotlib computes them
 (`.cbook.boxplot_stats`, `.cbook.violin_stats`); pltrs (Rust) draws them.
 """
 
+from collections.abc import Mapping
 import datetime
 import math
 from numbers import Real
@@ -17,6 +18,7 @@ from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
+from . import _pie_reference
 from ._helpers import wrap, wrap_all
 
 
@@ -36,7 +38,8 @@ def _native_lineprops(props):
     """
     rc = _rcParams()
     props = {key: rc[f"lines.{key}"] if value is None else value
-             for key, value in cbook.normalize_kwargs(props or {}, mlines.Line2D).items()
+             for key, value in cbook.normalize_kwargs(
+                 {} if props is None else props, mlines.Line2D).items()
              if value is not None or (key != "color" and f"lines.{key}" in rc)}
     return mlines._native_kwargs(props)
 
@@ -89,7 +92,7 @@ def _native_patch_props(props, cls):
     split into those pltrs (Rust) takes as it makes them, in native form,
     and the others, which the patches are set afterwards.
     """
-    props = cbook.normalize_kwargs(props or {}, cls)
+    props = cbook.normalize_kwargs({} if props is None else props, cls)
     native = {k: v for k, v in props.items() if k in _NATIVE_PATCH_PROPS}
     for key in ("facecolor", "edgecolor", "color"):
         # "none" stays itself: no alpha makes it visible.
@@ -137,6 +140,27 @@ def _pie_geometry(wedges, fracs, explode, radius, startangle, counterclock, cent
             "theta1": 360. * min(theta1, theta2),
             "theta2": 360. * max(theta1, theta2)}, mpatches.Wedge._FIELDS)
         theta1 = theta2
+
+
+def _pie_plain(colors, pctdistance, labeldistance, startangle, radius, wedgeprops,
+               textprops, center, hatch, explode):
+    """Whether pltrs (Rust) makes a pie of these arguments as matplotlib's
+    code does: colours to cycle (some), distances, angles and the radius
+    that are numbers, properties that are mappings, a centre of two
+    numbers, hatches that are text and explosions that are numbers."""
+    def numbers(values):
+        return np.iterable(values) and all(isinstance(v, Real) for v in values)
+    return ((colors is None or (np.iterable(colors) and not isinstance(colors, str)
+                                and len(colors) > 0))
+            and isinstance(pctdistance, Real)
+            and (labeldistance is None or isinstance(labeldistance, Real))
+            and isinstance(startangle, Real) and math.isfinite(startangle)
+            and isinstance(radius, Real) and math.isfinite(radius)
+            and all(props is None or isinstance(props, Mapping)
+                    for props in (wedgeprops, textprops))
+            and numbers(center) and len(center) == 2
+            and (hatch is None or all(isinstance(h, str) for h in np.atleast_1d(hatch)))
+            and (explode is None or numbers(explode)))
 
 class StatsMixin:
     """`boxplot`, `bxp`, `violinplot`, `violin` and `pie`."""
@@ -637,7 +661,22 @@ class StatsMixin:
         bxpstats = [_converted_stats(self, value_axis, stats, (
             "med", "q1", "q3", "whislo", "whishi", "mean", "cilo", "cihi",
             "fliers")) for stats in bxpstats]
-        meanprops_given = meanprops or {}
+        # matplotlib unpacks the medians' and the means' properties first
+        # (none for false ones), then merges those of the parts in this
+        # order over the rcParams and the z-order, failing on the first
+        # that is no mapping.
+        medianprops, meanprops = ({**(props or {})} for props in (medianprops, meanprops))
+        if zorder is not None:
+            zorder + 0
+        for props, cls in ((boxprops, mpatches.PathPatch if patch_artist else mlines.Line2D),
+                           (whiskerprops, mlines.Line2D), (capprops, mlines.Line2D),
+                           (flierprops, mlines.Line2D)):
+            cbook.normalize_kwargs(props, cls)
+        # matplotlib's caps reach half their width to each side.
+        for capwidth in capwidths:
+            capwidth * 0.5
+        # The means' properties only matter where the means are drawn.
+        meanprops_given = meanprops if showmeans else {}
         box_rest = {}
         if patch_artist:
             boxkw, box_rest = _native_patch_props(boxprops, mpatches.PathPatch)
@@ -1121,6 +1160,23 @@ class StatsMixin:
         This method sets the aspect ratio of the axis to "equal".
         The Axes aspect ratio can be controlled with `.Axes.set_aspect`.
         """
+        arguments = (x, explode, labels, colors, autopct, pctdistance, shadow,
+                     labeldistance, startangle, radius, counterclock, wedgeprops,
+                     textprops, center, frame, rotatelabels, normalize, hatch)
+        if not _pie_plain(colors, pctdistance, labeldistance, startangle, radius,
+                          wedgeprops, textprops, center, hatch, explode):
+            return _pie_reference.pie(self, *arguments)
+        try:
+            return self._native_pie(*arguments)
+        except (TypeError, ValueError):
+            # Refused by pltrs (Rust): matplotlib's code raises its own
+            # error, or makes what pltrs (Rust) does not.
+            return _pie_reference.pie(self, *arguments)
+
+    def _native_pie(self, x, explode, labels, colors, autopct, pctdistance, shadow,
+                    labeldistance, startangle, radius, counterclock, wedgeprops,
+                    textprops, center, frame, rotatelabels, normalize, hatch):
+        """`pie` made by pltrs (Rust)."""
         x = np.asarray(x)
         if x.ndim > 1:
             raise ValueError("x must be 1D")

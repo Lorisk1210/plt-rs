@@ -6,6 +6,7 @@
 use pltrs_render::ClipPath;
 
 use super::Axes;
+use super::axis_draw::with_agg_filter;
 use super::axis_layout::AxisPainter;
 use super::state::AxesState;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, DrawContext};
@@ -45,9 +46,11 @@ impl AxesState {
         ctx.renderer()
             .open_group("axes", self.base().gid.as_deref());
         let mut items = self.items(ctx.layout().store());
-        items.retain(
-            |&(_, item)| !matches!(item, Item::Child(id) if ctx.layout().skips_animated(id, true)),
-        );
+        items.retain(|&(_, item)| match item {
+            Item::Child(id) => !ctx.layout().skips_animated(id, true),
+            Item::Axis(owner, name) => !ctx.layout().skips_animated_axis(owner, name),
+            Item::Patch => true,
+        });
         let (below, above) = items.split_at(self.rasterized_count(&items));
         if below.is_empty() {
             self.draw_background(ctx);
@@ -225,8 +228,11 @@ impl AxesState {
                     parasite.as_deref()
                 };
                 if let Some(axes) = axes {
+                    let filter = axes.axis(name).agg_filter.clone();
                     ctx.draw_artist(false, |ctx| {
-                        AxisPainter::new(owner, axes, name).draw(ctx, &axes.rc);
+                        with_agg_filter(ctx, filter.as_ref(), |ctx| {
+                            AxisPainter::new(owner, axes, name).draw(ctx, &axes.rc);
+                        });
                     });
                 }
             }

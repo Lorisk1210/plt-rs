@@ -7,6 +7,7 @@ pub(crate) mod axis;
 pub(crate) mod axis_artists;
 mod axis_clear;
 pub(crate) mod axis_draw;
+mod axis_effects;
 mod axis_handle;
 mod axis_intervals;
 pub(crate) mod axis_label;

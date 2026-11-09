@@ -10,6 +10,7 @@ from ... import _api, _values, cbook, collections as mcoll, colors as mcolors
 from ... import image as mimage, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
+from .._aspect import _checked_aspect
 from ._helpers import wrap
 from .scatter import _mapping
 
@@ -291,6 +292,9 @@ class ImagesMixin:
             line = mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
         if hasattr(Z, 'toarray'):
             Z = Z.toarray()
+        if aspect is not None and not cbook._str_equal(aspect, 'equal'):
+            # As matplotlib's `set_aspect` takes it.
+            aspect = _checked_aspect(aspect)
         image, line = _plotting.spy(
             self._native, np.asarray(Z, dtype=float), float(precision), mapping,
             (None if marker is None else mlines._marker_spec(marker),

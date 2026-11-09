@@ -122,8 +122,22 @@ def _native_kwargs(kwargs):
 def _scale_of(sizes):
     """Take the square root of the marker areas *sizes*, as matplotlib's
     ``set_sizes`` scales the items by it, so that numpy warns of a negative
-    area as it does there (under the program's `numpy.errstate`)."""
-    np.sqrt(np.asarray(sizes))
+    area as it does there (under the program's `numpy.errstate`); None is
+    no sizes, which it does not scale."""
+    if sizes is not None:
+        np.sqrt(np.asarray(sizes))
+
+
+def _native_sizes(sizes):
+    """The marker areas *sizes* as pltrs (Rust) takes them: None (no sizes,
+    as matplotlib's ``set_sizes`` takes it) as none."""
+    return np.atleast_1d(np.asarray([] if sizes is None else sizes, float))
+
+
+def _drawn_linewidths(widths):
+    """Fail as matplotlib's renderers fail to draw a collection whose line
+    *widths* are no numbers: they convert them to a float array."""
+    np.asarray(widths, dtype=float)
 
 
 def _refuse_rank(array):
@@ -856,8 +870,16 @@ class Collection(mcolorizer.ColorizingArtist):
                               for style in self._given_linestyles()])
         # Masked widths draw nothing, as NaN ones (and read back masked).
         widths = lw.astype(float).filled(np.nan) if np.ma.isMaskedArray(lw) else lw
-        _collections.set_linewidths(self._native, [float(w) for w in widths])
+        try:
+            widths = [float(w) for w in widths]
+        except (TypeError, ValueError):
+            # matplotlib keeps them, and its renderers fail to take them.
+            _values.keep(self, "linewidth", lw)
+            _unusable.keep(self, "linewidth", lw, _drawn_linewidths, measured=False)
+            return
+        _collections.set_linewidths(self._native, widths)
         _values.remember(self, "linewidth", lw)
+        _unusable.drop(self, "linewidth")
 
     def get_linestyle(self):
         return self._lwls()[1]
@@ -1669,8 +1691,7 @@ class RegularPolyCollection(_CollectionWithSizes):
         """
         usable = isinstance(rotation, Real)
         self._native = _collections.new_regular_poly_collection(
-            int(numsides), float(rotation) if usable else 0.,
-            np.atleast_1d(np.asarray(sizes, float)))
+            int(numsides), float(rotation) if usable else 0., _native_sizes(sizes))
         super().__init__(**kwargs)
         _scale_of(sizes)
         _values.remember(self, "rotation", rotation)
@@ -2056,8 +2077,7 @@ class CircleCollection(_CollectionWithSizes):
         **kwargs
             Forwarded to `.Collection`.
         """
-        self._native = _collections.new_circle_collection(
-            np.atleast_1d(np.asarray(sizes, float)))
+        self._native = _collections.new_circle_collection(_native_sizes(sizes))
         super().__init__(**kwargs)
         _scale_of(sizes)
 

@@ -275,7 +275,14 @@ impl FigureState {
         };
         let items: Vec<Item> = (state.items(&self.store).into_iter())
             .map(|(_, item)| item)
-            .filter(|item| !matches!(item, Item::Child(id) if self.skips_animated_in_axes(*id)))
+            .filter(|item| match *item {
+                Item::Child(id) => !self.skips_animated_in_axes(id),
+                // An animated axis is left out as an animated child is.
+                Item::Axis(owner, name) => {
+                    !(state.axis(name).animated && owner == axes && !self.saving)
+                }
+                Item::Patch => true,
+            })
             .collect();
         for item in items {
             match item {

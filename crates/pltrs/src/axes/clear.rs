@@ -18,10 +18,13 @@ impl AxesState {
     /// sharing, background colour, frame, navigation and status-bar
     /// formatters of `self`, the options of its projection, the
     /// visibility of shared axes, and titles the program places, unless
-    /// `rc` fixes their height.
+    /// `rc` fixes their height. Its data limits stay too, as matplotlib's
+    /// `dataLim` does, for the next data to replace (autoscaling and a
+    /// data-limited aspect read them meanwhile).
     fn cleared(&self, rc: Rc<RcParams>) -> Self {
         let mut fresh = Self::new(self.position, rc);
         *fresh.base_mut() = self.base().clone();
+        fresh.data_lim = self.data_lim;
         fresh
             .projection_options
             .clone_from(&self.projection_options);
@@ -55,6 +58,10 @@ impl AxesState {
             // whether gridlines are on, which restarts from the rc; the
             // axis object stays, with its picker and pick radius.
             fresh.axis_mut(name).keep_tick_styles(self.axis(name));
+            fresh.axis_mut(name).keep_drawing(self.axis(name));
+            // matplotlib's `Axis.clear` disconnects the axes' handler of
+            // the axis' changes of units.
+            fresh.axis_mut(name).follows_units = false;
         }
         if self.shares.0.is_some() {
             fresh.xaxis.visible = self.xaxis.visible;
@@ -248,6 +255,24 @@ mod tests {
             "bound to the narrow axis"
         );
         assert_eq!(locs(&narrow), narrow_ticks);
+    }
+
+    #[test]
+    fn a_clear_keeps_the_data_limits_for_the_next_data_to_replace() {
+        // matplotlib's clear leaves `dataLim`, which autoscaling and a
+        // data-limited aspect read until data replace it.
+        let ax = Figure::new().subplot();
+        ax.plot([2.0, 5.0], [1.0, 3.0]).unwrap();
+        let limits = ax.data_lim();
+        ax.clear();
+        assert_eq!(ax.data_lim(), limits);
+        assert!(ax.ignores_data_limits());
+        assert!(
+            !ax.xaxis().follows_units(),
+            "the clear disconnects the handler"
+        );
+        ax.plot([7.0, 8.0], [7.0, 9.0]).unwrap();
+        assert_eq!(ax.xaxis().data_interval(), (7.0, 8.0), "replaced");
     }
 
     #[test]

@@ -83,6 +83,15 @@ impl<'a> LayoutContext<'a> {
         animated && !(in_axes && self.figure.saving)
     }
 
+    /// Whether axis `name` of axes `axes` is left out of a draw as
+    /// animated, as an animated child of the axes is (see
+    /// [`Axis::set_animated`](crate::axes::Axis::set_animated)).
+    pub(crate) fn skips_animated_axis(self, axes: ArtistId, name: AxisName) -> bool {
+        let animated = (self.store().get_as::<crate::axes::AxesState>(axes))
+            .is_some_and(|state| state.axis(name).animated);
+        animated && !self.figure.saving
+    }
+
     /// Converts points to pixels at the canvas resolution.
     pub fn points_to_pixels(&self, points: f64) -> f64 {
         points * self.figure.dpi() / 72.0

@@ -45,13 +45,14 @@ pub(crate) fn default_settings(rc: &RcParams) -> (Resampling, InterpolationStage
 }
 
 /// A checked radius of the sinc-family kernels (matplotlib's
-/// `set_filterrad`).
+/// `set_filterrad`, which refuses one at most 0 and keeps NaN; the kernels
+/// read NaN as their smallest window).
 ///
 /// # Errors
 ///
-/// When the radius is not positive.
+/// When the radius is at most 0.
 pub(crate) fn checked_filterrad(radius: f64) -> Result<f64, ImageError> {
-    if radius.is_nan() || radius <= 0.0 {
+    if radius <= 0.0 {
         return Err(ImageError::FilterRadius(radius));
     }
     Ok(radius)
@@ -265,10 +266,14 @@ mod tests {
             assert_eq!(image.filterrad(), 2.0);
             assert!(image.resample());
             assert!(matches!(
-                image.set_filterrad(f64::NAN),
+                image.set_filterrad(-1.0),
                 Err(ImageError::FilterRadius(_))
             ));
             assert_eq!(image.filterrad(), 2.0, "unchanged by a refused radius");
+            image
+                .set_filterrad(f64::NAN)
+                .expect("NaN is kept, as matplotlib keeps it");
+            assert!(image.filterrad().is_nan());
         }
         assert_eq!(axes.interpolation(), Interpolation::Hanning);
     }

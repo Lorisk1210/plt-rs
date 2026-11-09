@@ -199,7 +199,9 @@ fn validate<P>(
     if !(0.0..=1.0).contains(&params.alpha) {
         return Err(ResampleError::InvalidAlpha(params.alpha));
     }
-    if !(params.radius > 0.0 && params.radius <= MAX_FILTER_RADIUS) {
+    // matplotlib's wrapper takes a NaN radius, which the windowed kernels
+    // read as their smallest window.
+    if !(params.radius.is_nan() || (params.radius > 0.0 && params.radius <= MAX_FILTER_RADIUS)) {
         return Err(ResampleError::InvalidRadius(params.radius));
     }
     Ok(())
@@ -446,6 +448,11 @@ mod tests {
         assert_eq!(
             resample(&src, &mut dst, &identity.clone().with_radius(0.0)),
             Err(ResampleError::InvalidRadius(0.0))
+        );
+        assert_eq!(
+            resample(&src, &mut dst, &identity.clone().with_radius(f64::NAN)),
+            Ok(()),
+            "a NaN radius is the smallest window"
         );
         let mesh = Grid::filled(2, 2, [0.0; 2]).expect("mesh");
         assert_eq!(

@@ -13,7 +13,7 @@ from operator import attrgetter
 
 import numpy as np
 
-from .. import _api, _handles
+from .. import _api, _handles, _values
 from .._native import navigation as _navigation
 from . import _foreign_children
 
@@ -135,7 +135,8 @@ class NavigationMixin:
         """
         Get whether the Axes responds to navigation commands.
         """
-        return _navigation.get_navigate(self._native)
+        # matplotlib keeps the object it was given (``1``, ``'False'``).
+        return _values.given_flag(self, "navigate", _navigation.get_navigate(self._native))
 
     def set_navigate(self, b):
         """
@@ -151,6 +152,7 @@ class NavigationMixin:
 
         """
         _navigation.set_navigate(self._native, bool(b))
+        _values.remember(self, "navigate", b)
 
     def get_navigate_mode(self):
         """
@@ -195,11 +197,15 @@ class NavigationMixin:
         """
         _navigation.set_forward_navigation_events(
             self._native, None if forward == "auto" else bool(forward))
+        _values.remember(self, "forward_navigation_events", forward)
 
     def get_forward_navigation_events(self):
         """Get how pan/zoom events are forwarded to Axes below this one."""
         forward = _navigation.get_forward_navigation_events(self._native)
-        return "auto" if forward is None else forward
+        if forward is None:
+            return "auto"
+        # matplotlib keeps the object it was given (``1``, ``''``).
+        return _values.given_flag(self, "forward_navigation_events", forward)
 
     def _get_view(self):
         """

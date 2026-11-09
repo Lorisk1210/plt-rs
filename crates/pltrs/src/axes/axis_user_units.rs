@@ -86,6 +86,30 @@ impl Axis {
         self.use_axis_info(info);
         self
     }
+
+    /// Whether the axes follows a change of the axis' units, recomputing
+    /// its data limits and autoscaling: as matplotlib's axes does until
+    /// the axis is cleared (by [`Axis::clear`] or its axes' clear), which
+    /// disconnects matplotlib's `_unit_change_handler` with the axis'
+    /// other callbacks.
+    ///
+    /// ```
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// assert!(ax.xaxis().follows_units());
+    /// ax.clear();
+    /// assert!(!ax.xaxis().follows_units() && !ax.yaxis().follows_units());
+    /// ```
+    pub fn follows_units(&self) -> bool {
+        self.read(|axis| axis.follows_units)
+    }
+
+    /// Has the axes follow the axis' changes of units, or not (see
+    /// [`Axis::follows_units`]): matplotlib's `Axes.__init__` connects its
+    /// handler once its first clear is done.
+    pub fn set_follows_units(&self, follows: bool) -> &Self {
+        self.update(|axis| axis.follows_units = follows);
+        self
+    }
 }
 
 impl Axes {
@@ -94,9 +118,13 @@ impl Axes {
     /// when drawn): the artists that keep user values
     /// ([`Artist::unit_sources`](crate::artist::Artist::unit_sources))
     /// convert them again, the data limits are recomputed and the axis
-    /// autoscales.
+    /// autoscales; nothing once the axis was cleared, which disconnects
+    /// matplotlib's handler (see [`Axis::follows_units`]).
     pub(super) fn units_changed(&self, name: AxisName) {
         let axis = self.axis_of(name);
+        if !axis.follows_units() {
+            return;
+        }
         let figure = self.raw().figure_state();
         let children = self
             .raw()

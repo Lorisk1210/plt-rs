@@ -2,6 +2,9 @@
 Labels of bar and pie charts: `~.Axes.bar_label` and `~.Axes.pie_label`.
 """
 
+import math
+from numbers import Real
+
 import numpy as np
 
 from ... import _api
@@ -150,6 +153,18 @@ class LabelsMixin:
         """
         from ...text import Text
         _api.check_in_list(['center', 'outer', 'auto'], alignment=alignment)
+        if alignment == 'auto':
+            alignment = 'outer' if distance > 1 else 'center'
+        if not isinstance(labels, str) and (
+                (nw := len(container.wedges)) != (nl := len(labels))):
+            raise ValueError(
+                f'The number of labels ({nl}) must match the number of wedges ({nw})')
+        if not isinstance(distance, Real):
+            # matplotlib places each label at the distance, which fails for
+            # one that is no number.
+            for wedge in container.wedges:
+                thetam = 2 * np.pi * 0.5 * (wedge.theta1 + wedge.theta2) / 360
+                wedge.center[0] + distance * wedge.r * math.cos(thetam)
         textprops = {} if textprops is None else dict(textprops)
         template = isinstance(labels, str)
         usetex = textprops.get("usetex")

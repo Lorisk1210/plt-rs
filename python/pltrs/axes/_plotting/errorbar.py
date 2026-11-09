@@ -7,7 +7,7 @@ from numbers import Integral, Number
 import numpy as np
 
 from ... import _docstring
-from ... import _api, _values, cbook, collections as mcoll, lines as mlines
+from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import ErrorbarContainer
@@ -305,6 +305,12 @@ class ErrorbarMixin:
         if len(x) != len(y):
             raise ValueError("'x' and 'y' must have the same size")
         everymask = _errorevery_to_mask(x, errorevery)
+        if fmt != '' and not isinstance(fmt, str):
+            # matplotlib makes the data line with ``_plot_args(x, y, fmt)``.
+            raise ValueError('third arg must be a format string')
+        if ecolor is not None and (xerr is not None or yerr is not None):
+            # matplotlib's first bars are made in that colour.
+            mcolors.to_rgba_array(ecolor)
         n = len(x)
         xconv, yconv = line_data(self, x, y)
         bounds = {}

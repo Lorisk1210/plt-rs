@@ -11,10 +11,14 @@ impl AxisState {
     /// but whether gridlines are on (which restarts from the rc, as
     /// matplotlib's `Axis.clear` resets `gridOn`), its tick label size,
     /// its picking, visibility and place in layouts, and how it autoscales.
+    /// Its axes no longer follows its changes of units (matplotlib's
+    /// `Axis.clear` disconnects the axes' handler with its callbacks).
     pub(super) fn cleared(&self, rc: &RcParams) -> Self {
         let mut fresh = Self::new(self.name, rc);
+        fresh.follows_units = false;
         fresh.role = self.role;
         fresh.keep_tick_styles(self);
+        fresh.keep_drawing(self);
         fresh.visible = self.visible;
         fresh.in_layout = self.in_layout;
         fresh.autoscale = self.autoscale;
@@ -22,6 +26,14 @@ impl AxisState {
         fresh.ticker_owner = self.ticker_owner;
         fresh.gids = self.gids.clone();
         fresh
+    }
+
+    /// Takes whether `old` is animated and its image filter, which
+    /// matplotlib's clears leave the axis artist (they are no settings of
+    /// its ticks).
+    pub(super) fn keep_drawing(&mut self, old: &Self) {
+        self.animated = old.animated;
+        self.agg_filter.clone_from(&old.agg_filter);
     }
 
     /// Takes the tick parameters of `old` but whether gridlines are on,

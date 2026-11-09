@@ -666,8 +666,10 @@ class ScalarFormatter(_NativeFormatter):
         self.set_useLocale(useLocale)
 
     def _spec(self):
+        # An offset that is no number (which `set_locs` fails on as
+        # matplotlib's does) offsets nothing.
         use_offset = True if self._useOffset else (
-            float(self.offset) if self.offset else False)
+            float(self.offset) if isinstance(self.offset, numbers.Real) and self.offset else False)
         return {"kind": "scalar", "use_offset": use_offset,
                 "use_mathtext": self._useMathText, "usetex": self._usetex,
                 "scientific": self._scientific,
@@ -897,6 +899,10 @@ class ScalarFormatter(_NativeFormatter):
         locs = self._kept_locs(locs)
         info = self._program_view_info(self._axis_info(), locs)
         self._set_locs_on(locs, info)
+        if len(self._locs) and not isinstance(self.offset, numbers.Real):
+            # matplotlib keeps the offset, and subtracts it from the
+            # locations to choose their format.
+            np.asarray(self._locs) - self.offset
         locs = np.asarray(self._locs, dtype=float)
         if len(locs) == 0:
             return
@@ -929,6 +935,10 @@ class ScalarFormatter(_NativeFormatter):
         if isinstance(value, Integral):
             return self.fix_minus("%d" % value)
         if getattr(self.axis, "__name__", "") in ("xaxis", "yaxis"):
+            if isinstance(value, str):
+                # matplotlib's subtracts the value from those of the pixels
+                # beside it (a float array), which numpy refuses for text.
+                np.zeros(2) - value
             text = _axis.format_data_short(*self.axis._args(), float(value))
             if text is not None:
                 return text

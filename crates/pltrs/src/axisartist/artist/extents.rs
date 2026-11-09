@@ -50,6 +50,38 @@ impl AxisArtistState {
             .label_position(self.helper_context(layout)?, None)
     }
 
+    /// Notes that a draw of the texts of the tick labels of `level` (the
+    /// label with `None`) failed on the first one it draws, laid out as a
+    /// draw lays them out now (see [`Leftover`](super::super::labels::Leftover)).
+    pub(crate) fn note_failed_text_draw(
+        &self,
+        layout: LayoutContext<'_>,
+        level: Option<Level>,
+    ) -> Result<(), String> {
+        let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current)?;
+        let (labels, offset) = match level {
+            Some(level) => {
+                let index = match level {
+                    Level::Major => 0,
+                    Level::Minor => 1,
+                };
+                let labels = match level {
+                    Level::Major => &self.major_ticklabels,
+                    Level::Minor => &self.minor_ticklabels,
+                };
+                (labels, drawing.levels[index].offsets.first().copied())
+            }
+            None => (
+                &self.label,
+                drawing.label.as_ref().map(|_| drawing.label_offset),
+            ),
+        };
+        if let Some(offset) = offset {
+            labels.note_failed_draw(offset);
+        }
+        Ok(())
+    }
+
     /// The display boxes of the tick labels of `level` as drawing places
     /// them now, none when they are hidden; remembers the gap they leave
     /// for the label, as matplotlib's `get_window_extents` does.

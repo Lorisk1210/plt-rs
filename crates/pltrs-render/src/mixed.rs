@@ -174,6 +174,10 @@ impl Renderer for MixedModeRenderer<'_> {
         self.active().draw_text(gc, run, origin, angle);
     }
 
+    fn rounds_glyph_positions(&self) -> bool {
+        self.current().rounds_glyph_positions()
+    }
+
     fn open_group(&mut self, name: &str, gid: Option<&str>) {
         self.active().open_group(name, gid);
     }

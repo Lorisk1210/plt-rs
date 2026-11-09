@@ -166,6 +166,22 @@ def offsets_problem(collection, offsets, M=ANY_PROJECTION):
     return _problem(compute, M)
 
 
+def sizes_problem(sizes):
+    """The exception ``Path3DCollection.do_3d_projection`` raises sorting
+    the sizes *sizes*, as given to ``set_sizes``, by the depth order of
+    its markers (an index array), or None: what has no length, and
+    several sizes in what is no array. Sizes in an array too short for
+    the markers fail with numpy's ``IndexError`` for the first marker in
+    depth order beyond them, which pltrs (Rust) raises."""
+    def compute():
+        if len(sizes) > 1 and not isinstance(sizes, np.ndarray):
+            try:
+                sizes[np.zeros(1, dtype=np.intp)]
+            except LookupError:
+                pass
+    return _problem(compute)
+
+
 def patch_problem(patch, segment3d, M=ANY_PROJECTION):
     """The exception the ``do_3d_projection`` of ``Patch3D`` and
     ``PathPatch3D`` raises for the outline *segment3d* of *patch* (in its

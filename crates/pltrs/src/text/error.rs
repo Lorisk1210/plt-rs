@@ -10,6 +10,8 @@ use crate::colors::ColorError;
 use crate::coords::CoordError;
 use crate::patches::PatchError;
 
+use super::UnroundablePosition;
+
 /// A problem met while drawing a text, its box or its annotation arrow.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TextDrawError {
@@ -21,6 +23,8 @@ pub enum TextDrawError {
     Box(PatchError),
     /// An annotation coordinate cannot be resolved.
     Coords(CoordError),
+    /// The renderer rounds glyph positions, and one is not finite.
+    Position(UnroundablePosition),
 }
 
 impl TextDrawError {
@@ -29,12 +33,16 @@ impl TextDrawError {
     /// colour are values of the program's that matplotlib refuses with a
     /// `ValueError` while drawing, as it refuses a TeX font without a
     /// Type 1 file (`DviFont.resolve_path`) and a text the PGF backend's
-    /// TeX system cannot measure.
+    /// TeX system cannot measure. A glyph position the renderer cannot
+    /// round is Python's `ValueError` for NaN, its `OverflowError` for an
+    /// infinity.
     pub fn kind(&self) -> DrawErrorKind {
         match self {
             Self::Layout(err) => layout_error_kind(err),
             Self::Color(_) => DrawErrorKind::InvalidValue,
             Self::Box(_) | Self::Coords(_) => DrawErrorKind::Other,
+            Self::Position(position) if position.is_nan() => DrawErrorKind::InvalidValue,
+            Self::Position(_) => DrawErrorKind::Overflow,
         }
     }
 }
@@ -126,6 +134,7 @@ impl fmt::Display for TextDrawError {
             Self::Color(err) => err.fmt(f),
             Self::Box(err) => err.fmt(f),
             Self::Coords(err) => err.fmt(f),
+            Self::Position(err) => err.fmt(f),
         }
     }
 }
@@ -137,6 +146,7 @@ impl std::error::Error for TextDrawError {
             Self::Color(err) => Some(err),
             Self::Box(err) => Some(err),
             Self::Coords(err) => Some(err),
+            Self::Position(err) => Some(err),
         }
     }
 }
@@ -150,6 +160,12 @@ impl From<TextError> for TextDrawError {
 impl From<ColorError> for TextDrawError {
     fn from(err: ColorError) -> Self {
         Self::Color(err)
+    }
+}
+
+impl From<UnroundablePosition> for TextDrawError {
+    fn from(err: UnroundablePosition) -> Self {
+        Self::Position(err)
     }
 }
 

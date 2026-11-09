@@ -280,6 +280,14 @@ fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase> {
     })
 }
 
+/// Notes that matplotlib's draw of the text part `part` failed on the
+/// first text it draws, once it moved and turned it (see
+/// `LabelBase::note_failed_draw`).
+fn note_failed_text_draw(artist: AxisArtist, part: String) -> PyResult<()> {
+    label_part(&artist, &part)?.note_failed_draw();
+    Ok(())
+}
+
 /// What a text part draws with, as its `TickLabels` or `AxisLabel`
 /// holds it: whether it is shown, its pad in points, its colour (`None`
 /// following the reference artist, `"auto"`), its font size, the rest of
@@ -448,6 +456,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("parts_visible", parts_visible)?;
     module.add("restyle_label", restyle_label)?;
     module.add("label_extent", label_extent)?;
+    module.add("note_failed_text_draw", note_failed_text_draw)?;
     module.add("set_line", set_line)?;
     module.add("get_line_visible", get_line_visible)?;
     module.add("tight_bbox", tight_bbox)?;

@@ -198,6 +198,15 @@ class ConstructionMixin:
         return self.__dict__.get("_axes_locator")
 
 
+def native_figure(fig):
+    """The native figure of *fig*, which an Axes is made in. What is no
+    figure fails where matplotlib's `set_figure` reads it first
+    (``fig.transSubfigure``)."""
+    if not hasattr(fig, "_native"):
+        fig.transSubfigure
+    return fig._native
+
+
 def _removed_native(fig, args, cls):
     """The native axes `cls(fig, *args)` makes: at a rectangle or on a
     subplot block, outside the figure, in the projection pltrs (Rust) draws
@@ -212,10 +221,10 @@ def _removed_native(fig, args, cls):
             raise ValueError('Width and height specified must be non-negative')
         bounds = tuple(map(float, bounds))
         if projection == "rectilinear":
-            return _figure.removed_axes(fig._native, bounds)
-        return _figure.removed_axes_projection(fig._native, bounds, projection)
+            return _figure.removed_axes(native_figure(fig), bounds)
+        return _figure.removed_axes_projection(native_figure(fig), bounds, projection)
     from ..gridspec import SubplotSpec
     spec = SubplotSpec._from_subplot_args(fig, args)._native_spec()
     if projection == "rectilinear":
-        return _figure.removed_subplot(fig._native, spec)
-    return _figure.removed_subplot_projection(fig._native, spec, projection)
+        return _figure.removed_subplot(native_figure(fig), spec)
+    return _figure.removed_subplot_projection(native_figure(fig), spec, projection)

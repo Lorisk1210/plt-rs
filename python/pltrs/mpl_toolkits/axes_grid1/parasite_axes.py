@@ -51,6 +51,8 @@ class ParasiteAxesBase:
             super().__init__(parent_axes.get_figure(root=False),
                              parent_axes._position, **kwargs)
             return
+        # What matplotlib's constructor reads first of the parent.
+        parent_axes.get_figure(root=False)
         _check_composes(aux_transform, parent_axes)
         native = self._parasite_native(parent_axes, aux_transform,
                                        viewlim_mode)
@@ -118,6 +120,13 @@ class ParasiteAxesBase:
 
     def get_axes_locator(self):
         return self._parent_axes.get_axes_locator()
+
+    @_docstring.copy(maxes.Axes.set_axes_locator)
+    def set_axes_locator(self, locator):
+        # matplotlib keeps it, but never calls it: the parasite follows its
+        # host's locator (`get_axes_locator`), and only its host is drawn.
+        self._axes_locator = locator
+        self.stale = True
 
     # matplotlib's parasite has a position of its own, its host's when it
     # was made, which its host's draw replaces by the host's box for that

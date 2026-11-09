@@ -329,6 +329,12 @@ impl Renderer for RasterRenderer {
         }
     }
 
+    /// Glyphs are placed on the 26.6 grid as matplotlib's Agg renderer
+    /// rounds them, unless they are drawn as paths.
+    fn rounds_glyph_positions(&self) -> bool {
+        !super::texts_as_paths()
+    }
+
     /// TeX text from its DVI glyphs or `dvipng`'s image; see the `tex`
     /// module.
     fn draw_tex(

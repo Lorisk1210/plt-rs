@@ -19,6 +19,7 @@ are drawn by pltrs (Rust) the same way, as tick marks
 setters describe again.
 """
 
+import functools
 from numbers import Real
 from operator import methodcaller
 
@@ -1468,15 +1469,22 @@ class AxisArtist(martist.Artist):
         axes : `mpl_toolkits.axisartist.axislines.Axes`
         helper : `~mpl_toolkits.axisartist.axislines.AxisArtistHelper`
         """
+        if kwargs:
+            # matplotlib's constructor hands them to `.Artist`'s, which
+            # takes none.
+            raise TypeError(f"Artist.__init__() got an unexpected keyword "
+                            f"argument {next(iter(kwargs))!r}")
         if offset is None:
             offset = (0, 0)
         # What matplotlib's constructor computes first, failing as it does:
-        # the transform of the offset in the figure of the axes, and (as it
-        # sets the direction) the alignments of the direction.
+        # the transform of the offset in the figure of the axes, the line
+        # of the helper and (as it sets the direction) the alignments of
+        # the direction.
         self.offset_transform = ScaledTranslation(
             *offset,
             Affine2D().scale(1 / 72)  # points to inches.
             + axes.get_figure(root=False).dpi_scale_trans)
+        helper.get_line_transform
         _api.getitem_checked(AxisLabel._default_alignments, d=axis_direction)
         self._offset = (*offset,)
         points = _offset_points(offset)
@@ -1494,7 +1502,6 @@ class AxisArtist(martist.Artist):
             _unusable.keep(self, "offset", offset,
                            lambda _: self.offset_transform.get_matrix())
         self._init_parts(helper, axis_direction)
-        self._internal_update(kwargs)
 
     @classmethod
     def _of_axes(cls, axes, native, helper, axis_direction):
@@ -1557,9 +1564,15 @@ class AxisArtist(martist.Artist):
         ticks, then draws each part shown."""
         if "major_ticks" in self.__dict__:
             _unchecked_parts.tick_label_pad(self)
+        def failed(part, name):
+            if isinstance(part, LabelBase) and name in _unchecked_parts.TEXT_DRAWING:
+                # matplotlib's draw moved and turned the text first.
+                _axisartist.note_failed_text_draw(
+                    self._native, _mirrors.mirroring(part).name)
+
         for part in self._parts():
             if part.get_visible():
-                _unusable.check(part)
+                _unusable.check(part, failed=functools.partial(failed, part))
 
     def _attach(self, part, name):
         """Make *part* the mirror of the part *name* pltrs (Rust) draws,

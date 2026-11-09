@@ -27,6 +27,7 @@ from pltrs._native import artist as _artist, axes as _axes, axis as _axis
 from pltrs._native import mplot3d as _mplot3d
 from pltrs.axes import Axes
 from pltrs.axes._base import _SharedAxes
+from pltrs.axes._construction import native_figure
 from pltrs.axes._ticks import _axis_method_wrapper
 from pltrs._artist_kwargs import keep_program_picker
 from pltrs._preprocess import _preprocess_data
@@ -100,6 +101,12 @@ def _floats(*arrays):
     arrays = np.broadcast_arrays(*[np.ma.filled(np.ma.asarray(a, dtype=float),
                                                 np.nan) for a in arrays])
     return tuple(np.ascontiguousarray(a, dtype=float).ravel() for a in arrays)
+
+
+def _plain_angles(view):
+    """Whether the view angles *view* are all numbers (pltrs (Rust) holds
+    them; matplotlib keeps any other, failing where it projects)."""
+    return all(isinstance(angle, Real) for angle in view)
 
 
 def _failure_of(problem):
@@ -279,17 +286,23 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             'focal_length': focal_length, 'box_aspect': box_aspect,
             'computed_zorder': computed_zorder})
         args = (rect, *args)
+        unplaced = None
         if len(args) == 1 and (isinstance(rect, Bbox) or np.iterable(rect)):
-            bounds = (rect.bounds if isinstance(rect, Bbox)
-                      else Bbox.from_bounds(*rect).bounds)
-            native = _mplot3d.removed_axes(fig._native, tuple(map(float, bounds)),
-                                           options)
+            bounds = tuple(map(float, rect.bounds if isinstance(rect, Bbox)
+                               else Bbox.from_bounds(*rect).bounds))
+            if not np.isfinite(bounds).all():
+                # matplotlib keeps the rectangle (only `add_axes` refuses
+                # it): the axes is made at the unit one, then moved there.
+                bounds, unplaced = (0., 0., 1., 1.), bounds
+            native = _mplot3d.removed_axes(native_figure(fig), bounds, options)
         else:
             from pltrs.gridspec import SubplotSpec
             spec = SubplotSpec._from_subplot_args(fig, args)
-            native = _mplot3d.removed_subplot(fig._native, spec._native_spec(),
-                                              options)
+            native = _mplot3d.removed_subplot(native_figure(fig),
+                                              spec._native_spec(), options)
         _handles.adopt(self, native, fig.figure)
+        if unplaced is not None:
+            _mplot3d.set_position(native, unplaced)
         self._init_3d_state(fig.figure)
         self._internal_update(kwargs)
 
@@ -304,7 +317,10 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                  kwargs.pop('roll', 0))
         # For `_init_3d_state`, on this thread: the axes made next.
         _made.view = given
-        initial = tuple(map(float, given))
+        # Angles of no number start from the default view, and are kept
+        # once the axes is made (see `_init_3d_state`).
+        initial = (tuple(map(float, given)) if _plain_angles(given)
+                   else (30., -60., 0.))
         proj_type = kwargs.pop('proj_type', 'persp')
         focal_length = cls._checked_focal_length(
             proj_type, kwargs.pop('focal_length', None))
@@ -355,13 +371,17 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         # keeps as given (its defaults are int literals, ``elev=30``).
         native = _mplot3d.get_view(self._native)
         given = _made.__dict__.pop('view', None)
-        if given is None or tuple(map(float, given)) != native:
+        kept = given is not None and not _plain_angles(given)
+        if not kept and (given is None or tuple(map(float, given)) != native):
             given = tuple(default if angle == default else angle
                           for angle, default in zip(native, (30, -60, 0)))
         self.initial_elev, self.initial_azim, self.initial_roll = given
         _made.__dict__.pop('shareview', None)
         _values.remember_all(self, dict(zip(_VIEW_ANGLES, (
             self.initial_elev, self.initial_azim, self.initial_roll))), _VIEW_ANGLES)
+        if kept:
+            # matplotlib keeps them, its projection failing on them.
+            self._turn(given, 'z', False)
         self.button_pressed = None
         self.mouse_init()
         canvas = figure.canvas
@@ -2129,6 +2149,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         kwargs.pop('scaley', None)
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
+        # matplotlib's 2-D `plot` takes the units of the data first.
+        self.xaxis.update_units(xs)
+        self.yaxis.update_units(ys)
         if len(args) > 1 or args and not isinstance(args[0], str):
             # Several datasets, as 2D `plot` splits them, each at *zs*
             # (matplotlib's `line_2d_to_3d` of every line).
@@ -2232,6 +2255,12 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             # keyword.
             raise TypeError("Axes.scatter() got multiple values for argument 's'")
         xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
+        # matplotlib's 2-D `scatter` takes the units of the data and
+        # converts them through them.
+        for axis, data in ((self.xaxis, xs), (self.yaxis, ys)):
+            if not axis.have_units():
+                axis.update_units(data)
+            axis.convert_units(data)
         s = np.ma.ravel(s)
         xs, ys, zs, s, c, color = cbook.delete_masked_points(
             xs, ys, zs, s, c, kwargs.get('color', None))
@@ -2793,7 +2822,10 @@ cbook._own_mixin_methods(Axes3D, Axes)
 
 def get_test_data(delta=0.05):
     """Return a tuple X, Y, Z with a test data set."""
-    return _mplot3d.test_data(float(delta))
+    # The grid of matplotlib's computation, whose `arange` refuses what is
+    # no step (and takes None for a step of one).
+    np.arange(-3.0, 3.0, delta)
+    return _mplot3d.test_data(1.0 if delta is None else float(delta))
 
 
 class _Quaternion:

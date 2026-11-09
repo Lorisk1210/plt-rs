@@ -158,8 +158,15 @@ pub trait Artist: Any + Debug + ArtistClone {
     /// Mutable access to the common properties.
     fn base_mut(&mut self) -> &mut ArtistBase;
 
-    /// Renders the artist (only called when it is visible).
+    /// Renders the artist (only called when it is visible, or when it
+    /// [draws while hidden](Self::draws_hidden)).
     fn draw(&self, ctx: &mut DrawContext<'_>);
+
+    /// Whether the artist is drawn while hidden too: matplotlib's
+    /// `InsetIndicator.draw` never asks whether the indicator is visible.
+    fn draws_hidden(&self) -> bool {
+        false
+    }
 
     /// Whether drawing the visible artist makes it fresh (matplotlib's
     /// `draw` ending with `self.stale = False`): not for an annotation

@@ -509,9 +509,9 @@ pub(crate) fn draw_text(
     }
     let drawn = text
         .as_drawn(dpi, rc, drawn_as)
+        .map_err(TextDrawError::from)
         .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation));
     if let Err(err) = drawn {
-        let err = TextDrawError::from(err);
         ctx.report_kind(owner, err.kind(), err);
     }
 }

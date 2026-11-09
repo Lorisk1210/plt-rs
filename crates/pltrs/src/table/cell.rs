@@ -456,7 +456,7 @@ impl Cell {
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        Ok(draw_laid_out(ctx, &gc, &laid_out, anchor, 0.0)?)
+        draw_laid_out(ctx, &gc, &laid_out, anchor, 0.0)
     }
 
     /// Where the text of the cell drawn at `display` (display pixels) is

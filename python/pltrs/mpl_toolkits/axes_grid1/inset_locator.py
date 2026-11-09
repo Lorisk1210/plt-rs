@@ -731,7 +731,10 @@ def mark_inset(parent_axes, inset_axes, loc1, loc2, **kwargs):
         The patches connecting two corners of the inset axes and its area.
     """
     from pltrs import _handles, cbook
+    from pltrs._artist_kwargs import check_known
     rect = TransformedBbox(inset_axes.viewLim, parent_axes.transData)
+    # matplotlib makes the outline with the properties first.
+    check_known(BboxPatch, kwargs)
     try:
         corners = (_native_corner(loc1), _native_corner(loc2))
     except Unusable:

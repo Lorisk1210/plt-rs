@@ -479,6 +479,18 @@ class Line3D(lines.Line2D):
             return super()._numbers()
         return _lines.get_xdata(self._native), _lines.get_ydata(self._native)
 
+    def recache_always(self):
+        # docstring inherited; when the units of its axes change, matplotlib
+        # converts the 2-D data a line lifted in a 3-D axes was given (until
+        # a draw replaced them with their projection) through them again,
+        # which fails on values they do not take, though it draws the 3-D
+        # data.
+        if (_lifted(self) is not None and "_xorig" in self.__dict__
+                and self._drawn_data(_lines.get_xdata) is None):
+            self.convert_xunits(self._xorig)
+            self.convert_yunits(self._yorig)
+        super().recache_always()
+
     def _drawn_data(self, getter):
         """The projected data *getter* reads off the native line, masked as
         matplotlib's `draw` gives them to the line, once a draw projected
@@ -787,8 +799,14 @@ class _Lifted3DOffsets(_Loose3D):
         problem = _draw_problems.offsets_problem(self, offsets)
         if problem is not None:
             self._keep_unprojectable(offsets)
-            _draw_problems.record(self, problem)
+        _draw_problems.record(self, problem or self._sizes_problem())
         return self
+
+    def _sizes_problem(self):
+        """The exception matplotlib's projection raises sorting the sizes
+        of the members by depth once their positions are projected, or
+        None (only `Path3DCollection` sorts them)."""
+        return None
 
     @property
     def _offsets3d(self):
@@ -814,7 +832,7 @@ class _Lifted3DOffsets(_Loose3D):
             self.__dict__.pop("_offsets_unprojected", None)
             _mplot3d.set_scatter_offsets(self.axes._native, self._native, columns)
             _values.remember(self, "_offsets3d", offsets)
-        _draw_problems.record(self, problem)
+        _draw_problems.record(self, problem or self._sizes_problem())
         self.stale = True
 
     def _keep_unprojectable(self, offsets):
@@ -830,7 +848,8 @@ class _Lifted3DOffsets(_Loose3D):
     def do_3d_projection(self):
         axes = _lifted(self)
         if axes is not None:
-            problem = _draw_problems.offsets_problem(self, self._offsets3d, axes.M)
+            problem = (_draw_problems.offsets_problem(self, self._offsets3d, axes.M)
+                       or self._sizes_problem())
             if problem is not None:
                 raise problem
         return _projected_depth(self)
@@ -992,6 +1011,14 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
         col.__class__ = Path3DCollection
     elif isinstance(col, mcoll.PatchCollection):
         col.__class__ = Patch3DCollection
+    else:
+        # matplotlib gives what is neither its depth shading, then asks it
+        # for its 3-D properties.
+        col._depthshade = depthshade
+        col._depthshade_minalpha = depthshade_minalpha
+        col._in_draw = False
+        col.set_3d_properties(zs, zdir, axlim_clip)
+        return
     _gains_projection(col)
     col._depthshade_pending = (depthshade, depthshade_minalpha)
     col.set_3d_properties(zs, zdir, axlim_clip)
@@ -1063,10 +1090,23 @@ class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
 
             .. versionadded:: 3.10
         """
+        # matplotlib's projections sort the sizes the collection holds then.
+        self.__dict__.pop("_sizes3d", None)
         super().set_3d_properties(zs, zdir, axlim_clip)
 
     def set_sizes(self, sizes, dpi=72.0):
         super().set_sizes(sizes, dpi)
+        # Kept as given, as matplotlib's projections sort them by depth.
+        self._sizes3d = sizes
+        if _lifted(self) is not None:
+            problem = _draw_problems.offsets_problem(self, self._offsets3d)
+            _draw_problems.record(self, problem or self._sizes_problem())
+
+    def _sizes_problem(self):
+        # docstring inherited
+        if "_sizes3d" not in self.__dict__:
+            return None
+        return _draw_problems.sizes_problem(self._sizes3d)
 
     def set_linewidth(self, lw):
         super().set_linewidth(lw)
@@ -1388,6 +1428,9 @@ def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
         The axis in which to place the patches. Default: 'z'.
         See `.get_dir_vector` for a description of the values.
     """
+    # matplotlib places one position or one per path on the paths first
+    # (``_paths_to_3d_segments_with_codes``), then changes the class.
+    zs = np.broadcast_to(zs, len(col.get_paths()))
     col.__class__ = Poly3DCollection
     _gains_projection(col)
     col._verts3d_pending = _lifted_paths(col, zs, zdir)

@@ -146,6 +146,11 @@ impl Artist for IndicatorArtist {
         }
     }
 
+    /// `InsetIndicator.draw` draws the parts of a hidden indicator too.
+    fn draws_hidden(&self) -> bool {
+        true
+    }
+
     /// `InsetIndicator.draw` draws the parts without making the indicator
     /// fresh.
     fn freshened_by_draw(&self, _ctx: &LayoutContext<'_>) -> bool {

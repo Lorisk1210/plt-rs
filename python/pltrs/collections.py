@@ -1204,7 +1204,8 @@ class _CollectionWithSizes(Collection):
             The 'area' of each element.
         """
         sizes = _collections.get_sizes(self._native)
-        return _values.given(self, "sizes", np.zeros(0) if sizes is None else sizes)
+        return _unusable.kept(self, "sizes", _values.given(
+            self, "sizes", np.zeros(0) if sizes is None else sizes))
 
     def set_sizes(self, sizes, dpi=72.0):
         """
@@ -1221,11 +1222,16 @@ class _CollectionWithSizes(Collection):
         if sizes is None:
             sizes = np.array([])
         sizes = np.asarray(sizes)
+        if sizes.ndim == 0:
+            # matplotlib keeps them before it counts them, and its draws
+            # fail to count them again.
+            _unusable.keep(self, "sizes", sizes, len, measured=False)
         # matplotlib's scales of the items, which fail and warn on sizes that
         # are no numbers or negative.
         len(sizes)
         np.sqrt(sizes) * dpi / 72.0
         _collections.set_sizes(self._native, np.asarray(sizes, float))
+        _unusable.drop(self, "sizes")
         _values.remember(self, "sizes", sizes)
         # The resolution the items are scaled at until the next draw.
         self._sizes_scaled = (float(dpi), _artist.draw_count(self._native))
@@ -1433,8 +1439,7 @@ class PolyCollection(_CollectionWithSizes):
         **kwargs
             Forwarded to `.Collection`.
         """
-        self._native = _collections.new_poly_collection(
-            [np.asarray(v, float).reshape(-1, 2) for v in verts])
+        self._native = _collections.new_poly_collection(_polygon_vertices(verts, closed))
         super().__init__(**kwargs)
         if sizes is not None:
             self.set_sizes(sizes)
@@ -1457,12 +1462,11 @@ class PolyCollection(_CollectionWithSizes):
         """
         # New paths, as matplotlib makes them.
         self.__dict__.pop("_kept_paths", None)
-        if not closed:
-            _collections.set_segments(
-                self._native, [np.asarray(v, float).reshape(-1, 2) for v in verts])
-            return
-        _collections.set_verts(
-            self._native, [np.asarray(v, float).reshape(-1, 2) for v in verts])
+        polygons = _polygon_vertices(verts, closed)
+        if closed:
+            _collections.set_verts(self._native, polygons)
+        else:
+            _collections.set_segments(self._native, polygons)
 
     set_paths = set_verts
 
@@ -1474,6 +1478,35 @@ class PolyCollection(_CollectionWithSizes):
         Collection.set_paths(self, [Path(xy, cds) if len(xy) else Path(xy)
                                     for xy, cds in zip(verts, codes)])
         self.stale = True
+
+
+def _path_vertices(vertices):
+    """*vertices* as the (N, 2) float array of matplotlib's `.Path` of
+    them (masked points as NaN), refused as `.Path` refuses another
+    shape."""
+    vertices = cbook._to_unmasked_float_array(vertices)
+    _api.check_shape((None, 2), vertices=vertices)
+    return vertices
+
+
+def _polygon_vertices(verts, closed):
+    """The (N, 2) float arrays of the polygons *verts*, refused as
+    matplotlib's `.PolyCollection.set_verts` refuses them making their
+    paths: it counts the points of each polygon to close, and checks the
+    shape of its points with the first repeated."""
+    if isinstance(verts, np.ma.MaskedArray):
+        verts = verts.astype(float).filled(np.nan)
+    if not closed:
+        return [_path_vertices(xy) for xy in verts]
+    polygons = []
+    for xy in verts:
+        if not len(xy):
+            polygons.append(_path_vertices(xy))
+            continue
+        vertices = cbook._to_unmasked_float_array(xy)
+        _api.check_shape((None, 2), vertices=np.concatenate([vertices, vertices[:1]]))
+        polygons.append(vertices)
+    return polygons
 
 
 def _check_step(step, curves, where):
@@ -1799,15 +1832,13 @@ class LineCollection(Collection):
         """
         kwargs.setdefault('facecolors', 'none')
         self._native = _collections.new_line_collection(
-            [] if segments is None else
-            [np.asarray(seg, float).reshape(-1, 2) for seg in segments])
+            [] if segments is None else [_path_vertices(seg) for seg in segments])
         super().__init__(zorder=zorder, **kwargs)
 
     def set_segments(self, segments):
         if segments is None:
             return
-        _collections.set_segments(
-            self._native, [np.asarray(seg, float).reshape(-1, 2) for seg in segments])
+        _collections.set_segments(self._native, [_path_vertices(seg) for seg in segments])
 
     set_verts = set_segments  # for compatibility with PolyCollection
     set_paths = set_segments

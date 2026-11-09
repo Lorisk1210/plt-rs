@@ -337,8 +337,16 @@ impl Art3D {
                 direction,
             } => {
                 let text = store.get_as_mut::<TextArtist>(id)?;
-                let [anchor, end] = [*position, add(*position, *direction)];
-                let projected = projection.project_all(&[anchor, end]);
+                // matplotlib hides the position alone (`Text3D.draw`
+                // masks it), then projects it and its end along the
+                // direction through the scales.
+                let anchor = if projection.hides(*position) {
+                    [f64::NAN; 3]
+                } else {
+                    *position
+                };
+                let projected =
+                    projection.project_hidden_too_all(&[anchor, add(anchor, *direction)]);
                 let (anchor, end) = (projected[0], projected[1]);
                 let angle = (end[1] - anchor[1]).atan2(end[0] - anchor[0]).to_degrees();
                 text.position = Point::new(anchor[0], anchor[1]);

@@ -165,6 +165,20 @@ impl LabelBase {
         self
     }
 
+    /// Notes that a draw of the texts failed on the first one it draws,
+    /// as matplotlib's `LabelBase.draw` fails on what a text keeps (font
+    /// features that are no strings, path effects that are no effects)
+    /// once it moved and turned the text: the texts of later draws are
+    /// moved and turned by as much.
+    pub fn note_failed_draw(&self) {
+        let level = match self.part {
+            Part::TickLabels(level) => Some(level),
+            Part::Label => None,
+        };
+        self.artist
+            .with_layout(|artist, layout| artist.note_failed_text_draw(layout, level));
+    }
+
     fn get<R>(&self, f: impl FnOnce(&LabelState) -> R) -> R {
         self.artist.get(|state| {
             f(match self.part {

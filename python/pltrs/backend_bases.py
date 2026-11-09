@@ -1803,6 +1803,13 @@ class FigureCanvasBase:
         if not all(isinstance(value, Real) for value in (x, y)):
             for axes in self.figure.get_axes():
                 axes.patch.contains_point(xy)
+        axes_list = self.figure.get_axes()
+        if any(axes.name == "3d" for axes in axes_list):
+            # The 3D Axes among the others, which pltrs (Rust) keeps apart:
+            # matplotlib's test of every Axes' patch.
+            axes_list = [a for a in axes_list
+                         if a.patch.contains_point(xy) and a.get_visible()]
+            return cbook._topmost_artist(axes_list) if axes_list else None
         return self.figure._axes_at(x, y)
 
     def grab_mouse(self, ax):

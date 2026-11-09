@@ -154,9 +154,8 @@ _PYTHON_PARAMS = {"backend": rcsetup._auto_backend_sentinel}
 _NATIVE_KEYS = frozenset(_rcsetup.keys())
 
 #: rcParams whose matplotlib validators warn about a valid value (``toolbar
-#: = 'toolmanager'``): pltrs (Rust) validates every value, and these
-#: validators run again on assignment for their warnings, but not on
-#: reading (they choose among keywords, which pltrs (Rust) keeps in
+#: = 'toolmanager'``): they run on assignment, as every validator does, but
+#: not on reading (they choose among keywords, which pltrs (Rust) keeps in
 #: matplotlib's spelling).
 _WARNING_VALIDATORS = frozenset({"toolbar"})
 
@@ -188,12 +187,13 @@ class RcParams(MutableMapping, dict):
 
     The complete list of rcParams can be found in :doc:`/users/explain/configuration`.
     """
-    # Values are validated and stored by pltrs (Rust): assigning an invalid
-    # value raises the ``ValueError`` matplotlib raises, an unknown key the
-    # ``KeyError``. Reading a value gives matplotlib's Python value: the
-    # parameter's validator (`.rcsetup`) applied to the rc text pltrs (Rust)
-    # keeps, or to the value given, while pltrs (Rust) holds that value (so
-    # that ``'dashed'`` stays ``'dashed'`` where pltrs (Rust) keeps ``--``).
+    # Values are validated by matplotlib's validators (`.rcsetup`), whose
+    # errors assigning an invalid value raises, then stored by pltrs (Rust),
+    # which validates their rc text again. Reading a value gives
+    # matplotlib's Python value: the parameter's validator applied to the
+    # rc text pltrs (Rust) keeps, or to the value validated, while pltrs
+    # (Rust) holds that value (so that ``'dashed'`` stays ``'dashed'`` where
+    # pltrs (Rust) keeps ``--``).
     # ``matplotlib.rcParams`` holds the current parameters; other instances
     # (``rcParamsDefault``, ``RcParams({...})``, copies) hold their own, and
     # only the keys given to them.
@@ -301,14 +301,22 @@ class RcParams(MutableMapping, dict):
         if (key == "backend" and val is rcsetup._auto_backend_sentinel
                 and "backend" in self):
             return
-        if key not in _PYTHON_PARAMS and not (isinstance(key, str)
-                                              and key.startswith("pltrs.")):
-            _api.getitem_checked(self.validate, rcParam=key, _error_cls=KeyError)
-        self._set(key, val)
-        if key in _WARNING_VALIDATORS:
-            self.validate[key](val)
-        if key in {"text.hinting_factor", "text.kerning_factor"} and val is not None:
+        if isinstance(key, str) and key.startswith("pltrs."):
+            # pltrs (Rust)'s own parameters, which only it validates.
+            self._set(key, val)
+            return
+        # matplotlib's validator first, for its errors and its value; then
+        # pltrs (Rust) validates the value's rc text again as it stores it.
+        valid_key = _api.getitem_checked(
+            self.validate, rcParam=key, _error_cls=KeyError
+        )
+        try:
+            cval = valid_key(val)
+        except ValueError as ve:
+            raise ValueError(f"Key {key}: {ve}") from None
+        if key in {"text.hinting_factor", "text.kerning_factor"} and cval is not None:
             _api.warn_deprecated("3.11", name=key, obj_type="rcParam")
+        self._set(key, cval)
 
     def __getitem__(self, key):
         # In theory, this should only ever be used after the global rcParams
@@ -326,9 +334,9 @@ class RcParams(MutableMapping, dict):
         return None if backend is rcsetup._auto_backend_sentinel else backend
 
     def __delitem__(self, key):
-        if self._keys is None or key not in self._keys:
-            raise KeyError(key)
-        self._keys.discard(key)
+        # matplotlib's RcParams inherits `MutableMapping.__delitem__`, which
+        # deletes nothing (so ``pop`` and ``popitem`` fail too).
+        raise KeyError
 
     def __iter__(self):
         """Yield sorted list of keys."""
@@ -546,6 +554,7 @@ def rcdefaults():
         Use a specific style file.  Call ``style.use('default')`` to restore
         the default style.
     """
+    _import_style_core()
     kept = {key: rcParams[key] for key in _STYLE_BLACKLIST if key in rcParams}
     _rcsetup.replace(_rcsetup.defaults())
     rcParams._given = dict(rcParamsDefault._given)
@@ -628,21 +637,45 @@ def _rc_params_in_file(fname, fail_on_error=False):
     Unlike `rc_params_from_file`, the configuration class only contains the
     parameters specified in the file (i.e. default values are not filled in).
     pltrs (Rust) reads the file; the lines matplotlib skips are logged with
-    matplotlib's messages, or raise with *fail_on_error*.
+    matplotlib's messages, or raise with *fail_on_error*, the values pltrs
+    (Rust) refuses assigned as matplotlib assigns them, for its errors.
     """
     path = _local_path(fname)
     try:
-        entries, warnings = _rcsetup.read_file(path)
+        entries, skipped = _rcsetup.read_file(path)
     except OSError:
         _raise_undecodable(fname, path)
         raise
-    for kind, message in warnings:
-        if fail_on_error and kind == "invalid value":
-            raise ValueError(message)
-        _log.warning(message)
     config = RcParams()
     for key, value in entries:
         config._set(key, value)
+    for kind, line_no, line, key, val in skipped:
+        if kind in ("missing colon", "duplicate key"):
+            _log.warning(f'{kind.capitalize()} in file %r, line %d (%r)',
+                         fname, line_no, line)
+        elif key in rcsetup._validators:
+            # A value pltrs (Rust) refused, or a parameter it leaves to
+            # Python (``backend``): assigned as matplotlib assigns it.
+            if fail_on_error:
+                config[key] = val  # try to convert to proper type or raise
+            else:
+                try:
+                    config[key] = val  # try to convert to proper type or skip
+                except Exception as msg:
+                    _log.warning('Bad value in file %r, line %d (%r): %s',
+                                 fname, line_no, line, msg)
+        else:
+            # __version__ must be looked up as an attribute to trigger the
+            # module-level __getattr__.
+            version = ('main' if '.post' in __version__
+                       else f'v{__version__}')
+            _log.warning("""
+Bad key %(key)s in file %(fname)s, line %(line_no)s (%(line)r)
+You probably need to get an updated matplotlibrc file from
+https://github.com/matplotlib/matplotlib/blob/%(version)s/lib/matplotlib/mpl-data/matplotlibrc
+or from the matplotlib source distribution""",
+                         dict(key=key, fname=fname, line_no=line_no,
+                              line=line, version=version))
     return config
 
 
@@ -734,6 +767,7 @@ def rc_file(fname, *, use_default_template=True):
         in the given file. If False, the current configuration persists
         and only the parameters specified in the file are updated.
     """
+    _import_style_core()
     rc_from_file = rc_params_from_file(
         fname, use_default_template=use_default_template)
     rcParams._update_from(
@@ -747,8 +781,17 @@ def rc_file_defaults():
     Style-blacklisted `.rcParams` (defined in
     ``matplotlib.style.core.STYLE_BLACKLIST``) are not updated.
     """
+    _import_style_core()
     rcParams._update_from(
         rcParamsOrig, [key for key in rcParamsOrig if key not in _STYLE_BLACKLIST])
+
+
+def _import_style_core():
+    """Import the deprecated ``style.core`` without its warning, as
+    matplotlib's `rcdefaults`, `rc_file` and `rc_file_defaults` do (which
+    makes it an attribute of `matplotlib.style`)."""
+    with _api.suppress_matplotlib_deprecation_warning():
+        from .style import core  # noqa: F401
 
 
 @functools.cache

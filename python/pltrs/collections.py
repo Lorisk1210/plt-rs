@@ -2415,11 +2415,15 @@ class _MeshData:
         """
         coordinates = _collections.get_coordinates(self._native)
         # As matplotlib keeps them: integers for a mesh of the default grid
-        # (masked vertices, NaN here, stay floats).
+        # (masked vertices, NaN here, stay floats), masked where the mesh
+        # was made of the coordinates given (``pcolormesh(X, Y, C)``, whose
+        # ``_pcolorargs`` masks them).
         dtype = self.__dict__.get("_coordinates_dtype")
-        if dtype is None or not np.isfinite(coordinates).all():
-            return coordinates
-        return coordinates.astype(dtype, copy=False)
+        if dtype is not None and np.isfinite(coordinates).all():
+            coordinates = coordinates.astype(dtype, copy=False)
+        if self.__dict__.get("_coordinates_masked"):
+            return np.ma.masked_invalid(coordinates)
+        return coordinates
 
     @staticmethod
     def _convert_mesh_to_paths(coordinates):

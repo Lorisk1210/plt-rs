@@ -27,6 +27,40 @@ impl Figure {
             .map(|(document, _)| document)
     }
 
+    /// The figure as an SVG document with save options, and the images
+    /// to write beside it: with `svg.image_inline` off, its images are
+    /// files named after `image_stem` (`<stem>.image<N>.png`, matplotlib's
+    /// name of the file written to, `""` for an unnamed stream), else
+    /// embedded.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::figure::SaveOptions;
+    /// let fig = Figure::with_size(2.0, 2.0, 50.0);
+    /// fig.subplot().imshow(Grid::from_rows([vec![0.0, 1.0]])?, Default::default())?;
+    /// let (embedded, none) = fig.to_svg_document(SaveOptions::default(), "fig.svg")?;
+    /// assert!(embedded.contains("data:image/png;base64") && none.is_empty());
+    /// let (document, images) = pltrs::rc::context(|| {
+    ///     pltrs::rc::set("svg.image_inline", "False").expect("a valid flag");
+    ///     fig.to_svg_document(SaveOptions::default(), "fig.svg")
+    /// })?;
+    /// assert_eq!(images[0].name, "fig.svg.image0.png");
+    /// assert!(document.contains("xlink:href=\"fig.svg.image0.png\""));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When some artists cannot be drawn or the document cannot be written.
+    pub fn to_svg_document(
+        &self,
+        options: SaveOptions,
+        image_stem: &str,
+    ) -> Result<(String, Vec<ImageFile>), SaveError> {
+        let inline = crate::rc::params().svg_image_inline;
+        self.svg_document(&options, (!inline).then(|| image_stem.to_owned()))
+    }
+
     /// Writes the figure to `path` as SVG (gzipped for SVGZ); with
     /// `svg.image_inline` off, its images go beside it as
     /// `<path>.image<N>.png`, named after the path as given.
@@ -36,9 +70,7 @@ impl Figure {
         options: &SaveOptions,
         gzip: bool,
     ) -> Result<(), SaveError> {
-        let inline = crate::rc::params().svg_image_inline;
-        let name = (!inline).then(|| path.to_string_lossy().into_owned());
-        let (document, images) = self.svg_document(options, name)?;
+        let (document, images) = self.to_svg_document(options.clone(), &path.to_string_lossy())?;
         for image in images {
             std::fs::write(&image.name, image.png).map_err(SaveError::Io)?;
         }

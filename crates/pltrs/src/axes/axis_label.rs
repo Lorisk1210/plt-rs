@@ -410,6 +410,21 @@ impl Axis {
             .flatten()
     }
 
+    /// Where the last layout of the axis' texts (its last draw, or the
+    /// last measure of them) anchored the label in display pixels: beyond
+    /// the spine, its ticks and the tick labels on its side (matplotlib's
+    /// `label.get_position()` across the axis, which
+    /// `_update_label_position` sets when it draws or measures the axis);
+    /// `None` before, for a label without text or hidden then, and for a
+    /// label placed by coordinates (`set_label_coords`).
+    pub fn label_placed(&self) -> Option<Point> {
+        self.read(|axis| {
+            axis.label_placed
+                .get()
+                .filter(|_| axis.label.coords.is_none())
+        })
+    }
+
     /// The side the offset (or scale) text sits on: the side of the ticks
     /// for x (matplotlib's `offset_text_position`), left or right of the
     /// top end for y.
@@ -543,6 +558,26 @@ mod tests {
         yaxis.set_label_loc(LabelLoc::Start);
         assert_eq!(yaxis.label_halign(), HAlign::Left);
         assert_eq!(ax.xaxis().label_halign(), HAlign::Center);
+    }
+
+    #[test]
+    fn labels_are_placed_where_the_last_layout_put_them() {
+        // matplotlib 3.11: a 4 x 3 in figure at 100 dpi plotting (0, 0) to
+        // (1, 1) has its x label at 3.83 px and its y label at 12.72 px
+        // once drawn.
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a line");
+        ax.set_xlabel("x label");
+        ax.set_ylabel("y label");
+        assert_eq!(ax.xaxis().label_placed(), None, "not laid out yet");
+        fig.to_png().expect("drawn");
+        let x = ax.xaxis().label_placed().expect("placed").y;
+        let y = ax.yaxis().label_placed().expect("placed").x;
+        assert!((x - 3.833_333_333_333_327).abs() < 1e-9, "{x}");
+        assert!((y - 12.722_222_222_222_223).abs() < 1e-9, "{y}");
+        ax.xaxis().set_label_coords(0.5, -0.1);
+        assert_eq!(ax.xaxis().label_placed(), None, "placed by coordinates");
     }
 
     #[test]

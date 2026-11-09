@@ -248,6 +248,32 @@ fn raised<T>(figure: &Figure, printed: Result<T, SaveError>) -> PyResult<T> {
     }
 }
 
+/// The figure as an SVG document with `settings`, and its images as
+/// `(name, png)` to write beside the document, named after `image_stem`
+/// (the name of the file written to, `""` for a stream without one), with
+/// `svg.image_inline` off (matplotlib's `print_svg`); `on_draw` is called
+/// once it is drawn.
+fn print_svg(
+    figure: Figure,
+    settings: PrintSettings,
+    image_stem: String,
+    on_draw: Option<Callback>,
+) -> PyResult<(Bytes, Vec<(String, Bytes)>)> {
+    let options = SaveOptions {
+        format: Some(SaveFormat::Svg),
+        ..settings.0
+    };
+    let printed = sending_draw_event(&figure, on_draw, || {
+        figure.to_svg_document(options, &image_stem)
+    });
+    let (document, images) = raised(&figure, printed)?;
+    let images = images
+        .into_iter()
+        .map(|image| (image.name, Bytes(image.png)))
+        .collect();
+    Ok((Bytes(document.into_bytes()), images))
+}
+
 /// The figure as a PGF picture with `settings`, its text measured by the
 /// TeX system as matplotlib's PGF backend measures it (`print_pgf`): the
 /// picture and its images as `(name, png)`, named after `image_stem`, to
@@ -304,6 +330,7 @@ fn default_creator() -> PyResult<Option<String>> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("print_figure", print_figure)?;
     module.add("print_pgf", print_pgf)?;
+    module.add("print_svg", print_svg)?;
     module.add("print_rgba", print_rgba)?;
     module.add("default_creator", default_creator)
 }

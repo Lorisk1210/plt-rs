@@ -123,11 +123,11 @@ pub(crate) use sources::UnitSources;
 /// `ConciseDateConverter.axisinfo`): an `AutoDateLocator` and an
 /// `AutoDateFormatter` or a `ConciseDateFormatter`, as the kind of the
 /// converter says. The switchable converter takes its kind from
-/// `date.converter` and its locator's `interval_multiples` from
-/// `date.interval_multiples` now (matplotlib's `_SwitchableDateConverter`,
-/// which makes a converter of either kind from them); a converter of a
-/// given kind ticks at interval multiples, the default of matplotlib's
-/// constructors. Without `tz` (the axis unit is no zone) they take the
+/// `date.converter` and, for the automatic kind, its locator's
+/// `interval_multiples` from `date.interval_multiples` now (matplotlib's
+/// `_SwitchableDateConverter`, which makes a converter of either kind from
+/// them, the concise one dropping it); a converter of a given kind ticks
+/// at interval multiples, the default of matplotlib's constructors. Without `tz` (the axis unit is no zone) they take the
 /// `timezone` rcParam as matplotlib's do given `tz=None`: the locator
 /// now, the formatter whenever it formats.
 pub(crate) fn date_tickers(
@@ -137,7 +137,12 @@ pub(crate) fn date_tickers(
     let (kind, interval_multiples) = match *converter {
         UnitConverter::Dates => {
             let rc = crate::rc::params();
-            (rc.date_converter, rc.date_interval_multiples)
+            // matplotlib's `ConciseDateConverter` calls its base's
+            // constructor last, which sets `interval_multiples` back to its
+            // default: a concise converter always ticks at multiples.
+            let multiples =
+                rc.date_interval_multiples || rc.date_converter == DateConverter::Concise;
+            (rc.date_converter, multiples)
         }
         UnitConverter::DatesBy(kind) => (kind, true),
         UnitConverter::Categories | UnitConverter::Custom(_) => return None,
@@ -394,6 +399,33 @@ mod tests {
         // matplotlib 3.11 labels this span the same way.
         assert_eq!(labels[..3], ["01-02 00", "01-02 04", "01-02 08"]);
         assert_eq!(labels.last(), Some(&"01-03 12"));
+    }
+
+    #[test]
+    fn concise_date_axes_tick_at_interval_multiples_whatever_the_rc_param() {
+        // matplotlib 3.11's concise converter ticks a decade at whole years
+        // from 2020 (and 20 days at every fourth day) with
+        // `date.interval_multiples` off or on; its automatic one does not.
+        let labels = |converter: &str, multiples: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("date.converter", converter).unwrap();
+                crate::rc::set("date.interval_multiples", multiples).unwrap();
+                let ax = Figure::new().subplot();
+                let days = [
+                    DateTime::new(2021, 3, 4, 5, 6, 7, 0).unwrap(),
+                    DateTime::new(2021, 3, 24, 5, 6, 7, 0).unwrap(),
+                ];
+                ax.plot(days.to_vec(), [0.0, 1.0]).unwrap();
+                let ticks = ax.ticks(AxisName::X).unwrap();
+                ticks
+                    .major
+                    .iter()
+                    .map(|tick| tick.label.clone())
+                    .collect::<Vec<_>>()
+            })
+        };
+        assert_eq!(labels("concise", "False"), labels("concise", "True"));
+        assert_ne!(labels("auto", "False"), labels("auto", "True"));
     }
 
     #[test]

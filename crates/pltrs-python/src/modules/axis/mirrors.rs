@@ -66,17 +66,6 @@ fn drawn_tick_label(
     }
 }
 
-/// matplotlib's alignment of the label on the first or the second side of
-/// an axis (`get_xaxis_text1_transform`, ...): `(halign, valign)`.
-fn default_alignment(name: AxisName, first_side: bool) -> (HAlign, VAlign) {
-    match (name, first_side) {
-        (AxisName::X, true) => (HAlign::Center, VAlign::Top),
-        (AxisName::X, false) => (HAlign::Center, VAlign::Bottom),
-        (AxisName::Y, true) => (HAlign::Right, VAlign::CenterBaseline),
-        (AxisName::Y, false) => (HAlign::Left, VAlign::CenterBaseline),
-    }
-}
-
 /// A point at `loc` along axis `name`, on its first or second side
 /// (data coordinates along the axis, axes fractions across it).
 fn on_side(name: AxisName, loc: f64, first_side: bool) -> Point {
@@ -115,7 +104,7 @@ fn sync_label(
     first_side: bool,
 ) {
     let name = axis.name();
-    let (halign, valign) = default_alignment(name, first_side);
+    let (halign, valign) = axis.tick_label_alignment(first_side);
     text.set_usetex(axis.usetex());
     let across = style.label_across.unwrap_or(side(first_side));
     text.set_text(label)
@@ -350,7 +339,7 @@ fn push_tick_label(
         AnyAxis::Deep(axis) => return deep::push_tick_label(&axis, minor, index, second, &text),
     };
     let level = axis.tick_style(minor);
-    let alignment = default_alignment(axis.name(), !second);
+    let alignment = axis.tick_label_alignment(!second);
     let props = TickLabelProps {
         across: own(
             across(axis.name(), text.position()),
@@ -540,10 +529,13 @@ fn sync_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
         AnyAxis::Flat(axis) => axis,
         AnyAxis::Deep(axis) => return deep::sync_axis_label(&axis, &text),
     };
+    // Along the axis in axes fractions, across it in display pixels where
+    // the axis' last layout placed it (0 before), or at its coordinates.
     let along = axis.label_loc().fraction();
+    let placed = axis.label_placed();
     let position = axis.label_coords().unwrap_or(match axis.name() {
-        AxisName::X => Point::new(along, 0.0),
-        AxisName::Y => Point::new(0.0, along),
+        AxisName::X => Point::new(along, placed.map_or(0.0, |anchor| anchor.y)),
+        AxisName::Y => Point::new(placed.map_or(0.0, |anchor| anchor.x), along),
     });
     text.set_text(axis.label_text())
         .set_position(position)

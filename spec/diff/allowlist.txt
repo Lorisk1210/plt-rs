@@ -188,3 +188,9 @@ corpus/ipython-cookbook/chapter06_viz/01_styles$ | ^value\[sorted\]: list length
 ^corpus/ | ^value\[matplotlib_fname\]: str$ | without an rc file of the program's, the file named is the template of the defaults, pltrs' `pltrsrc` in its data directory
 corpus/scipy-cookbook/ipython/Matplotlib_PySide$ | ^exception message\[use\]: ValueError$ | the backends a name may name are matplotlib's and pltrs' own GUI backend (`pltrs`)
 corpus/matplotlib-3-cookbook/Chapter12/Chapter 12 - Using axisartist Toolkit$ | ^exception message\[\?\]: ImportError$ | the message names the file of the package imported from, matplotlib's mpl_toolkits beside it in site-packages, pltrs' inside its package
+# The rcParams and pickling programs (task GEN3).
+generated/rcparams/api_styles$ | ^value\[sorted\]: list length$ | style.available and style.library list pltrs' two looks (pltrs-modern, pltrs-modern-dark) with matplotlib's sheets
+generated/rcparams/api_rc_files$ | ^value\[basename\]: str$ | without an rc file of the program's, matplotlib_fname() names the template of the defaults, pltrs' `pltrsrc` in its data directory
+generated/rcparams/svg_v1$ | ^value\[findall\]: str$ @ ^\d+:0\[\d+\]$ | an embedded image's id is hashed from its PNG bytes: matplotlib's are Pillow's (zlib's DEFLATE), pltrs' its own encoder's, of the same pixels; the ids of everything else, hashed from what both write alike, agree
+generated/pickling/unpicklable$ | ^exception\[(dumps|deepcopy)\]: missing TypeError$ | pltrs' category UnitData pickles (since 607ebf70), where matplotlib's holds an itertools.count, which Python 3.14 no longer pickles
+generated/pickling/unpicklable$ | ^exception message\[dumps\]: PicklingError$ | both fail with pickle's PicklingError for a function of the program's that pickle cannot find; matplotlib meets the y axis' lambda first walking its objects, pltrs the x axis' formatter first among the callables its archive refers to

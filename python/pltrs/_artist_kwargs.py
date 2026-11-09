@@ -29,10 +29,14 @@ def native_artist_kwargs(kwargs):
 
 def keep_program_picker(artist, kwargs):
     """Give *artist*, made with the keyword arguments *kwargs*, the
-    callable picker they hold, if any; return *artist*."""
+    callable picker they hold, if any, and keep any other picker as given
+    (``picker=5`` reads back as ``5``, as matplotlib's ``set_picker`` keeps
+    it); return *artist*."""
     picker = kwargs.get("picker")
     if callable(picker):
         artist.set_picker(picker)
+    elif "picker" in kwargs:
+        artist.__dict__["_picker"] = picker
     return artist
 
 

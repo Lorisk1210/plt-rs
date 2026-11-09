@@ -24,6 +24,7 @@ in matplotlib's types by applying these validators to the rc text pltrs
 
 import ast
 from dataclasses import dataclass
+from enum import Enum
 from functools import lru_cache, reduce
 from numbers import Real
 import operator
@@ -835,11 +836,15 @@ def _python_value(value):
 def _rc_value(value):
     """
     *value* as pltrs (Rust) reads it (``_native.rcsetup`` spells values as
-    rc text): a `~cycler.Cycler` as the text of the cycler adding one
-    cycler per property over its values as Python's lists and numbers,
-    whose reprs rc text parses where those of numpy's arrays and scalars
-    do not; any other value as it is.
+    rc text): an enumeration (a validated `.CapStyle`) as its value, a
+    `~cycler.Cycler` as the text of the cycler adding one cycler per
+    property over its values as Python's lists and numbers, whose reprs rc
+    text parses where those of numpy's arrays and scalars do not; any other
+    value as it is.
     """
+    if isinstance(value, Enum):
+        # A validated cap or join style (`CapStyle`, `JoinStyle`).
+        return value.value
     if not isinstance(value, Cycler) or not value.keys:
         return value
     return repr(reduce(operator.add, (

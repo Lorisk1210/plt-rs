@@ -8,6 +8,8 @@ mod artists;
 mod axis_texts;
 mod curvilinear;
 mod helpers;
+
+pub(crate) use curvilinear::{PyExtremeFinder, PyGridFormatter, PyGridLocator};
 mod parts;
 
 use crate::binding::prelude::*;

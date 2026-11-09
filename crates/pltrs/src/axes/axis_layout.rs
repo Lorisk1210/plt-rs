@@ -136,6 +136,9 @@ pub(crate) struct AxisTexts {
     pub(crate) tick_labels: Vec<TickLabel>,
     /// The axis label, if it has text.
     pub(crate) label: Option<PlacedText>,
+    /// Where the axis label goes unless placed by coordinates, if it has
+    /// text and is shown (see [`AxisPainter::axis_label_anchor`]).
+    pub(crate) label_anchor: Option<Point>,
     /// The offset text, if shown.
     pub(crate) offset: Option<PlacedText>,
     /// Where the offset text is anchored in display coordinates, shown or
@@ -231,7 +234,14 @@ impl<'a> AxisPainter<'a> {
             .offset_placement(cx.read(), &boxes)
             .map(|(anchor, _)| anchor);
         let aligned = self.aligned_label_boxes(cx, &boxes);
-        let label = self.axis_label(cx, rc, &aligned);
+        // Placed when it is drawn: an empty or hidden label is not (which
+        // leaves the program's transforms uncalled for its spine).
+        let label = &self.axis.label;
+        texts.label_anchor = (!label.text.is_empty() && label.visible)
+            .then(|| self.axis_label_anchor(cx, &aligned))
+            .flatten();
+        self.axis.label_placed.set(texts.label_anchor);
+        let label = self.axis_label(cx, rc, texts.label_anchor);
         let offset = self.offset_text(cx, rc, &boxes);
         for (slot, placed) in [(&mut texts.label, label), (&mut texts.offset, offset)] {
             match placed {
@@ -445,14 +455,12 @@ impl<'a> AxisPainter<'a> {
         first_side: bool,
     ) -> Option<(Point, (HAlign, VAlign))> {
         let pad = style.label_offset();
-        // `xtick.alignment` and `ytick.alignment` (matplotlib's
-        // `get_xaxis_text1_transform` and friends).
-        let (x_align, y_align) = (self.axes.rc.xtick_alignment, self.axes.rc.ytick_alignment);
-        let ((dx, dy), align) = match (self.name, first_side) {
-            (AxisName::X, true) => ((0.0, -pad), (x_align, VAlign::Top)),
-            (AxisName::X, false) => ((0.0, pad), (x_align, VAlign::Bottom)),
-            (AxisName::Y, true) => ((-pad, 0.0), (HAlign::Right, y_align)),
-            (AxisName::Y, false) => ((pad, 0.0), (HAlign::Left, y_align)),
+        let align = tick_label_alignment(self.name, first_side, &self.axes.rc);
+        let (dx, dy) = match (self.name, first_side) {
+            (AxisName::X, true) => (0.0, -pad),
+            (AxisName::X, false) => (0.0, pad),
+            (AxisName::Y, true) => (-pad, 0.0),
+            (AxisName::Y, false) => (pad, 0.0),
         };
         // The pad joins the side's transform as matplotlib's
         // `ScaledTranslation` joins it: in inches scaled by the dpi, in one
@@ -583,6 +591,23 @@ fn lay_out_tick_label(
 /// The extents of the tick labels of `texts` that count in layouts, each
 /// with whether it is on the first side; labels without text are empty
 /// boxes at their anchors.
+/// The alignment of the tick labels of axis `name` on its first or second
+/// side before any of their own: `xtick.alignment` along an x axis, below
+/// or above it, `ytick.alignment` across a y axis, right or left of it
+/// (matplotlib's `get_xaxis_text1_transform` and friends).
+pub(crate) fn tick_label_alignment(
+    name: AxisName,
+    first_side: bool,
+    rc: &RcParams,
+) -> (HAlign, VAlign) {
+    match (name, first_side) {
+        (AxisName::X, true) => (rc.xtick_alignment, VAlign::Top),
+        (AxisName::X, false) => (rc.xtick_alignment, VAlign::Bottom),
+        (AxisName::Y, true) => (HAlign::Right, rc.ytick_alignment),
+        (AxisName::Y, false) => (HAlign::Left, rc.ytick_alignment),
+    }
+}
+
 fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
     let empty = texts
         .empty_label_anchors

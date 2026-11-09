@@ -496,9 +496,13 @@ fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
     (ticks, labels)
 }
 
-/// Whether `axes.grid*` turns the gridlines of a tick level on.
+/// Whether `axes.grid*` turns the gridlines of a tick level on, as
+/// matplotlib's `Axes.clear` leaves them: it switches the major gridlines
+/// off, then those of the levels `axes.grid.which` names on the axes
+/// `axes.grid.axis` names, while the minor gridlines of the other axis
+/// keep the default of their level, whichever axes `axes.grid.axis` names.
 fn grid_on_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> bool {
-    grid_level_on(major, rc) && rc.axes_grid_axis.includes(axis)
+    grid_level_on(major, rc) && (!major || rc.axes_grid_axis.includes(axis))
 }
 
 /// Whether `axes.grid` and `axes.grid.which` turn the gridlines of the
@@ -513,6 +517,38 @@ pub(crate) fn grid_level_on(major: bool, rc: &RcParams) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn minor_gridlines_follow_their_level_on_either_axis() {
+        // matplotlib 3.11 with axes.grid, axes.grid.which = 'minor' and
+        // axes.grid.axis = 'x': minor gridlines on both axes, no major ones.
+        let mut rc = RcParams::matplotlib();
+        rc.set("axes.grid", "True").expect("valid");
+        rc.set("axes.grid.which", "minor").expect("valid");
+        rc.set("axes.grid.axis", "x").expect("valid");
+        let on = |axis, major| TickStyle::from_rc(axis, major, &rc).grid_on;
+        assert_eq!(
+            [
+                on(AxisName::X, true),
+                on(AxisName::X, false),
+                on(AxisName::Y, true),
+                on(AxisName::Y, false)
+            ],
+            [false, true, false, true]
+        );
+        rc.set("axes.grid.which", "both").expect("valid");
+        rc.set("axes.grid.axis", "y").expect("valid");
+        let on = |axis, major| TickStyle::from_rc(axis, major, &rc).grid_on;
+        assert_eq!(
+            [
+                on(AxisName::X, true),
+                on(AxisName::X, false),
+                on(AxisName::Y, true),
+                on(AxisName::Y, false)
+            ],
+            [false, true, true, true]
+        );
+    }
 
     #[test]
     fn defaults_match_matplotlib() {

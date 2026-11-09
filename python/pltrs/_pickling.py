@@ -129,6 +129,39 @@ def restore_program_hooks(figure, hooks):
             _program.connect(artist)
 
 
+#: The key under which an object read back from a pickle, its state not
+#: set yet, keeps what waits for its state (`when_built`).
+WAITING = "_waiting_for_state"
+
+
+def _built(obj):
+    """Whether *obj*, read back from a pickle, has its state."""
+    return any(key != WAITING for key in vars(obj))
+
+
+def when_built(objects, callback):
+    """
+    Call *callback* once each of *objects*, read back from a pickle, has
+    its state: at once if they all do, else when the last of them gets it
+    (`.Artist.__setstate__`). A pickle of an artist reaches its figure from
+    inside the artist's state, so that the figure's state is set before the
+    artist's.
+    """
+    unbuilt = [obj for obj in objects if not _built(obj)]
+    if not unbuilt:
+        callback()
+        return
+    remaining = [len(unbuilt)]
+
+    def one_built():
+        remaining[0] -= 1
+        if not remaining[0]:
+            callback()
+
+    for obj in unbuilt:
+        vars(obj).setdefault(WAITING, []).append(one_built)
+
+
 def restore_figure(cls, state):
     """A figure of class *cls* being unpickled: its attributes come from
     ``Figure.__setstate__`` once *state*, its native state, is read."""

@@ -64,8 +64,8 @@ pub use pgf::{PgfTexSystem, log_unknown_font, pgf_preamble, pgf_text};
 pub use pgf_latex::{PdfToPng, PgfPages};
 pub use pgf_metrics::{PgfTextMetrics, measure_pgf_text};
 pub use pltrs_render::{
-    Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType, SvgMetadata,
-    UnknownSvgFontType,
+    ImageFile, Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType,
+    SvgMetadata, UnknownSvgFontType,
 };
 pub use postscript::{DistillOptions, ProgramError, check_distiller, distill_file};
 pub(crate) use postscript::{Executable, Workspace};

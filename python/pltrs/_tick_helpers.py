@@ -46,9 +46,10 @@ def _registry(figure):
 
 
 def _axis_registry(axis):
-    """The tick helpers of the figure of *axis*, or of its Axes once that
-    was removed from its figure (whose axis keeps its helpers)."""
-    figure = axis.axes.figure
+    """The tick helpers of the root figure of *axis* (that of the subfigure
+    its Axes are in), or of its Axes once that was removed from its figure
+    (whose axis keeps its helpers)."""
+    figure = axis.axes.get_figure(root=True)
     return _registry(axis.axes if figure is None else figure)
 
 

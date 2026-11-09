@@ -2,7 +2,8 @@
 What the program gives the parts of an axis artist (its ticks, tick labels
 and label) that matplotlib keeps unchecked and fails on only as it draws
 them: a padding or a tick size that is no number, a transform that is no
-transform, a filter that is no function, path effects that are none.
+transform, a filter that is no function, path effects that are none, font
+features that are no strings.
 
 pltrs (Rust) draws the parts with their axis artist and cannot draw them
 with such values: the part keeps each instead (see ``pltrs._unusable``),
@@ -18,6 +19,8 @@ from numbers import Real
 import numpy as np
 
 from pltrs import _python_drawing, _unusable
+from pltrs.backends.backend_agg import get_hinting_flag
+from pltrs.font_manager import fontManager, get_font
 from pltrs.transforms import Affine2D, Transform
 
 
@@ -118,6 +121,25 @@ def check_text_drawing(text):
     else:
         _unusable.keep(text, "agg_filter", agg_filter,
                        lambda kept: text._draws_text() and _filter(kept))
+    features = text.get_fontfeatures()
+    if features is None or all(isinstance(tag, str) for tag in features):
+        _unusable.drop(text, "fontfeatures")
+    else:
+        _unusable.keep(text, "fontfeatures", features,
+                       lambda kept: _lay_out(text, kept))
+
+
+def _lay_out(text, features):
+    """Lay out the first line *text* draws as plain text (no mathtext)
+    with the font *features*, as matplotlib's Agg renderer lays out each
+    such line it draws (``FT2Font._layout``, which refuses features that
+    are no strings)."""
+    for line in text._drawn_lines():
+        if not text._preprocess_math(line)[1]:
+            font = get_font(fontManager._find_fonts_by_props(text.get_fontproperties()))
+            font._layout.check(font, line, flags=get_hinting_flag(),
+                               features=features, language=text.get_language())
+            return
 
 
 def _listed(effects):

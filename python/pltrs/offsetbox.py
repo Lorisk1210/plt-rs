@@ -33,8 +33,8 @@ import weakref
 import numpy as np
 
 from . import _docstring
-from . import (_api, _handles, _live_transforms, _offsetbox_trees, _python_drawing,
-               _unusable, cbook)
+from . import (_api, _handles, _live_transforms, _named, _offsetbox_trees,
+               _python_drawing, _unusable, cbook)
 from ._annotation_kept import native_coords
 from . import rcParams
 from . import text as mtext
@@ -1650,11 +1650,16 @@ class AnchoredOffsetbox(OffsetBox):
         if check is not None:
             check(renderer)
 
+    # (Named as matplotlib's, which the class inherits from `OffsetBox`.)
+    @_named.named("OffsetBox.get_window_extent")
     def get_window_extent(self, renderer=None):
         """Return the box's extent in display space (for a box inside
         another box's tree, its frame's: the box drawn at its anchor), the
         boxes of the program's inside measured as they are now."""
         self._check_figure_renderer(renderer)
+        if renderer is not None:
+            # What matplotlib's `get_bbox` asks of the renderer first.
+            renderer.points_to_pixels(self.prop.get_size_in_points())
         owner = self.__dict__.get("_tree_owner", self)
         owner._sync_tree()
         if owner._tree_unusable():

@@ -29,6 +29,17 @@ pub(crate) fn scaled(a: Vec3, s: f64) -> Vec3 {
     [a[0] * s, a[1] * s, a[2] * s]
 }
 
+/// numpy's `a * s` of a float64 array: [`scaled`], warning once as numpy
+/// does when a product makes no number of numbers (`0 × inf`).
+pub(crate) fn multiply(a: Vec3, s: f64) -> Vec3 {
+    if a.iter()
+        .any(|&c| (c == 0.0 && s.is_infinite()) || (c.is_infinite() && s == 0.0))
+    {
+        crate::warnings::warn_runtime("invalid value encountered in multiply");
+    }
+    scaled(a, s)
+}
+
 /// The dot product summed in order (numpy's element-wise products
 /// reduced along an axis).
 pub(crate) fn dot(a: Vec3, b: Vec3) -> f64 {
@@ -296,7 +307,7 @@ fn scalar_subtract(a: f64, b: f64) -> f64 {
 /// numpy's division of float64 scalars, warning as numpy does when it
 /// divides a finite number other than zero by zero, or makes no number of
 /// numbers (`0 / 0`, `inf / inf`).
-fn scalar_divide(a: f64, b: f64) -> f64 {
+pub(crate) fn scalar_divide(a: f64, b: f64) -> f64 {
     let quotient = a / b;
     if !a.is_nan() && !b.is_nan() {
         if quotient.is_nan() {

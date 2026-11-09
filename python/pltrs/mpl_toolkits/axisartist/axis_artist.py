@@ -19,6 +19,7 @@ are drawn by pltrs (Rust) the same way, as tick marks
 setters describe again.
 """
 
+from numbers import Real
 from operator import methodcaller
 
 import numpy as np
@@ -93,6 +94,11 @@ class _Drawn(_mirrors.Mirroring):
 
     def window_extent(self, artist, renderer=None, dpi=None):
         return artist._drawn_extent(self)
+
+    def tight_box(self, artist, renderer=None):
+        # matplotlib's tight box of a part is its extent as the part's class
+        # measures it (an axis label sets its offset first).
+        return artist.get_window_extent(renderer)
 
     def refresh(self, artist):
         artist._refresh(self)
@@ -196,7 +202,9 @@ class _AutoStyle:
 
     @property
     def _color(self):
-        return self.get_color()
+        # matplotlib's attribute: "auto" while the colour follows the
+        # reference artist (which `Ticks.get_color` asks).
+        return _AutoStyle.get_color(self)
 
     def set_markeredgewidth(self, ew):
         # docstring inherited
@@ -373,6 +381,11 @@ class Ticks(AttributeCopier, _AutoStyle, _DrawnOnItsOwn, Line2D):
         "out": Path([[-1, 0], [0, 0]]),
     }
 
+    def _draws_snapped(self):
+        # docstring inherited: matplotlib's ticks draw with a graphics
+        # context of their own, which never snaps as they do.
+        return False
+
     def draw(self, renderer):
         if not self.get_visible():
             return
@@ -520,19 +533,25 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
 
     @property
     def _ref_angle(self):
+        self._refresh_drawn()
         return self.__dict__["_ref_angle_value"]
 
     @_ref_angle.setter
     def _ref_angle(self, angle):
+        # What the last draw left comes before what is set now.
+        self._refresh_drawn()
         self.__dict__["_ref_angle_value"] = angle
         self._push()
 
     @property
     def _offset_radius(self):
+        self._refresh_drawn()
         return self.__dict__["_offset_radius_value"]
 
     @_offset_radius.setter
     def _offset_radius(self, radius):
+        # What the last draw left comes before what is set now.
+        self._refresh_drawn()
         self.__dict__["_offset_radius_value"] = radius
         self._push()
 
@@ -606,6 +625,13 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
 
     # -- what pltrs (Rust) draws ------------------------------------------
 
+    def _refresh_drawn(self):
+        """Take what the last draw of the axis artist drawing the text left
+        in it (see `_refresh`)."""
+        mirror = _mirrors.mirroring(self)
+        if isinstance(mirror, _Drawn):
+            self._refresh(mirror)
+
     def _part_transform(self, axis_artist):
         """The transform matplotlib gives the text of *axis_artist*."""
         return (axis_artist._axis_artist_helper.get_tick_transform(axis_artist._axes_of)
@@ -633,7 +659,17 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
     def _draws_text(self):
         """Whether matplotlib's draw of the text draws a line (an empty
         text draws none)."""
-        return bool(self.get_text())
+        return bool(self._drawn_lines())
+
+    def _drawn_lines(self):
+        """The lines matplotlib's draw of the text draws, in order."""
+        text = self.get_text()
+        return text.split("\n") if text else []
+
+    def _draws_snapped(self):
+        # docstring inherited: matplotlib's draw of a text draws its lines
+        # with the text's snapping.
+        return self._draws_text()
 
     def _native_pad(self, owner):
         """The pad pltrs (Rust) leaves, in points (see `._unchecked_parts`),
@@ -839,9 +875,12 @@ class AxisLabel(AttributeCopier, LabelBase):
         if not self.get_visible():
             return
 
-        if renderer is not None:
-            r = self._external_pad + renderer.points_to_pixels(self.get_pad())
-            self._offset_radius = r
+        # (matplotlib measures with its figure's renderer, at the figure's
+        # resolution, without one.)
+        r = self._external_pad + (
+            self.get_pad() * self.get_figure(root=True).dpi / 72 if renderer is None
+            else renderer.points_to_pixels(self.get_pad()))
+        self._offset_radius = r
 
         bb = super().get_window_extent(renderer)
 
@@ -943,8 +982,12 @@ class TickLabels(AxisLabel):  # mtext.Text
         of the ticklabels: if axis direction is bottom and va is 'top', it will
         return 0; if va is 'baseline', it will return (height-descent).
         """
-        whd_list = self.get_texts_widths_heights_descents(renderer)
+        return self._offsets(self.get_texts_widths_heights_descents(renderer),
+                             label_direction)
 
+    def _offsets(self, whd_list, label_direction):
+        """The ticklabel offset from the tick and the total height of the
+        ticklabels of the widths, heights and descents *whd_list*."""
         if not whd_list:
             return 0, 0
 
@@ -1160,13 +1203,19 @@ class TickLabels(AxisLabel):  # mtext.Text
         return [((float(x), float(y)), float(a), str(label)) for (x, y), a, label
                 in self.__dict__.get("_labels", [])]
 
-    def _draws_text(self):
-        # docstring inherited: matplotlib's draws each label with a line.
-        try:
-            labels = self._locs_angles_labels
-        except AttributeError:
-            return False
-        return any(str(label).strip() for _, _, label in labels)
+    def _drawn_lines(self):
+        # docstring inherited: matplotlib's draw draws each label that is
+        # not blank, as the axis artist places them as it draws.
+        mirror = _mirrors.mirroring(self)
+        if isinstance(mirror, _Drawn) and mirror.axis_artist is not None:
+            labels = self._drawn_labels(mirror)
+        else:
+            try:
+                labels = self._locs_angles_labels
+            except AttributeError:
+                return []
+        return [line for _, _, label in labels if str(label).strip()
+                for line in str(label).split("\n")]
 
     def _part_text(self):
         return None
@@ -1188,13 +1237,29 @@ class TickLabels(AxisLabel):  # mtext.Text
         drawn_labels = [label for label in self._drawn_labels(drawn)
                         if label[2].strip()]
         if drawn_labels:
-            (x, y), _, label = drawn_labels[-1]
+            (x, y), angle, label = drawn_labels[-1]
             with _mirrors.detached(self):
                 # numpy's floats, as matplotlib's tick helpers give them.
                 mtext.Text.set_x(self, np.float64(x))
                 mtext.Text.set_y(self, np.float64(y))
                 mtext.Text.set_text(self, label)
                 self._left_by_draw = self._as_left()
+            self.__dict__["_ref_angle_value"] = angle
+        self._note_drawn_pads(drawn)
+
+    def _note_drawn_pads(self, drawn):
+        """Keep the pads matplotlib's draw of the axis artist leaves in its
+        tick labels (``_update_ticks`` and `draw`): the pad of the ticks
+        outside the axes, the offset of the labels from their ticks and
+        the room they leave the axis label, as pltrs (Rust) laid them out."""
+        ticks = drawn.axis_artist.major_ticks
+        if isinstance(ticks._ticksize, Real):
+            self._external_pad = (
+                ticks._ticksize * self.get_figure(root=True).dpi / 72
+                * {"in": 0, "inout": 1/2, "out": 1}[ticks.get_tick_direction()]
+                * ticks.get_visible())
+        (self.__dict__["_offset_radius_value"],
+         self._axislabel_pad) = _axisartist.ticklabel_offsets(drawn.native, self._level(drawn))
 
     def _as_left(self):
         """The position and text of the text object, which a draw leaves
@@ -1212,9 +1277,11 @@ class TickLabels(AxisLabel):  # mtext.Text
         if drawn.axis_artist is None or not labels or extent is _mirrors.OWN:
             return extent
         theta = np.deg2rad(labels[-1][1])
-        r, _ = self._get_ticklabels_offsets(
-            self.get_figure(root=True)._get_renderer(), self._axis_direction)
-        dx, dy = -r * np.cos(theta), -r * np.sin(theta)
+        # Where the text object's offset puts the label, from where pltrs
+        # (Rust) laid it out to measure it.
+        laid_out, _ = _axisartist.ticklabel_offsets(drawn.native, self._level(drawn))
+        shift = self._offset_radius - laid_out
+        dx, dy = shift * np.cos(theta), shift * np.sin(theta)
         left = self.__dict__.get("_left_by_draw")
         if left is not None:
             with _mirrors.detached(self):
@@ -1412,13 +1479,20 @@ class AxisArtist(martist.Artist):
             + axes.get_figure(root=False).dpi_scale_trans)
         _api.getitem_checked(AxisLabel._default_alignments, d=axis_direction)
         self._offset = (*offset,)
-        native = helper._new_axis(axes, offset, axis_direction)
+        points = _offset_points(offset)
+        native = helper._new_axis(axes, (0., 0.) if points is None else points,
+                                  axis_direction)
         # What matplotlib's `_init_line` computes (a curvilinear line).
         _axisartist.init_line(native)
         # The axis artist is drawn once the axes adds it.
         _artist.remove(native)
         _handles.adopt(self, native, axes.figure)
         self._axes_of = axes
+        if points is None:
+            # matplotlib keeps the offset, and fails where its draws and
+            # measures place the parts through the offset transform.
+            _unusable.keep(self, "offset", offset,
+                           lambda _: self.offset_transform.get_matrix())
         self._init_parts(helper, axis_direction)
         self._internal_update(kwargs)
 
@@ -1789,6 +1863,17 @@ class AxisArtist(martist.Artist):
     def draw(self, renderer):
         # docstring inherited
         super().draw(renderer)
+
+
+def _offset_points(offset):
+    """The *offset* of an axis artist (in points) as pltrs (Rust) takes
+    it: the floats numpy makes of it, as matplotlib's offset transform
+    converts it (None is NaN, a text of a number the number); None for an
+    offset numpy makes no floats of, on which that transform fails."""
+    try:
+        return tuple(np.asarray(offset, dtype=float).tolist())
+    except (TypeError, ValueError):
+        return None
 
 
 #: matplotlib's angles for the tick label and label directions.

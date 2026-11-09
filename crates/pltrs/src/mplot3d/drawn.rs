@@ -19,7 +19,7 @@ use super::handle::Axes3D;
 use super::math::{Matrix4, Vec3};
 use super::readout::pane_point_through;
 use super::state::Axes3DState;
-use crate::artist::{Artist, ArtistHandle, ArtistId};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore};
 use crate::figure::{FigureState, Painting};
 use crate::lines::{Line2D, LineArtist};
 
@@ -61,6 +61,27 @@ impl Axes3DState {
     fn drawn_projection(&self) -> Option<Projection> {
         Some(self.projection().with_matrix(self.drawn.matrix?))
     }
+
+    /// Issues numpy's warnings for the projections matplotlib's draw
+    /// computes of the visible artists through `M` as it starts drawing
+    /// them, in order, up to the first it fails on (none when it fails
+    /// computing `M`; see `projection_warnings`).
+    fn warn_projecting(&self, store: &ArtistStore) {
+        if self.projection_problem().is_some() {
+            return;
+        }
+        let Some(projection) = self.drawn_projection() else {
+            return;
+        };
+        for artist in &self.artists {
+            if self.failures.of(artist.id).is_some() {
+                break;
+            }
+            if store.get(artist.id).is_some_and(|a| a.base().visible) {
+                artist.art.warn_projecting(&projection);
+            }
+        }
+    }
 }
 
 /// The inverse numpy's `linalg.inv` gives `matrix`: NaN throughout for a
@@ -88,6 +109,7 @@ pub(crate) fn note_draw(figure: &mut FigureState, id: ArtistId, painting: Painti
             return;
         }
         axes.keep_projection();
+        axes.warn_projecting(store);
         let stops = axes.stops_projecting(store);
         let failures = &axes.failures;
         for artist in &mut axes.artists {

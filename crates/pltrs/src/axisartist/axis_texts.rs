@@ -140,6 +140,7 @@ impl AxisTexts {
             direction: self.direction,
             transform: None,
             bbox: None,
+            laid_out: std::cell::Cell::default(),
         }
     }
 }

@@ -747,6 +747,11 @@ class Patch(Artist):
         # docstring inherited
         super().draw(renderer)
 
+    def _draws_snapped(self):
+        # docstring inherited: matplotlib draws the path of a patch with
+        # the patch's snapping.
+        return True
+
 
 @_mirrors.mirrorable
 class Rectangle(Patch):
@@ -3590,12 +3595,10 @@ class Shadow(Patch):
 
     def get_patch_transform(self):
         # The offset in points as the shadow is drawn, which matplotlib
-        # sets when it draws the shadow (a shadow drawn is fresh, and stays
-        # offset after that, also once removed from its figure).
+        # sets when it draws the shadow (and keeps after that, also once
+        # the shadow is removed from its figure).
         figure = self._home_figure(root=True)
-        if figure is not None and not self.stale:
-            self._drawn = True
-        if self.__dict__.get("_drawn"):
+        if figure is not None and _artist.draw_count(self._native):
             scale = figure.dpi / 72
             self._shadow_transform.clear().translate(self._ox * scale,
                                                      self._oy * scale)

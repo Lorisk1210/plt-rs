@@ -465,12 +465,15 @@ class Line2D(Artist):
                              same=_values.same_color)
 
     def _marker_color(self, name, setting):
-        """A marker colour: the line's colour where it is ``"auto"``."""
+        """A marker colour: the line's colour where it is ``"auto"`` (for a
+        colour pltrs (Rust) resolves, while it resolves it so; the
+        alternate face colour, *setting* itself, it keeps as set)."""
         if _values.is_kept(self, name):
             return self._given_color(name)
         if (cbook._str_lower_equal(self._get(setting), "auto")
-                and _values.same_color(self._get(name), self._get("color"))):
-            return self.get_color()
+                and (name == setting
+                     or _values.same_color(self._get(name), self._get("color")))):
+            return self._color
         return self._given_color(name)
 
     # -- data -------------------------------------------------------------
@@ -627,7 +630,7 @@ class Line2D(Artist):
 
     def get_antialiased(self):
         """Return whether antialiased rendering is used."""
-        return self._get("antialiased")
+        return _values.given_flag(self, "antialiased", self._get("antialiased"))
 
     def set_antialiased(self, b):
         """
@@ -638,6 +641,8 @@ class Line2D(Artist):
         b : bool
         """
         self._set_native(antialiased=bool(b))
+        # matplotlib keeps the object given (None, ``1``, ``'False'``).
+        _values.remember(self, "antialiased", b)
 
     def get_color(self):
         """
@@ -743,8 +748,11 @@ class Line2D(Artist):
 
         See also `~.Line2D.set_linestyle`.
         """
-        if _unusable.kept(self, "dashes", None) is not None:
-            return '--'  # A custom dash pattern, kept (`_keeps_dashes`).
+        if (_unusable.kept(self, "dashes", None) is not None
+                or self.__dict__.get("_named_dashed")):
+            # A custom dash pattern, kept (`_keeps_dashes`), or a style of
+            # no pattern (`set_linestyle`).
+            return '--'
         return self._get("linestyle")
 
     def set_linestyle(self, ls):
@@ -793,9 +801,12 @@ class Line2D(Artist):
                 ls = 'None'
             _api.check_in_list([*self._lineStyles, *cbook.ls_mapper_r], ls=ls)
         else:
-            # matplotlib makes the dash pattern of any other style.
+            # matplotlib names any other style '--', then makes its dash
+            # pattern: one it makes none of keeps the pattern it had.
+            self._named_dashed = True
             if self._keeps_dashes(_get_dash_pattern(ls)[1]):
                 return
+        self.__dict__.pop("_named_dashed", None)
         _unusable.drop(self, "dashes")
         self._set_native(linestyle=ls)
 
@@ -812,6 +823,11 @@ class Line2D(Artist):
         _unusable.keep(self, "dashes", values, self._draw_dashes, measured=False)
         self.stale = True
         return True
+
+    def _draws_snapped(self):
+        # docstring inherited: matplotlib draws the line (not its markers,
+        # which snap by their size) with the line's snapping.
+        return bool(len(self.get_xydata())) and self.get_linestyle() not in ('None', ' ', '')
 
     def _draw_dashes(self, dashes):
         """Fail as matplotlib's graphics context takes the *dashes* the
@@ -1040,7 +1056,9 @@ class Line2D(Artist):
         ----------
         fc : :mpltype:`color`
         """
-        self._set_marker_color("markerfacecoloralt", fc)
+        # None is "auto": the colour has no rcParam (matplotlib's
+        # `_set_markercolor`).
+        self._set_marker_color("markerfacecoloralt", "auto" if fc is None else fc)
 
     def get_markevery(self):
         """
@@ -1453,8 +1471,9 @@ class AxLine(Line2D):
 
     def draw(self, renderer):
         # (pltrs (Rust) places the line in the view as it draws it, where
-        # matplotlib's draw reads the transform first.)
-        self.get_transform()
+        # matplotlib's draw of a visible line reads the transform first.)
+        if self.get_visible():
+            self.get_transform()
         super().draw(renderer)
 
     def get_transform(self):

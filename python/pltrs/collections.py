@@ -694,6 +694,11 @@ class Collection(mcolorizer.ColorizingArtist):
         # docstring inherited
         super().draw(renderer)
 
+    def _draws_snapped(self):
+        # docstring inherited: matplotlib draws the paths of a collection
+        # with the collection's snapping.
+        return True
+
     def contains(self, mouseevent):
         """
         Test whether the mouse event occurred in the collection.

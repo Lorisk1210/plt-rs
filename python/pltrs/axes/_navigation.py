@@ -60,6 +60,7 @@ class NavigationMixin:
             self._leave_host()
         axes = self.axes
         figure = self.get_figure(root=False)
+        self._keep_trees()
         super().remove()
         if figure is not None:
             figure._axes_removed(self)
@@ -74,9 +75,16 @@ class NavigationMixin:
         """Keep the trees of this child Axes at the place its host gives it
         now, as it leaves the host (removed, or its host cleared): see
         `.._transform_trees._apply_axes`."""
+        self._keep_trees()
+        self._left_host = True
+
+    def _keep_trees(self):
+        """Build the trees of the Axes from its boxes as they are now (its
+        position of the last draw), before it leaves its figure or host:
+        it measures with them from then on, as matplotlib's keeps its
+        trees."""
         if "_transform_trees" not in self.__dict__:
             self._build_transform_trees()
-        self._left_host = True
 
     def _check_removable(self):
         """

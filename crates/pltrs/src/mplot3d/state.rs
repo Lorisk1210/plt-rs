@@ -547,7 +547,7 @@ pub(crate) fn axes3d_fresh_tight_bbox(
     for_layout_only: bool,
 ) -> Option<Bbox> {
     // matplotlib's `get_tightbbox` applies the aspect.
-    square(figure, id, true);
+    square(figure, id);
     prepare_one(figure, id, None);
     super::drawn::note_measure(figure, id);
     let axes = figure.store.get_as::<Axes3DState>(id)?;
@@ -561,15 +561,15 @@ pub(crate) fn axes3d_fresh_tight_bbox(
 
 /// The layout pass of every 3-D axes of a figure (called from
 /// [`FigureState::prepare`]), for a draw with `painting` (`None` for a
-/// measure), the box of each made square for a draw unless it is
-/// animated (matplotlib applies the aspect when it draws the axes, which
-/// the figure's draws leave out when animated); between draws an axes
+/// measure), the box of each made square for a draw (matplotlib's
+/// `Figure.draw` applies the aspect of every axes, animated ones too,
+/// though it leaves those out of what it draws); between draws an axes
 /// stays where it stands.
 pub(crate) fn prepare_axes3d(figure: &mut FigureState, painting: Option<Painting>) {
     for id in axes3d_ids(&figure.store) {
         if painting.is_some() {
             super::pending::unstale_for_draw(figure, id);
-            square(figure, id, false);
+            square(figure, id);
         }
         prepare_one(figure, id, painting);
         if let Some(painting) = painting {
@@ -579,11 +579,9 @@ pub(crate) fn prepare_axes3d(figure: &mut FigureState, painting: Option<Painting
 }
 
 /// Makes the box of the 3-D axes `id` square in its position (matplotlib's
-/// `apply_aspect`), an animated axes only when `animated_too`.
-fn square(figure: &mut FigureState, id: ArtistId, animated_too: bool) {
-    if let Some(axes) = figure.store.get_as_mut::<Axes3DState>(id)
-        && (animated_too || !axes.base().animated)
-    {
+/// `apply_aspect`).
+fn square(figure: &mut FigureState, id: ArtistId) {
+    if let Some(axes) = figure.store.get_as_mut::<Axes3DState>(id) {
         axes.fit = BoxFit::Squared;
     }
 }

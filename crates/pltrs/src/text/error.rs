@@ -86,6 +86,22 @@ impl From<ColorError> for TextProblem {
     }
 }
 
+impl From<String> for TextProblem {
+    /// A problem of no kind of its own (laying out what is no text).
+    fn from(message: String) -> Self {
+        Self {
+            kind: DrawErrorKind::Other,
+            message,
+        }
+    }
+}
+
+impl From<TextProblem> for String {
+    fn from(problem: TextProblem) -> Self {
+        problem.message
+    }
+}
+
 impl fmt::Display for TextProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.message)

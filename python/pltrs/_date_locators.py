@@ -681,6 +681,13 @@ class AutoDateLocator(DateLocator):
     def get_locator(self, dmin, dmax):
         """Pick the best locator based on a distance."""
         _refuse_non_dates(dmin, dmax)
+        # matplotlib's time difference, read in days and seconds, which
+        # fails on what is no date-time.
+        tdelta = dmax - dmin
+        if dmin > dmax:
+            tdelta = -tdelta
+        tdelta.days  # noqa: B018
+        tdelta.total_seconds()
         choice = _dates.auto_date_choice(self._spec(), _zoned(dmin), _zoned(dmax))
         if choice['frequency'] is not None:
             self._freq = choice['frequency']

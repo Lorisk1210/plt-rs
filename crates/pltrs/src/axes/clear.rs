@@ -192,6 +192,9 @@ impl Axes {
     /// disconnected; those of the axes sharing its limits see them reset.
     pub fn clear(&self) -> &Self {
         let polar = self.projection() == ProjectionKind::Polar;
+        // matplotlib's polar clear resets the origin and the θ offset and
+        // direction, not where the radial labels are.
+        let label_angle = self.as_polar().map(|polar| polar.rlabel_position());
         let custom = self.take_custom_projection();
         let figure = self.raw().figure_state();
         let disconnected: Vec<_> = {
@@ -209,7 +212,10 @@ impl Axes {
         // drop uses it.
         drop(disconnected);
         if polar {
-            crate::polar::PolarAxes::convert(self.clone());
+            let polar = crate::polar::PolarAxes::convert(self.clone());
+            if let Some(angle) = label_angle {
+                polar.set_rlabel_position(angle);
+            }
         }
         if let Some(projection) = custom {
             crate::projections::reinstall(self, projection);
@@ -394,10 +400,15 @@ mod tests {
         let fig = Figure::new();
         let ax = fig.polar_subplot();
         ax.set_theta_offset(1.0);
+        ax.set_rlabel_position(45.0);
         ax.plot([0.0, 1.0], [1.0, 2.0]).unwrap();
         ax.clear();
         assert_eq!(ax.projection(), ProjectionKind::Polar);
         assert_eq!(ax.theta_offset(), 0.0);
+        assert!(
+            (ax.rlabel_position() - 45.0).abs() < 1e-12,
+            "the labels stay"
+        );
         assert_eq!(ax.lines(), Vec::<crate::lines::Line2D>::new());
     }
 }

@@ -6,6 +6,7 @@ return, the native form of plotting values and of keyword arguments.
 import copy
 import datetime
 import inspect
+import warnings
 
 import numpy as np
 
@@ -171,6 +172,19 @@ def check_format(fmt):
         mcolors.to_rgba(fmt)
     except ValueError:
         _ = len(fmt)
+
+
+def takes_properties(artist, props):
+    """Whether *artist*, made for the test, takes the properties *props*:
+    those pltrs (Rust) gives artists once it made all of them, which
+    matplotlib's code gives each artist as it makes it (failing then)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            artist.set(**props)
+        except Exception:
+            return False
+    return True
 
 
 def record_container(axes, container, native):

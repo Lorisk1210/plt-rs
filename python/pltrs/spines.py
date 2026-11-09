@@ -530,7 +530,8 @@ class Spine(Patch):
         given = self.__dict__.get("_given_bounds")
         if self.__dict__.get("_unheld_bounds"):
             return given
-        if given is not None and bounds is not None and tuple(map(float, given)) == bounds:
+        if given is not None and bounds is not None and _values._same(given, bounds):
+            # (A NaN bound held as given too.)
             return given
         return bounds
 

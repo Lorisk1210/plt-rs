@@ -10,7 +10,7 @@ pltrs (Rust) (``_native.hatch``).
 import numpy as np
 
 from . import _api
-from ._native import hatch as _hatch
+from ._native import hatch as _hatch, path as _native_path
 from .path import Path
 
 
@@ -47,6 +47,15 @@ def _count_lines(hatch, characters, density):
     return int(sum(hatch.count(c) for c in characters) * density)
 
 
+def _line_vertex_count(family, num_lines):
+    """How many vertices *num_lines* lines of the *family* take: pltrs
+    (Rust)'s count, or matplotlib's arithmetic for a negative number of
+    lines (of a negative density), whose count stays negative."""
+    if num_lines >= 0:
+        return _hatch.line_vertex_count(family, num_lines)
+    return num_lines * 2 if family in ("horizontal", "vertical") else (num_lines + 1) * 2
+
+
 def _write_family(family, num_lines, vertices, codes):
     """Write the *num_lines* lines of the *family* (of pltrs (Rust)'s
     ``HatchLines``) into *vertices* and *codes*."""
@@ -56,7 +65,7 @@ def _write_family(family, num_lines, vertices, codes):
 class HorizontalHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('-', '+'), density)
-        self.num_vertices = _hatch.line_vertex_count("horizontal", self.num_lines)
+        self.num_vertices = _line_vertex_count("horizontal", self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("horizontal", self.num_lines, vertices, codes)
@@ -65,7 +74,7 @@ class HorizontalHatch(HatchPatternBase):
 class VerticalHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('|', '+'), density)
-        self.num_vertices = _hatch.line_vertex_count("vertical", self.num_lines)
+        self.num_vertices = _line_vertex_count("vertical", self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("vertical", self.num_lines, vertices, codes)
@@ -74,7 +83,7 @@ class VerticalHatch(HatchPatternBase):
 class NorthEastHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('/', 'x', 'X'), density)
-        self.num_vertices = _hatch.line_vertex_count("north_east", self.num_lines)
+        self.num_vertices = _line_vertex_count("north_east", self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("north_east", self.num_lines, vertices, codes)
@@ -83,7 +92,7 @@ class NorthEastHatch(HatchPatternBase):
 class SouthEastHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('\\', 'x', 'X'), density)
-        self.num_vertices = _hatch.line_vertex_count("south_east", self.num_lines)
+        self.num_vertices = _line_vertex_count("south_east", self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("south_east", self.num_lines, vertices, codes)
@@ -104,6 +113,9 @@ class Shapes(HatchPatternBase):
                                  (1 if self.filled else 2))
 
     def set_vertices_and_codes(self, vertices, codes):
+        if self.num_rows < 0:
+            # matplotlib's rows of shapes (none, of a negative density).
+            np.concatenate([], out=vertices)
         shape = Path(self.shape_vertices, self.shape_codes)
         _write_shapes(
             _hatch.shape_piece(shape, (float(self.size), bool(self.filled)),
@@ -194,4 +206,27 @@ def get_path(hatchpattern, density=6):
     the hatch in a unit square.  *density* is the number of lines per
     unit square.
     """
-    return Path.hatch(hatchpattern, density)
+    density = int(density)
+    if isinstance(hatchpattern, str) and density >= 0:
+        return Path(*_native_path.hatch(hatchpattern, density))
+    # matplotlib's assembly, which fails as it does on what is no pattern
+    # or on a negative density.
+    patterns = [hatch_type(hatchpattern, density)
+                for hatch_type in _hatch_types]
+    num_vertices = sum([pattern.num_vertices for pattern in patterns])
+
+    if num_vertices == 0:
+        return Path(np.empty((0, 2)))
+
+    vertices = np.empty((num_vertices, 2))
+    codes = np.empty(num_vertices, Path.code_type)
+
+    cursor = 0
+    for pattern in patterns:
+        if pattern.num_vertices != 0:
+            vertices_chunk = vertices[cursor:cursor + pattern.num_vertices]
+            codes_chunk = codes[cursor:cursor + pattern.num_vertices]
+            pattern.set_vertices_and_codes(vertices_chunk, codes_chunk)
+            cursor += pattern.num_vertices
+
+    return Path(vertices, codes)

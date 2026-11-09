@@ -8,6 +8,8 @@ matplotlib 3.11.2, under the Matplotlib License), over pltrs (Rust)'s
 leaves (`.._transform_trees`).
 """
 
+from numbers import Real
+
 import numpy as np
 
 from .. import _api
@@ -62,6 +64,38 @@ class _GeoTransform(Transform):
         inverse = self._inverse_class(self._resolution)
         inverse._center = self._center
         return inverse
+
+
+class _LambertCentred:
+    """
+    A Lambert transform's centre, kept as given (matplotlib's
+    ``_center_longitude`` and ``_center_latitude``): a centre that is no
+    number fails where matplotlib's transform first computes with it, the
+    longitude subtracted (added by the inverse) after the latitude's sine.
+    """
+
+    _center_longitude = _center_latitude = 0.0
+
+    @property
+    def _center(self):
+        return (self._center_longitude, self._center_latitude)
+
+    @_center.setter
+    def _center(self, center):
+        self._center_longitude, self._center_latitude = center
+
+    def transform_non_affine(self, values):
+        # docstring inherited
+        if not all(isinstance(c, Real) for c in self._center):
+            first, second = np.asarray(values).T
+            if self.inverse:
+                np.sin(self._center_latitude)
+                self._center_longitude + first  # noqa: B018
+            else:
+                np.sin(second)
+                first - self._center_longitude  # noqa: B018
+                np.sin(self._center_latitude)
+        return super().transform_non_affine(values)
 
 
 def _transform_pair(projection, forward_doc):
@@ -339,7 +373,7 @@ class LambertAxes(GeoAxes):
     _LambertBase, _InvertedLambertBase = _transform_pair(
         'lambert', "The base Lambert transform.")
 
-    class LambertTransform(_LambertBase):
+    class LambertTransform(_LambertCentred, _LambertBase):
         """The base Lambert transform."""
 
         def __init__(self, center_longitude, center_latitude, resolution):
@@ -349,21 +383,24 @@ class LambertAxes(GeoAxes):
             path in curved Lambert space.
             """
             super().__init__(resolution)
-            self._center = (float(center_longitude), float(center_latitude))
+            self._center_longitude = center_longitude
+            self._center_latitude = center_latitude
 
         def inverted(self):
             # docstring inherited
             return LambertAxes.InvertedLambertTransform(
-                *self._center, self._resolution)
+                self._center_longitude, self._center_latitude, self._resolution)
 
-    class InvertedLambertTransform(_InvertedLambertBase):
+    class InvertedLambertTransform(_LambertCentred, _InvertedLambertBase):
         def __init__(self, center_longitude, center_latitude, resolution):
             super().__init__(resolution)
-            self._center = (float(center_longitude), float(center_latitude))
+            self._center_longitude = center_longitude
+            self._center_latitude = center_latitude
 
         def inverted(self):
             # docstring inherited
-            return LambertAxes.LambertTransform(*self._center, self._resolution)
+            return LambertAxes.LambertTransform(
+                self._center_longitude, self._center_latitude, self._resolution)
 
     def __init__(self, *args, center_longitude=0, center_latitude=0, **kwargs):
         super().__init__(*args, **kwargs)

@@ -195,6 +195,8 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     def get_subplotspec(self):
         """Return the `.SubplotSpec` associated with the subplot, or None."""
         from ..gridspec import SubplotSpec
+        if "_unplaced_subplotspec" in self.__dict__:
+            return self._unplaced_subplotspec
         native = _gridspec.axes_spec(self._native)
         if native is None:
             return None
@@ -208,9 +210,15 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
 
     def set_subplotspec(self, subplotspec):
         """Set the `.SubplotSpec`. associated with the subplot."""
-        # matplotlib places the Axes at the position the spec gives, which
-        # fails first for what is no spec.
-        subplotspec.get_position(self.get_figure(root=False))
+        # matplotlib keeps the spec, then places the Axes at the position
+        # the spec gives, which fails for what is no spec (the Axes staying
+        # where it was).
+        try:
+            subplotspec.get_position(self.get_figure(root=False))
+        except Exception:
+            self._unplaced_subplotspec = subplotspec
+            raise
+        self.__dict__.pop("_unplaced_subplotspec", None)
         _gridspec.set_axes_spec(self._native, subplotspec._native_spec())
 
     def get_gridspec(self):
@@ -553,8 +561,19 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         try:
             self.get_zorder() + delta_zorder
         except TypeError:
-            # matplotlib sets the twin's z-order once it made the twin.
-            self._make_twin_axes(shared, axes_class, 0.0, kwargs)
+            # matplotlib adds the twin sharing the axis and has both Axes
+            # adjust their data limits, then fails to set the twin's
+            # z-order: the twin stays as it was made, not joined as a twin
+            # nor set up by `twinx`.
+            kwargs = {**kwargs, f"share{shared}": self}
+            if axes_class:
+                kwargs["axes_class"] = axes_class
+            fig = self.get_figure(root=False)
+            spec = self.get_subplotspec()
+            twin = (fig.add_subplot(spec, **kwargs) if spec is not None
+                    else fig.add_axes(self.get_position(True), **kwargs))
+            self.set_adjustable('datalim')
+            twin.set_adjustable('datalim')
             raise
         if not axes_class and not kwargs:
             from ._axes import Axes

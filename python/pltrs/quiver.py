@@ -1012,7 +1012,7 @@ class Barbs(mcollections.PolyCollection):
             (_rgba(barbcolor), _rgba(flagcolor)), self._native_shape(flip),
             _live_transforms.given_to_native(transform, ax))
         _handles.adopt(self, native, ax.figure)
-        self._offsets_dtype = np.result_type(x, y)
+        self._keep_offsets_dtype(x, y)
         self._attach_native_mapping(colorizer=made)
         # matplotlib's default width of the barbs.
         _values.remember(self, "linewidth", np.atleast_1d(1))
@@ -1066,6 +1066,25 @@ class Barbs(mcollections.PolyCollection):
                  float(increments['flag'])),
                 bool(self.rounding), [bool(f) for f in np.ravel(flip)] or [False])
 
+    def _keep_offsets_dtype(self, x, y):
+        """Keep the dtype of the positions *x*, *y* of the barbs drawn, as
+        matplotlib's offsets keep it (``Barbs.set_UVC`` sets them as they
+        are): integer offsets fail its draws once the Axes have units
+        (`_fill_offsets`)."""
+        dtype = self._offsets_dtype = np.result_type(x, y)
+        if np.issubdtype(dtype, np.integer):
+            _unusable.keep(self, "offsets", dtype, self._fill_offsets, measured=False)
+        else:
+            _unusable.drop(self, "offsets")
+
+    def _fill_offsets(self, dtype):
+        """Fail as matplotlib's draw fails to fill the offsets, of the
+        integer *dtype*, with NaN once it has converted them to the units
+        of the Axes (``Collection._prepare_points``)."""
+        if self.have_units():
+            offsets = self.get_offsets()
+            np.ma.column_stack([offsets[:, 0], offsets[:, 1]]).filled(np.nan)
+
     def set_UVC(self, U, V, C=None):
         x, y, u, v, c, flip = self._unmasked(U, V, C)
         _plotting.barbs_set_uvc(
@@ -1073,8 +1092,7 @@ class Barbs(mcollections.PolyCollection):
             (_filled(u), _filled(v)), None,
             ((self._pivot, float(self._length)), (None, None),
              self._native_shape(flip)))
-        # matplotlib keeps the offsets of the barbs drawn as they are.
-        self._offsets_dtype = np.result_type(x, y)
+        self._keep_offsets_dtype(x, y)
         # Set the color array
         if C is not None:
             self.set_array(c)
@@ -1096,6 +1114,7 @@ class Barbs(mcollections.PolyCollection):
         _check_consistent_shapes(x, y, u, v)
         xy = np.column_stack((x, y))
         super().set_offsets(xy)
+        _unusable.drop(self, "offsets")
         self.stale = True
 
 

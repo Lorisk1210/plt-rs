@@ -2,7 +2,8 @@
 `~.Axes.errorbar`: lines and markers with error bars.
 """
 
-from numbers import Integral, Number
+from numbers import Integral, Number, Real
+from types import NoneType
 
 import numpy as np
 
@@ -45,6 +46,18 @@ def _errorevery_to_mask(x, errorevery):
     everymask = np.zeros(len(x), bool)
     everymask[errorevery] = True
     return everymask
+
+
+def _refuses(ecolor):
+    """The error matplotlib's error bars raise for the colour *ecolor*, if
+    they refuse it."""
+    if ecolor is None:
+        return None
+    try:
+        mcolors.to_rgba_array(ecolor)
+    except (TypeError, ValueError) as err:
+        return err
+    return None
 
 
 def _upcast_err(err):
@@ -308,9 +321,7 @@ class ErrorbarMixin:
         if fmt != '' and not isinstance(fmt, str):
             # matplotlib makes the data line with ``_plot_args(x, y, fmt)``.
             raise ValueError('third arg must be a format string')
-        if ecolor is not None and (xerr is not None or yerr is not None):
-            # matplotlib's first bars are made in that colour.
-            mcolors.to_rgba_array(ecolor)
+        refused = _refuses(ecolor) if xerr is not None or yerr is not None else None
         n = len(x)
         xconv, yconv = line_data(self, x, y)
         bounds = {}
@@ -321,6 +332,14 @@ class ErrorbarMixin:
                 bounds[dep_axis] = _error_bounds(dep_axis, dep, err, convert, depconv)
         flags = [np.broadcast_to(lims, n).astype(bool).tolist()
                  for lims in (lolims, uplims, xlolims, xuplims)]
+        if refused is not None:
+            # matplotlib's ``hlines`` (or ``vlines``) adds the first bars,
+            # after the data line, then fails to give them the colour:
+            # those are made, in the default colour meanwhile.
+            first = "x" if "x" in bounds else "y"
+            bounds = {first: bounds[first]}
+            flags = [[False] * n] * 4
+            capsize = 0
         # matplotlib styles the caps by their size (compared with zero),
         # then makes the bars in their line style.
         _ = (mlines._rcParams()["errorbar.capsize"] if capsize is None else capsize) > 0
@@ -329,15 +348,19 @@ class ErrorbarMixin:
         if elinestyle is not None and isinstance(elinestyle, tuple):
             offset, seq = elinestyle
             elinestyle = (offset, None if seq is None else tuple(seq))
-        # Several widths go to the bar collections, as matplotlib's
-        # ``eb_lines_style`` gives them.
-        widths = None if np.ndim(elinewidth) == 0 else elinewidth
+        # Several widths, or one that is no number, go to the bar
+        # collections as matplotlib's ``eb_lines_style`` gives them (which
+        # they keep), and a cap thickness that is no number to the caps.
+        widths = (None if np.ndim(elinewidth) == 0 and isinstance(elinewidth, (Real, NoneType))
+                  else elinewidth)
+        thickness = None if isinstance(capthick, (Real, NoneType)) else capthick
         native, data_line, caplines, barcols = _plotting.errorbar(
             self._native, (xconv, yconv),
             (bounds.get("x"), bounds.get("y")),
             fmt, line_kwargs(kwargs),
-            (ecolor, None if widths is not None else elinewidth, elinestyle, capsize,
-             capthick, bool(barsabove)),
+            (None if refused is not None else ecolor,
+             None if widths is not None else elinewidth, elinestyle, capsize,
+             None if thickness is not None else capthick, bool(barsabove)),
             tuple(flags), everymask.tolist())
         barcols = wrap_all(self, barcols, mcoll.LineCollection)
         if widths is not None:
@@ -347,6 +370,10 @@ class ErrorbarMixin:
         data_line = wrap(self, data_line, mlines.Line2D)
         if data_line is not None:
             keep_data(data_line, x, y)
+        if refused is not None:
+            # The bars keep the colour, failing their first draw with it.
+            barcols[0].set_color(ecolor)
+            raise refused
         for capline, (cap_x, cap_y) in zip(
                 caplines, _cap_data(x, y, (xerr, yerr), flags, everymask, capsize)):
             keep_data(capline, cap_x, cap_y)
@@ -356,6 +383,8 @@ class ErrorbarMixin:
                          else data_line.get_color() if data_line is not None
                          else kwargs.get("color", "C0"))
             _values.remember(capline, "markeredgecolor", cap_color)
+            if thickness is not None:
+                capline.set_markeredgewidth(thickness)
         container = ErrorbarContainer(
             (data_line,
              tuple(caplines),

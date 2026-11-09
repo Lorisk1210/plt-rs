@@ -14,7 +14,8 @@ import math
 
 import numpy as np
 
-from .. import _api, _mirrors, _numpy_values, _tick_helpers, cbook, ticker as mticker
+from .. import (_api, _mirrors, _numpy_values, _tick_helpers, _unusable, cbook,
+               ticker as mticker)
 from .. import patches as mpatches, transforms as mtransforms
 from .._native import artist as _artist, axis as _axis, polar as _polar
 from ..axes import Axes
@@ -329,6 +330,11 @@ class RadialLocator(mticker.Locator):
 
     def set_axis(self, axis):
         self.base.set_axis(axis)
+        if ("_native_axis" in self.__dict__ and "_native_spec" not in self.__dict__
+                and self._spec() is not None):
+            # Installed through an adapter while its base had no axis, it
+            # is installed natively again now that the base has one.
+            _tick_helpers.changed(self)
 
     def __call__(self):
         # Ensure previous behaviour with full circle non-annular views.
@@ -376,7 +382,10 @@ class RadialLocator(mticker.Locator):
     def _spec(self):
         """The native description of the locator: that of its base, which
         pltrs (Rust) wraps on the radial axis; None when the base computes
-        in Python."""
+        in Python, or has no axis to read (no base at all), where
+        matplotlib's locator fails as it locates."""
+        if not isinstance(getattr(self.base, "axis", None), Axis):
+            return None
         return _tick_helpers._spec_of(self.base)
 
 
@@ -413,6 +422,33 @@ class ThetaTick(XTick):
         turned = {mmarkers.TICKUP, mmarkers.TICKDOWN, '|'}
         if {self.tick1line.get_marker(), self.tick2line.get_marker()} & turned:
             mtransforms.Affine2D().rotate(angle - np.pi / 2)
+        self._padded()
+
+    def _apply_params(self, **kwargs):
+        try:
+            super()._apply_params(**kwargs)
+        finally:
+            if self.axis is not None:
+                self._keep_unusable_pad()
+
+    def _padded(self):
+        """matplotlib's padding of the labels as the tick is placed (which
+        fails on a pad it cannot add)."""
+        return self._pad + 7
+
+    def _keep_unusable_pad(self):
+        """
+        Have the Axes of a tick of an axis fail as matplotlib's fails to
+        pad the tick's labels where each draw places them, while the tick
+        has a pad it cannot add (see `._unusable`).
+        """
+        key = f"theta tick {self._major} {self._index} pad"
+        try:
+            self._padded()
+        except TypeError:
+            _unusable.keep(self.axes, key, self, ThetaTick._padded)
+        else:
+            _unusable.drop(self.axes, key)
 
 
 class ThetaAxis(XAxis):
@@ -486,7 +522,14 @@ class RadialAxis(YAxis):
 
     def set_major_locator(self, locator):
         # docstring inherited
-        super().set_major_locator(self._as_major_locator(locator))
+        locator = self._as_major_locator(locator)
+        if not callable(getattr(locator.base, "set_axis", None)):
+            # matplotlib installs the locator, then fails to hand its base
+            # the axis: the locator stays, failing where it locates.
+            _tick_helpers.install(self, "locator", False, locator)
+            self.major.formatter._set_locator(locator)
+            locator.set_axis(self)
+        super().set_major_locator(locator)
 
     def _as_major_locator(self, locator):
         # A radial axis wraps its major locators.
@@ -922,7 +965,14 @@ class PolarAxes(PolarTrees, Axes):
         value : number
             The angular position of the radius labels in degrees.
         """
-        _polar.set_rlabel_position(self._native, _numpy_values.degrees(value))
+        try:
+            degrees = _numpy_values.degrees(value)
+        except Exception:
+            # matplotlib clears its translation before it fails to convert
+            # the angle.
+            _polar.set_rlabel_position(self._native, 0.0)
+            raise
+        _polar.set_rlabel_position(self._native, degrees)
 
     def set_rscale(self, *args, **kwargs):
         return Axes.set_yscale(self, *args, **kwargs)

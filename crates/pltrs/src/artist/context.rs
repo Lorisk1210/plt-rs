@@ -683,6 +683,7 @@ impl<'a> DrawContext<'a> {
         let base = artist.base();
         self.draw_artist(base.rasterized, |ctx| {
             if !base.visible && !artist.draws_hidden() {
+                artist.draw_hidden(ctx);
                 return;
             }
             match base.agg_filter.as_ref().filter(|_| own_filter) {

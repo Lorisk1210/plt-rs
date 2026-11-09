@@ -298,6 +298,12 @@ impl Artist for QuiverKeyArtist {
         ctx.draw_child(self.label);
     }
 
+    /// matplotlib's `QuiverKey.draw` never asks whether the key is
+    /// visible: a hidden key is drawn all the same.
+    fn draws_hidden(&self) -> bool {
+        true
+    }
+
     fn children(&self) -> Vec<ArtistId> {
         vec![self.label]
     }
@@ -365,6 +371,31 @@ impl QuiverKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::artist::ArtistHandle;
+    use crate::figure::Figure;
+    use crate::quiver::{Angles, QuiverOptions, VectorField};
+    use crate::testing::RecordingRenderer;
+
+    #[test]
+    fn a_hidden_key_is_drawn_all_the_same() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let field = VectorField::new([0.0, 1.0], [0.0, 1.0], [1.0], [1.0]);
+        let options = QuiverOptions {
+            angles: Angles::Degrees(vec![1.0]),
+            ..QuiverOptions::default()
+        };
+        let q = ax.quiver(field, options).expect("a quiver");
+        let key = ax.quiverkey(&q, (1.0, 1.0), 2.0, "Label", QuiverKeyOptions::default());
+        let calls = |fig: &Figure| {
+            let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
+            fig.draw(&mut renderer).expect("drawable");
+            renderer.calls.len()
+        };
+        let shown = calls(&fig);
+        key.set_visible(false);
+        assert_eq!(calls(&fig), shown);
+    }
 
     #[test]
     fn label_positions_place_arrow_and_text() {

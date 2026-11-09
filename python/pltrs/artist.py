@@ -17,6 +17,7 @@ its figure and gives the object the new handle (`._handles.adopt`).
 import contextlib
 from functools import cache, reduce, wraps  # noqa: F401  (matplotlib exports reduce here)
 from numbers import Real
+from operator import attrgetter
 
 import numpy as np
 
@@ -390,11 +391,26 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             if isinstance(level, Real):
                 _artist.set_zorder(self._native, level)
                 _values.remember(self, "zorder", level)
+                _unusable.drop(self, "zorder")
             else:
                 # Kept unchecked, as matplotlib keeps it until it sorts.
                 _values.keep(self, "zorder", level)
+                _unusable.keep(self, "zorder", level, self._sort_with_siblings,
+                               measured=False)
             self.pchanged()
             self.stale = True
+
+    def _sort_with_siblings(self, _):
+        """Fail as matplotlib's draw of the Axes (or figure) holding the
+        artist fails to sort what it draws by z-order, a z-order that is
+        no number among them."""
+        axes = self.axes
+        parent = axes if axes is not None and axes is not self else self.get_figure()
+        if parent is None:
+            return
+        drawn = [artist for artist in parent.get_children()
+                 if artist is not parent.patch and not artist.get_animated()]
+        sorted(drawn, key=attrgetter("zorder"))
 
     #: The drawing order (see `.ClassZOrder`).
     zorder = 0

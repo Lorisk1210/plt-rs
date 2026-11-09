@@ -103,10 +103,15 @@ impl<'a> PolarView<'a> {
     }
 
     /// Whether the wedge of the θ view (after the shift) has finite
-    /// angles, as matplotlib's `_WedgeBbox` needs to make its arc.
+    /// angles, as matplotlib's `_WedgeBbox` needs to make its arc: its
+    /// shift multiplies the whole view by an affine matrix, whose zero
+    /// coefficients make the angles NaN with a radial limit that is not
+    /// finite (`0 * inf`, `0 * NaN`).
     pub(crate) fn has_finite_wedge(&self) -> bool {
-        let (start, end) = self.real_view().interval_x();
-        start.is_finite() && end.is_finite()
+        let view = self.real_view();
+        [view.x0(), view.x1(), view.y0(), view.y1()]
+            .iter()
+            .all(|value| value.is_finite())
     }
 
     /// The sorted θ limits after the shift, in degrees.
@@ -371,6 +376,16 @@ mod tests {
         assert!((east.x - 100.0).abs() < 1e-9 && (east.y - 50.0).abs() < 1e-9);
         let north = data.transform_point(Point::new(FRAC_PI_2, 1.0));
         assert!((north.x - 50.0).abs() < 1e-9 && (north.y - 75.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_radial_limit_that_is_not_finite_leaves_no_wedge() {
+        let settings = PolarState::default();
+        assert!(PolarView::new(&settings, full_view(), None).has_finite_wedge());
+        for r in [f64::NAN, f64::INFINITY] {
+            let view = Bbox::from_extents(0.0, r, TAU, 2.0);
+            assert!(!PolarView::new(&settings, view, None).has_finite_wedge());
+        }
     }
 
     #[test]

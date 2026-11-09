@@ -115,7 +115,7 @@ class FillsMixin:
         closed = kwargs.pop('closed', True)
         self._process_unit_info(kwargs=kwargs)
         patches = []
-        for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs)):
+        for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs, self)):
             fmt_color = None if fmt is None else _plotting.format_parts(fmt)[2]
             props = cbook.normalize_kwargs(
                 {k: v for k, v in kwargs.items()

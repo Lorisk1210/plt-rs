@@ -9,7 +9,7 @@ import numpy as np
 
 from ... import _api
 from ..._native import plotting as _plotting
-from ._helpers import wrap
+from ._helpers import takes_properties, wrap
 
 
 class LabelsMixin:
@@ -183,6 +183,12 @@ class LabelsMixin:
             (labels, template, None if usetex is None else bool(usetex)),
             float(distance), bool(rotate), alignment)
         texts = [wrap(self, native, Text) for native in natives]
+        if texts and textprops and not takes_properties(Text(0, 0, ''), textprops):
+            # matplotlib's first label fails to take them, before it makes
+            # the others.
+            for text in texts[1:]:
+                text.remove()
+            texts[0].set(**textprops)
         for text in texts:
             text._internal_update(textprops)
         container.add_texts(texts)

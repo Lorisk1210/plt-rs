@@ -11,6 +11,7 @@ use super::state::{AxesState, AxisSpace, SharedData};
 use super::tick_compute::axis_length_points;
 use crate::artist::{ArtistId, ArtistLookup, DrawError, DrawErrorKind};
 use crate::figure::FigureState;
+use crate::layout::failures;
 use crate::scale::{Scale, ScaleName};
 use crate::ticker::{AxisName, TickSpace};
 use crate::transforms::TransformContext;
@@ -128,7 +129,14 @@ impl FigureState {
         for (name, _) in AXES.into_iter().zip(need).filter(|(_, need)| *need) {
             self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
         }
+        // matplotlib's `autoscale_view` stops at what the program's code
+        // (a locator's `nonsingular`) raises, leaving the views as they
+        // are.
+        let failed_before = failures::failed();
         for (name, _) in AXES.into_iter().zip(need).filter(|(_, need)| *need) {
+            if !failed_before && failures::failed() {
+                break;
+            }
             self.autoscale_axis(axes, name);
         }
     }
@@ -137,11 +145,17 @@ impl FigureState {
     /// them does), which then no longer wait: what matplotlib's
     /// `_unstale_viewLim` takes before it calls `autoscale_view`.
     pub(crate) fn take_stale_axes(&mut self, axes: ArtistId) -> [bool; 2] {
-        let stale = AXES.map(|name| self.autoscale_is_stale(axes, name));
+        let stale = self.stale_axes(axes);
         for (name, _) in AXES.into_iter().zip(stale).filter(|(_, stale)| *stale) {
             self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
         }
         stale
+    }
+
+    /// Which axes of `axes`, `[x, y]`, wait to be rescaled (see
+    /// [`FigureState::take_stale_axes`]), left waiting.
+    pub(crate) fn stale_axes(&self, axes: ArtistId) -> [bool; 2] {
+        AXES.map(|name| self.autoscale_is_stale(axes, name))
     }
 
     /// Whether [`FigureState::unstale_axes`] has anything to do for
@@ -190,6 +204,7 @@ impl FigureState {
                 AxisName::Y => y_space,
             },
         };
+        let failed_before = failures::failed();
         let bound = if state.axis(name).calls_program() {
             // The program's locator and scale run with the figure lent, as
             // matplotlib's `autoscale_view` lets them read and change it;
@@ -205,6 +220,7 @@ impl FigureState {
             state.autoscale_bound(name, &shared, space)
         };
         match bound {
+            Ok(Some(_)) if !failed_before && failures::failed() => {}
             Ok(Some(bound)) => {
                 let (v0, v1) = oriented(bound, inverted);
                 self.set_axis_limits(axes, name, (v0, v1), None, true);
@@ -415,6 +431,60 @@ mod tests {
         let b = fig.add_subplot(2, 1, 2).unwrap();
         b.share_x(&a).unwrap();
         (fig, a, b)
+    }
+
+    /// A locator of the program's whose `nonsingular` fails, as the
+    /// program's code tells pltrs through [`failures`](crate::layout::failures).
+    #[derive(Debug)]
+    struct FailingLocator;
+
+    thread_local! {
+        static FAILED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    struct Program;
+
+    impl crate::layout::failures::Failures for Program {
+        fn failed(&self) -> bool {
+            FAILED.get()
+        }
+
+        fn pass_over(&self, _class: crate::layout::failures::ErrorClass) -> bool {
+            false
+        }
+    }
+
+    impl crate::ticker::Locator for FailingLocator {
+        fn tick_values(
+            &self,
+            _vmin: f64,
+            _vmax: f64,
+            _ctx: &crate::ticker::TickContext<'_>,
+        ) -> Result<Vec<f64>, crate::ticker::TickerError> {
+            Ok(Vec::new())
+        }
+
+        fn nonsingular(
+            &self,
+            v0: f64,
+            v1: f64,
+            _ctx: &crate::ticker::TickContext<'_>,
+        ) -> (f64, f64) {
+            FAILED.set(true);
+            (v0, v1)
+        }
+    }
+
+    #[test]
+    fn a_failing_locator_leaves_the_views_as_they_are() {
+        crate::layout::failures::set_failures(Program);
+        let ax = Figure::new().subplot();
+        ax.plot([0.0, 10.0], [0.0, 5.0]).unwrap();
+        ax.xaxis().set_major_locator(FailingLocator);
+        assert_eq!(ax.xlim(), (0.0, 1.0), "autoscaling stopped at x");
+        assert_eq!(ax.ylim(), (0.0, 1.0), "and never reached y");
+        crate::layout::failures::clear_failures();
+        FAILED.set(false);
     }
 
     #[test]

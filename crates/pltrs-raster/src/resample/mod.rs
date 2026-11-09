@@ -64,7 +64,8 @@ use crate::raster::{Rasterizer, Scanline};
 /// Agg's sub-pixel coordinates must fit in 24-bit signed integers.
 pub const MAX_DIMENSION: usize = 1 << 23;
 
-/// Largest accepted kernel radius ([`ResampleParams::radius`]).
+/// Largest accepted kernel radius ([`ResampleParams::radius`]) of the
+/// kernels it affects ([`Interpolation::uses_radius`]).
 pub const MAX_FILTER_RADIUS: f64 = 256.0;
 
 /// Resamples `src` into `dst` through `params.transform`, blending the
@@ -200,8 +201,10 @@ fn validate<P>(
         return Err(ResampleError::InvalidAlpha(params.alpha));
     }
     // matplotlib's wrapper takes a NaN radius, which the windowed kernels
-    // read as their smallest window.
-    if !(params.radius.is_nan() || (params.radius > 0.0 && params.radius <= MAX_FILTER_RADIUS)) {
+    // read as their smallest window, and any radius for the kernels it
+    // does not affect.
+    let bounded = params.radius <= MAX_FILTER_RADIUS || !params.interpolation.uses_radius();
+    if !(params.radius.is_nan() || (params.radius > 0.0 && bounded)) {
         return Err(ResampleError::InvalidRadius(params.radius));
     }
     Ok(())
@@ -453,6 +456,16 @@ mod tests {
             resample(&src, &mut dst, &identity.clone().with_radius(f64::NAN)),
             Ok(()),
             "a NaN radius is the smallest window"
+        );
+        assert_eq!(
+            resample(&src, &mut dst, &identity.clone().with_radius(f64::INFINITY)),
+            Ok(()),
+            "a radius the kernel does not use"
+        );
+        let sinc = identity.clone().with_interpolation(Interpolation::Sinc);
+        assert_eq!(
+            resample(&src, &mut dst, &sinc.with_radius(f64::INFINITY)),
+            Err(ResampleError::InvalidRadius(f64::INFINITY))
         );
         let mesh = Grid::filled(2, 2, [0.0; 2]).expect("mesh");
         assert_eq!(

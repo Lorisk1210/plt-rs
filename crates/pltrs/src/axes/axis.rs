@@ -168,6 +168,12 @@ pub(crate) struct TickOverrides {
     /// Gaps between the marks and the labels, in points (matplotlib's
     /// `Tick.set_pad`).
     pub(crate) pads: Vec<Option<f64>>,
+    /// Whether the ticks are drawn, `None` for a tick that is
+    /// (matplotlib's `Tick.set_visible`).
+    pub(crate) visible: Vec<Option<bool>>,
+    /// The image filters the ticks are drawn through (matplotlib's
+    /// `Tick.set_agg_filter`), which ticks made later do not take.
+    pub(crate) agg_filters: Vec<Option<AggFilter>>,
     /// How many ticks of the level exist, as matplotlib's tick lists
     /// count them: ticks are made when the axis places them or a program
     /// lists them (`get_major_ticks(n)`), and never unmade but by a reset.
@@ -179,6 +185,8 @@ pltrs_core::archive_struct!(TickOverrides {
     second_labels,
     lines,
     pads,
+    visible,
+    agg_filters,
     made
 });
 
@@ -196,6 +204,7 @@ impl TickOverrides {
         copy_first(&mut self.second_labels, self.made, count);
         copy_first(&mut self.lines, self.made, count);
         copy_first(&mut self.pads, self.made, count);
+        copy_first(&mut self.visible, self.made, count);
         self.made = count;
     }
 }

@@ -2,6 +2,8 @@
 Events and stems: `~.Axes.eventplot` and `~.Axes.stem`.
 """
 
+from numbers import Real
+
 import numpy as np
 
 from ... import _docstring
@@ -10,6 +12,7 @@ from ... import lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
+from . import _events_reference
 from ._helpers import check_format, floats, keep_data, record_container, wrap, wrap_all
 from .lines import _given_format_color
 
@@ -48,6 +51,95 @@ def _remember_rows(collections, lineoffsets, linelengths, linewidths):
                              ("lineoffset", "linelength"))
         if width is not None:
             _values.remember(collection, "linewidth", np.atleast_1d(width))
+
+
+def _native_rows(axes, positions, orientation, lineoffsets, linelengths, linewidths,
+                 colors, alpha, linestyles, kwargs):
+    """
+    The rows of an `~.Axes.eventplot` of *axes* as pltrs (Rust) takes them
+    (the arguments of ``_native.plotting.eventplot`` after the Axes), and
+    the offsets, lengths and widths as given. Raises for arguments it does
+    not take as they are, which matplotlib's code then plots (see
+    `._events_reference`).
+    """
+    _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
+    lineoffsets, linelengths = axes._process_unit_info(
+        [("y", lineoffsets), ("y", linelengths)], kwargs)
+    if not np.iterable(positions):
+        positions = [positions]
+    elif any(np.iterable(position) for position in positions):
+        positions = [np.asanyarray(position) for position in positions]
+    else:
+        positions = [np.asanyarray(positions)]
+    positions = [axes._process_unit_info([("x", position)], kwargs)[0]
+                 for position in positions]
+    # Each row makes an `EventCollection`, which takes 1D positions.
+    if any(np.ndim(position) != 1 for position in positions):
+        raise ValueError('positions must be one-dimensional')
+    positions = [floats(position) for position in positions]
+    colors = cbook._local_over_kwdict(colors, kwargs, 'color')
+    linewidths = cbook._local_over_kwdict(linewidths, kwargs, 'linewidth')
+    linestyles = cbook._local_over_kwdict(linestyles, kwargs, 'linestyle')
+    if not np.iterable(lineoffsets):
+        lineoffsets = [lineoffsets]
+    if not np.iterable(linelengths):
+        linelengths = [linelengths]
+    if not np.iterable(linewidths):
+        linewidths = [linewidths]
+    if not np.iterable(colors):
+        colors = [colors]
+    if not np.iterable(alpha):
+        alpha = [alpha]
+    if hasattr(linestyles, 'lower') or not np.iterable(linestyles):
+        linestyles = [linestyles]
+    for name, values in (("lineoffsets", lineoffsets),
+                         ("linelengths", linelengths),
+                         ("linestyles", linestyles),
+                         ("linewidths", linewidths), ("alpha", alpha)):
+        if len(values) == 0:
+            raise ValueError(f'{name} cannot be empty')
+    if len(colors) == 0:
+        colors = [None]
+    try:
+        colors = mcolors.to_rgba_array(colors)
+    except ValueError:
+        pass
+    n = len(positions)
+    given = (lineoffsets, linelengths, linewidths)
+    # pltrs (Rust) takes numbers, and the styles matplotlib's collections
+    # take (each row's given as a list, as matplotlib wraps one style).
+    for value in (*lineoffsets, *linelengths):
+        if not isinstance(value, Real):
+            raise TypeError(f"{value!r} is no number")
+    for style in ([linestyles] if len(linestyles) == 1 else linestyles):
+        mcoll._checked_linestyles(style)
+    lineoffsets = np.asarray(lineoffsets, dtype=float)
+    if len(lineoffsets) == 1 and n != 1:
+        lineoffsets = np.tile(lineoffsets, n)
+        lineoffsets[0] = 0
+        lineoffsets = np.cumsum(lineoffsets)
+    lineoffsets = _per_row("lineoffsets", list(lineoffsets), n)
+    linelengths = _per_row("linelengths", [float(v) for v in linelengths], n)
+    linewidths = _per_row("linewidths", list(linewidths), n)
+    colors = _per_row("colors", list(colors), n)
+    alpha = _per_row("alpha", list(alpha), n)
+    for row_alpha in alpha:
+        martist._check_array_alpha(row_alpha)
+    linestyles = _per_row("linestyles", list(linestyles), n)
+    native_colors = ([] if all(c is None for c in colors) else
+                     [tuple(mcolors.to_rgba(_rcParams()['lines.color']
+                                            if c is None else c))
+                      for c in colors])
+    rows = (positions, "horizontal" if orientation == "horizontal" else "vertical",
+            ([float(v) for v in lineoffsets], linelengths,
+             None if all(w is None for w in linewidths) else
+             [float(_rcParams()['lines.linewidth'] if w is None else w)
+              for w in linewidths],
+             native_colors,
+             None if all(a is None for a in alpha) else
+             [1.0 if a is None else float(a) for a in alpha],
+             [mcoll._native_style(ls) for ls in linestyles]))
+    return rows, given
 
 
 class EventsMixin:
@@ -164,78 +256,19 @@ class EventsMixin:
         --------
         .. plot:: gallery/lines_bars_and_markers/eventplot_demo.py
         """
-        _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
-        lineoffsets, linelengths = self._process_unit_info(
-            [("y", lineoffsets), ("y", linelengths)], kwargs)
-        if not np.iterable(positions):
-            positions = [positions]
-        elif any(np.iterable(position) for position in positions):
-            positions = [np.asanyarray(position) for position in positions]
-        else:
-            positions = [np.asanyarray(positions)]
-        positions = [self._process_unit_info([("x", position)], kwargs)[0]
-                     for position in positions]
-        # Each row makes an `EventCollection`, which takes 1D positions.
-        if any(np.ndim(position) != 1 for position in positions):
-            raise ValueError('positions must be one-dimensional')
-        positions = [floats(position) for position in positions]
-        colors = cbook._local_over_kwdict(colors, kwargs, 'color')
-        linewidths = cbook._local_over_kwdict(linewidths, kwargs, 'linewidth')
-        linestyles = cbook._local_over_kwdict(linestyles, kwargs, 'linestyle')
-        if not np.iterable(lineoffsets):
-            lineoffsets = [lineoffsets]
-        if not np.iterable(linelengths):
-            linelengths = [linelengths]
-        if not np.iterable(linewidths):
-            linewidths = [linewidths]
-        if not np.iterable(colors):
-            colors = [colors]
-        if not np.iterable(alpha):
-            alpha = [alpha]
-        if hasattr(linestyles, 'lower') or not np.iterable(linestyles):
-            linestyles = [linestyles]
-        for name, values in (("lineoffsets", lineoffsets),
-                             ("linelengths", linelengths),
-                             ("linestyles", linestyles),
-                             ("linewidths", linewidths), ("alpha", alpha)):
-            if len(values) == 0:
-                raise ValueError(f'{name} cannot be empty')
-        if len(colors) == 0:
-            colors = [None]
+        given_kwargs = dict(kwargs)
         try:
-            colors = mcolors.to_rgba_array(colors)
-        except ValueError:
-            pass
-        n = len(positions)
-        given = (lineoffsets, linelengths, linewidths)
-        lineoffsets = np.asarray(lineoffsets, dtype=float)
-        if len(lineoffsets) == 1 and n != 1:
-            lineoffsets = np.tile(lineoffsets, n)
-            lineoffsets[0] = 0
-            lineoffsets = np.cumsum(lineoffsets)
-        lineoffsets = _per_row("lineoffsets", list(lineoffsets), n)
-        linelengths = _per_row("linelengths", [float(v) for v in linelengths], n)
-        linewidths = _per_row("linewidths", list(linewidths), n)
-        colors = _per_row("colors", list(colors), n)
-        alpha = _per_row("alpha", list(alpha), n)
-        for row_alpha in alpha:
-            martist._check_array_alpha(row_alpha)
-        linestyles = _per_row("linestyles", list(linestyles), n)
-        native_colors = ([] if all(c is None for c in colors) else
-                         [tuple(mcolors.to_rgba(_rcParams()['lines.color']
-                                                if c is None else c))
-                          for c in colors])
-        native = _plotting.eventplot(
-            self._native, positions,
-            "horizontal" if orientation == "horizontal" else "vertical",
-            ([float(v) for v in lineoffsets], linelengths,
-             None if all(w is None for w in linewidths) else
-             [float(_rcParams()['lines.linewidth'] if w is None else w)
-              for w in linewidths],
-             native_colors,
-             None if all(a is None for a in alpha) else
-             [1.0 if a is None else float(a) for a in alpha],
-             [mcoll._native_style(ls) for ls in linestyles]))
+            rows, given = _native_rows(self, positions, orientation, lineoffsets,
+                                       linelengths, linewidths, colors, alpha,
+                                       linestyles, kwargs)
+        except Exception:
+            # matplotlib's own code, failing where and as it fails (after
+            # adding the rows made before), or plotting what pltrs (Rust)
+            # does not take as it does.
+            return _events_reference.eventplot(
+                self, positions, orientation, lineoffsets, linelengths, linewidths,
+                colors, alpha, linestyles, **given_kwargs)
+        native = _plotting.eventplot(self._native, *rows)
         collections = wrap_all(self, native, mcoll.EventCollection)
         _remember_rows(collections, *given)
         for collection in collections:
@@ -338,10 +371,12 @@ class EventsMixin:
             locs, heads, *args = args
         if orientation == 'vertical':
             locs, heads = self._process_unit_info([("x", locs), ("y", heads)])
-            bottom = self.convert_yunits(bottom)
         else:
             heads, locs = self._process_unit_info([("x", heads), ("y", locs)])
-            bottom = self.convert_xunits(bottom)
+        if not isinstance(bottom, Real):
+            # A bottom in units, or none: as matplotlib's `vlines` takes it.
+            return _events_reference.stem(self, locs, heads, args, linefmt, markerfmt,
+                                          basefmt, bottom, label, orientation)
         heads = cbook._check_1d(heads)
         locs = cbook._check_1d(locs)
         if np.ndim(heads) != 1 or np.shape(heads) != np.shape(locs):

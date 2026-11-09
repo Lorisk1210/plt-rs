@@ -14,21 +14,23 @@ from ._helpers import wrap
 def _plain(x, weights):
     """Whether pltrs (Rust) takes *x* and *weights* as they are: values
     (and weights, if any, as many) in a non-empty 1-D array of numbers,
-    without NaN."""
+    without NaN; weights not masked, finite and not summing to zero (with
+    which numpy's arithmetic warns)."""
     def numbers(values):
         return (isinstance(values, np.ndarray) and values.ndim == 1
                 and values.dtype.kind in "biuf" and values.size > 0)
     if not numbers(x) or np.isnan(x).any():
         return False
-    return weights is None or (numbers(weights) and weights.shape == x.shape)
+    return weights is None or (
+        numbers(weights) and weights.shape == x.shape and not np.ma.isMaskedArray(weights)
+        and bool(np.isfinite(weights).all()) and weights.sum() != 0)
 
 
-def _check_cumulative(x, weights, compress):
+def _ecdf_as_matplotlib(axes, x, weights, complementary, orientation, compress, kwargs):
     """
-    Run matplotlib's arithmetic of ``ecdf`` before it plots (the sorted
-    values, their cumulative weights and the ends of the steps), failing
-    and warning as it does with values pltrs (Rust) does not take as they
-    are.
+    matplotlib's ``ecdf`` of the values and weights pltrs (Rust) does not
+    take as they are: its arithmetic (failing and warning as it does), then
+    its steps plotted (matplotlib 3.11's code).
     """
     x = np.asarray(x)
     if np.isnan(x).any():
@@ -46,8 +48,24 @@ def _check_cumulative(x, weights, compress):
         compress_idxs = [0, *(x[:-1] != x[1:]).nonzero()[0] + 1]
         x = x[compress_idxs]
         cum_weights = cum_weights[compress_idxs]
-    # The ends of the steps, which no values lack.
-    _ = x[0], x[-1]
+    if orientation == "vertical":
+        if not complementary:
+            line, = axes.plot([x[0], *x], [0, *cum_weights],
+                              drawstyle="steps-post", **kwargs)
+        else:
+            line, = axes.plot([*x, x[-1]], [1, *1 - cum_weights],
+                              drawstyle="steps-pre", **kwargs)
+        line.sticky_edges.y[:] = [0, 1]
+    else:  # orientation == "horizontal":
+        if not complementary:
+            line, = axes.plot([0, *cum_weights], [x[0], *x],
+                              drawstyle="steps-pre", **kwargs)
+        else:
+            line, = axes.plot([1, *1 - cum_weights], [*x, x[-1]],
+                              drawstyle="steps-post", **kwargs)
+        line.sticky_edges.x[:] = [0, 1]
+    return line
+
 
 class EcdfMixin:
     """`ecdf`."""
@@ -121,11 +139,16 @@ class EcdfMixin:
         if np.ma.getmask(x).any():
             raise ValueError("ecdf() does not support masked entries")
         if not _plain(x, weights):
-            _check_cumulative(x, weights, compress)
+            return _ecdf_as_matplotlib(self, x, weights, complementary, orientation,
+                                       compress, kwargs)
         native = _plotting.ecdf(
             self._native, np.asarray(x, dtype=float),
             # (matplotlib takes the weights from them flattened.)
             None if weights is None else np.ravel(np.asarray(weights, dtype=float)),
             (bool(complementary), orientation == "horizontal", bool(compress)),
             mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D)))
-        return wrap(self, native, mlines.Line2D)
+        line = wrap(self, native, mlines.Line2D)
+        # The sticky edges as matplotlib's list holds them.
+        sticky = line.sticky_edges.y if orientation == "vertical" else line.sticky_edges.x
+        sticky[:] = [0, 1]
+        return line

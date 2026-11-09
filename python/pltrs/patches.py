@@ -1997,7 +1997,8 @@ class Ellipse(Patch):
 
     def get_center(self):
         """Return the center of the ellipse."""
-        return _values.given(self, "center", self._fields()[:2])
+        return _values.given(self, "center", self._fields()[:2],
+                             same=_kept_geometry.same_point)
 
     center = property(get_center, set_center)
 
@@ -2201,7 +2202,8 @@ class Annulus(Patch):
 
     def get_center(self):
         """Return the center of the annulus."""
-        return _values.given(self, "center", _patches.annulus(self._native)[0])
+        return _values.given(self, "center", _patches.annulus(self._native)[0],
+                             same=_kept_geometry.same_point)
 
     center = property(get_center, set_center)
 

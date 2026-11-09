@@ -31,7 +31,7 @@ from ..font_manager import FontManager, FontProperties
 from ..ft2font import LoadFlags
 from ..image import imsave
 from ..text import _measuring_with
-from ..transforms import BboxBase
+from ..transforms import Bbox, BboxBase
 from . import _agg_arguments, _backend_agg
 from ._agg_arguments import AggArgumentsMixin
 from ._backend_agg import BufferRegion
@@ -92,6 +92,7 @@ class RendererAgg(AggArgumentsMixin, NativeDrawingMixin, RendererBase):
         self.width = width
         self.height = height
         _backend_agg.check_renderer_arguments(width, height, dpi)
+        self.bbox = Bbox.from_bounds(0, 0, self.width, self.height)
         self._figure = None
         # The pixels of a renderer behind no figure's canvas, made when it
         # first draws.
@@ -591,5 +592,4 @@ from ..font_manager import get_font  # noqa: E402, F401
 from ..ft2font import RenderMode  # noqa: E402, F401
 from ..mathtext import MathTextParser  # noqa: E402, F401
 from ..path import Path  # noqa: E402, F401
-from ..transforms import Bbox  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

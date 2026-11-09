@@ -920,6 +920,9 @@ class PaddedBox(OffsetBox):
         self._children = [child]
         # matplotlib's square frame without padding, white with a black
         # edge in its look, shown with *draw_frame*.
+        if patch_attrs is not None:
+            # matplotlib's frame is made, then updated with them.
+            patch_attrs.items  # noqa: B018
         self.patch = FancyBboxPatch._from_native(_offsetbox.new_padded_frame(
             bool(draw_frame),
             cbook.normalize_kwargs(dict(patch_attrs or {}), FancyBboxPatch)), None)
@@ -2188,6 +2191,10 @@ or callable, default: value of *xycoords*
                               else self.arrowprops.pop("relpos", (0.5, 0.5)))
         self._frameon = frameon
         self._pad = pad
+        if bboxprops and not hasattr(bboxprops, "keys"):
+            # matplotlib's frame refuses it (``self.patch.set(**bboxprops)``).
+            from .patches import FancyBboxPatch
+            FancyBboxPatch.set(**bboxprops)
         self._bboxprops = dict(bboxprops or {})
         self._internal_update(kwargs)
 

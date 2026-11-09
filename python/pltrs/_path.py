@@ -56,14 +56,16 @@ def _iterated(path):
     return path
 
 
-def _trailing_shape(array, name, size):
-    """Raise matplotlib's errors for an array that is not ``(N, size)``
-    (``check_trailing_shape``; an empty 2-D array passes)."""
-    if array.ndim != 2:
-        raise ValueError(f"Expected 2-dimensional array, got {array.ndim}")
-    if array.size and array.shape[1] != size:
-        raise ValueError(f"{name} must have shape (N, {size}), got "
-                         f"({array.shape[0]}, {array.shape[1]})")
+def _trailing_shape(array, name, *sizes):
+    """Raise matplotlib's errors for an array that is not ``(N, *sizes)``
+    (``check_trailing_shape``; an empty array of as many dimensions
+    passes)."""
+    ndim = len(sizes) + 1
+    if array.ndim != ndim:
+        raise ValueError(f"Expected {ndim}-dimensional array, got {array.ndim}")
+    if array.size and array.shape[1:] != sizes:
+        raise ValueError(f"{name} must have shape (N, {', '.join(map(str, sizes))}), "
+                         f"got {array.shape}")
 
 
 def affine_transform(points, trans):
@@ -166,14 +168,26 @@ def clip_path_to_rect(path, rect, inside):
     return _path.clip_path_to_rect(_iterated(path), _rect_points(rect), bool(inside))
 
 
+@_pybind.binds(
+    "(master_transform: trans_affine, paths: PathGenerator, transforms: "
+    "typing.Annotated[numpy.typing.ArrayLike, numpy.float64], offsets: "
+    "typing.Annotated[numpy.typing.ArrayLike, numpy.float64], offset_transform: "
+    "trans_affine) -> tuple", method=False, paths=_pybind.ACCEPTS["object"])
 def get_path_collection_extents(master_transform, paths, transforms, offsets,
                                 offset_transform):
     """The extents (2×2 points) and minimum positive coordinates of the
     paths of a collection."""
+    transforms = np.asarray(transforms, dtype=float)
+    offsets = np.asarray(offsets, dtype=float)
+    _trailing_shape(transforms, "transforms", 3, 3)
+    _trailing_shape(offsets, "points", 2)
+    # Each path as matplotlib's ``PathGenerator`` takes it when it reaches
+    # it, which is in order.
+    for path in paths:
+        _pybind.path_iterator(path)
     return _path.get_path_collection_extents(
-        _affine(master_transform), list(paths),
-        [np.asarray(t, dtype=float) for t in transforms],
-        np.asarray(offsets, float).reshape((-1, 2)), _affine(offset_transform))
+        _affine(master_transform), [_iterated(path) for path in paths],
+        list(transforms), offsets.reshape((-1, 2)), _affine(offset_transform))
 
 
 def point_in_path_collection(x, y, radius, master_transform, paths, transforms,

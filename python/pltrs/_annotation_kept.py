@@ -129,7 +129,10 @@ class KeptMixin:
         made with as given, and those of them and of its coordinate systems
         that pltrs (Rust) could not hold as unusable (see
         `annotate_arguments`)."""
-        if native_point(xy, self.figure) is None:
+        point = native_point(xy, self.figure)
+        if point is None or any(isinstance(value, str) for value in point):
+            # Category names matplotlib converts where it places the point,
+            # failing at every draw where the axis has no categories.
             self._keep_unusable_xy(xy)
         else:
             self._remember_xy(xy)

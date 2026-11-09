@@ -10,6 +10,7 @@ artists, its containers, and the limits, autoscaling and aspect it
 changed.
 """
 
+import contextlib
 import functools
 
 from .. import _handles
@@ -40,24 +41,34 @@ def leaves_nothing_on_failure(method):
     see `keep_added`)."""
     @functools.wraps(method)
     def plotting(self, *args, **kwargs):
-        marks = self.__dict__.setdefault("_call_marks", [])
-        marks.append((_axes.call_mark(self._native), len(self.containers)))
-        try:
+        with leaving_nothing(self):
             return method(self, *args, **kwargs)
-        except Exception:
-            mark, containers = marks[-1]
-            del self.containers[containers:]
-            # An artist of several native parts (a contour set and its
-            # bands) is taken back once.
-            added = {id(artist): artist for artist in (
-                _handles.wrap_any(native, self._figure)
-                for native in _axes.undo_since(self._native, mark))}
-            for artist in added.values():
-                artist.remove()
-            raise
-        finally:
-            marks.pop()
     return plotting
+
+
+@contextlib.contextmanager
+def leaving_nothing(axes):
+    """Take back what the code run in the context added to *axes* should it
+    fail (but what it kept, see `keep_added`): a plotting call, or the
+    constructor of an artist matplotlib adds to *axes* only once made (a
+    contour set)."""
+    marks = axes.__dict__.setdefault("_call_marks", [])
+    marks.append((_axes.call_mark(axes._native), len(axes.containers)))
+    try:
+        yield
+    except Exception:
+        mark, containers = marks[-1]
+        del axes.containers[containers:]
+        # An artist of several native parts (a contour set and its
+        # bands) is taken back once.
+        added = {id(artist): artist for artist in (
+            _handles.wrap_any(native, axes._figure)
+            for native in _axes.undo_since(axes._native, mark))}
+        for artist in added.values():
+            artist.remove()
+        raise
+    finally:
+        marks.pop()
 
 
 def keep_added(axes):

@@ -19,6 +19,7 @@ matplotlib's (from matplotlib 3.11.2, under the Matplotlib License).
 """
 
 import functools
+import inspect
 import logging
 
 import numpy as np
@@ -448,9 +449,21 @@ class Colorbar:
         """
         layout = {key: kwargs.pop(key) for key in _LAYOUT_KEYS
                   if key in kwargs and key not in ('location', 'orientation')}
-        layout['use_gridspec'] = use_gridspec
         first = parents[0] if isinstance(parents, list) else parents
         figure = first.get_figure(root=False)
+        if set(kwargs) - set(inspect.signature(cls).parameters):
+            # matplotlib makes the colorbar's Axes first, then refuses the
+            # keywords making the colorbar in it.
+            from .axes import Axes
+            engine = figure.get_layout_engine()
+            on_grid = (use_gridspec and (engine is None or engine.colorbar_gridspec)
+                       and isinstance(parents, Axes) and parents.get_subplotspec())
+            make = make_axes_gridspec if on_grid else make_axes
+            cax, kwargs = make(parents, **layout, **kwargs)
+            if made is not None:
+                made()
+            return cls(cax, mappable, **kwargs)
+        layout['use_gridspec'] = use_gridspec
         colorbar = cls.__new__(cls)
         colorbar._make(figure, mappable, cax=None, parents=parents,
                        layout=layout, made=made, **kwargs)
@@ -1107,13 +1120,17 @@ def _made_axes(make, parents, natives, kwargs):
     layout.update({key: kwargs.pop(key, None) for key in ('pad', 'anchor', 'panchor')})
     layout['fraction'] = float(layout['fraction'])
     layout['shrink'] = float(layout['shrink'])
-    layout['aspect'] = float(layout['aspect'])
+    aspect = layout['aspect']
+    # No aspect (None) is matplotlib's box aspect of none, set at the end.
+    layout['aspect'] = 1.0 if aspect is None else float(aspect)
     if layout['pad'] is not None:
         layout['pad'] = float(layout['pad'])
     native, kwargs['orientation'], kwargs['ticklocation'] = make(natives, layout)
     figure = parents[0].get_figure(root=True)
     cax = _handles.wrap(native, Axes, figure)
     cax.set_label('<colorbar>')
+    if aspect is None:
+        cax.set_box_aspect(None)
     return cax, kwargs
 
 

@@ -33,8 +33,10 @@ Figures without such artists, effects and renderers never call Python.
 
 import contextlib
 import functools
+import sys
 import threading
 import types
+import warnings
 import weakref
 
 import numpy as np
@@ -221,7 +223,8 @@ def record_drawing(artist, target):
     at the artist's place."""
     renderer = _renderer_for(target, artist.get_figure(root=True))
     draw, _ = _draw_of(artist)
-    with _figure_drawn(target[6]), _recording(renderer, target[5]) as drawing:
+    with (_figure_drawn(target[6]), _recording(renderer, target[5]) as drawing,
+          _warnings_held(artist, target[6])):
         if figure_changeable():
             for prepare in _preparations:
                 prepare(artist)
@@ -232,6 +235,56 @@ def record_drawing(artist, target):
                 place()
         draw(renderer)
     return drawing
+
+
+@contextlib.contextmanager
+def _warnings_held(artist, live):
+    """Hold the warnings *artist*'s ``draw`` gives while it is recorded
+    before the figure is drawn (not *live*), for pltrs (Rust) to give them
+    where it draws the artist (`emit_held_warnings`): matplotlib's draw
+    gives them there, and none when an artist drawn before fails."""
+    artist.__dict__.pop("_held_warnings", None)
+    if live:
+        yield
+        return
+    held = []
+    try:
+        with warnings.catch_warnings(record=True) as held:
+            # Each as it comes: the filters in force decide when it is given.
+            warnings.simplefilter("always")
+            yield
+    finally:
+        artist.__dict__["_held_warnings"] = held
+        if not _drawing.has_painter(artist._native):
+            # Its draw handed pltrs (Rust) what it draws the artist with
+            # itself: given now.
+            emit_held_warnings(artist)
+
+
+def emit_held_warnings(artist):
+    """Give the warnings held while *artist* was recorded
+    (`_warnings_held`), from where they came, under the filters in force."""
+    for held in artist.__dict__.pop("_held_warnings", ()):
+        warnings.warn_explicit(held.message, held.category, held.filename, held.lineno,
+                               registry=_warning_registry(held.filename),
+                               source=held.source)
+
+
+@functools.cache
+def _module_named_by(filename):
+    """The name of the module loaded from *filename*, or None."""
+    for name, module in list(sys.modules.items()):
+        if getattr(module, "__file__", None) == filename:
+            return name
+    return None
+
+
+def _warning_registry(filename):
+    """The registry of the warnings given from the module loaded from
+    *filename* (as `warnings.warn` keeps them, for the "default" and
+    "module" filters), or None."""
+    module = sys.modules.get(_module_named_by(filename))
+    return None if module is None else module.__dict__.setdefault("__warningregistry__", {})
 
 
 def _evaluate_transforms(artist):
@@ -255,6 +308,12 @@ def evaluate_given_transform(artist):
     transform of its own (``_draw_reads_transform``: an offset box)."""
     given = artist.__dict__.get("_given_transform")
     if given is not None and getattr(type(artist), "_draw_reads_transform", True):
+        if not _live_transforms.holds_natively(given):
+            # Kept as given, no transform: the artist's ``get_transform``
+            # fails on it as matplotlib's draw does (a patch composes it
+            # with its own); pltrs (Rust) keeps the one it had.
+            artist.get_transform()
+            return
         _transforms.set_transform(artist._native, _live_transforms.to_native(given))
 
 
@@ -442,6 +501,7 @@ def filter_function(shared):
 
 _register("filter_function", filter_function)
 _register("record_drawing", record_drawing)
+_register("emit_held_warnings", emit_held_warnings)
 _register("effect_draw_path", effect_draw_path)
 _register("measure_artist", measure_artist)
 _register("measure_box", measure_box)

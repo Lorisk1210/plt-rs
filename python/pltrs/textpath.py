@@ -129,10 +129,14 @@ class TextToPath:
 
         Also see `TextPath` for a more direct way to create a path from a text.
         """
-        if ismath == "TeX":
+        typesetting = ismath == "TeX", False
+        if typesetting[0]:
             # Typeset as `get_glyphs_tex` typesets it.
             s, prop = _tex_text(s, prop)
-        elif not ismath:
+        elif ismath:
+            # The whole of *s* as mathtext (`get_glyphs_mathtext`).
+            typesetting = False, True
+        else:
             # Arguments the font cannot lay out, as `get_glyphs_with_font`
             # would lay it out.
             layout = (s, LoadFlags.NO_HINTING), dict(features=features, language=language)
@@ -144,7 +148,7 @@ class TextToPath:
         else:
             language = (None, list(language))
         verts, codes = _textpath.get_text_path(
-            s, FontManager._props(prop), ismath == "TeX",
+            s, FontManager._props(prop), typesetting,
             None if features is None else list(features), language)
         # matplotlib extends lists with the rows of its glyphs' vertices
         # and their codes (numpy values), and makes an empty path's
@@ -343,13 +347,10 @@ class TextPath(Path):
         self.set_size(size)
 
         self._cached_vertices = None
-        if not isinstance(s, str):
-            # matplotlib prepares the text as a `.Text` does first.
-            from .text import Text
-            Text(usetex=usetex)._preprocess_math(s)
+        from .text import Text
+        s, ismath = Text(usetex=usetex)._preprocess_math(s)
         super().__init__(
-            *text_to_path.get_text_path(
-                prop, s, ismath="TeX" if usetex else False),
+            *text_to_path.get_text_path(prop, s, ismath=ismath),
             _interpolation_steps=_interpolation_steps,
             readonly=True)
         self._should_simplify = False

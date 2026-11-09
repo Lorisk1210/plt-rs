@@ -46,7 +46,7 @@ impl GridSpec {
         let axes: Vec<ArtistId> = figure.axes().iter().map(ArtistHandle::id).collect();
         let frame = figure.raw().id();
         // The axes of classes of the program's measuring themselves.
-        figure.root_handle().measure_painters();
+        figure.root_handle().measure_painters_for_layout();
         figure
             .raw()
             .figure_state()

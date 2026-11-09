@@ -192,7 +192,8 @@ def detrend_linear(y):
     if not y.ndim:
         return np.array(0., dtype=y.dtype)
 
-    if _computed_natively(y, None):
+    # numpy warns of the slope of one value (0 / 0).
+    if y.size > 1 and _computed_natively(y, None):
         return _detrend(y, "linear", None)
     x = np.arange(y.size, dtype=float)
 
@@ -278,19 +279,28 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
     Private helper implementing the common parts between the psd, csd,
     spectrogram and complex, magnitude, angle, and phase spectrums.
     """
-    # pltrs (Rust) computes the spectrum; with arguments it cannot take as
-    # they are, or refuses, matplotlib's computation runs first, for its
-    # errors (see `.axes._plotting.spectral`).
+    # pltrs (Rust) computes the spectrum; matplotlib's computation gives it
+    # for arguments pltrs (Rust) cannot take as they are, and runs for its
+    # errors where pltrs (Rust) refuses them (see `.axes._plotting.spectral`).
     from . import _mlab_reference
     from .axes._plotting.spectral import _as_matplotlib, _plain
     signals = (x,) if y is None or y is x else (x, y)
+
+    def reference():
+        return _mlab_reference.spectral_helper(x, y, NFFT, Fs, detrend_func, window,
+                                               noverlap, pad_to, sides, scale_by_freq,
+                                               mode)
+
+    if not (_plain(signals, (NFFT, noverlap, pad_to), Fs, window)
+            and all(np.isfinite(signal).all() for signal in signals)):
+        # Computed as matplotlib computes it, which pltrs (Rust) does not
+        # for such arguments (nor with numpy's warnings of what is no
+        # finite number).
+        return reference()
     return _as_matplotlib(
         lambda: _native_spectral_helper(x, y, NFFT, Fs, detrend_func, window,
                                         noverlap, pad_to, sides, scale_by_freq, mode),
-        lambda: _mlab_reference.spectral_helper(x, y, NFFT, Fs, detrend_func, window,
-                                                noverlap, pad_to, sides,
-                                                scale_by_freq, mode),
-        _plain(signals, (NFFT, noverlap, pad_to), Fs, window))
+        reference, True)
 
 
 def _native_spectral_helper(x, y, NFFT, Fs, detrend_func, window, noverlap,
@@ -690,6 +700,17 @@ def cohere(x, y, NFFT=256, Fs=2, detrend=detrend_none, window=window_hanning,
     return Cxy, f
 
 
+def _kde_covariance(dataset, factor, num_dp):
+    """Compute the covariance of a `GaussianKDE` of *dataset*, with the
+    bandwidth *factor*, as matplotlib does, for numpy's errors and warnings
+    with data that are no finite numbers."""
+    data_covariance = np.atleast_2d(np.cov(dataset, rowvar=1, bias=False))
+    data_inv_cov = np.linalg.inv(data_covariance)
+    covariance = data_covariance * factor ** 2
+    data_inv_cov / factor ** 2
+    np.sqrt(np.linalg.det(2 * np.pi * covariance)) * num_dp
+
+
 class GaussianKDE:
     """
     Representation of a kernel-density estimate using Gaussian kernels.
@@ -754,6 +775,9 @@ class GaussianKDE:
                              "scalar or a callable")
 
         self.factor = self.covariance_factor()
+        dataset = np.asarray(self.dataset)
+        if not (dataset.dtype.kind in "biuf" and np.isfinite(dataset).all()):
+            _kde_covariance(self.dataset, self.factor, self.num_dp)
         self._native = _mlab.gaussian_kde(
             np.asarray(self.dataset, dtype=float), float(self.factor))
         self.covariance, self.inv_cov, self.norm_factor = _mlab.kde_covariance(

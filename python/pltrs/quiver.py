@@ -19,12 +19,14 @@ keys, sizing the arrows from the Axes when the figure is drawn, as
 matplotlib's ``Quiver.draw`` does.
 """
 
+import functools
+
 import numpy as np
 from numpy import ma
 
 from . import _docstring
-from . import (_api, _handles, _live_transforms, _unusable, _values, cbook,
-               collections as mcollections, colors as mcolors, transforms)
+from . import (_api, _handles, _live_transforms, _quiver_reference, _unusable, _values,
+               cbook, collections as mcollections, colors as mcolors, transforms)
 from . import artist as martist
 from ._native import artist as _artist, plotting as _plotting
 
@@ -227,13 +229,17 @@ class QuiverKey(martist.Artist):
         length = U if isinstance(U, Real) else None
         # The Axes the quiver is on, or was made for before it is added.
         made_for = Q.axes or Q._made_for
+        if labelcolor is not None:
+            mcolors._check_color_like(color=labelcolor)
         native = _plotting.quiverkey(
             made_for._native, Q._native, position or (0.0, 0.0),
             1.0 if length is None else float(length), str(label),
-            (float(angle), coordinates if usable_coords else "axes",
+            (float(angle) if isinstance(angle, Real) else 0.,
+             coordinates if usable_coords else "axes",
              _rgba(color) if usable_color else None,
              None if zorder is None else float(zorder)),
-            (float(labelsep), labelpos, _rgba(labelcolor), font),
+            (float(labelsep) if isinstance(labelsep, Real) else 0.1, labelpos,
+             _rgba(labelcolor), font),
             mcollections._native_kwargs(
                 cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)))
         _handles.adopt(self, native, made_for.figure)
@@ -242,13 +248,23 @@ class QuiverKey(martist.Artist):
                            lambda coords: _api.getitem_checked(
                                _QUIVERKEY_COORDINATES, coordinates=coords),
                            measured=False)
-        if length is None:
-            # The length matplotlib's draw scales the arrow with first.
-            _unusable.keep(self, "U", U,
-                           lambda U: U * np.cos(np.radians([self.angle])),
-                           measured=False)
+        if length is None or not all(np.isfinite(value) for value in (
+                length, angle if isinstance(angle, Real) else 0.)):
+            # The arrow's components matplotlib's draw computes from its
+            # length first, failing on what is no number, warning of what is
+            # no finite one.
+            _unusable.keep(self, "U", U, self._components, measured=False)
         if not usable_color:
             _unusable.keep(self, "color", color, mcolors.to_rgba_array,
+                           measured=False)
+        if not isinstance(angle, Real):
+            # matplotlib turns the arrow by it first.
+            _unusable.keep(self, "angle", angle, lambda angle: np.radians([angle]),
+                           measured=False)
+        if not isinstance(labelsep, Real):
+            # matplotlib places the label with it in pixels last.
+            _unusable.keep(self, "labelsep", labelsep,
+                           lambda sep: sep * self.Q.axes.get_figure(root=True).dpi,
                            measured=False)
         if position is None:
             # The arrow's offset, then the label's position.
@@ -320,6 +336,12 @@ class QuiverKey(martist.Artist):
             "inches": fig.dpi_scale_trans,
         }, coordinates=self.coord)
 
+    def _components(self, U):
+        """The components of the arrow of length *U* as matplotlib's draw
+        computes them, with numpy's errors and warnings."""
+        U * np.cos(np.radians([self.angle]))
+        U * np.sin(np.radians([self.angle]))
+
     def _place(self, position):
         """Fail as matplotlib's draw fails with the key's *position*: as the
         arrow's offset, then placing the label."""
@@ -329,7 +351,7 @@ class QuiverKey(martist.Artist):
     def _kept_order(self):
         """The order in which matplotlib's draw computes with the values the
         key keeps (see `._unusable.check`)."""
-        return ("coordinates", "U", "color", "position")
+        return ("coordinates", "angle", "U", "color", "position", "labelsep")
 
     @martist.allow_rasterization
     def draw(self, renderer):
@@ -339,6 +361,46 @@ class QuiverKey(martist.Artist):
     def contains(self, mouseevent):
         # docstring inherited
         return super().contains(mouseevent)
+
+
+#: The units of a `Quiver`'s arrows and of their lengths.
+_UNITS = ('width', 'height', 'dots', 'inches', 'x', 'y', 'xy')
+
+#: The settings of a `Quiver` pltrs (Rust) is given for those it does not
+#: hold (matplotlib's defaults).
+_DEFAULT_SETTINGS = dict(scale=None, width=None, headwidth=3., headlength=5.,
+                         headaxislength=4.5, minshaft=1., minlength=1., units='width',
+                         scale_units=None, angles='uv')
+
+
+def _held_settings(settings, n):
+    """The *settings* of a `Quiver` of *n* arrows as pltrs (Rust) holds
+    them (numbers as floats, the units and angles it knows), and the names
+    of those it does not hold, given `_DEFAULT_SETTINGS` instead (which
+    the quiver keeps)."""
+    held, unheld = {}, set()
+    for key, value in settings.items():
+        default = _DEFAULT_SETTINGS[key]
+        if value is None and default is None:
+            usable = True
+        elif key in ('units', 'scale_units'):
+            usable = isinstance(value, str) and value in _UNITS
+        elif key == 'angles':
+            if isinstance(value, str):
+                usable = value in ('uv', 'xy')
+            else:
+                usable = (np.asarray(value).dtype.kind in 'biuf'
+                          and np.size(value) in (1, n))
+                value = np.ravel(value).astype(float) if usable else value
+        else:
+            usable = isinstance(value, Real)
+            value = float(value) if usable else value
+        if usable:
+            held[key] = value
+        else:
+            held[key] = default
+            unheld.add(key)
+    return held, unheld
 
 
 class Quiver(mcollections.PolyCollection):
@@ -393,6 +455,7 @@ class Quiver(mcollections.PolyCollection):
         self.pivot = pivot.lower()
         _api.check_in_list(self._PIVOT_VALS, pivot=self.pivot)
 
+        ax.transData  # noqa: B018  (matplotlib's default transform)
         transform = kwargs.pop('transform', None)
         # The keywords of the collection, as matplotlib keeps them for the
         # key's arrow.
@@ -404,21 +467,33 @@ class Quiver(mcollections.PolyCollection):
         facecolor = kwargs.pop('facecolor', color)
         U, V, C = self._checked_uvc(U, V, C)
         made, mapped = _mapped(C, cmap, norm, clim)
+        settings = dict(scale=scale, width=width, headwidth=headwidth,
+                        headlength=self.headlength, headaxislength=headaxislength,
+                        minshaft=minshaft, minlength=minlength, units=units,
+                        scale_units=scale_units, angles=angles)
+        held, unheld = _held_settings(settings, self.N)
         native = _plotting.quiver(
             ax._native, (self.XY[:, 0].astype(float), self.XY[:, 1].astype(float)),
             (_filled(U), _filled(V)), mapped,
-            (None if scale is None else float(scale), scale_units, units,
-             angles if isinstance(angles, str) else np.ravel(angles).astype(float),
-             None if width is None else float(width)),
-            (float(headwidth), float(headlength), float(headaxislength),
-             float(minshaft), float(minlength)),
+            tuple(held[key] for key in ('scale', 'scale_units', 'units', 'angles',
+                                        'width')),
+            tuple(held[key] for key in ('headwidth', 'headlength', 'headaxislength',
+                                        'minshaft', 'minlength')),
             (self.pivot, _rgba(facecolor) if _single_color(facecolor)
              else (0., 0., 0., 1.)),
             _live_transforms.given_to_native(transform, ax))
         _handles.adopt(self, native, ax.figure)
-        for name, value in (("scale", scale), ("width", width)):
-            if value is not None:
-                _values.remember(self, name, value)
+        for name in ("scale", "width"):
+            if name in unheld:
+                _values.keep(self, name, settings[name])
+            elif settings[name] is not None:
+                _values.remember(self, name, settings[name])
+        if unheld:
+            # matplotlib keeps them, and fails to compute the arrows with
+            # them where it draws them (see `._unusable`).
+            _unusable.keep(self, "arrows", settings,
+                           functools.partial(_quiver_reference.draw_arrows, self),
+                           measured=False)
         # matplotlib's attribute: the transform of the arrows' positions.
         self.transform = ax.transData if transform is None else transform
         self._attach_native_mapping(colorizer=made)
@@ -985,16 +1060,23 @@ class Barbs(mcollections.PolyCollection):
         self.barb_increments = barb_increments or dict()
         self.rounding = rounding
         self.flip = np.atleast_1d(flip_barb)
+        ax.transData  # noqa: B018  (matplotlib's default transform)
         transform = kwargs.pop('transform', None)
         self._pivot = pivot
         self._length = length
+        if None in (barbcolor, flagcolor):
+            # A colour matplotlib takes as false it ignores.
+            barbcolor = barbcolor or None
+            flagcolor = flagcolor or None
         cmap, norm, clim = (kwargs.pop(key, None) for key in ('cmap', 'norm', 'clim'))
 
         # Parse out the data arrays from the various configurations supported
         x, y, u, v, c = _parse_args(*args, caller_name='barbs')
         self.x = x
         self.y = y
+        self._length ** 2 / 4  # noqa: B018  (matplotlib's size of the barbs)
         x, y, u, v, c, flip = self._unmasked(u, v, c)
+        self._check_barbs(u, v)
         made, mapped = _mapped(c, cmap, norm, clim)
         if not all(c is None or _single_color(c) for c in (barbcolor, flagcolor)):
             # Colours per barb are the collection's, as matplotlib makes
@@ -1085,8 +1167,56 @@ class Barbs(mcollections.PolyCollection):
             offsets = self.get_offsets()
             np.ma.column_stack([offsets[:, 0], offsets[:, 1]]).filled(np.nan)
 
+    def _find_tails(self, mag, rounding=True, half=5, full=10, flag=50):
+        """
+        Find how many of each of the tail pieces is necessary.
+
+        Parameters
+        ----------
+        mag : `~numpy.ndarray`
+            Vector magnitudes; must be non-negative (and an actual ndarray).
+        rounding : bool, default: True
+            Whether to round or to truncate to the nearest half-barb.
+        half, full, flag : float, defaults: 5, 10, 50
+            Increments for a half-barb, a barb, and a flag.
+
+        Returns
+        -------
+        n_flags, n_barbs : int array
+            For each entry in *mag*, the number of flags and barbs.
+        half_flag : bool array
+            For each entry in *mag*, whether a half-barb is needed.
+        empty_flag : bool array
+            For each entry in *mag*, whether nothing is drawn.
+        """
+        # If rounding, round to the nearest multiple of half, the smallest
+        # increment
+        if rounding:
+            mag = half * np.around(mag / half)
+        n_flags, mag = divmod(mag, flag)
+        n_barb, mag = divmod(mag, full)
+        half_flag = mag >= half
+        empty_flag = ~(half_flag | (n_flags > 0) | (n_barb > 0))
+        return n_flags.astype(int), n_barb.astype(int), half_flag, empty_flag
+
+    def _check_barbs(self, u, v):
+        """What matplotlib's ``set_UVC`` computes with the barbs' settings
+        before it makes them (pltrs (Rust) makes them), failing as it does:
+        their tail pieces, then the sizes and pivot of ``_make_barbs``."""
+        self._find_tails(np.hypot(u, v), self.rounding, **self.barb_increments)
+        length, sizes = self._length, self.sizes
+        for name, default in (('spacing', 0.125), ('height', 0.4), ('width', 0.25),
+                              ('emptybarb', 0.15)):
+            length * sizes.get(name, default)  # noqa: B018
+        pivot_points = dict(tip=0.0, middle=-length / 2.)
+        try:
+            float(self._pivot)
+        except ValueError:
+            pivot_points[self._pivot.lower()]  # noqa: B018
+
     def set_UVC(self, U, V, C=None):
         x, y, u, v, c, flip = self._unmasked(U, V, C)
+        self._check_barbs(u, v)
         _plotting.barbs_set_uvc(
             self._native, (np.asarray(x, float), np.asarray(y, float)),
             (_filled(u), _filled(v)), None,

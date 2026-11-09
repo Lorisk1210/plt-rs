@@ -16,8 +16,9 @@ from numbers import Number, Real
 import numpy as np
 
 from . import _docstring
-from . import (_api, _kept_geometry, _mirrors, _owned_paths, _unusable, _values, cbook,
-               colors as mcolors, units)
+from . import (_api, _kept_geometry, _mirrors, _owned_paths, _patch_arguments, _unusable,
+               _values, cbook, colors as mcolors, units)
+from ._artist_kwargs import check_known
 from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
 from ._native import artist as _artist, patches as _patches
@@ -1064,8 +1065,11 @@ class RegularPolygon(Patch):
     def _add_to_axes(self, axes, kind, autolim=True):
         if kind == "patch":
             # matplotlib's add_patch reads the patch transform first, for
-            # the data limits.
+            # the data limits, then maps the path's vertices through it,
+            # which numpy refuses for none.
             _unusable.check(self, measuring=True)
+            if not len(self.get_path().vertices):
+                raise RuntimeError("Invalid vertices array.")
         return super()._add_to_axes(axes, kind, autolim)
 
     def __str__(self):
@@ -1095,22 +1099,50 @@ class RegularPolygon(Patch):
 
             %(Patch:kwdoc)s
         """
-        usable = isinstance(orientation, Real)
-        self._native = _patches.new_regular_polygon(
-            (float(xy[0]), float(xy[1])), int(numVertices), float(radius),
-            float(orientation) if usable else 0.)
-        _values.remember_all(self, {"xy": xy, "radius": radius,
-                                    "orientation": orientation},
-                             ("xy", "radius", "orientation"))
+        self._make_polygon(
+            xy, numVertices, radius, orientation,
+            lambda center, sides, radius, orientation: _patches.new_regular_polygon(
+                center, sides, radius, orientation))
         super().__init__(**kwargs)
-        if not usable:
-            # matplotlib keeps it, and fails to rotate the polygon by it
-            # (``Affine2D.rotate``, through ``math.cos``).
-            _unusable.keep(self, "orientation", orientation, math.cos)
+        self._watch_geometry()
+
+    #: How pltrs (Rust) holds each field of the polygon's geometry (see
+    #: `._kept_geometry`).
+    _FIELDS = {"xy": _kept_geometry.point, "radius": _kept_geometry.real,
+               "orientation": _kept_geometry.real}
+
+    def _make_polygon(self, xy, num_vertices, radius, orientation, new):
+        """Make the native polygon (*new(center, sides, radius,
+        orientation)*) of the geometry given, kept as given (see
+        `._kept_geometry`), its path made as matplotlib makes it."""
+        sides, path = _patch_arguments.regular_polygon(num_vertices)
+        given = {"xy": xy, "radius": radius, "orientation": orientation}
+        held = {name: _kept_geometry.hold(self, name, value, self._FIELDS[name], default)
+                for (name, value), default in zip(given.items(), ((0., 0.), 1., 0.))}
+        self._native = new(held["xy"], sides, held["radius"], held["orientation"])
+        self._num_vertices = num_vertices
+        if path is not None:
+            # No whole number of vertices: pltrs (Rust) holds a polygon of
+            # as many vertices as matplotlib's path.
+            self._given_path = path
+
+    def _watch_geometry(self):
+        """Have the polygon recompute its transform where matplotlib's does
+        while its geometry is one it fails or warns on."""
+        x, y, _, radius, orientation = self._fields()
+        _kept_geometry.watch(self, self._FIELDS, (x, y, radius, orientation),
+                             self._patch_transform_as_given)
+
+    def _patch_transform_as_given(self):
+        """The patch transform matplotlib computes from the geometry as
+        given (``get_patch_transform``), raising and warning as it does."""
+        return Affine2D().scale(self.radius).rotate(self.orientation) \
+            .translate(*self.xy)
 
     def get_path(self):
         # docstring inherited
-        return self._native_path()
+        path = self.__dict__.get("_given_path")
+        return self._native_path() if path is None else path
 
     def _fields(self):
         """``(x, y, numvertices, radius, orientation)``."""
@@ -1124,7 +1156,7 @@ class RegularPolygon(Patch):
     @property
     def numvertices(self):
         """The number of vertices."""
-        return self._fields()[2]
+        return self._num_vertices
 
     @property
     def radius(self):
@@ -1134,8 +1166,7 @@ class RegularPolygon(Patch):
     @property
     def orientation(self):
         """The polygon's rotation, in radians."""
-        return _unusable.kept(
-            self, "orientation", _values.given(self, "orientation", self._fields()[4]))
+        return _values.given(self, "orientation", self._fields()[4])
 
 
 class PathPatch(Patch):
@@ -1156,15 +1187,28 @@ class PathPatch(Patch):
 
         %(Patch:kwdoc)s
         """
+        given = path
+        if not isinstance(path, Path):
+            path = Path(np.empty((0, 2)))
         self._native = _patches.new_path_patch(path)
         super().__init__(**kwargs)
-        self._keep_path(path)
+        if given is path:
+            self._keep_path(path)
+        else:
+            self.set_path(given)
 
     def get_path(self):
         # docstring inherited
         if "_given_path" in self.__dict__:
             return self.__dict__["_given_path"]
         return self._native_path()
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        if kind == "patch":
+            # matplotlib's add_patch measures the path first, by its Bézier
+            # pieces (a path that is no `.Path` has none).
+            self.get_path().iter_bezier  # noqa: B018
+        return super()._add_to_axes(axes, kind, autolim)
 
     def set_path(self, path):
         if not isinstance(path, Path):
@@ -1350,6 +1394,8 @@ class Polygon(Patch):
         **kwargs
             %(Patch:kwdoc)s
         """
+        # matplotlib's patch takes its properties first, then the vertices.
+        check_known(type(self), kwargs)
         xy = np.asarray(xy)
         _, _ = xy.shape  # (N, 2): matplotlib's set_xy unpacks it, failing otherwise.
         self._native = _patches.new_polygon(xy.astype(float), bool(closed))
@@ -1623,9 +1669,9 @@ class Arrow(Patch):
             Patch that allows independent control of the head and tail
             properties.
         """
-        self._native = _patches.new_arrow((float(x), float(y)), (float(dx), float(dy)),
-                                   float(width))
+        self._native = _patches.new_arrow((0., 0.), (1., 0.), 1.)
         super().__init__(**kwargs)
+        self.set_data(x, y, dx, dy, width)
 
     def get_path(self):
         # docstring inherited
@@ -1651,16 +1697,18 @@ class Arrow(Patch):
         width : float or None, default: None
             Width of full arrow tail.
         """
-        given = (x, y, dx, dy, width)
-        if any(np.ndim(value) for value in given if value is not None):
-            # matplotlib builds the patch transform with them, putting each
-            # into an element of its matrix (``Affine2D.scale``,
-            # ``translate``), which numpy refuses for an array.
-            raise ValueError("setting an array element with a sequence.")
-        x, y, dx, dy, width = (float(current if new is None else new)
-                               for new, current in
-                               zip(given, _patches.arrow(self._native)))
-        _patches.set_arrow(self._native, (x, y), (dx, dy), width)
+        # matplotlib keeps them as given, then builds the patch transform
+        # with them; pltrs (Rust) does for finite numbers, matplotlib's
+        # arithmetic for anything else, failing and warning as it does.
+        names = ("_x", "_y", "_dx", "_dy", "_width")
+        for name, value in zip(names, (x, y, dx, dy, width)):
+            if value is not None:
+                self.__dict__[name] = value
+        if not all(isinstance(self.__dict__.get(name), Real)
+                   and np.isfinite(self.__dict__[name]) for name in names):
+            _patch_arguments.arrow_transform(self)
+        _patches.set_arrow(self._native, (float(self._x), float(self._y)),
+                           (float(self._dx), float(self._dy)), float(self._width))
         self.stale = True
 
 
@@ -1718,22 +1766,51 @@ class FancyArrow(Polygon):
 
             %(Patch:kwdoc)s
         """
-        if np.size(np.hypot(dx, dy)) == 0:
-            # An arrow of empty data displays nothing: pltrs (Rust) gives
-            # an arrow of non-finite coordinates no vertices.
-            x = y = dx = dy = np.nan
-        self._native = _patches.new_fancy_arrow(
-            (float(x), float(y)), (float(dx), float(dy)), float(width),
-            (None if head_width is None else float(head_width),
-             None if head_length is None else float(head_length),
-             shape, float(overhang), bool(length_includes_head),
-             bool(head_starts_at_zero)))
+        # matplotlib keeps the arguments as given (see `_make_verts`).
+        self._x = x
+        self._y = y
+        self._dx = dx
+        self._dy = dy
+        self._width = width
+        self._length_includes_head = length_includes_head
+        self._head_width = head_width
+        self._head_length = head_length
+        self._shape = shape
+        self._overhang = overhang
+        self._head_starts_at_zero = head_starts_at_zero
+        self._make_verts()
         Patch.__init__(self, **kwargs)
+
+    def _make_verts(self):
+        """Make the arrow's polygon of what it keeps: pltrs (Rust) makes it
+        of finite numbers, matplotlib's ``_make_verts`` of anything else,
+        failing and warning as it does, which pltrs (Rust) then holds."""
+        given = (self._x, self._y, self._dx, self._dy, self._width,
+                 self._head_width, self._head_length, self._shape, self._overhang)
+        verts = (None if _patch_arguments.plain_fancy_arrow(*given)
+                 else _patch_arguments.fancy_arrow_verts(self))
+        x, y, dx, dy, width, head_width, head_length = (
+            _held_size(value) for value in given[:7])
+        if "_native" in self.__dict__:
+            _patches.set_fancy_arrow(self._native, (x, y, dx, dy),
+                                     (width, head_width, head_length))
+        else:
+            shape = self._shape if verts is None else 'full'
+            overhang = _held_size(self._overhang)
+            self._native = _patches.new_fancy_arrow(
+                (x, y), (dx, dy), width,
+                (head_width, head_length, shape, 0. if overhang is None else overhang,
+                 bool(self._length_includes_head), bool(self._head_starts_at_zero)))
+        self._given_verts = verts
+        if verts is not None:
+            verts = np.asarray(verts, dtype=float).reshape((-1, 2))
+            self._set_outline(np.concatenate([verts, verts[:1]]), True)
 
     @property
     def verts(self):
         """The vertices of the arrow's polygon."""
-        return _patches.fancy_arrow_verts(self._native)
+        given = self.__dict__.get("_given_verts")
+        return _patches.fancy_arrow_verts(self._native) if given is None else given
 
     def _outline(self):
         return _patches.fancy_arrow_outline(self._native)
@@ -1764,13 +1841,31 @@ class FancyArrow(Polygon):
         head_length : float or None, default: None
             Length of arrow head.
         """
-        def given(value):
-            return None if value is None else float(value)
-
-        _patches.set_fancy_arrow(
-            self._native, tuple(map(given, (x, y, dx, dy))),
-            tuple(map(given, (width, head_width, head_length))))
+        if x is not None:
+            self._x = x
+        if y is not None:
+            self._y = y
+        if dx is not None:
+            self._dx = dx
+        if dy is not None:
+            self._dy = dy
+        if width is not None:
+            self._width = width
+        if head_width is not None:
+            self._head_width = head_width
+        if head_length is not None:
+            self._head_length = head_length
+        self._make_verts()
         self.stale = True
+
+
+def _held_size(value):
+    """A size or place of a `FancyArrow` as pltrs (Rust) holds it: a finite
+    number, None as given, else NaN (the arrow then holds matplotlib's
+    polygon)."""
+    if value is None:
+        return None
+    return float(value) if isinstance(value, Real) and np.isfinite(value) else np.nan
 
 
 class CirclePolygon(RegularPolygon):
@@ -1794,11 +1889,12 @@ class CirclePolygon(RegularPolygon):
 
         %(Patch:kwdoc)s
         """
-        self._native = _patches.new_circle_polygon(
-            (float(xy[0]), float(xy[1])), float(radius), int(resolution))
-        _values.remember_all(self, {"xy": xy, "radius": radius, "orientation": 0},
-                             ("xy", "radius", "orientation"))
+        self._make_polygon(
+            xy, resolution, radius, 0,
+            lambda center, sides, radius, _: _patches.new_circle_polygon(
+                center, radius, sides))
         Patch.__init__(self, **kwargs)
+        self._watch_geometry()
 
     def _fields(self):
         return _patches.circle_polygon(self._native)
@@ -2408,12 +2504,19 @@ class Arc(Ellipse):
         fill = kwargs.setdefault('fill', False)
         if fill:
             raise ValueError("Arc objects cannot be filled")
+        plain = all(isinstance(theta, Real) and np.isfinite(theta)
+                    for theta in (theta1, theta2))
         self._native = _patches.new_arc((0., 0.), (0., 0.), 0.,
-                                        (float(theta1), float(theta2)))
+                                        (theta1, theta2) if plain else (0., 360.))
         _values.remember_all(self, {"theta1": theta1, "theta2": theta2},
                              ("theta1", "theta2"))
         self._make_geometry(xy, width, height, angle)
         Patch.__init__(self, **kwargs)
+        if not plain:
+            # The angles as matplotlib's constructor computes with them,
+            # failing as it does.
+            _patch_arguments.arc_angles(self.width, self.height, theta1, theta2)
+            _patches.set_arc_angles(self._native, float(theta1), float(theta2))
         self._set_center_as_made(xy)
         self._watch_geometry()
         if self._computes():
@@ -2596,17 +2699,50 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
 
         %(Patch:kwdoc)s
         """
+        # matplotlib's patch takes its properties first, then keeps the box
+        # and its style as given (see `_set_box` and `_keep_boxstyle`).
+        check_known(type(self), kwargs)
+        x, y = xy
         boxstyle = _style_object(boxstyle, BoxStyle)
         self._native = _patches.new_fancy_bbox(
-            (float(xy[0]), float(xy[1])), (float(width), float(height)),
-            _native_spec(boxstyle, BoxStyle),
-            (float(mutation_scale),
+            (0., 0.), (1., 1.),
+            _native_spec(boxstyle if callable(boxstyle) else "round", BoxStyle),
+            (float(mutation_scale) if isinstance(mutation_scale, Real) else 1.,
              native_aspect(mutation_aspect)))
-        _values.remember_all(self, {"x": xy[0], "y": xy[1], "width": width,
-                                    "height": height}, ("x", "y", "width", "height"))
+        self._set_box(x=x, y=y, width=width, height=height)
         super().__init__(**kwargs)
-        self.set_boxstyle(boxstyle)
+        self._keep_boxstyle(boxstyle)
+        if not isinstance(mutation_scale, Real):
+            self.set_mutation_scale(mutation_scale)
         self._keep_mutation(mutation_scale, mutation_aspect)
+
+    def _keep_boxstyle(self, boxstyle):
+        """Give the patch the box style it is made with, as matplotlib's
+        constructor does: None leaves matplotlib's patch without one,
+        failing where it is asked for (see `._unusable`)."""
+        if boxstyle is None:
+            _unusable.keep(self, "_no_boxstyle", None, self._refuse_no_boxstyle)
+        else:
+            self.set_boxstyle(boxstyle)
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        if kind == "patch":
+            # matplotlib's add_patch measures the box first, by its path.
+            _unusable.check(self, measuring=True)
+        return super()._add_to_axes(axes, kind, autolim)
+
+    def _refuse_no_boxstyle(self, _):
+        """Fail as matplotlib's patch made without a box style fails to read
+        it."""
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '_bbox_transmuter'")
+
+    def _kept_order(self):
+        """The order matplotlib's ``get_path`` computes with the values the
+        patch keeps: the style asked for, the box squeezed by the mutation
+        aspect, the mutation scale, then the style called."""
+        return ["_no_boxstyle", "geometry", "mutation_aspect", "mutation_scale",
+                "_bbox_transmuter"]
 
     @_docstring.interpd
     def set_boxstyle(self, boxstyle=None, **kwargs):
@@ -2643,6 +2779,7 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         """
         if boxstyle is None:
             return BoxStyle.pprint_styles()
+        _unusable.drop(self, "_no_boxstyle")
         self._set_style("_bbox_transmuter", _style_object(boxstyle, BoxStyle, **kwargs),
                         BoxStyle, _patches.set_boxstyle, _patches.get_boxstyle)
 
@@ -2657,13 +2794,9 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         *aspect*: it squeezes the height, ``height / aspect``."""
         return 1. / aspect
 
-    def _use_mutation_scale(self, scale):
-        """What matplotlib's box style computes first with the mutation
-        *scale*: its padding, ``mutation_size * pad``."""
-        return scale * getattr(self.get_boxstyle(), "pad", 1.)
-
     def get_boxstyle(self):
         """Return the boxstyle object."""
+        _unusable.check_one(self, "_no_boxstyle")
         return self._get_style("_bbox_transmuter", BoxStyle, _patches.get_boxstyle)
 
     def get_mutation_scale(self):
@@ -2681,30 +2814,36 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
 
     @property
     def _x(self):
-        return _patches.fancy_bbox(self._native)[0]
+        return _values.given(self, "x", _patches.fancy_bbox(self._native)[0])
 
     @property
     def _y(self):
-        return _patches.fancy_bbox(self._native)[1]
+        return _values.given(self, "y", _patches.fancy_bbox(self._native)[1])
 
     @property
     def _width(self):
-        return _patches.fancy_bbox(self._native)[2]
+        return _values.given(self, "width", _patches.fancy_bbox(self._native)[2])
 
     @property
     def _height(self):
-        return _patches.fancy_bbox(self._native)[3]
+        return _values.given(self, "height", _patches.fancy_bbox(self._native)[3])
 
-    def _set_box(self, x=None, y=None, width=None, height=None):
-        x0, y0, w0, h0 = _patches.fancy_bbox(self._native)
-        _patches.set_fancy_bbox(
-            self._native,
-            (float(x0 if x is None else x), float(y0 if y is None else y)),
-            float(w0 if width is None else width),
-            float(h0 if height is None else height))
-        given = {"x": x, "y": y, "width": width, "height": height}
-        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
-                             tuple(given))
+    #: The fields of the box, as matplotlib's ``get_bounds`` orders them.
+    _BOX = ("x", "y", "width", "height")
+
+    def _set_box(self, **given):
+        """Change the fields of the box *given* (``x``, ``y``, ``width``,
+        ``height``), kept as given (see `._kept_geometry`): one that is no
+        finite number has the patch compute its path as matplotlib does
+        where it draws and measures it (`._patch_arguments.fancy_box_path`)."""
+        held = dict(zip(self._BOX, _patches.fancy_bbox(self._native)))
+        for name, value in given.items():
+            held[name] = _kept_geometry.hold(self, name, value, _kept_geometry.real,
+                                             held[name])
+        _patches.set_fancy_bbox(self._native, (held["x"], held["y"]), held["width"],
+                                held["height"])
+        _kept_geometry.watch(self, self._BOX, tuple(held.values()),
+                             lambda: _patch_arguments.fancy_box_path(self))
 
     def get_x(self):
         """Return the left coord of the rectangle."""
@@ -2782,7 +2921,7 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
             l, b, w, h = args[0]
         else:
             l, b, w, h = args
-        self._set_box(l, b, w, h)
+        self._set_box(x=l, y=b, width=w, height=h)
 
     def get_bbox(self):
         """Return the `.Bbox`."""
@@ -2824,11 +2963,18 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
         """The property *name*: how far the arrow is shrunk at its start
         (*index* 0) or end, in points, as the program gave it."""
         def get(self):
-            return _values.given(self, name, _patches.get_shrink(self._native)[index])
+            return _unusable.kept(self, name, _values.given(
+                self, name, _patches.get_shrink(self._native)[index]))
 
         def set(self, points):
-            _patches.set_shrink(self._native, *((float(points), None) if index == 0
-                                                else (None, float(points))))
+            if isinstance(points, Real):
+                _patches.set_shrink(self._native, *((float(points), None) if index == 0
+                                                    else (None, float(points))))
+                _unusable.drop(self, name)
+            else:
+                # matplotlib keeps it, and fails to scale it where it
+                # connects the ends (see `._unusable`).
+                _unusable.keep(self, name, points, self._use_mutation_scale)
             _values.remember(self, name, points)
             self.stale = True
         side = "start" if index == 0 else "end"
@@ -2958,7 +3104,14 @@ default: 'arc3'
         elif posA is None and posB is None and path is not None:
             ends = None
         else:
+            # matplotlib's patch takes its properties first.
+            check_known(type(self), kwargs)
             raise ValueError("Either posA and posB, or path need to provided")
+        given_path = path
+        if ends is None and not isinstance(path, Path):
+            # matplotlib keeps it, and fails to map it where it draws the
+            # arrow (see `._unusable`); pltrs (Rust) holds no path.
+            path = Path(np.empty((0, 2)))
         arrowstyle = _style_object(arrowstyle, ArrowStyle)
         connectionstyle = _style_object(connectionstyle, ConnectionStyle)
         # A style that cannot be called the arrow keeps (`set_arrowstyle`),
@@ -2968,19 +3121,45 @@ default: 'arc3'
             (_native_spec(arrowstyle if callable(arrowstyle) else "simple", ArrowStyle),
              _native_spec(connectionstyle if callable(connectionstyle) else "arc3",
                           ConnectionStyle),
-             float(shrinkA), float(shrinkB), float(mutation_scale),
+             *(float(size) if isinstance(size, Real) else 0.
+               for size in (shrinkA, shrinkB, mutation_scale)),
              native_aspect(mutation_aspect)))
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
-        _values.remember(self, "shrinkA", shrinkA)
-        _values.remember(self, "shrinkB", shrinkB)
+        if path is not given_path:
+            _unusable.keep(self, "path", given_path, self._map_path)
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
-        self.set_arrowstyle(arrowstyle)
+        self._keep_styles(connectionstyle, arrowstyle)
+        self._keep_sizes(shrinkA, shrinkB, mutation_scale)
         self._keep_mutation(mutation_scale, mutation_aspect)
+
+    def _keep_styles(self, connectionstyle, arrowstyle):
+        """Give the arrow the styles it is made with, as matplotlib's
+        constructor does: an arrow style of None leaves matplotlib's arrow
+        without one, failing where it is asked for (see `._unusable`)."""
         self.set_connectionstyle(connectionstyle)
+        if arrowstyle is None:
+            _unusable.keep(self, "_no_arrowstyle", None, self._refuse_no_arrowstyle)
+        else:
+            self.set_arrowstyle(arrowstyle)
+
+    def _refuse_no_arrowstyle(self, _):
+        """Fail as matplotlib's arrow made without an arrow style fails to
+        read it."""
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '_arrow_transmuter'")
+
+    def _keep_sizes(self, shrinkA, shrinkB, mutation_scale):
+        """Keep the shrinking and the mutation scale the arrow is made with
+        as given; those that are no numbers fail where matplotlib's arrow
+        scales them (see `._unusable`)."""
+        self.shrinkA = shrinkA
+        self.shrinkB = shrinkB
+        if not isinstance(mutation_scale, Real):
+            self.set_mutation_scale(mutation_scale)
 
     @_docstring.interpd
     def set_connectionstyle(self, connectionstyle=None, **kwargs):
@@ -3062,14 +3241,15 @@ default: 'arc3'
         """
         if arrowstyle is None:
             return ArrowStyle.pprint_styles()
+        _unusable.drop(self, "_no_arrowstyle")
         self._set_style("_arrow_transmuter",
                         _style_object(arrowstyle, ArrowStyle, **kwargs),
                         ArrowStyle, _patches.set_arrowstyle, _patches.get_arrowstyle)
 
     def get_arrowstyle(self):
         """Return the arrowstyle object."""
-        return self._get_style("_arrow_transmuter", ArrowStyle,
-                               _patches.get_arrowstyle)
+        _unusable.check_one(self, "_no_arrowstyle")
+        return self._get_style("_arrow_transmuter", ArrowStyle, _patches.get_arrowstyle)
 
     def get_mutation_scale(self):
         """
@@ -3147,12 +3327,6 @@ default: 'arc3'
         *aspect*: it squeezes the path, ``vertices / [1, aspect]``."""
         return np.zeros((1, 2)) / [1, aspect]
 
-    @staticmethod
-    def _use_mutation_scale(scale):
-        """What matplotlib's arrow computes first with the mutation *scale*:
-        the scale in pixels, ``mutation_scale * dpi_cor``."""
-        return scale * 1.
-
     def _place_ends(self):
         """Fail as matplotlib's patch fails to place its ends where it
         measures them: nothing to place for an arrow of given points."""
@@ -3173,6 +3347,12 @@ default: 'arc3'
         super().draw(renderer)
 
     def _add_to_axes(self, axes, kind, autolim=True):
+        if kind == "patch" and _unusable.keeps(self):
+            # matplotlib's ``add_patch`` gives the arrow its Axes, then its
+            # ``_update_patch_limits`` asks for the arrow's path before the
+            # arrow joins the Axes' children.
+            self.__dict__.setdefault("_axes", axes)
+            _unusable.check(self, measuring=True)
         if (calls_program(self.get_connectionstyle())
                 and "_transform_trees" not in axes.__dict__):
             # A connection style of the program's may read the Axes'
@@ -3218,11 +3398,21 @@ default: 'arc3'
 
     def _kept_order(self):
         """The order matplotlib's ``_get_path_in_displaycoord`` computes with
-        the values the arrow keeps: the ends, the connection (clipped by the
-        patches), the mutation scale, then the arrow style (squeezed by the
+        the values the arrow keeps: the ends, the shrinking, the connection
+        (clipped by the patches), the arrow style asked for, the mutation
+        scale, then the arrow style called (squeezing the path by the
         mutation aspect)."""
-        return ["positions", "_connector", "patchA", "patchB", "mutation_scale",
-                "_arrow_transmuter", "mutation_aspect"]
+        return ["path", "positions", "shrinkA", "shrinkB", "_connector", "patchA",
+                "patchB", "_no_arrowstyle", "mutation_scale", "_arrow_transmuter",
+                "mutation_aspect"]
+
+    def _map_path(self, path):
+        """Fail as matplotlib's arrow fails to map *path*, which it keeps,
+        to the display: through its transform, the data transform of its
+        Axes unless it was given one (as ``add_patch`` gives it)."""
+        transform = (self.get_transform() if self.is_transform_set() or self.axes is None
+                     else self.axes.transData)
+        transform.transform_path(path)
 
     def _place_ends_as_drawn(self, positions):
         """Fail as matplotlib's arrow fails to place its ends *positions*:
@@ -3313,12 +3503,6 @@ def _contains_end(patch):
     patch.contains(SimpleNamespace(x=0., y=0.))
 
 
-def _refuse_connection_coords(coords):
-    """Fail as matplotlib's `ConnectionPatch` fails to place a point in
-    *coords*, no coordinate system it knows."""
-    raise ValueError(f"{coords} is not a valid coordinate transformation")
-
-
 def _usable_coords(coords):
     """*coords*, or ``'data'`` for a name of no coordinate system, which
     pltrs (Rust) cannot hold (matplotlib keeps it, and fails to place the
@@ -3343,6 +3527,22 @@ def _connection_end(xy, coords, axes):
             None if axes is None else axes._native)
 
 
+def _connection_end_or_none(xy, coords, axes):
+    """`_connection_end`, or None for an end pltrs (Rust) cannot hold."""
+    try:
+        return _connection_end(xy, coords, axes)
+    except (TypeError, ValueError, LookupError, AttributeError):
+        return None
+
+
+def _held_connection_end(xy, coords, axes):
+    """`_connection_end`, else a stand-in at the origin of the data for an
+    end pltrs (Rust) cannot hold, which the patch keeps (see
+    `ConnectionPatch._keep_unusable_ends`)."""
+    end = _connection_end_or_none(xy, coords, axes)
+    return _connection_end((0., 0.), "data", None) if end is None else end
+
+
 def _connection_point(xy, coords, axes):
     """The point *xy* of a `ConnectionPatch` end in *coords*, in
     ``'data'`` coordinates converted with the units of *axes* (dates,
@@ -3363,10 +3563,10 @@ def _connection_end_property(index, part, doc):
         ends = [list(end) for end in self._ends()]
         ends[index][part] = value
         _patches.set_connection_end(self._native, bool(index),
-                                    _connection_end(*ends[index]))
+                                    _held_connection_end(*ends[index]))
         self._given_points = [end[0] for end in ends]
         self._given_ends[index] = ends[index][1:]
-        self._keep_unusable_coords()
+        self._keep_unusable_ends()
         self.stale = True
 
     return property(get, set, doc=doc)
@@ -3464,25 +3664,33 @@ class ConnectionPatch(FancyArrowPatch):
         """
         if coordsB is None:
             coordsB = coordsA
+        # matplotlib keeps what it is given and computes with it where it
+        # draws the patch; pltrs (Rust) is made with what it holds (see
+        # `_keep_unusable_ends`, `_keep_styles`, `_keep_sizes`).
         self._given_points = [xyA, xyB]
         self._given_ends = [[coordsA, axesA], [coordsB, axesB]]
+        arrowstyle = _style_object(arrowstyle, ArrowStyle)
+        connectionstyle = _style_object(
+            "arc3" if connectionstyle is None else connectionstyle, ConnectionStyle)
         self._native = _patches.new_connection_patch(
-            _connection_end(xyA, coordsA, axesA),
-            _connection_end(xyB, coordsB, axesB),
-            (_native_spec(arrowstyle, ArrowStyle),
-             _native_spec(connectionstyle, ConnectionStyle),
-             float(shrinkA), float(shrinkB), float(mutation_scale),
+            *(_held_connection_end(xy, *end)
+              for xy, end in zip(self._given_points, self._given_ends)),
+            (_native_spec(arrowstyle if callable(arrowstyle) else "-", ArrowStyle),
+             _native_spec(connectionstyle if callable(connectionstyle) else "arc3",
+                          ConnectionStyle),
+             *(float(size) if isinstance(size, Real) else 0.
+               for size in (shrinkA, shrinkB, mutation_scale)),
              native_aspect(mutation_aspect)))
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         Patch.__init__(self, clip_on=clip_on, **kwargs)
-        _values.remember(self, "shrinkA", shrinkA)
-        _values.remember(self, "shrinkB", shrinkB)
+        self._keep_styles(connectionstyle, arrowstyle)
+        self._keep_sizes(shrinkA, shrinkB, mutation_scale)
         self._keep_mutation(mutation_scale, mutation_aspect)
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
-        self._keep_unusable_coords()
+        self._keep_unusable_ends()
 
     def _place_ends(self):
         # docstring inherited
@@ -3491,16 +3699,27 @@ class ConnectionPatch(FancyArrowPatch):
             # matplotlib's places its ends without them.
             _place_ends_decoupled(self)
 
-    def _keep_unusable_coords(self):
-        """Keep the coordinates of each end that pltrs (Rust) cannot hold,
-        as matplotlib keeps them until it places the points (see
-        `._unusable`)."""
-        for index, (coords, _) in enumerate(self._given_ends):
-            name = f"coords{index + 1}"
-            if _usable_coords(coords) is coords:
+    def _keep_unusable_ends(self):
+        """Keep each end (its point, coordinates and Axes) that pltrs
+        (Rust) cannot hold, as matplotlib keeps it until it places the
+        point, failing there (see `._unusable`)."""
+        for index, (xy, given) in enumerate(zip(self._given_points, self._given_ends)):
+            name = f"end{index + 1}"
+            if (_usable_coords(given[0]) is given[0]
+                    and _connection_end_or_none(xy, *given) is not None):
                 _unusable.drop(self, name)
             else:
-                _unusable.keep(self, name, coords, _refuse_connection_coords)
+                _unusable.keep(self, name, (xy, *given), self._place_end_as_given)
+
+    def _place_end_as_given(self, end):
+        """Place the point of *end* (``(xy, coords, axes)``) as matplotlib's
+        ``_get_xy`` places it, failing as it fails."""
+        _patch_arguments.place_point(self, *end)
+
+    def _kept_order(self):
+        # docstring inherited: the ends first, as matplotlib's draw places
+        # them before it connects them.
+        return ["end1", "end2", *super()._kept_order()]
 
     def _ends(self):
         """The two ends, each as ``(xy, coords, axes)``, with the points as
@@ -3586,15 +3805,31 @@ class Shadow(Patch):
             %(Patch:kwdoc)s
         """
         self._shadowing(patch, ox, oy)
+        # matplotlib's ``update_from`` copies the patch's transform first.
+        patch._transform  # noqa: B018
+        if not 0 <= shade <= 1:
+            raise ValueError("shade must be between 0 and 1.")
+        offset = (ox, oy)
+        plain = all(isinstance(value, Real) for value in offset)
         self._native = _patches.new_shadow(
-            patch._native, (float(ox), float(oy)), float(shade))
+            patch._native, tuple(map(float, offset)) if plain else (0., 0.), float(shade))
         Artist.__init__(self)
+        if not plain:
+            # matplotlib keeps it, and fails to scale it to pixels where it
+            # draws the shadow (see `._unusable`).
+            _unusable.keep(self, "offset", offset, self._offset_in_pixels)
         # The patch's transform, as matplotlib's ``update_from`` copies it.
         if patch.is_transform_set():
             self._given_transform = Artist.get_transform(patch)
         # Just below the patch, as matplotlib's numpy float.
         _values.remember(self, "zorder", np.nextafter(patch.get_zorder(), -np.inf))
-        self._internal_update(kwargs)
+        self.update(kwargs)
+
+    def _offset_in_pixels(self, offset):
+        """The shadow's *offset* in pixels, as matplotlib's draw computes it
+        (``renderer.points_to_pixels``)."""
+        dpi = self.get_figure(root=True).dpi
+        return [value * dpi / 72 for value in offset]
 
     def _shadowing(self, patch, ox, oy):
         """Make the object the shadow of *patch* offset by (*ox*, *oy*)

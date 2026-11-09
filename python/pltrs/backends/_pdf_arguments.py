@@ -26,13 +26,30 @@ def check_finite(*values):
             raise ValueError("Can only output finite numbers in PDF")
 
 
+def numbers(*values):
+    """Whether *values* are all numbers, which pltrs (Rust) writes; matplotlib's
+    ``pdfRepr`` writes other values as PDF objects of their own (None as
+    ``null``, a string as a string), leaving an operator pltrs (Rust) does
+    not write, and refuses those it has no syntax for, as here."""
+    from .backend_pdf import pdfRepr
+    plain = True
+    for value in values:
+        if not isinstance(value, Real):
+            pdfRepr(value)
+            plain = False
+    return plain
+
+
 def _check_color(rgb):
     """Refuse the colour *rgb* where it is not finite, as ``rgb_cmd`` and
     ``fillcolor_cmd`` write it (one grey level, else three components)."""
-    if rgb[0] == rgb[1] == rgb[2]:
-        check_finite(rgb[0])
-    else:
-        check_finite(*rgb[:3])
+    check_finite(*_color_written(rgb))
+
+
+def _color_written(rgb):
+    """The components of the colour *rgb* that ``rgb_cmd`` and
+    ``fillcolor_cmd`` write: one grey level, else three."""
+    return rgb[:1] if rgb[0] == rgb[1] == rgb[2] else rgb[:3]
 
 
 class PdfArgumentsMixin:
@@ -81,12 +98,15 @@ class PdfArgumentsMixin:
 
     def _path_arguments(self, gc, path, transform, rgbFace):
         """The arguments of ``draw_path``, as matplotlib reads them before it
-        writes the path (``writePath``)."""
+        writes the path (``writePath``); whether pltrs (Rust) draws it: not
+        for a fill colour matplotlib writes as no numbers (`numbers`)."""
         self._prepare_gc(gc, rgbFace)
         if rgbFace is None and gc.get_hatch_path() is None:
             path.should_simplify  # noqa: B018  (the path clipped is simplified)
         path.vertices  # noqa: B018
         affine_matrix(transform)
+        return (rgbFace is None or rcParams['pdf.inheritcolor']
+                or numbers(*_color_written(rgbFace)))
 
     def _markers_reused(self, gc, marker_path, path, rgbFace):
         """Whether matplotlib places the markers as one template (many
@@ -114,7 +134,7 @@ class PdfArgumentsMixin:
         self._prepare_gc(gc)
         values = () if transform is None else transform.frozen().to_values()
         check_finite(x, y, *values)
-        return True
+        return numbers(x, y)
 
     def _gouraud_arguments(self, gc, points, colors, trans):
         """The arguments of ``draw_gouraud_triangles`` as matplotlib checks
@@ -139,11 +159,12 @@ class PdfArgumentsMixin:
         return True
 
     def _text_arguments(self, gc, x, y, s, prop, angle, ismath, mtext):
-        """The arguments of ``draw_text`` as matplotlib reads them."""
+        """The arguments of ``draw_text`` as matplotlib reads them; whether
+        pltrs (Rust) draws the text: not at a place matplotlib writes as no
+        numbers (`numbers`)."""
         self._prepare_gc(gc, gc._rgb)
         if ismath:
-            self._mathtext_arguments(gc, x, y, s, prop, angle)
-            return
+            return self._mathtext_arguments(gc, x, y, s, prop, angle)
         prop.get_size_in_points()
         if mtext is not None:
             mtext.get_fontfeatures()
@@ -159,14 +180,18 @@ class PdfArgumentsMixin:
         # The text's matrix, rotated by *angle*.
         math.cos(math.radians(angle))
         check_finite(x, y, angle)
+        return numbers(x, y)
 
     def _mathtext_arguments(self, gc, x, y, s, prop, angle):
-        """The arguments of ``draw_mathtext`` as matplotlib reads them."""
+        """The arguments of ``draw_mathtext`` as matplotlib reads them;
+        whether pltrs (Rust) draws the text (see `_text_arguments`)."""
         self._text2path.mathtext_parser.parse(s, 72, prop)
         gc.get_url()
         math.cos(math.radians(angle))
         check_finite(x, y, angle)
+        drawn = numbers(x, y)
         self._prepare_gc(gc, gc._rgb)
+        return drawn
 
     def _tex_arguments(self, gc, x, y, s, prop, angle):
         """The arguments of ``draw_tex`` as matplotlib reads them (before

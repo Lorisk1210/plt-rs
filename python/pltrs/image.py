@@ -105,6 +105,45 @@ def _native_data(A):
     return kind, values, mask
 
 
+def _refuse_resampled(A):
+    """Fail as matplotlib's resampler (``_image.resample``) refuses the
+    array *A* of the colours of an image, of booleans."""
+    raise ValueError("arrays must be of dtype byte, short, float32 or float64")
+
+
+def _checked_settings(interpolation, interpolation_stage, origin, filternorm,
+                      filterrad, resample):
+    """The settings of an image as pltrs (Rust) takes them, checked as
+    matplotlib's constructor checks them, in its order (its setters)."""
+    origin = _val_or_rc(origin, 'image.origin')
+    _api.check_in_list(["upper", "lower"], origin=origin)
+    filterrad = float(filterrad)
+    if filterrad <= 0:
+        raise ValueError("The filter radius must be a positive number")
+    interpolation = _val_or_rc(interpolation, 'image.interpolation').lower()
+    _api.check_in_list(interpolations_names, interpolation=interpolation)
+    interpolation_stage = _val_or_rc(interpolation_stage, 'image.interpolation_stage')
+    _api.check_in_list(['data', 'rgba', 'auto'], s=interpolation_stage)
+    return {
+        'interpolation': interpolation,
+        'interpolation_stage': interpolation_stage,
+        'origin': origin,
+        'filternorm': bool(filternorm),
+        'filterrad': filterrad,
+        'resample': bool(_val_or_rc(resample, 'image.resample')),
+    }
+
+
+def _held_extent(extent):
+    """The *extent* an `AxesImage` is made with as pltrs (Rust) holds it,
+    four numbers, else None."""
+    try:
+        left, right, bottom, top = extent
+        return float(left), float(right), float(bottom), float(top)
+    except (TypeError, ValueError):
+        return None
+
+
 def _warn_identical_limits(axes, extent):
     """
     Warn, as matplotlib's ``set_xlim`` and ``set_ylim`` do, when the image
@@ -190,24 +229,8 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         # (``_new_native(colorizer, spec)``), loose until an axes or figure
         # adopts it.
         colorizer = self._get_colorizer(cmap, norm, colorizer)
-        origin = _val_or_rc(origin, 'image.origin')
-        _api.check_in_list(["upper", "lower"], origin=origin)
-        interpolation = _val_or_rc(interpolation, 'image.interpolation').lower()
-        _api.check_in_list(interpolations_names, interpolation=interpolation)
-        interpolation_stage = _val_or_rc(interpolation_stage,
-                                         'image.interpolation_stage')
-        _api.check_in_list(['data', 'rgba', 'auto'], s=interpolation_stage)
-        filterrad = float(filterrad)
-        if filterrad <= 0:
-            raise ValueError("The filter radius must be a positive number")
-        self._native = self._new_native(colorizer, {
-            'interpolation': interpolation,
-            'interpolation_stage': interpolation_stage,
-            'origin': origin,
-            'filternorm': bool(filternorm),
-            'filterrad': filterrad,
-            'resample': bool(_val_or_rc(resample, 'image.resample')),
-        })
+        self._native = self._new_native(colorizer, _checked_settings(
+            interpolation, interpolation_stage, origin, filternorm, filterrad, resample))
         super().__init__(colorizer)
         self._keep_data(self._A)
         self.axes = ax
@@ -233,6 +256,10 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         self._A = A
         if A is None:
             _unusable.keep(self, "array", A, _array_size, measured=False)
+        elif A.ndim == 3 and A.shape[-1] == 4 and A.dtype == bool:
+            # matplotlib resamples the colours as they are, which its
+            # resampler refuses.
+            _unusable.keep(self, "array", A, _refuse_resampled, measured=False)
         else:
             _unusable.drop(self, "array")
 
@@ -367,6 +394,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
     def _set_resampling(self, name, value):
         """Set the resampling setting *name* (see `_resampling`)."""
         getattr(_native_image, f"set_{name}")(self._native, value)
+        self._went_stale(True)
 
     def get_interpolation(self):
         """
@@ -757,14 +785,27 @@ class AxesImage(_ImageBase):
         )
         del self._extent_given
         if extent is not None:
-            # matplotlib keeps the extent as given (``_extent``).
-            _values.remember(self, "extent", extent)
+            # matplotlib keeps the extent as given (``_extent``), and one
+            # that is no four numbers fails where it draws the image.
+            if _held_extent(extent) is None:
+                _values.keep(self, "extent", extent)
+                _unusable.keep(self, "extent", extent, self._place_extent,
+                               measured=False)
+            else:
+                _values.remember(self, "extent", extent)
 
     def _new_native(self, colorizer, spec):
         extent = self._extent_given
         return _native_image.new_axes_image(colorizer.cmap, colorizer.norm, {
-            **spec,
-            'extent': None if extent is None else tuple(map(float, extent))})
+            **spec, 'extent': None if extent is None else _held_extent(extent)})
+
+    def _place_extent(self, extent):
+        """Place the image's data over *extent* as matplotlib's
+        ``make_image`` does, which draws no image without data."""
+        A = self.get_array()
+        if A is not None and A.size:
+            x1, x2, y1, y2 = extent
+            Bbox(np.array([[x1, y1], [x2, y2]]))
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
@@ -1699,11 +1740,8 @@ class BboxImage(_ImageBase):
         colorizer = mcolorizer._ScalarMappable._get_colorizer(cmap, norm, None)
         image = cls.__new__(cls)
         image._native = _native_image.new_bbox_image(
-            _native_data(A), colorizer.cmap, colorizer.norm, {
-                'interpolation': interpolation, 'interpolation_stage': None,
-                'origin': origin,
-                'filternorm': bool(filternorm), 'filterrad': float(filterrad),
-                'resample': bool(resample)})
+            _native_data(A), colorizer.cmap, colorizer.norm, _checked_settings(
+                interpolation, None, origin, filternorm, filterrad, resample))
         mcolorizer.artist.Artist.__init__(image)
         image._set_mapped_data(colorizer, A)
         image._internal_update(kwargs)

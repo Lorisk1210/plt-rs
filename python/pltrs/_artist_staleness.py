@@ -50,13 +50,21 @@ def _default_callback(artist):
     if isinstance(artist, FigureBase):
         return _stale_figure_callback
     axes = artist.axes
-    if isinstance(axes, Artist) and axes is not artist:
+    if (isinstance(axes, Artist) and axes is not artist) or _given_no_axes(artist):
         return _stale_axes_callback
     drawer = getattr(artist, "_drawer", None)
     if (artist.get_figure(root=True) is None or _mirrors.is_attached(artist)
             or isinstance(artist, Legend) or (drawer is not None and drawer() is not None)):
         return None
     return _stale_figure_callback
+
+
+def _given_no_axes(artist):
+    """Whether *artist* was given as its Axes something that is no artist,
+    which matplotlib's stale callback fails to mark stale."""
+    from .artist import Artist
+    axes = artist.__dict__.get("_axes")
+    return axes is not None and not isinstance(axes, Artist)
 
 
 class StalenessMixin:
@@ -79,8 +87,10 @@ class StalenessMixin:
 
     def _went_stale(self, val):
         """Run the stale callback as matplotlib's ``stale`` setter does,
-        once a program set one (an animated artist runs none)."""
-        if _program_callbacks and val and not self.get_animated():
+        once a program set one, or for an artist given an Axes that is no
+        artist (an animated artist runs none)."""
+        if ((_program_callbacks or _given_no_axes(self)) and val
+                and not self.get_animated()):
             callback = self.stale_callback
             if callback is not None:
                 callback(self, val)

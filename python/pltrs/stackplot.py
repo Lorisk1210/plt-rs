@@ -79,6 +79,13 @@ def stackplot(axes, x, *args,
         A list of `.PolyCollection` instances, one for each element in the
         stacked area plot.
     """
+    if not hasattr(axes, "_stackplot"):
+        # matplotlib's function stacks the data, then asks *axes* for the
+        # colours of the layers (else for its `fill_between`).
+        y = np.vstack(args)
+        if colors is None:
+            [axes._get_lines.get_next_color() for _ in y]
+        axes.fill_between  # noqa: B018
     return axes._stackplot(x, *args, labels=labels, colors=colors,
                            baseline=baseline, **kwargs)
 

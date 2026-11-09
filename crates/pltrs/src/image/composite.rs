@@ -30,6 +30,13 @@ trait Compositable {
         ctx: &mut DrawContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError>;
+
+    /// Whether the image has no data, which matplotlib's `make_image`
+    /// refuses through `_make_image` (`ImageError::Empty`); a pcolor
+    /// image makes its pixels otherwise.
+    fn refuses_empty(&self) -> bool {
+        false
+    }
 }
 
 /// Whether `transform` maps data without rotation or shear (matplotlib's
@@ -54,6 +61,10 @@ impl Compositable for AxesImageArtist {
     ) -> Result<Option<RenderedImage>, ImageError> {
         self.render(ctx, magnification)
     }
+
+    fn refuses_empty(&self) -> bool {
+        self.core.data.is_empty()
+    }
 }
 
 impl Compositable for FigureImageArtist {
@@ -67,6 +78,10 @@ impl Compositable for FigureImageArtist {
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
         self.render(ctx, magnification)
+    }
+
+    fn refuses_empty(&self) -> bool {
+        self.core.data.is_empty()
     }
 }
 
@@ -83,6 +98,10 @@ impl Compositable for BboxImageArtist {
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
         self.render(ctx, magnification)
+    }
+
+    fn refuses_empty(&self) -> bool {
+        self.core.data.is_empty()
     }
 }
 
@@ -323,7 +342,12 @@ impl Compositor {
                         continue;
                     };
                     let alpha = artist.base().alpha.unwrap_or(1.0);
-                    match image.rendered(ctx, self.magnification) {
+                    let rendered = if image.refuses_empty() {
+                        Err(ImageError::Empty)
+                    } else {
+                        image.rendered(ctx, self.magnification)
+                    };
+                    match rendered {
                         Ok(Some(image)) => parts.push(CompositePart {
                             pixels: image.pixels,
                             origin: image.origin,
@@ -383,6 +407,29 @@ mod tests {
         assert_eq!(svg_images(None), 1, "vector formats composite");
         assert_eq!(svg_images(Some(true)), 2);
         assert_eq!(svg_images(Some(false)), 1);
+    }
+
+    #[test]
+    fn an_empty_image_fails_its_composite() {
+        let draw = |suppress: Option<bool>| {
+            let fig = Figure::new();
+            fig.set_suppress_composite(suppress);
+            let ax = fig.subplot();
+            ax.imshow(Grid::<f64>::filled(0, 6, 0.0), ImshowOptions::default())
+                .unwrap();
+            ax.imshow(Grid::filled(1, 6, 1.0), ImshowOptions::default())
+                .unwrap();
+            fig.to_svg()
+        };
+        let err = draw(None).expect_err("matplotlib's _make_image refuses it");
+        assert!(
+            err.to_string()
+                .contains("_make_image must get a non-empty image")
+        );
+        assert!(
+            draw(Some(true)).is_ok(),
+            "drawn apart, the empty image draws nothing"
+        );
     }
 
     #[test]

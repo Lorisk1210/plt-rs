@@ -9,8 +9,8 @@ are no arrays, a font file it cannot read) holds a stand-in under the name
 the document gives it. Writing the resources first runs matplotlib's
 arithmetic over every one given, in order (`check_markers`,
 `check_templates`, `check_shadings`, `check_images`, `check_hatches`,
-`check_fonts`), so that the document fails where matplotlib's does, with
-its error and its numpy warnings. Ported from matplotlib 3.11.2's
+`check_alphas`, `check_fonts`), so that the document fails where
+matplotlib's does, with its error and its numpy warnings. Ported from matplotlib 3.11.2's
 ``backends/backend_pdf.py`` under the Matplotlib License.
 """
 
@@ -252,6 +252,16 @@ def check_hatches(file, hatches):
         _pdf_object(lw)
         file.pathOperations(Path.hatch(hatch), Affine2D().scale(sidelen),
                             simplify=False)
+
+
+def check_alphas(alpha_states):
+    """matplotlib's ``writeExtGSTates`` over the alpha states given, short
+    of writing them: the values pltrs (Rust) does not hold in PDF syntax."""
+    from .backend_pdf import pdfRepr
+    for alpha in alpha_states:
+        if not plain_alphas(alpha):
+            pdfRepr(alpha[0])
+            pdfRepr(alpha[1])
 
 
 def check_embedding(file, filename, charmap):

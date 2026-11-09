@@ -20,7 +20,7 @@ import numpy as np
 from . import _api, _mathtext
 from ._native import mathtext as _native_mathtext
 from .font_manager import (
-    FontManager, FontPath, FontProperties, _data_font_path, get_font)
+    FontManager, FontPath, FontProperties, _data_font_path, findfont, get_font)
 from ._mathtext import (  # noqa: F401, reexported API
     RasterParse, VectorParse, get_unicode_index)
 
@@ -92,6 +92,12 @@ class MathTextParser:
             prop = FontProperties()
         _api.getitem_checked(
             self._font_type_mapping, fontset=prop.get_math_fontfamily())
+        if not (hasattr(dpi, "__float__") or hasattr(dpi, "__index__")):
+            # matplotlib's parser sizes its fonts at the resolution, which
+            # pybind11 refuses.
+            from .ft2font import FT2Font
+            FT2Font.set_size.check(get_font(findfont(prop)),
+                                   prop.get_size_in_points(), dpi)
         # matplotlib's parser (pyparsing) first expands the tabs of *s*.
         s = s.expandtabs()
         props = FontManager._props(prop)

@@ -501,7 +501,8 @@ def get_parallels(bezier2, width):
     control points of quadratic Bézier lines roughly parallel to given
     one separated by *width*.
     """
-    if not (_plain(width) and _plain_points(bezier2, 3)):
+    # matplotlib keeps the end points as given for no width.
+    if not (_plain(width) and width != 0 and _plain_points(bezier2, 3)):
         return _parallels(bezier2, width)
     left, right = _bezier.parallels(tuple(map(tuple, bezier2)), width)
     return list(left), list(right)

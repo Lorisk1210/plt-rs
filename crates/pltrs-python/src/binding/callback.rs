@@ -13,17 +13,28 @@
 //!
 //! [`entry`]: super::gil::entry
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use super::convert::{FromPy, IntoPy};
 use super::error::{ExceptionKind, PyErr, PyResult};
 use super::gil::Python;
 use super::object::{Bound, Owned};
 
+/// The slot of a native call running on the thread.
+#[derive(Debug)]
+struct Frame {
+    /// The call's number among the native calls of the thread (see
+    /// [`current_call`]).
+    call: u64,
+    /// The first exception a callback raised during it.
+    exception: Option<PyErr>,
+}
+
 thread_local! {
-    /// One slot per native call running on the thread, innermost last:
-    /// the first exception a callback raised during it.
-    static FRAMES: RefCell<Vec<Option<PyErr>>> = const { RefCell::new(Vec::new()) };
+    /// One slot per native call running on the thread, innermost last.
+    static FRAMES: RefCell<Vec<Frame>> = const { RefCell::new(Vec::new()) };
+    /// How many native calls the thread has made.
+    static CALLS: Cell<u64> = const { Cell::new(0) };
 }
 
 /// The exception frame of a running native call.
@@ -35,9 +46,16 @@ pub(crate) struct ErrorFrame {
 impl ErrorFrame {
     /// Opens the frame of a native call.
     pub(crate) fn push() -> Self {
+        let call = CALLS.with(|calls| {
+            calls.set(calls.get() + 1);
+            calls.get()
+        });
         FRAMES.with(|frames| {
             let mut frames = frames.borrow_mut();
-            frames.push(None);
+            frames.push(Frame {
+                call,
+                exception: None,
+            });
             Self {
                 depth: frames.len(),
             }
@@ -65,13 +83,20 @@ fn close(depth: usize) -> Option<PyErr> {
     FRAMES.with(|frames| {
         let mut frames = frames.borrow_mut();
         frames.truncate(depth);
-        frames.pop().flatten()
+        frames.pop().and_then(|frame| frame.exception)
     })
 }
 
 /// Whether the innermost frame already holds an exception.
 pub(crate) fn failed() -> bool {
-    FRAMES.with(|frames| frames.borrow().last().is_some_and(Option::is_some))
+    FRAMES.with(|frames| (frames.borrow().last()).is_some_and(|frame| frame.exception.is_some()))
+}
+
+/// The number of the innermost native call running on the thread, which
+/// no other native call of the thread has; `None` outside any. For an
+/// exception kept to be raised later in the same call only.
+pub(crate) fn current_call() -> Option<u64> {
+    FRAMES.with(|frames| frames.borrow().last().map(|frame| frame.call))
 }
 
 /// Takes the exception the innermost frame holds out of it when it is a
@@ -82,7 +107,7 @@ pub(crate) fn forgive(kind: ExceptionKind) -> bool {
     Python::with_gil(|py| {
         let forgiven = FRAMES.with(|frames| {
             let mut frames = frames.borrow_mut();
-            let slot = frames.last_mut()?;
+            let slot = &mut frames.last_mut()?.exception;
             slot.as_ref()
                 .is_some_and(|err| err.is_instance(py, kind))
                 .then(|| slot.take())
@@ -99,8 +124,8 @@ pub(crate) fn forgive(kind: ExceptionKind) -> bool {
 /// `RuntimeWarning`.
 fn keep(py: Python<'_>, err: PyErr) {
     let kept = FRAMES.with(|frames| match frames.borrow_mut().last_mut() {
-        Some(slot) => {
-            slot.get_or_insert(err);
+        Some(frame) => {
+            frame.exception.get_or_insert(err);
             None
         }
         None => Some(err),

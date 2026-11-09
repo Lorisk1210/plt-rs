@@ -112,6 +112,15 @@ pub trait ArtistPainter: Any + fmt::Debug {
         MeasuredExtent::Unmeasured
     }
 
+    /// Called where a tight box or a layout takes the extent the painter
+    /// measured (matplotlib's call of the artist's `get_tightbbox`
+    /// there), before [`measured_extent`](Self::measured_extent): a
+    /// painter whose measuring failed reports the failure then, after
+    /// what matplotlib measures first (an axes' ticks before its
+    /// artists), and not for an artist the layout leaves out. Does
+    /// nothing by default.
+    fn extent_taken(&self) {}
+
     /// The extent of `artist`, an offset box of the program's laid out by
     /// the box holding it ([`ProgramBox`](crate::offsetbox::ProgramBox)),
     /// relative to its origin, in display pixels (matplotlib's
@@ -145,6 +154,7 @@ pub(crate) fn tight_extent_of(artist: &dyn Artist, layout: &LayoutContext<'_>) -
         .painter
         .as_ref()
         .map_or(MeasuredExtent::Unmeasured, |painter| {
+            painter.get().extent_taken();
             painter.get().measured_extent()
         });
     match measured {
@@ -497,7 +507,9 @@ mod tests {
     #[test]
     fn draws_measure_painters_for_engines_measuring_alone() {
         let fig = Figure::with_size(2.0, 2.0, 100.0);
-        let plain = fig.add_custom_artist(Plain::default());
+        // An artist of an axes: layouts measure the axes, not the figure's
+        // own artists.
+        let plain = fig.subplot().add_custom_artist(Plain::default());
         let measured = Painter::new(Measured(Cell::new(0)));
         plain.raw().set_painter(Some(measured.clone()));
         let count = || {

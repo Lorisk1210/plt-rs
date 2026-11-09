@@ -3,7 +3,8 @@
 
 use pltrs_core::numeric::py_max;
 
-use super::{List, Node};
+use super::{List, MathNode, Node};
+use crate::glue_warnings;
 
 /// How the requested size of a packed list is interpreted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,6 +139,16 @@ impl List {
             self.glue_sign = 0;
         } else {
             self.glue_set = excess / totals[order];
+        }
+        if order == 0 && !self.children.is_empty() {
+            // No glue of infinite stretchability takes the excess:
+            // matplotlib logs the list.
+            let error = if sign > 0 { "Overful" } else { "Underful" };
+            glue_warnings::record(format!(
+                "{error} {}: {}",
+                self.class_name(),
+                MathNode::from(&*self).python_repr()
+            ));
         }
     }
 }

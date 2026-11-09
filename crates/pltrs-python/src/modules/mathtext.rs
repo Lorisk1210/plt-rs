@@ -47,7 +47,7 @@ fn parse_path(s: String, dpi: f64, props: Option<FontProps>) -> PyResult<Vector>
     let engine = TextEngine::global();
     let run = engine
         .layout_math(&s, &math_style(&font, dpi, &rc))
-        .map_err(|err| PyErr::value_error(math_message(&err)))?;
+        .map_err(|err| math_error(&err))?;
     let db = engine.database();
     let glyphs = run
         .glyphs
@@ -87,7 +87,7 @@ fn parse_raster(
     let hinting = font.request(&rc).hinting;
     let layout = TextEngine::global()
         .typeset_math(&s, &math_style(&font, dpi, &rc))
-        .map_err(|err| PyErr::value_error(math_message(&err)))?;
+        .map_err(|err| math_error(&err))?;
     let raster = RasterImage::of(&layout);
     let mut image = raster.blank();
     let engine = TextEngine::global();
@@ -217,6 +217,17 @@ impl RasterImage {
     }
 }
 
+/// The exception matplotlib's parser raises for `err`: `FreeType`'s
+/// `RuntimeError` for a size it refuses, a `ValueError` otherwise.
+fn math_error(err: &pltrs_text::TextError) -> PyErr {
+    match err {
+        pltrs_text::TextError::FontSize(_) => {
+            PyErr::new(ExceptionKind::RuntimeError, err.to_string())
+        }
+        other => PyErr::value_error(math_message(other)),
+    }
+}
+
 /// matplotlib's message for an expression mathtext cannot typeset.
 fn math_message(err: &pltrs_text::TextError) -> String {
     match err {
@@ -283,7 +294,7 @@ fn parse_box_tree(s: String, dpi: f64, props: FontProps) -> PyResult<Owned> {
     let rc = pltrs::rc::params();
     let tree = TextEngine::global()
         .math_box_tree(&s, &math_style(&props.0, dpi, &rc))
-        .map_err(|err| PyErr::value_error(math_message(&err)))?;
+        .map_err(|err| math_error(&err))?;
     Python::with_gil(|py| Ok(box_node(py, &tree)?.unbind()))
 }
 

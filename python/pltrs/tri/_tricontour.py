@@ -2,7 +2,7 @@
 Contours on triangular grids (matplotlib's ``tri._tricontour``).
 """
 
-from .. import _docstring
+from .. import _contour_arguments, _docstring
 from ..contour import ContourSet, _ContourGenerator
 
 
@@ -29,8 +29,11 @@ class TriContourSet(ContourSet):
         are described in the docstring of `~.Axes.tricontour`.
         """
         # matplotlib's set contours its arguments as `tricontour` does.
+        from ..axes import _failed_calls
         filled = kwargs.pop("filled", False)
-        ax._tricontour(filled, args, kwargs, made=self)
+        _contour_arguments.check_axes(ax, quad=False)
+        with _failed_calls.leaving_nothing(ax):
+            ax._tricontour(filled, args, kwargs, made=self)
 
     # matplotlib's triangular contours keep the extremes as Python floats.
     @property
@@ -222,7 +225,7 @@ def tricontour(ax, *args, **kwargs):
         set of linestyles to be used. If this iterable is shorter than the
         number of contour levels it will be repeated as necessary.
     """
-    return ax._tricontour(False, args, kwargs)
+    return TriContourSet(ax, *args, filled=False, **kwargs)
 
 
 @_docstring.Substitution(func='tricontourf', type='regions')
@@ -247,4 +250,4 @@ def tricontourf(ax, *args, **kwargs):
     except for the lowest interval, which is closed on both sides (i.e. it
     includes the lowest value).
     """
-    return ax._tricontour(True, args, kwargs)
+    return TriContourSet(ax, *args, filled=True, **kwargs)

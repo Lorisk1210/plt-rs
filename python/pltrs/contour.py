@@ -15,8 +15,8 @@ from numbers import Integral, Real
 import numpy as np
 from numpy import ma
 
-from . import _contour_reference, _docstring
-from . import (_api, _blocking_input, _handles, _mirrors, _owned_paths, _values,
+from . import _contour_arguments, _contour_reference, _docstring
+from . import (_api, _blocking_input, _handles, _mirrors, _owned_paths, _qualnames, _values,
                artist as martist, cbook, collections as mcoll, colors as mcolors,
                lines as mlines)
 from ._native import artist as _artist, collections as _collections, contour as _contour
@@ -890,19 +890,20 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             Keyword arguments are as described in the docstring of
             `~.Axes.contour`.
         """
+        from .axes import _failed_calls
         from .axes._plotting.contours import _contour_look, _style
         kwargs = {**cbook._given_keywords(ContourSet.__init__, locals(),
                                           exclude=("levels", "filled")), **kwargs}
         # matplotlib's collection takes the alpha first, checking it.
         martist._check_array_alpha(kwargs.get("alpha"))
+        _contour_arguments.check_made(kwargs)
         # Kept and checked as matplotlib's set does, which only a set
-        # contouring a grid places with.
+        # contouring a grid places with (nor contours in chunks).
         origin = kwargs.pop("origin", None)
         extent = kwargs.pop("extent", None)
+        nchunk = kwargs.pop("nchunk", 0)
         _api.check_in_list([None, 'lower', 'upper', 'image'], origin=origin)
-        if extent is not None and len(extent) != 4:
-            raise ValueError(
-                "If given, 'extent' must be None or (x0, x1, y0, y1)")
+        _contour_arguments.check_extent(extent)
         if origin == 'image':
             from . import rcParams
             origin = rcParams['image.origin']
@@ -923,14 +924,16 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             raise ValueError('allkinds has different length to allsegs')
         segments = [[Path(seg, kind) for seg, kind in zip(segs, kinds)]
                     for segs, kinds in zip(allsegs, allkinds)]
-        look = _contour_look(ax, kwargs)
-        native = _contour.contour_segments(
-            ax._native, bool(filled), [float(level) for level in levels],
-            segments, *look[:2])
-        _handles.adopt(self, _contour.get_collections(native)[0], ax.figure)
-        self._set_contour(native, ax.figure)
-        _style(self, look, kwargs)
-        self.origin, self.extent = origin, extent
+        _contour_arguments.check_axes(ax, quad=False)
+        with _failed_calls.leaving_nothing(ax):
+            look = _contour_look(ax, kwargs)
+            native = _contour.contour_segments(
+                ax._native, bool(filled), [float(level) for level in levels],
+                segments, *look[:2])
+            _handles.adopt(self, _contour.get_collections(native)[0], ax.figure)
+            self._set_contour(native, ax.figure)
+            _style(self, look, kwargs)
+        self.origin, self.extent, self.nchunk = origin, extent, nchunk
 
     @classmethod
     def _from_contour(cls, contour, axes):
@@ -1091,7 +1094,9 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         if lw is None:
             lw = self._get_default_linewidth()
         lw = np.atleast_1d(lw)
-        if self.filled:
+        if self.filled or lw.dtype.kind not in 'biuf':
+            # Widths that are no numbers the collection keeps, as
+            # matplotlib's does, failing where it draws them.
             super().set_linewidth(lw)
             return
         # matplotlib scales the dash patterns by the widths, failing on
@@ -1299,10 +1304,11 @@ class _ContourGenerator:
         self.field = field
         self._matplotlib = None
 
-    def _make_matplotlib(self):
+    def _make_matplotlib(self, chunk_size=None):
         """
         The contourpy generator matplotlib makes for the field, with the
-        same arguments, or None where contourpy is not importable. pltrs
+        same arguments (contouring in chunks of *chunk_size*, the field's
+        by default), or None where contourpy is not importable. pltrs
         (Rust) still computes and draws the contours.
         """
         try:
@@ -1319,7 +1325,14 @@ class _ContourGenerator:
             x, y, z, name=algorithm, corner_mask=corner_mask,
             line_type=contourpy.LineType.SeparateCode,
             fill_type=contourpy.FillType.OuterCode,
-            chunk_size=generation[1])
+            chunk_size=generation[1] if chunk_size is None else chunk_size)
+
+    def check_chunks(self, nchunk):
+        """Fail as contourpy fails to make matplotlib's generator for the
+        field in chunks of *nchunk*, which pltrs (Rust) does not hold (no
+        whole number of none or more, see
+        `._contour_arguments.held_chunks`)."""
+        self._make_matplotlib(nchunk)
 
     def _matplotlib_generator(self):
         """matplotlib's generator for the field, made the first time; this
@@ -1344,6 +1357,8 @@ class QuadContourSet(ContourSet):
     %(contour_set_attributes)s
     """
 
+    # matplotlib's class takes ContourSet's constructor.
+    @_qualnames.named_as("ContourSet.__init__")
     def __init__(self, ax, *args,
                  levels=None, filled=False, linewidths=None, linestyles=None,
                  hatches=(None,), alpha=None, origin=None, extent=None,
@@ -1401,7 +1416,10 @@ class QuadContourSet(ContourSet):
                                           exclude=("levels", "filled")), **kwargs}
         if levels is not None:
             kwargs["levels"] = levels
-        ax._contour(filled, args, kwargs, made=self)
+        from .axes import _failed_calls
+        _contour_arguments.check_axes(ax, quad=True)
+        with _failed_calls.leaving_nothing(ax):
+            ax._contour(filled, args, kwargs, made=self)
 
 
 def _contour_args(fn, args, kwargs):

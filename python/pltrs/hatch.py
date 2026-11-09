@@ -1,10 +1,12 @@
 """
 Contains classes for generating hatch patterns (matplotlib's ``hatch``).
 
-pltrs (Rust) generates the hatch paths (``pltrs_core::hatch``, through
-``_native.path.hatch``); the validation of patterns and the structure of
-the pattern classes are matplotlib's, each class's vertices made by
-pltrs (Rust) (``_native.hatch``).
+pltrs (Rust) generates the hatch paths `.Path.hatch` draws
+(``pltrs_core::hatch``, through ``_native.path.hatch``); the validation
+of patterns, the structure of the pattern classes and their counts of
+lines and vertices are matplotlib's, each class's vertices made by
+pltrs (Rust) (``_native.hatch``), and `get_path` assembles them as
+matplotlib's does.
 """
 
 import numpy as np
@@ -47,25 +49,26 @@ def _count_lines(hatch, characters, density):
     return int(sum(hatch.count(c) for c in characters) * density)
 
 
-def _line_vertex_count(family, num_lines):
-    """How many vertices *num_lines* lines of the *family* take: pltrs
-    (Rust)'s count, or matplotlib's arithmetic for a negative number of
-    lines (of a negative density), whose count stays negative."""
-    if num_lines >= 0:
-        return _hatch.line_vertex_count(family, num_lines)
-    return num_lines * 2 if family in ("horizontal", "vertical") else (num_lines + 1) * 2
+def _diagonal_vertices(num_lines):
+    """The number of vertices of *num_lines* diagonals, which run through
+    both corners (one line more), as matplotlib counts them."""
+    return (num_lines + 1) * 2 if num_lines else 0
 
 
 def _write_family(family, num_lines, vertices, codes):
     """Write the *num_lines* lines of the *family* (of pltrs (Rust)'s
     ``HatchLines``) into *vertices* and *codes*."""
+    if num_lines < 0:
+        # matplotlib spaces the lines (the diagonals' ends, one more) with
+        # numpy, which refuses a negative count.
+        np.linspace(0.0, 1.0, num_lines + (family in ("north_east", "south_east")))
     _write_lines(_hatch.line_piece(family, num_lines), vertices, codes)
 
 
 class HorizontalHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('-', '+'), density)
-        self.num_vertices = _line_vertex_count("horizontal", self.num_lines)
+        self.num_vertices = self.num_lines * 2
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("horizontal", self.num_lines, vertices, codes)
@@ -74,7 +77,7 @@ class HorizontalHatch(HatchPatternBase):
 class VerticalHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('|', '+'), density)
-        self.num_vertices = _line_vertex_count("vertical", self.num_lines)
+        self.num_vertices = self.num_lines * 2
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("vertical", self.num_lines, vertices, codes)
@@ -83,7 +86,7 @@ class VerticalHatch(HatchPatternBase):
 class NorthEastHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('/', 'x', 'X'), density)
-        self.num_vertices = _line_vertex_count("north_east", self.num_lines)
+        self.num_vertices = _diagonal_vertices(self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("north_east", self.num_lines, vertices, codes)
@@ -92,7 +95,7 @@ class NorthEastHatch(HatchPatternBase):
 class SouthEastHatch(HatchPatternBase):
     def __init__(self, hatch, density):
         self.num_lines = _count_lines(hatch, ('\\', 'x', 'X'), density)
-        self.num_vertices = _line_vertex_count("south_east", self.num_lines)
+        self.num_vertices = _diagonal_vertices(self.num_lines)
 
     def set_vertices_and_codes(self, vertices, codes):
         _write_family("south_east", self.num_lines, vertices, codes)
@@ -114,7 +117,7 @@ class Shapes(HatchPatternBase):
 
     def set_vertices_and_codes(self, vertices, codes):
         if self.num_rows < 0:
-            # matplotlib's rows of shapes (none, of a negative density).
+            # No rows: matplotlib concatenates none.
             np.concatenate([], out=vertices)
         shape = Path(self.shape_vertices, self.shape_codes)
         _write_shapes(

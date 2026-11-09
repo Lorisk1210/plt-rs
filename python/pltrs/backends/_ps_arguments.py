@@ -8,6 +8,9 @@ matplotlib 3.11.2's ``backends/backend_ps.py`` under the Matplotlib
 License.
 """
 
+import numpy as np
+
+from .. import _pybind
 from ._native_drawing import affine_matrix
 
 #: The PostScript codes of the line joins and caps, by matplotlib's names
@@ -36,9 +39,11 @@ def _check_layout(s, prop, features, language):
     through ``_text_helpers.layout``), for their errors."""
     from ..font_manager import FontProperties, fontManager, get_font
     from ..ft2font import FT2Font, LoadFlags
-    prop = FontProperties._from_any(prop)
-    if not isinstance(s, str):
-        font = get_font(fontManager._find_fonts_by_props(prop))
+    font_prop = FontProperties._from_any(prop)
+    if font_prop is not prop or not isinstance(s, str):
+        # (pltrs (Rust) looks the fonts of font properties up itself.)
+        font = get_font(fontManager._find_fonts_by_props(font_prop))
+        prop.get_size_in_points()
         FT2Font._layout.check(font, s, LoadFlags.NO_HINTING,
                               features=features, language=language)
 
@@ -105,7 +110,9 @@ class PsArgumentsMixin:
 
     def _markers_arguments(self, gc, marker_path, marker_trans, path, trans,
                            rgbFace):
-        """The arguments of ``draw_markers`` as matplotlib reads them."""
+        """The arguments of ``draw_markers`` as matplotlib reads them;
+        whether there are markers to draw (not of no path, None, which
+        matplotlib's ``convert_to_string`` takes as an empty path)."""
         if not self._is_transparent(rgbFace):
             if rgbFace[0] == rgbFace[1] == rgbFace[2]:
                 check_numbers(rgbFace[0])
@@ -119,12 +126,13 @@ class PsArgumentsMixin:
             f"{lw:.1f}"  # noqa: B018
             JOINS[gc.get_joinstyle()]  # noqa: B018
             CAPS[gc.get_capstyle()]  # noqa: B018
-        marker_path.vertices  # noqa: B018
+        _pybind.path_iterator(marker_path)
         affine_matrix(marker_trans)
         bool(rgbFace)
         for _ in path.iter_segments(trans, simplify=False):
             pass
         self._style_arguments(gc, rgbFace, fill=False, stroke=False)
+        return marker_path is not None
 
     def _image_arguments(self, gc, x, y, im, transform):
         """The arguments of ``draw_image`` as matplotlib reads them."""
@@ -137,13 +145,11 @@ class PsArgumentsMixin:
         f"{w:d} {h:d}"  # noqa: B018
 
     def _text_arguments(self, gc, x, y, s, prop, angle, ismath, mtext):
-        """The arguments of ``draw_text`` as matplotlib reads them; whether
-        it draws the text (no fully transparent text)."""
+        """The arguments of ``draw_text`` (not typeset by TeX) as matplotlib
+        reads them; whether it draws the text (no fully transparent text)."""
         if self._is_transparent(gc.get_rgb()):
             return False
-        if ismath == 'TeX':
-            self._tex_arguments(gc, x, y, s, prop, angle)
-        elif ismath:
+        if ismath:
             self._mathtext_arguments(gc, x, y, s, prop, angle)
         else:
             features = language = None
@@ -182,6 +188,18 @@ class PsArgumentsMixin:
         assert colors.shape[2] == 4
 
         shape = points.shape
-        trans.transform(points.reshape((shape[0] * shape[1], 2)))
-        colors.reshape((shape[0] * shape[1], 4))
+        flat_points = trans.transform(points.reshape((shape[0] * shape[1], 2)))
+        flat_colors = colors.reshape((shape[0] * shape[1], 4))
+        if not (np.isfinite(np.asarray(flat_points)).all()
+                and np.isfinite(np.asarray(flat_colors[:, :3])).all()):
+            # The stream of vertices as matplotlib packs it, for numpy's
+            # warnings about what is no number.
+            points_min = np.min(flat_points, axis=0) - (1 << 12)
+            points_max = np.max(flat_points, axis=0) + (1 << 12)
+            factor = np.ceil((2 ** 32 - 1) / (points_max - points_min))
+            data = np.empty(
+                shape[0] * shape[1],
+                dtype=[('flags', 'u1'), ('points', '2>u4'), ('colors', '3u1')])
+            data['points'] = (flat_points - points_min) * factor
+            data['colors'] = flat_colors[:, :3] * 255.0
         return True

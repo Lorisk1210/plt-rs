@@ -35,17 +35,98 @@ pub enum MathNode {
     },
 }
 
-impl From<&List> for MathNode {
-    fn from(list: &List) -> Self {
-        let class = match (list.class, list.vertical) {
+impl MathNode {
+    /// The node as matplotlib's `repr` writes it (its `Node.__repr__`):
+    /// a character as `` `x` ``, a kern as `k1.50`, an empty box, a rule
+    /// or glue by its class name, a list by its class name and sizes,
+    /// then its children indented, one per line.
+    ///
+    /// ```
+    /// use pltrs_text::mathtext::MathNode;
+    /// let list = MathNode::List {
+    ///     class: "Hlist", width: f64::NAN, height: 7.42, depth: 0.0, shift_amount: -0.0,
+    ///     children: vec![MathNode::Kern(f64::NAN), MathNode::Char("2".into())],
+    /// };
+    /// assert_eq!(list.python_repr(), "Hlist<w=nan h=7.42 d=0.00 s=-0.00>[\n  knan,\n  `2`,\n]");
+    /// ```
+    pub fn python_repr(&self) -> String {
+        match self {
+            Self::Char(symbol) => format!("`{symbol}`"),
+            Self::Kern(width) => format!("k{}", python_fixed(*width)),
+            Self::Glue => "Glue".to_owned(),
+            Self::Leaf(class) => (*class).to_owned(),
+            Self::List {
+                class,
+                width,
+                height,
+                depth,
+                shift_amount,
+                children,
+            } => {
+                let content = if children.is_empty() {
+                    String::new()
+                } else {
+                    let lines: Vec<String> = children
+                        .iter()
+                        .map(|child| format!("{},", child.python_repr()))
+                        .collect();
+                    format!("\n{}\n", indented(&lines.join("\n")))
+                };
+                format!(
+                    "{class}<w={} h={} d={} s={}>[{content}]",
+                    python_fixed(*width),
+                    python_fixed(*height),
+                    python_fixed(*depth),
+                    python_fixed(*shift_amount)
+                )
+            }
+        }
+    }
+}
+
+/// `value` with two decimals, as Python's `"{:.02f}"` writes it (`nan`,
+/// `inf`, `-inf`, a sign kept on negative zero).
+fn python_fixed(value: f64) -> String {
+    if value.is_nan() {
+        "nan".to_owned()
+    } else if value.is_infinite() {
+        if value > 0.0 { "inf" } else { "-inf" }.to_owned()
+    } else {
+        format!("{value:.2}")
+    }
+}
+
+/// `text` with every line that is not blank indented by two spaces
+/// (Python's `textwrap.indent(text, "  ")`).
+fn indented(text: &str) -> String {
+    text.split_inclusive('\n')
+        .map(|line| {
+            if line.trim().is_empty() {
+                line.to_owned()
+            } else {
+                format!("  {line}")
+            }
+        })
+        .collect()
+}
+
+impl List {
+    /// The class matplotlib made the list as.
+    pub(crate) fn class_name(&self) -> &'static str {
+        match (self.class, self.vertical) {
             (ListClass::Plain, false) => "Hlist",
             (ListClass::Plain, true) => "Vlist",
             (ListClass::Centered, _) => "HCentered",
             (ListClass::AutoHeightChar, _) => "AutoHeightChar",
             (ListClass::AutoWidthChar, _) => "AutoWidthChar",
-        };
+        }
+    }
+}
+
+impl From<&List> for MathNode {
+    fn from(list: &List) -> Self {
         Self::List {
-            class,
+            class: list.class_name(),
             width: list.width,
             height: list.height,
             depth: list.depth,
@@ -76,6 +157,39 @@ impl From<&Node> for MathNode {
 mod tests {
     use super::*;
     use crate::mathtext::boxes::GlueSpec;
+
+    #[test]
+    fn reprs_write_as_matplotlibs() {
+        let inner = MathNode::List {
+            class: "Hlist",
+            width: 5.92,
+            height: 5.47,
+            depth: 0.0,
+            shift_amount: 0.0,
+            children: vec![MathNode::Char("x".to_owned())],
+        };
+        let outer = MathNode::List {
+            class: "Hlist",
+            width: f64::NAN,
+            height: f64::INFINITY,
+            depth: 0.0,
+            shift_amount: 0.0,
+            children: vec![inner, MathNode::Glue, MathNode::Leaf("Hbox")],
+        };
+        assert_eq!(
+            outer.python_repr(),
+            "Hlist<w=nan h=inf d=0.00 s=0.00>[\n  Hlist<w=5.92 h=5.47 d=0.00 s=0.00>[\n    `x`,\n  ],\n  Glue,\n  Hbox,\n]"
+        );
+        let empty = MathNode::List {
+            class: "Vlist",
+            width: 0.0,
+            height: 0.0,
+            depth: 0.0,
+            shift_amount: 0.0,
+            children: Vec::new(),
+        };
+        assert_eq!(empty.python_repr(), "Vlist<w=0.00 h=0.00 d=0.00 s=0.00>[]");
+    }
 
     #[test]
     fn nodes_take_matplotlibs_class_names() {

@@ -65,12 +65,12 @@ fn shaping(features: Option<Vec<String>>, language: LanguageSpec) -> PyResult<Sh
 
 /// `TextToPath.get_text_path(prop, s, ismath, features=..., language=...)`:
 /// the outline of `s` at `TextToPath.FONT_SCALE` points, `(vertices,
-/// codes)`, typeset by LaTeX when `usetex` is set, else with the OpenType
-/// `features` and the `language`.
+/// codes)`, typeset by LaTeX when `usetex` is set, as mathtext when `math`
+/// is, else with the OpenType `features` and the `language`.
 fn get_text_path(
     s: String,
     props: FontProps,
-    usetex: bool,
+    (usetex, math): (bool, bool),
     features: Option<Vec<String>>,
     language: LanguageSpec,
 ) -> PyResult<PathArrays> {
@@ -79,7 +79,7 @@ fn get_text_path(
     let path = if usetex {
         text_path_tex(at, &s, size, &props.0)
     } else {
-        text_path_shaped(at, &s, size, &props.0, &shaping(features, language)?)
+        text_path_shaped(at, &s, size, &props.0, &shaping(features, language)?, math)
     }
     .map_err(|err| PyErr::value_error(err.to_string()))?;
     path_arrays(&path)

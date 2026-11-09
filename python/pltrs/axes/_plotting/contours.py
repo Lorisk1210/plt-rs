@@ -7,8 +7,8 @@ import math
 import numpy as np
 
 from ... import _docstring
-from ... import (_api, _handles, _live_transforms, _tick_helpers, _values, artist as martist,
-                 cbook, collections as mcoll, colors as mcolors)
+from ... import (_api, _contour_arguments, _handles, _live_transforms, _tick_helpers,
+                 _values, artist as martist, cbook, collections as mcoll, colors as mcolors)
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
 from ..._preprocess import _preprocess_data
@@ -37,8 +37,6 @@ def _contour_look(axes, kwargs):
     and whether its colormap is the one pltrs (Rust) makes (no *cmap* is
     given: the default one, or the listed colormap of *colors*).
     """
-    if "color" in kwargs:
-        raise _api.kwarg_error("ContourSet.__init__", "color")
     from ... import ticker
     locator = kwargs.pop("locator", None)
     given_colors = colors = kwargs.pop("colors", None)
@@ -67,17 +65,23 @@ def _contour_look(axes, kwargs):
     made, mapping = _mapping(cmap, kwargs.pop("norm", None), kwargs.pop("vmin", None),
                              kwargs.pop("vmax", None), kwargs.pop("colorizer", None))
     look = (None if colors is None else
-            [tuple(c) for c in mcolors.to_rgba_array(colors)],
+            # A colormap of no colours maps every level to transparent black.
+            [tuple(c) for c in mcolors.to_rgba_array(colors)] or [(0., 0., 0., 0.)],
             mapping,
             None if alpha is None else float(alpha),
-            None if linewidths is None else
-            [float(w) for w in np.atleast_1d(linewidths)],
-            _linestyles(linestyles), _linestyles(negative_linestyles)[0])
-    transform = _live_transforms.for_axes(kwargs.pop("transform", None), axes)
-    extras = (native_extend, [None if h is None else str(h) for h in hatches],
+            _contour_arguments.held_linewidths(linewidths),
+            _contour_arguments.held_linestyles(_linestyles, linestyles),
+            _contour_arguments.held_linestyles(lambda styles: _linestyles(styles)[0],
+                                               negative_linestyles))
+    given_transform = kwargs.pop("transform", None)
+    transform = _live_transforms.for_axes(
+        _contour_arguments.held_transform(given_transform), axes)
+    extras = (native_extend,
+              [None if h is None else str(h) for h in hatches] if np.iterable(hatches)
+              else [None],
               None if antialiased is None else bool(antialiased),
-              None if locator is None
-              else _tick_helpers._description("locator", locator),
+              _tick_helpers._description("locator", locator)
+              if isinstance(locator, ticker.Locator) else None,
               _live_transforms.given_to_native(transform), logscale)
     attributes = {"_given_linewidths": linewidths,
                   "_orig_linestyles": linestyles,
@@ -90,6 +94,9 @@ def _contour_look(axes, kwargs):
         # ``transform_path_non_affine``: cartopy's cuts paths at a map's
         # edge, which its limits read).
         attributes["_given_transform"] = transform
+    elif given_transform is not None:
+        # No transform: kept as given, failing where the set is drawn.
+        attributes["_given_transform"] = given_transform
     return look, extras, attributes, made, cmap is None
 
 
@@ -130,7 +137,8 @@ def _style(contours, look, kwargs):
     contours._attach_native_mapping(colorizer=colorizer)
     for name, value in attributes.items():
         setattr(contours, name, value)
-    if widths is not None and not contours.filled:
+    if (widths is not None and not contours.filled
+            and _contour_arguments.held_linewidths(widths) is not None):
         # The widths of the levels as matplotlib's ``_process_linewidths``
         # gives them, cycled as given.
         levels = len(contours.levels)
@@ -138,6 +146,10 @@ def _style(contours, look, kwargs):
                   else [widths] * levels)[:levels]
         _values.remember(contours, "linewidth", np.atleast_1d(widths))
     contours.monochrome = contours.cmap.monochrome
+    if not contours.filled:
+        _contour_arguments.check_linestyles(contours, contours._orig_linestyles)
+    _contour_arguments.keep_unheld(contours, contours.__dict__.get("_given_transform"),
+                                   widths)
     contours._internal_update(kwargs)
     return contours
 
@@ -165,11 +177,15 @@ class ContoursMixin:
         fn = 'contourf' if filled else 'contour'
         # matplotlib's contour set takes the alpha first, checking it.
         martist._check_array_alpha(kwargs.get("alpha"))
+        _contour_arguments.check_made(kwargs)
         origin = kwargs.pop("origin", None)
         extent = kwargs.pop("extent", None)
         if origin is not None:
             _api.check_in_list([None, 'lower', 'upper', 'image'], origin=origin)
-        generation = (kwargs.pop("corner_mask", None), int(kwargs.pop("nchunk", 0)),
+        _contour_arguments.check_extent(extent)
+        nchunk = kwargs.pop("nchunk", 0)
+        chunks = _contour_arguments.held_chunks(nchunk)
+        generation = (kwargs.pop("corner_mask", None), chunks or 0,
                       kwargs.pop("algorithm", None))
         if args and isinstance(args[0], mcontour.QuadContourSet):
             # The field of that contour set is contoured again, at its
@@ -187,6 +203,10 @@ class ContoursMixin:
                 (z, mask, x, y,
                  (origin, None if extent is None else tuple(map(float, extent)))),
                 generation)
+            if chunks is None:
+                generator.check_chunks(nchunk)
+            _contour_arguments.check_grid_transform(kwargs.get("transform"), self)
+        _contour_arguments.check_locator(kwargs.get("locator"), levels)
         look = _contour_look(self, kwargs)
         native = _contour.contour(self._native, bool(filled), *generator.field,
                                   _levels(levels), *look[:2])
@@ -196,7 +216,7 @@ class ContoursMixin:
             from ... import rcParams
             origin = rcParams['image.origin']
         contours.origin, contours.extent = origin, extent
-        contours.nchunk = generation[1]
+        contours.nchunk = nchunk
         return contours
 
     def _tricontour(self, filled, args, kwargs, made=None):
@@ -207,6 +227,7 @@ class ContoursMixin:
         from ...tri._tricontour import _TriContourGenerator
         # matplotlib's contour set takes the alpha first, checking it.
         martist._check_array_alpha(kwargs.get("alpha"))
+        _contour_arguments.check_made(kwargs)
         levels = kwargs.pop("levels", None)
         if args and isinstance(args[0], TriContourSet):
             # The field of that contour set is contoured again, at its

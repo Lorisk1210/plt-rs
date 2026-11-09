@@ -141,6 +141,10 @@ def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
         # matplotlib's collection is made with the values as its array.
         raise TypeError(f"Image data of dtype {values.dtype} cannot be "
                         f"converted to float")
+    from ..axes import Axes
+    if not isinstance(ax, Axes):
+        # matplotlib's tripcolor turns the grid of *ax* off first.
+        ax.grid(False)
     polygons, mesh = _plotting.tripcolor(
         ax._native, tri._native,
         (np.ma.filled(np.ma.asarray(values, dtype=float), np.nan).ravel(), faces),

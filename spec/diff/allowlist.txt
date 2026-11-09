@@ -80,6 +80,7 @@ api/module_matplotlib_style_0$ | ^value\[read_style_directory\]: dict keys$ | th
 api/font_path_0$ | ^value\[path\]: str$ | findfont() finds the bundled DejaVu Sans in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package
 (api|hostile)/module_matplotlib_cbook_0$ | ^(exception message\[get_sample_data\]: FileNotFoundError|value\[get_sample_data\]: str)$ | the missing sample file is named in pltrs' data directory ('<config>/mpl-data/sample_data'), as get_data_path() names it
 api/pdf_file_0$ | ^exception message\[(writeFonts|embedTTF)\]: KeyError$ | the KeyError names the FontPath of the bundled DejaVu Sans that findfont() finds in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package
+(api|hostile)/module_matplotlib_ft2font_0$ | ^exception message\[FT2Font\]: TypeError$ | pybind11's message for FT2Font(findfont('DejaVu Sans'), nonexistent_kw=1) repeats the arguments, and the FontPath findfont() gives is the bundled DejaVu Sans in pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package; the rest of the message is matplotlib's
 (api|hostile)/module_matplotlib_0$ | ^warning (missing|extra): WARNING: Cannot decode configuration file FontPath\('…', N\) as utf-N\.$ | the file rc_params_from_file is handed (the FontPath findfont() gives) is the bundled DejaVu Sans of pltrs' data directory ('<config>/mpl-data/fonts/ttf'), where matplotlib's is in its package; the warning is the same
 (api|hostile)/module_matplotlib_font_manager_0$ | ^warning (missing|extra): ResourceWarning: unclosed file <_io\.BufferedReader name='…'>$ | the AFM file the program opens from get_data_path() is in pltrs' data directory ('<config>/mpl-data/fonts/afm'), where matplotlib's is in its package; the warning is the same
 
@@ -194,3 +195,9 @@ generated/rcparams/api_rc_files$ | ^value\[basename\]: str$ | without an rc file
 generated/rcparams/svg_v1$ | ^value\[findall\]: str$ @ ^\d+:0\[\d+\]$ | an embedded image's id is hashed from its PNG bytes: matplotlib's are Pillow's (zlib's DEFLATE), pltrs' its own encoder's, of the same pixels; the ids of everything else, hashed from what both write alike, agree
 generated/pickling/unpicklable$ | ^exception\[(dumps|deepcopy)\]: missing TypeError$ | pltrs' category UnitData pickles (since 607ebf70), where matplotlib's holds an itertools.count, which Python 3.14 no longer pickles
 generated/pickling/unpicklable$ | ^exception message\[dumps\]: PicklingError$ | both fail with pickle's PicklingError for a function of the program's that pickle cannot find; matplotlib meets the y axis' lambda first walking its objects, pltrs the x axis' formatter first among the callables its archive refers to
+
+# matplotlib's hsv_to_rgb fills the colours of each of the six sectors of
+# hue it finds (h * 6 cast to an integer, 0 to 5) into arrays np.empty_like
+# made; a NaN hue (cast to the smallest integer) is in none of them, so its
+# colour is whatever memory those arrays were given.
+hostile/module_matplotlib_colors_4$ | ^value\[hsv_to_rgb\]: array values$ @ ^10[12]:0$ | the RGB of a NaN hue is uninitialized memory in matplotlib (np.empty_like, written by no sector), 1.0, 5e-324 and 0.0 in one run, 0.0, 0.0 and NaN for the same input masked; pltrs (Rust) computes a colour of its own

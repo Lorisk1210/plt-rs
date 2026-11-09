@@ -397,6 +397,14 @@ class Line2D(Artist):
         props = {k: v for k, v in props.items() if v is not None}
         if marker is not None:
             props["marker"] = marker
+        self._check_made(linestyle, drawstyle, fillstyle, pickradius)
+        # Marker colours that are no colours the line keeps (see
+        # `_set_marker_color`).
+        unheld_colors = {
+            name: props.pop(name)
+            for name in ("markeredgecolor", "markerfacecolor", "markerfacecoloralt")
+            if name in props and not (cbook._str_lower_equal(props[name], "auto")
+                                      or mcolors.is_color_like(props[name]))}
         if units._is_natively_supported(xdata) and units._is_natively_supported(ydata):
             x = cbook._to_unmasked_float_array(xdata).ravel()
             y = cbook._to_unmasked_float_array(ydata).ravel()
@@ -409,6 +417,8 @@ class Line2D(Artist):
             x, y, _native_kwargs({**props, "pickradius": float(pickradius)}))
         super().__init__()
         _remember_given(self, props)
+        for name, color in unheld_colors.items():
+            self._set_marker_color(name, color)
         self._xorig, self._yorig = copy.copy(xdata), copy.copy(ydata)
         # matplotlib's __init__ sets the data through `set_data`, which a
         # class of the program's may override.
@@ -754,6 +764,22 @@ class Line2D(Artist):
             # no pattern (`set_linestyle`).
             return '--'
         return self._get("linestyle")
+
+    def _check_made(self, linestyle, drawstyle, fillstyle, pickradius):
+        """Fail as matplotlib's constructor fails to set the line style,
+        the draw style, the fill style of the marker and the pick radius
+        it is given, in its order (pltrs (Rust) makes the line of them)."""
+        if isinstance(linestyle, str):
+            if linestyle not in [' ', '', 'none']:
+                _api.check_in_list([*self._lineStyles, *cbook.ls_mapper_r], ls=linestyle)
+        elif linestyle is not None:
+            _get_dash_pattern(linestyle)
+        if drawstyle is not None:
+            _api.check_in_list(self.drawStyles, drawstyle=drawstyle)
+        _api.check_in_list(MarkerStyle.fillstyles, fillstyle=_rcParams()['markers.fillstyle']
+                           if fillstyle is None else fillstyle)
+        if not isinstance(pickradius, Real) or pickradius < 0:
+            raise ValueError("pick radius should be a distance")
 
     def set_linestyle(self, ls):
         """

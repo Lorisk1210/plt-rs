@@ -18,6 +18,8 @@ matplotlib raises there (before the first draw, numpy's error for a
 product with None).
 """
 
+import warnings
+
 import numpy as np
 
 from pltrs._native import mplot3d as _mplot3d
@@ -80,7 +82,19 @@ def _clips(artist):
     return bool(clips)
 
 
-def _problem(compute):
+def _problem(compute, M=ANY_PROJECTION):
+    """The exception *compute* raises projecting through *M*, or None. Run
+    for the problems of the data alone (through `ANY_PROJECTION`), it
+    issues none of the warnings matplotlib's computation issues where its
+    draw projects them."""
+    if M is not ANY_PROJECTION:
+        return _raised(compute)
+    with warnings.catch_warnings(), np.errstate(all="ignore"):
+        warnings.simplefilter("ignore")
+        return _raised(compute)
+
+
+def _raised(compute):
     """The exception *compute* raises, or None."""
     try:
         compute()
@@ -103,7 +117,7 @@ def line_problem(line, verts, M=ANY_PROJECTION):
         else:
             xs, ys, zs = verts
         _project_columns(xs, ys, zs, axes, M)
-    return _problem(compute)
+    return _problem(compute, M)
 
 
 def segments_problem(collection, segments, M=ANY_PROJECTION):
@@ -127,7 +141,7 @@ def segments_problem(collection, segments, M=ANY_PROJECTION):
             _viewlim_mask(*columns, axes)
         xs, ys, zs = _apply_scale_transforms(*columns, axes)
         np.dot(M, _vec_pad_ones(xs.ravel(), ys.ravel(), zs.ravel()))
-    return _problem(compute)
+    return _problem(compute, M)
 
 
 def offsets_problem(collection, offsets, M=ANY_PROJECTION):
@@ -149,7 +163,7 @@ def offsets_problem(collection, offsets, M=ANY_PROJECTION):
         else:
             xyzs = offsets
         _project_columns(*xyzs, axes, M)
-    return _problem(compute)
+    return _problem(compute, M)
 
 
 def patch_problem(patch, segment3d, M=ANY_PROJECTION):
@@ -169,7 +183,7 @@ def patch_problem(patch, segment3d, M=ANY_PROJECTION):
         else:
             xs, ys, zs = xs0, ys0, zs0
         _project_columns(xs, ys, zs, axes, M)
-    return _problem(compute)
+    return _problem(compute, M)
 
 
 def paths_problem(collection, verts, M=ANY_PROJECTION):
@@ -186,7 +200,16 @@ def paths_problem(collection, verts, M=ANY_PROJECTION):
             if np.any(m):
                 vs = np.ma.array(vs, mask=np.broadcast_to(m, vs.shape))
             _project_columns(vs[:, 0], vs[:, 1], vs[:, 2], axes, M)
-    return _problem(compute)
+    return _problem(compute, M)
+
+
+def codes_problem(codes, count):
+    """The exception ``Poly3DCollection.do_3d_projection`` raises reading
+    the path *codes* (kept unchecked) of each of its *count* polygons, or
+    None: none for no codes, which it draws without."""
+    if codes is None or not len(codes):
+        return None
+    return _problem(lambda: [codes[i] for i in range(count)])
 
 
 def text_problem(text, position):

@@ -7,6 +7,7 @@ the Matplotlib License); pltrs (Rust) lays out and draws the diagrams
 """
 
 import logging
+import math
 from numbers import Real
 import operator
 from types import SimpleNamespace
@@ -30,6 +31,35 @@ RIGHT = 0
 UP = 1
 # LEFT = 2
 DOWN = 3
+
+
+def _labelling_failure(sankey, flows, labels):
+    """The exception matplotlib's labelling of the flows of a diagram of
+    *sankey* raises on *labels* that are no strings (numbers it adds the
+    quantity to), or None."""
+    if sankey.unit is None or not isinstance(sankey.format, str):
+        return None
+    for flow, label in zip(flows, labels):
+        if label is None or abs(flow) < sankey.tolerance:
+            continue
+        try:
+            if label != '':
+                label + "\n"
+        except TypeError as err:
+            return err
+    return None
+
+
+def _extent_failure(n):
+    """The exception matplotlib's extent of a diagram of *n* flows raises:
+    its labels' locations are empty without flows."""
+    if n:
+        return None
+    try:
+        np.min(np.zeros(0))
+    except ValueError as err:
+        return err
+    return None
 
 
 def _place_first_label(offset, flows, orientations, tolerance):
@@ -372,6 +402,9 @@ class Sankey:
                     f"The lengths of 'flows' ({n}) and 'pathlengths' "
                     f"({len(pathlengths)}) are incompatible")
             pathlengths = [float(length) for length in pathlengths]
+        elif pathlengths is None and not np.any(orientations):
+            # Only the flows on the top and bottom take a path length.
+            pathlengths = [0.25]
         else:
             pathlengths = [float(pathlengths)]
         if not isinstance(self.offset, Real):
@@ -384,22 +417,46 @@ class Sankey:
         lw = kwargs.pop('lw', kwargs.pop('linewidth', None))
         style = {key: value for key, value in (("facecolor", fc), ("linewidth", lw))
                  if value is not None}
+        if prior is None and rotation is not None and rotation / 90.0 != 0:
+            # matplotlib turns the diagram by the angle in radians, which
+            # `math.cos` refuses when infinite.
+            math.cos(math.radians(rotation / 90.0 * 90))
+        # matplotlib labels the flows after it drew the patch, and measures
+        # the labels' extent then: what fails there leaves the patch.
+        failure = _labelling_failure(self, flows, labels) or _extent_failure(n)
         patch, flows, angles, tips, text, texts = _sankey.add(
             self._native, str(patchlabel),
             ([float(f) for f in flows], [int(o) for o in orientations],
-             [None if label is None else str(label) for label in labels]),
+             [None if label is None or failure else str(label) for label in labels]),
             (float(trunklength), pathlengths, prior,
-             (int(connect[0]), int(connect[1])), float(rotation)),
+             (0, 0) if prior is None else (int(connect[0]), int(connect[1])),
+             float(rotation)),
             style)
         figure = self.ax.figure
         patch = _handles.wrap(patch, PathPatch, figure)
         patch._internal_update(cbook.normalize_kwargs(kwargs, PathPatch))
+        if failure is not None:
+            raise failure
         self.diagrams.append(SimpleNamespace(
             patch=patch, flows=np.asarray(flows),
-            angles=[None if angle is None else int(angle) for angle in angles],
+            angles=self._kept_angles(angles, rotation, prior, connect),
             tips=tips, text=_handles.wrap(text, Text, figure),
             texts=_handles.wrap_all(texts, Text, figure)))
         return self
+
+    def _kept_angles(self, angles, rotation, prior, connect):
+        """The *angles* of the flows pltrs (Rust) placed (quarter turns), as
+        matplotlib keeps them: whole numbers, advanced by the turn of the
+        diagram and of its type when it turns it (a rotation given, or the
+        angle of the flow of the prior diagram it connects to)."""
+        if prior is None:
+            turn = 0 if rotation is None else rotation / 90.0
+            turned = turn != 0
+        else:
+            turn = self.diagrams[prior].angles[connect[0]] - 0
+            turned = True
+        kind = type(turn) if turned else int
+        return [None if angle is None else kind(angle) for angle in angles]
 
     def finish(self):
         """

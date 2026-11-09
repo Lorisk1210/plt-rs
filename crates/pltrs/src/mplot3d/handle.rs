@@ -532,7 +532,8 @@ impl Axes3D {
 
     /// The projection matrix of the current view and limits, from
     /// transformed data coordinates to projected ones (matplotlib's
-    /// `get_proj`).
+    /// `get_proj`, with the runtime warnings its arithmetic issues on
+    /// infinite or equal limits).
     ///
     /// ```
     /// use pltrs::figure::Figure;
@@ -541,7 +542,10 @@ impl Axes3D {
     /// assert!(projected.iter().all(|c| c.is_finite()));
     /// ```
     pub fn proj(&self) -> Matrix4 {
-        self.with(|axes| axes.projection().matrix)
+        self.with(|axes| {
+            axes.camera.warn_projection(axes.scaled_limits());
+            axes.projection().matrix
+        })
     }
 
     /// Chooses the axis displayed vertically (matplotlib's

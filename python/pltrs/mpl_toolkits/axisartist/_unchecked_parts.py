@@ -52,6 +52,31 @@ def sized(figure_of):
     return lambda size: _python_drawing.drawing_renderer(figure_of).points_to_pixels(size) * 1
 
 
+def visibility(part, visible):
+    """
+    Keep *visible*, the visibility given to *part*, when it is no number
+    (None, a string): matplotlib's axis artist multiplies the pad of its
+    tick labels by the visibility of its major ticks as it draws, failing
+    on such a value (`tick_label_pad`), even with the ticks hidden.
+    """
+    if isinstance(visible, Real):
+        _unusable.drop(part, "visible")
+    else:
+        _unusable.keep(part, "visible", visible, lambda _: None)
+
+
+def tick_label_pad(axis_artist):
+    """What matplotlib's draw of *axis_artist* computes first
+    (``_update_ticks``): the pad of its tick labels, the size of its major
+    ticks in pixels by the share of their direction outside the axes and
+    by their visibility."""
+    ticks = axis_artist.major_ticks
+    renderer = _python_drawing.drawing_renderer(axis_artist._axes_of)
+    return (renderer.points_to_pixels(ticks.get_ticksize())
+            * {"in": 0, "inout": 1/2, "out": 1}[ticks.get_tick_direction()]
+            * ticks.get_visible())
+
+
 def usable_transform(part, given, use):
     """Whether pltrs (Rust) can place *part* with the transform *given* to
     it (a transform, or None for the identity); for one that is no

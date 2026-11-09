@@ -599,7 +599,9 @@ impl Artist for AxisArtistState {
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let id = self.base.id();
         let layout = ctx.layout();
-        let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current);
+        let drawing = crate::text::font_notes::placed_before_drawn(|| {
+            self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Current)
+        });
         let axes = layout.store().shared_as::<AxesState>(self.axes);
         let drawing = match drawing {
             Ok(drawing) => drawing,

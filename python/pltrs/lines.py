@@ -456,8 +456,8 @@ class Line2D(Artist):
     def _kept_order(self):
         """The order in which matplotlib's draw computes with the values
         the line keeps (see `._unusable`)."""
-        return ["data", "markevery", "markeredgecolor", "markerfacecolor",
-                "markerfacecoloralt"]
+        return ["data", "dashes", "markevery", "markeredgecolor",
+                "markerfacecolor", "markerfacecoloralt"]
 
     def _given_color(self, name, default=_values.NONE_GIVEN):
         """The colour property *name* as the program gave it (`._values`)."""
@@ -743,6 +743,8 @@ class Line2D(Artist):
 
         See also `~.Line2D.set_linestyle`.
         """
+        if _unusable.kept(self, "dashes", None) is not None:
+            return '--'  # A custom dash pattern, kept (`_keeps_dashes`).
         return self._get("linestyle")
 
     def set_linestyle(self, ls):
@@ -792,8 +794,33 @@ class Line2D(Artist):
             _api.check_in_list([*self._lineStyles, *cbook.ls_mapper_r], ls=ls)
         else:
             # matplotlib makes the dash pattern of any other style.
-            _get_dash_pattern(ls)
+            if self._keeps_dashes(_get_dash_pattern(ls)[1]):
+                return
+        _unusable.drop(self, "dashes")
         self._set_native(linestyle=ls)
+
+    def _keeps_dashes(self, dashes):
+        """Keep the dash list *dashes* if pltrs (Rust) cannot hold it (no
+        positive value, a negative or non-finite one): matplotlib keeps it,
+        and its graphics context refuses the negative and the all-zero
+        ones as it draws the line (`_draw_dashes`). Whether it is kept."""
+        if dashes is None or not len(dashes):
+            return False
+        values = np.asarray(dashes, dtype=float)
+        if np.isfinite(values).all() and (values >= 0).all() and (values > 0).any():
+            return False
+        _unusable.keep(self, "dashes", values, self._draw_dashes, measured=False)
+        self.stale = True
+        return True
+
+    def _draw_dashes(self, dashes):
+        """Fail as matplotlib's graphics context takes the *dashes* the
+        line is drawn with, where the line draws its line."""
+        if len(self.get_xydata()) and self.get_linestyle() not in ('None', ' ', ''):
+            if np.any(dashes < 0.0):
+                raise ValueError("All values in the dash list must be non-negative")
+            if dashes.size and not np.any(dashes > 0.0):
+                raise ValueError("At least one value in the dash list must be positive")
 
     @property
     def _dash_pattern(self):
@@ -822,7 +849,10 @@ class Line2D(Artist):
             If *seq* is empty or ``(None, None)``, the linestyle will be set
             to solid.
         """
-        self._set_native(dashes=seq)
+        if seq == (None, None) or len(seq) == 0:
+            self.set_linestyle('-')
+        else:
+            self.set_linestyle((0, seq))
 
     def is_dashed(self):
         """
@@ -833,6 +863,8 @@ class Line2D(Artist):
 
         See also `~.Line2D.set_linestyle`.
         """
+        if _unusable.kept(self, "dashes", None) is not None:
+            return True
         return _lines.is_dashed(self._native)
 
     def get_linewidth(self):

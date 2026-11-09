@@ -144,7 +144,8 @@ impl Axes {
     }
 
     /// The axes placed inside this one, in creation order: its insets and
-    /// secondary axes (matplotlib's `child_axes`).
+    /// secondary axes, not the parasites it hosts (matplotlib's
+    /// `child_axes`).
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -160,7 +161,11 @@ impl Axes {
             .with::<AxesState, _>(|axes| axes.children.clone());
         children
             .into_iter()
-            .filter(|&id| state.artist_as::<AxesState>(id).is_some())
+            .filter(|&id| {
+                state
+                    .artist_as::<AxesState>(id)
+                    .is_some_and(|child| child.parasite.is_none())
+            })
             .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
             .collect()
     }

@@ -16,6 +16,14 @@ from pltrs._native import axes_grid1 as _axes_grid1
 from .mpl_axes import Axes
 
 
+def _check_composes(aux_transform, parent_axes):
+    """Raise what matplotlib's ``_set_lim_and_transforms`` raises composing
+    *aux_transform* with the data transform of *parent_axes*
+    (``transAux + parent.transData``) for what is no transform."""
+    if aux_transform is not None:
+        aux_transform + parent_axes.transData
+
+
 def _native_link(aux_transform, viewlim_mode):
     """How pltrs (Rust) relates a parasite with *aux_transform* (affine)
     and *viewlim_mode* to its host: drawn through the aux transform, or
@@ -43,6 +51,7 @@ class ParasiteAxesBase:
             super().__init__(parent_axes.get_figure(root=False),
                              parent_axes._position, **kwargs)
             return
+        _check_composes(aux_transform, parent_axes)
         native = self._parasite_native(parent_axes, aux_transform,
                                        viewlim_mode)
         _handles.adopt(self, native, parent_axes.figure)
@@ -52,11 +61,18 @@ class ParasiteAxesBase:
         # children).
         for axis in getattr(self, "_axislines", {}).values():
             martist.Artist.set_visible(axis, False)
-        for name in ("x", "y"):
-            other = kwargs.pop(f"share{name}", None)
-            if other is not None:
-                getattr(self, f"share{name}")(other)
-        self._internal_update(kwargs)
+        try:
+            for name in ("x", "y"):
+                other = kwargs.pop(f"share{name}", None)
+                if other is not None:
+                    getattr(self, f"share{name}")(other)
+            self._internal_update(kwargs)
+        except Exception:
+            # matplotlib's host lists a parasite once it is made: one
+            # whose constructor failed is in no host.
+            _axes_grid1.remove_parasite(parent_axes._native, native)
+            _handles.forget(self)
+            raise
 
     def _parasite_native(self, parent_axes, aux_transform, viewlim_mode):
         """The native parasite of *parent_axes* this parasite is: one whose
@@ -353,12 +369,13 @@ class HostAxesBase:
         """
         if axes_class is None:
             axes_class = self._base_axes_class
+        parasite_class = parasite_axes_class_factory(axes_class)
+        _check_composes(aux_transform, self)
         native = _axes_grid1.twin(
             self._native, kind,
             None if aux_transform is None else _native_link(aux_transform,
                                                             viewlim_mode))
-        return parasite_axes_class_factory(axes_class)._of_host(
-            self, native, aux_transform, viewlim_mode)
+        return parasite_class._of_host(self, native, aux_transform, viewlim_mode)
 
 
 host_axes_class_factory = host_subplot_class_factory = \

@@ -11,6 +11,7 @@ and the 3-D methods here on the 3-D axes (``_native.mplot3d``).
 Matplotlib License, kept as it is).
 """
 
+from numbers import Real
 import textwrap
 import threading
 import warnings
@@ -38,7 +39,8 @@ from pltrs._text_methods import _init_added
 from pltrs.text import _measured_by_given
 from pltrs.transforms import Bbox
 
-from . import _draw_problems, _program_projection, _properties, art3d, axis3d
+from . import (
+    _draw_problems, _program_projection, _properties, art3d, axis3d, proj3d)
 from ._charts import ChartsMixin
 from ._contours import ContoursMixin
 from ._limit_boxes import LimitBoxesMixin
@@ -1667,6 +1669,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         if self.button_pressed in self._rotate_btn:
             # ignore xv and yv and display angles instead
             return self._rotation_coords()
+        if not all(isinstance(v, Real) and np.isfinite(v) for v in (xv, yv)):
+            # matplotlib's arithmetic bringing the point back through the
+            # view of the last draw, which fails or warns on these.
+            zv = 1 if self._focal_length == np.inf else -1 / self._focal_length
+            proj3d.inv_transform(xv, yv, zv, self.invM)
         return _mplot3d.format_coord(self._native, float(xv), float(yv))
 
     def _rotation_coords(self):
@@ -2905,5 +2912,4 @@ from collections import defaultdict  # noqa: E402, F401
 from pltrs import (  # noqa: E402, F401
     artist as martist, container as mcontainer, image as mimage,
     transforms as mtransforms)
-from pltrs.mpl_toolkits.mplot3d import proj3d  # noqa: E402, F401
 from pltrs.tri._triangulation import Triangulation  # noqa: E402, F401

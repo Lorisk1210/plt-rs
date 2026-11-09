@@ -20,7 +20,7 @@ from numbers import Real
 
 import numpy as np
 
-from . import _api, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
+from . import _api, _artist_effects, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms, _program_classes, _python_drawing, _unusable, _values
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
@@ -63,6 +63,8 @@ def allow_rasterization(draw):
 
             if artist.get_agg_filter() is not None:
                 renderer.start_filter()
+                with _artist_effects.applying_filter(artist):
+                    return draw(artist, renderer)
 
             return draw(artist, renderer)
         finally:

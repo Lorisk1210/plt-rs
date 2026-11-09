@@ -38,7 +38,9 @@ pub(crate) fn polygon_normal(polygon: &[Vec3]) -> Vec3 {
 ///
 /// # Errors
 ///
-/// [`Axes3DError::ShadeColors`] for neither one colour nor one per face.
+/// [`Axes3DError::ShadeColors`] for colours numpy cannot broadcast against
+/// the faces: one colour shades every face, one face every colour (none
+/// for no colour), and otherwise each face shades its own colour.
 pub fn shade_faces(
     faces: &[Vec<Vec3>],
     colors: &[Rgba],
@@ -48,14 +50,17 @@ pub fn shade_faces(
     shade_colors(colors, &normals, light)
 }
 
-/// `colors` (one, or one per normal) darkened where their face turns away
-/// from the light, keeping their alpha (matplotlib's `_shade_colors`).
+/// `colors` darkened where their face turns away from the light, keeping
+/// their alpha (matplotlib's `_shade_colors`). numpy broadcasts the
+/// column of one shade per normal against the rows of colours: one
+/// colour shades every face, one face shades every colour (none for no
+/// colour), and otherwise each face shades its own colour.
 ///
 /// # Errors
 ///
-/// [`Axes3DError::ShadeColors`] for neither one colour nor one per
-/// normal (when some normal is defined: otherwise the colours stay as
-/// they are, as in matplotlib).
+/// [`Axes3DError::ShadeColors`] for colours that broadcast neither way
+/// (when some normal is defined: otherwise the colours stay as they are,
+/// as in matplotlib).
 pub(crate) fn shade_colors(
     colors: &[Rgba],
     normals: &[Vec3],
@@ -69,25 +74,24 @@ pub(crate) fn shade_colors(
             dot([n[0] / length, n[1] / length, n[2] / length], direction)
         })
         .collect();
-    if shades.iter().all(|s| s.is_nan()) || colors.is_empty() {
+    if shades.iter().all(|s| s.is_nan()) {
         return Ok(colors.to_vec());
     }
-    if colors.len() != 1 && colors.len() != normals.len() {
-        return Err(Axes3DError::ShadeColors {
-            faces: normals.len(),
-            colors: colors.len(),
-        });
-    }
+    let rows = match (shades.len(), colors.len()) {
+        (1, rows) | (rows, 1) => rows,
+        (faces, colors) if faces == colors => faces,
+        (faces, colors) => return Err(Axes3DError::ShadeColors { faces, colors }),
+    };
+    let broadcast = |len: usize, row: usize| if len == 1 { 0 } else { row };
     // Normalize(-1, 1) followed by Normalize(0.3, 1).inverse.
     let (vmin, vmax) = (0.3, 1.0);
-    Ok(shades
-        .iter()
-        .enumerate()
-        .map(|(i, &shade)| {
+    Ok((0..rows)
+        .map(|row| {
+            let shade = shades[broadcast(shades.len(), row)];
             let shade = if shade.is_nan() { 0.0 } else { shade };
             let fraction = (shade - -1.0) / 2.0;
             let factor = vmin + fraction * (vmax - vmin);
-            let color = colors[if colors.len() == 1 { 0 } else { i }];
+            let color = colors[broadcast(colors.len(), row)];
             Rgba::new(
                 factor * color.r,
                 factor * color.g,
@@ -190,6 +194,29 @@ mod tests {
             "operands could not be broadcast together with shapes (18,1) (6,4) "
         );
         assert!(shade_colors(&[red; 18], &[up; 18], &light).is_ok());
+    }
+
+    #[test]
+    fn one_face_shades_every_colour_as_numpy_broadcasts_it() {
+        // matplotlib's voxels and `Poly3DCollection(shade=True)` with
+        // colours of another length than their faces.
+        let light = LightSource::mplot3d();
+        let up = light.direction();
+        let red = Rgba::new(1.0, 0.0, 0.0, 0.5);
+        let shaded = shade_colors(&[red; 3], &[up], &light).expect("one face");
+        assert_eq!(shaded.len(), 3);
+        assert!(
+            shaded
+                .iter()
+                .all(|c| (c.r - 1.0).abs() < 1e-12 && (c.a - 0.5).abs() < 1e-12)
+        );
+        assert_eq!(shade_colors(&[], &[up], &light).expect("no colour"), []);
+        let err = shade_colors(&[], &[up; 3], &light).expect_err("none for three");
+        assert_eq!(
+            err.to_string(),
+            "operands could not be broadcast together with shapes (3,1) (0,4) "
+        );
+        assert_eq!(shade_colors(&[], &[], &light).expect("no face"), []);
     }
 
     #[test]

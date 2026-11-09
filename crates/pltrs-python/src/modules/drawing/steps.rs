@@ -340,9 +340,17 @@ fn stop_filter(drawing: Native<Drawing>, function: Callback) -> PyResult<()> {
     Ok(())
 }
 
-/// `artist.draw(renderer)`: the artist as pltrs draws it.
-fn draw_artist(drawing: Native<Drawing>, artist: RawHandle) -> PyResult<()> {
-    add(&drawing, DrawStep::Artist(DrawnArtist::new(artist)));
+/// `artist.draw(renderer)`: the artist as pltrs draws it, through its
+/// own image filter unless `filtered_around` (the drawing around it
+/// applies it).
+fn draw_artist(drawing: Native<Drawing>, artist: RawHandle, filtered_around: bool) -> PyResult<()> {
+    let drawn = DrawnArtist::new(artist);
+    let drawn = if filtered_around {
+        drawn.filtered_around()
+    } else {
+        drawn
+    };
+    add(&drawing, DrawStep::Artist(drawn));
     Ok(())
 }
 

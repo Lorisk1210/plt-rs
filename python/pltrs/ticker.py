@@ -935,10 +935,10 @@ class ScalarFormatter(_NativeFormatter):
         if isinstance(value, Integral):
             return self.fix_minus("%d" % value)
         if getattr(self.axis, "__name__", "") in ("xaxis", "yaxis"):
-            if isinstance(value, str):
-                # matplotlib's subtracts the value from those of the pixels
-                # beside it (a float array), which numpy refuses for text.
-                np.zeros(2) - value
+            if not isinstance(value, numbers.Real):
+                # matplotlib measures the value's distance to the values of
+                # its neighbouring pixels, as given.
+                abs(np.zeros(2) - value).max()
             text = _axis.format_data_short(*self.axis._args(), float(value))
             if text is not None:
                 return text

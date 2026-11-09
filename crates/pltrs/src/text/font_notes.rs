@@ -45,6 +45,9 @@ thread_local! {
     static NOT_RENDERING: Cell<bool> = const { Cell::new(false) };
     /// Whether texts are drawn through path effects now.
     static THROUGH_EFFECTS: Cell<bool> = const { Cell::new(false) };
+    /// Whether the texts laid out now are laid out again where they are
+    /// drawn, which notes their layout then.
+    static PLACED_BEFORE_DRAWN: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Runs `draw`, a draw without rendering (matplotlib's
@@ -160,6 +163,17 @@ pub(crate) fn unnoted<R>(measure: impl FnOnce() -> R) -> R {
     result
 }
 
+/// Runs `place`, which lays texts out that their draw lays out again,
+/// noting the layout then: matplotlib's draw of the texts of an axis
+/// artist measures them (noted), then lays each out once, as it draws it
+/// (`Text.draw`). Measuring them is noted as before.
+pub(crate) fn placed_before_drawn<R>(place: impl FnOnce() -> R) -> R {
+    let before = PLACED_BEFORE_DRAWN.replace(true);
+    let result = place();
+    PLACED_BEFORE_DRAWN.set(before);
+    result
+}
+
 /// Whether texts measured now note what matplotlib's measures note.
 fn noting() -> bool {
     !UNNOTED.get()
@@ -178,7 +192,12 @@ pub(super) fn note_layout(
     font: &FontProperties,
     typesetting: Typesetting,
 ) -> Result<(), TextError> {
-    if !noting() || text.is_empty() || typesetting == Typesetting::Tex || metrics::measures_afm() {
+    if !noting()
+        || PLACED_BEFORE_DRAWN.get()
+        || text.is_empty()
+        || typesetting == Typesetting::Tex
+        || metrics::measures_afm()
+    {
         return Ok(());
     }
     let request = font.drawn_request();

@@ -24,6 +24,7 @@ fn kind_of(name: &str) -> DrawErrorKind {
         "MemoryError" => DrawErrorKind::OutOfMemory,
         "FileNotFoundError" => DrawErrorKind::FileNotFound,
         "LinAlgError" => DrawErrorKind::Singular,
+        "RuntimeError" => DrawErrorKind::Library,
         _ => DrawErrorKind::Other,
     }
 }
@@ -87,6 +88,7 @@ mod tests {
             "AttributeError",
             "MemoryError",
             "FileNotFoundError",
+            "RuntimeError",
         ] {
             let kind = draw_exception(kind_of(name)).expect("a class of its own");
             assert_eq!(format!("{kind:?}"), name);

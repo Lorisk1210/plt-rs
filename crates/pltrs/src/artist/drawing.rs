@@ -138,6 +138,9 @@ pub struct DrawnArtist {
     /// The artist as it was, shared with its figure; `None` for an artist
     /// its figure no longer holds, or whose figure was busy.
     as_drawn: Option<Rc<dyn Artist>>,
+    /// Whether the artist's own image filter applies to it (not when the
+    /// drawing around it filters it already).
+    own_filter: bool,
 }
 
 impl DrawnArtist {
@@ -145,7 +148,22 @@ impl DrawnArtist {
     pub fn new(handle: RawHandle) -> Self {
         let as_drawn =
             (handle.figure_state().try_borrow()).and_then(|state| state.shared_artist(handle.id()));
-        Self { handle, as_drawn }
+        Self {
+            handle,
+            as_drawn,
+            own_filter: true,
+        }
+    }
+
+    /// The artist drawn without its own image filter, which the drawing
+    /// around it applies (matplotlib's `allow_rasterization` filtering
+    /// what the artist's `draw` drew).
+    #[must_use]
+    pub fn filtered_around(self) -> Self {
+        Self {
+            own_filter: false,
+            ..self
+        }
     }
 
     /// The artist's handle.
@@ -329,7 +347,7 @@ impl DrawContext<'_> {
     pub fn draw_as_drawn(&mut self, drawn: &DrawnArtist) {
         match &drawn.as_drawn {
             Some(artist) if self.draws(drawn.handle.figure_state()) => {
-                self.draw_own(&**artist, Some(drawn.handle.id()));
+                self.draw_own_filtered(&**artist, Some(drawn.handle.id()), drawn.own_filter);
             }
             _ => self.draw_handle(&drawn.handle),
         }

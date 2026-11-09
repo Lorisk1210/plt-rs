@@ -17,6 +17,7 @@ not offset boxes and annotation boxes, fancy arrows and subfigures
 (`_UNFILTERED`).
 """
 
+import contextlib
 import functools
 
 from ._native import artist as _artist
@@ -107,6 +108,28 @@ def _effect_specs(path_effects):
         return [("python", _Iterated(path_effects))]
     return [effect._native_spec() if hasattr(effect, "_native_spec") else ("python", effect)
             for effect in effects]
+
+
+@contextlib.contextmanager
+def applying_filter(artist):
+    """While *artist*'s ``draw`` filters what it draws itself (matplotlib's
+    `.allow_rasterization` around it), pltrs (Rust) draws it without its
+    filter (see `filter_applied`)."""
+    depth = artist.__dict__.get("_filter_applied", 0)
+    artist.__dict__["_filter_applied"] = depth + 1
+    try:
+        yield
+    finally:
+        if depth:
+            artist.__dict__["_filter_applied"] = depth
+        else:
+            del artist.__dict__["_filter_applied"]
+
+
+def filter_applied(artist):
+    """Whether a ``draw`` running now filters what *artist* draws, which
+    pltrs (Rust) then draws without its own filter (`applying_filter`)."""
+    return artist.__dict__.get("_filter_applied", 0) > 0
 
 
 def filtered(filter_func, image, dpi):

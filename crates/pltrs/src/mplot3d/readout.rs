@@ -201,8 +201,11 @@ pub(super) fn pane_point_through(
     let scale = scales[nearest];
     let mut point = [0, 1, 2].map(|i| p1[i] + scale * vec[i]);
     // The point lies on the pane: rounding must not move it off a pane at
-    // zero (which would print as 1e-16).
-    point[nearest] = panes[nearest];
+    // zero (which would print as 1e-16). A point under no number stays
+    // none (NaN) on every axis, as in matplotlib.
+    if !point[nearest].is_nan() {
+        point[nearest] = panes[nearest];
+    }
     let data = Axis3::ALL.map(|axis| axes.axis(axis).scale.inverse(point[axis.index()]));
     Some((data, Axis3::ALL[nearest]))
 }
@@ -240,5 +243,15 @@ mod tests {
             location_coords(Axis3::Y, ["1".into(), "2".into(), "3".into()]),
             "x=1, y pane=2, z=3"
         );
+    }
+
+    #[test]
+    fn no_number_lies_on_no_pane() {
+        let ax = Figure::new().subplot_3d();
+        for (xv, yv) in [(f64::NAN, 0.02), (0.01, f64::INFINITY)] {
+            let (point, pane) = ax.pane_point(xv, yv).expect("an invertible view");
+            assert_eq!(pane, Axis3::X, "numpy's argmin of NaN scales");
+            assert!(point.iter().all(|c| c.is_nan()), "{point:?}");
+        }
     }
 }

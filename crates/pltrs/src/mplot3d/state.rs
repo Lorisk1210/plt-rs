@@ -3,8 +3,7 @@
 
 use std::rc::Rc;
 
-use pltrs_core::{Anchor, Bbox, Path, Rgba};
-use pltrs_render::JoinStyle;
+use pltrs_core::{Anchor, Bbox, Path};
 
 use super::art3d::{Art3D, Artist3D, SortKind};
 use super::aspect::AspectSettings;
@@ -22,9 +21,9 @@ use crate::artist::{
 };
 use crate::axes::{AxesState, collapse_x};
 use crate::collections::CollectionArtist;
-use crate::colors::Color;
 use crate::figure::{FigureState, Painting};
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
+use crate::patches::PatchPaint;
 use crate::rc::RcParams;
 use crate::ticker::{AxisName, TickSpace};
 use crate::transforms::{TransformContext, unit_to_bbox};
@@ -81,8 +80,6 @@ pub(crate) struct Axes3DState {
     pub(crate) axis_on: bool,
     /// Whether collections and patches are ordered by depth.
     pub(crate) computed_zorder: bool,
-    /// Background colour of the axes box.
-    pub(crate) facecolor: Color,
     /// The plane's artists with their 3-D geometry, in insertion order.
     pub(crate) artists: Vec<Artist3D>,
     /// The 3-D geometry of the artists removed from the plane, which they
@@ -121,7 +118,6 @@ pltrs_core::archive_struct!(Axes3DState {
     grid_on,
     axis_on,
     computed_zorder,
-    facecolor,
     artists,
     removed,
     depth_order,
@@ -156,7 +152,6 @@ impl Axes3DState {
             grid_on: rc.axes3d_grid,
             axis_on: true,
             computed_zorder: true,
-            facecolor: rc.axes_facecolor.clone(),
             artists: Vec::new(),
             removed: Vec::new(),
             depth_order: Vec::new(),
@@ -317,12 +312,15 @@ impl Axes3DState {
     /// failed (sorting their sizes or widths, which leaves them without
     /// their drawing order): matplotlib's draw projects the axes' visible
     /// collections, the animated ones too, and fails with them; the
-    /// others report their problems as they are drawn.
+    /// others report their problems as they are drawn. A problem recorded
+    /// for a collection's projection comes first, and is reported with the
+    /// others recorded.
     fn report_animated_projections(&self, ctx: &mut DrawContext<'_>) {
         let store = ctx.layout().store();
         let failed: Vec<_> = (self.artists.iter())
             // The colours of patches fail as they are drawn.
             .filter(|artist| matches!(&artist.art, Art3D::Points(points) if points.depth_sorted))
+            .filter(|artist| self.failure_of(artist.id).is_none())
             .filter_map(|artist| {
                 let collection = store.get_as::<CollectionArtist>(artist.id)?;
                 let base = collection.base();
@@ -410,27 +408,27 @@ impl Artist for Axes3DState {
 }
 
 impl Axes3DState {
-    /// Draws the background patch over the display box `extent`, in the
-    /// SVG group named after the projection plane's patch gid.
+    /// Draws the background patch over the display box `extent`, as
+    /// matplotlib's `Axes3D.draw` draws `self.patch`: the projection
+    /// plane's patch, in its style (a face made transparent, say) and in
+    /// the SVG group named after its gid, unless it is hidden.
     fn draw_background(&self, ctx: &mut DrawContext<'_>, extent: &Bbox) {
-        let plane = ctx.layout().store().get_as::<AxesState>(self.plane);
-        let gid = plane.and_then(|plane| plane.patch.gid.clone());
+        let Some((paint, gid)) = (ctx.layout().store().get_as::<AxesState>(self.plane))
+            .filter(|plane| plane.patch.visible)
+            .map(|plane| {
+                let patch = &plane.patch;
+                let paint = PatchPaint::new(&patch.style, &plane.rc, patch.alpha, false);
+                (paint, patch.gid.clone())
+            })
+        else {
+            return;
+        };
         ctx.renderer().open_part_group("patch", gid.as_deref());
-        match self.facecolor.resolve() {
-            Ok(face) => {
-                // The background patch has edge colour 'none' and no width,
-                // and is left unfilled when transparent.
-                let mut gc = ctx.base_gc(&self.base);
-                gc.linewidth = 0.0;
-                gc.foreground = Rgba::TRANSPARENT;
-                gc.join = JoinStyle::Miter;
-                ctx.renderer().draw_path(
-                    &gc,
-                    &Path::unit_rectangle(),
-                    &unit_to_bbox(extent),
-                    (!face.is_transparent()).then_some(face),
-                );
-            }
+        match paint {
+            Ok(paint) => paint.paint(ctx.base_gc(&self.base), |gc, face| {
+                ctx.renderer()
+                    .draw_path(gc, &Path::unit_rectangle(), &unit_to_bbox(extent), face);
+            }),
             Err(err) => ctx.report(self.base.id(), err),
         }
         ctx.renderer().close_part_group("patch");

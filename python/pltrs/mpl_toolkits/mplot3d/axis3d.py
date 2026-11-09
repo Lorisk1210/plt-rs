@@ -72,10 +72,31 @@ class Axis(maxis.XAxis):
     gridlines = property(lambda self: self._gridline_artist(),
                          doc="The collection the gridlines are drawn as.")
 
-    def __init__(self, axes, *, rotate_label=None, **kwargs):
-        super().__init__(axes, **kwargs)
-        if rotate_label is not None:
-            self.set_rotate_label(rotate_label)
+    def _old_init(self, adir, v_intervalx, d_intervalx, axes, *args,
+                  rotate_label=None, **kwargs):
+        return locals()
+
+    def _new_init(self, axes, *, rotate_label=None, **kwargs):
+        return locals()
+
+    def __init__(self, *args, **kwargs):
+        params = _api.select_matching_signature(
+            [self._old_init, self._new_init], *args, **kwargs)
+        if "adir" in params:
+            _api.warn_deprecated(
+                "3.6", message=f"The signature of 3D Axis constructors has "
+                f"changed in %(since)s; the new signature is "
+                f"{inspect.signature(type(self).__init__)}", pending=True)
+            if params["adir"] != self.axis_name:
+                raise ValueError(f"Cannot instantiate {type(self).__name__} "
+                                 f"with adir={params['adir']!r}")
+        super().__init__(params["axes"], *params.get("args", ()), **params["kwargs"])
+        if "d_intervalx" in params:
+            self.set_data_interval(*params["d_intervalx"])
+        if "v_intervalx" in params:
+            self.set_view_interval(*params["v_intervalx"])
+        if params["rotate_label"] is not None:
+            self.set_rotate_label(params["rotate_label"])
 
     @property
     def line(self):

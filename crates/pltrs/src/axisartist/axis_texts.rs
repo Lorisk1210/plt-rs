@@ -141,6 +141,7 @@ impl AxisTexts {
             transform: None,
             bbox: None,
             laid_out: std::cell::Cell::default(),
+            leftover: std::cell::Cell::default(),
         }
     }
 }
@@ -292,7 +293,7 @@ impl Artist for AxisTextsState {
             gc.foreground = text.color;
             gc.antialiased = text.antialiased.unwrap_or(self.rc.text_antialiased);
             if let Err(err) = draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation) {
-                ctx.report(id, err);
+                ctx.report_kind(id, err.kind(), err);
             }
         }
     }

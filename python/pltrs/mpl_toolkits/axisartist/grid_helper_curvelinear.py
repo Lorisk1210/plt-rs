@@ -271,12 +271,15 @@ class GridHelperCurveLinear(GridHelperBase):
         if aux_trans is not None:
             self._aux_trans = aux_trans
             self.grid_finder.set_transform(aux_trans)
-        self.grid_finder.update(**kwargs)
-        self._old_limits = None  # Force revalidation.
-        axes = self.__dict__.get("_served_axes")
-        if axes is not None:
-            _axisartist.update_grid_finder(
-                axes._native, None if aux_trans is None else _native_aux(aux_trans))
+        try:
+            self.grid_finder.update(**kwargs)
+            self._old_limits = None  # Force revalidation.
+        finally:
+            # The transform stays updated when a property fails after it.
+            axes = self.__dict__.get("_served_axes")
+            if axes is not None:
+                _axisartist.update_grid_finder(
+                    axes._native, None if aux_trans is None else _native_aux(aux_trans))
 
     def _native_finder(self):
         """The parts of the grid finder as pltrs (Rust) calls them; they

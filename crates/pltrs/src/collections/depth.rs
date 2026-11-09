@@ -67,11 +67,8 @@ pub(crate) fn without_last(mut colors: Vec<Rgba>) -> Vec<Rgba> {
 /// marker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DepthSortError {
-    /// Several sizes, but fewer than the markers: matplotlib indexes the
-    /// list `set_sizes` was given with the depth order, which fails.
-    Sizes,
-    /// Several widths (or colours, unshaded), but fewer than the markers:
-    /// the depth order indexes the array beyond its end.
+    /// Several sizes, widths (or colours, unshaded), but fewer than the
+    /// markers: the depth order indexes the array beyond its end.
     OutOfBounds {
         /// The first index beyond the end, in the depth order.
         index: usize,
@@ -89,18 +86,15 @@ pub(crate) enum DepthSortError {
 }
 
 pltrs_core::archive_enum!(DepthSortError {
-    Sizes,
     OutOfBounds { index, size },
     Colors { given, markers },
 });
 
 impl DepthSortError {
-    /// The exception matplotlib raises for it: a `TypeError` indexing a
-    /// list, an `IndexError` indexing an array, a `ValueError`
-    /// broadcasting the colours.
+    /// The exception matplotlib raises for it: an `IndexError` indexing an
+    /// array, a `ValueError` broadcasting the colours.
     pub(crate) fn kind(self) -> DrawErrorKind {
         match self {
-            Self::Sizes => DrawErrorKind::InvalidType,
             Self::OutOfBounds { .. } => DrawErrorKind::OutOfRange,
             Self::Colors { .. } => DrawErrorKind::InvalidValue,
         }
@@ -129,9 +123,6 @@ impl fmt::Display for DepthSortError {
     /// matplotlib's (numpy's) message.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Sizes => {
-                f.write_str("only integer scalar arrays can be converted to a scalar index")
-            }
             Self::OutOfBounds { index, size } => {
                 write!(
                     f,
@@ -163,7 +154,6 @@ mod tests {
                 .ends_with("(4,4)  and requested shape (7,4)")
         );
         assert_eq!(colors.kind(), DrawErrorKind::InvalidValue);
-        assert_eq!(DepthSortError::Sizes.kind(), DrawErrorKind::InvalidType);
     }
 
     #[test]

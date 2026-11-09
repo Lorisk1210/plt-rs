@@ -12,8 +12,8 @@ use super::grid_helper_curvelinear::AxisGrid;
 use super::handles::LabelDirection;
 use super::helper::{AxisHelper, GONE, HelperContext};
 use super::labels::{
-    LabelKind, LabelState, PlacedTickLabels, TextLook, TextStyle, axis_label, offset_text,
-    tick_labels,
+    LabelKind, LabelState, PlacedTickLabels, TextLook, TextOffset, TextStyle, axis_label,
+    offset_text, tick_labels,
 };
 use super::line::LineState;
 use super::ticks::{TicksState, tick_info};
@@ -140,6 +140,8 @@ struct LevelDrawing {
     /// What places the marks.
     marks_transform: ResolvedTransform,
     texts: Vec<PlacedText>,
+    /// Where each text was moved from its reference point.
+    offsets: Vec<TextOffset>,
 }
 
 /// Everything an axis artist draws, laid out: the major then the minor
@@ -149,6 +151,8 @@ struct Drawing {
     offset: Option<PlacedText>,
     line: Vec<DisplayPath>,
     label: Option<PlacedText>,
+    /// Where the label was moved from its reference point.
+    label_offset: TextOffset,
 }
 
 impl AxisArtistState {
@@ -310,10 +314,11 @@ impl AxisArtistState {
             (&minor, &self.minor_ticks, &self.minor_ticklabels),
         ] {
             let (marks, labels) = tick_info(ticks, self.ticklabel_direction.add_angle());
-            let (texts, pad) = if labels_state.visible {
+            let (texts, offsets, pad) = if labels_state.visible {
                 let style = labels_state.text_style(&self.rc, tick_color);
                 let PlacedTickLabels {
                     texts,
+                    offsets,
                     axislabel_pad,
                 } = tick_labels(
                     layout,
@@ -324,9 +329,9 @@ impl AxisArtistState {
                     &style,
                     &self.rc,
                 )?;
-                (texts, axislabel_pad)
+                (texts, offsets, axislabel_pad)
             } else {
-                (Vec::new(), external)
+                (Vec::new(), Vec::new(), external)
             };
             axislabel_pad = axislabel_pad.max(pad);
             levels.push(LevelDrawing {
@@ -337,6 +342,7 @@ impl AxisArtistState {
                     &transform,
                 )?,
                 texts,
+                offsets,
             });
         }
         let offset = if self.major_ticklabels.visible || self.minor_ticklabels.visible {
@@ -362,11 +368,17 @@ impl AxisArtistState {
             }
         }
         let (line, line_grid) = self.line_paths(layout, ctx, dpi_cor)?;
+        let (label, label_offset) =
+            match self.axis_label(layout, ctx, axislabel_pad, line_grid.as_ref())? {
+                Some((label, offset)) => (Some(label), offset),
+                None => (None, (0.0, 0.0)),
+            };
         Ok(Drawing {
             levels,
             offset,
             line,
-            label: self.axis_label(layout, ctx, axislabel_pad, line_grid.as_ref())?,
+            label,
+            label_offset,
         })
     }
 
@@ -447,14 +459,15 @@ impl AxisArtistState {
     /// line (matplotlib's `_update_label` and `AxisLabel.draw`), placed
     /// from `line_grid`, the grid of a curvilinear line, as computed for
     /// the line. A shown label is placed with or without text, as
-    /// matplotlib's `_update_label` places it.
+    /// matplotlib's `_update_label` places it; with it, where it was moved
+    /// from its reference point (towards which angle, by how many pixels).
     fn axis_label(
         &self,
         layout: LayoutContext<'_>,
         ctx: HelperContext<'_>,
         axislabel_pad: f64,
         line_grid: Option<&AxisGrid>,
-    ) -> Result<Option<PlacedText>, String> {
+    ) -> Result<Option<(PlacedText, TextOffset)>, String> {
         let style_axis = ctx.axes.axis(self.style_axis);
         let text = self.label_text.as_deref().unwrap_or(&style_axis.label.text);
         if !self.label.visible {
@@ -466,7 +479,7 @@ impl AxisArtistState {
         }
         let (reference, radius) = self.label_placement(layout, ctx, axislabel_pad, position)?;
         let style = self.label.text_style(&self.rc, &style_axis.label.color);
-        axis_label(
+        let placed = axis_label(
             layout,
             text,
             reference,
@@ -474,8 +487,8 @@ impl AxisArtistState {
             &self.label,
             &style,
             &self.rc,
-        )
-        .map(Some)
+        )?;
+        Ok(Some((placed, (reference.1, radius))))
     }
 
     /// Where the label goes, `axislabel_pad` pixels plus its pad away from
@@ -527,13 +540,25 @@ impl AxisArtistState {
     }
 
     /// Draws `text`, one of the texts of `labels`, behind its box if the
-    /// labels have one.
-    fn draw_part_text(&self, ctx: &mut DrawContext<'_>, labels: &LabelState, text: &PlacedText) {
+    /// labels have one; a draw that fails there leaves the labels moved by
+    /// the text's `offset` from its reference point (towards which angle,
+    /// by how many pixels; see [`Leftover`](super::labels::Leftover)).
+    fn draw_part_text(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        labels: &LabelState,
+        text: &PlacedText,
+        offset: TextOffset,
+    ) {
         let id = self.base.id();
+        let ended = ctx.ended();
         if let Err(err) = labels.draw_box(ctx, &self.base, &self.rc, text) {
             ctx.report(id, err);
         }
         draw_text(ctx, id, text, &self.rc, AxisTextDraw::AfterMeasuring);
+        if !ended && ctx.ended() {
+            labels.note_failed_draw(offset);
+        }
     }
 
     /// The artist properties of the line: the artist's opacity, clipped
@@ -625,8 +650,8 @@ impl Artist for AxisArtistState {
                     Err(problem) => ctx.report(id, problem),
                 }
             }
-            for text in &level.texts {
-                self.draw_part_text(ctx, labels, text);
+            for (text, &offset) in level.texts.iter().zip(&level.offsets) {
+                self.draw_part_text(ctx, labels, text, offset);
             }
         }
         if let Some(offset) = &drawing.offset {
@@ -644,7 +669,7 @@ impl Artist for AxisArtistState {
             ctx.report(id, err);
         }
         if let Some(label) = &drawing.label {
-            self.draw_part_text(ctx, &self.label, label);
+            self.draw_part_text(ctx, &self.label, label, drawing.label_offset);
         }
         ctx.renderer().close_group(GROUP);
     }

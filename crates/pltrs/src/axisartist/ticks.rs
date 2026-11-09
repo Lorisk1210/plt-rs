@@ -88,6 +88,11 @@ impl TicksState {
     /// Draws the marks at `marks` (locations in `transform`'s coordinates
     /// with angles) with the pen `gc` (matplotlib's `Ticks.draw`; the
     /// marks belong to no axes, so none is left out of the view).
+    ///
+    /// An infinite size makes numpy warn as matplotlib's arithmetic does:
+    /// scaling the unit marker (`Affine2D().scale`) multiplies the four
+    /// zeros of its matrix around the diagonal by it in place, and turning
+    /// it for each mark multiplies matrices twice (`np.dot`).
     pub(crate) fn draw(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -96,9 +101,20 @@ impl TicksState {
         gc: &GraphicsContext,
     ) {
         let size = ctx.points_to_pixels(self.size);
+        let infinite = size.is_infinite();
+        if infinite {
+            for _ in 0..4 {
+                crate::warnings::warn_runtime("invalid value encountered in scalar multiply");
+            }
+        }
         let path = self.path();
         let affine = transform.affine_part();
         for &(loc, angle) in marks {
+            if infinite {
+                for _ in 0..2 {
+                    crate::warnings::warn_runtime("invalid value encountered in dot");
+                }
+            }
             let loc = transform.transform_point_non_affine(loc);
             let marker = Affine2D::scaling(size, size).rotate_deg(angle);
             let points = Path::polyline(vec![loc]);

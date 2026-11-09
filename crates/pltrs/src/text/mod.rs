@@ -43,6 +43,7 @@ mod measuring;
 mod metrics;
 mod metrics_cache;
 mod overrides;
+mod pixel_grid;
 mod tex;
 mod text_box;
 mod wrap;
@@ -89,6 +90,7 @@ pub use overrides::{
     DrawnPath, LineKind, LineMeasurer, TexPainter, TextPainter, measure_line, measure_line_pdf,
     measure_line_ps, measure_line_svg, set_line_measurer, set_tex_painter, set_text_painter,
 };
+pub use pixel_grid::UnroundablePosition;
 pub use pltrs_text::tex::{TexEngine, TexError};
 pub use pltrs_text::{
     BlockLayout, Feature, FontHeightMetrics, HAlign, Hinting, Language, LanguageRange, LanguageTag,
@@ -568,7 +570,7 @@ impl TextArtist {
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
             drawn = draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
         })?;
-        Ok(drawn?)
+        drawn
     }
 }
 
@@ -679,19 +681,23 @@ impl Artist for TextArtist {
 /// renderer's `draw_tex` (or the thread's [`TexPainter`], if it has one),
 /// other lines to its `draw_text`. The thread's [`TextPainter`], if it
 /// has one, draws the block instead. A block anchored at a point that is
-/// not finite is not drawn, as matplotlib's `Text.draw` returns there.
+/// not finite is not drawn, as matplotlib's `Text.draw` returns there,
+/// and neither is a block of a draw that has ended (an earlier text of the
+/// artist drawing it failed, say: matplotlib's draw raised there).
 ///
 /// # Errors
 ///
-/// When TeX cannot typeset or draw a line (the other lines are drawn).
+/// When TeX cannot typeset or draw a line (the other lines are drawn), or
+/// when the renderer rounds glyph positions and a line's are not finite
+/// (the lines after it are not drawn; see `pixel_grid`).
 pub(crate) fn draw_laid_out(
     ctx: &mut DrawContext<'_>,
     gc: &pltrs_render::GraphicsContext,
     laid_out: &LaidOutText,
     anchor: Point,
     angle: f64,
-) -> Result<(), TextError> {
-    if !anchor.is_finite() {
+) -> Result<(), TextDrawError> {
+    if !anchor.is_finite() || ctx.ended() {
         return Ok(());
     }
     if let Some(painter) = overrides::painter() {
@@ -717,17 +723,29 @@ pub(crate) fn draw_laid_out(
             run
         };
         let origin = anchor + line.origin;
+        let rounds = ctx.renderer().rounds_glyph_positions();
         if let Some(TextSource::Tex(tex)) = &run.source {
             if let Some(painter) = overrides::tex_painter() {
                 for drawn in painter.paint(gc, &tex.tex, &laid_out.font, origin, angle) {
                     ctx.renderer()
                         .draw_path(&drawn.gc, &drawn.path, &drawn.transform, drawn.fill);
                 }
-            } else if let Err(err) = ctx.renderer().draw_tex(gc, run, tex, origin, angle) {
-                result = result.and(Err(TextError::Tex(err)));
+                continue;
+            }
+            match ctx.renderer().draw_tex(gc, run, tex, origin, angle) {
+                Err(err) => result = result.and(Err(TextError::Tex(err).into())),
+                Ok(()) if rounds => {
+                    if let Err(err) = pixel_grid::check_tex(run, origin, angle) {
+                        return result.and(Err(err.into()));
+                    }
+                }
+                Ok(()) => {}
             }
         } else {
-            result = result.and(font_notes::note_drawn(run));
+            result = result.and(font_notes::note_drawn(run).map_err(TextDrawError::from));
+            if rounds && let Err(err) = pixel_grid::check_glyphs(run, origin, angle) {
+                return result.and(Err(err.into()));
+            }
             ctx.renderer().draw_text(gc, run, origin, angle);
         }
     }

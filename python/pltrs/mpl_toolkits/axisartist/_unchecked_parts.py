@@ -129,6 +129,12 @@ def check_text_drawing(text):
                        lambda kept: _lay_out(text, kept))
 
 
+#: What a text of an axis artist keeps that matplotlib's ``Text.draw``
+#: fails on (see `check_text_drawing`), once ``LabelBase.draw`` moved and
+#: turned the text (its pad and transform fail before).
+TEXT_DRAWING = ("path_effects", "agg_filter", "fontfeatures")
+
+
 def _lay_out(text, features):
     """Lay out the first line *text* draws as plain text (no mathtext)
     with the font *features*, as matplotlib's Agg renderer lays out each

@@ -438,6 +438,8 @@ class Sankey:
             math.cos(math.radians(rotation / 90.0 * 90))
         if self._native is None:
             self._place_on_no_axes(patchlabel, fc)
+        if kwargs and prior is None:
+            self._check_patch_properties(patchlabel, fc, lw, kwargs)
         # matplotlib labels the flows after it drew the patch, and measures
         # the labels' extent then: what fails there leaves the patch.
         failure = _labelling_failure(self, flows, labels) or _extent_failure(n)
@@ -519,6 +521,19 @@ class Sankey:
             np.float64(0.0) - self.margin  # noqa: B018
         _sankey.finish(self._native)
         return self.diagrams
+
+    def _check_patch_properties(self, patchlabel, fc, lw, kwargs):
+        """Raise what matplotlib raises making the patch of a diagram
+        with the properties *kwargs*, after it placed the diagram's label
+        and took the next colour of the property cycle (without *fc*): the
+        flows are then left unlabelled."""
+        try:
+            PathPatch(Path([(0., 0.)]), fc=fc, lw=lw, **kwargs)
+        except Exception:
+            self.ax.text(0, 0, s=patchlabel, ha='center', va='center')
+            if fc is None:
+                self.ax._get_patches_for_fill.get_next_color()
+            raise
 
     def _place_on_no_axes(self, patchlabel, fc):
         """Place a diagram on *ax*, which is no Axes, as matplotlib's

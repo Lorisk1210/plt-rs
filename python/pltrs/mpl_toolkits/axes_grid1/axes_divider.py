@@ -48,6 +48,14 @@ def _native_position(pos):
     return position
 
 
+def _check_anchor(anchor):
+    """Raise what matplotlib's `Divider.set_anchor` raises for *anchor*."""
+    if isinstance(anchor, str):
+        _api.check_in_list(mtransforms.Bbox.coefs, anchor=anchor)
+    elif not isinstance(anchor, (tuple, list)) or len(anchor) != 2:
+        raise TypeError("anchor must be str or 2-tuple")
+
+
 class Divider:
     """
     An Axes positioning class.
@@ -200,10 +208,7 @@ class Divider:
         --------
         .Axes.set_anchor
         """
-        if isinstance(anchor, str):
-            _api.check_in_list(mtransforms.Bbox.coefs, anchor=anchor)
-        elif not isinstance(anchor, (tuple, list)) or len(anchor) != 2:
-            raise TypeError("anchor must be str or 2-tuple")
+        _check_anchor(anchor)
         self._anchor = anchor
         self._sync()
 
@@ -468,6 +473,9 @@ class SubplotDivider(Divider):
             Placement of the reduced rectangle, when *aspect* is True.
         """
         self.figure = fig
+        # matplotlib's base class checks the anchor before the subplot
+        # arguments are read.
+        _check_anchor(anchor)
         self._subplotspec = SubplotSpec._from_subplot_args(fig, args)
         super().__init__(fig, [0, 0, 1, 1],
                          horizontal=horizontal or [], vertical=vertical or [],

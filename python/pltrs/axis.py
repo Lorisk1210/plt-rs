@@ -447,6 +447,8 @@ class Axis(DrawnWith, Artist):
             ``Axis.clear``.
             .. versionadded:: 3.8
         """
+        # What matplotlib's constructor reads first of *axes*.
+        axes.get_figure(root=False)
         if clear and self.axis_name is None and not hasattr(self, "_init"):
             # matplotlib's `clear` starts with ``_init``, which only the
             # axes of a direction define: a base Axis cannot be cleared.

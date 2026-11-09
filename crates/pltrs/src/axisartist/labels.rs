@@ -170,7 +170,25 @@ pub(crate) struct LabelState {
     /// `TickLabels._offset_radius` and `_axislabel_pad`, which its draws
     /// and measures leave).
     pub(crate) laid_out: Cell<(f64, f64)>,
+    /// What draws of the texts that failed left on them.
+    pub(crate) leftover: Cell<Leftover>,
 }
+
+/// What matplotlib's draws of the texts of an axis artist's part that
+/// failed left on them: `LabelBase.draw` moves the transform of the text
+/// it draws by its offset and turns its rotation by its reference angle
+/// (plus 90°) first, and puts them back only once the text is drawn. The
+/// texts of later draws are moved and turned by what all the failed draws
+/// left.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct Leftover {
+    /// The move, in display pixels.
+    pub(crate) shift: (f64, f64),
+    /// The turn, in degrees.
+    pub(crate) turn: f64,
+}
+
+pltrs_core::archive_struct!(Leftover { shift, turn });
 
 pltrs_core::archive_struct!(LabelState {
     kind,
@@ -185,7 +203,8 @@ pltrs_core::archive_struct!(LabelState {
     direction,
     transform,
     bbox,
-    laid_out
+    laid_out,
+    leftover
 });
 
 impl LabelState {
@@ -212,7 +231,23 @@ impl LabelState {
             transform: None,
             bbox: None,
             laid_out: Cell::default(),
+            leftover: Cell::default(),
         }
+    }
+
+    /// Notes that a draw of one of the texts, placed `radius` pixels
+    /// towards `ref_angle` degrees from its reference point, failed (see
+    /// [`Leftover`]).
+    pub(crate) fn note_failed_draw(&self, (ref_angle, radius): TextOffset) {
+        let Leftover {
+            shift: (dx, dy),
+            turn,
+        } = self.leftover.get();
+        let theta = ref_angle.to_radians();
+        self.leftover.set(Leftover {
+            shift: (dx + radius * theta.cos(), dy + radius * theta.sin()),
+            turn: turn + ref_angle + 90.0,
+        });
     }
 
     /// Draws the box behind `text`, one of the texts of these labels laid
@@ -318,14 +353,18 @@ impl Label<'_> {
         rc: &RcParams,
     ) -> Result<PlacedText, String> {
         let theta = self.ref_angle.to_radians();
+        let Leftover {
+            shift: (dx, dy),
+            turn,
+        } = self.state.leftover.get();
         let anchor = Point::new(
-            self.reference.x + self.radius * theta.cos(),
-            self.reference.y + self.radius * theta.sin(),
+            self.reference.x + dx + self.radius * theta.cos(),
+            self.reference.y + dy + self.radius * theta.sin(),
         );
         let block = self.state.look.block(
             self.state.halign,
             self.state.valign,
-            (self.ref_angle + 90.0 + self.state.rotation).rem_euclid(360.0),
+            (self.ref_angle + 90.0 + self.state.rotation + turn).rem_euclid(360.0),
         );
         style.place(layout, self.text, &block, anchor, rc)
     }
@@ -340,9 +379,15 @@ pub(crate) struct TickLabel {
     pub(crate) text: String,
 }
 
+/// Where a text of an axis artist was moved from its reference point:
+/// towards which angle in degrees, by how many pixels.
+pub(crate) type TextOffset = (f64, f64);
+
 /// The tick labels of an axis artist, laid out.
 pub(crate) struct PlacedTickLabels {
     pub(crate) texts: Vec<PlacedText>,
+    /// Where each text was moved from its reference point.
+    pub(crate) offsets: Vec<TextOffset>,
     /// The room they take away from the line, for the axis label
     /// (matplotlib's `_axislabel_pad`), in pixels.
     pub(crate) axislabel_pad: f64,
@@ -364,9 +409,10 @@ pub(crate) fn tick_labels(
     let pad = external_pad + layout.measuring_points_to_pixels(state.pad);
     let radius = offset + pad;
     state.laid_out.set((radius, total + pad));
-    let texts = labels
-        .iter()
+    let shown: Vec<_> = (labels.iter())
         .filter(|label| !label.text.trim().is_empty())
+        .collect();
+    let texts = (shown.iter())
         .map(|label| {
             Label {
                 text: &label.text,
@@ -380,6 +426,7 @@ pub(crate) fn tick_labels(
         .collect::<Result<_, _>>()?;
     Ok(PlacedTickLabels {
         texts,
+        offsets: shown.iter().map(|label| (label.angle, radius)).collect(),
         axislabel_pad: total + pad,
     })
 }

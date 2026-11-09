@@ -107,7 +107,7 @@ impl Points3D {
             DepthSortError::reorder(&self.shaded(colors, depths, data_scale, alpha)?, &order)
         };
         let sizes = (collection.sizes.as_deref())
-            .map(|sizes| DepthSortError::reorder(sizes, &order).map_err(|_| DepthSortError::Sizes))
+            .map(|sizes| DepthSortError::reorder(sizes, &order))
             .transpose();
         let linewidths = (collection.linewidths.as_deref())
             .map(|widths| DepthSortError::reorder(widths, &order))

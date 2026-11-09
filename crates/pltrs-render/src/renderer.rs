@@ -134,6 +134,14 @@ pub trait Renderer {
         fill_tex(self, gc, tex, origin, angle)
     }
 
+    /// Whether the renderer rounds where it puts each glyph (and each line
+    /// of TeX) to whole numbers as Python rounds them, as matplotlib's Agg
+    /// renderer does (`round(0x40 * x)`), which refuses a position that is
+    /// not finite. Renderers drawing glyphs as paths don't.
+    fn rounds_glyph_positions(&self) -> bool {
+        false
+    }
+
     /// Starts a named group of draw calls (vector backends emit a group).
     fn open_group(&mut self, _name: &str, _gid: Option<&str>) {}
 

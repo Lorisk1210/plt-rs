@@ -656,12 +656,13 @@ class Spine(Patch):
 
     def get_edgecolor(self):
         """Return the edge color."""
-        # ``to_rgba`` of the colour given, as matplotlib keeps it, while
-        # pltrs (Rust) holds that colour.
+        # ``to_rgba`` of the colour given (:rc:`axes.edgecolor`, which
+        # matplotlib's spine is made with, for none), as matplotlib keeps
+        # it, while pltrs (Rust) holds that colour.
         native = _spines.get_edgecolor(self._native)
         given = self.__dict__.get("_given_values", {}).get("edgecolor")
         if given is None:
-            return native
+            given = rcParams['axes.edgecolor']
         rgba = to_rgba(given, self.get_alpha())
         return rgba if rgba == tuple(native) else native
 

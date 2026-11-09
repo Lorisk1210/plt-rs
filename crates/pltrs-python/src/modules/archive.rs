@@ -24,6 +24,7 @@ use pltrs::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistPainter, FigureRef, RawHandle,
 };
 use pltrs::axes_grid1::Divider;
+use pltrs::axisartist::grid_finder::{ExtremeFinder, GridFormatter, GridLocator};
 use pltrs::colorbar::Colorbar;
 use pltrs::colors::Norm;
 use pltrs::container::Container;
@@ -47,6 +48,7 @@ use pltrs_core::archive::{
 
 use super::artist::PlainArtist;
 use super::axis::{PyFormatter, PyLocator};
+use super::axisartist::{PyExtremeFinder, PyGridFormatter, PyGridLocator};
 use super::colors::PythonNorm;
 use super::dates::PyZone;
 use super::drawing::{PythonEffect, PythonPainter};
@@ -408,8 +410,8 @@ fn externals_from_python(pairs: Vec<PythonPair>) -> PyResult<Vec<External>> {
 }
 
 /// How the binding archives its own types behind pltrs (Rust)'s traits:
-/// a Python tick helper, norm, transform, path effect or painter as the
-/// Python object, the projection of an Axes of a program's projection
+/// a Python tick helper, norm, transform, path effect or painter, and the
+/// parts of a Python grid finder (`axisartist`) as the Python object, the projection of an Axes of a program's projection
 /// class as its adapter, the bare artist of `Artist()` as its common
 /// properties; and how it makes the functions of [`Call`]s again.
 struct PythonProgram;
@@ -424,6 +426,9 @@ const PAINTER: &str = "python-painter";
 const EFFECT: &str = "python-path-effect";
 const PROJECTION: &str = "python-projection";
 const ZONE: &str = "python-time-zone";
+const EXTREME_FINDER: &str = "python-extreme-finder";
+const GRID_LOCATOR: &str = "python-grid-locator";
+const GRID_FORMATTER: &str = "python-grid-formatter";
 
 /// An exception raised while reading an archive, as an archive error.
 fn read_failure(py: Python<'_>, err: &PyErr) -> ArchiveError {
@@ -441,6 +446,17 @@ fn tick_helper(adapter: &Owned) -> Result<Owned, ArchiveError> {
             return Err(ArchiveError::unsupported("a tick helper no longer alive"));
         }
         Ok(helper.unbind())
+    })
+}
+
+/// The Python callable `callback` calls, to archive as itself.
+fn callable(callback: &Callback) -> Result<Owned, ArchiveError> {
+    Python::with_gil(|py| {
+        callback
+            .clone()
+            .into_py(py)
+            .map(Bound::unbind)
+            .map_err(|err| read_failure(py, &err))
     })
 }
 
@@ -488,6 +504,12 @@ impl ProgramKinds for PythonProgram {
             )
         } else if let Some(zone) = value.downcast_ref::<PyZone>() {
             (ZONE, Python::with_gil(|py| zone.adapter().clone_ref(py)))
+        } else if let Some(finder) = value.downcast_ref::<PyExtremeFinder>() {
+            (EXTREME_FINDER, callable(&finder.0)?)
+        } else if let Some(locator) = value.downcast_ref::<PyGridLocator>() {
+            (GRID_LOCATOR, callable(&locator.0)?)
+        } else if let Some(formatter) = value.downcast_ref::<PyGridFormatter>() {
+            (GRID_FORMATTER, callable(&formatter.0)?)
         } else {
             return Err(ArchiveError::unsupported(format!(
                 "a {} of a type of the program's",
@@ -550,6 +572,18 @@ impl ProgramKinds for PythonProgram {
                 ZONE => PyZone::of(&object).map(|zone| {
                     let zone: Box<dyn ZoneRules> = Box::new(zone);
                     Box::new(zone) as Box<dyn Any>
+                }),
+                EXTREME_FINDER => object.extract().map(|callback| {
+                    let finder: Box<dyn ExtremeFinder> = Box::new(PyExtremeFinder(callback));
+                    Box::new(finder) as Box<dyn Any>
+                }),
+                GRID_LOCATOR => object.extract().map(|callback| {
+                    let locator: Box<dyn GridLocator> = Box::new(PyGridLocator(callback));
+                    Box::new(locator) as Box<dyn Any>
+                }),
+                GRID_FORMATTER => object.extract().map(|callback| {
+                    let formatter: Box<dyn GridFormatter> = Box::new(PyGridFormatter(callback));
+                    Box::new(formatter) as Box<dyn Any>
                 }),
                 _ => {
                     return Err(ArchiveError::invalid(format!(

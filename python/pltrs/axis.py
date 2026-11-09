@@ -1974,7 +1974,7 @@ class Axis(DrawnWith, Artist):
                      else ('bottom', 'center', 'top'))
             loc = loc if loc is not None else self._rc(f'{along}axis.labellocation')
             _api.check_in_list(names, loc=loc)
-            fraction = names.index(loc) / 2
+            fraction = (0, 0.5, 1)[names.index(loc)]  # matplotlib's ints at the ends
             ha = ('left', 'center', 'right')[names.index(loc)]
             kwargs = {**kwargs, along: fraction, 'horizontalalignment': ha}
         return self.set_label_text(label, fontdict, **kwargs)

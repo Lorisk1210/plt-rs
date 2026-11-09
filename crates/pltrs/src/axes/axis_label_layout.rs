@@ -17,65 +17,39 @@ use crate::ticker::AxisName;
 const OFFSET_TEXT_PAD: f64 = 3.0;
 
 impl AxisPainter<'_> {
-    /// The axis label beyond the spine, its ticks and the tick labels on
-    /// its side.
+    /// The axis label at `automatic` (its
+    /// [`axis_label_anchor`](Self::axis_label_anchor))
+    /// or at its coordinates.
     pub(super) fn axis_label(
         &self,
         cx: &mut impl FigureReader,
         rc: &RcParams,
-        label_boxes: &[(bool, Bbox)],
+        automatic: Option<Point>,
     ) -> Option<Result<PlacedText, TextProblem>> {
         let label = &self.axis.label;
         if label.text.is_empty() || !label.visible {
             return None;
         }
         let extent = cx.read().axes_extent(self.axes_id)?;
-        let pad = cx.read().points_to_pixels(label.pad);
-        let high = label.side.is_high();
-        let edge = self.spine_extent(cx, label.side).unwrap_or(extent);
-        let boxes = label_boxes
-            .iter()
-            .filter(|(first, _)| *first != high)
-            .map(|(_, b)| *b);
-        let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
+        let automatic = automatic?;
         let along = label.halign();
         let multialign = label.multialign.unwrap_or(along);
-        let (automatic, block) = match self.name {
-            AxisName::X => (
-                Point::new(
-                    extent.x0() + label.loc.fraction() * extent.width(),
-                    if high {
-                        bounds.y1() + pad
-                    } else {
-                        bounds.y0() - pad
-                    },
-                ),
-                BlockStyle {
-                    rotation: label.rotation_on(self.name),
-                    halign: along,
-                    valign: label.valign_on(self.name),
-                    multialign,
-                    ..BlockStyle::default()
-                },
-            ),
-            AxisName::Y => (
-                Point::new(
-                    if high {
-                        bounds.x1() + pad
-                    } else {
-                        bounds.x0() - pad
-                    },
-                    extent.y0() + label.loc.fraction() * extent.height(),
-                ),
-                BlockStyle {
-                    rotation: label.rotation_on(self.name),
-                    halign: along,
-                    valign: label.valign_on(self.name),
-                    multialign,
-                    rotation_mode: RotationMode::Anchor,
-                    ..BlockStyle::default()
-                },
-            ),
+        let block = match self.name {
+            AxisName::X => BlockStyle {
+                rotation: label.rotation_on(self.name),
+                halign: along,
+                valign: label.valign_on(self.name),
+                multialign,
+                ..BlockStyle::default()
+            },
+            AxisName::Y => BlockStyle {
+                rotation: label.rotation_on(self.name),
+                halign: along,
+                valign: label.valign_on(self.name),
+                multialign,
+                rotation_mode: RotationMode::Anchor,
+                ..BlockStyle::default()
+            },
         };
         let anchor = label.coords.map_or(automatic, |at| {
             Point::new(
@@ -93,6 +67,46 @@ impl AxisPainter<'_> {
             rc,
             Typesetting::of(rc.text_parse_math, label.usetex),
         ))
+    }
+
+    /// Where the axis label goes unless placed by coordinates, with or
+    /// without text: in display coordinates, along the axis at the label's
+    /// `loc` and beyond the spine, its ticks and the tick labels
+    /// `label_boxes` on its side by the label's pad (matplotlib's
+    /// `_update_label_position`); `None` for axes not laid out.
+    pub(super) fn axis_label_anchor(
+        &self,
+        cx: &mut impl FigureReader,
+        label_boxes: &[(bool, Bbox)],
+    ) -> Option<Point> {
+        let label = &self.axis.label;
+        let extent = cx.read().axes_extent(self.axes_id)?;
+        let pad = cx.read().points_to_pixels(label.pad);
+        let high = label.side.is_high();
+        let edge = self.spine_extent(cx, label.side).unwrap_or(extent);
+        let boxes = label_boxes
+            .iter()
+            .filter(|(first, _)| *first != high)
+            .map(|(_, b)| *b);
+        let bounds = boxes.fold(edge, |acc, b| acc.union(&b));
+        Some(match self.name {
+            AxisName::X => Point::new(
+                extent.x0() + label.loc.fraction() * extent.width(),
+                if high {
+                    bounds.y1() + pad
+                } else {
+                    bounds.y0() - pad
+                },
+            ),
+            AxisName::Y => Point::new(
+                if high {
+                    bounds.x1() + pad
+                } else {
+                    bounds.x0() - pad
+                },
+                extent.y0() + label.loc.fraction() * extent.height(),
+            ),
+        })
     }
 
     /// The offset text at the end of the axis, beyond the tick labels.

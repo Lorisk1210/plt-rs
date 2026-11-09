@@ -17,8 +17,8 @@ import time
 import numpy as np
 
 from . import _docstring
-from . import (_api, _handles, _legend_checks, _legend_handlers, _live_transforms,
-               _values, colors, rcParams)
+from . import (_api, _handles, _legend_checks, _legend_handlers, _legend_label_colors,
+               _live_transforms, _values, colors, rcParams)
 from . import _val_or_rc
 from ._native import artist as _artist, legend as _legend
 from ._native import register as _register
@@ -517,6 +517,10 @@ class Legend(Artist):
         self.handletextpad = _val_or_rc(handletextpad, 'legend.handletextpad')
         self.borderaxespad = _val_or_rc(borderaxespad, 'legend.borderaxespad')
         self.columnspacing = _val_or_rc(columnspacing, 'legend.columnspacing')
+        if framealpha is None and not shadow:
+            # matplotlib's frame is opaque by default for the *shadow* given,
+            # not for :rc:`legend.shadow`.
+            framealpha = rcParams["legend.framealpha"]
         shadow = _val_or_rc(shadow, 'legend.shadow')
         handles = list(handles)
         if len(handles) < 2:
@@ -625,6 +629,7 @@ class Legend(Artist):
         _legend_checks.keep_borderaxespad(self, borderaxespad)
         self._made_handles = made.returned
         self._entry_handles = kept_handles
+        _legend_label_colors.remember(self, labelcolor)
         if draggable:
             self.set_draggable(True)
         if title_fontproperties is not None:

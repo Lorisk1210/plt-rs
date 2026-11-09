@@ -50,6 +50,12 @@ def _mesh_args(axes, fn, args, shading):
     return np.ma.filled(C.astype(float), np.nan), coords, dtype
 
 
+def _rc_shading():
+    """:rc:`pcolor.shading`."""
+    from ... import rcParams
+    return rcParams['pcolor.shading']
+
+
 def _coordinates_dtype(given, shape, shading):
     """
     The dtype of the coordinates of matplotlib's mesh, which keeps the
@@ -58,8 +64,7 @@ def _coordinates_dtype(given, shape, shading):
     are centred on them (shading 'nearest', or 'auto' with grids of the
     size of C, of *shape*).
     """
-    from ... import rcParams
-    shading = (shading or rcParams['pcolor.shading']).lower()
+    shading = (shading or _rc_shading()).lower()
     if given is None:
         return np.dtype(float) if shading == 'nearest' else np.arange(1).dtype
     X, Y = (np.asarray(v) for v in given)
@@ -69,6 +74,28 @@ def _coordinates_dtype(given, shape, shading):
         return np.result_type(dtype, float)
     return dtype
 
+
+
+def _refuse_gouraud_polygons(args):
+    """
+    Raise what matplotlib's ``pcolor`` raises for Gouraud shading
+    (``pcolor.shading`` set to it, say): its ``_pcolorargs`` makes the grid
+    of the size of C, whose polygons take the values of a grid one smaller.
+    """
+    C = np.asanyarray(args[-1])
+    nrows, ncols = C.shape[:2]
+    width, height = ncols, nrows
+    if len(args) == 3:
+        width, height = np.shape(args[0])[-1], np.shape(args[1])[0]
+        if (width, height) != (ncols, nrows):
+            raise TypeError('Dimensions of C %s are incompatible with'
+                            ' X (%d) and/or Y (%d); see help(%s)' % (
+                                C.shape, width, height, 'pcolor'))
+    h, w = height - 1, width - 1
+    ok_shapes = [(h, w, 3), (h, w, 4), (h, w), (h * w,)]
+    raise ValueError(
+        f"For X ({width}) and Y ({height}) with flat shading, A should have "
+        f"shape {' or '.join(map(str, ok_shapes))}, not {C.shape}")
 
 
 def _first_variate(values):
@@ -91,6 +118,8 @@ class MeshMixin:
                                shading=shading.lower())
             shading = shading.lower()
         made, native_mapping = mapping
+        if polygons and (shading or _rc_shading()).lower() == 'gouraud':
+            _refuse_gouraud_polygons(args)
         variates = None
         if made.norm.n_components > 1 and args and not polygons:
             # Values of several variates (a structured array, as matplotlib
@@ -118,6 +147,7 @@ class MeshMixin:
                                       native_mapping)
         collection = wrap(self, native, cls)
         collection._coordinates_dtype = dtype
+        collection._coordinates_masked = len(args) == 3
         if antialiased is not None:
             # matplotlib's mesh draws with the antialiasing it is made with,
             # apart from the collection's own (`.QuadMesh.get_antialiased`).

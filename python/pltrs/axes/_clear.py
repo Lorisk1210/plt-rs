@@ -48,10 +48,11 @@ class ClearMixin:
         super().__init_subclass__(**kwargs)
 
     def __getstate__(self):
-        # The registry's native connection does not survive pickling; a
-        # new one connects on first use.
+        # The registry pickles as matplotlib's does (its signals, the
+        # callbacks it may pickle); its native connection does not, and is
+        # made again on first use.
         state = super().__getstate__()
-        state.pop("_limit_callbacks", None)
+        state.pop("_limit_callbacks_connected", None)
         return state
 
     def __clear(self):
@@ -81,6 +82,7 @@ class ClearMixin:
             axis.stale = True
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)
+        self.__dict__.pop("_limit_callbacks_connected", None)
         # A new background patch in the Axes' face colour, and new titles,
         # as matplotlib's clear makes them.
         self.__dict__.pop("_patch", None)
@@ -129,6 +131,8 @@ class ClearMixin:
         if registry is None:
             registry = self.__dict__["_limit_callbacks"] = cbook.CallbackRegistry(
                 signals=["xlim_changed", "ylim_changed", "zlim_changed"])
+        if not self.__dict__.get("_limit_callbacks_connected"):
+            self.__dict__["_limit_callbacks_connected"] = True
             axes_ref = weakref.ref(self)
             for name in "xy":
                 _axes.on_limits_changed(

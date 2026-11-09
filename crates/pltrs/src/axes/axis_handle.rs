@@ -5,6 +5,8 @@
 
 use std::rc::Rc;
 
+use pltrs_text::{HAlign, VAlign};
+
 use super::axis::{AxisState, TickHelperKind, TickerDefaults};
 use super::{Axes, AxesState, TickParams};
 use crate::artist::ArtistHandle;
@@ -57,6 +59,23 @@ impl Axis {
         self.axes
             .raw()
             .with::<AxesState, _>(|axes| axes.rc.text_usetex)
+    }
+
+    /// The alignment of the tick labels on the first or second side
+    /// before any of their own: `xtick.alignment` along an x axis and
+    /// `ytick.alignment` across a y axis as they were when the axes was
+    /// made (matplotlib's `get_xaxis_text1_transform` and friends).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs_text::{HAlign, VAlign};
+    /// let ax = Figure::new().subplot();
+    /// assert_eq!(ax.yaxis().tick_label_alignment(true), (HAlign::Right, VAlign::CenterBaseline));
+    /// ```
+    pub fn tick_label_alignment(&self, first_side: bool) -> (HAlign, VAlign) {
+        self.axes.raw().with::<AxesState, _>(|axes| {
+            super::axis_layout::tick_label_alignment(self.name, first_side, &axes.rc)
+        })
     }
 
     /// Reads this axis's state.

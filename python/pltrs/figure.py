@@ -2423,6 +2423,7 @@ None}, default: None
 
     def __setstate__(self, state):
         from . import __version__
+        from . import _pickling
         version = state.pop('__mpl_version__')
         restore_to_pylab = state.pop('_restore_to_pylab', False)
 
@@ -2435,9 +2436,15 @@ None}, default: None
         tick_helper_uses = state.pop('_tick_helper_uses')
         program_hooks = state.pop('_program_hooks')
         self.__dict__.update(state)
-        native_state.when_restored(
-            lambda: self._restore_unpickled(restore_to_pylab, tick_helper_uses,
-                                            program_hooks))
+        # A shallow copy (`copy.copy`) is a root figure of its own too.
+        self._figure = self
+        # Once the native figure is read back and the artists the
+        # restoration reads have their state.
+        artists = [*self.__dict__.get("_artists", {}).values(),
+                   *(axis for axis, *_ in tick_helper_uses)]
+        native_state.when_restored(lambda: _pickling.when_built(
+            artists, lambda: self._restore_unpickled(
+                restore_to_pylab, tick_helper_uses, program_hooks)))
 
     def _restore_unpickled(self, restore_to_pylab, tick_helper_uses,
                            program_hooks):

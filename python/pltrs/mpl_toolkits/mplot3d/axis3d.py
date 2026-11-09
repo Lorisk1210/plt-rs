@@ -282,10 +282,13 @@ class Axis(maxis.XAxis):
             pane = self._pane = mpatches.Polygon([[0, 0], [0, 1]], closed=False)
             pane.set_transform(self.axes.transData)
             pane.set_figure(self.axes.get_figure(root=True))
-        # The colour as `set_pane_color` gave it, typed as `to_rgba`
+        # The colour as `set_pane_color` gave it (the axis' rcParam, which
+        # matplotlib's axis is made with, for none), typed as `to_rgba`
         # types it, while the axis still has it.
+        made_with = mcolors.to_rgba(mpl.rcParams[f"axes3d.{self.axis_name}axis.panecolor"])
         color = _values.given(self, "pane_color",
-                              _mplot3d.get_pane_color(*self._native_args()))
+                              _mplot3d.get_pane_color(*self._native_args()),
+                              default=made_with)
         pane.set_edgecolor(color)
         pane.set_facecolor(color)
         pane.set_alpha(color[-1])

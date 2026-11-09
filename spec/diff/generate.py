@@ -36,7 +36,14 @@ compared on their own. The generators are the modules of ``generators/``:
   the same call twice;
 * ``rest``: the callables and parameters no other generator reaches
   (DVI fonts, FreeType's buffers, the testing helpers, an animation
-  saved), each called where it has what it needs.
+  saved), each called where it has what it needs;
+* ``rcparams``: every rcParam but the GUI windows' set to other valid
+  values, on a scene it changes, drawn, saved and read back; every style
+  sheet alone and in pairs; ``rc_context``, the rc files and functions,
+  and an invalid value for each validator;
+* ``pickling``: figures of every kind of artist, Axes and toolkit
+  pickled, unpickled and pickled again, their getters called on both;
+  values pickled and copied (``copy.copy``, ``copy.deepcopy``).
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -58,8 +65,8 @@ import matplotlib  # noqa: E402
 matplotlib.use("agg")
 
 from generators import (  # noqa: E402
-    api, artists, hostile, modules, offsetboxes, orders, plotting, pyplot, randomized, rest, three_d,
-    unreached)
+    api, artists, hostile, modules, offsetboxes, orders, pickling, plotting, pyplot, randomized, rcparams, rest,
+    three_d, unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -74,6 +81,8 @@ GENERATORS = {
     "hostile": hostile.programs,
     "orders": orders.programs,
     "rest": rest.programs,
+    "rcparams": rcparams.programs,
+    "pickling": pickling.programs,
 }
 
 

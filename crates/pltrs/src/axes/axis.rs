@@ -4,6 +4,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use pltrs_core::Point;
+
 use crate::artist::{AggFilter, ArtistId};
 
 use super::axis_artists::AxisGids;
@@ -294,6 +296,10 @@ pub(crate) struct AxisState {
     /// see [`super::Axis::ticks_placed`]); set while drawing, hence a
     /// cell.
     pub(crate) ticks_placed: Cell<bool>,
+    /// Where the last layout of the axis' texts (a draw, or a measure of
+    /// them) anchored the label in display pixels (see
+    /// [`super::Axis::label_placed`]); set while drawing, hence a cell.
+    pub(crate) label_placed: Cell<Option<Point>>,
     /// Whether the axes follows a change of the axis' units (recomputing
     /// its data limits and autoscaling): matplotlib connects its
     /// `_unit_change_handler` to the axis' callbacks once the axes is
@@ -346,6 +352,7 @@ pltrs_core::archive_struct!(AxisState {
     picking,
     gids,
     ticks_placed,
+    label_placed,
     follows_units,
     scaled_view
 } skip { program_ticked, program_view });
@@ -416,6 +423,7 @@ impl AxisState {
             picking: AxisPicking::default(),
             gids: AxisGids::default(),
             ticks_placed: Cell::new(false),
+            label_placed: Cell::new(None),
             follows_units: true,
             scaled_view: Cell::new(None),
             program_ticked: None,

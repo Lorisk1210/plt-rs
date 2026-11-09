@@ -1,8 +1,10 @@
 //! [`Archive`] for a figure's state: its artists, removed ones included,
-//! under their ids, and what lays them out. What only lives while a
-//! figure is shown (canvas, callbacks, timers, tools, the mouse grab and
-//! widget lock, problems pending report) is not archived: a figure read
-//! back starts without it, stale, as a new figure does.
+//! under their ids, what lays them out, and which artists were drawn how
+//! often (as matplotlib's pickled artists keep what their draws computed).
+//! What only lives while a figure is shown (canvas, callbacks, timers,
+//! tools, the mouse grab and widget lock, problems pending report) is not
+//! archived: a figure read back starts without it, stale, as a new figure
+//! does.
 
 use std::cell::Cell;
 
@@ -31,7 +33,7 @@ impl Archive for FigureState {
             original_dpi,
             size_inches,
             stale: _,
-            fresh: _,
+            fresh,
             pending_errors: _,
             shared,
             layout,
@@ -66,7 +68,8 @@ impl Archive for FigureState {
         current_axes.encode(encoder)?;
         suppress_composite.encode(encoder)?;
         last_draw_dpi.encode(encoder)?;
-        role.encode(encoder)
+        role.encode(encoder)?;
+        fresh.encode(encoder)
     }
 
     fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
@@ -74,7 +77,7 @@ impl Archive for FigureState {
         let detached = DetachedArtists::decode(decoder)?;
         let root = ArtistId::decode(decoder)?;
         let dpi = Cell::decode(decoder)?;
-        let state = Self {
+        let mut state = Self {
             store,
             detached,
             root,
@@ -106,6 +109,7 @@ impl Archive for FigureState {
             draws_per_layout: 1,
             role: StateRole::decode(decoder)?,
         };
+        state.fresh = FreshArtists::decode(decoder)?;
         if state.detached.overlaps(&state.store) {
             return Err(ArchiveError::invalid("removed artists still in the figure"));
         }

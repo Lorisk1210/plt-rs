@@ -15,7 +15,9 @@ import numpy as np
 
 from .. import __version__, _api, _named, rcParams
 from .._native import backends as _backends, text_overrides as _text_overrides
-from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
+from .. import _print_targets
+from ..backend_bases import (_Backend, FigureCanvasBase, FigureManagerBase, RendererBase,
+                             _write_bytes)
 from ..font_manager import FontManager
 from ..path import Path
 from ..text import _measuring_with
@@ -502,8 +504,31 @@ class FigureCanvasSVG(FigureCanvasBase):
         width, height = self.figure.get_size_inches()
         renderer = RendererSVG._of_save(width * 72, height * 72, self.figure.dpi)
         with _measuring_with(renderer):
-            self._print_native(fmt, filename, metadata=_svg_metadata(metadata),
-                               bbox_inches_restore=bbox_inches_restore)
+            if fmt == "svg" and not rcParams["svg.image_inline"]:
+                self._print_svg_with_files(filename, metadata=_svg_metadata(metadata),
+                                           bbox_inches_restore=bbox_inches_restore)
+            else:
+                self._print_native(fmt, filename, metadata=_svg_metadata(metadata),
+                                   bbox_inches_restore=bbox_inches_restore)
+
+    def _print_svg_with_files(self, filename, **kwargs):
+        """Write the figure as SVG to *filename* with its images as PNG
+        files beside it (:rc:`svg.image_inline` off), named after the name
+        of the file written to as matplotlib's ``RendererSVG`` names them
+        (``<name>.image<N>.png``; a stream without a name: ``.image<N>.png``
+        in the working directory)."""
+        _print_targets.check("svg", filename)
+        stem = (os.fspath(filename) if isinstance(filename, (str, os.PathLike))
+                else getattr(filename, "name", ""))
+        with self._program_drawing(kwargs.get("bbox_inches_restore")):
+            data, images = _backends.print_svg(
+                self.figure._native, self._print_settings(**kwargs),
+                stem if isinstance(stem, str) else "", self._draw_event_sender())
+        for name, png in images:
+            logging.getLogger(__name__).info('Writing image file for inclusion: %s', name)
+            with open(name, "wb") as file:
+                file.write(png)
+        _write_bytes(data, filename, "svg")
 
     def get_default_filetype(self):
         return 'svg'

@@ -176,8 +176,7 @@ pub fn multivar_colormap(name: &str) -> Result<MultivarColormap, MultivarError> 
         ),
         other => return Err(MultivarError::Unknown(other.to_owned())),
     };
-    let lutsize =
-        usize::try_from(crate::rc::params().image_lut).map_err(|_| ColormapError::ZeroEntries)?;
+    let lutsize = crate::colors::colormaps::lut_size()?;
     let colormaps = components
         .iter()
         .map(|(component, colors)| {

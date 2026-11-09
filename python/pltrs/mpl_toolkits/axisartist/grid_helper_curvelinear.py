@@ -139,6 +139,19 @@ class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
         if self._nth_coord_ticks != self.nth_coord:
             self.nth_coord_ticks = self._nth_coord_ticks
 
+    def __getstate__(self):
+        # The weak reference to the axis artist pickles as the artist.
+        state = self.__dict__.copy()
+        if "_artist" in state:
+            state["_artist"] = state["_artist"]()
+        return state
+
+    def __setstate__(self, state):
+        artist = state.pop("_artist", None)
+        self.__dict__.update(state)
+        if artist is not None:
+            self._artist = weakref.ref(artist)
+
     @property
     def nth_coord_ticks(self):
         """The coordinate whose ticks the axis shows (0 or 1)."""
@@ -230,6 +243,43 @@ class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
         return super().get_tick_iterators(axes)
 
 
+class _FinderPart:
+    """A part of a grid finder as pltrs (Rust) calls it, reading the grid
+    finder anew at each call (*index*: of the coordinate it serves); an
+    object rather than a closure, so that it pickles with its figure."""
+
+    def __init__(self, finder, index=None):
+        self.finder = finder
+        self.index = index
+
+
+class _Extremes(_FinderPart):
+    """The range of the curvilinear coordinates covering a box."""
+
+    def __call__(self, x0, y0, x1, y1):
+        finder = self.finder
+        return tuple(map(float, finder.extreme_finder._find_transformed_bbox(
+            finder.get_transform().inverted(),
+            Bbox.from_extents(x0, y0, x1, y1)).extents))
+
+
+class _Levels(_FinderPart):
+    """The levels of a coordinate: ``(levels, n, factor)``."""
+
+    def __call__(self, v1, v2):
+        levels, n, factor = getattr(self.finder, f"grid_locator{self.index}")(v1, v2)
+        return ([float(level) for level in np.asarray(levels).ravel()],
+                int(n), float(factor))
+
+
+class _Labels(_FinderPart):
+    """The labels of the levels of a coordinate."""
+
+    def __call__(self, direction, factor, values):
+        return [str(label) for label in self.finder._format_ticks(
+            self.index, direction, factor, values)]
+
+
 class GridHelperCurveLinear(GridHelperBase):
     def __init__(self, aux_trans,
                  extreme_finder=None,
@@ -285,26 +335,8 @@ class GridHelperCurveLinear(GridHelperBase):
         """The parts of the grid finder as pltrs (Rust) calls them; they
         read the grid finder anew at each call."""
         finder = self.grid_finder
-
-        def extremes(x0, y0, x1, y1):
-            return tuple(map(float, finder.extreme_finder._find_transformed_bbox(
-                finder.get_transform().inverted(),
-                Bbox.from_extents(x0, y0, x1, y1)).extents))
-
-        def locator(index):
-            def locate(v1, v2):
-                levels, n, factor = getattr(finder, f"grid_locator{index}")(v1, v2)
-                return ([float(level) for level in np.asarray(levels).ravel()],
-                        int(n), float(factor))
-            return locate
-
-        def formatter(index):
-            def format_ticks(direction, factor, values):
-                return [str(label) for label in finder._format_ticks(
-                    index, direction, factor, values)]
-            return format_ticks
-
-        return (extremes, (locator(1), locator(2)), (formatter(1), formatter(2)))
+        return (_Extremes(finder), (_Levels(finder, 1), _Levels(finder, 2)),
+                (_Labels(finder, 1), _Labels(finder, 2)))
 
     def _install(self, axes, zero):
         _axisartist.install_curvilinear(axes._native, _native_aux(self._aux_trans),

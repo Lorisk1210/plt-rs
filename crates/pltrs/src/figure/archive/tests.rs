@@ -43,6 +43,29 @@ fn a_figure_read_back_draws_the_same() {
 }
 
 #[test]
+fn artists_keep_their_draws_and_freshness() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let drawn = ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a line");
+    fig.to_png().expect("drawn");
+    fig.to_png().expect("drawn again");
+    let changed = ax
+        .plot([0.0, 1.0], [1.0, 0.0])
+        .expect("a line added after the draws");
+    let back = round_trip(&fig);
+    let root = back.raw().clone();
+    let read = |id: ArtistId| root.sibling(id);
+    assert_eq!(read(drawn.id()).draw_count(), 2);
+    assert!(!read(drawn.id()).is_stale());
+    assert_eq!(read(changed.id()).draw_count(), 0);
+    assert!(read(changed.id()).is_stale());
+    assert!(
+        read(ArtistId::from_index(0)).is_stale(),
+        "the figure read back is stale"
+    );
+}
+
+#[test]
 fn artists_keep_their_ids_removed_ones_too() {
     let fig = Figure::new();
     let ax = fig.subplot();

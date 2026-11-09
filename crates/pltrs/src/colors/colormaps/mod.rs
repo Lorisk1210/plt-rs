@@ -18,7 +18,7 @@ mod builtin;
 mod builtin_data;
 mod listed_data;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
 pub(crate) use builtin::BuiltinFn;
@@ -57,6 +57,27 @@ pub fn names() -> &'static [String] {
 pltrs_core::thread_state! {
     /// The colormaps registered at run time, on this thread.
     static REGISTERED: RefCell<Vec<Colormap>> = const { RefCell::new(Vec::new()) };
+    /// The number of entries the built-in segmented colormaps are sampled
+    /// at: `image.lut` as it was at the first lookup of one (see
+    /// [`lut_size`]).
+    static LUT_SIZE: Cell<Option<i64>> = const { Cell::new(None) };
+}
+
+/// The number of entries the built-in segmented colormaps are sampled at:
+/// `rcParams["image.lut"]` as it was when one was first looked up, as
+/// matplotlib samples them once, building its registry of colormaps when
+/// it is imported (an override at run time changes nothing).
+///
+/// # Errors
+///
+/// [`ColormapError::ZeroEntries`] when that `image.lut` was negative.
+pub(crate) fn lut_size() -> Result<usize, ColormapError> {
+    let size = LUT_SIZE.get().unwrap_or_else(|| {
+        let size = crate::rc::params().image_lut;
+        LUT_SIZE.set(Some(size));
+        size
+    });
+    usize::try_from(size).map_err(|_| ColormapError::ZeroEntries)
 }
 
 /// The colormap registered at run time under `name`, if any.
@@ -118,8 +139,9 @@ pub fn contains(name: &str) -> bool {
 }
 
 /// The colormap registered under `name`, with segmented maps sampled at
-/// `rcParams["image.lut"]` entries; maps registered at run time come back
-/// as they were registered.
+/// `rcParams["image.lut"]` entries as it was when one was first looked up
+/// (matplotlib samples them once, when it is imported); maps registered at
+/// run time come back as they were registered.
 pub fn get(name: &str) -> Result<Colormap, ColormapError> {
     if let Some(cmap) = registered(name) {
         return Ok(cmap);
@@ -134,9 +156,7 @@ pub fn get(name: &str) -> Result<Colormap, ColormapError> {
         .iter()
         .find(|(name, _)| *name == original)
         .ok_or_else(unknown)?;
-    let lutsize =
-        usize::try_from(crate::rc::params().image_lut).map_err(|_| ColormapError::ZeroEntries)?;
-    let cmap = definition.build(base, lutsize)?;
+    let cmap = definition.build(base, lut_size()?)?;
     Ok(if reversed { cmap.reversed() } else { cmap })
 }
 
@@ -217,6 +237,16 @@ mod tests {
             get("notacmap").unwrap_err(),
             ColormapError::Unknown("notacmap".into())
         );
+    }
+
+    #[test]
+    fn segmented_maps_keep_the_lut_size_of_their_first_lookup() {
+        let first = get("Blues").unwrap();
+        let changed = crate::rc::context(|| {
+            crate::rc::set("image.lut", "8").unwrap();
+            get("Blues").unwrap()
+        });
+        assert_eq!(changed, first, "an override at run time changes nothing");
     }
 
     #[test]

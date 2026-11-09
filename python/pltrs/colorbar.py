@@ -746,6 +746,8 @@ class Colorbar:
         solids = self.solids
         if solids is not None:
             solids._attach_native_mapping(cmap=self.cmap, norm=self.norm)
+            # Made of the mesh's coordinates (``pcolormesh(X, Y, C)``).
+            solids._coordinates_masked = True
 
     @property
     def solids_patches(self):

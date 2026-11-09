@@ -78,6 +78,20 @@ class Triangulation:
         self.mask = None
         self.set_mask(mask)
 
+    def __getstate__(self):
+        # The native triangulation does not pickle (nor copy): it is made
+        # again from the points, triangles and mask (`__setstate__`).
+        state = self.__dict__.copy()
+        del state["_native"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        triangles = (None if self.is_delaunay
+                     else np.array(self.triangles, dtype=np.int64, order='C'))
+        self._native = _tri.new(self.x, self.y, triangles, None)
+        _tri.set_mask(self._native, None if self.mask is None else self.mask.tolist())
+
     @classmethod
     def _from_native(cls, native):
         """The triangulation around the native triangulation *native*."""

@@ -1,14 +1,14 @@
 """
 The statistics of one box of `.cbook.boxplot_stats` for what pltrs (Rust)
 does not take: data that are no real numbers (booleans, dates, strings,
-objects) and whiskers or bootstrap counts that are no numbers or no
-positive counts. They are computed with matplotlib's numpy arithmetic, in
-its order, so that they fail with its errors, and its numpy warnings, at
-the same step. Ported from matplotlib 3.11.2's ``cbook.boxplot_stats``
+objects), whiskers that are no numbers, and bootstraps, which resample
+with numpy's global random state. They are computed with matplotlib's
+numpy arithmetic, in its order, so that they fail with its errors, and
+its numpy warnings, at the same step. Ported from matplotlib 3.11.2's ``cbook.boxplot_stats``
 under the Matplotlib License.
 """
 
-from numbers import Integral, Real
+from numbers import Real
 
 import numpy as np
 
@@ -23,9 +23,9 @@ def plain(data, whis, bootstrap):
             return False
     elif not isinstance(whis, Real):
         return False
-    return bootstrap is None or (
-        isinstance(bootstrap, Integral) and not isinstance(bootstrap, bool)
-        and bootstrap > 0)
+    # A bootstrap resamples with numpy's global random state, as
+    # matplotlib's does, so that a program seeding it gets its notches.
+    return bootstrap is None
 
 
 def compute(stats, x, whis, bootstrap, autorange):

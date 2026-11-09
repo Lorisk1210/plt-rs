@@ -332,8 +332,10 @@ class Patch(Artist):
         ----------
         aa : bool or None
         """
-        self._set_native(antialiased=None if aa is None else bool(aa))
-        # matplotlib keeps the object given (``1``, ``'False'``).
+        # matplotlib keeps the object given (``1``, ``'False'``), or
+        # :rc:`patch.antialiased`'s value for None.
+        aa = _rcParams()['patch.antialiased'] if aa is None else aa
+        self._set_native(antialiased=bool(aa))
         _values.remember(self, "antialiased", aa)
 
     def get_edgecolor(self):
@@ -380,6 +382,11 @@ class Patch(Artist):
     #: (matplotlib's constructor defaults: a `.table.Cell`'s).
     _default_colors = {}
 
+    #: The rcParams matplotlib's patch takes its colours from when none
+    #: is given, by property (instances standing for the background of a
+    #: figure or an Axes have their own).
+    _rc_colors = {"facecolor": "patch.facecolor", "edgecolor": "patch.edgecolor"}
+
     def _take_cycle_color(self, name):
         """Keep the colour *name* pltrs (Rust) took from the property cycle
         as the cycle holds it, as the plotting methods handing a patch the
@@ -391,17 +398,20 @@ class Patch(Artist):
     def _rgba_as_given(self, name, alpha):
         """
         The colour *name* as matplotlib keeps it, ``to_rgba(color, alpha)``
-        of the colour given (:rc:`patch.facecolor` for a face given as None;
-        the class' default for none), while pltrs (Rust) holds that colour;
-        else pltrs (Rust)'s.
+        of the colour given (the rcParam of `_rc_colors` for None, the
+        class' default for none, the rcParam for an edge then), while
+        pltrs (Rust) holds that colour; else pltrs (Rust)'s.
         """
         native = self._get(name)
         color = self.__dict__.get("_given_values", {}).get(name, _values.NONE_GIVEN)
-        if color is None and name == "facecolor":
-            color = _rcParams()["patch.facecolor"]
         if color is _values.NONE_GIVEN:
             color = self._default_colors.get(name, _values.NONE_GIVEN)
-        if color is None or color is _values.NONE_GIVEN:
+        if color is None or color is _values.NONE_GIVEN and name == "edgecolor":
+            # (matplotlib's plotting methods give the patches they make
+            # their faces, and leave their edges to `_set_edgecolor(None)`.)
+            key = self._rc_colors.get(name)
+            color = _values.NONE_GIVEN if key is None else _rcParams()[key]
+        if color is _values.NONE_GIVEN:
             return native
         try:
             rgba = mcolors.to_rgba(color, alpha)
@@ -415,7 +425,9 @@ class Patch(Artist):
         # typed as matplotlib keeps them (``to_rgba`` of the colour given).
         native = self._get("hatchcolor")
         given = self.__dict__.get("_given_values", {}).get("hatchcolor")
-        if given is not None and not cbook._str_equal(given, 'edge'):
+        if given is None:
+            given = _rcParams()["hatch.color"]
+        if not cbook._str_equal(given, 'edge'):
             typed = mcolors.to_rgba(given, self.get_alpha())
             if tuple(typed) == tuple(native):
                 return typed

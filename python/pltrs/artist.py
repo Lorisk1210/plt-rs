@@ -157,6 +157,14 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         # id (`._pickling`).
         return self.__dict__.copy()
 
+    def __setstate__(self, state):
+        # Its figure, read back first when the pickle reached it from this
+        # artist, may wait for the artist's state (`._pickling.when_built`).
+        waiting = self.__dict__.pop(_pickling.WAITING, ())
+        self.__dict__.update(state)
+        for callback in waiting:
+            callback()
+
     @property
     def figure(self):
         """The (Sub)Figure that the artist is on.  For more control, use the `get_figure` method."""
@@ -585,6 +593,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         See `.set_snap` for details.
         """
+        from . import rcParams
+        if not rcParams['path.snap']:
+            return False
         return _values.given_flag(self, "snap", _artist.get_snap(self._native))
 
     def set_snap(self, snap):

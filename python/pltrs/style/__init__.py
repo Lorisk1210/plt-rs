@@ -268,11 +268,6 @@ def reload_library():
 
 reload_library()
 
-# matplotlib's deprecated alias module, which its rcdefaults imports (making
-# it an attribute of this package) without the deprecation warning.
-with _api.suppress_matplotlib_deprecation_warning():
-    from . import core  # noqa: E402, F401
-
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.

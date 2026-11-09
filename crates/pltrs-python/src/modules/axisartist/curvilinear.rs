@@ -51,8 +51,9 @@ impl FromPy<'_> for PyAux {
 
 /// The range of curvilinear coordinates covering a box, as the Python
 /// grid finder's extreme finder finds it: called with the box's
-/// `(x0, y0, x1, y1)`, it returns those of the range.
-struct PyExtremeFinder(Callback);
+/// `(x0, y0, x1, y1)`, it returns those of the range. (Archived as the
+/// callable, see `archive`.)
+pub(crate) struct PyExtremeFinder(pub(crate) Callback);
 
 impl fmt::Debug for PyExtremeFinder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -71,8 +72,8 @@ impl ExtremeFinder for PyExtremeFinder {
 }
 
 /// The levels of one coordinate, as a Python grid locator gives them:
-/// `locator(v1, v2) -> (levels, n, factor)`.
-struct PyGridLocator(Callback);
+/// `locator(v1, v2) -> (levels, n, factor)`. (Archived as the callable.)
+pub(crate) struct PyGridLocator(pub(crate) Callback);
 
 impl fmt::Debug for PyGridLocator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -91,8 +92,9 @@ impl GridLocator for PyGridLocator {
 }
 
 /// The labels of one coordinate, as the Python grid finder formats them:
-/// `formatter(direction, factor, values) -> labels`.
-struct PyGridFormatter(Callback);
+/// `formatter(direction, factor, values) -> labels`. (Archived as the
+/// callable.)
+pub(crate) struct PyGridFormatter(pub(crate) Callback);
 
 impl fmt::Debug for PyGridFormatter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

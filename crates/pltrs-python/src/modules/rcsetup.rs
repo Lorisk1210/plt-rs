@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use pltrs::colors::Color;
 use pltrs::rc::{
     ColorOrAuto, ColorOrEdge, ColorOrInherit, LabelColor, RcError, RcFile, RcParams, RcWarningKind,
+    parse_rc_text,
 };
 
 use crate::binding::prelude::*;
@@ -110,7 +111,8 @@ impl IntoPy for RcValue {
 
 /// A Python value spelled as rc-file text: strings as they are, `True`,
 /// `False` and `None`, numbers as Python prints them (numpy's as the
-/// Python numbers they hold), sequences joined by commas, anything else (a
+/// Python numbers they hold), sequences joined by commas (a sequence inside
+/// one in parentheses, as a dash pattern's `(0, (3, 1))`), anything else (a
 /// `Cycler`) as its `repr`.
 #[derive(Clone, Debug, PartialEq)]
 struct RcText(String);
@@ -121,6 +123,29 @@ impl FromPy<'_> for RcText {
     }
 }
 
+/// Whether `object` is spelled as a sequence of its items.
+fn list_like(object: &Bound<'_>) -> bool {
+    ["list", "tuple", "ndarray"].contains(&object.type_name().as_str())
+}
+
+/// The rc-file texts of the items of the sequence `object`, those that are
+/// sequences themselves as Python's tuples.
+fn item_texts(object: &Bound<'_>) -> PyResult<Vec<String>> {
+    object
+        .try_iter()?
+        .map(|item| {
+            let item = item?;
+            if !list_like(&item) {
+                return rc_text(&item);
+            }
+            Ok(match item_texts(&item)?.as_slice() {
+                [single] => format!("({single},)"),
+                items => format!("({})", items.join(", ")),
+            })
+        })
+        .collect()
+}
+
 /// The rc-file text of `object` (see [`RcText`]).
 fn rc_text(object: &Bound<'_>) -> PyResult<String> {
     if object.is_none() {
@@ -129,13 +154,8 @@ fn rc_text(object: &Bound<'_>) -> PyResult<String> {
     if let Ok(text) = object.extract::<String>() {
         return Ok(text);
     }
-    let list_like = ["list", "tuple", "ndarray"].contains(&object.type_name().as_str());
-    if list_like {
-        let parts: Vec<String> = object
-            .try_iter()?
-            .map(|item| rc_text(&item?))
-            .collect::<PyResult<_>>()?;
-        return Ok(parts.join(", "));
+    if list_like(object) {
+        return Ok(item_texts(object)?.join(", "));
     }
     if object.getattr("dtype").is_ok()
         && let Ok(number) = object.call_method("item", &[])
@@ -267,23 +287,27 @@ fn use_styles(names: Vec<String>) -> PyResult<()> {
     Ok(())
 }
 
-/// Pairs of strings: rc settings `(key, value)`, or reported lines
-/// `(kind, message)`.
+/// Pairs of strings: rc settings `(key, value)`.
 type Pairs = Vec<(String, String)>;
+
+/// A line of an rc file matplotlib reports: its kind (`"missing colon"`,
+/// `"duplicate key"`, `"unknown key"` or `"invalid value"`), number and
+/// text, and for an unknown key or an invalid value the key and the value
+/// it assigns.
+type Skipped = (String, usize, String, Option<String>, Option<String>);
 
 /// The assignments of the rc file at `path`, `(key, value)` in the order
 /// the keys first appear (each with its last valid value), and the lines
-/// matplotlib reports, `(kind, message)` with kind `"missing colon"`,
-/// `"duplicate key"`, `"unknown key"` or `"invalid value"` and
-/// matplotlib's message (`_rc_params_in_file`).
-fn read_file(path: PathBuf) -> PyResult<(Pairs, Pairs)> {
+/// matplotlib reports (see [`Skipped`]), in matplotlib's order, which
+/// `_rc_params_in_file` logs with matplotlib's messages.
+fn read_file(path: PathBuf) -> PyResult<(Pairs, Vec<Skipped>)> {
     let file = RcFile::read(path)?;
     let entries = file
         .entries
         .into_iter()
         .map(|entry| (entry.key, entry.value))
         .collect();
-    let warnings = file
+    let skipped = file
         .warnings
         .into_iter()
         .map(|warning| {
@@ -293,10 +317,20 @@ fn read_file(path: PathBuf) -> PyResult<(Pairs, Pairs)> {
                 RcWarningKind::UnknownKey(_) => "unknown key",
                 RcWarningKind::InvalidValue(_) => "invalid value",
             };
-            (kind.to_owned(), warning.to_string())
+            let assigned = match warning.kind {
+                RcWarningKind::UnknownKey(_) | RcWarningKind::InvalidValue(_) => {
+                    parse_rc_text(&warning.text)
+                        .ok()
+                        .and_then(|entries| entries.into_iter().next())
+                }
+                RcWarningKind::MissingColon | RcWarningKind::DuplicateKey => None,
+            };
+            let (key, value) =
+                assigned.map_or((None, None), |entry| (Some(entry.key), Some(entry.value)));
+            (kind.to_owned(), warning.line, warning.text, key, value)
         })
         .collect();
-    Ok((entries, warnings))
+    Ok((entries, skipped))
 }
 
 /// The style sheets bundled with pltrs (matplotlib's `stylelib`), each as
@@ -397,6 +431,9 @@ mod tests {
             assert_eq!(text("'serif'"), "serif");
             assert_eq!(text("[3.5, 42]"), "3.5, 42");
             assert_eq!(text("('a', 'b')"), "a, b");
+            // A dash pattern keeps its pattern apart from its offset.
+            assert_eq!(text("(0, (3, 1, 1, 1))"), "0, (3, 1, 1, 1)");
+            assert_eq!(text("[[1, 2], (3,), ()]"), "(1, 2), (3,), ()");
             // numpy's scalars as the Python numbers they hold.
             let scalar = "class Scalar:\n    dtype = 'float64'\n    def item(self):\n        \
                           return 8.0\n    def __repr__(self):\n        return 'np.float64(8.0)'\n";

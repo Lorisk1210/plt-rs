@@ -73,16 +73,13 @@ impl LimitCallbacks {
         !self.pending.is_empty()
     }
 
-    /// The oldest queued change, with the callbacks waiting for it.
-    fn next_change(&mut self) -> Option<(ArtistId, Vec<Callback>)> {
-        let (axes, name) = self.pending.pop_front()?;
-        let callbacks = self
-            .callbacks
+    /// The callbacks waiting for a change of axis `name` of `axes`.
+    fn callbacks_of(&self, axes: ArtistId, name: AxisName) -> Vec<Callback> {
+        self.callbacks
             .iter()
             .filter(|(_, owner, axis, _)| *owner == axes && *axis == name)
             .map(|(_, _, _, callback)| Rc::clone(callback))
-            .collect();
-        Some((axes, callbacks))
+            .collect()
     }
 }
 
@@ -92,32 +89,51 @@ impl LimitCallbacks {
 const MAX_CHANGES: usize = 1000;
 
 /// Runs the callbacks of the limit changes queued in `figure`, oldest
-/// first, up to [`MAX_CHANGES`] of them. A callback that is already
-/// running (a change it made itself, or one a callback it triggered made)
-/// is skipped, so callbacks that keep two axes in step end.
+/// first, up to [`MAX_CHANGES`] of them. The changes queued so far run as
+/// one batch, and a run started by a callback (it changed or read the
+/// limits) runs only the changes queued since: as matplotlib's callbacks
+/// run as each change is made, a callback of the x limits an autoscale
+/// changed finishes before the callbacks of the y limits it changed next,
+/// and the changes a callback makes run inside it. A callback that is
+/// already running (a change it made itself, or one a callback it
+/// triggered made) is skipped, so callbacks that keep two axes in step
+/// end.
 pub(crate) fn run_limit_callbacks(figure: &Rc<FigureCell>) {
-    for _ in 0..MAX_CHANGES {
-        let Some((axes, callbacks)) = figure.borrow_mut().limit_callbacks.next_change() else {
+    let mut ran = 0;
+    loop {
+        let batch = std::mem::take(&mut figure.borrow_mut().limit_callbacks.pending);
+        if batch.is_empty() {
             return;
-        };
-        let handle = Axes::from_raw(RawHandle::new(Rc::clone(figure), axes));
-        for callback in callbacks {
-            if let Ok(mut callback) = callback.try_borrow_mut() {
-                callback(&handle);
+        }
+        for (axes, name) in batch {
+            if ran == MAX_CHANGES {
+                report_endless_changes(figure, axes);
+                return;
+            }
+            ran += 1;
+            let callbacks = figure.borrow().limit_callbacks.callbacks_of(axes, name);
+            let handle = Axes::from_raw(RawHandle::new(Rc::clone(figure), axes));
+            for callback in callbacks {
+                if let Ok(mut callback) = callback.try_borrow_mut() {
+                    callback(&handle);
+                }
             }
         }
     }
+}
+
+/// Stops the limit changes of `figure` the callbacks keep making, the
+/// change of `axes` being the first left, and reports it at the next draw.
+fn report_endless_changes(figure: &Rc<FigureCell>, axes: ArtistId) {
     let mut state = figure.borrow_mut();
-    if let Some((axes, _)) = state.limit_callbacks.pending.pop_front() {
-        state.limit_callbacks.pending.clear();
-        state.pending_errors.push(DrawError::new(
-            axes,
-            format!(
-                "the limit callbacks kept changing the limits: stopped after \
-                 {MAX_CHANGES} changes"
-            ),
-        ));
-    }
+    state.limit_callbacks.pending.clear();
+    state.pending_errors.push(DrawError::new(
+        axes,
+        format!(
+            "the limit callbacks kept changing the limits: stopped after \
+             {MAX_CHANGES} changes"
+        ),
+    ));
 }
 
 impl Axes {
@@ -225,6 +241,24 @@ mod tests {
         assert_eq!(count.get(), 1);
         ax.ylim();
         assert_eq!(count.get(), 1, "nothing changed since");
+    }
+
+    #[test]
+    fn a_callback_reading_the_limits_ends_before_the_next_change_runs() {
+        // matplotlib 3.11 runs the x callback of an autoscale before it
+        // autoscales y, even when the x callback reads the limits.
+        let ax = Figure::new().subplot();
+        let order = Rc::new(RefCell::new(Vec::new()));
+        let seen = Rc::clone(&order);
+        ax.on_limits_changed(AxisName::X, move |ax| {
+            ax.xlim();
+            seen.borrow_mut().push("x");
+        });
+        let seen = Rc::clone(&order);
+        ax.on_limits_changed(AxisName::Y, move |_| seen.borrow_mut().push("y"));
+        ax.plot([0.0, 1.0], [0.0, 4.0]).expect("valid data");
+        ax.ylim();
+        assert_eq!(*order.borrow(), ["x", "y"]);
     }
 
     #[test]

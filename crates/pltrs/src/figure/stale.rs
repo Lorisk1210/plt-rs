@@ -17,6 +17,8 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
+
 use super::FigureState;
 use super::drawn_changes::{drawn_after_change, next_draw_tick};
 use crate::artist::{ArtistId, ArtistLookup};
@@ -34,6 +36,38 @@ pub(crate) struct FreshArtists {
 struct Draws {
     count: u64,
     last_tick: u64,
+}
+
+impl Archive for FreshArtists {
+    /// The fresh artists and how often each artist was drawn, as a pickle
+    /// keeps the `stale` flags of matplotlib's artists and what their draws
+    /// computed; the tick a draw ended at belongs to the process that drew,
+    /// and is not kept.
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        self.fresh.borrow().encode(encoder)?;
+        let counts: BTreeMap<ArtistId, u64> = (self.draws.borrow().iter())
+            .map(|(&id, draws)| (id, draws.count))
+            .collect();
+        counts.encode(encoder)
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        let fresh = BTreeSet::decode(decoder)?;
+        let counts = BTreeMap::<ArtistId, u64>::decode(decoder)?;
+        let draws = (counts.into_iter())
+            .map(|(id, count)| {
+                let draws = Draws {
+                    count,
+                    last_tick: 0,
+                };
+                (id, draws)
+            })
+            .collect();
+        Ok(Self {
+            fresh: RefCell::new(fresh),
+            draws: RefCell::new(draws),
+        })
+    }
 }
 
 impl FigureState {

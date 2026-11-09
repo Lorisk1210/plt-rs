@@ -97,6 +97,14 @@ def _filled(values):
 _QUIVERKEY_COORDINATES = dict.fromkeys(["data", "axes", "figure", "inches"])
 
 
+def _floats_or_none(*values):
+    """*values* as floats, or None when one is no number."""
+    try:
+        return tuple(map(float, values))
+    except (TypeError, ValueError):
+        return None
+
+
 def _rgba(color):
     """*color* as an RGBA tuple, or None."""
     return None if color is None else tuple(map(float, mcolors.to_rgba(color)))
@@ -188,7 +196,9 @@ class QuiverKey(martist.Artist):
             Any additional keyword arguments are used to override vector
             properties taken from *Q*.
         """
-        # matplotlib's constructor aligns the label by its position.
+        # matplotlib's constructor makes the key's arrow with its quiver's
+        # properties, then its label aligned by its position.
+        vector = mcollections.PolyCollection([], **{**Q.polykw, **kwargs})
         self.halign[labelpos]
         self.Q = Q
         self.X = X
@@ -211,10 +221,15 @@ class QuiverKey(martist.Artist):
         usable_coords = (isinstance(coordinates, str)
                          and coordinates in _QUIVERKEY_COORDINATES)
         usable_color = color is None or mcolors.is_color_like(color)
+        # Nor does it check the key's position and length: pltrs (Rust)
+        # holds placeholders for those that are no numbers.
+        position = _floats_or_none(X, Y)
+        length = U if isinstance(U, Real) else None
         # The Axes the quiver is on, or was made for before it is added.
         made_for = Q.axes or Q._made_for
         native = _plotting.quiverkey(
-            made_for._native, Q._native, (float(X), float(Y)), float(U), str(label),
+            made_for._native, Q._native, position or (0.0, 0.0),
+            1.0 if length is None else float(length), str(label),
             (float(angle), coordinates if usable_coords else "axes",
              _rgba(color) if usable_color else None,
              None if zorder is None else float(zorder)),
@@ -227,10 +242,18 @@ class QuiverKey(martist.Artist):
                            lambda coords: _api.getitem_checked(
                                _QUIVERKEY_COORDINATES, coordinates=coords),
                            measured=False)
+        if length is None:
+            # The length matplotlib's draw scales the arrow with first.
+            _unusable.keep(self, "U", U,
+                           lambda U: U * np.cos(np.radians([self.angle])),
+                           measured=False)
         if not usable_color:
             _unusable.keep(self, "color", color, mcolors.to_rgba_array,
                            measured=False)
-        self._vector = mcollections.PolyCollection([], **{**Q.polykw, **kwargs})
+        if position is None:
+            # The arrow's offset, then the label's position.
+            _unusable.keep(self, "position", (X, Y), self._place, measured=False)
+        self._vector = vector
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,
                                   made_for.figure)
@@ -285,6 +308,10 @@ class QuiverKey(martist.Artist):
         drawn (matplotlib's ``_set_transform``, which its draw runs)."""
         if self._figure is None or not _artist.draw_count(self._native):
             return super().get_transform()
+        return self._coordinates_transform()
+
+    def _coordinates_transform(self):
+        """The transform of the key's coordinates."""
         fig = self.Q.axes.get_figure(root=False)
         return _api.getitem_checked({
             "data": self.Q.axes.transData,
@@ -292,6 +319,17 @@ class QuiverKey(martist.Artist):
             "figure": fig.transFigure,
             "inches": fig.dpi_scale_trans,
         }, coordinates=self.coord)
+
+    def _place(self, position):
+        """Fail as matplotlib's draw fails with the key's *position*: as the
+        arrow's offset, then placing the label."""
+        np.asanyarray([position], float)
+        self._coordinates_transform().transform(position)
+
+    def _kept_order(self):
+        """The order in which matplotlib's draw computes with the values the
+        key keeps (see `._unusable.check`)."""
+        return ("coordinates", "U", "color", "position")
 
     @martist.allow_rasterization
     def draw(self, renderer):
@@ -1066,3 +1104,4 @@ class Barbs(mcollections.PolyCollection):
 import math  # noqa: E402, F401
 from . import text as mtext  # noqa: E402, F401
 from .patches import CirclePolygon  # noqa: E402, F401
+from numbers import Real  # noqa: E402

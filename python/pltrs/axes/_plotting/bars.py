@@ -108,6 +108,69 @@ def _dataset_styles(kwargs):
             [hatch] if isinstance(hatch, str) else [str(h) for h in hatch])
 
 
+def _check_bar_geometry(x, height, width, y, align, orientation):
+    """
+    Fail as matplotlib's ``bar`` fails with geometry that is no numbers:
+    aligning the bars, then making the first bar's rectangle, which adds
+    its extent to its corner.
+    """
+    x, height, width, y = np.broadcast_arrays(np.atleast_1d(x), height, width, y)
+    if not x.size or all(a.dtype.kind in "biuf" for a in (x, height, width, y)):
+        return
+    left, bottom = x, y
+    if align == 'center':
+        if orientation == 'vertical':
+            try:
+                left = x - width / 2
+            except TypeError as e:
+                raise TypeError(f'the dtypes of parameters x ({x.dtype}) '
+                                f'and width ({width.dtype}) '
+                                f'are incompatible') from e
+        else:  # horizontal
+            try:
+                bottom = y - height / 2
+            except TypeError as e:
+                raise TypeError(f'the dtypes of parameters y ({y.dtype}) '
+                                f'and height ({height.dtype}) '
+                                f'are incompatible') from e
+    _ = left[0] + width[0], bottom[0] + height[0]
+
+
+def _grouped_bar_checks(heights, positions, spacing, orientation, labels):
+    """
+    Fail as matplotlib's ``grouped_bar`` fails before it makes its bars:
+    datasets of different sizes, *positions* not equidistant, an unknown
+    *orientation*, spacings it cannot compute the bars' width and spacing
+    with, and *labels* not one per dataset (an assertion), in that order.
+    """
+    group_spacing, bar_spacing = spacing
+    num_datasets = len(heights)
+    num_groups = len(next(iter(heights)))  # inferred from first dataset
+    if not hasattr(heights, 'shape'):
+        for i, dataset in enumerate(heights):
+            if len(dataset) != num_groups:
+                raise ValueError(
+                    "'heights' contains datasets with different number of "
+                    f"elements. dataset 0 has {num_groups} elements but "
+                    f"dataset {i} has {len(dataset)} elements."
+                )
+    group_distance = 1
+    if positions is not None:
+        group_centers = np.asanyarray(positions)
+        if len(group_centers) > 1:
+            d = np.diff(group_centers)
+            if not np.allclose(d, d.mean()):
+                raise ValueError("'positions' must be equidistant")
+            group_distance = d[0]
+    _api.check_in_list(["vertical", "horizontal"], orientation=orientation)
+    bar_width = (group_distance /
+                 (num_datasets + (num_datasets - 1) * bar_spacing + group_spacing))
+    # The spacing between bars and the margins of the groups.
+    _ = bar_spacing * bar_width, 0.5 * group_spacing * bar_width
+    if labels is not None:
+        assert len(labels) == num_datasets
+
+
 class BarsMixin:
     """`bar`, `barh` and `broken_barh`."""
 
@@ -336,16 +399,18 @@ class BarsMixin:
         thickness, base = (width, y) if orientation == 'vertical' else (height, x)
         position = np.atleast_1d(cbook._unpack_to_numpy(position))
         try:
-            n = np.broadcast_shapes(position.shape, np.shape(value),
-                                    np.shape(thickness), np.shape(base),
+            # In matplotlib's order, whatever the orientation (`barh` is a
+            # `bar` with its left as *x* and its bottom as *y*).
+            n = np.broadcast_shapes(np.shape(np.atleast_1d(cbook._unpack_to_numpy(x))),
+                                    np.shape(height), np.shape(width), np.shape(y),
                                     np.shape(linewidth), np.shape(hatch))
         except ValueError as e:
-            names = (["'x'", "'height'", "'width'", "'y'"] if orientation == 'vertical'
-                     else ["'y'", "'width'", "'height'", "'x'"])
             message = str(e)
-            for i, name in enumerate(names + ["'linewidth'", "'hatch'"]):
+            for i, name in enumerate(["'x'", "'height'", "'width'", "'y'",
+                                      "'linewidth'", "'hatch'"]):
                 message = message.replace(f"arg {i}", name)
             raise ValueError(message) from e
+        _check_bar_geometry(x, height, width, y, align, orientation)
         n = int(np.prod(n)) if n else 1
 
         if not isinstance(label, str) and np.iterable(label):
@@ -888,10 +953,8 @@ or pandas.DataFrame
             heights = list(heights.values())
         elif hasattr(heights, 'shape'):  # numpy array
             heights = heights.T
-        _api.check_in_list(["vertical", "horizontal"], orientation=orientation)
-        if labels is not None:
-            # matplotlib asserts one label per dataset.
-            assert len(labels) == len(heights)
+        _grouped_bar_checks(heights, positions, (group_spacing, bar_spacing),
+                            orientation, labels)
         # Where the bars start, `bar`'s *bottom* (`barh`'s *left*), which
         # matplotlib's grouped_bar hands its bars.
         base = kwargs.pop("bottom" if orientation == "vertical" else "left", None)

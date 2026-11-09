@@ -11,7 +11,8 @@ import numpy as np
 from ... import _docstring
 from ... import _api, _live_transforms, _values, cbook, collections as mcoll, lines as mlines
 from ... import _python_drawing
-from ..._artist_kwargs import keep_program_picker
+from .. import _failed_calls
+from ..._artist_kwargs import check_known, keep_program_picker
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
@@ -545,6 +546,10 @@ class LinesMixin:
             raise ValueError("'transform' is not allowed as a keyword "
                              "argument; axhline generates its own transform.")
         yy, = self._process_unit_info([("y", y)], kwargs)
+        # matplotlib compares the position with the bounds (to autoscale),
+        # which is where positions that are no numbers fail.
+        ymin, ymax = self.get_ybound()
+        _ = (yy < ymin) or (yy > ymax)
         native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
                               made_line_kwargs(kwargs))
         line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
@@ -622,6 +627,10 @@ class LinesMixin:
             raise ValueError("'transform' is not allowed as a keyword "
                              "argument; axvline generates its own transform.")
         xx, = self._process_unit_info([("x", x)], kwargs)
+        # matplotlib compares the position with the bounds (to autoscale),
+        # which is where positions that are no numbers fail.
+        xmin, xmax = self.get_xbound()
+        _ = (xx < xmin) or (xx > xmax)
         native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
                               made_line_kwargs(kwargs))
         line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
@@ -681,8 +690,24 @@ class LinesMixin:
         if slope is not None and (self.get_xscale() != 'linear' or
                                   self.get_yscale() != 'linear'):
             raise TypeError("'slope' cannot be used with non-linear scales")
+        datalim = [xy1] if xy2 is None else [xy1, xy2]
+        if "transform" in kwargs:
+            # if a transform is passed (i.e. line points not in data space),
+            # data limits should not be adjusted.
+            datalim = []
+        # matplotlib's `AxLine` sets its properties, then checks its
+        # geometry.
+        check_known(mlines.AxLine, kwargs)
         if (xy2 is None) == (slope is None):
             raise TypeError("Exactly one of 'xy2' and 'slope' must be given")
+        if mlines._axline_geometry(xy1, xy2, slope) is None:
+            # matplotlib adds the line, then fails taking its points into
+            # the data limits; the line fails where its draws place it.
+            line = mlines.AxLine(xy1, xy2, slope, **kwargs)._add_to_axes(self, "line")
+            _failed_calls.keep_added(self)
+            self.update_datalim(datalim)
+            self._request_autoscale_view()
+            return line
         native = _plotting.axline(
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
@@ -735,11 +760,13 @@ class LinesMixin:
         """
         _check_no_units([xmin, xmax], ['xmin', 'xmax'])
         (ymin, ymax), = self._process_unit_info([("y", [ymin, ymax])], kwargs)
+        # matplotlib's rectangle is made with the extents of the span.
+        width, height = xmax - xmin, ymax - ymin
         native = _axes.axspan(self._native, "h", (ymin, ymax), (xmin, xmax))
         patch = wrap(self, native, Rectangle)
         # Made without a colour, its face is :rc:`patch.facecolor`.
         _values.remember(patch, "facecolor", None)
-        _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
+        _span_geometry(patch, xmin, ymin, width, height)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
         return patch
@@ -791,11 +818,13 @@ class LinesMixin:
         """
         _check_no_units([ymin, ymax], ['ymin', 'ymax'])
         (xmin, xmax), = self._process_unit_info([("x", [xmin, xmax])], kwargs)
+        # matplotlib's rectangle is made with the extents of the span.
+        width, height = xmax - xmin, ymax - ymin
         native = _axes.axspan(self._native, "v", (xmin, xmax), (ymin, ymax))
         patch = wrap(self, native, Rectangle)
         # Made without a colour, its face is :rc:`patch.facecolor`.
         _values.remember(patch, "facecolor", None)
-        _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
+        _span_geometry(patch, xmin, ymin, width, height)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
         return patch

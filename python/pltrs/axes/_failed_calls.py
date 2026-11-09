@@ -36,14 +36,16 @@ METHODS = (
 
 def leaves_nothing_on_failure(method):
     """*method*, a plotting method of `~.axes.Axes`, taking back what a
-    call that fails added to the Axes before it raises."""
+    call that fails added to the Axes before it raises (but what it kept,
+    see `keep_added`)."""
     @functools.wraps(method)
     def plotting(self, *args, **kwargs):
-        mark = _axes.call_mark(self._native)
-        containers = len(self.containers)
+        marks = self.__dict__.setdefault("_call_marks", [])
+        marks.append((_axes.call_mark(self._native), len(self.containers)))
         try:
             return method(self, *args, **kwargs)
         except Exception:
+            mark, containers = marks[-1]
             del self.containers[containers:]
             # An artist of several native parts (a contour set and its
             # bands) is taken back once.
@@ -53,7 +55,18 @@ def leaves_nothing_on_failure(method):
             for artist in added.values():
                 artist.remove()
             raise
+        finally:
+            marks.pop()
     return plotting
+
+
+def keep_added(axes):
+    """Have the plotting call running on *axes* keep what it added so far
+    should it fail later, as matplotlib's keeps the artists it added before
+    it failed (``axline`` failing on its points after adding its line)."""
+    marks = axes.__dict__.get("_call_marks")
+    if marks:
+        marks[-1] = (_axes.call_mark(axes._native), len(axes.containers))
 
 
 def guard(cls):

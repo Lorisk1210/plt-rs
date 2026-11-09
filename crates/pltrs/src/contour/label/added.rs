@@ -4,13 +4,14 @@
 
 use std::rc::Rc;
 
-use pltrs_core::Point;
+use pltrs_core::{Point, Rgba};
 
+use super::LabelRecord;
 use super::placer::{LabelSetup, Placer};
 use super::split::LabelSplitter;
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::contour::{ContourError, ContourSet};
-use crate::text::Text;
+use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
 
 impl ContourSet {
@@ -86,6 +87,42 @@ impl ContourSet {
             .ok_or_else(|| ContourError::UnknownLabelLevels(vec![value]))?;
         let at = self.to_display(point, transform)?;
         Ok(Placer::new(self, &setup)?.add(label, at, rotation))
+    }
+
+    /// Lists `text`, a text in this set's figure, among the set's labels as
+    /// a label of `level` at display `position`, as matplotlib's
+    /// `add_label` lists whatever text it makes there (its level and colour
+    /// any the program gave): the set keeps it with its other labels, pops
+    /// and removes it with them, and leaves its colour alone.
+    ///
+    /// # Errors
+    ///
+    /// When `text` is a text of another figure.
+    pub fn adopt_label(
+        &self,
+        text: &Text,
+        position: Point,
+        level: f64,
+    ) -> Result<(), ContourError> {
+        if !Rc::ptr_eq(text.raw().figure_state(), self.axes().raw().figure_state()) {
+            return Err(ContourError::ForeignLabel);
+        }
+        let (written, rotation, color) = text
+            .raw()
+            .with::<TextArtist, _>(|t| (t.text.clone(), t.rotation, t.color.clone()));
+        self.update(|state| {
+            state.labels.push(LabelRecord {
+                level,
+                text: written,
+                position,
+                rotation,
+                color: color.resolve().unwrap_or(Rgba::TRANSPARENT),
+                artist: text.id(),
+                index: None,
+                follows: false,
+            });
+        });
+        Ok(())
     }
 
     /// Places labels along every labelled line again, the way the last
@@ -239,6 +276,31 @@ mod tests {
                 index: 2,
                 levels: 2
             }
+        );
+    }
+
+    #[test]
+    fn adopted_texts_are_labels_of_any_level() {
+        let cs = bowl(&[0.5, 1.0]);
+        cs.clabel(ClabelOptions::default()).unwrap();
+        let count = cs.labels().len();
+        let text = cs.axes().text(0.1, 0.2, "kept");
+        text.set_rotation(30.0);
+        cs.adopt_label(&text, Point::new(3.0, 4.0), 0.25).unwrap();
+        let labels = cs.labels();
+        assert_eq!(labels.len(), count + 1);
+        let last = &labels[count];
+        assert_eq!(
+            (last.level, last.text.as_str(), last.position, last.rotation),
+            (0.25, "kept", Point::new(3.0, 4.0), 30.0)
+        );
+        assert_eq!(last.artist, text);
+        cs.pop_label(None).unwrap();
+        assert!(!text.raw().is_attached(), "popped with the set's labels");
+        let other = crate::figure::Figure::new().text(0.5, 0.5, "elsewhere");
+        assert_eq!(
+            cs.adopt_label(&other, Point::ORIGIN, 0.5).unwrap_err(),
+            ContourError::ForeignLabel
         );
     }
 

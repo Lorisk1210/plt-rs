@@ -77,14 +77,25 @@ impl CategoryFormatter {
         }
     }
 
-    fn label(&self, value: f64) -> String {
+    /// The name at the position nearest to `value`, or nothing.
+    ///
+    /// # Errors
+    ///
+    /// For a value that is not finite, which Python's `round` refuses
+    /// (matplotlib's `ValueError` and `OverflowError`).
+    fn label(&self, value: f64) -> Result<String, TickerError> {
+        if !value.is_finite() {
+            return Err(TickerError::NotAnInteger {
+                infinite: value.is_infinite(),
+            });
+        }
         // Python's round() ties to even.
         let nearest = value.round_ties_even();
-        if nearest >= 0.0 && nearest < self.names.len() as f64 {
+        Ok(if nearest >= 0.0 && nearest < self.names.len() as f64 {
             self.names[nearest as usize].clone()
         } else {
             String::new()
-        }
+        })
     }
 }
 
@@ -95,13 +106,16 @@ impl Formatter for CategoryFormatter {
         _: &TickContext<'_>,
     ) -> Result<FormattedTicks, TickerError> {
         Ok(FormattedTicks {
-            labels: locs.iter().map(|&value| self.label(value)).collect(),
+            labels: locs
+                .iter()
+                .map(|&value| self.label(value))
+                .collect::<Result<_, _>>()?,
             offset: String::new(),
         })
     }
 
     fn format_data(&self, value: f64, _: &TickContext<'_>) -> Result<String, TickerError> {
-        Ok(self.label(value))
+        self.label(value)
     }
 }
 
@@ -130,10 +144,18 @@ mod tests {
         let mut categories = Categories::default();
         categories.convert(&names(&["a", "b", "c"]));
         let formatter = CategoryFormatter::new(&categories);
-        assert_eq!(formatter.label(1.2), "b");
-        assert_eq!(formatter.label(0.5), "a");
-        assert_eq!(formatter.label(2.5), "c");
-        assert_eq!(formatter.label(-1.0), "");
-        assert_eq!(formatter.label(f64::NAN), "");
+        assert_eq!(formatter.label(1.2).unwrap(), "b");
+        assert_eq!(formatter.label(0.5).unwrap(), "a");
+        assert_eq!(formatter.label(2.5).unwrap(), "c");
+        assert_eq!(formatter.label(-1.0).unwrap(), "");
+        // Python's round refuses them.
+        assert_eq!(
+            formatter.label(f64::NAN).unwrap_err(),
+            TickerError::NotAnInteger { infinite: false }
+        );
+        assert_eq!(
+            formatter.label(f64::INFINITY).unwrap_err(),
+            TickerError::NotAnInteger { infinite: true }
+        );
     }
 }

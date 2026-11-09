@@ -161,6 +161,18 @@ def collection_kwargs(kwargs, cls=mcoll.Collection):
     return mcoll._native_kwargs(cbook.normalize_kwargs(kwargs, cls))
 
 
+def check_format(fmt):
+    """Fail as matplotlib's ``_process_plot_format`` fails for a format
+    that is no string: unless it is a colour, where it measures it."""
+    from ... import colors as mcolors
+    if isinstance(fmt, str):
+        return
+    try:
+        mcolors.to_rgba(fmt)
+    except ValueError:
+        _ = len(fmt)
+
+
 def record_container(axes, container, native):
     """Record *container*, made with the native container *native*, in
     ``axes.containers``."""

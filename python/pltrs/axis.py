@@ -233,6 +233,13 @@ def _interval_method(kind):
     return name
 
 
+def _category_names(x):
+    """Whether *x* holds category names only (strings or bytes), as
+    matplotlib's category converter takes them."""
+    return all(isinstance(value, (str, bytes))
+               for value in np.atleast_1d(np.array(x, dtype=object)).ravel())
+
+
 def _interval_ends(getter, vmin, vmax, ignore):
     """
     The ends ``(vmin, vmax, True)`` an interval setter hands pltrs (Rust):
@@ -375,6 +382,10 @@ class Axis(DrawnWith, Artist):
 
     OFFSETTEXTPAD = 3
     axis_name = None
+    #: Whether the axis is an axis of polar axes, which matplotlib names
+    #: ``'theta'`` and ``'radius'`` (pltrs names it by its place, ``'x'``
+    #: or ``'y'``).
+    _polar_axis = False
     #: Whether the axis is being ticked with the program's helpers (see
     #: `._tick_updates`).
     _ticking = False
@@ -1055,7 +1066,8 @@ class Axis(DrawnWith, Artist):
 
     def _tick_objects(self, minor, count):
         """The first *count* (at least one) ticks of a level, synced."""
-        if count > _MAX_TICK_OBJECTS:
+        # (Compared as matplotlib's ``len(ticks) < numticks`` compares it.)
+        if _MAX_TICK_OBJECTS < count:
             raise ValueError(f"{count} ticks are more than an axis can make "
                              f"(at most {_MAX_TICK_OBJECTS})")
         ticks = self._ticks[minor]
@@ -1142,6 +1154,13 @@ class Axis(DrawnWith, Artist):
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
         self.reset_ticks()
         self._given_scale = None
+        self._forget_units()
+        self.stale = True
+
+    def _forget_units(self):
+        """Forget the converter and units the program's Python side of the
+        axis holds, as the axis' clear does (pltrs (Rust) forgets its own
+        with the axis)."""
         self._given_converter = None
         self._native_converter = None
         self._converter_is_explicit = False
@@ -1149,7 +1168,6 @@ class Axis(DrawnWith, Artist):
         self._category_units = None
         self.__dict__.pop("_category_keys", None)
         self.__dict__.pop("_units_given", None)
-        self.stale = True
 
     def set_default_intervals(self):
         """
@@ -1787,7 +1805,9 @@ class Axis(DrawnWith, Artist):
         }
         if reverse:
             kwtrans = {}
-            is_x_axis = cls.axis_name == 'x'
+            # (matplotlib's polar axes have axis names of their own, which
+            # the keys of an x axis are not for.)
+            is_x_axis = cls.axis_name == 'x' and not cls._polar_axis
             y_axis_keys = ['left', 'right', 'labelleft', 'labelright']
             for oldkey, newkey in keymap.items():
                 if newkey in kw_:
@@ -2264,14 +2284,21 @@ class Axis(DrawnWith, Artist):
         switching = current is not None and current != converter
         if switching:
             _warn_if_incompatible(current, converter)
-        taken = take()
+        try:
+            if switching and self.units is not None:
+                # It fails on the axis' units before the units change.
+                _check_native_units(converter, self.units)
+            taken = take()
+        except Exception:
+            # matplotlib's axis takes the converter before it fails to take
+            # the units.
+            self._given_converter = converter
+            raise
         if self._given_converter is not None:
             # It replaces the converter set before (a category converter set
             # by a conversion that failed), as matplotlib's does.
             self._given_converter = converter
         self._native_converter = converter
-        if switching and self.units is not None:
-            _check_native_units(converter, self.units)
         return taken
 
     def _update_native_units(self, data):
@@ -2292,6 +2319,8 @@ class Axis(DrawnWith, Artist):
         converter gives for its units, when the converter is one of the
         program's (pltrs (Rust) gives dates and categories theirs, once
         their converter took the units)."""
+        if self.get_converter() is None:
+            return
         if _is_native_converter(self._given_converter):
             _check_native_units(self.get_converter(), self.units)
             return
@@ -2327,6 +2356,12 @@ class Axis(DrawnWith, Artist):
     def convert_units(self, x):
         if munits._is_natively_supported(x):
             return x
+        if self._converter_is_explicit and self._given_converter is None:
+            # Explicitly none: matplotlib's axis looks one up, which the
+            # explicit setting refuses (and with none found, it converts
+            # nothing).
+            self._set_converter(munits.registry.get_converter(x))
+            return x
         from . import category
         converter = self._given_converter
         kind = None if converter is not None else _axis.converter_kind(*self._args())
@@ -2349,9 +2384,10 @@ class Axis(DrawnWith, Artist):
             # The axis' date converter converts what it is given, as
             # matplotlib's does: text parses as dates, not category names.
             return self._converted(self.get_converter(), x)
-        if kind == "category" and isinstance(axis_values(x), tuple):
+        if kind == "category" and (isinstance(axis_values(x), tuple)
+                                   or not _category_names(x)):
             # Nor does the category converter take dates for another
-            # converter's: they are no category names.
+            # converter's, or anything else that is no category names.
             return self._converted(self.get_converter(), x)
         if _is_native_converter(converter):
             return convert_units(self.axes, self.axis_name, x)
@@ -2373,7 +2409,7 @@ class Axis(DrawnWith, Artist):
         -------
         `~matplotlib.units.ConversionInterface` or None
         """
-        if self._given_converter is not None:
+        if self._given_converter is not None or self._converter_is_explicit:
             return self._given_converter
         kind = _axis.converter_kind(*self._args())
         if kind is None:

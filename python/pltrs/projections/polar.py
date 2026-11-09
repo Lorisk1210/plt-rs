@@ -18,7 +18,7 @@ from .. import _api, _mirrors, _numpy_values, _tick_helpers, cbook, ticker as mt
 from .. import patches as mpatches, transforms as mtransforms
 from .._native import artist as _artist, axis as _axis, polar as _polar
 from ..axes import Axes
-from ..axis import XAxis, XTick, YAxis, YTick
+from ..axis import Axis, XAxis, XTick, YAxis, YTick
 from ..path import Path
 from ._polar_trees import PolarTrees, _ThetaShift, _is_full_circle_rad  # noqa: F401
 
@@ -305,7 +305,10 @@ class ThetaLocator(mticker.Locator):
 
     def _spec(self):
         """The native description of the locator (that of its base, in
-        degrees), None when the base computes in Python."""
+        degrees), None when the base computes in Python, or when the axis
+        it was given is no axis (on which matplotlib's fails)."""
+        if not isinstance(self.axis._axis, Axis):
+            return None
         base = _tick_helpers._spec_of(self.base)
         return None if base is None else {"kind": "theta", "base": base}
 
@@ -422,6 +425,7 @@ class ThetaAxis(XAxis):
     # pltrs (Rust) wraps its default locator and formatter for angles
     # (`ThetaLocator`, `ThetaFormatter`).
     __name__ = 'thetaaxis'
+    _polar_axis = True
     _tick_class = ThetaTick
 
     def _wrap_locator_formatter(self):
@@ -477,6 +481,7 @@ class RadialAxis(YAxis):
     for a radial axis.
     """
     __name__ = 'radialaxis'
+    _polar_axis = True
     _tick_class = RadialTick
 
     def set_major_locator(self, locator):

@@ -162,11 +162,13 @@ impl<'s> Placer<'s> {
                     .iter()
                     .map(|&p| self.to_display(p))
                     .collect();
-                if !place::print_label(&screen, label.width) {
+                let located = place::print_label(&screen, label.width)
+                    .then(|| place::locate_label(&screen, label.width, &self.positions))
+                    .flatten();
+                let Some((at, index)) = located else {
                     additions.push(subpath);
                     continue;
-                }
-                let (at, index) = place::locate_label(&screen, label.width, &self.positions);
+                };
                 let request = LabelCut {
                     path: &subpath,
                     index,
@@ -259,7 +261,7 @@ impl<'s> Placer<'s> {
                 rotation: pltrs_core::numeric::remainder(rotation, 360.0),
                 color: label.color,
                 artist: id,
-                index: label.index,
+                index: Some(label.index),
                 follows: label.follows,
             });
         });

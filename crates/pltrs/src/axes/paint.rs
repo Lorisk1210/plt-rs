@@ -13,7 +13,7 @@ use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, DrawContext};
 use crate::axes_grid1::{is_parasite, parasites_of};
 use crate::image::Compositor;
 use crate::legend::LegendArtist;
-use crate::patches::PatchPaint;
+use crate::patches::{PatchError, PatchPaint};
 use crate::patheffects::with_path_effects;
 use crate::ticker::AxisName;
 use crate::transforms::unit_to_bbox;
@@ -41,6 +41,16 @@ impl AxesState {
     /// item lies below it.
     pub(super) fn paint(&self, ctx: &mut DrawContext<'_>) {
         if ctx.layout().axes_extent(self.base().id()).is_none() {
+            return;
+        }
+        if self
+            .polar_view()
+            .is_some_and(|polar| !polar.has_finite_wedge())
+        {
+            // matplotlib's polar draw places its wedge first, an arc it
+            // cannot make of angles that are not finite.
+            let err = PatchError::ArcAngles;
+            ctx.report_kind(self.base().id(), err.draw_kind(), err);
             return;
         }
         ctx.renderer()

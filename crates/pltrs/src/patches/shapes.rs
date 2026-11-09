@@ -3,7 +3,8 @@
 
 use pltrs_core::{Affine2D, Bbox, Path, PathCode, Point};
 
-use super::PatchShape;
+use super::shape::{DisplayPath, ShapeFrame, outline_through};
+use super::{PatchError, PatchShape};
 
 /// Where a [`Rectangle`] rotates around.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -385,6 +386,24 @@ impl Wedge {
 }
 
 impl PatchShape for Wedge {
+    /// The outline through the patch and artist transforms, as by
+    /// default.
+    ///
+    /// # Errors
+    ///
+    /// For angles that are not finite, whose arc matplotlib cannot make
+    /// ([`PatchError::ArcAngles`]).
+    fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
+        if !(self.theta1.is_finite() && self.theta2.is_finite()) {
+            return Err(PatchError::ArcAngles);
+        }
+        Ok(outline_through(
+            self,
+            &frame.transform,
+            frame.interpolation_steps,
+        ))
+    }
+
     fn path(&self) -> Path {
         let full_turn = ((self.theta2 - self.theta1) - 360.0).abs() <= 1e-12;
         let (theta1, theta2, connector) = if full_turn {
@@ -633,6 +652,24 @@ mod tests {
         let ring_path = ring.path();
         let inner_start = ring_path.vertices()[ring_path.len() / 2];
         assert!((inner_start.length() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn wedges_of_angles_not_finite_are_not_drawn() {
+        let fig = crate::figure::Figure::new();
+        let ax = fig.subplot();
+        ax.add_patch(Wedge::new((0.5, 0.5), 0.2, 0.0, f64::NAN));
+        let Err(crate::figure::SaveError::Draw(errors)) = fig.to_png() else {
+            panic!("a wedge of a NaN angle fails the draw");
+        };
+        let first = &errors.0[0];
+        assert_eq!(
+            (first.kind, first.message.as_str()),
+            (
+                crate::artist::DrawErrorKind::InvalidValue,
+                "cannot convert float NaN to integer"
+            )
+        );
     }
 
     #[test]

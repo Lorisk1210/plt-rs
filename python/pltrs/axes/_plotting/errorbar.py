@@ -321,6 +321,11 @@ class ErrorbarMixin:
                 bounds[dep_axis] = _error_bounds(dep_axis, dep, err, convert, depconv)
         flags = [np.broadcast_to(lims, n).astype(bool).tolist()
                  for lims in (lolims, uplims, xlolims, xuplims)]
+        # matplotlib styles the caps by their size (compared with zero),
+        # then makes the bars in their line style.
+        _ = (mlines._rcParams()["errorbar.capsize"] if capsize is None else capsize) > 0
+        if elinestyle is not None:
+            mcoll._checked_linestyles(elinestyle)
         if elinestyle is not None and isinstance(elinestyle, tuple):
             offset, seq = elinestyle
             elinestyle = (offset, None if seq is None else tuple(seq))

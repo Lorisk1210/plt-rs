@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use crate::artist::DrawErrorKind;
 use crate::colors::ColorError;
 use crate::coords::CoordError;
 use crate::ticker::AxisName;
@@ -28,6 +29,21 @@ pub enum PatchError {
     /// Connection patches do not support offset, font-size, artist or
     /// blended coordinates.
     UnsupportedCoords,
+    /// An arc's angles are not finite: matplotlib's `Path.arc` counts its
+    /// segments with a NaN, which Python's `int` refuses.
+    ArcAngles,
+}
+
+impl PatchError {
+    /// The kind of draw error matplotlib's draw raises for it: Python's
+    /// `ValueError` for an arc of angles that are not finite, else none of
+    /// its own.
+    pub fn draw_kind(&self) -> DrawErrorKind {
+        match self {
+            Self::ArcAngles => DrawErrorKind::InvalidValue,
+            _ => DrawErrorKind::Other,
+        }
+    }
 }
 
 impl fmt::Display for PatchError {
@@ -49,6 +65,7 @@ impl fmt::Display for PatchError {
             Self::UnsupportedCoords => f.write_str(
                 "connection patches take data, polar, fraction, pixel or point coordinates",
             ),
+            Self::ArcAngles => f.write_str("cannot convert float NaN to integer"),
         }
     }
 }

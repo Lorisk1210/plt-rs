@@ -18,8 +18,8 @@ from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
-from . import _pie_reference
-from ._helpers import wrap, wrap_all
+from . import _boxplot_reference, _pie_reference
+from ._helpers import check_format, wrap, wrap_all
 
 
 def _rcParams():
@@ -400,10 +400,10 @@ class StatsMixin:
         """
         rc = _rcParams()
         whis = rc['boxplot.whiskers'] if whis is None else whis
-        if isinstance(whis, str):  # the rc text of a float or of percentiles
-            whis = ([float(v) for v in whis.split(',')] if ',' in whis
-                    else float(whis))
         bootstrap = rc['boxplot.bootstrap'] if bootstrap is None else bootstrap
+        if not _boxplot_reference.is_plain(x, whis, bootstrap):
+            _boxplot_reference.boxplot_stats(x, whis=whis, bootstrap=bootstrap,
+                                             labels=tick_labels, autorange=autorange)
         bxpstats = cbook.boxplot_stats(x, whis=whis, bootstrap=bootstrap,
                                        labels=tick_labels, autorange=autorange)
         notch = rc['boxplot.notch'] if notch is None else notch
@@ -429,6 +429,7 @@ class StatsMixin:
                 flierprops = dict(linestyle='none', marker='', color='none')
                 showfliers = False
             else:
+                check_format(sym)
                 _, marker, color = _plotting.format_parts(sym)
                 if marker is not None and marker != 'None':
                     flierprops['marker'] = marker

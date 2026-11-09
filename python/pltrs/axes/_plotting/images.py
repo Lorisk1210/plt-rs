@@ -292,6 +292,12 @@ class ImagesMixin:
             line = mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
         if hasattr(Z, 'toarray'):
             Z = Z.toarray()
+        # matplotlib masks the values above the precision first (failing on
+        # what is no number), then shows the mask as an image, which only
+        # takes one of two dimensions.
+        mask = np.abs(np.asarray(Z)) > precision
+        if image and mask.ndim != 2:
+            raise TypeError(f"Invalid shape {mask.shape} for image data")
         if aspect is not None and not cbook._str_equal(aspect, 'equal'):
             # As matplotlib's `set_aspect` takes it.
             aspect = _checked_aspect(aspect)

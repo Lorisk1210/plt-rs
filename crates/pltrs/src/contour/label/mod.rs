@@ -129,8 +129,9 @@ pub(crate) struct LabelRecord {
     pub(crate) rotation: f64,
     pub(crate) color: Rgba,
     pub(crate) artist: ArtistId,
-    /// Index of the labelled level.
-    pub(crate) index: usize,
+    /// Index of the labelled level; none for a text the program made a
+    /// label of (see [`ContourSet::adopt_label`]).
+    pub(crate) index: Option<usize>,
     /// Whether the label takes the colour of its level, and is recoloured
     /// with it (no explicit label colours).
     pub(crate) follows: bool,

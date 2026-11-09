@@ -11,6 +11,44 @@ from ..._preprocess import _preprocess_data
 from ._helpers import wrap
 
 
+def _plain(x, weights):
+    """Whether pltrs (Rust) takes *x* and *weights* as they are: values
+    (and weights, if any, as many) in a non-empty 1-D array of numbers,
+    without NaN."""
+    def numbers(values):
+        return (isinstance(values, np.ndarray) and values.ndim == 1
+                and values.dtype.kind in "biuf" and values.size > 0)
+    if not numbers(x) or np.isnan(x).any():
+        return False
+    return weights is None or (numbers(weights) and weights.shape == x.shape)
+
+
+def _check_cumulative(x, weights, compress):
+    """
+    Run matplotlib's arithmetic of ``ecdf`` before it plots (the sorted
+    values, their cumulative weights and the ends of the steps), failing
+    and warning as it does with values pltrs (Rust) does not take as they
+    are.
+    """
+    x = np.asarray(x)
+    if np.isnan(x).any():
+        raise ValueError("ecdf() does not support NaNs")
+    argsort = np.argsort(x)
+    x = x[argsort]
+    if weights is None:
+        # Ensure that we end at exactly 1, avoiding floating point errors.
+        cum_weights = (1 + np.arange(len(x))) / len(x)
+    else:
+        weights = np.take(weights, argsort)  # Reorder weights like we reordered x.
+        cum_weights = np.cumsum(weights / np.sum(weights))
+    if compress:
+        # Get indices of unique x values.
+        compress_idxs = [0, *(x[:-1] != x[1:]).nonzero()[0] + 1]
+        x = x[compress_idxs]
+        cum_weights = cum_weights[compress_idxs]
+    # The ends of the steps, which no values lack.
+    _ = x[0], x[-1]
+
 class EcdfMixin:
     """`ecdf`."""
 
@@ -82,9 +120,12 @@ class EcdfMixin:
             raise TypeError("Cannot pass 'drawstyle' or 'ds' to ecdf()")
         if np.ma.getmask(x).any():
             raise ValueError("ecdf() does not support masked entries")
+        if not _plain(x, weights):
+            _check_cumulative(x, weights, compress)
         native = _plotting.ecdf(
             self._native, np.asarray(x, dtype=float),
-            None if weights is None else np.asarray(weights, dtype=float),
+            # (matplotlib takes the weights from them flattened.)
+            None if weights is None else np.ravel(np.asarray(weights, dtype=float)),
             (bool(complementary), orientation == "horizontal", bool(compress)),
             mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D)))
         return wrap(self, native, mlines.Line2D)

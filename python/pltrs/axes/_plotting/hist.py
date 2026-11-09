@@ -55,6 +55,54 @@ def _narrow_edges(x, bins, bin_range, weights):
     return np.array(edges, float) if dtype.kind == "c" else edges
 
 
+#: The names of numpy's bin estimators (`numpy.histogram_bin_edges`).
+_ESTIMATORS = ('auto', 'fd', 'doane', 'rice', 'scott', 'sqrt', 'stone', 'sturges')
+
+
+def _plain_histogram(x, bins, bin_range, weights):
+    """Whether pltrs (Rust) bins the datasets *x* (with their *weights*)
+    as numpy would: numbers in all of them, a positive count of *bins*,
+    an estimator's name or edges, and a *bin_range* of two numbers."""
+    def numbers(values):
+        return np.asarray(values).dtype.kind in "iuf"
+    # (Complex values are binned as numpy bins them, see `_narrow_edges`.)
+    return (all(np.asarray(xi).dtype.kind in "iufc" for xi in x)
+            and all(wi is None or numbers(wi) for wi in weights)
+            and (bins is None
+                 or isinstance(bins, str) and bins in _ESTIMATORS
+                 or isinstance(bins, Integral) and bins > 0
+                 or np.ndim(bins) == 1 and numbers(bins))
+            and (bin_range is None
+                 or np.shape(bin_range) == (2,) and numbers(bin_range)))
+
+
+def _numpy_histograms(x, bins, bin_range, weights, density):
+    """
+    matplotlib's binning of the datasets *x*, for those pltrs (Rust) does
+    not bin as numpy would: ``np.histogram`` of each, with the bins of all
+    of them first when there are several, raising and warning as numpy
+    does.
+    """
+    if bin_range is None:
+        xmin, xmax = np.inf, -np.inf
+        for xi in x:
+            if len(xi):
+                xmin = min(xmin, np.nanmin(xi))
+                xmax = max(xmax, np.nanmax(xi))
+        if xmin <= xmax:  # Only happens if we have seen a finite value.
+            bin_range = (xmin, xmax)
+    hist_kwargs = {}
+    if any(len(xi) for xi in x) and len(x) > 1:
+        _w = None if weights[0] is None else np.concatenate(weights)
+        bins = np.histogram_bin_edges(np.concatenate(x), bins, bin_range, _w)
+    else:
+        hist_kwargs['range'] = bin_range
+    if density:
+        hist_kwargs['density'] = density
+    for xi, wi in zip(x, weights):
+        _, bins = np.histogram(xi, bins, weights=wi, **hist_kwargs)
+
+
 class HistMixin:
     """`hist`."""
 
@@ -306,6 +354,11 @@ such objects
         for xi, wi in zip(x, w):
             if wi is not None and len(wi) != len(xi):
                 raise ValueError('weights should have the same shape as x')
+        if not _plain_histogram(x, bins, bin_range, w):
+            _numpy_histograms(x, bins, bin_range, w, bool(density) and not stacked)
+        if histtype.startswith('bar') and rwidth is not None:
+            # matplotlib clips the relative width of the bars with numpy.
+            np.clip(rwidth, 0, 1)
         edges = _narrow_edges(x, bins, bin_range,
                               None if weights is None else w)
         if edges is not None:

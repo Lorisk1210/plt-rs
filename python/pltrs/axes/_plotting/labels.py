@@ -80,11 +80,15 @@ class LabelsMixin:
             raise TypeError("fmt must be a str or callable")
         bars = len(container.patches)
         if np.iterable(padding):
-            padding = [float(p) for p in np.asarray(padding)]
+            padding = np.asarray(padding)
             if len(padding) != bars:
                 raise ValueError(
                     f"padding must be of length {bars} when passed as a sequence")
+            padding = [float(p) for p in padding]
         else:
+            if bars:
+                # matplotlib offsets each label by its direction times it.
+                _ = 1 * padding
             padding = [float(padding)]
         labels = [] if labels is None else [str(label) for label in labels]
         annotations = []

@@ -729,11 +729,11 @@ class LimitsMixin:
         updatex, updatey : bool, default: True
             Whether to update the x/y limits.
         """
-        xys = np.asarray(xys, dtype=float)
+        xys = np.asarray(xys)
         if not np.any(np.isfinite(xys)):
             return
         _axes_base.update_datalim(
-            self._native, xys.reshape(-1, 2), bool(updatex), bool(updatey))
+            self._native, xys.astype(float).reshape(-1, 2), bool(updatex), bool(updatey))
 
     set_xinverted = _axis_method_wrapper("xaxis", "set_inverted")
     get_xinverted = _axis_method_wrapper("xaxis", "get_inverted")

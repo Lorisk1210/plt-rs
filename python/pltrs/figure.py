@@ -53,6 +53,9 @@ def _native_maker(projection_class):
     keywords of ``add_subplot``; else None, for pltrs (Rust)'s axes of the
     projection.
     """
+    if not callable(projection_class):
+        # matplotlib calls it to make the Axes (a program's *axes_class*).
+        raise TypeError(f"'{type(projection_class).__name__}' object is not callable")
     make = getattr(projection_class, "_make_native", None)
     if (make is None and projection_class.name == "rectilinear"
             and projection_class.__init__ is not Axes.__init__):

@@ -1081,8 +1081,11 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         if figure is not None and figure is not self:
             raise RuntimeError("Can not put single artist in more than one figure")
         if _foreign_children.held_in_axes(self, artist):
-            return _foreign_children.relist_in_figure(self, artist)
+            return _foreign_children.relist_in_figure(self, artist, clip)
         added = artist._add_to_figure(self, clip)
+        if not artist.is_transform_set():
+            # One only given the figure (`set_figure`) before.
+            artist.set_transform(self.transSubfigure)
         _artist_clipping.take_parent_defaults(artist, self, clip)
         return added
 

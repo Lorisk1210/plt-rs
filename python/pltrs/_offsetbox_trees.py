@@ -173,6 +173,15 @@ class TreeOwner:
         """The box whose tree this is."""
         return self
 
+    def _keep_drawn_state(self):
+        # docstring inherited: the boxes of the tree keep the offsets their
+        # parents gave them at the last draw, as matplotlib's keep them
+        # once their owner is removed or cleared.
+        super()._keep_drawn_state()
+        root = self._tree_root()
+        for box in root._boxes() if hasattr(root, "_boxes") else ():
+            box._laid_out_offset()
+
     def _comes_back(self, parent):
         """Whether the owner joins *parent*, an Axes or a (sub)figure, of
         the figure it was removed from with its tree: pltrs (Rust) kept

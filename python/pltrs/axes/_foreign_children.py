@@ -183,11 +183,14 @@ def held_in_axes(figure, artist):
             and _artist.axes(artist._native) is not None)
 
 
-def relist_in_figure(figure, artist):
+def relist_in_figure(figure, artist, clip):
     """Add *artist*, which an Axes of *figure* holds (`held_in_axes`), to
     *figure* as matplotlib's `.Figure.add_artist` adds it: listed among
-    its artists (and drawn there by a stand-in) once more; return it."""
+    its artists (and drawn there by a stand-in) once more, and with *clip*
+    clipped to the figure's patch unless it has a clip path; return it."""
     _list_drawn(figure, artist)
+    if clip and artist.get_clip_path() is None:
+        artist.set_clip_path(figure.patch)
     figure.stale = True
     return artist
 

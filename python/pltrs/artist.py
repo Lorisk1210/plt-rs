@@ -238,6 +238,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if self.__dict__.get("_axes_unset"):
             # Still drawn in its Axes, the artist was told it has none.
             return None
+        if self.__dict__.get("_axes_as_given"):
+            # Drawn in an Axes that never gave it to the artist (one inside
+            # an annotation box's tree).
+            return self.__dict__.get("_axes")
         axes = _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
         # An artist the program gave a figure and an Axes without adding
         # it (cartopy's gridliner labels) keeps the Axes it was given.

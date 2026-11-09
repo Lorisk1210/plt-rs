@@ -204,33 +204,55 @@ impl FromPy<'_> for LegendKwargs {
 /// see [`handles_labels`]), `("tuple", entries, ndivide, pad)` for
 /// several handles in one entry (matplotlib's tuple handles and
 /// `HandlerTuple`), or `("made", artists)` for the artists a handler of
-/// the program's made (see [`made`]).
-struct Entry(LegendHandle);
+/// the program's made (see [`made`]). An artist becomes a handle for the
+/// legend's parent ([`Entry::resolve`]).
+enum Entry {
+    /// A native legend handle.
+    Handle(LegendHandle),
+    /// An artist, of any figure or of none.
+    Artist(RawHandle),
+    /// Several entries in one.
+    Tuple(Vec<Entry>, HandlerTuple),
+}
 
 impl FromPy<'_> for Entry {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         if let Ok(handle) = object.extract::<LegendHandle>() {
-            return Ok(Self(handle));
+            return Ok(Self::Handle(handle));
         }
         if let Ok((kind, artists)) = object.extract::<(String, Vec<(RawHandle, String)>)>()
             && kind == "made"
         {
-            return made::made_handle(artists).map(Self);
+            return made::made_handle(artists).map(Self::Handle);
         }
         if let Ok((kind, entries, ndivide, pad)) =
             object.extract::<(String, Vec<Entry>, Option<usize>, Option<f64>)>()
             && kind == "tuple"
         {
-            let handles = entries.into_iter().map(|entry| entry.0);
-            return Ok(Self(LegendHandle::tuple(
-                handles,
-                HandlerTuple { ndivide, pad },
-            )));
+            return Ok(Self::Tuple(entries, HandlerTuple { ndivide, pad }));
         }
-        let artist: RawHandle = object.extract()?;
-        LegendHandle::of_artist(&artist).map(Self).ok_or_else(|| {
-            PyErr::value_error("pltrs: a legend cannot show this artist made outside any figure")
-        })
+        object.extract().map(Self::Artist)
+    }
+}
+
+impl Entry {
+    /// The handle of the entry in a legend of `parent`.
+    fn resolve(self, parent: &RawHandle) -> PyResult<LegendHandle> {
+        match self {
+            Self::Handle(handle) => Ok(handle),
+            Self::Artist(artist) => LegendHandle::of_artist_in(&artist, parent).ok_or_else(|| {
+                PyErr::value_error(
+                    "pltrs: a legend cannot show this artist made outside any figure",
+                )
+            }),
+            Self::Tuple(entries, layout) => {
+                let handles = entries
+                    .into_iter()
+                    .map(|entry| entry.resolve(parent))
+                    .collect::<PyResult<Vec<_>>>()?;
+                Ok(LegendHandle::tuple(handles, layout))
+            }
+        }
     }
 }
 
@@ -243,10 +265,11 @@ fn new(
     labels: Vec<String>,
     kwargs: LegendKwargs,
 ) -> PyResult<Legend> {
-    let options = kwargs
-        .0
-        .handles(entries.into_iter().map(|entry| entry.0))
-        .labels(labels);
+    let handles = entries
+        .into_iter()
+        .map(|entry| entry.resolve(&parent))
+        .collect::<PyResult<Vec<_>>>()?;
+    let options = kwargs.0.handles(handles).labels(labels);
     // A 3-D axes places its legend on its projection plane.
     let axes = Axes::from_raw_handle(&parent).or_else(|| {
         pltrs::mplot3d::Axes3D::from_raw_handle(&parent).map(|axes| axes.projection_plane())

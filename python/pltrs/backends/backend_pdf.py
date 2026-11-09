@@ -671,13 +671,18 @@ class PdfFile:
         self._check_resources()
         _backends.pdf_file_set_info(self._native,
                                     _native_info_of(self.infoDict))
-        _backends.pdf_file_finalize(self._native)
+        _backends.pdf_file_write_deferred(self._native)
+        self.writeXref()
+        self.writeTrailer()
 
     def _check_resources(self):
         """Fail as matplotlib's ``finalize`` fails writing the resources
         given (see `_pdf_kept`), in its order; fonts only once the program
         named some itself."""
         given = self._given
+        if self._dviFontInfo:
+            self.endStream()
+            self._check_dvi_fonts()
         if given.named_fonts:
             self.endStream()
             _pdf_kept.check_fonts(self._fontNames, self._tracks_font)
@@ -798,8 +803,27 @@ class PdfFile:
         return Name(pdfname)
 
     def writeFonts(self):
+        self._check_dvi_fonts()
         _pdf_kept.check_fonts(self._fontNames, self._tracks_font)
         _backends.pdf_file_write_fonts(self._native)
+
+    def _check_dvi_fonts(self):
+        """Fail as matplotlib's ``writeFonts`` fails embedding the TeX fonts
+        the program named (`dviFontName`), in their order: one without a
+        Type 1 file, or one no glyph was drawn in (its character tracker
+        holds no glyphs of the font)."""
+        if not self._dviFontInfo:
+            return
+        tex_font_map = dviread.PsfontsMap(dviread.find_tex_file('pdftex.map'))
+        for pdfname, dvifont in sorted(self._dviFontInfo.items()):
+            psfont = tex_font_map[dvifont.texname]
+            if psfont.filename is None:
+                raise ValueError(
+                    "No usable font file found for {} (TeX: {}); "
+                    "the font may lack a Type-1 version"
+                    .format(psfont.psname, dvifont.texname))
+            if not _backends.pdf_file_dvi_font_used(self._native, pdfname.name.decode("ascii")):
+                raise KeyError(FontPath(dvifont.fname, dvifont.face_index))
 
     def _tracks_font(self, path):
         """Whether glyphs of the font *path* (a `FontPath`) were drawn in
@@ -812,6 +836,8 @@ class PdfFile:
     def createType1Descriptor(self, t1font, fontfile=None):
         # Create and write the font descriptor and the font file
         # of a Type-1 font
+        first = _backends.pdf_file_object_count(self._native)
+        self._object_names.update({first: 'font descriptor', first + 1: 'font file'})
         return Reference(
             _backends.pdf_file_type1_descriptor(self._native, t1font._native))
 

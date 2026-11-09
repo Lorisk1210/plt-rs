@@ -66,6 +66,14 @@ class _AxisPart(_mirrors.Mirroring):
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 
+    def tight_box(self, artist, renderer=None):
+        # A label measures as matplotlib's `.Text.get_tightbbox`: as nothing
+        # while it is hidden or empty.
+        if not isinstance(artist, Line2D) and (
+                not artist.get_visible() or artist.get_text() == ""):
+            return Bbox.null()
+        return super().tight_box(artist, renderer)
+
     def contains(self, artist, mouseevent):
         # A label (the axis', its offset text, a tick's) holds the pointer
         # within the box it was drawn in, as matplotlib's `.Text.contains`

@@ -138,13 +138,14 @@ impl Axes {
     /// Adds a ready-made artist to the axes as matplotlib's `add_*` method
     /// `add_as` names does, and returns its handle in this figure: an
     /// artist made outside any figure ([`RawHandle::is_loose`]) moves in
-    /// under a new id, which the returned handle refers to, and takes the
-    /// axes' data coordinates (`ax.transData`) unless it was given a
-    /// transform, while an artist removed from this figure comes back
-    /// under its own id, keeping its coordinates, and an artist of this
-    /// axes is listed (and drawn) once more, as matplotlib's `add_*`
-    /// methods append it again. Without a clip path the
-    /// artist is clipped to the axes (but for images), it
+    /// under a new id, which the returned handle refers to, while an
+    /// artist removed from this figure (or only given it, with
+    /// [`Figure::take_artist`](crate::figure::Figure::take_artist)) comes
+    /// back under its own id, keeping its coordinates; either takes the
+    /// axes' data coordinates (`ax.transData`) unless it has a transform.
+    /// An artist of this axes is listed (and drawn) once more, as
+    /// matplotlib's `add_*` methods append it again. Without a clip path
+    /// the artist is clipped to the axes (but for images), it
     /// is drawn above the children of equal z-order, and lines, images and
     /// collections without a label are labelled `_child<n>`, `n` counting
     /// the children before them.
@@ -174,7 +175,6 @@ impl Axes {
         add_as: AddAs,
     ) -> Result<RawHandle, AttachError> {
         let figure = self.raw().figure_state();
-        let fresh = artist.is_loose();
         let artist = take_in(figure, artist)?;
         if self.has_child(&artist) {
             // matplotlib lists (and draws) an artist added again once more.
@@ -192,9 +192,7 @@ impl Axes {
         let counted = !matches!(add_as, AddAs::Artist | AddAs::Collection { autolim: false });
         let adopted = figure.borrow_mut().artist_mut(artist.id()).map(|adopted| {
             let base = adopted.base_mut();
-            if fresh {
-                base.transform.get_or_insert(data);
-            }
+            base.transform.get_or_insert(data);
             if base.clip_path.is_none() && add_as != AddAs::Image {
                 base.clip_box = Some(self.id());
             }

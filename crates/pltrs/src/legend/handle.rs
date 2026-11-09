@@ -350,6 +350,37 @@ impl LegendHandle {
         if !artist.is_loose() && artist.is_attached() && !drawn_by_legend(artist) {
             return Some(Self(Source::Artist(artist.id())));
         }
+        Self::proxy_of(artist)
+    }
+
+    /// [`of_artist`](Self::of_artist) for a legend of `parent` (an axes
+    /// or a figure): an artist of another figure is a proxy drawn as it
+    /// is now too, as matplotlib's legend copies the look of any artist it
+    /// is given.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::legend::{LegendHandle, LegendOptions};
+    /// use pltrs::prelude::*;
+    /// let (one, other) = (Figure::new().subplot(), Figure::new().subplot());
+    /// let line = one.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// let handle = LegendHandle::of_artist_in(line.raw(), other.raw()).expect("a proxy");
+    /// let legend = other.legend(LegendOptions::default().handles([handle]).labels(["one".to_owned()]))?;
+    /// assert_eq!(legend.labels(), ["one"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn of_artist_in(artist: &RawHandle, parent: &RawHandle) -> Option<Self> {
+        if Rc::ptr_eq(artist.figure_state(), parent.figure_state()) {
+            Self::of_artist(artist)
+        } else {
+            Self::proxy_of(artist)
+        }
+    }
+
+    /// The proxy showing `artist` as it is now (see
+    /// [`of_artist`](Self::of_artist)); `None` for an artist no legend can
+    /// show this way.
+    fn proxy_of(artist: &RawHandle) -> Option<Self> {
         let state = artist.figure_state().borrow();
         let loose = state.artist(artist.id())?;
         if let Some(line) = downcast_ref::<LineArtist>(loose) {

@@ -82,12 +82,15 @@ impl PdfWriter {
         }
     }
 
-    /// Writes an indirect object (`writeObject`).
+    /// Writes an indirect object (`writeObject`): into the open stream if
+    /// there is one, as matplotlib's `write` puts it there, its offset
+    /// recorded where the file ends.
     pub(super) fn write_object(&mut self, id: u32, contents: &Obj) -> Result<(), VectorError> {
+        let mut object = format!("{id} 0 obj\n").into_bytes();
+        object.extend(contents.repr()?);
+        object.extend_from_slice(b"\nendobj\n");
         self.record(id);
-        self.out.extend(format!("{id} 0 obj\n").into_bytes());
-        self.out.extend(contents.repr()?);
-        self.out.extend_from_slice(b"\nendobj\n");
+        self.write(&object);
         Ok(())
     }
 
@@ -165,12 +168,20 @@ impl PdfWriter {
     }
 
     /// Writes a whole stream with an inline length (`outputStream`).
+    ///
+    /// # Errors
+    ///
+    /// When a stream is open already (matplotlib's assertion in
+    /// `beginStream`), or `extra` holds a non-finite number.
     pub(super) fn output_stream(
         &mut self,
         id: u32,
         data: &[u8],
         extra: Vec<(String, Obj)>,
     ) -> Result<(), VectorError> {
+        if self.stream.is_some() {
+            return Err(VectorError::StreamOpen);
+        }
         self.begin_stream(id, None, extra, None);
         self.write(data);
         self.end_stream()
@@ -281,6 +292,25 @@ mod tests {
         assert!(file.contains("3 0 obj\n4\nendobj"));
         assert!(file.contains("xref\n0 5\n0000000000 65535 f \n"));
         assert!(file.ends_with("%%EOF\n"));
+    }
+
+    #[test]
+    fn objects_written_beside_an_open_stream_go_into_it() {
+        let mut w = PdfWriter::new(0);
+        let content = w.reserve();
+        let descriptor = w.reserve();
+        let program = w.reserve();
+        w.begin_stream(content, None, Vec::new(), None);
+        w.write_object(descriptor, &Obj::Int(7)).unwrap();
+        assert!(matches!(
+            w.output_stream(program, b"data", Vec::new()),
+            Err(VectorError::StreamOpen)
+        ));
+        assert_eq!(w.open_stream(), Some(content), "the open stream is kept");
+        w.end_stream().unwrap();
+        let file = String::from_utf8_lossy(w.bytes()).into_owned();
+        assert!(file.contains("stream\n2 0 obj\n7\nendobj\n\nendstream"));
+        assert_eq!(w.unwritten(), Some(program as usize));
     }
 
     #[test]

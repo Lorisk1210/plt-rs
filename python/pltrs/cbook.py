@@ -33,7 +33,7 @@ try:
 except ImportError:
     from numpy import VisibleDeprecationWarning
 
-from . import _api, _c_internal_utils, mlab
+from . import _api, _box_stats, _c_internal_utils, mlab
 from ._native import cbook as _cbook
 
 
@@ -486,7 +486,14 @@ def strip_math(s):
 
     Only handles fully math and fully non-math strings.
     """
-    return _cbook.strip_math(s)
+    if isinstance(s, str):
+        return _cbook.strip_math(s)
+    # What is no string goes through matplotlib's tests: returned as it is,
+    # unless it is a sequence enclosed in dollars, whose inside has no
+    # ``replace``.
+    if len(s) >= 2 and s[0] == s[-1] == "$":
+        s[1:-1].replace(r"\times", "x")
+    return s
 
 
 def _strip_comment(s):
@@ -1195,42 +1202,40 @@ def boxplot_stats(X, whis=1.5, bootstrap=None, labels=None, autorange=False):
     elif len(labels) != ncols:
         raise ValueError(f"The number of labels ({len(labels)}) must match the"
             f" number of columns ({ncols}).")
-    if np.iterable(whis) and not isinstance(whis, str):
-        whis = tuple(float(w) for w in whis)
-    elif np.isreal(whis):
-        whis = float(whis)
-    else:
-        raise ValueError('whis must be a float or list of percentiles')
-
     bxpstats = []
     for x, label in zip(X, labels):
         stats = {}
         if label is not None:
             stats['label'] = label
         bxpstats.append(stats)
+        if len(x) == 0:
+            stats['fliers'] = np.array([])
+            for key in ['mean', 'med', 'q1', 'q3', 'iqr', 'cilo', 'cihi',
+                        'whislo', 'whishi']:
+                stats[key] = np.nan
+            continue
         x = np.ma.asarray(x)
         data = np.asarray(x.data[~x.mask].ravel())
-        x = np.asarray(data, float)
+        if not _box_stats.plain(data, whis, bootstrap):
+            _box_stats.compute(stats, data, whis, bootstrap, autorange)
+            continue
         ((stats['mean'], stats['iqr'], stats['cilo'], stats['cihi']),
          (stats['whishi'], stats['whislo']), stats['fliers'],
          (stats['q1'], stats['med'], stats['q3'])) = _cbook.box_stats(
-             x, whis, autorange, bootstrap)
-        if len(x) == 0:
-            # matplotlib lists the statistics of empty data in this order.
-            for key in ['fliers', 'mean', 'med', 'q1', 'q3', 'iqr', 'cilo',
-                        'cihi', 'whislo', 'whishi']:
-                stats[key] = stats.pop(key)
-        else:
-            _type_box_stats(stats, data)
+             np.asarray(data, float),
+             tuple(map(float, whis)) if np.iterable(whis) else float(whis),
+             autorange, bootstrap)
+        _type_box_stats(stats, data)
     return bxpstats
 
 
 def _type_box_stats(stats, data):
     """Give the statistics *stats* of the non-empty *data* the numpy types
-    matplotlib computes them with: floats, the whisker ends that are data
-    points of the data's type."""
+    matplotlib computes them with: floats, the whisker ends and the fliers
+    that are data points of the data's type."""
     for key in ('mean', 'iqr', 'cilo', 'cihi', 'q1', 'med', 'q3'):
         stats[key] = np.float64(stats[key])
+    stats['fliers'] = stats['fliers'].astype(data.dtype)
     for key in ('whislo', 'whishi'):
         value = stats[key]
         integral = data.dtype.kind in 'iu' and np.any(data == value)

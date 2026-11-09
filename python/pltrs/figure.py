@@ -2001,7 +2001,9 @@ None}, default: None
             # which fails on what is no number; it keeps the resolution, its
             # transform cleared to the identity, one dot per inch.
             scale = np.eye(3)
-            scale[0, 0] *= dpi
+            for row in range(2):
+                for column in range(3):
+                    scale[row, column] *= dpi
             number = float(dpi)
         except (TypeError, ValueError):
             _figure.set_dpi(self._native, 1.0)

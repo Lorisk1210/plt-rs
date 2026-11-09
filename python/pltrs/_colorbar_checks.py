@@ -124,6 +124,27 @@ def check_colorbar(extend, ticks, locator, format, extendfrac, orientation,
         _api.check_isinstance(ticker.Formatter, formatter=format)
 
 
+def check_boundaries(boundaries, extend, norm):
+    """
+    Compute with the *boundaries* a `.Colorbar` is given without values as
+    matplotlib's ``_process_values`` and ``_proportional_y`` do (unless
+    *norm* sets its own), failing with numpy's errors for boundaries that
+    are no sequence, or none inside the extensions.
+    """
+    from .colors import BoundaryNorm, NoNorm
+    if isinstance(norm, (BoundaryNorm, NoNorm)):
+        return
+    extend = extend or 'neither'
+    b = boundaries
+    if extend in ('both', 'min'):
+        b = np.hstack((b[0] - 1, b))
+    if extend in ('both', 'max'):
+        b = np.hstack((b, b[-1] + 1))
+    b = np.asarray(b, dtype=float)
+    0.5 * (b[:-1] + b[1:])  # noqa: B018  (the values between them)
+    b[_INSIDE[extend]][0]  # noqa: B018  (the first inside, which the others start from)
+
+
 #: The colours inside the extensions of each kind of extension
 #: (matplotlib's ``Colorbar._inside``).
 _INSIDE = {'neither': slice(0, None), 'both': slice(1, -1),

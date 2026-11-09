@@ -404,6 +404,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             *alpha* must be within the 0-1 range, inclusive.
         """
         _check_alpha(alpha)
+        # matplotlib stores only an alpha unequal to the one it holds
+        # (``np.float32(0.5)`` after ``0.5`` keeps the float).
+        if not alpha != self._alpha:
+            return
         if self._kept_only:
             self._kept_alpha = alpha
             self.stale = True
@@ -412,10 +416,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             _values.remember(self, "alpha", alpha)
         self.pchanged()
 
-    #: Whether the alpha, transform and clip regions the artist is given
-    #: are only kept, matplotlib drawing nothing with them (a figure's: its
-    #: background has an alpha of its own), else pltrs (Rust) draws the
-    #: artist with them.
+    #: Whether the alpha, transform, clip regions and path effects the
+    #: artist is given are only kept, matplotlib drawing nothing with them
+    #: (a figure's: its background has an alpha of its own), else pltrs
+    #: (Rust) draws the artist with them.
     _kept_only = False
 
     @property

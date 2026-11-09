@@ -2864,7 +2864,40 @@ def _nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
     """
     if (not np.isfinite(vmin)) or (not np.isfinite(vmax)):
         return -expander, expander
+    if not (_plain_float(expander) and _plain_float(tiny) and tiny != 0):
+        return _nonsingular_as_matplotlib(vmin, vmax, expander, tiny, increasing)
     return _transforms.nonsingular(vmin, vmax, expander, tiny, increasing)
+
+
+def _plain_float(value):
+    """Whether *value* is a Python (or float64) number, which pltrs (Rust)
+    computes with as matplotlib's arithmetic does."""
+    return isinstance(value, (float, int)) and not isinstance(value, bool)
+
+
+def _nonsingular_as_matplotlib(vmin, vmax, expander, tiny, increasing):
+    """matplotlib's `nonsingular` of the finite *vmin* and *vmax*, for an
+    *expander* or *tiny* of other types (whose results keep their types)
+    or a *tiny* of zero: its own arithmetic, failing as it does."""
+    swapped = False
+    if vmax < vmin:
+        vmin, vmax = vmax, vmin
+        swapped = True
+    vmin, vmax = map(float, [vmin, vmax])
+    maxabsvalue = max(abs(vmin), abs(vmax))
+    if maxabsvalue < (1e6 / tiny) * np.finfo(float).tiny:
+        vmin = -expander
+        vmax = expander
+    elif vmax - vmin <= maxabsvalue * tiny:
+        if vmax == 0 and vmin == 0:
+            vmin = -expander
+            vmax = expander
+        else:
+            vmin -= expander*abs(vmin)
+            vmax += expander*abs(vmax)
+    if swapped and not increasing:
+        vmin, vmax = vmax, vmin
+    return vmin, vmax
 
 
 @_api.deprecated("3.11")

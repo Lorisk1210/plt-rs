@@ -357,8 +357,12 @@ class Text(Artist):
             if value is None and name in _INIT_DEFAULTS:
                 kind, default = _INIT_DEFAULTS[name]
                 value = _rc(default) if kind == "rc" else default
-            if name == "multialignment" and value is None:
-                _text.set_multialignment(self._native, None)
+            if name == "multialignment":
+                # matplotlib's constructor keeps any alignment, laying the
+                # lines out to the right for one neither 'left' nor
+                # 'center' (``_get_layout``).
+                _text.set_multialignment(self._native, value if value is None or (
+                    isinstance(value, str) and value in ('left', 'center')) else 'right')
             else:
                 getattr(self, f"set_{name}")(value)
         self.update(kwargs)
@@ -790,38 +794,47 @@ class Text(Artist):
         if figure is None and dpi is None and not self.__dict__.get("_stand_in"):
             # matplotlib reads the resolution of the text's figure first.
             raise AttributeError("'NoneType' object has no attribute 'dpi'")
+        # matplotlib measures with its figure's resolution set to *dpi*,
+        # which refuses what is no number and resizes the figure's window.
+        # (A text outside any figure, such as the stand-in a replaced
+        # `Text.draw` draws, is measured at its own place.)
+        at_dpi = (contextlib.nullcontext() if dpi is None or figure is None
+                  else cbook._setattr_cm(figure, dpi=dpi))
         if self.get_text() == '':
-            # (A text outside any figure, such as the stand-in a replaced
-            # `Text.draw` draws, is measured at its own place.)
-            with (contextlib.nullcontext() if dpi is None or figure is None
-                  else cbook._setattr_cm(figure, dpi=dpi)):
+            with at_dpi:
                 tx, ty = self.get_transform().transform(self.get_unitless_position())
                 return Bbox.from_bounds(tx, ty, 0, 0)
-        renderer = self._measuring_renderer(renderer, figure)
+        renderer = self._measuring_renderer(renderer, figure, weakly=False)
         if renderer is None:
             return self._native_extent(self._text_extent, dpi)
-        laid_out_at = dpi if dpi is not None or figure is None else figure.dpi
-        with _measured_by(renderer, laid_out_at):
-            return self._native_extent(self._text_extent, dpi)
+        with at_dpi:
+            # The renderer's metrics are looked up in a weak cache.
+            weakref.ref(renderer)
+            laid_out_at = dpi if figure is None else figure.dpi
+            with _measured_by(renderer, laid_out_at):
+                return self._native_extent(self._text_extent)
 
-    def _measuring_renderer(self, renderer, figure):
+    def _measuring_renderer(self, renderer, figure, weakly=True):
         """The renderer the text is measured with: *renderer* when given,
         else the one it was last measured with unless it was drawn since,
         else its figure's, which it keeps (matplotlib's ``Text._renderer``,
-        which ``draw`` sets too)."""
+        which ``draw`` sets too); checked to be weakly referable unless not
+        *weakly*."""
         draws = None if self._figure is None else _artist.draw_count(self._native)
         if renderer is None:
             kept = self.__dict__.get("_measured_with")
             if kept is not None and kept[1] == draws:
-                return kept[0]
-            if figure is None:
+                renderer = kept[0]
+            elif figure is None:
                 return None
-            renderer = _layout_renderer(figure)
+            else:
+                renderer = _layout_renderer(figure)
         self._measured_with = (renderer, draws)
-        # matplotlib looks the renderer's metrics up in a weak cache
-        # (``_get_text_metrics_function``), which refuses what cannot be
-        # referred to weakly.
-        weakref.ref(renderer)
+        if weakly:
+            # matplotlib looks the renderer's metrics up in a weak cache
+            # (``_get_text_metrics_function``), which refuses what cannot be
+            # referred to weakly.
+            weakref.ref(renderer)
         return renderer
 
     def _text_extent(self):
@@ -1596,6 +1609,14 @@ def _native_arrowprops(arrowprops):
     styles as their descriptions and artists as their native objects."""
     from .patches import ArrowStyle, ConnectionStyle, FancyArrowPatch
     from ._patch_styles import _native_spec
+    # matplotlib copies them and takes out what its arrow does not take
+    # (the arrow's anchor, or the keywords of the old arrow API).
+    given = arrowprops.copy()
+    if "arrowstyle" in given:
+        given.pop("relpos", (0.5, 0.5))
+    else:
+        for key in ['width', 'headwidth', 'headlength', 'shrink']:
+            given.pop(key, None)
     props = cbook.normalize_kwargs(arrowprops, FancyArrowPatch)
     props.pop("frac", None)
     if "arrowstyle" in props:
@@ -1635,6 +1656,8 @@ class _AnnotationBase(CoordsMixin):
               outside the Axes and ``self.xycoords == "data"``.
         """
         self._set_native_annotation_clip(b)
+        # matplotlib keeps the object given (``1``, ``'False'``).
+        _values.remember(self, "annotation_clip", b)
 
     def get_annotation_clip(self):
         """
@@ -1642,7 +1665,8 @@ class _AnnotationBase(CoordsMixin):
 
         See `set_annotation_clip` for the meaning of return values.
         """
-        return self._native_annotation_clip()
+        return _values.given_flag(self, "annotation_clip",
+                                  self._native_annotation_clip())
 
     def draggable(self, state=None, use_blit=False):
         """

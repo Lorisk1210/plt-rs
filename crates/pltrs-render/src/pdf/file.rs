@@ -172,6 +172,14 @@ impl PdfRenderer {
         self.resources.alpha_state(alphas)
     }
 
+    /// A new graphics state setting the alphas `alphas`, though another
+    /// may set the same: `alphaState` for a value the program has not
+    /// given before (matplotlib keys its states by the program's values,
+    /// which may be of other types but of equal numbers).
+    pub fn new_alpha_state(&mut self, alphas: (f64, f64)) -> String {
+        self.resources.new_alpha_state(alphas)
+    }
+
     /// The name of the tiling pattern drawing `pattern` (matplotlib's
     /// hatch string) in `edge`, over `face`, with lines `linewidth` wide
     /// (`hatchPattern`), made on first use.
@@ -182,12 +190,22 @@ impl PdfRenderer {
         pattern: &str,
         linewidth: f64,
     ) -> String {
-        self.resources.hatch_pattern(HatchStyle {
-            edge,
-            face,
-            pattern: pattern.to_owned(),
-            linewidth,
-        })
+        self.resources
+            .hatch_pattern(hatch_style(edge, face, pattern, linewidth))
+    }
+
+    /// A new tiling pattern, though another may draw the same:
+    /// `hatchPattern` for a style the program has not given before (see
+    /// [`new_alpha_state`](Self::new_alpha_state)).
+    pub fn new_hatch_pattern(
+        &mut self,
+        edge: Option<Rgba>,
+        face: Option<Rgba>,
+        pattern: &str,
+        linewidth: f64,
+    ) -> String {
+        self.resources
+            .new_hatch_pattern(hatch_style(edge, face, pattern, linewidth))
     }
 
     /// The hatch patterns made so far with their names, in order.
@@ -335,13 +353,23 @@ impl PdfRenderer {
         Ok(self.font_names.core_name(font))
     }
 
+    /// A name for a font the program names that pltrs cannot embed (a
+    /// file it cannot read, a subset that is no count): matplotlib's
+    /// `fontName` names any file, failing only when it writes the fonts.
+    /// The name takes its place among the others and is written as no
+    /// font.
+    pub fn reserve_font_name(&mut self) -> String {
+        self.font_names.reserve()
+    }
+
     /// The fonts named so far with their names, in first-use order
-    /// (matplotlib's `fontNames`).
+    /// (matplotlib's `fontNames`), but those of
+    /// [`reserve_font_name`](Self::reserve_font_name).
     pub fn font_names(&self) -> Vec<(PdfFont, String)> {
         let db = TextEngine::global().database();
         self.font_names
             .entries()
-            .map(|(key, name)| {
+            .filter_map(|(key, name)| {
                 let font = match key {
                     FontKey::Embedded(id, subset) => PdfFont::TrueType {
                         file: match db.source(id) {
@@ -353,8 +381,9 @@ impl PdfRenderer {
                         subset,
                     },
                     FontKey::Core(font) => PdfFont::Core(font.file),
+                    FontKey::Reserved(_) => return None,
                 };
-                (font, name.to_owned())
+                Some((font, name.to_owned()))
             })
             .collect()
     }
@@ -542,6 +571,21 @@ fn face_of_file(path: &FsPath, index: u32) -> Result<FontId, VectorError> {
         ))
 }
 
+/// The style of a hatch pattern.
+fn hatch_style(
+    edge: Option<Rgba>,
+    face: Option<Rgba>,
+    pattern: &str,
+    linewidth: f64,
+) -> HatchStyle {
+    HatchStyle {
+        edge,
+        face,
+        pattern: pattern.to_owned(),
+        linewidth,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,6 +640,7 @@ mod tests {
         let mut pdf = document();
         assert_eq!(pdf.alpha_state((0.5, 0.5)), "A1");
         assert_eq!(pdf.alpha_state((0.5, 0.5)), "A1");
+        assert_eq!(pdf.new_alpha_state((0.5, 0.5)), "A2");
         assert_eq!(pdf.hatch_pattern(Some(Rgba::BLACK), None, "/", 1.0), "H1");
         assert_eq!(
             pdf.hatch_patterns(),
@@ -621,6 +666,12 @@ mod tests {
             "F2"
         );
         assert!(pdf.font_name(FsPath::new("DejaVuSans.ttf"), 3, 0).is_err());
+        assert_eq!(pdf.reserve_font_name(), "F3");
+        assert_eq!(
+            pdf.font_name(FsPath::new("DejaVuSans.ttf"), 0, 1).unwrap(),
+            "F4"
+        );
+        assert_eq!(pdf.font_names().len(), 3);
         pdf.new_page(1.0, 1.0, 72.0).unwrap();
         pdf.finalize().unwrap();
         let file = pdf.close().unwrap();

@@ -19,6 +19,8 @@ import importlib
 import inspect
 import itertools
 import logging
+import math
+from numbers import Real
 import os
 import pathlib
 import signal
@@ -1794,8 +1796,14 @@ class FigureCanvasBase:
         """
         if not self.figure.get_axes():
             return None
-        # matplotlib's patches read the point's coordinates first.
-        return self.figure._axes_at(xy[0], xy[1])
+        # matplotlib's patches read the point's coordinates first, and
+        # hit-test their paths with them (``point_in_path``, which refuses
+        # what are no numbers).
+        x, y = xy[0], xy[1]
+        if not all(isinstance(value, Real) for value in (x, y)):
+            for axes in self.figure.get_axes():
+                axes.patch.contains_point(xy)
+        return self.figure._axes_at(x, y)
 
     def grab_mouse(self, ax):
         """
@@ -1922,11 +1930,14 @@ class FigureCanvasBase:
         """
         # (The upper corner of the figure's box in pixels, ``figure.bbox.max``:
         # at the resolution its dpi transform scales by, the origin for a
-        # negative one.)
+        # negative one, no number for an infinite one, whose transform holds
+        # no number off its diagonal: 0 * inf.)
         dpi = self.figure._dots_per_inch()
+        corner = ((lambda size: math.nan) if math.isinf(dpi)
+                  else (lambda size: max(size * dpi, 0)))
         # The tolerance of 1e-8 covers a floating-point tick for even 100,000 pixels
         return tuple(
-            int(max(size * dpi, 0) / (1 if physical else self.device_pixel_ratio) + 1e-8)
+            int(corner(size) / (1 if physical else self.device_pixel_ratio) + 1e-8)
             for size in self.figure.get_size_inches())
 
     @classmethod

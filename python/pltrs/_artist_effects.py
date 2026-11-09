@@ -36,6 +36,8 @@ class EffectsMixin:
         path_effects : list of `.AbstractPathEffect`
         """
         self._path_effects = path_effects
+        if self._kept_only:
+            return
         # None draws as no effect, as an empty list does in matplotlib.
         _patheffects.set_path_effects(self._native, _effect_specs(path_effects))
 

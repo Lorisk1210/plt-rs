@@ -33,7 +33,7 @@ import re
 import subprocess
 import sys
 
-from . import _api, _mirrors, cbook, ft2font
+from . import _api, _mirrors, cbook, ft2font, get_cachedir
 from ._fontconfig_pattern import (
     parse_fontconfig_pattern, generate_fontconfig_pattern)
 from ._native import font_manager as _font_manager, ft2font as _native_ft2font
@@ -1552,6 +1552,10 @@ class FontManager:
                      if entry.fname == fpath), Path(fpath).stem)
 
 
+# matplotlib looks its font list up in the cache directory as the module
+# loads, where pltrs (Rust) keeps its catalogue of the fonts (read when first
+# used): the directory is known from here on (`get_cachedir`'s memo).
+get_cachedir()
 fontManager = FontManager()
 findfont = fontManager.findfont
 get_font_names = fontManager.get_font_names
@@ -1586,6 +1590,9 @@ def ttfFontProperty(font):
         The extracted font properties.
 
     """
+    # matplotlib reads the family name and the names table first.
+    font.family_name  # noqa: B018
+    font.get_sfnt()
     if not font.scalable:
         raise NotImplementedError("Non-scalable fonts are not supported")
     name, style, variant, (weight, stretch) = \

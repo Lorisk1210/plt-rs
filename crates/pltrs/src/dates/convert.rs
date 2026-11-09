@@ -175,14 +175,15 @@ fn rc_epoch(text: &str) -> Epoch {
     Epoch::parse(text).unwrap_or_default()
 }
 
-/// Sets the epoch (`dates.set_epoch`); fails once the epoch has been used.
+/// Sets the epoch (`dates.set_epoch`); fails once the epoch has been used
+/// (whatever `epoch` is: matplotlib checks that first), or when `epoch`
+/// does not parse.
 pub fn set_epoch(epoch: &str) -> Result<(), DateError> {
-    let parsed = Epoch::parse(epoch)?;
     let mut current = EPOCH.lock().unwrap_or_else(PoisonError::into_inner);
     if current.is_some() {
         return Err(DateError::EpochAlreadySet);
     }
-    *current = Some(parsed);
+    *current = Some(Epoch::parse(epoch)?);
     Ok(())
 }
 
@@ -480,6 +481,8 @@ mod tests {
     fn epoch_is_latched_once_read() {
         let _ = get_epoch();
         assert_eq!(set_epoch("2000-01-01"), Err(DateError::EpochAlreadySet));
+        // Latched before it is read: matplotlib refuses any epoch then.
+        assert_eq!(set_epoch("NaT"), Err(DateError::EpochAlreadySet));
         assert!(Epoch::parse("NaT").is_err());
     }
 

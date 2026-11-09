@@ -26,6 +26,15 @@ def check_finite(*values):
             raise ValueError("Can only output finite numbers in PDF")
 
 
+def _check_color(rgb):
+    """Refuse the colour *rgb* where it is not finite, as ``rgb_cmd`` and
+    ``fillcolor_cmd`` write it (one grey level, else three components)."""
+    if rgb[0] == rgb[1] == rgb[2]:
+        check_finite(rgb[0])
+    else:
+        check_finite(*rgb[:3])
+
+
 class PdfArgumentsMixin:
     """The arguments of `.RendererPdf`'s drawing methods, used as
     matplotlib's renderer uses them."""
@@ -52,12 +61,19 @@ class PdfArgumentsMixin:
         else:
             gc._effective_alphas = (gc._rgb[3], fillcolor[3])
 
-        if fillcolor is not None and not rcParams['pdf.inheritcolor']:
+        inherit = rcParams['pdf.inheritcolor']
+        if fillcolor is not None and not inherit:
             # The fill colour as ``fillcolor_cmd`` writes it.
-            if fillcolor[0] == fillcolor[1] == fillcolor[2]:
-                check_finite(fillcolor[0])
-            else:
-                check_finite(*fillcolor[:3])
+            _check_color(fillcolor)
+        # The line width, the dashes and the stroke colour as the changes
+        # of state after it write them (a number that is not finite always
+        # differs from the state's).
+        check_finite(gc._linewidth)
+        offset, dash = gc._dashes
+        if dash is not None:
+            check_finite(*dash, offset)
+        if not inherit:
+            _check_color(gc._rgb)
 
         # Restore gc to avoid unwanted side effects
         gc._fillcolor = orig_fill

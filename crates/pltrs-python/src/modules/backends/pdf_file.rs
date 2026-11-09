@@ -190,9 +190,10 @@ fn pdf_file_new_page(
     })
 }
 
-/// `alphaState((stroke, fill))`: the name of the graphics state.
+/// `alphaState((stroke, fill))` for a value not given before (which
+/// `PdfFile` keys its states by): the name of a new graphics state.
 fn pdf_file_alpha_state(document: Native<PdfDocument>, alphas: (f64, f64)) -> PyResult<String> {
-    with_file(&document, |file| Ok(file.alpha_state(alphas)))
+    with_file(&document, |file| Ok(file.new_alpha_state(alphas)))
 }
 
 /// A colour of three or four components.
@@ -211,14 +212,15 @@ fn components(color: Option<Rgba>) -> Option<Vec<f64>> {
     color.map(|color| vec![color.r, color.g, color.b, color.a])
 }
 
-/// `hatchPattern((edge, face, hatch, linewidth))`: the pattern's name.
+/// `hatchPattern((edge, face, hatch, linewidth))` for a style not given
+/// before (which `PdfFile` keys its patterns by): the new pattern's name.
 fn pdf_file_hatch_pattern(
     document: Native<PdfDocument>,
     (edge, face, hatch, linewidth): (Option<Vec<f64>>, Option<Vec<f64>>, String, f64),
 ) -> PyResult<String> {
     let (edge, face) = (color(edge)?, color(face)?);
     with_file(&document, |file| {
-        Ok(file.hatch_pattern(edge, face, &hatch, linewidth))
+        Ok(file.new_hatch_pattern(edge, face, &hatch, linewidth))
     })
 }
 
@@ -491,6 +493,11 @@ fn pdf_file_font_name(
     with_file(&document, |file| file.font_name(&path, index, subset))
 }
 
+/// `fontName` for a font pltrs cannot embed: a name held in its place.
+fn pdf_file_reserve_font_name(document: Native<PdfDocument>) -> PyResult<String> {
+    with_file(&document, |file| Ok(file.reserve_font_name()))
+}
+
 /// `fontName` for the PDF core font whose metrics file is named `file`.
 fn pdf_file_core_font_name(document: Native<PdfDocument>, name: String) -> PyResult<String> {
     with_file(&document, |file| file.core_font_name(&name))
@@ -601,6 +608,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_file_set_info", pdf_file_set_info)?;
     module.add("pdf_file_font_name", pdf_file_font_name)?;
     module.add("pdf_file_core_font_name", pdf_file_core_font_name)?;
+    module.add("pdf_file_reserve_font_name", pdf_file_reserve_font_name)?;
     module.add("pdf_file_font_names", pdf_file_font_names)?;
     module.add("pdf_file_dvi_font_name", pdf_file_dvi_font_name)?;
     module.add("pdf_file_embed_ttf", pdf_file_embed_ttf)?;

@@ -33,7 +33,7 @@ from .artist import Artist, allow_rasterization
 from .patches import Patch, Rectangle
 from .path import Path
 from .text import Text
-from .transforms import BboxBase, Bbox
+from .transforms import BboxBase, Bbox, IdentityTransform
 
 
 class _CellHolder:
@@ -276,9 +276,12 @@ substring of 'BRTL'
         the one its table gave it when it was put there, the fractions of
         the table's Axes unless the table was given another transform
         (`Table.set_transform` leaves its cells theirs)."""
-        given = self.__dict__.get("_cell_transform")
-        if given is not None:
-            return given
+        if "_cell_transform" in self.__dict__:
+            if self._cell_transform is None:
+                # matplotlib's artist reads a transform set to None as a
+                # new identity, which it keeps.
+                self._cell_transform = IdentityTransform()
+            return self._cell_transform
         if isinstance(self._table, _CellHolder):
             return super().get_data_transform()
         axes = self._table.axes

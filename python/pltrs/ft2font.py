@@ -11,6 +11,7 @@ values, as matplotlib's (which takes them from FreeType's headers).
 from enum import Enum, Flag
 import inspect
 import io
+import operator
 import os
 
 import numpy as np
@@ -163,13 +164,6 @@ def _flags_value(flags, name="flags"):
     raise TypeError(f"{name} must be LoadFlags or int")
 
 
-def _incompatible(function):
-    """pybind11's `TypeError` for arguments of the wrong types."""
-    return TypeError(
-        f"{function}(): incompatible constructor arguments. The following "
-        "argument types are supported")
-
-
 def _shaping(features, language):
     """The native form of `set_text`'s *features* and *language*."""
     if features is not None:
@@ -319,6 +313,11 @@ class _PositionedBitmap:
 class FT2Image:
     """An image buffer for drawing glyphs."""
 
+    @_pybind.binds(
+        '(self: {module}.FT2Image, '
+        'width: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex, '
+        'height: typing.SupportsInt | typing.SupportsIndex | typing.SupportsFloat | typing.SupportsIndex'
+        ') -> None')
     def __init__(self, width, height):
         """
         Parameters
@@ -382,6 +381,14 @@ class FT2Font:
     pixels.
     """
 
+    @_pybind.binds(
+        '(self: {module}.FT2Font, filename: object, '
+        'hinting_factor: typing.SupportsInt | typing.SupportsIndex | None = None, *, '
+        'face_index: typing.SupportsInt | typing.SupportsIndex = 0, '
+        '_fallback_list: collections.abc.Sequence[{module}.FT2Font] | None = None, '
+        '_kerning_factor: typing.SupportsInt | typing.SupportsIndex | None = None, '
+        '_warn_if_used: bool = False) -> None',
+        _fallback_list=lambda fonts: fonts is None or _pybind.instances(fonts, "FT2Font"))
     def __init__(self, filename, hinting_factor=None, *, face_index=0,
                  _fallback_list=None, _kerning_factor=None,
                  _warn_if_used=False):
@@ -407,21 +414,12 @@ class FT2Font:
                 This API is private: do not use it directly.
         """
         if hinting_factor is not None:
-            if not isinstance(hinting_factor, int):
-                raise _incompatible("__init__")
             _api.warn_deprecated("3.11", name="hinting_factor",
                                  obj_type="parameter")
         if _kerning_factor is not None:
-            if not isinstance(_kerning_factor, int):
-                raise _incompatible("__init__")
             _api.warn_deprecated("3.11", name="_kerning_factor",
                                  obj_type="parameter")
-        if _fallback_list is not None and (
-                not isinstance(_fallback_list, list)
-                or not all(isinstance(font, FT2Font) for font in _fallback_list)):
-            raise _incompatible("__init__")
-        if not isinstance(face_index, int):
-            raise _incompatible("__init__")
+        face_index = operator.index(face_index)
         source, self._fname = self._source(filename)
         self._fallbacks = list(_fallback_list or [])
         self._warn_if_used = _warn_if_used

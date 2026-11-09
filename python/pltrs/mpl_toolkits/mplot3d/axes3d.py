@@ -457,6 +457,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _mplot3d.clear(self._native)
         for axis in (self.xaxis, self.yaxis, self.zaxis):
             axis._given_scale = None
+            # matplotlib's clear clears each axis, which leaves it stale.
+            axis.stale = True
 
     get_zgridlines = _axis_method_wrapper("zaxis", "get_gridlines")
     get_zticklines = _axis_method_wrapper("zaxis", "get_ticklines")

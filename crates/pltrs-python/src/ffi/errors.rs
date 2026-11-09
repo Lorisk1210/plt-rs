@@ -41,6 +41,8 @@ unsafe extern "C" {
     pub(crate) static mut PyExc_SystemError: *mut PyObject;
     /// `PyExc_NotImplementedError`.
     pub(crate) static mut PyExc_NotImplementedError: *mut PyObject;
+    /// `PyExc_AssertionError`.
+    pub(crate) static mut PyExc_AssertionError: *mut PyObject;
     /// `PyExc_RuntimeWarning`.
     pub(crate) static mut PyExc_RuntimeWarning: *mut PyObject;
 

@@ -478,6 +478,11 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         ``_node``), the tree handed again first if it changed."""
         owner = self.__dict__.get("_tree_owner")
         if owner is not None:
+            if owner.__dict__.get("_decoupled"):
+                # Removed or cleared, its owner keeps the tree apart:
+                # measured with matplotlib's algorithms, at the offsets the
+                # last draw gave (`TreeOwner._keep_drawn_state`).
+                return None
             owner._sync_tree()
             if owner._tree_unusable():
                 # Measured with matplotlib's algorithms, as pltrs (Rust)
@@ -2047,6 +2052,17 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
     def _tree_root(self):
         # The annotation box owns the tree of its offset box.
         return self.offsetbox
+
+    def _adopt_root(self, natives, figure):
+        # docstring inherited: matplotlib's annotation box gives the boxes
+        # of its tree no Axes, so the artists inside them keep the one the
+        # program gave them (none), where pltrs (Rust) holds them in the
+        # annotation box's.
+        super()._adopt_root(natives, figure)
+        for box in self.offsetbox._boxes():
+            if box._leaf:
+                for artist in box.get_children():
+                    artist._axes_as_given = True
 
     #: The names under which the box keeps what pltrs (Rust) cannot take:
     #: its tree, the annotated point, the position of the box and their

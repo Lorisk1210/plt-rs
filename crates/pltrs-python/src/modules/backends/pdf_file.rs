@@ -74,6 +74,8 @@ fn entries(entries: Vec<(String, PyPdfObject)>) -> Vec<(String, PdfObject)> {
 fn pdf_error(err: VectorError) -> PyErr {
     match err {
         VectorError::NonFinite(_) => PyErr::value_error("Can only output finite numbers in PDF"),
+        // matplotlib's bare `assert self.currentstream is None`.
+        VectorError::StreamOpen => PyErr::new(ExceptionKind::AssertionError, ""),
         other => PyErr::runtime_error(other.to_string()),
     }
 }
@@ -430,9 +432,10 @@ fn pdf_file_write_trailer(document: Native<PdfDocument>) -> PyResult<()> {
     with_file(&document, PdfRenderer::write_trailer)
 }
 
-/// `finalize()`.
-fn pdf_file_finalize(document: Native<PdfDocument>) -> PyResult<()> {
-    with_file(&document, PdfRenderer::finalize)
+/// `finalize()` up to the cross-reference table: the page closed and the
+/// deferred objects written.
+fn pdf_file_write_deferred(document: Native<PdfDocument>) -> PyResult<()> {
+    with_file(&document, PdfRenderer::write_deferred)
 }
 
 /// `close()`: the file written, the document closed.
@@ -531,6 +534,12 @@ fn pdf_file_dvi_font_name(document: Native<PdfDocument>, font: Arc<DviFont>) -> 
     with_file(&document, |file| Ok(file.dvi_font_name(font, files)))
 }
 
+/// Whether glyphs of the TeX font registered as `name` (`dviFontName`)
+/// were drawn (what matplotlib's character tracker holds for its file).
+fn pdf_file_dvi_font_used(document: Native<PdfDocument>, name: String) -> PyResult<bool> {
+    with_file(&document, |file| Ok(file.dvi_font_used(&name)))
+}
+
 /// `embedTTF(filename, subset_index, charmap)` for face `index` of the
 /// file `path`, `charmap` as `(code, glyph index)` pairs: the font
 /// dictionary's object.
@@ -602,7 +611,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_file_unwritten", pdf_file_unwritten)?;
     module.add("pdf_file_write_xref", pdf_file_write_xref)?;
     module.add("pdf_file_write_trailer", pdf_file_write_trailer)?;
-    module.add("pdf_file_finalize", pdf_file_finalize)?;
+    module.add("pdf_file_write_deferred", pdf_file_write_deferred)?;
+    module.add("pdf_file_dvi_font_used", pdf_file_dvi_font_used)?;
     module.add("pdf_file_close", pdf_file_close)?;
     module.add("pdf_file_info", pdf_file_info)?;
     module.add("pdf_file_set_info", pdf_file_set_info)?;

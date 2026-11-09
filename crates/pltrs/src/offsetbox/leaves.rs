@@ -9,7 +9,7 @@ use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_text::HAlign;
 
 use super::{ArtistRef, OffsetBox, OffsetBoxError, Placement};
-use crate::artist::LayoutContext;
+use crate::artist::{ArtistLookup, LayoutContext};
 use crate::image::BboxImageArtist;
 use crate::text::TextArtist;
 use crate::transforms::Transform;
@@ -132,12 +132,14 @@ impl<A> TextArea<A> {
 impl<A: ArtistRef> TextArea<A> {
     /// matplotlib's `TextArea.get_bbox`: the text's extent, at least as tall
     /// as `"lp"` above the baseline, with multi-line text optionally moved
-    /// to centre it on the baseline.
+    /// to centre it on the baseline. The text may be removed from the
+    /// figure with the box holding it, which matplotlib measures all the
+    /// same.
     pub(super) fn extent(&self, ctx: LayoutContext<'_>) -> Result<TextExtent, OffsetBoxError> {
         let id = self.text.artist_id();
         let text = ctx
-            .store()
-            .get_as::<TextArtist>(id)
+            .figure_state()
+            .artist_as::<TextArtist>(id)
             .ok_or(OffsetBoxError::MissingText(id))?;
         let reference = text.lp_metrics(ctx.dpi())?;
         let (h_ref, d_ref) = (reference.height, reference.descent);

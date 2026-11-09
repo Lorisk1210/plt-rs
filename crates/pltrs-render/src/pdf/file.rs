@@ -135,9 +135,6 @@ impl PdfRenderer {
         data: &[u8],
         extra: Vec<(String, Obj)>,
     ) -> Result<(), VectorError> {
-        if self.writer.open_stream().is_some() {
-            return Err(VectorError::StreamOpen);
-        }
         self.writer.output_stream(id, data, extra)
     }
 
@@ -395,6 +392,13 @@ impl PdfRenderer {
         self.dvi_fonts.register(font, files)
     }
 
+    /// Whether glyphs of the TeX font registered under `name`
+    /// ([`dvi_font_name`](Self::dvi_font_name)) were drawn in the document,
+    /// which `writeFonts` needs to embed it.
+    pub fn dvi_font_used(&self, name: &str) -> bool {
+        self.dvi_fonts.is_used(name)
+    }
+
     /// Writes the font dictionaries of every font named and their
     /// resource dictionary (`writeFonts`).
     ///
@@ -522,15 +526,29 @@ impl PdfRenderer {
     }
 
     /// Closes the page and writes the deferred objects and the end of the
-    /// file (`finalize`): annotations, fonts, graphics states, hatches,
-    /// shadings, `XObject`s, the page tree, the document information, the
-    /// cross-reference table and the trailer.
+    /// file (`finalize`): what [`write_deferred`](Self::write_deferred)
+    /// writes, then the cross-reference table and the trailer.
+    ///
+    /// # Errors
+    ///
+    /// As [`write_deferred`](Self::write_deferred) and
+    /// [`write_xref`](Self::write_xref).
+    pub fn finalize(&mut self) -> Result<(), VectorError> {
+        self.write_deferred()?;
+        self.write_xref()?;
+        self.write_trailer()
+    }
+
+    /// Closes the page and writes the deferred objects, all `finalize`
+    /// writes before the cross-reference table: annotations, fonts,
+    /// graphics states, hatches, shadings, `XObject`s, the page tree and
+    /// the document information.
     ///
     /// # Errors
     ///
     /// When a font, image or number met while drawing could not be
     /// written.
-    pub fn finalize(&mut self) -> Result<(), VectorError> {
+    pub fn write_deferred(&mut self) -> Result<(), VectorError> {
         self.end_page()?;
         self.pages.write_annotations(&mut self.writer)?;
         self.write_fonts()?;
@@ -542,8 +560,7 @@ impl PdfRenderer {
         )?;
         self.pages.write_tree(&mut self.writer, self.ids.pages)?;
         self.write_info_dict()?;
-        self.write_xref()?;
-        self.write_trailer()
+        Ok(())
     }
 
     /// The file written so far, after closing the open stream (matplotlib's

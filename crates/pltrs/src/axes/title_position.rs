@@ -223,11 +223,15 @@ impl FigureState {
             .is_some_and(|title| !title.text.is_empty())
     }
 
+    /// The display box of `title` as matplotlib's `Text.get_window_extent`
+    /// gives it: the unit box for a hidden title, which the lift compares
+    /// with the decorations all the same (moving it far up).
     fn title_extent(&self, title: ArtistId) -> Option<Bbox> {
-        let layout = LayoutContext::new(self);
-        self.store
-            .get_as::<TextArtist>(title)?
-            .window_extent(&layout)
+        let text = self.store.get_as::<TextArtist>(title)?;
+        if !text.base().visible {
+            return Some(Bbox::from_extents(0.0, 0.0, 1.0, 1.0));
+        }
+        text.window_extent(&LayoutContext::new(self))
     }
 
     fn set_title_y(&mut self, title: ArtistId, y: f64) {
@@ -259,6 +263,23 @@ mod tests {
             ax.set_title("left");
             assert_eq!(ax.shown_title(), (TitleLocation::Left, "left".to_owned()));
         });
+    }
+
+    #[test]
+    fn a_hidden_title_is_lifted_as_the_unit_box() {
+        // matplotlib measures a hidden title as the unit box at the
+        // canvas' corner, below the top of the axes: it lifts it twice.
+        let fig = Figure::with_size(6.4, 4.8, 100.0);
+        let ax = fig.subplot();
+        let title = ax.set_title("title");
+        title.set_visible(false);
+        fig.layout();
+        let expected = (2.0 * 422.4 - 52.8) / 369.6;
+        assert!(
+            (title.position().y - expected).abs() < 1e-12,
+            "{}",
+            title.position().y
+        );
     }
 
     #[test]

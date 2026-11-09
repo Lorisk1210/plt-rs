@@ -153,11 +153,12 @@ impl AxisArtist {
     }
 
     /// The extent of what the axis artist draws (its line, ticks, tick
-    /// labels and label) in display pixels, in the figure's current layout
-    /// (matplotlib's `AxisArtist.get_tightbbox`); `None` when it draws
-    /// nothing or was removed.
+    /// labels and label) in display pixels, in the figure as it is
+    /// (matplotlib's `AxisArtist.get_tightbbox`, which neither applies the
+    /// aspect of the axes nor runs the layout engine before it measures);
+    /// `None` when it draws nothing or was removed.
     pub fn tight_bbox(&self) -> Option<Bbox> {
-        let state = self.raw.figure_state().prepared();
+        let state = self.raw.figure_state().as_is();
         let layout = LayoutContext::new(&state);
         state.store.get(self.raw.id())?.tight_extent(&layout)
     }

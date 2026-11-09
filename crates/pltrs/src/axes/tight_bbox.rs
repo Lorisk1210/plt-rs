@@ -460,10 +460,13 @@ pub(crate) fn clipped_extent(
         Some(ClipPathSpec::Path { path, transform }) => {
             Some(layout.resolve(transform)?.transform_path(path).extents())
         }
-        Some(ClipPathSpec::Artist(id)) => {
-            let outline = layout.store().get(*id)?.outline(&layout)?;
-            Some(outline.path.transformed(&outline.transform).extents())
-        }
+        // A patch clipping as a rectangle (an axes' background) has no
+        // outline: its box is the clip box.
+        Some(ClipPathSpec::Artist(id)) => layout
+            .store()
+            .get(*id)?
+            .outline(&layout)
+            .map(|outline| outline.path.transformed(&outline.transform).extents()),
         Some(ClipPathSpec::BoundingBox { .. }) | None => None,
     };
     match clip_path {

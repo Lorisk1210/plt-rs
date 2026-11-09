@@ -66,7 +66,6 @@ def check_entries(legend, handles, handler_map, ncols):
     scaled by the legend's ``markerscale``, the entries split into *ncols*
     columns, then the paddings and spacings between them.
     """
-    from .legend_handler import HandlerLine2D, HandlerLine2DCompound
     fontsize = legend._fontsize
     0.35 * fontsize * (legend.handleheight - 0.7)  # noqa: B018
     count = 0
@@ -76,14 +75,31 @@ def check_entries(legend, handles, handler_map, ncols):
             continue
         count += 1
         legend.handlelength * fontsize  # noqa: B018
-        if (isinstance(handler, (HandlerLine2D, HandlerLine2DCompound))
-                and legend.markerscale != 1):
-            float(handle.get_markersize()) * legend.markerscale
+        line = _scaled_marker_line(handler, handle)
+        if line is not None and legend.markerscale != 1:
+            float(line.get_markersize()) * legend.markerscale
     np.array_split(np.zeros((count, 2)), ncols)
     legend.handletextpad * fontsize  # noqa: B018
     legend.labelspacing * fontsize  # noqa: B018
     legend.columnspacing * fontsize  # noqa: B018
     legend.borderpad * fontsize  # noqa: B018
+
+
+def _scaled_marker_line(handler, handle):
+    """The line whose marker size the handle's legend line takes and
+    matplotlib's *handler* scales by the legend's ``markerscale``: the
+    handle of a line's handler, the data line of an errorbar's (None when
+    it draws no line); None for a handler scaling no markers (a line
+    collection's) or a handle that is no line."""
+    from .legend_handler import (
+        HandlerErrorbar, HandlerLine2D, HandlerLine2DCompound, HandlerLineCollection)
+    from .lines import Line2D
+    if (isinstance(handler, HandlerLineCollection)
+            or not isinstance(handler, (HandlerLine2D, HandlerLine2DCompound))):
+        return None
+    if isinstance(handler, HandlerErrorbar):
+        handle = handle[0]
+    return handle if isinstance(handle, Line2D) else None
 
 
 def check_title(title_fontsize, title_fontproperties):

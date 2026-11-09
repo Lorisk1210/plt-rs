@@ -156,13 +156,21 @@ impl<'a> LayoutContext<'a> {
     }
 
     /// The display rectangle an artist is clipped to (matplotlib's clip
-    /// box): the bounding box of a [`ClipPathSpec::BoundingBox`], else
-    /// the extent of the frame in `base.clip_box`. Clipping being on is
-    /// not checked.
+    /// box): the bounding box of a [`ClipPathSpec::BoundingBox`], the box
+    /// of an axes whose rectangular background is the clip path (which
+    /// matplotlib's `set_clip_path` makes the clip box, whatever the
+    /// artist's axes), else the extent of the frame in `base.clip_box`.
+    /// Clipping being on is not checked.
     pub fn clip_rect(&self, base: &ArtistBase) -> Option<Bbox> {
+        let own_box = || base.clip_box.and_then(|owner| self.clip_extent(owner));
         match &base.clip_path {
             Some(spec @ ClipPathSpec::BoundingBox { .. }) => self.bounding_rect(spec),
-            _ => base.clip_box.and_then(|owner| self.clip_extent(owner)),
+            Some(ClipPathSpec::Artist(id))
+                if self.store().get_as::<crate::axes::AxesState>(*id).is_some() =>
+            {
+                self.clip_extent(*id).or_else(own_box)
+            }
+            _ => own_box(),
         }
     }
 

@@ -54,6 +54,9 @@ pub(crate) enum ExceptionKind {
     NotImplementedError,
     /// `SystemError`: a broken promise of the C API.
     SystemError,
+    /// `AssertionError`: an assertion of matplotlib's code that failed (a
+    /// PDF stream begun beside an open one).
+    AssertionError,
 }
 
 impl ExceptionKind {
@@ -77,6 +80,7 @@ impl ExceptionKind {
                 Self::OverflowError => ffi::PyExc_OverflowError,
                 Self::NotImplementedError => ffi::PyExc_NotImplementedError,
                 Self::SystemError => ffi::PyExc_SystemError,
+                Self::AssertionError => ffi::PyExc_AssertionError,
             }
         }
     }

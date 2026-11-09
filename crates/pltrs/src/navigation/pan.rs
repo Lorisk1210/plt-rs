@@ -116,10 +116,12 @@ pub(super) enum PolarPan {
     Zoom,
 }
 
-/// The display box and data transforms of `ax`, brought up to date.
+/// The display box and data transforms of `ax` as they are, its view
+/// autoscaled (matplotlib's `start_pan` freezes `bbox` and `transData`
+/// without applying the aspect or running the layout engine).
 fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform, ResolvedTransform)> {
     let figure = ax.raw().figure_state();
-    let state = figure.prepared();
+    let state = figure.as_is();
     let state: &FigureState = &state;
     let bbox = state.axes_bbox(ax.id())?;
     let trans = state.data_transform(ax.id())?;

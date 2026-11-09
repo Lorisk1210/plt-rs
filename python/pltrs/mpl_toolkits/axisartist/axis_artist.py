@@ -1830,7 +1830,9 @@ class AxisArtist(martist.Artist):
         # matplotlib places the ticks with it first (``_update_ticks``).
         renderer.points_to_pixels(1.)
         _unusable.check(self, measuring=True)
-        with mtext._measured_by_given(renderer, self):
+        # The axis artist has no figure of its own; its parts measure with
+        # *renderer*, laid out at the resolution of their Axes' figure.
+        with mtext._measured_by_given(renderer, self.axes):
             extent = _axisartist.tight_bbox(self._native)
         return None if extent is None else Bbox.from_extents(*extent)
 

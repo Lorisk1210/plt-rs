@@ -293,6 +293,15 @@ impl DviFonts {
         name
     }
 
+    /// Whether glyphs of the font registered under `name` were drawn
+    /// (matplotlib's character tracker holds its file); false for a name
+    /// no font is registered under.
+    pub(super) fn is_used(&self, name: &str) -> bool {
+        self.fonts
+            .get(name)
+            .is_some_and(|used| !used.glyphs.is_empty())
+    }
+
     /// Embeds every TeX font the document uses, by name (`writeFonts`
     /// does them first, sorted); returns the font resource entries.
     pub(super) fn embed(&self, writer: &mut PdfWriter) -> Result<Vec<(String, Obj)>, VectorError> {
@@ -498,6 +507,11 @@ mod tests {
             shown: vec![Shown::Codes(vec![code])],
             end: x + width,
         }
+    }
+
+    #[test]
+    fn fonts_never_registered_are_not_used() {
+        assert!(!DviFonts::default().is_used("F-cmr10"));
     }
 
     #[test]

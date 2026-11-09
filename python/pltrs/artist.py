@@ -21,7 +21,7 @@ from numbers import Real
 import numpy as np
 
 from . import _api, _artist_effects, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
-from . import _live_transforms, _program_classes, _python_drawing, _unusable, _values
+from . import _live_transforms, _program_classes, _pybind, _python_drawing, _unusable, _values
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
@@ -608,8 +608,29 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             - *None*: (auto) If the path contains only rectilinear line
               segments, round to the nearest pixel center.
         """
-        _artist.set_snap(self._native, None if snap is None else bool(snap))
-        _values.remember(self, "snap", snap)
+        if _pybind.boolean(snap):
+            _artist.set_snap(self._native, None if snap is None else bool(snap))
+            _unusable.drop(self, "snap")
+            _values.remember(self, "snap", snap)
+        else:
+            # matplotlib keeps what no ``e_snap_mode`` casts from (text, a
+            # list), failing where its draw hands a renderer a graphics
+            # context snapping so (`_draws_snapped`).
+            _unusable.keep(self, "snap", snap, self._draw_snap, measured=False)
+            _values.keep(self, "snap", snap)
+
+    def _draw_snap(self, snap):
+        """Fail as matplotlib's renderer fails to cast the *snap* of the
+        graphics context the artist draws with, where its draw draws with
+        its own snapping."""
+        if self._draws_snapped():
+            raise _pybind.cast_error(snap)
+
+    def _draws_snapped(self):
+        """Whether matplotlib's draw of the artist hands a renderer a
+        graphics context with the artist's snapping (``gc.set_snap(
+        self.get_snap())``) as it is now: not a bare artist's."""
+        return False
 
     def get_label(self):
         """Return the label used for this artist in the legend."""

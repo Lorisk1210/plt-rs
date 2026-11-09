@@ -13,6 +13,7 @@ use super::camera::{Projection, norm_text_angle};
 use super::coords::Axis3;
 use super::geometry::{AxisPosition, BoxGeometry};
 use super::math::{Vec3, add, scaled};
+use super::projection_warnings;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::axes::axis_draw::grid_gc;
@@ -175,6 +176,11 @@ trait Sink {
     fn takes_labels(&self) -> bool {
         true
     }
+    /// Whether the parts go to a draw, which issues numpy's warnings
+    /// matplotlib's draw issues placing them; not by default.
+    fn warns(&self) -> bool {
+        false
+    }
     /// Opens the SVG group `name` with id `gid`; nothing by default.
     fn open_group(&mut self, _name: &str, _gid: Option<&str>) {}
     /// Closes the SVG group `name`; nothing by default.
@@ -184,6 +190,10 @@ trait Sink {
 impl Sink for DrawContext<'_> {
     fn dpi(&self) -> f64 {
         self.layout().dpi()
+    }
+
+    fn warns(&self) -> bool {
+        true
     }
 
     fn axis_line(&mut self, painter: &Painter<'_>, path: &Path, width: f64, color: &Color) {
@@ -355,6 +365,19 @@ impl<'a> Painter<'a> {
         Point::new(q[0], q[1])
     }
 
+    /// Issues numpy's warnings for matplotlib's move of `p` of the axis
+    /// `dir` from the centre by `deltas` and the projection of where it
+    /// goes (see [`projection_warnings::warn_moving`]).
+    fn warn_moving(&self, p: Vec3, deltas: Vec3, dir: Axis3) {
+        let i = dir.index();
+        projection_warnings::warn_moving(
+            &self.projection.matrix,
+            self.geometry.move_from_center(p, deltas, dir),
+            i,
+            deltas[i],
+        );
+    }
+
     /// Fills the far plane of `dir` with its pane colour (matplotlib's
     /// open `Polygon` pane, edged in the same colour).
     fn draw_pane(&self, ctx: &mut DrawContext<'_>, dir: Axis3) {
@@ -436,6 +459,9 @@ impl<'a> Painter<'a> {
             }
             self.draw_ticks(sink, axis, edge.points[0], deltas_per_point, position);
             self.draw_offset_text(sink, axis, &edge, label_deltas);
+            if sink.warns() {
+                self.warn_moving(ticks::offset_corner(&edge, dir), label_deltas, dir);
+            }
         }
         if axis.label.text.is_empty() || !sink.takes_labels() {
             return;
@@ -444,6 +470,9 @@ impl<'a> Painter<'a> {
             let edge = self.edge(dir, position);
             let middle = scaled(add(edge.points[0], edge.points[1]), 0.5);
             let at = self.geometry.move_from_center(middle, label_deltas, dir);
+            if sink.warns() {
+                self.warn_moving(middle, label_deltas, dir);
+            }
             let rotation = if axis.label.rotated() {
                 edge.angle()
             } else {

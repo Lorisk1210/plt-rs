@@ -886,6 +886,11 @@ class Text(Artist):
         if self.get_text() != '':
             super().draw(renderer)
 
+    def _draws_snapped(self):
+        # docstring inherited: matplotlib draws each line of a text that is
+        # not empty with the text's snapping.
+        return self.get_text() != ''
+
     def set_color(self, color):
         """
         Set the foreground color of the text

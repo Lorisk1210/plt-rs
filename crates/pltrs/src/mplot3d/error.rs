@@ -4,7 +4,6 @@ use std::fmt;
 
 use super::coords::Axis3;
 use super::failures::DrawFailure;
-use super::math::Vec3;
 use crate::artist::AttachError;
 use crate::axes::PlotError;
 use crate::colors::ColorError;
@@ -21,10 +20,8 @@ use crate::tri::TriError;
 pub enum Axes3DError {
     /// A perspective focal length that is not positive.
     FocalLength(f64),
-    /// A box zoom that is not positive.
+    /// A box zoom at or below zero.
     Zoom(f64),
-    /// A box aspect with a component that is not positive.
-    BoxAspect(Vec3),
     /// An autoscaling margin that is not above -0.5.
     Margin(f64),
     /// Axis limits that are infinite or NaN.
@@ -108,10 +105,7 @@ impl fmt::Display for Axes3DError {
             Self::FocalLength(value) => {
                 write!(f, "focal_length = {value} must be greater than 0")
             }
-            Self::Zoom(value) => write!(f, "zoom = {value} must be > 0"),
-            Self::BoxAspect(aspect) => {
-                write!(f, "box aspect {aspect:?} must have positive components")
-            }
+            Self::Zoom(value) => write!(f, "Argument zoom = {value} must be > 0"),
             Self::Margin(value) => write!(f, "margin {value} must be greater than -0.5"),
             Self::NonFiniteLimits(low, high) => {
                 write!(f, "axis limits {low}, {high} cannot be infinite or NaN")

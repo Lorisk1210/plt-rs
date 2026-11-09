@@ -357,6 +357,26 @@ impl TickLabels {
             .artist
             .with_layout(|artist, layout| artist.ticklabel_metrics(layout, level))
     }
+
+    /// How far the tick labels sat from their ticks, and the room they
+    /// left the axis label, in pixels, when they were last laid out, to
+    /// be drawn or measured (matplotlib's `TickLabels._offset_radius` and
+    /// `_axislabel_pad`); zero before.
+    ///
+    /// ```
+    /// use pltrs::axisartist::AxisArtist;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::spines::SpineSide;
+    /// let fig = Figure::new();
+    /// let left = AxisArtist::add_fixed(&fig.subplot(), SpineSide::Left);
+    /// assert_eq!(left.major_ticklabels().laid_out_offsets(), (0.0, 0.0));
+    /// left.major_ticklabels().window_extents();
+    /// let (radius, room) = left.major_ticklabels().laid_out_offsets();
+    /// assert!(radius > 0.0 && room > radius);
+    /// ```
+    pub fn laid_out_offsets(&self) -> (f64, f64) {
+        self.get(|label| label.laid_out.get())
+    }
 }
 
 /// The label of an axis artist (matplotlib's `AxisLabel`); the common

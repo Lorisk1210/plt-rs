@@ -445,7 +445,17 @@ class Axis(maxis.XAxis):
         return super().get_minor_ticks(numticks)
 
     def get_tightbbox(self, renderer=None, *, for_layout_only=False):
-        # docstring inherited
+        # docstring inherited; matplotlib's measures the tick labels with
+        # the renderer given, else with the one the first of them was last
+        # given: by a draw of the axes, or by a measure (one that failed on
+        # it included).
+        draws = _artist.draw_count(self.axes._native)
+        if renderer is None:
+            given, at = self.__dict__.get("_labels_renderer", (None, None))
+            if at == draws:
+                renderer = given
+        elif self.get_visible():
+            self._labels_renderer = (renderer, draws)
         return super().get_tightbbox(renderer, for_layout_only=for_layout_only)
 
     def get_ticklocs(self, *, minor=False):

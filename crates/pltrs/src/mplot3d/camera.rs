@@ -5,8 +5,8 @@
 use super::coords::{Axis3, roll};
 use super::error::Axes3DError;
 use super::math::{
-    Batch, Matrix4, Vec3, add, ortho_transformation, persp_transformation, scaled, view_axes,
-    view_transformation, warn_world_transformation, world_transformation,
+    Batch, Matrix4, Vec3, add, multiply, ortho_transformation, persp_transformation, scalar_divide,
+    scaled, view_axes, view_transformation, warn_world_transformation, world_transformation,
 };
 use super::scaling::AxisScale;
 
@@ -169,6 +169,14 @@ impl Projection {
         [0, 1, 2].map(|i| self.scales[i].masked_forward(p[i]))
     }
 
+    /// A data point through the scale transforms as given, also where
+    /// outside its scale's domain (an infinite coordinate of a linear axis
+    /// stays infinite): what matplotlib's collections hand `np.dot` of a
+    /// point they mask.
+    pub(crate) fn scaled_as_given(&self, p: Vec3) -> Vec3 {
+        [0, 1, 2].map(|i| self.scales[i].forward(p[i]))
+    }
+
     /// Projects data points together even where the projection hides
     /// them, as matplotlib does for the masked vertices whose depth still
     /// counts.
@@ -243,22 +251,22 @@ impl Camera {
     }
 
     /// Sets the x:y:z ratio of the box edges and the zoom (matplotlib's
-    /// `set_box_aspect`); `None` restores 4:4:3.
+    /// `set_box_aspect`); `None` restores 4:4:3. As matplotlib's, it
+    /// refuses only a zoom at or below zero: any ratio is scaled to the
+    /// box's length (NaN for one of no length or of an infinite side,
+    /// with numpy's warnings), and a box of NaN projects nothing.
     pub(crate) fn set_box_aspect(
         &mut self,
         aspect: Option<Vec3>,
         zoom: f64,
     ) -> Result<(), Axes3DError> {
-        if !(zoom > 0.0 && zoom.is_finite()) {
+        if zoom <= 0.0 {
             return Err(Axes3DError::Zoom(zoom));
         }
         let aspect = aspect.unwrap_or(DEFAULT_BOX_ASPECT);
-        if aspect.iter().any(|a| !(a.is_finite() && *a > 0.0)) {
-            return Err(Axes3DError::BoxAspect(aspect));
-        }
         let length = super::math::blas_norm(aspect);
-        let factor = BOX_SCALE * zoom / length;
-        self.box_aspect = self.storage_order(scaled(aspect, factor));
+        let factor = scalar_divide(BOX_SCALE * zoom, length);
+        self.box_aspect = self.storage_order(multiply(aspect, factor));
         Ok(())
     }
 
@@ -415,6 +423,40 @@ mod tests {
     }
 
     #[test]
+    fn any_box_aspect_is_kept_as_matplotlib_scales_it() {
+        let mut camera = Camera::new(ProjType::Ortho).expect("valid camera");
+        let (result, warned) = crate::warnings::capturing_runtime(|| {
+            camera.set_box_aspect(Some([f64::NAN, 2.0, 1.0]), 1.0)
+        });
+        assert!(result.is_ok() && warned.is_empty());
+        assert!(camera.box_aspect().iter().all(|a| a.is_nan()));
+        // A zoom of NaN passes matplotlib's `zoom <= 0` refusal.
+        assert!(camera.set_box_aspect(None, f64::NAN).is_ok());
+        // No length: `c / 0` (inf), then `0 × inf` (values from numpy).
+        let ((), warned) = crate::warnings::capturing_runtime(|| {
+            camera.set_box_aspect(Some([0.0; 3]), 1.0).expect("kept");
+        });
+        assert_eq!(
+            warned,
+            [
+                "divide by zero encountered in scalar divide",
+                "invalid value encountered in multiply"
+            ]
+        );
+        let ((), warned) = crate::warnings::capturing_runtime(|| {
+            camera
+                .set_box_aspect(Some([f64::INFINITY, 2.0, 1.0]), 1.0)
+                .expect("kept");
+        });
+        assert_eq!(warned, ["invalid value encountered in multiply"]);
+        assert_eq!(camera.box_aspect()[1], 0.0);
+        camera
+            .set_box_aspect(Some([1.0, -1.0, 1.0]), 1.0)
+            .expect("kept");
+        assert!(camera.box_aspect()[1] < 0.0);
+    }
+
+    #[test]
     fn invalid_settings_are_rejected() {
         let mut camera = Camera::new(ProjType::Ortho).expect("valid camera");
         assert!(camera.is_ortho());
@@ -423,9 +465,8 @@ mod tests {
                 .set_proj_type(ProjType::Persp { focal_length: 0.0 })
                 .is_err()
         );
-        assert!(camera.set_box_aspect(Some([1.0, -1.0, 1.0]), 1.0).is_err());
         assert!(camera.set_box_aspect(None, 0.0).is_err());
-        assert!(camera.set_box_aspect(None, f64::NAN).is_err());
+        assert!(camera.set_box_aspect(None, -1.5).is_err());
     }
 
     #[test]

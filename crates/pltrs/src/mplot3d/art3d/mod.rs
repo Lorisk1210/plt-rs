@@ -81,7 +81,7 @@ pub(crate) struct Path3D {
     /// The 2-D path the projected vertices are written into.
     template: Path,
     /// One 3-D point per template vertex.
-    vertices: Vec<Vec3>,
+    pub(super) vertices: Vec<Vec3>,
 }
 
 pltrs_core::archive_struct!(Path3D { template, vertices });

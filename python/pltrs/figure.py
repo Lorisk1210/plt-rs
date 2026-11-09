@@ -1271,6 +1271,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         for subfig in self.subfigs:
             subfig.clear(keep_observers=keep_observers)
         for ax in tuple(self.axes):
+            ax._keep_trees()
             ax.clear()
             self._axes_removed(ax)
         # matplotlib's clear empties the figure's list of texts, which its
@@ -1296,6 +1297,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             raise ValueError("list.remove(x): x not in list")
         # Out of the figure but still of it, as matplotlib's `delaxes` leaves
         # the Axes (plotted on, added back), which `ax.remove()` then decouples.
+        ax._keep_trees()
         _artist.remove(ax._native)
         self._axes_removed(ax)
 

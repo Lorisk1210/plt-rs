@@ -4,6 +4,7 @@
 //! `AxisLabel` and `AxisArtist._update_offsetText`).
 
 use std::borrow::Cow;
+use std::cell::Cell;
 
 use pltrs_core::{Bbox, Point};
 use pltrs_text::mathtext::is_math_text;
@@ -16,7 +17,7 @@ use crate::fonts::{FontProperties, FontSize};
 use crate::patches::PatchError;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
-use crate::text::{BoxPlacement, TextBoxPatch, measure_text};
+use crate::text::{BoxPlacement, TextBoxPatch, TextProblem, measure_text};
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// Which of the two label classes a [`LabelState`] follows; they differ
@@ -164,6 +165,11 @@ pub(crate) struct LabelState {
     pub(crate) transform: Option<Transform>,
     /// The box drawn behind each text (matplotlib's `Text.set_bbox`).
     pub(crate) bbox: Option<TextBoxPatch>,
+    /// How far tick labels sat from their ticks, and the room they left
+    /// the axis label, in pixels, when last laid out (matplotlib's
+    /// `TickLabels._offset_radius` and `_axislabel_pad`, which its draws
+    /// and measures leave).
+    pub(crate) laid_out: Cell<(f64, f64)>,
 }
 
 pltrs_core::archive_struct!(LabelState {
@@ -178,7 +184,8 @@ pltrs_core::archive_struct!(LabelState {
     halign,
     direction,
     transform,
-    bbox
+    bbox,
+    laid_out
 });
 
 impl LabelState {
@@ -204,6 +211,7 @@ impl LabelState {
             direction,
             transform: None,
             bbox: None,
+            laid_out: Cell::default(),
         }
     }
 
@@ -351,10 +359,11 @@ pub(crate) fn tick_labels(
     external_pad: f64,
     style: &TextStyle,
     rc: &RcParams,
-) -> Result<PlacedTickLabels, String> {
+) -> Result<PlacedTickLabels, TextProblem> {
     let (offset, total) = label_offsets(layout, labels, state, style, rc)?;
     let pad = external_pad + layout.measuring_points_to_pixels(state.pad);
     let radius = offset + pad;
+    state.laid_out.set((radius, total + pad));
     let texts = labels
         .iter()
         .filter(|label| !label.text.trim().is_empty())
@@ -384,14 +393,14 @@ fn label_offsets(
     state: &LabelState,
     style: &TextStyle,
     rc: &RcParams,
-) -> Result<(f64, f64), String> {
+) -> Result<(f64, f64), TextProblem> {
     let metrics = labels
         .iter()
         .filter(|label| !label.text.trim().is_empty())
         .map(|label| {
             let math = style.parse_math && is_math_text(&label.text);
             measure_text(&label.text, &style.font, math, layout.dpi(), rc)
-                .map_err(|e| e.to_string())
+                .map_err(TextProblem::from)
         })
         .collect::<Result<Vec<_>, _>>()?;
     if metrics.is_empty() {

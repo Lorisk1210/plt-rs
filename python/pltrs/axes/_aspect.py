@@ -233,9 +233,12 @@ class AspectMixin:
                 (0.0, 0.0) if named else tuple(map(float, anchor)))
 
     def _anchor_box_corner(self, anchor):
-        """What matplotlib's `apply_aspect` reads of the *anchor* when the
-        Axes has a fixed aspect: where it puts the box (``Bbox.coefs``)."""
-        if self.get_aspect() != 'auto' or self.get_box_aspect() is not None:
+        """What matplotlib's `apply_aspect` reads of the *anchor* when it
+        shrinks the box (a fixed aspect adjusting the box, or a box
+        aspect): where it puts the box (``Bbox.coefs``)."""
+        if self.get_aspect() == 'auto' and self.get_box_aspect() is None:
+            return None
+        if self.get_adjustable() == 'box' or self.get_box_aspect() is not None:
             return Bbox.coefs[anchor]
         return None
 

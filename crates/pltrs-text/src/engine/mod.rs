@@ -155,15 +155,20 @@ impl TextEngine {
     ///
     /// # Errors
     ///
-    /// [`TextError::MissingFontFile`] when the file does not exist, and
-    /// matplotlib's message when it cannot be read or holds no font.
+    /// [`TextError::MissingFontFile`] (naming the file by its absolute
+    /// path, as matplotlib's error does) when the file does not exist,
+    /// and matplotlib's message when it cannot be read or holds no font.
     pub fn open_font_file(&self, path: &std::path::Path) -> Result<(), TextError> {
         match self.db.file_faces(path) {
             Ok(_) => Ok(()),
             Err(pltrs_font::FontError::Io {
                 kind: std::io::ErrorKind::NotFound,
                 ..
-            }) => Err(TextError::MissingFontFile(path.to_path_buf())),
+            }) => Err(TextError::MissingFontFile(
+                // matplotlib opens the file at its real path, which its
+                // error names.
+                std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf()),
+            )),
             Err(err) => Err(TextError::Font(format!(
                 "In FT2Font: Can not load face ({err})"
             ))),
@@ -425,6 +430,16 @@ mod tests {
         assert_eq!(run.glyphs.len(), 1);
         std::fs::remove_file(&path).unwrap();
         assert!(engine.add_font_file(&path).is_err());
+    }
+
+    #[test]
+    fn a_missing_font_file_is_named_by_its_absolute_path() {
+        let engine = TextEngine::new(FontDatabase::new());
+        let relative = std::path::Path::new("missing-directory").join("file");
+        let Err(TextError::MissingFontFile(named)) = engine.open_font_file(&relative) else {
+            panic!("the file is missing");
+        };
+        assert_eq!(named, std::env::current_dir().unwrap().join(&relative));
     }
 
     #[test]

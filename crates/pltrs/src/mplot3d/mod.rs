@@ -90,6 +90,7 @@ mod path_patch;
 mod pending;
 mod plot;
 mod program;
+mod projection_warnings;
 mod quaternion;
 mod quiver;
 mod readd;

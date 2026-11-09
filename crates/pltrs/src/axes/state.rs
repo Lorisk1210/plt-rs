@@ -471,6 +471,24 @@ impl AxesState {
         }
     }
 
+    /// The limits `(v0, v1)` with each non-positive one of a log axis
+    /// replaced by the current one (the start of matplotlib's
+    /// `Axis._set_lim`), and how many were replaced.
+    pub(crate) fn log_limits(&self, name: AxisName, (v0, v1): (f64, f64)) -> ((f64, f64), usize) {
+        let (mut v0, mut v1) = (v0, v1);
+        let mut replaced = 0;
+        if self.axis(name).scale().name() == ScaleName::Log {
+            let (old0, old1) = self.view_interval(name);
+            for (limit, old) in [(&mut v0, old0), (&mut v1, old1)] {
+                if *limit <= 0.0 {
+                    *limit = old;
+                    replaced += 1;
+                }
+            }
+        }
+        ((v0, v1), replaced)
+    }
+
     /// The limits `(v0, v1)` become once validated for one axis
     /// (matplotlib's `Axis._set_lim`): non-positive limits of a log axis
     /// keep the current value, with matplotlib's warning for each,
@@ -478,18 +496,12 @@ impl AxesState {
     /// clamps the range; `v0 > v1` keeps the axis inverted.
     pub(crate) fn validated_limits(&self, name: AxisName, v0: f64, v1: f64) -> (f64, f64) {
         let axis = self.axis(name);
-        let (mut v0, mut v1) = (v0, v1);
-        if axis.scale().name() == ScaleName::Log && (v0 <= 0.0 || v1 <= 0.0) {
-            let (old0, old1) = self.view_interval(name);
-            for (limit, old) in [(&mut v0, old0), (&mut v1, old1)] {
-                if *limit <= 0.0 {
-                    crate::warnings::warn(&format!(
-                        "Attempt to set non-positive {}lim on a log-scaled axis will be ignored.",
-                        name.name()
-                    ));
-                    *limit = old;
-                }
-            }
+        let ((v0, v1), replaced) = self.log_limits(name, (v0, v1));
+        for _ in 0..replaced {
+            crate::warnings::warn(&format!(
+                "Attempt to set non-positive {}lim on a log-scaled axis will be ignored.",
+                name.name()
+            ));
         }
         let reverse = v0 > v1;
         let (v0, v1) = self.nonsingular(name, v0, v1);

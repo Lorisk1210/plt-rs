@@ -215,3 +215,37 @@ fn axes_locators_place_the_axes_before_its_aspect() {
     ax.set_aspect(Aspect::Auto).unwrap();
     assert_eq!(ax.position(), ax.original_position());
 }
+
+#[test]
+fn datalim_collapsing_the_view_warns_as_set_xbound_does() {
+    // An infinite box aspect asks for an x view of no width: matplotlib's
+    // `set_xbound` warns about the identical limits before the locator
+    // widens them; on a log axis the non-positive bounds keep the current
+    // limits first, which are not identical (values from matplotlib).
+    let seen = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let sink = std::rc::Rc::clone(&seen);
+    crate::warnings::set_handler(move |message| sink.borrow_mut().push(message.to_owned()));
+    let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
+    ax.set_aspect(Aspect::Ratio(1.5))
+        .unwrap()
+        .set_adjustable(Adjustable::Datalim)
+        .unwrap()
+        .set_box_aspect(Some(f64::INFINITY))
+        .apply_aspect()
+        .unwrap();
+    let identical = "Attempting to set identical low and high xlims makes transformation \
+                     singular; automatically expanding.";
+    assert_eq!(*seen.borrow(), [identical]);
+    seen.borrow_mut().clear();
+    let (_fig, ax) = axes_with_limits((0.0, 1.0), (0.0, 1.0));
+    ax.set_xscale("log").expect("a known scale");
+    ax.set_aspect(Aspect::Ratio(1.5))
+        .unwrap()
+        .set_adjustable(Adjustable::Datalim)
+        .unwrap()
+        .set_box_aspect(Some(f64::INFINITY))
+        .apply_aspect()
+        .unwrap();
+    crate::warnings::clear_handler();
+    assert!(seen.borrow().iter().all(|message| message != identical));
+}

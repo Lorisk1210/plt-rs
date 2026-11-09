@@ -583,11 +583,13 @@ impl Axes3D {
     }
 
     /// Sets the x:y:z ratio of the box edges (`None` = 4:4:3) and the
-    /// zoom (matplotlib's `set_box_aspect`).
+    /// zoom (matplotlib's `set_box_aspect`): any ratio, scaled to the
+    /// box's length (one of no length, or with an infinite or NaN side,
+    /// gives a box of NaN, which projects nothing, as in matplotlib).
     ///
     /// # Errors
     ///
-    /// When a ratio or the zoom is not positive.
+    /// When the zoom is at or below zero.
     pub fn set_box_aspect(&self, aspect: Option<Vec3>, zoom: f64) -> Result<&Self, Axes3DError> {
         self.with_mut(|axes| axes.camera.set_box_aspect(aspect, zoom))?;
         Ok(self)

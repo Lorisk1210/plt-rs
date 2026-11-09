@@ -25,6 +25,7 @@ use crate::fonts::FontProperties;
 use crate::patches::{DisplayPath, paint_paths};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
+use crate::text::TextProblem;
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -287,8 +288,11 @@ impl AxisArtistState {
         layout: LayoutContext<'_>,
         dpi_cor: f64,
         label_gap: LabelGap,
-    ) -> Result<Drawing, String> {
-        let axes = layout.store().get_as::<AxesState>(self.axes).ok_or(GONE)?;
+    ) -> Result<Drawing, TextProblem> {
+        let axes = layout
+            .store()
+            .get_as::<AxesState>(self.axes)
+            .ok_or_else(|| GONE.to_owned())?;
         let ctx = HelperContext {
             layout,
             axes,
@@ -605,7 +609,7 @@ impl Artist for AxisArtistState {
         let axes = layout.store().shared_as::<AxesState>(self.axes);
         let drawing = match drawing {
             Ok(drawing) => drawing,
-            Err(problem) => return ctx.report(id, problem),
+            Err(problem) => return ctx.report_kind(id, problem.kind, problem.message),
         };
         let Some(axes) = axes else {
             return;

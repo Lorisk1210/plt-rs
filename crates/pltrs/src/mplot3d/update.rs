@@ -217,6 +217,7 @@ impl Axes3D {
             } else {
                 projection
             };
+            entry.art.warn_projecting(&projection);
             entry.art.project(id, store, &projection)
         });
         depth.ok_or(Axes3DError::Not3DArtist)

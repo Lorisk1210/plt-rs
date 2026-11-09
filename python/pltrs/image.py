@@ -23,7 +23,7 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _image_magnified, _live_transforms, _unusable, _values, cbook,
+from . import (_api, _image, _image_magnified, _live_transforms, _named, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
 from ._program_classes import takes_from_program
@@ -1198,6 +1198,8 @@ class NonUniformImage(AxesImage):
             raise RuntimeError('Must set data first')
         return self._Ax[0], self._Ax[-1], self._Ay[0], self._Ay[-1]
 
+    # (Named as matplotlib's, which the class inherits from `AxesImage`.)
+    @_named.named("AxesImage.get_window_extent")
     def get_window_extent(self, renderer=None):
         """Return the image's box in display space: the extent it was set
         to (`set_extent`) through its transform, as matplotlib's (which

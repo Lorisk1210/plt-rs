@@ -33,6 +33,13 @@ fn ticklabel_metrics(artist: AxisArtist, level: String) -> PyResult<Vec<(f64, f6
     Ok(tick_labels(&artist, &level).texts_widths_heights_descents())
 }
 
+/// How far the tick labels of `level` sat from their ticks, and the room
+/// they left the axis label, in pixels, when last laid out
+/// (`TickLabels._offset_radius` and `_axislabel_pad`).
+fn ticklabel_offsets(artist: AxisArtist, level: String) -> PyResult<(f64, f64)> {
+    Ok(tick_labels(&artist, &level).laid_out_offsets())
+}
+
 /// The direction `"+"` or `"-"` names.
 fn direction(name: &str) -> PyResult<LabelDirection> {
     match name {
@@ -120,6 +127,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("init_line", init_line)?;
     module.add("ticklabel_extents", ticklabel_extents)?;
     module.add("ticklabel_metrics", ticklabel_metrics)?;
+    module.add("ticklabel_offsets", ticklabel_offsets)?;
     module.add("set_ticklabel_direction", set_ticklabel_direction)?;
     module.add("get_label_directions", get_label_directions)?;
     module.add("set_axislabel_direction", set_axislabel_direction)?;

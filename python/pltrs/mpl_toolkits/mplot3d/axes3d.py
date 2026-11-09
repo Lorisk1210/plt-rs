@@ -980,7 +980,12 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     set_frame_on = None
 
     def apply_aspect(self, position=None):
-        # docstring inherited
+        # docstring inherited; matplotlib's makes the box square in the
+        # original position (no data aspect is applied to a 3-D axes).
+        if position is None:
+            _mplot3d.position(self._native, False)
+            self.stale = True
+            return
         super().apply_aspect(position)
 
     def can_zoom(self):
@@ -1581,9 +1586,18 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         # there too.
         super().set_anchor(anchor, share)
         named = isinstance(anchor, str)
+        if named and anchor not in Bbox.coefs:
+            # Kept (see `.Axes.set_anchor`), failing where matplotlib's
+            # `apply_aspect` squares the box (`_anchor_box_corner`).
+            return
         for ax in self._aspect_group(share):
             _mplot3d.set_anchor(ax._native, anchor if named else None,
                                 (0.0, 0.0) if named else tuple(map(float, anchor)))
+
+    def _anchor_box_corner(self, anchor):
+        # docstring inherited: matplotlib's squares the box of a 3-D axes
+        # at its anchor whenever it applies the aspect.
+        return Bbox.coefs[anchor]
 
     def get_position(self, original=False):
         """

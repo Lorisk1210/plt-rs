@@ -414,6 +414,19 @@ def test_a_date_converter_fails_on_category_units_before_the_view_changes():
     assert ax.xaxis.get_view_interval().tolist() == view
 
 
+def test_a_date_converter_taken_by_a_failed_update_converts_names():
+    import datetime
+    fig, ax = plt.subplots()
+    ax.xaxis.update_units(['a', 'b'])
+    with pytest.warns(UserWarning, match="^This axis already has a converter set"):
+        with pytest.raises(TypeError, match="^tz must be string or tzinfo subclass"):
+            ax.xaxis.update_units([datetime.date(2020, 1, 1)])
+    assert type(ax.xaxis.get_converter()).__name__ == '_SwitchableDateConverter'
+    assert ax.xaxis.convert_units(3) == 3
+    with pytest.raises(ConversionError, match="^Failed to convert value"):
+        ax.xaxis.convert_units('x')
+
+
 def test_scalar_formatters_keep_their_flags_as_given():
     from pltrs import ticker
     formatter = ticker.ScalarFormatter()

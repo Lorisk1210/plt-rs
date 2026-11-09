@@ -30,7 +30,7 @@ use super::print::DocumentInfo;
 use crate::binding::prelude::*;
 
 /// A PDF object handed over by `pdfRepr` (see the module documentation).
-struct PyPdfObject(PdfObject);
+pub(super) struct PyPdfObject(pub(super) PdfObject);
 
 impl FromPy<'_> for PyPdfObject {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
@@ -81,6 +81,12 @@ fn pdf_error(err: VectorError) -> PyErr {
 /// `pdfRepr(obj)`: the object in PDF syntax.
 fn pdf_repr(object: PyPdfObject) -> PyResult<Bytes> {
     Ok(Bytes(object.0.repr().map_err(pdf_error)?))
+}
+
+/// `_fill([pdfRepr(x) for x in objects]) + b'\n'`: one line of `output`.
+fn pdf_line(objects: Vec<PyPdfObject>) -> PyResult<Bytes> {
+    let objects: Vec<PdfObject> = objects.into_iter().map(|object| object.0).collect();
+    Ok(Bytes(pltrs_render::pdf_line(&objects).map_err(pdf_error)?))
 }
 
 /// Runs `write` on the PDF file of `document`.
@@ -146,14 +152,42 @@ fn pdf_file_begin_stream(
     })
 }
 
+/// `Stream(id, None, file, extra, png).end()` with the stream's `data`:
+/// the whole stream object, written whatever stream is open.
+fn pdf_file_write_stream(
+    document: Native<PdfDocument>,
+    id: u32,
+    extra: Vec<(String, PyPdfObject)>,
+    png: Option<PyPdfObject>,
+    data: Bytes,
+) -> PyResult<()> {
+    with_file(&document, |file| {
+        file.write_stream(id, entries(extra), png.map(|png| png.0), data.0)
+    })
+}
+
+/// `len(xrefTable)`: how many objects the file numbers so far.
+fn pdf_file_object_count(document: Native<PdfDocument>) -> PyResult<usize> {
+    with_file(&document, |file| Ok(file.object_count()))
+}
+
 /// `endStream()`.
 fn pdf_file_end_stream(document: Native<PdfDocument>) -> PyResult<()> {
     with_file(&document, PdfRenderer::end_stream)
 }
 
-/// `newPage(width, height)`: a page of `width × height` inches.
-fn pdf_file_new_page(document: Native<PdfDocument>, width: f64, height: f64) -> PyResult<()> {
-    with_file(&document, |file| file.new_page(width, height, 72.0))
+/// `newPage(width, height)`: a page of `width × height` inches (NaN for
+/// sizes that are no numbers) spanning `media_box`, as matplotlib's
+/// computes it.
+fn pdf_file_new_page(
+    document: Native<PdfDocument>,
+    width: f64,
+    height: f64,
+    media_box: PyPdfObject,
+) -> PyResult<()> {
+    with_file(&document, |file| {
+        file.new_page_spanning(width, height, 72.0, media_box.0)
+    })
 }
 
 /// `alphaState((stroke, fill))`: the name of the graphics state.
@@ -538,6 +572,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_file_output", pdf_file_output)?;
     module.add("pdf_file_open_stream", pdf_file_open_stream)?;
     module.add("pdf_file_begin_stream", pdf_file_begin_stream)?;
+    module.add("pdf_file_write_stream", pdf_file_write_stream)?;
+    module.add("pdf_line", pdf_line)?;
+    module.add("pdf_file_object_count", pdf_file_object_count)?;
     module.add("pdf_file_end_stream", pdf_file_end_stream)?;
     module.add("pdf_file_new_page", pdf_file_new_page)?;
     module.add("pdf_file_alpha_state", pdf_file_alpha_state)?;

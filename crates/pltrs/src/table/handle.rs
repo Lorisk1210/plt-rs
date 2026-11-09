@@ -8,7 +8,7 @@ use super::TableArtist;
 use super::cell::{Cell, CellEdges};
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colors::Color;
-use crate::fonts::{FontProperties, FontSize};
+use crate::fonts::FontProperties;
 
 /// A handle to a table (matplotlib's `Table`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -109,10 +109,8 @@ impl Table {
     /// ```
     pub fn add_cell(&self, row: i32, column: i32, width: f64, height: f64) -> TableCell {
         self.update(|t| {
-            let cell = Cell {
-                transform: t.own_transform(),
-                ..Cell::new(width, height, &t.rc)
-            };
+            let mut cell = Cell::new(width, height, &t.rc);
+            cell.transform = t.own_transform();
             t.add_cell(row, column, cell);
         });
         TableCell {
@@ -141,12 +139,9 @@ impl Table {
     pub fn put_cell(&self, row: i32, column: i32, cell: &TableCell) -> TableCell {
         // A cell put in a table is drawn in the table's coordinates, as
         // matplotlib's `Table.__setitem__` gives it the table's transform.
-        let copy = cell.read(Cell::clone);
+        let mut copy = cell.read(Cell::clone);
         self.update(|t| {
-            let copy = Cell {
-                transform: t.own_transform(),
-                ..copy
-            };
+            copy.transform = t.own_transform();
             t.add_cell(row, column, copy);
         });
         TableCell {
@@ -234,26 +229,24 @@ impl TableCell {
 
     /// The size of the text in points (matplotlib's `get_fontsize`).
     pub fn fontsize(&self) -> f64 {
-        self.read(|cell| cell.font.size)
+        self.read(Cell::fontsize)
     }
 
     /// Sets the size of the text in points (matplotlib's `set_fontsize`).
     pub fn set_fontsize(&self, size: f64) -> &Self {
         let base = self.table.raw.with::<TableArtist, _>(|t| t.rc.font_size);
-        self.update(|cell| {
-            cell.font.set_size(FontSize::Points(size), base);
-        })
+        self.update(|cell| cell.set_fontsize(size, base))
     }
 
     /// The font of the text.
     pub fn font(&self) -> FontProperties {
-        self.read(|cell| cell.font.clone())
+        self.read(Cell::font)
     }
 
     /// Sets the font of the text: its weight, style, family and size
     /// (matplotlib's `set_text_props` with font keywords).
     pub fn set_font(&self, font: FontProperties) -> &Self {
-        self.update(|cell| cell.font = font)
+        self.update(|cell| cell.set_font(font))
     }
 
     /// Sets the colour of the text (`set_text_props(color=...)`).

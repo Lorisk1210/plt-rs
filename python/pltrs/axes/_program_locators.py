@@ -96,7 +96,8 @@ def _locate(figure):
     for ax in list(_autoscaled.get(figure, ())):
         ax._unstale_viewLim()
     engine = figure.get_layout_engine()
-    if figure.axes and engine is not None and engine._executes_in_python():
+    if figure.axes and engine is not None and (
+            engine._executes_in_python() or engine._lays_out_kept_grids(figure)):
         try:
             engine.execute(figure)
         except ValueError:

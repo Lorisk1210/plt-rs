@@ -102,3 +102,26 @@ fn odd_text_never_panics() {
     let plain = decorate(&Figure::new(), "plain $x^2$").map_err(|err| err.to_string());
     assert_eq!(plain, Ok(()));
 }
+
+#[test]
+fn texts_at_resolutions_of_no_pixel_fail_as_freetype_refuses_them() {
+    use pltrs::artist::DrawErrorKind;
+    use pltrs::figure::{SaveError, SaveOptions};
+    let fig = Figure::with_size(6.4, 4.8, 2.5);
+    fig.subplot();
+    let Err(SaveError::Draw(errors)) = fig.to_png() else {
+        panic!("FreeType refuses fonts of no pixel per em");
+    };
+    let first = &errors.0[0];
+    assert_eq!(first.kind, DrawErrorKind::Library);
+    assert_eq!(
+        first.message,
+        "FT_Set_Char_Size (ft2font.cpp line 248) failed with error 0x97: invalid ppem value"
+    );
+    // Saved at a resolution of some pixels per em, the texts draw.
+    let options = SaveOptions {
+        dpi: Some(72.0),
+        ..SaveOptions::default()
+    };
+    assert!(fig.to_png_with(options).is_ok());
+}

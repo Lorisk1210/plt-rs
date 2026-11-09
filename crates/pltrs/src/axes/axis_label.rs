@@ -55,6 +55,9 @@ pub(crate) struct AxisLabel {
     pub(crate) coords: Option<Point>,
     /// The box drawn behind the label (matplotlib's `label.set_bbox`).
     pub(crate) bbox: Option<TextBoxPatch>,
+    /// Whether LaTeX typesets the label (matplotlib's `label.set_usetex`;
+    /// `text.usetex` when the axis was made).
+    pub(crate) usetex: bool,
 }
 
 pltrs_core::archive_struct!(AxisLabel {
@@ -71,7 +74,8 @@ pltrs_core::archive_struct!(AxisLabel {
     rotation,
     valign,
     coords,
-    bbox
+    bbox,
+    usetex
 });
 
 impl AxisLabel {
@@ -215,6 +219,27 @@ impl Axis {
     /// The colour of the axis label (matplotlib's `label.get_color()`).
     pub fn label_color(&self) -> Color {
         self.read(|axis| axis.label.color.clone())
+    }
+
+    /// Has LaTeX typeset the axis label, or not (matplotlib's
+    /// `label.set_usetex`).
+    pub fn set_label_usetex(&self, usetex: bool) -> &Self {
+        self.update(|axis| axis.label.usetex = usetex);
+        self
+    }
+
+    /// Whether LaTeX typesets the axis label (matplotlib's
+    /// `label.get_usetex()`): `text.usetex` when the axes was made, until
+    /// [`set_label_usetex`](Self::set_label_usetex).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(!ax.xaxis().label_usetex());
+    /// assert!(ax.xaxis().set_label_usetex(true).label_usetex());
+    /// ```
+    pub fn label_usetex(&self) -> bool {
+        self.read(|axis| axis.label.usetex)
     }
 
     /// Places the axis label along the axis, aligned to that place

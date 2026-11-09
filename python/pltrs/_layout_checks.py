@@ -18,6 +18,8 @@ draw passes over one of its layout engine.
 
 from numbers import Real
 
+import numpy as np
+
 from . import _gridspec_kept, rcParams
 
 
@@ -75,12 +77,20 @@ def check_tight(fig, params, grid_spec=None):
     for pad in ('h_pad', 'w_pad'):
         if params[pad] is not None:
             params[pad] * font_size_inch
+    # The decorations of every visible Axes in a grid, measured (its ticks
+    # placed, which fails for an Axes placed nowhere): here those placed
+    # nowhere, or all for a rectangle computed with next, the others
+    # measured once, as pltrs (Rust) lays the figure out.
     rect = params['rect']
-    if rect is not None:
+    measured = [ax for ax, spec in zip(fig.axes, specs)
+                if spec is not None and ax.get_visible()
+                and (rect is not None
+                     or not np.isfinite(ax.get_position(original=True).bounds).all())]
+    if measured:
         renderer = fig._get_renderer()
-        for ax, spec in zip(fig.axes, specs):
-            if spec is not None and ax.get_visible():
-                ax.get_tightbbox(renderer, for_layout_only=True)
+        for ax in measured:
+            ax.get_tightbbox(renderer, for_layout_only=True)
+    if rect is not None:
         # Fitted into the rectangle with the subplot parameters found
         # (fractions of the figure).
         left, bottom, right, top = rect
@@ -107,18 +117,57 @@ def check_constrained(fig, params):
     rect = params['rect']
     # The constraints of the figure's layout grid (`parent_constraints`).
     rect[0], rect[0] + rect[2], rect[1] + rect[3], rect[1]
+    _check_margins(fig, w_pad, h_pad, params)
+
+
+def _check_margins(fig, w_pad, h_pad, params):
+    """Compute the margins matplotlib's constrained layout gives the
+    subfigures of *fig* (theirs first, without pads) and its Axes in
+    grids (``make_layout_margins``), for its errors."""
+    for subfig in fig.subfigs:
+        _check_margins(subfig, w_pad, h_pad, params)
+        _check_margin(subfig.get_subplotspec(), 0, 0, params)
     for ax in fig.axes:
         spec = ax.get_subplotspec()
         if spec is None or not ax.get_in_layout():
             continue
-        # The margins from the padding (`get_margin_from_padding`).
-        grid = spec.get_gridspec()
-        wspace, hspace = _spaces(grid)
-        wspace = (params['wspace'] if wspace is None else wspace) / 2
-        hspace = (params['hspace'] if hspace is None else hspace) / 2
-        nrows, ncols = grid.get_geometry()
-        bool(wspace / ncols > w_pad)
-        bool(hspace / nrows > h_pad)
+        _check_margin(spec, w_pad, h_pad, params)
+
+
+def _check_margin(spec, w_pad, h_pad, params):
+    """The margins from the padding of what sits at *spec*
+    (``get_margin_from_padding``)."""
+    grid = spec.get_gridspec()
+    wspace, hspace = _spaces(grid)
+    wspace = (params['wspace'] if wspace is None else wspace) / 2
+    hspace = (params['hspace'] if hspace is None else hspace) / 2
+    nrows, ncols = grid.get_geometry()
+    bool(wspace / ncols > w_pad)
+    bool(hspace / nrows > h_pad)
+
+
+def grids_kept(fig):
+    """Whether a grid of *fig* (of its Axes and subfigures) holds a
+    spacing or ratio pltrs (Rust) cannot hold, which matplotlib's layouts
+    compute with (`._gridspec_kept`)."""
+    specs = [ax.get_subplotspec() for ax in fig.axes]
+    pending = list(fig.subfigs)
+    while pending:
+        subfig = pending.pop()
+        specs.append(subfig.get_subplotspec())
+        pending.extend(subfig.subfigs)
+    return any(spec is not None and _gridspec_kept.in_python(spec.get_gridspec(), None)
+               for spec in specs)
+
+
+def refresh_layout(figure):
+    """Have the layout engine of the root figure of *figure* (a figure or
+    subfigure) lay it out anew: one of its grids came to hold, or no longer
+    holds, what pltrs (Rust) cannot (`grids_kept`)."""
+    root = figure.get_figure(root=True)
+    engine = root.get_layout_engine()
+    if engine is not None:
+        engine._attach(root)
 
 
 def _spaces(grid):

@@ -9,6 +9,7 @@ use super::axis_layout::{AxisPainter, PlacedText, place_text_measured};
 use crate::artist::{FigureReader, LayoutContext};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
+use crate::text::{TextProblem, Typesetting};
 use crate::ticker::AxisName;
 
 /// Distance between tick labels and the offset text, in points
@@ -23,7 +24,7 @@ impl AxisPainter<'_> {
         cx: &mut impl FigureReader,
         rc: &RcParams,
         label_boxes: &[(bool, Bbox)],
-    ) -> Option<Result<PlacedText, String>> {
+    ) -> Option<Result<PlacedText, TextProblem>> {
         let label = &self.axis.label;
         if label.text.is_empty() || !label.visible {
             return None;
@@ -90,6 +91,7 @@ impl AxisPainter<'_> {
             &block,
             anchor,
             rc,
+            Typesetting::of(rc.text_parse_math, label.usetex),
         ))
     }
 
@@ -99,7 +101,7 @@ impl AxisPainter<'_> {
         cx: &mut impl FigureReader,
         rc: &RcParams,
         label_boxes: &[(bool, Bbox)],
-    ) -> Option<Result<PlacedText, String>> {
+    ) -> Option<Result<PlacedText, TextProblem>> {
         let text = &self.axis.ticks.as_ref().ok()?.offset;
         if text.is_empty() || !self.axis.offset_visible {
             return None;
@@ -117,6 +119,7 @@ impl AxisPainter<'_> {
             &block,
             anchor,
             rc,
+            Typesetting::from_rc(rc),
         ))
     }
 

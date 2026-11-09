@@ -285,8 +285,12 @@ class DocumentDrawingMixin(NativeDrawingMixin):
     _file = None
 
     def _document_page(self):
-        """The renderer's own document; refused for the renderers of
-        pltrs's saves, whose document pltrs (Rust) writes."""
+        """The renderer's own document, begun the first time it is drawn
+        into (`_new_page`: matplotlib's renderer keeps the size it was made
+        with unchecked); refused for the renderers of pltrs's saves, whose
+        document pltrs (Rust) writes."""
+        if self._page is None and self._file is not None:
+            self._page = self._new_page()
         if self._page is None:
             raise RuntimeError(
                 f"{type(self).__name__} draws into the document pltrs writes "

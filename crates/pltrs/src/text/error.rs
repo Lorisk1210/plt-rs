@@ -42,7 +42,8 @@ impl TextDrawError {
 /// The kind of draw error a text that cannot be laid out makes, wherever
 /// it is drawn (a text artist, an offset box's text area): see
 /// [`TextDrawError::kind`]; a font file that is not there is matplotlib's
-/// `FileNotFoundError`.
+/// `FileNotFoundError`, and a font size `FreeType` refuses its
+/// `RuntimeError`.
 pub(crate) fn layout_error_kind(err: &TextError) -> DrawErrorKind {
     match err {
         TextError::Math(_)
@@ -52,7 +53,42 @@ pub(crate) fn layout_error_kind(err: &TextError) -> DrawErrorKind {
             DrawErrorKind::InvalidValue
         }
         TextError::MissingFontFile(_) => DrawErrorKind::FileNotFound,
+        TextError::FontSize(_) => DrawErrorKind::Library,
         _ => DrawErrorKind::Other,
+    }
+}
+
+/// A text an axis could not lay out or colour, as its draw reports it:
+/// the message, and the kind of draw error it makes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct TextProblem {
+    /// What kind of problem it is (see [`layout_error_kind`]).
+    pub(crate) kind: DrawErrorKind,
+    /// What went wrong.
+    pub(crate) message: String,
+}
+
+impl From<TextError> for TextProblem {
+    fn from(err: TextError) -> Self {
+        Self {
+            kind: layout_error_kind(&err),
+            message: err.to_string(),
+        }
+    }
+}
+
+impl From<ColorError> for TextProblem {
+    fn from(err: ColorError) -> Self {
+        Self {
+            kind: DrawErrorKind::Other,
+            message: err.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for TextProblem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
     }
 }
 

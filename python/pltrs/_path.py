@@ -15,8 +15,20 @@ from ._native import transforms as _transforms
 
 
 def _matrix(trans):
-    """The 3×3 matrix of *trans* (None stays None)."""
-    return None if trans is None else np.asarray(trans, dtype=float)
+    """The 3×3 matrix of *trans* (None stays None), refused with the error
+    of pybind11's conversion to ``agg::trans_affine`` for what is none."""
+    if trans is None:
+        return None
+    matrix = _array(trans)
+    if matrix is None or matrix.shape != (3, 3):
+        raise ValueError("Invalid affine transformation matrix")
+    return matrix
+
+
+def _affine(trans):
+    """The 3×3 matrix of *trans*, the identity for None (as pybind11 makes
+    an ``agg::trans_affine`` of None)."""
+    return np.eye(3) if trans is None else _matrix(trans)
 
 
 def _rect(rect):
@@ -159,9 +171,9 @@ def get_path_collection_extents(master_transform, paths, transforms, offsets,
     """The extents (2×2 points) and minimum positive coordinates of the
     paths of a collection."""
     return _path.get_path_collection_extents(
-        _matrix(master_transform), list(paths),
-        [_matrix(t) for t in transforms],
-        np.asarray(offsets, float).reshape((-1, 2)), _matrix(offset_transform))
+        _affine(master_transform), list(paths),
+        [np.asarray(t, dtype=float) for t in transforms],
+        np.asarray(offsets, float).reshape((-1, 2)), _affine(offset_transform))
 
 
 def point_in_path_collection(x, y, radius, master_transform, paths, transforms,
@@ -169,17 +181,65 @@ def point_in_path_collection(x, y, radius, master_transform, paths, transforms,
     """The indices of the items of a collection containing (*x*, *y*)."""
     return _path.point_in_path_collection(
         (x, y, radius), _matrix(master_transform), list(paths),
-        [_matrix(t) for t in transforms],
+        [np.asarray(t, dtype=float) for t in transforms],
         (np.asarray(offsets, float).reshape((-1, 2)), _matrix(offset_trans)),
         bool(filled))
+
+
+#: matplotlib's signature of ``convert_to_string``, as its docstring gives it.
+_CONVERT_TO_STRING = (
+    "(path: PathIterator, trans: trans_affine, clip_rect: rect_d, simplify: bool | None, "
+    "sketch: SketchParams, precision: typing.SupportsInt | typing.SupportsIndex, codes: "
+    "typing.Annotated[collections.abc.Sequence[str], \"FixedSize(5)\"], postfix: bool) "
+    "-> object")
+
+
+def _converted(name, signature, args):
+    """Convert the arguments *args* of the function *name* (its
+    *signature*) to the C++ types of matplotlib's ``_path`` module, in
+    order, as pybind11 does, for its errors: a path reads its vertices and
+    codes (None is an empty path), a transform must be a 3×3 matrix and a box 2×2 or 4 values
+    (``ValueError``), a flag a truth value or None (else no call binds),
+    sketch parameters three numbers (``RuntimeError``)."""
+    for kind, value in args:
+        if kind == "path" and value is not None:
+            value.vertices, value.codes  # noqa: B018
+        elif kind == "trans":
+            _matrix(value)
+        elif kind == "rect" and value is not None:
+            rect = _array(value)
+            if rect is None or rect.shape not in ((2, 2), (4,)):
+                raise ValueError("Invalid bounding box")
+        elif kind == "flag" and not (value is None or isinstance(value, np.bool_)
+                                     or hasattr(type(value), "__bool__")):
+            raise _pybind.incompatible(name, [signature], [v for _, v in args], {})
+        elif kind == "sketch" and value is not None and not (
+                isinstance(value, (tuple, list)) and len(value) == 3
+                and all(_pybind.double(v) for v in value)):
+            raise _pybind.cast_error(value)
+
+
+def _array(value):
+    """*value* as pybind11's ``py::array_t<double>::ensure`` makes it an
+    array of doubles, or None for one it cannot."""
+    try:
+        return np.asarray(value, dtype=float)
+    except (TypeError, ValueError):
+        return None
 
 
 def convert_to_string(path, trans, clip_rect, simplify, sketch, precision,
                       codes, postfix):
     """*path* as text: one command a line, with the five tokens *codes*."""
+    _converted("convert_to_string", _CONVERT_TO_STRING, [
+        ("path", path), ("trans", trans), ("rect", clip_rect), ("flag", simplify),
+        ("sketch", sketch), ("precision", precision), ("codes", codes),
+        ("flag", postfix)])
+    if path is None:
+        return b''  # The empty path pybind11 makes of None.
     clip = _rect(clip_rect) if clip_rect is not None and len(clip_rect) else None
     return _path.convert_to_string(
-        path, _matrix(trans), clip, simplify,
+        path, _matrix(trans), clip, None if simplify is None else bool(simplify),
         None if sketch is None else tuple(map(float, sketch)), int(precision),
         [c.decode() if isinstance(c, bytes) else c for c in codes], bool(postfix))
 

@@ -39,8 +39,6 @@ pub enum ColorbarError {
     },
     /// An extension fraction is NaN.
     InvalidExtendFrac,
-    /// The long-to-short ratio is not finite and positive.
-    InvalidAspect(f64),
     /// Explicit values without boundaries need at least two entries.
     TooFewValues(usize),
     /// A colorbar needs at least two block edges inside its extensions.
@@ -97,12 +95,6 @@ impl fmt::Display for ColorbarError {
                 ticklocation.name()
             ),
             Self::InvalidExtendFrac => f.write_str("invalid value for extendfrac"),
-            Self::InvalidAspect(aspect) => {
-                write!(
-                    f,
-                    "the colorbar aspect must be finite and positive, got {aspect}"
-                )
-            }
             Self::TooFewValues(n) => write!(
                 f,
                 "at least 2 values are needed to derive the boundaries, got {n}"

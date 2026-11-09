@@ -17,6 +17,8 @@ from enum import Enum
 from functools import total_ordering
 import io
 import logging
+import math
+from numbers import Real
 import os
 import time
 import types
@@ -369,10 +371,13 @@ class Stream:
     This has no pdfRepr method. Instead, call begin(), then output the
     contents of the stream by calling write(), and finally call end().
     """
-    # pltrs (Rust) keeps the stream's data and writes the stream whole when it
-    # ends, compressed at :rc:`pdf.compression`: *file* is the `PdfFile` the
-    # data goes to, and the stream keeps no compression object or position of
-    # its own (``compressobj`` and ``pos`` are None).
+    # pltrs (Rust) writes the stream, compressed at :rc:`pdf.compression`:
+    # one of an inline length (*len* None) keeps its data here until it ends,
+    # then is written whole, as matplotlib's writes itself from its buffer
+    # (``file`` is the buffer); one whose length goes to an object is pltrs
+    # (Rust)'s open stream, and ``file`` the `PdfFile`. The stream keeps no
+    # compression object or position of its own (``compressobj`` and ``pos``
+    # are None).
     __slots__ = ('id', 'len', 'pdfFile', 'file', 'compressobj', 'extra', 'pos')
 
     def __init__(self, id, len, file, extra=None, png=None):
@@ -391,39 +396,75 @@ class Stream:
         png : dict or None
             If the data is already png encoded, the decode parameters.
         """
-        self._set(id, len, file, extra, png)
-        _backends.pdf_file_begin_stream(
-            file._native, id, None if len is None else len.id,
-            _pdf_entries(extra or {}),
-            None if png is None else _pdf_object(png))
-
-    @classmethod
-    def _open(cls, id, file):
-        """The stream *id* of *file*, open already."""
-        stream = cls.__new__(cls)
-        stream._set(id, None, file, None, None)
-        return stream
-
-    def _set(self, id, len, file, extra, png):
-        """Set the attributes of the stream."""
         self.id = id
         self.len = len
         self.pdfFile = file
+        if not isinstance(file, PdfFile):
+            file.fh  # noqa: B018  (matplotlib's file to write the stream to)
         self.file = file
         self.compressobj = None
         self.extra = {} if extra is None else extra.copy()
         if png is not None:
             self.extra.update({'Filter': Name('FlateDecode'),
                                'DecodeParms': png})
+        index = file._xref_index(id)
         self.pos = None
+        if len is None:
+            self.file = _StreamBuffer(index, extra, png)
+        else:
+            _backends.pdf_file_begin_stream(
+                file._native, index, len.id, _pdf_entries(extra or {}),
+                None if png is None else _pdf_object(png))
+
+    @classmethod
+    def _open(cls, id, file):
+        """The stream *id* of *file*, open already (pltrs (Rust)'s)."""
+        stream = cls.__new__(cls)
+        stream.id = id
+        stream.len = stream.compressobj = stream.pos = None
+        stream.pdfFile = stream.file = file
+        stream.extra = {}
+        return stream
 
     def end(self):
         """Finalize stream."""
-        _backends.pdf_file_end_stream(self.pdfFile._native)
+        buffer = self.file
+        if isinstance(buffer, _StreamBuffer):
+            _backends.pdf_file_write_stream(
+                self.pdfFile._native, buffer.index, _pdf_entries(buffer.extra or {}),
+                None if buffer.png is None else _pdf_object(buffer.png),
+                buffer.getvalue())
+        else:
+            _backends.pdf_file_end_stream(self.pdfFile._native)
 
     def write(self, data):
         """Write some data on the stream."""
-        _backends.pdf_file_write(self.pdfFile._native, data)
+        if isinstance(self.file, io.BytesIO):
+            self.file.write(data)
+        else:
+            _backends.pdf_file_write(self.pdfFile._native, _bytes(data))
+
+
+class _StreamBuffer(io.BytesIO):
+    """The buffer of a `Stream` of inline length (matplotlib's ``file``
+    is a `io.BytesIO` then), with what pltrs (Rust) writes the stream with
+    when it ends: its index in the cross-reference table, the extra
+    entries given and the PNG decode parameters."""
+
+    def __init__(self, index, extra, png):
+        super().__init__()
+        self.index, self.extra, self.png = index, extra, png
+
+
+def _bytes(data):
+    """*data*, refused unless bytes-like with the message of matplotlib's
+    file (or compressor) writing it."""
+    try:
+        memoryview(data)
+    except TypeError:
+        raise TypeError("a bytes-like object is required, not "
+                        f"'{type(data).__name__}'") from None
+    return data
 
 
 def _info_of(entries):
@@ -535,8 +576,9 @@ class PdfFile:
 
     def _name_object(self, name):
         """The `Name` *name* of a resource of the document (a font, an
-        alpha state): one object per resource, as matplotlib keeps them
-        (``_fontNames``, ``alphaStates``)."""
+        alpha state, a hatch pattern): one object per resource, as
+        matplotlib keeps them (``_fontNames``, ``alphaStates``,
+        ``_hatch_patterns``)."""
         return self.__dict__.setdefault("_name_objects", {}).setdefault(
             name, Name(name))
 
@@ -571,18 +613,28 @@ class PdfFile:
     def newPage(self, width, height):
         self.endStream()
         self.width, self.height = width, height
-        # The page's media box, in points.
-        72 * width, 72 * height  # noqa: B018
-        _backends.pdf_file_new_page(self._native, width, height)
+        # The page's media box, in points, as matplotlib computes it.
+        media_box = [0, 0, 72 * width, 72 * height]
+        size = [float(v) if isinstance(v, Real) else math.nan for v in (width, height)]
+        _backends.pdf_file_new_page(self._native, *size, _pdf_object(media_box))
 
     def newTextnote(self, text, positionRect=[-100, -100, 0, 0]):
         # Create a new annotation of type text
-        x0, y0, x1, y1 = map(float, positionRect)
-        _backends.pdf_pages_attach_note(self._native, str(text),
-                                        (x0, y0, x1, y1))
+        try:
+            note = _pdf_object(text), _pdf_object(positionRect)
+        except TypeError as error:
+            # matplotlib keeps the note as it is given, and fails to write it
+            # where it writes the annotations of the pages.
+            self.__dict__.setdefault("_unwritable_note", error)
+            return
+        _backends.pdf_pages_attach_note(self._native, *note)
 
     def finalize(self):
         """Write out the various deferred objects and the pdf end matter."""
+        unwritable = self.__dict__.get("_unwritable_note")
+        if unwritable is not None:
+            self.endStream()
+            raise unwritable
         _backends.pdf_file_set_info(self._native,
                                     _native_info_of(self.infoDict))
         _backends.pdf_file_finalize(self._native)
@@ -592,29 +644,44 @@ class PdfFile:
         _write_bytes(_backends.pdf_file_close(self._native), self._filename)
 
     def write(self, data):
-        try:
-            memoryview(data)
-        except TypeError:
-            # The message of matplotlib's file (or compressor) writing it.
-            raise TypeError("a bytes-like object is required, not "
-                            f"'{type(data).__name__}'") from None
-        _backends.pdf_file_write(self._native, data)
+        current = self.__dict__.get("_current")
+        if current is not None:
+            current.write(data)
+        else:
+            _backends.pdf_file_write(self._native, _bytes(data))
 
     def output(self, *data):
-        _backends.pdf_file_output(self._native, [_pdf_object(x) for x in data])
+        objects = [_pdf_object(x) for x in data]
+        if self.__dict__.get("_current") is not None:
+            self.write(_backends.pdf_line(objects))
+        else:
+            _backends.pdf_file_output(self._native, objects)
 
     @property
     def currentstream(self):
-        """The `Stream` being written, if any."""
+        """The `Stream` being written, if any: the one `beginStream` began,
+        else pltrs (Rust)'s (the content stream of a page)."""
+        current = self.__dict__.get("_current")
+        if current is not None:
+            return current
         id = _backends.pdf_file_open_stream(self._native)
         return None if id is None else Stream._open(id, self)
 
     def beginStream(self, id, len, extra=None, png=None):
         assert self.currentstream is None
-        Stream(id, len, self, extra, png)
+        self._current = Stream(id, len, self, extra, png)
 
     def endStream(self):
-        _backends.pdf_file_end_stream(self._native)
+        current = self.__dict__.pop("_current", None)
+        if current is not None:
+            current.end()
+        else:
+            _backends.pdf_file_end_stream(self._native)
+
+    def _xref_index(self, id):
+        """The object *id* names in the cross-reference table, as
+        matplotlib's ``recordXref`` indexes its list of offsets."""
+        return [*range(_backends.pdf_file_object_count(self._native))][id]
 
     def outputStream(self, ref, data, *, extra=None):
         self.beginStream(ref.id, None, extra)
@@ -714,7 +781,7 @@ class PdfFile:
         edge, face, hatch, lw = hatch_style
         colors = [None if c is None else [float(v) for v in c]
                   for c in (edge, face)]
-        return Name(_backends.pdf_file_hatch_pattern(
+        return self._name_object(_backends.pdf_file_hatch_pattern(
             self._native, (*colors, hatch, float(lw))))
 
     def _hatch_patterns(self):
@@ -831,7 +898,7 @@ class PdfFile:
         return Reference(id)
 
     def recordXref(self, id):
-        _backends.pdf_file_record_xref(self._native, id)
+        _backends.pdf_file_record_xref(self._native, self._xref_index(id))
 
     def writeObject(self, object, contents):
         _backends.pdf_file_write_object(self._native, object.id,
@@ -1357,7 +1424,7 @@ class FigureCanvasPdf(FigureCanvasBase):
                         self._print_settings(**settings), self._send_draw_event)
             else:
                 self._print_native("pdf", filename,
-                                   metadata=_native_info(metadata), **settings)
+                                   metadata=_native_info(metadata or {}), **settings)
 
 
 FigureManagerPdf = FigureManagerBase
@@ -1372,7 +1439,6 @@ class _BackendPdf(_Backend):
 # import from it.
 import codecs  # noqa: E402, F401
 import itertools  # noqa: E402, F401
-import math  # noqa: E402, F401
 import string  # noqa: E402, F401
 import struct  # noqa: E402, F401
 import sys  # noqa: E402, F401

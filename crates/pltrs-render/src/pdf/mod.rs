@@ -38,15 +38,15 @@ use pltrs_text::tex::{TexError, TexText};
 use pltrs_text::{AfmDirectory, TextRun};
 
 pub use self::file::{PdfFont, PdfHatch};
-pub use self::object::{Obj as PdfObject, text_string as pdf_text_string};
+pub use self::object::{Obj as PdfObject, line as pdf_line, text_string as pdf_text_string};
 pub use self::resources::{
     MarkerPaint as PdfMarkerPaint, ShadingColors as PdfShadingColors,
     TemplatePaint as PdfTemplatePaint,
 };
 
 use self::fonts::FontNames;
-use self::object::Obj;
-use self::pages::{Note, PageParents, Pages};
+use self::object::{Obj, text_string};
+use self::pages::{Note, PageParents, Pages, media_box};
 use self::resources::{ResourceIds, Resources};
 use self::state::{PdfState, StateStack};
 use self::tex::DviFonts;
@@ -267,6 +267,25 @@ impl PdfRenderer {
     /// When the resolution is not positive and finite, the size is not
     /// finite, or the previous page could not be written.
     pub fn new_page(&mut self, width: f64, height: f64, image_dpi: f64) -> Result<(), VectorError> {
+        self.new_page_spanning(width, height, image_dpi, media_box(width, height))
+    }
+
+    /// [`new_page`](Self::new_page) for a page whose media box is written
+    /// as `media_box`: whatever matplotlib's `newPage` writes for the size
+    /// it is given (`[0, 0, 72 * width, 72 * height]` in Python's
+    /// arithmetic), the page drawn as `width × height` inches.
+    ///
+    /// # Errors
+    ///
+    /// As [`new_page`](Self::new_page), and when `media_box` holds a
+    /// non-finite number.
+    pub fn new_page_spanning(
+        &mut self,
+        width: f64,
+        height: f64,
+        image_dpi: f64,
+        media_box: Obj,
+    ) -> Result<(), VectorError> {
         if !(image_dpi.is_finite() && image_dpi > 0.0) {
             return Err(VectorError::InvalidCanvas {
                 width,
@@ -279,7 +298,7 @@ impl PdfRenderer {
             pages: self.ids.pages,
             resources: self.ids.resource_dictionary,
         };
-        let contents = self.pages.start(&mut self.writer, parents, width, height)?;
+        let contents = self.pages.start(&mut self.writer, parents, media_box)?;
         let length = self.writer.reserve();
         self.writer
             .begin_stream(contents, Some(length), Vec::new(), None);
@@ -297,10 +316,15 @@ impl PdfRenderer {
     /// Attaches a text note shown at `rect` (`[x0, y0, x1, y1]` in points)
     /// to the next page started (matplotlib's `newTextnote`).
     pub fn attach_note(&mut self, text: &str, rect: [f64; 4]) {
-        self.pages.add_note(Note {
-            text: text.to_owned(),
-            rect,
-        });
+        self.attach_note_objects(text_string(text), Obj::reals(rect));
+    }
+
+    /// [`attach_note`](Self::attach_note) of a note whose text and
+    /// rectangle are written as `contents` and `rect`: whatever matplotlib's
+    /// `newTextnote` is given, kept as it is until the annotations are
+    /// written.
+    pub fn attach_note_objects(&mut self, contents: Obj, rect: Obj) {
+        self.pages.add_note(Note { contents, rect });
     }
 
     /// How many pages the document has.

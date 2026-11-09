@@ -322,13 +322,19 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Whether the artist is 'stale' and needs to be re-drawn for the output
         to match the internal state of the artist.
         """
-        return _artist.get_stale(self._native)
+        # A value other than a bool reads back as given (matplotlib keeps
+        # it) while pltrs (Rust) holds its truth.
+        return _values.given_flag(self, "stale", _artist.get_stale(self._native))
 
     @stale.setter
     def stale(self, val):
         # pltrs (Rust) marks what contains the artist stale too, unless
         # the artist is animated.
         _artist.set_stale(self._native, bool(val))
+        if type(val) is not bool:
+            _values.remember(self, "stale", val)
+        elif "_given_values" in self.__dict__:
+            self.__dict__["_given_values"].pop("stale", None)
         self._went_stale(val)
 
     def get_visible(self):

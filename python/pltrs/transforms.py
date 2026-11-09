@@ -2882,6 +2882,11 @@ def _comparison_typed(result, *operands):
     return result
 
 
+def _numbers(*values):
+    """Whether *values* are all real numbers, which pltrs (Rust) compares."""
+    return all(isinstance(value, numbers.Real) for value in values)
+
+
 def _interval_contains(interval, val):
     """
     Check, inclusively, whether an interval includes a given value.
@@ -2899,6 +2904,11 @@ def _interval_contains(interval, val):
         Whether *val* is within the *interval*.
     """
     a, b = interval
+    if not _numbers(a, b, val):
+        # matplotlib's comparisons, for what is no number.
+        if a > b:
+            a, b = b, a
+        return a <= val <= b
     return _comparison_typed(
         _transforms.interval_contains((a, b), val, False, None), a, b, val)
 
@@ -2955,6 +2965,9 @@ def _interval_contains_open(interval, val):
         Whether *val* is within the *interval*.
     """
     a, b = interval
+    if not _numbers(a, b, val):
+        # matplotlib's comparisons, for what is no number.
+        return a < val < b or a > val > b
     return _comparison_typed(
         _transforms.interval_contains((a, b), val, True, None), a, b, val)
 

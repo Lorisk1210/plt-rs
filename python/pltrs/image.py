@@ -15,6 +15,7 @@ License). `composite_images` composites through pltrs (Rust).
 import functools
 import logging
 import os
+from numbers import Real
 from pathlib import Path
 import weakref
 
@@ -1404,6 +1405,16 @@ class FigureImage(_ImageBase):
         self.ox, self.oy = xo, yo
         self.magnification = 1.0
         self._resampling_settings()
+        if not self._offset_held():
+            # matplotlib's image keeps its offset unchecked and divides it
+            # by its magnification where it makes its pixels.
+            _unusable.keep(self, "offset", (xo, yo),
+                           lambda offset: (offset[0] / 1.0, offset[1] / 1.0))
+
+    def _offset_held(self):
+        """Whether pltrs (Rust) holds the image's offset: numbers (it
+        places the image at the corner of the figure meanwhile)."""
+        return all(isinstance(offset, Real) for offset in (self.ox, self.oy))
 
     def _new_native(self, colorizer, spec):
         self._resampling_given = {name: spec[name] for name in (
@@ -1411,7 +1422,7 @@ class FigureImage(_ImageBase):
             'filterrad', 'resample')}
         return _native_image.new_figure_image(
             colorizer.cmap, colorizer.norm, spec['origin'],
-            (float(self.ox), float(self.oy)))
+            (float(self.ox), float(self.oy)) if self._offset_held() else (0.0, 0.0))
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""

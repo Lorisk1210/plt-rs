@@ -7,7 +7,10 @@
 //! artist's `draw` with the renderer of the draw recording into a drawing;
 //! then it draws that drawing at the artist's place. An artist the draw
 //! reaches without having prepared it is recorded there and then, the
-//! figure being drawn meanwhile.
+//! figure being drawn meanwhile. An exception the artist's `draw` raised
+//! while it was recorded beforehand raises when the draw reaches the
+//! artist: the artists drawn before it may fail first, as they do in
+//! matplotlib's draw.
 
 use std::any::Any;
 use std::cell::{Cell, RefCell};
@@ -19,8 +22,8 @@ use pltrs::artist::{
 };
 use pltrs::transforms::Bbox;
 
-use crate::binding::lookup;
 use crate::binding::prelude::*;
+use crate::binding::{lookup, report};
 
 /// What the renderer of a draw is, for the Python renderer recording
 /// with it: its canvas size in pixels, its resolution, whether it scales
@@ -59,8 +62,9 @@ pub(in crate::modules) struct PythonPainter {
     /// Whether the class measures the artist (`get_window_extent` or
     /// `get_tightbbox` of the program's).
     measures: bool,
-    /// The drawing recorded for the coming draw.
-    prepared: RefCell<Option<Drawing>>,
+    /// The drawing recorded for the coming draw, or the exception the
+    /// artist's `draw` raised recording it.
+    prepared: RefCell<Option<PyResult<Drawing>>>,
     /// The extent the class measured last, in display pixels.
     measured: Cell<MeasuredExtent>,
 }
@@ -101,14 +105,16 @@ impl PythonPainter {
     }
 
     /// Runs the artist's `draw` for a draw with `target`: the drawing it
-    /// drew; `None` when it raised (its exception raises from the native
-    /// call drawing) or the artist is gone.
-    fn record(&self, target: Target) -> Option<Drawing> {
+    /// drew, or the exception it raised; `None` when the artist is gone or
+    /// an earlier callback of the native call drawing raised.
+    fn record(&self, target: Target) -> Option<PyResult<Drawing>> {
         Python::with_gil(|py| {
             let artist = self.artist(py)?;
             let record: Callback = lookup(py, "record_drawing").ok()?.extract().ok()?;
-            let drawing: Native<Drawing> = record.call((artist, target))?;
-            Some(taken(&drawing))
+            record
+                .try_call::<Native<Drawing>>((artist, target))
+                .transpose()
+                .map(|drawing| drawing.map(|drawing| taken(&drawing)))
         })
     }
 }
@@ -124,9 +130,10 @@ impl ArtistPainter for PythonPainter {
         let depth = ctx.raster_depth();
         // `ctx.renderer()` lets the figure go: the artist's `draw` finds
         // it free.
-        let drawing = prepared.or_else(|| self.record(target(ctx.renderer(), depth, true)));
-        if let Some(drawing) = drawing {
-            drawing.draw(ctx, artist);
+        match prepared.or_else(|| self.record(target(ctx.renderer(), depth, true))) {
+            Some(Ok(drawing)) => drawing.draw(ctx, artist),
+            Some(Err(err)) => report(err),
+            None => {}
         }
     }
 

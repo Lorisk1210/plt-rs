@@ -13,7 +13,8 @@ from ._native import figure as _figure, figure_layout as _figure_layout
 from ._native import rcsetup as _rcsetup
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
-from .text import Text, _layout_renderer, _measured_by, _measuring_with
+from .text import (Text, _layout_renderer, _measured_by, _measuring_with,
+                   _rotation_degrees)
 from .transforms import Bbox, TransformedBbox
 
 #: The native function making each figure-wide text, and whether its
@@ -314,14 +315,41 @@ default: %(va)s
             Selects which ticklabels to rotate.
         """
         _api.check_in_list(['major', 'minor', 'both'], which=which)
-        _api.check_in_list(['left', 'center', 'right'], ha=ha)
-        from .text import _rotation_degrees
-        if bottom is None:
-            # matplotlib's ``subplots_adjust(bottom=None)`` keeps the bottom.
-            bottom = self.subplotpars.bottom
-        _figure_layout.autofmt_xdate(self._native, float(bottom),
-                                     _rotation_degrees(rotation), ha, which)
+        axes = [ax for ax in self.axes if ax.get_label() != '<colorbar>']
+        allsubplots = all(ax.get_subplotspec() for ax in axes)
+        self._check_turned_labels(axes, allsubplots, rotation, ha, which)
+        try:
+            degrees = _rotation_degrees(rotation)
+            _api.check_in_list(['center', 'right', 'left'], align=ha)
+        except ValueError:
+            pass  # No label was turned, which would have refused them.
+        else:
+            # The labels turned, the subplots placed as they are.
+            _figure_layout.autofmt_xdate(self._native, None, degrees, ha, which)
+        engine = self.get_layout_engine()
+        if allsubplots and (engine is None or engine.adjust_compatible):
+            self.subplots_adjust(bottom=bottom)
         self.stale = True
+
+    def _check_turned_labels(self, axes, allsubplots, rotation, ha, which):
+        """
+        Take the tick labels `autofmt_xdate` changes as matplotlib's does,
+        for its errors: those of each Axes in *axes* (the figure's but its
+        colorbars) it turns or hides, in order (placing their ticks), the
+        first label turned checking *ha* (`.Text.set_ha`), then *rotation*
+        (`.Text.set_rotation`).
+        """
+        if len(axes) == 1:
+            turned = [(self.axes[0], True)]
+        elif allsubplots:
+            turned = [(ax, ax.get_subplotspec().is_last_row())
+                      for ax in self.get_axes()]
+        else:
+            return
+        for ax, turns in turned:
+            if ax.get_xticklabels(which=which) and turns:
+                _api.check_in_list(['center', 'right', 'left'], align=ha)
+                _rotation_degrees(rotation)
 
     def get_default_bbox_extra_artists(self):
         """

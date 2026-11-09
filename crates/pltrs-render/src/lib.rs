@@ -55,7 +55,7 @@ pub use image::{ImageSizeError, RgbaImage};
 pub use mixed::MixedModeRenderer;
 pub use pdf::{
     PdfFont, PdfHatch, PdfMarkerPaint, PdfObject, PdfOptions, PdfRenderer, PdfShadingColors,
-    PdfTemplatePaint, pdf_text_string,
+    PdfTemplatePaint, pdf_line, pdf_text_string,
 };
 pub use pgf::{PgfDocument, PgfOptions, PgfRenderer, pgf_text, pgf_unknown_family};
 pub use ps::{

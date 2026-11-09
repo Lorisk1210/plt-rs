@@ -150,3 +150,17 @@ fn degenerate_data_never_panics() {
     let cases = [line_cases(), stat_cases(), field_cases(), other_cases()].concat();
     common::assert_no_panics(&cases, |run, fig, x, y| run(fig, &fig.subplot(), x, y));
 }
+
+#[test]
+fn colorbar_axes_take_any_aspect_and_fail_where_drawn() {
+    use pltrs::colorbar::make_axes;
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let options = ColorbarOptions {
+        aspect: -1.5,
+        ..ColorbarOptions::default()
+    };
+    let made = make_axes(&[ax], &options).expect("matplotlib takes any aspect");
+    assert_eq!(made.cax.box_aspect(), Some(-1.5));
+    assert!(fig.to_png().is_err(), "the box aspect is not positive");
+}

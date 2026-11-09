@@ -270,3 +270,36 @@ fn type42_subsets_follow_the_subset_fonttype() {
     assert_eq!(fonts(FontType::Type42), 1, "one subset holds the plane");
     assert_eq!(fonts(FontType::Type3), 2, "codes from 256 on start another");
 }
+
+#[test]
+fn streams_of_inline_length_are_written_whole_beside_an_open_one() {
+    let mut r = renderer();
+    let id = r.reserve_object();
+    let count = r.object_count();
+    assert_eq!(count, id as usize + 1, "the zero object counts");
+    // The page's content stream is open; the stream is written beside it.
+    r.write_stream(id, Vec::new(), None, b"q Q".to_vec())
+        .expect("finite entries");
+    assert!(r.open_stream().is_some(), "the page stays open");
+    let pdf = text(&r.finish().expect("document"));
+    assert!(pdf.contains(&format!(
+        "{id} 0 obj\n<< /Length 3 >>\nstream\nq Q\nendstream"
+    )));
+}
+
+#[test]
+fn pages_and_notes_take_whatever_objects_they_are_given() {
+    let mut r = renderer();
+    let media = PdfObject::Array(vec![
+        PdfObject::Int(0),
+        PdfObject::Int(0),
+        PdfObject::Str(b"444".to_vec()),
+        PdfObject::Int(216),
+    ]);
+    r.attach_note_objects(PdfObject::Null, PdfObject::Array(Vec::new()));
+    r.new_page_spanning(f64::NAN, 3.0, 72.0, media)
+        .expect("a page of any media box");
+    let pdf = text(&r.finish().expect("document"));
+    assert!(pdf.contains("/MediaBox [ 0 0 (444) 216 ]"));
+    assert!(pdf.contains("/Contents null /Rect [ ]"));
+}

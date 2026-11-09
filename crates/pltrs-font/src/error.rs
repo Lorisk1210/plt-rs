@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use crate::afm::AfmError;
 use crate::hinting::{BytecodeError, BytecodeProgram};
+use crate::scale::SizeError;
 use crate::type1::Type1Error;
 use crate::types::Tag;
 
@@ -81,6 +82,8 @@ pub enum FontError {
         /// The unknown name.
         name: String,
     },
+    /// A size FreeType refuses to set (`FT_Set_Char_Size`).
+    Size(SizeError),
 }
 
 impl FontError {
@@ -115,6 +118,7 @@ impl fmt::Display for FontError {
             Self::Afm(err) => write!(f, "{err}"),
             Self::Type1(err) => write!(f, "{err}"),
             Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
+            Self::Size(err) => write!(f, "cannot set the font size: {err}"),
         }
     }
 }
@@ -124,6 +128,7 @@ impl std::error::Error for FontError {
         match self {
             Self::Afm(err) => Some(err),
             Self::Type1(err) => Some(err),
+            Self::Size(err) => Some(err),
             _ => None,
         }
     }
@@ -132,6 +137,12 @@ impl std::error::Error for FontError {
 impl From<AfmError> for FontError {
     fn from(err: AfmError) -> Self {
         Self::Afm(err)
+    }
+}
+
+impl From<SizeError> for FontError {
+    fn from(err: SizeError) -> Self {
+        Self::Size(err)
     }
 }
 

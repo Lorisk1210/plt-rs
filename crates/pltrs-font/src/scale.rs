@@ -42,11 +42,75 @@ pub enum KerningMode {
     Unscaled,
 }
 
+/// Why FreeType refuses a font size (`FT_Set_Char_Size`), which
+/// [`Size::new`] clamps instead.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SizeError {
+    /// Less than one pixel per em in a TrueType face (FreeType's
+    /// `Invalid_PPem`).
+    InvalidPpem,
+    /// More than 65 535 pixels per em (FreeType's `Invalid_Pixel_Size`).
+    InvalidPixelSize,
+}
+
+impl SizeError {
+    /// FreeType's error code.
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::InvalidPpem => 0x97,
+            Self::InvalidPixelSize => 0x17,
+        }
+    }
+}
+
+impl std::fmt::Display for SizeError {
+    /// FreeType's error string.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::InvalidPpem => "invalid ppem value",
+            Self::InvalidPixelSize => "invalid pixel size",
+        })
+    }
+}
+
+impl std::error::Error for SizeError {}
+
 impl Size {
     /// The size matplotlib's `FT2Font.set_size(points, dpi)` selects: the
     /// point size is truncated to 26.6 and the resolution to an integer.
     pub fn new(face: &Face<'_>, points: f64, dpi: f64) -> Self {
         Self::from_char_size(face, (points * 64.0) as i64, dpi as u32)
+    }
+
+    /// [`new`](Self::new), refusing what FreeType refuses: a size of more
+    /// than 65 535 pixels per em, or of none in a TrueType face.
+    ///
+    /// ```
+    /// use pltrs_font::{Face, Size, SizeError, bundled_font_data};
+    /// let face = Face::parse(bundled_font_data("DejaVuSans.ttf").expect("bundled"), 0)?;
+    /// assert!(Size::checked(&face, 10.0, 72.0).is_ok());
+    /// assert_eq!(Size::checked(&face, 10.0, 2.5), Err(SizeError::InvalidPpem));
+    /// assert_eq!(Size::checked(&face, 1e5, 72.0), Err(SizeError::InvalidPixelSize));
+    /// # Ok::<(), pltrs_font::FontError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// The [`SizeError`] FreeType gives for the size.
+    pub fn checked(face: &Face<'_>, points: f64, dpi: f64) -> Result<Self, SizeError> {
+        let char_size = ((points * 64.0) as i64).max(64);
+        let resolution = match dpi as u32 {
+            0 => 72,
+            resolution => i64::from(resolution),
+        };
+        let ppem = (char_size.saturating_mul(resolution).saturating_add(36) / 72 + 32) >> 6;
+        if ppem > i64::from(u16::MAX) {
+            Err(SizeError::InvalidPixelSize)
+        } else if ppem == 0 && !face.is_cff() {
+            Err(SizeError::InvalidPpem)
+        } else {
+            Ok(Self::new(face, points, dpi))
+        }
     }
 
     /// `FT_Set_Char_Size(face, char_size, 0, dpi, dpi)` with `char_size` in

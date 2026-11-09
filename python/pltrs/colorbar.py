@@ -24,7 +24,9 @@ import logging
 import numpy as np
 
 from . import _docstring
-from . import _api, _handles, artist as martist, colorizer as mcolorizer, ticker
+from . import _api, _colorbar_checks, _handles, _named, artist as martist
+from . import colorizer as mcolorizer
+from . import ticker
 from . import patches as mpatches, path as mpath, spines as mspines
 from . import transforms as mtransforms
 from ._native import colorbar as _colorbar, patches as _patches
@@ -388,7 +390,7 @@ class Colorbar:
             *location* is None, the ticks will be at the bottom for a horizontal
             colorbar and at the right for a vertical.
         """
-        self._make(ax.figure, mappable, cax=ax, parents=None, layout={},
+        self._make(None, mappable, cax=ax, parents=None, layout={},
                    alpha=alpha, location=location, extend=extend,
                    extendfrac=extendfrac, extendrect=extendrect, ticks=ticks,
                    format=format, values=values, boundaries=boundaries,
@@ -418,6 +420,9 @@ class Colorbar:
         colorbar.ax.set_label('<colorbar>')
         return colorbar
 
+    # Keywords matplotlib's constructor does not take are refused in its
+    # name.
+    @_named.named("Colorbar.__init__")
     def _make(self, figure, mappable, *, cax, parents, layout, made=None,
               alpha=None,
               location=None, extend=None, extendfrac=None, extendrect=False,
@@ -425,10 +430,12 @@ class Colorbar:
               spacing='uniform', drawedges=False, label='', cmap=None,
               norm=None, orientation=None, ticklocation='auto'):
         """Check the arguments as matplotlib does and make the native
-        colorbar, calling *made* (if given) once it exists."""
+        colorbar in *figure* (that of *cax* for None), calling *made* (if
+        given) once it exists."""
         if mappable is None:
             mappable = mcolorizer._ScalarMappable(
                 colorizer=mcolorizer.Colorizer(norm=norm, cmap=cmap))
+        mappable.cmap, mappable.norm  # noqa: B018  (matplotlib's first reads)
         # A drawn mappable's opacity replaces *alpha*, as in matplotlib.
         if isinstance(mappable, martist.Artist):
             alpha = mappable.get_alpha()
@@ -451,6 +458,14 @@ class Colorbar:
                     "location and orientation are mutually exclusive")
         else:
             orientation = orientation or location_orientation or "vertical"
+        if figure is None:
+            if not isinstance(cax, martist.Artist):
+                # matplotlib's colorbar places *cax* with a locator around
+                # the one it had.
+                cax._axes_locator  # noqa: B018
+            figure = cax.figure
+        _colorbar_checks.check_colorbar(extend, ticks, locator, format, extendfrac,
+                                        orientation, ticklocation, location)
 
         if values is not None and boundaries is None:
             _check_bracketable(values)
@@ -1049,11 +1064,6 @@ def _made_axes(make, parents, natives, kwargs):
     layout['aspect'] = float(layout['aspect'])
     if layout['pad'] is not None:
         layout['pad'] = float(layout['pad'])
-    # matplotlib's errors for unknown names (`_normalize_location_orientation`).
-    location = layout['location']
-    if location is None:
-        location = _get_ticklocation_from_orientation(layout['orientation'])
-    _api.check_in_list(['left', 'right', 'top', 'bottom'], location=location)
     native, kwargs['orientation'], kwargs['ticklocation'] = make(natives, layout)
     figure = parents[0].get_figure(root=True)
     cax = _handles.wrap(native, Axes, figure)
@@ -1091,6 +1101,8 @@ def make_axes(parents, location=None, orientation=None, fraction=0.15,
         parents = list(parents)
     else:
         parents = [parents]
+    _colorbar_checks.check_make_axes(parents, location, orientation, fraction,
+                                     shrink, aspect, kwargs)
     kwargs.update(location=location, orientation=orientation,
                   fraction=fraction, shrink=shrink, aspect=aspect)
     return _made_axes(_colorbar.make_axes, parents,
@@ -1129,6 +1141,8 @@ def make_axes_gridspec(parent, *, location=None, orientation=None,
         The reduced keyword dictionary to be passed when creating the colorbar
         instance.
     """
+    _colorbar_checks.check_make_axes_gridspec(parent, location, orientation,
+                                              fraction, shrink, aspect, kwargs)
     kwargs.update(location=location, orientation=orientation,
                   fraction=fraction, shrink=shrink, aspect=aspect)
     return _made_axes(_colorbar.make_axes_gridspec, [parent], parent._native,

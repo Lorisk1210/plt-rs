@@ -53,7 +53,7 @@ impl AxisPainter<'_> {
         };
         let texts = self.texts(ctx, rc);
         for problem in &texts.problems {
-            ctx.report(self.axes_id, problem);
+            ctx.report_kind(self.axes_id, problem.kind, problem);
         }
         let gids = &self.axis.gids;
         let mut labels = texts.tick_labels.iter().peekable();

@@ -118,7 +118,7 @@ class LayoutEngine:
         matplotlib's draw runs it (see `.axes._program_locators`).
         """
         from ._native import figure as _figure
-        in_python = self._executes_in_python()
+        in_python = self._executes_in_python() or self._lays_out_kept_grids(fig)
         _figure.set_layout_engine(
             fig._native, self._placeholder_spec() if in_python else self._native_spec())
         # An engine of the program's may not have run this class' __init__.
@@ -142,6 +142,12 @@ class LayoutEngine:
         """Whether pltrs (Rust) holds the engine's parameters (the base
         class has none)."""
         return True
+
+    def _lays_out_kept_grids(self, fig):
+        """Whether the engine lays out grids of *fig* holding spacings or
+        ratios pltrs (Rust) cannot hold, which matplotlib's layout computes
+        with (the base class lays out none)."""
+        return False
 
     def _placeholder_spec(self):
         """A placeholder of the engine as pltrs (Rust) takes it: no layout
@@ -236,6 +242,9 @@ class TightLayoutEngine(LayoutEngine):
             # initialize these in case None is passed in above:
             self._params[td] = None
         self.set(pad=pad, h_pad=h_pad, w_pad=w_pad, rect=rect)
+
+    def _lays_out_kept_grids(self, fig):
+        return _layout_checks.grids_kept(fig)
 
     def execute(self, fig):
         """
@@ -355,6 +364,9 @@ class ConstrainedLayoutEngine(LayoutEngine):
 
     def _held_natively(self):
         return _layout_checks.holds_constrained(self._params)
+
+    def _lays_out_kept_grids(self, fig):
+        return _layout_checks.grids_kept(fig)
 
     def _native_spec(self):
         """The engine as pltrs (Rust) takes it."""

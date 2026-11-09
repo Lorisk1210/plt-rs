@@ -13,7 +13,7 @@ from datetime import UTC  # noqa: F401  (matplotlib's backend_svg has it)
 
 import numpy as np
 
-from .. import __version__, _api, rcParams
+from .. import __version__, _api, _named, rcParams
 from .._native import backends as _backends, text_overrides as _text_overrides
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..font_manager import FontManager
@@ -280,7 +280,7 @@ def _svg_metadata(metadata):
     from .._native import backends as _backends
     metadata = {
         'Creator': f'{_backends.default_creator()}, matplotlib {__version__} API',
-        **(metadata or {}),
+        **({} if metadata is None else metadata),
     }
     unknown = [key for key in metadata if key not in _METADATA_KEYS]
     if unknown:
@@ -315,22 +315,36 @@ class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
         self.height = height
         self.image_dpi = image_dpi
         self.basename = basename
-        if svgwriter is not None:
-            # matplotlib's renderer makes its XML writer, then writes the
-            # size of the page.
-            svgwriter.write  # noqa: B018
-            short_float(height), short_float(width)
-            self._file = svgwriter
-            self._page = _backends.svg_page_new(
-                float(width), float(height), float(image_dpi),
-                _svg_metadata(metadata))
+        # matplotlib's renderer makes its XML writer, then writes the size
+        # of the page and the metadata.
+        svgwriter.write  # noqa: B018
+        short_float(height), short_float(width)
+        self._metadata = _svg_metadata(metadata)
+        self._file = svgwriter
+
+    @classmethod
+    def _of_save(cls, width, height, image_dpi):
+        """The renderer the program's drawing receives while pltrs (Rust)
+        saves a figure of *width* × *height* points as SVG (images at
+        *image_dpi*), drawing into the document pltrs (Rust) writes."""
+        renderer = cls.__new__(cls)
+        RendererBase.__init__(renderer)
+        renderer.width = width
+        renderer.height = height
+        renderer.image_dpi = image_dpi
+        renderer.basename = None
+        return renderer
+
+    def _new_page(self):
+        return _backends.svg_page_new(float(self.width), float(self.height),
+                                      float(self.image_dpi), self._metadata)
 
     def finalize(self):
         # Write the document drawn to the *svgwriter* (the renderers of
         # pltrs's saves have no document of their own: pltrs (Rust) writes
         # it).
-        if self._page is not None:
-            self._file.write(_backends.page_finish(self._page))
+        if self._file is not None:
+            self._file.write(_backends.page_finish(self._document_page()))
             if hasattr(self._file, "flush"):
                 self._file.flush()
 
@@ -425,7 +439,7 @@ class RendererSVG(SvgArgumentsMixin, DocumentDrawingMixin, RendererBase):
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        self._text_arguments(gc, x, y, s, prop, angle)
+        self._text_arguments(gc, x, y, s, prop, angle, mtext)
         # Any true *ismath* but "TeX" typesets mathtext, as matplotlib's.
         super().draw_text(gc, x, y, s, prop, angle,
                           ismath if ismath == "TeX" else bool(ismath), mtext)
@@ -479,12 +493,14 @@ class FigureCanvasSVG(FigureCanvasBase):
     def print_svgz(self, filename, **kwargs):
         self._print_svg("svgz", filename, **kwargs)
 
+    @_named.named("FigureCanvasSVG.print_svg")
     def _print_svg(self, fmt, filename, *, bbox_inches_restore=None, metadata=None):
         """Write the figure as *fmt*, ``svg`` or ``svgz``, its texts measured
         through the metrics cache of a renderer of the print's own, as
-        matplotlib's ``print_svg`` draws with a new `RendererSVG`."""
+        matplotlib's ``print_svg`` draws with a new `RendererSVG` (named
+        so in the errors of its calls, as ``print_svgz`` calls it)."""
         width, height = self.figure.get_size_inches()
-        renderer = RendererSVG(width * 72, height * 72, None, image_dpi=self.figure.dpi)
+        renderer = RendererSVG._of_save(width * 72, height * 72, self.figure.dpi)
         with _measuring_with(renderer):
             self._print_native(fmt, filename, metadata=_svg_metadata(metadata),
                                bbox_inches_restore=bbox_inches_restore)
@@ -500,7 +516,7 @@ class FigureCanvasSVG(FigureCanvasBase):
         width, height = self.figure.get_size_inches()
         return MixedModeRenderer(
             self.figure, width, height, dpi,
-            RendererSVG(width * 72, height * 72, None, image_dpi=dpi),
+            RendererSVG._of_save(width * 72, height * 72, dpi),
             bbox_inches_restore=bbox_inches_restore)
 
     def draw(self):

@@ -8,6 +8,9 @@ use std::path::PathBuf;
 pub enum TextError {
     /// A font could not be found, read or parsed.
     Font(String),
+    /// FreeType refuses the size of a text's font at the resolution it is
+    /// laid out at (fewer than one pixel per em, or more than 65 535).
+    FontSize(pltrs_font::SizeError),
     /// A mathtext expression is malformed.
     Math(String),
     /// A language range reaches outside the text it was given for.
@@ -49,6 +52,12 @@ impl fmt::Display for TextError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Font(why) => write!(f, "font error: {why}"),
+            // As matplotlib's `FT2Font.set_size` reports FreeType's error.
+            Self::FontSize(err) => write!(
+                f,
+                "FT_Set_Char_Size (ft2font.cpp line 248) failed with error {:#04x}: {err}",
+                err.code()
+            ),
             Self::Math(why) => write!(f, "mathtext error: {why}"),
             Self::LanguageRange {
                 language,
@@ -74,6 +83,7 @@ impl std::error::Error for TextError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Tex(err) => Some(err),
+            Self::FontSize(err) => Some(err),
             _ => None,
         }
     }
@@ -87,7 +97,10 @@ impl From<crate::tex::TexError> for TextError {
 
 impl From<pltrs_font::FontError> for TextError {
     fn from(err: pltrs_font::FontError) -> Self {
-        Self::Font(err.to_string())
+        match err {
+            pltrs_font::FontError::Size(err) => Self::FontSize(err),
+            err => Self::Font(err.to_string()),
+        }
     }
 }
 

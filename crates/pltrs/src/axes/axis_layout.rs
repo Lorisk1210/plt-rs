@@ -20,7 +20,9 @@ use crate::fonts::FontProperties;
 use crate::polar;
 use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
-use crate::text::{LaidOutText, has_line_measurer, lay_out, metrics_cache_installed};
+use crate::text::{
+    LaidOutText, TextProblem, Typesetting, has_line_measurer, lay_out_as, metrics_cache_installed,
+};
 use crate::ticker::AxisName;
 use crate::transforms::{Transform, program_calls};
 
@@ -99,6 +101,7 @@ impl PlacedText {
             &laid_out.style,
             dpi,
             rc,
+            laid_out.typesetting,
         )
         .map(Cow::Owned)
     }
@@ -143,7 +146,7 @@ pub(crate) struct AxisTexts {
     /// boxes there when it places the axis label and the offset text.
     pub(crate) empty_label_anchors: Vec<(bool, Point)>,
     /// Texts that could not be laid out.
-    pub(crate) problems: Vec<String>,
+    pub(crate) problems: Vec<TextProblem>,
 }
 
 /// Where a tick label goes: its anchor in display coordinates, default
@@ -220,7 +223,7 @@ impl<'a> AxisPainter<'a> {
             cx.release_if(has_line_measurer);
             for label in &texts.tick_labels {
                 if let Err(err) = label.text.laid_out.measure_again(dpi, rc) {
-                    texts.problems.push(err.to_string());
+                    texts.problems.push(err.into());
                 }
             }
         }
@@ -313,7 +316,7 @@ impl<'a> AxisPainter<'a> {
         rc: &RcParams,
         (minor, index): (bool, usize),
         first_side: bool,
-    ) -> Option<Result<PlacedText, String>> {
+    ) -> Option<Result<PlacedText, TextProblem>> {
         let ticks = self.axis.ticks.as_ref().ok()?;
         let tick = ticks.unclipped(minor).get(index)?;
         program_calls::quietly(|| {
@@ -547,7 +550,7 @@ fn lay_out_tick_label(
     style: &TickStyle,
     placement: &LabelPlacement,
     rc: &RcParams,
-) -> Result<PlacedText, String> {
+) -> Result<PlacedText, TextProblem> {
     let font = style.label_font(rc);
     let (halign, valign) = placement.align;
     let halign = style.label_halign.unwrap_or(halign);
@@ -569,6 +572,7 @@ fn lay_out_tick_label(
         &block,
         placement.anchor,
         rc,
+        Typesetting::from_rc(rc),
     )?;
     Ok(PlacedText {
         url: style.label_url.clone(),
@@ -593,16 +597,18 @@ fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
         .collect()
 }
 
-/// `text` laid out at `dpi` with `font` and `block`, its glyphs placed as
-/// the rc path effects draw them (the axis texts are drawn through them).
+/// `text` laid out at `dpi` with `font` and `block`, typeset as
+/// `typesetting` says, its glyphs placed as the rc path effects draw them
+/// (the axis texts are drawn through them).
 fn lay_out_axis_text(
     text: &str,
     font: &FontProperties,
     block: &BlockStyle,
     dpi: f64,
     rc: &RcParams,
+    typesetting: Typesetting,
 ) -> Result<LaidOutText, TextError> {
-    let laid_out = lay_out(text, font, block, dpi, rc)?;
+    let laid_out = lay_out_as(text, font, block, dpi, rc, typesetting)?;
     if rc.path_effects.is_empty() {
         return Ok(laid_out);
     }
@@ -619,11 +625,25 @@ pub(crate) fn place_text(
     anchor: Point,
     rc: &RcParams,
 ) -> Result<PlacedText, String> {
-    place_text_measured(&mut layout, text, font, color, block, anchor, rc)
+    place_text_measured(
+        &mut layout,
+        text,
+        font,
+        color,
+        block,
+        anchor,
+        rc,
+        Typesetting::from_rc(rc),
+    )
+    .map_err(|problem| problem.message)
 }
 
-/// [`place_text`], letting the figure go while the program measures the
-/// text (`cx`).
+/// [`place_text`] typeset as `typesetting` says, letting the figure go
+/// while the program measures the text (`cx`).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the text, its look and placement, and how it is typeset"
+)]
 pub(crate) fn place_text_measured(
     cx: &mut impl FigureReader,
     text: &str,
@@ -632,11 +652,12 @@ pub(crate) fn place_text_measured(
     block: &BlockStyle,
     anchor: Point,
     rc: &RcParams,
-) -> Result<PlacedText, String> {
+    typesetting: Typesetting,
+) -> Result<PlacedText, TextProblem> {
     let dpi = cx.read().dpi();
     cx.release_if(has_line_measurer);
-    let laid_out = lay_out_axis_text(text, font, block, dpi, rc).map_err(|e| e.to_string())?;
-    let color = color.resolve().map_err(|e| e.to_string())?;
+    let laid_out = lay_out_axis_text(text, font, block, dpi, rc, typesetting)?;
+    let color = color.resolve()?;
     Ok(PlacedText {
         laid_out,
         anchor,

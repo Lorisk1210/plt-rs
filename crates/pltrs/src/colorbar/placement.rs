@@ -266,18 +266,16 @@ impl<'a> Request<'a> {
     /// Anchors the parents, shapes the colorbar axes and records where
     /// the colorbar took its space for layout engines (matplotlib's
     /// `_colorbar_info`).
-    fn finish(self, cax: Axes, parents: &[Parent], pad: f64) -> Result<ColorbarCax, ColorbarError> {
+    fn finish(self, cax: Axes, parents: &[Parent], pad: f64) -> ColorbarCax {
         if let Some(panchor) = self.panchor {
             for parent in parents {
                 parent.set_anchor(panchor);
             }
         }
         cax.set_anchor(self.anchor);
-        let box_aspect = self.box_aspect();
-        if !(box_aspect > 0.0 && box_aspect.is_finite()) {
-            return Err(ColorbarError::InvalidAspect(self.options.aspect));
-        }
-        cax.set_box_aspect(Some(box_aspect));
+        // Any ratio, as matplotlib's `set_box_aspect` takes it: one that is
+        // not positive fails where the colorbar axes is drawn.
+        cax.set_box_aspect(Some(self.box_aspect()));
         cax.set_aspect(Aspect::Auto)
             .expect("the auto aspect is always valid");
         let layout = ColorbarLayout {
@@ -296,11 +294,11 @@ impl<'a> Request<'a> {
             .layout
             .colorbars
             .push(layout);
-        Ok(ColorbarCax {
+        ColorbarCax {
             cax,
             orientation: self.defaults.orientation,
             location: self.defaults.location,
-        })
+        }
     }
 }
 
@@ -372,7 +370,7 @@ pub(crate) fn make_axes_in(
     let (left, bottom, width, height) = colorbar_box.bounds();
     let cax = figure.add_axes([left, bottom, width, height])?;
     place(&cax, colorbar_box, None);
-    request.finish(cax, parents, pad)
+    Ok(request.finish(cax, parents, pad))
 }
 
 /// The three pieces of a two-way split.
@@ -439,7 +437,7 @@ pub(crate) fn make_axes_gridspec_in(
     let position = main.position(&figure.subplot_params())?;
     parent.place(position, Some(main));
     let cax = figure.add_subplot_spec(&colorbar)?;
-    request.finish(cax, &[parent], pad)
+    Ok(request.finish(cax, &[parent], pad))
 }
 
 #[cfg(test)]

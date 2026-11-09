@@ -143,11 +143,12 @@ fn place_super_text(figure: Figure, kind: String, at: f64) -> PyResult<()> {
 
 /// Rotates the x tick labels of level `which` ("major", "minor" or
 /// "both") by `rotation` degrees, aligned `ha`, keeping them on the
-/// bottom row of subplots only, and makes `bottom` room below
+/// bottom row of subplots only, and makes `bottom` room below, or keeps
+/// the bottom for None, which the Python side then adjusts itself
 /// (`autofmt_xdate`; the names are already checked).
 fn autofmt_xdate(
     figure: Figure,
-    bottom: f64,
+    bottom: Option<f64>,
     rotation: f64,
     ha: String,
     which: String,
@@ -156,6 +157,7 @@ fn autofmt_xdate(
     let level: TickLevel = which
         .parse()
         .map_err(|err: pltrs::rc::UnknownName| PyErr::value_error(err.to_string()))?;
+    let bottom = bottom.unwrap_or_else(|| figure.subplot_params().bottom);
     figure.autofmt_xdate(bottom, rotation, halign, level)?;
     Ok(())
 }

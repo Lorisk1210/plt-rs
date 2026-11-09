@@ -19,11 +19,12 @@ License).
 """
 
 from numbers import Real
+import weakref
 
 import numpy as np
 
 from . import _docstring
-from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors,
+from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors, _pybind,
                _python_drawing, _unusable, _values, cbook, colors as mcolors)
 from ._drawn_with import DrawnWith
 from ._program_classes import takes_from_program
@@ -60,9 +61,9 @@ class _CellText(_mirrors.Mirroring):
 
 
 def _points(size):
-    """A font size in points: a number, or a size name (``'large'``) as a
-    text's font properties take it."""
-    if isinstance(size, str):
+    """A font size in points: a number, or a size name (``'large'``, None
+    for :rc:`font.size`) as a text's font properties take it."""
+    if size is None or isinstance(size, str):
         from .font_manager import FontProperties
         return FontProperties(size=size).get_size_in_points()
     return float(size)
@@ -190,6 +191,44 @@ substring of 'BRTL'
         table = self.__dict__.get("_table")
         return table if isinstance(table, Table) else None
 
+    def _kept_changed(self):
+        """What the cell keeps changed (`._unusable`): its table, which
+        draws it, checks what its cells keep where it draws them."""
+        table = self._drawer()
+        if table is not None:
+            table._watch_cells()
+
+    def set_sketch_params(self, scale=None, length=None, randomness=None):
+        super().set_sketch_params(scale, length, randomness)
+        self._keep_uncast("sketch_params", self.get_sketch_params(), lambda sketch: (
+            sketch is None or all(_pybind.double(value) for value in sketch)))
+
+    def set_snap(self, snap):
+        super().set_snap(snap)
+        self._keep_uncast("snap", snap, lambda snap: snap is None or (
+            not isinstance(snap, (str, bytes)) and hasattr(type(snap), "__bool__")))
+
+    def set_hatch_linewidth(self, lw):
+        super().set_hatch_linewidth(lw)
+        self._keep_uncast("hatch_linewidth", lw, _pybind.double)
+
+    def _keep_uncast(self, name, value, casts):
+        """Keep *value*, the cell's property *name*, while matplotlib's Agg
+        renderer could not cast it to the graphics context it draws the
+        cell with (*casts* tells whether it can)."""
+        if casts(value):
+            _unusable.drop(self, name)
+        else:
+            _unusable.keep(self, name, value, _refuse_cast)
+
+    def set_agg_filter(self, filter_func):
+        super().set_agg_filter(filter_func)
+        if filter_func is None or callable(filter_func):
+            _unusable.drop(self, "agg_filter")
+        else:
+            # matplotlib's cell is filtered by calling it, once drawn.
+            _unusable.keep(self, "agg_filter", filter_func, lambda f: f())
+
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if name == "draw" and isinstance(self.__dict__.get("_table"), Table):
@@ -216,7 +255,15 @@ substring of 'BRTL'
         # Set the artist transform: the cell, its place in its table being in
         # the coordinates of *t* (pltrs: its text is drawn there too).
         self._cell_transform = t
-        _table.set_cell_transform(self._ref(), _live_transforms.to_native(t))
+        try:
+            native = _live_transforms.to_native(t)
+        except AttributeError:
+            # matplotlib's cell keeps it, and measures its text in its
+            # coordinates once drawn.
+            _unusable.keep(self, "transform", t, lambda t: t.inverted())
+            return
+        _unusable.drop(self, "transform")
+        _table.set_cell_transform(self._ref(), native)
 
     def is_transform_set(self):
         """Return whether the cell was given its transform: a table gives
@@ -289,9 +336,20 @@ substring of 'BRTL'
     def auto_set_font_size(self, renderer):
         """Shrink font size until the text fits into the cell width."""
         # pltrs: measured in the figure's current layout at its resolution.
+        self._measure_text_with(renderer)
         if isinstance(self._table, _CellHolder):
             return _measured(None)
         return _table.fit_font_size(self._ref())
+
+    def _measure_text_with(self, renderer):
+        """Measure the cell's text with *renderer* as matplotlib's does: its
+        text keeps the last renderer it was given, by whose metrics cache
+        (weakly keyed by it) its lines are measured."""
+        if renderer is not None:
+            self._text_renderer = renderer
+        renderer = self.__dict__.get("_text_renderer")
+        if renderer is not None:
+            weakref.ref(renderer)
 
     @allow_rasterization
     def draw(self, renderer):
@@ -308,11 +366,17 @@ substring of 'BRTL'
         """
         Return the text bounds as *(x, y, width, height)* in table coordinates.
         """
+        self._measure_text_with(renderer)
         return tuple(map(np.float64, _measured(_table.text_bounds(self._ref()))))
 
     def get_required_width(self, renderer):
         """Return the minimal required width for the cell."""
-        l, b, w, h = self.get_text_bounds(renderer)
+        self._measure_text_with(renderer)
+        return self._required_width()
+
+    def _required_width(self):
+        """The width the cell's text needs, measured in its table's figure."""
+        l, b, w, h = map(np.float64, _measured(_table.text_bounds(self._ref())))
         return w * (1.0 + (2.0 * self.PAD))
 
     @_docstring.interpd
@@ -408,12 +472,22 @@ substring of 'BRTL'
     def set_width(self, w):
         """Set the width of the cell."""
         super().set_width(w)
-        _table.set_width(self._ref(), float(w))
+        if isinstance(w, Real):
+            _table.set_width(self._ref(), float(w))
+        self._kept_changed()
 
     def set_height(self, h):
         """Set the height of the cell."""
         super().set_height(h)
-        _table.set_height(self._ref(), float(h))
+        if isinstance(h, Real):
+            _table.set_height(self._ref(), float(h))
+        self._kept_changed()
+
+    def _sized(self):
+        """Whether the cell's width and height are numbers, which pltrs
+        (Rust) places it with (matplotlib's table compares them when it
+        aligns its cells)."""
+        return all(isinstance(size, Real) for size in (self.get_width(), self.get_height()))
 
     def set_bounds(self, *args):
         # The bounds of the cell as *left*, *bottom*, *width*, *height*: its
@@ -423,8 +497,15 @@ substring of 'BRTL'
         _table.set_height(self._ref(), float(super().get_height()))
 
 
+def _refuse_cast(value):
+    """Fail as pybind11 fails to cast *value* to a C++ value."""
+    raise _pybind.cast_error(value)
+
+
 # The methods matplotlib's cell inherits.
-cbook._inherited_methods(Cell, Artist, ["get_figure", "is_transform_set"])
+cbook._inherited_methods(Cell, Artist, ["get_figure", "is_transform_set", "set_agg_filter",
+                                        "set_sketch_params", "set_snap"])
+cbook._inherited_methods(Cell, Patch, ["set_hatch_linewidth"])
 cbook._inherited_methods(Cell, Patch, ["get_data_transform", "get_transform"])
 cbook._inherited_methods(Cell, Rectangle, [
     "get_xy", "get_bbox", "get_x", "get_y", "get_width", "get_height",
@@ -515,14 +596,41 @@ class Table(Artist):
         # out in the figure as it is (matplotlib computes it from the table's
         # layout, placing its cells).
         self._check_figure_renderer(renderer)
+        if renderer is not None and self.__dict__.get("_autoFontsize", True):
+            # matplotlib's table fits the fonts of its cells first, their
+            # texts measured with *renderer*.
+            for cell in self.get_celld().values():
+                cell._measure_text_with(renderer)
         _unusable.check(self, measuring=True)
         self._place_cells()
         return self._extent_as_is(renderer)
 
     def _kept_order(self):
         """The order in which matplotlib's table computes with what it
-        keeps when it places its cells (``_update_positions``)."""
-        return ["autoFontsize", "cells", "bbox"]
+        keeps when it places its cells (``_update_positions``), then draws
+        them."""
+        return ["autoFontsize", "cells", "bbox", "cell parts"]
+
+    def _watch_cells(self):
+        """Have the table fail as matplotlib's when drawn, while one of its
+        cells keeps a value it fails on (`._unusable`): a size that is no
+        number where it aligns them, any other where it draws them."""
+        if self._kept_cells or not all(cell._sized() for cell in self._cells.values()):
+            _unusable.keep(self, "cells", self._kept_cells, self._align_cells)
+        else:
+            _unusable.drop(self, "cells")
+        if any(_unusable.keeps(cell) for cell in self._cells.values()):
+            _unusable.keep(self, "cell parts", self, Table._check_cells)
+        else:
+            _unusable.drop(self, "cell parts")
+
+    def _check_cells(self):
+        """Fail as matplotlib's table fails to draw its cells, one after
+        the other in the order of their positions, with what they keep."""
+        for key in sorted(_table.cell_keys(self._native)):
+            cell = self._cells.get(key)
+            if cell is not None:
+                _unusable.check(cell)
 
     def _keep_bbox(self, bbox):
         """Keep *bbox*, the box given to place the table in, if pltrs (Rust)
@@ -546,9 +654,17 @@ class Table(Artist):
         before it places them, with the positions *kept* by the table
         alone, for its errors: their rows and columns sorted, which fails
         for positions that do not compare (pltrs (Rust) places the others)."""
+        cells = self.get_celld()
+        fitted = self.__dict__.get("_autoFontsize", True)
+        if not isinstance(fitted, np.ndarray) and fitted:
+            # matplotlib's table fits the fonts of its cells first, comparing
+            # the width each text needs with its cell's.
+            for cell in cells.values():
+                if cell._table is self and cell.get_fontsize() > 1:
+                    cell._required_width() > cell.get_width()  # noqa: B015
         widths = {}
         heights = {}
-        for (row, col), cell in self.get_celld().items():
+        for (row, col), cell in cells.items():
             height = heights.setdefault(row, 0.0)
             heights[row] = max(height, cell.get_height())
             width = widths.setdefault(col, 0.0)
@@ -772,6 +888,7 @@ class Table(Artist):
 
     def auto_set_font_size(self, value=True):
         """Automatically set font size."""
+        self._autoFontsize = value
         try:
             fits = bool(value)
         except ValueError:

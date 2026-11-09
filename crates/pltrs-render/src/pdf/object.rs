@@ -172,6 +172,27 @@ pub fn text_string(text: &str) -> Obj {
     }
 }
 
+/// One line of `objects` as matplotlib's `PdfFile.output` writes it: their
+/// syntax joined by `_fill`, then a newline.
+///
+/// ```
+/// use pltrs_render::{PdfObject, pdf_line};
+/// assert_eq!(pdf_line(&[PdfObject::Int(1), PdfObject::name("j")]).unwrap(), b"1 /j\n");
+/// ```
+///
+/// # Errors
+///
+/// When an object holds a non-finite number.
+pub fn line(objects: &[Obj]) -> Result<Vec<u8>, VectorError> {
+    let parts = objects
+        .iter()
+        .map(Obj::repr)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut line = fill(&parts);
+    line.push(b'\n');
+    Ok(line)
+}
+
 /// `_fill`: joins `parts` with spaces, breaking lines before a part that
 /// would reach 75 columns.
 pub(super) fn fill(parts: &[Vec<u8>]) -> Vec<u8> {

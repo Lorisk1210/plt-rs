@@ -180,6 +180,9 @@ class LinearTriInterpolator(TriInterpolator):
 
     """
 
+    def __init__(self, triangulation, z, trifinder=None):
+        super().__init__(triangulation, z, trifinder)
+
     def __call__(self, x, y):
         return self._interpolate_multikeys(x, y, tri_index=None,
                                            return_keys=('z',))[0]

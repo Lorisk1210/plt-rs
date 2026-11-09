@@ -10,10 +10,24 @@ matplotlib's, from matplotlib 3.11.2, under the Matplotlib License), the
 parser's symbol tables and `get_unicode_index`.
 """
 
+import logging
 import textwrap
 from typing import NamedTuple
 
-from ._native import mathtext as _mathtext
+from ._native import mathtext as _mathtext, register as _register
+
+_log = logging.getLogger(__name__.partition('.')[0] + ".mathtext")
+
+
+def log_mathtext_warning(message):
+    """Log *message*, about a list pltrs (Rust) packed to a size its glue
+    cannot reach ("Underful Hlist: ..."), as matplotlib's
+    ``List._set_glue`` logs it."""
+    _log.warning("%s", message)
+
+
+# pltrs (Rust) notes the lists as it typesets formulas.
+_register("log_mathtext_warning", log_mathtext_warning)
 
 
 class VectorParse(NamedTuple):
@@ -73,6 +87,13 @@ def get_unicode_index(symbol):
         A single (Unicode) character, a TeX command (e.g. r'\pi') or a Type1
         symbol name (e.g. 'phi').
     """
+    if not isinstance(symbol, str):
+        # matplotlib takes it as a character, else as the name of a
+        # symbol, failing for what is neither.
+        try:
+            return ord(symbol)
+        except TypeError:
+            symbol.strip("\\")
     return _mathtext.get_unicode_index(symbol)
 
 

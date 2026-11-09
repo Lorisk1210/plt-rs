@@ -1637,6 +1637,27 @@ def _canvas_callbacks(figure):
     figure._canvas_callbacks = callbacks
 
 
+@contextmanager
+def _printing_at(figure, dpi, drawing):
+    """The context *drawing*, the resolution of *figure* reading back as
+    *dpi* where pltrs (Rust) prints the figure at it (a vector format's,
+    which matplotlib's print sets, ``figure.dpi = 72``, an int)."""
+    from . import _values
+    given = figure.__dict__.get("_given_values", {})
+    kept = _values.is_kept(figure, "dpi")
+    before = given.get("dpi", given)
+    if not kept:
+        _values.remember(figure, "dpi", dpi)
+    try:
+        with drawing:
+            yield
+    finally:
+        if not kept and before is given:
+            figure.__dict__["_given_values"].pop("dpi", None)
+        elif not kept:
+            _values.remember(figure, "dpi", before)
+
+
 class FigureCanvasBase:
     """
     The canvas the figure renders into.
@@ -2133,6 +2154,13 @@ class FigureCanvasBase:
             colored = sum(color is not None for color in colors.values())
             for _ in range(colored):
                 self.figure.pchanged()
+            if ("_callbacks" in self.figure.__dict__
+                    and (self.figure.get_layout_engine() is not None
+                         or cbook._str_equal(bbox_inches, "tight"))):
+                # matplotlib draws the figure to lay it out before its
+                # observers hear of the layout turned off: a draw failing
+                # fails first.
+                self.figure.draw_without_rendering()
             with self._laid_out_for_print(bbox_inches):
                 self.figure.pchanged()
             try:
@@ -2274,8 +2302,8 @@ class FigureCanvasBase:
         make = getattr(self, "_program_renderer", None)
         if make is None:
             return nullcontext()
-        return drawing_with(functools.partial(make, self.figure.dpi,
-                                              self._print_area(bbox_inches_restore)))
+        return _printing_at(self.figure, self.fixed_dpi, drawing_with(
+            functools.partial(make, self.figure.dpi, self._print_area(bbox_inches_restore))))
 
     @classmethod
     def get_default_filetype(cls):

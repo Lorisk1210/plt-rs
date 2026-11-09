@@ -101,6 +101,9 @@ pub enum ImageError {
     MultivariateNotSupported(&'static str),
     /// The multivariate norms or colormap cannot map the data.
     Multivar(MultivarError),
+    /// An image without data asked for its pixels, as compositing asks
+    /// every image of a group (matplotlib's `_make_image` refuses it).
+    Empty,
 }
 
 impl fmt::Display for ImageError {
@@ -190,6 +193,10 @@ impl fmt::Display for ImageError {
                 write!(f, "{what} does not support data of several variates")
             }
             Self::Multivar(err) => err.fmt(f),
+            Self::Empty => f.write_str(
+                "_make_image must get a non-empty image. Your Artist's draw method must \
+                 filter before this method is called.",
+            ),
         }
     }
 }
@@ -197,10 +204,12 @@ impl fmt::Display for ImageError {
 impl ImageError {
     /// The kind of exception matplotlib's draw raises for the error: a
     /// `ValueError` for a norm that cannot map the image's values
-    /// (`Invalid vmin or vmax`), an error of pltrs's own otherwise.
+    /// (`Invalid vmin or vmax`), a `RuntimeError` with matplotlib's
+    /// message for an empty image, an error of pltrs's own otherwise.
     pub(crate) fn draw_kind(&self) -> DrawErrorKind {
         match self {
             Self::Norm(_) => DrawErrorKind::InvalidValue,
+            Self::Empty => DrawErrorKind::Library,
             _ => DrawErrorKind::Other,
         }
     }

@@ -69,9 +69,23 @@ impl Spaces {
     }
 }
 
-/// The largest value, `-inf` for none.
+/// The largest value, `-inf` for none, NaN where one is NaN (numpy's
+/// `max`, which matplotlib takes of the spaces: a NaN cell edge, of axes
+/// placed at NaN, leaves the margins NaN).
 fn largest(values: impl Iterator<Item = f64>) -> f64 {
-    values.fold(f64::NEG_INFINITY, f64::max)
+    values.fold(f64::NEG_INFINITY, |largest, value| {
+        if largest.is_nan() || value.is_nan() {
+            f64::NAN
+        } else {
+            largest.max(value)
+        }
+    })
+}
+
+/// `room`, or no room when it is negative, as matplotlib's `max(room, 0)`
+/// (Python's builtin, which keeps a NaN room).
+fn at_least_none(room: f64) -> f64 {
+    if 0.0 > room { 0.0 } else { room }
 }
 
 /// `bbox`, in pixels of a figure `width` × `height`, in figure fractions
@@ -154,18 +168,18 @@ impl Grid<'_> {
         });
         let texts = self.super_text_extents();
         let left = left.unwrap_or_else(|| {
-            self.spaces.column_edge(0).max(0.0)
+            at_least_none(self.spaces.column_edge(0))
                 + pad_w
                 + texts.ylabel.map_or(0.0, |w| w.width() + pad_w)
         });
-        let right = right.unwrap_or_else(|| self.spaces.column_edge(cols).max(0.0) + pad_w);
+        let right = right.unwrap_or_else(|| at_least_none(self.spaces.column_edge(cols)) + pad_w);
         let top = top.unwrap_or_else(|| {
-            self.spaces.row_edge(0).max(0.0)
+            at_least_none(self.spaces.row_edge(0))
                 + pad_h
                 + texts.title.map_or(0.0, |t| t.height() + pad_h)
         });
         let bottom = bottom.unwrap_or_else(|| {
-            self.spaces.row_edge(rows).max(0.0)
+            at_least_none(self.spaces.row_edge(rows))
                 + pad_h
                 + texts.xlabel.map_or(0.0, |x| x.height() + pad_h)
         });
@@ -253,6 +267,16 @@ mod tests {
         assert_eq!(bbox.y0(), 100.0 * (1.0 / 1200.0));
         assert_ne!(bbox.y0(), 100.0 / 1200.0);
         assert_eq!((bbox.x1(), bbox.y1()), (1.0, 1.0));
+    }
+
+    #[test]
+    fn nan_rooms_stay_nan_as_numpy_and_python_take_them() {
+        assert!(largest([1.0, f64::NAN, 3.0].into_iter()).is_nan());
+        assert_eq!(largest([1.0, 3.0].into_iter()), 3.0);
+        assert_eq!(largest(std::iter::empty()), f64::NEG_INFINITY);
+        assert!(at_least_none(f64::NAN).is_nan());
+        assert_eq!(at_least_none(-0.5), 0.0);
+        assert_eq!(at_least_none(0.25), 0.25);
     }
 
     fn cell(rows: Range<usize>, cols: Range<usize>, position: Bbox, tight: Bbox) -> Cell {

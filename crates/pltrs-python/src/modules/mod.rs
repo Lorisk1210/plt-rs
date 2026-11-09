@@ -94,6 +94,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     crate::binding::install_after_call(vec![
         text_helpers::warn_missing_glyphs,
         text_helpers::report_font_lookups,
+        text_helpers::log_glue_warnings,
         transforms::sync_watched,
     ]);
     annotation::register(&module.submodule("annotation")?)?;

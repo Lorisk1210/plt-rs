@@ -17,7 +17,9 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use super::{ArtistId, MeasuredExtent, Painter, RawHandle};
-use crate::figure::FigureState;
+use crate::axes::AxesState;
+use crate::figure::{FigureFrame, FigureState};
+use crate::mplot3d::Axes3DState;
 
 /// A painted artist to measure, in tree order.
 struct ToMeasure {
@@ -40,7 +42,7 @@ impl RawHandle {
     pub(crate) fn measure_painters(&self) {
         let to_measure = {
             let state = self.figure_state().borrow();
-            let mut to_measure = in_tree_order(&state, state.root, true);
+            let mut to_measure = in_tree_order(&state, state.root, true, Reach::All);
             // Those no artist of the figure holds, after them.
             let reached: HashSet<ArtistId> = to_measure.iter().map(|entry| entry.id).collect();
             for id in state.store.ids().filter(|id| !reached.contains(id)) {
@@ -58,13 +60,26 @@ impl RawHandle {
         self.measure_in_order(&to_measure);
     }
 
+    /// [`measure_painters`](Self::measure_painters) for a layout engine,
+    /// which measures what matplotlib's layouts measure: the axes (and
+    /// the artists they hold) and the figures' super titles and labels,
+    /// not the other artists of the figures (a figure's text, legend or
+    /// patch), which matplotlib's layouts never ask for their extents.
+    pub(crate) fn measure_painters_for_layout(&self) {
+        let to_measure = {
+            let state = self.figure_state().borrow();
+            in_tree_order(&state, state.root, true, Reach::LaidOut)
+        };
+        self.measure_in_order(&to_measure);
+    }
+
     /// Has the painters of the artists this artist holds measure them,
     /// parents first, before its tight box is computed (matplotlib's
     /// `Axes.get_tightbbox` asking each of its artists for theirs).
     pub(crate) fn measure_painters_under(&self) {
         let to_measure = {
             let state = self.figure_state().borrow();
-            in_tree_order(&state, self.id(), false)
+            in_tree_order(&state, self.id(), false, Reach::All)
         };
         self.measure_in_order(&to_measure);
     }
@@ -87,7 +102,7 @@ impl RawHandle {
 }
 
 impl FigureState {
-    /// [`RawHandle::measure_painters`] in the middle of a layout working on
+    /// [`RawHandle::measure_painters_for_layout`] in the middle of a layout working on
     /// the state, which lends it to the painters (see
     /// [`FigureState::lend`]); no layout engine runs meanwhile, and what
     /// they change leaves no layout due. Nothing without painters, or when
@@ -101,22 +116,44 @@ impl FigureState {
         let root = self.root;
         let layout = (self.layout.pending, self.layout.when_drawn_only);
         self.layout.when_drawn_only = true;
-        self.lend(|cell| RawHandle::new(Rc::clone(cell), root).measure_painters());
+        self.lend(|cell| RawHandle::new(Rc::clone(cell), root).measure_painters_for_layout());
         (self.layout.pending, self.layout.when_drawn_only) = layout;
     }
 }
 
-/// The painted artists of the tree of `root` in the figure's store, each
-/// before the artists it holds, `root` itself only with `itself`.
-fn in_tree_order(state: &FigureState, root: ArtistId, itself: bool) -> Vec<ToMeasure> {
+/// Which artists of a tree are measured.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Reach {
+    /// All of them (a tight box).
+    All,
+    /// Those a layout engine measures: in a figure, its axes, its
+    /// subfigures and its super texts; in an axes, all of them.
+    LaidOut,
+}
+
+/// The painted artists of the tree of `root` in the figure's store that
+/// `reach` takes, each before the artists it holds, `root` itself only
+/// with `itself`.
+fn in_tree_order(
+    state: &FigureState,
+    root: ArtistId,
+    itself: bool,
+    reach: Reach,
+) -> Vec<ToMeasure> {
     let mut found = Vec::new();
-    visit(state, root, itself, &mut found);
+    visit(state, root, itself, reach, &mut found);
     found
 }
 
-/// Adds the painted artists of the tree of `id` to `found`, `id` itself
-/// only with `itself`.
-fn visit(state: &FigureState, id: ArtistId, itself: bool, found: &mut Vec<ToMeasure>) {
+/// Adds the painted artists of the tree of `id` that `reach` takes to
+/// `found`, `id` itself only with `itself`.
+fn visit(
+    state: &FigureState,
+    id: ArtistId,
+    itself: bool,
+    reach: Reach,
+    found: &mut Vec<ToMeasure>,
+) {
     let Some(artist) = state.store.get(id) else {
         return;
     };
@@ -129,12 +166,41 @@ fn visit(state: &FigureState, id: ArtistId, itself: bool, found: &mut Vec<ToMeas
             past_held: at + 1,
         });
     }
+    let frame = state.store.get_as::<FigureFrame>(id);
     for child in artist.children() {
-        visit(state, child, true, found);
+        if reach == Reach::LaidOut
+            && let Some(frame) = frame
+            && !laid_out(state, frame, child)
+        {
+            continue;
+        }
+        let reach = if is_axes(state, child) {
+            Reach::All
+        } else {
+            reach
+        };
+        visit(state, child, true, reach, found);
     }
     if painted {
         found[at].past_held = found.len();
     }
+}
+
+/// Whether a layout engine measures `child` of the figure `frame`: an
+/// axes, a subfigure or one of the figure's super texts.
+fn laid_out(state: &FigureState, frame: &FigureFrame, child: ArtistId) -> bool {
+    let texts = frame.super_texts;
+    is_axes(state, child)
+        || state.store.get_as::<FigureFrame>(child).is_some()
+        || [texts.title, texts.xlabel, texts.ylabel]
+            .into_iter()
+            .flatten()
+            .any(|text| text.id == child)
+}
+
+/// Whether `id` is an axes, 2-D or 3-D.
+fn is_axes(state: &FigureState, id: ArtistId) -> bool {
+    state.store.get_as::<AxesState>(id).is_some() || state.store.get_as::<Axes3DState>(id).is_some()
 }
 
 #[cfg(test)]
@@ -206,5 +272,25 @@ mod tests {
         let painter = line.raw().painter().expect("painted");
         let any: &dyn Any = painter.get();
         assert!(any.is::<Logged>());
+    }
+
+    #[test]
+    fn layouts_measure_axes_and_super_texts_not_the_figures_other_artists() {
+        let log = Rc::default();
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
+        let note = fig.text(0.5, 0.5, "note");
+        let title = fig.suptitle("title");
+        for artist in [line.raw(), note.raw(), title.raw()] {
+            artist.set_painter(Some(logged(&log, false)));
+        }
+        fig.root_handle().measure_painters_for_layout();
+        assert_eq!(*log.borrow(), [line.id(), title.id()]);
+        // A tight box measures them all.
+        log.borrow_mut().clear();
+        fig.root_handle().measure_painters();
+        assert_eq!(log.borrow().len(), 3);
+        assert!(log.borrow().contains(&note.id()));
     }
 }

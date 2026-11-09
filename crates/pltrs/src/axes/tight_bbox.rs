@@ -183,6 +183,7 @@ impl FigureState {
         let measured = (self.store.get(axes))
             .and_then(|artist| artist.base().painter.as_ref())
             .map_or(MeasuredExtent::Unmeasured, |painter| {
+                painter.get().extent_taken();
                 painter.get().measured_extent()
             });
         let MeasuredExtent::Extent(extent) = measured else {

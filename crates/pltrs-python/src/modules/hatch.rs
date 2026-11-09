@@ -36,11 +36,6 @@ fn piece(path: &Path) -> PyResult<Piece> {
     Ok((points_array(&vertices, shape)?, NdArray::from_vec(codes)))
 }
 
-/// The number of vertices of `lines` lines of `family` (`num_vertices`).
-fn line_vertex_count(family: String, lines: usize) -> PyResult<usize> {
-    Ok(lines_family(&family)?.vertex_count(lines))
-}
-
 /// `lines` lines of `family` (`set_vertices_and_codes`).
 fn line_piece(family: String, lines: usize) -> PyResult<Piece> {
     piece(&lines_family(&family)?.path(lines).map_err(memory_error)?)
@@ -73,7 +68,6 @@ fn shape_piece(shape: PyPath, (size, filled): (f64, bool), rows: usize) -> PyRes
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("line_vertex_count", line_vertex_count)?;
     module.add("line_piece", line_piece)?;
     module.add("shape_piece", shape_piece)
 }

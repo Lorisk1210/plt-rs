@@ -75,13 +75,15 @@ class Spine(Patch):
     def __str__(self):
         return "Spine"
 
-    def __new__(cls, axes=None, spine_type=None, path=None, **kwargs):
-        # A new spine of *axes* (see `__init__`); pickling makes a bare
-        # object, and so does a class of the program's naming its type in
-        # its own constructor (cartopy's ``GeoSpine(axes)``), which
-        # `__init__` binds.
+    def __new__(cls, *args, **kwargs):
+        # A new spine of *axes* (see `__init__`, which refuses arguments it
+        # does not take); pickling makes a bare object, and so does a class
+        # of the program's naming its type in its own constructor
+        # (cartopy's ``GeoSpine(axes)``), which `__init__` binds.
         spine = super().__new__(cls)
-        if axes is not None and spine_type is not None:
+        given = {**dict(zip(("axes", "spine_type", "path"), args)), **kwargs}
+        axes, spine_type = given.get("axes"), given.get("spine_type")
+        if len(args) <= 3 and axes is not None and spine_type is not None:
             spine._bind(axes, spine_type)
         return spine
 

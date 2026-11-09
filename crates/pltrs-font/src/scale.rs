@@ -75,15 +75,38 @@ impl std::fmt::Display for SizeError {
 
 impl std::error::Error for SizeError {}
 
+/// `(FT_UInt)value` as matplotlib's C++ casts a resolution, which differs
+/// by processor for what no unsigned integer holds: x86-64 converts to a
+/// 64-bit integer (the "integer indefinite" `i64::MIN` for what is out of
+/// its range or no number), then keeps its low 32 bits, so a negative
+/// resolution wraps around; other processors (arm64's `fcvtzu`) saturate,
+/// as Rust's casts do.
+fn c_unsigned(value: f64) -> u32 {
+    if cfg!(target_arch = "x86_64") {
+        const LIMIT: f64 = 9_223_372_036_854_775_808.0;
+        let wide = if value.is_nan() || value.abs() >= LIMIT {
+            i64::MIN
+        } else {
+            value as i64
+        };
+        wide as u32
+    } else {
+        value as u32
+    }
+}
+
 impl Size {
     /// The size matplotlib's `FT2Font.set_size(points, dpi)` selects: the
     /// point size is truncated to 26.6 and the resolution to an integer.
     pub fn new(face: &Face<'_>, points: f64, dpi: f64) -> Self {
-        Self::from_char_size(face, (points * 64.0) as i64, dpi as u32)
+        Self::from_char_size(face, (points * 64.0) as i64, c_unsigned(dpi))
     }
 
     /// [`new`](Self::new), refusing what FreeType refuses: a size of more
-    /// than 65 535 pixels per em, or of none in a TrueType face.
+    /// than 65 535 pixels per em, or of none in a TrueType face. The
+    /// resolution is cast to FreeType's unsigned resolution as matplotlib's
+    /// `FT2Font::set_size` casts it (on x86-64, a negative one wraps around
+    /// to a huge one, which FreeType refuses).
     ///
     /// ```
     /// use pltrs_font::{Face, Size, SizeError, bundled_font_data};
@@ -91,6 +114,10 @@ impl Size {
     /// assert!(Size::checked(&face, 10.0, 72.0).is_ok());
     /// assert_eq!(Size::checked(&face, 10.0, 2.5), Err(SizeError::InvalidPpem));
     /// assert_eq!(Size::checked(&face, 1e5, 72.0), Err(SizeError::InvalidPixelSize));
+    /// if cfg!(target_arch = "x86_64") {
+    ///     assert_eq!(Size::checked(&face, 10.0, -1.0), Err(SizeError::InvalidPixelSize));
+    ///     assert!(Size::checked(&face, 10.0, f64::INFINITY).is_ok(), "no resolution: 72");
+    /// }
     /// # Ok::<(), pltrs_font::FontError>(())
     /// ```
     ///
@@ -99,7 +126,7 @@ impl Size {
     /// The [`SizeError`] FreeType gives for the size.
     pub fn checked(face: &Face<'_>, points: f64, dpi: f64) -> Result<Self, SizeError> {
         let char_size = ((points * 64.0) as i64).max(64);
-        let resolution = match dpi as u32 {
+        let resolution = match c_unsigned(dpi) {
             0 => 72,
             resolution => i64::from(resolution),
         };

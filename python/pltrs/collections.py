@@ -30,6 +30,7 @@ from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
 from .artist import Artist, _check_array_alpha, allow_rasterization
 from .path import Path
+from . import _collection_arguments
 
 
 def _rcParams():
@@ -152,12 +153,6 @@ def _scale_of(sizes):
     no sizes, which it does not scale."""
     if sizes is not None:
         np.sqrt(np.asarray(sizes))
-
-
-def _native_sizes(sizes):
-    """The marker areas *sizes* as pltrs (Rust) takes them: None (no sizes,
-    as matplotlib's ``set_sizes`` takes it) as none."""
-    return np.atleast_1d(np.asarray([] if sizes is None else sizes, float))
 
 
 def _drawn_linewidths(widths):
@@ -341,7 +336,7 @@ class Collection(mcolorizer.ColorizingArtist):
         if joinstyle:
             self.set_joinstyle(joinstyle)
         if offsets is not None:
-            self.set_offsets(offsets)
+            _collection_arguments.set_made_offsets(self, offsets)
         self._internal_update(kwargs)
 
     @classmethod
@@ -1303,10 +1298,13 @@ class PathCollection(_CollectionWithSizes):
         **kwargs
             Forwarded to `.Collection`.
         """
-        self._native = _collections.new_path_collection(
-            [] if paths is None else list(paths))
+        held = _collection_arguments.held_paths(paths)
+        self._native = _collections.new_path_collection([] if held is None else held)
         self._paths_container = _paths_container(paths)
         super().__init__(**kwargs)
+        if held is None:
+            # matplotlib keeps them as given.
+            self.set_paths(paths)
         self.set_sizes(sizes)
         _program_paths.keep(self, paths)
 
@@ -1653,10 +1651,9 @@ class FillBetweenPolyCollection(PolyCollection):
         """
         self._f_dir_from_t(t_direction)
         self.t_direction = t_direction
-        # matplotlib reads the dimensions of the arrays as given, which
-        # fails for anything else.
-        for array in (t, f1, f2):
-            getattr(array, "ndim")
+        # matplotlib checks the arrays as given, which fails for anything
+        # else.
+        self._validate_shapes(t_direction, self._f_direction, t, f1, f2)
         curves, mask = self._checked_data(t_direction, t, f1, f2, where)
         _check_step(step, curves, mask)
         self._native = _collections.new_fill_between_collection(
@@ -1679,6 +1676,18 @@ class FillBetweenPolyCollection(PolyCollection):
         """The direction that is other than `self.t_direction`."""
         return self._f_dir_from_t(self.t_direction)
 
+    @staticmethod
+    def _validate_shapes(t_dir, f_dir, t, f1, f2):
+        """Validate that t, f1 and f2 are 1-dimensional and have the same length."""
+        names = (d + s for d, s in zip((t_dir, f_dir, f_dir), ("", "1", "2")))
+        for name, array in zip(names, [t, f1, f2]):
+            if array.ndim > 1:
+                raise ValueError(f"{name!r} is not 1-dimensional")
+            if t.size > 1 and array.size > 1 and t.size != array.size:
+                msg = "{!r} has size {}, but {!r} has an unequal size of {}".format(
+                    t_dir, t.size, name, array.size)
+                raise ValueError(msg)
+
     @classmethod
     def _checked_data(cls, t_dir, t, f1, f2, where):
         """
@@ -1688,15 +1697,7 @@ class FillBetweenPolyCollection(PolyCollection):
         do.
         """
         t, f1, f2 = (np.ma.asarray(v, dtype=float) for v in (t, f1, f2))
-        f_dir = cls._f_dir_from_t(t_dir)
-        names = (d + s for d, s in zip((t_dir, f_dir, f_dir), ("", "1", "2")))
-        for name, array in zip(names, [t, f1, f2]):
-            if array.ndim > 1:
-                raise ValueError(f"{name!r} is not 1-dimensional")
-            if t.size > 1 and array.size > 1 and t.size != array.size:
-                msg = "{!r} has size {}, but {!r} has an unequal size of {}".format(
-                    t_dir, t.size, name, array.size)
-                raise ValueError(msg)
+        cls._validate_shapes(t_dir, cls._f_dir_from_t(t_dir), t, f1, f2)
         if where is not None:
             where = np.asarray(where, dtype=bool)
             if where.size != t.size:
@@ -1754,6 +1755,8 @@ class FillBetweenPolyCollection(PolyCollection):
 class RegularPolyCollection(_CollectionWithSizes):
     """A collection of n-sided regular polygons."""
 
+    _path_generator = mpath.Path.unit_regular_polygon
+
     def __init__(self, numsides, *, rotation=0, sizes=(1,), **kwargs):
         """
         Parameters
@@ -1785,10 +1788,14 @@ class RegularPolyCollection(_CollectionWithSizes):
                 )
         """
         usable = isinstance(rotation, Real)
+        # Made of triangles, which matplotlib's path of the items replaces
+        # once its sizes are set (``_path_generator``).
         self._native = _collections.new_regular_poly_collection(
-            int(numsides), float(rotation) if usable else 0., _native_sizes(sizes))
+            3, float(rotation) if usable else 0., np.zeros(0))
         super().__init__(**kwargs)
-        _scale_of(sizes)
+        self.set_sizes(sizes)
+        self._numsides = numsides
+        _collections.set_paths(self._native, [self._path_generator(numsides)])
         _values.remember(self, "rotation", rotation)
         if not usable:
             # matplotlib keeps it, and fails to turn the polygons by it
@@ -1796,7 +1803,7 @@ class RegularPolyCollection(_CollectionWithSizes):
             _unusable.keep(self, "rotation", rotation, operator.neg, measured=False)
 
     def get_numsides(self):
-        return len(self.get_paths()[0].vertices) - 1
+        return self._numsides
 
     def get_rotation(self):
         return _unusable.kept(self, "rotation", _values.given(
@@ -1811,9 +1818,13 @@ class RegularPolyCollection(_CollectionWithSizes):
 class StarPolygonCollection(RegularPolyCollection):
     """Draw a collection of regular stars with *numsides* points."""
 
+    _path_generator = mpath.Path.unit_regular_star
+
 
 class AsteriskPolygonCollection(RegularPolyCollection):
     """Draw a collection of regular asterisks with *numsides* points."""
+
+    _path_generator = mpath.Path.unit_regular_asterisk
 
 
 class LineCollection(Collection):
@@ -2171,9 +2182,9 @@ class CircleCollection(_CollectionWithSizes):
         **kwargs
             Forwarded to `.Collection`.
         """
-        self._native = _collections.new_circle_collection(_native_sizes(sizes))
+        self._native = _collections.new_circle_collection(np.zeros(0))
         super().__init__(**kwargs)
-        _scale_of(sizes)
+        self.set_sizes(sizes)
 
 
 #: The units `EllipseCollection` sizes its ellipses in.
@@ -2211,12 +2222,12 @@ class EllipseCollection(Collection):
             Forwarded to `Collection`.
         """
         usable = units in _ELLIPSE_UNITS
-        widths, heights, angles = np.broadcast_arrays(
-            np.ravel(widths).astype(float), np.ravel(heights).astype(float),
-            np.ravel(angles).astype(float))
         self._native = _collections.new_ellipse_collection(
-            (widths, heights, angles), units if usable else 'points')
+            (np.zeros(0),) * 3, units if usable else 'points')
         super().__init__(**kwargs)
+        self.set_widths(widths)
+        self.set_heights(heights)
+        self.set_angles(angles)
         self._units = units
         # The unit circle itself, as matplotlib's collection keeps it,
         # until other paths are set.
@@ -2348,8 +2359,9 @@ class PatchCollection(Collection):
         mappable will be made to set the face colors.
         """
         patches = list(patches)
-        self._native = _collections.new_patch_collection([p._native for p in patches],
-                                              bool(match_original))
+        held = _collection_arguments.held_patches(patches, match_original)
+        self._native = _collections.new_patch_collection(
+            [] if held is None else held, bool(match_original))
         if match_original:
             # The patches' own colours, kept; the colorizer is made as
             # matplotlib's collections make it, for an array set later.
@@ -2360,6 +2372,10 @@ class PatchCollection(Collection):
             self._internal_update(kwargs)
         else:
             super().__init__(**kwargs)
+        if held is None:
+            # As matplotlib's collection sets its paths, failing on what
+            # is no patch.
+            self.set_paths(patches)
 
     def set_paths(self, patches):
         _collections.set_paths(self._native, [
@@ -2375,6 +2391,8 @@ class TriMesh(Collection):
     A triangular mesh is a `~matplotlib.tri.Triangulation` object.
     """
     def __init__(self, triangulation, **kwargs):
+        # matplotlib reads the points of the triangulation to bound it.
+        triangulation.x  # noqa: B018
         self._native = _collections.new_tri_mesh(triangulation._native)
         super().__init__(**kwargs)
         self._hold_triangulation(triangulation)

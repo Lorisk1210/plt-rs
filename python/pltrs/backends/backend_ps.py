@@ -16,7 +16,8 @@ from tempfile import TemporaryDirectory
 from .. import _api, _get_executable_info, cbook, rcParams
 from .._native import (
     backends as _backends, font_manager as _font_manager, text_overrides as _text_overrides)
-from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
+from ..backend_bases import (
+    _Backend, FigureCanvasBase, FigureManagerBase, GraphicsContextBase)
 from ..font_manager import FontManager
 from ..text import _measuring_with
 from ._backend_pdf_ps import RendererPDFPSBase
@@ -285,8 +286,8 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     def draw_markers(self, gc, marker_path, marker_trans, path, trans,
                      rgbFace=None):
         # docstring inherited
-        self._markers_arguments(gc, marker_path, marker_trans, path, trans, rgbFace)
-        super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
+        if self._markers_arguments(gc, marker_path, marker_trans, path, trans, rgbFace):
+            super().draw_markers(gc, marker_path, marker_trans, path, trans, rgbFace)
 
     def draw_path_collection(self, gc, master_transform, paths, all_transforms,
                              offsets, offset_trans, facecolors, edgecolors,
@@ -309,12 +310,19 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
     def draw_gouraud_triangles(self, gc, points, colors, trans):
         # docstring inherited
         if self._gouraud_arguments(gc, points, colors, trans):
+            # matplotlib's shading reads nothing of *gc*, which may be any
+            # object.
+            if not isinstance(gc, GraphicsContextBase):
+                gc = self.new_gc()
             super().draw_gouraud_triangles(gc, points, colors, trans)
 
     def draw_image(self, gc, x, y, im, transform=None):
         # docstring inherited
         self._image_arguments(gc, x, y, im, transform)
-        super().draw_image(gc, x, y, im, transform)
+        # matplotlib writes the image's bytes as they are, never casting
+        # its values (no numpy warning for those that are no bytes).
+        with np.errstate(invalid='ignore'):
+            super().draw_image(gc, x, y, im, transform)
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         """Draw the math text using matplotlib.mathtext."""
@@ -341,10 +349,12 @@ class RendererPS(PsArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        if self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext):
-            # Any true *ismath* but "TeX" typesets mathtext, as matplotlib's.
-            super().draw_text(gc, x, y, s, prop, angle,
-                              ismath if ismath == "TeX" else bool(ismath), mtext)
+        if ismath == 'TeX':
+            if not self._is_transparent(gc.get_rgb()):
+                self.draw_tex(gc, x, y, s, prop, angle)
+        elif self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext):
+            # Any true *ismath* typesets mathtext, as matplotlib's does.
+            super().draw_text(gc, x, y, s, prop, angle, bool(ismath), mtext)
 
 
 class FigureCanvasPS(FigureCanvasBase):

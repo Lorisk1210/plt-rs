@@ -42,6 +42,9 @@ class TrapezoidMapTriFinder(TriFinder):
     this should not be relied upon.
     """
 
+    def __init__(self, triangulation):
+        super().__init__(triangulation)
+
     def __call__(self, x, y):
         """
         Return an array containing the indices of the triangles in which the

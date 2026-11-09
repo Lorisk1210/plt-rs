@@ -3795,8 +3795,22 @@ def hsv_to_rgb(hsv):
 
     in_shape = hsv.shape
     hsv = np.asarray(hsv, dtype=np.promote_types(hsv.dtype, np.float32))
+    if not np.isfinite(hsv).all():
+        _warn_hsv_arithmetic(hsv[..., 0], hsv[..., 1], hsv[..., 2])
     out = _colors.hsv_to_rgb(np.asarray(hsv, float).reshape(-1, 3))
     return out.reshape(in_shape).astype(hsv.dtype, copy=False)
+
+
+def _warn_hsv_arithmetic(h, s, v):
+    """Warn as numpy warns of matplotlib's arithmetic in `hsv_to_rgb` with
+    the hues *h*, saturations *s* and values *v*, of which some are no
+    finite numbers (the sector of a NaN hue, the products of an infinite
+    value)."""
+    i = (h * 6.0).astype(int)
+    f = (h * 6.0) - i
+    v * (1.0 - s)
+    v * (1.0 - s * f)
+    v * (1.0 - s * (1.0 - f))
 
 
 def _vector_magnitude(arr):

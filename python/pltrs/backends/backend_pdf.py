@@ -686,6 +686,9 @@ class PdfFile:
         if given.named_fonts:
             self.endStream()
             _pdf_kept.check_fonts(self._fontNames, self._tracks_font)
+        if not all(map(_pdf_kept.plain_alphas, given.alpha_states)):
+            self.endStream()
+            _pdf_kept.check_alphas(given.alpha_states)
         if given.hatches or given.shadings or self._image_objects or (
                 given.markers or given.templates):
             self.endStream()
@@ -859,6 +862,10 @@ class PdfFile:
         if state is not None:
             return state
         stroke, fill = alpha[0], alpha[1]
+        if not _pdf_kept.plain_alphas(alpha):
+            # Kept as given, a stand-in setting no alpha in its place (see
+            # `_pdf_kept`).
+            stroke = fill = 1.0
         name = self._given.alpha_states[alpha] = Name(
             _backends.pdf_file_alpha_state(self._native, (float(stroke), float(fill))))
         return name
@@ -1234,8 +1241,8 @@ class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
-        self._path_arguments(gc, path, transform, rgbFace)
-        super().draw_path(gc, path, transform, rgbFace)
+        if self._path_arguments(gc, path, transform, rgbFace):
+            super().draw_path(gc, path, transform, rgbFace)
 
     def draw_path_collection(self, gc, master_transform, paths, all_transforms,
                              offsets, offset_trans, facecolors, edgecolors,
@@ -1288,8 +1295,8 @@ class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_mathtext(self, gc, x, y, s, prop, angle):
         # The line typeset as mathtext.
-        self._mathtext_arguments(gc, x, y, s, prop, angle)
-        self._draw_line(gc, x, y, s, prop, angle, True)
+        if self._mathtext_arguments(gc, x, y, s, prop, angle):
+            self._draw_line(gc, x, y, s, prop, angle, True)
 
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
@@ -1298,9 +1305,9 @@ class RendererPdf(PdfArgumentsMixin, DocumentDrawingMixin, RendererPDFPSBase):
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
-        self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext)
-        # Any true *ismath* typesets mathtext, as matplotlib's does.
-        super().draw_text(gc, x, y, s, prop, angle, bool(ismath), mtext)
+        if self._text_arguments(gc, x, y, s, prop, angle, ismath, mtext):
+            # Any true *ismath* typesets mathtext, as matplotlib's does.
+            super().draw_text(gc, x, y, s, prop, angle, bool(ismath), mtext)
 
 
 class GraphicsContextPdf(GraphicsContextBase):

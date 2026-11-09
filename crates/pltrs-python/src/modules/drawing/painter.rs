@@ -9,8 +9,11 @@
 //! reaches without having prepared it is recorded there and then, the
 //! figure being drawn meanwhile. An exception the artist's `draw` raised
 //! while it was recorded beforehand raises when the draw reaches the
-//! artist: the artists drawn before it may fail first, as they do in
-//! matplotlib's draw.
+//! artist, and the warnings it gave are given there: the artists drawn
+//! before it may fail first, as they do in matplotlib's draw. Likewise an
+//! exception the class' `get_tightbbox` raised measuring the artist before
+//! a layout raises where the layout takes the artist's extent, after the
+//! ticks of its axes.
 
 use std::any::Any;
 use std::cell::{Cell, RefCell};
@@ -23,7 +26,7 @@ use pltrs::artist::{
 use pltrs::transforms::Bbox;
 
 use crate::binding::prelude::*;
-use crate::binding::{lookup, report};
+use crate::binding::{current_call, lookup, report};
 
 /// What the renderer of a draw is, for the Python renderer recording
 /// with it: its canvas size in pixels, its resolution, whether it scales
@@ -67,6 +70,9 @@ pub(in crate::modules) struct PythonPainter {
     prepared: RefCell<Option<PyResult<Drawing>>>,
     /// The extent the class measured last, in display pixels.
     measured: Cell<MeasuredExtent>,
+    /// The exception the class raised measuring the artist last, with
+    /// the native call it measured in (see `current_call`).
+    failure: RefCell<Option<(u64, PyErr)>>,
 }
 
 impl fmt::Debug for PythonPainter {
@@ -89,6 +95,7 @@ impl PythonPainter {
             measures,
             prepared: RefCell::new(None),
             measured: Cell::new(MeasuredExtent::Unmeasured),
+            failure: RefCell::new(None),
         }
     }
 
@@ -119,6 +126,19 @@ impl PythonPainter {
     }
 }
 
+impl PythonPainter {
+    /// Gives the warnings the artist's `draw` gave while it was recorded
+    /// beforehand, through the package's `emit_held_warnings(artist)`:
+    /// where the draw reaches it, as matplotlib's draw gives them.
+    fn emit_held_warnings(&self) {
+        Python::with_gil(|py| {
+            let artist = self.artist(py)?;
+            let emit: Callback = lookup(py, "emit_held_warnings").ok()?.extract().ok()?;
+            emit.call::<Owned>((artist,))
+        });
+    }
+}
+
 impl ArtistPainter for PythonPainter {
     fn prepare(&self, _artist: &RawHandle, target: DrawTarget<'_>) {
         let drawing = self.record(self::target(target.renderer, target.raster_depth, false));
@@ -127,6 +147,9 @@ impl ArtistPainter for PythonPainter {
 
     fn draw(&self, ctx: &mut DrawContext<'_>, artist: ArtistId) {
         let prepared = self.prepared.take();
+        if prepared.is_some() {
+            self.emit_held_warnings();
+        }
         let depth = ctx.raster_depth();
         // `ctx.renderer()` lets the figure go: the artist's `draw` finds
         // it free.
@@ -143,7 +166,8 @@ impl ArtistPainter for PythonPainter {
 
     /// The class' `get_tightbbox`, through the package's
     /// `measure_artist(artist)`: the extents of the box, None for no
-    /// space; an exception raises from the native call laying out. The
+    /// space; an exception it raises is kept for the native call laying
+    /// out to raise where it takes the extent (`extent_taken`). The
     /// extent measured before does not count meanwhile: the class' own
     /// asks for the tight box pltrs computes (`super().get_tightbbox`).
     fn measure(&self, _artist: &RawHandle) {
@@ -151,10 +175,19 @@ impl ArtistPainter for PythonPainter {
             return;
         }
         self.measured.set(MeasuredExtent::Unmeasured);
+        drop(self.failure.take());
         let extents = Python::with_gil(|py| {
             let artist = self.artist(py)?;
             let measure: Callback = lookup(py, "measure_artist").ok()?.extract().ok()?;
-            measure.call::<Option<(f64, f64, f64, f64)>>((artist,))
+            measure
+                .try_call::<Option<(f64, f64, f64, f64)>>((artist,))
+                .unwrap_or_else(|err| {
+                    match current_call() {
+                        Some(call) => drop(self.failure.replace(Some((call, err)))),
+                        None => report(err),
+                    }
+                    None
+                })
         });
         self.measured.set(match extents {
             None => MeasuredExtent::Unmeasured,
@@ -167,6 +200,17 @@ impl ArtistPainter for PythonPainter {
 
     fn measured_extent(&self) -> MeasuredExtent {
         self.measured.get()
+    }
+
+    /// Raises the exception the class raised measuring the artist, if it
+    /// did so in the native call running.
+    fn extent_taken(&self) {
+        let failure = self.failure.take();
+        if let Some((call, err)) = failure
+            && current_call() == Some(call)
+        {
+            report(err);
+        }
     }
 
     /// The box's `get_bbox(renderer)`, through the package's
@@ -227,7 +271,13 @@ fn painted_by(artist: &RawHandle, artist_ref: &Owned, flags: (bool, bool)) -> bo
         })
 }
 
+/// Whether `artist` is drawn by a painter (see [`set_painter`]).
+fn has_painter(artist: RawHandle) -> PyResult<bool> {
+    Ok(artist.painter().is_some())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("set_painter", set_painter)
+    module.add("set_painter", set_painter)?;
+    module.add("has_painter", has_painter)
 }

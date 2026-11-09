@@ -56,6 +56,9 @@ class UniformTriRefiner(TriRefiner):
         The encapsulated triangulation (to be refined)
     """
 
+    def __init__(self, triangulation):
+        super().__init__(triangulation)
+
     def refine_triangulation(self, return_tri_index=False, subdiv=3):
         """
         Compute a uniformly refined triangulation *refi_triangulation* of

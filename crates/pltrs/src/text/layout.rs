@@ -108,12 +108,15 @@ pub fn text_path(
     size: Option<f64>,
     font: &FontProperties,
 ) -> Result<Path, TextError> {
-    text_path_shaped(xy, text, size, font, &Shaping::default())
+    let line = Line::classify(text, crate::rc::params().text_parse_math);
+    line_path(xy, &line, size, font, &Shaping::default())
 }
 
-/// [`text_path`] with the OpenType features and language of `shaping`
-/// for a line that is not math (matplotlib's `TextToPath.get_text_path`
-/// with its `features` and `language`).
+/// [`text_path`] as matplotlib's `TextToPath.get_text_path(prop, s,
+/// ismath)` makes it: with `math` the whole of `text` typeset as
+/// mathtext, whether it holds `$...$` or not; otherwise laid out as it is,
+/// dollars and all, with the OpenType features and language of
+/// `shaping`.
 ///
 /// # Errors
 ///
@@ -125,19 +128,36 @@ pub fn text_path_shaped(
     size: Option<f64>,
     font: &FontProperties,
     shaping: &Shaping,
+    math: bool,
+) -> Result<Path, TextError> {
+    let line = if math {
+        Line::Math(text)
+    } else {
+        Line::Plain(text.into())
+    };
+    line_path(xy, &line, size, font, shaping)
+}
+
+/// The outline of `line` as [`text_path`] makes it, plain text shaped
+/// with `shaping`.
+fn line_path(
+    xy: Point,
+    line: &Line<'_>,
+    size: Option<f64>,
+    font: &FontProperties,
+    shaping: &Shaping,
 ) -> Result<Path, TextError> {
     let rc = crate::rc::params();
     let mut typeset = font.clone();
     typeset.size = TEXT_PATH_FONT_SCALE;
-    let line = Line::classify(text, rc.text_parse_math);
-    let run = match &line {
+    let run = match line {
         Line::Plain(plain) if !shaping.is_default() => TextSource::Plain {
             text: plain.to_string(),
             font: typeset.request(&rc),
             shaping: shaping.clone(),
         }
         .layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI),
-        _ => without_hinting(|| line_run(&line, &typeset, TEXT_PATH_DPI, &rc, true)),
+        _ => without_hinting(|| line_run(line, &typeset, TEXT_PATH_DPI, &rc, true)),
     }?;
     let scale = size.unwrap_or(font.size) / TEXT_PATH_FONT_SCALE;
     Ok(run
@@ -688,7 +708,7 @@ mod tests {
                 features,
                 language: None,
             };
-            text_path_shaped(Point::ORIGIN, "fi", None, &font, &shaping).expect("plain text")
+            text_path_shaped(Point::ORIGIN, "fi", None, &font, &shaping, false).expect("plain text")
         };
         let ligature = path(Vec::new());
         assert_eq!(

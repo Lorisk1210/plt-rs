@@ -75,6 +75,14 @@ def check(artist, *, measuring=False, failed=None):
                 raise
 
 
+def check_one(artist, name):
+    """Fail as matplotlib's *artist* fails to compute with the value it
+    keeps for *name* (`keep`), if it keeps one."""
+    entry = artist.__dict__.get("_unusable", {}).get(name)
+    if entry is not None:
+        entry[1](entry[0])
+
+
 def _watch(artist):
     """Have pltrs (Rust) draw (and measure) *artist* through Python while
     it keeps a value, so that drawing its figure fails as matplotlib's

@@ -71,6 +71,7 @@ impl LegendDrag {
                 (corner.x - bbox.x0()) / bbox.width(),
                 (corner.y - bbox.y0()) / bbox.height(),
             );
+            artist.box_offset = None;
         }
     }
 

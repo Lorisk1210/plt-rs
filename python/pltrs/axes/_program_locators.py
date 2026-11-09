@@ -28,7 +28,9 @@ import weakref
 
 from .._native import insets as _insets
 
-#: What locators of the program's place, per root figure.
+#: What locators of the program's place, per root figure, in the order
+#: they were followed: the order matplotlib's draw places the Axes in (its
+#: figure's), whose locators may fail.
 _followed = weakref.WeakKeyDictionary()
 
 #: The Axes whose class of the program's autoscales them, per root figure.
@@ -41,7 +43,7 @@ def follow(owner, figure):
     before every layout of a draw, while *owner* (an Axes or a divider)
     lives, until `forget`.
     """
-    _owners(figure).add(owner)
+    _owners(figure)[owner] = None
 
 
 def follow_autoscale(ax, figure):
@@ -63,7 +65,7 @@ def _owners(figure):
     layout hook installed."""
     owners = _followed.get(figure)
     if owners is None:
-        owners = _followed[figure] = weakref.WeakSet()
+        owners = _followed[figure] = weakref.WeakKeyDictionary()
         figure_ref = weakref.ref(figure)
 
         def hook():
@@ -84,7 +86,7 @@ def forget(owner, figure):
     """Stop placing *owner* by a locator of the program's for the root
     *figure*."""
     if figure is not None and figure in _followed:
-        _followed[figure].discard(owner)
+        _followed[figure].pop(owner, None)
 
 
 def _locate(figure):

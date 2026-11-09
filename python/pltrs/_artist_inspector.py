@@ -39,13 +39,18 @@ def _setter_valid_values(func):
     if hasattr(func, '_kwarg_doc'):
         return func._kwarg_doc
 
-    docstring = _getdoc(func)
-    if docstring is None:
-        return 'unknown'
-
     # (pltrs: the setters of mirrorable classes are wrapped; the values
     # are read once for every class sharing the setter.)
     setter = inspect.unwrap(func, stop=lambda f: not getattr(f, '_pushes', False))
+    docstring = _getdoc(func)
+    if docstring is None and setter is not func:
+        # (pltrs: a wrapper of a setter inherited without a docstring is
+        # named as the setter, which `inspect.getdoc` then looks up in the
+        # setter's class, finding the setter rather than the wrapper: the
+        # setter's bases document both, as matplotlib's inherited setter.)
+        docstring = _getdoc(setter)
+    if docstring is None:
+        return 'unknown'
     return _valid_values(docstring, setter.__code__)
 
 

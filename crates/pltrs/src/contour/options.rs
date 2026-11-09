@@ -53,15 +53,24 @@ pub struct ContourOptions {
     /// after a fixed affine map, the data limits and sticky edges cover
     /// the grid mapped into them.
     pub transform: Option<Transform>,
+    /// Whether the levels are placed and the field masked on a log scale
+    /// whatever the norm and the locator say (`None`: as they say).
+    /// matplotlib decides by their classes, `isinstance(norm, LogNorm)`,
+    /// which a norm made from the scale name `'log'` maps logarithmically
+    /// without being.
+    pub log_scaled: Option<bool>,
 }
 
 impl_colorize!(ContourOptions);
 
 impl ContourOptions {
-    /// Whether levels and colours are log-scaled: a `LogNorm` or a
+    /// Whether levels and colours are log-scaled: as
+    /// [`log_scaled`](Self::log_scaled) says, else for a `LogNorm` or a
     /// `LogLocator` (matplotlib's `logscale`).
     pub fn logscale(&self) -> bool {
-        self.colorizer.norm.as_ref().is_some_and(NormSpec::is_log)
-            || self.locator.as_deref().is_some_and(is_log_locator)
+        self.log_scaled.unwrap_or_else(|| {
+            self.colorizer.norm.as_ref().is_some_and(NormSpec::is_log)
+                || self.locator.as_deref().is_some_and(is_log_locator)
+        })
     }
 }

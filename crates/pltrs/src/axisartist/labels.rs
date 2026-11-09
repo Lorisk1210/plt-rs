@@ -353,7 +353,7 @@ pub(crate) fn tick_labels(
     rc: &RcParams,
 ) -> Result<PlacedTickLabels, String> {
     let (offset, total) = label_offsets(layout, labels, state, style, rc)?;
-    let pad = external_pad + layout.points_to_pixels(state.pad);
+    let pad = external_pad + layout.measuring_points_to_pixels(state.pad);
     let radius = offset + pad;
     let texts = labels
         .iter()

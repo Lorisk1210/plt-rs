@@ -39,7 +39,8 @@ from .lines import Line2D
 from .offsetbox import DraggableOffsetBox
 from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
-from .transforms import Bbox, BboxBase, IdentityTransform, TransformedBbox
+from .transforms import (Bbox, BboxBase, BboxTransformFrom, IdentityTransform,
+                         TransformedBbox)
 
 # pltrs (Rust) times the search for the best location with Python's
 # performance counter, looked up at every reading as matplotlib's
@@ -58,11 +59,6 @@ _DRAWN_CLASSES = {**_ARTIST_CLASSES, "Collection": PathCollection}
 
 
 class DraggableLegend(DraggableOffsetBox):
-    # pltrs (Rust) drags the legend (``Legend::set_draggable_by``): a press on
-    # it picks it up, and as it moves its *loc* or its *bbox_to_anchor*
-    # follows its lower-left corner, as matplotlib's ``finalize_offset`` sets
-    # them.
-
     def __init__(self, legend, use_blit=False, update="loc"):
         """
         Wrapper around a `.Legend` to support mouse dragging.
@@ -83,19 +79,27 @@ class DraggableLegend(DraggableOffsetBox):
         _api.check_in_list(["loc", "bbox"], update=update)
         self._update = update
 
-        self.ref_artist = legend
-        self.offsetbox = legend._legend_box
-        self.got_artist = False
-        self._use_blit = use_blit and self.canvas.supports_blit
-        _legend.set_draggable(legend._native, True, update)
+        super().__init__(legend, legend._legend_box, use_blit=use_blit)
 
     def finalize_offset(self):
-        # pltrs (Rust) updates *loc* or *bbox_to_anchor* as the drag ends.
-        super().finalize_offset()
+        if self._update == "loc":
+            self._update_loc(self.get_loc_in_canvas())
+        elif self._update == "bbox":
+            self._update_bbox_to_anchor(self.get_loc_in_canvas())
 
-    def disconnect(self):
-        """Stop dragging the legend."""
-        _legend.set_draggable(self.legend._native, False, self._update)
+    def _update_loc(self, loc_in_canvas):
+        bbox = self.legend.get_bbox_to_anchor()
+        # if bbox has zero width or height, the transformation is
+        # ill-defined. Fall back to the default bbox_to_anchor.
+        if bbox.width == 0 or bbox.height == 0:
+            self.legend.set_bbox_to_anchor(None)
+            bbox = self.legend.get_bbox_to_anchor()
+        _bbox_transform = BboxTransformFrom(bbox)
+        self.legend._loc = tuple(_bbox_transform.transform(loc_in_canvas))
+
+    def _update_bbox_to_anchor(self, loc_in_canvas):
+        loc_in_bbox = self.legend.axes.transAxes.transform(loc_in_canvas)
+        self.legend.set_bbox_to_anchor(loc_in_bbox)
 
 
 _legend_kw_doc_base = """
@@ -371,13 +375,16 @@ class Legend(Artist):
     Place a legend on the figure/axes.
     """
 
+    #: The `.DraggableLegend` dragging the legend, while it is draggable.
+    _draggable = None
+
     def get_window_extent(self, renderer=None):
         # Return the legend's box in display space, where pltrs (Rust) lays it
         # out in the figure as it is (matplotlib computes it from the legend's
         # layout, the view limits not autoscaled first).
         self._check_figure_renderer(renderer)
         self._measure_box_with(renderer)
-        return self._extent_as_is()
+        return self._extent_as_is(renderer)
 
     @staticmethod
     def _measure_box_with(renderer):
@@ -587,23 +594,23 @@ class Legend(Artist):
             framealpha=framealpha, edgecolor=edgecolor, facecolor=facecolor,
             linewidth=linewidth, bbox_to_anchor=bbox_to_anchor,
             bbox_transform=_live_transforms.given_to_native(bbox_transform),
-            frameon=frameon, alignment=alignment, draggable=draggable)
+            frameon=frameon, alignment=alignment)
         _api.check_in_list(["center", "left", "right"], alignment=alignment)
         self._ncols = ncols
         self._draggable = None
         # matplotlib's constructor makes the legend for the Axes without
         # making it their legend (`Axes.legend` does, ``legend_``), which
         # pltrs (Rust) does as it makes it: the Axes keep the legend they
-        # had.
+        # had. A legend made for a figure is drawn once it is put in the
+        # figure's ``legends`` (`.Figure.legend` puts it there).
         own_axes = self.isaxes and parent.name != "3d"
         previous = _legend.axes_legend(parent._native) if own_axes else None
         native = _legend.new(parent._native, entries, kept, kwargs)
         _handles.adopt(self, native, parent.figure)
-        if own_axes:
-            if previous is None:
-                _artist.remove(native)
-            else:
-                _legend.set_axes_legend(parent._native, previous)
+        if own_axes and previous is not None:
+            _legend.set_axes_legend(parent._native, previous)
+        elif own_axes or not self.isaxes:
+            _artist.remove(native)
         made.adopt(self)
         self._made_handles = made.returned
         self._entry_handles = kept_handles
@@ -811,11 +818,24 @@ class Legend(Artist):
             from .offsetbox import _laid_out_box
             box = _laid_out_box(_legend.legend_box(self._native), self.figure,
                                 _DRAWN_CLASSES)
-            box._relay_change = self._legend_box_changed
+            # The box is on the legend's figure and Axes, placed by the
+            # legend's location (``_findoffset``) unless pinned somewhere.
+            pinned = _legend.box_offset(self._native)
+            box._offset = (self._findoffset if pinned is None
+                           else _values.float64s(pinned))
+            box._laid_out_for = self
             self._legend_box_object = box
         return box
 
-    def _legend_box_changed(self, box):
+    def _laid_out_box_moved(self, xy):
+        """Pin the legend's box at *xy*, display coordinates the program
+        moved it to (``_legend_box.set_offset``, as `.DraggableLegend` does
+        while the legend is dragged), or place it by its location again
+        for a callable *xy* (the legend's ``_findoffset``)."""
+        _legend.set_box_offset(self._native,
+                               None if callable(xy) else tuple(map(float, xy)))
+
+    def _laid_out_box_changed(self, box):
         """Align the title and the entries as the program aligned the
         legend's box (``legend._legend_box.align = ...``), which
         matplotlib's draw reads: a `.VPacker` aligns its children
@@ -895,12 +915,33 @@ class Legend(Artist):
         """
         _legend.set_loc(self._native, self._validated_loc(loc))
 
+    def _set_loc(self, loc):
+        """Place the legend at *loc*, a location code or a point in its
+        anchor box, as the program's choice; the legend box is placed by
+        its location again (``_legend_box.set_offset(self._findoffset)``)."""
+        _legend.set_loc(self._native, loc if isinstance(loc, (int, str))
+                        else tuple(map(float, loc)))
+        _values.remember(self, "loc", loc)
+        if "_legend_box_object" in self.__dict__:
+            self._legend_box_object._offset = self._findoffset
+        self.stale = True
+
     def _get_loc(self):
         """The location code, or the point the legend is placed at."""
         code, point = _legend.loc(self._native)
-        return point if code is None else code
+        return _values.given(self, "loc", point if code is None else code)
 
-    _loc = property(_get_loc)
+    _loc = property(_get_loc, _set_loc)
+
+    def _findoffset(self, width, height, xdescent, ydescent, renderer):
+        """Helper function to locate the legend."""
+        # pltrs (Rust) locates the legend box, the size of which it lays
+        # out as matplotlib's (``width``, ``height`` and the descents).
+        offset = _legend.located_box_offset(self._native)
+        if offset is None:
+            raise ValueError("the legend is not in its figure: it has no location")
+        # matplotlib computes the offset with numpy.
+        return _values.float64s(offset)
 
     def get_alignment(self):
         """Get the alignment value of the legend box"""
@@ -947,21 +988,19 @@ class Legend(Artist):
             instance. Otherwise this returns *None*.
         """
         if state:
-            if self.__dict__.get("_draggable") is None:
+            if self._draggable is None:
                 self._draggable = DraggableLegend(self,
                                                   use_blit,
                                                   update=update)
         else:
-            if self.__dict__.get("_draggable") is not None:
+            if self._draggable is not None:
                 self._draggable.disconnect()
-            else:
-                _legend.set_draggable(self._native, False, "loc")
             self._draggable = None
         return self._draggable
 
     def get_draggable(self):
         """Return ``True`` if the legend is draggable, ``False`` otherwise."""
-        return _legend.get_draggable(self._native)
+        return self._draggable is not None
 
     def set_ncols(self, ncols):
         """Set the number of columns."""
@@ -1232,5 +1271,5 @@ from .artist import allow_rasterization  # noqa: E402, F401
 from .offsetbox import (  # noqa: E402, F401
     AnchoredOffsetbox, DrawingArea, HPacker, TextArea, VPacker)
 from .patches import Shadow  # noqa: E402, F401
-from .transforms import BboxTransformFrom, BboxTransformTo  # noqa: E402, F401
+from .transforms import BboxTransformTo  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

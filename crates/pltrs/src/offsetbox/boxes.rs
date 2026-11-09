@@ -267,7 +267,7 @@ impl<A: ArtistRef> OffsetBox<A> {
             Self::AuxTransformBox(aux) => aux.bbox(),
             Self::Image(image) => image.bbox(ctx),
             Self::PaddedBox(padded) => {
-                let pad = padded.pad * ctx.points_to_pixels(1.0);
+                let pad = padded.pad * ctx.measuring_points_to_pixels(1.0);
                 Ok(padded.child.bbox(ctx)?.padded(pad, pad))
             }
             Self::Anchored(anchored) => anchored.bbox(ctx),
@@ -393,7 +393,7 @@ impl<A: ArtistRef> Packer<A> {
         ctx: LayoutContext<'_>,
         imposed_width: Option<f64>,
     ) -> Result<(Bbox, Vec<Point>), OffsetBoxError> {
-        let scale = ctx.points_to_pixels(1.0);
+        let scale = ctx.measuring_points_to_pixels(1.0);
         let (pad, sep) = (self.pad * scale, self.sep * scale);
         let bboxes = self
             .visible_children()
@@ -430,7 +430,7 @@ impl<A: ArtistRef> Packer<A> {
         ctx: LayoutContext<'_>,
         imposed_width: Option<f64>,
     ) -> Result<(Bbox, Vec<Point>), OffsetBoxError> {
-        let scale = ctx.points_to_pixels(1.0);
+        let scale = ctx.measuring_points_to_pixels(1.0);
         let (pad, sep) = (self.pad * scale, self.sep * scale);
         let width = imposed_width.or(self.width);
         let bboxes = self

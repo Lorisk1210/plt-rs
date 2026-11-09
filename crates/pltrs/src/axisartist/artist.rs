@@ -297,7 +297,7 @@ impl AxisArtistState {
         let (major, minor) = self.helper.ticks(ctx)?;
         let transform = self.resolve(layout, self.helper.tick_transform(self.axes))?;
         // Both levels of tick labels clear the major ticks.
-        let external = layout.points_to_pixels(self.major_ticks.outward());
+        let external = layout.measuring_points_to_pixels(self.major_ticks.outward());
         let tick_color = &self.rc.text_color;
         let mut levels = Vec::with_capacity(2);
         let mut axislabel_pad = f64::NEG_INFINITY;
@@ -504,7 +504,7 @@ impl AxisArtistState {
                 given.transform_point(helper.transform_point(reference))
             }
         };
-        let radius = axislabel_pad + layout.points_to_pixels(self.label.pad);
+        let radius = axislabel_pad + layout.measuring_points_to_pixels(self.label.pad);
         Ok(((anchor, ref_angle), radius))
     }
 

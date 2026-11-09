@@ -1,6 +1,7 @@
 //! numpy-style numeric helpers: ranges, grids, NaN-aware reductions,
-//! numpy's (unstable) `argsort` and index regions (runs of a mask, block
-//! perimeters of a grid).
+//! numpy's (unstable) `argsort`, index regions (runs of a mask, block
+//! perimeters of a grid) and numpy's scalar arithmetic with its runtime
+//! warnings ([`numpy_arith`]).
 //!
 //! The range constructors reproduce numpy's floating-point arithmetic
 //! exactly (`linspace` computes `i * step + start` and pins the endpoint),
@@ -13,6 +14,7 @@ mod argsort;
 mod grid;
 mod interp;
 mod number;
+pub mod numpy_arith;
 mod regions;
 
 pub use argsort::argsort;

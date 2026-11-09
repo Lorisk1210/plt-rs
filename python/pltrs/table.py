@@ -517,7 +517,7 @@ class Table(Artist):
         self._check_figure_renderer(renderer)
         _unusable.check(self, measuring=True)
         self._place_cells()
-        return self._extent_as_is()
+        return self._extent_as_is(renderer)
 
     def _kept_order(self):
         """The order in which matplotlib's table computes with what it

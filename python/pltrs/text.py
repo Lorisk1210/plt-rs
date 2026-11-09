@@ -187,13 +187,13 @@ def _measuring_with(renderer):
 def _measured_by(renderer, dpi):
     """Measure with *renderer*, which a program hands a measuring method
     (``get_window_extent(renderer)``, ``get_tightbbox(renderer)``), for a
-    layout at *dpi*: its text metrics cache installed, and the lines
-    measured at its resolution where that is not *dpi*, as matplotlib's
-    renderers measure lines at their own (the texts are placed at the
-    figure's)."""
+    layout at *dpi*: its text metrics cache installed, and the lines and
+    the pads matplotlib converts with the renderer measured at its
+    resolution where that is not *dpi*, as matplotlib measures with the
+    renderer (the texts are placed at the figure's)."""
     own = getattr(renderer, "dpi", None)
     at = None if own is None or dpi is None or own == dpi else float(own)
-    with _measuring_with(renderer), _text_metrics_module.lines_measured_at(at):
+    with _measuring_with(renderer), _text_metrics_module.measured_at(at):
         yield
 
 

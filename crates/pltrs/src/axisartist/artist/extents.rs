@@ -60,7 +60,7 @@ impl AxisArtistState {
     ) -> Result<Vec<Bbox>, String> {
         let drawing = self.drawing(
             layout,
-            layout.points_to_pixels(1.0),
+            layout.measuring_points_to_pixels(1.0),
             LabelGap::TickLabelsOnly,
         )?;
         let index = match level {
@@ -78,7 +78,11 @@ impl AxisArtistState {
     /// `None` when it is hidden; an empty label measures as the point it
     /// is anchored at, as matplotlib's empty texts do.
     pub(crate) fn label_extent(&self, layout: LayoutContext<'_>) -> Result<Option<Bbox>, String> {
-        let drawing = self.drawing(layout, layout.points_to_pixels(1.0), LabelGap::Kept)?;
+        let drawing = self.drawing(
+            layout,
+            layout.measuring_points_to_pixels(1.0),
+            LabelGap::Kept,
+        )?;
         if let Some(label) = &drawing.label {
             return Ok(Some(label.bbox()));
         }

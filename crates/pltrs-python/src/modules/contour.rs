@@ -227,17 +227,19 @@ fn contour_segments(
     Ok(axes.contour_segments(&levels, &segments, filled, options)?)
 }
 
-/// The extend, hatches, antialiasing, level locator and transform of a
-/// contour set, the locator described as `_tick_helpers` describes the
-/// helpers it installs: `(spec, True)` for a locator of `ticker`,
-/// `(adapter, False)` for one of the program's; the transform `None` for
-/// the axes' data coordinates.
+/// The extend, hatches, antialiasing, level locator, transform and log
+/// scaling of a contour set, the locator described as `_tick_helpers`
+/// describes the helpers it installs: `(spec, True)` for a locator of
+/// `ticker`, `(adapter, False)` for one of the program's; the transform
+/// `None` for the axes' data coordinates; whether the set is log-scaled as
+/// matplotlib decides it (by the classes of its norm and locator).
 pub(super) type Extras = (
     String,
     Vec<Option<String>>,
     Option<bool>,
     Option<(Owned, bool)>,
     Option<Transform>,
+    bool,
 );
 
 /// The locator a Python locator's description gives (see [`Extras`]).
@@ -256,7 +258,7 @@ fn level_locator((description, native): (Owned, bool)) -> PyResult<Box<dyn Locat
 pub(super) fn contour_options(
     requested: Option<NdArray>,
     (colors, mapping, alpha, linewidths, linestyles, negative): Look,
-    (extend, hatches, antialiased, locator, transform): Extras,
+    (extend, hatches, antialiased, locator, transform, log_scaled): Extras,
 ) -> PyResult<ContourOptions> {
     Ok(ContourOptions {
         levels: levels(requested)?,
@@ -276,6 +278,7 @@ pub(super) fn contour_options(
         antialiased,
         hatches,
         transform,
+        log_scaled: Some(log_scaled),
     })
 }
 

@@ -188,10 +188,6 @@ impl FromPy<'_> for LegendKwargs {
                 "columnspacing" => options.columnspacing(value.extract::<f64>()?),
                 "bbox_to_anchor" => options.bbox_to_anchor(bbox_to_anchor(&value)?),
                 "bbox_transform" => options.bbox_transform(value.extract::<Transform>()?),
-                "draggable" => LegendOptions {
-                    draggable: value.extract::<bool>()?,
-                    ..options
-                },
                 _ => {
                     return Err(PyErr::new(
                         ExceptionKind::TypeError,
@@ -403,11 +399,6 @@ fn set_alignment(legend: Legend, alignment: String) -> PyResult<()> {
     Ok(())
 }
 
-/// Whether the legend can be dragged with the mouse.
-fn get_draggable(legend: Legend) -> PyResult<bool> {
-    Ok(legend.draggable())
-}
-
 /// Keeps `legend` on `axes` as an ordinary artist, so that the next
 /// `legend()` adds a legend beside it (`ax.add_artist(legend)`).
 fn keep(axes: Axes, legend: Legend) -> PyResult<()> {
@@ -448,7 +439,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("loc", loc)?;
     module.add("get_alignment", get_alignment)?;
     module.add("set_alignment", set_alignment)?;
-    module.add("get_draggable", get_draggable)?;
     anchor::register(module)?;
     made::register(module)?;
     module.add("keep", keep)?;

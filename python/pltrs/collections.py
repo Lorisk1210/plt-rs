@@ -1044,6 +1044,7 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
+        self._original_facecolor = c
         _collections.set_facecolors(self._native, None if c is None else _rgba(c))
         self._face_fill = not cbook._str_lower_equal(c, "none")
 
@@ -1078,6 +1079,11 @@ class Collection(mcolorizer.ColorizingArtist):
         if isinstance(c, str) and c.lower() in ("none", "face"):
             c = c.lower()
         _collections.set_edgecolors(self._native, _edge_spec(c))
+        if c is None and "_original_facecolor" in self.__dict__:
+            # matplotlib decides from the face colour given last, which a
+            # colour it refused still is.
+            _collections.decide_default_edges_as(
+                self._native, cbook._str_equal(self._original_facecolor, "none"))
 
     def set_color(self, c):
         """

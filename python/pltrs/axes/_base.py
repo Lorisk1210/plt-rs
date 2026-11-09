@@ -14,6 +14,7 @@ from .. import _api, _artist_clipping, _handles, _values, cbook, colorizer as mc
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
 from ..artist import Artist, allow_rasterization
+from ..transforms import IdentityTransform
 from . import _foreign_children
 from ._artist_list import ArtistList
 from ._aspect import AspectMixin
@@ -61,6 +62,11 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     def set_figure(self, fig):
         # docstring inherited: matplotlib's override has none.
         super().set_figure(fig)
+        # matplotlib's makes the Axes' boxes and transforms anew: the view
+        # the unit box, no data limits, and an identity ``transScale`` until
+        # a scale is set again.
+        _axes_base.reset_for_figure(self._native)
+        self.transScale.set(IdentityTransform())
 
     @allow_rasterization
     def draw(self, renderer):

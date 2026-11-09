@@ -867,6 +867,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         .Figure.subfigures
         """
         sf = SubFigure(self, subplotspec, **kwargs)
+        sf._add_to_figure(self, False)
         self.subfigs.append(sf)
         sf._listed_among = self.subfigs
         self.stale = True
@@ -1223,15 +1224,24 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         )
         # explicitly set the bbox transform if the user hasn't.
         kwargs.setdefault("bbox_transform", self.transSubfigure)
-        return mlegend.Legend(self, handles, labels, **kwargs)
+        l = mlegend.Legend(self, handles, labels, **kwargs)
+        self.legends.append(l)
+        self.stale = True
+        return l
 
     @property
     def legends(self):
-        """The legends of the figure, in the order they were made."""
+        """The legends of the figure, in the order they were put in it:
+        putting a legend made for the figure in the list draws it (see
+        `._figure_artists`)."""
         from . import legend as mlegend
         from ._native import legend as _legend
-        return _handles.wrap_all(_legend.figure_legends(self._native),
-                                 mlegend.Legend, self.figure)
+        return _figure_artists.LegendList(self, _handles.wrap_all(
+            _legend.figure_legends(self._native), mlegend.Legend, self.figure))
+
+    @legends.setter
+    def legends(self, legends):
+        _figure_artists.replace(self.legends, legends)
 
     def clear(self, keep_observers=False):
         """
@@ -1398,8 +1408,11 @@ class SubFigure(FigureBase):
         """
         # Placed by the ratios of its grid as matplotlib places it.
         _gridspec_kept.subfigure_bounds(subplotspec)
+        # Made for *parent* but not drawn there until `.Figure.add_subfigure`
+        # adds it, as matplotlib's constructor leaves that to it.
         native = _figure.add_subfigure(parent._native,
                                        subplotspec._native_spec())
+        _artist.remove(native)
         self._adopt_native(parent, native, subplotspec, facecolor=facecolor,
                            edgecolor=edgecolor, linewidth=linewidth,
                            frameon=frameon, **kwargs)

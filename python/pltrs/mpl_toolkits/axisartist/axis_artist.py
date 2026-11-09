@@ -556,7 +556,8 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
             mtext.Text.set_color(self, color_orig)
 
     def get_window_extent(self, renderer=None):
-        extent = self._drawn_extent(_mirrors.mirroring(self))
+        with mtext._measured_by_given(renderer, self):
+            extent = self._drawn_extent(_mirrors.mirroring(self))
         if extent is not _mirrors.OWN:
             if renderer is not None and self.get_visible() and self.get_text():
                 # matplotlib lays the text out with *renderer*.
@@ -1061,9 +1062,10 @@ class TickLabels(AxisLabel):  # mtext.Text
                 # them with it.
                 self._check_measuring(renderer)
                 renderer.points_to_pixels(self.get_pad())
-            extents = (_axisartist.axis_text_extents(mirror.native)
-                       if mirror.axis_artist is None
-                       else self._part_extents(mirror))
+            with mtext._measured_by_given(renderer, self):
+                extents = (_axisartist.axis_text_extents(mirror.native)
+                           if mirror.axis_artist is None
+                           else self._part_extents(mirror))
             return [Bbox.from_extents(*extent) for extent in extents]
 
         bboxes = []
@@ -1717,7 +1719,8 @@ class AxisArtist(martist.Artist):
         # matplotlib places the ticks with it first (``_update_ticks``).
         renderer.points_to_pixels(1.)
         _unusable.check(self, measuring=True)
-        extent = _axisartist.tight_bbox(self._native)
+        with mtext._measured_by_given(renderer, self):
+            extent = _axisartist.tight_bbox(self._native)
         return None if extent is None else Bbox.from_extents(*extent)
 
     def toggle(self, all=None, ticks=None, ticklabels=None, label=None):

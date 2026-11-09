@@ -243,7 +243,7 @@ impl AxisTextsState {
         let style = state.text_style(&self.rc, &self.texts.color);
         let radius = match self.texts.kind {
             AxisTextsKind::Label { radius } => radius,
-            AxisTextsKind::AxisLabel => layout.points_to_pixels(self.texts.pad),
+            AxisTextsKind::AxisLabel => layout.measuring_points_to_pixels(self.texts.pad),
             AxisTextsKind::TickLabels => {
                 let labels: Vec<TickLabel> = self
                     .texts

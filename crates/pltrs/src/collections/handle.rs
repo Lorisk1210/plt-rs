@@ -108,6 +108,7 @@ impl Collection {
     /// Sets per-item face colours (cycled).
     pub fn set_facecolors(&self, colors: Vec<Color>) -> &Self {
         self.update(|c| {
+            c.keep_default_edges();
             c.facecolors = Some(colors);
             c.unmap_faces();
             c.kept_colors.forget_faces();
@@ -118,19 +119,49 @@ impl Collection {
     /// colour mapping overrides (matplotlib's `set_facecolor(None)`).
     pub fn reset_facecolor(&self) -> &Self {
         self.update(|c| {
+            c.keep_default_edges();
             c.facecolors = None;
             c.unmap_faces();
             c.kept_colors.forget_faces();
         })
     }
 
-    /// Sets the edge colours.
+    /// Sets the edge colours; with [`EdgeColors::Default`], whether the
+    /// items get the default edge colour is decided now, from the face
+    /// colours of now, and stays so when they change (matplotlib's
+    /// `set_edgecolor(None)`).
     pub fn set_edgecolors(&self, edges: EdgeColors) -> &Self {
         self.update(|c| {
             c.edgecolors = edges;
+            c.default_edges.set(None);
+            c.decide_default_edges();
             c.unmap_edges();
             c.kept_colors.forget_edges();
         })
+    }
+
+    /// Has the default rule of [`EdgeColors::Default`] decide whether the
+    /// items get the default edge colour as if the faces were `unfilled`
+    /// or not, whatever they are now: matplotlib decides from the face
+    /// colour given last (`_original_facecolor`), which a colour it refused
+    /// still is, the faces keeping the colours they had.
+    ///
+    /// ```
+    /// use pltrs::collections::{CollectionSpec, EdgeColors};
+    /// use pltrs::colors::Color;
+    /// use pltrs::prelude::*;
+    /// use pltrs_core::Point;
+    /// let ax = Figure::new().subplot();
+    /// let triangle = vec![Point::new(0.0, 0.0), Point::new(1.0, 0.0), Point::new(1.0, 1.0)];
+    /// let polys = ax.add_collection(CollectionSpec::polygons(vec![triangle]));
+    /// polys.set_facecolor(Color::none()).set_edgecolors(EdgeColors::Default);
+    /// assert_eq!(polys.colors()?.edges.len(), 1, "unfilled: default edges");
+    /// polys.decide_default_edges_as(false);
+    /// assert!(polys.colors()?.edges.is_empty());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn decide_default_edges_as(&self, unfilled: bool) -> &Self {
+        self.update(|c| c.decide_default_edges_as(unfilled))
     }
 
     /// Sets one edge colour for every item.

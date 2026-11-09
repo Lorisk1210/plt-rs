@@ -59,29 +59,37 @@ class ExtentMixin:
                 "'NoneType' object has no attribute '_get_renderer'",
                 name="_get_renderer", obj=None)
 
-    def _laid_out_extent(self):
+    def _laid_out_extent(self, renderer=None):
         """
         The artist's box in display space where pltrs (Rust) lays it out
         (the figure laid out first), a zero box outside any figure or for
         an artist taking no space: the extent of the artists whose layout
         pltrs (Rust) computes (legends, tables, offset boxes), which
-        matplotlib's compute from theirs.
+        matplotlib's compute from theirs, measured with *renderer* when the
+        program gives one (see ``text._measured_by``).
         """
-        points = None if self._figure is None else \
-            _artist.window_extent(self._native)
+        from .text import _measured_by_given
+        if self._figure is None:
+            return Bbox([[0, 0], [0, 0]])
+        with _measured_by_given(renderer, self):
+            points = _artist.window_extent(self._native)
         return Bbox([[0, 0], [0, 0]]) if points is None else Bbox(points)
 
-    def _extent_as_is(self):
+    def _extent_as_is(self, renderer=None):
         """
         The artist's box in display space where pltrs (Rust) lays it out
         in the figure as it is now (not laid out first: with the view
         limits autoscaling has not computed yet and the positions a layout
         engine has not set yet), a zero box outside any figure or for an
         artist taking no space: the extent of the artists matplotlib lays
-        out when they are measured (legends, tables, offset boxes).
+        out when they are measured (legends, tables, offset boxes),
+        measured with *renderer* when the program gives one.
         """
-        points = None if self._figure is None else \
-            _artist.window_extent_as_is(self._native)
+        from .text import _measured_by_given
+        if self._figure is None:
+            return Bbox([[0, 0], [0, 0]])
+        with _measured_by_given(renderer, self):
+            points = _artist.window_extent_as_is(self._native)
         return Bbox([[0, 0], [0, 0]]) if points is None else Bbox(points)
 
     def get_tightbbox(self, renderer=None):

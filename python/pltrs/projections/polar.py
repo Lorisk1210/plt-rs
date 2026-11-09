@@ -871,7 +871,7 @@ class PolarAxes(PolarTrees, Axes):
             # What matplotlib computes, from the limits the projection of a
             # program's subclass is asked about while pltrs (Rust) draws.
             return np.sign(self._originViewLim.y1 - self._originViewLim.y0)
-        return np.sign(self.get_rmax() - self.get_rorigin())
+        return np.sign(self.viewLim.y1 - self.get_rorigin())
 
     def set_rlim(self, bottom=None, top=None, *,
                  emit=True, auto=False, **kwargs):

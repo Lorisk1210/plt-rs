@@ -2158,6 +2158,8 @@ class Axis(DrawnWith, Artist):
             return False
         if _is_native_converter(converter):
             from .category import StrCategoryConverter
+            replaced = self.get_converter()
+            categories_replace = False
             if not isinstance(converter, StrCategoryConverter):
                 # The first date tells pltrs (Rust) all it needs: that the
                 # axis shows dates (the others may be no dates at all, as
@@ -2167,8 +2169,17 @@ class Axis(DrawnWith, Artist):
                 # matplotlib's converter gives an axis without units the
                 # category data (`default_units`).
                 self.__dict__.pop("_units_given", None)
+                categories_replace = replaced is not None and replaced != converter
             taken = self._take_native_converter(
                 converter, lambda: self._update_native_units(data))
+            if categories_replace:
+                # Which matplotlib's `set_units` makes the units of the
+                # axes sharing the axis, converting the data of their lines
+                # again through them: values of the converter replaced (a
+                # line of dates) are no categories.
+                for axis in self._get_shared_axis():
+                    axis.axes._unit_change_handler(axis.axis_name)
+                    axis.callbacks.process('units')
             if not isinstance(converter, StrCategoryConverter):
                 # The zone of the first date is the unit of an axis
                 # without one (pltrs (Rust) took it with the dates).
@@ -2280,6 +2291,10 @@ class Axis(DrawnWith, Artist):
         if kind == "dates" and isinstance(axis_values(x), list):
             # The axis' date converter converts what it is given, as
             # matplotlib's does: text parses as dates, not category names.
+            return self._converted(self.get_converter(), x)
+        if kind == "category" and isinstance(axis_values(x), tuple):
+            # Nor does the category converter take dates for another
+            # converter's: they are no category names.
             return self._converted(self.get_converter(), x)
         if _is_native_converter(converter):
             return convert_units(self.axes, self.axis_name, x)

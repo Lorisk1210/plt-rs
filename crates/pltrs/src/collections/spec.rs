@@ -375,9 +375,19 @@ impl CollectionArtist {
         if x_data || y_data {
             return (self.shape_extents(), directions);
         }
-        if self.offset_transform.is_some() {
+        if let Some(offset_transform) = &self.offset_transform {
+            // matplotlib maps the offsets into the data coordinates
+            // (`(offset_trf - transData).transform(offsets)`), which their
+            // transform ends in, after an affine map of their own (a
+            // barb plot's `transform=Affine2D().translate(...) + ax.transData`).
+            let points = match offset_transform.to_data(axes) {
+                Some(to_data) => (self.offsets.iter())
+                    .map(|&p| to_data.transform_point(p))
+                    .collect(),
+                None => self.offsets.clone(),
+            };
             let mut limits = DataLimits::NULL;
-            limits.update_from_points(&self.offsets, true, true);
+            limits.update_from_points(&points, true, true);
             return (limits, directions);
         }
         (DataLimits::NULL, directions)

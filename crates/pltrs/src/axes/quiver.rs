@@ -8,13 +8,27 @@ use pltrs_core::Point;
 use super::children::DataUpdate;
 use super::data_coords::data_offsets;
 use super::{Axes, DataLimits, PlotError};
-use crate::artist::{Artist, ArtistHandle, ArtistId};
-use crate::collections::{Collection, CollectionArtist, CollectionKind};
+use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
+use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping};
 use crate::quiver::{
     Angles, ArrowSizing, KeyCoordinates, KeyVector, Quiver, QuiverGeometry, QuiverKey,
     QuiverKeyArtist, QuiverKeyOptions, QuiverOptions, VectorField,
 };
 use crate::transforms::Transform;
+
+/// The collection of a vector field's arrows or barbs made for an axes,
+/// the data limits their positions span and the mapping of their colour
+/// values.
+pub(super) type MadeField = (CollectionArtist, DataLimits, Option<ColorMapping>);
+
+/// The collection `raw`, its colour values mapped as `mapping` says.
+pub(super) fn mapped(raw: RawHandle, mapping: Option<ColorMapping>) -> Collection {
+    let collection = Collection::from_raw(raw);
+    if let Some(mapping) = mapping {
+        collection.set_mapping(mapping);
+    }
+    collection
+}
 
 impl Axes {
     /// Draws an arrow for every vector of `field` (matplotlib's `quiver`).
@@ -36,6 +50,51 @@ impl Axes {
     /// When the positions, components, colour values or angles disagree
     /// in size, or the colours cannot be mapped.
     pub fn quiver(&self, field: VectorField, options: QuiverOptions) -> Result<Quiver, PlotError> {
+        let (collection, limits, mapping) = self.quiver_collection(field, options)?;
+        let collection = self.adopt_collection(collection, &DataUpdate::limits(limits));
+        Ok(Quiver::new(mapped(collection, mapping)))
+    }
+
+    /// The arrows of [`Axes::quiver`] made for this axes outside the
+    /// figure, as a removed collection (matplotlib's `Quiver(ax, ...)`,
+    /// which leaves adding the arrows to `ax.add_collection`): neither
+    /// drawn nor in the data limits until [`Axes::adopt_artist`] adds
+    /// them.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::prelude::*;
+    /// use pltrs::quiver::{QuiverOptions, VectorField};
+    /// let ax = Figure::new().subplot();
+    /// let field = VectorField::new([0.0, 4.0], [0.0, 2.0], [1.0], [1.0]);
+    /// let q = ax.removed_quiver(field, QuiverOptions::default())?;
+    /// assert!(ax.collections().is_empty() && ax.data_lim().bbox.is_null());
+    /// ax.adopt_artist(q.raw(), AddAs::Collection { autolim: true })?;
+    /// assert_eq!(ax.collections().len(), 1);
+    /// assert_eq!(ax.data_lim().bbox.p1.x, 4.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::quiver`].
+    pub fn removed_quiver(
+        &self,
+        field: VectorField,
+        options: QuiverOptions,
+    ) -> Result<Quiver, PlotError> {
+        let (collection, _, mapping) = self.quiver_collection(field, options)?;
+        Ok(Quiver::new(mapped(self.removed(collection), mapping)))
+    }
+
+    /// The collection of the arrows of `field` for this axes (see
+    /// [`Axes::quiver`]).
+    fn quiver_collection(
+        &self,
+        field: VectorField,
+        options: QuiverOptions,
+    ) -> Result<MadeField, PlotError> {
         let rc = crate::rc::params();
         let scalar_components = field.u.len() == 1 && field.v.len() == 1;
         let mut points = field.into_points(&rc)?;
@@ -83,12 +142,7 @@ impl Axes {
             QuiverGeometry::new(self.id(), points.xy, (points.u, points.v), mask, sizing)
                 .with_scalar_components(scalar_components);
         collection.draw_time = Some(Rc::new(geometry));
-        let quiver =
-            Collection::from_raw(self.adopt_collection(collection, &DataUpdate::limits(limits)));
-        if let Some(mapping) = mapping {
-            quiver.set_mapping(mapping);
-        }
-        Ok(Quiver::new(quiver))
+        Ok((collection, limits, mapping))
     }
 
     /// Adds a key to `quiver`: an arrow of `length` data units at
@@ -111,6 +165,49 @@ impl Axes {
         label: impl Into<String>,
         options: QuiverKeyOptions,
     ) -> QuiverKey {
+        let (key, text) = self.quiverkey_artist(quiver, position, length, label.into(), &options);
+        self.keyed(self.adopt(key, &DataUpdate::default()), text)
+    }
+
+    /// The key of [`Axes::quiverkey`] made outside the figure, as a
+    /// removed artist with its label (matplotlib's `QuiverKey(Q, ...)`,
+    /// which leaves adding the key to `ax.add_artist`).
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::prelude::*;
+    /// use pltrs::quiver::{QuiverKeyOptions, QuiverOptions, VectorField};
+    /// let ax = Figure::new().subplot();
+    /// let q = ax.quiver(VectorField::new([0.0], [0.0], [1.0], [1.0]), QuiverOptions::default())?;
+    /// let key = ax.removed_quiverkey(&q, (0.9, 1.05), 1.0, "1 m/s", QuiverKeyOptions::default());
+    /// assert!(!key.raw().is_attached() && !key.text().raw().is_attached());
+    /// ax.adopt_artist(key.raw(), AddAs::Artist)?;
+    /// assert!(key.text().raw().is_attached());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn removed_quiverkey(
+        &self,
+        quiver: &Quiver,
+        position: (f64, f64),
+        length: f64,
+        label: impl Into<String>,
+        options: QuiverKeyOptions,
+    ) -> QuiverKey {
+        let (key, text) = self.quiverkey_artist(quiver, position, length, label.into(), &options);
+        self.keyed(self.removed(key), text)
+    }
+
+    /// The artist of a key to `quiver` and the id of its label, which it
+    /// owns (see [`Axes::quiverkey`]).
+    fn quiverkey_artist(
+        &self,
+        quiver: &Quiver,
+        position: (f64, f64),
+        length: f64,
+        label: String,
+        options: &QuiverKeyOptions,
+    ) -> (QuiverKeyArtist, ArtistId) {
         let quiver_axes = quiver
             .raw()
             .with_base(|base| base.parent)
@@ -121,13 +218,21 @@ impl Axes {
             length,
             angle: options.angle,
         };
-        let text = QuiverKeyArtist::label_artist(&vector, &transform, label.into(), &options);
-        let figure = Rc::clone(self.raw().figure_state());
-        let text = figure.borrow_mut().store.insert(Box::new(text));
-        let mut key = QuiverKeyArtist::new(quiver.id(), vector, transform, &options, text);
+        let text = QuiverKeyArtist::label_artist(&vector, &transform, label, options);
+        let text = self
+            .raw()
+            .figure_state()
+            .borrow_mut()
+            .store
+            .insert(Box::new(text));
+        let mut key = QuiverKeyArtist::new(quiver.id(), vector, transform, options, text);
         key.base_mut().zorder = options.zorder.unwrap_or(quiver.zorder() + 0.1);
-        let raw = self.adopt(key, &DataUpdate::default());
-        if let Some(text) = figure.borrow_mut().artist_mut(text) {
+        (key, text)
+    }
+
+    /// The key `raw`, made the owner of its label `text`.
+    fn keyed(&self, raw: RawHandle, text: ArtistId) -> QuiverKey {
+        if let Some(text) = self.raw().figure_state().borrow_mut().artist_mut(text) {
             text.base_mut().parent = Some(raw.id());
         }
         QuiverKey::from_raw(raw)

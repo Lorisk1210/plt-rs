@@ -274,7 +274,7 @@ impl<A: ArtistRef> AnchoredNode<A> {
             }
             (None, _) => pad_font_points(None),
         };
-        Ok(ctx.points_to_pixels(points))
+        Ok(ctx.measuring_points_to_pixels(points))
     }
 
     /// The padded extent of the child around its origin (matplotlib's

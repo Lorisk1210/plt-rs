@@ -32,12 +32,12 @@ style_sheets/style_sheets_reference$ | ^warning extra: WARNING: findfont: Failed
 # classes derive from pybind11_object; pltrs's are Python classes.
 . | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|FT2Image|Glyph|LayoutItem)|backends\._backend_agg\.BufferRegion|_tri\.(Triangulation|TriContourGenerator|TrapezoidMapTriFinder)): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
 
-# matplotlib draws what a program puts in a figure's artists, lines, patches
-# and texts lists (Figure.get_children reads them at each draw); pltrs
-# (Rust) keeps the figure's artists, so these lists are a list subclass
+# matplotlib draws what a program puts in a figure's artists, lines, patches,
+# texts and legends lists (Figure.get_children reads them at each draw);
+# pltrs (Rust) keeps the figure's artists, so these lists are a list subclass
 # whose mutating methods hand the artists over (isinstance(fig.lines, list)
 # holds, and they compare equal to matplotlib's lists).
-artists/(sub)?figure_(getters|setters)$ | ^type\[(artists|lines|patches|texts)\]: list -> matplotlib\._figure_artists\.DrawnList$ | the figure's lists of loose artists are a list subclass that has pltrs (Rust) draw what is put in them
+(artists/(sub)?figure_(getters|setters)|modules/legends)$ | ^type\[(artists|lines|patches|texts|legends)\]: list -> matplotlib\._figure_artists\.(DrawnList|LegendList)$ | the figure's lists of loose artists and legends are list subclasses that have pltrs (Rust) draw what is put in them
 
 # matplotlib's Artist.set_mouseover adds the artist to self.axes._mouseover_set;
 # the axes of a (sub)figure is the list of its Axes, so a figure with Axes
@@ -60,6 +60,11 @@ generated/offsetboxes/program_boxes$ | ^callback\[[^]]+\]: runs another number o
 # shown.
 misc/custom_projection$ | ^callback\[_[xy]axis_(text[12]_)?transform\]: (runs another number of times|never runs)$ | the getters run for the Tick objects an axis makes: 30 and 10 calls in the first draw of the figure, none in a second
 specialty_plots/skewt$ | ^callback\[SkewXTick\]: runs another number of times$ | SkewXAxis._get_tick runs for each Tick object the axis makes: 17 calls in the first draw of the figure, none in a second
+
+# The tester imports pltrs (Python) as `pltrs`, and writes the names in
+# what it records back as matplotlib's (`pltrs.lines` as
+# `matplotlib.lines`), but not the padding computed from them.
+api/inspector_0$ | ^value\[pprint_setters_rest\]: str$ | the reST table pads its first column to the longest `:meth:` target, which names the setter's module: `pltrs.lines.Line2D.set_markerfacecoloralt` under the tester's import, five characters shorter twice in the row than `matplotlib.lines...` (the rows are the same once renamed; under `import matplotlib` via python/alias the table is matplotlib's)
 
 # pltrs has a GUI backend of its own (`backend_pltrs`, its windows), which
 # the backend registry lists among matplotlib's.

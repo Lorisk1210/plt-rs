@@ -245,6 +245,12 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
     #: drawing area, a text area, an offset image, an aux-transform box).
     _leaf = False
 
+    #: The artist pltrs (Rust) laid the box out for (a legend, for its
+    #: ``_legend_box``; None for other boxes), which the box is on and which
+    #: takes what the program sets on the box (``_laid_out_box_changed``)
+    #: and where it moves it (``_laid_out_box_moved``).
+    _laid_out_for = None
+
     #: The box's place in the tree pltrs (Rust) lays out (see
     #: `._offsetbox_trees`): the native handle of the box added with the
     #: tree and the box's index in it, None outside any tree.
@@ -298,11 +304,8 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
             owner = self
         if owner is not None:
             owner._sync_tree()
-        relay = self.__dict__.get("_relay_change")
-        if relay is not None:
-            # A box pltrs (Rust) laid out for an artist (a legend's box)
-            # hands that artist what the program set on it.
-            relay(self)
+        if self._laid_out_for is not None:
+            self._laid_out_for._laid_out_box_changed(self)
         self.stale = True
 
     @_docstring.copy(Artist.set_visible)
@@ -494,7 +497,8 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         if node is None:
             return None
         self._measure_program_boxes(renderer)
-        return Bbox.from_bounds(*_offsetbox.node_extent(*node))
+        with mtext._measured_by_given(renderer, self):
+            return Bbox.from_bounds(*_offsetbox.node_extent(*node))
 
     def _measure_program_boxes(self, renderer):
         """Have the boxes of the program's inside this box measure
@@ -592,6 +596,8 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         self._offset = xy
         self._offset_given()
         self._move_placed(xy)
+        if self._laid_out_for is not None:
+            self._laid_out_for._laid_out_box_moved(xy)
         self.stale = True
 
     def _move_placed(self, xy):
@@ -696,16 +702,22 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         """Return the `.Figure` or `.SubFigure` the box is on: that of the
         artist added with its tree, for a box inside another, which keeps it
         once that artist is removed or cleared, as matplotlib's keeps the
-        figure the artist gave it."""
+        figure the artist gave it, or that of the artist it was laid out
+        for."""
         owner = self._drawer()
+        if owner is None:
+            owner = self._laid_out_for
         if self._figure is None and owner is not None:
             return owner._home_figure(root=root)
         return super().get_figure(root=root)
 
     def _loose_axes(self):
-        # A box inside another is in the Axes it was given (an Axes listing
-        # it, see `.axes._foreign_children`), else in the Axes of the box
-        # that added the tree; inside an artist's tree, in none.
+        # A box laid out for an artist is in that artist's Axes. A box
+        # inside another is in the Axes it was given (an Axes listing it, see
+        # `.axes._foreign_children`), else in the Axes of the box that added
+        # the tree; inside an artist's tree, in none.
+        if self._laid_out_for is not None:
+            return self._laid_out_for.axes
         owner = self._drawer()
         given = super()._loose_axes()
         if owner is None or given is not None:
@@ -1651,9 +1663,9 @@ class AnchoredOffsetbox(OffsetBox):
             return OffsetBox.get_window_extent(self, renderer)
         self.get_child()._measure_program_boxes(renderer)
         if self._synced_node() is not None:
-            return self.patch._laid_out_extent()
+            return self.patch._laid_out_extent(renderer)
         self._sync_tree()
-        return self._laid_out_extent()
+        return self._laid_out_extent(renderer)
 
     def _join(self, parent):
         """Join *parent*, an axes or a figure, with the child tree: pltrs

@@ -93,6 +93,14 @@ fn set_edgecolors(collection: Collection, colors: Owned) -> PyResult<()> {
     Ok(())
 }
 
+/// Has the default edge rule decide as if the faces were `unfilled` or
+/// not (matplotlib's `set_edgecolor(None)`, deciding from the face colour
+/// given last).
+fn decide_default_edges_as(collection: Collection, unfilled: bool) -> PyResult<()> {
+    collection.decide_default_edges_as(unfilled);
+    Ok(())
+}
+
 /// Sets the hatch colours (`"edge"` or colours).
 fn set_hatchcolors(collection: Collection, colors: Owned) -> PyResult<()> {
     let hatches = Python::with_gil(|py| hatch_colors(&colors.bind(py)))?;
@@ -566,6 +574,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get", get)?;
     module.add("set_facecolors", set_facecolors)?;
     module.add("set_edgecolors", set_edgecolors)?;
+    module.add("decide_default_edges_as", decide_default_edges_as)?;
     module.add("set_hatchcolors", set_hatchcolors)?;
     module.add("set_linewidths", set_linewidths)?;
     module.add("set_linestyles", set_linestyles)?;

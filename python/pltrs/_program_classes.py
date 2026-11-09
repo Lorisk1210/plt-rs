@@ -27,8 +27,11 @@ def set_artist_props(artist, had_transform, axes=None):
     program's overrides, which may do more (an artist holding another
     sets them on it too).
     """
+    from .axes._base import _AxesBase
     cls = type(artist)
-    if takes_from_program(cls, "set_figure"):
+    # matplotlib's ``add_axes`` joins an Axes without setting its figure,
+    # which an Axes' `set_figure` would make its boxes and transforms anew.
+    if takes_from_program(cls, "set_figure") and not isinstance(artist, _AxesBase):
         artist.set_figure(artist.get_figure(root=False))
     if not had_transform and takes_from_program(cls, "set_transform"):
         artist.set_transform(artist.get_transform())

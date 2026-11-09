@@ -9,6 +9,7 @@
 //! reaches without having prepared it is recorded there and then, the
 //! figure being drawn meanwhile.
 
+use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::fmt;
 
@@ -179,18 +180,44 @@ impl ArtistPainter for PythonPainter {
 /// pltrs again with `None`; `rasterizes` tells whether the class' `draw`
 /// lets the artist be rasterized (matplotlib's `allow_rasterization`),
 /// `measures` whether the class measures the artist (layouts and tight
-/// boxes then ask it).
+/// boxes then ask it). An artist that object paints so already keeps its
+/// painter, and the drawing prepared for the draw running (an image whose
+/// `draw` sets its array asks for its painter again).
 fn set_painter(
     artist: RawHandle,
     artist_ref: Option<Owned>,
     rasterizes: bool,
     measures: bool,
 ) -> PyResult<()> {
+    if let Some(artist_ref) = &artist_ref
+        && painted_by(&artist, artist_ref, (rasterizes, measures))
+    {
+        return Ok(());
+    }
     artist.set_painter(
         artist_ref
             .map(|artist_ref| Painter::new(PythonPainter::new(artist_ref, rasterizes, measures))),
     );
     Ok(())
+}
+
+/// Whether the object the weak reference `artist_ref` refers to paints
+/// `artist` already, with the flags `flags` (see [`set_painter`]).
+fn painted_by(artist: &RawHandle, artist_ref: &Owned, flags: (bool, bool)) -> bool {
+    let Some(painter) = artist.painter() else {
+        return false;
+    };
+    let Some(current) = (painter.get() as &dyn Any).downcast_ref::<PythonPainter>() else {
+        return false;
+    };
+    current.flags() == flags
+        && Python::with_gil(|py| {
+            let given = artist_ref.bind(py).call(&[], &[]).ok();
+            match (current.artist(py), given) {
+                (Some(painting), Some(given)) => painting.as_ptr() == given.as_ptr(),
+                _ => false,
+            }
+        })
 }
 
 /// Registers the module's functions.

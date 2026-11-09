@@ -109,11 +109,13 @@ type Sizing = (Option<f64>, Option<String>, String, PyAngles, Option<f64>);
 /// minlength)`.
 type Shape = (f64, f64, f64, f64, f64);
 
-/// Arrows for the vectors `u`, `v` at `x`, `y` (matplotlib's `quiver`,
-/// whose positional forms the Python side parsed), sized as `sizing`
-/// says, shaped as `shape`, placed on them by their `"tail"`, `"middle"`
-/// or `"tip"`, in the face colour `color` unless values are mapped, with
-/// the positions in `transform` (`None`: the data coordinates).
+/// Arrows for the vectors `u`, `v` at `x`, `y` (matplotlib's
+/// `Quiver(ax, ...)`, whose positional forms the Python side parsed),
+/// sized as `sizing` says, shaped as `shape`, placed on them by their
+/// `"tail"`, `"middle"` or `"tip"`, in the face colour `color` unless
+/// values are mapped, with the positions in `transform` (`None`: the data
+/// coordinates); made for `axes` but not added to it, as matplotlib's
+/// constructor leaves that to `add_collection`.
 pub(super) fn quiver(
     axes: Axes,
     positions: (NdArray, NdArray),
@@ -146,7 +148,7 @@ pub(super) fn quiver(
         transform,
         ..QuiverOptions::default()
     };
-    Ok(axes.quiver(vector_field(positions, components, mapped)?, options)?)
+    Ok(axes.removed_quiver(vector_field(positions, components, mapped)?, options)?)
 }
 
 /// Replaces the components of the arrows (matplotlib's `set_UVC`), one
@@ -236,9 +238,10 @@ impl FromPy<'_> for KeyArrowProps {
     }
 }
 
-/// A key of `quiver` on `axes`: an arrow of `length` at `position`
+/// A key of `quiver` for `axes`: an arrow of `length` at `position`
 /// labelled `label`, its arrow given the properties `arrow` (matplotlib's
-/// `quiverkey`).
+/// `QuiverKey(Q, ...)`), made but not added, as matplotlib's constructor
+/// leaves that to `add_artist`.
 pub(super) fn quiverkey(
     axes: Axes,
     quiver: Quiver,
@@ -270,7 +273,7 @@ pub(super) fn quiverkey(
         zorder,
         props: arrow.0,
     };
-    Ok(axes.quiverkey(&quiver, position, length, label, options))
+    Ok(axes.removed_quiverkey(&quiver, position, length, label, options))
 }
 
 /// The label of a quiver key.
@@ -339,7 +342,9 @@ fn barbs_options(
 }
 
 /// Wind barbs for the vectors `u`, `v` at `x`, `y` (matplotlib's
-/// `barbs`), drawn as `look` says (see [`barbs_options`]).
+/// `Barbs(ax, ...)`), drawn as `look` says (see [`barbs_options`]); made
+/// for `axes` but not added to it, as matplotlib's constructor leaves that
+/// to `add_collection`.
 pub(super) fn barbs(
     axes: Axes,
     positions: (NdArray, NdArray),
@@ -351,7 +356,7 @@ pub(super) fn barbs(
     transform: Option<Transform>,
 ) -> PyResult<Collection> {
     let options = barbs_options(look, colors, shape, transform)?;
-    Ok(axes.barbs(vector_field(positions, components, mapped)?, options)?)
+    Ok(axes.removed_barbs(vector_field(positions, components, mapped)?, options)?)
 }
 
 /// Draws the barbs of the vectors `u`, `v` at `x`, `y` in place of those

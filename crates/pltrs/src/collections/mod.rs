@@ -247,6 +247,11 @@ pub(crate) struct CollectionArtist {
     /// `update_scalarmappable` maps them, and the mapped ones until the
     /// next `set_facecolor`, `set_edgecolor` or `set_alpha`).
     pub(crate) mapped_shown: Cell<MappedSides>,
+    /// Whether [`EdgeColors::Default`] gives the items edges, as the rule
+    /// decided when it was last applied (matplotlib's `_set_edgecolor(None)`
+    /// picks the colour then, from the faces of that time); `None` until
+    /// then, the rule applying to the colours as they are.
+    pub(crate) default_edges: Cell<Option<bool>>,
     /// The colours the getters keep reporting for a side that per-item
     /// alphas set since do not fit.
     pub(crate) kept_colors: KeptColors,
@@ -317,6 +322,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     depth_sorted,
     mapping,
     mapped_shown,
+    default_edges,
     kept_colors,
     parked_mappable,
     program_colors,
@@ -373,6 +379,7 @@ impl CollectionArtist {
             depth_sorted: None,
             mapping: None,
             mapped_shown: Cell::default(),
+            default_edges: Cell::default(),
             kept_colors: KeptColors::default(),
             parked_mappable: None,
             program_colors: None,
@@ -522,8 +529,17 @@ impl CollectionArtist {
     }
 
     /// Maps the values onto the sides the mapping colours, for the getters
-    /// (matplotlib's `update_scalarmappable`, which drawing runs).
+    /// (matplotlib's `update_scalarmappable`, which drawing runs). When it
+    /// maps a side, or the sides it maps changed, edges it does not colour
+    /// take their colours as set again, with the parameters of the moment
+    /// ([`CollectionArtist::resolve_colors_again`]), the default rule
+    /// deciding anew from the faces as they are (matplotlib's
+    /// `_set_edgecolor(self._original_edgecolor)` there).
     pub(crate) fn update_scalarmappable(&self) {
+        if self.update_decides_default_edges() {
+            self.resolve_colors_again();
+            self.decide_default_edges();
+        }
         self.mapped_shown.set(MappedSides::of(self));
     }
 

@@ -268,7 +268,7 @@ impl AnchoredBoxArtist {
         &self,
         ctx: LayoutContext<'_>,
     ) -> Result<AnchoredLayout<ArtistId>, OffsetBoxError> {
-        let fontsize = ctx.points_to_pixels(self.font_size(ctx)?);
+        let fontsize = ctx.measuring_points_to_pixels(self.font_size(ctx)?);
         let mut tree = TreeLayout::of(&self.child);
         let framed = Framed {
             child: &self.child,

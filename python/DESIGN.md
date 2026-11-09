@@ -378,7 +378,13 @@ registry (`_handles` reaches it through `figure._figure`).
 
 Artists that own others are made in their figure instead, as removed
 artists, since matplotlib's constructors take their parent (`Axes(fig,
-rect)`, `Legend(ax, ...)`): `fig.add_axes(ax)` then adds them back.
+rect)`, `Legend(ax, ...)`, `SubFigure(fig, spec)`, and `Quiver(ax, ...)`,
+`Barbs(ax, ...)` and `QuiverKey(Q, ...)`, which pltrs (Rust) lays out
+for their Axes: `Axes::removed_quiver`): `fig.add_axes(ax)`,
+`ax.add_collection(q)` then add them back. A quiver, barbs or a key is
+decoupled until then (`Artist._decouple`, see "Artists removed, cleared
+and added though they are no artists"), as matplotlib's constructors
+give them no figure.
 
 An `InsetIndicator` is a plain loose artist with a loose `Rectangle`
 until an axes adds it: `Axes::adopt_indicator` then makes the rectangle
@@ -1412,9 +1418,10 @@ another resolution handed to `get_window_extent(renderer)` or
 `get_tightbbox(renderer)` (another figure's, one kept from before the dpi
 changed) gives lines that size. `text._measured_by` installs such a
 renderer's cache and has pltrs (Rust) measure the lines at its resolution
-meanwhile (`pltrs::text::set_lines_measured_at`); a `Text` keeps the
-renderer it was last measured with until it is drawn, as matplotlib's
-`Text._renderer`.
+meanwhile, and the pads matplotlib converts with the renderer's
+`points_to_pixels` (offset boxes, axisartist labels, tables:
+`pltrs::artist::set_measured_at`); a `Text` keeps the renderer it was
+last measured with until it is drawn, as matplotlib's `Text._renderer`.
 
 The renderer's text drawing can be replaced too. `RendererAgg.draw_text`
 and `draw_tex` draw a line onto the canvas (`_native.drawing.draw_text`,
@@ -1833,6 +1840,15 @@ layout, or the native handle of a container found on the axes
 `_get_legend_handles` lists). Its `_legend_box`, the first of its
 children, is made of `offsetbox` objects around the legend's artists
 from the box pltrs (Rust) lays them out in (`_native.legend.legend_box`).
+The box is laid out for the legend (`OffsetBox._laid_out_for`): it is on
+the legend's figure and Axes, the program's settings on it reach the
+legend, and its offset is the legend's `_findoffset` (where pltrs (Rust)
+locates the legend) until `set_offset` pins it at a point
+(`Legend::set_box_offset`), as `DraggableLegend`, matplotlib's own
+`DraggableOffsetBox` subclass, does while the legend is dragged; setting
+the location unpins it. A legend made for a figure (`Legend(fig, ...)`)
+is drawn once it is in `fig.legends` (`_figure_artists.LegendList`),
+where `Figure.legend` puts it, as matplotlib draws that list.
 
 ### Pickling
 

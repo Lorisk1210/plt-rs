@@ -60,7 +60,7 @@ impl<A> DrawingArea<A> {
 
     /// matplotlib's `DrawingArea.get_bbox`.
     pub(super) fn bbox(&self, ctx: LayoutContext<'_>) -> Bbox {
-        let scale = ctx.points_to_pixels(1.0);
+        let scale = ctx.measuring_points_to_pixels(1.0);
         Bbox::from_bounds(
             -self.xdescent * scale,
             -self.ydescent * scale,
@@ -76,7 +76,7 @@ impl<A> DrawingArea<A> {
     where
         A: Clone,
     {
-        let scale = ctx.points_to_pixels(1.0);
+        let scale = ctx.measuring_points_to_pixels(1.0);
         let clip = self.clip.then(|| {
             Path::polyline(vec![
                 Point::new(0.0, 0.0),
@@ -349,7 +349,7 @@ impl<A: ArtistRef> OffsetImage<A> {
             .ok_or(OffsetBoxError::MissingImage(id))?
             .shape();
         let dpi_cor = if self.dpi_cor {
-            ctx.points_to_pixels(1.0)
+            ctx.measuring_points_to_pixels(1.0)
         } else {
             1.0
         };

@@ -205,7 +205,9 @@ pub(crate) fn cell_colors(
         ImageData::Scalar(field) => {
             let (rows, cols) = field.values().shape();
             let values = field.masked_values();
-            let normalized = normalize_in(mappable, &values, field.kind(), field.precision())?;
+            let shape = (rows, cols);
+            let normalized =
+                normalize_in(mappable, &values, field.kind(), field.precision(), shape)?;
             let cmap = mappable.cmap();
             let colors = normalized
                 .into_iter()

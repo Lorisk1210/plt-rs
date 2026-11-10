@@ -6,6 +6,7 @@
 
 mod fontsets;
 
+use pltrs_core::pyfmt::str_ascii;
 use pltrs_font::FontId;
 
 use super::GlyphError;
@@ -15,7 +16,7 @@ use crate::mathtext::data::{
     virtual_font,
 };
 use crate::mathtext::font_name::FontName;
-use crate::mathtext_log::{self, ascii_repr};
+use crate::mathtext_log;
 
 /// The glyph source for a symbol (before sizing).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -247,7 +248,7 @@ impl GlyphSet {
         if index.is_none() {
             mathtext_log::record(format!(
                 "No TeX to Unicode mapping for {}.",
-                ascii_repr(symbol)
+                str_ascii(symbol)
             ));
         }
         let (font, code) = self.map_virtual_font(font, class, index.unwrap_or(u32::from('?')));
@@ -299,8 +300,8 @@ impl GlyphSet {
         mathtext_log::record(format!(
             "Font {} does not have a glyph for {} [U+{code:x}], substituting with a dummy \
              symbol.",
-            ascii_repr(&chosen.to_string()),
-            ascii_repr(symbol)
+            chosen.python_repr(),
+            str_ascii(symbol)
         ));
         let id = self
             .font(FontName::Rm)

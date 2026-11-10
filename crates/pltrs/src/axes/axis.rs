@@ -85,10 +85,10 @@ pltrs_core::archive_enum!(AxisRole {
 /// The tick helpers of an axis, shared by axes sharing that axis.
 #[derive(Clone, Debug)]
 pub(crate) struct Tickers {
-    major_locator: Rc<dyn Locator>,
-    major_formatter: Rc<dyn Formatter>,
-    minor_locator: Rc<dyn Locator>,
-    minor_formatter: Rc<dyn Formatter>,
+    pub(crate) major_locator: Rc<dyn Locator>,
+    pub(crate) major_formatter: Rc<dyn Formatter>,
+    pub(crate) minor_locator: Rc<dyn Locator>,
+    pub(crate) minor_formatter: Rc<dyn Formatter>,
 }
 
 /// Which tick helpers of an axis are still the ones its scale installed
@@ -309,6 +309,10 @@ pub(crate) struct AxisState {
     /// them) anchored the label in display pixels (see
     /// [`super::Axis::label_placed`]); set while drawing, hence a cell.
     pub(crate) label_placed: Cell<Option<Point>>,
+    /// Where the last layout of the axis' texts anchored the offset text
+    /// in display pixels (see [`super::Axis::offset_text_placed`]); set
+    /// while drawing, hence a cell.
+    pub(crate) offset_placed: Cell<Option<Point>>,
     /// Whether the axes follows a change of the axis' units (recomputing
     /// its data limits and autoscaling): matplotlib connects its
     /// `_unit_change_handler` to the axis' callbacks once the axes is
@@ -362,6 +366,7 @@ pltrs_core::archive_struct!(AxisState {
     gids,
     ticks_placed,
     label_placed,
+    offset_placed,
     follows_units,
     scaled_view
 } skip { program_ticked, program_view });
@@ -433,6 +438,7 @@ impl AxisState {
             gids: AxisGids::default(),
             ticks_placed: Cell::new(false),
             label_placed: Cell::new(None),
+            offset_placed: Cell::new(None),
             follows_units: true,
             scaled_view: Cell::new(None),
             program_ticked: None,

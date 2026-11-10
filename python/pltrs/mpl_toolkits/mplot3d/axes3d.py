@@ -55,16 +55,10 @@ def _check_margin(m):
     return float(m)
 
 
-class _SharedAxes3D(_SharedAxes):
-    """
-    The groups of 3-D axes sharing one axis or their view angles
-    (matplotlib's ``Axes3D._shared_axes``, with ``"z"`` and ``"view"``), as
-    pltrs (Rust) keeps them.
-    """
-
-    def _siblings(self, a):
-        return _handles.wrap_all(_mplot3d.shared(a._native, self._name),
-                                 type(a), a.figure)
+# matplotlib's 3-D axes add their z and view groups to those of every
+# `Axes`, whose x and y groups they share with 2-D axes.
+Axes._shared_axes["z"] = _SharedAxes("z")
+Axes._shared_axes["view"] = _SharedAxes("view")
 
 
 def _native_share(other, kind):
@@ -217,7 +211,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     name = '3d'
 
     _axis_names = ("x", "y", "z")
-    _shared_axes = {name: _SharedAxes3D(name) for name in (*_axis_names, "view")}
 
     def __init__(self, fig, rect=None, *args, elev=30, azim=-60, roll=0,
                  shareview=None, sharez=None, proj_type='persp',
@@ -1564,6 +1557,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def _shared_from(self, name):
         native = _mplot3d.share_target(self._native, name)
         return None if native is None else _handles.wrap(native, type(self), self.figure)
+
+    def _sharing(self, name):
+        # docstring inherited: 3-D axes share their z-axis and their view
+        # too.
+        return _mplot3d.shared(self._native, name)
 
     @property
     def _sharez(self):

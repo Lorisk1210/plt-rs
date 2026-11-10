@@ -47,9 +47,41 @@ pub fn str_repr(text: &str) -> String {
     repr
 }
 
+/// Python's `ascii(text)` for a `str`, which messages write with `%a`:
+/// [`str_repr`] with every character beyond ASCII escaped as `\xNN`,
+/// `\uNNNN` or `\UNNNNNNNN`.
+///
+/// ```
+/// use pltrs_core::pyfmt::str_ascii;
+/// assert_eq!(str_ascii("\u{1f60e}"), "'\\U0001f60e'");
+/// assert_eq!(str_ascii("\\sigma é"), "'\\\\sigma \\xe9'");
+/// ```
+#[must_use]
+pub fn str_ascii(text: &str) -> String {
+    let mut ascii = String::new();
+    for c in str_repr(text).chars() {
+        // Writing to a `String` cannot fail.
+        let _ = match u32::from(c) {
+            code if code < 0x80 => write!(ascii, "{c}"),
+            code if code < 0x100 => write!(ascii, "\\x{code:02x}"),
+            code if code < 0x1_0000 => write!(ascii, "\\u{code:04x}"),
+            code => write!(ascii, "\\U{code:08x}"),
+        };
+    }
+    ascii
+}
+
 #[cfg(test)]
 mod tests {
-    use super::str_repr;
+    use super::{str_ascii, str_repr};
+
+    #[test]
+    fn ascii_escapes_beyond_ascii_only() {
+        assert_eq!(str_ascii("plain"), "'plain'");
+        assert_eq!(str_ascii("\u{2603}\n"), "'\\u2603\\n'");
+        assert_eq!(str_ascii("\u{85}"), "'\\x85'");
+        assert_eq!(str_ascii("\u{10ffff}"), "'\\U0010ffff'");
+    }
 
     #[test]
     fn quotes_as_python_does() {

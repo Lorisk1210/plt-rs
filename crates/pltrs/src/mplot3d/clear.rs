@@ -121,7 +121,7 @@ impl Axes3D {
         for axis in Axis3::ALL {
             self.reset_shared(axis);
             if let Some(target) = self.share_target(axis) {
-                self.share_axis(axis, &target)?;
+                self.share_axis_with(axis, &target)?;
             }
         }
         self.with_mut(Axes3DState::autoscale_view)?;

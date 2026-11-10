@@ -35,7 +35,7 @@ use std::fmt;
 use dtoa::{EXACT_DECIMAL_PLACES, FloatStyle, Presentation, format_float};
 pub use printf::PrintfFormat;
 pub use spec::FormatSpec;
-pub use strings::str_repr;
+pub use strings::{str_ascii, str_repr};
 pub use template::{StrTemplate, TemplateValue};
 
 /// Why a Python-style format string was rejected; the variants mirror the

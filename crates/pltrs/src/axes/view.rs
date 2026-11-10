@@ -61,6 +61,8 @@ impl FigureState {
 
     /// Applies `update` to axis `name` of `axes` and of every axes sharing
     /// it (for state matplotlib shares between them, such as tickers).
+    /// The 3-D axes sharing it take its tick helpers and scale as they are
+    /// then (see [`lend_flat_tickers`](Self::lend_flat_tickers)).
     pub(crate) fn update_shared_axis(
         &mut self,
         axes: ArtistId,
@@ -71,6 +73,21 @@ impl FigureState {
             if let Some(state) = self.axes_state_mut(id) {
                 update(state.axis_mut(name));
             }
+        }
+        self.lend_flat_tickers(axes, name);
+        self.stale = true;
+    }
+
+    /// Calls off the autoscaling axis `name` of `axes` and of every axes
+    /// sharing it, of either kind, waits for (matplotlib's
+    /// `ax._stale_viewlims[name] = False` for every sibling); the figure
+    /// is to be drawn again.
+    fn settle_shared_axis(&mut self, axes: ArtistId, name: AxisName) {
+        for id in self.siblings(name, axes) {
+            if let Some(state) = self.axes_state_mut(id) {
+                state.axis_mut(name).autoscale.stale = false;
+            }
+            self.settle_deep_axis(id, name);
         }
         self.stale = true;
     }
@@ -127,7 +144,7 @@ impl FigureState {
     pub(crate) fn unstale_axes(&mut self, axes: ArtistId) {
         let need = AXES.map(|name| self.autoscale_is_stale(axes, name));
         for (name, _) in AXES.into_iter().zip(need).filter(|(_, need)| *need) {
-            self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
+            self.settle_shared_axis(axes, name);
         }
         // matplotlib's `autoscale_view` stops at what the program's code
         // (a locator's `nonsingular`) raises, leaving the views as they
@@ -147,7 +164,7 @@ impl FigureState {
     pub(crate) fn take_stale_axes(&mut self, axes: ArtistId) -> [bool; 2] {
         let stale = self.stale_axes(axes);
         for (name, _) in AXES.into_iter().zip(stale).filter(|(_, stale)| *stale) {
-            self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
+            self.settle_shared_axis(axes, name);
         }
         stale
     }
@@ -168,12 +185,14 @@ impl FigureState {
             || self.limit_callbacks.has_pending()
     }
 
-    /// Whether axis `name` of `axes`, or of an axes sharing it, changed
-    /// since it was last autoscaled.
+    /// Whether axis `name` of `axes`, or of an axes of either kind
+    /// sharing it, changed since it was last autoscaled.
     fn autoscale_is_stale(&self, axes: ArtistId, name: AxisName) -> bool {
         self.siblings(name, axes).into_iter().any(|id| {
-            self.axes_state(id)
-                .is_some_and(|state| state.axis(name).autoscale.stale)
+            self.deep_axis_pending(id, name).unwrap_or_else(|| {
+                self.axes_state(id)
+                    .is_some_and(|state| state.axis(name).autoscale.stale)
+            })
         })
     }
 
@@ -233,12 +252,13 @@ impl FigureState {
     }
 
     /// The data, smallest positive datum and (if `stickies`) the sticky
-    /// edges of every axes sharing axis `name` with `axes`.
+    /// edges of every axes sharing axis `name` with `axes` (those of a 3-D
+    /// one its projection plane's, see [`flat_part`](Self::flat_part)).
     fn shared_data(&self, axes: ArtistId, name: AxisName, stickies: bool) -> SharedData {
         let siblings: Vec<&AxesState> = self
             .siblings(name, axes)
             .into_iter()
-            .filter_map(|id| self.axes_state(id))
+            .filter_map(|id| self.flat_part(id))
             .collect();
         let finite: Vec<f64> = siblings
             .iter()
@@ -344,18 +364,19 @@ impl FigureState {
         if let Some(auto) = auto {
             state.axis_mut(name).autoscale.enabled = auto;
         }
-        self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
+        self.settle_shared_axis(axes, name);
         if emit {
             // The limit callbacks, matplotlib's parasites' `_sync_lims`
             // among them.
             self.limit_callbacks.notify(axes, name);
             self.sync_parasites(axes);
             for sibling in self.siblings(name, axes) {
-                if sibling != axes {
-                    self.set_axis_view(sibling, name, limits, auto, false);
-                    self.limit_callbacks.notify(sibling, name);
-                    self.sync_parasites(sibling);
+                if sibling == axes || self.set_deep_view(sibling, name, limits, auto) {
+                    continue;
                 }
+                self.set_axis_view(sibling, name, limits, auto, false);
+                self.limit_callbacks.notify(sibling, name);
+                self.sync_parasites(sibling);
             }
         }
     }
@@ -380,15 +401,13 @@ impl FigureState {
         if current.is_some_and(|current| current != other) {
             return Err(PlotError::AlreadyShared(name));
         }
-        self.unstale_axes(other);
-        let Some(source) = self.artist_as::<AxesState>(other) else {
+        // A 3-D axes gives its limits as they are (`Axes3D.get_xlim`).
+        if self.deep_axis_pending(other, name).is_none() {
+            self.unstale_axes(other);
+        }
+        let Some((tickers, owner, scale, view, auto)) = self.shared_axis_of(other, name) else {
             return Ok(());
         };
-        let tickers = source.axis(name).tickers();
-        let owner = source.axis(name).ticker_owner.unwrap_or(other);
-        let scale = source.axis(name).scale_rc();
-        let view = source.view_interval(name);
-        let auto = source.axis(name).autoscale.enabled;
         self.shared.join(name, axes, other);
         if let Some(state) = self.axes_state_mut(axes) {
             match name {

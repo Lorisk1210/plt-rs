@@ -411,6 +411,15 @@ impl Axis {
     }
 
     /// Where the last layout of the axis' texts (its last draw, or the
+    /// last measure of them) anchored the offset (or scale) text in
+    /// display pixels: matplotlib's `offsetText.get_position()`, which
+    /// `_update_offset_text_position` sets when it draws or measures the
+    /// axis; `None` before.
+    pub fn offset_text_placed(&self) -> Option<Point> {
+        self.read(|axis| axis.offset_placed.get())
+    }
+
+    /// Where the last layout of the axis' texts (its last draw, or the
     /// last measure of them) anchored the label in display pixels: beyond
     /// the spine, its ticks and the tick labels on its side (matplotlib's
     /// `label.get_position()` across the axis, which
@@ -578,6 +587,24 @@ mod tests {
         assert!((y - 12.722_222_222_222_223).abs() < 1e-9, "{y}");
         ax.xaxis().set_label_coords(0.5, -0.1);
         assert_eq!(ax.xaxis().label_placed(), None, "placed by coordinates");
+    }
+
+    #[test]
+    fn offset_texts_keep_what_the_last_layout_gave() {
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        ax.scatter(vec![1e6, 1e6 + 1.0], [0.0, 1.0])
+            .expect("a scatter");
+        let x = ax.xaxis();
+        assert_eq!(
+            (x.offset_text_placed(), x.kept_offset_text()),
+            (None, String::new())
+        );
+        fig.to_png().expect("drawn");
+        assert_eq!(x.kept_offset_text(), "+1e6");
+        assert!(x.offset_text_placed().is_some());
+        ax.set_xlim(0.0, 1.0).expect("finite limits");
+        assert_eq!(x.kept_offset_text(), "+1e6", "until laid out again");
     }
 
     #[test]

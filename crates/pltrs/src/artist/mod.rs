@@ -38,6 +38,7 @@ mod measured_at;
 mod measuring;
 mod painter;
 mod pick;
+mod predraw;
 #[macro_use]
 mod properties;
 mod raw;
@@ -82,6 +83,7 @@ pub use painter::{ArtistPainter, DrawTarget, MeasuredExtent, Painter};
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
 pub use pltrs_render::{FilterImage, Filtered, GraphicsContext, Renderer, Sketch};
+pub use predraw::ProgramShaping;
 pub use properties::BaseProps;
 pub use raw::RawHandle;
 pub(crate) use stopping::draws_stop_at_first_problem;
@@ -238,6 +240,17 @@ pub trait Artist: Any + Debug + ArtistClone {
     /// figure, so that [`Artist::limit_points`] is asked without it.
     fn limits_run_program(&self) -> bool {
         false
+    }
+
+    /// The call of the program's code (a box style of its own) a draw of
+    /// the artist makes to shape it, taken with the figure as it is
+    /// (`layout`), for a draw of the figure that renders nothing
+    /// (matplotlib's draw before it prints a figure cut to its tight box
+    /// or laid out by an engine, which pltrs does not paint): the caller
+    /// makes it with the figure free. `None` (the default) for an artist
+    /// whose draw calls no such code.
+    fn program_shaping(&self, _layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        None
     }
 
     /// What the artist adds to the data limits of `axes`, when it is added

@@ -56,7 +56,7 @@ use std::rc::Rc;
 use pltrs_core::{Bbox, Point};
 use pltrs_text::{BlockStyle, Shaping, TextAnchor, TextRun, TextSource};
 
-use crate::artist::{Artist, ArtistBase, ArtistStore, DrawContext, LayoutContext};
+use crate::artist::{Artist, ArtistBase, ArtistStore, DrawContext, LayoutContext, ProgramShaping};
 use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::fonts::FontProperties;
@@ -645,6 +645,10 @@ impl Artist for TextArtist {
 
     /// The text's extent; a text that cannot be laid out has none, and
     /// notes its error for the measurement running (see [`measuring`]).
+    fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        self.program_box_shaping(*layout)
+    }
+
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         let extent = match &self.annotation {
             Some(annotation) => annotation.extent(self, *ctx),

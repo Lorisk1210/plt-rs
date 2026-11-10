@@ -10,8 +10,10 @@ use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::share::replay;
 use super::state::Axes3DState;
-use crate::artist::{Artist, ArtistId};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
+use crate::axes::AxesState;
 use crate::figure::FigureState;
+use crate::ticker::AxisName;
 
 impl Axes3DState {
     /// Marks the axes `selected` (x, y, z) for autoscaling later, `tight`
@@ -74,6 +76,10 @@ impl Axes3D {
     ///
     /// When a locator fails while autoscaling.
     pub fn unstale_view_lim(&self) -> Result<&Self, Axes3DError> {
+        self.raw()
+            .figure_state()
+            .borrow_mut()
+            .gather_pending(self.id());
         self.with_mut(Axes3DState::unstale)?;
         Ok(self)
     }
@@ -85,8 +91,14 @@ impl Axes3D {
 /// axes sharing its limits following. A locator failing leaves the limits
 /// as they are, its axis reporting the failure as it is drawn.
 pub(crate) fn unstale_for_draw(figure: &mut FigureState, id: ArtistId) {
+    let shown = figure
+        .artist_as::<Axes3DState>(id)
+        .is_some_and(|axes| !axes.base().animated && axes.base().visible);
+    if shown {
+        figure.gather_pending(id);
+    }
     let changes = figure.with_others::<Axes3DState, _>(id, |axes, _| {
-        if axes.base().animated || !axes.base().visible {
+        if !shown {
             return Vec::new();
         }
         if axes.unstale().is_err() {
@@ -95,7 +107,37 @@ pub(crate) fn unstale_for_draw(figure: &mut FigureState, id: ArtistId) {
         axes.take_limit_changes()
     });
     if let Some(changes) = changes.filter(|changes| !changes.is_empty()) {
-        replay(figure, &changes);
+        replay(figure, id, &changes);
+    }
+}
+
+impl FigureState {
+    /// Marks the x and y axes of the 3-D axes `id` for autoscaling when an
+    /// axes sharing them, of either kind, waits to be autoscaled, which
+    /// then no longer waits (matplotlib's `_unstale_viewLim` asks every
+    /// sibling, then rescales the axes it is called on).
+    pub(crate) fn gather_pending(&mut self, id: ArtistId) {
+        for (index, name) in [AxisName::X, AxisName::Y].into_iter().enumerate() {
+            let siblings = self.siblings(name, id);
+            let waits = siblings.iter().any(|&sibling| {
+                self.deep_axis_pending(sibling, name).unwrap_or_else(|| {
+                    self.artist_as::<AxesState>(sibling)
+                        .is_some_and(|flat| flat.axis(name).autoscale.stale)
+                })
+            });
+            if !waits {
+                continue;
+            }
+            for sibling in siblings {
+                self.settle_deep_axis(sibling, name);
+                if let Some(flat) = self.artist_as_mut::<AxesState>(sibling) {
+                    flat.axis_mut(name).autoscale.stale = false;
+                }
+            }
+            if let Some(axes) = self.artist_as_mut::<Axes3DState>(id) {
+                axes.limits.pending[index] = true;
+            }
+        }
     }
 }
 

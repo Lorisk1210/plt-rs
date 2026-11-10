@@ -70,7 +70,11 @@ impl Axes3D {
             (result, axes.take_limit_changes())
         });
         if !changes.is_empty() {
-            replay(&mut self.raw.figure_state().borrow_mut(), &changes);
+            replay(
+                &mut self.raw.figure_state().borrow_mut(),
+                self.id(),
+                &changes,
+            );
         }
         result
     }

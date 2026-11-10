@@ -303,7 +303,8 @@ impl FigureState {
                 Item::Child(id) if self.store.get_as::<CollectionArtist>(id).is_some() => {
                     self.program_collection_drawn(axes, id);
                 }
-                Item::Axis(..) | Item::Child(_) | Item::Patch => {}
+                Item::Child(id) => self.program_image_drawn(id),
+                Item::Axis(..) | Item::Patch => {}
             }
         }
     }

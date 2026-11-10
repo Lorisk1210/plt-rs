@@ -4,6 +4,7 @@
 use std::fmt;
 
 use crate::Point;
+use crate::numeric::pow;
 
 /// Why Bézier control points or a curve split were rejected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +44,13 @@ pub struct BezierSegment {
     dimension: usize,
     /// Control points, row after row.
     coordinates: Vec<f64>,
+}
+
+/// The sum of the products `a × b` of `terms`, each added with a fused
+/// multiply-add in order, as numpy's matrix products sum them
+/// (`OpenBLAS`'s `dgemm` kernels).
+fn fused_sum(terms: impl Iterator<Item = (f64, f64)>) -> f64 {
+    terms.fold(0.0, |sum, (a, b)| a.mul_add(b, sum))
 }
 
 /// `C(n, k)` as a float (exact for the degrees used here).
@@ -109,19 +117,24 @@ impl BezierSegment {
         })
     }
 
-    /// The point at parameter `t`, computed like matplotlib's `__call__`:
-    /// `Σ C(n, i) (1 - t)^(n - i) tⁱ Pᵢ`.
+    /// The point at parameter `t`, computed as matplotlib's `__call__`
+    /// computes the points of its parameters: the Bernstein weights
+    /// `(1 - t)^(n - i) tⁱ` by `pow` (numpy's `power.outer`), times the
+    /// control points scaled by `C(n, i)`, summed in order with fused
+    /// multiply-adds (numpy's matrix product).
     pub fn eval(&self, t: f64) -> Vec<f64> {
         let n = self.degree();
-        let mut out = vec![0.0; self.dimension];
-        for (i, point) in self.control_points().enumerate() {
-            let weight = (1.0 - t).powi((n - i) as i32) * t.powi(i as i32);
-            let coeff = binomial(n, i);
-            for (o, c) in out.iter_mut().zip(point) {
-                *o += weight * (c * coeff);
-            }
-        }
-        out
+        let weights: Vec<f64> = (0..=n)
+            .map(|i| pow(1.0 - t, (n - i) as f64) * pow(t, i as f64))
+            .collect();
+        let scaled: Vec<Vec<f64>> = self
+            .control_points()
+            .enumerate()
+            .map(|(i, point)| point.iter().map(|c| c * binomial(n, i)).collect())
+            .collect();
+        (0..self.dimension)
+            .map(|d| fused_sum(weights.iter().zip(&scaled).map(|(&w, row)| (w, row[d]))))
+            .collect()
     }
 
     /// The first two coordinates of [`eval`](Self::eval) as a point.
@@ -131,21 +144,31 @@ impl BezierSegment {
     }
 
     /// The power-basis coefficients `Cⱼ` with `B(t) = Σ Cⱼ tʲ`, one row per
-    /// power (matplotlib's `polynomial_coefficients`).
+    /// power (matplotlib's `polynomial_coefficients`: its matrix of
+    /// `C(n, j) (-1)^(i + j) C(j, i)` times the control points, summed in
+    /// order with fused multiply-adds).
     pub fn polynomial_coefficients(&self) -> Vec<Vec<f64>> {
         let n = self.degree();
         let points: Vec<&[f64]> = self.control_points().collect();
+        let factor = |j: usize, i: usize| {
+            if i > j {
+                return 0.0;
+            }
+            let sign = if (i + j).is_multiple_of(2) { 1.0 } else { -1.0 };
+            binomial(n, j) * sign * binomial(j, i)
+        };
         (0..=n)
             .map(|j| {
-                let mut row = vec![0.0; self.dimension];
-                for (i, point) in points.iter().enumerate().take(j + 1) {
-                    let sign = if (i + j) % 2 == 0 { 1.0 } else { -1.0 };
-                    let m = binomial(n, j) * sign * binomial(j, i);
-                    for (r, c) in row.iter_mut().zip(*point) {
-                        *r += m * c;
-                    }
-                }
-                row
+                (0..self.dimension)
+                    .map(|d| {
+                        fused_sum(
+                            points
+                                .iter()
+                                .enumerate()
+                                .map(|(i, point)| (factor(j, i), point[d])),
+                        )
+                    })
+                    .collect()
             })
             .collect()
     }
@@ -373,6 +396,25 @@ mod tests {
         ]) {
             assert!((got - want).abs() < 1e-12);
         }
+    }
+
+    #[test]
+    fn evaluation_rounds_as_numpy() {
+        // matplotlib 3.11: the far end of a networkx self-loop,
+        // `BezierSegment(points)([0, t, 1])` at its x extremum.
+        let curve = BezierSegment::from_rows(&[
+            [0.499_999_910_593_032_6, -0.692_820_340_394_973_8],
+            [0.586_602_464_318_274_8, -0.692_820_340_394_973_8],
+            [0.586_602_464_318_274_8, -0.866_025_447_845_459],
+            [0.499_999_910_593_032_6, -0.866_025_447_845_459],
+        ])
+        .expect("valid");
+        let (dims, roots) = curve.axis_aligned_extrema();
+        assert_eq!(dims, [0, 1, 1]);
+        assert_eq!(
+            curve.eval(roots[0]),
+            [0.564_951_825_886_964_2, -0.779_422_894_120_216_6]
+        );
     }
 
     #[test]

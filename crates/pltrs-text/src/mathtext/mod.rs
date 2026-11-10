@@ -193,4 +193,27 @@ mod tests {
         assert!(is_math_text(r"$\$5$"));
         assert!(!is_math_text("$a$ $"));
     }
+
+    #[test]
+    fn symbols_no_font_has_are_kept_with_what_was_typeset() {
+        crate::take_mathtext_log();
+        let style = MathStyle::default().with_dpi(72.0);
+        let run = TextEngine::global()
+            .layout_math("$y\u{1f60e}$", &style)
+            .unwrap();
+        let Some(TextSource::Math { logged, .. }) = &run.source else {
+            panic!("a formula's run names its source");
+        };
+        assert_eq!(
+            logged.as_slice(),
+            [
+                "Font 'rm' does not have a glyph for '\\U0001f60e' [U+1f60e], \
+                 substituting with a dummy symbol."
+            ]
+        );
+        assert!(
+            crate::take_mathtext_log().is_empty(),
+            "typesetting keeps its messages for the caller to log"
+        );
+    }
 }

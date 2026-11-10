@@ -617,8 +617,10 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
     let style = axis.tick_style(false);
     let high = axis.offset_position().is_high();
     // At an end of the axis in axes fractions, beyond the tick labels in
-    // display pixels, as matplotlib places the offset text.
-    let across = axis.offset_text_anchor().map_or(0.0, |anchor| anchor.y);
+    // display pixels, as matplotlib places the offset text; placed, and
+    // given its text, where the axis was last laid out, as matplotlib
+    // sets both when it draws or measures the axis.
+    let across = axis.offset_text_placed().map_or(0.0, |anchor| anchor.y);
     let (position, halign, valign) = match (axis.name(), high) {
         (AxisName::X, false) => (Point::new(1.0, across), HAlign::Right, VAlign::Top),
         (AxisName::X, true) => (Point::new(1.0, across), HAlign::Right, VAlign::Bottom),
@@ -626,7 +628,7 @@ fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> 
         (AxisName::Y, true) => (Point::new(1.0, across), HAlign::Right, VAlign::Baseline),
     };
     let rc = pltrs::rc::params();
-    text.set_text(axis.offset_text()?)
+    text.set_text(axis.kept_offset_text())
         .set_position(position)
         .set_color(style.label_color.clone())
         .set_font(pltrs::fonts::FontProperties {

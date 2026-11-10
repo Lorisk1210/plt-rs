@@ -4,6 +4,7 @@
 
 use pltrs::axes::{AspectError, Axes, AxisName, PropCycle, WhichPosition};
 use pltrs::colors::Color;
+use pltrs::mplot3d::SharedAxes;
 use pltrs::rc::{Cycler, CyclerError};
 
 use crate::binding::prelude::*;
@@ -89,24 +90,23 @@ fn set_position(axes: Axes, rect: (f64, f64, f64, f64), which: String) -> PyResu
     Ok(())
 }
 
-/// Shares axis `name` of `axes` with `other` (`sharex`, `sharey`).
-fn share(axes: Axes, name: String, other: Axes) -> PyResult<()> {
-    match axis_name(&name)? {
-        AxisName::X => axes.share_x(&other)?,
-        AxisName::Y => axes.share_y(&other)?,
-    };
+/// Shares axis `name` of `axes` with `other`, an axes of either kind
+/// (`sharex`, `sharey`).
+fn share(axes: Axes, name: String, other: SharedAxes) -> PyResult<()> {
+    axes.share_with(axis_name(&name)?, &other)?;
     Ok(())
 }
 
-/// The axes whose axis `name` `axes` shares (`_sharex`, `_sharey`).
-fn shared_from(axes: Axes, name: String) -> PyResult<Option<Axes>> {
+/// The axes, of either kind, whose axis `name` `axes` shares (`_sharex`,
+/// `_sharey`).
+fn shared_from(axes: Axes, name: String) -> PyResult<Option<SharedAxes>> {
     Ok(axes.shared_from(axis_name(&name)?))
 }
 
-/// The axes sharing axis `name` with `axes`, itself included
-/// (`get_shared_x_axes().get_siblings(ax)`).
-fn shared(axes: Axes, name: String) -> PyResult<Vec<Axes>> {
-    Ok(axes.shared_axes(axis_name(&name)?))
+/// The axes of either kind sharing axis `name` with `axes`, itself
+/// included (`get_shared_x_axes().get_siblings(ax)`).
+fn shared(axes: Axes, name: String) -> PyResult<Vec<SharedAxes>> {
+    Ok(axes.sharing(axis_name(&name)?))
 }
 
 /// Only shows the outer labels and tick labels of the axes' grid, and the
@@ -200,14 +200,24 @@ mod tests {
             fig.add_subplot(1, 2, 1).unwrap(),
             fig.add_subplot(1, 2, 2).unwrap(),
         );
-        share(right.clone(), "y".into(), left.clone()).unwrap();
+        share(right.clone(), "y".into(), left.clone().into()).unwrap();
         assert_eq!(shared(left.clone(), "y".into()).unwrap().len(), 2);
         assert_eq!(
             shared(left.clone(), "x".into()).unwrap(),
-            std::slice::from_ref(&left)
+            [SharedAxes::Flat(left.clone())]
         );
         let twin = left.twinx().unwrap();
-        assert!(shared(left.clone(), "x".into()).unwrap().contains(&twin));
+        assert!(
+            shared(left.clone(), "x".into())
+                .unwrap()
+                .contains(&SharedAxes::Flat(twin))
+        );
+        let deep = fig.subplot_3d();
+        share(right.clone(), "x".into(), deep.clone().into()).unwrap();
+        assert_eq!(
+            shared_from(right.clone(), "x".into()).unwrap(),
+            Some(SharedAxes::Deep(deep))
+        );
         assert!(axis_name("z").is_err());
         set_position(left.clone(), (0.1, 0.2, 0.3, 0.4), "both".into()).unwrap();
         let (x0, y0, x1, y1) = position(left, true).unwrap();

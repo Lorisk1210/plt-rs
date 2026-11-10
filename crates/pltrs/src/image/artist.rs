@@ -1,9 +1,11 @@
 //! Images attached to an axes (matplotlib's `AxesImage`).
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path, Point};
 
+use super::ahead::MadeAhead;
 use super::any::checked_filterrad;
 use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::PixelMap;
@@ -31,9 +33,12 @@ pub(crate) struct AxesImageArtist {
     /// pixels of the array are centred on their indices (matplotlib's
     /// `_extent`).
     pub(crate) extent: Option<Extent>,
+    /// The image made ahead of its next paint, through a norm of the
+    /// program's (see [`super::ahead`]).
+    pub(super) made_ahead: RefCell<Option<MadeAhead>>,
 }
 
-pltrs_core::archive_struct!(AxesImageArtist { base, core, extent });
+pltrs_core::archive_struct!(AxesImageArtist { base, core, extent } skip { made_ahead });
 
 impl AxesImageArtist {
     /// An image at z-order 0 covering `extent`.
@@ -47,7 +52,17 @@ impl AxesImageArtist {
         // Status bars show the value under the pointer, as for matplotlib's
         // images.
         base.mouseover = true;
-        Self { base, core, extent }
+        Self {
+            base,
+            core,
+            extent,
+            made_ahead: RefCell::new(None),
+        }
+    }
+
+    /// Whether the image's norm is the program's.
+    pub(super) fn norm_calls_program(&self) -> bool {
+        self.core.mappable.borrow().norm().calls_program()
     }
 
     /// The data rectangle covered: the one set, else the array's pixels
@@ -132,7 +147,7 @@ impl AxesImageArtist {
     /// Where the image goes at `magnification` on a figure of size
     /// `canvas` (matplotlib's `AxesImage.make_image`); `None` when its
     /// transform refers to removed artists.
-    fn placement(
+    pub(super) fn placement(
         &self,
         layout: LayoutContext<'_>,
         canvas: Bbox,
@@ -167,16 +182,22 @@ impl AxesImageArtist {
         })
     }
 
-    /// matplotlib's `AxesImage.make_image` at `magnification`.
+    /// matplotlib's `AxesImage.make_image` at `magnification`: the image
+    /// made ahead of this paint, if it was for the same boxes, else made
+    /// now.
     pub(super) fn render(
         &self,
         ctx: &mut DrawContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
+        let ahead = self.made_ahead.take();
         let canvas = canvas_bbox(ctx);
         let Some(placement) = self.placement(ctx.layout(), canvas, magnification) else {
             return Ok(None);
         };
+        if let Some(made) = ahead.and_then(|ahead| ahead.for_placement(&placement)) {
+            return made;
+        }
         // A norm or a transform of the program's maps the data with the
         // figure free.
         ctx.free();
@@ -224,6 +245,8 @@ impl Artist for AxesImageArtist {
             && ctx.renderer().option_scale_image()
             && let Some(unsampled) = self.unsampled(ctx)
         {
+            // Unsampled, the image made ahead is not drawn.
+            drop(self.made_ahead.take());
             match unsampled {
                 Ok(Some(image)) => {
                     let mut gc = ctx.base_gc(&self.base);

@@ -34,6 +34,7 @@
 //! clipped to its clip box, rounded to whole pixels, resampled with Agg's
 //! kernels (in data or colour space) and colour-mapped to 8-bit RGBA.
 
+mod ahead;
 mod any;
 mod artist;
 mod bbox_image;

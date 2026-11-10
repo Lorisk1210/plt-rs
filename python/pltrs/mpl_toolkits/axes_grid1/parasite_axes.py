@@ -64,6 +64,8 @@ class ParasiteAxesBase:
         # children).
         for axis in getattr(self, "_axislines", {}).values():
             martist.Artist.set_visible(axis, False)
+        # What matplotlib's constructor connects as it clears the parasite.
+        self._follow_parent_lims()
         try:
             for name in ("x", "y"):
                 other = kwargs.pop(f"share{name}", None)
@@ -100,6 +102,7 @@ class ParasiteAxesBase:
         ax._parent_axes = host
         ax.transAux = aux_transform
         ax.set_viewlim_mode(viewlim_mode)
+        ax._follow_parent_lims()
         return ax
 
     def _set_lim_and_transforms(self):
@@ -118,6 +121,15 @@ class ParasiteAxesBase:
         super().clear()
         for child in self.get_children():
             child.set_visible(False)
+        self._follow_parent_lims()
+
+    def _follow_parent_lims(self):
+        """Connect `_sync_lims` to the limit changes of the parent, as
+        matplotlib's ``clear`` does."""
+        self._parent_axes.callbacks._connect_picklable(
+            "xlim_changed", self._sync_lims)
+        self._parent_axes.callbacks._connect_picklable(
+            "ylim_changed", self._sync_lims)
 
     def get_axes_locator(self):
         return self._parent_axes.get_axes_locator()
@@ -228,6 +240,15 @@ class ParasiteAxesBase:
 
     def get_viewlim_mode(self):
         return self._viewlim_mode
+
+    def _sync_lims(self, parent):
+        """Have the view limits follow those of *parent* by the view
+        limits mode, as matplotlib's callback of the parent's limit changes
+        does: pltrs (Rust) keeps the limits of a parasite of mode "equal"
+        or "transform" so, and those of one of no mode as they are."""
+        parent.viewLim.frozen()
+        _api.check_in_list([None, "equal", "transform"],
+                           mode=self.get_viewlim_mode())
 
 
 parasite_axes_class_factory = cbook._make_class_factory(

@@ -21,12 +21,10 @@ fn artists(axes: Axes) -> PyResult<Vec<RawHandle>> {
     Ok(axes.artists())
 }
 
-/// Removes everything drawn in the axes and resets it to a fresh axes at
-/// the same place (matplotlib's `Axes.clear`); returns the artists it
-/// removed: the added ones, the legend and the child axes.
-fn clear(axes: Axes) -> PyResult<Vec<RawHandle>> {
-    let removed: Vec<RawHandle> = axes
-        .added_children()
+/// The artists a clear of `axes` removes: the added ones, the legend and
+/// the child axes.
+pub(crate) fn removed_by_clear(axes: &Axes) -> Vec<RawHandle> {
+    axes.added_children()
         .into_iter()
         .chain(axes.current_legend().map(|legend| legend.raw().clone()))
         .chain(
@@ -34,7 +32,14 @@ fn clear(axes: Axes) -> PyResult<Vec<RawHandle>> {
                 .into_iter()
                 .map(|child| child.raw().clone()),
         )
-        .collect();
+        .collect()
+}
+
+/// Removes everything drawn in the axes and resets it to a fresh axes at
+/// the same place (matplotlib's `Axes.clear`); returns the artists it
+/// removed (see `removed_by_clear`).
+fn clear(axes: Axes) -> PyResult<Vec<RawHandle>> {
+    let removed = removed_by_clear(&axes);
     axes.clear();
     Ok(removed)
 }

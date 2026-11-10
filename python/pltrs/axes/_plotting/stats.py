@@ -19,6 +19,7 @@ from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
 from ... import _lazy_imports
+from .. import _failed_calls
 from ._helpers import check_format, keep_data, takes_properties, wrap, wrap_all
 
 _boxplot_reference = _lazy_imports.module(globals(), "._boxplot_reference")
@@ -1209,7 +1210,8 @@ class StatsMixin:
                 and _pie_props_taken(wedgeprops, textprops)):
             return _pie_reference.pie(self, *arguments)
         try:
-            return self._native_pie(*arguments)
+            with _failed_calls.leaving_nothing(self):
+                return self._native_pie(*arguments)
         except (TypeError, ValueError):
             # Refused by pltrs (Rust): matplotlib's code raises its own
             # error, or makes what pltrs (Rust) does not.
@@ -1244,6 +1246,11 @@ class StatsMixin:
             raise ValueError(f"'radius' must be a positive number, not {radius}")
         if autopct is not None and not (isinstance(autopct, str) or callable(autopct)):
             raise TypeError('autopct must be callable or a format string')
+        if isinstance(autopct, str) and '%' not in autopct.replace('%%', ''):
+            # matplotlib formats each percentage, a numpy float, which `%`
+            # takes as a mapping: a template of no conversion is its text.
+            text = autopct.replace('%%', '%')
+            autopct = lambda pct: text  # noqa: E731
         textprops = dict(textprops or {})
         shadow_spec = None
         if shadow:

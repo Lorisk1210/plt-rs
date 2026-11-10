@@ -367,6 +367,18 @@ impl FigureState {
             && (self.store.get_as::<AxesState>(axes)).is_some_and(|state| state.axis(name).animated)
     }
 
+    /// Whether drawing the 2-D `axes` fails on the ticks of an axis it
+    /// draws (a visible one its draw does not leave out), as matplotlib's
+    /// `Axis._update_ticks` raises there.
+    pub(crate) fn ticks_fail_draw(&self, axes: ArtistId) -> bool {
+        self.store.get_as::<AxesState>(axes).is_some_and(|state| {
+            [AxisName::X, AxisName::Y].into_iter().any(|name| {
+                let axis = state.axis(name);
+                axis.visible && axis.ticks.is_err() && !self.axis_left_out(axes, name)
+            })
+        })
+    }
+
     /// The ticks of axis `name` of `axes`, at `extent` in display pixels
     /// at `dpi`, brought up to date where pltrs needs them: computed by
     /// its helpers, or for an axis the program ticks, those it gave last

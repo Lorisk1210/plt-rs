@@ -6,6 +6,7 @@ converter) into the numbers of the axes' axes here, so that pltrs (Rust)
 only sees numbers.
 """
 
+import contextlib
 import functools
 from numbers import Real
 
@@ -33,13 +34,25 @@ class UnitsMixin:
         """
         A mapping of axis names, e.g. 'x', to `.Axis` instances: None for
         an axis that takes no units (those of 3-D axes, whose values pass
-        as they are).
+        as they are, but in `_units_of_native_axes`).
         """
         axis_class = _axis_class()
-        return {name: (axis if isinstance(axis, axis_class) and not axis._native_units
-                       else None)
+        through_python = self.__dict__.get("_native_axes_take_units", False)
+        return {name: (axis if isinstance(axis, axis_class)
+                       and (through_python or not axis._native_units) else None)
                 for name in self._axis_names
                 for axis in [getattr(self, f"{name}axis")]}
+
+    @contextlib.contextmanager
+    def _units_of_native_axes(self):
+        """Have the axes whose values pltrs (Rust) converts (those of 3-D
+        axes) take and convert units through the 2-D plotting code run
+        meanwhile, as matplotlib's do."""
+        self._native_axes_take_units = True
+        try:
+            yield
+        finally:
+            del self._native_axes_take_units
 
     def _process_unit_info(self, datasets=None, kwargs=None, *, convert=True):
         """

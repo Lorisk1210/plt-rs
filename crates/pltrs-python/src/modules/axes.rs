@@ -13,6 +13,8 @@ mod callbacks;
 mod children;
 mod titles;
 
+pub(crate) use children::removed_by_clear;
+
 /// The native object of any axes converts to it, and that of a 3-D axes
 /// to its projection plane: matplotlib's `Axes3D` is an `Axes` whose 2-D
 /// side draws in projected coordinates (`artist_handle!` otherwise).

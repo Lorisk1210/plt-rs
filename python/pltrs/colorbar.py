@@ -635,6 +635,21 @@ class Colorbar:
         self.ax._axes_locator = _ColorbarAxesLocator(self)
         if isinstance(self.mappable, ContourSet):
             self.ax.set_navigate(False)
+        # matplotlib's colorbar lays its extends out again when the limits
+        # of its Axes change (an inverted axis flips them).
+        self._extend_cid1 = self.ax.callbacks.connect(
+            "xlim_changed", self._do_extends)
+        self._extend_cid2 = self.ax.callbacks.connect(
+            "ylim_changed", self._do_extends)
+
+    def _do_extends(self, ax=None):
+        """
+        Add the extend tri/rectangles on the outside of the Axes.
+
+        ax is unused, but required due to the callbacks on xlim/ylim changed
+        """
+        # pltrs (Rust) lays the extends out as it draws the colorbar.
+        self.stale = True
 
     def set_alpha(self, alpha):
         """
@@ -669,6 +684,10 @@ class Colorbar:
     @property
     def ax(self):
         """The `~.axes.Axes` the colorbar is drawn in."""
+        removed = self.__dict__.get("_removed_ax")
+        if removed is not None:
+            # Still the Axes it was, once taken out of the figure.
+            return removed
         from .axes import Axes
         return _handles.wrap(_colorbar.ax(self._native), Axes,
                              self._figure.get_figure(root=True))
@@ -1094,9 +1113,13 @@ class Colorbar:
         self.mappable.callbacks.disconnect(self.mappable.colorbar_cid)
         self.mappable.colorbar = None
         self.mappable.colorbar_cid = None
+        # Remove the extension callbacks
+        self.ax.callbacks.disconnect(self._extend_cid1)
+        self.ax.callbacks.disconnect(self._extend_cid2)
         ax = self.ax
         _colorbar.remove(self._native)
         _handles.forget(ax)
+        self._removed_ax = ax
         self._give_back_place(ax)
 
     def _give_back_place(self, ax):

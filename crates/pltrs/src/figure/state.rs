@@ -397,13 +397,21 @@ impl FigureState {
 
     /// The part of [`prepare`](Self::prepare) for the 2-D `axes`, which
     /// returns whether it was laid out; an axes whose aspect fails is not
-    /// ticked (matplotlib's draw raises first). Prepared as it is, the
+    /// ticked (matplotlib's draw raises first), nor are the axes a draw
+    /// reaches `after_failure` of an axes' ticks (matplotlib's draw stops
+    /// there): what their arithmetic warns about is not said, and the
+    /// program's helpers are not asked. Prepared as it is, the
     /// axes is ticked where it is now: matplotlib applies the
     /// aspect (and a secondary axis takes its host's limits) when it draws
     /// or measures the axes, not when it computes ticks between draws. A
     /// draw leaves the axes the program ticks to
     /// [`program_figure_drawn`](Self::program_figure_drawn).
-    fn prepare_axes(&mut self, id: ArtistId, preparation: Preparation) -> bool {
+    fn prepare_axes(
+        &mut self,
+        id: ArtistId,
+        preparation: Preparation,
+        after_failure: bool,
+    ) -> bool {
         let laid_out = if preparation == Preparation::AsIs {
             self.unstale_axes(id);
             true
@@ -412,7 +420,7 @@ impl FigureState {
         };
         crate::polar::update_spine_visibility(self, id);
         if laid_out {
-            if self.drawn_by_figure(id) {
+            if self.drawn_by_figure(id) && !after_failure {
                 self.tick_axes(id, false);
             } else {
                 // matplotlib computes no ticks of the axes its draw leaves
@@ -488,8 +496,18 @@ impl FigureState {
             // layout engine raised, and draws as the pass left the figure.
             crate::layout::failures::pass_over(crate::layout::failures::ErrorClass::ValueError);
         }
+        let drawing = matches!(preparation, Preparation::Drawing(_));
+        let mut failed = false;
+        let mut ticked = Vec::new();
         let laid_out: Vec<ArtistId> = (axes.iter().copied())
-            .filter(|&id| self.prepare_axes(id, preparation))
+            .filter(|&id| {
+                let laid_out = self.prepare_axes(id, preparation, failed);
+                if !failed {
+                    ticked.push(id);
+                }
+                failed |= drawing && self.drawn_by_figure(id) && self.ticks_fail_draw(id);
+                laid_out
+            })
             .collect();
         let painting = match preparation {
             Preparation::Drawing(painting) => Some(painting),
@@ -502,6 +520,7 @@ impl FigureState {
             // none of those along a curvilinear grid does).
             for &id in &laid_out {
                 if self.drawn_by_figure(id)
+                    && ticked.contains(&id)
                     && !crate::axisartist::on_curvilinear_grid(&self.store, id)
                 {
                     self.tick_axes(id, true);

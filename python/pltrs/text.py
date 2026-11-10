@@ -182,8 +182,26 @@ def _check_metrics_renderer(renderer):
 def _measuring_with(renderer):
     """Lay out and draw with *renderer*'s text metrics cache installed, so
     that the lines pltrs (Rust) measures meanwhile go through it."""
+    try:
+        weakref.ref(renderer)
+    except TypeError:
+        return _measuring_with_unreferable(renderer)
     return _text_metrics_module.measuring_with(
         renderer, _get_text_metrics_function(renderer))
+
+
+@contextlib.contextmanager
+def _measuring_with_unreferable(renderer):
+    """`_measuring_with` a *renderer* that cannot be referred to weakly
+    (what is no renderer, as an int): the lines measured meanwhile go
+    through a cache of their own, and if there are any, the layout fails
+    as matplotlib's first measure of a line fails, referring to the
+    renderer weakly (`_get_text_metrics_function`)."""
+    metrics = _text_metrics_module.TextMetrics(lambda: None)
+    with _text_metrics_module.measuring_with(renderer, metrics):
+        yield
+    if metrics.cache_info().misses:
+        weakref.ref(renderer)
 
 
 @contextlib.contextmanager

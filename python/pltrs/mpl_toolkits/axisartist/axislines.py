@@ -449,12 +449,19 @@ class Axes(maxes.Axes):
 
     def clear(self):
         # docstring inherited
-        self._remake_axis_artists()
+        super().clear()
+        self._load_axislines()
+
+    def _clear_natively(self):
+        # docstring inherited: pltrs (Rust) then makes the gridlines and
+        # axis artists anew through the grid helper, as matplotlib's clear
+        # does after the Axes' own.
+        return _axisartist.clear(self._native)
 
     def _remake_axis_artists(self):
         """Have pltrs (Rust) make the axis artists and gridlines of the
-        cleared axes anew, and hold them."""
-        _axisartist.clear(self._native)
+        axes, which their host's clear cleared, anew, and hold them."""
+        self._clear_natively()
         self._load_axislines()
 
     def get_grid_helper(self):

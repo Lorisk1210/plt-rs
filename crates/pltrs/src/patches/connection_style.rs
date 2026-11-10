@@ -150,6 +150,11 @@ fn clip(
 }
 
 impl ConnectionStyle {
+    /// Whether the connection is the program's, which pltrs calls.
+    pub(crate) fn calls_program(&self) -> bool {
+        matches!(self, Self::Program(_) | Self::ProgramRoute(_))
+    }
+
     /// The raw connection from `a` to `b` (each style's `connect`).
     pub fn connect(&self, a: Point, b: Point) -> Result<Path, PatchError> {
         use PathCode::{Curve3, LineTo, MoveTo};

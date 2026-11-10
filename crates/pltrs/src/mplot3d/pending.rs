@@ -36,6 +36,23 @@ impl Axes3DState {
 }
 
 impl Axes3D {
+    /// The autoscaling pending applied as matplotlib's `add_collection`
+    /// applies it before it adds a collection (`_unstale_viewLim`), the
+    /// limit callbacks running. A locator failing leaves it pending, for
+    /// the draw to report.
+    pub(crate) fn unstale_for_collection(&self) {
+        self.raw()
+            .figure_state()
+            .borrow_mut()
+            .gather_pending(self.id());
+        self.with_mut(|axes| {
+            let pending = axes.limits.pending;
+            if axes.unstale().is_err() {
+                axes.limits.pending = pending;
+            }
+        });
+    }
+
     /// Marks the axes `selected` (x, y, z) for autoscaling when the axes
     /// is next drawn or [`Axes3D::unstale_view_lim`] is called, `tight`
     /// replacing the tight setting when given (matplotlib's

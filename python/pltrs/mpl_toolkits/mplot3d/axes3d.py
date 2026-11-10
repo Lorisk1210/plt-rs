@@ -453,12 +453,21 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         # docstring inherited.
         self._decouple_children()
         _mplot3d.clear(self._native)
+        # matplotlib's clear makes a new registry of the limit callbacks
+        # (pltrs (Rust) disconnected those of the axes).
+        self.__dict__.pop("_limit_callbacks", None)
+        self.__dict__.pop("_limit_callbacks_connected", None)
         for axis in (self.xaxis, self.yaxis, self.zaxis):
             axis._given_scale = None
             # matplotlib's clear clears each axis, which leaves it stale and
             # with new callbacks (the Axes' handler of its units gone).
             axis.callbacks = cbook.CallbackRegistry(signals=["units"])
             axis.stale = True
+
+    def _on_limits_changed(self, name, notify):
+        # docstring inherited: the limits of the three axes are pltrs
+        # (Rust)'s 3-D axes', not those of its projection plane.
+        _mplot3d.on_limits_changed(self._native, name, notify)
 
     get_zgridlines = _axis_method_wrapper("zaxis", "get_gridlines")
     get_zticklines = _axis_method_wrapper("zaxis", "get_ticklines")

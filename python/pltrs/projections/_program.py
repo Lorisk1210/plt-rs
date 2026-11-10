@@ -566,12 +566,31 @@ def connect(ax):
         ax, ax._gen_axes_spines() if spines is None else dict(spines))
 
 
+def _figure_set(ax):
+    """
+    Run the ``set_figure`` of the class of *ax*, a program's projection class
+    that overrides it, where matplotlib's ``__init__`` runs it: the trees are
+    built within it (``_AxesBase.set_figure``), after what the class does
+    first (mpltern's ``TernaryAxes`` makes there the boxes its
+    ``_set_lim_and_transforms`` reads).
+    """
+    if type(ax).set_figure is Axes.set_figure:
+        return
+    ax.__dict__["_figure_set_as_made"] = True
+    try:
+        ax.set_figure(ax.get_figure(root=False))
+    finally:
+        del ax.__dict__["_figure_set_as_made"]
+
+
 def set_up(ax):
     """
     Build the Axes *ax* of a program's projection class as matplotlib's
-    ``__init__`` does (``_set_lim_and_transforms``, ``_gen_axes_spines``,
-    ``_init_axis``) and hand it over to pltrs (Rust).
+    ``__init__`` does (``set_figure``, which builds the trees with
+    ``_set_lim_and_transforms``, ``_gen_axes_spines``, ``_init_axis``) and
+    hand it over to pltrs (Rust).
     """
+    _figure_set(ax)
     _build_trees(ax, as_made=True)
     spines = ax._gen_axes_spines()
     ax._init_axis()

@@ -55,16 +55,59 @@ lxml==6.1.3
 ipython==9.18.1
 ipywidgets==8.1.9
 tqdm==4.70.1
-# What those bring along, as uv resolved them on 2026-11-07:
+# The libraries over matplotlib of the corpora of library galleries and
+# books added on 2026-11-10, and what their programs compute with: the
+# Kalman filter book's filterpy (and its distutils, which setuptools
+# provides), ModSimPy's units (pint), Elements of Data Science's HDF files
+# (tables), lifelines (and its autograd), mplhep's histograms, pyCirclize's
+# Biopython, the windrose samples' click, plotnine's examples' polars:
+adjustText==1.4.0
+autograd==1.9.1
+autograd-gamma==0.5.0
+biopython==1.88
+boost-histogram==1.8.1
+brokenaxes==0.6.2
+click==8.5.1
+corner==2.3.0
+filterpy==2.0.0
+hist==2.12.1
+lifelines==0.30.0
+mplhep==1.3.3
+mplhep-data==0.1.0
+mpltern==1.0.5
+pint==0.26.2
+polars==2.1.0
+pvlib==0.16.1
+pycirclize==1.10.1
+SciencePlots==2.2.2
+setuptools==84.2.1
+tables==3.11.1
+UpSetPlot==0.9.0
+windrose==2.0.0
+# What those bring along, as uv resolved them on 2026-11-07 (and on
+# 2026-11-10 for the libraries added then):
+annotated-types==0.8.0
+anyio==4.16.0
 astropy-iers-data==0.2026.11.2.0.34.55
 asttokens==3.0.2
+blosc2==4.14.1
 certifi==2026.10.23
 charset-normalizer==3.5.2
 cloudpickle==3.1.2
 comm==0.2.3
 et-xmlfile==2.0.0
 executing==2.3.0
+flexcache==0.3
+flexparser==0.4
 formulaic==1.2.2
+h11==0.16.0
+h2==4.4.1
+h5py==3.16.0
+histoprint==2.7.1
+hpack==4.2.0
+httpcore==1.0.9
+httpx==0.28.1
+hyperframe==6.1.0
 idna==3.20
 interface-meta==2.0.1
 ipython-pygments-lexers==1.1.1
@@ -79,21 +122,29 @@ matplotlib-inline==0.2.2
 mdurl==0.1.2
 mizani==0.14.6
 mpmath==1.3.0
+msgpack==1.2.4
 narwhals==2.28.0
+ndindex==1.10.1
 packaging==26.3
 parso==0.8.7
 patsy==1.0.3
 pexpect==4.9.0
+platformdirs==4.14.5
+polars-runtime-32==2.1.0
 prompt-toolkit==3.0.53
 psutil==7.2.2
 ptyprocess==0.7.0
 pure-eval==0.2.4
+py-cpuinfo==9.0.0
+pydantic-core==2.50.4
+pydantic==2.14.3
 pydot==4.0.1
 pyerfa==2.0.1.5
 pygments==2.21.0
 pyogrio==0.13.0
 pyparsing==3.3.3
 pyproj==3.8.0
+pytz==2026.6
 pyyaml==6.0.3
 requests==2.34.2
 rich==15.0.0
@@ -104,6 +155,8 @@ threadpoolctl==3.8.0
 tifffile==2026.10.15
 traitlets==5.16.1
 typing-extensions==4.16.0
+typing-inspection==0.4.5
+uhi==1.2.1
 urllib3==2.8.0
 wcwidth==0.9.4
 widgetsnbextension==4.0.16

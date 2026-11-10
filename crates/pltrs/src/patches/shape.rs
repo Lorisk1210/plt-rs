@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use pltrs_core::{Affine2D, Path, Point};
 
 use super::{PatchError, PatchStyle};
-use crate::artist::{ArtistBase, ArtistId, LayoutContext};
+use crate::artist::{ArtistBase, ArtistId, LayoutContext, ProgramShaping};
 use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 
 /// The geometry of a patch (matplotlib's `get_path` + `get_patch_transform`).
@@ -41,6 +41,23 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// figure while it is drawn.
     fn runs_program(&self) -> bool {
         false
+    }
+
+    /// Whether drawing the shape calls styles of the program's in display
+    /// space (an arrow's connection and arrow styles): see
+    /// [`program_drawing`](Self::program_drawing).
+    fn draws_program(&self) -> bool {
+        false
+    }
+
+    /// The calls of the program's styles that drawing the shape where
+    /// `frame` places it makes in display space, for a draw that renders
+    /// nothing (see
+    /// [`Artist::program_shaping`](crate::artist::Artist::program_shaping)),
+    /// for a shape that [`draws_program`](Self::draws_program). None by
+    /// default.
+    fn program_drawing(&self, _frame: &ShapeFrame<'_>) -> Option<ProgramShaping> {
+        None
     }
 
     /// Issues the runtime warnings numpy issues each time matplotlib's

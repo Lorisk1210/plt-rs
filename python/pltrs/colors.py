@@ -405,9 +405,14 @@ def _to_rgba_no_colorcycle(c, alpha=None):
         orig_c = c
         if c.ndim == 2 and c.shape[0] == 1:
             c = c.reshape(-1)
-        if c.ndim == 1 and len(c) in (3, 4) and not all(isinstance(x, Real) for x in c):
-            # matplotlib takes numbers alone: no numpy bools, strings or
-            # masked elements.
+        # matplotlib's checks, in its order, before it converts any
+        # component (a masked one would warn): numbers alone, no numpy
+        # bools, strings or masked elements.
+        if not np.iterable(c):
+            raise ValueError(f"Invalid RGBA argument: {orig_c!r}")
+        if len(c) not in (3, 4):
+            raise ValueError("RGBA sequence should have length 3 or 4")
+        if not all(isinstance(x, Real) for x in c):
             raise ValueError(f"Invalid RGBA argument: {orig_c!r}")
         c = tuple(c)
     try:

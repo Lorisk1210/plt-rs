@@ -63,6 +63,14 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     def set_figure(self, fig):
         # docstring inherited: matplotlib's override has none.
         super().set_figure(fig)
+        if self.__dict__.get("_figure_set_as_made"):
+            # The set-up of an Axes of a program's projection class whose
+            # own `set_figure` runs around this one, as matplotlib's
+            # `__init__` calls it (`projections._program.set_up`): the
+            # trees are built here, from the boxes `__init__` makes.
+            if "_transform_trees" not in self.__dict__:
+                self._build_transform_trees(as_made=True)
+            return
         # matplotlib's makes the Axes' boxes and transforms anew: the view
         # the unit box, no data limits, and an identity ``transScale`` until
         # a scale is set again.
@@ -785,6 +793,18 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         if _foreign_children.add_held(self, p):
             return p
         return p._add_to_axes(self, "patch")
+
+    def _add_text(self, txt):
+        """
+        Add a `.Text` to the Axes; return the text.
+        """
+        # matplotlib's `text` adds the text it made so (mplhep adds its own
+        # labels with it): as `add_artist` does, but not clipped to the Axes.
+        from ..text import Text
+        _api.check_isinstance(Text, txt=txt)
+        if _foreign_children.add_held(self, txt):
+            return txt
+        return txt._add_to_axes(self, "text")
 
     def add_table(self, tab):
         """

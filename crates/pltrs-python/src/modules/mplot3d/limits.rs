@@ -193,6 +193,18 @@ fn set_inverted(axes: Axes3D, name: String, inverted: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// Calls `notify` without arguments whenever the view limits of the axis
+/// `name` (`"x"`, `"y"` or `"z"`) of `axes` change, until the axes is
+/// cleared (the signals `xlim_changed`, `ylim_changed` and `zlim_changed`
+/// of a 3-D axes' `callbacks`).
+fn on_limits_changed(axes: Axes3D, name: String, notify: Callback) -> PyResult<()> {
+    axes.on_limits_changed(axis3(&name)?, move |_| {
+        // What the registry returns is of no use; an exception it raised
+        // goes to the native call that changed the limits.
+        let _ = notify.call::<Owned>(());
+    });
+    Ok(())
+}
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_lim", get_lim)?;
@@ -213,7 +225,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_python_scale", set_python_scale)?;
     module.add("get_scale", get_scale)?;
     module.add("get_inverted", get_inverted)?;
-    module.add("set_inverted", set_inverted)
+    module.add("set_inverted", set_inverted)?;
+    module.add("on_limits_changed", on_limits_changed)
 }
 
 #[cfg(test)]

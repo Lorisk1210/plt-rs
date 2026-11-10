@@ -21,6 +21,7 @@ import numpy as np
 
 from . import _api, _docstring, _patch_style_docs as _style_docs, _qualnames
 from ._native import patch_styles as _styles
+from ._program_classes import takes_from_program
 from .bezier import inside_circle, split_path_inout
 from .path import Path
 
@@ -555,10 +556,19 @@ def _arrow_pieces(style, vertices, codes, mutation_size, linewidth, aspect):
     return [(paths, bool(fillable))]
 
 
+#: The methods matplotlib's fancy patches call on their styles to draw
+#: (a box style's and an arrow style's ``__call__``, which calls the arrow
+#: style's ``transmute``, a connection style's ``connect``).
+_DRAWING_METHODS = ("__call__", "connect", "transmute")
+
+
 def calls_program(style):
     """Whether pltrs (Rust) calls the program to draw with *style*, a style
-    object: whether it is the program's (or a plain callable)."""
-    return not (isinstance(style, _Described) and type(style)._spec_name is not None)
+    object: whether it is the program's (or a plain callable), or a style
+    of matplotlib's whose class the program derived to draw its own way."""
+    if not (isinstance(style, _Described) and type(style)._spec_name is not None):
+        return True
+    return any(takes_from_program(type(style), name) for name in _DRAWING_METHODS)
 
 
 def _native_spec(style, registry, owner=None):

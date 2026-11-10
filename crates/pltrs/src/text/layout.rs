@@ -449,7 +449,7 @@ pub fn typeset_line(
     let run = match kind {
         LineKind::Plain => line_run(&Line::Plain(text.into()), font, dpi, rc, false),
         LineKind::Math => line_run(&Line::Math(text), font, dpi, rc, false),
-        LineKind::Tex => tex_run(text, font, dpi, rc),
+        LineKind::Tex => tex_run(text, font, dpi),
     }?;
     font_notes::note_drawn(&run, antialiased)?;
     Ok(run)
@@ -520,7 +520,7 @@ pub(crate) fn lay_out_with(
     let runs = lines
         .iter()
         .map(|line| match typesetting {
-            Typesetting::Tex => tex_run(line, font, dpi, rc),
+            Typesetting::Tex => tex_run(line, font, dpi),
             Typesetting::Mathtext { .. } if line.is_empty() => Ok(TextRun {
                 dpi,
                 source: Some(TextSource::Plain {

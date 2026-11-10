@@ -97,6 +97,23 @@ impl fmt::Display for LayoutError {
     }
 }
 
+impl LayoutError {
+    /// The problem a draw of the legend `id` reports: a text of the
+    /// legend that cannot be measured is the text's own problem, of its
+    /// kind and with its message, as matplotlib's `Legend.draw` raises it
+    /// measuring the text.
+    fn draw_error(&self, id: ArtistId) -> DrawError {
+        match self {
+            Self::Boxes(err @ OffsetBoxError::Text(_)) => DrawError {
+                artist: id,
+                message: err.to_string(),
+                kind: err.draw_kind(),
+            },
+            Self::Boxes(_) | Self::Detached => DrawError::new(id, self.to_string()),
+        }
+    }
+}
+
 impl From<OffsetBoxError> for LayoutError {
     fn from(err: OffsetBoxError) -> Self {
         Self::Boxes(err)
@@ -263,23 +280,23 @@ pub(crate) fn lay_out_legend(state: &mut FigureState, id: ArtistId) -> Result<()
         state.store.get_as::<LegendArtist>(id).map(|legend| {
             legend
                 .layout(ctx)
-                .map_err(|err| err.to_string())
+                .map_err(|err| err.draw_error(id))
                 .map(|layout| (layout, legend.frame, legend.shadow.clone()))
         })
     };
-    let applied = match outcome {
+    match outcome {
         Some(Ok((layout, frame, shadow))) => {
             if let Some(width) = layout.expanded_width
                 && let Some(legend) = state.store.get_as_mut::<LegendArtist>(id)
             {
                 legend.legend_box.set_width(Some(width));
             }
-            apply(&mut state.store, layout, frame, shadow).map_err(|err| err.to_string())
+            apply(&mut state.store, layout, frame, shadow)
+                .map_err(|err| DrawError::new(id, err.to_string()))
         }
-        Some(Err(message)) => Err(message),
+        Some(Err(err)) => Err(err),
         None => Ok(()),
-    };
-    applied.map_err(|message| DrawError::new(id, message))
+    }
 }
 
 /// Moves the frame, its shadow, the texts and the handles of a legend to

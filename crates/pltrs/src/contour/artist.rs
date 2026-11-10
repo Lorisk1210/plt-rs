@@ -107,8 +107,12 @@ impl ColorMapped for ContourSetArtist {
         let Some(mapping) = &mut state.mapping else {
             return Ok(());
         };
-        let levels: Vec<Option<f64>> = state.levels.iter().copied().map(Some).collect();
-        mapping.norm_mut().autoscale_none(&levels);
+        if !mapping.norm().calls_program() {
+            // A norm of the program's was scaled to the levels in Python,
+            // as matplotlib's `changed` scales it, before it was handed over.
+            let levels: Vec<Option<f64>> = state.levels.iter().copied().map(Some).collect();
+            mapping.norm_mut().autoscale_none(&levels);
+        }
         state.norm_limits = mapping.clim();
         let cvalues = super::set::mapped_values(&state.cvalues);
         let normalized = normalize_scalars(mapping, &cvalues, state.cvalue_kind)?;

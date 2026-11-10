@@ -8,7 +8,7 @@ use super::arrow_style::ArrowStyle;
 use super::artist::bounding_points;
 use super::connection_style::{ClipRegion, ConnectionStyle};
 use super::{DisplayPath, PatchError, PatchShape, PatchStyle, ShapeFrame};
-use crate::artist::{ArtistBase, ArtistId, LayoutContext};
+use crate::artist::{ArtistBase, ArtistId, LayoutContext, ProgramShaping};
 use crate::transforms::{Transform, TransformContext};
 
 /// How an arrow is built between its ends: the shared part of
@@ -303,6 +303,33 @@ impl PatchShape for FancyArrowPatch {
             ArrowRoute::Along(path) => frame.transform.transform_path(path),
         };
         self.spec.display_paths(&path, dpi_cor, frame.linewidth)
+    }
+
+    fn draws_program(&self) -> bool {
+        self.spec.connectionstyle.calls_program() || self.spec.arrowstyle.calls_program()
+    }
+
+    /// The connection and the arrow of the program's, made as
+    /// `display_paths` makes them.
+    fn program_drawing(&self, frame: &ShapeFrame<'_>) -> Option<ProgramShaping> {
+        let spec = self.spec.clipped_to(&frame.layout, self.patches);
+        let (dpi_cor, linewidth) = (frame.dpi_cor, frame.linewidth);
+        let ends = match &self.route {
+            ArrowRoute::Between(a, b) => Ok((
+                frame.transform.transform_point(*a),
+                frame.transform.transform_point(*b),
+            )),
+            ArrowRoute::Along(path) => Err(frame.transform.transform_path(path)),
+        };
+        Some(Box::new(move || {
+            let route = match ends {
+                Ok((a, b)) => spec.route(a, b, dpi_cor),
+                Err(path) => Ok(path),
+            };
+            if let Ok(route) = route {
+                drop(spec.display_paths(&route, dpi_cor, linewidth));
+            }
+        }))
     }
 
     /// matplotlib's `_update_patch_limits` reads the arrow's `get_path()`,

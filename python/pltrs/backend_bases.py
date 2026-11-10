@@ -1612,6 +1612,30 @@ def _pick_handler(event):
     event.canvas.figure.pick(event)
 
 
+def _get_renderer(figure, print_method=None):
+    """
+    Get the renderer that would be used to save a `.Figure`.
+
+    If you need a renderer without any active draw methods use
+    renderer._draw_disabled to temporary patch them out at your call site.
+    """
+    # pltrs: matplotlib starts a print and takes the renderer its draw is
+    # given; pltrs (Rust) draws prints itself, so the renderer is that of
+    # the canvas printing (the default file type's for none given),
+    # whose `get_renderer` makes it, else the figure's Agg renderer.
+    if print_method is None:
+        fmt = figure.canvas.get_default_filetype()
+        with figure.canvas._switch_canvas_and_return_print_method(fmt) as method:
+            canvas = getattr(method, "__self__", None)
+            if hasattr(canvas, "get_renderer"):
+                return canvas.get_renderer()
+    else:
+        canvas = getattr(print_method, "__self__", None)
+        if hasattr(canvas, "get_renderer"):
+            return canvas.get_renderer()
+    return figure._get_renderer()
+
+
 def _canvas_callbacks(figure):
     """
     Give *figure* the callback registry its canvases share (matplotlib's

@@ -7,7 +7,8 @@ use pltrs_core::{Bbox, Path, Point};
 use pltrs_render::Sketch;
 
 use crate::artist::{
-    ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext, rc_sketch,
+    ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext, ProgramShaping,
+    rc_sketch,
 };
 use crate::patches::{
     ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, FancyArrowPatch, Patch,
@@ -407,6 +408,45 @@ impl AnnotationArrow {
         dpi_cor: f64,
         start: Option<ClipRegion>,
     ) -> Result<Vec<DisplayPath>, PatchError> {
+        self.routed(layout, rc, target, dpi_cor, start).paths()
+    }
+
+    /// The calls of the program's connection and arrow styles the arrow's
+    /// draw makes (see `Annotation::program_drawing`).
+    pub(crate) fn program_drawing(
+        &self,
+        layout: LayoutContext<'_>,
+        rc: &RcParams,
+        target: &ArrowTarget,
+    ) -> Option<ProgramShaping> {
+        if !self.calls_program() {
+            return None;
+        }
+        let start = match &target.start_region {
+            StartRegion::Fresh(region) => region.clone(),
+            StartRegion::TextBox { now, .. } => Some(now.clone()),
+        };
+        let routed = self.routed(layout, rc, target, layout.points_to_pixels(1.0), start);
+        Some(Box::new(move || drop(routed.paths())))
+    }
+
+    /// Whether drawing the arrow calls a connection or arrow style of the
+    /// program's.
+    pub(crate) fn calls_program(&self) -> bool {
+        let fancy = matches!(self.placement, Placement::Fancy { .. });
+        self.spec.connectionstyle.calls_program() || (fancy && self.spec.arrowstyle.calls_program())
+    }
+
+    /// The arrow as [`display_paths`](Self::display_paths) makes it, up to
+    /// its route.
+    fn routed(
+        &self,
+        layout: LayoutContext<'_>,
+        rc: &RcParams,
+        target: &ArrowTarget,
+        dpi_cor: f64,
+        start: Option<ClipRegion>,
+    ) -> Routed {
         let bbox = target.text_bbox;
         let end = target.point;
         let mut spec = self.spec.clone();
@@ -459,9 +499,12 @@ impl AnnotationArrow {
             ArrowStart::Artist(id) => region(id),
         };
         spec.patch_b = self.patch_b.and_then(region);
-        let linewidth = self.style.linewidth.unwrap_or(rc.patch_linewidth);
-        let path = spec.route(begin, end, dpi_cor)?;
-        spec.display_paths(&path, dpi_cor, linewidth)
+        Routed {
+            spec,
+            ends: (begin, end),
+            dpi_cor,
+            linewidth: self.style.linewidth.unwrap_or(rc.patch_linewidth),
+        }
     }
 
     /// Whether display point `at` lies in a piece of the arrow, within the
@@ -512,6 +555,24 @@ impl AnnotationArrow {
         base.sketch = self.sketch;
         paint_paths(ctx, &base, &self.style, rc, true, &paths)?;
         Ok(())
+    }
+}
+
+/// An annotation's arrow ready to be routed and made: its spec, the ends
+/// of its route in display pixels, the pixels per point and the edge
+/// width (points).
+struct Routed {
+    spec: ArrowSpec,
+    ends: (Point, Point),
+    dpi_cor: f64,
+    linewidth: f64,
+}
+
+impl Routed {
+    /// The arrow's pieces in display pixels.
+    fn paths(&self) -> Result<Vec<DisplayPath>, PatchError> {
+        let path = self.spec.route(self.ends.0, self.ends.1, self.dpi_cor)?;
+        self.spec.display_paths(&path, self.dpi_cor, self.linewidth)
     }
 }
 

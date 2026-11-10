@@ -88,6 +88,8 @@ impl Axes3D {
         };
         let collection = self
             .on_plane_keeping_limits(|plane| plane.scatter_with(x.clone(), y.clone(), scatter))?;
+        // The 2-D scatter adds it with `add_collection`.
+        self.unstale_for_collection();
         let points = collection.raw().with_mut::<CollectionArtist, _>(
             |c| -> Result<Points3D, Axes3DError> {
                 // The colours are resolved, shaded and sorted at every

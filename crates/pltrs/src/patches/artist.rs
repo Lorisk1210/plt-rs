@@ -63,7 +63,20 @@ impl<S: PatchShape> PatchParts<'_, S> {
         resolved: ResolvedTransform,
         dpi_cor: f64,
     ) -> Result<Vec<DisplayPath>, PatchError> {
-        let frame = ShapeFrame {
+        self.shape
+            .display_paths(&self.frame(layout, resolved, dpi_cor))
+    }
+
+    /// Where the shape is drawn: in `layout`, through the artist's
+    /// transform, `resolved`, with arrow sizes at `dpi_cor` pixels per
+    /// point.
+    fn frame<'a>(
+        &self,
+        layout: LayoutContext<'a>,
+        resolved: ResolvedTransform,
+        dpi_cor: f64,
+    ) -> ShapeFrame<'a> {
+        ShapeFrame {
             layout,
             transform: resolved,
             dpi_cor,
@@ -71,8 +84,15 @@ impl<S: PatchShape> PatchParts<'_, S> {
             linewidth: self.style.linewidth.unwrap_or(self.rc.patch_linewidth),
             parent: self.base.parent,
             interpolation_steps: self.interpolation_steps,
-        };
-        self.shape.display_paths(&frame)
+        }
+    }
+
+    /// The calls of the program's styles the patch's draw makes in display
+    /// space (see [`PatchShape::program_drawing`]).
+    fn program_drawing(&self, layout: LayoutContext<'_>) -> Option<ProgramShaping> {
+        let resolved = self.resolved(layout).ok()?;
+        let frame = self.frame(layout, resolved, layout.points_to_pixels(1.0));
+        self.shape.program_drawing(&frame)
     }
 
     /// Draws the patch (matplotlib's `Patch.draw`). A transform or a box
@@ -420,12 +440,17 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     /// The program's style shaping the patch, as its draw calls it
-    /// (matplotlib's `get_path`).
-    fn program_shaping(&self, _layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+    /// (matplotlib's `get_path`), or those its draw calls in display space
+    /// (an arrow's connection and arrow styles).
+    fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        if !self.shape.runs_program() {
+            // Placed only when a style of the program's draws it.
+            return (self.shape.draws_program())
+                .then(|| self.parts().program_drawing(*layout))
+                .flatten();
+        }
         let shape = self.shape.clone();
-        shape
-            .runs_program()
-            .then(|| Box::new(move || drop(shape.path())) as ProgramShaping)
+        Some(Box::new(move || drop(shape.path())))
     }
 
     /// The outline's ends and axis extrema, in the directions where the

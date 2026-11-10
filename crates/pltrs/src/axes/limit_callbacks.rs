@@ -1,5 +1,6 @@
 //! Callbacks run when the view limits of an axes change (matplotlib's
-//! `ax.callbacks.connect("xlim_changed", ...)` and `"ylim_changed"`).
+//! `ax.callbacks.connect("xlim_changed", ...)`, `"ylim_changed"`, and a
+//! 3-D axes' `"zlim_changed"`).
 //!
 //! Every limit change that matplotlib's `Axis._set_lim(..., emit=True)`
 //! makes queues the axes it changed, and the axes sharing the axis, when a
@@ -15,21 +16,50 @@ use std::rc::Rc;
 use super::{Axes, AxisName};
 use crate::artist::{ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::figure::FigureCell;
+use crate::mplot3d::{Axes3D, Axis3};
 
 /// Identifies a limit callback, for [`Axes::disconnect_limits_changed`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LimitsCallbackId(u64);
 
-/// A callback, shared so that it can run while the registry is borrowed
-/// for something else.
-type Callback = Rc<RefCell<dyn FnMut(&Axes)>>;
+/// A callback, given the axes whose limits changed, shared so that it can
+/// run while the registry is borrowed for something else.
+type Callback = Rc<RefCell<dyn FnMut(&RawHandle)>>;
+
+/// The axis whose limits a callback waits for: one of a 2-D axes, or one
+/// of the three of a 3-D axes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LimitAxis {
+    X,
+    Y,
+    Z,
+}
+
+impl From<AxisName> for LimitAxis {
+    fn from(name: AxisName) -> Self {
+        match name {
+            AxisName::X => Self::X,
+            AxisName::Y => Self::Y,
+        }
+    }
+}
+
+impl From<Axis3> for LimitAxis {
+    fn from(axis: Axis3) -> Self {
+        match axis {
+            Axis3::X => Self::X,
+            Axis3::Y => Self::Y,
+            Axis3::Z => Self::Z,
+        }
+    }
+}
 
 /// The limit callbacks of one figure, and the changes waiting for them.
 #[derive(Default)]
 pub(crate) struct LimitCallbacks {
     next: u64,
-    callbacks: Vec<(LimitsCallbackId, ArtistId, AxisName, Callback)>,
-    pending: VecDeque<(ArtistId, AxisName)>,
+    callbacks: Vec<(LimitsCallbackId, ArtistId, LimitAxis, Callback)>,
+    pending: VecDeque<(ArtistId, LimitAxis)>,
 }
 
 impl fmt::Debug for LimitCallbacks {
@@ -44,7 +74,8 @@ impl fmt::Debug for LimitCallbacks {
 impl LimitCallbacks {
     /// Queues a change of axis `name` of `axes` when a callback waits for
     /// it.
-    pub(crate) fn notify(&mut self, axes: ArtistId, name: AxisName) {
+    pub(crate) fn notify(&mut self, axes: ArtistId, name: impl Into<LimitAxis>) {
+        let name = name.into();
         if self
             .callbacks
             .iter()
@@ -74,7 +105,7 @@ impl LimitCallbacks {
     }
 
     /// The callbacks waiting for a change of axis `name` of `axes`.
-    fn callbacks_of(&self, axes: ArtistId, name: AxisName) -> Vec<Callback> {
+    fn callbacks_of(&self, axes: ArtistId, name: LimitAxis) -> Vec<Callback> {
         self.callbacks
             .iter()
             .filter(|(_, owner, axis, _)| *owner == axes && *axis == name)
@@ -112,7 +143,7 @@ pub(crate) fn run_limit_callbacks(figure: &Rc<FigureCell>) {
             }
             ran += 1;
             let callbacks = figure.borrow().limit_callbacks.callbacks_of(axes, name);
-            let handle = Axes::from_raw(RawHandle::new(Rc::clone(figure), axes));
+            let handle = RawHandle::new(Rc::clone(figure), axes);
             for callback in callbacks {
                 if let Ok(mut callback) = callback.try_borrow_mut() {
                     callback(&handle);
@@ -169,34 +200,93 @@ impl Axes {
     pub fn on_limits_changed(
         &self,
         axis: AxisName,
-        callback: impl FnMut(&Axes) + 'static,
+        mut callback: impl FnMut(&Axes) + 'static,
     ) -> LimitsCallbackId {
-        let figure = self.raw().figure_state();
-        let mut state = figure.borrow_mut();
-        let registry = &mut state.limit_callbacks;
-        let id = LimitsCallbackId(registry.next);
-        registry.next += 1;
-        registry
-            .callbacks
-            .push((id, self.id(), axis, Rc::new(RefCell::new(callback))));
-        id
+        connect(self.raw(), axis.into(), move |raw| {
+            callback(&Axes::from_raw(raw.clone()));
+        })
     }
 
     /// Disconnects a callback connected with
     /// [`on_limits_changed`](Self::on_limits_changed) (matplotlib's
     /// `ax.callbacks.disconnect`); returns whether it was connected.
     pub fn disconnect_limits_changed(&self, id: LimitsCallbackId) -> bool {
-        let figure = self.raw().figure_state();
-        let removed = {
-            let mut state = figure.borrow_mut();
-            let callbacks = &mut state.limit_callbacks.callbacks;
-            callbacks
-                .iter()
-                .position(|(cid, ..)| *cid == id)
-                .map(|index| callbacks.remove(index))
-        };
-        removed.is_some()
+        disconnect(self.raw(), id)
     }
+}
+
+impl Axes3D {
+    /// Calls `callback` with this axes whenever the view limits of `axis`
+    /// change (matplotlib's `ax.callbacks.connect("zlim_changed", ...)`
+    /// and those of the x and y limits): when they are set, on this axes
+    /// or on one sharing the axis, and when autoscaling moves them, as
+    /// [`Axes::on_limits_changed`] calls those of a 2-D axes.
+    /// [`Axes3D::clear`] disconnects every callback of the axes.
+    ///
+    /// ```
+    /// use std::cell::Cell;
+    /// use std::rc::Rc;
+    ///
+    /// use pltrs::mplot3d::Axis3;
+    /// use pltrs::prelude::*;
+    ///
+    /// let ax = Figure::new().subplot_3d();
+    /// let seen = Rc::new(Cell::new(0));
+    /// let record = Rc::clone(&seen);
+    /// ax.on_limits_changed(Axis3::Z, move |_| record.set(record.get() + 1));
+    /// ax.set_zlim(0.0, 4.0)?;
+    /// ax.set_xlim(0.0, 1.0)?;
+    /// assert_eq!(seen.get(), 1, "x limits do not call it");
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    pub fn on_limits_changed(
+        &self,
+        axis: Axis3,
+        mut callback: impl FnMut(&Axes3D) + 'static,
+    ) -> LimitsCallbackId {
+        connect(self.raw(), axis.into(), move |raw| {
+            callback(&Axes3D::from_raw(raw.clone()));
+        })
+    }
+
+    /// Disconnects a callback connected with
+    /// [`on_limits_changed`](Self::on_limits_changed); returns whether it
+    /// was connected.
+    pub fn disconnect_limits_changed(&self, id: LimitsCallbackId) -> bool {
+        disconnect(self.raw(), id)
+    }
+}
+
+/// Connects `callback` to the changes of axis `axis` of the axes `raw`.
+fn connect(
+    raw: &RawHandle,
+    axis: LimitAxis,
+    callback: impl FnMut(&RawHandle) + 'static,
+) -> LimitsCallbackId {
+    let figure = raw.figure_state();
+    let mut state = figure.borrow_mut();
+    let registry = &mut state.limit_callbacks;
+    let id = LimitsCallbackId(registry.next);
+    registry.next += 1;
+    registry
+        .callbacks
+        .push((id, raw.id(), axis, Rc::new(RefCell::new(callback))));
+    id
+}
+
+/// Disconnects the callback `id` of the figure of `raw`; whether it was
+/// connected.
+fn disconnect(raw: &RawHandle, id: LimitsCallbackId) -> bool {
+    let figure = raw.figure_state();
+    let removed = {
+        let mut state = figure.borrow_mut();
+        let callbacks = &mut state.limit_callbacks.callbacks;
+        callbacks
+            .iter()
+            .position(|(cid, ..)| *cid == id)
+            .map(|index| callbacks.remove(index))
+    };
+    removed.is_some()
 }
 
 #[cfg(test)]

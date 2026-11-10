@@ -15,7 +15,8 @@
 # * `programs`: the programs, globs in the tree. A `.py` file runs whole, as
 #   a gallery example does; a notebook (`.ipynb`, nbformat 3 or 4) or a
 #   Markdown page with ```python blocks or a MyST page's ```{code-cell}
-#   blocks (`.md`) runs cell by cell, an exception stopping its
+#   blocks (`.md`) or a reStructuredText page's IPython directives
+#   (`.. ipython:: python`, `.rst`) runs cell by cell, an exception stopping its
 #   cell only, and every figure a cell leaves open is compared and closed
 #   at its end, as Jupyter's inline backend shows and closes them.
 # * `exclude`: globs of programs left out, each with its reason.
@@ -26,6 +27,10 @@
 #   tree instead: the URLs become the files' paths.
 # * `file-urls`: the same, for programs that download the files (with
 #   urllib's `urlretrieve`): the URLs become `file:` URLs of the files.
+#   A URL a program spells as a sum of string literals (`'https://host/' +
+#   'file'`) is joined into one literal first, for both lists.
+# * `prelude`: code a program run cell by cell runs first, as a cell of its
+#   own: what a documentation build runs before each page (pandas' header).
 #
 # The programs run offline: what they would download fails under both.
 #
@@ -440,5 +445,202 @@ licence = "BSD-2-Clause (LICENSE)"
 fetch = ["/LICENSE", "/book_figures/"]
 sha256 = "56a24a10c3ae0370b2f5faf7d5c2a2edc908247fb92564b7f6c22dbbff26bf4e"
 programs = ["book_figures/**/*.py"]
+exclude = []
+outputs = []
+
+[kalman-filters]
+title = "Roger R. Labbe, Kalman and Bayesian Filters in Python, the book's notebooks"
+repository = "https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python"
+commit = "04b2bea802321086effbd99402fc13c893d11110"
+licence = "CC BY 4.0 (license.html: the book, its code included; kf_book/, MIT, kf_book/LICENSE.txt)"
+fetch = ["/license.html", "/*.ipynb", "/book_format.py", "/kf_book/"]
+sha256 = "74eadfadbed4ed65aead1104a302a3bf4489d63f4be198b34c2584cf91f17edb"
+programs = ["[0-9]*.ipynb", "Appendix-*.ipynb"]
+exclude = []
+outputs = []
+
+[modsimpy]
+title = "Allen B. Downey, Modeling and Simulation in Python, the book's chapters and case studies"
+repository = "https://github.com/AllenDowney/ModSimPy"
+commit = "9ee7790f3da3f1284c5e1e1262a05692f9843084"
+licence = "MIT (LICENSE: the code; the text, CC BY-NC-SA 4.0, README.md)"
+fetch = ["/LICENSE", "/modsim.py", "/chap*.py", "/chapters/*.ipynb", "/examples/*.ipynb", "/data/"]
+sha256 = "f0b382798981661deb4602fbc0d26eb94c6863dfa6ce64438f9ab8dd53b16c65"
+programs = ["chapters/chap*.ipynb", "examples/*.ipynb"]
+exclude = []
+outputs = []
+file-urls = [
+    "https://raw.githubusercontent.com/AllenDowney/ModSimPy/master/",
+    "https://github.com/AllenDowney/ModSimPy/raw/master/",
+]
+
+[elements-of-data-science]
+title = "Allen B. Downey, Elements of Data Science, the book's notebooks"
+repository = "https://github.com/AllenDowney/ElementsOfDataScience"
+commit = "1cbc7bc59acbcc9d39fc4314d36eb66a843d5cf5"
+licence = "MIT (LICENSE: the code; the text, CC BY-NC-SA 4.0)"
+fetch = ["/LICENSE", "/[0-9]*.ipynb", "/utils.py", "/data/"]
+sha256 = "fcd78dc3a40b7bdc67890be1571e896e3fad617307c32ca06f089f9ff07e05dc"
+programs = ["[0-9]*.ipynb"]
+exclude = []
+outputs = []
+file-urls = [
+    "https://raw.githubusercontent.com/AllenDowney/ElementsOfDataScience/v1/",
+    "https://github.com/AllenDowney/ElementsOfDataScience/raw/v1/",
+]
+
+[lifelines]
+title = "lifelines (survival analysis), its examples"
+repository = "https://github.com/CamDavidsonPilon/lifelines"
+commit = "7a8fc34a013ecd79fa405017b89e1697c1cc6e17"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "50a00f3411bd52cd216bebc2a7657759f91b3b8ae50a4c0c9a7095af5194d784"
+programs = ["examples/*.ipynb", "examples/*.py"]
+exclude = []
+outputs = []
+
+[mplhep]
+title = "mplhep (high-energy physics' histograms and styles), its examples"
+repository = "https://github.com/scikit-hep/mplhep"
+commit = "abc5b1d86b7c4c0a745e306a966ec5a8a0c21da8"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "c5dcd1f565de07be87a24dfcf6d4adef0ef3fca3b26f325347bf677cac0ea847"
+programs = ["examples/*.ipynb", "examples/*/*.py"]
+exclude = []
+outputs = []
+
+[mpltern]
+title = "mpltern (ternary plots, a projection of matplotlib), its gallery"
+repository = "https://github.com/yuzie007/mpltern"
+commit = "acee215d669852fb57b610528615c64479110a28"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "a56005349b9c452f7775ee36d0bf338c5b2eae6e5602ef4562bbf078253ad1a7"
+programs = ["examples/*/*.py"]
+exclude = []
+outputs = []
+
+[adjusttext]
+title = "adjustText (labels that avoid each other), its example notebooks"
+repository = "https://github.com/Phlya/adjustText"
+commit = "92b0397b5de118151b788d5fb35aa7272f32c0ce"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/source/*.ipynb", "/figures/*.ipynb", "/figures/*.csv"]
+sha256 = "588c1a741a493f2e82415b8feeb119b76de3da318b50a31f1f07d22ebe7e13b8"
+programs = ["docs/source/*.ipynb", "figures/*.ipynb"]
+exclude = [
+    "docs/source/Interactive_example.ipynb",  # an ipympl widget's figure, moved by hand
+]
+outputs = []
+
+[brokenaxes]
+title = "brokenaxes (axes with breaks), its examples"
+repository = "https://github.com/bendichter/brokenaxes"
+commit = "b87550715f3c2fa84bf8854de7eb3ef5a1cf3b67"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "f4c047dca57a323105be5495939fc4f187a093bf19585c2d25b0925f707fe954"
+programs = ["examples/*.py"]
+exclude = []
+outputs = []
+
+[corner]
+title = "corner.py (corner plots of samples), its documentation's notebooks"
+repository = "https://github.com/dfm/corner.py"
+commit = "7590a3d0e9c9f98f8b0d5abde019a8449621d29f"
+licence = "BSD-2-Clause (LICENSE)"
+fetch = ["/LICENSE", "/docs/pages/"]
+sha256 = "e764abffef7a76b1cc1f0c8b7e0fcbe5f6771e230eb7cc41407cd2bccca28a49"
+programs = ["docs/pages/*.ipynb"]
+exclude = []
+outputs = []
+
+[scienceplots]
+title = "SciencePlots (style sheets for papers), its examples"
+repository = "https://github.com/garrettj403/SciencePlots"
+commit = "b9b16959570bd2fbc9ff5118bacc423c3bddd592"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "4fade3ae6a8432a85b8f831f47b8784dc111f03fd3ce867fa7914116dcf85b20"
+programs = ["examples/*.py"]
+exclude = []
+outputs = ["examples/figures"]
+
+[pandas-visualization]
+title = "pandas' user guide, its chart visualization page (pandas' plotting over matplotlib)"
+repository = "https://github.com/pandas-dev/pandas"
+commit = "0e93a6884748a269ead954a6acc731fe9c080993"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/doc/source/user_guide/visualization.rst"]
+sha256 = "29e4f577956c571a7b1b73310438e41be5b799cf1b015cfeee837bb7da971cf7"
+programs = ["doc/source/user_guide/visualization.rst"]
+exclude = []
+outputs = []
+# The header pandas' documentation build puts before each page
+# (doc/source/conf.py), but its change of directory.
+prelude = """
+import numpy as np
+import pandas as pd
+
+np.random.seed(123456)
+np.set_printoptions(precision=4, suppress=True)
+pd.options.display.max_rows = 15
+"""
+
+[upsetplot]
+title = "UpSetPlot (set intersections), its examples"
+repository = "https://github.com/jnothman/UpSetPlot"
+commit = "dcfadae04edfffe321fc0b002bf1865019f75f9b"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/", "/doc/*.ipynb"]
+sha256 = "2acc3a1cd9c8eb25476321a90ce3591588953d766165e3bd6bc056e929c066a3"
+programs = ["examples/*.py", "doc/*.ipynb"]
+exclude = []
+outputs = []
+
+[windrose]
+title = "windrose (wind roses, a projection of matplotlib), its samples and notebooks"
+repository = "https://github.com/python-windrose/windrose"
+commit = "40b8a82fb640640e6fdaacb3425e82e110dd5e2a"
+licence = "BSD-3-Clause or CeCILL-B (LICENCE.txt)"
+fetch = ["/LICENCE.txt", "/samples/", "/notebooks/"]
+sha256 = "36da34fae8fa96971e23b42352339d210806701829a8e24a17410bf9f6943ffa"
+programs = ["samples/*.py", "notebooks/*.ipynb"]
+exclude = []
+outputs = []
+file-urls = ["https://github.com/python-windrose/windrose/raw/main/"]
+
+[pycirclize]
+title = "pyCirclize (circular visualisations: Circos plots, chord diagrams), its documentation's notebooks"
+repository = "https://github.com/moshi4/pyCirclize"
+commit = "5a0f36111a4bbfab3e3d765e7365a1108f891dcb"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/*.ipynb"]
+sha256 = "d099849b5bd3cf9b9dd4a46c5251e8df2bae043b947709f7fbdaab742631dc10"
+programs = ["docs/*.ipynb"]
+exclude = []
+outputs = []
+
+[plotnine-examples]
+title = "plotnine's examples and tutorials (the grammar of graphics over matplotlib)"
+repository = "https://github.com/has2k1/plotnine-examples"
+commit = "8d48830045b2d71f0c4139a75dc19bbb27ae2d18"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/plotnine_examples/"]
+sha256 = "7166624347127f59a5cbd5f7b406be676b9b22ad0352df719908b73dda0f9136"
+programs = ["plotnine_examples/*/*.ipynb"]
+exclude = []
+outputs = []
+
+[pvlib]
+title = "pvlib (photovoltaic systems), its gallery of examples"
+repository = "https://github.com/pvlib/pvlib-python"
+commit = "c5de586d73bbb8875a4e87468894e7b34871a575"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/docs/examples/"]
+sha256 = "b6b62b35a487f0933a43a4f687313bfffb1b28136e61fc02fb582857a3d8bac8"
+programs = ["docs/examples/*/*.py"]
 exclude = []
 outputs = []

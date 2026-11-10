@@ -176,8 +176,15 @@ corpus/scikit-learn-examples/examples/cluster/plot_(cluster|linkage)_comparison$
 corpus/scikit-learn-examples/examples/cluster/plot_(coin_segmentation|mini_batch_kmeans)$ | ^(stdout|value\[constant\]: str|image: RMS > 1)$ | the example prints and writes into its plots the seconds each clustering took
 corpus/scikit-learn-examples/examples/(miscellaneous/plot_anomaly_comparison|neighbors/plot_caching_nearest_neighbors)$ | ^image: RMS > 1$ | the example draws the seconds its fits took
 corpus/scikit-learn-examples/examples/callbacks/plot_scoring_monitor$ | ^stdout$ | the progress bar prints the fits of the grid search's two joblib workers in the order they finish, which differs between two matplotlib runs
+corpus/scikit-learn-examples/examples/model_selection/plot_grid_search_refit_callable$ | ^stdout$ | the example prints its search's results as a polars table, whose mean_fit_time column holds the seconds the fits took
 corpus/scikit-learn-examples/examples/svm/plot_svm_scale_c$ | ^value\[(mean|validation_curve)\]: array values$ | the scores come from fits its joblib workers make in processes whose random state is not the program's
 corpus/scikit-learn-examples/examples/svm/plot_svm_scale_c$ | ^image: RMS > 1$ | the figure plots those scores: two matplotlib runs' figures differ by RMS 1.126 (task REGR5)
+corpus/pvlib/docs/examples/adr-pvarray/plot_simulate_fast$ | ^(value\[timeit\]: float|stdout)$ | the example times its two models with timeit and prints the seconds
+corpus/lifelines/examples/ | ^stdout$ | lifelines' fit summaries print the time each fit ran ("time fit was run", datetime.utcnow() in lifelines' own code, which the harness's calendar does not reach): two runs of matplotlib a few seconds apart differ there too
+corpus/adjusttext/ | ^(image: RMS > 1|value\[adjust_text\]: list length)$ | adjust_text moves the labels for one second of wall-clock time unless it is given a limit (time_lim defaults to 1 s), so where they end depends on the machine's speed: two runs of matplotlib differ in the same places
+# What differs between two runs of matplotlib too.
+corpus/kalman-filters/11-Extended-Kalman-Filters$ | ^type\[dict\]: float -> int$ | the dict's keys are sympy symbols, which hash their names (Python's string hashing differs from run to run), so the entries recorded pair up differently: two runs of matplotlib differ the same way
+corpus/modsimpy/examples/yoyo$ | ^identity\[soln\]: another object than matplotlib's$ | sympy's solve returns expressions from its cache or anew, as the run's hash order makes it: two runs of matplotlib differ the same way
 corpus/scikit-learn-mooc/python_scripts/(02_numerical_pipeline_scaling|03_categorical_pipeline_(ex_02|sol_02)|cross_validation_time)$ | ^stdout$ | the script prints the seconds its fits took
 corpus/scikit-learn-mooc/python_scripts/cross_validation_time$ | ^value\[cross_val_score\]: array values$ | the scores come from fits its joblib workers make in processes whose random state is not the program's
 corpus/scikit-learn-mooc/python_scripts/(cross_validation_sol_02|feature_selection_introduction)$ | ^image: RMS > 1$ | the script plots the seconds its fits took

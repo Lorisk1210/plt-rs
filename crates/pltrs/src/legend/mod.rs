@@ -477,6 +477,12 @@ impl Axes {
     pub fn keep_legend(&self, legend: &Legend) {
         let own = legend.raw.with_mut::<LegendArtist, _>(|kept| {
             kept.kept = true;
+            // `add_artist` clips what it adds to the axes' patch unless it
+            // has a clip path, which leaves the legend out of the axes'
+            // tight box (its draw does not clip).
+            if kept.base.clip_path.is_none() {
+                kept.base.clip_box = Some(self.id());
+            }
             kept.parent == LegendParent::Axes(self.id())
         });
         let id = legend.raw.id();

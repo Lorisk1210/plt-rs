@@ -9,11 +9,13 @@ uses this module to
    read-only, done again only when the manifest changes;
 2. list its programs (``programs``): the files its ``programs`` globs
    match, but those its ``exclude`` globs match and those naming a URL
-   outside its ``data-urls`` (they would need the network); a notebook or
-   a Markdown page becomes a script of cells (``# %%`` lines, the percent
-   format) under ``OUT/corpora/<name>/converted``, as does a script whose
-   URLs of the repository's files are rewritten into the tree (as paths,
-   or as ``file:`` URLs for the programs that download them);
+   outside its ``data-urls`` (they would need the network); a notebook, a
+   Markdown page or a reStructuredText page (its IPython directives)
+   becomes a script of cells (``# %%`` lines, the percent format), the
+   corpus' ``prelude`` its first, under ``OUT/corpora/<name>/converted``,
+   as does a script whose URLs of the repository's files are rewritten
+   into the tree (as paths, or as ``file:`` URLs for the programs that
+   download them);
 3. lay out the tree a run sees (``shadow``): the tree's directories, its
    files as links into it, and the ``outputs`` directories empty (with the
    subdirectories their repository has, which ``fetch`` lists from git's
@@ -39,6 +41,7 @@ import re
 import shutil
 import stat
 import subprocess
+import textwrap
 import tomllib
 from typing import Any, Iterator
 
@@ -48,7 +51,7 @@ MANIFEST = HERE / "corpora.toml"
 #: The line starting a cell of a script in the percent format.
 CELL_MARK = "# %%"
 #: The suffixes of programs converted to scripts of cells.
-CELL_SUFFIXES = (".ipynb", ".md")
+CELL_SUFFIXES = (".ipynb", ".md", ".rst")
 
 #: The suffixes of the files matplotlib saves figures as.
 FIGURE_SUFFIXES = frozenset({
@@ -62,6 +65,15 @@ _MYST_CODE = re.compile(r"^```\{code-cell\}(?:[ \t]+[\w-]+)?[ \t]*\n(.*?)^```", 
 #: The options opening a MyST code cell: ``:key: value`` lines, or a YAML
 #: block between ``---`` lines.
 _MYST_OPTIONS = re.compile(r"\A(?:---\n.*?^---\n|(?:^:[\w-]+:.*\n)+)", re.M | re.S)
+#: A reStructuredText page's IPython directive (``.. ipython:: python``):
+#: its options and code, the lines indented under it (or blank).
+_RST_IPYTHON = re.compile(
+    r"^(?P<indent>[ \t]*)\.\. ipython::[ \t]+python[ \t]*\n(?P<body>(?:(?P=indent)[ \t]+\S.*\n|[ \t]*\n)*)", re.M)
+#: The options opening an IPython directive's block.
+_RST_OPTIONS = re.compile(r"\A(?:[ \t]*:[\w-]+:.*\n)*")
+#: The IPython directive's pseudo-decorators (``@savefig name.png``,
+#: ``@suppress``...): no Python, the line after them runs as it is.
+_RST_DECORATOR = re.compile(r"^\s*@(?:savefig|suppress|doctest|okexcept|okwarning)\b.*$", re.M)
 #: An IPython line magic, shell escape or help request: no Python.
 _IPYTHON_LINE = re.compile(r"^\s*(?:[%!]|[\w.]+\?{1,2}\s*$)")
 #: A string naming a URL.
@@ -88,6 +100,8 @@ class Corpus:
     outputs: tuple[str, ...]
     data_urls: tuple[str, ...]
     file_urls: tuple[str, ...]
+    #: Code each program's cells start with, a cell of its own.
+    prelude: str
 
     def directory(self, out: pathlib.Path) -> pathlib.Path:
         """Where the corpus' tree and converted programs go."""
@@ -153,6 +167,7 @@ def load(manifest: pathlib.Path = MANIFEST) -> list[Corpus]:
             outputs=tuple(table.get("outputs", ())),
             data_urls=tuple(table.get("data-urls", ())),
             file_urls=tuple(table.get("file-urls", ())),
+            prelude=table.get("prelude", ""),
         )
         for name, table in tables.items()
     ]
@@ -231,9 +246,50 @@ def _matches(relative: str, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatchcase(relative, pattern) for pattern in patterns)
 
 
+def _string_sum(node: ast.AST) -> str | None:
+    """The string a literal or a sum of literals spells, else None."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _string_sum(node.left), _string_sum(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _join_url_sums(text: str, prefixes: tuple[str, ...]) -> str:
+    """*text* with every sum of string literals spelling a URL that starts
+    with one of *prefixes* (``'https://host/' + 'file'``, a program keeping
+    its lines short) written as one literal, so that the URL is rewritten
+    whole; the lines the sum spanned are kept, as continuation lines."""
+    if not prefixes:
+        return text
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return text
+    folded = tuple(prefix.lower() for prefix in prefixes)
+    data = text.encode()
+    starts = [0, *(index + 1 for index, byte in enumerate(data) if byte == ord("\n"))]
+    spans: list[tuple[int, int, str]] = []
+    for node in ast.walk(tree):
+        value = _string_sum(node) if isinstance(node, ast.BinOp) else None
+        if value is None or not value.lower().startswith(folded):
+            continue
+        start = starts[node.lineno - 1] + node.col_offset
+        end = starts[node.end_lineno - 1] + node.end_col_offset
+        if any(start >= outer[0] and end <= outer[1] for outer in spans):
+            continue
+        spans.append((start, end, repr(value) + "\\\n" * (node.end_lineno - node.lineno)))
+    for start, end, literal in sorted(spans, reverse=True):
+        data = data[:start] + literal.encode() + data[end:]
+    return data.decode()
+
+
 def _rewrite_urls(text: str, corpus: Corpus, tree: pathlib.Path) -> str:
     """*text* with the URLs of the repository's own files made paths into
     *tree* (``data-urls``) or ``file:`` URLs of them (``file-urls``)."""
+    text = _join_url_sums(text, corpus.data_urls + corpus.file_urls)
     for prefixes, into in ((corpus.data_urls, tree.as_posix() + "/"), (corpus.file_urls, tree.as_uri() + "/")):
         for prefix in prefixes:
             text = re.sub(re.escape(prefix), lambda _, into=into: into, text, flags=re.I)
@@ -280,11 +336,27 @@ def _notebook_sources(notebook: dict[str, Any]) -> list[str]:
     return ["".join(source) if isinstance(source, list) else source for source in sources]
 
 
+def _rst_sources(text: str) -> list[str]:
+    """The code of a reStructuredText page's IPython directives, as Sphinx'
+    ``ipython`` directive runs them: their options and pseudo-decorators
+    left out, those shown only (``:verbatim:``) too."""
+    sources = []
+    for match in _RST_IPYTHON.finditer(text):
+        body = textwrap.dedent(match["body"])
+        options = _RST_OPTIONS.match(body)[0]
+        if ":verbatim:" not in options:
+            sources.append(_RST_DECORATOR.sub("", body[len(options):]))
+    return sources
+
+
 def cells(path: pathlib.Path) -> list[str]:
     """The code cells of a notebook, of a MyST page (its ``{code-cell}``
-    blocks, their options left out) or of a Markdown page's Python blocks."""
+    blocks, their options left out), of a Markdown page's Python blocks or
+    of a reStructuredText page's IPython directives."""
     if path.suffix == ".ipynb":
         sources = _notebook_sources(json.loads(path.read_text()))
+    elif path.suffix == ".rst":
+        sources = _rst_sources(path.read_text())
     else:
         text = path.read_text()
         sources = ([_MYST_OPTIONS.sub("", block, count=1) for block in _MYST_CODE.findall(text)]
@@ -308,7 +380,8 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
             if _matches(relative, corpus.exclude):
                 continue
             cellwise = path.suffix in CELL_SUFFIXES
-            text = as_script(cells(path)) if cellwise else path.read_text()
+            text = (as_script([corpus.prelude] * bool(corpus.prelude) + cells(path))
+                    if cellwise else path.read_text())
             rewritten = _rewrite_urls(text, corpus, tree)
             if _names_url(rewritten):
                 continue

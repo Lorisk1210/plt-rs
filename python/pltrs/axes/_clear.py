@@ -147,11 +147,17 @@ class ClearMixin:
         if not self.__dict__.get("_limit_callbacks_connected"):
             self.__dict__["_limit_callbacks_connected"] = True
             axes_ref = weakref.ref(self)
-            for name in "xy":
-                _axes.on_limits_changed(
-                    self._native, name,
-                    functools.partial(_notify, axes_ref, f"{name}lim_changed"))
+            for name in self._axis_names:
+                self._on_limits_changed(
+                    name, functools.partial(_notify, axes_ref, f"{name}lim_changed"))
         return registry
+
+    def _on_limits_changed(self, name, notify):
+        """Have pltrs (Rust) call *notify* whenever the view limits of the
+        axis *name* change (the x and y axes: pltrs (Rust) keeps no limits
+        of the other axes a program's projection class makes)."""
+        if name in ("x", "y"):
+            _axes.on_limits_changed(self._native, name, notify)
 
     @property
     def _children(self):

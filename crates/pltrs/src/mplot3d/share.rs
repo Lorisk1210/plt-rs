@@ -127,6 +127,9 @@ impl FigureState {
 /// the 2-D ones as their own limits, their callbacks queued.
 pub(crate) fn replay(figure: &mut FigureState, source: ArtistId, changes: &[LimitChange]) {
     for change in changes {
+        // matplotlib's `_set_lim(..., emit=True)` processes the axes' own
+        // limit callbacks, then those of each axes sharing the axis.
+        figure.limit_callbacks.notify(source, change.axis);
         let key = ShareKey::Axis(change.axis);
         for id in figure.deep_siblings(key, source) {
             if id == source {
@@ -135,6 +138,7 @@ pub(crate) fn replay(figure: &mut FigureState, source: ArtistId, changes: &[Limi
             let (v0, v1) = change.view;
             if let Some(axes) = figure.store.get_as_mut::<Axes3DState>(id) {
                 axes.set_lim(change.axis, v0, v1, change.auto, false);
+                figure.limit_callbacks.notify(id, change.axis);
             } else if let Some(name) = key.flat()
                 && figure.artist_as::<AxesState>(id).is_some()
             {

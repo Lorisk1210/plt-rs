@@ -578,9 +578,23 @@ class Colorbar:
             parents = [ax._native for ax in parents]
         elif parents is not None:
             parents = parents._native
-        self._native = _colorbar.new(
-            figure._native, self._shown(),
-            None if cax is None else cax._native, parents, spec)
+        # pltrs (Rust) scales the long axis as it makes the colorbar, and an
+        # Axes whose transform trees are in use then asks for that scale
+        # (`_default_axis_scale`): the Axes given knows its colorbar first.
+        if cax is not None:
+            unlinked = cax.__dict__.get("_colorbar", cax)
+            cax._colorbar = self
+        try:
+            self._native = _colorbar.new(
+                figure._native, self._shown(),
+                None if cax is None else cax._native, parents, spec)
+        except BaseException:
+            if cax is not None:
+                if unlinked is cax:
+                    del cax._colorbar
+                else:
+                    cax._colorbar = unlinked
+            raise
         if made is not None:
             made()
         norm_scale = getattr(getattr(self.norm, "_scale", None), "name", None)

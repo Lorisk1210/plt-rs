@@ -128,6 +128,7 @@ corpus/cheatsheets/scripts/performance-tips$ | ^(value\[perf_counter\]: float|st
 corpus/rougier-book/code/optimization/(line|scatter)-benchmark$ | ^(value\[timer\]: float|image: (RMS > 1|written PNG RMS > 1))$ | the program times its plotting with timeit's default_timer and draws the times it measured as bars
 corpus/from-python-to-numpy/code/(allocations|benchmark|random_walk|vectorization)$ | ^(stdout|callback\[[^]]+\]: runs another number of times)$ | the program times its functions with the book's tools.timeit, which picks the number of loops from a first timed run and prints the best time
 corpus/from-python-to-numpy/code/random_walk$ | ^value\[(choices|constant|walk)\]: int$ | the walks the timed statements draw continue Python's random generator from where the runs before them, whose number tools.timeit picks from the time a first run took, left it
+corpus/from-python-to-numpy/code/random_walk$ | ^value\[(random_walk_fastest|listcomp|where|candidates|all)\]: (array values|array shape|list length)$ | the walk W draws with NumPy's global generator after the timed statements drew from it as many times as tools.timeit chose from the time a first run took, so W and the crossings found in it follow that time: two matplotlib runs looped 31 and 301 times (task REGR5)
 corpus/matplotlib-3d/elevation$ | ^(value\[(time|format)\]: (float|str)|image: (RMS > 1|written PNG RMS > 1))$ | the program times its rendering with time.time() and writes the seconds into the figure's title
 # pltrs' two looks are style sheets that style.available lists with
 # matplotlib's (as for the gallery's style_sheets_reference).
@@ -174,6 +175,7 @@ corpus/scikit-learn-examples/examples/cluster/plot_(coin_segmentation|mini_batch
 corpus/scikit-learn-examples/examples/(miscellaneous/plot_anomaly_comparison|neighbors/plot_caching_nearest_neighbors)$ | ^image: RMS > 1$ | the example draws the seconds its fits took
 corpus/scikit-learn-examples/examples/callbacks/plot_scoring_monitor$ | ^stdout$ | the progress bar prints the fits of the grid search's two joblib workers in the order they finish, which differs between two matplotlib runs
 corpus/scikit-learn-examples/examples/svm/plot_svm_scale_c$ | ^value\[(mean|validation_curve)\]: array values$ | the scores come from fits its joblib workers make in processes whose random state is not the program's
+corpus/scikit-learn-examples/examples/svm/plot_svm_scale_c$ | ^image: RMS > 1$ | the figure plots those scores: two matplotlib runs' figures differ by RMS 1.126 (task REGR5)
 corpus/scikit-learn-mooc/python_scripts/(02_numerical_pipeline_scaling|03_categorical_pipeline_(ex_02|sol_02)|cross_validation_time)$ | ^stdout$ | the script prints the seconds its fits took
 corpus/scikit-learn-mooc/python_scripts/cross_validation_time$ | ^value\[cross_val_score\]: array values$ | the scores come from fits its joblib workers make in processes whose random state is not the program's
 corpus/scikit-learn-mooc/python_scripts/(cross_validation_sol_02|feature_selection_introduction)$ | ^image: RMS > 1$ | the script plots the seconds its fits took
@@ -208,3 +210,11 @@ hostile/module_matplotlib_colors_4$ | ^value\[hsv_to_rgb\]: array values$ @ ^10[
 # before `set_ylim` draws as pltrs does (RMS 17 between matplotlib's two
 # runs, 0 to pltrs'; refreshing the line's data draws as pltrs too).
 generated/interaction/events_polar$ | ^image: RMS > 1$ | matplotlib's stale cached path of a polar line after its radial limits change (see above)
+
+# matplotlib's AsinhLocator.tick_values sorts a set of its rounded tick
+# values (`sorted(set(qs))`); NaN values hash by identity and compare false
+# with anything, so where the finite value lands among them follows the
+# set's order: three runs of the program under matplotlib with the same
+# PYTHONHASHSEED gave [nan, nan, 100, nan, nan] twice and [nan, 100, nan,
+# nan, nan] once (task REGR5).
+hostile/asinh_locator_0$ | ^value\[tick_values\]: array values$ @ ^11[89]:0$ | the order of NaN tick values among the finite one follows the iteration order of a Python set of NaNs, which differs between runs of matplotlib itself

@@ -17,7 +17,7 @@ from ..._artist_kwargs import check_known, keep_program_picker
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
-from ._helpers import floats, keep_data, line_data, made_line_kwargs, wrap
+from ._helpers import converted_line_data, floats, keep_data, made_line_kwargs, wrap
 
 
 def _span_geometry(patch, x, y, width, height):
@@ -472,7 +472,7 @@ class LinesMixin:
                 props["label"] = label
             else:
                 props.pop("label", None)
-            native = _plotting.plot(self._native, *line_data(self, x, y), fmt,
+            native = _plotting.plot(self._native, *converted_line_data(self, x, y), fmt,
                                     mlines._native_kwargs(props),
                                     (bool(scalex), bool(scaley)))
             line = wrap(self, native, mlines.Line2D)

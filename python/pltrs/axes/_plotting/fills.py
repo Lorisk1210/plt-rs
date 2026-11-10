@@ -12,7 +12,7 @@ from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
 from ... import lines as mlines, patches as mpatches, stackplot as mstack
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
-from ._helpers import _make_axes_method, floats, line_data, wrap, wrap_all
+from ._helpers import _make_axes_method, converted_line_data, floats, wrap, wrap_all
 from .lines import _plot_datasets
 
 
@@ -122,7 +122,7 @@ class FillsMixin:
                  if k != 'label' and v is not None},
                 mpatches.Patch)
             native = _plotting.fill(
-                self._native, *line_data(self, x, y), (fmt_color, bool(closed)),
+                self._native, *converted_line_data(self, x, y), (fmt_color, bool(closed)),
                 {k: v for k, v in props.items() if k in _CYCLED_PATCH_PROPS})
             polygon = wrap(self, native, mpatches.Polygon)
             if ("linestyle" not in props

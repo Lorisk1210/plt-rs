@@ -16,9 +16,10 @@ their programs import). It
    fetches into ``OUT/corpora`` (the corpora a PATTERN names, or all);
 2. runs each under both implementations (``trace.py``), the reference
    runs cached by the program's text (``OUT/runs/<program>/mpl``), every
-   program offline, and a corpus' programs with ``OUT/home`` for their
-   home directory, so that what they would keep in a cache there stays in
-   ``OUT``, and their linear algebra on one thread;
+   program offline, and a corpus' programs each with a home directory of
+   its own, empty (``OUT/runs/<program>/home``), so that what they would
+   keep in a cache there stays in ``OUT`` and reaches no other program,
+   and their linear algebra on one thread;
 3. compares them (``compare.py``), drops the differences the allowlist
    (``allowlist.txt``) proves intended, and groups the rest by cause;
 4. writes ``OUT/report.json`` (every difference) and ``OUT/report.md``
@@ -103,13 +104,13 @@ class Setup:
     def environment(self, impl: str, program: Program | None = None) -> dict[str, str]:
         """The environment of a run of *program* under *impl*: offline
         (`OFFLINE`, whatever proxy the tester's own environment names), and
-        for a corpus' program with a home directory of the tester's."""
+        for a corpus' program with its home directory (`home`)."""
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(("MPL", "PLTRS", "PYTHON")) and k != "CARGO_TARGET_DIR"
                and k.lower() not in ("http_proxy", "https_proxy", "all_proxy", "no_proxy")}
         env.update(OFFLINE)
         if program is not None and program.corpus is not None:
-            env["HOME"] = str(self.out / "home")
+            env["HOME"] = str(self.home(program))
             # One thread for the linear algebra, whose sums several threads
             # add in an order of their own from run to run.
             env.update(dict.fromkeys(("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"))
@@ -126,6 +127,14 @@ class Setup:
             # as matplotlib.
             env["PYTHONPATH"] = os.pathsep.join(str(self.root / "python" / part) for part in ("", "alias"))
         return env
+
+    def home(self, program: Program) -> pathlib.Path:
+        """The home directory of *program*'s runs, a corpus' program's:
+        its own, which `_run` empties before each, so that what a program
+        keeps there (a cache, a data directory) reaches neither the
+        programs running beside it, racing to make it, nor those after it,
+        and both implementations start from the same one."""
+        return program.directory(self) / "home"
 
 
 class Program:
@@ -193,6 +202,10 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
+    if program.corpus is not None:
+        home = setup.home(program)
+        shutil.rmtree(home, ignore_errors=True)
+        home.mkdir(parents=True)
     try:
         done = subprocess.run(setup.command(impl, program, out), env=setup.environment(impl, program),
                               capture_output=True, text=True, timeout=TIMEOUT)

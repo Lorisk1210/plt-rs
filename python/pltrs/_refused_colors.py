@@ -1,20 +1,23 @@
 """
 The colours a collection refused, which matplotlib's sets again as it
-first draws.
+draws.
 
 matplotlib's collection keeps the face or edge colour it is given as the
 colour set (``_original_facecolor``, ``_original_edgecolor``) before it
-converts it, so a colour it refuses stays the one set. Its first draw
-maps its values (``update_scalarmappable``, whose mapping flags then
-change from None) and sets both colours again from those: a refused one
-fails that draw as it failed to be set; later draws, whose flags no
-longer change, do not set them again. A usable colour of the same side
-replaces it.
+converts it, so a colour it refuses stays the one set. Its draws map its
+values (``update_scalarmappable``) and set the colours of the sides the
+mapping does not colour again from those: at the first draw (whose
+mapping flags change from None), and at every draw while it maps an
+array (a face colour mapped then, an edge colour unless it is ``'face'``
+or None). A refused colour fails those draws as it failed to be set. A
+usable colour of the same side replaces it. A draw of offsets, none of
+them, returns before it maps anything, and counts as no draw.
 """
 
 import functools
 
-from . import _unusable, colors as mcolors
+from . import _unusable, cbook, colors as mcolors
+from ._collection_draw_checks import _draws_nothing
 from ._native import artist as _artist
 
 
@@ -22,15 +25,18 @@ def take(collection, side, c, give):
     """
     Give *collection* the colour *c* of *side* (``"facecolor"`` or
     ``"edgecolor"``) through *give*, which raises for a colour it refuses:
-    then the collection keeps *c* (see `._unusable`) to fail its first
-    draw with, unless it was drawn before, and the error propagates.
+    then the collection keeps *c* (see `._unusable`) to fail the draws
+    that set it again with, and the error propagates.
     """
     key = f"refused {side}"
     try:
         give()
     except (TypeError, ValueError):
-        if not _flags_set(collection):
-            _unusable.keep(collection, key, c, functools.partial(_set_again, collection),
+        drawn = _flags_set(collection)
+        if drawn:
+            collection._mappable_flags_set = True
+        if side == "edgecolor" or not drawn:
+            _unusable.keep(collection, key, c, functools.partial(_set_again, collection, side),
                            measured=False)
         raise
     _unusable.drop(collection, key)
@@ -43,13 +49,21 @@ def _flags_set(collection):
             or _artist.draw_count(collection._native) > 0)
 
 
-def _set_again(collection, c):
-    """Set the colour *c* again as matplotlib's first draw of *collection*
-    does (the draw checking it first: a collection keeping a colour is
-    drawn through Python), failing as it does; nothing at later draws.
-    The colour stays kept (the draw that fails is recorded before it is
-    made, see `._python_drawing`)."""
+def _set_again(collection, side, c):
+    """Set the colour *c* of *side* again as matplotlib's draw of
+    *collection* does, failing as it does: at its first draw unless the
+    mapping colours that side, and at every draw mapping an array for
+    edges (refused, they are neither ``'face'`` nor None, so they are not
+    mapped). The colour stays kept (the draw that fails is recorded
+    before it is made, see `._python_drawing`)."""
+    if _draws_nothing(collection):
+        return
     first = not collection.__dict__.get("_mappable_flags_set", False)
     collection._mappable_flags_set = True
-    if first:
+    mapping = collection.get_array() is not None
+    if side == "facecolor":
+        if first and not mapping:
+            mcolors.to_rgba_array(c)
+    elif first or (mapping and not cbook._str_equal(
+            collection.__dict__.get("_original_facecolor"), "none")):
         mcolors.to_rgba_array(c)

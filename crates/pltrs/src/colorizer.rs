@@ -64,7 +64,8 @@ impl MappingChange {
 /// Applies `change` to the colour mapping of the `T` behind `raw`,
 /// recolours it and lets its colorbars follow; artists without a colour
 /// mapping are left alone. A norm that cannot map the artist's values is
-/// reported with the next draw.
+/// reported with the next draw, unless a later change maps them (as
+/// matplotlib's draw maps them with the mapping it has then).
 pub(crate) fn change_mapping<T: ColorMapped>(raw: &RawHandle, change: MappingChange) {
     let reset = change.replaces_norm();
     let remapped = raw.with_others::<T, _>(|artist, others| {
@@ -72,19 +73,23 @@ pub(crate) fn change_mapping<T: ColorMapped>(raw: &RawHandle, change: MappingCha
         change.apply(mapping);
         Some(artist.remap(others))
     });
+    let Some(remapped) = remapped else {
+        return;
+    };
+    let id = raw.id();
+    let state = raw.figure_state();
+    state
+        .borrow_mut()
+        .pending_errors
+        .retain(|error| !(error.artist == id && error.kind == DrawErrorKind::InvalidValue));
     match remapped {
-        None => {}
-        Some(Ok(())) => notify(raw, reset),
+        Ok(()) => notify(raw, reset),
         // matplotlib's norms raise a `ValueError` for values or limits they
         // cannot normalise.
-        Some(Err(err)) => raw
-            .figure_state()
-            .borrow_mut()
-            .pending_errors
-            .push(DrawError {
-                kind: DrawErrorKind::InvalidValue,
-                ..DrawError::new(raw.id(), err.to_string())
-            }),
+        Err(err) => state.borrow_mut().pending_errors.push(DrawError {
+            kind: DrawErrorKind::InvalidValue,
+            ..DrawError::new(id, err.to_string())
+        }),
     }
 }
 

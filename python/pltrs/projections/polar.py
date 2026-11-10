@@ -407,6 +407,9 @@ class ThetaTick(XTick):
     # and turns them as matplotlib's ``ThetaTick.update_position`` does.
 
     def __init__(self, axes, *args, **kwargs):
+        # matplotlib's constructor first makes its label translations at the
+        # resolution of the figure of *axes*.
+        axes.get_figure(root=False)
         super().__init__(axes, *args, **kwargs)
         self.label1.set_rotation_mode('anchor')
         self.label2.set_rotation_mode('anchor')

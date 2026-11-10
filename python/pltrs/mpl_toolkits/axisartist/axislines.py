@@ -430,6 +430,13 @@ class Axes(maxes.Axes):
         place of the one held there (``ax.axis[name] = artist``)."""
         _axisartist.assign(self._native, name, artist._native)
 
+    def _first_measuring_steps(self, renderer):
+        # docstring inherited: the first visible axis artist measured places
+        # its ticks with the renderer.
+        if renderer is not None and self._axisline_on and any(
+                artist.get_visible() for artist in self._axislines.values()):
+            renderer.points_to_pixels(1.)
+
     def get_children(self):
         if self._axisline_on:
             children = [*self._axislines.values(), self.gridlines]
@@ -442,6 +449,11 @@ class Axes(maxes.Axes):
 
     def clear(self):
         # docstring inherited
+        self._remake_axis_artists()
+
+    def _remake_axis_artists(self):
+        """Have pltrs (Rust) make the axis artists and gridlines of the
+        cleared axes anew, and hold them."""
         _axisartist.clear(self._native)
         self._load_axislines()
 

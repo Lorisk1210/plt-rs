@@ -20,9 +20,12 @@ from pltrs.mpl_toolkits.axisartist.grid_finder import (
 
 def _plain(*numbers):
     """Whether *numbers* are all finite real numbers, which pltrs (Rust)
-    computes the steps for; matplotlib's own computation (failing where it
-    fails) takes anything else."""
-    return all(isinstance(n, Real) and np.isfinite(n) for n in numbers)
+    computes the steps for in double precision; matplotlib's own
+    computation (failing where it fails, and comparing numpy floats of
+    another precision in theirs) takes anything else."""
+    return all(isinstance(n, Real) and np.isfinite(n)
+               and not (isinstance(n, np.floating) and n.dtype != np.float64)
+               for n in numbers)
 
 
 def select_step_degree(dv):

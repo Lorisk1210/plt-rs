@@ -12,7 +12,7 @@ from numbers import Real
 
 import numpy as np
 
-from pltrs import _api, _values, cbook, collections as mcoll, colors as mcolors, lines
+from pltrs import _api, _unusable, _values, cbook, collections as mcoll, colors as mcolors, lines
 from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import _docstring, patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
@@ -714,10 +714,10 @@ class Line3DCollection(_ProjectedPaths, _Loose3D, mcoll.LineCollection):
 
 def line_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """Convert a `.LineCollection` to a `.Line3DCollection` object."""
+    segments3d = _lifted_paths(col, zs, zdir, finite=True)
     col.__class__ = Line3DCollection
     _gains_projection(col)
-    col._verts3d_pending = col._segments3d = _lifted_paths(col, zs, zdir,
-                                                           finite=True)
+    col._verts3d_pending = col._segments3d = segments3d
     col._axlim_clip = axlim_clip
 
 
@@ -1211,11 +1211,14 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         Note that this class does a bit of magic with the _facecolors
         and _edgecolors properties.
         """
+        # matplotlib's `set_verts` takes the faces first, then its
+        # constructor checks that each is two-dimensional.
         if isinstance(verts, np.ndarray):
             _api.check_shape((None, None, 3), segments3d=verts)
-        elif any(len(np.shape(vert)) != 2 for vert in verts):
-            raise ValueError('verts must be a list of (N, 3) array-like')
         faces = _faces_3d(verts)
+        if (not isinstance(verts, np.ndarray)
+                and any(len(np.shape(vert)) != 2 for vert in verts)):
+            raise ValueError('verts must be a list of (N, 3) array-like')
         if shade:
             light = (None if lightsource is None
                      else (float(lightsource.azdeg), float(lightsource.altdeg)))
@@ -1291,13 +1294,45 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
 
     def set_facecolor(self, colors):
         # docstring inherited
-        super().set_facecolor(colors)
+        try:
+            super().set_facecolor(colors)
+        finally:
+            self._record_projection_problem()
         self._refresh_colors(True, False)
 
     def set_edgecolor(self, colors):
         # docstring inherited
-        super().set_edgecolor(colors)
+        try:
+            super().set_edgecolor(colors)
+        finally:
+            self._record_projection_problem()
         self._refresh_colors(False, True)
+
+    def _array_set(self):
+        # docstring inherited
+        super()._array_set()
+        self._record_projection_problem()
+
+    def _record_projection_problem(self):
+        """Record with pltrs (Rust) the first exception matplotlib's
+        projection of the polygons raises (`_draw_problems.record`), which
+        an animated collection meets too: mapping the array it holds
+        (``update_scalarmappable``: an array of more than one dimension,
+        then an edge colour it refused, set again unless the faces are not
+        mapped), then indexing the codes."""
+        if _axes3d(self) is None:
+            return
+        problem = None
+        if self.get_array() is not None:
+            try:
+                _unusable.check_one(self, "array")
+                refused = _unusable.kept(self, "refused edgecolor", None)
+                if refused is not None and not cbook._str_equal(
+                        self.__dict__.get("_original_facecolor"), "none"):
+                    mcolors.to_rgba_array(refused)
+            except (TypeError, ValueError) as err:
+                problem = err
+        _draw_problems.record(self, problem or self.__dict__.get("_codes_problem"))
 
     def set_alpha(self, alpha):
         # docstring inherited; matplotlib's checks the value as an
@@ -1375,9 +1410,10 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
             # without none, and fails indexing too few by face.
             self._set_faces(faces, False)
             self._codes3d = codes
-            if axes is not None:
-                _draw_problems.record(self, _draw_problems.codes_problem(codes, len(faces)))
+            self._codes_problem = _draw_problems.codes_problem(codes, len(faces))
+            self._record_projection_problem()
             return
+        self.__dict__.pop("_codes_problem", None)
         codes = codes[:len(faces)]
         if axes is None:
             self._verts3d_pending = faces

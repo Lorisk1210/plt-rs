@@ -13,6 +13,7 @@ import pltrs.artist as martist
 import pltrs.axes as maxes
 import pltrs.transforms as mtransforms
 from pltrs._native import axes_grid1 as _axes_grid1
+from . import _failed_draws
 from .mpl_axes import Axes
 
 
@@ -300,15 +301,20 @@ class HostAxesBase:
             self.apply_aspect()
 
         rect = self.get_position()
-        for ax in self.parasites:
-            ax.apply_aspect(rect)
-
-        super().draw(renderer)
+        # matplotlib lists the parasites' children among the host's for its
+        # draw, which a draw that fails leaves listed.
+        listed = []
+        try:
+            for ax in self.parasites:
+                ax.apply_aspect(rect)
+                listed.append(ax)
+            super().draw(renderer)
+        except Exception:
+            _failed_draws.leave(self, listed)
+            raise
 
     def clear(self):
-        super().clear()
-        for ax in self.parasites:
-            ax.clear()
+        _failed_draws.clear(self, super().clear, lambda ax: ax.clear())
 
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None):

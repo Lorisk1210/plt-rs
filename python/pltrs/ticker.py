@@ -33,8 +33,8 @@ import string
 
 import numpy as np
 
-from . import (_api, _locators_as_matplotlib, _program_classes, _qualnames, _tick_helpers,
-               _tick_state, cbook)
+from . import (_api, _locators_as_matplotlib, _logit_reference, _program_classes, _qualnames,
+               _scalar_reference, _tick_helpers, _tick_state, cbook)
 from ._native import axis as _axis, ticker as _ticker
 
 _log = logging.getLogger(__name__)
@@ -672,11 +672,48 @@ class ScalarFormatter(_NativeFormatter):
         use_offset = True if self._useOffset else (
             float(self.offset)
             if isinstance(self.offset, (numbers.Real, np.bool_)) and self.offset else False)
+        # Power limits pltrs (Rust) does not hold leave the labels to
+        # matplotlib's arithmetic (see `set_locs`): any it holds will do.
+        powerlimits = self._held_powerlimits() or (0, 0)
         return {"kind": "scalar", "use_offset": use_offset,
                 "use_mathtext": bool(self._useMathText), "usetex": self._usetex,
                 "scientific": self._scientific,
-                "powerlimits": tuple(self._powerlimits),
+                "powerlimits": powerlimits,
                 "locale": _numeric_locale() if self._useLocale else None}
+
+    def _held_powerlimits(self):
+        """The power limits as pltrs (Rust) holds them, integers; None for
+        limits that are not (NaN, fractions, text), which matplotlib
+        compares as they are."""
+        limits = tuple(self._powerlimits)
+        if all(isinstance(limit, numbers.Integral) for limit in limits):
+            return tuple(map(int, limits))
+        return None
+
+    def _orders_by_view(self):
+        """Whether matplotlib's order of magnitude is computed from the
+        view: scientific notation not fixed to an exponent."""
+        return self._scientific and not (
+            self._powerlimits[0] == self._powerlimits[1] != 0)
+
+    def _compares_with_view(self):
+        """Whether matplotlib's formatter compares the locations with the
+        view: for an offset, and for an order of magnitude."""
+        return self._useOffset or self._orders_by_view()
+
+    def _first_steps_with(self, locs):
+        """
+        Fail as matplotlib's `set_locs` fails to compute with *locs*, no
+        numbers (an array of another kind, of text or None): comparing them
+        with the view, then subtracting the offset to choose their format.
+        """
+        values = np.asarray(locs)
+        if values.dtype.kind in "biuf":
+            return
+        if self._compares_with_view():
+            vmin, vmax = sorted(self.axis.get_view_interval())
+            _first_steps(values, lambda values: (vmin <= values) & (values <= vmax))
+        _first_steps(values, lambda values: values - self.offset)
 
     def get_usetex(self):
         """Return whether TeX's math mode is enabled for rendering."""
@@ -915,11 +952,12 @@ class ScalarFormatter(_NativeFormatter):
     def set_locs(self, locs):
         # docstring inherited
         # matplotlib's first steps: the number of locations, then, to
-        # compute an offset, their comparison with the view.
+        # compute an offset or the order of magnitude, their comparison
+        # with the view, which fails for what is no number.
         _first_steps(locs, len)
-        if len(locs) and self._useOffset:
-            _first_steps(locs, lambda values: np.float64(0.0) <= np.asarray(values))
         locs = self._kept_locs(locs)
+        if len(locs):
+            self._first_steps_with(locs)
         info = self._program_view_info(self._axis_info(), locs)
         self._set_locs_on(locs, info)
         if len(self._locs) and not isinstance(self.offset, numbers.Real):
@@ -935,19 +973,27 @@ class ScalarFormatter(_NativeFormatter):
             # matplotlib's offset: 0, else a numpy float.
             self.offset = np.float64(offset) if offset else 0
         self._format = _ticker.scalar_format(self._spec(), locs, info)
+        if self._held_powerlimits() is None:
+            # Power limits compared as given, as matplotlib's are.
+            self._orderOfMagnitude = _scalar_reference.order_of_magnitude(self, self._locs)
+            self._format = _scalar_reference.label_format(self, self._locs)
+            self._labels = tuple(self(x, i) for i, x in enumerate(self._locs))
 
     def _program_view_info(self, info, locs):
         """*info* with the view interval the program's class of the axis
         answers, asked as often as matplotlib's `set_locs` asks it (in
-        ``_compute_offset`` and ``_set_order_of_magnitude``); *info* itself
-        for the package's axes."""
-        if not _asks_program_view(self.axis) or len(locs) == 0:
+        ``_compute_offset``, ``_set_order_of_magnitude`` and, for fewer
+        than two locations, ``_set_format``); *info* itself for the
+        package's axes. A formatter of no axis fails to ask, as
+        matplotlib's does."""
+        if len(locs) == 0 or not (self.axis is None or _asks_program_view(self.axis)):
             return info
         view = None
         if self._useOffset:
             view = self.axis.get_view_interval()
-        fixed = self._powerlimits[0] == self._powerlimits[1] != 0
-        if self._scientific and not fixed:
+        if self._orders_by_view():
+            view = self.axis.get_view_interval()
+        if len(locs) < 2:
             view = self.axis.get_view_interval()
         return info if view is None else _with_view(info, sorted(view))
 
@@ -1262,8 +1308,24 @@ class LogitFormatter(_NativeFormatter):
         """
         self._minor_number = minor_number
 
+    #: matplotlib's labelling, for locations that are no finite numbers.
+    _matplotlib_call = _logit_reference.call
+
+    def _as_matplotlib(self, *values):
+        # docstring inherited; also while the locations are no finite
+        # numbers, which matplotlib's formatter keeps and labels as given.
+        return (super()._as_matplotlib(*values)
+                or self.__dict__.get("_locs_as_given", False))
+
     def set_locs(self, locs):
         # docstring inherited
+        values = np.array(locs)
+        self._locs_as_given = not (values.dtype.kind in "biuf"
+                                   and np.isfinite(values).all())
+        if self._locs_as_given:
+            self._labels = ()
+            _logit_reference.set_locs(self, locs)
+            return
         super().set_locs(locs)
         # The minor ticks that get labels.
         self._labelled = set(_ticker.logit_labelled(
@@ -1458,6 +1520,16 @@ class EngFormatter(ScalarFormatter):
     def set_locs(self, locs):
         # docstring inherited
         super().set_locs(locs)
+
+    def _orders_by_view(self):
+        # docstring inherited: matplotlib's engineering formatter takes the
+        # order of magnitude of the view's span,
+        return True
+
+    def _compares_with_view(self):
+        # docstring inherited: comparing the locations with the view only
+        # for an offset.
+        return self._useOffset
 
     def get_offset(self):
         # docstring inherited; the offset pltrs (Rust) gives its labels, as
@@ -2233,7 +2305,9 @@ class MaxNLocator(_NativeLocator):
     _matplotlib_view_limits = _locators_as_matplotlib.maxn_view_limits
 
     def _spec(self):
-        return {"kind": "maxn", "nbins": self._nbins,
+        # Fewer than one bin leaves the ticks to matplotlib's arithmetic.
+        nbins = self._nbins if self._nbins == 'auto' else _held(self._nbins, int, least=1)
+        return {"kind": "maxn", "nbins": nbins,
                 "steps": [float(s) for s in self._steps],
                 "integer": bool(self._integer),
                 "symmetric": bool(self._symmetric), "prune": self._prune,
@@ -2272,7 +2346,10 @@ class MaxNLocator(_NativeLocator):
         elsewhere.
         """
         # pltrs: the ticks pltrs (Rust) places over *vmin* to *vmax*, made
-        # nonsingular, neither symmetric nor pruned.
+        # nonsingular, neither symmetric nor pruned; matplotlib's scale of
+        # the range by fewer than one bin fails.
+        if self._nbins != 'auto' and self._nbins < 1:
+            scale_range(vmin, vmax, self._nbins)
         spec = {**self._spec(), "symmetric": False, "prune": None}
         return _ticker.tick_values(spec, float(vmin), float(vmax), self._axis_info())
 

@@ -167,6 +167,19 @@ def _refuse_rank(array):
     raise ValueError('Collections can only map rank 1 arrays')
 
 
+def _count_drawn_paths(collection):
+    """Fail as matplotlib's draw of *collection* fails on its paths, None:
+    it converts each to the units of its Axes (if they have units), then
+    counts them, unless it has offsets, none of them, and returns first."""
+    if _collection_draw_checks._draws_nothing(collection):
+        return
+    paths = collection.get_paths()
+    if collection.have_units():
+        for path in paths:
+            path.vertices  # noqa: B018
+    len(paths)
+
+
 def _no_paths(paths):
     """The paths of a collection given None for them: None, as matplotlib
     keeps them (networkx makes its empty node collections so)."""
@@ -530,6 +543,11 @@ class Collection(mcolorizer.ColorizingArtist):
             _values.keep(self, "paths", paths)
             return
         _values.remember(self, "paths", paths)
+        if paths is None:
+            # matplotlib keeps None, which its draw fails to count.
+            _unusable.keep(self, "no paths", self, _count_drawn_paths, measured=False)
+        else:
+            _unusable.drop(self, "no paths")
         if isinstance(paths, Path):
             _collections.set_single_path(self._native, paths)
         else:

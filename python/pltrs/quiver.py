@@ -584,6 +584,21 @@ class Quiver(mcollections.PolyCollection):
         # shrinks it.
         self.Umask = ma.make_mask(ma.getmask(U), shrink=True)
         self._C = C
+        if self.U.size != self.V.size:
+            # One component for all arrows, the other one per arrow: pltrs
+            # (Rust) broadcasts them, as matplotlib's arithmetic does, but
+            # where it measures the arrows in data coordinates.
+            _unusable.keep(self, "component sizes", None, self._stack_components,
+                           measured=False)
+        else:
+            _unusable.drop(self, "component sizes")
+
+    def _stack_components(self, _kept):
+        """Fail as matplotlib's draw fails to stack the components side by
+        side, of different sizes, to measure the arrows in data coordinates
+        (``_angles_lengths``, for angles or scale units ``'xy'``)."""
+        if cbook._str_equal(self.angles, 'xy') or self.scale_units == 'xy':
+            np.column_stack((self.U, self.V))
 
     def get_transform(self):
         """

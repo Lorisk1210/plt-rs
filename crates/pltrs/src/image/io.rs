@@ -336,7 +336,14 @@ fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>,
                 .clone()
                 .into_mappable(&crate::rc::params())?;
             let values = field.masked_values();
-            let normalized = normalize_in(&mut mappable, &values, field.kind(), field.precision())?;
+            let shape = field.values().shape();
+            let normalized = normalize_in(
+                &mut mappable,
+                &values,
+                field.kind(),
+                field.precision(),
+                shape,
+            )?;
             let cmap = mappable.cmap();
             normalized
                 .into_iter()

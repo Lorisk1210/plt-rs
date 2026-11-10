@@ -5,7 +5,7 @@
 
 use pltrs::axes::Adjustable;
 use pltrs::colors::Color;
-use pltrs::mplot3d::{Aspect3D, Axes3D};
+use pltrs::mplot3d::{Aspect3D, Axes3D, SharedAxes};
 use pltrs::navigation::DragKey;
 use pltrs::transforms::Bbox;
 use pltrs_core::Point;
@@ -146,33 +146,44 @@ fn tightbbox(axes: Axes3D, for_layout_only: bool) -> PyResult<Option<(f64, f64, 
 }
 
 /// Shares axis `name` (`"x"`, `"y"`, `"z"`) or, for `"view"`, the view
-/// angles with `other` (`sharex`, `sharey`, `sharez`, `shareview`).
-fn share(axes: Axes3D, name: String, other: Axes3D) -> PyResult<()> {
-    if name == "view" {
-        axes.share_view(&other)?;
-    } else {
-        axes.share_axis(axis3(&name)?, &other)?;
+/// angles with `other` (`sharex`, `sharey`, `sharez`, `shareview`), an
+/// axes of either kind for x and y.
+fn share(axes: Axes3D, name: String, other: SharedAxes) -> PyResult<()> {
+    match (name.as_str(), other) {
+        ("view", SharedAxes::Deep(other)) => {
+            axes.share_view(&other)?;
+        }
+        ("view", SharedAxes::Flat(_)) => {
+            return Err(PyErr::type_error("only a 3-D axes shares its view"));
+        }
+        (_, other) => {
+            axes.share_axis_with(axis3(&name)?, &other)?;
+        }
     }
     Ok(())
 }
 
-/// The axes sharing axis `name` (`"x"`, `"y"`, `"z"`) or, for `"view"`,
-/// the view angles with `axes`, `axes` included (the groups of
-/// `_shared_axes`).
-fn shared(axes: Axes3D, name: String) -> PyResult<Vec<Axes3D>> {
+/// The axes sharing axis `name` (`"x"`, `"y"`, `"z"`) with `axes`, of
+/// either kind, or, for `"view"`, the view angles, `axes` included (the
+/// groups of `_shared_axes`).
+fn shared(axes: Axes3D, name: String) -> PyResult<Vec<SharedAxes>> {
     if name == "view" {
-        Ok(axes.shared_views())
+        Ok(axes
+            .shared_views()
+            .into_iter()
+            .map(SharedAxes::Deep)
+            .collect())
     } else {
-        Ok(axes.shared_axes(axis3(&name)?))
+        Ok(axes.sharing(axis3(&name)?))
     }
 }
 
 /// The axes axis `name` or, for `"view"`, the view angles of `axes` were
 /// explicitly shared with (`_sharex`, `_sharey`, `_sharez`,
 /// `_shareview`).
-fn share_target(axes: Axes3D, name: String) -> PyResult<Option<Axes3D>> {
+fn share_target(axes: Axes3D, name: String) -> PyResult<Option<SharedAxes>> {
     if name == "view" {
-        Ok(axes.view_share_target())
+        Ok(axes.view_share_target().map(SharedAxes::Deep))
     } else {
         Ok(axes.share_target(axis3(&name)?))
     }

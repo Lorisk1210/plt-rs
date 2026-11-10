@@ -294,8 +294,8 @@ pub struct CoordFrame<'a> {
 impl CoordFrame<'_> {
     /// The `bbox`es of the frames from the owner up to the root figure:
     /// the root figure's is the saved window while part of it is printed
-    /// (matplotlib's `adjust_bbox` replaces it, so that `"figure ..."`
-    /// coordinates start at the window's corner).
+    /// (matplotlib's `adjust_bbox` replaces it, so that `"subfigure ..."`
+    /// coordinates of the root figure start at the window's corner).
     fn frames(&self) -> Vec<Bbox> {
         let mut frames = Vec::new();
         let mut next = self.owner;
@@ -308,8 +308,14 @@ impl CoordFrame<'_> {
         frames
     }
 
+    /// The box of `"figure ..."` coordinates: the root figure's
+    /// `figbbox`, which a window printed leaves where it is (see
+    /// [`LayoutContext::figure_box`]).
     fn figure(&self) -> Result<Bbox, CoordError> {
-        self.frames().last().copied().ok_or(CoordError::NoFigure)
+        if self.frames().is_empty() {
+            return Err(CoordError::NoFigure);
+        }
+        Ok(self.layout.figure_box())
     }
 
     fn subfigure(&self) -> Result<Bbox, CoordError> {
@@ -497,6 +503,39 @@ mod tests {
         ));
         let polar = resolve("polar", p(std::f64::consts::FRAC_PI_2, 5.0));
         assert!(close_points(polar, resolve("data", p(0.0, 5.0))));
+    }
+
+    #[test]
+    fn figure_coordinates_keep_the_whole_figure_while_a_window_is_printed() {
+        // matplotlib 3.11: in a tight save an annotation's "figure
+        // fraction" is a fraction of the whole figure at the canvas'
+        // corner (`figbbox`), its "subfigure fraction" one of the window.
+        use crate::artist::ArtistHandle;
+        let fig = crate::figure::Figure::new();
+        let ax = fig.subplot();
+        let cell = ax.raw().figure_state();
+        cell.borrow_mut().print_window = Some(Bbox::from_bounds(1.0, 0.5, 4.0, 3.0));
+        let state = cell.borrow();
+        let frame = CoordFrame {
+            layout: LayoutContext::new(&state),
+            axes: Some(ax.id()),
+            owner: Some(ax.id()),
+            offset_origin: None,
+            fontsize: 10.0,
+        };
+        let corner = |coords: &str| {
+            let coords: Coords = coords.parse().expect("valid coords");
+            let resolved = coords.resolve(&frame).expect("resolvable");
+            resolved.transform_point(Point::new(1.0, 1.0))
+        };
+        assert!(close_points(
+            corner("figure fraction"),
+            Point::new(640.0, 480.0)
+        ));
+        assert!(close_points(
+            corner("subfigure fraction"),
+            Point::new(400.0, 300.0)
+        ));
     }
 
     #[test]

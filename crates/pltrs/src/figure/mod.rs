@@ -447,11 +447,16 @@ impl Figure {
         }
         // The program's drawing runs in each of matplotlib's draws this
         // one stands for (a print drawn once before lays it out), the
-        // last one rendered.
+        // last one rendered; those pltrs does not paint shape the artists
+        // with the program's styles too.
         let draws = crate::text::font_notes::draws_of_print();
         for draw in 1..=draws {
+            let rendered = draw == draws;
+            if !rendered {
+                self.root_handle().predraw_program_shapes();
+            }
             self.root_handle()
-                .prepare_painters(&*renderer, true, draw == draws);
+                .prepare_painters(&*renderer, true, rendered);
         }
         let errors = self.state.draw(renderer);
         // The changes the program's code asked for meanwhile, made before

@@ -3,7 +3,9 @@
 use pltrs_core::{Affine2D, Point};
 
 use super::{Text, TextArtist};
-use crate::artist::{ArtistBase, ArtistHandle, ArtistLookup, DrawContext, LayoutContext};
+use crate::artist::{
+    ArtistBase, ArtistHandle, ArtistLookup, DrawContext, LayoutContext, ProgramShaping,
+};
 use crate::colors::Color;
 use crate::patches::{
     BoxShape, BoxStyle, ClipRegion, DEFAULT_PAD, FancyBboxPatch, Patch, PatchError, PatchParts,
@@ -49,6 +51,22 @@ impl TextArtist {
     fn box_frame(&self, ctx: LayoutContext<'_>) -> Option<(FancyBboxPatch, Affine2D)> {
         let (bbox, placement) = self.box_placement(ctx, self.box_anchor(ctx)?).ok()??;
         Some(bbox.shape(&placement))
+    }
+
+    /// The call of the program's box style shaping the text's box, as
+    /// the text's draw makes it (matplotlib's `_bbox_patch.draw`, for a
+    /// text with text and a box drawn); the text is measured for it
+    /// without noting its fonts, which pltrs notes for every draw a
+    /// print stands for (see [`font_notes`](crate::text::font_notes)).
+    pub(super) fn program_box_shaping(&self, ctx: LayoutContext<'_>) -> Option<ProgramShaping> {
+        let shaped_by_program = self.bbox.as_ref().is_some_and(|bbox| {
+            bbox.visible && matches!(bbox.boxstyle.shape, BoxShape::Program(_))
+        });
+        if !shaped_by_program || self.text.is_empty() {
+            return None;
+        }
+        let (shape, _) = crate::text::font_notes::unnoted(|| self.box_frame(ctx))?;
+        Some(Box::new(move || drop(shape.path())))
     }
 }
 

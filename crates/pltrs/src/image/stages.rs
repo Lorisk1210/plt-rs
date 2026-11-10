@@ -73,7 +73,9 @@ pub(crate) fn data_stage(
         .zip(&out_mask)
         .map(|(v, &masked)| (!masked).then_some(v))
         .collect();
-    let normalized = normalize_in(mappable, &masked, field.kind(), precision)?;
+    // matplotlib normalises the resampled data as a masked array of the
+    // output's shape.
+    let normalized = normalize_in(mappable, &masked, field.kind(), precision, out_shape)?;
     let cmap = mappable.cmap();
     // A Python float multiplies a float32 array in single precision.
     let scalar_alpha = alpha.map_or(1.0, ImageAlpha::scalar) as f32;
@@ -174,18 +176,22 @@ fn mapped_colors(field: &ScalarField, mappable: &mut ScalarMappable) -> Result<M
 
 /// The colormap rows of scalar data under any norm, normalised and looked
 /// up a block at a time so that the intermediate arrays stay small. An
-/// unscaled norm autoscales to the first values it normalises, so it gets
-/// all of them at once.
+/// unscaled norm autoscales to the first values it normalises, and a norm
+/// of the program's sees the array matplotlib hands it, so they get all of
+/// them at once.
 fn blockwise_rows(
     field: &ScalarField,
     mappable: &mut ScalarMappable,
 ) -> Result<Vec<u32>, ImageError> {
     let (values, mask) = (field.values().as_slice(), field.mask().as_slice());
-    let block = if mappable.norm().scaled() {
-        COLOR_BLOCK
-    } else {
+    let norm = mappable.norm();
+    let whole = !norm.scaled() || norm.calls_program();
+    let block = if whole {
         values.len().max(1)
+    } else {
+        COLOR_BLOCK
     };
+    let shape = field.values().shape();
     let mut rows = Vec::with_capacity(values.len());
     let mut masked = Vec::with_capacity(block.min(values.len()));
     for (values, mask) in values.chunks(block).zip(mask.chunks(block)) {
@@ -196,7 +202,10 @@ fn blockwise_rows(
                 .zip(mask)
                 .map(|(&v, &masked)| (!masked).then_some(v)),
         );
-        let normalized = normalize_in(mappable, &masked, field.kind(), field.precision())?;
+        // Only a norm of the program's, which gets the whole array, sees
+        // the shape.
+        let shape = if whole { shape } else { (1, masked.len()) };
+        let normalized = normalize_in(mappable, &masked, field.kind(), field.precision(), shape)?;
         let cmap = mappable.cmap();
         rows.extend(normalized.into_iter().map(|n| cmap.lut_index(n) as u32));
     }

@@ -233,6 +233,7 @@ impl<'a> AxisPainter<'a> {
         texts.offset_anchor = self
             .offset_placement(cx.read(), &boxes)
             .map(|(anchor, _)| anchor);
+        self.axis.offset_placed.set(texts.offset_anchor);
         let aligned = self.aligned_label_boxes(cx, &boxes);
         // Placed when it is drawn: an empty or hidden label is not (which
         // leaves the program's transforms uncalled for its spine).

@@ -125,6 +125,14 @@ impl<'a> LayoutContext<'a> {
         self.figure.frame_patch_bbox(frame)
     }
 
+    /// The root figure's box as matplotlib's `figbbox` keeps it: the whole
+    /// figure at the corner of the canvas, also while a window of it is
+    /// printed (`adjust_bbox` replaces the figure's `bbox` only).
+    pub fn figure_box(&self) -> Bbox {
+        let (width, height) = self.figure.size_pixels();
+        Bbox::from_bounds(0.0, 0.0, width, height)
+    }
+
     /// Display-space extent of an axes.
     pub fn axes_extent(&self, axes: ArtistId) -> Option<Bbox> {
         self.figure.axes_bbox(axes)

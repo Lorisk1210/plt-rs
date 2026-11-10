@@ -6,7 +6,7 @@
 use pltrs_core::numeric::np_clip;
 
 use super::{Precision, ScalarKind};
-use crate::colors::{NormError, NormKind, Normalized, ScalarMappable};
+use crate::colors::{ArrayForm, NormError, NormKind, Normalized, ScalarMappable};
 
 /// The norm applied to scalar image data. Integer data under an identity
 /// norm (matplotlib's `NoNorm`) indexes the colormap, after numpy's cast
@@ -16,9 +16,30 @@ pub(crate) fn normalize(
     values: &[Option<f64>],
     kind: ScalarKind,
 ) -> Result<Vec<Normalized>, NormError> {
+    normalize_shaped(mappable, values, kind, None)
+}
+
+/// [`normalize`] of the data of an image, handed to a norm of the
+/// program's as a masked array of `shape` (rows, columns), as matplotlib
+/// hands it, when given.
+fn normalize_shaped(
+    mappable: &mut ScalarMappable,
+    values: &[Option<f64>],
+    kind: ScalarKind,
+    shape: Option<(usize, usize)>,
+) -> Result<Vec<Normalized>, NormError> {
     let floats = matches!(kind, ScalarKind::Float | ScalarKind::Float32);
     if floats || !mappable.norm().is_identity() {
-        return mappable.normalize(values);
+        return match shape {
+            Some((rows, columns)) => {
+                let form = ArrayForm {
+                    shape: &[rows, columns],
+                    masked: true,
+                };
+                mappable.normalize_shaped(values, form)
+            }
+            None => mappable.normalize(values),
+        };
     }
     Ok(values
         .iter()
@@ -39,11 +60,14 @@ pub(crate) fn normalize(
 /// back to `float32` — and its colormap rows are found by multiplying in
 /// `float32`; the results are colormap indices. Other norms, and clipping
 /// (whose `np.clip` widens to `float64`), compute in double precision.
+/// The values are a masked array of `shape` (rows, columns) to a norm of
+/// the program's.
 pub(crate) fn normalize_in(
     mappable: &mut ScalarMappable,
     values: &[Option<f64>],
     kind: ScalarKind,
     precision: Precision,
+    shape: (usize, usize),
 ) -> Result<Vec<Normalized>, NormError> {
     let norm = mappable.norm_mut();
     let single =
@@ -53,7 +77,7 @@ pub(crate) fn normalize_in(
     }
     let limits = norm.vmin().zip(norm.vmax()).filter(|(lo, hi)| lo < hi);
     let (Some((lo, hi)), true) = (limits, single) else {
-        return normalize(mappable, values, kind);
+        return normalize_shaped(mappable, values, kind, Some(shape));
     };
     let n = mappable.cmap().n();
     Ok(values
@@ -175,6 +199,7 @@ mod tests {
             &[Some(value)],
             ScalarKind::Float32,
             Precision::Single,
+            (1, 1),
         )
         .unwrap()[0];
         assert_eq!(row, Normalized::Index(8));
@@ -185,6 +210,7 @@ mod tests {
             &[Some(value)],
             ScalarKind::Float32,
             Precision::Single,
+            (1, 1),
         );
         assert_eq!(widened.unwrap()[0], fraction, "clipping widens to float64");
     }
@@ -201,6 +227,7 @@ mod tests {
             &[Some(2.0), None, Some(4.0)],
             ScalarKind::Float32,
             Precision::Single,
+            (1, 3),
         )
         .unwrap();
         assert_eq!(

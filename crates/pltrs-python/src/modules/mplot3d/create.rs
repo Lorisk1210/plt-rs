@@ -2,11 +2,11 @@
 //! `add_axes(rect, projection='3d')`) or outside it (`Axes3D(fig, rect)`),
 //! and listing them with the figure's other axes (`fig.axes`).
 
-use pltrs::artist::{ArtistHandle, RawHandle};
+use pltrs::artist::{ArtistHandle, RawHandle, TypedHandle};
 use pltrs::axes::Axes;
 use pltrs::figure::Figure;
 use pltrs::gridspec::SubplotSpec;
-use pltrs::mplot3d::{Axes3D, Axes3DOptions, ProjType, ViewAngles};
+use pltrs::mplot3d::{Axes3D, Axes3DOptions, ProjType, SharedAxes, ViewAngles};
 
 use super::axis3;
 use crate::binding::prelude::*;
@@ -16,13 +16,31 @@ use crate::binding::prelude::*;
 /// length (`None`: 1).
 type Camera = ((f64, f64, f64), String, String, Option<f64>);
 
-/// The axes a new 3-D axes shares its x, y and z axes and its view with.
+/// The axes a new 3-D axes shares its x and y axes with (of either
+/// kind), its z axis and its view with.
 type Shares = (
-    Option<Axes3D>,
-    Option<Axes3D>,
+    Option<SharedAxes>,
+    Option<SharedAxes>,
     Option<Axes3D>,
     Option<Axes3D>,
 );
+
+impl FromPy<'_> for SharedAxes {
+    /// The axes of the native object of a 2-D or a 3-D axes.
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let raw: RawHandle = object.extract()?;
+        Axes3D::from_raw_handle(&raw)
+            .map(Self::Deep)
+            .or_else(|| Axes::from_raw_handle(&raw).map(Self::Flat))
+            .ok_or_else(|| PyErr::type_error("expected the native handle of an Axes"))
+    }
+}
+
+impl IntoPy for SharedAxes {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        self.raw().clone().into_py(py)
+    }
+}
 
 /// The options of a new 3-D axes: its camera, box aspect, whether
 /// collections are drawn in depth order, and the axes it shares with

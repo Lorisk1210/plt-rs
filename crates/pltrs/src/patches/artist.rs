@@ -4,6 +4,7 @@
 use std::any::Any;
 use std::rc::Rc;
 
+use pltrs_core::bezier::{Bezier, BezierSegment};
 use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_render::ClipPath;
 
@@ -12,6 +13,7 @@ use super::style::{PatchStyle, paint_paths};
 use super::{ClipRegion, DataRectangle, PatchError, Rectangle};
 use crate::artist::{
     Artist, ArtistBase, ArtistId, DrawContext, DrawnDpiCor, LayoutContext, LimitPoints, Picker,
+    ProgramShaping,
 };
 use crate::colors::ColorError;
 use crate::rc::RcParams;
@@ -346,14 +348,23 @@ impl<S: PatchShape> PatchArtist<S> {
 }
 
 /// The points bounding `path`: the ends and axis extrema of every curve
-/// (what matplotlib's `_update_patch_limits` takes of a patch's path).
-/// Straight segments, which have no extrema, allocate nothing.
+/// (what matplotlib's `_update_patch_limits` takes of a patch's path),
+/// found and evaluated with the arithmetic of matplotlib's
+/// `BezierSegment`. Straight segments, which have no extrema, allocate
+/// nothing.
 pub(crate) fn bounding_points(path: &Path) -> impl Iterator<Item = Point> + '_ {
-    path.beziers().flat_map(|curve| {
-        std::iter::once(0.0)
-            .chain(curve.axis_aligned_extrema())
-            .chain(std::iter::once(1.0))
-            .map(move |t| curve.eval(t))
+    path.beziers().flat_map(|curve| match curve {
+        Bezier::Line(start, end) => vec![start, end],
+        curve => {
+            let segment = BezierSegment::from_points(&curve.control_points())
+                .expect("a curve has control points of two coordinates");
+            let (_, roots) = segment.axis_aligned_extrema();
+            std::iter::once(0.0)
+                .chain(roots)
+                .chain(std::iter::once(1.0))
+                .map(|t| segment.point_at(t))
+                .collect()
+        }
     })
 }
 
@@ -401,6 +412,15 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
 
     fn limits_run_program(&self) -> bool {
         self.shape.runs_program()
+    }
+
+    /// The program's style shaping the patch, as its draw calls it
+    /// (matplotlib's `get_path`).
+    fn program_shaping(&self, _layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        let shape = self.shape.clone();
+        shape
+            .runs_program()
+            .then(|| Box::new(move || drop(shape.path())) as ProgramShaping)
     }
 
     /// The outline's ends and axis extrema, in the directions where the
@@ -470,14 +490,21 @@ mod tests {
             bounding_points(&polyline).collect::<Vec<_>>(),
             [p(0.0, 0.0), p(1.0, 2.0), p(1.0, 2.0), p(3.0, 1.0)]
         );
-        // A symmetric arch peaks at t = 1/2, between its ends.
+        // A symmetric arch peaks at t = 1/2, between its ends, where x
+        // turns (matplotlib evaluates those extrema too).
         let arch = Path::builder()
             .move_to(p(0.0, 0.0))
             .cubic_to(p(0.0, 4.0), p(2.0, 4.0), p(2.0, 0.0))
             .build();
         assert_eq!(
             bounding_points(&arch).collect::<Vec<_>>(),
-            [p(0.0, 0.0), p(1.0, 3.0), p(2.0, 0.0)]
+            [
+                p(0.0, 0.0),
+                p(0.0, 0.0),
+                p(2.0, 0.0),
+                p(1.0, 3.0),
+                p(2.0, 0.0)
+            ]
         );
     }
 }

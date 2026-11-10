@@ -8,6 +8,7 @@ use pltrs_core::Bbox;
 use super::camera::{Camera, ProjType, ViewAngles};
 use super::coords::Axis3;
 use super::error::Axes3DError;
+use super::flat_share::SharedAxes;
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::state::Axes3DState;
@@ -31,11 +32,12 @@ pub struct Axes3DOptions {
     /// Whether collections and patches are drawn in depth order rather
     /// than by their own z-order.
     pub computed_zorder: bool,
-    /// An axes of the same figure to share the x axis with (matplotlib's
-    /// `sharex`).
-    pub sharex: Option<Axes3D>,
-    /// An axes of the same figure to share the y axis with (`sharey`).
-    pub sharey: Option<Axes3D>,
+    /// An axes of the same figure, of either kind, to share the x axis
+    /// with (matplotlib's `sharex`).
+    pub sharex: Option<SharedAxes>,
+    /// An axes of the same figure, of either kind, to share the y axis
+    /// with (`sharey`).
+    pub sharey: Option<SharedAxes>,
     /// An axes of the same figure to share the z axis with (`sharez`).
     pub sharez: Option<Axes3D>,
     /// An axes of the same figure to rotate together with (`shareview`);
@@ -284,7 +286,11 @@ fn insert_axes3d(
     let axes = Axes3D::from_raw(RawHandle::new(Rc::clone(state), id));
     // As in matplotlib, the axes joins its groups before its first
     // autoscaling, which the axes sharing its limits follow.
-    let shared = [options.sharex, options.sharey, options.sharez];
+    let shared = [
+        options.sharex,
+        options.sharey,
+        options.sharez.map(SharedAxes::Deep),
+    ];
     axes.join_initial(
         shared.each_ref().map(Option::as_ref),
         options.shareview.as_ref(),

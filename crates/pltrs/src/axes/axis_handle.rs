@@ -341,6 +341,19 @@ impl Axis {
         Ok(self.axes.ticks(self.name)?.offset)
     }
 
+    /// The offset (or scale) text the ticks last placed gave, empty
+    /// before any were (matplotlib's `offsetText.get_text()`, which its
+    /// axis sets as it places the ticks to draw or measure them); reading
+    /// it neither autoscales nor places ticks.
+    pub fn kept_offset_text(&self) -> String {
+        self.read(|axis| {
+            axis.ticks
+                .as_ref()
+                .map(|ticks| ticks.offset.clone())
+                .unwrap_or_default()
+        })
+    }
+
     /// Shows or hides the offset (or scale) text (matplotlib's
     /// `offsetText.set_visible`).
     pub fn set_offset_text_visible(&self, visible: bool) -> &Self {

@@ -240,11 +240,15 @@ impl FancyArrowPatch {
             ArrowRoute::Along(path) => to_display.transform_path(path),
         };
         let pieces = self.spec.display_paths(&route, 1.0, linewidth).ok()?;
+        // matplotlib's `get_path()` takes the outline back to data
+        // coordinates, where its curves' extrema are then found.
         Some(
             pieces
                 .iter()
-                .flat_map(|piece| bounding_points(&piece.to_display()).collect::<Vec<_>>())
-                .map(|p| to_data.transform_point(p))
+                .flat_map(|piece| {
+                    let outline = to_data.transform_path(&piece.to_display());
+                    bounding_points(&outline).collect::<Vec<_>>()
+                })
                 .collect(),
         )
     }

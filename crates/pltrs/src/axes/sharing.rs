@@ -3,7 +3,8 @@
 use std::rc::Rc;
 
 use super::{Axes, AxesState, AxisName, PlotError};
-use crate::artist::{ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, RawHandle};
+use crate::mplot3d::SharedAxes;
 
 impl Axes {
     /// Shares the x axis with `other`: both then show the same x range
@@ -42,10 +43,50 @@ impl Axes {
         self.share(AxisName::Y, other)
     }
 
+    /// Shares axis `name` with `other`, a 2-D or a 3-D axes (matplotlib's
+    /// `sharex` and `sharey` take any `Axes`): a 3-D one gives its limits
+    /// as they are, then follows those of the group as this axes does.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::ticker::AxisName;
+    /// let fig = Figure::new();
+    /// let deep = fig.add_subplot_3d(1, 2, 1, Default::default())?;
+    /// let flat = fig.add_subplot(1, 2, 2)?;
+    /// deep.set_ylim(-1.0, 1.0)?;
+    /// flat.share_with(AxisName::Y, &deep.clone().into())?;
+    /// assert_eq!(flat.ylim(), (-1.0, 1.0));
+    /// assert_eq!(flat.sharing(AxisName::Y).len(), 2);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::share_x`].
+    pub fn share_with(&self, name: AxisName, other: &SharedAxes) -> Result<&Self, PlotError> {
+        self.share_id(name, other.raw())
+    }
+
+    /// The axes of either kind sharing axis `name` with this one, this one
+    /// included (matplotlib's `get_shared_x_axes().get_siblings(ax)`;
+    /// [`Axes::shared_axes`] lists the 2-D ones).
+    pub fn sharing(&self, name: AxisName) -> Vec<SharedAxes> {
+        let figure = self.raw.figure_state();
+        let ids = figure.borrow().siblings(name, self.id());
+        ids.into_iter()
+            .filter_map(|id| SharedAxes::of(figure, id))
+            .collect()
+    }
+
     /// Shares axis `name` with `other`.
     pub(crate) fn share(&self, name: AxisName, other: &Self) -> Result<&Self, PlotError> {
+        self.share_id(name, other.raw())
+    }
+
+    /// Shares axis `name` with the axes, of either kind, `other` reaches.
+    fn share_id(&self, name: AxisName, other: &RawHandle) -> Result<&Self, PlotError> {
         let figure = self.raw().figure_state();
-        if !Rc::ptr_eq(figure, other.raw().figure_state()) {
+        if !Rc::ptr_eq(figure, other.figure_state()) {
             return Err(PlotError::ForeignAxes);
         }
         if self
@@ -60,8 +101,9 @@ impl Axes {
         Ok(self)
     }
 
-    /// This axes and the axes sharing axis `name` with it (matplotlib's
-    /// `get_shared_x_axes().get_siblings(ax)`).
+    /// This axes and the 2-D axes sharing axis `name` with it
+    /// (matplotlib's `get_shared_x_axes().get_siblings(ax)` without the
+    /// 3-D axes; [`Axes::sharing`] lists them all).
     ///
     /// ```
     /// use pltrs::figure::{Figure, Share};
@@ -73,31 +115,39 @@ impl Axes {
     /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
     /// ```
     pub fn shared_axes(&self, name: AxisName) -> Vec<Self> {
-        let ids = self.raw.figure_state().borrow().siblings(name, self.id());
+        let ids: Vec<ArtistId> = {
+            let state = self.raw.figure_state().borrow();
+            (state.siblings(name, self.id()).into_iter())
+                .filter(|&id| state.artist_as::<AxesState>(id).is_some() || id == self.id())
+                .collect()
+        };
         self.in_same_figure(ids)
     }
 
-    /// The axes whose axis `name` this one shares (matplotlib's `_sharex`
-    /// and `_sharey`): the one given to [`Axes::share_x`] or
-    /// [`Axes::share_y`], or as `sharex=` / `sharey=` when it was made;
-    /// `None` for an axis it shares with none, or only lends to others.
+    /// The axes, of either kind, whose axis `name` this one shares
+    /// (matplotlib's `_sharex` and `_sharey`): the one given to
+    /// [`Axes::share_x`], [`Axes::share_y`] or [`Axes::share_with`], or as
+    /// `sharex=` / `sharey=` when it was made; `None` for an axis it
+    /// shares with none, or only lends to others.
     ///
     /// ```
     /// use pltrs::figure::{Figure, Share};
+    /// use pltrs::mplot3d::SharedAxes;
     /// use pltrs::ticker::AxisName;
     /// let fig = Figure::new();
     /// let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
-    /// assert_eq!(axs[(0, 1)].shared_from(AxisName::Y), Some(axs[(0, 0)].clone()));
+    /// let first = SharedAxes::Flat(axs[(0, 0)].clone());
+    /// assert_eq!(axs[(0, 1)].shared_from(AxisName::Y), Some(first));
     /// assert_eq!(axs[(0, 0)].shared_from(AxisName::Y), None);
     /// assert_eq!(axs[(0, 1)].shared_from(AxisName::X), None);
     /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
     /// ```
-    pub fn shared_from(&self, name: AxisName) -> Option<Self> {
+    pub fn shared_from(&self, name: AxisName) -> Option<SharedAxes> {
         let id = self.raw.with::<AxesState, _>(|axes| match name {
             AxisName::X => axes.shares.0,
             AxisName::Y => axes.shares.1,
         })?;
-        self.in_same_figure(vec![id]).pop()
+        SharedAxes::of(self.raw.figure_state(), id)
     }
 
     /// The axes whose axis `name` the locators of this one's are bound to
@@ -119,8 +169,15 @@ impl Axes {
     /// ```
     #[must_use]
     pub fn locator_owner(&self, name: AxisName) -> Self {
+        // A 3-D axes the locators are bound to measures its axes its own
+        // way: this axes stands for it.
         let owner = (self.raw)
             .with::<AxesState, _>(|axes| axes.axis(name).ticker_owner)
+            .filter(|&owner| {
+                (self.raw.figure_state().borrow())
+                    .artist_as::<AxesState>(owner)
+                    .is_some()
+            })
             .unwrap_or_else(|| self.id());
         self.in_same_figure(vec![owner])
             .pop()

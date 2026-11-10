@@ -3,7 +3,7 @@
 
 use pltrs_core::Rgba;
 
-use super::{Colormap, Norm, NormError, Normalize, Normalized};
+use super::{ArrayForm, Colormap, Norm, NormError, Normalize, Normalized};
 
 /// A norm and a colormap applied together: the colouring machinery of
 /// images, collections and colorbars.
@@ -83,6 +83,17 @@ impl ScalarMappable {
     /// Normalises the data (autoscaling unset limits from it).
     pub fn normalize(&mut self, data: &[Option<f64>]) -> Result<Vec<Normalized>, NormError> {
         self.norm.normalize_masked(data, None)
+    }
+
+    /// [`normalize`](Self::normalize) of data handed to the norm as the
+    /// array `form` says (see [`Norm::normalize_shaped`]): a norm of the
+    /// program's sees the array matplotlib hands it.
+    pub fn normalize_shaped(
+        &mut self,
+        data: &[Option<f64>],
+        form: ArrayForm<'_>,
+    ) -> Result<Vec<Normalized>, NormError> {
+        self.norm.normalize_shaped(data, None, form)
     }
 
     /// The colours of `data` (`None` = masked), with an optional alpha

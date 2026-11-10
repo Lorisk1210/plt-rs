@@ -68,6 +68,8 @@ pub enum Axes3DError {
     AlreadyShared(&'static str),
     /// Axes of different figures cannot share an axis or the view.
     OtherFigure,
+    /// A 2-D axes has no such axis to share (its z axis).
+    NoFlatAxis(Axis3),
     /// Only polygon, line and patch collections can be lifted to 3-D.
     UnsupportedCollection,
     /// The artist is not a 3-D artist of the axes.
@@ -133,6 +135,9 @@ impl fmt::Display for Axes3DError {
             ),
             Self::AlreadyShared(what) => write!(f, "{what} is already shared"),
             Self::OtherFigure => f.write_str("axes of another figure cannot be shared with"),
+            Self::NoFlatAxis(axis) => {
+                write!(f, "a 2-D axes has no {}-axis to share", axis.name())
+            }
             Self::UnsupportedCollection => {
                 f.write_str("only polygon, line and patch collections can be added to 3-D axes")
             }

@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use pltrs_core::pyfmt::str_repr;
+
 use super::style::MathFont;
 
 /// A font name of matplotlib's mathtext: the user-visible TeX names plus
@@ -76,6 +78,15 @@ impl FontName {
         })
     }
 
+    /// Python's `repr` of matplotlib's name of the font, which its
+    /// messages quote: a string, or for the size variants an integer.
+    pub(crate) fn python_repr(self) -> String {
+        match self {
+            Self::Size(size) => size.to_string(),
+            named => str_repr(&named.to_string()),
+        }
+    }
+
     /// The font used for text that is not math (`default` or `regular`).
     pub(crate) fn is_text_font(self) -> bool {
         matches!(self, Self::Default | Self::Regular)
@@ -148,6 +159,8 @@ mod tests {
         assert_eq!(FontName::It.non_unicode(), Some(FontName::NonUniIt));
         assert_eq!(FontName::Cal.non_unicode(), None);
         assert!(FontName::Regular.is_text_font());
+        assert_eq!(FontName::Normal.python_repr(), "'normal'");
+        assert_eq!(FontName::Size(3).python_repr(), "3");
     }
 
     #[test]

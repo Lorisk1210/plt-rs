@@ -46,8 +46,7 @@ class _SharedAxes(SharedGroups):
         self._name = name
 
     def _siblings(self, a):
-        return _handles.wrap_all(_axes_base.shared(a._native, self._name),
-                                 type(a), a._figure)
+        return _handles.wrap_all(a._sharing(self._name), type(a), a._figure)
 
 
 @_api.define_aliases({"facecolor": ["fc"]})
@@ -332,6 +331,14 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     def _shared_from(self, name):
         native = _axes_base.shared_from(self._native, name)
         return None if native is None else _handles.wrap(native, type(self), self._figure)
+
+    def _sharing(self, name):
+        """The native handles of the axes, of either kind, sharing axis
+        *name* with this one, this one included (only it for an axis it has
+        not, such as the z-axis of 3-D axes)."""
+        if name not in self._axis_names:
+            return [self._native]
+        return _axes_base.shared(self._native, name)
 
     def _sci(self, im):
         """

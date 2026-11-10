@@ -19,7 +19,9 @@ uses this module to
    subdirectories their repository has, which ``fetch`` lists from git's
    trees without fetching their files), so that a program reads its
    repository's files where it expects them and writes its figures without
-   touching the tree.
+   touching the tree; a figure a script saves next to itself under its own
+   name (a book's committed output, ``plot.png`` of ``plot.py``) is left
+   out, for the script to save it anew.
 
 It uses the standard library and git alone.
 """
@@ -47,6 +49,11 @@ MANIFEST = HERE / "corpora.toml"
 CELL_MARK = "# %%"
 #: The suffixes of programs converted to scripts of cells.
 CELL_SUFFIXES = (".ipynb", ".md")
+
+#: The suffixes of the files matplotlib saves figures as.
+FIGURE_SUFFIXES = frozenset({
+    ".png", ".pdf", ".svg", ".svgz", ".eps", ".ps", ".pgf",
+    ".jpg", ".jpeg", ".gif", ".tif", ".tiff", ".webp", ".avif"})
 #: A Markdown page's blocks of Python code.
 _MARKDOWN_CODE = re.compile(r"^```(?:python|py)[ \t]*\n(.*?)^```", re.M | re.S)
 #: A MyST page's code cells (the blocks Jupyter runs, its other blocks only
@@ -316,12 +323,19 @@ def programs(corpus: Corpus, out: pathlib.Path) -> list[CorpusProgram]:
 
 def shadow(corpus: Corpus, tree: pathlib.Path, into: pathlib.Path) -> None:
     """Lays out at *into* the tree a run sees: *tree*'s directories, its
-    files as links to them (copies where the system makes no links), and
-    the corpus' output directories empty, with their subdirectories."""
+    files as links to them (copies where the system makes no links) but
+    the figures its scripts save next to themselves under their own names,
+    and the corpus' output directories empty, with their
+    subdirectories."""
     if into.exists():
         shutil.rmtree(into)
+    scripts = {path.relative_to(tree) for pattern in corpus.programs
+               for path in tree.glob(pattern) if path.suffix == ".py"}
     for relative in _files(tree):
         if _matches(relative.as_posix(), tuple(f"{output}/*" for output in corpus.outputs)):
+            continue
+        if relative.suffix in FIGURE_SUFFIXES and relative.with_suffix(".py") in scripts:
+            # The script's own figure, which it saves anew.
             continue
         target = into / relative
         target.parent.mkdir(parents=True, exist_ok=True)

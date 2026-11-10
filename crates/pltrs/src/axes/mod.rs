@@ -119,7 +119,7 @@ pub use add_artist::AddAs;
 pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError, AxesLocatorFn};
 pub use axis::TickHelperKind;
-pub(crate) use axis::TickerDefaults;
+pub(crate) use axis::{TickerDefaults, Tickers};
 pub use axis_artists::{AxisGroup, TickPart};
 pub use axis_handle::Axis;
 pub(crate) use axis_layout::{PlacedText, place_text};

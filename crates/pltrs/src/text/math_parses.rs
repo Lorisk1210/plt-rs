@@ -9,7 +9,9 @@
 //! antialiasing of `text.antialiased`) and when Agg draws it (with the
 //! text's own, so a text drawn without antialiasing parses again); pltrs
 //! typesets formulas wherever it needs them, and notes those two moments
-//! here ([`parsed`]).
+//! here ([`parsed`]). A text path (matplotlib's `TextPath`, a mathtext
+//! marker's among them) is typeset by `TextToPath`'s parser instead, one
+//! for every path, whatever renderer draws meanwhile ([`for_text_path`]).
 //!
 //! matplotlib's keys hold the parser, one per renderer (each figure's
 //! canvas has its own), which pltrs tells apart by the renderer's text
@@ -18,7 +20,7 @@
 //! the same object, so the parses of one text of NaN size share a key,
 //! which pltrs keys by NaN.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Weak;
 
@@ -30,12 +32,42 @@ use super::metrics_cache::{self, MetricsCache};
 /// How many parses the cache keeps (matplotlib's `lru_cache(50)`).
 const PARSES_KEPT: usize = 50;
 
+/// Which of matplotlib's mathtext parsers parses: each keeps its own
+/// parses.
+#[derive(Debug)]
+enum Parser {
+    /// A renderer's (its metrics cache), if one is installed; held weakly,
+    /// so that no other takes its place.
+    Renderer(Option<Weak<MetricsCache>>),
+    /// `TextToPath`'s, which typesets every text path.
+    Paths,
+}
+
+impl Parser {
+    /// The parser of what is typeset now.
+    fn current() -> Self {
+        if FOR_TEXT_PATH.get() {
+            Self::Paths
+        } else {
+            Self::Renderer(metrics_cache::current_weak())
+        }
+    }
+
+    /// Whether `self` and `other` are one parser.
+    fn same(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Paths, Self::Paths) | (Self::Renderer(None), Self::Renderer(None)) => true,
+            (Self::Renderer(Some(a)), Self::Renderer(Some(b))) => Weak::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+}
+
 /// What a parse is keyed by.
 #[derive(Debug)]
 struct ParseKey {
-    /// The renderer parsing (its metrics cache), if one is installed; held
-    /// weakly, so that no other takes its place.
-    renderer: Option<Weak<MetricsCache>>,
+    /// The parser parsing.
+    parser: Parser,
     /// The formula, `$` signs included.
     text: String,
     /// Its fonts, size, resolution and hinting.
@@ -48,12 +80,7 @@ impl ParseKey {
     /// Whether `self` and `other` key the same parse: equal, sizes and
     /// resolutions that are NaN in both included.
     fn same(&self, other: &Self) -> bool {
-        let same_renderer = match (&self.renderer, &other.renderer) {
-            (None, None) => true,
-            (Some(a), Some(b)) => Weak::ptr_eq(a, b),
-            _ => false,
-        };
-        same_renderer
+        self.parser.same(&other.parser)
             && self.text == other.text
             && self.antialiased == other.antialiased
             && same_style(&self.style, &other.style)
@@ -88,6 +115,24 @@ fn same_style(a: &MathStyle, b: &MathStyle) -> bool {
 thread_local! {
     /// The parses kept, the least recently used first.
     static PARSES: RefCell<VecDeque<ParseKey>> = const { RefCell::new(VecDeque::new()) };
+    /// Whether what is typeset now is a text path ([`for_text_path`]).
+    static FOR_TEXT_PATH: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Runs `typeset`, which typesets a text path: what it parses,
+/// `TextToPath`'s parser parses, and keeps, not the renderer's that may be
+/// drawing (a mathtext marker is parsed when its style is made, and its
+/// path made again at each draw parses nothing).
+pub(crate) fn for_text_path<R>(typeset: impl FnOnce() -> R) -> R {
+    /// Puts back what was typeset around this path, also when it unwinds.
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            FOR_TEXT_PATH.set(self.0);
+        }
+    }
+    let _restore = Restore(FOR_TEXT_PATH.replace(true));
+    typeset()
 }
 
 /// Notes that matplotlib parses the formula `run` was typeset from, with
@@ -103,7 +148,7 @@ pub(crate) fn parsed(run: &TextRun, antialiased: bool) {
         return;
     };
     let key = ParseKey {
-        renderer: metrics_cache::current_weak(),
+        parser: Parser::current(),
         text: text.clone(),
         style: style.clone(),
         antialiased,
@@ -188,6 +233,22 @@ mod tests {
             metrics_cache::with_cache(Rc::clone(&renderer), || parsed(&nan, true));
         }
         assert_eq!(pltrs_text::take_mathtext_log(), ["Underful Hlist"; 2]);
+    }
+
+    #[test]
+    fn text_paths_have_one_parser_whatever_renderer_draws() {
+        PARSES.with_borrow_mut(VecDeque::clear);
+        pltrs_text::take_mathtext_log();
+        let formula = run("$a$", 100.0, &["no glyph"]);
+        for_text_path(|| parsed(&formula, true));
+        let renderer = Rc::new(MetricsCache::new());
+        metrics_cache::with_cache(Rc::clone(&renderer), || {
+            for_text_path(|| parsed(&formula, true));
+            assert_eq!(pltrs_text::take_mathtext_log(), ["no glyph"]);
+            // The renderer measuring the same formula parses it itself.
+            parsed(&formula, true);
+        });
+        assert_eq!(pltrs_text::take_mathtext_log(), ["no glyph"]);
     }
 
     #[test]

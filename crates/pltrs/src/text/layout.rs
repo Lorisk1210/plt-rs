@@ -16,6 +16,7 @@ use pltrs_text::{
 use super::font_notes;
 use super::layout_warnings::{self, MeasuredLine};
 use super::math::{Line, math_style};
+use super::math_parses;
 use super::metrics::without_hinting;
 use super::metrics_cache;
 use super::overrides::{self, LineKind};
@@ -112,7 +113,7 @@ pub fn text_path(
     font: &FontProperties,
 ) -> Result<Path, TextError> {
     let line = Line::classify(text, crate::rc::params().text_parse_math);
-    line_path(xy, &line, size, font, &Shaping::default())
+    math_parses::for_text_path(|| line_path(xy, &line, size, font, &Shaping::default()))
 }
 
 /// [`text_path`] as matplotlib's `TextToPath.get_text_path(prop, s,

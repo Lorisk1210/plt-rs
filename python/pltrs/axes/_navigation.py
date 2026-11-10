@@ -15,7 +15,9 @@ import numpy as np
 
 from .. import _api, _handles, _values
 from .._native import navigation as _navigation
-from . import _foreign_children
+from .. import _lazy_imports
+
+_foreign_children = _lazy_imports.module(globals(), "._foreign_children")
 
 
 def _button_number(button):

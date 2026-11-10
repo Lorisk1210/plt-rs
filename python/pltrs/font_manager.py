@@ -33,7 +33,7 @@ import re
 import subprocess
 import sys
 
-from . import _api, _mirrors, cbook, ft2font, get_cachedir
+from . import _afm, _api, _mirrors, cbook, ft2font, get_cachedir
 from ._fontconfig_pattern import (
     parse_fontconfig_pattern, generate_fontconfig_pattern)
 from ._native import font_manager as _font_manager, ft2font as _native_ft2font
@@ -1115,7 +1115,6 @@ class FontManager:
         # afmFontProperty and FT2Font expect this
         path = os.fsdecode(path)
         if Path(path).suffix.lower() == ".afm":
-            from . import _afm
             with open(path, "rb") as fh:
                 font = _afm.AFM(fh)
             self.afmlist.append(afmFontProperty(path, font))

@@ -33,8 +33,10 @@ try:
 except ImportError:
     from numpy import VisibleDeprecationWarning
 
-from . import _api, _box_stats, _c_internal_utils, mlab
+from . import _api, _c_internal_utils, _lazy_imports, mlab
 from ._native import cbook as _cbook
+
+_box_stats = _lazy_imports.module(globals(), "._box_stats")
 
 
 class _ExceptionInfo:

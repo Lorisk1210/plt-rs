@@ -279,20 +279,30 @@ def binds(signature, *, method=True, **accepts):
     refuses the call: a caster of matplotlib's raising its own error raises
     it then.
     """
-    predicates = {**_predicates(signature, method), **accepts}
+    is_method = method
 
     def decorate(method):
-        python = inspect.signature(method)
-        # The checks of the positional parameters, in order (``self``
-        # first), and how many of them a call must give: the common call,
-        # without keywords, is checked without binding it.
-        positional = [predicates.get(parameter.name) for parameter in python.parameters.values()
-                      if parameter.kind is parameter.POSITIONAL_OR_KEYWORD]
-        required = sum(parameter.default is parameter.empty
-                       for parameter in python.parameters.values()
-                       if parameter.kind is parameter.POSITIONAL_OR_KEYWORD)
+        # The checks are made when first needed, not as the class is
+        # (importing the package would read every signature).
+        checks = None
+
+        def made():
+            nonlocal checks
+            if checks is None:
+                predicates = {**_predicates(signature, is_method), **accepts}
+                python = inspect.signature(method)
+                parameters = [parameter for parameter in python.parameters.values()
+                              if parameter.kind is parameter.POSITIONAL_OR_KEYWORD]
+                # The checks of the positional parameters, in order (``self``
+                # first), and how many of them a call must give: the common
+                # call, without keywords, is checked without binding it.
+                positional = [predicates.get(parameter.name) for parameter in parameters]
+                required = sum(parameter.default is parameter.empty for parameter in parameters)
+                checks = python, predicates, positional, required
+            return checks
 
         def refuses(args, kwargs):
+            python, predicates, positional, required = made()
             if not kwargs and required <= len(args) <= len(positional):
                 return any([check is not None and not check(value)
                             for check, value in zip(positional, args)])

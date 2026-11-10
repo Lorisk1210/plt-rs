@@ -23,7 +23,7 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import (_api, _image, _image_magnified, _live_transforms, _named, _unusable, _values, cbook,
+from . import (_api, _image, _lazy_imports, _live_transforms, _named, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors)
 from . import _docstring, artist as martist
 from ._program_classes import takes_from_program
@@ -33,6 +33,8 @@ from ._image import *  # noqa: F401, F403
 from ._native import artist as _artist, image as _native_image
 from .transforms import (Affine2D, Bbox, BboxBase, BboxTransformTo,
                          IdentityTransform, TransformedBbox)
+
+_image_magnified = _lazy_imports.module(globals(), "._image_magnified")
 
 _log = logging.getLogger(__name__)
 

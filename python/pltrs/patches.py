@@ -16,7 +16,7 @@ from numbers import Number, Real
 import numpy as np
 
 from . import _docstring
-from . import (_api, _kept_geometry, _mirrors, _owned_paths, _patch_arguments,
+from . import (_api, _kept_geometry, _lazy_imports, _mirrors,
                _python_drawing, _unusable, _values, cbook, colors as mcolors, units)
 from ._artist_kwargs import check_known
 from ._enums import CapStyle, JoinStyle
@@ -24,6 +24,9 @@ from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
 from ._native import artist as _artist, patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style, calls_program)
+
+_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_patch_arguments = _lazy_imports.module(globals(), "._patch_arguments")
 
 cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program

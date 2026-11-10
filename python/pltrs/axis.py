@@ -17,15 +17,18 @@ import warnings
 import numpy as np
 
 from . import (
-    _api, _artist_clipping, _artist_effects, _docstring, _empty_conversions, _numpy_values,
-    _program_classes, _scale_calls, _tick_helpers, _unusable, _values, cbook,
-    units as munits)
+    _api, _artist_clipping, _artist_effects, _docstring, _lazy_imports, _program_classes,
+    _tick_helpers, _unusable, _values, cbook, units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
 from .artist import Artist, allow_rasterization
 from .text import _measured_by_given
+
+_empty_conversions = _lazy_imports.module(globals(), "._empty_conversions")
+_numpy_values = _lazy_imports.module(globals(), "._numpy_values")
+_scale_calls = _lazy_imports.module(globals(), "._scale_calls")
 
 __all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
 

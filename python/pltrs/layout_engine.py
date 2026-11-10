@@ -25,7 +25,9 @@ whenever the engine or its parameters change.
 
 import weakref
 
-from . import _layout_checks, _layoutgrid, rcParams
+from . import _lazy_imports, _layoutgrid, rcParams
+
+_layout_checks = _lazy_imports.module(globals(), "._layout_checks")
 
 
 class LayoutEngine:

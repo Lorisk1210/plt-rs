@@ -153,12 +153,12 @@ def _described(name, qualname, check=None, **defaults):
     parameters = ", ".join(f"{key}=_defaults[{key!r}]" for key in defaults)
     arguments = ", ".join(f"{key}={key}" for key in defaults)
     namespace = {"_defaults": defaults, "_check": check, "_Described": _Described}
-    exec(textwrap.dedent(f"""
+    exec(_docstring.compiled(textwrap.dedent(f"""
         def __init__(self, {parameters}):
             if _check is not None:
                 _check({arguments})
             _Described.__init__(self, {arguments})
-    """), namespace)
+    """), "<string>"), namespace)
     init = _qualnames.named_as(f"{qualname}.__init__")(namespace["__init__"])
     return type(name, (_Described,), {"__init__": init})
 

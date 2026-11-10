@@ -14,11 +14,11 @@ import numpy as np
 
 from pltrs import _api, _unusable, _values, cbook, collections as mcoll, colors as mcolors, lines
 from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
-from pltrs import _docstring, patches as mpatches, text as mtext
+from pltrs import _docstring, _lazy_imports, patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, lines as _lines, mplot3d as _mplot3d
 from pltrs._native import patches as _patches
-from pltrs._changing_arrays import ChangingArray
-from . import _draw_problems
+
+_draw_problems = _lazy_imports.module(globals(), "._draw_problems")
 
 
 def _columns(arrays):
@@ -1254,6 +1254,7 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
         """The face colours the polygons are drawn with, in polygon order:
         changed in place, they colour the polygons (nilearn's contours of
         surface regions)."""
+        from pltrs._changing_arrays import ChangingArray
         return ChangingArray(_mplot3d.poly_colors(self.axes._native, self._native)[0],
                              self.set_facecolor)
 
@@ -1261,6 +1262,7 @@ class Poly3DCollection(_ProjectedPaths, _Loose3D, mcoll.PolyCollection):
     def _edgecolor3d(self):
         """The edge colours the polygons are drawn with, in polygon order:
         changed in place, they colour the edges."""
+        from pltrs._changing_arrays import ChangingArray
         return ChangingArray(_mplot3d.poly_colors(self.axes._native, self._native)[1],
                              self.set_edgecolor)
 

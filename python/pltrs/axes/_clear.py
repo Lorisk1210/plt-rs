@@ -15,8 +15,10 @@ import weakref
 
 from .. import _api, _handles, cbook
 from .._native import artist as _artist, axes as _axes
-from . import _foreign_children
+from .. import _lazy_imports
 from ._artist_list import ArtistList
+
+_foreign_children = _lazy_imports.module(globals(), "._foreign_children")
 
 
 def _notify(axes_ref, signal):

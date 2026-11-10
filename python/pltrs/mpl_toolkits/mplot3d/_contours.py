@@ -12,7 +12,10 @@ from pltrs._native import mplot3d as _mplot3d
 from pltrs._preprocess import _preprocess_data
 from pltrs.axes._plotting.contours import _contour_look, _finish, _levels
 
-from . import _draw_problems, _properties
+from pltrs import _lazy_imports
+from . import _properties
+
+_draw_problems = _lazy_imports.module(globals(), "._draw_problems")
 
 
 def _in_3d(cls, placement):

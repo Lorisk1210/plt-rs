@@ -15,7 +15,11 @@ from pltrs.axes._plotting._helpers import axis_values, line_kwargs, wrap, wrap_a
 from pltrs.axes._plotting.errorbar import _errorevery_to_mask
 from pltrs.container import ErrorbarContainer, StemContainer
 
-from . import _draw_problems, _errorbars, _properties, art3d
+from pltrs import _lazy_imports
+from . import _properties, art3d
+
+_draw_problems = _lazy_imports.module(globals(), "._draw_problems")
+_errorbars = _lazy_imports.module(globals(), "._errorbars")
 
 
 def _error_bounds(err, n):

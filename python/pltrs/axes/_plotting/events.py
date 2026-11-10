@@ -12,9 +12,11 @@ from ... import lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
-from . import _events_reference
+from ... import _lazy_imports
 from ._helpers import check_format, floats, keep_data, record_container, wrap, wrap_all
 from .lines import _given_format_color
+
+_events_reference = _lazy_imports.module(globals(), "._events_reference")
 
 
 def _rcParams():

@@ -14,7 +14,7 @@ import math
 
 import numpy as np
 
-from .. import (_api, _mirrors, _numpy_values, _tick_helpers, _unusable, cbook,
+from .. import (_api, _lazy_imports, _mirrors, _tick_helpers, _unusable, cbook,
                ticker as mticker)
 from .. import patches as mpatches, transforms as mtransforms
 from .._native import artist as _artist, axis as _axis, polar as _polar
@@ -22,6 +22,8 @@ from ..axes import Axes
 from ..axis import Axis, XAxis, XTick, YAxis, YTick
 from ..path import Path
 from ._polar_trees import PolarTrees, _ThetaShift, _is_full_circle_rad  # noqa: F401
+
+_numpy_values = _lazy_imports.module(globals(), ".._numpy_values")
 
 
 class PolarTransform(mtransforms.Transform):

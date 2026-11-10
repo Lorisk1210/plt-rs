@@ -18,7 +18,7 @@ import weakref
 
 import numpy as np
 
-from . import _owned_paths
+from . import _lazy_imports
 from ._native import register as _register, transforms as _transforms
 from .transforms import (
     Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
@@ -26,6 +26,8 @@ from .transforms import (
     IdentityTransform, ScaledTranslation, Transform, TransformedPath,
     TransformWrapper, blended_transform_factory, composite_transform_factory)
 from .path import Path
+
+_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
 
 
 class LiveTransform(Transform):

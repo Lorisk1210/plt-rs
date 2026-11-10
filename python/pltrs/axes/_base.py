@@ -15,7 +15,7 @@ from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._transform_trees import AxesTrees
 from ..artist import Artist, allow_rasterization
 from ..transforms import IdentityTransform
-from . import _foreign_children
+from .. import _lazy_imports
 from ._artist_list import ArtistList
 from ._aspect import AspectMixin
 from ._blitting import BlittingMixin
@@ -34,6 +34,8 @@ from ._prop_cycles import PropCycleMixin
 from ._ticks import TicksMixin, _axis_method_wrapper
 from ._units import UnitsMixin
 from ..transforms import Bbox
+
+_foreign_children = _lazy_imports.module(globals(), "._foreign_children")
 
 
 class _SharedAxes(SharedGroups):

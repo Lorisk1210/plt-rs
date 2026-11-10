@@ -71,7 +71,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub use data::{DataDirError, data_dir};
+pub use data::{DataDirError, data_dir, data_dir_location};
 use lookup::{DirKind, Environment};
 
 use crate::rc::{RcError, RcFile, RcParams};

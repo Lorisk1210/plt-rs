@@ -91,9 +91,14 @@ def _segment(name, channel, rows, kind):
         return _BuiltinSegment(name, channel)
     if kind != "segmented":
         return np.array(rows, dtype=float)
-    literal = iter(_INT_LITERALS.get(name, {}).get(channel, ""))
-    rows = [tuple(int(v) if next(literal, "f") == "i" else v for v in row)
-            for row in np.asarray(rows, dtype=float).tolist()]
+    rows = np.asarray(rows, dtype=float).tolist()
+    literals = _INT_LITERALS.get(name, {}).get(channel)
+    if literals is None:
+        rows = list(map(tuple, rows))
+    else:
+        literal = iter(literals)
+        rows = [tuple(int(v) if next(literal, "f") == "i" else v for v in row)
+                for row in rows]
     return rows if name in _LISTS_OF_SEGMENTS else tuple(rows)
 
 

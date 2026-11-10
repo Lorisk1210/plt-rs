@@ -25,10 +25,12 @@ import numpy as np
 from numpy import ma
 
 from . import _docstring
-from . import (_api, _handles, _live_transforms, _quiver_reference, _unusable, _values,
+from . import (_api, _handles, _lazy_imports, _live_transforms, _unusable, _values,
                cbook, collections as mcollections, colors as mcolors, transforms)
 from . import artist as martist
 from ._native import artist as _artist, plotting as _plotting
+
+_quiver_reference = _lazy_imports.module(globals(), "._quiver_reference")
 
 
 def _parse_args(*args, caller_name='function'):

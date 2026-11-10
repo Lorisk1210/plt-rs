@@ -13,9 +13,11 @@ from ... import patches as mpatches, units as munits
 from ..._native import patches as _patches, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer, ErrorbarContainer
-from . import _bars_reference
+from ... import _lazy_imports
 from ._helpers import floats, record_container, wrap, wrap_all
 from .errorbar import _error_bounds
+
+_bars_reference = _lazy_imports.module(globals(), "._bars_reference")
 
 
 def _rcParams():

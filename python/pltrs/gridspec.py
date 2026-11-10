@@ -17,11 +17,13 @@ import weakref
 
 import numpy as np
 
-from . import _api, _gridspec_kept, _layout_checks, _pylab_helpers, rcParams
+from . import _api, _gridspec_kept, _lazy_imports, _pylab_helpers, rcParams
 from ._api import UNSET as _UNSET
 from ._native import figure_layout as _figure_layout, gridspec as _gridspec
 from ._program_classes import takes_from_program
 from .transforms import Bbox
+
+_layout_checks = _lazy_imports.module(globals(), "._layout_checks")
 
 #: The margin and spacing names of a grid, in the order they cross to
 #: pltrs (Rust).

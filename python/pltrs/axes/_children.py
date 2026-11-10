@@ -15,8 +15,10 @@ from .._native import table as _table, text as _text
 from ..legend import Legend
 from ..lines import Line2D
 from ..text import Text
-from . import _foreign_children
+from .. import _lazy_imports
 from ._artist_list import ArtistList
+
+_foreign_children = _lazy_imports.module(globals(), "._foreign_children")
 
 
 class ChildrenMixin:

@@ -17,8 +17,7 @@ import time
 import numpy as np
 
 from . import _docstring
-from . import (_api, _handles, _legend_checks, _legend_handlers, _legend_label_colors,
-               _live_transforms, _values, colors, rcParams)
+from . import _api, _handles, _lazy_imports, _live_transforms, _values, colors, rcParams
 from . import _val_or_rc
 from ._native import artist as _artist, legend as _legend
 from ._native import register as _register
@@ -42,6 +41,10 @@ from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
 from .transforms import (Bbox, BboxBase, BboxTransformFrom, IdentityTransform,
                          TransformedBbox)
+
+_legend_checks = _lazy_imports.module(globals(), "._legend_checks")
+_legend_handlers = _lazy_imports.module(globals(), "._legend_handlers")
+_legend_label_colors = _lazy_imports.module(globals(), "._legend_label_colors")
 
 # pltrs (Rust) times the search for the best location with Python's
 # performance counter, looked up at every reading as matplotlib's

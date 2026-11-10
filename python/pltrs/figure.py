@@ -15,15 +15,15 @@ import numpy as np
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
 from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
-from . import _gridspec_kept, _layout_checks
+from . import _gridspec_kept
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from .artist import Artist
 from . import _background_patch
-from . import _figure_artists
+from . import _lazy_imports
 from .axes import Axes
 from .axes._base import _AxesBase
-from .axes import _foreign_children, _sharing
+from .axes import _sharing
 from .axes import _program_tick_params
 from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
@@ -32,7 +32,6 @@ from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from ._figure_frame import FrameMixin
 from ._figure_interaction import InteractionMixin, RootFigureMixin
-from ._axes_stack import _AxesStack
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
@@ -41,6 +40,10 @@ from .transforms import Bbox, BboxBase
 from ._text_methods import FigureText
 from ._transform_trees import FigureTrees
 from ._artist_staleness import _stale_figure_callback  # noqa: F401
+
+_figure_artists = _lazy_imports.module(globals(), "._figure_artists")
+_foreign_children = _lazy_imports.module(globals(), ".axes._foreign_children")
+_layout_checks = _lazy_imports.module(globals(), "._layout_checks")
 
 _log = logging.getLogger(__name__)
 
@@ -226,6 +229,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     def _axstack(self):
         """matplotlib's register of the Axes of the figure and of its
         current one, a subfigure's its figure's (see `._axes_stack`)."""
+        from ._axes_stack import _AxesStack
         return _AxesStack(self.get_figure(root=True))
 
     @property

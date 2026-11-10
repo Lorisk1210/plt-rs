@@ -394,9 +394,17 @@ fn uni2type1() -> PyResult<Vec<(u32, &'static str)>> {
 }
 
 /// matplotlib's `get_data_path`: the data directory holding the fonts
-/// pltrs bundles as files.
+/// pltrs bundles as files, written the first time it is asked for.
 fn data_path() -> PyResult<String> {
     pltrs::config::data_dir()
+        .map(|dir| dir.display().to_string())
+        .map_err(|err| PyErr::runtime_error(err.to_string()))
+}
+
+/// Where the data directory of [`data_path`] is, without writing its
+/// files (what importing the package asks for).
+fn data_location() -> PyResult<String> {
+    pltrs::config::data_dir_location()
         .map(|dir| dir.display().to_string())
         .map_err(|err| PyErr::runtime_error(err.to_string()))
 }
@@ -404,6 +412,7 @@ fn data_path() -> PyResult<String> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("data_path", data_path)?;
+    module.add("data_location", data_location)?;
     module.add("type1_name", type1_name)?;
     module.add("uni2type1", uni2type1)?;
     module.add("alternative_family_names", alternative_family_names)?;

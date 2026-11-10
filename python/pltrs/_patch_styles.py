@@ -163,6 +163,33 @@ def _described(name, qualname, check=None, **defaults):
     return type(name, (_Described,), {"__init__": init})
 
 
+# What the methods of matplotlib's styles compute, which pltrs (Rust) does
+# from the style's description (each style class has them as methods of its
+# own, `._qualnames.own_method`): a box style's path around a rectangle, a connection
+# style's path between two points, and an arrow style's paths along a path
+# with whether each is filled (one path and a bool for a one-piece arrow).
+
+def _box_path(self, x0, y0, width, height, mutation_size):
+    return Path(*_styles.box_path(
+        self._spec(), (float(x0), float(y0), float(width), float(height)),
+        float(mutation_size)))
+
+
+def _connection_path(self, posA, posB):
+    return Path(*_styles.connection_path(
+        self._spec(), tuple(map(float, posA)), tuple(map(float, posB))))
+
+
+def _arrow_paths(self, path, mutation_size, linewidth):
+    pieces = _styles.arrow_paths(self._spec(), path, float(mutation_size),
+                                 float(linewidth), 1.0)
+    paths = [Path(*arrays) for arrays, _ in pieces]
+    fillables = [filled for _, filled in pieces]
+    if len(paths) == 1:
+        return paths[0], fillables[0]
+    return paths, fillables
+
+
 def _check_rarrow(pad, head_width, head_angle):
     """matplotlib's checks of the head of `BoxStyle.RArrow`."""
     if head_width < 0:
@@ -203,11 +230,7 @@ class BoxStyle(_Style):
     _style_list = {}
 
     class _Base(_Described):
-        def __call__(self, x0, y0, width, height, mutation_size):
-            """Return the path of the box around the given rectangle."""
-            return Path(*_styles.box_path(
-                self._spec(), (float(x0), float(y0), float(width), float(height)),
-                float(mutation_size)))
+        pass
 
 
 # Each style with its parameters, or the style it derives from (and takes
@@ -227,6 +250,7 @@ for _name, _params in [
               else (BoxStyle._Base, _described(_name, f"BoxStyle.{_name}", **_params)))
     _style = type(_name, _bases,
                   {"_spec_name": _name.lower(), "__qualname__": f"BoxStyle.{_name}"})
+    _qualnames.own_method(_style, "__call__", _box_path)
     _style_docs.document(_style, BoxStyle)
     setattr(BoxStyle, _name, _register_style(BoxStyle._style_list, _style))
 _register_tables(BoxStyle)
@@ -283,12 +307,6 @@ class ConnectionStyle(_Style):
         points. This base class defines a __call__ method, and a few
         helper methods.
         """
-
-        def connect(self, posA, posB):
-            """Return the path connecting *posA* and *posB* (pltrs (Rust)
-            draws the styles of matplotlib's)."""
-            return Path(*_styles.connection_path(
-                self._spec(), tuple(map(float, posA)), tuple(map(float, posB))))
 
         def _in_patch(self, patch):
             """
@@ -348,6 +366,7 @@ for _name, _params in [
                           _described(_name, f"ConnectionStyle.{_name}", **_params)),
                   {"_spec_name": _name.lower(),
                    "__qualname__": f"ConnectionStyle.{_name}"})
+    _qualnames.own_method(_style, "connect", _connection_path)
     _style_docs.document(_style, ConnectionStyle)
     setattr(ConnectionStyle, _name,
             _register_style(ConnectionStyle._style_list, _style))
@@ -417,17 +436,17 @@ class ArrowStyle(_Style):
 
         def transmute(self, path, mutation_size, linewidth):
             """
-            Return the paths of the arrow along *path* and whether each is
-            filled (one path and a bool for a one-piece arrow; pltrs (Rust)
-            draws the styles of matplotlib's).
+            The transmute method is the very core of the ArrowStyle class and
+            must be overridden in the subclasses. It receives the *path*
+            object along which the arrow will be drawn, and the
+            *mutation_size*, with which the arrow head etc. will be scaled.
+            The *linewidth* may be used to adjust the path so that it does not
+            pass beyond the given points. It returns a tuple of a `.Path`
+            instance and a boolean. The boolean value indicate whether the
+            path can be filled or not. The return value can also be a list of
+            paths and list of booleans of the same length.
             """
-            pieces = _styles.arrow_paths(self._spec(), path, float(mutation_size),
-                                         float(linewidth), 1.0)
-            paths = [Path(*arrays) for arrays, _ in pieces]
-            fillables = [filled for _, filled in pieces]
-            if len(paths) == 1:
-                return paths[0], fillables[0]
-            return paths, fillables
+            raise NotImplementedError('Derived must override')
 
         def __call__(self, path, mutation_size, linewidth,
                      aspect_ratio=1.):
@@ -463,6 +482,7 @@ class ArrowStyle(_Style):
         """
 
 
+_qualnames.own_method(ArrowStyle._Curve, "transmute", _arrow_paths)
 _CURVE = dict(head_length=.4, head_width=.2, widthA=1., widthB=1.,
               lengthA=0.2, lengthB=0.2, angleA=0, angleB=0, scaleA=None,
               scaleB=None)
@@ -491,6 +511,8 @@ for _name, _arrow, _params in [
     _style = type(_name, (_base, _described(_name, f"ArrowStyle.{_owner}", **_params)),
                   {"_spec_name": _arrow, "arrow": _arrow,
                    "__qualname__": f"ArrowStyle.{_name}"})
+    if _base is ArrowStyle._Base:
+        _qualnames.own_method(_style, "transmute", _arrow_paths)
     _style_docs.document(_style, ArrowStyle)
     setattr(ArrowStyle, _name, _register_style(ArrowStyle._style_list, _style,
                                                name=_arrow))

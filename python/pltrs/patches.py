@@ -3482,6 +3482,18 @@ default: 'arc3'
         return [tuple(end) for end in ends]
 
     @property
+    def _path_original(self):
+        """The path the arrow runs along (None for an arrow between two
+        points), which matplotlib's subclasses set where they draw."""
+        _, path = _patches.arrow_route(self._native)
+        return None if path is None else Path(*path)
+
+    @_path_original.setter
+    def _path_original(self, path):
+        _patches.set_arrow_path(self._native, path)
+        self.stale = True
+
+    @property
     def _dpi_cor(self):
         """The pixels of a point the arrow was last drawn with (1 until it is
         drawn), which scales its shrinking and mutation: matplotlib's draw

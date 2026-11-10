@@ -17,12 +17,19 @@ importing matplotlib read), and described:
 * ``signature``: ``inspect.signature``'s parameters, each ``[name, kind,
   default]`` (the default's repr, memory addresses left out; None
   without one), or None where Python cannot read one; a property's
-  accessors instead (``getter``, ``setter``, ``deleter``);
+  accessors instead (``getter``, ``setter``, ``deleter``); for a class,
+  also its ``__init__``'s (``init_signature``), which ``help`` shows;
 * ``doc``: ``__doc__`` as importing left it (after matplotlib's
   interpolation); for a class, also its ``__init__``'s (``init_doc``);
   where it is None, ``inherited_doc`` (``init_inherited_doc``) is the
   docstring ``inspect.getdoc`` finds on a base class instead;
-* ``name``: ``__module__`` and ``__qualname__``.
+* ``name``: ``__module__`` and ``__qualname__`` (a property's getter's),
+  and a property's setter's and deleter's (``accessor_names``);
+* ``properties``, for an `.Artist` class: what matplotlib's
+  ``ArtistInspector`` reads of it, which ``setp``, ``getp``, ``kwdoc`` and
+  the class' ``set`` show: its settable properties (``get_setters``), their
+  aliases (``get_aliases``), the values each accepts
+  (``get_valid_values``) and ``pprint_setters``'s lines.
 
 A class member is looked up along its class' MRO, as a program reads it,
 so that a member inherited from a base or a mixin counts as the class';
@@ -67,6 +74,9 @@ NATIVE_TYPES = (types.BuiltinFunctionType, types.WrapperDescriptorType, types.Me
 #: The forms of ``_form`` other than callable objects of another type.
 STANDARD_FORMS = ("staticmethod", "classmethod", "property", "native", "class", "function")
 ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
+#: The number Python gives a thread made without a name, which counts the
+#: threads the process made before.
+THREAD_NUMBER = re.compile(r"\bThread-\d+")
 #: The top-level packages and modules whose modules' names are described.
 NAME_ROOTS = ("matplotlib", "mpl_toolkits", "pylab")
 #: The longest repr of a value described by its repr.
@@ -170,7 +180,8 @@ class Describer:
             accessors = {"getter": raw.fget is not None, "setter": raw.fset is not None,
                          "deleter": raw.fdel is not None}
             return {"found": True, "form": form, "signature": accessors, "doc": raw.__doc__,
-                    "name": self.name(raw.fget) if raw.fget is not None else None}
+                    "name": self.name(raw.fget) if raw.fget is not None else None,
+                    "accessor_names": {"setter": self.name(raw.fset), "deleter": self.name(raw.fdel)}}
         target = raw.__func__ if form in ("staticmethod", "classmethod") else raw
         description = {"found": True, "form": form, "signature": self.signature(target),
                        "doc": getattr(target, "__doc__", None), "inherited_doc": _inherited_doc(target),
@@ -181,6 +192,11 @@ class Describer:
             if init is not None and init is not object.__init__:
                 description["init_doc"] = init.__doc__
                 description["init_inherited_doc"] = _inherited_doc(init)
+                if form != "native":
+                    description["init_signature"] = self.signature(init)
+            properties = _artist_properties(target)
+            if properties is not None:
+                description["properties"] = properties
         if form == "native":
             self._read_pybind11(description, getattr(target, "__name__", ""), init is not None)
         return description
@@ -198,6 +214,23 @@ class Describer:
         description[field] = rest
         if description["signature"] is None:
             description["signature"] = params[1:] if is_class else params
+
+
+def _artist_properties(cls: type) -> dict[str, Any] | None:
+    """What ``ArtistInspector`` reads of the class *cls*, None for a class
+    that is no `.Artist` (see the module documentation)."""
+    from matplotlib import artist
+    if not issubclass(cls, artist.Artist):
+        return None
+    try:
+        inspector = artist.ArtistInspector(cls)
+        setters = inspector.get_setters()
+        return {"setters": setters,
+                "aliases": {name: sorted(aliases) for name, aliases in inspector.get_aliases().items()},
+                "valid_values": {name: inspector.get_valid_values(name) for name in setters},
+                "pprint_setters": inspector.pprint_setters()}
+    except Exception as err:  # noqa: BLE001 - a failing inspection is described, not raised
+        return {"error": f"{type(err).__name__}: {err}"}
 
 
 def _inherited_doc(obj: Any) -> str | None:
@@ -286,14 +319,19 @@ class NameDescriber:
 
     def __init__(self, implementation: Implementation) -> None:
         self.implementation = implementation
+        self._data: str | None = None
 
     def value(self, obj: Any) -> str | None:
         """What a value is compared by beside its type: a module's name,
-        else its repr for a hashable value with a repr of its own."""
+        else its repr for a hashable value with a repr of its own: a path
+        into the implementation's data directory (``get_data_path()``)
+        relative to it, and an unnamed thread without its number."""
         if isinstance(obj, types.ModuleType):
             return obj.__name__
         if inspect.isclass(obj) or inspect.isroutine(obj) or type(obj).__repr__ is object.__repr__:
             return None
+        if isinstance(obj, str) and obj.startswith(self._data_path()):
+            obj = "<data path>" + obj.removeprefix(self._data_path())
         try:
             hash(obj)
             text = repr(obj)
@@ -301,7 +339,14 @@ class NameDescriber:
             return None
         if ADDRESS.search(text) or len(text) > LONGEST_REPR:
             return None
-        return text
+        return THREAD_NUMBER.sub("Thread-N", text)
+
+    def _data_path(self) -> str:
+        """The implementation's data directory (``mpl-data``)."""
+        if self._data is None:
+            module = self.implementation.module("matplotlib")
+            self._data = module.get_data_path() if module is not None else "\0"
+        return self._data
 
     def describe(self, module_name: str, names: list[str]) -> dict[str, Any] | None:
         """The names *names* of the module *module_name*, None without the
@@ -360,10 +405,12 @@ def lookup(implementation: Implementation, record: dict[str, Any],
     """Whether the implementation has the record's callable, and what its
     owner holds."""
     if record["owner"]:
-        # A member of a private base is read off its public user, as
-        # programs read it (pltrs's private classes are its own).
-        user = private_users.get(record["owner"], (record["module"], record["owner"]))
-        owner = implementation.owner(*user)
+        # A member of a private base, or of a class nested in one, is read
+        # off its public user, as programs read it (pltrs's private classes
+        # are its own).
+        base, dot, nested = record["owner"].partition(".")
+        module, user = private_users.get(base, (record["module"], base))
+        owner = implementation.owner(module, user + dot + nested)
         if owner is None:
             return False, None
         try:

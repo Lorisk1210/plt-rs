@@ -112,8 +112,16 @@ def check_constrained(fig, params):
     grid), raising its errors.
     """
     width, height = fig.get_size_inches()
-    w_pad = params['w_pad'] / width
-    h_pad = params['h_pad'] / height
+    check_constrained_layout(fig, params['w_pad'] / width, params['h_pad'] / height, params)
+
+
+def check_constrained_layout(fig, w_pad, h_pad, params):
+    """
+    Compute with the parameters of constrained layout laying *fig* out as
+    matplotlib's ``do_constrained_layout`` does, the pads *w_pad* and
+    *h_pad* in fractions of the figure, the spaces and the rectangle those
+    of *params*, raising its errors.
+    """
     rect = params['rect']
     # The constraints of the figure's layout grid (`parent_constraints`).
     rect[0], rect[0] + rect[2], rect[1] + rect[3], rect[1]

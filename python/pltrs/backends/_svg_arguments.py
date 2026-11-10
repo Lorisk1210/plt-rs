@@ -23,9 +23,10 @@ def short_float(x):
     f'{x:f}'  # noqa: B018
 
 
+# The arguments of `.RendererSVG`'s drawing methods, used as matplotlib's
+# renderer uses them. No docstring: `RendererSVG` shows `.RendererBase`'s, as
+# matplotlib's does.
 class SvgArgumentsMixin:
-    """The arguments of `.RendererSVG`'s drawing methods, used as
-    matplotlib's renderer uses them."""
 
     def _flipped(self, transform):
         """*transform* flipped to SVG's downward y (``_make_flip_transform``)."""

@@ -52,9 +52,10 @@ def _color_written(rgb):
     return rgb[:1] if rgb[0] == rgb[1] == rgb[2] else rgb[:3]
 
 
+# The arguments of `.RendererPdf`'s drawing methods, used as matplotlib's
+# renderer uses them. No docstring: `RendererPdf` shows `.RendererBase`'s, as
+# matplotlib's does.
 class PdfArgumentsMixin:
-    """The arguments of `.RendererPdf`'s drawing methods, used as
-    matplotlib's renderer uses them."""
 
     def _prepare_gc(self, gc, fillcolor=None):
         """What matplotlib's ``check_gc`` does with *gc* and *fillcolor*

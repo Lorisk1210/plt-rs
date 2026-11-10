@@ -3,6 +3,7 @@
 //! `align_*` methods, `get_tightbbox` and the placement of the figure's
 //! title and labels), by `pltrs::layout` and `pltrs::figure`.
 
+use pltrs::artist::RawHandle;
 use pltrs::axes::{Axes, AxisName, TickLevel};
 use pltrs::figure::Figure;
 use pltrs::gridspec::GridSpec;
@@ -101,6 +102,48 @@ fn grid_tight_layout(
     rect: Rect,
 ) -> PyResult<Option<String>> {
     outcome(grid.tight_layout(&figure, params(pad, h_pad, w_pad, rect)))
+}
+
+/// matplotlib's subplot parameters (`subplots_adjust`'s keywords) as
+/// tight layout fits them, in matplotlib's order.
+type FittedParams = Vec<(&'static str, f64)>;
+
+/// The subplot parameters tight layout fits to the decorations of the
+/// grid-placed `axes` of `figure`, the figure left as it is
+/// (`get_tight_layout_figure`): `(params, warning)`, the parameters none
+/// without axes on a grid, `None` with the warning matplotlib issues when
+/// they cannot be fitted, none with the one for grids that cannot be
+/// combined.
+fn tight_layout_params(
+    figure: Figure,
+    axes: Vec<RawHandle>,
+    pad: f64,
+    h_pad: Option<f64>,
+    w_pad: Option<f64>,
+    rect: Rect,
+) -> PyResult<(Option<FittedParams>, Option<String>)> {
+    let ids: Vec<_> = axes.iter().map(RawHandle::id).collect();
+    match figure.tight_layout_params(&ids, &params(pad, h_pad, w_pad, rect)) {
+        Ok(fitted) => {
+            let fitted = fitted.unwrap_or_default();
+            let named = [
+                ("left", fitted.left),
+                ("right", fitted.right),
+                ("bottom", fitted.bottom),
+                ("top", fitted.top),
+                ("wspace", fitted.wspace),
+                ("hspace", fitted.hspace),
+            ];
+            let set = named
+                .into_iter()
+                .filter_map(|(name, value)| Some((name, value?)));
+            Ok((Some(set.collect()), None))
+        }
+        Err(err @ (TightLayoutError::IncompatibleRows | TightLayoutError::IncompatibleColumns)) => {
+            Ok((Some(Vec::new()), Some(err.to_string())))
+        }
+        Err(err) => Ok((None, outcome::<()>(Err(err))?)),
+    }
 }
 
 /// Aligns the x labels, y labels or titles (`which`: "x", "y" or
@@ -213,6 +256,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::artist::set_draws_stop_at_first_problem(true);
     module.add("tight_layout", tight_layout)?;
     module.add("grid_tight_layout", grid_tight_layout)?;
+    module.add("tight_layout_params", tight_layout_params)?;
     module.add("align", align)?;
     module.add("super_texts", super_texts)?;
     module.add("place_super_text", place_super_text)?;

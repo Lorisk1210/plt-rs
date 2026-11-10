@@ -2971,6 +2971,11 @@ class _Quaternion:
         return elev, azim, roll
 
 
+# What matplotlib's `Axes3D` inherits, which pltrs' class defines to reach
+# the 3-D axes pltrs (Rust) draws.
+cbook._inherited_methods(Axes3D, Axes, ["set_subplotspec"])
+
+
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 import itertools  # noqa: E402, F401

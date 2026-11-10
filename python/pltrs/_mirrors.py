@@ -223,7 +223,7 @@ def mirrorable(cls):
     for name in getattr(cls, "_refreshed_getters", ()):
         _replace(cls, name, _refreshing(getattr(cls, name)))
     questions = {"get_window_extent": "window_extent", "get_tightbbox": "tight_box",
-                 "get_figure": "figure", "get_transform": "transform",
+                 "_get_figure": "figure", "get_transform": "transform",
                  "is_transform_set": "transform_set", "contains": "contains",
                  "contains_point": "contains_point", "get_path": "path"}
     for name, question in questions.items():

@@ -3,9 +3,103 @@ Provides classes to style the axis lines (matplotlib's
 ``mpl_toolkits.axisartist.axisline_style``, from matplotlib 3.11.2, under
 the Matplotlib License): a style describes the arrow head pltrs (Rust)
 draws at the end of an axis line (``AxisArtist.set_axisline_style``).
+Called, a style makes the arrow as an artist of its own, as matplotlib's
+does (``new_line``): a `.FancyArrowPatch` along the line, which pltrs (Rust)
+draws.
 """
 
+import math
+
+import numpy as np
+
+import pltrs as mpl
+from pltrs import _python_drawing
 from pltrs._patch_styles import _Style
+from pltrs.patches import FancyArrowPatch
+from pltrs.path import Path
+from pltrs.transforms import IdentityTransform
+
+
+class _FancyAxislineStyle:
+    class SimpleArrow(FancyArrowPatch):
+        """The artist class that will be returned for SimpleArrow style."""
+        _ARROW_STYLE = "->"
+
+        def __init__(self, axis_artist, line_path, transform,
+                     line_mutation_scale):
+            self._axis_artist = axis_artist
+            self._line_transform = transform
+            self._line_path = line_path
+            self._line_mutation_scale = line_mutation_scale
+
+            FancyArrowPatch.__init__(self,
+                                     path=self._line_path,
+                                     arrowstyle=self._ARROW_STYLE,
+                                     patchA=None,
+                                     patchB=None,
+                                     shrinkA=0.,
+                                     shrinkB=0.,
+                                     mutation_scale=line_mutation_scale,
+                                     mutation_aspect=None,
+                                     transform=IdentityTransform(),
+                                     )
+            # (pltrs: its draw and its extent extend the line where the
+            # figure is drawn, which pltrs (Rust) calls them for.)
+            _python_drawing.draw_through_python(self, measures=True)
+
+        def set_line_mutation_scale(self, scale):
+            self.set_mutation_scale(scale*self._line_mutation_scale)
+
+        def _extend_path(self, path, mutation_size=10):
+            """
+            Extend the path to make a room for drawing arrow.
+            """
+            (x0, y0), (x1, y1) = path.vertices[-2:]
+            theta = math.atan2(y1 - y0, x1 - x0)
+            x2 = x1 + math.cos(theta) * mutation_size
+            y2 = y1 + math.sin(theta) * mutation_size
+            if path.codes is None:
+                return Path(np.concatenate([path.vertices, [[x2, y2]]]))
+            else:
+                return Path(np.concatenate([path.vertices, [[x2, y2]]]),
+                            np.concatenate([path.codes, [Path.LINETO]]))
+
+        def set_path(self, path):
+            self._line_path = path
+
+        def draw(self, renderer):
+            """
+            Draw the axis line.
+             1) Transform the path to the display coordinate.
+             2) Extend the path to make a room for arrow.
+             3) Update the path of the FancyArrowPatch.
+             4) Draw.
+            """
+            path_in_disp = self._line_transform.transform_path(self._line_path)
+            mutation_size = self.get_mutation_scale()  # line_mutation_scale()
+            extended_path = self._extend_path(path_in_disp,
+                                              mutation_size=mutation_size)
+            self._path_original = extended_path
+            FancyArrowPatch.draw(self, renderer)
+
+        def get_window_extent(self, renderer=None):
+
+            path_in_disp = self._line_transform.transform_path(self._line_path)
+            mutation_size = self.get_mutation_scale()  # line_mutation_scale()
+            extended_path = self._extend_path(path_in_disp,
+                                              mutation_size=mutation_size)
+            self._path_original = extended_path
+            return FancyArrowPatch.get_window_extent(self, renderer)
+
+    class FilledArrow(SimpleArrow):
+        """The artist class that will be returned for FilledArrow style."""
+        _ARROW_STYLE = "-|>"
+
+        def __init__(self, axis_artist, line_path, transform,
+                     line_mutation_scale, facecolor):
+            super().__init__(axis_artist, line_path, transform,
+                             line_mutation_scale)
+            self.set_facecolor(facecolor)
 
 
 class AxislineStyle(_Style):
@@ -38,6 +132,19 @@ class AxislineStyle(_Style):
         # w/o arguments, i.e., all its argument (except self) must have
         # the default values.
 
+        def __init__(self):
+            """
+            initialization.
+            """
+            super().__init__()
+
+        def __call__(self, axis_artist, transform):
+            """
+            Given the AxisArtist instance, and transform for the path (set_path
+            method), return the Matplotlib artist for drawing the axis line.
+            """
+            return self.new_line(axis_artist, transform)
+
         def _native_text(self):
             """The style as pltrs (Rust) reads it (``"->,size=1.5"``)."""
             return self._name + "".join(
@@ -51,6 +158,8 @@ class AxislineStyle(_Style):
 
         _name = "->"
 
+        ArrowAxisClass = _FancyAxislineStyle.SimpleArrow
+
         def __init__(self, size=1):
             """
             Parameters
@@ -61,6 +170,13 @@ class AxislineStyle(_Style):
 
             self.size = size
             super().__init__()
+
+        def new_line(self, axis_artist, transform):
+
+            linepath = Path([(0, 0), (0, 1)])
+            axisline = self.ArrowAxisClass(axis_artist, linepath, transform,
+                                           line_mutation_scale=self.size)
+            return axisline
 
         def _attributes(self):
             return {"size": self.size}
@@ -73,6 +189,8 @@ class AxislineStyle(_Style):
         """
 
         _name = "-|>"
+
+        ArrowAxisClass = _FancyAxislineStyle.FilledArrow
 
         def __init__(self, size=1, facecolor=None):
             """
@@ -90,17 +208,18 @@ class AxislineStyle(_Style):
             self._facecolor = facecolor
             super().__init__(size=size)
 
+        def new_line(self, axis_artist, transform):
+            linepath = Path([(0, 0), (0, 1)])
+            # (pltrs keeps the face colour as given, which pltrs (Rust)
+            # resolves where it draws the axis line; matplotlib's takes
+            # axes.edgecolor for None when the style is made.)
+            axisline = self.ArrowAxisClass(
+                axis_artist, linepath, transform,
+                line_mutation_scale=self.size,
+                facecolor=mpl._val_or_rc(self._facecolor, 'axes.edgecolor'))
+            return axisline
+
         def _attributes(self):
             return {"size": self.size, "facecolor": self._facecolor}
 
     _style_list["-|>"] = FilledArrow
-
-
-# What matplotlib's module also has from its imports, which programs
-# import from it.
-import math  # noqa: E402, F401
-import numpy as np  # noqa: E402, F401
-import pltrs as mpl  # noqa: E402, F401
-from pltrs.patches import FancyArrowPatch  # noqa: E402, F401
-from pltrs.path import Path  # noqa: E402, F401
-from pltrs.transforms import IdentityTransform  # noqa: E402, F401

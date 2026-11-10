@@ -244,7 +244,7 @@ substring of 'BRTL'
             return self._table.figure
         return self._table._home_figure(root=False)
 
-    def get_figure(self, root=False):
+    def _get_figure(self, root):
         """Return the `.Figure` or `.SubFigure` the cell's table is on."""
         figure = self._parent_figure
         if figure is None or not root:
@@ -506,7 +506,7 @@ def _refuse_cast(value):
 
 
 # The methods matplotlib's cell inherits.
-cbook._inherited_methods(Cell, Artist, ["get_figure", "is_transform_set", "set_agg_filter",
+cbook._inherited_methods(Cell, Artist, ["is_transform_set", "set_agg_filter",
                                         "set_sketch_params", "set_snap"])
 cbook._inherited_methods(Cell, Patch, ["set_hatch_linewidth"])
 cbook._inherited_methods(Cell, Patch, ["get_data_transform", "get_transform"])

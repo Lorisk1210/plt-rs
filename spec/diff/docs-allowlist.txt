@@ -1,0 +1,16 @@
+# Differences of pltrs (Python)'s signatures, docstrings and names from
+# matplotlib's that are intended, each with the reason it is:
+# `<key regex> | <cause regex> | why`. `cargo xtask diff --docs`
+# (`spec/diff/docs.py`) matches the key (`module:Owner.name`, or
+# `module:name` for a module-level name) and the cause as the report heads
+# its group (`doc: docstring differs`, `names: missing`), lists the matches
+# as intended, and `--strict` does not count them. Anything else is a
+# difference to fix.
+
+# pltrs does not depend on fontTools, which matplotlib requires: the pltrs
+# venv has no fontTools, so the names cannot be read there. Where fontTools
+# is installed, both modules give it on first read (`_lazy_imports.getter`);
+# with a copy of fontTools on the path, `backend_ps.fontTools` and
+# `dviread.fontTools.agl` are the package's modules (python/tests/test_docs4.py
+# checks the getter with a stand-in package).
+^matplotlib\.(backends\.backend_ps|dviread):fontTools$ | ^names: missing$ | fontTools is not installed in the pltrs venv (pltrs does not require it); both modules import it when first read where it is installed

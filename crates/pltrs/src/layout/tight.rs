@@ -17,7 +17,7 @@ use pltrs_core::Bbox;
 use crate::artist::{ArtistHandle, ArtistId};
 use crate::axes::AxesState;
 use crate::figure::{Figure, FigureState};
-use crate::gridspec::{GridSpec, GridSpecError, SubplotParams, SubplotSpec};
+use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotParams, SubplotSpec};
 use crate::layout::{LayoutEngine, LayoutEngineError};
 use crate::text::TextDrawError;
 
@@ -208,6 +208,55 @@ impl Figure {
             state.tight_layout_pass(frame, &axes, &params)
         })?;
         Ok(self)
+    }
+}
+
+impl Figure {
+    /// The subplot parameters tight layout fits to the decorations of the
+    /// grid-placed axes among `axes` (matplotlib's
+    /// `get_tight_layout_figure`), leaving the figure as it is: the
+    /// margins, and the spacings of a grid of more than one column or row;
+    /// `None` when none of `axes` is on a grid (or the program's code
+    /// failed measuring them). Axes off grids are left out without a
+    /// warning: the caller knows which it gave.
+    ///
+    /// # Errors
+    ///
+    /// When the decorations cannot fit or the grids cannot be combined
+    /// (matplotlib warns), or a text cannot be measured.
+    ///
+    /// ```
+    /// use pltrs::layout::TightLayout;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_ylabel("y");
+    /// let before = fig.subplot_params();
+    /// let params = fig.tight_layout_params(&[ax.id()], &TightLayout::default())?;
+    /// // The margins; no spacing for a single cell.
+    /// assert!(params.is_some_and(|p| p.left.is_some() && p.wspace.is_none()));
+    /// assert_eq!(fig.subplot_params(), before, "the figure is left as it is");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn tight_layout_params(
+        &self,
+        axes: &[ArtistId],
+        params: &TightLayout,
+    ) -> Result<Option<SubplotOverrides>, TightLayoutError> {
+        let frame = self.raw().id();
+        // The axes of classes of the program's measuring themselves.
+        self.root_handle().measure_painters_for_layout();
+        self.raw().figure_state().work_on(|state| {
+            let Some(subplot_params) = state.subplot_params_of(frame) else {
+                return Ok(None);
+            };
+            let measured =
+                crate::text::measuring(|| Measured::new(state, axes, &subplot_params, None))??;
+            if super::failures::failed() {
+                return Ok(None);
+            }
+            adjusted_params(state, &measured, params)
+        })
     }
 }
 
@@ -470,6 +519,44 @@ mod tests {
                 "This figure includes Axes that are not compatible with tight_layout, so \
               results might be incorrect."
             ]
+        );
+    }
+
+    #[test]
+    fn the_parameters_alone_leave_the_figure_alone() {
+        let fig = Figure::new();
+        let grid = GridSpec::new(1, 2).unwrap();
+        let axes: Vec<_> = (0..2)
+            .map(|col| fig.add_subplot_spec(&grid.cell(0, col).unwrap()).unwrap())
+            .collect();
+        for ax in &axes {
+            ax.set_xlim(0.0, 1.0)
+                .and_then(|ax| ax.set_ylim(0.0, 1.0))
+                .expect("finite limits");
+            ax.set_ylabel("y");
+        }
+        let ids: Vec<_> = axes.iter().map(ArtistHandle::id).collect();
+        let before = fig.subplot_params();
+        let fitted = fig
+            .tight_layout_params(&ids, &TightLayout::default())
+            .unwrap()
+            .expect("axes on a grid");
+        assert_eq!(fig.subplot_params(), before);
+        assert!(fitted.left.is_some_and(|left| left < before.left));
+        assert!(fitted.wspace.is_some(), "two columns");
+        assert_eq!(fitted.hspace, None, "one row");
+        fig.tight_layout(TightLayout::default()).unwrap();
+        let applied = fig.subplot_params();
+        assert_eq!(
+            (Some(applied.left), Some(applied.wspace)),
+            (fitted.left, fitted.wspace)
+        );
+        let free = fig
+            .add_axes([0.1, 0.1, 0.2, 0.2])
+            .expect("a valid rectangle");
+        assert_eq!(
+            fig.tight_layout_params(&[free.id()], &TightLayout::default()),
+            Ok(None)
         );
     }
 

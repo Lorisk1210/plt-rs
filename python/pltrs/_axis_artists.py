@@ -288,11 +288,11 @@ class Tick(Artist):
         """The `.Axis` the tick belongs to, None for one made alone."""
         return self.__dict__.get("_axis")
 
-    def get_figure(self, root=False):
+    def _get_figure(self, root):
         """Return the figure of the tick's Axes, which matplotlib's ticks
         join when they are made."""
         axes = self.axes
-        return super().get_figure(root) if axes is None else axes.get_figure(root=root)
+        return super()._get_figure(root) if axes is None else axes.get_figure(root=root)
 
     def _sync(self):
         """Fill the parts of a tick of an axis from the axis."""

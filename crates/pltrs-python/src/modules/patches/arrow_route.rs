@@ -7,7 +7,7 @@ use pltrs::artist::{RawHandle, TypedHandle};
 use pltrs::patches::{ArrowRoute, ConnectionPatch, FancyArrowPatch, Patch};
 use pltrs_core::Point;
 
-use super::super::path::{PathArrays, path_arrays};
+use super::super::path::{PathArrays, PyPath, path_arrays};
 use crate::binding::prelude::*;
 
 /// The ends of an arrow between two points.
@@ -43,6 +43,13 @@ fn set_arrow_positions(
     Ok(())
 }
 
+/// Runs the arrow `patch` along `path` (matplotlib's `_path_original`,
+/// which the arrows of axis lines set where they draw).
+fn set_arrow_path(patch: Patch<FancyArrowPatch>, path: PyPath) -> PyResult<()> {
+    patch.update_shape(|shape| shape.route = ArrowRoute::Along(path.path));
+    Ok(())
+}
+
 /// Clips the start of the arrow `patch` (a `FancyArrowPatch` or a
 /// `ConnectionPatch`) to the outline of the artist `a` and its end to that
 /// of `b` (matplotlib's `patchA` and `patchB`), each as drawn in the
@@ -73,5 +80,6 @@ fn set_arrow_patches(
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("arrow_route", arrow_route)?;
     module.add("set_arrow_positions", set_arrow_positions)?;
+    module.add("set_arrow_path", set_arrow_path)?;
     module.add("set_arrow_patches", set_arrow_patches)
 }

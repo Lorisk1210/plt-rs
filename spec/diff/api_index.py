@@ -41,9 +41,11 @@ PARAMETER_KINDS = ("function", "class", "method", "classmethod", "staticmethod")
 KEYWORD_KINDS = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
 
 
-def enumerate_api(python: str) -> list[dict[str, Any]]:
-    """``enumerate.py``'s records, run under ``python`` (the reference venv)."""
-    done = subprocess.run([python, "-I", str(ENUMERATE)], capture_output=True, text=True, check=True)
+def enumerate_api(python: str, nested: bool = False) -> list[dict[str, Any]]:
+    """``enumerate.py``'s records, run under ``python`` (the reference venv);
+    with *nested*, the members of nested classes too."""
+    done = subprocess.run([python, "-I", str(ENUMERATE), *(["--nested"] if nested else [])],
+                          capture_output=True, text=True, check=True)
     return [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
 
 

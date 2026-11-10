@@ -3826,7 +3826,7 @@ class ShowBase(_Backend):
 # import from it.
 import io  # noqa: E402, F401
 from contextlib import ExitStack  # noqa: E402, F401
-from . import is_interactive, text, widgets  # noqa: E402, F401
+from . import _tight_bbox, is_interactive, text, widgets  # noqa: E402, F401
 from .layout_engine import ConstrainedLayoutEngine  # noqa: E402, F401
 from .texmanager import TexManager  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

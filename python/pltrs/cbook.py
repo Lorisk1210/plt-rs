@@ -1934,8 +1934,12 @@ def _inherited_methods(cls, base, names):
     its native parts, the methods of *base* that matplotlib's *cls*
     inherits: their ``__qualname__`` (which the errors calling them raise
     name), ``__module__`` and docstring are *base*'s, for the functions
-    they wrap too and for the accessors of properties.
+    they wrap too and for the accessors of properties. The docstring of the
+    class' ``set`` reads them as inherited too.
     """
+    definition = vars(cls).get("_definition")
+    if definition is not None:
+        definition.inherit(names)
     for name in names:
         member = vars(cls)[name]
         inherited = getattr(base, name)

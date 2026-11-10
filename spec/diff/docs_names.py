@@ -48,11 +48,14 @@ class NameComparison:
     """The public names of matplotlib's modules under both implementations,
     compared."""
 
-    def __init__(self, mpl: dict[str, Any], ours: dict[str, Any], patterns: list[str]) -> None:
+    def __init__(self, mpl: dict[str, Any], ours: dict[str, Any], patterns: list[str],
+                 allowlist: Any) -> None:
         #: module -> name -> whether it matches
         self.outcomes: dict[str, dict[str, bool]] = {}
         #: cause -> [(key, detail)]
         self.differences: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        #: The intended differences (*allowlist*'s): [(key, "names: cause", why)]
+        self.allowed: list[tuple[str, str, str]] = []
         #: The modules pltrs lacks.
         self.missing_modules: list[str] = []
         for module, names in mpl.items():
@@ -66,7 +69,12 @@ class NameComparison:
                 difference = (("module missing in pltrs", "") if mine is None
                               else _difference(theirs, mine.get(name)))
                 self.outcomes.setdefault(module, {})[name] = difference is None
-                if difference is not None:
+                if difference is None:
+                    continue
+                why = allowlist.reason(key, f"names: {difference[0]}")
+                if why is not None:
+                    self.allowed.append((key, f"names: {difference[0]}", why))
+                else:
                     self.differences[difference[0]].append((key, difference[1]))
 
     def share(self, modules: list[str] | None = None) -> str:
@@ -78,7 +86,7 @@ class NameComparison:
         return f"{sum(outcomes)}/{len(outcomes)} ({100 * sum(outcomes) / len(outcomes):.1f}%)"
 
     def count(self) -> int:
-        """The differences."""
+        """The differences, but the intended ones."""
         return sum(map(len, self.differences.values()))
 
     def summary_line(self) -> str:
@@ -113,4 +121,5 @@ class NameComparison:
         """Every name's outcome and every difference."""
         return {"outcomes": self.outcomes,
                 "differences": [{"cause": cause, "key": key, "detail": detail}
-                                for cause, items in self.differences.items() for key, detail in items]}
+                                for cause, items in self.differences.items() for key, detail in items],
+                "allowed": [{"key": key, "cause": cause, "why": why} for key, cause, why in self.allowed]}

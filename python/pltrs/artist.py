@@ -168,18 +168,6 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         for callback in waiting:
             callback()
 
-    @property
-    def figure(self):
-        """The (Sub)Figure that the artist is on.  For more control, use the `get_figure` method."""
-        return self.get_figure(root=False)
-
-    @figure.setter
-    def figure(self, fig):
-        # matplotlib's property is made of `Artist.set_figure` itself: a
-        # subclass' override (an Axes' making its transforms anew) is not
-        # called.
-        Artist.set_figure(self, fig)
-
     def set_figure(self, fig):
         """
         Set the `.Figure` or `.SubFigure` instance the artist belongs to.
@@ -223,6 +211,12 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             If False, return the (Sub)Figure this artist is on.  If True,
             return the root Figure for a nested tree of SubFigures.
         """
+        return self._get_figure(root)
+
+    def _get_figure(self, root):
+        """What `get_figure` returns. Artists that find their figure
+        elsewhere override this rather than `get_figure`, so that the
+        `figure` property, made of `get_figure` itself, reads it too."""
         if self.__dict__.get("_no_figure") or self.__dict__.get("_decoupled"):
             # In its figure without belonging to it, as matplotlib's
             # artists without a figure that an aux-transform box holds, and
@@ -231,6 +225,13 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             listed_in = self.__dict__.get("_listed_in")
             return None if listed_in is None else listed_in.get_figure(root=root)
         return self._home_figure(root)
+
+    # As matplotlib's, made of `Artist.get_figure` and `Artist.set_figure`
+    # themselves: a subclass' `set_figure` (an Axes' making its transforms
+    # anew) is not called.
+    figure = property(get_figure, set_figure,
+                      doc=("The (Sub)Figure that the artist is on.  For more "
+                           "control, use the `get_figure` method."))
 
     def _home_figure(self, root=False):
         """The (sub)figure pltrs (Rust) keeps the artist in, the root with

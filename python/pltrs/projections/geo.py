@@ -12,7 +12,7 @@ from numbers import Real
 
 import numpy as np
 
-from .. import _api
+from .. import _api, _qualnames
 from .._native import transforms as _transforms
 from .._transform_trees import TreeAttribute, set_matrix
 from ..axes import Axes
@@ -66,13 +66,13 @@ class _GeoTransform(Transform):
         return inverse
 
 
-class _LambertCentred:
-    """
-    A Lambert transform's centre, kept as given (matplotlib's
-    ``_center_longitude`` and ``_center_latitude``): a centre that is no
-    number fails where matplotlib's transform first computes with it, the
-    longitude subtracted (added by the inverse) after the latitude's sine.
-    """
+# A Lambert transform's centre, kept as given (matplotlib's
+# ``_center_longitude`` and ``_center_latitude``): a centre that is no number
+# fails where matplotlib's transform first computes with it, the longitude
+# subtracted (added by the inverse) after the latitude's sine. No docstring:
+# the inverse transform shows `.Transform`'s, as matplotlib's does; a
+# `_GeoTransform`, so that its constructor shows `_GeoTransform`'s.
+class _LambertCentred(_GeoTransform):
 
     _center_longitude = _center_latitude = 0.0
 
@@ -107,6 +107,9 @@ def _transform_pair(projection, forward_doc):
     def make(name, attributes):
         cls = type(name, (_GeoTransform,), attributes)
         cls.__qualname__ = f"{axes}.{name}"
+        # Methods of its own, as each of matplotlib's transforms defines.
+        for method in ("transform_non_affine", "inverted"):
+            _qualnames.own_method(cls, method, getattr(_GeoTransform, method))
         return cls
 
     forward = make(f"{projection.capitalize()}Transform",
@@ -420,6 +423,13 @@ class LambertAxes(GeoAxes):
     def _get_core_transform(self, resolution):
         return self.LambertTransform(
             *_transforms.lambert_center(self._native), resolution)
+
+
+# Methods of their own, as matplotlib's Lambert transforms define them.
+for _transform in (LambertAxes.LambertTransform, LambertAxes.InvertedLambertTransform):
+    _qualnames.own_method(_transform, "transform_non_affine",
+                          _LambertCentred.transform_non_affine)
+del _transform
 
 
 # What matplotlib's module also has from its imports, which programs

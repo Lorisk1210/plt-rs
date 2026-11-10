@@ -1039,13 +1039,13 @@ class Legend(Artist):
     def axes(self, new_axes):
         Artist.axes.fset(self, new_axes)
 
-    def get_figure(self, root=False):
+    def _get_figure(self, root):
         # docstring inherited
         if "_native" not in self.__dict__:
             # Being made, by the handlers of its entries: on its parent's.
             figure = self.parent.get_figure(root=False) if self.isaxes else self.parent
             return figure.get_figure(root=True) if root else figure
-        return super().get_figure(root=root)
+        return super()._get_figure(root)
 
     def get_transform(self):
         # docstring inherited

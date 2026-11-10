@@ -323,7 +323,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             # Checked as matplotlib's `set_box_aspect` checks it.
             box_aspect = np.asarray(box_aspect, dtype=float)
             _api.check_shape((3,), aspect=box_aspect)
-        computed_zorder = bool(kwargs.pop('computed_zorder', True))
+        _made.computed_zorder = kwargs.pop('computed_zorder', True)
+        computed_zorder = bool(_made.computed_zorder)
         given_shares = (kwargs.pop('sharex', None), kwargs.pop('sharey', None),
                         kwargs.pop('sharez', None), kwargs.pop('shareview', None))
         _made.shareview = given_shares[3]
@@ -372,6 +373,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
                           for angle, default in zip(native, (30, -60, 0)))
         self.initial_elev, self.initial_azim, self.initial_roll = given
         _made.__dict__.pop('shareview', None)
+        # As given, as matplotlib keeps it.
+        self._computed_zorder = _made.__dict__.pop('computed_zorder', True)
         _values.remember_all(self, dict(zip(_VIEW_ANGLES, (
             self.initial_elev, self.initial_azim, self.initial_roll))), _VIEW_ANGLES)
         if kept:

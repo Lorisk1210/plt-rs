@@ -278,6 +278,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         # docstring inherited
         return _native_image.mapped_clim(self._native)
 
+    def _mapping_draws(self):
+        # docstring inherited: and the makes of the image (`make_image`),
+        # whose norm autoscales as a draw's.
+        return super()._mapping_draws() + self.__dict__.get("_makes", 0)
+
     @property
     def origin(self):
         """Where the [0, 0] index of the array is: 'upper' or 'lower'."""
@@ -654,6 +659,8 @@ def _native_made(image, magnification, unsampled, over=None):
                            "this method is called.")
     made = _native_image.make_image(image._native, float(magnification),
                                     bool(unsampled), over)
+    # Its norm maps the image as a draw's does (see `_mapping_draws`).
+    image._makes = image.__dict__.get("_makes", 0) + 1
     if made is None:
         return None
     pixels, x, y, matrix = made

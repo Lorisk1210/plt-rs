@@ -7,6 +7,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use pltrs_core::Bbox;
+use pltrs_core::numeric::np_sign;
 
 use super::{Compass, PolarFrame, PolarState, ThetaDirection};
 use crate::artist::ArtistHandle;
@@ -308,6 +309,15 @@ impl PolarAxes {
     pub fn rorigin(&self) -> f64 {
         let view = self.view();
         self.settings(|settings| settings.rorigin.unwrap_or(view.y0()))
+    }
+
+    /// The radial origin and sign the inverse of the data transform maps
+    /// radii with (matplotlib's `get_rorigin` and `get_rsign`), from the
+    /// view limits as they are.
+    pub(crate) fn radial_frame(&self) -> (f64, f64) {
+        let view = self.axes.raw().with::<AxesState, _>(|state| state.view_lim);
+        let origin = self.settings(|settings| settings.rorigin.unwrap_or(view.y0()));
+        (origin, np_sign(view.y1() - origin))
     }
 
     /// The radius set to be drawn at the centre, `None` when it follows

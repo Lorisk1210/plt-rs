@@ -10,21 +10,28 @@ A collection of offsets, none of them, draws nothing, so fails on none.
 
 import numpy as np
 
-from . import _pybind, _python_drawing
+from . import _lazy_imports, _pybind, _python_drawing
+
+_path_collection_call = _lazy_imports.module(globals(), "._path_collection_call")
 
 
 def _drawn_with(collection, kind):
     """Whether the renderer drawing *collection* now is a *kind* renderer
     (``"agg"``, ``"pdf"``, ``"ps"`` or ``"svg"``)."""
     from .backends import backend_agg, backend_pdf, backend_ps, backend_svg
-    from .backends.backend_mixed import MixedModeRenderer
     renderer_class = {"agg": backend_agg.RendererAgg, "pdf": backend_pdf.RendererPdf,
                       "ps": backend_ps.RendererPS, "svg": backend_svg.RendererSVG}[kind]
+    return isinstance(_drawing_renderer(collection), renderer_class)
+
+
+def _drawing_renderer(collection):
+    """The renderer drawing *collection* now: a mixed-mode renderer draws
+    with the vector or the raster renderer it holds."""
+    from .backends.backend_mixed import MixedModeRenderer
     renderer = _python_drawing.drawing_renderer(collection)
     if isinstance(renderer, MixedModeRenderer):
-        # It draws with the vector or the raster renderer it holds.
         renderer = renderer._renderer
-    return isinstance(renderer, renderer_class)
+    return renderer
 
 
 def _draws_nothing(collection):
@@ -37,13 +44,21 @@ def linewidths(collection, widths):
     """Fail as matplotlib's renderer drawing *collection* now fails on its
     line *widths*, given as text: Agg's casts the dash patterns scaled by
     them (``0 * '2'`` is ``''``) to no C++ value; widths no float reads it
-    refuses with pybind11's argument listing, for which numpy's error of
-    reading them stands. The other renderers set each item's width on
-    their graphics context (``float(w)``), which fails on those."""
+    refuses with pybind11's argument listing (see `._path_collection_call`),
+    or, drawn as markers, its graphics context with float's error. The
+    other renderers set each item's width on their graphics context
+    (``float(w)``), which fails on those."""
     if _draws_nothing(collection):
         return
     if _drawn_with(collection, "agg"):
-        np.asarray(widths, dtype=float)
+        try:
+            np.asarray(widths, dtype=float)
+        except (TypeError, ValueError):
+            refused = _path_collection_call.refused(collection,
+                                                    _drawing_renderer(collection))
+            if refused is None:
+                raise
+            raise refused from None
         raise _pybind.cast_error(())
     for width in widths:
         float(width)

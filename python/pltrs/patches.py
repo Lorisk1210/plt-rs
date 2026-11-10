@@ -2798,11 +2798,14 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         _unusable.check(self, measuring=True)
         return Path(*_patches.get_path(self._native))
 
-    @staticmethod
-    def _use_mutation_aspect(aspect):
+    def _use_mutation_aspect(self, aspect):
         """What matplotlib's box style computes first with the mutation
-        *aspect*: it squeezes the height, ``height / aspect``."""
-        return 1. / aspect
+        *aspect*: it squeezes the patch's y and height."""
+        return self._y / aspect, self._height / aspect
+
+    def _divides_by(self, aspect):
+        # Python numbers divided by a zero aspect raise ZeroDivisionError.
+        return aspect == 0
 
     def get_boxstyle(self):
         """Return the boxstyle object."""

@@ -114,9 +114,9 @@ impl std::error::Error for DrawErrors {}
 impl DrawErrors {
     /// The outcome `drawn` of drawing `figure` into `renderer` with, first,
     /// the memory the renderer was refused meanwhile (a canvas for
-    /// filtered artists, say: matplotlib's `MemoryError`); the
-    /// rasterizer's other refusals are dropped, as figure draws do not
-    /// report them.
+    /// filtered artists, say: matplotlib's `MemoryError`) and the paths
+    /// too large for Agg (matplotlib's `OverflowError`); the rasterizer's
+    /// other refusals are dropped, as figure draws do not report them.
     pub(crate) fn with_refused_memory(
         drawn: Result<(), Self>,
         renderer: &mut RasterRenderer,
@@ -125,11 +125,17 @@ impl DrawErrors {
         let mut errors: Vec<DrawError> = renderer
             .take_errors()
             .into_iter()
-            .filter(|err| matches!(err, RasterError::OutOfMemory(_)))
-            .map(|err| DrawError {
-                artist: figure,
-                message: err.to_string(),
-                kind: DrawErrorKind::OutOfMemory,
+            .filter_map(|err| {
+                let kind = match err {
+                    RasterError::OutOfMemory(_) => DrawErrorKind::OutOfMemory,
+                    RasterError::UnsplittablePath { .. } => DrawErrorKind::Overflow,
+                    _ => return None,
+                };
+                Some(DrawError {
+                    artist: figure,
+                    message: err.to_string(),
+                    kind,
+                })
             })
             .collect();
         if let Err(Self(others)) = drawn {

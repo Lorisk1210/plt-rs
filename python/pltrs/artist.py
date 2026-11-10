@@ -397,6 +397,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                 _unusable.drop(self, "zorder")
             else:
                 # Kept unchecked, as matplotlib keeps it until it sorts.
+                # The parent's draw fails sorting before it draws any of
+                # its children: pltrs (Rust) draws the artist, which fails
+                # as that sort does, first among them.
+                _artist.set_zorder(self._native, float("-inf"))
                 _values.keep(self, "zorder", level)
                 _unusable.keep(self, "zorder", level, self._sort_with_siblings,
                                measured=False)

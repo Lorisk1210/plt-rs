@@ -3,16 +3,18 @@
 //! segments are subdivided, and inside a polygon frame both are cut
 //! into straight pieces.
 
+use std::any::Any;
 use std::f64::consts::TAU;
+use std::rc::Rc;
 
 use pltrs_core::path::MAX_INTERPOLATED_VERTICES;
 use pltrs_core::{Path, PathCode, Point};
 
-use crate::transforms::PointMap;
+use crate::transforms::{PointMap, ResolvedTransform};
 
 /// Polar to Cartesian coordinates around the origin, applied after the
 /// radial scale and the angular shift (matplotlib's `PolarTransform`).
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct PolarMap {
     /// The scaled radius drawn at the centre.
     pub(super) scaled_origin: f64,
@@ -32,6 +34,25 @@ pltrs_core::archive_struct!(PolarMap {
     sign,
     polygon
 });
+
+/// `inverse`, a frozen inverse of a polar Axes' data transform, mapping
+/// radii with the radial `origin` and `sign` the Axes have now, as
+/// matplotlib's `InvertedPolarTransform`, which its frozen inverses keep
+/// live, reads them (`get_rorigin`, `get_rsign`) when it maps a point.
+pub(crate) fn with_radial_frame(
+    inverse: &ResolvedTransform,
+    origin: f64,
+    sign: f64,
+) -> ResolvedTransform {
+    inverse.with_inverted_planes(|map| {
+        let map = (map as &dyn Any).downcast_ref::<PolarMap>()?;
+        Some(Rc::new(PolarMap {
+            origin,
+            sign,
+            ..*map
+        }) as Rc<dyn PointMap>)
+    })
+}
 
 impl PolarMap {
     /// matplotlib's `PolarTransform()` without an axis: radii are drawn
@@ -204,6 +225,29 @@ impl PointMap for PolarMap {
             None => self.curved_path(path, steps),
         }
     }
+
+    /// matplotlib's `transform_path_non_affine` curves a path of more than
+    /// one interpolation step through its segments without NaN or
+    /// infinities (`iter_segments`), and refuses to make a path of none.
+    fn refused_path(&self, path: &Path) -> Option<&'static str> {
+        if path.is_empty() || path.interpolation_steps() <= 1 || self.polygon.is_some() {
+            return None;
+        }
+        let codes = path.resolved_codes();
+        let vertices = path.vertices();
+        let mut index = 0;
+        while index < vertices.len() {
+            let code = codes[index];
+            let segment = &vertices[index..(index + code.vertex_count()).min(vertices.len())];
+            if code != PathCode::ClosePoly
+                && segment.iter().all(|p| p.x.is_finite() && p.y.is_finite())
+            {
+                return None;
+            }
+            index += segment.len().max(1);
+        }
+        Some("'vertices' must be 2D with shape (N, 2), but your input has shape (0,)")
+    }
 }
 
 #[cfg(test)]
@@ -251,5 +295,22 @@ mod tests {
         }
         let one = Path::polyline(spiral[..2].to_vec()).with_interpolation_steps(5);
         assert_eq!(PolarMap::PLAIN.transform_path(&one).len(), 6);
+    }
+
+    #[test]
+    fn curves_of_no_finite_segment_are_refused() {
+        let line = |points: [(f64, f64); 2], steps: usize| {
+            let points = points.map(|(x, y)| Point::new(x, y)).to_vec();
+            Path::polyline(points).with_interpolation_steps(steps)
+        };
+        let refused = |path: &Path| PolarMap::PLAIN.refused_path(path);
+        assert!(refused(&line([(f64::NAN, 1.0), (1.0, f64::INFINITY)], 180)).is_some());
+        // One finite point is a segment; straight paths are mapped as they are.
+        assert_eq!(refused(&line([(f64::NAN, 1.0), (1.0, 2.0)], 180)), None);
+        assert_eq!(refused(&line([(f64::NAN, 1.0), (f64::NAN, 2.0)], 1)), None);
+        assert_eq!(
+            refused(&Path::polyline(Vec::new()).with_interpolation_steps(180)),
+            None
+        );
     }
 }

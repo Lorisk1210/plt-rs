@@ -92,10 +92,16 @@ class FancyStylesMixin:
         (``_use_mutation_aspect``, see `._unusable`).
         """
         self._given_mutation = (scale, 1 if aspect is None else aspect)
-        if aspect is None or isinstance(aspect, Real):
+        if aspect is None or isinstance(aspect, Real) and not self._divides_by(aspect):
             _unusable.drop(self, "mutation_aspect")
         else:
             _unusable.keep(self, "mutation_aspect", aspect, self._use_mutation_aspect)
+
+    def _divides_by(self, aspect):
+        """Whether matplotlib's mutation divides by *aspect*, a number, in
+        a way that may fail (a zero the patch then keeps, failing where the
+        division does): not for the arrows, which divide arrays."""
+        return False
 
     def _mutation(self, index):
         """The mutation scale (*index* 0) or aspect (1): as given while

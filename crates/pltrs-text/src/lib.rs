@@ -50,7 +50,7 @@ pub use block::{
 pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::{SET_CHAR_SIZE_LINE, TextError};
 pub use lookups::{FontLookup, LookupKind, LookupRun, take_font_lookups};
-pub use mathtext_log::take_mathtext_log;
+pub use mathtext_log::{log_mathtext, take_mathtext_log};
 pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{
     AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmMetrics, CatalogueReport, CatalogueState,

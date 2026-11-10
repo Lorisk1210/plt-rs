@@ -133,6 +133,14 @@ thread_local! {
     static CAPTURED: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
 }
 
+/// Whether the runtime warnings issued now are kept instead of issued
+/// (inside `capturing_runtime`): the work running stands for none of
+/// matplotlib's, so code of the program's it calls keeps the warnings it
+/// issues quiet too.
+pub fn capturing() -> bool {
+    CAPTURED.with_borrow(Option::is_some)
+}
+
 /// Runs `work`, keeping the runtime warnings it issues instead of issuing
 /// them: what `work` returns, and the warnings in order, for the caller
 /// to issue where numpy issues them (with the error the arithmetic that
@@ -190,6 +198,8 @@ mod tests {
         });
         assert_eq!(inner, ["inner"]);
         assert_eq!(outer, ["outer", "outer again"]);
+        assert!(!capturing());
+        assert!(capturing_runtime(capturing).0);
     }
 
     #[test]

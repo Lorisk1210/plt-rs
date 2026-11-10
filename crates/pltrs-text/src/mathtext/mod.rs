@@ -31,6 +31,7 @@ pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle, Pattern
 
 use crate::engine::{FormulaKey, TextEngine};
 use crate::error::TextError;
+use crate::mathtext_log;
 use crate::run::{TextRun, TextSource};
 
 /// Whether matplotlib treats `text` as math: it contains an even, non-zero
@@ -76,8 +77,11 @@ impl TextEngine {
     /// Typesets `source` (plain text with `$...$` math) without rounding.
     ///
     /// Malformed math yields [`TextError::Math`] with matplotlib's message.
+    /// The messages matplotlib's mathtext logs typesetting it are kept in
+    /// the layout's `logged`, for the caller to log where matplotlib's
+    /// parser parses the formula.
     pub fn typeset_math(&self, source: &str, style: &MathStyle) -> Result<MathLayout, TextError> {
-        self.parse_math(source, style, |root, fonts| {
+        let (layout, logged) = self.parse_math(source, style, |root, fonts| {
             let shipped = boxes::ship(root, fonts)?;
             Ok(MathLayout::new(
                 root.width,
@@ -86,11 +90,13 @@ impl TextEngine {
                 shipped,
                 style.dpi,
             ))
-        })
+        })?;
+        Ok(MathLayout { logged, ..layout })
     }
 
     /// The box tree `source` is typeset into, before it is shipped out
-    /// (matplotlib's `_mathtext.Parser().parse(s, fonts, fontsize, dpi)`).
+    /// (matplotlib's `_mathtext.Parser().parse(s, fonts, fontsize, dpi)`,
+    /// which logs what it logs typesetting every time).
     ///
     /// ```
     /// use pltrs_text::TextEngine;
@@ -101,27 +107,40 @@ impl TextEngine {
     /// # Ok::<(), pltrs_text::TextError>(())
     /// ```
     pub fn math_box_tree(&self, source: &str, style: &MathStyle) -> Result<MathNode, TextError> {
-        self.parse_math(source, style, |root, _| Ok(MathNode::from(root)))
+        let (tree, logged) = self.parse_math(source, style, |root, _| Ok(MathNode::from(root)))?;
+        crate::log_mathtext(&logged);
+        Ok(tree)
     }
 
     /// Parses `source` into its root list and hands it, with the fonts it
-    /// was typeset with, to `then`.
+    /// was typeset with, to `then`: what `then` gives, with the messages
+    /// matplotlib's mathtext logs typesetting it. A parse that fails logs
+    /// what it noted before failing, as matplotlib's does.
     fn parse_math<T>(
         &self,
         source: &str,
         style: &MathStyle,
         then: impl FnOnce(&boxes::List, &mut fonts::Fonts<'_>) -> Result<T, TextError>,
-    ) -> Result<T, TextError> {
-        let db = self.database();
-        let text_font = style.font.font(db)?;
-        let mut fonts = fonts::Fonts::new(db, style, text_font)?;
-        let root = parser::parse(
-            source,
-            &mut fonts,
-            style.font.query.size,
-            style.default.into(),
-        )?;
-        then(&root, &mut fonts)
+    ) -> Result<(T, Vec<String>), TextError> {
+        let (result, logged) = mathtext_log::collecting(|| {
+            let db = self.database();
+            let text_font = style.font.font(db)?;
+            let mut fonts = fonts::Fonts::new(db, style, text_font)?;
+            let root = parser::parse(
+                source,
+                &mut fonts,
+                style.font.query.size,
+                style.default.into(),
+            )?;
+            then(&root, &mut fonts)
+        });
+        match result {
+            Ok(value) => Ok((value, logged)),
+            Err(err) => {
+                crate::log_mathtext(&logged);
+                Err(err)
+            }
+        }
     }
 
     /// Lays out `source` as matplotlib's `MathTextParser("path").parse`
@@ -147,10 +166,12 @@ impl TextEngine {
                 style: style.clone(),
             },
             || {
-                let mut run = self.typeset_math(source, style)?.to_text_run();
+                let layout = self.typeset_math(source, style)?;
+                let mut run = layout.to_text_run();
                 run.source = Some(TextSource::Math {
                     text: source.to_owned(),
                     style: style.clone(),
+                    logged: layout.logged,
                 });
                 Ok(run)
             },

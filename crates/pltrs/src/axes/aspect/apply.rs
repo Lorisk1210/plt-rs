@@ -8,6 +8,7 @@ use super::{Adjustable, AspectError};
 use crate::artist::{Artist, ArtistId, DrawError, DrawErrorKind};
 use crate::axes::AxesState;
 use crate::figure::{FigureState, host_to_figure};
+use crate::numeric::numpy_arith::{add, divide, multiply, subtract};
 use crate::ticker::AxisName;
 use crate::transforms::TransformContext;
 
@@ -228,8 +229,7 @@ impl FigureState {
                 (Adjustable::Datalim, None) => located,
             };
             if let (Adjustable::Datalim, Some(ratio)) = (settings.adjustable, settings.ratio) {
-                let box_aspect = fig_aspect * scalar_divide(position.height(), position.width());
-                adjusted = self.adjust_datalim(axes, ratio, box_aspect);
+                adjusted = self.adjust_datalim(axes, ratio, fig_aspect, &position);
             }
             Some(position)
         } else {
@@ -266,24 +266,32 @@ impl FigureState {
     }
 
     /// The `adjustable='datalim'` half of `apply_aspect`: widens the x or
-    /// the y view interval about its centre to reach `box_aspect / ratio`,
-    /// as matplotlib computes it (NaN where a scale cannot map the view);
+    /// the y view interval about its centre to reach the aspect of the box
+    /// `position` (in a figure of aspect `fig_aspect`) over `ratio`, as
+    /// matplotlib computes it (NaN where a scale cannot map the view);
     /// fails, leaving the limits alone, when they would not be finite.
     fn adjust_datalim(
         &mut self,
         axes: ArtistId,
         ratio: f64,
-        box_aspect: f64,
+        fig_aspect: f64,
+        position: &Bbox,
     ) -> Result<(), AspectError> {
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return Ok(());
         };
+        let box_aspect = multiply(
+            fig_aspect,
+            scalar_divide(position.height(), position.width()),
+        );
+        // matplotlib computes with the numpy scalars its transforms give,
+        // which warn where the arithmetic meets infinities.
         let (xmin, xmax) = state.scaled_bound(AxisName::X);
         let (ymin, ymax) = state.scaled_bound(AxisName::Y);
-        let xsize = py_max((xmax - xmin).abs(), 1e-30);
-        let ysize = py_max((ymax - ymin).abs(), 1e-30);
-        let data_ratio = box_aspect / ratio;
-        let y_expander = data_ratio * xsize / ysize - 1.0;
+        let xsize = py_max(subtract(xmax, xmin).abs(), 1e-30);
+        let ysize = py_max(subtract(ymax, ymin).abs(), 1e-30);
+        let data_ratio = divide(box_aspect, ratio);
+        let y_expander = subtract(divide(multiply(data_ratio, xsize), ysize), 1.0);
         if y_expander.abs() < 0.005 {
             return Ok(());
         }
@@ -296,12 +304,14 @@ impl FigureState {
             state.yaxis.forward(limits.y0()),
             state.yaxis.forward(limits.y1()),
         );
-        let xr = 1.05 * (x1 - x0);
-        let yr = 1.05 * (y1 - y0);
-        let xmarg = xsize - xr;
-        let ymarg = ysize - yr;
-        let ysize_target = data_ratio * xsize;
-        let xsize_target = ysize / data_ratio;
+        let xr = multiply(1.05, subtract(x1, x0));
+        let yr = multiply(1.05, subtract(y1, y0));
+        let xmarg = subtract(xsize, xr);
+        let ymarg = subtract(ysize, yr);
+        let ysize_target = multiply(data_ratio, xsize);
+        let xsize_target = divide(ysize, data_ratio);
+        let xsize_margin = subtract(xsize_target, xr);
+        let ysize_margin = subtract(ysize_target, yr);
         let shared_x = self.siblings(AxisName::X, axes).len() > 1;
         let shared_y = self.siblings(AxisName::Y, axes).len() > 1;
         if shared_x && shared_y {
@@ -314,18 +324,21 @@ impl FigureState {
         }
         let adjust_y = !shared_y && {
             let adjy = if xmarg > 0.0 && ymarg > 0.0 {
-                (ysize_target - yr > 0.0 && y_expander < 0.0)
-                    || (xsize_target - xr < 0.0 && y_expander > 0.0)
+                (ysize_margin > 0.0 && y_expander < 0.0) || (xsize_margin < 0.0 && y_expander > 0.0)
             } else {
                 y_expander > 0.0
             };
             shared_x || adjy
         };
         let (name, centre, size) = if adjust_y {
-            (AxisName::Y, f64::midpoint(ymin, ymax), ysize_target)
+            (AxisName::Y, multiply(0.5, add(ymin, ymax)), ysize_target)
         } else {
-            (AxisName::X, f64::midpoint(xmin, xmax), xsize_target)
+            (AxisName::X, multiply(0.5, add(xmin, xmax)), xsize_target)
         };
+        let ends = [
+            subtract(centre, divide(size, 2.0)),
+            add(centre, divide(size, 2.0)),
+        ];
         let axis = state.axis(name);
         if !axis.autoscale.enabled {
             crate::warnings::log(
@@ -337,8 +350,11 @@ impl FigureState {
                 ),
             );
         }
+        if let Some(map) = axis.map() {
+            map.warn_inverting(&ends);
+        }
         let inverse = |v: f64| axis.map().map_or(v, |m| m.inverse(v));
-        let (low, high) = (inverse(centre - size / 2.0), inverse(centre + size / 2.0));
+        let (low, high) = (inverse(ends[0]), inverse(ends[1]));
         if !(low.is_finite() && high.is_finite()) {
             return Err(AspectError::NonFiniteLimits);
         }

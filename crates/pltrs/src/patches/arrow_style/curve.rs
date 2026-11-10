@@ -6,6 +6,7 @@ use pltrs_core::bezier::{get_cos_sin, get_normal_points};
 use pltrs_core::{Affine2D, Path, PathCode, Point};
 
 use super::StyledPath;
+use crate::numeric::numpy_arith;
 
 /// What an end of a curve arrow carries.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -131,6 +132,23 @@ impl CurveArrow {
             }
         }
         Path::polyline(vertices)
+    }
+
+    /// Issues the warnings numpy issues as matplotlib's `_Curve.transmute`
+    /// takes the direction of the heads, at `mutation_size`: their length
+    /// and width over their diagonal (numpy scalars), which are invalid
+    /// for heads of no size and of an infinite one. Arrows without heads
+    /// compute nothing.
+    pub(super) fn warn_transmuting(&self, mutation_size: f64) {
+        let is_head = |end: CurveEnd| matches!(end, CurveEnd::Head | CurveEnd::FilledHead);
+        if !(is_head(self.begin) || is_head(self.end)) {
+            return;
+        }
+        let head_length = self.head_length * mutation_size;
+        let head_width = self.head_width * mutation_size;
+        let dist = head_length.hypot(head_width);
+        numpy_arith::divide(head_length, dist);
+        numpy_arith::divide(head_width, dist);
     }
 
     /// The shaft and the ends along `path` (`_Curve.transmute`).

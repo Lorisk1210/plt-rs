@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 use pltrs_core::{Path, Point};
 
+use super::artist::AxisArtistState;
 use super::floating_axes;
 use super::grid_helper_curvelinear::{GridHelperCurveLinear, info_gridlines};
 use crate::artist::ArtistHandle;
@@ -115,6 +116,16 @@ pub(crate) fn on_curvilinear_grid(store: &ArtistStore, axes: ArtistId) -> bool {
                 .is_some_and(|gridlines| !matches!(gridlines.helper, SharedGridHelper::Rectilinear))
         })
     })
+}
+
+/// Whether the axis artists of `axes` read the ticks of its own axes,
+/// hidden as they are: matplotlib's rectilinear grid helper asks their
+/// locators where its axis artists place their ticks.
+pub(crate) fn reads_hidden_axes(store: &ArtistStore, axes: ArtistId) -> bool {
+    let has_axis_artists = store.get_as::<AxesState>(axes).is_some_and(|state| {
+        (state.children.iter()).any(|&id| store.get_as::<AxisArtistState>(id).is_some())
+    });
+    has_axis_artists && !on_curvilinear_grid(store, axes)
 }
 
 impl Gridlines {

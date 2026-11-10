@@ -371,9 +371,9 @@ fn graphics_context(
 }
 
 /// How the ellipses of a collection are scaled at draw time.
-struct EllipseScales {
+pub(super) struct EllipseScales {
     /// Pixels per unit along both axes.
-    scale: f64,
+    pub(super) scale: f64,
     /// For data units: the data transform without its translation, which
     /// replaces the collection's transform.
     data: Option<Affine2D>,
@@ -381,7 +381,7 @@ struct EllipseScales {
 
 /// `EllipseCollection._set_transforms`: the scale of `units` in the axes
 /// `axes`.
-fn ellipse_scales(
+pub(super) fn ellipse_scales(
     units: EllipseUnits,
     layout: LayoutContext<'_>,
     axes: Option<ArtistId>,

@@ -12,7 +12,7 @@
 mod lru;
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use pltrs_text::{LineMetrics, TextError};
 
@@ -106,6 +106,13 @@ pub(crate) fn installed() -> bool {
     CURRENT.with_borrow(Option::is_some)
 }
 
+/// The cache installed on the thread, held weakly: what tells the
+/// renderers measuring and drawing apart (see
+/// [`math_parses`](super::math_parses)).
+pub(super) fn current_weak() -> Option<Weak<MetricsCache>> {
+    CURRENT.with_borrow(|current| current.as_ref().map(Rc::downgrade))
+}
+
 /// Runs `measure` with `cache` installed in place of the thread's.
 pub(super) fn with_cache<R>(cache: Rc<MetricsCache>, measure: impl FnOnce() -> R) -> R {
     let before = set_metrics_cache(Some(cache));
@@ -161,7 +168,11 @@ impl LaidOutText {
         if self.typesetting == Typesetting::Tex {
             tex_height_metrics(&self.font, dpi, rc)?;
         }
-        font_notes::note_layout(&self.lines.join("\n"), &self.font, self.typesetting)
+        let text = self.lines.join("\n");
+        for _ in 0..font_notes::layouts_of(&text) {
+            self.warn_laying_out();
+        }
+        font_notes::note_layout(&text, &self.font, self.typesetting)
     }
 }
 

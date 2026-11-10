@@ -7,6 +7,7 @@ use pltrs_core::Point;
 
 use super::domain::DomainMap;
 use crate::numeric::Grid;
+use crate::numeric::numpy_arith::{add, divide, multiply, subtract};
 
 /// The most integration steps all the streamlines of a plot take. Steps
 /// are rarely more than a few per cell of the occupancy mask, but a field
@@ -118,10 +119,10 @@ impl Integrator {
         if ds_dt == 0.0 {
             return Err(Stop::Terminate);
         }
-        let dt_ds = 1.0 / ds_dt;
+        let dt_ds = divide(1.0, ds_dt);
         let ui = interpolate(&self.u, xi, yi).ok_or(Stop::Terminate)?;
         let vi = interpolate(&self.v, xi, yi).ok_or(Stop::Terminate)?;
-        Ok((sign * (ui * dt_ds), sign * (vi * dt_ds)))
+        Ok((sign * multiply(ui, dt_ds), sign * multiply(vi, dt_ds)))
     }
 
     /// The trajectory through grid coordinates `start`, or `None` if its
@@ -187,7 +188,10 @@ impl Integrator {
                 }
                 Err(Stop::Terminate) => break,
             };
-            let k2 = match self.step_direction(dmap, (xi + ds * k1.0, yi + ds * k1.1), sign) {
+            // matplotlib's gradients are numpy scalars, which warn where
+            // the step meets infinities.
+            let ahead = (add(xi, multiply(ds, k1.0)), add(yi, multiply(ds, k1.1)));
+            let k2 = match self.step_direction(dmap, ahead, sign) {
                 Ok(k2) => k2,
                 Err(Stop::OutOfBounds) => {
                     total += self.euler_step(dmap, &mut points, sign);
@@ -195,13 +199,17 @@ impl Integrator {
                 }
                 Err(Stop::Terminate) => break,
             };
-            let (dx1, dy1) = (ds * k1.0, ds * k1.1);
-            let (dx2, dy2) = (ds * 0.5 * (k1.0 + k2.0), ds * 0.5 * (k1.1 + k2.1));
+            let (dx1, dy1) = (multiply(ds, k1.0), multiply(ds, k1.1));
+            let (dx2, dy2) = (
+                multiply(ds * 0.5, add(k1.0, k2.0)),
+                multiply(ds * 0.5, add(k1.1, k2.1)),
+            );
             // The error in axes-fraction lengths.
-            let error = ((dx2 - dx1) / (nx - 1.0)).hypot((dy2 - dy1) / (ny - 1.0));
+            let error =
+                divide(subtract(dx2, dx1), nx - 1.0).hypot(divide(subtract(dy2, dy1), ny - 1.0));
             if error < max_error {
-                xi += dx2;
-                yi += dy2;
+                xi = add(xi, dx2);
+                yi = add(yi, dy2);
                 if !dmap.update_trajectory(xi, yi, limits.broken) {
                     break;
                 }

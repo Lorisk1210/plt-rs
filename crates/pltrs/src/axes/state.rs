@@ -508,14 +508,13 @@ impl AxesState {
     }
 
     /// matplotlib's warning of `Axis._set_lim` for the limits `(v0, v1)`
-    /// of axis `name` when they are identical once a log axis kept its
-    /// current limits for non-positive ones, before the locator widens
-    /// them.
+    /// of axis `name` when they are identical, before the locator widens
+    /// them. Those a log axis made identical by keeping its current
+    /// limits for non-positive ones are said where they are validated
+    /// ([`validated_limits`](Self::validated_limits)), after the warnings
+    /// about the non-positive ones.
     pub(crate) fn warn_identical_limits(&self, name: AxisName, limits: (f64, f64)) {
-        let ((v0, v1), _) = self.log_limits(name, limits);
-        #[expect(clippy::float_cmp, reason = "matplotlib compares the limits exactly")]
-        let identical = v0 == v1;
-        if identical {
+        if self.log_limits(name, limits).1 == 0 && identical_limits(limits) {
             crate::warnings::warn(&format!(
                 "Attempting to set identical low and high {}lims makes transformation \
                  singular; automatically expanding.",
@@ -535,6 +534,15 @@ impl AxesState {
         for _ in 0..replaced {
             crate::warnings::warn(&format!(
                 "Attempt to set non-positive {}lim on a log-scaled axis will be ignored.",
+                name.name()
+            ));
+        }
+        // Limits identical as given are said by the callers; those the
+        // current ones made identical, here.
+        if replaced > 0 && identical_limits((v0, v1)) {
+            crate::warnings::warn(&format!(
+                "Attempting to set identical low and high {}lims makes transformation \
+                 singular; automatically expanding.",
                 name.name()
             ));
         }
@@ -853,4 +861,11 @@ impl AxesState {
             None => self.custom_outline().unwrap_or_else(Path::unit_rectangle),
         }
     }
+}
+
+/// Whether matplotlib's `Axis._set_lim` finds the limits `(v0, v1)`
+/// identical.
+#[expect(clippy::float_cmp, reason = "matplotlib compares the limits exactly")]
+fn identical_limits((v0, v1): (f64, f64)) -> bool {
+    v0 == v1
 }

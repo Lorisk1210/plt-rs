@@ -375,10 +375,22 @@ impl FigureState {
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
         for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
-            if self.program_ticker(axes, name).is_some() == program
-                && !self.axis_left_out(axes, name)
+            if self.program_ticker(axes, name).is_some() != program
+                || self.axis_left_out(axes, name)
+            {
+                continue;
+            }
+            if self.axis_shown(axes, name)
+                || crate::axisartist::reads_hidden_axes(&self.store, axes)
             {
                 self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+            } else {
+                // matplotlib ticks no hidden axis (but for the axis
+                // artists that read it): what its arithmetic warns about is
+                // not said.
+                crate::warnings::capturing_runtime(|| {
+                    self.tick_axis_now(axes, name, &extent, dpi, tick_space);
+                });
             }
         }
     }

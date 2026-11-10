@@ -21,6 +21,7 @@ helpers answer from meanwhile, see ``Axis._drawn_info``).
 """
 
 import contextlib
+import warnings
 import weakref
 
 import numpy as np
@@ -75,14 +76,16 @@ class _Updater:
                  getattr(spine.axis, "axis_name", None))
                 for name, spine in ax.spines.items()]
 
-    def update(self, axes, name, info, major, minor):
+    def update(self, axes, name, info, major, minor, quiet):
         """One ``_update_ticks`` of the axis; *major* and *minor* say which
         levels it shows. The locations, labels and drawn flags of each
-        level computed, None for the others."""
+        level computed, None for the others. A *quiet* update stands for
+        none of matplotlib's (a hidden axis, which matplotlib never ticks),
+        so numpy's warnings are not said."""
         axis = self._axis(axes, name)
         if axis is None:
             return None, None
-        with _ticking(axis, info):
+        with _ticking(axis, info), _quietly(quiet):
             return _update_ticks(axis, info, major, minor)
 
     def inverted(self, axes, name):
@@ -100,6 +103,17 @@ class _Updater:
         from ._tick_helpers import drawing
         with _ticking(axis, info), drawing(axis.major.formatter, info) as formatter:
             return str(formatter.get_offset())
+
+
+@contextlib.contextmanager
+def _quietly(quiet):
+    """While numpy's runtime warnings are not said, if *quiet*."""
+    if not quiet:
+        yield
+        return
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        yield
 
 
 @contextlib.contextmanager

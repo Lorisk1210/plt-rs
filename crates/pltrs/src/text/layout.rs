@@ -14,6 +14,7 @@ use pltrs_text::{
 };
 
 use super::font_notes;
+use super::layout_warnings::{self, MeasuredLine};
 use super::math::{Line, math_style};
 use super::metrics::without_hinting;
 use super::metrics_cache;
@@ -71,6 +72,8 @@ pub struct LaidOutText {
     pub font: FontProperties,
     /// How its lines were typeset.
     pub(crate) typesetting: Typesetting,
+    /// The font's height metrics the lines were stacked with.
+    pub(crate) font_metrics: FontHeightMetrics,
 }
 
 /// matplotlib's `get_text_width_height_descent` for one line: with `math`
@@ -192,6 +195,20 @@ pub fn text_path_tex(
 }
 
 impl LaidOutText {
+    /// Issues the runtime warnings numpy issues as matplotlib's
+    /// `Text._get_layout` lays the text out (see [`layout_warnings`]).
+    pub(super) fn warn_laying_out(&self) {
+        let lines: Vec<MeasuredLine> = self
+            .runs
+            .iter()
+            .map(|run| MeasuredLine {
+                metrics: metrics(run),
+                numpy: matches!(run.source, Some(TextSource::Math { .. })),
+            })
+            .collect();
+        layout_warnings::warn_laying_out(&lines, self.font_metrics, &self.style);
+    }
+
     /// The same text as drawn with `shaping`: a block of a single plain
     /// line has that line laid out again, in the same font, with the
     /// features and language (matplotlib's backends lay out the line they
@@ -413,7 +430,9 @@ fn line_run(
 
 /// One line of `text` typeset as `kind` in `font` at `dpi`, as a
 /// renderer's `draw_text` and `draw_tex` receive it (their `s`, `prop` and
-/// `ismath`), noting the font lookup drawing it makes in matplotlib.
+/// `ismath`), noting the font lookup drawing it makes in matplotlib, and
+/// the parse of a formula drawn with `antialiased` glyphs (the graphics
+/// context's).
 ///
 /// # Errors
 ///
@@ -424,13 +443,14 @@ pub fn typeset_line(
     kind: LineKind,
     dpi: f64,
     rc: &RcParams,
+    antialiased: bool,
 ) -> Result<TextRun, TextError> {
     let run = match kind {
         LineKind::Plain => line_run(&Line::Plain(text.into()), font, dpi, rc, false),
         LineKind::Math => line_run(&Line::Math(text), font, dpi, rc, false),
         LineKind::Tex => tex_run(text, font, dpi, rc),
     }?;
-    font_notes::note_drawn(&run)?;
+    font_notes::note_drawn(&run, antialiased)?;
     Ok(run)
 }
 
@@ -529,14 +549,19 @@ pub(crate) fn lay_out_with(
         ),
         Typesetting::Mathtext { .. } => (mathtext_height_metrics(font, typesetting, dpi)?, *style),
     };
-    Ok(LaidOutText {
+    let laid_out = LaidOutText {
         lines,
         block: layout_block(&line_metrics, font_metrics, &style),
         runs,
         style,
         font: font.clone(),
         typesetting,
-    })
+        font_metrics,
+    };
+    for _ in 0..font_notes::layouts_of(text) {
+        laid_out.warn_laying_out();
+    }
+    Ok(laid_out)
 }
 
 /// The font height metrics of lines that are not typeset by TeX: those of

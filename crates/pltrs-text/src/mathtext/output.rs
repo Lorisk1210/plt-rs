@@ -72,6 +72,11 @@ pub struct MathLayout {
     pub rects: Vec<MathRect>,
     /// Resolution the math was typeset for.
     pub dpi: f64,
+    /// What matplotlib's mathtext logs while it typesets the math (lists
+    /// packed to a size their glue cannot reach), for the caller to log
+    /// where matplotlib parses the formula (see
+    /// [`log_mathtext`](crate::log_mathtext)).
+    pub logged: Vec<String>,
 }
 
 impl MathLayout {
@@ -113,6 +118,7 @@ impl MathLayout {
             glyphs,
             rects,
             dpi,
+            logged: Vec::new(),
         }
     }
 
@@ -200,6 +206,7 @@ mod tests {
                 height: 0.5,
             }],
             dpi: 72.0,
+            logged: Vec::new(),
         };
         let run = layout.to_text_run();
         assert_eq!((run.width, run.height, run.descent), (11.0, 8.0, 0.0));

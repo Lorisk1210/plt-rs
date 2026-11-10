@@ -51,6 +51,7 @@ impl TickUpdater for PyTickUpdater {
                 info.clone(),
                 levels.major,
                 levels.minor,
+                pltrs::warnings::capturing(),
             ))
             .map(|(major, minor)| UpdatedTicks {
                 major: major.map(level),

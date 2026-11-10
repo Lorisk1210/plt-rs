@@ -825,9 +825,25 @@ class GaussianKDE:
                     self.dataset[:, 0, np.newaxis] - points
                 else:
                     self.dataset - points[:, 0, np.newaxis]
-        return _mlab.kde_evaluate(self._native, np.asarray(points, dtype=float))
+        result = _mlab.kde_evaluate(self._native, np.asarray(points, dtype=float))
+        if isinstance(points, np.ma.MaskedArray):
+            result = self._estimate_of_masked(points, result)
+        return result
 
     __call__ = evaluate
+
+    def _estimate_of_masked(self, points, result):
+        """*result*, the estimate at the masked array *points* (2-D), as
+        matplotlib's arithmetic leaves it: its loop over the data (as many
+        points as data or more) keeps the estimate masked where a point is;
+        its loop over fewer points stores the estimate of each masked one in
+        a float array, numpy converting it to NaN with its warning."""
+        masked = np.ma.getmaskarray(points).any(axis=0)
+        if points.shape[1] >= self.num_dp:
+            return np.ma.masked_array(result, mask=masked)
+        for index in np.flatnonzero(masked):
+            result[index] = np.ma.masked
+        return result
 
 
 # What matplotlib's module also has from its imports, which programs

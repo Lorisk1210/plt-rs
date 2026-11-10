@@ -48,6 +48,12 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// see [`warn_runtime`](crate::warnings::warn_runtime)).
     fn warn_drawing(&self) {}
 
+    /// Issues the runtime warnings numpy issues each time matplotlib makes
+    /// the outline (`get_path`: where `add_patch` takes the data limits,
+    /// a program asks for it, and the draw), for outlines matplotlib builds
+    /// with numpy (an arrow's heads). None by default.
+    fn warn_making_path(&self) {}
+
     /// Whether the shape is degenerate and should not affect autoscaling.
     fn skips_autoscale(&self) -> bool {
         false

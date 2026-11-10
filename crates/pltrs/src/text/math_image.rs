@@ -7,6 +7,7 @@ use pltrs_text::TextEngine;
 
 use super::TextError;
 use super::math::math_style;
+use super::math_parses;
 use crate::colors::Color;
 use crate::figure::{Figure, SaveError, SaveFormat, SaveOptions};
 use crate::fonts::FontProperties;
@@ -112,6 +113,8 @@ pub fn math_to_image(text: &str, options: MathImageOptions) -> Result<MathImage,
     let rc = crate::rc::params();
     let font = options.font.unwrap_or_else(|| FontProperties::from_rc(&rc));
     let run = TextEngine::global().layout_math(text, &math_style(&font, 72.0, &rc))?;
+    // matplotlib measures with a parser of its own, which parses afresh.
+    math_parses::log_typesetting(&run);
     let (width, height, depth) = (run.width, run.height, run.descent);
     let fig = Figure::with_size(width / 72.0, height / 72.0, rc.figure_dpi);
     let label = fig.text(0.0, depth / height, text);

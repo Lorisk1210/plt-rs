@@ -21,6 +21,25 @@ def _rcParams():
     return rcParams
 
 
+def _heights_converted(axes, tops, bottom, stacked, orientation):
+    """matplotlib's ``bar`` (``barh``) of each dataset of a histogram takes
+    the heights of its bars from their bottoms (``_convert_dx``), with
+    numpy's warnings where the arithmetic meets infinities (which finite
+    numbers never warn about); pltrs (Rust) makes the bars."""
+    finite = np.isfinite(tops).all() and (
+        bottom is None or np.isfinite(np.asarray(bottom, float)).all())
+    if finite:
+        return
+    convert = axes.convert_yunits if orientation == 'vertical' else axes.convert_xunits
+    for top in tops:
+        if bottom is None:
+            bottom = np.zeros(len(top))
+        height = top - bottom if stacked else top
+        axes._convert_dx(height, bottom, np.asarray(convert(bottom)), convert)
+        if stacked:
+            bottom = top
+
+
 def _native_bins(bins):
     """*bins* as the native side takes them: a count, a name or the edges."""
     if isinstance(bins, str):
@@ -391,6 +410,7 @@ such objects
         tops = np.array(tops, float).reshape(nx, -1)
         bins = np.array(edges, float)
         if histtype.startswith('bar'):
+            _heights_converted(self, tops, bottom, stacked, orientation)
             patches = []
             for native, rectangles, values in bar_groups:
                 bars = wrap_all(self, rectangles, mpatches.Rectangle)

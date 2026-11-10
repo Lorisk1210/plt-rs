@@ -43,8 +43,17 @@ def held_patches(patches, match_original):
     then sets its paths as matplotlib's does (``set_paths``), which fails
     on what is no patch. Matching the originals' colours (*match_original*)
     reads them first, failing as matplotlib's constructor fails."""
-    from .patches import Patch
+    from . import _unusable
+    from ._native import patches as _patches
+    from .patches import FancyArrowPatch, Patch
     if all(isinstance(patch, Patch) for patch in patches):
+        for patch in patches:
+            if isinstance(patch, FancyArrowPatch):
+                # matplotlib's collection makes the path of each patch in
+                # turn (``set_paths``): an arrow's builds it with its
+                # style, failing on a kept value, numpy warning otherwise.
+                _unusable.check(patch, measuring=True)
+                _patches.warn_making_path(patch._native)
         return [patch._native for patch in patches]
     if match_original:
         for patch in patches:

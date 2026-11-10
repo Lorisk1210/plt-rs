@@ -26,6 +26,7 @@ import numpy as np
 
 from . import _docstring
 from . import _api, _colorbar_checks, _handles, _named, artist as martist
+from . import _values as _kept_values
 from . import colorizer as mcolorizer
 from . import ticker
 from . import patches as mpatches, path as mpath, spines as mspines
@@ -590,6 +591,10 @@ class Colorbar:
             _tick_updates.install(figure)
         if locator is not None:
             self.locator = locator
+        elif ticks is not None:
+            # matplotlib's locator of the ticks given, which keeps them as
+            # given (integers stay).
+            self.locator = ticker.FixedLocator(ticks, nbins=len(ticks))
         self._keep_tickers()
         mappable.colorbar = self
         mappable.colorbar_cid = mappable.callbacks.connect(
@@ -755,12 +760,17 @@ class Colorbar:
         """Have the colour blocks (`solids`) map through the colorbar's very
         colormap and norm, as matplotlib's ``pcolormesh(..., cmap=self.cmap,
         norm=self.norm)`` makes them whenever it draws them anew (on
-        `__init__` and `update_normal`)."""
+        `__init__` and `update_normal`), and the patches of the extensions
+        read back as matplotlib's."""
         solids = self.solids
         if solids is not None:
             solids._attach_native_mapping(cmap=self.cmap, norm=self.norm)
             # Made of the mesh's coordinates (``pcolormesh(X, Y, C)``).
             solids._coordinates_masked = True
+        # The extensions' z-order is matplotlib's ``np.nextafter`` of the
+        # Axes background's, a numpy float.
+        for patch in self._extend_patches:
+            _kept_values.remember(patch, "zorder", np.float64(patch.get_zorder()))
 
     @property
     def solids_patches(self):

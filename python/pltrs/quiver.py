@@ -496,7 +496,12 @@ class Quiver(mcollections.PolyCollection):
                            measured=False)
         # matplotlib's attribute: the transform of the arrows' positions.
         self.transform = ax.transData if transform is None else transform
-        self._attach_native_mapping(colorizer=made)
+        # Limits given as *clim* stay floats (the collection's `set_clim`).
+        self._attach_native_mapping(colorizer=made, given=C if clim is None else None)
+        if C is not None:
+            # The values as matplotlib's `set_array` keeps them, in their
+            # dtype (pltrs (Rust) maps floats).
+            self._A = cbook.safe_masked_invalid(C, copy=True)
         if not _single_color(facecolor):
             self.set_facecolor(facecolor)
         # The arrows are unstroked, as matplotlib's default ``(0,)`` says.
@@ -1110,7 +1115,10 @@ class Barbs(mcollections.PolyCollection):
             _live_transforms.given_to_native(transform, ax))
         _handles.adopt(self, native, ax.figure)
         self._keep_offsets_dtype(x, y)
-        self._attach_native_mapping(colorizer=made)
+        self._attach_native_mapping(colorizer=made, given=c if clim is None else None)
+        if c is not None:
+            # As matplotlib's `set_array` keeps them (see `Quiver`).
+            self._A = cbook.safe_masked_invalid(c, copy=True)
         # matplotlib's default width of the barbs.
         _values.remember(self, "linewidth", np.atleast_1d(1))
         self._internal_update(kwargs)

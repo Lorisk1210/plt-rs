@@ -20,13 +20,13 @@ _log = logging.getLogger(__name__.partition('.')[0] + ".mathtext")
 
 
 def log_mathtext_warning(message):
-    """Log *message*, about a list pltrs (Rust) packed to a size its glue
-    cannot reach ("Underful Hlist: ..."), as matplotlib's
-    ``List._set_glue`` logs it."""
+    """Log *message*, about a formula pltrs (Rust) typeset (a list packed to
+    a size its glue cannot reach, "Underful Hlist: ...", a symbol no font
+    has), as matplotlib's mathtext logs it."""
     _log.warning("%s", message)
 
 
-# pltrs (Rust) notes the lists as it typesets formulas.
+# pltrs (Rust) notes the messages as it typesets formulas.
 _register("log_mathtext_warning", log_mathtext_warning)
 
 

@@ -8,7 +8,7 @@ added by `~.axes._base._AxesBase` (``add_line``, ``add_patch``,
 """
 
 from .. import _handles, cbook
-from .. import collections as mcoll, image as mimage, patches as mpatches
+from .. import collections as mcoll, image as mimage
 from .. import table as mtable
 from .._native import axes as _axes, image as _native_image, plotting as _plotting
 from .._native import table as _table, text as _text
@@ -42,8 +42,9 @@ class ChildrenMixin:
 
     @property
     def patches(self):
-        return ArtistList._of("patches", lambda: _handles.wrap_all(
-            _plotting.get_patches(self._native), mpatches.Patch, self._figure))
+        return ArtistList._of("patches", lambda: [
+            _handles.wrap_patch(native, self._figure)
+            for native in _plotting.get_patches(self._native)])
 
     @property
     def tables(self):

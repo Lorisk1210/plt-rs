@@ -899,7 +899,7 @@ class Text(Artist):
         if (not self.get_visible() or self.get_text() == ""
                 or not _text.in_data_domain(self._native)):
             return Bbox.null()
-        return self.get_window_extent(renderer)
+        return super().get_tightbbox(renderer)
 
     def draw(self, renderer):
         # docstring inherited

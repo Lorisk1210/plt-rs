@@ -451,6 +451,29 @@ mod tests {
     }
 
     #[test]
+    fn symbols_no_font_has_are_logged_and_drawn_as_a_dummy() {
+        // matplotlib's `UnicodeFonts._get_glyph` with no fallback font.
+        let db = FontDatabase::with_bundled_fonts();
+        let mut style = MathStyle::default()
+            .with_fontset(Fontset::Custom)
+            .with_dpi(100.0);
+        style.custom.tt = "DejaVu Sans Mono".to_owned();
+        style.fallback = None;
+        let text = db.find_font(&style.font.query).expect("text font");
+        let mut fonts = Fonts::new(&db, &style, text).expect("fonts");
+        crate::take_mathtext_log();
+        let aleph = fonts.info(key(FontName::Tt, "\\aleph")).expect("a dummy");
+        assert_eq!(aleph.code, 0xa4);
+        assert_eq!(
+            crate::take_mathtext_log(),
+            [
+                "Font 'tt' does not have a glyph for '\\\\aleph' [U+2135], substituting \
+              with a dummy symbol."
+            ]
+        );
+    }
+
+    #[test]
     fn constants_and_measures() {
         let db = FontDatabase::with_bundled_fonts();
         let mut fonts = fonts(&db, Fontset::Custom);

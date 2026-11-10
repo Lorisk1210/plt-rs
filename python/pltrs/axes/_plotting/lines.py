@@ -13,7 +13,7 @@ from ... import _api, _live_transforms, _values, cbook, collections as mcoll, co
 from ... import lines as mlines
 from ... import _python_drawing
 from .. import _failed_calls
-from ..._artist_kwargs import check_known, keep_program_picker
+from ..._artist_kwargs import check_known, keep_python_kwargs
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
@@ -479,7 +479,7 @@ class LinesMixin:
             whole = _format_color(fmt)
             mlines._remember_given(
                 line, props if whole is None else {"color": whole, **props})
-            lines.append(keep_data(keep_program_picker(line, props), x, y))
+            lines.append(keep_data(keep_python_kwargs(line, props), x, y))
         return lines
 
     @_docstring.interpd
@@ -558,7 +558,7 @@ class LinesMixin:
         _ = (yy < ymin) or (yy > ymax)
         native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
                               made_line_kwargs(kwargs))
-        line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
+        line = keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs)
         # matplotlib's line keeps the data it was made with.
         line._xorig, line._yorig = [xmin, xmax], [y, y]
         return line
@@ -639,7 +639,7 @@ class LinesMixin:
         _ = (xx < xmin) or (xx > xmax)
         native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
                               made_line_kwargs(kwargs))
-        line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
+        line = keep_python_kwargs(wrap(self, native, mlines.Line2D), kwargs)
         line._xorig, line._yorig = [x, x], [ymin, ymax]
         return line
 
@@ -725,7 +725,7 @@ class LinesMixin:
             # ``transLimits``, which Axes of other projections lack (polar
             # ones): its draw fails there.
             _python_drawing.draw_through_python(line, False)
-        return keep_program_picker(line, kwargs)
+        return keep_python_kwargs(line, kwargs)
 
     @_docstring.interpd
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):

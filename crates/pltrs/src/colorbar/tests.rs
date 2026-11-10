@@ -14,6 +14,7 @@ use crate::contour::{ContourOptions, Levels, QuadField};
 use crate::numeric::Grid;
 use crate::scale::ScaleName;
 use crate::spines::SpineSide;
+use crate::transforms::Anchor;
 use crate::tri::Triangulation;
 
 fn close(actual: (f64, f64, f64, f64), expected: [f64; 4]) -> bool {
@@ -360,6 +361,22 @@ fn colorbars_take_room_in_the_figure_of_their_parent() {
 }
 
 #[test]
+fn constrained_layout_gives_the_colorbar_its_frame_transform() {
+    // matplotlib's `reposition_colorbar` sets `fig.transSubfigure` on the
+    // colorbar's axes, which reads it back.
+    let (fig, _, image) = image_figure();
+    fig.set_layout_engine(crate::layout::LayoutEngine::constrained())
+        .unwrap();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    assert_eq!(colorbar.ax().transform(), None);
+    fig.layout();
+    assert_eq!(
+        colorbar.ax().transform(),
+        Some(crate::transforms::Transform::Figure(fig.id()))
+    );
+}
+
+#[test]
 fn limits_opacity_and_dividers_read_back() {
     let fig = Figure::new();
     let ax = fig.subplot();
@@ -539,6 +556,9 @@ fn surfaces_of_3d_axes_take_room_from_the_3d_axes() {
         colorbar.ax().position().bounds(),
         [0.783_75, 0.11, 0.028_875, 0.77]
     ));
+    // Anchored beside the colorbar, as an axes too (matplotlib's
+    // `get_anchor` of the 3-D axes).
+    assert_eq!(ax.projection_plane().anchor(), Anchor::Fraction(1.0, 0.5));
 }
 
 #[test]

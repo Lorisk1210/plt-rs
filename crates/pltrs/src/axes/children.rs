@@ -12,7 +12,7 @@ use pltrs_core::{Bbox, Point};
 use super::state::NextData;
 use super::{Axes, AxesState, DataLimits};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, LimitPoints, RawHandle};
-use crate::axisartist::AxisArtistState;
+use crate::axisartist::{AxisArtistState, Gridlines};
 use crate::collections::{Collection, CollectionArtist};
 use crate::colorbar::ColorbarArtist;
 use crate::contour::ContourSetArtist;
@@ -233,7 +233,7 @@ impl Axes {
             !(any.is::<AxesState>()
                 || is_axes_legend(artist)
                 || any.is::<ColorbarArtist>()
-                || any.is::<AxisArtistState>())
+                || is_axisartist_part(artist))
         })
         .into_iter()
         .filter(|child| !parts.contains(&child.id()))
@@ -254,7 +254,9 @@ impl Axes {
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
     pub fn has_data(&self) -> bool {
-        !self.children_where(is_data_artist).is_empty()
+        !self
+            .children_where(|artist| is_data_artist(artist) && !is_axisartist_part(artist))
+            .is_empty()
     }
 
     /// Adds `artist` as a child and applies `update` (matplotlib's
@@ -455,7 +457,19 @@ fn listed_by_kind(artist: &dyn Artist) -> bool {
         || any.is::<SpineArtist>()
         || is_axes_legend(artist)
         || any.is::<ColorbarArtist>()
-        || any.is::<AxisArtistState>()
+        || is_axisartist_part(artist)
+}
+
+/// Whether `artist` is a part axisartist axes make of themselves: an axis
+/// artist, or the gridlines (matplotlib keeps them in `ax.axis` and
+/// `ax.gridlines`, apart from the artists added to the axes).
+pub(crate) fn is_axisartist_part(artist: &dyn Artist) -> bool {
+    let any = artist as &dyn Any;
+    any.is::<AxisArtistState>()
+        || any
+            .downcast_ref::<CollectionArtist>()
+            .and_then(CollectionArtist::draw_time_state::<Gridlines>)
+            .is_some()
 }
 
 /// Whether `artist` is the legend of its axes (matplotlib's `legend_`), a

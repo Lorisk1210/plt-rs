@@ -51,6 +51,33 @@ def _wrap(native, figure=None):
         native, SubplotSpec._from_native(parent, figure))
 
 
+def _adopt_unpickled(axes):
+    """
+    Have the grid of the block an Axes read back from a pickle keeps (its
+    ``_subplotspec_kept``) hold the native grid the Axes is placed on, as
+    matplotlib's unpickled Axes and grid share the one block: the grid was
+    pickled with a native grid of its own.
+    """
+    kept = axes.__dict__.get("_subplotspec_kept")
+    if kept is None:
+        return
+    native = _gridspec.axes_spec(axes._native)
+    if native is not None:
+        _relink(kept.get_gridspec(), _gridspec.spec_gridspec(native))
+
+
+def _relink(grid, native):
+    """Have *grid*, read back from a pickle, hold the native grid *native*
+    of its shape, and its parent grids their native grids."""
+    if not isinstance(grid, GridSpecBase) or grid.get_geometry() != _gridspec.shape(native):
+        return
+    grid._adopt_native(native)
+    parent = _gridspec.parent(native)
+    block = getattr(grid, "_subplot_spec", None)
+    if parent is not None and block is not None:
+        _relink(block.get_gridspec(), _gridspec.spec_gridspec(parent))
+
+
 class GridSpecBase:
     """
     A base class of GridSpec that specifies the geometry of the grid

@@ -16,6 +16,7 @@ users_explain/axes/axes_units$ | ^image: RMS > 1$ | figure 12 writes the reprs o
 
 # A PDF names the software that wrote it.
 (misc/multipage_pdf|api/pdf_pages_0)$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
+rcparams/pgf_v[01]$ | ^value\[read_text\]: str$ | the PGF file's comment header names pltrs, the software writing it ("%% Creator: pltrs, PGF backend", "%% pltrs used the following preamble"), where matplotlib names itself; the rest of the file is the same
 
 # matplotlib salts the ids of its SVG elements with a random uuid unless
 # svg.hashsalt is set, so they differ between two runs of matplotlib too.
@@ -70,6 +71,7 @@ api/inspector_0$ | ^value\[pprint_setters_rest\]: str$ | the reST table pads its
 # the backend registry lists among matplotlib's.
 (api|hostile)/module_matplotlib_0$ | ^exception message\[(use|validate_backend)\]: ValueError$ | the list of valid backends in the message of use('nonexistent_backend') and validate_backend('text') ends with pltrs' own backend, 'pltrs'
 (api|hostile)/module_matplotlib_rcsetup_0$ | ^exception message\[validate_backend\]: ValueError$ | the list of valid backends in the message of validate_backend('nope') ends with pltrs' own backend, 'pltrs'
+rcparams/api_validators$ | ^exception message\[validate_backend\]: ValueError$ | the list of valid backends in the message of validate_backend('nobackend') ends with pltrs' own backend, 'pltrs'
 api/backend_registry_0$ | ^value\[list_all\]: list length$ | backend_registry.list_all() lists pltrs' own backend, 'pltrs', after matplotlib's built-in ones
 
 # pltrs (Rust) writes the data files it bundles (its fonts, the template of

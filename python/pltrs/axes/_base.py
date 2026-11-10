@@ -578,7 +578,12 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         if not axes_class and not kwargs:
             from ._axes import Axes
             native = _axes_base.twin(self._native, shared, float(delta_zorder))
-            return _handles.wrap(native, Axes, self._figure)
+            twin = _handles.wrap(native, Axes, self._figure)
+            spec = self.get_subplotspec()
+            if spec is not None:
+                # matplotlib adds the twin with this very spec.
+                twin._subplotspec_kept = spec
+            return twin
         if axes_class:
             kwargs["axes_class"] = axes_class
         kwargs[f"share{shared}"] = self

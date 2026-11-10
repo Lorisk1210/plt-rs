@@ -26,7 +26,7 @@ from . import _live_transforms, _program_classes, _pybind, _python_drawing, _unu
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
-from ._artist_copying import CopyingMixin, _XYPair
+from ._artist_copying import CopyingMixin, _XYPair, detach_shallow_copy
 from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
@@ -155,14 +155,16 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def __getstate__(self):
         # The native handle pickles as its figure's state and the artist's
-        # id (`._pickling`).
-        return self.__dict__.copy()
+        # id (`._pickling`), a transform of the trees as a reference.
+        return _pickling.referring_to_trees(self, self.__dict__.copy())
 
     def __setstate__(self, state):
         # Its figure, read back first when the pickle reached it from this
         # artist, may wait for the artist's state (`._pickling.when_built`).
         waiting = self.__dict__.pop(_pickling.WAITING, ())
         self.__dict__.update(state)
+        _pickling.resolve_trees(self)
+        detach_shallow_copy(self)
         for callback in waiting:
             callback()
 

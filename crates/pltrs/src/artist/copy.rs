@@ -1,7 +1,10 @@
 //! Copying the common properties of one artist to another (matplotlib's
-//! `Artist.update_from`).
+//! `Artist.update_from`), and copying an artist apart from its figure's
+//! tree (matplotlib's `copy.copy` of an artist).
 
-use super::{ArtistBase, RawHandle};
+use std::rc::Rc;
+
+use super::{ArtistBase, ArtistLookup, RawHandle};
 
 impl ArtistBase {
     /// Takes the properties matplotlib's `Artist.update_from` copies from
@@ -60,6 +63,42 @@ impl RawHandle {
         self.with_base_mut(|own| own.update_from(&base, references));
         references
     }
+
+    /// A copy of the artist under a new id (matplotlib's `copy.copy` of an
+    /// artist): owned by the artist's owner without being one of its
+    /// children, so that its figure does not draw it, and kept by the
+    /// figure apart from its tree, as a removed artist is. The artists the
+    /// artist owns are shared with the copy, not copied.
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, TypedHandle};
+    /// use pltrs::lines::Line2D;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// let copy = Line2D::from_raw_handle(&line.raw().detached_copy()).expect("a line");
+    /// copy.set_label("copy");
+    /// assert_ne!(line.label(), "copy");
+    /// assert_eq!(copy.axes(), Some(ax.clone()));
+    /// assert_eq!(ax.lines(), [line]);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    #[must_use]
+    pub fn detached_copy(&self) -> Self {
+        let figure = Rc::clone(self.figure_state());
+        let id = {
+            let mut state = figure.borrow_mut();
+            let copy = state
+                .artist(self.id())
+                .expect("a handle reaches its artist")
+                .clone_artist();
+            let id = state.store.insert(copy);
+            let kept = state.store.take(id).expect("the copy was just inserted");
+            state.detached.insert(id, kept);
+            id
+        };
+        Self::new(figure, id)
+    }
 }
 
 #[cfg(test)]
@@ -98,6 +137,31 @@ mod tests {
         assert!(!line.raw().update_from(loose.raw()));
         assert_eq!(line.clip_box(), None);
         assert_eq!(line.transform(), Some(ax.trans_data()));
+    }
+
+    #[test]
+    fn detached_copies_change_apart_and_are_not_drawn() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [1.0, 0.0]).expect("a line");
+        line.set_label("original");
+        let copy = crate::lines::Line2D::from_raw(line.raw().detached_copy());
+        assert_ne!(copy.id(), line.id());
+        assert_eq!(copy.label(), "original");
+        copy.set_label("copy").set_linewidth(5.0);
+        assert_eq!(
+            (line.label(), line.linewidth()),
+            ("original".to_owned(), 1.5)
+        );
+        assert!(!copy.raw().is_attached());
+        assert_eq!(copy.axes(), Some(ax.clone()));
+        assert_eq!(ax.lines(), std::slice::from_ref(&line));
+        copy.remove();
+        assert_eq!(
+            ax.lines(),
+            [line],
+            "removing the copy leaves its owner alone"
+        );
     }
 
     #[test]

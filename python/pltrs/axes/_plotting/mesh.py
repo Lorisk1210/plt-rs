@@ -208,7 +208,8 @@ class MeshMixin:
             # apart from the collection's own (`.QuadMesh.get_antialiased`).
             _collections.set_antialiaseds(collection._native, [bool(antialiased)])
         if variates is None:
-            collection._attach_native_mapping(colorizer=made)
+            collection._attach_native_mapping(
+                colorizer=made, given=args[-1] if C.ndim == 2 else None)
             if C.ndim == 2:
                 collection._keep_given_array(args[-1])
         else:

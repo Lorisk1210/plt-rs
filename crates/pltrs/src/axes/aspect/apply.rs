@@ -129,6 +129,16 @@ impl FigureState {
         placement: Placement,
     ) -> Result<(), AspectError> {
         self.sync_secondary(axes);
+        self.apply_aspect_unsynced(axes, placement)
+    }
+
+    /// [`apply_aspect_now`](Self::apply_aspect_now) of an axes whose
+    /// secondary-axis limits the caller brings up to date.
+    pub(crate) fn apply_aspect_unsynced(
+        &mut self,
+        axes: ArtistId,
+        placement: Placement,
+    ) -> Result<(), AspectError> {
         let fixed = self
             .store
             .get_as::<AxesState>(axes)
@@ -334,26 +344,11 @@ impl FigureState {
         }
         let (v0, v1) = state.view_interval(name);
         let bound = if v0 > v1 { (high, low) } else { (low, high) };
-        // matplotlib's `set_xbound` sets them through `_set_lim`, which
-        // warns about identical limits once a log axis kept its current
-        // ones for non-positive ones, before the locator widens them.
-        if identical(state.log_limits(name, bound).0) {
-            crate::warnings::warn(&format!(
-                "Attempting to set identical low and high {}lims makes transformation \
-                 singular; automatically expanding.",
-                name.name()
-            ));
-        }
+        // matplotlib's `set_xbound` sets them through `_set_lim`.
+        state.warn_identical_limits(name, bound);
         self.set_axis_limits(axes, name, bound, None, true);
         Ok(())
     }
-}
-
-/// Whether matplotlib's `Axis._set_lim` finds the limits `(v0, v1)`
-/// identical.
-#[expect(clippy::float_cmp, reason = "matplotlib compares the limits exactly")]
-fn identical((v0, v1): (f64, f64)) -> bool {
-    v0 == v1
 }
 
 /// numpy's division of the scalars `numerator / denominator`, with the

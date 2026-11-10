@@ -2455,8 +2455,11 @@ None}, default: None
                            program_hooks):
         """Re-initialise the state not pickled, once the native figure is
         read back (matplotlib's end of ``Figure.__setstate__``)."""
-        from . import _pickling, _tick_helpers
+        from . import _pickling, _tick_helpers, gridspec
         _tick_helpers.unpickled(self, tick_helper_uses)
+        for artist in list(self._artists.values()):
+            gridspec._adopt_unpickled(artist)
+            _pickling.resolve_trees(artist, restored=True)
         _sharing.track(self)
         FigureCanvasBase(self)  # Set self.canvas.
         # discard any changes to the dpi due to pixel ratio changes

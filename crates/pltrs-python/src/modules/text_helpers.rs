@@ -2,8 +2,8 @@
 //! issues for each character it lays out that no font has, the font
 //! manager's log messages about the fonts of the texts it lays out (a
 //! family no font has, a face of another weight) and mathtext's about the
-//! lists it packs to sizes their glue cannot reach, delivered at the end
-//! of the native call during which pltrs (Rust) laid them out.
+//! formulas it typesets, delivered at the end of the native call during
+//! which pltrs (Rust) laid them out.
 
 use pltrs_text::LookupKind;
 
@@ -68,12 +68,13 @@ pub(super) fn report_font_lookups(py: Python<'_>) -> PyResult<()> {
     Ok(())
 }
 
-/// Hands each message mathtext logs about a list pltrs (Rust) packed on
-/// this thread to a size its glue cannot reach ("Underful Hlist: ...") to
-/// the package's `log_mathtext_warning(message)` (registered by
-/// `_mathtext`), which logs it as matplotlib's `List._set_glue` does.
-pub(super) fn log_glue_warnings(py: Python<'_>) -> PyResult<()> {
-    let messages = pltrs_text::take_glue_warnings();
+/// Hands each message mathtext logs about a formula pltrs (Rust) typeset
+/// on this thread (a list packed to a size its glue cannot reach,
+/// "Underful Hlist: ...", a symbol no font has) to the package's
+/// `log_mathtext_warning(message)` (registered by `_mathtext`), which logs
+/// it as matplotlib's mathtext does.
+pub(super) fn log_mathtext_messages(py: Python<'_>) -> PyResult<()> {
+    let messages = pltrs_text::take_mathtext_log();
     if messages.is_empty() {
         return Ok(());
     }

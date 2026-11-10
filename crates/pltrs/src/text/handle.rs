@@ -240,6 +240,28 @@ impl Text {
         self
     }
 
+    /// The rotation mode as matplotlib's `get_rotation_mode` reports it:
+    /// [`RotationMode::Anchor`] once laying the text out wrapped its lines
+    /// (matplotlib switches a wrapped text to it), until a mode is set.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::text::RotationMode;
+    ///
+    /// let text = Figure::new().text(0.5, 0.5, "a text long enough to wrap twice in the figure");
+    /// text.set_wrap(true);
+    /// assert_eq!(text.reported_rotation_mode(), RotationMode::Default);
+    /// assert!(text.window_extent().is_some());
+    /// assert_eq!(text.reported_rotation_mode(), RotationMode::Anchor);
+    /// text.set_rotation_mode(RotationMode::Default);
+    /// assert_eq!(text.reported_rotation_mode(), RotationMode::Default);
+    /// ```
+    pub fn reported_rotation_mode(&self) -> RotationMode {
+        self.raw
+            .with::<TextArtist, _>(TextArtist::reported_rotation_mode)
+    }
+
     /// Whether the text has a box.
     pub fn has_bbox(&self) -> bool {
         self.raw.with::<TextArtist, _>(|t| t.bbox.is_some())
@@ -282,7 +304,7 @@ artist_properties! {
         /// Alignment of lines within a multi-line block (`None` follows `halign`).
         multialign, set_multialign: Option<HAlign>;
         /// How rotation and alignment combine.
-        rotation_mode, set_rotation_mode: RotationMode;
+        rotation_mode, set_rotation_mode: RotationMode => rotation_mode_replaced;
         /// Spacing between lines.
         linespacing, set_linespacing: LineSpacing;
         /// Font description.
@@ -367,5 +389,24 @@ mod tests {
         assert_eq!(text.fontfeatures(), features);
         assert!(before.is_some());
         assert_eq!(text.window_extent(), before);
+    }
+
+    #[test]
+    fn wrapping_switches_the_reported_rotation_mode() {
+        let fig = Figure::with_size(2.0, 1.0, 72.0);
+        let plain = fig.text(0.5, 0.5, "plain");
+        let wrapped = fig.text(0.5, 0.2, "wrapped text, long enough to wrap");
+        wrapped.set_wrap(true);
+        assert_eq!(wrapped.reported_rotation_mode(), RotationMode::Default);
+        assert!(plain.window_extent().is_some() && wrapped.window_extent().is_some());
+        assert_eq!(plain.reported_rotation_mode(), RotationMode::Default);
+        assert_eq!(wrapped.reported_rotation_mode(), RotationMode::Anchor);
+        // Set, the mode stays until the next wrapping, even unwrapped.
+        wrapped.set_rotation_mode(RotationMode::Default);
+        assert_eq!(wrapped.reported_rotation_mode(), RotationMode::Default);
+        wrapped.set_wrap(false);
+        assert!(wrapped.window_extent().is_some());
+        assert_eq!(wrapped.reported_rotation_mode(), RotationMode::Default);
+        assert_eq!(wrapped.rotation_mode(), RotationMode::Default);
     }
 }

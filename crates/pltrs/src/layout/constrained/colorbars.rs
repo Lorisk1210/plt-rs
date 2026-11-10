@@ -10,11 +10,13 @@ use pltrs_core::Bbox;
 use super::compress::actual_parent_position;
 use super::reposition::{place, pos_and_bbox};
 use super::tree::{LayoutTree, subplot_spec};
+use crate::artist::Artist;
 use crate::axes::AxesState;
 use crate::figure::FigureState;
 use crate::gridspec::SubplotSpec;
 use crate::layout::ColorbarLayout;
 use crate::spines::SpineSide;
+use crate::transforms::Transform;
 
 /// How far colorbars already push further ones out, per side.
 #[derive(Clone, Copy, Debug, Default)]
@@ -98,6 +100,11 @@ impl LayoutTree {
         place(fig, colorbar.cax, &placed);
         if let Some(cax) = fig.store.get_as_mut::<AxesState>(colorbar.cax) {
             cax.aspect.fix_box(anchor, box_aspect);
+            // matplotlib's `cbax.set_transform(fig.transSubfigure)`: the
+            // transform of the colorbar's axes, which draws nothing with it.
+            if let Some(frame) = cax.base().parent {
+                cax.base_mut().transform = Some(Transform::Figure(frame));
+            }
         }
     }
 

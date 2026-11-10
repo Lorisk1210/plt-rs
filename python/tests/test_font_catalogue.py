@@ -54,6 +54,10 @@ def _run(config, code):
     env = {key: value for key, value in os.environ.items()
            if key not in ("PLTRSCONFIGDIR", "MPLCONFIGDIR")}
     env["PLTRSCONFIGDIR"] = str(config)
+    # matplotlib's name for it too: run under matplotlib (pltrs aliased to
+    # it), READ_ONLY would otherwise take the write permission from the
+    # user's own cache directory.
+    env["MPLCONFIGDIR"] = str(config)
     result = subprocess.run([sys.executable, "-c", code], env=env,
                             capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr

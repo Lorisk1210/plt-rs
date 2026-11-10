@@ -473,8 +473,6 @@ class BarsMixin:
         error_style = _errorbar_style(error_kw)
         error_kw = {k: v for k, v in error_kw.items() if v is not None}
         error_kw["label"] = error_label
-        if tick_labels is not None:
-            tick_labels = [str(t) for t in np.broadcast_to(tick_labels, n)]
 
         native, rectangles, errorbar, values = _plotting.bar(
             self._native, orientation == 'horizontal',
@@ -483,7 +481,7 @@ class BarsMixin:
             align, (facecolors, edgecolors, linewidths, hatches),
             # The container's label as text, as `.Container` keeps it.
             ('' if bar_container_label is None else str(bar_container_label),
-             patch_labels, tick_labels or [], bool(log)),
+             patch_labels, [], bool(log)),
             (errors.get("x"), errors.get("y"), error_style,
              mlines._native_kwargs(cbook.normalize_kwargs(error_kw, mlines.Line2D))))
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
@@ -513,7 +511,13 @@ class BarsMixin:
                                              else datavalues),
                                  orientation=orientation,
                                  label=bar_container_label)
-        return record_container(self, container, native)
+        record_container(self, container, native)
+        if tick_labels is not None:
+            # matplotlib's, with the positions as given (integers stay).
+            axis = self.xaxis if orientation == 'vertical' else self.yaxis
+            axis.set_ticks(np.broadcast_to(position, n))
+            axis.set_ticklabels(np.broadcast_to(tick_labels, n))
+        return container
 
     @_docstring.interpd
     def barh(self, y, width, height=0.8, left=None, *, align="center",

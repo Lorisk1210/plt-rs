@@ -43,6 +43,9 @@ def _check(name, display, tmp_path, wayland):
         got = run(name, "pltrs", "pltrs", display, tmp_path, wayland)
     except Unavailable as error:
         pytest.skip(str(error))
+    # Once, also where a draw_event callback draws again (polygon): a
+    # second report rewrote the canvas file while the driver read it.
+    assert [record["name"] for record in got.records].count("ready") == 1
     golden = goldens.load(name)
     assert (golden is None) == (SCENARIOS[name].reference is None), \
         "a golden for every scenario compared with matplotlib"

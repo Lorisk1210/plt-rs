@@ -16,6 +16,7 @@ import time
 
 from . import wayland as wayland_driving
 from . import xclient, xdisplay
+from .canvas import POLL, SHOWN_WITHIN, Canvas, wait_shown
 from .errors import ProgramFailed
 from .scenarios import SCENARIOS
 
@@ -105,6 +106,16 @@ class Driver:
             elif time.monotonic() - since >= QUIET:
                 return
             time.sleep(0.01)
+
+    def _await_record(self, wanted, after):
+        """Wait for a record of the log after its first *after* ones for
+        which *wanted* holds."""
+        deadline = time.monotonic() + PATIENCE
+        while time.monotonic() < deadline:
+            if any(map(wanted, read_log(self._log_path)[after:])):
+                return
+            time.sleep(0.01)
+        raise ProgramFailed(f"no record as awaited within {PATIENCE} s")
 
     def wait(self, seconds):
         """Let *seconds* pass (for timers and animations, and to part two
@@ -237,11 +248,13 @@ class Driver:
         """Resize the window's canvas to *width* × *height* pixels (the
         window by as much), as a window manager does."""
         _, _, window_width, window_height = self.x.geometry(self.window)
+        known = len(read_log(self._log_path))
         self.x.configure(self.window,
                          width=window_width + width - self.width,
                          height=window_height + height - self.height)
         self.width, self.height = width, height
-        time.sleep(0.2)
+        self._await_record(lambda record: record["name"] == "resize_event"
+                          and record["size"] == [width, height], known)
         self.settle()
 
     def close(self):
@@ -252,13 +265,26 @@ class Driver:
             self.x.delete(self.window)
 
     def snapshot(self, name):
-        """Keep the canvas' pixels as snapshot *name*."""
-        time.sleep(0.05)
+        """Keep the canvas' pixels as snapshot *name*, once the program is
+        done (its log is quiet) and so is its window (its pixels stay the
+        same for `QUIET` seconds: a blit or a paint may follow the last
+        record)."""
         self.settle()
         x, y = self.screen(0, self.height)
         wx, wy, _, _ = self.x.geometry(self.window)
-        self.snapshots[name] = (self.width, self.height, self.x.image(
-            self.window, x - wx, y - wy, self.width, self.height))
+
+        def pixels():
+            return self.x.image(self.window, x - wx, y - wy, self.width,
+                                self.height)
+
+        shown = pixels()
+        deadline = time.monotonic() + PATIENCE
+        while time.monotonic() < deadline:
+            time.sleep(QUIET)
+            before, shown = shown, pixels()
+            if shown == before:
+                break
+        self.snapshots[name] = (self.width, self.height, shown)
 
 
 def read_log(path):
@@ -312,15 +338,18 @@ def _run(name, library, backend, display, workdir, socket):
             env=env, cwd=workdir, stdout=out, stderr=subprocess.STDOUT)
     try:
         ready = _wait_for(log_path, proc, "ready", STARTUP)
+        x, y, width, height = ready["canvas"]
+        shown = Canvas.read(canvas_path, (width, height))
+        keep = workdir / f"{name}.{library}"
         conn = xclient.Display(display)
         try:
             if socket is None:
                 window = _find_window(conn, ready["title"])
-                canvas, closer = ready["canvas"], None
+                canvas = wait_shown(conn, window, shown, (x, y), keep)
+                closer = None
             else:
                 window = _find_window(conn, wayland_driving.OUTPUT_TITLE)
-                canvas = wayland_driving.locate(conn, window, canvas_path,
-                                                ready["canvas"][2:])
+                canvas = wait_shown(conn, window, shown, keep=keep)
                 closer = wayland_driving.close
             conn.focus(window)
             driver = Driver(conn, window, canvas, log_path, closer)
@@ -367,12 +396,12 @@ def _wait_for(log_path, proc, name, timeout):
 
 
 def _find_window(display, title):
-    deadline = time.monotonic() + wayland_driving.SHOWN_WITHIN
+    deadline = time.monotonic() + SHOWN_WITHIN
     while time.monotonic() < deadline:
         window = display.find_window(title)
         if window is not None:
             return window
-        time.sleep(0.05)
+        time.sleep(POLL)
     raise ProgramFailed(f"no window titled {title!r}")
 
 

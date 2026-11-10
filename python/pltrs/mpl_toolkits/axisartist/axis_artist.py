@@ -208,7 +208,6 @@ class _AutoStyle:
         return _AutoStyle.get_color(self)
 
     def set_markeredgewidth(self, ew):
-        # docstring inherited
         self._auto_width = cbook._str_equal(ew, "auto")
         if self._auto_width:
             self.stale = True
@@ -1687,13 +1686,13 @@ class AxisArtist(martist.Artist):
                              "to reuse an artist in more than one Axes which "
                              "is not supported")
 
-    def get_figure(self, root=False):
+    def _get_figure(self, root):
         # docstring inherited
         # As matplotlib's, an axis artist is in no figure until an axes adds
         # it with `add_artist`; those of an `axislines.Axes` never are.
         if not self.__dict__.get("_added"):
             return None
-        return super().get_figure(root=root)
+        return super()._get_figure(root)
 
     # axis direction
 
@@ -1941,6 +1940,13 @@ def _offset_points(offset):
 _ADD_ANGLES = {"+": 0, "-": 180}
 #: The direction of each angle.
 _DIRECTIONS = {0: "+", 180: "-"}
+
+
+# What matplotlib's `Ticks` and `LabelBase` inherit, which pltrs' classes
+# and their mixin define to reach what pltrs (Rust) draws.
+cbook._inherited_methods(_AutoStyle, Line2D, ["set_markeredgewidth"])
+cbook._inherited_methods(Ticks, martist.Artist, ["set_visible"])
+cbook._inherited_methods(LabelBase, martist.Artist, ["set_visible"])
 
 
 # What matplotlib's module also has from its imports, which programs

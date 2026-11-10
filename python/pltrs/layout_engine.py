@@ -177,10 +177,7 @@ class LayoutEngine:
         returns its layout grids, a private debugging structure (see
         `._layoutgrid`), or None without grids.
         """
-        from ._native import figure as _figure
-        solved = _figure.execute_layout(fig._native, self._native_spec())
-        if solved is not None:
-            return _layoutgrid._from_native(fig, solved)
+        return _layoutgrid.execute(fig, self._native_spec())
 
 
 class PlaceHolderLayoutEngine(LayoutEngine):
@@ -414,5 +411,6 @@ __all__ = ["LayoutEngine", "PlaceHolderLayoutEngine", "TightLayoutEngine",
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 from contextlib import nullcontext  # noqa: E402, F401
-from ._tight_layout import get_subplotspec_list  # noqa: E402, F401
+from ._constrained_layout import do_constrained_layout  # noqa: E402, F401
+from ._tight_layout import get_subplotspec_list, get_tight_layout_figure  # noqa: E402, F401
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package

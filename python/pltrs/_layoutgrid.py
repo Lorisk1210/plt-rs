@@ -279,6 +279,19 @@ def seq_id():
     return '%06d' % next(_layoutboxobjnum)
 
 
+def execute(fig, spec):
+    """
+    Have pltrs (Rust) lay *fig* out with the layout engine *spec* (as
+    `.LayoutEngine._native_spec` describes one): constrained layout returns
+    the grids it solved, as `LayoutGrid` objects (see `_from_native`), or
+    None without grids.
+    """
+    from ._native import figure as _figure
+    solved = _figure.execute_layout(fig._native, spec)
+    if solved is not None:
+        return _from_native(fig, solved)
+
+
 def _from_native(fig, solved):
     """
     The layout grids of *fig* as pltrs (Rust) solved them, from the list

@@ -220,3 +220,8 @@ def _stand_in(figure, width, height, magnification):
         return recorder
     return MixedModeRenderer(figure, width / 72, height / 72,
                              72 * magnification, recorder)
+
+
+# What matplotlib's module also has from its imports, which programs
+# import from it.
+from .._tight_bbox import process_figure_for_rasterizing  # noqa: E402, F401

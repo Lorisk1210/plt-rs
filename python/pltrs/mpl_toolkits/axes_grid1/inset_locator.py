@@ -265,13 +265,12 @@ def _native_corner(loc):
 
 
 class _KeptGeometry:
-    """
-    What `BboxPatch` and `BboxConnector` share: matplotlib keeps their boxes
-    and corners unchecked and fails on them where it computes their path
-    (``get_path``: when it adds the patch to an Axes, measures or draws it);
-    the patch keeps those pltrs (Rust) cannot take, and fails so (see
-    ``pltrs._unusable``).
-    """
+    # What `BboxPatch` and `BboxConnector` share: matplotlib keeps their boxes
+    # and corners unchecked and fails on them where it computes their path
+    # (``get_path``: when it adds the patch to an Axes, measures or draws it);
+    # the patch keeps those pltrs (Rust) cannot take, and fails so (see
+    # ``pltrs._unusable``). A comment, not a docstring: the patches have
+    # none of their own, and ``help`` shows `Patch`'s, as matplotlib's do.
 
     def _described_bbox(self, bbox):
         """*bbox* as `_native_bbox` describes it; the unit box for one

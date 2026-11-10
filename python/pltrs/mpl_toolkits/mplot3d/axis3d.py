@@ -10,11 +10,12 @@ the 3-D axis its axes and name designate. What only 3-D axes have (edges,
 panes, the axis line) is ``_native.mplot3d``'s.
 """
 
+import inspect
 from numbers import Real
 
 import numpy as np
 
-from pltrs import _api, _mirrors, _values, artist, axis as maxis, colors as mcolors
+from pltrs import _api, _mirrors, _values, artist, axis as maxis, cbook, colors as mcolors
 from pltrs import collections as mcoll, lines as mlines, patches as mpatches
 from pltrs._native import artist as _artist, mplot3d as _mplot3d
 
@@ -102,6 +103,8 @@ class Axis(maxis.XAxis):
             self.set_view_interval(*params["v_intervalx"])
         if params["rotate_label"] is not None:
             self.set_rotate_label(params["rotate_label"])
+
+    __init__.__signature__ = inspect.signature(_new_init)
 
     @property
     def line(self):
@@ -593,9 +596,13 @@ class ZAxis(Axis):
     axis_name = "z"
 
 
+# What matplotlib's 3-D `Axis` inherits, which pltrs' class defines to
+# reach the 3-D axis pltrs (Rust) draws.
+cbook._inherited_methods(Axis, artist.Artist, ["set_agg_filter", "set_zorder"])
+cbook._inherited_methods(Axis, maxis.XAxis, ["set_data_interval", "set_view_interval"])
+
 # What matplotlib's module also has from its imports, which programs
 # import from it.
-import inspect  # noqa: E402, F401
 import pltrs as mpl  # noqa: E402, F401
 from dataclasses import dataclass  # noqa: E402, F401
 from pltrs import text as mtext, transforms as mtransforms  # noqa: E402, F401

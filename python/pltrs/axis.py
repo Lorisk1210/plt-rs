@@ -582,7 +582,7 @@ class Axis(DrawnWith, Artist):
         """The root `.Figure` of the axis' axes."""
         return self.axes.figure
 
-    def get_figure(self, root=False):
+    def _get_figure(self, root):
         """Return the `.Figure` or `.SubFigure` the axis is on."""
         return self.axes.get_figure(root=root)
 
@@ -2754,9 +2754,10 @@ class YAxis(_AxisOfAxes):
 
 
 cbook._set_module(__name__, Tick, XTick, YTick)
-# What matplotlib's `Axis` inherits from `Artist`, which pltrs' class
-# defines to reach the axis pltrs (Rust) draws.
+# What matplotlib's `Axis` and `Tick` inherit from `Artist`, which pltrs'
+# classes define to reach the axis pltrs (Rust) draws.
 cbook._inherited_methods(Axis, Artist, ["set_animated", "set_agg_filter"])
+cbook._inherited_methods(Tick, Artist, ["set_visible", "set_agg_filter"])
 
 
 # What matplotlib's module also has from its imports, which programs

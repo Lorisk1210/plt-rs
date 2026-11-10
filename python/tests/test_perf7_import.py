@@ -57,15 +57,15 @@ MATPLOTLIB_PYPLOT_IMPORT = MATPLOTLIB_IMPORT + """
 """.split()
 
 #: matplotlib's modules pltrs has no module for: what they hold is in pltrs
-#: (Rust) (the colormaps' data, the constrained layout, mathtext's tables,
-#: the tight bounding box) or in the package's ``__init__`` (the version).
+#: (Rust) (the colormaps' data, mathtext's tables) or in the package's
+#: ``__init__`` (the version).
 NOT_IN_PLTRS = {"_cm", "_cm_bivar", "_cm_listed", "_cm_multivar", "_version",
-                "_constrained_layout", "_mathtext_data", "_tight_bbox"}
+                "_mathtext_data"}
 
 #: The most modules of pltrs' own each import may load: what they load now.
 #: A helper module that a module uses only inside its functions is
 #: imported where first needed (``_lazy_imports.module``), not at import.
-OWN_MODULES_CEILING = {"pltrs": 56, "pltrs.pyplot": 203}
+OWN_MODULES_CEILING = {"pltrs": 56, "pltrs.pyplot": 205}
 
 
 def _fresh(code, **env):

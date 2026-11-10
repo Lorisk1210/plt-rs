@@ -7,6 +7,7 @@ objects of its artists (``self._artists``, see `._handles`).
 """
 
 from numbers import Integral
+import functools
 import logging
 import math
 
@@ -145,15 +146,6 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             if im is not None:
                 return im
         return None
-
-    @property
-    def figure(self):
-        """The root `Figure`.  To get the parent of a `SubFigure`, use the `get_figure` method."""
-        return self._figure
-
-    @figure.setter
-    def figure(self, fig):
-        self.set_figure(fig)
 
     def get_window_extent(self, renderer=None):
         return self.bbox
@@ -1330,6 +1322,10 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             return
         raise ValueError(no_switch)
 
+    figure = property(functools.partial(get_figure, root=True), set_figure,
+                      doc=("The root `Figure`.  To get the parent of a `SubFigure`, "
+                           "use the `get_figure` method."))
+
     def clf(self, keep_observers=False):
         """
         [*Discouraged*] Alias for the `clear()` method.
@@ -2030,7 +2026,7 @@ None}, default: None
         _values.remember(self, "dpi", dpi)
         self.set_size_inches(*self.get_size_inches(), forward=forward)
 
-    dpi = property(_get_dpi, set_dpi, doc="The resolution in dots per inch.")
+    dpi = property(_get_dpi, _set_dpi, doc="The resolution in dots per inch.")
 
     def remove(self):
         """A root figure is in nothing it could be removed from: matplotlib's
@@ -2634,7 +2630,6 @@ cbook._own_mixin_methods(Figure, FigureBase)
 
 # What matplotlib's module also has from its imports, which programs
 # import from it.
-import functools  # noqa: E402, F401
 import inspect  # noqa: E402, F401
 import itertools  # noqa: E402, F401
 import threading  # noqa: E402, F401

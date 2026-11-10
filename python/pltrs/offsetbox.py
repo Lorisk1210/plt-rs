@@ -715,7 +715,7 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
         owner = self.__dict__.get("_tree_owner")
         return None if owner is self else owner
 
-    def get_figure(self, root=False):
+    def _get_figure(self, root):
         """Return the `.Figure` or `.SubFigure` the box is on: that of the
         artist added with its tree, for a box inside another, which keeps it
         once that artist is removed or cleared, as matplotlib's keeps the
@@ -726,7 +726,7 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
             owner = self._laid_out_for
         if self._figure is None and owner is not None:
             return owner._home_figure(root=root)
-        return super().get_figure(root=root)
+        return super()._get_figure(root)
 
     def _loose_axes(self):
         # A box laid out for an artist is in that artist's Axes. A box

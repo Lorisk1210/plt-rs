@@ -1,8 +1,13 @@
 """Enumerate matplotlib's public API by introspection, as JSON lines.
 
+    python enumerate.py [--nested]
+
 Each record: module, owner (class name or ""), name, kind
 (function/class/method/property/classmethod/staticmethod/attribute/
 instance_attribute/kwarg), deprecated flag, and for classes their bases.
+With ``--nested``, the members of the classes nested in classes too
+(``LambertAxes.InvertedLambertTransform.inverted``), owned by the nested
+class' qualified name.
 """
 import importlib
 import inspect
@@ -71,6 +76,9 @@ SKIP_MEMBERS = {
 
 # Classes whose methods' parameters are listed (the main plotting methods).
 KWARG_OWNERS = {("matplotlib.axes", "Axes"), ("mpl_toolkits.mplot3d", "Axes3D")}
+
+# Whether the members of nested classes are listed too.
+NESTED = "--nested" in sys.argv[1:]
 
 
 def deprecated(obj):
@@ -142,6 +150,9 @@ def class_members(module, cls, owner=None):
              deprecated=deprecated(obj) if kind != "attribute" else False)
         if kind in ("method", "classmethod", "staticmethod") and (module, owner) in KWARG_OWNERS:
             params_of(module, owner, name, obj)
+        if NESTED and kind == "class" and obj.__qualname__ == f"{cls.__qualname__}.{name}":
+            # A class defined in the class' body, not one it refers to.
+            class_members(module, obj, f"{owner}.{name}")
 
 
 def bases_of(cls):

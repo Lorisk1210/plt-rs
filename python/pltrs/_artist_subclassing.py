@@ -140,6 +140,17 @@ class _Definition:
         #: its decorators may make aliases of (``set_xlim3d = set_xlim``).
         self.setters = setters
 
+    def inherit(self, names):
+        """Count the accessors *names* as inherited: pltrs' class defines
+        them to reach its native parts, where matplotlib's class inherits
+        them, documented, from a base (`.cbook._inherited_methods`)."""
+        names = frozenset(names)
+        self.names -= names
+        self.undocumented -= names
+        self.aliases -= names
+        for name in names:
+            self.setters.pop(name, None)
+
     def inspector(self, cls):
         """An `.ArtistInspector` of *cls* as it was defined."""
         from ._artist_inspector import ArtistInspector, _setter_valid_values

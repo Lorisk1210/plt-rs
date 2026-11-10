@@ -143,12 +143,18 @@ class PositionedMixin:
         if made is None or made[0] != key:
             # Its figure's renderer, also once it was removed from it.
             renderer = self._home_figure(root=True)._get_renderer()
+            transform = None if made is None else made[1]
+            # Measures position it (only shown annotations count them);
+            # matplotlib's draw does unless the annotation is hidden or its
+            # point is outside its Axes (``_check_xy``).
+            measured = key[1] != (0 if made is None else made[0][1])
             try:
-                transform = self._get_xy_transform(renderer, self.anncoords)
+                if measured or (self.get_visible() and self._check_xy(renderer)):
+                    transform = self._get_xy_transform(renderer, self.anncoords)
             except Exception:
-                # matplotlib's ``update_positions`` raised before it set the
-                # transform (the draw failed there): it stays as it was.
-                transform = None if made is None else made[1]
+                # matplotlib's draw raised before ``update_positions`` set
+                # the transform: it stays as it was.
+                pass
             made = self._positioned_transform = (key, transform)
         return made[1]
 

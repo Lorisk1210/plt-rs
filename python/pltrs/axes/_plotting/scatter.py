@@ -422,6 +422,9 @@ class ScatterMixin:
         if edgecolors is not None and not cbook._str_equal(edgecolors, 'face'):
             edgecolors = mcolors.to_rgba_array(edgecolors)
         given_linewidths = None
+        # The widths as the collection's `set_linewidth` keeps them (an
+        # integer width reads back as one).
+        widths_as_given = None if linewidths is None else np.atleast_1d(linewidths)
         if linewidths is not None:
             try:
                 linewidths = [float(lw) if lw is not None
@@ -458,5 +461,7 @@ class ScatterMixin:
             collection._attach_native_mapping(colorizer=made)
         if given_linewidths is not None:
             collection.set_linewidth(given_linewidths)
+        elif widths_as_given is not None:
+            _values.remember(collection, "linewidth", widths_as_given)
         collection._internal_update(kwargs)
         return collection

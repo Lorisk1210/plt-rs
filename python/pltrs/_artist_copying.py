@@ -1,6 +1,7 @@
 """
-The properties copied between artists and the sticky edges of `.Artist`
-(matplotlib's ``Artist.update_from`` and ``Artist.sticky_edges``).
+The properties copied between artists, the artists `copy.copy` makes and
+the sticky edges of `.Artist` (matplotlib's ``Artist.update_from``,
+``Artist.__getstate__`` and ``Artist.sticky_edges``).
 
 pltrs (Rust) keeps both (``_native.artist.update_from``, ``sticky_edges``):
 autoscaling reads the sticky edges where it runs, so the lists
@@ -8,12 +9,59 @@ autoscaling reads the sticky edges where it runs, so the lists
 """
 
 from collections import namedtuple
+import copy
 
 from ._native import artist as _artist
 
 #: What the Python side keeps of the transform and the clip regions it
 #: gave pltrs (Rust), copied with them.
 _REFERENCES = ("_given_transform", "_clipbox", "_clippath")
+
+
+#: The containers the Python side keeps an artist's values in and changes
+#: in place: a shallow copy gets copies of them, as matplotlib's copy
+#: shares the values but rebinds each attribute it sets.
+_OWN_CONTAINERS = ("_given_values", "_unheld_values", "_unusable")
+
+
+def detach_shallow_copy(artist):
+    """
+    Give *artist*, made by `copy.copy` of an artist of a figure (which
+    copies its attributes, its native handle among them), an artist of
+    its own in pltrs (Rust): a copy its figure does not draw, owned by the
+    Axes of the original, as matplotlib's copy is in no list of its Axes or
+    figure but keeps them. Artists holding others (Axes, figures, legends,
+    contour sets) keep sharing them, as matplotlib's copies share the
+    objects they hold.
+    """
+    from .collections import Collection
+    from .contour import ContourSet
+    from .image import _ImageBase
+    from .lines import Line2D
+    from .patches import Patch
+    from .text import Text
+    figure, native = artist.__dict__.get("_figure"), artist.__dict__.get("_native")
+    if (figure is None or native is None or "canvas" not in figure.__dict__
+            or not isinstance(artist, (Line2D, Patch, Text, Collection, _ImageBase))
+            or isinstance(artist, ContourSet)):
+        # No artist of a live figure (the figure being read back from a
+        # pickle has no canvas yet), or one holding others.
+        return
+    try:
+        key = _artist.id(native)
+    except RuntimeError:
+        # Its native state is still being read back (a deep copy).
+        return
+    original = figure.__dict__.get("_artists", {}).get(key)
+    if original is None or original is artist or original.__dict__.get("_native") is not native:
+        # Not a shallow copy, which holds the very handle of the artist its
+        # figure knows: read back from a pickle, or deep copied.
+        return
+    artist._native = _artist.detached_copy(native)
+    figure._artists[_artist.id(artist._native)] = artist
+    for key in _OWN_CONTAINERS:
+        if key in artist.__dict__:
+            artist.__dict__[key] = copy.copy(artist.__dict__[key])
 
 
 def check_copyable(other):

@@ -3,9 +3,10 @@ The keyword arguments every artist takes that cross to pltrs (Rust) in a
 form of their own: ``clip_path``, ``path_effects`` and ``picker``, as the
 native property tables of lines, patches, collections and images take
 them when an artist is made with them. A callable picker does not cross:
-it stays with the Python artist (`keep_program_picker`), which the pick
-calls, as `.Artist.set_picker` keeps it. `check_known` refuses the
-properties no setter takes, as matplotlib's constructors do.
+it stays with the Python artist (`keep_python_kwargs`), which the pick
+calls, as `.Artist.set_picker` keeps it; so does the clip path's object.
+`check_known` refuses the properties no setter takes, as matplotlib's
+constructors do.
 """
 
 from ._artist_clipping import clip_path_spec
@@ -27,16 +28,29 @@ def native_artist_kwargs(kwargs):
     return native
 
 
-def keep_program_picker(artist, kwargs):
-    """Give *artist*, made with the keyword arguments *kwargs*, the
-    callable picker they hold, if any, and keep any other picker as given
-    (``picker=5`` reads back as ``5``, as matplotlib's ``set_picker`` keeps
-    it); return *artist*."""
+def keep_python_kwargs(artist, kwargs):
+    """
+    Give *artist*, made natively with the keyword arguments *kwargs*, what
+    of them stays with the Python artist; return *artist*.
+
+    The callable picker they hold, which the pick calls, and any other
+    picker as given (``picker=5`` reads back as ``5``, as matplotlib's
+    ``set_picker`` keeps it); the clip path as `.Artist.set_clip_path`
+    keeps it (its object, a patch followed as it changes). A `.Rectangle`
+    sets only the clip box, which the Axes adding the artist replaces with
+    its own patch's, as matplotlib's ``add_line`` does.
+    """
+    from .patches import Rectangle
     picker = kwargs.get("picker")
     if callable(picker):
         artist.set_picker(picker)
     elif "picker" in kwargs:
         artist._keep_picker(picker)
+    clip_path = kwargs.get("clip_path")
+    if isinstance(clip_path, Rectangle) and artist.axes is not None:
+        artist.set_clip_path(artist.axes.patch)
+    elif clip_path is not None:
+        artist.set_clip_path(clip_path)
     return artist
 
 

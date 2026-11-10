@@ -19,7 +19,7 @@ from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
 from . import _boxplot_reference, _pie_reference
-from ._helpers import check_format, takes_properties, wrap, wrap_all
+from ._helpers import check_format, keep_data, takes_properties, wrap, wrap_all
 
 
 def _rcParams():
@@ -86,6 +86,19 @@ _NATIVE_PATCH_PROPS = frozenset([
     "color", "facecolor", "edgecolor", "linewidth", "linestyle", "fill",
     "hatch", "hatchcolor", "antialiased", "capstyle", "joinstyle", "alpha",
     "zorder", "label", "visible", "clip_on"])
+
+
+def _keep_at_positions(lines, positions, orientation):
+    """Have each of the lines of `~.Axes.bxp`, made at one of *positions*
+    (as given), keep its data as matplotlib plots them: the positions
+    along the axis of the boxes' positions, the values as made."""
+    for line, position in zip(lines, positions):
+        if orientation == "vertical":
+            ys = line.get_ydata()
+            keep_data(line, np.asarray([position] * len(ys)), ys)
+        else:
+            xs = line.get_xdata()
+            keep_data(line, xs, np.asarray([position] * len(xs)))
 
 
 def _native_patch_props(props, cls):
@@ -730,11 +743,19 @@ class StatsMixin:
                 "facecolor", _rcParams()["patch.facecolor"])
             for box in boxes:
                 _values.remember(box, "facecolor", face)
-        return dict(whiskers=wrap_all(self, whiskers, mlines.Line2D),
+        whiskers = wrap_all(self, whiskers, mlines.Line2D)
+        means = wrap_all(self, means, mlines.Line2D)
+        if positions.dtype.kind in "iu":
+            # matplotlib plots the whiskers, and the means drawn as points,
+            # at the positions as given: integers stay integers.
+            _keep_at_positions(whiskers, np.repeat(positions, 2), orientation)
+            if not meanline:
+                _keep_at_positions(means, positions, orientation)
+        return dict(whiskers=whiskers,
                     caps=wrap_all(self, caps, mlines.Line2D), boxes=boxes,
                     medians=wrap_all(self, medians, mlines.Line2D),
                     fliers=wrap_all(self, fliers, mlines.Line2D),
-                    means=wrap_all(self, means, mlines.Line2D))
+                    means=means)
 
     @_api.make_keyword_only("3.10", "vert")
     @_preprocess_data(replace_names=["dataset"])

@@ -4,7 +4,7 @@
 use pltrs_core::numeric::py_max;
 
 use super::{List, MathNode, Node};
-use crate::glue_warnings;
+use crate::mathtext_log;
 
 /// How the requested size of a packed list is interpreted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -144,7 +144,7 @@ impl List {
             // No glue of infinite stretchability takes the excess:
             // matplotlib logs the list.
             let error = if sign > 0 { "Overful" } else { "Underful" };
-            glue_warnings::record(format!(
+            mathtext_log::record(format!(
                 "{error} {}: {}",
                 self.class_name(),
                 MathNode::from(&*self).python_repr()

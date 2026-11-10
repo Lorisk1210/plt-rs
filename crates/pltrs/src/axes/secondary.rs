@@ -245,6 +245,9 @@ impl FigureState {
         if (v0 < v1) != (low < high) {
             (v0, v1) = (v1, v0);
         }
+        if let Some(state) = self.store.get_as::<AxesState>(axes) {
+            state.warn_identical_limits(link.orientation, (v0, v1));
+        }
         self.set_axis_limits(axes, link.orientation, (v0, v1), Some(false), true);
     }
 
@@ -380,6 +383,35 @@ mod tests {
                 .is_ok(),
             "a host is no secondary axis: nothing changes"
         );
+    }
+
+    #[test]
+    fn identical_limits_warn_as_matplotlib_sets_them() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let sink = Rc::clone(&seen);
+        crate::warnings::set_handler(move |message| sink.borrow_mut().push(message.to_owned()));
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xlim(-1.0, 1.0).expect("finite limits");
+        let square = FuncTransform::new(|x| x * x, f64::sqrt);
+        let sec = ax
+            .secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), Some(square))
+            .unwrap();
+        fig.layout();
+        let (v0, v1) = sec.xlim();
+        assert!(v0 < 1.0 && v1 > 1.0, "expanded around the identical limits");
+        assert!(!seen.borrow().is_empty());
+        assert!(seen.borrow().iter().all(|message| message
+            == "Attempting to set identical low and high xlims makes transformation \
+                singular; automatically expanding."));
+        // matplotlib's `get_tightbbox` applies the aspect once: one warning.
+        seen.borrow_mut().clear();
+        sec.apply_aspect_to_measure().expect("an aspect");
+        assert!(sec.tight_bbox(false).is_some());
+        crate::warnings::clear_handler();
+        assert_eq!(seen.borrow().len(), 1);
     }
 
     #[test]

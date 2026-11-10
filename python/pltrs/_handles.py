@@ -86,6 +86,15 @@ def wrap_any(native, figure):
     return wrap(native, getattr(module, name), figure)
 
 
+def wrap_patch(native, figure):
+    """`wrap` for a handle of a patch: the object made before, or a new
+    object of matplotlib's class for the patch's shape (`.Patch` for a
+    shape of no class of its own)."""
+    from . import patches
+    name = _artist.class_name(native)
+    return wrap(native, getattr(patches, name, patches.Patch), figure)
+
+
 def adopt(artist, native, figure):
     """
     Make *artist*, a loose artist or one removed from *figure*, the object

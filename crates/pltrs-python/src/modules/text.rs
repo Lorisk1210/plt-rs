@@ -163,7 +163,7 @@ pub(super) fn rotation_mode_name(mode: RotationMode) -> &'static str {
 
 /// The rotation mode's name.
 fn get_rotation_mode(text: Text) -> PyResult<&'static str> {
-    Ok(rotation_mode_name(text.rotation_mode()))
+    Ok(rotation_mode_name(text.reported_rotation_mode()))
 }
 
 /// Sets the rotation mode by name.

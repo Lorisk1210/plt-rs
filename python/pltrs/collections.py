@@ -194,6 +194,19 @@ def _paths_container(paths):
     return tuple if isinstance(paths, tuple) else list
 
 
+def _limit_as_scaled(limit, values):
+    """
+    *limit*, a limit pltrs (Rust) scaled a norm to from *values*, as
+    matplotlib's ``Normalize.autoscale_None`` finds it in them: their
+    ``min()`` or ``max()``, a numpy scalar of their dtype, which the norm
+    makes a Python scalar (an integer of integer values, a bool of bools).
+    """
+    dtype = np.asarray(values).dtype
+    if limit is None or dtype.kind not in "biu":
+        return limit
+    return dtype.type(limit)
+
+
 @_api.define_aliases({
     "antialiased": ["antialiaseds", "aa"],
     "edgecolor": ["edgecolors", "ec"],
@@ -379,12 +392,14 @@ class Collection(mcolorizer.ColorizingArtist):
         # every value is valid).
         return None if array is None else cbook.safe_masked_invalid(array)
 
-    def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
+    def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None, given=None):
         """
         Give the collection the Python colorizer of the mapping pltrs (Rust)
         made: *colorizer*, or one of *cmap* (by default the colormap pltrs
         used) and *norm*, with the limits pltrs found, and the values it
-        maps.
+        maps. The limits the norm lacked are typed as matplotlib's
+        autoscaling finds them in *given*, the values as the program gave
+        them, if any (`_limit_as_scaled`).
         """
         if colorizer is None:
             if cmap is None:
@@ -393,7 +408,11 @@ class Collection(mcolorizer.ColorizingArtist):
             colorizer = mcolorizer.Colorizer(cmap, norm)
         vmin, vmax = self._native_clim()
         # A norm with its limits keeps them (it may not let them be set).
-        if (vmin is not None or vmax is not None) and not colorizer.norm.scaled():
+        norm = colorizer.norm
+        if (vmin is not None or vmax is not None) and not norm.scaled():
+            if given is not None:
+                vmin, vmax = (_limit_as_scaled(limit, given) if own is None else own
+                              for own, limit in ((norm.vmin, vmin), (norm.vmax, vmax)))
             colorizer.set_clim(vmin, vmax)
         if getattr(self, "_colorizer", None) is not None:
             self._colorizer.callbacks.disconnect(self._id_colorizer)

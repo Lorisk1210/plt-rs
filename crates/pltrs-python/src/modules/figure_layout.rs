@@ -176,8 +176,9 @@ fn axes_tightbbox(
     children: bool,
 ) -> PyResult<Option<(f64, f64, f64, f64)>> {
     // matplotlib's `get_tightbbox` applies the aspect, then places the
-    // ticks of each axis it measures; both may raise.
-    axes.apply_aspect()?;
+    // ticks of each axis it measures; both may raise. The measure brings a
+    // secondary axis to its host's limits.
+    axes.apply_aspect_to_measure()?;
     let bbox = measured(|| {
         if children {
             axes.tight_bbox(for_layout_only)

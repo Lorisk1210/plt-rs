@@ -24,9 +24,9 @@ mod block;
 mod engine;
 mod error;
 pub mod fontconfig;
-mod glue_warnings;
 mod lookups;
 pub mod mathtext;
+mod mathtext_log;
 mod memo;
 mod missing;
 mod run;
@@ -49,8 +49,8 @@ pub use block::{
 };
 pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::TextError;
-pub use glue_warnings::take_glue_warnings;
 pub use lookups::{FontLookup, LookupKind, LookupRun, take_font_lookups};
+pub use mathtext_log::take_mathtext_log;
 pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{
     AfmChoice, AfmDirectory, AfmEntry, AfmFont, AfmMetrics, CatalogueReport, CatalogueState,

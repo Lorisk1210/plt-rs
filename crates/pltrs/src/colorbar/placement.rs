@@ -143,7 +143,10 @@ impl Parent {
                 ax.set_anchor(anchor);
             }
             Self::Axes3D(ax) => {
+                // matplotlib's 3-D axes is anchored as an axes too, which
+                // its `get_anchor` reads.
                 ax.set_anchor(anchor);
+                ax.projection_plane().set_anchor(anchor);
             }
         }
     }

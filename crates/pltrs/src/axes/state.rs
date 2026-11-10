@@ -507,6 +507,23 @@ impl AxesState {
         ((v0, v1), replaced)
     }
 
+    /// matplotlib's warning of `Axis._set_lim` for the limits `(v0, v1)`
+    /// of axis `name` when they are identical once a log axis kept its
+    /// current limits for non-positive ones, before the locator widens
+    /// them.
+    pub(crate) fn warn_identical_limits(&self, name: AxisName, limits: (f64, f64)) {
+        let ((v0, v1), _) = self.log_limits(name, limits);
+        #[expect(clippy::float_cmp, reason = "matplotlib compares the limits exactly")]
+        let identical = v0 == v1;
+        if identical {
+            crate::warnings::warn(&format!(
+                "Attempting to set identical low and high {}lims makes transformation \
+                 singular; automatically expanding.",
+                name.name()
+            ));
+        }
+    }
+
     /// The limits `(v0, v1)` become once validated for one axis
     /// (matplotlib's `Axis._set_lim`): non-positive limits of a log axis
     /// keep the current value, with matplotlib's warning for each,

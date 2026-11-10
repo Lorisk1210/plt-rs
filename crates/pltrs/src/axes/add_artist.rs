@@ -261,6 +261,11 @@ impl Axes {
                 .filter(|&&id| !axes.spines.contains(&id) && !axes.titles.contains(&id))
                 .filter(|id| !drawing.contains(id))
                 .filter(|&&id| figure.artist_as::<LegendArtist>(id).is_none())
+                .filter(|&&id| {
+                    figure
+                        .artist(id)
+                        .is_none_or(|artist| !super::children::is_axisartist_part(artist))
+                })
                 .count()
         })
     }

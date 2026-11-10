@@ -205,7 +205,6 @@ impl Figure {
             // nothing.
             state.layout.remove_engine();
             swapped?;
-            warn_about_left_out_axes(state, &axes, None);
             state.tight_layout_pass(frame, &axes, &params)
         })?;
         Ok(self)
@@ -214,13 +213,15 @@ impl Figure {
 
 impl FigureState {
     /// One tight layout pass over `axes`, changing the subplot parameters
-    /// of figure frame `frame` (matplotlib's `TightLayoutEngine.execute`).
+    /// of figure frame `frame` (matplotlib's `TightLayoutEngine.execute`),
+    /// which warns first when it leaves some of the axes out.
     pub(crate) fn tight_layout_pass(
         &mut self,
         frame: ArtistId,
         axes: &[ArtistId],
         params: &TightLayout,
     ) -> Result<(), TightLayoutError> {
+        warn_about_left_out_axes(self, axes, None);
         let Some(subplot_params) = self.subplot_params_of(frame) else {
             return Ok(());
         };
@@ -442,6 +443,34 @@ mod tests {
             Err(TightLayoutError::MarginsTooWide)
         );
         assert_eq!(ax.position().bounds().0, 0.125);
+    }
+
+    #[test]
+    fn the_engine_warns_about_axes_it_leaves_out_at_each_pass() {
+        use crate::gridspec::SubplotOverrides;
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let fig = Figure::new();
+        let grid = GridSpec::new(1, 2).unwrap();
+        grid.set_overrides(SubplotOverrides {
+            hspace: Some(0.1),
+            ..SubplotOverrides::default()
+        });
+        fig.add_subplot_spec(&grid.cell(0, 0).unwrap()).unwrap();
+        fig.set_layout_engine(LayoutEngine::Tight(TightLayout::default()))
+            .unwrap();
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let sink = Rc::clone(&seen);
+        crate::warnings::set_handler(move |message| sink.borrow_mut().push(message.to_owned()));
+        fig.layout();
+        crate::warnings::clear_handler();
+        assert_eq!(
+            *seen.borrow(),
+            [
+                "This figure includes Axes that are not compatible with tight_layout, so \
+              results might be incorrect."
+            ]
+        );
     }
 
     #[test]

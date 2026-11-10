@@ -227,6 +227,7 @@ class ContourLabeler:
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
                   bool(use_clabeltext)), self._splitter(inline_spacing))
         self._labelled_all_levels = levels is None
+        self._type_placed_labels()
         if not interactive:
             # matplotlib's: every label of the set.
             return cbook.silent_list('text.Text', self.labelTexts)
@@ -360,6 +361,7 @@ class ContourLabeler:
         _contour.add_label_near(self._contour, (float(x), float(y)),
                                 bool(inline), _spacing_number(inline_spacing),
                                 self._splitter(inline_spacing))
+        self._type_placed_labels()
 
     def pop_label(self, index=-1):
         """Defaults to removing last label, but any index can be supplied"""
@@ -379,6 +381,20 @@ class ContourLabeler:
         return _handles.wrap_all(_contour.label_texts(self._contour), Text,
                                  self._figure)
 
+    def _type_placed_labels(self):
+        """Have the labels pltrs (Rust) placed read their position and
+        colour back as matplotlib's `add_label` makes them: the numpy
+        floats of the point it inverts into data coordinates and of the
+        colour its mappable gives."""
+        from .text import _remember_position
+        adopted = self.__dict__.get("_adopted_labels", {})
+        for text in self.labelTexts:
+            if "_typed_label" in text.__dict__ or _artist.id(text._native) in adopted:
+                continue
+            text._typed_label = True
+            _remember_position(text, tuple(map(np.float64, text.get_position())))
+            _values.remember(text, "color", tuple(map(np.float64, text.get_color())))
+
     @property
     def labelXYs(self):
         """The display positions of the labels: numpy floats, as
@@ -397,7 +413,8 @@ class ContourLabeler:
         """The colour values (`cvalues`) of the levels of the labels, or as
         given to `add_label`."""
         index = {level: i for i, level in enumerate(self.levels)}
-        cvalues = self.cvalues
+        # Numpy scalars, as matplotlib takes them (``np.take``).
+        cvalues = np.asarray(self.cvalues)
         adopted = self.__dict__.get("_adopted_labels", {})
         return [adopted[key][1] if key in adopted else cvalues[index[level]]
                 for key, level in zip(self._label_ids(),
@@ -462,6 +479,7 @@ class ContourLabeler:
             # pltrs (Rust) labels the level as the last `clabel` labels it.
             _contour.add_label(self._contour, (float(x), float(y)), float(rotation),
                                level)
+            self._type_placed_labels()
             return
         # matplotlib's own label: a text of any level and colour.
         from .text import Text
@@ -934,6 +952,9 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             self._set_contour(native, ax.figure)
             _style(self, look, kwargs)
         self.origin, self.extent, self.nchunk = origin, extent, nchunk
+        # matplotlib makes a path of the segments of each level, also of
+        # none (see `get_paths`).
+        self._paths_of_segments = True
 
     @classmethod
     def _from_contour(cls, contour, axes):
@@ -971,7 +992,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def _native_array(self):
         if not hasattr(self, "_contour"):
             return None
-        return cbook.safe_masked_invalid(_contour.get_cvalues(self._contour)[0])
+        return cbook.safe_masked_invalid(self.cvalues, copy=True)
 
     def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
         # Explicit colors are indexed through a NoNorm (matplotlib's
@@ -1009,8 +1030,10 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     @property
     def cvalues(self):
         """The values the levels or bands are mapped to colours by: the
-        layers, or indices into explicitly given colours."""
-        return _contour.get_cvalues(self._contour)[0]
+        layers, or indices into explicitly given colours (a list of
+        integers, as matplotlib's ``_process_colors`` makes them)."""
+        values, indexed = _contour.get_cvalues(self._contour)
+        return [int(value) for value in values] if indexed else values
 
     @property
     def filled(self):
@@ -1053,8 +1076,12 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                 np.array_equal(path.vertices, vertices)
                 and np.array_equal(path.codes, codes)
                 for path, (vertices, codes) in zip(kept, native)):
-            kept = self._paths_kept = [Path(vertices, codes)
-                                       for vertices, codes in native]
+            # The levels a contour generator found no line of share one
+            # empty path (matplotlib's ``_make_paths_from_contour_generator``).
+            empty = None if self.__dict__.get("_paths_of_segments") else Path(np.empty((0, 2)))
+            kept = self._paths_kept = [
+                Path(vertices, codes) if empty is None or len(vertices) else empty
+                for vertices, codes in native]
             _owned_paths.hand_out(kept, self._push_kept_paths)
         return kept
 

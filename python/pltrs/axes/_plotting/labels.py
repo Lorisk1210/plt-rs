@@ -2,6 +2,7 @@
 Labels of bar and pie charts: `~.Axes.bar_label` and `~.Axes.pie_label`.
 """
 
+import itertools
 import math
 from numbers import Real
 
@@ -10,6 +11,23 @@ import numpy as np
 from ... import _api
 from ..._native import plotting as _plotting
 from ._helpers import takes_properties, wrap
+
+
+def _label_places(xy, offset, pad, label_type, vertical):
+    """
+    The point and the offset of a bar's label, pltrs (Rust)'s *xy* and
+    *offset*, typed as matplotlib's ``bar_label`` makes them: the point
+    numpy floats read off the bar's box (the box's middle for centred
+    labels), the offset ``(0, ±pad)`` or ``(±pad, 0)`` of the type of
+    *pad*, the padding as given (an integer stays one).
+    """
+    point = (0.5, 0.5) if label_type == "center" else tuple(np.float64(v) for v in xy)
+    pad_type = int if isinstance(pad, bool) else type(pad)
+    try:
+        along = pad_type(offset[1] if vertical else offset[0])
+    except (TypeError, ValueError):
+        return point, offset
+    return point, ((0, along) if vertical else (along, 0))
 
 
 class LabelsMixin:
@@ -84,19 +102,24 @@ class LabelsMixin:
             if len(padding) != bars:
                 raise ValueError(
                     f"padding must be of length {bars} when passed as a sequence")
-            padding = [float(p) for p in padding]
+            given = list(padding)
         else:
             if bars:
                 # matplotlib offsets each label by its direction times it.
                 _ = 1 * padding
-            padding = [float(padding)]
+            given = [padding]
         labels = [] if labels is None else [str(label) for label in labels]
+        vertical = container.orientation != "horizontal"
         annotations = []
-        for native in _plotting.bar_label(self._native, container._native, labels,
-                                          fmt, label_type, padding):
+        for native, pad in zip(
+                _plotting.bar_label(self._native, container._native, labels, fmt,
+                                    label_type, [float(p) for p in given]),
+                itertools.cycle(given)):
             annotation = wrap(self, native, Annotation)
-            annotation._init_annotation(annotation.xy, annotation.get_position(),
-                                        "data", "offset points", None, kwargs)
+            annotation._init_annotation(
+                *_label_places(annotation.xy, annotation.get_position(), pad,
+                               label_type, vertical),
+                "data", "offset points", None, kwargs)
             annotations.append(annotation)
         return annotations
 

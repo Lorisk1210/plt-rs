@@ -134,6 +134,59 @@ def restore_program_hooks(figure, hooks):
 WAITING = "_waiting_for_state"
 
 
+class TreeReference:
+    """
+    A transform of the trees of an Axes or a figure (``ax.transData``)
+    that an artist was given, as the artist pickles: the trees do not
+    pickle, the owner read back builds them again (`._transform_trees`),
+    and the artist then takes its very transform (`resolve_trees`), as
+    matplotlib's pickle keeps one object for both.
+    """
+
+    def __init__(self, owner, name):
+        self.owner = owner
+        self.name = name
+
+
+#: The attributes of an artist that may hold a transform of the trees.
+_TREE_HOLDERS = ("_given_transform",)
+
+
+def referring_to_trees(artist, state):
+    """*state*, the pickled state of *artist*, with the transforms of the
+    trees of its Axes or figures it holds as references to them
+    (`TreeReference`)."""
+    from ._transform_trees import _TREE_KEYS
+    held = [key for key in _TREE_HOLDERS if state.get(key) is not None]
+    if not held:
+        return state
+    # (A figure's ``axes`` is the list of its Axes, no owner.)
+    owners = [owner for owner in (artist.axes, artist.get_figure(root=False),
+                                  artist.get_figure(root=True))
+              if hasattr(owner, "__dict__") and owner is not artist]
+    for key in held:
+        value = state[key]
+        for owner in owners:
+            name = next((name for name in _TREE_KEYS
+                         if owner.__dict__.get(name) is value), None)
+            if name is not None:
+                state[key] = TreeReference(owner, name)
+                break
+    return state
+
+
+def resolve_trees(artist, restored=False):
+    """Have *artist* hold the transforms of the trees it refers to
+    (`TreeReference`) once their owners can build them: at once for the
+    owners of a live figure (a shallow copy), else when the figure read
+    back from a pickle is *restored*."""
+    for key in _TREE_HOLDERS:
+        value = artist.__dict__.get(key)
+        if isinstance(value, TreeReference) and (
+                restored or "_transform_trees" in value.owner.__dict__):
+            artist.__dict__[key] = getattr(value.owner, value.name)
+
+
 def _built(obj):
     """Whether *obj*, read back from a pickle, has its state."""
     return any(key != WAITING for key in vars(obj))

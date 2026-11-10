@@ -454,6 +454,20 @@ mod tests {
     }
 
     #[test]
+    fn its_own_parts_are_no_children_of_the_axes() {
+        // matplotlib keeps the axis artists and the gridlines apart from
+        // `ax._children`: no data, and the first line is its first child.
+        let fig = Figure::new();
+        let ax = AxisArtistAxes::new(fig.subplot());
+        ax.new_floating_axis("y=0", AxisName::X, 0.0);
+        assert!(!ax.ax().has_data());
+        assert_eq!(ax.ax().added_children(), Vec::new());
+        let line = ax.ax().plot([0.0, 1.0], [0.0, 2.0]).expect("a line");
+        assert_eq!(line.label(), "_child0");
+        assert!(ax.ax().has_data());
+    }
+
+    #[test]
     fn floating_axes_replace_entries_of_the_same_name_in_place() {
         let fig = Figure::new();
         let ax = AxisArtistAxes::zero(fig.subplot());

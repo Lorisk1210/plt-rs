@@ -440,6 +440,22 @@ impl Axes {
         Ok(self)
     }
 
+    /// [`Axes::apply_aspect`] before the axes is measured with
+    /// [`Axes::tight_bbox`], which brings a secondary axis to its host's
+    /// limits itself: matplotlib's `get_tightbbox` applies the aspect once
+    /// (and a secondary axis takes its host's limits, warning about
+    /// identical ones, once).
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::apply_aspect`].
+    pub fn apply_aspect_to_measure(&self) -> Result<&Self, AspectError> {
+        let id = self.id();
+        (self.raw.figure_state())
+            .work_on(|state| state.apply_aspect_unsynced(id, Placement::Located))?;
+        Ok(self)
+    }
+
     /// [`Axes::apply_aspect`] with the axes placed at `position`, in
     /// figure fractions, instead of where its locators put it
     /// (matplotlib's `apply_aspect(position)`): the axes is drawn at

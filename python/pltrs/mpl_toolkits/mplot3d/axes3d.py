@@ -29,7 +29,7 @@ from pltrs.axes import Axes
 from pltrs.axes._base import _SharedAxes
 from pltrs.axes._construction import native_figure
 from pltrs.axes._ticks import _axis_method_wrapper
-from pltrs._artist_kwargs import keep_program_picker
+from pltrs._artist_kwargs import keep_python_kwargs
 from pltrs._preprocess import _preprocess_data
 from pltrs._program_classes import takes_from_program
 from pltrs.axes._plotting._helpers import wrap
@@ -2179,7 +2179,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
             native = _mplot3d.plot(self._native, _floats(x, y, z), zdir, fmt,
                                    mlines._native_kwargs(props),
                                    bool(axlim_clip))
-            line = keep_program_picker(wrap(self, native, art3d.Line3D), props)
+            line = keep_python_kwargs(wrap(self, native, art3d.Line3D), props)
             # The 2-D data as matplotlib's `plot` gives them to the line,
             # until a draw projects it.
             line._xorig, line._yorig = np.atleast_1d(x), np.atleast_1d(y)

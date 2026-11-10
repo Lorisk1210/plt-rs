@@ -15,6 +15,7 @@ use crate::mathtext::data::{
     virtual_font,
 };
 use crate::mathtext::font_name::FontName;
+use crate::mathtext_log::{self, ascii_repr};
 
 /// The glyph source for a symbol (before sizing).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -243,7 +244,14 @@ impl GlyphSet {
         symbol: &str,
     ) -> Result<Glyph, GlyphError> {
         let index = unicode_index(symbol);
+        if index.is_none() {
+            mathtext_log::record(format!(
+                "No TeX to Unicode mapping for {}.",
+                ascii_repr(symbol)
+            ));
+        }
         let (font, code) = self.map_virtual_font(font, class, index.unwrap_or(u32::from('?')));
+        let mut chosen = font;
         if index.is_some() {
             let font_name = if font == FontName::Normal && code < 0x10000 {
                 if !is_letter(code) || is_greek_capital(code) {
@@ -254,6 +262,7 @@ impl GlyphSet {
             } else {
                 font
             };
+            chosen = font_name;
             let slanted = font_name == FontName::It || is_slanted_symbol(symbol);
             if let Some(mut id) = self.font(font_name) {
                 let mut code = code;
@@ -287,6 +296,12 @@ impl GlyphSet {
             return self.glyph(faces, FontName::Rm, class, symbol);
         }
         // A placeholder (the currency sign) for lack of anything better.
+        mathtext_log::record(format!(
+            "Font {} does not have a glyph for {} [U+{code:x}], substituting with a dummy \
+             symbol.",
+            ascii_repr(&chosen.to_string()),
+            ascii_repr(symbol)
+        ));
         let id = self
             .font(FontName::Rm)
             .ok_or_else(|| GlyphError::UnknownSymbol(symbol.to_owned()))?;

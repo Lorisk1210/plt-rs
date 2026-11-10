@@ -1,5 +1,7 @@
 //! The TeX font names mathtext uses to pick glyphs.
 
+use std::fmt;
+
 use super::style::MathFont;
 
 /// A font name of matplotlib's mathtext: the user-visible TeX names plus
@@ -80,6 +82,34 @@ impl FontName {
     }
 }
 
+/// matplotlib's name of the font (`rm`, `tt`, `0`, `nonunirm`, ...).
+impl fmt::Display for FontName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Self::Rm => "rm",
+            Self::It => "it",
+            Self::Bf => "bf",
+            Self::Bfit => "bfit",
+            Self::Sf => "sf",
+            Self::Tt => "tt",
+            Self::Cal => "cal",
+            Self::Default => "default",
+            Self::Regular => "regular",
+            Self::Normal => "normal",
+            Self::Bb => "bb",
+            Self::Frak => "frak",
+            Self::Scr => "scr",
+            Self::Ex => "ex",
+            Self::Size(size) => return write!(f, "{size}"),
+            Self::NonUniRm => "nonunirm",
+            Self::NonUniIt => "nonuniit",
+            Self::NonUniBf => "nonunibf",
+            Self::NonUniBfit => "nonunibfit",
+        };
+        f.write_str(name)
+    }
+}
+
 impl From<MathFont> for FontName {
     fn from(font: MathFont) -> Self {
         match font {
@@ -118,5 +148,12 @@ mod tests {
         assert_eq!(FontName::It.non_unicode(), Some(FontName::NonUniIt));
         assert_eq!(FontName::Cal.non_unicode(), None);
         assert!(FontName::Regular.is_text_font());
+    }
+
+    #[test]
+    fn names_are_matplotlibs() {
+        assert_eq!(FontName::Tt.to_string(), "tt");
+        assert_eq!(FontName::Size(3).to_string(), "3");
+        assert_eq!(FontName::NonUniBf.to_string(), "nonunibf");
     }
 }

@@ -48,6 +48,7 @@ mod tex;
 mod text_box;
 mod wrap;
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
@@ -136,6 +137,10 @@ pub(crate) struct TextArtist {
     /// Alignment of lines within the block; `None` follows `halign`.
     pub(crate) multialign: Option<HAlign>,
     pub(crate) rotation_mode: RotationMode,
+    /// Whether wrapping the text's lines switched it to the `anchor`
+    /// rotation mode, until a rotation mode is set (matplotlib's
+    /// `_get_wrap_line_width` sets the mode whenever it wraps).
+    pub(crate) wrap_anchored: Cell<bool>,
     pub(crate) linespacing: LineSpacing,
     pub(crate) antialiased: bool,
     /// Whether lines are wrapped at the figure edge.
@@ -173,6 +178,7 @@ pltrs_core::archive_struct!(TextArtist {
     valign,
     multialign,
     rotation_mode,
+    wrap_anchored,
     linespacing,
     antialiased,
     wrap,
@@ -203,6 +209,7 @@ impl TextArtist {
             valign: VAlign::Baseline,
             multialign: None,
             rotation_mode: RotationMode::Default,
+            wrap_anchored: Cell::new(false),
             linespacing: LineSpacing::Normal,
             antialiased: rc.text_antialiased,
             wrap: false,
@@ -221,6 +228,22 @@ impl TextArtist {
     /// (the hook of [`Text::set_position`]).
     pub(crate) fn position_replaced(&mut self) {
         self.unit_sources = UnitSources::default();
+    }
+
+    /// Forgets that wrapping switched the rotation mode, which was set
+    /// (the hook of [`Text::set_rotation_mode`]).
+    pub(crate) fn rotation_mode_replaced(&mut self) {
+        self.wrap_anchored.set(false);
+    }
+
+    /// The rotation mode as matplotlib's `get_rotation_mode` reports it:
+    /// `anchor` once wrapping the lines switched to it.
+    pub(crate) fn reported_rotation_mode(&self) -> RotationMode {
+        if self.wrap_anchored.get() {
+            RotationMode::Anchor
+        } else {
+            self.rotation_mode
+        }
     }
 
     /// The rotation drawn in degrees (matplotlib's `get_rotation`): turned
@@ -375,6 +398,7 @@ impl TextArtist {
         let Some(figure) = &inputs.figure else {
             return Ok(self.text.clone());
         };
+        self.wrap_anchored.set(true);
         let style = &inputs.style;
         let width = wrap::wrap_width(anchor, figure, style.rotation, style.halign);
         wrap::wrap_text(&self.text, width, |line| {

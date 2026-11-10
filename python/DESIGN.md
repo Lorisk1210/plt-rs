@@ -1918,6 +1918,19 @@ them was ruled out: it cannot capture what pltrs (Rust) changes itself
   by `_pickling.restore_figure` and finished once its native state is
   read (`_FigureState.when_restored`). `copy.deepcopy` takes the same
   path.
+* **Transforms of the trees** an artist was given (`ax.transData` as its
+  `_given_transform`) pickle as references to their owner
+  (`_pickling.TreeReference`), since the trees do not pickle: the artist
+  takes the owner's rebuilt transform when the figure is restored, so
+  that, as in matplotlib, both are one object again.
+* **Shallow copies** (`copy.copy` of a line, patch, text, collection or
+  image of a figure) get a native artist of their own
+  (`RawHandle::detached_copy`, `_artist_copying.detach_shallow_copy`):
+  owned by the Axes of the original but in none of its lists, kept apart
+  from the figure's tree as a removed artist is, so that setting the copy
+  leaves the original alone, as matplotlib's copy rebinds each attribute
+  it sets. Artists holding others (Axes, figures, legends, contour sets)
+  keep sharing them, as matplotlib's copies share the objects they hold.
 
 ### Imports inside the package
 

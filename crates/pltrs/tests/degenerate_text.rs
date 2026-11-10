@@ -116,7 +116,10 @@ fn texts_at_resolutions_of_no_pixel_fail_as_freetype_refuses_them() {
     assert_eq!(first.kind, DrawErrorKind::Library);
     assert_eq!(
         first.message,
-        "FT_Set_Char_Size (ft2font.cpp line 248) failed with error 0x97: invalid ppem value"
+        format!(
+            "FT_Set_Char_Size (ft2font.cpp line {}) failed with error 0x97: invalid ppem value",
+            pltrs_text::SET_CHAR_SIZE_LINE
+        )
     );
     // Saved at a resolution of some pixels per em, the texts draw.
     let options = SaveOptions {

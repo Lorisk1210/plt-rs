@@ -8,7 +8,9 @@ animation ending leaves the figure as it was drawn.
 The expected values are real matplotlib 3.11's, which the programs report
 identically on Windows 11 (Qt 6.12 through PyQt6, Tk 9.0, wxPython 4.3)
 and on Linux (Tk under Xvfb, Qt offscreen); each program's test skips
-where its toolkit or a display is missing.
+where its toolkit or a display is missing, and on a Mac, whose screen is
+the user's, Qt's runs offscreen and Tk's and wx's skip unless allowed
+(``screen``).
 """
 
 import hashlib
@@ -29,6 +31,8 @@ from pltrs import _c_internal_utils, cbook
 from pltrs.backend_bases import FigureCanvasBase
 from pltrs.backends.backend_agg import FigureCanvasAgg
 from pltrs.figure import Figure
+
+import screen
 
 #: The embedding programs.
 PROGRAMS = pathlib.Path(__file__).with_name("embedding")
@@ -58,9 +62,10 @@ def _environment(toolkit):
     if toolkit == "qt":
         if not any(importlib.util.find_spec(binding) for binding in QT_BINDINGS):
             return None, "no Qt binding"
-        if sys.platform == "linux":
+        if sys.platform == "linux" or screen.REFUSED:
             # Qt's xcb plugin needs libraries a display does not imply
-            # (libxcb-cursor); its widgets paint the same offscreen.
+            # (libxcb-cursor), and its cocoa one draws on the Mac's screen;
+            # its widgets paint the same offscreen.
             env.setdefault("QT_QPA_PLATFORM", "offscreen")
         return env, None
     module = "tkinter" if toolkit == "tk" else "wx"
@@ -68,6 +73,8 @@ def _environment(toolkit):
         return None, f"no {module}"
     if sys.platform == "linux" and not _c_internal_utils.xdisplay_is_valid():
         return None, "no X display"
+    if screen.REFUSED:
+        return None, screen.REFUSED
     return env, None
 
 

@@ -220,3 +220,27 @@ generated/interaction/events_polar$ | ^image: RMS > 1$ | matplotlib's stale cach
 # PYTHONHASHSEED gave [nan, nan, 100, nan, nan] twice and [nan, 100, nan,
 # nan, nan] once (task REGR5).
 hostile/asinh_locator_0$ | ^value\[tick_values\]: array values$ @ ^11[89]:0$ | the order of NaN tick values among the finite one follows the iteration order of a Python set of NaNs, which differs between runs of matplotlib itself
+
+# What differs with the system matplotlib runs on, not with pltrs (macOS,
+# task MAC3).
+# matplotlib's FontManager logs this from a 5-second timer while it reads
+# the system's fonts: on a Mac, whose 988 system fonts take it 13 s (macOS
+# 26, M2 Max), a program making a FontManager is told; pltrs (Rust)
+# catalogues the same fonts in milliseconds.
+. | ^warning missing: WARNING: Matplotlib is building the font cache; this may take a moment\.$ | matplotlib's FontManager logs it when reading the system's fonts takes over 5 s (a threading.Timer), as on a Mac; pltrs reads them in milliseconds
+# On macOS and Windows, matplotlib's FigureManagerBase.show raises
+# NonGuiException for a non-GUI canvas (pyplot.show warns of it once per
+# figure), where Linux without $DISPLAY returns quietly.
+style_sheets/style_sheets_reference$ | ^warning extra: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown$ | plt.show() warns once per open figure where matplotlib's show is not quiet for want of $DISPLAY (macOS, Windows): two more figures for pltrs' two looks (pltrs-modern, pltrs-modern-dark)
+# matplotlib's ft2font lists the fonts searched for a missing glyph from a
+# std::set<FT_String*>: in the order of their family names' heap
+# addresses, which the allocator decides (with three fonts on Linux,
+# "DejaVu Sans, DejaVu Serif, DejaVu Sans Mono" for a chain of Mono, Serif,
+# Sans); pltrs lists them in fallback order. The Mac has Impact for the
+# program's fantasy family, so its chain has two fonts.
+rcparams/text_1_v2$ | ^warning (missing|extra): UserWarning: Glyph N \(\\N\{CJK UNIFIED IDEOGRAPH-NFN\}\) missing from font\(s\) (DejaVu Sans, Impact|Impact, DejaVu Sans)\.$ | the two fonts are listed in heap-address order by matplotlib, fallback order by pltrs
+# The program's mandelbrot.so is not built where it runs (dlopen fails), so
+# its image shows what np.empty's array holds; on macOS, whose malloc hands
+# out freed large blocks again, that is whatever the process left there
+# (two runs of matplotlib on the Mac draw different images).
+ipython-cookbook/chapter05_hpc/04_ctypes$ | ^image: RMS > 1$ | the figure draws an np.empty array the missing C library never fills: memory left by the process (two matplotlib runs on the Mac differ too)

@@ -26,6 +26,8 @@ from pltrs.path import Path
 from pltrs.textpath import TextPath, TextToPath
 from pltrs.units import ConversionError
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -713,16 +715,29 @@ def test_agg_renderers_have_matplotlibs_box():
 
 # -- mathtext ----------------------------------------------------------------------------
 
+#: The start of matplotlib's error for a size FreeType refuses.
+SET_CHAR_SIZE = f"FT_Set_Char_Size \\(ft2font.cpp line {build_facts.SET_CHAR_SIZE_LINE}\\)"
+
+
 @pytest.mark.parametrize("dpi, error, message", [
-    (-1, RuntimeError, "FT_Set_Char_Size \\(ft2font.cpp line 248\\) failed with error 0x17: "
-                       "invalid pixel size"),
-    (1e10, RuntimeError, "FT_Set_Char_Size \\(ft2font.cpp line 248\\) failed with error 0x17"),
+    (1e10, RuntimeError, f"{SET_CHAR_SIZE} failed with error 0x17"),
     ('72', TypeError, "set_size\\(\\): incompatible function arguments"),
     (None, TypeError, "set_size\\(\\): incompatible function arguments"),
 ])
 def test_mathtext_sizes_its_fonts_as_freetype(dpi, error, message):
     with pytest.raises(error, match=f"^{message}"):
         mathtext.MathTextParser('path').parse('$x^2$', dpi=dpi)
+
+
+def test_mathtext_casts_a_negative_resolution_as_the_processor_does():
+    def parse():
+        return mathtext.MathTextParser('path').parse('$x^2$', dpi=-1)
+    if build_facts.CASTS_WRAP:
+        with pytest.raises(RuntimeError,
+                           match=f"^{SET_CHAR_SIZE} failed with error 0x17: invalid pixel size"):
+            parse()
+    else:
+        parse()
 
 
 def test_mathtext_logs_lists_its_glue_cannot_fit(caplog):

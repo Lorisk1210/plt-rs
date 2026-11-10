@@ -4,7 +4,7 @@
 
 This report times matplotlib 3.11.2 against both faces of pltrs on 91 workloads. pltrs (Python) runs the same Python scripts as matplotlib with only their imports changed. pltrs (Rust) draws the same figures from Rust. A speed-up such as "4.2× faster" means that matplotlib took 4.2 times as long.
 
-The numbers were measured on 2026-11-07 at commit `228cbdd1c6-dirty`, on a Mac14,5, described under [Machine and versions](#machine-and-versions). Every time of every run is in [`results.json`](results.json). pltrs (Rust) drew the charts from that file (`cargo xtask bench --rewrite-report` draws them again).
+The numbers were measured on 2026-11-10 at commit `487a7e6cd9-dirty`, on a Mac14,5, described under [Machine and versions](#machine-and-versions). Every time of every run is in [`results.json`](results.json). pltrs (Rust) drew the charts from that file (`cargo xtask bench --rewrite-report` draws them again).
 
 ## Summary
 
@@ -12,20 +12,20 @@ The report makes two claims and measures them apart. pltrs (Python) against matp
 
 ### pltrs (Python) as a drop-in replacement for matplotlib
 
-Both columns run the same scripts on the same interpreter (Python 3.14.8, `~/.worktrees/plt-rs/macsuite/target/uv/python/cpython-3.14.8-macos-aarch64-none/bin/python3.14`) and the same numpy build (2.5.4, core library digest `c40660ca121819cf`). Only the imports differ: `import matplotlib.pyplot as plt` reads `import pltrs.pyplot as plt`.
+Both columns run the same scripts on the same interpreter (Python 3.14.8, `~/.worktrees/plt-rs/mac3/target/uv/python/cpython-3.14.8-macos-aarch64-none/bin/python3.14`) and the same numpy build (2.5.4, core library digest `c40660ca121819cf`). Only the imports differ: `import matplotlib.pyplot as plt` reads `import pltrs.pyplot as plt`.
 
 | tier | workloads | warm, faster / within noise / slower | warm, typical speed-up | cold, faster / within noise / slower | cold, typical speed-up |
 |---|---:|---:|---:|---:|---:|
-| Small, everyday figures | 11 | 11 / 0 / 0 | 4.7× faster | 11 / 0 / 0 | 1.73× faster |
-| Medium figures | 31 | 31 / 0 / 0 | 3.9× faster | 31 / 0 / 0 | 1.98× faster |
-| Many small calls | 5 | 5 / 0 / 0 | 3.3× faster | 5 / 0 / 0 | 2.1× faster |
-| Large workloads | 42 | 42 / 0 / 0 | 4.1× faster | 42 / 0 / 0 | 2.2× faster |
-| **all workloads** | 89 | 89 / 0 / 0 | 4.1× faster | 89 / 0 / 0 | 2.1× faster |
+| Small, everyday figures | 11 | 11 / 0 / 0 | 5.4× faster | 11 / 0 / 0 | 1.59× faster |
+| Medium figures | 31 | 31 / 0 / 0 | 4.3× faster | 31 / 0 / 0 | 1.84× faster |
+| Many small calls | 5 | 5 / 0 / 0 | 3.3× faster | 5 / 0 / 0 | 1.97× faster |
+| Large workloads | 42 | 42 / 0 / 0 | 4.4× faster | 42 / 0 / 0 | 2.1× faster |
+| **all workloads** | 89 | 89 / 0 / 0 | 4.4× faster | 89 / 0 / 0 | 1.94× faster |
 
 ![Speed-ups of pltrs (Python)](charts/pltrs-python.svg)
 
-* pltrs (Python) is faster warm on all 89 workloads. The smallest speed-ups are `meshes/imshow_60_lanczos` (1.15× faster [1.15, 1.16]), `meshes/imshow_60_spline36` (1.21× faster [1.20, 1.21]), `meshes/imshow_60_bicubic` (1.24× faster [1.24, 1.25]).
-* pltrs (Python) is faster cold on all 89 workloads. The smallest speed-ups are `meshes/hexbin_1e6` (1.49× faster [1.47, 1.49]), `meshes/imshow_60_lanczos` (1.50× faster [1.48, 1.52]), `meshes/imshow_60_spline36` (1.52× faster [1.51, 1.53]).
+* pltrs (Python) is faster warm on all 89 workloads. The smallest speed-ups are `meshes/imshow_60_lanczos` (1.25× faster [1.25, 1.26]), `meshes/imshow_60_spline36` (1.33× faster [1.33, 1.34]), `meshes/imshow_60_bicubic` (1.40× faster [1.39, 1.40]).
+* pltrs (Python) is faster cold on all 89 workloads. The smallest speed-ups are `meshes/hexbin_1e6` (1.41× faster [1.38, 1.42]), `meshes/imshow_60_lanczos` (1.42× faster [1.41, 1.42]), `meshes/imshow_60_spline36` (1.42× faster [1.41, 1.44]).
 
 pltrs (Python) runs all 90 workloads matplotlib runs.
  The guard found that pltrs (Python) draws a different figure from matplotlib's in `fields/contourf_labels_1000`, which the tallies leave out.
@@ -33,51 +33,57 @@ pltrs (Python) runs all 90 workloads matplotlib runs.
 
 ### pltrs (Rust) against matplotlib
 
-This claim compares programs in two languages that draw the same figure. A cold run of pltrs (Rust) starts a native executable, while a cold run of matplotlib starts the Python interpreter and imports numpy and pyplot, which alone take 235 ms here. The warm numbers leave start-up out on both sides.
+This claim compares programs in two languages that draw the same figure. A cold run of pltrs (Rust) starts a native executable, while a cold run of matplotlib starts the Python interpreter and imports numpy and pyplot, which alone take 236 ms here. The warm numbers leave start-up out on both sides.
 
 | tier | workloads | warm, faster / within noise / slower | warm, typical speed-up | cold, faster / within noise / slower | cold, typical speed-up |
 |---|---:|---:|---:|---:|---:|
-| Small, everyday figures | 11 | 11 / 0 / 0 | 5.6× faster | 11 / 0 / 0 | 19× faster |
-| Medium figures | 31 | 31 / 0 / 0 | 4.4× faster | 31 / 0 / 0 | 12× faster |
-| Many small calls | 5 | 5 / 0 / 0 | 6.9× faster | 5 / 0 / 0 | 12× faster |
-| Large workloads | 42 | 42 / 0 / 0 | 4.6× faster | 42 / 0 / 0 | 8.8× faster |
-| **all workloads** | 89 | 89 / 0 / 0 | 4.8× faster | 89 / 0 / 0 | 11× faster |
+| Small, everyday figures | 11 | 11 / 0 / 0 | 7.2× faster | 11 / 0 / 0 | 20× faster |
+| Medium figures | 31 | 31 / 0 / 0 | 5.1× faster | 31 / 0 / 0 | 13× faster |
+| Many small calls | 5 | 5 / 0 / 0 | 8.6× faster | 5 / 0 / 0 | 14× faster |
+| Large workloads | 42 | 42 / 0 / 0 | 5.1× faster | 42 / 0 / 0 | 9.4× faster |
+| **all workloads** | 89 | 89 / 0 / 0 | 5.5× faster | 89 / 0 / 0 | 12× faster |
 
 ![Speed-ups of pltrs (Rust)](charts/pltrs-rust.svg)
 
-* pltrs (Rust) is faster warm on all 89 workloads. The smallest speed-ups are `meshes/imshow_60_lanczos` (1.18× faster [1.18, 1.19]), `meshes/imshow_60_spline36` (1.24× faster [1.24, 1.25]), `meshes/imshow_60_bicubic` (1.30× faster [1.29, 1.31]).
-* pltrs (Rust) is faster cold on all 89 workloads. The smallest speed-ups are `markers/scatter_1e5` (2.1× faster [2.1, 2.1]), `fields/tricontourf_1e5` (2.8× faster [2.8, 2.8]), `meshes/imshow_4000_antialiased` (2.9× faster [2.9, 3.0]).
+* pltrs (Rust) is faster warm on all 89 workloads. The smallest speed-ups are `meshes/imshow_60_lanczos` (1.30× faster [1.30, 1.30]), `meshes/imshow_60_spline36` (1.40× faster [1.39, 1.41]), `meshes/imshow_60_bicubic` (1.47× faster [1.46, 1.47]).
+* pltrs (Rust) is faster cold on all 89 workloads. The smallest speed-ups are `markers/scatter_1e5` (2.1× faster [2.1, 2.1]), `fields/tricontourf_1e5` (2.7× faster [2.7, 2.8]), `meshes/imshow_4000_antialiased` (3.0× faster [3.0, 3.0]).
 
 ### Start-up
 
-A fresh interpreter takes 11.3 ms to start here and 46.9 ms to import numpy. One that imports `matplotlib.pyplot` takes 235 ms, and one that imports `pltrs.pyplot` takes 147 ms. The executable of pltrs (Rust) starts and exits in 4.80 ms. [Start-up and imports](#start-up-and-imports) has the details.
+A fresh interpreter takes 11.5 ms to start here and 47.1 ms to import numpy. One that imports `matplotlib.pyplot` takes 236 ms, and one that imports `pltrs.pyplot` takes 163 ms. The executable of pltrs (Rust) starts and exits in 4.81 ms. [Start-up and imports](#start-up-and-imports) has the details.
 
 ![Start-up and imports](charts/startup.svg)
 
 ### Peak memory
 
-* A cold run of pltrs (Python) typically peaks at 0.91 times the resident memory of matplotlib's run of the same workload, and at 0.31 to 1.19 times over all 90 workloads.
-* A cold run of pltrs (Rust) typically peaks at 0.28 times the resident memory of matplotlib's run of the same workload, and at 0.10 to 0.80 times over all 90 workloads.
+* A cold run of pltrs (Python) typically peaks at 0.93 times the resident memory of matplotlib's run of the same workload, and at 0.31 to 1.21 times over all 90 workloads.
+* A cold run of pltrs (Rust) typically peaks at 0.27 times the resident memory of matplotlib's run of the same workload, and at 0.10 to 0.80 times over all 90 workloads.
 
 Both Python columns include the interpreter and numpy, which [Start-up and imports](#start-up-and-imports) measures alone. pltrs (Rust) has neither.
 
 ### Where the margins are thin
 
-These speed-ups are under 1.50× faster, or are slowdowns. Three causes account for most of them. Cold, both Python columns spend most of a small figure's time starting the interpreter and importing numpy, which caps the cold speed-up of pltrs (Python). Where a large PNG or PDF stream is compressed, compression takes most of the time on both sides, and matplotlib's PNG goes through zlib-ng, which is faster than the zlib-like encoder of pltrs (see [Same work](#same-work)). Where every marker of a scatter has its own size, both libraries stroke and fill each one with the same Agg algorithms.
+These speed-ups are under 1.50× faster, or are slowdowns. The workloads near that line fall in three groups. In figures of millions of values (the lines of 10⁶ points, the 4000 × 4000 images, the 10⁶ and 10⁷ samples of a hexbin and a histogram), both libraries transform or map every value in compiled code, and pltrs also copies the values out of numpy and makes and frees buffers of tens of megabytes for every figure: the C library returns that memory to the system after each draw, so the next one faults it in again 4 KiB at a time, while numpy backs its own arrays with 2 MiB pages. Where a small image is enlarged with a large kernel, both libraries resample it with the same Agg filters, and much of the rest goes to compressing the PNG, where matplotlib's Pillow uses zlib-ng, which is faster than the zlib-like encoder of pltrs (see [Same work](#same-work)). Where every marker of a scatter has its own size, both libraries stroke and fill each one with the same Agg algorithms. Cold runs add the start-up of the interpreter and of numpy to both sides.
 
 | workload | implementation | run | speed-up [95% interval] |
 |---|---|---|---:|
-| `meshes/imshow_60_bilinear` | pltrs (Python) | warm | 1.31× faster [1.31, 1.32] |
-| `meshes/imshow_60_bicubic` | pltrs (Python) | warm | 1.24× faster [1.24, 1.25] |
-| `meshes/imshow_60_spline36` | pltrs (Python) | warm | 1.21× faster [1.20, 1.21] |
-| `meshes/imshow_60_lanczos` | pltrs (Python) | warm | 1.15× faster [1.15, 1.16] |
-| `meshes/imshow_2000_bicubic_colorbar` | pltrs (Python) | warm | 1.46× faster [1.45, 1.47] |
-| `meshes/imshow_60_lanczos` | pltrs (Python) | cold | 1.50× faster [1.48, 1.52] |
-| `meshes/hexbin_1e6` | pltrs (Python) | cold | 1.49× faster [1.47, 1.49] |
-| `meshes/imshow_60_bilinear` | pltrs (Rust) | warm | 1.37× faster [1.36, 1.37] |
-| `meshes/imshow_60_bicubic` | pltrs (Rust) | warm | 1.30× faster [1.29, 1.31] |
-| `meshes/imshow_60_spline36` | pltrs (Rust) | warm | 1.24× faster [1.24, 1.25] |
-| `meshes/imshow_60_lanczos` | pltrs (Rust) | warm | 1.18× faster [1.18, 1.19] |
+| `meshes/imshow_60_bicubic` | pltrs (Python) | warm | 1.40× faster [1.39, 1.40] |
+| `meshes/imshow_60_spline36` | pltrs (Python) | warm | 1.33× faster [1.33, 1.34] |
+| `meshes/imshow_60_lanczos` | pltrs (Python) | warm | 1.25× faster [1.25, 1.26] |
+| `meshes/imshow_2000_bicubic_colorbar` | pltrs (Python) | warm | 1.50× faster [1.49, 1.50] |
+| `lines/plot_1e6_svg` | pltrs (Python) | cold | 1.49× faster [1.48, 1.51] |
+| `markers/plot_o_1e5` | pltrs (Python) | cold | 1.49× faster [1.46, 1.54] |
+| `meshes/imshow_60_bilinear` | pltrs (Python) | cold | 1.44× faster [1.43, 1.46] |
+| `meshes/imshow_60_bicubic` | pltrs (Python) | cold | 1.44× faster [1.43, 1.46] |
+| `meshes/imshow_60_spline36` | pltrs (Python) | cold | 1.42× faster [1.41, 1.44] |
+| `meshes/imshow_60_lanczos` | pltrs (Python) | cold | 1.42× faster [1.41, 1.42] |
+| `meshes/imshow_2000_bicubic_colorbar` | pltrs (Python) | cold | 1.48× faster [1.47, 1.49] |
+| `meshes/hexbin_1e6` | pltrs (Python) | cold | 1.41× faster [1.38, 1.42] |
+| `fields/tricontourf_1e5` | pltrs (Python) | cold | 1.49× faster [1.48, 1.50] |
+| `fields/tricontour_1e4` | pltrs (Python) | cold | 1.47× faster [1.46, 1.48] |
+| `meshes/imshow_60_bicubic` | pltrs (Rust) | warm | 1.47× faster [1.46, 1.47] |
+| `meshes/imshow_60_spline36` | pltrs (Rust) | warm | 1.40× faster [1.39, 1.41] |
+| `meshes/imshow_60_lanczos` | pltrs (Rust) | warm | 1.30× faster [1.30, 1.30] |
 
 ## How the comparison is kept fair
 
@@ -141,13 +147,13 @@ The tables give the median time of each implementation and, in brackets, the int
 | operating system | macOS 26.6.2, Darwin 25.6.0 |
 | CPU frequency governor | not reported |
 | CPUs the processes may run on | all 12 |
-| load average (1, 5, 15 min) | 1.45 2.17 3.35 at the start, 1.50 1.53 2.05 at the end |
+| load average (1, 5, 15 min) | 5.40 6.31 7.01 at the start, 5.46 5.72 6.04 at the end |
 | Rust | rustc 1.99.1 (58cf8f9c3 2026-10-13) |
 
 | | matplotlib's venv | pltrs (Python)'s venv |
 |---|---|---|
 | Python | 3.14.8 | 3.14.8 |
-| interpreter | ~/.worktrees/plt-rs/macsuite/target/uv/python/cpython-3.14.8-macos-aarch64-none/bin/python3.14 | ~/.worktrees/plt-rs/macsuite/target/uv/python/cpython-3.14.8-macos-aarch64-none/bin/python3.14 |
+| interpreter | ~/.worktrees/plt-rs/mac3/target/uv/python/cpython-3.14.8-macos-aarch64-none/bin/python3.14 | ~/.worktrees/plt-rs/mac3/target/uv/python/cpython-3.14.8-macos-aarch64-none/bin/python3.14 |
 | numpy | 2.5.4 | 2.5.4 |
 | numpy core library (SHA-256 prefix) | c40660ca121819cf | c40660ca121819cf |
 | numpy's BLAS | accelerate | accelerate |
@@ -164,14 +170,14 @@ These fresh processes only start, import and exit. Every cold run costs at least
 
 | process | median ms [IQR] | peak memory MiB |
 |---|---:|---:|
-| `python -c pass` | 11.3 [11.1, 11.4] | 16 |
-| `python -c "import numpy"` | 46.9 [46.5, 47.2] | 30 |
-| `python -c "import numpy"`, with the BLAS variables unset | 46.3 [46.0, 46.5] | 30 |
-| `python -c "import matplotlib.pyplot"` | 235 [235, 236] | 67 |
-| `python -c "import pltrs.pyplot"` | 147 [147, 148] | 65 |
-| the executable of pltrs (Rust), starting and exiting | 4.80 [4.73, 4.84] | 7 |
+| `python -c pass` | 11.5 [11.5, 11.7] | 16 |
+| `python -c "import numpy"` | 47.1 [46.8, 47.8] | 30 |
+| `python -c "import numpy"`, with the BLAS variables unset | 46.7 [46.7, 46.9] | 30 |
+| `python -c "import matplotlib.pyplot"` | 236 [236, 237] | 67 |
+| `python -c "import pltrs.pyplot"` | 163 [162, 165] | 67 |
+| the executable of pltrs (Rust), starting and exiting | 4.81 [4.78, 4.86] | 7 |
 
-Both pyplot modules import numpy. Beyond numpy, importing `matplotlib.pyplot` costs 188 ms and importing `pltrs.pyplot` 100 ms.
+Both pyplot modules import numpy. Beyond numpy, importing `matplotlib.pyplot` costs 189 ms and importing `pltrs.pyplot` 116 ms.
 
 ## Small, everyday figures
 
@@ -181,17 +187,17 @@ The figure alone: built and saved to memory in a running program. Times are medi
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `small/line_png` | 26.6 [26.5, 26.7] | 6.74 [6.60, 6.81] | 4.0× faster [3.9, 4.0] | 6.02 [5.98, 6.06] | 4.4× faster [4.4, 4.5] |
-| `small/line_svg` | 19.5 [19.4, 19.6] | 2.21 [2.09, 2.27] | 8.8× faster [8.6, 9.0] | 1.56 [1.52, 1.61] | 13× faster [12, 13] |
-| `small/line_pdf` | 22.3 [22.3, 22.5] | 2.51 [2.39, 2.56] | 8.9× faster [8.8, 9.0] | 1.86 [1.84, 1.92] | 12× faster [12, 12] |
-| `small/subplots_2x2_png` | 62.9 [62.7, 63.3] | 9.30 [9.11, 9.36] | 6.8× faster [6.7, 6.9] | 7.69 [7.61, 7.75] | 8.2× faster [8.1, 8.3] |
-| `small/bar_labels_png` | 25.6 [25.5, 25.8] | 6.37 [6.24, 6.44] | 4.0× faster [4.0, 4.1] | 5.43 [5.40, 5.50] | 4.7× faster [4.7, 4.7] |
-| `small/scatter_groups_png` | 24.6 [24.5, 24.9] | 6.37 [6.22, 6.45] | 3.9× faster [3.8, 3.9] | 5.12 [5.08, 5.17] | 4.8× faster [4.8, 4.9] |
-| `small/barh_labels_png` | 27.6 [27.5, 27.8] | 6.75 [6.65, 6.82] | 4.1× faster [4.0, 4.1] | 5.80 [5.77, 5.86] | 4.8× faster [4.7, 4.8] |
-| `small/pie_png` | 19.6 [19.5, 19.7] | 6.69 [6.58, 6.73] | 2.9× faster [2.9, 3.0] | 5.88 [5.85, 5.93] | 3.3× faster [3.3, 3.4] |
-| `small/polar_rose_png` | 32.7 [32.5, 33.0] | 8.35 [8.23, 8.43] | 3.9× faster [3.9, 4.0] | 7.62 [7.57, 7.66] | 4.3× faster [4.3, 4.3] |
-| `small/errorbar_20_png` | 22.8 [22.7, 23.0] | 5.71 [5.63, 5.77] | 4.0× faster [4.0, 4.0] | 4.82 [4.76, 4.87] | 4.7× faster [4.7, 4.8] |
-| `small/stairs_50_png` | 18.6 [18.5, 18.7] | 5.07 [4.97, 5.13] | 3.7× faster [3.6, 3.7] | 4.37 [4.35, 4.43] | 4.3× faster [4.2, 4.3] |
+| `small/line_png` | 26.5 [26.5, 26.7] | 5.47 [5.32, 5.52] | 4.8× faster [4.8, 4.9] | 4.54 [4.51, 4.59] | 5.9× faster [5.8, 5.9] |
+| `small/line_svg` | 19.5 [19.3, 19.6] | 2.33 [2.19, 2.35] | 8.3× faster [8.3, 8.4] | 1.47 [1.46, 1.52] | 13× faster [13, 13] |
+| `small/line_pdf` | 22.4 [22.3, 22.4] | 2.47 [2.31, 2.52] | 9.1× faster [8.9, 9.1] | 1.63 [1.59, 1.67] | 14× faster [13, 14] |
+| `small/subplots_2x2_png` | 62.9 [62.7, 63.1] | 8.48 [8.28, 8.53] | 7.4× faster [7.4, 7.6] | 6.42 [6.36, 6.46] | 9.8× faster [9.7, 9.9] |
+| `small/bar_labels_png` | 25.7 [25.6, 25.9] | 5.17 [4.97, 5.18] | 5.0× faster [5.0, 5.0] | 3.89 [3.87, 3.95] | 6.6× faster [6.5, 6.7] |
+| `small/scatter_groups_png` | 24.8 [24.7, 25.0] | 5.54 [5.33, 5.57] | 4.5× faster [4.5, 4.5] | 3.94 [3.92, 3.99] | 6.3× faster [6.3, 6.3] |
+| `small/barh_labels_png` | 27.6 [27.5, 27.8] | 5.60 [5.44, 5.63] | 4.9× faster [4.9, 5.0] | 4.29 [4.28, 4.34] | 6.4× faster [6.4, 6.5] |
+| `small/pie_png` | 19.6 [19.5, 19.7] | 5.41 [5.28, 5.43] | 3.6× faster [3.6, 3.7] | 4.34 [4.33, 4.40] | 4.5× faster [4.5, 4.5] |
+| `small/polar_rose_png` | 32.5 [32.4, 32.6] | 7.36 [7.24, 7.41] | 4.4× faster [4.4, 4.4] | 6.36 [6.33, 6.39] | 5.1× faster [5.1, 5.1] |
+| `small/errorbar_20_png` | 22.7 [22.6, 22.9] | 4.47 [4.30, 4.51] | 5.1× faster [5.0, 5.1] | 3.33 [3.31, 3.38] | 6.8× faster [6.7, 6.9] |
+| `small/stairs_50_png` | 18.8 [18.6, 18.9] | 3.79 [3.65, 3.83] | 5.0× faster [4.9, 5.0] | 2.89 [2.87, 2.93] | 6.5× faster [6.4, 6.5] |
 
 ### Cold, end to end
 
@@ -199,17 +205,17 @@ A fresh process that starts, imports, makes the data, builds the figure, writes 
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `small/line_png` | 271 [271, 273] | 160 [160, 160] | 1.70× faster [1.69, 1.72] | 15.7 [15.4, 15.8] | 17× faster [17, 18] |
-| `small/line_svg` | 262 [261, 263] | 155 [155, 156] | 1.69× faster [1.68, 1.70] | 11.1 [11.0, 11.3] | 24× faster [23, 24] |
-| `small/line_pdf` | 309 [308, 310] | 158 [154, 159] | 1.95× faster [1.94, 2.0] | 11.4 [11.2, 11.4] | 27× faster [27, 28] |
-| `small/subplots_2x2_png` | 311 [310, 311] | 164 [162, 165] | 1.89× faster [1.88, 1.92] | 17.6 [17.4, 17.8] | 18× faster [17, 18] |
-| `small/bar_labels_png` | 271 [271, 272] | 160 [157, 160] | 1.70× faster [1.68, 1.73] | 15.2 [15.1, 15.3] | 18× faster [18, 18] |
-| `small/scatter_groups_png` | 267 [266, 268] | 159 [159, 160] | 1.68× faster [1.66, 1.69] | 14.8 [14.8, 14.9] | 18× faster [18, 18] |
-| `small/barh_labels_png` | 274 [273, 277] | 160 [158, 161] | 1.72× faster [1.70, 1.74] | 15.6 [15.5, 15.8] | 18× faster [17, 18] |
-| `small/pie_png` | 264 [263, 265] | 159 [159, 161] | 1.66× faster [1.63, 1.67] | 15.7 [15.6, 15.8] | 17× faster [17, 17] |
-| `small/polar_rose_png` | 279 [277, 280] | 161 [159, 162] | 1.73× faster [1.72, 1.76] | 17.4 [17.3, 17.7] | 16× faster [16, 16] |
-| `small/errorbar_20_png` | 266 [264, 266] | 159 [156, 160] | 1.67× faster [1.66, 1.71] | 14.6 [14.5, 14.6] | 18× faster [18, 18] |
-| `small/stairs_50_png` | 263 [263, 264] | 157 [155, 159] | 1.68× faster [1.66, 1.70] | 14.1 [14.1, 14.4] | 19× faster [18, 19] |
+| `small/line_png` | 274 [273, 275] | 172 [171, 175] | 1.60× faster [1.55, 1.61] | 14.5 [14.4, 15.0] | 19× faster [18, 19] |
+| `small/line_svg` | 265 [263, 265] | 171 [169, 173] | 1.55× faster [1.53, 1.57] | 11.1 [11.0, 11.3] | 24× faster [23, 24] |
+| `small/line_pdf` | 311 [310, 313] | 173 [172, 174] | 1.80× faster [1.79, 1.82] | 11.5 [11.4, 11.6] | 27× faster [27, 27] |
+| `small/subplots_2x2_png` | 313 [311, 315] | 179 [177, 180] | 1.75× faster [1.74, 1.78] | 16.4 [16.3, 17.0] | 19× faster [18, 19] |
+| `small/bar_labels_png` | 272 [271, 274] | 174 [172, 175] | 1.57× faster [1.55, 1.58] | 13.8 [13.7, 14.1] | 20× faster [19, 20] |
+| `small/scatter_groups_png` | 269 [267, 270] | 176 [172, 178] | 1.53× faster [1.50, 1.57] | 13.8 [13.7, 14.1] | 20× faster [19, 20] |
+| `small/barh_labels_png` | 275 [274, 275] | 175 [173, 176] | 1.58× faster [1.56, 1.59] | 14.2 [14.1, 14.4] | 19× faster [19, 20] |
+| `small/pie_png` | 266 [266, 268] | 175 [173, 176] | 1.52× faster [1.51, 1.54] | 14.3 [14.1, 14.6] | 19× faster [18, 19] |
+| `small/polar_rose_png` | 280 [279, 280] | 176 [174, 177] | 1.59× faster [1.58, 1.61] | 16.4 [16.1, 16.7] | 17× faster [17, 17] |
+| `small/errorbar_20_png` | 268 [267, 269] | 175 [174, 176] | 1.53× faster [1.51, 1.55] | 13.4 [13.1, 13.5] | 20× faster [20, 21] |
+| `small/stairs_50_png` | 269 [268, 270] | 176 [172, 177] | 1.52× faster [1.51, 1.57] | 13.5 [13.0, 13.8] | 20× faster [19, 21] |
 
 ### Peak memory and document size
 
@@ -217,17 +223,17 @@ Peak memory is the median peak resident memory of the cold processes, in MiB. Th
 
 | workload | format | matplotlib MiB | pltrs (Python) MiB | pltrs (Rust) MiB | matplotlib KiB | pltrs (Python) KiB | pltrs (Rust) KiB |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `small/line_png` | png | 72 | 71 | 18 | 29 | 29 | 29 |
-| `small/line_svg` | svg | 70 | 69 | 16 | 25 | 25 | 25 |
-| `small/line_pdf` | pdf | 82 | 71 | 16 | 13 | 13 | 13 |
-| `small/subplots_2x2_png` | png | 74 | 73 | 19 | 37 | 38 | 38 |
-| `small/bar_labels_png` | png | 72 | 72 | 18 | 16 | 16 | 16 |
-| `small/scatter_groups_png` | png | 72 | 72 | 19 | 21 | 21 | 21 |
-| `small/barh_labels_png` | png | 72 | 72 | 18 | 17 | 17 | 17 |
-| `small/pie_png` | png | 72 | 71 | 18 | 28 | 28 | 28 |
-| `small/polar_rose_png` | png | 73 | 72 | 19 | 65 | 65 | 65 |
-| `small/errorbar_20_png` | png | 72 | 72 | 18 | 15 | 15 | 15 |
-| `small/stairs_50_png` | png | 72 | 72 | 18 | 10 | 10 | 10 |
+| `small/line_png` | png | 72 | 73 | 18 | 29 | 29 | 29 |
+| `small/line_svg` | svg | 70 | 72 | 16 | 25 | 25 | 25 |
+| `small/line_pdf` | pdf | 82 | 73 | 16 | 13 | 13 | 13 |
+| `small/subplots_2x2_png` | png | 74 | 74 | 19 | 37 | 37 | 37 |
+| `small/bar_labels_png` | png | 72 | 74 | 17 | 16 | 16 | 16 |
+| `small/scatter_groups_png` | png | 72 | 74 | 18 | 21 | 21 | 21 |
+| `small/barh_labels_png` | png | 72 | 74 | 18 | 17 | 17 | 17 |
+| `small/pie_png` | png | 72 | 73 | 17 | 28 | 28 | 28 |
+| `small/polar_rose_png` | png | 72 | 74 | 18 | 65 | 64 | 64 |
+| `small/errorbar_20_png` | png | 72 | 74 | 18 | 15 | 15 | 15 |
+| `small/stairs_50_png` | png | 72 | 73 | 18 | 10 | 10 | 10 |
 
 ## Medium figures
 
@@ -237,38 +243,38 @@ The figure alone: built and saved to memory in a running program. Times are medi
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `medium/lines_5x1e4_png` | 55.0 [54.8, 55.1] | 20.5 [20.4, 20.7] | 2.7× faster [2.7, 2.7] | 19.5 [19.4, 19.6] | 2.8× faster [2.8, 2.8] |
-| `medium/lines_5x1e4_svg` | 40.1 [39.9, 40.3] | 8.59 [8.48, 8.67] | 4.7× faster [4.6, 4.7] | 7.68 [7.65, 7.82] | 5.2× faster [5.1, 5.3] |
-| `medium/lines_5x1e4_pdf` | 69.8 [69.6, 70.2] | 25.5 [25.4, 25.6] | 2.7× faster [2.7, 2.8] | 24.6 [24.6, 24.7] | 2.8× faster [2.8, 2.8] |
-| `medium/scatter_1e4_png` | 108 [107, 108] | 58.8 [58.6, 59.2] | 1.83× faster [1.82, 1.84] | 58.4 [58.2, 58.6] | 1.84× faster [1.83, 1.85] |
-| `medium/grouped_bars_png` | 34.5 [34.3, 34.6] | 7.06 [6.89, 7.18] | 4.9× faster [4.8, 5.0] | 5.58 [5.53, 5.63] | 6.2× faster [6.1, 6.2] |
-| `medium/imshow_500_colorbar_png` | 43.0 [42.8, 43.2] | 24.8 [24.7, 25.0] | 1.73× faster [1.72, 1.74] | 23.0 [22.9, 23.1] | 1.87× faster [1.86, 1.88] |
-| `medium/eventplot_50x200_png` | 49.3 [49.2, 49.5] | 11.4 [11.3, 11.5] | 4.3× faster [4.3, 4.4] | 9.65 [9.57, 9.68] | 5.1× faster [5.1, 5.2] |
-| `medium/polar_scatter_1e4_png` | 86.3 [86.0, 86.6] | 44.9 [44.7, 45.1] | 1.92× faster [1.91, 1.93] | 44.4 [44.2, 44.5] | 1.94× faster [1.94, 1.96] |
-| `meshes/pcolor_50` | 18.9 [18.8, 19.2] | 5.95 [5.82, 6.00] | 3.2× faster [3.2, 3.2] | 4.91 [4.88, 4.96] | 3.9× faster [3.8, 3.9] |
-| `meshes/imshow_60_bilinear` | 27.4 [27.3, 27.6] | 20.9 [20.8, 21.0] | 1.31× faster [1.31, 1.32] | 20.1 [20.0, 20.2] | 1.37× faster [1.36, 1.37] |
-| `meshes/imshow_60_bicubic` | 30.2 [30.0, 30.4] | 24.3 [24.2, 24.4] | 1.24× faster [1.24, 1.25] | 23.2 [23.2, 23.4] | 1.30× faster [1.29, 1.31] |
-| `meshes/imshow_60_spline36` | 35.0 [34.8, 35.1] | 29.0 [28.9, 29.1] | 1.21× faster [1.20, 1.21] | 28.2 [28.1, 28.3] | 1.24× faster [1.24, 1.25] |
-| `meshes/imshow_60_lanczos` | 41.9 [41.8, 42.0] | 36.4 [36.2, 36.4] | 1.15× faster [1.15, 1.16] | 35.5 [35.4, 35.6] | 1.18× faster [1.18, 1.19] |
-| `fields/tripcolor_1e4` | 77.9 [77.8, 78.2] | 40.4 [40.4, 40.7] | 1.93× faster [1.91, 1.93] | 38.4 [38.4, 38.7] | 2.0× faster [2.0, 2.0] |
-| `fields/tricontour_1e4` | 42.0 [41.8, 42.3] | 25.7 [25.5, 25.9] | 1.63× faster [1.62, 1.64] | 23.7 [23.6, 23.9] | 1.77× faster [1.76, 1.78] |
-| `fields/barbs_30` | 36.4 [36.2, 36.6] | 16.7 [16.6, 16.8] | 2.2× faster [2.2, 2.2] | 15.9 [15.9, 16.0] | 2.3× faster [2.3, 2.3] |
-| `3d/wireframe_60` | 29.6 [29.5, 29.8] | 11.3 [11.2, 11.4] | 2.6× faster [2.6, 2.6] | 10.5 [10.5, 10.6] | 2.8× faster [2.8, 2.8] |
-| `3d/bar3d_10x10` | 27.2 [27.0, 27.3] | 9.26 [9.15, 9.32] | 2.9× faster [2.9, 3.0] | 8.54 [8.46, 8.58] | 3.2× faster [3.2, 3.2] |
-| `3d/voxels_12` | 155 [155, 155] | 17.5 [17.3, 17.6] | 8.9× faster [8.8, 9.0] | 11.1 [11.0, 11.1] | 14× faster [14, 14] |
-| `output/mid_png` | 100 [99.9, 100] | 24.4 [24.3, 24.5] | 4.1× faster [4.1, 4.1] | 22.3 [22.2, 22.5] | 4.5× faster [4.5, 4.5] |
-| `output/mid_svg` | 117 [116, 118] | 13.8 [13.6, 13.9] | 8.5× faster [8.4, 8.7] | 11.8 [11.7, 11.9] | 9.9× faster [9.8, 10] |
-| `output/mid_pdf` | 145 [144, 146] | 15.4 [15.2, 15.5] | 9.4× faster [9.3, 9.6] | 13.2 [13.1, 13.3] | 11× faster [11, 11] |
-| `output/mid_ps` | 103 [102, 103] | 8.18 [7.96, 8.21] | 13× faster [12, 13] | 5.95 [5.92, 6.00] | 17× faster [17, 18] |
-| `output/mid_pgf` | not comparable | not comparable | n/a | 19.8 [19.7, 20.0] | n/a |
-| `output/mid_eps` | 102 [102, 103] | 8.14 [7.91, 8.23] | 13× faster [12, 13] | 6.00 [5.90, 6.02] | 17× faster [17, 17] |
-| `output/mid_png_tight` | 145 [145, 145] | 25.7 [25.4, 25.7] | 5.7× faster [5.6, 5.7] | 23.3 [23.2, 23.5] | 6.2× faster [6.2, 6.3] |
-| `output/mid_svg_tight` | 160 [159, 160] | 15.5 [15.3, 15.7] | 10× faster [10, 10] | 13.3 [13.2, 13.4] | 12× faster [12, 12] |
-| `output/mid_pdf_tight` | 191 [190, 191] | 16.9 [16.8, 17.0] | 11× faster [11, 11] | 14.7 [14.6, 14.8] | 13× faster [13, 13] |
-| `text/legend_40_entries` | 95.9 [95.2, 96.3] | 35.3 [35.1, 35.4] | 2.7× faster [2.7, 2.7] | 33.4 [33.3, 33.6] | 2.9× faster [2.9, 2.9] |
-| `text/annotate_arrows_100` | 155 [155, 156] | 15.8 [15.6, 15.8] | 9.8× faster [9.8, 10] | 12.1 [11.9, 12.2] | 13× faster [13, 13] |
-| `layout/subplot_mosaic` | 118 [117, 118] | 11.5 [11.3, 11.6] | 10× faster [10, 10] | 9.68 [9.55, 9.78] | 12× faster [12, 12] |
-| `layout/tight_layout_4x4` | 264 [263, 265] | 20.8 [20.6, 21.0] | 13× faster [13, 13] | 17.8 [17.8, 18.0] | 15× faster [15, 15] |
+| `medium/lines_5x1e4_png` | 54.9 [54.8, 55.3] | 19.4 [19.2, 19.4] | 2.8× faster [2.8, 2.9] | 17.9 [17.9, 18.0] | 3.1× faster [3.1, 3.1] |
+| `medium/lines_5x1e4_svg` | 39.9 [39.8, 40.2] | 8.93 [8.83, 8.97] | 4.5× faster [4.4, 4.5] | 7.65 [7.63, 7.69] | 5.2× faster [5.2, 5.2] |
+| `medium/lines_5x1e4_pdf` | 69.9 [69.7, 70.3] | 17.7 [17.6, 17.8] | 4.0× faster [3.9, 4.0] | 16.2 [16.1, 16.2] | 4.3× faster [4.3, 4.3] |
+| `medium/scatter_1e4_png` | 107 [107, 108] | 56.1 [56.0, 56.2] | 1.91× faster [1.91, 1.92] | 55.5 [55.4, 55.5] | 1.93× faster [1.93, 1.94] |
+| `medium/grouped_bars_png` | 34.5 [34.3, 35.0] | 5.83 [5.74, 5.87] | 5.9× faster [5.9, 6.0] | 4.04 [4.02, 4.08] | 8.6× faster [8.5, 8.6] |
+| `medium/imshow_500_colorbar_png` | 43.7 [43.4, 43.9] | 21.8 [21.6, 21.9] | 2.0× faster [1.98, 2.0] | 19.6 [19.6, 19.7] | 2.2× faster [2.2, 2.2] |
+| `medium/eventplot_50x200_png` | 48.9 [48.8, 49.1] | 10.2 [9.97, 10.2] | 4.8× faster [4.8, 4.9] | 8.22 [8.19, 8.24] | 5.9× faster [5.9, 6.0] |
+| `medium/polar_scatter_1e4_png` | 86.8 [86.4, 88.8] | 39.9 [39.7, 42.3] | 2.2× faster [2.1, 2.2] | 38.8 [38.6, 40.3] | 2.2× faster [2.2, 2.3] |
+| `meshes/pcolor_50` | 18.9 [18.8, 19.0] | 4.76 [4.63, 4.79] | 4.0× faster [3.9, 4.0] | 3.55 [3.53, 3.59] | 5.3× faster [5.3, 5.4] |
+| `meshes/imshow_60_bilinear` | 27.4 [27.3, 27.5] | 18.1 [18.0, 18.2] | 1.51× faster [1.51, 1.52] | 17.1 [17.1, 17.1] | 1.60× faster [1.60, 1.61] |
+| `meshes/imshow_60_bicubic` | 30.1 [29.9, 30.3] | 21.6 [21.4, 21.6] | 1.40× faster [1.39, 1.40] | 20.5 [20.5, 20.5] | 1.47× faster [1.46, 1.47] |
+| `meshes/imshow_60_spline36` | 35.0 [34.9, 36.5] | 26.3 [26.2, 27.0] | 1.33× faster [1.33, 1.34] | 25.1 [25.0, 25.3] | 1.40× faster [1.39, 1.41] |
+| `meshes/imshow_60_lanczos` | 41.8 [41.7, 42.0] | 33.4 [33.3, 33.4] | 1.25× faster [1.25, 1.26] | 32.2 [32.2, 32.3] | 1.30× faster [1.30, 1.30] |
+| `fields/tripcolor_1e4` | 77.8 [77.5, 77.9] | 38.1 [38.1, 38.2] | 2.0× faster [2.0, 2.0] | 35.9 [35.9, 36.1] | 2.2× faster [2.1, 2.2] |
+| `fields/tricontour_1e4` | 41.8 [41.7, 41.9] | 24.7 [24.4, 24.7] | 1.70× faster [1.69, 1.71] | 21.9 [21.9, 22.0] | 1.91× faster [1.90, 1.91] |
+| `fields/barbs_30` | 36.1 [36.0, 36.3] | 16.0 [15.9, 16.0] | 2.3× faster [2.2, 2.3] | 14.8 [14.8, 14.8] | 2.4× faster [2.4, 2.5] |
+| `3d/wireframe_60` | 29.6 [29.5, 29.7] | 9.03 [8.88, 9.07] | 3.3× faster [3.3, 3.3] | 7.99 [7.96, 8.02] | 3.7× faster [3.7, 3.7] |
+| `3d/bar3d_10x10` | 27.1 [27.0, 27.2] | 8.06 [7.94, 8.11] | 3.4× faster [3.3, 3.4] | 7.09 [7.05, 7.12] | 3.8× faster [3.8, 3.9] |
+| `3d/voxels_12` | 154 [154, 155] | 17.5 [17.4, 17.6] | 8.8× faster [8.7, 8.9] | 9.37 [9.33, 9.40] | 16× faster [16, 17] |
+| `output/mid_png` | 99.9 [99.4, 100] | 22.5 [22.2, 22.6] | 4.4× faster [4.4, 4.5] | 19.9 [19.8, 19.9] | 5.0× faster [5.0, 5.0] |
+| `output/mid_svg` | 116 [116, 116] | 11.8 [11.5, 11.8] | 9.8× faster [9.8, 10] | 9.31 [9.26, 9.34] | 12× faster [12, 13] |
+| `output/mid_pdf` | 146 [145, 146] | 14.0 [13.9, 14.2] | 10× faster [10, 11] | 11.6 [11.5, 11.6] | 13× faster [13, 13] |
+| `output/mid_ps` | 102 [102, 102] | 8.65 [8.38, 8.66] | 12× faster [12, 12] | 5.95 [5.87, 5.96] | 17× faster [17, 17] |
+| `output/mid_pgf` | not comparable | not comparable | n/a | 19.9 [19.9, 19.9] | n/a |
+| `output/mid_eps` | 102 [102, 102] | 8.63 [8.33, 8.64] | 12× faster [12, 12] | 5.93 [5.86, 5.97] | 17× faster [17, 17] |
+| `output/mid_png_tight` | 145 [144, 145] | 24.0 [23.8, 24.1] | 6.0× faster [6.0, 6.1] | 21.3 [21.2, 21.3] | 6.8× faster [6.8, 6.8] |
+| `output/mid_svg_tight` | 160 [159, 160] | 13.5 [13.2, 13.5] | 12× faster [12, 12] | 10.9 [10.9, 11.0] | 15× faster [15, 15] |
+| `output/mid_pdf_tight` | 188 [187, 188] | 15.9 [15.8, 16.0] | 12× faster [12, 12] | 13.0 [13.0, 13.0] | 14× faster [14, 14] |
+| `text/legend_40_entries` | 95.2 [94.9, 95.6] | 27.4 [27.4, 27.5] | 3.5× faster [3.5, 3.5] | 24.3 [24.3, 24.3] | 3.9× faster [3.9, 3.9] |
+| `text/annotate_arrows_100` | 155 [155, 156] | 15.4 [15.2, 15.4] | 10× faster [10, 10] | 10.7 [10.7, 10.8] | 14× faster [14, 15] |
+| `layout/subplot_mosaic` | 117 [117, 118] | 10.0 [9.78, 10.1] | 12× faster [12, 12] | 7.76 [7.72, 7.81] | 15× faster [15, 15] |
+| `layout/tight_layout_4x4` | 264 [264, 265] | 19.5 [19.3, 19.6] | 14× faster [14, 14] | 14.9 [14.9, 14.9] | 18× faster [18, 18] |
 
 ### Cold, end to end
 
@@ -276,38 +282,38 @@ A fresh process that starts, imports, makes the data, builds the figure, writes 
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `medium/lines_5x1e4_png` | 303 [302, 303] | 175 [173, 176] | 1.73× faster [1.71, 1.76] | 30.5 [30.4, 30.5] | 9.9× faster [9.9, 10] |
-| `medium/lines_5x1e4_svg` | 285 [283, 287] | 164 [161, 166] | 1.74× faster [1.71, 1.77] | 18.7 [18.5, 18.8] | 15× faster [15, 16] |
-| `medium/lines_5x1e4_pdf` | 359 [358, 360] | 184 [183, 184] | 1.96× faster [1.95, 1.97] | 35.6 [35.4, 35.7] | 10× faster [10, 10] |
-| `medium/scatter_1e4_png` | 355 [354, 358] | 215 [213, 217] | 1.65× faster [1.64, 1.67] | 69.5 [68.7, 70.4] | 5.1× faster [4.9, 5.2] |
-| `medium/grouped_bars_png` | 281 [280, 281] | 160 [158, 161] | 1.75× faster [1.74, 1.79] | 15.3 [15.2, 15.5] | 18× faster [18, 19] |
-| `medium/imshow_500_colorbar_png` | 292 [291, 292] | 179 [179, 180] | 1.63× faster [1.62, 1.64] | 33.9 [33.7, 34.1] | 8.6× faster [8.6, 8.7] |
-| `medium/eventplot_50x200_png` | 294 [294, 295] | 166 [164, 167] | 1.77× faster [1.76, 1.81] | 19.7 [19.6, 20.0] | 15× faster [15, 15] |
-| `medium/polar_scatter_1e4_png` | 330 [329, 331] | 199 [196, 200] | 1.66× faster [1.65, 1.69] | 54.5 [54.2, 54.6] | 6.1× faster [6.0, 6.1] |
-| `meshes/pcolor_50` | 262 [261, 262] | 159 [157, 160] | 1.64× faster [1.63, 1.68] | 14.7 [14.6, 14.8] | 18× faster [18, 18] |
-| `meshes/imshow_60_bilinear` | 271 [269, 271] | 175 [173, 176] | 1.55× faster [1.53, 1.57] | 30.4 [30.2, 30.5] | 8.9× faster [8.8, 9.0] |
-| `meshes/imshow_60_bicubic` | 273 [273, 274] | 178 [175, 179] | 1.53× faster [1.53, 1.56] | 33.4 [33.3, 33.6] | 8.2× faster [8.1, 8.2] |
-| `meshes/imshow_60_spline36` | 278 [277, 278] | 183 [182, 183] | 1.52× faster [1.51, 1.53] | 38.5 [38.4, 38.5] | 7.2× faster [7.2, 7.3] |
-| `meshes/imshow_60_lanczos` | 285 [284, 288] | 190 [189, 192] | 1.50× faster [1.48, 1.52] | 45.9 [45.6, 46.0] | 6.2× faster [6.2, 6.3] |
-| `fields/tripcolor_1e4` | 326 [325, 326] | 196 [195, 197] | 1.67× faster [1.65, 1.68] | 50.2 [50.0, 50.5] | 6.5× faster [6.4, 6.5] |
-| `fields/tricontour_1e4` | 288 [287, 289] | 180 [178, 180] | 1.60× faster [1.59, 1.62] | 34.3 [34.2, 34.6] | 8.4× faster [8.3, 8.5] |
-| `fields/barbs_30` | 279 [277, 280] | 170 [169, 171] | 1.64× faster [1.62, 1.66] | 26.0 [25.8, 26.1] | 11× faster [11, 11] |
-| `3d/wireframe_60` | 274 [273, 276] | 165 [164, 165] | 1.66× faster [1.65, 1.68] | 20.4 [20.3, 20.5] | 13× faster [13, 14] |
-| `3d/bar3d_10x10` | 271 [269, 271] | 162 [161, 163] | 1.67× faster [1.65, 1.69] | 18.3 [18.2, 18.5] | 15× faster [15, 15] |
-| `3d/voxels_12` | 404 [404, 405] | 173 [172, 175] | 2.3× faster [2.3, 2.4] | 21.1 [21.0, 21.3] | 19× faster [19, 19] |
-| `output/mid_png` | 419 [418, 420] | 182 [180, 182] | 2.3× faster [2.3, 2.3] | 35.3 [35.2, 35.7] | 12× faster [12, 12] |
-| `output/mid_svg` | 432 [431, 432] | 171 [171, 172] | 2.5× faster [2.5, 2.5] | 25.0 [25.0, 25.2] | 17× faster [17, 17] |
-| `output/mid_pdf` | 506 [505, 506] | 175 [174, 176] | 2.9× faster [2.9, 2.9] | 26.4 [26.3, 26.7] | 19× faster [19, 19] |
-| `output/mid_ps` | 462 [462, 463] | 167 [165, 168] | 2.8× faster [2.7, 2.8] | 18.9 [18.8, 19.1] | 24× faster [24, 25] |
-| `output/mid_pgf` | not comparable | not comparable | n/a | 33.2 [33.1, 33.3] | n/a |
-| `output/mid_eps` | 462 [460, 462] | 168 [167, 168] | 2.8× faster [2.7, 2.8] | 18.7 [18.6, 19.0] | 25× faster [24, 25] |
-| `output/mid_png_tight` | 465 [464, 465] | 183 [180, 184] | 2.5× faster [2.5, 2.6] | 36.8 [36.2, 37.1] | 13× faster [12, 13] |
-| `output/mid_svg_tight` | 476 [476, 477] | 174 [171, 175] | 2.7× faster [2.7, 2.8] | 26.9 [26.5, 27.0] | 18× faster [18, 18] |
-| `output/mid_pdf_tight` | 551 [550, 553] | 177 [174, 177] | 3.1× faster [3.1, 3.2] | 28.2 [28.0, 28.5] | 20× faster [19, 20] |
-| `text/legend_40_entries` | 343 [341, 346] | 188 [186, 189] | 1.82× faster [1.81, 1.86] | 43.5 [43.4, 43.7] | 7.9× faster [7.8, 8.0] |
-| `text/annotate_arrows_100` | 403 [401, 405] | 169 [168, 170] | 2.4× faster [2.4, 2.4] | 22.1 [21.9, 22.3] | 18× faster [18, 18] |
-| `layout/subplot_mosaic` | 366 [365, 367] | 165 [163, 166] | 2.2× faster [2.2, 2.3] | 19.7 [19.6, 19.9] | 19× faster [18, 19] |
-| `layout/tight_layout_4x4` | 519 [518, 521] | 174 [171, 175] | 3.0× faster [3.0, 3.0] | 28.2 [27.8, 28.3] | 18× faster [18, 19] |
+| `medium/lines_5x1e4_png` | 304 [303, 305] | 191 [188, 193] | 1.59× faster [1.57, 1.62] | 29.4 [29.2, 30.0] | 10× faster [10, 10] |
+| `medium/lines_5x1e4_svg` | 287 [285, 288] | 180 [178, 181] | 1.59× faster [1.57, 1.62] | 18.8 [18.6, 19.3] | 15× faster [15, 15] |
+| `medium/lines_5x1e4_pdf` | 363 [361, 364] | 192 [191, 194] | 1.89× faster [1.86, 1.91] | 27.2 [27.1, 27.7] | 13× faster [13, 13] |
+| `medium/scatter_1e4_png` | 357 [356, 358] | 227 [226, 229] | 1.57× faster [1.55, 1.59] | 65.9 [65.6, 66.3] | 5.4× faster [5.4, 5.4] |
+| `medium/grouped_bars_png` | 285 [282, 287] | 180 [177, 201] | 1.59× faster [1.39, 1.61] | 14.8 [14.0, 15.2] | 19× faster [19, 20] |
+| `medium/imshow_500_colorbar_png` | 293 [292, 293] | 193 [192, 194] | 1.52× faster [1.51, 1.53] | 30.6 [30.4, 31.0] | 9.6× faster [9.4, 9.6] |
+| `medium/eventplot_50x200_png` | 303 [299, 309] | 185 [183, 197] | 1.63× faster [1.52, 1.66] | 19.6 [19.2, 20.4] | 15× faster [15, 16] |
+| `medium/polar_scatter_1e4_png` | 337 [335, 337] | 213 [213, 214] | 1.58× faster [1.57, 1.59] | 50.2 [50.1, 50.5] | 6.7× faster [6.6, 6.7] |
+| `meshes/pcolor_50` | 263 [263, 264] | 173 [172, 174] | 1.52× faster [1.50, 1.55] | 13.5 [13.4, 13.9] | 20× faster [19, 20] |
+| `meshes/imshow_60_bilinear` | 272 [271, 273] | 189 [187, 190] | 1.44× faster [1.43, 1.46] | 27.4 [27.3, 27.6] | 9.9× faster [9.8, 10] |
+| `meshes/imshow_60_bicubic` | 275 [273, 276] | 191 [190, 191] | 1.44× faster [1.43, 1.46] | 30.7 [30.6, 30.7] | 9.0× faster [8.9, 9.0] |
+| `meshes/imshow_60_spline36` | 280 [279, 281] | 197 [195, 198] | 1.42× faster [1.41, 1.44] | 35.5 [35.4, 35.6] | 7.9× faster [7.8, 7.9] |
+| `meshes/imshow_60_lanczos` | 286 [286, 287] | 202 [202, 203] | 1.42× faster [1.41, 1.42] | 42.5 [42.3, 42.7] | 6.7× faster [6.7, 6.8] |
+| `fields/tripcolor_1e4` | 327 [326, 329] | 209 [208, 211] | 1.56× faster [1.54, 1.58] | 47.8 [47.4, 48.1] | 6.8× faster [6.8, 6.9] |
+| `fields/tricontour_1e4` | 289 [288, 290] | 197 [196, 198] | 1.47× faster [1.46, 1.48] | 33.2 [33.0, 33.6] | 8.7× faster [8.6, 8.8] |
+| `fields/barbs_30` | 283 [282, 284] | 186 [184, 187] | 1.52× faster [1.51, 1.54] | 24.8 [24.6, 24.9] | 11× faster [11, 11] |
+| `3d/wireframe_60` | 275 [274, 276] | 179 [178, 179] | 1.54× faster [1.52, 1.56] | 17.9 [17.8, 18.6] | 15× faster [15, 15] |
+| `3d/bar3d_10x10` | 272 [271, 275] | 177 [176, 179] | 1.53× faster [1.51, 1.55] | 17.5 [17.3, 17.8] | 15× faster [15, 16] |
+| `3d/voxels_12` | 405 [404, 406] | 190 [189, 191] | 2.1× faster [2.1, 2.1] | 19.5 [19.5, 19.6] | 21× faster [21, 21] |
+| `output/mid_png` | 421 [419, 421] | 196 [193, 197] | 2.1× faster [2.1, 2.2] | 33.3 [33.3, 33.8] | 13× faster [12, 13] |
+| `output/mid_svg` | 431 [430, 432] | 186 [184, 186] | 2.3× faster [2.3, 2.4] | 23.1 [22.7, 23.3] | 19× faster [18, 19] |
+| `output/mid_pdf` | 509 [507, 510] | 190 [189, 191] | 2.7× faster [2.7, 2.7] | 25.1 [25.0, 25.2] | 20× faster [20, 20] |
+| `output/mid_ps` | 464 [463, 468] | 184 [183, 186] | 2.5× faster [2.5, 2.5] | 19.0 [18.9, 19.1] | 24× faster [24, 25] |
+| `output/mid_pgf` | not comparable | not comparable | n/a | 33.5 [33.3, 34.1] | n/a |
+| `output/mid_eps` | 465 [464, 466] | 184 [184, 186] | 2.5× faster [2.5, 2.5] | 19.1 [18.9, 19.5] | 24× faster [24, 25] |
+| `output/mid_png_tight` | 466 [464, 470] | 198 [198, 199] | 2.3× faster [2.3, 2.4] | 34.8 [34.6, 35.0] | 13× faster [13, 14] |
+| `output/mid_svg_tight` | 476 [475, 477] | 188 [188, 189] | 2.5× faster [2.5, 2.6] | 25.2 [25.0, 25.5] | 19× faster [19, 19] |
+| `output/mid_pdf_tight` | 555 [554, 558] | 192 [189, 193] | 2.9× faster [2.9, 2.9] | 26.6 [26.6, 26.8] | 21× faster [21, 21] |
+| `text/legend_40_entries` | 345 [343, 345] | 198 [197, 198] | 1.75× faster [1.73, 1.75] | 34.8 [34.8, 35.5] | 9.9× faster [9.7, 9.9] |
+| `text/annotate_arrows_100` | 405 [405, 406] | 187 [186, 187] | 2.2× faster [2.2, 2.2] | 21.7 [21.5, 22.1] | 19× faster [18, 19] |
+| `layout/subplot_mosaic` | 369 [369, 370] | 181 [179, 182] | 2.0× faster [2.0, 2.1] | 18.0 [17.9, 18.1] | 20× faster [20, 21] |
+| `layout/tight_layout_4x4` | 520 [520, 521] | 191 [190, 192] | 2.7× faster [2.7, 2.7] | 25.5 [25.3, 25.7] | 20× faster [20, 21] |
 
 ### Peak memory and document size
 
@@ -315,38 +321,38 @@ Peak memory is the median peak resident memory of the cold processes, in MiB. Th
 
 | workload | format | matplotlib MiB | pltrs (Python) MiB | pltrs (Rust) MiB | matplotlib KiB | pltrs (Python) KiB | pltrs (Rust) KiB |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `medium/lines_5x1e4_png` | png | 76 | 77 | 23 | 66 | 67 | 67 |
-| `medium/lines_5x1e4_svg` | svg | 74 | 75 | 20 | 554 | 554 | 554 |
-| `medium/lines_5x1e4_pdf` | pdf | 85 | 76 | 21 | 221 | 218 | 218 |
-| `medium/scatter_1e4_png` | png | 74 | 73 | 20 | 112 | 112 | 112 |
-| `medium/grouped_bars_png` | png | 73 | 72 | 19 | 15 | 15 | 15 |
-| `medium/imshow_500_colorbar_png` | png | 99 | 84 | 28 | 121 | 122 | 122 |
-| `medium/eventplot_50x200_png` | png | 76 | 73 | 19 | 19 | 19 | 19 |
-| `medium/polar_scatter_1e4_png` | png | 73 | 73 | 20 | 232 | 235 | 235 |
-| `meshes/pcolor_50` | png | 73 | 72 | 19 | 18 | 18 | 18 |
-| `meshes/imshow_60_bilinear` | png | 77 | 76 | 24 | 107 | 108 | 108 |
-| `meshes/imshow_60_bicubic` | png | 77 | 76 | 24 | 106 | 107 | 107 |
-| `meshes/imshow_60_spline36` | png | 77 | 76 | 24 | 110 | 111 | 111 |
-| `meshes/imshow_60_lanczos` | png | 77 | 76 | 24 | 110 | 111 | 111 |
-| `fields/tripcolor_1e4` | png | 84 | 80 | 26 | 104 | 106 | 106 |
-| `fields/tricontour_1e4` | png | 79 | 79 | 25 | 71 | 72 | 72 |
-| `fields/barbs_30` | png | 73 | 72 | 18 | 98 | 100 | 100 |
-| `3d/wireframe_60` | png | 73 | 72 | 19 | 115 | 116 | 116 |
-| `3d/bar3d_10x10` | png | 73 | 72 | 18 | 53 | 53 | 53 |
-| `3d/voxels_12` | png | 78 | 75 | 20 | 66 | 67 | 67 |
-| `output/mid_png` | png | 79 | 74 | 21 | 82 | 82 | 82 |
-| `output/mid_svg` | svg | 77 | 73 | 19 | 373 | 373 | 373 |
-| `output/mid_pdf` | pdf | 88 | 74 | 20 | 82 | 81 | 81 |
-| `output/mid_ps` | ps | 89 | 73 | 19 | 314 | 314 | 314 |
+| `medium/lines_5x1e4_png` | png | 76 | 79 | 22 | 66 | 66 | 66 |
+| `medium/lines_5x1e4_svg` | svg | 74 | 77 | 19 | 554 | 554 | 554 |
+| `medium/lines_5x1e4_pdf` | pdf | 85 | 78 | 20 | 221 | 221 | 221 |
+| `medium/scatter_1e4_png` | png | 74 | 75 | 19 | 112 | 112 | 112 |
+| `medium/grouped_bars_png` | png | 73 | 74 | 18 | 15 | 15 | 15 |
+| `medium/imshow_500_colorbar_png` | png | 99 | 86 | 28 | 121 | 121 | 121 |
+| `medium/eventplot_50x200_png` | png | 76 | 75 | 19 | 19 | 19 | 19 |
+| `medium/polar_scatter_1e4_png` | png | 73 | 75 | 19 | 232 | 232 | 232 |
+| `meshes/pcolor_50` | png | 73 | 74 | 18 | 18 | 17 | 17 |
+| `meshes/imshow_60_bilinear` | png | 77 | 78 | 24 | 107 | 107 | 107 |
+| `meshes/imshow_60_bicubic` | png | 77 | 79 | 24 | 106 | 106 | 106 |
+| `meshes/imshow_60_spline36` | png | 77 | 79 | 24 | 110 | 110 | 110 |
+| `meshes/imshow_60_lanczos` | png | 77 | 79 | 24 | 110 | 110 | 110 |
+| `fields/tripcolor_1e4` | png | 84 | 83 | 26 | 104 | 104 | 104 |
+| `fields/tricontour_1e4` | png | 79 | 81 | 25 | 71 | 71 | 71 |
+| `fields/barbs_30` | png | 73 | 74 | 17 | 98 | 98 | 98 |
+| `3d/wireframe_60` | png | 73 | 73 | 18 | 115 | 115 | 115 |
+| `3d/bar3d_10x10` | png | 73 | 74 | 18 | 53 | 53 | 53 |
+| `3d/voxels_12` | png | 78 | 77 | 19 | 66 | 66 | 66 |
+| `output/mid_png` | png | 79 | 76 | 20 | 82 | 82 | 82 |
+| `output/mid_svg` | svg | 77 | 75 | 19 | 373 | 373 | 373 |
+| `output/mid_pdf` | pdf | 89 | 76 | 19 | 82 | 80 | 80 |
+| `output/mid_ps` | ps | 89 | 75 | 19 | 314 | 314 | 314 |
 | `output/mid_pgf` | pgf | not comparable | not comparable | 27 | not comparable | not comparable | 3176 |
-| `output/mid_eps` | eps | 89 | 73 | 19 | 314 | 314 | 314 |
-| `output/mid_png_tight` | png | 80 | 74 | 21 | 80 | 81 | 81 |
-| `output/mid_svg_tight` | svg | 78 | 73 | 19 | 374 | 374 | 374 |
-| `output/mid_pdf_tight` | pdf | 89 | 74 | 20 | 82 | 81 | 81 |
-| `text/legend_40_entries` | png | 75 | 74 | 21 | 433 | 446 | 446 |
-| `text/annotate_arrows_100` | png | 73 | 72 | 19 | 44 | 45 | 45 |
-| `layout/subplot_mosaic` | png | 75 | 73 | 20 | 41 | 41 | 41 |
-| `layout/tight_layout_4x4` | png | 81 | 74 | 21 | 120 | 122 | 122 |
+| `output/mid_eps` | eps | 89 | 75 | 19 | 314 | 314 | 314 |
+| `output/mid_png_tight` | png | 80 | 76 | 20 | 80 | 80 | 80 |
+| `output/mid_svg_tight` | svg | 78 | 75 | 19 | 374 | 374 | 374 |
+| `output/mid_pdf_tight` | pdf | 89 | 76 | 19 | 82 | 80 | 80 |
+| `text/legend_40_entries` | png | 75 | 76 | 21 | 433 | 433 | 433 |
+| `text/annotate_arrows_100` | png | 73 | 74 | 18 | 44 | 44 | 44 |
+| `layout/subplot_mosaic` | png | 75 | 75 | 19 | 41 | 41 | 41 |
+| `layout/tight_layout_4x4` | png | 81 | 76 | 20 | 120 | 120 | 120 |
 
 ### What a call costs in pltrs (Python)
 
@@ -354,7 +360,7 @@ pltrs (Python) and pltrs (Rust) run the same Rust code for these figures. On eve
 
 | workload | calls | pltrs (Python) over pltrs (Rust), µs per call | matplotlib, µs per call |
 |---|---:|---:|---:|
-| `text/annotate_arrows_100` | 101 | 36.7 | 1538.2 |
+| `text/annotate_arrows_100` | 101 | 46.0 | 1536.8 |
 
 `output/mid_pgf` is not comparable: matplotlib's PGF backend runs LaTeX to measure every text, while pltrs lays PGF out with its own font metrics.
 
@@ -366,11 +372,11 @@ The figure alone: built and saved to memory in a running program. Times are medi
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `calls/plot_500` | 94.0 [93.6, 94.5] | 45.9 [45.7, 46.2] | 2.0× faster [2.0, 2.1] | 32.4 [32.2, 32.5] | 2.9× faster [2.9, 2.9] |
-| `calls/line_setters_500` | 104 [104, 105] | 54.2 [53.8, 55.6] | 1.92× faster [1.86, 1.94] | 36.6 [36.4, 36.9] | 2.8× faster [2.8, 2.9] |
-| `calls/scatter_300` | 207 [205, 207] | 54.0 [53.6, 54.3] | 3.8× faster [3.8, 3.9] | 14.7 [14.6, 14.8] | 14× faster [14, 14] |
-| `calls/bar_300` | 87.6 [87.4, 88.2] | 25.9 [25.7, 26.2] | 3.4× faster [3.3, 3.4] | 5.72 [5.66, 5.76] | 15× faster [15, 16] |
-| `calls/annotate_1000` | 632 [630, 632] | 84.7 [84.4, 85.0] | 7.5× faster [7.4, 7.5] | 69.4 [69.3, 69.8] | 9.1× faster [9.0, 9.1] |
+| `calls/plot_500` | 93.7 [93.3, 95.5] | 43.7 [43.5, 45.8] | 2.1× faster [2.1, 2.2] | 24.3 [24.2, 24.3] | 3.9× faster [3.8, 4.0] |
+| `calls/line_setters_500` | 104 [104, 108] | 51.4 [51.1, 51.9] | 2.0× faster [1.99, 2.1] | 27.9 [27.7, 27.9] | 3.7× faster [3.7, 3.9] |
+| `calls/scatter_300` | 203 [203, 205] | 52.0 [51.8, 52.1] | 3.9× faster [3.9, 3.9] | 12.7 [12.7, 12.7] | 16× faster [16, 16] |
+| `calls/bar_300` | 87.8 [87.6, 88.0] | 28.1 [27.8, 28.1] | 3.1× faster [3.1, 3.2] | 4.21 [4.19, 4.23] | 21× faster [21, 21] |
+| `calls/annotate_1000` | 633 [631, 634] | 91.8 [91.7, 92.2] | 6.9× faster [6.8, 6.9] | 65.6 [65.5, 65.8] | 9.7× faster [9.6, 9.7] |
 
 ### Cold, end to end
 
@@ -378,11 +384,11 @@ A fresh process that starts, imports, makes the data, builds the figure, writes 
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `calls/plot_500` | 345 [343, 347] | 202 [201, 203] | 1.71× faster [1.69, 1.73] | 42.6 [42.5, 42.8] | 8.1× faster [8.0, 8.2] |
-| `calls/line_setters_500` | 358 [357, 358] | 211 [209, 212] | 1.69× faster [1.68, 1.72] | 47.1 [46.5, 47.3] | 7.6× faster [7.5, 7.7] |
-| `calls/scatter_300` | 460 [459, 463] | 217 [215, 219] | 2.1× faster [2.1, 2.1] | 25.0 [24.7, 25.1] | 18× faster [18, 19] |
-| `calls/bar_300` | 335 [334, 336] | 180 [179, 181] | 1.87× faster [1.84, 1.88] | 15.6 [15.3, 15.8] | 22× faster [21, 22] |
-| `calls/annotate_1000` | 885 [885, 886] | 243 [241, 244] | 3.6× faster [3.6, 3.7] | 81.3 [81.1, 81.7] | 11× faster [11, 11] |
+| `calls/plot_500` | 348 [347, 349] | 216 [215, 218] | 1.61× faster [1.59, 1.62] | 35.6 [35.3, 35.9] | 9.8× faster [9.6, 10] |
+| `calls/line_setters_500` | 366 [359, 373] | 225 [224, 231] | 1.63× faster [1.57, 1.66] | 38.8 [38.2, 39.3] | 9.4× faster [9.2, 9.7] |
+| `calls/scatter_300` | 464 [461, 466] | 231 [231, 232] | 2.0× faster [1.99, 2.0] | 22.9 [22.8, 23.3] | 20× faster [20, 20] |
+| `calls/bar_300` | 336 [335, 336] | 198 [197, 199] | 1.69× faster [1.67, 1.72] | 14.2 [14.0, 14.6] | 24× faster [23, 24] |
+| `calls/annotate_1000` | 887 [885, 890] | 266 [265, 267] | 3.3× faster [3.3, 3.4] | 77.6 [77.5, 77.9] | 11× faster [11, 11] |
 
 ### Peak memory and document size
 
@@ -390,11 +396,11 @@ Peak memory is the median peak resident memory of the cold processes, in MiB. Th
 
 | workload | format | matplotlib MiB | pltrs (Python) MiB | pltrs (Rust) MiB | matplotlib KiB | pltrs (Python) KiB | pltrs (Rust) KiB |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `calls/plot_500` | png | 79 | 74 | 21 | 338 | 340 | 340 |
-| `calls/line_setters_500` | png | 79 | 74 | 21 | 384 | 386 | 386 |
-| `calls/scatter_300` | png | 78 | 75 | 20 | 129 | 132 | 132 |
-| `calls/bar_300` | png | 76 | 72 | 18 | 9 | 9 | 9 |
-| `calls/annotate_1000` | png | 76 | 77 | 22 | 207 | 208 | 208 |
+| `calls/plot_500` | png | 79 | 76 | 20 | 338 | 338 | 338 |
+| `calls/line_setters_500` | png | 79 | 76 | 20 | 384 | 384 | 384 |
+| `calls/scatter_300` | png | 78 | 77 | 18 | 129 | 129 | 129 |
+| `calls/bar_300` | png | 76 | 74 | 18 | 9 | 9 | 9 |
+| `calls/annotate_1000` | png | 76 | 79 | 21 | 207 | 207 | 207 |
 
 ### What a call costs in pltrs (Python)
 
@@ -402,11 +408,11 @@ pltrs (Python) and pltrs (Rust) run the same Rust code for these figures. On eve
 
 | workload | calls | pltrs (Python) over pltrs (Rust), µs per call | matplotlib, µs per call |
 |---|---:|---:|---:|
-| `calls/plot_500` | 500 | 27.0 | 188.0 |
-| `calls/line_setters_500` | 2000 | 8.8 | 52.1 |
-| `calls/scatter_300` | 300 | 130.8 | 688.4 |
-| `calls/bar_300` | 300 | 67.4 | 292.0 |
-| `calls/annotate_1000` | 1001 | 15.3 | 631.0 |
+| `calls/plot_500` | 500 | 38.9 | 187.3 |
+| `calls/line_setters_500` | 2000 | 11.7 | 52.2 |
+| `calls/scatter_300` | 300 | 131.1 | 677.2 |
+| `calls/bar_300` | 300 | 79.6 | 292.8 |
+| `calls/annotate_1000` | 1001 | 26.2 | 632.3 |
 
 ## Large workloads
 
@@ -416,49 +422,49 @@ The figure alone: built and saved to memory in a running program. Times are medi
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `lines/errorbar_1e4` | 145 [145, 146] | 16.1 [16.0, 16.2] | 9.0× faster [8.9, 9.1] | 14.6 [14.5, 14.6] | 10× faster [9.9, 10] |
-| `stats/stairs_1e5` | 1444 [1439, 1446] | 18.6 [18.5, 18.7] | 78× faster [77, 78] | 17.7 [17.7, 17.9] | 82× faster [81, 82] |
-| `lines/plot_1e6_png` | 63.8 [63.7, 64.2] | 25.5 [25.4, 25.7] | 2.5× faster [2.5, 2.5] | 24.2 [24.0, 24.3] | 2.6× faster [2.6, 2.7] |
-| `lines/plot_1e6_svg` | 53.1 [53.0, 53.3] | 18.3 [18.1, 18.4] | 2.9× faster [2.9, 2.9] | 17.1 [17.1, 17.3] | 3.1× faster [3.1, 3.1] |
-| `lines/plot_1e6_pdf` | 64.4 [64.1, 64.7] | 24.5 [24.4, 24.6] | 2.6× faster [2.6, 2.6] | 23.6 [23.4, 23.7] | 2.7× faster [2.7, 2.8] |
-| `lines/1000_lines_of_1000` | 214 [213, 215] | 109 [109, 110] | 1.95× faster [1.94, 1.97] | 80.6 [80.5, 81.0] | 2.7× faster [2.6, 2.7] |
-| `lines/dashed_1e5` | 27.3 [27.1, 27.4] | 10.5 [10.5, 10.6] | 2.6× faster [2.6, 2.6] | 9.71 [9.66, 9.77] | 2.8× faster [2.8, 2.8] |
-| `lines/markevery_1e5` | 28.9 [28.8, 29.0] | 10.8 [10.7, 10.9] | 2.7× faster [2.7, 2.7] | 9.96 [9.95, 10.0] | 2.9× faster [2.9, 2.9] |
-| `lines/fill_between_1e5` | 29.1 [29.0, 29.3] | 10.5 [10.4, 10.6] | 2.8× faster [2.8, 2.8] | 9.45 [9.41, 9.51] | 3.1× faster [3.1, 3.1] |
-| `lines/stackplot_5x1e5` | 58.6 [58.4, 59.1] | 23.2 [23.1, 23.4] | 2.5× faster [2.5, 2.5] | 21.8 [21.8, 21.9] | 2.7× faster [2.7, 2.7] |
-| `markers/scatter_1e5` | 817 [816, 817] | 498 [498, 499] | 1.64× faster [1.64, 1.64] | 505 [505, 505] | 1.62× faster [1.62, 1.62] |
-| `markers/plot_o_1e5` | 59.3 [59.2, 59.4] | 36.9 [36.8, 37.0] | 1.61× faster [1.60, 1.61] | 35.4 [35.3, 35.6] | 1.67× faster [1.67, 1.68] |
-| `meshes/pcolormesh_1000` | 202 [201, 202] | 96.0 [95.9, 96.5] | 2.1× faster [2.1, 2.1] | 100 [99.7, 100] | 2.0× faster [2.0, 2.0] |
-| `meshes/pcolor_200` | 91.9 [91.3, 92.7] | 20.9 [20.7, 20.9] | 4.4× faster [4.4, 4.5] | 20.3 [20.3, 20.4] | 4.5× faster [4.5, 4.6] |
-| `meshes/imshow_4000_antialiased` | 241 [241, 242] | 149 [149, 150] | 1.62× faster [1.61, 1.62] | 139 [138, 139] | 1.74× faster [1.74, 1.75] |
-| `meshes/imshow_4000_nearest` | 228 [228, 228] | 87.0 [86.8, 87.2] | 2.6× faster [2.6, 2.6] | 76.0 [75.9, 76.3] | 3.0× faster [3.0, 3.0] |
-| `meshes/imshow_2000_bicubic_colorbar` | 149 [149, 150] | 102 [102, 103] | 1.46× faster [1.45, 1.47] | 97.2 [97.1, 97.7] | 1.54× faster [1.53, 1.55] |
-| `meshes/hexbin_1e6` | 79.8 [79.5, 80.0] | 49.7 [49.6, 49.7] | 1.61× faster [1.60, 1.61] | 47.9 [47.8, 48.1] | 1.67× faster [1.65, 1.67] |
-| `meshes/hist2d_1e6` | 92.8 [92.6, 93.0] | 20.9 [20.8, 21.1] | 4.4× faster [4.4, 4.5] | 19.9 [19.9, 20.0] | 4.7× faster [4.6, 4.7] |
-| `stats/hist_1e7` | 257 [256, 257] | 33.8 [33.7, 34.0] | 7.6× faster [7.5, 7.6] | 27.1 [27.1, 27.4] | 9.5× faster [9.3, 9.5] |
-| `stats/hist_1e6_auto` | 98.5 [98.3, 98.9] | 15.1 [14.9, 15.2] | 6.5× faster [6.5, 6.6] | 12.4 [12.4, 12.4] | 7.9× faster [7.9, 8.0] |
-| `stats/boxplot_100` | 170 [170, 171] | 23.7 [23.5, 23.8] | 7.2× faster [7.1, 7.3] | 14.1 [14.0, 14.2] | 12× faster [12, 12] |
-| `stats/violinplot_50` | 104 [103, 104] | 26.7 [26.4, 26.7] | 3.9× faster [3.9, 3.9] | 19.6 [19.6, 19.7] | 5.3× faster [5.2, 5.3] |
-| `fields/contour_1000` | 119 [119, 119] | 56.2 [56.1, 56.3] | 2.1× faster [2.1, 2.1] | 53.8 [53.8, 53.9] | 2.2× faster [2.2, 2.2] |
-| `fields/contourf_1000` | 147 [147, 148] | 44.7 [44.6, 44.9] | 3.3× faster [3.3, 3.3] | 42.4 [42.3, 42.5] | 3.5× faster [3.5, 3.5] |
-| `fields/contourf_labels_1000` | 389 [389, 390] | 98.2 [98.1, 98.7] | 4.0× faster [3.9, 4.0] † | 91.2 [91.2, 91.5] | 4.3× faster [4.2, 4.3] † |
-| `fields/streamplot_100` | 114 [113, 114] | 10.2 [10.1, 10.3] | 11× faster [11, 11] | 9.17 [9.11, 9.22] | 12× faster [12, 12] |
-| `fields/quiver_100` | 49.6 [49.4, 49.8] | 19.2 [19.0, 19.2] | 2.6× faster [2.6, 2.6] | 18.1 [18.0, 18.3] | 2.7× faster [2.7, 2.8] |
-| `fields/tricontourf_1e5` | 306 [305, 308] | 197 [197, 198] | 1.55× faster [1.54, 1.56] | 186 [185, 186] | 1.65× faster [1.64, 1.66] |
-| `3d/plot_surface_200` | 55.4 [55.2, 55.7] | 15.2 [15.1, 15.4] | 3.6× faster [3.6, 3.7] | 13.9 [13.8, 13.9] | 4.0× faster [4.0, 4.0] |
-| `3d/plot_surface_200_full` | 101 [101, 101] | 35.7 [35.6, 35.8] | 2.8× faster [2.8, 2.8] | 35.2 [35.1, 35.2] | 2.9× faster [2.9, 2.9] |
-| `3d/scatter_1e4` | 108 [108, 109] | 56.6 [56.4, 56.8] | 1.91× faster [1.90, 1.92] | 56.5 [56.4, 56.7] | 1.91× faster [1.90, 1.93] |
-| `text/subplots_10x10` | 889 [888, 892] | 61.8 [61.5, 62.1] | 14× faster [14, 15] | 48.9 [48.7, 49.0] | 18× faster [18, 18] |
-| `text/text_2000` | 1282 [1281, 1289] | 159 [158, 159] | 8.1× faster [8.1, 8.2] | 130 [130, 130] | 9.9× faster [9.8, 9.9] |
-| `text/mathtext_50` | 294 [294, 295] | 26.6 [26.5, 26.7] | 11× faster [11, 11] | 26.6 [26.5, 26.7] | 11× faster [11, 11] |
-| `text/mixed_text_math_300` | 739 [739, 740] | 88.1 [87.8, 88.2] | 8.4× faster [8.4, 8.4] | 86.0 [85.6, 86.4] | 8.6× faster [8.5, 8.6] |
-| `text/constrained_6x6_colorbars` | 1140 [1138, 1144] | 93.0 [92.7, 93.3] | 12× faster [12, 12] | 59.5 [59.5, 60.0] | 19× faster [19, 19] |
-| `layout/constrained_8x8_no_draw` | 868 [867, 869] | 27.1 [26.9, 27.3] | 32× faster [32, 32] | 18.9 [18.8, 19.1] | 46× faster [45, 46] |
-| `output/lissajous_1e5_svg` | 45.5 [45.4, 45.8] | 14.5 [14.4, 14.6] | 3.1× faster [3.1, 3.2] | 14.0 [13.9, 14.2] | 3.3× faster [3.2, 3.3] |
-| `output/lissajous_1e5_pdf` | 153 [153, 154] | 88.7 [88.4, 88.7] | 1.73× faster [1.72, 1.73] | 89.1 [88.9, 89.3] | 1.72× faster [1.71, 1.72] |
-| `output/lissajous_1e5_ps` | 44.2 [44.1, 44.4] | 13.7 [13.7, 13.9] | 3.2× faster [3.2, 3.2] | 13.4 [13.3, 13.6] | 3.3× faster [3.3, 3.3] |
-| `layout/grid_16x16` | 1738 [1737, 1739] | 107 [107, 107] | 16× faster [16, 16] | 82.4 [82.3, 82.8] | 21× faster [21, 21] |
-| `animation/wave_30_frames` | 596 [595, 597] | 103 [103, 104] | 5.8× faster [5.7, 5.8] | 84.3 [83.9, 84.5] | 7.1× faster [7.0, 7.1] |
+| `lines/errorbar_1e4` | 147 [147, 149] | 15.0 [14.8, 15.1] | 9.8× faster [9.7, 10] | 13.2 [13.1, 13.3] | 11× faster [11, 11] |
+| `stats/stairs_1e5` | 1443 [1435, 1454] | 17.4 [17.3, 17.5] | 83× faster [82, 84] | 16.2 [16.2, 16.4] | 89× faster [88, 90] |
+| `lines/plot_1e6_png` | 63.2 [63.0, 63.2] | 24.2 [24.1, 24.3] | 2.6× faster [2.6, 2.6] | 22.4 [22.4, 22.5] | 2.8× faster [2.8, 2.8] |
+| `lines/plot_1e6_svg` | 52.9 [52.8, 53.0] | 18.5 [18.3, 18.5] | 2.9× faster [2.9, 2.9] | 16.8 [16.8, 16.9] | 3.1× faster [3.1, 3.1] |
+| `lines/plot_1e6_pdf` | 64.2 [64.2, 64.4] | 21.6 [21.5, 21.7] | 3.0× faster [3.0, 3.0] | 20.2 [20.2, 20.2] | 3.2× faster [3.2, 3.2] |
+| `lines/1000_lines_of_1000` | 212 [212, 213] | 111 [111, 111] | 1.92× faster [1.91, 1.92] | 70.8 [70.8, 70.8] | 3.0× faster [3.0, 3.0] |
+| `lines/dashed_1e5` | 27.1 [27.0, 27.2] | 9.31 [9.18, 9.34] | 2.9× faster [2.9, 3.0] | 8.27 [8.25, 8.30] | 3.3× faster [3.3, 3.3] |
+| `lines/markevery_1e5` | 29.1 [29.0, 29.3] | 9.66 [9.55, 9.70] | 3.0× faster [3.0, 3.0] | 8.60 [8.59, 8.64] | 3.4× faster [3.4, 3.4] |
+| `lines/fill_between_1e5` | 29.2 [29.0, 29.3] | 9.10 [8.99, 9.14] | 3.2× faster [3.2, 3.2] | 7.91 [7.89, 7.96] | 3.7× faster [3.7, 3.7] |
+| `lines/stackplot_5x1e5` | 58.5 [58.4, 58.6] | 22.5 [22.5, 22.6] | 2.6× faster [2.6, 2.6] | 20.8 [20.8, 20.8] | 2.8× faster [2.8, 2.8] |
+| `markers/scatter_1e5` | 820 [819, 821] | 488 [487, 489] | 1.68× faster [1.68, 1.68] | 496 [495, 496] | 1.65× faster [1.65, 1.66] |
+| `markers/plot_o_1e5` | 59.2 [59.0, 59.3] | 35.4 [35.3, 35.6] | 1.67× faster [1.66, 1.68] | 33.7 [33.7, 33.8] | 1.76× faster [1.75, 1.76] |
+| `meshes/pcolormesh_1000` | 201 [201, 202] | 92.9 [92.9, 93.0] | 2.2× faster [2.2, 2.2] | 95.6 [95.6, 95.7] | 2.1× faster [2.1, 2.1] |
+| `meshes/pcolor_200` | 92.2 [91.9, 92.3] | 19.7 [19.6, 19.8] | 4.7× faster [4.6, 4.7] | 18.8 [18.8, 18.8] | 4.9× faster [4.9, 4.9] |
+| `meshes/imshow_4000_antialiased` | 242 [241, 242] | 146 [146, 146] | 1.65× faster [1.65, 1.65] | 135 [135, 135] | 1.79× faster [1.79, 1.79] |
+| `meshes/imshow_4000_nearest` | 227 [226, 227] | 84.2 [84.0, 84.3] | 2.7× faster [2.7, 2.7] | 72.8 [72.7, 72.8] | 3.1× faster [3.1, 3.1] |
+| `meshes/imshow_2000_bicubic_colorbar` | 148 [148, 148] | 99.1 [99.0, 99.2] | 1.50× faster [1.49, 1.50] | 93.9 [93.8, 93.9] | 1.58× faster [1.58, 1.58] |
+| `meshes/hexbin_1e6` | 79.7 [79.6, 79.9] | 47.6 [47.5, 47.6] | 1.68× faster [1.67, 1.68] | 45.4 [45.4, 45.4] | 1.76× faster [1.75, 1.76] |
+| `meshes/hist2d_1e6` | 92.6 [92.4, 92.8] | 19.7 [19.6, 19.8] | 4.7× faster [4.7, 4.7] | 18.4 [18.4, 18.5] | 5.0× faster [5.0, 5.0] |
+| `stats/hist_1e7` | 257 [256, 257] | 33.1 [33.1, 33.3] | 7.7× faster [7.7, 7.7] | 25.6 [25.6, 25.7] | 10× faster [10, 10] |
+| `stats/hist_1e6_auto` | 98.2 [98.1, 98.6] | 13.7 [13.6, 13.8] | 7.2× faster [7.1, 7.2] | 10.9 [10.9, 10.9] | 9.0× faster [9.0, 9.1] |
+| `stats/boxplot_100` | 170 [170, 171] | 22.1 [21.9, 22.2] | 7.7× faster [7.6, 7.8] | 12.3 [12.2, 12.3] | 14× faster [14, 14] |
+| `stats/violinplot_50` | 103 [103, 103] | 25.8 [25.7, 25.8] | 4.0× faster [4.0, 4.0] | 18.4 [18.4, 18.5] | 5.6× faster [5.5, 5.6] |
+| `fields/contour_1000` | 119 [119, 119] | 51.5 [51.4, 51.5] | 2.3× faster [2.3, 2.3] | 48.7 [48.7, 48.7] | 2.4× faster [2.4, 2.4] |
+| `fields/contourf_1000` | 149 [149, 149] | 44.4 [44.3, 44.7] | 3.4× faster [3.3, 3.4] | 41.9 [41.9, 42.2] | 3.6× faster [3.5, 3.6] |
+| `fields/contourf_labels_1000` | 388 [387, 388] | 94.6 [94.6, 94.7] | 4.1× faster [4.1, 4.1] † | 87.0 [87.0, 87.1] | 4.5× faster [4.5, 4.5] † |
+| `fields/streamplot_100` | 114 [114, 114] | 9.26 [9.13, 9.31] | 12× faster [12, 13] | 7.72 [7.70, 7.73] | 15× faster [15, 15] |
+| `fields/quiver_100` | 49.6 [49.4, 49.7] | 15.2 [15.1, 15.2] | 3.3× faster [3.3, 3.3] | 13.8 [13.8, 13.9] | 3.6× faster [3.6, 3.6] |
+| `fields/tricontourf_1e5` | 310 [309, 313] | 200 [199, 203] | 1.55× faster [1.52, 1.57] | 189 [188, 194] | 1.64× faster [1.59, 1.66] |
+| `3d/plot_surface_200` | 55.2 [55.1, 55.3] | 12.7 [12.6, 12.8] | 4.3× faster [4.3, 4.4] | 11.1 [11.1, 11.2] | 5.0× faster [4.9, 5.0] |
+| `3d/plot_surface_200_full` | 100 [100, 100] | 33.8 [33.7, 33.9] | 3.0× faster [3.0, 3.0] | 32.9 [32.9, 32.9] | 3.0× faster [3.0, 3.1] |
+| `3d/scatter_1e4` | 109 [108, 109] | 54.8 [54.6, 54.9] | 1.98× faster [1.97, 1.99] | 54.3 [54.2, 54.3] | 2.0× faster [1.99, 2.0] |
+| `text/subplots_10x10` | 884 [884, 885] | 63.4 [63.3, 63.5] | 14× faster [14, 14] | 43.6 [43.6, 43.8] | 20× faster [20, 20] |
+| `text/text_2000` | 1274 [1272, 1277] | 167 [166, 167] | 7.6× faster [7.6, 7.7] | 123 [123, 123] | 10× faster [10, 10] |
+| `text/mathtext_50` | 292 [292, 293] | 25.1 [25.0, 25.2] | 12× faster [12, 12] | 24.4 [24.4, 24.5] | 12× faster [12, 12] |
+| `text/mixed_text_math_300` | 743 [742, 747] | 85.5 [85.4, 85.6] | 8.7× faster [8.7, 8.7] | 81.6 [81.6, 81.7] | 9.1× faster [9.1, 9.2] |
+| `text/constrained_6x6_colorbars` | 1137 [1135, 1138] | 90.2 [90.0, 91.2] | 13× faster [12, 13] | 53.3 [53.2, 53.4] | 21× faster [21, 21] |
+| `layout/constrained_8x8_no_draw` | 863 [860, 868] | 31.3 [31.2, 31.4] | 28× faster [27, 28] | 19.0 [19.0, 19.2] | 45× faster [45, 46] |
+| `output/lissajous_1e5_svg` | 45.4 [45.3, 45.5] | 15.0 [14.9, 15.1] | 3.0× faster [3.0, 3.0] | 13.8 [13.8, 13.8] | 3.3× faster [3.3, 3.3] |
+| `output/lissajous_1e5_pdf` | 156 [155, 156] | 53.7 [53.6, 53.7] | 2.9× faster [2.9, 2.9] | 52.2 [52.1, 52.2] | 3.0× faster [3.0, 3.0] |
+| `output/lissajous_1e5_ps` | 44.0 [43.9, 44.1] | 14.0 [13.9, 14.0] | 3.1× faster [3.1, 3.2] | 13.4 [13.3, 13.4] | 3.3× faster [3.3, 3.3] |
+| `layout/grid_16x16` | 1725 [1720, 1729] | 112 [112, 112] | 15× faster [15, 15] | 72.0 [72.0, 72.1] | 24× faster [24, 24] |
+| `animation/wave_30_frames` | 595 [595, 597] | 75.8 [75.6, 75.9] | 7.8× faster [7.8, 7.9] | 55.9 [55.9, 56.0] | 11× faster [11, 11] |
 
 ### Cold, end to end
 
@@ -466,49 +472,49 @@ A fresh process that starts, imports, makes the data, builds the figure, writes 
 
 | workload | matplotlib | pltrs (Python) | speed-up | pltrs (Rust) | speed-up |
 |---|---:|---:|---:|---:|---:|
-| `lines/errorbar_1e4` | 392 [391, 392] | 171 [170, 171] | 2.3× faster [2.3, 2.3] | 25.3 [25.3, 25.5] | 15× faster [15, 16] |
-| `stats/stairs_1e5` | 1703 [1692, 1713] | 178 [176, 179] | 9.6× faster [9.5, 9.8] | 30.9 [30.5, 31.2] | 55× faster [54, 56] |
-| `lines/plot_1e6_png` | 340 [339, 341] | 211 [211, 213] | 1.61× faster [1.59, 1.62] | 55.1 [54.8, 55.4] | 6.2× faster [6.1, 6.2] |
-| `lines/plot_1e6_svg` | 324 [324, 328] | 204 [203, 205] | 1.59× faster [1.58, 1.61] | 47.6 [47.3, 47.9] | 6.8× faster [6.8, 6.9] |
-| `lines/plot_1e6_pdf` | 383 [381, 383] | 214 [212, 215] | 1.79× faster [1.78, 1.82] | 54.0 [53.9, 54.1] | 7.1× faster [7.1, 7.1] |
-| `lines/1000_lines_of_1000` | 478 [475, 478] | 272 [272, 273] | 1.76× faster [1.74, 1.76] | 96.3 [96.0, 96.5] | 5.0× faster [4.9, 5.0] |
-| `lines/dashed_1e5` | 272 [272, 273] | 167 [165, 168] | 1.63× faster [1.62, 1.66] | 21.7 [21.6, 21.9] | 13× faster [12, 13] |
-| `lines/markevery_1e5` | 274 [274, 276] | 167 [164, 169] | 1.64× faster [1.62, 1.67] | 21.9 [21.8, 22.0] | 13× faster [12, 13] |
-| `lines/fill_between_1e5` | 277 [275, 277] | 169 [168, 171] | 1.64× faster [1.50, 1.65] | 21.6 [21.6, 21.9] | 13× faster [12, 13] |
-| `lines/stackplot_5x1e5` | 307 [306, 308] | 181 [180, 182] | 1.69× faster [1.68, 1.71] | 35.5 [35.4, 35.7] | 8.6× faster [8.6, 8.7] |
-| `markers/scatter_1e5` | 1068 [1067, 1071] | 656 [655, 656] | 1.63× faster [1.63, 1.64] | 517 [517, 517] | 2.1× faster [2.1, 2.1] |
-| `markers/plot_o_1e5` | 303 [302, 305] | 192 [191, 193] | 1.58× faster [1.57, 1.59] | 46.0 [45.8, 46.1] | 6.6× faster [6.5, 6.6] |
-| `meshes/pcolormesh_1000` | 456 [455, 456] | 259 [258, 260] | 1.76× faster [1.75, 1.76] | 118 [118, 118] | 3.9× faster [3.8, 3.9] |
-| `meshes/pcolor_200` | 341 [341, 342] | 177 [173, 177] | 1.93× faster [1.93, 1.98] | 31.7 [31.5, 32.2] | 11× faster [11, 11] |
-| `meshes/imshow_4000_antialiased` | 557 [557, 558] | 341 [340, 341] | 1.64× faster [1.63, 1.64] | 189 [189, 189] | 2.9× faster [2.9, 3.0] |
-| `meshes/imshow_4000_nearest` | 567 [566, 568] | 278 [278, 280] | 2.0× faster [2.0, 2.0] | 127 [127, 128] | 4.5× faster [4.4, 4.5] |
-| `meshes/imshow_2000_bicubic_colorbar` | 415 [414, 416] | 269 [267, 269] | 1.54× faster [1.54, 1.56] | 118 [118, 118] | 3.5× faster [3.5, 3.5] |
-| `meshes/hexbin_1e6` | 378 [375, 378] | 254 [253, 255] | 1.49× faster [1.47, 1.49] | 92.3 [92.1, 92.6] | 4.1× faster [4.1, 4.1] |
-| `meshes/hist2d_1e6` | 386 [385, 387] | 226 [223, 227] | 1.71× faster [1.70, 1.73] | 64.1 [63.9, 64.2] | 6.0× faster [6.0, 6.0] |
-| `stats/hist_1e7` | 765 [765, 767] | 443 [443, 445] | 1.73× faster [1.72, 1.73] | 201 [201, 202] | 3.8× faster [3.8, 3.8] |
-| `stats/hist_1e6_auto` | 372 [371, 373] | 196 [194, 196] | 1.90× faster [1.89, 1.92] | 39.1 [39.0, 39.1] | 9.5× faster [9.5, 9.5] |
-| `stats/boxplot_100` | 426 [426, 427] | 181 [180, 183] | 2.4× faster [2.3, 2.4] | 26.0 [25.8, 26.0] | 16× faster [16, 17] |
-| `stats/violinplot_50` | 349 [349, 349] | 182 [181, 183] | 1.92× faster [1.90, 1.93] | 30.4 [30.2, 30.8] | 11× faster [11, 12] |
-| `fields/contour_1000` | 370 [369, 375] | 215 [214, 217] | 1.72× faster [1.70, 1.75] | 66.9 [66.8, 67.2] | 5.5× faster [5.5, 5.6] |
-| `fields/contourf_1000` | 399 [398, 399] | 202 [201, 203] | 1.97× faster [1.96, 1.99] | 55.6 [55.5, 55.8] | 7.2× faster [7.1, 7.2] |
-| `fields/contourf_labels_1000` | 647 [646, 648] | 258 [258, 259] | 2.5× faster [2.5, 2.5] † | 105 [105, 106] | 6.1× faster [6.1, 6.2] † |
-| `fields/streamplot_100` | 359 [359, 359] | 164 [161, 165] | 2.2× faster [2.2, 2.2] | 19.0 [19.0, 19.3] | 19× faster [19, 19] |
-| `fields/quiver_100` | 295 [294, 296] | 174 [172, 175] | 1.70× faster [1.69, 1.72] | 28.4 [28.2, 28.6] | 10× faster [10, 10] |
-| `fields/tricontourf_1e5` | 560 [559, 561] | 362 [360, 362] | 1.55× faster [1.54, 1.56] | 202 [202, 203] | 2.8× faster [2.8, 2.8] |
-| `3d/plot_surface_200` | 300 [299, 301] | 169 [169, 170] | 1.77× faster [1.76, 1.79] | 24.4 [24.4, 24.6] | 12× faster [12, 12] |
-| `3d/plot_surface_200_full` | 353 [352, 353] | 194 [194, 195] | 1.81× faster [1.81, 1.83] | 49.1 [49.0, 49.3] | 7.2× faster [7.1, 7.2] |
-| `3d/scatter_1e4` | 352 [352, 352] | 211 [209, 211] | 1.67× faster [1.67, 1.69] | 67.0 [66.8, 67.3] | 5.3× faster [5.2, 5.3] |
-| `text/subplots_10x10` | 1197 [1196, 1201] | 220 [218, 221] | 5.4× faster [5.4, 5.5] | 60.5 [60.4, 60.7] | 20× faster [20, 20] |
-| `text/text_2000` | 1551 [1547, 1553] | 316 [315, 316] | 4.9× faster [4.9, 4.9] | 143 [142, 144] | 11× faster [11, 11] |
-| `text/mathtext_50` | 614 [614, 614] | 183 [182, 184] | 3.4× faster [3.3, 3.4] | 39.6 [39.5, 40.0] | 15× faster [15, 16] |
-| `text/mixed_text_math_300` | 1074 [1072, 1084] | 246 [245, 249] | 4.4× faster [4.3, 4.4] | 101 [101, 101] | 11× faster [11, 11] |
-| `text/constrained_6x6_colorbars` | 1441 [1440, 1445] | 250 [249, 252] | 5.8× faster [5.7, 5.8] | 72.6 [71.8, 73.2] | 20× faster [20, 20] |
-| `layout/constrained_8x8_no_draw` | 1156 [1154, 1162] | 183 [181, 184] | 6.3× faster [6.3, 6.4] | 29.4 [29.3, 29.6] | 39× faster [39, 40] |
-| `output/lissajous_1e5_svg` | 289 [287, 289] | 170 [169, 171] | 1.70× faster [1.68, 1.70] | 24.7 [24.6, 24.9] | 12× faster [12, 12] |
-| `output/lissajous_1e5_pdf` | 441 [440, 441] | 245 [245, 246] | 1.79× faster [1.78, 1.81] | 99.3 [99.0, 99.9] | 4.4× faster [4.4, 4.5] |
-| `output/lissajous_1e5_ps` | 329 [327, 330] | 170 [167, 171] | 1.93× faster [1.93, 1.97] | 23.7 [23.5, 23.8] | 14× faster [14, 14] |
-| `layout/grid_16x16` | 2073 [2069, 2079] | 268 [266, 270] | 7.7× faster [7.7, 7.8] | 95.1 [94.9, 95.4] | 22× faster [22, 22] |
-| `animation/wave_30_frames` | 849 [847, 850] | 260 [260, 261] | 3.3× faster [3.3, 3.3] | 95.7 [95.5, 96.0] | 8.9× faster [8.8, 8.9] |
+| `lines/errorbar_1e4` | 400 [399, 402] | 190 [189, 193] | 2.1× faster [2.1, 2.1] | 24.4 [24.1, 24.9] | 16× faster [16, 17] |
+| `stats/stairs_1e5` | 1689 [1679, 1697] | 195 [193, 201] | 8.7× faster [8.3, 8.8] | 29.1 [29.0, 29.6] | 58× faster [57, 58] |
+| `lines/plot_1e6_png` | 339 [339, 341] | 224 [223, 226] | 1.51× faster [1.50, 1.53] | 52.9 [52.8, 53.6] | 6.4× faster [6.3, 6.4] |
+| `lines/plot_1e6_svg` | 326 [325, 327] | 219 [216, 219] | 1.49× faster [1.48, 1.51] | 47.1 [47.0, 47.6] | 6.9× faster [6.8, 7.0] |
+| `lines/plot_1e6_pdf` | 384 [383, 384] | 224 [221, 225] | 1.72× faster [1.68, 1.74] | 50.5 [50.3, 50.6] | 7.6× faster [7.6, 7.6] |
+| `lines/1000_lines_of_1000` | 477 [476, 479] | 289 [287, 291] | 1.65× faster [1.64, 1.67] | 87.0 [86.7, 87.2] | 5.5× faster [5.5, 5.5] |
+| `lines/dashed_1e5` | 274 [273, 275] | 180 [178, 182] | 1.52× faster [1.50, 1.54] | 20.4 [20.3, 20.5] | 13× faster [13, 14] |
+| `lines/markevery_1e5` | 281 [277, 283] | 181 [179, 185] | 1.55× faster [1.51, 1.57] | 20.7 [20.6, 20.9] | 14× faster [13, 14] |
+| `lines/fill_between_1e5` | 276 [275, 277] | 182 [179, 183] | 1.52× faster [1.50, 1.54] | 20.4 [20.3, 20.6] | 14× faster [13, 14] |
+| `lines/stackplot_5x1e5` | 308 [306, 309] | 196 [193, 197] | 1.57× faster [1.56, 1.60] | 34.4 [34.2, 34.9] | 9.0× faster [8.8, 9.0] |
+| `markers/scatter_1e5` | 1071 [1069, 1072] | 663 [662, 664] | 1.61× faster [1.61, 1.62] | 508 [507, 509] | 2.1× faster [2.1, 2.1] |
+| `markers/plot_o_1e5` | 309 [305, 318] | 207 [207, 212] | 1.49× faster [1.46, 1.54] | 44.7 [44.3, 45.1] | 6.9× faster [6.8, 7.1] |
+| `meshes/pcolormesh_1000` | 457 [456, 460] | 272 [271, 272] | 1.68× faster [1.68, 1.70] | 114 [113, 114] | 4.0× faster [4.0, 4.0] |
+| `meshes/pcolor_200` | 345 [344, 346] | 191 [188, 193] | 1.80× faster [1.78, 1.84] | 30.3 [30.1, 30.5] | 11× faster [11, 11] |
+| `meshes/imshow_4000_antialiased` | 559 [558, 562] | 353 [352, 357] | 1.58× faster [1.57, 1.59] | 185 [185, 185] | 3.0× faster [3.0, 3.0] |
+| `meshes/imshow_4000_nearest` | 568 [566, 570] | 292 [291, 294] | 1.95× faster [1.93, 1.96] | 123 [123, 124] | 4.6× faster [4.6, 4.6] |
+| `meshes/imshow_2000_bicubic_colorbar` | 416 [415, 418] | 282 [280, 282] | 1.48× faster [1.47, 1.49] | 115 [114, 115] | 3.6× faster [3.6, 3.6] |
+| `meshes/hexbin_1e6` | 378 [376, 382] | 268 [266, 271] | 1.41× faster [1.38, 1.42] | 89.4 [89.2, 90.5] | 4.2× faster [4.2, 4.3] |
+| `meshes/hist2d_1e6` | 387 [385, 388] | 239 [238, 241] | 1.62× faster [1.60, 1.63] | 62.5 [62.3, 62.8] | 6.2× faster [6.1, 6.2] |
+| `stats/hist_1e7` | 765 [763, 765] | 457 [457, 459] | 1.67× faster [1.66, 1.67] | 200 [199, 201] | 3.8× faster [3.8, 3.8] |
+| `stats/hist_1e6_auto` | 373 [372, 378] | 211 [207, 212] | 1.77× faster [1.75, 1.83] | 37.6 [37.4, 37.8] | 9.9× faster [9.8, 10] |
+| `stats/boxplot_100` | 428 [427, 429] | 196 [195, 196] | 2.2× faster [2.2, 2.2] | 24.2 [24.0, 24.3] | 18× faster [18, 18] |
+| `stats/violinplot_50` | 350 [348, 352] | 197 [194, 200] | 1.77× faster [1.74, 1.81] | 29.5 [29.2, 30.1] | 12× faster [12, 12] |
+| `fields/contour_1000` | 368 [366, 369] | 223 [221, 224] | 1.65× faster [1.64, 1.66] | 61.6 [61.4, 61.8] | 6.0× faster [5.9, 6.0] |
+| `fields/contourf_1000` | 397 [396, 402] | 218 [216, 219] | 1.82× faster [1.81, 1.86] | 55.2 [55.0, 56.0] | 7.2× faster [7.1, 7.3] |
+| `fields/contourf_labels_1000` | 649 [647, 651] | 270 [268, 270] | 2.4× faster [2.4, 2.4] † | 101 [101, 101] | 6.4× faster [6.4, 6.5] † |
+| `fields/streamplot_100` | 360 [359, 363] | 179 [178, 180] | 2.0× faster [2.0, 2.0] | 17.8 [17.5, 18.3] | 20× faster [20, 21] |
+| `fields/quiver_100` | 297 [295, 297] | 184 [183, 185] | 1.61× faster [1.59, 1.63] | 24.3 [24.0, 24.4] | 12× faster [12, 12] |
+| `fields/tricontourf_1e5` | 566 [565, 567] | 380 [378, 381] | 1.49× faster [1.48, 1.50] | 206 [205, 207] | 2.7× faster [2.7, 2.8] |
+| `3d/plot_surface_200` | 302 [301, 305] | 183 [181, 184] | 1.65× faster [1.64, 1.67] | 21.8 [21.6, 21.9] | 14× faster [14, 14] |
+| `3d/plot_surface_200_full` | 358 [355, 362] | 209 [208, 211] | 1.71× faster [1.69, 1.74] | 47.1 [46.7, 47.2] | 7.6× faster [7.5, 7.7] |
+| `3d/scatter_1e4` | 354 [353, 356] | 225 [225, 225] | 1.57× faster [1.57, 1.59] | 64.8 [64.7, 64.9] | 5.5× faster [5.5, 5.5] |
+| `text/subplots_10x10` | 1207 [1198, 1212] | 237 [236, 240] | 5.1× faster [5.0, 5.1] | 55.4 [55.2, 55.9] | 22× faster [21, 22] |
+| `text/text_2000` | 1545 [1544, 1551] | 344 [343, 344] | 4.5× faster [4.5, 4.5] | 136 [136, 136] | 11× faster [11, 11] |
+| `text/mathtext_50` | 615 [614, 617] | 198 [197, 199] | 3.1× faster [3.1, 3.1] | 38.1 [37.8, 38.3] | 16× faster [16, 16] |
+| `text/mixed_text_math_300` | 1076 [1074, 1081] | 261 [260, 262] | 4.1× faster [4.1, 4.2] | 96.3 [96.1, 96.7] | 11× faster [11, 11] |
+| `text/constrained_6x6_colorbars` | 1449 [1443, 1457] | 266 [265, 270] | 5.4× faster [5.3, 5.5] | 65.5 [65.0, 65.6] | 22× faster [22, 22] |
+| `layout/constrained_8x8_no_draw` | 1168 [1158, 1170] | 204 [203, 205] | 5.7× faster [5.7, 5.8] | 29.6 [29.5, 29.8] | 39× faster [39, 40] |
+| `output/lissajous_1e5_svg` | 294 [292, 296] | 190 [188, 190] | 1.55× faster [1.54, 1.58] | 25.6 [25.5, 26.4] | 11× faster [11, 12] |
+| `output/lissajous_1e5_pdf` | 450 [448, 454] | 231 [229, 235] | 1.95× faster [1.91, 1.97] | 64.0 [63.8, 64.4] | 7.0× faster [7.0, 7.1] |
+| `output/lissajous_1e5_ps` | 339 [336, 343] | 190 [190, 191] | 1.78× faster [1.76, 1.80] | 25.1 [24.9, 25.6] | 14× faster [13, 14] |
+| `layout/grid_16x16` | 2080 [2072, 2082] | 290 [289, 292] | 7.2× faster [7.1, 7.2] | 84.7 [84.6, 85.3] | 25× faster [24, 25] |
+| `animation/wave_30_frames` | 847 [845, 851] | 249 [248, 249] | 3.4× faster [3.4, 3.4] | 67.6 [67.2, 67.9] | 13× faster [12, 13] |
 
 ### Peak memory and document size
 
@@ -516,49 +522,49 @@ Peak memory is the median peak resident memory of the cold processes, in MiB. Th
 
 | workload | format | matplotlib MiB | pltrs (Python) MiB | pltrs (Rust) MiB | matplotlib KiB | pltrs (Python) KiB | pltrs (Rust) KiB |
 |---|---|---:|---:|---:|---:|---:|---:|
-| `lines/errorbar_1e4` | png | 80 | 76 | 24 | 28 | 29 | 29 |
-| `stats/stairs_1e5` | png | 126 | 92 | 38 | 30 | 31 | 31 |
-| `lines/plot_1e6_png` | png | 167 | 159 | 83 | 26 | 26 | 26 |
-| `lines/plot_1e6_svg` | svg | 164 | 154 | 78 | 217 | 217 | 217 |
-| `lines/plot_1e6_pdf` | pdf | 174 | 156 | 78 | 87 | 86 | 86 |
-| `lines/1000_lines_of_1000` | png | 123 | 129 | 60 | 395 | 397 | 397 |
-| `lines/dashed_1e5` | png | 79 | 81 | 26 | 27 | 28 | 28 |
-| `lines/markevery_1e5` | png | 80 | 83 | 28 | 24 | 24 | 24 |
-| `lines/fill_between_1e5` | png | 87 | 86 | 28 | 29 | 29 | 29 |
-| `lines/stackplot_5x1e5` | png | 111 | 109 | 51 | 43 | 44 | 44 |
-| `markers/scatter_1e5` | png | 98 | 97 | 41 | 328 | 328 | 328 |
-| `markers/plot_o_1e5` | png | 77 | 81 | 26 | 16 | 16 | 16 |
-| `meshes/pcolormesh_1000` | png | 197 | 182 | 128 | 128 | 130 | 130 |
-| `meshes/pcolor_200` | png | 98 | 83 | 30 | 66 | 67 | 67 |
-| `meshes/imshow_4000_antialiased` | png | 1227 | 534 | 343 | 114 | 115 | 115 |
-| `meshes/imshow_4000_nearest` | png | 1715 | 534 | 343 | 111 | 112 | 112 |
-| `meshes/imshow_2000_bicubic_colorbar` | png | 369 | 192 | 104 | 120 | 120 | 120 |
-| `meshes/hexbin_1e6` | png | 221 | 166 | 50 | 57 | 57 | 57 |
-| `meshes/hist2d_1e6` | png | 165 | 164 | 49 | 14 | 15 | 15 |
-| `stats/hist_1e7` | png | 999 | 989 | 96 | 10 | 10 | 10 |
-| `stats/hist_1e6_auto` | png | 145 | 141 | 34 | 8 | 8 | 8 |
-| `stats/boxplot_100` | png | 84 | 74 | 21 | 57 | 57 | 57 |
-| `stats/violinplot_50` | png | 74 | 73 | 19 | 23 | 23 | 23 |
-| `fields/contour_1000` | png | 118 | 109 | 40 | 284 | 286 | 286 |
-| `fields/contourf_1000` | png | 120 | 114 | 46 | 33 | 34 | 34 |
-| `fields/contourf_labels_1000` | png | 152 | 126 | 50 | 230 | 232 | 232 |
-| `fields/streamplot_100` | png | 73 | 72 | 19 | 98 | 99 | 99 |
-| `fields/quiver_100` | png | 81 | 76 | 22 | 166 | 167 | 167 |
-| `fields/tricontourf_1e5` | png | 140 | 166 | 111 | 8 | 9 | 9 |
-| `3d/plot_surface_200` | png | 81 | 77 | 24 | 105 | 106 | 106 |
-| `3d/plot_surface_200_full` | png | 110 | 106 | 51 | 74 | 75 | 75 |
-| `3d/scatter_1e4` | png | 75 | 74 | 20 | 75 | 75 | 75 |
-| `text/subplots_10x10` | png | 118 | 83 | 26 | 364 | 371 | 371 |
-| `text/text_2000` | png | 92 | 80 | 24 | 216 | 216 | 216 |
-| `text/mathtext_50` | png | 78 | 72 | 19 | 106 | 107 | 107 |
-| `text/mixed_text_math_300` | png | 81 | 74 | 20 | 191 | 191 | 191 |
-| `text/constrained_6x6_colorbars` | png | 110 | 87 | 31 | 136 | 138 | 138 |
-| `layout/constrained_8x8_no_draw` | layout | 106 | 73 | 18 | - | - | - |
-| `output/lissajous_1e5_svg` | svg | 88 | 94 | 37 | 2388 | 2388 | 2388 |
-| `output/lissajous_1e5_pdf` | pdf | 96 | 90 | 33 | 988 | 973 | 973 |
-| `output/lissajous_1e5_ps` | ps | 97 | 87 | 29 | 2286 | 2286 | 2286 |
-| `layout/grid_16x16` | png | 189 | 99 | 35 | 688 | 709 | 709 |
-| `animation/wave_30_frames` | html | 75 | 75 | 24 | 686 | 698 | 698 |
+| `lines/errorbar_1e4` | png | 80 | 79 | 24 | 28 | 28 | 28 |
+| `stats/stairs_1e5` | png | 127 | 96 | 38 | 30 | 30 | 30 |
+| `lines/plot_1e6_png` | png | 167 | 161 | 82 | 26 | 26 | 26 |
+| `lines/plot_1e6_svg` | svg | 164 | 156 | 77 | 217 | 217 | 217 |
+| `lines/plot_1e6_pdf` | pdf | 174 | 157 | 78 | 87 | 87 | 87 |
+| `lines/1000_lines_of_1000` | png | 123 | 131 | 59 | 395 | 395 | 395 |
+| `lines/dashed_1e5` | png | 79 | 83 | 25 | 27 | 27 | 27 |
+| `lines/markevery_1e5` | png | 80 | 85 | 27 | 24 | 24 | 24 |
+| `lines/fill_between_1e5` | png | 87 | 87 | 28 | 29 | 29 | 29 |
+| `lines/stackplot_5x1e5` | png | 111 | 111 | 50 | 43 | 43 | 43 |
+| `markers/scatter_1e5` | png | 98 | 99 | 41 | 328 | 327 | 327 |
+| `markers/plot_o_1e5` | png | 77 | 82 | 24 | 16 | 16 | 16 |
+| `meshes/pcolormesh_1000` | png | 197 | 185 | 127 | 128 | 128 | 128 |
+| `meshes/pcolor_200` | png | 98 | 86 | 30 | 66 | 66 | 66 |
+| `meshes/imshow_4000_antialiased` | png | 1227 | 537 | 343 | 114 | 114 | 114 |
+| `meshes/imshow_4000_nearest` | png | 1715 | 537 | 343 | 111 | 111 | 111 |
+| `meshes/imshow_2000_bicubic_colorbar` | png | 369 | 194 | 103 | 120 | 120 | 120 |
+| `meshes/hexbin_1e6` | png | 221 | 169 | 49 | 57 | 57 | 57 |
+| `meshes/hist2d_1e6` | png | 165 | 166 | 49 | 14 | 14 | 14 |
+| `stats/hist_1e7` | png | 999 | 991 | 95 | 10 | 10 | 10 |
+| `stats/hist_1e6_auto` | png | 145 | 143 | 33 | 8 | 8 | 8 |
+| `stats/boxplot_100` | png | 84 | 76 | 20 | 57 | 57 | 57 |
+| `stats/violinplot_50` | png | 74 | 75 | 18 | 23 | 23 | 23 |
+| `fields/contour_1000` | png | 118 | 111 | 40 | 284 | 284 | 284 |
+| `fields/contourf_1000` | png | 120 | 116 | 45 | 33 | 33 | 33 |
+| `fields/contourf_labels_1000` | png | 152 | 128 | 49 | 230 | 230 | 230 |
+| `fields/streamplot_100` | png | 73 | 74 | 18 | 98 | 98 | 98 |
+| `fields/quiver_100` | png | 81 | 78 | 22 | 166 | 166 | 166 |
+| `fields/tricontourf_1e5` | png | 140 | 169 | 111 | 8 | 8 | 8 |
+| `3d/plot_surface_200` | png | 81 | 80 | 24 | 105 | 105 | 105 |
+| `3d/plot_surface_200_full` | png | 110 | 109 | 51 | 74 | 74 | 74 |
+| `3d/scatter_1e4` | png | 75 | 76 | 20 | 75 | 75 | 75 |
+| `text/subplots_10x10` | png | 118 | 85 | 25 | 364 | 364 | 364 |
+| `text/text_2000` | png | 92 | 82 | 23 | 216 | 216 | 216 |
+| `text/mathtext_50` | png | 78 | 74 | 18 | 106 | 106 | 106 |
+| `text/mixed_text_math_300` | png | 81 | 75 | 19 | 191 | 191 | 191 |
+| `text/constrained_6x6_colorbars` | png | 110 | 89 | 30 | 136 | 136 | 136 |
+| `layout/constrained_8x8_no_draw` | layout | 106 | 76 | 18 | - | - | - |
+| `output/lissajous_1e5_svg` | svg | 88 | 87 | 27 | 2388 | 2388 | 2388 |
+| `output/lissajous_1e5_pdf` | pdf | 96 | 92 | 33 | 988 | 982 | 982 |
+| `output/lissajous_1e5_ps` | ps | 97 | 89 | 29 | 2286 | 2286 | 2286 |
+| `layout/grid_16x16` | png | 189 | 101 | 34 | 688 | 688 | 688 |
+| `animation/wave_30_frames` | html | 75 | 78 | 24 | 686 | 685 | 685 |
 
 ### What a call costs in pltrs (Python)
 
@@ -566,8 +572,8 @@ pltrs (Python) and pltrs (Rust) run the same Rust code for these figures. On eve
 
 | workload | calls | pltrs (Python) over pltrs (Rust), µs per call | matplotlib, µs per call |
 |---|---:|---:|---:|
-| `lines/1000_lines_of_1000` | 1000 | 28.9 | 213.7 |
-| `text/text_2000` | 2000 | 14.3 | 640.9 |
+| `lines/1000_lines_of_1000` | 1000 | 40.1 | 212.5 |
+| `text/text_2000` | 2000 | 21.8 | 636.9 |
 
 † The figure differs from matplotlib's, as the [correctness guard](#correctness-guard) shows.
 

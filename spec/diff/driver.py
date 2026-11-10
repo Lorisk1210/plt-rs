@@ -33,7 +33,10 @@ a program asking the network for something (the gallery's timeline,
 GitHub's list of matplotlib's releases) takes the same fallback under
 both implementations, in every run, and a corpus' program reading its
 data from the web (seaborn's datasets, CSV files) fails under both, so is
-skipped.
+skipped. Every program runs headless too: on Linux the tester has no
+display, and on macOS and Windows, which always have the user's screen,
+``headless/sitecustomize.py`` makes the GUI toolkits, matplotlib's
+interactive backends and the web browser fail as they fail there.
 
 A program matplotlib itself cannot run here (a GUI toolkit, a network
 download) is listed as skipped, with matplotlib's error. ``--reduce``
@@ -79,6 +82,13 @@ OFFLINE = {
     **{name: REFUSING_PROXY for name in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY")},
     **{name: "localhost,127.0.0.1,::1" for name in ("no_proxy", "NO_PROXY")},
 }
+#: The directory of the ``sitecustomize`` keeping the programs off the
+#: screen (``headless/sitecustomize.py``), put first on their
+#: ``PYTHONPATH`` where a GUI toolkit always finds one (`NEEDS_HEADLESS`).
+HEADLESS = HERE / "headless"
+#: Whether the programs need `HEADLESS`: on every system but Linux, where
+#: the tester runs without a display.
+NEEDS_HEADLESS = not sys.platform.startswith("linux")
 
 
 class Setup:
@@ -119,13 +129,16 @@ class Setup:
         env["MPLCONFIGDIR"] = str(self.out / ("config-reference" if impl == "matplotlib"
                                               else "config-candidate"))
         env["PYTHONHASHSEED"] = "0"
+        path = [str(HEADLESS)] if NEEDS_HEADLESS else []
         if impl == "pltrs":
             env["PLTRS_LOOK"] = "matplotlib"
             # pltrs, and the `matplotlib` distribution's aliases of it, so
             # that the libraries a program plots through (pandas) get pltrs
             # where they import matplotlib, as they do where it is installed
             # as matplotlib.
-            env["PYTHONPATH"] = os.pathsep.join(str(self.root / "python" / part) for part in ("", "alias"))
+            path += [str(self.root / "python" / part) for part in ("", "alias")]
+        if path:
+            env["PYTHONPATH"] = os.pathsep.join(path)
         return env
 
     def home(self, program: Program) -> pathlib.Path:
@@ -155,9 +168,11 @@ class Program:
     @property
     def digest(self) -> str:
         """What the reference run depends on: the program, its mode, its
-        corpus' tree and venvs, the tester's harness and the network it is
-        refused (`OFFLINE`)."""
+        corpus' tree and venvs, the tester's harness (`HEADLESS` too where
+        the programs get it) and the network it is refused (`OFFLINE`)."""
         harness = b"".join((HERE / name).read_bytes() for name in ("trace.py", "describe.py", "corpora.py"))
+        if NEEDS_HEADLESS:
+            harness += (HEADLESS / "sitecustomize.py").read_bytes()
         tree = self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes() if self.corpus else b""
         network = json.dumps(OFFLINE).encode()
         return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness

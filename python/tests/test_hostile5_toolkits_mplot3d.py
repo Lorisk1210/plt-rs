@@ -25,6 +25,8 @@ from pltrs.mpl_toolkits.axisartist import axis_artist, axislines, grid_helper_cu
 from pltrs.mpl_toolkits.mplot3d import Axes3D, art3d, axes3d, axis3d
 from pltrs.transforms import Affine2D
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -108,7 +110,8 @@ def test_infinite_tick_sizes_warn_as_numpy_scales_and_turns_the_marks():
     multiply = "invalid value encountered in scalar multiply"
     dot = "invalid value encountered in dot"
     # Six ticks, each mark turned through two products.
-    assert failure(fig.canvas.draw) == (None, [multiply] * 4 + [dot] * 12)
+    assert failure(fig.canvas.draw) == (
+        None, build_facts.as_numpy_warns([multiply] * 4 + [dot] * 12))
 
 
 # -- what constructors read first ------------------------------------------------

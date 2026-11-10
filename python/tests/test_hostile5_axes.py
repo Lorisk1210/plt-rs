@@ -23,6 +23,8 @@ import pltrs.units as munits
 from pltrs.bezier import BezierSegment
 from pltrs.path import Path
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -451,7 +453,8 @@ def test_bezier_points_that_are_no_numbers():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         segment(float('inf'))
-    assert [str(w.message) for w in caught] == ["invalid value encountered in matmul"]
+    assert [str(w.message) for w in caught] == build_facts.as_numpy_warns(
+        ["invalid value encountered in matmul"])
 
 
 def test_curved_extents_iterate_with_the_keywords_given():

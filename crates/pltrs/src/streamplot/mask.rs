@@ -1,6 +1,8 @@
 //! The occupancy mask that keeps streamlines apart (matplotlib's
 //! `StreamMask` and `_gen_starting_points`).
 
+use pltrs_core::numeric::np_int;
+
 use super::StreamplotError;
 use crate::numeric::Grid;
 
@@ -21,16 +23,13 @@ pub(crate) struct StreamMask {
 }
 
 impl StreamMask {
-    /// A free mask of `30 × density` cells in each direction (truncated
-    /// towards zero).
+    /// A free mask of `30 × density` cells in each direction, cast to
+    /// integers as numpy casts them (`astype(int)`: a NaN density gives a
+    /// negative count on x86-64 and none on arm64).
     pub(crate) fn new((density_x, density_y): (f64, f64)) -> Result<Self, StreamplotError> {
         let cells = |density: f64| {
-            let n = (30.0 * density).trunc();
-            if n >= 0.0 {
-                Ok(n as usize)
-            } else {
-                Err(StreamplotError::InvalidDensity(density))
-            }
+            usize::try_from(np_int(30.0 * density))
+                .map_err(|_| StreamplotError::InvalidDensity(density))
         };
         let (nx, ny) = (cells(density_x)?, cells(density_y)?);
         if nx
@@ -161,11 +160,17 @@ mod tests {
         assert_eq!(StreamMask::new((0.0, 0.0)).unwrap().shape(), (0, 0));
         assert_eq!(StreamMask::new((-0.01, 1.0)).unwrap().shape(), (30, 0));
         assert!(StreamMask::new((-1.0, 1.0)).is_err());
-        assert!(StreamMask::new((f64::NAN, 1.0)).is_err());
+        // numpy casts NaN to a negative count on x86-64, to none on arm64.
+        let nan = StreamMask::new((f64::NAN, 1.0)).map(|mask| mask.shape());
+        if cfg!(target_arch = "x86_64") {
+            assert!(nan.is_err());
+        } else {
+            assert_eq!(nan, Ok((30, 0)));
+        }
         // Found by fuzzing: huge densities asked for unbounded masks.
         assert_eq!(
-            StreamMask::new((1e300, 1.0)).err(),
-            Some(StreamplotError::TooManyCells(1e300, 1.0))
+            StreamMask::new((1e10, 1.0)).err(),
+            Some(StreamplotError::TooManyCells(1e10, 1.0))
         );
         assert!(StreamMask::new((136.0, 136.0)).is_ok());
     }

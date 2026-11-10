@@ -24,6 +24,8 @@ import pytest
 
 from pltrs import _c_internal_utils
 
+import screen
+
 #: How long a body may run, in seconds.
 TIMEOUT = 60
 
@@ -35,11 +37,14 @@ from pltrs._native import gui as _gui
 _display = _pltrs_loop.connect_headless()
 """
 
-_has_display = _c_internal_utils.display_is_valid()
+#: Why the bodies cannot run on the display, or None when they can (on
+#: a Mac only when allowed, as the display is the user's screen).
+_no_display = screen.REFUSED or (None if _c_internal_utils.display_is_valid()
+                                 else "no display server ($DISPLAY, $WAYLAND_DISPLAY)")
 
 #: Where the bodies run: always headless, on the display when there is one.
 HOSTS = ["headless", pytest.param("display", marks=pytest.mark.skipif(
-    not _has_display, reason="no display server ($DISPLAY, $WAYLAND_DISPLAY)"))]
+    _no_display is not None, reason=str(_no_display)))]
 
 
 def _source(body, *args, host="headless"):
@@ -669,7 +674,7 @@ def _auto_backend():
     assert plt.get_backend() == ("macosx" if sys.platform == "darwin" else "pltrs")
 
 
-@pytest.mark.skipif(not _has_display, reason="no display server")
+@pytest.mark.skipif(_no_display is not None, reason=str(_no_display))
 def test_pltrs_is_the_default_interactive_backend():
     env = _environment()
     del env["MPLBACKEND"]

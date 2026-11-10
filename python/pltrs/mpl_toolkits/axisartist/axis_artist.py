@@ -532,6 +532,37 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
 
     update_from = _named.named("Text.update_from", _DrawnOnItsOwn.update_from)
 
+    @_named.named("Artist.set_visible")
+    def set_visible(self, b):
+        # docstring inherited
+        self._note_drawn()
+        super().set_visible(b)
+
+    def _has_renderer(self):
+        # docstring inherited: a text pltrs (Rust) draws for an axis artist
+        # holds one once a draw of the axis artist drew it or it was
+        # measured (`_keeps_renderer`).
+        mirror = _mirrors.mirroring(self)
+        if not isinstance(mirror, _Drawn) or mirror.axis_artist is None:
+            return super()._has_renderer()
+        self._note_drawn()
+        return self.__dict__.get("_keeps_renderer", False)
+
+    def _note_drawn(self):
+        """Note whether the draws of the axis artist since last noted drew
+        the text, which keeps their renderer (matplotlib's ``Text.draw``):
+        whether it does (`_calls_text_draw`) as the text is until it
+        changes."""
+        mirror = _mirrors.mirroring(self)
+        if (isinstance(mirror, _Drawn) and mirror.axis_artist is not None
+                and mirror.drawn_since(self, "_renderer_at") and self._calls_text_draw()):
+            self._keeps_renderer = True
+
+    def _calls_text_draw(self):
+        """Whether a draw of the axis artist draws the text through
+        ``Text.draw``: when it is visible."""
+        return self.get_visible()
+
     @property
     def _ref_angle(self):
         self._refresh_drawn()
@@ -600,9 +631,12 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         with mtext._measured_by_given(renderer, self):
             extent = self._drawn_extent(_mirrors.mirroring(self))
         if extent is not _mirrors.OWN:
-            if renderer is not None and self.get_visible() and self.get_text():
-                # matplotlib lays the text out with *renderer*.
-                mtext._check_metrics_renderer(renderer)
+            if self.get_visible() and self.get_text():
+                # matplotlib lays the text out with *renderer* (or its
+                # figure's), which it keeps.
+                if renderer is not None:
+                    mtext._check_metrics_renderer(renderer)
+                self._keeps_renderer = True
             return extent
         if renderer is None:
             renderer = self.get_figure(root=True)._get_renderer()
@@ -1068,6 +1102,14 @@ class TickLabels(AxisLabel):  # mtext.Text
         # the value saved will be used to draw axislabel.
         self._axislabel_pad = total_width + pad
 
+    def _calls_text_draw(self):
+        # docstring inherited: a visible text with a label that is not empty.
+        try:
+            labels = self._locs_angles_labels
+        except AttributeError:
+            return False
+        return self.get_visible() and any(label.strip() for _, _, label in labels)
+
     def set_locs_angles_labels(self, locs_angles_labels):
         self._locs_angles_labels = locs_angles_labels
 
@@ -1131,6 +1173,10 @@ class TickLabels(AxisLabel):  # mtext.Text
                 extents = (_axisartist.axis_text_extents(mirror.native)
                            if mirror.axis_artist is None
                            else self._part_extents(mirror))
+            if any(label for _, _, label in self._locs_angles_labels):
+                # matplotlib measures each label as a text, which keeps
+                # the renderer when the label is not empty.
+                self._keeps_renderer = True
             return [Bbox.from_extents(*extent) for extent in extents]
 
         bboxes = []

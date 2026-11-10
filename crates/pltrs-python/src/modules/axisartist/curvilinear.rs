@@ -163,10 +163,11 @@ fn share_floating_patch(host: Axes, aux: Axes) -> PyResult<()> {
     Ok(())
 }
 
-/// Clears the floating axes `axes` and fits it to its outline again
-/// (`FloatingAxes.clear`).
-fn clear_floating(axes: Axes) -> PyResult<()> {
-    FloatingAxes::of(axes).clear();
+/// Outlines the range of the floating axes `axes`, cleared, and fits its
+/// limits around it again (what `FloatingAxes.clear` adds to the clear of
+/// the axislines axes).
+fn refit_floating(axes: Axes) -> PyResult<()> {
+    FloatingAxes::of(axes).refit_outline();
     Ok(())
 }
 
@@ -207,7 +208,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("install_curvilinear", install)?;
     module.add("update_grid_finder", update_grid_finder)?;
     module.add("install_floating", install_floating)?;
-    module.add("clear_floating", clear_floating)?;
+    module.add("refit_floating", refit_floating)?;
     module.add("share_floating_patch", share_floating_patch)?;
     module.add("adjust_floating_lim", adjust_floating_lim)?;
     module.add("set_nth_coord_ticks", set_nth_coord_ticks)?;

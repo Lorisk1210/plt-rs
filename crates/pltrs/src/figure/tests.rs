@@ -240,3 +240,28 @@ fn text_boxes_read_back() {
     assert_eq!(patch.boxstyle().shape, round.shape);
     assert_eq!(patch.alpha(), Some(0.5));
 }
+
+#[test]
+fn a_draw_ticks_no_axes_after_one_whose_ticks_fail() {
+    // Log x axes whose limits run from below zero: numpy's log10 of the
+    // lower one warns, and the floor of NaN fails the ticks. matplotlib's
+    // draw stops at the first axes, computing none of the second's ticks.
+    let fig = Figure::new();
+    let axes: Vec<_> = [1, 2]
+        .into_iter()
+        .map(|index| fig.add_subplot(1, 2, index).expect("a cell of the grid"))
+        .collect();
+    for ax in &axes {
+        ax.plot([0.0, 3.0, 6.0], [0.0, 1.0, 0.0])
+            .expect("equal lengths");
+    }
+    fig.to_png().expect("linear axes draw");
+    for ax in &axes {
+        let (low, high) = ax.xlim();
+        ax.set_xlim(high, low).expect("finite limits");
+        ax.set_xscale("log").expect("a known scale");
+    }
+    let (drawn, warnings) = crate::warnings::capturing_runtime(|| fig.to_png());
+    assert!(drawn.is_err(), "the ticks of the first axes fail");
+    assert_eq!(warnings, ["invalid value encountered in log10"]);
+}

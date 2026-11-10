@@ -2,6 +2,7 @@
 //! `axis_artist`): the axis artists of an axes, the parts of each (ticks,
 //! tick labels, label, line) and tick marks drawn on their own.
 
+use pltrs::artist::RawHandle;
 use pltrs::axes::{Axes, AxisName, GridOptions, TickDirection, TickLevel};
 use pltrs::axisartist::{
     AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, GridlinesChoice, LabelBase,
@@ -12,6 +13,7 @@ use pltrs::colors::Color;
 use pltrs::text::{HAlign, Text, VAlign};
 use pltrs::transforms::{Point, Transform};
 
+use super::super::axes::removed_by_clear;
 use super::super::axes_grid1::side_named;
 use super::super::lines::PyLineStyle;
 use super::axis_texts::PyTextLook;
@@ -59,10 +61,12 @@ fn install(axes: Axes, zero: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// Clears `axes` and puts its axis artists and gridlines back (`clear`).
-fn clear(axes: Axes) -> PyResult<()> {
+/// Clears `axes` and puts its axis artists and gridlines back (`clear`);
+/// returns the artists it removed, as the clear of any axes does.
+fn clear(axes: Axes) -> PyResult<Vec<RawHandle>> {
+    let removed = removed_by_clear(&axes);
     AxisArtistAxes::of(axes).clear();
-    Ok(())
+    Ok(removed)
 }
 
 /// A new axis artist `name` on edge `loc` of `axes`, moved by `offset`

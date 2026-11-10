@@ -418,7 +418,10 @@ class ChartsMixin:
         """
         had_data = self.has_data()
         kept = _mplot3d.plane_data_lim(self._native)
-        patches = Axes.bar(self, left, height, *args, **kwargs)
+        # matplotlib's 2-D `bar` takes the units of the data on the 3-D
+        # axes, and converts with them.
+        with self._units_of_native_axes():
+            patches = Axes.bar(self, left, height, *args, **kwargs)
         # 2D `bar` extends the data limits through `update_datalim`, which
         # does nothing on 3D Axes.
         _mplot3d.restore_plane_data_lim(self._native, kept)
@@ -432,6 +435,10 @@ class ChartsMixin:
             art3d.patch_2d_to_3d(p, z, zdir, axlim_clip)
             if 'alpha' in kwargs:
                 p.set_alpha(kwargs['alpha'])
+        for p in patches[len(zs):]:
+            # The bars of heights past the positions stay 2-D, which
+            # matplotlib's draw fails on.
+            self._without_projection(p)
         xs, ys = zip(*verts) if verts else ([], [])
         xs, ys, verts_zs = art3d.juggle_axes(xs, ys, verts_zs, zdir)
         self.auto_scale_xyz(xs, ys, verts_zs, had_data)

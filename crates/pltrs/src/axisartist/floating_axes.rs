@@ -256,6 +256,12 @@ impl FloatingAxes {
     /// (matplotlib's `FloatingAxesBase.clear`).
     pub fn clear(&self) -> &Self {
         self.axes.clear();
+        self.refit_outline()
+    }
+
+    /// Outlines the range and fits the limits around it again: what
+    /// [`FloatingAxes::clear`] does after the clear of the axislines axes.
+    pub fn refit_outline(&self) -> &Self {
         if let SharedGridHelper::Floating(grid) = self.axes.grid_helper() {
             self.fit_outline(grid.outline()).expect(OUTLINE_FITTED);
         }

@@ -92,6 +92,16 @@ class ConstructionMixin:
         # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
         # override takes part in.
         self.clear()
+        # matplotlib's `__init__` then has the axes make their first ticks
+        # (`tick_params`), which set the positions of the spines their
+        # transforms read: those of the sides of rectilinear axes (the
+        # transforms of projections, made with their parameters later, read
+        # none).
+        from ._base import _AxesBase
+        for name in ("x", "y"):
+            getter = f"get_{name}axis_transform"
+            if getattr(type(self), getter) is getattr(_AxesBase, getter):
+                getattr(self, f"{name}axis")._ask_tick_transforms()
         # matplotlib's `__init__` then connects the Axes' handler of its
         # axes' changes of units, which a later clear disconnects (pltrs
         # (Rust) follows the changes it makes itself until then).

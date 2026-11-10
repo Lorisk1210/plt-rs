@@ -200,8 +200,10 @@ class FloatingAxesBase:
 
     def clear(self):
         # docstring inherited
-        _axisartist.clear_floating(self._native)
-        self._load_axislines()
+        super().clear()
+        # matplotlib's then outlines the range with the patch and fits the
+        # limits around it again.
+        _axisartist.refit_floating(self._native)
 
     def adjust_axes_lim(self):
         _axisartist.adjust_floating_lim(self._native)

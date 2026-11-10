@@ -69,7 +69,7 @@ class ClearMixin:
         for child in self.child_axes:
             child._leave_host()
         self._decouple_children()
-        for native in _axes.clear(self._native):
+        for native in self._clear_natively():
             artist = figure._artists.get(_artist.id(native))
             if artist is not None and "_child_of" in artist.__dict__:
                 # Still of the figure and of the Axes, as matplotlib's clear
@@ -77,11 +77,15 @@ class ClearMixin:
                 continue
             figure._artists.pop(_artist.id(native), None)
         _foreign_children.forget(self)
+        for spine in self.spines.values():
+            spine._clear()
         # Stale, without units, ticks and callbacks (the Axes' handler of
         # its units too), as matplotlib's clear of each axis leaves it.
         for axis in self._axis_map.values():
             axis._forget_units()
             axis.reset_ticks()
+            # matplotlib's clear of the axis made the first tick of each level.
+            axis._ticks_seen = {False: 1, True: 1}
             axis.callbacks = cbook.CallbackRegistry(signals=["units"])
             axis.stale = True
         self.__dict__.pop("_containers", None)
@@ -96,6 +100,11 @@ class ClearMixin:
         _program.cleared(self)
         if "_facecolor" in self.__dict__:
             self.patch.set_facecolor(self._facecolor)
+
+    def _clear_natively(self):
+        """Have pltrs (Rust) clear the Axes; return the artists it took
+        out (see `_axes.clear`)."""
+        return _axes.clear(self._native)
 
     def _decouple_children(self):
         """Decouple the children from the figure and the Axes, as

@@ -478,6 +478,7 @@ class Axis(DrawnWith, Artist):
         #: helpers tick it (see `._tick_helpers.drawing`).
         self._drawn_info = None
         self._ticks = {False: [], True: []}
+        self._ticks_seen = {False: 1, True: 1}
         self._tick_kw = {False: {}, True: {}}
         self._axis_label = AxisLabel(self)
         self._offset_text = OffsetText(self)
@@ -1080,6 +1081,12 @@ class Axis(DrawnWith, Artist):
         if _MAX_TICK_OBJECTS < count:
             raise ValueError(f"{count} ticks are more than an axis can make "
                              f"(at most {_MAX_TICK_OBJECTS})")
+        # Ticks past those matplotlib's axis had made: those asked for now,
+        # or those a draw made since.
+        made = max(count, _axis.ticks_made(*self._args(), minor))
+        if made > self._ticks_seen[minor]:
+            self._ask_tick_transforms()
+        self._ticks_seen[minor] = max(self._ticks_seen[minor], made)
         ticks = self._ticks[minor]
         tick_class = self._tick_class or Tick
         while len(ticks) < max(count, 1):
@@ -1087,6 +1094,15 @@ class Axis(DrawnWith, Artist):
         for tick in ticks:
             tick._sync()
         return ticks
+
+    def _ask_tick_transforms(self):
+        """Ask the Axes for the transforms a new tick of the axis takes
+        (matplotlib's ``Tick.__init__``), which set the positions of the
+        spines of its sides first, making the ticks anew."""
+        if self.axis_name in ("x", "y"):
+            transform = getattr(self.axes, f"get_{self.axis_name}axis_transform")
+            for which in ("tick1", "tick2", "grid"):
+                transform(which=which)
 
     def _get_tick(self, major):
         """Return the default tick instance (a new tick of the axis' class
@@ -1205,6 +1221,9 @@ class Axis(DrawnWith, Artist):
         Each list starts with a single fresh Tick.
         """
         self._ticks = {False: [], True: []}
+        #: How many ticks of each level matplotlib's axis made since its
+        #: list was made anew (see `_tick_objects`).
+        self._ticks_seen = {False: 0, True: 0}
 
     def _update_ticks(self):
         """

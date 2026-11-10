@@ -359,15 +359,37 @@ class Spine(Patch):
         """The shape of the spine: 'line', 'arc' or 'circle'."""
         return _spines.patch_type(self._native)
 
+    #: Whether the position of the spine is set, as it is once the Axes is
+    #: made: matplotlib's spine leaves it unset (``_position`` None) from a
+    #: clear of its Axes until it is asked for (`_ensure_position_is_set`).
+    _position_set = True
+
     def clear(self):
         """Clear the current spine."""
         _spines.set_position(self._native, ("outward", 0.0))
-        self.__dict__.pop("_given_position", None)
+        self._clear()
         if self.axis is not None:
             self.axis.clear()
 
+    def _clear(self):
+        """Forget the position given, as the clear of the Axes leaves the
+        spine (pltrs (Rust) places it outward again)."""
+        self.__dict__.pop("_given_position", None)
+        self._position_set = False
+
+    def _ensure_position_is_set(self):
+        """Set the position the spine has until it is given one, where
+        matplotlib first asks for it: ('outward', 0), where pltrs (Rust)
+        placed it, which makes the ticks of its axis anew as setting a
+        position does (see `set_position`)."""
+        if not self._position_set:
+            self._position_set = True
+            if self.axis is not None:
+                self.axis.reset_ticks()
+
     def get_spine_transform(self):
         """Return the spine transform."""
+        self._ensure_position_is_set()
         from ._live_transforms import from_native
         native = _spines.spine_transform(self._native)
         if native is None:
@@ -464,6 +486,7 @@ class Spine(Patch):
         self._given_position = position
         # The spine takes the transform of its position again.
         self.__dict__.pop("_given_transform", None)
+        self._position_set = True
         if self.axis is not None:
             # The ticks of its axis are made anew, as matplotlib's.
             self.axis.reset_ticks()
@@ -471,6 +494,7 @@ class Spine(Patch):
 
     def get_position(self):
         """Return the spine position."""
+        self._ensure_position_is_set()
         position = _spines.get_position(self._native)
         given = self.__dict__.get("_given_position")
         return given if given is not None and _position_pair(given) == position else position

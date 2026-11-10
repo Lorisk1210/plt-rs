@@ -58,6 +58,11 @@ class Axis(maxis.XAxis):
     # pltrs (Rust) converts the values in units of 3-D axes.
     _native_units = True
 
+    def _ask_tick_transforms(self):
+        # docstring inherited: pltrs (Rust) places the ticks of a 3-D axis
+        # itself, through no transform of the 2-D spines of its Axes.
+        pass
+
     def _drawn_without_axes(self):
         # matplotlib's draw of a 3-D axis, visible or not, starts from the
         # scaled limits of its Axes.

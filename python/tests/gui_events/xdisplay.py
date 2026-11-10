@@ -5,15 +5,27 @@ a weston nested in it, for Wayland.
 """
 
 import contextlib
+import itertools
 import os
 import pathlib
+import select
 import shutil
 import subprocess
 import time
 
+from . import xclient
+from .canvas import POLL, SHOWN_WITHIN
+from .errors import ProgramFailed
+from .wayland import BACKGROUND, OUTPUT_TITLE
+
 #: The display numbers tried, away from those desktops and the other
 #: tests use.
 NUMBERS = range(160, 260)
+#: How long a display server may take to accept clients, in seconds: a
+#: deadline, the waits end when it does.
+STARTED_WITHIN = 30
+#: Numbers the westons' sockets, one of its own for each.
+_WESTONS = itertools.count()
 
 
 class Unavailable(Exception):
@@ -35,18 +47,8 @@ def private_display():
     for number in NUMBERS:
         if not _free(number):
             continue
-        proc = subprocess.Popen(
-            [xvfb, f":{number}", "-screen", "0", "1280x800x24", "-dpi", "96",
-             "-nolisten", "tcp", "-noreset"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        socket = f"/tmp/.X11-unix/X{number}"
-        deadline = time.monotonic() + 10
-        while proc.poll() is None and not os.path.exists(socket):
-            if time.monotonic() > deadline:
-                proc.kill()
-                break
-            time.sleep(0.02)
-        if proc.poll() is not None:
+        proc = _start_xvfb(xvfb, number)
+        if proc is None:
             # Another server took the number meanwhile: try the next one.
             continue
         try:
@@ -56,6 +58,43 @@ def private_display():
             proc.wait()
         return
     raise Unavailable("no free display number")
+
+
+def _start_xvfb(xvfb, number):
+    """Xvfb on display *number* (1280 × 800, 96 dpi, no TCP, kept up
+    between clients, keys not repeated however long the driver holds
+    them on a busy machine) once it accepts clients, as it says through
+    ``-displayfd``; None when it ended instead."""
+    readable, writable = os.pipe()
+    try:
+        proc = subprocess.Popen(
+            [xvfb, f":{number}", "-screen", "0", "1280x800x24", "-dpi", "96",
+             "-nolisten", "tcp", "-noreset", "-r", "-displayfd", str(writable)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            pass_fds=(writable,))
+        os.close(writable)
+        writable = None
+        # The display's number and a newline once ready; nothing (the end
+        # of the pipe) when it ends first.
+        said = b""
+        deadline = time.monotonic() + STARTED_WITHIN
+        while not said.endswith(b"\n"):
+            left = deadline - time.monotonic()
+            if left <= 0 or not select.select([readable], [], [], left)[0]:
+                proc.kill()
+                proc.wait()
+                raise Unavailable(f"Xvfb :{number} did not start within "
+                                  f"{STARTED_WITHIN} s")
+            chunk = os.read(readable, 64)
+            if not chunk:
+                proc.wait()
+                return None
+            said += chunk
+        return proc
+    finally:
+        os.close(readable)
+        if writable is not None:
+            os.close(writable)
 
 
 #: Where ``crates/pltrs-platform/tools/weston.sh install`` puts weston.
@@ -94,11 +133,12 @@ def private_wayland(display, workdir):
     config.parent.mkdir(parents=True, exist_ok=True)
     config.write_text(f"[core]\nidle-time=0\n[input-method]\npath=\n"
                       f"[shell]\nclient={shell}\npanel-position=none\n"
-                      f"background-color=0xff2e3440\n"
+                      f"background-color=0xff{BACKGROUND.hex()}\n"
                       f"[output]\nname=X1\nmode=1024x768\n"
                       # As Xvfb's faked keys, which do not repeat.
                       f"[keyboard]\nrepeat-rate=0\n")
-    socket = f"wayland-gui-events-{os.getpid()}-{display.lstrip(':')}"
+    socket = (f"wayland-gui-events-{os.getpid()}-{display.lstrip(':')}-"
+              f"{next(_WESTONS)}")
     modules = ";".join([
         f"x11-backend.so={backend}",
         f"desktop-shell.so={lib / 'weston/desktop-shell.so'}",
@@ -112,19 +152,61 @@ def private_wayland(display, workdir):
          "--renderer=pixman", f"--config={config}", "--width=1024",
          "--height=768"],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    path = pathlib.Path(runtime_dir()) / socket
-    deadline = time.monotonic() + 10
-    while proc.poll() is None and not path.exists():
-        if time.monotonic() > deadline:
-            proc.kill()
-            break
-        time.sleep(0.02)
-    if proc.poll() is not None:
-        raise Unavailable("weston did not start")
-    # The shell's background and the output's window come up meanwhile.
-    time.sleep(0.5)
     try:
+        _wait_for_weston(proc, display, pathlib.Path(runtime_dir()) / socket)
         yield socket
     finally:
         proc.terminate()
         proc.wait()
+        _wait_until_gone(display)
+
+
+def _wait_for_weston(proc, display, socket):
+    """Wait until weston (*proc*) listens on *socket* and its output's
+    window on X display *display* shows the shell's background: the
+    output is there for the clients' windows, and the pointer can enter
+    it."""
+    deadline = time.monotonic() + STARTED_WITHIN
+    while not socket.exists():
+        if proc.poll() is not None:
+            raise Unavailable("weston did not start")
+        if time.monotonic() > deadline:
+            raise ProgramFailed(f"weston did not listen within "
+                                f"{STARTED_WITHIN} s")
+        time.sleep(POLL)
+    conn = xclient.Display(display)
+    try:
+        deadline = time.monotonic() + SHOWN_WITHIN
+        while not _shows_background(conn):
+            if proc.poll() is not None:
+                raise ProgramFailed(f"weston ended ({proc.returncode})")
+            if time.monotonic() > deadline:
+                raise ProgramFailed(f"weston's output did not show the "
+                                    f"shell within {SHOWN_WITHIN} s")
+            time.sleep(POLL)
+    finally:
+        conn.close()
+
+
+def _wait_until_gone(display):
+    """Wait until the X server has taken the window of an ended weston's
+    output away, so that the next weston's is the only one."""
+    conn = xclient.Display(display)
+    try:
+        deadline = time.monotonic() + SHOWN_WITHIN
+        while conn.find_window(OUTPUT_TITLE) is not None:
+            if time.monotonic() > deadline:
+                raise ProgramFailed("the output of an ended weston stays")
+            time.sleep(POLL)
+    finally:
+        conn.close()
+
+
+def _shows_background(conn):
+    """Whether weston's output window is there and shows the shell's
+    background in its top-right corner, where no window opens first."""
+    window = conn.find_window(OUTPUT_TITLE)
+    if window is None:
+        return False
+    _, _, width, _ = conn.geometry(window)
+    return conn.image(window, width - 1, 0, 1, 1) == BACKGROUND

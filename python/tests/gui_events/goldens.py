@@ -10,6 +10,7 @@ import pathlib
 
 from .compare import normalise
 from .driver import Run
+from .images import save_png
 
 #: Where the goldens are.
 GOLDENS = pathlib.Path(__file__).resolve().parent / "goldens"
@@ -21,7 +22,6 @@ def _records_path(name):
 
 def record(name, run):
     """Keep *run* (a `Run` of matplotlib) as scenario *name*'s golden."""
-    from PIL import Image
     GOLDENS.mkdir(exist_ok=True)
     for old in GOLDENS.glob(f"{name}.*.png"):
         old.unlink()
@@ -29,8 +29,8 @@ def record(name, run):
              for record in normalise(run.records)]
     _records_path(name).write_text("\n".join(lines) + "\n", encoding="utf-8")
     for snapshot, (width, height, pixels) in run.snapshots.items():
-        Image.frombytes("RGB", (width, height), pixels).save(
-            GOLDENS / f"{name}.{snapshot}.png", optimize=True)
+        save_png(GOLDENS / f"{name}.{snapshot}.png", (width, height), pixels,
+                 optimize=True)
 
 
 def load(name):

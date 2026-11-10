@@ -6,6 +6,8 @@ event, after leaving out what is not the program's to see (the times).
 import difflib
 import json
 
+from .images import save_png
+
 #: Fields that differ between two runs of the same program.
 _UNSTABLE = {"t"}
 
@@ -131,10 +133,8 @@ def _save(directory, name, size, left, right):
     """Write the two images of snapshot *name* as PNG files, if Pillow is
     there."""
     try:
-        from PIL import Image
+        import PIL  # noqa: F401 (only whether it is there)
     except ImportError:
         return
-    directory.mkdir(parents=True, exist_ok=True)
     for label, pixels in [("reference", left), ("pltrs", right)]:
-        Image.frombytes("RGB", size, pixels).save(
-            directory / f"{name}.{label}.png")
+        save_png(directory / f"{name}.{label}.png", size, pixels)

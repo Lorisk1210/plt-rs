@@ -9,9 +9,11 @@ program sees to a log, one JSON object per line, as it happens.
 
 Every event a program can connect to with ``mpl_connect`` is recorded
 with its attributes (`describe`), and so is what the scenario's widgets
-and animations report (`Log.note`). The first ``ready`` record comes
+and animations report (`Log.note`). The one ``ready`` record comes
 after the window's first draw: it gives the window's title and the
-canvas' place in it, so that the driver can aim at the figure. When the
+canvas' place in it (and the canvas' pixels go to the file
+``GUI_EVENTS_CANVAS`` names), so that the driver can wait until the
+window shows it and aim at the figure. When the
 window has closed the program writes ``end`` and exits.
 """
 
@@ -135,14 +137,17 @@ def _canvas_place(canvas):
 
 def report_ready(canvas, log, title):
     """Write the canvas' pixels where the driver looks for them (raw RGB
-    rows), to find the canvas on screen where it cannot ask, then the
-    ``ready`` record."""
+    rows, all at once: to a file of another name first), so that it can
+    wait until they show and find them on screen where it cannot ask,
+    then the ``ready`` record."""
     path = os.environ.get("GUI_EVENTS_CANVAS")
     if path:
         import numpy as np
         rgba = np.asarray(canvas.buffer_rgba())
-        with open(path, "wb") as file:
+        partial = f"{path}.partial"
+        with open(partial, "wb") as file:
             file.write(np.ascontiguousarray(rgba[:, :, :3]).tobytes())
+        os.replace(partial, path)
     log.write({"name": "ready", "title": title,
                "canvas": list(_canvas_place(canvas)),
                "ratio": canvas.device_pixel_ratio})
@@ -172,9 +177,14 @@ def main(name, log_path):
     canvas.manager.set_window_title(title)
 
     def ready(_event):
+        # Once: a draw_event callback drawing again (a selector saving its
+        # background) nests a second first draw_event in the first.
+        if hasattr(canvas, "_gui_events_ready"):
+            return
         canvas.mpl_disconnect(first_draw)
-        # The window shows the first draw once the loop runs on.
-        timer = canvas.new_timer(interval=200)
+        # Once the loop runs on, after the draw (the driver waits until
+        # the window shows it).
+        timer = canvas.new_timer(interval=0)
         timer.single_shot = True
         timer.add_callback(lambda: report_ready(canvas, log, title))
         timer.start()

@@ -295,7 +295,7 @@ def main() -> int:
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_intermixed_args()
     setup = driver.Setup(argparse.Namespace(root=args.root, out=args.out, gallery=args.root,
-                                            pltrs_python=args.pltrs_python))
+                                            pltrs_python=args.pltrs_python, mpl_python=None))
     (setup.out / "docs").mkdir(parents=True, exist_ok=True)
     api = setup.out / "docs" / "api.jsonl"
     api.write_text("".join(json.dumps(r) + "\n" for r in api_index.enumerate_api(sys.executable)))

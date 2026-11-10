@@ -27,7 +27,7 @@ draw does (`check_drawable`); an artist is drawn by a stand-in in the Axes
 from operator import attrgetter
 
 from .. import _python_drawing
-from .._native import artist as _artist
+from .._native import artist as _artist, mplot3d as _mplot3d
 from ..artist import Artist
 
 
@@ -244,13 +244,24 @@ def check_drawable(figure):
     added to its Axes that are no artists, and on those an Axes' ``spines``
     holds (``ax.spines['top'] = None``), which are among its children:
     each visible Axes asks its children whether they are animated (unless
-    the canvas is saving), then sorts them by z-order.
+    the canvas is saving), then sorts them by z-order. A 3-D Axes has
+    drawn its panes, gridlines and axes by then: its failure is recorded
+    with pltrs (Rust), whose draw raises it there.
     """
     saving = figure.canvas.is_saving()
     for ax in figure.axes:
         foreign = [*of(ax), *(spine for spine in getattr(ax, "spines", {}).values()
                               if not isinstance(spine, Artist))]
-        if not foreign or not ax.get_visible():
-            continue
-        drawn = foreign if saving else [a for a in foreign if not a.get_animated()]
-        sorted(drawn, key=attrgetter("zorder"))
+        three_d = getattr(ax, "name", None) == "3d"
+        failure = None
+        if foreign and ax.get_visible():
+            try:
+                drawn = foreign if saving else [a for a in foreign if not a.get_animated()]
+                sorted(drawn, key=attrgetter("zorder"))
+            except Exception as exc:
+                if not three_d:
+                    raise
+                failure = (type(exc).__name__, str(exc))
+        if three_d and (failure or ax.__dict__.get("_children_failure")):
+            ax._children_failure = failure
+            _mplot3d.set_children_failure(ax._native, failure)

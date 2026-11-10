@@ -18,11 +18,16 @@
 //! projection (one with an infinite limit, say). Values of its axes it
 //! keeps unchecked (a label pad of no number, an image filter that is no
 //! function) fail its draw once it projected the collections and patches,
-//! where it draws the axes ([`Axes3D::set_axes_failure`]).
+//! where it draws the axes ([`Axes3D::set_axes_failure`]): the panes are
+//! drawn by then, as are those before the pane of an axis that cannot be
+//! drawn at all ([`Axes3D::set_pane_failure`]). What its children cannot
+//! be ordered for fails it once the axes are drawn
+//! ([`Axes3D::set_children_failure`]).
 
 use std::collections::BTreeMap;
 use std::fmt;
 
+use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::state::Axes3DState;
@@ -59,15 +64,21 @@ pub(crate) struct DrawFailures {
     artists: BTreeMap<ArtistId, DrawFailure>,
     /// The problem computing the projection of the view meets.
     view: Option<DrawFailure>,
-    /// The problem drawing the panes, gridlines and axes meets.
+    /// The problem drawing the gridlines and axes meets, once the panes
+    /// are drawn.
     axes: Option<DrawFailure>,
+    /// The problem drawing the pane of an axis meets, once the panes of
+    /// the axes before it are drawn.
+    pane: Option<(Axis3, DrawFailure)>,
+    /// The problem ordering the children meets, once the axes are drawn.
+    children: Option<DrawFailure>,
 }
 
 pltrs_core::archive_struct!(DrawFailures {
     artists,
     view,
     axes
-});
+} skip { pane, children });
 
 impl DrawFailures {
     /// The problem recorded for artist `id`.
@@ -83,6 +94,17 @@ impl DrawFailures {
     /// The problem recorded for drawing the axes.
     pub(crate) fn of_axes(&self) -> Option<&DrawFailure> {
         self.axes.as_ref()
+    }
+
+    /// The problem recorded for drawing the pane of an axis, with the
+    /// axis.
+    pub(crate) fn of_pane(&self) -> Option<&(Axis3, DrawFailure)> {
+        self.pane.as_ref()
+    }
+
+    /// The problem recorded for ordering the children.
+    pub(crate) fn of_children(&self) -> Option<&DrawFailure> {
+        self.children.as_ref()
     }
 
     /// Forgets the problems of the artists `store` no longer holds.
@@ -211,6 +233,70 @@ impl Axes3D {
         self.with(|axes| axes.failures.axes.clone())
     }
 
+    /// Records that drawing the pane of axis `axis` meets `failure`
+    /// (`None` forgets one): matplotlib draws the pane of an axis its
+    /// axes no longer hold from the limits of axes it has not, and fails
+    /// there, once the panes of the axes before it are drawn, as a draw of
+    /// these axes then reports `failure` (when the axes are shown). It is
+    /// not archived: whoever records it records it again.
+    ///
+    /// ```
+    /// use pltrs::artist::DrawErrorKind;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::{Axis3, DrawFailure};
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let failure = DrawFailure {
+    ///     kind: DrawErrorKind::MissingAttribute,
+    ///     message: "an axis without axes".into(),
+    /// };
+    /// ax.set_pane_failure(Axis3::Z, Some(failure));
+    /// assert!(fig.canvas().draw().is_err());
+    /// ax.set_pane_failure(Axis3::Z, None);
+    /// assert!(fig.canvas().draw().is_ok());
+    /// ```
+    pub fn set_pane_failure(&self, axis: Axis3, failure: Option<DrawFailure>) -> &Self {
+        self.with_mut(|axes| {
+            let recorded = &mut axes.failures.pane;
+            match failure {
+                Some(failure) => *recorded = Some((axis, failure)),
+                None => {
+                    recorded.take_if(|(failing, _)| *failing == axis);
+                }
+            }
+        });
+        self.raw().figure_state().borrow_mut().stale = true;
+        self
+    }
+
+    /// Records that ordering the children of the axes meets `failure`
+    /// (`None` forgets one): matplotlib lists among them what the program
+    /// added that is no artist, and fails asking it for its z-order once
+    /// the panes, gridlines and axes are drawn, as a draw of these axes
+    /// then reports `failure`. It is not archived: whoever records it
+    /// records it again.
+    ///
+    /// ```
+    /// use pltrs::artist::DrawErrorKind;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::DrawFailure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let failure = DrawFailure {
+    ///     kind: DrawErrorKind::MissingAttribute,
+    ///     message: "a child without z-order".into(),
+    /// };
+    /// ax.set_children_failure(Some(failure));
+    /// assert!(fig.canvas().draw().is_err());
+    /// ax.set_children_failure(None);
+    /// assert!(fig.canvas().draw().is_ok());
+    /// ```
+    pub fn set_children_failure(&self, failure: Option<DrawFailure>) -> &Self {
+        self.with_mut(|axes| axes.failures.children = failure);
+        self.raw().figure_state().borrow_mut().stale = true;
+        self
+    }
+
     /// The id of `artist` when it is drawn on these axes.
     pub(super) fn plane_child(&self, artist: &impl ArtistHandle) -> Result<ArtistId, Axes3DError> {
         let plane = self.plane().id();
@@ -256,6 +342,7 @@ impl Axes3DState {
     pub(super) fn stops_projecting(&self, store: &ArtistStore) -> bool {
         draws_stop_at_first_problem()
             && (self.axis_failure().is_some()
+                || self.pane_failure().is_some()
                 || self.failures.artists.keys().any(|&id| {
                     store.get(id).is_some_and(|a| a.base().visible)
                         && self.projection_failure(store, id).is_some()
@@ -266,6 +353,12 @@ impl Axes3DState {
     /// [`Axes3D::set_axes_failure`]).
     pub(super) fn axis_failure(&self) -> Option<&DrawFailure> {
         self.axis_on.then(|| self.failures.of_axes()).flatten()
+    }
+
+    /// The problem a draw meets drawing the pane of an axis, with the
+    /// axis, when it draws the axes (see [`Axes3D::set_pane_failure`]).
+    pub(super) fn pane_failure(&self) -> Option<&(Axis3, DrawFailure)> {
+        self.axis_on.then(|| self.failures.of_pane()).flatten()
     }
 
     /// Reports the problems recorded for the visible collections and

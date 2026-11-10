@@ -123,6 +123,8 @@ fn sync_label(
     })
     .set_in_layout(style.label_in_layout)
     .set_bbox_patch(style.label_bbox.clone());
+    let antialiased = pltrs::rc::params().text_antialiased;
+    text.set_antialiased(style.label_antialiased.unwrap_or(antialiased));
     match &style.label_url {
         Some(url) => text.set_url(url.clone()),
         None => text.clear_url(),
@@ -387,6 +389,12 @@ pub(super) fn label_props(
         label2_visible,
         across: None,
         bbox: own(text.bbox_patch(), &level.label_bbox).flatten(),
+        antialiased: own(
+            text.antialiased(),
+            &level
+                .label_antialiased
+                .unwrap_or(pltrs::rc::params().text_antialiased),
+        ),
     }
 }
 

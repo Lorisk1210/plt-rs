@@ -1389,6 +1389,101 @@ again with the program's `fontManager` (`_find_fonts_by_props` or
 substituted weight (`findfont` caches), at every lookup for a family not
 found.
 
+### Warnings of matplotlib's transform graph
+
+matplotlib's transforms compute lazily, with numpy: a node makes its
+matrix when it is first asked after a leaf changed and keeps it until the
+next change (`BboxTransformFrom.get_matrix`, a blend's `get_affine`), or
+makes it at every call (`CompositeGenericTransform.get_affine`, which
+`transData` is: two `np.dot` each time), or is itself made anew each time
+it is asked for (a rectangle's `get_patch_transform`: a `BboxTransformTo`
+and an `Affine2D` translated in place). Where a leaf is no ordinary
+number (view limits without width, an infinite rectangle, a tick pad of
+`inf`), that arithmetic warns (`invalid value encountered in dot`, `...
+in scalar add`, `divide by zero encountered in scalar divide`), once for
+each node computed. How many warnings a statement gives, and of which
+operation, follows from which nodes matplotlib computes there: its
+caching is part of its behaviour.
+
+pltrs (Rust) draws from its own state and computes none of these nodes.
+The package keeps matplotlib's graph over pltrs (Rust)'s leaves (see
+Transforms above), with matplotlib's invalidation, so the warnings come
+from **evaluating that graph where matplotlib evaluates its own, with the
+calls matplotlib's code makes there, in its order** (`_transform_replay`):
+
+* **The arithmetic warns as numpy's.** `Affine2D.translate`, `scale` and
+  `rotate` are matplotlib's numpy code. The matrices `_native.transforms`
+  makes for the nodes (`compose` for `np.dot`, `transform_from`,
+  `transform_to`, `transform_between`) issue numpy's warnings for the
+  floating-point exceptions the same operations raise
+  (`pltrs::numeric::numpy_arith`): a product's as OpenBLAS raises them
+  (its fused sums hide `0 × inf` behind a sum that is NaN already), none
+  where numpy's products raise none (`warnings::PRODUCTS_WARN`).
+* **The nodes cache as matplotlib's.** `CompositeGenericTransform` keeps
+  its composed affine part for speed, but only while both factors are
+  tame (`_native.transforms.tame`): a product that may warn is made at
+  every call, as matplotlib makes every product.
+* **The leaves invalidate as matplotlib's.** A leaf pltrs (Rust) hands
+  over invalidates what is built on it when its value changed (NaN
+  counting as itself), and the view limits whenever they were set, to the
+  same values or not (`AxesLeaves::view_sets` counts the sets), as
+  matplotlib's `viewLim.intervalx = ...` does in `set_xlim` and
+  `set_view_interval`. Handing leaves over evaluates nothing: a node
+  computed there would be found computed, and silent, where matplotlib's
+  draw first asks it.
+* **The evaluations are those of matplotlib's code at each site.**
+  `add_patch` and `relim` run `_update_patch_limits`' search of the
+  patch's transform for `transData` (`patch_limits_updated`; plotting
+  methods whose patches pltrs (Rust) adds say so,
+  `_transform_trees.patches_added`). A
+  draw hands what pltrs (Rust) draws, as it reaches it, to the figure's
+  evaluation hook (`Figure::set_evaluation_hook`,
+  `pltrs::transforms::Evaluation`): an Axes starting its draw (a polar
+  one fits its wedge through `transWedge`), its background, each artist
+  (`Patch.draw` makes the transform and takes its affine part,
+  `Line2D.draw` takes it once for the line and once for the markers
+  through the line's `TransformedPath`, `Text.draw` maps its position,
+  `Collection.draw` freezes its transform and hands the offset transform
+  over as a matrix; each reads its clip path where a renderer would,
+  logging one that is not finite), and each axis (`Axis.draw` places the
+  ticks, measures the labels of those it draws, which pltrs (Rust) names
+  with their parts and pads, draws each, measures the labels again and
+  the spine to place its label). An artist the draw never reaches (one
+  after the draw's first failure, a hidden one, any of a figure whose
+  layout already met the problem matplotlib's draw raises first)
+  evaluates nothing, and one a draw method of the program's draws twice
+  evaluates twice.
+* **Only the graph is evaluated, on no data.** Paths and points go
+  through the transforms empty: the non-affine parts then compute
+  nothing, and what they say of the data (the logarithm of a negative
+  coordinate) stays with pltrs (Rust), which maps the data and issues
+  those warnings itself. Polar Axes are the exception: the positions of
+  their ticks go through for real, since what numpy makes of them depends
+  on the Axes' own settings (labels at an infinite angle), of which pltrs
+  (Rust) says nothing.
+* **One voice.** Where a patch recomputes its geometry ahead of
+  matplotlib's computation with it (`_unusable.check_ahead`, in its draw
+  and in `add_patch`) and that computation is replayed, the recomputation
+  is silent: the replay says what the arithmetic warns of.
+
+**Nothing is replayed while every leaf is tame**: a finite number of
+ordinary size, a view with some width (`pltrs::transforms::is_tame`,
+`is_tame_span`). A draw looks at the figure's leaves once
+(`FigureState::graph_is_wild`: sizes, positions, view limits through
+their scales, tick pads, a polar projection's settings) and at each
+patch's own transform (`Artist::has_wild_transform`), and only a figure
+with a wild leaf, or a wild patch, reaches the hook; `add_patch` and
+`relim` ask `_native.transforms.replays` first (`_transform_trees.patch_added`
+and its kin, which load `_transform_replay` when it is first needed, so
+that a program without such a figure never imports it). A tame graph raises no
+exception whatever is computed, so skipping it loses no warning; it
+leaves the nodes uncomputed, which is where matplotlib's are once a leaf
+turns wild, since that change invalidates every node built on the leaf.
+
+Not replayed: what matplotlib evaluates measuring (`get_tightbbox`, a
+tight print's first pass, a layout engine), and the matrices a pickled
+figure carries computed (pltrs builds an unpickled figure's graph anew).
+
 ### Text measured and drawn by the program
 
 matplotlib measures every line of text through the module function

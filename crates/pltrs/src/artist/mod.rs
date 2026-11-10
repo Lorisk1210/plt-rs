@@ -176,6 +176,15 @@ pub trait Artist: Any + Debug + ArtistClone {
     /// for most artists.
     fn draw_hidden(&self, _ctx: &mut DrawContext<'_>) {}
 
+    /// Whether the transform matplotlib builds for the artist itself (a
+    /// rectangle's patch transform) holds numbers that are not
+    /// [tame](crate::transforms::is_tame), so that its draw is handed to
+    /// the figure's evaluation hook also in a figure whose leaves are (see
+    /// [`Evaluation`](crate::transforms::Evaluation)).
+    fn has_wild_transform(&self) -> bool {
+        false
+    }
+
     /// Whether drawing the visible artist makes it fresh (matplotlib's
     /// `draw` ending with `self.stale = False`): not for an annotation
     /// whose point is clipped, whose `draw` returns first, nor for an

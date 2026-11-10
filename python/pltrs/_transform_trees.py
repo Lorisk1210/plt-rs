@@ -34,7 +34,7 @@ import weakref
 
 import numpy as np
 
-from . import rcParams
+from . import _lazy_imports, rcParams
 from ._native import artist as _artist, axis as _axis
 from ._native import figure as _figure, transforms as _transforms
 from ._program_classes import takes_from_program
@@ -42,6 +42,58 @@ from .transforms import (Affine2D, Bbox, BboxTransformFrom, BboxTransformTo,
                          IdentityTransform, ScaledTranslation, TransformNode,
                          TransformWrapper, TransformedBbox,
                          blended_transform_factory)
+
+
+_transform_replay = _lazy_imports.module(globals(), "._transform_replay")
+
+
+def follow_evaluations(fig):
+    """Have pltrs (Rust) hand what the draws of the root figure *fig*
+    evaluate of matplotlib's graph to `._transform_replay`, which it does
+    only while a leaf of the graph is wild (see there)."""
+    _transforms.set_evaluation_hook(
+        fig._native, functools.partial(_evaluated, weakref.ref(fig)))
+
+
+def _evaluated(figure_ref, *evaluation):
+    """One evaluation of the graph by a draw of the figure *figure_ref*."""
+    fig = figure_ref()
+    if fig is not None:
+        _transform_replay.evaluated(fig, *evaluation)
+
+
+def patch_added(axes, patch):
+    """matplotlib's ``add_patch`` of *patch* to *axes* evaluates the graph
+    (``_update_patch_limits``): replayed while a leaf of it, or the
+    patch's own transform, is wild."""
+    if _transforms.replays(patch._native):
+        _transform_replay.patch_limits_updated(axes, patch)
+
+
+def patches_added(axes, patches):
+    """`patch_added` for each of *patches*, which a plotting method of
+    *axes* made (pltrs (Rust) added them)."""
+    if _transforms.replays(axes._native):
+        for patch in patches:
+            patch_added(axes, patch)
+
+
+def relimmed(axes, visible_only):
+    """matplotlib's ``relim`` of *axes* takes every patch (every visible
+    one with *visible_only*) into the data limits again, as `patch_added`
+    does."""
+    if _transforms.replays(axes._native):
+        for patch in axes.patches:
+            if not visible_only or patch.get_visible():
+                patch_added(axes, patch)
+
+
+def radial_ticks_placed(axes, count):
+    """matplotlib's ``_update_ticks`` of the radial axis of the polar
+    *axes* computes the angles of its *count* ticks with numpy: replayed
+    while a leaf of the graph is wild."""
+    if _transforms.replays(axes._native):
+        _transform_replay.radial_ticks_placed(axes, count)
 
 
 class _Syncs(threading.local):
@@ -102,6 +154,7 @@ class TreeAttribute:
 #: state does, from which an unpickled object builds them again).
 _TREE_KEYS = frozenset([
     "_transform_trees", "_leaf_watchers", "_tree_owners", "_tree_scales",
+    "_view_sets",
     "bbox_inches", "dpi_scale_trans", "bbox", "figbbox", "transFigure",
     "transSubfigure", "bbox_relative", "_position", "_originalPosition",
     "dataLim", "_viewLim", "transScale", "transLimits", "transAxes",
@@ -165,8 +218,9 @@ def set_extents(bbox, extents):
 
 def set_matrix(affine, matrix):
     """Give the leaf *affine* the *matrix*, invalidating what is built on
-    it when it differs."""
-    if not np.array_equal(affine.get_matrix(), matrix):
+    it when it differs (NaN counting as itself: a leaf that stays NaN
+    invalidates nothing)."""
+    if not np.array_equal(affine.get_matrix(), matrix, equal_nan=True):
         affine.set_matrix(np.asarray(matrix, dtype=float))
 
 
@@ -273,11 +327,16 @@ def _set_axes_boxes(ax, leaves, positions=True):
     """Give the boxes of *ax* the values of its *leaves* (its positions
     too with *positions*)."""
     d = ax.__dict__
-    _, (position, original), view, (data, minpos), _, _ = leaves
+    _, (position, original), (view, view_sets), (data, minpos), _, _ = leaves
     if positions:
         set_extents(d["_position"], position)
         set_extents(d["_originalPosition"], original)
     set_extents(d["_viewLim"], view)
+    if d.setdefault("_view_sets", view_sets) != view_sets:
+        # matplotlib's ``set_xlim`` and ``set_view_interval`` invalidate
+        # what is built on the view limits whatever they set them to.
+        d["_view_sets"] = view_sets
+        d["_viewLim"].invalidate()
     data_lim = d["dataLim"]
     set_extents(data_lim, data)
     data_lim._minpos = np.array(minpos, dtype=float)

@@ -76,6 +76,23 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
     }
 }
 
+/// Draws the panes of the axes `dirs` alone: what matplotlib's draw has
+/// drawn of the axes where a problem with them stops it.
+pub(crate) fn draw_panes(
+    axes: &Axes3DState,
+    ctx: &mut DrawContext<'_>,
+    extent: &Bbox,
+    dirs: &[Axis3],
+) {
+    let Some(painter) = Painter::new(axes, ctx.layout(), extent) else {
+        return;
+    };
+    for &dir in dirs {
+        let gid = axes.axis(dir).gids.get(AxisGroup::Axis);
+        grouped(ctx, "pane3d", gid, |ctx| painter.draw_pane(ctx, dir));
+    }
+}
+
 /// Draws `draw` into `sink` inside the SVG group `name` with id `gid`.
 fn grouped<S: Sink>(sink: &mut S, name: &str, gid: Option<&str>, draw: impl FnOnce(&mut S)) {
     sink.open_group(name, gid);

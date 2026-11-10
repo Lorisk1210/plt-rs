@@ -241,8 +241,10 @@ class GeoAxes(Axes):
     def _apply_projection_leaves(self, leaves):
         """Give the longitude gridlines pltrs (Rust)'s latitude cap."""
         _, cap = leaves
-        set_matrix(self._xaxis_pretransform, Affine2D().scale(1.0, cap * 2.0)
-                   .translate(0.0, -cap).get_matrix())
+        with np.errstate(all="ignore"):
+            # (`set_longitude_grid_ends` said what the arithmetic warns of.)
+            matrix = Affine2D().scale(1.0, cap * 2.0).translate(0.0, -cap).get_matrix()
+        set_matrix(self._xaxis_pretransform, matrix)
 
     def _get_affine_transform(self):
         return Affine2D(_transforms.geo_affine(self._native))
@@ -289,8 +291,11 @@ class GeoAxes(Axes):
         """
         Set the latitude(s) at which to stop drawing the longitude grids.
         """
-        # matplotlib's conversion to radians: what it refuses, refused alike.
-        np.deg2rad(degrees)
+        # matplotlib's conversion to radians: what it refuses, refused
+        # alike, and its scaling of the longitude ticks' transform, which
+        # warns as numpy's arithmetic does for a cap that is no number.
+        cap = np.deg2rad(degrees)
+        Affine2D().scale(1.0, cap * 2.0).translate(0.0, -cap)
         _transforms.set_longitude_grid_ends(self._native, float(degrees))
 
     def get_data_ratio(self):

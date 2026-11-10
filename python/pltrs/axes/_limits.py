@@ -14,7 +14,7 @@ import weakref
 
 import numpy as np
 
-from .. import _api, _program_classes, _values
+from .. import _api, _program_classes, _transform_trees, _values
 from .._native import axes as _axes, axes_base as _axes_base
 from ._ticks import _axis_method_wrapper
 
@@ -668,6 +668,7 @@ class LimitsMixin:
                 # which one without data refuses.
                 image.get_extent()
         _axes_base.relim(self._native, bool(visible_only))
+        _transform_trees.relimmed(self, visible_only)
         for collection in list(self.__dict__.get("_measured_in_relim", ())):
             if collection.axes is self and (not visible_only or collection.get_visible()):
                 self._update_collection_limits(collection)

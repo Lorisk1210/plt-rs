@@ -670,6 +670,20 @@ impl AxisState {
         scaled
     }
 
+    /// The ends of a view interval through the scale as
+    /// [`scaled_ends`](Self::scaled_ends) last gave them, if it was asked
+    /// for these `ends` with this scale; a scale that does not call the
+    /// program is asked now.
+    pub(crate) fn known_scaled_ends(&self, ends: [f64; 2]) -> Option<[f64; 2]> {
+        match &self.map {
+            None => Some(ends),
+            Some(map) if !map.calls_program() => Some(ends.map(|end| map.forward(end))),
+            Some(_) => (self.scaled_view.get())
+                .filter(|&(given, _)| given == ends.map(f64::to_bits))
+                .map(|(_, scaled)| scaled),
+        }
+    }
+
     /// Maps a scaled value back to data.
     pub(crate) fn inverse(&self, value: f64) -> f64 {
         self.map.as_ref().map_or(value, |m| m.inverse(value))

@@ -472,6 +472,7 @@ impl Figure {
         state.stale = false;
         state.last_draw_dpi = Some(state.dpi());
         state.pending_errors.clear();
+        state.aspects_failed.clear();
         if errors.is_empty() {
             Ok(())
         } else {

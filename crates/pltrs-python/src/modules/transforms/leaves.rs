@@ -11,8 +11,10 @@
 //!
 //! Leaves cross as tuples: a figure's as `(dpi, (width, height), frames,
 //! axes)`, a subfigure's as `(id, (x0, y0, x1, y1))` (`bbox_relative`), an
-//! axes' as `(id, (position, original), view, (data, minpos), (xscale,
-//! yscale), projection)`, boxes as `(x0, y0, x1, y1)`, the projection as
+//! axes' as `(id, (position, original), (view, view_sets), (data, minpos),
+//! (xscale, yscale), projection)`, boxes as `(x0, y0, x1, y1)`,
+//! `view_sets` counting how often the view limits were set, the
+//! projection as
 //! `None`, `("polar", theta_offset, direction, rorigin, rlabel_position)`
 //! or `("geo", longitude_cap)`.
 
@@ -86,7 +88,7 @@ impl IntoPy for PyAxes {
         (
             leaves.id.index(),
             (extents(leaves.position), extents(leaves.original)),
-            extents(leaves.view),
+            (extents(leaves.view), leaves.view_sets),
             (
                 extents(leaves.data.bbox),
                 (leaves.data.minpos.x, leaves.data.minpos.y),
@@ -343,7 +345,7 @@ mod tests {
     type AxesTuple<'py> = (
         u32,
         Bound<'py>,
-        (f64, f64, f64, f64),
+        ((f64, f64, f64, f64), u32),
         Bound<'py>,
         (String, String),
         Option<Bound<'py>>,
@@ -391,9 +393,11 @@ mod tests {
             axes.set_ylim(-1.0, 1.0).unwrap();
             sync_watched(py).unwrap();
             let (_, _, _, changed): Leaves<'_> = call(2).extract().unwrap();
-            let (id, _, view, _, scales, projection): AxesTuple<'_> = changed[0].extract().unwrap();
+            let (id, _, (view, view_sets), _, scales, projection): AxesTuple<'_> =
+                changed[0].extract().unwrap();
             assert_eq!(id, axes.id().index());
             assert_eq!((view.1, view.3), (-1.0, 1.0));
+            assert!(view_sets > 0, "the limits were set");
             assert_eq!(scales, ("linear".to_owned(), "linear".to_owned()));
             assert!(projection.is_none());
             drop(figure);

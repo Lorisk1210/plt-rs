@@ -585,6 +585,7 @@ fn lay_out_tick_label(
     )?;
     Ok(PlacedText {
         url: style.label_url.clone(),
+        antialiased: style.label_antialiased,
         ..placed
     })
 }

@@ -402,6 +402,11 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
         }
     }
 
+    fn has_wild_transform(&self) -> bool {
+        let matrix = self.shape.patch_transform().values();
+        !matrix.into_iter().all(crate::transforms::is_tame)
+    }
+
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         self.parts().extent(*ctx)
     }

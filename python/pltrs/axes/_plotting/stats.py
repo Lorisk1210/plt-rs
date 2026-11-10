@@ -15,6 +15,7 @@ import numpy as np
 
 from ... import _api, _tick_helpers, _values, cbook, collections as mcoll, colors as mcolors
 from ... import lines as mlines, patches as mpatches, ticker as mticker
+from ... import _transform_trees
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
@@ -740,6 +741,8 @@ class StatsMixin:
         for box in boxes if box_rest else ():
             box.set(**box_rest)
         if patch_artist:
+            _transform_trees.patches_added(self, boxes)
+        if patch_artist:
             # The face as matplotlib's boxes are made with it, which reads
             # back as given (the colour of the cycle :rc:`patch.facecolor`
             # names, say).
@@ -1283,6 +1286,7 @@ class StatsMixin:
                 wedge._take_cycle_color("facecolor")
         for wedge in wedges if wedge_rest else ():
             wedge.set(**wedge_rest)
+        _transform_trees.patches_added(self, wedges)
         container = PieContainer(wedges, x, normalize)
         label_texts = wrap_all(self, label_texts, Text)
         pct_texts = wrap_all(self, pct_texts, Text)

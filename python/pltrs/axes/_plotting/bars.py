@@ -7,7 +7,7 @@ import itertools
 
 import numpy as np
 
-from ... import _docstring
+from ... import _docstring, _transform_trees
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ... import patches as mpatches, units as munits
 from ..._native import patches as _patches, plotting as _plotting
@@ -499,6 +499,7 @@ class BarsMixin:
             _patches.set_shared_rectangle_steps(100)
         datavalues = _bar_geometry(patches, orientation == 'vertical', align,
                                    x, y, width, height)
+        _transform_trees.patches_added(self, patches)
         errorbar_container = None
         if errorbar is not None:
             enative, data_line, caplines, barcols = errorbar
@@ -1021,6 +1022,7 @@ or pandas.DataFrame
             if patches:
                 # As `bar`, which matplotlib's grouped bars are made with.
                 _patches.set_shared_rectangle_steps(100)
+            _transform_trees.patches_added(self, patches)
             container = BarContainer(patches, None, datavalues=np.asarray(values),
                                      orientation=orientation,
                                      label='_nolegend_' if label is None else str(label))

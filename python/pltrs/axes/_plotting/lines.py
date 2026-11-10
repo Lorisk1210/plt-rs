@@ -11,7 +11,7 @@ import numpy as np
 from ... import _docstring
 from ... import _api, _live_transforms, _values, cbook, collections as mcoll, colors as mcolors
 from ... import lines as mlines
-from ... import _python_drawing
+from ... import _python_drawing, _transform_trees
 from .. import _failed_calls
 from ..._artist_kwargs import check_known, keep_python_kwargs
 from ..._native import axes as _axes, patches as _patches, plotting as _plotting
@@ -775,6 +775,7 @@ class LinesMixin:
         _span_geometry(patch, xmin, ymin, width, height)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
+        _transform_trees.patches_added(self, [patch])
         return patch
 
     @_docstring.interpd
@@ -833,6 +834,7 @@ class LinesMixin:
         _span_geometry(patch, xmin, ymin, width, height)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
+        _transform_trees.patches_added(self, [patch])
         return patch
 
     def _segments(self, vertical, positions, low, high, colors, linestyles,

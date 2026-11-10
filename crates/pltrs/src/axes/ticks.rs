@@ -277,6 +277,10 @@ pub struct TickStyle {
     /// The hyperlink of the labels in vector output (matplotlib's
     /// `set_url` on a tick or its labels).
     pub label_url: Option<String>,
+    /// Whether the labels are antialiased, when the program said so
+    /// (matplotlib's `set_antialiased` on a tick's labels); `None`: as
+    /// `text.antialiased` says.
+    pub label_antialiased: Option<bool>,
     /// Where the label is across the axis, in the coordinates of the
     /// axis' side transform (0 on the first side, 1 on the second), when
     /// the program moved it there (matplotlib's `Tick.label1.set_x` on a
@@ -319,6 +323,7 @@ pltrs_core::archive_struct!(TickStyle {
     label_style,
     label_in_layout,
     label_url,
+    label_antialiased,
     label_across,
     label_bbox,
     grid_on,
@@ -372,6 +377,7 @@ impl TickStyle {
             label_style: None,
             label_in_layout: true,
             label_url: None,
+            label_antialiased: None,
             label_across: None,
             label_bbox: None,
             grid_on: grid_on_from_rc(axis, major, rc),

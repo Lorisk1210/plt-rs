@@ -7,7 +7,7 @@ use pltrs_core::{Anchor, Bbox, Path};
 
 use super::art3d::{Art3D, Artist3D, SortKind};
 use super::aspect::AspectSettings;
-use super::axis_draw::{axis_extents, draw_axes};
+use super::axis_draw::{axis_extents, draw_axes, draw_panes};
 use super::axis3d::Axis3DState;
 use super::camera::{Camera, Projection};
 use super::coords::Axis3;
@@ -383,15 +383,33 @@ impl Artist for Axes3DState {
             // patches, before it draws the panes.
             return;
         }
-        if let Some(problem) = self.axis_failure() {
-            // matplotlib's draw fails drawing the axes, before it draws
-            // the plane's artists.
+        // matplotlib's draw fails drawing the axes, before it draws the
+        // plane's artists: at the pane of an axis it cannot draw, once
+        // those before it are drawn, else once every pane is.
+        let failing = match (self.pane_failure(), self.axis_failure()) {
+            (Some((axis, problem)), _) => Some((Some(*axis), problem)),
+            (None, Some(problem)) => Some((None, problem)),
+            (None, None) => None,
+        };
+        if let Some((failing_pane, problem)) = failing {
+            let panes: Vec<Axis3> = (Axis3::ALL.into_iter())
+                .take_while(|&dir| Some(dir) != failing_pane)
+                .collect();
+            draw_panes(self, ctx, &extent, &panes);
             ctx.report_kind(self.base.id(), problem.kind, problem.clone());
             if ctx.ended() {
                 return;
             }
         } else if self.axis_on {
             draw_axes(self, ctx, &extent);
+        }
+        if let Some(problem) = self.failures.of_children() {
+            // matplotlib's draw fails ordering the children, once the axes
+            // are drawn.
+            ctx.report_kind(self.base.id(), problem.kind, problem.clone());
+            if ctx.ended() {
+                return;
+            }
         }
         ctx.renderer().open_group("axes", self.base.gid.as_deref());
         self.draw_plane_children(ctx);

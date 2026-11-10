@@ -6,7 +6,7 @@ Filled areas and steps: `~.Axes.fill`, `~.Axes.fill_between`,
 
 import numpy as np
 
-from ... import _docstring
+from ... import _docstring, _transform_trees
 from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
                  collections as mcoll, colors as mcolors)
 from ... import lines as mlines, patches as mpatches, stackplot as mstack
@@ -134,6 +134,7 @@ class FillsMixin:
             # label of its dataset.
             polygon.set_label(label)
             patches.append(polygon)
+        _transform_trees.patches_added(self, patches)
         return patches
 
     def _fill_between_x_or_y(self, ind_dir, ind, dep1, dep2=0, *,
@@ -373,6 +374,7 @@ class FillsMixin:
             # The face keeps the default colour, transparent.
             _values.remember(patch, "facecolor", None)
         patch._internal_update(kwargs)
+        _transform_trees.patches_added(self, [patch])
         return patch
 
     stackplot = _preprocess_data()(_make_axes_method(mstack.stackplot))

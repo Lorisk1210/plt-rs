@@ -65,11 +65,30 @@ fn set_axes_failure(axes: Axes3D, failure: Option<(String, String)>) -> PyResult
     Ok(())
 }
 
+/// Records that drawing the pane of the axis named `axis` (`"x"`, `"y"`
+/// or `"z"`) raises the exception of the class named first with the
+/// message second, once the panes of the axes before it are drawn; `None`
+/// forgets a problem recorded for that axis.
+fn set_pane_failure(axes: Axes3D, axis: String, failure: Option<(String, String)>) -> PyResult<()> {
+    axes.set_pane_failure(super::axis3(&axis)?, failure.map(failure_of));
+    Ok(())
+}
+
+/// Records that ordering the children of the axes raises the exception of
+/// the class named first with the message second, once the panes,
+/// gridlines and axes are drawn; `None` forgets a problem recorded.
+fn set_children_failure(axes: Axes3D, failure: Option<(String, String)>) -> PyResult<()> {
+    axes.set_children_failure(failure.map(failure_of));
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_draw_failure", set_draw_failure)?;
     module.add("set_view_failure", set_view_failure)?;
-    module.add("set_axes_failure", set_axes_failure)
+    module.add("set_axes_failure", set_axes_failure)?;
+    module.add("set_pane_failure", set_pane_failure)?;
+    module.add("set_children_failure", set_children_failure)
 }
 
 #[cfg(test)]

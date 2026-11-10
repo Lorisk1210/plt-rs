@@ -115,29 +115,6 @@ impl Rectangle {
         let [center] = placed(self, [(0.5, 0.5)]);
         center
     }
-
-    /// The runtime warnings numpy issues as matplotlib maps points with
-    /// the patch transform of the rectangle: its `BboxTransformTo` takes
-    /// the size of the box as `x1 - x0` and `y1 - y0` of its corners,
-    /// which is invalid for infinite corners of one sign. (The centre a
-    /// rectangle rotates about is computed so too, in
-    /// `get_patch_transform`, which pltrs (Python) runs as matplotlib's.)
-    ///
-    /// ```
-    /// use pltrs::patches::Rectangle;
-    /// let mut rect = Rectangle::new((0.0, f64::INFINITY), 1.0, -2.0);
-    /// assert_eq!(rect.transform_warnings(), ["invalid value encountered in scalar subtract"]);
-    /// rect.xy.y = 0.0;
-    /// assert!(rect.transform_warnings().is_empty());
-    /// ```
-    pub fn transform_warnings(&self) -> Vec<&'static str> {
-        let bbox = self.bbox();
-        let invalid = [(bbox.x0(), bbox.x1()), (bbox.y0(), bbox.y1())]
-            .into_iter()
-            .filter(|&(start, end)| !start.is_nan() && !end.is_nan() && (end - start).is_nan())
-            .count();
-        vec!["invalid value encountered in scalar subtract"; invalid]
-    }
 }
 
 /// `points` of a shape's own coordinates, mapped by its patch transform.
@@ -160,12 +137,6 @@ impl PatchShape for Rectangle {
     fn patch_transform(&self) -> Affine2D {
         self.rotation_point
             .rotated_box(&self.bbox(), self.angle, self.aspect_ratio_correction)
-    }
-
-    fn warn_drawing(&self) {
-        for warning in self.transform_warnings() {
-            crate::warnings::warn_runtime(warning);
-        }
     }
 
     fn skips_autoscale(&self) -> bool {

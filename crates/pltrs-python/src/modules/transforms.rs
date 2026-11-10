@@ -11,7 +11,8 @@
 use pltrs::numeric::numpy_arith;
 use pltrs::transforms::{
     Affine2D, Anchor, Bbox, Point, TrackedBbox, bbox_transform, bbox_transform_from,
-    interval_contains, interval_contains_close, interval_contains_open, nonsingular, unit_to_bbox,
+    interval_contains, interval_contains_close, interval_contains_open, is_tame, nonsingular,
+    unit_to_bbox,
 };
 
 use crate::binding::prelude::*;
@@ -19,6 +20,7 @@ use crate::binding::{FloatArray, registered_error};
 
 mod arrays;
 mod computed;
+mod evaluations;
 mod geo;
 mod leaves;
 mod live;
@@ -147,14 +149,16 @@ fn map_vertices(mut values: NdArray, affine: Affine2D) -> PyResult<NdArray> {
     Ok(values)
 }
 
-/// The matrix applying `a`, then `b`.
+/// The matrix applying `a`, then `b`, with the warnings numpy issues
+/// for matplotlib's `np.dot(b, a)`.
 fn compose(a: NdArray, b: NdArray) -> PyResult<NdArray> {
     let (first, then) = (affine(&a)?, affine(&b)?);
-    if a.data.iter().chain(&b.data).all(|v| v.is_finite()) {
+    if a.data.iter().chain(&b.data).all(|&v| is_tame(v)) {
         return matrix(first.then(then));
     }
     // matplotlib's `np.dot(b, a)` of the whole matrices, which carries a
-    // NaN into the bottom row and warns about infinities times zero.
+    // NaN into the bottom row and warns about infinities times zero and
+    // products too large.
     let rows = |m: &NdArray| -> [[f64; 3]; 3] {
         let mut rows = [[0.0; 3]; 3];
         for (row, values) in rows.iter_mut().zip(m.data.as_chunks::<3>().0) {
@@ -162,8 +166,19 @@ fn compose(a: NdArray, b: NdArray) -> PyResult<NdArray> {
         }
         rows
     };
-    let product = numpy_arith::dot3(&rows(&b), &rows(&a));
-    NdArray::with_shape(product.concat(), vec![3, 3])
+    let (b, a) = (rows(&b), rows(&a));
+    numpy_arith::warn_dot3(&b, &a);
+    if b.iter().chain(&a).flatten().all(|v| v.is_finite()) {
+        return matrix(first.then(then));
+    }
+    NdArray::with_shape(numpy_arith::dot3(&b, &a).concat(), vec![3, 3])
+}
+
+/// Whether every entry of the matrices `a` and `b` is tame
+/// (`pltrs::transforms::is_tame`), so that their product raises no
+/// floating-point exception and [`compose`] warns of nothing.
+fn tame(a: NdArray, b: NdArray) -> PyResult<bool> {
+    Ok(a.data.iter().chain(&b.data).all(|&v| is_tame(v)))
 }
 
 /// The inverse matrix; numpy's `LinAlgError` when it is singular.
@@ -351,6 +366,7 @@ fn contains_value(interval: (f64, f64), val: f64, open: bool, rtol: Option<f64>)
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("affine_transform", affine_transform)?;
     module.add("compose", compose)?;
+    module.add("tame", tame)?;
     module.add("invert", invert)?;
     module.add("transform_between", transform_between)?;
     module.add("transform_to", transform_to)?;
@@ -367,6 +383,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("nonsingular", nonsingular_interval)?;
     module.add("interval_contains", contains_value)?;
     computed::register(module)?;
+    evaluations::register(module)?;
     geo::register(module)?;
     leaves::register(module)?;
     live::register(module)

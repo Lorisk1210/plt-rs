@@ -128,9 +128,13 @@ pltrs_core::archive_struct!(ThetaFormatter);
 impl ThetaFormatter {
     /// The number of decimals for a view `span` radians wide; Python's
     /// errors of matplotlib's `int` for a span that is no finite non-zero
-    /// number.
+    /// number, after numpy's warning for the logarithm of no span at all.
     fn digits(span: f64) -> Result<usize, TickerError> {
-        let order = span.abs().to_degrees().log10() - 1.5;
+        let degrees = span.abs().to_degrees();
+        if degrees == 0.0 {
+            crate::warnings::warn_runtime("divide by zero encountered in log10");
+        }
+        let order = degrees.log10() - 1.5;
         if !order.is_finite() {
             return Err(TickerError::NotAnInteger {
                 infinite: order.is_infinite(),
@@ -303,6 +307,14 @@ mod tests {
             Err(TickerError::NotAnInteger { infinite: true })
         );
         assert_eq!(ThetaFormatter::digits(TAU), Ok(0));
+    }
+
+    #[test]
+    fn no_span_warns_as_numpys_logarithm_of_zero() {
+        let warned =
+            |span: f64| crate::warnings::capturing_runtime(|| drop(ThetaFormatter::digits(span))).1;
+        assert_eq!(warned(0.0), ["divide by zero encountered in log10"]);
+        assert!(warned(f64::NAN).is_empty() && warned(TAU).is_empty());
     }
 
     #[test]

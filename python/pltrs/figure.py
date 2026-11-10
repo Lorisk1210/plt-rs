@@ -16,7 +16,7 @@ import numpy as np
 from . import _docstring
 from . import colorbar as cbar  # noqa: F401  (registers the colorbar snippets)
 from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
-from . import _gridspec_kept
+from . import _gridspec_kept, _transform_trees
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from .artist import Artist
@@ -1717,6 +1717,7 @@ None}, default: None
         self._figure = self
         self._artists = {_artist.id(self._native): self}
         _sharing.track(self)
+        _transform_trees.follow_evaluations(self)
         self.subfigs = []
         FigureCanvasBase(self)
         if facecolor is not None:
@@ -2461,6 +2462,7 @@ None}, default: None
             gridspec._adopt_unpickled(artist)
             _pickling.resolve_trees(artist, restored=True)
         _sharing.track(self)
+        _transform_trees.follow_evaluations(self)
         FigureCanvasBase(self)  # Set self.canvas.
         # discard any changes to the dpi due to pixel ratio changes
         if '_original_dpi' in self.__dict__:

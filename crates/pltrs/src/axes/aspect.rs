@@ -10,7 +10,7 @@
 mod apply;
 mod locator;
 
-pub(crate) use apply::Placement;
+pub(crate) use apply::{AspectInputs, Placement};
 pub(crate) use locator::AxesLocator;
 pub use locator::AxesLocatorFn;
 

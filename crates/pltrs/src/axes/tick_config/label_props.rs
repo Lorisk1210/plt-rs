@@ -57,6 +57,9 @@ pub struct TickLabelProps {
     /// The box behind the label (matplotlib's `set_bbox` on a tick's
     /// label).
     pub bbox: Option<TextBoxPatch>,
+    /// Whether the label is antialiased (matplotlib's `set_antialiased`
+    /// on a tick's label).
+    pub antialiased: Option<bool>,
 }
 
 pltrs_core::archive_struct!(TickLabelProps {
@@ -75,7 +78,8 @@ pltrs_core::archive_struct!(TickLabelProps {
     label1_visible,
     label2_visible,
     across,
-    bbox
+    bbox,
+    antialiased
 });
 
 impl TickLabelProps {
@@ -107,6 +111,7 @@ impl TickLabelProps {
             label2_visible: newer.label2_visible.or(self.label2_visible),
             across: newer.across.or(self.across),
             bbox: newer.bbox.clone().or_else(|| self.bbox.clone()),
+            antialiased: newer.antialiased.or(self.antialiased),
         }
     }
 
@@ -160,6 +165,9 @@ impl TickLabelProps {
         }
         if self.bbox.is_some() {
             style.label_bbox.clone_from(&self.bbox);
+        }
+        if self.antialiased.is_some() {
+            style.label_antialiased = self.antialiased;
         }
     }
 }

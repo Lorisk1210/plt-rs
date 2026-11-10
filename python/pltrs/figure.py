@@ -257,6 +257,11 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                 *self.legends,
                 *self.subfigs]
 
+    def _sorted_among(self):
+        # A subfigure is sorted among its parent's children; nothing sorts
+        # the root figure.
+        return None if self._figure is self else self._parent
+
     def add_gridspec(self, nrows=1, ncols=1, **kwargs):
         """
         Low-level API for creating a `.GridSpec` that has this figure as a parent.

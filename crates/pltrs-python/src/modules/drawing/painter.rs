@@ -142,6 +142,11 @@ impl PythonPainter {
 impl ArtistPainter for PythonPainter {
     fn prepare(&self, _artist: &RawHandle, target: DrawTarget<'_>) {
         let drawing = self.record(self::target(target.renderer, target.raster_depth, false));
+        if !target.rendered {
+            // matplotlib's draw that renders nothing gave them, drawing
+            // the artist.
+            self.emit_held_warnings();
+        }
         self.prepared.replace(drawing);
     }
 

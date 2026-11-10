@@ -113,6 +113,16 @@ def _made(owner, patch, mirroring, transform):
     return patch
 
 
+def _made_with_colors(patch, colors):
+    """Have *patch* read back the colours of the rcParams *colors* (by
+    property) matplotlib makes its background with, until the program
+    gives them: what pltrs made the patch with gives none."""
+    patch.__dict__["_made_colors"] = colors
+    given = patch.__dict__.get("_given_values", {})
+    for name in colors:
+        given.pop(name, None)
+
+
 def axes_patch(axes):
     """The patch of the background of *axes* (the same object while the
     Axes keeps it), with the background's style."""
@@ -130,8 +140,7 @@ def axes_patch_shape(axes):
         mirroring = (_ShapedAxesBackground(axes) if _program.shapes_background(type(axes))
                      else _AxesBackground(axes))
         patch = _made(axes, axes._gen_axes_patch(), mirroring, axes.transAxes)
-        # The colours matplotlib's Axes give their patch.
-        patch.__dict__["_rc_colors"] = {"facecolor": "axes.facecolor"}
+        _made_with_colors(patch, {"facecolor": "axes.facecolor"})
     return patch
 
 
@@ -188,9 +197,8 @@ def figure_patch(figure):
         with _mirrors.detached(patch):
             # Left out of the figure's tight box, as matplotlib makes it.
             patch.set_in_layout(False)
-        # The colours matplotlib's figures give their patch.
-        patch.__dict__["_rc_colors"] = {"facecolor": "figure.facecolor",
-                                        "edgecolor": "figure.edgecolor"}
+        _made_with_colors(patch, {"facecolor": "figure.facecolor",
+                                  "edgecolor": "figure.edgecolor"})
     patch._mirror.pull(patch)
     return patch
 

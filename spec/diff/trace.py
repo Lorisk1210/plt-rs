@@ -80,11 +80,16 @@ NAME_PREFIXES = {
 
 REC, EXC, SITE = "__difftest_record__", "__difftest_exception__", "__difftest_site__"
 CELL_END = "__difftest_cell_end__"
+CALENDAR = "__difftest_calendar__"
 #: The line starting a cell of a script in the percent format.
 CELL_MARK = "# %%"
-#: The moment (seconds since the epoch) the calendar reads of `time` find
-#: (`_fix_the_calendar`).
+#: The moment (seconds since the epoch) the calendar reads of `time` and
+#: of the program's date classes find (`_fix_the_calendar`,
+#: `CalendarReads`).
 CALENDAR_NOW = 1_700_000_000
+#: The methods reading the calendar of the date classes (`datetime.date`,
+#: `datetime.datetime`, pandas' ``Timestamp``), by what each reads it with.
+CALENDAR_READS = {"now": "fromtimestamp", "today": "fromtimestamp", "utcnow": "utcfromtimestamp"}
 
 
 def _renamed(name: str, renames: list[tuple[str, str]]) -> str:
@@ -170,6 +175,31 @@ class Recording(ast.NodeTransformer):
         return node
 
 
+class CalendarReads(ast.NodeTransformer):
+    """Has the program's calls of the calendar reads of a class
+    (``datetime.now()``, ``date.today()``, ``pd.Timestamp.now(tz)``) go
+    through `_read_calendar`, which C code's clock leaves no other way to
+    fix."""
+
+    def visit_Call(self, node: ast.Call) -> Any:
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Attribute) and node.func.attr in CALENDAR_READS:
+            call = _call(CALENDAR, node.func.value, ast.Constant(node.func.attr), *node.args)
+            call.keywords = node.keywords
+            return ast.copy_location(call, node)
+        return node
+
+
+def _read_calendar(owner: Any, name: str, *args: Any, **kwargs: Any) -> Any:
+    """``owner.name(*args, **kwargs)``, at `CALENDAR_NOW` for a date class
+    reading the calendar (`CALENDAR_READS`)."""
+    import datetime
+
+    if not (isinstance(owner, type) and issubclass(owner, datetime.date)):
+        return getattr(owner, name)(*args, **kwargs)
+    return getattr(owner, CALENDAR_READS[name])(CALENDAR_NOW, *args, **kwargs)
+
+
 def _recording_exception(body: list[ast.stmt], at: ast.stmt) -> ast.Try:
     """*body* in a ``try`` recording its exception (``__difftest_exception__``)."""
     handler = ast.ExceptHandler(
@@ -207,7 +237,7 @@ def instrument(source: str, filename: str, impl: str, mode: str) -> ast.Module:
     tree = ast.parse(source, filename)
     leading = _leading(tree)
     tree.body = [statement for statement in tree.body if all(statement is not kept for kept in leading)]
-    tree = Recording().visit(tree)
+    tree = Recording().visit(CalendarReads().visit(tree))
     body: list[ast.stmt] = []
     for index, statement in enumerate(tree.body):
         mark = ast.Expr(_call(SITE, ast.Constant(index), ast.Constant(statement.lineno)))
@@ -382,7 +412,8 @@ def _fix_the_calendar() -> None:
     """The calendar reads of `time` given no time (``time.localtime()``,
     ``time.strftime(format)``, ...) find `CALENDAR_NOW` in both runs, as
     the random generators start alike: statsmodels' summaries print the
-    time of day they were made. The clocks timing what a program does
+    time of day they were made (the program's own reads of its date
+    classes are `CalendarReads`'). The clocks timing what a program does
     (``time.time``, ``perf_counter``) run on."""
     import functools
     import time
@@ -473,6 +504,7 @@ def main() -> int:
         EXC: recorder.exception,
         SITE: recorder.site,
         CELL_END: cell_end,
+        CALENDAR: _read_calendar,
     }
     sys.argv = [program]
     sys.path[0] = str(args.program.resolve().parent)

@@ -102,6 +102,13 @@ def line_data(axes, x, y):
         axis = axes._axis_map[name]
         if axis is not None:
             axis.update_units(values)
+    return converted_line_data(axes, x, y)
+
+
+def converted_line_data(axes, x, y):
+    """`line_data` of data whose units *axes* took already, as
+    ``_plot_args`` makes the axes take them before it makes the lines
+    (``_plot_datasets``)."""
     return tuple(cbook._to_unmasked_float_array(values).ravel()
                  for values in (axes.convert_xunits(x), axes.convert_yunits(y)))
 

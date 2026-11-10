@@ -2416,13 +2416,14 @@ class Axis(DrawnWith, Artist):
             # converter's, or anything else that is no category names.
             return self._converted(self.get_converter(), x)
         if _is_native_converter(converter):
-            if converter is not None and (
+            if converter is self._given_converter is not None and (
                     isinstance(converter, category.StrCategoryConverter)
                     != (_axis.converter_kind(*self._args()) == "category")):
                 # A converter the axis took from a failed update (dates
                 # given to a category axis) converts with the axis' units
                 # itself, as matplotlib's does, where pltrs (Rust) kept the
-                # other.
+                # other. One the registry gives an axis of none becomes
+                # the axis' (pltrs (Rust)'s conversion takes it).
                 return self._converted(converter, x)
             return convert_units(self.axes, self.axis_name, x)
         return self._converted(converter, x)

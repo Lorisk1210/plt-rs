@@ -384,9 +384,13 @@ class Patch(Artist):
     _default_colors = {}
 
     #: The rcParams matplotlib's patch takes its colours from when none
-    #: is given, by property (instances standing for the background of a
-    #: figure or an Axes have their own).
+    #: is given, by property.
     _rc_colors = {"facecolor": "patch.facecolor", "edgecolor": "patch.edgecolor"}
+
+    #: The rcParams the colours of an instance standing for the background
+    #: of a figure or an Axes were made from, by property, until the
+    #: program gives that colour (see `._background_patch`).
+    _made_colors = {}
 
     def _take_cycle_color(self, name):
         """Keep the colour *name* pltrs (Rust) took from the property cycle
@@ -399,12 +403,15 @@ class Patch(Artist):
     def _rgba_as_given(self, name, alpha):
         """
         The colour *name* as matplotlib keeps it, ``to_rgba(color, alpha)``
-        of the colour given (the rcParam of `_rc_colors` for None, the
-        class' default for none, the rcParam for an edge then), while
-        pltrs (Rust) holds that colour; else pltrs (Rust)'s.
+        of the colour given (the rcParam of `_rc_colors` for None; the
+        rcParam of `_made_colors`, else the class' default, for none, the
+        rcParam of `_rc_colors` for an edge then), while pltrs (Rust)
+        holds that colour; else pltrs (Rust)'s.
         """
         native = self._get(name)
         color = self.__dict__.get("_given_values", {}).get(name, _values.NONE_GIVEN)
+        if color is _values.NONE_GIVEN and name in self._made_colors:
+            color = _rcParams()[self._made_colors[name]]
         if color is _values.NONE_GIVEN:
             color = self._default_colors.get(name, _values.NONE_GIVEN)
         if color is None or color is _values.NONE_GIVEN and name == "edgecolor":

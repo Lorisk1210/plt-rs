@@ -75,7 +75,7 @@ impl FigureCanvas {
                 .map_err(|err| CanvasError::Draw(DrawErrors(vec![err])))?;
         }
         let mut kept = self.take()?;
-        artist.prepare_painters(&kept.renderer, painted);
+        artist.prepare_painters(&kept.renderer, painted, true);
         let ((), errors) = self.figure.state.paint(&mut kept.renderer, draw);
         self.keep(kept);
         if errors.is_empty() {

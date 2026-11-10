@@ -1162,8 +1162,10 @@ class Barbs(mcollections.PolyCollection):
     def _fill_offsets(self, dtype):
         """Fail as matplotlib's draw fails to fill the offsets, of the
         integer *dtype*, with NaN once it has converted them to the units
-        of the Axes (``Collection._prepare_points``)."""
-        if self.have_units():
+        of the Axes (``Collection._prepare_points``), unless an offset
+        transform that is not affine (a polar or log Axes' data) made them
+        floats first."""
+        if self.have_units() and self.get_offset_transform().is_affine:
             offsets = self.get_offsets()
             np.ma.column_stack([offsets[:, 0], offsets[:, 1]]).filled(np.nan)
 

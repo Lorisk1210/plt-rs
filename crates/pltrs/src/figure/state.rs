@@ -361,7 +361,10 @@ impl FigureState {
     }
 
     /// Places the ticks of the 2-D `axes` over its box as it is now: those
-    /// of the axes the program ticks (`program`), or of the others.
+    /// of the axes the program ticks (`program`), or of the others. An
+    /// animated axis, which matplotlib's draw leaves out (but printing),
+    /// is not ticked: its helpers, which may be the program's, are not
+    /// asked.
     fn tick_axes(&mut self, axes: ArtistId, program: bool) {
         if program && !self.ticks_by_program() {
             return;
@@ -372,7 +375,9 @@ impl FigureState {
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
         for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
-            if self.program_ticker(axes, name).is_some() == program {
+            if self.program_ticker(axes, name).is_some() == program
+                && !self.axis_left_out(axes, name)
+            {
                 self.tick_axis_now(axes, name, &extent, dpi, tick_space);
             }
         }

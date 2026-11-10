@@ -404,13 +404,18 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """Fail as matplotlib's draw of the Axes (or figure) holding the
         artist fails to sort what it draws by z-order, a z-order that is
         no number among them."""
-        axes = self.axes
-        parent = axes if axes is not None and axes is not self else self.get_figure()
+        parent = self._sorted_among()
         if parent is None:
             return
         drawn = [artist for artist in parent.get_children()
                  if artist is not parent.patch and not artist.get_animated()]
         sorted(drawn, key=attrgetter("zorder"))
+
+    def _sorted_among(self):
+        """The artist whose draw sorts this one by z-order among what it
+        draws: its Axes, else its (sub)figure."""
+        axes = self.axes
+        return axes if axes is not None and axes is not self else self.get_figure()
 
     #: The drawing order (see `.ClassZOrder`).
     zorder = 0

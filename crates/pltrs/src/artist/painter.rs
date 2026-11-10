@@ -64,6 +64,11 @@ pub struct DrawTarget<'a> {
     /// included when its painter [rasterizes](ArtistPainter::rasterizes)
     /// it (matplotlib's `renderer._raster_depth` while it draws).
     pub raster_depth: usize,
+    /// Whether the draw renders the artist: not the draw a print with a
+    /// tight box makes first to lay the figure out (matplotlib's draw
+    /// with drawing disabled, `_draw_disabled`), after which
+    /// [`draw`](ArtistPainter::draw) is not called.
+    pub rendered: bool,
 }
 
 impl fmt::Debug for DrawTarget<'_> {
@@ -217,8 +222,9 @@ impl RawHandle {
 
     /// Prepares the painters a draw of the artist through `renderer`
     /// reaches (see [`ArtistPainter::prepare`]): those of the artists it
-    /// owns and, with `itself`, its own.
-    pub(crate) fn prepare_painters(&self, renderer: &dyn Renderer, itself: bool) {
+    /// owns and, with `itself`, its own, for a draw that renders them or
+    /// not (`rendered`, see [`DrawTarget::rendered`]).
+    pub(crate) fn prepare_painters(&self, renderer: &dyn Renderer, itself: bool, rendered: bool) {
         let painted = {
             let state = self.figure_state().borrow();
             if !has_painters(&state) {
@@ -230,6 +236,7 @@ impl RawHandle {
             let target = DrawTarget {
                 renderer,
                 raster_depth,
+                rendered,
             };
             painter.get().prepare(&self.sibling(id), target);
         }

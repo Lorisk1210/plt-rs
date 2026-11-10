@@ -92,7 +92,7 @@ impl RawHandle {
         if figure.id() == self.id() {
             return figure.draw(renderer);
         }
-        self.prepare_painters(renderer, painted);
+        self.prepare_painters(renderer, painted, true);
         let Some(artist) = self.figure_state().borrow().shared_artist(self.id()) else {
             return Ok(());
         };

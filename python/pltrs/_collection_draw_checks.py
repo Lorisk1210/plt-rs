@@ -2,9 +2,10 @@
 What matplotlib's renderers fail on as they draw a collection whose line
 widths or hatch line width are no numbers, or whose sizes are none or no
 numbers, which its setters keep as given (see `._unusable`): Agg's
-extension casts them to C++ values, the PostScript renderer formats the
-hatch's width; the PDF and SVG renderers draw, but for regular polygons
-of no sizes.
+extension casts them to C++ values, the other renderers read each line
+width as a float, the PostScript renderer formats the hatch's width; the
+PDF and SVG renderers draw regular polygons of no sizes but at offsets.
+A collection of offsets, none of them, draws nothing, so fails on none.
 """
 
 import numpy as np
@@ -26,21 +27,34 @@ def _drawn_with(collection, kind):
     return isinstance(renderer, renderer_class)
 
 
+def _draws_nothing(collection):
+    """Whether matplotlib's draw of *collection* returns before it draws
+    an item: it has offsets, none of them."""
+    return not len(collection.get_offsets())
+
+
 def linewidths(collection, widths):
     """Fail as matplotlib's renderer drawing *collection* now fails on its
     line *widths*, given as text: Agg's casts the dash patterns scaled by
     them (``0 * '2'`` is ``''``) to no C++ value; widths no float reads it
     refuses with pybind11's argument listing, for which numpy's error of
-    reading them stands."""
+    reading them stands. The other renderers set each item's width on
+    their graphics context (``float(w)``), which fails on those."""
+    if _draws_nothing(collection):
+        return
     if _drawn_with(collection, "agg"):
         np.asarray(widths, dtype=float)
         raise _pybind.cast_error(())
+    for width in widths:
+        float(width)
 
 
 def hatch_linewidth(collection, width):
     """Fail as matplotlib's renderer drawing *collection* now fails on its
     hatch line *width*, no number: Agg's casts it to no double, the
     PostScript renderer formats it (``f"{lw:g}"``) when it hatches."""
+    if _draws_nothing(collection):
+        return
     if _drawn_with(collection, "agg"):
         raise _pybind.cast_error(width)
     if _drawn_with(collection, "ps") and collection.get_hatch():
@@ -61,7 +75,7 @@ def no_sizes(collection, sizes):
     draw makes of none: Agg's casts it to no 3-D array; the PDF and SVG
     renderers draw items of no transforms at the offsets, translating a
     transform that is none."""
-    if len(sizes):
+    if len(sizes) or _draws_nothing(collection):
         return
     if _drawn_with(collection, "agg"):
         raise ValueError("Expected 3-dimensional array, got 1")

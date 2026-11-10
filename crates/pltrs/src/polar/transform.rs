@@ -104,12 +104,14 @@ impl<'a> PolarView<'a> {
 
     /// Whether the wedge of the θ view (after the shift) has finite
     /// angles, as matplotlib's `_WedgeBbox` needs to make its arc: its
-    /// shift multiplies the whole view by an affine matrix, whose zero
-    /// coefficients make the angles NaN with a radial limit that is not
-    /// finite (`0 * inf`, `0 * NaN`).
+    /// shift multiplies the corners of the view by an affine matrix, whose
+    /// zero coefficients make the angles of a corner NaN with a radial
+    /// limit that is not finite (`0 * inf`, `0 * NaN`), and the angles are
+    /// the builtin `min` and `max` of the corners', NaN only when the first
+    /// corner's is: when the first radial limit is not finite.
     pub(crate) fn has_finite_wedge(&self) -> bool {
         let view = self.real_view();
-        [view.x0(), view.x1(), view.y0(), view.y1()]
+        [view.x0(), view.x1(), self.view.y0()]
             .iter()
             .all(|value| value.is_finite())
     }
@@ -236,6 +238,36 @@ impl<'a> PolarView<'a> {
                 .data_to_axes(view)
                 .then(ResolvedTransform::affine(unit_to_bbox(display)));
         }
+        self.chain(
+            self.projection_affine()
+                .then(self.wedge_to_display(display)),
+        )
+    }
+
+    /// The display → data transform, as matplotlib's `transData.inverted()`
+    /// makes it: the parts of its affine tail (`transProjectionAffine`,
+    /// `transWedge`, `transAxes`) inverted one by one and multiplied in the
+    /// order of the inverted composites, which leaves the rounding
+    /// matplotlib's leaves (a radius of 2.5e-15 at the centre, where
+    /// [`data_transform`](Self::data_transform)'s inverse gives 0).
+    pub(crate) fn data_transform_inverse(&self, display: &Bbox) -> Option<ResolvedTransform> {
+        if self.program.is_some() {
+            return self.data_transform(display).inverted();
+        }
+        let projection = self.projection_affine().inverted()?;
+        let wedge = bbox_to_unit(&self.wedge_bbox()).inverted()?;
+        let axes = unit_to_bbox(display).inverted()?;
+        let tail = axes.then(wedge.then(projection));
+        Some(
+            self.chain(Affine2D::IDENTITY)
+                .inverted()?
+                .after_affine(tail),
+        )
+    }
+
+    /// The radial scale and θ shift, the projection, then `affine` (see
+    /// [`data_transform`](Self::data_transform)).
+    fn chain(&self, affine: Affine2D) -> ResolvedTransform {
         let scale = match self.rmap {
             Some(map) => ResolvedTransform::with_step(
                 Step::Separable(None, Some(Rc::clone(map))),
@@ -243,9 +275,6 @@ impl<'a> PolarView<'a> {
             ),
             None => ResolvedTransform::affine(self.shift()),
         };
-        let affine = self
-            .projection_affine()
-            .then(self.wedge_to_display(display));
         scale.then(ResolvedTransform::with_step(
             Step::Plane(Rc::new(self.map())),
             affine,
@@ -353,7 +382,7 @@ fn inscribed_polygon(vertices: usize) -> Path {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts::{FRAC_PI_2, PI};
+    use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
     use pltrs_core::PathCode;
 
@@ -379,12 +408,43 @@ mod tests {
     }
 
     #[test]
+    fn the_inverse_rounds_as_matplotlibs_at_the_centre() {
+        // A polar subplot of a 4 x 4 inch figure, r from 0 to 9.4:
+        // matplotlib maps its centre pixel back to a radius of about
+        // 2.5e-15, not 0, at 45 degrees.
+        let settings = PolarState::default();
+        let view = PolarView::new(&settings, Bbox::from_extents(0.0, 0.0, TAU, 9.4), None);
+        let display = Bbox::from_bounds(51.0, 43.999_999_999_999_99, 308.0, 308.0);
+        let inverse = view.data_transform_inverse(&display).expect("invertible");
+        let centre = inverse.transform_point(Point::new(205.0, 198.0));
+        assert_eq!(centre, Point::new(FRAC_PI_4, 2.512_147_933_894_040_3e-15));
+    }
+
+    #[test]
+    fn frozen_inverses_map_radii_with_the_live_radial_frame() {
+        let settings = PolarState::default();
+        let view = PolarView::new(&settings, Bbox::from_extents(0.0, 0.0, TAU, 2.0), None);
+        let display = Bbox::from_extents(0.0, 0.0, 100.0, 100.0);
+        let inverse = view.data_transform_inverse(&display).expect("invertible");
+        let east = Point::new(100.0, 50.0);
+        assert_eq!(inverse.transform_point(east), Point::new(0.0, 2.0));
+        // Radial limits collapsed to 0: matplotlib's `get_rsign` is 0.
+        let live = super::super::with_radial_frame(&inverse, 0.0, 0.0);
+        assert_eq!(live.transform_point(east), Point::new(0.0, 0.0));
+        let shifted = super::super::with_radial_frame(&inverse, 1.0, -1.0);
+        assert_eq!(shifted.transform_point(east), Point::new(0.0, -3.0));
+    }
+
+    #[test]
     fn a_radial_limit_that_is_not_finite_leaves_no_wedge() {
         let settings = PolarState::default();
         assert!(PolarView::new(&settings, full_view(), None).has_finite_wedge());
         for r in [f64::NAN, f64::INFINITY] {
             let view = Bbox::from_extents(0.0, r, TAU, 2.0);
             assert!(!PolarView::new(&settings, view, None).has_finite_wedge());
+            // The second limit leaves the angles of the first corner.
+            let view = Bbox::from_extents(0.0, 0.0, TAU, r);
+            assert!(PolarView::new(&settings, view, None).has_finite_wedge());
         }
     }
 

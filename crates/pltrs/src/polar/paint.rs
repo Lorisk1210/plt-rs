@@ -11,7 +11,7 @@ use pltrs_render::ClipPath;
 use pltrs_text::{HAlign, VAlign};
 
 use super::transform::{PolarView, full_circle_deg};
-use crate::artist::{ArtistId, DrawContext, FigureReader, LayoutContext};
+use crate::artist::{ArtistId, DrawContext, DrawErrorKind, FigureReader, LayoutContext};
 use crate::axes::axis_artists::TickGroups;
 use crate::axes::axis_draw::{TickMark, grid_clip, grid_gc};
 use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickPart, TickStyle};
@@ -200,6 +200,9 @@ fn draw_gridline(
     (gc.clip_rect, gc.clip_path) = grid_clip(ctx, axes, &grid.line, Some(clip));
     let line = ptick.gridline();
     let along = ptick.along();
+    if let Some(reason) = along.refused_path(&line) {
+        return ctx.report_kind(axes, DrawErrorKind::InvalidValue, reason);
+    }
     ctx.free_for(&along);
     let (path, affine) = along.split_path(&line);
     ctx.renderer().draw_path(&gc, &path, &affine, None);

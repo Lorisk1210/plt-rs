@@ -19,6 +19,7 @@ not offset boxes and annotation boxes, fancy arrows and subfigures
 
 import contextlib
 import functools
+import weakref
 
 from ._native import artist as _artist
 from ._native import patheffects as _patheffects
@@ -65,7 +66,7 @@ class EffectsMixin:
         self._agg_filter = filter_func
         _artist.set_agg_filter(
             self._native, None if filter_func is None or not _draws_filtered(self)
-            else functools.partial(filtered, filter_func))
+            else functools.partial(filtered, filter_func, artist=weakref.ref(self)))
 
     def get_agg_filter(self):
         """Return filter function to be used for agg filter."""
@@ -134,7 +135,16 @@ def filter_applied(artist):
     return artist.__dict__.get("_filter_applied", 0) > 0
 
 
-def filtered(filter_func, image, dpi):
+def filtered(filter_func, image, dpi, *, artist=None):
     """What *filter_func*, an artist's agg filter, makes of *image*: called
-    as matplotlib calls it, whatever it is."""
-    return filter_func(image, dpi)
+    as matplotlib calls it, whatever it is. A filter that fails fails the
+    draw of the artist *artist* refers to (if given), which the artist may
+    note (``_filter_failed``: a host Axes keeps its parasites' children
+    listed)."""
+    try:
+        return filter_func(image, dpi)
+    except Exception:
+        failed = None if artist is None else getattr(artist(), "_filter_failed", None)
+        if failed is not None:
+            failed()
+        raise

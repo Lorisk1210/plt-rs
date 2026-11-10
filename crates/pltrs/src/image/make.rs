@@ -143,6 +143,13 @@ impl ImageCore {
         self.data = data;
     }
 
+    /// Replaces the image array, the norm's limits as they are: an
+    /// unscaled norm takes them when the image is first made, from the
+    /// values it resamples (matplotlib's `set_data` and `_make_image`).
+    pub(crate) fn set_data_as_given(&mut self, data: ImageData) {
+        self.data = data;
+    }
+
     /// The image of `data` made as `settings` say, with the uniform
     /// opacity, which lives on the artist; scalar data autoscale the norm's
     /// unset limits.

@@ -44,6 +44,7 @@ class TrapezoidMapTriFinder(TriFinder):
 
     def __init__(self, triangulation):
         super().__init__(triangulation)
+        self._initialize()
 
     def __call__(self, x, y):
         """
@@ -62,3 +63,12 @@ class TrapezoidMapTriFinder(TriFinder):
             raise ValueError("x and y must be array-like with the same shape")
         return (_tri.find(self._triangulation._native, x.ravel(), y.ravel())
                 .astype(np.int32).reshape(x.shape))
+
+    def _initialize(self):
+        """
+        Initialize the underlying C++ object.  Can be called multiple times if,
+        for example, the triangulation is modified.
+        """
+        # pltrs (Rust) builds the map for each call; building it once here
+        # refuses an invalid triangulation where matplotlib's does.
+        _tri.find(self._triangulation._native, np.empty(0), np.empty(0))

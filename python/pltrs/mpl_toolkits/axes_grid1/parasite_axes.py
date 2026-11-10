@@ -334,6 +334,11 @@ class HostAxesBase:
             _failed_draws.leave(self, listed)
             raise
 
+    def _filter_failed(self):
+        # Its agg filter fails matplotlib's Axes draw, the parasites'
+        # children listed (pltrs (Rust) draws the figure).
+        _failed_draws.leave(self, list(self.parasites))
+
     def clear(self):
         _failed_draws.clear(self, super().clear, lambda ax: ax.clear())
 

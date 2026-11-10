@@ -6,7 +6,7 @@ use std::ops::Range;
 use pltrs_core::hatch;
 use pltrs_core::path::convert::{SnapMode as PathSnap, VertexSource};
 use pltrs_core::{Affine2D, Path, PathCode, Point, Rgba};
-use pltrs_raster::{Antialias, Clip, ClipBox, FillRule, Pixmap, Rgba8};
+use pltrs_raster::{Antialias, Clip, ClipBox, FillRule, Pixmap, RasterError, Rgba8};
 use pltrs_text::TextRun;
 use pltrs_text::tex::{TexError, TexText};
 
@@ -161,6 +161,16 @@ impl Renderer for RasterRenderer {
             for chunk in chunks(path, self.chunksize) {
                 self.draw_whole_path(gc, &chunk, transform, None);
             }
+        } else if (fill.is_some() || gc.hatch.is_some())
+            && gc.sketch.is_some_and(|sketch| sketch.scale.is_infinite())
+        {
+            // Agg rasterizes the fill of an infinite sketch into more cells
+            // than it allows, and matplotlib cannot split the path.
+            self.errors.push(RasterError::UnsplittablePath {
+                filled: fill.is_some(),
+                hatched: gc.hatch.is_some(),
+                simplifiable: self.simplify.applies_to(path),
+            });
         } else {
             self.draw_whole_path(gc, path, transform, fill);
         }

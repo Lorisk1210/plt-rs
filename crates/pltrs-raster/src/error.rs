@@ -35,6 +35,18 @@ pub enum RasterError {
         /// The configured maximum number of cells.
         limit: usize,
     },
+    /// A path too large for matplotlib's Agg rasterizer (its cell block
+    /// limit, which an infinite sketch exceeds when the path is filled or
+    /// hatched), which matplotlib's `RendererAgg.draw_path` cannot split
+    /// into pieces for the reasons given (its `OverflowError`).
+    UnsplittablePath {
+        /// The path is filled.
+        filled: bool,
+        /// The path is hatched.
+        hatched: bool,
+        /// The path qualifies for simplification (`should_simplify`).
+        simplifiable: bool,
+    },
     /// A dash pattern contains a negative or non-finite length, or no
     /// positive length at all.
     InvalidDashPattern,
@@ -61,6 +73,28 @@ impl fmt::Display for RasterError {
                 write!(
                     f,
                     "path is too complex: exceeded the limit of {limit} raster cells"
+                )
+            }
+            Self::UnsplittablePath {
+                filled,
+                hatched,
+                simplifiable,
+            } => {
+                f.write_str(
+                    "Exceeded cell block limit in Agg, however for the following reasons:\n\n",
+                )?;
+                if *filled {
+                    f.write_str("- cannot split filled path\n")?;
+                }
+                if *hatched {
+                    f.write_str("- cannot split hatched path\n")?;
+                }
+                if !simplifiable {
+                    f.write_str("- path.should_simplify is False\n")?;
+                }
+                f.write_str(
+                    "\nwe cannot automatically split up this path to draw.\n\n\
+                     Please manually simplify your path.",
                 )
             }
             Self::InvalidDashPattern => f.write_str(

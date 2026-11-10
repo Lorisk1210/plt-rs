@@ -82,6 +82,46 @@ fn draws_in_display_coordinates_with_y_up() {
 }
 
 #[test]
+fn infinite_sketches_of_filled_paths_exceed_aggs_cell_limit() {
+    let mut r = RasterRenderer::new(10.0, 10.0, 72.0).unwrap();
+    let sketch = |scale| crate::gc::Sketch {
+        scale,
+        length: 128.0,
+        randomness: 16.0,
+    };
+    let gc = GraphicsContext {
+        sketch: Some(sketch(f64::INFINITY)),
+        ..GraphicsContext::default()
+    };
+    let path = square(0.0, 0.0, 4.0, 2.0);
+    r.draw_path(&gc, &path, &Affine2D::identity(), None);
+    assert_eq!(r.take_errors(), [], "a stroke alone stays within it");
+    r.draw_path(&gc, &path, &Affine2D::identity(), Some(Rgba::BLACK));
+    let errors = r.take_errors();
+    assert_eq!(
+        errors,
+        [RasterError::UnsplittablePath {
+            filled: true,
+            hatched: false,
+            simplifiable: false,
+        }]
+    );
+    assert_eq!(
+        errors[0].to_string(),
+        "Exceeded cell block limit in Agg, however for the following reasons:\n\n\
+         - cannot split filled path\n- path.should_simplify is False\n\n\
+         we cannot automatically split up this path to draw.\n\n\
+         Please manually simplify your path."
+    );
+    let nan = GraphicsContext {
+        sketch: Some(sketch(f64::NAN)),
+        ..GraphicsContext::default()
+    };
+    r.draw_path(&nan, &path, &Affine2D::identity(), Some(Rgba::BLACK));
+    assert_eq!(r.take_errors(), [], "a NaN sketch stays within it");
+}
+
+#[test]
 fn clip_rect_and_clip_path_restrict_drawing() {
     let mut r = RasterRenderer::new(20.0, 20.0, 72.0).unwrap();
     let gc = GraphicsContext {

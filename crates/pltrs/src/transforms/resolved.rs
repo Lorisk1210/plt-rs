@@ -113,6 +113,12 @@ pub trait PointMap: fmt::Debug + std::any::Any {
     fn transform_outline(&self, path: &Path) -> Path {
         self.transform_path(path)
     }
+    /// Why the map refuses to draw `path`, as matplotlib's
+    /// `transform_path_non_affine` raises (a polar map's for a curve none
+    /// of whose segments is finite); `None`, the default, when it maps it.
+    fn refused_path(&self, _path: &Path) -> Option<&'static str> {
+        None
+    }
     /// Whether the map runs code of the program's (a transform of a host
     /// language's), which a draw lets change the figure (see
     /// [`ResolvedTransform::calls_program`]). `false` by default.
@@ -192,6 +198,14 @@ impl Step {
                     p.x = from_x.x;
                 }
             }
+        }
+    }
+
+    /// Why the step refuses to draw `path` (see [`PointMap::refused_path`]).
+    fn refused_path(&self, path: &Path) -> Option<&'static str> {
+        match self {
+            Self::Plane(map) => map.refused_path(path),
+            Self::Affine(_) | Self::Separable(..) | Self::Blend(..) => None,
         }
     }
 
@@ -518,6 +532,37 @@ impl ResolvedTransform {
         Some(Self { steps, affine })
     }
 
+    /// This transform with the inverses of plane maps replaced:
+    /// `replace` gives, for the map a step inverts, the map whose inverse
+    /// the step takes instead (`None` keeps it). matplotlib's frozen
+    /// inverses keep their non-affine parts live, reading the state of
+    /// their Axes when they map a point.
+    pub(crate) fn with_inverted_planes(
+        &self,
+        replace: impl Fn(&dyn PointMap) -> Option<Rc<dyn PointMap>>,
+    ) -> Self {
+        let steps = self
+            .steps
+            .iter()
+            .map(|step| {
+                let Step::Plane(map) = step else {
+                    return step.clone();
+                };
+                (map.as_ref() as &dyn std::any::Any)
+                    .downcast_ref::<InversePlane>()
+                    .and_then(|inverse| replace(inverse.0.as_ref()))
+                    .map_or_else(
+                        || step.clone(),
+                        |new| Step::Plane(Rc::new(InversePlane(new))),
+                    )
+            })
+            .collect();
+        Self {
+            steps,
+            affine: self.affine,
+        }
+    }
+
     /// The inverse of the non-affine steps alone.
     fn non_affine_inverted(&self) -> Option<Self> {
         let steps = self
@@ -607,6 +652,31 @@ impl ResolvedTransform {
             .iter()
             .fold(path.clone(), |path, step| step.transform_path(path));
         (Cow::Owned(mapped), self.affine)
+    }
+
+    /// Why drawing `path` through the transform fails (see
+    /// [`PointMap::refused_path`]): the reason of the first step refusing
+    /// the path as the steps before it map it. A transform running the
+    /// program's code maps its paths with that code alone, which is not
+    /// called for this.
+    pub fn refused_path(&self, path: &Path) -> Option<&'static str> {
+        if self.calls_program() {
+            return None;
+        }
+        let last = self
+            .steps
+            .iter()
+            .rposition(|step| matches!(step, Step::Plane(_)))?;
+        let mut mapped = Cow::Borrowed(path);
+        for (index, step) in self.steps[..=last].iter().enumerate() {
+            if let Some(reason) = step.refused_path(&mapped) {
+                return Some(reason);
+            }
+            if index < last {
+                mapped = Cow::Owned(step.transform_path(mapped.into_owned()));
+            }
+        }
+        None
     }
 
     /// Splits the outline of a patch being drawn like

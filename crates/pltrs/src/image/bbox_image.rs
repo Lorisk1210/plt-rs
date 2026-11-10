@@ -118,13 +118,17 @@ pub type BboxFn = dyn Fn(Canvas) -> Option<Bbox>;
 
 impl BboxImageArtist {
     /// An image of `data` made as `options` say, at z-order 0 and not
-    /// placed yet; fails on an invalid colormap, norm or filter radius.
+    /// placed yet; fails on an invalid colormap, norm or filter radius. An
+    /// unscaled norm keeps no limits until the image is first made (see
+    /// [`ImageCore::set_data_as_given`]).
     pub(crate) fn new(
         data: impl Into<ImageData>,
         options: BboxImageOptions,
         rc: &RcParams,
     ) -> Result<Self, ImageError> {
-        let (core, uniform) = ImageCore::build(data, options.core_settings(), rc)?;
+        let (mut core, uniform) =
+            ImageCore::build(ImageData::empty(), options.core_settings(), rc)?;
+        core.set_data_as_given(data.into().normalized());
         let mut base = ArtistBase::with_zorder(0.0);
         base.alpha = uniform;
         Ok(Self {
@@ -341,8 +345,16 @@ impl BboxImage {
         self.raw.with::<BboxImageArtist, _>(BboxImageArtist::shape)
     }
 
-    /// Replaces the image array; unset limits of the norm come from new
-    /// scalar data (matplotlib's `set_data`).
+    /// The data values mapped to the ends of the colormap: unset until
+    /// given or until the image is first made, which scales the norm to
+    /// the values it resamples.
+    pub fn clim(&self) -> (Option<f64>, Option<f64>) {
+        self.raw
+            .with::<BboxImageArtist, _>(|image| image.core.mappable.borrow().clim())
+    }
+
+    /// Replaces the image array; an unscaled norm takes its limits when the
+    /// image is first made (matplotlib's `set_data`).
     ///
     /// ```
     /// use pltrs::image::{BboxImage, BboxImageOptions, ImageData};
@@ -355,7 +367,7 @@ impl BboxImage {
     pub fn set_data(&self, data: impl Into<ImageData>) -> &Self {
         let data = data.into().normalized();
         self.raw
-            .with_mut::<BboxImageArtist, _>(|image| image.core.replace_data(data));
+            .with_mut::<BboxImageArtist, _>(|image| image.core.set_data_as_given(data));
         self
     }
 

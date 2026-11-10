@@ -468,10 +468,12 @@ impl AxesState {
     /// axes box and of the view limits' map onto the unit square multiplied
     /// (matplotlib's `transLimits + transAxes` composes two affine
     /// transforms that are no `Affine2D`, which invert one by one), then
-    /// the scales' inverses; other projections inverted whole.
+    /// the scales' inverses; polar axes as matplotlib's composes their
+    /// affine tail (see `PolarView::data_transform_inverse`), other
+    /// projections inverted whole.
     pub(crate) fn data_transform_inverse(&self, display: &Bbox) -> Option<ResolvedTransform> {
-        if self.polar_view().is_some() {
-            return self.data_transform(display).inverted();
+        if let Some(polar) = self.polar_view() {
+            return polar.data_transform_inverse(display);
         }
         if let Some(custom) = self.custom_data_transform(display) {
             return custom.inverted();

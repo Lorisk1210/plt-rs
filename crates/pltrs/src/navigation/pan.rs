@@ -8,7 +8,7 @@ use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
 use crate::colorbar::Colorbar;
 use crate::figure::FigureState;
-use crate::polar::PolarAxes;
+use crate::polar::{PolarAxes, with_radial_frame};
 use crate::projections::{FrozenView, PanStart, Projection};
 use crate::rc::Aspect;
 use crate::transforms::{ResolvedTransform, TransformContext};
@@ -225,6 +225,10 @@ impl PanState {
                 let Some(polar) = ax.as_polar() else {
                     return;
                 };
+                // matplotlib's frozen inverse maps radii with the radial
+                // origin and sign the axes have now.
+                let (origin, sign) = polar.radial_frame();
+                let inverse = with_radial_frame(inverse, origin, sign);
                 let from = inverse.transform_point(*start);
                 let to = inverse.transform_point(at);
                 drag_polar(&polar, *mode, (from, to), *rmax, *label_angle);

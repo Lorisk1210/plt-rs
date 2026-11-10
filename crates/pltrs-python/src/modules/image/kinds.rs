@@ -247,6 +247,7 @@ fn mapped_clim(image: MappedImage) -> PyResult<(Option<f64>, Option<f64>)> {
     Ok(match image {
         MappedImage::Array(ArrayImage::Axes(image)) => image.clim(),
         MappedImage::Array(ArrayImage::Figure(image)) => image.clim(),
+        MappedImage::Array(ArrayImage::Bbox(image)) => image.clim(),
         _ => (None, None),
     })
 }

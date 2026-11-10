@@ -68,7 +68,7 @@ use pltrs_render::{CapStyle, JoinStyle};
 
 use crate::artist::{
     Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, DrawErrorKind, LayoutContext,
-    LimitPoints, format_values,
+    LimitPoints, ProgramShaping, format_values,
 };
 use crate::axes::FillGeometry;
 use crate::colorizer::ColorMapped;
@@ -693,6 +693,17 @@ impl Artist for CollectionArtist {
     /// aux-transform box clears to measure it), and the null box for any
     /// other (matplotlib's collections cannot place their data without the
     /// data transform it is given).
+    /// A norm of the program's normalising the values, as matplotlib's
+    /// `update_scalarmappable` makes it at every draw (where the figure's
+    /// draws are not walked for the program's tickers already, which
+    /// normalise them there: see `axes::tick_sites`).
+    fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        if layout.figure_state().ticks_by_program() {
+            return None;
+        }
+        self.mapping.as_ref()?.predraw_normalization()
+    }
+
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
         let measures_data = self.mesh.is_some()
             || self.fill_geometry.is_some()

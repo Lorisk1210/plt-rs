@@ -314,8 +314,12 @@ impl ContourState {
                     values: self.cvalue_options()[paths.clone()].to_vec(),
                     mappable: mapping.clone(),
                 };
-                collection.mapping =
-                    Some(Mapped::with_normalized(source, normalized[paths].to_vec()));
+                collection.mapping = Some(if mapping.norm().calls_program() {
+                    // The program's norm normalises at every draw.
+                    Mapped::normalized_at_draw(source)
+                } else {
+                    Mapped::with_normalized(source, normalized[paths].to_vec())
+                });
             }
             _ => {
                 let colors = colors.get(paths).unwrap_or_default().to_vec();

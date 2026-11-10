@@ -26,6 +26,9 @@ use crate::transforms::NoFigure;
 pub enum AddAs {
     /// `add_artist` (and `add_table`): the data limits are left alone.
     Artist,
+    /// `_add_text`, how `text` adds the text it made: as
+    /// [`AddAs::Artist`], but not clipped to the axes.
+    Text,
     /// `add_line`: extends the data limits, counts in
     /// [`relim`](Axes::relim), and labels an unlabelled line.
     Line,
@@ -176,10 +179,20 @@ impl Axes {
     ) -> Result<RawHandle, AttachError> {
         let figure = self.raw().figure_state();
         let artist = take_in(figure, artist)?;
+        // matplotlib's add methods but `add_image` (and `_add_text`) clip
+        // what they add to the axes' patch unless it has a clip path.
+        let clipped = !matches!(add_as, AddAs::Image | AddAs::Text);
         if self.has_child(&artist) {
-            // matplotlib lists (and draws) an artist added again once more.
+            // matplotlib lists (and draws) an artist added again once more,
+            // clipping it again (a legend added after another replaced it).
             self.raw
                 .with_mut::<AxesState, _>(|axes| axes.children.push(artist.id()));
+            if let Some(added) = figure.borrow_mut().artist_mut(artist.id()) {
+                let base = added.base_mut();
+                if clipped && base.clip_path.is_none() {
+                    base.clip_box = Some(self.id());
+                }
+            }
             return Ok(artist);
         }
         let data = self.trans_data();
@@ -189,11 +202,14 @@ impl Axes {
             add_as,
             AddAs::Line | AddAs::Image | AddAs::Collection { .. }
         );
-        let counted = !matches!(add_as, AddAs::Artist | AddAs::Collection { autolim: false });
+        let counted = !matches!(
+            add_as,
+            AddAs::Artist | AddAs::Text | AddAs::Collection { autolim: false }
+        );
         let adopted = figure.borrow_mut().artist_mut(artist.id()).map(|adopted| {
             let base = adopted.base_mut();
             base.transform.get_or_insert(data);
-            if base.clip_path.is_none() && add_as != AddAs::Image {
+            if clipped && base.clip_path.is_none() {
                 base.clip_box = Some(self.id());
             }
             if labelled && base.label.is_empty() {
@@ -214,7 +230,7 @@ impl Axes {
             }
         });
         match add_as {
-            AddAs::Artist | AddAs::Image | AddAs::Collection { autolim: false } => {}
+            AddAs::Artist | AddAs::Text | AddAs::Image | AddAs::Collection { autolim: false } => {}
             AddAs::Line | AddAs::Patch => self.update_data(&DataUpdate::extending(limits)),
             AddAs::Collection { autolim: true } => {
                 self.unstale_view();

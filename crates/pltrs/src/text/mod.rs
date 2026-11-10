@@ -427,7 +427,7 @@ impl TextArtist {
     /// it so).
     pub(crate) fn lp_metrics(&self, dpi: f64) -> Result<LineMetrics, TextError> {
         if self.usetex {
-            let run = tex::tex_run("lp", &self.font, dpi, &self.rc)?;
+            let run = tex::tex_run("lp", &self.font, dpi)?;
             Ok(LineMetrics {
                 width: run.width,
                 height: run.height,
@@ -646,7 +646,18 @@ impl Artist for TextArtist {
     /// The text's extent; a text that cannot be laid out has none, and
     /// notes its error for the measurement running (see [`measuring`]).
     fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
-        self.program_box_shaping(*layout)
+        // `Annotation.draw` draws the arrow, then the text and its box.
+        let arrow = (self.annotation.as_ref()).and_then(|annotation| {
+            crate::text::font_notes::unnoted(|| annotation.program_drawing(self, *layout))
+        });
+        let text_box = self.program_box_shaping(*layout);
+        match (arrow, text_box) {
+            (Some(arrow), Some(text_box)) => Some(Box::new(move || {
+                arrow();
+                text_box();
+            })),
+            (arrow, text_box) => arrow.or(text_box),
+        }
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {

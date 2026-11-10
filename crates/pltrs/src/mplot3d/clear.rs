@@ -12,6 +12,7 @@ use super::limits::Limits3D;
 use super::scaling::AxisScale;
 use super::share::ShareKey;
 use super::state::Axes3DState;
+use crate::artist::ArtistHandle;
 use crate::axes::TickStyle;
 use crate::rc::RcParams;
 
@@ -114,6 +115,12 @@ impl Axes3D {
     ///
     /// When autoscaling the fresh limits fails.
     pub fn clear(&self) -> Result<&Self, Axes3DError> {
+        // matplotlib's clear makes the axes a new callback registry first.
+        let disconnected = (self.raw().figure_state().borrow_mut())
+            .limit_callbacks
+            .take_axes(self.id());
+        // Dropped once the figure is free: a callback may own handles.
+        drop(disconnected);
         let plane = self.plane();
         plane.clear();
         show_view_window(&plane);
@@ -122,6 +129,11 @@ impl Axes3D {
             self.reset_shared(axis);
             if let Some(target) = self.share_target(axis) {
                 self.share_axis_with(axis, &target)?;
+            } else {
+                // matplotlib's clear sets the limits of an axis it does not
+                // share again to (0, 1) (`_set_lim(0, 1, auto=True)`), which
+                // the axes sharing it follow, their limit callbacks running.
+                self.with_mut(|axes| axes.set_lim(axis, 0.0, 1.0, Some(true), true));
             }
         }
         self.with_mut(Axes3DState::autoscale_view)?;

@@ -61,7 +61,8 @@ impl Axes3D {
     }
 
     /// Changes the axes, then lets the axes sharing its limits follow the
-    /// limits it set (matplotlib's `emit=True`).
+    /// limits it set and runs the limit callbacks (matplotlib's
+    /// `emit=True`).
     pub(crate) fn with_mut<R>(&self, f: impl FnOnce(&mut Axes3DState) -> R) -> R {
         let plane_minpos = super::state::plane_minpos(&self.raw.figure_state().borrow(), self.id());
         let (result, changes) = self.raw.with_mut::<Axes3DState, _>(|axes| {
@@ -75,6 +76,7 @@ impl Axes3D {
                 self.id(),
                 &changes,
             );
+            crate::axes::run_limit_callbacks(self.raw.figure_state());
         }
         result
     }
@@ -143,6 +145,10 @@ impl Axes3D {
     /// Adds a 2-D artist to the projection plane, clipped to the axes and
     /// in projected coordinates, without 3-D geometry yet.
     pub(crate) fn adopt_projected(&self, mut artist: impl Artist) -> RawHandle {
+        if (&artist as &dyn std::any::Any).is::<CollectionArtist>() {
+            // matplotlib adds its collections with `add_collection`.
+            self.unstale_for_collection();
+        }
         let plane = self.plane();
         let label = plane.child_label(&artist);
         let base = artist.base_mut();

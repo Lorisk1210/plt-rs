@@ -9,6 +9,7 @@
 use std::cell::RefCell;
 
 use super::ColorMapping;
+use crate::artist::ProgramShaping;
 use crate::colors::{Alpha, ArrayForm, ColormapError, Norm, NormError, NormKind, Normalized};
 
 /// A [`ColorMapping`] with its norm autoscaled (matplotlib autoscales the
@@ -96,6 +97,20 @@ impl Mapped {
             normalized: Ok(normalized),
             by_block: false,
             at_draw: false,
+            shape: None,
+            drawn: DrawnValues::default(),
+        }
+    }
+
+    /// A mapping of `source` through a norm of the program's that its owner
+    /// scaled already (a contour set's, to its levels): the values are
+    /// normalised at every draw, as matplotlib's collection draws do.
+    pub(crate) fn normalized_at_draw(source: ColorMapping) -> Self {
+        Self {
+            source,
+            normalized: Ok(Vec::new()),
+            by_block: false,
+            at_draw: true,
             shape: None,
             drawn: DrawnValues::default(),
         }
@@ -210,14 +225,22 @@ impl Mapped {
     /// as a masked array of the collection's shape.
     fn normalize_now(&self) -> Result<Vec<Normalized>, String> {
         let mut norm = self.source.mappable.norm().clone_box();
-        let values = &self.source.values;
-        let shape = self.shape.clone().unwrap_or_else(|| vec![values.len()]);
-        let form = ArrayForm {
-            shape: &shape,
-            masked: true,
-        };
-        let normalized = norm.normalize_shaped(values, None, form);
-        normalized.map_err(|err| err.to_string())
+        normalize_shaped(&mut *norm, &self.source.values, self.shape.as_deref())
+    }
+
+    /// The program's norm normalising the values as the draw a print makes
+    /// before it renders calls it (see
+    /// [`Artist::program_shaping`](crate::artist::Artist::program_shaping)).
+    pub(crate) fn predraw_normalization(&self) -> Option<ProgramShaping> {
+        if !self.at_draw {
+            return None;
+        }
+        let mut norm = self.source.mappable.norm().clone_box();
+        let values = self.source.values.clone();
+        let shape = self.shape.clone();
+        Some(Box::new(move || {
+            drop(normalize_shaped(&mut *norm, &values, shape.as_deref()));
+        }))
     }
 
     /// [`Self::colors`] normalising the values a block at a time with a
@@ -254,6 +277,22 @@ impl Mapped {
         }
         Ok(colors)
     }
+}
+
+/// `values` through `norm` as a masked array of `shape` (one dimension
+/// when `None`).
+fn normalize_shaped(
+    norm: &mut dyn Norm,
+    values: &[Option<f64>],
+    shape: Option<&[usize]>,
+) -> Result<Vec<Normalized>, String> {
+    let flat = [values.len()];
+    let form = ArrayForm {
+        shape: shape.unwrap_or(&flat),
+        masked: true,
+    };
+    let normalized = norm.normalize_shaped(values, None, form);
+    normalized.map_err(|err| err.to_string())
 }
 
 #[cfg(test)]

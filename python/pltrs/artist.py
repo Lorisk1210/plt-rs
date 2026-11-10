@@ -796,7 +796,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         Join *axes* as its ``add_<kind>`` method adds an artist (``kind`` is
         ``"artist"``, ``"line"``, ``"patch"``, ``"image"`` or
-        ``"collection"``, the last with *autolim*); return self.
+        ``"collection"``, the last with *autolim*, or ``"text"`` for
+        ``_add_text``); return self.
         """
         if kind == "artist":
             # matplotlib's `add_artist` sets the Axes before the figure.

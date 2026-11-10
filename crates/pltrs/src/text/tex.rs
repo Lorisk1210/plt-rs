@@ -85,14 +85,13 @@ pub(crate) fn tex_line(line: &str) -> &str {
 
 /// One line typeset by TeX at `dpi`: a run without glyphs whose extent
 /// is the typeset line's (none for an empty line) and whose source is the
-/// TeX text backends draw.
-pub(crate) fn tex_run(
-    line: &str,
-    font: &FontProperties,
-    dpi: f64,
-    rc: &RcParams,
-) -> Result<TextRun, TextError> {
-    let tex = TexText::new(tex_line(line), font.drawn_request(), tex_manager(rc)?);
+/// TeX text backends draw. TeX's fonts, preamble and engine are those of
+/// the rcParams in effect now, as matplotlib's `TexManager` reads them
+/// whenever it runs TeX (a text made under a style keeps its usetex, not
+/// the style's preamble).
+pub(crate) fn tex_run(line: &str, font: &FontProperties, dpi: f64) -> Result<TextRun, TextError> {
+    let rc = crate::rc::params();
+    let tex = TexText::new(tex_line(line), font.drawn_request(), tex_manager(&rc)?);
     let measured = if tex.tex.is_empty() {
         None
     } else {
@@ -278,7 +277,7 @@ mod tests {
     #[test]
     fn empty_lines_are_not_typeset() {
         let rc = RcParams::matplotlib();
-        let run = tex_run("", &FontProperties::from_rc(&rc), 100.0, &rc).expect("not typeset");
+        let run = tex_run("", &FontProperties::from_rc(&rc), 100.0).expect("not typeset");
         assert_eq!((run.width, run.height, run.descent), (0.0, 0.0, 0.0));
         assert!(run.source.as_ref().is_some_and(TextSource::is_tex));
     }

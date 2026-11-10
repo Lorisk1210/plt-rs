@@ -310,7 +310,7 @@ pub fn measure_line(
 ) -> Result<LineMetrics, TextError> {
     let rc = crate::rc::params();
     without_measurer(|| match kind {
-        LineKind::Tex => super::tex::tex_run(line, font, dpi, &rc).map(|run| LineMetrics {
+        LineKind::Tex => super::tex::tex_run(line, font, dpi).map(|run| LineMetrics {
             width: run.width,
             height: run.height,
             descent: run.descent,

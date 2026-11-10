@@ -69,6 +69,11 @@ pub(crate) enum StyledPath {
 }
 
 impl ArrowStyle {
+    /// Whether the arrow is the program's, which pltrs calls.
+    pub(crate) fn calls_program(&self) -> bool {
+        matches!(self, Self::Program(_))
+    }
+
     /// matplotlib's default arrow of `FancyArrowPatch` (`simple`).
     pub const fn simple() -> Self {
         Self::Simple {

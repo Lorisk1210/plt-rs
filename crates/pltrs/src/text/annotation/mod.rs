@@ -19,7 +19,9 @@ pub(crate) use arrow::{AnnotationArrow, ArrowTarget, StartRegion};
 pub use arrow::{ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps};
 
 use super::{BoxPlacement, Text, TextArtist, TextDrawError};
-use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle, TypedHandle};
+use crate::artist::{
+    Artist, ArtistHandle, DrawContext, LayoutContext, ProgramShaping, RawHandle, TypedHandle,
+};
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
 use crate::patches::{ClipRegion, DisplayPath, FancyArrowPatch, Patch};
@@ -256,6 +258,26 @@ impl AnnotationState {
                 .map_err(TextDrawError::Box)?;
         }
         text.draw_at(ctx, anchor)
+    }
+
+    /// The calls of the program's connection and arrow styles the arrow's
+    /// draw makes, for a draw that renders nothing (see
+    /// [`Artist::program_shaping`](crate::artist::Artist::program_shaping)).
+    pub(crate) fn program_drawing(
+        &self,
+        text: &TextArtist,
+        layout: LayoutContext<'_>,
+    ) -> Option<ProgramShaping> {
+        // Only an arrow of the program's styles is placed: placing it
+        // measures the text, which notes font lookups in the caches.
+        let arrow = self.arrow.as_ref().filter(|arrow| arrow.calls_program())?;
+        let point = self.point(text, layout).ok()?;
+        if !self.shown(text, layout, point) {
+            return None;
+        }
+        let anchor = self.anchor(text, layout, point).ok()?;
+        let target = Self::target(text, layout, point, anchor).ok()?;
+        arrow.program_drawing(layout, &text.rc, &target)
     }
 
     /// Whether display point `at` hits the text or the arrow of a shown

@@ -102,6 +102,8 @@ impl Axes3D {
             // Its 3-D geometry is the one it was added with.
             return Err(AttachError::NotRemoved.into());
         }
+        // `add_collection3d` adds it with `add_collection`.
+        self.unstale_for_collection();
         let had_data = self.has_data();
         let points = geometry.points();
         // matplotlib leaves the limits alone for patch collections.

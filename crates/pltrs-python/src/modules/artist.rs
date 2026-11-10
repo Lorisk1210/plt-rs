@@ -74,7 +74,8 @@ fn is_loose(artist: RawHandle) -> PyResult<bool> {
 
 /// Adds a ready-made artist to `axes` as matplotlib's `add_<kind>` does
 /// (`"artist"`, `"line"`, `"patch"`, `"image"` or `"collection"`, the
-/// last with `autolim`), returning its handle in the axes' figure.
+/// last with `autolim`; `"text"` for `_add_text`), returning its handle in
+/// the axes' figure.
 fn adopt_into_axes(
     axes: Axes,
     artist: RawHandle,
@@ -83,6 +84,7 @@ fn adopt_into_axes(
 ) -> PyResult<RawHandle> {
     let add_as = match kind.as_str() {
         "artist" => AddAs::Artist,
+        "text" => AddAs::Text,
         "line" => AddAs::Line,
         "patch" => AddAs::Patch,
         "image" => AddAs::Image,

@@ -125,6 +125,19 @@ mod tests {
     }
 
     #[test]
+    fn polar_and_geographic_axes_follow_no_units_changes() {
+        // matplotlib 3.11's PolarAxes and geographic axes clear themselves
+        // again after Axes.__init__ connected its units handler.
+        let fig = Figure::new();
+        let polar = fig.polar_subplot();
+        let geo = fig.geo_subplot(crate::geo::GeoProjection::Hammer);
+        for axes in [polar.axes(), geo.axes()] {
+            assert!(!axes.xaxis().follows_units() && !axes.yaxis().follows_units());
+        }
+        assert!(fig.subplot().xaxis().follows_units());
+    }
+
+    #[test]
     fn polar_insets_are_child_axes() {
         let fig = Figure::new();
         let host = fig.subplot();

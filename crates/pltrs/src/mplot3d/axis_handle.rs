@@ -343,6 +343,29 @@ impl Axis3D {
         self
     }
 
+    /// How many major (or `minor`) ticks exist, as matplotlib's tick lists
+    /// hold them (see [`crate::axes::Axis::ticks_made`]).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// assert_eq!(ax.zaxis().ticks_made(false), 0);
+    /// fig.layout();
+    /// assert!(ax.zaxis().ticks_made(false) > 0);
+    /// ```
+    pub fn ticks_made(&self, minor: bool) -> usize {
+        let dir = self.dir;
+        self.axes.with(|axes| {
+            let axis = axes.axis(dir);
+            if minor {
+                axis.minor_overrides.made
+            } else {
+                axis.major_overrides.made
+            }
+        })
+    }
+
     /// Turns minor ticks on with the locator matplotlib picks for the
     /// scale: the scale's own minor locator for log, symlog, asinh and
     /// logit axes, otherwise an `AutoMinorLocator` (matplotlib's

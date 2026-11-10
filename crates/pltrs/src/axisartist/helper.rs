@@ -15,6 +15,7 @@ use super::grid_helper_curvelinear::{
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::{AxesState, Tick};
 use crate::spines::SpineSide;
+use crate::text::TextProblem;
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -200,9 +201,9 @@ impl AxisHelper {
 
     /// The major and minor ticks on the line (matplotlib's
     /// `get_tick_iterators`): rectilinear lines take those of the ticked
-    /// axis, `ticks`, inside the axes.
-    pub(crate) fn ticks(&self, ctx: HelperContext<'_>) -> Result<TickLevels, String> {
-        let grid_error = |e: super::grid_finder::GridError| e.to_string();
+    /// axis, `ticks`, inside the axes, failing as its locator failed.
+    pub(crate) fn ticks(&self, ctx: HelperContext<'_>) -> Result<TickLevels, TextProblem> {
+        let grid_error = |e: super::grid_finder::GridError| TextProblem::from(e.to_string());
         match self {
             Self::Fixed(side) => {
                 rectilinear_levels(ctx.axes, side.axis(), Across::Edge(edge(*side)))
@@ -237,12 +238,12 @@ impl AxisHelper {
                     ylim: (e0, e1),
                 };
                 Ok((
-                    curve_ticks(ctx, grid, &axis_grid, *line, &spec)?,
+                    curve_ticks(ctx, grid, &axis_grid, *line, &spec).map_err(TextProblem::from)?,
                     Vec::new(),
                 ))
             }
             Self::FloatingFixed { grid, side } => {
-                let info = floating_info(grid, ctx)?;
+                let info = floating_info(grid, ctx).map_err(TextProblem::from)?;
                 let line = grid.edge_line(*side);
                 let (x0, x1, y0, y1) = grid.extremes();
                 let (xlim, ylim) = (sorted(x0, x1), sorted(y0, y1));
@@ -255,7 +256,8 @@ impl AxisHelper {
                     ylim,
                 };
                 Ok((
-                    curve_ticks(ctx, grid.curvelinear(), &info.grid, line, &spec)?,
+                    curve_ticks(ctx, grid.curvelinear(), &info.grid, line, &spec)
+                        .map_err(TextProblem::from)?,
                     Vec::new(),
                 ))
             }
@@ -358,8 +360,11 @@ fn rectilinear_levels(
     axes: &AxesState,
     nth: AxisName,
     across: Across,
-) -> Result<TickLevels, String> {
-    let ticked = axes.axis(nth).ticks.as_ref().map_err(ToString::to_string)?;
+) -> Result<TickLevels, TextProblem> {
+    let ticked = axes.axis(nth).ticks.as_ref().map_err(|err| TextProblem {
+        kind: err.draw_kind(),
+        message: err.to_string(),
+    })?;
     ticked.place(true);
     Ok((
         rectilinear_ticks(axes, nth, across, &ticked.major),

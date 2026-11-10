@@ -475,11 +475,11 @@ class LinesMixin:
             native = _plotting.plot(self._native, *line_data(self, x, y), fmt,
                                     mlines._native_kwargs(props),
                                     (bool(scalex), bool(scaley)))
-            line = keep_program_picker(wrap(self, native, mlines.Line2D), props)
+            line = wrap(self, native, mlines.Line2D)
             whole = _format_color(fmt)
             mlines._remember_given(
                 line, props if whole is None else {"color": whole, **props})
-            lines.append(keep_data(line, x, y))
+            lines.append(keep_data(keep_program_picker(line, props), x, y))
         return lines
 
     @_docstring.interpd

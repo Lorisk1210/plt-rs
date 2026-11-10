@@ -262,6 +262,23 @@ mod tests {
     }
 
     #[test]
+    fn an_explicit_autoscale_runs_the_waiting_one_first() {
+        // matplotlib 3.11's autoscale_view brings a stale view up to date
+        // (calling back) before it sets the limits (calling back again).
+        let ax = Figure::new().subplot();
+        let (x, y) = (counter(&ax, AxisName::X), counter(&ax, AxisName::Y));
+        ax.plot([0.0, 1.0], [0.0, 4.0]).expect("valid data");
+        ax.autoscale_view(None);
+        assert_eq!((x.get(), y.get()), (2, 2));
+        ax.autoscale_view(None);
+        assert_eq!((x.get(), y.get()), (3, 3), "nothing waits any more");
+        ax.set_autoscale_on(false);
+        ax.plot([0.0, 2.0], [0.0, 8.0]).expect("valid data");
+        ax.autoscale_view(None);
+        assert_eq!((x.get(), y.get()), (3, 3), "no axis follows the data");
+    }
+
+    #[test]
     fn callbacks_keeping_axes_in_step_end() {
         let fig = Figure::new();
         let (a, b) = (

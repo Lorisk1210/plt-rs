@@ -462,6 +462,24 @@ impl AxesState {
             .then(ResolvedTransform::affine(unit_to_bbox(display)))
     }
 
+    /// The display → data transform for the axes placed at `display`, the
+    /// inverse of [`Self::data_transform`] as matplotlib's
+    /// `transData.inverted()` makes it: the inverses of the map onto the
+    /// axes box and of the view limits' map onto the unit square multiplied
+    /// (matplotlib's `transLimits + transAxes` composes two affine
+    /// transforms that are no `Affine2D`, which invert one by one), then
+    /// the scales' inverses; other projections inverted whole.
+    pub(crate) fn data_transform_inverse(&self, display: &Bbox) -> Option<ResolvedTransform> {
+        if self.polar_view().is_some() {
+            return self.data_transform(display).inverted();
+        }
+        if let Some(custom) = self.custom_data_transform(display) {
+            return custom.inverted();
+        }
+        let to_unit = self.projection_view().rectilinear().inverted()?;
+        Some(to_unit.after_affine(unit_to_bbox(display).inverted()?))
+    }
+
     /// Whether the view limits of one axis were ever changed from the
     /// initial unit interval.
     pub(crate) fn view_mutated(&self, name: AxisName) -> bool {

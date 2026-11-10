@@ -195,19 +195,23 @@ FORMATS = ["png", "jpg", "tiff", "webp", "gif", "raw", "rgba", "svg", "svgz", "p
 WRITTEN_AFTER = {"png", "jpg", "tiff", "webp", "gif", "raw", "rgba", "ps", "eps", "pgf"}
 
 
+@pytest.mark.parametrize("layout", ["none", "constrained"])
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_saving_sends_one_draw_event_before_writing(fmt):
+def test_saving_sends_a_draw_event_per_draw_before_writing(fmt, layout):
+    # matplotlib draws a figure with a layout engine once before it prints
+    # it, each draw sending its event.
     if fmt == "pgf" and not shutil.which("xelatex"):
         pytest.skip("the PGF backend measures text with XeLaTeX, which is not installed")
-    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50, layout=layout)
     ax.plot([0, 1], [1, 0])
     buffer = io.BytesIO()
     written = []
     fig.canvas.mpl_connect("draw_event", lambda event: written.append(buffer.tell()))
     fig.savefig(buffer, format=fmt)
-    assert len(written) == 1
+    draws = 1 if layout == "none" else 2
+    assert len(written) == draws
     if fmt in WRITTEN_AFTER:
-        assert written == [0]
+        assert written == [0] * draws
 
 
 # The X display checks.

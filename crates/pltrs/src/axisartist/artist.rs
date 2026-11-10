@@ -275,7 +275,7 @@ impl AxisArtistState {
             axes,
             id: self.axes,
         };
-        let (major, minor) = self.helper.ticks(ctx)?;
+        let (major, minor) = self.helper.ticks(ctx).map_err(|problem| problem.message)?;
         let ticks = match level {
             Level::Major => major,
             Level::Minor => minor,
@@ -730,6 +730,21 @@ mod tests {
         let extent = ray.window_extent().expect("measured");
         let axes = ax.ax().window_extent().expect("laid out");
         assert!((extent.x1() - axes.x1()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_failing_locator_fails_the_draw_as_it_fails() {
+        // matplotlib 3.11 raises its LogLocator's ValueError drawing the
+        // bottom axis of a log axis whose limits reach below zero.
+        let fig = Figure::new();
+        let ax = AxisArtistAxes::new(fig.subplot());
+        ax.ax().plot([0.0, 6.0], [-1.0, 1.0]).expect("valid data");
+        fig.draw_without_rendering().expect("a linear axis draws");
+        ax.ax().set_xlim(6.6, -0.3).expect("finite limits");
+        ax.ax().set_xscale("log").expect("a built-in scale");
+        let errors = fig.draw_without_rendering().expect_err("NaN decades");
+        assert_eq!(errors.0[0].kind, crate::artist::DrawErrorKind::InvalidValue);
+        assert_eq!(errors.0[0].message, "cannot convert float NaN to integer");
     }
 
     #[test]

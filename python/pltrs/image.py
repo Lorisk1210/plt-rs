@@ -580,7 +580,14 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     def contains(self, mouseevent):
         """Test whether the mouse event occurred within the image."""
-        return super().contains(mouseevent)
+        if (self._different_canvas(mouseevent)
+                # This doesn't work for figimage.
+                or not self.axes.contains(mouseevent)[0]):
+            return False, {}
+        # (A numpy bool, as matplotlib compares the image coordinates of the
+        # event, numpy floats, with the extent.)
+        inside, details = super().contains(mouseevent)
+        return np.bool_(inside), details
 
 
 def _made_image(image, magnification, unsampled, in_bbox, trans, over=None,

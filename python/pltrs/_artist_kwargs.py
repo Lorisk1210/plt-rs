@@ -36,7 +36,7 @@ def keep_program_picker(artist, kwargs):
     if callable(picker):
         artist.set_picker(picker)
     elif "picker" in kwargs:
-        artist.__dict__["_picker"] = picker
+        artist._keep_picker(picker)
     return artist
 
 

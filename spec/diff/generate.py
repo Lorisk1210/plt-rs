@@ -43,7 +43,11 @@ compared on their own. The generators are the modules of ``generators/``:
   and an invalid value for each validator;
 * ``pickling``: figures of every kind of artist, Axes and toolkit
   pickled, unpickled and pickled again, their getters called on both;
-  values pickled and copied (``copy.copy``, ``copy.deepcopy``).
+  values pickled and copied (``copy.copy``, ``copy.deepcopy``);
+* ``interaction``: figures of every kind driven by events as a user at a
+  window drives them: the navigation toolbar, the key bindings, every
+  canvas event, the widgets, picking and dragging, blitting and
+  animations.
 
 Programs are written to ``OUT_DIR/<generator>/<name>.py``; the directory
 is emptied first. What the generators' own runs of statements write goes
@@ -65,8 +69,8 @@ import matplotlib  # noqa: E402
 matplotlib.use("agg")
 
 from generators import (  # noqa: E402
-    api, artists, hostile, modules, offsetboxes, orders, pickling, plotting, pyplot, randomized, rcparams, rest,
-    three_d, unreached)
+    api, artists, hostile, interaction, modules, offsetboxes, orders, pickling, plotting, pyplot, randomized,
+    rcparams, rest, three_d, unreached)
 
 GENERATORS = {
     "artists": artists.programs,
@@ -83,6 +87,7 @@ GENERATORS = {
     "rest": rest.programs,
     "rcparams": rcparams.programs,
     "pickling": pickling.programs,
+    "interaction": interaction.programs,
 }
 
 

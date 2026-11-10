@@ -56,6 +56,7 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
     def _from_native(cls, native, figure):
         ax = super()._from_native(native, figure)
         ax._init_axes_state()
+        ax._connect_unit_change_handler()
         return ax
 
     def _init_axes_state(self):

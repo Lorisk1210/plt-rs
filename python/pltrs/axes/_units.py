@@ -11,7 +11,8 @@ from numbers import Real
 
 import numpy as np
 
-from .. import cbook
+from .. import _api, cbook
+from .._native import axis as _axis
 # Register the category and date unit converters as a side effect, as
 # matplotlib's axes module does.
 from .. import category, dates  # noqa: F401
@@ -115,11 +116,25 @@ class UnitsMixin:
             raise ValueError("Axis limits cannot be NaN or Inf")
         return values
 
-    def _unit_change_handler(self, axis_name):
+    def _connect_unit_change_handler(self):
+        """Connect the Axes' `_unit_change_handler` to the units changes
+        of each of its axes made so far that pltrs (Rust) has the Axes
+        follow: matplotlib's ``__init__`` connects it once the Axes is
+        cleared, and a later clear (a polar Axes' own) disconnects it."""
+        for name in self._axis_names:
+            axis = getattr(self, f"{name}axis", None)
+            if axis is not None and _axis.follows_units(self._native, name):
+                axis.callbacks._connect_picklable(
+                    'units', self._unit_change_handler(name))
+
+    def _unit_change_handler(self, axis_name, event=None):
         """
-        Process axis units changes: the lines keeping values in units
-        convert them again, and the data and view limits follow.
+        Process axis units changes: requests updates to data and view limits.
         """
+        if event is None:  # Allow connecting `self._unit_change_handler(name)`
+            return functools.partial(
+                self._unit_change_handler, axis_name, event=object())
+        _api.check_in_list(self._axis_map, axis_name=axis_name)
         for line in self.lines:
             line.recache_always()
         self.relim()

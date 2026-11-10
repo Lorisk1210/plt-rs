@@ -7,7 +7,6 @@
 
 use std::str::FromStr;
 
-use pltrs::artist::ArtistHandle;
 use pltrs::axes::Axes;
 use pltrs::colors::Color;
 use pltrs::figure::Figure;
@@ -374,11 +373,6 @@ fn get_language(text: Text) -> PyResult<(Option<String>, Vec<LanguageSpan>)> {
     })
 }
 
-/// Whether the display point `(x, y)` is on the text or its box.
-fn contains(text: Text, x: f64, y: f64) -> PyResult<bool> {
-    Ok(text.contains(Point::new(x, y)).is_some())
-}
-
 /// The text with the line breaks wrapping inserts.
 fn get_wrapped_text(text: Text) -> PyResult<String> {
     Ok(text.wrapped_text()?)
@@ -453,7 +447,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_parse_math", set_parse_math)?;
     module.add("get_usetex", get_usetex)?;
     module.add("set_usetex", set_usetex)?;
-    module.add("contains", contains)?;
     module.add("set_bbox", set_bbox)?;
     module.add("has_bbox", has_bbox)?;
     module.add("bbox_patch", bbox_patch)?;

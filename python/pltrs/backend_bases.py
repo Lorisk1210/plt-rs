@@ -2154,20 +2154,26 @@ class FigureCanvasBase:
             colored = sum(color is not None for color in colors.values())
             for _ in range(colored):
                 self.figure.pchanged()
-            if ("_callbacks" in self.figure.__dict__
-                    and (self.figure.get_layout_engine() is not None
-                         or cbook._str_equal(bbox_inches, "tight"))):
-                # matplotlib draws the figure to lay it out before its
-                # observers hear of the layout turned off: a draw failing
-                # fails first.
+            # matplotlib draws a figure with a layout engine, or cut to its
+            # tight box, once before printing it (each draw sending its
+            # draw event): pltrs (Rust) prints it with that draw's event
+            # (see `_send_draw_event`)...
+            predrawn = (self.figure.get_layout_engine() is not None
+                        or cbook._str_equal(bbox_inches, "tight"))
+            if predrawn and "_callbacks" in self.figure.__dict__:
+                # ... but for a figure with observers, which matplotlib's
+                # draw lays out before they hear of the layout turned off:
+                # a draw failing fails first.
                 self.figure.draw_without_rendering()
+                predrawn = False
             with self._laid_out_for_print(bbox_inches):
                 self.figure.pchanged()
             try:
                 # The colors and the area, which matplotlib's print methods
                 # take from the figure print_figure adjusts, are the print's.
                 with cbook._setattr_cm(self.figure.canvas, _print_options={
-                        **colors, "bbox_inches_restore": area}):
+                        **colors, "bbox_inches_restore": area,
+                        "predrawn": predrawn}):
                     return print_method(
                         filename,
                         orientation=orientation,
@@ -2275,9 +2281,15 @@ class FigureCanvasBase:
         _write_bytes(data, filename_or_obj, fmt)
 
     def _send_draw_event(self):
-        """Emit the ``draw_event`` of a draw that printed the figure
-        (pltrs (Rust) calls it once the figure is drawn)."""
-        DrawEvent("draw_event", self, None)._process()
+        """Emit the ``draw_event`` of each draw that printed the figure
+        (pltrs (Rust) calls it once the figure is drawn): the print of a
+        figure `print_figure` did not draw before though matplotlib's does
+        (see ``predrawn``) emits two, each with the renderer of the print
+        (that of the format, else the canvas')."""
+        from ._python_drawing import installed_renderer
+        renderer = installed_renderer() or self.figure._get_renderer()
+        for _ in range(1 + bool(self._print_options.get("predrawn"))):
+            DrawEvent("draw_event", self, renderer)._process()
 
     def _draw_event_sender(self):
         """

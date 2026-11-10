@@ -2,14 +2,14 @@
 
 use std::cell::{OnceCell, Ref};
 
-use pltrs_core::{Bbox, Point};
+use pltrs_core::{Bbox, Path, Point};
 use pltrs_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
 use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, GraphicsState};
 use crate::figure::{FigureCell, FigureState};
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
-use crate::transforms::{ResolvedTransform, Transform, TransformContext};
+use crate::transforms::{ResolvedTransform, Transform, TransformContext, unit_to_bbox};
 
 /// Read-only access to figure geometry, for measuring and hit testing.
 #[derive(Clone, Copy, Debug)]
@@ -131,13 +131,37 @@ impl<'a> LayoutContext<'a> {
     }
 
     /// Whether display point `at` is over the background of `axes`: its
-    /// box, or the wedge of polar axes (matplotlib's `Axes.contains`).
+    /// box, or the outline of polar axes, any of its sub-paths (matplotlib's
+    /// `Axes.contains`, whose patch tests each sub-path on its own).
     pub fn axes_contains(&self, axes: ArtistId, at: Point) -> bool {
+        self.background_contains(axes, at, Path::subpaths)
+    }
+
+    /// Whether display point `at` is over the background of `axes` as the
+    /// canvas finds the axes under the pointer: the outline tested as one
+    /// path (matplotlib's `canvas.inaxes`, which asks its patch's
+    /// `contains_point`). The row through the centre of a full circle,
+    /// where its arc starts and ends, is outside then.
+    pub fn axes_under(&self, axes: ArtistId, at: Point) -> bool {
+        self.background_contains(axes, at, |path| vec![path.clone()])
+    }
+
+    /// Whether any of the paths `split` makes of the outline of `axes`
+    /// contains `at`, or the unit square its box maps without an outline
+    /// (matplotlib's `Rectangle` patch, whose bottom edge is outside).
+    fn background_contains(
+        &self,
+        axes: ArtistId,
+        at: Point,
+        split: impl Fn(&Path) -> Vec<Path>,
+    ) -> bool {
         match self.figure.background_outline(axes) {
-            Some(outline) => outline
-                .path
-                .contains_point(at, Some(&outline.transform), 0.0),
-            None => self.axes_extent(axes).is_some_and(|bbox| bbox.contains(at)),
+            Some(outline) => split(&outline.path)
+                .iter()
+                .any(|path| path.contains_point(at, Some(&outline.transform), 0.0)),
+            None => self.axes_extent(axes).is_some_and(|bbox| {
+                Path::unit_rectangle().contains_point(at, Some(&unit_to_bbox(&bbox)), 0.0)
+            }),
         }
     }
 

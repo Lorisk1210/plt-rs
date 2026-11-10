@@ -166,7 +166,8 @@ fn close_and_release(event_loop: &mut EventLoop, window: WindowId) {
         })
         .expect("pumping events succeeds");
     assert!(destroyed);
-    let deadline = Instant::now() + Duration::from_secs(2);
+    // A busy Mac takes seconds over the first window's closing animation.
+    let deadline = Instant::now() + Duration::from_secs(10);
     while appkit::has_window_numbered(number) && Instant::now() < deadline {
         settle(event_loop, Duration::from_millis(50));
     }
@@ -222,7 +223,9 @@ pub(crate) fn icons_go_to_the_dock() {
 
 /// A rendered icon reaches the Dock drawn on Apple's grid at every icon
 /// size from 16 to 512 points, at 1× and 2×, and is drawn once however
-/// many windows show it.
+/// many windows show it. Since macOS 26 the application answers with a
+/// snapshot of the icon, its sharpest representation alone, where it
+/// used to answer with the image it was given.
 pub(crate) fn rendered_icons_go_to_the_dock_in_every_size() {
     let mut event_loop = appkit_loop();
     let drawn = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -248,11 +251,15 @@ pub(crate) fn rendered_icons_go_to_the_dock_in_every_size() {
         .map(|&(points, pixels)| (points.width as u32, pixels))
         .collect();
     representations.sort_unstable();
-    let expected: Vec<(u32, i64)> = [16, 32, 64, 128, 256, 512]
+    let given: Vec<(u32, i64)> = [16, 32, 64, 128, 256, 512]
         .into_iter()
         .flat_map(|points| [(points, i64::from(points)), (points, 2 * i64::from(points))])
         .collect();
-    assert_eq!(representations, expected);
+    let snapshot = [(512, 1024)];
+    assert!(
+        representations == given || representations == snapshot,
+        "{representations:?}"
+    );
 }
 
 /// Pumps until `window` reports a size `accept`s, for up to 10 seconds

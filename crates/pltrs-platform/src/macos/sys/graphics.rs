@@ -202,3 +202,53 @@ unsafe extern "C" fn release_pixels(info: *mut c_void, _data: *const c_void, _si
     // provider, which calls this once.
     drop(unsafe { Box::from_raw(info.cast::<Vec<u8>>()) });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The width in points and in pixels of each of `image`'s
+    /// representations, in the order they were added.
+    fn representations(image: &Id) -> Vec<(f64, i64)> {
+        autoreleasepool(|| {
+            // SAFETY: getters of a live image, of its array of
+            // representations and of each representation.
+            unsafe {
+                let all: *mut Object = send(image.as_ptr(), c"representations", ());
+                let count: usize = send(all, c"count", ());
+                (0..count)
+                    .map(|index| {
+                        let representation: *mut Object = send(all, c"objectAtIndex:", (index,));
+                        let points: NsSize = send(representation, c"size", ());
+                        let pixels: i64 = send(representation, c"pixelsWide", ());
+                        (points.width, pixels)
+                    })
+                    .collect()
+            }
+        })
+    }
+
+    #[test]
+    fn images_keep_each_representation_at_its_size_in_points() {
+        let square = |side: u32| {
+            Image::straight_rgba(side, side, vec![200; (side * side * 4) as usize])
+                .expect("a valid image")
+        };
+        let points = |side| LogicalSize::new(side, side);
+        let (small, large) = (square(32), square(64));
+        let image = ns_image(&[
+            (&small, points(32.0)),
+            (&small, points(16.0)),
+            (&large, points(32.0)),
+        ])
+        .expect("an image of three representations");
+        assert_eq!(
+            representations(&image),
+            [(32.0, 32), (16.0, 32), (32.0, 64)]
+        );
+        // SAFETY: a getter of the live image.
+        let size: NsSize = unsafe { send(image.as_ptr(), c"size", ()) };
+        assert_eq!((size.width, size.height), (32.0, 32.0));
+        assert!(ns_image(&[]).is_err(), "an image needs a representation");
+    }
+}

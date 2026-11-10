@@ -16,8 +16,6 @@ those of the background. A patch the program makes an Axes' patch
 background's shape.
 """
 
-from numbers import Real
-
 import numpy as np
 
 from . import _live_transforms, _mirrors
@@ -52,12 +50,10 @@ class _AxesBackground(_Background):
         return self.owner.get_figure(root=root)
 
     def contains_point(self, patch, point, radius=None):
-        if not all(isinstance(value, Real) for value in point):
-            # What is no pair of numbers is hit-tested with the patch's path
-            # as matplotlib's patch hit-tests any point (its errors).
-            from .patches import Patch
-            return Patch.contains_point(patch, point, radius)
-        return self.owner.contains_point(point)
+        # matplotlib's patch tests the point with its path as a whole, with
+        # its own radius (what the canvas' ``inaxes`` asks).
+        from .patches import Patch
+        return Patch.contains_point(patch, point, radius)
 
     def clip_spec(self, patch):
         # The outline of the Axes, followed as it changes.

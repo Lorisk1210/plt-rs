@@ -222,6 +222,22 @@ impl Axis {
         self
     }
 
+    /// How many major (or `minor`) ticks exist, as matplotlib's tick lists
+    /// (`majorTicks`, `minorTicks`) hold them: those of the locations the
+    /// axis placed and those a program listed ([`Axis::make_ticks`]), none
+    /// at first. Placing fewer locations later unmakes none.
+    ///
+    /// ```
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// assert_eq!(ax.xaxis().ticks_made(false), 0);
+    /// ax.xaxis().make_ticks(false, 3).make_ticks(false, 2);
+    /// assert_eq!(ax.xaxis().ticks_made(false), 3);
+    /// assert_eq!(ax.xaxis().ticks_made(true), 0);
+    /// ```
+    pub fn ticks_made(&self, minor: bool) -> usize {
+        self.read(|axis| axis.overrides(minor).made)
+    }
+
     /// The display box of the label on the first (bottom or left) or the
     /// second side of the major (or `minor`) tick at `index` among those
     /// the locator places, in the figure's current layout (laid out

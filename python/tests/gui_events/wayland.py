@@ -16,6 +16,9 @@ OUTPUT_TITLE = "Weston Compositor - X1"
 #: top-right corner, for Qt's and pltrs' decorations alike: in the title
 #: bar right above the canvas, at its right end.
 CLOSE_BUTTON = (-14, -15)
+#: How long a window may take to show (weston's on the X server, the
+#: canvas on weston's output): seconds, on a machine busy with other work.
+SHOWN_WITHIN = 30
 
 
 class NotFound(ProgramFailed):
@@ -44,7 +47,7 @@ def locate(conn, output, canvas_path, size):
     canvas = canvas_path.read_bytes()
     rows = _distinct_rows(canvas, width, height)
     patterns = [canvas[3 * width * row:3 * width * (row + 1)] for row in rows]
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + SHOWN_WITHIN
     while time.monotonic() < deadline:
         _, _, out_width, out_height = conn.geometry(output)
         screen = conn.image(output, 0, 0, out_width, out_height)

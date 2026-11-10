@@ -14,13 +14,14 @@ use crate::ticker::{Formatter, ScalarFormatter, TickContext, g_sig_digits, pyfmt
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// The axes under display point `at`: the visible axes whose background
-/// contains it, the highest z-order first and, among equals, the last
-/// created, which is drawn on top (matplotlib's `canvas.inaxes`).
+/// contains it (tested as one path, see `LayoutContext::axes_under`), the
+/// highest z-order first and, among equals, the last created, which is
+/// drawn on top (matplotlib's `canvas.inaxes`).
 pub fn axes_at(figure: &Figure, at: Point) -> Option<Axes> {
     figure
         .axes()
         .into_iter()
-        .filter(|ax| ax.visible() && contains(ax, at))
+        .filter(|ax| ax.visible() && under(ax, at))
         .fold(None, |best: Option<Axes>, ax| match best {
             Some(best) if best.zorder() > ax.zorder() => Some(best),
             _ => Some(ax),
@@ -30,7 +31,7 @@ pub fn axes_at(figure: &Figure, at: Point) -> Option<Axes> {
 impl Axes {
     /// Whether display point `at` (pixels from the figure's bottom-left
     /// corner) is over the axes background: its box, or the wedge of polar
-    /// axes (matplotlib's `contains_point`).
+    /// axes (matplotlib's `Axes.contains` of an event there).
     pub fn contains_point(&self, at: Point) -> bool {
         contains(self, at)
     }
@@ -54,6 +55,14 @@ pub(super) fn contains(ax: &Axes, at: Point) -> bool {
     let figure = ax.raw().figure_state();
     let state = figure.borrow();
     LayoutContext::new(&state).axes_contains(ax.id(), at)
+}
+
+/// Whether `ax` is under display point `at` as matplotlib's canvas finds
+/// it (see `LayoutContext::axes_under`).
+fn under(ax: &Axes, at: Point) -> bool {
+    let figure = ax.raw().figure_state();
+    let state = figure.borrow();
+    LayoutContext::new(&state).axes_under(ax.id(), at)
 }
 
 /// What a status bar shows of the data under display point `at` in `ax`:
@@ -371,6 +380,50 @@ mod tests {
             Some(twin),
             "the twin is drawn on top"
         );
+    }
+
+    #[test]
+    fn the_row_through_the_centre_of_polar_axes_is_inside_but_not_under() {
+        // matplotlib 3.11, a 4 × 4 in figure at 100 dpi: the polar patch's
+        // contains (sub-path by sub-path) holds the row where its circle
+        // starts and ends, the canvas' inaxes (the whole path) does not.
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let polar = fig.polar_subplot();
+        fig.layout();
+        for at in [Point::new(205.0, 198.0), Point::new(54.0, 198.0)] {
+            assert!(polar.contains_point(at), "{at:?}");
+            assert_eq!(axes_at(&fig, at), None, "{at:?}");
+        }
+        let above = Point::new(205.0, 199.0);
+        assert!(polar.contains_point(above));
+        assert_eq!(axes_at(&fig, above).as_ref(), Some(polar.axes()));
+    }
+
+    #[test]
+    fn the_bottom_edge_of_axes_is_outside() {
+        // matplotlib 3.11, a 4 × 3 in figure at 100 dpi: the path test of
+        // the axes' rectangle leaves its bottom edge out, the others in.
+        let fig = Figure::with_size(4.0, 3.0, 100.0);
+        let ax = fig.subplot();
+        fig.layout();
+        let bbox = {
+            let figure = ax.raw().figure_state();
+            let state = figure.borrow();
+            LayoutContext::new(&state)
+                .axes_extent(ax.id())
+                .expect("laid out")
+        };
+        let middle = f64::midpoint(bbox.y0(), bbox.y1());
+        for (at, inside) in [
+            (Point::new(bbox.x0(), bbox.y0()), false),
+            (Point::new(bbox.x1(), bbox.y0()), false),
+            (Point::new(bbox.x0(), middle), true),
+            (Point::new(bbox.x1(), bbox.y1()), true),
+            (Point::new(bbox.x0() - 0.5, middle), false),
+        ] {
+            assert_eq!(axes_at(&fig, at).is_some(), inside, "{at:?}");
+            assert_eq!(ax.contains_point(at), inside, "{at:?}");
+        }
     }
 
     #[test]

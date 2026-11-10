@@ -82,6 +82,11 @@ impl GeoAxes {
     pub(crate) fn convert(axes: Axes, projection: GeoProjection) -> Self {
         install(&axes, Box::new(GeoState::new(projection)))
             .expect("geographic axes set up whole-globe limits and valid aspects");
+        // matplotlib's geographic axes clear themselves again once
+        // `Axes.__init__` connected its handler of units changes, which
+        // disconnects it.
+        axes.xaxis().set_follows_units(false);
+        axes.yaxis().set_follows_units(false);
         Self { axes }
     }
 

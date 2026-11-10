@@ -29,7 +29,9 @@ impl AxisArtistState {
 
     /// The major and minor ticks the helper places in `layout`.
     pub(crate) fn helper_ticks(&self, layout: LayoutContext<'_>) -> Result<TickLevels, String> {
-        self.helper.ticks(self.helper_context(layout)?)
+        self.helper
+            .ticks(self.helper_context(layout)?)
+            .map_err(|problem| problem.message)
     }
 
     /// The line the helper runs along in `layout`, and its coordinates.

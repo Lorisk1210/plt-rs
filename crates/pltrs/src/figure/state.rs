@@ -561,6 +561,17 @@ impl FigureState {
         self.projection_outline(axes, state)
     }
 
+    /// The display → data transform of `axes` as matplotlib inverts its
+    /// `transData` (see `AxesState::data_transform_inverse`); auxiliary
+    /// axes invert theirs whole.
+    pub(crate) fn data_transform_inverse(&self, axes: ArtistId) -> Option<ResolvedTransform> {
+        let state = self.artist_as::<AxesState>(axes)?;
+        if state.aux_transform.is_some() {
+            return self.data_transform(axes)?.inverted();
+        }
+        state.data_transform_inverse(&self.axes_bbox(axes)?)
+    }
+
     /// The display outline the background of `axes` is drawn along when
     /// it is no rectangle of the axes box: an outline of its own, else
     /// [`axes_outline`](Self::axes_outline)'s.

@@ -77,12 +77,17 @@ impl Axes {
     }
 }
 
-/// The axes box and data transform of `ax`, brought up to date.
-fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform)> {
+/// The axes box, data transform and its inverse (as matplotlib inverts
+/// `transData`) of `ax`, brought up to date.
+fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform, ResolvedTransform)> {
     let figure = ax.raw().figure_state();
     let state = figure.prepared();
     let state: &FigureState = &state;
-    Some((state.axes_bbox(ax.id())?, state.data_transform(ax.id())?))
+    Some((
+        state.axes_bbox(ax.id())?,
+        state.data_transform(ax.id())?,
+        state.data_transform_inverse(ax.id())?,
+    ))
 }
 
 /// The rectangle to show while dragging from `start` to `at` over `ax`
@@ -90,7 +95,7 @@ fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform)> {
 /// with `x` held or its width with `y`.
 pub(super) fn rubberband(ax: &Axes, start: Point, at: Point, key: DragKey) -> Option<Rubberband> {
     let key = colorbar_key(ax).unwrap_or(key);
-    let (bbox, _) = geometry(ax)?;
+    let (bbox, _, _) = geometry(ax)?;
     let clip = |p: Point| {
         Point::new(
             p.x.clamp(bbox.xmin(), bbox.xmax()),
@@ -185,10 +190,7 @@ pub(super) fn zoom_to_rect(
 /// axes' scaled coordinates, which are linear in display coordinates
 /// (matplotlib's `scroll_handler`); the other axis keeps its limits.
 pub(super) fn scroll(ax: &Axes, at: Point, scale: f64, (x, y): (bool, bool)) {
-    let Some((bbox, trans)) = geometry(ax) else {
-        return;
-    };
-    let Some(inverse) = trans.inverted() else {
+    let Some((bbox, _, inverse)) = geometry(ax) else {
         return;
     };
     // The view's ends in display coordinates, scaled around the pointer.
@@ -219,7 +221,7 @@ fn box_around(ax: &Axes, at: Point, scale: f64) -> Option<(Bbox, ZoomDirection)>
     } else {
         (ZoomDirection::Out, 1.0 / scale)
     };
-    let (_, trans) = geometry(ax)?;
+    let (_, trans, _) = geometry(ax)?;
     let limits = ax.raw().with::<AxesState, _>(|state| state.view_lim);
     let view = bbox_through(&limits, &trans);
     let (center, half) = (view.center(), (view.width() / 2.0, view.height() / 2.0));
@@ -335,8 +337,7 @@ impl Axes {
     /// ```
     pub fn zoomed_bounds(&self, zoom: &AxesZoom) -> Option<((f64, f64), (f64, f64))> {
         let resolved = zoom.resolve(self)?;
-        let (bbox, trans) = geometry(self)?;
-        let inverse = trans.inverted()?;
+        let (bbox, trans, inverse) = geometry(self)?;
         let limits = self.raw().with::<AxesState, _>(|state| state.view_lim);
         let view = FrozenView::new(limits, bbox, trans, inverse);
         let [x, y] = zoomed(
@@ -410,10 +411,7 @@ fn set_view_from_bbox(
     direction: ZoomDirection,
     change: Changes,
 ) {
-    let Some((bbox, trans)) = geometry(ax) else {
-        return;
-    };
-    let Some(inverse) = trans.inverted() else {
+    let Some((bbox, trans, inverse)) = geometry(ax) else {
         return;
     };
     let limits = ax.raw().with::<AxesState, _>(|state| state.view_lim);
@@ -516,6 +514,31 @@ mod tests {
     }
 
     #[test]
+    fn zooms_invert_the_data_transform_as_matplotlib_does() {
+        // matplotlib 3.11, the top Axes of plt.subplots(2, 1, figsize=(4,
+        // 4)) at these limits, zoomed from pixel (112, 240) to (236, 310):
+        // its inverse of transData is the product of its parts' inverses.
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let ax = fig.add_subplot(2, 1, 1).expect("a cell of the grid");
+        ax.set_xlim(-0.314_159_265_358_979_3, 6.597_344_572_538_565_5)
+            .and_then(|ax| ax.set_ylim(-0.952_627_944_162_882_9, 0.952_627_944_162_882_7))
+            .expect("finite limits");
+        assert!(zoom_to_rect(
+            &fig,
+            std::slice::from_ref(&ax),
+            Point::new(112.0, 240.0),
+            Point::new(236.0, 310.0),
+            PointerButton::Left,
+            DragKey::None
+        ));
+        assert_eq!(
+            ax.xlim(),
+            (1.068_141_502_220_529_6, 3.832_743_037_379_547_2)
+        );
+        assert_eq!(ax.ylim(), (-0.571_576_766_497_73, 0.381_051_177_665_152_6));
+    }
+
+    #[test]
     fn tiny_drags_cancel_and_keys_fix_an_axis() {
         let fig = Figure::new();
         let ax = fig.subplot();
@@ -579,7 +602,7 @@ mod tests {
     #[test]
     fn rubberband_spans_the_axes_with_a_key() {
         let ax = Figure::new().subplot();
-        let (bbox, _) = geometry(&ax).unwrap();
+        let (bbox, _, _) = geometry(&ax).unwrap();
         let band = rubberband(&ax, bbox.center(), Point::new(-50.0, 0.0), DragKey::X).unwrap();
         assert_eq!(band.bbox.x1(), bbox.x0(), "clipped to the axes");
         assert_eq!(band.bbox.interval_y(), bbox.interval_y());

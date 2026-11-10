@@ -199,6 +199,11 @@ class PickingMixin:
         self._picker = picker
         _artist.set_picker(self._native, _native_picker(picker))
 
+    def _keep_picker(self, picker):
+        """Keep *picker*, which pltrs (Rust) made the artist with, as
+        `set_picker` keeps it (``picker=5`` reads back as ``5``)."""
+        self.__dict__["_picker"] = picker
+
     def get_picker(self):
         """
         Return the picking behavior of the artist.

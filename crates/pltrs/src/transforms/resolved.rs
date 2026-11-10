@@ -481,6 +481,20 @@ impl ResolvedTransform {
         Self::with_step(Step::Blend(Rc::new(x), Rc::new(y)), affine)
     }
 
+    /// `first`, then this transform, the matrix of `first` multiplied into
+    /// the affine stage this transform starts with, as matplotlib's
+    /// composite of two affine transforms maps points through the product
+    /// of their matrices.
+    #[must_use]
+    pub(crate) fn after_affine(mut self, first: Affine2D) -> Self {
+        match self.steps.first_mut() {
+            None => self.affine = first.then(self.affine),
+            Some(Step::Affine(leading)) => *leading = first.then(*leading),
+            Some(_) => self.steps.insert(0, Step::Affine(first)),
+        }
+        self
+    }
+
     /// The inverse transform, if every stage is invertible.
     pub fn inverted(&self) -> Option<Self> {
         let mut steps = vec![Step::Affine(self.affine.inverted()?)];
@@ -724,6 +738,30 @@ mod tests {
         assert!(close_points(
             inv.transform_point(Point::new(300.0, 6.0)),
             Point::new(1000.0, 3.0)
+        ));
+    }
+
+    #[test]
+    fn an_affine_first_multiplies_into_the_leading_affine_stage() {
+        let first = Affine2D::scaling(10.0, 1.0);
+        let affine = ResolvedTransform::affine(Affine2D::translation(1.0, 0.0)).after_affine(first);
+        assert!(affine.is_affine());
+        assert_eq!(
+            affine.affine_part(),
+            first.then(Affine2D::translation(1.0, 0.0))
+        );
+        let leading = log_x_then_scale().inverted().expect("invertible");
+        let merged = leading.clone().after_affine(first);
+        assert_eq!(merged.steps.len(), leading.steps.len(), "one affine stage");
+        assert!(close_points(
+            merged.transform_point(Point::new(30.0, 6.0)),
+            Point::new(1000.0, 3.0)
+        ));
+        let logged = log_x_then_scale().after_affine(first);
+        assert_eq!(logged.steps.len(), 2, "an affine stage before the scale");
+        assert!(close_points(
+            logged.transform_point(Point::new(1.0, 3.0)),
+            Point::new(100.0, 6.0)
         ));
     }
 

@@ -201,3 +201,10 @@ generated/pickling/unpicklable$ | ^exception message\[dumps\]: PicklingError$ | 
 # made; a NaN hue (cast to the smallest integer) is in none of them, so its
 # colour is whatever memory those arrays were given.
 hostile/module_matplotlib_colors_4$ | ^value\[hsv_to_rgb\]: array values$ @ ^10[12]:0$ | the RGB of a NaN hue is uninitialized memory in matplotlib (np.empty_like, written by no sector), 1.0, 5e-324 and 0.0 in one run, 0.0, 0.0 and NaN for the same input masked; pltrs (Rust) computes a colour of its own
+
+# matplotlib draws a polar line through the transformed path it cached at
+# the draw before its radial limits changed (`PolarTransform` reads them
+# without invalidating the line's cache): the same program without the draw
+# before `set_ylim` draws as pltrs does (RMS 17 between matplotlib's two
+# runs, 0 to pltrs'; refreshing the line's data draws as pltrs too).
+generated/interaction/events_polar$ | ^image: RMS > 1$ | matplotlib's stale cached path of a polar line after its radial limits change (see above)

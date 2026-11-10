@@ -215,12 +215,22 @@ fn set_tick_agg_filter(
 }
 
 /// Whether the axes follows the axis' changes of units (recomputing its
-/// data limits and autoscaling), as matplotlib's does until the axis is
-/// cleared; a 3-D axes follows those of its axes as it converts them.
+/// data limits and autoscaling), as matplotlib's does from its creation
+/// until the axis is cleared; a 3-D axes follows those of its axes as it
+/// converts them.
 fn follows_units(owner: AxisOwner, name: String) -> PyResult<bool> {
     Ok(match owner.axis(&name)? {
         AnyAxis::Flat(axis) => axis.follows_units(),
         AnyAxis::Deep(_) => true,
+    })
+}
+
+/// How many major (or `minor`) ticks the axis has made: as many as
+/// matplotlib's tick list (`majorTicks`, `minorTicks`) holds once listed.
+fn ticks_made(owner: AxisOwner, name: String, minor: bool) -> PyResult<usize> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.ticks_made(minor),
+        AnyAxis::Deep(axis) => axis.ticks_made(minor),
     })
 }
 
@@ -432,6 +442,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_tick_agg_filter", set_tick_agg_filter)?;
     module.add("follows_units", follows_units)?;
     module.add("set_follows_units", set_follows_units)?;
+    module.add("ticks_made", ticks_made)?;
     module.add("get_in_layout", get_in_layout)?;
     module.add("set_in_layout", set_in_layout)?;
     module.add("get_tightbbox", get_tightbbox)?;

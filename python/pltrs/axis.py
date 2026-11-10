@@ -1092,13 +1092,15 @@ class Axis(DrawnWith, Artist):
 
     @property
     def majorTicks(self):
-        """The major ticks (see `get_major_ticks`)."""
-        return self._tick_objects(False, len(self.get_majorticklocs()))
+        """The major ticks made so far, at least one: those of the locations
+        the axis placed when drawn and those `get_major_ticks` listed, as
+        matplotlib's tick list holds them."""
+        return self._tick_objects(False, _axis.ticks_made(*self._args(), False))
 
     @property
     def minorTicks(self):
-        """The minor ticks (see `get_minor_ticks`)."""
-        return self._tick_objects(True, len(self.get_minorticklocs()))
+        """The minor ticks made so far, at least one (see `majorTicks`)."""
+        return self._tick_objects(True, _axis.ticks_made(*self._args(), True))
 
     def get_major_ticks(self, numticks=None):
         r"""
@@ -2239,9 +2241,6 @@ class Axis(DrawnWith, Artist):
         for axis in self._get_shared_axis():
             axis.units = u
             axis._update_axisinfo()
-            if _axis.follows_units(*axis._args()):
-                # matplotlib's Axes handler, until a clear disconnects it.
-                axis.axes._unit_change_handler(axis.axis_name)
             axis.callbacks.process('units')
 
     def _get_shared_axis(self):
@@ -2264,8 +2263,7 @@ class Axis(DrawnWith, Artist):
             return False
         if _is_native_converter(converter):
             from .category import StrCategoryConverter
-            replaced = self.get_converter()
-            categories_replace = False
+            categories_set = False
             if not isinstance(converter, StrCategoryConverter):
                 # The first date tells pltrs (Rust) all it needs: that the
                 # axis shows dates (the others may be no dates at all, as
@@ -2275,18 +2273,15 @@ class Axis(DrawnWith, Artist):
                 # matplotlib's converter gives an axis without units the
                 # category data (`default_units`).
                 self.__dict__.pop("_units_given", None)
-                categories_replace = replaced is not None and replaced != converter
+                categories_set = True
             taken = self._take_native_converter(
                 converter, lambda: self._update_native_units(data))
-            if categories_replace:
+            if categories_set:
                 # Which matplotlib's `set_units` makes the units of the
-                # axes sharing the axis, converting the data of their lines
-                # again through them: values of the converter replaced (a
-                # line of dates) are no categories.
+                # axes sharing the axis, telling their callbacks (the Axes'
+                # handler converts the data of their lines again: values of
+                # a converter replaced, a line of dates, are no categories).
                 for axis in self._get_shared_axis():
-                    if _axis.follows_units(*axis._args()):
-                        # (Until a clear disconnects the handler.)
-                        axis.axes._unit_change_handler(axis.axis_name)
                     axis.callbacks.process('units')
             if not isinstance(converter, StrCategoryConverter):
                 # The zone of the first date is the unit of an axis

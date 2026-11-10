@@ -367,7 +367,7 @@ def _wait_for(log_path, proc, name, timeout):
 
 
 def _find_window(display, title):
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + wayland_driving.SHOWN_WITHIN
     while time.monotonic() < deadline:
         window = display.find_window(title)
         if window is not None:

@@ -721,9 +721,10 @@ class Collection(mcolorizer.ColorizingArtist):
         return super().contains(mouseevent)
 
     def _contains_details(self, ind):
-        """The indices of the items hit; none for a hidden collection,
-        which matplotlib does not test."""
-        return dict(ind=ind) if self.get_visible() else {}
+        """The indices of the items hit, C ``int``s as matplotlib's hit test
+        gives them; none for a hidden collection, which matplotlib does not
+        test."""
+        return dict(ind=ind.astype(np.int32)) if self.get_visible() else {}
 
     def get_urls(self):
         """

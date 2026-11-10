@@ -2,7 +2,7 @@
 //! the decorations off and on, and the aspect/limit presets.
 
 use super::aspect::check_adjustable;
-use super::{Adjustable, AspectError, Axes, AxesState};
+use super::{Adjustable, AspectError, Axes, AxesState, AxisName};
 use crate::rc::Aspect;
 use crate::transforms::Anchor;
 
@@ -109,11 +109,12 @@ impl Axes {
     }
 
     /// [`Axes::autoscale_view`] along the axes `(scalex, scaley)` asks for
-    /// (matplotlib's `autoscale_view(tight, scalex, scaley)`). An axis
-    /// still waiting to be rescaled is rescaled with them, as
-    /// matplotlib's view limits bring themselves up to date when
-    /// `autoscale_view` sets them; with neither axis asked only `tight`
-    /// changes.
+    /// (matplotlib's `autoscale_view(tight, scalex, scaley)`); with neither
+    /// axis asked only `tight` changes. An autoscale still waiting runs
+    /// first, its limit callbacks with it, when an axis asked follows the
+    /// data: matplotlib's `autoscale_view` reads the bounds of the axis it
+    /// sets, which brings a stale view up to date, and then sets them
+    /// again, calling the callbacks a second time.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -131,6 +132,12 @@ impl Axes {
         tight: Option<bool>,
         (scalex, scaley): (bool, bool),
     ) -> &Self {
+        let sets_bounds = [(scalex, AxisName::X), (scaley, AxisName::Y)]
+            .into_iter()
+            .any(|(scale, name)| scale && self.autoscale_on(Some(name)));
+        if sets_bounds {
+            self.unstale_view();
+        }
         self.raw.with_mut::<AxesState, _>(|axes| {
             if let Some(tight) = tight {
                 axes.tight = tight;

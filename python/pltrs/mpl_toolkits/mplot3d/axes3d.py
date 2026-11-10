@@ -359,6 +359,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     def _from_native(cls, native, figure):
         ax = super()._from_native(native, figure)
         ax._init_3d_state(figure)
+        ax._connect_unit_change_handler()
         return ax
 
     def _init_3d_state(self, figure):

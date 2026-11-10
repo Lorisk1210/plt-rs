@@ -94,6 +94,10 @@ impl PolarAxes {
                 axis.role = role;
                 axis.set_scale(Rc::new(LinearScale));
                 axis.restyle_ticks(|style| style.ticks = Sides::default());
+                // matplotlib's `PolarAxes.__init__` clears the axes again
+                // once `Axes.__init__` connected its handler of units
+                // changes, which disconnects it.
+                axis.follows_units = false;
             }
         });
         let spines: Vec<_> = axes.spines().iter().cloned().collect();

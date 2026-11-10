@@ -125,7 +125,7 @@ fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform, ResolvedTransform)> {
     let state: &FigureState = &state;
     let bbox = state.axes_bbox(ax.id())?;
     let trans = state.data_transform(ax.id())?;
-    let inverse = trans.inverted()?;
+    let inverse = state.data_transform_inverse(ax.id())?;
     Some((bbox, trans, inverse))
 }
 

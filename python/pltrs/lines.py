@@ -1209,6 +1209,14 @@ class Line2D(Artist):
             self.set_pickradius(p)
         super().set_picker(p)
 
+    def _keep_picker(self, picker):
+        # matplotlib's constructor makes a number picker the pick radius,
+        # whatever radius it was given.
+        super()._keep_picker(picker)
+        if isinstance(picker, Number) and not isinstance(picker, bool):
+            self._set_native(pickradius=float(picker))
+            _values.remember(self, "pickradius", picker)
+
     def contains(self, mouseevent):
         """
         Test whether *mouseevent* occurred on the line.

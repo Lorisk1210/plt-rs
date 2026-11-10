@@ -144,20 +144,24 @@ class NavigationMixin:
     def contains(self, mouseevent):
         if self._different_canvas(mouseevent) or mouseevent.x is None:
             return False, {}
-        return self.contains_point((mouseevent.x, mouseevent.y)), {}
+        x, y = mouseevent.x, mouseevent.y
+        if not all(isinstance(value, Real) for value in (x, y)):
+            # matplotlib's patch hit-tests what are no numbers with its
+            # path (``point_in_path``, which refuses them).
+            return self.contains_point((x, y)), {}
+        # pltrs (Rust) tests the patch's outline as matplotlib's
+        # ``patch.contains`` does, each of its sub-paths on its own.
+        return _navigation.contains_point(self._native, float(x), float(y)), {}
 
     def contains_point(self, point):
         """
         Return whether *point* (pair of pixel coordinates) is inside the Axes
         patch.
         """
-        # matplotlib's patch hands the path test the point's first two
-        # items, which pybind11 takes only as numbers.
-        x, y = point[0], point[1]
-        if not all(isinstance(value, Real) for value in (x, y)):
-            patch = self.patch
-            return patch.get_path().contains_point(point, patch.get_transform(), 1.0)
-        return _navigation.contains_point(self._native, float(x), float(y))
+        # matplotlib's ``patch.contains_point(point, radius=1.0)``: the
+        # patch's path as a whole, one pixel around it included.
+        patch = self.patch
+        return patch.get_path().contains_point(point, patch.get_transform(), 1.0)
 
     def in_axes(self, mouseevent):
         """

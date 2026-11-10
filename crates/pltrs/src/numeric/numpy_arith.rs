@@ -27,6 +27,24 @@ pub fn divide(a: f64, b: f64) -> f64 {
     scalar("divide", a / b, a, b)
 }
 
+/// Issues numpy's warnings for one call of the elementwise operation
+/// `name` (`"power"`, `"exp"`), each element given as its result and its
+/// two operands (a unary operation's operand twice): numpy reports each
+/// kind of problem once per call, whichever elements raised it.
+///
+/// ```
+/// use pltrs::numeric::numpy_arith::warn_elementwise;
+/// // 10**400 overflows, 10**2 does not: one warning for the call.
+/// warn_elementwise("power", [(f64::INFINITY, 10.0, 400.0), (100.0, 10.0, 2.0)]);
+/// ```
+pub fn warn_elementwise(name: &str, elements: impl IntoIterator<Item = (f64, f64, f64)>) {
+    let mut flags = Flags::default();
+    for (result, a, b) in elements {
+        flags.note(result, a, b);
+    }
+    flags.warn(name);
+}
+
 /// numpy's `np.dot(b, a)` of two 3×3 matrices (rows of columns), each
 /// entry the sum of its three products in order, so that a NaN or an
 /// infinity reaches every entry it is multiplied into, the bottom row
@@ -75,6 +93,11 @@ impl Flags {
         }
     }
 
+    /// Whether any flag is raised.
+    fn raised(self) -> bool {
+        self.divide_by_zero || self.overflow || self.invalid
+    }
+
     /// Issues the warnings of the raised flags for the operation `name`
     /// (`"scalar multiply"`), in the order numpy checks them.
     fn warn(self, name: &str) {
@@ -95,7 +118,9 @@ impl Flags {
 fn scalar(name: &str, result: f64, a: f64, b: f64) -> f64 {
     let mut flags = Flags::default();
     flags.note(result, a, b);
-    flags.warn(&format!("scalar {name}"));
+    if flags.raised() {
+        flags.warn(&format!("scalar {name}"));
+    }
     result
 }
 
@@ -133,6 +158,29 @@ mod tests {
         assert_eq!(
             warnings_of(|| assert_eq!(multiply(1e308, 10.0), f64::INFINITY)),
             ["overflow encountered in scalar multiply"]
+        );
+    }
+
+    #[test]
+    fn elementwise_calls_warn_once_per_kind() {
+        assert_eq!(
+            warnings_of(|| warn_elementwise(
+                "power",
+                [
+                    (f64::INFINITY, 10.0, 400.0),
+                    (f64::INFINITY, 10.0, 500.0),
+                    (f64::INFINITY, 10.0, f64::INFINITY),
+                ]
+            )),
+            ["overflow encountered in power"]
+        );
+        assert_eq!(
+            warnings_of(|| warn_elementwise("log", [(f64::NEG_INFINITY, 0.0, 0.0)])),
+            ["divide by zero encountered in log"]
+        );
+        assert_eq!(
+            warnings_of(|| warn_elementwise("exp", [(1.0, 0.0, 0.0)])),
+            Vec::<String>::new()
         );
     }
 

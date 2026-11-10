@@ -16,7 +16,7 @@ import numpy as np
 from . import (_api, _handles, _live_transforms, _streamplot_reference, _values, cbook,
                colors as mcolors, collections as mcollections, patches)
 from ._fancy_styles import _style_object
-from ._native import plotting as _plotting
+from ._native import patches as _patches, plotting as _plotting
 from ._patch_styles import ArrowStyle, _native_spec
 from ._stream_grid import (  # noqa: F401 - matplotlib's names of the module
     DomainMap, Grid, InvalidIndexError, OutOfBounds, StreamMask, TerminateTrajectory, interpgrid)
@@ -244,8 +244,10 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
                 _values.remember(arrow, side, color)
     # matplotlib's collection of the arrows, which no axes holds ("Adding
     # the collection itself is broken; see #2341."): the arrows are the
-    # axes' patches.
+    # axes' patches, each added by ``add_patch``, which makes its path.
     collection = mcollections.PatchCollection(arrows)
+    for arrow in arrows:
+        _patches.warn_making_path(arrow._native)
     # matplotlib autoscales the view at once (``autoscale_view``).
     axes._unstale_viewLim()
     return StreamplotSet(lines, collection)

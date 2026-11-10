@@ -4,8 +4,10 @@
 
 use std::ops::Deref;
 
+use super::draw::ellipse_scales;
 use super::{Collection, CollectionArtist, Ellipses};
-use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
+use crate::artist::{ArtistHandle, DrawContext, RawHandle, TypedHandle};
+use crate::numeric::numpy_arith::warn_elementwise;
 
 /// A handle to an ellipse collection, what
 /// [`CollectionSpec::ellipses`](super::CollectionSpec::ellipses) makes
@@ -106,6 +108,24 @@ impl EllipseCollection {
     }
 }
 
+impl CollectionArtist {
+    /// Issues the runtime warnings numpy issues as matplotlib's
+    /// `EllipseCollection.draw` makes the transforms of its ellipses (see
+    /// [`Ellipses::warn_transforming`]), in the scale of their units now.
+    pub(super) fn warn_transforming_ellipses(&self, ctx: &DrawContext<'_>) {
+        let Some(ellipses) = &self.ellipses else {
+            return;
+        };
+        if let Some(scales) = ellipse_scales(ellipses.units, ctx.layout(), self.base.parent) {
+            // Once per draw of matplotlib's (twice for a print it draws
+            // once before).
+            for _ in 0..crate::text::font_notes::draws_of_print() {
+                ellipses.warn_transforming(scales.scale);
+            }
+        }
+    }
+}
+
 impl Ellipses {
     /// The error numpy raises where matplotlib's `_set_transforms` makes
     /// one transform per width: it multiplies the widths, then the
@@ -117,6 +137,55 @@ impl Ellipses {
         [rows, self.half_heights.len()]
             .into_iter()
             .find_map(|axes| stored_product(axes, angles, rows).err())
+    }
+
+    /// Issues the runtime warnings numpy issues as matplotlib's
+    /// `_set_transforms` makes the ellipses' transforms at `scale` (the
+    /// units' pixels): the sizes scaled, the sines and cosines of the
+    /// angles (invalid for infinite ones), and their products, one warning
+    /// of each kind per operation. Sizes that do not broadcast stop it
+    /// where numpy raises.
+    pub(crate) fn warn_transforming(&self, scale: f64) {
+        let scaled = |sizes: &[f64]| -> Vec<f64> {
+            let scaled: Vec<f64> = sizes.iter().map(|size| size * scale).collect();
+            warn_elementwise(
+                "multiply",
+                sizes
+                    .iter()
+                    .zip(&scaled)
+                    .map(|(&size, &s)| (s, size, scale)),
+            );
+            scaled
+        };
+        let (widths, heights) = (scaled(&self.half_widths), scaled(&self.half_heights));
+        let unary = |name: &str, f: fn(f64) -> f64| -> Vec<f64> {
+            let values: Vec<f64> = self.angles.iter().map(|&a| f(a)).collect();
+            warn_elementwise(
+                name,
+                self.angles.iter().zip(&values).map(|(&a, &v)| (v, a, a)),
+            );
+            values
+        };
+        let (sin, cos) = (unary("sin", f64::sin), unary("cos", f64::cos));
+        if self.broadcast_problem().is_some() {
+            return;
+        }
+        let minus_sin: Vec<f64> = sin.iter().map(|s| -s).collect();
+        for (sizes, factors) in [
+            (&widths, &cos),
+            (&heights, &minus_sin),
+            (&widths, &sin),
+            (&heights, &cos),
+        ] {
+            let count = sizes.len().max(factors.len());
+            warn_elementwise(
+                "multiply",
+                (0..count).map(|i| {
+                    let (a, b) = (sizes[i % sizes.len()], factors[i % factors.len()]);
+                    (a * b, a, b)
+                }),
+            );
+        }
     }
 }
 
@@ -146,6 +215,33 @@ fn stored_product(a: usize, b: usize, rows: usize) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::collections::{CollectionSpec, EllipseUnits};
+    use crate::warnings::capturing_runtime;
+
+    #[test]
+    fn infinite_angles_warn_in_sin_and_cos() {
+        let ellipses = Ellipses {
+            half_widths: vec![1.0, 2.0],
+            half_heights: vec![1.0, 1.0],
+            angles: vec![0.0, f64::INFINITY],
+            units: EllipseUnits::Xy,
+        };
+        let ((), warned) = capturing_runtime(|| ellipses.warn_transforming(1.0));
+        assert_eq!(
+            warned,
+            [
+                "invalid value encountered in sin",
+                "invalid value encountered in cos"
+            ]
+        );
+        let finite = Ellipses {
+            angles: vec![0.0, 1.0],
+            ..ellipses
+        };
+        assert_eq!(
+            capturing_runtime(|| finite.warn_transforming(2.0)).1,
+            Vec::<String>::new()
+        );
+    }
     use crate::figure::Figure;
 
     #[test]

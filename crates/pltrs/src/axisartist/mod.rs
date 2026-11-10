@@ -54,7 +54,7 @@ pub(crate) use aux_transform::{
 pub use axes::{AxisArtistAxes, GridHelper};
 pub(crate) use axis_texts::AxisTextsState;
 pub use axis_texts::{AxisTexts, AxisTextsArtist, AxisTextsKind};
-pub(crate) use gridlines::{Gridlines, on_curvilinear_grid};
+pub(crate) use gridlines::{Gridlines, on_curvilinear_grid, reads_hidden_axes};
 pub use gridlines::{GridlinesChoice, choose_gridlines};
 pub use handles::{
     AxisArtist, AxisLabel, AxisLine, LabelBase, LabelDirection, TickLabels, Ticks, Toggle,

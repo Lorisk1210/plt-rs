@@ -367,7 +367,11 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        self.shape.warn_drawing();
+        // Once per draw of matplotlib's (twice for a print it draws once
+        // before).
+        for _ in 0..crate::text::font_notes::draws_of_print() {
+            self.shape.warn_drawing();
+        }
         if let Err(err) = self.parts().paint(ctx) {
             ctx.report_kind(self.base.id(), err.draw_kind(), err);
         }

@@ -645,6 +645,7 @@ impl Artist for CollectionArtist {
     fn draw_hidden(&self, ctx: &mut DrawContext<'_>) {
         // matplotlib's `EllipseCollection.draw` makes the ellipses'
         // transforms before `Collection.draw` asks whether it is visible.
+        self.warn_transforming_ellipses(ctx);
         if let Some(problem) = self.ellipses.as_ref().and_then(Ellipses::broadcast_problem) {
             ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         }
@@ -657,6 +658,7 @@ impl Artist for CollectionArtist {
             mapped.normalize_drawn();
         }
         self.update_scalarmappable();
+        self.warn_transforming_ellipses(ctx);
         if self.single_path {
             // matplotlib's renderers index the paths as a sequence.
             ctx.report_kind(

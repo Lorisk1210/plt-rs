@@ -61,6 +61,12 @@ pub trait AxisMap: fmt::Debug + std::any::Any {
     fn forward_masked_row(&self, values: &mut [f64]) {
         self.forward_all(values);
     }
+    /// Issues the runtime warnings numpy issues where matplotlib's inverse
+    /// transform maps `values` in one call (an exponential overflowing,
+    /// say). None by default.
+    fn warn_inverting(&self, values: &[f64]) {
+        let _ = values;
+    }
     /// Whether the map runs code of the program's that observes its
     /// calls (a scale of a host language's functions): the axes it scales
     /// are then ticked as matplotlib ticks them, as often (see

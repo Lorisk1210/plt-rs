@@ -13,6 +13,7 @@ use pltrs_core::archive::{External, ProgramFn};
 use pltrs_core::numeric::{np_arcsinh, np_sign};
 
 use super::{NonPositive, ScaleError};
+use crate::numeric::numpy_arith::warn_elementwise;
 use crate::ticker::LogBase;
 use crate::transforms::AxisMap;
 
@@ -95,6 +96,25 @@ impl AxisMap for LogTransform {
             value.exp2()
         } else {
             (value * base.ln()).exp()
+        }
+    }
+
+    /// `InvertedLogTransform`: `np.exp`, `np.exp2`, or `np.exp(values *
+    /// np.log(base))` for other bases.
+    fn warn_inverting(&self, values: &[f64]) {
+        let base = self.base();
+        if base == std::f64::consts::E {
+            warn_elementwise("exp", values.iter().map(|&v| (v.exp(), v, v)));
+        } else if base == 2.0 {
+            warn_elementwise("exp2", values.iter().map(|&v| (v.exp2(), v, v)));
+        } else {
+            let ln = base.ln();
+            let scaled: Vec<f64> = values.iter().map(|&v| v * ln).collect();
+            warn_elementwise(
+                "multiply",
+                values.iter().zip(&scaled).map(|(&v, &s)| (s, v, ln)),
+            );
+            warn_elementwise("exp", scaled.iter().map(|&s| (s.exp(), s, s)));
         }
     }
 }
@@ -218,6 +238,17 @@ impl AxisMap for LogitTransform {
 
     fn inverse(&self, value: f64) -> f64 {
         1.0 / (1.0 + pltrs_core::numeric::pow(10.0, -value))
+    }
+
+    /// `LogisticTransform`: `1.0 / (1 + 10**(-values))`, whose power
+    /// overflows for large negative values.
+    fn warn_inverting(&self, values: &[f64]) {
+        warn_elementwise(
+            "power",
+            values
+                .iter()
+                .map(|&v| (pltrs_core::numeric::pow(10.0, -v), 10.0, -v)),
+        );
     }
 }
 

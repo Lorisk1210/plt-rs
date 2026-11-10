@@ -25,6 +25,7 @@ use pltrs_text::{TextEngine, TextError, TextRun, TextSource};
 
 use super::layout::Typesetting;
 use super::math::Line;
+use super::math_parses;
 use super::metrics;
 use super::metrics_cache::{self, MetricsCache};
 use crate::fonts::FontProperties;
@@ -179,6 +180,26 @@ fn noting() -> bool {
     !UNNOTED.get()
 }
 
+/// Whether laying `text` out now stands for matplotlib's
+/// `Text._get_layout` of it: not for an empty text (which matplotlib never
+/// lays out), nor for layouts matplotlib keeps from an earlier one (see
+/// [`unnoted`]) or makes only where it draws (see [`placed_before_drawn`]).
+fn lays_out_as_matplotlib(text: &str) -> bool {
+    noting() && !PLACED_BEFORE_DRAWN.get() && !text.is_empty()
+}
+
+/// How many of matplotlib's `Text._get_layout` of `text` laying it out now
+/// stands for: none where matplotlib does not lay it out (see
+/// [`lays_out_as_matplotlib`]), else one per draw (two in the draw of a
+/// print matplotlib draws once before, see [`predrawn`]).
+pub(super) fn layouts_of(text: &str) -> usize {
+    if lays_out_as_matplotlib(text) {
+        draws_noted(false)
+    } else {
+        0
+    }
+}
+
 /// Notes the lookup matplotlib's `Text._get_layout` makes for the height
 /// of the font of `text`: none for an empty text (which matplotlib never
 /// lays out), for TeX, or for the AFM fonts the PDF and PostScript backends
@@ -192,16 +213,11 @@ pub(super) fn note_layout(
     font: &FontProperties,
     typesetting: Typesetting,
 ) -> Result<(), TextError> {
-    if !noting()
-        || PLACED_BEFORE_DRAWN.get()
-        || text.is_empty()
-        || typesetting == Typesetting::Tex
-        || metrics::measures_afm()
-    {
+    if typesetting == Typesetting::Tex || metrics::measures_afm() {
         return Ok(());
     }
     let request = font.drawn_request();
-    for _ in 0..draws_noted(false) {
+    for _ in 0..layouts_of(text) {
         TextEngine::global().note_font_lookup(&request)?;
     }
     Ok(())
@@ -210,7 +226,7 @@ pub(super) fn note_layout(
 /// Notes what measuring the plain line `line` of `run`, uncached, notes in
 /// matplotlib (`get_text_width_height_descent`): the lookup of its fonts
 /// and the characters none has. Math lines are measured by mathtext, which
-/// notes neither.
+/// notes neither, but parses them (see [`math_parses`]).
 ///
 /// # Errors
 ///
@@ -220,12 +236,13 @@ pub(super) fn note_measured(
     font: &FontProperties,
     run: &TextRun,
 ) -> Result<(), TextError> {
-    let Line::Plain(text) = line else {
-        return Ok(());
-    };
     if !noting() {
         return Ok(());
     }
+    let Line::Plain(text) = line else {
+        math_parses::parsed(run, crate::rc::params().text_antialiased);
+        return Ok(());
+    };
     let engine = TextEngine::global();
     let request = font.drawn_request();
     for _ in 0..draws_noted(true) {
@@ -249,14 +266,17 @@ pub(crate) fn through_effects<R>(draw: impl FnOnce() -> R) -> R {
 /// Notes the lookup drawing the line `run` makes in matplotlib (its
 /// renderers' `draw_text` prepares the fonts of plain lines): in each of
 /// the draws of a print drawn through path effects, else in the last.
+/// Drawing a math line parses it, with `antialiased` glyphs (see
+/// [`math_parses`]).
 ///
 /// # Errors
 ///
 /// When the fonts cannot be looked up.
-pub(super) fn note_drawn(run: &TextRun) -> Result<(), TextError> {
+pub(super) fn note_drawn(run: &TextRun, antialiased: bool) -> Result<(), TextError> {
     if NOT_RENDERING.get() {
         return Ok(());
     }
+    math_parses::parsed(run, antialiased);
     let Some(TextSource::Plain { font, .. }) = &run.source else {
         return Ok(());
     };

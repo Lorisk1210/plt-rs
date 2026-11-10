@@ -201,7 +201,7 @@ impl FigureState {
 
     /// Whether axis `name` of `axes` is shown (matplotlib's
     /// `axis.get_visible()`).
-    fn axis_shown(&self, axes: ArtistId, name: AxisName) -> bool {
+    pub(crate) fn axis_shown(&self, axes: ArtistId, name: AxisName) -> bool {
         self.store
             .get_as::<AxesState>(axes)
             .is_some_and(|state| state.axis(name).visible)

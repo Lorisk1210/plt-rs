@@ -506,6 +506,11 @@ pub(crate) fn draw_text(
     rc: &crate::rc::RcParams,
     drawn_as: AxisTextDraw,
 ) {
+    // matplotlib's draw raises at the first text that fails: it lays no
+    // later one out.
+    if ctx.ended() {
+        return;
+    }
     let gc = GraphicsContext {
         foreground: text.color,
         antialiased: text.antialiased.unwrap_or(rc.text_antialiased),

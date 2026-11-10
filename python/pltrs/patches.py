@@ -3342,6 +3342,9 @@ default: 'arc3'
         """Return the path of the arrow in the data coordinates."""
         _unusable.check(self, measuring=True)
         self._place_ends()
+        # matplotlib builds the arrow with its style, numpy warning about
+        # heads of no size.
+        _patches.warn_making_path(self._native)
         # The arrow of an annotation is drawn by the annotation, which
         # places it (`._annotation_arrow`).
         arrays = _mirrors.ask(self, "display_path")
@@ -3371,7 +3374,9 @@ default: 'arc3'
         if kind == "patch":
             # ``add_patch`` measures the arrow, which fails for a connection
             # that cannot be made, as matplotlib's ``_update_patch_limits``
-            # (with the view as it is, not autoscaled first).
+            # (with the view as it is, not autoscaled first), building it
+            # with its style.
+            _patches.warn_making_path(self._native)
             _patches.check_measurable(self._native)
         return added
 

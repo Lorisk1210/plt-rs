@@ -75,6 +75,9 @@ trait PatchOps: StyleOps {
     fn shadow(&self, ox: f64, oy: f64, shade: f64) -> Result<Shadow<PathShape>, ShadowError>;
     /// The outlines in display pixels in the figure as it stands.
     fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError>;
+    /// Issues numpy's warnings of matplotlib's making the outline (see
+    /// [`PatchShape::warn_making_path`]).
+    fn warn_making_path(&self);
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
@@ -109,6 +112,10 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn display_paths_as_is(&self) -> Result<Vec<Path>, PatchError> {
         Patch::display_paths_as_is(self)
+    }
+
+    fn warn_making_path(&self) {
+        self.shape().warn_making_path();
     }
 }
 
@@ -212,6 +219,13 @@ fn display_path(patch: AnyPatch) -> PyResult<PathArrays> {
         .display_paths_as_is()
         .map_err(|err| PyErr::value_error(err.to_string()))?;
     path_arrays(&Path::compound(&paths), false)
+}
+
+/// Issues the runtime warnings numpy issues where matplotlib makes the
+/// outline of `patch` (`get_path`; an arrow's heads of no size).
+fn warn_making_path(patch: AnyPatch) -> PyResult<()> {
+    patch.0.warn_making_path();
+    Ok(())
 }
 
 /// Fails as matplotlib's `add_patch` fails to measure the patch (an arrow
@@ -587,6 +601,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get", style::get)?;
     module.add("get_path", get_path)?;
     module.add("display_path", display_path)?;
+    module.add("warn_making_path", warn_making_path)?;
     module.add("check_measurable", check_measurable)?;
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;

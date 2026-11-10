@@ -128,6 +128,20 @@ pub struct BlockStyle {
     pub linespacing: LineSpacing,
 }
 
+impl BlockStyle {
+    /// The alignment of the rotated box with the anchor, as matplotlib's
+    /// `Text._get_layout` takes it for rotation modes other than
+    /// [`RotationMode::Anchor`]: the tick modes choose one alignment from
+    /// the angle.
+    pub fn rotated_alignment(&self) -> (HAlign, VAlign) {
+        match self.rotation_mode {
+            RotationMode::XTick => (ha_for_angle(self.rotation, self.valign), self.valign),
+            RotationMode::YTick => (self.halign, va_for_angle(self.rotation, self.halign)),
+            RotationMode::Default | RotationMode::Anchor => (self.halign, self.valign),
+        }
+    }
+}
+
 /// Where one line of a block is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LinePlacement {
@@ -360,11 +374,7 @@ fn alignment_offset(
         };
         return rotate(style.rotation, ox, oy);
     }
-    let (halign, valign) = match style.rotation_mode {
-        RotationMode::XTick => (ha_for_angle(style.rotation, style.valign), style.valign),
-        RotationMode::YTick => (style.halign, va_for_angle(style.rotation, style.halign)),
-        RotationMode::Default | RotationMode::Anchor => (style.halign, style.valign),
-    };
+    let (halign, valign) = style.rotated_alignment();
     let (x0, y0, x1, y1) = rotated;
     let ox = match halign {
         HAlign::Left => x0,

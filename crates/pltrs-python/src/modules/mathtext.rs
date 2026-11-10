@@ -13,7 +13,7 @@ use pltrs_render::{GlyphBitmap, GlyphShape, render_glyph};
 use pltrs_text::mathtext::{
     MathGlyph, MathLayout, MathNode, MathRect, accent_map, unicode_index, wide_accents,
 };
-use pltrs_text::{GlyphChars, TextEngine};
+use pltrs_text::{GlyphChars, TextEngine, TextSource};
 
 use super::font_manager::FontProps;
 use crate::binding::prelude::*;
@@ -48,6 +48,9 @@ fn parse_path(s: String, dpi: f64, props: Option<FontProps>) -> PyResult<Vector>
     let run = engine
         .layout_math(&s, &math_style(&font, dpi, &rc))
         .map_err(|err| math_error(&err))?;
+    if let Some(TextSource::Math { logged, .. }) = &run.source {
+        pltrs_text::log_mathtext(logged);
+    }
     let db = engine.database();
     let glyphs = run
         .glyphs
@@ -88,6 +91,7 @@ fn parse_raster(
     let layout = TextEngine::global()
         .typeset_math(&s, &math_style(&font, dpi, &rc))
         .map_err(|err| math_error(&err))?;
+    pltrs_text::log_mathtext(&layout.logged);
     let raster = RasterImage::of(&layout);
     let mut image = raster.blank();
     let engine = TextEngine::global();

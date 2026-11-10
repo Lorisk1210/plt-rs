@@ -292,7 +292,14 @@ fn draw_text(
     angle: f64,
     dpi: f64,
 ) -> PyResult<()> {
-    let run = pltrs::text::typeset_line(&text, &props.0, ismath.0, dpi, &pltrs::rc::params())?;
+    let run = pltrs::text::typeset_line(
+        &text,
+        &props.0,
+        ismath.0,
+        dpi,
+        &pltrs::rc::params(),
+        gc.0.antialiased,
+    )?;
     let step = DrawStep::Text {
         gc: gc.0,
         run: Box::new(run),

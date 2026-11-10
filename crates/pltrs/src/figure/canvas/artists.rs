@@ -167,8 +167,8 @@ impl FigureCanvas {
         angle: f64,
     ) -> Result<(), CanvasError> {
         let dpi = self.figure.dpi();
-        let run =
-            typeset_line(text, font, kind, dpi, &crate::rc::params()).map_err(CanvasError::Text)?;
+        let run = typeset_line(text, font, kind, dpi, &crate::rc::params(), gc.antialiased)
+            .map_err(CanvasError::Text)?;
         let mut kept = self.take()?;
         let drawn = if let Some(TextSource::Tex(tex)) = &run.source {
             kept.renderer

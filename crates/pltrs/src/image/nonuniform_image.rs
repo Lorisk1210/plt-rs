@@ -161,6 +161,7 @@ impl NonUniformImageArtist {
             NonUniformInterpolation::Bilinear => {
                 let columns = taps(&self.x, &x_centres);
                 let rows = taps(&self.y, &y_centres);
+                warn_casting(&columns, &rows);
                 rows.iter()
                     .rev()
                     .flat_map(|row| columns.iter().map(move |col| (row, col)))
@@ -269,6 +270,17 @@ fn taps(centres: &[f64], pixels: &[f64]) -> Vec<Tap> {
             Tap { low, high, frac }
         })
         .collect()
+}
+
+/// Issues the warnings numpy issues as matplotlib's `make_image` casts the
+/// blended channels to bytes: a fraction that is NaN (a grid centre at NaN)
+/// makes channels NaN, and each of the four casts warns once.
+fn warn_casting(columns: &[Tap], rows: &[Tap]) {
+    if columns.iter().chain(rows).any(|tap| tap.frac.is_nan()) {
+        for _ in 0..4 {
+            crate::warnings::warn_runtime("invalid value encountered in cast");
+        }
+    }
 }
 
 /// The colour blended from the four cells around `(row, col)`, summed in
@@ -550,6 +562,22 @@ mod tests {
             ]
         );
         assert_eq!(taps(&[2.0], &[7.0]), vec![tap(0, 0, 0.0)], "one centre");
+    }
+
+    #[test]
+    fn nan_fractions_warn_once_per_channel() {
+        let tap = |frac| Tap {
+            low: 0,
+            high: 1,
+            frac,
+        };
+        let ((), warned) = crate::warnings::capturing_runtime(|| {
+            warn_casting(&[tap(0.5)], &[tap(f32::NAN), tap(f32::NAN)]);
+        });
+        assert_eq!(warned, ["invalid value encountered in cast"; 4]);
+        let ((), warned) =
+            crate::warnings::capturing_runtime(|| warn_casting(&[tap(0.5)], &[tap(0.0)]));
+        assert_eq!(warned, Vec::<String>::new());
     }
 
     #[test]

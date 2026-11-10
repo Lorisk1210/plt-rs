@@ -33,13 +33,20 @@ def resampled_shows(extents, magnification, round_to_pixel_border):
     if round_to_pixel_border:
         magnified = [np.floor(magnified[0] + 0.5), np.ceil(magnified[1] - 0.5 - 1e-8),
                      np.floor(magnified[2] + 0.5 + 1e-8), np.ceil(magnified[3] - 0.5)]
-    width, height = magnified[2] - magnified[0], magnified[3] - magnified[1]
-    if width == 0 or height == 0:
+    # The size of the box, which matplotlib reads from it each time (its
+    # `width` and `height`), numpy warning each time.
+    def width():
+        return magnified[2] - magnified[0]
+
+    def height():
+        return magnified[3] - magnified[1]
+
+    if width() == 0 or height() == 0:
         return False
     # The magnification scales the transform to the output, then the
     # output is made.
-    Affine2D().scale(magnification)
-    np.zeros((int(height), int(width)))
+    Affine2D().scale(magnification).translate(-magnified[0], -magnified[1])
+    np.zeros((int(height()), int(width())))
     return True
 
 

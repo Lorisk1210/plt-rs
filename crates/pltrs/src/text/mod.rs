@@ -37,8 +37,10 @@ pub(crate) mod font_notes;
 mod handle;
 mod hinting;
 mod layout;
+mod layout_warnings;
 mod math;
 mod math_image;
+mod math_parses;
 mod measuring;
 mod metrics;
 mod metrics_cache;
@@ -766,7 +768,15 @@ pub(crate) fn draw_laid_out(
                 Ok(()) => {}
             }
         } else {
-            result = result.and(font_notes::note_drawn(run).map_err(TextDrawError::from));
+            // Agg parses math with the text's antialiasing, vector backends
+            // with `text.antialiased`.
+            let antialiased = if rounds {
+                gc.antialiased
+            } else {
+                crate::rc::params().text_antialiased
+            };
+            result =
+                result.and(font_notes::note_drawn(run, antialiased).map_err(TextDrawError::from));
             if rounds && let Err(err) = pixel_grid::check_glyphs(run, origin, angle) {
                 return result.and(Err(err.into()));
             }

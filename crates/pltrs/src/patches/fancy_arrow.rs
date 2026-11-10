@@ -274,6 +274,19 @@ impl PatchShape for FancyArrowPatch {
         round_ends(style);
     }
 
+    fn warn_drawing(&self) {
+        self.warn_making_path();
+    }
+
+    /// `_get_path_in_displaycoord` builds the arrow with its style at the
+    /// mutation scale (times the resolution's points per pixel, which
+    /// keeps a scale of no size or of an infinite one so).
+    fn warn_making_path(&self) {
+        self.spec
+            .arrowstyle
+            .warn_transmuting(self.spec.mutation_scale);
+    }
+
     /// `FancyArrowPatch._get_path_in_displaycoord`.
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
         let dpi_cor = frame.dpi_cor;

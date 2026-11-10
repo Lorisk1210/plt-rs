@@ -117,6 +117,15 @@ impl ArrowStyle {
         })
     }
 
+    /// Issues the runtime warnings numpy issues as matplotlib's style
+    /// builds an arrow at `mutation_size` (a curve's heads of no size or of
+    /// an infinite one), wherever matplotlib makes the arrow's path.
+    pub fn warn_transmuting(&self, mutation_size: f64) {
+        if let Self::Curve(curve) = self {
+            curve.warn_transmuting(mutation_size);
+        }
+    }
+
     fn transmute(
         &self,
         path: &Path,

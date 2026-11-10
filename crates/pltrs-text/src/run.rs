@@ -71,6 +71,9 @@ pub enum TextSource {
         text: String,
         /// Its fonts and resolution.
         style: MathStyle,
+        /// What matplotlib's mathtext logs typesetting it (see
+        /// [`MathLayout::logged`](crate::mathtext::MathLayout::logged)).
+        logged: Vec<String>,
     },
     /// TeX text (`ismath="TeX"`, drawn by `draw_tex`): the run carries
     /// no glyphs, only the extent of the typeset line; backends typeset
@@ -135,7 +138,7 @@ impl TextSource {
                 font.hinting = Hinting::None;
                 engine.layout_line_with(text, &font, shaping, dpi)
             }
-            Self::Math { text, style } => {
+            Self::Math { text, style, .. } => {
                 let mut style = style.clone().with_size(points).with_dpi(dpi);
                 style.font.hinting = Hinting::None;
                 engine.layout_math(text, &style)

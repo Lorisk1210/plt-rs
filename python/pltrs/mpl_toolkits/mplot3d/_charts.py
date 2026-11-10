@@ -62,6 +62,18 @@ def _format_string(fmt):
         raise
 
 
+def _plot_markers_with_data(x, y, z, markerfmt):
+    """Fail as matplotlib's `stem` fails plotting its markers with
+    *markerfmt*, no string: ``plot(x, y, z, markerfmt)`` takes it for the
+    data of a second line, which it lifts to the heads' *z* (failing to
+    broadcast them to its length), and returns two lines where one is
+    unpacked."""
+    *_, zs = cbook._broadcast_with_masks(x, y, z)
+    np.broadcast_to(cbook._to_unmasked_float_array(zs).ravel(),
+                    len(np.atleast_1d(markerfmt)))
+    raise ValueError("too many values to unpack (expected 1, got 2)")
+
+
 def _fill_regions(curves, where, mode):
     """
     The polygons matplotlib's ``fill_between`` makes between the *curves*
@@ -349,6 +361,8 @@ class ChartsMixin:
         cbook._broadcast_with_masks(*base, bottom)
         if markerfmt is None:
             raise ValueError("x, y, and format string must not be None")
+        if not isinstance(markerfmt, str):
+            _plot_markers_with_data(x, y, z, markerfmt)
         markerfmt = _format_string(markerfmt)
         x, y, z = cbook._broadcast_with_masks(x, y, z)
         markerline, stemlines, baseline = _mplot3d.stem(

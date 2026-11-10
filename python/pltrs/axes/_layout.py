@@ -48,6 +48,11 @@ class LayoutMixin:
         return [a for a in artists if a.get_visible() and a.get_in_layout()
                 and (isinstance(a, noclip) or not a._fully_clipped_to_axes())]
 
+    def _first_measuring_steps(self, renderer):
+        """What matplotlib's `get_tightbbox` asks of *renderer* before it
+        measures a text (whose metrics refuse what is no renderer):
+        nothing, but where a subclass' children convert points with it."""
+
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None, for_layout_only=False):
         """
@@ -93,6 +98,7 @@ class LayoutMixin:
         self._check_figure_renderer(renderer)
         _unusable.check(self, measuring=True)
         self._place_titles_by_program(renderer)
+        self._first_measuring_steps(renderer)
         with _measured_by_given(renderer, self):
             extent = _figure_layout.axes_tightbbox(
                 self._native, bool(for_layout_only), bbox_extra_artists is None)

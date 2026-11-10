@@ -16,8 +16,8 @@ from numbers import Number, Real
 import numpy as np
 
 from . import _docstring
-from . import (_api, _kept_geometry, _mirrors, _owned_paths, _patch_arguments, _unusable,
-               _values, cbook, colors as mcolors, units)
+from . import (_api, _kept_geometry, _mirrors, _owned_paths, _patch_arguments,
+               _python_drawing, _unusable, _values, cbook, colors as mcolors, units)
 from ._artist_kwargs import check_known
 from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object, native_aspect
@@ -1195,7 +1195,7 @@ class PathPatch(Patch):
         %(Patch:kwdoc)s
         """
         given = path
-        if not isinstance(path, Path):
+        if not _drawable_path(path):
             path = Path(np.empty((0, 2)))
         self._native = _patches.new_path_patch(path)
         super().__init__(**kwargs)
@@ -1218,7 +1218,7 @@ class PathPatch(Patch):
         return super()._add_to_axes(axes, kind, autolim)
 
     def set_path(self, path):
-        if not isinstance(path, Path):
+        if not _drawable_path(path):
             # matplotlib keeps it, and fails to draw its vertices.
             self.__dict__["_given_path"] = path
             _unusable.keep(self, "path", path, _path_vertices, measured=False)
@@ -3398,7 +3398,12 @@ default: 'arc3'
             # maps them to the display.
             _unusable.keep(self, "positions", positions, self._place_ends_as_drawn)
             return
-        _unusable.drop(self, "positions")
+        if np.isfinite(ends).all():
+            _unusable.drop(self, "positions")
+        else:
+            # Its connection of ends that are not finite may leave no path
+            # to clip, which fails its draw.
+            _unusable.keep(self, "positions", positions, self._connect_as_drawn)
         _patches.set_arrow_positions(self._native, *ends)
         # Read back as given, as matplotlib keeps them.
         self._given_positions = positions
@@ -3428,6 +3433,20 @@ default: 'arc3'
         ends = [(self.convert_xunits(pos[0]), self.convert_yunits(pos[1]))
                 for pos in positions]
         self.get_transform().transform(ends)
+
+    def _connect_as_drawn(self, positions):
+        """Fail as matplotlib's arrow fails to connect its ends *positions*
+        as it draws: its connection style joins them in the display and
+        clips the path by the patches and the shrinking (a path the NaNs
+        leave empty has no first segment to clip)."""
+        renderer = _python_drawing.drawing_renderer(self)
+        dpi_cor = 1. if renderer is None else renderer.points_to_pixels(1.)
+        ends = [(self.convert_xunits(pos[0]), self.convert_yunits(pos[1]))
+                for pos in positions]
+        posA, posB = self.get_transform().transform(ends)
+        self.get_connectionstyle()(posA, posB, patchA=self.patchA, patchB=self.patchB,
+                                   shrinkA=self.shrinkA * dpi_cor,
+                                   shrinkB=self.shrinkB * dpi_cor)
 
     def _convert_units_for(self, axes):
         positions = self.__dict__.pop("_unit_positions", None)
@@ -3501,6 +3520,19 @@ def _path_vertices(path):
     """Fail as matplotlib's patch fails to draw *path*, which is no
     `.Path`: it reads its vertices."""
     path.vertices
+
+
+def _drawable_path(path):
+    """Whether *path* is a `.Path` whose vertices can be read: a
+    `.TextPath` computes them only when read, failing then on a size that
+    is no number (matplotlib's patch keeps it, and fails as it draws)."""
+    if not isinstance(path, Path):
+        return False
+    try:
+        path.vertices
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _contains_end(patch):
@@ -3760,6 +3792,8 @@ class ConnectionPatch(FancyArrowPatch):
               outside the Axes and ``self.xycoords == "data"``.
         """
         _patches.set_connection_clip(self._native, None if b is None else bool(b))
+        # matplotlib keeps the object given (``1``, ``'False'``).
+        _values.remember(self, "annotation_clip", b)
         self.stale = True
 
     def get_annotation_clip(self):
@@ -3768,7 +3802,8 @@ class ConnectionPatch(FancyArrowPatch):
 
         See `.set_annotation_clip` for the meaning of the return value.
         """
-        return _patches.get_connection_clip(self._native)
+        return _values.given_flag(self, "annotation_clip",
+                                  _patches.get_connection_clip(self._native))
 
     def draw(self, renderer):
         # (pltrs (Rust) leaves out a connection whose ends the annotation

@@ -17,8 +17,9 @@ import warnings
 import numpy as np
 
 from . import (
-    _api, _artist_clipping, _artist_effects, _docstring, _numpy_values, _program_classes,
-    _scale_calls, _tick_helpers, _unusable, _values, cbook, units as munits)
+    _api, _artist_clipping, _artist_effects, _docstring, _empty_conversions, _numpy_values,
+    _program_classes, _scale_calls, _tick_helpers, _unusable, _values, cbook,
+    units as munits)
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._drawn_with import DrawnWith
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
@@ -409,6 +410,9 @@ class Axis(DrawnWith, Artist):
     @_converter.setter
     def _converter(self, converter):
         self._given_converter = converter
+        # None leaves the axis without one (for its getters), until the
+        # axis takes one again (a conversion, an update of its units).
+        self._converter_cleared = converter is None
 
     def __str__(self):
         return "{}({},{})".format(
@@ -447,8 +451,10 @@ class Axis(DrawnWith, Artist):
             ``Axis.clear``.
             .. versionadded:: 3.8
         """
-        # What matplotlib's constructor reads first of *axes*.
+        # What matplotlib's constructor reads first of *axes*, and checks
+        # before it clears the axis.
         axes.get_figure(root=False)
+        self.pickradius = pickradius
         if clear and self.axis_name is None and not hasattr(self, "_init"):
             # matplotlib's `clear` starts with ``_init``, which only the
             # axes of a direction define: a base Axis cannot be cleared.
@@ -465,7 +471,6 @@ class Axis(DrawnWith, Artist):
             from . import _tick_updates
             _tick_updates.install(axes.figure)
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
-        self.pickradius = pickradius
         #: The description pltrs (Rust) gave of the axis while its tick
         #: helpers tick it (see `._tick_helpers.drawing`).
         self._drawn_info = None
@@ -1166,6 +1171,7 @@ class Axis(DrawnWith, Artist):
         axis holds, as the axis' clear does (pltrs (Rust) forgets its own
         with the axis)."""
         self._given_converter = None
+        self._converter_cleared = False
         self._native_converter = None
         self._converter_is_explicit = False
         self._units = None
@@ -2325,6 +2331,7 @@ class Axis(DrawnWith, Artist):
             # by a conversion that failed), as matplotlib's does.
             self._given_converter = converter
         self._native_converter = converter
+        self._converter_cleared = False
         return taken
 
     def _update_native_units(self, data):
@@ -2382,6 +2389,9 @@ class Axis(DrawnWith, Artist):
     def convert_units(self, x):
         if munits._is_natively_supported(x):
             return x
+        if self.__dict__.get("_converter_cleared"):
+            # matplotlib's axis without a converter looks one up first.
+            self._set_converter(munits.registry.get_converter(x))
         if self._converter_is_explicit and self._given_converter is None:
             # Explicitly none: matplotlib's axis looks one up, which the
             # explicit setting refuses (and with none found, it converts
@@ -2405,13 +2415,14 @@ class Axis(DrawnWith, Artist):
             # gives the axis: matplotlib's converter, set without them,
             # refuses them, whenever it is asked.
             return self._converted(self.get_converter(), x)
-        from .axes._plotting._helpers import axis_values, convert_units
-        if kind == "dates" and isinstance(axis_values(x), list):
+        from .axes._plotting._helpers import _is_dates, axis_values, convert_units
+        if kind == "dates" and not _is_dates(np.asarray(x, dtype=object)):
             # The axis' date converter converts what it is given, as
-            # matplotlib's does: text parses as dates, not category names.
+            # matplotlib's does: text parses as dates, not category names,
+            # and what is no date (None among numbers) fails.
             return self._converted(self.get_converter(), x)
-        if kind == "category" and (isinstance(axis_values(x), tuple)
-                                   or not _category_names(x)):
+        if kind == "category" and (not _category_names(x)
+                                   or isinstance(axis_values(x), tuple)):
             # Nor does the category converter take dates for another
             # converter's, or anything else that is no category names.
             return self._converted(self.get_converter(), x)
@@ -2444,7 +2455,8 @@ class Axis(DrawnWith, Artist):
         -------
         `~matplotlib.units.ConversionInterface` or None
         """
-        if self._given_converter is not None or self._converter_is_explicit:
+        if (self._given_converter is not None or self._converter_is_explicit
+                or self.__dict__.get("_converter_cleared")):
             return self._given_converter
         kind = _axis.converter_kind(*self._args())
         if kind is None:
@@ -2478,6 +2490,10 @@ class Axis(DrawnWith, Artist):
         if kind is not None:
             _axis.set_converter(*self._args(), kind)
         self._given_converter = converter
+        self._converter_cleared = False
+        if self.axes.name != "3d":
+            # matplotlib's collections convert their empty arrays with it.
+            _empty_conversions.refresh(self.axes)
 
     def axis_date(self, tz=None):
         """

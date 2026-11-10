@@ -24,7 +24,7 @@ from . import (_api, _artist_clipping, _artist_effects, _live_transforms, _mirro
 from ._native import artist as _artist, axis as _axis
 from .artist import Artist, allow_rasterization
 from .lines import Line2D
-from .text import Text
+from .text import Text, _check_metrics_renderer
 from .transforms import Bbox, IdentityTransform, blended_transform_factory
 
 
@@ -61,6 +61,10 @@ class _AxisPart(_mirrors.Mirroring):
             # tick's line holds matplotlib's data and transform, from
             # which `.Line2D` measures itself as matplotlib's does.
             return _mirrors.OWN
+        if renderer is not None and artist.get_visible() and artist.get_text() != '':
+            # matplotlib's `.Text.get_window_extent` lays the text out with
+            # the renderer given.
+            _check_metrics_renderer(renderer)
         extent = self.owner._extent(artist)
         if extent is None:
             return Bbox.unit()
@@ -195,6 +199,8 @@ class Tick(Artist):
                 gridOn = _rc('axes.grid')
             else:
                 gridOn = False
+        # matplotlib's constructor gives the tick the figure of *axes*.
+        axes.get_figure(root=False)
         self.axes = axes
         self._loc = loc
         self._major = major

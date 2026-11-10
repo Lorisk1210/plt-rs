@@ -446,6 +446,21 @@ mod tests {
     }
 
     #[test]
+    fn limits_that_map_again_forget_the_failure_of_earlier_ones() {
+        let fig = Figure::new();
+        let field = QuadField::new(Grid::from_fn(4, 5, |i, j| (i + j) as f64));
+        let cs = fig
+            .subplot()
+            .contour(&field, ContourOptions::default())
+            .unwrap();
+        cs.set_clim(Some(f64::INFINITY), None);
+        assert!(fig.draw_without_rendering().is_err(), "vmin above vmax");
+        cs.set_clim(Some(f64::INFINITY), None);
+        cs.set_clim(Some(0.0), None);
+        assert!(fig.draw_without_rendering().is_ok());
+    }
+
+    #[test]
     fn line_widths_and_styles_cycle_over_the_levels() {
         let cs = lines(ContourOptions {
             levels: Levels::Values(vec![1.0, 3.0, 5.0]),

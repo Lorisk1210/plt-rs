@@ -315,13 +315,16 @@ impl Compositor {
     }
 
     /// Whether child `id` is a visible image that can be composited and
-    /// is clipped to no path.
+    /// is clipped to no path. An image with a painter is drawn by it:
+    /// the program's code then computes its pixels, failing where
+    /// matplotlib's `make_image` fails (an array its resampler refuses).
     fn joins(ctx: &DrawContext<'_>, id: ArtistId) -> bool {
         let layout = ctx.layout();
         layout.store().get(id).is_some_and(|artist| {
             let base = artist.base();
             base.visible
                 && base.clip_on
+                && base.painter.is_none()
                 && ctx.base_gc(base).clip_path.is_none()
                 && as_image(artist).is_some_and(|image| image.can_composite(layout))
         })
@@ -380,6 +383,7 @@ impl Compositor {
 mod tests {
     use pltrs_core::Bbox;
 
+    use crate::artist::{ArtistHandle, ArtistId, ArtistPainter, DrawContext, Painter};
     use crate::axes::ImshowOptions;
     use crate::figure::Figure;
     use crate::image::{BboxImageOptions, Extent, Interpolation};
@@ -407,6 +411,35 @@ mod tests {
         assert_eq!(svg_images(None), 1, "vector formats composite");
         assert_eq!(svg_images(Some(true)), 2);
         assert_eq!(svg_images(Some(false)), 1);
+    }
+
+    /// Draws its artist as pltrs does.
+    #[derive(Debug)]
+    struct Unpainted;
+
+    impl ArtistPainter for Unpainted {
+        fn draw(&self, ctx: &mut DrawContext<'_>, artist: ArtistId) {
+            ctx.draw_unpainted(artist);
+        }
+    }
+
+    #[test]
+    fn painted_images_are_drawn_by_their_painter() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let images: Vec<_> = [0.0, 2.0]
+            .into_iter()
+            .map(|left| {
+                let options = ImshowOptions {
+                    extent: Some(Extent::new(left, left + 1.0, 0.0, 1.0)),
+                    ..ImshowOptions::default()
+                };
+                ax.imshow(Grid::filled(2, 2, left), options).unwrap()
+            })
+            .collect();
+        images[0].raw().set_painter(Some(Painter::new(Unpainted)));
+        ax.set_xlim(0.0, 3.0).expect("finite limits");
+        assert_eq!(fig.to_svg().unwrap().matches("<image").count(), 2);
     }
 
     #[test]

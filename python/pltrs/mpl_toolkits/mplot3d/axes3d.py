@@ -458,7 +458,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         _mplot3d.clear(self._native)
         for axis in (self.xaxis, self.yaxis, self.zaxis):
             axis._given_scale = None
-            # matplotlib's clear clears each axis, which leaves it stale.
+            # matplotlib's clear clears each axis, which leaves it stale and
+            # with new callbacks (the Axes' handler of its units gone).
+            axis.callbacks = cbook.CallbackRegistry(signals=["units"])
             axis.stale = True
 
     get_zgridlines = _axis_method_wrapper("zaxis", "get_gridlines")
@@ -2827,8 +2829,26 @@ def get_test_data(delta=0.05):
     """Return a tuple X, Y, Z with a test data set."""
     # The grid of matplotlib's computation, whose `arange` refuses what is
     # no step (and takes None for a step of one).
-    np.arange(-3.0, 3.0, delta)
+    x = np.arange(-3.0, 3.0, delta)
+    if isinstance(delta, (np.floating, float)) and not (
+            isinstance(delta, (float, np.float64)) and np.isfinite(delta)):
+        # Steps of another precision (numpy's `arange` steps in theirs) or
+        # infinite ones (a grid of the start alone): matplotlib's numpy.
+        return _test_data_on(x)
     return _mplot3d.test_data(1.0 if delta is None else float(delta))
+
+
+def _test_data_on(x):
+    """matplotlib's test data on the grid of *x* along both axes."""
+    X, Y = np.meshgrid(x, x)
+    Z1 = np.exp(-(X**2 + Y**2) / 2) / (2 * np.pi)
+    Z2 = (np.exp(-(((X - 1) / 1.5)**2 + ((Y - 1) / 0.5)**2) / 2) /
+          (2 * np.pi * 0.5 * 1.5))
+    Z = Z2 - Z1
+    X = X * 10
+    Y = Y * 10
+    Z = Z * 500
+    return X, Y, Z
 
 
 class _Quaternion:

@@ -48,7 +48,7 @@ from ._offsetbox_trees import (
 from ._program_classes import takes_from_program
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
-from .transforms import Bbox, BboxBase, TransformedBbox
+from .transforms import Bbox, BboxBase, Transform, TransformedBbox
 
 
 DEBUG = False
@@ -501,9 +501,21 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
             node = self._synced_node()
         if node is None:
             return None
+        self._first_steps_with(renderer)
         self._measure_program_boxes(renderer)
         with mtext._measured_by_given(renderer, self):
             return Bbox.from_bounds(*_offsetbox.node_extent(*node))
+
+    #: Whether matplotlib's measure of the box (its
+    #: ``_get_bbox_and_child_offsets``) starts converting points with the
+    #: renderer, as its packers and padded boxes do.
+    _converts_points_first = False
+
+    def _first_steps_with(self, renderer):
+        """Use *renderer* as matplotlib's measure of the box first does,
+        failing where it fails for what is no renderer (None included)."""
+        if self._converts_points_first:
+            renderer.points_to_pixels(1.)
 
     def _measure_program_boxes(self, renderer):
         """Have the boxes of the program's inside this box measure
@@ -731,6 +743,8 @@ class OffsetBox(TreeOwner, DrawnWith, Artist):
 
 
 class PackerBase(OffsetBox):
+    _converts_points_first = True
+
     def __init__(self, pad=0., sep=0., width=None, height=None,
                  align="baseline", mode="fixed", children=None):
         """
@@ -898,6 +912,7 @@ class PaddedBox(OffsetBox):
     """
 
     pad = TreeSetting()
+    _converts_points_first = True
 
     def __init__(self, child, pad=0., *, draw_frame=False, patch_attrs=None):
         """
@@ -1567,8 +1582,12 @@ class AnchoredOffsetbox(OffsetBox):
     def _native_anchor(self):
         """``bbox_to_anchor`` and ``bbox_transform`` as pltrs (Rust) takes
         them: the bounds of the box (a point for a box of no size) and the
-        native transform of its coordinates (None: display pixels)."""
+        native transform of its coordinates (None: display pixels);
+        `Unusable` for a transform that is none, which matplotlib fails on
+        as it anchors the box (`TransformedBbox`)."""
         bbox, transform = self._bbox_to_anchor, self._bbox_to_anchor_transform
+        if transform is not None and not isinstance(transform, Transform):
+            raise Unusable
         if bbox is None:
             return None, (None if transform is None
                           else _live_transforms.to_native(transform))
@@ -2083,11 +2102,26 @@ class AnnotationBbox(TreeOwner, Artist, mtext._AnnotationBase):
         fw, fh = self._box_alignment
         self.offsetbox.set_offset(
             (ox0 - fw*bbox.width - bbox.x0, oy0 - fh*bbox.height - bbox.y0))
-        self.offsetbox.get_window_extent(renderer)
+        bbox = self.offsetbox.get_window_extent(renderer)
         renderer.points_to_pixels(self.get_fontsize())
         if self.arrowprops:
-            self._get_position_xy(renderer)
+            arrow_begin = bbox.p0 + bbox.size * self._arrow_relpos
+            arrow_end = self._get_position_xy(renderer)
+            if not np.isfinite([*arrow_begin, *arrow_end]).all():
+                self._connect_arrow(arrow_begin, arrow_end, renderer)
         self.offsetbox._check_drawing(renderer)
+
+    def _connect_arrow(self, begin, end, renderer):
+        """Fail as matplotlib's arrow from *begin* to *end* (display points,
+        not all finite) fails as it draws: its connection style joins them
+        and clips the path by the frame (or *patchA*) and the shrinking; a
+        path the NaNs leave empty has no first segment to clip."""
+        arrow = self.arrow_patch
+        dpi_cor = renderer.points_to_pixels(1.)
+        arrow.get_connectionstyle()(
+            begin, end, patchA=self.arrowprops.get("patchA", self.patch),
+            patchB=arrow.patchB, shrinkA=arrow.shrinkA * dpi_cor,
+            shrinkB=arrow.shrinkB * dpi_cor)
 
     def _locate_by_program(self, renderer):
         """Hand pltrs (Rust) the offset box as it is now before a layout of
@@ -2317,7 +2351,12 @@ or callable, default: value of *xycoords*
         except Unusable:
             self._keep_problem(name)
             return
-        _unusable.drop(self, name)
+        if self.arrowprops and not np.isfinite(point).all():
+            # The arrow drawn from or to it fails to connect (see
+            # `_connect_arrow`).
+            self._keep_problem(name)
+        else:
+            _unusable.drop(self, name)
         _offsetbox.set_annotation_points(
             self._native, *(point if part == name else None for part in ("xy", "xybox")))
         self.stale = True

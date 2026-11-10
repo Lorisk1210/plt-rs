@@ -375,8 +375,9 @@ def split_path_inout(path, inside, tolerance=0.01, reorder_inout=False):
     """
     from .path import Path
     if _plain(tolerance):
-        # matplotlib walks the path's segments first.
-        path.iter_segments  # noqa: B018
+        # matplotlib takes the path's first segment first (none: a path of
+        # no finite point stops the iteration).
+        next(path.iter_segments())
         first, second = _bezier.split_inout(path, inside, tolerance, reorder_inout)
         return Path(*first), Path(*second)
     path_iter = path.iter_segments()

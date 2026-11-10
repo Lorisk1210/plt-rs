@@ -39,7 +39,7 @@ use crate::figure::FigureState;
 use crate::lines::LineArtist;
 use crate::spines::{SpineArtist, SpinePosition};
 use crate::ticker::AxisName;
-use crate::transforms::{AxisMap, TransformContext, program_calls};
+use crate::transforms::{AxisMap, DrawnTick, Evaluation, TransformContext, program_calls};
 
 /// The maps of the scales of an axes that call the program.
 #[derive(Clone)]
@@ -381,6 +381,46 @@ impl FigureState {
             self.lend(|_| maps.map_masked(coordinates));
             self.program_scale_box(axes, &maps);
         }
+    }
+}
+
+impl AxisPainter<'_> {
+    /// matplotlib's `Axis.draw` of the axis, as an evaluation of its
+    /// transform graph (see [`Evaluation`]): the ticks it draws, each with
+    /// the parts that map through the axes' transforms. `None` for an
+    /// axis that is hidden or cannot be ticked, whose draw matplotlib
+    /// leaves before it evaluates anything.
+    pub(super) fn evaluation(&self) -> Option<Evaluation> {
+        let axis = self.axis;
+        if !axis.visible {
+            return None;
+        }
+        axis.place_ticks();
+        axis.ticks.as_ref().ok()?;
+        let ticks = (self.located_ticks().into_iter())
+            .filter(|&(_, minor, index)| axis.tick_visible(minor, index))
+            .map(|(tick, minor, index)| {
+                let style = axis.tick_style_at(minor, index);
+                let marked = style.size > 0.0;
+                DrawnTick {
+                    minor,
+                    index,
+                    gridline: style.grid_on,
+                    marks: [style.ticks.first && marked, style.ticks.second && marked],
+                    labels: [true, false]
+                        .map(|first| label_shown(self.axes, self.name, (minor, index), first)),
+                    loc: tick.loc,
+                    text: !tick.label.is_empty(),
+                    pad: style.label_offset(),
+                }
+            })
+            .collect();
+        Some(Evaluation::Axis {
+            axes: self.axes_id,
+            axis: self.name,
+            ticks,
+            label: axis.label.visible && !axis.label.text.is_empty(),
+        })
     }
 }
 

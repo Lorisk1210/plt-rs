@@ -17,6 +17,7 @@ import numpy as np
 from .. import (_api, _lazy_imports, _mirrors, _tick_helpers, _unusable, cbook,
                ticker as mticker)
 from .. import patches as mpatches, transforms as mtransforms
+from .. import _transform_trees
 from .._native import artist as _artist, axis as _axis, polar as _polar
 from ..axes import Axes
 from ..axis import Axis, XAxis, XTick, YAxis, YTick
@@ -525,6 +526,24 @@ class RadialAxis(YAxis):
     _polar_axis = True
     _tick_class = RadialTick
 
+    def _update_ticks(self):
+        # docstring inherited
+        ticks = super()._update_ticks()
+        self._ticks_placed()
+        return ticks
+
+    def _ticklabels(self, minor):
+        # docstring inherited; matplotlib updates the ticks first.
+        labels = super()._ticklabels(minor)
+        self._ticks_placed()
+        return labels
+
+    def _ticks_placed(self):
+        """matplotlib's radial ticks compute their angles with numpy each
+        time ``_update_ticks`` places them."""
+        _transform_trees.radial_ticks_placed(
+            self.axes, sum(len(self.get_ticklocs(minor=minor)) for minor in (False, True)))
+
     def set_major_locator(self, locator):
         # docstring inherited
         locator = self._as_major_locator(locator)
@@ -688,20 +707,24 @@ class PolarAxes(PolarTrees, Axes):
                 or self.__dict__.get("_patch_fitted") == drawn):
             return
         self._patch_fitted = drawn
-        thetamin, thetamax = np.rad2deg(self._realViewLim.intervalx)
-        if thetamin > thetamax:
-            thetamin, thetamax = thetamax, thetamin
-        rmin, rmax = ((self._realViewLim.intervaly - self.get_rorigin()) *
-                      self.get_rsign())
-        center = self.transWedge.transform((0.5, 0.5))
-        edge, _ = self.transWedge.transform((1, 0))
-        radius = edge - center[0]
+        # (What this arithmetic warns of was said where the Axes was
+        # drawn: `._transform_replay`.)
+        with np.errstate(all="ignore"):
+            thetamin, thetamax = np.rad2deg(self._realViewLim.intervalx)
+            if thetamin > thetamax:
+                thetamin, thetamax = thetamax, thetamin
+            rmin, rmax = ((self._realViewLim.intervaly - self.get_rorigin()) *
+                          self.get_rsign())
+            center = self.transWedge.transform((0.5, 0.5))
+            edge, _ = self.transWedge.transform((1, 0))
+            radius = edge - center[0]
+            width = min(radius * (rmax - rmin) / rmax, radius)
         with _mirrors.detached(patch):
             patch.set_center(center)
             patch.set_theta1(thetamin)
             patch.set_theta2(thetamax)
             patch.set_radius(radius)
-            patch.set_width(min(radius * (rmax - rmin) / rmax, radius))
+            patch.set_width(width)
 
     def format_coord(self, theta, r):
         # docstring inherited

@@ -48,6 +48,12 @@ pub(crate) struct FigureState {
     /// Problems found outside drawing (e.g. while autoscaling), reported
     /// with the next draw.
     pub(crate) pending_errors: Vec<DrawError>,
+    /// The axes whose aspect could not be applied since the last draw,
+    /// each with the limits it failed on (see
+    /// [`AspectInputs`](crate::axes::AspectInputs)): matplotlib's draw
+    /// ends at the first application that fails, so they are not applied
+    /// to the same limits again before the next draw reports it.
+    pub(crate) aspects_failed: Vec<(ArtistId, crate::axes::AspectInputs)>,
     /// Axes sharing their x or y axis.
     pub(crate) shared: ShareGroups,
     /// The layout engine and what it needs to know.
@@ -94,6 +100,9 @@ pub(crate) struct FigureState {
     /// What the program runs before every layout pass of a draw
     /// (`Figure::set_layout_hook`).
     pub(crate) layout_hook: Option<super::DrawHook>,
+    /// What is handed the evaluations of matplotlib's transform graph the
+    /// figure's draws stand for (`Figure::set_evaluation_hook`).
+    pub(crate) evaluation_hook: Option<crate::transforms::EvaluationHook>,
     /// What ticks the axes whose tick helpers or scale call the program
     /// (`Figure::set_tick_updater`).
     pub(crate) tick_updater: Option<Rc<dyn TickUpdater>>,
@@ -214,6 +223,7 @@ impl FigureState {
             stale: true,
             fresh: FreshArtists::default(),
             pending_errors: Vec::new(),
+            aspects_failed: Vec::new(),
             shared: ShareGroups::default(),
             layout: LayoutState::from_rc(&rc),
             current_axes: None,
@@ -232,6 +242,7 @@ impl FigureState {
             canvas: CanvasState::default(),
             draw_hook: None,
             layout_hook: None,
+            evaluation_hook: None,
             tick_updater: None,
             draws_per_layout: 1,
             role: StateRole::Figure,
@@ -266,6 +277,7 @@ impl FigureState {
             stale: false,
             fresh: FreshArtists::default(),
             pending_errors: Vec::new(),
+            aspects_failed: Vec::new(),
             shared: ShareGroups::default(),
             layout: LayoutState::default(),
             current_axes: None,
@@ -284,6 +296,7 @@ impl FigureState {
             canvas: CanvasState::default(),
             draw_hook: None,
             layout_hook: None,
+            evaluation_hook: None,
             tick_updater: None,
             draws_per_layout: 1,
             role: StateRole::LooseHolder,

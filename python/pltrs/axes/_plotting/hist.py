@@ -9,6 +9,7 @@ from numbers import Integral
 import numpy as np
 
 from ... import _api, _style_helpers, _values, cbook, colors as mcolors, patches as mpatches
+from ... import _transform_trees
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer
@@ -426,10 +427,13 @@ such objects
                     orientation=('vertical' if orientation == 'vertical'
                                  else 'horizontal'),
                     label='')
+                _transform_trees.patches_added(self, bars)
                 patches.append(record_container(self, container, native))
         else:
             patches = [[polygon] for polygon in
                        wrap_all(self, steps, mpatches.Polygon)]
+            _transform_trees.patches_added(
+                self, [polygon for (polygon,) in patches])
             for (polygon,) in patches:
                 # matplotlib fills the steps with `fill`, whose polygons
                 # take its label None and the cycle's colour as it holds it.

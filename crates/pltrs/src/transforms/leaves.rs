@@ -59,6 +59,10 @@ pub struct AxesLeaves {
     /// The view limits as they are, without pending autoscaling
     /// (`_viewLim`).
     pub view: Bbox,
+    /// How often the view limits were set so far, to the same values or
+    /// not (matplotlib invalidates what is built on `_viewLim` at each
+    /// `set_xlim` or `set_view_interval`, whatever the values).
+    pub view_sets: u32,
     /// The limits of the data and their smallest positive coordinates
     /// (`dataLim`).
     pub data: DataLimits,
@@ -162,6 +166,7 @@ fn axes_leaves(state: &FigureState, id: ArtistId) -> Option<AxesLeaves> {
         position,
         original,
         view: axes.view_lim,
+        view_sets: axes.view_sets,
         data: axes.data_lim,
         scales: [axes.xaxis.scale().name(), axes.yaxis.scale().name()],
         projection,

@@ -2397,7 +2397,8 @@ class CompositeGenericTransform(Transform):
         self._b = b
         self.set_children(a, b)
         # The composed affine part and the inverse, kept until a child
-        # changes (pltrs keeps them; matplotlib composes them anew).
+        # changes (pltrs keeps them; matplotlib composes them anew, which
+        # shows where the product warns: see `get_affine`).
         self._affine = None
         self._inverse = None
 
@@ -2477,8 +2478,14 @@ class CompositeGenericTransform(Transform):
         if not self._b.is_affine:
             return self._b.get_affine()
         if self._affine is None:
-            self._affine = Affine2D(_transforms.compose(
-                self._a.get_affine().get_matrix(), self._b.get_affine().get_matrix()))
+            a = self._a.get_affine().get_matrix()
+            b = self._b.get_affine().get_matrix()
+            affine = Affine2D(_transforms.compose(a, b))
+            if not _transforms.tame(a, b):
+                # A product numpy may warn about is made at every call, as
+                # matplotlib makes every product, warning each time.
+                return affine
+            self._affine = affine
         return self._affine
 
     def inverted(self):

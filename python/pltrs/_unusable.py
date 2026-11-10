@@ -15,7 +15,10 @@ with) measured, which pltrs (Rust) then does through the artist's Python
 ``draw`` and ``get_tightbbox``.
 """
 
+import numpy as np
+
 from . import _python_drawing
+from ._native import transforms as _transforms
 
 
 def keep(artist, name, value, use, *, measured=True, drawn=True):
@@ -73,6 +76,18 @@ def check(artist, *, measuring=False, failed=None):
                 if failed is not None:
                     failed(name)
                 raise
+
+
+def check_ahead(artist, **kwargs):
+    """`check`, where matplotlib's computation with the values follows in
+    full (the artist's draw, ``add_patch`` reading its transform): what
+    its arithmetic warns of is said there when the computation is
+    replayed (`._transform_replay`), not here as well."""
+    if _transforms.replays(artist._native):
+        with np.errstate(all="ignore"):
+            check(artist, **kwargs)
+    else:
+        check(artist, **kwargs)
 
 
 def check_one(artist, name):

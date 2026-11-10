@@ -173,6 +173,9 @@ class PolarTrees:
             .translate(np.deg2rad(22.5), 0.0)
         self._yaxis_text_transform = mtransforms.TransformWrapper(
             self._r_label_position + self.transData)
+        # Whether the radial labels sit along a full circle (which
+        # `_apply_projection_leaves` follows), as they are made.
+        self._yaxis_text_transform._along_circle = True
         # pltrs (Rust) draws through its own: the polar axis transforms.
         self._xaxis_transform._live = _transforms.trans_xaxis(self._native)
         self._yaxis_transform._live = _transforms.trans_yaxis(self._native)
@@ -188,15 +191,23 @@ class PolarTrees:
                    mtransforms.Affine2D().translate(theta_offset, 0.0).get_matrix())
         set_matrix(self._r_label_position,
                    mtransforms.Affine2D().translate(rlabel_position, 0.0).get_matrix())
-        if self._originViewLim.locked_y0 != rorigin:
+        locked = self._originViewLim.locked_y0
+        if locked != rorigin and not (
+                None not in (locked, rorigin) and locked != locked and rorigin != rorigin):
+            # (A radial origin that stays NaN invalidates nothing.)
             self._originViewLim.locked_y0 = rorigin
-        thetamin, thetamax = self._realViewLim.intervalx
-        if _is_full_circle_rad(thetamin, thetamax):
-            yaxis_text_transform = self._r_label_position + self.transData
-        else:
-            yaxis_text_transform = self._yaxis_transform
-        if self._yaxis_text_transform != yaxis_text_transform:
-            self._yaxis_text_transform.set(yaxis_text_transform)
+        # The theta limits from the leaves themselves: the tree is not
+        # evaluated here, where matplotlib does not evaluate its own (its
+        # nodes compute, and warn, where its draw asks them).
+        thetamin, thetamax = (float(theta) * direction + theta_offset
+                              for theta in self._viewLim._points[:, 0])
+        full = bool(_is_full_circle_rad(thetamin, thetamax))
+        labels = self._yaxis_text_transform
+        if getattr(labels, "_along_circle", True) != full:
+            labels._along_circle = full
+            labels.set(
+                self._r_label_position + self.transData if full
+                else self._yaxis_transform)
 
     def get_xaxis_transform(self, which='grid'):
         _api.check_in_list(['tick1', 'tick2', 'grid'], which=which)

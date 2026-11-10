@@ -9,7 +9,9 @@ use super::{Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, GraphicsSta
 use crate::figure::{FigureCell, FigureState};
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
-use crate::transforms::{ResolvedTransform, Transform, TransformContext, unit_to_bbox};
+use crate::transforms::{
+    Evaluation, EvaluationHook, ResolvedTransform, Transform, TransformContext, unit_to_bbox,
+};
 
 /// Read-only access to figure geometry, for measuring and hit testing.
 #[derive(Clone, Copy, Debug)]
@@ -424,6 +426,10 @@ pub struct DrawContext<'a> {
     /// The artists pltrs is drawing as parts of others, outermost first
     /// (see [`DrawContext::draw_child`]).
     drawing: Vec<ArtistId>,
+    /// What is handed the evaluations of matplotlib's transform graph
+    /// this draw stands for, and whether a leaf of the graph is wild (see
+    /// [`Evaluation`]).
+    evaluations: Option<(EvaluationHook, bool)>,
 }
 
 impl std::fmt::Debug for DrawContext<'_> {
@@ -436,7 +442,18 @@ impl std::fmt::Debug for DrawContext<'_> {
 
 impl<'a> DrawContext<'a> {
     pub(crate) fn new(figure: &'a FigureCell, renderer: &'a mut dyn Renderer) -> Self {
+        // A figure whose layout met a problem is one matplotlib's draw
+        // raised for before it drew (an aspect it could not apply):
+        // nothing of it is evaluated.
+        let evaluations = figure.try_borrow().and_then(|state| {
+            let hook = state.evaluation_hook.clone()?;
+            state
+                .pending_errors
+                .is_empty()
+                .then(|| (hook, state.graph_is_wild()))
+        });
         Self {
+            evaluations,
             figure,
             held: OnceCell::new(),
             renderer,
@@ -455,6 +472,35 @@ impl<'a> DrawContext<'a> {
     /// draw are then left undrawn.
     pub fn ended(&self) -> bool {
         self.stops_at_problem && (!self.errors.is_empty() || crate::layout::failures::failed())
+    }
+
+    /// Hands the evaluation of matplotlib's transform graph that
+    /// `evaluation` makes, if any, to the figure's evaluation hook, once
+    /// for each
+    /// of matplotlib's draws this one stands for, when a leaf of the
+    /// figure's graph is wild or `wild` (the transform of the artist
+    /// drawn) is, unless the draw has ended; the figure is let go
+    /// meanwhile, for the hook to read it.
+    pub(crate) fn evaluated(
+        &mut self,
+        wild: bool,
+        evaluation: impl FnOnce() -> Option<Evaluation>,
+    ) {
+        let Some((hook, _)) = (self.evaluations.as_ref()).filter(|&&(_, graph)| graph || wild)
+        else {
+            return;
+        };
+        if self.ended() {
+            return;
+        }
+        let hook = hook.clone();
+        let Some(evaluation) = evaluation() else {
+            return;
+        };
+        self.free();
+        for _ in 0..crate::text::font_notes::draws_of_print() {
+            hook.run(&evaluation);
+        }
     }
 
     /// Whether this context draws the figure of `cell`.
@@ -552,6 +598,7 @@ impl<'a> DrawContext<'a> {
             stops_at_problem: self.stops_at_problem,
             graphics: self.graphics,
             drawing: std::mem::take(&mut self.drawing),
+            evaluations: self.evaluations.clone(),
         };
         let result = f(&mut inner);
         let DrawContext {
@@ -717,6 +764,9 @@ impl<'a> DrawContext<'a> {
             if !base.visible && !artist.draws_hidden() {
                 artist.draw_hidden(ctx);
                 return;
+            }
+            if let Some(id) = id {
+                ctx.evaluated(artist.has_wild_transform(), || Some(Evaluation::Draw(id)));
             }
             match base.agg_filter.as_ref().filter(|_| own_filter) {
                 Some(filter) => {

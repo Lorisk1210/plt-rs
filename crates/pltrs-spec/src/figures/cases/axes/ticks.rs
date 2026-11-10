@@ -94,6 +94,21 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
+    FigureCase::new("axes/ticklabels_not_antialiased", |fig| {
+        let ax = fig.subplot();
+        line(&ax)?;
+        ax.xaxis()
+            .set_ticks([0.0, 2.5, 5.0, 7.5, 10.0])
+            .set_ticklabel_props(
+                TickLevel::Major,
+                TickLabelProps {
+                    antialiased: Some(false),
+                    ..TickLabelProps::default()
+                },
+            );
+        Ok(())
+    })
+    .sized(4.0, 3.0, 100.0),
     FigureCase::new("axes/set_ticks_labels_minor", |fig| {
         let ax = fig.subplot();
         line(&ax)?;

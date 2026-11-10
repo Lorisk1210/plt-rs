@@ -54,7 +54,34 @@ pub(crate) enum Placement {
     Given(Bbox),
 }
 
+/// What applying the aspect of an axes computes with, as bits (so that
+/// NaN compares as itself): its view limits, its data limits and the
+/// aspect asked for.
+pub(crate) type AspectInputs = [u64; 9];
+
 impl FigureState {
+    /// The [`AspectInputs`] of `axes` as they are now (zeros for what is
+    /// no axes).
+    fn aspect_inputs(&self, axes: ArtistId) -> AspectInputs {
+        self.store
+            .get_as::<AxesState>(axes)
+            .map_or([0; 9], |state| {
+                let (view, data) = (state.view_lim, state.data_lim.bbox);
+                [
+                    view.x0(),
+                    view.y0(),
+                    view.x1(),
+                    view.y1(),
+                    data.x0(),
+                    data.y0(),
+                    data.x1(),
+                    data.y1(),
+                    state.aspect.ratio.unwrap_or(f64::NAN),
+                ]
+                .map(f64::to_bits)
+            })
+    }
+
     /// Brings one axes up to date for layout: a due layout-engine pass
     /// (see [`run_measured_layout`](Self::run_measured_layout)), pending
     /// autoscaling, then the aspect; whether the aspect could be applied
@@ -90,11 +117,20 @@ impl FigureState {
 
     /// [`apply_aspect_at`](Self::apply_aspect_at), its problem reported
     /// with the next draw (matplotlib's draw raises it); whether it
-    /// succeeded.
+    /// succeeded. An axes whose aspect failed is not applied to the same
+    /// limits again before that draw: matplotlib's draw ends where it
+    /// first fails, so that what its arithmetic warns of is said once,
+    /// however often pltrs prepares the figure for the draw (a print cut
+    /// to its tight box measures it first).
     fn apply_aspect_reporting(&mut self, axes: ArtistId, placement: Placement) -> bool {
+        let inputs = self.aspect_inputs(axes);
+        if self.aspects_failed.contains(&(axes, inputs)) {
+            return false;
+        }
         let Err(err) = self.apply_aspect_at(axes, placement) else {
             return true;
         };
+        self.aspects_failed.push((axes, inputs));
         self.pending_errors.push(DrawError {
             artist: axes,
             message: err.to_string(),

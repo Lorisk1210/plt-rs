@@ -23,6 +23,7 @@ import numpy as np
 
 from . import _api, _artist_effects, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms, _program_classes, _pybind, _python_drawing, _unusable, _values
+from . import _transform_trees
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
@@ -806,6 +807,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                                          bool(autolim))
         _handles.adopt(self, native, axes.figure)
         _program_classes.set_artist_props(self, had_transform, axes)
+        if kind == "patch":
+            _transform_trees.patch_added(axes, self)
         return self
 
     def _add_to_figure(self, figure, clip):
@@ -1004,7 +1007,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             # `Artist.draw` itself (the wrappers of the subclasses' draws
             # refuse it), which draws nothing in matplotlib.
             return
-        _unusable.check(self)
+        _unusable.check_ahead(self)
         # What matplotlib's draw reads, computed by a class of the program's.
         push_computed = getattr(self, "_push_computed", None)
         if push_computed is not None and _python_drawing.figure_changeable():

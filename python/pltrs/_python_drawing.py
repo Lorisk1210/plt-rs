@@ -311,8 +311,11 @@ def evaluate_given_transform(artist):
         if not _live_transforms.holds_natively(given):
             # Kept as given, no transform: the artist's ``get_transform``
             # fails on it as matplotlib's draw does (a patch composes it
-            # with its own); pltrs (Rust) keeps the one it had.
-            artist.get_transform()
+            # with its own); pltrs (Rust) keeps the one it had. What the
+            # arithmetic warns of is said where the draw reaches the
+            # artist (`._transform_replay`).
+            with np.errstate(all="ignore"):
+                artist.get_transform()
             return
         _transforms.set_transform(artist._native, _live_transforms.to_native(given))
 

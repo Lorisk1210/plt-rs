@@ -1077,7 +1077,7 @@ class RegularPolygon(Patch):
             # matplotlib's add_patch reads the patch transform first, for
             # the data limits, then maps the path's vertices through it,
             # which numpy refuses for none.
-            _unusable.check(self, measuring=True)
+            _unusable.check_ahead(self, measuring=True)
             if not len(self.get_path().vertices):
                 raise RuntimeError("Invalid vertices array.")
         return super()._add_to_axes(axes, kind, autolim)
@@ -1998,7 +1998,7 @@ class Ellipse(Patch):
             center, angle = self._recomputed()
             self._set_fields(center=center, angle=angle)
         if kind == "patch":
-            _unusable.check(self, measuring=True)
+            _unusable.check_ahead(self, measuring=True)
         return super()._add_to_axes(axes, kind, autolim)
 
     def _make_geometry(self, xy, width, height, angle):

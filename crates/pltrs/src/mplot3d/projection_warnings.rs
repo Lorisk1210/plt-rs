@@ -20,69 +20,7 @@
 use super::art3d::Art3D;
 use super::camera::Projection;
 use super::math::{Matrix4, Vec3};
-
-/// The floating-point exceptions one numpy call raised, which it reports
-/// as warnings when it returns.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct Exceptions {
-    /// A finite number divided by zero.
-    divide: bool,
-    /// A finite result too large to represent.
-    overflow: bool,
-    /// No number made of numbers (`0 × inf`, `inf - inf`, `0 / 0`,
-    /// `inf / inf`).
-    invalid: bool,
-}
-
-impl Exceptions {
-    /// Issues numpy's warnings for the exceptions `operation` raised, in
-    /// numpy's order.
-    fn warn(self, operation: &str) {
-        for (raised, kind) in [
-            (self.divide, "divide by zero"),
-            (self.overflow, "overflow"),
-            (self.invalid, "invalid value"),
-        ] {
-            if raised {
-                crate::warnings::warn_runtime(&format!("{kind} encountered in {operation}"));
-            }
-        }
-    }
-
-    /// `x × y + sum` (`x × y` without `sum`), noting the exceptions
-    /// computing it raises, as `OpenBLAS`'s fused multiply-adds compute it.
-    fn multiply_add(&mut self, x: f64, y: f64, sum: Option<f64>) -> f64 {
-        let product = x * y;
-        if (x == 0.0 && y.is_infinite()) || (x.is_infinite() && y == 0.0) {
-            self.invalid = true;
-        }
-        let Some(sum) = sum else {
-            self.overflow |= product.is_infinite() && x.is_finite() && y.is_finite();
-            return product;
-        };
-        let result = x.mul_add(y, sum);
-        if product.is_infinite() && sum.is_infinite() && product.signum() != sum.signum() {
-            self.invalid = true;
-        }
-        self.overflow |= result.is_infinite() && x.is_finite() && y.is_finite() && sum.is_finite();
-        result
-    }
-
-    /// `a / b`, noting the exceptions dividing raises.
-    fn divide(&mut self, a: f64, b: f64) -> f64 {
-        let quotient = a / b;
-        if !(a.is_nan() || b.is_nan()) {
-            if quotient.is_nan() {
-                self.invalid = true;
-            } else if b == 0.0 && a.is_finite() {
-                self.divide = true;
-            } else if quotient.is_infinite() && a.is_finite() {
-                self.overflow = true;
-            }
-        }
-        quotient
-    }
-}
+use crate::numeric::numpy_arith::Exceptions;
 
 /// Issues numpy's warnings for projecting `points` (in transformed
 /// coordinates) through `matrix` all at once: `np.dot(M, vec)` of their
@@ -255,20 +193,5 @@ mod tests {
         );
         let ((), warned) = capturing_runtime(|| warn_moving(&level(), [0.1, 0.2, 0.5], 2, 0.3));
         assert_eq!(warned, Vec::<String>::new());
-    }
-
-    #[test]
-    fn opposite_infinities_in_a_sum_are_invalid() {
-        let mut exceptions = Exceptions::default();
-        let sum = exceptions.multiply_add(1.0, f64::INFINITY, None);
-        exceptions.multiply_add(-1.0, f64::INFINITY, Some(sum));
-        assert!(exceptions.invalid && !exceptions.overflow);
-    }
-
-    #[test]
-    fn finite_products_too_large_overflow() {
-        let mut exceptions = Exceptions::default();
-        exceptions.multiply_add(1e200, 1e200, None);
-        assert!(exceptions.overflow && !exceptions.invalid);
     }
 }

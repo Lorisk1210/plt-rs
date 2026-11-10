@@ -1,5 +1,5 @@
 use super::*;
-use crate::figure::Figure;
+use crate::figure::{Figure, FigureState};
 
 fn axes_with_limits(x: (f64, f64), y: (f64, f64)) -> (Figure, Axes) {
     let fig = Figure::new();
@@ -248,4 +248,31 @@ fn datalim_collapsing_the_view_warns_as_set_xbound_does() {
         .unwrap();
     crate::warnings::clear_handler();
     assert!(seen.borrow().iter().all(|message| message != identical));
+}
+
+#[test]
+fn an_aspect_that_cannot_be_applied_warns_once_for_each_draw() {
+    let (fig, ax) = axes_with_limits((-1e308, 1e308), (-1e308, 1e308));
+    ax.set_aspect(Aspect::Ratio(1.0))
+        .unwrap()
+        .set_adjustable(Adjustable::Datalim)
+        .unwrap();
+    let overflows = |work: &dyn Fn()| {
+        let ((), warned) = crate::warnings::capturing_runtime(work);
+        (warned.iter())
+            .filter(|warning| *warning == "overflow encountered in scalar subtract")
+            .count()
+    };
+    // Measured, then drawn: matplotlib's draw raises at the first
+    // application, whose two sizes overflow.
+    let drawn = overflows(&|| {
+        fig.state_cell().work_on(FigureState::prepare);
+        assert!(fig.canvas().draw().is_err());
+    });
+    assert_eq!(drawn, 2);
+    assert_eq!(
+        overflows(&|| assert!(fig.canvas().draw().is_err())),
+        2,
+        "again"
+    );
 }

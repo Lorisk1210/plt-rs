@@ -15,7 +15,9 @@ from numbers import Real
 
 import numpy as np
 
-from pltrs import _api, _mirrors, _values, artist, axis as maxis, cbook, colors as mcolors
+from pltrs import (
+    _api, _mirrors, _unusable, _values, artist, axis as maxis, cbook,
+    colors as mcolors)
 from pltrs import collections as mcoll, lines as mlines, patches as mpatches
 from pltrs._native import artist as _artist, mplot3d as _mplot3d
 
@@ -68,6 +70,24 @@ class Axis(maxis.XAxis):
         # matplotlib's draw of a 3-D axis, visible or not, starts from the
         # scaled limits of its Axes.
         getattr(None, "_get_scaled_limits")
+
+    def _decouple(self, removed):
+        # docstring inherited; matplotlib's draw of the Axes fails where
+        # it draws the pane of the axis, once the panes of the axes before
+        # it are drawn: pltrs (Rust)'s draw raises it there.
+        axes = self._axes
+        super()._decouple(removed)
+        _unusable.drop(axes, f"{self.axis_name}axis without its Axes")
+        try:
+            self._drawn_without_axes()
+        except AttributeError as exc:
+            _mplot3d.set_pane_failure(
+                axes._native, self.axis_name, (type(exc).__name__, str(exc)))
+
+    def _recouple(self):
+        # docstring inherited
+        super()._recouple()
+        _mplot3d.set_pane_failure(self._axes._native, self.axis_name, None)
 
     #: What `.XAxis` records of its label's side, which a 3-D axis does
     #: not read: its label goes where `get_label_position` says.

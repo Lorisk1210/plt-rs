@@ -277,6 +277,15 @@ def _(fig):
     ax.tick_params(top=True, labeltop=True, right=True, labelright=True)
 
 
+@case("axes/ticklabels_not_antialiased", figsize=(4, 3))
+def _(fig):
+    ax = fig.subplots()
+    _line(ax)
+    ax.set_xticks([0, 2.5, 5, 7.5, 10])
+    for label in ax.get_xticklabels():
+        label.set_antialiased(False)
+
+
 @case("axes/tick_labelbottom_false", figsize=(5, 4))
 def _(fig):
     ax = fig.subplots()

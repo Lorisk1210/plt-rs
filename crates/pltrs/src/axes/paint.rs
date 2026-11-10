@@ -16,7 +16,7 @@ use crate::legend::LegendArtist;
 use crate::patches::{PatchError, PatchPaint};
 use crate::patheffects::with_path_effects;
 use crate::ticker::AxisName;
-use crate::transforms::unit_to_bbox;
+use crate::transforms::{Evaluation, unit_to_bbox};
 
 /// Something an axes draws in z-order.
 #[derive(Clone, Copy, Debug)]
@@ -43,6 +43,8 @@ impl AxesState {
         if ctx.layout().axes_extent(self.base().id()).is_none() {
             return;
         }
+        let id = self.base().id();
+        ctx.evaluated(false, || Some(Evaluation::Axes(id)));
         if self
             .polar_view()
             .is_some_and(|polar| !polar.has_finite_wedge())
@@ -185,6 +187,7 @@ impl AxesState {
         if !self.patch.visible {
             return;
         }
+        ctx.evaluated(false, || Some(Evaluation::Background(base.id())));
         ctx.renderer()
             .open_part_group("patch", self.patch.gid.as_deref());
         // A transparent face is left unfilled, a transparent edge
@@ -238,6 +241,7 @@ impl AxesState {
                     parasite.as_deref()
                 };
                 if let Some(axes) = axes {
+                    ctx.evaluated(false, || AxisPainter::new(owner, axes, name).evaluation());
                     let filter = axes.axis(name).agg_filter.clone();
                     ctx.draw_artist(false, |ctx| {
                         with_agg_filter(ctx, filter.as_ref(), |ctx| {

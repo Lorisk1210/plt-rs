@@ -64,6 +64,10 @@ pub(crate) struct AxesState {
     /// Whether the view limits differ from the initial unit box
     /// (matplotlib's `viewLim.mutatedx()` and `mutatedy()`).
     pub(crate) view_mutated: (bool, bool),
+    /// How often the view limits were set, to the same values or not:
+    /// matplotlib's view limits invalidate the transforms built on them
+    /// each time (see [`AxesLeaves`](crate::transforms::AxesLeaves)).
+    pub(crate) view_sets: u32,
     /// Extent of all data added so far.
     pub(crate) data_lim: DataLimits,
     /// What the next data added does to the data limits.
@@ -191,7 +195,7 @@ pltrs_core::archive_struct!(AxesState {
     rasterization_zorder,
     current_image,
     rc
-} skip { scale_box, measured_at });
+} skip { scale_box, measured_at, view_sets });
 
 /// How the height of an axes' titles is chosen (matplotlib's
 /// `_autotitlepos`, and an `Axes` subclass' `_update_title_position`).
@@ -341,6 +345,7 @@ impl AxesState {
             projection_options: None,
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),
+            view_sets: 0,
             data_lim: DataLimits::default(),
             next_data: NextData::Replaces,
             xaxis: AxisState::new(AxisName::X, &rc),
@@ -589,6 +594,7 @@ impl AxesState {
         // matplotlib's view limits invalidate what was computed from them
         // whenever they are set, to the same values or not.
         self.scale_box.replace(None);
+        self.view_sets = self.view_sets.wrapping_add(1);
         let v = self.view_lim;
         let mutated = (lower, upper) != (0.0, 1.0);
         match name {

@@ -7,6 +7,7 @@ themselves leak state or race (colour codes, network, kernels' sockets).
 """
 
 import argparse
+import errno
 import importlib.util
 import os
 import pathlib
@@ -140,7 +141,7 @@ def test_the_gallery_and_generated_programs_run_offline(tmp_path):
              "    print(type(err).__name__, getattr(err, 'reason', err))\n")
     done = subprocess.run([sys.executable, "-c", fetch], capture_output=True, text=True,
                           env=setup.environment("pltrs", program))
-    assert done.stdout.startswith("URLError [Errno 111] Connection refused")
+    assert done.stdout.startswith(f"URLError [Errno {errno.ECONNREFUSED}] Connection refused")
 
 
 def _jupyter_config():

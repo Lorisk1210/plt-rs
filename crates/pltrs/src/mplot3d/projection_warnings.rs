@@ -86,8 +86,10 @@ impl Exceptions {
 
 /// Issues numpy's warnings for projecting `points` (in transformed
 /// coordinates) through `matrix` all at once: `np.dot(M, vec)` of their
-/// homogeneous coordinates, then the division of each projected point by
-/// its last coordinate (`proj3d._proj_transform_vec` and its kin).
+/// homogeneous coordinates (where numpy's products warn at all:
+/// [`PRODUCTS_WARN`](crate::warnings::PRODUCTS_WARN)), then the division
+/// of each projected point by its last coordinate
+/// (`proj3d._proj_transform_vec` and its kin).
 pub(crate) fn warn_projecting(matrix: &Matrix4, points: &[Vec3]) {
     if points.is_empty() {
         return;
@@ -104,7 +106,9 @@ pub(crate) fn warn_projecting(matrix: &Matrix4, points: &[Vec3]) {
             division.divide(coordinate, projected[3]);
         }
     }
-    dot.warn("dot");
+    if crate::warnings::PRODUCTS_WARN {
+        dot.warn("dot");
+    }
     division.warn("divide");
 }
 
@@ -190,14 +194,24 @@ mod tests {
         assert_eq!(warned(&[]), Vec::<String>::new());
     }
 
+    /// `warnings`, without those of products where numpy's products warn
+    /// of nothing.
+    fn as_numpy_warns<'a>(warnings: &[&'a str]) -> Vec<&'a str> {
+        warnings
+            .iter()
+            .copied()
+            .filter(|warning| crate::warnings::PRODUCTS_WARN || !warning.ends_with(" in dot"))
+            .collect()
+    }
+
     #[test]
     fn an_infinite_coordinate_times_a_zero_is_invalid_once_per_call() {
         assert_eq!(
             warned(&[[0.0, 0.0, f64::INFINITY], [1.0, 1.0, f64::INFINITY]]),
-            [
+            as_numpy_warns(&[
                 "invalid value encountered in dot",
                 "invalid value encountered in divide"
-            ]
+            ])
         );
     }
 
@@ -234,10 +248,10 @@ mod tests {
         });
         assert_eq!(
             warned,
-            [
+            as_numpy_warns(&[
                 "invalid value encountered in multiply",
                 "invalid value encountered in dot"
-            ]
+            ])
         );
         let ((), warned) = capturing_runtime(|| warn_moving(&level(), [0.1, 0.2, 0.5], 2, 0.3));
         assert_eq!(warned, Vec::<String>::new());

@@ -529,8 +529,12 @@ pub(crate) trait UnitHandle: Sized {
         let Some(converter) = converter else {
             return;
         };
+        // matplotlib's axis takes the zone for its unit only without units:
+        // a categorical axis has its category data for them.
+        let unitless =
+            self.unit().is_none() && self.read_state(|state| state.categories().is_none());
         match tz {
-            Some(tz) if self.unit().is_none() => self.set_unit(Unit::new(tz.clone())),
+            Some(tz) if unitless => self.set_unit(Unit::new(tz.clone())),
             _ if new => {
                 let zone = self.read_state(|state| state.units().time_zone());
                 self.use_date_axisinfo(&converter, zone.as_ref());

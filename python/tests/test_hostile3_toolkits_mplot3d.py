@@ -20,6 +20,8 @@ from pltrs.mpl_toolkits import axisartist
 from pltrs.mpl_toolkits.axes_grid1 import host_subplot
 from pltrs.mpl_toolkits.mplot3d import art3d
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -144,7 +146,7 @@ def test_format_coord_brings_back_no_number_as_none():
     _, ax = axes3d()
     assert ax.format_coord(np.nan, 0.02) == "x pane=nan, y=nan, z=nan"
     caught = runtime_warnings(lambda: ax.format_coord(np.inf, 0.02))
-    assert caught == ["invalid value encountered in dot"]
+    assert caught == build_facts.as_numpy_warns(["invalid value encountered in dot"])
     with pytest.raises(TypeError, match="unsupported operand type"):
         ax.format_coord(None, 0.02)
     with pytest.raises(TypeError, match="unsupported operand type"):

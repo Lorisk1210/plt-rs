@@ -5,7 +5,7 @@
 use pltrs_core::rng::SplitMix64;
 use pltrs_text::fontconfig::FontconfigPattern;
 use pltrs_text::mathtext::{Fontset, MathStyle};
-use pltrs_text::{FontQuery, FontRequest, TextEngine, TextError};
+use pltrs_text::{FontQuery, FontRequest, SET_CHAR_SIZE_LINE, TextEngine, TextError};
 
 const FONTSETS: [Fontset; 5] = [
     Fontset::DejaVuSans,
@@ -192,17 +192,19 @@ fn character_soups_do_not_panic() {
 fn sizes_of_no_pixel_fail_as_matplotlibs_ft2font_reports_freetype() {
     let request = FontRequest::new(FontQuery::default());
     let refused = TextEngine::global().layout_line("ab", &request, 2.5);
-    let message = "FT_Set_Char_Size (ft2font.cpp line 248) failed with error 0x97: \
-                   invalid ppem value";
+    let message = format!(
+        "FT_Set_Char_Size (ft2font.cpp line {SET_CHAR_SIZE_LINE}) failed with error 0x97: \
+         invalid ppem value"
+    );
     assert!(matches!(&refused, Err(TextError::FontSize(_))));
     assert_eq!(
         refused.err().map(|err| err.to_string()).as_deref(),
-        Some(message)
+        Some(message.as_str())
     );
     let math = TextEngine::global().typeset_math(r"$x^2$", &MathStyle::default().with_dpi(2.5));
     assert_eq!(
         math.err().map(|err| err.to_string()).as_deref(),
-        Some(message)
+        Some(message.as_str())
     );
     assert!(
         TextEngine::global()

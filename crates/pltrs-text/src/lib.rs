@@ -48,7 +48,7 @@ pub use block::{
     RotationMode, VAlign, layout_block,
 };
 pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
-pub use error::TextError;
+pub use error::{SET_CHAR_SIZE_LINE, TextError};
 pub use lookups::{FontLookup, LookupKind, LookupRun, take_font_lookups};
 pub use mathtext_log::take_mathtext_log;
 pub use missing::{MissingGlyph, take_missing_glyphs};

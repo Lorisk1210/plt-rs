@@ -13,7 +13,6 @@ import sys
 import warnings
 
 import numpy as np
-import pandas as pd
 import pytest
 
 import pltrs
@@ -22,6 +21,9 @@ from pltrs.font_manager import FontProperties
 from pltrs.offsetbox import AnnotationBbox, TextArea
 from pltrs.patches import Ellipse
 from pltrs.transforms import Affine2D
+
+# pltrs' own dependencies leave pandas out (a wheel's check installs none).
+pd = pytest.importorskip("pandas")
 
 PYTHON_DIR = pathlib.Path(__file__).resolve().parents[1]
 

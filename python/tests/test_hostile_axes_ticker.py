@@ -19,6 +19,8 @@ from pltrs.path import Path
 from pltrs.transforms import Bbox
 from pltrs.units import ConversionError
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -155,9 +157,13 @@ def test_locators_compare_limits_that_are_no_numbers_as_matplotlibs():
     symlog = ticker.SymmetricalLogLocator(linthresh=1, base=10)
     with pytest.raises(TypeError, match="^'<' not supported between instances of 'int' and 'str'$"):
         symlog.view_limits('-50', 50)
-    with pytest.warns(RuntimeWarning, match="invalid value encountered in scalar floor_divide"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         with pytest.raises(ValueError):
             symlog.tick_values(float('inf'), 100)
+    floor_divide = "invalid value encountered in scalar floor_divide"
+    assert ((floor_divide in [str(w.message) for w in caught])
+            == build_facts.FLOOR_DIVIDING_INFINITY_WARNS)
 
 
 def test_a_negative_count_of_symlog_ticks_is_matplotlibs():

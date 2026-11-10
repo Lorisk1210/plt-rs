@@ -22,6 +22,8 @@ from pltrs.mpl_toolkits import axisartist
 from pltrs.mpl_toolkits.axisartist import axis_artist
 from pltrs.mpl_toolkits.mplot3d import art3d
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -232,7 +234,8 @@ def axes3d():
     return fig, ax
 
 
-PROJECTING = ["invalid value encountered in dot", "invalid value encountered in divide"]
+PROJECTING = build_facts.as_numpy_warns(["invalid value encountered in dot",
+                                         "invalid value encountered in divide"])
 
 
 def test_collections_project_infinite_data_with_numpys_warnings():
@@ -264,9 +267,9 @@ def test_a_polygon_collection_projects_its_sort_position():
 def test_an_infinite_label_pad_moves_labels_with_numpys_warnings():
     fig, ax = axes3d()
     ax.set_zlabel("z", labelpad=float("inf"))
-    assert runtime_warnings(fig.canvas.draw) == [
+    assert runtime_warnings(fig.canvas.draw) == build_facts.as_numpy_warns([
         "invalid value encountered in multiply", "invalid value encountered in dot",
-        "invalid value encountered in multiply", "invalid value encountered in dot"]
+        "invalid value encountered in multiply", "invalid value encountered in dot"])
     ax.set_zlabel("z", labelpad=float("nan"))
     assert runtime_warnings(fig.canvas.draw) == []
 

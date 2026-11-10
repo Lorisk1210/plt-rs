@@ -3,6 +3,13 @@
 use std::fmt;
 use std::path::PathBuf;
 
+/// The line of matplotlib's `ft2font.cpp` its `FT_Set_Char_Size` errors
+/// name (`__LINE__` in the `FT_CHECK` call spanning lines 248 to 250) on
+/// this system: GCC, which builds matplotlib's Linux wheels, gives the
+/// line the call starts on, clang, which builds its macOS wheels, the
+/// line it ends on.
+pub const SET_CHAR_SIZE_LINE: u32 = if cfg!(target_os = "macos") { 250 } else { 248 };
+
 /// Why text could not be laid out.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TextError {
@@ -55,7 +62,8 @@ impl fmt::Display for TextError {
             // As matplotlib's `FT2Font.set_size` reports FreeType's error.
             Self::FontSize(err) => write!(
                 f,
-                "FT_Set_Char_Size (ft2font.cpp line 248) failed with error {:#04x}: {err}",
+                "FT_Set_Char_Size (ft2font.cpp line {SET_CHAR_SIZE_LINE}) failed with error \
+                 {:#04x}: {err}",
                 err.code()
             ),
             Self::Math(why) => write!(f, "mathtext error: {why}"),

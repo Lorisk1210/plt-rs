@@ -26,6 +26,8 @@ from pltrs.figure import Figure, SubFigure
 from pltrs.gridspec import SubplotParams
 from pltrs.path import Path
 
+import build_facts
+
 
 @pytest.fixture(autouse=True)
 def matplotlib_defaults():
@@ -74,8 +76,8 @@ def test_texts_at_tiny_resolutions_fail_as_freetype_refuses_them():
     fig, ax = plt.subplots()
     fig.set_dpi(2.5)
     with pytest.raises(RuntimeError, match=re.escape(
-            "FT_Set_Char_Size (ft2font.cpp line 248) failed with error 0x97: "
-            "invalid ppem value")):
+            f"FT_Set_Char_Size (ft2font.cpp line {build_facts.SET_CHAR_SIZE_LINE}) failed "
+            "with error 0x97: invalid ppem value")):
         fig.canvas.draw()
     fig.set_dpi(100)
     fig.canvas.draw()

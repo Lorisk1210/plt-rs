@@ -76,6 +76,22 @@ pub fn warn(message: &str) {
     }
 }
 
+/// Whether numpy warns of the floating-point exceptions its matrix
+/// products raise (`np.dot`, `@`), which it hands to its BLAS: `OpenBLAS`
+/// (Linux, Windows) and Accelerate on Intel Macs multiply on the
+/// processor, whose exception flags numpy reads afterwards, but numpy's
+/// wheels for macOS on Apple silicon multiply with Accelerate on Apple's
+/// matrix coprocessor, which raises none, so there a product warns of
+/// nothing (`np.dot([[0.0]], [np.inf])` included).
+pub const PRODUCTS_WARN: bool = !cfg!(all(target_os = "macos", target_arch = "aarch64"));
+
+/// Whether numpy warns of an invalid value where it floor-divides an
+/// infinity (`np.float64(np.inf) // 1.0`): its scalar floor division takes
+/// the C library's `fmod` first, which raises the invalid exception for an
+/// infinite dividend in glibc but not in Apple's libm, so that numpy on
+/// macOS warns of nothing there.
+pub const FLOOR_DIVIDING_INFINITY_WARNS: bool = !cfg!(target_os = "macos");
+
 /// Sends the runtime warnings of this thread to `handler` from now on.
 pub fn set_runtime_handler(handler: impl Fn(&str) + 'static) {
     RUNTIME_HANDLER.set(Some(Rc::new(handler)));

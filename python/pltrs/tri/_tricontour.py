@@ -2,8 +2,10 @@
 Contours on triangular grids (matplotlib's ``tri._tricontour``).
 """
 
-from .. import _contour_arguments, _docstring
+from .. import _docstring, _lazy_imports
 from ..contour import ContourSet, _ContourGenerator
+
+_contour_arguments = _lazy_imports.module(globals(), ".._contour_arguments")
 
 
 @_docstring.interpd

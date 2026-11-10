@@ -6,7 +6,9 @@ Kept from matplotlib 3.11.2 under the Matplotlib License. pltrs adds
 `cleandoc`, which cleans the docstrings Python compiles quicker than
 `inspect.cleandoc`, and keeps the ``ClassName:kwdoc`` tables of its own
 artist classes between runs (`_KwdocTables`): together they are most of
-the time ``import matplotlib.pyplot`` spends on docstrings.
+the time ``import matplotlib.pyplot`` spends on docstrings. The same file
+keeps the code of the functions the package makes from source text as it
+is imported (`compiled`).
 """
 
 import atexit
@@ -16,6 +18,7 @@ import marshal
 import os
 import re
 import sys
+import types
 import zlib
 
 from . import _api
@@ -181,22 +184,24 @@ interpd = _ArtistPropertiesSubstitution()
 class _KwdocTables:
     """
     The ``ClassName:kwdoc`` tables of the package's own artist classes,
-    kept between runs in a file of the cache directory, as Python keeps
-    compiled modules: the tables written there are used while no module of
-    the package, nor its extension, has changed size or modification time
-    since, and are computed again (and written when Python exits)
-    otherwise. A table depends on the class and on ``docstring.hardcopy``
-    alone.
+    and the code of the functions its modules make from source text as
+    they are imported (`code`: pyplot's wrappers, the constructors of the
+    patch styles), kept between runs in a file of the cache directory, as
+    Python keeps compiled modules: what is written there is used while no
+    module of the package, nor its extension, has changed size or
+    modification time since, and is computed again (and written when
+    Python exits) otherwise. A table depends on the class and on
+    ``docstring.hardcopy`` alone, code on its source and file name.
     """
 
     #: The version of the file's format.
-    _FORMAT = 1
+    _FORMAT = 2
 
     def __init__(self):
         #: The tables by class and ``docstring.hardcopy``, once read.
         self._tables = None
         #: What the file must have been written for: the format, Python,
-        #: the package and the sizes and times of its files.
+        #: the package and the digest of the sizes and times of its files.
         self._stamp = None
         #: Whether a table was computed that the file lacks.
         self._changed = False
@@ -212,10 +217,25 @@ class _KwdocTables:
         table = tables.get(key)
         if type(table) is not str:
             table = tables[key] = kwdoc(cls)
-            if not self._changed:
-                self._changed = True
-                atexit.register(self._write)
+            self._keep()
         return table
+
+    def code(self, source, filename):
+        """``compile(source, filename, "exec")``, kept (by the source's
+        digest: the sources are not kept)."""
+        tables = self._read()
+        key = ("code", filename, _digest(source.encode()))
+        code = tables.get(key)
+        if type(code) is not types.CodeType:
+            code = tables[key] = compile(source, filename, "exec")
+            self._keep()
+        return code
+
+    def _keep(self):
+        """Write the file when Python exits, now that it lacks something."""
+        if not self._changed:
+            self._changed = True
+            atexit.register(self._write)
 
     def _read(self):
         """The tables of the file, if it was written for this package as it
@@ -224,7 +244,7 @@ class _KwdocTables:
             self._tables = {}
             try:
                 self._stamp = (self._FORMAT, sys.version, sys.flags.optimize,
-                               _PACKAGE, _package_files())
+                               _PACKAGE, _digest(marshal.dumps(_package_files())))
                 with open(_cache_file(), "rb") as file:
                     stamp, tables = marshal.load(file)
             except (OSError, EOFError, ValueError, TypeError):
@@ -283,6 +303,12 @@ def _package_files():
     return tuple(sorted(files))
 
 
+def _digest(data):
+    """A digest of the bytes *data*: their length and two checksums, which
+    differ for all but a vanishing share of different data."""
+    return len(data), zlib.crc32(data), zlib.adler32(data)
+
+
 def _cache_file():
     """The file of the cache directory holding the tables, one for each
     directory the package is in."""
@@ -292,3 +318,9 @@ def _cache_file():
 
 
 _kwdoc_tables = _KwdocTables()
+
+
+def compiled(source, filename):
+    """``compile(source, filename, "exec")`` for a module of the package,
+    kept between runs (`_KwdocTables.code`)."""
+    return _kwdoc_tables.code(source, filename)

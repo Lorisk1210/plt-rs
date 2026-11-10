@@ -20,8 +20,8 @@ import warnings
 import numpy as np
 
 from . import _docstring
-from . import (_api, _artist_copying, _collection_draw_checks, _live_transforms,
-               _owned_paths, _program_paths, _refused_colors, _unusable, _values, cbook,
+from . import (_api, _artist_copying, _lazy_imports, _live_transforms,
+               _program_paths, _unusable, _values, cbook,
                colorizer as mcolorizer, colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
@@ -30,7 +30,11 @@ from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
 from .artist import Artist, _check_array_alpha, allow_rasterization
 from .path import Path
-from . import _collection_arguments
+
+_collection_arguments = _lazy_imports.module(globals(), "._collection_arguments")
+_collection_draw_checks = _lazy_imports.module(globals(), "._collection_draw_checks")
+_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
+_refused_colors = _lazy_imports.module(globals(), "._refused_colors")
 
 
 def _rcParams():

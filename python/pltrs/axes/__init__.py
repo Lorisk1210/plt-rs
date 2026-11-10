@@ -2,6 +2,7 @@
 
 from . import _base
 from ._axes import Axes
+from . import _secondary_axes  # noqa: F401  (matplotlib's axes import it)
 
 #: matplotlib's former name for an Axes placed on a subplot grid.
 Subplot = Axes

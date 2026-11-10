@@ -33,9 +33,11 @@ import string
 
 import numpy as np
 
-from . import (_api, _locators_as_matplotlib, _logit_reference, _program_classes, _qualnames,
-               _scalar_reference, _tick_helpers, _tick_state, cbook)
+from . import (_api, _lazy_imports, _locators_as_matplotlib, _logit_reference,
+               _program_classes, _qualnames, _tick_helpers, _tick_state, cbook)
 from ._native import axis as _axis, ticker as _ticker
+
+_scalar_reference = _lazy_imports.module(globals(), "._scalar_reference")
 
 _log = logging.getLogger(__name__)
 

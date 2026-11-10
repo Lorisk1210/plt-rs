@@ -13,13 +13,15 @@ from numbers import Integral, Real
 
 import numpy as np
 
-from . import (_api, _handles, _live_transforms, _streamplot_reference, _values, cbook,
+from . import (_api, _handles, _lazy_imports, _live_transforms, _values, cbook,
                colors as mcolors, collections as mcollections, patches)
 from ._fancy_styles import _style_object
 from ._native import patches as _patches, plotting as _plotting
 from ._patch_styles import ArrowStyle, _native_spec
 from ._stream_grid import (  # noqa: F401 - matplotlib's names of the module
     DomainMap, Grid, InvalidIndexError, OutOfBounds, StreamMask, TerminateTrajectory, interpgrid)
+
+_streamplot_reference = _lazy_imports.module(globals(), "._streamplot_reference")
 
 
 __all__ = ['streamplot']

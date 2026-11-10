@@ -993,7 +993,7 @@ def _init_tests():
     _base_library['_classic_test'] = library['_classic_test'] = classic_test
 
 
-def _logged_cached(fmt, func=None):
+def _logged_cached(fmt, func=None, *, later=None):
     """
     Decorator that logs a function's return value, and memoizes that value.
 
@@ -1006,10 +1006,12 @@ def _logged_cached(fmt, func=None):
     %-format string *fmt*, and memoize it; later calls to *func* will directly
     return that value.
     """
-    # matplotlib's decorator, as it is: later calls take any keyword
-    # arguments, which only the first call passes on.
+    # matplotlib's decorator: later calls take any keyword arguments, which
+    # only the first call passes on. pltrs adds *later*, called with the
+    # memoized value at each later call (`get_data_path` writes the data
+    # directory's files then, not when importing the package primes it).
     if func is None:  # Return the actual decorator.
-        return functools.partial(_logged_cached, fmt)
+        return functools.partial(_logged_cached, fmt, later=later)
 
     called = False
     ret = None
@@ -1021,6 +1023,8 @@ def _logged_cached(fmt, func=None):
             ret = func(**kwargs)
             called = True
             _log.debug(fmt, ret)
+        elif later is not None:
+            later(ret)
         return ret
 
     return wrapper
@@ -1086,19 +1090,17 @@ from .cm import _colormaps as colormaps  # noqa: E402
 from .cm import _multivar_colormaps as multivar_colormaps  # noqa: E402
 from .cm import _bivar_colormaps as bivar_colormaps  # noqa: E402
 from .colors import _color_sequences as color_sequences  # noqa: E402
+from . import ft2font  # noqa: E402, F401  (matplotlib's import loads it)
 
 
-@_logged_cached('matplotlib data path: %s')
-def get_data_path():
-    """Return the path to Matplotlib data."""
-    # Return the path to Matplotlib data: the directory where pltrs (Rust)
-    # writes the data files it bundles (its fonts), as matplotlib's ``mpl-
-    # data``, which also reaches the files the package ships (the sample data,
-    # the toolbar images).
+@functools.cache
+def _write_data_files(path):
+    """Write the files of the data directory *path*, once: those pltrs (Rust)
+    bundles (its fonts, ``_native.font_manager.data_path``) and the entries of
+    the package's ``mpl-data`` (`_reach_shipped_data`)."""
     from ._native import font_manager as _font_manager
-    path = _font_manager.data_path()
+    _font_manager.data_path()
     _reach_shipped_data(path)
-    return path
 
 
 @functools.cache
@@ -1146,6 +1148,19 @@ def _replace_link(entry, target):
             os.replace(temporary, target)
     except OSError:
         temporary.unlink(missing_ok=True)
+
+
+@_logged_cached('matplotlib data path: %s', later=_write_data_files)
+def get_data_path():
+    """Return the path to Matplotlib data."""
+    # Return the path to Matplotlib data: the directory where pltrs (Rust)
+    # writes the data files it bundles (its fonts), as matplotlib's ``mpl-
+    # data``, which also reaches the files the package ships (the sample data,
+    # the toolbar images). Importing the package asks where it is; its files
+    # are written when the path is next asked for (`_write_data_files`), as
+    # writing them maps the pages of the extension around the bundled files.
+    from ._native import font_manager as _font_manager
+    return _font_manager.data_location()
 
 
 # matplotlib loads its rc files from the data and configuration directories

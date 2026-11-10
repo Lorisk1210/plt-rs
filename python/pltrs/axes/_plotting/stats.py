@@ -18,8 +18,11 @@ from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
-from . import _boxplot_reference, _pie_reference
+from ... import _lazy_imports
 from ._helpers import check_format, keep_data, takes_properties, wrap, wrap_all
+
+_boxplot_reference = _lazy_imports.module(globals(), "._boxplot_reference")
+_pie_reference = _lazy_imports.module(globals(), "._pie_reference")
 
 
 def _rcParams():

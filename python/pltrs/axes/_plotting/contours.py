@@ -7,7 +7,7 @@ import math
 import numpy as np
 
 from ... import _docstring
-from ... import (_api, _contour_arguments, _handles, _live_transforms, _tick_helpers,
+from ... import (_api, _handles, _lazy_imports, _live_transforms, _tick_helpers,
                  _values, artist as martist, cbook, collections as mcoll, colors as mcolors)
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
@@ -15,6 +15,8 @@ from ..._preprocess import _preprocess_data
 from ... import tri as mtri
 from ._helpers import _make_axes_method
 from .scatter import _mapping
+
+_contour_arguments = _lazy_imports.module(globals(), "..._contour_arguments")
 
 
 def _linestyles(styles):

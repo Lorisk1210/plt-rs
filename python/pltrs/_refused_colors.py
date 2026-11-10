@@ -16,9 +16,10 @@ them, returns before it maps anything, and counts as no draw.
 
 import functools
 
-from . import _unusable, cbook, colors as mcolors
-from ._collection_draw_checks import _draws_nothing
+from . import _lazy_imports, _unusable, cbook, colors as mcolors
 from ._native import artist as _artist
+
+_collection_draw_checks = _lazy_imports.module(globals(), "._collection_draw_checks")
 
 
 def take(collection, side, c, give):
@@ -56,7 +57,7 @@ def _set_again(collection, side, c):
     edges (refused, they are neither ``'face'`` nor None, so they are not
     mapped). The colour stays kept (the draw that fails is recorded
     before it is made, see `._python_drawing`)."""
-    if _draws_nothing(collection):
+    if _collection_draw_checks._draws_nothing(collection):
         return
     first = not collection.__dict__.get("_mappable_flags_set", False)
     collection._mappable_flags_set = True

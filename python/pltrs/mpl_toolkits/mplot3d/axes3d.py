@@ -20,7 +20,7 @@ import weakref
 import numpy as np
 
 from pltrs import _docstring
-from pltrs import _api, _handles, _values, cbook, rcParams
+from pltrs import _api, _handles, _lazy_imports, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs import patches as mpatches, text as mtext
 from pltrs._native import artist as _artist, axes as _axes, axis as _axis
@@ -40,12 +40,13 @@ from pltrs._text_methods import _init_added
 from pltrs.text import _measured_by_given
 from pltrs.transforms import Bbox
 
-from . import (
-    _draw_problems, _program_projection, _properties, art3d, axis3d, proj3d)
+from . import _program_projection, _properties, art3d, axis3d, proj3d
 from ._charts import ChartsMixin
 from ._contours import ContoursMixin
 from ._limit_boxes import LimitBoxesMixin
 from ._voxels import VoxelsMixin
+
+_draw_problems = _lazy_imports.module(globals(), "._draw_problems")
 
 
 def _check_margin(m):

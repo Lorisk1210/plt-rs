@@ -11,9 +11,11 @@ from ... import _docstring
 from ... import _api, cbook, collections as mcoll, colorizer as mcolorizer, colors as mcolors
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
-from . import _hexbin_reference
+from ... import _lazy_imports
 from ._helpers import wrap
 from .scatter import _mapping
+
+_hexbin_reference = _lazy_imports.module(globals(), "._hexbin_reference")
 
 #: The reductions pltrs (Rust) has, by the functions matplotlib's callers
 #: pass as ``reduce_C_function``.

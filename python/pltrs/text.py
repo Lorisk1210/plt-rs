@@ -18,7 +18,7 @@ import weakref
 import numpy as np
 
 from . import _docstring
-from . import (_api, _live_transforms, _mirrors, _text_coords, _text_overrides,
+from . import (_api, _lazy_imports, _live_transforms, _mirrors, _text_overrides,
                _unusable, _values, cbook, units)
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
@@ -31,6 +31,8 @@ from .artist import Artist
 from .font_manager import FontManager, FontProperties, fontManager  # noqa: F401
 from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here)
 from .transforms import Bbox, BboxBase, Transform
+
+_text_coords = _lazy_imports.module(globals(), "._text_coords")
 
 #: The keywords `Text` takes explicitly, in the order matplotlib's
 #: ``Text._reset_visual_defaults`` applies them, before the other properties.

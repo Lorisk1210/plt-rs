@@ -25,13 +25,15 @@ import logging
 import numpy as np
 
 from . import _docstring
-from . import _api, _colorbar_checks, _handles, _named, artist as martist
+from . import _api, _handles, _lazy_imports, _named, artist as martist
 from . import _values as _kept_values
 from . import colorizer as mcolorizer
 from . import ticker
 from . import patches as mpatches, path as mpath, spines as mspines
 from . import transforms as mtransforms
 from ._native import colorbar as _colorbar, patches as _patches
+
+_colorbar_checks = _lazy_imports.module(globals(), "._colorbar_checks")
 
 _log = logging.getLogger(__name__)
 

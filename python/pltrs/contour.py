@@ -15,13 +15,17 @@ from numbers import Integral, Real
 import numpy as np
 from numpy import ma
 
-from . import _contour_arguments, _contour_reference, _docstring
-from . import (_api, _blocking_input, _handles, _mirrors, _owned_paths, _qualnames, _values,
+from . import _docstring, _lazy_imports
+from . import (_api, _blocking_input, _handles, _mirrors, _qualnames, _values,
                artist as martist, cbook, collections as mcoll, colors as mcolors,
                lines as mlines)
 from ._native import artist as _artist, collections as _collections, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
+
+_contour_arguments = _lazy_imports.module(globals(), "._contour_arguments")
+_contour_reference = _lazy_imports.module(globals(), "._contour_reference")
+_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
 
 
 def _contour_labeler_event_handler(cs, inline, inline_spacing, event):

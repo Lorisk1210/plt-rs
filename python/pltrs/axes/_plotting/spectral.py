@@ -17,13 +17,15 @@ import numbers
 import numpy as np
 
 from ... import _docstring
-from ... import _api, _mlab_reference, cbook, image as mimage, lines as mlines, mlab
+from ... import _api, _lazy_imports, cbook, image as mimage, lines as mlines, mlab
 from ... import collections as mcoll
 from ..._artist_kwargs import check_known
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ._helpers import wrap
 from .scatter import _mapping
+
+_mlab_reference = _lazy_imports.module(globals(), "..._mlab_reference")
 
 
 def _welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq,

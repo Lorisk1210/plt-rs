@@ -8,7 +8,7 @@ classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 
 import numpy as np
 
-from . import _api, _docstring, _handles, _layout_checks, rcParams
+from . import _api, _docstring, _handles, _lazy_imports, rcParams
 from ._native import figure as _figure, figure_layout as _figure_layout
 from ._native import rcsetup as _rcsetup
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
@@ -16,6 +16,8 @@ from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
 from .text import (Text, _layout_renderer, _measured_by, _measuring_with,
                    _rotation_degrees)
 from .transforms import Bbox, TransformedBbox
+
+_layout_checks = _lazy_imports.module(globals(), "._layout_checks")
 
 #: The native function making each figure-wide text, and whether its
 #: position across its edge is its y (else its x).

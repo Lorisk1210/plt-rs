@@ -80,7 +80,7 @@ impl std::error::Error for DataDirError {
 pub fn data_dir() -> Result<PathBuf, DataDirError> {
     DATA_DIR
         .get_or_init(|| {
-            let dir = cache_dir().map_err(DataDirError::Cache)?.join("mpl-data");
+            let dir = data_dir_location().map_err(DataDirError::Cache)?;
             let fonts = dir.join("fonts");
             let template = rc_template();
             write_files(&fonts.join("ttf"), pltrs_text::bundled_font_files())
@@ -103,6 +103,26 @@ pub fn data_dir() -> Result<PathBuf, DataDirError> {
             Ok(dir)
         })
         .clone()
+}
+
+/// Where the [data directory](data_dir) is, without writing its files:
+/// `mpl-data` in the [cache directory](cache_dir). Writing them reads
+/// every bundled file's name, which lies beside the file's contents in
+/// the binary, so that the pages around them are mapped: asking only
+/// where the directory is (matplotlib's `get_data_path` at import) keeps
+/// them unmapped.
+///
+/// ```
+/// let location = pltrs::config::data_dir_location()?;
+/// assert_eq!(location, pltrs::config::data_dir()?);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When the cache directory cannot be found.
+pub fn data_dir_location() -> Result<PathBuf, ConfigError> {
+    Ok(cache_dir()?.join("mpl-data"))
 }
 
 /// The template of the rc file: every parameter at matplotlib's default,

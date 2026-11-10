@@ -10,9 +10,11 @@ import numbers
 
 from .. import _api, _handles, scale as mscale, transforms
 from .._native import artist as _artist, insets as _insets
-from . import _program_locators
+from .. import _lazy_imports
 from ._axes import Axes
 from ._insets import _TransformedBoundsLocator
+
+_program_locators = _lazy_imports.module(globals(), "._program_locators")
 
 
 class SecondaryAxis(Axes):

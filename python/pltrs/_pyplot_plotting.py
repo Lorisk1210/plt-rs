@@ -12,7 +12,7 @@ import inspect
 import linecache
 import os
 
-from . import _api
+from . import _api, _docstring
 from ._pyplot_figure import _add_pyplot_note
 from .axes import Axes
 
@@ -104,7 +104,7 @@ def _with_signature(name, signature, call):
     # its frame, with its source where tracebacks find it.
     filename = os.path.join(os.path.dirname(__file__), f"<pyplot.{name}>")
     linecache.cache[filename] = (len(source), None, source.splitlines(True), filename)
-    exec(compile(source, filename, "exec"), namespace)  # noqa: S102
+    exec(_docstring.compiled(source, filename), namespace)  # noqa: S102
     return namespace[name]
 
 
@@ -138,10 +138,13 @@ def _wrapper(name):
             if decorator.func is _api.make_keyword_only and signed is method:
                 signed = layer.__wrapped__
         layer = layer.__wrapped__
-    wrapper = _with_signature(name, _without_self(inspect.signature(signed)), call)
+    signature = _without_self(inspect.signature(method))
+    wrapper = _with_signature(
+        name, signature if signed is method else _without_self(inspect.signature(signed)),
+        call)
     for decorator in reversed(decorators):
         wrapper = decorator(wrapper)
-    wrapper.__signature__ = _without_self(inspect.signature(method))
+    wrapper.__signature__ = signature
     wrapper.__name__ = wrapper.__qualname__ = name
     wrapper.__module__ = _PYPLOT
     wrapper.__doc__ = method.__doc__

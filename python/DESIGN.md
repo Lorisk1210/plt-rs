@@ -1946,7 +1946,21 @@ name `matplotlib`, so:
   `_pltrs_matplotlib_alias`) makes that name resolve to the modules
   loaded as `matplotlib`;
 * the native module is `from ._native import lines as _lines` (its
-  submodules are attributes).
+  submodules are attributes);
+* importing pltrs loads the modules matplotlib's import loads (those pltrs
+  has), and of its own only what defining the classes needs: a helper
+  module a module uses only inside its functions, for what few programs
+  do (matplotlib's code for unusual arguments, legends, contours, artists
+  moved between figures), is bound with `_lazy_imports.module` and
+  imported when first used. `python/tests/test_perf7_import.py` holds
+  matplotlib's lists and a ceiling on pltrs' own count, and
+  `benchmarks/import_cost.py` measures what an import costs;
+* `get_data_path()` at import only locates the data directory (and logs
+  it, as matplotlib's import does); its files are written when the path
+  is next asked for, since writing them maps the pages of the extension
+  around the bundled files. Code the package makes from source text at
+  import (pyplot's wrappers, the patch styles' constructors) is compiled
+  once and kept with the kwdoc tables (`_docstring.compiled`).
 
 ### Distributions
 

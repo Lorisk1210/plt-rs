@@ -22,10 +22,12 @@ from weakref import WeakValueDictionary
 
 import numpy as np
 
-from . import _api, _owned_paths, _path
+from . import _api, _lazy_imports, _path
 from ._native import path as _native_path
 from .cbook import _to_unmasked_float_array, simple_linear_interpolation
 from .bezier import BezierSegment
+
+_owned_paths = _lazy_imports.module(globals(), "._owned_paths")
 
 
 @cache

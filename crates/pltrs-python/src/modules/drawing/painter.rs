@@ -171,7 +171,9 @@ impl ArtistPainter for PythonPainter {
 
     /// The class' `get_tightbbox`, through the package's
     /// `measure_artist(artist)`: the extents of the box, None for no
-    /// space; an exception it raises is kept for the native call laying
+    /// space, or no extents when the artist only made itself ready for
+    /// pltrs to measure it (an Axes class placing its titles its own
+    /// way); an exception it raises is kept for the native call laying
     /// out to raise where it takes the extent (`extent_taken`). The
     /// extent measured before does not count meanwhile: the class' own
     /// asks for the tight box pltrs computes (`super().get_tightbbox`).
@@ -185,7 +187,7 @@ impl ArtistPainter for PythonPainter {
             let artist = self.artist(py)?;
             let measure: Callback = lookup(py, "measure_artist").ok()?.extract().ok()?;
             measure
-                .try_call::<Option<(f64, f64, f64, f64)>>((artist,))
+                .try_call::<Option<Vec<f64>>>((artist,))
                 .unwrap_or_else(|err| {
                     match current_call() {
                         Some(call) => drop(self.failure.replace(Some((call, err)))),
@@ -194,13 +196,16 @@ impl ArtistPainter for PythonPainter {
                     None
                 })
         });
-        self.measured.set(match extents {
-            None => MeasuredExtent::Unmeasured,
-            Some(None) => MeasuredExtent::Empty,
-            Some(Some((x0, y0, x1, y1))) => {
-                MeasuredExtent::Extent(Bbox::from_extents(x0, y0, x1, y1))
-            }
-        });
+        self.measured
+            .set(match extents.as_ref().map(|extents| extents.as_deref()) {
+                Some(None) => MeasuredExtent::Empty,
+                Some(Some(&[x0, y0, x1, y1])) => {
+                    MeasuredExtent::Extent(Bbox::from_extents(x0, y0, x1, y1))
+                }
+                // Nothing measured, or an artist that only made itself ready
+                // to be measured (no extents): pltrs measures it.
+                None | Some(Some(_)) => MeasuredExtent::Unmeasured,
+            });
     }
 
     fn measured_extent(&self) -> MeasuredExtent {

@@ -82,16 +82,18 @@ impl Axes {
 
     /// Handles to the children for which `keep` holds, in the order they
     /// were added; spines are no children in this sense, whatever their
-    /// kind (a colorbar's outline is a patch), nor are the collections
+    /// kind (a colorbar's outline is a patch), nor are the axes the
+    /// program draws, nor are the collections
     /// drawing the bands of a hatched filled contour set but its first,
     /// which stands for the set (matplotlib's set is one collection,
     /// drawing its bands one by one).
     fn children_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
-        let (children, spines) = self
-            .raw()
-            .with::<AxesState, _>(|axes| (axes.children.clone(), axes.spines.clone()));
+        let (children, spines) = self.raw().with::<AxesState, _>(|axes| {
+            let parts = [axes.spines.clone(), axes.program_axes.clone()].concat();
+            (axes.children.clone(), parts)
+        });
         let bands: BTreeSet<ArtistId> = children
             .iter()
             .filter_map(|&id| state.store.get_as::<ContourSetArtist>(id))

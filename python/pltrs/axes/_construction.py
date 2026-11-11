@@ -106,7 +106,8 @@ class ConstructionMixin:
         # axes' changes of units, which a later clear disconnects (pltrs
         # (Rust) follows the changes it makes itself until then).
         for name in self._axis_map:
-            _axis.set_follows_units(self._native, name, True)
+            if name in self._native_axis_names:
+                _axis.set_follows_units(self._native, name, True)
         self._connect_unit_change_handler()
         for name, other in (("x", sharex), ("y", sharey)):
             if other is not None:

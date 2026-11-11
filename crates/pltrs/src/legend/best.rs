@@ -36,12 +36,7 @@ impl Obstacles {
         let owners = std::iter::once(axes).chain(parasites_of(store, axes));
         let plotted = owners
             .filter_map(|owner| store.get_as::<AxesState>(owner))
-            .flat_map(|state| {
-                state
-                    .children
-                    .iter()
-                    .filter(|id| !state.spines.contains(id) && !state.titles.contains(id))
-            });
+            .flat_map(|state| state.children.iter().filter(|&&id| !state.is_own_part(id)));
         for &id in plotted {
             let Some(artist) = store.get(id) else {
                 continue;

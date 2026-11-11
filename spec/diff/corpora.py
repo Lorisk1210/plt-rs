@@ -315,9 +315,60 @@ def _names_url(text: str) -> bool:
     )
 
 
+def _bound_names(statements: list[ast.stmt]) -> set[str]:
+    """The names the *statements* of a cell bind at its top level (not those
+    of the functions and classes it defines)."""
+    names: set[str] = set()
+    pending: list[ast.AST] = list(statements)
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+            continue
+        if isinstance(node, (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            continue
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            names.add(node.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names.update((alias.asname or alias.name).partition(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            names.add(node.name)
+        pending.extend(ast.iter_child_nodes(node))
+    names.discard("*")
+    return names
+
+
+def _awaiting(code: str) -> str | None:
+    """A cell awaiting at its top level, which IPython's kernels run as a
+    coroutine (JupyterLite's ``await piplite.install(...)`` in a notebook's
+    first cell), as Python a script runs: the cell as a coroutine run to
+    its end, the names it binds global, its ``import *`` lines before it.
+    None for code that does not compile so either."""
+    try:
+        tree = compile(code, "<cell>", "exec", flags=ast.PyCF_ONLY_AST | ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+                       dont_inherit=True)
+        compile(tree, "<cell>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT, dont_inherit=True)
+    except SyntaxError:
+        return None
+    # (`import *` is for a module's level only: the cell's stay there.)
+    lines = code.splitlines()
+    starred = [node for node in tree.body
+               if isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)]
+    first = "".join(f"{ast.get_source_segment(code, node)}\n" for node in starred)
+    for node in starred:
+        lines[node.lineno - 1:node.end_lineno] = [""] * (node.end_lineno - node.lineno + 1)
+    names = sorted(_bound_names([node for node in tree.body if node not in starred]))
+    declared = f"    global {', '.join(names)}\n" if names else ""
+    body = textwrap.indent("\n".join(lines), "    ")
+    return (f"{first}async def _awaiting_cell():\n{declared}{body}\n\n\n"
+            "__import__('asyncio').run(_awaiting_cell())\n")
+
+
 def _cell_code(source: str) -> str | None:
     """A cell's Python: without IPython's magics, shell escapes and help
-    requests; None for a cell magic's cell or code Python cannot parse."""
+    requests, a cell awaiting at its top level as a coroutine run to its
+    end (`_awaiting`); None for a cell magic's cell or code Python cannot
+    parse."""
     if source.lstrip().startswith("%%"):
         return None
     code = "\n".join(line for line in source.splitlines() if not _IPYTHON_LINE.match(line))
@@ -325,6 +376,12 @@ def _cell_code(source: str) -> str | None:
         ast.parse(code)
     except SyntaxError:
         return None
+    try:
+        compile(code, "<cell>", "exec", dont_inherit=True)
+    except SyntaxError:
+        # (Any other code Python parses but does not compile stays as it
+        # is: its program does not run, under either implementation.)
+        return _awaiting(code) or code
     return code
 
 

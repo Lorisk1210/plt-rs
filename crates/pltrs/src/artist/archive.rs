@@ -14,7 +14,7 @@ use std::rc::Rc;
 use pltrs_core::archive::{self, Archive, ArchiveError, Decoder, Encoder, External, ProgramKinds};
 
 use super::{Artist, ArtistId, ArtistLookup, FilteredGroupArtist, RawHandle};
-use crate::axes::AxesState;
+use crate::axes::{AxesState, ProgramAxisArtist};
 use crate::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use crate::axisartist::{AxisArtistState, AxisTextsState, TickMarksState};
 use crate::collections::CollectionArtist;
@@ -46,6 +46,7 @@ pltrs_core::archive_kinds!(dyn Artist {
     "axes" => AxesState,
     "axes3d" => Axes3DState,
     "spine" => SpineArtist,
+    "program-axis" => ProgramAxisArtist,
     "line" => LineArtist,
     "text" => TextArtist,
     "collection" => CollectionArtist,

@@ -423,3 +423,5 @@ _bivar_colormaps = ColormapRegistry(bivar_cmaps)
 # What matplotlib's module also has from its imports, which programs
 # import from it.
 mpl = __import__(__name__.partition('.')[0])  # matplotlib's ``mpl``: the package
+# (matplotlib takes `datad` from its ``_cm``, which pltrs' makes of it.)
+__import__(f"{__package__}._cm")

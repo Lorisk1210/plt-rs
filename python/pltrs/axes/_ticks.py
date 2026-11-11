@@ -195,9 +195,14 @@ class TicksMixin:
         axisbelow = validate_axisbelow(b)
         _axis.set_axisbelow(self._native, {True: "below", "line": "line",
                                            False: "above"}[axisbelow])
-        # The axes' axes take the zorder of the new setting.
+        # The axes' axes take the zorder of the new setting: those pltrs
+        # (Rust) holds read it, a held one is given it.
         for name in self._axis_names:
-            getattr(self, f"{name}axis").__dict__.pop("_zorder_set", None)
+            axis = getattr(self, f"{name}axis")
+            if axis._held:
+                axis.set_zorder(axis._AXISBELOW_ZORDER[axisbelow])
+            else:
+                axis.__dict__.pop("_zorder_set", None)
 
     # matplotlib's attribute, which subclasses read in their ``draw``
     # (astropy's ``WCSAxes`` orders its own ticks by it).
@@ -383,7 +388,9 @@ class TicksMixin:
             {**{k: [k] for k in self._axis_names}, "all": self._axis_names},
             axis=axis)
         for name in axis_names:
-            _axis.request_autoscale(self._native, name, tight)
+            # (A held axis has no view pltrs (Rust) autoscales.)
+            if name in self._native_axis_names:
+                _axis.request_autoscale(self._native, name, tight)
 
     def tick_params(self, axis='both', **kwargs):
         """

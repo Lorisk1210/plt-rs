@@ -57,12 +57,31 @@ fn undo_since(axes: Axes, mark: Native<CallMark>) -> PyResult<Vec<RawHandle>> {
     Ok(axes.undo_since(&mark.borrow()))
 }
 
+/// Gives `axes` an axis named `name` that the program draws, and returns
+/// it (an axis of a projection class beyond x and y, see
+/// `pltrs::axes::ProgramAxis`); one it had under that name is removed.
+fn add_program_axis(axes: Axes, name: String) -> PyResult<RawHandle> {
+    Ok(axes.add_program_axis(&name).raw().clone())
+}
+
+/// The axes the program draws for `axes`, by name, in the order they
+/// were added.
+fn program_axes(axes: Axes) -> PyResult<Vec<(String, RawHandle)>> {
+    Ok(axes
+        .program_axes()
+        .into_iter()
+        .map(|axis| (axis.name(), axis.raw().clone()))
+        .collect())
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("children", children)?;
     module.add("call_mark", call_mark)?;
     module.add("undo_since", undo_since)?;
     module.add("artists", artists)?;
+    module.add("add_program_axis", add_program_axis)?;
+    module.add("program_axes", program_axes)?;
     module.add("clear", clear)
 }
 
@@ -80,6 +99,17 @@ mod tests {
             [line.raw().clone()]
         );
         assert_eq!(clear(ax.clone()).expect("cleared"), [line.raw().clone()]);
+        assert_eq!(children(ax).expect("children"), Vec::<RawHandle>::new());
+    }
+
+    #[test]
+    fn a_program_axis_is_listed_by_name_and_among_no_children() {
+        let ax = Figure::new().subplot();
+        let axis = add_program_axis(ax.clone(), "t".to_owned()).expect("an axis");
+        assert_eq!(
+            program_axes(ax.clone()).expect("axes"),
+            [("t".to_owned(), axis)]
+        );
         assert_eq!(children(ax).expect("children"), Vec::<RawHandle>::new());
     }
 }

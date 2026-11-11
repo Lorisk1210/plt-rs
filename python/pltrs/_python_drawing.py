@@ -137,12 +137,28 @@ def attach(artist, again=False):
     if "draw" in vars(artist) or any(
             takes_from_program(cls, name)
             for name in ("draw", *getattr(cls, "_computed", ()))):
-        measures = any(takes_from_program(cls, name)
-                       for name in ("get_window_extent", "get_tightbbox"))
         _drawing.set_painter(artist._native, weakref.ref(artist),
-                             _draw_of(artist)[1], measures)
+                             _draw_of(artist)[1],
+                             _measures(cls) or _readies_itself(artist))
     elif again:
         _drawing.set_painter(artist._native, None, False, False)
+
+
+def _measures(cls):
+    """Whether the class *cls* measures its artists itself (its
+    ``get_window_extent`` or ``get_tightbbox`` is the program's)."""
+    return any(takes_from_program(cls, name)
+               for name in ("get_window_extent", "get_tightbbox"))
+
+
+def _readies_itself(artist):
+    """Whether *artist* makes itself ready before it is measured
+    (``_before_measured``, which answers whether pltrs (Rust) is to
+    measure it then: an Axes whose class places its titles its own way,
+    where matplotlib's ``get_tightbbox`` calls it; a held axis, whose Axes
+    applies its aspect first)."""
+    readies = getattr(artist, "_readies_before_measured", None)
+    return readies is not None and readies()
 
 
 def draw_through_python(artist, measures):
@@ -342,8 +358,16 @@ def measure_artist(artist):
     """The extents of the box *artist* occupies in display coordinates as
     its class measures it (its ``get_tightbbox``, as matplotlib's layouts
     and tight boxes ask it), None for no space: what pltrs (Rust) takes
-    for it, before it lays the figure out or computes its tight box."""
+    for it, before it lays the figure out or computes its tight box. No
+    extents (an empty tuple) for an artist that only makes itself ready
+    there, which pltrs (Rust) then measures itself."""
     figure = artist.get_figure(root=True)
+    if figure is not None:
+        # Where the figure is now (a layout engine between its passes).
+        _transform_trees.sync(figure)
+    if _readies_itself(artist) and artist._before_measured():
+        # pltrs (Rust) measures it, now that it is ready.
+        return ()
     if figure is None:
         bbox = artist.get_tightbbox(None)
     else:

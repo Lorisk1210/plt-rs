@@ -39,9 +39,11 @@ def _setter_valid_values(func):
     if hasattr(func, '_kwarg_doc'):
         return func._kwarg_doc
 
-    # (pltrs: the setters of mirrorable classes are wrapped; the values
-    # are read once for every class sharing the setter.)
-    setter = inspect.unwrap(func, stop=lambda f: not getattr(f, '_pushes', False))
+    # (pltrs: the setters of mirrorable classes are wrapped, and those of
+    # the axis classes, which serve held axes too; the values are read
+    # once for every class sharing the setter.)
+    setter = inspect.unwrap(func, stop=lambda f: not (
+        getattr(f, '_pushes', False) or getattr(f, '_serves_held', False)))
     docstring = _getdoc(func)
     if docstring is None and setter is not func:
         # (pltrs: a wrapper of a setter inherited without a docstring is

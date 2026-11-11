@@ -9,7 +9,7 @@ use super::axis::{AxisGeometry, AxisRole, AxisState};
 use super::axis_handle::Axis;
 use super::tick_set::{Tick, TickSet};
 use super::{AxesState, TickLevels};
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, ArtistLookup};
 use crate::figure::FigureState;
 use crate::ticker::{
     AxisInfo, AxisName, Locator, LogitLocator, NullLocator, OverlapTolerance, TickContext,
@@ -43,8 +43,10 @@ impl Axis {
             let extent = state.axes_bbox(id)?;
             let tick_space = state.shared_tick_spaces(id)[usize::from(name == AxisName::Y)];
             let dpi = state.dpi();
+            // (Those of a removed axes too, which an `Axes` subclass reads
+            // in its constructor, before its figure adds it.)
             let locate = |state: &FigureState| {
-                (state.store.get_as::<AxesState>(id))
+                (state.artist_as::<AxesState>(id))
                     .map(|axes| axes.level_locs_for(name, &extent, dpi, tick_space, minor))
             };
             // The locators run with the figure free to read, as the
@@ -345,6 +347,18 @@ mod tests {
             tick_space: None,
             tick_floor: None,
         }
+    }
+
+    #[test]
+    fn a_removed_axes_has_tick_locations_as_it_is() {
+        // An `Axes` subclass reads its ticks in its constructor (to draw a
+        // grid of its own), before its figure adds the axes.
+        let fig = crate::figure::Figure::new();
+        let ax = fig.removed_axes([0.1, 0.1, 0.8, 0.8]).expect("a valid box");
+        assert_eq!(
+            ax.xaxis().ticklocs_as_is(false).expect("ticks"),
+            [0.0, 0.2, 0.4, 0.600_000_000_000_000_1, 0.8, 1.0]
+        );
     }
 
     #[test]

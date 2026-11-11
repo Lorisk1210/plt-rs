@@ -81,7 +81,7 @@ impl FigureState {
             return false;
         };
         match downcast_ref::<AxesState>(owner) {
-            Some(axes) => axes.spines.contains(&id) || axes.titles.contains(&id),
+            Some(axes) => axes.is_own_part(id),
             None => downcast_ref::<LegendArtist>(owner).is_some(),
         }
     }

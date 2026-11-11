@@ -136,7 +136,10 @@ class UnitsMixin:
         cleared, and a later clear (a polar Axes' own) disconnects it."""
         for name in self._axis_names:
             axis = getattr(self, f"{name}axis", None)
-            if axis is not None and _axis.follows_units(self._native, name):
+            # (A held axis keeps its own callbacks, which its clear renews.)
+            if axis is not None and (
+                    axis._held if name not in self._native_axis_names
+                    else _axis.follows_units(self._native, name)):
                 axis.callbacks._connect_picklable(
                     'units', self._unit_change_handler(name))
 

@@ -27,6 +27,9 @@ pub struct TextBoxProps {
     pub pad: Option<f64>,
     /// Face, edge, alpha... of the box.
     pub patch: PatchProps,
+    /// The height the box style shapes the box at, as a fraction of its
+    /// real height (matplotlib's `mutation_aspect`); 1 when unset.
+    pub mutation_aspect: Option<f64>,
 }
 
 impl TextBoxProps {
@@ -145,6 +148,9 @@ pub struct TextBoxPatch {
     /// The box's own path effects (not the text's): `path.effects` when it
     /// was made, unless given.
     path_effects: Vec<PathEffect>,
+    /// The aspect the box style shapes the box at (matplotlib's
+    /// `mutation_aspect`).
+    mutation_aspect: f64,
 }
 
 pltrs_core::archive_struct!(TextBoxPatch {
@@ -152,7 +158,8 @@ pltrs_core::archive_struct!(TextBoxPatch {
     style,
     alpha,
     visible,
-    path_effects
+    path_effects,
+    mutation_aspect
 });
 
 impl TextBoxPatch {
@@ -180,6 +187,7 @@ impl TextBoxPatch {
             alpha: base.alpha,
             visible: base.visible.unwrap_or(true),
             path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
+            mutation_aspect: props.mutation_aspect.unwrap_or(1.0),
         }
     }
 
@@ -238,7 +246,8 @@ impl TextBoxPatch {
     /// come back with [`TextBoxPatch::restyle_from`].
     pub fn to_patch(&self) -> Patch<FancyBboxPatch> {
         let patch = Patch::loose(
-            FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, self.boxstyle.clone()),
+            FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, self.boxstyle.clone())
+                .with_mutation_aspect(self.mutation_aspect),
             PatchProps::default(),
         );
         patch.update_style(|style| style.clone_from(&self.style));
@@ -251,9 +260,12 @@ impl TextBoxPatch {
     }
 
     /// Takes the look of `patch` (made by [`TextBoxPatch::to_patch`]): its
-    /// box style, face, edge, hatch, alpha, visibility and path effects.
+    /// box style and aspect, face, edge, hatch, alpha, visibility and path
+    /// effects.
     pub fn restyle_from(&mut self, patch: &Patch<FancyBboxPatch>) {
-        self.boxstyle = patch.shape().boxstyle;
+        let shape = patch.shape();
+        self.boxstyle = shape.boxstyle;
+        self.mutation_aspect = shape.mutation_aspect;
         self.style = patch.style();
         self.alpha = patch.raw().alpha();
         self.visible = patch.raw().visible();
@@ -264,7 +276,8 @@ impl TextBoxPatch {
     fn shape(&self, placement: &BoxPlacement) -> (FancyBboxPatch, Affine2D) {
         let (width, height) = placement.size;
         let shape = FancyBboxPatch::new((0.0, 0.0), width, height, self.boxstyle.clone())
-            .with_mutation_scale(placement.fontsize_px);
+            .with_mutation_scale(placement.fontsize_px)
+            .with_mutation_aspect(self.mutation_aspect);
         let origin = placement.anchor + placement.corner;
         let transform = Affine2D::identity()
             .rotate_deg(placement.rotation)
@@ -336,6 +349,34 @@ mod tests {
 
     fn rc() -> RcParams {
         RcParams::matplotlib()
+    }
+
+    #[test]
+    fn the_box_keeps_its_mutation_aspect_through_its_patch() {
+        let props = TextBoxProps {
+            mutation_aspect: Some(0.75),
+            ..TextBoxProps::new(BoxStyle::new(BoxShape::Round {
+                rounding_size: None,
+            }))
+        };
+        let mut bbox = TextBoxPatch::new(props, 10.0, &rc());
+        let patch = bbox.to_patch();
+        assert_eq!(patch.shape().mutation_aspect, 0.75);
+        let placement = BoxPlacement {
+            anchor: Point::new(0.0, 0.0),
+            corner: Point::new(0.0, 0.0),
+            size: (40.0, 20.0),
+            rotation: 0.0,
+            fontsize_px: 10.0,
+        };
+        assert_eq!(bbox.shape(&placement).0.mutation_aspect, 0.75);
+        bbox.restyle_from(&Patch::loose(
+            FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, bbox.boxstyle()).with_mutation_aspect(2.0),
+            PatchProps::default(),
+        ));
+        assert_eq!(bbox.shape(&placement).0.mutation_aspect, 2.0);
+        let plain = TextBoxPatch::new(TextBoxProps::default(), 10.0, &rc());
+        assert_eq!(plain.shape(&placement).0.mutation_aspect, 1.0);
     }
 
     #[test]

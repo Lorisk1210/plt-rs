@@ -83,8 +83,8 @@ impl AxesState {
     /// The children and both axes sorted by z-order, stable for ties in the
     /// order of matplotlib's `get_children`: plotted artists, the children
     /// of every parasite (which matplotlib's `HostAxesBase.draw` appends to
-    /// the plotted artists), spines, both axes, the centre, left and right
-    /// titles, child axes, the legend.
+    /// the plotted artists), spines, both axes, the axes the program
+    /// draws, the centre, left and right titles, child axes, the legend.
     pub(super) fn items(&self, store: &ArtistStore) -> Vec<(f64, Item)> {
         let mut items: Vec<(f64, Item)> = self
             .plotted(store)
@@ -112,20 +112,34 @@ impl AxesState {
         items
     }
 
-    /// The plotted children: neither spines, titles, legends nor child
-    /// axes.
+    /// The children the axes draws, in drawing order: its z-ordered items
+    /// that are artists (see [`items`](Self::items)), without the spines
+    /// of an unframed axes and the axes the program draws of an axes
+    /// whose axes are off, which matplotlib's draw leaves out.
+    pub(crate) fn drawn_children(&self, store: &ArtistStore) -> Vec<ArtistId> {
+        self.items(store)
+            .into_iter()
+            .filter_map(|(_, item)| match item {
+                Item::Child(id) => Some(id),
+                Item::Axis(..) | Item::Patch => None,
+            })
+            .collect()
+    }
+
+    /// The plotted children: neither spines, titles, the axes the program
+    /// draws, legends nor child axes.
     fn plotted<'a>(&'a self, store: &'a ArtistStore) -> impl Iterator<Item = ArtistId> + 'a {
         self.children.iter().copied().filter(move |&id| {
-            !self.spines.contains(&id)
-                && !self.titles.contains(&id)
+            !self.is_own_part(id)
                 && store.get_as::<LegendArtist>(id).is_none()
                 && store.get_as::<Self>(id).is_none()
         })
     }
 
     /// The decorations in the order of matplotlib's `get_children`: the
-    /// spines (with `spines`), both axes (with `axes`), the centre, left
-    /// and right titles, the child axes other than parasites, the legends.
+    /// spines (with `spines`), both axes and those the program draws
+    /// (with `axes`), the centre, left and right titles, the child axes
+    /// other than parasites, the legends.
     fn decoration_items(&self, store: &ArtistStore, spines: bool, axes: bool) -> Vec<(f64, Item)> {
         let id = self.base().id();
         let mut items: Vec<(f64, Item)> = self
@@ -138,6 +152,7 @@ impl AxesState {
             let zorder = self.axisbelow.zorder();
             items.push((zorder, Item::Axis(id, AxisName::X)));
             items.push((zorder, Item::Axis(id, AxisName::Y)));
+            items.extend((self.program_axes.iter()).filter_map(|&axis| zordered(store, axis)));
         }
         let titles = self.titles_centre_first();
         let child_axes =

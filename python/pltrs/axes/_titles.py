@@ -194,6 +194,22 @@ class TitlesMixin:
                 renderer = self.get_figure(root=True)._get_renderer()
             self._update_title_position(renderer)
 
+    def _readies_before_measured(self):
+        """Whether the Axes places its titles its own way before pltrs
+        (Rust) measures it for a layout or a tight box."""
+        return self._places_titles()
+
+    def _before_measured(self):
+        """Apply the aspect and place the titles as the class does, where
+        matplotlib's ``get_tightbbox`` does (mpltern's ``TernaryAxes``
+        lifts them above the tick labels of its three axes, which a layout
+        then makes room for)."""
+        from .._python_drawing import _measures
+        self.apply_aspect()
+        self._place_titles_by_program()
+        # Measured by pltrs (Rust), unless the class measures it itself.
+        return not _measures(type(self))
+
     #: What a class of the program's may compute that matplotlib's ``draw``
     #: reads: the titles' place, which it places when drawn
     #: (`_push_computed`).

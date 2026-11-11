@@ -318,6 +318,11 @@ impl FigureState {
                     boxes.extend(axis_tight_bbox(layout, &painter, for_layout_only));
                 }
             }
+            boxes.extend(
+                (state.program_axes.iter())
+                    .filter_map(|&axis| program_axis_tight_bbox(layout, axis, for_layout_only))
+                    .filter(is_finite),
+            );
         }
         // A parasite is measured at its own position, not its host's.
         boxes.push(self.parasite_own_extent(axes).unwrap_or(extent));
@@ -335,7 +340,9 @@ impl FigureState {
                 .children
                 .iter()
                 .filter(|_| extras == Extras::Children)
-                .filter(|child| !state.titles.contains(child))
+                .filter(|child| {
+                    !state.titles.contains(child) && !state.program_axes.contains(child)
+                })
                 .filter_map(|&child| {
                     // The program's transforms answer from the calls
                     // `program_texts_measured` made.
@@ -379,6 +386,21 @@ pub(super) fn axis_tight_bbox(
         .chain(label)
         .filter(is_finite)
         .reduce(|a, b| a.union(&b))
+}
+
+/// The extent of an axis the program draws, as its painter measured it
+/// (matplotlib's `Axis.get_tightbbox` of an axis of the axes' map): of a
+/// visible axis, which a layout leaves out when it takes no part in
+/// layouts, whatever clips it.
+fn program_axis_tight_bbox(
+    layout: LayoutContext<'_>,
+    axis: ArtistId,
+    for_layout_only: bool,
+) -> Option<Bbox> {
+    let artist = layout.store().get(axis)?;
+    let base = artist.base();
+    (base.visible && (base.in_layout || !for_layout_only))
+        .then(|| tight_extent_of(artist, &layout))?
 }
 
 /// The tight extent of a child artist that is not fully clipped to the

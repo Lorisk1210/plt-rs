@@ -118,16 +118,30 @@ default: %(va)s
         return self._suplabels(t, "ylabel", kwargs)
 
     def _super_text(self, index):
-        """The figure-wide text *index* (title, xlabel, ylabel) or None."""
+        """The figure-wide text *index* (title, xlabel, ylabel) or None:
+        the one the program put there (`_given_super_text`), else pltrs
+        (Rust)'s."""
+        given = self.__dict__.get("_super_texts_given", {})
+        if index in given:
+            return given[index]
         native = _figure_layout.super_texts(self._native)[index]
         return None if native is None else _handles.wrap(native, Text,
                                                          self.figure)
 
+    def _given_super_text(self, index, text):
+        """Make *text* the figure-wide text *index* (``fig._suptitle =
+        fig.text(...)``, as ultraplot makes its figures' titles), which
+        matplotlib's attribute then is (`clear` forgets it)."""
+        self.__dict__.setdefault("_super_texts_given", {})[index] = text
+
     _suptitle = property(lambda self: self._super_text(0),
+                         lambda self, text: self._given_super_text(0, text),
                          doc="The figure title, or None.")
     _supxlabel = property(lambda self: self._super_text(1),
+                          lambda self, text: self._given_super_text(1, text),
                           doc="The figure-wide x label, or None.")
     _supylabel = property(lambda self: self._super_text(2),
+                          lambda self, text: self._given_super_text(2, text),
                           doc="The figure-wide y label, or None.")
 
     def get_suptitle(self):

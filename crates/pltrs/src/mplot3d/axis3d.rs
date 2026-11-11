@@ -13,6 +13,7 @@ use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::lines::LineStyle;
+use crate::patches::PatchStyle;
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, Scale};
 use crate::ticker::{
@@ -251,6 +252,9 @@ pub(crate) struct Axis3DState {
     pub(crate) label: AxisLabel3D,
     /// Fill and edge colour of the pane behind the data.
     pub(crate) pane_color: Color,
+    /// The pane's look as the program set it on the polygon it is drawn
+    /// as (matplotlib's `axis.pane`), which then stands for the colour.
+    pub(crate) pane_style: Option<PaneStyle>,
     pub(crate) style: AxisStyle,
     /// The tick parameters of the major ticks (every 3-D tick is an
     /// `XTick`).
@@ -301,6 +305,7 @@ pltrs_core::archive_struct!(Axis3DState {
     categories,
     label,
     pane_color,
+    pane_style,
     style,
     major_style,
     minor_style,
@@ -317,6 +322,18 @@ pltrs_core::archive_struct!(Axis3DState {
     visible,
     gids
 });
+
+/// The look of a pane restyled through its polygon: the patch style and
+/// alpha matplotlib draws `axis.pane` with.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PaneStyle {
+    /// Face, edge, line width and the rest of the patch properties.
+    pub style: PatchStyle,
+    /// The polygon's alpha.
+    pub alpha: Option<f64>,
+}
+
+pltrs_core::archive_struct!(PaneStyle { style, alpha });
 
 impl Axis3DState {
     /// A linear axis configured from `rc`.
@@ -344,6 +361,7 @@ impl Axis3DState {
                 is_default: true,
             },
             pane_color: pane_color.clone(),
+            pane_style: None,
             style: AxisStyle::from_rc(dir, rc),
             major_style: tick_style(true, rc),
             minor_style: tick_style(false, rc),

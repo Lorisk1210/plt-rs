@@ -67,7 +67,8 @@ class _AxisPart(_mirrors.Mirroring):
             _check_metrics_renderer(renderer)
         extent = self.owner._extent(artist)
         if extent is None:
-            return Bbox.unit()
+            # matplotlib's empty text measures as nothing at its position.
+            return _mirrors.OWN if artist.get_visible() and artist.get_text() == '' else Bbox.unit()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 

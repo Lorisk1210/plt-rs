@@ -1749,8 +1749,12 @@ class FigureCanvasBase:
         self._is_saving = False
         if figure is None:
             figure = Figure()
+        # The registry first: matplotlib's figure is made with it, which a
+        # figure's `set_canvas` of the program's reads (ultraplot's); what
+        # is no figure fails in `set_canvas`, as matplotlib's does.
+        if hasattr(figure, "set_canvas"):
+            _canvas_callbacks(figure)
         figure.set_canvas(self)
-        _canvas_callbacks(figure)
         self.figure = figure
         self.manager = None
         self.widgetlock = LockDraw()

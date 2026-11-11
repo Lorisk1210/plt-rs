@@ -117,6 +117,13 @@ pub trait Norm: fmt::Debug + NormClone + std::any::Any {
     /// ignored; a NaN makes the limit NaN, as numpy's `min`/`max` do).
     fn autoscale_none(&mut self, data: &[Option<f64>]);
 
+    /// [`autoscale_none`](Self::autoscale_none) of `data` handed over as
+    /// an array of `shape` (a norm of the program's sees the shape
+    /// matplotlib hands it).
+    fn autoscale_none_shaped(&mut self, data: &[Option<f64>], _shape: &[usize]) {
+        self.autoscale_none(data);
+    }
+
     /// [`autoscale_none`](Self::autoscale_none) of `values` without the
     /// entries `mask` flags. Norms that only need the range of the data
     /// find it without building the masked data.

@@ -505,7 +505,10 @@ impl Artist for LineArtist {
         if self.infinite.is_some() {
             return None;
         }
-        LimitPoints::through(&self.transform(), axes, || self.drawn_points())
+        match &self.path {
+            Ok(path) => LimitPoints::through_path(&self.transform(), axes, path),
+            Err(_) => LimitPoints::through(&self.transform(), axes, Vec::new),
+        }
     }
 
     /// matplotlib's `Line2D.contains` as a region: the surroundings of the

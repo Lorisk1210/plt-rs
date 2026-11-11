@@ -13,6 +13,7 @@ from . import _docstring
 from . import _handles, units as munits
 from ._native import annotation as _annotation, text as _text
 from ._annotation_kept import annotate_arguments, warn_textcoords
+from ._program_classes import takes_from_program
 from .text import Annotation, Text, _is_offset, _place
 
 
@@ -42,12 +43,19 @@ def _in_data_units(axes, xy, coords):
     *coords* is ``'data'``, as matplotlib's annotation converts them when
     drawn: by the axis' converter, else by the converter of the value's
     type, which the axis does not take (matplotlib's annotation sets none).
+    Names go to the axis' converter when it is of a class of the program's
+    (pandas' period converter reads ``'2018-07-27'`` as a day).
     """
     if coords != 'data':
         return xy
 
     def converted(value, axis):
-        if isinstance(value, (Real, str, bytes, datetime.date, np.datetime64)):
+        if isinstance(value, (str, bytes)):
+            converter = axis.get_converter()
+            if converter is None or not takes_from_program(type(converter), "convert"):
+                return value
+            return converter.convert(value, axis.units, axis)
+        if isinstance(value, (Real, datetime.date, np.datetime64)):
             return value
         converter = axis.get_converter() or munits.registry.get_converter(value)
         return value if converter is None else converter.convert(value, axis.units, axis)

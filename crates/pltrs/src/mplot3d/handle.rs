@@ -7,6 +7,7 @@ use pltrs_core::path::DataLimits;
 use pltrs_core::{Anchor, Bbox};
 
 use super::art3d::{Art3D, Artist3D};
+use super::axis3d::PaneStyle;
 use super::camera::{ProjType, ViewAngles};
 use super::coords::Axis3;
 use super::error::Axes3DError;
@@ -681,6 +682,14 @@ impl Axes3D {
     pub fn set_pane_color(&self, axis: Axis3, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.with_mut(|axes| axes.axis_mut(axis).pane_color = color);
+        self
+    }
+
+    /// Draws the pane normal to `axis` with `pane`, the look the program
+    /// gave the polygon it is drawn as (matplotlib's `axis.pane`), or
+    /// with its colour again for `None`.
+    pub fn set_pane_style(&self, axis: Axis3, pane: Option<PaneStyle>) -> &Self {
+        self.with_mut(|axes| axes.axis_mut(axis).pane_style = pane);
         self
     }
 

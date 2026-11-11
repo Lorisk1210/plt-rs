@@ -3,8 +3,8 @@
 use pltrs_core::Point;
 
 use super::children::DataUpdate;
-use super::{Axes, AxesState, PlotError, PropCycle};
-use crate::artist::{Artist, ArtistHandle};
+use super::{Axes, PlotError, PropCycle};
+use crate::artist::Artist;
 use crate::colors::Color;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Polygon};
 use crate::rc::CycleValue;
@@ -128,23 +128,10 @@ impl Axes {
         props: &PatchProps,
         color_given: bool,
     ) -> Vec<(String, CycleValue)> {
-        let owner = self.prop_cycle_owner(PropCycle::Patches);
-        owner.raw().with_mut::<AxesState, _>(|axes| {
-            let ignored = |key: &str| {
-                MARKER_KEYS.contains(&key) || props.is_set(key) || (color_given && key == "color")
-            };
-            let entry: Vec<(String, CycleValue)> = axes
-                .prop_cycle
-                .entry(axes.patch_cycle)
-                .filter(|(key, _)| !ignored(key))
-                .map(|(key, value)| (key.to_owned(), value.clone()))
-                .collect();
-            if entry.is_empty() {
-                return entry;
-            }
-            axes.patch_cycle += 1;
-            entry
-        })
+        let ignored = |key: &str| {
+            MARKER_KEYS.contains(&key) || props.is_set(key) || (color_given && key == "color")
+        };
+        self.with_cycle(PropCycle::Patches, |cycle| cycle.take_entry(ignored))
     }
 }
 

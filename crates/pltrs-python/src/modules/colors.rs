@@ -6,6 +6,7 @@
 //! RGBA tuple.
 
 pub(crate) mod mapping;
+mod python_colormap;
 mod python_norm;
 pub(crate) use python_norm::PythonNorm;
 
@@ -248,8 +249,21 @@ fn sequence_names() -> PyResult<Vec<String>> {
     Ok(color_sequence_names())
 }
 
+/// The colour the program's own mapping of names gives `name`, one it
+/// put in place of matplotlib's `_colors_full_map` (the package registers
+/// that lookup as `program_color`).
+fn program_color(name: &str) -> Option<Rgba> {
+    Python::with_gil(|py| {
+        let lookup = crate::binding::lookup(py, "program_color").ok()?;
+        let color = lookup.call(&[name.into_py(py).ok()?], &[]).ok()?;
+        let (r, g, b, a) = color.extract::<Option<(f64, f64, f64, f64)>>().ok()??;
+        Some(Rgba::new(r, g, b, a))
+    })
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    pltrs::colors::set_color_name_lookup(program_color);
     module.add("to_rgba", to_rgba)?;
     module.add("to_rgba_array", to_rgba_array)?;
     module.add("set_color_name", set_color_name)?;

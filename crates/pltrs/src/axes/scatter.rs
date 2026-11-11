@@ -211,7 +211,7 @@ impl Axes {
         collection.offset_transform = Some(transform);
         let handle = Collection::from_raw(self.adopt_collection(collection, &update));
         if let Some(mapping) = mapping {
-            handle.set_mapping(mapping);
+            handle.set_scaled_mapping(mapping, None);
         }
         Ok(handle)
     }

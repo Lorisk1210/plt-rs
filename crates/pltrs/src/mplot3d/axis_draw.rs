@@ -398,10 +398,20 @@ impl<'a> Painter<'a> {
     /// Fills the far plane of `dir` with its pane colour (matplotlib's
     /// open `Polygon` pane, edged in the same colour).
     fn draw_pane(&self, ctx: &mut DrawContext<'_>, dir: Axis3) {
-        let color = &self.axes.axis(dir).pane_color;
-        let alpha = match color.resolve() {
-            Ok(rgba) => rgba.a,
-            Err(err) => return self.report(ctx, err),
+        let axis = self.axes.axis(dir);
+        let (style, alpha) = match &axis.pane_style {
+            Some(pane) => (pane.style.clone(), pane.alpha),
+            None => match axis.pane_color.resolve() {
+                Ok(rgba) => (
+                    PatchStyle {
+                        facecolor: Some(axis.pane_color.clone()),
+                        edgecolor: Some(axis.pane_color.clone()),
+                        ..PatchStyle::from_rc(self.axes.rc())
+                    },
+                    Some(rgba.a),
+                ),
+                Err(err) => return self.report(ctx, err),
+            },
         };
         let outline = Path::polyline(open_polygon(
             self.geometry
@@ -411,13 +421,8 @@ impl<'a> Painter<'a> {
                 .collect(),
         ));
         let (path, affine) = self.plane.split_path(&outline);
-        let style = PatchStyle {
-            facecolor: Some(color.clone()),
-            edgecolor: Some(color.clone()),
-            ..PatchStyle::from_rc(self.axes.rc())
-        };
         let mut base = ArtistBase::default();
-        base.alpha = Some(alpha);
+        base.alpha = alpha;
         let paths = [(path.into_owned(), affine)];
         if let Err(err) = draw_patch_paths(ctx, &base, &style, self.axes.rc(), false, &paths) {
             self.report(ctx, err);

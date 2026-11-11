@@ -119,8 +119,8 @@ fn add_anchored(
     options: PyAnchoredOptions,
     frame: RawHandle,
 ) -> PyResult<Added> {
-    let spec = AnchoredBox::new(child.joining()?, options.0)
-        .with_frame(BoxItem::from_loose(&frame)?)
+    let spec = AnchoredBox::new(child.joining(&owner)?, options.0)
+        .with_frame(BoxItem::joining(&frame, &owner)?)
         .map_err(|err| PyErr::type_error(err.to_string()))?;
     let anchored = match Axes::from_raw_handle(&owner) {
         Some(axes) => axes.add_anchored_box(spec),
@@ -198,11 +198,11 @@ fn add_annotation_bbox(
     options: PyAnnotationBboxOptions,
 ) -> PyResult<Added> {
     let added = match Axes::from_raw_handle(&owner) {
-        Some(axes) => axes.add_annotation_bbox(child.joining()?, xy, options.0),
+        Some(axes) => axes.add_annotation_bbox(child.joining(&owner)?, xy, options.0),
         None => owner
             .downcast::<Figure>()
             .ok_or_else(|| PyErr::type_error("an offset box joins an axes or a figure"))?
-            .add_annotation_bbox(child.joining()?, xy, options.0),
+            .add_annotation_bbox(child.joining(&owner)?, xy, options.0),
     }
     .map_err(|err| PyErr::value_error(err.to_string()))?;
     carry_over(&plain, added.raw());
@@ -218,7 +218,7 @@ fn add_placed(
     child: PyOffsetBox,
     offset: (f64, f64),
 ) -> PyResult<(RawHandle, Vec<RawHandle>)> {
-    let child = child.joining()?;
+    let child = child.joining(&owner)?;
     let placed = match Axes::from_raw_handle(&owner) {
         Some(axes) => axes.add_offset_box(child, offset),
         None => owner
@@ -241,7 +241,7 @@ fn add_owned(
     child: PyOffsetBox,
     offset: (f64, f64),
 ) -> PyResult<(RawHandle, Vec<RawHandle>)> {
-    let placed = program.add_box(child.joining()?, offset);
+    let placed = program.add_box(child.joining(program.raw())?, offset);
     if let Some(plain) = plain {
         carry_over(&plain, placed.raw());
     }

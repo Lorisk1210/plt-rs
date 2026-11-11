@@ -11,7 +11,10 @@ use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::Resampling;
 use super::shared::{canvas_bbox, draw_rendered, split_alpha};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle, TypedHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, DrawContext, LayoutContext, ProgramShaping, RawHandle,
+    TypedHandle,
+};
 use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::figure::Figure;
 use crate::rc::RcParams;
@@ -59,6 +62,25 @@ impl Artist for FigureImageArtist {
         let magnification = ctx.renderer().image_magnification();
         let rendered = self.render(ctx, magnification);
         draw_rendered(ctx, &self.base, rendered);
+    }
+
+    /// A norm or a colormap of the program's mapping the image as the draw
+    /// a print makes before it renders makes it (`make_image` on the whole
+    /// figure at its resolution).
+    fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        let program = {
+            let mappable = self.core.mappable.borrow();
+            mappable.norm().calls_program() || mappable.cmap().calls_program()
+        };
+        if !program || !self.base.visible {
+            return None;
+        }
+        let placement = self.placement(layout.figure_box(), 1.0, 1.0);
+        let alpha = self.core.alpha(self.base.alpha);
+        let core = self.core.clone();
+        Some(Box::new(move || {
+            drop(core.make_image(&placement, alpha.as_ref()));
+        }))
     }
 }
 

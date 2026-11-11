@@ -84,17 +84,49 @@ setuptools==84.2.1
 tables==3.11.1
 UpSetPlot==0.9.0
 windrose==2.0.0
+# The libraries over matplotlib of the corpora added on 2026-11-11 (their
+# examples, galleries and READMEs), and what their programs use besides:
+# Marsilea's fonts, legends and emoji (mpl-fontkit, legendkit, emoji),
+# lmfit's MCMC examples' emcee, mplsoccer's colour maps (cmasher):
+cmasher==1.9.4
+cmcrameri==1.10
+control==0.10.2
+emcee==3.1.6
+emoji==2.16.0
+legendkit==0.5.2
+lmfit==1.3.4
+marsilea==0.8.1
+matplotlib-label-lines==0.8.1
+matplotx==0.3.10
+MetPy==1.7.1
+mpl-chord-diagram==0.4.1
+mpl-fontkit==0.5.1
+mplcursors==0.7.1
+mplsoccer==1.8.1
+probscale==0.3.0
+python-ternary==1.0.8
+pytransform3d==3.17.0
+scikit-rf==2.2.0
+supervenn==0.5.0
+tueplots==0.2.6
+ultraplot==2.7.4
+# matplotlib's layout solver, which ultraplot looks for to lay out its
+# grids, as matplotlib's own requirements give it to the reference venv:
+kiwisolver==1.5.1
 # What those bring along, as uv resolved them on 2026-11-07 (and on
-# 2026-11-10 for the libraries added then):
+# 2026-11-10 and 2026-11-11 for the libraries added then):
 annotated-types==0.8.0
 anyio==4.16.0
+asteval==1.0.10
 astropy-iers-data==0.2026.11.2.0.34.55
 asttokens==3.0.2
 blosc2==4.14.1
 certifi==2026.10.23
 charset-normalizer==3.5.2
 cloudpickle==3.1.2
+colorspacious==1.1.2
 comm==0.2.3
+dill==0.4.1
 et-xmlfile==2.0.0
 executing==2.3.0
 flexcache==0.3
@@ -121,6 +153,7 @@ markupsafe==3.0.4
 matplotlib-inline==0.2.2
 mdurl==0.1.2
 mizani==0.14.6
+more-itertools==11.2.1
 mpmath==1.3.0
 msgpack==1.2.4
 narwhals==2.28.0
@@ -131,11 +164,13 @@ patsy==1.0.3
 pexpect==4.9.0
 platformdirs==4.14.5
 polars-runtime-32==2.1.0
+pooch==1.9.0
 prompt-toolkit==3.0.53
 psutil==7.2.2
 ptyprocess==0.7.0
 pure-eval==0.2.4
 py-cpuinfo==9.0.0
+pyarrow==26.0.1
 pydantic-core==2.50.4
 pydantic==2.14.3
 pydot==4.0.1
@@ -146,21 +181,25 @@ pyparsing==3.3.3
 pyproj==3.8.0
 pytz==2026.6
 pyyaml==6.0.3
+rapidfuzz==3.14.6
 requests==2.34.2
 rich==15.0.0
 shapely==2.2.0
 six==1.17.0
 stack-data==0.6.3
+thefuzz==0.22.1
 threadpoolctl==3.8.0
 tifffile==2026.10.15
 traitlets==5.16.1
 typing-extensions==4.16.0
 typing-inspection==0.4.5
 uhi==1.2.1
+uncertainties==3.2.3
 urllib3==2.8.0
 wcwidth==0.9.4
 widgetsnbextension==4.0.16
 wrapt==2.5.2
+xarray==2026.9.0
 # The projections of other libraries, added on 2026-11-10 with mpltern's as
 # the measure of what a program's projection may do (they need nothing but
 # numpy, scipy and matplotlib):

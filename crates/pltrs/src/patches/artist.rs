@@ -353,10 +353,9 @@ impl<S: PatchShape> PatchArtist<S> {
     /// The outline in display space, as measured, with tolerance
     /// `radius`.
     fn region(&self, ctx: LayoutContext<'_>, radius: f64) -> Option<ClipRegion> {
-        self.parts().measured_outline(ctx).map(|clip| ClipRegion {
-            path: clip.path.transformed(&clip.transform),
-            radius,
-        })
+        self.parts()
+            .measured_outline(ctx)
+            .map(|clip| ClipRegion::new(clip.path.transformed(&clip.transform), radius))
     }
 
     /// Whether display point `point` lies within `radius` of a sub-path of

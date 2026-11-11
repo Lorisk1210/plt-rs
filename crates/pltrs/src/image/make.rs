@@ -128,9 +128,13 @@ pub(crate) struct Placement {
 }
 
 /// Sets the unset limits of `mappable`'s norm from `data`, when it holds
-/// scalars (matplotlib's `autoscale_None` on new image data).
+/// scalars (matplotlib's `autoscale_None` on new image data). A norm of the
+/// program's is left alone: matplotlib's `set_data` does not autoscale it
+/// (its plotting functions' `_scale_norm` and its draws do).
 pub(crate) fn autoscale_unset(mappable: &mut ScalarMappable, data: &ImageData) {
-    if let Some(field) = data.scalars() {
+    if let Some(field) = data.scalars()
+        && !mappable.norm().calls_program()
+    {
         mappable.norm_mut().autoscale_none(&field.masked_values());
     }
 }

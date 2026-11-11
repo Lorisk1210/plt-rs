@@ -265,7 +265,7 @@ impl Axes {
             };
             self.add_hexbin_marginals(&marginals, &mappable, marginal_norm, &options.props);
         }
-        handle.set_mapping(ColorMapping { values, mappable });
+        handle.set_scaled_mapping(ColorMapping { values, mappable }, None);
         Ok(handle)
     }
 }

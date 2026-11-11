@@ -44,6 +44,7 @@ impl Axis3DState {
         fresh.keep_tick_styles(self);
         fresh.label.rotate = self.label.rotate;
         fresh.pane_color = self.pane_color.clone();
+        fresh.pane_style.clone_from(&self.pane_style);
         fresh.style = self.style.clone();
         fresh.line_visible = self.line_visible;
         fresh.tick_position = self.tick_position;

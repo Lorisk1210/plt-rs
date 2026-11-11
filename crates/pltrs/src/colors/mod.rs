@@ -52,8 +52,8 @@ pub use array::{Alpha, Colors, same_color, to_rgba_array};
 pub use colorizer::{Colorize, ColorizerError, ColorizerOptions};
 pub(crate) use colorizer::{NORM_WITH_LIMITS, impl_colorize};
 pub use colormap::{
-    Channel, Colormap, ColormapError, ColormapKind, Extend, Normalized, Segment, SegmentData,
-    SegmentFn, SegmentProblem, create_lookup_table,
+    Channel, Colormap, ColormapCall, ColormapError, ColormapKind, Extend, Normalized,
+    ProgramColormap, Segment, SegmentData, SegmentFn, SegmentProblem, create_lookup_table,
 };
 pub use hsv::{hsv_to_rgb, rgb_to_hsv};
 pub use levels::{LevelsError, from_levels_and_colors};
@@ -63,6 +63,7 @@ pub use light::{
 pub use mappable::ScalarMappable;
 pub use named::{
     ColorTable, NamedColor, named_color_table, named_colors, reset_color_names, set_color_name,
+    set_color_name_lookup,
 };
 pub(crate) use norm::LinearTransform;
 pub use norm::{

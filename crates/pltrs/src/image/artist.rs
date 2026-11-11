@@ -17,7 +17,7 @@ use super::{
 };
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, DrawContext, LayoutContext,
-    LimitPoints, RawHandle, TypedHandle,
+    LimitPoints, ProgramShaping, RawHandle, TypedHandle,
 };
 use crate::axes::Axes;
 use crate::colors::{Colormap, Norm};
@@ -63,6 +63,12 @@ impl AxesImageArtist {
     /// Whether the image's norm is the program's.
     pub(super) fn norm_calls_program(&self) -> bool {
         self.core.mappable.borrow().norm().calls_program()
+    }
+
+    /// Whether the image's norm or colormap is the program's.
+    fn maps_through_program(&self) -> bool {
+        let mappable = self.core.mappable.borrow();
+        mappable.norm().calls_program() || mappable.cmap().calls_program()
     }
 
     /// The data rectangle covered: the one set, else the array's pixels
@@ -231,6 +237,25 @@ impl AxesImageArtist {
 impl Artist for AxesImageArtist {
     fn base(&self) -> &ArtistBase {
         &self.base
+    }
+
+    /// A norm or a colormap of the program's mapping the image as the draw
+    /// a print makes before it renders makes it (`make_image`, at the
+    /// layout of that draw); where the figure's draws are walked for the
+    /// program's tickers, the image is made ahead there instead (see
+    /// `super::ahead`).
+    fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        let state = layout.figure_state();
+        if !self.maps_through_program() || state.ticks_by_program() || !self.base.visible {
+            return None;
+        }
+        // That draw renders the whole figure, before it is cut.
+        let placement = self.placement(*layout, layout.figure_box(), 1.0)?;
+        let alpha = self.core.alpha(self.base.alpha);
+        let core = self.core.clone();
+        Some(Box::new(move || {
+            drop(core.make_image(&placement, alpha.as_ref()));
+        }))
     }
 
     fn base_mut(&mut self) -> &mut ArtistBase {

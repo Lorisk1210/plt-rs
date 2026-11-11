@@ -56,16 +56,20 @@ impl TextArtist {
         Some(bbox.shape(&placement))
     }
 
+    /// Whether the text has a visible box of a style of the program's.
+    pub(super) fn box_shaped_by_program(&self) -> bool {
+        self.bbox
+            .as_ref()
+            .is_some_and(|bbox| bbox.visible && matches!(bbox.boxstyle.shape, BoxShape::Program(_)))
+    }
+
     /// The call of the program's box style shaping the text's box, as
     /// the text's draw makes it (matplotlib's `_bbox_patch.draw`, for a
     /// text with text and a box drawn); the text is measured for it
     /// without noting its fonts, which pltrs notes for every draw a
     /// print stands for (see [`font_notes`](crate::text::font_notes)).
     pub(super) fn program_box_shaping(&self, ctx: LayoutContext<'_>) -> Option<ProgramShaping> {
-        let shaped_by_program = self.bbox.as_ref().is_some_and(|bbox| {
-            bbox.visible && matches!(bbox.boxstyle.shape, BoxShape::Program(_))
-        });
-        if !shaped_by_program || self.text.is_empty() {
+        if !self.box_shaped_by_program() || self.text.is_empty() {
             return None;
         }
         let (shape, _) = crate::text::font_notes::unnoted(|| self.box_frame(ctx))?;
@@ -335,9 +339,11 @@ impl TextBoxPatch {
         let resolved = self
             .style
             .resolve(rc, self.alpha, FancyBboxPatch::EDGE_DEFAULT)?;
-        Ok(ClipRegion {
-            path: shape.path().transformed(&transform),
-            radius: resolved.hit_radius(),
+        let radius = resolved.hit_radius();
+        Ok(if shape.runs_program() {
+            ClipRegion::remade(move || shape.path().transformed(&transform), radius)
+        } else {
+            ClipRegion::new(shape.path().transformed(&transform), radius)
         })
     }
 }
@@ -475,8 +481,8 @@ mod tests {
         let region = square
             .clip_region(&rc(), &placement)
             .expect("valid colours");
-        let extents = region.path.extents();
+        let extents = region.outline().extents();
         assert!((extents.x0() - 80.0).abs() < 1e-9 && (extents.y1() - 65.0).abs() < 1e-9);
-        assert_eq!(region.radius, 1.0, "the visible edge widens the region");
+        assert_eq!(region.radius(), 1.0, "the visible edge widens the region");
     }
 }

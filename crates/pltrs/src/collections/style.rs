@@ -304,7 +304,7 @@ pub(super) fn resolve_gap_colors(c: &CollectionArtist) -> Result<Option<Vec<Rgba
 }
 
 /// The collection's opacity: one per item, or the artist's single alpha.
-fn collection_alpha(c: &CollectionArtist) -> Alpha {
+pub(super) fn collection_alpha(c: &CollectionArtist) -> Alpha {
     c.alphas
         .clone()
         .map_or_else(|| Alpha::from(c.base().alpha), Alpha::Each)

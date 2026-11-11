@@ -14,6 +14,7 @@ use super::axis_intervals::widened;
 use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::ProjectionState;
+use super::prop_cycles::CycleState;
 use super::secondary::Secondary;
 use super::tick_compute::axis_length_points;
 use super::transform_sites::ScaleBox;
@@ -25,7 +26,7 @@ use crate::gridspec::SubplotSpec;
 use crate::patches::PatchStyle;
 use crate::polar::{PolarState, PolarView};
 use crate::projections::SharedOptions;
-use crate::rc::{AxisBelow, Cycler, RcParams};
+use crate::rc::{AxisBelow, RcParams};
 use crate::scale::ScaleName;
 use crate::spines::SpineSide;
 use crate::ticker::{AxisInfo, AxisName, Formatter, TickContext, TickSpace, TickerError};
@@ -99,12 +100,10 @@ pub(crate) struct AxesState {
     /// `_gen_axes_patch` of floating axes or of an Axes class of the
     /// program's).
     pub(crate) patch_outline: Option<PatchOutline>,
-    /// Property cycle for lines and patches.
-    pub(crate) prop_cycle: Cycler,
-    /// Next property-cycle entry for lines.
-    pub(crate) line_cycle: usize,
-    /// Next property-cycle entry for patches and collections.
-    pub(crate) patch_cycle: usize,
+    /// The property cycle of lines.
+    pub(crate) line_cycle: CycleState,
+    /// The property cycle of patches and collections.
+    pub(crate) patch_cycle: CycleState,
     /// The axes whose line property cycle this one draws from, when a
     /// program pointed it at another's (see [`PropCycle`](super::PropCycle)).
     pub(crate) line_cycle_from: Option<ArtistId>,
@@ -185,7 +184,6 @@ pltrs_core::archive_struct!(AxesState {
     parasite,
     aux_transform,
     patch_outline,
-    prop_cycle,
     line_cycle,
     patch_cycle,
     line_cycle_from,
@@ -384,9 +382,8 @@ impl AxesState {
             parasite: None,
             aux_transform: None,
             patch_outline: None,
-            prop_cycle: rc.axes_prop_cycle.clone(),
-            line_cycle: 0,
-            patch_cycle: 0,
+            line_cycle: CycleState::new(rc.axes_prop_cycle.clone()),
+            patch_cycle: CycleState::new(rc.axes_prop_cycle.clone()),
             line_cycle_from: None,
             patch_cycle_from: None,
             children: Vec::new(),

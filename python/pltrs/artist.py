@@ -513,7 +513,14 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         return _values.given_flag(self, "rasterized",
                                   _artist.get_rasterized(self._native))
 
-    _rasterized = property(get_rasterized,
+    def _assign_rasterized(self, rasterized):
+        """``self._rasterized = rasterized``, matplotlib's attribute,
+        which a program sets without the checks of `set_rasterized`
+        (legendkit's ``ColorArt``)."""
+        _artist.set_rasterized(self._native, bool(rasterized))
+        _values.remember(self, "rasterized", rasterized)
+
+    _rasterized = property(get_rasterized, _assign_rasterized,
                            doc="Whether the artist is to be rasterized.")
 
     def set_rasterized(self, rasterized):

@@ -409,8 +409,20 @@ fn data_location() -> PyResult<String> {
         .map_err(|err| PyErr::runtime_error(err.to_string()))
 }
 
+/// The factor of the base size the size keyword `name` stands for in
+/// `font_manager.font_scalings` (the package registers its lookup as
+/// `font_scaling`), if the program added it there.
+fn font_scaling(name: &str) -> Option<f64> {
+    Python::with_gil(|py| {
+        let lookup = crate::binding::lookup(py, "font_scaling").ok()?;
+        let scale = lookup.call(&[name.into_py(py).ok()?], &[]).ok()?;
+        scale.extract::<Option<f64>>().ok()?
+    })
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    pltrs::fonts::set_size_keywords(font_scaling);
     module.add("data_path", data_path)?;
     module.add("data_location", data_location)?;
     module.add("type1_name", type1_name)?;

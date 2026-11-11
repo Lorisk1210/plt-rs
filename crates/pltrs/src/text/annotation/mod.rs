@@ -222,11 +222,11 @@ impl AnnotationState {
                 } else {
                     0.0
                 };
-                StartRegion::Fresh(Some(ClipRegion {
-                    path: pltrs_core::Path::unit_rectangle()
+                StartRegion::Fresh(Some(ClipRegion::new(
+                    pltrs_core::Path::unit_rectangle()
                         .transformed(&crate::transforms::unit_to_bbox(&padded)),
                     radius,
-                }))
+                )))
             }
         };
         Ok(ArrowTarget {
@@ -268,9 +268,12 @@ impl AnnotationState {
         text: &TextArtist,
         layout: LayoutContext<'_>,
     ) -> Option<ProgramShaping> {
-        // Only an arrow of the program's styles is placed: placing it
-        // measures the text, which notes font lookups in the caches.
-        let arrow = self.arrow.as_ref().filter(|arrow| arrow.calls_program())?;
+        // Only an arrow of the program's styles, or clipped to a box of
+        // the program's, is placed: placing it measures the text, which
+        // notes font lookups in the caches.
+        let clipped_by_program = text.box_shaped_by_program();
+        let arrow =
+            (self.arrow.as_ref()).filter(|arrow| clipped_by_program || arrow.calls_program())?;
         let point = self.point(text, layout).ok()?;
         if !self.shown(text, layout, point) {
             return None;

@@ -62,6 +62,17 @@ def _taken_natively(linewidth, arrowsize, arrowstyle, minlength, maxlength, zord
             and isinstance(num_arrows, Integral))
 
 
+def _maps_through_program(color, cmap, norm):
+    """Whether the colours of the streamlines go through a norm or a
+    colormap of a class of the program's, which matplotlib's code calls
+    once per arrow, with its value alone (`._streamplot_reference`)."""
+    if not isinstance(color, np.ndarray):
+        return False
+    if norm is not None and not type(norm).__module__.endswith(".colors"):
+        return True
+    return isinstance(cmap, mcolors.Colormap) and mcolors._native_colormap(cmap) is not None
+
+
 def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
                cmap=None, norm=None, arrowsize=1, arrowstyle='-|>',
                minlength=0.1, transform=None, zorder=None, start_points=None,
@@ -159,8 +170,9 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
         to the colormap, alpha, etc. for both lines and arrows, but these
         changes should be backward compatible.
     """
-    if not _taken_natively(linewidth, arrowsize, arrowstyle, minlength, maxlength,
-                           zorder, num_arrows):
+    if (not _taken_natively(linewidth, arrowsize, arrowstyle, minlength, maxlength,
+                            zorder, num_arrows)
+            or _maps_through_program(color, cmap, norm)):
         return StreamplotSet(*_streamplot_reference.streamplot(
             axes, x, y, u, v, density, linewidth, color, cmap, norm, arrowsize,
             arrowstyle, minlength, transform, zorder, start_points, maxlength,

@@ -12,6 +12,7 @@ use pltrs::colors::{
 };
 use pltrs::scale::{LogTransform, LogitTransform, NonPositive};
 
+use super::python_colormap::PythonColormap;
 use super::python_norm::PythonNorm;
 use crate::binding::prelude::*;
 
@@ -43,7 +44,9 @@ impl FromPy<'_> for Colormap {
     /// A Python `Colormap` (a `ListedColormap`, a
     /// `LinearSegmentedColormap`, or any subclass keeping matplotlib's
     /// lookup table) as the colormap of its table: its `N` colours, then
-    /// its under, over and bad colours.
+    /// its under, over and bad colours; a class of the program's that maps
+    /// values its own way is called where it maps (see
+    /// [`PythonColormap`]).
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         if !object.getattr("_isinit")?.is_truthy()? {
             object.call_method("_init", &[])?;
@@ -70,11 +73,16 @@ impl FromPy<'_> for Colormap {
         } else {
             None
         };
-        Ok(Colormap::listed(name, colors.to_vec())?
+        let cmap = Colormap::listed(name, colors.to_vec())?
             .with_under(*under)?
             .with_over(*over)?
             .with_bad(*bad)?
-            .with_colorbar_extend(colorbar_extend))
+            .with_colorbar_extend(colorbar_extend);
+        // A class of the program's mapping values its own way is called.
+        Ok(match PythonColormap::of(object)? {
+            Some(program) => cmap.with_program(program),
+            None => cmap,
+        })
     }
 }
 

@@ -3,17 +3,26 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
 use std::sync::OnceLock;
 
 use pltrs_core::Rgba;
 
 use super::named_data::{BASE, CSS4, TABLEAU, XKCD};
 
+/// Looks a colour name up in the program's own mapping of names.
+type NameLookup = Rc<dyn Fn(&str) -> Option<Rgba>>;
+
 pltrs_core::thread_state! {
     /// The names the program changed, over the tables: their colour, or
     /// `None` for a name taken away.
     static PROGRAM_NAMES: RefCell<BTreeMap<String, Option<Rgba>>> =
         const { RefCell::new(BTreeMap::new()) };
+    /// Where names neither the tables nor [`set_color_name`] know are
+    /// looked up: a mapping of names the program put in place of
+    /// matplotlib's (ultraplot's `ColorDatabase`).
+    static NAME_LOOKUP: RefCell<Option<NameLookup>> =
+        const { RefCell::new(None) };
 }
 
 /// A named colour as matplotlib's tables store it.
@@ -72,11 +81,24 @@ pub(super) fn lookup(name: &str) -> Option<Rgba> {
             .with_borrow(|names| names.get(key).copied())
             .unwrap_or_else(|| full_map().get(key).map(|color| color.rgba()))
     };
-    find(name).or_else(|| {
-        (name.chars().count() != 1)
-            .then(|| find(&name.to_lowercase()))
-            .flatten()
-    })
+    find(name)
+        .or_else(|| {
+            (name.chars().count() != 1)
+                .then(|| find(&name.to_lowercase()))
+                .flatten()
+        })
+        .or_else(|| {
+            // Called with the slot free: the lookup runs the program's code.
+            let lookup = NAME_LOOKUP.with_borrow(Clone::clone)?;
+            lookup(name)
+        })
+}
+
+/// Has names the tables and [`set_color_name`] do not know looked up
+/// with `lookup` (matplotlib reads a name from whatever mapping the
+/// program put in place of `_colors_full_map`).
+pub fn set_color_name_lookup(lookup: impl Fn(&str) -> Option<Rgba> + 'static) {
+    NAME_LOOKUP.with_borrow_mut(|slot| *slot = Some(Rc::new(lookup)));
 }
 
 /// Names `color` `name` on this thread, over the tables, or takes the

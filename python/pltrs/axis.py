@@ -1155,6 +1155,16 @@ class Axis(DrawnWith, Artist):
             return given
         return self.axes._default_axis_scale(self, name)
 
+    @_scale.setter
+    def _scale(self, scale):
+        # matplotlib's attribute, which programs assign (ultraplot gives an
+        # axis the scale object of the axis it shares): the scale object
+        # itself where the kind stays, else the scale set.
+        if scale.name == self.get_scale():
+            self._given_scale = scale
+        else:
+            self._set_axes_scale(scale)
+
     def _set_axes_scale(self, value, **kwargs):
         """
         Set this Axis' scale.

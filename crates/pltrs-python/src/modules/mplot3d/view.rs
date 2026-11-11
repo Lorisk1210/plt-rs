@@ -3,10 +3,12 @@
 //! labels, `set_axis_off`, `grid`, the pane colours, `get_proj`) and what
 //! the status bar shows over it (`format_coord`).
 
+use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Adjustable;
 use pltrs::colors::Color;
-use pltrs::mplot3d::{Aspect3D, Axes3D, SharedAxes};
+use pltrs::mplot3d::{Aspect3D, Axes3D, PaneStyle, SharedAxes};
 use pltrs::navigation::DragKey;
+use pltrs::patches::{Patch, Polygon};
 use pltrs::transforms::Bbox;
 use pltrs_core::Point;
 use pltrs_core::path::DataLimits;
@@ -279,6 +281,25 @@ fn set_pane_color(axes: Axes3D, name: String, color: Color) -> PyResult<()> {
     Ok(())
 }
 
+/// Draws the pane normal to axis `name` as `pane`, the polygon
+/// `axis.pane` the program restyled, looks now (`None`: in its colour).
+fn set_pane_patch(axes: Axes3D, name: String, pane: Option<RawHandle>) -> PyResult<()> {
+    let style = match pane {
+        Some(raw) => {
+            let polygon = raw
+                .downcast::<Patch<Polygon>>()
+                .ok_or_else(|| PyErr::type_error("a pane is drawn as a Polygon"))?;
+            Some(PaneStyle {
+                style: polygon.style(),
+                alpha: polygon.alpha(),
+            })
+        }
+        None => None,
+    };
+    axes.set_pane_style(axis3(&name)?, style);
+    Ok(())
+}
+
 /// Orders collections and patches by depth or by their own z-order
 /// (`computed_zorder`).
 fn set_computed_zorder(axes: Axes3D, computed: bool) -> PyResult<()> {
@@ -390,6 +411,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_grid", get_grid)?;
     module.add("set_top_view", set_top_view)?;
     module.add("set_pane_color", set_pane_color)?;
+    module.add("set_pane_patch", set_pane_patch)?;
     module.add("set_computed_zorder", set_computed_zorder)?;
     module.add("get_proj", get_proj)?;
     module.add("format_coord", format_coord)?;

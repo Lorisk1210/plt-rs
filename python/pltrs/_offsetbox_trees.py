@@ -139,11 +139,20 @@ def adopt_part(artist, native, figure):
     """Make *artist* the object of the artist the handle *native* reaches
     in *figure* (`._handles.adopt`), unless it is already; return whether
     it was not."""
-    if (artist.__dict__.get("_figure") is figure._figure
-            and _artist.id(artist._native) == _artist.id(native)):
+    if artist.__dict__.get("_figure") is figure._figure and _same_artist(artist._native, native):
         return False
     _handles.adopt(artist, native, figure)
     return True
+
+
+def _same_artist(held, native):
+    """Whether the handle *held* reaches the artist *native* does: not when
+    its artist moved into the tree (a box the program gave the figure
+    before adding it, `BoxItem::joining`)."""
+    try:
+        return _artist.id(held) == _artist.id(native)
+    except RuntimeError:
+        return False
 
 
 def follow(owner):

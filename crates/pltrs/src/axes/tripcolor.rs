@@ -232,10 +232,13 @@ impl Axes {
                     .transform
                     .get_or_insert_with(|| self.trans_data());
                 let handle = Collection::from_raw(self.add_unscaled(collection, tri));
-                handle.set_mapping(ColorMapping {
-                    values: masked(colors),
-                    mappable,
-                });
+                handle.set_scaled_mapping(
+                    ColorMapping {
+                        values: masked(colors),
+                        mappable,
+                    },
+                    None,
+                );
                 Tripcolor::Flat(handle)
             }
         };

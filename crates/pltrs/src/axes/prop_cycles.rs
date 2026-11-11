@@ -4,12 +4,16 @@
 //! lines from its host's cycle, and a program may point any axes at
 //! another's cycles (`twin._get_lines = ax._get_lines`, as pandas does for
 //! a secondary y axis), both advancing them. Clearing an axes gives it
-//! cycles of its own again.
+//! cycles of its own again. Each cycle keeps its cycler and the entry it
+//! gives next (matplotlib's `_PropCycle`), which a program may read and
+//! move (`_get_lines._prop_cycle._idx`).
 
 use std::rc::Rc;
 
 use super::{Axes, AxesState};
 use crate::artist::{ArtistHandle, RawHandle};
+use crate::colors::Color;
+use crate::rc::{CycleValue, Cycler};
 
 /// One of the two property cycles of an axes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,7 +26,107 @@ pub enum PropCycle {
     Patches,
 }
 
+/// One property cycle of an axes: its cycler and the entry it gives next
+/// (matplotlib's `_PropCycle`).
+#[derive(Clone, Debug)]
+pub(crate) struct CycleState {
+    /// The cycled properties.
+    cycler: Cycler,
+    /// The entry given next, below the cycler's length.
+    next: usize,
+}
+
+pltrs_core::archive_struct!(CycleState { cycler, next });
+
+impl CycleState {
+    /// The cycle of `cycler`, at its first entry.
+    pub(crate) fn new(cycler: Cycler) -> Self {
+        Self { cycler, next: 0 }
+    }
+
+    /// Moves on to the following entry, back to the first after the last.
+    fn advance(&mut self) {
+        self.next = (self.next + 1) % self.cycler.len().max(1);
+    }
+
+    /// The next entry without the properties `skip` names, the cycle
+    /// advancing only when that leaves any (matplotlib's `getdefaults`).
+    pub(crate) fn take_entry(&mut self, skip: impl Fn(&str) -> bool) -> Vec<(String, CycleValue)> {
+        let entry: Vec<(String, CycleValue)> = (self.cycler.entry(self.next))
+            .filter(|(key, _)| !skip(key))
+            .map(|(key, value)| (key.to_owned(), value.clone()))
+            .collect();
+        if !entry.is_empty() {
+            self.advance();
+        }
+        entry
+    }
+
+    /// The colour of the next entry, black when the cycle has no colours;
+    /// only a cycle that has advances (matplotlib's `get_next_color`).
+    pub(crate) fn take_color(&mut self) -> Color {
+        let color = self
+            .cycler
+            .entry(self.next)
+            .find_map(|(key, value)| match (key, value) {
+                ("color", CycleValue::Color(color)) => Some(color.clone()),
+                _ => None,
+            });
+        if color.is_some() {
+            self.advance();
+        }
+        color.unwrap_or_else(|| Color::from("k"))
+    }
+}
+
 impl Axes {
+    /// The entry the property cycle `cycle` gives next, counted from 0
+    /// (matplotlib's `_get_lines._prop_cycle._idx`).
+    ///
+    /// ```
+    /// use pltrs::axes::PropCycle;
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.next_line_color();
+    /// assert_eq!(ax.prop_cycle_position(PropCycle::Lines), 1);
+    /// assert_eq!(ax.prop_cycle_position(PropCycle::Patches), 0);
+    /// ```
+    pub fn prop_cycle_position(&self, cycle: PropCycle) -> usize {
+        self.with_cycle(cycle, |state| state.next)
+    }
+
+    /// Makes the property cycle `cycle` give its entry `position` next
+    /// (wrapping around its length; matplotlib's `_prop_cycle._idx = i`).
+    pub fn set_prop_cycle_position(&self, cycle: PropCycle, position: usize) -> &Self {
+        self.with_cycle(cycle, |state| {
+            state.next = position % state.cycler.len().max(1);
+        });
+        self
+    }
+
+    /// Replaces the cycler of the property cycle `cycle` alone and
+    /// restarts it; `None` restores `axes.prop_cycle` (matplotlib's
+    /// `_get_lines.set_prop_cycle(cycler)`).
+    pub fn set_prop_cycle_of(&self, cycle: PropCycle, cycler: Option<Cycler>) -> &Self {
+        let cycler = cycler.unwrap_or_else(|| crate::rc::params().axes_prop_cycle.clone());
+        self.with_cycle(cycle, |state| *state = CycleState::new(cycler));
+        self
+    }
+
+    /// Runs `f` on the state of the property cycle `cycle` this axes draws
+    /// from (its owner's: see [`share_prop_cycle`](Self::share_prop_cycle)).
+    pub(crate) fn with_cycle<R>(
+        &self,
+        cycle: PropCycle,
+        f: impl FnOnce(&mut CycleState) -> R,
+    ) -> R {
+        self.prop_cycle_owner(cycle)
+            .raw()
+            .with_mut::<AxesState, _>(|axes| match cycle {
+                PropCycle::Lines => f(&mut axes.line_cycle),
+                PropCycle::Patches => f(&mut axes.patch_cycle),
+            })
+    }
+
     /// Makes this axes draw from the `cycle` that `other` draws from, both
     /// advancing it from then on (matplotlib's
     /// `ax._get_lines = other._get_lines`).
@@ -44,30 +148,6 @@ impl Axes {
             PropCycle::Lines => axes.line_cycle_from = from,
             PropCycle::Patches => axes.patch_cycle_from = from,
         });
-        self
-    }
-
-    /// How far `cycle` has advanced (the entry it gives next), on the axes
-    /// this one draws it from.
-    pub fn prop_cycle_position(&self, cycle: PropCycle) -> usize {
-        self.prop_cycle_owner(cycle)
-            .raw()
-            .with::<AxesState, _>(|axes| match cycle {
-                PropCycle::Lines => axes.line_cycle,
-                PropCycle::Patches => axes.patch_cycle,
-            })
-    }
-
-    /// Moves `cycle` back (or on) to `position`, as
-    /// [`prop_cycle_position`](Self::prop_cycle_position) gave it: the
-    /// colours an attempt took that matplotlib's code then takes again.
-    pub fn set_prop_cycle_position(&self, cycle: PropCycle, position: usize) -> &Self {
-        self.prop_cycle_owner(cycle)
-            .raw()
-            .with_mut::<AxesState, _>(|axes| match cycle {
-                PropCycle::Lines => axes.line_cycle = position,
-                PropCycle::Patches => axes.patch_cycle = position,
-            });
         self
     }
 
@@ -148,5 +228,30 @@ mod tests {
         a.share_prop_cycle(PropCycle::Lines, &c);
         assert_eq!(a.prop_cycle_owner(PropCycle::Lines).id(), a.id());
         assert_eq!(c.prop_cycle_owner(PropCycle::Patches).id(), c.id());
+    }
+
+    #[test]
+    fn a_cycle_s_position_wraps_and_each_cycle_takes_its_own_cycler() {
+        let ax = Figure::new().subplot();
+        let rgb: Cycler = "cycler(color=['r', 'g', 'b'])".parse().unwrap();
+        ax.set_prop_cycle(Some(rgb));
+        ax.set_prop_cycle_position(PropCycle::Lines, 5);
+        assert_eq!(ax.prop_cycle_position(PropCycle::Lines), 2);
+        assert_eq!(ax.next_line_color(), Color::from("b"));
+        assert_eq!(
+            ax.prop_cycle_position(PropCycle::Lines),
+            0,
+            "back to the first"
+        );
+
+        let markers: Cycler = "cycler(marker=['o', 'x'])".parse().unwrap();
+        ax.set_prop_cycle_of(PropCycle::Patches, Some(markers));
+        assert_eq!(
+            ax.next_patch_color(),
+            Color::from("k"),
+            "no colours: no advance"
+        );
+        assert_eq!(ax.prop_cycle_position(PropCycle::Patches), 0);
+        assert_eq!(ax.next_line_color(), Color::from("r"), "lines keep theirs");
     }
 }

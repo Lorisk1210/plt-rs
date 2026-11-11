@@ -474,8 +474,11 @@ def _compare_stdout(program: str, mpl: dict, pltrs: dict) -> Iterator[Difference
 
 def image_rms(expected: pathlib.Path, actual: pathlib.Path) -> tuple[float | None, str]:
     """matplotlib's RMS between two PNGs (``testing.compare``'s), or None
-    and why when they cannot be compared."""
+    and why when they cannot be compared. Figures of any size are read
+    (ultraplot's tables of colormaps exceed Pillow's limit of decompression
+    bombs), and their squared differences summed a band of rows at a time."""
     from PIL import Image
+    Image.MAX_IMAGE_PIXELS = None
 
     def load(path: pathlib.Path) -> np.ndarray:
         """The image as matplotlib's comparison reads it."""
@@ -487,7 +490,10 @@ def image_rms(expected: pathlib.Path, actual: pathlib.Path) -> tuple[float | Non
     a, b = load(expected), load(actual)
     if a.shape != b.shape:
         return None, f"size {a.shape[1]}x{a.shape[0]} != {b.shape[1]}x{b.shape[0]}"
-    return float(np.sqrt(((a - b).astype(float) ** 2).mean())), ""
+    band = 1024
+    squares = sum(float((((a[i:i + band] - b[i:i + band]).astype(float)) ** 2).sum())
+                  for i in range(0, a.shape[0], band))
+    return float(np.sqrt(squares / a.size)), ""
 
 
 def _figures_by_key(mpl: dict, pltrs: dict) -> tuple[dict, dict]:

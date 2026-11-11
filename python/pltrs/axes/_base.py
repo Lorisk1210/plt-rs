@@ -39,6 +39,13 @@ from ..transforms import Bbox
 _foreign_children = _lazy_imports.module(globals(), "._foreign_children")
 
 
+def _same_block(a, b):
+    """Whether the native blocks of cells *a* and *b* are the same cells of
+    the same grid."""
+    return (_gridspec.same(_gridspec.spec_gridspec(a), _gridspec.spec_gridspec(b))
+            and _gridspec.spec_cells(a) == _gridspec.spec_cells(b))
+
+
 class _SharedAxes(SharedGroups):
     """
     The groups of axes sharing one axis (matplotlib's ``_shared_axes[name]``,
@@ -50,6 +57,21 @@ class _SharedAxes(SharedGroups):
 
     def _siblings(self, a):
         return _handles.wrap_all(a._sharing(self._name), type(a), a._figure)
+
+    def join(self, a, *args):
+        """
+        Join given arguments into the same set.  Accepts one or more arguments.
+        """
+        # pltrs (Rust) groups the Axes by *a* sharing the axis of each
+        # (ultraplot joins an Axes to the one it takes its limits from); an
+        # Axes sharing another's already stays where it is.
+        for b in args:
+            if b is a or self.joined(a, b):
+                continue
+            try:
+                _axes_base.share(a._native, self._name, b._native)
+            except (ValueError, RuntimeError):
+                continue
 
 
 @_api.define_aliases({"facecolor": ["fc"]})
@@ -218,6 +240,12 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         native = _gridspec.axes_spec(self._native)
         if native is None:
             return None
+        given = self.__dict__.get("_subplotspec_given")
+        if given is not None and _same_block(given[1], native):
+            # The spec placing the Axes, while it does: the program's
+            # object (ultraplot's spec, which counts its grid's cells its
+            # own way).
+            return given[0]
         spec = SubplotSpec._from_native(native, self.get_figure(root=False))
         # The same object while the Axes stays in that block, as matplotlib
         # keeps its ``_subplotspec``.
@@ -238,6 +266,14 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             raise
         self.__dict__.pop("_unplaced_subplotspec", None)
         _gridspec.set_axes_spec(self._native, subplotspec._native_spec())
+        self._place_on(subplotspec)
+
+    def _place_on(self, subplotspec):
+        """Keep *subplotspec*, which places the Axes, as matplotlib's Axes
+        keeps it (``_subplotspec``), for as long as the Axes stays on the
+        block of cells it gave."""
+        self._subplotspec_kept = subplotspec
+        self._subplotspec_given = (subplotspec, _gridspec.axes_spec(self._native))
 
     def get_gridspec(self):
         """Return the `.GridSpec` associated with the subplot, or None."""
@@ -342,12 +378,29 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         """The Axes whose x-axis this one shares (``sharex=``), or None."""
         return _sharing.shared_from(self, "x")
 
+    @_sharex.setter
+    def _sharex(self, other):
+        self._note_shared_from("x", other)
+
     @property
     def _sharey(self):
         """The Axes whose y-axis this one shares (``sharey=``), or None."""
         return _sharing.shared_from(self, "y")
 
+    @_sharey.setter
+    def _sharey(self, other):
+        self._note_shared_from("y", other)
+
+    def _note_shared_from(self, name, other):
+        """Hold *other* as the Axes whose axis *name* this one shares, as
+        the program set matplotlib's attribute (``ax._sharex = other``,
+        ultraplot's), which shares nothing by itself."""
+        self.__dict__.setdefault("_shared_given", {})[name] = other
+
     def _shared_from(self, name):
+        given = self.__dict__.get("_shared_given", {})
+        if name in given:
+            return given[name]
         native = _axes_base.shared_from(self._native, name)
         return None if native is None else _handles.wrap(native, type(self), self._figure)
 
@@ -569,6 +622,7 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
             prop_cycle = _rc_value(given)
         _axes_base.set_prop_cycle(self._native, prop_cycle)
         _values.remember(self, "prop_cycle", given)
+        self._cycles_set(given)
 
     def _make_twin_axes(self, shared, axes_class, delta_zorder, kwargs):
         """

@@ -134,6 +134,29 @@ _REPR_PNG_SIZE = (512, 64)
 _BIVAR_REPR_PNG_SIZE = 256
 
 
+def _program_color(name):
+    """
+    The colour (an RGBA tuple) the mapping of names in place of
+    `_colors_full_map` gives *name*, when the program put one of its own
+    there (ultraplot's ``ColorDatabase``), which pltrs (Rust) asks for
+    the names it does not know; None otherwise.
+    """
+    mapping = _colors_full_map
+    if isinstance(mapping, _ColorMapping):
+        return None  # pltrs (Rust) follows this one
+    keys = [name] if len(name) == 1 else [name, name.lower()]
+    for key in keys:
+        try:
+            value = mapping[key]
+            return tuple(_colors.to_rgba(value, None))
+        except Exception:  # noqa: BLE001 - the program's mapping names no colour
+            continue
+    return None
+
+
+_register("program_color", _program_color)
+
+
 def get_named_colors_mapping():
     """Return the global mapping of names to named colors."""
     return _colors_full_map
@@ -2479,7 +2502,7 @@ def _native_norm(norm):
     shape)`` (the values handed over as a masked array, unless *mask* is
     None, of *shape*, unless it is None), ``normalize_scalar(value)`` (a
     value handed over alone),
-    ``autoscale_none(values, mask)``, ``inverse(values)``,
+    ``autoscale_none(values, mask, shape)``, ``inverse(values)``,
     ``set_limits(vmin, vmax)`` and ``state()``; and ``scale``, the name and
     options of pltrs (Rust)'s scale matching the scale the norm is made
     from (``norm._scale``), if any. They take and give plain arrays, the
@@ -2507,9 +2530,12 @@ def _native_norm(norm):
     def normalize_scalar(value):
         return plain(norm(np.float64(value)))
 
-    def autoscale_none(values, mask):
+    def autoscale_none(values, mask, shape=None):
+        values = masked(values, mask)
+        if shape is not None:
+            values = values.reshape(shape)
         with norm.callbacks.blocked():
-            norm.autoscale_None(masked(values, mask))
+            norm.autoscale_None(values)
         return norm.vmin, norm.vmax
 
     def inverse(values):
@@ -2530,6 +2556,42 @@ def _native_norm(norm):
 
 
 _register("native_norm", _native_norm)
+
+
+def _native_colormap(cmap):
+    """
+    The callable through which pltrs (Rust) maps with *cmap* when the
+    colormap's class maps values its own way (a program's subclass
+    overriding ``__call__`` or ``_get_rgba_and_mask``), else None:
+    ``call(values, mask, integers, shape, alpha, alpha_values, bytes)``
+    hands *cmap* the values as matplotlib does, a masked array of *shape*
+    (integers for the indices of a ``BoundaryNorm``), with *alpha* (a
+    number or None) or *alpha_values* (one per value), and gives its RGBA
+    rows as a float array of four columns.
+    """
+    from ._program_classes import takes_from_program
+    if not any(takes_from_program(type(cmap), name)
+               for name in ("__call__", "_get_rgba_and_mask")):
+        return None
+
+    def call(values, mask, integers, shape, alpha, alpha_values, bytes):
+        values = np.asarray(values)
+        if integers:
+            values = values.astype(int)
+        if not shape:
+            # A value normalised alone: the norm gave a numpy scalar.
+            X = np.ma.masked if mask[0] else values[0]
+        else:
+            X = np.ma.masked_array(values, mask).reshape(shape)
+        if alpha_values is not None:
+            alpha = np.asarray(alpha_values).reshape(shape)
+        rgba = cmap(X, alpha=alpha, bytes=bytes)
+        return np.asarray(rgba, dtype=float).reshape(-1, 4)
+
+    return call
+
+
+_register("native_colormap", _native_colormap)
 
 
 class Normalize(Norm):

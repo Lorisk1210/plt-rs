@@ -38,7 +38,8 @@ struct Hooks {
     normalize: Callback,
     /// `normalize_scalar(value) -> (values, mask)`.
     normalize_scalar: Callback,
-    /// `autoscale_none(values, mask) -> (vmin, vmax)`.
+    /// `autoscale_none(values, mask, shape) -> (vmin, vmax)`, the values
+    /// handed to the norm as a masked array of `shape` (`None`: flat).
     autoscale_none: Callback,
     /// `inverse(values) -> (values, mask)`.
     inverse: Callback,
@@ -78,6 +79,16 @@ impl PythonNorm {
     /// The Python norm.
     pub(crate) fn object(&self) -> &Owned {
         &self.object
+    }
+
+    /// Autoscales the Python norm to `data`, handed over as an array of
+    /// `shape` (flat for `None`), and takes the limits it found.
+    fn autoscale_none_as(&mut self, data: &[Option<f64>], shape: Option<Vec<usize>>) {
+        let (values, mask) = split(data);
+        if let Some((vmin, vmax)) = self.hooks.autoscale_none.call((values, mask, shape)) {
+            self.vmin = vmin;
+            self.vmax = vmax;
+        }
     }
 
     /// Hands the limits to the Python norm, as matplotlib's mappables set
@@ -153,11 +164,11 @@ impl Norm for PythonNorm {
     }
 
     fn autoscale_none(&mut self, data: &[Option<f64>]) {
-        let (values, mask) = split(data);
-        if let Some((vmin, vmax)) = self.hooks.autoscale_none.call((values, mask)) {
-            self.vmin = vmin;
-            self.vmax = vmax;
-        }
+        self.autoscale_none_as(data, None);
+    }
+
+    fn autoscale_none_shaped(&mut self, data: &[Option<f64>], shape: &[usize]) {
+        self.autoscale_none_as(data, Some(shape.to_vec()));
     }
 
     /// The norm made from a scale of pltrs (Rust)'s kind is shown on that

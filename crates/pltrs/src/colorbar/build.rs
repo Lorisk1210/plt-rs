@@ -203,7 +203,7 @@ impl ColorbarState {
     fn block_color(&mut self, index: usize) -> Result<Rgba, ColorbarError> {
         let value = self.blocks.values[index];
         let normalized = normalize_scalars(&mut self.mapping, &[Some(value)], self.blocks.kind)?;
-        Ok(self.mapping.cmap().lookup(normalized[0], None))
+        Ok(self.mapping.cmap().lookup_scalar(normalized[0]))
     }
 
     /// The hatch of contour band `band`, if the bands are hatched.
@@ -267,7 +267,7 @@ impl ColorbarState {
         }
         let value = self.blocks.values[index];
         let normalized = self.mapping.norm_mut().normalize_scalar(value)?;
-        Ok(self.mapping.cmap().lookup(normalized, None))
+        Ok(self.mapping.cmap().lookup_scalar(normalized))
     }
 
     /// matplotlib's `_update_dividers`: with `drawedges`, lines between

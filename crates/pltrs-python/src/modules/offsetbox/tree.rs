@@ -32,10 +32,13 @@ use crate::binding::prelude::*;
 pub(super) struct PyOffsetBox(pub(super) OffsetBox<RawHandle>);
 
 impl PyOffsetBox {
-    /// The tree of a box joining a figure, its loose artists moved out of
-    /// their holders.
-    pub(super) fn joining(self) -> PyResult<OffsetBox<BoxItem>> {
-        Ok(self.0.try_map(&mut |artist| BoxItem::from_loose(&artist))?)
+    /// The tree of a box joining the figure of `into`, its artists moved
+    /// out of their holders, or out of that figure's free artists (see
+    /// `BoxItem::joining`).
+    pub(super) fn joining(self, into: &RawHandle) -> PyResult<OffsetBox<BoxItem>> {
+        Ok(self
+            .0
+            .try_map(&mut |artist| BoxItem::joining(&artist, into))?)
     }
 }
 
@@ -147,7 +150,11 @@ mod tests {
             ]
             .into_py(py)
             .unwrap();
-            let tree = packed.extract::<PyOffsetBox>().unwrap().joining().unwrap();
+            let tree = packed
+                .extract::<PyOffsetBox>()
+                .unwrap()
+                .joining(text.raw())
+                .unwrap();
             let OffsetBox::VPacker(packer) = &tree else {
                 panic!("a vertical packer, not {tree:?}");
             };
@@ -169,7 +176,7 @@ mod tests {
             let tree = description
                 .extract::<PyOffsetBox>()
                 .unwrap()
-                .joining()
+                .joining(plain.raw())
                 .unwrap();
             assert!(matches!(tree, OffsetBox::Program(_)), "{tree:?}");
             assert_eq!(tree.artists().len(), 1);

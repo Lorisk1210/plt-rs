@@ -668,3 +668,266 @@ sha256 = "354d3c7b16333f6c6d441ba29f34be4cc8af788f69b0ed3b6b08878f9b3e0a97"
 programs = ["docs/*.ipynb"]
 exclude = []
 outputs = []
+
+[mplcursors]
+title = "mplcursors (interactive data cursors), its examples"
+repository = "https://github.com/anntzer/mplcursors"
+commit = "566963caa0c527825e735c9146c9fae129ac898c"
+licence = "zlib (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/examples/"]
+sha256 = "b99f42fbc86d2c5a821e0389d2b84b1edde515cf53ef5ae35265d433503efe59"
+programs = ["examples/*.py"]
+exclude = []
+outputs = []
+
+[plottable]
+title = "plottable (tables drawn with matplotlib), its documentation's notebooks"
+repository = "https://github.com/znstrider/plottable"
+commit = "553f5bd5b8b9d92aaa6cfbfbf5e95889c17fbac0"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/docs/example_notebooks/", "/docs/notebooks/"]
+sha256 = "be358758ed959ac93335341d48270e84d59ff1d2e915987d4a484e0fe6e9b99a"
+programs = ["docs/example_notebooks/*.ipynb", "docs/notebooks/*.ipynb"]
+exclude = []
+outputs = ["docs/example_notebooks/images"]
+
+[highlight-text]
+title = "highlight_text (text with highlighted substrings), its notebooks and README"
+repository = "https://github.com/znstrider/highlight_text"
+commit = "a5f19e41c09a259a40bf60d7dc36821eed53304a"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/README.md", "/examples/", "/notebooks/"]
+sha256 = "fe57f09eb0494c19955ad1b0b679c492c4dd5bd5efc4649ae7cc47826c5f21f8"
+programs = ["README.md", "examples/*.ipynb", "notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[mpl-chord-diagram]
+title = "mpl_chord_diagram (chord diagrams), its example and README"
+repository = "https://github.com/Silmathoron/mpl_chord_diagram"
+commit = "418e3ab73dad2f326e76d2bc13c7be9eb6a247b9"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/example.py", "/README.md"]
+sha256 = "e9930150bdd8a3b3d8b7cf59f71f2ad4ddd8f0ebed9071943cbbcbbb616c421a"
+programs = ["example.py", "README.md"]
+exclude = []
+outputs = ["images"]
+
+[tueplots]
+title = "tueplots (figure settings for papers), its documentation's notebooks"
+repository = "https://github.com/pnkraemer/tueplots"
+commit = "e5ca0aa276fcdadd851729e1a6db6048a243dd9d"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/source/example_notebooks/notebooks/"]
+sha256 = "622007fdc5d73b8f0d186516a0d407b5732e63710b49da67d2f82c85d1e0c6da"
+programs = ["docs/source/example_notebooks/notebooks/*.ipynb"]
+exclude = []
+outputs = []
+
+[matplotx]
+title = "matplotx (styles and extensions), its README"
+repository = "https://github.com/nschloe/matplotx"
+commit = "4e536bcd05b39a320a5f04e67e5c99a4e4e49f67"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md"]
+sha256 = "13db853632950fc5948de4ae3206e346990202206a2e73c70df77ac46afc782c"
+programs = ["README.md"]
+exclude = []
+outputs = []
+
+[cmcrameri]
+title = "cmcrameri (Crameri's scientific colour maps), its README"
+repository = "https://github.com/callumrollo/cmcrameri"
+commit = "87197e141a2c451691ec53fadc6da4d017f79a4c"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/README.md"]
+sha256 = "c13230fb0fe9c67a934375a538c725e6438bf1872184bcfcf65dc6974c61e93e"
+programs = ["README.md"]
+exclude = []
+outputs = []
+
+[python-control]
+title = "python-control (control systems: Bode, Nyquist, root locus, responses), its examples"
+repository = "https://github.com/python-control/python-control"
+commit = "bfe9380eedcfbc6e57c0a7117e77e633575e3a18"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "0c9350cfaca2b6413f58edf8d9c289643ef1966cf2a1caae3bfcd8c4aa5fc23c"
+programs = ["examples/*.py", "examples/*.ipynb"]
+exclude = [
+    "examples/tfvis.py",  # a Tk application (Pmw)
+    "examples/plot_gallery.py",  # names its figures by `git describe` of its own checkout
+    "examples/disk_margins.py",  # MIMO disk margins, which need Slycot
+    "examples/robust_mimo.py",  # MIMO conversions, which need Slycot
+]
+outputs = []
+
+[lmfit]
+title = "lmfit (curve fitting), its gallery of examples"
+repository = "https://github.com/lmfit/lmfit-py"
+commit = "3a2439c2061ddeaf4cca8f99eb70a069e6a51a41"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "d287528a2548788cb435764daa12deb57fdae42af4c57704d4825ff7fd110f7b"
+programs = ["examples/*.py"]
+exclude = [
+    "examples/doc_model_loadmodelresult3.py",  # newer than lmfit 1.3.4, which reads its string as a file name
+]
+outputs = []
+
+[pywavelets]
+title = "PyWavelets (wavelet transforms), its demos and documentation's plots"
+repository = "https://github.com/PyWavelets/pywt"
+commit = "7b9e57ed639e7f87490a5bcb31f7b6c088d19031"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/demo/", "/doc/source/pyplots/"]
+sha256 = "1fdfe02e396fbd6280ad094fa4629ed1a095ea32289f389a627dee4d089d98ec"
+programs = ["demo/*.py", "doc/source/pyplots/*.py"]
+exclude = [
+    "demo/image_blender.py",  # a command-line tool: exits without its two image arguments
+    "demo/waveinfo.py",  # a command-line tool: exits without its wavelet argument
+    "demo/plot_wavelets_pyqtgraph.py",  # a pyqtgraph window
+    "demo/fswavedecn_mondrian.py",  # indexes with a list of slices, which numpy 2 refuses, before any figure
+]
+outputs = []
+
+[pytransform3d]
+title = "pytransform3d (3-D transformations, drawn in mplot3d), its gallery of plots"
+repository = "https://github.com/dfki-ric/pytransform3d"
+commit = "7c0fd67d939f97a44b02dc0764a07bea12bdf7b9"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/plots/", "/test/test_data/"]
+sha256 = "e98cc9b0d2b84743aa347ba7ced9c750bd479af5f0a29941de5efa29ec481b68"
+programs = ["examples/plots/*.py"]
+exclude = []
+outputs = []
+
+[mplsoccer]
+title = "mplsoccer (football pitches, radars, pizzas, sonars), its gallery of examples"
+repository = "https://github.com/andrewRowlinson/mplsoccer"
+commit = "150be3f5d891526506a4c35b03256f173a70a14a"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/examples/"]
+sha256 = "4bc2f7329c53fe053a47cb4ef8b014a1838a8d3212a811163fd7b552ef828338"
+programs = ["examples/*/*.py"]
+exclude = []
+outputs = []
+
+[python-ternary]
+title = "python-ternary (ternary plots), its examples and README"
+repository = "https://github.com/marcharper/python-ternary"
+commit = "9f946b69f266e61983f5be60793930fb1c380a6c"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md", "/examples/"]
+sha256 = "db93f8f868e56feadee7dd82339e287a735e6a345477dfc9d64b942e31a7a8ca"
+programs = ["README.md", "examples/*.py", "examples/*.ipynb"]
+# Two examples call `matplotlib.cm.get_cmap`, gone since 3.9, after their first figures.
+exclude = []
+outputs = []
+
+[matplotlib-label-lines]
+title = "matplotlib-label-lines (labels along lines), its example and README"
+repository = "https://github.com/cphyc/matplotlib-label-lines"
+commit = "beacfc488a098904e617310e0b2cb4202ce0a4e5"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/Readme.md", "/example/"]
+sha256 = "c21aea168384a92fa8a47ee47fdcc3e74982d89b13043b7635bf52d5353862b2"
+programs = ["Readme.md", "example/*.py", "example/*.ipynb"]
+exclude = []
+outputs = []
+
+[ultraplot]
+title = "UltraPlot (a matplotlib wrapper subclassing its Figure and Axes), its user guide and gallery"
+repository = "https://github.com/Ultraplot/ultraplot"
+commit = "b28f59f3f4e91ff9fdb96cbb6709a2b3a2996eb1"
+licence = "MIT (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/docs/*.py", "/docs/examples/"]
+sha256 = "59466e2ebc58700cf636e508a76c2239f9260d3c39cb1668f258c3cacd01412e"
+# Its import makes ~/.config/ultraplot with os.mkdir, which fails in a home
+# without ~/.config: the driver's empty homes skip every program.
+programs = ["docs/*.py", "docs/examples/*/*.py"]
+exclude = [
+    "docs/conf.py",  # the Sphinx configuration
+    "docs/projections.py",  # cartopy's and basemap's projections
+]
+outputs = []
+
+[handson-ml3]
+title = "Aurélien Géron, Hands-On Machine Learning (3rd edition), the tools and maths tutorials' notebooks"
+repository = "https://github.com/ageron/handson-ml3"
+commit = "ef1c9f5ab11083584635b9b3a7846f49c58a6084"
+licence = "Apache-2.0 (LICENSE)"
+fetch = ["/LICENSE", "/tools_*.ipynb", "/math_*.ipynb", "/extra_gradient_descent_comparison.ipynb"]
+sha256 = "963a013971bb2b1e050823e09b813236c8ba3149f7873b6f6548f0dc79477973"
+programs = ["tools_*.ipynb", "math_*.ipynb", "extra_gradient_descent_comparison.ipynb"]
+exclude = []
+outputs = []
+
+[pandas-data-analysis]
+title = "Stefanie Molin, Hands-On Data Analysis with Pandas (2nd edition), the visualisation chapters' notebooks"
+repository = "https://github.com/stefmolin/Hands-On-Data-Analysis-with-Pandas-2nd-edition"
+commit = "98f6dbac4b78354a7282682a31efcb642edb7f63"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/ch_05/", "/ch_06/", "/solutions/ch_05/", "/solutions/ch_06/"]
+sha256 = "7e623c6afaffe4b87cdd7f2a248be3c1180ac02b098d251bc81fa8c1f8b20823"
+programs = ["ch_0[56]/*.ipynb", "solutions/ch_0[56]/*.ipynb"]
+exclude = []
+outputs = []
+
+[scikit-rf]
+title = "scikit-rf (RF and microwave engineering: Smith charts, S-parameters), its documentation's notebooks"
+repository = "https://github.com/scikit-rf/scikit-rf"
+commit = "b62708c858e92118db21de0c351f1d5ffaab76bd"
+licence = "BSD-3-Clause (LICENSE.txt)"
+fetch = ["/LICENSE.txt", "/doc/source/examples/", "/doc/source/tutorials/"]
+sha256 = "d6fd20280ad01fd8d0b3ceca64032927b80e7becb5ce01bf2e2978da16fcdbfa"
+programs = ["doc/source/examples/*/*.ipynb", "doc/source/tutorials/*.ipynb"]
+exclude = [
+    "doc/source/tutorials/VirtualInstruments.ipynb",  # drives instruments over VISA
+    "doc/source/tutorials/Frequency_units.ipynb",  # newer than scikit-rf 2.2.0 (skrf.constants.FREQ_UNIT_DEFAULT)
+]
+outputs = ["doc/source/examples/networksets/tmp"]
+
+[marsilea]
+title = "Marsilea (composable visualisations: heatmaps with side plots), its gallery"
+repository = "https://github.com/Marsilea-viz/marsilea"
+commit = "05620dbe94415dddf3cc8d4abf7e4408deadbbe2"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/docs/examples/", "/docs/how_to/"]
+sha256 = "cc22dc602fb606835e97ee9ae1af3cb465e52ca46228a5d150a99051c09e62f2"
+programs = ["docs/examples/*/*.py", "docs/how_to/*/*.py"]
+exclude = []
+outputs = []
+
+[probscale]
+title = "mpl-probscale (probability scales), its tutorial notebooks and example"
+repository = "https://github.com/matplotlib/mpl-probscale"
+commit = "e6d9216edff317e6e1106af71f98fc0ab9341e82"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/docs/tutorial/", "/docs/examples/"]
+sha256 = "61464bc493ceefd55e2a1ea6e23fc92c3a5fc9819e47e5e12c89a058f3fa3bce"
+programs = ["docs/tutorial/*.ipynb", "docs/examples/*.py"]
+exclude = []
+outputs = ["docs/img"]
+
+[metpy]
+title = "MetPy (meteorology: Skew-T, hodographs, station plots), its gallery and tutorials"
+repository = "https://github.com/Unidata/MetPy"
+commit = "753551396ba594d56d4503c0e9591e16e1020ea0"
+licence = "BSD-3-Clause (LICENSE)"
+fetch = ["/LICENSE", "/examples/", "/tutorials/"]
+sha256 = "00c4261cdf9b13e1cbdf20237dfe44afc1fc50b5c772c8687aad27814b5b242b"
+programs = ["examples/*.py", "examples/*/*.py", "tutorials/*.py"]
+exclude = []
+outputs = []
+
+[supervenn]
+title = "supervenn (Venn diagrams of many sets), its README"
+repository = "https://github.com/gecko984/supervenn"
+commit = "9eb89d491d6bbaba3fcc8180081114695e1edf43"
+licence = "MIT (LICENSE)"
+fetch = ["/LICENSE", "/README.md"]
+sha256 = "e160fcff29c7bcc4384f9d028339ebe115dcab708a436e5be4a1b539c5753785"
+programs = ["README.md"]
+exclude = []
+outputs = []

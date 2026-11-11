@@ -727,15 +727,17 @@ impl Artist for CollectionArtist {
     /// aux-transform box clears to measure it), and the null box for any
     /// other (matplotlib's collections cannot place their data without the
     /// data transform it is given).
-    /// A norm of the program's normalising the values, as matplotlib's
-    /// `update_scalarmappable` makes it at every draw (where the figure's
+    /// A norm or a colormap of the program's mapping the values, as
+    /// matplotlib's `update_scalarmappable` does at every draw (where the figure's
     /// draws are not walked for the program's tickers already, which
     /// normalise them there: see `axes::tick_sites`).
     fn program_shaping(&self, layout: &LayoutContext<'_>) -> Option<ProgramShaping> {
+        let mapping = self.mapping.as_ref()?;
+        let alpha = style::collection_alpha(self);
         if layout.figure_state().ticks_by_program() {
-            return None;
+            return mapping.predraw_mapping(alpha);
         }
-        self.mapping.as_ref()?.predraw_normalization()
+        mapping.predraw_normalization(alpha)
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {

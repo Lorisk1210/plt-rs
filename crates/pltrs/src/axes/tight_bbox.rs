@@ -24,6 +24,7 @@ impl Axes {
     /// labels, axis labels, offset texts, titles, spines with their ticks,
     /// inset axes and unclipped artists. `for_layout_only` leaves out the
     /// length of the axis labels and titles. `None` for invisible axes.
+    /// An axes removed from its figure measures where it was.
     /// The painters of its artists measure them first, as matplotlib's
     /// asks each artist for its tight box.
     ///
@@ -36,6 +37,7 @@ impl Axes {
     /// assert!(tight.x0() < frame.x0() && tight.y0() < frame.y0());
     /// ```
     pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
+        let _standing = self.raw().standing_in();
         self.raw().measure_painters_under();
         self.raw().figure_state().work_on(|state| {
             state.prepare();
@@ -59,6 +61,7 @@ impl Axes {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn decorations_tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
+        let _standing = self.raw().standing_in();
         self.raw().figure_state().work_on(|state| {
             state.prepare();
             if crate::mplot3d::is_axes3d(&state.store, self.id()) {
@@ -111,6 +114,7 @@ impl Axis {
     /// assert_eq!(layout.y0(), full.y0());
     /// ```
     pub fn tight_bbox_with(&self, for_layout_only: bool) -> Option<Bbox> {
+        let _standing = self.axes.raw().standing_in();
         self.axes.raw().figure_state().work_on(|state| {
             state.prepare();
             state.tight_bbox_of_axis(self.axes.id(), self.name, for_layout_only)

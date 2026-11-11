@@ -105,6 +105,7 @@ impl Figure {
     /// it gives one; `None` when nothing does (matplotlib's
     /// `FigureBase.get_tightbbox`, in pixels for a subfigure, which
     /// [`tight_bbox`](Self::tight_bbox) turns into inches for the root).
+    /// A subfigure removed from its figure measures where it was.
     ///
     /// ```
     /// use pltrs::figure::{Figure, SubfigureOptions};
@@ -119,6 +120,7 @@ impl Figure {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn tight_extent(&self) -> Option<Bbox> {
+        let _standing = self.raw().standing_in();
         self.root_handle().measure_painters();
         let frame = self.raw().id();
         self.state_cell()

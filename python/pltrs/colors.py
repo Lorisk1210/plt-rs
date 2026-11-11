@@ -776,6 +776,30 @@ def _changed_in_place(cmap):
         colorizer.changed()
 
 
+#: What no callback tells of the changes of a norm or of a colorizer, by
+#: the id of that norm or colorizer: the colorizers and mappables read
+#: back from a pickle (or copied), since callbacks are not pickled.
+#: matplotlib's draws read the norm and the colormap as they are then,
+#: while pltrs (Rust) draws with the copy it was last handed.
+_unheard = {}
+
+
+def _follow_unheard(source, follower):
+    """Have *follower* told of the changes of *source* (a norm or a
+    colorizer) without a callback of its registry (`_tell_unheard`)."""
+    followers = _unheard.get(id(source))
+    if followers is None:
+        followers = _unheard[id(source)] = weakref.WeakSet()
+        weakref.finalize(source, _unheard.pop, id(source), None)
+    followers.add(follower)
+
+
+def _tell_unheard(source):
+    """Tell what follows *source* without a callback that it changed."""
+    for follower in list(_unheard.get(id(source), ())):
+        follower._changed_unheard()
+
+
 class Colormap:
     """
     Baseclass for all scalar to RGBA mappings.
@@ -2434,6 +2458,7 @@ class Norm(ABC):
         callback listeners to the 'changed' signal.
         """
         self.callbacks.process('changed')
+        _tell_unheard(self)
 
     @property
     @abstractmethod
@@ -3581,6 +3606,7 @@ class MultiNorm(Norm):
         callback listeners to the 'changed' signal.
         """
         self.callbacks.process('changed')
+        _tell_unheard(self)
 
     def __call__(self, values, clip=None):
         """

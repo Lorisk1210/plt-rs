@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use super::FigureState;
 use crate::artist::{Artist, ArtistId, ArtistLookup, downcast_ref};
 use crate::axes::AxesState;
+use crate::figure::FigureFrame;
 
 /// Whether no artist of the figure, removed ones included, is its own
 /// container or owner, however indirectly.
@@ -22,10 +23,13 @@ pub(super) fn links_end(state: &FigureState) -> bool {
     acyclic(&ids, |id| linked(id, containers)) && acyclic(&ids, |id| linked(id, Artist::children))
 }
 
-/// What contains `artist`: its parent and, for axes, the axes they are
-/// placed in.
+/// What contains `artist`: its parent and, for axes and removed
+/// subfigures, what they are placed in.
 fn containers(artist: &dyn Artist) -> Vec<ArtistId> {
-    let home = downcast_ref::<AxesState>(artist).and_then(|axes| axes.home);
+    let home = match downcast_ref::<AxesState>(artist) {
+        Some(axes) => axes.home,
+        None => downcast_ref::<FigureFrame>(artist).and_then(|frame| frame.home),
+    };
     artist.base().parent.into_iter().chain(home).collect()
 }
 

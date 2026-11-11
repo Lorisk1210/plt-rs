@@ -183,7 +183,7 @@ def hexbin(axes, x, y, C, gridsize, bins, xscale, yscale, extent, cmap, norm,
         collection.set_norm(norm)
     collection.set_array(accum)
     collection.set_alpha(alpha)
-    collection._internal_update(kwargs)
+    collection._made_with(kwargs)
     collection._scale_norm(norm, vmin, vmax)
 
     # autoscale the norm with current accum values if it hasn't been set
@@ -240,7 +240,7 @@ def hexbin(axes, x, y, C, gridsize, bins, xscale, yscale, extent, cmap, norm,
         bar.set_cmap(cmap)
         bar.set_norm(norm)
         bar.set_alpha(alpha)
-        bar._internal_update(kwargs)
+        bar._made_with(kwargs)
         bars.append(axes.add_collection(bar, autolim=False))
 
     collection.hbar, collection.vbar = bars

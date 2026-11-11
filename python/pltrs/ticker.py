@@ -41,6 +41,10 @@ _scalar_reference = _lazy_imports.module(globals(), "._scalar_reference")
 
 _log = logging.getLogger(__name__)
 
+# How the locale writes numbers, for the formatters pltrs (Rust) makes
+# itself under :rc:`axes.formatter.use_locale`.
+_ticker.follow_locale(locale.localeconv)
+
 __all__ = ('TickHelper', 'Formatter', 'FixedFormatter',
            'NullFormatter', 'FuncFormatter', 'FormatStrFormatter',
            'StrMethodFormatter', 'ScalarFormatter', 'LogFormatter',

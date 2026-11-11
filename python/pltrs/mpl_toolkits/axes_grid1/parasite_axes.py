@@ -273,6 +273,23 @@ class HostAxesBase:
         return _handles.wrap_all(_axes_grid1.parasites(self._native),
                                  ParasiteAxes, self.figure)
 
+    def set_in_layout(self, in_layout):
+        # docstring inherited
+        super().set_in_layout(in_layout)
+        self._in_layout_set_at = martist._artist.draw_count(self._native)
+
+    def get_in_layout(self):
+        # docstring inherited
+        # matplotlib's draw of a host placed by a locator gives it its
+        # place with `set_position`, which takes it out of the layout:
+        # pltrs (Rust) draws the host, so the draws since the flag was set
+        # tell.
+        drawn = martist._artist.draw_count(self._native)
+        if (drawn > self.__dict__.get("_in_layout_set_at", 0)
+                and self.get_axes_locator() and super().get_in_layout()):
+            self.set_in_layout(False)
+        return super().get_in_layout()
+
     def get_aux_axes(
             self, tr=None, viewlim_mode="equal", axes_class=None, **kwargs):
         """
@@ -418,6 +435,9 @@ class HostAxesBase:
                                                             viewlim_mode))
         return parasite_class._of_host(self, native, aux_transform, viewlim_mode)
 
+
+# The methods matplotlib's hosts inherit.
+cbook._inherited_methods(HostAxesBase, martist.Artist, ["set_in_layout", "get_in_layout"])
 
 host_axes_class_factory = host_subplot_class_factory = \
     cbook._make_class_factory(HostAxesBase, "{}HostAxes", "_base_axes_class")

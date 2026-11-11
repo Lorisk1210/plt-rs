@@ -25,10 +25,13 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When the x axis is already shared with a different axes, `other`
-    /// belongs to another figure, or this axes has a projection fixing its
-    /// limits, such as a geographic one ([`PlotError::FixedLimits`];
-    /// matplotlib's geographic axes raise a `TypeError` when they share).
+    /// When the x axis is already shared with a different axes, or this
+    /// axes has a projection fixing its limits, such as a geographic one
+    /// ([`PlotError::FixedLimits`]; matplotlib's geographic axes raise a
+    /// `TypeError` when they share). `other` may be an axes of another
+    /// figure: the two figures then follow each other's limits, scales and
+    /// tick helpers, each laid out and drawn by itself
+    /// ([`Axes::shared_across`]).
     pub fn share_x(&self, other: &Self) -> Result<&Self, PlotError> {
         self.share(AxisName::X, other)
     }
@@ -86,14 +89,17 @@ impl Axes {
     /// Shares axis `name` with the axes, of either kind, `other` reaches.
     fn share_id(&self, name: AxisName, other: &RawHandle) -> Result<&Self, PlotError> {
         let figure = self.raw().figure_state();
-        if !Rc::ptr_eq(figure, other.figure_state()) {
-            return Err(PlotError::ForeignAxes);
-        }
         if self
             .raw
             .with::<AxesState, _>(|axes| axes.projection.fixed_limits())
         {
             return Err(PlotError::FixedLimits(name));
+        }
+        if !Rc::ptr_eq(figure, other.figure_state()) {
+            // Axes of two figures share through links, 2-D ones only.
+            let flat = other.downcast::<Self>().ok_or(PlotError::ForeignAxes)?;
+            self.share_across(name, &flat)?;
+            return Ok(self);
         }
         figure
             .borrow_mut()

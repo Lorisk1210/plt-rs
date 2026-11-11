@@ -17,10 +17,14 @@ use crate::transforms::Transform;
 
 /// Moves every artist `placements` name to where they put it: texts and
 /// area artists onto their transforms (and clips), images and frames onto
-/// their boxes.
+/// their boxes. An artist of a clipped area that was `drawn` with the
+/// area's outline keeps that outline, through the area's transform of
+/// now: matplotlib's `DrawingArea.draw` gives its outline, of its size
+/// then, only to the children that have no clip path yet.
 pub(crate) fn apply_placements<A: ArtistRef>(
     store: &mut ArtistStore,
     placements: Vec<Placement<A>>,
+    drawn: &dyn Fn(ArtistId) -> bool,
 ) {
     for placement in placements {
         match placement {
@@ -42,10 +46,16 @@ pub(crate) fn apply_placements<A: ArtistRef>(
             } => {
                 for artist in artists {
                     artist.attach(store, transform.clone());
-                    if let (Some(path), Some(clipped)) = (&clip, store.get_mut(artist.artist_id()))
-                    {
+                    let id = artist.artist_id();
+                    if let (Some(path), Some(clipped)) = (&clip, store.get_mut(id)) {
+                        let kept = match &clipped.base().clip_path {
+                            Some(ClipPathSpec::Path { path, .. }) if drawn(id) => {
+                                Some(path.clone())
+                            }
+                            _ => None,
+                        };
                         clipped.base_mut().clip_path = Some(ClipPathSpec::Path {
-                            path: path.clone(),
+                            path: kept.unwrap_or_else(|| path.clone()),
                             transform: transform.clone(),
                         });
                     }
@@ -201,7 +211,12 @@ pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
     state.pending_errors.retain(|error| error.artist != id);
     refresh_tree(state, id);
     match tree_layout(state, id) {
-        Some(Ok(layout)) => apply_placements(&mut state.store, layout.placements),
+        Some(Ok(layout)) => {
+            let fresh = &state.fresh;
+            apply_placements(&mut state.store, layout.placements, &|artist| {
+                fresh.draw_count(artist) > 0
+            });
+        }
         Some(Err(err)) if drawn_by_the_draw(state, id) => state.pending_errors.push(DrawError {
             kind: err.draw_kind(),
             ..DrawError::new(id, err.to_string())

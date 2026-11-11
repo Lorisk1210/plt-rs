@@ -187,7 +187,7 @@ class ImagesMixin:
         else:
             ret = wrap(self, pcolor_image, mimage.PcolorImage)
             ret._set_mapped_data(made, A)
-        ret._internal_update(kwargs)
+        ret._made_with(kwargs)
         return ret
 
     def _warn_identical_spy_limits(self, name):
@@ -330,7 +330,7 @@ class ImagesMixin:
             ret._set_mapped_data(made, cbook.safe_masked_invalid(
                 np.abs(np.asarray(Z)) > precision, copy=True))
             ret.autoscale_None()
-            ret._internal_update(kwargs)
+            ret._made_with(kwargs)
             return ret
         return wrap(self, line, mlines.Line2D)
 

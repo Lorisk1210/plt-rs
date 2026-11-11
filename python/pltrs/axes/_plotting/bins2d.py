@@ -135,7 +135,7 @@ def _native_hexbin(axes, x, y, C, gridsize, bins, xscale, yscale, extent, cmap,
     # properties, which may set them again (``linewidth=``).
     collection._internal_update(
         {'alpha': alpha, 'linewidths': linewidths, 'edgecolors': edgecolors})
-    collection._internal_update(kwargs)
+    collection._made_with(kwargs)
     return collection
 
 

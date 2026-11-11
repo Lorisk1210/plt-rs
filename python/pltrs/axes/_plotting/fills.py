@@ -373,7 +373,7 @@ class FillsMixin:
         if not fill:
             # The face keeps the default colour, transparent.
             _values.remember(patch, "facecolor", None)
-        patch._internal_update(kwargs)
+        patch._made_with(kwargs)
         _transform_trees.patches_added(self, [patch])
         return patch
 

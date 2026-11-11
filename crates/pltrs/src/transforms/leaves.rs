@@ -29,7 +29,8 @@ pub struct TreeLeaves {
     pub dpi: f64,
     /// The size in inches (`bbox_inches` spans it).
     pub size_inches: (f64, f64),
-    /// The subfigures asked for that are in the figure.
+    /// The subfigures asked for that are in the figure or were removed
+    /// from it (where they were, as matplotlib's keep their `bbox`).
     pub frames: Vec<FrameLeaves>,
     /// The axes asked for that are in the figure or were removed from it
     /// (where they were, as matplotlib's removed Axes keep their trees).
@@ -137,7 +138,7 @@ impl Figure {
 }
 
 fn frame_leaves(state: &FigureState, id: ArtistId) -> Option<FrameLeaves> {
-    let frame = state.store.get_as::<FigureFrame>(id)?;
+    let frame = state.artist_as::<FigureFrame>(id)?;
     (id != state.root).then_some(FrameLeaves {
         id,
         relative: frame.relative_extent,
@@ -179,7 +180,7 @@ fn axes_leaves(state: &FigureState, id: ArtistId) -> Option<AxesLeaves> {
 /// plane), as matplotlib's locators place those in the figure.
 fn positions(state: &FigureState, id: ArtistId, axes: &AxesState) -> Option<(Bbox, Bbox)> {
     let parent = axes.base().parent.or(axes.home).unwrap_or(state.root);
-    if state.store.get_as::<FigureFrame>(parent).is_some() {
+    if state.artist_as::<FigureFrame>(parent).is_some() {
         let active = axes.aspect.active_position(&axes.position);
         return Some((active, axes.position));
     }

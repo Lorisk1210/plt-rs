@@ -97,6 +97,12 @@ class LayoutMixin:
         """
         self._check_figure_renderer(renderer)
         _unusable.check(self, measuring=True)
+        # matplotlib calls the Axes' locator first: one that is an artist
+        # (axes_grid1's anchored locators) takes the Axes as its own, and
+        # refuses a second one (a parasite calling its host's).
+        called = getattr(self.get_axes_locator(), "_called_with", None)
+        if called is not None and call_axes_locator:
+            called(self)
         self._place_titles_by_program(renderer)
         self._first_measuring_steps(renderer)
         with _measured_by_given(renderer, self):

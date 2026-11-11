@@ -14,7 +14,8 @@ impl RawHandle {
     /// (matplotlib's `get_window_extent`); `None` when it occupies no
     /// space. Unlike [`ArtistHandle::window_extent`](super::ArtistHandle::window_extent),
     /// an artist removed from its figure, or made outside any, is measured
-    /// too.
+    /// too: where it was, with the axes and the figure it was removed
+    /// with (a spine of a removed axes with that axes' ticks).
     ///
     /// ```
     /// use pltrs::artist::ArtistHandle;
@@ -28,6 +29,7 @@ impl RawHandle {
     /// assert_eq!(label.raw().measured_extent(), extent);
     /// ```
     pub fn measured_extent(&self) -> Option<Bbox> {
+        let _standing = self.standing_in();
         let state = self.figure_state().prepared();
         let ctx = LayoutContext::new(&state);
         state.artist(self.id())?.window_extent(&ctx)
@@ -53,6 +55,7 @@ impl RawHandle {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn extent_as_is(&self) -> Option<Bbox> {
+        let _standing = self.standing_in();
         let state = self.figure_state().borrow();
         let ctx = LayoutContext::new(&state);
         state.artist(self.id())?.window_extent(&ctx)

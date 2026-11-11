@@ -28,6 +28,7 @@ mod rect;
 mod save;
 mod size;
 mod stale;
+mod standing_in;
 mod state;
 mod subfigure;
 mod subplots;
@@ -539,16 +540,17 @@ impl Figure {
         let state = artist.figure_state();
         let frame = {
             let figure = state.borrow();
-            let parent_of = |id| figure.store.get(id).and_then(|a| a.base().parent);
+            let parent_of = |id| figure.artist(id).and_then(|a| a.base().parent);
             // An axes made outside its figure is for the (sub)figure it was
-            // made for.
+            // made for, and one removed from it still of the (sub)figure
+            // it was in, as the artists removed with their subfigure are.
             let home = (figure.detached.get(artist.id()))
                 .and_then(downcast_ref::<AxesState>)
                 .and_then(|axes| axes.home);
             let mut ancestor = home.or_else(|| parent_of(artist.id()));
             loop {
                 match ancestor {
-                    Some(id) if figure.store.get_as::<FigureFrame>(id).is_some() => break id,
+                    Some(id) if figure.artist_as::<FigureFrame>(id).is_some() => break id,
                     Some(id) => ancestor = parent_of(id),
                     None => break figure.root,
                 }

@@ -289,6 +289,6 @@ class ImagingMixin:
         im._set_mapped_data(colorizer, A)
         im.set_alpha(alpha)
         im.set_url(url)
-        im._internal_update(kwargs)
+        im._made_with(kwargs)
         self._sci(im)
         return im

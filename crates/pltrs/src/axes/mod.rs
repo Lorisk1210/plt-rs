@@ -77,6 +77,7 @@ mod scatter;
 mod secondary;
 mod segments;
 mod share;
+mod share_across;
 mod sharing;
 mod specgram;
 mod spectral;
@@ -170,6 +171,7 @@ pub use prop_cycles::PropCycle;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub use secondary::SecondaryLocation;
 pub(crate) use share::{Grouper, ShareGroups};
+pub(crate) use share_across::SharesAcross;
 pub(crate) use sharing::share_free;
 pub use specgram::{SpecgramError, SpecgramOptions, SpecgramPlot};
 pub use spectral::{CorrelationArtists, SpectralPlotOptions, SpectrumPlotOptions, SpectrumScale};
@@ -591,7 +593,7 @@ impl Axes {
     /// only when the figure is drawn or laid out (call
     /// [`Figure::layout`](crate::figure::Figure::layout) first for the
     /// ticks of the axes it places), as matplotlib computes ticks between
-    /// draws.
+    /// draws. An axes removed from its figure has its ticks where it was.
     ///
     /// # Errors
     ///
@@ -599,6 +601,7 @@ impl Axes {
     /// places more than [`MAX_DRAWN_TICKS`](crate::ticker::MAX_DRAWN_TICKS)
     /// ticks.
     pub fn ticks(&self, axis: AxisName) -> Result<TickSet, TickerError> {
+        let _standing = self.raw.standing_in();
         self.raw
             .figure_state()
             .work_on(|state| state.update_ticks_as_is(self.id(), axis));

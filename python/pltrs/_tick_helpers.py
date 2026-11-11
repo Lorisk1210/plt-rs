@@ -59,7 +59,7 @@ def get(axis, kind, minor):
     helper_id, token = _axis.helper(axis.axes._native, axis.axis_name, kind,
                                     bool(minor))
     registry = _axis_registry(axis)
-    entry = registry.get(helper_id)
+    entry = registry.get(helper_id) or _held_by_peers(axis, helper_id)
     if entry is not None:
         return entry[1]
     spec = _axis.describe_helper(token)
@@ -73,6 +73,19 @@ def get(axis, kind, minor):
     if native:
         _tick_state.follow(helper, axis, helper_id)
     return helper
+
+
+def _held_by_peers(axis, helper_id):
+    """The entry of the helper *helper_id* of *axis* in the figure of an
+    Axes of another figure sharing the axis, whose helpers it shares: the
+    figure of *axis* keeps it too from then on."""
+    from .axes import _sharing
+    for peer in _sharing.across(axis.axes, axis.axis_name):
+        entry = _registry(peer._figure).get(helper_id)
+        if entry is not None:
+            _axis_registry(axis)[helper_id] = entry
+            return entry
+    return None
 
 
 def _locator_axis(axis):

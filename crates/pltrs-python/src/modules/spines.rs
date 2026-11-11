@@ -101,6 +101,20 @@ fn set_position(spine: Spine, (kind, amount): (String, f64)) -> PyResult<()> {
     Ok(())
 }
 
+/// Whether the program made the spine and never placed it (matplotlib's
+/// `_position` is then None, and the spine has the transform it was made
+/// with).
+fn unplaced(spine: Spine) -> PyResult<bool> {
+    Ok(spine.is_unplaced())
+}
+
+/// Leaves `spine`, one the program made and never placed, with the
+/// transform matplotlib's has until something places it, `transData`.
+fn leave_unplaced(spine: Spine) -> PyResult<()> {
+    spine.leave_unplaced();
+    Ok(())
+}
+
 /// Where the spine is placed, as `set_position` takes it.
 fn get_position(spine: Spine) -> PyResult<(&'static str, f64)> {
     Ok(match spine.position() {
@@ -152,10 +166,12 @@ fn set_bound_ends(spine: Spine, low: Option<f64>, high: Option<f64>) -> PyResult
 }
 
 /// The spine's display box with the tick marks drawn on it
-/// (`get_window_extent`).
+/// (`get_window_extent`), a spine of an Axes removed from its figure
+/// measured where it was.
 fn window_extent(spine: Spine) -> PyResult<Option<(f64, f64, f64, f64)>> {
     Ok(spine
-        .window_extent()
+        .raw()
+        .measured_extent()
         .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
 }
 
@@ -176,6 +192,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("frames_side", frames_side)?;
     module.add("add_spine", add_spine)?;
     module.add("set_position", set_position)?;
+    module.add("unplaced", unplaced)?;
+    module.add("leave_unplaced", leave_unplaced)?;
     module.add("get_position", get_position)?;
     module.add("set_bound_ends", set_bound_ends)?;
     module.add("window_extent", window_extent)?;

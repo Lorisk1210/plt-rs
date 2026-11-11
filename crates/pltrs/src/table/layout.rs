@@ -68,6 +68,28 @@ struct Sizes {
 }
 
 impl TableArtist {
+    /// Every cell where it is now: where the table places it
+    /// ([`place`](Self::place)) once the table placed its cells, and
+    /// until then where it was made, at the origin with its own size and
+    /// font size, as a cell of matplotlib's measured or drawn alone before
+    /// its table was (`Table._update_positions` runs when the table is
+    /// drawn or measured).
+    pub(crate) fn place_as_is(
+        &self,
+        layout: LayoutContext<'_>,
+        maps: &AxesMaps,
+    ) -> Result<Vec<PlacedCell>, TextDrawError> {
+        if self.positioned.get() {
+            return self.place(layout, maps);
+        }
+        Ok((self.cells.iter())
+            .map(|(_, cell)| PlacedCell {
+                bbox: Bbox::from_bounds(0.0, 0.0, cell.width, cell.height),
+                fontsize: cell.fontsize(),
+            })
+            .collect())
+    }
+
     /// Every cell with its place and font size for a table in the axes
     /// `maps` give.
     pub(crate) fn place(

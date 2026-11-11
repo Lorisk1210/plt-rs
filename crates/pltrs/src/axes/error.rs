@@ -69,7 +69,8 @@ pub enum PlotError {
     },
     /// The axis is already shared with a different axes.
     AlreadyShared(AxisName),
-    /// The axes belong to different figures.
+    /// The axes belong to different figures and are of kinds that share
+    /// within one figure only (2-D axes share across figures).
     ForeignAxes,
     /// The artist is not drawn in this axes.
     NotInAxes,

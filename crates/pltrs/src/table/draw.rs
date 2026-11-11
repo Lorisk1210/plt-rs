@@ -27,7 +27,7 @@ impl TableArtist {
             ctx.report(self.base.id(), "its axes has no area");
             return None;
         };
-        match self.place(layout, &maps) {
+        match self.place_as_is(layout, &maps) {
             Ok(placed) => Some((maps, placed)),
             Err(err) => {
                 ctx.report(self.base.id(), err);

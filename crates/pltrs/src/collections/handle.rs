@@ -441,6 +441,7 @@ impl Collection {
     /// ```
     pub fn clear_array(&self) -> &Self {
         self.update(|c| {
+            c.keep_shown_mapping();
             if let Some(mapped) = c.mapping.take() {
                 c.parked_mappable = Some(mapped.source.mappable);
             }
@@ -470,7 +471,7 @@ impl Collection {
     /// collection's colorbars follow the new norm and colormap.
     pub fn set_mapping(&self, mapping: ColorMapping) -> &Self {
         let mapped = Mapped::new(mapping);
-        self.update(|c| c.mapping = Some(mapped));
+        self.update(|c| drop(c.replace_mapping(Some(mapped))));
         colorizer::notify(&self.raw, true);
         self
     }
@@ -560,6 +561,22 @@ impl Collection {
     /// assert_eq!(dots.reported_colors()?.faces.len(), 2, "mapped");
     /// dots.set_facecolor(Color::from("red"));
     /// assert_eq!(dots.reported_colors()?.faces.len(), 1, "as set");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// The mapped colours are those of the last `update_scalarmappable`:
+    /// values, a norm or a colormap set since show at the next one.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let dots = fig.subplot().scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_array(vec![Some(0.0), Some(1.0)])?.update_scalarmappable();
+    /// let before = dots.reported_colors()?.faces;
+    /// dots.set_array(vec![Some(1.0), Some(0.0)])?;
+    /// assert_eq!(dots.reported_colors()?.faces, before, "until mapped again");
+    /// dots.update_scalarmappable();
+    /// assert_eq!(dots.reported_colors()?.faces, [before[1], before[0]]);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///

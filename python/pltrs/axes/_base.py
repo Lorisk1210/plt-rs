@@ -29,6 +29,7 @@ from ._layout import LayoutMixin
 from ._limits import LimitsMixin
 from ._navigation import NavigationMixin
 from ._projection import ProjectionMixin
+from . import _sharing
 from ._sharing import SharedGroups
 from ._prop_cycles import PropCycleMixin
 from ._ticks import TicksMixin, _axis_method_wrapper
@@ -339,12 +340,12 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
     @property
     def _sharex(self):
         """The Axes whose x-axis this one shares (``sharex=``), or None."""
-        return self._shared_from("x")
+        return _sharing.shared_from(self, "x")
 
     @property
     def _sharey(self):
         """The Axes whose y-axis this one shares (``sharey=``), or None."""
-        return self._shared_from("y")
+        return _sharing.shared_from(self, "y")
 
     def _shared_from(self, name):
         native = _axes_base.shared_from(self._native, name)

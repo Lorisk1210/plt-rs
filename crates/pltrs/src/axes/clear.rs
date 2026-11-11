@@ -11,7 +11,6 @@ use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
 use crate::scale::LinearScale;
 use crate::spines::{SpineArtist, SpinePosition};
-use crate::text::TextArtist;
 
 impl AxesState {
     /// The state a cleared axes restarts from (matplotlib's `__clear`): a
@@ -41,10 +40,10 @@ impl AxesState {
         fresh.parasite = self.parasite;
         fresh.aux_transform.clone_from(&self.aux_transform);
         fresh.spines.clone_from(&self.spines);
-        fresh.titles.clone_from(&self.titles);
+        // The titles are made anew (see `FigureState::renew_titles`).
+        fresh.former_titles = [self.former_titles.as_slice(), &self.titles].concat();
         fresh.program_axes.clone_from(&self.program_axes);
         fresh.children = (self.spines.iter())
-            .chain(&self.titles)
             .chain(&self.program_axes)
             .chain(parasites)
             .copied()
@@ -84,7 +83,7 @@ impl AxesState {
 
 impl FigureState {
     /// Removes the artists of axes `id` and resets it (matplotlib's
-    /// `Axes.__clear`): the titles start empty, the spines at the edges,
+    /// `Axes.__clear`): the titles are new and empty, the spines at the edges,
     /// the shared axes' scales linear, and shared axes take their
     /// partners' limits again. The parasites of a host stay and are
     /// cleared in turn, and a parasite's decorations stay hidden
@@ -101,9 +100,9 @@ impl FigureState {
             .children
             .iter()
             .copied()
-            .filter(|child| !fresh.children.contains(child))
+            .filter(|child| !fresh.children.contains(child) && !old.titles.contains(child))
             .collect();
-        let (shares, titles, spines) = (fresh.shares, fresh.titles.clone(), fresh.spines.clone());
+        let (shares, titles, spines) = (fresh.shares, old.titles.len(), fresh.spines.clone());
         for child in doomed {
             self.remove_artist(child);
         }
@@ -123,12 +122,7 @@ impl FigureState {
                 }
             }
         }
-        for (title, (x, halign)) in titles.into_iter().zip(TITLE_PLACES) {
-            if let Some(text) = self.artist_as_mut::<TextArtist>(title) {
-                let old = std::mem::replace(text, axes_title(id, x, halign, &rc));
-                text.base_mut().take_place_of(old.base());
-            }
-        }
+        self.renew_titles(id, titles, &rc);
         for spine in spines {
             if let Some(spine) = self.artist_as_mut::<SpineArtist>(spine) {
                 spine.position = SpinePosition::default();
@@ -140,6 +134,7 @@ impl FigureState {
                 Some(other) => {
                     let _ = self.share_axis(name, id, other);
                 }
+                None if self.reshare_across(id, name) => {}
                 // matplotlib's `axis._set_lim(0, 1, auto=True)`, which the
                 // axes sharing this one follow.
                 None => self.set_axis_limits(id, name, (0.0, 1.0), Some(true), true),
@@ -153,6 +148,23 @@ impl FigureState {
         }
         self.stale = true;
         self.layout.pending = true;
+    }
+
+    /// Gives the cleared axes `id` the first `count` of its titles anew,
+    /// empty, listed after its spines as the titles before them were.
+    /// matplotlib's `clear` makes new title texts: the old ones stay as
+    /// they were ([`AxesState::former_titles`]).
+    fn renew_titles(&mut self, id: ArtistId, count: usize, rc: &Rc<RcParams>) {
+        let titles: Vec<ArtistId> = (TITLE_PLACES.into_iter().take(count))
+            .map(|(x, halign)| self.adopt(id, Box::new(axes_title(id, x, halign, rc))))
+            .collect();
+        if let Some(state) = self.artist_as_mut::<AxesState>(id) {
+            let spines = state.spines.len();
+            state.children.retain(|child| !titles.contains(child));
+            let at = spines.min(state.children.len());
+            state.children.splice(at..at, titles.iter().copied());
+            state.titles = titles;
+        }
     }
 
     /// Gives axis `name` of the other axes sharing it with `id` the linear

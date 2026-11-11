@@ -66,6 +66,10 @@ impl Axes {
             true
         });
         if replaced {
+            // matplotlib's axes place the spines of their sides when they
+            // make their ticks, which a first draw does.
+            let drawn = self.raw().draw_count() > 0;
+            (spine.raw()).with_mut::<SpineArtist, _>(|spine| spine.unplaced &= drawn);
             self.raw().figure_state().borrow_mut().stale = true;
         }
         replaced

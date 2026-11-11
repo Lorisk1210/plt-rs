@@ -218,7 +218,7 @@ class MeshMixin:
             # The RGB(A) colours are the mesh's array, as matplotlib's mesh
             # is made with them (which autoscales its norm to them).
             collection.set_array(args[-1])
-        collection._internal_update(kwargs)
+        collection._made_with(kwargs)
         return collection
 
     @_preprocess_data()

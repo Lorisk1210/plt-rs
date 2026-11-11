@@ -678,6 +678,7 @@ class Table(Artist):
     def _place_cells(self):
         """Count a placing of the cells outside the figure's draws."""
         self._measures = self.__dict__.get("_measures", 0) + 1
+        _table.place_cells(self._native)
 
     @property
     def _placements(self):

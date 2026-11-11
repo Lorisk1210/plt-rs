@@ -225,6 +225,11 @@ pub(crate) struct TableArtist {
     cells: Vec<((i32, i32), Cell)>,
     auto_columns: Vec<i32>,
     auto_fontsize: bool,
+    /// Whether the table placed its cells yet: it does when it is drawn
+    /// or measured (matplotlib's `_update_positions`), and until then
+    /// each cell is where it was made, at the origin with its own size
+    /// (see [`TableArtist::place_as_is`]).
+    positioned: std::cell::Cell<bool>,
     rc: Rc<RcParams>,
 }
 
@@ -236,6 +241,7 @@ pltrs_core::archive_struct!(TableArtist {
     cells,
     auto_columns,
     auto_fontsize,
+    positioned,
     rc
 });
 
@@ -281,6 +287,7 @@ impl TableArtist {
             cells: Vec::new(),
             auto_columns: Vec::new(),
             auto_fontsize: true,
+            positioned: std::cell::Cell::new(false),
             rc,
         }
     }
@@ -483,6 +490,7 @@ impl Artist for TableArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        self.positioned.set(true);
         let Some((maps, placed)) = self.placed_for_drawing(ctx) else {
             return;
         };
@@ -497,6 +505,7 @@ impl Artist for TableArtist {
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        self.positioned.set(true);
         let maps = AxesMaps::of(&self.axes_box(*ctx)?)?;
         let cell_maps = self.cell_maps(*ctx, &maps);
         let placed = self.place(*ctx, &maps).ok()?;

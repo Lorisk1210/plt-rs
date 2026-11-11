@@ -47,6 +47,9 @@ pub(crate) struct FigureFrame {
     /// For subfigures: the cells of the parent's grid covered (matplotlib's
     /// `SubFigure._subplotspec`).
     pub(crate) subplot_spec: Option<SubplotSpec>,
+    /// For a subfigure removed from its figure: the frame it was in, in
+    /// whose fractions it stays placed.
+    pub(crate) home: Option<ArtistId>,
 }
 
 pltrs_core::archive_struct!(FigureFrame {
@@ -59,7 +62,8 @@ pltrs_core::archive_struct!(FigureFrame {
     children,
     subplot_params,
     super_texts,
-    subplot_spec
+    subplot_spec,
+    home
 });
 
 /// The texts spanning a whole figure (matplotlib's `_suptitle`,
@@ -128,6 +132,7 @@ impl FigureFrame {
             subplot_params,
             super_texts: SuperTexts::default(),
             subplot_spec: None,
+            home: None,
         }
     }
 }

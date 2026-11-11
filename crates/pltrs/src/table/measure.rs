@@ -16,12 +16,14 @@ use crate::transforms::Transform;
 impl TableCell {
     /// `f` of the cell, its table, the figure's current layout (laid out
     /// first) and the maps of the table's axes; `None` for a table in no
-    /// axes, or an axes of no area.
+    /// axes, or an axes of no area. A table removed from its figure is
+    /// measured where it was.
     fn measured<R>(
         &self,
         f: impl FnOnce(&Cell, usize, &TableArtist, LayoutContext<'_>, &AxesMaps) -> R,
     ) -> Option<R> {
         let raw = self.table().raw();
+        let _standing = raw.standing_in();
         let state = raw.figure_state().prepared();
         let layout = LayoutContext::new(&state);
         let table = state.store.get_as::<TableArtist>(raw.id())?;
@@ -43,7 +45,7 @@ impl TableCell {
     pub(crate) fn placed(&self) -> Option<PlacedCell> {
         self.measured(|_, index, table, layout, maps| {
             table
-                .place(layout, maps)
+                .place_as_is(layout, maps)
                 .ok()
                 .map(|mut placed| placed.swap_remove(index))
         })
@@ -72,7 +74,7 @@ impl TableCell {
     /// When the text cannot be laid out.
     pub fn text_bounds(&self) -> Result<Option<Bbox>, TextDrawError> {
         let measured = self.measured(|cell, index, table, layout, maps| {
-            let placed = table.place(layout, maps)?[index];
+            let placed = table.place_as_is(layout, maps)?[index];
             cell.maps(layout, maps)
                 .map(|cell_maps| cell.text_box(&placed, &cell_maps, layout, &table.rc))
                 .transpose()

@@ -3,6 +3,34 @@
 //! with `grouping=True`, which matplotlib's `ScalarFormatter` writes its
 //! labels with when `useLocale` is set).
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
+pltrs_core::thread_state! {
+    /// What tells how the program's locale writes numbers
+    /// ([`set_program_locale`]).
+    static PROGRAM: RefCell<Option<Rc<dyn Fn() -> NumericLocale>>> = const { RefCell::new(None) };
+}
+
+/// Has `conventions` tell how the program's locale writes numbers from
+/// now on (a host language's `locale.localeconv()`), asked whenever a
+/// formatter is made under `axes.formatter.use_locale`; `None` forgets it.
+///
+/// ```
+/// use pltrs::ticker::{NumericLocale, set_program_locale};
+/// let comma = NumericLocale { decimal_point: ",".into(), ..NumericLocale::c() };
+/// set_program_locale(Some(move || comma.clone()));
+/// assert_eq!(NumericLocale::of_program().localize("0.5"), "0,5");
+/// set_program_locale(None::<fn() -> NumericLocale>);
+/// assert_eq!(NumericLocale::of_program(), NumericLocale::c());
+/// ```
+pub fn set_program_locale(conventions: Option<impl Fn() -> NumericLocale + 'static>) {
+    let conventions = conventions.map(|ask| Rc::new(ask) as Rc<dyn Fn() -> NumericLocale>);
+    // Dropped once the state is free: it may own what calls back.
+    let replaced = PROGRAM.with(|program| program.replace(conventions));
+    drop(replaced);
+}
+
 /// One size of the digit groups of a locale, from the right (an entry of
 /// Python's `localeconv()["grouping"]`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,6 +81,23 @@ pltrs_core::archive_struct!(NumericLocale {
 });
 
 impl NumericLocale {
+    /// The conventions of the C locale: a point, and no grouping.
+    pub fn c() -> Self {
+        Self {
+            decimal_point: ".".to_owned(),
+            thousands_sep: String::new(),
+            grouping: Vec::new(),
+        }
+    }
+
+    /// How the program's locale writes numbers now, as the program tells
+    /// ([`set_program_locale`]); the C locale's conventions for a program
+    /// that tells nothing.
+    pub fn of_program() -> Self {
+        let ask = PROGRAM.with(|program| program.borrow().clone());
+        ask.map_or_else(Self::c, |ask| ask())
+    }
+
     /// `formatted`, a number written with `%` (`"%1.3f"`, `"%d"`,
     /// `"%1.10e"`), as the locale writes it: the digits before the point
     /// grouped and the point the locale's (Python's `locale._localize`

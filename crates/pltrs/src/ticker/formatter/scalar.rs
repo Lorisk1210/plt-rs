@@ -269,13 +269,15 @@ impl ScalarFormatter {
             scientific: true,
             powerlimits: settings.axes_formatter_limits,
             offset_threshold: settings.axes_formatter_offset_threshold,
-            locale: None,
+            locale: (settings.axes_formatter_use_locale).then(NumericLocale::of_program),
         }
     }
 
     /// Writes numbers with the conventions of `locale` (matplotlib's
     /// `useLocale`, with the program's locale); `None` writes them as
-    /// the C locale does. pltrs has no locale of its own.
+    /// the C locale does. pltrs has no locale of its own: a formatter made
+    /// under `axes.formatter.use_locale` takes the program's
+    /// ([`NumericLocale::of_program`]).
     ///
     /// ```
     /// use pltrs::ticker::{AxisInfo, Formatter, Grouping, NumericLocale};

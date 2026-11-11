@@ -950,7 +950,20 @@ class Line2D(Artist):
             See `~matplotlib.markers` for full description of possible
             arguments.
         """
+        self.__dict__.pop("_marker_style", None)
         self._set_native(marker=marker, fillstyle=self.get_fillstyle())
+
+    @property
+    def _marker(self):
+        # matplotlib's attribute: the `.MarkerStyle` the line draws its
+        # markers with, whose transform tick classes replace to turn their
+        # marks (see `._line_markers`). Made when first asked for, and
+        # again once the marker or its fill style is set.
+        style = self.__dict__.get("_marker_style")
+        if style is None:
+            from ._line_markers import LineMarker
+            style = self.__dict__["_marker_style"] = LineMarker(self)
+        return style
 
     def get_fillstyle(self):
         """
@@ -982,6 +995,7 @@ class Line2D(Artist):
         if fs is None:
             fs = _rcParams()['markers.fillstyle']
         _api.check_in_list(MarkerStyle.fillstyles, fillstyle=fs)
+        self.__dict__.pop("_marker_style", None)
         self._set_native(fillstyle=fs)
 
     def get_markersize(self):

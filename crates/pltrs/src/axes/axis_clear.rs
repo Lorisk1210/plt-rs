@@ -19,8 +19,6 @@ impl AxisState {
         fresh.role = self.role;
         fresh.keep_tick_styles(self);
         fresh.keep_drawing(self);
-        fresh.visible = self.visible;
-        fresh.in_layout = self.in_layout;
         fresh.autoscale = self.autoscale;
         fresh.autolimit_mode = self.autolimit_mode;
         fresh.ticker_owner = self.ticker_owner;
@@ -28,10 +26,13 @@ impl AxisState {
         fresh
     }
 
-    /// Takes whether `old` is animated and its image filter, which
-    /// matplotlib's clears leave the axis artist (they are no settings of
-    /// its ticks).
+    /// Takes whether `old` is shown, laid out and animated, and its image
+    /// filter, which matplotlib's clears leave the axis artist (they are
+    /// no settings of its ticks): an axis hidden before its axes is
+    /// cleared stays hidden.
     pub(super) fn keep_drawing(&mut self, old: &Self) {
+        self.visible = old.visible;
+        self.in_layout = old.in_layout;
         self.animated = old.animated;
         self.agg_filter.clone_from(&old.agg_filter);
     }

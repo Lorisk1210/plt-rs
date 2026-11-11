@@ -82,12 +82,20 @@ class ClearMixin:
         # Stale, without units, ticks and callbacks (the Axes' handler of
         # its units too), as matplotlib's clear of each axis leaves it.
         for axis in self._axis_map.values():
+            if axis._held:
+                # matplotlib's clear of the axis, at the z-order the Axes
+                # gives its axes again.
+                axis.clear()
+                axis.set_zorder(axis._AXISBELOW_ZORDER[self.get_axisbelow()])
+                continue
             axis._forget_units()
             axis.reset_ticks()
             # matplotlib's clear of the axis made the first tick of each level.
             axis._ticks_seen = {False: 1, True: 1}
             axis.callbacks = cbook.CallbackRegistry(signals=["units"])
             axis.stale = True
+        from .. import rcParams
+        self._gridOn = rcParams['axes.grid']
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)
         self.__dict__.pop("_limit_callbacks_connected", None)
@@ -100,6 +108,35 @@ class ClearMixin:
         _program.cleared(self)
         if "_facecolor" in self.__dict__:
             self.patch.set_facecolor(self._facecolor)
+        if type(self).callbacks is not ClearMixin.callbacks:
+            # A registry of the class' own hears of the limits at once.
+            self._hear_limit_changes()
+        # The patch matplotlib's first clear makes exists from here on
+        # (see `.._held_axis.Axis.reset_ticks`).
+        self._cleared_once = True
+        # matplotlib's clear ends with the limits of each axis no Axes
+        # shares (pltrs (Rust) set those of the axes it holds).
+        for name, axis in self._axis_map.items():
+            if axis is None or not axis._held:
+                continue
+            share = getattr(self, f"_share{name}")
+            if share is not None:
+                getattr(self, f"share{name}")(share)
+            else:
+                axis._set_lim(0, 1, auto=True)
+
+    @property
+    def _gridOn(self):
+        # matplotlib's attribute, which Axes classes of libraries read in
+        # their own ``grid`` (mplstereonet's): :rc:`axes.grid` as the last
+        # clear of the Axes read it (as it is now for an Axes pltrs (Rust)
+        # made without a clear of this class).
+        from .. import rcParams
+        return self.__dict__.get("_grid_on_when_cleared", rcParams['axes.grid'])
+
+    @_gridOn.setter
+    def _gridOn(self, on):
+        self.__dict__["_grid_on_when_cleared"] = on
 
     def _clear_natively(self):
         """Have pltrs (Rust) clear the Axes; return the artists it took
@@ -144,13 +181,21 @@ class ClearMixin:
         if registry is None:
             registry = self.__dict__["_limit_callbacks"] = cbook.CallbackRegistry(
                 signals=["xlim_changed", "ylim_changed", "zlim_changed"])
+        self._hear_limit_changes()
+        return registry
+
+    def _hear_limit_changes(self):
+        """Have pltrs (Rust) tell the Axes' ``callbacks`` of the changes of
+        its view limits (once, until the Axes is cleared). The registry is
+        read where a change is told, so that a class of the program's
+        keeping ``callbacks`` as a property of its own (mpltern's
+        ``TernaryAxes``) is told through that."""
         if not self.__dict__.get("_limit_callbacks_connected"):
             self.__dict__["_limit_callbacks_connected"] = True
             axes_ref = weakref.ref(self)
             for name in self._axis_names:
                 self._on_limits_changed(
                     name, functools.partial(_notify, axes_ref, f"{name}lim_changed"))
-        return registry
 
     def _on_limits_changed(self, name, notify):
         """Have pltrs (Rust) call *notify* whenever the view limits of the

@@ -146,9 +146,13 @@ class Spine(Patch):
         ``_path``, which a class of the program's sets anew before it draws
         (cartopy's ``GeoSpine`` clips its boundary to the view), as
         matplotlib's draw draws ``_path``."""
-        if self.__dict__.get("_pushed_path") is not self._path:
+        vertices = self._path.vertices
+        if (self.__dict__.get("_pushed_path") is not self._path
+                or not np.array_equal(self.__dict__.get("_pushed_vertices"), vertices)):
             _spines.set_patch_path(self._native, self._path)
             self._pushed_path = self._path
+            # (A class may move the vertices of the path it keeps.)
+            self._pushed_vertices = np.array(vertices)
 
     # ``Spine(...)`` takes what the constructor takes: the defaults of
     # ``__new__`` only let pickling make a bare spine.
@@ -347,9 +351,19 @@ class Spine(Patch):
         else:
             _unusable.drop(axes, "spine locations")
 
+    def _adjust_before_draws(self):
+        """Have each draw of the spine, one of a type naming no side whose
+        class adjusts its location itself, run that ``_adjust_location``
+        first and draw the path it leaves, as matplotlib's `draw` does
+        (mpltern's spines span the limits of their ternary axis so)."""
+        self._adjusts_itself = True
+        _python_drawing.draw_through_python(self, measures=False)
+
     @allow_rasterization
     def draw(self, renderer):
         # docstring inherited
+        if self.__dict__.get("_adjusts_itself"):
+            self._adjust_location()
         if "_pushed_path" in self.__dict__:
             self._push_path()
         return super().draw(renderer)

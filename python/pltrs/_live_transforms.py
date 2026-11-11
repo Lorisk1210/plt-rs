@@ -124,6 +124,41 @@ def for_axes(transform, axes):
     return transform
 
 
+def _computes_matrix(t):
+    """Whether *t* holds, anywhere in its tree, an affine transform of a
+    class of the program's that computes its matrix itself (``get_matrix``,
+    as mpltern's shift of a tick label away from its corner does, from
+    where the Axes is when asked)."""
+    if getattr(t, "_live", None) is not None or not isinstance(t, Transform):
+        return False
+    if isinstance(t, TransformWrapper):
+        return _computes_matrix(t._child)
+    if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):
+        return _computes_matrix(t._a) or _computes_matrix(t._b)
+    if isinstance(t, (BlendedGenericTransform, BlendedAffine2D)):
+        return _computes_matrix(t._x) or _computes_matrix(t._y)
+    from ._program_classes import takes_from_program
+    return t.is_affine and takes_from_program(type(t), "get_matrix")
+
+
+def follow_given(artist):
+    """
+    Hand pltrs (Rust) the transform *artist* was given again where the
+    artist is measured, when it holds a matrix the program's class
+    computes: pltrs (Rust) took the matrix as it was then, and matplotlib
+    computes it wherever it maps through the transform.
+    """
+    given = artist.__dict__.get("_given_transform")
+    if not isinstance(given, Transform):
+        return
+    computes = given.__dict__.get("_computes_matrix")
+    if computes is None:
+        # (The tree of a transform is made once.)
+        computes = given.__dict__["_computes_matrix"] = _computes_matrix(given)
+    if computes:
+        _transforms.set_transform(artist._native, to_native(given))
+
+
 def _description(t):
     """The nested tuples describing *t* to pltrs (Rust)."""
     live = getattr(t, "_live", None)
@@ -181,8 +216,8 @@ class _ProgramMap:
         return tuple(mapped[0]) if points.ndim == 1 else mapped
 
     def inverted(self):
-        """The inverse of the transform, mapped the same way."""
-        return _ProgramMap(self._transform.inverted())
+        """The way back through the transform (`_InverseMap`)."""
+        return _InverseMap(self._transform)
 
     def transform_path(self, vertices, codes, steps=1):
         """The `.Path` of *vertices* and *codes* (with *steps*
@@ -207,6 +242,36 @@ class _ProgramMap:
         matplotlib's ``Patch.draw`` maps it at every draw."""
         path = Path(vertices, codes, _interpolation_steps=steps)
         return self._transform.transform_path(path)
+
+
+class _InverseMap:
+    """
+    The way back through a non-affine transform of the program's, as pltrs
+    (Rust) maps points back through it. The transform is asked for its
+    inverse when the first point goes back, and once: matplotlib asks a
+    transform for its inverse where it needs one, and handing an artist a
+    transform inverts nothing (a program counts the calls of its
+    ``inverted``). A transform that gives no inverse maps every point
+    back to NaN.
+    """
+
+    def __init__(self, transform):
+        self._forward = transform
+        #: The map through the inverse once asked for; False without one.
+        self._back = None
+
+    def transform(self, values):
+        """*values*, a point or an ``(N, 2)`` array of points, back through
+        the transform (`_ProgramMap.transform`)."""
+        if self._back is None:
+            try:
+                self._back = _ProgramMap(self._forward.inverted())
+            except Exception:
+                self._back = False
+        if self._back is False:
+            points = np.asarray(values, dtype=float)
+            return (np.nan, np.nan) if points.ndim == 1 else np.full(points.shape, np.nan)
+        return self._back.transform(values)
 
 
 class _Unnamed(Exception):

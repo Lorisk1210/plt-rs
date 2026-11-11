@@ -255,11 +255,31 @@ class Tick(Artist):
             visible=label2On, fontfamily=labelfontfamily,
             rotation=self._labelrotation[1], rotation_mode=labelrotation_mode)
         self._apply_tickdir(tickdir)
+        for artist in [self.tick1line, self.tick2line, self.gridline,
+                       self.label1, self.label2]:
+            self._set_artist_props(artist)
         if loc is not None:
             # A tick made at no location (``loc=None``) is where its class
             # makes it, as matplotlib's ``__init__`` replaces what
             # ``update_position(None)`` left.
             self.update_position(loc)
+
+    def _set_artist_props(self, a):
+        a.set_figure(self.get_figure(root=False))
+
+    def _take_axes_transforms(self, name):
+        """Give the parts of a tick made alone the transforms matplotlib's
+        tick of the *name* axis (``'x'`` or ``'y'``) takes of its Axes when
+        it is made: those of its lines (``get_xaxis_transform``) and, with
+        their alignments, of its labels (`_get_text1_transform`, which a
+        tick class of the program's overrides)."""
+        transform = getattr(self.axes, f"get_{name}axis_transform")
+        self.tick1line.set_transform(transform("tick1"))
+        self.tick2line.set_transform(transform("tick2"))
+        self.gridline.set_transform(transform("grid"))
+        for label, (trans, va, ha) in ((self.label1, self._get_text1_transform()),
+                                       (self.label2, self._get_text2_transform())):
+            label.set(verticalalignment=va, horizontalalignment=ha, transform=trans)
 
     @classmethod
     def _of_axis(cls, axis, major, index):
@@ -565,6 +585,12 @@ class Tick(Artist):
         """Set the location of tick in data coords with scalar *loc*."""
         raise NotImplementedError('Derived must override')
 
+    def _get_text1_transform(self):
+        raise NotImplementedError('Derived must override')
+
+    def _get_text2_transform(self):
+        raise NotImplementedError('Derived must override')
+
     def _keeps_location(self, loc):
         """
         Whether the location *loc* is no number, which the tick keeps as
@@ -622,6 +648,10 @@ class Tick(Artist):
             # matplotlib places the labels at the new pad (its
             # ``_get_text1_transform``), failing on a pad it cannot add.
             self._pad  # noqa: B018
+            if self.axis is None:
+                # A tick made alone holds its labels' transforms itself.
+                self.label1.set_transform(self._get_text1_transform()[0])
+                self.label2.set_transform(self._get_text2_transform()[0])
         tick_kw = {k: v for k, v in kwargs.items() if k in ['color', 'zorder']}
         if 'color' in kwargs:
             tick_kw['markeredgecolor'] = kwargs['color']
@@ -662,10 +692,15 @@ class XTick(Tick):
         for line, (x, y) in zip((self.tick1line, self.tick2line, self.gridline),
                                 self._made_data):
             line.set_data(x, y)
-        self.label1.set(x=0, y=0, verticalalignment="top",
-                        horizontalalignment="center")
-        self.label2.set(x=0, y=1, verticalalignment="bottom",
-                        horizontalalignment="center")
+        self.label1.set(x=0, y=0)
+        self.label2.set(x=0, y=1)
+        self._take_axes_transforms("x")
+
+    def _get_text1_transform(self):
+        return self.axes.get_xaxis_text1_transform(self._pad)
+
+    def _get_text2_transform(self):
+        return self.axes.get_xaxis_text2_transform(self._pad)
 
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""
@@ -713,10 +748,15 @@ class YTick(Tick):
         for line, (x, y) in zip((self.tick1line, self.tick2line, self.gridline),
                                 self._made_data):
             line.set_data(x, y)
-        self.label1.set(x=0, y=0, verticalalignment="center_baseline",
-                        horizontalalignment="right")
-        self.label2.set(x=1, y=0, verticalalignment="center_baseline",
-                        horizontalalignment="left")
+        self.label1.set(x=0, y=0)
+        self.label2.set(x=1, y=0)
+        self._take_axes_transforms("y")
+
+    def _get_text1_transform(self):
+        return self.axes.get_yaxis_text1_transform(self._pad)
+
+    def _get_text2_transform(self):
+        return self.axes.get_yaxis_text2_transform(self._pad)
 
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""

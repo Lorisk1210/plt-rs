@@ -142,7 +142,9 @@ class TickHelper:
         axis = self.axis
         if axis is None:
             return None
-        native_info = getattr(axis, "_native_info", None)
+        # (A held axis, matplotlib's own, is asked as a stand-in is.)
+        native_info = (None if getattr(axis, "_held", False)
+                       else getattr(axis, "_native_info", None))
         if native_info is not None:
             return native_info()
         scale = axis.get_scale() if hasattr(axis, "get_scale") else "linear"

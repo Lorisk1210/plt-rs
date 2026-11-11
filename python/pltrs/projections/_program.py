@@ -478,15 +478,20 @@ def draw_class_spines(ax, spines):
     """
     Have *ax* draw the spines its class made, *spines* by name: each on its
     side, and those of a type naming no side beside them when the class
-    made spines of the sides too (cartopy's ``GeoSpine``), else in the
-    place of the spine framing its outline (a single ``'geo'`` spine).
+    made spines of the sides too (cartopy's ``GeoSpine``) or several of
+    them (mpltern's six, each with a path and a transform of its own), else
+    in the place of the spine framing its outline (a single ``'geo'``
+    spine).
     """
     natives = dict(_spines.axes_spines(ax._native))
     drawn = {_spines.side(native): native for native in natives.values()}
     named = [spine.__dict__.get("_spine_type") in natives for spine in spines.values()]
+    beside = any(named) or len(named) - sum(named) > 1
     for spine, names_side in zip(spines.values(), named):
-        if any(named) and not names_side:
+        if beside and not names_side:
             _spines.add_spine(ax._native, spine._native)
+            if type(spine)._adjust_location is not Spine._adjust_location:
+                spine._adjust_before_draws()
             continue
         own = drawn.get(_spines.side(spine._native))
         if own is not None:
@@ -592,8 +597,11 @@ def set_up(ax):
     """
     _figure_set(ax)
     _build_trees(ax, as_made=True)
-    spines = ax._gen_axes_spines()
-    ax._init_axis()
+    spines = ax._spines_made = ax._gen_axes_spines()
+    try:
+        ax._init_axis()
+    finally:
+        del ax._spines_made
     ax._update_transScale()
     ax._program_projection = _Projection(ax, spines)
     # `ax.spines` gives the class' spines from now on.

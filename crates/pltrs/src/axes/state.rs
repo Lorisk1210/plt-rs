@@ -118,6 +118,9 @@ pub(crate) struct AxesState {
     pub(crate) spines: Vec<ArtistId>,
     /// The left, centre and right titles once created.
     pub(crate) titles: Vec<ArtistId>,
+    /// The axes beyond x and y, which the program draws, in the order
+    /// they were added (see [`ProgramAxis`](super::ProgramAxis)).
+    pub(crate) program_axes: Vec<ArtistId>,
     /// Whether the navigation toolbar acts on this axes (matplotlib's
     /// `get_navigate`).
     pub(crate) navigate: bool,
@@ -186,6 +189,7 @@ pltrs_core::archive_struct!(AxesState {
     containers,
     spines,
     titles,
+    program_axes,
     navigate,
     forward_navigation,
     fmt_data,
@@ -383,6 +387,7 @@ impl AxesState {
             containers: Vec::new(),
             spines: Vec::new(),
             titles: Vec::new(),
+            program_axes: Vec::new(),
             navigate: true,
             forward_navigation: None,
             fmt_data: (None, None),
@@ -806,6 +811,13 @@ impl AxesState {
             .collect()
     }
 
+    /// Whether the child `id` is a part the axes made of itself (a spine,
+    /// a title, an axis the program draws) rather than an artist added to
+    /// it.
+    pub(crate) fn is_own_part(&self, id: ArtistId) -> bool {
+        self.spines.contains(&id) || self.titles.contains(&id) || self.program_axes.contains(&id)
+    }
+
     /// Makes the child `spine` the spine of the axes that frames no side
     /// (matplotlib's `ax.spines['outline'] = spine`, as a colorbar adds its
     /// outline): drawn with the spines, only while the axes is framed, and
@@ -839,6 +851,7 @@ impl Artist for AxesState {
 
     fn remove_child(&mut self, child: ArtistId) {
         self.children.retain(|&id| id != child);
+        self.program_axes.retain(|&id| id != child);
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {

@@ -254,10 +254,11 @@ fn has_painters(state: &FigureState) -> bool {
 }
 
 /// The painted artists a draw of artist `root` reaches, in drawing order
-/// (children by z-order, as containers draw them), with their raster
-/// depths: those under artists that draw (visible ones, animated ones
-/// left out as the figure and its axes leave them out), `root` itself
-/// only with `itself`.
+/// (children by z-order, as containers draw them; those of an axes in the
+/// order it draws them, without the parts it leaves out), with their
+/// raster depths: those under artists that draw (visible ones, animated
+/// ones left out as the figure and its axes leave them out), `root`
+/// itself only with `itself`.
 fn painted_under(
     state: &FigureState,
     root: ArtistId,
@@ -279,15 +280,27 @@ fn painted_under(
             None if !base.visible => continue,
             None => {}
         }
-        let in_axes = state.store.get_as::<AxesState>(id).is_some();
-        let mut children: Vec<(f64, ArtistId)> = artist
-            .children()
-            .into_iter()
-            .filter(|&child| !layout.skips_animated(child, in_axes))
-            .filter_map(|child| Some((state.artist(child)?.base().zorder, child)))
-            .collect();
-        children.sort_by(|a, b| a.0.total_cmp(&b.0));
-        pending.extend(children.into_iter().rev().map(|(_, child)| (child, depth)));
+        // An axes draws its children in an order of its own, and not all
+        // of them (see `AxesState::drawn_children`).
+        let axes = state.store.get_as::<AxesState>(id);
+        let children = if let Some(axes) = axes {
+            axes.drawn_children(&state.store)
+        } else {
+            let mut children: Vec<(f64, ArtistId)> = artist
+                .children()
+                .into_iter()
+                .filter_map(|child| Some((state.artist(child)?.base().zorder, child)))
+                .collect();
+            children.sort_by(|a, b| a.0.total_cmp(&b.0));
+            children.into_iter().map(|(_, child)| child).collect()
+        };
+        pending.extend(
+            children
+                .into_iter()
+                .filter(|&child| !layout.skips_animated(child, axes.is_some()))
+                .rev()
+                .map(|child| (child, depth)),
+        );
     }
     found
 }

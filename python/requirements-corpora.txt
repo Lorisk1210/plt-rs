@@ -161,3 +161,8 @@ urllib3==2.8.0
 wcwidth==0.9.4
 widgetsnbextension==4.0.16
 wrapt==2.5.2
+# The projections of other libraries, added on 2026-11-10 with mpltern's as
+# the measure of what a program's projection may do (they need nothing but
+# numpy, scipy and matplotlib):
+mplstereonet==0.6.3
+pysmithchart==0.9.0

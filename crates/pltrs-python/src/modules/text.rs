@@ -258,6 +258,7 @@ impl FromPy<'_> for BoxKwargs {
                     props.boxstyle = Some(value.extract::<PyBoxStyle>()?.0);
                 }
                 "pad" => props.pad = Some(value.extract()?),
+                "mutation_aspect" => props.mutation_aspect = Some(value.extract()?),
                 "color" => patch.color = Some(value.extract()?),
                 "facecolor" => patch.facecolor = Some(value.extract()?),
                 "edgecolor" => patch.edgecolor = Some(value.extract()?),

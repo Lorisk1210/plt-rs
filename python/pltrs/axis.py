@@ -12,6 +12,7 @@ import datetime
 import functools
 import itertools
 import numbers
+import types
 import warnings
 
 import numpy as np
@@ -27,6 +28,7 @@ from .artist import Artist, allow_rasterization
 from .text import _measured_by_given
 
 _empty_conversions = _lazy_imports.module(globals(), "._empty_conversions")
+_held_axis = _lazy_imports.module(globals(), "._held_axis")
 _numpy_values = _lazy_imports.module(globals(), "._numpy_values")
 _scale_calls = _lazy_imports.module(globals(), "._scale_calls")
 
@@ -269,6 +271,138 @@ _TICK_DEFAULTS = {'tick1On': True, 'tick2On': True, 'label1On': True,
                   'label2On': False}
 
 
+#: What an axis has alike whether pltrs (Rust) holds it or not, which
+#: `_serving_held` leaves alone: its Axes and figure, and how its
+#: staleness follows its Axes' draws.
+_COMMON_TO_HELD = frozenset([
+    "axes", "figure", "_get_figure", "_drawer", "_drawn_by_drawer", "__str__",
+    "_readies_before_measured", "_before_measured"])
+
+
+def _names_native_axis(axis_class, axes):
+    """Whether an axis of *axis_class* made for *axes* is one pltrs (Rust)
+    holds for it: named as one of its native axes (what is no Axes takes
+    the names of a 2-D one, and fails as before)."""
+    return axis_class.axis_name in getattr(axes, "_native_axis_names", ("x", "y"))
+
+
+def _held_call(axis, name, native, args, kwargs, unwrap=False):
+    """
+    Call the method *name* for the held *axis*: matplotlib's function of
+    that name (`._held_axis`), else what the classes after `Axis` have
+    (`.Artist`'s, for the artist properties the package's axis classes
+    keep in the native axis), else *native*, a helper of the package's
+    own. *unwrap* takes matplotlib's ``draw`` without its rasterization
+    wrapper, which the caller applies.
+    """
+    held = _held_axis.function(axis, name)
+    if held is not None:
+        return (held.__wrapped__ if unwrap else held)(axis, *args, **kwargs)
+    inherited = getattr(super(Axis, axis), name, None)
+    if inherited is not None:
+        return inherited(*args, **kwargs)
+    return native(axis, *args, **kwargs)
+
+
+def _method_serving_held(name, native):
+    """The method *name* of an axis class of the package, *native* for the
+    axes pltrs (Rust) holds, matplotlib's own for a held axis."""
+    if getattr(native, "_supports_rasterization", False):
+        # The dispatch goes inside the rasterization wrapper, which the
+        # painter of a held axis takes off (`._python_drawing`).
+        unwrapped = native.__wrapped__
+
+        @functools.wraps(unwrapped)
+        def draw(self, *args, **kwargs):
+            if self._held:
+                return _held_call(self, name, unwrapped, args, kwargs, unwrap=True)
+            return unwrapped(self, *args, **kwargs)
+        return allow_rasterization(draw)
+
+    if name == "__init__":
+        @functools.wraps(native)
+        def __init__(self, *args, **kwargs):
+            axes = args[0] if args else kwargs.get("axes")
+            if self._held or not _names_native_axis(type(self), axes):
+                # Marked before anything else runs, a class of the
+                # program's reaching here through its ``super()`` calls.
+                self.__dict__["_held"] = True
+                return _held_call(self, name, native, args, kwargs)
+            return native(self, *args, **kwargs)
+        return __init__
+
+    @functools.wraps(native)
+    def method(self, *args, **kwargs):
+        if self._held:
+            return _held_call(self, name, native, args, kwargs)
+        return native(self, *args, **kwargs)
+    # (What reads a setter's parameters looks through to *native*.)
+    method._serves_held = True
+    return method
+
+
+def _attribute_serving_held(name, native):
+    """The property *name* of an axis class of the package: *native* for
+    the axes pltrs (Rust) holds, an attribute of the axis as matplotlib's
+    is for a held one."""
+    def refuse(self, action):
+        raise AttributeError(
+            f"property {name!r} of {type(self).__name__!r} object has no {action}")
+
+    def fget(self):
+        if self._held:
+            return _held_axis.read(self, name)
+        return native.fget(self)
+
+    def fset(self, value):
+        if self._held:
+            _held_axis.write(self, name, value)
+        elif native.fset is None:
+            refuse(self, "setter")
+        else:
+            native.fset(self, value)
+
+    def fdel(self):
+        if self._held:
+            _held_axis.delete(self, name)
+        elif native.fdel is None:
+            refuse(self, "deleter")
+        else:
+            native.fdel(self)
+
+    for accessor, original in ((fget, native.fget), (fset, native.fset),
+                               (fdel, native.fdel)):
+        if original is not None:
+            functools.update_wrapper(accessor, original)
+    # A property the package's class can set is one of matplotlib's too
+    # (``isDefault_majloc``), with its accessors; one it can only read
+    # stands for a plain attribute of matplotlib's axis (``label``,
+    # ``majorTicks``), which a held axis assigns and deletes.
+    if native.fset is not None and native.fdel is None:
+        fdel = None
+    return property(fget, fset, fdel, native.__doc__)
+
+
+def _serving_held(cls):
+    """
+    Have the methods and properties the axis class *cls* defines serve the
+    axes pltrs (Rust) does not hold too (see `._held_axis`): each is
+    pltrs' own for a native axis and matplotlib's for a held one, so that
+    a class of the program's deriving from *cls* reaches matplotlib's
+    through its own methods and its ``super()`` calls.
+    """
+    for name, member in list(vars(cls).items()):
+        if name in _COMMON_TO_HELD:
+            continue
+        if isinstance(member, types.FunctionType):
+            setattr(cls, name, _method_serving_held(name, member))
+        elif type(member) is property:
+            # (Not the deprecated attributes, properties of a class of their
+            # own that warn as they are read.)
+            setattr(cls, name, _attribute_serving_held(name, member))
+    return cls
+
+
 class Ticker:
     """
     A container for the objects defining tick position and format.
@@ -337,6 +471,7 @@ class Ticker:
         self._replace("formatter", formatter)
 
 
+@_serving_held
 class Axis(DrawnWith, Artist):
     """
     Base class for `.XAxis` and `.YAxis`.
@@ -393,6 +528,9 @@ class Axis(DrawnWith, Artist):
     #: Whether the axis is being ticked with the program's helpers (see
     #: `._tick_updates`).
     _ticking = False
+    #: Whether the axis is held: matplotlib's own, in Python, since pltrs
+    #: (Rust) holds no axis of its name for its Axes (see `._held_axis`).
+    _held = False
     _tick_class = None
     #: Whether pltrs (Rust) converts the values in units plotted along the
     #: axis itself, so that they pass as they are (the axes of 3-D axes).
@@ -500,6 +638,15 @@ class Axis(DrawnWith, Artist):
     def _drawer(self):
         # The Axes draws its axes (see `._drawn_with`).
         return self._axes
+
+    def _readies_before_measured(self):
+        # A held axis is measured by its own `get_tightbbox`, which
+        # matplotlib's Axes asks once it applied its aspect.
+        return self._held
+
+    def _before_measured(self):
+        self._axes.apply_aspect()
+        return False
 
     def _decouple(self, removed):
         # docstring inherited; pltrs keeps the axis its Axes, which draws
@@ -2540,6 +2687,7 @@ class Axis(DrawnWith, Artist):
 # keeps (read from the description it draws the axis with, while it draws
 # it). No docstring: ``help`` shows that of `Axis` for the two classes, as
 # matplotlib's do, which have none of their own.
+@_serving_held
 class _AxisOfAxes(Axis):
 
     def contains(self, mouseevent):
@@ -2595,6 +2743,7 @@ class _AxisOfAxes(Axis):
         _axis.set_label_position(*self._args(), position)
 
 
+@_serving_held
 class XAxis(_AxisOfAxes):
     __name__ = 'xaxis'
     axis_name = 'x'  #: Read-only name identifying the axis.
@@ -2669,6 +2818,7 @@ class XAxis(_AxisOfAxes):
         super().set_default_intervals()
 
 
+@_serving_held
 class YAxis(_AxisOfAxes):
     __name__ = 'yaxis'
     axis_name = 'y'  #: Read-only name identifying the axis.
@@ -2752,6 +2902,31 @@ class YAxis(_AxisOfAxes):
         # docstring inherited
         super().set_default_intervals()
 
+
+
+def _matplotlib_method(name):
+    """matplotlib's private method *name* of an axis, which the package's
+    classes have no use for themselves: a class of the program's calls it
+    on a held axis (``super()._copy_tick_props(src, dest)``)."""
+    def method(self, *args, **kwargs):
+        return _held_axis.function(self, name)(self, *args, **kwargs)
+    method.__name__ = name
+    return method
+
+
+for _name in ("_get_shared_axes", "_get_axis_name", "_set_scale",
+              "_nan_out_of_scale_range", "_reset_major_tick_kw",
+              "_reset_minor_tick_kw", "_set_artist_props", "_get_ticklabel_bboxes",
+              "_copy_tick_props", "_set_tick_locations", "_get_tick_boxes_siblings",
+              "_update_label_position", "_update_offset_text_position",
+              "_get_ticks_position"):
+    setattr(Axis, _name, _matplotlib_method(_name))
+    getattr(Axis, _name).__qualname__ = f"Axis.{_name}"
+for _class in (XAxis, YAxis):
+    for _name in ("_init", "_update_label_position", "_update_offset_text_position"):
+        setattr(_class, _name, _matplotlib_method(_name))
+        getattr(_class, _name).__qualname__ = f"{_class.__name__}.{_name}"
+del _name, _class
 
 cbook._set_module(__name__, Tick, XTick, YTick)
 # What matplotlib's `Axis` and `Tick` inherit from `Artist`, which pltrs'

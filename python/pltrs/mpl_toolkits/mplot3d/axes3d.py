@@ -212,6 +212,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     name = '3d'
 
     _axis_names = ("x", "y", "z")
+    _native_axis_names = _axis_names
 
     def __init__(self, fig, rect=None, *args, elev=30, azim=-60, roll=0,
                  shareview=None, sharez=None, proj_type='persp',

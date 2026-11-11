@@ -274,7 +274,7 @@ impl Axes {
                 .collect();
             axes.children
                 .iter()
-                .filter(|&&id| !axes.spines.contains(&id) && !axes.titles.contains(&id))
+                .filter(|&&id| !axes.is_own_part(id))
                 .filter(|id| !drawing.contains(id))
                 .filter(|&&id| figure.artist_as::<LegendArtist>(id).is_none())
                 .filter(|&&id| {

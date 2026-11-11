@@ -647,7 +647,10 @@ A non-affine transform of the program's crosses wrapped in
 which keeps the path the transform last gave until the transform is
 invalidated, so that a draw after an affine change (`transAxes`
 invalidated) does not call the program's transform again, as in
-matplotlib.
+matplotlib. The transform is asked for its inverse when a point first
+goes back through it (`_InverseMap`), not when it crosses: matplotlib
+inverts nothing when an artist is given a transform, and programs count
+the calls of their `inverted`.
 
 Python callables that map values are called with arrays, as matplotlib
 calls them: the transforms of the program's, the functions of function
@@ -1654,6 +1657,162 @@ as often as matplotlib's.
 A painted artist's object is pickled with its figure (the painter is
 archived as the object), so a figure with one pickles as matplotlib's
 does, or fails with pickle's error for a class pickle cannot find.
+
+### Projections of programs
+
+`matplotlib.projections.register_projection` takes any `Axes` subclass,
+and matplotlib promises such a class very little: its `__init__` calls
+`set_figure`, `_set_lim_and_transforms`, `_gen_axes_spines`, `_init_axis`
+and `clear`, and its draw asks every child for `draw(renderer)`. A
+library may override any of them and add what it likes. mpltern's
+`TernaryAxes` is the measure: three axes of its own classes (`taxis`,
+`laxis`, `raxis`) beside a hidden x and y axis, six spines of its own
+class, a polygon as its patch, transforms of three coordinates, and its
+own `clear`, `grid`, `tick_params`, `callbacks` and title placement.
+
+pltrs (Rust) holds an x and a y axis per Axes and draws them from its
+state. It holds nothing of a projection it does not know. One rule
+covers every case. **What the native Axes has, pltrs (Rust) keeps and
+asks the class about through hooks. What the native Axes does not have is
+matplotlib's own Python object, and pltrs (Rust) holds its place only**:
+where it draws, where it is measured, and what happens to it when the
+Axes is cleared, pickled or copied.
+
+What a class may override or add, and how each is honoured:
+
+| the class gives | how pltrs honours it |
+|---|---|
+| `set_figure`, `_set_lim_and_transforms` | run where `__init__` runs them (`_program.set_up`). The trees are matplotlib's, so transforms of any number of input dimensions the class adds (`transProjection`) compute as matplotlib's. |
+| `transData`, `get_xaxis_transform`, `get_yaxis_transform`, the text transforms | the hooks of the native x and y axis (`_Adapter`, see "Transforms"). |
+| an `XAxis`, `YAxis`, `XTick` subclass named `x` or `y` | the native axis, asked through the hooks (`tick_interval`, `tick_sides`, `tick_label`). |
+| an axis under another name (`axis_name = 't'`, listed in `_axis_names`) | a *held axis*: matplotlib's `Axis` in Python (below). |
+| `_gen_axes_spines` with spines naming a side | the native spine of that side, its interval from `_adjust_location`. While `_init_axis` runs, `ax.spines` already gives the class' spines, so that `spines['tside'].register_axis` finds them. |
+| spines of other names (`'tside'`), any path, any transform | spines of no side beside the frame, when the class makes several of them or spines of the sides too (`draw_class_spines`). Of a class with its own `_adjust_location`, each draw runs that first and draws `_path` as it leaves it, through `get_transform()` as it is then (`Spine._adjust_before_draws`). |
+| `_gen_axes_patch` | the outline of the background and the clip of the Axes. A patch the program changes later (`patch.set_xy`) is handed over again. |
+| `clear` (or `cla`) | called where matplotlib's `__init__` and the program call it. `super().clear()` clears the native Axes and every held axis, and ends as matplotlib's: each held axis no Axes shares gets `_set_lim(0, 1, auto=True)`, and `_share<name>` is read first, which fails for a class that did not set it, as it fails in matplotlib. An axis hidden before a clear stays hidden (`Axis.clear` leaves the artist its visibility). |
+| `draw`, `get_tightbbox`, `_update_title_position`, `autoscale_view`, `get_data_ratio`, `tick_params`, `grid` | called where matplotlib calls them (see "Drawing defined in Python", `_program_locators`, `_program_tick_params`). |
+| `callbacks` as a property of the class | matplotlib's registry knows `xlim_changed`, `ylim_changed` and `zlim_changed` only, so a class with another axis keeps a registry of its own. pltrs (Rust) tells the Axes' `callbacks` of a change by reading that attribute then, and connects itself when the Axes is cleared rather than when pltrs' own property is first read (`ClearMixin._hear_limit_changes`). |
+| `_axis_names`, `_shared_axes` of its own | the Axes' `_axis_map`, `get_children`, `set_axisbelow`, the unit pipeline and `__repr__` go over `_axis_names`, as matplotlib's do. What reaches a native axis by name asks first whether the name is one (`_AxesBase._native_axis_names`: x and y, z on 3-D Axes). |
+
+matplotlib itself asks three things of a class listing a third axis,
+which mpltern does and the test projection does too: `_share<name>` set
+before `__init__`, a `callbacks` registry knowing `<name>lim_changed`, and
+an `autoscale_view` taking `scale<name>`.
+
+**A held axis** is an `Axis` whose name is none of its Axes' native axes
+(`axis._names_native_axis`). It is matplotlib's `Axis`, ported as it is
+(`_held_axis.py`, from matplotlib 3.11.2's `axis.py`), over objects of
+the package:
+
+* **State.** Its tickers hold the locator and formatter objects, which
+  compute natively as they do for a stand-in axis (`TickHelper._axis_info`
+  asks the axis for its view interval and tick space, which the class
+  answers). Its ticks are `Tick` objects made by the class' `_get_tick`
+  (`majorTicks`, `minorTicks`, lazily, as matplotlib's `_LazyTickList`).
+  A tick made by its constructor is an ordinary artist: its lines and
+  labels are artists of the figure with the transforms matplotlib's tick
+  takes of its Axes when it is made (`Tick._take_axes_transforms`), which
+  the tick class may replace. Its `label` and `offsetText` are `Text`
+  objects. Its tick parameters are `_major_tick_kw` and `_minor_tick_kw`.
+  Its scale is a `scale` object, its units and converter are Python's.
+  Its limits are whatever the class' `get_view_interval` and
+  `set_view_interval` say: matplotlib's base `Axis` has none either.
+  `_set_lim` is matplotlib's, so `<name>lim_changed` is processed on the
+  Axes' `callbacks`, the Axes sharing the axis follow through the class'
+  `_shared_axes` group, and autoscaling is the class' `autoscale_view`.
+* **Dispatch.** A program's axis class derives from the package's `XAxis`
+  or `YAxis`, so the package's methods serve both kinds of axis. Each
+  method and property `Axis`, `XAxis` and `YAxis` define is wrapped once
+  (`axis._serving_held`). For a held axis (an instance marked `_held` by
+  `__init__`, before anything else runs) a call goes to matplotlib's
+  function of the same name (`_held_axis.function`), else to what the
+  classes after `Axis` have (`Artist`'s `set_visible`, `get_zorder`:
+  the artist properties the package's classes keep in the native axis).
+  For a native axis it goes to the package's own. A property reads and
+  writes the axis' `__dict__` (`_held_axis.read`, `write`), as
+  matplotlib's are plain attributes. `super()` calls of the program's
+  classes arrive there either way, and matplotlib's private methods the
+  package has no use for (`_copy_tick_props`, `_update_label_position`,
+  `_init`) exist on the classes for them. `_held_axis` loads when the
+  first held axis is made, so a program without one never imports it.
+* **Place in the Axes.** `Axis.__init__` asks pltrs (Rust) for the axis'
+  artist (`Axes::add_program_axis`, `_native.axes.add_program_axis`), a
+  `ProgramAxis` painted through the axis' `draw` and measured through its
+  `get_tightbbox` (`_python_drawing.draw_through_python`). The Rust Axes
+  lists its program axes after x and y. It draws each in the slot
+  matplotlib's `get_children` gives the axes (after the spines, before
+  the titles), at the axis' own z-order (which `set_axisbelow` and a
+  clear set), leaves it out with `axis("off")` and, when it is animated,
+  out of every draw but a print. It measures each as an axis for
+  `Axes.get_tightbbox` and the layout engines: only while the Axes shows
+  its axes, whatever clips it. It keeps it through `clear` (the artist is
+  a part of the Axes, as a spine is) and archives it with the figure (the
+  painter pickles as the axis object). An axis whose name the Axes does
+  not list is no part of it: a plain artist no one draws.
+* **Measuring.** Before a layout engine or a tight box measures the
+  figure, each painted artist with a `_before_measured` method makes
+  itself ready (`_python_drawing.measure_artist`), where matplotlib's
+  `Axes.get_tightbbox` does the same steps: an Axes whose class places
+  its titles its own way applies its aspect and places them, then leaves
+  the measuring to pltrs (Rust); a held axis has its Axes apply the
+  aspect, then is measured by its own `get_tightbbox`. The trees are
+  brought up to where the figure is first, so a layout engine's second
+  pass measures at the positions of its first.
+* **Calls, and how often.** The axis' `draw` runs once per draw of the
+  Axes that reaches it. Painters are prepared in the order the Axes
+  draws its children and only for those it draws
+  (`AxesState::drawn_children`), so the spines' `_adjust_location` runs
+  before the axes' `draw`, and nothing of an axis runs with the axes
+  off. The `draw` is matplotlib's code: `_update_ticks` (the locator's
+  `__call__`, the formatter's `format_ticks`, each tick's
+  `update_position`), the label boxes, each tick's `draw`,
+  `_update_label_position`, `_update_offset_text_position`, the label and
+  the offset text. A print that matplotlib draws twice runs it twice.
+  `get_tightbbox` runs where a layout engine or a tight box measures the
+  Axes, and where the class' own title placement asks.
+* **Tick parts.** A tick's parts are drawn by their own `draw`, through
+  the transform they hold when drawn. What a tick class sets on a mark
+  between draws is read at draw time: a line's `_marker` is the
+  `MarkerStyle` it draws with (`_line_markers.LineMarker`), so
+  `line._marker._transform = t` (how matplotlib's polar ticks and
+  mpltern's turn their marks) reaches the line. A transform holding a
+  matrix a class of the program's computes when asked (mpltern's shift of
+  a tick label away from its corner, an `Affine2DBase` with its own
+  `get_matrix`) is handed to pltrs (Rust) again wherever the text is
+  measured (`_live_transforms.follow_given`), as matplotlib computes the
+  matrix at each use.
+
+What stays native: the background, the clip, the children, the x and y
+axis, titles, legends and layout are pltrs (Rust)'s. A held axis costs
+one call into Python per draw plus one per tick part, which only figures
+with such an axis pay.
+
+What libraries' Axes classes read while matplotlib's `__init__` runs
+their `clear` is there under pltrs too: the tick locations of an Axes its
+figure has not added yet (`Axis::ticklocs_as_is` of a removed axes;
+pysmithchart draws its grid from them), and matplotlib's `_gridOn`
+(mplstereonet's `grid` reads it).
+
+Not done:
+
+* A layout engine measures a held axis as a tight box does (the painter's
+  `get_tightbbox` is called without `for_layout_only`), and pltrs (Rust)
+  aligns the labels of the x and y axes only.
+* A subclass of a geographic Axes that replaces the projection itself
+  (mplstereonet's `StereonetAxes` derives from `LambertAxes` and
+  overrides `_get_core_transform` and `_get_affine_transform`). pltrs
+  (Rust) draws such an Axes as its own Lambert projection. It needs what
+  the subclasses of `PolarAxes` have: the native geographic Axes asking
+  the class for its data transform (a `ProgramGeo` beside
+  `ProgramPolar`), and matplotlib's private attributes of the geographic
+  classes (`_center_latitude`, `_longitude_cap`).
+
+Tests: `python/tests/test_proj1.py` defines a three-axis projection in
+the test file (no library imported) and checks it against values recorded
+from matplotlib. `cargo xtask diff --corpus mpltern pysmithchart
+mplstereonet` runs three libraries' projections: a ternary Axes with
+three held axes, a Smith chart (an `Axes` subclass with transforms,
+spines, a patch and a grid of its own), and the stereonets.
 
 ### pyplot's state
 

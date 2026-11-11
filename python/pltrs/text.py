@@ -528,6 +528,44 @@ class Text(Artist):
         it, while the text has no figure (`_decouple`)."""
         return f"text {id(self)} without its figure"
 
+    def _reset_visual_defaults(
+        self,
+        text='',
+        color=None,
+        fontproperties=None,
+        usetex=None,
+        parse_math=None,
+        wrap=False,
+        verticalalignment='baseline',
+        horizontalalignment='left',
+        multialignment=None,
+        rotation=None,
+        transform_rotates_text=False,
+        linespacing=None,
+        rotation_mode=None,
+        antialiased=None
+    ):
+        # matplotlib's, which its constructor and an axis' clear run; the
+        # attributes it assigns are pltrs (Rust)'s, set through its setters.
+        from . import _val_or_rc
+        self.set_text(text)
+        self.set_color(_val_or_rc(color, "text.color"))
+        self.set_fontproperties(fontproperties)
+        self.set_usetex(usetex)
+        self.set_parse_math(_val_or_rc(parse_math, 'text.parse_math'))
+        self.set_wrap(wrap)
+        self.set_verticalalignment(verticalalignment)
+        self.set_horizontalalignment(horizontalalignment)
+        _text.set_multialignment(self._native, multialignment)
+        self.set_rotation(rotation)
+        self.set_transform_rotates_text(transform_rotates_text)
+        self.set_bbox(None)
+        if linespacing is None:
+            linespacing = 'normal'  # Maybe use rcParam later.
+        self.set_linespacing(linespacing)
+        self.set_rotation_mode(rotation_mode)
+        self.set_antialiased(_val_or_rc(antialiased, 'text.antialiased'))
+
     def update(self, kwargs):
         ret = []
         kwargs = cbook.normalize_kwargs(kwargs, Text)
@@ -830,6 +868,7 @@ class Text(Artist):
         """
         if not self.get_visible():
             return Bbox.unit()
+        _live_transforms.follow_given(self)
         if dpi is None:
             _unusable.check(self, measuring=True)
         figure = self.get_figure(root=True)

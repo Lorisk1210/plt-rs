@@ -17,8 +17,9 @@ impl AxesState {
     /// The state a cleared axes restarts from (matplotlib's `__clear`): a
     /// fresh axes under `rc` that keeps the identity, placement, aspect,
     /// sharing, background colour, frame, navigation and status-bar
-    /// formatters of `self`, the options of its projection, the
-    /// visibility of shared axes, titles the program places, unless `rc`
+    /// formatters of `self`, the options of its projection, whether each
+    /// axis is shown (and, for an axes sharing an axis, its background),
+    /// the axes the program draws, titles the program places, unless `rc`
     /// fixes their height, the `parasites` it hosts, and what makes it a
     /// parasite (matplotlib's host and parasite `clear` keep them). Its
     /// data limits stay too, as matplotlib's `dataLim` does, for the next
@@ -41,7 +42,11 @@ impl AxesState {
         fresh.aux_transform.clone_from(&self.aux_transform);
         fresh.spines.clone_from(&self.spines);
         fresh.titles.clone_from(&self.titles);
-        fresh.children = (self.spines.iter().chain(&self.titles).chain(parasites))
+        fresh.program_axes.clone_from(&self.program_axes);
+        fresh.children = (self.spines.iter())
+            .chain(&self.titles)
+            .chain(&self.program_axes)
+            .chain(parasites)
             .copied()
             .collect();
         fresh.navigate = self.navigate;
@@ -70,12 +75,7 @@ impl AxesState {
             // the axis' changes of units.
             fresh.axis_mut(name).follows_units = false;
         }
-        if self.shares.0.is_some() {
-            fresh.xaxis.visible = self.xaxis.visible;
-            fresh.patch.visible = self.patch.visible;
-        }
-        if self.shares.1.is_some() {
-            fresh.yaxis.visible = self.yaxis.visible;
+        if self.shares.0.is_some() || self.shares.1.is_some() {
             fresh.patch.visible = self.patch.visible;
         }
         fresh
@@ -256,6 +256,19 @@ mod tests {
         // The colour cycle restarts.
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(line.rgba(), crate::colors::Color::from("C0").resolve());
+    }
+
+    #[test]
+    fn a_hidden_axis_stays_hidden_through_a_clear() {
+        // matplotlib's `Axis.clear` leaves the axis artist its visibility
+        // (a projection class hiding the x and y axis in `_init_axis`
+        // keeps them hidden through the clear of its `__init__`).
+        let ax = Figure::new().subplot();
+        ax.xaxis().set_visible(false);
+        ax.yaxis().set_in_layout(false);
+        ax.clear();
+        assert!(!ax.xaxis().visible() && ax.yaxis().visible());
+        assert!(ax.xaxis().in_layout() && !ax.yaxis().in_layout());
     }
 
     #[test]

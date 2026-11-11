@@ -84,6 +84,10 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
 
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}
+    #: The axes pltrs (Rust) holds for an Axes of the class. An axis a
+    #: projection class of the program's lists under another name
+    #: (``_axis_names``) is matplotlib's own, in Python (`.._held_axis`).
+    _native_axis_names = ("x", "y")
 
     #: pltrs (Rust) holds an Axes in no other Axes: another Axes'
     #: `add_artist` lists it through a stand-in (`._foreign_children`).
@@ -182,6 +186,10 @@ class _AxesBase(ClearMixin, ChildrenMixin, ChildAxesMixin,
         if programmed is not None:
             # The spines a program's projection class made.
             spines = dict(programmed.named_spines)
+        elif "_spines_made" in self.__dict__:
+            # Those it just made, while its `_init_axis` registers its axes
+            # with them (`..projections._program.set_up`).
+            spines = dict(self._spines_made)
         else:
             spines = {name: _handles.wrap(native, Spine, self._figure)
                       for name, native in _spines.axes_spines(self._native)}

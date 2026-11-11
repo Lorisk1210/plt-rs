@@ -246,7 +246,6 @@ class ImagingMixin:
         """
         if isinstance(X, PIL.Image.Image):
             X = mimage.pil_to_array(X)  # Needed e.g. to apply png palette.
-        A = mimage._ImageBase._normalize_image_array(X)
         mcolorizer._ScalarMappable._check_exclusionary_keywords(
             colorizer, vmin=vmin, vmax=vmax)
         colorizer = mcolorizer._ScalarMappable._get_colorizer(
@@ -262,10 +261,19 @@ class ImagingMixin:
         filterrad = float(filterrad)
         if filterrad <= 0:
             raise ValueError("The filter radius must be a positive number")
-        colorizer._scale_norm(norm, vmin, vmax, A)
+        # matplotlib's image takes its properties as it is made, before
+        # its data: one it does not have fails first.
+        for name in kwargs:
+            if name != "axes" and not callable(
+                    getattr(mimage.AxesImage, f"set_{name}", None)):
+                raise AttributeError(
+                    f"AxesImage.set() got an unexpected keyword argument {name!r}",
+                    name=name)
         if aspect is not None and not cbook._str_equal(aspect, 'equal'):
             # As matplotlib's `set_aspect` takes it.
             aspect = _checked_aspect(aspect)
+        A = mimage._ImageBase._normalize_image_array(X)
+        colorizer._scale_norm(norm, vmin, vmax, A)
         spec = {
             'aspect': aspect,
             'interpolation': interpolation,

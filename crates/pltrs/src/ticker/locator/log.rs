@@ -324,6 +324,11 @@ impl Locator for LogLocator {
         Ok(ticklocs)
     }
 
+    fn unscalable(&self, v0: f64, v1: f64) -> Option<&'static str> {
+        (v0.is_finite() && v1.is_finite() && v0.max(v1) <= 0.0)
+            .then_some("Data has no positive values, and therefore cannot be log-scaled.")
+    }
+
     fn nonsingular(&self, vmin: f64, vmax: f64, ctx: &TickContext<'_>) -> (f64, f64) {
         let (mut vmin, mut vmax) = if vmin > vmax {
             (vmax, vmin)

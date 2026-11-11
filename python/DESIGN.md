@@ -1479,7 +1479,19 @@ lookup to `_text_helpers.report_font_lookup`, which looks the fonts up
 again with the program's `fontManager` (`_find_fonts_by_props` or
 `findfont`), logging as matplotlib's does: once per font properties for a
 substituted weight (`findfont` caches), at every lookup for a family not
-found.
+found. Two more kinds of lookup go the same way. The texts a PostScript or
+PDF renderer measures and draws in AFM fonts (`ps.useafm`,
+`pdf.use14corefonts`) are looked up among those fonts
+(`LookupKind::Afm`; `findfont(fontext="afm", directory=...)` as
+`_get_font_afm` does, and for the PDF core fonts `_find_fonts_by_props`
+too, as `fontName` does), every one, since what the font manager says of
+an AFM font (`Failed to find font weight normal for Helvetica, now using
+medium`) is its to find out. And while the deprecated `text.kerning_factor`
+is set, every lookup is handed over (`pltrs_text::keep_every_lookup`, set
+with the rcParams), and the reporter opens the fonts found as
+matplotlib's `get_font` does: `FT2Font` then warns of the deprecated
+`_kerning_factor` for each font `_get_font` has not cached, the Last
+Resort font behind it included.
 
 ### Warnings of matplotlib's transform graph
 
@@ -1572,9 +1584,72 @@ exception whatever is computed, so skipping it loses no warning; it
 leaves the nodes uncomputed, which is where matplotlib's are once a leaf
 turns wild, since that change invalidates every node built on the leaf.
 
-Not replayed: what matplotlib evaluates measuring (`get_tightbbox`, a
-tight print's first pass, a layout engine), and the matrices a pickled
-figure carries computed (pltrs builds an unpickled figure's graph anew).
+**Measuring is replayed like drawing.** matplotlib's
+`Axes.get_tightbbox` evaluates the graph as it measures: each axis
+(`Axis.get_tightbbox`: the ticks placed, the axis label placed past their
+labels, the labels and the axis label measured), the titles' placement
+(`_update_title_position` measures the x axis of each Axes the titles must
+clear that has its decorations on top, then for each title with a text the
+y axis of each: in every draw too), then each artist that takes part in
+layout and is not clipped to the Axes (a spine's path, a text's position,
+an annotation's point, an image's extent, a legend's search for the best
+location). pltrs (Rust) hands these over where it takes the tight box of
+an Axes, the figure lent to the hook meanwhile
+(`FigureState::measuring_evaluated`, from `axes_tight_bbox_at` and
+`tight_bbox_of_axis`): the axes it measures as `Evaluation::Axis {
+measured: true }`, those of the titles, then `Evaluation::Measured`,
+whose artists the package finds itself (`get_default_bbox_extra_artists`).
+So every caller evaluates as matplotlib's does, as often: `get_tightbbox`
+of an Axes, an axis or a figure, a tight print (matplotlib draws, measures
+and draws: the draw standing for both gives each evaluation twice), the
+layout engines (constrained layout measures every Axes in each of its two
+passes; tight layout once, and again to fit a rectangle, which pltrs
+(Rust) repeats when the measurement is replayed). A measurement asks only
+the leaves of the Axes measured (`FigureState::measurement_evaluated`: the
+figure's size, the Axes' own leaves and place; not its artists' own
+transforms, so that measuring costs an Axes of many artists no look at
+each), and `add_patch` and its kin those of the artist's Axes and the
+artist's own transform (`evaluates_wild`): an artist goes through the
+transforms of its own Axes, and what another Axes rests on costs it
+nothing. The methods of the package that measure one artist where
+matplotlib's code evaluates (`Text.get_window_extent`, a legend's
+`get_window_extent` and `get_tightbbox`) ask the same way
+(`_transform_trees.measured`).
+
+Artists drawn or measured lazily in the package keep their own count of
+draws: an annotation is positioned, and a quiver's transform made, once
+per draw, by the replay for the draw running
+(`Annotation._positioned_by_draw`, `Quiver._transform_by_draw`), where
+their getters make them for the draws that ended.
+
+**Pickled figures keep what they computed.** matplotlib pickles its nodes
+with their matrices and validity, so an unpickled figure computes anew
+only what the pickled one had not, and what `Figure.__setstate__`
+invalidates by setting the resolution again (everything built on
+`dpi_scale_trans`). The package does not pickle its trees (they are
+rebuilt over pltrs (Rust)'s leaves), but the state of each owner says
+which of its nodes were valid (`_transform_trees.without_trees`, in an
+order that follows from how the trees are made), and the rebuilt trees
+compute those quietly, but for the ones resting on the resolution
+(`_restore_validity`).
+
+Not replayed: the first draw of a tight print before its measurement (the
+replay measures first, then gives each evaluation of the draw twice: the
+counts agree unless the figure's nodes were invalid before the print),
+and what matplotlib's `AxisArtist` evaluates measuring.
+
+### What a draw did before it failed
+
+matplotlib's draw stops at the first artist that raises: what the artists
+before it logged or warned of was given. pltrs (Rust) draws the same
+artists in the same order and reports the failure when the native call
+returns, and the package drops the callbacks of a native call once one of
+them raised (`binding::callback`), so a renderer's notes on what it drew
+(the PostScript renderer's "does not support transparency", once per
+document) would be lost with a failure a Python painter reported. They
+are given as work done before the failure
+(`pltrs::warnings::as_done_before_a_failure`, which the binding runs with
+the failure set aside).
 
 ### Text measured and drawn by the program
 

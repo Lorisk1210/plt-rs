@@ -32,13 +32,16 @@ fn py_tick(tick: &DrawnTick) -> PyTick {
 const NO_AXIS: Option<(String, Vec<PyTick>, bool)> = None;
 
 /// Calls `hook(kind, artist, axis)` for each evaluation of matplotlib's
-/// transform graph the draws of `figure` stand for while a leaf of the
-/// graph is wild: `("draw", id, None)` where an artist is drawn,
-/// `("axes", id, None)` where an axes starts drawing itself,
-/// `("background", id, None)` where its background patch is,
+/// transform graph the draws and measurements of `figure` stand for
+/// while a leaf of the graph is wild: `("draw", id, None)` where an
+/// artist is drawn, `("axes", id, None)` where an axes starts drawing
+/// itself, `("background", id, None)` where its background patch is,
 /// `("axis", id, (name, ticks, label))` where the axis `name` (`"x"` or
-/// `"y"`) of an axes is, drawing `ticks` and its label if `label`; `None`
-/// removes the hook. What the hook raises (a warning the
+/// `"y"`) of an axes is, drawing `ticks` and its label if `label`,
+/// `("axis measured", id, (name, ticks, label))` where it is measured,
+/// and `("measured", id, None)` where the tight box of an axes is taken
+/// once its axes are measured (`"measured alone"` without its artists);
+/// `None` removes the hook. What the hook raises (a warning the
 /// filters turn into an exception) is raised by the native call drawing
 /// the figure.
 fn set_evaluation_hook(figure: Figure, hook: Option<Callback>) -> PyResult<()> {
@@ -53,13 +56,23 @@ fn set_evaluation_hook(figure: Figure, hook: Option<Callback>) -> PyResult<()> {
                     axis,
                     ticks,
                     label,
+                    measured,
                 } => {
+                    let kind = if *measured { "axis measured" } else { "axis" };
                     let name = match axis {
                         AxisName::X => "x",
                         AxisName::Y => "y",
                     };
                     let ticks: Vec<PyTick> = ticks.iter().map(py_tick).collect();
-                    hook.call(("axis", axes.index(), Some((name.to_owned(), ticks, *label))))
+                    hook.call((kind, axes.index(), Some((name.to_owned(), ticks, *label))))
+                }
+                Evaluation::Measured { axes, children } => {
+                    let kind = if *children {
+                        "measured"
+                    } else {
+                        "measured alone"
+                    };
+                    hook.call((kind, axes.index(), NO_AXIS))
                 }
             };
         })

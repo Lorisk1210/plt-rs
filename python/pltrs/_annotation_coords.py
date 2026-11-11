@@ -139,6 +139,22 @@ class PositionedMixin:
                self.__dict__.get("_measures", 0))
         if key == (0, 0):
             return None
+        return self._positioned_at(key)[1]
+
+    def _positioned_by_draw(self):
+        """
+        `_positioned` by the draw running now, which pltrs (Rust) counts
+        once it ends (asked then, it is made already): whether the draw
+        positions the annotation (not one clipped to its Axes whose point
+        is outside), and the transform.
+        """
+        return self._positioned_at((_artist.draw_count(self._native) + 1,
+                                    self.__dict__.get("_measures", 0)))
+
+    def _positioned_at(self, key):
+        """`_positioned` after as many draws and measures as *key* says:
+        whether the last of them positioned the annotation, and the
+        transform."""
         made = self.__dict__.get("_positioned_transform")
         if made is None or made[0] != key:
             # Its figure's renderer, also once it was removed from it.
@@ -148,15 +164,17 @@ class PositionedMixin:
             # matplotlib's draw does unless the annotation is hidden or its
             # point is outside its Axes (``_check_xy``).
             measured = key[1] != (0 if made is None else made[0][1])
+            shown = False
             try:
                 if measured or (self.get_visible() and self._check_xy(renderer)):
                     transform = self._get_xy_transform(renderer, self.anncoords)
+                    shown = True
             except Exception:
                 # matplotlib's draw raised before ``update_positions`` set
                 # the transform: it stays as it was.
                 pass
-            made = self._positioned_transform = (key, transform)
-        return made[1]
+            made = self._positioned_transform = (key, transform, shown)
+        return made[2], made[1]
 
     def _keep_drawn_state(self):
         # The transform of its text coordinates, made with its Axes.

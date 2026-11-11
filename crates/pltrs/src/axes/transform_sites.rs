@@ -385,12 +385,13 @@ impl FigureState {
 }
 
 impl AxisPainter<'_> {
-    /// matplotlib's `Axis.draw` of the axis, as an evaluation of its
-    /// transform graph (see [`Evaluation`]): the ticks it draws, each with
-    /// the parts that map through the axes' transforms. `None` for an
-    /// axis that is hidden or cannot be ticked, whose draw matplotlib
-    /// leaves before it evaluates anything.
-    pub(super) fn evaluation(&self) -> Option<Evaluation> {
+    /// matplotlib's `Axis.draw` of the axis, or its `Axis.get_tightbbox`
+    /// when `measured`, as an evaluation of its transform graph (see
+    /// [`Evaluation`]): the ticks it draws, each with the parts that map
+    /// through the axes' transforms. `None` for an axis that is hidden or
+    /// cannot be ticked, which matplotlib leaves before it evaluates
+    /// anything.
+    pub(super) fn evaluation(&self, measured: bool) -> Option<Evaluation> {
         let axis = self.axis;
         if !axis.visible {
             return None;
@@ -419,8 +420,26 @@ impl AxisPainter<'_> {
             axes: self.axes_id,
             axis: self.name,
             ticks,
-            label: axis.label.visible && !axis.label.text.is_empty(),
+            // An empty label is measured (where it is), not drawn.
+            label: axis.label.visible && (measured || !axis.label.text.is_empty()),
+            measured,
         })
+    }
+}
+
+impl FigureState {
+    /// What `Axes._update_title_position` of `axes` evaluates of
+    /// matplotlib's transform graph, where the axes is drawn or its tight
+    /// box taken: each axis it measures (see
+    /// [`title_position_measures`](Self::title_position_measures)).
+    pub(crate) fn title_evaluations(&self, axes: ArtistId) -> Vec<Evaluation> {
+        let measured = self.title_position_measures(axes).unwrap_or_default();
+        (measured.into_iter())
+            .filter_map(|(ax, name)| {
+                let state = self.store.get_as::<AxesState>(ax)?;
+                AxisPainter::new(ax, state, name).evaluation(true)
+            })
+            .collect()
     }
 }
 

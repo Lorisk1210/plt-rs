@@ -173,3 +173,15 @@ fn visibility_is_chosen_once() {
         .expect("finite limits");
     assert_eq!(shown(&marker), chosen);
 }
+
+#[test]
+fn an_indicator_is_drawn_as_it_is_whatever_its_own_rasterization() {
+    let fig = Figure::new();
+    let (ax, inset) = zoomed(&fig);
+    let marker = ax.indicate_inset_zoom(&inset, PatchProps::default());
+    marker.set_rasterized(true);
+    // matplotlib's `InsetIndicator.draw` is not one that rasterizes: its
+    // rectangle and connectors are drawn as vectors.
+    let svg = fig.to_svg().expect("drawn");
+    assert!(!svg.contains("<image"), "nothing is rasterized");
+}

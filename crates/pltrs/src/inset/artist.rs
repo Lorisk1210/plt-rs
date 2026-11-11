@@ -151,6 +151,12 @@ impl Artist for IndicatorArtist {
         true
     }
 
+    /// `InsetIndicator.draw` is drawn as it is whatever the indicator's
+    /// `rasterized` and `agg_filter`.
+    fn draw_allows_rasterization(&self) -> bool {
+        false
+    }
+
     /// `InsetIndicator.draw` draws the parts without making the indicator
     /// fresh.
     fn freshened_by_draw(&self, _ctx: &LayoutContext<'_>) -> bool {

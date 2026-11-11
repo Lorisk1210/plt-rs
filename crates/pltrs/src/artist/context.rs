@@ -486,6 +486,17 @@ impl<'a> DrawContext<'a> {
         wild: bool,
         evaluation: impl FnOnce() -> Option<Evaluation>,
     ) {
+        self.evaluated_each(wild, |_| evaluation().into_iter().collect());
+    }
+
+    /// [`evaluated`](Self::evaluated) for the evaluations `evaluations`
+    /// answers from the figure's state, which the draw makes one after
+    /// the other.
+    pub(crate) fn evaluated_each(
+        &mut self,
+        wild: bool,
+        evaluations: impl FnOnce(&FigureState) -> Vec<Evaluation>,
+    ) {
         let Some((hook, _)) = (self.evaluations.as_ref()).filter(|&&(_, graph)| graph || wild)
         else {
             return;
@@ -494,12 +505,15 @@ impl<'a> DrawContext<'a> {
             return;
         }
         let hook = hook.clone();
-        let Some(evaluation) = evaluation() else {
+        let evaluations = evaluations(self.layout().figure_state());
+        if evaluations.is_empty() {
             return;
-        };
+        }
         self.free();
         for _ in 0..crate::text::font_notes::draws_of_print() {
-            hook.run(&evaluation);
+            for evaluation in &evaluations {
+                hook.run(evaluation);
+            }
         }
     }
 
@@ -760,7 +774,8 @@ impl<'a> DrawContext<'a> {
             return;
         }
         let base = artist.base();
-        self.draw_artist(base.rasterized, |ctx| {
+        let allowed = artist.draw_allows_rasterization();
+        self.draw_artist(base.rasterized && allowed, |ctx| {
             if !base.visible && !artist.draws_hidden() {
                 artist.draw_hidden(ctx);
                 return;
@@ -768,7 +783,7 @@ impl<'a> DrawContext<'a> {
             if let Some(id) = id {
                 ctx.evaluated(artist.has_wild_transform(), || Some(Evaluation::Draw(id)));
             }
-            match base.agg_filter.as_ref().filter(|_| own_filter) {
+            match base.agg_filter.as_ref().filter(|_| own_filter && allowed) {
                 Some(filter) => {
                     ctx.renderer().start_filter();
                     artist.draw(ctx);

@@ -45,6 +45,7 @@ from .transforms import (Affine2D, Bbox, BboxTransformFrom, BboxTransformTo,
 
 
 _transform_replay = _lazy_imports.module(globals(), "._transform_replay")
+_tree_validity = _lazy_imports.module(globals(), "._tree_validity")
 
 
 def follow_evaluations(fig):
@@ -86,6 +87,14 @@ def relimmed(axes, visible_only):
         for patch in axes.patches:
             if not visible_only or patch.get_visible():
                 patch_added(axes, patch)
+
+
+def measured(artist):
+    """matplotlib's ``get_window_extent`` of *artist* (a text, a legend)
+    evaluates the graph: replayed while a leaf of its transforms is
+    wild."""
+    if artist._figure is not None and _transforms.replays(artist._native):
+        _transform_replay.artist_measured(artist)
 
 
 def radial_ticks_placed(axes, count):
@@ -163,12 +172,29 @@ _TREE_KEYS = frozenset([
 ])
 
 
+#: The key under which the pickled state of an object says which nodes of
+#: its trees had their values computed (see `._tree_validity`).
+_VALIDITY = "_tree_validity"
+
+
 def without_trees(state):
-    """The pickled *state* of an object, without its trees."""
+    """The pickled *state* of an object, without its trees: with which of
+    their nodes had their values instead (`._tree_validity.of`)."""
     if "_transform_trees" not in state:
         return state
-    return {key: value for key, value in state.items()
+    kept = {key: value for key, value in state.items()
             if key not in _TREE_KEYS and key not in state["_transform_trees"]}
+    kept[_VALIDITY] = _tree_validity.of(state, _TREE_KEYS)
+    return kept
+
+
+def _restore_validity(d, dpi_scale_trans):
+    """Have the trees among the attributes *d* of an unpickled object,
+    just built, hold what the pickled one's held
+    (`._tree_validity.restore`); nothing for an object that was made."""
+    valid = d.pop(_VALIDITY, None)
+    if valid is not None:
+        _tree_validity.restore(d, _TREE_KEYS, valid, dpi_scale_trans)
 
 
 class _LeafWatcher(TransformNode):
@@ -242,6 +268,7 @@ def build_root(fig):
     d["bbox"]._spanning = d["transFigure"]
     _watch_leaf(fig, d["bbox_inches"], functools.partial(_push_size, fig))
     _transforms.watch(fig._native, functools.partial(_sync, weakref.ref(fig)))
+    _restore_validity(d, d["dpi_scale_trans"])
 
 
 def build_subfigure(sub):
@@ -264,6 +291,7 @@ def build_subfigure(sub):
     d["bbox"]._spanning = d["transSubfigure"]
     root._tree_owners[_artist.id(sub._native)] = sub
     _transforms.watch_frame(sub._native)
+    _restore_validity(d, d["dpi_scale_trans"])
 
 
 def build_axes(ax, as_made=False):
@@ -321,6 +349,7 @@ def build_axes(ax, as_made=False):
     # class' constructor builds, which joins the figure later under its
     # id), under the id its leaves come with (a 3-D Axes' plane's).
     root._tree_owners[_transforms.watch_axes(ax._native)] = ax
+    _restore_validity(d, fig.dpi_scale_trans)
 
 
 def _set_axes_boxes(ax, leaves, positions=True):

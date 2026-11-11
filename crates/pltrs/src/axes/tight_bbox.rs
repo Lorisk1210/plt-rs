@@ -15,7 +15,7 @@ use crate::figure::FigureState;
 use crate::spines::SpineArtist;
 use crate::text::TextArtist;
 use crate::ticker::AxisName;
-use crate::transforms::{TransformContext, program_calls};
+use crate::transforms::{Evaluation, TransformContext, program_calls};
 
 impl Axes {
     /// The extent of the axes with its decorations in display pixels, the
@@ -139,6 +139,11 @@ impl FigureState {
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
         self.tick_axes_now(axes, &extent, dpi, shared);
+        self.measuring_evaluated(axes, |fig| {
+            let state = fig.store.get_as::<AxesState>(axes);
+            let measured = state.and_then(|s| AxisPainter::new(axes, s, name).evaluation(true));
+            measured.into_iter().collect()
+        });
         let state = self.store.get_as::<AxesState>(axes)?;
         if !state.axis(name).visible {
             return None;
@@ -298,6 +303,10 @@ impl FigureState {
         self.tick_axes_now(axes, &extent, dpi, shared);
         let children = self.store.get_as::<AxesState>(axes)?.children.clone();
         self.update_title_position(axes);
+        self.measuring_evaluated(axes, |fig| {
+            let with_children = extras == Extras::Children;
+            fig.tight_bbox_evaluations(axes, for_layout_only, in_full, with_children)
+        });
         let insets: Vec<ArtistId> = children
             .into_iter()
             .filter(|_| extras == Extras::Children)
@@ -313,15 +322,11 @@ impl FigureState {
         }
         let state = self.store.get_as::<AxesState>(axes)?;
         let layout = LayoutContext::new(self);
+        for (name, for_layout_only) in measured_axes(state, for_layout_only, in_full) {
+            let painter = AxisPainter::new(axes, state, name);
+            boxes.extend(axis_tight_bbox(layout, &painter, for_layout_only));
+        }
         if state.decorations.axis_on {
-            for (name, in_full) in [AxisName::X, AxisName::Y].into_iter().zip(in_full) {
-                let axis = state.axis(name);
-                let for_layout_only = for_layout_only && !in_full;
-                if axis.visible && (axis.in_layout || !for_layout_only) {
-                    let painter = AxisPainter::new(axes, state, name);
-                    boxes.extend(axis_tight_bbox(layout, &painter, for_layout_only));
-                }
-            }
             boxes.extend(
                 (state.program_axes.iter())
                     .filter_map(|&axis| program_axis_tight_bbox(layout, axis, for_layout_only))
@@ -359,6 +364,47 @@ impl FigureState {
             .filter(|b| b.width() != 0.0 || b.height() != 0.0)
             .reduce(|a, b| a.union(&b))
     }
+}
+
+impl FigureState {
+    /// What `Axes.get_tightbbox` of `axes` evaluates of matplotlib's
+    /// transform graph, its ticks placed: each axis it measures, those
+    /// its titles are placed past, then the axes itself, with its artists
+    /// when `children`.
+    fn tight_bbox_evaluations(
+        &self,
+        axes: ArtistId,
+        for_layout_only: bool,
+        in_full: [bool; 2],
+        children: bool,
+    ) -> Vec<Evaluation> {
+        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+            return Vec::new();
+        };
+        measured_axes(state, for_layout_only, in_full)
+            .filter_map(|(name, _)| AxisPainter::new(axes, state, name).evaluation(true))
+            .chain(self.title_evaluations(axes))
+            .chain([Evaluation::Measured { axes, children }])
+            .collect()
+    }
+}
+
+/// The axes of `state` that its tight box takes in (those shown, and
+/// for a layout those taking part in it), each with whether it is
+/// measured for a layout only: not one of `in_full`, measured in full
+/// after all (see [`FigureState::program_axes_measured`]).
+fn measured_axes(
+    state: &AxesState,
+    for_layout_only: bool,
+    in_full: [bool; 2],
+) -> impl Iterator<Item = (AxisName, bool)> {
+    let axis_on = state.decorations.axis_on;
+    ([AxisName::X, AxisName::Y].into_iter().zip(in_full))
+        .map(move |(name, in_full)| (name, for_layout_only && !in_full))
+        .filter(move |&(name, for_layout_only)| {
+            let axis = state.axis(name);
+            axis_on && axis.visible && (axis.in_layout || !for_layout_only)
+        })
 }
 
 /// The extent of an axis' texts (matplotlib's `Axis.get_tightbbox`,

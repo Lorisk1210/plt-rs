@@ -218,18 +218,33 @@ impl FigureState {
 
     /// `Axes._update_title_position` of `axes`, as far as it ticks axes.
     pub(crate) fn program_title_position(&mut self, axes: ArtistId) {
-        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+        let Some(measured) = self.title_position_measures(axes) else {
             return;
         };
-        let titles: Vec<ArtistId> = state.titles_centre_first().collect();
-        if state.title_placement == super::state::TitlePlacement::Fixed
-            || !titles.iter().any(|&title| self.has_text(title))
-        {
-            return;
-        }
         // Child positions are updated first: their aspect applied.
         for child in self.child_axes(axes) {
             self.aspect_applied(child);
+        }
+        for (ax, name) in measured {
+            self.program_axis_visited(ax, name, AxisVisit::Measured);
+        }
+    }
+
+    /// The axes `Axes._update_title_position` of `axes` measures
+    /// (`Axis.get_tightbbox`), in its order: the x axis of each axes its
+    /// titles must clear (itself first) that has its decorations on top,
+    /// then for each title with a text the y axis of each, whose offset
+    /// text the title may meet; only the axes shown. `None` where it
+    /// places no title (none has a text, or the program placed them).
+    pub(crate) fn title_position_measures(
+        &self,
+        axes: ArtistId,
+    ) -> Option<Vec<(ArtistId, AxisName)>> {
+        let state = self.store.get_as::<AxesState>(axes)?;
+        let titles = (state.titles_centre_first()).filter(|&title| self.has_text(title));
+        let with_text = titles.count();
+        if state.title_placement == super::state::TitlePlacement::Fixed || with_text == 0 {
+            return None;
         }
         // matplotlib's set of axes: each once.
         let mut group = vec![axes];
@@ -238,24 +253,18 @@ impl FigureState {
                 group.push(ax);
             }
         }
-        for &ax in &group {
-            let on_top = self
-                .store
-                .get_as::<AxesState>(ax)
-                .is_some_and(|state| state.axis(AxisName::X).decorations_on_top());
-            if on_top && self.axis_shown(ax, AxisName::X) {
-                self.program_axis_visited(ax, AxisName::X, AxisVisit::Measured);
-            }
-        }
-        for title in titles {
-            if self.has_text(title) {
-                for &ax in &group {
-                    if self.axis_shown(ax, AxisName::Y) {
-                        self.program_axis_visited(ax, AxisName::Y, AxisVisit::Measured);
-                    }
-                }
-            }
-        }
+        let on_top = |&ax: &ArtistId| {
+            let state = self.store.get_as::<AxesState>(ax);
+            state.is_some_and(|state| state.axis(AxisName::X).decorations_on_top())
+        };
+        let x_axes = (group.iter().copied().filter(on_top)).map(|ax| (ax, AxisName::X));
+        let y_axes = (0..with_text).flat_map(|_| group.iter().map(|&ax| (ax, AxisName::Y)));
+        let measured = x_axes.chain(y_axes);
+        Some(
+            measured
+                .filter(|&(ax, name)| self.axis_shown(ax, name))
+                .collect(),
+        )
     }
 
     /// `Axes.draw` of `axes`, as far as it ticks axes and maps through

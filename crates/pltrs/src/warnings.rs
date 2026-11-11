@@ -170,6 +170,37 @@ pub fn clear_log_handler() {
     LOG_HANDLER.set(None);
 }
 
+/// What runs a report of work done before a failure (see
+/// [`set_earlier_scope`]).
+type EarlierScope = Rc<dyn Fn(&mut dyn FnMut())>;
+
+thread_local! {
+    /// What runs the reports of [`as_done_before_a_failure`] on this
+    /// thread.
+    static EARLIER_SCOPE: RefCell<Option<EarlierScope>> = const { RefCell::new(None) };
+}
+
+/// Has `scope` run, on this thread from now on, the reports of work done
+/// before a failure (what a renderer noted of the artists it drew before
+/// one of them failed, which matplotlib gave as it drew them): handlers
+/// that drop what comes after a failure (as pltrs (Python) drops the
+/// callbacks of a native call once one of them raised) deliver what is
+/// issued inside `scope`.
+pub fn set_earlier_scope(scope: impl Fn(&mut dyn FnMut()) + 'static) {
+    EARLIER_SCOPE.set(Some(Rc::new(scope)));
+}
+
+/// Runs `report`, which issues the warnings and log messages of work
+/// done before a failure the handlers' side may have been told of since
+/// (what a renderer noted of the artists it drew before one of them
+/// failed): matplotlib gave them as it did the work, before the failure.
+pub(crate) fn as_done_before_a_failure(mut report: impl FnMut()) {
+    match EARLIER_SCOPE.with(|slot| slot.borrow().clone()) {
+        Some(scope) => scope(&mut report),
+        None => report(),
+    }
+}
+
 /// Logs `message` as a warning of matplotlib's module `module` (relative
 /// to the package: `backends.backend_ps`), where matplotlib logs it with
 /// `_log.warning`.
@@ -187,6 +218,24 @@ pub fn log(module: &str, message: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reports_of_earlier_work_run_inside_the_scope_set() {
+        let ran = Rc::new(RefCell::new(Vec::new()));
+        as_done_before_a_failure(|| ran.borrow_mut().push("bare"));
+        let log = Rc::clone(&ran);
+        set_earlier_scope(move |report| {
+            log.borrow_mut().push("scope opens");
+            report();
+            log.borrow_mut().push("scope closes");
+        });
+        as_done_before_a_failure(|| ran.borrow_mut().push("report"));
+        EARLIER_SCOPE.set(None);
+        assert_eq!(
+            *ran.borrow(),
+            ["bare", "scope opens", "report", "scope closes"]
+        );
+    }
 
     #[test]
     fn captured_runtime_warnings_are_kept_and_nest() {

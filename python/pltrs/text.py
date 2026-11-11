@@ -19,7 +19,7 @@ import numpy as np
 
 from . import _docstring
 from . import (_api, _lazy_imports, _live_transforms, _mirrors, _text_overrides,
-               _unusable, _values, cbook, units)
+               _transform_trees, _unusable, _values, cbook, units)
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
@@ -885,6 +885,7 @@ class Text(Artist):
             with at_dpi:
                 tx, ty = self.get_transform().transform(self.get_unitless_position())
                 return Bbox.from_bounds(tx, ty, 0, 0)
+        _transform_trees.measured(self)
         renderer = self._measuring_renderer(renderer, figure, weakly=False)
         if renderer is None:
             return self._native_extent(self._text_extent, dpi)

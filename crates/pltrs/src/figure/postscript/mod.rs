@@ -61,12 +61,14 @@ const PARTIAL_TRANSPARENCY: &str = "The PostScript backend does not support tran
 /// colours drawn opaque (also when an artist's failure then ends the
 /// print, as it ends matplotlib's after the artists drawn before).
 fn log_drawing_notes(renderer: &PsRenderer) {
-    if renderer.drew_tex_as_plain() {
-        crate::warnings::log("backends.backend_ps", PARTIAL_USETEX);
-    }
-    if renderer.drew_partial_transparency() {
-        crate::warnings::log("backends.backend_ps", PARTIAL_TRANSPARENCY);
-    }
+    crate::warnings::as_done_before_a_failure(|| {
+        if renderer.drew_tex_as_plain() {
+            crate::warnings::log("backends.backend_ps", PARTIAL_USETEX);
+        }
+        if renderer.drew_partial_transparency() {
+            crate::warnings::log("backends.backend_ps", PARTIAL_TRANSPARENCY);
+        }
+    });
 }
 
 /// The options of a PostScript document on the paper and in the

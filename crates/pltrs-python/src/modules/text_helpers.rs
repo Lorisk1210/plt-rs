@@ -5,7 +5,7 @@
 //! formulas it typesets, delivered at the end of the native call during
 //! which pltrs (Rust) laid them out.
 
-use pltrs_text::LookupKind;
+use pltrs_text::{AfmDirectory, LookupKind};
 
 use crate::binding::lookup;
 use crate::binding::prelude::*;
@@ -46,6 +46,8 @@ pub(super) fn report_font_lookups(py: Python<'_>) -> PyResult<()> {
         let kind = match font.kind {
             LookupKind::Fonts => "fonts",
             LookupKind::Font => "font",
+            LookupKind::Afm(AfmDirectory::PostScript) => "afm",
+            LookupKind::Afm(AfmDirectory::PdfCore) => "core fonts",
         };
         let weight = match font.weight_keyword {
             Some(keyword) => keyword.into_py(py)?,

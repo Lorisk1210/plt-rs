@@ -133,11 +133,20 @@ impl FigureState {
         if default_limits(self) != before {
             // matplotlib's `autoscale_view` along this axis, whose setting
             // of the limits brings any other axis waiting to be rescaled
-            // up to date too.
-            if let Some(state) = self.axes_state_mut(axes) {
-                state.request_autoscale(name == AxisName::X, name == AxisName::Y);
+            // up to date too: this one again when it was waiting itself
+            // (the limits read there autoscale it first, and the locator
+            // warns twice of data it cannot scale).
+            let passes = if self.autoscale_is_stale(axes, name) {
+                2
+            } else {
+                1
+            };
+            for _ in 0..passes {
+                if let Some(state) = self.axes_state_mut(axes) {
+                    state.request_autoscale(name == AxisName::X, name == AxisName::Y);
+                }
+                self.unstale_axes(axes);
             }
-            self.unstale_axes(axes);
         }
     }
 
@@ -451,6 +460,48 @@ mod tests {
     use crate::prelude::*;
     use crate::scale::ScaleName;
     use crate::ticker::MultipleLocator;
+
+    /// The warnings `work` gives.
+    fn warned(work: impl FnOnce()) -> Vec<String> {
+        let seen = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let sink = std::rc::Rc::clone(&seen);
+        crate::warnings::set_handler(move |message| sink.borrow_mut().push(message.to_owned()));
+        work();
+        crate::warnings::clear_handler();
+        seen.take()
+    }
+
+    #[test]
+    fn a_scale_warns_of_data_it_cannot_take_each_time_the_axis_is_rescaled() {
+        const NO_POSITIVE: &str =
+            "Data has no positive values, and therefore cannot be log-scaled.";
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.plot([1.0, 2.0, 3.0], [-2.0, -5.0, -9.0]).unwrap();
+        // The axis was waiting to be rescaled: matplotlib rescales it for
+        // the scale, and once more as the limits are read meanwhile.
+        let first = warned(|| drop(ax.set_yscale("log")));
+        assert_eq!(first, [NO_POSITIVE, NO_POSITIVE]);
+        assert_eq!(warned(|| drop(ax.set_yscale("linear"))), [""; 0]);
+        assert_eq!(warned(|| drop(ax.set_yscale("log"))), [NO_POSITIVE]);
+        // Limits the program set are not rescaled.
+        ax.set_ylim(1.0, 10.0).unwrap();
+        ax.set_yscale("linear").unwrap();
+        assert_eq!(warned(|| drop(ax.set_yscale("log"))), [""; 0]);
+    }
+
+    #[test]
+    fn a_logit_scale_warns_of_data_outside_its_domain() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.plot([1.0, 2.0, 3.0], [2.0, 5.0, 9.0]).unwrap();
+        ax.set_yscale("log").unwrap();
+        let warnings = warned(|| drop(ax.set_yscale("logit")));
+        assert_eq!(
+            warnings,
+            ["Data has no values between 0 and 1, and therefore cannot be logit-scaled."]
+        );
+    }
 
     fn pair() -> (Figure, Axes, Axes) {
         let fig = Figure::new();

@@ -166,10 +166,11 @@ def cohere(x, y, NFFT=256, Fs=2, detrend=detrend_none, window=window_hanning,
         raise ValueError(
             "Coherence is calculated by averaging over *NFFT* length "
             "segments.  Your signal is too short for your choice of *NFFT*.")
+    # (``psd``: the real part of the density of a signal with itself.)
     Pxx, f = csd(x, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
                  scale_by_freq)
     Pyy, f = csd(y, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
                  scale_by_freq)
     Pxy, f = csd(x, y, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
                  scale_by_freq)
-    return np.abs(Pxy) ** 2 / (Pxx * Pyy), f
+    return np.abs(Pxy) ** 2 / (Pxx.real * Pyy.real), f

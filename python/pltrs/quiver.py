@@ -617,11 +617,20 @@ class Quiver(mcollections.PolyCollection):
         draws = 0 if self._figure is None else _artist.draw_count(self._native)
         if not draws:
             return super().get_transform()
+        return self._transform_after(draws)
+
+    def _transform_after(self, draws):
+        """The transform the quiver's draw number *draws* set, made once."""
         made = self.__dict__.get("_drawn_transform")
         if made is None or made[0] != draws:
             made = self._drawn_transform = (
                 draws, transforms.Affine2D().scale(self._dots_per_unit(self.units)))
         return made[1]
+
+    def _transform_by_draw(self):
+        """The transform the draw running now sets, which pltrs (Rust)
+        counts once it ends (asked then, it is made already)."""
+        return self._transform_after(_artist.draw_count(self._native) + 1)
 
     def _keep_drawn_state(self):
         # The transform of its arrows, made with its Axes.

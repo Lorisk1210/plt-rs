@@ -529,6 +529,27 @@ mod tests {
     }
 
     #[test]
+    fn every_lookup_is_kept_on_request_and_those_of_afm_fonts_always() {
+        let engine = TextEngine::global();
+        let found = FontRequest::dejavu_sans(12.0);
+        crate::take_font_lookups();
+        crate::keep_every_lookup(true);
+        engine.note_font_lookup(&found).unwrap();
+        engine.note_font_lookup(&found).unwrap();
+        crate::keep_every_lookup(false);
+        let lookups = crate::take_font_lookups();
+        assert_eq!((lookups.len(), lookups[0].times), (1, 2));
+        engine.note_font_lookup(&found).unwrap();
+        engine.note_afm_lookup(&found, crate::AfmDirectory::PdfCore);
+        let lookups = crate::take_font_lookups();
+        assert_eq!(lookups.len(), 1);
+        assert_eq!(
+            lookups[0].lookup.kind,
+            crate::LookupKind::Afm(crate::AfmDirectory::PdfCore)
+        );
+    }
+
+    #[test]
     fn matches_matplotlib_text_extent() {
         // matplotlib: fig.text(0.5, 0.5, 'AVA To') at 10 pt / 100 dpi is
         // 45.765625 px wide (spec text_metrics probes).

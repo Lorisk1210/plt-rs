@@ -45,6 +45,7 @@ impl AxesState {
         }
         let id = self.base().id();
         ctx.evaluated(false, || Some(Evaluation::Axes(id)));
+        ctx.evaluated_each(false, |figure| figure.title_evaluations(id));
         if self
             .polar_view()
             .is_some_and(|polar| !polar.has_finite_wedge())
@@ -256,7 +257,9 @@ impl AxesState {
                     parasite.as_deref()
                 };
                 if let Some(axes) = axes {
-                    ctx.evaluated(false, || AxisPainter::new(owner, axes, name).evaluation());
+                    ctx.evaluated(false, || {
+                        AxisPainter::new(owner, axes, name).evaluation(false)
+                    });
                     let filter = axes.axis(name).agg_filter.clone();
                     ctx.draw_artist(false, |ctx| {
                         with_agg_filter(ctx, filter.as_ref(), |ctx| {

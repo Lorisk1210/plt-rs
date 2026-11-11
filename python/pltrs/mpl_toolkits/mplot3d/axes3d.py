@@ -110,6 +110,31 @@ def _failure_of(problem):
     return None if problem is None else (type(problem).__name__, str(problem))
 
 
+#: The faces of the unit cube as matplotlib's ``bar3d`` lists them, each
+#: seen counterclockwise from outside: -z, +z, -y, +y, -x, +x.
+_CUBOID = np.array([
+    ((0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)),
+    ((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)),
+    ((0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)),
+    ((0, 1, 0), (0, 1, 1), (1, 1, 1), (1, 1, 0)),
+    ((0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)),
+    ((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)),
+])
+
+
+def _cuboids(x, y, z, dx, dy, dz):
+    """The faces of the bars of ``bar3d`` as matplotlib builds them, with
+    numpy, whose arithmetic warns of bars that are no numbers (pltrs
+    (Rust) builds those it draws): indexed by bar and face, vertex,
+    coordinate."""
+    polys = np.empty(x.shape + _CUBOID.shape)
+    for i, p, dp in [(0, x, dx), (1, y, dy), (2, z, dz)]:
+        p = p[..., np.newaxis, np.newaxis]
+        dp = dp[..., np.newaxis, np.newaxis]
+        polys[..., i] = p + dp * _CUBOID[..., i]
+    return polys.reshape((-1,) + polys.shape[2:])
+
+
 def _shading(shade, lightsource):
     """The native shading: whether to shade (None: the method's default)
     and the light of a `~matplotlib.colors.LightSource` (None: mplot3d's)."""
@@ -2644,6 +2669,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         x, y, z, dx, dy, dz = np.broadcast_arrays(np.atleast_1d(x), y, z, dx, dy, dz)
         for p, dp in ((x, dx), (y, dy), (z, dz)):
             np.min(p), np.max(p + dp)
+        finite = all(v.dtype.kind in "biuf" and np.isfinite(v).all()
+                     for v in (x, y, z, dx, dy, dz))
+        polys = None if finite else _cuboids(x, y, z, dx, dy, dz)
         colors = None if color is None else mcolors.to_rgba_array(color)
         # The positional arguments go to the `.Poly3DCollection` after its
         # vertices: its *sizes*.
@@ -2662,6 +2690,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
         columns = tuple(np.atleast_1d(np.asarray(v, dtype=float)).ravel().tolist()
                         for v in (x, y, z, dx, dy, dz))
         _properties.check_known(art3d.Poly3DCollection, kwargs)
+        if polys is not None and shade:
+            # ... and the normals of the faces it shades.
+            art3d._generate_normals(polys)
         native = _mplot3d.bar3d(self._native, (columns[:3], columns[3:]),
                                 (colors, zsort),
                                 _shading(bool(shade), lightsource),

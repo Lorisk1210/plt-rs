@@ -91,6 +91,12 @@ class ExtremeFinderSimple:
         points = _transformed_grid(trans, bbox, self.nx, self.ny)
         # matplotlib's `Bbox.update_from_data_xy` makes a path of them.
         _api.check_shape((None, 2), vertices=points)
+        if not np.isfinite(points).all():
+            # As matplotlib computes it, with numpy, whose arithmetic
+            # warns of points that are no numbers.
+            tbbox = Bbox.null()
+            tbbox.update_from_data_xy(points)
+            return tbbox.expanded(1 + 2 / self.nx, 1 + 2 / self.ny)
         lon, lat = points.T
         return Bbox.from_extents(
             *_axisartist.simple_extent(lon, lat, self.nx, self.ny))
@@ -99,7 +105,15 @@ class ExtremeFinderSimple:
 def _transformed_grid(trans, bbox, nx, ny):
     """The ``nx * ny`` samples of *bbox* an extreme finder takes, mapped by
     *trans*, as an array of points."""
-    grid = _axisartist.sample_grid(tuple(map(float, bbox.extents)), nx, ny)
+    extents = tuple(map(float, bbox.extents))
+    if np.isfinite(extents).all():
+        grid = _axisartist.sample_grid(extents, nx, ny)
+    else:
+        # As matplotlib samples it, with numpy, whose arithmetic warns of
+        # ends that are no numbers.
+        grid = np.reshape(np.meshgrid(np.linspace(bbox.x0, bbox.x1, nx),
+                                      np.linspace(bbox.y0, bbox.y1, ny)),
+                          (2, -1)).T
     return np.asarray(trans.transform(grid), dtype=float)
 
 

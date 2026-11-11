@@ -276,9 +276,11 @@ impl FigureState {
         };
         let measured =
             crate::text::measuring(|| Measured::new(self, axes, &subplot_params, None))??;
-        if params.rect.is_some() && self.ticks_by_program() {
+        let evaluated = || axes.iter().any(|&id| self.measurement_evaluated(id));
+        if params.rect.is_some() && (self.ticks_by_program() || evaluated()) {
             // matplotlib measures the axes again to fit them into the
-            // rectangle, which the program's tick helpers see.
+            // rectangle, which the program's tick helpers see, and which
+            // evaluates its transform graph once more.
             Measured::new(self, axes, &subplot_params, None)?;
         }
         if super::failures::failed() {

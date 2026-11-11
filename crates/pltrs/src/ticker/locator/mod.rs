@@ -113,6 +113,14 @@ pub trait Locator: fmt::Debug + Any {
         self.tick_values(vmin, vmax, ctx)
     }
 
+    /// What matplotlib's `nonsingular` warns of when the data range from
+    /// `v0` to `v1` is one the locator's scale cannot take (data without
+    /// positive values on a log scale), which autoscaling an axis to its
+    /// data gives; `None` for the ranges, and the locators, that take any.
+    fn unscalable(&self, _v0: f64, _v1: f64) -> Option<&'static str> {
+        None
+    }
+
     /// Adjusts a data range to avoid singularities during autoscaling.
     ///
     /// Called with the data limits, or `(-inf, inf)` when there are no

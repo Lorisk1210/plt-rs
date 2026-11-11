@@ -459,8 +459,11 @@ class ScatterMixin:
             collection._array_alpha = np.asarray(alphas)
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
-        if given_linewidths is not None:
-            collection.set_linewidth(given_linewidths)
+        if given_linewidths is not None or (widths_as_given is not None
+                                            and not len(widths_as_given)):
+            # Widths no number reads, or none, which renderers fail on.
+            collection.set_linewidth(widths_as_given if given_linewidths is None
+                                     else given_linewidths)
         elif widths_as_given is not None:
             _values.remember(collection, "linewidth", widths_as_given)
         collection._made_with(kwargs)

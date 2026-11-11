@@ -249,8 +249,27 @@ def record_drawing(artist, target):
             if place is not None:
                 # An offset box of the program's, placed by its parent.
                 place()
-        draw(renderer)
+        try:
+            draw(renderer)
+        finally:
+            if target[6]:
+                # Drawn where the figure's draw reached it.
+                _reached(artist)
     return drawing
+
+
+def when_reached(artist, name, value):
+    """Set *artist*'s attribute *name* to *value* once the figure's draw
+    reaches it (`_reached`): what its ``draw``, recorded before the figure
+    is drawn, changes in matplotlib only where the figure's draw reaches
+    it (no artist drawn before failing)."""
+    artist.__dict__.setdefault("_set_when_reached", {})[name] = value
+
+
+def _reached(artist):
+    """The figure's draw reached *artist*: set what `when_reached` held."""
+    for name, value in artist.__dict__.pop("_set_when_reached", {}).items():
+        setattr(artist, name, value)
 
 
 @contextlib.contextmanager
@@ -279,7 +298,9 @@ def _warnings_held(artist, live):
 
 def emit_held_warnings(artist):
     """Give the warnings held while *artist* was recorded
-    (`_warnings_held`), from where they came, under the filters in force."""
+    (`_warnings_held`), from where they came, under the filters in force:
+    the figure's draw reached it (see `when_reached`)."""
+    _reached(artist)
     for held in artist.__dict__.pop("_held_warnings", ()):
         warnings.warn_explicit(held.message, held.category, held.filename, held.lineno,
                                registry=_warning_registry(held.filename),

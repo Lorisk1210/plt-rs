@@ -304,3 +304,13 @@ hostile/axes_variant_19$ | ^value\[angle_spectrum\]: array values$ @ ^50:0\[0\]$
 hostile/axes_19$ | ^value\[phase_spectrum\]: array values$ @ ^105:0\[0\]$ | the phase unwrapped from that angle, 2 pi lower throughout in numpy's arm64 build
 hostile/axes_variant_19$ | ^value\[phase_spectrum\]: array values$ @ ^106:0\[0\]$ | the phase unwrapped from that angle, 2 pi lower throughout in numpy's arm64 build
 hostile/module_matplotlib_pyplot_15$ | ^value\[phase_spectrum\]: array values$ @ ^49:0\[0\]$ | the phase unwrapped from that angle, 2 pi lower throughout in numpy's arm64 build
+
+# matplotlib's Agg renderer keeps its rasteriser's cells after it exceeded
+# its cell block limit: every later draw on the same canvas overflows (a NaN
+# sketch, which alone draws, or no sketch at all), until a new renderer is
+# made (another size or dpi): fresh canvas with a NaN sketch: drawn; the same
+# after an infinite sketch overflowed it: OverflowError, even with no sketch;
+# a new figure: drawn. The program's draw meets that state left by an earlier
+# failed render, which pltrs (Rust), whose renderer keeps no cells, does not
+# carry over.
+hostile/table_cell_1$ | ^exception\[draw\]: missing OverflowError$ @ ^line 481$ | matplotlib's Agg canvas keeps overflowing after a render that exceeded its cell block limit (rasteriser state); pltrs's renderer starts each path anew

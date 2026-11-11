@@ -142,6 +142,7 @@ impl AxisTexts {
             bbox: None,
             laid_out: std::cell::Cell::default(),
             leftover: std::cell::Cell::default(),
+            turned: std::cell::Cell::default(),
         }
     }
 }

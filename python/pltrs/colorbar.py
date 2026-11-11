@@ -462,7 +462,12 @@ class Colorbar:
             on_grid = (use_gridspec and (engine is None or engine.colorbar_gridspec)
                        and isinstance(parents, Axes) and parents.get_subplotspec())
             make = make_axes_gridspec if on_grid else make_axes
+            current = figure.gca()
             cax, kwargs = make(parents, **layout, **kwargs)
+            # matplotlib's `Figure.colorbar` makes the Axes current again
+            # and turns the new Axes' grid off before the colorbar.
+            figure.sca(current)
+            cax.grid(visible=False, which='both', axis='both')
             if made is not None:
                 made()
             return cls(cax, mappable, **kwargs)

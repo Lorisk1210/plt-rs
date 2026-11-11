@@ -10,11 +10,38 @@ from ... import _docstring, _transform_trees
 from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
                  collections as mcoll, colors as mcolors)
 from ... import lines as mlines, patches as mpatches, stackplot as mstack
-from ..._native import plotting as _plotting
+from ..._native import axes_base as _axes_base, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ._helpers import _make_axes_method, converted_line_data, floats, wrap, wrap_all
 from .lines import _plot_datasets
 
+
+
+def _prepared_stack(axes, x, y, colors, baseline, kwargs):
+    """The checked positions, layers, fill, keywords and style generator of
+    a `stackplot`, raising where matplotlib's fails before it adds a
+    layer."""
+    _api.check_in_list(['zero', 'sym', 'wiggle', 'weighted_wiggle'],
+                       baseline=baseline)
+    # matplotlib passes these on to the `fill_between` of every layer.
+    where, interpolate, step = (kwargs.pop('where', None),
+                                kwargs.pop('interpolate', False), kwargs.pop('step', None))
+    kwargs = cbook.normalize_kwargs(kwargs, mcoll.PolyCollection)
+    if colors is not None:
+        kwargs.setdefault('facecolor', colors)
+    kwargs, style_gen = _style_helpers.style_generator(kwargs)
+    x, = axes._process_unit_info([("x", x)])
+    # matplotlib fills each layer with `fill_between`, whose checks of the
+    # data fail first between the baseline and the first layer.
+    first = 0. if baseline == 'zero' else np.zeros(np.shape(y)[1:])
+    mcoll.FillBetweenPolyCollection._checked_data(
+        "x", *map(np.ma.masked_invalid, (x, first, y[0])), where)
+    # The layers broadcast with the positions, as `fill_between`'s data do.
+    x, y = np.broadcast_arrays(np.atleast_1d(floats(x)), np.asarray(y, dtype=float))
+    x = x[0] if len(x) else np.atleast_1d(floats(x))
+    fill = (_fill_mask(where, np.size(x), "x"), bool(interpolate), step)
+    mcoll._check_step(step, [floats(x), *(floats(row) for row in y)], fill[0])
+    return x, y, fill, kwargs, style_gen
 
 def _fill_mask(where, size, ind_dir):
     """The flags of `fill_between`'s *where* for *size* points along
@@ -352,19 +379,25 @@ class FillsMixin:
                 "very likely that the resulting fill patterns is not the desired "
                 "result."
             )
-        if edges is None:
-            edges = np.arange(len(values) + 1)
-        edge_axis, value_axis = ("x", "y") if orientation == "vertical" else ("y", "x")
-        edges, values, baseline = self._process_unit_info(
-            [(edge_axis, edges), (value_axis, values), (value_axis, baseline)],
-            kwargs)
-        # The checks of matplotlib's `StepPatch`, which takes any orientation
-        # other than 'vertical' for 'horizontal'.
-        mpatches.StepPatch._check_data(edges, values, baseline)
-        native = _plotting.stairs(
-            self._native, floats(values), floats(edges),
-            None if baseline is None else np.asarray(baseline, dtype=float),
-            ('vertical' if orientation == 'vertical' else 'horizontal', bool(fill)), color)
+        try:
+            if edges is None:
+                edges = np.arange(len(values) + 1)
+            edge_axis, value_axis = ("x", "y") if orientation == "vertical" else ("y", "x")
+            edges, values, baseline = self._process_unit_info(
+                [(edge_axis, edges), (value_axis, values), (value_axis, baseline)],
+                kwargs)
+            # The checks of matplotlib's `StepPatch`, which takes any
+            # orientation other than 'vertical' for 'horizontal'.
+            mpatches.StepPatch._check_data(edges, values, baseline)
+            native = _plotting.stairs(
+                self._native, floats(values), floats(edges),
+                None if baseline is None else np.asarray(baseline, dtype=float),
+                ('vertical' if orientation == 'vertical' else 'horizontal', bool(fill)), color)
+        except Exception:
+            if color is None:
+                # matplotlib takes the colour from the cycle first.
+                self._get_lines.get_next_color()
+            raise
         patch = wrap(self, native, mpatches.StepPatch)
         patch._given_orientation = orientation
         patch._keep_data(values, edges, baseline)
@@ -383,37 +416,24 @@ class FillsMixin:
                    **kwargs):
         """`.stackplot.stackplot`, which pltrs (Rust) stacks."""
         y = np.vstack(args)
-        _api.check_in_list(['zero', 'sym', 'wiggle', 'weighted_wiggle'],
-                           baseline=baseline)
-        # matplotlib passes these on to the `fill_between` of every layer.
-        where, interpolate, step = (kwargs.pop('where', None),
-                                    kwargs.pop('interpolate', False), kwargs.pop('step', None))
-        kwargs = cbook.normalize_kwargs(kwargs, mcoll.PolyCollection)
-        if colors is not None:
-            kwargs.setdefault('facecolor', colors)
-        kwargs, style_gen = _style_helpers.style_generator(kwargs)
-        x, = axes._process_unit_info([("x", x)])
+        labels = iter(labels)
         try:
-            # matplotlib fills each layer with `fill_between`, whose checks of
-            # the data fail first between the baseline and the first layer.
-            first = 0. if baseline == 'zero' else np.zeros(np.shape(y)[1:])
-            mcoll.FillBetweenPolyCollection._checked_data(
-                "x", *map(np.ma.masked_invalid, (x, first, y[0])), where)
+            prepared = _prepared_stack(axes, x, y, colors, baseline, kwargs)
         except Exception:
             if colors is None:
                 # matplotlib takes the layers' colours from the cycle first.
                 for _ in y:
                     axes._get_lines.get_next_color()
             raise
-        # The layers broadcast with the positions, as `fill_between`'s data do.
-        x, y = np.broadcast_arrays(np.atleast_1d(floats(x)), np.asarray(y, dtype=float))
-        x = x[0] if len(x) else np.atleast_1d(floats(x))
-        fill = (_fill_mask(where, np.size(x), "x"), bool(interpolate), step)
-        mcoll._check_step(step, [floats(x), *(floats(row) for row in y)], fill[0])
+        x, y, fill, kwargs, style_gen = prepared
+        # pltrs (Rust) colours the layers from the cycle; given colours,
+        # matplotlib's take none from it.
+        position = _axes_base.cycle_position(axes._native, "lines")
         natives = _plotting.stackplot(axes._native, floats(x),
                                       [floats(row) for row in y], baseline, [], fill)
+        if colors is not None:
+            _axes_base.set_cycle_position(axes._native, "lines", position)
         collections = wrap_all(axes, natives, mcoll.FillBetweenPolyCollection)
-        labels = iter(labels)
         for collection in collections:
             style = next(style_gen)
             collection._internal_update({**kwargs, **style})

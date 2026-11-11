@@ -13,6 +13,7 @@ use pltrs_render::{CapStyle, GraphicsContext, JoinStyle};
 
 use super::axline::{InfiniteLine, SegmentError};
 use super::hit_region::hit_region;
+use super::polar_frame::KeptPolarFrame;
 use super::program_path::KeptPaths;
 use super::subslice::visible_range;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
@@ -109,6 +110,8 @@ pub(crate) struct LineArtist {
     /// What the line last mapped through a transform calling the
     /// program (matplotlib's `TransformedPath`).
     pub(super) kept_paths: KeptPaths,
+    /// The radial frame the line was drawn with in polar axes.
+    pub(super) kept_polar: KeptPolarFrame,
 }
 
 pltrs_core::archive_struct!(LineArtist {
@@ -143,7 +146,7 @@ pltrs_core::archive_struct!(LineArtist {
     marker_rotation,
     unit_sources,
     rc
-} skip { kept_paths });
+} skip { kept_paths, kept_polar });
 
 impl LineArtist {
     /// A line through `(x, y)` with defaults from `rc`.
@@ -181,6 +184,7 @@ impl LineArtist {
             unit_sources: UnitSources::default(),
             rc,
             kept_paths: KeptPaths::default(),
+            kept_polar: KeptPolarFrame::default(),
         };
         line.recache();
         line
@@ -189,6 +193,7 @@ impl LineArtist {
     /// Rebuilds the drawn path after data or draw-style changes.
     pub(crate) fn recache(&mut self) {
         let steps = self.interpolation_steps;
+        self.kept_polar.forget();
         self.path = line_vertices(&self.xdata, &self.ydata, self.drawstyle)
             .map(|vertices| Path::polyline(vertices).with_interpolation_steps(steps));
     }
@@ -442,7 +447,7 @@ impl Artist for LineArtist {
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let resolved = match self.drawn_transform(ctx.layout()) {
-            Ok(Some(resolved)) => resolved,
+            Ok(Some(resolved)) => self.kept_polar.drawn(&self.transform(), resolved),
             Ok(None) => {
                 ctx.report(self.base.id(), "its coordinate system no longer exists");
                 return;

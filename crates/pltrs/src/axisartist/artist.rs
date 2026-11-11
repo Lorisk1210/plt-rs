@@ -142,6 +142,8 @@ struct LevelDrawing {
     texts: Vec<PlacedText>,
     /// Where each text was moved from its reference point.
     offsets: Vec<TextOffset>,
+    /// The empty labels' places and anchors (see `PlacedTickLabels`).
+    empties: Vec<(usize, Point)>,
 }
 
 /// Everything an axis artist draws, laid out: the major then the minor
@@ -314,12 +316,13 @@ impl AxisArtistState {
             (&minor, &self.minor_ticks, &self.minor_ticklabels),
         ] {
             let (marks, labels) = tick_info(ticks, self.ticklabel_direction.add_angle());
-            let (texts, offsets, pad) = if labels_state.visible {
+            let (texts, offsets, empties, pad) = if labels_state.visible {
                 let style = labels_state.text_style(&self.rc, tick_color);
                 let PlacedTickLabels {
                     texts,
                     offsets,
                     axislabel_pad,
+                    empties,
                 } = tick_labels(
                     layout,
                     &labels,
@@ -329,9 +332,9 @@ impl AxisArtistState {
                     &style,
                     &self.rc,
                 )?;
-                (texts, offsets, axislabel_pad)
+                (texts, offsets, empties, axislabel_pad)
             } else {
-                (Vec::new(), Vec::new(), external)
+                (Vec::new(), Vec::new(), Vec::new(), external)
             };
             axislabel_pad = axislabel_pad.max(pad);
             levels.push(LevelDrawing {
@@ -343,6 +346,7 @@ impl AxisArtistState {
                 )?,
                 texts,
                 offsets,
+                empties,
             });
         }
         let offset = if self.major_ticklabels.visible || self.minor_ticklabels.visible {

@@ -316,6 +316,18 @@ fn set_rectangle(
     Ok(())
 }
 
+/// Sets the correction of the rotation for unequal axis scales of a
+/// rectangle or an ellipse (matplotlib's `_aspect_ratio_correction`, which
+/// the selector widgets set); other patches have none.
+fn set_aspect_ratio_correction(patch: RawHandle, correction: f64) -> PyResult<()> {
+    if let Some(rectangle) = patch.downcast::<Patch<Rectangle>>() {
+        rectangle.update_shape(|shape| shape.aspect_ratio_correction = correction);
+    } else if let Some(ellipse) = patch.downcast::<Patch<Ellipse>>() {
+        ellipse.update_shape(|shape| shape.aspect_ratio_correction = correction);
+    }
+    Ok(())
+}
+
 /// matplotlib's message for a rotation point that is none.
 const ROTATION_POINT_ERROR: &str =
     "`rotation_point` must be one of {'xy', 'center', (number, number)}.";
@@ -610,6 +622,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_patch_transform", get_patch_transform)?;
     module.add("rectangle", rectangle)?;
     module.add("set_rectangle", set_rectangle)?;
+    module.add("set_aspect_ratio_correction", set_aspect_ratio_correction)?;
     module.add("ellipse", ellipse)?;
     module.add("set_ellipse", set_ellipse)?;
     module.add("set_arc", set_arc)?;

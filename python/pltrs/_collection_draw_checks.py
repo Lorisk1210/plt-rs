@@ -64,6 +64,28 @@ def linewidths(collection, widths):
         float(width)
 
 
+def no_linewidths(collection, widths):
+    """Fail as matplotlib's PDF renderer drawing *collection*, of no line
+    *widths*, fails to pad the templates of its paths by the largest
+    width (``np.max``), when it reuses its paths (see
+    `.RendererPdf.draw_path_collection`); the other renderers cycle no
+    width."""
+    if _draws_nothing(collection) or not _drawn_with(collection, "pdf"):
+        return
+    renderer = _drawing_renderer(collection)
+    _, _, offsets, paths = _path_collection_call.prepared_points(collection)
+    facecolors = np.asarray(collection.get_facecolor())
+    edgecolors = np.asarray(collection.get_edgecolor())
+    if not len(facecolors):
+        reusable = not collection.get_hatch()
+    else:
+        reusable = bool(np.all(facecolors[:, 3] == facecolors[0, 3]))
+    len_path, uses_per_path = renderer._collection_uses(
+        paths, collection.get_transforms(), offsets, facecolors, edgecolors)
+    if reusable and len_path + uses_per_path + 5 < len_path * uses_per_path:
+        np.max(widths)
+
+
 def hatch_linewidth(collection, width):
     """Fail as matplotlib's renderer drawing *collection* now fails on its
     hatch line *width*, no number: Agg's casts it to no double, the

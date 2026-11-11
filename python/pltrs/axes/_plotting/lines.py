@@ -472,9 +472,16 @@ class LinesMixin:
                 props["label"] = label
             else:
                 props.pop("label", None)
-            native = _plotting.plot(self._native, *converted_line_data(self, x, y), fmt,
-                                    mlines._native_kwargs(props),
-                                    (bool(scalex), bool(scaley)))
+            data = converted_line_data(self, x, y)
+            try:
+                native = _plotting.plot(self._native, *data, fmt, mlines._native_kwargs(props),
+                                        (bool(scalex), bool(scaley)))
+            except AttributeError:
+                if props.get("color") is None and (not fmt or _format_parts(fmt)[2] is None):
+                    # matplotlib's line takes its colour from the cycle
+                    # before it refuses a property.
+                    self._get_lines.get_next_color()
+                raise
             line = wrap(self, native, mlines.Line2D)
             whole = _format_color(fmt)
             mlines._remember_given(

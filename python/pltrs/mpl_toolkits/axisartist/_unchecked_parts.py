@@ -120,7 +120,8 @@ def check_text_drawing(text):
         _unusable.drop(text, "agg_filter")
     else:
         _unusable.keep(text, "agg_filter", agg_filter,
-                       lambda kept: text._draws_text() and _filter(kept))
+                       lambda kept: (text._draws_text() and text._draws_on_canvas()
+                                     and _filter(kept)))
     features = text.get_fontfeatures()
     if features is None or all(isinstance(tag, str) for tag in features):
         _unusable.drop(text, "fontfeatures")

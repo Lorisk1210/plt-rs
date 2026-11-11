@@ -44,15 +44,20 @@ fn clabel_format(fmt: Option<Owned>) -> PyResult<ClabelFormat> {
     })
 }
 
-/// Runs `place` with the splitter calling `split`, a Python callable taking
-/// `(vertices, codes, index, (x, y), width, spacing)` and returning
-/// `(rotation, path)`, and raises what it raised. After a failure the
-/// labels left are placed with their lines uncut, and the exception is
-/// raised once pltrs (Rust) returns.
+/// Runs `place`, labelling `set`, with the splitter calling `split`, a
+/// Python callable taking `(vertices, codes, index, (x, y), width,
+/// spacing)` and returning `(rotation, path)`, and raises what it raised.
+/// matplotlib adds each label once its line is cut: after a failure,
+/// pltrs (Rust) places the labels left with their lines uncut, and the
+/// labels placed from the failing cut on are taken back before the
+/// exception is raised.
 fn with_splitter<R>(
+    set: &ContourSet,
     split: &Owned,
     place: impl FnOnce(&mut dyn FnMut(LabelCut<'_>) -> (f64, Path)) -> PyResult<R>,
 ) -> PyResult<R> {
+    let before = set.labels().len();
+    let mut cuts = 0;
     let mut failure = None;
     let placed = Python::with_gil(|py| {
         let split = split.bind(py);
@@ -71,7 +76,10 @@ fn with_splitter<R>(
                 Ok::<_, PyErr>((rotation, path.path))
             };
             match failure.is_none().then(called) {
-                Some(Ok(split)) => split,
+                Some(Ok(split)) => {
+                    cuts += 1;
+                    split
+                }
                 Some(Err(err)) => {
                     failure = Some(err);
                     (0.0, cut.path.clone())
@@ -82,7 +90,12 @@ fn with_splitter<R>(
         place(&mut splitter)
     });
     match failure {
-        Some(err) => Err(err),
+        Some(err) => {
+            while set.labels().len() > before + cuts {
+                set.pop_label(None)?;
+            }
+            Err(err)
+        }
         None => placed,
     }
 }
@@ -119,7 +132,7 @@ fn clabel(
         zorder,
         use_clabeltext,
     };
-    with_splitter(&split, |splitter| {
+    with_splitter(&set, &split, |splitter| {
         Ok(set.clabel_split_by(options, Some(splitter))?)
     })
 }
@@ -135,7 +148,7 @@ fn add_label_near(
     inline_spacing: f64,
     split: Owned,
 ) -> PyResult<Text> {
-    with_splitter(&split, |splitter| {
+    with_splitter(&set, &split, |splitter| {
         Ok(set.add_label_near_split_by(
             Point::new(x, y),
             &Transform::Display,
@@ -175,7 +188,7 @@ fn place_labels(
     inline_spacing: f64,
     split: Owned,
 ) -> PyResult<Vec<Text>> {
-    with_splitter(&split, |splitter| {
+    with_splitter(&set, &split, |splitter| {
         Ok(set.place_labels_split_by(inline, inline_spacing, Some(splitter))?)
     })
 }

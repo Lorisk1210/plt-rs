@@ -54,6 +54,46 @@ pub(crate) fn with_radial_frame(
     })
 }
 
+/// The radial frame of a polar map: the radii at the centre (scaled and
+/// as given) and the sign of the radial axis.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct RadialFrame {
+    scaled_origin: f64,
+    origin: f64,
+    sign: f64,
+}
+
+/// The radial frame `transform` maps polar coordinates with, if it does.
+pub(crate) fn radial_frame(transform: &ResolvedTransform) -> Option<RadialFrame> {
+    transform.plane_maps().find_map(|map| {
+        (map as &dyn Any)
+            .downcast_ref::<PolarMap>()
+            .map(|map| RadialFrame {
+                scaled_origin: map.scaled_origin,
+                origin: map.origin,
+                sign: map.sign,
+            })
+    })
+}
+
+/// `transform` mapping polar coordinates with the radial `frame` instead:
+/// the frame a line's path was mapped with, as matplotlib's cached path
+/// keeps it (see `lines::KeptPolarFrame`).
+pub(crate) fn with_mapped_frame(
+    transform: &ResolvedTransform,
+    frame: RadialFrame,
+) -> ResolvedTransform {
+    transform.with_planes(|map| {
+        let map = (map as &dyn Any).downcast_ref::<PolarMap>()?;
+        Some(Rc::new(PolarMap {
+            scaled_origin: frame.scaled_origin,
+            origin: frame.origin,
+            sign: frame.sign,
+            ..*map
+        }) as Rc<dyn PointMap>)
+    })
+}
+
 impl PolarMap {
     /// matplotlib's `PolarTransform()` without an axis: radii are drawn
     /// as they are, from the origin.

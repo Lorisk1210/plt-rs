@@ -82,6 +82,15 @@ def _as_matplotlib(compute, reference, plain):
     raise failure
 
 
+def _shift_in_place(frequencies, Fc):
+    """Fail as matplotlib's spectra fail to shift their frequencies in place
+    by *Fc* (``freqs += Fc``) when it is no number, before they plot
+    anything: *frequencies()* gives them as matplotlib's ``mlab`` does."""
+    if not isinstance(Fc, numbers.Real):
+        freqs = frequencies()
+        freqs += Fc
+
+
 def _line(kwargs):
     """`.Line2D` keyword arguments in native form."""
     return mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
@@ -204,6 +213,8 @@ class SpectralMixin:
         John Wiley & Sons (1986)
         """
         Fc = 0 if Fc is None else Fc
+        _shift_in_place(lambda: _mlab_reference.csd(
+            x, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq)[1], Fc)
         pxx, freqs = _as_matplotlib(
             lambda: _plotting.psd(
                 self._native, mlab._signal(np.asarray(x)),
@@ -299,6 +310,8 @@ class SpectralMixin:
         John Wiley & Sons (1986)
         """
         Fc = 0 if Fc is None else Fc
+        _shift_in_place(lambda: _mlab_reference.csd(
+            x, y, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq)[1], Fc)
         (re, im), freqs = _as_matplotlib(
             # Without *y*, matplotlib's cross spectrum is the spectrum of *x*.
             lambda: _plotting.csd(
@@ -368,12 +381,8 @@ class SpectralMixin:
         Bendat & Piersol -- Random Data: Analysis and Measurement Procedures,
         John Wiley & Sons (1986)
         """
-        if not isinstance(Fc, numbers.Real):
-            # matplotlib shifts its frequencies in place, failing on what is
-            # no number.
-            _, freqs = _mlab_reference.cohere(x, y, NFFT, Fs, detrend, window,
-                                              noverlap, pad_to, sides, scale_by_freq)
-            freqs += Fc
+        _shift_in_place(lambda: _mlab_reference.cohere(
+            x, y, NFFT, Fs, detrend, window, noverlap, pad_to, sides, scale_by_freq)[1], Fc)
         cxy, freqs = _as_matplotlib(
             lambda: _plotting.cohere(
                 self._native, (_floats(x), _floats(y)),
@@ -388,6 +397,8 @@ class SpectralMixin:
                          kwargs):
         """A single-segment spectrum `kind` of *x*, plotted."""
         Fc = 0 if Fc is None else Fc
+        _shift_in_place(lambda: _mlab_reference.single_spectrum_helper(
+            kind, x, Fs, window, pad_to, sides)[1], Fc)
 
         def compute():
             signal = _floats(x)
@@ -733,6 +744,9 @@ class SpectralMixin:
         mode = 'psd' if mode in (None, 'default') else mode
         if scale not in ('linear', 'dB'):
             raise ValueError(f'Unknown scale {scale!r}')
+        _shift_in_place(lambda: _mlab_reference.spectral_helper(
+            x, None, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
+            scale_by_freq, reference_mode)[1], Fc)
         if 'origin' in kwargs:
             raise _api.kwarg_error("specgram", "origin")
         made, mapping = _mapping(cmap, kwargs.pop('norm', None), vmin, vmax,

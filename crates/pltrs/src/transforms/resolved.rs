@@ -541,20 +541,43 @@ impl ResolvedTransform {
         &self,
         replace: impl Fn(&dyn PointMap) -> Option<Rc<dyn PointMap>>,
     ) -> Self {
+        self.with_plane_steps(|map| {
+            (map.as_ref() as &dyn std::any::Any)
+                .downcast_ref::<InversePlane>()
+                .and_then(|inverse| replace(inverse.0.as_ref()))
+                .map(|new| Rc::new(InversePlane(new)) as Rc<dyn PointMap>)
+        })
+    }
+
+    /// This transform with plane maps replaced: `replace` gives, for the
+    /// map of a step, the map the step takes instead (`None` keeps it).
+    pub(crate) fn with_planes(
+        &self,
+        replace: impl Fn(&dyn PointMap) -> Option<Rc<dyn PointMap>>,
+    ) -> Self {
+        self.with_plane_steps(|map| replace(map.as_ref()))
+    }
+
+    /// The maps of the plane steps, in order.
+    pub(crate) fn plane_maps(&self) -> impl Iterator<Item = &dyn PointMap> {
+        self.steps.iter().filter_map(|step| match step {
+            Step::Plane(map) => Some(map.as_ref()),
+            _ => None,
+        })
+    }
+
+    /// This transform with the map of each plane step `replace` gives a
+    /// map for replaced by it.
+    fn with_plane_steps(
+        &self,
+        replace: impl Fn(&Rc<dyn PointMap>) -> Option<Rc<dyn PointMap>>,
+    ) -> Self {
         let steps = self
             .steps
             .iter()
-            .map(|step| {
-                let Step::Plane(map) = step else {
-                    return step.clone();
-                };
-                (map.as_ref() as &dyn std::any::Any)
-                    .downcast_ref::<InversePlane>()
-                    .and_then(|inverse| replace(inverse.0.as_ref()))
-                    .map_or_else(
-                        || step.clone(),
-                        |new| Step::Plane(Rc::new(InversePlane(new))),
-                    )
+            .map(|step| match step {
+                Step::Plane(map) => replace(map).map_or_else(|| step.clone(), Step::Plane),
+                _ => step.clone(),
             })
             .collect();
         Self {

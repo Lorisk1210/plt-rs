@@ -17,11 +17,21 @@ fn tick_labels(artist: &AxisArtist, level: &str) -> pltrs::axisartist::TickLabel
     }
 }
 
-/// The display boxes `(x0, y0, x1, y1)` of the tick labels of `level`
-/// (`TickLabels.get_window_extents`).
-fn ticklabel_extents(artist: AxisArtist, level: String) -> PyResult<Vec<(f64, f64, f64, f64)>> {
-    Ok(tick_labels(&artist, &level)
-        .window_extents()
+/// The display boxes `(x0, y0, x1, y1)` of the tick labels of `level`:
+/// all of them, the empty ones as points, when `with_empties`
+/// (`TickLabels.get_window_extents`), else those drawn.
+fn ticklabel_extents(
+    artist: AxisArtist,
+    level: String,
+    with_empties: bool,
+) -> PyResult<Vec<(f64, f64, f64, f64)>> {
+    let labels = tick_labels(&artist, &level);
+    let extents = if with_empties {
+        labels.window_extents()
+    } else {
+        labels.drawn_extents()
+    };
+    Ok(extents
         .iter()
         .map(|b| (b.x0(), b.y0(), b.x1(), b.y1()))
         .collect())

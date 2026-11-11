@@ -160,6 +160,18 @@ fn next_cycle_color(axes: Axes, kind: String) -> PyResult<Color> {
     })
 }
 
+/// How far the property cycle `kind` has advanced.
+fn cycle_position(axes: Axes, kind: String) -> PyResult<usize> {
+    Ok(axes.prop_cycle_position(prop_cycle(&kind)?))
+}
+
+/// Moves the property cycle `kind` to `position`, as `cycle_position`
+/// gave it.
+fn set_cycle_position(axes: Axes, kind: String, position: usize) -> PyResult<()> {
+    axes.set_prop_cycle_position(prop_cycle(&kind)?, position);
+    Ok(())
+}
+
 /// The name of the scale of axis `name` (`get_xscale`, `get_yscale`).
 fn get_scale(axes: Axes, name: String) -> PyResult<String> {
     Ok(match axis_name(&name)? {
@@ -182,6 +194,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_prop_cycle", set_prop_cycle)?;
     module.add("share_prop_cycle", share_prop_cycle)?;
     module.add("next_cycle_color", next_cycle_color)?;
+    module.add("cycle_position", cycle_position)?;
+    module.add("set_cycle_position", set_cycle_position)?;
     module.add("get_scale", get_scale)?;
     across::register(module)?;
     decorations::register(module)?;

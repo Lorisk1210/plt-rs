@@ -489,14 +489,15 @@ def _look_of(text):
     the text), its line spacing (None: normal), its rotation mode
     (``anchor`` for a text wrapped: matplotlib's ``_get_wrap_line_width``
     sets it so whenever it lays the text out, as pltrs (Rust) lays its
-    texts out), whether it is antialiased and whether its math is
-    typeset."""
+    texts out), whether it is antialiased, whether its math is
+    typeset and whether its transform turns it."""
     wrapped = text.get_wrap() and not text.get_usetex()
     return (FontManager._props(text.get_fontproperties()),
             _text.get_multialignment(text._native),
             _text.get_linespacing(text._native),
             "anchor" if wrapped else text.get_rotation_mode(),
-            bool(text.get_antialiased()), bool(text.get_parse_math()))
+            bool(text.get_antialiased()), bool(text.get_parse_math()),
+            bool(text.get_transform_rotates_text()))
 
 
 @_mirrors.pushing
@@ -602,6 +603,20 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
                                "top": "bottom",
                                "bottom": "top"}.__getitem__
 
+    def get_rotation(self):
+        # A transform that rotates texts turns the angle where the text
+        # stands, as `Text.get_rotation` does, from the angle the draws of
+        # the axis artist left (matplotlib's `LabelBase.draw` keeps the
+        # angle it read).
+        rotation = mtext.Text.get_rotation(self)
+        if not self.get_transform_rotates_text():
+            return rotation
+        drawn = _mirrors.mirroring(self)
+        if isinstance(drawn, _Drawn) and drawn.axis_artist is not None:
+            rotation = _axisartist.drawn_rotation(drawn.native, drawn.name)
+        return self.get_transform().transform_angles(
+            np.array([rotation]), np.array([self.get_unitless_position()])).item(0)
+
     def draw(self, renderer):
         if not self.get_visible():
             return
@@ -627,8 +642,17 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
             mtext.Text.set_color(self, color_orig)
 
     def get_window_extent(self, renderer=None):
-        with mtext._measured_by_given(renderer, self):
-            extent = self._drawn_extent(_mirrors.mirroring(self))
+        try:
+            with mtext._measured_by_given(renderer, self):
+                extent = self._drawn_extent(_mirrors.mirroring(self))
+        except Exception:
+            drawn = _mirrors.mirroring(self)
+            if (isinstance(drawn, _Drawn) and drawn.axis_artist is not None
+                    and self.get_visible() and self.get_text()):
+                # matplotlib moved and turned the text before it failed
+                # to measure it, and leaves it so.
+                _axisartist.note_failed_text_draw(drawn.native, drawn.name)
+            raise
         if extent is not _mirrors.OWN:
             if self.get_visible() and self.get_text():
                 # matplotlib lays the text out with *renderer* (or its
@@ -695,6 +719,19 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         text draws none)."""
         return bool(self._drawn_lines())
 
+    def _draws_on_canvas(self):
+        """Whether matplotlib's draw of the text puts pixels on the canvas,
+        where its renderer calls an agg filter only then: whether what the
+        part drawing it draws meets the figure."""
+        drawn = _mirrors.mirroring(self)
+        if not isinstance(drawn, _Drawn):
+            return True
+        extents = (_axisartist.axis_text_extents(drawn.native) if drawn.axis_artist is None
+                   else self._part_extents(drawn))
+        figure = self.get_figure(root=True).bbox
+        return any(x0 < figure.x1 and x1 > figure.x0 and y0 < figure.y1 and y1 > figure.y0
+                   for x0, y0, x1, y1 in extents)
+
     def _drawn_lines(self):
         """The lines matplotlib's draw of the text draws, in order."""
         text = self.get_text()
@@ -717,7 +754,7 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         return (self._KIND, float(self._offset_radius), self._texts(), (
             self._native_pad(owner), self._resolved_color(),
             float(self.get_fontsize()), _look_of(self),
-            float(self.get_rotation()), (self.get_va(), self.get_ha()),
+            float(mtext.Text.get_rotation(self)), (self.get_va(), self.get_ha()),
             self.__dict__.get("_axis_direction", "bottom")))
 
     def _restyle(self, drawn):
@@ -729,7 +766,7 @@ class LabelBase(_DrawnOnItsOwn, mtext.Text):
         _axisartist.restyle_label(drawn.native, drawn.name, (
             (bool(self.get_visible()), self._native_pad(drawn.owner()),
              None if cbook._str_equal(color, "auto") else color),
-            (float(self.get_fontsize()), _look_of(self), float(self.get_rotation())),
+            (float(self.get_fontsize()), _look_of(self), float(mtext.Text.get_rotation(self))),
             (self.get_va(), self.get_ha(), self._axis_direction),
             self._part_text()))
         _axisartist.set_part_bbox(drawn.native, drawn.name, self._native)
@@ -1169,9 +1206,11 @@ class TickLabels(AxisLabel):  # mtext.Text
                 self._check_measuring(renderer)
                 renderer.points_to_pixels(self.get_pad())
             with mtext._measured_by_given(renderer, self):
+                # matplotlib measures every label, an empty one as a point.
                 extents = (_axisartist.axis_text_extents(mirror.native)
                            if mirror.axis_artist is None
-                           else self._part_extents(mirror))
+                           else _axisartist.ticklabel_extents(
+                               mirror.native, self._level(mirror), True))
             if any(label for _, _, label in self._locs_angles_labels):
                 # matplotlib measures each label as a text, which keeps
                 # the renderer when the label is not empty.
@@ -1271,7 +1310,8 @@ class TickLabels(AxisLabel):  # mtext.Text
         return True
 
     def _part_extents(self, drawn):
-        return _axisartist.ticklabel_extents(drawn.native, self._level(drawn))
+        # The labels drawn (none empty).
+        return _axisartist.ticklabel_extents(drawn.native, self._level(drawn), False)
 
     def _refresh(self, drawn):
         # matplotlib's draw hands the texts their labels, and leaves the
@@ -1947,6 +1987,7 @@ _DIRECTIONS = {0: "+", 180: "-"}
 cbook._inherited_methods(_AutoStyle, Line2D, ["set_markeredgewidth"])
 cbook._inherited_methods(Ticks, martist.Artist, ["set_visible"])
 cbook._inherited_methods(LabelBase, martist.Artist, ["set_visible"])
+cbook._inherited_methods(LabelBase, mtext.Text, ["get_rotation"])
 
 
 # What matplotlib's module also has from its imports, which programs

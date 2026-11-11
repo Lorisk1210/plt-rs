@@ -19,20 +19,28 @@ artist_handle!(AxisTextsArtist);
 /// How texts are typeset beyond their size, colour, angle and alignment
 /// ([`TextLook`]), crossing as the tuple of the font properties (as
 /// `FontManager._props` makes them), the alignment of the lines (`None`
-/// follows the texts'), the line spacing (`None` for `normal`) and the
-/// rotation mode, both ways.
+/// follows the texts'), the line spacing (`None` for `normal`), the
+/// rotation mode, antialiasing, math parsing and whether the transform
+/// turns the texts, both ways.
 pub(super) struct PyTextLook(pub(super) TextLook);
+
+/// The tuple a [`PyTextLook`] crosses as: the font properties, the lines'
+/// alignment, the line spacing, the rotation mode, antialiasing, math
+/// parsing and whether the transform turns the texts.
+type LookTuple = (
+    FontProps,
+    Option<String>,
+    Option<f64>,
+    String,
+    Option<bool>,
+    Option<bool>,
+    bool,
+);
 
 impl FromPy<'_> for PyTextLook {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        let (font, multialign, linespacing, rotation_mode, antialiased, parse_math): (
-            FontProps,
-            Option<String>,
-            Option<f64>,
-            String,
-            Option<bool>,
-            Option<bool>,
-        ) = object.extract()?;
+        let (font, multialign, linespacing, rotation_mode, antialiased, parse_math, rotates): LookTuple =
+            object.extract()?;
         Ok(Self(TextLook {
             font: font.0,
             multialign: multialign
@@ -42,6 +50,7 @@ impl FromPy<'_> for PyTextLook {
             rotation_mode: named(&rotation_mode, "rotation mode")?,
             antialiased,
             parse_math,
+            transform_rotates_text: rotates,
         }))
     }
 }
@@ -60,6 +69,7 @@ impl IntoPy for PyTextLook {
             rotation_mode_name(look.rotation_mode),
             look.antialiased,
             look.parse_math,
+            look.transform_rotates_text,
         )
             .into_py(py)
     }
@@ -179,7 +189,7 @@ mod tests {
 
     /// A look of texts as Python describes it.
     const LOOK: &str = "look = ((['serif'], ('italic', 'normal'), ('bold', 'normal', 10.0), \
-                        ('dejavusans', None)), 'right', 1.5, 'anchor', False, None)";
+                        ('dejavusans', None)), 'right', 1.5, 'anchor', False, None, True)";
 
     #[test]
     fn descriptions_cross_whole() {
@@ -207,6 +217,7 @@ mod tests {
                 (texts.look.antialiased, texts.look.parse_math),
                 (Some(false), None)
             );
+            assert!(texts.look.transform_rotates_text);
             let back = PyTextLook(texts.look.clone()).into_py(py).expect("a tuple");
             let again = PyTextLook::from_py(&back).expect("the same look").0;
             assert_eq!(again, texts.look);

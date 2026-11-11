@@ -91,6 +91,7 @@ impl AxisArtistState {
         &self,
         layout: LayoutContext<'_>,
         level: Level,
+        with_empties: bool,
     ) -> Result<Vec<Bbox>, String> {
         let drawing = self.drawing(
             layout,
@@ -101,11 +102,16 @@ impl AxisArtistState {
             Level::Major => 0,
             Level::Minor => 1,
         };
-        Ok(drawing.levels[index]
-            .texts
-            .iter()
-            .map(PlacedText::bbox)
-            .collect())
+        let level = &drawing.levels[index];
+        let mut extents: Vec<Bbox> = level.texts.iter().map(PlacedText::bbox).collect();
+        // matplotlib measures the empty labels too, as their anchors.
+        for &(place, at) in level.empties.iter().filter(|_| with_empties) {
+            extents.insert(
+                place.min(extents.len()),
+                Bbox::from_extents(at.x, at.y, at.x, at.y),
+            );
+        }
+        Ok(extents)
     }
 
     /// The display box of the label at the gap it was last placed with,

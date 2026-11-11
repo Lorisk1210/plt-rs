@@ -960,7 +960,13 @@ class Collection(mcolorizer.ColorizingArtist):
             return
         _collections.set_linewidths(self._native, widths)
         _values.remember(self, "linewidth", lw)
-        _unusable.drop(self, "linewidth")
+        if widths:
+            _unusable.drop(self, "linewidth")
+        else:
+            # matplotlib's PDF renderer fails on no widths (see
+            # `._collection_draw_checks.no_linewidths`).
+            _unusable.keep(self, "linewidth", lw, functools.partial(
+                _collection_draw_checks.no_linewidths, self), measured=False)
 
     def get_linestyle(self):
         return self._lwls()[1]

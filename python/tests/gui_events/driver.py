@@ -16,6 +16,7 @@ import time
 
 from . import wayland as wayland_driving
 from . import xclient, xdisplay
+from .activity import Processes
 from .canvas import POLL, SHOWN_WITHIN, Canvas, wait_shown
 from .errors import ProgramFailed
 from .scenarios import SCENARIOS
@@ -23,11 +24,21 @@ from .scenarios import SCENARIOS
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 
-#: How long the log must stay unchanged for the program to count as done
-#: with the input it was given, and how long to wait for that at most.
+#: How long the log must stay unchanged, with the processes the input
+#: passes through idle, for the program to count as done with the input
+#: it was given (a timer it started meanwhile fires within it), and how
+#: long to wait for that at most: a deadline, which only a program busy
+#: on its own (an animation playing on) reaches.
 QUIET, PATIENCE = 0.1, 5.0
+#: How often to look at the log and the processes meanwhile, in seconds.
+SAMPLE = 0.01
 #: The time between the presses and releases of a double click.
 DOUBLE_CLICK_STEP = 0.05
+#: How long after a press of a button, once handled, the next press of
+#: it comes unless it makes a double click: beyond the double-click time
+#: of Qt's and pltrs' windows (400 ms), so that a press counts as a
+#: click of its own however long the waits before it took.
+CLICKS_APART = 0.45
 #: How long a program may take to show its window, and to end once closed.
 STARTUP, SHUTDOWN = 60.0, 20.0
 
@@ -79,14 +90,20 @@ class Driver:
     """
     Input to one program's window, in the figure's pixels from its
     bottom-left corner. Every method waits until the program has handled
-    what it was given (its log stops growing).
+    what it was given (see `settle`); *processes* (an
+    `activity.Processes`) are the program and the display servers the
+    input passes through.
     """
 
-    def __init__(self, display, window, canvas, log_path, closer=None):
+    def __init__(self, display, window, canvas, log_path, processes,
+                 closer=None):
         self.x = display
         self.window = window
         self._log_path = log_path
+        self._processes = processes
         self._closer = closer
+        #: The last button pressed, and when its press was handled.
+        self._last_press = (None, 0.0)
         x, y, _, _ = display.geometry(window)
         cx, cy, self.width, self.height = canvas
         self._origin = (x + cx, y + cy)
@@ -96,30 +113,39 @@ class Driver:
     # Waiting.
 
     def settle(self):
-        """Wait until the program's log stops growing."""
+        """
+        Wait until the program is done with the input it was given and
+        with what it asked for in turn (an idle draw, a blit, a timer
+        within `QUIET`): its log has not grown for `QUIET` seconds, and
+        meanwhile no thread of it or of the display servers was busy
+        (`activity`) at two samples in a row. A program waiting for a
+        CPU, however long, is busy, not done.
+        """
         deadline = time.monotonic() + PATIENCE
-        size, since = -1, time.monotonic()
+        size, since, busy = -1, time.monotonic(), set()
         while time.monotonic() < deadline:
             now_size = self._log_path.stat().st_size
-            if now_size != size:
+            now_busy = self._processes.busy()
+            if now_size != size or busy & now_busy:
                 size, since = now_size, time.monotonic()
             elif time.monotonic() - since >= QUIET:
                 return
-            time.sleep(0.01)
+            busy = now_busy
+            time.sleep(SAMPLE)
 
-    def _await_record(self, wanted, after):
+    def await_record(self, wanted, after=0):
         """Wait for a record of the log after its first *after* ones for
-        which *wanted* holds."""
+        which *wanted* holds (`ProgramFailed` after `PATIENCE` seconds)."""
         deadline = time.monotonic() + PATIENCE
         while time.monotonic() < deadline:
             if any(map(wanted, read_log(self._log_path)[after:])):
                 return
-            time.sleep(0.01)
+            time.sleep(SAMPLE)
         raise ProgramFailed(f"no record as awaited within {PATIENCE} s")
 
     def wait(self, seconds):
-        """Let *seconds* pass (for timers and animations, and to part two
-        clicks)."""
+        """Let *seconds* pass: to watch for what should not come (frames
+        after an animation's last)."""
         time.sleep(seconds)
 
     # The pointer.
@@ -142,11 +168,21 @@ class Driver:
         self.x.motion(*self.screen(self.width + 40, self.height // 2))
         self.settle()
 
+    def _clear_of_last_press(self, button):
+        """Wait until a press of *button* cannot make a double click with
+        the last press (`CLICKS_APART`)."""
+        last, handled = self._last_press
+        if last == button:
+            time.sleep(max(handled + CLICKS_APART - time.monotonic(), 0))
+
     def press(self, button):
         """Press mouse *button* (1 left, 2 middle, 3 right, 8 back, 9
-        forward)."""
+        forward): a click of its own, never the second of a double
+        click."""
+        self._clear_of_last_press(button)
         self.x.button(button, True)
         self.settle()
+        self._last_press = (button, time.monotonic())
 
     def release(self, button):
         """Release mouse *button*."""
@@ -161,10 +197,12 @@ class Driver:
     def double_click(self, button=1):
         """Two clicks of *button* as a hand makes them: 50 ms apart from
         each press to the next release, within the double-click time."""
+        self._clear_of_last_press(button)
         for pressed in (True, False, True, False):
             self.x.button(button, pressed)
             time.sleep(DOUBLE_CLICK_STEP)
         self.settle()
+        self._last_press = (button, time.monotonic())
 
     def drag(self, button, points):
         """Press *button* at the first of *points*, move through the
@@ -253,8 +291,9 @@ class Driver:
                          width=window_width + width - self.width,
                          height=window_height + height - self.height)
         self.width, self.height = width, height
-        self._await_record(lambda record: record["name"] == "resize_event"
-                          and record["size"] == [width, height], known)
+        self.await_record(lambda record: record["name"] == "resize_event"
+                                 and record["size"] == [width, height],
+                          known)
         self.settle()
 
     def close(self):
@@ -266,25 +305,13 @@ class Driver:
 
     def snapshot(self, name):
         """Keep the canvas' pixels as snapshot *name*, once the program is
-        done (its log is quiet) and so is its window (its pixels stay the
-        same for `QUIET` seconds: a blit or a paint may follow the last
-        record)."""
+        done (`settle`), and with it the display servers: a blit or a
+        paint that follows the last record is done by then too."""
         self.settle()
         x, y = self.screen(0, self.height)
         wx, wy, _, _ = self.x.geometry(self.window)
-
-        def pixels():
-            return self.x.image(self.window, x - wx, y - wy, self.width,
-                                self.height)
-
-        shown = pixels()
-        deadline = time.monotonic() + PATIENCE
-        while time.monotonic() < deadline:
-            time.sleep(QUIET)
-            before, shown = shown, pixels()
-            if shown == before:
-                break
-        self.snapshots[name] = (self.width, self.height, shown)
+        self.snapshots[name] = (self.width, self.height, self.x.image(
+            self.window, x - wx, y - wy, self.width, self.height))
 
 
 def read_log(path):
@@ -316,12 +343,14 @@ def run(name, library, backend, display, workdir, wayland=False):
     if not wayland:
         return _run(name, library, backend, display, workdir, None)
     with xdisplay.private_wayland(display, pathlib.Path(workdir) /
-                                  f"weston-{library}") as socket:
-        return _run(name, library, backend, display, workdir, socket)
+                                  f"weston-{library}") as weston:
+        return _run(name, library, backend, display, workdir, weston)
 
 
-def _run(name, library, backend, display, workdir, socket):
-    """`run` on X display *display*, or on the weston of *socket*."""
+def _run(name, library, backend, display, workdir, weston):
+    """`run` on X display *display*, or on *weston* (an
+    `xdisplay.Weston` nested in it)."""
+    socket = None if weston is None else weston.socket
     scenario = SCENARIOS[name]
     workdir = pathlib.Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
@@ -352,9 +381,13 @@ def _run(name, library, backend, display, workdir, socket):
                 canvas = wait_shown(conn, window, shown, keep=keep)
                 closer = wayland_driving.close
             conn.focus(window)
-            driver = Driver(conn, window, canvas, log_path, closer)
-            driver.settle()
-            scenario.steps(driver)
+            with Processes([proc.pid, xdisplay.server_pid(display),
+                            None if weston is None else weston.pid
+                            ]) as processes:
+                driver = Driver(conn, window, canvas, log_path, processes,
+                                closer)
+                driver.settle()
+                scenario.steps(driver)
             _wait_for(log_path, proc, "end", SHUTDOWN)
         finally:
             conn.close()

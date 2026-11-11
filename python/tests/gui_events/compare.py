@@ -9,12 +9,12 @@ import json
 from .images import save_png
 
 #: Fields that differ between two runs of the same program.
-_UNSTABLE = {"t"}
+_UNSTABLE = {"t", "waited"}
 
 
 def normalise(records):
-    """The records as compared: without the times and the ``ready``
-    record (which names the window's layout)."""
+    """The records as compared: without the times (`_UNSTABLE`) and the
+    ``ready`` record (which names the window's layout)."""
     return [{key: value for key, value in record.items()
              if key not in _UNSTABLE}
             for record in records if record["name"] != "ready"]

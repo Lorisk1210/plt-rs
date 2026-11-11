@@ -24,7 +24,7 @@
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 1, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 241, "xdata": -0.0385, "y": 210, "ydata": 0.0275}
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 1, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 241, "xdata": -0.0385, "y": 210, "ydata": 0.0275}
 {"index": 0, "label": "red", "name": "selected", "value": "red"}
-{"button": 1, "buttons": null, "dblclick": true, "gui": true, "inaxes": 1, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 241, "xdata": -0.0385, "y": 210, "ydata": 0.0275}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 1, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 241, "xdata": -0.0385, "y": 210, "ydata": 0.0275}
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 1, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 241, "xdata": -0.0385, "y": 210, "ydata": 0.0275}
 {"button": null, "buttons": [], "dblclick": false, "gui": true, "inaxes": 1, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 270, "xdata": -0.0157143, "y": 90, "ydata": -0.0275}
 {"index": 2, "label": "blue", "name": "selected", "value": "blue"}

@@ -1,14 +1,18 @@
 """
 Animations playing in the window: `FuncAnimation` and `ArtistAnimation`,
 with and without blitting, stopped by their event source, and closed
-while they play. The frames report as they are drawn (with their time,
-which the comparison leaves out; `frame_times` gives the intervals).
+while they play. The frames report as they are drawn (with their time
+and the program's wait for a CPU, which the comparison leaves out;
+`frame_times` gives the intervals).
 """
 
 from . import one_axes, scenario
 
 #: The animations' interval between frames, in milliseconds.
 INTERVAL = 50
+#: How long to watch after an animation's last frame for frames that
+#: should not come, in seconds: ten intervals.
+AFTER_LAST = 10 * INTERVAL / 1000
 
 
 def _animation_module(plt):
@@ -51,29 +55,52 @@ def animation_stop(plt, log):
     return _func(plt, log, blit=True, frames=20, stop_at=4)
 
 
-def _play(d):
-    """Let ten frames and more play, then close the window."""
-    d.wait(1.5)
-    d.close()
+def _play_until(last):
+    """The steps letting an animation play until the record for which
+    *last* holds, watching `AFTER_LAST` seconds more, then closing the
+    window."""
+    def steps(d):
+        d.await_record(last)
+        d.wait(AFTER_LAST)
+        d.close()
+    return steps
+
+
+def _frame(number):
+    """Whether a record is the frame *number* of a `FuncAnimation`."""
+    return lambda record: (record["name"] == "frame"
+                           and record["frame"] == number)
 
 
 def _timed(records):
-    """What is wrong with the timing of an animation's frames: those its
-    timer drew (after the first) come every `INTERVAL` milliseconds, give
-    or take 40%, none more than 200 ms after the one before."""
+    """
+    What is wrong with the timing of an animation's frames: those its
+    timer drew (after the first) come every `INTERVAL` milliseconds give
+    or take 40% on average, none more than 200 ms after the one before.
+
+    A loaded machine only spaces them more: a timer fires no earlier
+    than due, and one fired late is due again an interval after it was
+    due (or after it fired, when that has passed too), so the frames
+    come no faster on average. The spacing is bounded above once the
+    time the program waited for a CPU in between is taken off (its own
+    gaps), which is all a loaded machine adds.
+    """
     gaps = frame_times(records)[2:]
     if not gaps:
         return ["no frames played"]
-    mean = sum(gaps) / len(gaps)
-    if not 0.6 * INTERVAL <= 1000 * mean <= 1.4 * INTERVAL or max(gaps) > 0.2:
+    own = frame_times(records, own=True)[2:]
+    mean, own_mean = sum(gaps) / len(gaps), sum(own) / len(own)
+    if (mean < 0.6 * INTERVAL / 1000 or own_mean > 1.4 * INTERVAL / 1000
+            or max(own) > 0.2):
         return [f"frames {1000 * mean:.0f} ms apart on average, "
-                f"{1000 * max(gaps):.0f} ms at most"]
+                f"{1000 * own_mean:.0f} ms and {1000 * max(own):.0f} ms at "
+                "most without the waits for a CPU"]
     return []
 
 
-func_animation.steps(_play)
-func_animation_blit.steps(_play)
-animation_stop.steps(_play)
+func_animation.steps(_play_until(_frame(9)))
+func_animation_blit.steps(_play_until(_frame(9)))
+animation_stop.steps(_play_until(lambda record: record["name"] == "stopped"))
 func_animation.check(_timed)
 func_animation_blit.check(_timed)
 
@@ -93,8 +120,9 @@ def animation_close(plt, log):
 
 @animation_close.steps
 def _(d):
-    # Closed while it plays: the program ends, nothing draws afterwards.
-    d.wait(0.33)
+    # Closed while it plays (three frames shown, as `_played` wants):
+    # the program ends, nothing draws afterwards.
+    d.await_record(_frame(2))
     d.close()
 
 
@@ -136,13 +164,20 @@ def artist_animation_blit(plt, log):
     return _artists(plt, log, blit=True)
 
 
-artist_animation.steps(_play)
-artist_animation_blit.steps(_play)
+# The last of the eight artists shows.
+artist_animation.steps(_play_until(
+    lambda record: record["name"] == "frame"
+    and "frame 7" in record["visible"]))
+artist_animation_blit.steps(_play_until(
+    lambda record: record["name"] == "frame"
+    and "frame 7" in record["visible"]))
 artist_animation.check(_timed)
 artist_animation_blit.check(_timed)
 
 
-def frame_times(records):
-    """The times between the frames of a run's records, in seconds."""
-    times = [r["t"] for r in records if r["name"] == "frame"]
+def frame_times(records, own=False):
+    """The times between the frames of a run's records, in seconds; with
+    *own*, less the time the program waited for a CPU meanwhile."""
+    times = [r["t"] - (r["waited"] if own else 0)
+             for r in records if r["name"] == "frame"]
     return [later - earlier for earlier, later in zip(times, times[1:])]

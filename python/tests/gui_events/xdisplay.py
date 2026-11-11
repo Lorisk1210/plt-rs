@@ -5,6 +5,7 @@ a weston nested in it, for Wayland.
 """
 
 import contextlib
+import dataclasses
 import itertools
 import os
 import pathlib
@@ -26,6 +27,8 @@ NUMBERS = range(160, 260)
 STARTED_WITHIN = 30
 #: Numbers the westons' sockets, one of its own for each.
 _WESTONS = itertools.count()
+#: The process ids of the private X servers running, by display name.
+_SERVERS = {}
 
 
 class Unavailable(Exception):
@@ -51,13 +54,22 @@ def private_display():
         if proc is None:
             # Another server took the number meanwhile: try the next one.
             continue
+        name = f":{number}"
+        _SERVERS[name] = proc.pid
         try:
-            yield f":{number}"
+            yield name
         finally:
+            del _SERVERS[name]
             proc.terminate()
             proc.wait()
         return
     raise Unavailable("no free display number")
+
+
+def server_pid(display):
+    """The process id of the X server of *display* if `private_display`
+    started it, else None."""
+    return _SERVERS.get(display)
 
 
 def _start_xvfb(xvfb, number):
@@ -106,6 +118,15 @@ TOOLKITS_PREFIX = pathlib.Path(os.environ.get(
     "TOOLKITS_PREFIX", pathlib.Path.home() / ".local/gtk"))
 
 
+@dataclasses.dataclass(frozen=True)
+class Weston:
+    """A weston running for the harness."""
+    #: The name of its socket (``WAYLAND_DISPLAY``).
+    socket: str
+    #: Its process id.
+    pid: int
+
+
 def runtime_dir():
     """Where Wayland compositors put their sockets."""
     return os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
@@ -116,7 +137,7 @@ def private_wayland(display, workdir):
     """
     Start weston nested in X display *display* (its X11 backend), so
     that input faked on that server reaches its Wayland clients through
-    its seat, as a user's would; give the name of its socket. Its
+    its seat, as a user's would; give it (a `Weston`). Its
     configuration goes to *workdir*. `Unavailable` without weston (see
     ``crates/pltrs-platform/tools/weston.sh install``) or the X libraries
     of its X11 backend (``python/tools/toolkits.sh install``).
@@ -154,7 +175,7 @@ def private_wayland(display, workdir):
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         _wait_for_weston(proc, display, pathlib.Path(runtime_dir()) / socket)
-        yield socket
+        yield Weston(socket, proc.pid)
     finally:
         proc.terminate()
         proc.wait()

@@ -59,17 +59,30 @@ def plain(value, digits=6):
     return repr(value)
 
 
+def cpu_wait():
+    """How long the calling thread has waited for a CPU so far (runnable
+    but not running), in seconds: the second field of its
+    ``schedstat``."""
+    with open("/proc/thread-self/schedstat", encoding="ascii") as file:
+        return int(file.read().split()[1]) / 1e9
+
+
 class Log:
     """The log file, written a line at a time, each line with the time
-    since the program started (``t``)."""
+    since the program started (``t``) and how much of it the program
+    waited for a CPU (``waited``; the records are written on the main
+    thread, where the program's callbacks run): what a loaded machine
+    takes from the program, apart from what it takes itself."""
 
     def __init__(self, path):
         self._file = open(path, "w", encoding="utf-8")
         self._start = time.monotonic()
+        self._waited = cpu_wait()
 
     def write(self, record):
         """Write *record* (a dict of plain values)."""
-        record = {**record, "t": round(time.monotonic() - self._start, 4)}
+        record = {**record, "t": round(time.monotonic() - self._start, 4),
+                  "waited": round(cpu_wait() - self._waited, 4)}
         self._file.write(json.dumps(record) + "\n")
         self._file.flush()
 

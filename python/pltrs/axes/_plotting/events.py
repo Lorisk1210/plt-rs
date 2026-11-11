@@ -274,7 +274,7 @@ class EventsMixin:
         collections = wrap_all(self, native, mcoll.EventCollection)
         _remember_rows(collections, *given)
         for collection in collections:
-            collection._internal_update(kwargs)
+            collection._made_with(kwargs)
         return collections
 
     @_preprocess_data()

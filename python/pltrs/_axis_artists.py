@@ -390,6 +390,31 @@ class Tick(Artist):
                 label.set(text=text, **{coordinate: self._loc})
         self._place_lines(None if loc is None else self._loc)
 
+    def _retire(self):
+        """
+        Leave a tick of an axis as matplotlib's `.Axis.clear` and
+        ``reset_ticks`` leave the tick objects they drop: no longer of its
+        axis, its parts artists of their own that keep what they had (the
+        text and the location of the last draw), placed by the transforms
+        the axis gave them, in the figure of its Axes.
+        """
+        axis = self.axis
+        if axis is None:
+            return
+        self._follow_draw()
+        figure = axis.get_figure(root=False)
+        from . import spines
+        for part in self.get_children():
+            # The transform the tick was made with: taking it now asks
+            # nothing of the spines (`.Spine._ensure_position_is_set`).
+            with spines.transforms_read():
+                transform = self._transform_of(part)
+            del part._mirror
+            part.set_transform(transform)
+            if figure is not None:
+                part.set_figure(figure)
+        self._axis = None
+
     def _push(self, part):
         """Read *part*, changed, back into the axis."""
         axis = self.axis

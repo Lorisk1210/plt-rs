@@ -70,6 +70,13 @@ impl Archive for FreshArtists {
     }
 }
 
+impl FreshArtists {
+    /// How many times artist `id` was drawn, by the figure or alone.
+    pub(crate) fn draw_count(&self, id: ArtistId) -> u64 {
+        (self.draws.borrow().get(&id)).map_or(0, |draws| draws.count)
+    }
+}
+
 impl FigureState {
     /// Records that artist `id` was drawn: it counts one draw more and,
     /// when `fresh`, is fresh (matplotlib's `self.stale = False` at the end
@@ -86,11 +93,7 @@ impl FigureState {
 
     /// How many times artist `id` was drawn, by the figure or alone.
     pub(crate) fn draw_count(&self, id: ArtistId) -> u64 {
-        self.fresh
-            .draws
-            .borrow()
-            .get(&id)
-            .map_or(0, |draws| draws.count)
+        self.fresh.draw_count(id)
     }
 
     /// Whether artist `id` changed since it was last drawn; for the root

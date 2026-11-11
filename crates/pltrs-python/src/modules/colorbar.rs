@@ -406,6 +406,14 @@ fn locate_axes(colorbar: Colorbar) -> PyResult<()> {
     Ok(())
 }
 
+/// Leaves the colorbars untold of the changes of their mappables' colour
+/// mappings (`True`) or has them follow again; returns what held before.
+/// For a mappable read back from a pickle, whose colorbar no callback
+/// tells any more.
+fn leave_untold(untold: bool) -> PyResult<bool> {
+    Ok(pltrs::colorbar::leave_untold(untold))
+}
+
 /// Whether pltrs (Rust) maps data through the Python norm `norm` itself
 /// (a norm of a class it has no copy of): a colorbar then autoscales and
 /// limits it where matplotlib's `_process_values` does.
@@ -415,6 +423,7 @@ fn maps_through_python(norm: Box<dyn Norm>) -> PyResult<bool> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("leave_untold", leave_untold)?;
     module.add("new", new)?;
     module.add("maps_through_python", maps_through_python)?;
     module.add("ax", ax)?;

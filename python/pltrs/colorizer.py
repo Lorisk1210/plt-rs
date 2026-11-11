@@ -304,6 +304,14 @@ class Colorizer:
         """
         self.callbacks.process('changed')
         self.stale = True
+        colors._tell_unheard(self)
+
+    def _changed_unheard(self):
+        """The norm changed, of which no callback tells this colorizer
+        (`.colors._follow_unheard`): the mappables that no callback tells
+        either hand pltrs (Rust) the mapping again."""
+        self.stale = True
+        colors._tell_unheard(self)
 
     @property
     def vmin(self):
@@ -768,6 +776,32 @@ class ColorizingArtist(_ScalarMappable, artist.Artist):
         """
         _api.check_isinstance(Colorizer, colorizer=colorizer)
         super().__init__(colorizer=colorizer, **kwargs)
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        # Read back from a pickle (or copied), no callback tells the artist
+        # of its colorizer's and norm's changes any more: matplotlib's
+        # draws read them as they are, so pltrs (Rust) is handed them again
+        # whenever they change.
+        colorizer = self.__dict__.get("_colorizer")
+        norm = getattr(colorizer, "_norm", None)
+        if norm is not None:
+            colors._follow_unheard(norm, colorizer)
+            colors._follow_unheard(colorizer, self)
+
+    def _changed_unheard(self):
+        """The colorizer or its norm changed, of which no callback tells
+        the artist (`__setstate__`): hand pltrs (Rust) the mapping again,
+        the artist's own callbacks left alone as matplotlib leaves them."""
+        if self.__dict__.get("_native") is not None:
+            from ._native import colorbar as _colorbar
+            # Its colorbar is told no more either, and stays as it is.
+            told = _colorbar.leave_untold(True)
+            try:
+                with self.callbacks.blocked():
+                    self.changed()
+            finally:
+                _colorbar.leave_untold(told)
 
     @property
     def colorizer(self):

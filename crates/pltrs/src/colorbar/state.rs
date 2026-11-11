@@ -2,6 +2,7 @@
 //! mappable (matplotlib's `Colorbar` attributes, `update_normal` and the
 //! `'changed'` callback connecting them).
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use super::blocks::{BlockSpec, Blocks};
@@ -323,10 +324,48 @@ fn norm_replaced(old: &dyn Norm, new: &dyn Norm) -> bool {
     }
 }
 
-/// Lets the colorbars following `mappable` take its new colour mapping;
-/// `reset` when its norm was replaced. Problems are reported with the next
-/// draw.
+pltrs_core::thread_state! {
+    /// Whether the colorbars are left untold of the changes of their
+    /// mappables' colour mappings ([`leave_untold`]).
+    static UNTOLD: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Leaves the colorbars untold of the changes of their mappables' colour
+/// mappings from now on (`true`), or has them follow again (`false`, as
+/// they do); returns what held before. matplotlib's colorbar follows its
+/// mappable through a callback, which a mappable read back from a pickle
+/// no longer has: a host handing over the mapping of such a mappable
+/// leaves its colorbars as they are.
+///
+/// ```
+/// use pltrs::colorbar::{ColorbarOptions, leave_untold};
+/// use pltrs::axes::ImshowOptions;
+/// use pltrs::numeric::Grid;
+/// use pltrs::prelude::*;
+/// let fig = Figure::new();
+/// let ax = fig.subplot();
+/// let data = Grid::from_fn(2, 2, |row, col| (2 * row + col) as f64);
+/// let image = ax.imshow(data, ImshowOptions::default())?;
+/// let bar = fig.colorbar(&image, ColorbarOptions::default())?;
+/// let before = leave_untold(true);
+/// image.set_clim(Some(1.0), Some(2.0));
+/// leave_untold(before);
+/// assert_eq!(bar.ax().ylim(), (0.0, 3.0), "as it was");
+/// image.set_clim(Some(1.0), Some(2.5));
+/// assert_eq!(bar.ax().ylim(), (1.0, 2.5));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn leave_untold(untold: bool) -> bool {
+    UNTOLD.with(|told| told.replace(untold))
+}
+
+/// Lets the colorbars following `mappable` take its new colour mapping,
+/// unless they are left untold ([`leave_untold`]); `reset` when its norm
+/// was replaced. Problems are reported with the next draw.
 pub(crate) fn follow(figure: &Rc<FigureCell>, mappable: ArtistId, reset: bool) {
+    if UNTOLD.with(Cell::get) {
+        return;
+    }
     for id in following(figure, mappable) {
         let Some(colorbar) = Colorbar::from_raw(RawHandle::new(Rc::clone(figure), id)) else {
             continue;

@@ -94,6 +94,20 @@ class AnchoredLocatorBase(AnchoredOffsetbox):
     def axes(self, ax):
         OffsetBox.axes.fset(self, ax)
 
+    def _called_with(self, ax):
+        """What matplotlib's call of the locator with *ax* does besides
+        placing it (pltrs (Rust) places): *ax* becomes its Axes, which
+        fails for a second one."""
+        self.axes = ax
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        if self.__dict__.get("_placed") is not None:
+            # What pltrs (Rust) was told when the locator was pickled: a
+            # pickle keeps no identity of numbers, by which
+            # `_locate_by_program` tells what the program changed.
+            self._placed = self._placement()
+
     def _placement(self):
         """What the locator places the axes with, which matplotlib's draw
         of the axes reads again whenever it calls the locator."""

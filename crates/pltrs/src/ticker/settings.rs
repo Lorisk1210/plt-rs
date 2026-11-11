@@ -70,6 +70,10 @@ pub struct TickerSettings {
     pub axes_formatter_useoffset: bool,
     /// `axes.formatter.use_mathtext`: typeset scientific notation as mathtext.
     pub axes_formatter_use_mathtext: bool,
+    /// `axes.formatter.use_locale`: a new `ScalarFormatter` writes numbers
+    /// as the program's locale does
+    /// ([`NumericLocale::of_program`](super::NumericLocale::of_program)).
+    pub axes_formatter_use_locale: bool,
     /// `axes.formatter.min_exponent`: smallest exponent that
     /// `LogFormatterMathtext` writes as a power.
     pub axes_formatter_min_exponent: i32,
@@ -95,6 +99,7 @@ pltrs_core::archive_struct!(TickerSettings {
     axes_formatter_offset_threshold,
     axes_formatter_useoffset,
     axes_formatter_use_mathtext,
+    axes_formatter_use_locale,
     axes_formatter_min_exponent,
     text_usetex,
     axes_autolimit_mode,
@@ -113,6 +118,7 @@ impl TickerSettings {
         axes_formatter_offset_threshold: 4,
         axes_formatter_useoffset: true,
         axes_formatter_use_mathtext: false,
+        axes_formatter_use_locale: false,
         axes_formatter_min_exponent: 0,
         text_usetex: false,
         axes_autolimit_mode: AutolimitMode::Data,
@@ -159,6 +165,7 @@ impl From<&crate::rc::RcParams> for TickerSettings {
                 .unwrap_or(4),
             axes_formatter_useoffset: rc.axes_formatter_useoffset,
             axes_formatter_use_mathtext: rc.axes_formatter_use_mathtext,
+            axes_formatter_use_locale: rc.axes_formatter_use_locale,
             axes_formatter_min_exponent: i32::try_from(rc.axes_formatter_min_exponent).unwrap_or(0),
             text_usetex: rc.text_usetex,
             axes_autolimit_mode: rc.axes_autolimit_mode,

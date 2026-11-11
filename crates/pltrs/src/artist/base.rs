@@ -165,14 +165,6 @@ impl ArtistBase {
         self.id = Some(id);
     }
 
-    /// Takes the place `old` had in its figure, its id and its parent: for
-    /// an artist whose whole state is replaced in place (a title reset by
-    /// `Axes::cla`).
-    pub(crate) fn take_place_of(&mut self, old: &ArtistBase) {
-        self.id = old.id;
-        self.parent = old.parent;
-    }
-
     /// Whether the label marks the artist as excluded from legends.
     pub fn is_label_hidden(&self) -> bool {
         is_hidden_label(&self.label)

@@ -463,5 +463,5 @@ class ScatterMixin:
             collection.set_linewidth(given_linewidths)
         elif widths_as_given is not None:
             _values.remember(collection, "linewidth", widths_as_given)
-        collection._internal_update(kwargs)
+        collection._made_with(kwargs)
         return collection

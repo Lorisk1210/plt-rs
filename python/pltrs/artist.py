@@ -199,6 +199,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                                "more than one figure")
         _handles.adopt(self, _artist.take_into_figure(fig._native, self._native),
                        fig.get_figure(root=True))
+        # In no list of the figure's: matplotlib's has no removal method.
+        self._only_given_figure = True
         self.pchanged()
         self.stale = True
 
@@ -237,7 +239,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
     def _home_figure(self, root=False):
         """The (sub)figure pltrs (Rust) keeps the artist in, the root with
         *root*: its figure, also once it was decoupled from it."""
-        if root or self._figure is None or not self._figure.subfigs:
+        if (root or self._figure is None
+                or not self._figure.__dict__.get("_subfigures_made")):
             return self._figure
         from .figure import Figure
         return _handles.wrap(_artist.parent_figure(self._native), Figure,
@@ -851,9 +854,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             remove_method(self)
             self._decouple(removed=True)
             return
-        if _artist.is_part(self._native):
-            # Made by its owner as a part of itself (an Axes' title), it has
-            # no removal method.
+        if _artist.is_part(self._native) or self.__dict__.get("_only_given_figure"):
+            # Made by its owner as a part of itself (an Axes' title), or only
+            # given its figure (`set_figure`), it has no removal method.
             raise NotImplementedError('cannot remove artist')
         # Decoupled first: the end of the native removal brings the
         # artist's trees up to date, which reads it.
@@ -892,7 +895,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """Undo `_decouple`: the artist is in its figure (and Axes) again,
         as one of their add methods leaves it."""
         for name in ("_removed", "_decoupled", "_left_host", "_listed_in",
-                     "_out_of_lists", "_axes_unset"):
+                     "_out_of_lists", "_axes_unset", "_only_given_figure"):
             self.__dict__.pop(name, None)
 
     def _keep_drawn_state(self):

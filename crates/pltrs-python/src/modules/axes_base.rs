@@ -9,6 +9,7 @@ use pltrs::rc::{Cycler, CyclerError};
 
 use crate::binding::prelude::*;
 
+mod across;
 pub(super) mod aspect;
 mod decorations;
 mod limits;
@@ -182,6 +183,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("share_prop_cycle", share_prop_cycle)?;
     module.add("next_cycle_color", next_cycle_color)?;
     module.add("get_scale", get_scale)?;
+    across::register(module)?;
     decorations::register(module)?;
     limits::register(module)?;
     twins::register(module)?;

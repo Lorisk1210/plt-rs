@@ -4,7 +4,9 @@
 //! What only lives while a figure is shown (canvas, callbacks, timers,
 //! tools, the mouse grab and widget lock, problems pending report) is not
 //! archived: a figure read back starts without it, stale, as a new figure
-//! does.
+//! does. Nor are the links of its axes to axes of other figures sharing
+//! an axis with them, which the program joins again
+//! ([`Axes::join_across`](crate::axes::Axes::join_across)).
 
 use std::cell::Cell;
 
@@ -12,7 +14,7 @@ use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 
 use super::{FigureState, StateRole};
 use crate::artist::{ArtistId, ArtistStore, DetachedArtists};
-use crate::axes::{LimitCallbacks, ShareGroups};
+use crate::axes::{LimitCallbacks, ShareGroups, SharesAcross};
 use crate::events::{CallbackRegistry, CursorShape, TimerRegistry};
 use crate::figure::{CanvasState, FigureFrame, FreshArtists};
 use crate::gui::tools::ToolRegistry;
@@ -37,6 +39,7 @@ impl Archive for FigureState {
             pending_errors: _,
             aspects_failed: _,
             shared,
+            across: _,
             layout,
             current_axes,
             limit_callbacks: _,
@@ -91,6 +94,7 @@ impl Archive for FigureState {
             pending_errors: Vec::new(),
             aspects_failed: Vec::new(),
             shared: ShareGroups::decode(decoder)?,
+            across: SharesAcross::default(),
             layout: LayoutState::decode(decoder)?,
             current_axes: Archive::decode(decoder)?,
             limit_callbacks: LimitCallbacks::default(),

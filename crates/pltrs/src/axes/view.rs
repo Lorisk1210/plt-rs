@@ -60,9 +60,10 @@ impl FigureState {
     }
 
     /// Applies `update` to axis `name` of `axes` and of every axes sharing
-    /// it (for state matplotlib shares between them, such as tickers).
-    /// The 3-D axes sharing it take its tick helpers and scale as they are
-    /// then (see [`lend_flat_tickers`](Self::lend_flat_tickers)).
+    /// it, those of other figures last (for state matplotlib shares
+    /// between them, such as tickers). The 3-D axes sharing it take its
+    /// tick helpers and scale as they are then (see
+    /// [`lend_flat_tickers`](Self::lend_flat_tickers)).
     pub(crate) fn update_shared_axis(
         &mut self,
         axes: ArtistId,
@@ -75,13 +76,14 @@ impl FigureState {
             }
         }
         self.lend_flat_tickers(axes, name);
+        self.update_peers(axes, name, &mut update);
         self.stale = true;
     }
 
     /// Calls off the autoscaling axis `name` of `axes` and of every axes
-    /// sharing it, of either kind, waits for (matplotlib's
-    /// `ax._stale_viewlims[name] = False` for every sibling); the figure
-    /// is to be drawn again.
+    /// sharing it, of either kind and of any figure, waits for
+    /// (matplotlib's `ax._stale_viewlims[name] = False` for every
+    /// sibling); the figure is to be drawn again.
     fn settle_shared_axis(&mut self, axes: ArtistId, name: AxisName) {
         for id in self.siblings(name, axes) {
             if let Some(state) = self.axes_state_mut(id) {
@@ -89,6 +91,7 @@ impl FigureState {
             }
             self.settle_deep_axis(id, name);
         }
+        self.update_peers(axes, name, &mut |axis| axis.autoscale.stale = false);
         self.stale = true;
     }
 
@@ -188,6 +191,9 @@ impl FigureState {
     /// Whether axis `name` of `axes`, or of an axes of either kind
     /// sharing it, changed since it was last autoscaled.
     fn autoscale_is_stale(&self, axes: ArtistId, name: AxisName) -> bool {
+        if self.peers_stale(axes, name) {
+            return true;
+        }
         self.siblings(name, axes).into_iter().any(|id| {
             self.deep_axis_pending(id, name).unwrap_or_else(|| {
                 self.axes_state(id)
@@ -209,7 +215,7 @@ impl FigureState {
         let Some(state) = self.axes_state(axes) else {
             return;
         };
-        let shared = self.shared_data(axes, name, state.uses_stickies(name));
+        let shared = self.shared_data_across(axes, name, state.uses_stickies(name));
         let inverted = asked.unwrap_or_else(|| {
             let (v0, v1) = state.view_interval(name);
             v0 > v1
@@ -252,9 +258,10 @@ impl FigureState {
     }
 
     /// The data, smallest positive datum and (if `stickies`) the sticky
-    /// edges of every axes sharing axis `name` with `axes` (those of a 3-D
-    /// one its projection plane's, see [`flat_part`](Self::flat_part)).
-    fn shared_data(&self, axes: ArtistId, name: AxisName, stickies: bool) -> SharedData {
+    /// edges of every axes of the figure sharing axis `name` with `axes`
+    /// (those of a 3-D one its projection plane's, see
+    /// [`flat_part`](Self::flat_part)).
+    pub(super) fn shared_data(&self, axes: ArtistId, name: AxisName, stickies: bool) -> SharedData {
         let siblings: Vec<&AxesState> = self
             .siblings(name, axes)
             .into_iter()
@@ -378,6 +385,7 @@ impl FigureState {
                 self.limit_callbacks.notify(sibling, name);
                 self.sync_parasites(sibling);
             }
+            self.set_peers_view(axes, name, limits, auto);
         }
     }
 
@@ -582,7 +590,7 @@ mod tests {
             Some(PlotError::AlreadyShared(AxisName::X))
         );
         let other = Figure::new().subplot();
-        assert_eq!(a.share_y(&other).err(), Some(PlotError::ForeignAxes));
+        assert!(a.share_y(&other).is_ok(), "axes of two figures share too");
     }
 
     #[test]

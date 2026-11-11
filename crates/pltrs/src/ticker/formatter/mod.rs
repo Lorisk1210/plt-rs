@@ -13,7 +13,7 @@ use std::fmt;
 use std::rc::Rc;
 
 pub use eng::{EngFormatter, SI_PREFIXES};
-pub use locale::{Grouping, NumericLocale};
+pub use locale::{Grouping, NumericLocale, set_program_locale};
 pub use log::{LogFormatter, LogLabelStyle};
 pub use logit::LogitFormatter;
 pub use percent::PercentFormatter;

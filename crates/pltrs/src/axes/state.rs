@@ -121,6 +121,11 @@ pub(crate) struct AxesState {
     /// The axes beyond x and y, which the program draws, in the order
     /// they were added (see [`ProgramAxis`](super::ProgramAxis)).
     pub(crate) program_axes: Vec<ArtistId>,
+    /// The titles the axes had before each clear, oldest first: still its
+    /// parts, with the text and the place they had, though it draws them
+    /// no more (matplotlib's `clear` makes new title texts and leaves the
+    /// old ones as they were, for the program that holds them).
+    pub(crate) former_titles: Vec<ArtistId>,
     /// Whether the navigation toolbar acts on this axes (matplotlib's
     /// `get_navigate`).
     pub(crate) navigate: bool,
@@ -190,6 +195,7 @@ pltrs_core::archive_struct!(AxesState {
     spines,
     titles,
     program_axes,
+    former_titles,
     navigate,
     forward_navigation,
     fmt_data,
@@ -388,6 +394,7 @@ impl AxesState {
             spines: Vec::new(),
             titles: Vec::new(),
             program_axes: Vec::new(),
+            former_titles: Vec::new(),
             navigate: true,
             forward_navigation: None,
             fmt_data: (None, None),
@@ -811,11 +818,14 @@ impl AxesState {
             .collect()
     }
 
-    /// Whether the child `id` is a part the axes made of itself (a spine,
-    /// a title, an axis the program draws) rather than an artist added to
-    /// it.
+    /// Whether `id` is a part the axes made of itself (a spine, a title
+    /// it has or had before a clear, an axis the program draws) rather
+    /// than an artist added to it.
     pub(crate) fn is_own_part(&self, id: ArtistId) -> bool {
-        self.spines.contains(&id) || self.titles.contains(&id) || self.program_axes.contains(&id)
+        self.spines.contains(&id)
+            || self.titles.contains(&id)
+            || self.former_titles.contains(&id)
+            || self.program_axes.contains(&id)
     }
 
     /// Makes the child `spine` the spine of the axes that frames no side

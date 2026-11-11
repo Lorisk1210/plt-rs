@@ -21,6 +21,9 @@ use super::{Artist, ArtistId};
 #[derive(Debug, Default)]
 pub(crate) struct DetachedArtists {
     artists: BTreeMap<ArtistId, KeptArtist>,
+    /// The removed artists whose trees stand in the figure's store while
+    /// they are measured (see `figure::standing_in`), innermost last.
+    standing: Vec<ArtistId>,
 }
 
 /// Archived artist by artist; each artist read back takes the id it is
@@ -35,7 +38,10 @@ impl Archive for DetachedArtists {
         for (&id, artist) in &mut artists {
             artist.get_mut().base_mut().assign_id(id);
         }
-        Ok(Self { artists })
+        Ok(Self {
+            artists,
+            standing: Vec::new(),
+        })
     }
 }
 
@@ -80,6 +86,25 @@ impl DetachedArtists {
     /// The ids of the removed artists, in creation order.
     pub(crate) fn ids(&self) -> impl Iterator<Item = ArtistId> + '_ {
         self.artists.keys().copied()
+    }
+
+    /// Notes that the tree of the removed artist `root` stands in the
+    /// figure's store from now on.
+    pub(crate) fn stand_in(&mut self, root: ArtistId) {
+        self.standing.push(root);
+    }
+
+    /// Forgets that the tree of `root` stands in the figure's store;
+    /// whether it did.
+    pub(crate) fn stand_out(&mut self, root: ArtistId) -> bool {
+        let at = self.standing.iter().rposition(|&standing| standing == root);
+        at.map(|at| self.standing.remove(at)).is_some()
+    }
+
+    /// Whether the tree of the removed artist `root` stands in the
+    /// figure's store.
+    pub(crate) fn stands_in(&self, root: ArtistId) -> bool {
+        self.standing.contains(&root)
     }
 
     /// Whether some removed artist has an id `live` (the figure's store)

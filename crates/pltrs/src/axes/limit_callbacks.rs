@@ -134,6 +134,8 @@ pub(crate) fn run_limit_callbacks(figure: &Rc<FigureCell>) {
     loop {
         let batch = std::mem::take(&mut figure.borrow_mut().limit_callbacks.pending);
         if batch.is_empty() {
+            // Then those of the figures whose axes share the changed axis.
+            super::share_across::run_peers_callbacks();
             return;
         }
         for (axes, name) in batch {

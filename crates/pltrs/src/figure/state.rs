@@ -12,7 +12,9 @@ use pltrs_render::ClipPath;
 use super::frame::FigureFrame;
 use super::{CanvasState, FreshArtists};
 use crate::artist::{Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawError};
-use crate::axes::{AxesState, LimitCallbacks, PatchOutline, ShareGroups, TickUpdater};
+use crate::axes::{
+    AxesState, LimitCallbacks, PatchOutline, ShareGroups, SharesAcross, TickUpdater,
+};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
@@ -56,6 +58,8 @@ pub(crate) struct FigureState {
     pub(crate) aspects_failed: Vec<(ArtistId, crate::axes::AspectInputs)>,
     /// Axes sharing their x or y axis.
     pub(crate) shared: ShareGroups,
+    /// Which of them share it with axes of other figures.
+    pub(crate) across: SharesAcross,
     /// The layout engine and what it needs to know.
     pub(crate) layout: LayoutState,
     /// The axes `gca` returns: the last added or made current
@@ -225,6 +229,7 @@ impl FigureState {
             pending_errors: Vec::new(),
             aspects_failed: Vec::new(),
             shared: ShareGroups::default(),
+            across: SharesAcross::default(),
             layout: LayoutState::from_rc(&rc),
             current_axes: None,
             limit_callbacks: LimitCallbacks::default(),
@@ -279,6 +284,7 @@ impl FigureState {
             pending_errors: Vec::new(),
             aspects_failed: Vec::new(),
             shared: ShareGroups::default(),
+            across: SharesAcross::default(),
             layout: LayoutState::default(),
             current_axes: None,
             limit_callbacks: LimitCallbacks::default(),
@@ -700,7 +706,7 @@ impl TransformContext for FigureState {
     }
 
     fn frame_bbox(&self, frame: ArtistId) -> Option<Bbox> {
-        let node = self.store.get_as::<FigureFrame>(frame)?;
+        let node = self.artist_as::<FigureFrame>(frame)?;
         if frame == self.root {
             let (w, h) = self.size_pixels();
             let dpi = self.dpi();
@@ -709,7 +715,8 @@ impl TransformContext for FigureState {
             });
             return Some(Bbox::from_bounds(x, y, w, h));
         }
-        let parent = self.frame_bbox(node.base().parent?)?;
+        // A removed subfigure stays where it was in its figure.
+        let parent = self.frame_bbox(node.base().parent.or(node.home)?)?;
         Some(fraction_of(&parent, &node.relative_extent))
     }
 

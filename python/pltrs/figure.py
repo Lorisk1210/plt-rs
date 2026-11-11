@@ -1463,6 +1463,7 @@ class SubFigure(FigureBase):
         self._subplotspec = subplotspec
         self.subfigs = []
         _handles.adopt(self, native, parent.figure)
+        self._figure._subfigures_made = True
         if facecolor is not None:
             _figure.set_facecolor(native, facecolor)
         if edgecolor is not None:
@@ -1485,6 +1486,8 @@ class SubFigure(FigureBase):
     def remove(self):
         """Remove the subfigure, and its artists, from its parent."""
         super().remove()
+        # Still the figure of the artists removed with it, as matplotlib's.
+        self._figure._artists[_artist.id(self._native)] = self
         # Out of the list of subfigures it was added to, as matplotlib's
         # removal method takes it out, which its parent's clear replaced.
         self.__dict__.get("_listed_among", self._parent.subfigs).remove(self)
@@ -2461,6 +2464,7 @@ None}, default: None
         for artist in list(self._artists.values()):
             gridspec._adopt_unpickled(artist)
             _pickling.resolve_trees(artist, restored=True)
+            _sharing.rejoin(artist)
         _sharing.track(self)
         _transform_trees.follow_evaluations(self)
         FigureCanvasBase(self)  # Set self.canvas.

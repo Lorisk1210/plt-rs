@@ -147,6 +147,14 @@ pub(crate) struct SpineArtist {
     pub(crate) bounds: Option<(f64, f64)>,
     /// The shape the spine is drawn with.
     pub(crate) patch: SpinePatch,
+    /// Whether the program made the spine and nothing placed it yet
+    /// ([`Spine::leave_unplaced`]): matplotlib's spine then still has the
+    /// transform it was made with, `transData`, which only its position
+    /// replaces, so it is drawn in data coordinates. An axes places the
+    /// spines of its sides as it makes the ticks of its axes, so a spine
+    /// that takes the place of one before the axes was ever drawn counts
+    /// as placed ([`Axes::replace_spine`](crate::axes::Axes::replace_spine)).
+    pub(crate) unplaced: bool,
     rc: Rc<RcParams>,
 }
 
@@ -158,6 +166,7 @@ pltrs_core::archive_struct!(SpineArtist {
     position,
     bounds,
     patch,
+    unplaced,
     rc
 });
 
@@ -187,10 +196,20 @@ impl SpineArtist {
             position: SpinePosition::default(),
             bounds: None,
             patch: SpinePatch::Line,
+            unplaced: false,
             rc,
         };
         spine.place(SpinePosition::default());
         spine
+    }
+
+    /// Whether the spine is drawn in data coordinates: a line the program
+    /// made that nothing placed nor gave a transform (see
+    /// [`SpineArtist::unplaced`]).
+    fn in_data_coordinates(&self, axes: ArtistId) -> bool {
+        self.unplaced
+            && matches!(self.patch, SpinePatch::Line)
+            && self.base.transform.as_ref() == Some(&self.spine_transform(axes))
     }
 
     /// Whether it is one of the four spines of the sides (not a spine of
@@ -203,6 +222,7 @@ impl SpineArtist {
     /// that position, whatever transform it was given (matplotlib's
     /// `set_position` sets the transform to `get_spine_transform()`).
     fn place(&mut self, position: SpinePosition) {
+        self.unplaced = false;
         self.position = position;
         self.base.transform = self.base.parent.map(|axes| self.spine_transform(axes));
     }
@@ -349,12 +369,13 @@ impl SpineArtist {
         let interval = self
             .bounds
             .unwrap_or_else(|| axes.spine_interval(self.side));
-        // The transform of its position, or one the program gave it.
-        let transform = self
-            .base
-            .transform
-            .clone()
-            .unwrap_or_else(|| self.spine_transform(axes_id));
+        // The transform of its position, or one the program gave it; the
+        // data's for a spine of the program's that has neither.
+        let transform = if self.in_data_coordinates(axes_id) {
+            Transform::Data(axes_id)
+        } else {
+            (self.base.transform.clone()).unwrap_or_else(|| self.spine_transform(axes_id))
+        };
         Some(OutlineThrough::new(
             self.path(interval),
             ctx.resolve(&transform)?,
@@ -476,6 +497,46 @@ impl Spine {
     pub fn set_position(&self, position: SpinePosition) -> &Self {
         self.raw.with_mut::<SpineArtist, _>(|s| s.place(position));
         self
+    }
+
+    /// Leaves the spine, a line the program made, as matplotlib's is until
+    /// something places it: with the transform it was made with,
+    /// `transData`, so that it is drawn in data coordinates, until
+    /// [`set_position`](Self::set_position) (or the axes, making its ticks
+    /// for the first time with the spine on one of its sides) places it.
+    /// A spine given a transform of its own keeps that.
+    pub fn leave_unplaced(&self) -> &Self {
+        self.raw.with_mut::<SpineArtist, _>(|s| s.unplaced = true);
+        self
+    }
+
+    /// Whether the spine was left unplaced ([`leave_unplaced`](Self::leave_unplaced))
+    /// and nothing placed it since.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::{SpinePosition, SpineSide};
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
+    /// let ax = fig.subplot();
+    /// ax.set_xlim(0.0, 4.0)?;
+    /// let extra = ax.new_spine(SpineSide::Right);
+    /// ax.add_spine(&extra);
+    /// assert!(!extra.is_unplaced());
+    /// extra.leave_unplaced();
+    /// assert!(extra.is_unplaced());
+    /// let frame = ax.window_extent().expect("laid out");
+    /// let at_one = extra.window_extent().expect("drawn").x0();
+    /// let quarter = frame.x0() + frame.width() / 4.0;
+    /// assert!((at_one - quarter).abs() < 1e-9, "at x = 1 of the data");
+    /// extra.set_position(SpinePosition::Outward(0.0));
+    /// assert!(!extra.is_unplaced());
+    /// let placed = extra.window_extent().expect("drawn").x0();
+    /// assert!((placed - frame.x1()).abs() < 1e-9, "on the right side");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn is_unplaced(&self) -> bool {
+        self.raw.with::<SpineArtist, _>(|s| s.unplaced)
     }
 
     /// The spine position.

@@ -649,6 +649,42 @@ mod tests {
     }
 
     #[test]
+    fn drawn_children_keep_the_outline_of_the_area_they_were_first_drawn_in() {
+        use crate::artist::ClipPathSpec;
+        let (fig, ax) = data_axes();
+        let square = BoxItem::patch(
+            Rectangle::new((0.0, 0.0), 50.0, 50.0),
+            PatchProps::default(),
+        );
+        let mut area = DrawingArea::new(10.0, 10.0, 0.0, 0.0).with_artist(square);
+        area.clip = true;
+        let anchored = ax.add_anchored_box(AnchoredBox::new(area, tight(AnchorLoc::LowerLeft)));
+        let outline = || {
+            let id = anchored.artist_ids()[0];
+            let state = fig.state();
+            match &state.store.get(id).expect("the square").base().clip_path {
+                Some(ClipPathSpec::Path { path, .. }) => path.extents().width(),
+                other => panic!("clipped to the area: {other:?}"),
+            }
+        };
+        let resize = |side: f64| {
+            anchored.raw.with_mut::<AnchoredBoxArtist, _>(|anchored| {
+                let area = anchored.child.drawing_area_mut(0).expect("the area");
+                (area.width, area.height) = (side, side);
+            });
+        };
+        // Resized before its first draw, the area clips to its size then.
+        resize(30.0);
+        fig.layout();
+        assert!(close(outline(), 30.0));
+        draw(&fig);
+        // matplotlib's area gives its outline only to children without one.
+        resize(60.0);
+        draw(&fig);
+        assert!(close(outline(), 30.0));
+    }
+
+    #[test]
     fn images_fill_their_zoomed_box() {
         let (fig, ax) = data_axes();
         let data = crate::numeric::Grid::from_fn(3, 4, |r, c| (r * 4 + c) as f64);

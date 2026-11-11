@@ -65,6 +65,25 @@ impl Table {
         self.update(|t| t.auto_columns.extend_from_slice(columns))
     }
 
+    /// Has the table place its cells from now on, as drawing or measuring
+    /// it does (matplotlib's `_update_positions`): until one of them, each
+    /// cell is where it was made, at the origin with its own size.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::table::TableOptions;
+    /// let ax = Figure::new().subplot();
+    /// let table = ax.table(TableOptions::with_text(vec![vec!["a".into(), "b".into()]]))?;
+    /// let cell = table.cell(0, 1).expect("a cell");
+    /// table.place_cells();
+    /// assert!(cell.placed_corner().expect("placed").x > 0.0, "the second column");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn place_cells(&self) -> &Self {
+        (self.raw).with::<TableArtist, _>(|table| table.positioned.set(true));
+        self
+    }
+
     /// The number of cells.
     pub fn len(&self) -> usize {
         self.raw.with::<TableArtist, _>(|t| t.cells.len())
@@ -361,6 +380,28 @@ mod tests {
             );
             assert_eq!((cell.edges, cell.height), (CellEdges::OPEN, 0.2));
         });
+    }
+
+    #[test]
+    fn cells_are_where_they_were_made_until_the_table_places_them() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let rows = vec![vec!["a".into(), "b".into()], vec!["c".into(), "d".into()]];
+        let table = ax
+            .table(TableOptions::with_text(rows))
+            .expect("a valid table");
+        let cell = table.cell(0, 1).expect("a cell");
+        // matplotlib's cells are made at the origin; `_update_positions`
+        // runs when the table is drawn or measured.
+        assert_eq!(cell.placed_corner().map(|corner| corner.x), Some(0.0));
+        let alone = cell.text_bounds().unwrap().expect("in an axes");
+        assert!(alone.x1() < cell.width(), "within the cell at the origin");
+        fig.to_png().expect("drawn");
+        let placed = cell.placed_corner().expect("placed");
+        assert!((placed.x - 0.5).abs() < 1e-9, "the second column");
+        // A table removed from its axes keeps its cells where it put them.
+        table.remove();
+        assert_eq!(cell.placed_corner(), Some(placed));
     }
 
     #[test]

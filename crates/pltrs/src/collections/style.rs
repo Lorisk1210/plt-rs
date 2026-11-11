@@ -149,7 +149,14 @@ pub(super) fn resolve_sides(c: &CollectionArtist, reading: Reading) -> (Sided, S
     // A draw maps the values whether or not a side shows them (and fails
     // when they cannot be mapped), as matplotlib's `update_scalarmappable`.
     let mapping = reading == Reading::Drawing || face_mapped || edge_mapped;
-    let mapped = match (&c.program_colors, &c.mapping) {
+    // The getters report the colours of the last mapping (see
+    // `CollectionArtist::mapping_shown`).
+    let shown = c.mapping_shown.borrow();
+    let mapping_of_values = match reading {
+        Reading::Drawing => c.mapping.as_ref(),
+        Reading::Reported(_) => shown.as_ref().or(c.mapping.as_ref()),
+    };
+    let mapped = match (&c.program_colors, mapping_of_values) {
         (Some(colors), _) if mapping => Some(colors.clone()),
         (None, Some(mapping_of_values)) if mapping => match mapping_of_values.colors(&alpha) {
             Ok(colors) => Some(colors),

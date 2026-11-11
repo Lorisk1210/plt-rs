@@ -492,7 +492,7 @@ class BarsMixin:
         for patch in patches:
             if hatch is not None:
                 _values.remember(patch, "hatch", next(hatch_cycle))
-            patch._internal_update(kwargs)
+            patch._made_with(kwargs)
         if patches:
             # matplotlib's ``r.get_path()._interpolation_steps = 100``,
             # through the path all rectangles share.
@@ -1018,7 +1018,7 @@ or pandas.DataFrame
                 bars, [None] * len(bars) if labels is None else list(labels)):
             patches = wrap_all(self, rectangles, mpatches.Rectangle)
             for patch in patches:
-                patch._internal_update(kwargs)
+                patch._made_with(kwargs)
             if patches:
                 # As `bar`, which matplotlib's grouped bars are made with.
                 _patches.set_shared_rectangle_steps(100)

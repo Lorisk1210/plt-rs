@@ -753,7 +753,7 @@ class SpectralMixin:
         shown = np.flipud(shown)
         made._scale_norm(None, None, None, shown)
         im._set_mapped_data(made, shown)
-        im._internal_update(kwargs)
+        im._made_with(kwargs)
         return spec, freqs, t, im
 
     @_preprocess_data(replace_names=["x"], label_namer="x")

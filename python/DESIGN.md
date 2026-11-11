@@ -464,10 +464,13 @@ and `draw`.
 
 A table's cells are no artists of their own in pltrs (Rust): they are
 part of the table's native state, and a Python `Cell` is the cell at its
-`(row, column)` key in its table. A cell made by its constructor
-(`Cell(xy, width, height)`) lives in a loose table without an axes,
-until `table[row, col] = cell` copies it into a table and makes the
-object that table's cell.
+`(row, column)` key in its table. A table places its cells when it is
+drawn or measured, as matplotlib's `_update_positions` does: until then
+a cell measured or drawn alone is where it was made, at the origin with
+its own size (`TableArtist::place_as_is`, `Table::place_cells`). A cell
+made by its constructor (`Cell(xy, width, height)`) lives in a loose
+table without an axes, until `table[row, col] = cell` copies it into a
+table and makes the object that table's cell.
 
 ### Artists removed, cleared and added though they are no artists
 
@@ -521,6 +524,84 @@ failing on one of another figure before anything else (`add_held`).
 `artist.axes = None` on an artist of an Axes reads None from then on
 (`_axes_unset`), and `_recouple` undoes all of these as an add method
 takes the artist back.
+
+### Removed and cleared parts measured where they were
+
+matplotlib's `remove`, `delaxes` and `clear` only take an artist out of
+lists: a removed Axes keeps its position, limits, tick helpers and
+children, a removed subfigure its box, a title or a tick that `clear`
+replaced its text and place, and all of them still answer
+`get_window_extent` and `get_tightbbox`. pltrs (Rust) keeps removed
+artists apart from the figure's store, where the code laying out and
+measuring artists does not look them up, so the design is:
+
+* **A removed tree stands in while it is measured**
+  (`figure::standing_in`, `RawHandle::standing_in`): the artist removed
+  itself and all it owns move into the store for the length of a measure,
+  listed by no artist, so the figure neither draws them nor hands them to
+  a layout engine, while `FigureState::prepare` autoscales, places and
+  ticks a removed Axes as any other and every lookup by id finds its
+  parts. The measuring entry points take it: `measured_extent`,
+  `extent_as_is`, `Axes::tight_bbox`, `Axis::tight_bbox`, `Axes::ticks`,
+  `Figure::tight_extent`. A new measure of a removed artist takes it too;
+  nothing else needs a patch per kind of artist.
+* **What is removed remembers where it was**: an Axes or a subfigure
+  removed from a figure frame keeps that frame as its `home`, in whose
+  fractions it stays placed (`FigureState::frame_bbox` and the leaves of
+  the transform trees follow it), and is still of that (sub)figure
+  (`Figure::parent_of`). The Python object of a removed subfigure stays
+  the figure of the artists removed with it.
+* **`clear` makes new titles** (`FigureState::renew_titles`): the old
+  title artists stay parts of the Axes, with their text and the place the
+  last layout gave them, in `AxesState::former_titles`; the Axes no
+  longer draws them. The object a program holds keeps reading its own.
+* **What the program makes keeps what it was made with until placed**:
+  a spine made with `Spine(...)` or `linear_spine` has `transData` and no
+  axis until something asks its position (`Spine::is_unplaced`; an Axes
+  never drawn places the spine that takes a side's place, as it makes
+  its ticks), and the children of a clipped `DrawingArea` keep the
+  outline of the area as it was when they were first drawn
+  (`offsetbox::apply_placements`).
+* **Ticks dropped by `clear` and `reset_ticks` retire**
+  (`Tick._retire`): ticks are mirrors of what pltrs (Rust) draws, so a
+  dropped tick stops mirroring, and its parts become artists of their
+  own with the text and location of the last draw, placed by the
+  transforms the axis gave them. Those are read inside
+  `spines.transforms_read()`: a new tick asking the Axes for them sets
+  the position of a spine a clear left unset, which makes the ticks anew
+  (`Spine._ensure_position_is_set`), and a tick that goes asks nothing.
+
+### Axes sharing an axis across figures
+
+matplotlib has one `Grouper` per axis name for the Axes of all figures,
+so `ax2.sharex(ax1)` and `plt.subplot(..., sharex=ax_of_another_figure)`
+join Axes of two figures. pltrs (Rust) keeps one state per figure, with
+the groups of its own Axes; what joins them across figures are *links*
+(`axes::share_across`): each of the two Axes records the other, in its
+own figure, held weakly. The group of an Axes is its figure's group and,
+through the links, the groups of its peers (`FigureState::peers`). The
+few places that keep a group in step reach the peers after the Axes of
+their own figure, borrowing each other figure for the change (one that
+code further up the stack uses is passed over):
+
+* limits (`set_axis_view`): the peers take them without emitting, their
+  limit callbacks run after those of the figure that changed, and their
+  figures are stale (matplotlib's `draw_idle`);
+* autoscaling: an axis is stale when a peer's is, and autoscales over
+  the data and sticky edges of all (`shared_data_across`);
+* scales, tick helpers and whatever else `update_shared_axis` shares;
+* removal and `fig.clear()`: the Axes leaves, and the others stay
+  together (`leave_peers`); a cleared Axes takes its peer's axis again.
+
+Each figure is laid out and drawn by itself. The links are not archived
+(a figure's archive holds one figure): an Axes pickles the Axes of other
+figures it shares with, which brings their figures into the pickle as
+matplotlib's does, and joins them again when read back
+(`axes/_sharing.py`, `Axes::join_across`). The Python helpers of a
+shared axis (`locator`, `formatter` objects) are one object for all the
+figures sharing it (`_tick_helpers._held_by_peers`). Locators shared
+across figures count the ticks that fit along the axis of their own
+figure, not along the axis of the figure they were set in.
 
 ### Picking
 
@@ -897,6 +978,14 @@ mapping or alpha changes (`Collection._map_variates`): pltrs (Rust) puts
 them on the sides its mapping colours (`Collection::set_program_colors`).
 The plotting methods of one variate refuse such a colormap as
 matplotlib's do.
+
+matplotlib's collection maps its values when it is drawn
+(`update_scalarmappable`), and its getters report the colours of the last
+mapping until the next. pltrs (Rust) maps when asked, so a collection
+keeps the mapping it last mapped with once its values, norm or colormap
+change (`CollectionArtist::mapping_shown`, the old mapping moved there,
+not copied, when `set_array` replaces it), for `get_facecolor` and
+`get_edgecolor` until the next draw.
 
 ### Callbacks and subclassing
 
@@ -2185,6 +2274,16 @@ them was ruled out: it cannot capture what pltrs (Rust) changes itself
   leaves the original alone, as matplotlib's copy rebinds each attribute
   it sets. Artists holding others (Axes, figures, legends, contour sets)
   keep sharing them, as matplotlib's copies share the objects they hold.
+* **Mappables read back still follow their norm.** matplotlib pickles no
+  callbacks, but an unpickled image reads its norm when it draws, so a
+  limit the program sets afterwards shows. Here the native artist holds
+  the mapping, so `ColorizingArtist.__setstate__` registers the artist
+  with its colorizer and the colorizer with its norm in
+  `colors._follow_unheard` (weak, by identity), and both `_changed`s tell
+  them (`_tell_unheard`). matplotlib's unpickled colorbar has lost its
+  callback and stays as it was drawn: the artist is told inside
+  `colorbar.leave_untold(True)`, which keeps the colorbars of pltrs
+  (Rust) from following that one change.
 
 ### Imports inside the package
 

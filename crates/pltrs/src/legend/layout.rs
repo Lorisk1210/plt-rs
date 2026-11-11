@@ -328,6 +328,7 @@ fn apply(
             restyle_shadow(patch, outline, &shadow, visible);
         }
     }
-    apply_placements(store, layout.placements);
+    // (A legend's box holds no clipped drawing area.)
+    apply_placements(store, layout.placements, &|_| false);
     Ok(())
 }

@@ -16,6 +16,7 @@ import weakref
 from .. import _api, _handles, cbook
 from .._native import artist as _artist, axes as _axes
 from .. import _lazy_imports
+from . import _sharing
 from ._artist_list import ArtistList
 
 _foreign_children = _lazy_imports.module(globals(), "._foreign_children")
@@ -55,7 +56,7 @@ class ClearMixin:
         # made again on first use.
         state = super().__getstate__()
         state.pop("_limit_callbacks_connected", None)
-        return state
+        return _sharing.with_peers(self, state)
 
     def __clear(self):
         """Clear the Axes."""
@@ -69,6 +70,8 @@ class ClearMixin:
         for child in self.child_axes:
             child._leave_host()
         self._decouple_children()
+        for axis in self._axis_map.values():
+            axis._retire_ticks()
         for native in self._clear_natively():
             artist = figure._artists.get(_artist.id(native))
             if artist is not None and "_child_of" in artist.__dict__:

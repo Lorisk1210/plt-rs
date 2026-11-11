@@ -147,6 +147,13 @@ fn auto_set_column_width(table: Table, columns: Vec<i32>) -> PyResult<()> {
     Ok(())
 }
 
+/// Has the table place its cells from now on (`_update_positions`, which
+/// drawing and measuring a table run).
+fn place_cells(table: Table) -> PyResult<()> {
+    table.place_cells();
+    Ok(())
+}
+
 /// A cell, as Python names it: `(table, row, column)`.
 struct CellRef(TableCell);
 
@@ -271,6 +278,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("auto_set_font_size", auto_set_font_size)?;
     module.add("set_fontsize", set_fontsize)?;
     module.add("auto_set_column_width", auto_set_column_width)?;
+    module.add("place_cells", place_cells)?;
     module.add("get_text", get_text)?;
     module.add("set_text", set_text)?;
     module.add("get_cell_fontsize", get_cell_fontsize)?;

@@ -89,9 +89,8 @@ impl FigureState {
     /// Whether artist `id` was removed itself, rather than with an artist
     /// owning it: it then has no owner.
     pub(crate) fn is_removed(&self, id: ArtistId) -> bool {
-        self.detached
-            .get(id)
-            .is_some_and(|artist| artist.base().parent.is_none())
+        self.stands_in(id)
+            || (self.detached.get(id)).is_some_and(|artist| artist.base().parent.is_none())
     }
 
     /// Inserts `artist` as a child of the container `parent` (a figure
@@ -152,10 +151,13 @@ impl FigureState {
             self.stale = true;
             self.layout.pending = true;
         }
+        self.leave_peers(id);
         self.shared.remove(id);
         crate::mplot3d::leave_shares(self, id);
+        let frame = parent.filter(|&parent| self.artist_as::<FigureFrame>(parent).is_some());
         if let Some(artist) = self.detached.get_mut(id) {
             artist.base_mut().parent = None;
+            keep_home(artist, frame);
         }
     }
 
@@ -257,6 +259,18 @@ pub(crate) fn attach(
         return Err(AttachError::OtherFigure);
     }
     figure.borrow_mut().attach_artist(parent, artist.id())
+}
+
+/// Has `artist`, an axes or a subfigure removed from the figure frame
+/// `frame`, remember that frame, in whose fractions it stays placed
+/// (matplotlib's removed axes and subfigures keep their `bbox`, a box in
+/// their figure's); an axes made for a frame keeps that one.
+fn keep_home(artist: &mut dyn Artist, frame: Option<ArtistId>) {
+    if let Some(axes) = downcast_mut::<AxesState>(artist) {
+        axes.home = axes.home.or(frame);
+    } else if let Some(node) = downcast_mut::<FigureFrame>(artist) {
+        node.home = frame;
+    }
 }
 
 /// Lists `child` among the children of `parent`, when it is a container

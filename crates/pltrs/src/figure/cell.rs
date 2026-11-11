@@ -88,6 +88,17 @@ impl FigureCell {
         Some(state)
     }
 
+    /// Write access to the state for moving its artists between where it
+    /// keeps them, which changes nothing a watcher of the figure follows (a
+    /// removed tree standing in for a measure, see `standing_in`); `None`
+    /// while the state is borrowed or worked on outside the cell.
+    pub(super) fn try_rearrange(&self) -> Option<RefMut<'_, FigureState>> {
+        if !self.lending.get().reachable() {
+            return None;
+        }
+        self.state.try_borrow_mut().ok()
+    }
+
     /// Whether code still running uses the state now: it is borrowed (for
     /// reading or for change), or a layout works on it outside the cell
     /// (lent to the program's code meanwhile or not).

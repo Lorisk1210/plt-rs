@@ -6,6 +6,7 @@ License with `SpinesProxy`.
 """
 
 from collections.abc import MutableMapping
+import contextlib
 import functools
 import inspect
 
@@ -31,6 +32,27 @@ _LINEAR_PATHS = {
     "bottom": [(0.999, 0.0), (0.999, 0.0)],
     "top": [(0.999, 1.0), (0.999, 1.0)],
 }
+
+
+#: Whether the spines' transforms are read rather than asked for
+#: (`transforms_read`).
+_reading = False
+
+
+@contextlib.contextmanager
+def transforms_read():
+    """
+    Read the transforms of spines as they are: within the block a spine's
+    transform does not set its position, so that nothing is placed and no
+    ticks are made anew, as when matplotlib reads the transform a tick was
+    made with.
+    """
+    global _reading
+    previous, _reading = _reading, True
+    try:
+        yield
+    finally:
+        _reading = previous
 
 
 def _position_pair(position):
@@ -139,7 +161,7 @@ class Spine(Patch):
                        figure)
         # Known without asking pltrs (Rust), which the projection of a
         # program's class cannot while it draws.
-        self.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
+        self.__dict__.update(_spine_axes=axes, _spine_type=spine_type, _made=True)
 
     def _push_path(self):
         """Have pltrs (Rust) draw the spine of a type naming no side as its
@@ -395,7 +417,14 @@ class Spine(Patch):
         """Set the position the spine has until it is given one, where
         matplotlib first asks for it: ('outward', 0), where pltrs (Rust)
         placed it, which makes the ticks of its axis anew as setting a
-        position does (see `set_position`)."""
+        position does (see `set_position`). A spine the program made and
+        never placed is placed there only now: until then it is drawn
+        with the transform it was made with, ``transData``."""
+        if _reading:
+            return
+        self._placed = True
+        if _spines.unplaced(self._native):
+            _spines.set_position(self._native, ("outward", 0.0))
         if not self._position_set:
             self._position_set = True
             if self.axis is not None:
@@ -495,6 +524,7 @@ class Spine(Patch):
         :doc:`/gallery/spines/spine_placement_demo`
         """
         _check_position(position)
+        self._placed = True
         _spines.set_position(self._native, _position_pair(position))
         # Read back as given, as matplotlib keeps it.
         self._given_position = position
@@ -614,6 +644,13 @@ class Spine(Patch):
             self._span_path()
         elif "_pushed_path" in self.__dict__:
             self._push_path()
+        if self.axis is None and self._is_linear:
+            # Without an axis, the line alone: no ticks stand out of it.
+            drawn = _spines.display_path(self._native)
+            if drawn is None:
+                return Bbox.null()
+            vertices = np.asarray(drawn[0])
+            return Bbox([vertices.min(axis=0), vertices.max(axis=0)])
         extent = _spines.window_extent(self._native)
         if extent is None:
             return Bbox.null()
@@ -875,6 +912,14 @@ class Spines(MutableMapping):
         return self._dict[key]
 
     def __setitem__(self, key, value):
+        if isinstance(value, Spine) and value.__dict__.get("_made"):
+            # A spine the program made has no axis until one is registered
+            # (`Spine.register_axis`), as matplotlib's new spine has none,
+            # and the transform it was made with, ``transData``, until
+            # something places it.
+            value.__dict__.setdefault("_axis", None)
+            if not value.__dict__.get("_placed"):
+                _spines.leave_unplaced(value._native)
         _replace_drawn(self._dict.get(key), value)
         if not isinstance(value, Artist):
             # Among the children of the Axes, on which its draws fail

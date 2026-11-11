@@ -23,9 +23,9 @@ use pltrs::ticker::{
     AsinhLocator, AutoLocator, AutoMinorLocator, AxisInfo, EngFormatter, FixedFormatter,
     FixedLocator, FormatStrFormatter, Formatter, IndexLocator, LinearLocator, Locator, LogBase,
     LogFormatter, LogLabelStyle, LogLocator, LogSubs, LogitFormatter, LogitLocator, MaxNLocator,
-    MinorDivisions, MultipleLocator, Nbins, NullFormatter, NullLocator, NumTicks, OffsetMode,
-    PercentFormatter, Prune, ScalarFormatter, ScaleHint, StrMethodFormatter, SymmetricalLogLocator,
-    TickContext, TickSpace, TickerError, TickerSettings,
+    MinorDivisions, MultipleLocator, Nbins, NullFormatter, NullLocator, NumTicks, NumericLocale,
+    OffsetMode, PercentFormatter, Prune, ScalarFormatter, ScaleHint, StrMethodFormatter,
+    SymmetricalLogLocator, TickContext, TickSpace, TickerError, TickerSettings,
 };
 
 use crate::binding::dict_value;
@@ -306,6 +306,17 @@ fn logit_formatter(spec: &Bound<'_>) -> PyResult<LogitFormatter> {
         .with_minor_number(dict_value(spec, "minor_number")?))
 }
 
+/// Has `localeconv` (Python's `locale.localeconv`) tell pltrs (Rust) how
+/// the program's locale writes numbers, for the formatters it makes
+/// itself under `axes.formatter.use_locale`; the C locale's conventions
+/// stand in when the call fails.
+fn follow_locale(localeconv: Callback) -> PyResult<()> {
+    pltrs::ticker::set_program_locale(Some(move || {
+        (localeconv.call::<locale::PyLocale>(())).map_or_else(NumericLocale::c, |conv| conv.0)
+    }));
+    Ok(())
+}
+
 /// The scalar formatter a `"scalar"` spec describes.
 fn scalar_formatter(spec: &Bound<'_>) -> PyResult<ScalarFormatter> {
     let use_offset: Bound<'_> = dict_value(spec, "use_offset")?;
@@ -467,6 +478,7 @@ fn is_log_base(base: f64) -> PyResult<bool> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("follow_locale", follow_locale)?;
     module.add("tick_values", tick_values)?;
     module.add("locate", locate)?;
     module.add("view_limits", view_limits)?;

@@ -566,10 +566,11 @@ class Axis(DrawnWith, Artist):
         the chain holds the same `Ticker` objects."""
         if self.axis_name is None:
             return
+        from .axes import _sharing
         root, seen = self.axes, {id(self.axes)}
         # An Axes may share with itself (``subplot_mosaic`` shares the first
         # with the first, as matplotlib's does).
-        while ((shared := root._shared_from(self.axis_name)) is not None
+        while ((shared := _sharing.shared_from(root, self.axis_name)) is not None
                and id(shared) not in seen):
             root = shared
             seen.add(id(root))
@@ -1324,6 +1325,7 @@ class Axis(DrawnWith, Artist):
         - units
         - registered callbacks
         """
+        self._retire_ticks()
         _axis.clear(*self._args())
         # Clear the callback registry for this axis, or it may "leak"
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
@@ -1367,10 +1369,20 @@ class Axis(DrawnWith, Artist):
 
         Each list starts with a single fresh Tick.
         """
+        self._retire_ticks()
         self._ticks = {False: [], True: []}
         #: How many ticks of each level matplotlib's axis made since its
         #: list was made anew (see `_tick_objects`).
         self._ticks_seen = {False: 0, True: 0}
+
+    def _retire_ticks(self):
+        """Leave the ticks made so far as matplotlib's `clear` and
+        `reset_ticks` leave the tick objects they drop, each keeping what
+        it had (`.Tick._retire`), while the axis still has them."""
+        for ticks in self.__dict__.get("_ticks", {}).values():
+            for tick in ticks:
+                tick._retire()
+            ticks.clear()
 
     def _update_ticks(self):
         """

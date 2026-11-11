@@ -247,6 +247,11 @@ pub(crate) struct CollectionArtist {
     /// `update_scalarmappable` maps them, and the mapped ones until the
     /// next `set_facecolor`, `set_edgecolor` or `set_alpha`).
     pub(crate) mapped_shown: Cell<MappedSides>,
+    /// The colour mapping the last `update_scalarmappable` mapped with,
+    /// once the mapping changed since (its values, norm or colormap): the
+    /// getters report its colours until the next one, as matplotlib's
+    /// `_facecolors` and `_edgecolors` only change there.
+    pub(crate) mapping_shown: RefCell<Option<Mapped>>,
     /// Whether [`EdgeColors::Default`] gives the items edges, as the rule
     /// decided when it was last applied (matplotlib's `_set_edgecolor(None)`
     /// picks the colour then, from the faces of that time); `None` until
@@ -333,7 +338,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     draw_time,
     class_name,
     rc
-} skip { colors_rc });
+} skip { colors_rc, mapping_shown });
 
 impl CollectionArtist {
     /// An empty collection of the given kind with rc defaults.
@@ -379,6 +384,7 @@ impl CollectionArtist {
             depth_sorted: None,
             mapping: None,
             mapped_shown: Cell::default(),
+            mapping_shown: RefCell::default(),
             default_edges: Cell::default(),
             kept_colors: KeptColors::default(),
             parked_mappable: None,
@@ -541,6 +547,33 @@ impl CollectionArtist {
             self.decide_default_edges();
         }
         self.mapped_shown.set(MappedSides::of(self));
+        self.mapping_shown.take();
+    }
+
+    /// Keeps the colour mapping as the getters' until the next
+    /// `update_scalarmappable`, before it changes, when they report
+    /// mapped colours and none is kept yet (see
+    /// [`CollectionArtist::mapping_shown`]).
+    pub(crate) fn keep_shown_mapping(&mut self) {
+        let shown = self.mapped_shown.get();
+        let kept = self.mapping_shown.get_mut();
+        if (shown.faces || shown.edges) && kept.is_none() {
+            kept.clone_from(&self.mapping);
+        }
+    }
+
+    /// Replaces the colour mapping, the one replaced kept for the getters
+    /// (see [`keep_shown_mapping`](Self::keep_shown_mapping)); returns it
+    /// when it is not.
+    pub(crate) fn replace_mapping(&mut self, mapping: Option<Mapped>) -> Option<Mapped> {
+        let shown = self.mapped_shown.get();
+        let replaced = std::mem::replace(&mut self.mapping, mapping);
+        let kept = self.mapping_shown.get_mut();
+        if (shown.faces || shown.edges) && kept.is_none() {
+            *kept = replaced;
+            return None;
+        }
+        replaced
     }
 
     /// The face and edge colours after defaults, colour mapping and
@@ -599,6 +632,7 @@ impl CollectionArtist {
 
 impl ColorMapped for CollectionArtist {
     fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
+        self.keep_shown_mapping();
         self.mapping
             .as_mut()
             .map(|mapped| &mut mapped.source.mappable)

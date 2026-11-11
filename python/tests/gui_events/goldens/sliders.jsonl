@@ -7,7 +7,7 @@
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 228, "xdata": 7.0, "y": 150, "ydata": 0.5}
 {"gui": false, "name": "draw_event"}
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 228, "xdata": 7.0, "y": 150, "ydata": 0.5}
-{"button": 1, "buttons": null, "dblclick": true, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 228, "xdata": 7.0, "y": 150, "ydata": 0.5}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 228, "xdata": 7.0, "y": 150, "ydata": 0.5}
 {"name": "h", "val": 7.5}
 {"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 240, "xdata": 7.5, "y": 150, "ydata": 0.5}
 {"gui": false, "name": "draw_event"}

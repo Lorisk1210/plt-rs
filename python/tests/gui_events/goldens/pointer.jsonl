@@ -43,7 +43,7 @@
 {"button": 3, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 110, "ydata": 3.33333}
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 110, "ydata": 3.33333}
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 110, "ydata": 3.33333}
-{"button": 1, "buttons": null, "dblclick": true, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 110, "ydata": 3.33333}
+{"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": 0, "key": null, "modifiers": [], "name": "button_press_event", "step": 0, "x": 110, "xdata": 4.25806, "y": 110, "ydata": 3.33333}
 {"gui": true, "inaxes": 0, "modifiers": [], "name": "axes_leave_event", "x": 440, "xdata": 27.6774, "y": 150, "ydata": 5.06494}
 {"button": 1, "buttons": [1], "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "motion_notify_event", "step": 0, "x": 440, "xdata": null, "y": 150, "ydata": null}
 {"button": 1, "buttons": null, "dblclick": false, "gui": true, "inaxes": null, "key": null, "modifiers": [], "name": "button_release_event", "step": 0, "x": 440, "xdata": null, "y": 150, "ydata": null}

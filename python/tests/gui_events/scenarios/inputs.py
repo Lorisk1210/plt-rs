@@ -43,7 +43,6 @@ def _(d):
     d.release(3)
     d.double_click(1)
     d.double_click(3)
-    d.wait(0.6)
     d.click(1)
     # Out of the window with a button held, released outside, back in.
     d.press(1)

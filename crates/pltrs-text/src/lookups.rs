@@ -10,10 +10,10 @@
 //! ([`take_font_lookups`]), where the program's font manager can log as
 //! matplotlib's does.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
-use pltrs_font::{FontQuery, GenericFamilies};
+use pltrs_font::{AfmDirectory, FontQuery, GenericFamilies};
 
 /// The most runs of lookups kept until they are taken (a run being one
 /// lookup made several times in a row, as for the tick labels of an
@@ -29,6 +29,11 @@ pub enum LookupKind {
     Fonts,
     /// The single best face (matplotlib's `findfont`).
     Font,
+    /// The best of the AFM fonts of a directory, for a text a PostScript
+    /// or PDF renderer measures and draws in them (matplotlib's
+    /// `findfont(fontext="afm", directory=...)` in `_get_font_afm`; the
+    /// PDF renderer looks its core fonts up once more to name the font).
+    Afm(AfmDirectory),
 }
 
 /// A font lookup matplotlib's font manager logs about.
@@ -67,18 +72,38 @@ pub struct LookupRun {
 thread_local! {
     /// The lookups made on this thread and not taken yet.
     static LOOKUPS: RefCell<Vec<LookupRun>> = const { RefCell::new(Vec::new()) };
+    /// Whether every lookup is kept on this thread (see
+    /// [`keep_every_lookup`]).
+    static EVERY: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Keeps every font lookup noted on this thread from now on (`every`), or
+/// only those matplotlib's font manager logs about again: for a caller
+/// with something to report for each. matplotlib opens the fonts of every
+/// text it lays out (`get_font`), and while the deprecated
+/// `text.kerning_factor` is set, opening one it has not cached warns of
+/// the deprecation.
+///
+/// ```
+/// pltrs_text::keep_every_lookup(true);
+/// pltrs_text::keep_every_lookup(false);
+/// ```
+pub fn keep_every_lookup(every: bool) {
+    EVERY.set(every);
 }
 
 /// Records `lookup` if matplotlib's font manager logs about it: a family
 /// of the query has no face (`found` holds the weight of the best face of
 /// each family, `None` for none), or a face found has another weight than
-/// the query asks for.
+/// the query asks for; any lookup while every one is kept
+/// ([`keep_every_lookup`]), and any of an AFM font.
 pub(crate) fn note(lookup: FontLookup, found: &[Option<u16>]) {
     let weight = lookup.query.weight.0;
     let logged = found
         .iter()
         .any(|found| found.is_none_or(|found| found != weight));
-    if !logged {
+    // (What the font manager says of an AFM font is its to find out.)
+    if !(logged || EVERY.get() || matches!(lookup.kind, LookupKind::Afm(_))) {
         return;
     }
     LOOKUPS.with(|lookups| {
@@ -95,7 +120,8 @@ pub(crate) fn note(lookup: FontLookup, found: &[Option<u16>]) {
 }
 
 /// The lookups made on this thread since the last call that matplotlib's
-/// font manager logs about, in the order they were made, those made
+/// font manager logs about (or all of them, see [`keep_every_lookup`]),
+/// in the order they were made, those made
 /// several times in a row as one run. At most the first 4096 runs are
 /// kept between calls.
 pub fn take_font_lookups() -> Vec<LookupRun> {

@@ -139,6 +139,18 @@ impl PatchShape for Rectangle {
             .rotated_box(&self.bbox(), self.angle, self.aspect_ratio_correction)
     }
 
+    fn has_tame_numbers(&self) -> bool {
+        // (An unrotated box: its matrix holds its corner and sides, and
+        // the pivot and aspect correction of a rotation cancel out.)
+        let plain = self.angle == 0.0
+            && self.aspect_ratio_correction.is_normal()
+            && !matches!(self.rotation_point, RotationPoint::At(_));
+        plain
+            && [self.xy.x, self.xy.y, self.width, self.height]
+                .into_iter()
+                .all(crate::transforms::is_tame)
+    }
+
     fn skips_autoscale(&self) -> bool {
         self.width == 0.0 && self.height == 0.0
     }

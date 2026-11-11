@@ -170,8 +170,12 @@ fn next_generation() -> u64 {
 }
 
 /// Makes `params` this thread's current parameters, in a new generation.
+/// While they set the deprecated `text.kerning_factor`, every font lookup
+/// of the texts laid out is kept for whoever reports them: matplotlib
+/// warns of the deprecation at each font it opens then.
 fn make_current(params: Rc<RcParams>) -> Rc<RcParams> {
     GENERATION.set(next_generation());
+    pltrs_text::keep_every_lookup(params.text_kerning_factor.is_some());
     CURRENT.with(|current| current.replace(params))
 }
 

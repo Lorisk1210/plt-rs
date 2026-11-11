@@ -22,6 +22,12 @@ the transforms empty, so that what the non-affine parts say of the data
 (a logarithm of a negative coordinate) stays with pltrs (Rust), which
 maps the data.
 
+Measurements are replayed as draws are: pltrs (Rust) hands over each
+axis it measures for the tight box of an Axes and then the Axes
+(`_axis_measured`, `_axes_measured`), whose artists outside its clip are
+measured as matplotlib's ``get_tightbbox`` measures them
+(`_artist_measured`).
+
 Nothing is replayed while every leaf is tame (a finite number of
 ordinary size, a view with some width): pltrs (Rust) hands the draws of
 a figure to `evaluated` (``_native.transforms.set_evaluation_hook``)
@@ -46,7 +52,8 @@ from ._native import archive as _archive, artist as _artist
 _NO_POINTS = np.empty((0, 2))
 
 #: The modules of the classes whose draws are replayed (`_artist_drawn`).
-_DRAWN_MODULES = frozenset(["lines", "text", "collections", "patches", "spines"])
+_DRAWN_MODULES = frozenset(["lines", "text", "collections", "patches", "spines",
+                            "image", "legend", "offsetbox"])
 
 #: The `.TransformedPath` each line drawn keeps, with its transform
 #: (matplotlib's ``Line2D._transformed_path``).
@@ -61,10 +68,11 @@ def _no_path():
 
 
 def evaluated(figure, kind, artist_id, axis):
-    """One evaluation of the graph by a draw of the root *figure* (see
-    ``pltrs::transforms::Evaluation``): the artist *artist_id* drawn, the
-    axes *artist_id* starting its draw, its background patch drawn, or
-    its *axis*, ``(name, ticks, label)``."""
+    """One evaluation of the graph by a draw or a measurement of the root
+    *figure* (see ``pltrs::transforms::Evaluation``): the artist
+    *artist_id* drawn, the axes *artist_id* starting its draw, its
+    background patch drawn, its *axis*, ``(name, ticks, label)``, drawn
+    or measured, or its tight box taken."""
     from . import _handles, _transform_trees
     _transform_trees.sync(figure)
     artist = figure._artists.get(artist_id)
@@ -79,6 +87,10 @@ def evaluated(figure, kind, artist_id, axis):
     with _spines_placed(artist if kind != "draw" else getattr(artist, "axes", None)):
         if kind == "axis":
             _axis_drawn(artist, *axis)
+        elif kind == "axis measured":
+            _axis_measured(artist, *axis)
+        elif kind in ("measured", "measured alone"):
+            _axes_measured(artist, kind == "measured")
         elif kind == "axes":
             if artist.name == "polar":
                 _polar_drawn(artist)
@@ -115,17 +127,51 @@ def _artist_drawn(artist):
     """matplotlib's ``draw`` of *artist*, as far as it evaluates
     transforms."""
     from .collections import Collection
+    from .legend import Legend
     from .lines import Line2D
+    from .offsetbox import AnnotationBbox
     from .patches import Patch
-    from .text import Text
+    from .text import Annotation, Text
     if isinstance(artist, Patch):
         _patch_drawn(artist)
     elif isinstance(artist, Line2D):
         _line_drawn(artist)
+    elif isinstance(artist, Annotation):
+        _annotation_drawn(artist)
     elif isinstance(artist, Text):
         _text_drawn(artist)
     elif isinstance(artist, Collection):
         _collection_drawn(artist)
+    elif isinstance(artist, Legend):
+        # Its box is measured, then drawn: each places it.
+        _legend_placed(artist)
+        _legend_placed(artist)
+    elif _maps_its_extent(artist):
+        _position_mapped(artist.get_transform())
+    elif isinstance(artist, AnnotationBbox):
+        _annotation_box_drawn(artist)
+
+
+def _annotation_box_drawn(box):
+    """``AnnotationBbox.draw``: the point annotated placed, which ends the
+    draw of a box clipped to its Axes when the point is outside; else the
+    box placed (``update_positions``), and the point once more for the
+    arrow."""
+    if not box._check_xy(None):
+        return
+    _position_mapped(box._get_xy_transform(None, box.boxcoords))
+    if box.arrowprops is not None:
+        _position_mapped(box._get_xy_transform(None, box.xycoords))
+
+
+def _maps_its_extent(artist):
+    """Whether *artist* is an image whose draw and whose measurements map
+    the corners of its extent through its transform (``AxesImage``: a new
+    ``TransformedBbox`` in ``make_image``, ``Bbox.transformed`` in
+    ``get_window_extent``)."""
+    from .image import AxesImage, NonUniformImage, PcolorImage
+    return (isinstance(artist, AxesImage)
+            and not isinstance(artist, (NonUniformImage, PcolorImage)))
 
 
 def _clip_read(artist):
@@ -223,23 +269,99 @@ def _position_mapped(transform, position=_NO_POINTS):
     transform.transform(position)
 
 
-def _text_drawn(text):
-    """``Text.draw``: the text's position through its transform, again to
-    place its box."""
+def _maps_to_numbers(transform, position):
+    """Whether *transform* maps *position* to numbers (asked quietly, once
+    the evaluation that counts is made)."""
+    with np.errstate(all="ignore"):
+        return not np.isnan(transform.transform(position)).any()
+
+
+def _text_drawn(text, transform=None):
+    """``Text.draw``: the text's position through its transform
+    (*transform*, if given), again to place its box unless the position is
+    no number, where the draw ends."""
     if text.get_text() == "":
         return
-    transform = text.get_transform()
+    if transform is None:
+        transform = text.get_transform()
     _position_mapped(transform)
-    if text.get_bbox_patch() is not None:
+    if (text.get_bbox_patch() is not None
+            and _maps_to_numbers(transform, text.get_unitless_position())):
         _position_mapped(transform)
+
+
+def _annotation_drawn(annotation):
+    """``Annotation.draw``: the point annotated placed, which ends the draw
+    of an annotation clipped to its Axes when the point is outside
+    (`.text.Annotation._positioned_by_draw`); else the text placed and the
+    point once more for the arrow (``update_positions``), then the text
+    drawn."""
+    shown, transform = annotation._positioned_by_draw()
+    if not shown or transform is None:
+        return
+    if annotation.arrowprops is not None:
+        _position_mapped(transform)
+        _position_mapped(annotation._get_xy_transform(None, annotation.xycoords))
+    _text_drawn(annotation, transform)
 
 
 def _collection_drawn(collection):
     """``Collection.draw``: the non-affine parts of the transform and of
     the offset transform (``_prepare_points``), then both as the renderer
-    takes them: the transform frozen, the offset transform as a matrix,
-    in the collection's clip path."""
-    transform = collection.get_transform()
+    takes them, the transform frozen, the offset transform as a matrix, in
+    the collection's clip path: once where one path in one style is drawn
+    as markers, else twice (``draw_path_collection`` is first tried
+    without paths, for the arguments the renderer takes)."""
+    from . import _python_drawing
+    from .collections import QuadMesh
+    # A quiver's draw sets its transform first, from the Axes' size.
+    by_draw = getattr(collection, "_transform_by_draw", None)
+    transform, offset_transform = _collection_points_prepared(
+        collection, None if by_draw is None else by_draw())
+    # (A mesh has a draw of its own, which hands the renderer its quads.)
+    once = isinstance(collection, QuadMesh) or _drawn_as_markers(collection, transform)
+    # Agg takes the offset transform and the clip path of whatever it is
+    # handed; the renderers of the vector formats only for a path.
+    renderer = _python_drawing.installed_renderer()
+    tried_in_full = type(renderer).__name__ != "MixedModeRenderer"
+    for last in ([True] if once else [False, True]):
+        transform.frozen()
+        if last or tried_in_full:
+            offset_transform.__array__()
+            _clip_read(collection)
+
+
+def _drawn_as_markers(collection, transform):
+    """Whether ``Collection.draw`` draws *collection* as markers: it has
+    one path in one style, which through *transform* (the affine part of
+    its transform; measured there, which evaluates it) is smaller than
+    the figure."""
+    paths = collection.get_paths()
+    sizes = collection.get_transforms()
+    styles = (collection.get_facecolor(), collection.get_edgecolor(),
+              collection.get_linewidth(), collection.get_antialiased(),
+              collection.get_urls())
+    if not (len(paths) == 1 and len(sizes) <= 1
+            and all(len(style) == 1 for style in styles)
+            and all(dashes is None for _, dashes in collection.get_linestyle())
+            and collection.get_hatch() is None):
+        return False
+    if len(sizes):
+        from .transforms import Affine2D
+        transform = Affine2D(sizes[0]) + transform
+    transform.transform_path(_no_path())
+    with np.errstate(all="ignore"):
+        extents = paths[0].get_extents(transform)
+    figure = collection.get_figure(root=True).bbox
+    return extents.width < figure.width and extents.height < figure.height
+
+
+def _collection_points_prepared(collection, transform=None):
+    """``Collection._prepare_points``: the non-affine parts of the
+    transform (*transform*, if given) and of the offset transform applied;
+    returns their affine parts."""
+    if transform is None:
+        transform = collection.get_transform()
     offset_transform = collection.get_offset_transform()
     if not transform.is_affine:
         transform.transform_path_non_affine(_no_path())
@@ -247,9 +369,7 @@ def _collection_drawn(collection):
     if not offset_transform.is_affine:
         offset_transform.transform_non_affine(_NO_POINTS)
         offset_transform = offset_transform.get_affine()
-    transform.frozen()
-    offset_transform.__array__()
-    _clip_read(collection)
+    return transform, offset_transform
 
 
 #: How many steps matplotlib's gridlines are cut into where a projection
@@ -350,15 +470,116 @@ def _axis_drawn(axes, name, ticks, label):
         for side in (0, 1):
             if shown[side] and text:
                 _position_mapped(*labels[side])
-    mirror = axis._axis_label
+    _label_placed(axes, name, ticks, parts)
+    if label:
+        _label_mapped(axis)
+
+
+def _label_placed(axes, name, ticks, parts):
+    """``Axis._update_label_position``: unless the program gave the axis
+    label coordinates, the ticks placed and their labels measured again,
+    and the spine on the label's side."""
+    axis = getattr(axes, f"{name}axis")
     if "_label_transform" not in axis.__dict__:
         _ticks_updated(axes, name)
         _label_extents(ticks, parts)
         spine = axes.spines.get(axis.get_label_position())
         if spine is not None:
             spine.get_transform().transform_path(_no_path())
+
+
+def _label_mapped(axis):
+    """The position of the label of *axis* through its transform."""
+    mirror = axis._axis_label
+    _position_mapped(mirror._transform_of(mirror.text))
+
+
+def _axis_measured(axes, name, ticks, label):
+    """``Axis.get_tightbbox`` of axis *name* of *axes* with *ticks* (see
+    `_axis_drawn`): the ticks placed, the axis label placed past their
+    labels, the labels measured, then the axis label with *label*."""
+    parts = [_axis_parts(axes, name, tick) for tick in ticks]
+    _ticks_updated(axes, name)
+    _label_placed(axes, name, ticks, parts)
+    _label_extents(ticks, parts)
     if label:
-        _position_mapped(mirror._transform_of(mirror.text))
+        _label_mapped(getattr(axes, f"{name}axis"))
+
+
+def _axes_measured(axes, children):
+    """``Axes.get_tightbbox`` of *axes* once its axes are measured: its
+    artists that take part in layout, with *children* (unless the program
+    named the artists to measure)."""
+    if children:
+        for artist in axes.get_default_bbox_extra_artists():
+            _artist_measured(artist)
+
+
+def _artist_measured(artist):
+    """matplotlib's ``get_tightbbox`` of *artist*, an artist of an Axes
+    its tight box takes in (one not clipped to it), as far as it evaluates
+    transforms."""
+    from .legend import Legend
+    from .lines import Line2D
+    from .patches import Patch
+    from .spines import Spine
+    from .text import Annotation, Text
+    if isinstance(artist, Spine):
+        _spine_transform(artist).transform_path(_no_path())
+        axis = artist.axis
+        if axis is not None and axis.get_visible():
+            _ticks_updated(artist.axes, axis.axis_name)
+    elif isinstance(artist, Annotation):
+        _annotation_placed(artist)
+    elif isinstance(artist, Text):
+        _position_mapped(artist.get_transform())
+    elif isinstance(artist, Legend):
+        _legend_placed(artist)
+    elif isinstance(artist, Patch):
+        artist.get_transform().transform_path(_no_path())
+    elif isinstance(artist, Line2D) or _maps_its_extent(artist):
+        _position_mapped(artist.get_transform())
+
+
+def artist_measured(artist):
+    """matplotlib's ``get_window_extent`` of *artist* (a text, a legend),
+    asked by the program."""
+    _artist_measured(artist)
+
+
+def _annotation_placed(annotation):
+    """``Annotation.update_positions``, which its draw and its
+    measurements begin with: the point annotated through the transform of
+    its coordinate system, where that is the data's."""
+    if annotation.xycoords == "data" and annotation.axes is not None:
+        _position_mapped(annotation.axes.transData)
+
+
+def _legend_placed(legend):
+    """``Legend._find_best_position`` of a legend of an Axes placed at the
+    best location, which every measurement of its box asks for
+    (``_auto_legend_data``): what the Axes holds through its transforms,
+    for the legend to stay clear of."""
+    from .collections import Collection, PolyCollection
+    from .lines import Line2D
+    from .patches import Patch, Rectangle
+    from .text import Text
+    axes = legend.axes
+    if axes is None or legend._loc != 0:
+        return
+    for artist in axes._children:
+        if isinstance(artist, Line2D):
+            artist.get_transform().transform_path(_no_path())
+        elif isinstance(artist, Rectangle):
+            _position_mapped(artist.get_data_transform())
+        elif isinstance(artist, Patch):
+            artist.get_transform().transform_path(_no_path())
+        elif isinstance(artist, PolyCollection):
+            artist.get_transform().transform_path(_no_path())
+        elif isinstance(artist, Collection):
+            _collection_points_prepared(artist)
+        elif isinstance(artist, Text):
+            _artist_measured(artist)
 
 
 def _polar_drawn(axes):

@@ -170,6 +170,14 @@ pub trait Artist: Any + Debug + ArtistClone {
         false
     }
 
+    /// Whether the artist's draw honours its `rasterized` and
+    /// `agg_filter` properties (matplotlib's `allow_rasterization` around
+    /// the `draw` of its class): not `InsetIndicator.draw`, which draws
+    /// its rectangle and connectors as they are set themselves.
+    fn draw_allows_rasterization(&self) -> bool {
+        true
+    }
+
     /// What drawing an artist that is hidden (and not
     /// [drawn while hidden](Self::draws_hidden)) does, where matplotlib's
     /// `draw` computes before it asks the artist's visibility: nothing

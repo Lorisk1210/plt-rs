@@ -12,10 +12,13 @@
 //!
 //! A warning that the warning filters turn into an exception raises from
 //! the native call that issued it, as an exception of a callback does
-//! (see `binding::callback`).
+//! (see `binding::callback`). What pltrs (Rust) reports of work it did
+//! before a callback raised (the notes of a renderer on the artists it
+//! drew before one failed) is delivered all the same
+//! (`setting_failure_aside`).
 
 use crate::binding::prelude::*;
-use crate::binding::{lookup, report, runtime_warning};
+use crate::binding::{lookup, report, runtime_warning, setting_failure_aside};
 
 /// Sends pltrs (Rust)'s warnings to `_api.warn_external` and its log
 /// messages to the package's `log_warning` from now on.
@@ -23,6 +26,7 @@ pub(super) fn register(_module: &Module<'_>) -> PyResult<()> {
     pltrs::warnings::set_handler(warn);
     pltrs::warnings::set_log_handler(log);
     pltrs::warnings::set_runtime_handler(warn_runtime);
+    pltrs::warnings::set_earlier_scope(setting_failure_aside);
     Ok(())
 }
 

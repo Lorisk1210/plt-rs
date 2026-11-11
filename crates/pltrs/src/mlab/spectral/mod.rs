@@ -8,6 +8,7 @@ use helper::{Mode, Raw, Signal, spectral_helper};
 
 use super::{Complex, Detrend, MlabError, Window};
 use crate::numeric::Grid;
+use crate::numeric::numpy_arith::Exceptions;
 
 /// A sample type spectral estimates accept: real (`f64`) or complex.
 ///
@@ -272,7 +273,10 @@ fn specgram_raw<S: SignalValue>(
 }
 
 /// Coherence `|Pxy|² / (Pxx·Pyy)`; needs at least two segments' worth of
-/// samples (`len(x) >= 2·nfft`).
+/// samples (`len(x) >= 2·nfft`). Where the densities leave no number to
+/// divide (a signal without samples: `0 / 0`), numpy's arithmetic warns
+/// in matplotlib's `cohere`, and so does this (see
+/// [`crate::warnings`]).
 pub fn cohere<S: SignalValue, U: SignalValue>(
     x: &[S],
     y: &[U],
@@ -287,15 +291,20 @@ pub fn cohere<S: SignalValue, U: SignalValue>(
     let pxx = psd(x, opts.clone())?;
     let pyy = psd(y, opts.clone())?;
     let pxy = csd(x, y, opts)?;
+    let (mut products, mut quotients) = (Exceptions::default(), Exceptions::default());
     let values = pxy
         .values
         .iter()
         .zip(pxx.values.iter().zip(&pyy.values))
-        .map(|(z, (px, py))| {
+        .map(|(z, (&px, &py))| {
             let m = z.abs();
-            m * m / (px * py)
+            let product = px * py;
+            products.note(product, px, py);
+            quotients.divide(m * m, product)
         })
         .collect();
+    products.warn("multiply");
+    quotients.warn("divide");
     Ok(Spectrum {
         values,
         freqs: pxy.freqs,
@@ -490,6 +499,24 @@ mod tests {
             cohere(&x[..40], &x[..40], opts),
             Err(MlabError::SignalTooShort { .. })
         ));
+    }
+
+    #[test]
+    fn coherence_with_no_samples_warns_as_numpy_divides() {
+        let x = signal(128);
+        let opts = SpectralOptions {
+            nfft: 32,
+            ..SpectralOptions::default()
+        };
+        let none: [f64; 0] = [];
+        let (coherence, warnings) =
+            crate::warnings::capturing_runtime(|| cohere(&x, &none, opts.clone()));
+        assert!(coherence.unwrap().values.iter().all(|v| v.is_nan()));
+        assert_eq!(warnings, ["invalid value encountered in divide"]);
+        let ((), warnings) = crate::warnings::capturing_runtime(|| {
+            cohere(&x, &x, opts).unwrap();
+        });
+        assert_eq!(warnings, [""; 0]);
     }
 
     #[test]

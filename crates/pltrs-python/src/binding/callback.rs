@@ -119,6 +119,34 @@ pub(crate) fn forgive(kind: ExceptionKind) -> bool {
     })
 }
 
+/// Runs `work` as if no callback of the innermost native call had
+/// raised yet, so that its callbacks run: for what pltrs (Rust) reports
+/// of work it did before the failure (see
+/// `pltrs::warnings::set_earlier_scope`). The exception kept so far stays
+/// the call's; one `work` raises is kept only when there was none.
+pub(crate) fn setting_failure_aside(work: &mut dyn FnMut()) {
+    let take = |frames: &RefCell<Vec<Frame>>| {
+        let mut frames = frames.borrow_mut();
+        frames.last_mut().and_then(|frame| frame.exception.take())
+    };
+    let Some(aside) = FRAMES.with(take) else {
+        work();
+        return;
+    };
+    work();
+    Python::with_gil(|_py| {
+        let later = FRAMES.with(|frames| {
+            let mut frames = frames.borrow_mut();
+            frames
+                .last_mut()
+                .and_then(|frame| frame.exception.replace(aside))
+        });
+        // Released once the frames are free: dropping the exception may
+        // run Python code that calls back.
+        drop(later);
+    });
+}
+
 /// Keeps `err` in the innermost frame (the first one wins); outside any
 /// native call there is no Python caller to raise it to, so it becomes a
 /// `RuntimeWarning`.

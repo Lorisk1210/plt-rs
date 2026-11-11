@@ -17,9 +17,11 @@
 //! graph over its leaves (pltrs (Python), see
 //! [`Figure::tree_leaves`](crate::figure::Figure::tree_leaves)) where
 //! matplotlib evaluates it: a figure's [`EvaluationHook`] is handed each
-//! [`Evaluation`] of a draw as the draw reaches it, to evaluate the same
-//! nodes there. That costs a figure whose leaves are all
-//! [tame](is_tame) (nearly every figure) one look at them per draw, and
+//! [`Evaluation`] of a draw as the draw reaches it, and each one of a
+//! measurement (an axes' tight box, which layout engines and tight
+//! prints take too) as it is taken, to evaluate the same nodes there.
+//! That costs a figure whose leaves are all [tame](is_tame) (nearly
+//! every figure) one look at them per draw and per axes measured, and
 //! each patch one at its own transform: only a figure with a
 //! [wild](FigureState::graph_is_wild) leaf, or a wild patch, reaches the
 //! hook.
@@ -35,7 +37,8 @@ use crate::axes::AxesState;
 use crate::figure::{Figure, FigureState};
 use crate::ticker::AxisName;
 
-/// One evaluation of matplotlib's transform graph by a draw.
+/// One evaluation of matplotlib's transform graph by a draw or a
+/// measurement.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Evaluation {
     /// The `draw` of an artist of the figure.
@@ -46,7 +49,9 @@ pub enum Evaluation {
     /// The draw of the background patch of an axes (`Axes.patch`).
     Background(ArtistId),
     /// `Axis.draw` of an axis of an axes: the labels of the ticks it
-    /// draws measured, the ticks drawn, the axis label placed and drawn.
+    /// draws measured, the ticks drawn, the axis label placed and drawn;
+    /// or, `measured`, its `Axis.get_tightbbox`: the axis label placed,
+    /// the labels of the ticks and the axis label measured.
     Axis {
         /// The axes.
         axes: ArtistId,
@@ -54,8 +59,21 @@ pub enum Evaluation {
         axis: AxisName,
         /// The ticks drawn, in matplotlib's order (major, then minor).
         ticks: Vec<DrawnTick>,
-        /// Whether the axis label is drawn (shown, with a text).
+        /// Whether the axis label is drawn (shown, with a text), or
+        /// measured (shown).
         label: bool,
+        /// Whether the axis is measured rather than drawn.
+        measured: bool,
+    },
+    /// `Axes.get_tightbbox` of an axes once its axes are measured (each
+    /// an [`Axis`](Self::Axis) evaluation before this one): its titles
+    /// placed and measured, then its artists that take part in layout,
+    /// unless the program named the artists to measure (not `children`).
+    Measured {
+        /// The axes.
+        axes: ArtistId,
+        /// Whether the artists of the axes are measured with it.
+        children: bool,
     },
 }
 
@@ -162,30 +180,102 @@ impl AxesState {
 }
 
 impl FigureState {
+    /// Whether the figure's size or resolution, which every transform of
+    /// the graph rests on, is wild.
+    fn has_wild_size(&self) -> bool {
+        let (width, height) = self.size_inches;
+        !(is_tame(self.dpi()) && is_tame(width) && is_tame(height))
+    }
+
+    /// Whether a leaf of the transforms of the axes `id` (`axes`) is
+    /// wild: one of its own (see [`AxesState::has_wild_leaves`]) or its
+    /// place in the figure.
+    fn axes_is_wild(&self, id: ArtistId, axes: &AxesState) -> bool {
+        axes.has_wild_leaves() || self.axes_bbox(id).is_some_and(|bbox| !is_tame_bbox(&bbox))
+    }
+
     /// Whether a leaf of matplotlib's transform graph of the figure is
     /// wild, so that evaluating the graph may raise floating-point
     /// exceptions: the figure's size or resolution, the place of an axes,
     /// its view limits or the pad of the labels of its ticks.
     pub(crate) fn graph_is_wild(&self) -> bool {
-        let (width, height) = self.size_inches;
-        if !(is_tame(self.dpi()) && is_tame(width) && is_tame(height)) {
+        self.has_wild_size()
+            || self.store.ids().any(|id| {
+                let axes = self.store.get_as::<AxesState>(id);
+                axes.is_some_and(|axes| self.axes_is_wild(id, axes))
+            })
+    }
+
+    /// Whether matplotlib's evaluations of its transform graph for the
+    /// artist `id` may raise floating-point exceptions: the artist's own
+    /// transform is wild, or the figure's size is, or a leaf of the
+    /// transforms of its axes (the nearest among the artist and its
+    /// owners), or for an axes the transform of one of its artists. What
+    /// the other axes of the figure rest on does not count: an artist
+    /// goes through the transforms of its own.
+    pub(crate) fn evaluates_wild(&self, id: ArtistId) -> bool {
+        let wild = |id: ArtistId| self.artist(id).is_some_and(Artist::has_wild_transform);
+        if wild(id) || self.has_wild_size() {
             return true;
         }
-        self.store.ids().any(|id| {
-            self.store.get_as::<AxesState>(id).is_some_and(|axes| {
-                axes.has_wild_leaves()
-                    || self.axes_bbox(id).is_some_and(|bbox| !is_tame_bbox(&bbox))
-            })
-        })
+        let mut owner = Some(id);
+        while let Some(at) = owner {
+            if let Some(axes) = self.artist_as::<AxesState>(at) {
+                return self.axes_is_wild(at, axes)
+                    || (at == id && axes.children.iter().any(|&child| wild(child)));
+            }
+            owner = self.artist(at).and_then(|artist| artist.base().parent);
+        }
+        false
+    }
+
+    /// Whether a measurement of the axes `id` reaches the figure's
+    /// evaluation hook (see [`measuring_evaluated`](Self::measuring_evaluated)):
+    /// the figure's size or a leaf of the transforms of the axes is wild.
+    /// Its artists' own transforms are not asked, which would cost every
+    /// measurement a look at each of them: a tight box takes in only the
+    /// artists that are not clipped to the axes.
+    pub(crate) fn measurement_evaluated(&self, id: ArtistId) -> bool {
+        self.evaluation_hook.is_some()
+            && (self.has_wild_size()
+                || self
+                    .artist_as::<AxesState>(id)
+                    .is_some_and(|axes| self.axes_is_wild(id, axes)))
+    }
+
+    /// Hands `evaluations`, which a measurement of the axes `id` stands
+    /// for, to the figure's hook (see [`Figure::set_evaluation_hook`]),
+    /// the figure lent meanwhile for the hook to read it, when
+    /// [`measurement_evaluated`](Self::measurement_evaluated) says so;
+    /// `evaluations` is asked only then. Nothing for a state that cannot
+    /// be lent.
+    pub(crate) fn measuring_evaluated(
+        &mut self,
+        id: ArtistId,
+        evaluations: impl FnOnce(&Self) -> Vec<Evaluation>,
+    ) {
+        if !self.measurement_evaluated(id) {
+            return;
+        }
+        let Some(hook) = self.evaluation_hook.clone() else {
+            return;
+        };
+        let evaluations = evaluations(self);
+        self.lend(|_| {
+            for evaluation in &evaluations {
+                hook.run(evaluation);
+            }
+        });
     }
 }
 
 impl RawHandle {
     /// Whether matplotlib's evaluations of its transform graph for this
     /// artist may raise floating-point exceptions, so that they are
-    /// worth replaying where it joins an axes or is measured: a leaf of
-    /// its figure's graph is wild, or its own transform (a rectangle's
-    /// patch transform) is, or for an axes that of one of its artists.
+    /// worth replaying where it joins an axes or is measured: its own
+    /// transform (a rectangle's patch transform) is wild, or the
+    /// figure's size, or a leaf of the transforms of its axes, or for an
+    /// axes the transform of one of its artists.
     /// `false` while the figure is being changed (by code further up the
     /// call stack, which cannot be asked meanwhile).
     ///
@@ -198,15 +288,7 @@ impl RawHandle {
     /// assert!(!tame.raw().evaluates_wild() && wild.raw().evaluates_wild());
     /// ```
     pub fn evaluates_wild(&self) -> bool {
-        let Some(state) = self.figure_state().try_borrow() else {
-            return false;
-        };
-        let wild = |id: ArtistId| state.artist(id).is_some_and(Artist::has_wild_transform);
-        wild(self.id())
-            || state
-                .artist_as::<AxesState>(self.id())
-                .is_some_and(|axes| axes.children.iter().any(|&child| wild(child)))
-            || state.graph_is_wild()
+        (self.figure_state().try_borrow()).is_some_and(|state| state.evaluates_wild(self.id()))
     }
 }
 
@@ -253,14 +335,98 @@ mod tests {
 
     /// The evaluations a draw of `fig` hands its hook.
     fn drawn(fig: &Figure) -> Vec<Evaluation> {
+        handed(fig, || fig.canvas().draw().expect("drawn"))
+    }
+
+    /// The evaluations `work` on `fig` hands the figure's hook.
+    fn handed(fig: &Figure, work: impl FnOnce()) -> Vec<Evaluation> {
         let seen = Rc::new(RefCell::new(Vec::new()));
         let sink = Rc::clone(&seen);
         fig.set_evaluation_hook(Some(EvaluationHook::new(move |evaluation| {
             sink.borrow_mut().push(evaluation.clone());
         })));
-        fig.canvas().draw().expect("drawn");
+        work();
         fig.set_evaluation_hook(None);
         seen.take()
+    }
+
+    /// How many of `evaluations` measure the y axis of an axes.
+    fn measured_y_axes(evaluations: &[Evaluation]) -> usize {
+        let measures_y = |e: &&Evaluation| {
+            matches!(
+                e,
+                Evaluation::Axis {
+                    axis: AxisName::Y,
+                    measured: true,
+                    ..
+                }
+            )
+        };
+        evaluations.iter().filter(measures_y).count()
+    }
+
+    #[test]
+    fn a_tight_box_hands_over_the_axes_it_measures_then_the_axes() {
+        let fig = Figure::with_size(3.0, 2.0, 50.0);
+        let ax = fig.subplot();
+        ax.plot([0.0, 1.0], [1.0, 3.0]).expect("a line");
+        let measured = |fig: &Figure| {
+            handed(fig, || {
+                ax.tight_bbox(false);
+            })
+        };
+        assert_eq!(measured(&fig), [], "tame");
+        ax.yaxis().set_view_interval(2.0, 2.0, true);
+        let evaluations = measured(&fig);
+        let last = Evaluation::Measured {
+            axes: ax.id(),
+            children: true,
+        };
+        assert_eq!(evaluations.last(), Some(&last));
+        assert_eq!(evaluations.len(), 3, "both axes, then the axes");
+        assert_eq!(measured_y_axes(&evaluations), 1);
+        // A title is placed past the y axis, measured once more: in tight
+        // boxes and in draws.
+        ax.set_title("title");
+        assert_eq!(measured_y_axes(&measured(&fig)), 2);
+        let evaluations = drawn(&fig);
+        let started = position(&evaluations, |e| *e == Evaluation::Axes(ax.id()));
+        assert_eq!(measured_y_axes(&evaluations[started..=started + 1]), 1);
+        // The axis alone.
+        let axis = handed(&fig, || {
+            ax.yaxis().tight_bbox();
+        });
+        assert_eq!((axis.len(), measured_y_axes(&axis)), (1, 1));
+    }
+
+    #[test]
+    fn rectangles_answer_from_their_sides_as_from_their_transforms() {
+        use crate::patches::PatchShape;
+        let mut rectangle = Rectangle::new((1.0, 2.0), 3.0, 4.0);
+        assert!(rectangle.has_tame_numbers());
+        rectangle.angle = 30.0;
+        assert!(!rectangle.has_tame_numbers(), "its transform is asked");
+        let ax = Figure::new().subplot();
+        for (wild, shape) in [
+            (false, rectangle),
+            (true, Rectangle::new((0.0, 0.0), f64::INFINITY, 1.0)),
+            (true, Rectangle::new((f64::NAN, 0.0), 1.0, 1.0)),
+        ] {
+            let patch = ax.add_patch(shape);
+            assert_eq!(patch.raw().evaluates_wild(), wild);
+        }
+    }
+
+    #[test]
+    fn an_artist_counts_the_leaves_of_its_own_axes_only() {
+        let fig = Figure::with_size(3.0, 2.0, 50.0);
+        let wild = fig.add_subplot(1, 2, 1).expect("a cell");
+        let tame = fig.add_subplot(1, 2, 2).expect("a cell");
+        let lines = [&wild, &tame].map(|ax| ax.plot([0.0, 1.0], [1.0, 3.0]).expect("a line"));
+        wild.xaxis().set_view_interval(1.0, 1.0, true);
+        assert!(wild.raw().evaluates_wild() && lines[0].raw().evaluates_wild());
+        assert!(!tame.raw().evaluates_wild() && !lines[1].raw().evaluates_wild());
+        assert!(fig.state().graph_is_wild());
     }
 
     /// Where the evaluation `wanted` chooses is among `evaluations`.

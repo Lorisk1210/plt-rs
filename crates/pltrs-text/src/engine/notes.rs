@@ -3,6 +3,8 @@
 //! font manager logs about (see [`crate::take_missing_glyphs`] and
 //! [`crate::take_font_lookups`]).
 
+use pltrs_font::AfmDirectory;
+
 use super::{FontRequest, TextEngine};
 use crate::error::TextError;
 use crate::lookups::LookupKind;
@@ -83,5 +85,23 @@ impl TextEngine {
             request.note(LookupKind::Fonts, &weights);
         }
         Ok(())
+    }
+
+    /// Records the lookup of `request`'s font among the AFM fonts of
+    /// `directory`, which matplotlib's PostScript and PDF renderers make
+    /// for each text they measure and draw in them (see
+    /// [`LookupKind::Afm`]): its font manager logs about a face of another
+    /// weight the first time it looks up fonts of those properties.
+    ///
+    /// ```
+    /// use pltrs_text::{AfmDirectory, FontQuery, FontRequest, LookupKind, TextEngine};
+    /// let request = FontRequest::new(FontQuery::default());
+    /// drop(pltrs_text::take_font_lookups());
+    /// TextEngine::global().note_afm_lookup(&request, AfmDirectory::PostScript);
+    /// let noted = pltrs_text::take_font_lookups();
+    /// assert_eq!(noted[0].lookup.kind, LookupKind::Afm(AfmDirectory::PostScript));
+    /// ```
+    pub fn note_afm_lookup(&self, request: &FontRequest, directory: AfmDirectory) {
+        request.note(LookupKind::Afm(directory), &[]);
     }
 }

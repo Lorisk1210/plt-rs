@@ -213,10 +213,15 @@ pub(super) fn note_layout(
     font: &FontProperties,
     typesetting: Typesetting,
 ) -> Result<(), TextError> {
-    if typesetting == Typesetting::Tex || metrics::measures_afm() {
+    if typesetting == Typesetting::Tex {
         return Ok(());
     }
     let request = font.drawn_request();
+    if let Some(directory) = metrics::afm_directory() {
+        // The renderer measures the text in an AFM font it looks up.
+        TextEngine::global().note_afm_lookup(&request, directory);
+        return Ok(());
+    }
     for _ in 0..layouts_of(text) {
         TextEngine::global().note_font_lookup(&request)?;
     }

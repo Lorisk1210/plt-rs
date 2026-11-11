@@ -104,7 +104,13 @@ pub(super) fn line_measure() -> Option<LineMeasure> {
 /// Whether text that is not mathtext is measured with AFM fonts (inside
 /// [`with_afm_metrics`] with a directory).
 pub(super) fn measures_afm() -> bool {
-    AFM_METRICS.get().is_some()
+    afm_directory().is_some()
+}
+
+/// The directory of the AFM fonts text that is not mathtext is measured
+/// with, if it is (inside [`with_afm_metrics`]).
+pub(super) fn afm_directory() -> Option<AfmDirectory> {
+    AFM_METRICS.get()
 }
 
 /// The hinting text is laid out and rasterized with: `text.hinting` as

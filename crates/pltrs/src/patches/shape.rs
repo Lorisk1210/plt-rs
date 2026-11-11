@@ -29,6 +29,15 @@ pub trait PatchShape: Debug + Clone + 'static {
         Affine2D::IDENTITY
     }
 
+    /// Whether the numbers [`patch_transform`](Self::patch_transform) is
+    /// made of are all [tame](crate::transforms::is_tame), so that the
+    /// transform is, without making it: `false` where that takes making
+    /// it (asked of every patch of an axes, where the many rectangles of
+    /// bars answer from their sides).
+    fn has_tame_numbers(&self) -> bool {
+        false
+    }
+
     /// Whether [`display_paths`](Self::display_paths) only maps the
     /// outline through the frame's transform, as the default does, needing
     /// nothing else of the figure: a draw then lets the figure go while a

@@ -18,7 +18,7 @@ import numpy as np
 
 from . import _docstring
 from . import _api, _handles, _lazy_imports, _live_transforms, _values, colors, rcParams
-from . import _val_or_rc
+from . import _transform_trees, _val_or_rc
 from ._native import artist as _artist, legend as _legend
 from ._native import register as _register
 from ._native import text as _text
@@ -388,6 +388,7 @@ class Legend(Artist):
         # layout, the view limits not autoscaled first).
         self._check_figure_renderer(renderer)
         self._measure_box_with(renderer)
+        _transform_trees.measured(self)
         return self._extent_as_is(renderer)
 
     @staticmethod
@@ -882,6 +883,7 @@ class Legend(Artist):
         kept = self.__dict__.get("_kept_extent")
         if kept is not None and self.__dict__.get("_decoupled"):
             return Bbox(kept.get_points())
+        _transform_trees.measured(self)
         return self._extent_as_is()
 
     def _keep_drawn_state(self):

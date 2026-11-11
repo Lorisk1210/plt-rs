@@ -423,6 +423,9 @@ impl<S: PatchShape> Artist for PatchArtist<S> {
     }
 
     fn has_wild_transform(&self) -> bool {
+        if self.shape.has_tame_numbers() {
+            return false;
+        }
         let matrix = self.shape.patch_transform().values();
         !matrix.into_iter().all(crate::transforms::is_tame)
     }

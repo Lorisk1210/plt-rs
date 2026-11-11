@@ -10,6 +10,7 @@ use crate::artist::ArtistId;
 use crate::axes::AxesState;
 use crate::figure::{FigureFrame, FigureState};
 use crate::gridspec::SubplotSpec;
+use crate::numeric::numpy_arith::Exceptions;
 use crate::spines::SpineSide;
 use crate::transforms::TransformContext;
 
@@ -181,13 +182,21 @@ pub(crate) fn signed(value: usize) -> isize {
 }
 
 /// The prefix sums of `sizes` with the relative parts scaled by `k`
-/// (matplotlib's `_calc_offsets`).
+/// (matplotlib's `_calc_offsets`, a matrix product of the sizes and
+/// `[k, 1]`: where a size or `k` is no number numpy's product warns, and
+/// so does this, on the platforms where its products do).
 fn offsets(sizes: &[(f64, f64)], k: f64) -> Vec<f64> {
-    prefix_sums(
-        sizes
-            .iter()
-            .map(|(relative, absolute)| relative * k + absolute),
-    )
+    let mut exceptions = Exceptions::default();
+    let lengths: Vec<f64> = (sizes.iter())
+        .map(|&(relative, absolute)| {
+            let scaled = exceptions.multiply_add(relative, k, None);
+            exceptions.multiply_add(absolute, 1.0, Some(scaled))
+        })
+        .collect();
+    if crate::warnings::PRODUCTS_WARN {
+        exceptions.warn("matmul");
+    }
+    prefix_sums(lengths.into_iter())
 }
 
 /// `0` followed by the running sums of `lengths` (`np.cumsum([0, ...])`).
@@ -535,6 +544,23 @@ mod tests {
         assert_eq!(at(&ox, -1), Some(ox[3]));
         assert_eq!(at(&ox, -2), Some(ox[2]));
         assert_eq!(at(&ox, 4), None);
+    }
+
+    #[test]
+    fn offsets_of_sizes_that_are_no_numbers_warn_as_numpys_product() {
+        let warned = |sizes: &[(f64, f64)], k: f64| {
+            crate::warnings::capturing_runtime(|| offsets(sizes, k)).1
+        };
+        assert_eq!(warned(&[(1.0, 0.5), (2.0, 0.0)], 3.0), [""; 0]);
+        let invalid: &[&str] = if crate::warnings::PRODUCTS_WARN {
+            &["invalid value encountered in matmul"]
+        } else {
+            &[]
+        };
+        // Zero times an infinity, and an infinity less another.
+        assert_eq!(warned(&[(0.0, 1.0)], f64::INFINITY), invalid);
+        assert_eq!(warned(&[(1.0, f64::NEG_INFINITY)], f64::INFINITY), invalid);
+        assert_eq!(warned(&[(f64::NAN, 1.0)], 2.0), [""; 0]);
     }
 
     #[test]

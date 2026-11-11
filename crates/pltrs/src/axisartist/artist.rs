@@ -546,7 +546,9 @@ impl AxisArtistState {
     /// Draws `text`, one of the texts of `labels`, behind its box if the
     /// labels have one; a draw that fails there leaves the labels moved by
     /// the text's `offset` from its reference point (towards which angle,
-    /// by how many pixels; see [`Leftover`](super::labels::Leftover)).
+    /// by how many pixels; see [`Leftover`](super::labels::Leftover)). An
+    /// infinite pad of the labels makes numpy warn as matplotlib's
+    /// arithmetic does.
     fn draw_part_text(
         &self,
         ctx: &mut DrawContext<'_>,
@@ -558,6 +560,12 @@ impl AxisArtistState {
         let ended = ctx.ended();
         if let Err(err) = labels.draw_box(ctx, &self.base, &self.rc, text) {
             ctx.report(id, err);
+        }
+        if labels.pad.is_infinite() && crate::warnings::PRODUCTS_WARN {
+            // matplotlib moves the text by a translation composed with
+            // its transform (`LabelBase.draw`): the product of their
+            // matrices multiplies zeros by the infinite pad.
+            crate::warnings::warn_runtime("invalid value encountered in dot");
         }
         draw_text(ctx, id, text, &self.rc, AxisTextDraw::AfterMeasuring);
         if !ended && ctx.ended() {
@@ -734,6 +742,21 @@ mod tests {
         let extent = ray.window_extent().expect("measured");
         let axes = ax.ax().window_extent().expect("laid out");
         assert!((extent.x1() - axes.x1()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_label_padded_infinitely_warns_as_numpys_product() {
+        let fig = Figure::new();
+        let ax = AxisArtistAxes::new(fig.subplot());
+        let bottom = ax.axis("bottom").expect("the bottom axis");
+        bottom.label().set_text("time");
+        let drawn = |fig: &Figure| {
+            crate::warnings::capturing_runtime(|| fig.draw_without_rendering().expect("drawn")).1
+        };
+        assert_eq!(drawn(&fig), [""; 0]);
+        bottom.label().set_pad(f64::INFINITY);
+        let dots = usize::from(crate::warnings::PRODUCTS_WARN);
+        assert_eq!(drawn(&fig), ["invalid value encountered in dot"][..dots]);
     }
 
     #[test]

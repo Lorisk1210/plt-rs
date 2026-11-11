@@ -4,6 +4,7 @@ use pltrs_core::{Path, Point};
 
 use super::PatchShape;
 use super::box_style::{BoxShape, BoxStyle};
+use crate::numeric::numpy_arith::Exceptions;
 
 /// A box of [`BoxStyle`] drawn around the rectangle at `xy` (matplotlib's
 /// `FancyBboxPatch`); draws an edge by default.
@@ -87,18 +88,47 @@ impl PatchShape for FancyBboxPatch {
     }
 
     fn path(&self) -> Path {
+        let mut path = self.squeezed_path();
+        for p in path.vertices_mut() {
+            p.y *= self.mutation_aspect;
+        }
+        path
+    }
+
+    fn warn_drawing(&self) {
+        self.warn_making_path();
+    }
+
+    /// matplotlib's `get_path` stretches the box back with numpy
+    /// (`vertices * [1, aspect]`), which warns where an infinite aspect
+    /// meets a coordinate it cannot multiply (zero times infinity). A
+    /// style of the program's is not asked for its box again.
+    fn warn_making_path(&self) {
         let aspect = self.mutation_aspect;
-        let mut path = self.boxstyle.path(
+        if !aspect.is_infinite() || self.runs_program() {
+            return;
+        }
+        let mut exceptions = Exceptions::default();
+        for p in self.squeezed_path().vertices() {
+            exceptions.note(p.y * aspect, p.y, aspect);
+        }
+        exceptions.warn("multiply");
+    }
+}
+
+impl FancyBboxPatch {
+    /// The box of the style around the rectangle with its y coordinates
+    /// squeezed by the mutation aspect, which [`path`](PatchShape::path)
+    /// stretches back.
+    fn squeezed_path(&self) -> Path {
+        let aspect = self.mutation_aspect;
+        self.boxstyle.path(
             self.xy.x,
             self.xy.y / aspect,
             self.width,
             self.height / aspect,
             self.mutation_scale,
-        );
-        for p in path.vertices_mut() {
-            p.y *= aspect;
-        }
-        path
+        )
     }
 }
 
@@ -115,6 +145,23 @@ mod tests {
             .with_mutation_scale(2.0)
             .path();
         assert_eq!(doubled.extents().x0(), -1.0);
+    }
+
+    #[test]
+    fn an_infinite_aspect_warns_as_numpy_multiplies() {
+        let square: BoxStyle = "square,pad=0".parse().unwrap();
+        let warned = |aspect: f64| {
+            let patch = FancyBboxPatch::new((0.0, 0.0), 2.0, 4.0, square.clone())
+                .with_mutation_aspect(aspect);
+            crate::warnings::capturing_runtime(|| patch.warn_making_path()).1
+        };
+        assert_eq!(warned(3.0), [""; 0]);
+        assert_eq!(warned(f64::NAN), [""; 0]);
+        // The bottom of the box, squeezed to zero, is stretched back.
+        assert_eq!(
+            warned(f64::INFINITY),
+            ["invalid value encountered in multiply"]
+        );
     }
 
     #[test]

@@ -150,6 +150,12 @@ impl Locator for LogitLocator {
         self.max_n.view_limits(dmin, dmax, ctx)
     }
 
+    fn unscalable(&self, v0: f64, v1: f64) -> Option<&'static str> {
+        let (low, high) = (v0.min(v1), v0.max(v1));
+        (low.is_finite() && high.is_finite() && (high <= 0.0 || low >= 1.0))
+            .then_some("Data has no values between 0 and 1, and therefore cannot be logit-scaled.")
+    }
+
     fn nonsingular(&self, vmin: f64, vmax: f64, ctx: &TickContext<'_>) -> (f64, f64) {
         let initial = (STANDARD_MINPOS, 1.0 - STANDARD_MINPOS);
         let (mut vmin, mut vmax) = if vmin > vmax {

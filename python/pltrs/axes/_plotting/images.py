@@ -8,6 +8,7 @@ import numpy as np
 from ... import _docstring
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors
 from ... import image as mimage, lines as mlines
+from ..._artist_kwargs import check_known
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from .._aspect import _checked_aspect
@@ -308,6 +309,10 @@ class ImagesMixin:
         mask = np.abs(np.asarray(Z)) > precision
         if image and mask.ndim != 2:
             raise TypeError(f"Invalid shape {mask.shape} for image data")
+        # matplotlib's spy refuses the properties making its image or line
+        # before it turns the axes.
+        check_known(mimage.AxesImage if image else mlines.Line2D,
+                    kwargs if image else cbook.normalize_kwargs(kwargs, mlines.Line2D))
         if aspect is not None and not cbook._str_equal(aspect, 'equal'):
             # As matplotlib's `set_aspect` takes it.
             aspect = _checked_aspect(aspect)

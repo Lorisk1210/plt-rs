@@ -24,7 +24,7 @@ use std::f64::consts::PI;
 use pltrs_core::Path;
 
 pub use api::{PolarAxes, PolarError};
-pub(crate) use map::{PolarMap, with_radial_frame};
+pub(crate) use map::{PolarMap, RadialFrame, radial_frame, with_mapped_frame, with_radial_frame};
 pub(crate) use paint::{GRIDLINE_INTERPOLATION_STEPS, draw_tick_lines, tick_label_anchor};
 pub(crate) use ticker::theta_tickers;
 pub use ticker::{RadialLocator, ThetaFormatter, ThetaLocator};

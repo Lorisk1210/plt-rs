@@ -252,12 +252,36 @@ impl LabelBase {
     /// Sets the text angle in degrees, relative to 90° plus the direction
     /// from the line to the text (matplotlib's `set_rotation`).
     pub fn set_rotation(&self, degrees: f64) -> &Self {
-        self.update(|label| label.rotation = degrees.rem_euclid(360.0))
+        self.update(|label| {
+            label.rotation = degrees.rem_euclid(360.0);
+            label.turned.set(None);
+        })
     }
 
     /// The text angle in degrees.
     pub fn rotation(&self) -> f64 {
         self.get(|label| label.rotation)
+    }
+
+    /// The text angle in degrees as draws left it: those of texts whose
+    /// transform turns them keep the angle they read, turned (matplotlib's
+    /// `LabelBase.draw`); else the angle set.
+    pub fn drawn_rotation(&self) -> f64 {
+        self.get(|label| label.turned.get().unwrap_or(label.rotation))
+    }
+
+    /// The angle draws left in place of the angle set (see
+    /// [`drawn_rotation`](Self::drawn_rotation)), if any.
+    pub fn turned_rotation(&self) -> Option<f64> {
+        self.get(|label| label.turned.get())
+    }
+
+    /// Puts back the angle draws left, as
+    /// [`turned_rotation`](Self::turned_rotation) gave it: restyling a
+    /// text with the angle it had leaves the angle matplotlib's draws
+    /// left on it.
+    pub fn keep_turned_rotation(&self, turned: Option<f64>) -> &Self {
+        self.update(|label| label.turned.set(turned))
     }
 
     /// Sets the horizontal alignment (matplotlib's `set_ha`).
@@ -339,8 +363,8 @@ impl TickLabels {
     }
 
     /// The display boxes of the tick labels in the figure's current
-    /// layout, none when they are hidden (matplotlib's
-    /// `get_window_extents`).
+    /// layout, none when they are hidden, an empty label's the point it is
+    /// anchored at (matplotlib's `get_window_extents`).
     ///
     /// ```
     /// use pltrs::axisartist::AxisArtist;
@@ -359,7 +383,16 @@ impl TickLabels {
         let level = self.level();
         self.0
             .artist
-            .with_layout(|artist, layout| artist.ticklabel_extents(layout, level))
+            .with_layout(|artist, layout| artist.ticklabel_extents(layout, level, true))
+    }
+
+    /// The display boxes of the tick labels drawn (those not empty), in
+    /// the figure's current layout.
+    pub fn drawn_extents(&self) -> Vec<Bbox> {
+        let level = self.level();
+        self.0
+            .artist
+            .with_layout(|artist, layout| artist.ticklabel_extents(layout, level, false))
     }
 
     /// The width, height and descent in pixels of each non-empty tick

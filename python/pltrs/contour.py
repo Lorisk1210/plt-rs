@@ -1310,6 +1310,11 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             self._A = self._native_array()
             self.to_rgba(self._A)
             self._mapped_at_draw = _artist.draw_count(self._native)
+            # The labels take the set's alpha and their colours anew.
+            alphas = np.broadcast_to(self.get_alpha(), len(self.cvalues))
+            for label, cv, alpha in zip(self.labelTexts, self.labelCValues, alphas):
+                label.set_alpha(alpha)
+                label.set_color(self.labelMappable.to_rgba(cv))
         super(mcoll.Collection, self).changed()
 
     def _mapping_changed(self):

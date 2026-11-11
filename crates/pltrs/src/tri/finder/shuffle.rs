@@ -3,9 +3,9 @@
 //!
 //! `std::shuffle` leaves the order to the C++ library, so it depends on
 //! the library matplotlib's `_tri` extension was built with: libc++ on
-//! macOS (Apple's toolchain), libstdc++ elsewhere (GCC on Linux; the
-//! Windows wheels' MSVC library is not reproduced and takes libstdc++'s
-//! order).
+//! macOS (Apple's toolchain), Microsoft's STL on Windows (MSVC 14.51, the
+//! linker of matplotlib 3.11.2's `_tri.cp314-win_amd64.pyd`), libstdc++
+//! elsewhere (GCC).
 //!
 //! The Mersenne Twister follows its definition in the C++ standard
 //! ([rand.eng.mt]). The libstdc++ order is written from a description of
@@ -28,6 +28,14 @@
 //! Apple clang 17), walks from the front: position `i` swaps with `i + k`,
 //! `k` uniform in `[0, n - 1 - i]`, drawn as the low `w` bits of draws
 //! (`w` bits enough for the range), redrawn while out of range.
+//!
+//! The MSVC order is written from the STL's source (Apache-2.0 with LLVM
+//! exception; `_Random_shuffle1` and `_Rng_from_urng_v2` of `<algorithm>`
+//! as Lemire's method came in, microsoft/STL#5735, the same on its `main`
+//! since): each position `i` from 1 swaps with one uniform in `[0, i]`,
+//! drawn by Lemire's method from 32-bit draws (two joined for ranges past
+//! 2³²). Below 2³² that is libstdc++'s single loop, without its paired
+//! draws. Not yet checked against a program built with MSVC.
 
 /// The 32-bit Mersenne Twister `std::mt19937`.
 pub(super) struct Mt19937 {
@@ -91,6 +99,8 @@ impl Mt19937 {
 pub(super) fn shuffle<T>(items: &mut [T], rng: &mut Mt19937) {
     if cfg!(target_os = "macos") {
         shuffle_libcxx(items, rng);
+    } else if cfg!(target_os = "windows") {
+        shuffle_msvc(items, rng);
     } else {
         shuffle_libstdcxx(items, rng);
     }
@@ -158,6 +168,48 @@ fn uniform_libstdcxx(rng: &mut Mt19937, high: u64) -> u64 {
             }
         },
     }
+}
+
+/// MSVC's order (see the module documentation).
+fn shuffle_msvc<T>(items: &mut [T], rng: &mut Mt19937) {
+    for i in 1..items.len() {
+        let other = to_index(uniform_msvc(rng, i as u64 + 1));
+        if other != i {
+            items.swap(i, other);
+        }
+    }
+}
+
+/// A uniform integer in `[0, count)` as MSVC's `_Rng_from_urng_v2` draws
+/// it for a 64-bit difference type: Lemire's method on one 32-bit draw,
+/// or two joined (high word first) when `count - 1` needs more bits.
+fn uniform_msvc(rng: &mut Mt19937, count: u64) -> u64 {
+    let wide = count - 1 > RANGE;
+    let (mask, bits) = if wide { (u64::MAX, 64) } else { (RANGE, 32) };
+    let mut draw = || {
+        let first = u64::from(rng.next_u32());
+        let value = if wide {
+            (first << 32) | u64::from(rng.next_u32())
+        } else {
+            first
+        };
+        u128::from(value) * u128::from(count)
+    };
+    let low = |product: u128| {
+        #[expect(clippy::cast_possible_truncation, reason = "the low 64 bits")]
+        let low = product as u64;
+        low & mask
+    };
+    let mut product = draw();
+    if low(product) < count {
+        let threshold = mask.wrapping_sub(count).wrapping_add(1) % count;
+        while low(product) < threshold {
+            product = draw();
+        }
+    }
+    #[expect(clippy::cast_possible_truncation, reason = "below count")]
+    let value = (product >> bits) as u64;
+    value
 }
 
 /// libc++'s order (see the module documentation).
@@ -289,6 +341,39 @@ mod tests {
         assert_eq!(libstdcxx(65_535).0, 5_442_322_870_142_879_723);
         assert_eq!(libstdcxx(65_536).0, 1_078_152_657_664_495_442);
         assert_eq!(libstdcxx(200_000).0, 14_593_499_966_093_821_954);
+    }
+
+    /// MSVC's order of `0..10` (a Python model of the STL's code gives
+    /// the same, and g++'s orders where the two agree).
+    const MSVC_10: [usize; 10] = [1, 2, 5, 0, 6, 3, 8, 9, 7, 4];
+    /// The order hash of MSVC's shuffle of `0..1000`.
+    const MSVC_1000: u64 = 16_079_519_895_217_274_278;
+
+    /// The order hash and first items of MSVC's shuffle of `0..n`, as
+    /// [`libstdcxx`] gives libstdc++'s.
+    fn msvc(n: usize) -> (u64, Vec<usize>) {
+        shuffled(n, shuffle_msvc)
+    }
+
+    #[test]
+    fn the_msvc_order_is_libstdcxxs_single_loop() {
+        // Where libstdc++ swaps one position per draw, the orders agree
+        // (g++'s orders above).
+        assert_eq!(msvc(65_536), libstdcxx(65_536));
+        assert_eq!(msvc(200_000), libstdcxx(200_000));
+        // The orders a program built with MSVC 14.51 should print (see
+        // `hostile-round9` in the notes: not yet run on Windows).
+        assert_eq!(msvc(2), (1_000_003, vec![1, 0]));
+        assert_eq!(msvc(10).1, MSVC_10);
+        assert_eq!(msvc(1000).0, MSVC_1000);
+    }
+
+    #[test]
+    fn msvc_draws_cover_wide_ranges() {
+        let mut rng = Mt19937::new(1);
+        assert!((0..200).all(|_| uniform_msvc(&mut rng, (1 << 40) + 3) < (1 << 40) + 3));
+        assert!((0..200).all(|_| uniform_msvc(&mut rng, 7) < 7));
+        assert_eq!(uniform_msvc(&mut rng, 1), 0);
     }
 
     #[test]

@@ -9,6 +9,7 @@ mod line;
 mod line_markers;
 mod linestyle;
 mod markevery;
+mod polar_frame;
 mod program_path;
 mod steps;
 mod subslice;

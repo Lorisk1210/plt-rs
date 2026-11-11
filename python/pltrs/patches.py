@@ -777,6 +777,22 @@ class Patch(Artist):
 
 
 @_mirrors.mirrorable
+class _AspectRatioCorrection:
+    """The ``_aspect_ratio_correction`` of rectangles and ellipses, which
+    turns them for unequal axis scales: kept as given, as matplotlib keeps
+    it, and handed to pltrs (Rust), which draws with it, when a number."""
+
+    def __get__(self, patch, owner=None):
+        if patch is None:
+            return 1.0
+        return patch.__dict__.get("_aspect_ratio_correction", 1.0)
+
+    def __set__(self, patch, value):
+        patch.__dict__["_aspect_ratio_correction"] = value
+        if isinstance(value, Real):
+            _patches.set_aspect_ratio_correction(patch._native, float(value))
+
+
 class Rectangle(Patch):
     """
     A rectangle defined via an anchor point *xy* and its *width* and *height*.
@@ -1036,7 +1052,7 @@ class Rectangle(Patch):
 
     #: The correction of the rotation for unequal axis scales (matplotlib's;
     #: the selector widgets set it on their rectangles).
-    _aspect_ratio_correction = 1.0
+    _aspect_ratio_correction = _AspectRatioCorrection()
 
     def get_patch_transform(self):
         # Note: This cannot be called until after this has been added to
@@ -1920,7 +1936,7 @@ class Ellipse(Patch):
     """A scale-free ellipse."""
 
     #: As `Rectangle`'s.
-    _aspect_ratio_correction = 1.0
+    _aspect_ratio_correction = _AspectRatioCorrection()
 
     def get_patch_transform(self):
         # docstring inherited; the `.Affine2D` of the patch coordinates

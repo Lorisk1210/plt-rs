@@ -16,7 +16,7 @@ import numpy as np
 from ... import _api, _tick_helpers, _values, cbook, collections as mcoll, colors as mcolors
 from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ... import _transform_trees
-from ..._native import plotting as _plotting
+from ..._native import axes_base as _axes_base, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
 from ... import _lazy_imports
@@ -1212,12 +1212,15 @@ class StatsMixin:
                            wedgeprops, textprops, center, hatch, explode)
                 and _pie_props_taken(wedgeprops, textprops)):
             return _pie_reference.pie(self, *arguments)
+        position = _axes_base.cycle_position(self._native, "patches")
         try:
             with _failed_calls.leaving_nothing(self):
                 return self._native_pie(*arguments)
         except (TypeError, ValueError):
             # Refused by pltrs (Rust): matplotlib's code raises its own
-            # error, or makes what pltrs (Rust) does not.
+            # error, or makes what pltrs (Rust) does not, taking the
+            # colours the attempt took.
+            _axes_base.set_cycle_position(self._native, "patches", position)
             return _pie_reference.pie(self, *arguments)
 
     def _native_pie(self, x, explode, labels, colors, autopct, pctdistance, shadow,

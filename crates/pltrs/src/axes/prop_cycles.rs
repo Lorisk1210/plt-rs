@@ -47,6 +47,30 @@ impl Axes {
         self
     }
 
+    /// How far `cycle` has advanced (the entry it gives next), on the axes
+    /// this one draws it from.
+    pub fn prop_cycle_position(&self, cycle: PropCycle) -> usize {
+        self.prop_cycle_owner(cycle)
+            .raw()
+            .with::<AxesState, _>(|axes| match cycle {
+                PropCycle::Lines => axes.line_cycle,
+                PropCycle::Patches => axes.patch_cycle,
+            })
+    }
+
+    /// Moves `cycle` back (or on) to `position`, as
+    /// [`prop_cycle_position`](Self::prop_cycle_position) gave it: the
+    /// colours an attempt took that matplotlib's code then takes again.
+    pub fn set_prop_cycle_position(&self, cycle: PropCycle, position: usize) -> &Self {
+        self.prop_cycle_owner(cycle)
+            .raw()
+            .with_mut::<AxesState, _>(|axes| match cycle {
+                PropCycle::Lines => axes.line_cycle = position,
+                PropCycle::Patches => axes.patch_cycle = position,
+            });
+        self
+    }
+
     /// The axes whose `cycle` this one draws from: the one a program
     /// pointed it at, else for lines the host of a parasite, else itself.
     pub(crate) fn prop_cycle_owner(&self, cycle: PropCycle) -> Self {
@@ -98,6 +122,20 @@ mod tests {
         twin.clear();
         let fresh = fig.subplot();
         assert_eq!(twin.next_line_color(), fresh.next_line_color());
+    }
+
+    #[test]
+    fn a_cycle_moved_back_gives_its_colours_again() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let twin = ax.twinx().unwrap();
+        twin.share_prop_cycle(PropCycle::Patches, &ax);
+        let start = twin.prop_cycle_position(PropCycle::Patches);
+        let first = twin.next_patch_color();
+        ax.next_patch_color();
+        assert_eq!(ax.prop_cycle_position(PropCycle::Patches), start + 2);
+        twin.set_prop_cycle_position(PropCycle::Patches, start);
+        assert_eq!(ax.next_patch_color(), first, "the owner moved back");
     }
 
     #[test]

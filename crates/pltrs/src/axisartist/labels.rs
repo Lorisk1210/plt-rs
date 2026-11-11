@@ -87,6 +87,10 @@ pub struct TextLook {
     /// Whether texts holding math are typeset as mathtext (`None`: as
     /// `text.parse_math` says; matplotlib's `Text.set_parse_math`).
     pub parse_math: Option<bool>,
+    /// Whether the texts' transform turns them (matplotlib's
+    /// `transform_rotates_text`), as tick labels are turned where they
+    /// stand.
+    pub transform_rotates_text: bool,
 }
 
 pltrs_core::archive_struct!(TextLook {
@@ -95,7 +99,8 @@ pltrs_core::archive_struct!(TextLook {
     linespacing,
     rotation_mode,
     antialiased,
-    parse_math
+    parse_math,
+    transform_rotates_text
 });
 
 impl TextLook {
@@ -118,6 +123,7 @@ impl TextLook {
             rotation_mode: RotationMode::Anchor,
             antialiased: None,
             parse_math: None,
+            transform_rotates_text: false,
         }
     }
 
@@ -172,6 +178,10 @@ pub(crate) struct LabelState {
     pub(crate) laid_out: Cell<(f64, f64)>,
     /// What draws of the texts that failed left on them.
     pub(crate) leftover: Cell<Leftover>,
+    /// The rotation as the draws of texts whose transform turns them left
+    /// it (`None`: as set): matplotlib's `LabelBase.draw` puts back the
+    /// rotation it read, turned by the transform.
+    pub(crate) turned: Cell<Option<f64>>,
 }
 
 /// What matplotlib's draws of the texts of an axis artist's part that
@@ -204,7 +214,8 @@ pltrs_core::archive_struct!(LabelState {
     transform,
     bbox,
     laid_out,
-    leftover
+    leftover,
+    turned
 });
 
 impl LabelState {
@@ -232,6 +243,7 @@ impl LabelState {
             bbox: None,
             laid_out: Cell::default(),
             leftover: Cell::default(),
+            turned: Cell::default(),
         }
     }
 
@@ -281,6 +293,7 @@ impl LabelState {
         self.valign = valign;
         self.halign = halign;
         self.rotation = self.kind.angle(direction).rem_euclid(360.0);
+        self.turned.set(None);
         self.direction = direction;
     }
 
@@ -343,6 +356,9 @@ struct Label<'a> {
     ref_angle: f64,
     radius: f64,
     state: &'a LabelState,
+    /// The transform placing the text and where the text stands in its
+    /// coordinates, which turn it when the look says so.
+    turned_by: Option<(&'a ResolvedTransform, Point)>,
 }
 
 impl Label<'_> {
@@ -352,21 +368,49 @@ impl Label<'_> {
         style: &TextStyle,
         rc: &RcParams,
     ) -> Result<PlacedText, String> {
-        let theta = self.ref_angle.to_radians();
-        let Leftover {
-            shift: (dx, dy),
-            turn,
-        } = self.state.leftover.get();
-        let anchor = Point::new(
-            self.reference.x + dx + self.radius * theta.cos(),
-            self.reference.y + dy + self.radius * theta.sin(),
-        );
+        let anchor = self.anchor();
+        let turn = self.state.leftover.get().turn;
         let block = self.state.look.block(
             self.state.halign,
             self.state.valign,
-            (self.ref_angle + 90.0 + self.state.rotation + turn).rem_euclid(360.0),
+            self.drawn_rotation(turn),
         );
         style.place(layout, self.text, &block, anchor, rc)
+    }
+}
+
+impl Label<'_> {
+    /// Where the text is anchored: `radius` pixels from its reference
+    /// point towards its reference angle, moved by what failed draws left.
+    fn anchor(&self) -> Point {
+        let theta = self.ref_angle.to_radians();
+        let (dx, dy) = self.state.leftover.get().shift;
+        Point::new(
+            self.reference.x + dx + self.radius * theta.cos(),
+            self.reference.y + dy + self.radius * theta.sin(),
+        )
+    }
+
+    /// The angle the text is drawn at: matplotlib's `LabelBase.draw` adds
+    /// its reference angle to the text's rotation (as `get_rotation` reads
+    /// it, turned by the transform where the text stands when the
+    /// transform rotates texts, which it then keeps: see
+    /// [`LabelState::turned`]), and `Text.draw` reads the sum back the
+    /// same way.
+    fn drawn_rotation(&self, turn: f64) -> f64 {
+        let text_ref_angle = self.ref_angle + 90.0;
+        match self
+            .turned_by
+            .filter(|_| self.state.look.transform_rotates_text)
+        {
+            None => (text_ref_angle + self.state.rotation + turn).rem_euclid(360.0),
+            Some((transform, at)) => {
+                let rotation = (self.state.turned.get()).unwrap_or(self.state.rotation + turn);
+                let read = transform.transform_angle(rotation, at);
+                self.state.turned.set(Some(read.rem_euclid(360.0)));
+                transform.transform_angle((text_ref_angle + read).rem_euclid(360.0), at)
+            }
+        }
     }
 }
 
@@ -391,6 +435,9 @@ pub(crate) struct PlacedTickLabels {
     /// The room they take away from the line, for the axis label
     /// (matplotlib's `_axislabel_pad`), in pixels.
     pub(crate) axislabel_pad: f64,
+    /// The labels not drawn, empty: their places among all the labels and
+    /// their anchors, where matplotlib measures them as points.
+    pub(crate) empties: Vec<(usize, Point)>,
 }
 
 /// Lays out `labels` (locations in `transform`'s coordinates) as `state`
@@ -420,14 +467,31 @@ pub(crate) fn tick_labels(
                 ref_angle: label.angle,
                 radius,
                 state,
+                turned_by: Some((transform, label.loc)),
             }
             .place(layout, style, rc)
         })
         .collect::<Result<_, _>>()?;
+    let empties = (labels.iter().enumerate())
+        .filter(|(_, label)| label.text.trim().is_empty())
+        .map(|(place, label)| {
+            let anchor = Label {
+                text: &label.text,
+                reference: transform.transform_point(label.loc),
+                ref_angle: label.angle,
+                radius,
+                state,
+                turned_by: None,
+            }
+            .anchor();
+            (place, anchor)
+        })
+        .collect();
     Ok(PlacedTickLabels {
         texts,
         offsets: shown.iter().map(|label| (label.angle, radius)).collect(),
         axislabel_pad: total + pad,
+        empties,
     })
 }
 
@@ -509,6 +573,7 @@ pub(crate) fn axis_label(
         ref_angle,
         radius,
         state,
+        turned_by: None,
     }
     .place(layout, style, rc)
 }

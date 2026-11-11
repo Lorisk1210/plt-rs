@@ -56,7 +56,24 @@ def prepared_points(collection):
         offset_trf = offset_trf.get_affine()
     if isinstance(offsets, np.ma.MaskedArray):
         offsets = offsets.filled(np.nan)
+    order = _depth_order(collection)
+    if order is not None and len(order) == len(offsets):
+        offsets = offsets[order]
     return transform, offset_trf, offsets, paths
+
+
+def _depth_order(collection):
+    """The order a 3-D collection of positions draws its items in, the
+    farthest first (matplotlib's ``_z_markers_idx``, which its draw orders
+    the offsets by), or None for another collection."""
+    positions = getattr(collection, "_offsets3d", None)
+    axes = collection.axes
+    if positions is None or getattr(axes, "M", None) is None:
+        return None
+    from .mpl_toolkits.mplot3d import _draw_problems, proj3d
+    xs, ys, zs = _draw_problems._apply_scale_transforms(*positions, axes)
+    _, _, vzs = proj3d.proj_transform(xs, ys, zs, axes.M)
+    return np.ma.argsort(vzs)[::-1]
 
 
 def _drawn_as_markers(collection, transform, paths):

@@ -444,7 +444,8 @@ class Sankey:
         # the labels' extent then: what fails there leaves the patch.
         failure = _labelling_failure(self, flows, labels) or _extent_failure(n)
         patch, flows, angles, tips, text, texts = _sankey.add(
-            self._native, str(patchlabel),
+            # The patch's text, None empty as `Text.set_text` makes it.
+            self._native, '' if patchlabel is None else str(patchlabel),
             ([float(f) for f in flows], [int(o) for o in orientations],
              [None if label is None or failure else str(label) for label in labels]),
             (float(trunklength), pathlengths, prior,

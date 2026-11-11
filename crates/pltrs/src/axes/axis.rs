@@ -15,6 +15,7 @@ use super::tick_set::TickSet;
 use super::tick_updates::ProgramTicked;
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
+use crate::dates::YearLocator;
 use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
@@ -708,6 +709,17 @@ impl AxisState {
     }
 }
 
+/// `formatter`, a converter's, as its locator leaves it when the locator
+/// set on the axis keeps that one from ticking: matplotlib's converter
+/// hands its formatter its own locator, which then tells the unit it starts
+/// with, a year (the date formatters' choice of format).
+fn idle_locator_formatter(formatter: &Rc<dyn Formatter>) -> Rc<dyn Formatter> {
+    let idle: Rc<dyn Locator> = Rc::new(YearLocator::new(1, 1, 1).expect("a valid yearly rule"));
+    formatter
+        .following(&idle)
+        .unwrap_or_else(|| Rc::clone(formatter))
+}
+
 impl UnitState for AxisState {
     fn units(&self) -> &AxisUnits {
         &self.units
@@ -726,15 +738,21 @@ impl UnitState for AxisState {
     }
 
     fn use_unit_tickers(&mut self, locator: Rc<dyn Locator>, formatter: Rc<dyn Formatter>) {
-        if self.defaults.major.locator {
+        let locates = self.defaults.major.locator;
+        if locates {
             self.major_locator = self.for_role(locator);
         }
         if self.defaults.major.formatter {
-            self.major_formatter = formatter;
+            self.major_formatter = if locates {
+                formatter
+            } else {
+                idle_locator_formatter(&formatter)
+            };
         }
     }
 
     fn use_axis_info_tickers(&mut self, info: &UnitAxisInfo) {
+        let locates = info.majloc.is_some() && self.defaults.major.locator;
         if let Some(locator) = &info.majloc
             && self.defaults.major.locator
         {
@@ -750,7 +768,12 @@ impl UnitState for AxisState {
         if let Some(formatter) = &info.majfmt
             && self.defaults.major.formatter
         {
-            self.set_major_formatter(Rc::clone(formatter));
+            let formatter = if locates || info.majloc.is_none() {
+                Rc::clone(formatter)
+            } else {
+                idle_locator_formatter(formatter)
+            };
+            self.set_major_formatter(formatter);
             self.defaults.major.formatter = true;
         }
         if let Some(formatter) = &info.minfmt

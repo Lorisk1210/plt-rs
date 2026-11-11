@@ -292,6 +292,12 @@ fn note_failed_text_draw(artist: AxisArtist, part: String) -> PyResult<()> {
     Ok(())
 }
 
+/// The angle of the text part `part` as its draws left it (see
+/// `LabelBase::drawn_rotation`).
+fn drawn_rotation(artist: AxisArtist, part: String) -> PyResult<f64> {
+    Ok(label_part(&artist, &part)?.drawn_rotation())
+}
+
 /// What a text part draws with, as its `TickLabels` or `AxisLabel`
 /// holds it: whether it is shown, its pad in points, its colour (`None`
 /// following the reference artist, `"auto"`), its font size, the rest of
@@ -314,6 +320,7 @@ fn restyle_label(
     ((visible, pad, color), (size, look, rotation), (valign, halign, direction), text): LabelStyle,
 ) -> PyResult<()> {
     let label = label_part(&artist, &part)?;
+    let (set, turned) = (label.rotation(), label.turned_rotation());
     // The direction first: it resets the alignment and rotation, which
     // the text then sets.
     label
@@ -326,6 +333,10 @@ fn restyle_label(
         .set_rotation(rotation)
         .set_va(alignment::<VAlign>(&valign)?)
         .set_ha(alignment::<HAlign>(&halign)?);
+    if label.rotation().to_bits() == set.to_bits() {
+        // The text kept its angle: the one its draws left stays.
+        label.keep_turned_rotation(turned);
+    }
     if part == "label" {
         match text {
             Some(text) => artist.label().set_text(text),
@@ -461,6 +472,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("restyle_label", restyle_label)?;
     module.add("label_extent", label_extent)?;
     module.add("note_failed_text_draw", note_failed_text_draw)?;
+    module.add("drawn_rotation", drawn_rotation)?;
     module.add("set_line", set_line)?;
     module.add("get_line_visible", get_line_visible)?;
     module.add("tight_bbox", tight_bbox)?;

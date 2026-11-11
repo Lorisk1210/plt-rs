@@ -160,15 +160,24 @@ fn next_cycle_color(axes: Axes, kind: String) -> PyResult<Color> {
     })
 }
 
-/// How far the property cycle `kind` has advanced.
+/// The entry the property cycle `kind` gives next
+/// (`_get_lines._prop_cycle._idx`).
 fn cycle_position(axes: Axes, kind: String) -> PyResult<usize> {
     Ok(axes.prop_cycle_position(prop_cycle(&kind)?))
 }
 
-/// Moves the property cycle `kind` to `position`, as `cycle_position`
-/// gave it.
+/// Makes the property cycle `kind` give its entry `position` next
+/// (`_get_lines._prop_cycle._idx = position`).
 fn set_cycle_position(axes: Axes, kind: String, position: usize) -> PyResult<()> {
     axes.set_prop_cycle_position(prop_cycle(&kind)?, position);
+    Ok(())
+}
+
+/// Replaces the cycler of the property cycle `kind` alone, given as rc
+/// text, `None` for `axes.prop_cycle`'s (`_get_lines.set_prop_cycle`).
+fn set_prop_cycle_of(axes: Axes, kind: String, cycle: Option<String>) -> PyResult<()> {
+    let cycle = cycle.map(|text| text.parse::<Cycler>()).transpose()?;
+    axes.set_prop_cycle_of(prop_cycle(&kind)?, cycle);
     Ok(())
 }
 
@@ -196,6 +205,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("next_cycle_color", next_cycle_color)?;
     module.add("cycle_position", cycle_position)?;
     module.add("set_cycle_position", set_cycle_position)?;
+    module.add("set_prop_cycle_of", set_prop_cycle_of)?;
     module.add("get_scale", get_scale)?;
     across::register(module)?;
     decorations::register(module)?;

@@ -14,7 +14,7 @@ use pltrs_raster::resample::{Pixel, Source};
 use super::normalize::{linear_rows, normalize_in};
 use super::resample::{PixelMap, Resampling};
 use super::{ImageAlpha, ImageData, ImageError, Precision, ScalarField};
-use crate::colors::ScalarMappable;
+use crate::colors::{Alpha, ScalarMappable};
 use crate::numeric::Grid;
 
 /// The data stage for scalar images: resample the values, the mask and a
@@ -79,14 +79,25 @@ pub(crate) fn data_stage(
     let cmap = mappable.cmap();
     // A Python float multiplies a float32 array in single precision.
     let scalar_alpha = alpha.map_or(1.0, ImageAlpha::scalar) as f32;
-    let pixels = normalized
-        .into_iter()
-        .zip(coverage)
-        .map(|(value, cover)| {
-            let [r, g, b, a] = cmap.lookup_bytes(value, None);
-            [r, g, b, to_byte(f32::from(a) * cover * scalar_alpha)]
-        })
-        .collect();
+    let with_alpha =
+        |[r, g, b, a]: [u8; 4], cover: f32| [r, g, b, to_byte(f32::from(a) * cover * scalar_alpha)];
+    let pixels = if cmap.calls_program() {
+        // matplotlib's `to_rgba(output, bytes=True, norm=False)`: the
+        // program's colormap gets the whole resampled array.
+        let shape = [out_shape.0, out_shape.1];
+        let colors = cmap.map_bytes_shaped(&normalized, &shape, &Alpha::Keep)?;
+        colors
+            .into_iter()
+            .zip(coverage)
+            .map(|(c, cover)| with_alpha(c, cover))
+            .collect()
+    } else {
+        normalized
+            .into_iter()
+            .zip(coverage)
+            .map(|(value, cover)| with_alpha(cmap.lookup_bytes(value, None), cover))
+            .collect()
+    };
     Ok(Grid::from_vec(out_shape.0, out_shape.1, pixels).expect("one pixel per output cell"))
 }
 
@@ -152,6 +163,15 @@ const COLOR_BLOCK: usize = 4096;
     reason = "colours are premultiplied unless every alpha is exactly 1"
 )]
 fn mapped_colors(field: &ScalarField, mappable: &mut ScalarMappable) -> Result<Mapped, ImageError> {
+    if mappable.norm().calls_program() {
+        // matplotlib's `_make_image` autoscales the norm to the whole
+        // array before it maps it (`to_rgba`), at every draw.
+        let (height, width) = field.values().shape();
+        (mappable.norm_mut()).autoscale_none_shaped(&field.masked_values(), &[height, width]);
+    }
+    if mappable.cmap().calls_program() {
+        return program_colors(field, mappable);
+    }
     let (values, mask) = (field.values().as_slice(), field.mask().as_slice());
     let rows = match linear_rows(mappable, values, mask, field.precision()) {
         Some(rows) => rows,
@@ -165,6 +185,44 @@ fn mapped_colors(field: &ScalarField, mappable: &mut ScalarMappable) -> Result<M
         .collect();
     let opaque = rows.iter().all(|&row| palette[row as usize][3] == 1.0);
     let (height, width) = field.values().shape();
+    Ok(Mapped {
+        palette,
+        rows,
+        width,
+        height,
+        opaque,
+    })
+}
+
+/// [`mapped_colors`] through a colormap of the program's, which gets the
+/// whole normalised array (matplotlib's `to_rgba(A)`): its colours are the
+/// palette, one row per element.
+#[expect(
+    clippy::float_cmp,
+    reason = "colours are premultiplied unless every alpha is exactly 1"
+)]
+fn program_colors(
+    field: &ScalarField,
+    mappable: &mut ScalarMappable,
+) -> Result<Mapped, ImageError> {
+    let (values, mask) = (field.values().as_slice(), field.mask().as_slice());
+    let masked: Vec<Option<f64>> = (values.iter().zip(mask))
+        .map(|(&v, &masked)| (!masked).then_some(v))
+        .collect();
+    let (height, width) = field.values().shape();
+    let normalized = normalize_in(
+        mappable,
+        &masked,
+        field.kind(),
+        field.precision(),
+        (height, width),
+    )?;
+    let colors = (mappable.cmap()).map_shaped(&normalized, &[height, width], &Alpha::Keep)?;
+    let palette: Vec<[f64; 4]> = colors.iter().map(|c| c.to_array()).collect();
+    let opaque = palette.iter().all(|c| c[3] == 1.0);
+    let rows = (0..palette.len())
+        .map(|row| u32::try_from(row).expect("an image's elements index in u32"))
+        .collect();
     Ok(Mapped {
         palette,
         rows,

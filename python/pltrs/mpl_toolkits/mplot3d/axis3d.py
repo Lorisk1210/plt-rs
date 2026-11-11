@@ -55,6 +55,32 @@ class _AxisLinePart(_mirrors.Mirroring):
         return True
 
 
+class _Pane(mpatches.Polygon):
+    """The polygon an axis' pane is drawn as (matplotlib's ``axis.pane``):
+    once the program restyles it (its colours, fill, alpha, line), pltrs
+    (Rust) draws the pane as it looks (``_axis``, the axis, set once it
+    is coloured as the pane)."""
+
+    def _restyled(self):
+        """Have pltrs (Rust) draw the pane as the polygon looks now."""
+        axis = self.__dict__.get("_axis")
+        if axis is not None:
+            _mplot3d.set_pane_patch(axis.axes._native, axis.axis_name, self._native)
+
+    def _set_native(self, **kwargs):
+        super()._set_native(**kwargs)
+        self._restyled()
+
+    def set_alpha(self, alpha):
+        super().set_alpha(alpha)
+        self._restyled()
+
+
+# Named as the class matplotlib's pane is.
+_Pane.__name__ = _Pane.__qualname__ = "Polygon"
+_Pane.__module__ = mpatches.Polygon.__module__
+
+
 class Axis(maxis.XAxis):
     """An Axis class for the 3D plots."""
 
@@ -307,19 +333,23 @@ class Axis(maxis.XAxis):
         in the axes' figure, coloured as the pane is now."""
         pane = self.__dict__.get("_pane")
         if pane is None:
-            pane = self._pane = mpatches.Polygon([[0, 0], [0, 1]], closed=False)
+            # Coloured as the pane is drawn so far: as `set_pane_color`
+            # gave it (the axis' rcParam, which matplotlib's axis is made
+            # with, for none), typed as `to_rgba` types it, while the axis
+            # still has it; restyled by the program from then on.
+            made_with = mcolors.to_rgba(mpl.rcParams[f"axes3d.{self.axis_name}axis.panecolor"])
+            color = _values.given(self, "pane_color",
+                                  _mplot3d.get_pane_color(*self._native_args()),
+                                  default=made_with)
+            pane = mpatches.Polygon([[0, 0], [0, 1]], closed=False)
             pane.set_transform(self.axes.transData)
             pane.set_figure(self.axes.get_figure(root=True))
-        # The colour as `set_pane_color` gave it (the axis' rcParam, which
-        # matplotlib's axis is made with, for none), typed as `to_rgba`
-        # types it, while the axis still has it.
-        made_with = mcolors.to_rgba(mpl.rcParams[f"axes3d.{self.axis_name}axis.panecolor"])
-        color = _values.given(self, "pane_color",
-                              _mplot3d.get_pane_color(*self._native_args()),
-                              default=made_with)
-        pane.set_edgecolor(color)
-        pane.set_facecolor(color)
-        pane.set_alpha(color[-1])
+            pane.set_edgecolor(color)
+            pane.set_facecolor(color)
+            pane.set_alpha(color[-1])
+            pane.__class__ = _Pane
+            pane._axis = self
+            self._pane = pane
         return pane
 
     def draw_pane(self, renderer):
@@ -602,6 +632,12 @@ class Axis(maxis.XAxis):
         color = mcolors.to_rgba(color, alpha)
         _mplot3d.set_pane_color(self.axes._native, self.axis_name, color)
         _values.remember(self, "pane_color", color)
+        pane = self.__dict__.get("_pane")
+        if pane is not None:
+            # matplotlib's sets the colours of its polygon.
+            pane.set_edgecolor(color)
+            pane.set_facecolor(color)
+            pane.set_alpha(color[-1])
 
 
 class XAxis(Axis):

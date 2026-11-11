@@ -18,8 +18,9 @@ import weakref
 import numpy as np
 
 from . import _docstring
-from . import (_api, _lazy_imports, _live_transforms, _mirrors, _text_overrides,
-               _transform_trees, _unusable, _values, cbook, units)
+from . import (_api, _lazy_imports, _live_transforms, _mirrors, _program_classes,
+               _text_overrides, _transform_trees, _unusable, _values, cbook,
+               units)
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
@@ -614,6 +615,18 @@ class Text(Artist):
         """Return the text angle in degrees in the range [0, 360)."""
         return _text.get_rotation(self._native)
 
+    #: What matplotlib's ``draw`` reads that a class of the program's may
+    #: compute (`_push_computed`): the rotation (``_rotation`` as a
+    #: property: matplotlib-label-lines turns its labels with the line as
+    #: drawn).
+    _computed = ("_rotation",)
+
+    def _push_computed(self):
+        """Hand pltrs (Rust) the rotation a class of the program's computes,
+        as matplotlib's ``draw`` reads it (``get_rotation``)."""
+        if _program_classes.takes_from_program(type(self), "_rotation"):
+            _text.set_rotation(self._native, _rotation_degrees(self._rotation))
+
     def get_transform_rotates_text(self):
         """
         Return whether rotations of the transform affect the text direction.
@@ -1040,6 +1053,10 @@ class Text(Artist):
         spacing = _text.get_linespacing(self._native)
         return ('normal' if spacing is None
                 else _values.given(self, "linespacing", spacing))
+
+    #: matplotlib's attribute, which programs read (mplsoccer's curved
+    #: text, written for versions without `get_linespacing`).
+    _linespacing = property(get_linespacing, set_linespacing)
 
     def _update_font(self, method, value):
         """Change the font properties with their setter *method*."""

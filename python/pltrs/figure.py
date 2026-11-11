@@ -28,6 +28,7 @@ from .axes import _sharing
 from .axes import _program_tick_params
 from .backend_bases import DrawEvent, FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
+from ._program_classes import takes_from_program
 from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
@@ -634,7 +635,11 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                 self._native, spec, native_name(projection_class))
         ax = self._new_axes(native, projection_class, pkw)
         # The spec given, as matplotlib's Axes keeps it (``_subplotspec``).
-        ax._subplotspec_kept = subplotspec
+        ax._place_on(subplotspec)
+        if takes_from_program(type(subplotspec.get_gridspec()), "get_grid_positions"):
+            # Where the grid's class of the program's puts the cells, as
+            # matplotlib's Axes places itself on its spec.
+            ax._set_position(subplotspec.get_position(self))
         return ax
 
     def subplots(self, nrows=1, ncols=1, *, sharex=False, sharey=False,
@@ -1283,6 +1288,7 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
         for label in (self._suptitle, self._supxlabel, self._supylabel):
             if label is not None:
                 label._out_of_lists = True
+        self.__dict__.pop("_super_texts_given", None)
         _figure.clear(self._native)
         self.subfigs = []
         if not keep_observers:

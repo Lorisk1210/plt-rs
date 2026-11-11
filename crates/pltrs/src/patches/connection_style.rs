@@ -1,7 +1,9 @@
 //! Paths connecting two points (matplotlib's `ConnectionStyle`), clipped
 //! to the patches at their ends and shrunk away from them.
 
+use std::borrow::Cow;
 use std::fmt;
+use std::rc::Rc;
 use std::str::FromStr;
 
 use pltrs_core::bezier::{Direction, get_intersection, inside_circle, split_path_inout};
@@ -98,23 +100,91 @@ impl Default for ConnectionStyle {
 /// passes the patch itself as `patchA`/`patchB`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipRegion {
-    /// The outline in display pixels.
-    pub path: Path,
+    /// The outline in display pixels (empty for one that is remade).
+    path: Path,
     /// Tolerance around the outline (matplotlib uses the edge width, in
     /// pixels, when the edge is visible).
-    pub radius: f64,
+    radius: f64,
+    /// Makes the outline anew for every point asked about, where it comes
+    /// from the program's code: matplotlib's `Patch.contains` asks the
+    /// patch for its path each time (a box style of the program's is
+    /// called once per point the clipping of an arrow tries).
+    remade: RemadeOutline,
 }
 
-pltrs_core::archive_struct!(ClipRegion { path, radius });
+pltrs_core::archive_struct!(ClipRegion { path, radius } skip { remade });
+
+/// The outline of a [`ClipRegion`] made anew for each point, if it is.
+#[derive(Clone, Default)]
+struct RemadeOutline(Option<Rc<dyn Fn() -> Path>>);
+
+impl PartialEq for RemadeOutline {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+            (a, b) => a.is_none() && b.is_none(),
+        }
+    }
+}
+
+impl fmt::Debug for RemadeOutline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(if self.0.is_some() {
+            "RemadeOutline(..)"
+        } else {
+            "RemadeOutline(None)"
+        })
+    }
+}
 
 impl ClipRegion {
+    /// The region inside `path`, `radius` pixels around it included.
+    pub fn new(path: Path, radius: f64) -> Self {
+        Self {
+            path,
+            radius,
+            remade: RemadeOutline::default(),
+        }
+    }
+
+    /// The region inside the outline `remake` makes anew for every point
+    /// asked about (an outline the program's code gives, which matplotlib
+    /// asks for at each test), `radius` pixels around it included.
+    pub fn remade(remake: impl Fn() -> Path + 'static, radius: f64) -> Self {
+        Self {
+            path: Path::default(),
+            radius,
+            remade: RemadeOutline(Some(Rc::new(remake))),
+        }
+    }
+
+    /// Whether the program's code makes the outline (anew for each point).
+    pub fn calls_program(&self) -> bool {
+        self.remade.0.is_some()
+    }
+
+    /// The tolerance around the outline, in pixels.
+    pub fn radius(&self) -> f64 {
+        self.radius
+    }
+
+    /// The outline in display pixels.
+    pub fn outline(&self) -> Cow<'_, Path> {
+        match &self.remade.0 {
+            Some(remake) => Cow::Owned(remake()),
+            None => Cow::Borrowed(&self.path),
+        }
+    }
+
     /// Whether `point` lies in any sub-path of the region
-    /// (`Patch.contains`).
+    /// (`Patch.contains`, which asks for a remade outline's codes, then,
+    /// when it has some, for its vertices: the program's code twice).
     pub fn contains(&self, point: Point) -> bool {
-        self.path
-            .subpaths()
-            .iter()
-            .any(|sub| sub.contains_point(point, None, self.radius))
+        let outline = match self.outline() {
+            Cow::Owned(first) if first.codes().is_some() => self.outline(),
+            outline => outline,
+        };
+        (outline.subpaths().iter()).any(|sub| sub.contains_point(point, None, self.radius))
     }
 }
 

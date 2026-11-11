@@ -116,23 +116,33 @@ class GridSpecBase:
         self._native = native
         _GRIDSPECS.add(self)
 
-    def __getattr__(self, name):
-        # A grid of a class of the program's deriving from this one alone
-        # (plotnine's ``p9GridSpec``) gets its native grid when first
-        # needed, without margins or spacing of its own: its
-        # ``get_subplot_params`` gives them (`_params_of`).
-        if name == "_native" and "_nrows" in self.__dict__:
-            native = _gridspec.new(
-                self._nrows, self._ncols,
-                _gridspec_kept.native_ratios(self._col_width_ratios, self._ncols),
-                _gridspec_kept.native_ratios(self._row_height_ratios, self._nrows),
-                (None,) * len(_KEYS))
-            # Constrained layout only places the grids of pltrs' classes.
-            _gridspec.set_in_layout(native, False)
-            self._adopt_native(native)
+    @property
+    def _native(self):
+        """
+        The native grid. A grid of a class of the program's made without
+        this class' constructor (plotnine's ``p9GridSpec``, ultraplot's
+        ``GridSpec``, whose own ``__getattr__`` answers for the names it
+        lacks) gets one when first needed, of the geometry its class gives,
+        without margins or spacing of its own: its ``get_subplot_params``
+        or ``get_grid_positions`` give them (`_params_of`).
+        """
+        native = self.__dict__.get("_native")
+        if native is not None:
             return native
-        raise AttributeError(
-            f"{type(self).__name__!r} object has no attribute {name!r}")
+        nrows, ncols = self.get_geometry()
+        widths = self.__dict__.get("_col_width_ratios") or [1] * ncols
+        heights = self.__dict__.get("_row_height_ratios") or [1] * nrows
+        native = _gridspec.new(
+            nrows, ncols, _gridspec_kept.native_ratios(widths, ncols),
+            _gridspec_kept.native_ratios(heights, nrows), (None,) * len(_KEYS))
+        # Constrained layout only places the grids of pltrs' classes.
+        _gridspec.set_in_layout(native, False)
+        self._adopt_native(native)
+        return native
+
+    @_native.setter
+    def _native(self, native):
+        self.__dict__["_native"] = native
 
     def _params_of(self, figure):
         """The subplot parameters the positions of the grid's cells in
@@ -706,11 +716,12 @@ class SubplotSpec:
             # matplotlib places it (`.Axes.set_subplotspec`).
             _gridspec.set_overrides(gridspec._native, gridspec._params_of(
                 getattr(gridspec, "figure", None)))
-        ncols = gridspec.ncols
+        # The geometry the grid's class gives (ultraplot's counts its
+        # visible cells), as matplotlib's `get_position` reads it.
+        ncols = gridspec.get_geometry()[1]
         r1, r2 = sorted([self.num1 // ncols, self.num2 // ncols])
-        cols = self.colspan
-        return _gridspec.span(gridspec._native, (r1, r2 + 1),
-                              (cols.start, cols.stop))
+        c1, c2 = sorted([self.num1 % ncols, self.num2 % ncols])
+        return _gridspec.span(gridspec._native, (r1, r2 + 1), (c1, c2 + 1))
 
     def __repr__(self):
         return (f"{self.get_gridspec()}["

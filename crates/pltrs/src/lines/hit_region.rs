@@ -27,10 +27,7 @@ pub(super) fn hit_region(points: &[Point], radius: f64, with_segments: bool) -> 
                 .filter_map(|pair| band(pair[0], pair[1], radius)),
         );
     }
-    ClipRegion {
-        path: Path::compound(&pieces),
-        radius: 0.0,
-    }
+    ClipRegion::new(Path::compound(&pieces), 0.0)
 }
 
 /// The disk of `radius` around `center`, as a fine polygon.

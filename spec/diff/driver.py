@@ -17,9 +17,12 @@ their programs import). It
 2. runs each under both implementations (``trace.py``), the reference
    runs cached by the program's text (``OUT/runs/<program>/mpl``), every
    program offline, and a corpus' programs each with a home directory of
-   its own, empty (``OUT/runs/<program>/home``), so that what they would
+   its own, empty but for the directories a desktop's home has
+   (``HOME_DIRECTORIES``, in ``OUT/runs/<program>/home``), so that what they would
    keep in a cache there stays in ``OUT`` and reaches no other program,
-   and their linear algebra on one thread;
+   and a configuration directory of their own (`Setup.seed_config`: the
+   font cache a program may add fonts to is a copy), and their linear
+   algebra on one thread;
 3. compares them (``compare.py``), drops the differences the allowlist
    (``allowlist.txt``) proves intended, and groups the rest by cause;
 4. writes ``OUT/report.json`` (every difference) and ``OUT/report.md``
@@ -67,6 +70,14 @@ import corpora  # noqa: E402
 
 #: Seconds a program may run under one implementation.
 TIMEOUT = 300
+#: The directories a corpus program's home has, as a desktop's has them
+#: (ultraplot makes its own in ``~/.config`` when imported).
+HOME_DIRECTORIES = (".config", ".cache", ".local/share")
+#: The files of an implementation's configuration directory a corpus
+#: program gets copies of (the rest it shares, linked): matplotlib's font
+#: cache, which a program may write its own fonts into (ultraplot does),
+#: to reach no other program.
+OWN_CONFIG_FILES = "fontlist-v*.json"
 #: Gallery directories run, under the sdist's ``galleries/``.
 GALLERY_PARTS = ("examples", "plot_types", "tutorials", "users_explain")
 #: The pinned list of the corpora's venvs, on which their reference runs
@@ -126,8 +137,7 @@ class Setup:
             env.update(dict.fromkeys(("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"))
         env["MPLBACKEND"] = "agg"
         # (Named apart from the package names `trace.py` replaces in messages.)
-        env["MPLCONFIGDIR"] = str(self.out / ("config-reference" if impl == "matplotlib"
-                                              else "config-candidate"))
+        env["MPLCONFIGDIR"] = str(self.config(impl, program))
         env["PYTHONHASHSEED"] = "0"
         path = [str(HEADLESS)] if NEEDS_HEADLESS else []
         if impl == "pltrs":
@@ -140,6 +150,46 @@ class Setup:
         if path:
             env["PYTHONPATH"] = os.pathsep.join(path)
         return env
+
+    def config(self, impl: str, program: Program | None = None) -> pathlib.Path:
+        """The configuration directory of *impl*'s runs: the one they
+        share, or, for a corpus' program, its own (`seed_config`).
+        (Named apart from the package names `trace.py` replaces in
+        messages.)"""
+        name = "config-reference" if impl == "matplotlib" else "config-candidate"
+        if program is not None and program.corpus is not None:
+            return program.directory(self) / name
+        return self.out / name
+
+    def seed_config(self, impl: str, program: Program) -> None:
+        """Give *program* a configuration directory of its own for *impl*:
+        copies of the shared one's `OWN_CONFIG_FILES`, links to the rest."""
+        shared, own = self.config(impl), self.config(impl, program)
+        shutil.rmtree(own, ignore_errors=True)
+        own.mkdir(parents=True)
+        copied = set(shared.glob(OWN_CONFIG_FILES))
+        for entry in shared.iterdir():
+            if entry in copied:
+                shutil.copy2(entry, own / entry.name)
+            else:
+                (own / entry.name).symlink_to(entry)
+
+    def prepare_configs(self) -> None:
+        """Make the shared configuration directories a corpus run seeds
+        the programs' from: without a font cache a program wrote (one that
+        added fonts to it, as ultraplot does), matplotlib's made afresh as
+        a program run with an empty home makes it."""
+        seed_home = self.out / "config-seed-home"
+        shutil.rmtree(seed_home, ignore_errors=True)
+        seed_home.mkdir(parents=True)
+        for impl in ("matplotlib", "pltrs"):
+            shared = self.config(impl)
+            shared.mkdir(parents=True, exist_ok=True)
+            for cache in shared.glob(OWN_CONFIG_FILES):
+                cache.unlink()
+        env = dict(self.environment("matplotlib"), HOME=str(seed_home))
+        subprocess.run([self.mpl_python, "-c", "import matplotlib.font_manager"],
+                       env=env, check=True, capture_output=True)
 
     def home(self, program: Program) -> pathlib.Path:
         """The home directory of *program*'s runs, a corpus' program's:
@@ -175,6 +225,9 @@ class Program:
             harness += (HEADLESS / "sitecustomize.py").read_bytes()
         tree = self.corpus.corpus.sha256.encode() + CORPUS_REQUIREMENTS.read_bytes() if self.corpus else b""
         network = json.dumps(OFFLINE).encode()
+        if self.corpus:
+            # What a corpus program starts with, besides its tree.
+            network += json.dumps([HOME_DIRECTORIES, OWN_CONFIG_FILES]).encode()
         return hashlib.sha256(self.path.read_bytes() + self.mode.encode() + tree + harness
                               + network).hexdigest()[:16]
 
@@ -220,7 +273,9 @@ def _run(setup: Setup, impl: str, program: Program, out: pathlib.Path) -> dict[s
     if program.corpus is not None:
         home = setup.home(program)
         shutil.rmtree(home, ignore_errors=True)
-        home.mkdir(parents=True)
+        for directory in HOME_DIRECTORIES:
+            (home / directory).mkdir(parents=True)
+        setup.seed_config(impl, program)
     try:
         done = subprocess.run(setup.command(impl, program, out), env=setup.environment(impl, program),
                               capture_output=True, text=True, timeout=TIMEOUT)
@@ -428,6 +483,7 @@ def main() -> int:
         programs += generated_programs(setup)
     if args.suite == "corpus":
         programs += corpus_programs(setup, args.patterns)
+        setup.prepare_configs()
     if args.patterns:
         programs = [p for p in programs if any(pattern in p.name for pattern in args.patterns)]
 

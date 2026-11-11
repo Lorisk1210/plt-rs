@@ -158,6 +158,7 @@ impl Canon for FontSize {
         match self {
             Self::Relative(size) => text(size.name()),
             Self::Points(points) => points.canon(),
+            Self::Named(size) => text(size.name()),
         }
     }
 }

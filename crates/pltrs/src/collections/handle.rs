@@ -476,15 +476,18 @@ impl Collection {
         self
     }
 
-    /// Hands a norm of the program's the values of the colour mapping as
-    /// an array of `shape`, as matplotlib's collection holds them (a
-    /// mesh's rows and columns).
-    pub(crate) fn set_mapping_shape(&self, shape: Vec<usize>) -> &Self {
-        self.update(|c| {
-            if let Some(mapped) = &mut c.mapping {
-                mapped.set_shape(shape);
-            }
-        });
+    /// [`set_mapping`](Self::set_mapping) as a plotting function makes it
+    /// (`scatter`, `pcolormesh`, `tripcolor`): the collection holds the
+    /// values as an array of `shape` (one dimension for `None`), and the
+    /// function scales the norm after setting them (`_scale_norm`).
+    pub(crate) fn set_scaled_mapping(
+        &self,
+        mapping: ColorMapping,
+        shape: Option<Vec<usize>>,
+    ) -> &Self {
+        let mapped = Mapped::scaled(mapping, shape);
+        self.update(|c| c.mapping = Some(mapped));
+        colorizer::notify(&self.raw, true);
         self
     }
 

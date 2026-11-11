@@ -36,7 +36,8 @@ import sys
 from . import _afm, _api, _mirrors, cbook, ft2font, get_cachedir
 from ._fontconfig_pattern import (
     parse_fontconfig_pattern, generate_fontconfig_pattern)
-from ._native import font_manager as _font_manager, ft2font as _native_ft2font
+from ._native import (font_manager as _font_manager, ft2font as _native_ft2font,
+                      register as _register)
 
 _log = logging.getLogger(__name__)
 
@@ -72,6 +73,20 @@ font_scalings = {
     'smaller':  0.833,
     None:       1.0,
 }
+
+
+def _font_scaling(name):
+    """The factor of :rc:`font.size` the size keyword *name* stands for in
+    `font_scalings`, which programs add keywords to (ultraplot's
+    ``med-large``), as pltrs (Rust) reads a keyword it does not know
+    (None: not one)."""
+    try:
+        return float(font_scalings[name])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+_register("font_scaling", _font_scaling)
 stretch_dict = {
     'ultra-condensed': 100,
     'extra-condensed': 200,
@@ -878,7 +893,10 @@ class FontProperties:
 class _JSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, FontManager):
-            return dict(o.__dict__, __class__='FontManager')
+            # The lists too, which matplotlib's manager keeps in its
+            # ``__dict__`` and pltrs (Rust) holds.
+            return dict(o.__dict__, ttflist=list(o.ttflist), afmlist=list(o.afmlist),
+                        __class__='FontManager')
         elif isinstance(o, FontEntry):
             d = dict(o.__dict__, __class__='FontEntry')
             try:
@@ -1555,7 +1573,32 @@ class FontManager:
 # loads, where pltrs (Rust) keeps its catalogue of the fonts (read when first
 # used): the directory is known from here on (`get_cachedir`'s memo).
 get_cachedir()
-fontManager = FontManager()
+
+
+def _load_fontmanager():
+    """
+    The font manager, with the fonts a program added and saved in the
+    cache (``json_dump`` to ``fontlist-v<version>.json``, as ultraplot
+    keeps the fonts it ships), which matplotlib's manager is loaded from.
+    """
+    fm = FontManager()
+    path = Path(get_cachedir(), f"fontlist-v{FontManager.__version__}.json")
+    if not path.is_file():
+        return fm
+    try:
+        cached = json_load(path).__dict__.get("ttflist", [])
+    except Exception:  # matplotlib makes a new manager from any bad cache
+        return fm
+    known = {entry.fname for entry in fm.ttflist}
+    for entry in cached:
+        if (isinstance(entry, FontEntry) and entry.fname not in known
+                and os.path.isfile(entry.fname)):
+            fm.ttflist.append(entry)
+            known.add(entry.fname)
+    return fm
+
+
+fontManager = _load_fontmanager()
 findfont = fontManager.findfont
 get_font_names = fontManager.get_font_names
 

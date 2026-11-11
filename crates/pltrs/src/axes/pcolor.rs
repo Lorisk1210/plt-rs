@@ -125,7 +125,11 @@ impl Axes {
         };
         let mappable = mesh_mappable(options.colorizer, options.multivariate.as_ref(), values)?;
         let grid = mesh.vertex_grid();
+        let (rows, columns) = values.values().shape();
         let (paths, values) = unmasked_cells(&grid, &values.masked_values());
+        // matplotlib's collection holds the array as it was given, which
+        // pltrs' does when no cell is masked.
+        let shape = (values.len() == rows * columns).then(|| vec![rows, columns]);
         let mut props = options.props;
         pcolor_edge_defaults(&mut props);
         let mut collection =
@@ -134,7 +138,7 @@ impl Axes {
         props.apply(&mut collection);
         collection.base_mut().snap = Some(options.snap.unwrap_or(false));
         let handle = self.add_mesh(collection, &mesh);
-        handle.set_mapping(ColorMapping { values, mappable });
+        handle.set_scaled_mapping(ColorMapping { values, mappable }, shape);
         Ok(handle)
     }
 
@@ -186,8 +190,10 @@ impl Axes {
                 let shape = values.values().shape();
                 let values = values.masked_values();
                 let handle = self.add_pcolormesh(&mesh, options.props, options.snap);
-                handle.set_mapping(ColorMapping { values, mappable });
-                handle.set_mapping_shape(vec![shape.0, shape.1]);
+                handle.set_scaled_mapping(
+                    ColorMapping { values, mappable },
+                    Some(vec![shape.0, shape.1]),
+                );
                 Ok(handle)
             }
             MeshValues::Multivariate(field) => {

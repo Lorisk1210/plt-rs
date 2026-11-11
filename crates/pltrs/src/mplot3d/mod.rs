@@ -122,6 +122,7 @@ pub use art3d::{ProjectedOutline, ProjectedPath, ZSort};
 pub use aspect::Aspect3D;
 pub use axis_draw::{AxisText3D, AxisTextPart, GridLine3D, TickLine3D};
 pub use axis_handle::Axis3D;
+pub use axis3d::PaneStyle;
 pub use bars::{Bar3DOptions, Boxes};
 pub use camera::{ProjType, ViewAngles};
 pub use collections3d::FaceColors;

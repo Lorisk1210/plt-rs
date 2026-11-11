@@ -50,6 +50,13 @@ fn get_title_pad(axes: Axes) -> PyResult<f64> {
     Ok(axes.title_pad())
 }
 
+/// Sets the gap between the axes top and its titles to `pad` points
+/// (`_set_title_offset_trans`).
+fn set_title_pad(axes: Axes, pad: f64) -> PyResult<()> {
+    axes.set_title_pad(pad);
+    Ok(())
+}
+
 /// Lifts the titles above what rises over the top of the axes: those of
 /// every axes as the figure is laid out, or the axes' own alone when the
 /// program places them (an `Axes` subclass' `_update_title_position`
@@ -102,6 +109,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("title_text", title_text)?;
     module.add("set_title", set_title)?;
     module.add("get_title_pad", get_title_pad)?;
+    module.add("set_title_pad", set_title_pad)?;
     module.add("update_title_position", update_title_position)?;
     module.add("title_placement", title_placement)?;
     module.add("set_title_placement", set_title_placement)

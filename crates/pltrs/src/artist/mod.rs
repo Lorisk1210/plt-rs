@@ -50,12 +50,12 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use pltrs_core::path::DataLimits;
-use pltrs_core::{Bbox, Point};
+use pltrs_core::{Bbox, Path, Point};
 use pltrs_render::ClipPath;
 
 use crate::patches::{ClipRegion, PatchView};
 use crate::ticker::AxisName;
-use crate::transforms::{Transform, TransformContext};
+use crate::transforms::{ResolvedTransform, Transform, TransformContext};
 use crate::units::CustomValues;
 
 pub use archive::FigureRef;
@@ -114,18 +114,52 @@ impl LimitPoints {
         axes: ArtistId,
         points: impl FnOnce() -> Vec<Point>,
     ) -> Option<Self> {
+        Self::mapped(transform, axes, |to_data| {
+            let mut points = points();
+            if let Some(to_data) = to_data {
+                for p in &mut points {
+                    *p = to_data.transform_point(*p);
+                }
+            }
+            points
+        })
+    }
+
+    /// [`through`](Self::through) for the vertices of a line's `path`,
+    /// mapped as a path where the transform calls the program's code:
+    /// matplotlib's `_update_line_limits` maps the line's
+    /// `TransformedPath`, which keeps what it mapped for the line's draws.
+    pub(crate) fn through_path(transform: &Transform, axes: ArtistId, path: &Path) -> Option<Self> {
+        Self::mapped(transform, axes, |to_data| match to_data {
+            Some(to_data) if to_data.calls_program() => {
+                to_data.transform_path(path).vertices().to_vec()
+            }
+            Some(to_data) => (path.vertices().iter())
+                .map(|&p| to_data.transform_point(p))
+                .collect(),
+            None => path.vertices().to_vec(),
+        })
+    }
+
+    /// The points `map` gives, handed what `transform` applies before the
+    /// data transform of `axes` unless that is the identity, in the
+    /// directions where they are data values; `None` when there are none.
+    fn mapped(
+        transform: &Transform,
+        axes: ArtistId,
+        map: impl FnOnce(Option<&ResolvedTransform>) -> Vec<Point>,
+    ) -> Option<Self> {
         let directions = transform.data_directions(axes);
         if directions == (false, false) {
             return None;
         }
-        let points = match transform.to_data(axes) {
-            Some(to_data) if !to_data.is_identity() => points()
-                .into_iter()
-                .map(|p| to_data.transform_point(p))
-                .collect(),
-            _ => points(),
-        };
-        Some(Self { points, directions })
+        let to_data = transform
+            .to_data(axes)
+            .filter(|to_data| !to_data.is_identity());
+        Some(Self {
+            points: map(to_data.as_ref()),
+            directions,
+        })
     }
 
     /// The corners and smallest positive point of `limits`; `None` when

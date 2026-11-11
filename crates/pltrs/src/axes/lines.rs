@@ -1,6 +1,7 @@
 //! Line plotting: `plot`.
 
 use super::children::DataUpdate;
+use super::prop_cycles::CycleState;
 use super::{Axes, AxesState, PlotError, PropCycle};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
@@ -260,20 +261,10 @@ impl Axes {
     /// leaves unset (matplotlib's `_makeline`).
     pub(crate) fn cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> LineArtist {
         let mut line = LineArtist::new(x, y, crate::rc::params());
-        let owner = self.prop_cycle_owner(PropCycle::Lines);
-        let cycled = owner.raw().with_mut::<AxesState, _>(|axes| {
-            let entry: Vec<(String, CycleValue)> = axes
-                .prop_cycle
-                .entry(axes.line_cycle)
-                .filter(|(key, _)| !props.is_set(key))
-                .map(|(key, value)| (key.to_owned(), value.clone()))
-                .collect();
-            // matplotlib's `_getdefaults`: only advance when the cycle
-            // supplies something.
-            if !entry.is_empty() {
-                axes.line_cycle += 1;
-            }
-            entry
+        // matplotlib's `_getdefaults`: only advance when the cycle supplies
+        // something.
+        let cycled = self.with_cycle(PropCycle::Lines, |cycle| {
+            cycle.take_entry(|key| props.is_set(key))
         });
         for (key, value) in cycled {
             apply_cycle(&mut line, &key, value);
@@ -311,13 +302,8 @@ impl Axes {
     /// Replaces the property cycle of lines and patches and restarts it;
     /// `None` restores `axes.prop_cycle` (matplotlib's `set_prop_cycle`).
     pub fn set_prop_cycle(&self, cycle: Option<Cycler>) -> &Self {
-        let cycle = cycle.unwrap_or_else(|| crate::rc::params().axes_prop_cycle.clone());
-        self.raw().with_mut::<AxesState, _>(|axes| {
-            axes.prop_cycle = cycle;
-            axes.line_cycle = 0;
-            axes.patch_cycle = 0;
-        });
-        self
+        self.set_prop_cycle_of(PropCycle::Lines, cycle.clone())
+            .set_prop_cycle_of(PropCycle::Patches, cycle)
     }
 
     /// The next colour of the line property cycle (matplotlib's
@@ -329,26 +315,8 @@ impl Axes {
     /// assert_ne!(ax.next_line_color(), ax.next_line_color());
     /// ```
     pub fn next_line_color(&self) -> Color {
-        self.prop_cycle_owner(PropCycle::Lines)
-            .raw()
-            .with_mut::<AxesState, _>(|axes| {
-                let color = cycle_color(&axes.prop_cycle, axes.line_cycle);
-                if color.is_some() {
-                    axes.line_cycle += 1;
-                }
-                color.unwrap_or_else(|| Color::from("k"))
-            })
+        self.with_cycle(PropCycle::Lines, CycleState::take_color)
     }
-}
-
-/// The colour of entry `index` of a property cycle, if it cycles colours.
-pub(crate) fn cycle_color(cycle: &Cycler, index: usize) -> Option<Color> {
-    cycle
-        .entry(index)
-        .find_map(|(key, value)| match (key, value) {
-            ("color", CycleValue::Color(color)) => Some(color.clone()),
-            _ => None,
-        })
 }
 
 /// Applies one property-cycle entry to a new line.

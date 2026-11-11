@@ -172,9 +172,13 @@ impl ScalarField {
     }
 
     /// Fills the unset limits of `norm` from the unmasked values
-    /// (matplotlib's `norm.autoscale_None(A)`).
+    /// (matplotlib's `norm.autoscale_None(A)`). A norm of the program's is
+    /// left alone: matplotlib autoscales it where its plotting functions
+    /// scale the norm (`_scale_norm`) and where its draws map the image.
     pub fn autoscale(&self, norm: &mut dyn Norm) {
-        norm.autoscale_none_unmasked(self.values.as_slice(), self.masked.as_slice());
+        if !norm.calls_program() {
+            norm.autoscale_none_unmasked(self.values.as_slice(), self.masked.as_slice());
+        }
     }
 
     /// The values with masked cells as `None`, row-major.

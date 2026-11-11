@@ -24,9 +24,11 @@
 
 mod error;
 mod lookup;
+mod program;
 mod segment;
 
 use std::fmt;
+use std::rc::Rc;
 
 use pltrs_core::Rgba;
 
@@ -37,6 +39,7 @@ use crate::rc::keyword_names;
 pub use error::{ColormapError, SegmentProblem};
 pub use lookup::Normalized;
 pub(crate) use lookup::truncate_byte;
+pub use program::{ColormapCall, ProgramColormap};
 pub use segment::{Segment, SegmentData, SegmentFn, create_lookup_table};
 pub(crate) use segment::{SegmentRecipe, cubehelix_channel};
 
@@ -183,6 +186,9 @@ pub struct Colormap {
     colorbar_extend: Option<Extend>,
     /// The `N` colours followed by the under, over and bad colours.
     lut: Vec<Rgba>,
+    /// The program's colormap, which maps arrays of values in place of
+    /// the table (see [`ProgramColormap`]).
+    program: Option<Rc<dyn ProgramColormap>>,
 }
 
 pltrs_core::archive_struct!(Colormap {
@@ -191,7 +197,7 @@ pltrs_core::archive_struct!(Colormap {
     extremes,
     colorbar_extend,
     lut
-});
+} skip { program });
 
 impl Colormap {
     /// A colormap of explicit colours (matplotlib's `ListedColormap`).
@@ -287,6 +293,7 @@ impl Colormap {
             extremes,
             colorbar_extend: None,
             lut: colors,
+            program: None,
         };
         cmap.lut.extend([Rgba::TRANSPARENT; 3]);
         cmap.update_extremes();

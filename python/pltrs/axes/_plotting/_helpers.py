@@ -153,11 +153,12 @@ def made_line_kwargs(kwargs):
     a ``linewidth``), as matplotlib's constructor sets its parameters, then
     the remaining arguments; a parameter of the constructor given None
     under its own name takes its default (yellowbrick gives
-    ``color=None``).
+    ``color=None``), and so does a label of None, which leaves the line
+    unlabelled until its Axes names it ``_child<n>``.
     """
     to_property = mlines.Line2D._alias_to_prop
     kwargs = {key: value for key, value in kwargs.items()
-              if not (value is None and key in _LINE_DEFAULTS)}
+              if not (value is None and (key in _LINE_DEFAULTS or key == "label"))}
     resolved = {key: value for key, value in kwargs.items() if key not in to_property}
     resolved.update((to_property[key], value) for key, value in kwargs.items()
                     if key in to_property)

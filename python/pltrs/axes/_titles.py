@@ -56,6 +56,15 @@ class TitlesMixin:
             lambda: ScaledTranslation(0.0, pad / 72,
                                       self.get_figure(root=False).dpi_scale_trans))
 
+    def _set_title_offset_trans(self, title_offset_points):
+        """
+        Set the offset for the title either from :rc:`axes.titlepad`
+        or from set_title kwarg ``pad``.
+        """
+        _axes.set_title_pad(self._native, float(title_offset_points))
+        for title in (self.title, self._left_title, self._right_title):
+            title.set_clip_box(None)
+
     def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
                   **kwargs):
         """

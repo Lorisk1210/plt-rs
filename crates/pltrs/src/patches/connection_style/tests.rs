@@ -131,15 +131,15 @@ fn routes_of_the_program_shrink_themselves() {
 
 #[test]
 fn routes_start_at_the_edge_of_their_patch() {
-    let square = ClipRegion {
-        path: Path::polygon([
+    let square = ClipRegion::new(
+        Path::polygon([
             Point::new(-10.0, -10.0),
             Point::new(10.0, -10.0),
             Point::new(10.0, 10.0),
             Point::new(-10.0, 10.0),
         ]),
-        radius: 0.0,
-    };
+        0.0,
+    );
     let path = style("arc3")
         .route((A, Point::new(100.0, 0.0)), (0.0, 0.0), Some(&square), None)
         .unwrap();
@@ -165,4 +165,29 @@ fn coincident_points_have_no_direction() {
         style("arc3").connect(A, A).is_ok(),
         "arc3 divides by nothing"
     );
+}
+
+#[test]
+fn a_remade_region_asks_for_its_outline_at_each_point() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let calls = Rc::new(Cell::new(0));
+    let counted = Rc::clone(&calls);
+    let square = move || {
+        counted.set(counted.get() + 1);
+        Path::polygon([
+            Point::new(-1.0, -1.0),
+            Point::new(1.0, -1.0),
+            Point::new(1.0, 1.0),
+            Point::new(-1.0, 1.0),
+        ])
+    };
+    let region = ClipRegion::remade(square, 0.0);
+    assert!(region.calls_program());
+    assert!(region.contains(Point::new(0.0, 0.0)));
+    assert!(!region.contains(Point::new(2.0, 0.0)));
+    // matplotlib's `Patch.contains` asks for the codes, then the vertices.
+    assert_eq!(calls.get(), 4);
+    assert!(!ClipRegion::new(Path::default(), 0.0).calls_program());
 }

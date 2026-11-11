@@ -419,13 +419,13 @@ impl AnnotationArrow {
         rc: &RcParams,
         target: &ArrowTarget,
     ) -> Option<ProgramShaping> {
-        if !self.calls_program() {
-            return None;
-        }
         let start = match &target.start_region {
             StartRegion::Fresh(region) => region.clone(),
             StartRegion::TextBox { now, .. } => Some(now.clone()),
         };
+        if !self.calls_program() && !start.as_ref().is_some_and(ClipRegion::calls_program) {
+            return None;
+        }
         let routed = self.routed(layout, rc, target, layout.points_to_pixels(1.0), start);
         Some(Box::new(move || drop(routed.paths())))
     }
@@ -523,11 +523,7 @@ impl AnnotationArrow {
             return false;
         };
         let displayed: Vec<Path> = paths.iter().map(DisplayPath::to_display).collect();
-        ClipRegion {
-            path: Path::compound(&displayed),
-            radius: resolved.hit_radius(),
-        }
-        .contains(at)
+        ClipRegion::new(Path::compound(&displayed), resolved.hit_radius()).contains(at)
     }
 
     /// Draws the arrow (never clipped, like matplotlib's arrow patch,

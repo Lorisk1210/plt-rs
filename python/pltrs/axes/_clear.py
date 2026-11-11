@@ -80,6 +80,7 @@ class ClearMixin:
                 continue
             figure._artists.pop(_artist.id(native), None)
         _foreign_children.forget(self)
+        self._forget_cycles()
         for spine in self.spines.values():
             spine._clear()
         # Stale, without units, ticks and callbacks (the Axes' handler of

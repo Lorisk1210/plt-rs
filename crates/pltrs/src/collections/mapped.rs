@@ -33,6 +33,8 @@ pub(crate) struct Mapped {
     shape: Option<Vec<usize>>,
     /// What the program's norm gave at the last draw.
     drawn: DrawnValues,
+    /// The colours the program's colormap gave at the last draw.
+    drawn_colors: DrawnColors,
 }
 
 /// The values a norm of the program's normalised at the last draw, and
@@ -44,6 +46,15 @@ struct DrawnValues(RefCell<Option<(Normalization, bool)>>);
 
 /// The values normalised, or why they could not be.
 type Normalization = Result<Vec<Normalized>, String>;
+
+/// The colours a colormap of the program's gave at the last draw, with the
+/// alpha they were asked with: matplotlib's collection maps its values once
+/// per draw (`update_scalarmappable`), for its faces and edges alike.
+#[derive(Clone, Debug, Default)]
+struct DrawnColors(RefCell<Option<(Alpha, Coloring)>>);
+
+/// The values coloured, or why they could not be.
+type Coloring = Result<Vec<pltrs_core::Rgba>, String>;
 
 /// The values normalised and coloured at once when drawing.
 const COLOR_BLOCK: usize = 1 << 16;
@@ -65,24 +76,45 @@ pltrs_core::archive_struct!(Mapped {
     by_block,
     at_draw,
     shape,
-} skip { drawn });
+} skip { drawn, drawn_colors });
 
 impl Mapped {
     /// The mapping with its norm autoscaled from its values.
     pub(super) fn new(source: ColorMapping) -> Self {
+        Self::made(source, None, false)
+    }
+
+    /// The mapping of a plotting function (`scatter`, `pcolormesh`, ...)
+    /// whose values the collection holds as an array of `shape` (one
+    /// dimension for `None`): matplotlib's `set_array`, then the
+    /// function's `_scale_norm`, which autoscales the norm again.
+    pub(crate) fn scaled(source: ColorMapping, shape: Option<Vec<usize>>) -> Self {
+        Self::made(source, shape, true)
+    }
+
+    /// [`new`](Self::new), the values of `shape`, `_scale_norm` after
+    /// `set_array` when `scaled`.
+    fn made(source: ColorMapping, shape: Option<Vec<usize>>, scaled: bool) -> Self {
         let mut mapped = Self {
             source,
             normalized: Ok(Vec::new()),
             by_block: false,
             at_draw: false,
-            shape: None,
+            shape,
             drawn: DrawnValues::default(),
+            drawn_colors: DrawnColors::default(),
         };
         if mapped.source.mappable.norm().calls_program() {
-            // matplotlib's plotting functions autoscale it once
-            // (`_scale_norm`), and its draws normalise.
+            // matplotlib's `set_array` autoscales an unscaled norm,
+            // `_scale_norm` autoscales it again, and the draws normalise.
+            let shape = mapped.array_shape();
             let ColorMapping { values, mappable } = &mut mapped.source;
-            mappable.norm_mut().autoscale_none(values);
+            if !mappable.norm().scaled() {
+                mappable.norm_mut().autoscale_none_shaped(values, &shape);
+            }
+            if scaled {
+                mappable.norm_mut().autoscale_none_shaped(values, &shape);
+            }
         }
         mapped.refresh();
         mapped
@@ -99,6 +131,7 @@ impl Mapped {
             at_draw: false,
             shape: None,
             drawn: DrawnValues::default(),
+            drawn_colors: DrawnColors::default(),
         }
     }
 
@@ -113,6 +146,7 @@ impl Mapped {
             at_draw: true,
             shape: None,
             drawn: DrawnValues::default(),
+            drawn_colors: DrawnColors::default(),
         }
     }
 
@@ -121,8 +155,11 @@ impl Mapped {
     /// `update_scalarmappable`).
     pub(super) fn refresh(&mut self) {
         self.drawn = DrawnValues::default();
-        self.at_draw = self.source.mappable.norm().calls_program();
-        if self.at_draw {
+        self.drawn_colors = DrawnColors::default();
+        let program_norm = self.source.mappable.norm().calls_program();
+        // A colormap of the program's maps the values at every draw.
+        self.at_draw = program_norm || self.source.mappable.cmap().calls_program();
+        if program_norm {
             // The program's norm normalises when drawn, autoscaling itself
             // as it needs.
             self.normalized = Ok(Vec::new());
@@ -130,6 +167,11 @@ impl Mapped {
         }
         let ColorMapping { values, mappable } = &mut self.source;
         mappable.norm_mut().autoscale_none(values);
+        if self.at_draw {
+            self.by_block = false;
+            self.normalized = Ok(Vec::new());
+            return;
+        }
         self.by_block = normalizes_by_block(mappable.norm());
         self.normalized = if self.by_block {
             // Inverted limits fail every block alike: met now, they are the
@@ -144,7 +186,7 @@ impl Mapped {
     }
 
     /// The mapped colours with `alpha` applied.
-    pub(crate) fn colors(&self, alpha: &Alpha) -> Result<Vec<pltrs_core::Rgba>, String> {
+    pub(crate) fn colors(&self, alpha: &Alpha) -> Coloring {
         let mappable = &self.source.mappable;
         if self.by_block {
             return self.colors_by_block(alpha);
@@ -165,12 +207,6 @@ impl Mapped {
         self.at_draw
     }
 
-    /// Hands the program's norm the values as an array of `shape`, as
-    /// matplotlib's collection holds them.
-    pub(crate) fn set_shape(&mut self, shape: Vec<usize>) {
-        self.shape = Some(shape);
-    }
-
     /// Why the values cannot be normalised, as the last normalisation
     /// found (for a norm of the program's, that of the last draw).
     pub(crate) fn problem(&self) -> Option<String> {
@@ -187,6 +223,7 @@ impl Mapped {
     pub(crate) fn normalize_for_paint(&self) {
         let values = self.normalize_now();
         self.drawn.0.replace(Some((values, true)));
+        self.drawn_colors.0.replace(None);
     }
 
     /// The program's norm normalising the values as a draw of the
@@ -200,14 +237,34 @@ impl Mapped {
         }
         let values = self.normalize_now();
         self.drawn.0.replace(Some((values, false)));
+        self.drawn_colors.0.replace(None);
     }
 
     /// [`colors`](Self::colors) of the values the program's norm gave at
-    /// the last draw (kept out of the draws of every other collection).
+    /// the last draw (kept out of the draws of every other collection),
+    /// through a colormap of the program's once per draw and alpha.
     #[inline(never)]
-    fn drawn_colors(&self, alpha: &Alpha) -> Result<Vec<pltrs_core::Rgba>, String> {
+    fn drawn_colors(&self, alpha: &Alpha) -> Coloring {
+        if let Some((drawn_alpha, colors)) = self.drawn_colors.0.borrow().as_ref()
+            && drawn_alpha == alpha
+        {
+            return colors.clone();
+        }
         let drawn = self.drawn_values()?;
-        (self.source.mappable.cmap().map(&drawn, alpha)).map_err(|err| err.to_string())
+        let cmap = self.source.mappable.cmap();
+        let colors =
+            (cmap.map_shaped(&drawn, &self.array_shape(), alpha)).map_err(|err| err.to_string());
+        if cmap.calls_program() {
+            self.drawn_colors
+                .0
+                .replace(Some((alpha.clone(), colors.clone())));
+        }
+        colors
+    }
+
+    /// The shape of the array matplotlib's collection holds (its `_A`).
+    fn array_shape(&self) -> Vec<usize> {
+        (self.shape.clone()).unwrap_or_else(|| vec![self.source.values.len()])
     }
 
     /// The values the program's norm gave at the last draw, normalised
@@ -231,21 +288,45 @@ impl Mapped {
     /// The program's norm normalising the values as the draw a print makes
     /// before it renders calls it (see
     /// [`Artist::program_shaping`](crate::artist::Artist::program_shaping)).
-    pub(crate) fn predraw_normalization(&self) -> Option<ProgramShaping> {
+    pub(crate) fn predraw_normalization(&self, alpha: Alpha) -> Option<ProgramShaping> {
         if !self.at_draw {
             return None;
         }
         let mut norm = self.source.mappable.norm().clone_box();
+        let cmap = self.source.mappable.cmap().clone();
         let values = self.source.values.clone();
         let shape = self.shape.clone();
+        let array_shape = self.array_shape();
         Some(Box::new(move || {
-            drop(normalize_shaped(&mut *norm, &values, shape.as_deref()));
+            // The colormap maps what the norm gave, as the draw's
+            // `update_scalarmappable` does.
+            if let Ok(normalized) = normalize_shaped(&mut *norm, &values, shape.as_deref())
+                && cmap.calls_program()
+            {
+                drop(cmap.map_shaped(&normalized, &array_shape, &alpha));
+            }
+        }))
+    }
+
+    /// The colormap of the program's mapping the values the last draw
+    /// normalised, as the draw a print makes before it renders maps them,
+    /// where the figure's draws are walked for the program's tickers (which
+    /// normalise them there: see `axes::tick_sites`).
+    pub(crate) fn predraw_mapping(&self, alpha: Alpha) -> Option<ProgramShaping> {
+        let cmap = self.source.mappable.cmap().clone();
+        if !(self.at_draw && cmap.calls_program()) {
+            return None;
+        }
+        let normalized = self.drawn_values().ok()?;
+        let shape = self.array_shape();
+        Some(Box::new(move || {
+            drop(cmap.map_shaped(&normalized, &shape, &alpha));
         }))
     }
 
     /// [`Self::colors`] normalising the values a block at a time with a
     /// copy of the (autoscaled) norm.
-    fn colors_by_block(&self, alpha: &Alpha) -> Result<Vec<pltrs_core::Rgba>, String> {
+    fn colors_by_block(&self, alpha: &Alpha) -> Coloring {
         let mappable = &self.source.mappable;
         let values = &self.source.values;
         let mut norm = mappable.norm().clone_box();
@@ -444,16 +525,23 @@ mod tests {
     }
 
     #[test]
-    fn the_program_s_norm_is_autoscaled_once_and_normalises_at_every_draw() {
+    fn the_program_s_norm_is_scaled_once_and_normalises_at_every_draw() {
         let norm = Program::default();
         let calls = std::rc::Rc::clone(&norm.calls);
         let mapping = ColorMapping {
             values: vec![Some(0.25), None, Some(0.75), Some(1.0)],
             mappable: ScalarMappable::with_norm(colormaps::get("viridis").unwrap(), Box::new(norm)),
         };
-        let mut mapped = Mapped::new(mapping);
-        mapped.set_shape(vec![2, 2]);
+        // The norm has its limits: `set_array` leaves it, `_scale_norm`
+        // autoscales it.
+        let mapped = Mapped::scaled(mapping.clone(), Some(vec![2, 2]));
         assert_eq!(*calls.borrow(), ["autoscale"], "nothing normalised yet");
+        assert!(Mapped::new(mapping).at_draw());
+        assert_eq!(
+            calls.borrow().len(),
+            1,
+            "set_array alone leaves a scaled norm"
+        );
         // A site of the draw normalises; the paint draws what it gave.
         mapped.normalize_for_paint();
         mapped.normalize_drawn();

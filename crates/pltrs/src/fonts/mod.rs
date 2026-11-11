@@ -5,6 +5,7 @@
 
 mod catalogue;
 mod manager;
+mod named_sizes;
 mod properties;
 
 use std::fmt;
@@ -12,6 +13,7 @@ use std::str::FromStr;
 
 pub use catalogue::{catalogue_report, keep_catalogue};
 pub use manager::{FontExt, FontListEntry, FontManager};
+pub use named_sizes::{NamedSize, set_size_keywords};
 pub use pltrs_text::fontconfig::FontconfigPattern;
 pub use pltrs_text::mathtext::{Fontset, MathFallback, MathFont};
 pub use pltrs_text::{CatalogueReport, CatalogueState};
@@ -94,11 +96,14 @@ pub enum FontSize {
     Relative(RelativeSize),
     /// An absolute size in points.
     Points(f64),
+    /// A keyword the program added (`font_manager.font_scalings`).
+    Named(NamedSize),
 }
 
 pltrs_core::archive_enum!(FontSize {
     Relative(v0),
     Points(v0),
+    Named(v0),
 });
 
 impl FontSize {
@@ -107,6 +112,7 @@ impl FontSize {
         match self {
             Self::Relative(size) => base * size.scale(),
             Self::Points(points) => points,
+            Self::Named(size) => base * size.scale(),
         }
     }
 }
@@ -127,7 +133,8 @@ impl FromStr for FontSize {
     type Err = FontPropertyError;
 
     /// Parses a number of points (Python's `float`) or a keyword
-    /// (case-sensitive, as `FontProperties.set_size` requires).
+    /// (case-sensitive, as `FontProperties.set_size` requires): one of
+    /// matplotlib's, else one the program added.
     fn from_str(text: &str) -> Result<Self, FontPropertyError> {
         if let Ok(points) = text.trim().parse() {
             return Ok(Self::Points(points));
@@ -136,6 +143,7 @@ impl FromStr for FontSize {
             .iter()
             .find(|(name, _, _)| *name == text)
             .map(|(_, size, _)| Self::Relative(*size))
+            .or_else(|| NamedSize::find(text).map(Self::Named))
             .ok_or_else(|| FontPropertyError::Size(text.to_owned()))
     }
 }
@@ -145,6 +153,7 @@ impl fmt::Display for FontSize {
         match self {
             Self::Relative(size) => f.write_str(size.name()),
             Self::Points(points) => write!(f, "{points:?}"),
+            Self::Named(size) => f.write_str(size.name()),
         }
     }
 }

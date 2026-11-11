@@ -215,10 +215,10 @@ impl AnnotationBboxArtist {
             .style
             .resolve(&self.rc, frame.base().alpha, FancyBboxPatch::EDGE_DEFAULT)
             .map_err(|err| err.to_string())?;
-        Ok(Some(ClipRegion {
-            path: frame.shape.path(),
-            radius: resolved.hit_radius(),
-        }))
+        Ok(Some(ClipRegion::new(
+            frame.shape.path(),
+            resolved.hit_radius(),
+        )))
     }
 
     /// What the arrow is aimed at, from the box at `geometry`.

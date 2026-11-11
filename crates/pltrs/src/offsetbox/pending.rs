@@ -89,6 +89,29 @@ impl BoxItem {
         Ok(Self { artist })
     }
 
+    /// The artist as an item of a box joining the figure `into` belongs
+    /// to: a loose one ([`from_loose`](Self::from_loose)), or one the
+    /// program gave that figure without adding it anywhere (matplotlib's
+    /// `box.set_figure(fig)` before `ax.add_artist(box)`), moved out of
+    /// the figure's removed artists.
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError::OtherFigure`] when the artist is in another figure,
+    /// or is not free in this one.
+    pub fn joining(artist: &RawHandle, into: &RawHandle) -> Result<Self, AttachError> {
+        if artist.is_loose() {
+            return Self::from_loose(artist);
+        }
+        if !Rc::ptr_eq(artist.figure_state(), into.figure_state()) {
+            return Err(AttachError::OtherFigure);
+        }
+        let artist = (artist.figure_state().borrow_mut().detached)
+            .take(artist.id())
+            .ok_or(AttachError::OtherFigure)?;
+        Ok(Self { artist })
+    }
+
     /// Moves the artist into `store` (unclipped, its transform to be set
     /// by the box) and returns its id.
     pub(crate) fn insert(self, store: &mut ArtistStore) -> ArtistId {

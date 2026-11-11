@@ -27,7 +27,8 @@ is saved as PNG into OUT_DIR.
   ``# %%`` lines starting each) as Jupyter runs them with the inline
   backend: an exception is recorded and stops its cell, and at the end of
   each cell the figures open are saved (with ``bbox_inches="tight"``, as
-  the inline backend shows them) and closed.
+  the inline backend shows them) and closed. Jupyter's ``display`` prints
+  what it is given (a figure apart, which the inline backend shows).
 
 The program runs in ``OUT_DIR/cwd``; with ``--in-tree`` it is a file of
 TREE (a corpus' tree laid out for the run, ``corpora.py``) and runs in its
@@ -452,6 +453,15 @@ def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder, cell: int | N
     return figures
 
 
+def _display(*objs: Any, **_options: Any) -> None:
+    """Jupyter's ``display`` as a run in cells mode sees it: the plain-text
+    representation of each object printed, but of a figure, which the
+    inline backend shows as an image (saved at the cell's end here)."""
+    for obj in objs:
+        if type(obj).__name__ not in ("Figure", "SubFigure"):
+            print(repr(obj))
+
+
 def _written(tree: pathlib.Path, program: pathlib.Path) -> list[str]:
     """The files the program wrote in *tree*: those that are no links into
     the corpus' tree, but the program itself and Python's caches."""
@@ -506,6 +516,8 @@ def main() -> int:
         CELL_END: cell_end,
         CALENDAR: _read_calendar,
     }
+    if args.mode == "cells":
+        namespace["display"] = _display
     sys.argv = [program]
     sys.path[0] = str(args.program.resolve().parent)
     sys.meta_path.insert(0, _ChangedImports(sys.path[0], args.impl))
